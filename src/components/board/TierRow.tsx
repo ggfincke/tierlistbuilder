@@ -96,24 +96,26 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
   return (
     <div>
       <div
-        className={`flex border-b border-[#444] transition-colors ${
+        className={`flex transition-colors ${
           isOver ? 'bg-[#323232]' : 'bg-[#2b2b2b]'
         }`}
       >
-        <TierLabel tier={tier} />
+        <div className={`flex min-w-0 flex-1 border-b border-l border-[#444]${index === 0 ? ' border-t' : ''}`}>
+          <TierLabel tier={tier} />
 
-        <SortableContext items={tier.itemIds} strategy={rectSortingStrategy}>
-          <div
-            ref={setNodeRef}
-            data-testid={`tier-container-${tier.id}`}
-            data-tier-id={tier.id}
-            className="flex min-h-[104px] flex-1 flex-wrap content-start gap-px bg-[#2b2b2b] p-0"
-          >
-            {tier.itemIds.map((itemId) => (
-              <TierItem key={itemId} itemId={itemId} containerId={tier.id} />
-            ))}
-          </div>
-        </SortableContext>
+          <SortableContext items={tier.itemIds} strategy={rectSortingStrategy}>
+            <div
+              ref={setNodeRef}
+              data-testid={`tier-container-${tier.id}`}
+              data-tier-id={tier.id}
+              className="flex min-h-[104px] flex-1 flex-wrap content-start gap-px bg-[#2b2b2b] p-0"
+            >
+              {tier.itemIds.map((itemId) => (
+                <TierItem key={itemId} itemId={itemId} containerId={tier.id} />
+              ))}
+            </div>
+          </SortableContext>
+        </div>
 
         <div className="flex shrink-0 items-center gap-1 border-l border-[#444] bg-[#232323] px-1.5">
           <div className="flex flex-col items-center justify-center gap-1">

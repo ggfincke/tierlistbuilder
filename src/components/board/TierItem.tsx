@@ -43,7 +43,7 @@ export const TierItem = ({ itemId, containerId }: TierItemProps) => {
         // fade the source tile while its ghost is shown in the overlay
         opacity: isDragging ? 0.4 : 1,
       }}
-      className="h-20 w-20 touch-none overflow-hidden border border-[#111] sm:h-24 sm:w-24"
+      className="h-[104px] w-[104px] touch-none overflow-hidden"
       {...attributes}
       {...listeners}
     >

@@ -9,7 +9,7 @@ interface DragOverlayItemProps {
 
 export const DragOverlayItem = ({ item }: DragOverlayItemProps) => {
   return (
-    <div className="h-20 w-20 overflow-hidden border border-black bg-black/40 shadow-xl sm:h-24 sm:w-24">
+    <div className="h-[104px] w-[104px] overflow-hidden border border-black bg-black/40 shadow-xl">
       <img
         src={item.imageUrl}
         alt={item.label ?? 'Tier item'}

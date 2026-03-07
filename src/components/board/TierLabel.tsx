@@ -91,7 +91,7 @@ export const TierLabel = ({ tier }: TierLabelProps) => {
 
   return (
     <div
-      className="flex min-h-[104px] w-[118px] shrink-0 border-r border-[#4b4b4b] transition-[filter,box-shadow] hover:brightness-[1.04] focus-within:brightness-[1.04] focus-within:shadow-[inset_0_0_0_2px_rgba(255,255,255,0.16)]"
+      className="flex min-h-[104px] w-[118px] shrink-0 border-r border-[#444] transition-[filter,box-shadow] hover:brightness-[1.04] focus-within:brightness-[1.04] focus-within:shadow-[inset_0_0_0_2px_rgba(255,255,255,0.16)]"
       style={{
         backgroundColor: tier.color,
         color: getTextColor(tier.color),
