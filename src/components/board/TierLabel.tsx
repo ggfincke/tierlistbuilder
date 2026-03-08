@@ -2,28 +2,12 @@
 // inline-editable tier label cell w/ auto contrast text color
 import type { Tier } from '../../types'
 import { useTierListStore } from '../../store/useTierListStore'
+import { getTextColor } from '../../utils/color'
 import { useEffect, useRef, useState } from 'react'
 
 interface TierLabelProps {
   // tier whose name & color this label displays
   tier: Tier
-}
-
-// compute accessible foreground color (dark or light) based on background luminance
-const getTextColor = (hexColor: string): string => {
-  const normalized = hexColor.replace('#', '')
-  if (normalized.length !== 6) {
-    return '#111827'
-  }
-
-  const red = Number.parseInt(normalized.slice(0, 2), 16)
-  const green = Number.parseInt(normalized.slice(2, 4), 16)
-  const blue = Number.parseInt(normalized.slice(4, 6), 16)
-  // relative luminance via standard BT.601 coefficients
-  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
-
-  // use dark text on bright backgrounds, light text on dark ones
-  return luminance > 0.6 ? '#1f2937' : '#f8fafc'
 }
 
 // resize the editor to the wrapped text height so typing matches the saved label layout
