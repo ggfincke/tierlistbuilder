@@ -6,8 +6,10 @@ import { BoardActionBar } from './components/ui/BoardActionBar'
 import { TierList } from './components/board/TierList'
 import { TierSettings } from './components/settings/TierSettings'
 import { Toolbar } from './components/ui/Toolbar'
+import { useUndoRedo } from './hooks/useUndoRedo'
 import { useTierListStore } from './store/useTierListStore'
-import { exportTierListAsPng } from './utils/exportImage'
+import type { ImageFormat } from './types'
+import { copyTierListToClipboard, exportTierListAsImage } from './utils/exportImage'
 import { exportTierListAsPdf } from './utils/exportPdf'
 
 function App() {
@@ -17,16 +19,19 @@ function App() {
   const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
   const addTier = useTierListStore((state) => state.addTier)
   const resetBoard = useTierListStore((state) => state.resetBoard)
+  const items = useTierListStore((state) => state.items)
+
+  useUndoRedo()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   // tracks active export type to disable the button & show loading state
-  const [exportStatus, setExportStatus] = useState<'png' | 'pdf' | null>(null)
+  const [exportStatus, setExportStatus] = useState<ImageFormat | 'pdf' | 'clipboard' | null>(null)
 
   // ref attached to the export-capture wrapper div
   const exportRef = useRef<HTMLDivElement | null>(null)
 
-  // trigger PNG or PDF export, guarding against concurrent calls
-  const runExport = async (type: 'png' | 'pdf') => {
+  // trigger image or PDF export, guarding against concurrent calls
+  const runExport = async (type: ImageFormat | 'pdf') => {
     if (!exportRef.current || exportStatus) {
       return
     }
@@ -35,10 +40,10 @@ function App() {
     setExportStatus(type)
 
     try {
-      if (type === 'png') {
-        await exportTierListAsPng(exportRef.current, title)
-      } else {
+      if (type === 'pdf') {
         await exportTierListAsPdf(exportRef.current, title)
+      } else {
+        await exportTierListAsImage(exportRef.current, title, type)
       }
     } catch {
       setRuntimeError('Export failed. Try again after images finish loading.')
@@ -46,6 +51,28 @@ function App() {
       setExportStatus(null)
     }
   }
+
+  // copy the rendered tier list image to the system clipboard
+  const runCopyToClipboard = async () => {
+    if (!exportRef.current || exportStatus) {
+      return
+    }
+
+    clearRuntimeError()
+    setExportStatus('clipboard')
+
+    try {
+      await copyTierListToClipboard(exportRef.current)
+    } catch (err) {
+      setRuntimeError(
+        err instanceof Error ? err.message : 'Failed to copy to clipboard.',
+      )
+    } finally {
+      setExportStatus(null)
+    }
+  }
+
+  const isEmpty = Object.keys(items).length === 0
 
   return (
     <main className="min-h-screen bg-[#232323] text-slate-100">
@@ -71,8 +98,25 @@ function App() {
           onAddTier={addTier}
           onOpenSettings={() => setSettingsOpen(true)}
           onExport={runExport}
+          onCopyToClipboard={runCopyToClipboard}
           onReset={resetBoard}
         />
+
+        {/* empty board banner — shown when all items have been removed */}
+        {isEmpty && (
+          <div className="mx-auto my-4 max-w-md rounded-xl border border-[#444] bg-[#2b2b2b] p-6 text-center">
+            <p className="mb-2 text-base font-semibold text-slate-100">Your tier list is empty</p>
+            <p className="mb-4 text-sm text-[#888]">Open Settings to import images or add text items.</p>
+            <button
+              type="button"
+              onClick={resetBoard}
+              className="text-sm text-[#999] underline underline-offset-2 hover:text-slate-100"
+            >
+              Reset to load sample items
+            </button>
+          </div>
+        )}
+
         <TierList exportRef={exportRef} />
       </div>
 

@@ -2,17 +2,28 @@
 // floating action bar — add tier, settings, export, & reset controls
 import { forwardRef, useCallback, useRef, useState, type ReactNode } from 'react'
 
-import { Plus, RotateCcw, Settings as SettingsIcon, SquareArrowUp } from 'lucide-react'
+import { Check, ChevronRight, Copy, Download, Plus, Redo2, RotateCcw, Settings as SettingsIcon, SquareArrowUp, Undo2 } from 'lucide-react'
+
+import type { ImageFormat } from '../../types'
 
 import { usePopupClose } from '../../hooks/usePopupClose'
+import { useTierListStore } from '../../store/useTierListStore'
 import { ConfirmDialog } from './ConfirmDialog'
+
+// display labels for the image format selector
+const FORMAT_LABELS: Record<ImageFormat, string> = {
+  png: 'PNG',
+  jpeg: 'JPEG',
+  webp: 'WebP',
+}
 
 interface BoardActionBarProps {
   // active export type while an export is in progress (null when idle)
-  exportStatus: 'png' | 'pdf' | null
+  exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
   onAddTier: () => void
   onOpenSettings: () => void
-  onExport: (format: 'png' | 'pdf') => Promise<void>
+  onExport: (format: ImageFormat | 'pdf') => Promise<void>
+  onCopyToClipboard: () => Promise<void>
   onReset: () => void
 }
 
@@ -62,9 +73,15 @@ export const BoardActionBar = ({
   onAddTier,
   onOpenSettings,
   onExport,
+  onCopyToClipboard,
   onReset,
 }: BoardActionBarProps) => {
+  const pastLength = useTierListStore((state) => state.past.length)
+  const futureLength = useTierListStore((state) => state.future.length)
+  const undo = useTierListStore((state) => state.undo)
+  const redo = useTierListStore((state) => state.redo)
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [imageFormat, setImageFormat] = useState<ImageFormat>('png')
   const [confirmReset, setConfirmReset] = useState(false)
   const exportButtonRef = useRef<HTMLButtonElement | null>(null)
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
@@ -80,6 +97,25 @@ export const BoardActionBar = ({
     <>
       <div className="mt-3 flex justify-center">
         <div className="inline-flex items-center gap-5 rounded-[1.7rem] border border-white/12 bg-[#272727] px-8 py-2">
+          {/* undo & redo controls */}
+          <ActionButton
+            label="Undo"
+            title="Undo"
+            onClick={undo}
+            disabled={pastLength === 0}
+          >
+            <Undo2 className="h-5 w-5" strokeWidth={1.8} />
+          </ActionButton>
+
+          <ActionButton
+            label="Redo"
+            title="Redo"
+            onClick={redo}
+            disabled={futureLength === 0}
+          >
+            <Redo2 className="h-5 w-5" strokeWidth={1.8} />
+          </ActionButton>
+
           {/* add a new tier row to the bottom of the board */}
           <ActionButton
             label="Add tier"
@@ -118,24 +154,80 @@ export const BoardActionBar = ({
               <div
                 ref={exportMenuRef}
                 role="menu"
-                className="absolute left-1/2 top-full z-30 mt-3 w-40 -translate-x-1/2 rounded-2xl border border-white/12 bg-[#1e1e1e] p-1.5 shadow-2xl"
+                className="absolute left-1/2 top-full z-30 mt-3 w-max -translate-x-1/2 rounded-xl bg-[#1e1e1e] p-1.5 text-sm shadow-md shadow-black/30"
               >
+                {/* image submenu — hover to reveal download, copy, & format options */}
+                <div className="group/img relative">
+                  <div
+                    role="menuitem"
+                    className="flex w-full cursor-default items-center justify-between gap-6 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                  >
+                    Export Image
+                    <ChevronRight className="h-3.5 w-3.5 text-[#888]" />
+                  </div>
+                  <div className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max rounded-xl bg-[#1e1e1e] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/img:visible group-hover/img:opacity-100">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
+                      onClick={() => {
+                        setShowExportMenu(false)
+                        void onExport(imageFormat)
+                      }}
+                      disabled={exportStatus !== null}
+                    >
+                      <Download className="h-3.5 w-3.5 shrink-0" />
+                      Download
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
+                      onClick={() => {
+                        setShowExportMenu(false)
+                        void onCopyToClipboard()
+                      }}
+                      disabled={exportStatus !== null}
+                    >
+                      <Copy className="h-3.5 w-3.5 shrink-0" />
+                      <span className="whitespace-nowrap">Copy to Clipboard</span>
+                    </button>
+
+                    <div className="my-1 border-t border-[#444]" />
+
+                    {/* format selector — nested sub-submenu w/ checkmark on active format */}
+                    <div className="group/format relative">
+                      <div
+                        role="menuitem"
+                        className="flex w-full cursor-default items-center justify-between gap-4 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                      >
+                        {FORMAT_LABELS[imageFormat]}
+                        <ChevronRight className="h-3.5 w-3.5 text-[#888]" />
+                      </div>
+                      <div className="invisible absolute left-full -top-1.5 z-50 ml-1 w-max rounded-xl bg-[#1e1e1e] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/format:visible group-hover/format:opacity-100">
+                        {(['png', 'jpeg', 'webp'] as const).map((fmt) => (
+                          <button
+                            key={fmt}
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                            onClick={() => setImageFormat(fmt)}
+                          >
+                            {imageFormat === fmt
+                              ? <Check className="h-3.5 w-3.5 shrink-0" />
+                              : <span className="h-3.5 w-3.5 shrink-0" />}
+                            {FORMAT_LABELS[fmt]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   role="menuitem"
-                  className="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
-                  onClick={() => {
-                    setShowExportMenu(false)
-                    void onExport('png')
-                  }}
-                  disabled={exportStatus !== null}
-                >
-                  Export PNG
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="mt-1 flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
+                  className="flex w-full rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
                   onClick={() => {
                     setShowExportMenu(false)
                     void onExport('pdf')
