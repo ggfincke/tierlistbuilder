@@ -25,6 +25,9 @@ interface TierListStore extends TierListData {
   dragPreview: ContainerSnapshot | null
   // non-fatal error message shown in the UI (null when clear)
   runtimeError: string | null
+  // undo/redo history stacks (runtime-only, not persisted)
+  past: TierListData[]
+  future: TierListData[]
   setActiveItemId: (itemId: string | null) => void
   setRuntimeError: (message: string) => void
   clearRuntimeError: () => void
@@ -37,13 +40,18 @@ interface TierListStore extends TierListData {
   clearTierItems: (tierId: string) => void
   addTierAt: (index: number) => void
   addItems: (newItems: NewTierItem[]) => void
+  addTextItem: (label: string, backgroundColor: string) => void
   removeItem: (itemId: string) => void
+  restoreDeletedItem: (itemId: string) => void
+  clearDeletedItems: () => void
   beginDragPreview: () => void
   updateDragPreview: (
     preview: ContainerSnapshot,
   ) => void
   commitDragPreview: () => void
   discardDragPreview: () => void
+  undo: () => void
+  redo: () => void
   resetBoard: () => void
 }
 
@@ -51,6 +59,7 @@ interface TierListStore extends TierListData {
 const createInitialData = (): TierListData => ({
   title: DEFAULT_TITLE,
   tiers: buildDefaultTiers(),
+  deletedItems: [],
   ...buildSampleItemsState(),
 })
 
@@ -160,6 +169,21 @@ const shouldBackfillSampleItems = (
   state.unrankedItemIds.length === 0 &&
   state.tiers.every((tier) => tier.itemIds.length === 0)
 
+// capture the persisted board data fields for an undo snapshot
+const snapshotData = (state: TierListStore): TierListData => ({
+  title: state.title,
+  tiers: state.tiers,
+  unrankedItemIds: state.unrankedItemIds,
+  items: state.items,
+  deletedItems: state.deletedItems,
+})
+
+// push current state onto the undo stack & clear the redo stack
+const pushUndo = (state: TierListStore) => ({
+  past: [...state.past, snapshotData(state)].slice(-50),
+  future: [] as TierListData[],
+})
+
 // * primary Zustand store — persisted to localStorage w/ versioned migration
 export const useTierListStore = create<TierListStore>()(
   persist(
@@ -172,6 +196,8 @@ export const useTierListStore = create<TierListStore>()(
         activeItemId: null,
         dragPreview: null,
         runtimeError: null,
+        past: [],
+        future: [],
 
         // set the currently dragged item ID
         setActiveItemId: (itemId) => set({ activeItemId: itemId }),
@@ -183,17 +209,23 @@ export const useTierListStore = create<TierListStore>()(
         clearRuntimeError: () => set({ runtimeError: null }),
 
         // update the board title
-        updateTitle: (title) => set({ title }),
+        updateTitle: (title) =>
+          set((state) => ({
+            ...pushUndo(state),
+            title,
+          })),
 
         // append a new tier row at the end w/ the next cycling color
         addTier: () =>
           set((state) => ({
+            ...pushUndo(state),
             tiers: [...state.tiers, createNewTier(state.tiers.length)],
           })),
 
         // rename a tier, ignoring empty strings
         renameTier: (tierId, name) =>
           set((state) => ({
+            ...pushUndo(state),
             tiers: state.tiers.map((tier) =>
               tier.id === tierId ? { ...tier, name: name.trim() || tier.name } : tier,
             ),
@@ -202,6 +234,7 @@ export const useTierListStore = create<TierListStore>()(
         // update the background color of a tier label
         recolorTier: (tierId, color) =>
           set((state) => ({
+            ...pushUndo(state),
             tiers: state.tiers.map((tier) =>
               tier.id === tierId ? { ...tier, color } : tier,
             ),
@@ -225,7 +258,7 @@ export const useTierListStore = create<TierListStore>()(
             const [moved] = nextTiers.splice(tierIndex, 1)
             nextTiers.splice(targetIndex, 0, moved)
 
-            return { tiers: nextTiers }
+            return { ...pushUndo(state), tiers: nextTiers }
           }),
 
         // remove a tier & move its items back to the unranked pool
@@ -244,6 +277,7 @@ export const useTierListStore = create<TierListStore>()(
             }
 
             return {
+              ...pushUndo(state),
               tiers: state.tiers.filter((entry) => entry.id !== tierId),
               // prepend displaced items to the front of the unranked pool
               unrankedItemIds: [...state.unrankedItemIds, ...tier.itemIds],
@@ -258,6 +292,7 @@ export const useTierListStore = create<TierListStore>()(
               return state
             }
             return {
+              ...pushUndo(state),
               tiers: state.tiers.map((t) =>
                 t.id === tierId ? { ...t, itemIds: [] } : t,
               ),
@@ -272,7 +307,7 @@ export const useTierListStore = create<TierListStore>()(
             const clampedIndex = clampIndex(index, 0, state.tiers.length)
             const nextTiers = [...state.tiers]
             nextTiers.splice(clampedIndex, 0, createNewTier(state.tiers.length))
-            return { tiers: nextTiers }
+            return { ...pushUndo(state), tiers: nextTiers }
           }),
 
         // append newly uploaded items to the items map & unranked pool
@@ -287,26 +322,50 @@ export const useTierListStore = create<TierListStore>()(
                 id,
                 imageUrl: newItem.imageUrl,
                 label: newItem.label,
+                backgroundColor: newItem.backgroundColor,
               }
               nextUnranked.push(id)
             }
 
             return {
+              ...pushUndo(state),
               items: nextItems,
               unrankedItemIds: nextUnranked,
             }
           }),
 
-        // delete an item from the map & remove it from its container
+        // add a single text-only item w/ a label & background color
+        addTextItem: (label, backgroundColor) =>
+          set((state) => {
+            const id = crypto.randomUUID()
+            return {
+              ...pushUndo(state),
+              items: {
+                ...state.items,
+                [id]: { id, label, backgroundColor },
+              },
+              unrankedItemIds: [...state.unrankedItemIds, id],
+            }
+          }),
+
+        // remove an item from the board & move it to the deleted list
         removeItem: (itemId) =>
           set((state) => {
+            const undo = pushUndo(state)
+            const deletedItem = state.items[itemId]
             const nextItems = { ...state.items }
             delete nextItems[itemId]
+            // prepend to deleted list (newest first), cap at 50
+            const nextDeleted = deletedItem
+              ? [deletedItem, ...state.deletedItems].slice(0, 50)
+              : state.deletedItems
 
             // check unranked pool first
             if (state.unrankedItemIds.includes(itemId)) {
               return {
+                ...undo,
                 items: nextItems,
+                deletedItems: nextDeleted,
                 unrankedItemIds: state.unrankedItemIds.filter((id) => id !== itemId),
               }
             }
@@ -314,11 +373,13 @@ export const useTierListStore = create<TierListStore>()(
             // find & update only the tier that contains this item
             const ownerTier = state.tiers.find((tier) => tier.itemIds.includes(itemId))
             if (!ownerTier) {
-              return { items: nextItems }
+              return { ...undo, items: nextItems, deletedItems: nextDeleted }
             }
 
             return {
+              ...undo,
               items: nextItems,
+              deletedItems: nextDeleted,
               tiers: state.tiers.map((tier) =>
                 tier.id === ownerTier.id
                   ? { ...tier, itemIds: tier.itemIds.filter((id) => id !== itemId) }
@@ -326,6 +387,28 @@ export const useTierListStore = create<TierListStore>()(
               ),
             }
           }),
+
+        // restore a deleted item back to the unranked pool
+        restoreDeletedItem: (itemId) =>
+          set((state) => {
+            const item = state.deletedItems.find((i) => i.id === itemId)
+            if (!item) {
+              return state
+            }
+            return {
+              ...pushUndo(state),
+              items: { ...state.items, [item.id]: item },
+              unrankedItemIds: [...state.unrankedItemIds, item.id],
+              deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
+            }
+          }),
+
+        // permanently clear all deleted items
+        clearDeletedItems: () =>
+          set((state) => ({
+            ...pushUndo(state),
+            deletedItems: [],
+          })),
 
         // capture the current board ordering so drag hover can work against a transient preview
         beginDragPreview: () =>
@@ -359,6 +442,7 @@ export const useTierListStore = create<TierListStore>()(
             }
 
             return {
+              ...pushUndo(state),
               tiers: applyContainerSnapshotToTiers(state.tiers, state.dragPreview),
               unrankedItemIds: [...state.dragPreview.unrankedItemIds],
               dragPreview: null,
@@ -368,6 +452,38 @@ export const useTierListStore = create<TierListStore>()(
         // clear the transient preview without touching persisted board order
         discardDragPreview: () => set({ dragPreview: null }),
 
+        // restore the previous board state from the undo stack
+        undo: () =>
+          set((state) => {
+            const prev = state.past[state.past.length - 1]
+            if (!prev) {
+              return state
+            }
+            return {
+              ...prev,
+              past: state.past.slice(0, -1),
+              future: [snapshotData(state), ...state.future].slice(0, 50),
+              activeItemId: null,
+              dragPreview: null,
+            }
+          }),
+
+        // re-apply the next board state from the redo stack
+        redo: () =>
+          set((state) => {
+            const next = state.future[0]
+            if (!next) {
+              return state
+            }
+            return {
+              ...next,
+              past: [...state.past, snapshotData(state)].slice(-50),
+              future: state.future.slice(1),
+              activeItemId: null,
+              dragPreview: null,
+            }
+          }),
+
         // restore board to defaults & reload sample items
         resetBoard: () =>
           set(() => ({
@@ -375,6 +491,8 @@ export const useTierListStore = create<TierListStore>()(
             activeItemId: null,
             dragPreview: null,
             runtimeError: null,
+            past: [],
+            future: [],
           })),
       }
     },
@@ -405,6 +523,7 @@ export const useTierListStore = create<TierListStore>()(
         tiers: state.tiers,
         unrankedItemIds: state.unrankedItemIds,
         items: state.items,
+        deletedItems: state.deletedItems,
       }),
       // merge persisted data over the default initial state
       merge: (persistedState, currentState) => {
@@ -417,6 +536,7 @@ export const useTierListStore = create<TierListStore>()(
           unrankedItemIds:
             typedPersistedState?.unrankedItemIds ?? currentState.unrankedItemIds,
           items: typedPersistedState?.items ?? currentState.items,
+          deletedItems: typedPersistedState?.deletedItems ?? currentState.deletedItems,
         }
 
         // backfill sample items when the board is completely empty

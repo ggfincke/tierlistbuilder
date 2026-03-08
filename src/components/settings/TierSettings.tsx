@@ -1,6 +1,10 @@
 // src/components/settings/TierSettings.tsx
-// settings panel — image import & tier management actions
+// settings panel — image import, text item creation, deleted items, & tier management
+import { RotateCcw, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+
 import { useTierListStore } from '../../store/useTierListStore'
+import { getTextColor } from '../../utils/color'
 import { ImageUploader } from './ImageUploader'
 
 interface TierSettingsProps {
@@ -12,10 +16,25 @@ interface TierSettingsProps {
 
 export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
   const addTier = useTierListStore((state) => state.addTier)
+  const addTextItem = useTierListStore((state) => state.addTextItem)
+  const deletedItems = useTierListStore((state) => state.deletedItems)
+  const restoreDeletedItem = useTierListStore((state) => state.restoreDeletedItem)
+  const clearDeletedItems = useTierListStore((state) => state.clearDeletedItems)
+  const [textLabel, setTextLabel] = useState('')
+  const [textColor, setTextColor] = useState('#ffbf7f')
 
   // render nothing when closed to avoid mounting the uploader unnecessarily
   if (!open) {
     return null
+  }
+
+  const handleAddTextItem = () => {
+    const trimmed = textLabel.trim()
+    if (!trimmed) {
+      return
+    }
+    addTextItem(trimmed, textColor)
+    setTextLabel('')
   }
 
   return (
@@ -44,6 +63,96 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
             </div>
             <ImageUploader />
           </section>
+
+          {/* text-only item creation */}
+          <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
+            <h3 className="mb-2 text-sm font-semibold text-slate-100">Add Text Item</h3>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={textLabel}
+                onChange={(e) => setTextLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddTextItem()
+                  }
+                }}
+                placeholder="Label"
+                className="min-w-0 flex-1 rounded-md border border-[#555] bg-[#2b2b2b] px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-[#888] outline-none focus:border-[#777]"
+              />
+              <input
+                type="color"
+                value={textColor}
+                onChange={(e) => setTextColor(e.target.value)}
+                className="h-8 w-8 shrink-0 cursor-pointer rounded border border-[#555] bg-transparent"
+              />
+              <button
+                type="button"
+                disabled={!textLabel.trim()}
+                onClick={handleAddTextItem}
+                className="rounded-md border border-[#555] bg-[#2b2b2b] px-3 py-1.5 text-sm font-medium text-slate-200 hover:border-[#777] hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                Add
+              </button>
+            </div>
+          </section>
+
+          {/* recently deleted items — only shown when there are deleted items */}
+          {deletedItems.length > 0 && (
+            <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-100">
+                  Recently Deleted
+                  <span className="ml-1.5 font-normal text-[#888]">({deletedItems.length})</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={clearDeletedItems}
+                  className="flex items-center gap-1 text-xs text-[#888] hover:text-rose-300"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Clear all
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {deletedItems.map((item) => {
+                  const bgColor = item.backgroundColor ?? '#444'
+                  return (
+                    <div
+                      key={item.id}
+                      className="group relative h-16 w-16 shrink-0 overflow-hidden rounded opacity-70"
+                    >
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.label ?? 'Deleted item'}
+                          className="h-full w-full object-cover"
+                          draggable={false}
+                        />
+                      ) : (
+                        <div
+                          className="flex h-full w-full items-center justify-center p-0.5"
+                          style={{ backgroundColor: bgColor, color: getTextColor(bgColor) }}
+                        >
+                          <span className="text-[10px] font-semibold break-words text-center leading-tight [overflow-wrap:anywhere]">
+                            {item.label}
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        aria-label={`Restore ${item.label ?? 'item'}`}
+                        className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+                        onClick={() => restoreDeletedItem(item.id)}
+                      >
+                        <RotateCcw className="h-4 w-4 text-white" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
           {/* add a new tier row to the bottom of the board */}
           <button

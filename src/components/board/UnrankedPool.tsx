@@ -51,8 +51,9 @@ export const UnrankedPool = () => {
         >
           {unrankedItemIds.length === 0 ? (
             // empty state prompt shown before any items are uploaded
-            <p className="self-center text-sm text-slate-500">
-              Upload images and drag them into tiers.
+            <p className="self-center text-sm text-[#888]">
+              Upload images or add text items via Settings.<br />
+              Drag items into tier rows to rank them.
             </p>
           ) : (
             unrankedItemIds.map((itemId) => (

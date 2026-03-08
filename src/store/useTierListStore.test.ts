@@ -29,6 +29,7 @@ const createBoardData = (): TierListData => ({
     'item-5': { id: 'item-5', imageUrl: 'five.png', label: 'Five' },
     'item-6': { id: 'item-6', imageUrl: 'six.png', label: 'Six' },
   },
+  deletedItems: [],
 })
 
 const resetStore = () => {
@@ -37,6 +38,8 @@ const resetStore = () => {
     activeItemId: null,
     dragPreview: null,
     runtimeError: null,
+    past: [],
+    future: [],
   })
 }
 
