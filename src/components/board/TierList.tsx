@@ -8,6 +8,7 @@ import { getEffectiveTiers } from '../../utils/dragInsertion'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
 import { DragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
+import { TrashZone } from './TrashZone'
 import { UnrankedPool } from './UnrankedPool'
 
 interface TierListProps {
@@ -60,6 +61,8 @@ export const TierList = ({ exportRef }: TierListProps) => {
       </div>
 
       <UnrankedPool />
+
+      <TrashZone />
 
       {/* render ghost item in the overlay only while a drag is active */}
       <DragOverlay>{activeItem ? <DragOverlayItem item={activeItem} /> : null}</DragOverlay>

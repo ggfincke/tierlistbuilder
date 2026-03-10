@@ -21,6 +21,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 
 import { useTierListStore } from '../store/useTierListStore'
+import { TRASH_CONTAINER_ID } from '../utils/constants'
 import {
   captureRenderedContainerSnapshot,
   findContainer,
@@ -51,6 +52,7 @@ export const useDragAndDrop = () => {
   const updateDragPreview = useTierListStore((state) => state.updateDragPreview)
   const commitDragPreview = useTierListStore((state) => state.commitDragPreview)
   const discardDragPreview = useTierListStore((state) => state.discardDragPreview)
+  const removeItem = useTierListStore((state) => state.removeItem)
   // last resolved over-ID — used as fallback when pointer leaves all droppables
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null)
   // flag set when the dragged item crosses into a new container mid-drag
@@ -99,6 +101,13 @@ export const useDragAndDrop = () => {
 
     if (overId) {
       const overIdString = toStringId(overId)
+
+      // trash zone is a standalone droppable, not a container w/ items
+      if (overIdString === TRASH_CONTAINER_ID) {
+        lastOverIdRef.current = overId
+        return [{ id: overId }]
+      }
+
       const overContainerId = overIdString ? findContainer(state, overIdString) : null
 
       if (overIdString && overContainerId) {
@@ -127,6 +136,11 @@ export const useDragAndDrop = () => {
       lastOverIdRef.current = activeId
     }
 
+    // don't stick to the trash zone when the pointer leaves it
+    if (lastOverIdRef.current && toStringId(lastOverIdRef.current) === TRASH_CONTAINER_ID) {
+      lastOverIdRef.current = activeId
+    }
+
     // fall back to last known over-ID to avoid flickering
     return lastOverIdRef.current ? [{ id: lastOverIdRef.current }] : []
   }
@@ -149,6 +163,11 @@ export const useDragAndDrop = () => {
 
     // skip when IDs are missing or dnd-kit reports the dragged item itself as the current target
     if (!activeId || !overId || activeId === overId) {
+      return false
+    }
+
+    // don't update the snapshot when hovering over the trash zone
+    if (overId === TRASH_CONTAINER_ID) {
       return false
     }
 
@@ -207,6 +226,14 @@ export const useDragAndDrop = () => {
 
     const activeId = toStringId(event.active.id)
     const overId = toStringId(event.over.id)
+
+    // drop on trash — discard preview & remove the item
+    if (overId === TRASH_CONTAINER_ID && activeId) {
+      discardDragPreview()
+      removeItem(activeId)
+      resetDragState()
+      return
+    }
 
     if (activeId && overId) {
       const preview = getEffectiveContainerSnapshot(useTierListStore.getState())

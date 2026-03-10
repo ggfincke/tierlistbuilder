@@ -8,6 +8,8 @@ export const APP_STORAGE_KEY = 'tier-list-maker-state'
 export const DEFAULT_TITLE = 'My Tier List'
 // droppable container ID for the unranked pool
 export const UNRANKED_CONTAINER_ID = 'unranked'
+// droppable ID for the drag-to-trash zone
+export const TRASH_CONTAINER_ID = 'trash'
 // max pixel dimension for resized thumbnail images
 export const MAX_THUMBNAIL_SIZE = 120
 
