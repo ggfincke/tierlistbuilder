@@ -43,6 +43,7 @@ interface TierListStore extends TierListData {
   addTextItem: (label: string, backgroundColor: string) => void
   removeItem: (itemId: string) => void
   restoreDeletedItem: (itemId: string) => void
+  permanentlyDeleteItem: (itemId: string) => void
   clearDeletedItems: () => void
   beginDragPreview: () => void
   updateDragPreview: (
@@ -402,6 +403,13 @@ export const useTierListStore = create<TierListStore>()(
               deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
             }
           }),
+
+        // permanently remove a single item from the deleted list
+        permanentlyDeleteItem: (itemId) =>
+          set((state) => ({
+            ...pushUndo(state),
+            deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
+          })),
 
         // permanently clear all deleted items
         clearDeletedItems: () =>

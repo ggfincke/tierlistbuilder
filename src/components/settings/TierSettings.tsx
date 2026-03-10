@@ -1,10 +1,11 @@
 // src/components/settings/TierSettings.tsx
 // settings panel — image import, text item creation, deleted items, & tier management
-import { RotateCcw, Trash2 } from 'lucide-react'
+import { RotateCcw, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { ImageUploader } from './ImageUploader'
 
 interface TierSettingsProps {
@@ -19,9 +20,11 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
   const addTextItem = useTierListStore((state) => state.addTextItem)
   const deletedItems = useTierListStore((state) => state.deletedItems)
   const restoreDeletedItem = useTierListStore((state) => state.restoreDeletedItem)
+  const permanentlyDeleteItem = useTierListStore((state) => state.permanentlyDeleteItem)
   const clearDeletedItems = useTierListStore((state) => state.clearDeletedItems)
   const [textLabel, setTextLabel] = useState('')
   const [textColor, setTextColor] = useState('#ffbf7f')
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   // render nothing when closed to avoid mounting the uploader unnecessarily
   if (!open) {
@@ -107,7 +110,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
                 </h3>
                 <button
                   type="button"
-                  onClick={clearDeletedItems}
+                  onClick={() => setShowClearConfirm(true)}
                   className="flex items-center gap-1 text-xs text-[#888] hover:text-rose-300"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -139,13 +142,24 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
                           </span>
                         </div>
                       )}
+                      {/* hover overlay — restore (bottom-left) & permanent delete (top-right) */}
+                      <div className="absolute inset-0 flex items-end justify-start bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          type="button"
+                          aria-label={`Restore ${item.label ?? 'item'}`}
+                          className="flex h-5 w-5 items-center justify-center rounded-tr-md bg-black/60 text-white hover:text-green-400"
+                          onClick={() => restoreDeletedItem(item.id)}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                        </button>
+                      </div>
                       <button
                         type="button"
-                        aria-label={`Restore ${item.label ?? 'item'}`}
-                        className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
-                        onClick={() => restoreDeletedItem(item.id)}
+                        aria-label={`Permanently delete ${item.label ?? 'item'}`}
+                        className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity hover:text-rose-400 group-hover:opacity-100"
+                        onClick={() => permanentlyDeleteItem(item.id)}
                       >
-                        <RotateCcw className="h-4 w-4 text-white" />
+                        <X className="h-2.5 w-2.5" />
                       </button>
                     </div>
                   )
@@ -164,6 +178,18 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showClearConfirm}
+        title="Clear deleted items?"
+        description="This will permanently remove all deleted items. This cannot be undone."
+        confirmText="Clear all"
+        onConfirm={() => {
+          clearDeletedItems()
+          setShowClearConfirm(false)
+        }}
+        onCancel={() => setShowClearConfirm(false)}
+      />
     </>
   )
 }
