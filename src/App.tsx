@@ -1,12 +1,14 @@
 // src/App.tsx
 // * root application component — layout, export orchestration, & global error banner
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { BoardActionBar } from './components/ui/BoardActionBar'
+import { BoardManager } from './components/ui/BoardManager'
 import { TierList } from './components/board/TierList'
 import { TierSettings } from './components/settings/TierSettings'
 import { Toolbar } from './components/ui/Toolbar'
 import { useUndoRedo } from './hooks/useUndoRedo'
+import { useBoardManagerStore } from './store/useBoardManagerStore'
 import { useTierListStore } from './store/useTierListStore'
 import type { ImageFormat } from './types'
 import { copyTierListToClipboard, exportTierListAsImage } from './utils/exportImage'
@@ -19,7 +21,13 @@ function App() {
   const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
   const addTier = useTierListStore((state) => state.addTier)
   const resetBoard = useTierListStore((state) => state.resetBoard)
-  const items = useTierListStore((state) => state.items)
+  const isEmpty = useTierListStore((state) => Object.keys(state.items).length === 0)
+
+  // keep the board manager registry title in sync w/ the active board
+  const syncTitle = useBoardManagerStore((state) => state.syncTitle)
+  useEffect(() => {
+    syncTitle(title)
+  }, [title, syncTitle])
 
   useUndoRedo()
 
@@ -72,8 +80,6 @@ function App() {
     }
   }
 
-  const isEmpty = Object.keys(items).length === 0
-
   return (
     <main className="min-h-screen bg-[#232323] text-slate-100">
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
@@ -121,6 +127,7 @@ function App() {
       </div>
 
       <TierSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <BoardManager />
     </main>
   )
 }

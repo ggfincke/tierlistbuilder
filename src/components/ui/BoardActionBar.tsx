@@ -240,7 +240,7 @@ export const BoardActionBar = ({
             )}
           </div>
 
-          {/* reset — requires confirmation before wiping the board */}
+          {/* reset — requires confirmation before reloading sample items */}
           <ActionButton
             label="Reset board"
             title="Reset"
