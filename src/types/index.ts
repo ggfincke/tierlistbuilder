@@ -65,5 +65,15 @@ export interface NewTierItem {
   backgroundColor?: string
 }
 
+// metadata entry for a single board in the multi-board registry
+export interface BoardMeta {
+  // unique board identifier
+  id: string
+  // display title (kept in sync w/ TierListData.title)
+  title: string
+  // epoch millis when the board was created
+  createdAt: number
+}
+
 // supported image export formats
 export type ImageFormat = 'png' | 'jpeg' | 'webp'

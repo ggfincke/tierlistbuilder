@@ -1,10 +1,8 @@
 // src/store/useTierListStore.ts
-// * Zustand store — persisted tier list state w/ localStorage & migration
+// * Zustand store — single active board state (persistence handled by board manager)
 import { create } from 'zustand'
-import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 
 import {
-  APP_STORAGE_KEY,
   DEFAULT_TITLE,
   PRESET_TIER_COLORS,
   buildDefaultTiers,
@@ -54,100 +52,25 @@ interface TierListStore extends TierListData {
   undo: () => void
   redo: () => void
   resetBoard: () => void
+  loadBoard: (data: TierListData) => void
 }
 
 // build fresh initial board data w/ default tiers & sample items
-const createInitialData = (): TierListData => ({
+export const createInitialData = (): TierListData => ({
   title: DEFAULT_TITLE,
   tiers: buildDefaultTiers(),
   deletedItems: [],
   ...buildSampleItemsState(),
 })
 
-// v1 tier IDs/colors used before the S–F → S–E rename in schema v2
-const LEGACY_DEFAULT_TIER_SIGNATURE: Record<string, { name: string; color: string }> = {
-  'tier-s': { name: 'S', color: '#ff7f7f' },
-  'tier-a': { name: 'A', color: '#ffbf7f' },
-  'tier-b': { name: 'B', color: '#ffdf7f' },
-  'tier-c': { name: 'C', color: '#ffff7f' },
-  'tier-d': { name: 'D', color: '#7fff7f' },
-  'tier-f': { name: 'F', color: '#7fbfff' },
-}
-
-// check if the persisted tiers exactly match the v1 default signature
-const isLegacyDefaultTierSet = (tiers: Tier[]): boolean => {
-  const legacyIds = Object.keys(LEGACY_DEFAULT_TIER_SIGNATURE)
-  if (tiers.length !== legacyIds.length) {
-    return false
-  }
-
-  // already migrated if tier-e exists
-  if (tiers.some((tier) => tier.id === 'tier-e')) {
-    return false
-  }
-
-  for (const tierId of legacyIds) {
-    const expected = LEGACY_DEFAULT_TIER_SIGNATURE[tierId]
-    const actual = tiers.find((tier) => tier.id === tierId)
-
-    if (!actual) {
-      return false
-    }
-
-    if (actual.name !== expected.name) {
-      return false
-    }
-
-    if (actual.color.toLowerCase() !== expected.color) {
-      return false
-    }
-  }
-
-  return true
-}
-
-// rename tier-f → tier-e & update its label/color to the v2 defaults
-const migrateLegacyDefaultTierSet = (tiers: Tier[]): Tier[] => {
-  if (!isLegacyDefaultTierSet(tiers)) {
-    return tiers
-  }
-
-  return tiers.map((tier) =>
-    tier.id === 'tier-f'
-      ? { ...tier, id: 'tier-e', name: 'E', color: '#74e56d' }
-      : tier,
-  )
-}
-
-// module-level ref so safeStorage can forward errors into the store
-let reportPersistError: ((message: string) => void) | null = null
-
-// localStorage wrapper that suppresses exceptions & surfaces errors via the store
-const safeStorage: StateStorage = {
-  getItem: (name) => {
-    try {
-      return localStorage.getItem(name)
-    } catch {
-      return null
-    }
-  },
-  setItem: (name, value) => {
-    try {
-      localStorage.setItem(name, value)
-    } catch {
-      reportPersistError?.(
-        'Could not save changes to localStorage. Free up browser storage and try again.',
-      )
-    }
-  },
-  removeItem: (name) => {
-    try {
-      localStorage.removeItem(name)
-    } catch {
-      // no-op
-    }
-  },
-}
+// extract the persisted board data fields from the store
+export const extractBoardData = (state: TierListStore): TierListData => ({
+  title: state.title,
+  tiers: state.tiers,
+  unrankedItemIds: state.unrankedItemIds,
+  items: state.items,
+  deletedItems: state.deletedItems,
+})
 
 // cycle through preset colors by tier index
 const getTierLabelColor = (index: number): string => {
@@ -162,401 +85,335 @@ const createNewTier = (tierCount: number): Tier => ({
   itemIds: [],
 })
 
-// return true when the board has no items at all (triggers sample backfill)
-const shouldBackfillSampleItems = (
-  state: Pick<TierListData, 'tiers' | 'items' | 'unrankedItemIds'>,
-) =>
-  Object.keys(state.items).length === 0 &&
-  state.unrankedItemIds.length === 0 &&
-  state.tiers.every((tier) => tier.itemIds.length === 0)
-
-// capture the persisted board data fields for an undo snapshot
-const snapshotData = (state: TierListStore): TierListData => ({
-  title: state.title,
-  tiers: state.tiers,
-  unrankedItemIds: state.unrankedItemIds,
-  items: state.items,
-  deletedItems: state.deletedItems,
-})
+// runtime-only field defaults — shared by resetBoard & loadBoard
+const freshRuntimeState = {
+  activeItemId: null as string | null,
+  dragPreview: null as ContainerSnapshot | null,
+  runtimeError: null as string | null,
+  past: [] as TierListData[],
+  future: [] as TierListData[],
+}
 
 // push current state onto the undo stack & clear the redo stack
 const pushUndo = (state: TierListStore) => ({
-  past: [...state.past, snapshotData(state)].slice(-50),
+  past: [...state.past, extractBoardData(state)].slice(-50),
   future: [] as TierListData[],
 })
 
-// * primary Zustand store — persisted to localStorage w/ versioned migration
+// * primary Zustand store — active board state (persistence managed by useBoardManagerStore)
 export const useTierListStore = create<TierListStore>()(
-  persist(
-    (set) => {
-      // wire up the storage error reporter once the store is created
-      reportPersistError = (message) => set({ runtimeError: message })
+  (set) => ({
+    ...createInitialData(),
+    activeItemId: null,
+    dragPreview: null,
+    runtimeError: null,
+    past: [],
+    future: [],
 
-      return {
-        ...createInitialData(),
-        activeItemId: null,
-        dragPreview: null,
-        runtimeError: null,
-        past: [],
-        future: [],
+    // set the currently dragged item ID
+    setActiveItemId: (itemId) => set({ activeItemId: itemId }),
 
-        // set the currently dragged item ID
-        setActiveItemId: (itemId) => set({ activeItemId: itemId }),
+    // surface a runtime error message in the UI
+    setRuntimeError: (message) => set({ runtimeError: message }),
 
-        // surface a runtime error message in the UI
-        setRuntimeError: (message) => set({ runtimeError: message }),
+    // dismiss the current runtime error banner
+    clearRuntimeError: () => set({ runtimeError: null }),
 
-        // dismiss the current runtime error banner
-        clearRuntimeError: () => set({ runtimeError: null }),
+    // update the board title
+    updateTitle: (title) =>
+      set((state) => ({
+        ...pushUndo(state),
+        title,
+      })),
 
-        // update the board title
-        updateTitle: (title) =>
-          set((state) => ({
-            ...pushUndo(state),
-            title,
-          })),
+    // append a new tier row at the end w/ the next cycling color
+    addTier: () =>
+      set((state) => ({
+        ...pushUndo(state),
+        tiers: [...state.tiers, createNewTier(state.tiers.length)],
+      })),
 
-        // append a new tier row at the end w/ the next cycling color
-        addTier: () =>
-          set((state) => ({
-            ...pushUndo(state),
-            tiers: [...state.tiers, createNewTier(state.tiers.length)],
-          })),
+    // rename a tier, ignoring empty strings
+    renameTier: (tierId, name) =>
+      set((state) => ({
+        ...pushUndo(state),
+        tiers: state.tiers.map((tier) =>
+          tier.id === tierId ? { ...tier, name: name.trim() || tier.name } : tier,
+        ),
+      })),
 
-        // rename a tier, ignoring empty strings
-        renameTier: (tierId, name) =>
-          set((state) => ({
-            ...pushUndo(state),
-            tiers: state.tiers.map((tier) =>
-              tier.id === tierId ? { ...tier, name: name.trim() || tier.name } : tier,
-            ),
-          })),
+    // update the background color of a tier label
+    recolorTier: (tierId, color) =>
+      set((state) => ({
+        ...pushUndo(state),
+        tiers: state.tiers.map((tier) =>
+          tier.id === tierId ? { ...tier, color } : tier,
+        ),
+      })),
 
-        // update the background color of a tier label
-        recolorTier: (tierId, color) =>
-          set((state) => ({
-            ...pushUndo(state),
-            tiers: state.tiers.map((tier) =>
-              tier.id === tierId ? { ...tier, color } : tier,
-            ),
-          })),
-
-        // swap a tier w/ its neighbor in the given direction
-        reorderTier: (tierId, direction) =>
-          set((state) => {
-            const tierIndex = state.tiers.findIndex((tier) => tier.id === tierId)
-            if (tierIndex < 0) {
-              return state
-            }
-
-            const targetIndex = direction === 'up' ? tierIndex - 1 : tierIndex + 1
-            if (targetIndex < 0 || targetIndex >= state.tiers.length) {
-              return state
-            }
-
-            // splice out & reinsert the tier at the target position
-            const nextTiers = [...state.tiers]
-            const [moved] = nextTiers.splice(tierIndex, 1)
-            nextTiers.splice(targetIndex, 0, moved)
-
-            return { ...pushUndo(state), tiers: nextTiers }
-          }),
-
-        // remove a tier & move its items back to the unranked pool
-        deleteTier: (tierId) =>
-          set((state) => {
-            // enforce minimum of one tier on the board
-            if (state.tiers.length <= 1) {
-              return {
-                runtimeError: 'At least one tier must remain.',
-              }
-            }
-
-            const tier = state.tiers.find((entry) => entry.id === tierId)
-            if (!tier) {
-              return state
-            }
-
-            return {
-              ...pushUndo(state),
-              tiers: state.tiers.filter((entry) => entry.id !== tierId),
-              // prepend displaced items to the front of the unranked pool
-              unrankedItemIds: [...state.unrankedItemIds, ...tier.itemIds],
-            }
-          }),
-
-        // move all items from a tier back to the unranked pool
-        clearTierItems: (tierId) =>
-          set((state) => {
-            const tier = state.tiers.find((t) => t.id === tierId)
-            if (!tier || tier.itemIds.length === 0) {
-              return state
-            }
-            return {
-              ...pushUndo(state),
-              tiers: state.tiers.map((t) =>
-                t.id === tierId ? { ...t, itemIds: [] } : t,
-              ),
-              // prepend cleared items to the unranked pool
-              unrankedItemIds: [...tier.itemIds, ...state.unrankedItemIds],
-            }
-          }),
-
-        // insert a new tier at a specific index (clamped to valid range)
-        addTierAt: (index) =>
-          set((state) => {
-            const clampedIndex = clampIndex(index, 0, state.tiers.length)
-            const nextTiers = [...state.tiers]
-            nextTiers.splice(clampedIndex, 0, createNewTier(state.tiers.length))
-            return { ...pushUndo(state), tiers: nextTiers }
-          }),
-
-        // append newly uploaded items to the items map & unranked pool
-        addItems: (newItems) =>
-          set((state) => {
-            const nextItems = { ...state.items }
-            const nextUnranked = [...state.unrankedItemIds]
-
-            for (const newItem of newItems) {
-              const id = crypto.randomUUID()
-              nextItems[id] = {
-                id,
-                imageUrl: newItem.imageUrl,
-                label: newItem.label,
-                backgroundColor: newItem.backgroundColor,
-              }
-              nextUnranked.push(id)
-            }
-
-            return {
-              ...pushUndo(state),
-              items: nextItems,
-              unrankedItemIds: nextUnranked,
-            }
-          }),
-
-        // add a single text-only item w/ a label & background color
-        addTextItem: (label, backgroundColor) =>
-          set((state) => {
-            const id = crypto.randomUUID()
-            return {
-              ...pushUndo(state),
-              items: {
-                ...state.items,
-                [id]: { id, label, backgroundColor },
-              },
-              unrankedItemIds: [...state.unrankedItemIds, id],
-            }
-          }),
-
-        // remove an item from the board & move it to the deleted list
-        removeItem: (itemId) =>
-          set((state) => {
-            const undo = pushUndo(state)
-            const deletedItem = state.items[itemId]
-            const nextItems = { ...state.items }
-            delete nextItems[itemId]
-            // prepend to deleted list (newest first), cap at 50
-            const nextDeleted = deletedItem
-              ? [deletedItem, ...state.deletedItems].slice(0, 50)
-              : state.deletedItems
-
-            // check unranked pool first
-            if (state.unrankedItemIds.includes(itemId)) {
-              return {
-                ...undo,
-                items: nextItems,
-                deletedItems: nextDeleted,
-                unrankedItemIds: state.unrankedItemIds.filter((id) => id !== itemId),
-              }
-            }
-
-            // find & update only the tier that contains this item
-            const ownerTier = state.tiers.find((tier) => tier.itemIds.includes(itemId))
-            if (!ownerTier) {
-              return { ...undo, items: nextItems, deletedItems: nextDeleted }
-            }
-
-            return {
-              ...undo,
-              items: nextItems,
-              deletedItems: nextDeleted,
-              tiers: state.tiers.map((tier) =>
-                tier.id === ownerTier.id
-                  ? { ...tier, itemIds: tier.itemIds.filter((id) => id !== itemId) }
-                  : tier,
-              ),
-            }
-          }),
-
-        // restore a deleted item back to the unranked pool
-        restoreDeletedItem: (itemId) =>
-          set((state) => {
-            const item = state.deletedItems.find((i) => i.id === itemId)
-            if (!item) {
-              return state
-            }
-            return {
-              ...pushUndo(state),
-              items: { ...state.items, [item.id]: item },
-              unrankedItemIds: [...state.unrankedItemIds, item.id],
-              deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
-            }
-          }),
-
-        // permanently remove a single item from the deleted list
-        permanentlyDeleteItem: (itemId) =>
-          set((state) => ({
-            ...pushUndo(state),
-            deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
-          })),
-
-        // permanently clear all deleted items
-        clearDeletedItems: () =>
-          set((state) => ({
-            ...pushUndo(state),
-            deletedItems: [],
-          })),
-
-        // capture the current board ordering so drag hover can work against a transient preview
-        beginDragPreview: () =>
-          set((state) => {
-            if (state.dragPreview) {
-              return state
-            }
-
-            return {
-              dragPreview: createContainerSnapshot(state),
-            }
-          }),
-
-        // store the exact transient drag-preview snapshot computed by the drag hook
-        updateDragPreview: (preview) =>
-          set((state) => {
-            if (state.dragPreview === preview) {
-              return state
-            }
-
-            return {
-              dragPreview: preview,
-            }
-          }),
-
-        // persist the exact preview snapshot that was shown on hover
-        commitDragPreview: () =>
-          set((state) => {
-            if (!state.dragPreview) {
-              return state
-            }
-
-            return {
-              ...pushUndo(state),
-              tiers: applyContainerSnapshotToTiers(state.tiers, state.dragPreview),
-              unrankedItemIds: [...state.dragPreview.unrankedItemIds],
-              dragPreview: null,
-            }
-          }),
-
-        // clear the transient preview without touching persisted board order
-        discardDragPreview: () => set({ dragPreview: null }),
-
-        // restore the previous board state from the undo stack
-        undo: () =>
-          set((state) => {
-            const prev = state.past[state.past.length - 1]
-            if (!prev) {
-              return state
-            }
-            return {
-              ...prev,
-              past: state.past.slice(0, -1),
-              future: [snapshotData(state), ...state.future].slice(0, 50),
-              activeItemId: null,
-              dragPreview: null,
-            }
-          }),
-
-        // re-apply the next board state from the redo stack
-        redo: () =>
-          set((state) => {
-            const next = state.future[0]
-            if (!next) {
-              return state
-            }
-            return {
-              ...next,
-              past: [...state.past, snapshotData(state)].slice(-50),
-              future: state.future.slice(1),
-              activeItemId: null,
-              dragPreview: null,
-            }
-          }),
-
-        // restore board to defaults & reload sample items
-        resetBoard: () =>
-          set(() => ({
-            ...createInitialData(),
-            activeItemId: null,
-            dragPreview: null,
-            runtimeError: null,
-            past: [],
-            future: [],
-          })),
-      }
-    },
-    {
-      name: APP_STORAGE_KEY,
-      version: 2,
-      storage: createJSONStorage(() => safeStorage),
-      // migrate persisted state from earlier schema versions
-      migrate: (persistedState, version) => {
-        if (version >= 2 || !persistedState || typeof persistedState !== 'object') {
-          return persistedState
+    // swap a tier w/ its neighbor in the given direction
+    reorderTier: (tierId, direction) =>
+      set((state) => {
+        const tierIndex = state.tiers.findIndex((tier) => tier.id === tierId)
+        if (tierIndex < 0) {
+          return state
         }
 
-        const typedPersistedState = persistedState as Partial<TierListData>
-        if (!Array.isArray(typedPersistedState.tiers)) {
-          return persistedState
+        const targetIndex = direction === 'up' ? tierIndex - 1 : tierIndex + 1
+        if (targetIndex < 0 || targetIndex >= state.tiers.length) {
+          return state
         }
 
-        // apply v1 → v2 tier rename migration
-        return {
-          ...typedPersistedState,
-          tiers: migrateLegacyDefaultTierSet(typedPersistedState.tiers as Tier[]),
-        }
-      },
-      // only persist the board data — exclude runtime state
-      partialize: (state) => ({
-        title: state.title,
-        tiers: state.tiers,
-        unrankedItemIds: state.unrankedItemIds,
-        items: state.items,
-        deletedItems: state.deletedItems,
+        // splice out & reinsert the tier at the target position
+        const nextTiers = [...state.tiers]
+        const [moved] = nextTiers.splice(tierIndex, 1)
+        nextTiers.splice(targetIndex, 0, moved)
+
+        return { ...pushUndo(state), tiers: nextTiers }
       }),
-      // merge persisted data over the default initial state
-      merge: (persistedState, currentState) => {
-        const typedPersistedState = persistedState as Partial<TierListData> | undefined
 
-        const mergedState = {
-          ...currentState,
-          title: typedPersistedState?.title ?? currentState.title,
-          tiers: typedPersistedState?.tiers ?? currentState.tiers,
-          unrankedItemIds:
-            typedPersistedState?.unrankedItemIds ?? currentState.unrankedItemIds,
-          items: typedPersistedState?.items ?? currentState.items,
-          deletedItems: typedPersistedState?.deletedItems ?? currentState.deletedItems,
+    // remove a tier & move its items back to the unranked pool
+    deleteTier: (tierId) =>
+      set((state) => {
+        // enforce minimum of one tier on the board
+        if (state.tiers.length <= 1) {
+          return {
+            runtimeError: 'At least one tier must remain.',
+          }
         }
 
-        // backfill sample items when the board is completely empty
-        if (!shouldBackfillSampleItems(mergedState)) {
-          return mergedState
+        const tier = state.tiers.find((entry) => entry.id === tierId)
+        if (!tier) {
+          return state
         }
 
         return {
-          ...mergedState,
-          ...buildSampleItemsState(),
+          ...pushUndo(state),
+          tiers: state.tiers.filter((entry) => entry.id !== tierId),
+          // prepend displaced items to the front of the unranked pool
+          unrankedItemIds: [...state.unrankedItemIds, ...tier.itemIds],
         }
-      },
-    },
-  ),
+      }),
+
+    // move all items from a tier back to the unranked pool
+    clearTierItems: (tierId) =>
+      set((state) => {
+        const tier = state.tiers.find((t) => t.id === tierId)
+        if (!tier || tier.itemIds.length === 0) {
+          return state
+        }
+        return {
+          ...pushUndo(state),
+          tiers: state.tiers.map((t) =>
+            t.id === tierId ? { ...t, itemIds: [] } : t,
+          ),
+          // prepend cleared items to the unranked pool
+          unrankedItemIds: [...tier.itemIds, ...state.unrankedItemIds],
+        }
+      }),
+
+    // insert a new tier at a specific index (clamped to valid range)
+    addTierAt: (index) =>
+      set((state) => {
+        const clampedIndex = clampIndex(index, 0, state.tiers.length)
+        const nextTiers = [...state.tiers]
+        nextTiers.splice(clampedIndex, 0, createNewTier(state.tiers.length))
+        return { ...pushUndo(state), tiers: nextTiers }
+      }),
+
+    // append newly uploaded items to the items map & unranked pool
+    addItems: (newItems) =>
+      set((state) => {
+        const nextItems = { ...state.items }
+        const nextUnranked = [...state.unrankedItemIds]
+
+        for (const newItem of newItems) {
+          const id = crypto.randomUUID()
+          nextItems[id] = {
+            id,
+            imageUrl: newItem.imageUrl,
+            label: newItem.label,
+            backgroundColor: newItem.backgroundColor,
+          }
+          nextUnranked.push(id)
+        }
+
+        return {
+          ...pushUndo(state),
+          items: nextItems,
+          unrankedItemIds: nextUnranked,
+        }
+      }),
+
+    // add a single text-only item w/ a label & background color
+    addTextItem: (label, backgroundColor) =>
+      set((state) => {
+        const id = crypto.randomUUID()
+        return {
+          ...pushUndo(state),
+          items: {
+            ...state.items,
+            [id]: { id, label, backgroundColor },
+          },
+          unrankedItemIds: [...state.unrankedItemIds, id],
+        }
+      }),
+
+    // remove an item from the board & move it to the deleted list
+    removeItem: (itemId) =>
+      set((state) => {
+        const undo = pushUndo(state)
+        const deletedItem = state.items[itemId]
+        const nextItems = { ...state.items }
+        delete nextItems[itemId]
+        // prepend to deleted list (newest first), cap at 50
+        const nextDeleted = deletedItem
+          ? [deletedItem, ...state.deletedItems].slice(0, 50)
+          : state.deletedItems
+
+        // check unranked pool first
+        if (state.unrankedItemIds.includes(itemId)) {
+          return {
+            ...undo,
+            items: nextItems,
+            deletedItems: nextDeleted,
+            unrankedItemIds: state.unrankedItemIds.filter((id) => id !== itemId),
+          }
+        }
+
+        // find & update only the tier that contains this item
+        const ownerTier = state.tiers.find((tier) => tier.itemIds.includes(itemId))
+        if (!ownerTier) {
+          return { ...undo, items: nextItems, deletedItems: nextDeleted }
+        }
+
+        return {
+          ...undo,
+          items: nextItems,
+          deletedItems: nextDeleted,
+          tiers: state.tiers.map((tier) =>
+            tier.id === ownerTier.id
+              ? { ...tier, itemIds: tier.itemIds.filter((id) => id !== itemId) }
+              : tier,
+          ),
+        }
+      }),
+
+    // restore a deleted item back to the unranked pool
+    restoreDeletedItem: (itemId) =>
+      set((state) => {
+        const item = state.deletedItems.find((i) => i.id === itemId)
+        if (!item) {
+          return state
+        }
+        return {
+          ...pushUndo(state),
+          items: { ...state.items, [item.id]: item },
+          unrankedItemIds: [...state.unrankedItemIds, item.id],
+          deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
+        }
+      }),
+
+    // permanently remove a single item from the deleted list
+    permanentlyDeleteItem: (itemId) =>
+      set((state) => ({
+        ...pushUndo(state),
+        deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
+      })),
+
+    // permanently clear all deleted items
+    clearDeletedItems: () =>
+      set((state) => ({
+        ...pushUndo(state),
+        deletedItems: [],
+      })),
+
+    // capture the current board ordering so drag hover can work against a transient preview
+    beginDragPreview: () =>
+      set((state) => {
+        if (state.dragPreview) {
+          return state
+        }
+
+        return {
+          dragPreview: createContainerSnapshot(state),
+        }
+      }),
+
+    // store the exact transient drag-preview snapshot computed by the drag hook
+    updateDragPreview: (preview) =>
+      set((state) => {
+        if (state.dragPreview === preview) {
+          return state
+        }
+
+        return {
+          dragPreview: preview,
+        }
+      }),
+
+    // persist the exact preview snapshot that was shown on hover
+    commitDragPreview: () =>
+      set((state) => {
+        if (!state.dragPreview) {
+          return state
+        }
+
+        return {
+          ...pushUndo(state),
+          tiers: applyContainerSnapshotToTiers(state.tiers, state.dragPreview),
+          unrankedItemIds: [...state.dragPreview.unrankedItemIds],
+          dragPreview: null,
+        }
+      }),
+
+    // clear the transient preview without touching persisted board order
+    discardDragPreview: () => set({ dragPreview: null }),
+
+    // restore the previous board state from the undo stack
+    undo: () =>
+      set((state) => {
+        const prev = state.past[state.past.length - 1]
+        if (!prev) {
+          return state
+        }
+        return {
+          ...prev,
+          past: state.past.slice(0, -1),
+          future: [extractBoardData(state), ...state.future].slice(0, 50),
+          activeItemId: null,
+          dragPreview: null,
+        }
+      }),
+
+    // re-apply the next board state from the redo stack
+    redo: () =>
+      set((state) => {
+        const next = state.future[0]
+        if (!next) {
+          return state
+        }
+        return {
+          ...next,
+          past: [...state.past, extractBoardData(state)].slice(-50),
+          future: state.future.slice(1),
+          activeItemId: null,
+          dragPreview: null,
+        }
+      }),
+
+    // restore board to defaults & reload sample items
+    resetBoard: () =>
+      set(() => ({
+        ...createInitialData(),
+        ...freshRuntimeState,
+      })),
+
+    // replace entire board state w/ new data (used by board manager on switch/create)
+    loadBoard: (data) =>
+      set(() => ({
+        ...data,
+        ...freshRuntimeState,
+      })),
+  }),
 )

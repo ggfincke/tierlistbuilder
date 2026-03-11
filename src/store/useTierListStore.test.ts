@@ -45,15 +45,6 @@ const resetStore = () => {
 
 describe('useTierListStore drag preview lifecycle', () => {
   beforeEach(() => {
-    Object.defineProperty(globalThis, 'localStorage', {
-      value: {
-        getItem: () => null,
-        setItem: () => undefined,
-        removeItem: () => undefined,
-      },
-      configurable: true,
-    })
-
     resetStore()
   })
 

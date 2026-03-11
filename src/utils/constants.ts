@@ -2,8 +2,12 @@
 // app-wide constants — storage keys, defaults, & tier presets
 import type { Tier } from '../types'
 
-// localStorage key for persisted board state
+// legacy localStorage key — used only for migration detection
 export const APP_STORAGE_KEY = 'tier-list-maker-state'
+// localStorage key for the multi-board registry
+export const BOARD_REGISTRY_KEY = 'tier-list-maker-boards'
+// build a per-board localStorage key from its ID
+export const boardStorageKey = (id: string): string => `tier-list-board-${id}`
 // default board title used on first load & after reset
 export const DEFAULT_TITLE = 'My Tier List'
 // droppable container ID for the unranked pool
