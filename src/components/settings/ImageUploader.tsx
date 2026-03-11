@@ -3,10 +3,7 @@
 import { useRef, useState } from 'react'
 
 import { useTierListStore } from '../../store/useTierListStore'
-import { resizeImageFile } from '../../utils/imageResize'
-
-// strip the file extension to derive a display label from a filename
-const getFileLabel = (filename: string) => filename.replace(/\.[^.]+$/, '')
+import { processImageFiles } from '../../utils/imageResize'
 
 export const ImageUploader = () => {
   const addItems = useTierListStore((state) => state.addItems)
@@ -22,43 +19,23 @@ export const ImageUploader = () => {
   // process a FileList or File array — filter, resize, & dispatch to store
   const handleFiles = async (incomingFiles: FileList | File[]) => {
     const files = Array.from(incomingFiles)
-    if (files.length === 0) {
-      return
-    }
+    if (files.length === 0) return
 
     clearRuntimeError()
     setIsProcessing(true)
 
     try {
-      // filter down to image MIME types only
-      const images = files.filter((file) => file.type.startsWith('image/'))
-      const skippedCount = files.length - images.length
+      const imageCount = files.filter((f) => f.type.startsWith('image/')).length
+      const skippedCount = files.length - imageCount
 
-      if (images.length === 0) {
+      if (imageCount === 0) {
         setRuntimeError('No image files were found. Please upload PNG, JPG, WEBP, or GIF files.')
         return
       }
 
-      // resize all images in parallel and collect successful results
-      const newItems = (
-        await Promise.all(
-          images.map(async (imageFile) => {
-            try {
-              const imageUrl = await resizeImageFile(imageFile)
-              return { imageUrl, label: getFileLabel(imageFile.name) }
-            } catch {
-              setRuntimeError(`Could not process ${imageFile.name}. Try another image.`)
-              return null
-            }
-          }),
-        )
-      ).filter((item): item is { imageUrl: string; label: string } => item !== null)
+      const newItems = await processImageFiles(files)
+      if (newItems.length > 0) addItems(newItems)
 
-      if (newItems.length > 0) {
-        addItems(newItems)
-      }
-
-      // warn about any non-image files that were skipped
       if (skippedCount > 0) {
         setRuntimeError(`Skipped ${skippedCount} non-image file${skippedCount > 1 ? 's' : ''}.`)
       }

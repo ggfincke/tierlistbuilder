@@ -1,6 +1,29 @@
 // src/utils/imageResize.ts
-// image resize utility — shrinks uploads to thumbnail size before storage
+// image resize & upload utilities — shrinks uploads to thumbnail size before storage
 import { MAX_THUMBNAIL_SIZE } from './constants'
+
+// strip the file extension to derive a display label from a filename
+export const getFileLabel = (filename: string) => filename.replace(/\.[^.]+$/, '')
+
+// filter, resize, & collect image files — callers handle errors & store dispatch
+export const processImageFiles = async (
+  files: File[],
+): Promise<{ imageUrl: string; label: string }[]> => {
+  const images = files.filter((f) => f.type.startsWith('image/'))
+
+  const results = await Promise.all(
+    images.map(async (imageFile) => {
+      try {
+        const imageUrl = await resizeImageFile(imageFile)
+        return { imageUrl, label: getFileLabel(imageFile.name) }
+      } catch {
+        return null
+      }
+    }),
+  )
+
+  return results.filter((item): item is { imageUrl: string; label: string } => item !== null)
+}
 
 // load a File into an HTMLImageElement via object URL (fallback path)
 const loadImageElement = (file: File): Promise<HTMLImageElement> => {
