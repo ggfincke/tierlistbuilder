@@ -1,7 +1,7 @@
 // src/components/settings/TierSettings.tsx
 // settings panel — image import, text item creation, deleted items, & tier management
 import { RotateCcw, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
@@ -16,7 +16,6 @@ interface TierSettingsProps {
 }
 
 export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
-  const addTier = useTierListStore((state) => state.addTier)
   const addTextItem = useTierListStore((state) => state.addTextItem)
   const deletedItems = useTierListStore((state) => state.deletedItems)
   const restoreDeletedItem = useTierListStore((state) => state.restoreDeletedItem)
@@ -25,6 +24,16 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
   const [textLabel, setTextLabel] = useState('')
   const [textColor, setTextColor] = useState('#ffbf7f')
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+
+  // close on Escape
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, onClose])
 
   // render nothing when closed to avoid mounting the uploader unnecessarily
   if (!open) {
@@ -168,14 +177,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
             </section>
           )}
 
-          {/* add a new tier row to the bottom of the board */}
-          <button
-            type="button"
-            onClick={addTier}
-            className="rounded-md border border-[#555] bg-[#2b2b2b] px-3 py-1.5 text-sm font-medium text-slate-200 hover:border-[#777] hover:bg-[#333]"
-          >
-            Add Tier
-          </button>
         </div>
       </div>
 

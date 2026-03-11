@@ -1,5 +1,7 @@
-// src/components/ConfirmDialog.tsx
+// src/components/ui/ConfirmDialog.tsx
 // modal confirmation dialog w/ cancel & destructive confirm actions
+import { useEffect } from 'react'
+
 interface ConfirmDialogProps {
   // controls dialog visibility
   open: boolean
@@ -26,6 +28,21 @@ export const ConfirmDialog = ({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) => {
+  // close on Escape — uses capture phase so it fires before parent bubble-phase
+  // listeners (TierSettings, usePopupClose) & stops propagation to prevent
+  // the parent from also closing
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onCancel()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
+  }, [open, onCancel])
+
   // render nothing when closed to keep the DOM clean
   if (!open) {
     return null
