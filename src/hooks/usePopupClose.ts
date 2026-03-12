@@ -40,12 +40,18 @@ export const usePopupClose = ({
 
     document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
-    if (onScroll) window.addEventListener('scroll', handleScroll, true)
+    if (onScroll) {
+      window.addEventListener('scroll', handleScroll, true)
+      window.addEventListener('resize', handleScroll)
+    }
 
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
-      if (onScroll) window.removeEventListener('scroll', handleScroll, true)
+      if (onScroll) {
+        window.removeEventListener('scroll', handleScroll, true)
+        window.removeEventListener('resize', handleScroll)
+      }
     }
   }, [show, triggerRef, popupRef, onClose, onScroll])
 }

@@ -3,7 +3,7 @@
 import { MAX_THUMBNAIL_SIZE } from './constants'
 
 // strip the file extension to derive a display label from a filename
-export const getFileLabel = (filename: string) => filename.replace(/\.[^.]+$/, '')
+const getFileLabel = (filename: string) => filename.replace(/\.[^.]+$/, '')
 
 // filter, resize, & collect image files — callers handle errors & store dispatch
 export const processImageFiles = async (

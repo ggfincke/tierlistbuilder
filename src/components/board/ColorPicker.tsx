@@ -1,5 +1,6 @@
 // src/components/board/ColorPicker.tsx
 // preset color swatch grid for selecting a tier label color
+import { memo } from 'react'
 import { PRESET_TIER_COLORS } from '../../utils/constants'
 
 interface ColorPickerProps {
@@ -9,7 +10,7 @@ interface ColorPickerProps {
   onChange: (color: string) => void
 }
 
-export const ColorPicker = ({ value, onChange }: ColorPickerProps) => {
+export const ColorPicker = memo(({ value, onChange }: ColorPickerProps) => {
   return (
     <div className="flex flex-wrap gap-2 p-2">
       {PRESET_TIER_COLORS.map((color) => {
@@ -31,4 +32,4 @@ export const ColorPicker = ({ value, onChange }: ColorPickerProps) => {
       })}
     </div>
   )
-}
+})

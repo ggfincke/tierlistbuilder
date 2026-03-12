@@ -1,10 +1,12 @@
 // src/utils/color.ts
 // shared color utilities for accessible contrast & luminance checks
 
+const VALID_HEX = /^[\da-f]{6}$/i
+
 // compute accessible foreground color (dark or light) based on background luminance
 export const getTextColor = (hexColor: string): string => {
   const normalized = hexColor.replace('#', '')
-  if (normalized.length !== 6) {
+  if (!VALID_HEX.test(normalized)) {
     return '#111827'
   }
 

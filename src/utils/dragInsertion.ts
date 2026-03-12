@@ -1,7 +1,7 @@
 import type { ClientRect, Translate } from '@dnd-kit/core'
 
 import type { ContainerSnapshot, Tier, TierListData } from '../types'
-import { UNRANKED_CONTAINER_ID } from './constants'
+import { UNRANKED_CONTAINER_ID, clampIndex } from './constants'
 
 interface GetDraggedItemRectArgs {
   translatedRect: ClientRect | null
@@ -40,10 +40,6 @@ interface RenderedItemPosition {
 }
 
 type ContainerState = Pick<TierListData, 'tiers' | 'unrankedItemIds'>
-
-const clampIndex = (index: number, min: number, max: number): number => {
-  return Math.max(min, Math.min(max, index))
-}
 
 const hasContainer = (snapshot: ContainerSnapshot, containerId: string): boolean => {
   return (

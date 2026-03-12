@@ -1,5 +1,6 @@
 // src/components/board/TierLabel.tsx
 // inline-editable tier label cell w/ auto contrast text color
+import { memo } from 'react'
 import type { Tier } from '../../types'
 import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
@@ -20,7 +21,7 @@ const resizeEditor = (textarea: HTMLTextAreaElement | null) => {
   textarea.style.height = `${textarea.scrollHeight}px`
 }
 
-export const TierLabel = ({ tier }: TierLabelProps) => {
+export const TierLabel = memo(({ tier }: TierLabelProps) => {
   const renameTier = useTierListStore((state) => state.renameTier)
   const [isEditing, setIsEditing] = useState(false)
   const [draftName, setDraftName] = useState(tier.name)
@@ -136,4 +137,4 @@ export const TierLabel = ({ tier }: TierLabelProps) => {
       )}
     </div>
   )
-}
+})

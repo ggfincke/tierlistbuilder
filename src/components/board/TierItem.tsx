@@ -1,5 +1,6 @@
 // src/components/board/TierItem.tsx
 // sortable item tile — displays image or text, handles drag & delete
+import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { X } from 'lucide-react'
@@ -15,7 +16,7 @@ interface TierItemProps {
   containerId: string
 }
 
-export const TierItem = ({ itemId, containerId }: TierItemProps) => {
+export const TierItem = memo(({ itemId, containerId }: TierItemProps) => {
   const item = useTierListStore((state) => state.items[itemId])
   const removeItem = useTierListStore((state) => state.removeItem)
   const canDelete = containerId === UNRANKED_CONTAINER_ID
@@ -89,4 +90,4 @@ export const TierItem = ({ itemId, containerId }: TierItemProps) => {
       )}
     </div>
   )
-}
+})

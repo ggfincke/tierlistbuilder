@@ -191,7 +191,7 @@ export const useTierListStore = create<TierListStore>()(
           ...pushUndo(state),
           tiers: state.tiers.filter((entry) => entry.id !== tierId),
           // prepend displaced items to the front of the unranked pool
-          unrankedItemIds: [...state.unrankedItemIds, ...tier.itemIds],
+          unrankedItemIds: [...tier.itemIds, ...state.unrankedItemIds],
         }
       }),
 

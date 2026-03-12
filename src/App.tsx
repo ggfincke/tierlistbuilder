@@ -1,6 +1,6 @@
 // src/App.tsx
 // * root application component — layout, export orchestration, & global error banner
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { BoardActionBar } from './components/ui/BoardActionBar'
 import { BoardManager } from './components/ui/BoardManager'
@@ -132,7 +132,7 @@ function App() {
         </div>
       </div>
 
-      <TierSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <TierSettings open={settingsOpen} onClose={useCallback(() => setSettingsOpen(false), [])} />
       <BoardManager onSwitchBoard={transitionTo} />
     </main>
   )

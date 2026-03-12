@@ -1,7 +1,7 @@
 // src/components/settings/TierSettings.tsx
 // settings panel — image import, text item creation, deleted items, & tier management
 import { RotateCcw, Trash2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
@@ -25,15 +25,19 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
   const [textColor, setTextColor] = useState('#ffbf7f')
   const [showClearConfirm, setShowClearConfirm] = useState(false)
 
+  // stable ref for onClose — avoids re-registering listener when parent passes unstable callback
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   // close on Escape
   useEffect(() => {
     if (!open) return
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [open, onClose])
+  }, [open])
 
   // render nothing when closed to avoid mounting the uploader unnecessarily
   if (!open) {
@@ -60,7 +64,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-[#555] px-3 py-1 text-sm text-slate-200 hover:border-[#777]"
+            className="rounded-md border border-[#555] px-3 py-1 text-sm text-[#ddd] hover:border-[#777]"
           >
             Done
           </button>
