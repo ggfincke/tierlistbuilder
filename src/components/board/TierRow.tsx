@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
@@ -64,9 +64,10 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
   const gearButtonRef = useRef<HTMLButtonElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
 
+  const droppableData = useMemo(() => ({ type: 'container' as const, containerId: tier.id }), [tier.id])
   const { setNodeRef, isOver } = useDroppable({
     id: tier.id,
-    data: { type: 'container', containerId: tier.id },
+    data: droppableData,
   })
 
   usePopupClose({

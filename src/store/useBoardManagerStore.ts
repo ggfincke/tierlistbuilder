@@ -333,17 +333,14 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
   ),
 )
 
+// persisted field keys — used by auto-save to detect changes w/o manual enumeration
+const PERSISTED_FIELDS = ['title', 'tiers', 'unrankedItemIds', 'items', 'deletedItems'] as const
+
 // auto-save the active board whenever tier list data changes
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 useTierListStore.subscribe((state, prevState) => {
   // skip if board data hasn't changed (only runtime fields updated)
-  if (
-    state.title === prevState.title &&
-    state.tiers === prevState.tiers &&
-    state.unrankedItemIds === prevState.unrankedItemIds &&
-    state.items === prevState.items &&
-    state.deletedItems === prevState.deletedItems
-  ) {
+  if (PERSISTED_FIELDS.every((key) => state[key] === prevState[key])) {
     return
   }
 

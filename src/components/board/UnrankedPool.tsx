@@ -45,12 +45,10 @@ export const UnrankedPool = () => {
   }
 
   // register the pool as a droppable container w/ the unranked ID
+  const droppableData = useMemo(() => ({ type: 'container' as const, containerId: UNRANKED_CONTAINER_ID }), [])
   const { setNodeRef, isOver } = useDroppable({
     id: UNRANKED_CONTAINER_ID,
-    data: {
-      type: 'container',
-      containerId: UNRANKED_CONTAINER_ID,
-    },
+    data: droppableData,
   })
 
   return (

@@ -9,22 +9,18 @@ const FADE_IN_MS = 180
 
 type Phase = 'idle' | 'fading-out' | 'fading-in'
 
+// opacity-only transitions — transform breaks dnd-kit coordinate calculations
 const STYLE_FADING_OUT: React.CSSProperties = {
   opacity: 0,
-  transform: 'translateY(8px)',
-  transition: `opacity ${FADE_OUT_MS}ms ease-in, transform ${FADE_OUT_MS}ms ease-in`,
+  transition: `opacity ${FADE_OUT_MS}ms ease-in`,
 }
 
 const STYLE_FADING_IN: React.CSSProperties = {
   opacity: 1,
-  transform: 'translateY(0)',
-  transition: `opacity ${FADE_IN_MS}ms ease-out, transform ${FADE_IN_MS}ms ease-out`,
+  transition: `opacity ${FADE_IN_MS}ms ease-out`,
 }
 
-const STYLE_IDLE: React.CSSProperties = {
-  opacity: 1,
-  transform: 'translateY(0)',
-}
+const STYLE_IDLE: React.CSSProperties = {}
 
 // wraps board switching w/ a fade-out → swap → fade-in sequence
 export const useBoardTransition = () => {
