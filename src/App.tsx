@@ -7,6 +7,7 @@ import { BoardManager } from './components/ui/BoardManager'
 import { TierList } from './components/board/TierList'
 import { TierSettings } from './components/settings/TierSettings'
 import { Toolbar } from './components/ui/Toolbar'
+import { useBoardTransition } from './hooks/useBoardTransition'
 import { useUndoRedo } from './hooks/useUndoRedo'
 import { useBoardManagerStore } from './store/useBoardManagerStore'
 import { useTierListStore } from './store/useTierListStore'
@@ -30,6 +31,8 @@ function App() {
   }, [title, syncTitle])
 
   useUndoRedo()
+
+  const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   // tracks active export type to disable the button & show loading state
@@ -99,35 +102,38 @@ function App() {
           </div>
         )}
 
-        <BoardActionBar
-          exportStatus={exportStatus}
-          onAddTier={addTier}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onExport={runExport}
-          onCopyToClipboard={runCopyToClipboard}
-          onReset={resetBoard}
-        />
+        {/* board content — fades in when switching boards */}
+        <div style={boardTransitionStyle}>
+          <BoardActionBar
+            exportStatus={exportStatus}
+            onAddTier={addTier}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onExport={runExport}
+            onCopyToClipboard={runCopyToClipboard}
+            onReset={resetBoard}
+          />
 
-        {/* empty board banner — shown when all items have been removed */}
-        {isEmpty && (
-          <div className="mx-auto my-4 max-w-md rounded-xl border border-[#444] bg-[#2b2b2b] p-6 text-center">
-            <p className="mb-2 text-base font-semibold text-slate-100">Your tier list is empty</p>
-            <p className="mb-4 text-sm text-[#888]">Open Settings to import images or add text items.</p>
-            <button
-              type="button"
-              onClick={resetBoard}
-              className="text-sm text-[#999] underline underline-offset-2 hover:text-slate-100"
-            >
-              Reset to load sample items
-            </button>
-          </div>
-        )}
+          {/* empty board banner — shown when all items have been removed */}
+          {isEmpty && (
+            <div className="mx-auto my-4 max-w-md rounded-xl border border-[#444] bg-[#2b2b2b] p-6 text-center">
+              <p className="mb-2 text-base font-semibold text-slate-100">Your tier list is empty</p>
+              <p className="mb-4 text-sm text-[#888]">Open Settings to import images or add text items.</p>
+              <button
+                type="button"
+                onClick={resetBoard}
+                className="text-sm text-[#999] underline underline-offset-2 hover:text-slate-100"
+              >
+                Reset to load sample items
+              </button>
+            </div>
+          )}
 
-        <TierList exportRef={exportRef} />
+          <TierList exportRef={exportRef} />
+        </div>
       </div>
 
       <TierSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <BoardManager />
+      <BoardManager onSwitchBoard={transitionTo} />
     </main>
   )
 }

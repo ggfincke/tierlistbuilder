@@ -7,10 +7,13 @@ import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ConfirmDialog } from './ConfirmDialog'
 
-export const BoardManager = () => {
+interface BoardManagerProps {
+  onSwitchBoard: (boardId: string) => void
+}
+
+export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
   const boards = useBoardManagerStore((s) => s.boards)
   const activeBoardId = useBoardManagerStore((s) => s.activeBoardId)
-  const switchBoard = useBoardManagerStore((s) => s.switchBoard)
   const createBoard = useBoardManagerStore((s) => s.createBoard)
   const deleteBoard = useBoardManagerStore((s) => s.deleteBoard)
   const duplicateBoard = useBoardManagerStore((s) => s.duplicateBoard)
@@ -121,7 +124,7 @@ export const BoardManager = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          switchBoard(board.id)
+                          onSwitchBoard(board.id)
                           setOpen(false)
                         }}
                         className={`min-w-0 flex-1 truncate text-left text-sm ${
