@@ -4,9 +4,11 @@
 const VALID_HEX = /^[\da-f]{6}$/i
 
 // compute accessible foreground color (dark or light) based on background luminance
-export const getTextColor = (hexColor: string): string => {
+export const getTextColor = (hexColor: string): string =>
+{
   const normalized = hexColor.replace('#', '')
-  if (!VALID_HEX.test(normalized)) {
+  if (!VALID_HEX.test(normalized))
+  {
     return '#111827'
   }
 

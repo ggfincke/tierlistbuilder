@@ -1,17 +1,20 @@
 // src/components/board/DragOverlayItem.tsx
 // ghost item rendered in the dnd-kit DragOverlay while dragging
+
 import { memo } from 'react'
 import type { TierItem as TierItemType } from '../../types'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { getTextColor } from '../../utils/color'
 import { ITEM_SIZE_PX, SHAPE_CLASS } from '../../utils/constants'
 
-interface DragOverlayItemProps {
+interface DragOverlayItemProps
+{
   // the item being dragged
   item: TierItemType
 }
 
-export const DragOverlayItem = memo(({ item }: DragOverlayItemProps) => {
+export const DragOverlayItem = memo(({ item }: DragOverlayItemProps) =>
+{
   const bgColor = item.backgroundColor ?? '#444'
   const itemSize = useSettingsStore((state) => state.itemSize)
   const itemShape = useSettingsStore((state) => state.itemShape)

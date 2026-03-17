@@ -1,11 +1,13 @@
 // src/components/settings/ImageUploader.tsx
-// drag-and-drop & click-to-upload zone — resizes & adds images to the board
+// drag-&-drop & click-to-upload zone — resizes & adds images to the board
+
 import { useRef, useState } from 'react'
 
 import { useTierListStore } from '../../store/useTierListStore'
 import { processImageFiles } from '../../utils/imageResize'
 
-export const ImageUploader = () => {
+export const ImageUploader = () =>
+{
   const addItems = useTierListStore((state) => state.addItems)
   const clearRuntimeError = useTierListStore((state) => state.clearRuntimeError)
   const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
@@ -17,29 +19,39 @@ export const ImageUploader = () => {
   const [isProcessing, setIsProcessing] = useState(false)
 
   // process a FileList or File array — filter, resize, & dispatch to store
-  const handleFiles = async (incomingFiles: FileList | File[]) => {
+  const handleFiles = async (incomingFiles: FileList | File[]) =>
+  {
     const files = Array.from(incomingFiles)
     if (files.length === 0) return
 
     clearRuntimeError()
     setIsProcessing(true)
 
-    try {
+    try
+    {
       const imageCount = files.filter((f) => f.type.startsWith('image/')).length
       const skippedCount = files.length - imageCount
 
-      if (imageCount === 0) {
-        setRuntimeError('No image files were found. Please upload PNG, JPG, WEBP, or GIF files.')
+      if (imageCount === 0)
+      {
+        setRuntimeError(
+          'No image files were found. Please upload PNG, JPG, WEBP, or GIF files.'
+        )
         return
       }
 
       const newItems = await processImageFiles(files)
       if (newItems.length > 0) addItems(newItems)
 
-      if (skippedCount > 0) {
-        setRuntimeError(`Skipped ${skippedCount} non-image file${skippedCount > 1 ? 's' : ''}.`)
+      if (skippedCount > 0)
+      {
+        setRuntimeError(
+          `Skipped ${skippedCount} non-image file${skippedCount > 1 ? 's' : ''}.`
+        )
       }
-    } finally {
+    }
+    finally
+    {
       setIsProcessing(false)
       setIsDraggingFiles(false)
     }
@@ -55,26 +67,36 @@ export const ImageUploader = () => {
             : 'border-[#555] bg-[#2b2b2b] text-[#aaa] hover:border-[#777]'
         }`}
         onClick={() => inputRef.current?.click()}
-        onDragOver={(event) => {
+        onDragOver={(event) =>
+        {
           event.preventDefault()
           setIsDraggingFiles(true)
         }}
-        onDragLeave={(event) => {
+        onDragLeave={(event) =>
+        {
           event.preventDefault()
           // only clear the flag when the pointer truly leaves the zone (not a child)
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          if (
+            !event.currentTarget.contains(event.relatedTarget as Node | null)
+          )
+          {
             setIsDraggingFiles(false)
           }
         }}
-        onDrop={(event) => {
+        onDrop={(event) =>
+        {
           event.preventDefault()
           void handleFiles(event.dataTransfer.files)
         }}
       >
         <p className="text-sm font-semibold">
-          {isProcessing ? 'Processing images...' : 'Drop images here or click to upload'}
+          {isProcessing
+            ? 'Processing images...'
+            : 'Drop images here or click to upload'}
         </p>
-        <p className="mt-1 text-xs text-[#888]">Images are resized and saved in localStorage.</p>
+        <p className="mt-1 text-xs text-[#888]">
+          Images are resized and saved in localStorage.
+        </p>
       </div>
 
       {/* hidden file input — triggered programmatically by drop zone clicks */}
@@ -84,8 +106,10 @@ export const ImageUploader = () => {
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(event) => {
-          if (!event.target.files) {
+        onChange={(event) =>
+        {
+          if (!event.target.files)
+          {
             return
           }
 

@@ -1,12 +1,14 @@
 // src/components/board/TrashZone.tsx
 // droppable trash zone — appears during drag to allow item deletion
+
 import { useDroppable } from '@dnd-kit/core'
 import { Trash2 } from 'lucide-react'
 
 import { useTierListStore } from '../../store/useTierListStore'
 import { TRASH_CONTAINER_ID } from '../../utils/constants'
 
-export const TrashZone = () => {
+export const TrashZone = () =>
+{
   const activeItemId = useTierListStore((state) => state.activeItemId)
   const isDragActive = activeItemId !== null
 
@@ -28,7 +30,9 @@ export const TrashZone = () => {
           : 'border-[#555] bg-[#2b2b2b] text-[#888]'
       }`}
     >
-      <Trash2 className={`h-5 w-5 transition-transform duration-150 ${isOver ? 'scale-110' : ''}`} />
+      <Trash2
+        className={`h-5 w-5 transition-transform duration-150 ${isOver ? 'scale-110' : ''}`}
+      />
       <span className="text-sm font-medium">
         {isOver ? 'Release to delete' : 'Drop here to delete'}
       </span>

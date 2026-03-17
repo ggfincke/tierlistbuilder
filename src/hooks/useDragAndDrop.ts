@@ -1,5 +1,6 @@
 // src/hooks/useDragAndDrop.ts
-// * drag-and-drop hook — wires dnd-kit sensors, collision detection, & item move logic
+// * drag-&-drop hook — wires dnd-kit sensors, collision detection, & item move logic
+
 import { useEffect, useRef } from 'react'
 import {
   KeyboardSensor,
@@ -31,19 +32,22 @@ import {
   resolveNextDragPreview,
 } from '../utils/dragInsertion'
 
-interface DragPositionEvent {
+interface DragPositionEvent
+{
   active: DragMoveEvent['active']
   over: DragMoveEvent['over']
   delta: DragMoveEvent['delta']
 }
 
 // cast UniqueIdentifier to string (null if numeric ID slips through)
-const toStringId = (id: UniqueIdentifier): string | null => {
+const toStringId = (id: UniqueIdentifier): string | null =>
+{
   return typeof id === 'string' ? id : null
 }
 
-// * primary drag-and-drop hook consumed by TierList
-export const useDragAndDrop = () => {
+// * primary drag-&-drop hook consumed by TierList
+export const useDragAndDrop = () =>
+{
   const items = useTierListStore((state) => state.items)
   const dragPreview = useTierListStore((state) => state.dragPreview)
   const activeItemId = useTierListStore((state) => state.activeItemId)
@@ -51,7 +55,9 @@ export const useDragAndDrop = () => {
   const beginDragPreview = useTierListStore((state) => state.beginDragPreview)
   const updateDragPreview = useTierListStore((state) => state.updateDragPreview)
   const commitDragPreview = useTierListStore((state) => state.commitDragPreview)
-  const discardDragPreview = useTierListStore((state) => state.discardDragPreview)
+  const discardDragPreview = useTierListStore(
+    (state) => state.discardDragPreview
+  )
   const removeItem = useTierListStore((state) => state.removeItem)
   // last resolved over-ID — used as fallback when pointer leaves all droppables
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null)
@@ -73,12 +79,14 @@ export const useDragAndDrop = () => {
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    }),
+    })
   )
 
   // reset the cross-container flag on the next animation frame after layout settles
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
+  useEffect(() =>
+  {
+    const frame = requestAnimationFrame(() =>
+    {
       movedToNewContainerRef.current = false
     })
 
@@ -86,9 +94,11 @@ export const useDragAndDrop = () => {
   }, [dragPreview])
 
   // stabilize hit testing when items move between containers during the drag
-  const collisionDetection: CollisionDetection = (args) => {
+  const collisionDetection: CollisionDetection = (args) =>
+  {
     const activeId = toStringId(args.active.id)
-    if (!activeId) {
+    if (!activeId)
+    {
       return []
     }
 
@@ -96,31 +106,42 @@ export const useDragAndDrop = () => {
     const pointerIntersections = pointerWithin(args)
     // prefer pointer-within hits; fall back to rect intersection
     const intersections =
-      pointerIntersections.length > 0 ? pointerIntersections : rectIntersection(args)
+      pointerIntersections.length > 0
+        ? pointerIntersections
+        : rectIntersection(args)
     let overId = getFirstCollision(intersections, 'id')
 
-    if (overId) {
+    if (overId)
+    {
       const overIdString = toStringId(overId)
 
       // trash zone is a standalone droppable, not a container w/ items
-      if (overIdString === TRASH_CONTAINER_ID) {
+      if (overIdString === TRASH_CONTAINER_ID)
+      {
         lastOverIdRef.current = overId
         return [{ id: overId }]
       }
 
-      const overContainerId = overIdString ? findContainer(state, overIdString) : null
+      const overContainerId = overIdString
+        ? findContainer(state, overIdString)
+        : null
 
-      if (overIdString && overContainerId) {
+      if (overIdString && overContainerId)
+      {
         const overItems = getItemsInContainer(state, overContainerId)
 
         // when hovering directly over the container (not an item), use closest-center among its children
-        if (overIdString === overContainerId && overItems.length > 0) {
+        if (overIdString === overContainerId && overItems.length > 0)
+        {
           const itemCollisions = closestCenter({
             ...args,
-            droppableContainers: args.droppableContainers.filter((container) => {
-              const containerId = toStringId(container.id)
-              return containerId ? overItems.includes(containerId) : false
-            }),
+            droppableContainers: args.droppableContainers.filter(
+              (container) =>
+              {
+                const containerId = toStringId(container.id)
+                return containerId ? overItems.includes(containerId) : false
+              }
+            ),
           })
 
           overId = itemCollisions[0]?.id ?? overId
@@ -132,12 +153,17 @@ export const useDragAndDrop = () => {
     }
 
     // while outside all droppables, stick to the active item if it just moved containers
-    if (movedToNewContainerRef.current) {
+    if (movedToNewContainerRef.current)
+    {
       lastOverIdRef.current = activeId
     }
 
     // don't stick to the trash zone when the pointer leaves it
-    if (lastOverIdRef.current && toStringId(lastOverIdRef.current) === TRASH_CONTAINER_ID) {
+    if (
+      lastOverIdRef.current &&
+      toStringId(lastOverIdRef.current) === TRASH_CONTAINER_ID
+    )
+    {
       lastOverIdRef.current = activeId
     }
 
@@ -146,15 +172,18 @@ export const useDragAndDrop = () => {
   }
 
   // clear all drag-tracking refs & deactivate the overlay
-  const resetDragState = () => {
+  const resetDragState = () =>
+  {
     lastOverIdRef.current = null
     movedToNewContainerRef.current = false
     setActiveItemId(null)
   }
 
-  // keep the preview order in sync with the live visual drag position
-  const syncDraggedItemPosition = (event: DragPositionEvent): boolean => {
-    if (!event.over) {
+  // keep the preview order in sync w/ the live visual drag position
+  const syncDraggedItemPosition = (event: DragPositionEvent): boolean =>
+  {
+    if (!event.over)
+    {
       return false
     }
 
@@ -162,12 +191,14 @@ export const useDragAndDrop = () => {
     const overId = toStringId(event.over.id)
 
     // skip when IDs are missing or dnd-kit reports the dragged item itself as the current target
-    if (!activeId || !overId || activeId === overId) {
+    if (!activeId || !overId || activeId === overId)
+    {
       return false
     }
 
     // don't update the snapshot when hovering over the trash zone
-    if (overId === TRASH_CONTAINER_ID) {
+    if (overId === TRASH_CONTAINER_ID)
+    {
       return false
     }
 
@@ -184,7 +215,8 @@ export const useDragAndDrop = () => {
       overRect: event.over.rect,
     })
 
-    if (nextPreview === preview) {
+    if (nextPreview === preview)
+    {
       return false
     }
 
@@ -195,9 +227,11 @@ export const useDragAndDrop = () => {
   }
 
   // capture snapshot & mark active item when drag begins
-  const onDragStart = (event: DragStartEvent) => {
+  const onDragStart = (event: DragStartEvent) =>
+  {
     const activeId = toStringId(event.active.id)
-    if (!activeId) {
+    if (!activeId)
+    {
       return
     }
 
@@ -207,18 +241,22 @@ export const useDragAndDrop = () => {
   }
 
   // live-update item position as pointer moves over containers & items
-  const onDragMove = (event: DragMoveEvent) => {
+  const onDragMove = (event: DragMoveEvent) =>
+  {
     syncDraggedItemPosition(event)
   }
 
   // respond immediately when the active item enters a different droppable target
-  const onDragOver = (event: DragOverEvent) => {
+  const onDragOver = (event: DragOverEvent) =>
+  {
     syncDraggedItemPosition(event)
   }
 
   // commit the exact preview that was rendered, or discard it when dropped outside
-  const onDragEnd = (event: DragEndEvent) => {
-    if (!event.over) {
+  const onDragEnd = (event: DragEndEvent) =>
+  {
+    if (!event.over)
+    {
       discardDragPreview()
       resetDragState()
       return
@@ -228,14 +266,16 @@ export const useDragAndDrop = () => {
     const overId = toStringId(event.over.id)
 
     // drop on trash — discard preview & remove the item
-    if (overId === TRASH_CONTAINER_ID && activeId) {
+    if (overId === TRASH_CONTAINER_ID && activeId)
+    {
       discardDragPreview()
       removeItem(activeId)
       resetDragState()
       return
     }
 
-    if (activeId && overId) {
+    if (activeId && overId)
+    {
       const preview = getEffectiveContainerSnapshot(useTierListStore.getState())
       const activeContainerId = findContainer(preview, activeId)
       const overContainerId = findContainer(preview, overId)
@@ -244,10 +284,12 @@ export const useDragAndDrop = () => {
         activeContainerId &&
         overContainerId &&
         activeContainerId === overContainerId
-      ) {
+      )
+      {
         const renderedSnapshot = captureRenderedContainerSnapshot(preview)
 
-        if (renderedSnapshot) {
+        if (renderedSnapshot)
+        {
           updateDragPreview(renderedSnapshot)
         }
       }
@@ -258,7 +300,8 @@ export const useDragAndDrop = () => {
   }
 
   // always discard the preview & clean up on keyboard/programmatic cancel
-  const onDragCancel = () => {
+  const onDragCancel = () =>
+  {
     discardDragPreview()
     resetDragState()
   }

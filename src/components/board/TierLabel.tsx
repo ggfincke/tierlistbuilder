@@ -1,5 +1,6 @@
 // src/components/board/TierLabel.tsx
 // inline-editable tier label cell w/ auto contrast text color
+
 import { memo } from 'react'
 import type { ItemSize, Tier } from '../../types'
 import { useSettingsStore } from '../../store/useSettingsStore'
@@ -21,14 +22,17 @@ const LABEL_PADDING_CLASS: Record<ItemSize, string> = {
   large: 'px-4 py-3',
 }
 
-interface TierLabelProps {
+interface TierLabelProps
+{
   // tier whose name & color this label displays
   tier: Tier
 }
 
 // resize the editor to the wrapped text height so typing matches the saved label layout
-const resizeEditor = (textarea: HTMLTextAreaElement | null) => {
-  if (!textarea) {
+const resizeEditor = (textarea: HTMLTextAreaElement | null) =>
+{
+  if (!textarea)
+  {
     return
   }
 
@@ -36,7 +40,8 @@ const resizeEditor = (textarea: HTMLTextAreaElement | null) => {
   textarea.style.height = `${textarea.scrollHeight}px`
 }
 
-export const TierLabel = memo(({ tier }: TierLabelProps) => {
+export const TierLabel = memo(({ tier }: TierLabelProps) =>
+{
   const renameTier = useTierListStore((state) => state.renameTier)
   const itemSize = useSettingsStore((state) => state.itemSize)
   const labelWidth = useSettingsStore((state) => state.labelWidth)
@@ -50,13 +55,16 @@ export const TierLabel = memo(({ tier }: TierLabelProps) => {
 
   // focus, select, & resize when editing starts; resize on text changes
   const wasEditingRef = useRef(false)
-  useEffect(() => {
-    if (!isEditing) {
+  useEffect(() =>
+  {
+    if (!isEditing)
+    {
       wasEditingRef.current = false
       return
     }
 
-    if (!wasEditingRef.current) {
+    if (!wasEditingRef.current)
+    {
       wasEditingRef.current = true
       inputRef.current?.focus()
       inputRef.current?.select()
@@ -66,17 +74,20 @@ export const TierLabel = memo(({ tier }: TierLabelProps) => {
   }, [isEditing, draftName])
 
   // snapshot current name & switch to edit mode
-  const beginEditing = () => {
+  const beginEditing = () =>
+  {
     previousNameRef.current = tier.name
     setDraftName(tier.name)
     setIsEditing(true)
   }
 
   // persist the draft name if it changed & is non-empty, then exit edit mode
-  const finishEditing = () => {
+  const finishEditing = () =>
+  {
     const nextName = draftName.trim()
 
-    if (nextName && nextName !== tier.name) {
+    if (nextName && nextName !== tier.name)
+    {
       renameTier(tier.id, nextName)
     }
 
@@ -86,7 +97,8 @@ export const TierLabel = memo(({ tier }: TierLabelProps) => {
   }
 
   // restore the pre-edit name & exit without saving
-  const cancelEditing = () => {
+  const cancelEditing = () =>
+  {
     setDraftName(previousNameRef.current)
     setIsEditing(false)
   }
@@ -102,34 +114,42 @@ export const TierLabel = memo(({ tier }: TierLabelProps) => {
       }}
     >
       {isEditing ? (
-        <div className={`flex h-full w-full items-center justify-center ${LABEL_PADDING_CLASS[itemSize]}`}>
+        <div
+          className={`flex h-full w-full items-center justify-center ${LABEL_PADDING_CLASS[itemSize]}`}
+        >
           <textarea
             ref={inputRef}
             value={draftName}
-            onChange={(event) => {
+            onChange={(event) =>
+              {
               setDraftName(event.target.value)
               resizeEditor(event.target)
             }}
-            onBlur={() => {
+            onBlur={() =>
+              {
               // read the action set by Enter/Escape before blur fires
               const action = blurActionRef.current
               blurActionRef.current = null
 
-              if (action === 'cancel') {
+              if (action === 'cancel')
+                {
                 cancelEditing()
                 return
               }
 
               finishEditing()
             }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
+            onKeyDown={(event) =>
+              {
+              if (event.key === 'Enter')
+                {
                 event.preventDefault()
                 blurActionRef.current = 'save'
                 event.currentTarget.blur()
               }
 
-              if (event.key === 'Escape') {
+              if (event.key === 'Escape')
+                {
                 event.preventDefault()
                 blurActionRef.current = 'cancel'
                 event.currentTarget.blur()

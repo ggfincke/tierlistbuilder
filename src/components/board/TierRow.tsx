@@ -1,3 +1,6 @@
+// src/components/board/TierRow.tsx
+// tier row component — label, sortable item grid, & row controls
+
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
@@ -14,13 +17,15 @@ import { TierLabel } from './TierLabel'
 import { ColorPicker } from './ColorPicker'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
-interface TierRowProps {
+interface TierRowProps
+{
   tier: Tier
   index: number
   totalTiers: number
 }
 
-function computeColorPickerStyle(btn: HTMLButtonElement): CSSProperties {
+function computeColorPickerStyle(btn: HTMLButtonElement): CSSProperties
+{
   const rect = btn.getBoundingClientRect()
   return {
     position: 'fixed',
@@ -29,11 +34,13 @@ function computeColorPickerStyle(btn: HTMLButtonElement): CSSProperties {
   }
 }
 
-function computeSettingsMenuStyle(btn: HTMLButtonElement): CSSProperties {
+function computeSettingsMenuStyle(btn: HTMLButtonElement): CSSProperties
+{
   const rect = btn.getBoundingClientRect()
   const menuHeight = 230
   const spaceBelow = window.innerHeight - rect.bottom
-  if (spaceBelow >= menuHeight + 8) {
+  if (spaceBelow >= menuHeight + 8)
+  {
     return {
       position: 'fixed',
       top: rect.bottom + 8,
@@ -47,7 +54,8 @@ function computeSettingsMenuStyle(btn: HTMLButtonElement): CSSProperties {
   }
 }
 
-export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
+export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
+{
   const reorderTier = useTierListStore((state) => state.reorderTier)
   const recolorTier = useTierListStore((state) => state.recolorTier)
   const deleteTier = useTierListStore((state) => state.deleteTier)
@@ -71,7 +79,10 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
   const gearButtonRef = useRef<HTMLButtonElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
 
-  const droppableData = useMemo(() => ({ type: 'container' as const, containerId: tier.id }), [tier.id])
+  const droppableData = useMemo(
+    () => ({ type: 'container' as const, containerId: tier.id }),
+    [tier.id]
+  )
   const { setNodeRef, isOver } = useDroppable({
     id: tier.id,
     data: droppableData,
@@ -82,8 +93,10 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
     triggerRef: colorButtonRef,
     popupRef: colorPickerRef,
     onClose: useCallback(() => setShowColorPicker(false), []),
-    onScroll: useCallback(() => {
-      if (colorButtonRef.current) {
+    onScroll: useCallback(() =>
+    {
+      if (colorButtonRef.current)
+      {
         setColorPickerStyle(computeColorPickerStyle(colorButtonRef.current))
       }
     }, []),
@@ -94,8 +107,10 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
     triggerRef: gearButtonRef,
     popupRef: settingsMenuRef,
     onClose: useCallback(() => setShowSettingsMenu(false), []),
-    onScroll: useCallback(() => {
-      if (gearButtonRef.current) {
+    onScroll: useCallback(() =>
+    {
+      if (gearButtonRef.current)
+      {
         setSettingsMenuStyle(computeSettingsMenuStyle(gearButtonRef.current))
       }
     }, []),
@@ -108,7 +123,9 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
           isOver ? 'bg-[#323232]' : 'bg-[#2b2b2b]'
         }`}
       >
-        <div className={`flex min-w-0 flex-1 border-b border-l border-[#444]${index === 0 ? ' border-t' : ''}`}>
+        <div
+          className={`flex min-w-0 flex-1 border-b border-l border-[#444]${index === 0 ? ' border-t' : ''}`}
+        >
           <TierLabel tier={tier} />
 
           <SortableContext items={tier.itemIds} strategy={rectSortingStrategy}>
@@ -144,9 +161,13 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
                 type="button"
                 className="h-4 w-4 rounded-full border border-[#555]"
                 style={{ backgroundColor: tier.color }}
-                onClick={() => {
-                  if (!showColorPicker && colorButtonRef.current) {
-                    setColorPickerStyle(computeColorPickerStyle(colorButtonRef.current))
+                onClick={() =>
+                {
+                  if (!showColorPicker && colorButtonRef.current)
+                  {
+                    setColorPickerStyle(
+                      computeColorPickerStyle(colorButtonRef.current)
+                    )
                     setShowColorPicker(true)
                     setShowSettingsMenu(false)
                   }
@@ -170,9 +191,13 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
                 ref={gearButtonRef}
                 type="button"
                 className="rounded p-1 text-[#999] hover:text-white"
-                onClick={() => {
-                  if (!showSettingsMenu && gearButtonRef.current) {
-                    setSettingsMenuStyle(computeSettingsMenuStyle(gearButtonRef.current))
+                onClick={() =>
+                {
+                  if (!showSettingsMenu && gearButtonRef.current)
+                  {
+                    setSettingsMenuStyle(
+                      computeSettingsMenuStyle(gearButtonRef.current)
+                    )
                     setShowSettingsMenu(true)
                     setShowColorPicker(false)
                   }
@@ -196,7 +221,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
         >
           <ColorPicker
             value={tier.color}
-            onChange={(color) => {
+            onChange={(color) =>
+            {
               recolorTier(tier.id, color)
               setShowColorPicker(false)
             }}
@@ -213,11 +239,13 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
         >
           <input
             defaultValue={tier.name}
-            onBlur={(e) => {
+            onBlur={(e) =>
+            {
               const val = e.currentTarget.value.trim()
               if (val && val !== tier.name) renameTier(tier.id, val)
             }}
-            onKeyDown={(e) => {
+            onKeyDown={(e) =>
+            {
               if (e.key === 'Enter') e.currentTarget.blur()
             }}
             className="mb-2 w-full rounded-lg border border-[#444] bg-[#2b2b2b] px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-sky-400"
@@ -228,7 +256,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
             type="button"
             role="menuitem"
             className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-rose-400 transition hover:bg-white/6"
-            onClick={() => {
+            onClick={() =>
+            {
               setShowSettingsMenu(false)
               setConfirmDelete(true)
             }}
@@ -240,7 +269,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
             type="button"
             role="menuitem"
             className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-white/6"
-            onClick={() => {
+            onClick={() =>
+            {
               clearTierItems(tier.id)
               setShowSettingsMenu(false)
             }}
@@ -252,7 +282,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
             type="button"
             role="menuitem"
             className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-white/6"
-            onClick={() => {
+            onClick={() =>
+            {
               addTierAt(index)
               setShowSettingsMenu(false)
             }}
@@ -264,7 +295,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
             type="button"
             role="menuitem"
             className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-slate-100 transition hover:bg-white/6"
-            onClick={() => {
+            onClick={() =>
+            {
               addTierAt(index + 1)
               setShowSettingsMenu(false)
             }}
@@ -280,7 +312,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
         description={`Items in "${tier.name}" will be moved to Unranked.`}
         confirmText="Delete"
         onCancel={() => setConfirmDelete(false)}
-        onConfirm={() => {
+        onConfirm={() =>
+        {
           deleteTier(tier.id)
           setConfirmDelete(false)
         }}

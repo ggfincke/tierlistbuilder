@@ -1,5 +1,6 @@
 // src/utils/constants.ts
 // app-wide constants — storage keys, defaults, & tier presets
+
 import type { ItemShape, ItemSize, LabelWidth, Tier } from '../types'
 
 // legacy localStorage key — used only for migration detection
@@ -53,10 +54,18 @@ export const EXPORT_BACKGROUND_COLOR = '#232323'
 export const SETTINGS_STORAGE_KEY = 'tier-list-maker-settings'
 
 // item size presets in pixels
-export const ITEM_SIZE_PX: Record<ItemSize, number> = { small: 64, medium: 104, large: 140 }
+export const ITEM_SIZE_PX: Record<ItemSize, number> = {
+  small: 64,
+  medium: 104,
+  large: 140,
+}
 
 // tier label column width presets in pixels
-export const LABEL_WIDTH_PX: Record<LabelWidth, number> = { narrow: 80, default: 118, wide: 160 }
+export const LABEL_WIDTH_PX: Record<LabelWidth, number> = {
+  narrow: 80,
+  default: 118,
+  wide: 160,
+}
 
 // item shape CSS class map — static so Tailwind can statically analyze these
 export const SHAPE_CLASS: Record<ItemShape, string> = {
@@ -66,9 +75,11 @@ export const SHAPE_CLASS: Record<ItemShape, string> = {
 }
 
 // estimate total localStorage usage in bytes (UTF-16 = 2 bytes per char)
-export const getStorageUsageBytes = (): number => {
+export const getStorageUsageBytes = (): number =>
+{
   let chars = 0
-  for (let i = 0; i < localStorage.length; i++) {
+  for (let i = 0; i < localStorage.length; i++)
+  {
     const key = localStorage.key(i)!
     chars += key.length + (localStorage.getItem(key)?.length ?? 0)
   }
@@ -76,13 +87,19 @@ export const getStorageUsageBytes = (): number => {
 }
 
 // convert a board title to a URL-safe filename base
-export const toFileBase = (title: string): string => {
-  const slug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+export const toFileBase = (title: string): string =>
+{
+  const slug = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
   return slug || 'tier-list'
 }
 
 // clamp index to [min, max] inclusive
-export const clampIndex = (index: number, min: number, max: number): number => {
+export const clampIndex = (index: number, min: number, max: number): number =>
+{
   return Math.max(min, Math.min(max, index))
 }
 

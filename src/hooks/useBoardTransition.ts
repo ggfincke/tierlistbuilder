@@ -1,5 +1,6 @@
 // src/hooks/useBoardTransition.ts
 // two-phase crossfade transition when switching between boards
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
@@ -23,27 +24,39 @@ const STYLE_FADING_IN: React.CSSProperties = {
 const STYLE_IDLE: React.CSSProperties = {}
 
 // wraps board switching w/ a fade-out → swap → fade-in sequence
-export const useBoardTransition = () => {
+export const useBoardTransition = () =>
+{
   const switchBoard = useBoardManagerStore((s) => s.switchBoard)
   const activeBoardId = useBoardManagerStore((s) => s.activeBoardId)
   const [phase, setPhase] = useState<Phase>('idle')
 
   // use refs to avoid recreating transitionTo on every phase/activeBoardId change
   const phaseRef = useRef(phase)
-  useEffect(() => { phaseRef.current = phase })
+  useEffect(() =>
+  {
+    phaseRef.current = phase
+  })
   const activeBoardIdRef = useRef(activeBoardId)
-  useEffect(() => { activeBoardIdRef.current = activeBoardId })
+  useEffect(() =>
+  {
+    activeBoardIdRef.current = activeBoardId
+  })
 
   // track pending timers & RAF for cleanup
-  const timersRef = useRef<{ timeouts: ReturnType<typeof setTimeout>[]; raf: number | null }>({
+  const timersRef = useRef<{
+    timeouts: ReturnType<typeof setTimeout>[]
+    raf: number | null
+  }>({
     timeouts: [],
     raf: null,
   })
 
   // cancel all pending timers
-  const cancelTimers = useCallback(() => {
+  const cancelTimers = useCallback(() =>
+  {
     for (const id of timersRef.current.timeouts) clearTimeout(id)
-    if (timersRef.current.raf !== null) cancelAnimationFrame(timersRef.current.raf)
+    if (timersRef.current.raf !== null)
+      cancelAnimationFrame(timersRef.current.raf)
     timersRef.current = { timeouts: [], raf: null }
   }, [])
 
@@ -52,20 +65,25 @@ export const useBoardTransition = () => {
 
   // fade out, swap board, fade in
   const transitionTo = useCallback(
-    (boardId: string) => {
-      if (boardId === activeBoardIdRef.current || phaseRef.current !== 'idle') return
+    (boardId: string) =>
+    {
+      if (boardId === activeBoardIdRef.current || phaseRef.current !== 'idle')
+        return
 
       setPhase('fading-out')
 
       // after fade-out completes, swap & fade in
-      const t1 = setTimeout(() => {
+      const t1 = setTimeout(() =>
+      {
         switchBoard(boardId)
 
         // start faded-in state on next frame so the transition fires
-        const raf = requestAnimationFrame(() => {
+        const raf = requestAnimationFrame(() =>
+        {
           setPhase('fading-in')
 
-          const t2 = setTimeout(() => {
+          const t2 = setTimeout(() =>
+          {
             setPhase('idle')
             timersRef.current = { timeouts: [], raf: null }
           }, FADE_IN_MS)
@@ -75,7 +93,7 @@ export const useBoardTransition = () => {
       }, FADE_OUT_MS)
       timersRef.current.timeouts.push(t1)
     },
-    [switchBoard],
+    [switchBoard]
   )
 
   const style = useMemo(
@@ -85,7 +103,7 @@ export const useBoardTransition = () => {
         : phase === 'fading-in'
           ? STYLE_FADING_IN
           : STYLE_IDLE,
-    [phase],
+    [phase]
   )
 
   return { style, transitionTo }

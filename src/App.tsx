@@ -1,5 +1,6 @@
 // src/App.tsx
 // * root application component — layout, export orchestration, & global error banner
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { BoardActionBar } from './components/ui/BoardActionBar'
@@ -13,21 +14,28 @@ import { useBoardManagerStore } from './store/useBoardManagerStore'
 import { useTierListStore } from './store/useTierListStore'
 import { useSettingsStore } from './store/useSettingsStore'
 import type { ImageFormat } from './types'
-import { copyTierListToClipboard, exportTierListAsImage } from './utils/exportImage'
+import {
+  copyTierListToClipboard,
+  exportTierListAsImage,
+} from './utils/exportImage'
 import { exportTierListAsPdf } from './utils/exportPdf'
 
-function App() {
+function App()
+{
   const title = useTierListStore((state) => state.title)
   const runtimeError = useTierListStore((state) => state.runtimeError)
   const clearRuntimeError = useTierListStore((state) => state.clearRuntimeError)
   const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
   const addTier = useTierListStore((state) => state.addTier)
   const resetBoard = useTierListStore((state) => state.resetBoard)
-  const isEmpty = useTierListStore((state) => Object.keys(state.items).length === 0)
+  const isEmpty = useTierListStore(
+    (state) => Object.keys(state.items).length === 0
+  )
 
   // keep the board manager registry title in sync w/ the active board
   const syncTitle = useBoardManagerStore((state) => state.syncTitle)
-  useEffect(() => {
+  useEffect(() =>
+  {
     syncTitle(title)
   }, [title, syncTitle])
 
@@ -37,51 +45,70 @@ function App() {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   // tracks active export type to disable the button & show loading state
-  const [exportStatus, setExportStatus] = useState<ImageFormat | 'pdf' | 'clipboard' | null>(null)
+  const [exportStatus, setExportStatus] = useState<
+    ImageFormat | 'pdf' | 'clipboard' | null
+  >(null)
 
   // ref attached to the export-capture wrapper div
   const exportRef = useRef<HTMLDivElement | null>(null)
 
   // trigger image or PDF export, guarding against concurrent calls
-  const runExport = async (type: ImageFormat | 'pdf') => {
-    if (!exportRef.current || exportStatus) {
+  const runExport = async (type: ImageFormat | 'pdf') =>
+  {
+    if (!exportRef.current || exportStatus)
+    {
       return
     }
 
     clearRuntimeError()
     setExportStatus(type)
 
-    try {
+    try
+    {
       const bgColor = useSettingsStore.getState().exportBackgroundColor
-      if (type === 'pdf') {
+      if (type === 'pdf')
+      {
         await exportTierListAsPdf(exportRef.current, title, bgColor)
-      } else {
+      }
+      else
+      {
         await exportTierListAsImage(exportRef.current, title, type, bgColor)
       }
-    } catch {
+    }
+    catch
+    {
       setRuntimeError('Export failed. Try again after images finish loading.')
-    } finally {
+    }
+    finally
+    {
       setExportStatus(null)
     }
   }
 
   // copy the rendered tier list image to the system clipboard
-  const runCopyToClipboard = async () => {
-    if (!exportRef.current || exportStatus) {
+  const runCopyToClipboard = async () =>
+  {
+    if (!exportRef.current || exportStatus)
+    {
       return
     }
 
     clearRuntimeError()
     setExportStatus('clipboard')
 
-    try {
+    try
+    {
       const bgColor = useSettingsStore.getState().exportBackgroundColor
       await copyTierListToClipboard(exportRef.current, bgColor)
-    } catch (err) {
+    }
+    catch (err)
+    {
       setRuntimeError(
-        err instanceof Error ? err.message : 'Failed to copy to clipboard.',
+        err instanceof Error ? err.message : 'Failed to copy to clipboard.'
       )
-    } finally {
+    }
+    finally
+    {
       setExportStatus(null)
     }
   }
@@ -119,8 +146,12 @@ function App() {
           {/* empty board banner — shown when all items have been removed */}
           {isEmpty && (
             <div className="mx-auto my-4 max-w-md rounded-xl border border-[#444] bg-[#2b2b2b] p-6 text-center">
-              <p className="mb-2 text-base font-semibold text-slate-100">Your tier list is empty</p>
-              <p className="mb-4 text-sm text-[#888]">Open Settings to import images or add text items.</p>
+              <p className="mb-2 text-base font-semibold text-slate-100">
+                Your tier list is empty
+              </p>
+              <p className="mb-4 text-sm text-[#888]">
+                Open Settings to import images or add text items.
+              </p>
               <button
                 type="button"
                 onClick={resetBoard}
@@ -135,7 +166,10 @@ function App() {
         </div>
       </div>
 
-      <TierSettings open={settingsOpen} onClose={useCallback(() => setSettingsOpen(false), [])} />
+      <TierSettings
+        open={settingsOpen}
+        onClose={useCallback(() => setSettingsOpen(false), [])}
+      />
       <BoardManager onSwitchBoard={transitionTo} />
     </main>
   )

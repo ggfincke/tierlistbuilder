@@ -1,5 +1,6 @@
 // src/utils/exportPdf.ts
 // PDF export utility — renders the tier list element to a downloadable PDF
+
 import { jsPDF } from 'jspdf'
 import { toFileBase } from './constants'
 import { renderElementToPng } from './exportImage'
@@ -8,8 +9,9 @@ import { renderElementToPng } from './exportImage'
 export const exportTierListAsPdf = async (
   element: HTMLElement,
   title: string,
-  backgroundColor?: string,
-): Promise<void> => {
+  backgroundColor?: string
+): Promise<void> =>
+{
   const pixelRatio = 2
   const png = await renderElementToPng(element, backgroundColor)
 

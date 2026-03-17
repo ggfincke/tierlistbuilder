@@ -1,14 +1,26 @@
 // src/store/useBoardManagerStore.ts
 // * multi-board registry — manages board list, active board, & per-board localStorage
+
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
 import type { BoardMeta, TierListData, Tier } from '../types'
-import { APP_STORAGE_KEY, BOARD_REGISTRY_KEY, DEFAULT_TITLE, boardStorageKey, buildDefaultTiers } from '../utils/constants'
+import {
+  APP_STORAGE_KEY,
+  BOARD_REGISTRY_KEY,
+  DEFAULT_TITLE,
+  boardStorageKey,
+  buildDefaultTiers,
+} from '../utils/constants'
 import { buildSampleItemsState } from '../utils/sampleItems'
-import { createInitialData, extractBoardData, useTierListStore } from './useTierListStore'
+import {
+  createInitialData,
+  extractBoardData,
+  useTierListStore,
+} from './useTierListStore'
 
-interface BoardManagerStore {
+interface BoardManagerStore
+{
   // ordered list of all board metadata entries
   boards: BoardMeta[]
   // ID of the board currently loaded into useTierListStore
@@ -30,28 +42,39 @@ interface BoardManagerStore {
 }
 
 // extract TierListData from the tier list store & save to localStorage
-const saveCurrentBoard = (boardId: string) => {
+const saveCurrentBoard = (boardId: string) =>
+{
   const data = extractBoardData(useTierListStore.getState())
   saveBoardToStorage(boardId, data)
 }
 
 // save board data to its per-board localStorage key
-const saveBoardToStorage = (boardId: string, data: TierListData) => {
-  try {
+const saveBoardToStorage = (boardId: string, data: TierListData) =>
+{
+  try
+  {
     localStorage.setItem(boardStorageKey(boardId), JSON.stringify(data))
-  } catch {
-    useTierListStore.getState().setRuntimeError(
-      'Could not save changes to localStorage. Free up browser storage and try again.',
-    )
+  }
+  catch
+  {
+    useTierListStore
+      .getState()
+      .setRuntimeError(
+        'Could not save changes to localStorage. Free up browser storage and try again.'
+      )
   }
 }
 
 // load board data from its per-board localStorage key
-const loadBoardFromStorage = (boardId: string): TierListData | null => {
-  try {
+const loadBoardFromStorage = (boardId: string): TierListData | null =>
+{
+  try
+  {
     const raw = localStorage.getItem(boardStorageKey(boardId))
     return raw ? (JSON.parse(raw) as TierListData) : null
-  } catch {
+  }
+  catch
+  {
     return null
   }
 }
@@ -66,7 +89,10 @@ const createBlankBoardData = (): TierListData => ({
 })
 
 // v1 tier IDs/colors used before the S–F → S–E rename in schema v2
-const LEGACY_DEFAULT_TIER_SIGNATURE: Record<string, { name: string; color: string }> = {
+const LEGACY_DEFAULT_TIER_SIGNATURE: Record<
+  string,
+  { name: string; color: string }
+> = {
   'tier-s': { name: 'S', color: '#ff7f7f' },
   'tier-a': { name: 'A', color: '#ffbf7f' },
   'tier-b': { name: 'B', color: '#ffdf7f' },
@@ -76,12 +102,14 @@ const LEGACY_DEFAULT_TIER_SIGNATURE: Record<string, { name: string; color: strin
 }
 
 // check if the persisted tiers exactly match the v1 default signature
-const isLegacyDefaultTierSet = (tiers: Tier[]): boolean => {
+const isLegacyDefaultTierSet = (tiers: Tier[]): boolean =>
+{
   const legacyIds = Object.keys(LEGACY_DEFAULT_TIER_SIGNATURE)
   if (tiers.length !== legacyIds.length) return false
   if (tiers.some((tier) => tier.id === 'tier-e')) return false
 
-  for (const tierId of legacyIds) {
+  for (const tierId of legacyIds)
+  {
     const expected = LEGACY_DEFAULT_TIER_SIGNATURE[tierId]
     const actual = tiers.find((tier) => tier.id === tierId)
     if (!actual) return false
@@ -92,28 +120,37 @@ const isLegacyDefaultTierSet = (tiers: Tier[]): boolean => {
 }
 
 // rename tier-f → tier-e & update its label/color to the v2 defaults
-const migrateLegacyDefaultTierSet = (tiers: Tier[]): Tier[] => {
+const migrateLegacyDefaultTierSet = (tiers: Tier[]): Tier[] =>
+{
   if (!isLegacyDefaultTierSet(tiers)) return tiers
   return tiers.map((tier) =>
     tier.id === 'tier-f'
       ? { ...tier, id: 'tier-e', name: 'E', color: '#74e56d' }
-      : tier,
+      : tier
   )
 }
 
 // attempt to migrate the legacy single-board localStorage key into the multi-board system
-const migrateLegacyBoard = (): { id: string; data: TierListData } | null => {
-  try {
+const migrateLegacyBoard = (): { id: string; data: TierListData } | null =>
+{
+  try
+  {
     const raw = localStorage.getItem(APP_STORAGE_KEY)
     if (!raw) return null
 
-    const envelope = JSON.parse(raw) as { state?: Partial<TierListData>; version?: number }
+    const envelope = JSON.parse(raw) as {
+      state?: Partial<TierListData>
+      version?: number
+    }
     const state = envelope?.state
     if (!state || !Array.isArray(state.tiers)) return null
 
     // run v1 → v2 tier migration if needed
     const version = envelope.version ?? 1
-    const tiers = version < 2 ? migrateLegacyDefaultTierSet(state.tiers as Tier[]) : state.tiers as Tier[]
+    const tiers =
+      version < 2
+        ? migrateLegacyDefaultTierSet(state.tiers as Tier[])
+        : (state.tiers as Tier[])
 
     const data: TierListData = {
       title: state.title ?? DEFAULT_TITLE,
@@ -124,13 +161,12 @@ const migrateLegacyBoard = (): { id: string; data: TierListData } | null => {
     }
 
     // backfill sample items if board is completely empty
-    const isEmpty = Object.keys(data.items).length === 0
-      && data.unrankedItemIds.length === 0
-      && data.tiers.every((t) => t.itemIds.length === 0)
+    const isEmpty =
+      Object.keys(data.items).length === 0 &&
+      data.unrankedItemIds.length === 0 &&
+      data.tiers.every((t) => t.itemIds.length === 0)
 
-    const finalData = isEmpty
-      ? { ...data, ...buildSampleItemsState() }
-      : data
+    const finalData = isEmpty ? { ...data, ...buildSampleItemsState() } : data
 
     const id = `board-${crypto.randomUUID()}`
     saveBoardToStorage(id, finalData)
@@ -139,13 +175,16 @@ const migrateLegacyBoard = (): { id: string; data: TierListData } | null => {
     localStorage.removeItem(APP_STORAGE_KEY)
 
     return { id, data: finalData }
-  } catch {
+  }
+  catch
+  {
     return null
   }
 }
 
 // append a numeric suffix if a title already exists in the board list
-const deduplicateTitle = (title: string, boards: BoardMeta[]): string => {
+const deduplicateTitle = (title: string, boards: BoardMeta[]): string =>
+{
   // strip an existing numeric suffix to find the base name
   const base = title.replace(/ \(\d+\)$/, '')
   const existing = new Set(boards.map((b) => b.title))
@@ -161,11 +200,13 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
       boards: [],
       activeBoardId: '',
 
-      createBoard: () => {
+      createBoard: () =>
+      {
         const { activeBoardId, boards } = get()
 
         // save the current board before switching
-        if (activeBoardId) {
+        if (activeBoardId)
+        {
           saveCurrentBoard(activeBoardId)
         }
 
@@ -183,7 +224,8 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         })
       },
 
-      switchBoard: (boardId) => {
+      switchBoard: (boardId) =>
+      {
         const { activeBoardId, boards } = get()
         if (boardId === activeBoardId) return
         if (!boards.some((b) => b.id === boardId)) return
@@ -192,7 +234,8 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         useTierListStore.getState().discardDragPreview()
 
         // save the current board
-        if (activeBoardId) {
+        if (activeBoardId)
+        {
           saveCurrentBoard(activeBoardId)
         }
 
@@ -203,47 +246,60 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         set({ activeBoardId: boardId })
       },
 
-      deleteBoard: (boardId) => {
+      deleteBoard: (boardId) =>
+      {
         const { boards, activeBoardId } = get()
 
-        if (boards.length <= 1) {
-          useTierListStore.getState().setRuntimeError('At least one list must remain.')
+        if (boards.length <= 1)
+        {
+          useTierListStore
+            .getState()
+            .setRuntimeError('At least one list must remain.')
           return
         }
 
         // remove per-board localStorage data
-        try {
+        try
+        {
           localStorage.removeItem(boardStorageKey(boardId))
-        } catch {
+        }
+        catch
+        {
           // no-op
         }
 
         const nextBoards = boards.filter((b) => b.id !== boardId)
 
         // if deleting the active board, switch to the first remaining one
-        if (boardId === activeBoardId) {
+        if (boardId === activeBoardId)
+        {
           const nextActive = nextBoards[0]
           const data = loadBoardFromStorage(nextActive.id)
           useTierListStore.getState().loadBoard(data ?? createInitialData())
           set({ boards: nextBoards, activeBoardId: nextActive.id })
-        } else {
+        }
+        else
+        {
           set({ boards: nextBoards })
         }
       },
 
-      duplicateBoard: (boardId) => {
+      duplicateBoard: (boardId) =>
+      {
         const { activeBoardId, boards } = get()
         if (!boards.some((b) => b.id === boardId)) return
 
         // save current board so we get the latest data
-        if (activeBoardId) {
+        if (activeBoardId)
+        {
           saveCurrentBoard(activeBoardId)
         }
 
         // load the source board's data
-        const sourceData = boardId === activeBoardId
-          ? extractBoardData(useTierListStore.getState())
-          : loadBoardFromStorage(boardId)
+        const sourceData =
+          boardId === activeBoardId
+            ? extractBoardData(useTierListStore.getState())
+            : loadBoardFromStorage(boardId)
 
         if (!sourceData) return
 
@@ -261,27 +317,31 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         })
       },
 
-      renameBoard: (boardId, title) => {
+      renameBoard: (boardId, title) =>
+      {
         const trimmed = title.trim()
         if (!trimmed) return
 
         const { boards, activeBoardId } = get()
         const updated = boards.map((b) =>
-          b.id === boardId ? { ...b, title: trimmed } : b,
+          b.id === boardId ? { ...b, title: trimmed } : b
         )
         set({ boards: updated })
 
         // if renaming the active board, push the new title into the tier list store
-        if (boardId === activeBoardId) {
+        if (boardId === activeBoardId)
+        {
           useTierListStore.getState().updateTitle(trimmed)
         }
       },
 
-      importBoard: (data) => {
+      importBoard: (data) =>
+      {
         const { activeBoardId, boards } = get()
 
         // save the current board before switching
-        if (activeBoardId) {
+        if (activeBoardId)
+        {
           saveCurrentBoard(activeBoardId)
         }
 
@@ -299,12 +359,13 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         })
       },
 
-      syncTitle: (title) => {
+      syncTitle: (title) =>
+      {
         const { activeBoardId, boards } = get()
         const active = boards.find((b) => b.id === activeBoardId)
         if (active?.title === title) return
         const updated = boards.map((b) =>
-          b.id === activeBoardId ? { ...b, title } : b,
+          b.id === activeBoardId ? { ...b, title } : b
         )
         set({ boards: updated })
       },
@@ -318,15 +379,18 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         activeBoardId: state.activeBoardId,
       }),
       // handle first-load initialization & legacy migration
-      onRehydrateStorage: () => (rehydratedState) => {
+      onRehydrateStorage: () => (rehydratedState) =>
+      {
         if (!rehydratedState) return
 
         const { boards, activeBoardId } = rehydratedState
 
         // already initialized — load the active board into the tier list store
-        if (boards.length > 0 && activeBoardId) {
+        if (boards.length > 0 && activeBoardId)
+        {
           const data = loadBoardFromStorage(activeBoardId)
-          if (data) {
+          if (data)
+          {
             useTierListStore.getState().loadBoard(data)
           }
           return
@@ -334,9 +398,12 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
 
         // first load — check for legacy single-board data
         const legacy = migrateLegacyBoard()
-        if (legacy) {
+        if (legacy)
+        {
           useTierListStore.getState().loadBoard(legacy.data)
-          rehydratedState.boards = [{ id: legacy.id, title: legacy.data.title, createdAt: Date.now() }]
+          rehydratedState.boards = [
+            { id: legacy.id, title: legacy.data.title, createdAt: Date.now() },
+          ]
           rehydratedState.activeBoardId = legacy.id
           // persist the new registry immediately
           useBoardManagerStore.persist.rehydrate()
@@ -348,31 +415,43 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         const data = createInitialData()
         saveBoardToStorage(id, data)
         useTierListStore.getState().loadBoard(data)
-        rehydratedState.boards = [{ id, title: data.title, createdAt: Date.now() }]
+        rehydratedState.boards = [
+          { id, title: data.title, createdAt: Date.now() },
+        ]
         rehydratedState.activeBoardId = id
         // persist the new registry immediately
         useBoardManagerStore.persist.rehydrate()
       },
-    },
-  ),
+    }
+  )
 )
 
 // persisted field keys — used by auto-save to detect changes w/o manual enumeration
-const PERSISTED_FIELDS = ['title', 'tiers', 'unrankedItemIds', 'items', 'deletedItems'] as const
+const PERSISTED_FIELDS = [
+  'title',
+  'tiers',
+  'unrankedItemIds',
+  'items',
+  'deletedItems',
+] as const
 
 // auto-save the active board whenever tier list data changes
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
-useTierListStore.subscribe((state, prevState) => {
+useTierListStore.subscribe((state, prevState) =>
+{
   // skip if board data hasn't changed (only runtime fields updated)
-  if (PERSISTED_FIELDS.every((key) => state[key] === prevState[key])) {
+  if (PERSISTED_FIELDS.every((key) => state[key] === prevState[key]))
+  {
     return
   }
 
   // debounce saves to avoid thrashing localStorage during rapid edits
   if (saveTimeout) clearTimeout(saveTimeout)
-  saveTimeout = setTimeout(() => {
+  saveTimeout = setTimeout(() =>
+  {
     const activeBoardId = useBoardManagerStore.getState().activeBoardId
-    if (activeBoardId) {
+    if (activeBoardId)
+    {
       saveCurrentBoard(activeBoardId)
     }
   }, 300)

@@ -1,5 +1,6 @@
 // src/components/ui/BoardManager.tsx
 // floating bottom-right panel for switching between multiple tier lists
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 
@@ -7,11 +8,13 @@ import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ConfirmDialog } from './ConfirmDialog'
 
-interface BoardManagerProps {
+interface BoardManagerProps
+{
   onSwitchBoard: (boardId: string) => void
 }
 
-export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
+export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
+{
   const boards = useBoardManagerStore((s) => s.boards)
   const activeBoardId = useBoardManagerStore((s) => s.activeBoardId)
   const createBoard = useBoardManagerStore((s) => s.createBoard)
@@ -32,22 +35,27 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
     show: open,
     triggerRef,
     popupRef: panelRef,
-    onClose: useCallback(() => {
+    onClose: useCallback(() =>
+    {
       setOpen(false)
       setEditingId(null)
     }, []),
   })
 
   // auto-focus the rename input when entering edit mode
-  useEffect(() => {
-    if (editingId && editInputRef.current) {
+  useEffect(() =>
+  {
+    if (editingId && editInputRef.current)
+    {
       editInputRef.current.focus()
       editInputRef.current.select()
     }
   }, [editingId])
 
-  const commitRename = () => {
-    if (editingId && editValue.trim()) {
+  const commitRename = () =>
+  {
+    if (editingId && editValue.trim())
+    {
       renameBoard(editingId, editValue)
     }
     setEditingId(null)
@@ -65,7 +73,8 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
         type="button"
         aria-label="Board manager"
         title="Your Lists"
-        onClick={() => {
+        onClick={() =>
+        {
           if (!open) setOpen(true)
         }}
         className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full border border-white/12 bg-[#272727] px-3 py-2 text-sm text-slate-100 shadow-lg transition hover:border-white/22 hover:bg-[#2a2a2a]"
@@ -82,12 +91,15 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
         >
           {/* header */}
           <div className="flex items-center justify-between border-b border-[#444] px-3 py-2.5">
-            <span className="text-sm font-semibold text-slate-100">Your Lists</span>
+            <span className="text-sm font-semibold text-slate-100">
+              Your Lists
+            </span>
           </div>
 
           {/* board list */}
           <div className="max-h-60 overflow-y-auto py-1">
-            {boards.map((board) => {
+            {boards.map((board) =>
+            {
               const isActive = board.id === activeBoardId
               const isEditing = board.id === editingId
               return (
@@ -111,7 +123,8 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
                       type="text"
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => {
+                      onKeyDown={(e) =>
+                        {
                         if (e.key === 'Enter') commitRename()
                         if (e.key === 'Escape') setEditingId(null)
                       }}
@@ -123,12 +136,15 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
                       {/* board title — click to switch */}
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={() =>
+                          {
                           onSwitchBoard(board.id)
                           setOpen(false)
                         }}
                         className={`min-w-0 flex-1 truncate text-left text-sm ${
-                          isActive ? 'font-medium text-slate-100' : 'text-[#aaa] hover:text-slate-100'
+                          isActive
+                            ? 'font-medium text-slate-100'
+                            : 'text-[#aaa] hover:text-slate-100'
                         }`}
                       >
                         {board.title}
@@ -138,7 +154,8 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
                       <button
                         type="button"
                         aria-label={`Rename ${board.title}`}
-                        onClick={() => {
+                        onClick={() =>
+                          {
                           setEditingId(board.id)
                           setEditValue(board.title)
                         }}
@@ -150,7 +167,8 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
                       <button
                         type="button"
                         aria-label={`Duplicate ${board.title}`}
-                        onClick={() => {
+                        onClick={() =>
+                          {
                           duplicateBoard(board.id)
                           setOpen(false)
                         }}
@@ -180,7 +198,8 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
           <div className="border-t border-[#444] px-3 py-2">
             <button
               type="button"
-              onClick={() => {
+              onClick={() =>
+              {
                 createBoard()
                 setOpen(false)
               }}
@@ -200,8 +219,10 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) => {
         description={`"${boardToDelete?.title ?? ''}" will be permanently deleted.`}
         confirmText="Delete"
         onCancel={() => setConfirmDeleteId(null)}
-        onConfirm={() => {
-          if (confirmDeleteId) {
+        onConfirm={() =>
+        {
+          if (confirmDeleteId)
+          {
             deleteBoard(confirmDeleteId)
             setConfirmDeleteId(null)
           }

@@ -1,5 +1,6 @@
 // src/components/settings/TierSettings.tsx
 // settings panel — tabbed modal w/ items management & preferences
+
 import { RotateCcw, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -13,7 +14,8 @@ import { ImageUploader } from './ImageUploader'
 
 type Tab = 'items' | 'preferences'
 
-interface TierSettingsProps {
+interface TierSettingsProps
+{
   // controls panel visibility
   open: boolean
   // called when the user closes the panel
@@ -21,7 +23,13 @@ interface TierSettingsProps {
 }
 
 // reusable toggle switch
-const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) => (
+const Toggle = ({
+  checked,
+  onChange,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+}) => (
   <button
     type="button"
     role="switch"
@@ -40,7 +48,13 @@ const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 )
 
 // reusable setting row w/ label on left, control on right
-const SettingRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
+const SettingRow = ({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) => (
   <div className="flex items-center justify-between gap-3 py-1.5">
     <span className="text-sm text-[#ccc]">{label}</span>
     {children}
@@ -68,7 +82,9 @@ const SegmentedControl = <T extends string>({
             ? 'bg-[#444] text-slate-100'
             : 'text-[#999] hover:text-[#ccc]'
         } ${opt.value === options[0].value ? 'rounded-l-[7px]' : ''} ${
-          opt.value === options[options.length - 1].value ? 'rounded-r-[7px]' : ''
+          opt.value === options[options.length - 1].value
+            ? 'rounded-r-[7px]'
+            : ''
         }`}
       >
         {opt.label}
@@ -77,11 +93,16 @@ const SegmentedControl = <T extends string>({
   </div>
 )
 
-export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
+export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
+{
   const addTextItem = useTierListStore((state) => state.addTextItem)
   const deletedItems = useTierListStore((state) => state.deletedItems)
-  const restoreDeletedItem = useTierListStore((state) => state.restoreDeletedItem)
-  const permanentlyDeleteItem = useTierListStore((state) => state.permanentlyDeleteItem)
+  const restoreDeletedItem = useTierListStore(
+    (state) => state.restoreDeletedItem
+  )
+  const permanentlyDeleteItem = useTierListStore(
+    (state) => state.permanentlyDeleteItem
+  )
   const clearDeletedItems = useTierListStore((state) => state.clearDeletedItems)
   const clearAllItems = useTierListStore((state) => state.clearAllItems)
 
@@ -89,18 +110,28 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
   const showLabels = useSettingsStore((state) => state.showLabels)
   const itemShape = useSettingsStore((state) => state.itemShape)
   const compactMode = useSettingsStore((state) => state.compactMode)
-  const exportBackgroundColor = useSettingsStore((state) => state.exportBackgroundColor)
+  const exportBackgroundColor = useSettingsStore(
+    (state) => state.exportBackgroundColor
+  )
   const labelWidth = useSettingsStore((state) => state.labelWidth)
   const hideRowControls = useSettingsStore((state) => state.hideRowControls)
-  const confirmBeforeDelete = useSettingsStore((state) => state.confirmBeforeDelete)
+  const confirmBeforeDelete = useSettingsStore(
+    (state) => state.confirmBeforeDelete
+  )
   const setItemSize = useSettingsStore((state) => state.setItemSize)
   const setShowLabels = useSettingsStore((state) => state.setShowLabels)
   const setItemShape = useSettingsStore((state) => state.setItemShape)
   const setCompactMode = useSettingsStore((state) => state.setCompactMode)
-  const setExportBackgroundColor = useSettingsStore((state) => state.setExportBackgroundColor)
+  const setExportBackgroundColor = useSettingsStore(
+    (state) => state.setExportBackgroundColor
+  )
   const setLabelWidth = useSettingsStore((state) => state.setLabelWidth)
-  const setHideRowControls = useSettingsStore((state) => state.setHideRowControls)
-  const setConfirmBeforeDelete = useSettingsStore((state) => state.setConfirmBeforeDelete)
+  const setHideRowControls = useSettingsStore(
+    (state) => state.setHideRowControls
+  )
+  const setConfirmBeforeDelete = useSettingsStore(
+    (state) => state.setConfirmBeforeDelete
+  )
 
   const [activeTab, setActiveTab] = useState<Tab>('items')
   const [textLabel, setTextLabel] = useState('')
@@ -110,12 +141,17 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
 
   // stable ref for onClose — avoids re-registering listener when parent passes unstable callback
   const onCloseRef = useRef(onClose)
-  useEffect(() => { onCloseRef.current = onClose })
+  useEffect(() =>
+  {
+    onCloseRef.current = onClose
+  })
 
   // close on Escape
-  useEffect(() => {
+  useEffect(() =>
+  {
     if (!open) return
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) =>
+    {
       if (e.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('keydown', handleKeyDown)
@@ -124,18 +160,21 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
 
   // compute storage usage when preferences tab opens
   const storageBytes = useMemo(
-    () => (open && activeTab === 'preferences') ? getStorageUsageBytes() : 0,
-    [open, activeTab],
+    () => (open && activeTab === 'preferences' ? getStorageUsageBytes() : 0),
+    [open, activeTab]
   )
 
   // render nothing when closed to avoid mounting the uploader unnecessarily
-  if (!open) {
+  if (!open)
+  {
     return null
   }
 
-  const handleAddTextItem = () => {
+  const handleAddTextItem = () =>
+  {
     const trimmed = textLabel.trim()
-    if (!trimmed) {
+    if (!trimmed)
+    {
       return
     }
     addTextItem(trimmed, textColor)
@@ -146,17 +185,26 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
   const storageMaxMb = 5
   const storagePercent = Math.min((storageMb / storageMaxMb) * 100, 100)
   const storageColor =
-    storagePercent > 85 ? 'bg-rose-500' : storagePercent > 60 ? 'bg-yellow-500' : 'bg-green-500'
+    storagePercent > 85
+      ? 'bg-rose-500'
+      : storagePercent > 60
+        ? 'bg-yellow-500'
+        : 'bg-green-500'
 
   return (
     <>
       {/* backdrop — click to close */}
       <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
 
-      <div className="fixed inset-0 z-50 m-auto flex max-h-[calc(100vh-4rem)] w-full max-w-2xl flex-col rounded-xl border border-[#444] bg-[#1e1e1e] p-4 shadow-2xl" style={{ height: 'fit-content' }}>
+      <div
+        className="fixed inset-0 z-50 m-auto flex max-h-[calc(100vh-4rem)] w-full max-w-2xl flex-col rounded-xl border border-[#444] bg-[#1e1e1e] p-4 shadow-2xl"
+        style={{ height: 'fit-content' }}
+      >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-slate-100">Tier Settings</h2>
+            <h2 className="text-lg font-semibold text-slate-100">
+              Tier Settings
+            </h2>
             {/* tab buttons */}
             <div className="flex gap-1 rounded-lg border border-[#444] bg-[#272727] p-0.5">
               <button
@@ -198,22 +246,30 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
               {/* image import section */}
               <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
                 <div className="mb-2">
-                  <h3 className="text-sm font-semibold text-slate-100">Import Images</h3>
-                  <p className="mt-1 text-xs text-[#999]">Drop files here or choose them from your computer.</p>
+                  <h3 className="text-sm font-semibold text-slate-100">
+                    Import Images
+                  </h3>
+                  <p className="mt-1 text-xs text-[#999]">
+                    Drop files here or choose them from your computer.
+                  </p>
                 </div>
                 <ImageUploader />
               </section>
 
               {/* text-only item creation */}
               <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">Add Text Item</h3>
+                <h3 className="mb-2 text-sm font-semibold text-slate-100">
+                  Add Text Item
+                </h3>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={textLabel}
                     onChange={(e) => setTextLabel(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                    onKeyDown={(e) =>
+                      {
+                      if (e.key === 'Enter')
+                        {
                         handleAddTextItem()
                       }
                     }}
@@ -243,7 +299,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
                   <div className="mb-2 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-slate-100">
                       Recently Deleted
-                      <span className="ml-1.5 font-normal text-[#888]">({deletedItems.length})</span>
+                      <span className="ml-1.5 font-normal text-[#888]">
+                        ({deletedItems.length})
+                      </span>
                     </h3>
                     <button
                       type="button"
@@ -255,7 +313,8 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
                     </button>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {deletedItems.map((item) => {
+                    {deletedItems.map((item) =>
+                      {
                       const bgColor = item.backgroundColor ?? '#444'
                       return (
                         <div
@@ -272,7 +331,10 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
                           ) : (
                             <div
                               className="flex h-full w-full items-center justify-center p-0.5"
-                              style={{ backgroundColor: bgColor, color: getTextColor(bgColor) }}
+                              style={{
+                                backgroundColor: bgColor,
+                                color: getTextColor(bgColor),
+                              }}
                             >
                               <span className="text-[10px] font-semibold break-words text-center leading-tight [overflow-wrap:anywhere]">
                                 {item.label}
@@ -309,7 +371,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
             <>
               {/* display settings */}
               <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">Display</h3>
+                <h3 className="mb-2 text-sm font-semibold text-slate-100">
+                  Display
+                </h3>
                 <SettingRow label="Item Size">
                   <SegmentedControl<ItemSize>
                     options={[
@@ -342,7 +406,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
 
               {/* layout settings */}
               <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">Layout</h3>
+                <h3 className="mb-2 text-sm font-semibold text-slate-100">
+                  Layout
+                </h3>
                 <SettingRow label="Tier Label Width">
                   <SegmentedControl<LabelWidth>
                     options={[
@@ -355,13 +421,18 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
                   />
                 </SettingRow>
                 <SettingRow label="Hide Row Controls">
-                  <Toggle checked={hideRowControls} onChange={setHideRowControls} />
+                  <Toggle
+                    checked={hideRowControls}
+                    onChange={setHideRowControls}
+                  />
                 </SettingRow>
               </section>
 
               {/* export settings */}
               <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">Export</h3>
+                <h3 className="mb-2 text-sm font-semibold text-slate-100">
+                  Export
+                </h3>
                 <SettingRow label="Background Color">
                   <div className="flex items-center gap-2">
                     <input
@@ -370,14 +441,18 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
                       onChange={(e) => setExportBackgroundColor(e.target.value)}
                       className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[#555] bg-transparent"
                     />
-                    <span className="text-xs text-[#888]">{exportBackgroundColor}</span>
+                    <span className="text-xs text-[#888]">
+                      {exportBackgroundColor}
+                    </span>
                   </div>
                 </SettingRow>
               </section>
 
               {/* data management */}
               <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">Data</h3>
+                <h3 className="mb-2 text-sm font-semibold text-slate-100">
+                  Data
+                </h3>
                 <button
                   type="button"
                   onClick={() => setShowClearAllConfirm(true)}
@@ -406,9 +481,14 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
 
               {/* behavior settings */}
               <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">Behavior</h3>
+                <h3 className="mb-2 text-sm font-semibold text-slate-100">
+                  Behavior
+                </h3>
                 <SettingRow label="Confirm Before Delete">
-                  <Toggle checked={confirmBeforeDelete} onChange={setConfirmBeforeDelete} />
+                  <Toggle
+                    checked={confirmBeforeDelete}
+                    onChange={setConfirmBeforeDelete}
+                  />
                 </SettingRow>
               </section>
             </>
@@ -421,7 +501,8 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
         title="Clear deleted items?"
         description="This will permanently remove all deleted items. This cannot be undone."
         confirmText="Clear all"
-        onConfirm={() => {
+        onConfirm={() =>
+        {
           clearDeletedItems()
           setShowClearConfirm(false)
         }}
@@ -433,7 +514,8 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) => {
         title="Clear all items?"
         description="All items will be removed from tiers & the unranked pool. They can be restored from Recently Deleted."
         confirmText="Clear all"
-        onConfirm={() => {
+        onConfirm={() =>
+        {
           clearAllItems()
           setShowClearAllConfirm(false)
         }}

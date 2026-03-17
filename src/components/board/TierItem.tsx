@@ -1,5 +1,6 @@
 // src/components/board/TierItem.tsx
 // sortable item tile — displays image or text, handles drag & delete
+
 import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -8,9 +9,14 @@ import { X } from 'lucide-react'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
-import { ITEM_SIZE_PX, SHAPE_CLASS, UNRANKED_CONTAINER_ID } from '../../utils/constants'
+import {
+  ITEM_SIZE_PX,
+  SHAPE_CLASS,
+  UNRANKED_CONTAINER_ID,
+} from '../../utils/constants'
 
-interface TierItemProps {
+interface TierItemProps
+{
   // ID of the item to render
   itemId: string
   // ID of the container (tier or unranked pool) this item lives in
@@ -19,19 +25,27 @@ interface TierItemProps {
   onRequestDelete?: (itemId: string) => void
 }
 
-export const TierItem = memo(({ itemId, containerId, onRequestDelete }: TierItemProps) => {
-  const item = useTierListStore((state) => state.items[itemId])
-  const canDelete = containerId === UNRANKED_CONTAINER_ID
+export const TierItem = memo(
+  ({ itemId, containerId, onRequestDelete }: TierItemProps) =>
+  {
+    const item = useTierListStore((state) => state.items[itemId])
+    const canDelete = containerId === UNRANKED_CONTAINER_ID
 
-  const itemSize = useSettingsStore((state) => state.itemSize)
-  const itemShape = useSettingsStore((state) => state.itemShape)
-  const showLabels = useSettingsStore((state) => state.showLabels)
+    const itemSize = useSettingsStore((state) => state.itemSize)
+    const itemShape = useSettingsStore((state) => state.itemShape)
+    const showLabels = useSettingsStore((state) => state.showLabels)
 
-  const sizePx = ITEM_SIZE_PX[itemSize]
+    const sizePx = ITEM_SIZE_PX[itemSize]
 
-  // register w/ dnd-kit sortable — data payload identifies this as an item
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({
+    // register w/ dnd-kit sortable — data payload identifies this as an item
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({
       id: itemId,
       data: {
         type: 'item',
@@ -39,15 +53,16 @@ export const TierItem = memo(({ itemId, containerId, onRequestDelete }: TierItem
       },
     })
 
-  // item may have been deleted while dragging — render nothing
-  if (!item) {
-    return null
-  }
+    // item may have been deleted while dragging — render nothing
+    if (!item)
+    {
+      return null
+    }
 
-  const bgColor = item.backgroundColor ?? '#444'
+    const bgColor = item.backgroundColor ?? '#444'
 
-  return (
-    <div
+    return (
+      <div
         ref={setNodeRef}
         data-testid={`tier-item-${itemId}`}
         data-item-id={itemId}
@@ -99,7 +114,8 @@ export const TierItem = memo(({ itemId, containerId, onRequestDelete }: TierItem
             type="button"
             aria-label="Remove item"
             className="absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={(e) => {
+            onClick={(e) =>
+            {
               e.stopPropagation()
               onRequestDelete?.(itemId)
             }}
@@ -109,5 +125,6 @@ export const TierItem = memo(({ itemId, containerId, onRequestDelete }: TierItem
           </button>
         )}
       </div>
-  )
-})
+    )
+  }
+)

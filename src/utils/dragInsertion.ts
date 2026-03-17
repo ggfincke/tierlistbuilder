@@ -1,15 +1,20 @@
+// src/utils/dragInsertion.ts
+// pure functions for drag-&-drop insertion logic
+
 import type { ClientRect, Translate } from '@dnd-kit/core'
 
 import type { ContainerSnapshot, Tier, TierListData } from '../types'
 import { UNRANKED_CONTAINER_ID, clampIndex } from './constants'
 
-interface GetDraggedItemRectArgs {
+interface GetDraggedItemRectArgs
+{
   translatedRect: ClientRect | null
   initialRect: ClientRect | null
   delta: Translate
 }
 
-interface ResolveDragTargetIndexArgs {
+interface ResolveDragTargetIndexArgs
+{
   draggedRect: ClientRect | null
   overRect: ClientRect
   overId: string
@@ -18,14 +23,16 @@ interface ResolveDragTargetIndexArgs {
   overItemsLength: number
 }
 
-interface ResolveStoreInsertionIndexArgs {
+interface ResolveStoreInsertionIndexArgs
+{
   sameContainer: boolean
   sourceIndex: number
   targetIndex: number
   targetItemsLength: number
 }
 
-interface ResolveNextDragPreviewArgs {
+interface ResolveNextDragPreviewArgs
+{
   snapshot: ContainerSnapshot
   itemId: string
   overId: string
@@ -33,7 +40,8 @@ interface ResolveNextDragPreviewArgs {
   overRect: ClientRect
 }
 
-interface RenderedItemPosition {
+interface RenderedItemPosition
+{
   itemId: string
   left: number
   top: number
@@ -41,7 +49,11 @@ interface RenderedItemPosition {
 
 type ContainerState = Pick<TierListData, 'tiers' | 'unrankedItemIds'>
 
-const hasContainer = (snapshot: ContainerSnapshot, containerId: string): boolean => {
+const hasContainer = (
+  snapshot: ContainerSnapshot,
+  containerId: string
+): boolean =>
+{
   return (
     containerId === UNRANKED_CONTAINER_ID ||
     snapshot.tiers.some((tier) => tier.id === containerId)
@@ -51,9 +63,11 @@ const hasContainer = (snapshot: ContainerSnapshot, containerId: string): boolean
 const withContainerItems = (
   snapshot: ContainerSnapshot,
   containerId: string,
-  nextItemIds: string[],
-): ContainerSnapshot => {
-  if (containerId === UNRANKED_CONTAINER_ID) {
+  nextItemIds: string[]
+): ContainerSnapshot =>
+{
+  if (containerId === UNRANKED_CONTAINER_ID)
+  {
     return {
       ...snapshot,
       unrankedItemIds: [...nextItemIds],
@@ -63,12 +77,14 @@ const withContainerItems = (
   return {
     ...snapshot,
     tiers: snapshot.tiers.map((tier) =>
-      tier.id === containerId ? { ...tier, itemIds: [...nextItemIds] } : tier,
+      tier.id === containerId ? { ...tier, itemIds: [...nextItemIds] } : tier
     ),
   }
 }
 
-export const createContainerSnapshot = (state: ContainerState): ContainerSnapshot => ({
+export const createContainerSnapshot = (
+  state: ContainerState
+): ContainerSnapshot => ({
   tiers: state.tiers.map((tier) => ({
     id: tier.id,
     itemIds: [...tier.itemIds],
@@ -77,21 +93,24 @@ export const createContainerSnapshot = (state: ContainerState): ContainerSnapsho
 })
 
 export const getEffectiveContainerSnapshot = (
-  state: ContainerState & { dragPreview: ContainerSnapshot | null },
-): ContainerSnapshot => {
+  state: ContainerState & { dragPreview: ContainerSnapshot | null }
+): ContainerSnapshot =>
+{
   return state.dragPreview ?? createContainerSnapshot(state)
 }
 
 export const getEffectiveTiers = (
   tiers: Tier[],
-  dragPreview: ContainerSnapshot | null,
-): Tier[] => {
-  if (!dragPreview) {
+  dragPreview: ContainerSnapshot | null
+): Tier[] =>
+{
+  if (!dragPreview)
+  {
     return tiers
   }
 
   const itemIdsByTierId = new Map(
-    dragPreview.tiers.map((tier) => [tier.id, tier.itemIds] as const),
+    dragPreview.tiers.map((tier) => [tier.id, tier.itemIds] as const)
   )
 
   return tiers.map((tier) => ({
@@ -102,16 +121,20 @@ export const getEffectiveTiers = (
 
 export const getEffectiveUnrankedItemIds = (
   unrankedItemIds: string[],
-  dragPreview: ContainerSnapshot | null,
-): string[] => {
+  dragPreview: ContainerSnapshot | null
+): string[] =>
+{
   return dragPreview ? [...dragPreview.unrankedItemIds] : unrankedItemIds
 }
 
 export const applyContainerSnapshotToTiers = (
   tiers: Tier[],
-  snapshot: ContainerSnapshot,
-): Tier[] => {
-  const itemIdsByTierId = new Map(snapshot.tiers.map((tier) => [tier.id, tier.itemIds] as const))
+  snapshot: ContainerSnapshot
+): Tier[] =>
+{
+  const itemIdsByTierId = new Map(
+    snapshot.tiers.map((tier) => [tier.id, tier.itemIds] as const)
+  )
 
   return tiers.map((tier) => ({
     ...tier,
@@ -119,16 +142,23 @@ export const applyContainerSnapshotToTiers = (
   }))
 }
 
-export const findContainer = (snapshot: ContainerSnapshot, id: string): string | null => {
-  if (id === UNRANKED_CONTAINER_ID) {
+export const findContainer = (
+  snapshot: ContainerSnapshot,
+  id: string
+): string | null =>
+{
+  if (id === UNRANKED_CONTAINER_ID)
+  {
     return UNRANKED_CONTAINER_ID
   }
 
-  if (snapshot.tiers.some((tier) => tier.id === id)) {
+  if (snapshot.tiers.some((tier) => tier.id === id))
+  {
     return id
   }
 
-  if (snapshot.unrankedItemIds.includes(id)) {
+  if (snapshot.unrankedItemIds.includes(id))
+  {
     return UNRANKED_CONTAINER_ID
   }
 
@@ -138,26 +168,30 @@ export const findContainer = (snapshot: ContainerSnapshot, id: string): string |
 
 export const getItemsInContainer = (
   snapshot: ContainerSnapshot,
-  containerId: string,
-): string[] => {
-  if (containerId === UNRANKED_CONTAINER_ID) {
+  containerId: string
+): string[] =>
+{
+  if (containerId === UNRANKED_CONTAINER_ID)
+  {
     return snapshot.unrankedItemIds
   }
 
   return snapshot.tiers.find((tier) => tier.id === containerId)?.itemIds ?? []
 }
 
-// rebuild the active rect when dnd-kit hasn't populated the translated rect yet
 export const getDraggedItemRect = ({
   translatedRect,
   initialRect,
   delta,
-}: GetDraggedItemRectArgs): ClientRect | null => {
-  if (translatedRect) {
+}: GetDraggedItemRectArgs): ClientRect | null =>
+{
+  if (translatedRect)
+  {
     return translatedRect
   }
 
-  if (!initialRect) {
+  if (!initialRect)
+  {
     return null
   }
 
@@ -171,6 +205,7 @@ export const getDraggedItemRect = ({
 }
 
 // preserve the normal between-item threshold while honoring explicit front/back drops
+
 export const resolveDragTargetIndex = ({
   draggedRect,
   overRect,
@@ -178,12 +213,15 @@ export const resolveDragTargetIndex = ({
   overContainerId,
   overIndex,
   overItemsLength,
-}: ResolveDragTargetIndexArgs): number => {
-  if (overId === overContainerId) {
+}: ResolveDragTargetIndexArgs): number =>
+{
+  if (overId === overContainerId)
+  {
     return overItemsLength
   }
 
-  if (draggedRect && overIndex === 0 && draggedRect.left < overRect.left) {
+  if (draggedRect && overIndex === 0 && draggedRect.left < overRect.left)
+  {
     return 0
   }
 
@@ -191,7 +229,8 @@ export const resolveDragTargetIndex = ({
     draggedRect &&
     overIndex === overItemsLength - 1 &&
     draggedRect.right > overRect.right
-  ) {
+  )
+  {
     return overItemsLength
   }
 
@@ -209,7 +248,8 @@ export const resolveStoreInsertionIndex = ({
   sourceIndex,
   targetIndex,
   targetItemsLength,
-}: ResolveStoreInsertionIndexArgs): number => {
+}: ResolveStoreInsertionIndexArgs): number =>
+{
   const normalizedTargetIndex =
     sameContainer && targetIndex > sourceIndex ? targetIndex - 1 : targetIndex
 
@@ -221,20 +261,30 @@ export const moveItemInSnapshot = (
   itemId: string,
   fromContainerId: string,
   toContainerId: string,
-  toIndex: number,
-): ContainerSnapshot => {
-  if (!hasContainer(snapshot, fromContainerId) || !hasContainer(snapshot, toContainerId)) {
+  toIndex: number
+): ContainerSnapshot =>
+{
+  if (
+    !hasContainer(snapshot, fromContainerId) ||
+    !hasContainer(snapshot, toContainerId)
+  )
+  {
     return snapshot
   }
 
   const sourceItems = [...getItemsInContainer(snapshot, fromContainerId)]
   const sourceIndex = sourceItems.indexOf(itemId)
-  if (sourceIndex < 0) {
+  if (sourceIndex < 0)
+  {
     return snapshot
   }
 
   sourceItems.splice(sourceIndex, 1)
-  const sourcePatchedSnapshot = withContainerItems(snapshot, fromContainerId, sourceItems)
+  const sourcePatchedSnapshot = withContainerItems(
+    snapshot,
+    fromContainerId,
+    sourceItems
+  )
 
   const targetItems =
     fromContainerId === toContainerId
@@ -248,7 +298,8 @@ export const moveItemInSnapshot = (
     targetItemsLength: targetItems.length,
   })
 
-  if (fromContainerId === toContainerId && insertionIndex === sourceIndex) {
+  if (fromContainerId === toContainerId && insertionIndex === sourceIndex)
+  {
     return snapshot
   }
 
@@ -263,11 +314,13 @@ export const resolveNextDragPreview = ({
   overId,
   draggedRect,
   overRect,
-}: ResolveNextDragPreviewArgs): ContainerSnapshot => {
+}: ResolveNextDragPreviewArgs): ContainerSnapshot =>
+{
   const fromContainerId = findContainer(snapshot, itemId)
   const toContainerId = findContainer(snapshot, overId)
 
-  if (!fromContainerId || !toContainerId) {
+  if (!fromContainerId || !toContainerId)
+  {
     return snapshot
   }
 
@@ -284,33 +337,45 @@ export const resolveNextDragPreview = ({
     overItemsLength: targetItems.length,
   })
 
-  if (sourceIndex < 0 || targetIndex < 0) {
+  if (sourceIndex < 0 || targetIndex < 0)
+  {
     return snapshot
   }
 
   if (
     fromContainerId === toContainerId &&
     (sourceIndex === targetIndex || sourceIndex === targetIndex - 1)
-  ) {
+  )
+  {
     return snapshot
   }
 
-  return moveItemInSnapshot(snapshot, itemId, fromContainerId, toContainerId, targetIndex)
+  return moveItemInSnapshot(
+    snapshot,
+    itemId,
+    fromContainerId,
+    toContainerId,
+    targetIndex
+  )
 }
 
 const getRenderedItemIds = (
   containerElement: Element | null,
-  fallbackItemIds: string[],
-): string[] => {
-  if (!containerElement) {
+  fallbackItemIds: string[]
+): string[] =>
+{
+  if (!containerElement)
+  {
     return [...fallbackItemIds]
   }
 
   const positionedItems = Array.from(
-    containerElement.querySelectorAll<HTMLElement>('[data-item-id]'),
-  ).flatMap((element) => {
+    containerElement.querySelectorAll<HTMLElement>('[data-item-id]')
+  ).flatMap((element) =>
+  {
     const itemId = element.dataset.itemId
-    if (!itemId) {
+    if (!itemId)
+    {
       return []
     }
 
@@ -325,13 +390,16 @@ const getRenderedItemIds = (
     ]
   })
 
-  if (positionedItems.length === 0) {
+  if (positionedItems.length === 0)
+  {
     return [...fallbackItemIds]
   }
 
-  positionedItems.sort((left, right) => {
+  positionedItems.sort((left, right) =>
+  {
     const topDelta = left.top - right.top
-    if (Math.abs(topDelta) > 4) {
+    if (Math.abs(topDelta) > 4)
+    {
       return topDelta
     }
 
@@ -342,9 +410,11 @@ const getRenderedItemIds = (
 }
 
 export const captureRenderedContainerSnapshot = (
-  snapshot: ContainerSnapshot,
-): ContainerSnapshot | null => {
-  if (typeof document === 'undefined') {
+  snapshot: ContainerSnapshot
+): ContainerSnapshot | null =>
+{
+  if (typeof document === 'undefined')
+  {
     return null
   }
 
@@ -353,12 +423,12 @@ export const captureRenderedContainerSnapshot = (
       id: tier.id,
       itemIds: getRenderedItemIds(
         document.querySelector(`[data-testid="tier-container-${tier.id}"]`),
-        tier.itemIds,
+        tier.itemIds
       ),
     })),
     unrankedItemIds: getRenderedItemIds(
       document.querySelector('[data-testid="unranked-container"]'),
-      snapshot.unrankedItemIds,
+      snapshot.unrankedItemIds
     ),
   }
 }

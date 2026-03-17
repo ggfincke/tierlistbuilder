@@ -1,8 +1,10 @@
 // src/hooks/usePopupClose.ts
 // closes a fixed-position popup on outside click, Escape, or scroll
+
 import { useEffect, type RefObject } from 'react'
 
-interface UsePopupCloseOptions {
+interface UsePopupCloseOptions
+{
   // whether the popup is currently visible
   show: boolean
   // button that opens the popup (excluded from outside-click detection)
@@ -21,18 +23,26 @@ export const usePopupClose = ({
   popupRef,
   onClose,
   onScroll,
-}: UsePopupCloseOptions) => {
-  useEffect(() => {
+}: UsePopupCloseOptions) =>
+{
+  useEffect(() =>
+  {
     if (!show) return
 
-    const handlePointerDown = (event: PointerEvent) => {
+    const handlePointerDown = (event: PointerEvent) =>
+    {
       const target = event.target as Node
-      if (!popupRef.current?.contains(target) && !triggerRef.current?.contains(target)) {
+      if (
+        !popupRef.current?.contains(target) &&
+        !triggerRef.current?.contains(target)
+      )
+      {
         onClose()
       }
     }
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent) =>
+    {
       if (event.key === 'Escape') onClose()
     }
 
@@ -40,15 +50,18 @@ export const usePopupClose = ({
 
     document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
-    if (onScroll) {
+    if (onScroll)
+    {
       window.addEventListener('scroll', handleScroll, true)
       window.addEventListener('resize', handleScroll)
     }
 
-    return () => {
+    return () =>
+    {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
-      if (onScroll) {
+      if (onScroll)
+      {
         window.removeEventListener('scroll', handleScroll, true)
         window.removeEventListener('resize', handleScroll)
       }

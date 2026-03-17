@@ -1,14 +1,37 @@
 // src/components/ui/BoardActionBar.tsx
 // floating action bar — add tier, settings, export, & reset controls
-import { forwardRef, useCallback, useRef, useState, type ReactNode } from 'react'
 
-import { Check, ChevronRight, Copy, Download, FileDown, FileUp, Plus, Redo2, RotateCcw, Settings as SettingsIcon, SquareArrowUp, Undo2 } from 'lucide-react'
+import {
+  forwardRef,
+  useCallback,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+
+import {
+  Check,
+  ChevronRight,
+  Copy,
+  Download,
+  FileDown,
+  FileUp,
+  Plus,
+  Redo2,
+  RotateCcw,
+  Settings as SettingsIcon,
+  SquareArrowUp,
+  Undo2,
+} from 'lucide-react'
 
 import type { ImageFormat } from '../../types'
 
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
-import { extractBoardData, useTierListStore } from '../../store/useTierListStore'
+import {
+  extractBoardData,
+  useTierListStore,
+} from '../../store/useTierListStore'
 import { exportBoardAsJson, parseBoardJson } from '../../utils/exportJson'
 import { ConfirmDialog } from './ConfirmDialog'
 
@@ -19,7 +42,8 @@ const FORMAT_LABELS: Record<ImageFormat, string> = {
   webp: 'WebP',
 }
 
-interface BoardActionBarProps {
+interface BoardActionBarProps
+{
   // active export type while an export is in progress (null when idle)
   exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
   onAddTier: () => void
@@ -30,7 +54,8 @@ interface BoardActionBarProps {
 }
 
 // props for the shared icon button used throughout the action bar
-interface ActionButtonProps {
+interface ActionButtonProps
+{
   // accessible label for screen readers
   label: string
   // tooltip text shown on hover
@@ -45,29 +70,26 @@ interface ActionButtonProps {
 }
 
 // reusable circular icon button w/ consistent sizing & disabled styles
-const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(({
-  label,
-  title,
-  onClick,
-  disabled = false,
-  children,
-  hasPopup,
-  expanded,
-}, ref) => (
-  <button
-    ref={ref}
-    type="button"
-    aria-label={label}
-    title={title}
-    aria-haspopup={hasPopup}
-    aria-expanded={hasPopup ? expanded : undefined}
-    disabled={disabled}
-    onClick={onClick}
-    className="flex h-10 w-10 items-center justify-center rounded-[1.1rem] border border-white/12 bg-[#232323] text-slate-100 transition hover:border-white/22 hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-45"
-  >
-    {children}
-  </button>
-))
+const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
+  (
+    { label, title, onClick, disabled = false, children, hasPopup, expanded },
+    ref
+  ) => (
+    <button
+      ref={ref}
+      type="button"
+      aria-label={label}
+      title={title}
+      aria-haspopup={hasPopup}
+      aria-expanded={hasPopup ? expanded : undefined}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex h-10 w-10 items-center justify-center rounded-[1.1rem] border border-white/12 bg-[#232323] text-slate-100 transition hover:border-white/22 hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-45"
+    >
+      {children}
+    </button>
+  )
+)
 
 // * primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
@@ -77,7 +99,8 @@ export const BoardActionBar = ({
   onExport,
   onCopyToClipboard,
   onReset,
-}: BoardActionBarProps) => {
+}: BoardActionBarProps) =>
+{
   const pastLength = useTierListStore((state) => state.past.length)
   const futureLength = useTierListStore((state) => state.future.length)
   const undo = useTierListStore((state) => state.undo)
@@ -92,19 +115,26 @@ export const BoardActionBar = ({
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
   const jsonInputRef = useRef<HTMLInputElement | null>(null)
 
-  const handleJsonExport = () => {
+  const handleJsonExport = () =>
+  {
     const data = extractBoardData(useTierListStore.getState())
     exportBoardAsJson(data, title)
     setShowExportMenu(false)
   }
 
-  const handleJsonImport = async (file: File) => {
-    try {
+  const handleJsonImport = async (file: File) =>
+  {
+    try
+    {
       const text = await file.text()
       const data = parseBoardJson(text)
       importBoard(data)
-    } catch (err) {
-      setRuntimeError(err instanceof Error ? err.message : 'Failed to import JSON file.')
+    }
+    catch (err)
+    {
+      setRuntimeError(
+        err instanceof Error ? err.message : 'Failed to import JSON file.'
+      )
     }
     setShowExportMenu(false)
   }
@@ -140,11 +170,7 @@ export const BoardActionBar = ({
           </ActionButton>
 
           {/* add a new tier row to the bottom of the board */}
-          <ActionButton
-            label="Add tier"
-            title="Add Tier"
-            onClick={onAddTier}
-          >
+          <ActionButton label="Add tier" title="Add Tier" onClick={onAddTier}>
             <Plus className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
@@ -163,7 +189,8 @@ export const BoardActionBar = ({
               ref={exportButtonRef}
               label="Open export options"
               title="Export"
-              onClick={() => {
+              onClick={() =>
+              {
                 if (!showExportMenu) setShowExportMenu(true)
               }}
               disabled={exportStatus !== null}
@@ -193,7 +220,8 @@ export const BoardActionBar = ({
                       type="button"
                       role="menuitem"
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
-                      onClick={() => {
+                      onClick={() =>
+                      {
                         setShowExportMenu(false)
                         void onExport(imageFormat)
                       }}
@@ -206,14 +234,17 @@ export const BoardActionBar = ({
                       type="button"
                       role="menuitem"
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
-                      onClick={() => {
+                      onClick={() =>
+                      {
                         setShowExportMenu(false)
                         void onCopyToClipboard()
                       }}
                       disabled={exportStatus !== null}
                     >
                       <Copy className="h-3.5 w-3.5 shrink-0" />
-                      <span className="whitespace-nowrap">Copy to Clipboard</span>
+                      <span className="whitespace-nowrap">
+                        Copy to Clipboard
+                      </span>
                     </button>
 
                     <div className="my-1 border-t border-[#444]" />
@@ -236,9 +267,11 @@ export const BoardActionBar = ({
                             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
                             onClick={() => setImageFormat(fmt)}
                           >
-                            {imageFormat === fmt
-                              ? <Check className="h-3.5 w-3.5 shrink-0" />
-                              : <span className="h-3.5 w-3.5 shrink-0" />}
+                            {imageFormat === fmt ? (
+                              <Check className="h-3.5 w-3.5 shrink-0" />
+                            ) : (
+                              <span className="h-3.5 w-3.5 shrink-0" />
+                            )}
                             {FORMAT_LABELS[fmt]}
                           </button>
                         ))}
@@ -251,7 +284,8 @@ export const BoardActionBar = ({
                   type="button"
                   role="menuitem"
                   className="flex w-full rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
-                  onClick={() => {
+                  onClick={() =>
+                  {
                     setShowExportMenu(false)
                     void onExport('pdf')
                   }}
@@ -275,7 +309,8 @@ export const BoardActionBar = ({
                   type="button"
                   role="menuitem"
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
-                  onClick={() => {
+                  onClick={() =>
+                  {
                     jsonInputRef.current?.click()
                   }}
                 >
@@ -303,7 +338,8 @@ export const BoardActionBar = ({
         type="file"
         accept=".json"
         className="hidden"
-        onChange={(e) => {
+        onChange={(e) =>
+        {
           const file = e.target.files?.[0]
           if (file) void handleJsonImport(file)
           e.target.value = ''
@@ -317,7 +353,8 @@ export const BoardActionBar = ({
         description="This restores the default tiers and the sample image pack."
         confirmText="Reset"
         onCancel={() => setConfirmReset(false)}
-        onConfirm={() => {
+        onConfirm={() =>
+        {
           onReset()
           setConfirmReset(false)
         }}

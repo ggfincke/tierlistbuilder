@@ -1,7 +1,13 @@
+// src/store/useTierListStore.test.ts
+// unit tests for useTierListStore state management
+
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import type { TierListData } from '../types'
-import { createContainerSnapshot, moveItemInSnapshot } from '../utils/dragInsertion'
+import {
+  createContainerSnapshot,
+  moveItemInSnapshot,
+} from '../utils/dragInsertion'
 import { useTierListStore } from './useTierListStore'
 
 const createBoardData = (): TierListData => ({
@@ -32,7 +38,8 @@ const createBoardData = (): TierListData => ({
   deletedItems: [],
 })
 
-const resetStore = () => {
+const resetStore = () =>
+{
   useTierListStore.setState({
     ...createBoardData(),
     activeItemId: null,
@@ -43,27 +50,46 @@ const resetStore = () => {
   })
 }
 
-describe('useTierListStore drag preview lifecycle', () => {
-  beforeEach(() => {
+describe('useTierListStore drag preview lifecycle', () =>
+{
+  beforeEach(() =>
+  {
     resetStore()
   })
 
-  it('initializes dragPreview from the persisted board order on drag start', () => {
+  it('initializes dragPreview from the persisted board order on drag start', () =>
+  {
     const store = useTierListStore.getState()
 
     store.beginDragPreview()
 
-    expect(useTierListStore.getState().dragPreview).toEqual(createContainerSnapshot(createBoardData()))
-    expect(useTierListStore.getState().tiers[0].itemIds).toEqual(['item-1', 'item-2', 'item-3'])
-    expect(useTierListStore.getState().unrankedItemIds).toEqual(['item-5', 'item-6'])
+    expect(useTierListStore.getState().dragPreview).toEqual(
+      createContainerSnapshot(createBoardData())
+    )
+    expect(useTierListStore.getState().tiers[0].itemIds).toEqual([
+      'item-1',
+      'item-2',
+      'item-3',
+    ])
+    expect(useTierListStore.getState().unrankedItemIds).toEqual([
+      'item-5',
+      'item-6',
+    ])
   })
 
-  it('updates only dragPreview during hover moves and leaves persisted order untouched', () => {
+  it('updates only dragPreview during hover moves and leaves persisted order untouched', () =>
+  {
     const store = useTierListStore.getState()
 
     store.beginDragPreview()
     store.updateDragPreview(
-      moveItemInSnapshot(createContainerSnapshot(useTierListStore.getState()), 'item-1', 'tier-a', 'tier-a', 2),
+      moveItemInSnapshot(
+        createContainerSnapshot(useTierListStore.getState()),
+        'item-1',
+        'tier-a',
+        'tier-a',
+        2
+      )
     )
 
     expect(useTierListStore.getState().dragPreview?.tiers[0].itemIds).toEqual([
@@ -71,15 +97,26 @@ describe('useTierListStore drag preview lifecycle', () => {
       'item-1',
       'item-3',
     ])
-    expect(useTierListStore.getState().tiers[0].itemIds).toEqual(['item-1', 'item-2', 'item-3'])
+    expect(useTierListStore.getState().tiers[0].itemIds).toEqual([
+      'item-1',
+      'item-2',
+      'item-3',
+    ])
   })
 
-  it('commits the exact preview snapshot into persisted board order on drop', () => {
+  it('commits the exact preview snapshot into persisted board order on drop', () =>
+  {
     const store = useTierListStore.getState()
 
     store.beginDragPreview()
     store.updateDragPreview(
-      moveItemInSnapshot(createContainerSnapshot(useTierListStore.getState()), 'item-2', 'tier-a', 'tier-b', 1),
+      moveItemInSnapshot(
+        createContainerSnapshot(useTierListStore.getState()),
+        'item-2',
+        'tier-a',
+        'tier-b',
+        1
+      )
     )
 
     const previewBeforeCommit = useTierListStore.getState().dragPreview
@@ -88,51 +125,92 @@ describe('useTierListStore drag preview lifecycle', () => {
     store.commitDragPreview()
 
     expect(useTierListStore.getState().dragPreview).toBeNull()
-    expect(createContainerSnapshot(useTierListStore.getState())).toEqual(previewBeforeCommit)
+    expect(createContainerSnapshot(useTierListStore.getState())).toEqual(
+      previewBeforeCommit
+    )
   })
 
-  it('discards dragPreview on cancel and leaves persisted board order unchanged', () => {
+  it('discards dragPreview on cancel and leaves persisted board order unchanged', () =>
+  {
     const store = useTierListStore.getState()
-    const persistedBeforeDrag = createContainerSnapshot(useTierListStore.getState())
+    const persistedBeforeDrag = createContainerSnapshot(
+      useTierListStore.getState()
+    )
 
     store.beginDragPreview()
     store.updateDragPreview(
-      moveItemInSnapshot(createContainerSnapshot(useTierListStore.getState()), 'item-3', 'tier-a', 'tier-a', 0),
+      moveItemInSnapshot(
+        createContainerSnapshot(useTierListStore.getState()),
+        'item-3',
+        'tier-a',
+        'tier-a',
+        0
+      )
     )
     store.discardDragPreview()
 
     expect(useTierListStore.getState().dragPreview).toBeNull()
-    expect(createContainerSnapshot(useTierListStore.getState())).toEqual(persistedBeforeDrag)
+    expect(createContainerSnapshot(useTierListStore.getState())).toEqual(
+      persistedBeforeDrag
+    )
   })
 
-  it('discards dragPreview for outside-drop flows and leaves persisted board order unchanged', () => {
+  it('discards dragPreview for outside-drop flows and leaves persisted board order unchanged', () =>
+  {
     const store = useTierListStore.getState()
-    const persistedBeforeDrag = createContainerSnapshot(useTierListStore.getState())
+    const persistedBeforeDrag = createContainerSnapshot(
+      useTierListStore.getState()
+    )
 
     store.beginDragPreview()
     store.updateDragPreview(
-      moveItemInSnapshot(createContainerSnapshot(useTierListStore.getState()), 'item-2', 'tier-a', 'tier-b', 1),
+      moveItemInSnapshot(
+        createContainerSnapshot(useTierListStore.getState()),
+        'item-2',
+        'tier-a',
+        'tier-b',
+        1
+      )
     )
     store.discardDragPreview()
 
     expect(useTierListStore.getState().dragPreview).toBeNull()
-    expect(createContainerSnapshot(useTierListStore.getState())).toEqual(persistedBeforeDrag)
+    expect(createContainerSnapshot(useTierListStore.getState())).toEqual(
+      persistedBeforeDrag
+    )
   })
 
-  it('preserves hover/drop parity for the immediate right-neighbor swap case', () => {
+  it('preserves hover/drop parity for the immediate right-neighbor swap case', () =>
+  {
     const store = useTierListStore.getState()
 
     store.beginDragPreview()
     store.updateDragPreview(
-      moveItemInSnapshot(createContainerSnapshot(useTierListStore.getState()), 'item-1', 'tier-a', 'tier-a', 2),
+      moveItemInSnapshot(
+        createContainerSnapshot(useTierListStore.getState()),
+        'item-1',
+        'tier-a',
+        'tier-a',
+        2
+      )
     )
 
     const lastPreview = useTierListStore.getState().dragPreview
-    expect(lastPreview?.tiers[0].itemIds).toEqual(['item-2', 'item-1', 'item-3'])
+    expect(lastPreview?.tiers[0].itemIds).toEqual([
+      'item-2',
+      'item-1',
+      'item-3',
+    ])
 
     store.commitDragPreview()
 
-    expect(createContainerSnapshot(useTierListStore.getState())).toEqual(lastPreview)
-    expect(useTierListStore.getState().tiers[0].itemIds).toEqual(['item-2', 'item-1', 'item-3'])
+    expect(createContainerSnapshot(useTierListStore.getState())).toEqual(
+      lastPreview
+    )
+    expect(useTierListStore.getState().tiers[0].itemIds).toEqual([
+      'item-2',
+      'item-1',
+      'item-3',
+    ])
   })
 })

@@ -23,33 +23,52 @@ const seededBoardState = {
   ],
   unrankedItemIds: [],
   items: {
-    'sample-apex': { id: 'sample-apex', label: 'Apex', imageUrl: '/sample-items/apex.jpg' },
-    'sample-comet': { id: 'sample-comet', label: 'Comet', imageUrl: '/sample-items/comet.jpg' },
-    'sample-drift': { id: 'sample-drift', label: 'Drift', imageUrl: '/sample-items/drift.jpg' },
+    'sample-apex': {
+      id: 'sample-apex',
+      label: 'Apex',
+      imageUrl: '/sample-items/apex.jpg',
+    },
+    'sample-comet': {
+      id: 'sample-comet',
+      label: 'Comet',
+      imageUrl: '/sample-items/comet.jpg',
+    },
+    'sample-drift': {
+      id: 'sample-drift',
+      label: 'Drift',
+      imageUrl: '/sample-items/drift.jpg',
+    },
   },
 }
 
 const appStorageKey = 'tier-list-maker-state'
 const expectedInitialOrder = ['sample-apex', 'sample-comet', 'sample-drift']
 const expectedSwapOrder = ['sample-comet', 'sample-apex', 'sample-drift']
-const sampledOffsets = [-40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
+const sampledOffsets = [
+  -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
+]
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const getFreePort = async () =>
-  new Promise((resolve, reject) => {
+  new Promise((resolve, reject) =>
+  {
     const server = createServer()
 
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, '127.0.0.1', () =>
+    {
       const address = server.address()
-      if (!address || typeof address === 'string') {
+      if (!address || typeof address === 'string')
+      {
         reject(new Error('Could not allocate a local port'))
         return
       }
 
       const { port } = address
-      server.close((error) => {
-        if (error) {
+      server.close((error) =>
+      {
+        if (error)
+        {
           reject(error)
           return
         }
@@ -61,16 +80,22 @@ const getFreePort = async () =>
     server.on('error', reject)
   })
 
-const waitForHttp = async (url, timeoutMs = 30_000) => {
+const waitForHttp = async (url, timeoutMs = 30_000) =>
+{
   const start = Date.now()
 
-  while (Date.now() - start < timeoutMs) {
-    try {
+  while (Date.now() - start < timeoutMs)
+  {
+    try
+    {
       const response = await fetch(url)
-      if (response.ok) {
+      if (response.ok)
+      {
         return
       }
-    } catch {
+    }
+    catch
+    {
       // server still starting
     }
 
@@ -80,7 +105,8 @@ const waitForHttp = async (url, timeoutMs = 30_000) => {
   throw new Error(`Timed out waiting for ${url}`)
 }
 
-const spawnProcess = (command, args, options = {}) => {
+const spawnProcess = (command, args, options = {}) =>
+{
   const child = spawn(command, args, {
     stdio: ['ignore', 'pipe', 'pipe'],
     ...options,
@@ -100,16 +126,19 @@ const spawnProcess = (command, args, options = {}) => {
   }
 }
 
-const compareVersions = (left, right) => {
+const compareVersions = (left, right) =>
+{
   const leftParts = left.split('.').map(Number)
   const rightParts = right.split('.').map(Number)
   const length = Math.max(leftParts.length, rightParts.length)
 
-  for (let index = 0; index < length; index += 1) {
+  for (let index = 0; index < length; index += 1)
+  {
     const leftPart = leftParts[index] ?? 0
     const rightPart = rightParts[index] ?? 0
 
-    if (leftPart !== rightPart) {
+    if (leftPart !== rightPart)
+    {
       return leftPart - rightPart
     }
   }
@@ -117,24 +146,31 @@ const compareVersions = (left, right) => {
   return 0
 }
 
-const collectMatchingFiles = async (rootDir, fileName, matches = []) => {
+const collectMatchingFiles = async (rootDir, fileName, matches = []) =>
+{
   let entries
 
-  try {
+  try
+  {
     entries = await readdir(rootDir, { withFileTypes: true })
-  } catch {
+  }
+  catch
+  {
     return matches
   }
 
-  for (const entry of entries) {
+  for (const entry of entries)
+  {
     const entryPath = path.join(rootDir, entry.name)
 
-    if (entry.isDirectory()) {
+    if (entry.isDirectory())
+    {
       await collectMatchingFiles(entryPath, fileName, matches)
       continue
     }
 
-    if (entry.isFile() && entry.name === fileName) {
+    if (entry.isFile() && entry.name === fileName)
+    {
       matches.push(entryPath)
     }
   }
@@ -142,26 +178,43 @@ const collectMatchingFiles = async (rootDir, fileName, matches = []) => {
   return matches
 }
 
-const findBrowserBinary = async () => {
+const findBrowserBinary = async () =>
+{
   const home = homedir()
   const chromeRoot = path.join(home, '.cache', 'puppeteer', 'chrome')
-  const headlessRoot = path.join(home, '.cache', 'puppeteer', 'chrome-headless-shell')
+  const headlessRoot = path.join(
+    home,
+    '.cache',
+    'puppeteer',
+    'chrome-headless-shell'
+  )
 
-  const chromeCandidates = await collectMatchingFiles(chromeRoot, 'Google Chrome for Testing')
-  const headlessCandidates = await collectMatchingFiles(headlessRoot, 'chrome-headless-shell')
+  const chromeCandidates = await collectMatchingFiles(
+    chromeRoot,
+    'Google Chrome for Testing'
+  )
+  const headlessCandidates = await collectMatchingFiles(
+    headlessRoot,
+    'chrome-headless-shell'
+  )
   const candidates = [...chromeCandidates, ...headlessCandidates]
 
   const accessibleCandidates = []
-  for (const candidate of candidates) {
-    try {
+  for (const candidate of candidates)
+  {
+    try
+    {
       await access(candidate, fsConstants.X_OK)
       accessibleCandidates.push(candidate)
-    } catch {
+    }
+    catch
+    {
       // ignore non-executable cache entries
     }
   }
 
-  accessibleCandidates.sort((left, right) => {
+  accessibleCandidates.sort((left, right) =>
+  {
     const leftVersion = left.match(/(\d+\.\d+\.\d+\.\d+)/)?.[1] ?? '0.0.0.0'
     const rightVersion = right.match(/(\d+\.\d+\.\d+\.\d+)/)?.[1] ?? '0.0.0.0'
 
@@ -169,52 +222,69 @@ const findBrowserBinary = async () => {
   })
 
   const binary = accessibleCandidates[0]
-  if (!binary) {
-    throw new Error('No cached Chromium binary was found under ~/.cache/puppeteer')
+  if (!binary)
+  {
+    throw new Error(
+      'No cached Chromium binary was found under ~/.cache/puppeteer'
+    )
   }
 
   return binary
 }
 
-class CdpClient {
+class CdpClient
+{
   #nextId = 1
   #pending = new Map()
   #eventWaiters = new Map()
 
-  constructor(url) {
+  constructor(url)
+  {
     this.url = url
     this.socket = null
   }
 
-  async connect() {
+  async connect()
+  {
     this.socket = new WebSocket(this.url)
 
-    await new Promise((resolve, reject) => {
-      const handleOpen = () => {
+    await new Promise((resolve, reject) =>
+    {
+      const handleOpen = () =>
+      {
         this.socket.removeEventListener('error', handleError)
         resolve()
       }
 
-      const handleError = (event) => {
-        reject(new Error(`WebSocket connection failed: ${event.message ?? 'unknown error'}`))
+      const handleError = (event) =>
+      {
+        reject(
+          new Error(
+            `WebSocket connection failed: ${event.message ?? 'unknown error'}`
+          )
+        )
       }
 
       this.socket.addEventListener('open', handleOpen, { once: true })
       this.socket.addEventListener('error', handleError, { once: true })
     })
 
-    this.socket.addEventListener('message', (event) => {
+    this.socket.addEventListener('message', (event) =>
+    {
       const message = JSON.parse(event.data)
 
-      if (message.id) {
+      if (message.id)
+      {
         const pending = this.#pending.get(message.id)
-        if (!pending) {
+        if (!pending)
+        {
           return
         }
 
         this.#pending.delete(message.id)
 
-        if (message.error) {
+        if (message.error)
+        {
           pending.reject(new Error(message.error.message))
           return
         }
@@ -224,15 +294,20 @@ class CdpClient {
       }
 
       const waiters = this.#eventWaiters.get(message.method)
-      if (!waiters || waiters.length === 0) {
+      if (!waiters || waiters.length === 0)
+      {
         return
       }
 
       const remainingWaiters = []
-      for (const waiter of waiters) {
-        if (waiter.predicate(message.params)) {
+      for (const waiter of waiters)
+      {
+        if (waiter.predicate(message.params))
+        {
           waiter.resolve(message.params)
-        } else {
+        }
+        else
+        {
           remainingWaiters.push(waiter)
         }
       }
@@ -241,28 +316,34 @@ class CdpClient {
     })
   }
 
-  async send(method, params = {}) {
+  async send(method, params = {})
+  {
     const id = this.#nextId
     this.#nextId += 1
 
     const payload = JSON.stringify({ id, method, params })
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) =>
+    {
       this.#pending.set(id, { resolve, reject })
       this.socket.send(payload)
     })
   }
 
-  async waitForEvent(method, predicate = () => true, timeoutMs = 10_000) {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
+  async waitForEvent(method, predicate = () => true, timeoutMs = 10_000)
+  {
+    return new Promise((resolve, reject) =>
+    {
+      const timeout = setTimeout(() =>
+      {
         reject(new Error(`Timed out waiting for ${method}`))
       }, timeoutMs)
 
       const waiters = this.#eventWaiters.get(method) ?? []
       waiters.push({
         predicate,
-        resolve: (value) => {
+        resolve: (value) =>
+        {
           clearTimeout(timeout)
           resolve(value)
         },
@@ -272,22 +353,28 @@ class CdpClient {
     })
   }
 
-  async evaluate(expression) {
+  async evaluate(expression)
+  {
     const result = await this.send('Runtime.evaluate', {
       expression,
       returnByValue: true,
       awaitPromise: true,
     })
 
-    if (result.exceptionDetails) {
-      throw new Error(result.exceptionDetails.text ?? 'Runtime evaluation failed')
+    if (result.exceptionDetails)
+    {
+      throw new Error(
+        result.exceptionDetails.text ?? 'Runtime evaluation failed'
+      )
     }
 
     return result.result.value
   }
 
-  async close() {
-    if (!this.socket) {
+  async close()
+  {
+    if (!this.socket)
+    {
       return
     }
 
@@ -296,24 +383,29 @@ class CdpClient {
   }
 }
 
-const navigateAndWait = async (client, url) => {
+const navigateAndWait = async (client, url) =>
+{
   const loaded = client.waitForEvent('Page.loadEventFired')
   await client.send('Page.navigate', { url })
   await loaded
 }
 
-const reloadAndWait = async (client) => {
+const reloadAndWait = async (client) =>
+{
   const loaded = client.waitForEvent('Page.loadEventFired')
   await client.send('Page.reload', { ignoreCache: true })
   await loaded
 }
 
-const waitForCondition = async (client, expression, timeoutMs = 10_000) => {
+const waitForCondition = async (client, expression, timeoutMs = 10_000) =>
+{
   const start = Date.now()
 
-  while (Date.now() - start < timeoutMs) {
+  while (Date.now() - start < timeoutMs)
+  {
     const value = await client.evaluate(expression)
-    if (value) {
+    if (value)
+    {
       return value
     }
 
@@ -323,7 +415,8 @@ const waitForCondition = async (client, expression, timeoutMs = 10_000) => {
   throw new Error(`Timed out waiting for condition: ${expression}`)
 }
 
-const getTierOrder = async (client, tierId = 'tier-s') => {
+const getTierOrder = async (client, tierId = 'tier-s') =>
+{
   return client.evaluate(`(() => {
     const container = document.querySelector('[data-testid="tier-container-${tierId}"]')
     if (!container) {
@@ -353,7 +446,8 @@ const getTierOrder = async (client, tierId = 'tier-s') => {
   })()`)
 }
 
-const getItemCenter = async (client, itemId) => {
+const getItemCenter = async (client, itemId) =>
+{
   const metrics = await client.evaluate(`(() => {
     const element = document.querySelector('[data-testid="tier-item-${itemId}"]')
     if (!element) {
@@ -370,14 +464,16 @@ const getItemCenter = async (client, itemId) => {
     }
   })()`)
 
-  if (!metrics) {
+  if (!metrics)
+  {
     throw new Error(`Could not locate ${itemId}`)
   }
 
   return metrics
 }
 
-const dispatchMouseMove = async (client, x, y, buttons) => {
+const dispatchMouseMove = async (client, x, y, buttons) =>
+{
   await client.send('Input.dispatchMouseEvent', {
     type: 'mouseMoved',
     x,
@@ -388,7 +484,8 @@ const dispatchMouseMove = async (client, x, y, buttons) => {
   })
 }
 
-const beginDrag = async (client, itemId) => {
+const beginDrag = async (client, itemId) =>
+{
   const center = await getItemCenter(client, itemId)
 
   await dispatchMouseMove(client, center.x, center.y, 0)
@@ -407,13 +504,15 @@ const beginDrag = async (client, itemId) => {
   return center
 }
 
-const moveDragToPoint = async (client, x, y) => {
+const moveDragToPoint = async (client, x, y) =>
+{
   await dispatchMouseMove(client, x, y, 1)
   await delay(50)
   return getTierOrder(client)
 }
 
-const releaseMouse = async (client, x, y) => {
+const releaseMouse = async (client, x, y) =>
+{
   await client.send('Input.dispatchMouseEvent', {
     type: 'mouseReleased',
     x,
@@ -426,7 +525,8 @@ const releaseMouse = async (client, x, y) => {
   await delay(50)
 }
 
-const seedBoard = async (client) => {
+const seedBoard = async (client) =>
+{
   const payload = JSON.stringify({ state: seededBoardState, version: 2 })
 
   await client.evaluate(`(() => {
@@ -435,7 +535,8 @@ const seedBoard = async (client) => {
   })()`)
 }
 
-const resetSeededBoard = async (client, baseUrl) => {
+const resetSeededBoard = async (client, baseUrl) =>
+{
   await navigateAndWait(client, baseUrl)
   await seedBoard(client)
   await reloadAndWait(client)
@@ -444,7 +545,7 @@ const resetSeededBoard = async (client, baseUrl) => {
     `(() => {
       const container = document.querySelector('[data-testid="tier-container-tier-s"]')
       return Boolean(container)
-    })()`,
+    })()`
   )
 
   await waitForCondition(
@@ -455,17 +556,24 @@ const resetSeededBoard = async (client, baseUrl) => {
       ).map((element) => element.getAttribute('data-item-id')).filter(Boolean)
 
       return JSON.stringify(order) === ${JSON.stringify(JSON.stringify(expectedInitialOrder))}
-    })()`,
+    })()`
   )
 }
 
-const createPageClient = async (debugPort) => {
-  const targetResponse = await fetch(`http://127.0.0.1:${debugPort}/json/new?about:blank`, {
-    method: 'PUT',
-  })
+const createPageClient = async (debugPort) =>
+{
+  const targetResponse = await fetch(
+    `http://127.0.0.1:${debugPort}/json/new?about:blank`,
+    {
+      method: 'PUT',
+    }
+  )
 
-  if (!targetResponse.ok) {
-    throw new Error(`Could not create a browser target: ${targetResponse.status}`)
+  if (!targetResponse.ok)
+  {
+    throw new Error(
+      `Could not create a browser target: ${targetResponse.status}`
+    )
   }
 
   const target = await targetResponse.json()
@@ -483,20 +591,25 @@ const createPageClient = async (debugPort) => {
   return client
 }
 
-const runAudit = async (client, baseUrl) => {
+const runAudit = async (client, baseUrl) =>
+{
   await resetSeededBoard(client, baseUrl)
 
   await beginDrag(client, 'sample-apex')
   const target = await getItemCenter(client, 'sample-comet')
 
   const observations = []
-  for (const offset of sampledOffsets) {
+  for (const offset of sampledOffsets)
+  {
     const order = await moveDragToPoint(client, target.x + offset, target.y)
     observations.push({ offset, order })
   }
 
   const swappedOffsets = observations
-    .filter((observation) => observation.order.join(',') === expectedSwapOrder.join(','))
+    .filter(
+      (observation) =>
+        observation.order.join(',') === expectedSwapOrder.join(',')
+    )
     .map((observation) => observation.offset)
 
   const firstSwapOffset = swappedOffsets[0]
@@ -506,7 +619,11 @@ const runAudit = async (client, baseUrl) => {
       ? lastSwapOffset - firstSwapOffset
       : -1
 
-  await releaseMouse(client, target.x + sampledOffsets[sampledOffsets.length - 1], target.y)
+  await releaseMouse(
+    client,
+    target.x + sampledOffsets[sampledOffsets.length - 1],
+    target.y
+  )
 
   const report = {
     sampledOffsets,
@@ -518,33 +635,51 @@ const runAudit = async (client, baseUrl) => {
 
   console.log(JSON.stringify(report, null, 2))
 
-  assert.notEqual(firstSwapOffset, undefined, 'No swapped hover band was detected')
-  assert.ok(stableBandWidth >= 12, `Swapped hover band was too narrow: ${stableBandWidth}px`)
+  assert.notEqual(
+    firstSwapOffset,
+    undefined,
+    'No swapped hover band was detected'
+  )
+  assert.ok(
+    stableBandWidth >= 12,
+    `Swapped hover band was too narrow: ${stableBandWidth}px`
+  )
 
   const releaseOffsets = [
-    ...new Set([firstSwapOffset, Math.round((firstSwapOffset + lastSwapOffset) / 2), lastSwapOffset]),
+    ...new Set([
+      firstSwapOffset,
+      Math.round((firstSwapOffset + lastSwapOffset) / 2),
+      lastSwapOffset,
+    ]),
   ]
   const parityChecks = []
 
-  for (const releaseOffset of releaseOffsets) {
+  for (const releaseOffset of releaseOffsets)
+  {
     await resetSeededBoard(client, baseUrl)
     await beginDrag(client, 'sample-apex')
     const refreshedTarget = await getItemCenter(client, 'sample-comet')
 
     let previewOrder = expectedInitialOrder
-    for (const offset of sampledOffsets) {
+    for (const offset of sampledOffsets)
+    {
       previewOrder = await moveDragToPoint(
         client,
         refreshedTarget.x + offset,
-        refreshedTarget.y,
+        refreshedTarget.y
       )
 
-      if (offset === releaseOffset) {
+      if (offset === releaseOffset)
+      {
         break
       }
     }
 
-    await releaseMouse(client, refreshedTarget.x + releaseOffset, refreshedTarget.y)
+    await releaseMouse(
+      client,
+      refreshedTarget.x + releaseOffset,
+      refreshedTarget.y
+    )
     const finalOrder = await getTierOrder(client)
 
     parityChecks.push({
@@ -557,25 +692,37 @@ const runAudit = async (client, baseUrl) => {
     assert.deepEqual(
       finalOrder,
       previewOrder,
-      `Drop order did not match hover order at release offset ${releaseOffset}`,
+      `Drop order did not match hover order at release offset ${releaseOffset}`
     )
   }
 
   return { ...report, parityChecks }
 }
 
-const main = async () => {
+const main = async () =>
+{
   const serverPort = await getFreePort()
   const debugPort = await getFreePort()
   const baseUrl = `http://127.0.0.1:${serverPort}`
   const browserBinary = await findBrowserBinary()
-  const userDataDir = await mkdtemp(path.join(tmpdir(), 'tierlistmaker-chrome-'))
+  const userDataDir = await mkdtemp(
+    path.join(tmpdir(), 'tierlistmaker-chrome-')
+  )
 
-  const server = spawnProcess('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(serverPort)])
+  const server = spawnProcess('npm', [
+    'run',
+    'dev',
+    '--',
+    '--host',
+    '127.0.0.1',
+    '--port',
+    String(serverPort),
+  ])
   let browser
   let client
 
-  try {
+  try
+  {
     await waitForHttp(baseUrl, 60_000)
 
     browser = spawnProcess(browserBinary, [
@@ -596,27 +743,32 @@ const main = async () => {
     const report = await runAudit(client, baseUrl)
 
     console.log(JSON.stringify(report, null, 2))
-  } finally {
+  }
+  finally
+  {
     await client?.close()
     browser?.child.kill('SIGTERM')
     server.child.kill('SIGTERM')
     await rm(userDataDir, { recursive: true, force: true })
 
     const browserExitCode = browser?.child.exitCode
-    if (browser && browserExitCode && browserExitCode !== 0) {
+    if (browser && browserExitCode && browserExitCode !== 0)
+    {
       const output = browser.getOutput()
       console.error(output.stderr || output.stdout)
     }
 
     const serverExitCode = server.child.exitCode
-    if (serverExitCode && serverExitCode !== 0) {
+    if (serverExitCode && serverExitCode !== 0)
+    {
       const output = server.getOutput()
       console.error(output.stderr || output.stdout)
     }
   }
 }
 
-main().catch((error) => {
+main().catch((error) =>
+{
   console.error(error instanceof Error ? error.stack : error)
   process.exitCode = 1
 })
