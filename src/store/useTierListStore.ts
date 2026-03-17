@@ -43,6 +43,7 @@ interface TierListStore extends TierListData {
   restoreDeletedItem: (itemId: string) => void
   permanentlyDeleteItem: (itemId: string) => void
   clearDeletedItems: () => void
+  clearAllItems: () => void
   beginDragPreview: () => void
   updateDragPreview: (
     preview: ContainerSnapshot,
@@ -327,6 +328,37 @@ export const useTierListStore = create<TierListStore>()(
         ...pushUndo(state),
         deletedItems: [],
       })),
+
+    // remove every item from tiers & unranked pool, moving them to the deleted list
+    clearAllItems: () =>
+      set((state) => {
+        // collect all item IDs from every tier & the unranked pool
+        const allItemIds = [
+          ...state.tiers.flatMap((t) => t.itemIds),
+          ...state.unrankedItemIds,
+        ]
+        if (allItemIds.length === 0) return state
+
+        // prepend cleared items to deleted list (newest first, cap at 50)
+        const clearedItems = allItemIds
+          .map((id) => state.items[id])
+          .filter(Boolean)
+        const nextDeleted = [...clearedItems, ...state.deletedItems].slice(0, 50)
+
+        // remove cleared items from the items map
+        const nextItems = { ...state.items }
+        for (const id of allItemIds) {
+          delete nextItems[id]
+        }
+
+        return {
+          ...pushUndo(state),
+          items: nextItems,
+          deletedItems: nextDeleted,
+          tiers: state.tiers.map((t) => ({ ...t, itemIds: [] })),
+          unrankedItemIds: [],
+        }
+      }),
 
     // capture the current board ordering so drag hover can work against a transient preview
     beginDragPreview: () =>

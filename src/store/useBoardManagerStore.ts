@@ -25,6 +25,8 @@ interface BoardManagerStore {
   renameBoard: (boardId: string, title: string) => void
   // sync the active board's title in the registry
   syncTitle: (title: string) => void
+  // create a new board from imported data & switch to it
+  importBoard: (data: TierListData) => void
 }
 
 // extract TierListData from the tier list store & save to localStorage
@@ -273,6 +275,28 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         if (boardId === activeBoardId) {
           useTierListStore.getState().updateTitle(trimmed)
         }
+      },
+
+      importBoard: (data) => {
+        const { activeBoardId, boards } = get()
+
+        // save the current board before switching
+        if (activeBoardId) {
+          saveCurrentBoard(activeBoardId)
+        }
+
+        const id = `board-${crypto.randomUUID()}`
+        const title = deduplicateTitle(data.title || DEFAULT_TITLE, boards)
+        const boardData = { ...data, title }
+        saveBoardToStorage(id, boardData)
+
+        // load imported board into the tier list store
+        useTierListStore.getState().loadBoard(boardData)
+
+        set({
+          boards: [...boards, { id, title, createdAt: Date.now() }],
+          activeBoardId: id,
+        })
       },
 
       syncTitle: (title) => {
