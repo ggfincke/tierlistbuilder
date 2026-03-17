@@ -2,12 +2,14 @@
 // floating action bar — add tier, settings, export, & reset controls
 import { forwardRef, useCallback, useRef, useState, type ReactNode } from 'react'
 
-import { Check, ChevronRight, Copy, Download, Plus, Redo2, RotateCcw, Settings as SettingsIcon, SquareArrowUp, Undo2 } from 'lucide-react'
+import { Check, ChevronRight, Copy, Download, FileDown, FileUp, Plus, Redo2, RotateCcw, Settings as SettingsIcon, SquareArrowUp, Undo2 } from 'lucide-react'
 
 import type { ImageFormat } from '../../types'
 
 import { usePopupClose } from '../../hooks/usePopupClose'
-import { useTierListStore } from '../../store/useTierListStore'
+import { useBoardManagerStore } from '../../store/useBoardManagerStore'
+import { extractBoardData, useTierListStore } from '../../store/useTierListStore'
+import { exportBoardAsJson, parseBoardJson } from '../../utils/exportJson'
 import { ConfirmDialog } from './ConfirmDialog'
 
 // display labels for the image format selector
@@ -80,11 +82,32 @@ export const BoardActionBar = ({
   const futureLength = useTierListStore((state) => state.future.length)
   const undo = useTierListStore((state) => state.undo)
   const redo = useTierListStore((state) => state.redo)
+  const title = useTierListStore((state) => state.title)
+  const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
+  const importBoard = useBoardManagerStore((state) => state.importBoard)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [imageFormat, setImageFormat] = useState<ImageFormat>('png')
   const [confirmReset, setConfirmReset] = useState(false)
   const exportButtonRef = useRef<HTMLButtonElement | null>(null)
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
+  const jsonInputRef = useRef<HTMLInputElement | null>(null)
+
+  const handleJsonExport = () => {
+    const data = extractBoardData(useTierListStore.getState())
+    exportBoardAsJson(data, title)
+    setShowExportMenu(false)
+  }
+
+  const handleJsonImport = async (file: File) => {
+    try {
+      const text = await file.text()
+      const data = parseBoardJson(text)
+      importBoard(data)
+    } catch (err) {
+      setRuntimeError(err instanceof Error ? err.message : 'Failed to import JSON file.')
+    }
+    setShowExportMenu(false)
+  }
 
   usePopupClose({
     show: showExportMenu,
@@ -236,6 +259,29 @@ export const BoardActionBar = ({
                 >
                   Export PDF
                 </button>
+
+                <div className="my-1 border-t border-[#444]" />
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                  onClick={handleJsonExport}
+                >
+                  <FileDown className="h-3.5 w-3.5 shrink-0" />
+                  Export JSON
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                  onClick={() => {
+                    jsonInputRef.current?.click()
+                  }}
+                >
+                  <FileUp className="h-3.5 w-3.5 shrink-0" />
+                  Import JSON
+                </button>
               </div>
             )}
           </div>
@@ -250,6 +296,19 @@ export const BoardActionBar = ({
           </ActionButton>
         </div>
       </div>
+
+      {/* hidden file input for JSON import */}
+      <input
+        ref={jsonInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) void handleJsonImport(file)
+          e.target.value = ''
+        }}
+      />
 
       {/* confirmation dialog shown before the destructive reset action */}
       <ConfirmDialog
