@@ -7,6 +7,7 @@ import type { ContainerSnapshot } from '../types'
 import { UNRANKED_CONTAINER_ID } from './constants'
 import {
   getDraggedItemRect,
+  isPointerInTrailingLastRowSpace,
   moveItemInSnapshot,
   resolveNextDragPreview,
   resolveDragTargetIndex,
@@ -108,6 +109,77 @@ describe('dragInsertion helpers', () =>
         overItemsLength: 4,
       })
     ).toBe(4)
+  })
+
+  it('detects trailing space in the last rendered row of a single-row container', () =>
+  {
+    expect(
+      isPointerInTrailingLastRowSpace({
+        pointerCoordinates: { x: 275, y: 40 },
+        itemRects: [
+          createRect({ left: 0 }),
+          createRect({ left: 90 }),
+          createRect({ left: 180 }),
+        ],
+      })
+    ).toBe(true)
+  })
+
+  it('detects trailing space in the last rendered row of a wrapped container', () =>
+  {
+    expect(
+      isPointerInTrailingLastRowSpace({
+        pointerCoordinates: { x: 175, y: 130 },
+        itemRects: [
+          createRect({ left: 0, top: 0 }),
+          createRect({ left: 90, top: 0 }),
+          createRect({ left: 180, top: 0 }),
+          createRect({ left: 0, top: 90 }),
+          createRect({ left: 90, top: 90 }),
+        ],
+      })
+    ).toBe(true)
+  })
+
+  it('ignores blank space above a shorter last row', () =>
+  {
+    expect(
+      isPointerInTrailingLastRowSpace({
+        pointerCoordinates: { x: 200, y: 40 },
+        itemRects: [
+          createRect({ left: 0, top: 0 }),
+          createRect({ left: 90, top: 0 }),
+          createRect({ left: 180, top: 0 }),
+          createRect({ left: 0, top: 90 }),
+        ],
+      })
+    ).toBe(false)
+  })
+
+  it('ignores blank space below the last row', () =>
+  {
+    expect(
+      isPointerInTrailingLastRowSpace({
+        pointerCoordinates: { x: 175, y: 190 },
+        itemRects: [
+          createRect({ left: 0, top: 0 }),
+          createRect({ left: 90, top: 0 }),
+          createRect({ left: 180, top: 0 }),
+          createRect({ left: 0, top: 90 }),
+          createRect({ left: 90, top: 90 }),
+        ],
+      })
+    ).toBe(false)
+  })
+
+  it('ignores trailing-space detection when pointer coordinates are unavailable', () =>
+  {
+    expect(
+      isPointerInTrailingLastRowSpace({
+        pointerCoordinates: null,
+        itemRects: [createRect({ left: 0 }), createRect({ left: 90 })],
+      })
+    ).toBe(false)
   })
 
   it('normalizes same-container insertion indices after removing the active item', () =>
@@ -257,6 +329,25 @@ describe('dragInsertion helpers', () =>
 
     expect(nextSnapshot.unrankedItemIds).toEqual(['item-6'])
     expect(nextSnapshot.tiers[1].itemIds).toEqual(['item-5', 'item-4'])
+  })
+
+  it('appends to the end when hovering a container-level drop target', () =>
+  {
+    const nextSnapshot = resolveNextDragPreview({
+      snapshot: createSnapshot(),
+      itemId: 'item-5',
+      overId: 'tier-a',
+      draggedRect: createRect({ left: 350 }),
+      overRect: createRect({ left: 0, width: 420 }),
+    })
+
+    expect(nextSnapshot.unrankedItemIds).toEqual(['item-6'])
+    expect(nextSnapshot.tiers[0].itemIds).toEqual([
+      'item-1',
+      'item-2',
+      'item-3',
+      'item-5',
+    ])
   })
 
   it('keeps the immediate right-neighbor hover stable after the preview has already swapped', () =>

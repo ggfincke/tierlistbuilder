@@ -29,6 +29,7 @@ import {
   getDraggedItemRect,
   getEffectiveContainerSnapshot,
   getItemsInContainer,
+  isPointerInTrailingLastRowSpace,
   resolveNextDragPreview,
 } from '../utils/dragInsertion'
 
@@ -133,15 +134,33 @@ export const useDragAndDrop = () =>
         // when hovering directly over the container (not an item), use closest-center among its children
         if (overIdString === overContainerId && overItems.length > 0)
         {
+          const childDroppables = args.droppableContainers.filter(
+            (container) =>
+            {
+              const containerId = toStringId(container.id)
+              return containerId ? overItems.includes(containerId) : false
+            }
+          )
+          const childRects = childDroppables.flatMap((container) =>
+          {
+            const rect = args.droppableRects.get(container.id)
+            return rect ? [rect] : []
+          })
+
+          if (
+            isPointerInTrailingLastRowSpace({
+              pointerCoordinates: args.pointerCoordinates,
+              itemRects: childRects,
+            })
+          )
+          {
+            lastOverIdRef.current = overContainerId
+            return [{ id: overContainerId }]
+          }
+
           const itemCollisions = closestCenter({
             ...args,
-            droppableContainers: args.droppableContainers.filter(
-              (container) =>
-              {
-                const containerId = toStringId(container.id)
-                return containerId ? overItems.includes(containerId) : false
-              }
-            ),
+            droppableContainers: childDroppables,
           })
 
           overId = itemCollisions[0]?.id ?? overId

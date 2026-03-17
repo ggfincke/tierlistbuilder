@@ -2,6 +2,7 @@
 // pure functions for drag-&-drop insertion logic
 
 import type { ClientRect, Translate } from '@dnd-kit/core'
+import type { Coordinates } from '@dnd-kit/utilities'
 
 import type { ContainerSnapshot, Tier, TierListData } from '../types'
 import { UNRANKED_CONTAINER_ID, clampIndex } from './constants'
@@ -47,7 +48,31 @@ interface RenderedItemPosition
   top: number
 }
 
+interface IsPointerInTrailingLastRowSpaceArgs
+{
+  pointerCoordinates: Coordinates | null
+  itemRects: ClientRect[]
+}
+
 type ContainerState = Pick<TierListData, 'tiers' | 'unrankedItemIds'>
+
+const RENDERED_ROW_TOP_TOLERANCE_PX = 4
+
+const sortByRenderedPosition = <T extends Pick<ClientRect, 'left' | 'top'>>(
+  itemRects: T[]
+): T[] =>
+{
+  return [...itemRects].sort((left, right) =>
+  {
+    const topDelta = left.top - right.top
+    if (Math.abs(topDelta) > RENDERED_ROW_TOP_TOLERANCE_PX)
+    {
+      return topDelta
+    }
+
+    return left.left - right.left
+  })
+}
 
 const hasContainer = (
   snapshot: ContainerSnapshot,
@@ -202,6 +227,35 @@ export const getDraggedItemRect = ({
     left: initialRect.left + delta.x,
     right: initialRect.right + delta.x,
   }
+}
+
+export const isPointerInTrailingLastRowSpace = ({
+  pointerCoordinates,
+  itemRects,
+}: IsPointerInTrailingLastRowSpaceArgs): boolean =>
+{
+  if (!pointerCoordinates || itemRects.length === 0)
+  {
+    return false
+  }
+
+  const sortedItemRects = sortByRenderedPosition(itemRects)
+  const lastRowTop = sortedItemRects[sortedItemRects.length - 1].top
+  const lastRowRects = sortedItemRects.filter(
+    (rect) => Math.abs(rect.top - lastRowTop) <= RENDERED_ROW_TOP_TOLERANCE_PX
+  )
+
+  const rightmostRect = lastRowRects.reduce((current, rect) =>
+    rect.right > current.right ? rect : current
+  )
+  const rowTop = Math.min(...lastRowRects.map((rect) => rect.top))
+  const rowBottom = Math.max(...lastRowRects.map((rect) => rect.bottom))
+
+  return (
+    pointerCoordinates.y >= rowTop &&
+    pointerCoordinates.y <= rowBottom &&
+    pointerCoordinates.x >= rightmostRect.right
+  )
 }
 
 // preserve the normal between-item threshold while honoring explicit front/back drops
@@ -395,18 +449,7 @@ const getRenderedItemIds = (
     return [...fallbackItemIds]
   }
 
-  positionedItems.sort((left, right) =>
-  {
-    const topDelta = left.top - right.top
-    if (Math.abs(topDelta) > 4)
-    {
-      return topDelta
-    }
-
-    return left.left - right.left
-  })
-
-  return positionedItems.map((item) => item.itemId)
+  return sortByRenderedPosition(positionedItems).map((item) => item.itemId)
 }
 
 export const captureRenderedContainerSnapshot = (

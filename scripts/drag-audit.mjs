@@ -41,9 +41,60 @@ const seededBoardState = {
   },
 }
 
+const buildTextItem = (id, label) => ({
+  id,
+  label,
+  backgroundColor: '#4a4a4a',
+})
+
+const wrappedTierOrder = [
+  'wrapped-1',
+  'wrapped-2',
+  'wrapped-3',
+  'wrapped-4',
+  'wrapped-5',
+  'wrapped-6',
+  'wrapped-7',
+  'wrapped-8',
+]
+const wrappedIncomingItemId = 'wrapped-incoming'
+const wrappedBoardState = {
+  title: 'Wrapped Drag Audit',
+  tiers: [
+    {
+      id: 'tier-s',
+      name: 'S',
+      color: '#f47c7c',
+      itemIds: wrappedTierOrder,
+    },
+    {
+      id: 'tier-a',
+      name: 'A',
+      color: '#f1b878',
+      itemIds: [wrappedIncomingItemId],
+    },
+    { id: 'tier-b', name: 'B', color: '#edd77b', itemIds: [] },
+    { id: 'tier-c', name: 'C', color: '#e3ea78', itemIds: [] },
+    { id: 'tier-d', name: 'D', color: '#abe36d', itemIds: [] },
+    { id: 'tier-e', name: 'E', color: '#74e56d', itemIds: [] },
+  ],
+  unrankedItemIds: [],
+  items: Object.fromEntries(
+    [...wrappedTierOrder, wrappedIncomingItemId].map((itemId, index) => [
+      itemId,
+      buildTextItem(itemId, `Wrapped ${index + 1}`),
+    ])
+  ),
+}
+
 const appStorageKey = 'tier-list-maker-state'
 const expectedInitialOrder = ['sample-apex', 'sample-comet', 'sample-drift']
 const expectedSwapOrder = ['sample-comet', 'sample-apex', 'sample-drift']
+const wrappedExpectedOrder = [...wrappedTierOrder]
+const wrappedExpectedAppendedOrder = [
+  ...wrappedTierOrder,
+  wrappedIncomingItemId,
+]
 const sampledOffsets = [
   -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
 ]
@@ -525,9 +576,9 @@ const releaseMouse = async (client, x, y) =>
   await delay(50)
 }
 
-const seedBoard = async (client) =>
+const seedBoard = async (client, boardState = seededBoardState) =>
 {
-  const payload = JSON.stringify({ state: seededBoardState, version: 2 })
+  const payload = JSON.stringify({ state: boardState, version: 2 })
 
   await client.evaluate(`(() => {
     localStorage.setItem(${JSON.stringify(appStorageKey)}, ${JSON.stringify(payload)})
@@ -535,10 +586,15 @@ const seedBoard = async (client) =>
   })()`)
 }
 
-const resetSeededBoard = async (client, baseUrl) =>
+const resetSeededBoard = async (
+  client,
+  baseUrl,
+  boardState = seededBoardState,
+  expectedOrder = expectedInitialOrder
+) =>
 {
   await navigateAndWait(client, baseUrl)
-  await seedBoard(client)
+  await seedBoard(client, boardState)
   await reloadAndWait(client)
   await waitForCondition(
     client,
@@ -555,9 +611,81 @@ const resetSeededBoard = async (client, baseUrl) =>
         document.querySelectorAll('[data-testid="tier-container-tier-s"] [data-item-id]')
       ).map((element) => element.getAttribute('data-item-id')).filter(Boolean)
 
-      return JSON.stringify(order) === ${JSON.stringify(JSON.stringify(expectedInitialOrder))}
+      return JSON.stringify(order) === ${JSON.stringify(JSON.stringify(expectedOrder))}
     })()`
   )
+}
+
+const getTrailingLastRowDropPoint = async (client, tierId = 'tier-s') =>
+{
+  const point = await client.evaluate(`(() => {
+    const container = document.querySelector('[data-testid="tier-container-${tierId}"]')
+    if (!container) {
+      return null
+    }
+
+    const containerRect = container.getBoundingClientRect()
+    const itemRects = Array.from(container.querySelectorAll('[data-item-id]'))
+      .map((element) => {
+        const rect = element.getBoundingClientRect()
+
+        return {
+          left: rect.left,
+          top: rect.top,
+          right: rect.right,
+          bottom: rect.bottom,
+          width: rect.width,
+        }
+      })
+      .sort((left, right) => {
+        const topDelta = left.top - right.top
+        if (Math.abs(topDelta) > 4) {
+          return topDelta
+        }
+
+        return left.left - right.left
+      })
+
+    if (itemRects.length === 0) {
+      return null
+    }
+
+    const lastRowTop = itemRects[itemRects.length - 1].top
+    const lastRowRects = itemRects.filter(
+      (rect) => Math.abs(rect.top - lastRowTop) <= 4
+    )
+    const rightmostRect = lastRowRects.reduce((current, rect) =>
+      rect.right > current.right ? rect : current
+    )
+    const rowTop = Math.min(...lastRowRects.map((rect) => rect.top))
+    const rowBottom = Math.max(...lastRowRects.map((rect) => rect.bottom))
+    const availableSpace = containerRect.right - rightmostRect.right
+
+    if (availableSpace <= 16) {
+      return null
+    }
+
+    const x = Math.min(
+      rightmostRect.right + Math.max(Math.min(availableSpace / 2, 40), 12),
+      containerRect.right - 8
+    )
+
+    return {
+      x,
+      y: (rowTop + rowBottom) / 2,
+      availableSpace,
+      lastRowCount: lastRowRects.length,
+    }
+  })()`)
+
+  if (!point)
+  {
+    throw new Error(
+      `Could not locate trailing last-row drop space for ${tierId}`
+    )
+  }
+
+  return point
 }
 
 const createPageClient = async (debugPort) =>
@@ -581,14 +709,69 @@ const createPageClient = async (debugPort) =>
   await client.connect()
   await client.send('Page.enable')
   await client.send('Runtime.enable')
+  await setViewport(client, 1440, 1200)
+
+  return client
+}
+
+const setViewport = async (client, width, height) =>
+{
   await client.send('Emulation.setDeviceMetricsOverride', {
-    width: 1440,
-    height: 1200,
+    width,
+    height,
     deviceScaleFactor: 1,
     mobile: false,
   })
+}
 
-  return client
+const runWrappedTrailingSpaceAudit = async (client, baseUrl) =>
+{
+  await setViewport(client, 980, 1200)
+
+  try
+  {
+    await resetSeededBoard(
+      client,
+      baseUrl,
+      wrappedBoardState,
+      wrappedExpectedOrder
+    )
+
+    const dropPoint = await getTrailingLastRowDropPoint(client, 'tier-s')
+
+    assert.ok(
+      dropPoint.availableSpace > 16,
+      `Wrapped trailing space was too narrow: ${dropPoint.availableSpace}px`
+    )
+
+    await beginDrag(client, wrappedIncomingItemId)
+    const previewOrder = await moveDragToPoint(client, dropPoint.x, dropPoint.y)
+
+    assert.deepEqual(
+      previewOrder,
+      wrappedExpectedAppendedOrder,
+      'Preview order did not append when hovering trailing last-row space'
+    )
+
+    await releaseMouse(client, dropPoint.x, dropPoint.y)
+    const finalOrder = await getTierOrder(client)
+
+    assert.deepEqual(
+      finalOrder,
+      previewOrder,
+      'Final drop order did not match preview order in trailing last-row space'
+    )
+
+    return {
+      dropPoint,
+      previewOrder,
+      finalOrder,
+    }
+  }
+  finally
+  {
+    await setViewport(client, 1440, 1200)
+  }
 }
 
 const runAudit = async (client, baseUrl) =>
@@ -696,7 +879,12 @@ const runAudit = async (client, baseUrl) =>
     )
   }
 
-  return { ...report, parityChecks }
+  const wrappedTrailingSpace = await runWrappedTrailingSpaceAudit(
+    client,
+    baseUrl
+  )
+
+  return { ...report, parityChecks, wrappedTrailingSpace }
 }
 
 const main = async () =>
