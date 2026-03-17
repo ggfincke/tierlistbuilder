@@ -1,10 +1,25 @@
 // src/components/board/TierLabel.tsx
 // inline-editable tier label cell w/ auto contrast text color
 import { memo } from 'react'
-import type { Tier } from '../../types'
+import type { ItemSize, Tier } from '../../types'
+import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
+import { ITEM_SIZE_PX, LABEL_WIDTH_PX } from '../../utils/constants'
 import { useEffect, useRef, useState } from 'react'
+
+// scale label font & padding to match item size so the row height stays consistent
+const LABEL_FONT_CLASS: Record<ItemSize, string> = {
+  small: 'text-sm',
+  medium: 'text-[1.45rem]',
+  large: 'text-2xl',
+}
+
+const LABEL_PADDING_CLASS: Record<ItemSize, string> = {
+  small: 'px-1.5 py-1',
+  medium: 'px-3 py-2',
+  large: 'px-4 py-3',
+}
 
 interface TierLabelProps {
   // tier whose name & color this label displays
@@ -23,6 +38,8 @@ const resizeEditor = (textarea: HTMLTextAreaElement | null) => {
 
 export const TierLabel = memo(({ tier }: TierLabelProps) => {
   const renameTier = useTierListStore((state) => state.renameTier)
+  const itemSize = useSettingsStore((state) => state.itemSize)
+  const labelWidth = useSettingsStore((state) => state.labelWidth)
   const [isEditing, setIsEditing] = useState(false)
   const [draftName, setDraftName] = useState(tier.name)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -76,14 +93,16 @@ export const TierLabel = memo(({ tier }: TierLabelProps) => {
 
   return (
     <div
-      className="flex min-h-[104px] w-[118px] shrink-0 border-r border-[#444] transition-[filter,box-shadow] hover:brightness-[1.04] focus-within:brightness-[1.04] focus-within:shadow-[inset_0_0_0_2px_rgba(255,255,255,0.16)]"
+      className="flex shrink-0 border-r border-[#444] transition-[filter,box-shadow] hover:brightness-[1.04] focus-within:brightness-[1.04] focus-within:shadow-[inset_0_0_0_2px_rgba(255,255,255,0.16)]"
       style={{
+        width: LABEL_WIDTH_PX[labelWidth],
+        minHeight: ITEM_SIZE_PX[itemSize],
         backgroundColor: tier.color,
         color: getTextColor(tier.color),
       }}
     >
       {isEditing ? (
-        <div className="flex h-full w-full items-center justify-center px-3 py-2">
+        <div className={`flex h-full w-full items-center justify-center ${LABEL_PADDING_CLASS[itemSize]}`}>
           <textarea
             ref={inputRef}
             value={draftName}
@@ -118,7 +137,7 @@ export const TierLabel = memo(({ tier }: TierLabelProps) => {
             }}
             aria-label={`Rename ${tier.name} tier`}
             rows={1}
-            className="block max-h-full w-full resize-none overflow-hidden bg-transparent text-center text-[1.45rem] font-semibold leading-tight outline-none placeholder:text-current/55 [overflow-wrap:anywhere]"
+            className={`block max-h-full w-full resize-none overflow-hidden bg-transparent text-center ${LABEL_FONT_CLASS[itemSize]} font-semibold leading-tight outline-none placeholder:text-current/55 [overflow-wrap:anywhere]`}
             spellCheck={false}
           />
         </div>
@@ -128,7 +147,7 @@ export const TierLabel = memo(({ tier }: TierLabelProps) => {
           type="button"
           onClick={beginEditing}
           aria-label={`Edit ${tier.name} tier label`}
-          className="flex h-full w-full cursor-text items-center justify-center px-3 py-2 text-center text-[1.45rem] font-semibold leading-tight outline-none"
+          className={`flex h-full w-full cursor-text items-center justify-center ${LABEL_PADDING_CLASS[itemSize]} text-center ${LABEL_FONT_CLASS[itemSize]} font-semibold leading-tight outline-none`}
         >
           <span className="block max-w-full break-words [overflow-wrap:anywhere]">
             {tier.name}

@@ -3,6 +3,7 @@
 import { DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core'
 import { useMemo, type RefObject } from 'react'
 
+import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { getEffectiveTiers } from '../../utils/dragInsertion'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
@@ -17,6 +18,8 @@ interface TierListProps {
 }
 
 export const TierList = ({ exportRef }: TierListProps) => {
+  const exportBackgroundColor = useSettingsStore((state) => state.exportBackgroundColor)
+  const compactMode = useSettingsStore((state) => state.compactMode)
   const storedTiers = useTierListStore((state) => state.tiers)
   const dragPreview = useTierListStore((state) => state.dragPreview)
   const tiers = useMemo(
@@ -52,8 +55,8 @@ export const TierList = ({ exportRef }: TierListProps) => {
       onDragCancel={onDragCancel}
     >
       {/* export capture wrapper — min-width prevents layout collapse on narrow screens */}
-      <div className="mt-3 overflow-x-auto">
-        <div ref={exportRef} className="min-w-[860px] bg-[#232323]">
+      <div className={`overflow-x-auto ${compactMode ? 'mt-1' : 'mt-3'}`}>
+        <div ref={exportRef} className="min-w-[860px]" style={{ backgroundColor: exportBackgroundColor }}>
           {tiers.map((tier, index) => (
             <TierRow key={tier.id} tier={tier} index={index} totalTiers={tiers.length} />
           ))}

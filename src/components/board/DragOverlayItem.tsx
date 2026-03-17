@@ -2,7 +2,9 @@
 // ghost item rendered in the dnd-kit DragOverlay while dragging
 import { memo } from 'react'
 import type { TierItem as TierItemType } from '../../types'
+import { useSettingsStore } from '../../store/useSettingsStore'
 import { getTextColor } from '../../utils/color'
+import { ITEM_SIZE_PX, SHAPE_CLASS } from '../../utils/constants'
 
 interface DragOverlayItemProps {
   // the item being dragged
@@ -11,9 +13,15 @@ interface DragOverlayItemProps {
 
 export const DragOverlayItem = memo(({ item }: DragOverlayItemProps) => {
   const bgColor = item.backgroundColor ?? '#444'
+  const itemSize = useSettingsStore((state) => state.itemSize)
+  const itemShape = useSettingsStore((state) => state.itemShape)
+  const sizePx = ITEM_SIZE_PX[itemSize]
 
   return (
-    <div className="h-[104px] w-[104px] overflow-hidden border border-black bg-black/40 shadow-xl">
+    <div
+      className={`overflow-hidden border border-black bg-black/40 shadow-xl ${SHAPE_CLASS[itemShape]}`}
+      style={{ width: sizePx, height: sizePx }}
+    >
       {item.imageUrl ? (
         <img
           src={item.imageUrl}

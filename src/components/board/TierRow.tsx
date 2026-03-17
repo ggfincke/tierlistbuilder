@@ -5,7 +5,9 @@ import { useDroppable } from '@dnd-kit/core'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 import type { Tier } from '../../types'
+import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
+import { ITEM_SIZE_PX } from '../../utils/constants'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { TierItem } from './TierItem'
 import { TierLabel } from './TierLabel'
@@ -52,6 +54,11 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
   const clearTierItems = useTierListStore((state) => state.clearTierItems)
   const addTierAt = useTierListStore((state) => state.addTierAt)
   const renameTier = useTierListStore((state) => state.renameTier)
+
+  const itemSize = useSettingsStore((state) => state.itemSize)
+  const compactMode = useSettingsStore((state) => state.compactMode)
+  const hideRowControls = useSettingsStore((state) => state.hideRowControls)
+  const sizePx = ITEM_SIZE_PX[itemSize]
 
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
@@ -109,7 +116,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
               ref={setNodeRef}
               data-testid={`tier-container-${tier.id}`}
               data-tier-id={tier.id}
-              className="flex min-h-[104px] flex-1 flex-wrap content-start gap-px bg-[#2b2b2b] p-0"
+              className={`flex flex-1 flex-wrap content-start bg-[#2b2b2b] p-0 ${compactMode ? 'gap-0' : 'gap-px'}`}
+              style={{ minHeight: sizePx }}
             >
               {tier.itemIds.map((itemId) => (
                 <TierItem key={itemId} itemId={itemId} containerId={tier.id} />
@@ -118,64 +126,66 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) => {
           </SortableContext>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 border-l border-[#444] bg-[#232323] px-1.5">
-          <div className="flex flex-col items-center justify-center gap-1">
-            <button
-              type="button"
-              className="rounded px-1 py-0.5 text-xs text-[#999] hover:text-white disabled:opacity-30"
-              disabled={index === 0}
-              onClick={() => reorderTier(tier.id, 'up')}
-              aria-label="Move tier up"
-            >
-              ▲
-            </button>
+        {!hideRowControls && (
+          <div className="flex shrink-0 items-center gap-1 border-l border-[#444] bg-[#232323] px-1.5">
+            <div className="flex flex-col items-center justify-center gap-1">
+              <button
+                type="button"
+                className="rounded px-1 py-0.5 text-xs text-[#999] hover:text-white disabled:opacity-30"
+                disabled={index === 0}
+                onClick={() => reorderTier(tier.id, 'up')}
+                aria-label="Move tier up"
+              >
+                ▲
+              </button>
 
-            <button
-              ref={colorButtonRef}
-              type="button"
-              className="h-4 w-4 rounded-full border border-[#555]"
-              style={{ backgroundColor: tier.color }}
-              onClick={() => {
-                if (!showColorPicker && colorButtonRef.current) {
-                  setColorPickerStyle(computeColorPickerStyle(colorButtonRef.current))
-                  setShowColorPicker(true)
-                  setShowSettingsMenu(false)
-                }
-              }}
-              aria-label="Change tier color"
-            />
+              <button
+                ref={colorButtonRef}
+                type="button"
+                className="h-4 w-4 rounded-full border border-[#555]"
+                style={{ backgroundColor: tier.color }}
+                onClick={() => {
+                  if (!showColorPicker && colorButtonRef.current) {
+                    setColorPickerStyle(computeColorPickerStyle(colorButtonRef.current))
+                    setShowColorPicker(true)
+                    setShowSettingsMenu(false)
+                  }
+                }}
+                aria-label="Change tier color"
+              />
 
-            <button
-              type="button"
-              className="rounded px-1 py-0.5 text-xs text-[#999] hover:text-white disabled:opacity-30"
-              disabled={index === totalTiers - 1}
-              onClick={() => reorderTier(tier.id, 'down')}
-              aria-label="Move tier down"
-            >
-              ▼
-            </button>
+              <button
+                type="button"
+                className="rounded px-1 py-0.5 text-xs text-[#999] hover:text-white disabled:opacity-30"
+                disabled={index === totalTiers - 1}
+                onClick={() => reorderTier(tier.id, 'down')}
+                aria-label="Move tier down"
+              >
+                ▼
+              </button>
+            </div>
+
+            <div>
+              <button
+                ref={gearButtonRef}
+                type="button"
+                className="rounded p-1 text-[#999] hover:text-white"
+                onClick={() => {
+                  if (!showSettingsMenu && gearButtonRef.current) {
+                    setSettingsMenuStyle(computeSettingsMenuStyle(gearButtonRef.current))
+                    setShowSettingsMenu(true)
+                    setShowColorPicker(false)
+                  }
+                }}
+                aria-label="Row settings"
+                aria-haspopup="menu"
+                aria-expanded={showSettingsMenu}
+              >
+                <SettingsIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
+              </button>
+            </div>
           </div>
-
-          <div>
-            <button
-              ref={gearButtonRef}
-              type="button"
-              className="rounded p-1 text-[#999] hover:text-white"
-              onClick={() => {
-                if (!showSettingsMenu && gearButtonRef.current) {
-                  setSettingsMenuStyle(computeSettingsMenuStyle(gearButtonRef.current))
-                  setShowSettingsMenu(true)
-                  setShowColorPicker(false)
-                }
-              }}
-              aria-label="Row settings"
-              aria-haspopup="menu"
-              aria-expanded={showSettingsMenu}
-            >
-              <SettingsIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
       {showColorPicker && (
