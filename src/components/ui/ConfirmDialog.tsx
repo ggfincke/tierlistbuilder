@@ -30,7 +30,7 @@ export const ConfirmDialog = ({
 }: ConfirmDialogProps) => {
   // stable ref for onCancel — avoids re-registering listener when parent passes unstable callback
   const onCancelRef = useRef(onCancel)
-  onCancelRef.current = onCancel
+  useEffect(() => { onCancelRef.current = onCancel })
 
   // close on Escape — uses capture phase so it fires before parent bubble-phase
   // listeners (TierSettings, usePopupClose) & stops propagation to prevent

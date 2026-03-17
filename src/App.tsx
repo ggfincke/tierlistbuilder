@@ -11,6 +11,7 @@ import { useBoardTransition } from './hooks/useBoardTransition'
 import { useUndoRedo } from './hooks/useUndoRedo'
 import { useBoardManagerStore } from './store/useBoardManagerStore'
 import { useTierListStore } from './store/useTierListStore'
+import { useSettingsStore } from './store/useSettingsStore'
 import type { ImageFormat } from './types'
 import { copyTierListToClipboard, exportTierListAsImage } from './utils/exportImage'
 import { exportTierListAsPdf } from './utils/exportPdf'
@@ -51,10 +52,11 @@ function App() {
     setExportStatus(type)
 
     try {
+      const bgColor = useSettingsStore.getState().exportBackgroundColor
       if (type === 'pdf') {
-        await exportTierListAsPdf(exportRef.current, title)
+        await exportTierListAsPdf(exportRef.current, title, bgColor)
       } else {
-        await exportTierListAsImage(exportRef.current, title, type)
+        await exportTierListAsImage(exportRef.current, title, type, bgColor)
       }
     } catch {
       setRuntimeError('Export failed. Try again after images finish loading.')
@@ -73,7 +75,8 @@ function App() {
     setExportStatus('clipboard')
 
     try {
-      await copyTierListToClipboard(exportRef.current)
+      const bgColor = useSettingsStore.getState().exportBackgroundColor
+      await copyTierListToClipboard(exportRef.current, bgColor)
     } catch (err) {
       setRuntimeError(
         err instanceof Error ? err.message : 'Failed to copy to clipboard.',

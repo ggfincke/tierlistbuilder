@@ -30,9 +30,9 @@ export const useBoardTransition = () => {
 
   // use refs to avoid recreating transitionTo on every phase/activeBoardId change
   const phaseRef = useRef(phase)
-  phaseRef.current = phase
+  useEffect(() => { phaseRef.current = phase })
   const activeBoardIdRef = useRef(activeBoardId)
-  activeBoardIdRef.current = activeBoardId
+  useEffect(() => { activeBoardIdRef.current = activeBoardId })
 
   // track pending timers & RAF for cleanup
   const timersRef = useRef<{ timeouts: ReturnType<typeof setTimeout>[]; raf: number | null }>({
@@ -75,7 +75,7 @@ export const useBoardTransition = () => {
       }, FADE_OUT_MS)
       timersRef.current.timeouts.push(t1)
     },
-    [switchBoard, cancelTimers],
+    [switchBoard],
   )
 
   const style = useMemo(
