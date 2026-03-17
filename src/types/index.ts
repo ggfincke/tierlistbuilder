@@ -77,3 +77,24 @@ export interface BoardMeta {
 
 // supported image export formats
 export type ImageFormat = 'png' | 'jpeg' | 'webp'
+
+// item display size presets
+export type ItemSize = 'small' | 'medium' | 'large'
+
+// item crop shape presets
+export type ItemShape = 'square' | 'rounded' | 'circle'
+
+// tier label column width presets
+export type LabelWidth = 'narrow' | 'default' | 'wide'
+
+// global app settings — persisted independently of per-board data
+export interface AppSettings {
+  itemSize: ItemSize
+  showLabels: boolean
+  itemShape: ItemShape
+  compactMode: boolean
+  exportBackgroundColor: string
+  labelWidth: LabelWidth
+  hideRowControls: boolean
+  confirmBeforeDelete: boolean
+}
