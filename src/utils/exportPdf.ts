@@ -8,9 +8,10 @@ import { renderElementToPng } from './exportImage'
 export const exportTierListAsPdf = async (
   element: HTMLElement,
   title: string,
+  backgroundColor?: string,
 ): Promise<void> => {
   const pixelRatio = 2
-  const png = await renderElementToPng(element)
+  const png = await renderElementToPng(element, backgroundColor)
 
   // derive pixel dimensions from the source element & known pixel ratio
   const width = element.offsetWidth * pixelRatio
