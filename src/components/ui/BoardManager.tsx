@@ -77,7 +77,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
         {
           if (!open) setOpen(true)
         }}
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full border border-white/12 bg-[#272727] px-3 py-2 text-sm text-slate-100 shadow-lg transition hover:border-white/22 hover:bg-[#2a2a2a]"
+        className="board-manager-trigger fixed z-40 flex items-center gap-1.5 rounded-full border border-[#444] bg-[#272727] px-3 py-2 text-sm text-slate-100 shadow-lg transition hover:border-[#555] hover:bg-[#2a2a2a]"
       >
         <Layers className="h-4 w-4" strokeWidth={1.8} />
         <span className="font-medium">{boards.length}</span>
@@ -87,7 +87,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
       {open && (
         <div
           ref={panelRef}
-          className="fixed bottom-16 right-4 z-50 flex w-64 flex-col rounded-xl border border-[#444] bg-[#1e1e1e] shadow-2xl"
+          className="board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border border-[#444] bg-[#1e1e1e] shadow-2xl"
         >
           {/* header */}
           <div className="flex items-center justify-between border-b border-[#444] px-3 py-2.5">
@@ -106,7 +106,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                 <div
                   key={board.id}
                   className={`group flex items-center gap-2 px-3 py-2 transition ${
-                    isActive ? 'bg-white/6' : 'hover:bg-white/4'
+                    isActive ? 'bg-[#2a2a2a]' : 'hover:bg-[#262626]'
                   }`}
                 >
                   {/* active indicator dot */}
@@ -203,7 +203,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                 createBoard()
                 setOpen(false)
               }}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[#aaa] transition hover:bg-white/6 hover:text-slate-100"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[#aaa] transition hover:bg-[#262626] hover:text-slate-100"
             >
               <Plus className="h-3.5 w-3.5" />
               New List

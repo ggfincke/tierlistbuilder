@@ -28,10 +28,6 @@ function App()
   const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
   const addTier = useTierListStore((state) => state.addTier)
   const resetBoard = useTierListStore((state) => state.resetBoard)
-  const isEmpty = useTierListStore(
-    (state) => Object.keys(state.items).length === 0
-  )
-
   // keep the board manager registry title in sync w/ the active board
   const syncTitle = useBoardManagerStore((state) => state.syncTitle)
   useEffect(() =>
@@ -142,25 +138,6 @@ function App()
             onCopyToClipboard={runCopyToClipboard}
             onReset={resetBoard}
           />
-
-          {/* empty board banner — shown when all items have been removed */}
-          {isEmpty && (
-            <div className="mx-auto my-4 max-w-md rounded-xl border border-[#444] bg-[#2b2b2b] p-6 text-center">
-              <p className="mb-2 text-base font-semibold text-slate-100">
-                Your tier list is empty
-              </p>
-              <p className="mb-4 text-sm text-[#888]">
-                Open Settings to import images or add text items.
-              </p>
-              <button
-                type="button"
-                onClick={resetBoard}
-                className="text-sm text-[#999] underline underline-offset-2 hover:text-slate-100"
-              >
-                Reset to load sample items
-              </button>
-            </div>
-          )}
 
           <TierList exportRef={exportRef} />
         </div>

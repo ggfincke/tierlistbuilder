@@ -12,8 +12,8 @@ import { useEffect, useRef, useState } from 'react'
 // scale label font & padding to match item size so the row height stays consistent
 const LABEL_FONT_CLASS: Record<ItemSize, string> = {
   small: 'text-sm',
-  medium: 'text-[1.45rem]',
-  large: 'text-2xl',
+  medium: 'text-sm',
+  large: 'text-sm',
 }
 
 const LABEL_PADDING_CLASS: Record<ItemSize, string> = {
@@ -157,7 +157,7 @@ export const TierLabel = memo(({ tier }: TierLabelProps) =>
             }}
             aria-label={`Rename ${tier.name} tier`}
             rows={1}
-            className={`block max-h-full w-full resize-none overflow-hidden bg-transparent text-center ${LABEL_FONT_CLASS[itemSize]} font-semibold leading-tight outline-none placeholder:text-current/55 [overflow-wrap:anywhere]`}
+            className={`block max-h-full w-full resize-none overflow-hidden bg-transparent text-center ${LABEL_FONT_CLASS[itemSize]} font-normal leading-tight outline-none placeholder:text-current/55 [overflow-wrap:anywhere]`}
             spellCheck={false}
           />
         </div>
@@ -167,7 +167,7 @@ export const TierLabel = memo(({ tier }: TierLabelProps) =>
           type="button"
           onClick={beginEditing}
           aria-label={`Edit ${tier.name} tier label`}
-          className={`flex h-full w-full cursor-text items-center justify-center ${LABEL_PADDING_CLASS[itemSize]} text-center ${LABEL_FONT_CLASS[itemSize]} font-semibold leading-tight outline-none`}
+          className={`flex h-full w-full cursor-text items-center justify-center ${LABEL_PADDING_CLASS[itemSize]} text-center ${LABEL_FONT_CLASS[itemSize]} font-normal leading-tight outline-none`}
         >
           <span className="block max-w-full break-words [overflow-wrap:anywhere]">
             {tier.name}

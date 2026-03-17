@@ -1,9 +1,10 @@
 // src/components/settings/TierSettings.tsx
 // settings panel — tabbed modal w/ items management & preferences
 
-import { RotateCcw, Trash2, X } from 'lucide-react'
+import { Layers, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
@@ -132,6 +133,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const setConfirmBeforeDelete = useSettingsStore(
     (state) => state.setConfirmBeforeDelete
   )
+
+  const boards = useBoardManagerStore((state) => state.boards)
+  const createBoard = useBoardManagerStore((state) => state.createBoard)
 
   const [activeTab, setActiveTab] = useState<Tab>('items')
   const [textLabel, setTextLabel] = useState('')
@@ -477,6 +481,36 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                     />
                   </div>
                 </div>
+              </section>
+
+              {/* lists */}
+              <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
+                <h3 className="mb-2 text-sm font-semibold text-slate-100">
+                  Lists
+                </h3>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 text-sm text-[#999]">
+                    <Layers className="h-3.5 w-3.5" />
+                    {boards.length} {boards.length === 1 ? 'list' : 'lists'}{' '}
+                    saved
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      {
+                      createBoard()
+                      onClose()
+                    }}
+                    className="flex items-center gap-1.5 rounded-md border border-[#555] bg-[#2b2b2b] px-3 py-1.5 text-sm text-slate-200 hover:border-[#777] hover:bg-[#333]"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    New List
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-[#666]">
+                  Switch between lists using the button in the bottom-right
+                  corner.
+                </p>
               </section>
 
               {/* behavior settings */}

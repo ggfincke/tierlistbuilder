@@ -25,4 +25,31 @@
   {
     min-width: 320px;
   }
+
+  .board-manager-trigger
+  {
+    right: calc(env(safe-area-inset-right, 0px) + 0.75rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 4.5rem);
+  }
+
+  .board-manager-panel
+  {
+    right: calc(env(safe-area-inset-right, 0px) + 0.75rem);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 8.5rem);
+  }
+
+  @media (min-width: 640px)
+  {
+    .board-manager-trigger
+    {
+      right: calc(env(safe-area-inset-right, 0px) + 1rem);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    }
+
+    .board-manager-panel
+    {
+      right: calc(env(safe-area-inset-right, 0px) + 1rem);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 4rem);
+    }
+  }
 }
