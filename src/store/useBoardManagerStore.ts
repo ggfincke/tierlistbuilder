@@ -12,7 +12,7 @@ import {
   boardStorageKey,
   buildDefaultTiers,
 } from '../utils/constants'
-import { buildSampleItemsState } from '../utils/sampleItems'
+
 import {
   createInitialData,
   extractBoardData,
@@ -160,21 +160,13 @@ const migrateLegacyBoard = (): { id: string; data: TierListData } | null =>
       deletedItems: state.deletedItems ?? [],
     }
 
-    // backfill sample items if board is completely empty
-    const isEmpty =
-      Object.keys(data.items).length === 0 &&
-      data.unrankedItemIds.length === 0 &&
-      data.tiers.every((t) => t.itemIds.length === 0)
-
-    const finalData = isEmpty ? { ...data, ...buildSampleItemsState() } : data
-
     const id = `board-${crypto.randomUUID()}`
-    saveBoardToStorage(id, finalData)
+    saveBoardToStorage(id, data)
 
     // clean up legacy key
     localStorage.removeItem(APP_STORAGE_KEY)
 
-    return { id, data: finalData }
+    return { id, data }
   }
   catch
   {
@@ -410,7 +402,7 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
           return
         }
 
-        // fresh install — create board #1 w/ sample items
+        // fresh install — create board #1
         const id = `board-${crypto.randomUUID()}`
         const data = createInitialData()
         saveBoardToStorage(id, data)

@@ -19,7 +19,6 @@ import type {
   Tier,
   TierListData,
 } from '../types'
-import { buildSampleItemsState } from '../utils/sampleItems'
 
 // full store shape — extends persisted data w/ runtime-only fields & actions
 interface TierListStore extends TierListData
@@ -61,12 +60,13 @@ interface TierListStore extends TierListData
   loadBoard: (data: TierListData) => void
 }
 
-// build fresh initial board data w/ default tiers & sample items
+// build fresh initial board data w/ default tiers
 export const createInitialData = (): TierListData => ({
   title: DEFAULT_TITLE,
   tiers: buildDefaultTiers(),
   deletedItems: [],
-  ...buildSampleItemsState(),
+  items: {},
+  unrankedItemIds: [],
 })
 
 // extract the persisted board data fields from the store
@@ -470,7 +470,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       }
     }),
 
-  // restore board to defaults & reload sample items
+  // restore board to defaults
   resetBoard: () =>
     set(() => ({
       ...createInitialData(),
