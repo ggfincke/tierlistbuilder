@@ -7,7 +7,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import prettierConfig from 'eslint-config-prettier'
-import localRules from '@ggfincke/eslint-config/rules'
+import localRules from './eslint-rules/index.js'
 
 export default defineConfig([
   // exclude build output from linting
