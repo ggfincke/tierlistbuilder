@@ -28,11 +28,21 @@
     "tailwindcss": "^4.2.1",
     "zustand": "^5.0.11"
   },
-  "prettier": "@ggfincke/prettier-config",
+  "prettier": {
+    "plugins": [
+      "prettier-plugin-brace-style"
+    ],
+    "braceStyle": "allman",
+    "semi": false,
+    "singleQuote": true,
+    "trailingComma": "es5",
+    "tabWidth": 2,
+    "printWidth": 80,
+    "arrowParens": "always"
+  },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.29.1",
     "@eslint/js": "^9.39.1",
-    "@ggfincke/prettier-config": "file:../../prettier-config",
-    "@ggfincke/eslint-config": "file:../../eslint-config",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -47,6 +57,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
     "vite": "^7.3.1",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "wrangler": "^4.75.0"
   }
 }
