@@ -87,7 +87,7 @@ const wrappedBoardState = {
   ),
 }
 
-const appStorageKey = 'tier-list-maker-state'
+const appStorageKey = 'tier-list-builder-state'
 const expectedInitialOrder = ['sample-apex', 'sample-comet', 'sample-drift']
 const expectedSwapOrder = ['sample-comet', 'sample-apex', 'sample-drift']
 const wrappedExpectedOrder = [...wrappedTierOrder]
@@ -894,7 +894,7 @@ const main = async () =>
   const baseUrl = `http://127.0.0.1:${serverPort}`
   const browserBinary = await findBrowserBinary()
   const userDataDir = await mkdtemp(
-    path.join(tmpdir(), 'tierlistmaker-chrome-')
+    path.join(tmpdir(), 'tierlistbuilder-chrome-')
   )
 
   const server = spawnProcess('npm', [

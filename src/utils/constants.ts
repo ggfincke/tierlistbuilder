@@ -3,10 +3,13 @@
 
 import type { ItemShape, ItemSize, LabelWidth, Tier } from '../types'
 
-// legacy localStorage key — used only for migration detection
-export const APP_STORAGE_KEY = 'tier-list-maker-state'
+// legacy localStorage keys — used only for migration detection
+export const APP_STORAGE_KEY = 'tier-list-builder-state'
+const LEGACY_APP_STORAGE_KEY = 'tier-list-maker-state'
+const LEGACY_BOARD_REGISTRY_KEY = 'tier-list-maker-boards'
+const LEGACY_SETTINGS_KEY = 'tier-list-maker-settings'
 // localStorage key for the multi-board registry
-export const BOARD_REGISTRY_KEY = 'tier-list-maker-boards'
+export const BOARD_REGISTRY_KEY = 'tier-list-builder-boards'
 // build a per-board localStorage key from its ID
 export const boardStorageKey = (id: string): string => `tier-list-board-${id}`
 // default board title used on first load & after reset
@@ -51,7 +54,24 @@ export const PRESET_TIER_COLORS = [
 export const EXPORT_BACKGROUND_COLOR = '#232323'
 
 // localStorage key for global user settings
-export const SETTINGS_STORAGE_KEY = 'tier-list-maker-settings'
+export const SETTINGS_STORAGE_KEY = 'tier-list-builder-settings'
+
+// migrate legacy "maker" localStorage keys to "builder" equivalents
+export const migrateStorageKeys = (): void =>
+{
+  for (const [oldKey, newKey] of [
+    [LEGACY_APP_STORAGE_KEY, APP_STORAGE_KEY],
+    [LEGACY_BOARD_REGISTRY_KEY, BOARD_REGISTRY_KEY],
+    [LEGACY_SETTINGS_KEY, SETTINGS_STORAGE_KEY],
+  ] as const)
+  {
+    if (localStorage.getItem(oldKey) && !localStorage.getItem(newKey))
+    {
+      localStorage.setItem(newKey, localStorage.getItem(oldKey)!)
+      localStorage.removeItem(oldKey)
+    }
+  }
+}
 
 // item size presets in pixels
 export const ITEM_SIZE_PX: Record<ItemSize, number> = {

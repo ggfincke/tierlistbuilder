@@ -1,7 +1,7 @@
 {
-  "name": "tierlistmaker",
+  "name": "tierlistbuilder",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,8 @@
     "format:check": "prettier --check . && eslint .",
     "test:drag": "vitest run",
     "audit:drag": "node scripts/drag-audit.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "version": "node scripts/check-changelog.mjs && git add CHANGELOG.md"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
