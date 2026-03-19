@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.5] - 2026-03-19
+
+### Added
+
+- Export-all feature — export every board at once as JSON, multi-page PDF, or ZIP of images (`1e173ad`)
+- `ExportProgressOverlay` component with per-board progress tracking (`1e173ad`)
+- `exportLock` and `loadAllBoardData` on board manager store for multi-board export coordination (`1e173ad`)
+- jszip dependency for image ZIP export (`1e173ad`)
+
+### Changed
+
+- Extracted `renderToDataUrl` helper and lazy-loaded jsPDF for better code splitting (`1e173ad`)
+- Export-all options wired into `BoardActionBar` dropdown and `App` (`1e173ad`)
+
+---
+
 ## [0.1.4] - 2026-03-17
 
 ### Added
