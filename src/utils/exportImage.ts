@@ -7,7 +7,7 @@ import type { ImageFormat } from '../types'
 import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
 
 // quality setting used for JPEG & WebP encoding
-const IMAGE_QUALITY = 0.92
+export const IMAGE_QUALITY = 0.92
 
 // trigger a browser download for any URL (data URL or blob URL) w/ the given filename
 export const triggerDownload = (url: string, filename: string) =>
@@ -19,17 +19,37 @@ export const triggerDownload = (url: string, filename: string) =>
 }
 
 // build export options for a given background color
-const getBaseOptions = (bgColor: string) => ({
+export const getBaseOptions = (bgColor: string) => ({
   pixelRatio: 2,
   cacheBust: true,
   backgroundColor: bgColor,
 })
 
 // file extensions keyed by format
-const FORMAT_EXT: Record<ImageFormat, string> = {
+export const FORMAT_EXT: Record<ImageFormat, string> = {
   png: 'png',
   jpeg: 'jpeg',
   webp: 'webp',
+}
+
+// render an element to a data URL in the specified format
+export const renderToDataUrl = async (
+  element: HTMLElement,
+  format: ImageFormat,
+  backgroundColor = EXPORT_BACKGROUND_COLOR
+): Promise<string> =>
+{
+  const opts = getBaseOptions(backgroundColor)
+  if (format === 'jpeg')
+  {
+    return toJpeg(element, { ...opts, quality: IMAGE_QUALITY })
+  }
+  if (format === 'webp')
+  {
+    const canvas = await toCanvas(element, opts)
+    return canvas.toDataURL('image/webp', IMAGE_QUALITY)
+  }
+  return toPng(element, opts)
 }
 
 // render the element to a 2x PNG data URL (used by PDF export)
@@ -65,18 +85,6 @@ export const exportTierListAsImage = async (
   backgroundColor = EXPORT_BACKGROUND_COLOR
 ): Promise<void> =>
 {
-  const opts = getBaseOptions(backgroundColor)
-
-  const renderFns: Record<ImageFormat, () => Promise<string>> = {
-    png: () => toPng(element, opts),
-    jpeg: () => toJpeg(element, { ...opts, quality: IMAGE_QUALITY }),
-    webp: async () =>
-    {
-      const canvas = await toCanvas(element, opts)
-      return canvas.toDataURL('image/webp', IMAGE_QUALITY)
-    },
-  }
-
-  const dataUrl = await renderFns[format]()
+  const dataUrl = await renderToDataUrl(element, format, backgroundColor)
   triggerDownload(dataUrl, `${toFileBase(title)}.${FORMAT_EXT[format]}`)
 }
