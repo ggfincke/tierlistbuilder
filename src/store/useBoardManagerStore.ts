@@ -427,6 +427,34 @@ const PERSISTED_FIELDS = [
   'deletedItems',
 ] as const
 
+// when true, the auto-save subscriber is suppressed (used during export-all)
+let exportLock = false
+export const setExportLock = (locked: boolean) => { exportLock = locked }
+
+// load every board's data from localStorage (flushes active board first)
+export const loadAllBoardData = (): Array<{
+  id: string
+  title: string
+  data: TierListData
+}> =>
+{
+  const { boards, activeBoardId } = useBoardManagerStore.getState()
+
+  // flush in-memory active board to storage so the read is fresh
+  if (activeBoardId)
+  {
+    saveCurrentBoard(activeBoardId)
+  }
+
+  const results: Array<{ id: string; title: string; data: TierListData }> = []
+  for (const board of boards)
+  {
+    const data = loadBoardFromStorage(board.id)
+    if (data) results.push({ id: board.id, title: board.title, data })
+  }
+  return results
+}
+
 // auto-save the active board whenever tier list data changes
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 useTierListStore.subscribe((state, prevState) =>
@@ -436,6 +464,10 @@ useTierListStore.subscribe((state, prevState) =>
   {
     return
   }
+
+  // suppress auto-save during export-all board-swap loop to avoid
+  // writing a temporarily-loaded board to the active board's storage slot
+  if (exportLock) return
 
   // debounce saves to avoid thrashing localStorage during rapid edits
   if (saveTimeout) clearTimeout(saveTimeout)
