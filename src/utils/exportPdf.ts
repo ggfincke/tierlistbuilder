@@ -1,7 +1,6 @@
 // src/utils/exportPdf.ts
 // PDF export utility — renders the tier list element to a downloadable PDF
 
-import { jsPDF } from 'jspdf'
 import { toFileBase } from './constants'
 import { renderElementToPng } from './exportImage'
 
@@ -20,6 +19,9 @@ export const exportTierListAsPdf = async (
   const height = element.offsetHeight * pixelRatio
   // choose orientation based on image aspect ratio
   const orientation = width >= height ? 'landscape' : 'portrait'
+
+  // dynamically import jsPDF to keep the main bundle slim
+  const { jsPDF } = await import('jspdf')
 
   // create a PDF sized to the exact pixel dimensions of the rendered image
   const pdf = new jsPDF({
