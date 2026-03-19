@@ -16,6 +16,7 @@ import {
   Download,
   FileDown,
   FileUp,
+  Layers,
   Plus,
   Redo2,
   RotateCcw,
@@ -46,10 +47,13 @@ interface BoardActionBarProps
 {
   // active export type while an export is in progress (null when idle)
   exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
+  // true while an "Export All" operation is running
+  exportingAll: boolean
   onAddTier: () => void
   onOpenSettings: () => void
   onExport: (format: ImageFormat | 'pdf') => Promise<void>
   onCopyToClipboard: () => Promise<void>
+  onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
   onReset: () => void
 }
 
@@ -94,13 +98,16 @@ const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
 // * primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
   exportStatus,
+  exportingAll,
   onAddTier,
   onOpenSettings,
   onExport,
   onCopyToClipboard,
+  onExportAll,
   onReset,
 }: BoardActionBarProps) =>
 {
+  const boardCount = useBoardManagerStore((state) => state.boards.length)
   const pastLength = useTierListStore((state) => state.past.length)
   const futureLength = useTierListStore((state) => state.future.length)
   const undo = useTierListStore((state) => state.undo)
@@ -193,7 +200,7 @@ export const BoardActionBar = ({
               {
                 if (!showExportMenu) setShowExportMenu(true)
               }}
-              disabled={exportStatus !== null}
+              disabled={exportStatus !== null || exportingAll}
               hasPopup="menu"
               expanded={showExportMenu}
             >
@@ -317,6 +324,48 @@ export const BoardActionBar = ({
                   <FileUp className="h-3.5 w-3.5 shrink-0" />
                   Import JSON
                 </button>
+
+                {/* export all submenu — only shown when multiple boards exist */}
+                {boardCount > 1 && (
+                  <>
+                    <div className="my-1 border-t border-[#444]" />
+
+                    <div className="group/all relative">
+                      <div
+                        role="menuitem"
+                        className="flex w-full cursor-default items-center justify-between gap-6 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Layers className="h-3.5 w-3.5 shrink-0" />
+                          Export All ({boardCount})
+                        </span>
+                        <ChevronRight className="h-3.5 w-3.5 text-[#888]" />
+                      </div>
+                      <div className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max rounded-xl bg-[#1e1e1e] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/all:visible group-hover/all:opacity-100">
+                        {([
+                          { format: 'json' as const, Icon: FileDown, label: 'All as JSON' },
+                          { format: 'pdf' as const, Icon: FileDown, label: 'All as PDF' },
+                          { format: imageFormat, Icon: Download, label: `All as ${FORMAT_LABELS[imageFormat]} (ZIP)` },
+                        ]).map(({ format, Icon, label }) => (
+                          <button
+                            key={format}
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                            onClick={() =>
+                            {
+                              setShowExportMenu(false)
+                              void onExportAll(format)
+                            }}
+                          >
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { BoardActionBar } from './components/ui/BoardActionBar'
 import { BoardManager } from './components/ui/BoardManager'
+import { ExportProgressOverlay } from './components/ui/ExportProgressOverlay'
 import { TierList } from './components/board/TierList'
 import { TierSettings } from './components/settings/TierSettings'
 import { Toolbar } from './components/ui/Toolbar'
@@ -14,6 +15,11 @@ import { useBoardManagerStore } from './store/useBoardManagerStore'
 import { useTierListStore } from './store/useTierListStore'
 import { useSettingsStore } from './store/useSettingsStore'
 import type { ImageFormat } from './types'
+import {
+  exportAllBoardsAsImages,
+  exportAllBoardsAsJson,
+  exportAllBoardsAsPdf,
+} from './utils/exportAll'
 import {
   copyTierListToClipboard,
   exportTierListAsImage,
@@ -44,6 +50,11 @@ function App()
   const [exportStatus, setExportStatus] = useState<
     ImageFormat | 'pdf' | 'clipboard' | null
   >(null)
+  // tracks progress during multi-board "Export All" operations
+  const [exportAllProgress, setExportAllProgress] = useState<{
+    current: number
+    total: number
+  } | null>(null)
 
   // ref attached to the export-capture wrapper div
   const exportRef = useRef<HTMLDivElement | null>(null)
@@ -109,6 +120,67 @@ function App()
     }
   }
 
+  // export all boards as JSON, PDF, or images (ZIP)
+  const runExportAll = async (type: 'json' | 'pdf' | ImageFormat) =>
+  {
+    if (exportStatus || exportAllProgress)
+    {
+      return
+    }
+
+    clearRuntimeError()
+
+    // JSON export doesn't need DOM rendering
+    if (type === 'json')
+    {
+      try
+      {
+        exportAllBoardsAsJson()
+      }
+      catch
+      {
+        setRuntimeError('Export All failed. Try again.')
+      }
+      return
+    }
+
+    if (!exportRef.current)
+    {
+      return
+    }
+
+    const bgColor = useSettingsStore.getState().exportBackgroundColor
+    const onProgress = (current: number, total: number) =>
+      setExportAllProgress({ current, total })
+
+    setExportAllProgress({ current: 0, total: 1 })
+
+    try
+    {
+      if (type === 'pdf')
+      {
+        await exportAllBoardsAsPdf(exportRef.current, bgColor, onProgress)
+      }
+      else
+      {
+        await exportAllBoardsAsImages(
+          exportRef.current,
+          type,
+          bgColor,
+          onProgress
+        )
+      }
+    }
+    catch
+    {
+      setRuntimeError('Export All failed. Try again after images finish loading.')
+    }
+    finally
+    {
+      setExportAllProgress(null)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#232323] text-slate-100">
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
@@ -132,10 +204,12 @@ function App()
         <div style={boardTransitionStyle}>
           <BoardActionBar
             exportStatus={exportStatus}
+            exportingAll={exportAllProgress !== null}
             onAddTier={addTier}
             onOpenSettings={() => setSettingsOpen(true)}
             onExport={runExport}
             onCopyToClipboard={runCopyToClipboard}
+            onExportAll={runExportAll}
             onReset={resetBoard}
           />
 
@@ -148,6 +222,12 @@ function App()
         onClose={useCallback(() => setSettingsOpen(false), [])}
       />
       <BoardManager onSwitchBoard={transitionTo} />
+      {exportAllProgress && (
+        <ExportProgressOverlay
+          current={exportAllProgress.current}
+          total={exportAllProgress.total}
+        />
+      )}
     </main>
   )
 }
