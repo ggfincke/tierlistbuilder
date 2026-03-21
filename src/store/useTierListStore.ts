@@ -5,10 +5,15 @@ import { create } from 'zustand'
 
 import {
   DEFAULT_TITLE,
-  PRESET_TIER_COLORS,
   buildDefaultTiers,
   clampIndex,
 } from '../utils/constants'
+import {
+  getAutoTierColorUpdate,
+  hydrateTierColorSources,
+  THEME_PALETTE,
+} from '../theme'
+import { useSettingsStore } from './useSettingsStore'
 import {
   applyContainerSnapshotToTiers,
   createContainerSnapshot,
@@ -16,7 +21,10 @@ import {
 import type {
   ContainerSnapshot,
   NewTierItem,
+  PaletteId,
   Tier,
+  TierColorSource,
+  TierColorUpdate,
   TierListData,
 } from '../types'
 
@@ -38,7 +46,12 @@ interface TierListStore extends TierListData
   updateTitle: (title: string) => void
   addTier: () => void
   renameTier: (tierId: string, name: string) => void
-  recolorTier: (tierId: string, color: string) => void
+  recolorTier: (
+    tierId: string,
+    color: string,
+    colorSource?: TierColorSource | null
+  ) => void
+  batchRecolorTiers: (colorMap: Map<string, TierColorUpdate>) => void
   reorderTier: (tierId: string, direction: 'up' | 'down') => void
   deleteTier: (tierId: string) => void
   clearTierItems: (tierId: string) => void
@@ -56,18 +69,23 @@ interface TierListStore extends TierListData
   discardDragPreview: () => void
   undo: () => void
   redo: () => void
+  applyPalette: (paletteId: PaletteId) => void
   resetBoard: () => void
   loadBoard: (data: TierListData) => void
 }
 
-// build fresh initial board data w/ default tiers
-export const createInitialData = (): TierListData => ({
-  title: DEFAULT_TITLE,
-  tiers: buildDefaultTiers(),
-  deletedItems: [],
-  items: {},
-  unrankedItemIds: [],
-})
+// build fresh initial board data w/ default tiers (always uses active theme's palette)
+export const createInitialData = (): TierListData =>
+{
+  const { themeId } = useSettingsStore.getState()
+  return {
+    title: DEFAULT_TITLE,
+    tiers: buildDefaultTiers(THEME_PALETTE[themeId]),
+    deletedItems: [],
+    items: {},
+    unrankedItemIds: [],
+  }
+}
 
 // extract the persisted board data fields from the store
 export const extractBoardData = (state: TierListStore): TierListData => ({
@@ -78,19 +96,20 @@ export const extractBoardData = (state: TierListStore): TierListData => ({
   deletedItems: state.deletedItems,
 })
 
-// cycle through preset colors by tier index
-const getTierLabelColor = (index: number): string =>
-{
-  return PRESET_TIER_COLORS[index % PRESET_TIER_COLORS.length]
-}
-
 // build a new tier object for the given tier count (used by addTier & addTierAt)
-const createNewTier = (tierCount: number): Tier => ({
-  id: `tier-${crypto.randomUUID()}`,
-  name: `Tier ${tierCount + 1}`,
-  color: getTierLabelColor(tierCount),
-  itemIds: [],
-})
+const createNewTier = (tierCount: number): Tier =>
+{
+  const { themeId } = useSettingsStore.getState()
+  const colorUpdate = getAutoTierColorUpdate(THEME_PALETTE[themeId], tierCount)
+
+  return {
+    id: `tier-${crypto.randomUUID()}`,
+    name: `Tier ${tierCount + 1}`,
+    color: colorUpdate.color,
+    colorSource: colorUpdate.colorSource,
+    itemIds: [],
+  }
+}
 
 // runtime-only field defaults — shared by resetBoard & loadBoard
 const freshRuntimeState = {
@@ -149,13 +168,34 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     })),
 
   // update the background color of a tier label
-  recolorTier: (tierId, color) =>
+  recolorTier: (tierId, color, colorSource = null) =>
     set((state) => ({
       ...pushUndo(state),
       tiers: state.tiers.map((tier) =>
-        tier.id === tierId ? { ...tier, color } : tier
+        tier.id === tierId ? { ...tier, color, colorSource } : tier
       ),
     })),
+
+  // recolor multiple tiers in a single update (one undo entry)
+  batchRecolorTiers: (colorMap) =>
+    set((state) =>
+    {
+      if (colorMap.size === 0) return state
+      return {
+        ...pushUndo(state),
+        tiers: state.tiers.map((tier) =>
+        {
+          const colorUpdate = colorMap.get(tier.id)
+          return colorUpdate
+            ? {
+                ...tier,
+                color: colorUpdate.color,
+                colorSource: colorUpdate.colorSource,
+              }
+            : tier
+        }),
+      }
+    }),
 
   // swap a tier w/ its neighbor in the given direction
   reorderTier: (tierId, direction) =>
@@ -470,6 +510,19 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       }
     }),
 
+  // apply a palette's colors to existing tiers by position (wraps for 7+ tiers)
+  applyPalette: (paletteId) =>
+    set((state) =>
+    {
+      return {
+        ...pushUndo(state),
+        tiers: state.tiers.map((tier, i) => ({
+          ...tier,
+          ...getAutoTierColorUpdate(paletteId, i),
+        })),
+      }
+    }),
+
   // restore board to defaults
   resetBoard: () =>
     set(() => ({
@@ -479,8 +532,14 @@ export const useTierListStore = create<TierListStore>()((set) => ({
 
   // replace entire board state w/ new data (used by board manager on switch/create)
   loadBoard: (data) =>
-    set(() => ({
-      ...data,
-      ...freshRuntimeState,
-    })),
+    set(() =>
+    {
+      const { themeId } = useSettingsStore.getState()
+
+      return {
+        ...data,
+        tiers: hydrateTierColorSources(THEME_PALETTE[themeId], data.tiers),
+        ...freshRuntimeState,
+      }
+    }),
 }))
