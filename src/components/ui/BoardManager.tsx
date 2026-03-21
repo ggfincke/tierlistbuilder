@@ -77,7 +77,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
         {
           if (!open) setOpen(true)
         }}
-        className="board-manager-trigger fixed z-40 flex items-center gap-1.5 rounded-full border border-[#444] bg-[#272727] px-3 py-2 text-sm text-slate-100 shadow-lg transition hover:border-[#555] hover:bg-[#2a2a2a]"
+        className="board-manager-trigger fixed z-40 flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-3 py-2 text-sm text-[var(--t-text)] shadow-lg transition hover:border-[var(--t-border-secondary)] hover:bg-[var(--t-bg-hover)]"
       >
         <Layers className="h-4 w-4" strokeWidth={1.8} />
         <span className="font-medium">{boards.length}</span>
@@ -87,11 +87,11 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
       {open && (
         <div
           ref={panelRef}
-          className="board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border border-[#444] bg-[#1e1e1e] shadow-2xl"
+          className="board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] shadow-2xl"
         >
           {/* header */}
-          <div className="flex items-center justify-between border-b border-[#444] px-3 py-2.5">
-            <span className="text-sm font-semibold text-slate-100">
+          <div className="flex items-center justify-between border-b border-[var(--t-border)] px-3 py-2.5">
+            <span className="text-sm font-semibold text-[var(--t-text)]">
               Your Lists
             </span>
           </div>
@@ -106,13 +106,15 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                 <div
                   key={board.id}
                   className={`group flex items-center gap-2 px-3 py-2 transition ${
-                    isActive ? 'bg-[#2a2a2a]' : 'hover:bg-[#262626]'
+                    isActive
+                      ? 'bg-[var(--t-bg-active)]'
+                      : 'hover:bg-[var(--t-bg-hover)]'
                   }`}
                 >
                   {/* active indicator dot */}
                   <div
                     className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                      isActive ? 'bg-sky-400' : 'bg-transparent'
+                      isActive ? 'bg-[var(--t-accent)]' : 'bg-transparent'
                     }`}
                   />
 
@@ -129,7 +131,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                         if (e.key === 'Escape') setEditingId(null)
                       }}
                       onBlur={commitRename}
-                      className="min-w-0 flex-1 bg-transparent text-sm text-slate-100 outline-none"
+                      className="min-w-0 flex-1 bg-transparent text-sm text-[var(--t-text)] outline-none"
                     />
                   ) : (
                     <>
@@ -143,8 +145,8 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                         }}
                         className={`min-w-0 flex-1 truncate text-left text-sm ${
                           isActive
-                            ? 'font-medium text-slate-100'
-                            : 'text-[#aaa] hover:text-slate-100'
+                            ? 'font-medium text-[var(--t-text)]'
+                            : 'text-[var(--t-text-muted)] hover:text-[var(--t-text)]'
                         }`}
                       >
                         {board.title}
@@ -159,7 +161,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                           setEditingId(board.id)
                           setEditValue(board.title)
                         }}
-                        className="shrink-0 rounded p-0.5 text-[#666] opacity-0 transition hover:text-slate-100 group-hover:opacity-100"
+                        className="shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] group-hover:opacity-100"
                       >
                         <Pencil className="h-3 w-3" />
                       </button>
@@ -172,7 +174,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                           duplicateBoard(board.id)
                           setOpen(false)
                         }}
-                        className="shrink-0 rounded p-0.5 text-[#666] opacity-0 transition hover:text-slate-100 group-hover:opacity-100"
+                        className="shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] group-hover:opacity-100"
                       >
                         <Copy className="h-3 w-3" />
                       </button>
@@ -182,7 +184,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                           type="button"
                           aria-label={`Delete ${board.title}`}
                           onClick={() => setConfirmDeleteId(board.id)}
-                          className="shrink-0 rounded p-0.5 text-[#666] opacity-0 transition hover:text-rose-400 group-hover:opacity-100"
+                          className="shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-destructive-hover)] group-hover:opacity-100"
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -195,7 +197,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
           </div>
 
           {/* new list button */}
-          <div className="border-t border-[#444] px-3 py-2">
+          <div className="border-t border-[var(--t-border)] px-3 py-2">
             <button
               type="button"
               onClick={() =>
@@ -203,7 +205,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                 createBoard()
                 setOpen(false)
               }}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[#aaa] transition hover:bg-[#262626] hover:text-slate-100"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)]"
             >
               <Plus className="h-3.5 w-3.5" />
               New List

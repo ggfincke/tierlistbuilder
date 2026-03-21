@@ -12,7 +12,7 @@ export const Toolbar = () =>
 
   return (
     <header className="px-3 pb-2 pt-3 text-center">
-      <h1 className="text-3xl font-semibold tracking-tight text-slate-100 sm:text-[2.15rem]">
+      <h1 className="text-3xl font-semibold tracking-tight text-[var(--t-text)] sm:text-[2.15rem]">
         {displayTitle}
       </h1>
     </header>

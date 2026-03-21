@@ -1,0 +1,218 @@
+// src/theme/tokens.ts
+// color token definitions for all 8 themes
+
+import type { ThemeId } from '../types'
+
+// shape of a single theme's color token set
+export interface ThemeDefinition
+{
+  'bg-page': string
+  'bg-surface': string
+  'bg-sunken': string
+  'bg-overlay': string
+  'bg-drag-over': string
+  'bg-hover': string
+  'bg-active': string
+  border: string
+  'border-secondary': string
+  'border-hover': string
+  text: string
+  'text-secondary': string
+  'text-muted': string
+  'text-faint': string
+  'text-dim': string
+  accent: string
+  'accent-hover': string
+  destructive: string
+  'destructive-hover': string
+  // space-separated RGB triplet for overlay opacity tinting
+  overlay: string
+  'export-bg': string
+}
+
+export const THEMES: Record<ThemeId, ThemeDefinition> = {
+  classic: {
+    'bg-page': '#232323',
+    'bg-surface': '#2b2b2b',
+    'bg-sunken': '#272727',
+    'bg-overlay': '#1e1e1e',
+    'bg-drag-over': '#323232',
+    'bg-hover': '#2a2a2a',
+    'bg-active': '#3a3a3a',
+    border: '#444444',
+    'border-secondary': '#555555',
+    'border-hover': '#777777',
+    text: '#f1f5f9',
+    'text-secondary': '#cccccc',
+    'text-muted': '#aaaaaa',
+    'text-faint': '#999999',
+    'text-dim': '#666666',
+    accent: '#38bdf8',
+    'accent-hover': '#0ea5e9',
+    destructive: '#f43f5e',
+    'destructive-hover': '#fb7185',
+    overlay: '255 255 255',
+    'export-bg': '#232323',
+  },
+  'classic-light': {
+    'bg-page': '#f5f5f0',
+    'bg-surface': '#ffffff',
+    'bg-sunken': '#ebebeb',
+    'bg-overlay': '#ffffff',
+    'bg-drag-over': '#e8e8e3',
+    'bg-hover': '#f0f0eb',
+    'bg-active': '#e0e0db',
+    border: '#d4d4d0',
+    'border-secondary': '#c0c0bc',
+    'border-hover': '#a0a09c',
+    text: '#1a1a1a',
+    'text-secondary': '#444444',
+    'text-muted': '#777777',
+    'text-faint': '#999999',
+    'text-dim': '#aaaaaa',
+    accent: '#0284c7',
+    'accent-hover': '#0369a1',
+    destructive: '#dc2626',
+    'destructive-hover': '#b91c1c',
+    overlay: '0 0 0',
+    'export-bg': '#f5f5f0',
+  },
+  midnight: {
+    'bg-page': '#0f172a',
+    'bg-surface': '#1e293b',
+    'bg-sunken': '#172033',
+    'bg-overlay': '#0c1322',
+    'bg-drag-over': '#253450',
+    'bg-hover': '#1a2540',
+    'bg-active': '#2d3f5e',
+    border: '#334155',
+    'border-secondary': '#475569',
+    'border-hover': '#64748b',
+    text: '#e2e8f0',
+    'text-secondary': '#94a3b8',
+    'text-muted': '#7a8a9e',
+    'text-faint': '#64748b',
+    'text-dim': '#475569',
+    accent: '#818cf8',
+    'accent-hover': '#6366f1',
+    destructive: '#f87171',
+    'destructive-hover': '#ef4444',
+    overlay: '255 255 255',
+    'export-bg': '#0f172a',
+  },
+  forest: {
+    'bg-page': '#1a2218',
+    'bg-surface': '#242e21',
+    'bg-sunken': '#1f281c',
+    'bg-overlay': '#151d13',
+    'bg-drag-over': '#2e3b2a',
+    'bg-hover': '#283324',
+    'bg-active': '#354832',
+    border: '#3d4f38',
+    'border-secondary': '#4e6148',
+    'border-hover': '#6b8563',
+    text: '#e4ece2',
+    'text-secondary': '#a8b8a4',
+    'text-muted': '#8a9e86',
+    'text-faint': '#7a8e76',
+    'text-dim': '#546850',
+    accent: '#4ade80',
+    'accent-hover': '#22c55e',
+    destructive: '#f97316',
+    'destructive-hover': '#ea580c',
+    overlay: '255 255 255',
+    'export-bg': '#1a2218',
+  },
+  ember: {
+    'bg-page': '#1c1410',
+    'bg-surface': '#271c16',
+    'bg-sunken': '#211813',
+    'bg-overlay': '#16100c',
+    'bg-drag-over': '#332519',
+    'bg-hover': '#2c2018',
+    'bg-active': '#3d2e22',
+    border: '#4a382a',
+    'border-secondary': '#5c4835',
+    'border-hover': '#7a6350',
+    text: '#f5ebe0',
+    'text-secondary': '#c4a882',
+    'text-muted': '#a08868',
+    'text-faint': '#8b7355',
+    'text-dim': '#635040',
+    accent: '#fb923c',
+    'accent-hover': '#f97316',
+    destructive: '#ef4444',
+    'destructive-hover': '#dc2626',
+    overlay: '255 255 255',
+    'export-bg': '#1c1410',
+  },
+  sakura: {
+    'bg-page': '#f6e8f0',
+    'bg-surface': '#fdf0f6',
+    'bg-sunken': '#edd5e2',
+    'bg-overlay': '#fdf0f6',
+    'bg-drag-over': '#e5c2d5',
+    'bg-hover': '#f0d8e7',
+    'bg-active': '#e3c5d6',
+    border: '#d4adc2',
+    'border-secondary': '#c495ae',
+    'border-hover': '#ad7d99',
+    text: '#2d1f26',
+    'text-secondary': '#5e4452',
+    'text-muted': '#8c7382',
+    'text-faint': '#a08a96',
+    'text-dim': '#b8a3b0',
+    accent: '#e879a8',
+    'accent-hover': '#d65d90',
+    destructive: '#e11d48',
+    'destructive-hover': '#be123c',
+    overlay: '0 0 0',
+    'export-bg': '#f6e8f0',
+  },
+  amoled: {
+    'bg-page': '#000000',
+    'bg-surface': '#0a0a0a',
+    'bg-sunken': '#050505',
+    'bg-overlay': '#0a0a0a',
+    'bg-drag-over': '#1a1a1a',
+    'bg-hover': '#111111',
+    'bg-active': '#222222',
+    border: '#222222',
+    'border-secondary': '#333333',
+    'border-hover': '#555555',
+    text: '#f0f0f0',
+    'text-secondary': '#b0b0b0',
+    'text-muted': '#888888',
+    'text-faint': '#777777',
+    'text-dim': '#444444',
+    accent: '#60a5fa',
+    'accent-hover': '#3b82f6',
+    destructive: '#f87171',
+    'destructive-hover': '#ef4444',
+    overlay: '255 255 255',
+    'export-bg': '#000000',
+  },
+  'high-contrast': {
+    'bg-page': '#000000',
+    'bg-surface': '#1a1a1a',
+    'bg-sunken': '#0d0d0d',
+    'bg-overlay': '#1a1a1a',
+    'bg-drag-over': '#003366',
+    'bg-hover': '#1a1a1a',
+    'bg-active': '#333333',
+    border: '#ffffff',
+    'border-secondary': '#cccccc',
+    'border-hover': '#ffff00',
+    text: '#ffffff',
+    'text-secondary': '#e0e0e0',
+    'text-muted': '#cccccc',
+    'text-faint': '#bbbbbb',
+    'text-dim': '#999999',
+    accent: '#ffff00',
+    'accent-hover': '#e6e600',
+    destructive: '#ff4444',
+    'destructive-hover': '#ff6666',
+    overlay: '255 255 255',
+    'export-bg': '#000000',
+  },
+}

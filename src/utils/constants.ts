@@ -1,7 +1,8 @@
 // src/utils/constants.ts
 // app-wide constants — storage keys, defaults, & tier presets
 
-import type { ItemShape, ItemSize, LabelWidth, Tier } from '../types'
+import type { ItemShape, ItemSize, LabelWidth, PaletteId, Tier } from '../types'
+import { PALETTES, THEMES } from '../theme'
 
 // legacy localStorage keys — used only for migration detection
 export const APP_STORAGE_KEY = 'tier-list-builder-state'
@@ -21,37 +22,18 @@ export const TRASH_CONTAINER_ID = 'trash'
 // max pixel dimension for resized thumbnail images
 export const MAX_THUMBNAIL_SIZE = 120
 
-// template for the default S–E tier rows (no items)
-const DEFAULT_TIER_TEMPLATE: Array<Omit<Tier, 'itemIds'>> = [
-  { id: 'tier-s', name: 'S', color: '#f47c7c' },
-  { id: 'tier-a', name: 'A', color: '#f1b878' },
-  { id: 'tier-b', name: 'B', color: '#edd77b' },
-  { id: 'tier-c', name: 'C', color: '#e3ea78' },
-  { id: 'tier-d', name: 'D', color: '#abe36d' },
-  { id: 'tier-e', name: 'E', color: '#74e56d' },
+// stable tier IDs for the default S–E rows (indexed by position)
+const DEFAULT_TIER_IDS = [
+  'tier-s',
+  'tier-a',
+  'tier-b',
+  'tier-c',
+  'tier-d',
+  'tier-e',
 ]
 
-// ordered preset colors shown in the color picker
-export const PRESET_TIER_COLORS = [
-  '#f47c7c',
-  '#f4a460',
-  '#f0d58c',
-  '#fdfd96',
-  '#d4f77f',
-  '#77dd77',
-  '#a0f0e8',
-  '#89cff0',
-  '#7b68ee',
-  '#f59ede',
-  '#b39eb5',
-  '#2d2d2d',
-  '#888888',
-  '#cccccc',
-  '#eeeeee',
-]
-
-// background color applied during PNG & PDF export
-export const EXPORT_BACKGROUND_COLOR = '#232323'
+// background color applied during PNG & PDF export (mirrors classic theme)
+export const EXPORT_BACKGROUND_COLOR = THEMES.classic['export-bg']
 
 // localStorage key for global user settings
 export const SETTINGS_STORAGE_KEY = 'tier-list-builder-settings'
@@ -124,5 +106,17 @@ export const clampIndex = (index: number, min: number, max: number): number =>
 }
 
 // build a fresh set of default tiers w/ empty item lists
-export const buildDefaultTiers = (): Tier[] =>
-  DEFAULT_TIER_TEMPLATE.map((tier) => ({ ...tier, itemIds: [] }))
+export const buildDefaultTiers = (paletteId: PaletteId = 'classic'): Tier[] =>
+{
+  const palette = PALETTES[paletteId]
+  return palette.defaults.map((entry, i) => ({
+    id: DEFAULT_TIER_IDS[i] ?? `tier-${entry.name.toLowerCase()}`,
+    name: entry.name,
+    color: entry.color,
+    colorSource: {
+      paletteType: 'default' as const,
+      index: i,
+    },
+    itemIds: [],
+  }))
+}

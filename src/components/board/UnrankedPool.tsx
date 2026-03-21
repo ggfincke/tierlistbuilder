@@ -88,14 +88,16 @@ export const UnrankedPool = () =>
 
   return (
     <section
-      className={`border border-[#444] bg-[#232323] ${compactMode ? 'mt-1 p-1.5' : 'mt-3 p-3'}`}
+      className={`border border-[var(--t-border)] bg-[var(--t-bg-page)] ${compactMode ? 'mt-1 p-1.5' : 'mt-3 p-3'}`}
     >
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[#aaa]">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--t-text-muted)]">
           Unranked
         </h2>
         {/* show total item count across the entire board */}
-        <span className="text-xs text-[#888]">{itemCount} total items</span>
+        <span className="text-xs text-[var(--t-text-faint)]">
+          {itemCount} total items
+        </span>
       </div>
 
       <SortableContext items={unrankedItemIds} strategy={rectSortingStrategy}>
@@ -104,7 +106,9 @@ export const UnrankedPool = () =>
           data-testid="unranked-container"
           data-tier-id={UNRANKED_CONTAINER_ID}
           className={`flex min-h-24 flex-wrap border border-dashed p-2 transition ${compactMode ? 'gap-0' : 'gap-[2px]'} ${
-            isOver ? 'border-[#888] bg-[#323232]' : 'border-[#555] bg-[#2b2b2b]'
+            isOver
+              ? 'border-[var(--t-border-hover)] bg-[var(--t-bg-drag-over)]'
+              : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]'
           }`}
         >
           {unrankedItemIds.length === 0 ? (
@@ -112,8 +116,8 @@ export const UnrankedPool = () =>
             <div
               className={`flex min-h-16 w-full cursor-pointer items-center justify-center text-center transition ${
                 isDraggingFiles
-                  ? 'text-sky-200'
-                  : 'text-[#888] hover:text-[#aaa]'
+                  ? 'text-[var(--t-accent)]'
+                  : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-muted)]'
               }`}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) =>

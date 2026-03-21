@@ -10,7 +10,6 @@ import {
   BOARD_REGISTRY_KEY,
   DEFAULT_TITLE,
   boardStorageKey,
-  buildDefaultTiers,
 } from '../utils/constants'
 
 import {
@@ -80,13 +79,7 @@ const loadBoardFromStorage = (boardId: string): TierListData | null =>
 }
 
 // build a blank board w/ default tiers & no items
-const createBlankBoardData = (): TierListData => ({
-  title: DEFAULT_TITLE,
-  tiers: buildDefaultTiers(),
-  unrankedItemIds: [],
-  items: {},
-  deletedItems: [],
-})
+const createBlankBoardData = (): TierListData => createInitialData()
 
 // v1 tier IDs/colors used before the S–F → S–E rename in schema v2
 const LEGACY_DEFAULT_TIER_SIGNATURE: Record<

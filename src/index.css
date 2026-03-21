@@ -4,13 +4,38 @@
 {
   :root
   {
-    font-family:
-      'Inter',
-      system-ui,
-      -apple-system,
-      sans-serif;
-    color: #e2e8f0;
-    background: #232323;
+    /* theme color tokens — Classic defaults (overridden by useThemeApplicator) */
+    --t-bg-page: #232323;
+    --t-bg-surface: #2b2b2b;
+    --t-bg-sunken: #272727;
+    --t-bg-overlay: #1e1e1e;
+    --t-bg-drag-over: #323232;
+    --t-bg-hover: #2a2a2a;
+    --t-bg-active: #3a3a3a;
+    --t-border: #444444;
+    --t-border-secondary: #555555;
+    --t-border-hover: #777777;
+    --t-text: #f1f5f9;
+    --t-text-secondary: #cccccc;
+    --t-text-muted: #aaaaaa;
+    --t-text-faint: #999999;
+    --t-text-dim: #666666;
+    --t-accent: #38bdf8;
+    --t-accent-hover: #0ea5e9;
+    --t-destructive: #f43f5e;
+    --t-destructive-hover: #fb7185;
+    --t-overlay: 255 255 255;
+    --t-export-bg: #232323;
+
+    /* typography tokens — Default style */
+    --ts-font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    --ts-weight-normal: 400;
+    --ts-weight-heading: 600;
+    --ts-letter-spacing: -0.011em;
+
+    font-family: var(--ts-font-family);
+    color: var(--t-text);
+    background: var(--t-bg-page);
   }
 
   html,

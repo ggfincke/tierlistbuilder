@@ -63,8 +63,8 @@ export const ImageUploader = () =>
       <div
         className={`flex min-h-20 cursor-pointer flex-col items-center justify-center border border-dashed p-4 text-center transition ${
           isDraggingFiles
-            ? 'border-sky-400 bg-sky-400/10 text-sky-200'
-            : 'border-[#555] bg-[#2b2b2b] text-[#aaa] hover:border-[#777]'
+            ? 'border-[var(--t-accent-hover)] bg-[color-mix(in_srgb,var(--t-accent-hover)_10%,transparent)] text-[var(--t-accent)]'
+            : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-muted)] hover:border-[var(--t-border-hover)]'
         }`}
         onClick={() => inputRef.current?.click()}
         onDragOver={(event) =>
@@ -94,7 +94,7 @@ export const ImageUploader = () =>
             ? 'Processing images...'
             : 'Drop images here or click to upload'}
         </p>
-        <p className="mt-1 text-xs text-[#888]">
+        <p className="mt-1 text-xs text-[var(--t-text-faint)]">
           Images are resized and saved in localStorage.
         </p>
       </div>
