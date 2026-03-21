@@ -9,9 +9,17 @@ import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
 import { getStorageUsageBytes } from '../../utils/constants'
-import type { ItemShape, ItemSize, LabelWidth } from '../../types'
+import { buildRecolorMap, THEME_PALETTE } from '../../theme'
+import type {
+  ItemShape,
+  ItemSize,
+  LabelWidth,
+  TierLabelFontSize,
+} from '../../types'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { ImageUploader } from './ImageUploader'
+import { TextStylePicker } from './TextStylePicker'
+import { ThemePicker } from './ThemePicker'
 
 type Tab = 'items' | 'preferences'
 
@@ -37,7 +45,7 @@ const Toggle = ({
     aria-checked={checked}
     onClick={() => onChange(!checked)}
     className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-      checked ? 'bg-sky-500' : 'bg-[#555]'
+      checked ? 'bg-[var(--t-accent)]' : 'bg-[var(--t-border-secondary)]'
     }`}
   >
     <span
@@ -57,9 +65,23 @@ const SettingRow = ({
   children: React.ReactNode
 }) => (
   <div className="flex items-center justify-between gap-3 py-1.5">
-    <span className="text-sm text-[#ccc]">{label}</span>
+    <span className="text-sm text-[var(--t-text-secondary)]">{label}</span>
     {children}
   </div>
+)
+
+// reusable settings section w/ styled border & heading
+const SettingsSection = ({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) => (
+  <section className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-3">
+    <h3 className="mb-2 text-sm font-semibold text-[var(--t-text)]">{title}</h3>
+    {children}
+  </section>
 )
 
 // reusable segmented control
@@ -72,7 +94,7 @@ const SegmentedControl = <T extends string>({
   value: T
   onChange: (v: T) => void
 }) => (
-  <div className="flex rounded-lg border border-[#555] bg-[#2b2b2b]">
+  <div className="flex rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]">
     {options.map((opt) => (
       <button
         key={opt.value}
@@ -80,8 +102,8 @@ const SegmentedControl = <T extends string>({
         onClick={() => onChange(opt.value)}
         className={`px-3 py-1 text-xs font-medium transition-colors ${
           value === opt.value
-            ? 'bg-[#444] text-slate-100'
-            : 'text-[#999] hover:text-[#ccc]'
+            ? 'bg-[var(--t-bg-active)] text-[var(--t-text)]'
+            : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
         } ${opt.value === options[0].value ? 'rounded-l-[7px]' : ''} ${
           opt.value === options[options.length - 1].value
             ? 'rounded-r-[7px]'
@@ -133,6 +155,25 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const setConfirmBeforeDelete = useSettingsStore(
     (state) => state.setConfirmBeforeDelete
   )
+  const themeId = useSettingsStore((state) => state.themeId)
+  const syncTierColorsWithTheme = useSettingsStore(
+    (state) => state.syncTierColorsWithTheme
+  )
+  const setSyncTierColorsWithTheme = useSettingsStore(
+    (state) => state.setSyncTierColorsWithTheme
+  )
+  const batchRecolorTiers = useTierListStore((state) => state.batchRecolorTiers)
+  const tiers = useTierListStore((state) => state.tiers)
+  const tierLabelBold = useSettingsStore((state) => state.tierLabelBold)
+  const tierLabelItalic = useSettingsStore((state) => state.tierLabelItalic)
+  const tierLabelFontSize = useSettingsStore((state) => state.tierLabelFontSize)
+  const setTierLabelBold = useSettingsStore((state) => state.setTierLabelBold)
+  const setTierLabelItalic = useSettingsStore(
+    (state) => state.setTierLabelItalic
+  )
+  const setTierLabelFontSize = useSettingsStore(
+    (state) => state.setTierLabelFontSize
+  )
 
   const boards = useBoardManagerStore((state) => state.boards)
   const createBoard = useBoardManagerStore((state) => state.createBoard)
@@ -142,6 +183,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const [textColor, setTextColor] = useState('#ffbf7f')
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
+  const [showSyncConfirm, setShowSyncConfirm] = useState(false)
 
   // stable ref for onClose — avoids re-registering listener when parent passes unstable callback
   const onCloseRef = useRef(onClose)
@@ -190,10 +232,10 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const storagePercent = Math.min((storageMb / storageMaxMb) * 100, 100)
   const storageColor =
     storagePercent > 85
-      ? 'bg-rose-500'
+      ? 'bg-[var(--t-destructive)]'
       : storagePercent > 60
-        ? 'bg-yellow-500'
-        : 'bg-green-500'
+        ? 'bg-[color-mix(in_srgb,var(--t-accent)_60%,var(--t-destructive))]'
+        : 'bg-[var(--t-accent)]'
 
   return (
     <>
@@ -201,23 +243,23 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
       <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
 
       <div
-        className="fixed inset-0 z-50 m-auto flex max-h-[calc(100vh-4rem)] w-full max-w-2xl flex-col rounded-xl border border-[#444] bg-[#1e1e1e] p-4 shadow-2xl"
+        className="fixed inset-0 z-50 m-auto flex max-h-[calc(100vh-4rem)] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl"
         style={{ height: 'fit-content' }}
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-slate-100">
+            <h2 className="text-lg font-semibold text-[var(--t-text)]">
               Tier Settings
             </h2>
             {/* tab buttons */}
-            <div className="flex gap-1 rounded-lg border border-[#444] bg-[#272727] p-0.5">
+            <div className="flex gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5">
               <button
                 type="button"
                 onClick={() => setActiveTab('items')}
                 className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
                   activeTab === 'items'
-                    ? 'bg-[#3a3a3a] text-slate-100'
-                    : 'text-[#999] hover:text-[#ccc]'
+                    ? 'bg-[var(--t-bg-active)] text-[var(--t-text)]'
+                    : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
                 }`}
               >
                 Items
@@ -227,8 +269,8 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                 onClick={() => setActiveTab('preferences')}
                 className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
                   activeTab === 'preferences'
-                    ? 'bg-[#3a3a3a] text-slate-100'
-                    : 'text-[#999] hover:text-[#ccc]'
+                    ? 'bg-[var(--t-bg-active)] text-[var(--t-text)]'
+                    : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
                 }`}
               >
                 Preferences
@@ -238,7 +280,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-[#555] px-3 py-1 text-sm text-[#ddd] hover:border-[#777]"
+            className="rounded-md border border-[var(--t-border-secondary)] px-3 py-1 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)]"
           >
             Done
           </button>
@@ -248,23 +290,15 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
           {activeTab === 'items' ? (
             <>
               {/* image import section */}
-              <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <div className="mb-2">
-                  <h3 className="text-sm font-semibold text-slate-100">
-                    Import Images
-                  </h3>
-                  <p className="mt-1 text-xs text-[#999]">
-                    Drop files here or choose them from your computer.
-                  </p>
-                </div>
+              <SettingsSection title="Import Images">
+                <p className="-mt-1 mb-2 text-xs text-[var(--t-text-faint)]">
+                  Drop files here or choose them from your computer.
+                </p>
                 <ImageUploader />
-              </section>
+              </SettingsSection>
 
               {/* text-only item creation */}
-              <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">
-                  Add Text Item
-                </h3>
+              <SettingsSection title="Add Text Item">
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -278,39 +312,39 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                       }
                     }}
                     placeholder="Label"
-                    className="min-w-0 flex-1 rounded-md border border-[#555] bg-[#2b2b2b] px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-[#888] outline-none focus:border-[#777]"
+                    className="min-w-0 flex-1 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-2.5 py-1.5 text-sm text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] outline-none focus:border-[var(--t-border-hover)]"
                   />
                   <input
                     type="color"
                     value={textColor}
                     onChange={(e) => setTextColor(e.target.value)}
-                    className="h-8 w-8 shrink-0 cursor-pointer rounded border border-[#555] bg-transparent"
+                    className="h-8 w-8 shrink-0 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
                   />
                   <button
                     type="button"
                     disabled={!textLabel.trim()}
                     onClick={handleAddTextItem}
-                    className="rounded-md border border-[#555] bg-[#2b2b2b] px-3 py-1.5 text-sm font-medium text-slate-200 hover:border-[#777] hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-45"
+                    className="rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm font-medium text-[var(--t-text)] hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-active)] disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     Add
                   </button>
                 </div>
-              </section>
+              </SettingsSection>
 
               {/* recently deleted items — only shown when there are deleted items */}
               {deletedItems.length > 0 && (
-                <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
+                <section className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-3">
                   <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-100">
+                    <h3 className="text-sm font-semibold text-[var(--t-text)]">
                       Recently Deleted
-                      <span className="ml-1.5 font-normal text-[#888]">
+                      <span className="ml-1.5 font-normal text-[var(--t-text-faint)]">
                         ({deletedItems.length})
                       </span>
                     </h3>
                     <button
                       type="button"
                       onClick={() => setShowClearConfirm(true)}
-                      className="flex items-center gap-1 text-xs text-[#888] hover:text-rose-300"
+                      className="flex items-center gap-1 text-xs text-[var(--t-text-faint)] hover:text-[var(--t-destructive-hover)]"
                     >
                       <Trash2 className="h-3 w-3" />
                       Clear all
@@ -373,11 +407,38 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
             </>
           ) : (
             <>
+              {/* appearance settings */}
+              <SettingsSection title="Appearance">
+                <div className="mb-3">
+                  <span className="mb-1.5 block text-xs text-[var(--t-text-faint)]">
+                    Theme
+                  </span>
+                  <ThemePicker />
+                </div>
+                <div className="mb-3">
+                  <span className="mb-1.5 block text-xs text-[var(--t-text-faint)]">
+                    Text Style
+                  </span>
+                  <TextStylePicker />
+                </div>
+                <SettingRow label="Sync Tier Colors">
+                  <Toggle
+                    checked={syncTierColorsWithTheme}
+                    onChange={(checked) =>
+                      {
+                      if (checked) setShowSyncConfirm(true)
+                      else setSyncTierColorsWithTheme(false)
+                    }}
+                  />
+                </SettingRow>
+                <p className="mt-1 text-xs text-[var(--t-text-dim)]">
+                  Automatically updates tier colors when switching themes. Turn
+                  off to keep custom colors.
+                </p>
+              </SettingsSection>
+
               {/* display settings */}
-              <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">
-                  Display
-                </h3>
+              <SettingsSection title="Display">
                 <SettingRow label="Item Size">
                   <SegmentedControl<ItemSize>
                     options={[
@@ -406,13 +467,36 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                 <SettingRow label="Compact Mode">
                   <Toggle checked={compactMode} onChange={setCompactMode} />
                 </SettingRow>
-              </section>
+              </SettingsSection>
+
+              {/* tier label styling */}
+              <SettingsSection title="Tier Labels">
+                <SettingRow label="Bold">
+                  <Toggle checked={tierLabelBold} onChange={setTierLabelBold} />
+                </SettingRow>
+                <SettingRow label="Italic">
+                  <Toggle
+                    checked={tierLabelItalic}
+                    onChange={setTierLabelItalic}
+                  />
+                </SettingRow>
+                <SettingRow label="Font Size">
+                  <SegmentedControl<TierLabelFontSize>
+                    options={[
+                      { value: 'xs', label: 'XS' },
+                      { value: 'small', label: 'S' },
+                      { value: 'medium', label: 'M' },
+                      { value: 'large', label: 'L' },
+                      { value: 'xl', label: 'XL' },
+                    ]}
+                    value={tierLabelFontSize}
+                    onChange={setTierLabelFontSize}
+                  />
+                </SettingRow>
+              </SettingsSection>
 
               {/* layout settings */}
-              <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">
-                  Layout
-                </h3>
+              <SettingsSection title="Layout">
                 <SettingRow label="Tier Label Width">
                   <SegmentedControl<LabelWidth>
                     options={[
@@ -430,66 +514,59 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                     onChange={setHideRowControls}
                   />
                 </SettingRow>
-              </section>
+              </SettingsSection>
 
               {/* export settings */}
-              <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">
-                  Export
-                </h3>
+              <SettingsSection title="Export">
                 <SettingRow label="Background Color">
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
                       value={exportBackgroundColor}
                       onChange={(e) => setExportBackgroundColor(e.target.value)}
-                      className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[#555] bg-transparent"
+                      className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
                     />
-                    <span className="text-xs text-[#888]">
+                    <span className="text-xs text-[var(--t-text-faint)]">
                       {exportBackgroundColor}
                     </span>
                   </div>
                 </SettingRow>
-              </section>
+              </SettingsSection>
 
               {/* data management */}
-              <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">
-                  Data
-                </h3>
+              <SettingsSection title="Data">
                 <button
                   type="button"
                   onClick={() => setShowClearAllConfirm(true)}
-                  className="flex items-center gap-1.5 rounded-md border border-[#555] bg-[#2b2b2b] px-3 py-1.5 text-sm text-rose-400 hover:border-rose-500/50 hover:bg-rose-500/10"
+                  className="flex items-center gap-1.5 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm text-[var(--t-destructive-hover)] hover:border-[color-mix(in_srgb,var(--t-destructive)_50%,transparent)] hover:bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)]"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Clear All Items
                 </button>
 
                 {/* storage usage */}
-                <div className="mt-3 pt-3 border-t border-[#444]">
+                <div className="mt-3 pt-3 border-t border-[var(--t-border)]">
                   <div className="mb-1 flex items-center justify-between">
-                    <span className="text-xs text-[#999]">Storage</span>
-                    <span className="text-xs text-[#888]">
+                    <span className="text-xs text-[var(--t-text-faint)]">
+                      Storage
+                    </span>
+                    <span className="text-xs text-[var(--t-text-faint)]">
                       {storageMb.toFixed(1)} MB / {storageMaxMb} MB
                     </span>
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-[#333]">
+                  <div className="h-1.5 w-full rounded-full bg-[var(--t-bg-active)]">
                     <div
                       className={`h-full rounded-full transition-all ${storageColor}`}
                       style={{ width: `${storagePercent}%` }}
                     />
                   </div>
                 </div>
-              </section>
+              </SettingsSection>
 
               {/* lists */}
-              <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">
-                  Lists
-                </h3>
+              <SettingsSection title="Lists">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-1.5 text-sm text-[#999]">
+                  <span className="flex items-center gap-1.5 text-sm text-[var(--t-text-faint)]">
                     <Layers className="h-3.5 w-3.5" />
                     {boards.length} {boards.length === 1 ? 'list' : 'lists'}{' '}
                     saved
@@ -501,30 +578,27 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                       createBoard()
                       onClose()
                     }}
-                    className="flex items-center gap-1.5 rounded-md border border-[#555] bg-[#2b2b2b] px-3 py-1.5 text-sm text-slate-200 hover:border-[#777] hover:bg-[#333]"
+                    className="flex items-center gap-1.5 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm text-[var(--t-text)] hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-active)]"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     New List
                   </button>
                 </div>
-                <p className="mt-2 text-xs text-[#666]">
+                <p className="mt-2 text-xs text-[var(--t-text-dim)]">
                   Switch between lists using the button in the bottom-right
                   corner.
                 </p>
-              </section>
+              </SettingsSection>
 
               {/* behavior settings */}
-              <section className="rounded-lg border border-[#444] bg-[#272727] p-3">
-                <h3 className="mb-2 text-sm font-semibold text-slate-100">
-                  Behavior
-                </h3>
+              <SettingsSection title="Behavior">
                 <SettingRow label="Confirm Before Delete">
                   <Toggle
                     checked={confirmBeforeDelete}
                     onChange={setConfirmBeforeDelete}
                   />
                 </SettingRow>
-              </section>
+              </SettingsSection>
             </>
           )}
         </div>
@@ -554,6 +628,23 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
           setShowClearAllConfirm(false)
         }}
         onCancel={() => setShowClearAllConfirm(false)}
+      />
+
+      <ConfirmDialog
+        open={showSyncConfirm}
+        title="Sync tier colors?"
+        description="Tier colors that came from a palette will be updated to match the current theme. Custom colors will stay untouched."
+        confirmText="Sync"
+        variant="accent"
+        onConfirm={() =>
+        {
+          setSyncTierColorsWithTheme(true)
+          const paletteId = THEME_PALETTE[themeId]
+          const colorMap = buildRecolorMap(paletteId, paletteId, tiers)
+          if (colorMap.size > 0) batchRecolorTiers(colorMap)
+          setShowSyncConfirm(false)
+        }}
+        onCancel={() => setShowSyncConfirm(false)}
       />
     </>
   )
