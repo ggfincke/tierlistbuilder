@@ -14,6 +14,24 @@ export interface TierItem
   backgroundColor?: string
 }
 
+// stable palette slot used to remap a tier color across themes
+export interface TierColorSource
+{
+  // whether this color came from the default tier ladder or the picker presets
+  paletteType: 'default' | 'preset'
+  // zero-based index within the source palette group
+  index: number
+}
+
+// tier color update payload used for single & batch recolors
+export interface TierColorUpdate
+{
+  // resolved hex color for the current theme
+  color: string
+  // palette slot to preserve across theme changes (null for custom colors)
+  colorSource: TierColorSource | null
+}
+
 // a single tier row w/ ordered item references
 export interface Tier
 {
@@ -23,6 +41,8 @@ export interface Tier
   name: string
   // hex color for the label background
   color: string
+  // palette slot that produced this color (absent on legacy data, null for custom colors)
+  colorSource?: TierColorSource | null
   // ordered list of item IDs assigned to this tier
   itemIds: string[]
 }
@@ -94,6 +114,33 @@ export type ItemShape = 'square' | 'rounded' | 'circle'
 // tier label column width presets
 export type LabelWidth = 'narrow' | 'default' | 'wide'
 
+// color theme identifiers
+export type ThemeId =
+  | 'classic'
+  | 'classic-light'
+  | 'midnight'
+  | 'forest'
+  | 'ember'
+  | 'sakura'
+  | 'amoled'
+  | 'high-contrast'
+
+// text style identifiers
+export type TextStyleId = 'default' | 'mono' | 'serif' | 'rounded' | 'display'
+
+// tier label palette identifiers (classic-light reuses classic)
+export type PaletteId =
+  | 'classic'
+  | 'midnight'
+  | 'forest'
+  | 'ember'
+  | 'sakura'
+  | 'amoled'
+  | 'high-contrast'
+
+// tier label font size presets (independent of item size)
+export type TierLabelFontSize = 'xs' | 'small' | 'medium' | 'large' | 'xl'
+
 // global app settings — persisted independently of per-board data
 export interface AppSettings
 {
@@ -105,4 +152,10 @@ export interface AppSettings
   labelWidth: LabelWidth
   hideRowControls: boolean
   confirmBeforeDelete: boolean
+  themeId: ThemeId
+  textStyleId: TextStyleId
+  syncTierColorsWithTheme: boolean
+  tierLabelBold: boolean
+  tierLabelItalic: boolean
+  tierLabelFontSize: TierLabelFontSize
 }
