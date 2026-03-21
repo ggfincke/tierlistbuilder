@@ -26,8 +26,8 @@ export const TrashZone = () =>
           : 'pointer-events-none h-0 min-h-0 overflow-hidden border-0 opacity-0'
       } ${
         isOver
-          ? 'border-red-500/60 bg-red-500/10 text-red-400'
-          : 'border-[#555] bg-[#2b2b2b] text-[#888]'
+          ? 'border-[color-mix(in_srgb,var(--t-destructive)_60%,transparent)] bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)] text-[var(--t-destructive-hover)]'
+          : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-faint)]'
       }`}
     >
       <Trash2

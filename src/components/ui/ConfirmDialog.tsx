@@ -15,6 +15,8 @@ interface ConfirmDialogProps
   confirmText?: string
   // label for the cancel button (default: "Cancel")
   cancelText?: string
+  // visual style of the confirm button (default: "destructive")
+  variant?: 'destructive' | 'accent'
   // called when the user confirms the action
   onConfirm: () => void
   // called when the user cancels or closes the dialog
@@ -27,6 +29,7 @@ export const ConfirmDialog = ({
   description,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
+  variant = 'destructive',
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) =>
@@ -64,21 +67,25 @@ export const ConfirmDialog = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-sm rounded-xl border border-[#444] bg-[#1e1e1e] p-4 shadow-2xl">
-        <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
-        <p className="mt-2 text-sm text-[#aaa]">{description}</p>
+      <div className="w-full max-w-sm rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
+        <h2 className="text-lg font-semibold text-[var(--t-text)]">{title}</h2>
+        <p className="mt-2 text-sm text-[var(--t-text-muted)]">{description}</p>
 
         <div className="mt-4 flex justify-end gap-2">
           <button
             type="button"
-            className="rounded-md border border-[#555] px-3 py-1.5 text-sm text-[#ddd] hover:border-[#777]"
+            className="rounded-md border border-[var(--t-border-secondary)] px-3 py-1.5 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)]"
             onClick={onCancel}
           >
             {cancelText}
           </button>
           <button
             type="button"
-            className="rounded-md bg-rose-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-400"
+            className={`rounded-md px-3 py-1.5 text-sm font-medium text-white ${
+              variant === 'accent'
+                ? 'bg-[var(--t-accent)] hover:bg-[var(--t-accent-hover)]'
+                : 'bg-[var(--t-destructive)] hover:bg-[var(--t-destructive-hover)]'
+            }`}
             onClick={onConfirm}
           >
             {confirmText}

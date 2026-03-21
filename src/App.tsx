@@ -10,6 +10,7 @@ import { TierList } from './components/board/TierList'
 import { TierSettings } from './components/settings/TierSettings'
 import { Toolbar } from './components/ui/Toolbar'
 import { useBoardTransition } from './hooks/useBoardTransition'
+import { useThemeApplicator } from './hooks/useThemeApplicator'
 import { useUndoRedo } from './hooks/useUndoRedo'
 import { useBoardManagerStore } from './store/useBoardManagerStore'
 import { useTierListStore } from './store/useTierListStore'
@@ -41,6 +42,7 @@ function App()
     syncTitle(title)
   }, [title, syncTitle])
 
+  useThemeApplicator()
   useUndoRedo()
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
@@ -184,17 +186,19 @@ function App()
   }
 
   return (
-    <main className="min-h-screen bg-[#232323] text-slate-100">
+    <main className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]">
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
         <Toolbar />
 
         {/* inline error banner — shown for storage & export errors */}
         {runtimeError && (
-          <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-rose-500/70 bg-rose-500/10 px-3 py-2">
-            <p className="text-sm text-rose-100">{runtimeError}</p>
+          <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--t-destructive)_70%,transparent)] bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)] px-3 py-2">
+            <p className="text-sm text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]">
+              {runtimeError}
+            </p>
             <button
               type="button"
-              className="rounded border border-rose-300/60 px-2 py-0.5 text-xs text-rose-100"
+              className="rounded border border-[color-mix(in_srgb,var(--t-destructive-hover)_60%,transparent)] px-2 py-0.5 text-xs text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]"
               onClick={clearRuntimeError}
             >
               Dismiss

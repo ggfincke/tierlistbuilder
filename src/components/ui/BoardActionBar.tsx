@@ -88,7 +88,7 @@ const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
       aria-expanded={hasPopup ? expanded : undefined}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-10 w-10 items-center justify-center rounded-[1.1rem] border border-white/12 bg-[#232323] text-slate-100 transition hover:border-white/22 hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-45"
+      className="flex h-10 w-10 items-center justify-center rounded-[1.1rem] border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-page)] text-[var(--t-text)] transition hover:border-[rgb(var(--t-overlay)/0.22)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-45"
     >
       {children}
     </button>
@@ -156,7 +156,7 @@ export const BoardActionBar = ({
   return (
     <>
       <div className="mt-3 flex justify-center">
-        <div className="inline-flex items-center gap-5 rounded-[1.7rem] border border-white/12 bg-[#272727] px-8 py-2">
+        <div className="inline-flex items-center gap-5 rounded-[1.7rem] border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-sunken)] px-8 py-2">
           {/* undo & redo controls */}
           <ActionButton
             label="Undo"
@@ -211,22 +211,22 @@ export const BoardActionBar = ({
               <div
                 ref={exportMenuRef}
                 role="menu"
-                className="absolute left-1/2 top-full z-30 mt-3 w-max -translate-x-1/2 rounded-xl bg-[#1e1e1e] p-1.5 text-sm shadow-md shadow-black/30"
+                className="absolute left-1/2 top-full z-30 mt-3 w-max -translate-x-1/2 rounded-xl bg-[var(--t-bg-overlay)] p-1.5 text-sm shadow-md shadow-black/30"
               >
                 {/* image submenu — hover to reveal download, copy, & format options */}
                 <div className="group/img relative">
                   <div
                     role="menuitem"
-                    className="flex w-full cursor-default items-center justify-between gap-6 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                    className="flex w-full cursor-default items-center justify-between gap-6 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
                   >
                     Export Image
-                    <ChevronRight className="h-3.5 w-3.5 text-[#888]" />
+                    <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
                   </div>
-                  <div className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max rounded-xl bg-[#1e1e1e] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/img:visible group-hover/img:opacity-100">
+                  <div className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max rounded-xl bg-[var(--t-bg-overlay)] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/img:visible group-hover/img:opacity-100">
                     <button
                       type="button"
                       role="menuitem"
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)] disabled:opacity-45"
                       onClick={() =>
                       {
                         setShowExportMenu(false)
@@ -240,7 +240,7 @@ export const BoardActionBar = ({
                     <button
                       type="button"
                       role="menuitem"
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)] disabled:opacity-45"
                       onClick={() =>
                       {
                         setShowExportMenu(false)
@@ -254,24 +254,24 @@ export const BoardActionBar = ({
                       </span>
                     </button>
 
-                    <div className="my-1 border-t border-[#444]" />
+                    <div className="my-1 border-t border-[var(--t-border)]" />
 
                     {/* format selector — nested sub-submenu w/ checkmark on active format */}
                     <div className="group/format relative">
                       <div
                         role="menuitem"
-                        className="flex w-full cursor-default items-center justify-between gap-4 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                        className="flex w-full cursor-default items-center justify-between gap-4 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
                       >
                         {FORMAT_LABELS[imageFormat]}
-                        <ChevronRight className="h-3.5 w-3.5 text-[#888]" />
+                        <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
                       </div>
-                      <div className="invisible absolute left-full -top-1.5 z-50 ml-1 w-max rounded-xl bg-[#1e1e1e] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/format:visible group-hover/format:opacity-100">
+                      <div className="invisible absolute left-full -top-1.5 z-50 ml-1 w-max rounded-xl bg-[var(--t-bg-overlay)] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/format:visible group-hover/format:opacity-100">
                         {(['png', 'jpeg', 'webp'] as const).map((fmt) => (
                           <button
                             key={fmt}
                             type="button"
                             role="menuitem"
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
                             onClick={() => setImageFormat(fmt)}
                           >
                             {imageFormat === fmt ? (
@@ -290,7 +290,7 @@ export const BoardActionBar = ({
                 <button
                   type="button"
                   role="menuitem"
-                  className="flex w-full rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6 disabled:opacity-45"
+                  className="flex w-full rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)] disabled:opacity-45"
                   onClick={() =>
                   {
                     setShowExportMenu(false)
@@ -301,12 +301,12 @@ export const BoardActionBar = ({
                   Export PDF
                 </button>
 
-                <div className="my-1 border-t border-[#444]" />
+                <div className="my-1 border-t border-[var(--t-border)]" />
 
                 <button
                   type="button"
                   role="menuitem"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
                   onClick={handleJsonExport}
                 >
                   <FileDown className="h-3.5 w-3.5 shrink-0" />
@@ -315,7 +315,7 @@ export const BoardActionBar = ({
                 <button
                   type="button"
                   role="menuitem"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
                   onClick={() =>
                   {
                     jsonInputRef.current?.click()
@@ -328,20 +328,20 @@ export const BoardActionBar = ({
                 {/* export all submenu — only shown when multiple boards exist */}
                 {boardCount > 1 && (
                   <>
-                    <div className="my-1 border-t border-[#444]" />
+                    <div className="my-1 border-t border-[var(--t-border)]" />
 
                     <div className="group/all relative">
                       <div
                         role="menuitem"
-                        className="flex w-full cursor-default items-center justify-between gap-6 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                        className="flex w-full cursor-default items-center justify-between gap-6 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
                       >
                         <span className="flex items-center gap-2">
                           <Layers className="h-3.5 w-3.5 shrink-0" />
                           Export All ({boardCount})
                         </span>
-                        <ChevronRight className="h-3.5 w-3.5 text-[#888]" />
+                        <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
                       </div>
-                      <div className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max rounded-xl bg-[#1e1e1e] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/all:visible group-hover/all:opacity-100">
+                      <div className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max rounded-xl bg-[var(--t-bg-overlay)] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/all:visible group-hover/all:opacity-100">
                         {[
                           {
                             format: 'json' as const,
@@ -363,7 +363,7 @@ export const BoardActionBar = ({
                             key={format}
                             type="button"
                             role="menuitem"
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-100 transition hover:bg-white/6"
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
                             onClick={() =>
                             {
                               setShowExportMenu(false)
