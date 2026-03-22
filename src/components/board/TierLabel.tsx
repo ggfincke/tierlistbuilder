@@ -28,6 +28,8 @@ interface TierLabelProps
 {
   // tier whose name & color this label displays
   tier: Tier
+  // transient color override for live preview while the custom picker is open
+  colorOverride?: string | null
 }
 
 // resize the editor to the wrapped text height so typing matches the saved label layout
@@ -42,8 +44,9 @@ const resizeEditor = (textarea: HTMLTextAreaElement | null) =>
   textarea.style.height = `${textarea.scrollHeight}px`
 }
 
-export const TierLabel = memo(({ tier }: TierLabelProps) =>
+export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
 {
+  const displayColor = colorOverride ?? tier.color
   const renameTier = useTierListStore((state) => state.renameTier)
   const itemSize = useSettingsStore((state) => state.itemSize)
   const labelWidth = useSettingsStore((state) => state.labelWidth)
@@ -118,8 +121,8 @@ export const TierLabel = memo(({ tier }: TierLabelProps) =>
       style={{
         width: LABEL_WIDTH_PX[labelWidth],
         minHeight: ITEM_SIZE_PX[itemSize],
-        backgroundColor: tier.color,
-        color: getTextColor(tier.color),
+        backgroundColor: displayColor,
+        color: getTextColor(displayColor),
       }}
     >
       {isEditing ? (
