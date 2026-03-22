@@ -1,7 +1,7 @@
 // src/components/board/TierRow.tsx
 // tier row component — label, sortable item grid, & row controls
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
@@ -15,7 +15,7 @@ import { ITEM_SIZE_PX } from '../../utils/constants'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { TierItem } from './TierItem'
 import { TierLabel } from './TierLabel'
-import { ColorPicker } from './ColorPicker'
+import { ColorPicker, CustomColorPicker } from './ColorPicker'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 interface TierRowProps
@@ -25,13 +25,46 @@ interface TierRowProps
   totalTiers: number
 }
 
+const CUSTOM_COLOR_PICKER_WIDTH_PX = 280
+const POPUP_GAP_PX = 8
+const VIEWPORT_MARGIN_PX = 8
+
 function computeColorPickerStyle(btn: HTMLButtonElement): CSSProperties
 {
   const rect = btn.getBoundingClientRect()
+
   return {
     position: 'fixed',
-    top: rect.bottom + 8,
+    top: rect.bottom + POPUP_GAP_PX,
     right: window.innerWidth - rect.right,
+  }
+}
+
+// position the custom popup below the swatch tray, clamped to viewport
+function computeCustomColorPickerStyle(
+  btn: HTMLButtonElement,
+  tray: HTMLDivElement | null,
+  popupWidth: number,
+  popupHeight = 0
+): CSSProperties
+{
+  const trayRect = tray?.getBoundingClientRect()
+  const buttonRect = btn.getBoundingClientRect()
+  const anchorBottom = trayRect?.bottom ?? buttonRect.bottom
+  const anchorLeft = trayRect?.left ?? buttonRect.left
+  const maxLeft = window.innerWidth - popupWidth - VIEWPORT_MARGIN_PX
+  const maxTop = window.innerHeight - popupHeight - VIEWPORT_MARGIN_PX
+
+  return {
+    position: 'fixed',
+    top: Math.min(
+      anchorBottom + POPUP_GAP_PX,
+      Math.max(VIEWPORT_MARGIN_PX, maxTop)
+    ),
+    left: Math.min(
+      Math.max(anchorLeft, VIEWPORT_MARGIN_PX),
+      Math.max(VIEWPORT_MARGIN_PX, maxLeft)
+    ),
   }
 }
 
@@ -72,15 +105,23 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
   const presets = PALETTES[THEME_PALETTE[themeId]].presets
 
   const [showColorPicker, setShowColorPicker] = useState(false)
+  const [showCustomColorPicker, setShowCustomColorPicker] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [previewColor, setPreviewColor] = useState<string | null>(null)
   const [colorPickerStyle, setColorPickerStyle] = useState<CSSProperties>({})
+  const [customColorPickerStyle, setCustomColorPickerStyle] =
+    useState<CSSProperties>({})
   const [settingsMenuStyle, setSettingsMenuStyle] = useState<CSSProperties>({})
 
   const colorButtonRef = useRef<HTMLButtonElement>(null)
   const colorPickerRef = useRef<HTMLDivElement>(null)
+  const customColorButtonRef = useRef<HTMLButtonElement>(null)
+  const customColorPickerRef = useRef<HTMLDivElement>(null)
   const gearButtonRef = useRef<HTMLButtonElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
+  const colorPickerIgnoreRefs = useMemo(() => [customColorPickerRef], [])
+  const customColorPickerIgnoreRefs = useMemo(() => [colorPickerRef], [])
 
   const droppableData = useMemo(
     () => ({ type: 'container' as const, containerId: tier.id }),
@@ -91,11 +132,28 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
     data: droppableData,
   })
 
+  // close both color popups together when the tray is dismissed
+  const closeColorPickers = useCallback(() =>
+  {
+    setShowCustomColorPicker(false)
+    setShowColorPicker(false)
+    setPreviewColor(null)
+  }, [])
+
+  // close only the custom popup so the swatch tray stays open
+  const closeCustomColorPicker = useCallback(() =>
+  {
+    setShowCustomColorPicker(false)
+    setPreviewColor(null)
+  }, [])
+
   usePopupClose({
     show: showColorPicker,
     triggerRef: colorButtonRef,
     popupRef: colorPickerRef,
-    onClose: useCallback(() => setShowColorPicker(false), []),
+    ignoreRefs: colorPickerIgnoreRefs,
+    onClose: closeColorPickers,
+    closeOnEscape: false,
     onScroll: useCallback(() =>
     {
       if (colorButtonRef.current)
@@ -104,6 +162,109 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
       }
     }, []),
   })
+
+  usePopupClose({
+    show: showCustomColorPicker,
+    triggerRef: customColorButtonRef,
+    popupRef: customColorPickerRef,
+    ignoreRefs: customColorPickerIgnoreRefs,
+    onClose: closeCustomColorPicker,
+    closeOnEscape: false,
+    onScroll: useCallback(() =>
+    {
+      if (customColorButtonRef.current && customColorPickerRef.current)
+      {
+        setCustomColorPickerStyle(
+          computeCustomColorPickerStyle(
+            customColorButtonRef.current,
+            colorPickerRef.current,
+            customColorPickerRef.current.getBoundingClientRect().width,
+            customColorPickerRef.current.getBoundingClientRect().height
+          )
+        )
+        return
+      }
+
+      if (customColorButtonRef.current)
+      {
+        setCustomColorPickerStyle(
+          computeCustomColorPickerStyle(
+            customColorButtonRef.current,
+            colorPickerRef.current,
+            CUSTOM_COLOR_PICKER_WIDTH_PX
+          )
+        )
+      }
+    }, []),
+  })
+
+  useEffect(() =>
+  {
+    if (
+      !showCustomColorPicker ||
+      !customColorButtonRef.current ||
+      !customColorPickerRef.current
+    )
+    {
+      return
+    }
+
+    // remeasure after mount so the custom popup stays within the viewport
+    const updatePosition = () =>
+    {
+      if (!customColorButtonRef.current || !customColorPickerRef.current)
+      {
+        return
+      }
+
+      setCustomColorPickerStyle(
+        computeCustomColorPickerStyle(
+          customColorButtonRef.current,
+          colorPickerRef.current,
+          customColorPickerRef.current.getBoundingClientRect().width,
+          customColorPickerRef.current.getBoundingClientRect().height
+        )
+      )
+    }
+
+    updatePosition()
+
+    const resizeObserver = new ResizeObserver(() => updatePosition())
+    resizeObserver.observe(customColorPickerRef.current)
+
+    return () => resizeObserver.disconnect()
+  }, [showCustomColorPicker])
+
+  useEffect(() =>
+  {
+    if (!showColorPicker && !showCustomColorPicker)
+    {
+      return
+    }
+
+    // close the child popup before the parent tray when Escape is pressed
+    const handleKeyDown = (event: KeyboardEvent) =>
+    {
+      if (event.key !== 'Escape')
+      {
+        return
+      }
+
+      event.preventDefault()
+
+      if (showCustomColorPicker)
+      {
+        setShowCustomColorPicker(false)
+        return
+      }
+
+      setShowColorPicker(false)
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showColorPicker, showCustomColorPicker])
 
   usePopupClose({
     show: showSettingsMenu,
@@ -129,7 +290,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
         <div
           className={`flex min-w-0 flex-1 border-b border-l border-[var(--t-border)]${index === 0 ? ' border-t' : ''}`}
         >
-          <TierLabel tier={tier} />
+          <TierLabel tier={tier} colorOverride={previewColor} />
 
           <SortableContext items={tier.itemIds} strategy={rectSortingStrategy}>
             <div
@@ -172,6 +333,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
                       computeColorPickerStyle(colorButtonRef.current)
                     )
                     setShowColorPicker(true)
+                    setShowCustomColorPicker(false)
                     setShowSettingsMenu(false)
                   }
                 }}
@@ -203,6 +365,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
                     )
                     setShowSettingsMenu(true)
                     setShowColorPicker(false)
+                    setShowCustomColorPicker(false)
                   }
                 }}
                 aria-label="Row settings"
@@ -224,12 +387,53 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
         >
           <ColorPicker
             value={tier.color}
+            colorSource={tier.colorSource}
             presets={presets}
+            customTriggerRef={customColorButtonRef}
+            showCustomPicker={showCustomColorPicker}
             onChange={(color, colorSource) =>
             {
               recolorTier(tier.id, color, colorSource)
-              setShowColorPicker(false)
+              closeColorPickers()
             }}
+            onToggleCustomPicker={() =>
+            {
+              if (!showCustomColorPicker && customColorButtonRef.current)
+              {
+                setCustomColorPickerStyle(
+                  computeCustomColorPickerStyle(
+                    customColorButtonRef.current,
+                    colorPickerRef.current,
+                    CUSTOM_COLOR_PICKER_WIDTH_PX
+                  )
+                )
+              }
+
+              setShowCustomColorPicker((current) => !current)
+            }}
+          />
+        </div>
+      )}
+
+      {showCustomColorPicker && (
+        <div
+          ref={customColorPickerRef}
+          className="z-[60] rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] shadow-2xl"
+          style={{
+            ...customColorPickerStyle,
+            width: 'min(17.5rem, calc(100vw - 16px))',
+          }}
+        >
+          <CustomColorPicker
+            key={`${tier.color}:${tier.colorSource?.paletteType ?? 'custom'}:${tier.colorSource?.index ?? -1}`}
+            value={tier.color}
+            onApply={(color) =>
+            {
+              recolorTier(tier.id, color, null)
+              closeColorPickers()
+            }}
+            onCancel={closeCustomColorPicker}
+            onPreview={setPreviewColor}
           />
         </div>
       )}
