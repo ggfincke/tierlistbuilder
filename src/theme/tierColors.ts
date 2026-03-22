@@ -262,23 +262,26 @@ export const mapTierColorToPalette = (
     return null
   }
 
-  const sourcePresetIndex = PALETTES[sourcePaletteId].presets.findIndex(
-    (color) => color.toLowerCase() === sourceColor.toLowerCase()
-  )
-
-  // follow the visible swatch order when the source color appears in the picker
-  if (sourcePresetIndex >= 0)
+  // follow the visible swatch order only for user-picked preset colors
+  if (colorSource.paletteType === 'preset')
   {
-    const targetPresetColor =
-      PALETTES[targetPaletteId].presets[sourcePresetIndex]
-    if (targetPresetColor)
+    const sourcePresetIndex = PALETTES[sourcePaletteId].presets.findIndex(
+      (color) => color.toLowerCase() === sourceColor.toLowerCase()
+    )
+
+    if (sourcePresetIndex >= 0)
     {
-      return {
-        color: targetPresetColor,
-        colorSource: {
-          paletteType: 'preset',
-          index: sourcePresetIndex,
-        },
+      const targetPresetColor =
+        PALETTES[targetPaletteId].presets[sourcePresetIndex]
+      if (targetPresetColor)
+      {
+        return {
+          color: targetPresetColor,
+          colorSource: {
+            paletteType: 'preset',
+            index: sourcePresetIndex,
+          },
+        }
       }
     }
   }
