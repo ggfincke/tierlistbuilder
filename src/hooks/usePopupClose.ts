@@ -11,8 +11,12 @@ interface UsePopupCloseOptions
   triggerRef: RefObject<HTMLElement | null>
   // the popup container element
   popupRef: RefObject<HTMLElement | null>
+  // extra elements treated as inside the popup interaction zone
+  ignoreRefs?: ReadonlyArray<RefObject<HTMLElement | null>>
   // called to close the popup
   onClose: () => void
+  // whether Escape should close the popup
+  closeOnEscape?: boolean
   // called on scroll so the caller can reposition the popup
   onScroll?: () => void
 }
@@ -21,7 +25,9 @@ export const usePopupClose = ({
   show,
   triggerRef,
   popupRef,
+  ignoreRefs = [],
   onClose,
+  closeOnEscape = true,
   onScroll,
 }: UsePopupCloseOptions) =>
 {
@@ -32,7 +38,12 @@ export const usePopupClose = ({
     const handlePointerDown = (event: PointerEvent) =>
     {
       const target = event.target as Node
+      const isInsideIgnoredElement = ignoreRefs.some((ref) =>
+        ref.current?.contains(target)
+      )
+
       if (
+        !isInsideIgnoredElement &&
         !popupRef.current?.contains(target) &&
         !triggerRef.current?.contains(target)
       )
@@ -43,7 +54,7 @@ export const usePopupClose = ({
 
     const handleKeyDown = (event: KeyboardEvent) =>
     {
-      if (event.key === 'Escape') onClose()
+      if (closeOnEscape && event.key === 'Escape') onClose()
     }
 
     const handleScroll = () => onScroll?.()
@@ -66,5 +77,5 @@ export const usePopupClose = ({
         window.removeEventListener('resize', handleScroll)
       }
     }
-  }, [show, triggerRef, popupRef, onClose, onScroll])
+  }, [show, triggerRef, popupRef, ignoreRefs, onClose, closeOnEscape, onScroll])
 }
