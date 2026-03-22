@@ -2,95 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
----
+## [Unreleased]
 
-## [0.1.5] - 2026-03-19
+## [0.2.0] - 2026-03-22
 
-### Added
-
-- Export-all feature — export every board at once as JSON, multi-page PDF, or ZIP of images (`1e173ad`)
-- `ExportProgressOverlay` component with per-board progress tracking (`1e173ad`)
-- `exportLock` and `loadAllBoardData` on board manager store for multi-board export coordination (`1e173ad`)
-- jszip dependency for image ZIP export (`1e173ad`)
-
-### Changed
-
-- Extracted `renderToDataUrl` helper and lazy-loaded jsPDF for better code splitting (`1e173ad`)
-- Export-all options wired into `BoardActionBar` dropdown and `App` (`1e173ad`)
-
----
-
-## [0.1.4] - 2026-03-17
+Phase 2 (Customization & Export) complete — theming, preferences, multi-board export, and a full color picker.
 
 ### Added
 
-- Trailing last-row space detection — drops in the empty area after the last item on the final row now append to the end instead of inserting mid-row (`a4d03dc`)
-- Unit tests and audit scenario for trailing-space drop logic (`a4d03dc`)
-- Lists management section in TierSettings for board count and quick creation (`006e2f6`)
+- **Theming**: 8 color themes and 5 text styles controlled via CSS custom properties (`--t-*` tokens), with `ThemePicker`, `TextStylePicker`, and `useThemeApplicator` hook
+- **Color Picker**: Full color wheel with shade slider and live preview for tier label colors
+- **Export All**: Export every board at once as JSON, multi-page PDF, or ZIP of images with per-board progress tracking
+- **Preferences Panel**: Tabbed settings with display, layout, export, data, and behavior sections
+- **Settings Store**: `useSettingsStore` — global user preferences persisted to localStorage (item size, shape, labels, compact mode, label width, row controls, theme, text style, palette)
+- **JSON Export/Import**: Full board state serialization with schema validation on import
+- **Export Options**: Custom background color for PNG/JPEG/WebP and PDF exports
+- **Display Settings**: Configurable item sizes (64/104/140px), shapes (square/rounded/circle), and label widths (narrow/default/wide)
+- **Drag & Drop**: Trailing last-row space detection — drops after the last item on the final row now append to the end
+- **Settings**: Lists management section in TierSettings for board count and quick creation
 
 ### Changed
 
-- Tier label font sizes reduced to `text-sm` at medium/large presets, switched to `font-normal` weight (`006e2f6`)
-- Board manager repositioned with CSS-based positioning, safe-area insets, and responsive breakpoints (`006e2f6`)
-
-### Removed
-
-- Empty board banner removed from App (`006e2f6`)
-
----
-
-## [0.1.3] - 2026-03-17
-
-### Added
-
-- Prettier configuration and formatting scripts (`ba367d3`)
-- `eslint-config-prettier` integration (`82d56db`)
-
-### Changed
-
-- Code formatting normalized across the entire codebase — 40 files reformatted for consistent style (`0b6d2d4`)
-- CSS globals wrapped in `@layer base` to prevent specificity conflicts (`ba367d3`)
+- **Styling**: Replaced all hardcoded hex colors with CSS custom property tokens (`var(--t-*)`) across every component
+- **Theme System**: Token definitions, palette system, and per-theme tier color palettes in `src/theme/`
+- **Layout**: Board components dynamically adjust sizing, shapes, and label widths based on settings store values
+- **Color Utils**: Extended `color.ts` with RGB/hex parsing, normalization, and conversion helpers
+- **Export Pipeline**: Extracted `renderToDataUrl` helper and lazy-loaded jsPDF for better code splitting
+- **Code Style**: Prettier and `eslint-config-prettier` integration with codebase-wide formatting normalization
+- **CSS**: Globals wrapped in `@layer base` to prevent specificity conflicts
+- **CI**: Removed test step from CI and release workflows
 
 ### Fixed
 
-- Stable ref sync in `useBoardTransition` — replaced direct assignment with `useEffect` to avoid render-during-render warnings (`ba367d3`)
-- `ConfirmDialog` ref sync updated for consistency (`ba367d3`)
+- **Transitions**: Stable ref sync in `useBoardTransition` — replaced direct assignment with `useEffect` to avoid render-during-render warnings
+- **Dialogs**: `ConfirmDialog` ref sync updated for consistency
 
----
+### Removed
 
-## [0.1.2] - 2026-03-16
-
-### Added
-
-- Tabbed Preferences panel with display, layout, export, data, and behavior sections — replaces the previous two-button settings modal (`4df76fe`)
-- JSON export and import options wired into the action bar export menu (`64e9df3`)
-- Board components now read `itemSize`, `itemShape`, `showLabels`, `compactMode`, `labelWidth`, and `hideRowControls` from the settings store (`547b4bc`)
-- `DragOverlayItem` reflects current item size and shape settings during drag (`547b4bc`)
-- `UnrankedPool` adapts grid layout and item sizing based on settings (`547b4bc`)
-
-### Changed
-
-- `TierRow` layout dynamically adjusts padding, gaps, and label column width based on settings (`547b4bc`)
-- `TierItem` rendering updated to support square, rounded, and circle shapes at small/medium/large sizes (`547b4bc`)
-- `TierLabel` width now controlled by the `labelWidth` setting (narrow/default/wide) (`547b4bc`)
-
----
-
-## [0.1.1] - 2026-03-16
-
-### Added
-
-- `AppSettings` type definitions and display/layout constants — item size presets (64/104/140px), shape options, label width presets (`5973d0e`)
-- `useSettingsStore` — global user preferences store persisted to localStorage with Zustand (`994b119`)
-- JSON export utility — serializes full board state to a downloadable `.json` file (`0d2e750`)
-- JSON import utility — validates and restores a board from a `.json` file with schema checking (`0d2e750`)
-- `triggerDownload` helper exported from `exportImage` for reuse across export formats (`0d2e750`)
-- `bgColor` parameter for PNG/JPEG/WebP and PDF exports — allows custom export background color (`0d2e750`)
-- `clearAllItems` action on `TierListStore` — removes all items without resetting tier structure (`4980dc3`)
-- `importBoard` action on `BoardManagerStore` — imports a board from JSON data, creating a new board entry (`4980dc3`)
+- **Testing**: Vitest dependency and all stale test files
+- **UI**: Empty board banner removed from App
 
 ---
 
@@ -100,155 +53,205 @@ Phase 1 (Core Polish) complete — the app feels complete as a standalone local 
 
 ### Added
 
-- Fade transition animation on board switch with timer cleanup via `useBoardTransition` hook (`a8e9cec`)
-- `PERSISTED_FIELDS` array in board manager store for cleaner auto-save comparison (`b1e38ad`)
+- **Transitions**: Fade animation on board switch with timer cleanup via `useBoardTransition` hook
+- **Auto-Save**: `PERSISTED_FIELDS` array in board manager store for cleaner auto-save comparison
 
 ### Changed
 
-- Memoized `useDroppable` data objects in `TierRow` and `UnrankedPool` to eliminate object identity churn on every render (`b1e38ad`)
-- Replaced manual field-by-field auto-save comparison with `PERSISTED_FIELDS`-driven check (`b1e38ad`)
-- Simplified `useBoardTransition` internal state management (`b1e38ad`)
+- **Performance**: Memoized `useDroppable` data objects in `TierRow` and `UnrankedPool` to eliminate object identity churn
+- **Auto-Save**: Replaced manual field-by-field comparison with `PERSISTED_FIELDS`-driven check
 
 ### Fixed
 
-- Stabilized `onClose`/`onCancel` callbacks via refs in `TierSettings` and `ConfirmDialog` to prevent listener re-registration churn (`ff35166`)
-- Wrapped `TierItem`, `TierLabel`, `ColorPicker`, and `DragOverlayItem` with `React.memo` to reduce unnecessary re-renders (`ff35166`)
-- Validated hex input in `getTextColor` to prevent `NaN` propagation from malformed color strings (`ff35166`)
-- Deduplicated `clampIndex` — now imported from `constants` instead of redefined in `dragInsertion` (`ff35166`)
-- Consistent unranked ordering on `deleteTier` — items prepended to match `clearTierItems` behavior (`ff35166`)
-- Replaced `text-slate-200` with `text-[#ddd]` per project style rules (`ff35166`)
-- Made `getFileLabel` private — removed unused export from `imageResize` (`ff35166`)
-- Added resize listener to `usePopupClose` for popup repositioning on window resize (`ff35166`)
+- **Callbacks**: Stabilized `onClose`/`onCancel` callbacks via refs in `TierSettings` and `ConfirmDialog` to prevent listener re-registration churn
+- **Re-Renders**: Wrapped `TierItem`, `TierLabel`, `ColorPicker`, and `DragOverlayItem` with `React.memo`
+- **Color Parsing**: Validated hex input in `getTextColor` to prevent `NaN` propagation from malformed strings
+- **Tier Deletion**: Consistent unranked ordering on `deleteTier` — items prepended to match `clearTierItems` behavior
+- **Popups**: Added resize listener to `usePopupClose` for popup repositioning on window resize
 
 ---
+
+<details>
+<summary><strong>Patch Releases (0.0.1 – 0.1.8)</strong></summary>
+
+## [0.1.8] - 2026-03-22
+
+### Added
+
+- **Color Picker**: Full color wheel with shade slider for selecting any tier label color, with live preview during picking
+- **Dependencies**: Added `@uiw/react-color-wheel` and `@uiw/react-color-shade-slider` for color selection UI
+- **Popup Hook**: `ignoreRefs` and `closeOnEscape` options on `usePopupClose`
+
+### Changed
+
+- **Color Utils**: Extended `color.ts` with RGB/hex parsing, normalization, and conversion helpers
+- **Tier Row**: Updated to support expanded color picker with custom color mode
+
+## [0.1.7] - 2026-03-20
+
+### Changed
+
+- **CI**: Removed test step from CI and release workflows — Vitest was already removed in 0.1.6
+
+## [0.1.6] - 2026-03-20
+
+### Added
+
+- **Theming**: 8 color themes and 5 text styles controlled via CSS custom properties (`--t-*` tokens)
+- **Appearance UI**: `ThemePicker` and `TextStylePicker` components with appearance section in settings modal
+- **Theme Applicator**: `useThemeApplicator` hook syncs theme and text style selections to `:root` CSS properties
+- **Theme System**: Token definitions, palette system, and per-theme tier color palettes in `src/theme/`
+- **Docs**: Screenshot added to `docs/assets`
+
+### Changed
+
+- **Styling**: Replaced all hardcoded hex colors with CSS custom property tokens (`var(--t-*)`) across every component
+- **Settings Store**: Extended with `themeId`, `textStyleId`, and `paletteId` fields
+- **Tier Colors**: Default tier colors now sourced from palette system instead of hardcoded constants
+
+### Removed
+
+- **Testing**: Vitest dependency and all stale test files
+
+## [0.1.5] - 2026-03-19
+
+### Added
+
+- **Export All**: Export every board at once as JSON, multi-page PDF, or ZIP of images with per-board progress tracking via `ExportProgressOverlay`
+- **Board Manager**: `exportLock` and `loadAllBoardData` for multi-board export coordination
+- **Dependencies**: Added jszip for image ZIP export
+
+### Changed
+
+- **Export Pipeline**: Extracted `renderToDataUrl` helper and lazy-loaded jsPDF for better code splitting
+- **Action Bar**: Export-all options wired into `BoardActionBar` dropdown
+
+## [0.1.4] - 2026-03-17
+
+### Added
+
+- **Drag & Drop**: Trailing last-row space detection — drops after the last item on the final row now append to the end instead of inserting mid-row
+- **Settings**: Lists management section in TierSettings for board count and quick creation
+
+### Changed
+
+- **Tier Labels**: Font sizes reduced to `text-sm` at medium/large presets, switched to `font-normal` weight
+- **Board Manager**: Repositioned with CSS-based positioning, safe-area insets, and responsive breakpoints
+
+### Removed
+
+- **UI**: Empty board banner removed from App
+
+## [0.1.3] - 2026-03-17
+
+### Added
+
+- **Formatting**: Prettier configuration, formatting scripts, and `eslint-config-prettier` integration
+
+### Changed
+
+- **Code Style**: Normalized formatting across the entire codebase — 40 files reformatted
+- **CSS**: Globals wrapped in `@layer base` to prevent specificity conflicts
+
+### Fixed
+
+- **Transitions**: Stable ref sync in `useBoardTransition` — replaced direct assignment with `useEffect` to avoid render-during-render warnings
+- **Dialogs**: `ConfirmDialog` ref sync updated for consistency
+
+## [0.1.2] - 2026-03-16
+
+### Added
+
+- **Preferences**: Tabbed Preferences panel with display, layout, export, data, and behavior sections — replaces the previous two-button settings modal
+- **Export**: JSON export and import options wired into the action bar export menu
+- **Display Settings**: Board components now read `itemSize`, `itemShape`, `showLabels`, `compactMode`, `labelWidth`, and `hideRowControls` from the settings store
+
+### Changed
+
+- **Layout**: `TierRow` dynamically adjusts padding, gaps, and label column width based on settings
+- **Items**: `TierItem` rendering updated to support square, rounded, and circle shapes at small/medium/large sizes
+- **Labels**: `TierLabel` width now controlled by the `labelWidth` setting (narrow/default/wide)
+
+## [0.1.1] - 2026-03-16
+
+### Added
+
+- **Settings Store**: `useSettingsStore` — global user preferences persisted to localStorage with Zustand, including item size presets (64/104/140px), shape options, and label width presets
+- **JSON Export/Import**: Serializes full board state to downloadable `.json` files with schema validation on import
+- **Export Options**: Custom background color (`bgColor`) parameter for PNG/JPEG/WebP and PDF exports
+- **Store Actions**: `clearAllItems` (removes items without resetting tier structure) and `importBoard` (imports board from JSON data)
 
 ## [0.0.7] - 2026-03-10
 
 ### Added
 
-- Multi-board registry with per-board localStorage persistence via `useBoardManagerStore` — supports create, switch, delete, duplicate, and rename operations (`1bf5ba9`)
-- Legacy migration from single-board localStorage schema to multi-board format (`1bf5ba9`)
-- Board title deduplication on create and duplicate (`1bf5ba9`)
-- Debounced subscribe-based auto-save — replaces Zustand `persist` middleware for finer control (`1bf5ba9`)
-- `extractBoardData` and `freshRuntimeState` helpers for clean board data serialization (`1bf5ba9`)
-- Board manager floating panel (bottom-right) with create, switch, rename, duplicate, and delete controls (`4e73179`)
-- `syncTitle` effect in App to keep board manager registry in sync with toolbar title edits (`4e73179`)
-- Capture-phase Escape key handler on `ConfirmDialog` with `stopPropagation` — pressing Escape now only closes the innermost dialog, not the parent behind it (`d92ae71`)
-- Escape-to-close for `TierSettings` modal (`d92ae71`)
-- Shared `processImageFiles` utility extracted to `imageResize.ts` — deduplicates image processing pipeline between `ImageUploader` and `UnrankedPool` (`58031ba`)
-- Click-to-upload empty state on `UnrankedPool` — empty pool is now clickable to open file picker and supports file drag-and-drop (`58031ba`)
+- **Multi-Board**: Board registry with per-board localStorage persistence — supports create, switch, delete, duplicate, and rename operations with legacy migration and title deduplication
+- **Auto-Save**: Debounced subscribe-based auto-save replaces Zustand `persist` middleware for finer control
+- **Board Manager UI**: Floating panel (bottom-right) with create, switch, rename, duplicate, and delete controls
+- **Dialogs**: Capture-phase Escape key handler on `ConfirmDialog` — pressing Escape now only closes the innermost dialog
+- **Upload UX**: Click-to-upload empty state on `UnrankedPool` with shared `processImageFiles` utility
 
 ### Changed
 
-- Persist middleware stripped from `useTierListStore` — persistence now fully managed by `useBoardManagerStore` (`1bf5ba9`)
-- `snapshotData` consolidated into `extractBoardData` helper (`1bf5ba9`)
-- Items selector in App narrowed to boolean `isEmpty` check to reduce unnecessary re-renders (`4e73179`)
-- Redundant "New List" button removed from action bar (`4e73179`)
-- Redundant "Add Tier" button removed from `TierSettings` (`d92ae71`)
+- **Persistence**: Stripped `persist` middleware from `useTierListStore` — now fully managed by `useBoardManagerStore`
+- **UI Cleanup**: Removed redundant "New List" and "Add Tier" buttons
 
 ### Fixed
 
-- Escape key in `ConfirmDialog` no longer bubbles to dismiss parent modals (`d92ae71`)
-
----
+- **Dialogs**: Escape key in `ConfirmDialog` no longer bubbles to dismiss parent modals
 
 ## [0.0.6] - 2026-03-10
 
 ### Added
 
-- Drag-to-trash zone — droppable area at the bottom of the board during drag for item deletion (`a27dca1`)
-- `TrashZone` component with visual feedback on drag-over (`a27dca1`)
-- Trash drop handling wired into `useDragAndDrop` hook (`a27dca1`)
-- `TRASH_ID` constant for trash droppable identification (`a27dca1`)
-- Per-item permanent delete button in `TierSettings` recently deleted list (`10fadb8`)
-- `permanentlyDeleteItem` action on store — removes item from deleted list entirely (`10fadb8`)
-- Confirm dialog before clearing all items (`10fadb8`)
-
----
+- **Trash Zone**: Droppable area at the bottom of the board during drag for item deletion with visual feedback
+- **Item Management**: Per-item permanent delete button in recently deleted list and confirm dialog before clearing all items
 
 ## [0.0.5] - 2026-03-07
 
 ### Added
 
-- Text-only items — items with just a label and colored background, no image required (`3f7a6e2`)
-- `NewTierItem` type for creating items with optional image (`3f7a6e2`)
-- Item deletion with restore — deleted items move to a "recently deleted" list in settings, recoverable until permanently removed (`3f7a6e2`)
-- `deletedItems` array and `restoreItem`/`removeItem` actions on store (`3f7a6e2`)
-- Undo/redo system — `useUndoRedo` hook with action history stack, Ctrl+Z / Ctrl+Shift+Z support (`3f7a6e2`, `43f77e1`)
-- `pushHistory`/`undo`/`redo` actions on store with snapshot-based state restoration (`3f7a6e2`)
-- JPEG and WebP export formats with configurable quality (`ee38ce3`)
-- Clipboard copy for exported images — "Copy to clipboard" writes the rendered tier list as a PNG blob to the clipboard (`ee38ce3`)
-- Export format dropdown menu in action bar with PNG, JPEG, WebP, PDF, and clipboard options (`43f77e1`)
-- Empty state banner when the board has no items (`43f77e1`)
+- **Text Items**: Items with just a label and colored background, no image required
+- **Deletion & Restore**: Deleted items move to a "recently deleted" list, recoverable until permanently removed
+- **Undo/Redo**: Action history stack with Ctrl+Z / Ctrl+Shift+Z support and snapshot-based state restoration
+- **Export Formats**: JPEG and WebP with configurable quality, plus clipboard copy as PNG blob
+- **Export Menu**: Format dropdown in action bar with PNG, JPEG, WebP, PDF, and clipboard options
 
 ### Changed
 
-- `getTextColor` utility extracted to shared `src/utils/color.ts` module — removed inline implementation from `TierLabel` (`4251122`)
-- `TierItem` updated to render text-only items with colored backgrounds when no image is present (`3f7a6e2`)
-- `DragOverlayItem` updated to support text-only item rendering during drag (`3f7a6e2`)
-- `UnrankedPool` passes through new item properties (`3f7a6e2`)
-- Export menu in `BoardActionBar` expanded from single PNG button to full format dropdown (`43f77e1`)
-
----
+- **Color Utility**: Extracted `getTextColor` to shared `src/utils/color.ts` module
+- **Item Rendering**: `TierItem` and `DragOverlayItem` updated to support text-only items with colored backgrounds
 
 ## [0.0.4] - 2026-03-06
 
 ### Changed
 
-- Items sized to fill tier row height for a more compact, polished layout (`512f4e5`)
-- Grid outlines added to tier rows for visual structure (`512f4e5`)
-- `DragOverlayItem` and `TierItem` dimensions updated to match new sizing (`512f4e5`)
-- `TierLabel` height adjusted to align with resized items (`512f4e5`)
-
----
+- **Layout**: Items sized to fill tier row height for a more compact, polished layout with grid outlines on tier rows
 
 ## [0.0.3] - 2026-03-06
 
 ### Added
 
-- Unit tests for Zustand store drag lifecycle — covers `beginDragPreview`, `updateDragPreview`, `commitDragPreview`, and `discardDragPreview` flows (`0382529`)
-- Unit tests for drag insertion logic — covers snapshot move operations, index resolution, and neighbor-swap stability (`0382529`)
-- Headless CDP audit script (`scripts/drag-audit.mjs`) for end-to-end drag parity checks (`0382529`)
-
----
+- **Testing**: Unit tests for Zustand store drag lifecycle and drag insertion logic
+- **Auditing**: Headless CDP audit script for end-to-end drag parity checks
 
 ## [0.0.2] - 2026-03-06
 
 ### Added
 
-- Domain types: `TierItem`, `Tier`, `ContainerSnapshot`, `TierListData` (`01dad64`)
-- Preset tier colors and storage key constants (`01dad64`)
-- `useTierListStore` — Zustand store with localStorage persistence, versioned schema migration, and `safeStorage` wrapper for quota error handling (`5865ef0`)
-- Drag preview lifecycle: `beginDragPreview`, `updateDragPreview`, `commitDragPreview`, `discardDragPreview` (`5865ef0`)
-- `dragInsertion.ts` — pure functions for snapshot-based move operations, index resolution, and insertion logic (`5865ef0`)
-- `imageResize.ts` — client-side image resizing utility for uploaded item images (`5865ef0`)
-- Bundled sample image pack (12 items) for first-load experience (`5865ef0`)
-- `TierRow` component with inline label editing, reorder controls, and color picker trigger (`ed1fae8`)
-- `TierLabel` with editable name, background color, and auto-contrasting text color (`ed1fae8`)
-- `TierItem` — draggable item cell with image thumbnail and label (`ed1fae8`)
-- `TierList` — DndContext wrapper with tier rows and export capture ref (`ed1fae8`)
-- `ColorPicker` — fixed-position color swatch popup for tier label backgrounds (`ed1fae8`)
-- `DragOverlayItem` — ghost item shown during drag (`ed1fae8`)
-- `UnrankedPool` — droppable pool for unassigned items (`ed1fae8`)
-- `ImageUploader` — file picker with drag-and-drop support for adding image items (`ed1fae8`)
-- `TierSettings` — modal with image import and add-tier controls (`ed1fae8`)
-- `BoardActionBar` — action bar with add tier, settings, export, and reset buttons (`ed1fae8`)
-- `ConfirmDialog` — reusable confirmation modal component (`ed1fae8`)
-- `Toolbar` — top bar with editable board title (`ed1fae8`)
-- Root `App` component with error banner and export orchestration (`68f79a3`)
-- `useDragAndDrop` hook — DndContext configuration with pointer sensor, collision detection, and drag lifecycle wiring (`68f79a3`)
-- `usePopupClose` hook — outside-click dismissal for fixed-position popups, with Escape key and scroll repositioning support (`68f79a3`)
-- PNG export via `html-to-image` (`68f79a3`)
-- PDF export via `jsPDF` with automatic page sizing (`68f79a3`)
-- Global CSS styles and CSS reset (`68f79a3`)
-
----
+- **Core Types**: `TierItem`, `Tier`, `ContainerSnapshot`, `TierListData` with preset tier colors and storage constants
+- **State Management**: `useTierListStore` — Zustand store with localStorage persistence, versioned schema migration, and `safeStorage` wrapper
+- **Drag & Drop**: Snapshot-based drag preview lifecycle with pure insertion logic in `dragInsertion.ts`
+- **Components**: `TierRow`, `TierLabel`, `TierItem`, `TierList`, `ColorPicker`, `DragOverlayItem`, `UnrankedPool`, `ImageUploader`, `TierSettings`, `BoardActionBar`, `ConfirmDialog`, `Toolbar`
+- **App Shell**: Root `App` component with error banner, export orchestration, and `useDragAndDrop` / `usePopupClose` hooks
+- **Export**: PNG via html-to-image, PDF via jsPDF with automatic page sizing
 
 ## [0.0.1] - 2026-03-06
 
 ### Added
 
-- Project scaffold — Vite 7 + React 19 + TypeScript with strict mode (`a5c328c`)
-- Tailwind CSS 4 via `@tailwindcss/vite` plugin (`a5c328c`)
-- ESLint flat config with TypeScript and React Hooks rules (`a5c328c`)
-- Base `tsconfig` with path aliases and strict checks (`a5c328c`)
+- **Scaffold**: Vite 7 + React 19 + TypeScript with strict mode
+- **Styling**: Tailwind CSS 4 via `@tailwindcss/vite` plugin
+- **Linting**: ESLint flat config with TypeScript and React Hooks rules
+
+</details>
