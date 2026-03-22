@@ -95,7 +95,7 @@ export const ImageUploader = () =>
             : 'Drop images here or click to upload'}
         </p>
         <p className="mt-1 text-xs text-[var(--t-text-faint)]">
-          Images are resized and saved in localStorage.
+          Square images (1:1) work best.
         </p>
       </div>
 
