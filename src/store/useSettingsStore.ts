@@ -13,17 +13,15 @@ import type {
   ThemeId,
   TierLabelFontSize,
 } from '../types'
-import {
-  EXPORT_BACKGROUND_COLOR,
-  SETTINGS_STORAGE_KEY,
-} from '../utils/constants'
+import { SETTINGS_STORAGE_KEY } from '../utils/constants'
+import { THEMES } from '../theme/tokens'
 
 const DEFAULT_SETTINGS: AppSettings = {
   itemSize: 'medium',
   showLabels: false,
   itemShape: 'square',
   compactMode: false,
-  exportBackgroundColor: EXPORT_BACKGROUND_COLOR,
+  exportBackgroundOverride: null,
   labelWidth: 'default',
   hideRowControls: false,
   confirmBeforeDelete: false,
@@ -41,7 +39,7 @@ interface SettingsStore extends AppSettings
   setShowLabels: (show: boolean) => void
   setItemShape: (shape: ItemShape) => void
   setCompactMode: (compact: boolean) => void
-  setExportBackgroundColor: (color: string) => void
+  setExportBackgroundOverride: (color: string | null) => void
   setLabelWidth: (width: LabelWidth) => void
   setHideRowControls: (hide: boolean) => void
   setConfirmBeforeDelete: (confirm: boolean) => void
@@ -63,8 +61,8 @@ export const useSettingsStore = create<SettingsStore>()(
       setShowLabels: (showLabels) => set({ showLabels }),
       setItemShape: (itemShape) => set({ itemShape }),
       setCompactMode: (compactMode) => set({ compactMode }),
-      setExportBackgroundColor: (exportBackgroundColor) =>
-        set({ exportBackgroundColor }),
+      setExportBackgroundOverride: (exportBackgroundOverride) =>
+        set({ exportBackgroundOverride }),
       setLabelWidth: (labelWidth) => set({ labelWidth }),
       setHideRowControls: (hideRowControls) => set({ hideRowControls }),
       setConfirmBeforeDelete: (confirmBeforeDelete) =>
@@ -81,7 +79,7 @@ export const useSettingsStore = create<SettingsStore>()(
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      version: 3,
+      version: 4,
       migrate: (persisted, version) =>
       {
         let state = persisted as Record<string, unknown>
@@ -102,6 +100,17 @@ export const useSettingsStore = create<SettingsStore>()(
             tierLabelItalic: state.tierLabelItalic ?? false,
             tierLabelFontSize: state.tierLabelFontSize ?? 'small',
           }
+        }
+        if (version < 4)
+        {
+          const themeId = (state.themeId as string) ?? 'classic'
+          const oldBg = state.exportBackgroundColor as string | undefined
+          const themeBg = THEMES[themeId as keyof typeof THEMES]?.['export-bg']
+          state = {
+            ...state,
+            exportBackgroundOverride: oldBg && oldBg !== themeBg ? oldBg : null,
+          }
+          delete state.exportBackgroundColor
         }
         return state
       },
