@@ -523,12 +523,24 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       }
     }),
 
-  // restore board to defaults
+  // move all items back to unranked pool & restore default tiers (keeps images)
   resetBoard: () =>
-    set(() => ({
-      ...createInitialData(),
-      ...freshRuntimeState,
-    })),
+    set((state) =>
+    {
+      const { themeId } = useSettingsStore.getState()
+      const allItemIds = [
+        ...state.tiers.flatMap((t) => t.itemIds),
+        ...state.unrankedItemIds,
+      ]
+      return {
+        title: DEFAULT_TITLE,
+        tiers: buildDefaultTiers(THEME_PALETTE[themeId]),
+        unrankedItemIds: allItemIds,
+        items: state.items,
+        deletedItems: state.deletedItems,
+        ...freshRuntimeState,
+      }
+    }),
 
   // replace entire board state w/ new data (used by board manager on switch/create)
   loadBoard: (data) =>
