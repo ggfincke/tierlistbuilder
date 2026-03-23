@@ -75,24 +75,13 @@ export function useThemeApplicator(): void
 {
   const themeId = useSettingsStore((s) => s.themeId)
   const textStyleId = useSettingsStore((s) => s.textStyleId)
-  const setExportBackgroundColor = useSettingsStore(
-    (s) => s.setExportBackgroundColor
-  )
   const prevThemeRef = useRef<ThemeId | null>(null)
 
   useEffect(() =>
   {
-    // update export background color when theme changes (unless user customized it)
+    // swap tier colors from prev palette to new palette
     if (prevThemeRef.current !== null && prevThemeRef.current !== themeId)
     {
-      const prevExportBg = THEMES[prevThemeRef.current]['export-bg']
-      const currentExportBg = useSettingsStore.getState().exportBackgroundColor
-      if (currentExportBg === prevExportBg)
-      {
-        setExportBackgroundColor(THEMES[themeId]['export-bg'])
-      }
-
-      // swap tier colors from prev palette to new palette
       const { syncTierColorsWithTheme } = useSettingsStore.getState()
       if (syncTierColorsWithTheme)
       {
@@ -105,7 +94,7 @@ export function useThemeApplicator(): void
 
     applyThemeTokens(themeId)
     prevThemeRef.current = themeId
-  }, [themeId, setExportBackgroundColor])
+  }, [themeId])
 
   useEffect(() =>
   {

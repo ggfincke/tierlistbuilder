@@ -10,6 +10,7 @@ import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
 import { getStorageUsageBytes } from '../../utils/constants'
 import { buildRecolorMap, THEME_PALETTE } from '../../theme'
+import { THEMES } from '../../theme/tokens'
 import type {
   ItemShape,
   ItemSize,
@@ -66,9 +67,11 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const showLabels = useSettingsStore((state) => state.showLabels)
   const itemShape = useSettingsStore((state) => state.itemShape)
   const compactMode = useSettingsStore((state) => state.compactMode)
-  const exportBackgroundColor = useSettingsStore(
-    (state) => state.exportBackgroundColor
+  const exportBackgroundOverride = useSettingsStore(
+    (state) => state.exportBackgroundOverride
   )
+  const themeId = useSettingsStore((state) => state.themeId)
+  const effectiveExportBg = exportBackgroundOverride ?? THEMES[themeId]['export-bg']
   const labelWidth = useSettingsStore((state) => state.labelWidth)
   const hideRowControls = useSettingsStore((state) => state.hideRowControls)
   const confirmBeforeDelete = useSettingsStore(
@@ -78,8 +81,8 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const setShowLabels = useSettingsStore((state) => state.setShowLabels)
   const setItemShape = useSettingsStore((state) => state.setItemShape)
   const setCompactMode = useSettingsStore((state) => state.setCompactMode)
-  const setExportBackgroundColor = useSettingsStore(
-    (state) => state.setExportBackgroundColor
+  const setExportBackgroundOverride = useSettingsStore(
+    (state) => state.setExportBackgroundOverride
   )
   const setLabelWidth = useSettingsStore((state) => state.setLabelWidth)
   const setHideRowControls = useSettingsStore(
@@ -88,7 +91,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const setConfirmBeforeDelete = useSettingsStore(
     (state) => state.setConfirmBeforeDelete
   )
-  const themeId = useSettingsStore((state) => state.themeId)
   const syncTierColorsWithTheme = useSettingsStore(
     (state) => state.syncTierColorsWithTheme
   )
@@ -441,15 +443,22 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
               <SettingsSection title="Export">
                 <SettingRow label="Background Color">
                   <div className="flex items-center gap-2">
+                    {exportBackgroundOverride !== null && (
+                      <button
+                        type="button"
+                        onClick={() => setExportBackgroundOverride(null)}
+                        className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
+                        title="Reset to theme default"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <input
                       type="color"
-                      value={exportBackgroundColor}
-                      onChange={(e) => setExportBackgroundColor(e.target.value)}
+                      value={effectiveExportBg}
+                      onChange={(e) => setExportBackgroundOverride(e.target.value)}
                       className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
                     />
-                    <span className="text-xs text-[var(--t-text-faint)]">
-                      {exportBackgroundColor}
-                    </span>
                   </div>
                 </SettingRow>
               </SettingsSection>

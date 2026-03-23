@@ -15,6 +15,7 @@ import { useUndoRedo } from './hooks/useUndoRedo'
 import { useBoardManagerStore } from './store/useBoardManagerStore'
 import { useTierListStore } from './store/useTierListStore'
 import { useSettingsStore } from './store/useSettingsStore'
+import { THEMES } from './theme/tokens'
 import type { ImageFormat } from './types'
 import {
   exportAllBoardsAsImages,
@@ -26,6 +27,13 @@ import {
   exportTierListAsImage,
 } from './utils/exportImage'
 import { exportTierListAsPdf } from './utils/exportPdf'
+
+// resolve the effective export background from the override or current theme
+const getExportBg = () =>
+{
+  const { exportBackgroundOverride, themeId } = useSettingsStore.getState()
+  return exportBackgroundOverride ?? THEMES[themeId]['export-bg']
+}
 
 function App()
 {
@@ -74,7 +82,7 @@ function App()
 
     try
     {
-      const bgColor = useSettingsStore.getState().exportBackgroundColor
+      const bgColor = getExportBg()
       if (type === 'pdf')
       {
         await exportTierListAsPdf(exportRef.current, title, bgColor)
@@ -107,7 +115,7 @@ function App()
 
     try
     {
-      const bgColor = useSettingsStore.getState().exportBackgroundColor
+      const bgColor = getExportBg()
       await copyTierListToClipboard(exportRef.current, bgColor)
     }
     catch (err)
@@ -151,7 +159,7 @@ function App()
       return
     }
 
-    const bgColor = useSettingsStore.getState().exportBackgroundColor
+    const bgColor = getExportBg()
     const onProgress = (current: number, total: number) =>
       setExportAllProgress({ current, total })
 
