@@ -2,7 +2,7 @@
 // Vite build config — React plugin w/ fast-refresh & Tailwind CSS v4
 
 import { createRequire } from 'node:module'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -15,5 +15,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), cloudflare()],
   define: {
     __APP_VERSION__: JSON.stringify(version),
+  },
+  test: {
+    globals: true,
+    environment: 'node',
   },
 })
