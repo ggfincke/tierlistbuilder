@@ -1,15 +1,14 @@
 // src/components/settings/TierSettings.tsx
 // settings panel — tabbed modal w/ items management & preferences
 
-import { Github, Layers, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import { Github, Layers, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
-import { getTextColor } from '../../utils/color'
-import { getStorageUsageBytes } from '../../utils/constants'
-import { buildRecolorMap, THEME_PALETTE } from '../../theme'
+import { getStorageUsageBytes } from '../../utils/storage'
+import { buildRecolorMap, PALETTES, THEME_PALETTE } from '../../theme'
 import { THEMES } from '../../theme/tokens'
 import type {
   ItemShape,
@@ -18,6 +17,7 @@ import type {
   TierLabelFontSize,
 } from '../../types'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { DeletedItemsSection } from './DeletedItemsSection'
 import { ImageUploader } from './ImageUploader'
 import { SegmentedControl } from './SegmentedControl'
 import { SettingRow } from './SettingRow'
@@ -57,14 +57,6 @@ const SHORTCUTS = [
 export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
 {
   const addTextItem = useTierListStore((state) => state.addTextItem)
-  const deletedItems = useTierListStore((state) => state.deletedItems)
-  const restoreDeletedItem = useTierListStore(
-    (state) => state.restoreDeletedItem
-  )
-  const permanentlyDeleteItem = useTierListStore(
-    (state) => state.permanentlyDeleteItem
-  )
-  const clearDeletedItems = useTierListStore((state) => state.clearDeletedItems)
   const clearAllItems = useTierListStore((state) => state.clearAllItems)
 
   const itemSize = useSettingsStore((state) => state.itemSize)
@@ -77,6 +69,11 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const themeId = useSettingsStore((state) => state.themeId)
   const effectiveExportBg =
     exportBackgroundOverride ?? THEMES[themeId]['export-bg']
+  const defaultTextColor = useMemo(() =>
+  {
+    const palette = PALETTES[THEME_PALETTE[themeId]]
+    return palette.defaults[1] ?? palette.defaults[0] ?? '#888888'
+  }, [themeId])
   const labelWidth = useSettingsStore((state) => state.labelWidth)
   const hideRowControls = useSettingsStore((state) => state.hideRowControls)
   const confirmBeforeDelete = useSettingsStore(
@@ -120,10 +117,10 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
 
   const [activeTab, setActiveTab] = useState<Tab>('items')
   const [textLabel, setTextLabel] = useState('')
-  const [textColor, setTextColor] = useState('#ffbf7f')
-  const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [textColor, setTextColor] = useState(defaultTextColor)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
   const [showSyncConfirm, setShowSyncConfirm] = useState(false)
+  const lastDefaultTextColorRef = useRef(defaultTextColor)
 
   // stable ref for onClose — avoids re-registering listener when parent passes unstable callback
   const onCloseRef = useRef(onClose)
@@ -131,6 +128,15 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   {
     onCloseRef.current = onClose
   })
+
+  // keep the draft text-item color aligned to the active palette until the user customizes it
+  useEffect(() =>
+  {
+    setTextColor((current) =>
+      current === lastDefaultTextColorRef.current ? defaultTextColor : current
+    )
+    lastDefaultTextColorRef.current = defaultTextColor
+  }, [defaultTextColor])
 
   // close on Escape
   useEffect(() =>
@@ -259,79 +265,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                 </div>
               </SettingsSection>
 
-              {/* recently deleted items — only shown when there are deleted items */}
-              {deletedItems.length > 0 && (
-                <section className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-[var(--t-text)]">
-                      Recently Deleted
-                      <span className="ml-1.5 font-normal text-[var(--t-text-faint)]">
-                        ({deletedItems.length})
-                      </span>
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => setShowClearConfirm(true)}
-                      className="flex items-center gap-1 text-xs text-[var(--t-text-faint)] hover:text-[var(--t-destructive-hover)]"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      Clear all
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {deletedItems.map((item) =>
-                    {
-                      const bgColor = item.backgroundColor ?? '#444'
-                      return (
-                        <div
-                          key={item.id}
-                          className="group relative h-16 w-16 shrink-0 overflow-hidden rounded opacity-70"
-                        >
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.label ?? 'Deleted item'}
-                              className="h-full w-full object-cover"
-                              draggable={false}
-                            />
-                          ) : (
-                            <div
-                              className="flex h-full w-full items-center justify-center p-0.5"
-                              style={{
-                                backgroundColor: bgColor,
-                                color: getTextColor(bgColor),
-                              }}
-                            >
-                              <span className="text-[10px] font-semibold break-words text-center leading-tight [overflow-wrap:anywhere]">
-                                {item.label}
-                              </span>
-                            </div>
-                          )}
-                          {/* hover overlay — restore (bottom-left) & permanent delete (top-right) */}
-                          <div className="absolute inset-0 flex items-end justify-start bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                            <button
-                              type="button"
-                              aria-label={`Restore ${item.label ?? 'item'}`}
-                              className="flex h-5 w-5 items-center justify-center rounded-tr-md bg-black/60 text-white hover:text-green-400"
-                              onClick={() => restoreDeletedItem(item.id)}
-                            >
-                              <RotateCcw className="h-3 w-3" />
-                            </button>
-                          </div>
-                          <button
-                            type="button"
-                            aria-label={`Permanently delete ${item.label ?? 'item'}`}
-                            className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity hover:text-rose-400 group-hover:opacity-100"
-                            onClick={() => permanentlyDeleteItem(item.id)}
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </section>
-              )}
+              <DeletedItemsSection />
             </>
           )}
 
@@ -571,19 +505,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
           )}
         </div>
       </div>
-
-      <ConfirmDialog
-        open={showClearConfirm}
-        title="Clear deleted items?"
-        description="This will permanently remove all deleted items. This cannot be undone."
-        confirmText="Clear all"
-        onConfirm={() =>
-        {
-          clearDeletedItems()
-          setShowClearConfirm(false)
-        }}
-        onCancel={() => setShowClearConfirm(false)}
-      />
 
       <ConfirmDialog
         open={showClearAllConfirm}

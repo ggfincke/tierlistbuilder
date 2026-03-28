@@ -2,7 +2,7 @@
 // * global settings store — user preferences persisted independently of per-board data
 
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 
 import type {
   AppSettings,
@@ -13,7 +13,7 @@ import type {
   ThemeId,
   TierLabelFontSize,
 } from '../types'
-import { SETTINGS_STORAGE_KEY } from '../utils/constants'
+import { createAppPersistStorage, SETTINGS_STORAGE_KEY } from '../utils/storage'
 import { THEMES } from '../theme/tokens'
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -78,7 +78,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createAppPersistStorage(),
       version: 4,
       migrate: (persisted, version) =>
       {
