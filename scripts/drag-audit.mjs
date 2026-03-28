@@ -121,7 +121,10 @@ const keyboardBoardState = {
       'sample-blaze',
       'sample-ember',
       'sample-frost',
-    ].map((itemId, index) => [itemId, buildTextItem(itemId, `Keyboard ${index + 1}`)])
+    ].map((itemId, index) => [
+      itemId,
+      buildTextItem(itemId, `Keyboard ${index + 1}`),
+    ])
   ),
 }
 
@@ -659,7 +662,16 @@ const focusItem = async (client, itemId) =>
 
 const pressKey = async (
   client,
-  { key, code, windowsVirtualKeyCode, nativeVirtualKeyCode, downType = 'rawKeyDown', text, unmodifiedText, delayMs = 150 }
+  {
+    key,
+    code,
+    windowsVirtualKeyCode,
+    nativeVirtualKeyCode,
+    downType = 'rawKeyDown',
+    text,
+    unmodifiedText,
+    delayMs = 150,
+  }
 ) =>
 {
   const downEvent = {

@@ -239,6 +239,53 @@ export const applyContainerSnapshotToTiers = (
   }))
 }
 
+// verify that a snapshot references exactly the same item IDs as the live state
+// (catches orphans & missing items — not intra-source duplicates)
+export const isSnapshotConsistent = (
+  snapshot: ContainerSnapshot,
+  state: ContainerState
+): boolean =>
+{
+  // fast path: bail on count mismatch before building Sets
+  const snapshotCount =
+    snapshot.tiers.reduce((n, t) => n + t.itemIds.length, 0) +
+    snapshot.unrankedItemIds.length
+  const storeCount =
+    state.tiers.reduce((n, t) => n + t.itemIds.length, 0) +
+    state.unrankedItemIds.length
+
+  if (snapshotCount !== storeCount)
+  {
+    return false
+  }
+
+  const storeIds = new Set([
+    ...state.tiers.flatMap((tier) => tier.itemIds),
+    ...state.unrankedItemIds,
+  ])
+
+  for (const tier of snapshot.tiers)
+  {
+    for (const id of tier.itemIds)
+    {
+      if (!storeIds.has(id))
+      {
+        return false
+      }
+    }
+  }
+
+  for (const id of snapshot.unrankedItemIds)
+  {
+    if (!storeIds.has(id))
+    {
+      return false
+    }
+  }
+
+  return true
+}
+
 export const findContainer = (
   snapshot: ContainerSnapshot,
   id: string
@@ -723,12 +770,45 @@ const getRenderedItemIds = (
 }
 
 export const captureRenderedContainerSnapshot = (
-  snapshot: ContainerSnapshot
+  snapshot: ContainerSnapshot,
+  containerId?: string
 ): ContainerSnapshot | null =>
 {
   if (typeof document === 'undefined')
   {
     return null
+  }
+
+  // when scoped to a single container, only re-read that container's DOM
+  if (containerId)
+  {
+    if (containerId === UNRANKED_CONTAINER_ID)
+    {
+      return {
+        ...snapshot,
+        unrankedItemIds: getRenderedItemIds(
+          document.querySelector('[data-testid="unranked-container"]'),
+          snapshot.unrankedItemIds
+        ),
+      }
+    }
+
+    return {
+      ...snapshot,
+      tiers: snapshot.tiers.map((tier) =>
+        tier.id === containerId
+          ? {
+              ...tier,
+              itemIds: getRenderedItemIds(
+                document.querySelector(
+                  `[data-testid="tier-container-${tier.id}"]`
+                ),
+                tier.itemIds
+              ),
+            }
+          : tier
+      ),
+    }
   }
 
   return {
@@ -866,8 +946,8 @@ export const resolveColumnAwareCrossTierIndex = (
 
   if (sourceLayout)
   {
-    const sourceRowIndex = sourceLayout.rows.findIndex(
-      (row) => row.includes(itemId)
+    const sourceRowIndex = sourceLayout.rows.findIndex((row) =>
+      row.includes(itemId)
     )
 
     if (sourceRowIndex >= 0)
@@ -885,9 +965,10 @@ export const resolveColumnAwareCrossTierIndex = (
   }
 
   // ArrowUp → land on the last row, ArrowDown → land on the first row
-  const targetRow = direction === 'ArrowUp'
-    ? targetLayout.rows[targetLayout.rowCount - 1]
-    : targetLayout.rows[0]
+  const targetRow =
+    direction === 'ArrowUp'
+      ? targetLayout.rows[targetLayout.rowCount - 1]
+      : targetLayout.rows[0]
 
   const clampedColumn = Math.min(columnIndex, targetRow.length - 1)
   const targetItemId = targetRow[clampedColumn]

@@ -17,6 +17,7 @@ import { useSettingsStore } from './useSettingsStore'
 import {
   applyContainerSnapshotToTiers,
   createContainerSnapshot,
+  isSnapshotConsistent,
 } from '../utils/dragInsertion'
 import type {
   ContainerSnapshot,
@@ -501,6 +502,12 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       if (!state.dragPreview)
       {
         return state
+      }
+
+      // bail if items were added/deleted during the drag — the snapshot is stale
+      if (!isSnapshotConsistent(state.dragPreview, state))
+      {
+        return { dragPreview: null }
       }
 
       return {

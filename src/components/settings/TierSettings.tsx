@@ -45,7 +45,10 @@ const modKey = isMac ? 'Cmd' : 'Ctrl'
 const SHORTCUTS = [
   { keys: [modKey, 'Z'], description: 'Undo' },
   { keys: [modKey, 'Shift', 'Z'], description: 'Redo' },
-  { keys: ['Esc'], description: 'Close modal / cancel edit / exit keyboard mode' },
+  {
+    keys: ['Esc'],
+    description: 'Close modal / cancel edit / exit keyboard mode',
+  },
   { keys: ['Enter'], description: 'Confirm edit / submit' },
   { keys: ['Space'], description: 'Enter keyboard mode / pick up / drop' },
   { keys: ['Arrow Keys'], description: 'Browse items / move dragged item' },
@@ -72,7 +75,8 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
     (state) => state.exportBackgroundOverride
   )
   const themeId = useSettingsStore((state) => state.themeId)
-  const effectiveExportBg = exportBackgroundOverride ?? THEMES[themeId]['export-bg']
+  const effectiveExportBg =
+    exportBackgroundOverride ?? THEMES[themeId]['export-bg']
   const labelWidth = useSettingsStore((state) => state.labelWidth)
   const hideRowControls = useSettingsStore((state) => state.hideRowControls)
   const confirmBeforeDelete = useSettingsStore(
@@ -178,9 +182,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
       {/* backdrop — click to close */}
       <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
 
-      <div
-        className="fixed inset-0 z-50 m-auto flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl"
-      >
+      <div className="fixed inset-0 z-50 m-auto flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold text-[var(--t-text)]">
@@ -231,9 +233,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                     value={textLabel}
                     onChange={(e) => setTextLabel(e.target.value)}
                     onKeyDown={(e) =>
-                      {
+                    {
                       if (e.key === 'Enter')
-                        {
+                      {
                         handleAddTextItem()
                       }
                     }}
@@ -278,7 +280,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {deletedItems.map((item) =>
-                      {
+                    {
                       const bgColor = item.backgroundColor ?? '#444'
                       return (
                         <div
@@ -348,7 +350,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                   <Toggle
                     checked={syncTierColorsWithTheme}
                     onChange={(checked) =>
-                      {
+                    {
                       if (checked) setShowSyncConfirm(true)
                       else setSyncTierColorsWithTheme(false)
                     }}
@@ -457,7 +459,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                     <input
                       type="color"
                       value={effectiveExportBg}
-                      onChange={(e) => setExportBackgroundOverride(e.target.value)}
+                      onChange={(e) =>
+                        setExportBackgroundOverride(e.target.value)
+                      }
                       className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
                     />
                   </div>
@@ -474,7 +478,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                   <button
                     type="button"
                     onClick={() =>
-                      {
+                    {
                       createBoard()
                       onClose()
                     }}

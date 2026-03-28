@@ -166,8 +166,12 @@ export const useDragAndDrop = () =>
               return containerId ? overItems.includes(containerId) : false
             }
           )
-          const childRects = childDroppables.flatMap((container) =>
+
+          // exclude the dragged item's rect so trailing-space geometry
+          // stays stable after the preview moves the item to the end
+          const nonActiveChildRects = childDroppables.flatMap((container) =>
           {
+            if (toStringId(container.id) === activeId) return []
             const rect = args.droppableRects.get(container.id)
             return rect ? [rect] : []
           })
@@ -176,7 +180,7 @@ export const useDragAndDrop = () =>
             args.pointerCoordinates &&
             isPointerInTrailingLastRowSpace({
               pointerCoordinates: args.pointerCoordinates,
-              itemRects: childRects,
+              itemRects: nonActiveChildRects,
             })
           )
           {
@@ -329,13 +333,18 @@ export const useDragAndDrop = () =>
       const activeContainerId = findContainer(preview, activeId)
       const overContainerId = findContainer(preview, overId)
 
+      // scope the DOM capture to only the active container to avoid
+      // overwriting uninvolved containers w/ potentially stale DOM state
       if (
         activeContainerId &&
         overContainerId &&
         activeContainerId === overContainerId
       )
       {
-        const renderedSnapshot = captureRenderedContainerSnapshot(preview)
+        const renderedSnapshot = captureRenderedContainerSnapshot(
+          preview,
+          activeContainerId
+        )
 
         if (renderedSnapshot)
         {
@@ -358,7 +367,8 @@ export const useDragAndDrop = () =>
   return {
     sensors,
     // resolve active item object from ID for the drag overlay
-    activeItem: showDragOverlay && activeItemId ? items[activeItemId] : undefined,
+    activeItem:
+      showDragOverlay && activeItemId ? items[activeItemId] : undefined,
     collisionDetection,
     onDragStart,
     onDragMove,
