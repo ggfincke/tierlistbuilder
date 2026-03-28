@@ -5,18 +5,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
-import { Settings as SettingsIcon } from 'lucide-react'
 
 import type { Tier } from '../../types'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { PALETTES, THEME_PALETTE } from '../../theme'
 import { ITEM_SIZE_PX } from '../../utils/constants'
+import {
+  CUSTOM_COLOR_PICKER_WIDTH_PX,
+  computeColorPickerStyle,
+  computeCustomColorPickerStyle,
+} from '../../utils/popupPosition'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { TierItem } from './TierItem'
 import { TierLabel } from './TierLabel'
+import { TierRowSettingsMenu } from './TierRowSettingsMenu'
 import { ColorPicker, CustomColorPicker } from './ColorPicker'
-import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 interface TierRowProps
 {
@@ -25,77 +29,10 @@ interface TierRowProps
   totalTiers: number
 }
 
-const CUSTOM_COLOR_PICKER_WIDTH_PX = 280
-const POPUP_GAP_PX = 8
-const VIEWPORT_MARGIN_PX = 8
-
-function computeColorPickerStyle(btn: HTMLButtonElement): CSSProperties
-{
-  const rect = btn.getBoundingClientRect()
-
-  return {
-    position: 'fixed',
-    top: rect.bottom + POPUP_GAP_PX,
-    right: window.innerWidth - rect.right,
-  }
-}
-
-// position the custom popup below the swatch tray, clamped to viewport
-function computeCustomColorPickerStyle(
-  btn: HTMLButtonElement,
-  tray: HTMLDivElement | null,
-  popupWidth: number,
-  popupHeight = 0
-): CSSProperties
-{
-  const trayRect = tray?.getBoundingClientRect()
-  const buttonRect = btn.getBoundingClientRect()
-  const anchorBottom = trayRect?.bottom ?? buttonRect.bottom
-  const anchorLeft = trayRect?.left ?? buttonRect.left
-  const maxLeft = window.innerWidth - popupWidth - VIEWPORT_MARGIN_PX
-  const maxTop = window.innerHeight - popupHeight - VIEWPORT_MARGIN_PX
-
-  return {
-    position: 'fixed',
-    top: Math.min(
-      anchorBottom + POPUP_GAP_PX,
-      Math.max(VIEWPORT_MARGIN_PX, maxTop)
-    ),
-    left: Math.min(
-      Math.max(anchorLeft, VIEWPORT_MARGIN_PX),
-      Math.max(VIEWPORT_MARGIN_PX, maxLeft)
-    ),
-  }
-}
-
-function computeSettingsMenuStyle(btn: HTMLButtonElement): CSSProperties
-{
-  const rect = btn.getBoundingClientRect()
-  const menuHeight = 230
-  const spaceBelow = window.innerHeight - rect.bottom
-  if (spaceBelow >= menuHeight + 8)
-  {
-    return {
-      position: 'fixed',
-      top: rect.bottom + 8,
-      right: window.innerWidth - rect.right,
-    }
-  }
-  return {
-    position: 'fixed',
-    bottom: window.innerHeight - rect.top + 8,
-    right: window.innerWidth - rect.right,
-  }
-}
-
 export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
 {
   const reorderTier = useTierListStore((state) => state.reorderTier)
   const recolorTier = useTierListStore((state) => state.recolorTier)
-  const deleteTier = useTierListStore((state) => state.deleteTier)
-  const clearTierItems = useTierListStore((state) => state.clearTierItems)
-  const addTierAt = useTierListStore((state) => state.addTierAt)
-  const renameTier = useTierListStore((state) => state.renameTier)
 
   const itemSize = useSettingsStore((state) => state.itemSize)
   const compactMode = useSettingsStore((state) => state.compactMode)
@@ -107,19 +44,15 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showCustomColorPicker, setShowCustomColorPicker] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const [previewColor, setPreviewColor] = useState<string | null>(null)
   const [colorPickerStyle, setColorPickerStyle] = useState<CSSProperties>({})
   const [customColorPickerStyle, setCustomColorPickerStyle] =
     useState<CSSProperties>({})
-  const [settingsMenuStyle, setSettingsMenuStyle] = useState<CSSProperties>({})
 
   const colorButtonRef = useRef<HTMLButtonElement>(null)
   const colorPickerRef = useRef<HTMLDivElement>(null)
   const customColorButtonRef = useRef<HTMLButtonElement>(null)
   const customColorPickerRef = useRef<HTMLDivElement>(null)
-  const gearButtonRef = useRef<HTMLButtonElement>(null)
-  const settingsMenuRef = useRef<HTMLDivElement>(null)
   const colorPickerIgnoreRefs = useMemo(() => [customColorPickerRef], [])
   const customColorPickerIgnoreRefs = useMemo(() => [colorPickerRef], [])
 
@@ -266,20 +199,6 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [showColorPicker, showCustomColorPicker])
 
-  usePopupClose({
-    show: showSettingsMenu,
-    triggerRef: gearButtonRef,
-    popupRef: settingsMenuRef,
-    onClose: useCallback(() => setShowSettingsMenu(false), []),
-    onScroll: useCallback(() =>
-    {
-      if (gearButtonRef.current)
-      {
-        setSettingsMenuStyle(computeSettingsMenuStyle(gearButtonRef.current))
-      }
-    }, []),
-  })
-
   return (
     <div>
       <div
@@ -351,30 +270,18 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
               </button>
             </div>
 
-            <div>
-              <button
-                ref={gearButtonRef}
-                type="button"
-                className="rounded p-1 text-[var(--t-text-faint)] hover:text-[var(--t-text)]"
-                onClick={() =>
-                {
-                  if (!showSettingsMenu && gearButtonRef.current)
-                  {
-                    setSettingsMenuStyle(
-                      computeSettingsMenuStyle(gearButtonRef.current)
-                    )
-                    setShowSettingsMenu(true)
-                    setShowColorPicker(false)
-                    setShowCustomColorPicker(false)
-                  }
-                }}
-                aria-label="Row settings"
-                aria-haspopup="menu"
-                aria-expanded={showSettingsMenu}
-              >
-                <SettingsIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
-              </button>
-            </div>
+            <TierRowSettingsMenu
+              tier={tier}
+              index={index}
+              show={showSettingsMenu}
+              onToggle={() =>
+              {
+                setShowSettingsMenu(true)
+                setShowColorPicker(false)
+                setShowCustomColorPicker(false)
+              }}
+              onClose={() => setShowSettingsMenu(false)}
+            />
           </div>
         )}
       </div>
@@ -437,95 +344,6 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
           />
         </div>
       )}
-
-      {showSettingsMenu && (
-        <div
-          ref={settingsMenuRef}
-          role="menu"
-          className="z-50 w-48 rounded-xl border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-overlay)] p-2 shadow-2xl"
-          style={settingsMenuStyle}
-        >
-          <input
-            defaultValue={tier.name}
-            onBlur={(e) =>
-            {
-              const val = e.currentTarget.value.trim()
-              if (val && val !== tier.name) renameTier(tier.id, val)
-            }}
-            onKeyDown={(e) =>
-            {
-              if (e.key === 'Enter') e.currentTarget.blur()
-            }}
-            className="mb-2 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
-            aria-label="Rename tier"
-          />
-
-          <button
-            type="button"
-            role="menuitem"
-            className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--t-destructive-hover)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
-            onClick={() =>
-            {
-              setShowSettingsMenu(false)
-              setConfirmDelete(true)
-            }}
-          >
-            Delete Row
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
-            onClick={() =>
-            {
-              clearTierItems(tier.id)
-              setShowSettingsMenu(false)
-            }}
-          >
-            Clear Row Images
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
-            onClick={() =>
-            {
-              addTierAt(index)
-              setShowSettingsMenu(false)
-            }}
-          >
-            Add a Row Above
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
-            onClick={() =>
-            {
-              addTierAt(index + 1)
-              setShowSettingsMenu(false)
-            }}
-          >
-            Add a Row Below
-          </button>
-        </div>
-      )}
-
-      <ConfirmDialog
-        open={confirmDelete}
-        title="Delete tier?"
-        description={`Items in "${tier.name}" will be moved to Unranked.`}
-        confirmText="Delete"
-        onCancel={() => setConfirmDelete(false)}
-        onConfirm={() =>
-        {
-          deleteTier(tier.id)
-          setConfirmDelete(false)
-        }}
-      />
     </div>
   )
 }

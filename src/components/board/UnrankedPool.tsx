@@ -3,13 +3,13 @@
 
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
+import { useImageImport } from '../../hooks/useImageImport'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
-import { getEffectiveUnrankedItemIds } from '../../utils/dragInsertion'
+import { getEffectiveUnrankedItemIds } from '../../utils/dragSnapshot'
 import { UNRANKED_CONTAINER_ID } from '../../utils/constants'
-import { processImageFiles } from '../../utils/imageResize'
 import { TierItem } from './TierItem'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
@@ -32,12 +32,18 @@ export const UnrankedPool = () =>
     [dragPreview, storedUnrankedItemIds]
   )
   const itemCount = useTierListStore((state) => Object.keys(state.items).length)
-  const addItems = useTierListStore((state) => state.addItems)
   const removeItem = useTierListStore((state) => state.removeItem)
-  const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const [isDraggingFiles, setIsDraggingFiles] = useState(false)
+  const {
+    inputRef: fileInputRef,
+    isDraggingFiles,
+    openFilePicker,
+    onDragOver,
+    onDragLeave,
+    onDrop,
+    onFileInputChange,
+  } = useImageImport()
+
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const handleRequestDelete = useCallback(
@@ -54,27 +60,6 @@ export const UnrankedPool = () =>
     },
     [confirmBeforeDelete, removeItem]
   )
-
-  // process dropped or selected image files
-  const handleFiles = async (incomingFiles: FileList | File[]) =>
-  {
-    const files = Array.from(incomingFiles)
-    if (files.length === 0) return
-
-    const hasImages = files.some((f) => f.type.startsWith('image/'))
-    if (!hasImages)
-    {
-      setRuntimeError(
-        'No image files were found. Please upload PNG, JPG, WEBP, or GIF files.'
-      )
-      setIsDraggingFiles(false)
-      return
-    }
-
-    const newItems = await processImageFiles(files)
-    if (newItems.length > 0) addItems(newItems)
-    setIsDraggingFiles(false)
-  }
 
   // register the pool as a droppable container w/ the unranked ID
   const droppableData = useMemo(
@@ -119,25 +104,10 @@ export const UnrankedPool = () =>
                   ? 'text-[var(--t-accent)]'
                   : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-muted)]'
               }`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) =>
-                {
-                e.preventDefault()
-                setIsDraggingFiles(true)
-              }}
-              onDragLeave={(e) =>
-                {
-                e.preventDefault()
-                if (!e.currentTarget.contains(e.relatedTarget as Node | null))
-                  {
-                  setIsDraggingFiles(false)
-                }
-              }}
-              onDrop={(e) =>
-                {
-                e.preventDefault()
-                void handleFiles(e.dataTransfer.files)
-              }}
+              onClick={openFilePicker}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
             >
               <p className="text-sm">
                 {isDraggingFiles
@@ -168,11 +138,7 @@ export const UnrankedPool = () =>
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) =>
-        {
-          if (e.target.files) void handleFiles(e.target.files)
-          e.target.value = ''
-        }}
+        onChange={onFileInputChange}
       />
 
       <ConfirmDialog
