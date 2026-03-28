@@ -141,6 +141,9 @@ export type PaletteId =
 // tier label font size presets (independent of item size)
 export type TierLabelFontSize = 'xs' | 'small' | 'medium' | 'large' | 'xl'
 
+// runtime keyboard interaction states for item navigation & drag
+export type KeyboardMode = 'idle' | 'browse' | 'dragging'
+
 // global app settings — persisted independently of per-board data
 export interface AppSettings
 {

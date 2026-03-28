@@ -87,13 +87,60 @@ const wrappedBoardState = {
   ),
 }
 
+const keyboardBoardState = {
+  title: 'Keyboard Drag Audit',
+  tiers: [
+    {
+      id: 'tier-s',
+      name: 'S',
+      color: '#f47c7c',
+      itemIds: ['sample-apex', 'sample-comet', 'sample-drift'],
+    },
+    {
+      id: 'tier-a',
+      name: 'A',
+      color: '#f1b878',
+      itemIds: ['sample-blaze'],
+    },
+    { id: 'tier-b', name: 'B', color: '#edd77b', itemIds: [] },
+    { id: 'tier-c', name: 'C', color: '#e3ea78', itemIds: [] },
+    { id: 'tier-d', name: 'D', color: '#abe36d', itemIds: [] },
+    {
+      id: 'tier-e',
+      name: 'E',
+      color: '#74e56d',
+      itemIds: ['sample-ember'],
+    },
+  ],
+  unrankedItemIds: ['sample-frost'],
+  items: Object.fromEntries(
+    [
+      'sample-apex',
+      'sample-comet',
+      'sample-drift',
+      'sample-blaze',
+      'sample-ember',
+      'sample-frost',
+    ].map((itemId, index) => [itemId, buildTextItem(itemId, `Keyboard ${index + 1}`)])
+  ),
+}
+
 const appStorageKey = 'tier-list-builder-state'
 const expectedInitialOrder = ['sample-apex', 'sample-comet', 'sample-drift']
 const expectedSwapOrder = ['sample-comet', 'sample-apex', 'sample-drift']
+const expectedCometMoveOrder = ['sample-apex', 'sample-drift', 'sample-comet']
+const expectedTierAMoveOrder = ['sample-apex', 'sample-blaze']
+const expectedTierEMoveOrder = ['sample-frost', 'sample-ember']
+const expectedUnrankedMoveOrder = ['sample-ember', 'sample-frost']
 const wrappedExpectedOrder = [...wrappedTierOrder]
 const wrappedExpectedAppendedOrder = [
   ...wrappedTierOrder,
   wrappedIncomingItemId,
+]
+const wrappedExpectedAfterLeftOrder = [
+  ...wrappedTierOrder.slice(0, -1),
+  wrappedIncomingItemId,
+  wrappedTierOrder[wrappedTierOrder.length - 1],
 ]
 const sampledOffsets = [
   -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
@@ -497,6 +544,63 @@ const getTierOrder = async (client, tierId = 'tier-s') =>
   })()`)
 }
 
+const getContainerOrder = async (client, selector) =>
+{
+  return client.evaluate(`(() => {
+    const container = document.querySelector(${JSON.stringify(selector)})
+    if (!container) {
+      return []
+    }
+
+    return Array.from(container.querySelectorAll('[data-item-id]'))
+      .map((element) => {
+        const rect = element.getBoundingClientRect()
+
+        return {
+          itemId: element.getAttribute('data-item-id'),
+          left: rect.left,
+          top: rect.top,
+        }
+      })
+      .filter((item) => item.itemId)
+      .sort((left, right) => {
+        const topDelta = left.top - right.top
+        if (Math.abs(topDelta) > 4) {
+          return topDelta
+        }
+
+        return left.left - right.left
+      })
+      .map((item) => item.itemId)
+  })()`)
+}
+
+const getKeyboardState = async (client) =>
+{
+  const [tierS, tierA, tierE, unranked, domState] = await Promise.all([
+    getContainerOrder(client, '[data-testid="tier-container-tier-s"]'),
+    getContainerOrder(client, '[data-testid="tier-container-tier-a"]'),
+    getContainerOrder(client, '[data-testid="tier-container-tier-e"]'),
+    getContainerOrder(client, '[data-testid="unranked-container"]'),
+    client.evaluate(`(() => {
+      const activeElement = document.activeElement
+      const board = document.querySelector('[data-testid="tier-list-board"]')
+      const draggingItem = document.querySelector('[data-keyboard-dragging="true"]')
+
+      return {
+        activeItem: activeElement?.getAttribute('data-item-id') ?? null,
+        activeTag: activeElement?.tagName ?? null,
+        keyboardMode: board?.getAttribute('data-keyboard-mode') ?? 'idle',
+        keyboardFocusItem:
+          board?.getAttribute('data-keyboard-focus-item-id') || null,
+        draggingItem: draggingItem?.getAttribute('data-item-id') ?? null,
+      }
+    })()`),
+  ])
+
+  return { tierS, tierA, tierE, unranked, ...domState }
+}
+
 const getItemCenter = async (client, itemId) =>
 {
   const metrics = await client.evaluate(`(() => {
@@ -521,6 +625,107 @@ const getItemCenter = async (client, itemId) =>
   }
 
   return metrics
+}
+
+const clickAt = async (client, x, y, delayMs = 100) =>
+{
+  await dispatchMouseMove(client, x, y, 0)
+  await client.send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x,
+    y,
+    button: 'left',
+    buttons: 1,
+    clickCount: 1,
+    pointerType: 'mouse',
+  })
+  await client.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x,
+    y,
+    button: 'left',
+    buttons: 0,
+    clickCount: 1,
+    pointerType: 'mouse',
+  })
+  await delay(delayMs)
+}
+
+const focusItem = async (client, itemId) =>
+{
+  const center = await getItemCenter(client, itemId)
+  await clickAt(client, center.x, center.y)
+}
+
+const pressKey = async (
+  client,
+  { key, code, windowsVirtualKeyCode, nativeVirtualKeyCode, downType = 'rawKeyDown', text, unmodifiedText, delayMs = 150 }
+) =>
+{
+  const downEvent = {
+    type: downType,
+    key,
+    code,
+    windowsVirtualKeyCode,
+    nativeVirtualKeyCode,
+  }
+
+  if (text !== undefined)
+  {
+    downEvent.text = text
+    downEvent.unmodifiedText = unmodifiedText
+  }
+
+  await client.send('Input.dispatchKeyEvent', downEvent)
+  await client.send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key,
+    code,
+    windowsVirtualKeyCode,
+    nativeVirtualKeyCode,
+  })
+  await delay(delayMs)
+}
+
+const pressSpace = async (client) =>
+{
+  await pressKey(client, {
+    key: ' ',
+    code: 'Space',
+    windowsVirtualKeyCode: 32,
+    nativeVirtualKeyCode: 49,
+    downType: 'keyDown',
+    text: ' ',
+    unmodifiedText: ' ',
+  })
+}
+
+const ARROW_KEY_CODES = {
+  ArrowLeft: { keyCode: 37, nativeKeyCode: 123 },
+  ArrowUp: { keyCode: 38, nativeKeyCode: 126 },
+  ArrowRight: { keyCode: 39, nativeKeyCode: 124 },
+  ArrowDown: { keyCode: 40, nativeKeyCode: 125 },
+}
+
+const pressArrowKey = async (client, direction) =>
+{
+  await pressKey(client, {
+    key: direction,
+    code: direction,
+    windowsVirtualKeyCode: ARROW_KEY_CODES[direction].keyCode,
+    nativeVirtualKeyCode: ARROW_KEY_CODES[direction].nativeKeyCode,
+    delayMs: 200,
+  })
+}
+
+const pressEscape = async (client) =>
+{
+  await pressKey(client, {
+    key: 'Escape',
+    code: 'Escape',
+    windowsVirtualKeyCode: 27,
+    nativeVirtualKeyCode: 53,
+  })
 }
 
 const dispatchMouseMove = async (client, x, y, buttons) =>
@@ -574,6 +779,67 @@ const releaseMouse = async (client, x, y) =>
     pointerType: 'mouse',
   })
   await delay(50)
+}
+
+const getContainerCenter = async (client, selector) =>
+{
+  const metrics = await client.evaluate(`(() => {
+    const element = document.querySelector(${JSON.stringify(selector)})
+    if (!element) {
+      return null
+    }
+
+    const rect = element.getBoundingClientRect()
+
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    }
+  })()`)
+
+  if (!metrics)
+  {
+    throw new Error(`Could not locate ${selector}`)
+  }
+
+  return metrics
+}
+
+const clickTierContainer = async (client, tierId) =>
+{
+  const center = await getContainerCenter(
+    client,
+    `[data-testid="tier-container-${tierId}"]`
+  )
+  await clickAt(client, center.x, center.y, 150)
+}
+
+const getRenderedRowCount = async (client, tierId) =>
+{
+  return client.evaluate(`(() => {
+    const container = document.querySelector('[data-testid="tier-container-${tierId}"]')
+    if (!container) {
+      return 0
+    }
+
+    const tops = Array.from(container.querySelectorAll('[data-item-id]'))
+      .map((element) => element.getBoundingClientRect().top)
+      .sort((left, right) => left - right)
+
+    if (tops.length === 0) {
+      return 0
+    }
+
+    const rows = []
+    for (const top of tops) {
+      const existingRow = rows.find((rowTop) => Math.abs(rowTop - top) <= 4)
+      if (existingRow === undefined) {
+        rows.push(top)
+      }
+    }
+
+    return rows.length
+  })()`)
 }
 
 const seedBoard = async (client, boardState = seededBoardState) =>
@@ -774,6 +1040,539 @@ const runWrappedTrailingSpaceAudit = async (client, baseUrl) =>
   }
 }
 
+const runKeyboardAudit = async (client, baseUrl) =>
+{
+  await resetSeededBoard(
+    client,
+    baseUrl,
+    keyboardBoardState,
+    expectedInitialOrder
+  )
+
+  await focusItem(client, 'sample-apex')
+  await pressSpace(client)
+  const browseEntryState = await getKeyboardState(client)
+
+  assert.equal(
+    browseEntryState.keyboardMode,
+    'browse',
+    'The first Space press should enter keyboard browse mode'
+  )
+  assert.equal(
+    browseEntryState.keyboardFocusItem,
+    'sample-apex',
+    'Entering keyboard mode should keep focus on the current item'
+  )
+  assert.equal(
+    browseEntryState.draggingItem,
+    null,
+    'Entering keyboard mode should not pick up an item yet'
+  )
+
+  await pressArrowKey(client, 'ArrowRight')
+  const browseMoveState = await getKeyboardState(client)
+
+  assert.deepEqual(
+    browseMoveState.tierS,
+    expectedInitialOrder,
+    'Arrow keys in browse mode should not reorder items'
+  )
+  assert.equal(
+    browseMoveState.keyboardMode,
+    'browse',
+    'Arrow navigation should keep keyboard mode in browse state'
+  )
+  assert.equal(
+    browseMoveState.keyboardFocusItem,
+    'sample-comet',
+    'Arrow navigation in browse mode should move keyboard focus only'
+  )
+  assert.equal(
+    browseMoveState.activeItem,
+    'sample-comet',
+    'DOM focus should move to the browsed item'
+  )
+  assert.equal(
+    browseMoveState.draggingItem,
+    null,
+    'Browse mode should not mark any item as actively dragged'
+  )
+
+  await pressSpace(client)
+  const pickupState = await getKeyboardState(client)
+
+  assert.equal(
+    pickupState.keyboardMode,
+    'dragging',
+    'The second Space press should pick up the focused item'
+  )
+  assert.equal(
+    pickupState.draggingItem,
+    'sample-comet',
+    'Picking up should mark the focused item as the dragged item'
+  )
+
+  await pressArrowKey(client, 'ArrowRight')
+  const sameContainerPreview = await getKeyboardState(client)
+
+  assert.deepEqual(
+    sameContainerPreview.tierS,
+    expectedCometMoveOrder,
+    'ArrowRight while dragging should move the item one slot within the tier'
+  )
+  assert.equal(
+    sameContainerPreview.activeItem,
+    'sample-comet',
+    'Focus should stay on the dragged item during same-row keyboard moves'
+  )
+
+  await pressSpace(client)
+  const sameContainerFinal = await getKeyboardState(client)
+
+  assert.deepEqual(
+    sameContainerFinal.tierS,
+    sameContainerPreview.tierS,
+    'Same-row keyboard drop order did not match the preview order'
+  )
+  assert.equal(
+    sameContainerFinal.keyboardMode,
+    'browse',
+    'Dropping with Space should return keyboard mode to browse state'
+  )
+  assert.equal(
+    sameContainerFinal.activeItem,
+    'sample-comet',
+    'Focus did not return to the dropped item after a same-row keyboard drop'
+  )
+
+  await resetSeededBoard(
+    client,
+    baseUrl,
+    keyboardBoardState,
+    expectedInitialOrder
+  )
+
+  await focusItem(client, 'sample-apex')
+  await pressSpace(client)
+  await pressSpace(client)
+  await pressArrowKey(client, 'ArrowDown')
+  const crossTierPreview = await getKeyboardState(client)
+
+  assert.deepEqual(
+    crossTierPreview.tierS,
+    ['sample-comet', 'sample-drift'],
+    'Keyboard ArrowDown should remove the item from the source tier immediately'
+  )
+  assert.deepEqual(
+    crossTierPreview.tierA,
+    expectedTierAMoveOrder,
+    'Keyboard ArrowDown should insert into the next tier at the matching index'
+  )
+  assert.equal(
+    crossTierPreview.activeItem,
+    'sample-apex',
+    'Focus should stay on the dragged item during cross-tier keyboard moves'
+  )
+  assert.equal(
+    crossTierPreview.keyboardMode,
+    'dragging',
+    'Cross-tier movement should keep keyboard mode in dragging state'
+  )
+
+  await pressSpace(client)
+  const crossTierFinal = await getKeyboardState(client)
+
+  assert.deepEqual(
+    crossTierFinal.tierS,
+    crossTierPreview.tierS,
+    'Cross-tier keyboard drop did not preserve the preview source-tier order'
+  )
+  assert.deepEqual(
+    crossTierFinal.tierA,
+    crossTierPreview.tierA,
+    'Cross-tier keyboard drop did not preserve the preview target-tier order'
+  )
+  assert.equal(
+    crossTierFinal.activeItem,
+    'sample-apex',
+    'Focus did not return to the dropped item after a cross-tier keyboard drop'
+  )
+  assert.equal(
+    crossTierFinal.keyboardMode,
+    'browse',
+    'Dropping after a cross-tier move should return to browse mode'
+  )
+
+  await resetSeededBoard(
+    client,
+    baseUrl,
+    keyboardBoardState,
+    expectedInitialOrder
+  )
+
+  await focusItem(client, 'sample-apex')
+  await pressSpace(client)
+  await pressSpace(client)
+  await pressArrowKey(client, 'ArrowLeft')
+  const boundaryPreview = await getKeyboardState(client)
+
+  assert.deepEqual(
+    boundaryPreview.tierS,
+    expectedInitialOrder,
+    'Keyboard boundary moves should be no-ops at the start of a row'
+  )
+  assert.equal(
+    boundaryPreview.activeItem,
+    'sample-apex',
+    'Focus should stay on the dragged item during a boundary no-op'
+  )
+  assert.equal(
+    boundaryPreview.keyboardMode,
+    'dragging',
+    'A boundary no-op should keep keyboard mode in dragging state'
+  )
+
+  await pressSpace(client)
+  const boundaryFinal = await getKeyboardState(client)
+
+  assert.deepEqual(
+    boundaryFinal.tierS,
+    expectedInitialOrder,
+    'Keyboard boundary no-op should not change the dropped order'
+  )
+  assert.equal(
+    boundaryFinal.activeItem,
+    'sample-apex',
+    'Focus did not return to the item after a boundary no-op drop'
+  )
+  assert.equal(
+    boundaryFinal.keyboardMode,
+    'browse',
+    'Dropping after a boundary no-op should still return to browse mode'
+  )
+
+  await resetSeededBoard(
+    client,
+    baseUrl,
+    keyboardBoardState,
+    expectedInitialOrder
+  )
+
+  await focusItem(client, 'sample-apex')
+  await pressSpace(client)
+  await pressArrowKey(client, 'ArrowRight')
+  await pressEscape(client)
+  const escapeBrowseState = await getKeyboardState(client)
+
+  assert.equal(
+    escapeBrowseState.keyboardMode,
+    'idle',
+    'Escape should exit keyboard browse mode'
+  )
+  assert.deepEqual(
+    escapeBrowseState.tierS,
+    expectedInitialOrder,
+    'Escape from browse mode should not mutate board order'
+  )
+  assert.equal(
+    escapeBrowseState.activeItem,
+    'sample-comet',
+    'Escape from browse mode should leave focus on the last browsed item'
+  )
+
+  await resetSeededBoard(
+    client,
+    baseUrl,
+    keyboardBoardState,
+    expectedInitialOrder
+  )
+
+  await focusItem(client, 'sample-apex')
+  await pressSpace(client)
+  await pressSpace(client)
+  await pressArrowKey(client, 'ArrowDown')
+  await pressEscape(client)
+  const escapeDraggingState = await getKeyboardState(client)
+
+  assert.equal(
+    escapeDraggingState.keyboardMode,
+    'idle',
+    'Escape should exit keyboard drag mode'
+  )
+  assert.deepEqual(
+    escapeDraggingState.tierS,
+    expectedInitialOrder,
+    'Escape while dragging should discard the preview source-tier order'
+  )
+  assert.deepEqual(
+    escapeDraggingState.tierA,
+    ['sample-blaze'],
+    'Escape while dragging should discard the preview target-tier order'
+  )
+  assert.equal(
+    escapeDraggingState.activeItem,
+    'sample-apex',
+    'Escape while dragging should restore focus to the dragged item'
+  )
+
+  await resetSeededBoard(
+    client,
+    baseUrl,
+    keyboardBoardState,
+    expectedInitialOrder
+  )
+
+  await focusItem(client, 'sample-apex')
+  await pressSpace(client)
+  await pressArrowKey(client, 'ArrowRight')
+  await clickTierContainer(client, 'tier-b')
+  const pointerBrowseExitState = await getKeyboardState(client)
+
+  assert.equal(
+    pointerBrowseExitState.keyboardMode,
+    'idle',
+    'A pointer click should exit keyboard browse mode'
+  )
+  assert.deepEqual(
+    pointerBrowseExitState.tierS,
+    expectedInitialOrder,
+    'A pointer click during browse mode should not mutate board order'
+  )
+
+  await resetSeededBoard(
+    client,
+    baseUrl,
+    keyboardBoardState,
+    expectedInitialOrder
+  )
+
+  await focusItem(client, 'sample-apex')
+  await pressSpace(client)
+  await pressSpace(client)
+  await pressArrowKey(client, 'ArrowDown')
+  await clickTierContainer(client, 'tier-b')
+  const pointerDragExitState = await getKeyboardState(client)
+
+  assert.equal(
+    pointerDragExitState.keyboardMode,
+    'idle',
+    'A pointer click should exit keyboard drag mode'
+  )
+  assert.deepEqual(
+    pointerDragExitState.tierS,
+    expectedInitialOrder,
+    'A pointer click while dragging should discard the preview source-tier order'
+  )
+  assert.deepEqual(
+    pointerDragExitState.tierA,
+    ['sample-blaze'],
+    'A pointer click while dragging should discard the preview target-tier order'
+  )
+
+  await resetSeededBoard(
+    client,
+    baseUrl,
+    keyboardBoardState,
+    expectedInitialOrder
+  )
+
+  await focusItem(client, 'sample-ember')
+  await pressSpace(client)
+  await pressSpace(client)
+  await pressArrowKey(client, 'ArrowDown')
+  const lastTierPreview = await getKeyboardState(client)
+
+  assert.deepEqual(
+    lastTierPreview.tierE,
+    [],
+    'Keyboard ArrowDown from the last tier should clear the source tier preview'
+  )
+  assert.deepEqual(
+    lastTierPreview.unranked,
+    expectedUnrankedMoveOrder,
+    'Keyboard ArrowDown from the last tier should move into Unranked'
+  )
+  assert.equal(
+    lastTierPreview.activeItem,
+    'sample-ember',
+    'Focus should stay on the dragged item when moving from the last tier to Unranked'
+  )
+  assert.equal(
+    lastTierPreview.keyboardMode,
+    'dragging',
+    'Last-tier to Unranked movement should keep keyboard mode in dragging state'
+  )
+
+  await pressSpace(client)
+  const lastTierFinal = await getKeyboardState(client)
+
+  assert.deepEqual(
+    lastTierFinal.unranked,
+    lastTierPreview.unranked,
+    'Last-tier to Unranked keyboard drop did not preserve the preview order'
+  )
+  assert.equal(
+    lastTierFinal.activeItem,
+    'sample-ember',
+    'Focus did not return to the item after dropping into Unranked'
+  )
+  assert.equal(
+    lastTierFinal.keyboardMode,
+    'browse',
+    'Dropping into Unranked should return keyboard mode to browse state'
+  )
+
+  await resetSeededBoard(
+    client,
+    baseUrl,
+    keyboardBoardState,
+    expectedInitialOrder
+  )
+
+  await focusItem(client, 'sample-frost')
+  await pressSpace(client)
+  await pressSpace(client)
+  await pressArrowKey(client, 'ArrowUp')
+  const unrankedPreview = await getKeyboardState(client)
+
+  assert.deepEqual(
+    unrankedPreview.tierE,
+    expectedTierEMoveOrder,
+    'Keyboard ArrowUp from Unranked should move into the last tier'
+  )
+  assert.deepEqual(
+    unrankedPreview.unranked,
+    [],
+    'Keyboard ArrowUp from Unranked should remove the item from the pool preview'
+  )
+  assert.equal(
+    unrankedPreview.activeItem,
+    'sample-frost',
+    'Focus should stay on the dragged item when moving from Unranked into the last tier'
+  )
+  assert.equal(
+    unrankedPreview.keyboardMode,
+    'dragging',
+    'Unranked-to-tier movement should keep keyboard mode in dragging state'
+  )
+
+  await pressSpace(client)
+  const unrankedFinal = await getKeyboardState(client)
+
+  assert.deepEqual(
+    unrankedFinal.tierE,
+    unrankedPreview.tierE,
+    'Unranked-to-tier keyboard drop did not preserve the preview order'
+  )
+  assert.equal(
+    unrankedFinal.activeItem,
+    'sample-frost',
+    'Focus did not return to the item after dropping into the last tier'
+  )
+  assert.equal(
+    unrankedFinal.keyboardMode,
+    'browse',
+    'Dropping into the last tier should return keyboard mode to browse state'
+  )
+
+  await setViewport(client, 980, 1200)
+
+  try
+  {
+    await resetSeededBoard(
+      client,
+      baseUrl,
+      wrappedBoardState,
+      wrappedExpectedOrder
+    )
+
+    const wrappedRowCount = await getRenderedRowCount(client, 'tier-s')
+
+    assert.ok(
+      wrappedRowCount > 1,
+      `Wrapped keyboard append target rendered only ${wrappedRowCount} row(s)`
+    )
+
+    await focusItem(client, wrappedIncomingItemId)
+    await pressSpace(client)
+    await pressSpace(client)
+    await pressArrowKey(client, 'ArrowUp')
+    const wrappedAppendPreview = await getKeyboardState(client)
+
+    assert.deepEqual(
+      wrappedAppendPreview.tierS,
+      wrappedExpectedAppendedOrder,
+      'ArrowUp into a wrapped higher tier should append to the end'
+    )
+    assert.equal(
+      wrappedAppendPreview.draggingItem,
+      wrappedIncomingItemId,
+      'Wrapped upward movement should keep the dragged item active'
+    )
+
+    await pressArrowKey(client, 'ArrowLeft')
+    const wrappedAfterLeftPreview = await getKeyboardState(client)
+
+    assert.deepEqual(
+      wrappedAfterLeftPreview.tierS,
+      wrappedExpectedAfterLeftOrder,
+      'After appending upward, ArrowLeft should reposition within the target tier'
+    )
+
+    await pressSpace(client)
+    const wrappedFinal = await getKeyboardState(client)
+
+    assert.deepEqual(
+      wrappedFinal.tierS,
+      wrappedExpectedAfterLeftOrder,
+      'Wrapped upward keyboard drop should preserve the preview order'
+    )
+    assert.equal(
+      wrappedFinal.keyboardMode,
+      'browse',
+      'Dropping after a wrapped upward move should return to browse mode'
+    )
+
+    return {
+      browseEntry: browseEntryState,
+      browseMove: browseMoveState,
+      sameContainer: {
+        preview: sameContainerPreview,
+        final: sameContainerFinal,
+      },
+      crossTier: {
+        preview: crossTierPreview,
+        final: crossTierFinal,
+      },
+      boundaryNoOp: {
+        preview: boundaryPreview,
+        final: boundaryFinal,
+      },
+      escapeBrowse: escapeBrowseState,
+      escapeDragging: escapeDraggingState,
+      pointerBrowseExit: pointerBrowseExitState,
+      pointerDragExit: pointerDragExitState,
+      lastTierToUnranked: {
+        preview: lastTierPreview,
+        final: lastTierFinal,
+      },
+      unrankedToLastTier: {
+        preview: unrankedPreview,
+        final: unrankedFinal,
+      },
+      wrappedAppend: {
+        preview: wrappedAppendPreview,
+        afterLeft: wrappedAfterLeftPreview,
+        final: wrappedFinal,
+      },
+    }
+  }
+  finally
+  {
+    await setViewport(client, 1440, 1200)
+  }
+}
+
 const runAudit = async (client, baseUrl) =>
 {
   await resetSeededBoard(client, baseUrl)
@@ -883,8 +1682,9 @@ const runAudit = async (client, baseUrl) =>
     client,
     baseUrl
   )
+  const keyboard = await runKeyboardAudit(client, baseUrl)
 
-  return { ...report, parityChecks, wrappedTrailingSpace }
+  return { ...report, parityChecks, wrappedTrailingSpace, keyboard }
 }
 
 const main = async () =>

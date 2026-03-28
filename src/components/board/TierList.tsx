@@ -2,7 +2,7 @@
 // * top-level tier list — wraps dnd-kit context, tier rows, unranked pool, & drag overlay
 
 import { DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core'
-import { useMemo, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react'
 
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
@@ -13,6 +13,13 @@ import { DragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
 import { TrashZone } from './TrashZone'
 import { UnrankedPool } from './UnrankedPool'
+
+const DND_ACCESSIBILITY = {
+  screenReaderInstructions: {
+    draggable:
+      'Focus an item & press the space bar to enter keyboard mode. Use the arrow keys to move keyboard focus between items. Press space again to pick up the focused item, use the arrow keys to move it, press space to drop it, or press Escape to exit keyboard mode.',
+  },
+}
 
 interface TierListProps
 {
@@ -30,6 +37,34 @@ export const TierList = ({ exportRef }: TierListProps) =>
   const compactMode = useSettingsStore((state) => state.compactMode)
   const storedTiers = useTierListStore((state) => state.tiers)
   const dragPreview = useTierListStore((state) => state.dragPreview)
+  const keyboardMode = useTierListStore((state) => state.keyboardMode)
+  const boardRef = useRef<HTMLDivElement>(null)
+
+  // merge boardRef into the forwarded exportRef
+  const setBoardRef = useCallback(
+    (node: HTMLDivElement | null) =>
+    {
+      boardRef.current = node
+      // sync the forwarded export capture ref
+      const mutableRef = exportRef as React.MutableRefObject<HTMLDivElement | null>
+      mutableRef.current = node
+    },
+    [exportRef]
+  )
+
+  // sync keyboard focus item data attribute imperatively to avoid re-rendering
+  // the entire subtree on every arrow key press
+  useEffect(() =>
+  {
+    return useTierListStore.subscribe((state) =>
+    {
+      boardRef.current?.setAttribute(
+        'data-keyboard-focus-item-id',
+        state.keyboardFocusItemId ?? ''
+      )
+    })
+  }, [])
+
   const tiers = useMemo(
     () =>
       dragPreview ? getEffectiveTiers(storedTiers, dragPreview) : storedTiers,
@@ -51,6 +86,7 @@ export const TierList = ({ exportRef }: TierListProps) =>
     <DndContext
       sensors={sensors}
       collisionDetection={collisionDetection}
+      accessibility={DND_ACCESSIBILITY}
       measuring={{
         // always remeasure droppables to handle dynamic content changes
         droppable: {
@@ -66,7 +102,11 @@ export const TierList = ({ exportRef }: TierListProps) =>
       {/* export capture wrapper — min-width prevents layout collapse on narrow screens */}
       <div className={`overflow-x-auto ${compactMode ? 'mt-1' : 'mt-3'}`}>
         <div
-          ref={exportRef}
+          ref={setBoardRef}
+          data-testid="tier-list-board"
+          data-keyboard-mode={keyboardMode}
+          data-keyboard-focus-item-id=""
+          tabIndex={-1}
           className="min-w-[860px]"
           style={{ backgroundColor: exportBackgroundColor }}
         >

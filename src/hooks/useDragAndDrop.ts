@@ -1,9 +1,8 @@
 // src/hooks/useDragAndDrop.ts
 // * drag-&-drop hook — wires dnd-kit sensors, collision detection, & item move logic
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  KeyboardSensor,
   PointerSensor,
   TouchSensor,
   closestCenter,
@@ -19,7 +18,6 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 
 import { useTierListStore } from '../store/useTierListStore'
 import { TRASH_CONTAINER_ID } from '../utils/constants'
@@ -52,7 +50,9 @@ export const useDragAndDrop = () =>
   const items = useTierListStore((state) => state.items)
   const dragPreview = useTierListStore((state) => state.dragPreview)
   const activeItemId = useTierListStore((state) => state.activeItemId)
+  const keyboardMode = useTierListStore((state) => state.keyboardMode)
   const setActiveItemId = useTierListStore((state) => state.setActiveItemId)
+  const clearKeyboardMode = useTierListStore((state) => state.clearKeyboardMode)
   const beginDragPreview = useTierListStore((state) => state.beginDragPreview)
   const updateDragPreview = useTierListStore((state) => state.updateDragPreview)
   const commitDragPreview = useTierListStore((state) => state.commitDragPreview)
@@ -60,12 +60,13 @@ export const useDragAndDrop = () =>
     (state) => state.discardDragPreview
   )
   const removeItem = useTierListStore((state) => state.removeItem)
+  const [showDragOverlay, setShowDragOverlay] = useState(false)
   // last resolved over-ID — used as fallback when pointer leaves all droppables
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null)
   // flag set when the dragged item crosses into a new container mid-drag
   const movedToNewContainerRef = useRef(false)
 
-  // configure sensors: pointer (5px threshold), touch (120ms delay), keyboard
+  // configure sensors: pointer (5px threshold) & touch (120ms delay)
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -77,9 +78,6 @@ export const useDragAndDrop = () =>
         delay: 120,
         tolerance: 8,
       },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
     })
   )
 
@@ -93,6 +91,33 @@ export const useDragAndDrop = () =>
 
     return () => cancelAnimationFrame(frame)
   }, [dragPreview])
+
+  useEffect(() =>
+  {
+    if (keyboardMode === 'idle')
+    {
+      return
+    }
+
+    // exit keyboard browse/drag mode on the first pointer interaction
+    const handlePointerDown = () =>
+    {
+      const state = useTierListStore.getState()
+
+      if (state.keyboardMode === 'dragging')
+      {
+        state.discardDragPreview()
+        state.setActiveItemId(null)
+      }
+
+      state.clearKeyboardMode()
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown, true)
+
+    return () =>
+      document.removeEventListener('pointerdown', handlePointerDown, true)
+  }, [keyboardMode])
 
   // stabilize hit testing when items move between containers during the drag
   const collisionDetection: CollisionDetection = (args) =>
@@ -148,6 +173,7 @@ export const useDragAndDrop = () =>
           })
 
           if (
+            args.pointerCoordinates &&
             isPointerInTrailingLastRowSpace({
               pointerCoordinates: args.pointerCoordinates,
               itemRects: childRects,
@@ -195,6 +221,7 @@ export const useDragAndDrop = () =>
   {
     lastOverIdRef.current = null
     movedToNewContainerRef.current = false
+    setShowDragOverlay(false)
     setActiveItemId(null)
   }
 
@@ -256,6 +283,8 @@ export const useDragAndDrop = () =>
 
     beginDragPreview()
     lastOverIdRef.current = activeId
+    clearKeyboardMode()
+    setShowDragOverlay(true)
     setActiveItemId(activeId)
   }
 
@@ -274,6 +303,8 @@ export const useDragAndDrop = () =>
   // commit the exact preview that was rendered, or discard it when dropped outside
   const onDragEnd = (event: DragEndEvent) =>
   {
+    const activeId = toStringId(event.active.id)
+
     if (!event.over)
     {
       discardDragPreview()
@@ -281,7 +312,6 @@ export const useDragAndDrop = () =>
       return
     }
 
-    const activeId = toStringId(event.active.id)
     const overId = toStringId(event.over.id)
 
     // drop on trash — discard preview & remove the item
@@ -328,7 +358,7 @@ export const useDragAndDrop = () =>
   return {
     sensors,
     // resolve active item object from ID for the drag overlay
-    activeItem: activeItemId ? items[activeItemId] : undefined,
+    activeItem: showDragOverlay && activeItemId ? items[activeItemId] : undefined,
     collisionDetection,
     onDragStart,
     onDragMove,

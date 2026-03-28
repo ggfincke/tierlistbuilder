@@ -10,7 +10,8 @@ import { TRASH_CONTAINER_ID } from '../../utils/constants'
 export const TrashZone = () =>
 {
   const activeItemId = useTierListStore((state) => state.activeItemId)
-  const isDragActive = activeItemId !== null
+  const keyboardMode = useTierListStore((state) => state.keyboardMode)
+  const isDragActive = activeItemId !== null && keyboardMode !== 'dragging'
 
   const { setNodeRef, isOver } = useDroppable({
     id: TRASH_CONTAINER_ID,
