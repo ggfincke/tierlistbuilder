@@ -5,21 +5,21 @@ import type { PaletteId, ThemeId } from '../types'
 
 export interface PaletteDefinition
 {
-  // 6 default tier colors (S through E)
-  defaults: { name: string; color: string }[]
-  // 15 preset color picker swatches
+  // default tier colors (hex), one per tier slot (S through E)
+  defaults: string[]
+  // preset color picker swatches
   presets: string[]
 }
 
 export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   classic: {
     defaults: [
-      { name: 'S', color: '#f47c7c' },
-      { name: 'A', color: '#f1b878' },
-      { name: 'B', color: '#edd77b' },
-      { name: 'C', color: '#e3ea78' },
-      { name: 'D', color: '#abe36d' },
-      { name: 'E', color: '#74e56d' },
+      '#f47c7c',
+      '#f1b878',
+      '#edd77b',
+      '#e3ea78',
+      '#abe36d',
+      '#74e56d',
     ],
     presets: [
       '#f47c7c',
@@ -41,12 +41,12 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   },
   midnight: {
     defaults: [
-      { name: 'S', color: '#c084fc' },
-      { name: 'A', color: '#818cf8' },
-      { name: 'B', color: '#60a5fa' },
-      { name: 'C', color: '#67e8f9' },
-      { name: 'D', color: '#5eead4' },
-      { name: 'E', color: '#94a3b8' },
+      '#c084fc',
+      '#818cf8',
+      '#60a5fa',
+      '#67e8f9',
+      '#5eead4',
+      '#94a3b8',
     ],
     presets: [
       '#f0abfc',
@@ -68,12 +68,12 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   },
   forest: {
     defaults: [
-      { name: 'S', color: '#d4a574' },
-      { name: 'A', color: '#c8b860' },
-      { name: 'B', color: '#a8c060' },
-      { name: 'C', color: '#80b870' },
-      { name: 'D', color: '#5caa6c' },
-      { name: 'E', color: '#4a8c5c' },
+      '#d4a574',
+      '#c8b860',
+      '#a8c060',
+      '#80b870',
+      '#5caa6c',
+      '#4a8c5c',
     ],
     presets: [
       '#d4a574',
@@ -95,12 +95,12 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   },
   ember: {
     defaults: [
-      { name: 'S', color: '#ef6044' },
-      { name: 'A', color: '#f08050' },
-      { name: 'B', color: '#f0a050' },
-      { name: 'C', color: '#e8b860' },
-      { name: 'D', color: '#d4b878' },
-      { name: 'E', color: '#b89c70' },
+      '#ef6044',
+      '#f08050',
+      '#f0a050',
+      '#e8b860',
+      '#d4b878',
+      '#b89c70',
     ],
     presets: [
       '#ef6044',
@@ -122,12 +122,12 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   },
   sakura: {
     defaults: [
-      { name: 'S', color: '#f472b6' },
-      { name: 'A', color: '#e879a8' },
-      { name: 'B', color: '#f0a0c0' },
-      { name: 'C', color: '#d8a0d0' },
-      { name: 'D', color: '#b8a0d8' },
-      { name: 'E', color: '#a0a8d8' },
+      '#f472b6',
+      '#e879a8',
+      '#f0a0c0',
+      '#d8a0d0',
+      '#b8a0d8',
+      '#a0a8d8',
     ],
     presets: [
       '#f472b6',
@@ -149,12 +149,12 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   },
   amoled: {
     defaults: [
-      { name: 'S', color: '#ff3b6f' },
-      { name: 'A', color: '#ff6b2b' },
-      { name: 'B', color: '#ffd000' },
-      { name: 'C', color: '#00e676' },
-      { name: 'D', color: '#00bcd4' },
-      { name: 'E', color: '#7c4dff' },
+      '#ff3b6f',
+      '#ff6b2b',
+      '#ffd000',
+      '#00e676',
+      '#00bcd4',
+      '#7c4dff',
     ],
     presets: [
       '#ff3b6f',
@@ -176,12 +176,12 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   },
   'high-contrast': {
     defaults: [
-      { name: 'S', color: '#ff0000' },
-      { name: 'A', color: '#ff8800' },
-      { name: 'B', color: '#ffff00' },
-      { name: 'C', color: '#00cc00' },
-      { name: 'D', color: '#0088ff' },
-      { name: 'E', color: '#8800ff' },
+      '#ff0000',
+      '#ff8800',
+      '#ffff00',
+      '#00cc00',
+      '#0088ff',
+      '#8800ff',
     ],
     presets: [
       '#ff0000',

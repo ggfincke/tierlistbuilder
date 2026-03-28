@@ -2,19 +2,7 @@
 // grid of clickable theme preview cards for the Appearance section
 
 import { useSettingsStore } from '../../store/useSettingsStore'
-import { THEMES } from '../../theme'
-import type { ThemeId } from '../../types'
-
-const THEME_OPTIONS: { id: ThemeId; label: string }[] = [
-  { id: 'classic', label: 'Classic' },
-  { id: 'classic-light', label: 'Classic Light' },
-  { id: 'midnight', label: 'Midnight' },
-  { id: 'forest', label: 'Forest' },
-  { id: 'ember', label: 'Ember' },
-  { id: 'sakura', label: 'Sakura' },
-  { id: 'amoled', label: 'AMOLED' },
-  { id: 'high-contrast', label: 'High Contrast' },
-]
+import { THEME_META, THEMES } from '../../theme'
 
 export const ThemePicker = () =>
 {
@@ -23,7 +11,7 @@ export const ThemePicker = () =>
 
   return (
     <div className="grid grid-cols-4 gap-2">
-      {THEME_OPTIONS.map(({ id, label }) =>
+      {THEME_META.map(({ id, label }) =>
       {
         const t = THEMES[id]
         const isActive = id === themeId
