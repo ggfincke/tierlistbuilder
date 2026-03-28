@@ -9,8 +9,9 @@ import {
   clampIndex,
 } from '../utils/constants'
 import {
+  getAutoTierColorSource,
   getAutoTierColorUpdate,
-  hydrateTierColorSources,
+  getTierColorFromSource,
   THEME_PALETTE,
 } from '../theme'
 import { useSettingsStore } from './useSettingsStore'
@@ -18,7 +19,7 @@ import {
   applyContainerSnapshotToTiers,
   createContainerSnapshot,
   isSnapshotConsistent,
-} from '../utils/dragInsertion'
+} from '../utils/dragSnapshot'
 import type {
   ContainerSnapshot,
   KeyboardMode,
@@ -52,7 +53,6 @@ interface TierListStore extends TierListData
   clearKeyboardMode: () => void
   setRuntimeError: (message: string) => void
   clearRuntimeError: () => void
-  updateTitle: (title: string) => void
   addTier: () => void
   renameTier: (tierId: string, name: string) => void
   recolorTier: (
@@ -180,13 +180,6 @@ export const useTierListStore = create<TierListStore>()((set) => ({
 
   // dismiss the current runtime error banner
   clearRuntimeError: () => set({ runtimeError: null }),
-
-  // update the board title
-  updateTitle: (title) =>
-    set((state) => ({
-      ...pushUndo(state),
-      title,
-    })),
 
   // append a new tier row at the end w/ the next cycling color
   addTier: () =>
@@ -584,7 +577,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         ...state.unrankedItemIds,
       ]
       return {
-        title: DEFAULT_TITLE,
+        title: state.title,
         tiers: buildDefaultTiers(THEME_PALETTE[themeId]),
         unrankedItemIds: allItemIds,
         items: state.items,
@@ -598,10 +591,26 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     set(() =>
     {
       const { themeId } = useSettingsStore.getState()
+      const paletteId = THEME_PALETTE[themeId]
 
       return {
         ...data,
-        tiers: hydrateTierColorSources(THEME_PALETTE[themeId], data.tiers),
+        // ensure every tier has a defined colorSource (migrates legacy boards)
+        tiers: data.tiers.map((tier, index) =>
+        {
+          if (tier.colorSource !== undefined) return tier
+
+          // legacy board: check if color matches the auto-assigned palette slot
+          const autoSource = getAutoTierColorSource(paletteId, index)
+          const autoColor = getTierColorFromSource(paletteId, autoSource)
+          return {
+            ...tier,
+            colorSource:
+              autoColor?.toLowerCase() === tier.color.toLowerCase()
+                ? autoSource
+                : null,
+          }
+        }),
         ...freshRuntimeState,
       }
     }),

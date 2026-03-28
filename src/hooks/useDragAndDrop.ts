@@ -22,14 +22,16 @@ import {
 import { useTierListStore } from '../store/useTierListStore'
 import { TRASH_CONTAINER_ID } from '../utils/constants'
 import {
-  captureRenderedContainerSnapshot,
   findContainer,
-  getDraggedItemRect,
   getEffectiveContainerSnapshot,
   getItemsInContainer,
+} from '../utils/dragSnapshot'
+import {
+  getDraggedItemRect,
   isPointerInTrailingLastRowSpace,
   resolveNextDragPreview,
-} from '../utils/dragInsertion'
+} from '../utils/dragPointerMath'
+import { captureRenderedContainerSnapshot } from '../utils/dragDomCapture'
 
 interface DragPositionEvent
 {
