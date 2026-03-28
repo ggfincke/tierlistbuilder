@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-03-28
+
+### Fixed
+
+- **Drag & Drop**: Defensive guards for stale/deleted items during keyboard browse & drag
+- **Drag & Drop**: Snapshot consistency validation before committing drag preview
+- **Drag & Drop**: Scoped DOM capture to active container & debounced focus-restore RAF
+
+## [0.2.4] - 2026-03-28
+
+### Added
+
+- **Keyboard Navigation**: Browse items w/ arrow keys, Enter to pick up, move across tiers & rows, Escape to cancel
+- **Drag & Drop**: Visual row layout helpers for keyboard drag preview resolution
+- **Store**: Keyboard mode state & actions for item navigation
+
+### Changed
+
+- **Drag & Drop**: Removed keyboard sensor in favor of custom keyboard browse/drag interaction
+- **Drag & Drop**: Pointer-exit cleanup for keyboard mode transitions
+
+## [0.2.3] - 2026-03-28
+
+### Changed
+
+- **Settings**: Extracted reusable UI components (SegmentedControl, SettingRow, SettingsSection, Toggle) from TierSettings
+- **Settings**: Renamed `exportBackgroundColor` to `exportBackgroundOverride`
+- **Export**: Resolve export background from override or theme default
+
+### Fixed
+
+- **Board**: Reset now keeps items in unranked pool instead of deleting them
+
 ## [0.2.2] - 2026-03-22
 
 ### Changed
