@@ -1,7 +1,7 @@
 // src/App.tsx
 // * root application component — layout, export orchestration, & global error banner
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import { BoardActionBar } from './components/ui/BoardActionBar'
 import { BoardManager } from './components/ui/BoardManager'
@@ -12,7 +12,6 @@ import { Toolbar } from './components/ui/Toolbar'
 import { useBoardTransition } from './hooks/useBoardTransition'
 import { useThemeApplicator } from './hooks/useThemeApplicator'
 import { useUndoRedo } from './hooks/useUndoRedo'
-import { useBoardManagerStore } from './store/useBoardManagerStore'
 import { useTierListStore } from './store/useTierListStore'
 import { useSettingsStore } from './store/useSettingsStore'
 import { THEMES } from './theme/tokens'
@@ -43,12 +42,6 @@ function App()
   const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
   const addTier = useTierListStore((state) => state.addTier)
   const resetBoard = useTierListStore((state) => state.resetBoard)
-  // keep the board manager registry title in sync w/ the active board
-  const syncTitle = useBoardManagerStore((state) => state.syncTitle)
-  useEffect(() =>
-  {
-    syncTitle(title)
-  }, [title, syncTitle])
 
   useThemeApplicator()
   useUndoRedo()

@@ -2,14 +2,15 @@
 // export-all utilities — bundle every board into a single JSON, PDF, or image ZIP
 
 import type { ImageFormat, TierListData } from '../types'
-import {
-  loadAllBoardData,
-  setExportLock,
-  useBoardManagerStore,
-} from '../store/useBoardManagerStore'
-import { useTierListStore } from '../store/useTierListStore'
+import { useBoardManagerStore } from '../store/useBoardManagerStore'
+import { extractBoardData, useTierListStore } from '../store/useTierListStore'
 import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
 import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
+import {
+  loadBoardFromStorage,
+  saveBoardToStorage,
+  setExportLock,
+} from './storage'
 
 // wait for React to paint & layout to settle after a store update
 const waitForRender = (): Promise<void> =>
@@ -42,6 +43,31 @@ interface MultiTierListExport
 
 // progress callback type used by PDF & image exports
 type ProgressCallback = (current: number, total: number) => void
+
+// load every board's data from localStorage (flushes active board first)
+const loadAllBoardData = (): Array<{
+  id: string
+  title: string
+  data: TierListData
+}> =>
+{
+  const { boards, activeBoardId } = useBoardManagerStore.getState()
+
+  // flush in-memory active board to storage so the read is fresh
+  if (activeBoardId)
+  {
+    const data = extractBoardData(useTierListStore.getState())
+    saveBoardToStorage(activeBoardId, data)
+  }
+
+  const results: Array<{ id: string; title: string; data: TierListData }> = []
+  for (const board of boards)
+  {
+    const data = loadBoardFromStorage(board.id)
+    if (data) results.push({ id: board.id, title: board.title, data })
+  }
+  return results
+}
 
 // download all boards as a single JSON file
 export const exportAllBoardsAsJson = () =>

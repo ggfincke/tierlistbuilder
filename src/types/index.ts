@@ -41,8 +41,8 @@ export interface Tier
   name: string
   // hex color for the label background
   color: string
-  // palette slot that produced this color (absent on legacy data, null for custom colors)
-  colorSource?: TierColorSource | null
+  // palette slot that produced this color (null for custom colors)
+  colorSource: TierColorSource | null
   // ordered list of item IDs assigned to this tier
   itemIds: string[]
 }
