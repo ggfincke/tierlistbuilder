@@ -20,6 +20,7 @@ import {
 } from '../utils/dragInsertion'
 import type {
   ContainerSnapshot,
+  KeyboardMode,
   NewTierItem,
   PaletteId,
   Tier,
@@ -35,12 +36,19 @@ interface TierListStore extends TierListData
   activeItemId: string | null
   // runtime-only ordering snapshot shown while a drag is active
   dragPreview: ContainerSnapshot | null
+  // current keyboard interaction mode for item navigation & drag
+  keyboardMode: KeyboardMode
+  // item currently focused by keyboard browse mode
+  keyboardFocusItemId: string | null
   // non-fatal error message shown in the UI (null when clear)
   runtimeError: string | null
   // undo/redo history stacks (runtime-only, not persisted)
   past: TierListData[]
   future: TierListData[]
   setActiveItemId: (itemId: string | null) => void
+  setKeyboardMode: (mode: KeyboardMode) => void
+  setKeyboardFocusItemId: (itemId: string | null) => void
+  clearKeyboardMode: () => void
   setRuntimeError: (message: string) => void
   clearRuntimeError: () => void
   updateTitle: (title: string) => void
@@ -115,6 +123,8 @@ const createNewTier = (tierCount: number): Tier =>
 const freshRuntimeState = {
   activeItemId: null as string | null,
   dragPreview: null as ContainerSnapshot | null,
+  keyboardMode: 'idle' as KeyboardMode,
+  keyboardFocusItemId: null as string | null,
   runtimeError: null as string | null,
   past: [] as TierListData[],
   future: [] as TierListData[],
@@ -126,17 +136,43 @@ const pushUndo = (state: TierListStore) => ({
   future: [] as TierListData[],
 })
 
+// clear keyboard state when removing an item that is actively focused or dragged
+const keyboardCleanupForItem = (state: TierListStore, itemId: string) => ({
+  activeItemId: state.activeItemId === itemId ? null : state.activeItemId,
+  keyboardFocusItemId:
+    state.keyboardFocusItemId === itemId ? null : state.keyboardFocusItemId,
+  keyboardMode:
+    state.keyboardFocusItemId === itemId || state.activeItemId === itemId
+      ? ('idle' as KeyboardMode)
+      : state.keyboardMode,
+})
+
 // * primary Zustand store — active board state (persistence managed by useBoardManagerStore)
 export const useTierListStore = create<TierListStore>()((set) => ({
   ...createInitialData(),
   activeItemId: null,
   dragPreview: null,
+  keyboardMode: 'idle',
+  keyboardFocusItemId: null,
   runtimeError: null,
   past: [],
   future: [],
 
   // set the currently dragged item ID
   setActiveItemId: (itemId) => set({ activeItemId: itemId }),
+
+  // update the current keyboard interaction mode
+  setKeyboardMode: (mode) => set({ keyboardMode: mode }),
+
+  // track the item currently focused by keyboard navigation
+  setKeyboardFocusItemId: (itemId) => set({ keyboardFocusItemId: itemId }),
+
+  // clear keyboard browse/drag state
+  clearKeyboardMode: () =>
+    set({
+      keyboardMode: 'idle',
+      keyboardFocusItemId: null,
+    }),
 
   // surface a runtime error message in the UI
   setRuntimeError: (message) => set({ runtimeError: message }),
@@ -330,6 +366,8 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         ? [deletedItem, ...state.deletedItems].slice(0, 50)
         : state.deletedItems
 
+      const kbCleanup = keyboardCleanupForItem(state, itemId)
+
       // check unranked pool first
       if (state.unrankedItemIds.includes(itemId))
       {
@@ -337,6 +375,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
           ...undo,
           items: nextItems,
           deletedItems: nextDeleted,
+          ...kbCleanup,
           unrankedItemIds: state.unrankedItemIds.filter((id) => id !== itemId),
         }
       }
@@ -354,6 +393,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         ...undo,
         items: nextItems,
         deletedItems: nextDeleted,
+        ...kbCleanup,
         tiers: state.tiers.map((tier) =>
           tier.id === ownerTier.id
             ? { ...tier, itemIds: tier.itemIds.filter((id) => id !== itemId) }
@@ -489,6 +529,8 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         future: [extractBoardData(state), ...state.future].slice(0, 50),
         activeItemId: null,
         dragPreview: null,
+        keyboardMode: 'idle',
+        keyboardFocusItemId: null,
       }
     }),
 
@@ -507,6 +549,8 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         future: state.future.slice(1),
         activeItemId: null,
         dragPreview: null,
+        keyboardMode: 'idle',
+        keyboardFocusItemId: null,
       }
     }),
 

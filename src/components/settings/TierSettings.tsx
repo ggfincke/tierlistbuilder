@@ -45,9 +45,10 @@ const modKey = isMac ? 'Cmd' : 'Ctrl'
 const SHORTCUTS = [
   { keys: [modKey, 'Z'], description: 'Undo' },
   { keys: [modKey, 'Shift', 'Z'], description: 'Redo' },
-  { keys: ['Esc'], description: 'Close modal / cancel edit' },
+  { keys: ['Esc'], description: 'Close modal / cancel edit / exit keyboard mode' },
   { keys: ['Enter'], description: 'Confirm edit / submit' },
-  { keys: ['Arrow Keys'], description: 'Move items (keyboard drag)' },
+  { keys: ['Space'], description: 'Enter keyboard mode / pick up / drop' },
+  { keys: ['Arrow Keys'], description: 'Browse items / move dragged item' },
 ]
 
 export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
