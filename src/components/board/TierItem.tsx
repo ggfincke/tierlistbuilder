@@ -56,9 +56,14 @@ const focusItemById = (itemId: string) =>
   boardElement?.focus({ preventScroll: true })
 }
 
+// cancel the previous focus-restore RAF to avoid queueing stale focus calls
+// from rapid arrow key presses
+let pendingFocusFrame = 0
+
 const scheduleFocusRestore = (itemId: string) =>
 {
-  requestAnimationFrame(() => focusItemById(itemId))
+  cancelAnimationFrame(pendingFocusFrame)
+  pendingFocusFrame = requestAnimationFrame(() => focusItemById(itemId))
 }
 
 interface TierItemProps
@@ -137,7 +142,11 @@ export const TierItem = memo(
         return
       }
 
-      if (state.keyboardMode === 'dragging' && state.activeItemId)
+      if (
+        state.keyboardMode === 'dragging' &&
+        state.activeItemId &&
+        state.dragPreview
+      )
       {
         const droppedItemId = state.activeItemId
         state.commitDragPreview()
@@ -157,27 +166,33 @@ export const TierItem = memo(
       {
         const focusedItemId = state.keyboardFocusItemId ?? itemId
 
+        // if the focused item no longer exists (e.g. deleted via undo),
+        // fall back to the current element's item & re-anchor focus
+        const focusContainerId = findContainer(snapshot, focusedItemId)
+
+        if (!focusContainerId)
+        {
+          state.setKeyboardFocusItemId(itemId)
+          scheduleFocusRestore(itemId)
+          return
+        }
+
         // check for intra-row navigation within a multi-row container
         if (direction === 'ArrowUp' || direction === 'ArrowDown')
         {
-          const focusContainerId = findContainer(snapshot, focusedItemId)
+          const containerItems = getItemsInContainer(snapshot, focusContainerId)
+          const intraMove = resolveIntraContainerRowMove(
+            focusContainerId,
+            focusedItemId,
+            direction,
+            containerItems
+          )
 
-          if (focusContainerId)
+          if (intraMove)
           {
-            const containerItems = getItemsInContainer(snapshot, focusContainerId)
-            const intraMove = resolveIntraContainerRowMove(
-              focusContainerId,
-              focusedItemId,
-              direction,
-              containerItems
-            )
-
-            if (intraMove)
-            {
-              state.setKeyboardFocusItemId(intraMove.targetItemId)
-              scheduleFocusRestore(intraMove.targetItemId)
-              return
-            }
+            state.setKeyboardFocusItemId(intraMove.targetItemId)
+            scheduleFocusRestore(intraMove.targetItemId)
+            return
           }
         }
 
@@ -193,19 +208,17 @@ export const TierItem = memo(
         }
 
         // column-aware focus when crossing tiers w/ ArrowUp/ArrowDown
-        const focusContainerForCross = findContainer(snapshot, focusedItemId)
         const nextFocusContainer = findContainer(snapshot, nextFocusItemId)
 
         if (
           (direction === 'ArrowUp' || direction === 'ArrowDown') &&
-          focusContainerForCross &&
           nextFocusContainer &&
-          focusContainerForCross !== nextFocusContainer
+          focusContainerId !== nextFocusContainer
         )
         {
           const targetItems = getItemsInContainer(snapshot, nextFocusContainer)
           const columnTarget = resolveColumnAwareCrossTierIndex(
-            focusContainerForCross,
+            focusContainerId,
             focusedItemId,
             nextFocusContainer,
             targetItems,
@@ -232,6 +245,15 @@ export const TierItem = memo(
 
       const activeKeyboardItemId = state.activeItemId
       const activeContainerId = findContainer(snapshot, activeKeyboardItemId)
+
+      // if the dragged item no longer exists, discard the preview & exit
+      if (!activeContainerId)
+      {
+        state.discardDragPreview()
+        state.setActiveItemId(null)
+        state.clearKeyboardMode()
+        return
+      }
 
       // check for intra-row movement within a multi-row container
       if (
@@ -280,7 +302,10 @@ export const TierItem = memo(
         nextTarget.containerId !== activeContainerId
       )
       {
-        const targetItems = getItemsInContainer(snapshot, nextTarget.containerId)
+        const targetItems = getItemsInContainer(
+          snapshot,
+          nextTarget.containerId
+        )
         const columnTarget = resolveColumnAwareCrossTierIndex(
           activeContainerId,
           activeKeyboardItemId,
@@ -311,7 +336,8 @@ export const TierItem = memo(
     const handleEscapeKey = () =>
     {
       const state = useTierListStore.getState()
-      const focusedItemId = state.activeItemId ?? state.keyboardFocusItemId ?? itemId
+      const focusedItemId =
+        state.activeItemId ?? state.keyboardFocusItemId ?? itemId
 
       if (state.keyboardMode === 'dragging')
       {

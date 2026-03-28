@@ -33,7 +33,8 @@ export const TierList = ({ exportRef }: TierListProps) =>
     (state) => state.exportBackgroundOverride
   )
   const themeId = useSettingsStore((state) => state.themeId)
-  const exportBackgroundColor = exportBackgroundOverride ?? THEMES[themeId]['export-bg']
+  const exportBackgroundColor =
+    exportBackgroundOverride ?? THEMES[themeId]['export-bg']
   const compactMode = useSettingsStore((state) => state.compactMode)
   const storedTiers = useTierListStore((state) => state.tiers)
   const dragPreview = useTierListStore((state) => state.dragPreview)
@@ -46,7 +47,8 @@ export const TierList = ({ exportRef }: TierListProps) =>
     {
       boardRef.current = node
       // sync the forwarded export capture ref
-      const mutableRef = exportRef as React.MutableRefObject<HTMLDivElement | null>
+      const mutableRef =
+        exportRef as React.MutableRefObject<HTMLDivElement | null>
       mutableRef.current = node
     },
     [exportRef]
