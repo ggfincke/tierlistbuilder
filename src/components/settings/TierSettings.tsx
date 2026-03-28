@@ -1,7 +1,7 @@
 // src/components/settings/TierSettings.tsx
 // settings panel — tabbed modal w/ items management & preferences
 
-import { Layers, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import { Github, Layers, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
@@ -10,6 +10,7 @@ import { useTierListStore } from '../../store/useTierListStore'
 import { getTextColor } from '../../utils/color'
 import { getStorageUsageBytes } from '../../utils/constants'
 import { buildRecolorMap, THEME_PALETTE } from '../../theme'
+import { THEMES } from '../../theme/tokens'
 import type {
   ItemShape,
   ItemSize,
@@ -18,10 +19,15 @@ import type {
 } from '../../types'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { ImageUploader } from './ImageUploader'
+import { SegmentedControl } from './SegmentedControl'
+import { SettingRow } from './SettingRow'
+import { SettingsSection } from './SettingsSection'
 import { TextStylePicker } from './TextStylePicker'
 import { ThemePicker } from './ThemePicker'
+import { Toggle } from './Toggle'
 
-type Tab = 'items' | 'preferences'
+type Tab = 'items' | 'appearance' | 'layout' | 'more'
+const TABS: Tab[] = ['items', 'appearance', 'layout', 'more']
 
 interface TierSettingsProps
 {
@@ -31,90 +37,18 @@ interface TierSettingsProps
   onClose: () => void
 }
 
-// reusable toggle switch
-const Toggle = ({
-  checked,
-  onChange,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-}) => (
-  <button
-    type="button"
-    role="switch"
-    aria-checked={checked}
-    onClick={() => onChange(!checked)}
-    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-      checked ? 'bg-[var(--t-accent)]' : 'bg-[var(--t-border-secondary)]'
-    }`}
-  >
-    <span
-      className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-        checked ? 'translate-x-[18px]' : 'translate-x-[3px]'
-      }`}
-    />
-  </button>
-)
+// detect macOS for keyboard shortcut labels
+const isMac = navigator.platform.startsWith('Mac')
+const modKey = isMac ? 'Cmd' : 'Ctrl'
 
-// reusable setting row w/ label on left, control on right
-const SettingRow = ({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) => (
-  <div className="flex items-center justify-between gap-3 py-1.5">
-    <span className="text-sm text-[var(--t-text-secondary)]">{label}</span>
-    {children}
-  </div>
-)
-
-// reusable settings section w/ styled border & heading
-const SettingsSection = ({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) => (
-  <section className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-3">
-    <h3 className="mb-2 text-sm font-semibold text-[var(--t-text)]">{title}</h3>
-    {children}
-  </section>
-)
-
-// reusable segmented control
-const SegmentedControl = <T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: string }[]
-  value: T
-  onChange: (v: T) => void
-}) => (
-  <div className="flex rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]">
-    {options.map((opt) => (
-      <button
-        key={opt.value}
-        type="button"
-        onClick={() => onChange(opt.value)}
-        className={`px-3 py-1 text-xs font-medium transition-colors ${
-          value === opt.value
-            ? 'bg-[var(--t-bg-active)] text-[var(--t-text)]'
-            : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
-        } ${opt.value === options[0].value ? 'rounded-l-[7px]' : ''} ${
-          opt.value === options[options.length - 1].value
-            ? 'rounded-r-[7px]'
-            : ''
-        }`}
-      >
-        {opt.label}
-      </button>
-    ))}
-  </div>
-)
+// keyboard shortcuts displayed in the preferences tab
+const SHORTCUTS = [
+  { keys: [modKey, 'Z'], description: 'Undo' },
+  { keys: [modKey, 'Shift', 'Z'], description: 'Redo' },
+  { keys: ['Esc'], description: 'Close modal / cancel edit' },
+  { keys: ['Enter'], description: 'Confirm edit / submit' },
+  { keys: ['Arrow Keys'], description: 'Move items (keyboard drag)' },
+]
 
 export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
 {
@@ -133,9 +67,11 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const showLabels = useSettingsStore((state) => state.showLabels)
   const itemShape = useSettingsStore((state) => state.itemShape)
   const compactMode = useSettingsStore((state) => state.compactMode)
-  const exportBackgroundColor = useSettingsStore(
-    (state) => state.exportBackgroundColor
+  const exportBackgroundOverride = useSettingsStore(
+    (state) => state.exportBackgroundOverride
   )
+  const themeId = useSettingsStore((state) => state.themeId)
+  const effectiveExportBg = exportBackgroundOverride ?? THEMES[themeId]['export-bg']
   const labelWidth = useSettingsStore((state) => state.labelWidth)
   const hideRowControls = useSettingsStore((state) => state.hideRowControls)
   const confirmBeforeDelete = useSettingsStore(
@@ -145,8 +81,8 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const setShowLabels = useSettingsStore((state) => state.setShowLabels)
   const setItemShape = useSettingsStore((state) => state.setItemShape)
   const setCompactMode = useSettingsStore((state) => state.setCompactMode)
-  const setExportBackgroundColor = useSettingsStore(
-    (state) => state.setExportBackgroundColor
+  const setExportBackgroundOverride = useSettingsStore(
+    (state) => state.setExportBackgroundOverride
   )
   const setLabelWidth = useSettingsStore((state) => state.setLabelWidth)
   const setHideRowControls = useSettingsStore(
@@ -155,7 +91,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const setConfirmBeforeDelete = useSettingsStore(
     (state) => state.setConfirmBeforeDelete
   )
-  const themeId = useSettingsStore((state) => state.themeId)
   const syncTierColorsWithTheme = useSettingsStore(
     (state) => state.syncTierColorsWithTheme
   )
@@ -206,7 +141,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
 
   // compute storage usage when preferences tab opens
   const storageBytes = useMemo(
-    () => (open && activeTab === 'preferences' ? getStorageUsageBytes() : 0),
+    () => (open && activeTab === 'more' ? getStorageUsageBytes() : 0),
     [open, activeTab]
   )
 
@@ -243,38 +178,29 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
       <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
 
       <div
-        className="fixed inset-0 z-50 m-auto flex max-h-[calc(100vh-4rem)] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl"
-        style={{ height: 'fit-content' }}
+        className="fixed inset-0 z-50 m-auto flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl"
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold text-[var(--t-text)]">
-              Tier Settings
+              Settings
             </h2>
             {/* tab buttons */}
             <div className="flex gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5">
-              <button
-                type="button"
-                onClick={() => setActiveTab('items')}
-                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-                  activeTab === 'items'
-                    ? 'bg-[var(--t-bg-active)] text-[var(--t-text)]'
-                    : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
-                }`}
-              >
-                Items
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('preferences')}
-                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-                  activeTab === 'preferences'
-                    ? 'bg-[var(--t-bg-active)] text-[var(--t-text)]'
-                    : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
-                }`}
-              >
-                Preferences
-              </button>
+              {TABS.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                    activeTab === tab
+                      ? 'bg-[var(--t-bg-active)] text-[var(--t-text)] shadow-sm'
+                      : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
           </div>
           <button
@@ -286,10 +212,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
           </button>
         </div>
 
-        <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
-          {activeTab === 'items' ? (
+        <div className="min-h-0 space-y-5 overflow-y-auto pr-1">
+          {activeTab === 'items' && (
             <>
-              {/* image import section */}
               <SettingsSection title="Import Images">
                 <p className="-mt-1 mb-2 text-xs text-[var(--t-text-faint)]">
                   Drop files here or choose them from your computer.
@@ -405,22 +330,19 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                 </section>
               )}
             </>
-          ) : (
+          )}
+
+          {activeTab === 'appearance' && (
             <>
-              {/* appearance settings */}
-              <SettingsSection title="Appearance">
-                <div className="mb-3">
-                  <span className="mb-1.5 block text-xs text-[var(--t-text-faint)]">
-                    Theme
-                  </span>
-                  <ThemePicker />
-                </div>
-                <div className="mb-3">
-                  <span className="mb-1.5 block text-xs text-[var(--t-text-faint)]">
-                    Text Style
-                  </span>
-                  <TextStylePicker />
-                </div>
+              <SettingsSection title="Theme">
+                <ThemePicker />
+              </SettingsSection>
+
+              <SettingsSection title="Text Style">
+                <TextStylePicker />
+              </SettingsSection>
+
+              <SettingsSection title="Tier Colors">
                 <SettingRow label="Sync Tier Colors">
                   <Toggle
                     checked={syncTierColorsWithTheme}
@@ -436,9 +358,12 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                   off to keep custom colors.
                 </p>
               </SettingsSection>
+            </>
+          )}
 
-              {/* display settings */}
-              <SettingsSection title="Display">
+          {activeTab === 'layout' && (
+            <>
+              <SettingsSection title="Items">
                 <SettingRow label="Item Size">
                   <SegmentedControl<ItemSize>
                     options={[
@@ -469,15 +394,16 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                 </SettingRow>
               </SettingsSection>
 
-              {/* tier label styling */}
               <SettingsSection title="Tier Labels">
-                <SettingRow label="Bold">
-                  <Toggle checked={tierLabelBold} onChange={setTierLabelBold} />
-                </SettingRow>
-                <SettingRow label="Italic">
-                  <Toggle
-                    checked={tierLabelItalic}
-                    onChange={setTierLabelItalic}
+                <SettingRow label="Label Width">
+                  <SegmentedControl<LabelWidth>
+                    options={[
+                      { value: 'narrow', label: 'Narrow' },
+                      { value: 'default', label: 'Default' },
+                      { value: 'wide', label: 'Wide' },
+                    ]}
+                    value={labelWidth}
+                    onChange={setLabelWidth}
                   />
                 </SettingRow>
                 <SettingRow label="Font Size">
@@ -493,19 +419,13 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                     onChange={setTierLabelFontSize}
                   />
                 </SettingRow>
-              </SettingsSection>
-
-              {/* layout settings */}
-              <SettingsSection title="Layout">
-                <SettingRow label="Tier Label Width">
-                  <SegmentedControl<LabelWidth>
-                    options={[
-                      { value: 'narrow', label: 'Narrow' },
-                      { value: 'default', label: 'Default' },
-                      { value: 'wide', label: 'Wide' },
-                    ]}
-                    value={labelWidth}
-                    onChange={setLabelWidth}
+                <SettingRow label="Bold">
+                  <Toggle checked={tierLabelBold} onChange={setTierLabelBold} />
+                </SettingRow>
+                <SettingRow label="Italic">
+                  <Toggle
+                    checked={tierLabelItalic}
+                    onChange={setTierLabelItalic}
                   />
                 </SettingRow>
                 <SettingRow label="Hide Row Controls">
@@ -515,56 +435,35 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                   />
                 </SettingRow>
               </SettingsSection>
+            </>
+          )}
 
-              {/* export settings */}
+          {activeTab === 'more' && (
+            <>
               <SettingsSection title="Export">
                 <SettingRow label="Background Color">
                   <div className="flex items-center gap-2">
+                    {exportBackgroundOverride !== null && (
+                      <button
+                        type="button"
+                        onClick={() => setExportBackgroundOverride(null)}
+                        className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
+                        title="Reset to theme default"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <input
                       type="color"
-                      value={exportBackgroundColor}
-                      onChange={(e) => setExportBackgroundColor(e.target.value)}
+                      value={effectiveExportBg}
+                      onChange={(e) => setExportBackgroundOverride(e.target.value)}
                       className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
                     />
-                    <span className="text-xs text-[var(--t-text-faint)]">
-                      {exportBackgroundColor}
-                    </span>
                   </div>
                 </SettingRow>
               </SettingsSection>
 
-              {/* data management */}
-              <SettingsSection title="Data">
-                <button
-                  type="button"
-                  onClick={() => setShowClearAllConfirm(true)}
-                  className="flex items-center gap-1.5 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm text-[var(--t-destructive-hover)] hover:border-[color-mix(in_srgb,var(--t-destructive)_50%,transparent)] hover:bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)]"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Clear All Items
-                </button>
-
-                {/* storage usage */}
-                <div className="mt-3 pt-3 border-t border-[var(--t-border)]">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-xs text-[var(--t-text-faint)]">
-                      Storage
-                    </span>
-                    <span className="text-xs text-[var(--t-text-faint)]">
-                      {storageMb.toFixed(1)} MB / {storageMaxMb} MB
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-[var(--t-bg-active)]">
-                    <div
-                      className={`h-full rounded-full transition-all ${storageColor}`}
-                      style={{ width: `${storagePercent}%` }}
-                    />
-                  </div>
-                </div>
-              </SettingsSection>
-
-              {/* lists */}
-              <SettingsSection title="Lists">
+              <SettingsSection title="Data & Lists">
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex items-center gap-1.5 text-sm text-[var(--t-text-faint)]">
                     <Layers className="h-3.5 w-3.5" />
@@ -588,17 +487,81 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                   Switch between lists using the button in the bottom-right
                   corner.
                 </p>
-              </SettingsSection>
 
-              {/* behavior settings */}
-              <SettingsSection title="Behavior">
+                <div className="my-2 border-t border-[var(--t-border)]" />
+
                 <SettingRow label="Confirm Before Delete">
                   <Toggle
                     checked={confirmBeforeDelete}
                     onChange={setConfirmBeforeDelete}
                   />
                 </SettingRow>
+
+                <button
+                  type="button"
+                  onClick={() => setShowClearAllConfirm(true)}
+                  className="mt-1 flex items-center gap-1.5 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm text-[var(--t-destructive-hover)] hover:border-[color-mix(in_srgb,var(--t-destructive)_50%,transparent)] hover:bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)]"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear All Items
+                </button>
+
+                <div className="mt-3 pt-3 border-t border-[var(--t-border)]">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-xs text-[var(--t-text-faint)]">
+                      Storage
+                    </span>
+                    <span className="text-xs text-[var(--t-text-faint)]">
+                      {storageMb.toFixed(1)} MB / {storageMaxMb} MB
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-[var(--t-bg-active)]">
+                    <div
+                      className={`h-full rounded-full transition-all ${storageColor}`}
+                      style={{ width: `${storagePercent}%` }}
+                    />
+                  </div>
+                </div>
               </SettingsSection>
+
+              <SettingsSection title="Keyboard Shortcuts">
+                <div className="space-y-2">
+                  {SHORTCUTS.map((shortcut) => (
+                    <div
+                      key={shortcut.description}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <span className="text-sm text-[var(--t-text-secondary)]">
+                        {shortcut.description}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {shortcut.keys.map((key) => (
+                          <kbd
+                            key={key}
+                            className="rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-1.5 py-0.5 font-mono text-xs text-[var(--t-text)]"
+                          >
+                            {key}
+                          </kbd>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SettingsSection>
+
+              <section className="flex items-center justify-between px-1 py-2">
+                <span className="text-xs text-[var(--t-text-dim)]">
+                  v{__APP_VERSION__}
+                </span>
+                <a
+                  href="https://github.com/ggfincke/tierlistbuilder"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--t-text-faint)] transition-colors hover:text-[var(--t-text-muted)]"
+                >
+                  <Github size={14} />
+                </a>
+              </section>
             </>
           )}
         </div>
