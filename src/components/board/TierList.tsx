@@ -6,6 +6,7 @@ import { useMemo, type RefObject } from 'react'
 
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
+import { THEMES } from '../../theme/tokens'
 import { getEffectiveTiers } from '../../utils/dragInsertion'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
 import { DragOverlayItem } from './DragOverlayItem'
@@ -21,9 +22,11 @@ interface TierListProps
 
 export const TierList = ({ exportRef }: TierListProps) =>
 {
-  const exportBackgroundColor = useSettingsStore(
-    (state) => state.exportBackgroundColor
+  const exportBackgroundOverride = useSettingsStore(
+    (state) => state.exportBackgroundOverride
   )
+  const themeId = useSettingsStore((state) => state.themeId)
+  const exportBackgroundColor = exportBackgroundOverride ?? THEMES[themeId]['export-bg']
   const compactMode = useSettingsStore((state) => state.compactMode)
   const storedTiers = useTierListStore((state) => state.tiers)
   const dragPreview = useTierListStore((state) => state.dragPreview)

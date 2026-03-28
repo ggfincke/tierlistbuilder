@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-03-22
+
+### Changed
+
+- **CI**: Deploy to Cloudflare only on version tags via prod branch
+
+## [0.2.1] - 2026-03-22
+
+### Fixed
+
+- **Color Picker**: Only use preset swatch order for user-picked preset colors — prevents custom colors from being remapped when switching palettes
+
 ## [0.2.0] - 2026-03-22
 
 Phase 2 (Customization & Export) complete — theming, preferences, multi-board export, and a full color picker.

@@ -114,7 +114,7 @@ export const UnrankedPool = () =>
           {unrankedItemIds.length === 0 ? (
             // empty state — click to open file picker, or drop images directly
             <div
-              className={`flex min-h-16 w-full cursor-pointer items-center justify-center text-center transition ${
+              className={`flex min-h-16 w-full cursor-pointer flex-col items-center justify-center text-center transition ${
                 isDraggingFiles
                   ? 'text-[var(--t-accent)]'
                   : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-muted)]'
@@ -142,7 +142,10 @@ export const UnrankedPool = () =>
               <p className="text-sm">
                 {isDraggingFiles
                   ? 'Drop images here'
-                  : 'Click to upload images, or drag files here'}
+                  : 'Drop images here or click to upload'}
+              </p>
+              <p className="mt-1 text-xs text-[var(--t-text-faint)]">
+                Square images (1:1) work best.
               </p>
             </div>
           ) : (

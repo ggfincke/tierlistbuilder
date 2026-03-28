@@ -411,7 +411,7 @@ export const BoardActionBar = ({
       <ConfirmDialog
         open={confirmReset}
         title="Reset board?"
-        description="This restores the default tiers and the sample image pack."
+        description="This restores the default tiers and moves all items back to the unranked pool."
         confirmText="Reset"
         onCancel={() => setConfirmReset(false)}
         onConfirm={() =>
