@@ -4,8 +4,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 
+import type { TierTemplate } from '../../types'
 import {
   createBoardSession,
+  createBoardSessionFromTemplate,
   deleteBoardSession,
   duplicateBoardSession,
   renameBoardSession,
@@ -14,6 +16,7 @@ import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ConfirmDialog } from './ConfirmDialog'
 import { OverlayPanelSurface } from './OverlayPrimitives'
+import { TemplatePickerModal } from './TemplatePickerModal'
 
 interface BoardManagerProps
 {
@@ -26,6 +29,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
   const activeBoardId = useBoardManagerStore((s) => s.activeBoardId)
 
   const [open, setOpen] = useState(false)
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -199,14 +203,14 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
             })}
           </div>
 
-          {/* new list button */}
+          {/* new list button — opens template picker */}
           <div className="border-t border-[var(--t-border)] px-3 py-2">
             <button
               type="button"
               onClick={() =>
               {
-                createBoardSession()
                 setOpen(false)
+                setShowTemplatePicker(true)
               }}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)]"
             >
@@ -216,6 +220,16 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
           </div>
         </OverlayPanelSurface>
       )}
+
+      {/* template picker for new lists */}
+      <TemplatePickerModal
+        open={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onSelectTemplate={(template: TierTemplate) =>
+          createBoardSessionFromTemplate(template)
+        }
+        onSelectBlank={() => createBoardSession()}
+      />
 
       {/* confirm delete dialog */}
       <ConfirmDialog

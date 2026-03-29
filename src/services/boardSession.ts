@@ -1,7 +1,7 @@
 // src/services/boardSession.ts
 // board session service — bootstrap, autosave, storage I/O, & registry orchestration
 
-import type { BoardMeta, PaletteId, TierListData } from '../types'
+import type { BoardMeta, PaletteId, TierListData, TierTemplate } from '../types'
 import { DEFAULT_TITLE } from '../utils/constants'
 import {
   loadBoardFromStorage,
@@ -15,6 +15,7 @@ import {
   normalizeTierListData,
   createInitialBoardData,
 } from '../domain/boardData'
+import { createBoardDataFromTemplate } from '../domain/templates'
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
 import { extractBoardData, useTierListStore } from '../store/useTierListStore'
 import { useSettingsStore } from '../store/useSettingsStore'
@@ -201,6 +202,15 @@ export const createBoardSession = (): void =>
 {
   saveActiveBoardSnapshot()
   saveAndActivateBoard(createBlankBoardData(), DEFAULT_TITLE)
+}
+
+export const createBoardSessionFromTemplate = (
+  template: TierTemplate
+): void =>
+{
+  saveActiveBoardSnapshot()
+  const data = createBoardDataFromTemplate(template)
+  saveAndActivateBoard(data, DEFAULT_TITLE)
 }
 
 export const switchBoardSession = (boardId: string): void =>

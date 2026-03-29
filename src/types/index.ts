@@ -103,6 +103,23 @@ export interface BoardMeta
   createdAt: number
 }
 
+// tier structure within a reusable template (no IDs or items)
+export interface TierTemplateTier
+{
+  name: string
+  colorSpec: TierColorSpec
+  description?: string
+}
+
+// reusable board template — defines tier structure without items
+export interface TierTemplate
+{
+  id: string
+  name: string
+  builtIn: boolean
+  tiers: TierTemplateTier[]
+}
+
 // supported image export formats
 export type ImageFormat = 'png' | 'jpeg' | 'webp'
 

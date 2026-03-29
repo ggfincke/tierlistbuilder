@@ -1,12 +1,18 @@
 // src/components/settings/TierSettingsMoreTab.tsx
 // more tab content for export prefs, storage, lists, & shortcuts
 
+import { useState } from 'react'
 import { Github, Layers, Plus, RotateCcw, Trash2 } from 'lucide-react'
 
-import { createBoardSession } from '../../services/boardSession'
+import type { TierTemplate } from '../../types'
+import {
+  createBoardSession,
+  createBoardSessionFromTemplate,
+} from '../../services/boardSession'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { THEMES } from '../../theme/tokens'
+import { TemplatePickerModal } from '../ui/TemplatePickerModal'
 import { SettingRow } from './SettingRow'
 import { SettingsSection } from './SettingsSection'
 import { Toggle } from './Toggle'
@@ -55,6 +61,8 @@ export const TierSettingsMoreTab = ({
     (state) => state.setConfirmBeforeDelete
   )
 
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+
   const effectiveExportBg =
     exportBackgroundOverride ?? THEMES[themeId]['export-bg']
   const storageMb = storageBytes / (1024 * 1024)
@@ -102,11 +110,7 @@ export const TierSettingsMoreTab = ({
           </span>
           <button
             type="button"
-            onClick={() =>
-            {
-              createBoardSession()
-              onClose()
-            }}
+            onClick={() => setShowTemplatePicker(true)}
             className="flex items-center gap-1.5 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm text-[var(--t-text)] hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-active)]"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -189,6 +193,21 @@ export const TierSettingsMoreTab = ({
           <Github size={14} />
         </a>
       </section>
+
+      <TemplatePickerModal
+        open={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onSelectTemplate={(template: TierTemplate) =>
+        {
+          createBoardSessionFromTemplate(template)
+          onClose()
+        }}
+        onSelectBlank={() =>
+        {
+          createBoardSession()
+          onClose()
+        }}
+      />
     </>
   )
 }
