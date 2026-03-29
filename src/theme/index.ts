@@ -1,20 +1,19 @@
 // src/theme/index.ts
 // barrel export for theme definitions
 
-export { THEMES } from './tokens'
-export type { ThemeDefinition } from './tokens'
+export { THEME_META, THEMES } from './tokens'
+export type { ThemeDefinition, ThemeMeta } from './tokens'
 
 export { PALETTES, THEME_PALETTE } from './palettes'
 export type { PaletteDefinition } from './palettes'
 
 export {
-  buildRecolorMap,
-  getAutoTierColorSource,
-  getAutoTierColorUpdate,
-  getTierColorFromSource,
-  hydrateTierColorSources,
-  mapTierColorToPalette,
-  resolveTierColorSource,
+  createCustomTierColorSpec,
+  createPaletteTierColorSpec,
+  getAutoTierColorSpec,
+  getTierColorFromPaletteSpec,
+  resolveTierColor,
+  resolveTierColorSpec,
 } from './tierColors'
 
 export { TEXT_STYLES } from './textStyles'

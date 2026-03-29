@@ -1,7 +1,7 @@
 // src/App.tsx
-// * root application component — layout, export orchestration, & global error banner
+// * root application component — shell composition, modal state, & global error banner
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { BoardActionBar } from './components/ui/BoardActionBar'
 import { BoardManager } from './components/ui/BoardManager'
@@ -9,188 +9,51 @@ import { ExportProgressOverlay } from './components/ui/ExportProgressOverlay'
 import { TierList } from './components/board/TierList'
 import { TierSettings } from './components/settings/TierSettings'
 import { Toolbar } from './components/ui/Toolbar'
+import { useAppBootstrap } from './hooks/useAppBootstrap'
 import { useBoardTransition } from './hooks/useBoardTransition'
+import { useCurrentPaletteId } from './hooks/useCurrentPaletteId'
+import { useExportController } from './hooks/useExportController'
 import { useThemeApplicator } from './hooks/useThemeApplicator'
 import { useUndoRedo } from './hooks/useUndoRedo'
-import { useBoardManagerStore } from './store/useBoardManagerStore'
 import { useTierListStore } from './store/useTierListStore'
-import { useSettingsStore } from './store/useSettingsStore'
-import { THEMES } from './theme/tokens'
-import type { ImageFormat } from './types'
-import {
-  exportAllBoardsAsImages,
-  exportAllBoardsAsJson,
-  exportAllBoardsAsPdf,
-} from './utils/exportAll'
-import {
-  copyTierListToClipboard,
-  exportTierListAsImage,
-} from './utils/exportImage'
-import { exportTierListAsPdf } from './utils/exportPdf'
-
-// resolve the effective export background from the override or current theme
-const getExportBg = () =>
-{
-  const { exportBackgroundOverride, themeId } = useSettingsStore.getState()
-  return exportBackgroundOverride ?? THEMES[themeId]['export-bg']
-}
 
 function App()
 {
-  const title = useTierListStore((state) => state.title)
+  const appReady = useAppBootstrap()
+  const paletteId = useCurrentPaletteId()
   const runtimeError = useTierListStore((state) => state.runtimeError)
   const clearRuntimeError = useTierListStore((state) => state.clearRuntimeError)
-  const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
   const addTier = useTierListStore((state) => state.addTier)
   const resetBoard = useTierListStore((state) => state.resetBoard)
-  // keep the board manager registry title in sync w/ the active board
-  const syncTitle = useBoardManagerStore((state) => state.syncTitle)
-  useEffect(() =>
-  {
-    syncTitle(title)
-  }, [title, syncTitle])
 
   useThemeApplicator()
   useUndoRedo()
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
+  const {
+    exportStatus,
+    exportAllProgress,
+    runExport,
+    runCopyToClipboard,
+    runExportAll,
+  } = useExportController()
 
   const [settingsOpen, setSettingsOpen] = useState(false)
-  // tracks active export type to disable the button & show loading state
-  const [exportStatus, setExportStatus] = useState<
-    ImageFormat | 'pdf' | 'clipboard' | null
-  >(null)
-  // tracks progress during multi-board "Export All" operations
-  const [exportAllProgress, setExportAllProgress] = useState<{
-    current: number
-    total: number
-  } | null>(null)
+  const handleAddTier = useMemo(
+    () => () => addTier(paletteId),
+    [addTier, paletteId]
+  )
+  const handleResetBoard = useMemo(
+    () => () => resetBoard(paletteId),
+    [paletteId, resetBoard]
+  )
+  const handleCloseSettings = useCallback(() => setSettingsOpen(false), [])
 
-  // ref attached to the export-capture wrapper div
-  const exportRef = useRef<HTMLDivElement | null>(null)
-
-  // trigger image or PDF export, guarding against concurrent calls
-  const runExport = async (type: ImageFormat | 'pdf') =>
+  if (!appReady)
   {
-    if (!exportRef.current || exportStatus)
-    {
-      return
-    }
-
-    clearRuntimeError()
-    setExportStatus(type)
-
-    try
-    {
-      const bgColor = getExportBg()
-      if (type === 'pdf')
-      {
-        await exportTierListAsPdf(exportRef.current, title, bgColor)
-      }
-      else
-      {
-        await exportTierListAsImage(exportRef.current, title, type, bgColor)
-      }
-    }
-    catch
-    {
-      setRuntimeError('Export failed. Try again after images finish loading.')
-    }
-    finally
-    {
-      setExportStatus(null)
-    }
-  }
-
-  // copy the rendered tier list image to the system clipboard
-  const runCopyToClipboard = async () =>
-  {
-    if (!exportRef.current || exportStatus)
-    {
-      return
-    }
-
-    clearRuntimeError()
-    setExportStatus('clipboard')
-
-    try
-    {
-      const bgColor = getExportBg()
-      await copyTierListToClipboard(exportRef.current, bgColor)
-    }
-    catch (err)
-    {
-      setRuntimeError(
-        err instanceof Error ? err.message : 'Failed to copy to clipboard.'
-      )
-    }
-    finally
-    {
-      setExportStatus(null)
-    }
-  }
-
-  // export all boards as JSON, PDF, or images (ZIP)
-  const runExportAll = async (type: 'json' | 'pdf' | ImageFormat) =>
-  {
-    if (exportStatus || exportAllProgress)
-    {
-      return
-    }
-
-    clearRuntimeError()
-
-    // JSON export doesn't need DOM rendering
-    if (type === 'json')
-    {
-      try
-      {
-        exportAllBoardsAsJson()
-      }
-      catch
-      {
-        setRuntimeError('Export All failed. Try again.')
-      }
-      return
-    }
-
-    if (!exportRef.current)
-    {
-      return
-    }
-
-    const bgColor = getExportBg()
-    const onProgress = (current: number, total: number) =>
-      setExportAllProgress({ current, total })
-
-    setExportAllProgress({ current: 0, total: 1 })
-
-    try
-    {
-      if (type === 'pdf')
-      {
-        await exportAllBoardsAsPdf(exportRef.current, bgColor, onProgress)
-      }
-      else
-      {
-        await exportAllBoardsAsImages(
-          exportRef.current,
-          type,
-          bgColor,
-          onProgress
-        )
-      }
-    }
-    catch
-    {
-      setRuntimeError(
-        'Export All failed. Try again after images finish loading.'
-      )
-    }
-    finally
-    {
-      setExportAllProgress(null)
-    }
+    return (
+      <main className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]" />
+    )
   }
 
   return (
@@ -219,22 +82,19 @@ function App()
           <BoardActionBar
             exportStatus={exportStatus}
             exportingAll={exportAllProgress !== null}
-            onAddTier={addTier}
+            onAddTier={handleAddTier}
             onOpenSettings={() => setSettingsOpen(true)}
             onExport={runExport}
             onCopyToClipboard={runCopyToClipboard}
             onExportAll={runExportAll}
-            onReset={resetBoard}
+            onReset={handleResetBoard}
           />
 
-          <TierList exportRef={exportRef} />
+          <TierList />
         </div>
       </div>
 
-      <TierSettings
-        open={settingsOpen}
-        onClose={useCallback(() => setSettingsOpen(false), [])}
-      />
+      <TierSettings open={settingsOpen} onClose={handleCloseSettings} />
       <BoardManager onSwitchBoard={transitionTo} />
       {exportAllProgress && (
         <ExportProgressOverlay

@@ -2,7 +2,7 @@
 // * global settings store — user preferences persisted independently of per-board data
 
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 
 import type {
   AppSettings,
@@ -13,7 +13,7 @@ import type {
   ThemeId,
   TierLabelFontSize,
 } from '../types'
-import { SETTINGS_STORAGE_KEY } from '../utils/constants'
+import { createAppPersistStorage, SETTINGS_STORAGE_KEY } from '../utils/storage'
 import { THEMES } from '../theme/tokens'
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -27,7 +27,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   confirmBeforeDelete: false,
   themeId: 'classic',
   textStyleId: 'default',
-  syncTierColorsWithTheme: true,
   tierLabelBold: false,
   tierLabelItalic: false,
   tierLabelFontSize: 'small',
@@ -45,11 +44,19 @@ interface SettingsStore extends AppSettings
   setConfirmBeforeDelete: (confirm: boolean) => void
   setThemeId: (themeId: ThemeId) => void
   setTextStyleId: (textStyleId: TextStyleId) => void
-  setSyncTierColorsWithTheme: (sync: boolean) => void
   setTierLabelBold: (bold: boolean) => void
   setTierLabelItalic: (italic: boolean) => void
   setTierLabelFontSize: (size: TierLabelFontSize) => void
   resetSettings: () => void
+}
+
+const createSettingSetter = <K extends keyof AppSettings>(
+  set: (partial: Partial<SettingsStore>) => void,
+  key: K
+) =>
+{
+  return (value: AppSettings[K]) =>
+    set({ [key]: value } as Pick<AppSettings, K>)
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -57,29 +64,28 @@ export const useSettingsStore = create<SettingsStore>()(
     (set) => ({
       ...DEFAULT_SETTINGS,
 
-      setItemSize: (itemSize) => set({ itemSize }),
-      setShowLabels: (showLabels) => set({ showLabels }),
-      setItemShape: (itemShape) => set({ itemShape }),
-      setCompactMode: (compactMode) => set({ compactMode }),
-      setExportBackgroundOverride: (exportBackgroundOverride) =>
-        set({ exportBackgroundOverride }),
-      setLabelWidth: (labelWidth) => set({ labelWidth }),
-      setHideRowControls: (hideRowControls) => set({ hideRowControls }),
-      setConfirmBeforeDelete: (confirmBeforeDelete) =>
-        set({ confirmBeforeDelete }),
-      setThemeId: (themeId) => set({ themeId }),
-      setTextStyleId: (textStyleId) => set({ textStyleId }),
-      setSyncTierColorsWithTheme: (syncTierColorsWithTheme) =>
-        set({ syncTierColorsWithTheme }),
-      setTierLabelBold: (tierLabelBold) => set({ tierLabelBold }),
-      setTierLabelItalic: (tierLabelItalic) => set({ tierLabelItalic }),
-      setTierLabelFontSize: (tierLabelFontSize) => set({ tierLabelFontSize }),
+      setItemSize: createSettingSetter(set, 'itemSize'),
+      setShowLabels: createSettingSetter(set, 'showLabels'),
+      setItemShape: createSettingSetter(set, 'itemShape'),
+      setCompactMode: createSettingSetter(set, 'compactMode'),
+      setExportBackgroundOverride: createSettingSetter(
+        set,
+        'exportBackgroundOverride'
+      ),
+      setLabelWidth: createSettingSetter(set, 'labelWidth'),
+      setHideRowControls: createSettingSetter(set, 'hideRowControls'),
+      setConfirmBeforeDelete: createSettingSetter(set, 'confirmBeforeDelete'),
+      setThemeId: createSettingSetter(set, 'themeId'),
+      setTextStyleId: createSettingSetter(set, 'textStyleId'),
+      setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
+      setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
+      setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
       resetSettings: () => set(DEFAULT_SETTINGS),
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
-      version: 4,
+      storage: createAppPersistStorage(),
+      version: 5,
       migrate: (persisted, version) =>
       {
         let state = persisted as Record<string, unknown>
@@ -95,7 +101,6 @@ export const useSettingsStore = create<SettingsStore>()(
         {
           state = {
             ...state,
-            syncTierColorsWithTheme: state.syncTierColorsWithTheme ?? true,
             tierLabelBold: state.tierLabelBold ?? false,
             tierLabelItalic: state.tierLabelItalic ?? false,
             tierLabelFontSize: state.tierLabelFontSize ?? 'small',
@@ -111,6 +116,10 @@ export const useSettingsStore = create<SettingsStore>()(
             exportBackgroundOverride: oldBg && oldBg !== themeBg ? oldBg : null,
           }
           delete state.exportBackgroundColor
+        }
+        if (version < 5)
+        {
+          delete state.syncTierColorsWithTheme
         }
         return state
       },

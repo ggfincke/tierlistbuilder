@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
+import { switchBoardSession } from '../services/boardSession'
 
 const FADE_OUT_MS = 120
 const FADE_IN_MS = 180
@@ -26,7 +27,6 @@ const STYLE_IDLE: React.CSSProperties = {}
 // wraps board switching w/ a fade-out → swap → fade-in sequence
 export const useBoardTransition = () =>
 {
-  const switchBoard = useBoardManagerStore((s) => s.switchBoard)
   const activeBoardId = useBoardManagerStore((s) => s.activeBoardId)
   const [phase, setPhase] = useState<Phase>('idle')
 
@@ -64,37 +64,34 @@ export const useBoardTransition = () =>
   useEffect(() => cancelTimers, [cancelTimers])
 
   // fade out, swap board, fade in
-  const transitionTo = useCallback(
-    (boardId: string) =>
+  const transitionTo = useCallback((boardId: string) =>
+  {
+    if (boardId === activeBoardIdRef.current || phaseRef.current !== 'idle')
+      return
+
+    setPhase('fading-out')
+
+    // after fade-out completes, swap & fade in
+    const t1 = setTimeout(() =>
     {
-      if (boardId === activeBoardIdRef.current || phaseRef.current !== 'idle')
-        return
+      switchBoardSession(boardId)
 
-      setPhase('fading-out')
-
-      // after fade-out completes, swap & fade in
-      const t1 = setTimeout(() =>
+      // start faded-in state on next frame so the transition fires
+      const raf = requestAnimationFrame(() =>
       {
-        switchBoard(boardId)
+        setPhase('fading-in')
 
-        // start faded-in state on next frame so the transition fires
-        const raf = requestAnimationFrame(() =>
+        const t2 = setTimeout(() =>
         {
-          setPhase('fading-in')
-
-          const t2 = setTimeout(() =>
-          {
-            setPhase('idle')
-            timersRef.current = { timeouts: [], raf: null }
-          }, FADE_IN_MS)
-          timersRef.current.timeouts.push(t2)
-        })
-        timersRef.current.raf = raf
-      }, FADE_OUT_MS)
-      timersRef.current.timeouts.push(t1)
-    },
-    [switchBoard]
-  )
+          setPhase('idle')
+          timersRef.current = { timeouts: [], raf: null }
+        }, FADE_IN_MS)
+        timersRef.current.timeouts.push(t2)
+      })
+      timersRef.current.raf = raf
+    }, FADE_OUT_MS)
+    timersRef.current.timeouts.push(t1)
+  }, [])
 
   const style = useMemo(
     () =>
