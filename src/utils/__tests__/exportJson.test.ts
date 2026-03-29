@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { TierListData } from '../../types'
-import { parseBoardJson } from '../exportJson'
+import { parseBoardJson, parseBoardsJson } from '../exportJson'
 
 const validBoard: TierListData = {
   title: 'Test Board',
@@ -154,5 +154,52 @@ describe('parseBoardJson', () =>
     const json = JSON.stringify(validBoard)
     const result = parseBoardJson(json)
     expect(result).toEqual(validBoard)
+  })
+})
+
+describe('parseBoardsJson', () =>
+{
+  it('wraps a single-board payload in an array', () =>
+  {
+    expect(parseBoardsJson(JSON.stringify(validBoard))).toEqual([validBoard])
+  })
+
+  it('parses a multi-board export envelope', () =>
+  {
+    const payload = {
+      version: 1,
+      exportedAt: '2026-03-28T00:00:00.000Z',
+      boards: [
+        { title: 'Board One', data: validBoard },
+        {
+          title: 'Board Two',
+          data: {
+            ...validBoard,
+            title: 'Second Board',
+          },
+        },
+      ],
+    }
+
+    expect(parseBoardsJson(JSON.stringify(payload))).toEqual([
+      validBoard,
+      {
+        ...validBoard,
+        title: 'Second Board',
+      },
+    ])
+  })
+
+  it('labels invalid multi-board entries in the thrown error', () =>
+  {
+    const payload = {
+      version: 1,
+      exportedAt: '2026-03-28T00:00:00.000Z',
+      boards: [{ title: 'Broken Board', data: { tiers: [] } }],
+    }
+
+    expect(() => parseBoardsJson(JSON.stringify(payload))).toThrow(
+      'Board "Broken Board" is invalid'
+    )
   })
 })
