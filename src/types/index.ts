@@ -105,21 +105,21 @@ export interface BoardMeta
   createdAt: number
 }
 
-// tier structure within a reusable template (no IDs or items)
-export interface TierTemplateTier
+// tier structure within a reusable preset (no IDs or items)
+export interface TierPresetTier
 {
   name: string
   colorSpec: TierColorSpec
   description?: string
 }
 
-// reusable board template — defines tier structure without items
-export interface TierTemplate
+// reusable board preset — defines tier structure w/o items
+export interface TierPreset
 {
   id: string
   name: string
   builtIn: boolean
-  tiers: TierTemplateTier[]
+  tiers: TierPresetTier[]
 }
 
 // supported image export formats

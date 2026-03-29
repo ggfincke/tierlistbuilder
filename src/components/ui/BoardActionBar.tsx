@@ -15,11 +15,11 @@ import {
 } from 'lucide-react'
 
 import type { ImageFormat } from '../../types'
-import { extractTemplateFromBoard } from '../../domain/templates'
+import { extractPresetFromBoard } from '../../domain/presets'
 import { useHybridMenu } from '../../hooks/useHybridMenu'
 import { extractBoardData } from '../../store/useTierListStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
-import { useTemplateStore } from '../../store/useTemplateStore'
+import { usePresetStore } from '../../store/usePresetStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ActionButton } from './ActionButton'
@@ -66,13 +66,13 @@ export const BoardActionBar = ({
   const shuffleUnrankedItems = useTierListStore(
     (state) => state.shuffleUnrankedItems
   )
-  const addTemplate = useTemplateStore((state) => state.addTemplate)
+  const addPreset = usePresetStore((state) => state.addPreset)
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmShuffle, setConfirmShuffle] = useState<'all' | null>(null)
   const shuffleButtonRef = useRef<HTMLButtonElement | null>(null)
   const shuffleMenuRef = useRef<HTMLDivElement | null>(null)
-  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
-  const [templateName, setTemplateName] = useState('')
+  const [showSavePreset, setShowSavePreset] = useState(false)
+  const [presetName, setPresetName] = useState('')
   const {
     open: showShuffleMenu,
     closeMenu: closeShuffleMenu,
@@ -99,12 +99,12 @@ export const BoardActionBar = ({
     else shuffleUnrankedItems()
   }
 
-  const saveTemplate = () =>
+  const savePreset = () =>
   {
-    if (!templateName.trim()) return
+    if (!presetName.trim()) return
     const data = extractBoardData(useTierListStore.getState())
-    addTemplate(extractTemplateFromBoard(data, templateName.trim()))
-    setShowSaveTemplate(false)
+    addPreset(extractPresetFromBoard(data, presetName.trim()))
+    setShowSavePreset(false)
   }
 
   return (
@@ -205,14 +205,14 @@ export const BoardActionBar = ({
             onExportAll={onExportAll}
           />
 
-          {/* save current tier structure as a reusable template */}
+          {/* save current tier structure as a reusable preset */}
           <ActionButton
-            label="Save as template"
-            title="Save Template"
+            label="Save as preset"
+            title="Save Preset"
             onClick={() =>
             {
-              setTemplateName(useTierListStore.getState().title)
-              setShowSaveTemplate(true)
+              setPresetName(useTierListStore.getState().title)
+              setShowSavePreset(true)
             }}
           >
             <BookmarkPlus className="h-5 w-5" strokeWidth={1.8} />
@@ -262,16 +262,16 @@ export const BoardActionBar = ({
         }}
       />
 
-      {/* save-as-template name prompt */}
-      {showSaveTemplate && (
+      {/* save-as-preset name prompt */}
+      {showSavePreset && (
         <>
           <div
             className="fixed inset-0 z-50 bg-black/60"
-            onClick={() => setShowSaveTemplate(false)}
+            onClick={() => setShowSavePreset(false)}
           />
           <div className="fixed inset-0 z-50 m-auto flex h-fit w-full max-w-sm flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
             <h2 className="text-lg font-semibold text-[var(--t-text)]">
-              Save as Template
+              Save as Preset
             </h2>
             <p className="mt-1 text-sm text-[var(--t-text-muted)]">
               Saves the current tier structure (names & colors) for reuse.
@@ -279,29 +279,29 @@ export const BoardActionBar = ({
             <input
               autoFocus
               type="text"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
               onKeyDown={(e) =>
               {
-                if (e.key === 'Enter') saveTemplate()
-                if (e.key === 'Escape') setShowSaveTemplate(false)
+                if (e.key === 'Enter') savePreset()
+                if (e.key === 'Escape') setShowSavePreset(false)
               }}
-              placeholder="Template name"
+              placeholder="Preset name"
               className="mt-3 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
             />
             <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
                 className="rounded-md border border-[var(--t-border-secondary)] px-3 py-1.5 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)]"
-                onClick={() => setShowSaveTemplate(false)}
+                onClick={() => setShowSavePreset(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={!templateName.trim()}
+                disabled={!presetName.trim()}
                 className="rounded-md bg-[var(--t-accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--t-accent-hover)] disabled:opacity-40"
-                onClick={saveTemplate}
+                onClick={savePreset}
               >
                 Save
               </button>

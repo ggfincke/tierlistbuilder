@@ -1,14 +1,14 @@
-// src/domain/templates.ts
-// board template definitions & conversion helpers
+// src/domain/presets.ts
+// board preset definitions & conversion helpers
 
-import type { TierListData, TierTemplate } from '../types'
+import type { TierListData, TierPreset } from '../types'
 import { DEFAULT_TITLE } from '../utils/constants'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
 } from './tierColors'
 
-export const BUILTIN_TEMPLATES: TierTemplate[] = [
+export const BUILTIN_PRESETS: TierPreset[] = [
   {
     id: 'builtin-classic',
     name: 'Classic (S-E)',
@@ -84,13 +84,13 @@ export const BUILTIN_TEMPLATES: TierTemplate[] = [
   },
 ]
 
-// convert a template into fresh board data w/ generated tier IDs
-export const createBoardDataFromTemplate = (
-  template: TierTemplate,
+// convert a preset into fresh board data w/ generated tier IDs
+export const createBoardDataFromPreset = (
+  preset: TierPreset,
   title = DEFAULT_TITLE
 ): TierListData => ({
   title,
-  tiers: template.tiers.map((t) => ({
+  tiers: preset.tiers.map((t) => ({
     id: `tier-${crypto.randomUUID()}`,
     name: t.name,
     description: t.description,
@@ -102,12 +102,12 @@ export const createBoardDataFromTemplate = (
   deletedItems: [],
 })
 
-// extract a template from existing board data (strips items, keeps structure)
-export const extractTemplateFromBoard = (
+// extract a preset from existing board data (strips items, keeps structure)
+export const extractPresetFromBoard = (
   data: TierListData,
   name: string
-): TierTemplate => ({
-  id: `template-${crypto.randomUUID()}`,
+): TierPreset => ({
+  id: `preset-${crypto.randomUUID()}`,
   name,
   builtIn: false,
   tiers: data.tiers.map((tier) => ({

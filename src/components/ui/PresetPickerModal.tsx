@@ -1,44 +1,44 @@
-// src/components/ui/TemplatePickerModal.tsx
-// modal for choosing a board template when creating a new list
+// src/components/ui/PresetPickerModal.tsx
+// modal for choosing a board preset when creating a new list
 
 import { useMemo, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 
-import type { TierTemplate } from '../../types'
-import { BUILTIN_TEMPLATES } from '../../domain/templates'
+import type { TierPreset } from '../../types'
+import { BUILTIN_PRESETS } from '../../domain/presets'
 import { resolveTierColorSpec } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
-import { useTemplateStore } from '../../store/useTemplateStore'
+import { usePresetStore } from '../../store/usePresetStore'
 import { ConfirmDialog } from './ConfirmDialog'
 
-interface TemplatePickerModalProps
+interface PresetPickerModalProps
 {
   open: boolean
   onClose: () => void
-  onSelectTemplate: (template: TierTemplate) => void
+  onSelectPreset: (preset: TierPreset) => void
   onSelectBlank: () => void
 }
 
-export const TemplatePickerModal = ({
+export const PresetPickerModal = ({
   open,
   onClose,
-  onSelectTemplate,
+  onSelectPreset,
   onSelectBlank,
-}: TemplatePickerModalProps) =>
+}: PresetPickerModalProps) =>
 {
   const paletteId = useCurrentPaletteId()
-  const userTemplates = useTemplateStore((state) => state.userTemplates)
-  const removeTemplate = useTemplateStore((state) => state.removeTemplate)
-  const renameTemplate = useTemplateStore((state) => state.renameTemplate)
+  const userPresets = usePresetStore((state) => state.userPresets)
+  const removePreset = usePresetStore((state) => state.removePreset)
+  const renamePreset = usePresetStore((state) => state.renamePreset)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
-  const allTemplates = useMemo(
-    () => [...BUILTIN_TEMPLATES, ...userTemplates],
-    [userTemplates]
+  const allPresets = useMemo(
+    () => [...BUILTIN_PRESETS, ...userPresets],
+    [userPresets]
   )
 
   useDismissibleLayer({
@@ -56,7 +56,7 @@ export const TemplatePickerModal = ({
   {
     if (editingId && editValue.trim())
     {
-      renameTemplate(editingId, editValue)
+      renamePreset(editingId, editValue)
     }
     setEditingId(null)
   }
@@ -103,14 +103,14 @@ export const TemplatePickerModal = ({
             </p>
           </button>
 
-          {/* template list */}
-          {allTemplates.map((template) =>
+          {/* preset list */}
+          {allPresets.map((preset) =>
           {
-            const isEditing = editingId === template.id
+            const isEditing = editingId === preset.id
 
             return (
               <div
-                key={template.id}
+                key={preset.id}
                 className="group relative flex min-h-[6rem] flex-col rounded-lg border border-[var(--t-border)] px-3 py-3 transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)]"
               >
                 <button
@@ -120,7 +120,7 @@ export const TemplatePickerModal = ({
                   {
                     if (!isEditing)
                     {
-                      onSelectTemplate(template)
+                      onSelectPreset(preset)
                       onClose()
                     }
                   }}
@@ -142,13 +142,13 @@ export const TemplatePickerModal = ({
                     />
                   ) : (
                     <span className="text-sm font-medium text-[var(--t-text)]">
-                      {template.name}
+                      {preset.name}
                     </span>
                   )}
 
                   {/* tier color preview pills */}
                   <div className="flex flex-wrap gap-1">
-                    {template.tiers.map((tier, i) => (
+                    {preset.tiers.map((tier, i) => (
                       <span
                         key={i}
                         className="rounded px-1.5 py-0.5 text-[0.6rem] font-medium leading-none"
@@ -167,17 +167,17 @@ export const TemplatePickerModal = ({
                   </div>
                 </button>
 
-                {/* actions for user templates */}
-                {!template.builtIn && !isEditing && (
+                {/* actions for user presets */}
+                {!preset.builtIn && !isEditing && (
                   <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition group-hover:opacity-100">
                     <button
                       type="button"
-                      aria-label={`Rename ${template.name}`}
+                      aria-label={`Rename ${preset.name}`}
                       onClick={(e) =>
                       {
                         e.stopPropagation()
-                        setEditingId(template.id)
-                        setEditValue(template.name)
+                        setEditingId(preset.id)
+                        setEditValue(preset.name)
                       }}
                       className="rounded p-1 text-[var(--t-text-dim)] hover:text-[var(--t-text)]"
                     >
@@ -185,11 +185,11 @@ export const TemplatePickerModal = ({
                     </button>
                     <button
                       type="button"
-                      aria-label={`Delete ${template.name}`}
+                      aria-label={`Delete ${preset.name}`}
                       onClick={(e) =>
                       {
                         e.stopPropagation()
-                        setConfirmDeleteId(template.id)
+                        setConfirmDeleteId(preset.id)
                       }}
                       className="rounded p-1 text-[var(--t-text-dim)] hover:text-[var(--t-destructive-hover)]"
                     >
@@ -205,13 +205,13 @@ export const TemplatePickerModal = ({
 
       <ConfirmDialog
         open={confirmDeleteId !== null}
-        title="Delete template?"
-        description="This template will be permanently deleted."
+        title="Delete preset?"
+        description="This preset will be permanently deleted."
         confirmText="Delete"
         onCancel={() => setConfirmDeleteId(null)}
         onConfirm={() =>
         {
-          if (confirmDeleteId) removeTemplate(confirmDeleteId)
+          if (confirmDeleteId) removePreset(confirmDeleteId)
           setConfirmDeleteId(null)
         }}
       />

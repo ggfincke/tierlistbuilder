@@ -4,10 +4,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 
-import type { TierTemplate } from '../../types'
+import type { TierPreset } from '../../types'
 import {
   createBoardSession,
-  createBoardSessionFromTemplate,
+  createBoardSessionFromPreset,
   deleteBoardSession,
   duplicateBoardSession,
   renameBoardSession,
@@ -16,7 +16,7 @@ import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ConfirmDialog } from './ConfirmDialog'
 import { OverlayPanelSurface } from './OverlayPrimitives'
-import { TemplatePickerModal } from './TemplatePickerModal'
+import { PresetPickerModal } from './PresetPickerModal'
 
 interface BoardManagerProps
 {
@@ -29,7 +29,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
   const activeBoardId = useBoardManagerStore((s) => s.activeBoardId)
 
   const [open, setOpen] = useState(false)
-  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [showPresetPicker, setShowPresetPicker] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -203,14 +203,14 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
             })}
           </div>
 
-          {/* new list button — opens template picker */}
+          {/* new list button — opens preset picker */}
           <div className="border-t border-[var(--t-border)] px-3 py-2">
             <button
               type="button"
               onClick={() =>
               {
                 setOpen(false)
-                setShowTemplatePicker(true)
+                setShowPresetPicker(true)
               }}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)]"
             >
@@ -221,12 +221,12 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
         </OverlayPanelSurface>
       )}
 
-      {/* template picker for new lists */}
-      <TemplatePickerModal
-        open={showTemplatePicker}
-        onClose={() => setShowTemplatePicker(false)}
-        onSelectTemplate={(template: TierTemplate) =>
-          createBoardSessionFromTemplate(template)
+      {/* preset picker for new lists */}
+      <PresetPickerModal
+        open={showPresetPicker}
+        onClose={() => setShowPresetPicker(false)}
+        onSelectPreset={(preset: TierPreset) =>
+          createBoardSessionFromPreset(preset)
         }
         onSelectBlank={() => createBoardSession()}
       />
