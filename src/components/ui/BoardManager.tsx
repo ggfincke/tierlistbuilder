@@ -4,9 +4,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 
+import {
+  createBoardSession,
+  deleteBoardSession,
+  duplicateBoardSession,
+  renameBoardSession,
+} from '../../services/boardSession'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ConfirmDialog } from './ConfirmDialog'
+import { OverlayPanelSurface } from './OverlayPrimitives'
 
 interface BoardManagerProps
 {
@@ -17,10 +24,6 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
 {
   const boards = useBoardManagerStore((s) => s.boards)
   const activeBoardId = useBoardManagerStore((s) => s.activeBoardId)
-  const createBoard = useBoardManagerStore((s) => s.createBoard)
-  const deleteBoard = useBoardManagerStore((s) => s.deleteBoard)
-  const duplicateBoard = useBoardManagerStore((s) => s.duplicateBoard)
-  const renameBoard = useBoardManagerStore((s) => s.renameBoard)
 
   const [open, setOpen] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -56,7 +59,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
   {
     if (editingId && editValue.trim())
     {
-      renameBoard(editingId, editValue)
+      renameBoardSession(editingId, editValue)
     }
     setEditingId(null)
   }
@@ -85,9 +88,9 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
 
       {/* expanded panel — opens upward from the trigger */}
       {open && (
-        <div
+        <OverlayPanelSurface
           ref={panelRef}
-          className="board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] shadow-2xl"
+          className="board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col"
         >
           {/* header */}
           <div className="flex items-center justify-between border-b border-[var(--t-border)] px-3 py-2.5">
@@ -171,7 +174,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                         aria-label={`Duplicate ${board.title}`}
                         onClick={() =>
                           {
-                          duplicateBoard(board.id)
+                          duplicateBoardSession(board.id)
                           setOpen(false)
                         }}
                         className="shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] group-hover:opacity-100"
@@ -202,7 +205,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
               type="button"
               onClick={() =>
               {
-                createBoard()
+                createBoardSession()
                 setOpen(false)
               }}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)]"
@@ -211,7 +214,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
               New List
             </button>
           </div>
-        </div>
+        </OverlayPanelSurface>
       )}
 
       {/* confirm delete dialog */}
@@ -225,7 +228,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
         {
           if (confirmDeleteId)
           {
-            deleteBoard(confirmDeleteId)
+            deleteBoardSession(confirmDeleteId)
             setConfirmDeleteId(null)
           }
         }}

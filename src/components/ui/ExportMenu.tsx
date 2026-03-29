@@ -17,11 +17,20 @@ import type { ImageFormat } from '../../types'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import {
+  importBoardSession,
+  importBoardsSession,
+} from '../../services/boardSession'
+import {
   extractBoardData,
   useTierListStore,
 } from '../../store/useTierListStore'
 import { exportBoardAsJson, parseBoardsJson } from '../../utils/exportJson'
 import { ActionButton } from './ActionButton'
+import {
+  OverlayDivider,
+  OverlayMenuItem,
+  OverlayMenuSurface,
+} from './OverlayPrimitives'
 
 // display labels for the image format selector
 const FORMAT_LABELS: Record<ImageFormat, string> = {
@@ -52,8 +61,6 @@ export const ExportMenu = ({
   const boardCount = useBoardManagerStore((state) => state.boards.length)
   const title = useTierListStore((state) => state.title)
   const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
-  const importBoard = useBoardManagerStore((state) => state.importBoard)
-  const importBoards = useBoardManagerStore((state) => state.importBoards)
 
   const [showMenu, setShowMenu] = useState(false)
   const [imageFormat, setImageFormat] = useState<ImageFormat>('png')
@@ -76,11 +83,11 @@ export const ExportMenu = ({
       const boards = parseBoardsJson(text)
       if (boards.length === 1)
       {
-        importBoard(boards[0])
+        importBoardSession(boards[0])
       }
       else
       {
-        importBoards(boards)
+        importBoardsSession(boards)
       }
     }
     catch (err)
@@ -118,10 +125,10 @@ export const ExportMenu = ({
         </ActionButton>
 
         {showMenu && (
-          <div
+          <OverlayMenuSurface
             ref={menuRef}
             role="menu"
-            className="absolute left-1/2 top-full z-30 mt-3 w-max -translate-x-1/2 rounded-xl bg-[var(--t-bg-overlay)] p-1.5 text-sm shadow-md shadow-black/30"
+            className="absolute left-1/2 top-full z-30 mt-3 w-max -translate-x-1/2 text-sm shadow-md shadow-black/30"
           >
             {/* image submenu — hover to reveal download, copy, & format options */}
             <div className="group/img relative">
@@ -132,37 +139,35 @@ export const ExportMenu = ({
                 Export Image
                 <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
               </div>
-              <div className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max rounded-xl bg-[var(--t-bg-overlay)] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/img:visible group-hover/img:opacity-100">
-                <button
-                  type="button"
+              <OverlayMenuSurface className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/img:visible group-hover/img:opacity-100">
+                <OverlayMenuItem
                   role="menuitem"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)] disabled:opacity-45"
                   onClick={() =>
                   {
                     setShowMenu(false)
                     void onExport(imageFormat)
                   }}
+                  className="disabled:opacity-45"
                   disabled={exportStatus !== null}
                 >
                   <Download className="h-3.5 w-3.5 shrink-0" />
                   Download
-                </button>
-                <button
-                  type="button"
+                </OverlayMenuItem>
+                <OverlayMenuItem
                   role="menuitem"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)] disabled:opacity-45"
                   onClick={() =>
                   {
                     setShowMenu(false)
                     void onCopyToClipboard()
                   }}
+                  className="disabled:opacity-45"
                   disabled={exportStatus !== null}
                 >
                   <Copy className="h-3.5 w-3.5 shrink-0" />
                   <span className="whitespace-nowrap">Copy to Clipboard</span>
-                </button>
+                </OverlayMenuItem>
 
-                <div className="my-1 border-t border-[var(--t-border)]" />
+                <OverlayDivider />
 
                 {/* format selector — nested sub-submenu w/ checkmark on active format */}
                 <div className="group/format relative">
@@ -173,13 +178,11 @@ export const ExportMenu = ({
                     {FORMAT_LABELS[imageFormat]}
                     <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
                   </div>
-                  <div className="invisible absolute left-full -top-1.5 z-50 ml-1 w-max rounded-xl bg-[var(--t-bg-overlay)] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/format:visible group-hover/format:opacity-100">
+                  <OverlayMenuSurface className="invisible absolute left-full -top-1.5 z-50 ml-1 w-max text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/format:visible group-hover/format:opacity-100">
                     {(['png', 'jpeg', 'webp'] as const).map((fmt) => (
-                      <button
+                      <OverlayMenuItem
                         key={fmt}
-                        type="button"
                         role="menuitem"
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
                         onClick={() => setImageFormat(fmt)}
                       >
                         {imageFormat === fmt ? (
@@ -188,42 +191,34 @@ export const ExportMenu = ({
                           <span className="h-3.5 w-3.5 shrink-0" />
                         )}
                         {FORMAT_LABELS[fmt]}
-                      </button>
+                      </OverlayMenuItem>
                     ))}
-                  </div>
+                  </OverlayMenuSurface>
                 </div>
-              </div>
+              </OverlayMenuSurface>
             </div>
 
-            <button
-              type="button"
+            <OverlayMenuItem
               role="menuitem"
-              className="flex w-full rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)] disabled:opacity-45"
               onClick={() =>
               {
                 setShowMenu(false)
                 void onExport('pdf')
               }}
+              className="disabled:opacity-45"
               disabled={exportStatus !== null}
             >
               Export PDF
-            </button>
+            </OverlayMenuItem>
 
-            <div className="my-1 border-t border-[var(--t-border)]" />
+            <OverlayDivider />
 
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
-              onClick={handleJsonExport}
-            >
+            <OverlayMenuItem role="menuitem" onClick={handleJsonExport}>
               <FileDown className="h-3.5 w-3.5 shrink-0" />
               Export JSON
-            </button>
-            <button
-              type="button"
+            </OverlayMenuItem>
+            <OverlayMenuItem
               role="menuitem"
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
               onClick={() =>
               {
                 jsonInputRef.current?.click()
@@ -231,12 +226,12 @@ export const ExportMenu = ({
             >
               <FileUp className="h-3.5 w-3.5 shrink-0" />
               Import JSON
-            </button>
+            </OverlayMenuItem>
 
             {/* export all submenu — only shown when multiple boards exist */}
             {boardCount > 1 && (
               <>
-                <div className="my-1 border-t border-[var(--t-border)]" />
+                <OverlayDivider />
 
                 <div className="group/all relative">
                   <div
@@ -249,7 +244,7 @@ export const ExportMenu = ({
                     </span>
                     <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
                   </div>
-                  <div className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max rounded-xl bg-[var(--t-bg-overlay)] p-1.5 text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/all:visible group-hover/all:opacity-100">
+                  <OverlayMenuSurface className="invisible absolute left-full -top-1.5 z-40 ml-1 w-max text-sm opacity-0 shadow-md shadow-black/30 transition-all group-hover/all:visible group-hover/all:opacity-100">
                     {[
                       {
                         format: 'json' as const,
@@ -267,11 +262,9 @@ export const ExportMenu = ({
                         label: `All as ${FORMAT_LABELS[imageFormat]} (ZIP)`,
                       },
                     ].map(({ format, Icon, label }) => (
-                      <button
+                      <OverlayMenuItem
                         key={format}
-                        type="button"
                         role="menuitem"
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
                         onClick={() =>
                         {
                           setShowMenu(false)
@@ -280,13 +273,13 @@ export const ExportMenu = ({
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
                         {label}
-                      </button>
+                      </OverlayMenuItem>
                     ))}
-                  </div>
+                  </OverlayMenuSurface>
                 </div>
               </>
             )}
-          </div>
+          </OverlayMenuSurface>
         )}
       </div>
 
