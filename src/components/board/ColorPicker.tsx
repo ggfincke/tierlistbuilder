@@ -12,7 +12,8 @@ import {
 } from '@uiw/color-convert'
 import { Pipette } from 'lucide-react'
 
-import type { TierColorSource } from '../../types'
+import { createPaletteTierColorSpec } from '../../domain/tierColors'
+import type { TierColorSpec } from '../../types'
 import {
   formatRgbInputs,
   hexToRgbColor,
@@ -26,8 +27,8 @@ interface ColorPickerProps
 {
   // currently selected hex color
   value: string
-  // stable source metadata for the current tier color
-  colorSource?: TierColorSource | null
+  // canonical color spec for the current tier
+  colorSpec: TierColorSpec
   // ordered preset colors to show as swatches
   presets: string[]
   // ref attached to the custom pipette trigger button
@@ -35,7 +36,7 @@ interface ColorPickerProps
   // whether the separate custom popup is visible
   showCustomPicker: boolean
   // called when a preset swatch is picked
-  onChange: (color: string, colorSource: TierColorSource | null) => void
+  onChange: (colorSpec: TierColorSpec) => void
   // called when the custom pipette button is clicked
   onToggleCustomPicker: () => void
 }
@@ -92,7 +93,7 @@ const getDraftHex = (hsva: HsvaColor): string =>
 export const ColorPicker = memo(
   ({
     value,
-    colorSource,
+    colorSpec,
     presets,
     customTriggerRef,
     showCustomPicker,
@@ -102,7 +103,7 @@ export const ColorPicker = memo(
   {
     const selectedPresetIndex = useMemo(() =>
     {
-      if (colorSource === null)
+      if (colorSpec.kind === 'custom')
       {
         return -1
       }
@@ -110,8 +111,8 @@ export const ColorPicker = memo(
       return presets.findIndex(
         (color) => color.toLowerCase() === value.toLowerCase()
       )
-    }, [colorSource, presets, value])
-    const isCustomSelected = colorSource === null
+    }, [colorSpec, presets, value])
+    const isCustomSelected = colorSpec.kind === 'custom'
 
     return (
       <div className="flex flex-wrap gap-2 p-2">
@@ -130,10 +131,7 @@ export const ColorPicker = memo(
               }`}
               style={{ backgroundColor: color }}
               onClick={() =>
-                onChange(color, {
-                  paletteType: 'preset',
-                  index,
-                })
+                onChange(createPaletteTierColorSpec('preset', index))
               }
               aria-label={`Set tier color to ${color}`}
             />

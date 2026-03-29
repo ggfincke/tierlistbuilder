@@ -216,3 +216,22 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'export-bg': '#000000',
   },
 }
+
+// theme metadata — collocated w/ definitions to prevent label/category drift
+export interface ThemeMeta
+{
+  id: ThemeId
+  label: string
+  category: 'neutral' | 'mood' | 'accessibility'
+}
+
+export const THEME_META: ThemeMeta[] = [
+  { id: 'classic', label: 'Classic', category: 'neutral' },
+  { id: 'classic-light', label: 'Classic Light', category: 'neutral' },
+  { id: 'midnight', label: 'Midnight', category: 'mood' },
+  { id: 'forest', label: 'Forest', category: 'mood' },
+  { id: 'ember', label: 'Ember', category: 'mood' },
+  { id: 'sakura', label: 'Sakura', category: 'mood' },
+  { id: 'amoled', label: 'AMOLED', category: 'neutral' },
+  { id: 'high-contrast', label: 'High Contrast', category: 'accessibility' },
+]

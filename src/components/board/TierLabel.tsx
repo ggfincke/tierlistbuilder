@@ -2,27 +2,13 @@
 // inline-editable tier label cell w/ auto contrast text color
 
 import { memo } from 'react'
-import type { ItemSize, Tier, TierLabelFontSize } from '../../types'
+import type { Tier } from '../../types'
+import { resolveTierColorSpec } from '../../domain/tierColors'
+import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
-import { getTextColor } from '../../utils/color'
-import { ITEM_SIZE_PX, LABEL_WIDTH_PX } from '../../utils/constants'
 import { useEffect, useRef, useState } from 'react'
-
-// tier label font size classes (independent of item size)
-const LABEL_FONT_SIZE_CLASS: Record<TierLabelFontSize, string> = {
-  xs: 'text-xs',
-  small: 'text-sm',
-  medium: 'text-base',
-  large: 'text-lg',
-  xl: 'text-xl',
-}
-
-const LABEL_PADDING_CLASS: Record<ItemSize, string> = {
-  small: 'px-1.5 py-1',
-  medium: 'px-3 py-2',
-  large: 'px-4 py-3',
-}
+import { BoardLabelCellFrame } from './BoardPrimitives'
 
 interface TierLabelProps
 {
@@ -46,7 +32,9 @@ const resizeEditor = (textarea: HTMLTextAreaElement | null) =>
 
 export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
 {
-  const displayColor = colorOverride ?? tier.color
+  const paletteId = useCurrentPaletteId()
+  const displayColor =
+    colorOverride ?? resolveTierColorSpec(paletteId, tier.colorSpec)
   const renameTier = useTierListStore((state) => state.renameTier)
   const itemSize = useSettingsStore((state) => state.itemSize)
   const labelWidth = useSettingsStore((state) => state.labelWidth)
@@ -54,9 +42,6 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
   const tierLabelItalic = useSettingsStore((state) => state.tierLabelItalic)
   const tierLabelFontSize = useSettingsStore((state) => state.tierLabelFontSize)
 
-  const fontClass = LABEL_FONT_SIZE_CLASS[tierLabelFontSize]
-  const weightClass = tierLabelBold ? 'font-semibold' : 'font-normal'
-  const italicClass = tierLabelItalic ? 'italic' : ''
   const [isEditing, setIsEditing] = useState(false)
   const [draftName, setDraftName] = useState(tier.name)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -116,19 +101,16 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
   }
 
   return (
-    <div
-      className="flex shrink-0 border-r border-[var(--t-border)] transition-[filter,box-shadow] hover:brightness-[1.04] focus-within:brightness-[1.04] focus-within:shadow-[inset_0_0_0_2px_rgba(var(--t-overlay),0.16)]"
-      style={{
-        width: LABEL_WIDTH_PX[labelWidth],
-        minHeight: ITEM_SIZE_PX[itemSize],
-        backgroundColor: displayColor,
-        color: getTextColor(displayColor),
-      }}
+    <BoardLabelCellFrame
+      color={displayColor}
+      itemSize={itemSize}
+      labelWidth={labelWidth}
+      tierLabelBold={tierLabelBold}
+      tierLabelItalic={tierLabelItalic}
+      tierLabelFontSize={tierLabelFontSize}
     >
       {isEditing ? (
-        <div
-          className={`flex h-full w-full items-center justify-center ${LABEL_PADDING_CLASS[itemSize]}`}
-        >
+        <div className="flex h-full w-full items-center justify-center">
           <textarea
             ref={inputRef}
             value={draftName}
@@ -169,7 +151,7 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
             }}
             aria-label={`Rename ${tier.name} tier`}
             rows={1}
-            className={`block max-h-full w-full resize-none overflow-hidden bg-transparent text-center ${fontClass} ${weightClass} ${italicClass} leading-tight outline-none placeholder:text-current/55 [overflow-wrap:anywhere]`}
+            className="block max-h-full w-full resize-none overflow-hidden bg-transparent text-center leading-tight outline-none placeholder:text-current/55 [overflow-wrap:anywhere]"
             spellCheck={false}
           />
         </div>
@@ -179,13 +161,13 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
           type="button"
           onClick={beginEditing}
           aria-label={`Edit ${tier.name} tier label`}
-          className={`flex h-full w-full cursor-text items-center justify-center ${LABEL_PADDING_CLASS[itemSize]} text-center ${fontClass} ${weightClass} ${italicClass} leading-tight outline-none`}
+          className="flex h-full w-full cursor-text items-center justify-center text-center leading-tight outline-none"
         >
           <span className="block max-w-full break-words [overflow-wrap:anywhere]">
             {tier.name}
           </span>
         </button>
       )}
-    </div>
+    </BoardLabelCellFrame>
   )
 })

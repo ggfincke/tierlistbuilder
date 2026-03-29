@@ -14,23 +14,26 @@ export interface TierItem
   backgroundColor?: string
 }
 
-// stable palette slot used to remap a tier color across themes
-export interface TierColorSource
+// stable palette slot used to derive a tier color from the active theme
+export interface TierPaletteColorSpec
 {
+  kind: 'palette'
   // whether this color came from the default tier ladder or the picker presets
   paletteType: 'default' | 'preset'
   // zero-based index within the source palette group
   index: number
 }
 
-// tier color update payload used for single & batch recolors
-export interface TierColorUpdate
+// literal custom color chosen by the user
+export interface TierCustomColorSpec
 {
-  // resolved hex color for the current theme
-  color: string
-  // palette slot to preserve across theme changes (null for custom colors)
-  colorSource: TierColorSource | null
+  kind: 'custom'
+  // resolved hex color that should remain stable across theme changes
+  hex: string
 }
+
+// canonical color source for a tier label
+export type TierColorSpec = TierPaletteColorSpec | TierCustomColorSpec
 
 // a single tier row w/ ordered item references
 export interface Tier
@@ -39,10 +42,8 @@ export interface Tier
   id: string
   // display name shown in the label cell
   name: string
-  // hex color for the label background
-  color: string
-  // palette slot that produced this color (absent on legacy data, null for custom colors)
-  colorSource?: TierColorSource | null
+  // canonical color spec for the label background
+  colorSpec: TierColorSpec
   // ordered list of item IDs assigned to this tier
   itemIds: string[]
 }
@@ -157,7 +158,20 @@ export interface AppSettings
   confirmBeforeDelete: boolean
   themeId: ThemeId
   textStyleId: TextStyleId
-  syncTierColorsWithTheme: boolean
+  tierLabelBold: boolean
+  tierLabelItalic: boolean
+  tierLabelFontSize: TierLabelFontSize
+}
+
+// appearance settings needed to render a board for export capture
+export interface ExportAppearance
+{
+  itemSize: ItemSize
+  showLabels: boolean
+  itemShape: ItemShape
+  compactMode: boolean
+  labelWidth: LabelWidth
+  paletteId: PaletteId
   tierLabelBold: boolean
   tierLabelItalic: boolean
   tierLabelFontSize: TierLabelFontSize

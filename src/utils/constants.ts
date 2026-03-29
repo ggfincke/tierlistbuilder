@@ -3,17 +3,9 @@
 
 import type { ItemShape, ItemSize, LabelWidth, PaletteId, Tier } from '../types'
 import { PALETTES, THEMES } from '../theme'
+import { createPaletteTierColorSpec } from '../domain/tierColors'
 
-// legacy localStorage keys — used only for migration detection
-export const APP_STORAGE_KEY = 'tier-list-builder-state'
-const LEGACY_APP_STORAGE_KEY = 'tier-list-maker-state'
-const LEGACY_BOARD_REGISTRY_KEY = 'tier-list-maker-boards'
-const LEGACY_SETTINGS_KEY = 'tier-list-maker-settings'
-// localStorage key for the multi-board registry
-export const BOARD_REGISTRY_KEY = 'tier-list-builder-boards'
-// build a per-board localStorage key from its ID
-export const boardStorageKey = (id: string): string => `tier-list-board-${id}`
-// default board title used on first load & after reset
+// default board title used on first load & for newly created boards
 export const DEFAULT_TITLE = 'My Tier List'
 // droppable container ID for the unranked pool
 export const UNRANKED_CONTAINER_ID = 'unranked'
@@ -32,28 +24,11 @@ const DEFAULT_TIER_IDS = [
   'tier-e',
 ]
 
+// display names for the default S–E rows (separated from palette color data)
+const DEFAULT_TIER_NAMES = ['S', 'A', 'B', 'C', 'D', 'E']
+
 // background color applied during PNG & PDF export (mirrors classic theme)
 export const EXPORT_BACKGROUND_COLOR = THEMES.classic['export-bg']
-
-// localStorage key for global user settings
-export const SETTINGS_STORAGE_KEY = 'tier-list-builder-settings'
-
-// migrate legacy "maker" localStorage keys to "builder" equivalents
-export const migrateStorageKeys = (): void =>
-{
-  for (const [oldKey, newKey] of [
-    [LEGACY_APP_STORAGE_KEY, APP_STORAGE_KEY],
-    [LEGACY_BOARD_REGISTRY_KEY, BOARD_REGISTRY_KEY],
-    [LEGACY_SETTINGS_KEY, SETTINGS_STORAGE_KEY],
-  ] as const)
-  {
-    if (localStorage.getItem(oldKey) && !localStorage.getItem(newKey))
-    {
-      localStorage.setItem(newKey, localStorage.getItem(oldKey)!)
-      localStorage.removeItem(oldKey)
-    }
-  }
-}
 
 // item size presets in pixels
 export const ITEM_SIZE_PX: Record<ItemSize, number> = {
@@ -74,18 +49,6 @@ export const SHAPE_CLASS: Record<ItemShape, string> = {
   square: '',
   rounded: 'rounded-lg',
   circle: 'rounded-full',
-}
-
-// estimate total localStorage usage in bytes (UTF-16 = 2 bytes per char)
-export const getStorageUsageBytes = (): number =>
-{
-  let chars = 0
-  for (let i = 0; i < localStorage.length; i++)
-  {
-    const key = localStorage.key(i)!
-    chars += key.length + (localStorage.getItem(key)?.length ?? 0)
-  }
-  return chars * 2
 }
 
 // convert a board title to a URL-safe filename base
@@ -109,14 +72,12 @@ export const clampIndex = (index: number, min: number, max: number): number =>
 export const buildDefaultTiers = (paletteId: PaletteId = 'classic'): Tier[] =>
 {
   const palette = PALETTES[paletteId]
-  return palette.defaults.map((entry, i) => ({
-    id: DEFAULT_TIER_IDS[i] ?? `tier-${entry.name.toLowerCase()}`,
-    name: entry.name,
-    color: entry.color,
-    colorSource: {
-      paletteType: 'default' as const,
-      index: i,
-    },
+  return palette.defaults.map((_, i) => ({
+    id:
+      DEFAULT_TIER_IDS[i] ??
+      `tier-${(DEFAULT_TIER_NAMES[i] ?? `${i + 1}`).toLowerCase()}`,
+    name: DEFAULT_TIER_NAMES[i] ?? `Tier ${i + 1}`,
+    colorSpec: createPaletteTierColorSpec('default', i),
     itemIds: [],
   }))
 }

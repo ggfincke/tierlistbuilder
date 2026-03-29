@@ -1,7 +1,8 @@
 // src/hooks/usePopupClose.ts
 // closes a fixed-position popup on outside click, Escape, or scroll
 
-import { useEffect, type RefObject } from 'react'
+import type { RefObject } from 'react'
+import { useDismissibleLayer } from './useDismissibleLayer'
 
 interface UsePopupCloseOptions
 {
@@ -31,51 +32,13 @@ export const usePopupClose = ({
   onScroll,
 }: UsePopupCloseOptions) =>
 {
-  useEffect(() =>
-  {
-    if (!show) return
-
-    const handlePointerDown = (event: PointerEvent) =>
-    {
-      const target = event.target as Node
-      const isInsideIgnoredElement = ignoreRefs.some((ref) =>
-        ref.current?.contains(target)
-      )
-
-      if (
-        !isInsideIgnoredElement &&
-        !popupRef.current?.contains(target) &&
-        !triggerRef.current?.contains(target)
-      )
-      {
-        onClose()
-      }
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) =>
-    {
-      if (closeOnEscape && event.key === 'Escape') onClose()
-    }
-
-    const handleScroll = () => onScroll?.()
-
-    document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-    if (onScroll)
-    {
-      window.addEventListener('scroll', handleScroll, true)
-      window.addEventListener('resize', handleScroll)
-    }
-
-    return () =>
-    {
-      document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-      if (onScroll)
-      {
-        window.removeEventListener('scroll', handleScroll, true)
-        window.removeEventListener('resize', handleScroll)
-      }
-    }
-  }, [show, triggerRef, popupRef, ignoreRefs, onClose, closeOnEscape, onScroll])
+  useDismissibleLayer({
+    open: show,
+    layerRef: popupRef,
+    triggerRef,
+    ignoreRefs,
+    onDismiss: onClose,
+    closeOnEscape,
+    onPositionUpdate: onScroll,
+  })
 }
