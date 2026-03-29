@@ -27,7 +27,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   confirmBeforeDelete: false,
   themeId: 'classic',
   textStyleId: 'default',
-  syncTierColorsWithTheme: true,
   tierLabelBold: false,
   tierLabelItalic: false,
   tierLabelFontSize: 'small',
@@ -45,7 +44,6 @@ interface SettingsStore extends AppSettings
   setConfirmBeforeDelete: (confirm: boolean) => void
   setThemeId: (themeId: ThemeId) => void
   setTextStyleId: (textStyleId: TextStyleId) => void
-  setSyncTierColorsWithTheme: (sync: boolean) => void
   setTierLabelBold: (bold: boolean) => void
   setTierLabelItalic: (italic: boolean) => void
   setTierLabelFontSize: (size: TierLabelFontSize) => void
@@ -79,10 +77,6 @@ export const useSettingsStore = create<SettingsStore>()(
       setConfirmBeforeDelete: createSettingSetter(set, 'confirmBeforeDelete'),
       setThemeId: createSettingSetter(set, 'themeId'),
       setTextStyleId: createSettingSetter(set, 'textStyleId'),
-      setSyncTierColorsWithTheme: createSettingSetter(
-        set,
-        'syncTierColorsWithTheme'
-      ),
       setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
       setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
       setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
@@ -91,7 +85,7 @@ export const useSettingsStore = create<SettingsStore>()(
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createAppPersistStorage(),
-      version: 4,
+      version: 5,
       migrate: (persisted, version) =>
       {
         let state = persisted as Record<string, unknown>
@@ -107,7 +101,6 @@ export const useSettingsStore = create<SettingsStore>()(
         {
           state = {
             ...state,
-            syncTierColorsWithTheme: state.syncTierColorsWithTheme ?? true,
             tierLabelBold: state.tierLabelBold ?? false,
             tierLabelItalic: state.tierLabelItalic ?? false,
             tierLabelFontSize: state.tierLabelFontSize ?? 'small',
@@ -123,6 +116,10 @@ export const useSettingsStore = create<SettingsStore>()(
             exportBackgroundOverride: oldBg && oldBg !== themeBg ? oldBg : null,
           }
           delete state.exportBackgroundColor
+        }
+        if (version < 5)
+        {
+          delete state.syncTierColorsWithTheme
         }
         return state
       },
