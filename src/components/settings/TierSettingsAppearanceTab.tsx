@@ -19,12 +19,12 @@ export const TierSettingsAppearanceTab = () => (
     <SettingsSection title="Tier Colors">
       <SettingRow label="Theme Behavior">
         <span className="text-sm text-[var(--t-text-secondary)]">
-          Palette colors follow theme
+          Palette indices stay assigned
         </span>
       </SettingRow>
       <p className="mt-1 text-xs text-[var(--t-text-dim)]">
-        Palette colors always follow the active theme. Custom colors stay fixed
-        until you choose a palette color again.
+        Palette-backed tiers keep the same picker position when the theme
+        changes. Custom colors stay fixed until you change them yourself.
       </p>
     </SettingsSection>
   </>

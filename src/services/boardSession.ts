@@ -11,10 +11,7 @@ import {
   saveBoardToStorage,
 } from '../utils/storage'
 import { THEME_PALETTE } from '../theme'
-import {
-  normalizeTierListData,
-  createInitialBoardData,
-} from '../domain/boardData'
+import { normalizeTierListData } from '../domain/boardData'
 import { createBoardDataFromPreset } from '../domain/presets'
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
 import { extractBoardData, useTierListStore } from '../store/useTierListStore'
@@ -91,8 +88,13 @@ export const loadBoardIntoSession = (boardId: string): TierListData =>
   return data
 }
 
-const createBlankBoardData = (): TierListData =>
-  createInitialBoardData(getActivePaletteId())
+const createBlankBoardData = (): TierListData => ({
+  title: DEFAULT_TITLE,
+  tiers: [],
+  unrankedItemIds: [],
+  items: {},
+  deletedItems: [],
+})
 
 const saveAndActivateBoard = (
   data: TierListData,
@@ -204,9 +206,7 @@ export const createBoardSession = (): void =>
   saveAndActivateBoard(createBlankBoardData(), DEFAULT_TITLE)
 }
 
-export const createBoardSessionFromPreset = (
-  preset: TierPreset
-): void =>
+export const createBoardSessionFromPreset = (preset: TierPreset): void =>
 {
   saveActiveBoardSnapshot()
   const data = createBoardDataFromPreset(preset)

@@ -40,7 +40,6 @@ describe('buildDefaultTiers', () =>
       expect(tier.itemIds).toEqual([])
       expect(tier.colorSpec).toEqual({
         kind: 'palette',
-        paletteType: 'default',
         index: i,
       })
     }

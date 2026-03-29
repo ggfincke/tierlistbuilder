@@ -13,11 +13,9 @@ import type {
 const FALLBACK_COLOR = '#888888'
 
 export const createPaletteTierColorSpec = (
-  paletteType: TierPaletteColorSpec['paletteType'],
   index: number
 ): TierPaletteColorSpec => ({
   kind: 'palette',
-  paletteType,
   index,
 })
 
@@ -28,20 +26,13 @@ export const createCustomTierColorSpec = (
   hex: normalizeHexColor(hex) ?? FALLBACK_COLOR,
 })
 
+export const getPaletteColors = (paletteId: PaletteId): string[] =>
+  PALETTES[paletteId].colors
+
 export const getTierColorFromPaletteSpec = (
   paletteId: PaletteId,
   colorSpec: TierPaletteColorSpec
-): string | null =>
-{
-  const palette = PALETTES[paletteId]
-
-  if (colorSpec.paletteType === 'default')
-  {
-    return palette.defaults[colorSpec.index] ?? null
-  }
-
-  return palette.presets[colorSpec.index] ?? null
-}
+): string | null => getPaletteColors(paletteId)[colorSpec.index] ?? null
 
 export const resolveTierColorSpec = (
   paletteId: PaletteId,
@@ -64,17 +55,14 @@ export const getAutoTierColorSpec = (
   tierIndex: number
 ): TierColorSpec =>
 {
-  const palette = PALETTES[paletteId]
+  const colorCount = getPaletteColors(paletteId).length
 
-  if (tierIndex < palette.defaults.length)
+  if (colorCount === 0)
   {
-    return createPaletteTierColorSpec('default', tierIndex)
+    return createCustomTierColorSpec(FALLBACK_COLOR)
   }
 
-  return createPaletteTierColorSpec(
-    'preset',
-    tierIndex % palette.presets.length
-  )
+  return createPaletteTierColorSpec(tierIndex % colorCount)
 }
 
 const normalizeHexColor = (value: string): string | null =>

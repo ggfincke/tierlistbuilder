@@ -14,12 +14,12 @@ export const BUILTIN_PRESETS: TierPreset[] = [
     name: 'Classic (S-E)',
     builtIn: true,
     tiers: [
-      { name: 'S', colorSpec: createPaletteTierColorSpec('default', 0) },
-      { name: 'A', colorSpec: createPaletteTierColorSpec('default', 1) },
-      { name: 'B', colorSpec: createPaletteTierColorSpec('default', 2) },
-      { name: 'C', colorSpec: createPaletteTierColorSpec('default', 3) },
-      { name: 'D', colorSpec: createPaletteTierColorSpec('default', 4) },
-      { name: 'E', colorSpec: createPaletteTierColorSpec('default', 5) },
+      { name: 'S', colorSpec: createPaletteTierColorSpec(0) },
+      { name: 'A', colorSpec: createPaletteTierColorSpec(1) },
+      { name: 'B', colorSpec: createPaletteTierColorSpec(2) },
+      { name: 'C', colorSpec: createPaletteTierColorSpec(3) },
+      { name: 'D', colorSpec: createPaletteTierColorSpec(4) },
+      { name: 'E', colorSpec: createPaletteTierColorSpec(5) },
     ],
   },
   {
@@ -28,7 +28,7 @@ export const BUILTIN_PRESETS: TierPreset[] = [
     builtIn: true,
     tiers: Array.from({ length: 10 }, (_, i) => ({
       name: `#${i + 1}`,
-      colorSpec: createPaletteTierColorSpec('preset', i % 15),
+      colorSpec: createPaletteTierColorSpec(i),
     })),
   },
   {
@@ -36,9 +36,9 @@ export const BUILTIN_PRESETS: TierPreset[] = [
     name: 'Yes / No / Maybe',
     builtIn: true,
     tiers: [
-      { name: 'Yes', colorSpec: createPaletteTierColorSpec('default', 4) },
-      { name: 'Maybe', colorSpec: createPaletteTierColorSpec('default', 2) },
-      { name: 'No', colorSpec: createPaletteTierColorSpec('default', 0) },
+      { name: 'Yes', colorSpec: createPaletteTierColorSpec(4) },
+      { name: 'Maybe', colorSpec: createPaletteTierColorSpec(2) },
+      { name: 'No', colorSpec: createPaletteTierColorSpec(0) },
     ],
   },
   {
@@ -56,9 +56,9 @@ export const BUILTIN_PRESETS: TierPreset[] = [
     name: 'A / B / C',
     builtIn: true,
     tiers: [
-      { name: 'A', colorSpec: createPaletteTierColorSpec('default', 1) },
-      { name: 'B', colorSpec: createPaletteTierColorSpec('default', 2) },
-      { name: 'C', colorSpec: createPaletteTierColorSpec('default', 3) },
+      { name: 'A', colorSpec: createPaletteTierColorSpec(1) },
+      { name: 'B', colorSpec: createPaletteTierColorSpec(2) },
+      { name: 'C', colorSpec: createPaletteTierColorSpec(3) },
     ],
   },
   {
@@ -68,7 +68,7 @@ export const BUILTIN_PRESETS: TierPreset[] = [
     tiers: [
       { name: 'Love', colorSpec: createCustomTierColorSpec('#e74c8b') },
       { name: 'Like', colorSpec: createCustomTierColorSpec('#f59e42') },
-      { name: 'Meh', colorSpec: createPaletteTierColorSpec('default', 3) },
+      { name: 'Meh', colorSpec: createPaletteTierColorSpec(3) },
       { name: 'Dislike', colorSpec: createCustomTierColorSpec('#6b7280') },
       { name: 'Hate', colorSpec: createCustomTierColorSpec('#374151') },
     ],
@@ -79,7 +79,7 @@ export const BUILTIN_PRESETS: TierPreset[] = [
     builtIn: true,
     tiers: Array.from({ length: 5 }, (_, i) => ({
       name: `#${i + 1}`,
-      colorSpec: createPaletteTierColorSpec('preset', i % 15),
+      colorSpec: createPaletteTierColorSpec(i),
     })),
   },
 ]

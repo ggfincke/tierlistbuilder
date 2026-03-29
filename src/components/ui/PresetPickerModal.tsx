@@ -99,7 +99,7 @@ export const PresetPickerModal = ({
               </span>
             </div>
             <p className="text-xs text-[var(--t-text-faint)]">
-              Default S-E tiers
+              No tiers — start from scratch
             </p>
           </button>
 

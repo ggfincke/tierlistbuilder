@@ -2,8 +2,8 @@
 // app-wide constants — storage keys, defaults, & tier presets
 
 import type { ItemShape, ItemSize, LabelWidth, PaletteId, Tier } from '../types'
-import { PALETTES, THEMES } from '../theme'
-import { createPaletteTierColorSpec } from '../domain/tierColors'
+import { THEMES } from '../theme'
+import { getAutoTierColorSpec } from '../domain/tierColors'
 
 // default board title used on first load & for newly created boards
 export const DEFAULT_TITLE = 'My Tier List'
@@ -70,14 +70,11 @@ export const clampIndex = (index: number, min: number, max: number): number =>
 
 // build a fresh set of default tiers w/ empty item lists
 export const buildDefaultTiers = (paletteId: PaletteId = 'classic'): Tier[] =>
-{
-  const palette = PALETTES[paletteId]
-  return palette.defaults.map((_, i) => ({
+  DEFAULT_TIER_NAMES.map((_, i) => ({
     id:
       DEFAULT_TIER_IDS[i] ??
       `tier-${(DEFAULT_TIER_NAMES[i] ?? `${i + 1}`).toLowerCase()}`,
     name: DEFAULT_TIER_NAMES[i] ?? `Tier ${i + 1}`,
-    colorSpec: createPaletteTierColorSpec('default', i),
+    colorSpec: getAutoTierColorSpec(paletteId, i),
     itemIds: [],
   }))
-}

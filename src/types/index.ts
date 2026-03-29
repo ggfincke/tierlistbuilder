@@ -18,9 +18,7 @@ export interface TierItem
 export interface TierPaletteColorSpec
 {
   kind: 'palette'
-  // whether this color came from the default tier ladder or the picker presets
-  paletteType: 'default' | 'preset'
-  // zero-based index within the source palette group
+  // zero-based index within the active palette's ordered swatch list
   index: number
 }
 

@@ -13,13 +13,13 @@ import { GripVertical } from 'lucide-react'
 
 import {
   createCustomTierColorSpec,
+  getPaletteColors,
   resolveTierColorSpec,
 } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import type { Tier } from '../../types'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
-import { PALETTES } from '../../theme'
 import { ITEM_SIZE_PX } from '../../utils/constants'
 import {
   CUSTOM_COLOR_PICKER_WIDTH_PX,
@@ -57,7 +57,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
   const hideRowControls = useSettingsStore((state) => state.hideRowControls)
   const paletteId = useCurrentPaletteId()
   const sizePx = ITEM_SIZE_PX[itemSize]
-  const presets = PALETTES[paletteId].presets
+  const paletteColors = getPaletteColors(paletteId)
   const resolvedTierColor = resolveTierColorSpec(paletteId, tier.colorSpec)
 
   // tier-level sortable — drag handle on the grip icon reorders entire rows
@@ -330,9 +330,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
           style={colorPickerStyle}
         >
           <ColorPicker
-            value={resolvedTierColor}
             colorSpec={tier.colorSpec}
-            presets={presets}
+            colors={paletteColors}
             customTriggerRef={customColorButtonRef}
             showCustomPicker={showCustomColorPicker}
             onChange={(colorSpec) =>
@@ -363,7 +362,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
           }}
         >
           <CustomColorPicker
-            key={`${resolvedTierColor}:${tier.colorSpec.kind === 'palette' ? `${tier.colorSpec.paletteType}:${tier.colorSpec.index}` : 'custom'}`}
+            key={`${resolvedTierColor}:${tier.colorSpec.kind === 'palette' ? tier.colorSpec.index : 'custom'}`}
             value={resolvedTierColor}
             onApply={(color) =>
             {
