@@ -8,11 +8,12 @@ export { PALETTES, THEME_PALETTE } from './palettes'
 export type { PaletteDefinition } from './palettes'
 
 export {
-  buildRecolorMap,
-  getAutoTierColorSource,
-  getAutoTierColorUpdate,
-  getTierColorFromSource,
-  mapTierColorToPalette,
+  createCustomTierColorSpec,
+  createPaletteTierColorSpec,
+  getAutoTierColorSpec,
+  getTierColorFromPaletteSpec,
+  resolveTierColor,
+  resolveTierColorSpec,
 } from './tierColors'
 
 export { TEXT_STYLES } from './textStyles'
