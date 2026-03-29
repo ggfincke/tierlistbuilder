@@ -5,10 +5,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 
+import {
+  createCustomTierColorSpec,
+  resolveTierColorSpec,
+} from '../../domain/tierColors'
+import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import type { Tier } from '../../types'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
-import { PALETTES, THEME_PALETTE } from '../../theme'
+import { PALETTES } from '../../theme'
 import { ITEM_SIZE_PX } from '../../utils/constants'
 import {
   CUSTOM_COLOR_PICKER_WIDTH_PX,
@@ -17,10 +22,16 @@ import {
 } from '../../utils/popupPosition'
 import { useAnchoredPosition } from '../../hooks/useAnchoredPosition'
 import { usePopupClose } from '../../hooks/usePopupClose'
+import {
+  BoardItemsGrid,
+  BoardRowContent,
+  BoardRowSurface,
+} from './BoardPrimitives'
 import { TierItem } from './TierItem'
 import { TierLabel } from './TierLabel'
 import { TierRowSettingsMenu } from './TierRowSettingsMenu'
 import { ColorPicker, CustomColorPicker } from './ColorPicker'
+import { OverlayFixedPopupSurface } from '../ui/OverlayPrimitives'
 
 interface TierRowProps
 {
@@ -37,9 +48,10 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
   const itemSize = useSettingsStore((state) => state.itemSize)
   const compactMode = useSettingsStore((state) => state.compactMode)
   const hideRowControls = useSettingsStore((state) => state.hideRowControls)
-  const themeId = useSettingsStore((state) => state.themeId)
+  const paletteId = useCurrentPaletteId()
   const sizePx = ITEM_SIZE_PX[itemSize]
-  const presets = PALETTES[THEME_PALETTE[themeId]].presets
+  const presets = PALETTES[paletteId].presets
+  const resolvedTierColor = resolveTierColorSpec(paletteId, tier.colorSpec)
 
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showCustomColorPicker, setShowCustomColorPicker] = useState(false)
@@ -195,30 +207,24 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
 
   return (
     <div>
-      <div
-        className={`flex transition-colors ${
-          isOver ? 'bg-[var(--t-bg-drag-over)]' : 'bg-[var(--t-bg-surface)]'
-        }`}
-      >
-        <div
-          className={`flex min-w-0 flex-1 border-b border-l border-[var(--t-border)]${index === 0 ? ' border-t' : ''}`}
-        >
+      <BoardRowSurface className={isOver ? 'bg-[var(--t-bg-drag-over)]' : ''}>
+        <BoardRowContent index={index}>
           <TierLabel tier={tier} colorOverride={previewColor} />
 
           <SortableContext items={tier.itemIds} strategy={rectSortingStrategy}>
-            <div
+            <BoardItemsGrid
               ref={setNodeRef}
+              compactMode={compactMode}
+              minHeightPx={sizePx}
               data-testid={`tier-container-${tier.id}`}
               data-tier-id={tier.id}
-              className={`flex flex-1 flex-wrap content-start bg-[var(--t-bg-surface)] p-0 ${compactMode ? 'gap-0' : 'gap-px'}`}
-              style={{ minHeight: sizePx }}
             >
               {tier.itemIds.map((itemId) => (
                 <TierItem key={itemId} itemId={itemId} containerId={tier.id} />
               ))}
-            </div>
+            </BoardItemsGrid>
           </SortableContext>
-        </div>
+        </BoardRowContent>
 
         {!hideRowControls && (
           <div className="flex shrink-0 items-center gap-1 border-l border-[var(--t-border)] bg-[var(--t-bg-page)] px-1.5">
@@ -237,7 +243,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
                 ref={colorButtonRef}
                 type="button"
                 className="h-4 w-4 rounded-full border border-[var(--t-border-secondary)]"
-                style={{ backgroundColor: tier.color }}
+                style={{ backgroundColor: resolvedTierColor }}
                 onClick={() =>
                 {
                   if (!showColorPicker && colorButtonRef.current)
@@ -265,6 +271,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
             <TierRowSettingsMenu
               tier={tier}
               index={index}
+              paletteId={paletteId}
               show={showSettingsMenu}
               onToggle={() =>
               {
@@ -276,23 +283,23 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
             />
           </div>
         )}
-      </div>
+      </BoardRowSurface>
 
       {showColorPicker && (
-        <div
+        <OverlayFixedPopupSurface
           ref={colorPickerRef}
-          className="z-50 rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] shadow-lg"
+          className="z-50"
           style={colorPickerStyle}
         >
           <ColorPicker
-            value={tier.color}
-            colorSource={tier.colorSource}
+            value={resolvedTierColor}
+            colorSpec={tier.colorSpec}
             presets={presets}
             customTriggerRef={customColorButtonRef}
             showCustomPicker={showCustomColorPicker}
-            onChange={(color, colorSource) =>
+            onChange={(colorSpec) =>
             {
-              recolorTier(tier.id, color, colorSource)
+              recolorTier(tier.id, colorSpec)
               closeColorPickers()
             }}
             onToggleCustomPicker={() =>
@@ -305,30 +312,30 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
               setShowCustomColorPicker((current) => !current)
             }}
           />
-        </div>
+        </OverlayFixedPopupSurface>
       )}
 
       {showCustomColorPicker && (
-        <div
+        <OverlayFixedPopupSurface
           ref={customColorPickerRef}
-          className="z-[60] rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] shadow-2xl"
+          className="z-[60] shadow-2xl"
           style={{
             ...customColorPickerStyle,
             width: 'min(17.5rem, calc(100vw - 16px))',
           }}
         >
           <CustomColorPicker
-            key={`${tier.color}:${tier.colorSource?.paletteType ?? 'custom'}:${tier.colorSource?.index ?? -1}`}
-            value={tier.color}
+            key={`${resolvedTierColor}:${tier.colorSpec.kind === 'palette' ? `${tier.colorSpec.paletteType}:${tier.colorSpec.index}` : 'custom'}`}
+            value={resolvedTierColor}
             onApply={(color) =>
             {
-              recolorTier(tier.id, color, null)
+              recolorTier(tier.id, createCustomTierColorSpec(color))
               closeColorPickers()
             }}
             onCancel={closeCustomColorPicker}
             onPreview={setPreviewColor}
           />
-        </div>
+        </OverlayFixedPopupSurface>
       )}
     </div>
   )

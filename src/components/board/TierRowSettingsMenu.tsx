@@ -4,17 +4,19 @@
 import { useCallback, useRef, useState } from 'react'
 import { Settings as SettingsIcon } from 'lucide-react'
 
-import type { Tier } from '../../types'
+import type { PaletteId, Tier } from '../../types'
 import { useTierListStore } from '../../store/useTierListStore'
 import { computeSettingsMenuStyle } from '../../utils/popupPosition'
 import { useAnchoredPosition } from '../../hooks/useAnchoredPosition'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { OverlayMenuItem, OverlayMenuSurface } from '../ui/OverlayPrimitives'
 
 interface TierRowSettingsMenuProps
 {
   tier: Tier
   index: number
+  paletteId: PaletteId
   // controlled visibility — TierRow owns state for mutual exclusion w/ color picker
   show: boolean
   onToggle: () => void
@@ -24,6 +26,7 @@ interface TierRowSettingsMenuProps
 export const TierRowSettingsMenu = ({
   tier,
   index,
+  paletteId,
   show,
   onToggle,
   onClose,
@@ -75,10 +78,10 @@ export const TierRowSettingsMenu = ({
       </button>
 
       {show && (
-        <div
+        <OverlayMenuSurface
           ref={menuRef}
           role="menu"
-          className="z-50 w-48 rounded-xl border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-overlay)] p-2 shadow-2xl"
+          className="z-50 w-48 p-2"
           style={menuStyle}
         >
           <input
@@ -96,10 +99,9 @@ export const TierRowSettingsMenu = ({
             aria-label="Rename tier"
           />
 
-          <button
-            type="button"
+          <OverlayMenuItem
             role="menuitem"
-            className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--t-destructive-hover)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
+            className="text-sm text-[var(--t-destructive-hover)]"
             onClick={() =>
             {
               onClose()
@@ -107,12 +109,11 @@ export const TierRowSettingsMenu = ({
             }}
           >
             Delete Row
-          </button>
+          </OverlayMenuItem>
 
-          <button
-            type="button"
+          <OverlayMenuItem
             role="menuitem"
-            className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
+            className="text-sm"
             onClick={() =>
             {
               clearTierItems(tier.id)
@@ -120,34 +121,32 @@ export const TierRowSettingsMenu = ({
             }}
           >
             Clear Row Images
-          </button>
+          </OverlayMenuItem>
 
-          <button
-            type="button"
+          <OverlayMenuItem
             role="menuitem"
-            className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
+            className="text-sm"
             onClick={() =>
             {
-              addTierAt(index)
+              addTierAt(index, paletteId)
               onClose()
             }}
           >
             Add a Row Above
-          </button>
+          </OverlayMenuItem>
 
-          <button
-            type="button"
+          <OverlayMenuItem
             role="menuitem"
-            className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]"
+            className="text-sm"
             onClick={() =>
             {
-              addTierAt(index + 1)
+              addTierAt(index + 1, paletteId)
               onClose()
             }}
           >
             Add a Row Below
-          </button>
-        </div>
+          </OverlayMenuItem>
+        </OverlayMenuSurface>
       )}
 
       <ConfirmDialog
