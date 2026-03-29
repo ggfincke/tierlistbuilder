@@ -2,8 +2,14 @@
 // tier row component — label, sortable item grid, & row controls
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
+import { GripVertical } from 'lucide-react'
 
 import {
   createCustomTierColorSpec,
@@ -47,11 +53,32 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
 
   const itemSize = useSettingsStore((state) => state.itemSize)
   const compactMode = useSettingsStore((state) => state.compactMode)
+  const boardLocked = useSettingsStore((state) => state.boardLocked)
   const hideRowControls = useSettingsStore((state) => state.hideRowControls)
   const paletteId = useCurrentPaletteId()
   const sizePx = ITEM_SIZE_PX[itemSize]
   const presets = PALETTES[paletteId].presets
   const resolvedTierColor = resolveTierColorSpec(paletteId, tier.colorSpec)
+
+  // tier-level sortable — drag handle on the grip icon reorders entire rows
+  const {
+    attributes: tierAttributes,
+    listeners: tierListeners,
+    setNodeRef: setTierSortableRef,
+    transform: tierTransform,
+    transition: tierTransition,
+    isDragging: isTierDragging,
+  } = useSortable({
+    id: tier.id,
+    disabled: boardLocked || hideRowControls,
+    data: { type: 'tier' },
+  })
+
+  const tierStyle = {
+    transform: CSS.Transform.toString(tierTransform),
+    transition: tierTransition,
+    opacity: isTierDragging ? 0.4 : 1,
+  }
 
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showCustomColorPicker, setShowCustomColorPicker] = useState(false)
@@ -206,9 +233,20 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
   }, [showColorPicker, showCustomColorPicker])
 
   return (
-    <div>
+    <div ref={setTierSortableRef} style={tierStyle} {...tierAttributes}>
       <BoardRowSurface className={isOver ? 'bg-[var(--t-bg-drag-over)]' : ''}>
         <BoardRowContent index={index}>
+          {/* tier drag handle — grip icon on the left edge of the label */}
+          {!hideRowControls && !boardLocked && (
+            <button
+              type="button"
+              className="flex shrink-0 cursor-grab touch-none items-center px-0.5 text-[var(--t-text-faint)] opacity-0 transition-opacity hover:text-[var(--t-text)] group-hover:opacity-100 [div:hover>&]:opacity-100"
+              aria-label="Drag to reorder tier"
+              {...tierListeners}
+            >
+              <GripVertical className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          )}
           <TierLabel tier={tier} colorOverride={previewColor} />
 
           <SortableContext items={tier.itemIds} strategy={rectSortingStrategy}>
@@ -226,7 +264,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
           </SortableContext>
         </BoardRowContent>
 
-        {!hideRowControls && (
+        {!hideRowControls && !boardLocked && (
           <div className="flex shrink-0 items-center gap-1 border-l border-[var(--t-border)] bg-[var(--t-bg-page)] px-1.5">
             <div className="flex flex-col items-center justify-center gap-1">
               <button

@@ -2,6 +2,7 @@
 // * drag-&-drop hook — wires dnd-kit sensors, collision detection, & item move logic
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Tier } from '../types'
 import {
   type DragEndEvent,
   type DragMoveEvent,
@@ -21,10 +22,16 @@ import {
 } from '../utils/dragSnapshot'
 import { captureRenderedContainerSnapshot } from '../utils/dragDomCapture'
 
+type DragType = 'item' | 'tier'
+
 const toStringId = (id: UniqueIdentifier): string | null =>
 {
   return typeof id === 'string' ? id : null
 }
+
+const getDragType = (event: {
+  active: { data: { current?: { type?: string } } }
+}): DragType => (event.active.data.current?.type === 'tier' ? 'tier' : 'item')
 
 // * primary drag-&-drop hook consumed by TierList
 export const useDragAndDrop = () =>
@@ -41,8 +48,17 @@ export const useDragAndDrop = () =>
   const discardDragPreview = useTierListStore(
     (state) => state.discardDragPreview
   )
+  const reorderTierByIndex = useTierListStore(
+    (state) => state.reorderTierByIndex
+  )
   const removeItem = useTierListStore((state) => state.removeItem)
   const [showDragOverlay, setShowDragOverlay] = useState(false)
+  // tracks what kind of drag is active (ref for event handlers, state for render)
+  const dragTypeRef = useRef<DragType>('item')
+  const [dragTypeState, setDragTypeState] = useState<DragType>('item')
+  const [activeTierData, setActiveTierData] = useState<Tier | undefined>(
+    undefined
+  )
   // last resolved over-ID — used as fallback when pointer leaves all droppables
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null)
   // flag set when the dragged item crosses into a new container mid-drag
@@ -99,11 +115,14 @@ export const useDragAndDrop = () =>
   {
     lastOverIdRef.current = null
     movedToNewContainerRef.current = false
+    dragTypeRef.current = 'item'
+    setDragTypeState('item')
+    setActiveTierData(undefined)
     setShowDragOverlay(false)
     setActiveItemId(null)
   }
 
-  // capture snapshot & mark active item when drag begins
+  // capture snapshot & mark active item/tier when drag begins
   const onDragStart = (event: DragStartEvent) =>
   {
     const activeId = toStringId(event.active.id)
@@ -112,22 +131,38 @@ export const useDragAndDrop = () =>
       return
     }
 
-    beginDragPreview()
-    lastOverIdRef.current = activeId
+    const type = getDragType(event)
+    dragTypeRef.current = type
+    setDragTypeState(type)
     clearKeyboardMode()
     setShowDragOverlay(true)
+
+    if (type === 'tier')
+    {
+      // tier drag — no snapshot preview needed, dnd-kit handles visual reorder
+      setActiveTierData(
+        useTierListStore.getState().tiers.find((t) => t.id === activeId)
+      )
+      setActiveItemId(activeId)
+      return
+    }
+
+    beginDragPreview()
+    lastOverIdRef.current = activeId
     setActiveItemId(activeId)
   }
 
   // live-update item position as pointer moves over containers & items
   const onDragMove = (event: DragMoveEvent) =>
   {
+    if (dragTypeRef.current === 'tier') return
     syncDraggedItemPosition(event, movedToNewContainerRef, updateDragPreview)
   }
 
   // respond immediately when the active item enters a different droppable target
   const onDragOver = (event: DragOverEvent) =>
   {
+    if (dragTypeRef.current === 'tier') return
     syncDraggedItemPosition(event, movedToNewContainerRef, updateDragPreview)
   }
 
@@ -135,6 +170,27 @@ export const useDragAndDrop = () =>
   const onDragEnd = (event: DragEndEvent) =>
   {
     const activeId = toStringId(event.active.id)
+
+    // tier drag — compute index swap from the sortable over target
+    if (dragTypeRef.current === 'tier')
+    {
+      if (activeId && event.over)
+      {
+        const overId = toStringId(event.over.id)
+        if (overId && activeId !== overId)
+        {
+          const tiers = useTierListStore.getState().tiers
+          const fromIndex = tiers.findIndex((t) => t.id === activeId)
+          const toIndex = tiers.findIndex((t) => t.id === overId)
+          if (fromIndex >= 0 && toIndex >= 0)
+          {
+            reorderTierByIndex(fromIndex, toIndex)
+          }
+        }
+      }
+      resetDragState()
+      return
+    }
 
     if (!event.over)
     {
@@ -187,15 +243,25 @@ export const useDragAndDrop = () =>
   // always discard the preview & clean up on keyboard/programmatic cancel
   const onDragCancel = () =>
   {
-    discardDragPreview()
+    if (dragTypeRef.current !== 'tier')
+    {
+      discardDragPreview()
+    }
     resetDragState()
   }
+
+  // resolve active tier for the drag overlay when dragging a tier row
+  const activeTier =
+    showDragOverlay && dragTypeState === 'tier' ? activeTierData : undefined
 
   return {
     sensors,
     // resolve active item object from ID for the drag overlay
     activeItem:
-      showDragOverlay && activeItemId ? items[activeItemId] : undefined,
+      showDragOverlay && dragTypeState === 'item' && activeItemId
+        ? items[activeItemId]
+        : undefined,
+    activeTier,
     collisionDetection,
     onDragStart,
     onDragMove,

@@ -2,12 +2,17 @@
 // * top-level tier list — wraps dnd-kit context, tier rows, unranked pool, & drag overlay
 
 import { DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useMemo, useRef } from 'react'
+
+const EMPTY_SENSORS: never[] = []
 
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { THEMES } from '../../theme/tokens'
 import { getEffectiveTiers } from '../../utils/dragSnapshot'
+import { resolveTierColorSpec } from '../../domain/tierColors'
+import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
 import { DragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
@@ -23,6 +28,8 @@ const DND_ACCESSIBILITY = {
 
 export const TierList = () =>
 {
+  const paletteId = useCurrentPaletteId()
+  const boardLocked = useSettingsStore((state) => state.boardLocked)
   const exportBackgroundOverride = useSettingsStore(
     (state) => state.exportBackgroundOverride
   )
@@ -54,9 +61,12 @@ export const TierList = () =>
     [dragPreview, storedTiers]
   )
 
+  const tierIds = useMemo(() => tiers.map((t) => t.id), [tiers])
+
   const {
     sensors,
     activeItem,
+    activeTier,
     collisionDetection,
     onDragStart,
     onDragMove,
@@ -65,9 +75,12 @@ export const TierList = () =>
     onDragCancel,
   } = useDragAndDrop()
 
+  // disable all drag sensors when the board is locked
+  const activeSensors = boardLocked ? EMPTY_SENSORS : sensors
+
   return (
     <DndContext
-      sensors={sensors}
+      sensors={activeSensors}
       collisionDetection={collisionDetection}
       accessibility={DND_ACCESSIBILITY}
       measuring={{
@@ -93,14 +106,19 @@ export const TierList = () =>
           className="min-w-[860px]"
           style={{ backgroundColor: exportBackgroundColor }}
         >
-          {tiers.map((tier, index) => (
-            <TierRow
-              key={tier.id}
-              tier={tier}
-              index={index}
-              totalTiers={tiers.length}
-            />
-          ))}
+          <SortableContext
+            items={tierIds}
+            strategy={verticalListSortingStrategy}
+          >
+            {tiers.map((tier, index) => (
+              <TierRow
+                key={tier.id}
+                tier={tier}
+                index={index}
+                totalTiers={tiers.length}
+              />
+            ))}
+          </SortableContext>
         </div>
       </div>
 
@@ -108,9 +126,25 @@ export const TierList = () =>
 
       <TrashZone />
 
-      {/* render ghost item in the overlay only while a drag is active */}
+      {/* render ghost in the overlay while a drag is active */}
       <DragOverlay>
-        {activeItem ? <DragOverlayItem item={activeItem} /> : null}
+        {activeItem ? (
+          <DragOverlayItem item={activeItem} />
+        ) : activeTier ? (
+          <div
+            className="flex items-center gap-2 rounded-lg px-4 py-2 shadow-xl"
+            style={{
+              backgroundColor: resolveTierColorSpec(
+                paletteId,
+                activeTier.colorSpec
+              ),
+              color: '#fff',
+              textShadow: '0 0 2px rgba(0,0,0,0.4)',
+            }}
+          >
+            <span className="text-sm font-semibold">{activeTier.name}</span>
+          </div>
+        ) : null}
       </DragOverlay>
     </DndContext>
   )

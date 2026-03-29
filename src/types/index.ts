@@ -42,6 +42,8 @@ export interface Tier
   id: string
   // display name shown in the label cell
   name: string
+  // optional subtitle text displayed beneath the name
+  description?: string
   // canonical color spec for the label background
   colorSpec: TierColorSpec
   // ordered list of item IDs assigned to this tier
@@ -178,6 +180,7 @@ export interface AppSettings
   tierLabelBold: boolean
   tierLabelItalic: boolean
   tierLabelFontSize: TierLabelFontSize
+  boardLocked: boolean
 }
 
 // appearance settings needed to render a board for export capture

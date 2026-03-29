@@ -1,20 +1,31 @@
 // src/components/ui/BoardActionBar.tsx
 // floating action bar — undo/redo, add tier, settings, export, & reset controls
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
+  BookmarkPlus,
+  Lock,
   Plus,
   Redo2,
   RotateCcw,
   Settings as SettingsIcon,
+  Shuffle,
   Undo2,
+  Unlock,
 } from 'lucide-react'
 
 import type { ImageFormat } from '../../types'
+import { extractTemplateFromBoard } from '../../domain/templates'
+import { useHybridMenu } from '../../hooks/useHybridMenu'
+import { extractBoardData } from '../../store/useTierListStore'
+import { useSettingsStore } from '../../store/useSettingsStore'
+import { useTemplateStore } from '../../store/useTemplateStore'
 import { useTierListStore } from '../../store/useTierListStore'
+import { usePopupClose } from '../../hooks/usePopupClose'
 import { ActionButton } from './ActionButton'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportMenu } from './ExportMenu'
+import { OverlayMenuItem, OverlayMenuSurface } from './OverlayPrimitives'
 
 interface BoardActionBarProps
 {
@@ -42,11 +53,59 @@ export const BoardActionBar = ({
   onReset,
 }: BoardActionBarProps) =>
 {
+  const boardLocked = useSettingsStore((state) => state.boardLocked)
+  const setBoardLocked = useSettingsStore((state) => state.setBoardLocked)
   const pastLength = useTierListStore((state) => state.past.length)
   const futureLength = useTierListStore((state) => state.future.length)
   const undo = useTierListStore((state) => state.undo)
   const redo = useTierListStore((state) => state.redo)
+  const itemsManuallyMoved = useTierListStore(
+    (state) => state.itemsManuallyMoved
+  )
+  const shuffleAllItems = useTierListStore((state) => state.shuffleAllItems)
+  const shuffleUnrankedItems = useTierListStore(
+    (state) => state.shuffleUnrankedItems
+  )
+  const addTemplate = useTemplateStore((state) => state.addTemplate)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [confirmShuffle, setConfirmShuffle] = useState<'all' | null>(null)
+  const shuffleButtonRef = useRef<HTMLButtonElement | null>(null)
+  const shuffleMenuRef = useRef<HTMLDivElement | null>(null)
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const {
+    open: showShuffleMenu,
+    closeMenu: closeShuffleMenu,
+    togglePinnedOpen: toggleShuffleMenu,
+  } = useHybridMenu({ disabled: boardLocked })
+
+  usePopupClose({
+    show: showShuffleMenu,
+    triggerRef: shuffleButtonRef,
+    popupRef: shuffleMenuRef,
+    onClose: closeShuffleMenu,
+  })
+
+  // shuffle w/ confirmation when items have been manually arranged
+  const handleShuffle = (mode: 'all' | 'unranked') =>
+  {
+    closeShuffleMenu()
+    if (mode === 'all' && itemsManuallyMoved)
+    {
+      setConfirmShuffle('all')
+      return
+    }
+    if (mode === 'all') shuffleAllItems()
+    else shuffleUnrankedItems()
+  }
+
+  const saveTemplate = () =>
+  {
+    if (!templateName.trim()) return
+    const data = extractBoardData(useTierListStore.getState())
+    addTemplate(extractTemplateFromBoard(data, templateName.trim()))
+    setShowSaveTemplate(false)
+  }
 
   return (
     <>
@@ -57,7 +116,7 @@ export const BoardActionBar = ({
             label="Undo"
             title="Undo"
             onClick={undo}
-            disabled={pastLength === 0}
+            disabled={boardLocked || pastLength === 0}
           >
             <Undo2 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
@@ -66,14 +125,66 @@ export const BoardActionBar = ({
             label="Redo"
             title="Redo"
             onClick={redo}
-            disabled={futureLength === 0}
+            disabled={boardLocked || futureLength === 0}
           >
             <Redo2 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
           {/* add a new tier row to the bottom of the board */}
-          <ActionButton label="Add tier" title="Add Tier" onClick={onAddTier}>
+          <ActionButton
+            label="Add tier"
+            title="Add Tier"
+            onClick={onAddTier}
+            disabled={boardLocked}
+          >
             <Plus className="h-5 w-5" strokeWidth={1.8} />
+          </ActionButton>
+
+          {/* shuffle dropdown — distribute items randomly across tiers */}
+          <div className="relative">
+            <ActionButton
+              ref={shuffleButtonRef}
+              label="Shuffle items"
+              title="Shuffle"
+              onClick={toggleShuffleMenu}
+              disabled={boardLocked}
+              hasPopup="menu"
+              expanded={showShuffleMenu}
+              active={showShuffleMenu}
+            >
+              <Shuffle className="h-5 w-5" strokeWidth={1.8} />
+            </ActionButton>
+
+            {showShuffleMenu && (
+              <OverlayMenuSurface
+                ref={shuffleMenuRef}
+                role="menu"
+                className="absolute left-1/2 top-full z-30 mt-3 w-max -translate-x-1/2 animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 before:absolute before:-top-3 before:left-0 before:h-3 before:w-full"
+              >
+                <OverlayMenuItem
+                  role="menuitem"
+                  onClick={() => handleShuffle('all')}
+                >
+                  Shuffle All Items
+                </OverlayMenuItem>
+                <OverlayMenuItem
+                  role="menuitem"
+                  onClick={() => handleShuffle('unranked')}
+                >
+                  Shuffle Unranked Only
+                </OverlayMenuItem>
+              </OverlayMenuSurface>
+            )}
+          </div>
+
+          {/* reset — requires confirmation before restoring default tiers */}
+          <ActionButton
+            label="Reset board"
+            title="Reset"
+            onClick={() => setConfirmReset(true)}
+            disabled={boardLocked}
+          >
+            <RotateCcw className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
           {/* open the settings panel for image import & tier management */}
@@ -94,13 +205,30 @@ export const BoardActionBar = ({
             onExportAll={onExportAll}
           />
 
-          {/* reset — requires confirmation before restoring default tiers */}
+          {/* save current tier structure as a reusable template */}
           <ActionButton
-            label="Reset board"
-            title="Reset"
-            onClick={() => setConfirmReset(true)}
+            label="Save as template"
+            title="Save Template"
+            onClick={() =>
+            {
+              setTemplateName(useTierListStore.getState().title)
+              setShowSaveTemplate(true)
+            }}
           >
-            <RotateCcw className="h-5 w-5" strokeWidth={1.8} />
+            <BookmarkPlus className="h-5 w-5" strokeWidth={1.8} />
+          </ActionButton>
+
+          {/* lock / unlock toggle */}
+          <ActionButton
+            label={boardLocked ? 'Unlock board' : 'Lock board'}
+            title={boardLocked ? 'Unlock' : 'Lock'}
+            onClick={() => setBoardLocked(!boardLocked)}
+          >
+            {boardLocked ? (
+              <Lock className="h-5 w-5" strokeWidth={1.8} />
+            ) : (
+              <Unlock className="h-5 w-5" strokeWidth={1.8} />
+            )}
           </ActionButton>
         </div>
       </div>
@@ -118,6 +246,69 @@ export const BoardActionBar = ({
           setConfirmReset(false)
         }}
       />
+
+      {/* confirmation dialog shown before shuffling placed items */}
+      <ConfirmDialog
+        open={confirmShuffle !== null}
+        title="Shuffle all items?"
+        description="This will re-distribute all items randomly across tiers, replacing your current arrangement."
+        confirmText="Shuffle"
+        variant="accent"
+        onCancel={() => setConfirmShuffle(null)}
+        onConfirm={() =>
+        {
+          shuffleAllItems()
+          setConfirmShuffle(null)
+        }}
+      />
+
+      {/* save-as-template name prompt */}
+      {showSaveTemplate && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/60"
+            onClick={() => setShowSaveTemplate(false)}
+          />
+          <div className="fixed inset-0 z-50 m-auto flex h-fit w-full max-w-sm flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
+            <h2 className="text-lg font-semibold text-[var(--t-text)]">
+              Save as Template
+            </h2>
+            <p className="mt-1 text-sm text-[var(--t-text-muted)]">
+              Saves the current tier structure (names & colors) for reuse.
+            </p>
+            <input
+              autoFocus
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              onKeyDown={(e) =>
+              {
+                if (e.key === 'Enter') saveTemplate()
+                if (e.key === 'Escape') setShowSaveTemplate(false)
+              }}
+              placeholder="Template name"
+              className="mt-3 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-[var(--t-border-secondary)] px-3 py-1.5 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)]"
+                onClick={() => setShowSaveTemplate(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!templateName.trim()}
+                className="rounded-md bg-[var(--t-accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--t-accent-hover)] disabled:opacity-40"
+                onClick={saveTemplate}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }

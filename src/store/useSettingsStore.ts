@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   tierLabelBold: false,
   tierLabelItalic: false,
   tierLabelFontSize: 'small',
+  boardLocked: false,
 }
 
 interface SettingsStore extends AppSettings
@@ -47,6 +48,7 @@ interface SettingsStore extends AppSettings
   setTierLabelBold: (bold: boolean) => void
   setTierLabelItalic: (italic: boolean) => void
   setTierLabelFontSize: (size: TierLabelFontSize) => void
+  setBoardLocked: (locked: boolean) => void
   resetSettings: () => void
 }
 
@@ -80,12 +82,13 @@ export const useSettingsStore = create<SettingsStore>()(
       setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
       setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
       setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
+      setBoardLocked: createSettingSetter(set, 'boardLocked'),
       resetSettings: () => set(DEFAULT_SETTINGS),
     }),
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createAppPersistStorage(),
-      version: 5,
+      version: 6,
       migrate: (persisted, version) =>
       {
         let state = persisted as Record<string, unknown>
@@ -120,6 +123,10 @@ export const useSettingsStore = create<SettingsStore>()(
         if (version < 5)
         {
           delete state.syncTierColorsWithTheme
+        }
+        if (version < 6)
+        {
+          state = { ...state, boardLocked: false }
         }
         return state
       },

@@ -31,6 +31,7 @@ interface LegacyTier
 {
   id?: unknown
   name?: unknown
+  description?: unknown
   color?: unknown
   colorSource?: unknown
   colorSpec?: unknown
@@ -143,6 +144,8 @@ const normalizeTier = (
     typeof tier.name === 'string'
       ? tier.name
       : (DEFAULT_TIER_NAMES[index] ?? `Tier ${index + 1}`),
+  description:
+    typeof tier.description === 'string' ? tier.description : undefined,
   colorSpec: normalizeTierColorSpec(tier, index, paletteId),
   itemIds: Array.isArray(tier.itemIds)
     ? tier.itemIds.filter((id): id is string => typeof id === 'string')
