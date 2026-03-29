@@ -9,7 +9,6 @@ import { DEFAULT_TITLE } from '../utils/constants'
 import {
   BOARD_REGISTRY_KEY,
   createAppPersistStorage,
-  isExportLocked,
   loadBoardFromStorage,
   migrateLegacyBoard,
   removeBoardFromStorage,
@@ -56,6 +55,20 @@ const saveCurrentBoard = (boardId: string) =>
 // build a blank board w/ default tiers & no items
 const createBlankBoardData = (): TierListData => createInitialData()
 
+// load a board from storage into the active tier store, falling back to fresh data
+const loadBoardIntoTierStore = (boardId: string): TierListData =>
+{
+  const data = loadBoardFromStorage(boardId) ?? createInitialData()
+  useTierListStore.getState().loadBoard(data)
+  return data
+}
+
+const createBoardMeta = (id: string, title: string) => ({
+  id,
+  title,
+  createdAt: Date.now(),
+})
+
 // append a numeric suffix if a title already exists in the board list
 const deduplicateTitle = (title: string, boards: BoardMeta[]): string =>
 {
@@ -82,7 +95,7 @@ const saveAndActivateBoard = (
   saveBoardToStorage(id, boardData)
   useTierListStore.getState().loadBoard(boardData)
   set({
-    boards: [...boards, { id, title, createdAt: Date.now() }],
+    boards: [...boards, createBoardMeta(id, title)],
     activeBoardId: id,
   })
   return id
@@ -122,8 +135,7 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         }
 
         // load the target board
-        const data = loadBoardFromStorage(boardId)
-        useTierListStore.getState().loadBoard(data ?? createInitialData())
+        loadBoardIntoTierStore(boardId)
 
         set({ activeBoardId: boardId })
       },
@@ -148,8 +160,7 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         if (boardId === activeBoardId)
         {
           const nextActive = nextBoards[0]
-          const data = loadBoardFromStorage(nextActive.id)
-          useTierListStore.getState().loadBoard(data ?? createInitialData())
+          loadBoardIntoTierStore(nextActive.id)
           set({ boards: nextBoards, activeBoardId: nextActive.id })
         }
         else
@@ -228,10 +239,7 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
           )
           const boardData = { ...data, title }
           saveBoardToStorage(id, boardData)
-          updatedBoards = [
-            ...updatedBoards,
-            { id, title, createdAt: Date.now() },
-          ]
+          updatedBoards = [...updatedBoards, createBoardMeta(id, title)]
           lastId = id
         }
 
@@ -259,11 +267,7 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         // already initialized — load the active board into the tier list store
         if (boards.length > 0 && activeBoardId)
         {
-          const data = loadBoardFromStorage(activeBoardId)
-          if (data)
-          {
-            useTierListStore.getState().loadBoard(data)
-          }
+          loadBoardIntoTierStore(activeBoardId)
           return
         }
 
@@ -272,12 +276,10 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         if (legacy)
         {
           useTierListStore.getState().loadBoard(legacy.data)
-          rehydratedState.boards = [
-            { id: legacy.id, title: legacy.data.title, createdAt: Date.now() },
-          ]
-          rehydratedState.activeBoardId = legacy.id
-          // persist the new registry immediately
-          useBoardManagerStore.persist.rehydrate()
+          useBoardManagerStore.setState({
+            boards: [createBoardMeta(legacy.id, legacy.data.title)],
+            activeBoardId: legacy.id,
+          })
           return
         }
 
@@ -286,12 +288,10 @@ export const useBoardManagerStore = create<BoardManagerStore>()(
         const data = createInitialData()
         saveBoardToStorage(id, data)
         useTierListStore.getState().loadBoard(data)
-        rehydratedState.boards = [
-          { id, title: data.title, createdAt: Date.now() },
-        ]
-        rehydratedState.activeBoardId = id
-        // persist the new registry immediately
-        useBoardManagerStore.persist.rehydrate()
+        useBoardManagerStore.setState({
+          boards: [createBoardMeta(id, data.title)],
+          activeBoardId: id,
+        })
       },
     }
   )
@@ -315,10 +315,6 @@ useTierListStore.subscribe((state, prevState) =>
   {
     return
   }
-
-  // suppress auto-save during export-all board-swap loop to avoid
-  // writing a temporarily-loaded board to the active board's storage slot
-  if (isExportLocked()) return
 
   // debounce saves to avoid thrashing localStorage during rapid edits
   if (saveTimeout) clearTimeout(saveTimeout)

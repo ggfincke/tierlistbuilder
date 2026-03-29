@@ -137,6 +137,15 @@ const pushUndo = (state: TierListStore) => ({
   future: [] as TierListData[],
 })
 
+// merge a store update w/ a single undo checkpoint
+const withUndo = (
+  state: TierListStore,
+  updates: Partial<TierListStore>
+): Partial<TierListStore> => ({
+  ...pushUndo(state),
+  ...updates,
+})
+
 // clear keyboard state when removing an item that is actively focused or dragged
 const keyboardCleanupForItem = (state: TierListStore, itemId: string) => ({
   activeItemId: state.activeItemId === itemId ? null : state.activeItemId,
@@ -183,28 +192,33 @@ export const useTierListStore = create<TierListStore>()((set) => ({
 
   // append a new tier row at the end w/ the next cycling color
   addTier: () =>
-    set((state) => ({
-      ...pushUndo(state),
-      tiers: [...state.tiers, createNewTier(state.tiers.length)],
-    })),
+    set((state) =>
+      withUndo(state, {
+        tiers: [...state.tiers, createNewTier(state.tiers.length)],
+      })
+    ),
 
   // rename a tier, ignoring empty strings
   renameTier: (tierId, name) =>
-    set((state) => ({
-      ...pushUndo(state),
-      tiers: state.tiers.map((tier) =>
-        tier.id === tierId ? { ...tier, name: name.trim() || tier.name } : tier
-      ),
-    })),
+    set((state) =>
+      withUndo(state, {
+        tiers: state.tiers.map((tier) =>
+          tier.id === tierId
+            ? { ...tier, name: name.trim() || tier.name }
+            : tier
+        ),
+      })
+    ),
 
   // update the background color of a tier label
   recolorTier: (tierId, color, colorSource = null) =>
-    set((state) => ({
-      ...pushUndo(state),
-      tiers: state.tiers.map((tier) =>
-        tier.id === tierId ? { ...tier, color, colorSource } : tier
-      ),
-    })),
+    set((state) =>
+      withUndo(state, {
+        tiers: state.tiers.map((tier) =>
+          tier.id === tierId ? { ...tier, color, colorSource } : tier
+        ),
+      })
+    ),
 
   // recolor multiple tiers in a single update (one undo entry)
   batchRecolorTiers: (colorMap) =>
@@ -212,7 +226,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     {
       if (colorMap.size === 0) return state
       return {
-        ...pushUndo(state),
+        ...withUndo(state, {}),
         tiers: state.tiers.map((tier) =>
         {
           const colorUpdate = colorMap.get(tier.id)
@@ -270,7 +284,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       }
 
       return {
-        ...pushUndo(state),
+        ...withUndo(state, {}),
         tiers: state.tiers.filter((entry) => entry.id !== tierId),
         // prepend displaced items to the front of the unranked pool
         unrankedItemIds: [...tier.itemIds, ...state.unrankedItemIds],
@@ -287,7 +301,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         return state
       }
       return {
-        ...pushUndo(state),
+        ...withUndo(state, {}),
         tiers: state.tiers.map((t) =>
           t.id === tierId ? { ...t, itemIds: [] } : t
         ),
@@ -303,7 +317,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       const clampedIndex = clampIndex(index, 0, state.tiers.length)
       const nextTiers = [...state.tiers]
       nextTiers.splice(clampedIndex, 0, createNewTier(state.tiers.length))
-      return { ...pushUndo(state), tiers: nextTiers }
+      return withUndo(state, { tiers: nextTiers })
     }),
 
   // append newly uploaded items to the items map & unranked pool
@@ -326,7 +340,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       }
 
       return {
-        ...pushUndo(state),
+        ...withUndo(state, {}),
         items: nextItems,
         unrankedItemIds: nextUnranked,
       }
@@ -338,7 +352,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     {
       const id = crypto.randomUUID()
       return {
-        ...pushUndo(state),
+        ...withUndo(state, {}),
         items: {
           ...state.items,
           [id]: { id, label, backgroundColor },
@@ -406,7 +420,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         return state
       }
       return {
-        ...pushUndo(state),
+        ...withUndo(state, {}),
         items: { ...state.items, [item.id]: item },
         unrankedItemIds: [...state.unrankedItemIds, item.id],
         deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
@@ -415,17 +429,19 @@ export const useTierListStore = create<TierListStore>()((set) => ({
 
   // permanently remove a single item from the deleted list
   permanentlyDeleteItem: (itemId) =>
-    set((state) => ({
-      ...pushUndo(state),
-      deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
-    })),
+    set((state) =>
+      withUndo(state, {
+        deletedItems: state.deletedItems.filter((i) => i.id !== itemId),
+      })
+    ),
 
   // permanently clear all deleted items
   clearDeletedItems: () =>
-    set((state) => ({
-      ...pushUndo(state),
-      deletedItems: [],
-    })),
+    set((state) =>
+      withUndo(state, {
+        deletedItems: [],
+      })
+    ),
 
   // remove every item from tiers & unranked pool, moving them to the deleted list
   clearAllItems: () =>
@@ -452,7 +468,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       }
 
       return {
-        ...pushUndo(state),
+        ...withUndo(state, {}),
         items: nextItems,
         deletedItems: nextDeleted,
         tiers: state.tiers.map((t) => ({ ...t, itemIds: [] })),
@@ -559,7 +575,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     set((state) =>
     {
       return {
-        ...pushUndo(state),
+        ...withUndo(state, {}),
         tiers: state.tiers.map((tier, i) => ({
           ...tier,
           ...getAutoTierColorUpdate(paletteId, i),

@@ -55,6 +55,12 @@ type TierListState = TierListData & {
   addTextItem: (label: string, backgroundColor: string) => void
 }
 
+type PersistApi = {
+  persist: {
+    rehydrate: () => Promise<void> | void
+  }
+}
+
 const loadStores = async () =>
 {
   vi.resetModules()
@@ -75,6 +81,14 @@ const loadStores = async () =>
     >,
     boardStorageKey,
   }
+}
+
+const rehydrateBoardManagerStore = async (
+  store: UseBoundStore<StoreApi<BoardManagerState>>
+) =>
+{
+  const persistStore = store as typeof store & PersistApi
+  await persistStore.persist.rehydrate()
 }
 
 const ensureActiveBoard = (
@@ -124,6 +138,68 @@ describe('singleton board stores', () =>
     ).toMatchObject({
       title: 'Renamed Board',
     })
+  })
+
+  it('bootstraps a fresh board during initial rehydrate', async () =>
+  {
+    const { useBoardManagerStore, useTierListStore } = await loadStores()
+    await rehydrateBoardManagerStore(useBoardManagerStore)
+
+    expect(useBoardManagerStore.getState().boards).toHaveLength(1)
+    expect(useBoardManagerStore.getState().activeBoardId).toMatch(/^board-/)
+    expect(useTierListStore.getState().title).toBe('My Tier List')
+  })
+
+  it('loads the persisted active board into the tier store during rehydrate', async () =>
+  {
+    const persistedBoardId = 'board-existing'
+    const persistedBoard = {
+      title: 'Persisted Board',
+      tiers: [
+        {
+          id: 'tier-s',
+          name: 'S',
+          color: '#ff0000',
+          colorSource: { paletteType: 'default' as const, index: 0 },
+          itemIds: ['item-1'],
+        },
+      ],
+      unrankedItemIds: [],
+      items: {
+        'item-1': { id: 'item-1', label: 'Persisted Item' },
+      },
+      deletedItems: [],
+    } satisfies TierListData
+
+    localStorage.setItem(
+      'tier-list-builder-boards',
+      JSON.stringify({
+        state: {
+          boards: [
+            {
+              id: persistedBoardId,
+              title: persistedBoard.title,
+              createdAt: 123,
+            } satisfies BoardMeta,
+          ],
+          activeBoardId: persistedBoardId,
+        },
+        version: 0,
+      })
+    )
+    localStorage.setItem(
+      `tier-list-board-${persistedBoardId}`,
+      JSON.stringify(persistedBoard)
+    )
+
+    const { useBoardManagerStore, useTierListStore } = await loadStores()
+    await rehydrateBoardManagerStore(useBoardManagerStore)
+
+    expect(useBoardManagerStore.getState().activeBoardId).toBe(persistedBoardId)
+    expect(useTierListStore.getState().title).toBe('Persisted Board')
+    expect(useTierListStore.getState().items['item-1']?.label).toBe(
+      'Persisted Item'
+    )
   })
 
   it('preserves the current title when resetting the active board', async () =>

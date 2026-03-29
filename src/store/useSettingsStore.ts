@@ -52,28 +52,40 @@ interface SettingsStore extends AppSettings
   resetSettings: () => void
 }
 
+const createSettingSetter = <K extends keyof AppSettings>(
+  set: (partial: Partial<SettingsStore>) => void,
+  key: K
+) =>
+{
+  return (value: AppSettings[K]) =>
+    set({ [key]: value } as Pick<AppSettings, K>)
+}
+
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
       ...DEFAULT_SETTINGS,
 
-      setItemSize: (itemSize) => set({ itemSize }),
-      setShowLabels: (showLabels) => set({ showLabels }),
-      setItemShape: (itemShape) => set({ itemShape }),
-      setCompactMode: (compactMode) => set({ compactMode }),
-      setExportBackgroundOverride: (exportBackgroundOverride) =>
-        set({ exportBackgroundOverride }),
-      setLabelWidth: (labelWidth) => set({ labelWidth }),
-      setHideRowControls: (hideRowControls) => set({ hideRowControls }),
-      setConfirmBeforeDelete: (confirmBeforeDelete) =>
-        set({ confirmBeforeDelete }),
-      setThemeId: (themeId) => set({ themeId }),
-      setTextStyleId: (textStyleId) => set({ textStyleId }),
-      setSyncTierColorsWithTheme: (syncTierColorsWithTheme) =>
-        set({ syncTierColorsWithTheme }),
-      setTierLabelBold: (tierLabelBold) => set({ tierLabelBold }),
-      setTierLabelItalic: (tierLabelItalic) => set({ tierLabelItalic }),
-      setTierLabelFontSize: (tierLabelFontSize) => set({ tierLabelFontSize }),
+      setItemSize: createSettingSetter(set, 'itemSize'),
+      setShowLabels: createSettingSetter(set, 'showLabels'),
+      setItemShape: createSettingSetter(set, 'itemShape'),
+      setCompactMode: createSettingSetter(set, 'compactMode'),
+      setExportBackgroundOverride: createSettingSetter(
+        set,
+        'exportBackgroundOverride'
+      ),
+      setLabelWidth: createSettingSetter(set, 'labelWidth'),
+      setHideRowControls: createSettingSetter(set, 'hideRowControls'),
+      setConfirmBeforeDelete: createSettingSetter(set, 'confirmBeforeDelete'),
+      setThemeId: createSettingSetter(set, 'themeId'),
+      setTextStyleId: createSettingSetter(set, 'textStyleId'),
+      setSyncTierColorsWithTheme: createSettingSetter(
+        set,
+        'syncTierColorsWithTheme'
+      ),
+      setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
+      setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
+      setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
       resetSettings: () => set(DEFAULT_SETTINGS),
     }),
     {
