@@ -1,5 +1,5 @@
 // src/utils/storage.ts
-// centralized localStorage access — keys, migrations, board I/O, & export lock
+// centralized localStorage access — keys, migrations, persist adapters, & board I/O
 
 import {
   createJSONStorage,
@@ -250,11 +250,3 @@ export const migrateLegacyBoard = (
     return null
   }
 }
-
-// when true, the auto-save subscriber is suppressed (used during export-all)
-let exportLock = false
-export const setExportLock = (locked: boolean) =>
-{
-  exportLock = locked
-}
-export const isExportLocked = (): boolean => exportLock

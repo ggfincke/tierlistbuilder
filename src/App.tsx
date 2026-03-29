@@ -1,7 +1,7 @@
 // src/App.tsx
 // * root application component — layout, export orchestration, & global error banner
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { BoardActionBar } from './components/ui/BoardActionBar'
 import { BoardManager } from './components/ui/BoardManager'
@@ -22,10 +22,12 @@ import {
   exportAllBoardsAsPdf,
 } from './utils/exportAll'
 import {
-  copyTierListToClipboard,
+  copyBoardToClipboard,
   exportTierListAsImage,
 } from './utils/exportImage'
+import { getExportAppearance } from './utils/exportBoardRender'
 import { exportTierListAsPdf } from './utils/exportPdf'
+import { extractBoardData } from './store/useTierListStore'
 
 // resolve the effective export background from the override or current theme
 const getExportBg = () =>
@@ -33,6 +35,10 @@ const getExportBg = () =>
   const { exportBackgroundOverride, themeId } = useSettingsStore.getState()
   return exportBackgroundOverride ?? THEMES[themeId]['export-bg']
 }
+
+// snapshot the current export-sensitive appearance settings
+const getCurrentExportAppearance = () =>
+  getExportAppearance(useSettingsStore.getState())
 
 function App()
 {
@@ -59,13 +65,10 @@ function App()
     total: number
   } | null>(null)
 
-  // ref attached to the export-capture wrapper div
-  const exportRef = useRef<HTMLDivElement | null>(null)
-
   // trigger image or PDF export, guarding against concurrent calls
   const runExport = async (type: ImageFormat | 'pdf') =>
   {
-    if (!exportRef.current || exportStatus)
+    if (exportStatus)
     {
       return
     }
@@ -76,13 +79,15 @@ function App()
     try
     {
       const bgColor = getExportBg()
+      const appearance = getCurrentExportAppearance()
+      const data = extractBoardData(useTierListStore.getState())
       if (type === 'pdf')
       {
-        await exportTierListAsPdf(exportRef.current, title, bgColor)
+        await exportTierListAsPdf(data, title, appearance, bgColor)
       }
       else
       {
-        await exportTierListAsImage(exportRef.current, title, type, bgColor)
+        await exportTierListAsImage(data, title, appearance, type, bgColor)
       }
     }
     catch
@@ -98,7 +103,7 @@ function App()
   // copy the rendered tier list image to the system clipboard
   const runCopyToClipboard = async () =>
   {
-    if (!exportRef.current || exportStatus)
+    if (exportStatus)
     {
       return
     }
@@ -109,7 +114,9 @@ function App()
     try
     {
       const bgColor = getExportBg()
-      await copyTierListToClipboard(exportRef.current, bgColor)
+      const appearance = getCurrentExportAppearance()
+      const data = extractBoardData(useTierListStore.getState())
+      await copyBoardToClipboard(data, appearance, bgColor)
     }
     catch (err)
     {
@@ -147,12 +154,8 @@ function App()
       return
     }
 
-    if (!exportRef.current)
-    {
-      return
-    }
-
     const bgColor = getExportBg()
+    const appearance = getCurrentExportAppearance()
     const onProgress = (current: number, total: number) =>
       setExportAllProgress({ current, total })
 
@@ -162,16 +165,11 @@ function App()
     {
       if (type === 'pdf')
       {
-        await exportAllBoardsAsPdf(exportRef.current, bgColor, onProgress)
+        await exportAllBoardsAsPdf(appearance, bgColor, onProgress)
       }
       else
       {
-        await exportAllBoardsAsImages(
-          exportRef.current,
-          type,
-          bgColor,
-          onProgress
-        )
+        await exportAllBoardsAsImages(appearance, type, bgColor, onProgress)
       }
     }
     catch
@@ -220,7 +218,7 @@ function App()
             onReset={resetBoard}
           />
 
-          <TierList exportRef={exportRef} />
+          <TierList />
         </div>
       </div>
 

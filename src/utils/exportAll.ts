@@ -1,24 +1,13 @@
 // src/utils/exportAll.ts
 // export-all utilities — bundle every board into a single JSON, PDF, or image ZIP
 
-import type { ImageFormat, TierListData } from '../types'
+import type { ExportAppearance, ImageFormat, TierListData } from '../types'
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
 import { extractBoardData, useTierListStore } from '../store/useTierListStore'
 import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
 import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
-import {
-  loadBoardFromStorage,
-  saveBoardToStorage,
-  setExportLock,
-} from './storage'
-
-// wait for React to paint & layout to settle after a store update
-const waitForRender = (): Promise<void> =>
-  new Promise((resolve) =>
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => setTimeout(resolve, 50))
-    )
-  )
+import { loadBoardFromStorage, saveBoardToStorage } from './storage'
+import { createExportCaptureSession } from './exportBoardRender'
 
 // convert a base64 data URL to a Uint8Array for ZIP packaging
 const dataUrlToUint8Array = (dataUrl: string): Uint8Array =>
@@ -87,10 +76,10 @@ export const exportAllBoardsAsJson = () =>
   URL.revokeObjectURL(url)
 }
 
-// render each board by temporarily swapping it into the store, capturing the DOM,
-// then restoring the original board
+// render each board inside a hidden off-screen export session, never touching
+// the live board store or DOM
 const captureAllBoards = async (
-  element: HTMLElement,
+  appearance: ExportAppearance,
   format: ImageFormat,
   backgroundColor: string,
   onProgress?: ProgressCallback
@@ -98,10 +87,9 @@ const captureAllBoards = async (
   Array<{ title: string; dataUrl: string; width: number; height: number }>
 > =>
 {
-  const originalActiveBoardId = useBoardManagerStore.getState().activeBoardId
   const allBoards = loadAllBoardData()
-  const { loadBoard } = useTierListStore.getState()
   const pixelRatio = 2
+  const session = createExportCaptureSession({ appearance, backgroundColor })
 
   const captures: Array<{
     title: string
@@ -110,14 +98,11 @@ const captureAllBoards = async (
     height: number
   }> = []
 
-  setExportLock(true)
   try
   {
     for (let i = 0; i < allBoards.length; i++)
     {
-      // swap board into the store & wait for React to paint
-      loadBoard(allBoards[i].data)
-      await waitForRender()
+      const element = await session.renderBoard(allBoards[i].data)
 
       const dataUrl = await renderToDataUrl(element, format, backgroundColor)
 
@@ -133,14 +118,7 @@ const captureAllBoards = async (
   }
   finally
   {
-    // always restore the original active board, even if capture threw
-    const original = allBoards.find((b) => b.id === originalActiveBoardId)
-    if (original)
-    {
-      loadBoard(original.data)
-      await waitForRender()
-    }
-    setExportLock(false)
+    session.destroy()
   }
 
   return captures
@@ -148,13 +126,13 @@ const captureAllBoards = async (
 
 // download all boards as a multi-page PDF (one page per board)
 export const exportAllBoardsAsPdf = async (
-  element: HTMLElement,
+  appearance: ExportAppearance,
   backgroundColor = EXPORT_BACKGROUND_COLOR,
   onProgress?: ProgressCallback
 ): Promise<void> =>
 {
   const captures = await captureAllBoards(
-    element,
+    appearance,
     'png',
     backgroundColor,
     onProgress
@@ -189,14 +167,14 @@ export const exportAllBoardsAsPdf = async (
 
 // download all boards as a ZIP of images (one per board)
 export const exportAllBoardsAsImages = async (
-  element: HTMLElement,
+  appearance: ExportAppearance,
   format: ImageFormat,
   backgroundColor = EXPORT_BACKGROUND_COLOR,
   onProgress?: ProgressCallback
 ): Promise<void> =>
 {
   const captures = await captureAllBoards(
-    element,
+    appearance,
     format,
     backgroundColor,
     onProgress
