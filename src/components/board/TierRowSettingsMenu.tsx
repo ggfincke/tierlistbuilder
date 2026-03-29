@@ -2,12 +2,12 @@
 // gear button & popup settings menu for a tier row
 
 import { useCallback, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 import type { Tier } from '../../types'
 import { useTierListStore } from '../../store/useTierListStore'
 import { computeSettingsMenuStyle } from '../../utils/popupPosition'
+import { useAnchoredPosition } from '../../hooks/useAnchoredPosition'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
@@ -35,22 +35,22 @@ export const TierRowSettingsMenu = ({
   const addTierAt = useTierListStore((state) => state.addTierAt)
 
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
   const gearButtonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { style: menuStyle, updatePosition: updateMenuPosition } =
+    useAnchoredPosition({
+      computePosition: () =>
+        gearButtonRef.current
+          ? computeSettingsMenuStyle(gearButtonRef.current)
+          : null,
+    })
 
   usePopupClose({
     show,
     triggerRef: gearButtonRef,
     popupRef: menuRef,
     onClose: useCallback(() => onClose(), [onClose]),
-    onScroll: useCallback(() =>
-    {
-      if (gearButtonRef.current)
-      {
-        setMenuStyle(computeSettingsMenuStyle(gearButtonRef.current))
-      }
-    }, []),
+    onScroll: updateMenuPosition,
   })
 
   return (
@@ -63,7 +63,7 @@ export const TierRowSettingsMenu = ({
         {
           if (!show && gearButtonRef.current)
           {
-            setMenuStyle(computeSettingsMenuStyle(gearButtonRef.current))
+            updateMenuPosition()
             onToggle()
           }
         }}

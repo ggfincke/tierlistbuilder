@@ -12,6 +12,7 @@ import { getEffectiveUnrankedItemIds } from '../../utils/dragSnapshot'
 import { UNRANKED_CONTAINER_ID } from '../../utils/constants'
 import { TierItem } from './TierItem'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { UploadDropzone } from '../ui/UploadDropzone'
 
 export const UnrankedPool = () =>
 {
@@ -37,6 +38,7 @@ export const UnrankedPool = () =>
   const {
     inputRef: fileInputRef,
     isDraggingFiles,
+    isProcessing,
     openFilePicker,
     onDragOver,
     onDragLeave,
@@ -98,26 +100,15 @@ export const UnrankedPool = () =>
         >
           {unrankedItemIds.length === 0 ? (
             // empty state — click to open file picker, or drop images directly
-            <div
-              className={`flex min-h-16 w-full cursor-pointer flex-col items-center justify-center text-center transition ${
-                isDraggingFiles
-                  ? 'text-[var(--t-accent)]'
-                  : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-muted)]'
-              }`}
-              onClick={openFilePicker}
+            <UploadDropzone
+              variant="empty"
+              isDraggingFiles={isDraggingFiles}
+              isProcessing={isProcessing}
+              openFilePicker={openFilePicker}
               onDragOver={onDragOver}
               onDragLeave={onDragLeave}
               onDrop={onDrop}
-            >
-              <p className="text-sm">
-                {isDraggingFiles
-                  ? 'Drop images here'
-                  : 'Drop images here or click to upload'}
-              </p>
-              <p className="mt-1 text-xs text-[var(--t-text-faint)]">
-                Square images (1:1) work best.
-              </p>
-            </div>
+            />
           ) : (
             unrankedItemIds.map((itemId) => (
               <TierItem

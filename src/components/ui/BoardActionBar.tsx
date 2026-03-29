@@ -94,7 +94,7 @@ export const BoardActionBar = ({
             onExportAll={onExportAll}
           />
 
-          {/* reset — requires confirmation before reloading sample items */}
+          {/* reset — requires confirmation before restoring default tiers */}
           <ActionButton
             label="Reset board"
             title="Reset"

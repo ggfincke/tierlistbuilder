@@ -2,7 +2,7 @@
 // * top-level tier list — wraps dnd-kit context, tier rows, unranked pool, & drag overlay
 
 import { DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core'
-import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
@@ -21,13 +21,7 @@ const DND_ACCESSIBILITY = {
   },
 }
 
-interface TierListProps
-{
-  // ref forwarded from App — attached to the export capture wrapper
-  exportRef: RefObject<HTMLDivElement | null>
-}
-
-export const TierList = ({ exportRef }: TierListProps) =>
+export const TierList = () =>
 {
   const exportBackgroundOverride = useSettingsStore(
     (state) => state.exportBackgroundOverride
@@ -40,19 +34,6 @@ export const TierList = ({ exportRef }: TierListProps) =>
   const dragPreview = useTierListStore((state) => state.dragPreview)
   const keyboardMode = useTierListStore((state) => state.keyboardMode)
   const boardRef = useRef<HTMLDivElement>(null)
-
-  // merge boardRef into the forwarded exportRef
-  const setBoardRef = useCallback(
-    (node: HTMLDivElement | null) =>
-    {
-      boardRef.current = node
-      // sync the forwarded export capture ref
-      const mutableRef =
-        exportRef as React.MutableRefObject<HTMLDivElement | null>
-      mutableRef.current = node
-    },
-    [exportRef]
-  )
 
   // sync keyboard focus item data attribute imperatively to avoid re-rendering
   // the entire subtree on every arrow key press
@@ -104,7 +85,7 @@ export const TierList = ({ exportRef }: TierListProps) =>
       {/* export capture wrapper — min-width prevents layout collapse on narrow screens */}
       <div className={`overflow-x-auto ${compactMode ? 'mt-1' : 'mt-3'}`}>
         <div
-          ref={setBoardRef}
+          ref={boardRef}
           data-testid="tier-list-board"
           data-keyboard-mode={keyboardMode}
           data-keyboard-focus-item-id=""

@@ -2,7 +2,6 @@
 // tier row component — label, sortable item grid, & row controls
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 
@@ -16,6 +15,7 @@ import {
   computeColorPickerStyle,
   computeCustomColorPickerStyle,
 } from '../../utils/popupPosition'
+import { useAnchoredPosition } from '../../hooks/useAnchoredPosition'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { TierItem } from './TierItem'
 import { TierLabel } from './TierLabel'
@@ -45,9 +45,6 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
   const [showCustomColorPicker, setShowCustomColorPicker] = useState(false)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [previewColor, setPreviewColor] = useState<string | null>(null)
-  const [colorPickerStyle, setColorPickerStyle] = useState<CSSProperties>({})
-  const [customColorPickerStyle, setCustomColorPickerStyle] =
-    useState<CSSProperties>({})
 
   const colorButtonRef = useRef<HTMLButtonElement>(null)
   const colorPickerRef = useRef<HTMLDivElement>(null)
@@ -55,6 +52,43 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
   const customColorPickerRef = useRef<HTMLDivElement>(null)
   const colorPickerIgnoreRefs = useMemo(() => [customColorPickerRef], [])
   const customColorPickerIgnoreRefs = useMemo(() => [colorPickerRef], [])
+
+  const { style: colorPickerStyle, updatePosition: updateColorPickerPosition } =
+    useAnchoredPosition({
+      computePosition: () =>
+        colorButtonRef.current
+          ? computeColorPickerStyle(colorButtonRef.current)
+          : null,
+    })
+
+  const {
+    style: customColorPickerStyle,
+    updatePosition: updateCustomColorPickerPosition,
+  } = useAnchoredPosition({
+    computePosition: () =>
+    {
+      if (!customColorButtonRef.current)
+      {
+        return null
+      }
+
+      if (customColorPickerRef.current)
+      {
+        return computeCustomColorPickerStyle(
+          customColorButtonRef.current,
+          colorPickerRef.current,
+          customColorPickerRef.current.getBoundingClientRect().width,
+          customColorPickerRef.current.getBoundingClientRect().height
+        )
+      }
+
+      return computeCustomColorPickerStyle(
+        customColorButtonRef.current,
+        colorPickerRef.current,
+        CUSTOM_COLOR_PICKER_WIDTH_PX
+      )
+    },
+  })
 
   const droppableData = useMemo(
     () => ({ type: 'container' as const, containerId: tier.id }),
@@ -87,13 +121,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
     ignoreRefs: colorPickerIgnoreRefs,
     onClose: closeColorPickers,
     closeOnEscape: false,
-    onScroll: useCallback(() =>
-    {
-      if (colorButtonRef.current)
-      {
-        setColorPickerStyle(computeColorPickerStyle(colorButtonRef.current))
-      }
-    }, []),
+    onScroll: updateColorPickerPosition,
   })
 
   usePopupClose({
@@ -103,32 +131,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
     ignoreRefs: customColorPickerIgnoreRefs,
     onClose: closeCustomColorPicker,
     closeOnEscape: false,
-    onScroll: useCallback(() =>
-    {
-      if (customColorButtonRef.current && customColorPickerRef.current)
-      {
-        setCustomColorPickerStyle(
-          computeCustomColorPickerStyle(
-            customColorButtonRef.current,
-            colorPickerRef.current,
-            customColorPickerRef.current.getBoundingClientRect().width,
-            customColorPickerRef.current.getBoundingClientRect().height
-          )
-        )
-        return
-      }
-
-      if (customColorButtonRef.current)
-      {
-        setCustomColorPickerStyle(
-          computeCustomColorPickerStyle(
-            customColorButtonRef.current,
-            colorPickerRef.current,
-            CUSTOM_COLOR_PICKER_WIDTH_PX
-          )
-        )
-      }
-    }, []),
+    onScroll: updateCustomColorPickerPosition,
   })
 
   useEffect(() =>
@@ -145,19 +148,10 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
     // remeasure after mount so the custom popup stays within the viewport
     const updatePosition = () =>
     {
-      if (!customColorButtonRef.current || !customColorPickerRef.current)
+      if (customColorButtonRef.current && customColorPickerRef.current)
       {
-        return
+        updateCustomColorPickerPosition()
       }
-
-      setCustomColorPickerStyle(
-        computeCustomColorPickerStyle(
-          customColorButtonRef.current,
-          colorPickerRef.current,
-          customColorPickerRef.current.getBoundingClientRect().width,
-          customColorPickerRef.current.getBoundingClientRect().height
-        )
-      )
     }
 
     updatePosition()
@@ -166,7 +160,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
     resizeObserver.observe(customColorPickerRef.current)
 
     return () => resizeObserver.disconnect()
-  }, [showCustomColorPicker])
+  }, [showCustomColorPicker, updateCustomColorPickerPosition])
 
   useEffect(() =>
   {
@@ -248,9 +242,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
                 {
                   if (!showColorPicker && colorButtonRef.current)
                   {
-                    setColorPickerStyle(
-                      computeColorPickerStyle(colorButtonRef.current)
-                    )
+                    updateColorPickerPosition()
                     setShowColorPicker(true)
                     setShowCustomColorPicker(false)
                     setShowSettingsMenu(false)
@@ -307,13 +299,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
             {
               if (!showCustomColorPicker && customColorButtonRef.current)
               {
-                setCustomColorPickerStyle(
-                  computeCustomColorPickerStyle(
-                    customColorButtonRef.current,
-                    colorPickerRef.current,
-                    CUSTOM_COLOR_PICKER_WIDTH_PX
-                  )
-                )
+                updateCustomColorPickerPosition()
               }
 
               setShowCustomColorPicker((current) => !current)
