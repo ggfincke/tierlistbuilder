@@ -7,7 +7,7 @@ import {
   type StateStorage,
 } from 'zustand/middleware'
 
-import type { Tier, TierListData } from '../types'
+import type { TierListData } from '../types'
 
 // legacy localStorage keys — used only for migration detection
 export const APP_STORAGE_KEY = 'tier-list-builder-state'
@@ -20,6 +20,8 @@ export const BOARD_REGISTRY_KEY = 'tier-list-builder-boards'
 export const SETTINGS_STORAGE_KEY = 'tier-list-builder-settings'
 // build a per-board localStorage key from its ID
 export const boardStorageKey = (id: string): string => `tier-list-board-${id}`
+// current board payload schema version
+export const BOARD_DATA_VERSION = 2
 
 // resolve the browser storage object once so every caller goes through this file
 const getStorage = (): Storage | null =>
@@ -110,7 +112,13 @@ export const saveBoardToStorage = (
 {
   try
   {
-    getStorage()?.setItem(boardStorageKey(boardId), JSON.stringify(data))
+    getStorage()?.setItem(
+      boardStorageKey(boardId),
+      JSON.stringify({
+        version: BOARD_DATA_VERSION,
+        data,
+      })
+    )
   }
   catch
   {
@@ -121,12 +129,34 @@ export const saveBoardToStorage = (
 }
 
 // load board data from its per-board localStorage key
-export const loadBoardFromStorage = (boardId: string): TierListData | null =>
+export const loadBoardFromStorage = (
+  boardId: string
+): Partial<TierListData> | null =>
 {
   try
   {
     const raw = readStorageItem(boardStorageKey(boardId))
-    return raw ? (JSON.parse(raw) as TierListData) : null
+    if (!raw)
+    {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as
+      | Partial<TierListData>
+      | { version?: number; data?: Partial<TierListData> }
+
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'data' in parsed &&
+      parsed.data &&
+      typeof parsed.data === 'object'
+    )
+    {
+      return parsed.data
+    }
+
+    return parsed as Partial<TierListData>
   }
   catch
   {
@@ -176,8 +206,25 @@ const LEGACY_DEFAULT_TIER_SIGNATURE: Record<
   'tier-f': { name: 'F', color: '#7fbfff' },
 }
 
+interface LegacyDefaultTier
+{
+  id: string
+  name: string
+  color: string
+  itemIds?: string[]
+}
+
+interface LegacyBoardState
+{
+  title?: string
+  tiers?: LegacyDefaultTier[]
+  unrankedItemIds?: string[]
+  items?: TierListData['items']
+  deletedItems?: TierListData['deletedItems']
+}
+
 // check if the persisted tiers exactly match the v1 default signature
-const isLegacyDefaultTierSet = (tiers: Tier[]): boolean =>
+const isLegacyDefaultTierSet = (tiers: LegacyDefaultTier[]): boolean =>
 {
   const legacyIds = Object.keys(LEGACY_DEFAULT_TIER_SIGNATURE)
   if (tiers.length !== legacyIds.length) return false
@@ -195,7 +242,9 @@ const isLegacyDefaultTierSet = (tiers: Tier[]): boolean =>
 }
 
 // rename tier-f → tier-e & update its label/color to the v2 defaults
-const migrateLegacyDefaultTierSet = (tiers: Tier[]): Tier[] =>
+const migrateLegacyDefaultTierSet = (
+  tiers: LegacyDefaultTier[]
+): LegacyDefaultTier[] =>
 {
   if (!isLegacyDefaultTierSet(tiers)) return tiers
   return tiers.map((tier) =>
@@ -208,7 +257,7 @@ const migrateLegacyDefaultTierSet = (tiers: Tier[]): Tier[] =>
 // attempt to migrate the legacy single-board localStorage key into the multi-board system
 export const migrateLegacyBoard = (
   defaultTitle: string
-): { id: string; data: TierListData } | null =>
+): { id: string; data: Record<string, unknown> } | null =>
 {
   try
   {
@@ -216,7 +265,7 @@ export const migrateLegacyBoard = (
     if (!raw) return null
 
     const envelope = JSON.parse(raw) as {
-      state?: Partial<TierListData>
+      state?: LegacyBoardState
       version?: number
     }
     const state = envelope?.state
@@ -226,10 +275,10 @@ export const migrateLegacyBoard = (
     const version = envelope.version ?? 1
     const tiers =
       version < 2
-        ? migrateLegacyDefaultTierSet(state.tiers as Tier[])
-        : (state.tiers as Tier[])
+        ? migrateLegacyDefaultTierSet(state.tiers as LegacyDefaultTier[])
+        : (state.tiers as LegacyDefaultTier[])
 
-    const data: TierListData = {
+    const data: Record<string, unknown> = {
       title: state.title ?? defaultTitle,
       tiers,
       unrankedItemIds: state.unrankedItemIds ?? [],
@@ -238,7 +287,6 @@ export const migrateLegacyBoard = (
     }
 
     const id = `board-${crypto.randomUUID()}`
-    saveBoardToStorage(id, data)
 
     // clean up legacy key
     deleteStorageItem(APP_STORAGE_KEY)
