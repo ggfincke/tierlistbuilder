@@ -3,6 +3,7 @@
 
 import { Github, Layers, Plus, RotateCcw, Trash2 } from 'lucide-react'
 
+import { createBoardSession } from '../../services/boardSession'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { THEMES } from '../../theme/tokens'
@@ -40,7 +41,6 @@ export const TierSettingsMoreTab = ({
 }: TierSettingsMoreTabProps) =>
 {
   const boards = useBoardManagerStore((state) => state.boards)
-  const createBoard = useBoardManagerStore((state) => state.createBoard)
   const exportBackgroundOverride = useSettingsStore(
     (state) => state.exportBackgroundOverride
   )
@@ -104,7 +104,7 @@ export const TierSettingsMoreTab = ({
             type="button"
             onClick={() =>
             {
-              createBoard()
+              createBoardSession()
               onClose()
             }}
             className="flex items-center gap-1.5 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm text-[var(--t-text)] hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-active)]"

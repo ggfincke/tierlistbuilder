@@ -1,6 +1,7 @@
 // src/utils/exportJson.ts
 // JSON export & import utilities for board data
 
+import { normalizeTierListData } from '../domain/boardData'
 import type { TierListData } from '../types'
 import { toFileBase } from './constants'
 import { triggerDownload } from './exportImage'
@@ -16,7 +17,7 @@ interface TierListExport
 export const exportBoardAsJson = (data: TierListData, title: string) =>
 {
   const payload: TierListExport = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     data,
   }
@@ -62,10 +63,20 @@ export const parseBoardJson = (text: string): TierListData =>
   // validate tier structure
   for (const tier of data.tiers)
   {
-    if (!tier.id || !tier.name || !tier.color || !Array.isArray(tier.itemIds))
+    const hasLegacyColor =
+      typeof (tier as { color?: unknown }).color === 'string'
+    const hasCanonicalColorSpec =
+      !!tier.colorSpec && typeof tier.colorSpec === 'object'
+
+    if (
+      !tier.id ||
+      !tier.name ||
+      (!hasLegacyColor && !hasCanonicalColorSpec) ||
+      !Array.isArray(tier.itemIds)
+    )
     {
       throw new Error(
-        'Invalid tier structure — each tier needs id, name, color, & itemIds.'
+        'Invalid tier structure — each tier needs id, name, color data, & itemIds.'
       )
     }
   }
@@ -88,19 +99,7 @@ export const parseBoardJson = (text: string): TierListData =>
     }
   }
 
-  return {
-    title: data.title ?? 'Imported Tier List',
-    // normalize colorSource for legacy exports that lack it
-    tiers: data.tiers.map((tier) => ({
-      ...tier,
-      colorSource: tier.colorSource ?? null,
-    })),
-    unrankedItemIds: Array.isArray(data.unrankedItemIds)
-      ? data.unrankedItemIds
-      : [],
-    items: data.items,
-    deletedItems: Array.isArray(data.deletedItems) ? data.deletedItems : [],
-  }
+  return normalizeTierListData(data, 'classic', 'Imported Tier List')
 }
 
 // detect single vs multi-board JSON & return validated board data for each

@@ -2,11 +2,13 @@
 // export-all utilities — bundle every board into a single JSON, PDF, or image ZIP
 
 import type { ExportAppearance, ImageFormat, TierListData } from '../types'
+import {
+  loadPersistedBoard,
+  saveActiveBoardSnapshot,
+} from '../services/boardSession'
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
-import { extractBoardData, useTierListStore } from '../store/useTierListStore'
 import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
 import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
-import { loadBoardFromStorage, saveBoardToStorage } from './storage'
 import { createExportCaptureSession } from './exportBoardRender'
 
 // convert a base64 data URL to a Uint8Array for ZIP packaging
@@ -40,20 +42,15 @@ const loadAllBoardData = (): Array<{
   data: TierListData
 }> =>
 {
-  const { boards, activeBoardId } = useBoardManagerStore.getState()
+  const { boards } = useBoardManagerStore.getState()
 
-  // flush in-memory active board to storage so the read is fresh
-  if (activeBoardId)
-  {
-    const data = extractBoardData(useTierListStore.getState())
-    saveBoardToStorage(activeBoardId, data)
-  }
+  saveActiveBoardSnapshot()
 
   const results: Array<{ id: string; title: string; data: TierListData }> = []
   for (const board of boards)
   {
-    const data = loadBoardFromStorage(board.id)
-    if (data) results.push({ id: board.id, title: board.title, data })
+    const data = loadPersistedBoard(board.id)
+    results.push({ id: board.id, title: board.title, data })
   }
   return results
 }

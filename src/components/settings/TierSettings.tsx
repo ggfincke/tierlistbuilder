@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTierListStore } from '../../store/useTierListStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { getStorageUsageBytes } from '../../utils/storage'
-import { buildRecolorMap, PALETTES, THEME_PALETTE } from '../../theme'
+import { PALETTES, THEME_PALETTE } from '../../theme'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { TierSettingsAppearanceTab } from './TierSettingsAppearanceTab'
@@ -35,17 +35,11 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
     const palette = PALETTES[THEME_PALETTE[themeId]]
     return palette.defaults[1] ?? palette.defaults[0] ?? '#888888'
   }, [themeId])
-  const setSyncTierColorsWithTheme = useSettingsStore(
-    (state) => state.setSyncTierColorsWithTheme
-  )
-  const batchRecolorTiers = useTierListStore((state) => state.batchRecolorTiers)
-  const tiers = useTierListStore((state) => state.tiers)
 
   const [activeTab, setActiveTab] = useState<Tab>('items')
   const [textLabel, setTextLabel] = useState('')
   const [textColor, setTextColor] = useState(defaultTextColor)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
-  const [showSyncConfirm, setShowSyncConfirm] = useState(false)
   const lastDefaultTextColorRef = useRef(defaultTextColor)
 
   // keep the draft text-item color aligned to the active palette until the user customizes it
@@ -135,11 +129,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
             />
           )}
 
-          {activeTab === 'appearance' && (
-            <TierSettingsAppearanceTab
-              onRequestSyncConfirm={() => setShowSyncConfirm(true)}
-            />
-          )}
+          {activeTab === 'appearance' && <TierSettingsAppearanceTab />}
 
           {activeTab === 'layout' && <TierSettingsLayoutTab />}
 
@@ -164,23 +154,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
           setShowClearAllConfirm(false)
         }}
         onCancel={() => setShowClearAllConfirm(false)}
-      />
-
-      <ConfirmDialog
-        open={showSyncConfirm}
-        title="Sync tier colors?"
-        description="Tier colors that came from a palette will be updated to match the current theme. Custom colors will stay untouched."
-        confirmText="Sync"
-        variant="accent"
-        onConfirm={() =>
-        {
-          setSyncTierColorsWithTheme(true)
-          const paletteId = THEME_PALETTE[themeId]
-          const colorMap = buildRecolorMap(paletteId, paletteId, tiers)
-          if (colorMap.size > 0) batchRecolorTiers(colorMap)
-          setShowSyncConfirm(false)
-        }}
-        onCancel={() => setShowSyncConfirm(false)}
       />
     </>
   )

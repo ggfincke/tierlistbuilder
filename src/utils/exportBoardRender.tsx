@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 
 import type { AppSettings, ExportAppearance, TierListData } from '../types'
+import { THEME_PALETTE } from '../theme'
 import { StaticExportBoard } from '../components/export/StaticExportBoard'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
@@ -30,6 +31,7 @@ export const getExportAppearance = (
   itemShape: settings.itemShape,
   compactMode: settings.compactMode,
   labelWidth: settings.labelWidth,
+  paletteId: THEME_PALETTE[settings.themeId],
   tierLabelBold: settings.tierLabelBold,
   tierLabelItalic: settings.tierLabelItalic,
   tierLabelFontSize: settings.tierLabelFontSize,
