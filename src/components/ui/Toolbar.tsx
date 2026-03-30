@@ -57,10 +57,10 @@ export const Toolbar = () =>
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={commitEdit}
           onKeyDown={(e) =>
-          {
+            {
             if (e.key === 'Enter') commitEdit()
             if (e.key === 'Escape')
-            {
+              {
               setEditing(false)
             }
           }}

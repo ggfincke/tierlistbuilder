@@ -10,7 +10,6 @@ import {
   removeBoardFromStorage,
   saveBoardToStorage,
 } from '../utils/storage'
-import { THEME_PALETTE } from '../theme'
 import { normalizeTierListData } from '../domain/boardData'
 import { createBoardDataFromPreset } from '../domain/presets'
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
@@ -29,7 +28,7 @@ let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
 
 const getActivePaletteId = (): PaletteId =>
-  THEME_PALETTE[useSettingsStore.getState().themeId]
+  useSettingsStore.getState().paletteId
 
 const createBoardMeta = (id: string, title: string): BoardMeta => ({
   id,

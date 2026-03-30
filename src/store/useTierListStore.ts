@@ -121,6 +121,33 @@ const fisherYatesShuffle = <T>(arr: T[]): T[] =>
   return arr
 }
 
+const reorderTiersByIndex = (
+  state: TierListStore,
+  fromIndex: number,
+  toIndex: number
+): Partial<TierListStore> =>
+{
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    fromIndex >= state.tiers.length ||
+    toIndex < 0 ||
+    toIndex >= state.tiers.length
+  )
+  {
+    return state
+  }
+
+  const nextTiers = [...state.tiers]
+  const [moved] = nextTiers.splice(fromIndex, 1)
+  nextTiers.splice(toIndex, 0, moved)
+
+  return {
+    ...pushUndo(state),
+    tiers: nextTiers,
+  }
+}
+
 const resetBoardData = (
   state: TierListStore,
   paletteId: PaletteId
@@ -212,44 +239,11 @@ export const useTierListStore = create<TierListStore>()((set) => ({
 
       const targetIndex = direction === 'up' ? tierIndex - 1 : tierIndex + 1
 
-      if (targetIndex < 0 || targetIndex >= state.tiers.length)
-      {
-        return state
-      }
-
-      const nextTiers = [...state.tiers]
-      const [moved] = nextTiers.splice(tierIndex, 1)
-      nextTiers.splice(targetIndex, 0, moved)
-
-      return {
-        ...pushUndo(state),
-        tiers: nextTiers,
-      }
+      return reorderTiersByIndex(state, tierIndex, targetIndex)
     }),
 
   reorderTierByIndex: (fromIndex, toIndex) =>
-    set((state) =>
-    {
-      if (
-        fromIndex === toIndex ||
-        fromIndex < 0 ||
-        fromIndex >= state.tiers.length ||
-        toIndex < 0 ||
-        toIndex >= state.tiers.length
-      )
-      {
-        return state
-      }
-
-      const nextTiers = [...state.tiers]
-      const [moved] = nextTiers.splice(fromIndex, 1)
-      nextTiers.splice(toIndex, 0, moved)
-
-      return {
-        ...pushUndo(state),
-        tiers: nextTiers,
-      }
-    }),
+    set((state) => reorderTiersByIndex(state, fromIndex, toIndex)),
 
   deleteTier: (tierId) =>
     set((state) =>

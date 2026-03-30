@@ -68,7 +68,7 @@ export const BoardActionBar = ({
   )
   const addPreset = usePresetStore((state) => state.addPreset)
   const [confirmReset, setConfirmReset] = useState(false)
-  const [confirmShuffle, setConfirmShuffle] = useState<'all' | null>(null)
+  const [confirmShuffleAll, setConfirmShuffleAll] = useState(false)
   const shuffleButtonRef = useRef<HTMLButtonElement | null>(null)
   const shuffleMenuRef = useRef<HTMLDivElement | null>(null)
   const [showSavePreset, setShowSavePreset] = useState(false)
@@ -92,7 +92,7 @@ export const BoardActionBar = ({
     closeShuffleMenu()
     if (mode === 'all' && itemsManuallyMoved)
     {
-      setConfirmShuffle('all')
+      setConfirmShuffleAll(true)
       return
     }
     if (mode === 'all') shuffleAllItems()
@@ -249,16 +249,16 @@ export const BoardActionBar = ({
 
       {/* confirmation dialog shown before shuffling placed items */}
       <ConfirmDialog
-        open={confirmShuffle !== null}
+        open={confirmShuffleAll}
         title="Shuffle all items?"
         description="This will re-distribute all items randomly across tiers, replacing your current arrangement."
         confirmText="Shuffle"
         variant="accent"
-        onCancel={() => setConfirmShuffle(null)}
+        onCancel={() => setConfirmShuffleAll(false)}
         onConfirm={() =>
         {
           shuffleAllItems()
-          setConfirmShuffle(null)
+          setConfirmShuffleAll(false)
         }}
       />
 

@@ -9,12 +9,14 @@ import type {
   ItemShape,
   ItemSize,
   LabelWidth,
+  PaletteId,
   TextStyleId,
   ThemeId,
   TierLabelFontSize,
 } from '../types'
 import { createAppPersistStorage, SETTINGS_STORAGE_KEY } from '../utils/storage'
 import { THEMES } from '../theme/tokens'
+import { THEME_PALETTE } from '../theme/palettes'
 
 const DEFAULT_SETTINGS: AppSettings = {
   itemSize: 'medium',
@@ -26,6 +28,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   hideRowControls: false,
   confirmBeforeDelete: false,
   themeId: 'classic',
+  paletteId: 'classic',
   textStyleId: 'default',
   tierLabelBold: false,
   tierLabelItalic: false,
@@ -44,6 +47,7 @@ interface SettingsStore extends AppSettings
   setHideRowControls: (hide: boolean) => void
   setConfirmBeforeDelete: (confirm: boolean) => void
   setThemeId: (themeId: ThemeId) => void
+  setPaletteId: (paletteId: PaletteId) => void
   setTextStyleId: (textStyleId: TextStyleId) => void
   setTierLabelBold: (bold: boolean) => void
   setTierLabelItalic: (italic: boolean) => void
@@ -78,6 +82,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setHideRowControls: createSettingSetter(set, 'hideRowControls'),
       setConfirmBeforeDelete: createSettingSetter(set, 'confirmBeforeDelete'),
       setThemeId: createSettingSetter(set, 'themeId'),
+      setPaletteId: createSettingSetter(set, 'paletteId'),
       setTextStyleId: createSettingSetter(set, 'textStyleId'),
       setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
       setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
@@ -88,7 +93,7 @@ export const useSettingsStore = create<SettingsStore>()(
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createAppPersistStorage(),
-      version: 6,
+      version: 8,
       migrate: (persisted, version) =>
       {
         let state = persisted as Record<string, unknown>
@@ -127,6 +132,22 @@ export const useSettingsStore = create<SettingsStore>()(
         if (version < 6)
         {
           state = { ...state, boardLocked: false }
+        }
+        if (version < 7)
+        {
+          const themeId = (state.themeId as string) ?? 'classic'
+          state = {
+            ...state,
+            paletteId:
+              THEME_PALETTE[themeId as keyof typeof THEME_PALETTE] ?? 'classic',
+          }
+        }
+        if (version < 8)
+        {
+          if (state.paletteId === 'amoled')
+          {
+            state = { ...state, paletteId: 'twilight' }
+          }
         }
         return state
       },

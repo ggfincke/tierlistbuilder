@@ -12,21 +12,40 @@ export interface PaletteDefinition
 export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   classic: {
     colors: [
-      '#f47c7c',
-      '#f1b878',
-      '#edd77b',
-      '#e3ea78',
-      '#abe36d',
-      '#74e56d',
-      '#a0f0e8',
-      '#89cff0',
-      '#7b68ee',
-      '#f59ede',
-      '#b39eb5',
-      '#2d2d2d',
-      '#888888',
-      '#cccccc',
-      '#eeeeee',
+      '#FF7F7E',
+      '#FFBF81',
+      '#FFDF80',
+      '#FEFF7F',
+      '#C1FF80',
+      '#7EFF80',
+      '#7FFFFF',
+      '#7EBFFF',
+      '#807FFF',
+      '#FF7FFE',
+      '#BF7EBE',
+      '#3B3B3B',
+      '#858585',
+      '#CFCFCF',
+      '#F7F7F7',
+    ],
+  },
+  ocean: {
+    colors: [
+      '#0ea5e9',
+      '#38bdf8',
+      '#67e8f9',
+      '#22d3ee',
+      '#06b6d4',
+      '#14b8a6',
+      '#5eead4',
+      '#a7f3d0',
+      '#6ee7b7',
+      '#2dd4bf',
+      '#0d9488',
+      '#d4c8a0',
+      '#94a3b8',
+      '#475569',
+      '#1e3a5f',
     ],
   },
   midnight: {
@@ -105,23 +124,23 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
       '#5e4452',
     ],
   },
-  amoled: {
+  twilight: {
     colors: [
-      '#ff3b6f',
-      '#ff6b2b',
-      '#ff9100',
-      '#ffd000',
-      '#c6ff00',
-      '#00e676',
-      '#00e5ff',
-      '#00bcd4',
-      '#448aff',
-      '#7c4dff',
-      '#e040fb',
-      '#ff4081',
-      '#ffffff',
-      '#888888',
-      '#444444',
+      '#F4845F',
+      '#E86A7E',
+      '#D45A9E',
+      '#B85CB8',
+      '#9465CE',
+      '#7B6FDB',
+      '#6078E0',
+      '#4A8ADB',
+      '#3D9ACE',
+      '#35A8BE',
+      '#3DB5A8',
+      '#94a3b8',
+      '#7080A0',
+      '#4A5570',
+      '#2C3344',
     ],
   },
   'high-contrast': {
@@ -145,6 +164,23 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   },
 }
 
+export interface PaletteMeta
+{
+  id: PaletteId
+  label: string
+}
+
+export const PALETTE_META: PaletteMeta[] = [
+  { id: 'classic', label: 'Classic' },
+  { id: 'ocean', label: 'Ocean' },
+  { id: 'midnight', label: 'Midnight' },
+  { id: 'forest', label: 'Forest' },
+  { id: 'ember', label: 'Ember' },
+  { id: 'sakura', label: 'Sakura' },
+  { id: 'twilight', label: 'Twilight' },
+  { id: 'high-contrast', label: 'High Contrast' },
+]
+
 // maps each theme to its tier label palette (classic-light shares classic)
 export const THEME_PALETTE: Record<ThemeId, PaletteId> = {
   classic: 'classic',
@@ -153,6 +189,6 @@ export const THEME_PALETTE: Record<ThemeId, PaletteId> = {
   forest: 'forest',
   ember: 'ember',
   sakura: 'sakura',
-  amoled: 'amoled',
+  amoled: 'twilight',
   'high-contrast': 'high-contrast',
 }

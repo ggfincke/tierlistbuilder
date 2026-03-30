@@ -4,11 +4,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import type { TierColorSpec, TierPreset } from '../types'
-import {
-  createCustomTierColorSpec,
-  createPaletteTierColorSpec,
-} from '../domain/tierColors'
+import type { TierPreset } from '../types'
+import { normalizeCanonicalTierColorSpec } from '../domain/boardData'
+import { createPaletteTierColorSpec } from '../domain/tierColors'
 import { createAppPersistStorage } from '../utils/storage'
 
 export const PRESET_STORAGE_KEY = 'tier-list-builder-presets'
@@ -21,25 +19,8 @@ interface PresetStore
   renamePreset: (presetId: string, name: string) => void
 }
 
-const normalizePresetColorSpec = (value: unknown): TierColorSpec =>
-{
-  if (value && typeof value === 'object')
-  {
-    const colorSpec = value as Record<string, unknown>
-
-    if (colorSpec.kind === 'palette' && typeof colorSpec.index === 'number')
-    {
-      return createPaletteTierColorSpec(colorSpec.index)
-    }
-
-    if (colorSpec.kind === 'custom' && typeof colorSpec.hex === 'string')
-    {
-      return createCustomTierColorSpec(colorSpec.hex)
-    }
-  }
-
-  return createPaletteTierColorSpec(0)
-}
+const normalizePresetColorSpec = (value: unknown) =>
+  normalizeCanonicalTierColorSpec(value) ?? createPaletteTierColorSpec(0)
 
 const normalizePersistedPresets = (value: unknown): TierPreset[] =>
 {

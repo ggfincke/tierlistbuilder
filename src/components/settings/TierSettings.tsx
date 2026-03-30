@@ -4,10 +4,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { getPaletteColors } from '../../domain/tierColors'
+import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import { useTierListStore } from '../../store/useTierListStore'
-import { useSettingsStore } from '../../store/useSettingsStore'
 import { getStorageUsageBytes } from '../../utils/storage'
-import { THEME_PALETTE } from '../../theme'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { TierSettingsAppearanceTab } from './TierSettingsAppearanceTab'
@@ -30,12 +29,12 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
 {
   const addTextItem = useTierListStore((state) => state.addTextItem)
   const clearAllItems = useTierListStore((state) => state.clearAllItems)
-  const themeId = useSettingsStore((state) => state.themeId)
+  const paletteId = useCurrentPaletteId()
   const defaultTextColor = useMemo(() =>
   {
-    const colors = getPaletteColors(THEME_PALETTE[themeId])
+    const colors = getPaletteColors(paletteId)
     return colors[1] ?? colors[0] ?? '#888888'
-  }, [themeId])
+  }, [paletteId])
 
   const [activeTab, setActiveTab] = useState<Tab>('items')
   const [textLabel, setTextLabel] = useState('')

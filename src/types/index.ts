@@ -146,14 +146,15 @@ export type ThemeId =
 // text style identifiers
 export type TextStyleId = 'default' | 'mono' | 'serif' | 'rounded' | 'display'
 
-// tier label palette identifiers (classic-light reuses classic)
+// tier label palette identifiers
 export type PaletteId =
   | 'classic'
+  | 'ocean'
   | 'midnight'
   | 'forest'
   | 'ember'
   | 'sakura'
-  | 'amoled'
+  | 'twilight'
   | 'high-contrast'
 
 // tier label font size presets (independent of item size)
@@ -174,6 +175,7 @@ export interface AppSettings
   hideRowControls: boolean
   confirmBeforeDelete: boolean
   themeId: ThemeId
+  paletteId: PaletteId
   textStyleId: TextStyleId
   tierLabelBold: boolean
   tierLabelItalic: boolean

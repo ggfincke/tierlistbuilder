@@ -94,16 +94,7 @@ export const reduceHybridMenuState = (
 
     case 'toggle':
     {
-      if (!state.open)
-      {
-        return {
-          open: true,
-          pinned: true,
-          closePending: false,
-        }
-      }
-
-      if (!state.pinned)
+      if (!state.open || !state.pinned)
       {
         return {
           open: true,

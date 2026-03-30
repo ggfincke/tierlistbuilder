@@ -27,7 +27,7 @@ export const createCustomTierColorSpec = (
 })
 
 export const getPaletteColors = (paletteId: PaletteId): string[] =>
-  PALETTES[paletteId].colors
+  (PALETTES[paletteId] ?? PALETTES.classic).colors
 
 export const getTierColorFromPaletteSpec = (
   paletteId: PaletteId,

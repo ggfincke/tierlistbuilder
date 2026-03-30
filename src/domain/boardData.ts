@@ -57,7 +57,7 @@ const isCustomColorSpec = (value: unknown): value is { hex: string } =>
   return spec.kind === 'custom' && typeof spec.hex === 'string'
 }
 
-const normalizeCanonicalTierColorSpec = (
+export const normalizeCanonicalTierColorSpec = (
   value: unknown
 ): TierColorSpec | null =>
 {

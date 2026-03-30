@@ -77,6 +77,13 @@
     }
   }
 
+  /* thin scrollbar — inherits to all elements */
+  :root
+  {
+    scrollbar-width: thin;
+    scrollbar-color: var(--t-border) transparent;
+  }
+
   @media (min-width: 640px)
   {
     .board-manager-trigger

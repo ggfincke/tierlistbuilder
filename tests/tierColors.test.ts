@@ -43,7 +43,7 @@ describe('resolveTierColorSpec', () =>
   it('resolves palette spec to hex from PALETTES', () =>
   {
     const spec = createPaletteTierColorSpec(0)
-    expect(resolveTierColorSpec('classic', spec)).toBe('#f47c7c')
+    expect(resolveTierColorSpec('classic', spec)).toBe('#FF7F7E')
   })
 
   it('returns hex directly for custom spec', () =>
@@ -56,7 +56,7 @@ describe('resolveTierColorSpec', () =>
   {
     const spec = createPaletteTierColorSpec(1)
 
-    expect(resolveTierColorSpec('classic', spec)).toBe('#f1b878')
+    expect(resolveTierColorSpec('classic', spec)).toBe('#FFBF81')
     expect(resolveTierColorSpec('midnight', spec)).toBe('#e879f9')
     expect(spec).toEqual({
       kind: 'palette',
