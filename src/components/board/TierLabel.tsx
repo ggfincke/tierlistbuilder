@@ -8,7 +8,7 @@ import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { useEffect, useRef, useState } from 'react'
-import { BoardLabelCellFrame } from './BoardPrimitives'
+import { BoardLabelCellFrame, TierDescriptionSubtitle } from './BoardPrimitives'
 
 interface TierLabelProps
 {
@@ -41,6 +41,7 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
   const tierLabelBold = useSettingsStore((state) => state.tierLabelBold)
   const tierLabelItalic = useSettingsStore((state) => state.tierLabelItalic)
   const tierLabelFontSize = useSettingsStore((state) => state.tierLabelFontSize)
+  const boardLocked = useSettingsStore((state) => state.boardLocked)
 
   const [isEditing, setIsEditing] = useState(false)
   const [draftName, setDraftName] = useState(tier.name)
@@ -109,7 +110,14 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
       tierLabelItalic={tierLabelItalic}
       tierLabelFontSize={tierLabelFontSize}
     >
-      {isEditing ? (
+      {boardLocked ? (
+        <div className="flex h-full w-full flex-col items-center justify-center text-center leading-tight">
+          <span className="block max-w-full break-words [overflow-wrap:anywhere]">
+            {tier.name}
+          </span>
+          <TierDescriptionSubtitle description={tier.description} />
+        </div>
+      ) : isEditing ? (
         <div className="flex h-full w-full items-center justify-center">
           <textarea
             ref={inputRef}
@@ -161,11 +169,12 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
           type="button"
           onClick={beginEditing}
           aria-label={`Edit ${tier.name} tier label`}
-          className="flex h-full w-full cursor-text items-center justify-center text-center leading-tight outline-none"
+          className="flex h-full w-full cursor-text flex-col items-center justify-center text-center leading-tight outline-none"
         >
           <span className="block max-w-full break-words [overflow-wrap:anywhere]">
             {tier.name}
           </span>
+          <TierDescriptionSubtitle description={tier.description} />
         </button>
       )}
     </BoardLabelCellFrame>

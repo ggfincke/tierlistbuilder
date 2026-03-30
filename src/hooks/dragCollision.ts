@@ -35,6 +35,16 @@ export const resolveDragCollisions = (
     return []
   }
 
+  // tier drag — use closestCenter against tier IDs only
+  if (args.active.data.current?.type === 'tier')
+  {
+    const tierIds = new Set(useTierListStore.getState().tiers.map((t) => t.id))
+    const tierContainers = args.droppableContainers.filter((c) =>
+      tierIds.has(String(c.id))
+    )
+    return closestCenter({ ...args, droppableContainers: tierContainers })
+  }
+
   const state = getEffectiveContainerSnapshot(useTierListStore.getState())
   const pointerIntersections = pointerWithin(args)
   const intersections =

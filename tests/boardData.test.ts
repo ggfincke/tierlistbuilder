@@ -92,7 +92,6 @@ describe('normalizeTierListData', () =>
     {
       expect(tier.colorSpec).toEqual({
         kind: 'palette',
-        paletteType: 'default',
         index: i,
       })
     }
@@ -114,7 +113,6 @@ describe('normalizeTierListData', () =>
     )
     expect(result.tiers[0].colorSpec).toEqual({
       kind: 'palette',
-      paletteType: 'default',
       index: 0,
     })
   })

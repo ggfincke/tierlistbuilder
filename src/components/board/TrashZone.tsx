@@ -4,14 +4,17 @@
 import { useDroppable } from '@dnd-kit/core'
 import { Trash2 } from 'lucide-react'
 
+import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { TRASH_CONTAINER_ID } from '../../utils/constants'
 
 export const TrashZone = () =>
 {
+  const boardLocked = useSettingsStore((state) => state.boardLocked)
   const activeItemId = useTierListStore((state) => state.activeItemId)
   const keyboardMode = useTierListStore((state) => state.keyboardMode)
-  const isDragActive = activeItemId !== null && keyboardMode !== 'dragging'
+  const isDragActive =
+    !boardLocked && activeItemId !== null && keyboardMode !== 'dragging'
 
   const { setNodeRef, isOver } = useDroppable({
     id: TRASH_CONTAINER_ID,

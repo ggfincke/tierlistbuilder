@@ -21,7 +21,7 @@ export const SETTINGS_STORAGE_KEY = 'tier-list-builder-settings'
 // build a per-board localStorage key from its ID
 export const boardStorageKey = (id: string): string => `tier-list-board-${id}`
 // current board payload schema version
-export const BOARD_DATA_VERSION = 2
+export const BOARD_DATA_VERSION = 3
 
 // resolve the browser storage object once so every caller goes through this file
 const getStorage = (): Storage | null =>

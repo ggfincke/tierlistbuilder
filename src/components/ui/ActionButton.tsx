@@ -16,25 +16,43 @@ interface ActionButtonProps
   hasPopup?: 'menu'
   // current open state of the associated popup (only used w/ hasPopup)
   expanded?: boolean
+  // keep the hover chrome visible while the related menu is open
+  active?: boolean
 }
 
 export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
   (
-    { label, title, onClick, disabled = false, children, hasPopup, expanded },
+    {
+      label,
+      title,
+      onClick,
+      disabled = false,
+      children,
+      hasPopup,
+      expanded,
+      active = false,
+    },
     ref
-  ) => (
-    <button
-      ref={ref}
-      type="button"
-      aria-label={label}
-      title={title}
-      aria-haspopup={hasPopup}
-      aria-expanded={hasPopup ? expanded : undefined}
-      disabled={disabled}
-      onClick={onClick}
-      className="flex h-10 w-10 items-center justify-center rounded-[1.1rem] border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-page)] text-[var(--t-text)] transition hover:border-[rgb(var(--t-overlay)/0.22)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-45"
-    >
-      {children}
-    </button>
-  )
+  ) =>
+  {
+    const chromeClassName = active
+      ? 'border-[rgb(var(--t-overlay)/0.22)] bg-[var(--t-bg-hover)] shadow-[inset_0_1px_0_rgba(var(--t-overlay),0.04),0_0_0_1px_rgba(var(--t-overlay),0.08)]'
+      : 'border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-page)] hover:border-[rgb(var(--t-overlay)/0.22)] hover:bg-[var(--t-bg-hover)]'
+
+    return (
+      <button
+        ref={ref}
+        type="button"
+        aria-label={label}
+        title={title}
+        aria-haspopup={hasPopup}
+        aria-expanded={hasPopup ? expanded : undefined}
+        disabled={disabled}
+        onClick={onClick}
+        className={`flex h-10 w-10 items-center justify-center rounded-[1.1rem] border text-[var(--t-text)] transition-none focus-visible:border-[rgb(var(--t-overlay)/0.22)] focus-visible:bg-[var(--t-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--t-overlay)/0.14)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-sunken)] disabled:cursor-not-allowed disabled:opacity-45 ${chromeClassName}`}
+      >
+        {children}
+      </button>
+    )
+  }
 )

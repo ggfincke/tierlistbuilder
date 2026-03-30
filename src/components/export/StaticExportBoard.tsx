@@ -11,6 +11,7 @@ import {
   BoardLabelCellFrame,
   BoardRowContent,
   BoardRowSurface,
+  TierDescriptionSubtitle,
 } from '../board/BoardPrimitives'
 import { ItemContent } from '../board/ItemContent'
 
@@ -69,9 +70,12 @@ export const StaticExportBoard = memo(
                 tierLabelItalic={appearance.tierLabelItalic}
                 tierLabelFontSize={appearance.tierLabelFontSize}
               >
-                <span className="block max-w-full break-words [overflow-wrap:anywhere]">
-                  {tier.name}
-                </span>
+                <div className="flex flex-col items-center">
+                  <span className="block max-w-full break-words [overflow-wrap:anywhere]">
+                    {tier.name}
+                  </span>
+                  <TierDescriptionSubtitle description={tier.description} />
+                </div>
               </BoardLabelCellFrame>
 
               <BoardItemsGrid

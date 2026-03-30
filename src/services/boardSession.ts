@@ -1,7 +1,7 @@
 // src/services/boardSession.ts
 // board session service — bootstrap, autosave, storage I/O, & registry orchestration
 
-import type { BoardMeta, PaletteId, TierListData } from '../types'
+import type { BoardMeta, PaletteId, TierListData, TierPreset } from '../types'
 import { DEFAULT_TITLE } from '../utils/constants'
 import {
   loadBoardFromStorage,
@@ -10,11 +10,8 @@ import {
   removeBoardFromStorage,
   saveBoardToStorage,
 } from '../utils/storage'
-import { THEME_PALETTE } from '../theme'
-import {
-  normalizeTierListData,
-  createInitialBoardData,
-} from '../domain/boardData'
+import { normalizeTierListData } from '../domain/boardData'
+import { createBoardDataFromPreset } from '../domain/presets'
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
 import { extractBoardData, useTierListStore } from '../store/useTierListStore'
 import { useSettingsStore } from '../store/useSettingsStore'
@@ -31,7 +28,7 @@ let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
 
 const getActivePaletteId = (): PaletteId =>
-  THEME_PALETTE[useSettingsStore.getState().themeId]
+  useSettingsStore.getState().paletteId
 
 const createBoardMeta = (id: string, title: string): BoardMeta => ({
   id,
@@ -90,8 +87,13 @@ export const loadBoardIntoSession = (boardId: string): TierListData =>
   return data
 }
 
-const createBlankBoardData = (): TierListData =>
-  createInitialBoardData(getActivePaletteId())
+const createBlankBoardData = (): TierListData => ({
+  title: DEFAULT_TITLE,
+  tiers: [],
+  unrankedItemIds: [],
+  items: {},
+  deletedItems: [],
+})
 
 const saveAndActivateBoard = (
   data: TierListData,
@@ -201,6 +203,13 @@ export const createBoardSession = (): void =>
 {
   saveActiveBoardSnapshot()
   saveAndActivateBoard(createBlankBoardData(), DEFAULT_TITLE)
+}
+
+export const createBoardSessionFromPreset = (preset: TierPreset): void =>
+{
+  saveActiveBoardSnapshot()
+  const data = createBoardDataFromPreset(preset)
+  saveAndActivateBoard(data, DEFAULT_TITLE)
 }
 
 export const switchBoardSession = (boardId: string): void =>

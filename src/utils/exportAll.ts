@@ -61,7 +61,7 @@ export const exportAllBoardsAsJson = () =>
   const allBoards = loadAllBoardData()
 
   const payload: MultiTierListExport = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     boards: allBoards.map(({ title, data }) => ({ title, data })),
   }

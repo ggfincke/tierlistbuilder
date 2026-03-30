@@ -28,7 +28,7 @@ export const makeSnapshot = (
 export const makeTier = (overrides?: Partial<Tier>): Tier => ({
   id: 'tier-s',
   name: 'S',
-  colorSpec: createPaletteTierColorSpec('default', 0),
+  colorSpec: createPaletteTierColorSpec(0),
   itemIds: [],
   ...overrides,
 })

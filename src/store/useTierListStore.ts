@@ -35,8 +35,10 @@ interface TierListStore extends TierListStoreRuntimeState
   clearRuntimeError: () => void
   addTier: (paletteId: PaletteId) => void
   renameTier: (tierId: string, name: string) => void
+  setTierDescription: (tierId: string, description: string) => void
   recolorTier: (tierId: string, colorSpec: TierColorSpec) => void
   reorderTier: (tierId: string, direction: 'up' | 'down') => void
+  reorderTierByIndex: (fromIndex: number, toIndex: number) => void
   deleteTier: (tierId: string) => void
   clearTierItems: (tierId: string) => void
   addTierAt: (index: number, paletteId: PaletteId) => void
@@ -53,6 +55,9 @@ interface TierListStore extends TierListStoreRuntimeState
   discardDragPreview: () => void
   undo: () => void
   redo: () => void
+  sortTierItemsByName: (tierId: string) => void
+  shuffleAllItems: () => void
+  shuffleUnrankedItems: () => void
   resetBoard: (paletteId: PaletteId) => void
   loadBoard: (data: TierListData) => void
 }
@@ -86,6 +91,62 @@ const keyboardCleanupForItem = (state: TierListStore, itemId: string) => ({
       ? ('idle' as KeyboardMode)
       : state.keyboardMode,
 })
+
+// compare items by label for alphabetical sort (unlabeled items sort last)
+const compareByLabel = (
+  items: Record<string, { label?: string }>,
+  a: string,
+  b: string
+): number =>
+{
+  const la = items[a]?.label ?? ''
+  const lb = items[b]?.label ?? ''
+
+  if (!la && !lb) return 0
+  if (!la) return 1
+  if (!lb) return -1
+
+  return la.localeCompare(lb, 'en', { sensitivity: 'base' })
+}
+
+// Fisher-Yates shuffle (in place)
+const fisherYatesShuffle = <T>(arr: T[]): T[] =>
+{
+  for (let i = arr.length - 1; i > 0; i--)
+  {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+
+  return arr
+}
+
+const reorderTiersByIndex = (
+  state: TierListStore,
+  fromIndex: number,
+  toIndex: number
+): Partial<TierListStore> =>
+{
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    fromIndex >= state.tiers.length ||
+    toIndex < 0 ||
+    toIndex >= state.tiers.length
+  )
+  {
+    return state
+  }
+
+  const nextTiers = [...state.tiers]
+  const [moved] = nextTiers.splice(fromIndex, 1)
+  nextTiers.splice(toIndex, 0, moved)
+
+  return {
+    ...pushUndo(state),
+    tiers: nextTiers,
+  }
+}
 
 const resetBoardData = (
   state: TierListStore,
@@ -146,6 +207,17 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       })
     ),
 
+  setTierDescription: (tierId, description) =>
+    set((state) =>
+      withUndo(state, {
+        tiers: state.tiers.map((tier) =>
+          tier.id === tierId
+            ? { ...tier, description: description.trim() || undefined }
+            : tier
+        ),
+      })
+    ),
+
   recolorTier: (tierId, colorSpec) =>
     set((state) =>
       withUndo(state, {
@@ -167,20 +239,11 @@ export const useTierListStore = create<TierListStore>()((set) => ({
 
       const targetIndex = direction === 'up' ? tierIndex - 1 : tierIndex + 1
 
-      if (targetIndex < 0 || targetIndex >= state.tiers.length)
-      {
-        return state
-      }
-
-      const nextTiers = [...state.tiers]
-      const [moved] = nextTiers.splice(tierIndex, 1)
-      nextTiers.splice(targetIndex, 0, moved)
-
-      return {
-        ...pushUndo(state),
-        tiers: nextTiers,
-      }
+      return reorderTiersByIndex(state, tierIndex, targetIndex)
     }),
+
+  reorderTierByIndex: (fromIndex, toIndex) =>
+    set((state) => reorderTiersByIndex(state, fromIndex, toIndex)),
 
   deleteTier: (tierId) =>
     set((state) =>
@@ -438,6 +501,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         tiers: applyContainerSnapshotToTiers(state.tiers, state.dragPreview),
         unrankedItemIds: [...state.dragPreview.unrankedItemIds],
         dragPreview: null,
+        itemsManuallyMoved: true,
       }
     }),
 
@@ -482,6 +546,108 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         dragPreview: null,
         keyboardMode: 'idle',
         keyboardFocusItemId: null,
+      }
+    }),
+
+  sortTierItemsByName: (tierId) =>
+    set((state) =>
+    {
+      const tier = state.tiers.find((entry) => entry.id === tierId)
+
+      if (!tier || tier.itemIds.length <= 1)
+      {
+        return state
+      }
+
+      const sorted = [...tier.itemIds].sort((a, b) =>
+        compareByLabel(state.items, a, b)
+      )
+
+      return withUndo(state, {
+        tiers: state.tiers.map((entry) =>
+          entry.id === tierId ? { ...entry, itemIds: sorted } : entry
+        ),
+      })
+    }),
+
+  shuffleAllItems: () =>
+    set((state) =>
+    {
+      const allItemIds = [
+        ...state.tiers.flatMap((tier) => tier.itemIds),
+        ...state.unrankedItemIds,
+      ]
+
+      if (allItemIds.length === 0 || state.tiers.length === 0)
+      {
+        return state
+      }
+
+      fisherYatesShuffle(allItemIds)
+      const nextTiers = state.tiers.map((tier) => ({
+        ...tier,
+        itemIds: [] as string[],
+      }))
+
+      for (let i = 0; i < allItemIds.length; i++)
+      {
+        nextTiers[i % nextTiers.length].itemIds.push(allItemIds[i])
+      }
+
+      return {
+        ...withUndo(state, {
+          tiers: nextTiers,
+          unrankedItemIds: [],
+        }),
+        itemsManuallyMoved: false,
+      }
+    }),
+
+  shuffleUnrankedItems: () =>
+    set((state) =>
+    {
+      if (state.unrankedItemIds.length === 0 || state.tiers.length === 0)
+      {
+        return state
+      }
+
+      // randomly distribute unranked items into tiers while preserving
+      // the existing ranked item order within each tier
+      const unranked = [...state.unrankedItemIds]
+      fisherYatesShuffle(unranked)
+
+      // assign each unranked item to a random tier
+      const insertions: string[][] = state.tiers.map(() => [])
+
+      for (const id of unranked)
+      {
+        insertions[Math.floor(Math.random() * state.tiers.length)].push(id)
+      }
+
+      // merge: randomly interleave new items among existing ranked items
+      const nextTiers = state.tiers.map((tier, i) =>
+      {
+        const existing = [...tier.itemIds]
+        const incoming = insertions[i]
+
+        for (const id of incoming)
+        {
+          existing.splice(
+            Math.floor(Math.random() * (existing.length + 1)),
+            0,
+            id
+          )
+        }
+
+        return { ...tier, itemIds: existing }
+      })
+
+      return {
+        ...withUndo(state, {
+          tiers: nextTiers,
+          unrankedItemIds: [],
+        }),
+        itemsManuallyMoved: false,
       }
     }),
 

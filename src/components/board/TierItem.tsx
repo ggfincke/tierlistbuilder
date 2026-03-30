@@ -35,6 +35,7 @@ export const TierItem = memo(
     const itemSize = useSettingsStore((state) => state.itemSize)
     const itemShape = useSettingsStore((state) => state.itemShape)
     const showLabels = useSettingsStore((state) => state.showLabels)
+    const boardLocked = useSettingsStore((state) => state.boardLocked)
 
     const sizePx = ITEM_SIZE_PX[itemSize]
 
@@ -51,6 +52,7 @@ export const TierItem = memo(
       isDragging,
     } = useSortable({
       id: itemId,
+      disabled: boardLocked,
       data: {
         type: 'item',
         containerId,
@@ -95,8 +97,8 @@ export const TierItem = memo(
       >
         <ItemContent item={item} showLabel={showLabels && !!item.label} />
 
-        {/* hover-reveal delete button — only in the unranked pool */}
-        {canDelete && (
+        {/* hover-reveal delete button — only in the unranked pool, hidden when locked */}
+        {canDelete && !boardLocked && (
           <button
             type="button"
             aria-label="Remove item"

@@ -17,6 +17,7 @@ import { UploadDropzone } from '../ui/UploadDropzone'
 export const UnrankedPool = () =>
 {
   const compactMode = useSettingsStore((state) => state.compactMode)
+  const boardLocked = useSettingsStore((state) => state.boardLocked)
   const confirmBeforeDelete = useSettingsStore(
     (state) => state.confirmBeforeDelete
   )
@@ -98,7 +99,7 @@ export const UnrankedPool = () =>
               : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]'
           }`}
         >
-          {unrankedItemIds.length === 0 ? (
+          {unrankedItemIds.length === 0 && !boardLocked ? (
             // empty state — click to open file picker, or drop images directly
             <UploadDropzone
               variant="empty"
@@ -109,6 +110,10 @@ export const UnrankedPool = () =>
               onDragLeave={onDragLeave}
               onDrop={onDrop}
             />
+          ) : unrankedItemIds.length === 0 ? (
+            <p className="flex min-h-24 w-full items-center justify-center text-sm text-[var(--t-text-faint)]">
+              No unranked items
+            </p>
           ) : (
             unrankedItemIds.map((itemId) => (
               <TierItem

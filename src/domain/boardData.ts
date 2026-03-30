@@ -3,12 +3,7 @@
 
 import { DEFAULT_TITLE } from '../utils/constants'
 import { buildDefaultTiers } from '../utils/constants'
-import type {
-  Tier,
-  TierColorSpec,
-  TierListData,
-  TierPaletteColorSpec,
-} from '../types'
+import type { Tier, TierColorSpec, TierListData } from '../types'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
@@ -31,13 +26,14 @@ interface LegacyTier
 {
   id?: unknown
   name?: unknown
+  description?: unknown
   color?: unknown
   colorSource?: unknown
   colorSpec?: unknown
   itemIds?: unknown
 }
 
-const isPaletteColorSpec = (value: unknown): value is TierPaletteColorSpec =>
+const isPaletteColorSpec = (value: unknown): value is { index: number } =>
 {
   if (!value || typeof value !== 'object')
   {
@@ -46,14 +42,10 @@ const isPaletteColorSpec = (value: unknown): value is TierPaletteColorSpec =>
 
   const spec = value as Record<string, unknown>
 
-  return (
-    spec.kind === 'palette' &&
-    (spec.paletteType === 'default' || spec.paletteType === 'preset') &&
-    typeof spec.index === 'number'
-  )
+  return spec.kind === 'palette' && typeof spec.index === 'number'
 }
 
-const isCanonicalTierColorSpec = (value: unknown): value is TierColorSpec =>
+const isCustomColorSpec = (value: unknown): value is { hex: string } =>
 {
   if (!value || typeof value !== 'object')
   {
@@ -61,21 +53,28 @@ const isCanonicalTierColorSpec = (value: unknown): value is TierColorSpec =>
   }
 
   const spec = value as Record<string, unknown>
-
-  if (isPaletteColorSpec(value))
-  {
-    return true
-  }
 
   return spec.kind === 'custom' && typeof spec.hex === 'string'
 }
 
-const isLegacyColorSource = (
+export const normalizeCanonicalTierColorSpec = (
   value: unknown
-): value is {
-  paletteType: TierPaletteColorSpec['paletteType']
-  index: number
-} =>
+): TierColorSpec | null =>
+{
+  if (isPaletteColorSpec(value))
+  {
+    return createPaletteTierColorSpec(value.index)
+  }
+
+  if (isCustomColorSpec(value))
+  {
+    return createCustomTierColorSpec(value.hex)
+  }
+
+  return null
+}
+
+const isLegacyColorSource = (value: unknown): value is { index: number } =>
 {
   if (!value || typeof value !== 'object')
   {
@@ -84,10 +83,7 @@ const isLegacyColorSource = (
 
   const source = value as Record<string, unknown>
 
-  return (
-    (source.paletteType === 'default' || source.paletteType === 'preset') &&
-    typeof source.index === 'number'
-  )
+  return typeof source.index === 'number'
 }
 
 const isDefaultTierIdentity = (tier: LegacyTier, index: number): boolean =>
@@ -104,22 +100,21 @@ const normalizeTierColorSpec = (
   paletteId: PaletteId
 ): TierColorSpec =>
 {
-  if (isCanonicalTierColorSpec(tier.colorSpec))
+  const normalizedColorSpec = normalizeCanonicalTierColorSpec(tier.colorSpec)
+
+  if (normalizedColorSpec)
   {
-    return tier.colorSpec
+    return normalizedColorSpec
   }
 
   if (isLegacyColorSource(tier.colorSource))
   {
-    return createPaletteTierColorSpec(
-      tier.colorSource.paletteType,
-      tier.colorSource.index
-    )
+    return createPaletteTierColorSpec(tier.colorSource.index)
   }
 
   if (isDefaultTierIdentity(tier, index))
   {
-    return createPaletteTierColorSpec('default', index)
+    return createPaletteTierColorSpec(index)
   }
 
   if (typeof tier.color === 'string')
@@ -143,6 +138,8 @@ const normalizeTier = (
     typeof tier.name === 'string'
       ? tier.name
       : (DEFAULT_TIER_NAMES[index] ?? `Tier ${index + 1}`),
+  description:
+    typeof tier.description === 'string' ? tier.description : undefined,
   colorSpec: normalizeTierColorSpec(tier, index, paletteId),
   itemIds: Array.isArray(tier.itemIds)
     ? tier.itemIds.filter((id): id is string => typeof id === 'string')

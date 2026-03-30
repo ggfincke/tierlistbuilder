@@ -25,12 +25,10 @@ import {
 
 interface ColorPickerProps
 {
-  // currently selected hex color
-  value: string
   // canonical color spec for the current tier
   colorSpec: TierColorSpec
-  // ordered preset colors to show as swatches
-  presets: string[]
+  // ordered palette colors to show as swatches
+  colors: string[]
   // ref attached to the custom pipette trigger button
   customTriggerRef: RefObject<HTMLButtonElement | null>
   // whether the separate custom popup is visible
@@ -92,9 +90,8 @@ const getDraftHex = (hsva: HsvaColor): string =>
 
 export const ColorPicker = memo(
   ({
-    value,
     colorSpec,
-    presets,
+    colors,
     customTriggerRef,
     showCustomPicker,
     onChange,
@@ -108,21 +105,19 @@ export const ColorPicker = memo(
         return -1
       }
 
-      return presets.findIndex(
-        (color) => color.toLowerCase() === value.toLowerCase()
-      )
-    }, [colorSpec, presets, value])
+      return colorSpec.index
+    }, [colorSpec])
     const isCustomSelected = colorSpec.kind === 'custom'
 
     return (
       <div className="flex flex-wrap gap-2 p-2">
-        {presets.map((color, index) =>
+        {colors.map((color, index) =>
         {
           const isSelected = index === selectedPresetIndex
 
           return (
             <button
-              key={color}
+              key={`${index}-${color}`}
               type="button"
               className={`h-6 w-6 rounded-full transition hover:scale-110 ${
                 isSelected
@@ -130,9 +125,7 @@ export const ColorPicker = memo(
                   : ''
               }`}
               style={{ backgroundColor: color }}
-              onClick={() =>
-                onChange(createPaletteTierColorSpec('preset', index))
-              }
+              onClick={() => onChange(createPaletteTierColorSpec(index))}
               aria-label={`Set tier color to ${color}`}
             />
           )

@@ -18,9 +18,7 @@ export interface TierItem
 export interface TierPaletteColorSpec
 {
   kind: 'palette'
-  // whether this color came from the default tier ladder or the picker presets
-  paletteType: 'default' | 'preset'
-  // zero-based index within the source palette group
+  // zero-based index within the active palette's ordered swatch list
   index: number
 }
 
@@ -42,6 +40,8 @@ export interface Tier
   id: string
   // display name shown in the label cell
   name: string
+  // optional subtitle text displayed beneath the name
+  description?: string
   // canonical color spec for the label background
   colorSpec: TierColorSpec
   // ordered list of item IDs assigned to this tier
@@ -103,6 +103,23 @@ export interface BoardMeta
   createdAt: number
 }
 
+// tier structure within a reusable preset (no IDs or items)
+export interface TierPresetTier
+{
+  name: string
+  colorSpec: TierColorSpec
+  description?: string
+}
+
+// reusable board preset — defines tier structure w/o items
+export interface TierPreset
+{
+  id: string
+  name: string
+  builtIn: boolean
+  tiers: TierPresetTier[]
+}
+
 // supported image export formats
 export type ImageFormat = 'png' | 'jpeg' | 'webp'
 
@@ -129,14 +146,15 @@ export type ThemeId =
 // text style identifiers
 export type TextStyleId = 'default' | 'mono' | 'serif' | 'rounded' | 'display'
 
-// tier label palette identifiers (classic-light reuses classic)
+// tier label palette identifiers
 export type PaletteId =
   | 'classic'
+  | 'ocean'
   | 'midnight'
   | 'forest'
   | 'ember'
   | 'sakura'
-  | 'amoled'
+  | 'twilight'
   | 'high-contrast'
 
 // tier label font size presets (independent of item size)
@@ -157,10 +175,12 @@ export interface AppSettings
   hideRowControls: boolean
   confirmBeforeDelete: boolean
   themeId: ThemeId
+  paletteId: PaletteId
   textStyleId: TextStyleId
   tierLabelBold: boolean
   tierLabelItalic: boolean
   tierLabelFontSize: TierLabelFontSize
+  boardLocked: boolean
 }
 
 // appearance settings needed to render a board for export capture

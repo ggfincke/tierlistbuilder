@@ -4,13 +4,14 @@
 export { THEME_META, THEMES } from './tokens'
 export type { ThemeDefinition, ThemeMeta } from './tokens'
 
-export { PALETTES, THEME_PALETTE } from './palettes'
-export type { PaletteDefinition } from './palettes'
+export { PALETTE_META, PALETTES } from './palettes'
+export type { PaletteDefinition, PaletteMeta } from './palettes'
 
 export {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
   getAutoTierColorSpec,
+  getPaletteColors,
   getTierColorFromPaletteSpec,
   resolveTierColor,
   resolveTierColorSpec,

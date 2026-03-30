@@ -14,6 +14,8 @@ export interface TierListStoreRuntimeState extends TierListData
   dragPreview: ContainerSnapshot | null
   keyboardMode: KeyboardMode
   keyboardFocusItemId: string | null
+  // true after a manual drag-drop commit; reset on shuffle, board load, & undo/redo
+  itemsManuallyMoved: boolean
   runtimeError: string | null
   past: TierListData[]
   future: TierListData[]
@@ -27,6 +29,7 @@ export const freshRuntimeState: Omit<
   dragPreview: null,
   keyboardMode: 'idle',
   keyboardFocusItemId: null,
+  itemsManuallyMoved: false,
   runtimeError: null,
   past: [],
   future: [],

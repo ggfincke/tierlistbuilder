@@ -17,7 +17,7 @@ interface TierListExport
 export const exportBoardAsJson = (data: TierListData, title: string) =>
 {
   const payload: TierListExport = {
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     data,
   }
