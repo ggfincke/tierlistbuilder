@@ -5,6 +5,7 @@ export {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
   getAutoTierColorSpec,
+  getPaletteColors,
   getTierColorFromPaletteSpec,
   resolveTierColor,
   resolveTierColorSpec,

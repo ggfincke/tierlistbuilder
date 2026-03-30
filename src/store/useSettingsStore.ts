@@ -9,12 +9,14 @@ import type {
   ItemShape,
   ItemSize,
   LabelWidth,
+  PaletteId,
   TextStyleId,
   ThemeId,
   TierLabelFontSize,
 } from '../types'
 import { createAppPersistStorage, SETTINGS_STORAGE_KEY } from '../utils/storage'
 import { THEMES } from '../theme/tokens'
+import { THEME_PALETTE } from '../theme/palettes'
 
 const DEFAULT_SETTINGS: AppSettings = {
   itemSize: 'medium',
@@ -26,10 +28,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   hideRowControls: false,
   confirmBeforeDelete: false,
   themeId: 'classic',
+  paletteId: 'classic',
   textStyleId: 'default',
   tierLabelBold: false,
   tierLabelItalic: false,
   tierLabelFontSize: 'small',
+  boardLocked: false,
 }
 
 interface SettingsStore extends AppSettings
@@ -43,10 +47,12 @@ interface SettingsStore extends AppSettings
   setHideRowControls: (hide: boolean) => void
   setConfirmBeforeDelete: (confirm: boolean) => void
   setThemeId: (themeId: ThemeId) => void
+  setPaletteId: (paletteId: PaletteId) => void
   setTextStyleId: (textStyleId: TextStyleId) => void
   setTierLabelBold: (bold: boolean) => void
   setTierLabelItalic: (italic: boolean) => void
   setTierLabelFontSize: (size: TierLabelFontSize) => void
+  setBoardLocked: (locked: boolean) => void
   resetSettings: () => void
 }
 
@@ -76,16 +82,18 @@ export const useSettingsStore = create<SettingsStore>()(
       setHideRowControls: createSettingSetter(set, 'hideRowControls'),
       setConfirmBeforeDelete: createSettingSetter(set, 'confirmBeforeDelete'),
       setThemeId: createSettingSetter(set, 'themeId'),
+      setPaletteId: createSettingSetter(set, 'paletteId'),
       setTextStyleId: createSettingSetter(set, 'textStyleId'),
       setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
       setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
       setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
+      setBoardLocked: createSettingSetter(set, 'boardLocked'),
       resetSettings: () => set(DEFAULT_SETTINGS),
     }),
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createAppPersistStorage(),
-      version: 5,
+      version: 8,
       migrate: (persisted, version) =>
       {
         let state = persisted as Record<string, unknown>
@@ -120,6 +128,26 @@ export const useSettingsStore = create<SettingsStore>()(
         if (version < 5)
         {
           delete state.syncTierColorsWithTheme
+        }
+        if (version < 6)
+        {
+          state = { ...state, boardLocked: false }
+        }
+        if (version < 7)
+        {
+          const themeId = (state.themeId as string) ?? 'classic'
+          state = {
+            ...state,
+            paletteId:
+              THEME_PALETTE[themeId as keyof typeof THEME_PALETTE] ?? 'classic',
+          }
+        }
+        if (version < 8)
+        {
+          if (state.paletteId === 'amoled')
+          {
+            state = { ...state, paletteId: 'twilight' }
+          }
         }
         return state
       },

@@ -36,6 +36,12 @@ export const TierRowSettingsMenu = ({
   const deleteTier = useTierListStore((state) => state.deleteTier)
   const clearTierItems = useTierListStore((state) => state.clearTierItems)
   const addTierAt = useTierListStore((state) => state.addTierAt)
+  const setTierDescription = useTierListStore(
+    (state) => state.setTierDescription
+  )
+  const sortTierItemsByName = useTierListStore(
+    (state) => state.sortTierItemsByName
+  )
 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const gearButtonRef = useRef<HTMLButtonElement>(null)
@@ -95,8 +101,25 @@ export const TierRowSettingsMenu = ({
             {
               if (e.key === 'Enter') e.currentTarget.blur()
             }}
-            className="mb-2 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
+            className="mb-1.5 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
             aria-label="Rename tier"
+          />
+
+          <input
+            defaultValue={tier.description ?? ''}
+            placeholder="Description (optional)"
+            onBlur={(e) =>
+            {
+              const val = e.currentTarget.value
+              if (val !== (tier.description ?? ''))
+                setTierDescription(tier.id, val)
+            }}
+            onKeyDown={(e) =>
+            {
+              if (e.key === 'Enter') e.currentTarget.blur()
+            }}
+            className="mb-2 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-xs text-[var(--t-text-secondary)] outline-none focus:border-[var(--t-accent-hover)]"
+            aria-label="Tier description"
           />
 
           <OverlayMenuItem
@@ -121,6 +144,18 @@ export const TierRowSettingsMenu = ({
             }}
           >
             Clear Row Images
+          </OverlayMenuItem>
+
+          <OverlayMenuItem
+            role="menuitem"
+            className="text-sm"
+            onClick={() =>
+            {
+              sortTierItemsByName(tier.id)
+              onClose()
+            }}
+          >
+            Sort A-Z
           </OverlayMenuItem>
 
           <OverlayMenuItem

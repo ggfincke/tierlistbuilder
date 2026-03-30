@@ -95,6 +95,18 @@ interface BoardLabelCellFrameProps
   children: ReactNode
 }
 
+// tier description subtitle — shared across live label, locked label, & export
+export const TierDescriptionSubtitle = ({
+  description,
+}: {
+  description?: string
+}) =>
+  !description ? null : (
+    <span className="mt-0.5 block max-w-full break-words text-[0.65rem] leading-tight opacity-70 [overflow-wrap:anywhere]">
+      {description}
+    </span>
+  )
+
 export const BoardLabelCellFrame = ({
   color,
   itemSize,

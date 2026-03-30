@@ -1,54 +1,55 @@
 // src/theme/palettes.ts
-// coordinated tier label color palettes — default tier colors & picker swatches per theme
+// coordinated tier label palettes — ordered swatches per palette
 
 import type { PaletteId, ThemeId } from '../types'
 
 export interface PaletteDefinition
 {
-  // default tier colors (hex), one per tier slot (S through E)
-  defaults: string[]
-  // preset color picker swatches
-  presets: string[]
+  // ordered swatches used by both the picker UI & stored palette indices
+  colors: string[]
 }
 
 export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   classic: {
-    defaults: [
-      '#f47c7c',
-      '#f1b878',
-      '#edd77b',
-      '#e3ea78',
-      '#abe36d',
-      '#74e56d',
+    colors: [
+      '#FF7F7E',
+      '#FFBF81',
+      '#FFDF80',
+      '#FEFF7F',
+      '#C1FF80',
+      '#7EFF80',
+      '#7FFFFF',
+      '#7EBFFF',
+      '#807FFF',
+      '#FF7FFE',
+      '#BF7EBE',
+      '#3B3B3B',
+      '#858585',
+      '#CFCFCF',
+      '#F7F7F7',
     ],
-    presets: [
-      '#f47c7c',
-      '#f1b878',
-      '#edd77b',
-      '#e3ea78',
-      '#abe36d',
-      '#74e56d',
-      '#a0f0e8',
-      '#89cff0',
-      '#7b68ee',
-      '#f59ede',
-      '#b39eb5',
-      '#2d2d2d',
-      '#888888',
-      '#cccccc',
-      '#eeeeee',
+  },
+  ocean: {
+    colors: [
+      '#0ea5e9',
+      '#38bdf8',
+      '#67e8f9',
+      '#22d3ee',
+      '#06b6d4',
+      '#14b8a6',
+      '#5eead4',
+      '#a7f3d0',
+      '#6ee7b7',
+      '#2dd4bf',
+      '#0d9488',
+      '#d4c8a0',
+      '#94a3b8',
+      '#475569',
+      '#1e3a5f',
     ],
   },
   midnight: {
-    defaults: [
-      '#c084fc',
-      '#818cf8',
-      '#60a5fa',
-      '#67e8f9',
-      '#5eead4',
-      '#94a3b8',
-    ],
-    presets: [
+    colors: [
       '#f0abfc',
       '#e879f9',
       '#c084fc',
@@ -67,15 +68,7 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
     ],
   },
   forest: {
-    defaults: [
-      '#d4a574',
-      '#c8b860',
-      '#a8c060',
-      '#80b870',
-      '#5caa6c',
-      '#4a8c5c',
-    ],
-    presets: [
+    colors: [
       '#d4a574',
       '#c4a882',
       '#c8a050',
@@ -94,15 +87,7 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
     ],
   },
   ember: {
-    defaults: [
-      '#ef6044',
-      '#f08050',
-      '#f0a050',
-      '#e8b860',
-      '#d4b878',
-      '#b89c70',
-    ],
-    presets: [
+    colors: [
       '#ef6044',
       '#f07050',
       '#f08050',
@@ -121,15 +106,7 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
     ],
   },
   sakura: {
-    defaults: [
-      '#f472b6',
-      '#e879a8',
-      '#f0a0c0',
-      '#d8a0d0',
-      '#b8a0d8',
-      '#a0a8d8',
-    ],
-    presets: [
+    colors: [
       '#f472b6',
       '#e879a8',
       '#f0a0c0',
@@ -147,43 +124,27 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
       '#5e4452',
     ],
   },
-  amoled: {
-    defaults: [
-      '#ff3b6f',
-      '#ff6b2b',
-      '#ffd000',
-      '#00e676',
-      '#00bcd4',
-      '#7c4dff',
-    ],
-    presets: [
-      '#ff3b6f',
-      '#ff6b2b',
-      '#ff9100',
-      '#ffd000',
-      '#c6ff00',
-      '#00e676',
-      '#00e5ff',
-      '#00bcd4',
-      '#448aff',
-      '#7c4dff',
-      '#e040fb',
-      '#ff4081',
-      '#ffffff',
-      '#888888',
-      '#444444',
+  twilight: {
+    colors: [
+      '#F4845F',
+      '#E86A7E',
+      '#D45A9E',
+      '#B85CB8',
+      '#9465CE',
+      '#7B6FDB',
+      '#6078E0',
+      '#4A8ADB',
+      '#3D9ACE',
+      '#35A8BE',
+      '#3DB5A8',
+      '#94a3b8',
+      '#7080A0',
+      '#4A5570',
+      '#2C3344',
     ],
   },
   'high-contrast': {
-    defaults: [
-      '#ff0000',
-      '#ff8800',
-      '#ffff00',
-      '#00cc00',
-      '#0088ff',
-      '#8800ff',
-    ],
-    presets: [
+    colors: [
       '#ff0000',
       '#ff8800',
       '#ffff00',
@@ -203,6 +164,23 @@ export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   },
 }
 
+export interface PaletteMeta
+{
+  id: PaletteId
+  label: string
+}
+
+export const PALETTE_META: PaletteMeta[] = [
+  { id: 'classic', label: 'Classic' },
+  { id: 'ocean', label: 'Ocean' },
+  { id: 'midnight', label: 'Midnight' },
+  { id: 'forest', label: 'Forest' },
+  { id: 'ember', label: 'Ember' },
+  { id: 'sakura', label: 'Sakura' },
+  { id: 'twilight', label: 'Twilight' },
+  { id: 'high-contrast', label: 'High Contrast' },
+]
+
 // maps each theme to its tier label palette (classic-light shares classic)
 export const THEME_PALETTE: Record<ThemeId, PaletteId> = {
   classic: 'classic',
@@ -211,6 +189,6 @@ export const THEME_PALETTE: Record<ThemeId, PaletteId> = {
   forest: 'forest',
   ember: 'ember',
   sakura: 'sakura',
-  amoled: 'amoled',
+  amoled: 'twilight',
   'high-contrast': 'high-contrast',
 }

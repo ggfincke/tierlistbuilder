@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createPaletteTierColorSpec,
   createCustomTierColorSpec,
+  getPaletteColors,
   resolveTierColorSpec,
   getAutoTierColorSpec,
   getTierColorFromPaletteSpec,
@@ -11,9 +12,8 @@ describe('createPaletteTierColorSpec', () =>
 {
   it('produces a palette spec w/ correct shape', () =>
   {
-    expect(createPaletteTierColorSpec('default', 0)).toEqual({
+    expect(createPaletteTierColorSpec(0)).toEqual({
       kind: 'palette',
-      paletteType: 'default',
       index: 0,
     })
   })
@@ -42,15 +42,34 @@ describe('resolveTierColorSpec', () =>
 {
   it('resolves palette spec to hex from PALETTES', () =>
   {
-    const spec = createPaletteTierColorSpec('default', 0)
-    // classic palette default[0] = '#f47c7c'
-    expect(resolveTierColorSpec('classic', spec)).toBe('#f47c7c')
+    const spec = createPaletteTierColorSpec(0)
+    expect(resolveTierColorSpec('classic', spec)).toBe('#FF7F7E')
   })
 
   it('returns hex directly for custom spec', () =>
   {
     const spec = createCustomTierColorSpec('#abcdef')
     expect(resolveTierColorSpec('classic', spec)).toBe('#abcdef')
+  })
+
+  it('keeps palette specs stable across theme swaps while the resolved hex changes', () =>
+  {
+    const spec = createPaletteTierColorSpec(1)
+
+    expect(resolveTierColorSpec('classic', spec)).toBe('#FFBF81')
+    expect(resolveTierColorSpec('midnight', spec)).toBe('#e879f9')
+    expect(spec).toEqual({
+      kind: 'palette',
+      index: 1,
+    })
+  })
+
+  it('keeps custom hex values stagnant across theme swaps', () =>
+  {
+    const spec = createCustomTierColorSpec('#abcdef')
+
+    expect(resolveTierColorSpec('classic', spec)).toBe('#abcdef')
+    expect(resolveTierColorSpec('midnight', spec)).toBe('#abcdef')
   })
 })
 
@@ -61,28 +80,44 @@ describe('getAutoTierColorSpec', () =>
     const spec = getAutoTierColorSpec('classic', 2)
     expect(spec).toEqual({
       kind: 'palette',
-      paletteType: 'default',
       index: 2,
     })
   })
 
-  it('wraps into presets for indices beyond default range', () =>
+  it('wraps within the default tier ladder for indices beyond default range', () =>
   {
-    // classic has 6 defaults, so index 7 should wrap to preset index 7 % 15 = 7
-    const spec = getAutoTierColorSpec('classic', 7)
+    const spec = getAutoTierColorSpec('classic', 13)
     expect(spec).toEqual({
       kind: 'palette',
-      paletteType: 'preset',
-      index: 7,
+      index: 13,
     })
   })
 })
 
 describe('getTierColorFromPaletteSpec', () =>
 {
+  it('resolves direct palette indices against the active palette', () =>
+  {
+    const spec = createPaletteTierColorSpec(9)
+    expect(getTierColorFromPaletteSpec('midnight', spec)).toBe('#5eead4')
+  })
+
   it('returns null for out-of-bounds index', () =>
   {
-    const spec = createPaletteTierColorSpec('default', 999)
+    const spec = createPaletteTierColorSpec(999)
     expect(getTierColorFromPaletteSpec('classic', spec)).toBeNull()
+  })
+})
+
+describe('getPaletteColors', () =>
+{
+  it('returns palette swatches in picker order', () =>
+  {
+    expect(getPaletteColors('midnight').slice(0, 4)).toEqual([
+      '#f0abfc',
+      '#e879f9',
+      '#c084fc',
+      '#a78bfa',
+    ])
   })
 })

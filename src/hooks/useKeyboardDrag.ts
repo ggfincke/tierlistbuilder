@@ -3,6 +3,7 @@
 
 import { useCallback } from 'react'
 
+import { useSettingsStore } from '../store/useSettingsStore'
 import { useTierListStore } from '../store/useTierListStore'
 import {
   KEYBOARD_DIRECTIONS,
@@ -46,6 +47,8 @@ export const useKeyboardDrag = (itemId: string) =>
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) =>
     {
+      if (useSettingsStore.getState().boardLocked) return
+
       if (event.code === 'Space')
       {
         event.preventDefault()
