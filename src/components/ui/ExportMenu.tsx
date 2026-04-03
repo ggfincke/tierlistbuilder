@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 
 import type { ImageFormat } from '../../types'
+import type { MenuPositionClasses } from '../../utils/menuPosition'
 import { useHybridMenu } from '../../hooks/useHybridMenu'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
@@ -42,6 +43,7 @@ const FORMAT_LABELS: Record<ImageFormat, string> = {
 
 interface ExportMenuProps
 {
+  menuPos: MenuPositionClasses
   // active export type while an export is in progress (null when idle)
   exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
   // true while an "Export All" operation is running
@@ -52,6 +54,7 @@ interface ExportMenuProps
 }
 
 export const ExportMenu = ({
+  menuPos,
   exportStatus,
   exportingAll,
   onExport,
@@ -189,7 +192,7 @@ export const ExportMenu = ({
             ref={menuRef}
             role="dialog"
             aria-label="Export options"
-            className="absolute left-1/2 top-full z-30 mt-3 w-max -translate-x-1/2 animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 before:absolute before:-top-3 before:left-0 before:h-3 before:w-full"
+            className={`${menuPos.primary} animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
           >
             {/* image submenu — click to reveal download, copy, & format options */}
             <OverlayMenuItem
@@ -204,7 +207,7 @@ export const ExportMenu = ({
               }}
             >
               Export Image
-              <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)]" />
+              <ChevronRight className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`} />
             </OverlayMenuItem>
 
             <OverlayMenuItem
@@ -257,7 +260,7 @@ export const ExportMenu = ({
                     <Layers className="h-3.5 w-3.5 shrink-0" />
                     Export All ({boardCount})
                   </span>
-                  <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)]" />
+                  <ChevronRight className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`} />
                 </OverlayMenuItem>
               </>
             )}
@@ -267,7 +270,7 @@ export const ExportMenu = ({
                 id={imageOptionsGroupId}
                 role="group"
                 aria-label="Image export options"
-                className="absolute left-full top-0 z-40 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2"
+                className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
               >
                 <OverlayMenuItem
                   onClick={() =>
@@ -305,7 +308,7 @@ export const ExportMenu = ({
                   onClick={toggleFormatMenu}
                 >
                   {FORMAT_LABELS[imageFormat]}
-                  <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)]" />
+                  <ChevronRight className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`} />
                 </OverlayMenuItem>
 
                 {showFormatMenu && (
@@ -313,7 +316,7 @@ export const ExportMenu = ({
                     id={formatOptionsGroupId}
                     role="group"
                     aria-label="Image format options"
-                    className="absolute left-full top-0 z-50 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2"
+                    className={`${menuPos.sub} z-50 text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
                   >
                     {(['png', 'jpeg', 'webp'] as const).map((fmt) => (
                       <OverlayMenuItem
@@ -342,7 +345,7 @@ export const ExportMenu = ({
                 id={exportAllOptionsGroupId}
                 role="group"
                 aria-label="Export all options"
-                className="absolute left-full top-0 z-40 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2"
+                className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
               >
                 {[
                   {
