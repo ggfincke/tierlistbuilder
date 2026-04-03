@@ -141,7 +141,9 @@ export const useDragAndDrop = () =>
     if (type === 'tier')
     {
       // tier drag — no snapshot preview needed, dnd-kit handles visual reorder
-      const tier = useTierListStore.getState().tiers.find((t) => t.id === activeId)
+      const tier = useTierListStore
+        .getState()
+        .tiers.find((t) => t.id === activeId)
       setActiveTierData(tier)
       setActiveItemId(activeId)
       announce(`Picked up tier ${tier?.name ?? 'tier'}`)
@@ -151,7 +153,8 @@ export const useDragAndDrop = () =>
     beginDragPreview()
     lastOverIdRef.current = activeId
     setActiveItemId(activeId)
-    const itemLabel = useTierListStore.getState().items[activeId]?.label ?? 'item'
+    const itemLabel =
+      useTierListStore.getState().items[activeId]?.label ?? 'item'
     announce(`Picked up ${itemLabel}`)
   }
 
@@ -249,7 +252,9 @@ export const useDragAndDrop = () =>
       const label = state.items[activeId]?.label ?? 'item'
       const preview = getEffectiveContainerSnapshot(state)
       const containerId = findContainer(preview, activeId)
-      announce(`Dropped ${label} in ${getContainerLabel(containerId, state.tiers)}`)
+      announce(
+        `Dropped ${label} in ${getContainerLabel(containerId, state.tiers)}`
+      )
     }
 
     resetDragState()

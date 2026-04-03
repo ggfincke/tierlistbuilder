@@ -48,6 +48,7 @@ export const TierItem = memo(
       null
     )
     const itemRef = useRef<HTMLDivElement | null>(null)
+    const editButtonRef = useRef<HTMLButtonElement | null>(null)
 
     // register w/ dnd-kit sortable — data payload identifies this as an item
     const {
@@ -83,6 +84,11 @@ export const TierItem = memo(
         setPopoverAnchorRect(itemRef.current.getBoundingClientRect())
         setShowEditPopover(true)
       }
+    }, [])
+    const closeEditPopover = useCallback(() =>
+    {
+      setShowEditPopover(false)
+      requestAnimationFrame(() => editButtonRef.current?.focus())
     }, [])
 
     // item may have been deleted while dragging — render nothing
@@ -128,7 +134,7 @@ export const TierItem = memo(
 
           {/* drag handle indicator — hover-reveal on desktop, persistent on mobile */}
           {!boardLocked && (
-            <span className="pointer-events-none absolute top-0.5 left-0.5 flex h-5 w-5 items-center justify-center text-white/40 opacity-0 transition-opacity group-hover:opacity-60 max-sm:opacity-30">
+            <span className="pointer-events-none absolute top-0.5 left-0.5 flex h-5 w-5 items-center justify-center text-white/40 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 max-sm:opacity-30">
               <GripVertical className="h-3 w-3" />
             </span>
           )}
@@ -136,9 +142,10 @@ export const TierItem = memo(
           {/* alt text edit — bottom-left corner, image items only */}
           {!boardLocked && hasImage && (
             <button
+              ref={editButtonRef}
               type="button"
               aria-label="Edit alt text"
-              className="absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100"
+              className="focus-custom absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
               onClick={openEditPopover}
               onPointerDown={(e) => e.stopPropagation()}
             >
@@ -151,7 +158,7 @@ export const TierItem = memo(
             <button
               type="button"
               aria-label="Remove item"
-              className="absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 max-sm:h-7 max-sm:w-7 max-sm:top-0 max-sm:right-0"
+              className="focus-custom absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] max-sm:h-7 max-sm:w-7 max-sm:top-0 max-sm:right-0"
               onClick={(e) =>
               {
                 e.stopPropagation()
@@ -168,7 +175,7 @@ export const TierItem = memo(
           <ItemEditPopover
             itemId={itemId}
             anchorRect={popoverAnchorRect}
-            onClose={() => setShowEditPopover(false)}
+            onClose={closeEditPopover}
           />
         )}
       </>

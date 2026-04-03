@@ -252,7 +252,9 @@ export const useTierListStore = create<TierListStore>()((set) => ({
 
   deleteTier: (tierId) =>
   {
-    const tierName = useTierListStore.getState().tiers.find((t) => t.id === tierId)?.name
+    const tierName = useTierListStore
+      .getState()
+      .tiers.find((t) => t.id === tierId)?.name
     set((state) =>
     {
       if (state.tiers.length <= 1)
@@ -631,7 +633,9 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         // random: each item assigned to a random tier (uneven distribution)
         for (const id of allItemIds)
         {
-          nextTiers[Math.floor(Math.random() * nextTiers.length)].itemIds.push(id)
+          nextTiers[Math.floor(Math.random() * nextTiers.length)].itemIds.push(
+            id
+          )
         }
       }
 

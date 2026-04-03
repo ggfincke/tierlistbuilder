@@ -22,8 +22,10 @@
     --t-text-dim: #666666;
     --t-accent: #38bdf8;
     --t-accent-hover: #0ea5e9;
+    --t-accent-foreground: #000000;
     --t-destructive: #f43f5e;
     --t-destructive-hover: #fb7185;
+    --t-destructive-foreground: #ffffff;
     --t-overlay: 255 255 255;
     --t-export-bg: #232323;
 
@@ -79,8 +81,14 @@
 
   @keyframes fadeIn
   {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from
+    {
+      opacity: 0;
+    }
+    to
+    {
+      opacity: 1;
+    }
   }
 
   @keyframes scaleIn
@@ -146,16 +154,16 @@
   }
 
   /* high-contrast mode — thicker borders & brighter focus rings */
-  [data-theme="high-contrast"] button,
-  [data-theme="high-contrast"] [role="switch"],
-  [data-theme="high-contrast"] input,
-  [data-theme="high-contrast"] textarea,
-  [data-theme="high-contrast"] select
+  [data-theme='high-contrast'] button,
+  [data-theme='high-contrast'] [role='switch'],
+  [data-theme='high-contrast'] input,
+  [data-theme='high-contrast'] textarea,
+  [data-theme='high-contrast'] select
   {
     border-width: 2px;
   }
 
-  [data-theme="high-contrast"] :focus-visible
+  [data-theme='high-contrast'] :focus-visible
   {
     outline-width: 3px;
     outline-color: #ffff00;

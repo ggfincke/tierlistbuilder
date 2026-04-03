@@ -1,7 +1,7 @@
 // src/components/board/ItemEditPopover.tsx
 // popover for editing item alt text
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { useTierListStore } from '../../store/useTierListStore'
@@ -30,6 +30,9 @@ export const ItemEditPopover = ({
   const [altText, setAltText] = useState(item?.altText ?? '')
   const popoverRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const labelId = useId()
+  const inputId = useId()
+  const hintId = useId()
 
   const handleClose = useCallback(() =>
   {
@@ -62,27 +65,45 @@ export const ItemEditPopover = ({
   if (!item) return null
 
   // position below the item, clamped to viewport
-  const top = Math.min(anchorRect.bottom + POPOVER_GAP, window.innerHeight - POPOVER_HEIGHT)
-  const left = Math.max(VIEWPORT_MARGIN, Math.min(anchorRect.left, window.innerWidth - POPOVER_WIDTH))
+  const top = Math.min(
+    anchorRect.bottom + POPOVER_GAP,
+    window.innerHeight - POPOVER_HEIGHT
+  )
+  const left = Math.max(
+    VIEWPORT_MARGIN,
+    Math.min(anchorRect.left, window.innerWidth - POPOVER_WIDTH)
+  )
 
   return (
     <div
       ref={popoverRef}
+      role="dialog"
+      aria-labelledby={labelId}
+      aria-describedby={hintId}
       className="fixed z-50 w-56 rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] p-3 shadow-lg"
       style={{ top, left }}
     >
-      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[var(--t-text-faint)]">
+      <label
+        id={labelId}
+        htmlFor={inputId}
+        className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[var(--t-text-faint)]"
+      >
         Alt Text
       </label>
       <input
         ref={inputRef}
+        id={inputId}
         type="text"
         value={altText}
         onChange={(e) => setAltText(e.target.value)}
         placeholder="Alt text for screen readers..."
         maxLength={200}
+        aria-describedby={hintId}
         className="w-full rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-xs text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] outline-none focus:border-[var(--t-border-hover)]"
       />
+      <p id={hintId} className="sr-only">
+        Maximum 200 characters
+      </p>
 
       <div className="mt-2 flex justify-end">
         <button

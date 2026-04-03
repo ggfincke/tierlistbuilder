@@ -1,7 +1,7 @@
 // src/components/ui/ExportMenu.tsx
 // export dropdown w/ click-open submenus for image, PDF, JSON, & export-all
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import {
   Check,
   ChevronRight,
@@ -68,6 +68,10 @@ export const ExportMenu = ({
   const menuRef = useRef<HTMLDivElement | null>(null)
   const jsonInputRef = useRef<HTMLInputElement | null>(null)
   const isDisabled = exportStatus !== null || exportingAll
+  const exportDialogId = useId()
+  const imageOptionsGroupId = useId()
+  const formatOptionsGroupId = useId()
+  const exportAllOptionsGroupId = useId()
 
   const {
     open: showMenu,
@@ -171,8 +175,9 @@ export const ExportMenu = ({
           title="Export"
           onClick={toggleRootMenu}
           disabled={isDisabled}
-          hasPopup="menu"
+          hasPopup="dialog"
           expanded={showMenu}
+          controlsId={exportDialogId}
           active={showMenu}
         >
           <SquareArrowUp className="h-5 w-5" strokeWidth={1.8} />
@@ -180,14 +185,16 @@ export const ExportMenu = ({
 
         {showMenu && (
           <OverlayMenuSurface
+            id={exportDialogId}
             ref={menuRef}
-            role="menu"
+            role="dialog"
+            aria-label="Export options"
             className="absolute left-1/2 top-full z-30 mt-3 w-max -translate-x-1/2 animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 before:absolute before:-top-3 before:left-0 before:h-3 before:w-full"
           >
             {/* image submenu — click to reveal download, copy, & format options */}
             <OverlayMenuItem
-              role="menuitem"
-              aria-haspopup="menu"
+              aria-controls={imageOptionsGroupId}
+              aria-haspopup="dialog"
               aria-expanded={showImageMenu}
               className={`${showImageMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
               onClick={() =>
@@ -201,7 +208,6 @@ export const ExportMenu = ({
             </OverlayMenuItem>
 
             <OverlayMenuItem
-              role="menuitem"
               onClick={() =>
               {
                 closeExportMenu()
@@ -215,12 +221,11 @@ export const ExportMenu = ({
 
             <OverlayDivider />
 
-            <OverlayMenuItem role="menuitem" onClick={handleJsonExport}>
+            <OverlayMenuItem onClick={handleJsonExport}>
               <FileDown className="h-3.5 w-3.5 shrink-0" />
               Export JSON
             </OverlayMenuItem>
             <OverlayMenuItem
-              role="menuitem"
               onClick={() =>
               {
                 closeExportMenu()
@@ -237,8 +242,8 @@ export const ExportMenu = ({
                 <OverlayDivider />
 
                 <OverlayMenuItem
-                  role="menuitem"
-                  aria-haspopup="menu"
+                  aria-controls={exportAllOptionsGroupId}
+                  aria-haspopup="dialog"
                   aria-expanded={showExportAllMenu}
                   className={`${showExportAllMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
                   onClick={() =>
@@ -258,9 +263,13 @@ export const ExportMenu = ({
             )}
 
             {showImageMenu && (
-              <OverlayMenuSurface className="absolute left-full top-0 z-40 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2">
+              <OverlayMenuSurface
+                id={imageOptionsGroupId}
+                role="group"
+                aria-label="Image export options"
+                className="absolute left-full top-0 z-40 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2"
+              >
                 <OverlayMenuItem
-                  role="menuitem"
                   onClick={() =>
                   {
                     closeExportMenu()
@@ -273,7 +282,6 @@ export const ExportMenu = ({
                   Download
                 </OverlayMenuItem>
                 <OverlayMenuItem
-                  role="menuitem"
                   onClick={() =>
                   {
                     closeExportMenu()
@@ -290,8 +298,8 @@ export const ExportMenu = ({
 
                 {/* format selector — click to reveal format choices */}
                 <OverlayMenuItem
-                  role="menuitem"
-                  aria-haspopup="menu"
+                  aria-controls={formatOptionsGroupId}
+                  aria-haspopup="dialog"
                   aria-expanded={showFormatMenu}
                   className={`${showFormatMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-4`}
                   onClick={toggleFormatMenu}
@@ -301,11 +309,15 @@ export const ExportMenu = ({
                 </OverlayMenuItem>
 
                 {showFormatMenu && (
-                  <OverlayMenuSurface className="absolute left-full top-0 z-50 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2">
+                  <OverlayMenuSurface
+                    id={formatOptionsGroupId}
+                    role="group"
+                    aria-label="Image format options"
+                    className="absolute left-full top-0 z-50 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2"
+                  >
                     {(['png', 'jpeg', 'webp'] as const).map((fmt) => (
                       <OverlayMenuItem
                         key={fmt}
-                        role="menuitem"
                         onClick={() =>
                         {
                           setImageFormat(fmt)
@@ -326,7 +338,12 @@ export const ExportMenu = ({
             )}
 
             {boardCount > 1 && showExportAllMenu && (
-              <OverlayMenuSurface className="absolute left-full top-0 z-40 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2">
+              <OverlayMenuSurface
+                id={exportAllOptionsGroupId}
+                role="group"
+                aria-label="Export all options"
+                className="absolute left-full top-0 z-40 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2"
+              >
                 {[
                   {
                     format: 'json' as const,
@@ -346,7 +363,6 @@ export const ExportMenu = ({
                 ].map(({ format, Icon, label }) => (
                   <OverlayMenuItem
                     key={format}
-                    role="menuitem"
                     onClick={() =>
                     {
                       closeExportMenu()

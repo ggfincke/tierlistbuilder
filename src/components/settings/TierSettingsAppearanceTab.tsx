@@ -1,6 +1,8 @@
 // src/components/settings/TierSettingsAppearanceTab.tsx
 // appearance tab content for app theme, tier color palette, text style, & accessibility
 
+import { useId } from 'react'
+
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { PalettePicker } from './PalettePicker'
 import { SettingRow } from './SettingRow'
@@ -15,6 +17,8 @@ export const TierSettingsAppearanceTab = () =>
   const setReducedMotion = useSettingsStore((s) => s.setReducedMotion)
   const themeId = useSettingsStore((s) => s.themeId)
   const toggleHighContrast = useSettingsStore((s) => s.toggleHighContrast)
+  const highContrastDescriptionId = useId()
+  const reduceMotionDescriptionId = useId()
 
   const isHighContrast = themeId === 'high-contrast'
 
@@ -34,16 +38,30 @@ export const TierSettingsAppearanceTab = () =>
 
       <SettingsSection title="Accessibility">
         <SettingRow label="High Contrast">
-          <Toggle checked={isHighContrast} onChange={toggleHighContrast} />
+          <Toggle
+            checked={isHighContrast}
+            onChange={toggleHighContrast}
+            ariaDescribedby={highContrastDescriptionId}
+          />
         </SettingRow>
-        <p className="mb-3 mt-1 text-xs text-[var(--t-text-dim)]">
+        <p
+          id={highContrastDescriptionId}
+          className="mb-3 mt-1 text-xs text-[var(--t-text-muted)]"
+        >
           Stronger borders, brighter focus rings, & maximum text contrast.
         </p>
 
         <SettingRow label="Reduce Motion">
-          <Toggle checked={reducedMotion} onChange={setReducedMotion} />
+          <Toggle
+            checked={reducedMotion}
+            onChange={setReducedMotion}
+            ariaDescribedby={reduceMotionDescriptionId}
+          />
         </SettingRow>
-        <p className="mt-1 text-xs text-[var(--t-text-dim)]">
+        <p
+          id={reduceMotionDescriptionId}
+          className="mt-1 text-xs text-[var(--t-text-muted)]"
+        >
           Disables animations & transitions. Also respects your OS setting.
         </p>
       </SettingsSection>

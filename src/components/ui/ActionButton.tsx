@@ -12,10 +12,11 @@ interface ActionButtonProps
   onClick: () => void
   disabled?: boolean
   children: ReactNode
-  // set to "menu" when the button toggles a popup menu
-  hasPopup?: 'menu'
+  // set to the popup role when the button toggles an overlay surface
+  hasPopup?: 'dialog' | 'menu'
   // current open state of the associated popup (only used w/ hasPopup)
   expanded?: boolean
+  controlsId?: string
   // keep the hover chrome visible while the related menu is open
   active?: boolean
 }
@@ -30,6 +31,7 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
       children,
       hasPopup,
       expanded,
+      controlsId,
       active = false,
     },
     ref
@@ -46,6 +48,7 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
         aria-label={label}
         title={title}
         aria-haspopup={hasPopup}
+        aria-controls={controlsId}
         aria-expanded={hasPopup ? expanded : undefined}
         disabled={disabled}
         onClick={onClick}

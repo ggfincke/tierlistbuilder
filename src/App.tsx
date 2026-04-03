@@ -1,7 +1,7 @@
 // src/App.tsx
 // * root application component — shell composition, modal state, & global error banner
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type MouseEvent } from 'react'
 
 import { BoardActionBar } from './components/ui/BoardActionBar'
 import { BoardManager } from './components/ui/BoardManager'
@@ -53,16 +53,47 @@ function App()
     [paletteId, resetBoard]
   )
   const handleCloseSettings = useCallback(() => setSettingsOpen(false), [])
+  const handleSkipToBoard = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) =>
+    {
+      event.preventDefault()
+
+      const board = document.getElementById('tier-list')
+
+      if (!(board instanceof HTMLElement))
+      {
+        return
+      }
+
+      board.scrollIntoView({ block: 'start' })
+      board.focus({ preventScroll: true })
+      window.history.replaceState(null, '', '#tier-list')
+    },
+    []
+  )
 
   if (!appReady)
   {
     return (
-      <main className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]" />
+      <main
+        id="app-shell"
+        className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
+      />
     )
   }
 
   return (
-    <main className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]">
+    <main
+      id="app-shell"
+      className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
+    >
+      <a
+        href="#tier-list"
+        onClick={handleSkipToBoard}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-[var(--t-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--t-accent-foreground)] focus:shadow-lg"
+      >
+        Skip to board
+      </a>
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
         <Toolbar />
 
@@ -107,9 +138,7 @@ function App()
           total={exportAllProgress.total}
         />
       )}
-      {showShortcutsPanel && (
-        <ShortcutsPanel onClose={closeShortcutsPanel} />
-      )}
+      {showShortcutsPanel && <ShortcutsPanel onClose={closeShortcutsPanel} />}
       <LiveRegion />
     </main>
   )

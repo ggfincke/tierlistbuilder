@@ -5,7 +5,12 @@ import { getTextColor } from '../../utils/color'
 
 interface ItemContentProps
 {
-  item: { imageUrl?: string; label?: string; backgroundColor?: string; altText?: string }
+  item: {
+    imageUrl?: string
+    label?: string
+    backgroundColor?: string
+    altText?: string
+  }
   // "default" for board tiles & drag overlay, "compact" for deleted items
   variant?: 'default' | 'compact'
   // show label overlay on image items (only used by board tiles)

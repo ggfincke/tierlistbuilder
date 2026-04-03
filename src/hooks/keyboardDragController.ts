@@ -246,7 +246,9 @@ export const handleKeyboardSpaceKey = (itemId: string) =>
     const fresh = useTierListStore.getState()
     const snapshot = getEffectiveContainerSnapshot(fresh)
     const containerId = findContainer(snapshot, droppedItemId)
-    announce(`Dropped ${label} in ${getContainerLabel(containerId, fresh.tiers)}`)
+    announce(
+      `Dropped ${label} in ${getContainerLabel(containerId, fresh.tiers)}`
+    )
   }
 }
 

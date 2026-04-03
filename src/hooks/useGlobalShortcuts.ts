@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
+import { hasActiveModalLayer } from './useModalBackgroundInert'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { useTierListStore } from '../store/useTierListStore'
 
@@ -36,6 +37,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (!el) return
       const tag = el.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable) return
+      if (hasActiveModalLayer()) return
 
       const mod = e.ctrlKey || e.metaKey
 

@@ -113,6 +113,7 @@ export const UnrankedPool = () =>
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search items..."
+            aria-label="Search unranked items"
             className="focus-custom w-full rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] py-1.5 pr-7 pl-8 text-sm text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] outline-none focus:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
           />
           {isSearching && (

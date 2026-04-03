@@ -107,7 +107,8 @@ export const useSettingsStore = create<SettingsStore>()(
             }
           }
           const restoreTheme =
-            state.preHighContrastThemeId && state.preHighContrastThemeId !== 'high-contrast'
+            state.preHighContrastThemeId &&
+            state.preHighContrastThemeId !== 'high-contrast'
               ? state.preHighContrastThemeId
               : ('classic' as const)
           const restorePalette =
