@@ -19,7 +19,7 @@ export const SegmentedControl = <T extends string>({
         key={opt.value}
         type="button"
         onClick={() => onChange(opt.value)}
-        className={`px-3 py-1 text-xs font-medium transition-colors first:rounded-l-[7px] last:rounded-r-[7px] ${
+        className={`focus-custom px-3 py-1 text-xs font-medium transition-colors first:rounded-l-[7px] last:rounded-r-[7px] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] ${
           value === opt.value
             ? 'bg-[var(--t-bg-active)] text-[var(--t-text)]'
             : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'

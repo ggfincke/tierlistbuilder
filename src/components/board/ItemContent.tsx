@@ -5,7 +5,7 @@ import { getTextColor } from '../../utils/color'
 
 interface ItemContentProps
 {
-  item: { imageUrl?: string; label?: string; backgroundColor?: string }
+  item: { imageUrl?: string; label?: string; backgroundColor?: string; altText?: string }
   // "default" for board tiles & drag overlay, "compact" for deleted items
   variant?: 'default' | 'compact'
   // show label overlay on image items (only used by board tiles)
@@ -26,7 +26,7 @@ export const ItemContent = ({
       <>
         <img
           src={item.imageUrl}
-          alt={item.label ?? 'Tier item'}
+          alt={item.altText ?? item.label ?? 'Tier item'}
           className="h-full w-full object-cover"
           draggable={false}
         />

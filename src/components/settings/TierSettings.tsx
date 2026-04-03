@@ -83,9 +83,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   return (
     <>
       {/* backdrop — click to close */}
-      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/60 animate-[fadeIn_100ms_ease-out]" onClick={onClose} />
 
-      <div className="fixed inset-0 z-50 m-auto flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
+      <div className="fixed inset-0 z-50 m-auto flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl animate-[scaleIn_150ms_ease-out]">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold text-[var(--t-text)]">
@@ -98,7 +98,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                  className={`focus-custom rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] max-sm:px-2 max-sm:py-2 ${
                     activeTab === tab
                       ? 'bg-[var(--t-bg-active)] text-[var(--t-text)] shadow-sm'
                       : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'

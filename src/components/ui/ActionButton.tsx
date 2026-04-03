@@ -49,7 +49,7 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
         aria-expanded={hasPopup ? expanded : undefined}
         disabled={disabled}
         onClick={onClick}
-        className={`flex h-10 w-10 items-center justify-center rounded-[1.1rem] border text-[var(--t-text)] transition-none focus-visible:border-[rgb(var(--t-overlay)/0.22)] focus-visible:bg-[var(--t-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--t-overlay)/0.14)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-sunken)] disabled:cursor-not-allowed disabled:opacity-45 ${chromeClassName}`}
+        className={`focus-custom flex h-10 w-10 items-center justify-center rounded-[1.1rem] border max-sm:h-11 max-sm:w-11 max-sm:rounded-[1.3rem] text-[var(--t-text)] transition-none focus-visible:border-[rgb(var(--t-overlay)/0.22)] focus-visible:bg-[var(--t-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--t-overlay)/0.14)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-sunken)] disabled:cursor-not-allowed disabled:opacity-45 ${chromeClassName}`}
       >
         {children}
       </button>

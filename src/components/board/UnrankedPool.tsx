@@ -1,8 +1,9 @@
 // src/components/board/UnrankedPool.tsx
-// droppable pool of items not yet assigned to a tier
+// droppable pool of items not yet assigned to a tier, w/ search filter
 
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
+import { Search, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 
 import { useImageImport } from '../../hooks/useImageImport'
@@ -48,6 +49,7 @@ export const UnrankedPool = () =>
   } = useImageImport()
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const handleRequestDelete = useCallback(
     (itemId: string) =>
@@ -64,6 +66,16 @@ export const UnrankedPool = () =>
     [confirmBeforeDelete, removeItem]
   )
 
+  // filter unranked items by label when searching
+  const filteredIds = useMemo(() =>
+  {
+    if (!searchQuery.trim()) return unrankedItemIds
+    const q = searchQuery.toLowerCase()
+    return unrankedItemIds.filter((id) =>
+      items[id]?.label?.toLowerCase().includes(q)
+    )
+  }, [unrankedItemIds, items, searchQuery])
+
   // register the pool as a droppable container w/ the unranked ID
   const droppableData = useMemo(
     () => ({ type: 'container' as const, containerId: UNRANKED_CONTAINER_ID }),
@@ -73,6 +85,8 @@ export const UnrankedPool = () =>
     id: UNRANKED_CONTAINER_ID,
     data: droppableData,
   })
+
+  const isSearching = searchQuery.trim().length > 0
 
   return (
     <section
@@ -84,11 +98,37 @@ export const UnrankedPool = () =>
         </h2>
         {/* show total item count across the entire board */}
         <span className="text-xs text-[var(--t-text-faint)]">
-          {itemCount} total items
+          {isSearching
+            ? `${filteredIds.length} of ${unrankedItemIds.length} items`
+            : `${itemCount} total items`}
         </span>
       </div>
 
-      <SortableContext items={unrankedItemIds} strategy={rectSortingStrategy}>
+      {/* search bar — only visible when there are unranked items */}
+      {unrankedItemIds.length > 0 && (
+        <div className="relative mb-2">
+          <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[var(--t-text-faint)]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search items..."
+            className="focus-custom w-full rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] py-1.5 pr-7 pl-8 text-sm text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] outline-none focus:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          />
+          {isSearching && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchQuery('')}
+              className="absolute top-1/2 right-2 -translate-y-1/2 text-[var(--t-text-faint)] hover:text-[var(--t-text)]"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      <SortableContext items={filteredIds} strategy={rectSortingStrategy}>
         <div
           ref={setNodeRef}
           data-testid="unranked-container"
@@ -99,7 +139,7 @@ export const UnrankedPool = () =>
               : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]'
           }`}
         >
-          {unrankedItemIds.length === 0 && !boardLocked ? (
+          {filteredIds.length === 0 && !boardLocked && !isSearching ? (
             // empty state — click to open file picker, or drop images directly
             <UploadDropzone
               variant="empty"
@@ -110,12 +150,12 @@ export const UnrankedPool = () =>
               onDragLeave={onDragLeave}
               onDrop={onDrop}
             />
-          ) : unrankedItemIds.length === 0 ? (
+          ) : filteredIds.length === 0 ? (
             <p className="flex min-h-24 w-full items-center justify-center text-sm text-[var(--t-text-faint)]">
-              No unranked items
+              {isSearching ? 'No matching items' : 'No unranked items'}
             </p>
           ) : (
-            unrankedItemIds.map((itemId) => (
+            filteredIds.map((itemId) => (
               <TierItem
                 key={itemId}
                 itemId={itemId}

@@ -64,7 +64,7 @@ export const Toolbar = () =>
               setEditing(false)
             }
           }}
-          className="w-full max-w-md border-none bg-transparent text-center text-3xl font-semibold tracking-tight text-[var(--t-text)] outline-none sm:text-[2.15rem]"
+          className="focus-custom w-full max-w-md border-none bg-transparent text-center text-3xl font-semibold tracking-tight text-[var(--t-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:text-[2.15rem]"
           maxLength={60}
         />
       ) : (

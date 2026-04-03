@@ -240,7 +240,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
           {!hideRowControls && !boardLocked && (
             <button
               type="button"
-              className="flex shrink-0 cursor-grab touch-none items-center px-0.5 text-[var(--t-text-faint)] opacity-0 transition-opacity hover:text-[var(--t-text)] group-hover:opacity-100 [div:hover>&]:opacity-100"
+              className="focus-custom flex shrink-0 cursor-grab touch-none items-center px-0.5 text-[var(--t-text-faint)] opacity-0 transition-opacity hover:text-[var(--t-text)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] group-hover:opacity-100 [div:hover>&]:opacity-100"
               aria-label="Drag to reorder tier"
               {...tierListeners}
             >
@@ -265,11 +265,11 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
         </BoardRowContent>
 
         {!hideRowControls && !boardLocked && (
-          <div className="flex shrink-0 items-center gap-1 border-l border-[var(--t-border)] bg-[var(--t-bg-page)] px-1.5">
+          <div className="flex shrink-0 items-center gap-1 border-l border-[var(--t-border)] bg-[var(--t-bg-page)] px-1.5 max-sm:px-1">
             <div className="flex flex-col items-center justify-center gap-1">
               <button
                 type="button"
-                className="rounded px-1 py-0.5 text-xs text-[var(--t-text-faint)] hover:text-[var(--t-text)] disabled:opacity-30"
+                className="focus-custom rounded px-1 py-0.5 text-xs text-[var(--t-text-faint)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:opacity-30 max-sm:px-2 max-sm:py-1.5"
                 disabled={index === 0}
                 onClick={() => reorderTier(tier.id, 'up')}
                 aria-label="Move tier up"
@@ -280,7 +280,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
               <button
                 ref={colorButtonRef}
                 type="button"
-                className="h-4 w-4 rounded-full border border-[var(--t-border-secondary)]"
+                className="focus-custom h-4 w-4 rounded-full border border-[var(--t-border-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--t-bg-page)]"
                 style={{ backgroundColor: resolvedTierColor }}
                 onClick={() =>
                 {
@@ -297,7 +297,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
 
               <button
                 type="button"
-                className="rounded px-1 py-0.5 text-xs text-[var(--t-text-faint)] hover:text-[var(--t-text)] disabled:opacity-30"
+                className="focus-custom rounded px-1 py-0.5 text-xs text-[var(--t-text-faint)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:opacity-30 max-sm:px-2 max-sm:py-1.5"
                 disabled={index === totalTiers - 1}
                 onClick={() => reorderTier(tier.id, 'down')}
                 aria-label="Move tier down"

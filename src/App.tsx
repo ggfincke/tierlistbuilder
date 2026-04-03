@@ -6,6 +6,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { BoardActionBar } from './components/ui/BoardActionBar'
 import { BoardManager } from './components/ui/BoardManager'
 import { ExportProgressOverlay } from './components/ui/ExportProgressOverlay'
+import { LiveRegion } from './components/ui/LiveRegion'
+import { ShortcutsPanel } from './components/ui/ShortcutsPanel'
 import { TierList } from './components/board/TierList'
 import { TierSettings } from './components/settings/TierSettings'
 import { Toolbar } from './components/ui/Toolbar'
@@ -13,8 +15,8 @@ import { useAppBootstrap } from './hooks/useAppBootstrap'
 import { useBoardTransition } from './hooks/useBoardTransition'
 import { useCurrentPaletteId } from './hooks/useCurrentPaletteId'
 import { useExportController } from './hooks/useExportController'
+import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
 import { useThemeApplicator } from './hooks/useThemeApplicator'
-import { useUndoRedo } from './hooks/useUndoRedo'
 import { useTierListStore } from './store/useTierListStore'
 
 function App()
@@ -27,7 +29,6 @@ function App()
   const resetBoard = useTierListStore((state) => state.resetBoard)
 
   useThemeApplicator()
-  useUndoRedo()
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
   const {
@@ -37,6 +38,10 @@ function App()
     runCopyToClipboard,
     runExportAll,
   } = useExportController()
+
+  const { showShortcutsPanel, closeShortcutsPanel } = useGlobalShortcuts({
+    onExport: runExport,
+  })
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const handleAddTier = useMemo(
@@ -102,6 +107,10 @@ function App()
           total={exportAllProgress.total}
         />
       )}
+      {showShortcutsPanel && (
+        <ShortcutsPanel onClose={closeShortcutsPanel} />
+      )}
+      <LiveRegion />
     </main>
   )
 }

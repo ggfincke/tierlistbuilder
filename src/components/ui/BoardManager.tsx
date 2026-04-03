@@ -84,7 +84,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
         {
           if (!open) setOpen(true)
         }}
-        className="board-manager-trigger fixed z-40 flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-3 py-2 text-sm text-[var(--t-text)] shadow-lg transition hover:border-[var(--t-border-secondary)] hover:bg-[var(--t-bg-hover)]"
+        className="focus-custom board-manager-trigger fixed z-40 flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-3 py-2 text-sm text-[var(--t-text)] shadow-lg transition hover:border-[var(--t-border-secondary)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-page)]"
       >
         <Layers className="h-4 w-4" strokeWidth={1.8} />
         <span className="font-medium">{boards.length}</span>
@@ -94,7 +94,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
       {open && (
         <OverlayPanelSurface
           ref={panelRef}
-          className="board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col"
+          className="board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col animate-[slideUp_150ms_ease-out]"
         >
           {/* header */}
           <div className="flex items-center justify-between border-b border-[var(--t-border)] px-3 py-2.5">
@@ -112,7 +112,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
               return (
                 <div
                   key={board.id}
-                  className={`group flex items-center gap-2 px-3 py-2 transition ${
+                  className={`group flex items-center gap-2 px-3 py-2 transition max-sm:py-3 ${
                     isActive
                       ? 'bg-[var(--t-bg-active)]'
                       : 'hover:bg-[var(--t-bg-hover)]'
@@ -150,7 +150,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                           onSwitchBoard(board.id)
                           setOpen(false)
                         }}
-                        className={`min-w-0 flex-1 truncate text-left text-sm ${
+                        className={`focus-custom min-w-0 flex-1 truncate text-left text-sm focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] ${
                           isActive
                             ? 'font-medium text-[var(--t-text)]'
                             : 'text-[var(--t-text-muted)] hover:text-[var(--t-text)]'
@@ -168,7 +168,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                           setEditingId(board.id)
                           setEditValue(board.title)
                         }}
-                        className="shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] group-hover:opacity-100"
+                        className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] group-hover:opacity-100 max-sm:p-1.5"
                       >
                         <Pencil className="h-3 w-3" />
                       </button>
@@ -181,7 +181,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                           duplicateBoardSession(board.id)
                           setOpen(false)
                         }}
-                        className="shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] group-hover:opacity-100"
+                        className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] group-hover:opacity-100 max-sm:p-1.5"
                       >
                         <Copy className="h-3 w-3" />
                       </button>
@@ -191,7 +191,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                           type="button"
                           aria-label={`Delete ${board.title}`}
                           onClick={() => setConfirmDeleteId(board.id)}
-                          className="shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-destructive-hover)] group-hover:opacity-100"
+                          className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-destructive-hover)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] group-hover:opacity-100 max-sm:p-1.5"
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -212,7 +212,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
                 setOpen(false)
                 setShowPresetPicker(true)
               }}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)]"
+              className="focus-custom flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
             >
               <Plus className="h-3.5 w-3.5" />
               New List

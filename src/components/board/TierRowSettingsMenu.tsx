@@ -67,7 +67,7 @@ export const TierRowSettingsMenu = ({
       <button
         ref={gearButtonRef}
         type="button"
-        className="rounded p-1 text-[var(--t-text-faint)] hover:text-[var(--t-text)]"
+        className="focus-custom rounded p-1 text-[var(--t-text-faint)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] max-sm:p-2"
         onClick={() =>
         {
           if (!show && gearButtonRef.current)

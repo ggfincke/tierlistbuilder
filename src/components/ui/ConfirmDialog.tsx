@@ -49,22 +49,22 @@ export const ConfirmDialog = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-sm rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-[fadeIn_100ms_ease-out]">
+      <div className="w-full max-w-sm rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl animate-[scaleIn_150ms_ease-out]">
         <h2 className="text-lg font-semibold text-[var(--t-text)]">{title}</h2>
         <p className="mt-2 text-sm text-[var(--t-text-muted)]">{description}</p>
 
         <div className="mt-4 flex justify-end gap-2">
           <button
             type="button"
-            className="rounded-md border border-[var(--t-border-secondary)] px-3 py-1.5 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)]"
+            className="focus-custom rounded-md border border-[var(--t-border-secondary)] px-3 py-1.5 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-overlay)]"
             onClick={onCancel}
           >
             {cancelText}
           </button>
           <button
             type="button"
-            className={`rounded-md px-3 py-1.5 text-sm font-medium text-white ${
+            className={`focus-custom rounded-md px-3 py-1.5 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-overlay)] ${
               variant === 'accent'
                 ? 'bg-[var(--t-accent)] hover:bg-[var(--t-accent-hover)]'
                 : 'bg-[var(--t-destructive)] hover:bg-[var(--t-destructive-hover)]'

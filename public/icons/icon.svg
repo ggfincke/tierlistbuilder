@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#000000"/>
+  <rect x="56" y="56" width="400" height="88" rx="14" fill="#0a0a0a" stroke="#222" stroke-width="3"/>
+  <rect x="56" y="59" width="88" height="82" rx="10" fill="#FF7F7E"/>
+  <text x="100" y="112" font-family="system-ui,sans-serif" font-size="44" font-weight="700" fill="#000000" text-anchor="middle">S</text>
+  <rect x="156" y="68" width="68" height="68" rx="8" fill="#333"/>
+  <rect x="236" y="68" width="68" height="68" rx="8" fill="#2a2a2a"/>
+  <rect x="316" y="68" width="68" height="68" rx="8" fill="#222"/>
+  <rect x="56" y="160" width="400" height="88" rx="14" fill="#0a0a0a" stroke="#222" stroke-width="3"/>
+  <rect x="56" y="163" width="88" height="82" rx="10" fill="#FFBF81"/>
+  <text x="100" y="216" font-family="system-ui,sans-serif" font-size="44" font-weight="700" fill="#000000" text-anchor="middle">A</text>
+  <rect x="156" y="172" width="68" height="68" rx="8" fill="#2a2a2a"/>
+  <rect x="236" y="172" width="68" height="68" rx="8" fill="#222"/>
+  <rect x="56" y="264" width="400" height="88" rx="14" fill="#0a0a0a" stroke="#222" stroke-width="3"/>
+  <rect x="56" y="267" width="88" height="82" rx="10" fill="#FEFF7F"/>
+  <text x="100" y="320" font-family="system-ui,sans-serif" font-size="44" font-weight="700" fill="#000000" text-anchor="middle">B</text>
+  <rect x="156" y="276" width="68" height="68" rx="8" fill="#222"/>
+  <rect x="56" y="368" width="400" height="88" rx="14" fill="#0a0a0a" stroke="#222" stroke-width="3"/>
+  <rect x="56" y="371" width="88" height="82" rx="10" fill="#7EFF80"/>
+  <text x="100" y="424" font-family="system-ui,sans-serif" font-size="44" font-weight="700" fill="#000000" text-anchor="middle">C</text>
+</svg>

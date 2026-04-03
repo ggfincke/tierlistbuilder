@@ -34,6 +34,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   tierLabelItalic: false,
   tierLabelFontSize: 'small',
   boardLocked: false,
+  reducedMotion: false,
+  preHighContrastThemeId: null,
+  preHighContrastPaletteId: null,
 }
 
 interface SettingsStore extends AppSettings
@@ -53,6 +56,8 @@ interface SettingsStore extends AppSettings
   setTierLabelItalic: (italic: boolean) => void
   setTierLabelFontSize: (size: TierLabelFontSize) => void
   setBoardLocked: (locked: boolean) => void
+  setReducedMotion: (reduced: boolean) => void
+  toggleHighContrast: (enabled: boolean) => void
   resetSettings: () => void
 }
 
@@ -88,12 +93,38 @@ export const useSettingsStore = create<SettingsStore>()(
       setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
       setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
       setBoardLocked: createSettingSetter(set, 'boardLocked'),
+      setReducedMotion: createSettingSetter(set, 'reducedMotion'),
+      toggleHighContrast: (enabled) =>
+        set((state) =>
+        {
+          if (enabled)
+          {
+            return {
+              preHighContrastThemeId: state.themeId,
+              preHighContrastPaletteId: state.paletteId,
+              themeId: 'high-contrast' as const,
+              paletteId: THEME_PALETTE['high-contrast'],
+            }
+          }
+          const restoreTheme =
+            state.preHighContrastThemeId && state.preHighContrastThemeId !== 'high-contrast'
+              ? state.preHighContrastThemeId
+              : ('classic' as const)
+          const restorePalette =
+            state.preHighContrastPaletteId ?? THEME_PALETTE[restoreTheme]
+          return {
+            themeId: restoreTheme,
+            paletteId: restorePalette,
+            preHighContrastThemeId: null,
+            preHighContrastPaletteId: null,
+          }
+        }),
       resetSettings: () => set(DEFAULT_SETTINGS),
     }),
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createAppPersistStorage(),
-      version: 8,
+      version: 10,
       migrate: (persisted, version) =>
       {
         let state = persisted as Record<string, unknown>
@@ -147,6 +178,18 @@ export const useSettingsStore = create<SettingsStore>()(
           if (state.paletteId === 'amoled')
           {
             state = { ...state, paletteId: 'twilight' }
+          }
+        }
+        if (version < 9)
+        {
+          state = { ...state, reducedMotion: false }
+        }
+        if (version < 10)
+        {
+          state = {
+            ...state,
+            preHighContrastThemeId: null,
+            preHighContrastPaletteId: null,
           }
         }
         return state

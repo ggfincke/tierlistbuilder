@@ -12,6 +12,7 @@ import {
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { THEMES } from '../../theme/tokens'
+import { SHORTCUTS } from '../../utils/shortcuts'
 import { PresetPickerModal } from '../ui/PresetPickerModal'
 import { SettingRow } from './SettingRow'
 import { SettingsSection } from './SettingsSection'
@@ -23,22 +24,6 @@ interface TierSettingsMoreTabProps
   onClose: () => void
   onRequestClearAll: () => void
 }
-
-const isMac =
-  typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac')
-const modKey = isMac ? 'Cmd' : 'Ctrl'
-
-const SHORTCUTS = [
-  { keys: [modKey, 'Z'], description: 'Undo' },
-  { keys: [modKey, 'Shift', 'Z'], description: 'Redo' },
-  {
-    keys: ['Esc'],
-    description: 'Close modal / cancel edit / exit keyboard mode',
-  },
-  { keys: ['Enter'], description: 'Confirm edit / submit' },
-  { keys: ['Space'], description: 'Enter keyboard mode / pick up / drop' },
-  { keys: ['Arrow Keys'], description: 'Browse items / move dragged item' },
-]
 
 export const TierSettingsMoreTab = ({
   storageBytes,

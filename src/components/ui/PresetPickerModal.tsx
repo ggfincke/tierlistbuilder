@@ -63,9 +63,9 @@ export const PresetPickerModal = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/60 animate-[fadeIn_100ms_ease-out]" onClick={onClose} />
 
-      <div className="fixed inset-0 z-50 m-auto flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
+      <div className="fixed inset-0 z-50 m-auto flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl animate-[scaleIn_150ms_ease-out]">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-[var(--t-text)]">
             New List
