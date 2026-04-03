@@ -3,7 +3,7 @@
 
 import { DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 
 const EMPTY_SENSORS: never[] = []
 
@@ -14,7 +14,16 @@ import { getTextColor } from '../../utils/color'
 import { getEffectiveTiers } from '../../utils/dragSnapshot'
 import { resolveTierColorSpec } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
+import type { ToolbarPosition } from '../../types'
+import { isVerticalPosition } from '../../utils/menuPosition'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
+
+const TOOLBAR_LAYOUT_CLASS: Record<ToolbarPosition, string> = {
+  top: 'flex flex-col gap-3',
+  bottom: 'flex flex-col-reverse gap-3',
+  left: 'flex flex-row items-center gap-3',
+  right: 'flex flex-row-reverse items-center gap-3',
+}
 import { DragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
 import { TrashZone } from './TrashZone'
@@ -27,8 +36,15 @@ const DND_ACCESSIBILITY = {
   },
 }
 
-export const TierList = () =>
+interface TierListProps
 {
+  toolbar: ReactNode
+  toolbarPosition: ToolbarPosition
+}
+
+export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
+{
+  const isVertical = isVerticalPosition(toolbarPosition)
   const paletteId = useCurrentPaletteId()
   const boardLocked = useSettingsStore((state) => state.boardLocked)
   const exportBackgroundOverride = useSettingsStore(
@@ -102,33 +118,40 @@ export const TierList = () =>
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      {/* export capture wrapper — min-width prevents layout collapse on narrow screens */}
-      <div className={`overflow-x-auto ${compactMode ? 'mt-1' : 'mt-3'}`}>
-        <div
-          id="tier-list"
-          ref={boardRef}
-          role="region"
-          aria-label="Tier list board"
-          data-testid="tier-list-board"
-          data-keyboard-mode={keyboardMode}
-          data-keyboard-focus-item-id=""
-          tabIndex={-1}
-          className="min-w-[860px]"
-          style={{ backgroundColor: exportBackgroundColor }}
-        >
-          <SortableContext
-            items={tierIds}
-            strategy={verticalListSortingStrategy}
+      {/* toolbar + tier rows wrapper — toolbar sits alongside or above/below the tiers */}
+      <div
+        className={`${compactMode ? 'mt-1' : 'mt-3'} ${TOOLBAR_LAYOUT_CLASS[toolbarPosition]}`}
+      >
+        {toolbar}
+
+        {/* export capture wrapper — min-width prevents layout collapse on narrow screens */}
+        <div className={`overflow-x-auto ${isVertical ? 'min-w-0 flex-1' : ''}`}>
+          <div
+            id="tier-list"
+            ref={boardRef}
+            role="region"
+            aria-label="Tier list board"
+            data-testid="tier-list-board"
+            data-keyboard-mode={keyboardMode}
+            data-keyboard-focus-item-id=""
+            tabIndex={-1}
+            className="min-w-[860px]"
+            style={{ backgroundColor: exportBackgroundColor }}
           >
-            {tiers.map((tier, index) => (
-              <TierRow
-                key={tier.id}
-                tier={tier}
-                index={index}
-                totalTiers={tiers.length}
-              />
-            ))}
-          </SortableContext>
+            <SortableContext
+              items={tierIds}
+              strategy={verticalListSortingStrategy}
+            >
+              {tiers.map((tier, index) => (
+                <TierRow
+                  key={tier.id}
+                  tier={tier}
+                  index={index}
+                  totalTiers={tiers.length}
+                />
+              ))}
+            </SortableContext>
+          </div>
         </div>
       </div>
 
