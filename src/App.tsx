@@ -17,6 +17,7 @@ import { useCurrentPaletteId } from './hooks/useCurrentPaletteId'
 import { useExportController } from './hooks/useExportController'
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
 import { useThemeApplicator } from './hooks/useThemeApplicator'
+import { useSettingsStore } from './store/useSettingsStore'
 import { useTierListStore } from './store/useTierListStore'
 
 function App()
@@ -27,6 +28,7 @@ function App()
   const clearRuntimeError = useTierListStore((state) => state.clearRuntimeError)
   const addTier = useTierListStore((state) => state.addTier)
   const resetBoard = useTierListStore((state) => state.resetBoard)
+  const toolbarPosition = useSettingsStore((state) => state.toolbarPosition)
 
   useThemeApplicator()
 
@@ -115,18 +117,22 @@ function App()
 
         {/* board content — fades in when switching boards */}
         <div style={boardTransitionStyle}>
-          <BoardActionBar
-            exportStatus={exportStatus}
-            exportingAll={exportAllProgress !== null}
-            onAddTier={handleAddTier}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onExport={runExport}
-            onCopyToClipboard={runCopyToClipboard}
-            onExportAll={runExportAll}
-            onReset={handleResetBoard}
+          <TierList
+            toolbar={
+              <BoardActionBar
+                toolbarPosition={toolbarPosition}
+                exportStatus={exportStatus}
+                exportingAll={exportAllProgress !== null}
+                onAddTier={handleAddTier}
+                onOpenSettings={() => setSettingsOpen(true)}
+                onExport={runExport}
+                onCopyToClipboard={runCopyToClipboard}
+                onExportAll={runExportAll}
+                onReset={handleResetBoard}
+              />
+            }
+            toolbarPosition={toolbarPosition}
           />
-
-          <TierList />
         </div>
       </div>
 

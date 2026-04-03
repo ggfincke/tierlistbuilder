@@ -162,6 +162,9 @@ export type PaletteId =
 // tier label font size presets (independent of item size)
 export type TierLabelFontSize = 'xs' | 'small' | 'medium' | 'large' | 'xl'
 
+// toolbar placement relative to the tier list
+export type ToolbarPosition = 'top' | 'bottom' | 'left' | 'right'
+
 // runtime keyboard interaction states for item navigation & drag
 export type KeyboardMode = 'idle' | 'browse' | 'dragging'
 
@@ -186,6 +189,7 @@ export interface AppSettings
   reducedMotion: boolean
   preHighContrastThemeId: ThemeId | null
   preHighContrastPaletteId: PaletteId | null
+  toolbarPosition: ToolbarPosition
 }
 
 // appearance settings needed to render a board for export capture

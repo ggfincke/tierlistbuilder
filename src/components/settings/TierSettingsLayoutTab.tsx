@@ -7,6 +7,7 @@ import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
+  ToolbarPosition,
 } from '../../types'
 import { SegmentedControl } from './SegmentedControl'
 import { SettingRow } from './SettingRow'
@@ -39,9 +40,28 @@ export const TierSettingsLayoutTab = () =>
   const setTierLabelFontSize = useSettingsStore(
     (state) => state.setTierLabelFontSize
   )
+  const toolbarPosition = useSettingsStore((state) => state.toolbarPosition)
+  const setToolbarPosition = useSettingsStore(
+    (state) => state.setToolbarPosition
+  )
 
   return (
     <>
+      <SettingsSection title="Toolbar">
+        <SettingRow label="Position">
+          <SegmentedControl<ToolbarPosition>
+            options={[
+              { value: 'top', label: 'Top' },
+              { value: 'bottom', label: 'Bottom' },
+              { value: 'left', label: 'Left' },
+              { value: 'right', label: 'Right' },
+            ]}
+            value={toolbarPosition}
+            onChange={setToolbarPosition}
+          />
+        </SettingRow>
+      </SettingsSection>
+
       <SettingsSection title="Items">
         <SettingRow label="Item Size">
           <SegmentedControl<ItemSize>

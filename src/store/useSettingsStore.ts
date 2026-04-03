@@ -13,6 +13,7 @@ import type {
   TextStyleId,
   ThemeId,
   TierLabelFontSize,
+  ToolbarPosition,
 } from '../types'
 import { createAppPersistStorage, SETTINGS_STORAGE_KEY } from '../utils/storage'
 import { THEMES } from '../theme/tokens'
@@ -37,6 +38,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   reducedMotion: false,
   preHighContrastThemeId: null,
   preHighContrastPaletteId: null,
+  toolbarPosition: 'top',
 }
 
 interface SettingsStore extends AppSettings
@@ -57,6 +59,7 @@ interface SettingsStore extends AppSettings
   setTierLabelFontSize: (size: TierLabelFontSize) => void
   setBoardLocked: (locked: boolean) => void
   setReducedMotion: (reduced: boolean) => void
+  setToolbarPosition: (position: ToolbarPosition) => void
   toggleHighContrast: (enabled: boolean) => void
   resetSettings: () => void
 }
@@ -94,6 +97,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
       setBoardLocked: createSettingSetter(set, 'boardLocked'),
       setReducedMotion: createSettingSetter(set, 'reducedMotion'),
+      setToolbarPosition: createSettingSetter(set, 'toolbarPosition'),
       toggleHighContrast: (enabled) =>
         set((state) =>
         {
@@ -125,7 +129,7 @@ export const useSettingsStore = create<SettingsStore>()(
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createAppPersistStorage(),
-      version: 10,
+      version: 11,
       migrate: (persisted, version) =>
       {
         let state = persisted as Record<string, unknown>
@@ -192,6 +196,10 @@ export const useSettingsStore = create<SettingsStore>()(
             preHighContrastThemeId: null,
             preHighContrastPaletteId: null,
           }
+        }
+        if (version < 11)
+        {
+          state = { ...state, toolbarPosition: 'top' }
         }
         return state
       },

@@ -16,7 +16,7 @@ import {
   Unlock,
 } from 'lucide-react'
 
-import type { ImageFormat } from '../../types'
+import type { ImageFormat, ToolbarPosition } from '../../types'
 import { extractPresetFromBoard } from '../../domain/presets'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { useHybridMenu } from '../../hooks/useHybridMenu'
@@ -27,6 +27,10 @@ import { usePresetStore } from '../../store/usePresetStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { usePopupClose } from '../../hooks/usePopupClose'
+import {
+  getMenuPositionClasses,
+  isVerticalPosition,
+} from '../../utils/menuPosition'
 import { ActionButton } from './ActionButton'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportMenu } from './ExportMenu'
@@ -34,6 +38,7 @@ import { OverlayMenuItem, OverlayMenuSurface } from './OverlayPrimitives'
 
 interface BoardActionBarProps
 {
+  toolbarPosition: ToolbarPosition
   // active export type while an export is in progress (null when idle)
   exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
   // true while an "Export All" operation is running
@@ -48,6 +53,7 @@ interface BoardActionBarProps
 
 // * primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
+  toolbarPosition,
   exportStatus,
   exportingAll,
   onAddTier,
@@ -58,6 +64,8 @@ export const BoardActionBar = ({
   onReset,
 }: BoardActionBarProps) =>
 {
+  const isVertical = isVerticalPosition(toolbarPosition)
+  const menuPos = getMenuPositionClasses(toolbarPosition)
   const boardLocked = useSettingsStore((state) => state.boardLocked)
   const setBoardLocked = useSettingsStore((state) => state.setBoardLocked)
   const pastLength = useTierListStore((state) => state.past.length)
@@ -157,8 +165,17 @@ export const BoardActionBar = ({
 
   return (
     <>
-      <div className="mt-3 flex justify-center">
-        <div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-[1.7rem] border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-sunken)] px-4 py-1.5 sm:gap-5 sm:px-8 sm:py-2">
+      <div
+        key={toolbarPosition}
+        className="flex justify-center animate-[scaleIn_150ms_ease-out]"
+      >
+        <div
+          className={`inline-flex items-center justify-center gap-3 rounded-[1.7rem] border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-sunken)] ${
+            isVertical
+              ? 'flex-col px-1.5 py-4 sm:px-2 sm:py-6'
+              : 'flex-wrap px-4 py-1.5 sm:gap-5 sm:px-8 sm:py-2'
+          }`}
+        >
           {/* undo & redo controls */}
           <ActionButton
             label="Undo"
@@ -210,7 +227,7 @@ export const BoardActionBar = ({
                 ref={shuffleMenuRef}
                 role="dialog"
                 aria-label="Shuffle options"
-                className="absolute left-1/2 top-full z-30 mt-3 flex w-max -translate-x-1/2 flex-col animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 before:absolute before:-top-3 before:left-0 before:h-3 before:w-full"
+                className={`${menuPos.primary} flex flex-col animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
               >
                 {/* shuffle all submenu — even or random distribution */}
                 <div className="relative">
@@ -222,7 +239,7 @@ export const BoardActionBar = ({
                     onClick={toggleShuffleAllMenu}
                   >
                     Shuffle All
-                    <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)]" />
+                    <ChevronRight className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`} />
                   </OverlayMenuItem>
 
                   {showShuffleAllMenu && (
@@ -230,7 +247,7 @@ export const BoardActionBar = ({
                       id={shuffleAllGroupId}
                       role="group"
                       aria-label="Shuffle all options"
-                      className="absolute left-[calc(100%+0.375rem)] top-[-0.375rem] z-40 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2"
+                      className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
                     >
                       <OverlayMenuItem onClick={() => handleShuffle('even')}>
                         Distribute Evenly
@@ -270,6 +287,7 @@ export const BoardActionBar = ({
 
           {/* export button w/ dropdown menu */}
           <ExportMenu
+            menuPos={menuPos}
             exportStatus={exportStatus}
             exportingAll={exportingAll}
             onExport={onExport}
