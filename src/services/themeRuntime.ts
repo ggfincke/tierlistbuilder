@@ -4,6 +4,7 @@
 import { THEMES } from '../theme/tokens'
 import { TEXT_STYLES } from '../theme/textStyles'
 import type { TextStyleId, ThemeId } from '../types'
+import { getTextColor } from '../utils/color'
 
 const FONT_LINK_ID = 'theme-google-font'
 
@@ -17,6 +18,11 @@ export const applyThemeTokens = (themeId: ThemeId): void =>
     root.style.setProperty(`--t-${key}`, value)
   }
 
+  root.style.setProperty('--t-accent-foreground', getTextColor(theme.accent))
+  root.style.setProperty(
+    '--t-destructive-foreground',
+    getTextColor(theme.destructive)
+  )
   root.setAttribute('data-theme', themeId)
 }
 

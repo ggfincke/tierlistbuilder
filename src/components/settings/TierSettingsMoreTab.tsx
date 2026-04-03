@@ -1,7 +1,7 @@
 // src/components/settings/TierSettingsMoreTab.tsx
 // more tab content for export prefs, storage, lists, & shortcuts
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Github, Layers, Plus, RotateCcw, Trash2 } from 'lucide-react'
 
 import type { TierPreset } from '../../types'
@@ -12,6 +12,7 @@ import {
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { THEMES } from '../../theme/tokens'
+import { SHORTCUTS } from '../../utils/shortcuts'
 import { PresetPickerModal } from '../ui/PresetPickerModal'
 import { SettingRow } from './SettingRow'
 import { SettingsSection } from './SettingsSection'
@@ -23,22 +24,6 @@ interface TierSettingsMoreTabProps
   onClose: () => void
   onRequestClearAll: () => void
 }
-
-const isMac =
-  typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac')
-const modKey = isMac ? 'Cmd' : 'Ctrl'
-
-const SHORTCUTS = [
-  { keys: [modKey, 'Z'], description: 'Undo' },
-  { keys: [modKey, 'Shift', 'Z'], description: 'Redo' },
-  {
-    keys: ['Esc'],
-    description: 'Close modal / cancel edit / exit keyboard mode',
-  },
-  { keys: ['Enter'], description: 'Confirm edit / submit' },
-  { keys: ['Space'], description: 'Enter keyboard mode / pick up / drop' },
-  { keys: ['Arrow Keys'], description: 'Browse items / move dragged item' },
-]
 
 export const TierSettingsMoreTab = ({
   storageBytes,
@@ -62,6 +47,7 @@ export const TierSettingsMoreTab = ({
   )
 
   const [showPresetPicker, setShowPresetPicker] = useState(false)
+  const exportBackgroundInputId = useId()
 
   const effectiveExportBg =
     exportBackgroundOverride ?? THEMES[themeId]['export-bg']
@@ -84,6 +70,7 @@ export const TierSettingsMoreTab = ({
               <button
                 type="button"
                 onClick={() => setExportBackgroundOverride(null)}
+                aria-label="Reset export background color to the theme default"
                 className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
                 title="Reset to theme default"
               >
@@ -91,11 +78,13 @@ export const TierSettingsMoreTab = ({
               </button>
             )}
             <input
+              id={exportBackgroundInputId}
               type="color"
               value={effectiveExportBg}
               onChange={(event) =>
                 setExportBackgroundOverride(event.target.value)
               }
+              aria-label="Export background color"
               className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
             />
           </div>
@@ -188,6 +177,7 @@ export const TierSettingsMoreTab = ({
           href="https://github.com/ggfincke/tierlistbuilder"
           target="_blank"
           rel="noopener noreferrer"
+          aria-label="Open the tierlistbuilder GitHub repository"
           className="text-[var(--t-text-faint)] transition-colors hover:text-[var(--t-text-muted)]"
         >
           <Github size={14} />

@@ -21,6 +21,8 @@ export interface RgbInputState
 
 const VALID_HEX = /^[\da-f]{3}([\da-f]{3})?$/i
 const VALID_RGB_CHANNEL = /^\d{1,3}$/
+const DARK_TEXT_COLOR = '#000000'
+const LIGHT_TEXT_COLOR = '#ffffff'
 
 // normalize a user-entered hex string to lowercase #rrggbb
 export const normalizeHexColor = (value: string): string | null =>
@@ -105,18 +107,50 @@ export const parseRgbInputState = (value: RgbInputState): RgbColor | null =>
   return { red, green, blue }
 }
 
-// compute accessible foreground color (dark or light) based on background luminance
-export const getTextColor = (hexColor: string): string =>
+const getRelativeLuminance = (color: RgbColor): number =>
 {
-  const rgb = hexToRgbColor(hexColor)
-  if (!rgb)
+  const channels = [color.red, color.green, color.blue].map((channel) =>
   {
-    return '#111827'
+    const normalized = channel / 255
+
+    if (normalized <= 0.03928)
+    {
+      return normalized / 12.92
+    }
+
+    return ((normalized + 0.055) / 1.055) ** 2.4
+  })
+
+  const [red, green, blue] = channels
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+}
+
+export const getContrastRatio = (
+  backgroundHexColor: string,
+  foregroundHexColor: string
+): number =>
+{
+  const background = hexToRgbColor(backgroundHexColor)
+  const foreground = hexToRgbColor(foregroundHexColor)
+
+  if (!background || !foreground)
+  {
+    return 1
   }
 
-  const luminance =
-    (0.299 * rgb.red + 0.587 * rgb.green + 0.114 * rgb.blue) / 255
+  const backgroundLuminance = getRelativeLuminance(background)
+  const foregroundLuminance = getRelativeLuminance(foreground)
+  const brighterLuminance = Math.max(backgroundLuminance, foregroundLuminance)
+  const darkerLuminance = Math.min(backgroundLuminance, foregroundLuminance)
 
-  // use dark text on bright backgrounds, light text on dark ones
-  return luminance > 0.6 ? '#1f2937' : '#f8fafc'
+  return (brighterLuminance + 0.05) / (darkerLuminance + 0.05)
+}
+
+// compute the higher-contrast text color between pure black & pure white
+export const getTextColor = (hexColor: string): string =>
+{
+  const darkContrast = getContrastRatio(hexColor, DARK_TEXT_COLOR)
+  const lightContrast = getContrastRatio(hexColor, LIGHT_TEXT_COLOR)
+
+  return darkContrast >= lightContrast ? DARK_TEXT_COLOR : LIGHT_TEXT_COLOR
 }

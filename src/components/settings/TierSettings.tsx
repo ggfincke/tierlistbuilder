@@ -1,13 +1,20 @@
 // src/components/settings/TierSettings.tsx
 // settings panel — tabbed modal that orchestrates per-tab settings content
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { getPaletteColors } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
-import { useTierListStore } from '../../store/useTierListStore'
-import { getStorageUsageBytes } from '../../utils/storage'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
+import { useTierListStore } from '../../store/useTierListStore'
+import {
+  resolveNextSelectionIndex,
+  type SelectionNavigationKey,
+} from '../../utils/selectionNavigation'
+import { getStorageUsageBytes } from '../../utils/storage'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { TierSettingsAppearanceTab } from './TierSettingsAppearanceTab'
 import { TierSettingsItemsTab } from './TierSettingsItemsTab'
@@ -40,7 +47,11 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const [textLabel, setTextLabel] = useState('')
   const [textColor, setTextColor] = useState(defaultTextColor)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({})
   const lastDefaultTextColorRef = useRef(defaultTextColor)
+  const titleId = useId()
+  const tabsId = useId()
 
   // keep the draft text-item color aligned to the active palette until the user customizes it
   useEffect(() =>
@@ -56,6 +67,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
     onDismiss: onClose,
     closeOnInteractOutside: false,
   })
+
+  useFocusTrap(dialogRef, open)
+  useModalBackgroundInert(open)
 
   // compute storage usage when preferences tab opens
   const storageBytes = useMemo(
@@ -80,28 +94,82 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
     setTextLabel('')
   }
 
-  return (
+  return createPortal(
     <>
       {/* backdrop — click to close */}
-      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-40 bg-black/60 animate-[fadeIn_100ms_ease-out]"
+        onClick={onClose}
+      />
 
-      <div className="fixed inset-0 z-50 m-auto flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="fixed inset-0 z-50 m-auto flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl animate-[scaleIn_150ms_ease-out]"
+      >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-[var(--t-text)]">
+            <h2
+              id={titleId}
+              className="text-lg font-semibold text-[var(--t-text)]"
+            >
               Settings
             </h2>
             {/* tab buttons */}
-            <div className="flex gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5">
-              {TABS.map((tab) => (
+            <div
+              role="tablist"
+              aria-label="Settings sections"
+              className="flex gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5"
+            >
+              {TABS.map((tab, index) => (
                 <button
                   key={tab}
+                  ref={(node) =>
+                  {
+                    tabRefs.current[tab] = node
+                  }}
                   type="button"
+                  id={`${tabsId}-${tab}-tab`}
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  aria-controls={`${tabsId}-${tab}-panel`}
+                  tabIndex={activeTab === tab ? 0 : -1}
                   onClick={() => setActiveTab(tab)}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                  onKeyDown={(event) =>
+                  {
+                    const key = event.key as SelectionNavigationKey
+
+                    if (
+                      !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)
+                    )
+                    {
+                      return
+                    }
+
+                    const nextIndex = resolveNextSelectionIndex({
+                      currentIndex: index,
+                      itemCount: TABS.length,
+                      key,
+                      columns: TABS.length,
+                    })
+
+                    if (nextIndex === null)
+                    {
+                      return
+                    }
+
+                    event.preventDefault()
+
+                    const nextTab = TABS[nextIndex]
+                    setActiveTab(nextTab)
+                    tabRefs.current[nextTab]?.focus()
+                  }}
+                  className={`focus-custom rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] max-sm:px-2 max-sm:py-2 ${
                     activeTab === tab
                       ? 'bg-[var(--t-bg-active)] text-[var(--t-text)] shadow-sm'
-                      : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
+                      : 'text-[var(--t-text-muted)] hover:text-[var(--t-text-secondary)]'
                   }`}
                 >
                   {tab}
@@ -118,7 +186,12 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
           </button>
         </div>
 
-        <div className="min-h-0 space-y-5 overflow-y-auto pr-1">
+        <div
+          id={`${tabsId}-${activeTab}-panel`}
+          role="tabpanel"
+          aria-labelledby={`${tabsId}-${activeTab}-tab`}
+          className="min-h-0 space-y-5 overflow-y-auto pr-1"
+        >
           {activeTab === 'items' && (
             <TierSettingsItemsTab
               textLabel={textLabel}
@@ -155,6 +228,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
         }}
         onCancel={() => setShowClearAllConfirm(false)}
       />
-    </>
+    </>,
+    document.body
   )
 }

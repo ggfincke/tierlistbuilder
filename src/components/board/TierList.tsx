@@ -10,6 +10,7 @@ const EMPTY_SENSORS: never[] = []
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { THEMES } from '../../theme/tokens'
+import { getTextColor } from '../../utils/color'
 import { getEffectiveTiers } from '../../utils/dragSnapshot'
 import { resolveTierColorSpec } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
@@ -77,6 +78,12 @@ export const TierList = () =>
 
   // disable all drag sensors when the board is locked
   const activeSensors = boardLocked ? EMPTY_SENSORS : sensors
+  const activeTierColor = activeTier
+    ? resolveTierColorSpec(paletteId, activeTier.colorSpec)
+    : null
+  const activeTierTextColor = activeTierColor
+    ? getTextColor(activeTierColor)
+    : null
 
   return (
     <DndContext
@@ -98,7 +105,10 @@ export const TierList = () =>
       {/* export capture wrapper — min-width prevents layout collapse on narrow screens */}
       <div className={`overflow-x-auto ${compactMode ? 'mt-1' : 'mt-3'}`}>
         <div
+          id="tier-list"
           ref={boardRef}
+          role="region"
+          aria-label="Tier list board"
           data-testid="tier-list-board"
           data-keyboard-mode={keyboardMode}
           data-keyboard-focus-item-id=""
@@ -134,12 +144,12 @@ export const TierList = () =>
           <div
             className="flex items-center gap-2 rounded-lg px-4 py-2 shadow-xl"
             style={{
-              backgroundColor: resolveTierColorSpec(
-                paletteId,
-                activeTier.colorSpec
-              ),
-              color: '#fff',
-              textShadow: '0 0 2px rgba(0,0,0,0.4)',
+              backgroundColor: activeTierColor ?? undefined,
+              color: activeTierTextColor ?? undefined,
+              textShadow:
+                activeTierTextColor === '#ffffff'
+                  ? '0 0 2px rgba(0,0,0,0.4)'
+                  : '0 0 2px rgba(255,255,255,0.35)',
             }}
           >
             <span className="text-sm font-semibold">{activeTier.name}</span>

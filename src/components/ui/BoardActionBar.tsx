@@ -1,9 +1,11 @@
 // src/components/ui/BoardActionBar.tsx
 // floating action bar — undo/redo, add tier, settings, export, & reset controls
 
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   BookmarkPlus,
+  ChevronRight,
   Lock,
   Plus,
   Redo2,
@@ -16,11 +18,14 @@ import {
 
 import type { ImageFormat } from '../../types'
 import { extractPresetFromBoard } from '../../domain/presets'
+import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { useHybridMenu } from '../../hooks/useHybridMenu'
+import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
 import { extractBoardData } from '../../store/useTierListStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { usePresetStore } from '../../store/usePresetStore'
 import { useTierListStore } from '../../store/useTierListStore'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ActionButton } from './ActionButton'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -73,11 +78,35 @@ export const BoardActionBar = ({
   const shuffleMenuRef = useRef<HTMLDivElement | null>(null)
   const [showSavePreset, setShowSavePreset] = useState(false)
   const [presetName, setPresetName] = useState('')
+  const savePresetRef = useRef<HTMLDivElement | null>(null)
+  const shuffleDialogId = useId()
+  const shuffleAllGroupId = useId()
+  const savePresetTitleId = useId()
+  const savePresetDescriptionId = useId()
+  const savePresetInputId = useId()
   const {
     open: showShuffleMenu,
-    closeMenu: closeShuffleMenu,
+    closeMenu: closeShuffleMenuRoot,
     togglePinnedOpen: toggleShuffleMenu,
   } = useHybridMenu({ disabled: boardLocked })
+
+  const {
+    open: showShuffleAllMenu,
+    closeMenu: closeShuffleAllMenu,
+    togglePinnedOpen: toggleShuffleAllMenu,
+  } = useHybridMenu({ disabled: boardLocked })
+
+  const closeShuffleMenu = useCallback(() =>
+  {
+    closeShuffleMenuRoot()
+    closeShuffleAllMenu()
+  }, [closeShuffleMenuRoot, closeShuffleAllMenu])
+
+  // collapse submenu when root menu closes
+  useEffect(() =>
+  {
+    if (!showShuffleMenu) closeShuffleAllMenu()
+  }, [showShuffleMenu, closeShuffleAllMenu])
 
   usePopupClose({
     show: showShuffleMenu,
@@ -86,18 +115,37 @@ export const BoardActionBar = ({
     onClose: closeShuffleMenu,
   })
 
+  // pending shuffle mode for the confirmation dialog
+  const [pendingShuffleMode, setPendingShuffleMode] = useState<
+    'even' | 'random' | null
+  >(null)
+
   // shuffle w/ confirmation when items have been manually arranged
-  const handleShuffle = (mode: 'all' | 'unranked') =>
+  const handleShuffle = (mode: 'even' | 'random' | 'unranked') =>
   {
     closeShuffleMenu()
-    if (mode === 'all' && itemsManuallyMoved)
+    if (mode === 'unranked')
     {
+      shuffleUnrankedItems()
+      return
+    }
+    if (itemsManuallyMoved)
+    {
+      setPendingShuffleMode(mode)
       setConfirmShuffleAll(true)
       return
     }
-    if (mode === 'all') shuffleAllItems()
-    else shuffleUnrankedItems()
+    shuffleAllItems(mode)
   }
+
+  useFocusTrap(savePresetRef, showSavePreset)
+  useModalBackgroundInert(showSavePreset)
+  useDismissibleLayer({
+    open: showSavePreset,
+    layerRef: savePresetRef,
+    onDismiss: () => setShowSavePreset(false),
+    stopEscapePropagation: true,
+  })
 
   const savePreset = () =>
   {
@@ -110,7 +158,7 @@ export const BoardActionBar = ({
   return (
     <>
       <div className="mt-3 flex justify-center">
-        <div className="inline-flex items-center gap-5 rounded-[1.7rem] border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-sunken)] px-8 py-2">
+        <div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-[1.7rem] border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-sunken)] px-4 py-1.5 sm:gap-5 sm:px-8 sm:py-2">
           {/* undo & redo controls */}
           <ActionButton
             label="Undo"
@@ -148,8 +196,9 @@ export const BoardActionBar = ({
               title="Shuffle"
               onClick={toggleShuffleMenu}
               disabled={boardLocked}
-              hasPopup="menu"
+              hasPopup="dialog"
               expanded={showShuffleMenu}
+              controlsId={shuffleDialogId}
               active={showShuffleMenu}
             >
               <Shuffle className="h-5 w-5" strokeWidth={1.8} />
@@ -157,20 +206,43 @@ export const BoardActionBar = ({
 
             {showShuffleMenu && (
               <OverlayMenuSurface
+                id={shuffleDialogId}
                 ref={shuffleMenuRef}
-                role="menu"
-                className="absolute left-1/2 top-full z-30 mt-3 w-max -translate-x-1/2 animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 before:absolute before:-top-3 before:left-0 before:h-3 before:w-full"
+                role="dialog"
+                aria-label="Shuffle options"
+                className="absolute left-1/2 top-full z-30 mt-3 flex w-max -translate-x-1/2 flex-col animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 before:absolute before:-top-3 before:left-0 before:h-3 before:w-full"
               >
-                <OverlayMenuItem
-                  role="menuitem"
-                  onClick={() => handleShuffle('all')}
-                >
-                  Shuffle All Items
-                </OverlayMenuItem>
-                <OverlayMenuItem
-                  role="menuitem"
-                  onClick={() => handleShuffle('unranked')}
-                >
+                {/* shuffle all submenu — even or random distribution */}
+                <div className="relative">
+                  <OverlayMenuItem
+                    aria-controls={shuffleAllGroupId}
+                    aria-haspopup="dialog"
+                    aria-expanded={showShuffleAllMenu}
+                    className={`${showShuffleAllMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
+                    onClick={toggleShuffleAllMenu}
+                  >
+                    Shuffle All
+                    <ChevronRight className="h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)]" />
+                  </OverlayMenuItem>
+
+                  {showShuffleAllMenu && (
+                    <OverlayMenuSurface
+                      id={shuffleAllGroupId}
+                      role="group"
+                      aria-label="Shuffle all options"
+                      className="absolute left-[calc(100%+0.375rem)] top-[-0.375rem] z-40 -ml-px w-max text-sm shadow-md shadow-black/30 before:absolute before:-left-2 before:top-0 before:h-full before:w-2"
+                    >
+                      <OverlayMenuItem onClick={() => handleShuffle('even')}>
+                        Distribute Evenly
+                      </OverlayMenuItem>
+                      <OverlayMenuItem onClick={() => handleShuffle('random')}>
+                        Fully Random
+                      </OverlayMenuItem>
+                    </OverlayMenuSurface>
+                  )}
+                </div>
+
+                <OverlayMenuItem onClick={() => handleShuffle('unranked')}>
                   Shuffle Unranked Only
                 </OverlayMenuItem>
               </OverlayMenuSurface>
@@ -254,61 +326,81 @@ export const BoardActionBar = ({
         description="This will re-distribute all items randomly across tiers, replacing your current arrangement."
         confirmText="Shuffle"
         variant="accent"
-        onCancel={() => setConfirmShuffleAll(false)}
+        onCancel={() =>
+        {
+          setConfirmShuffleAll(false)
+          setPendingShuffleMode(null)
+        }}
         onConfirm={() =>
         {
-          shuffleAllItems()
+          shuffleAllItems(pendingShuffleMode ?? 'even')
           setConfirmShuffleAll(false)
+          setPendingShuffleMode(null)
         }}
       />
 
       {/* save-as-preset name prompt */}
-      {showSavePreset && (
-        <>
-          <div
-            className="fixed inset-0 z-50 bg-black/60"
-            onClick={() => setShowSavePreset(false)}
-          />
-          <div className="fixed inset-0 z-50 m-auto flex h-fit w-full max-w-sm flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
-            <h2 className="text-lg font-semibold text-[var(--t-text)]">
-              Save as Preset
-            </h2>
-            <p className="mt-1 text-sm text-[var(--t-text-muted)]">
-              Saves the current tier structure (names & colors) for reuse.
-            </p>
-            <input
-              autoFocus
-              type="text"
-              value={presetName}
-              onChange={(e) => setPresetName(e.target.value)}
-              onKeyDown={(e) =>
-              {
-                if (e.key === 'Enter') savePreset()
-                if (e.key === 'Escape') setShowSavePreset(false)
-              }}
-              placeholder="Preset name"
-              className="mt-3 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
-            />
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-md border border-[var(--t-border-secondary)] px-3 py-1.5 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)]"
-                onClick={() => setShowSavePreset(false)}
+      {showSavePreset &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-50 bg-black/60" />
+            <div
+              ref={savePresetRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={savePresetTitleId}
+              aria-describedby={savePresetDescriptionId}
+              className="fixed inset-0 z-50 m-auto flex h-fit w-full max-w-sm flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl"
+            >
+              <h2
+                id={savePresetTitleId}
+                className="text-lg font-semibold text-[var(--t-text)]"
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!presetName.trim()}
-                className="rounded-md bg-[var(--t-accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--t-accent-hover)] disabled:opacity-40"
-                onClick={savePreset}
+                Save as Preset
+              </h2>
+              <p
+                id={savePresetDescriptionId}
+                className="mt-1 text-sm text-[var(--t-text-muted)]"
               >
-                Save
-              </button>
+                Saves the current tier structure (names & colors) for reuse.
+              </p>
+              <label htmlFor={savePresetInputId} className="sr-only">
+                Preset name
+              </label>
+              <input
+                id={savePresetInputId}
+                autoFocus
+                type="text"
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                onKeyDown={(e) =>
+                {
+                  if (e.key === 'Enter') savePreset()
+                }}
+                placeholder="Preset name"
+                className="mt-3 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
+              />
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="focus-custom rounded-md border border-[var(--t-border-secondary)] px-3 py-1.5 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                  onClick={() => setShowSavePreset(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!presetName.trim()}
+                  className="focus-custom rounded-md bg-[var(--t-accent)] px-3 py-1.5 text-sm font-medium text-[var(--t-accent-foreground)] hover:bg-[var(--t-accent-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:opacity-40"
+                  onClick={savePreset}
+                >
+                  Save
+                </button>
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </>,
+          document.body
+        )}
     </>
   )
 }

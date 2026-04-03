@@ -11,6 +11,7 @@ import {
   type UniqueIdentifier,
 } from '@dnd-kit/core'
 
+import { announce, getContainerLabel } from '../utils/announce'
 import { resolveDragCollisions } from './dragCollision'
 import { syncDraggedItemPosition } from './dragPreviewController'
 import { useDragSensors } from './dragSensors'
@@ -140,16 +141,21 @@ export const useDragAndDrop = () =>
     if (type === 'tier')
     {
       // tier drag — no snapshot preview needed, dnd-kit handles visual reorder
-      setActiveTierData(
-        useTierListStore.getState().tiers.find((t) => t.id === activeId)
-      )
+      const tier = useTierListStore
+        .getState()
+        .tiers.find((t) => t.id === activeId)
+      setActiveTierData(tier)
       setActiveItemId(activeId)
+      announce(`Picked up tier ${tier?.name ?? 'tier'}`)
       return
     }
 
     beginDragPreview()
     lastOverIdRef.current = activeId
     setActiveItemId(activeId)
+    const itemLabel =
+      useTierListStore.getState().items[activeId]?.label ?? 'item'
+    announce(`Picked up ${itemLabel}`)
   }
 
   // live-update item position as pointer moves over containers & items
@@ -204,9 +210,11 @@ export const useDragAndDrop = () =>
     // drop on trash — discard preview & remove the item
     if (overId === TRASH_CONTAINER_ID && activeId)
     {
+      const label = useTierListStore.getState().items[activeId]?.label ?? 'item'
       discardDragPreview()
       removeItem(activeId)
       resetDragState()
+      announce(`${label} deleted`)
       return
     }
 
@@ -237,6 +245,18 @@ export const useDragAndDrop = () =>
     }
 
     commitDragPreview()
+
+    if (activeId)
+    {
+      const state = useTierListStore.getState()
+      const label = state.items[activeId]?.label ?? 'item'
+      const preview = getEffectiveContainerSnapshot(state)
+      const containerId = findContainer(preview, activeId)
+      announce(
+        `Dropped ${label} in ${getContainerLabel(containerId, state.tiers)}`
+      )
+    }
+
     resetDragState()
   }
 
@@ -248,6 +268,7 @@ export const useDragAndDrop = () =>
       discardDragPreview()
     }
     resetDragState()
+    announce('Drag cancelled')
   }
 
   // resolve active tier for the drag overlay when dragging a tier row

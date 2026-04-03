@@ -1,7 +1,8 @@
 // src/components/ui/PresetPickerModal.tsx
 // modal for choosing a board preset when creating a new list
 
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 
 import type { TierPreset } from '../../types'
@@ -9,7 +10,10 @@ import { BUILTIN_PRESETS } from '../../domain/presets'
 import { resolveTierColorSpec } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
 import { usePresetStore } from '../../store/usePresetStore'
+import { getTextColor } from '../../utils/color'
 import { ConfirmDialog } from './ConfirmDialog'
 
 interface PresetPickerModalProps
@@ -32,9 +36,12 @@ export const PresetPickerModal = ({
   const removePreset = usePresetStore((state) => state.removePreset)
   const renamePreset = usePresetStore((state) => state.renamePreset)
 
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const blankBoardButtonRef = useRef<HTMLButtonElement>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const titleId = useId()
 
   const allPresets = useMemo(
     () => [...BUILTIN_PRESETS, ...userPresets],
@@ -47,6 +54,12 @@ export const PresetPickerModal = ({
     closeOnInteractOutside: false,
   })
 
+  useFocusTrap(dialogRef, {
+    active: open,
+    initialFocusRef: blankBoardButtonRef,
+  })
+  useModalBackgroundInert(open)
+
   if (!open)
   {
     return null
@@ -56,24 +69,36 @@ export const PresetPickerModal = ({
   {
     if (editingId && editValue.trim())
     {
-      renamePreset(editingId, editValue)
+      renamePreset(editingId, editValue.trim())
     }
     setEditingId(null)
   }
 
-  return (
+  return createPortal(
     <>
-      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-40 bg-black/60 animate-[fadeIn_100ms_ease-out]"
+        onClick={onClose}
+      />
 
-      <div className="fixed inset-0 z-50 m-auto flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="fixed inset-0 z-50 m-auto flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl animate-[scaleIn_150ms_ease-out]"
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[var(--t-text)]">
+          <h2
+            id={titleId}
+            className="text-lg font-semibold text-[var(--t-text)]"
+          >
             New List
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-[var(--t-border-secondary)] px-3 py-1 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)]"
+            className="focus-custom rounded-md border border-[var(--t-border-secondary)] px-3 py-1 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
           >
             Cancel
           </button>
@@ -82,13 +107,14 @@ export const PresetPickerModal = ({
         <div className="min-h-0 flex-1 grid grid-cols-4 gap-2 overflow-y-auto pr-1 auto-rows-min">
           {/* blank board option */}
           <button
+            ref={blankBoardButtonRef}
             type="button"
             onClick={() =>
             {
               onSelectBlank()
               onClose()
             }}
-            className="group flex min-h-[6rem] flex-col gap-2 rounded-lg border border-dashed border-[var(--t-border-secondary)] px-3 py-3 text-left transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)]"
+            className="focus-custom group flex min-h-[6rem] flex-col gap-2 rounded-lg border border-dashed border-[var(--t-border-secondary)] px-3 py-3 text-left transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
           >
             <div className="flex items-center gap-2">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[var(--t-border)] bg-[var(--t-bg-sunken)]">
@@ -98,7 +124,7 @@ export const PresetPickerModal = ({
                 Blank Board
               </span>
             </div>
-            <p className="text-xs text-[var(--t-text-faint)]">
+            <p className="text-xs text-[var(--t-text-muted)]">
               No tiers — start from scratch
             </p>
           </button>
@@ -107,25 +133,43 @@ export const PresetPickerModal = ({
           {allPresets.map((preset) =>
           {
             const isEditing = editingId === preset.id
+            const previewPills = (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {preset.tiers.map((tier, i) =>
+                {
+                  const tierColor = resolveTierColorSpec(
+                    paletteId,
+                    tier.colorSpec
+                  )
+                  const tierTextColor = getTextColor(tierColor)
+
+                  return (
+                    <span
+                      key={i}
+                      className="rounded px-1.5 py-0.5 text-[0.6rem] font-medium leading-none"
+                      style={{
+                        backgroundColor: tierColor,
+                        color: tierTextColor,
+                        textShadow:
+                          tierTextColor === '#ffffff'
+                            ? '0 0 2px rgba(0,0,0,0.4)'
+                            : '0 0 2px rgba(255,255,255,0.35)',
+                      }}
+                    >
+                      {tier.name}
+                    </span>
+                  )
+                })}
+              </div>
+            )
 
             return (
               <div
                 key={preset.id}
-                className="group relative flex min-h-[6rem] flex-col rounded-lg border border-[var(--t-border)] px-3 py-3 transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)]"
+                className="group relative flex min-h-[6rem] flex-col rounded-lg border border-[var(--t-border)] px-3 py-3 transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-within:border-[var(--t-border-hover)] focus-within:bg-[var(--t-bg-hover)]"
               >
-                <button
-                  type="button"
-                  className="flex min-w-0 flex-1 flex-col gap-1.5 text-left"
-                  onClick={() =>
-                  {
-                    if (!isEditing)
-                    {
-                      onSelectPreset(preset)
-                      onClose()
-                    }
-                  }}
-                >
-                  {isEditing ? (
+                {isEditing ? (
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-left">
                     <input
                       autoFocus
                       type="text"
@@ -137,61 +181,48 @@ export const PresetPickerModal = ({
                         if (e.key === 'Escape') setEditingId(null)
                       }}
                       onBlur={commitRename}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-full bg-transparent text-sm font-medium text-[var(--t-text)] outline-none"
+                      aria-label={`Rename ${preset.name}`}
+                      className="focus-custom w-full rounded bg-transparent text-sm font-medium text-[var(--t-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
                     />
-                  ) : (
+                    {previewPills}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="focus-custom flex min-w-0 flex-1 flex-col gap-1.5 rounded text-left focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                    onClick={() =>
+                      {
+                      onSelectPreset(preset)
+                      onClose()
+                    }}
+                  >
                     <span className="text-sm font-medium text-[var(--t-text)]">
                       {preset.name}
                     </span>
-                  )}
-
-                  {/* tier color preview pills */}
-                  <div className="flex flex-wrap gap-1">
-                    {preset.tiers.map((tier, i) => (
-                      <span
-                        key={i}
-                        className="rounded px-1.5 py-0.5 text-[0.6rem] font-medium leading-none"
-                        style={{
-                          backgroundColor: resolveTierColorSpec(
-                            paletteId,
-                            tier.colorSpec
-                          ),
-                          color: '#fff',
-                          textShadow: '0 0 2px rgba(0,0,0,0.4)',
-                        }}
-                      >
-                        {tier.name}
-                      </span>
-                    ))}
-                  </div>
-                </button>
+                    {previewPills}
+                  </button>
+                )}
 
                 {/* actions for user presets */}
                 {!preset.builtIn && !isEditing && (
-                  <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                  <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
                       type="button"
                       aria-label={`Rename ${preset.name}`}
-                      onClick={(e) =>
+                      onClick={() =>
                       {
-                        e.stopPropagation()
                         setEditingId(preset.id)
                         setEditValue(preset.name)
                       }}
-                      className="rounded p-1 text-[var(--t-text-dim)] hover:text-[var(--t-text)]"
+                      className="focus-custom rounded p-1 text-[var(--t-text-dim)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
                     >
                       <Pencil className="h-3 w-3" />
                     </button>
                     <button
                       type="button"
                       aria-label={`Delete ${preset.name}`}
-                      onClick={(e) =>
-                      {
-                        e.stopPropagation()
-                        setConfirmDeleteId(preset.id)
-                      }}
-                      className="rounded p-1 text-[var(--t-text-dim)] hover:text-[var(--t-destructive-hover)]"
+                      onClick={() => setConfirmDeleteId(preset.id)}
+                      className="focus-custom rounded p-1 text-[var(--t-text-dim)] hover:text-[var(--t-destructive-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -215,6 +246,7 @@ export const PresetPickerModal = ({
           setConfirmDeleteId(null)
         }}
       />
-    </>
+    </>,
+    document.body
   )
 }

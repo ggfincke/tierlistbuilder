@@ -1,7 +1,7 @@
 // src/components/board/TierRowSettingsMenu.tsx
 // gear button & popup settings menu for a tier row
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 import type { PaletteId, Tier } from '../../types'
@@ -46,6 +46,8 @@ export const TierRowSettingsMenu = ({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const gearButtonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const dialogId = useId()
+  const titleId = useId()
   const { style: menuStyle, updatePosition: updateMenuPosition } =
     useAnchoredPosition({
       computePosition: () =>
@@ -67,17 +69,24 @@ export const TierRowSettingsMenu = ({
       <button
         ref={gearButtonRef}
         type="button"
-        className="rounded p-1 text-[var(--t-text-faint)] hover:text-[var(--t-text)]"
+        className="focus-custom rounded p-1 text-[var(--t-text-faint)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] max-sm:p-2"
         onClick={() =>
         {
-          if (!show && gearButtonRef.current)
+          if (show)
+          {
+            onClose()
+            return
+          }
+
+          if (gearButtonRef.current)
           {
             updateMenuPosition()
             onToggle()
           }
         }}
         aria-label="Row settings"
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
+        aria-controls={dialogId}
         aria-expanded={show}
       >
         <SettingsIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -85,11 +94,16 @@ export const TierRowSettingsMenu = ({
 
       {show && (
         <OverlayMenuSurface
+          id={dialogId}
           ref={menuRef}
-          role="menu"
+          role="dialog"
+          aria-labelledby={titleId}
           className="z-50 w-48 p-2"
           style={menuStyle}
         >
+          <h2 id={titleId} className="sr-only">
+            {tier.name} row settings
+          </h2>
           <input
             defaultValue={tier.name}
             onBlur={(e) =>
@@ -123,7 +137,6 @@ export const TierRowSettingsMenu = ({
           />
 
           <OverlayMenuItem
-            role="menuitem"
             className="text-sm text-[var(--t-destructive-hover)]"
             onClick={() =>
             {
@@ -135,7 +148,6 @@ export const TierRowSettingsMenu = ({
           </OverlayMenuItem>
 
           <OverlayMenuItem
-            role="menuitem"
             className="text-sm"
             onClick={() =>
             {
@@ -147,7 +159,6 @@ export const TierRowSettingsMenu = ({
           </OverlayMenuItem>
 
           <OverlayMenuItem
-            role="menuitem"
             className="text-sm"
             onClick={() =>
             {
@@ -159,7 +170,6 @@ export const TierRowSettingsMenu = ({
           </OverlayMenuItem>
 
           <OverlayMenuItem
-            role="menuitem"
             className="text-sm"
             onClick={() =>
             {
@@ -171,7 +181,6 @@ export const TierRowSettingsMenu = ({
           </OverlayMenuItem>
 
           <OverlayMenuItem
-            role="menuitem"
             className="text-sm"
             onClick={() =>
             {

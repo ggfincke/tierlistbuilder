@@ -12,6 +12,8 @@ export interface TierItem
   label?: string
   // hex background color used when imageUrl is absent
   backgroundColor?: string
+  // custom alt text for screen readers (falls back to label)
+  altText?: string
 }
 
 // stable palette slot used to derive a tier color from the active theme
@@ -181,6 +183,9 @@ export interface AppSettings
   tierLabelItalic: boolean
   tierLabelFontSize: TierLabelFontSize
   boardLocked: boolean
+  reducedMotion: boolean
+  preHighContrastThemeId: ThemeId | null
+  preHighContrastPaletteId: PaletteId | null
 }
 
 // appearance settings needed to render a board for export capture

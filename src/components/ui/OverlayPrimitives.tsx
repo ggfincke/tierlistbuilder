@@ -80,7 +80,7 @@ export const OverlayMenuItem = ({
     type={type}
     {...props}
     className={mergeClassName(
-      'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)]',
+      'focus-custom flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)] focus-visible:bg-[rgb(var(--t-overlay)/0.08)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]',
       className
     )}
   >
