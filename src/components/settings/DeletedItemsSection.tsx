@@ -52,11 +52,11 @@ export const DeletedItemsSection = () =>
             >
               <ItemContent item={item} variant="compact" />
               {/* hover overlay — restore (bottom-left) & permanent delete (top-right) */}
-              <div className="absolute inset-0 flex items-end justify-start bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="absolute inset-0 flex items-end justify-start bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <button
                   type="button"
                   aria-label={`Restore ${item.label ?? 'item'}`}
-                  className="flex h-5 w-5 items-center justify-center rounded-tr-md bg-black/60 text-white hover:text-green-400"
+                  className="focus-custom flex h-5 w-5 items-center justify-center rounded-tr-md bg-black/60 text-white hover:text-green-400 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
                   onClick={() => restoreDeletedItem(item.id)}
                 >
                   <RotateCcw className="h-3 w-3" />
@@ -65,7 +65,7 @@ export const DeletedItemsSection = () =>
               <button
                 type="button"
                 aria-label={`Permanently delete ${item.label ?? 'item'}`}
-                className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity hover:text-rose-400 group-hover:opacity-100"
+                className="focus-custom absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity hover:text-rose-400 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
                 onClick={() => permanentlyDeleteItem(item.id)}
               >
                 <X className="h-2.5 w-2.5" />

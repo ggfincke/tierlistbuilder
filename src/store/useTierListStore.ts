@@ -3,6 +3,7 @@
 
 import { create } from 'zustand'
 
+import { announce } from '../utils/announce'
 import type {
   ContainerSnapshot,
   KeyboardMode,
@@ -44,6 +45,7 @@ interface TierListStore extends TierListStoreRuntimeState
   addTierAt: (index: number, paletteId: PaletteId) => void
   addItems: (newItems: NewTierItem[]) => void
   addTextItem: (label: string, backgroundColor: string) => void
+  setItemAltText: (itemId: string, altText: string) => void
   removeItem: (itemId: string) => void
   restoreDeletedItem: (itemId: string) => void
   permanentlyDeleteItem: (itemId: string) => void
@@ -56,7 +58,7 @@ interface TierListStore extends TierListStoreRuntimeState
   undo: () => void
   redo: () => void
   sortTierItemsByName: (tierId: string) => void
-  shuffleAllItems: () => void
+  shuffleAllItems: (mode: 'even' | 'random') => void
   shuffleUnrankedItems: () => void
   resetBoard: (paletteId: PaletteId) => void
   loadBoard: (data: TierListData) => void
@@ -190,11 +192,14 @@ export const useTierListStore = create<TierListStore>()((set) => ({
   clearRuntimeError: () => set({ runtimeError: null }),
 
   addTier: (paletteId) =>
+  {
     set((state) =>
       withUndo(state, {
         tiers: [...state.tiers, createNewTier(paletteId, state.tiers.length)],
       })
-    ),
+    )
+    announce('Tier added')
+  },
 
   renameTier: (tierId, name) =>
     set((state) =>
@@ -246,6 +251,10 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     set((state) => reorderTiersByIndex(state, fromIndex, toIndex)),
 
   deleteTier: (tierId) =>
+  {
+    const tierName = useTierListStore
+      .getState()
+      .tiers.find((t) => t.id === tierId)?.name
     set((state) =>
     {
       if (state.tiers.length <= 1)
@@ -267,7 +276,9 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         tiers: state.tiers.filter((entry) => entry.id !== tierId),
         unrankedItemIds: [...tier.itemIds, ...state.unrankedItemIds],
       }
-    }),
+    })
+    announce(`Tier ${tierName ?? ''} deleted`)
+  },
 
   clearTierItems: (tierId) =>
     set((state) =>
@@ -303,6 +314,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     }),
 
   addItems: (newItems) =>
+  {
     set((state) =>
     {
       const nextItems = { ...state.items }
@@ -325,7 +337,9 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         items: nextItems,
         unrankedItemIds: nextUnranked,
       }
-    }),
+    })
+    announce(`${newItems.length} item${newItems.length === 1 ? '' : 's'} added`)
+  },
 
   addTextItem: (label, backgroundColor) =>
     set((state) =>
@@ -342,7 +356,22 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       }
     }),
 
+  setItemAltText: (itemId, altText) =>
+    set((state) =>
+    {
+      const item = state.items[itemId]
+      if (!item) return state
+      return withUndo(state, {
+        items: {
+          ...state.items,
+          [itemId]: { ...item, altText: altText.trim() || undefined },
+        },
+      })
+    }),
+
   removeItem: (itemId) =>
+  {
+    const label = useTierListStore.getState().items[itemId]?.label ?? 'item'
     set((state) =>
     {
       const undo = pushUndo(state)
@@ -390,7 +419,9 @@ export const useTierListStore = create<TierListStore>()((set) => ({
             : tier
         ),
       }
-    }),
+    })
+    announce(`${label} removed`)
+  },
 
   restoreDeletedItem: (itemId) =>
     set((state) =>
@@ -570,7 +601,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       })
     }),
 
-  shuffleAllItems: () =>
+  shuffleAllItems: (mode) =>
     set((state) =>
     {
       const allItemIds = [
@@ -589,9 +620,23 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         itemIds: [] as string[],
       }))
 
-      for (let i = 0; i < allItemIds.length; i++)
+      if (mode === 'even')
       {
-        nextTiers[i % nextTiers.length].itemIds.push(allItemIds[i])
+        // round-robin: each tier gets an equal share
+        for (let i = 0; i < allItemIds.length; i++)
+        {
+          nextTiers[i % nextTiers.length].itemIds.push(allItemIds[i])
+        }
+      }
+      else
+      {
+        // random: each item assigned to a random tier (uneven distribution)
+        for (const id of allItemIds)
+        {
+          nextTiers[Math.floor(Math.random() * nextTiers.length)].itemIds.push(
+            id
+          )
+        }
       }
 
       return {

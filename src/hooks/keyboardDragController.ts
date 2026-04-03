@@ -1,6 +1,7 @@
 // src/hooks/keyboardDragController.ts
 // keyboard browse & drag state-machine helpers for tier items
 
+import { announce, getContainerLabel } from '../utils/announce'
 import { useTierListStore } from '../store/useTierListStore'
 import {
   findContainer,
@@ -212,16 +213,19 @@ export const handleKeyboardSpaceKey = (itemId: string) =>
   {
     state.setKeyboardFocusItemId(itemId)
     state.setKeyboardMode('browse')
+    announce('Keyboard mode. Arrow keys to browse, space to pick up.')
     return
   }
 
   if (state.keyboardMode === 'browse')
   {
+    const label = state.items[focusedItemId]?.label ?? 'item'
     state.beginDragPreview()
     state.setActiveItemId(focusedItemId)
     state.setKeyboardFocusItemId(focusedItemId)
     state.setKeyboardMode('dragging')
     scheduleKeyboardFocusRestore(focusedItemId)
+    announce(`Picked up ${label}. Arrow keys to move, space to drop.`)
     return
   }
 
@@ -232,11 +236,19 @@ export const handleKeyboardSpaceKey = (itemId: string) =>
   )
   {
     const droppedItemId = state.activeItemId
+    const label = state.items[droppedItemId]?.label ?? 'item'
     state.commitDragPreview()
     state.setActiveItemId(null)
     state.setKeyboardFocusItemId(droppedItemId)
     state.setKeyboardMode('browse')
     scheduleKeyboardFocusRestore(droppedItemId)
+
+    const fresh = useTierListStore.getState()
+    const snapshot = getEffectiveContainerSnapshot(fresh)
+    const containerId = findContainer(snapshot, droppedItemId)
+    announce(
+      `Dropped ${label} in ${getContainerLabel(containerId, fresh.tiers)}`
+    )
   }
 }
 
@@ -280,6 +292,7 @@ export const handleKeyboardEscapeKey = (itemId: string) =>
 
   state.clearKeyboardMode()
   scheduleKeyboardFocusRestore(focusedItemId)
+  announce('Keyboard mode exited')
 }
 
 export const handleKeyboardItemFocus = (itemId: string) =>

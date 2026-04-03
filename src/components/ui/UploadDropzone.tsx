@@ -32,18 +32,29 @@ export const UploadDropzone = ({
   {
     return (
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Upload images"
         className={`flex min-h-16 w-full cursor-pointer flex-col items-center justify-center text-center transition ${
           isDraggingFiles
             ? 'text-[var(--t-accent)]'
             : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-muted)]'
         }`}
         onClick={openFilePicker}
+        onKeyDown={(e) =>
+        {
+          if (e.key === 'Enter' || e.key === ' ')
+          {
+            e.preventDefault()
+            openFilePicker()
+          }
+        }}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
       >
         <p className="text-sm">{message}</p>
-        <p className="mt-1 text-xs text-[var(--t-text-faint)]">
+        <p className="mt-1 text-xs text-[var(--t-text-muted)]">
           Square images (1:1) work best.
         </p>
       </div>
@@ -52,18 +63,29 @@ export const UploadDropzone = ({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label="Upload images"
       className={`flex min-h-20 cursor-pointer flex-col items-center justify-center border border-dashed p-4 text-center transition ${
         isDraggingFiles
           ? 'border-[var(--t-accent-hover)] bg-[color-mix(in_srgb,var(--t-accent-hover)_10%,transparent)] text-[var(--t-accent)]'
           : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-muted)] hover:border-[var(--t-border-hover)]'
       }`}
       onClick={openFilePicker}
+      onKeyDown={(e) =>
+      {
+        if (e.key === 'Enter' || e.key === ' ')
+        {
+          e.preventDefault()
+          openFilePicker()
+        }
+      }}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
       <p className="text-sm font-semibold">{message}</p>
-      <p className="mt-1 text-xs text-[var(--t-text-faint)]">
+      <p className="mt-1 text-xs text-[var(--t-text-muted)]">
         Square images (1:1) work best.
       </p>
     </div>

@@ -22,8 +22,10 @@
     --t-text-dim: #666666;
     --t-accent: #38bdf8;
     --t-accent-hover: #0ea5e9;
+    --t-accent-foreground: #000000;
     --t-destructive: #f43f5e;
     --t-destructive-hover: #fb7185;
+    --t-destructive-foreground: #ffffff;
     --t-overlay: 255 255 255;
     --t-export-bg: #232323;
 
@@ -77,11 +79,105 @@
     }
   }
 
+  @keyframes fadeIn
+  {
+    from
+    {
+      opacity: 0;
+    }
+    to
+    {
+      opacity: 1;
+    }
+  }
+
+  @keyframes scaleIn
+  {
+    from
+    {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to
+    {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slideUp
+  {
+    from
+    {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to
+    {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* global focus ring for keyboard navigation */
+  :focus-visible
+  {
+    outline: 2px solid var(--t-accent);
+    outline-offset: 2px;
+  }
+
+  /* opt-out for elements w/ custom focus styles */
+  .focus-custom:focus-visible
+  {
+    outline: none;
+  }
+
   /* thin scrollbar — inherits to all elements */
   :root
   {
     scrollbar-width: thin;
     scrollbar-color: var(--t-border) transparent;
+  }
+
+  /* respect OS reduced-motion preference */
+  @media (prefers-reduced-motion: reduce)
+  {
+    *,
+    *::before,
+    *::after
+    {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* high-contrast mode — thicker borders & brighter focus rings */
+  [data-theme='high-contrast'] button,
+  [data-theme='high-contrast'] [role='switch'],
+  [data-theme='high-contrast'] input,
+  [data-theme='high-contrast'] textarea,
+  [data-theme='high-contrast'] select
+  {
+    border-width: 2px;
+  }
+
+  [data-theme='high-contrast'] :focus-visible
+  {
+    outline-width: 3px;
+    outline-color: #ffff00;
+  }
+
+  /* manual reduced-motion toggle via settings */
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after
+  {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 
   @media (min-width: 640px)

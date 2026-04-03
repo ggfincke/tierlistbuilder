@@ -11,6 +11,7 @@ export function useThemeApplicator(): void
 {
   const themeId = useSettingsStore((s) => s.themeId)
   const textStyleId = useSettingsStore((s) => s.textStyleId)
+  const reducedMotion = useSettingsStore((s) => s.reducedMotion)
 
   useEffect(() =>
   {
@@ -21,4 +22,9 @@ export function useThemeApplicator(): void
   {
     applyTextStyle(textStyleId)
   }, [textStyleId])
+
+  useEffect(() =>
+  {
+    document.documentElement.classList.toggle('reduce-motion', reducedMotion)
+  }, [reducedMotion])
 }

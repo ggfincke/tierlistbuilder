@@ -22,6 +22,7 @@ import {
   rgbToHexColor,
   type RgbInputState,
 } from '../../utils/color'
+import { getColorName } from '../../utils/colorName'
 
 interface ColorPickerProps
 {
@@ -126,7 +127,7 @@ export const ColorPicker = memo(
               }`}
               style={{ backgroundColor: color }}
               onClick={() => onChange(createPaletteTierColorSpec(index))}
-              aria-label={`Set tier color to ${color}`}
+              aria-label={`Set tier color to ${getColorName(color)}`}
             />
           )
         })}
@@ -356,7 +357,7 @@ export const CustomColorPicker = memo(
 
             <button
               type="submit"
-              className="rounded-lg bg-[var(--t-accent)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--t-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--t-border)] disabled:text-[var(--t-text-faint)]"
+              className="rounded-lg bg-[var(--t-accent)] px-3 py-1.5 text-sm font-medium text-[var(--t-accent-foreground)] transition hover:bg-[var(--t-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--t-border)] disabled:text-[var(--t-text-faint)]"
               disabled={!draftState.isValid}
             >
               Apply

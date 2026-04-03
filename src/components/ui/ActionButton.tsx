@@ -12,10 +12,11 @@ interface ActionButtonProps
   onClick: () => void
   disabled?: boolean
   children: ReactNode
-  // set to "menu" when the button toggles a popup menu
-  hasPopup?: 'menu'
+  // set to the popup role when the button toggles an overlay surface
+  hasPopup?: 'dialog' | 'menu'
   // current open state of the associated popup (only used w/ hasPopup)
   expanded?: boolean
+  controlsId?: string
   // keep the hover chrome visible while the related menu is open
   active?: boolean
 }
@@ -30,6 +31,7 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
       children,
       hasPopup,
       expanded,
+      controlsId,
       active = false,
     },
     ref
@@ -46,10 +48,11 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
         aria-label={label}
         title={title}
         aria-haspopup={hasPopup}
+        aria-controls={controlsId}
         aria-expanded={hasPopup ? expanded : undefined}
         disabled={disabled}
         onClick={onClick}
-        className={`flex h-10 w-10 items-center justify-center rounded-[1.1rem] border text-[var(--t-text)] transition-none focus-visible:border-[rgb(var(--t-overlay)/0.22)] focus-visible:bg-[var(--t-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--t-overlay)/0.14)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-sunken)] disabled:cursor-not-allowed disabled:opacity-45 ${chromeClassName}`}
+        className={`focus-custom flex h-10 w-10 items-center justify-center rounded-[1.1rem] border max-sm:h-11 max-sm:w-11 max-sm:rounded-[1.3rem] text-[var(--t-text)] transition-none focus-visible:border-[rgb(var(--t-overlay)/0.22)] focus-visible:bg-[var(--t-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--t-overlay)/0.14)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-sunken)] disabled:cursor-not-allowed disabled:opacity-45 ${chromeClassName}`}
       >
         {children}
       </button>
