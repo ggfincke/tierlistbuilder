@@ -1,6 +1,8 @@
 // src/components/settings/TierSettingsLayoutTab.tsx
 // layout tab content for item sizing, label styling, & row controls
 
+import { PanelTop, PanelBottom, PanelLeft, PanelRight } from 'lucide-react'
+import { announce } from '../../utils/announce'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import type {
   ItemShape,
@@ -40,6 +42,12 @@ export const TierSettingsLayoutTab = () =>
   const setTierLabelFontSize = useSettingsStore(
     (state) => state.setTierLabelFontSize
   )
+  const showAltTextButton = useSettingsStore(
+    (state) => state.showAltTextButton
+  )
+  const setShowAltTextButton = useSettingsStore(
+    (state) => state.setShowAltTextButton
+  )
   const toolbarPosition = useSettingsStore((state) => state.toolbarPosition)
   const setToolbarPosition = useSettingsStore(
     (state) => state.setToolbarPosition
@@ -51,13 +59,33 @@ export const TierSettingsLayoutTab = () =>
         <SettingRow label="Position">
           <SegmentedControl<ToolbarPosition>
             options={[
-              { value: 'top', label: 'Top' },
-              { value: 'bottom', label: 'Bottom' },
-              { value: 'left', label: 'Left' },
-              { value: 'right', label: 'Right' },
+              {
+                value: 'top',
+                label: <PanelTop className="h-4 w-4" strokeWidth={1.8} />,
+                ariaLabel: 'Top',
+              },
+              {
+                value: 'bottom',
+                label: <PanelBottom className="h-4 w-4" strokeWidth={1.8} />,
+                ariaLabel: 'Bottom',
+              },
+              {
+                value: 'left',
+                label: <PanelLeft className="h-4 w-4" strokeWidth={1.8} />,
+                ariaLabel: 'Left',
+              },
+              {
+                value: 'right',
+                label: <PanelRight className="h-4 w-4" strokeWidth={1.8} />,
+                ariaLabel: 'Right',
+              },
             ]}
             value={toolbarPosition}
-            onChange={setToolbarPosition}
+            onChange={(pos) =>
+            {
+              setToolbarPosition(pos)
+              announce(`Toolbar moved to ${pos}`)
+            }}
           />
         </SettingRow>
       </SettingsSection>
@@ -90,6 +118,12 @@ export const TierSettingsLayoutTab = () =>
         </SettingRow>
         <SettingRow label="Compact Mode">
           <Toggle checked={compactMode} onChange={setCompactMode} />
+        </SettingRow>
+        <SettingRow label="Alt Text Button">
+          <Toggle
+            checked={showAltTextButton}
+            onChange={setShowAltTextButton}
+          />
         </SettingRow>
       </SettingsSection>
 

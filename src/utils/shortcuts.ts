@@ -10,6 +10,7 @@ export const SHORTCUTS = [
   { keys: [MOD_KEY, 'Z'], description: 'Undo' },
   { keys: [MOD_KEY, 'Shift', 'Z'], description: 'Redo' },
   { keys: [MOD_KEY, 'S'], description: 'Export board' },
+  { keys: [MOD_KEY, 'Shift', 'T'], description: 'Cycle toolbar position' },
   { keys: ['Delete'], description: 'Remove focused item' },
   {
     keys: ['Esc'],

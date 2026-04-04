@@ -65,7 +65,21 @@
     bottom: calc(env(safe-area-inset-bottom, 0px) + 8.5rem);
   }
 
-  @keyframes menuIn
+  /* flip board manager to left side when toolbar is on the right */
+  .board-manager-trigger.board-manager-flip
+  {
+    right: auto;
+    left: calc(env(safe-area-inset-left, 0px) + 0.75rem);
+  }
+
+  .board-manager-panel.board-manager-flip
+  {
+    right: auto;
+    left: calc(env(safe-area-inset-left, 0px) + 0.75rem);
+  }
+
+  /* position-aware menu open animations */
+  @keyframes menuInDown
   {
     from
     {
@@ -76,6 +90,48 @@
     {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes menuInUp
+  {
+    from
+    {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to
+    {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes menuInRight
+  {
+    from
+    {
+      opacity: 0;
+      transform: translateX(-4px);
+    }
+    to
+    {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes menuInLeft
+  {
+    from
+    {
+      opacity: 0;
+      transform: translateX(4px);
+    }
+    to
+    {
+      opacity: 1;
+      transform: translateX(0);
     }
   }
 
@@ -192,6 +248,18 @@
     {
       right: calc(env(safe-area-inset-right, 0px) + 1rem);
       bottom: calc(env(safe-area-inset-bottom, 0px) + 4rem);
+    }
+
+    .board-manager-trigger.board-manager-flip
+    {
+      right: auto;
+      left: calc(env(safe-area-inset-left, 0px) + 1rem);
+    }
+
+    .board-manager-panel.board-manager-flip
+    {
+      right: auto;
+      left: calc(env(safe-area-inset-left, 0px) + 1rem);
     }
   }
 }
