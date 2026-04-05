@@ -32,3 +32,6 @@ dist-ssr
 
 # Example assets (local dev only)
 /examples
+
+# Generated screenshots (local dev only)
+/screenshots

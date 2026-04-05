@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 
-import type { TierPreset } from '../../types'
+import type { TierPreset, ToolbarPosition } from '../../types'
 import {
   createBoardSession,
   createBoardSessionFromPreset,
@@ -20,13 +20,20 @@ import { PresetPickerModal } from './PresetPickerModal'
 
 interface BoardManagerProps
 {
+  toolbarPosition: ToolbarPosition
   onSwitchBoard: (boardId: string) => void
 }
 
-export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
+export const BoardManager = ({
+  toolbarPosition,
+  onSwitchBoard,
+}: BoardManagerProps) =>
 {
   const boards = useBoardManagerStore((s) => s.boards)
   const activeBoardId = useBoardManagerStore((s) => s.activeBoardId)
+
+  // shift the FAB to the left side when toolbar is on the right
+  const flipSide = toolbarPosition === 'right'
 
   const [open, setOpen] = useState(false)
   const [showPresetPicker, setShowPresetPicker] = useState(false)
@@ -97,7 +104,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
             return !current
           })
         }}
-        className="focus-custom board-manager-trigger fixed z-40 flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-3 py-2 text-sm text-[var(--t-text)] shadow-lg transition hover:border-[var(--t-border-secondary)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-page)]"
+        className={`focus-custom board-manager-trigger fixed z-40 flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-3 py-2 text-sm text-[var(--t-text)] shadow-lg transition hover:border-[var(--t-border-secondary)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-page)] ${flipSide ? 'board-manager-flip' : ''}`}
       >
         <Layers className="h-4 w-4" strokeWidth={1.8} />
         <span className="font-medium">{boards.length}</span>
@@ -110,7 +117,7 @@ export const BoardManager = ({ onSwitchBoard }: BoardManagerProps) =>
           ref={panelRef}
           role="dialog"
           aria-labelledby={panelTitleId}
-          className="board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col animate-[slideUp_150ms_ease-out]"
+          className={`board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col animate-[slideUp_150ms_ease-out] ${flipSide ? 'board-manager-flip' : ''}`}
         >
           {/* header */}
           <div className="flex items-center justify-between border-b border-[var(--t-border)] px-3 py-2.5">

@@ -3,6 +3,8 @@
 
 import { useRef } from 'react'
 
+import type { ReactNode } from 'react'
+
 import {
   resolveNextSelectionIndex,
   type SelectionNavigationKey,
@@ -10,7 +12,7 @@ import {
 
 interface SegmentedControlProps<T extends string>
 {
-  options: { value: T; label: string }[]
+  options: { value: T; label: ReactNode; ariaLabel?: string }[]
   value: T
   onChange: (v: T) => void
   ariaLabelledby?: string
@@ -43,6 +45,7 @@ export const SegmentedControl = <T extends string>({
           }}
           type="button"
           role="radio"
+          aria-label={opt.ariaLabel}
           aria-checked={value === opt.value}
           tabIndex={value === opt.value ? 0 : -1}
           onClick={() => onChange(opt.value)}

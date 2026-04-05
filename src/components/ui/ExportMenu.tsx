@@ -16,6 +16,7 @@ import {
 import type { ImageFormat } from '../../types'
 import type { MenuPositionClasses } from '../../utils/menuPosition'
 import { useHybridMenu } from '../../hooks/useHybridMenu'
+import { useMenuOverflowFlip } from '../../hooks/useMenuOverflowFlip'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import {
@@ -162,6 +163,10 @@ export const ExportMenu = ({
     }
   }, [closeFormatMenu, showImageMenu])
 
+  const { ref: imageFlipRef } = useMenuOverflowFlip()
+  const { ref: formatFlipRef } = useMenuOverflowFlip()
+  const { ref: exportAllFlipRef } = useMenuOverflowFlip()
+
   usePopupClose({
     show: showMenu,
     triggerRef: buttonRef,
@@ -192,7 +197,7 @@ export const ExportMenu = ({
             ref={menuRef}
             role="dialog"
             aria-label="Export options"
-            className={`${menuPos.primary} animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
+            className={`${menuPos.primary} ${menuPos.animationClass} text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
           >
             {/* image submenu — click to reveal download, copy, & format options */}
             <OverlayMenuItem
@@ -207,7 +212,9 @@ export const ExportMenu = ({
               }}
             >
               Export Image
-              <ChevronRight className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`} />
+              <ChevronRight
+                className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
+              />
             </OverlayMenuItem>
 
             <OverlayMenuItem
@@ -260,7 +267,9 @@ export const ExportMenu = ({
                     <Layers className="h-3.5 w-3.5 shrink-0" />
                     Export All ({boardCount})
                   </span>
-                  <ChevronRight className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`} />
+                  <ChevronRight
+                    className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
+                  />
                 </OverlayMenuItem>
               </>
             )}
@@ -268,6 +277,7 @@ export const ExportMenu = ({
             {showImageMenu && (
               <OverlayMenuSurface
                 id={imageOptionsGroupId}
+                ref={imageFlipRef}
                 role="group"
                 aria-label="Image export options"
                 className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
@@ -308,12 +318,15 @@ export const ExportMenu = ({
                   onClick={toggleFormatMenu}
                 >
                   {FORMAT_LABELS[imageFormat]}
-                  <ChevronRight className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`} />
+                  <ChevronRight
+                    className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
+                  />
                 </OverlayMenuItem>
 
                 {showFormatMenu && (
                   <OverlayMenuSurface
                     id={formatOptionsGroupId}
+                    ref={formatFlipRef}
                     role="group"
                     aria-label="Image format options"
                     className={`${menuPos.sub} z-50 text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
@@ -343,6 +356,7 @@ export const ExportMenu = ({
             {boardCount > 1 && showExportAllMenu && (
               <OverlayMenuSurface
                 id={exportAllOptionsGroupId}
+                ref={exportAllFlipRef}
                 role="group"
                 aria-label="Export all options"
                 className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}

@@ -31,6 +31,7 @@ import {
   getMenuPositionClasses,
   isVerticalPosition,
 } from '../../utils/menuPosition'
+import { useMenuOverflowFlip } from '../../hooks/useMenuOverflowFlip'
 import { ActionButton } from './ActionButton'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportMenu } from './ExportMenu'
@@ -66,6 +67,8 @@ export const BoardActionBar = ({
 {
   const isVertical = isVerticalPosition(toolbarPosition)
   const menuPos = getMenuPositionClasses(toolbarPosition)
+  const reducedMotion = useSettingsStore((state) => state.reducedMotion)
+  const { ref: shuffleAllFlipRef } = useMenuOverflowFlip()
   const boardLocked = useSettingsStore((state) => state.boardLocked)
   const setBoardLocked = useSettingsStore((state) => state.setBoardLocked)
   const pastLength = useTierListStore((state) => state.past.length)
@@ -166,8 +169,7 @@ export const BoardActionBar = ({
   return (
     <>
       <div
-        key={toolbarPosition}
-        className="flex justify-center animate-[scaleIn_150ms_ease-out]"
+        className={`flex justify-center ${reducedMotion ? '' : 'transition-[padding,gap] duration-150 ease-out'}`}
       >
         <div
           className={`inline-flex items-center justify-center gap-3 rounded-[1.7rem] border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-sunken)] ${
@@ -227,7 +229,7 @@ export const BoardActionBar = ({
                 ref={shuffleMenuRef}
                 role="dialog"
                 aria-label="Shuffle options"
-                className={`${menuPos.primary} flex flex-col animate-[menuIn_120ms_ease-out] text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
+                className={`${menuPos.primary} flex flex-col ${menuPos.animationClass} text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
               >
                 {/* shuffle all submenu — even or random distribution */}
                 <div className="relative">
@@ -239,12 +241,15 @@ export const BoardActionBar = ({
                     onClick={toggleShuffleAllMenu}
                   >
                     Shuffle All
-                    <ChevronRight className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`} />
+                    <ChevronRight
+                      className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
+                    />
                   </OverlayMenuItem>
 
                   {showShuffleAllMenu && (
                     <OverlayMenuSurface
                       id={shuffleAllGroupId}
+                      ref={shuffleAllFlipRef}
                       role="group"
                       aria-label="Shuffle all options"
                       className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}

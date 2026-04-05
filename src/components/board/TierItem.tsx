@@ -37,6 +37,9 @@ export const TierItem = memo(
     const itemShape = useSettingsStore((state) => state.itemShape)
     const showLabels = useSettingsStore((state) => state.showLabels)
     const boardLocked = useSettingsStore((state) => state.boardLocked)
+    const showAltTextButton = useSettingsStore(
+      (state) => state.showAltTextButton
+    )
 
     const sizePx = ITEM_SIZE_PX[itemSize]
 
@@ -140,7 +143,7 @@ export const TierItem = memo(
           )}
 
           {/* alt text edit — bottom-left corner, image items only */}
-          {!boardLocked && hasImage && (
+          {!boardLocked && hasImage && showAltTextButton && (
             <button
               ref={editButtonRef}
               type="button"

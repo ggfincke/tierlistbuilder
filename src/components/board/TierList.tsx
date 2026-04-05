@@ -21,8 +21,8 @@ import { useDragAndDrop } from '../../hooks/useDragAndDrop'
 const TOOLBAR_LAYOUT_CLASS: Record<ToolbarPosition, string> = {
   top: 'flex flex-col gap-3',
   bottom: 'flex flex-col-reverse gap-3',
-  left: 'flex flex-row items-center gap-3',
-  right: 'flex flex-row-reverse items-center gap-3',
+  left: 'flex flex-row items-start gap-3',
+  right: 'flex flex-row-reverse items-start gap-3',
 }
 import { DragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
@@ -122,42 +122,48 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       <div
         className={`${compactMode ? 'mt-1' : 'mt-3'} ${TOOLBAR_LAYOUT_CLASS[toolbarPosition]}`}
       >
-        {toolbar}
+        {/* sticky wrapper keeps the toolbar visible while scrolling tall boards */}
+        <div className={isVertical ? 'sticky top-4 self-start' : ''}>
+          {toolbar}
+        </div>
 
-        {/* export capture wrapper — min-width prevents layout collapse on narrow screens */}
-        <div className={`overflow-x-auto ${isVertical ? 'min-w-0 flex-1' : ''}`}>
-          <div
-            id="tier-list"
-            ref={boardRef}
-            role="region"
-            aria-label="Tier list board"
-            data-testid="tier-list-board"
-            data-keyboard-mode={keyboardMode}
-            data-keyboard-focus-item-id=""
-            tabIndex={-1}
-            className="min-w-[860px]"
-            style={{ backgroundColor: exportBackgroundColor }}
-          >
-            <SortableContext
-              items={tierIds}
-              strategy={verticalListSortingStrategy}
+        {/* content column — tier rows, unranked pool, & trash zone */}
+        <div className={`${isVertical ? 'min-w-0 flex-1' : ''}`}>
+          {/* export capture wrapper */}
+          <div className="overflow-x-auto">
+            <div
+              id="tier-list"
+              ref={boardRef}
+              role="region"
+              aria-label="Tier list board"
+              data-testid="tier-list-board"
+              data-keyboard-mode={keyboardMode}
+              data-keyboard-focus-item-id=""
+              tabIndex={-1}
+              className="min-w-[860px]"
+              style={{ backgroundColor: exportBackgroundColor }}
             >
-              {tiers.map((tier, index) => (
-                <TierRow
-                  key={tier.id}
-                  tier={tier}
-                  index={index}
-                  totalTiers={tiers.length}
-                />
-              ))}
-            </SortableContext>
+              <SortableContext
+                items={tierIds}
+                strategy={verticalListSortingStrategy}
+              >
+                {tiers.map((tier, index) => (
+                  <TierRow
+                    key={tier.id}
+                    tier={tier}
+                    index={index}
+                    totalTiers={tiers.length}
+                  />
+                ))}
+              </SortableContext>
+            </div>
           </div>
+
+          <UnrankedPool />
+
+          <TrashZone />
         </div>
       </div>
-
-      <UnrankedPool />
-
-      <TrashZone />
 
       {/* render ghost in the overlay while a drag is active */}
       <DragOverlay>
