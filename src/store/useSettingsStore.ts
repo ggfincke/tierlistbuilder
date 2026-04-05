@@ -39,6 +39,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   preHighContrastThemeId: null,
   preHighContrastPaletteId: null,
   toolbarPosition: 'top',
+  showAltTextButton: false,
 }
 
 interface SettingsStore extends AppSettings
@@ -60,6 +61,7 @@ interface SettingsStore extends AppSettings
   setBoardLocked: (locked: boolean) => void
   setReducedMotion: (reduced: boolean) => void
   setToolbarPosition: (position: ToolbarPosition) => void
+  setShowAltTextButton: (show: boolean) => void
   toggleHighContrast: (enabled: boolean) => void
   resetSettings: () => void
 }
@@ -98,6 +100,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setBoardLocked: createSettingSetter(set, 'boardLocked'),
       setReducedMotion: createSettingSetter(set, 'reducedMotion'),
       setToolbarPosition: createSettingSetter(set, 'toolbarPosition'),
+      setShowAltTextButton: createSettingSetter(set, 'showAltTextButton'),
       toggleHighContrast: (enabled) =>
         set((state) =>
         {
@@ -199,7 +202,11 @@ export const useSettingsStore = create<SettingsStore>()(
         }
         if (version < 11)
         {
-          state = { ...state, toolbarPosition: 'top' }
+          state = {
+            ...state,
+            toolbarPosition: 'top',
+            showAltTextButton: false,
+          }
         }
         return state
       },

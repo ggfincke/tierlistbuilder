@@ -190,6 +190,7 @@ export interface AppSettings
   preHighContrastThemeId: ThemeId | null
   preHighContrastPaletteId: PaletteId | null
   toolbarPosition: ToolbarPosition
+  showAltTextButton: boolean
 }
 
 // appearance settings needed to render a board for export capture
