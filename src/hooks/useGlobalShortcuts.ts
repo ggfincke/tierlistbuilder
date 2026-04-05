@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { hasActiveModalLayer } from './useModalBackgroundInert'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { useTierListStore } from '../store/useTierListStore'
+import { nextToolbarPosition } from '../utils/menuPosition'
+import { announce } from '../utils/announce'
 
 interface UseGlobalShortcutsOptions
 {
@@ -63,6 +65,18 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
         e.preventDefault()
         const locked = useSettingsStore.getState().boardLocked
         if (!locked) onExport('png')
+        return
+      }
+
+      // cycle toolbar position — Ctrl/Cmd+Shift+T
+      if (mod && e.shiftKey && e.key === 'T')
+      {
+        e.preventDefault()
+        const { toolbarPosition, setToolbarPosition } =
+          useSettingsStore.getState()
+        const next = nextToolbarPosition(toolbarPosition)
+        setToolbarPosition(next)
+        announce(`Toolbar moved to ${next}`)
         return
       }
 

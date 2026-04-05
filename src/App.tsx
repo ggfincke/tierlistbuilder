@@ -17,6 +17,8 @@ import { useCurrentPaletteId } from './hooks/useCurrentPaletteId'
 import { useExportController } from './hooks/useExportController'
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
 import { useThemeApplicator } from './hooks/useThemeApplicator'
+import { useAboveBreakpoint } from './hooks/useViewportWidth'
+import { getResponsiveToolbarPosition } from './utils/menuPosition'
 import { useSettingsStore } from './store/useSettingsStore'
 import { useTierListStore } from './store/useTierListStore'
 
@@ -28,7 +30,12 @@ function App()
   const clearRuntimeError = useTierListStore((state) => state.clearRuntimeError)
   const addTier = useTierListStore((state) => state.addTier)
   const resetBoard = useTierListStore((state) => state.resetBoard)
-  const toolbarPosition = useSettingsStore((state) => state.toolbarPosition)
+  const rawToolbarPosition = useSettingsStore((state) => state.toolbarPosition)
+  const aboveSm = useAboveBreakpoint()
+  const toolbarPosition = getResponsiveToolbarPosition(
+    rawToolbarPosition,
+    aboveSm
+  )
 
   useThemeApplicator()
 
@@ -137,7 +144,10 @@ function App()
       </div>
 
       <TierSettings open={settingsOpen} onClose={handleCloseSettings} />
-      <BoardManager onSwitchBoard={transitionTo} />
+      <BoardManager
+        toolbarPosition={toolbarPosition}
+        onSwitchBoard={transitionTo}
+      />
       {exportAllProgress && (
         <ExportProgressOverlay
           current={exportAllProgress.current}
