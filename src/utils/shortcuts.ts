@@ -1,6 +1,12 @@
 // src/utils/shortcuts.ts
 // shared keyboard shortcut definitions & platform detection
 
+export interface ShortcutDefinition
+{
+  keys: readonly string[]
+  description: string
+}
+
 export const IS_MAC =
   typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac')
 
@@ -20,4 +26,4 @@ export const SHORTCUTS = [
   { keys: ['Space'], description: 'Enter keyboard mode / pick up / drop' },
   { keys: ['Arrow Keys'], description: 'Browse items / move dragged item' },
   { keys: ['?'], description: 'Show keyboard shortcuts' },
-]
+] satisfies readonly ShortcutDefinition[]

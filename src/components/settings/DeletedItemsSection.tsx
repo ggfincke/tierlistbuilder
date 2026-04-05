@@ -7,6 +7,7 @@ import { RotateCcw, Trash2, X } from 'lucide-react'
 import { useTierListStore } from '../../store/useTierListStore'
 import { ItemContent } from '../board/ItemContent'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { ItemOverlayButton } from '../ui/ItemOverlayButton'
 
 export const DeletedItemsSection = () =>
 {
@@ -53,23 +54,25 @@ export const DeletedItemsSection = () =>
               <ItemContent item={item} variant="compact" />
               {/* hover overlay — restore (bottom-left) & permanent delete (top-right) */}
               <div className="absolute inset-0 flex items-end justify-start bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                <button
-                  type="button"
+                <ItemOverlayButton
                   aria-label={`Restore ${item.label ?? 'item'}`}
-                  className="focus-custom flex h-5 w-5 items-center justify-center rounded-tr-md bg-black/60 text-white hover:text-green-400 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                  reveal="always"
+                  tone="success"
+                  className="rounded-tr-md bg-black/60"
                   onClick={() => restoreDeletedItem(item.id)}
                 >
                   <RotateCcw className="h-3 w-3" />
-                </button>
+                </ItemOverlayButton>
               </div>
-              <button
-                type="button"
+              <ItemOverlayButton
                 aria-label={`Permanently delete ${item.label ?? 'item'}`}
-                className="focus-custom absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity hover:text-rose-400 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                tone="destructive"
+                size="xs"
+                className="absolute right-0.5 top-0.5"
                 onClick={() => permanentlyDeleteItem(item.id)}
               >
                 <X className="h-2.5 w-2.5" />
-              </button>
+              </ItemOverlayButton>
             </div>
           ))}
         </div>

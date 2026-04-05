@@ -11,6 +11,7 @@ import { useAnchoredPosition } from '../../hooks/useAnchoredPosition'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { OverlayMenuItem, OverlayMenuSurface } from '../ui/OverlayPrimitives'
+import { TextInput } from '../ui/TextInput'
 
 interface TierRowSettingsMenuProps
 {
@@ -104,7 +105,7 @@ export const TierRowSettingsMenu = ({
           <h2 id={titleId} className="sr-only">
             {tier.name} row settings
           </h2>
-          <input
+          <TextInput
             defaultValue={tier.name}
             onBlur={(e) =>
             {
@@ -115,11 +116,11 @@ export const TierRowSettingsMenu = ({
             {
               if (e.key === 'Enter') e.currentTarget.blur()
             }}
-            className="mb-1.5 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
+            className="mb-1.5 w-full rounded-lg border-[var(--t-border)] px-2 focus:border-[var(--t-accent-hover)]"
             aria-label="Rename tier"
           />
 
-          <input
+          <TextInput
             defaultValue={tier.description ?? ''}
             placeholder="Description (optional)"
             onBlur={(e) =>
@@ -132,7 +133,8 @@ export const TierRowSettingsMenu = ({
             {
               if (e.key === 'Enter') e.currentTarget.blur()
             }}
-            className="mb-2 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-xs text-[var(--t-text-secondary)] outline-none focus:border-[var(--t-accent-hover)]"
+            size="xs"
+            className="mb-2 w-full rounded-lg border-[var(--t-border)] px-2 text-[var(--t-text-secondary)] focus:border-[var(--t-accent-hover)]"
             aria-label="Tier description"
           />
 

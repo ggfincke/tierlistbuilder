@@ -1,14 +1,11 @@
 // src/components/settings/SegmentedControl.tsx
 // reusable segmented control for selecting between discrete options
 
-import { useRef } from 'react'
+import { useMemo } from 'react'
 
 import type { ReactNode } from 'react'
 
-import {
-  resolveNextSelectionIndex,
-  type SelectionNavigationKey,
-} from '../../utils/selectionNavigation'
+import { useRovingSelection } from '../../hooks/useRovingSelection'
 
 interface SegmentedControlProps<T extends string>
 {
@@ -27,57 +24,28 @@ export const SegmentedControl = <T extends string>({
   ariaLabel,
 }: SegmentedControlProps<T>) =>
 {
-  const optionRefs = useRef<Partial<Record<T, HTMLButtonElement | null>>>({})
+  const keys = useMemo(() => options.map((o) => o.value), [options])
+  const { getItemProps, groupProps, isActive } = useRovingSelection({
+    items: keys,
+    activeKey: value,
+    onSelect: onChange,
+    kind: 'radio',
+    groupLabelledby: ariaLabelledby,
+    groupLabel: ariaLabel,
+  })
 
   return (
     <div
-      role="radiogroup"
-      aria-labelledby={ariaLabelledby}
-      aria-label={ariaLabel}
+      {...groupProps}
       className="flex rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]"
     >
       {options.map((opt, index) => (
         <button
           key={opt.value}
-          ref={(node) =>
-          {
-            optionRefs.current[opt.value] = node
-          }}
-          type="button"
-          role="radio"
+          {...getItemProps(opt.value, index)}
           aria-label={opt.ariaLabel}
-          aria-checked={value === opt.value}
-          tabIndex={value === opt.value ? 0 : -1}
-          onClick={() => onChange(opt.value)}
-          onKeyDown={(event) =>
-          {
-            const key = event.key as SelectionNavigationKey
-
-            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key))
-            {
-              return
-            }
-
-            const nextIndex = resolveNextSelectionIndex({
-              currentIndex: index,
-              itemCount: options.length,
-              key,
-              columns: options.length,
-            })
-
-            if (nextIndex === null)
-            {
-              return
-            }
-
-            event.preventDefault()
-
-            const nextOption = options[nextIndex]
-            onChange(nextOption.value)
-            optionRefs.current[nextOption.value]?.focus()
-          }}
           className={`focus-custom px-3 py-1 text-xs font-medium transition-colors first:rounded-l-[7px] last:rounded-r-[7px] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] ${
-            value === opt.value
+            isActive(opt.value)
               ? 'bg-[var(--t-bg-active)] text-[var(--t-text)]'
               : 'text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
           }`}

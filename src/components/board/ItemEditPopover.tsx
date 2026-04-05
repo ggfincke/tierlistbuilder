@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { useTierListStore } from '../../store/useTierListStore'
+import { TextInput } from '../ui/TextInput'
 
 const POPOVER_GAP = 6
 const POPOVER_HEIGHT = 140
@@ -90,16 +91,16 @@ export const ItemEditPopover = ({
       >
         Alt Text
       </label>
-      <input
+      <TextInput
         ref={inputRef}
         id={inputId}
-        type="text"
         value={altText}
         onChange={(e) => setAltText(e.target.value)}
         placeholder="Alt text for screen readers..."
         maxLength={200}
         aria-describedby={hintId}
-        className="w-full rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-xs text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] outline-none focus:border-[var(--t-border-hover)]"
+        size="xs"
+        className="w-full"
       />
       <p id={hintId} className="sr-only">
         Maximum 200 characters

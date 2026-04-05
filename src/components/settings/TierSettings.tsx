@@ -9,13 +9,11 @@ import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
+import { useRovingSelection } from '../../hooks/useRovingSelection'
 import { useTierListStore } from '../../store/useTierListStore'
-import {
-  resolveNextSelectionIndex,
-  type SelectionNavigationKey,
-} from '../../utils/selectionNavigation'
 import { getStorageUsageBytes } from '../../utils/storage'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { SecondaryButton } from '../ui/SecondaryButton'
 import { TierSettingsAppearanceTab } from './TierSettingsAppearanceTab'
 import { TierSettingsItemsTab } from './TierSettingsItemsTab'
 import { TierSettingsLayoutTab } from './TierSettingsLayoutTab'
@@ -48,7 +46,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const [textColor, setTextColor] = useState(defaultTextColor)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({})
   const lastDefaultTextColorRef = useRef(defaultTextColor)
   const titleId = useId()
   const tabsId = useId()
@@ -70,6 +67,17 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
 
   useFocusTrap(dialogRef, open)
   useModalBackgroundInert(open)
+  const {
+    getItemProps: getTabProps,
+    groupProps: tabListProps,
+    isActive,
+  } = useRovingSelection({
+    items: TABS,
+    activeKey: activeTab,
+    onSelect: setActiveTab,
+    kind: 'tab',
+    groupLabel: 'Settings sections',
+  })
 
   // compute storage usage when preferences tab opens
   const storageBytes = useMemo(
@@ -119,55 +127,17 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
             </h2>
             {/* tab buttons */}
             <div
-              role="tablist"
-              aria-label="Settings sections"
+              {...tabListProps}
               className="flex gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5"
             >
               {TABS.map((tab, index) => (
                 <button
                   key={tab}
-                  ref={(node) =>
-                  {
-                    tabRefs.current[tab] = node
-                  }}
-                  type="button"
+                  {...getTabProps(tab, index)}
                   id={`${tabsId}-${tab}-tab`}
-                  role="tab"
-                  aria-selected={activeTab === tab}
                   aria-controls={`${tabsId}-${tab}-panel`}
-                  tabIndex={activeTab === tab ? 0 : -1}
-                  onClick={() => setActiveTab(tab)}
-                  onKeyDown={(event) =>
-                  {
-                    const key = event.key as SelectionNavigationKey
-
-                    if (
-                      !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)
-                    )
-                    {
-                      return
-                    }
-
-                    const nextIndex = resolveNextSelectionIndex({
-                      currentIndex: index,
-                      itemCount: TABS.length,
-                      key,
-                      columns: TABS.length,
-                    })
-
-                    if (nextIndex === null)
-                    {
-                      return
-                    }
-
-                    event.preventDefault()
-
-                    const nextTab = TABS[nextIndex]
-                    setActiveTab(nextTab)
-                    tabRefs.current[nextTab]?.focus()
-                  }}
                   className={`focus-custom rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] max-sm:px-2 max-sm:py-2 ${
-                    activeTab === tab
+                    isActive(tab)
                       ? 'bg-[var(--t-bg-active)] text-[var(--t-text)] shadow-sm'
                       : 'text-[var(--t-text-muted)] hover:text-[var(--t-text-secondary)]'
                   }`}
@@ -177,13 +147,9 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
               ))}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-[var(--t-border-secondary)] px-3 py-1 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)]"
-          >
+          <SecondaryButton size="sm" onClick={onClose}>
             Done
-          </button>
+          </SecondaryButton>
         </div>
 
         <div

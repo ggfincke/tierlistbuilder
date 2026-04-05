@@ -12,8 +12,9 @@ import {
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { THEMES } from '../../theme/tokens'
-import { SHORTCUTS } from '../../utils/shortcuts'
 import { PresetPickerModal } from '../ui/PresetPickerModal'
+import { SecondaryButton } from '../ui/SecondaryButton'
+import { ShortcutsList } from '../ui/ShortcutsList'
 import { SettingRow } from './SettingRow'
 import { SettingsSection } from './SettingsSection'
 import { Toggle } from './Toggle'
@@ -97,14 +98,13 @@ export const TierSettingsMoreTab = ({
             <Layers className="h-3.5 w-3.5" />
             {boards.length} {boards.length === 1 ? 'list' : 'lists'} saved
           </span>
-          <button
-            type="button"
+          <SecondaryButton
+            variant="surface"
             onClick={() => setShowPresetPicker(true)}
-            className="flex items-center gap-1.5 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm text-[var(--t-text)] hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-active)]"
           >
             <Plus className="h-3.5 w-3.5" />
             New List
-          </button>
+          </SecondaryButton>
         </div>
         <p className="mt-2 text-xs text-[var(--t-text-dim)]">
           Switch between lists using the button in the bottom-right corner.
@@ -119,14 +119,15 @@ export const TierSettingsMoreTab = ({
           />
         </SettingRow>
 
-        <button
-          type="button"
+        <SecondaryButton
+          variant="surface"
+          tone="destructive"
+          className="mt-1"
           onClick={onRequestClearAll}
-          className="mt-1 flex items-center gap-1.5 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm text-[var(--t-destructive-hover)] hover:border-[color-mix(in_srgb,var(--t-destructive)_50%,transparent)] hover:bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)]"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Clear All Items
-        </button>
+        </SecondaryButton>
 
         <div className="mt-3 border-t border-[var(--t-border)] pt-3">
           <div className="mb-1 flex items-center justify-between">
@@ -145,28 +146,7 @@ export const TierSettingsMoreTab = ({
       </SettingsSection>
 
       <SettingsSection title="Keyboard Shortcuts">
-        <div className="space-y-2">
-          {SHORTCUTS.map((shortcut) => (
-            <div
-              key={shortcut.description}
-              className="flex items-center justify-between gap-3"
-            >
-              <span className="text-sm text-[var(--t-text-secondary)]">
-                {shortcut.description}
-              </span>
-              <div className="flex items-center gap-1">
-                {shortcut.keys.map((key) => (
-                  <kbd
-                    key={key}
-                    className="rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-1.5 py-0.5 font-mono text-xs text-[var(--t-text)]"
-                  >
-                    {key}
-                  </kbd>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <ShortcutsList className="space-y-2" />
       </SettingsSection>
 
       <section className="flex items-center justify-between px-1 py-2">

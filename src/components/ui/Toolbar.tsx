@@ -2,52 +2,55 @@
 // page header — click-to-edit board title
 
 import { Lock } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId } from 'react'
 
+import { useInlineEdit } from '../../hooks/useInlineEdit'
 import { renameBoardSession } from '../../services/boardSession'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { DEFAULT_TITLE } from '../../utils/constants'
+import { TextInput } from './TextInput'
+
+const TITLE_EDITOR_ID = 'toolbar-title'
 
 export const Toolbar = () =>
 {
   const title = useTierListStore((state) => state.title)
   const activeBoardId = useBoardManagerStore((state) => state.activeBoardId)
   const boardLocked = useSettingsStore((state) => state.boardLocked)
-
-  const [editing, setEditing] = useState(false)
-  const [editValue, setEditValue] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
   const titleInputId = useId()
+  const { cancelEdit, getInputProps, inputRef, isEditing, startEdit } =
+    useInlineEdit<typeof TITLE_EDITOR_ID>({
+      onCommit: (_, value) =>
+      {
+        if (activeBoardId)
+        {
+          renameBoardSession(activeBoardId, value)
+        }
+      },
+    })
 
   const displayTitle = title.trim() || DEFAULT_TITLE
+  const editing = isEditing(TITLE_EDITOR_ID)
 
   const startEditing = () =>
   {
-    if (boardLocked) return
-    setEditValue(title)
-    setEditing(true)
-  }
-
-  const commitEdit = () =>
-  {
-    setEditing(false)
-    const trimmed = editValue.trim()
-    if (trimmed && trimmed !== title)
+    if (boardLocked || !activeBoardId)
     {
-      renameBoardSession(activeBoardId, trimmed)
+      return
     }
+
+    startEdit(TITLE_EDITOR_ID, title)
   }
 
   useEffect(() =>
   {
-    if (editing)
+    if (boardLocked)
     {
-      inputRef.current?.focus()
-      inputRef.current?.select()
+      cancelEdit()
     }
-  }, [editing])
+  }, [boardLocked, cancelEdit])
 
   return (
     <header className="px-3 pb-2 pt-3 text-center">
@@ -56,22 +59,15 @@ export const Toolbar = () =>
           <label htmlFor={titleInputId} className="sr-only">
             Board title
           </label>
-          <input
+          <TextInput
             id={titleInputId}
             ref={inputRef}
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={(e) =>
-              {
-              if (e.key === 'Enter') commitEdit()
-              if (e.key === 'Escape')
-                {
-                setEditing(false)
-              }
-            }}
-            className="focus-custom w-full max-w-md border-none bg-transparent text-center text-3xl font-semibold tracking-tight text-[var(--t-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:text-[2.15rem]"
-            maxLength={60}
+            variant="ghost"
+            {...getInputProps({
+              maxLength: 60,
+              className:
+                'w-full max-w-md border-none px-0 py-0 text-center text-3xl font-semibold tracking-tight focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:text-[2.15rem]',
+            })}
           />
         </>
       ) : (

@@ -42,9 +42,7 @@ export const TierSettingsLayoutTab = () =>
   const setTierLabelFontSize = useSettingsStore(
     (state) => state.setTierLabelFontSize
   )
-  const showAltTextButton = useSettingsStore(
-    (state) => state.showAltTextButton
-  )
+  const showAltTextButton = useSettingsStore((state) => state.showAltTextButton)
   const setShowAltTextButton = useSettingsStore(
     (state) => state.setShowAltTextButton
   )
@@ -120,10 +118,7 @@ export const TierSettingsLayoutTab = () =>
           <Toggle checked={compactMode} onChange={setCompactMode} />
         </SettingRow>
         <SettingRow label="Alt Text Button">
-          <Toggle
-            checked={showAltTextButton}
-            onChange={setShowAltTextButton}
-          />
+          <Toggle checked={showAltTextButton} onChange={setShowAltTextButton} />
         </SettingRow>
       </SettingsSection>
 

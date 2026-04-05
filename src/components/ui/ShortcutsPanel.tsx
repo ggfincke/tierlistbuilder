@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
-import { SHORTCUTS } from '../../utils/shortcuts'
+import { ShortcutsList } from './ShortcutsList'
 
 interface ShortcutsPanelProps
 {
@@ -51,28 +51,7 @@ export const ShortcutsPanel = ({ onClose }: ShortcutsPanelProps) =>
           Keyboard Shortcuts
         </h2>
 
-        <div className="space-y-2.5">
-          {SHORTCUTS.map((shortcut) => (
-            <div
-              key={shortcut.description}
-              className="flex items-center justify-between gap-3"
-            >
-              <span className="text-sm text-[var(--t-text-secondary)]">
-                {shortcut.description}
-              </span>
-              <div className="flex shrink-0 items-center gap-1">
-                {shortcut.keys.map((key) => (
-                  <kbd
-                    key={key}
-                    className="rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-1.5 py-0.5 font-mono text-xs text-[var(--t-text)]"
-                  >
-                    {key}
-                  </kbd>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <ShortcutsList />
 
         <div className="mt-5 flex justify-end">
           <button

@@ -23,10 +23,8 @@ import {
   importBoardSession,
   importBoardsSession,
 } from '../../services/boardSession'
-import {
-  extractBoardData,
-  useTierListStore,
-} from '../../store/useTierListStore'
+import { extractBoardData } from '../../domain/boardData'
+import { useTierListStore } from '../../store/useTierListStore'
 import { exportBoardAsJson, parseBoardsJson } from '../../utils/exportJson'
 import { ActionButton } from './ActionButton'
 import {

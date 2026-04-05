@@ -23,6 +23,7 @@ import {
   type RgbInputState,
 } from '../../utils/color'
 import { getColorName } from '../../utils/colorName'
+import { TextInput } from '../ui/TextInput'
 
 interface ColorPickerProps
 {
@@ -302,10 +303,10 @@ export const CustomColorPicker = memo(
             <span className="mb-1 block text-xs font-medium uppercase tracking-[0.12em] text-[var(--t-text-faint)]">
               Hex
             </span>
-            <input
+            <TextInput
               value={draftState.hexInput}
               onChange={(event) => updateHexInput(event.target.value)}
-              className="w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-sm text-[var(--t-text)] outline-none transition focus:border-[var(--t-accent-hover)]"
+              className="w-full rounded-lg border-[var(--t-border)] focus:border-[var(--t-accent-hover)]"
               placeholder="#aabbcc"
               aria-label="Custom hex color"
               spellCheck={false}
@@ -324,12 +325,12 @@ export const CustomColorPicker = memo(
                 <span className="mb-1 block text-xs font-medium uppercase tracking-[0.12em] text-[var(--t-text-faint)]">
                   {label}
                 </span>
-                <input
+                <TextInput
                   value={draftState.rgbInputs[channel]}
                   onChange={(event) =>
                     updateRgbInput(channel, event.target.value)
                   }
-                  className="w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-center text-sm text-[var(--t-text)] outline-none transition focus:border-[var(--t-accent-hover)]"
+                  className="w-full rounded-lg border-[var(--t-border)] px-2 text-center focus:border-[var(--t-accent-hover)]"
                   inputMode="numeric"
                   placeholder="0"
                   aria-label={`${label} value`}

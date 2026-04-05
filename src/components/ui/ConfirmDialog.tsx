@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
+import { SecondaryButton } from './SecondaryButton'
 
 interface ConfirmDialogProps
 {
@@ -85,14 +86,13 @@ export const ConfirmDialog = ({
         </p>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button
+          <SecondaryButton
             ref={cancelButtonRef}
-            type="button"
-            className="focus-custom rounded-md border border-[var(--t-border-secondary)] px-3 py-1.5 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-overlay)]"
+            className="focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-overlay)]"
             onClick={onCancel}
           >
             {cancelText}
-          </button>
+          </SecondaryButton>
           <button
             type="button"
             className={`focus-custom rounded-md px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-overlay)] ${

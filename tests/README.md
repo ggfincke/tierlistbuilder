@@ -14,6 +14,9 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Color Parsing**: Hex/RGB normalization, contrast calculation
 - **Tier Colors**: Palette/custom color spec creation & resolution
 - **Board Data**: Board creation, reset, & legacy data normalization
+- **Board Operations**: Pure tier sorting & item shuffling logic
+- **Selection Primitives**: Shared radio/tab semantics behind roving selection
+- **ID Helpers**: Generated ID prefix contracts & guard helpers
 
 We intentionally do not test:
 
@@ -43,9 +46,12 @@ npx vitest run tests/dragSnapshot.test.ts
 tests/
 ├── fixtures.ts                — shared snapshot/tier builders & constants
 ├── constants.test.ts          — toFileBase, clampIndex, buildDefaultTiers
+├── id.test.ts                 — ID factory prefixes & guard helpers
 ├── color.test.ts              — hex/rgb parsing & contrast
 ├── tierColors.test.ts         — tier color spec creation & resolution
 ├── boardData.test.ts          — board creation & legacy normalization
+├── boardOps.test.ts           — pure sorting & shuffling helpers
+├── selectionState.test.ts     — shared radio/tab semantics for roving selection
 ├── dragSnapshot.test.ts       — snapshot transforms & container queries
 ├── dragKeyboard.test.ts       — keyboard navigation resolution
 └── dragPointerMath.test.ts    — pointer insertion math

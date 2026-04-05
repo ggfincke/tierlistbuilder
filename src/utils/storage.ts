@@ -7,7 +7,8 @@ import {
   type StateStorage,
 } from 'zustand/middleware'
 
-import type { TierListData } from '../types'
+import type { BoardId, TierListData } from '../types'
+import { generateBoardId } from './id'
 
 // legacy localStorage keys — used only for migration detection
 export const APP_STORAGE_KEY = 'tier-list-builder-state'
@@ -19,7 +20,7 @@ export const BOARD_REGISTRY_KEY = 'tier-list-builder-boards'
 // localStorage key for global user settings
 export const SETTINGS_STORAGE_KEY = 'tier-list-builder-settings'
 // build a per-board localStorage key from its ID
-export const boardStorageKey = (id: string): string => `tier-list-board-${id}`
+export const boardStorageKey = (id: BoardId): string => `tier-list-board-${id}`
 // current board payload schema version
 export const BOARD_DATA_VERSION = 3
 
@@ -105,7 +106,7 @@ export const migrateStorageKeys = (): void =>
 
 // save board data to its per-board localStorage key
 export const saveBoardToStorage = (
-  boardId: string,
+  boardId: BoardId,
   data: TierListData,
   onError?: (message: string) => void
 ): void =>
@@ -130,7 +131,7 @@ export const saveBoardToStorage = (
 
 // load board data from its per-board localStorage key
 export const loadBoardFromStorage = (
-  boardId: string
+  boardId: BoardId
 ): Partial<TierListData> | null =>
 {
   try
@@ -165,7 +166,7 @@ export const loadBoardFromStorage = (
 }
 
 // remove a board's per-board localStorage key
-export const removeBoardFromStorage = (boardId: string): void =>
+export const removeBoardFromStorage = (boardId: BoardId): void =>
 {
   deleteStorageItem(boardStorageKey(boardId))
 }
@@ -257,7 +258,7 @@ const migrateLegacyDefaultTierSet = (
 // attempt to migrate the legacy single-board localStorage key into the multi-board system
 export const migrateLegacyBoard = (
   defaultTitle: string
-): { id: string; data: Record<string, unknown> } | null =>
+): { id: BoardId; data: Record<string, unknown> } | null =>
 {
   try
   {
@@ -286,7 +287,7 @@ export const migrateLegacyBoard = (
       deletedItems: state.deletedItems ?? [],
     }
 
-    const id = `board-${crypto.randomUUID()}`
+    const id = generateBoardId()
 
     // clean up legacy key
     deleteStorageItem(APP_STORAGE_KEY)

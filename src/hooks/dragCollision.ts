@@ -38,7 +38,9 @@ export const resolveDragCollisions = (
   // tier drag — use closestCenter against tier IDs only
   if (args.active.data.current?.type === 'tier')
   {
-    const tierIds = new Set(useTierListStore.getState().tiers.map((t) => t.id))
+    const tierIds = new Set(
+      useTierListStore.getState().tiers.map((tier) => String(tier.id))
+    )
     const tierContainers = args.droppableContainers.filter((c) =>
       tierIds.has(String(c.id))
     )

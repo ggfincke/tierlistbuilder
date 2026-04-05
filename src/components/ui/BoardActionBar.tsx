@@ -21,7 +21,7 @@ import { extractPresetFromBoard } from '../../domain/presets'
 import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
 import { useHybridMenu } from '../../hooks/useHybridMenu'
 import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
-import { extractBoardData } from '../../store/useTierListStore'
+import { extractBoardData } from '../../domain/boardData'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { usePresetStore } from '../../store/usePresetStore'
 import { useTierListStore } from '../../store/useTierListStore'
@@ -36,6 +36,8 @@ import { ActionButton } from './ActionButton'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportMenu } from './ExportMenu'
 import { OverlayMenuItem, OverlayMenuSurface } from './OverlayPrimitives'
+import { SecondaryButton } from './SecondaryButton'
+import { TextInput } from './TextInput'
 
 interface BoardActionBarProps
 {
@@ -390,10 +392,9 @@ export const BoardActionBar = ({
               <label htmlFor={savePresetInputId} className="sr-only">
                 Preset name
               </label>
-              <input
+              <TextInput
                 id={savePresetInputId}
                 autoFocus
-                type="text"
                 value={presetName}
                 onChange={(e) => setPresetName(e.target.value)}
                 onKeyDown={(e) =>
@@ -401,16 +402,13 @@ export const BoardActionBar = ({
                   if (e.key === 'Enter') savePreset()
                 }}
                 placeholder="Preset name"
-                className="mt-3 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
+                size="md"
+                className="mt-3 w-full rounded-lg border-[var(--t-border)] focus:border-[var(--t-accent-hover)]"
               />
               <div className="mt-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="focus-custom rounded-md border border-[var(--t-border-secondary)] px-3 py-1.5 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-                  onClick={() => setShowSavePreset(false)}
-                >
+                <SecondaryButton onClick={() => setShowSavePreset(false)}>
                   Cancel
-                </button>
+                </SecondaryButton>
                 <button
                   type="button"
                   disabled={!presetName.trim()}
