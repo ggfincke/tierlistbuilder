@@ -11,6 +11,7 @@ import {
   type UniqueIdentifier,
 } from '@dnd-kit/core'
 
+import { toStringId } from './dragHelpers'
 import { useTierListStore } from '../store/useTierListStore'
 import { TRASH_CONTAINER_ID } from '../utils/constants'
 import {
@@ -19,9 +20,6 @@ import {
   getItemsInContainer,
 } from '../utils/dragSnapshot'
 import { isPointerInTrailingLastRowSpace } from '../utils/dragPointerMath'
-
-const toStringId = (id: UniqueIdentifier): string | null =>
-  typeof id === 'string' ? id : null
 
 export const resolveDragCollisions = (
   args: Parameters<CollisionDetection>[0],

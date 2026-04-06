@@ -2,12 +2,9 @@
 // drag preview helpers — keep the transient snapshot aligned to pointer movement
 
 import type { MutableRefObject } from 'react'
-import type {
-  DragMoveEvent,
-  DragOverEvent,
-  UniqueIdentifier,
-} from '@dnd-kit/core'
+import type { DragMoveEvent, DragOverEvent } from '@dnd-kit/core'
 
+import { toStringId } from './dragHelpers'
 import { useTierListStore } from '../store/useTierListStore'
 import type { ContainerSnapshot } from '../types'
 import { TRASH_CONTAINER_ID } from '../utils/constants'
@@ -26,9 +23,6 @@ interface DragPositionEvent
   over: DragMoveEvent['over'] | DragOverEvent['over']
   delta: DragMoveEvent['delta']
 }
-
-const toStringId = (id: UniqueIdentifier): string | null =>
-  typeof id === 'string' ? id : null
 
 export const syncDraggedItemPosition = (
   event: DragPositionEvent,
