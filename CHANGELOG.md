@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-05
+
+### Added
+
+- **PWA**: Web app manifest, app icon, service worker registration — installable as a standalone app (#18)
+- **Accessibility**: Focus trapping in modals, `aria-inert` background suppression, live region announcements, & color name labels (#18)
+- **Shortcuts Panel**: `?` key opens keyboard shortcuts reference overlay (#18)
+- **Item Edit Popover**: Inline edit popover for renaming items & changing alt text (#18)
+- **Global Shortcuts**: Centralized shortcut handler w/ Ctrl/Cmd+Shift+T for toolbar cycling (#18, #20)
+- **Toolbar Position**: Configurable placement (top, bottom, left, right) via layout settings tab (#19)
+- **Responsive Toolbar**: Side toolbar collapses to top on small viewports via `useViewportWidth` hook (#20)
+- **Menu Animations**: Position-aware open animations (down/up/left/right) for menus (#20)
+- **Alt Text Toggle**: `showAltTextButton` setting (default off) w/ toggle in layout tab (#20)
+- **Reusable UI Primitives**: `BaseModal`, `TextInput`, `SecondaryButton`, `ItemOverlayButton`, `ShortcutsList`, `SavePresetModal` extracted as shared components (#21)
+
+### Changed
+
+- **Menus**: Replaced `useHybridMenu` w/ `useNestedMenus` hook for cleaner submenu state management (#21)
+- **Modals**: Extracted `useModalDialog` & `useInlineEdit` hooks; modals now use shared `BaseModal` shell (#21)
+- **Selection**: `useRovingSelection` hook replaces ad-hoc selection logic in pickers & lists (#21)
+- **Popup Positioning**: New `useAnchoredPopup` hook & expanded `popupPosition` utilities w/ overflow flipping (#20, #21)
+- **Board Ops**: Extracted pure board operations into `src/domain/boardOps.ts`, slimmed tier list store (#21)
+- **Export**: Consolidated export utilities w/ simplified signatures & shared helpers (#21)
+- **Submenu Overflow**: `useMenuOverflowFlip` detects viewport edges & flips submenu direction (#20)
+- **Board Manager**: Flips to left side when toolbar is positioned on the right (#20)
+- **Preset Picker**: Defaults to classic preset; board manager pill hidden while modal is open (#22)
+
+### Fixed
+
+- **Security**: Override `serialize-javascript` to v7 for prototype pollution fix (#22)
+- **Z-Index**: Board manager trigger hidden during preset picker to avoid overlap (#22)
+
+### Removed
+
+- **Hook**: `useHybridMenu` replaced by `useNestedMenus` (#21)
+- **Hook**: `useUndoRedo` inlined into global shortcuts (#18)
+- **Theme**: Removed unused `tierColors.ts` exports (#21)
+
 ## [0.4.0] - 2026-03-30
 
 ### Added
