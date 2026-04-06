@@ -15,7 +15,7 @@ export {
   getTierColorFromPaletteSpec,
   resolveTierColor,
   resolveTierColorSpec,
-} from './tierColors'
+} from '../domain/tierColors'
 
 export { TEXT_STYLES } from './textStyles'
 export type { TextStyleDefinition } from './textStyles'
