@@ -13,6 +13,7 @@ import { getEffectiveUnrankedItemIds } from '../../utils/dragSnapshot'
 import { UNRANKED_CONTAINER_ID } from '../../utils/constants'
 import { TierItem } from './TierItem'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { TextInput } from '../ui/TextInput'
 import { UploadDropzone } from '../ui/UploadDropzone'
 
 export const UnrankedPool = () =>
@@ -108,13 +109,12 @@ export const UnrankedPool = () =>
       {unrankedItemIds.length > 0 && (
         <div className="relative mb-2">
           <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[var(--t-text-faint)]" />
-          <input
-            type="text"
+          <TextInput
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search items..."
             aria-label="Search unranked items"
-            className="focus-custom w-full rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] py-1.5 pr-7 pl-8 text-sm text-[var(--t-text)] placeholder:text-[var(--t-text-faint)] outline-none focus:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            className="w-full py-1.5 pr-7 pl-8 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
           />
           {isSearching && (
             <button

@@ -10,10 +10,8 @@ import {
   getItemsInContainer,
   moveItemInSnapshot,
 } from './dragSnapshot'
-import {
-  RENDERED_ROW_TOP_TOLERANCE_PX,
-  sortByRenderedPosition,
-} from './dragDomCapture'
+import { sortByRenderedPosition } from './dragDomCapture'
+import { RENDERED_ROW_TOP_TOLERANCE_PX } from './uiMeasurements'
 
 interface GetDraggedItemRectArgs
 {

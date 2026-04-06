@@ -4,9 +4,8 @@
 import type { ClientRect } from '@dnd-kit/core'
 
 import type { ContainerSnapshot } from '../types'
+import { RENDERED_ROW_TOP_TOLERANCE_PX } from './uiMeasurements'
 import { UNRANKED_CONTAINER_ID } from './constants'
-
-export const RENDERED_ROW_TOP_TOLERANCE_PX = 4
 
 export const sortByRenderedPosition = <
   T extends Pick<ClientRect, 'left' | 'top'>,

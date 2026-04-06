@@ -1,20 +1,20 @@
 // src/components/ui/PresetPickerModal.tsx
 // modal for choosing a board preset when creating a new list
 
-import { useId, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 
-import type { TierPreset } from '../../types'
+import type { PresetId, TierPreset } from '../../types'
 import { BUILTIN_PRESETS } from '../../domain/presets'
 import { resolveTierColorSpec } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
-import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
-import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
+import { useInlineEdit } from '../../hooks/useInlineEdit'
 import { usePresetStore } from '../../store/usePresetStore'
 import { getTextColor } from '../../utils/color'
+import { BaseModal } from './BaseModal'
 import { ConfirmDialog } from './ConfirmDialog'
+import { SecondaryButton } from './SecondaryButton'
+import { TextInput } from './TextInput'
 
 interface PresetPickerModalProps
 {
@@ -36,57 +36,38 @@ export const PresetPickerModal = ({
   const removePreset = usePresetStore((state) => state.removePreset)
   const renamePreset = usePresetStore((state) => state.renamePreset)
 
-  const dialogRef = useRef<HTMLDivElement>(null)
   const blankBoardButtonRef = useRef<HTMLButtonElement>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState('')
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<PresetId | null>(null)
   const titleId = useId()
+  const {
+    cancelEdit,
+    getInputProps,
+    inputRef: editInputRef,
+    isEditing,
+    startEdit,
+  } = useInlineEdit<PresetId>({
+    onCommit: renamePreset,
+  })
 
   const allPresets = useMemo(
     () => [...BUILTIN_PRESETS, ...userPresets],
     [userPresets]
   )
-
-  useDismissibleLayer({
-    open,
-    onDismiss: onClose,
-    closeOnInteractOutside: false,
-  })
-
-  useFocusTrap(dialogRef, {
-    active: open,
-    initialFocusRef: blankBoardButtonRef,
-  })
-  useModalBackgroundInert(open)
-
-  if (!open)
+  const handleClose = useCallback(() =>
   {
-    return null
-  }
+    cancelEdit()
+    setConfirmDeleteId(null)
+    onClose()
+  }, [cancelEdit, onClose])
 
-  const commitRename = () =>
-  {
-    if (editingId && editValue.trim())
-    {
-      renamePreset(editingId, editValue.trim())
-    }
-    setEditingId(null)
-  }
-
-  return createPortal(
+  return (
     <>
-      <div
-        className="fixed inset-0 z-40 bg-black/60 animate-[fadeIn_100ms_ease-out]"
-        onClick={onClose}
-      />
-
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="fixed inset-0 z-50 m-auto flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl animate-[scaleIn_150ms_ease-out]"
+      <BaseModal
+        open={open}
+        onClose={handleClose}
+        labelledBy={titleId}
+        initialFocusRef={blankBoardButtonRef}
+        panelClassName="flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col p-4"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2
@@ -95,24 +76,19 @@ export const PresetPickerModal = ({
           >
             New List
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="focus-custom rounded-md border border-[var(--t-border-secondary)] px-3 py-1 text-sm text-[var(--t-text-secondary)] hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-          >
+          <SecondaryButton size="sm" onClick={handleClose}>
             Cancel
-          </button>
+          </SecondaryButton>
         </div>
 
-        <div className="min-h-0 flex-1 grid grid-cols-4 gap-2 overflow-y-auto pr-1 auto-rows-min">
-          {/* blank board option */}
+        <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-4 gap-2 overflow-y-auto pr-1">
           <button
             ref={blankBoardButtonRef}
             type="button"
             onClick={() =>
             {
               onSelectBlank()
-              onClose()
+              handleClose()
             }}
             className="focus-custom group flex min-h-[6rem] flex-col gap-2 rounded-lg border border-dashed border-[var(--t-border-secondary)] px-3 py-3 text-left transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
           >
@@ -129,13 +105,12 @@ export const PresetPickerModal = ({
             </p>
           </button>
 
-          {/* preset list */}
           {allPresets.map((preset) =>
           {
-            const isEditing = editingId === preset.id
+            const presetIsEditing = isEditing(preset.id)
             const previewPills = (
               <div className="mt-1 flex flex-wrap gap-1">
-                {preset.tiers.map((tier, i) =>
+                {preset.tiers.map((tier, index) =>
                 {
                   const tierColor = resolveTierColorSpec(
                     paletteId,
@@ -145,7 +120,7 @@ export const PresetPickerModal = ({
 
                   return (
                     <span
-                      key={i}
+                      key={index}
                       className="rounded px-1.5 py-0.5 text-[0.6rem] font-medium leading-none"
                       style={{
                         backgroundColor: tierColor,
@@ -168,21 +143,17 @@ export const PresetPickerModal = ({
                 key={preset.id}
                 className="group relative flex min-h-[6rem] flex-col rounded-lg border border-[var(--t-border)] px-3 py-3 transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-within:border-[var(--t-border-hover)] focus-within:bg-[var(--t-bg-hover)]"
               >
-                {isEditing ? (
+                {presetIsEditing ? (
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-left">
-                    <input
-                      autoFocus
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) =>
-                        {
-                        if (e.key === 'Enter') commitRename()
-                        if (e.key === 'Escape') setEditingId(null)
-                      }}
-                      onBlur={commitRename}
-                      aria-label={`Rename ${preset.name}`}
-                      className="focus-custom w-full rounded bg-transparent text-sm font-medium text-[var(--t-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                    <TextInput
+                      ref={editInputRef}
+                      variant="ghost"
+                      size="sm"
+                      {...getInputProps({
+                        'aria-label': `Rename ${preset.name}`,
+                        className:
+                          'w-full rounded px-0 py-0 font-medium focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]',
+                      })}
                     />
                     {previewPills}
                   </div>
@@ -193,7 +164,7 @@ export const PresetPickerModal = ({
                     onClick={() =>
                       {
                       onSelectPreset(preset)
-                      onClose()
+                      handleClose()
                     }}
                   >
                     <span className="text-sm font-medium text-[var(--t-text)]">
@@ -203,17 +174,12 @@ export const PresetPickerModal = ({
                   </button>
                 )}
 
-                {/* actions for user presets */}
-                {!preset.builtIn && !isEditing && (
+                {!preset.builtIn && !presetIsEditing && (
                   <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
                       type="button"
                       aria-label={`Rename ${preset.name}`}
-                      onClick={() =>
-                      {
-                        setEditingId(preset.id)
-                        setEditValue(preset.name)
-                      }}
+                      onClick={() => startEdit(preset.id, preset.name)}
                       className="focus-custom rounded p-1 text-[var(--t-text-dim)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
                     >
                       <Pencil className="h-3 w-3" />
@@ -232,7 +198,7 @@ export const PresetPickerModal = ({
             )
           })}
         </div>
-      </div>
+      </BaseModal>
 
       <ConfirmDialog
         open={confirmDeleteId !== null}
@@ -242,11 +208,14 @@ export const PresetPickerModal = ({
         onCancel={() => setConfirmDeleteId(null)}
         onConfirm={() =>
         {
-          if (confirmDeleteId) removePreset(confirmDeleteId)
+          if (confirmDeleteId)
+          {
+            removePreset(confirmDeleteId)
+          }
+
           setConfirmDeleteId(null)
         }}
       />
-    </>,
-    document.body
+    </>
   )
 }

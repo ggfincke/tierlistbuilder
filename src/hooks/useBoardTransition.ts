@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
 import { switchBoardSession } from '../services/boardSession'
+import type { BoardId } from '../types'
 
 const FADE_OUT_MS = 120
 const FADE_IN_MS = 180
@@ -35,12 +36,12 @@ export const useBoardTransition = () =>
   useEffect(() =>
   {
     phaseRef.current = phase
-  })
+  }, [phase])
   const activeBoardIdRef = useRef(activeBoardId)
   useEffect(() =>
   {
     activeBoardIdRef.current = activeBoardId
-  })
+  }, [activeBoardId])
 
   // track pending timers & RAF for cleanup
   const timersRef = useRef<{
@@ -64,7 +65,7 @@ export const useBoardTransition = () =>
   useEffect(() => cancelTimers, [cancelTimers])
 
   // fade out, swap board, fade in
-  const transitionTo = useCallback((boardId: string) =>
+  const transitionTo = useCallback((boardId: BoardId) =>
   {
     if (boardId === activeBoardIdRef.current || phaseRef.current !== 'idle')
       return

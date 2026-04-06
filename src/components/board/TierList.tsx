@@ -18,11 +18,13 @@ import type { ToolbarPosition } from '../../types'
 import { isVerticalPosition } from '../../utils/menuPosition'
 import { useDragAndDrop } from '../../hooks/useDragAndDrop'
 
+// toolbar is rendered *after* content in DOM so it naturally paints on top
+// (dropdowns won't be clipped by the tier grid); flex-reverse restores visual order
 const TOOLBAR_LAYOUT_CLASS: Record<ToolbarPosition, string> = {
-  top: 'flex flex-col gap-3',
-  bottom: 'flex flex-col-reverse gap-3',
-  left: 'flex flex-row items-start gap-3',
-  right: 'flex flex-row-reverse items-start gap-3',
+  top: 'flex flex-col-reverse gap-3',
+  bottom: 'flex flex-col gap-3',
+  left: 'flex flex-row-reverse items-center gap-3',
+  right: 'flex flex-row items-center gap-3',
 }
 import { DragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
@@ -122,12 +124,9 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       <div
         className={`${compactMode ? 'mt-1' : 'mt-3'} ${TOOLBAR_LAYOUT_CLASS[toolbarPosition]}`}
       >
-        {/* sticky wrapper keeps the toolbar visible while scrolling tall boards */}
-        <div className={isVertical ? 'sticky top-4 self-start' : ''}>
-          {toolbar}
-        </div>
-
-        {/* content column — tier rows, unranked pool, & trash zone */}
+        {/* tier rows column — unranked pool & trash zone live outside so
+            left/right toolbar centers on tiers only & bottom toolbar
+            sits above the pool */}
         <div className={`${isVertical ? 'min-w-0 flex-1' : ''}`}>
           {/* export capture wrapper */}
           <div className="overflow-x-auto">
@@ -158,12 +157,15 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
               </SortableContext>
             </div>
           </div>
-
-          <UnrankedPool />
-
-          <TrashZone />
         </div>
+
+        {/* sticky wrapper keeps the toolbar visible while scrolling tall boards */}
+        <div className={isVertical ? 'sticky top-4' : ''}>{toolbar}</div>
       </div>
+
+      <UnrankedPool />
+
+      <TrashZone />
 
       {/* render ghost in the overlay while a drag is active */}
       <DragOverlay>

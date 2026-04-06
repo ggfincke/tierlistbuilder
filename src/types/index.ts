@@ -1,11 +1,30 @@
 // src/types/index.ts
 // core domain types for the tier list app
 
+// generated board ID stored in the board registry & per-board storage keys
+export type BoardId = `board-${string}`
+
+// generated tier ID used for default & newly created tiers
+export type TierId = `tier-${string}`
+
+// app-generated preset IDs for user presets
+export type UserPresetId = `preset-${string}`
+
+// static preset IDs for built-in presets shipped w/ the app
+export type BuiltinPresetId = `builtin-${string}`
+
+// valid preset ID for either a built-in or user-saved preset
+export type PresetId = UserPresetId | BuiltinPresetId
+
+// item IDs remain plain strings because persisted/imported boards may carry
+// existing bare UUID values
+export type ItemId = string
+
 // single item placed in a tier or the unranked pool
 export interface TierItem
 {
   // unique identifier
-  id: string
+  id: ItemId
   // base64 data URL or image path (absent for text-only items)
   imageUrl?: string
   // optional display label (derived from filename on upload, required for text-only)
@@ -39,7 +58,7 @@ export type TierColorSpec = TierPaletteColorSpec | TierCustomColorSpec
 export interface Tier
 {
   // unique identifier
-  id: string
+  id: TierId
   // display name shown in the label cell
   name: string
   // optional subtitle text displayed beneath the name
@@ -54,9 +73,9 @@ export interface Tier
 export interface ContainerSnapshotTier
 {
   // stable tier ID used to map preview order back onto the full tier metadata
-  id: string
+  id: TierId
   // ordered list of item IDs currently shown in this tier
-  itemIds: string[]
+  itemIds: ItemId[]
 }
 
 // runtime-only container ordering snapshot used for drag preview
@@ -65,7 +84,7 @@ export interface ContainerSnapshot
   // item ordering for each tier row
   tiers: ContainerSnapshotTier[]
   // ordering for items outside all tiers
-  unrankedItemIds: string[]
+  unrankedItemIds: ItemId[]
 }
 
 // full persisted state shape for the board
@@ -76,9 +95,9 @@ export interface TierListData
   // ordered list of tier rows
   tiers: Tier[]
   // item IDs in the unranked pool (not yet assigned to a tier)
-  unrankedItemIds: string[]
+  unrankedItemIds: ItemId[]
   // map of all items keyed by ID
-  items: Record<string, TierItem>
+  items: Record<ItemId, TierItem>
   // recently deleted items available for restore (newest first, capped at 50)
   deletedItems: TierItem[]
 }
@@ -98,7 +117,7 @@ export interface NewTierItem
 export interface BoardMeta
 {
   // unique board identifier
-  id: string
+  id: BoardId
   // display title (kept in sync w/ TierListData.title)
   title: string
   // epoch millis when the board was created
@@ -116,7 +135,7 @@ export interface TierPresetTier
 // reusable board preset — defines tier structure w/o items
 export interface TierPreset
 {
-  id: string
+  id: PresetId
   name: string
   builtIn: boolean
   tiers: TierPresetTier[]

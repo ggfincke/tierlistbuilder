@@ -4,7 +4,8 @@
 import { useCallback, useState } from 'react'
 
 import { useSettingsStore } from '../store/useSettingsStore'
-import { extractBoardData, useTierListStore } from '../store/useTierListStore'
+import { extractBoardData } from '../domain/boardData'
+import { useTierListStore } from '../store/useTierListStore'
 import { THEMES } from '../theme/tokens'
 import type { ImageFormat } from '../types'
 import {

@@ -13,6 +13,7 @@ import {
 
 import { announce, getContainerLabel } from '../utils/announce'
 import { resolveDragCollisions } from './dragCollision'
+import { toStringId } from './dragHelpers'
 import { syncDraggedItemPosition } from './dragPreviewController'
 import { useDragSensors } from './dragSensors'
 import { useTierListStore } from '../store/useTierListStore'
@@ -24,11 +25,6 @@ import {
 import { captureRenderedContainerSnapshot } from '../utils/dragDomCapture'
 
 type DragType = 'item' | 'tier'
-
-const toStringId = (id: UniqueIdentifier): string | null =>
-{
-  return typeof id === 'string' ? id : null
-}
 
 const getDragType = (event: {
   active: { data: { current?: { type?: string } } }

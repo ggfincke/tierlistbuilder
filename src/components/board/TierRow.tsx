@@ -2,6 +2,7 @@
 // tier row component — label, sortable item grid, & row controls
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   SortableContext,
   rectSortingStrategy,
@@ -21,13 +22,12 @@ import type { Tier } from '../../types'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { ITEM_SIZE_PX } from '../../utils/constants'
+import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '../../utils/uiMeasurements'
 import {
-  CUSTOM_COLOR_PICKER_WIDTH_PX,
   computeColorPickerStyle,
   computeCustomColorPickerStyle,
 } from '../../utils/popupPosition'
-import { useAnchoredPosition } from '../../hooks/useAnchoredPosition'
-import { usePopupClose } from '../../hooks/usePopupClose'
+import { useAnchoredPopup } from '../../hooks/useAnchoredPopup'
 import {
   BoardItemsGrid,
   BoardRowContent,
@@ -92,18 +92,44 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
   const colorPickerIgnoreRefs = useMemo(() => [customColorPickerRef], [])
   const customColorPickerIgnoreRefs = useMemo(() => [colorPickerRef], [])
 
-  const { style: colorPickerStyle, updatePosition: updateColorPickerPosition } =
-    useAnchoredPosition({
-      computePosition: () =>
-        colorButtonRef.current
-          ? computeColorPickerStyle(colorButtonRef.current)
-          : null,
-    })
+  // close both color popups together when the tray is dismissed
+  const closeColorPickers = useCallback(() =>
+  {
+    setShowCustomColorPicker(false)
+    setShowColorPicker(false)
+    setPreviewColor(null)
+  }, [])
+
+  // close only the custom popup so the swatch tray stays open
+  const closeCustomColorPicker = useCallback(() =>
+  {
+    setShowCustomColorPicker(false)
+    setPreviewColor(null)
+  }, [])
+
+  const { style: colorPickerStyle } = useAnchoredPopup({
+    open: showColorPicker,
+    triggerRef: colorButtonRef,
+    popupRef: colorPickerRef,
+    ignoreRefs: colorPickerIgnoreRefs,
+    onClose: closeColorPickers,
+    closeOnEscape: false,
+    computePosition: () =>
+      colorButtonRef.current
+        ? computeColorPickerStyle(colorButtonRef.current)
+        : null,
+  })
 
   const {
     style: customColorPickerStyle,
     updatePosition: updateCustomColorPickerPosition,
-  } = useAnchoredPosition({
+  } = useAnchoredPopup({
+    open: showCustomColorPicker,
+    triggerRef: customColorButtonRef,
+    popupRef: customColorPickerRef,
+    ignoreRefs: customColorPickerIgnoreRefs,
+    onClose: closeCustomColorPicker,
+    closeOnEscape: false,
     computePosition: () =>
     {
       if (!customColorButtonRef.current)
@@ -138,41 +164,6 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
     data: droppableData,
   })
 
-  // close both color popups together when the tray is dismissed
-  const closeColorPickers = useCallback(() =>
-  {
-    setShowCustomColorPicker(false)
-    setShowColorPicker(false)
-    setPreviewColor(null)
-  }, [])
-
-  // close only the custom popup so the swatch tray stays open
-  const closeCustomColorPicker = useCallback(() =>
-  {
-    setShowCustomColorPicker(false)
-    setPreviewColor(null)
-  }, [])
-
-  usePopupClose({
-    show: showColorPicker,
-    triggerRef: colorButtonRef,
-    popupRef: colorPickerRef,
-    ignoreRefs: colorPickerIgnoreRefs,
-    onClose: closeColorPickers,
-    closeOnEscape: false,
-    onScroll: updateColorPickerPosition,
-  })
-
-  usePopupClose({
-    show: showCustomColorPicker,
-    triggerRef: customColorButtonRef,
-    popupRef: customColorPickerRef,
-    ignoreRefs: customColorPickerIgnoreRefs,
-    onClose: closeCustomColorPicker,
-    closeOnEscape: false,
-    onScroll: updateCustomColorPickerPosition,
-  })
-
   useEffect(() =>
   {
     if (
@@ -184,18 +175,10 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
       return
     }
 
-    // remeasure after mount so the custom popup stays within the viewport
-    const updatePosition = () =>
-    {
-      if (customColorButtonRef.current && customColorPickerRef.current)
-      {
-        updateCustomColorPickerPosition()
-      }
-    }
-
-    updatePosition()
-
-    const resizeObserver = new ResizeObserver(() => updatePosition())
+    // remeasure the custom popup when its content changes size
+    const resizeObserver = new ResizeObserver(() =>
+      updateCustomColorPickerPosition()
+    )
     resizeObserver.observe(customColorPickerRef.current)
 
     return () => resizeObserver.disconnect()
@@ -284,9 +267,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
                 style={{ backgroundColor: resolvedTierColor }}
                 onClick={() =>
                 {
-                  if (!showColorPicker && colorButtonRef.current)
+                  if (!showColorPicker)
                   {
-                    updateColorPickerPosition()
                     setShowColorPicker(true)
                     setShowCustomColorPicker(false)
                     setShowSettingsMenu(false)
@@ -323,57 +305,56 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
         )}
       </BoardRowSurface>
 
-      {showColorPicker && (
-        <OverlayFixedPopupSurface
-          ref={colorPickerRef}
-          className="z-50"
-          style={colorPickerStyle}
-        >
-          <ColorPicker
-            colorSpec={tier.colorSpec}
-            colors={paletteColors}
-            customTriggerRef={customColorButtonRef}
-            showCustomPicker={showCustomColorPicker}
-            onChange={(colorSpec) =>
-            {
-              recolorTier(tier.id, colorSpec)
-              closeColorPickers()
-            }}
-            onToggleCustomPicker={() =>
-            {
-              if (!showCustomColorPicker && customColorButtonRef.current)
+      {showColorPicker &&
+        createPortal(
+          <OverlayFixedPopupSurface
+            ref={colorPickerRef}
+            className="z-50"
+            style={colorPickerStyle}
+          >
+            <ColorPicker
+              colorSpec={tier.colorSpec}
+              colors={paletteColors}
+              customTriggerRef={customColorButtonRef}
+              showCustomPicker={showCustomColorPicker}
+              onChange={(colorSpec) =>
               {
-                updateCustomColorPickerPosition()
-              }
+                recolorTier(tier.id, colorSpec)
+                closeColorPickers()
+              }}
+              onToggleCustomPicker={() =>
+              {
+                setShowCustomColorPicker((current) => !current)
+              }}
+            />
+          </OverlayFixedPopupSurface>,
+          document.body
+        )}
 
-              setShowCustomColorPicker((current) => !current)
+      {showCustomColorPicker &&
+        createPortal(
+          <OverlayFixedPopupSurface
+            ref={customColorPickerRef}
+            className="z-[60] shadow-2xl"
+            style={{
+              ...customColorPickerStyle,
+              width: 'min(17.5rem, calc(100vw - 16px))',
             }}
-          />
-        </OverlayFixedPopupSurface>
-      )}
-
-      {showCustomColorPicker && (
-        <OverlayFixedPopupSurface
-          ref={customColorPickerRef}
-          className="z-[60] shadow-2xl"
-          style={{
-            ...customColorPickerStyle,
-            width: 'min(17.5rem, calc(100vw - 16px))',
-          }}
-        >
-          <CustomColorPicker
-            key={`${resolvedTierColor}:${tier.colorSpec.kind === 'palette' ? tier.colorSpec.index : 'custom'}`}
-            value={resolvedTierColor}
-            onApply={(color) =>
-            {
-              recolorTier(tier.id, createCustomTierColorSpec(color))
-              closeColorPickers()
-            }}
-            onCancel={closeCustomColorPicker}
-            onPreview={setPreviewColor}
-          />
-        </OverlayFixedPopupSurface>
-      )}
+          >
+            <CustomColorPicker
+              key={`${resolvedTierColor}:${tier.colorSpec.kind === 'palette' ? tier.colorSpec.index : 'custom'}`}
+              value={resolvedTierColor}
+              onApply={(color) =>
+              {
+                recolorTier(tier.id, createCustomTierColorSpec(color))
+                closeColorPickers()
+              }}
+              onCancel={closeCustomColorPicker}
+              onPreview={setPreviewColor}
+            />
+          </OverlayFixedPopupSurface>,
+          document.body
+        )}
     </div>
   )
 }

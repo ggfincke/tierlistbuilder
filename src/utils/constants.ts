@@ -1,7 +1,14 @@
 // src/utils/constants.ts
 // app-wide constants — storage keys, defaults, & tier presets
 
-import type { ItemShape, ItemSize, LabelWidth, PaletteId, Tier } from '../types'
+import type {
+  ItemShape,
+  ItemSize,
+  LabelWidth,
+  PaletteId,
+  Tier,
+  TierId,
+} from '../types'
 import { THEMES } from '../theme'
 import { getAutoTierColorSpec } from '../domain/tierColors'
 
@@ -15,7 +22,7 @@ export const TRASH_CONTAINER_ID = 'trash'
 export const MAX_THUMBNAIL_SIZE = 120
 
 // stable tier IDs for the default S–E rows (indexed by position)
-const DEFAULT_TIER_IDS = [
+export const DEFAULT_TIER_IDS: TierId[] = [
   'tier-s',
   'tier-a',
   'tier-b',
@@ -25,7 +32,7 @@ const DEFAULT_TIER_IDS = [
 ]
 
 // display names for the default S–E rows (separated from palette color data)
-const DEFAULT_TIER_NAMES = ['S', 'A', 'B', 'C', 'D', 'E']
+export const DEFAULT_TIER_NAMES = ['S', 'A', 'B', 'C', 'D', 'E']
 
 // background color applied during PNG & PDF export (mirrors classic theme)
 export const EXPORT_BACKGROUND_COLOR = THEMES.classic['export-bg']
@@ -73,7 +80,7 @@ export const buildDefaultTiers = (paletteId: PaletteId = 'classic'): Tier[] =>
   DEFAULT_TIER_NAMES.map((_, i) => ({
     id:
       DEFAULT_TIER_IDS[i] ??
-      `tier-${(DEFAULT_TIER_NAMES[i] ?? `${i + 1}`).toLowerCase()}`,
+      (`tier-${(DEFAULT_TIER_NAMES[i] ?? `${i + 1}`).toLowerCase()}` as TierId),
     name: DEFAULT_TIER_NAMES[i] ?? `Tier ${i + 1}`,
     colorSpec: getAutoTierColorSpec(paletteId, i),
     itemIds: [],

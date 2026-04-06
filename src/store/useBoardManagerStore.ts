@@ -4,18 +4,18 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import type { BoardMeta } from '../types'
+import type { BoardId, BoardMeta } from '../types'
 import { BOARD_REGISTRY_KEY, createAppPersistStorage } from '../utils/storage'
 
 interface BoardManagerStore
 {
   boards: BoardMeta[]
-  activeBoardId: string
-  replaceRegistry: (boards: BoardMeta[], activeBoardId: string) => void
+  activeBoardId: BoardId | ''
+  replaceRegistry: (boards: BoardMeta[], activeBoardId: BoardId) => void
   addBoardMeta: (board: BoardMeta, active?: boolean) => void
-  setActiveBoardId: (boardId: string) => void
-  renameBoardMeta: (boardId: string, title: string) => void
-  removeBoardMeta: (boardId: string) => void
+  setActiveBoardId: (boardId: BoardId) => void
+  renameBoardMeta: (boardId: BoardId, title: string) => void
+  removeBoardMeta: (boardId: BoardId) => void
 }
 
 export const useBoardManagerStore = create<BoardManagerStore>()(

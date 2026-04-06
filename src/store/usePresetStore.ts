@@ -4,9 +4,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import type { TierPreset } from '../types'
+import type { PresetId, TierPreset } from '../types'
 import { normalizeCanonicalTierColorSpec } from '../domain/boardData'
 import { createPaletteTierColorSpec } from '../domain/tierColors'
+import { generatePresetId, isPresetId } from '../utils/id'
 import { createAppPersistStorage } from '../utils/storage'
 
 export const PRESET_STORAGE_KEY = 'tier-list-builder-presets'
@@ -15,8 +16,8 @@ interface PresetStore
 {
   userPresets: TierPreset[]
   addPreset: (preset: TierPreset) => void
-  removePreset: (presetId: string) => void
-  renamePreset: (presetId: string, name: string) => void
+  removePreset: (presetId: PresetId) => void
+  renamePreset: (presetId: PresetId, name: string) => void
 }
 
 const normalizePresetColorSpec = (value: unknown) =>
@@ -41,9 +42,9 @@ const normalizePersistedPresets = (value: unknown): TierPreset[] =>
       const tiers = Array.isArray(preset.tiers) ? preset.tiers : []
       const normalizedPreset: TierPreset = {
         id:
-          typeof preset.id === 'string'
+          typeof preset.id === 'string' && isPresetId(preset.id)
             ? preset.id
-            : `preset-${crypto.randomUUID()}`,
+            : generatePresetId(),
         name: typeof preset.name === 'string' ? preset.name : 'Untitled Preset',
         builtIn: false,
         tiers: tiers

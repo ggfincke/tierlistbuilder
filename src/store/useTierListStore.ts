@@ -9,22 +9,31 @@ import type {
   KeyboardMode,
   NewTierItem,
   PaletteId,
-  Tier,
   TierColorSpec,
   TierListData,
 } from '../types'
 import { clampIndex } from '../utils/constants'
+import { generateItemId } from '../utils/id'
 import {
   applyContainerSnapshotToTiers,
   createContainerSnapshot,
   isSnapshotConsistent,
 } from '../utils/dragSnapshot'
-import { createInitialBoardData, extractBoardData } from '../domain/boardData'
+import {
+  createInitialBoardData,
+  createNewTier,
+  extractBoardData,
+  resetBoardData,
+} from '../domain/boardData'
+import {
+  shuffleAllBoardItems,
+  shuffleUnrankedItems,
+  sortTierItemsByName as sortTierItemsByNameInBoard,
+} from '../domain/boardOps'
 import {
   freshRuntimeState,
   type TierListStoreRuntimeState,
 } from '../domain/tierListRuntime'
-import { getAutoTierColorSpec } from '../domain/tierColors'
 
 interface TierListStore extends TierListStoreRuntimeState
 {
@@ -64,13 +73,6 @@ interface TierListStore extends TierListStoreRuntimeState
   loadBoard: (data: TierListData) => void
 }
 
-const createNewTier = (paletteId: PaletteId, tierCount: number): Tier => ({
-  id: `tier-${crypto.randomUUID()}`,
-  name: `Tier ${tierCount + 1}`,
-  colorSpec: getAutoTierColorSpec(paletteId, tierCount),
-  itemIds: [],
-})
-
 const pushUndo = (state: TierListStore) => ({
   past: [...state.past, extractBoardData(state)].slice(-50),
   future: [] as TierListData[],
@@ -93,35 +95,6 @@ const keyboardCleanupForItem = (state: TierListStore, itemId: string) => ({
       ? ('idle' as KeyboardMode)
       : state.keyboardMode,
 })
-
-// compare items by label for alphabetical sort (unlabeled items sort last)
-const compareByLabel = (
-  items: Record<string, { label?: string }>,
-  a: string,
-  b: string
-): number =>
-{
-  const la = items[a]?.label ?? ''
-  const lb = items[b]?.label ?? ''
-
-  if (!la && !lb) return 0
-  if (!la) return 1
-  if (!lb) return -1
-
-  return la.localeCompare(lb, 'en', { sensitivity: 'base' })
-}
-
-// Fisher-Yates shuffle (in place)
-const fisherYatesShuffle = <T>(arr: T[]): T[] =>
-{
-  for (let i = arr.length - 1; i > 0; i--)
-  {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-
-  return arr
-}
 
 const reorderTiersByIndex = (
   state: TierListStore,
@@ -149,27 +122,6 @@ const reorderTiersByIndex = (
     tiers: nextTiers,
   }
 }
-
-const resetBoardData = (
-  state: TierListStore,
-  paletteId: PaletteId
-): TierListData =>
-{
-  const allItemIds = [
-    ...state.tiers.flatMap((tier) => tier.itemIds),
-    ...state.unrankedItemIds,
-  ]
-
-  return {
-    title: state.title,
-    tiers: createInitialBoardData(paletteId).tiers,
-    unrankedItemIds: allItemIds,
-    items: state.items,
-    deletedItems: state.deletedItems,
-  }
-}
-
-export { extractBoardData }
 
 export const useTierListStore = create<TierListStore>()((set) => ({
   ...createInitialBoardData('classic'),
@@ -322,7 +274,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
 
       for (const newItem of newItems)
       {
-        const id = crypto.randomUUID()
+        const id = generateItemId()
         nextItems[id] = {
           id,
           imageUrl: newItem.imageUrl,
@@ -344,7 +296,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
   addTextItem: (label, backgroundColor) =>
     set((state) =>
     {
-      const id = crypto.randomUUID()
+      const id = generateItemId()
 
       return {
         ...withUndo(state, {}),
@@ -583,66 +535,40 @@ export const useTierListStore = create<TierListStore>()((set) => ({
   sortTierItemsByName: (tierId) =>
     set((state) =>
     {
-      const tier = state.tiers.find((entry) => entry.id === tierId)
+      const nextTiers = sortTierItemsByNameInBoard(
+        state.tiers,
+        tierId,
+        state.items
+      )
 
-      if (!tier || tier.itemIds.length <= 1)
+      if (!nextTiers)
       {
         return state
       }
 
-      const sorted = [...tier.itemIds].sort((a, b) =>
-        compareByLabel(state.items, a, b)
-      )
-
       return withUndo(state, {
-        tiers: state.tiers.map((entry) =>
-          entry.id === tierId ? { ...entry, itemIds: sorted } : entry
-        ),
+        tiers: nextTiers,
       })
     }),
 
   shuffleAllItems: (mode) =>
     set((state) =>
     {
-      const allItemIds = [
-        ...state.tiers.flatMap((tier) => tier.itemIds),
-        ...state.unrankedItemIds,
-      ]
+      const shuffled = shuffleAllBoardItems(
+        state.tiers,
+        state.unrankedItemIds,
+        mode
+      )
 
-      if (allItemIds.length === 0 || state.tiers.length === 0)
+      if (!shuffled)
       {
         return state
       }
 
-      fisherYatesShuffle(allItemIds)
-      const nextTiers = state.tiers.map((tier) => ({
-        ...tier,
-        itemIds: [] as string[],
-      }))
-
-      if (mode === 'even')
-      {
-        // round-robin: each tier gets an equal share
-        for (let i = 0; i < allItemIds.length; i++)
-        {
-          nextTiers[i % nextTiers.length].itemIds.push(allItemIds[i])
-        }
-      }
-      else
-      {
-        // random: each item assigned to a random tier (uneven distribution)
-        for (const id of allItemIds)
-        {
-          nextTiers[Math.floor(Math.random() * nextTiers.length)].itemIds.push(
-            id
-          )
-        }
-      }
-
       return {
         ...withUndo(state, {
-          tiers: nextTiers,
-          unrankedItemIds: [],
+          tiers: shuffled.tiers,
+          unrankedItemIds: shuffled.unrankedItemIds,
         }),
         itemsManuallyMoved: false,
       }
@@ -651,46 +577,17 @@ export const useTierListStore = create<TierListStore>()((set) => ({
   shuffleUnrankedItems: () =>
     set((state) =>
     {
-      if (state.unrankedItemIds.length === 0 || state.tiers.length === 0)
+      const shuffled = shuffleUnrankedItems(state.tiers, state.unrankedItemIds)
+
+      if (!shuffled)
       {
         return state
       }
 
-      // randomly distribute unranked items into tiers while preserving
-      // the existing ranked item order within each tier
-      const unranked = [...state.unrankedItemIds]
-      fisherYatesShuffle(unranked)
-
-      // assign each unranked item to a random tier
-      const insertions: string[][] = state.tiers.map(() => [])
-
-      for (const id of unranked)
-      {
-        insertions[Math.floor(Math.random() * state.tiers.length)].push(id)
-      }
-
-      // merge: randomly interleave new items among existing ranked items
-      const nextTiers = state.tiers.map((tier, i) =>
-      {
-        const existing = [...tier.itemIds]
-        const incoming = insertions[i]
-
-        for (const id of incoming)
-        {
-          existing.splice(
-            Math.floor(Math.random() * (existing.length + 1)),
-            0,
-            id
-          )
-        }
-
-        return { ...tier, itemIds: existing }
-      })
-
       return {
         ...withUndo(state, {
-          tiers: nextTiers,
-          unrankedItemIds: [],
+          tiers: shuffled.tiers,
+          unrankedItemIds: shuffled.unrankedItemIds,
         }),
         itemsManuallyMoved: false,
       }

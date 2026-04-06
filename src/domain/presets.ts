@@ -3,6 +3,7 @@
 
 import type { TierListData, TierPreset } from '../types'
 import { DEFAULT_TITLE } from '../utils/constants'
+import { generatePresetId, generateTierId } from '../utils/id'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
@@ -91,7 +92,7 @@ export const createBoardDataFromPreset = (
 ): TierListData => ({
   title,
   tiers: preset.tiers.map((t) => ({
-    id: `tier-${crypto.randomUUID()}`,
+    id: generateTierId(),
     name: t.name,
     description: t.description,
     colorSpec: t.colorSpec,
@@ -107,7 +108,7 @@ export const extractPresetFromBoard = (
   data: TierListData,
   name: string
 ): TierPreset => ({
-  id: `preset-${crypto.randomUUID()}`,
+  id: generatePresetId(),
   name,
   builtIn: false,
   tiers: data.tiers.map((tier) => ({

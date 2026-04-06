@@ -10,7 +10,7 @@ import type {
   TierPaletteColorSpec,
 } from '../types'
 
-const FALLBACK_COLOR = '#888888'
+export const FALLBACK_COLOR = '#888888'
 
 export const createPaletteTierColorSpec = (
   index: number

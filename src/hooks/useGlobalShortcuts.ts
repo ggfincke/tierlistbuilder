@@ -21,10 +21,6 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
 
   const [showShortcutsPanel, setShowShortcutsPanel] = useState(false)
 
-  const toggleShortcutsPanel = useCallback(
-    () => setShowShortcutsPanel((prev) => !prev),
-    []
-  )
   const closeShortcutsPanel = useCallback(
     () => setShowShortcutsPanel(false),
     []
@@ -114,7 +110,6 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
 
   return {
     showShortcutsPanel,
-    toggleShortcutsPanel,
     closeShortcutsPanel,
   }
 }
