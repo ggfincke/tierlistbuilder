@@ -91,7 +91,7 @@ const createCaptureHost = (): HTMLDivElement =>
   return host
 }
 
-export const createExportCaptureSession = ({
+const createExportCaptureSession = ({
   appearance,
   backgroundColor,
 }: ExportCaptureSessionOptions): ExportCaptureSession =>
@@ -135,5 +135,22 @@ export const createExportCaptureSession = ({
       root.unmount()
       host.remove()
     },
+  }
+}
+
+// run an async action inside a managed export capture session w/ automatic cleanup
+export const withExportSession = async <T,>(
+  options: ExportCaptureSessionOptions,
+  action: (session: ExportCaptureSession) => Promise<T>
+): Promise<T> =>
+{
+  const session = createExportCaptureSession(options)
+  try
+  {
+    return await action(session)
+  }
+  finally
+  {
+    session.destroy()
   }
 }
