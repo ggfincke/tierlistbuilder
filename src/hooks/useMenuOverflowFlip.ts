@@ -1,85 +1,48 @@
 // src/hooks/useMenuOverflowFlip.ts
 // flips a submenu to the opposite horizontal side when it overflows the viewport
 
-import { useCallback, useRef } from 'react'
-import {
-  MENU_SUBMENU_FLIP_LEFT_TOKENS,
-  MENU_SUBMENU_FLIP_RIGHT_TOKENS,
-} from '../utils/menuPosition'
+import { useCallback } from 'react'
 
-export const resolveMenuOverflowFlipTokens = (
-  rect: Pick<DOMRect, 'left' | 'right'>,
-  viewportWidth: number
-): readonly string[] =>
-{
-  if (rect.right > viewportWidth)
-  {
-    return MENU_SUBMENU_FLIP_LEFT_TOKENS
-  }
-
-  if (rect.left < 0)
-  {
-    return MENU_SUBMENU_FLIP_RIGHT_TOKENS
-  }
-
-  return []
-}
-
-const applyMenuOverflowFlip = (
-  node: HTMLDivElement | null,
-  viewportWidth: number
-) =>
-{
-  if (!node)
-  {
-    return
-  }
-
-  const rect = node.getBoundingClientRect()
-
-  if (rect.right > viewportWidth)
-  {
-    node.classList.add(...MENU_SUBMENU_FLIP_LEFT_TOKENS)
-    return
-  }
-
-  if (rect.left < 0)
-  {
-    node.classList.add(...MENU_SUBMENU_FLIP_RIGHT_TOKENS)
-  }
-}
+// pre-split CSS classes to position the submenu on the opposite side
+const FLIP_LEFT = [
+  'right-[calc(100%+0.375rem)]',
+  'left-auto',
+  'before:-right-2',
+  'before:left-auto',
+  'before:top-0',
+  'before:h-full',
+  'before:w-2',
+]
+const FLIP_RIGHT = [
+  'left-[calc(100%+0.375rem)]',
+  'right-auto',
+  'before:-left-2',
+  'before:right-auto',
+  'before:top-0',
+  'before:h-full',
+  'before:w-2',
+]
 
 export const useMenuOverflowFlip = () =>
 {
   // callback ref — measures on mount & applies flip imperatively
   const ref = useCallback((node: HTMLDivElement | null) =>
   {
-    applyMenuOverflowFlip(node, window.innerWidth)
+    if (!node) return
+
+    const rect = node.getBoundingClientRect()
+
+    if (rect.right > window.innerWidth)
+    {
+      node.classList.add(...FLIP_LEFT)
+      return
+    }
+
+    if (rect.left < 0)
+    {
+      node.classList.add(...FLIP_RIGHT)
+    }
   }, [])
 
   return { ref }
-}
-
-export const useMenuOverflowFlipRefs = <MenuId extends string>() =>
-{
-  const refCache = useRef(
-    new Map<MenuId, (node: HTMLDivElement | null) => void>()
-  )
-
-  const getRef = useCallback((menuId: MenuId) =>
-  {
-    const cachedRef = refCache.current.get(menuId)
-    if (cachedRef)
-    {
-      return cachedRef
-    }
-
-    const nextRef = (node: HTMLDivElement | null) =>
-      applyMenuOverflowFlip(node, window.innerWidth)
-
-    refCache.current.set(menuId, nextRef)
-    return nextRef
-  }, [])
-
-  return { getRef }
 }

@@ -4,7 +4,7 @@
 import { useCallback, useId, useRef, useState } from 'react'
 import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 
-import type { BoardId, TierPreset, ToolbarPosition } from '../../types'
+import type { TierPreset, ToolbarPosition } from '../../types'
 import {
   createBoardSession,
   createBoardSessionFromPreset,
@@ -23,7 +23,7 @@ import { TextInput } from './TextInput'
 interface BoardManagerProps
 {
   toolbarPosition: ToolbarPosition
-  onSwitchBoard: (boardId: BoardId) => void
+  onSwitchBoard: (boardId: string) => void
 }
 
 export const BoardManager = ({

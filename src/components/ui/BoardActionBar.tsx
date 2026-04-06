@@ -30,7 +30,7 @@ import {
   getMenuPositionClasses,
   isVerticalPosition,
 } from '../../utils/menuPosition'
-import { useMenuOverflowFlipRefs } from '../../hooks/useMenuOverflowFlip'
+import { useMenuOverflowFlip } from '../../hooks/useMenuOverflowFlip'
 import { ActionButton } from './ActionButton'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportMenu } from './ExportMenu'
@@ -73,6 +73,7 @@ export const BoardActionBar = ({
   const isVertical = isVerticalPosition(toolbarPosition)
   const menuPos = getMenuPositionClasses(toolbarPosition)
   const reducedMotion = useSettingsStore((state) => state.reducedMotion)
+  const { ref: shuffleAllFlipRef } = useMenuOverflowFlip()
   const boardLocked = useSettingsStore((state) => state.boardLocked)
   const setBoardLocked = useSettingsStore((state) => state.setBoardLocked)
   const pastLength = useTierListStore((state) => state.past.length)
@@ -229,7 +230,7 @@ export const BoardActionBar = ({
                   {showShuffleAllMenu && (
                     <OverlayMenuSurface
                       id={shuffleAllGroupId}
-                      ref={getOverflowRef('shuffleAll')}
+                      ref={shuffleAllFlipRef}
                       role="group"
                       aria-label="Shuffle all options"
                       className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}

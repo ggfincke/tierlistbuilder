@@ -139,7 +139,7 @@ export const TierItem = memo(
 
           {/* alt text edit — bottom-left corner, image items only */}
           {!boardLocked && hasImage && showAltTextButton && (
-            <ItemOverlayButton
+            <button
               ref={editButtonRef}
               aria-label="Edit alt text"
               className="absolute bottom-0.5 left-0.5"
