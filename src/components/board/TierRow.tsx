@@ -305,54 +305,56 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
         )}
       </BoardRowSurface>
 
-      {showColorPicker && createPortal(
-        <OverlayFixedPopupSurface
-          ref={colorPickerRef}
-          className="z-50"
-          style={colorPickerStyle}
-        >
-          <ColorPicker
-            colorSpec={tier.colorSpec}
-            colors={paletteColors}
-            customTriggerRef={customColorButtonRef}
-            showCustomPicker={showCustomColorPicker}
-            onChange={(colorSpec) =>
-            {
-              recolorTier(tier.id, colorSpec)
-              closeColorPickers()
-            }}
-            onToggleCustomPicker={() =>
-            {
-              setShowCustomColorPicker((current) => !current)
-            }}
-          />
-        </OverlayFixedPopupSurface>,
-        document.body
-      )}
+      {showColorPicker &&
+        createPortal(
+          <OverlayFixedPopupSurface
+            ref={colorPickerRef}
+            className="z-50"
+            style={colorPickerStyle}
+          >
+            <ColorPicker
+              colorSpec={tier.colorSpec}
+              colors={paletteColors}
+              customTriggerRef={customColorButtonRef}
+              showCustomPicker={showCustomColorPicker}
+              onChange={(colorSpec) =>
+              {
+                recolorTier(tier.id, colorSpec)
+                closeColorPickers()
+              }}
+              onToggleCustomPicker={() =>
+              {
+                setShowCustomColorPicker((current) => !current)
+              }}
+            />
+          </OverlayFixedPopupSurface>,
+          document.body
+        )}
 
-      {showCustomColorPicker && createPortal(
-        <OverlayFixedPopupSurface
-          ref={customColorPickerRef}
-          className="z-[60] shadow-2xl"
-          style={{
-            ...customColorPickerStyle,
-            width: 'min(17.5rem, calc(100vw - 16px))',
-          }}
-        >
-          <CustomColorPicker
-            key={`${resolvedTierColor}:${tier.colorSpec.kind === 'palette' ? tier.colorSpec.index : 'custom'}`}
-            value={resolvedTierColor}
-            onApply={(color) =>
-            {
-              recolorTier(tier.id, createCustomTierColorSpec(color))
-              closeColorPickers()
+      {showCustomColorPicker &&
+        createPortal(
+          <OverlayFixedPopupSurface
+            ref={customColorPickerRef}
+            className="z-[60] shadow-2xl"
+            style={{
+              ...customColorPickerStyle,
+              width: 'min(17.5rem, calc(100vw - 16px))',
             }}
-            onCancel={closeCustomColorPicker}
-            onPreview={setPreviewColor}
-          />
-        </OverlayFixedPopupSurface>,
-        document.body
-      )}
+          >
+            <CustomColorPicker
+              key={`${resolvedTierColor}:${tier.colorSpec.kind === 'palette' ? tier.colorSpec.index : 'custom'}`}
+              value={resolvedTierColor}
+              onApply={(color) =>
+              {
+                recolorTier(tier.id, createCustomTierColorSpec(color))
+                closeColorPickers()
+              }}
+              onCancel={closeCustomColorPicker}
+              onPreview={setPreviewColor}
+            />
+          </OverlayFixedPopupSurface>,
+          document.body
+        )}
     </div>
   )
 }

@@ -37,7 +37,8 @@ export const useModalBackgroundInert = (active: boolean) =>
       previousInert = appShell.hasAttribute('inert')
       previousOverflow = document.body.style.overflow
       previousPaddingRight = document.body.style.paddingRight
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+      const scrollbarWidth =
+        window.innerWidth - document.documentElement.clientWidth
       appShell.setAttribute('aria-hidden', 'true')
       appShell.setAttribute('inert', '')
       document.body.style.overflow = 'hidden'

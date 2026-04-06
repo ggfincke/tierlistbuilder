@@ -167,15 +167,16 @@ export const TierItem = memo(
           )}
         </div>
 
-        {showEditPopover && createPortal(
-          <ItemEditPopover
-            itemId={itemId}
-            anchorRef={itemRef}
-            triggerRef={editButtonRef}
-            onClose={closeEditPopover}
-          />,
-          document.body
-        )}
+        {showEditPopover &&
+          createPortal(
+            <ItemEditPopover
+              itemId={itemId}
+              anchorRef={itemRef}
+              triggerRef={editButtonRef}
+              onClose={closeEditPopover}
+            />,
+            document.body
+          )}
       </>
     )
   }

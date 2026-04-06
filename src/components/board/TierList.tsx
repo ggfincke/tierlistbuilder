@@ -162,9 +162,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         </div>
 
         {/* sticky wrapper keeps the toolbar visible while scrolling tall boards */}
-        <div className={isVertical ? 'sticky top-4' : ''}>
-          {toolbar}
-        </div>
+        <div className={isVertical ? 'sticky top-4' : ''}>{toolbar}</div>
       </div>
 
       {/* render ghost in the overlay while a drag is active */}
