@@ -36,12 +36,12 @@ export const useBoardTransition = () =>
   useEffect(() =>
   {
     phaseRef.current = phase
-  })
+  }, [phase])
   const activeBoardIdRef = useRef(activeBoardId)
   useEffect(() =>
   {
     activeBoardIdRef.current = activeBoardId
-  })
+  }, [activeBoardId])
 
   // track pending timers & RAF for cleanup
   const timersRef = useRef<{

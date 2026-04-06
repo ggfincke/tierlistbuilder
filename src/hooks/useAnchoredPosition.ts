@@ -24,7 +24,7 @@ export const useAnchoredPosition = ({
   useEffect(() =>
   {
     computeRef.current = computePosition
-  })
+  }, [computePosition])
 
   const updatePosition = useCallback(() =>
   {
