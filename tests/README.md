@@ -13,8 +13,10 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Pointer Math**: Drag target index calculation & insertion positioning
 - **Color Parsing**: Hex/RGB normalization, contrast calculation
 - **Tier Colors**: Palette/custom color spec creation & resolution
-- **Board Data**: Board creation, reset, & legacy data normalization
+- **Board Data**: Board creation, reset, tier factory, color spec normalization, & legacy data migration
 - **Board Operations**: Pure tier sorting & item shuffling logic
+- **Presets**: Preset-to-board conversion, board-to-preset extraction, & round-trip integrity
+- **JSON Import**: Single & multi-board parsing, envelope detection, validation, & error reporting
 - **Selection Primitives**: Shared radio/tab semantics behind roving selection
 - **Nested Menus**: Shared tree state for root/submenu orchestration
 - **ID Helpers**: Generated ID prefix contracts & guard helpers
@@ -26,7 +28,7 @@ We intentionally do not test:
 - React components or hooks
 - DOM-dependent utilities that require live layout capture
 - Utility functions with obvious behavior (single ternary, field projection)
-- Export pipeline (PNG/PDF/JSON rendering)
+- Export rendering (PNG/PDF image capture)
 - Zustand store wiring
 
 ## Running Tests
@@ -51,8 +53,10 @@ tests/
 ├── id.test.ts                 — ID factory prefixes & guard helpers
 ├── color.test.ts              — hex/rgb parsing & contrast
 ├── tierColors.test.ts         — tier color spec creation & resolution
-├── boardData.test.ts          — board creation & legacy normalization
+├── boardData.test.ts          — board creation, tier factory, color spec normalization, & legacy migration
 ├── boardOps.test.ts           — pure sorting & shuffling helpers
+├── presets.test.ts            — preset-to-board & board-to-preset conversion
+├── exportJson.test.ts         — JSON import parsing, validation, & multi-board envelope detection
 ├── selectionState.test.ts     — shared radio/tab semantics for roving selection
 ├── nestedMenus.test.ts        — nested root/submenu open-close tree rules
 ├── dragSnapshot.test.ts       — snapshot transforms & container queries

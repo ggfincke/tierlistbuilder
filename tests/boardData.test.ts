@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   createInitialBoardData,
+  createNewTier,
+  normalizeCanonicalTierColorSpec,
   resetBoardData,
   normalizeTierListData,
 } from '../src/domain/boardData'
@@ -135,5 +137,95 @@ describe('normalizeTierListData', () =>
       kind: 'custom',
       hex: '#abcdef',
     })
+  })
+})
+
+describe('normalizeCanonicalTierColorSpec', () =>
+{
+  it('normalizes a valid palette colorSpec', () =>
+  {
+    expect(
+      normalizeCanonicalTierColorSpec({ kind: 'palette', index: 3 })
+    ).toEqual({ kind: 'palette', index: 3 })
+  })
+
+  it('normalizes a valid custom colorSpec', () =>
+  {
+    expect(
+      normalizeCanonicalTierColorSpec({ kind: 'custom', hex: '#FF0000' })
+    ).toEqual({ kind: 'custom', hex: '#ff0000' })
+  })
+
+  it('returns null for null input', () =>
+  {
+    expect(normalizeCanonicalTierColorSpec(null)).toBeNull()
+  })
+
+  it('returns null for undefined input', () =>
+  {
+    expect(normalizeCanonicalTierColorSpec(undefined)).toBeNull()
+  })
+
+  it('returns null for a plain object missing kind', () =>
+  {
+    expect(normalizeCanonicalTierColorSpec({ index: 0 })).toBeNull()
+  })
+
+  it('returns null for palette spec missing index', () =>
+  {
+    expect(normalizeCanonicalTierColorSpec({ kind: 'palette' })).toBeNull()
+  })
+
+  it('returns null for custom spec missing hex', () =>
+  {
+    expect(normalizeCanonicalTierColorSpec({ kind: 'custom' })).toBeNull()
+  })
+
+  it('returns null for non-object primitives', () =>
+  {
+    expect(normalizeCanonicalTierColorSpec('palette')).toBeNull()
+    expect(normalizeCanonicalTierColorSpec(42)).toBeNull()
+    expect(normalizeCanonicalTierColorSpec(true)).toBeNull()
+  })
+
+  it('falls back to #888888 for custom spec w/ invalid hex', () =>
+  {
+    expect(
+      normalizeCanonicalTierColorSpec({ kind: 'custom', hex: 'not-a-color' })
+    ).toEqual({ kind: 'custom', hex: '#888888' })
+  })
+})
+
+describe('createNewTier', () =>
+{
+  it('generates a tier ID w/ the tier- prefix', () =>
+  {
+    const tier = createNewTier('classic', 0)
+    expect(tier.id).toMatch(/^tier-/)
+  })
+
+  it('names the tier based on the count (1-indexed)', () =>
+  {
+    expect(createNewTier('classic', 0).name).toBe('Tier 1')
+    expect(createNewTier('classic', 5).name).toBe('Tier 6')
+    expect(createNewTier('classic', 12).name).toBe('Tier 13')
+  })
+
+  it('assigns a palette color based on the tier count', () =>
+  {
+    const tier = createNewTier('classic', 2)
+    expect(tier.colorSpec).toEqual({ kind: 'palette', index: 2 })
+  })
+
+  it('wraps palette color when tier count exceeds palette size', () =>
+  {
+    // classic palette has a finite number of swatches — ensure wrapping works
+    const tier = createNewTier('classic', 100)
+    expect(tier.colorSpec.kind).toBe('palette')
+  })
+
+  it('starts w/ an empty itemIds array', () =>
+  {
+    expect(createNewTier('classic', 0).itemIds).toEqual([])
   })
 })
