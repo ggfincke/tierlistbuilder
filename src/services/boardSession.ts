@@ -18,7 +18,7 @@ import {
   saveBoardToStorage,
 } from '../utils/storage'
 import { normalizeTierListData } from '../domain/boardData'
-import { createBoardDataFromPreset } from '../domain/presets'
+import { BUILTIN_PRESETS, createBoardDataFromPreset } from '../domain/presets'
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
 import { extractBoardData } from '../domain/boardData'
 import { useTierListStore } from '../store/useTierListStore'
@@ -161,7 +161,8 @@ export const bootstrapBoardSession = (): void =>
   }
 
   const id = generateBoardId()
-  const data = createBlankBoardData()
+  const classicPreset = BUILTIN_PRESETS.find((p) => p.id === 'builtin-classic')!
+  const data = createBoardDataFromPreset(classicPreset)
   saveBoardToStorage(id, data)
   boardStore.replaceRegistry([createBoardMeta(id, data.title)], id)
   useTierListStore.getState().loadBoard(data)
