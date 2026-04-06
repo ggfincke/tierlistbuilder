@@ -9,7 +9,7 @@ interface UsePopupCloseOptions
   // whether the popup is currently visible
   show: boolean
   // button that opens the popup (excluded from outside-click detection)
-  triggerRef: RefObject<HTMLElement | null>
+  triggerRef?: RefObject<HTMLElement | null>
   // the popup container element
   popupRef: RefObject<HTMLElement | null>
   // extra elements treated as inside the popup interaction zone
@@ -18,6 +18,12 @@ interface UsePopupCloseOptions
   onClose: () => void
   // whether Escape should close the popup
   closeOnEscape?: boolean
+  // whether outside interaction should close the popup
+  closeOnInteractOutside?: boolean
+  // phase used for the Escape key listener
+  escapePhase?: 'capture' | 'bubble'
+  // whether Escape handling should stop propagation
+  stopEscapePropagation?: boolean
   // called on scroll so the caller can reposition the popup
   onScroll?: () => void
 }
@@ -29,6 +35,9 @@ export const usePopupClose = ({
   ignoreRefs = [],
   onClose,
   closeOnEscape = true,
+  closeOnInteractOutside = true,
+  escapePhase = 'bubble',
+  stopEscapePropagation = false,
   onScroll,
 }: UsePopupCloseOptions) =>
 {
@@ -39,6 +48,9 @@ export const usePopupClose = ({
     ignoreRefs,
     onDismiss: onClose,
     closeOnEscape,
+    closeOnInteractOutside,
+    escapePhase,
+    stopEscapePropagation,
     onPositionUpdate: onScroll,
   })
 }

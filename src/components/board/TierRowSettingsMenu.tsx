@@ -2,15 +2,16 @@
 // gear button & popup settings menu for a tier row
 
 import { useCallback, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 import type { PaletteId, Tier } from '../../types'
 import { useTierListStore } from '../../store/useTierListStore'
 import { computeSettingsMenuStyle } from '../../utils/popupPosition'
-import { useAnchoredPosition } from '../../hooks/useAnchoredPosition'
-import { usePopupClose } from '../../hooks/usePopupClose'
+import { useAnchoredPopup } from '../../hooks/useAnchoredPopup'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { OverlayMenuItem, OverlayMenuSurface } from '../ui/OverlayPrimitives'
+import { TextInput } from '../ui/TextInput'
 
 interface TierRowSettingsMenuProps
 {
@@ -48,20 +49,16 @@ export const TierRowSettingsMenu = ({
   const menuRef = useRef<HTMLDivElement>(null)
   const dialogId = useId()
   const titleId = useId()
-  const { style: menuStyle, updatePosition: updateMenuPosition } =
-    useAnchoredPosition({
-      computePosition: () =>
-        gearButtonRef.current
-          ? computeSettingsMenuStyle(gearButtonRef.current)
-          : null,
-    })
-
-  usePopupClose({
-    show,
+  const handleClose = useCallback(() => onClose(), [onClose])
+  const { style: menuStyle } = useAnchoredPopup({
+    open: show,
     triggerRef: gearButtonRef,
     popupRef: menuRef,
-    onClose: useCallback(() => onClose(), [onClose]),
-    onScroll: updateMenuPosition,
+    onClose: handleClose,
+    computePosition: () =>
+      gearButtonRef.current
+        ? computeSettingsMenuStyle(gearButtonRef.current)
+        : null,
   })
 
   return (
@@ -78,11 +75,7 @@ export const TierRowSettingsMenu = ({
             return
           }
 
-          if (gearButtonRef.current)
-          {
-            updateMenuPosition()
-            onToggle()
-          }
+          onToggle()
         }}
         aria-label="Row settings"
         aria-haspopup="dialog"
@@ -92,106 +85,109 @@ export const TierRowSettingsMenu = ({
         <SettingsIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
       </button>
 
-      {show && (
-        <OverlayMenuSurface
-          id={dialogId}
-          ref={menuRef}
-          role="dialog"
-          aria-labelledby={titleId}
-          className="z-50 w-48 p-2"
-          style={menuStyle}
-        >
-          <h2 id={titleId} className="sr-only">
-            {tier.name} row settings
-          </h2>
-          <input
-            defaultValue={tier.name}
-            onBlur={(e) =>
-            {
-              const val = e.currentTarget.value.trim()
-              if (val && val !== tier.name) renameTier(tier.id, val)
-            }}
-            onKeyDown={(e) =>
-            {
-              if (e.key === 'Enter') e.currentTarget.blur()
-            }}
-            className="mb-1.5 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-sm text-[var(--t-text)] outline-none focus:border-[var(--t-accent-hover)]"
-            aria-label="Rename tier"
-          />
-
-          <input
-            defaultValue={tier.description ?? ''}
-            placeholder="Description (optional)"
-            onBlur={(e) =>
-            {
-              const val = e.currentTarget.value
-              if (val !== (tier.description ?? ''))
-                setTierDescription(tier.id, val)
-            }}
-            onKeyDown={(e) =>
-            {
-              if (e.key === 'Enter') e.currentTarget.blur()
-            }}
-            className="mb-2 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2 py-1.5 text-xs text-[var(--t-text-secondary)] outline-none focus:border-[var(--t-accent-hover)]"
-            aria-label="Tier description"
-          />
-
-          <OverlayMenuItem
-            className="text-sm text-[var(--t-destructive-hover)]"
-            onClick={() =>
-            {
-              onClose()
-              setConfirmDelete(true)
-            }}
+      {show &&
+        createPortal(
+          <OverlayMenuSurface
+            id={dialogId}
+            ref={menuRef}
+            role="dialog"
+            aria-labelledby={titleId}
+            className="z-50 w-48 p-2"
+            style={menuStyle}
           >
-            Delete Row
-          </OverlayMenuItem>
+            <h2 id={titleId} className="sr-only">
+              {tier.name} row settings
+            </h2>
+            <TextInput
+              defaultValue={tier.name}
+              onBlur={(e) =>
+              {
+                const val = e.currentTarget.value.trim()
+                if (val && val !== tier.name) renameTier(tier.id, val)
+              }}
+              onKeyDown={(e) =>
+              {
+                if (e.key === 'Enter') e.currentTarget.blur()
+              }}
+              className="mb-1.5 w-full rounded-lg border-[var(--t-border)] px-2 focus:border-[var(--t-accent-hover)]"
+              aria-label="Rename tier"
+            />
 
-          <OverlayMenuItem
-            className="text-sm"
-            onClick={() =>
-            {
-              clearTierItems(tier.id)
-              onClose()
-            }}
-          >
-            Clear Row Images
-          </OverlayMenuItem>
+            <TextInput
+              defaultValue={tier.description ?? ''}
+              placeholder="Description (optional)"
+              onBlur={(e) =>
+              {
+                const val = e.currentTarget.value
+                if (val !== (tier.description ?? ''))
+                  setTierDescription(tier.id, val)
+              }}
+              onKeyDown={(e) =>
+              {
+                if (e.key === 'Enter') e.currentTarget.blur()
+              }}
+              size="xs"
+              className="mb-2 w-full rounded-lg border-[var(--t-border)] px-2 text-[var(--t-text-secondary)] focus:border-[var(--t-accent-hover)]"
+              aria-label="Tier description"
+            />
 
-          <OverlayMenuItem
-            className="text-sm"
-            onClick={() =>
-            {
-              sortTierItemsByName(tier.id)
-              onClose()
-            }}
-          >
-            Sort A-Z
-          </OverlayMenuItem>
+            <OverlayMenuItem
+              className="text-sm text-[var(--t-destructive-hover)]"
+              onClick={() =>
+              {
+                onClose()
+                setConfirmDelete(true)
+              }}
+            >
+              Delete Row
+            </OverlayMenuItem>
 
-          <OverlayMenuItem
-            className="text-sm"
-            onClick={() =>
-            {
-              addTierAt(index, paletteId)
-              onClose()
-            }}
-          >
-            Add a Row Above
-          </OverlayMenuItem>
+            <OverlayMenuItem
+              className="text-sm"
+              onClick={() =>
+              {
+                clearTierItems(tier.id)
+                onClose()
+              }}
+            >
+              Clear Row Images
+            </OverlayMenuItem>
 
-          <OverlayMenuItem
-            className="text-sm"
-            onClick={() =>
-            {
-              addTierAt(index + 1, paletteId)
-              onClose()
-            }}
-          >
-            Add a Row Below
-          </OverlayMenuItem>
-        </OverlayMenuSurface>
-      )}
+            <OverlayMenuItem
+              className="text-sm"
+              onClick={() =>
+              {
+                sortTierItemsByName(tier.id)
+                onClose()
+              }}
+            >
+              Sort A-Z
+            </OverlayMenuItem>
+
+            <OverlayMenuItem
+              className="text-sm"
+              onClick={() =>
+              {
+                addTierAt(index, paletteId)
+                onClose()
+              }}
+            >
+              Add a Row Above
+            </OverlayMenuItem>
+
+            <OverlayMenuItem
+              className="text-sm"
+              onClick={() =>
+              {
+                addTierAt(index + 1, paletteId)
+                onClose()
+              }}
+            >
+              Add a Row Below
+            </OverlayMenuItem>
+          </OverlayMenuSurface>,
+          document.body
+        )}
 
       <ConfirmDialog
         open={confirmDelete}

@@ -9,7 +9,7 @@ import {
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
 import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
 import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
-import { createExportCaptureSession } from './exportBoardRender'
+import { withExportSession } from './exportBoardRender'
 
 // convert a base64 data URL to a Uint8Array for ZIP packaging
 const dataUrlToUint8Array = (dataUrl: string): Uint8Array =>
@@ -86,17 +86,16 @@ const captureAllBoards = async (
 {
   const allBoards = loadAllBoardData()
   const pixelRatio = 2
-  const session = createExportCaptureSession({ appearance, backgroundColor })
 
-  const captures: Array<{
-    title: string
-    dataUrl: string
-    width: number
-    height: number
-  }> = []
-
-  try
+  return withExportSession({ appearance, backgroundColor }, async (session) =>
   {
+    const captures: Array<{
+      title: string
+      dataUrl: string
+      width: number
+      height: number
+    }> = []
+
     for (let i = 0; i < allBoards.length; i++)
     {
       const element = await session.renderBoard(allBoards[i].data)
@@ -112,13 +111,9 @@ const captureAllBoards = async (
 
       onProgress?.(i + 1, allBoards.length)
     }
-  }
-  finally
-  {
-    session.destroy()
-  }
 
-  return captures
+    return captures
+  })
 }
 
 // download all boards as a multi-page PDF (one page per board)

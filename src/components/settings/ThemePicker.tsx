@@ -1,15 +1,12 @@
 // src/components/settings/ThemePicker.tsx
 // grid of clickable theme preview cards for the Appearance section
 
-import { useRef } from 'react'
-
+import { useRovingSelection } from '../../hooks/useRovingSelection'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { THEME_META, THEMES } from '../../theme'
 import type { ThemeId } from '../../types'
-import {
-  resolveNextSelectionIndex,
-  type SelectionNavigationKey,
-} from '../../utils/selectionNavigation'
+
+const THEME_IDS = THEME_META.map((m) => m.id) as ThemeId[]
 
 interface ThemePickerProps
 {
@@ -20,72 +17,29 @@ export const ThemePicker = ({ ariaLabelledby }: ThemePickerProps) =>
 {
   const themeId = useSettingsStore((s) => s.themeId)
   const setThemeId = useSettingsStore((s) => s.setThemeId)
-  const optionRefs = useRef<Partial<Record<ThemeId, HTMLButtonElement | null>>>(
-    {}
-  )
+  const { getItemProps, groupProps, isActive } = useRovingSelection({
+    items: THEME_IDS,
+    activeKey: themeId,
+    onSelect: setThemeId,
+    kind: 'radio',
+    groupLabelledby: ariaLabelledby,
+    groupLabel: ariaLabelledby ? undefined : 'App theme',
+    columns: 4,
+  })
 
   return (
-    <div
-      role="radiogroup"
-      aria-labelledby={ariaLabelledby}
-      aria-label={ariaLabelledby ? undefined : 'App theme'}
-      className="grid grid-cols-4 gap-2"
-    >
+    <div {...groupProps} className="grid grid-cols-4 gap-2">
       {THEME_META.map(({ id, label }, index) =>
       {
         const t = THEMES[id]
-        const isActive = id === themeId
+        const itemIsActive = isActive(id)
 
         return (
           <button
             key={id}
-            ref={(node) =>
-            {
-              optionRefs.current[id] = node
-            }}
-            type="button"
-            role="radio"
-            aria-checked={isActive}
-            tabIndex={isActive ? 0 : -1}
-            onClick={() => setThemeId(id)}
-            onKeyDown={(event) =>
-            {
-              const key = event.key as SelectionNavigationKey
-
-              if (
-                ![
-                  'ArrowLeft',
-                  'ArrowRight',
-                  'ArrowUp',
-                  'ArrowDown',
-                  'Home',
-                  'End',
-                ].includes(key)
-              )
-              {
-                return
-              }
-
-              const nextIndex = resolveNextSelectionIndex({
-                currentIndex: index,
-                itemCount: THEME_META.length,
-                key,
-                columns: 4,
-              })
-
-              if (nextIndex === null)
-              {
-                return
-              }
-
-              event.preventDefault()
-
-              const nextThemeId = THEME_META[nextIndex].id
-              setThemeId(nextThemeId)
-              optionRefs.current[nextThemeId]?.focus()
-            }}
+            {...getItemProps(id, index)}
             className={`focus-custom flex flex-col items-center gap-1.5 rounded-lg p-2 transition focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--t-bg-overlay)] ${
-              isActive
+              itemIsActive
                 ? 'ring-2 ring-[var(--t-accent)] ring-offset-1 ring-offset-[var(--t-bg-overlay)]'
                 : 'hover:bg-[rgb(var(--t-overlay)/0.06)]'
             }`}

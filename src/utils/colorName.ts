@@ -1,6 +1,8 @@
 // src/utils/colorName.ts
 // approximate human-readable color names from hex values for a11y labels
 
+import { hexToRgbColor } from './color'
+
 interface NamedColor
 {
   r: number
@@ -48,21 +50,10 @@ const NAMED_COLORS: NamedColor[] = [
   { r: 128, g: 0, b: 0, name: 'maroon' },
 ]
 
-const hexToRgb = (hex: string): { r: number; g: number; b: number } | null =>
-{
-  const clean = hex.replace('#', '')
-  if (clean.length !== 6) return null
-  return {
-    r: parseInt(clean.slice(0, 2), 16),
-    g: parseInt(clean.slice(2, 4), 16),
-    b: parseInt(clean.slice(4, 6), 16),
-  }
-}
-
 // find the closest named color via euclidean distance in RGB space
 export const getColorName = (hex: string): string =>
 {
-  const rgb = hexToRgb(hex)
+  const rgb = hexToRgbColor(hex)
   if (!rgb) return hex
 
   let bestName = hex
@@ -70,9 +61,9 @@ export const getColorName = (hex: string): string =>
 
   for (const named of NAMED_COLORS)
   {
-    const dr = rgb.r - named.r
-    const dg = rgb.g - named.g
-    const db = rgb.b - named.b
+    const dr = rgb.red - named.r
+    const dg = rgb.green - named.g
+    const db = rgb.blue - named.b
     const dist = dr * dr + dg * dg + db * db
 
     if (dist < bestDist)

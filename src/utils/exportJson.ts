@@ -13,6 +13,27 @@ interface TierListExport
   data: TierListData
 }
 
+// parse a JSON string & validate it is a plain object (not null, not an array)
+const parseJsonObject = (text: string): Record<string, unknown> =>
+{
+  let parsed: unknown
+  try
+  {
+    parsed = JSON.parse(text)
+  }
+  catch
+  {
+    throw new Error('Invalid JSON file.')
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+  {
+    throw new Error('Invalid tier list format.')
+  }
+
+  return parsed as Record<string, unknown>
+}
+
 // download the board state as a JSON file
 export const exportBoardAsJson = (data: TierListData, title: string) =>
 {
@@ -32,27 +53,13 @@ export const exportBoardAsJson = (data: TierListData, title: string) =>
 // parse & validate a JSON string as board data, throwing descriptive errors on failure
 export const parseBoardJson = (text: string): TierListData =>
 {
-  let parsed: unknown
-  try
-  {
-    parsed = JSON.parse(text)
-  }
-  catch
-  {
-    throw new Error('Invalid JSON file.')
-  }
-
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
-  {
-    throw new Error('Invalid tier list format.')
-  }
+  const envelope = parseJsonObject(text)
 
   // accept both wrapped { version, data } format & raw TierListData
-  const envelope = parsed as Record<string, unknown>
   const raw =
     typeof envelope.data === 'object' && envelope.data !== null
       ? envelope.data
-      : parsed
+      : envelope
   const data = raw as Partial<TierListData>
 
   if (!Array.isArray(data.tiers) || data.tiers.length === 0)
@@ -105,22 +112,7 @@ export const parseBoardJson = (text: string): TierListData =>
 // detect single vs multi-board JSON & return validated board data for each
 export const parseBoardsJson = (text: string): TierListData[] =>
 {
-  let parsed: unknown
-  try
-  {
-    parsed = JSON.parse(text)
-  }
-  catch
-  {
-    throw new Error('Invalid JSON file.')
-  }
-
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
-  {
-    throw new Error('Invalid tier list format.')
-  }
-
-  const obj = parsed as Record<string, unknown>
+  const obj = parseJsonObject(text)
 
   // multi-board envelope — has a boards array
   if (Array.isArray(obj.boards))

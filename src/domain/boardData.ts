@@ -1,26 +1,20 @@
 // src/domain/boardData.ts
 // board-data helpers — create, reset, extract, & normalize persisted boards
 
-import { DEFAULT_TITLE } from '../utils/constants'
-import { buildDefaultTiers } from '../utils/constants'
-import type { Tier, TierColorSpec, TierListData } from '../types'
+import {
+  DEFAULT_TIER_IDS,
+  DEFAULT_TIER_NAMES,
+  DEFAULT_TITLE,
+  buildDefaultTiers,
+} from '../utils/constants'
+import { generateTierId, isTierId } from '../utils/id'
+import type { PaletteId, Tier, TierColorSpec, TierListData } from '../types'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
   getAutoTierColorSpec,
 } from './tierColors'
 import type { TierListStoreRuntimeState } from './tierListRuntime'
-import type { PaletteId } from '../types'
-
-const DEFAULT_TIER_IDS = [
-  'tier-s',
-  'tier-a',
-  'tier-b',
-  'tier-c',
-  'tier-d',
-  'tier-e',
-]
-const DEFAULT_TIER_NAMES = ['S', 'A', 'B', 'C', 'D', 'E']
 
 interface LegacyTier
 {
@@ -131,9 +125,9 @@ const normalizeTier = (
   paletteId: PaletteId
 ): Tier => ({
   id:
-    typeof tier.id === 'string'
+    typeof tier.id === 'string' && isTierId(tier.id)
       ? tier.id
-      : (DEFAULT_TIER_IDS[index] ?? `tier-${crypto.randomUUID()}`),
+      : (DEFAULT_TIER_IDS[index] ?? generateTierId()),
   name:
     typeof tier.name === 'string'
       ? tier.name
@@ -155,6 +149,17 @@ export const createInitialBoardData = (
   deletedItems: [],
   items: {},
   unrankedItemIds: [],
+})
+
+// build a single new tier w/ a generated ID & auto-assigned palette color
+export const createNewTier = (
+  paletteId: PaletteId,
+  tierCount: number
+): Tier => ({
+  id: generateTierId(),
+  name: `Tier ${tierCount + 1}`,
+  colorSpec: getAutoTierColorSpec(paletteId, tierCount),
+  itemIds: [],
 })
 
 export const extractBoardData = (

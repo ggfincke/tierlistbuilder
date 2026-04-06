@@ -1,10 +1,10 @@
 // src/components/ui/BoardManager.tsx
 // floating bottom-right panel for switching between multiple tier lists
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 
-import type { TierPreset, ToolbarPosition } from '../../types'
+import type { BoardId, TierPreset, ToolbarPosition } from '../../types'
 import {
   createBoardSession,
   createBoardSessionFromPreset,
@@ -12,16 +12,18 @@ import {
   duplicateBoardSession,
   renameBoardSession,
 } from '../../services/boardSession'
+import { useInlineEdit } from '../../hooks/useInlineEdit'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { ConfirmDialog } from './ConfirmDialog'
 import { OverlayPanelSurface } from './OverlayPrimitives'
 import { PresetPickerModal } from './PresetPickerModal'
+import { TextInput } from './TextInput'
 
 interface BoardManagerProps
 {
   toolbarPosition: ToolbarPosition
-  onSwitchBoard: (boardId: string) => void
+  onSwitchBoard: (boardId: BoardId) => void
 }
 
 export const BoardManager = ({
@@ -37,15 +39,20 @@ export const BoardManager = ({
 
   const [open, setOpen] = useState(false)
   const [showPresetPicker, setShowPresetPicker] = useState(false)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState('')
-  const editInputRef = useRef<HTMLInputElement | null>(null)
-
+  const [confirmDeleteId, setConfirmDeleteId] = useState<BoardId | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const panelId = useId()
   const panelTitleId = useId()
+  const {
+    cancelEdit,
+    getInputProps,
+    inputRef: editInputRef,
+    isEditing,
+    startEdit,
+  } = useInlineEdit<BoardId>({
+    onCommit: renameBoardSession,
+  })
 
   usePopupClose({
     show: open,
@@ -54,28 +61,9 @@ export const BoardManager = ({
     onClose: useCallback(() =>
     {
       setOpen(false)
-      setEditingId(null)
-    }, []),
+      cancelEdit()
+    }, [cancelEdit]),
   })
-
-  // auto-focus the rename input when entering edit mode
-  useEffect(() =>
-  {
-    if (editingId && editInputRef.current)
-    {
-      editInputRef.current.focus()
-      editInputRef.current.select()
-    }
-  }, [editingId])
-
-  const commitRename = () =>
-  {
-    if (editingId && editValue.trim())
-    {
-      renameBoardSession(editingId, editValue.trim())
-    }
-    setEditingId(null)
-  }
 
   const boardToDelete = confirmDeleteId
     ? boards.find((b) => b.id === confirmDeleteId)
@@ -98,7 +86,7 @@ export const BoardManager = ({
           {
             if (current)
             {
-              setEditingId(null)
+              cancelEdit()
             }
 
             return !current
@@ -134,7 +122,7 @@ export const BoardManager = ({
             {boards.map((board) =>
             {
               const isActive = board.id === activeBoardId
-              const isEditing = board.id === editingId
+              const boardIsEditing = isEditing(board.id)
               return (
                 <div
                   key={board.id}
@@ -151,21 +139,15 @@ export const BoardManager = ({
                     }`}
                   />
 
-                  {isEditing ? (
-                    // inline rename input
-                    <input
+                  {boardIsEditing ? (
+                    <TextInput
                       ref={editInputRef}
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      aria-label={`Rename ${board.title}`}
-                      onKeyDown={(e) =>
-                        {
-                        if (e.key === 'Enter') commitRename()
-                        if (e.key === 'Escape') setEditingId(null)
-                      }}
-                      onBlur={commitRename}
-                      className="min-w-0 flex-1 bg-transparent text-sm text-[var(--t-text)] outline-none"
+                      variant="ghost"
+                      size="sm"
+                      {...getInputProps({
+                        'aria-label': `Rename ${board.title}`,
+                        className: 'min-w-0 flex-1 rounded-none px-0 py-0',
+                      })}
                     />
                   ) : (
                     <>
@@ -190,11 +172,7 @@ export const BoardManager = ({
                       <button
                         type="button"
                         aria-label={`Rename ${board.title}`}
-                        onClick={() =>
-                          {
-                          setEditingId(board.id)
-                          setEditValue(board.title)
-                        }}
+                        onClick={() => startEdit(board.id, board.title)}
                         className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] group-hover:opacity-100 group-focus-within:opacity-100 max-sm:p-1.5"
                       >
                         <Pencil className="h-3 w-3" />

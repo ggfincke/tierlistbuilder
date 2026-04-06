@@ -2,6 +2,7 @@
 // sortable item tile — displays image or text, handles drag & delete
 
 import { memo, useCallback, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, PenLine, X } from 'lucide-react'
@@ -16,6 +17,7 @@ import {
 } from '../../utils/constants'
 import { ItemContent } from './ItemContent'
 import { ItemEditPopover } from './ItemEditPopover'
+import { ItemOverlayButton } from '../ui/ItemOverlayButton'
 
 interface TierItemProps
 {
@@ -47,9 +49,6 @@ export const TierItem = memo(
       useKeyboardDrag(itemId)
 
     const [showEditPopover, setShowEditPopover] = useState(false)
-    const [popoverAnchorRect, setPopoverAnchorRect] = useState<DOMRect | null>(
-      null
-    )
     const itemRef = useRef<HTMLDivElement | null>(null)
     const editButtonRef = useRef<HTMLButtonElement | null>(null)
 
@@ -82,11 +81,7 @@ export const TierItem = memo(
     const openEditPopover = useCallback((e: React.MouseEvent) =>
     {
       e.stopPropagation()
-      if (itemRef.current)
-      {
-        setPopoverAnchorRect(itemRef.current.getBoundingClientRect())
-        setShowEditPopover(true)
-      }
+      setShowEditPopover(true)
     }, [])
     const closeEditPopover = useCallback(() =>
     {
@@ -144,24 +139,22 @@ export const TierItem = memo(
 
           {/* alt text edit — bottom-left corner, image items only */}
           {!boardLocked && hasImage && showAltTextButton && (
-            <button
+            <ItemOverlayButton
               ref={editButtonRef}
-              type="button"
               aria-label="Edit alt text"
-              className="focus-custom absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+              className="absolute bottom-0.5 left-0.5"
               onClick={openEditPopover}
               onPointerDown={(e) => e.stopPropagation()}
             >
               <PenLine className="h-3 w-3" />
-            </button>
+            </ItemOverlayButton>
           )}
 
           {/* hover-reveal delete button — only in the unranked pool, hidden when locked */}
           {canDelete && !boardLocked && (
-            <button
-              type="button"
+            <ItemOverlayButton
               aria-label="Remove item"
-              className="focus-custom absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] max-sm:h-7 max-sm:w-7 max-sm:top-0 max-sm:right-0"
+              className="absolute top-0.5 right-0.5 max-sm:right-0 max-sm:top-0 max-sm:h-7 max-sm:w-7"
               onClick={(e) =>
               {
                 e.stopPropagation()
@@ -170,17 +163,20 @@ export const TierItem = memo(
               onPointerDown={(e) => e.stopPropagation()}
             >
               <X className="h-3 w-3" />
-            </button>
+            </ItemOverlayButton>
           )}
         </div>
 
-        {showEditPopover && popoverAnchorRect && (
-          <ItemEditPopover
-            itemId={itemId}
-            anchorRect={popoverAnchorRect}
-            onClose={closeEditPopover}
-          />
-        )}
+        {showEditPopover &&
+          createPortal(
+            <ItemEditPopover
+              itemId={itemId}
+              anchorRef={itemRef}
+              triggerRef={editButtonRef}
+              onClose={closeEditPopover}
+            />,
+            document.body
+          )}
       </>
     )
   }

@@ -1,8 +1,15 @@
 // src/services/boardSession.ts
 // board session service — bootstrap, autosave, storage I/O, & registry orchestration
 
-import type { BoardMeta, PaletteId, TierListData, TierPreset } from '../types'
+import type {
+  BoardId,
+  BoardMeta,
+  PaletteId,
+  TierListData,
+  TierPreset,
+} from '../types'
 import { DEFAULT_TITLE } from '../utils/constants'
+import { generateBoardId } from '../utils/id'
 import {
   loadBoardFromStorage,
   migrateLegacyBoard,
@@ -13,7 +20,8 @@ import {
 import { normalizeTierListData } from '../domain/boardData'
 import { createBoardDataFromPreset } from '../domain/presets'
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
-import { extractBoardData, useTierListStore } from '../store/useTierListStore'
+import { extractBoardData } from '../domain/boardData'
+import { useTierListStore } from '../store/useTierListStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 
 const PERSISTED_FIELDS = [
@@ -30,7 +38,7 @@ let autosaveUnsubscribe: (() => void) | null = null
 const getActivePaletteId = (): PaletteId =>
   useSettingsStore.getState().paletteId
 
-const createBoardMeta = (id: string, title: string): BoardMeta => ({
+const createBoardMeta = (id: BoardId, title: string): BoardMeta => ({
   id,
   title,
   createdAt: Date.now(),
@@ -56,7 +64,7 @@ const deduplicateTitle = (title: string, boards: BoardMeta[]): string =>
   return `${base} (${n})`
 }
 
-export const saveBoardSnapshot = (boardId: string): void =>
+export const saveBoardSnapshot = (boardId: BoardId): void =>
 {
   const data = extractBoardData(useTierListStore.getState())
   saveBoardToStorage(boardId, data, (message) =>
@@ -74,13 +82,13 @@ export const saveActiveBoardSnapshot = (): void =>
   }
 }
 
-export const loadPersistedBoard = (boardId: string): TierListData =>
+export const loadPersistedBoard = (boardId: BoardId): TierListData =>
 {
   const stored = loadBoardFromStorage(boardId)
   return normalizeTierListData(stored, getActivePaletteId())
 }
 
-export const loadBoardIntoSession = (boardId: string): TierListData =>
+export const loadBoardIntoSession = (boardId: BoardId): TierListData =>
 {
   const data = loadPersistedBoard(boardId)
   useTierListStore.getState().loadBoard(data)
@@ -98,10 +106,10 @@ const createBlankBoardData = (): TierListData => ({
 const saveAndActivateBoard = (
   data: TierListData,
   titleHint: string
-): string =>
+): BoardId =>
 {
   const boardStore = useBoardManagerStore.getState()
-  const id = `board-${crypto.randomUUID()}`
+  const id = generateBoardId()
   const title = deduplicateTitle(titleHint, boardStore.boards)
   const normalized = normalizeTierListData(
     { ...data, title },
@@ -152,7 +160,7 @@ export const bootstrapBoardSession = (): void =>
     return
   }
 
-  const id = `board-${crypto.randomUUID()}`
+  const id = generateBoardId()
   const data = createBlankBoardData()
   saveBoardToStorage(id, data)
   boardStore.replaceRegistry([createBoardMeta(id, data.title)], id)
@@ -212,7 +220,7 @@ export const createBoardSessionFromPreset = (preset: TierPreset): void =>
   saveAndActivateBoard(data, DEFAULT_TITLE)
 }
 
-export const switchBoardSession = (boardId: string): void =>
+export const switchBoardSession = (boardId: BoardId): void =>
 {
   const boardStore = useBoardManagerStore.getState()
 
@@ -232,7 +240,7 @@ export const switchBoardSession = (boardId: string): void =>
   boardStore.setActiveBoardId(boardId)
 }
 
-export const deleteBoardSession = (boardId: string): void =>
+export const deleteBoardSession = (boardId: BoardId): void =>
 {
   const boardStore = useBoardManagerStore.getState()
 
@@ -258,7 +266,7 @@ export const deleteBoardSession = (boardId: string): void =>
   boardStore.removeBoardMeta(boardId)
 }
 
-export const duplicateBoardSession = (boardId: string): void =>
+export const duplicateBoardSession = (boardId: BoardId): void =>
 {
   const boardStore = useBoardManagerStore.getState()
 
@@ -277,7 +285,7 @@ export const duplicateBoardSession = (boardId: string): void =>
   saveAndActivateBoard(source, source.title || DEFAULT_TITLE)
 }
 
-export const renameBoardSession = (boardId: string, title: string): void =>
+export const renameBoardSession = (boardId: BoardId, title: string): void =>
 {
   const trimmed = title.trim()
 
@@ -316,7 +324,7 @@ export const importBoardsSession = (boards: TierListData[]): void =>
 
   for (const board of boards)
   {
-    const id = `board-${crypto.randomUUID()}`
+    const id = generateBoardId()
     const title = deduplicateTitle(board.title || DEFAULT_TITLE, nextBoards)
     const normalized = normalizeTierListData(
       { ...board, title },

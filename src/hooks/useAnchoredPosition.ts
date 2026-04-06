@@ -1,7 +1,13 @@
 // src/hooks/useAnchoredPosition.ts
 // shared anchored positioning state for fixed overlays
 
-import { useCallback, useState, type CSSProperties } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 
 interface UseAnchoredPositionOptions
 {
@@ -13,16 +19,22 @@ export const useAnchoredPosition = ({
 }: UseAnchoredPositionOptions) =>
 {
   const [style, setStyle] = useState<CSSProperties>({})
+  const computeRef = useRef(computePosition)
+
+  useEffect(() =>
+  {
+    computeRef.current = computePosition
+  }, [computePosition])
 
   const updatePosition = useCallback(() =>
   {
-    const nextStyle = computePosition()
+    const nextStyle = computeRef.current()
 
     if (nextStyle)
     {
       setStyle(nextStyle)
     }
-  }, [computePosition])
+  }, [])
 
   return {
     style,
