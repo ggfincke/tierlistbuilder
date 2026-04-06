@@ -124,7 +124,9 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       <div
         className={`${compactMode ? 'mt-1' : 'mt-3'} ${TOOLBAR_LAYOUT_CLASS[toolbarPosition]}`}
       >
-        {/* content column — tier rows, unranked pool, & trash zone */}
+        {/* tier rows column — unranked pool & trash zone live outside so
+            left/right toolbar centers on tiers only & bottom toolbar
+            sits above the pool */}
         <div className={`${isVertical ? 'min-w-0 flex-1' : ''}`}>
           {/* export capture wrapper */}
           <div className="overflow-x-auto">
@@ -155,15 +157,15 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
               </SortableContext>
             </div>
           </div>
-
-          <UnrankedPool />
-
-          <TrashZone />
         </div>
 
         {/* sticky wrapper keeps the toolbar visible while scrolling tall boards */}
         <div className={isVertical ? 'sticky top-4' : ''}>{toolbar}</div>
       </div>
+
+      <UnrankedPool />
+
+      <TrashZone />
 
       {/* render ghost in the overlay while a drag is active */}
       <DragOverlay>
