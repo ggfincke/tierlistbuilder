@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
-import { getPaletteColors } from '../../domain/tierColors'
+import { FALLBACK_COLOR, getPaletteColors } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
 import { useRovingSelection } from '../../hooks/useRovingSelection'
 import { useTierListStore } from '../../store/useTierListStore'
@@ -35,7 +35,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const defaultTextColor = useMemo(() =>
   {
     const colors = getPaletteColors(paletteId)
-    return colors[1] ?? colors[0] ?? '#888888'
+    return colors[1] ?? colors[0] ?? FALLBACK_COLOR
   }, [paletteId])
 
   const [activeTab, setActiveTab] = useState<Tab>('items')

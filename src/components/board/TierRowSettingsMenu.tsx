@@ -2,6 +2,7 @@
 // gear button & popup settings menu for a tier row
 
 import { useCallback, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 import type { PaletteId, Tier } from '../../types'
@@ -84,7 +85,7 @@ export const TierRowSettingsMenu = ({
         <SettingsIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
       </button>
 
-      {show && (
+      {show && createPortal(
         <OverlayMenuSurface
           id={dialogId}
           ref={menuRef}
@@ -183,7 +184,8 @@ export const TierRowSettingsMenu = ({
           >
             Add a Row Below
           </OverlayMenuItem>
-        </OverlayMenuSurface>
+        </OverlayMenuSurface>,
+        document.body
       )}
 
       <ConfirmDialog

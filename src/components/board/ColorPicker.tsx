@@ -12,7 +12,10 @@ import {
 } from '@uiw/color-convert'
 import { Pipette } from 'lucide-react'
 
-import { createPaletteTierColorSpec } from '../../domain/tierColors'
+import {
+  createPaletteTierColorSpec,
+  FALLBACK_COLOR,
+} from '../../domain/tierColors'
 import type { TierColorSpec } from '../../types'
 import {
   formatRgbInputs,
@@ -64,8 +67,6 @@ interface ColorDraftState
   // whether the current inputs can be applied
   isValid: boolean
 }
-
-const FALLBACK_COLOR = '#888888'
 
 // build a valid draft state from a stored color
 const createDraftState = (color: string): ColorDraftState =>

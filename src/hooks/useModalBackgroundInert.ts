@@ -7,6 +7,7 @@ let activeModalLayerCount = 0
 let previousAriaHidden: string | null = null
 let previousInert = false
 let previousOverflow: string | null = null
+let previousPaddingRight: string | null = null
 
 const getAppShell = (): HTMLElement | null =>
   document.getElementById('app-shell') ??
@@ -35,9 +36,15 @@ export const useModalBackgroundInert = (active: boolean) =>
       previousAriaHidden = appShell.getAttribute('aria-hidden')
       previousInert = appShell.hasAttribute('inert')
       previousOverflow = document.body.style.overflow
+      previousPaddingRight = document.body.style.paddingRight
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
       appShell.setAttribute('aria-hidden', 'true')
       appShell.setAttribute('inert', '')
       document.body.style.overflow = 'hidden'
+      if (scrollbarWidth > 0)
+      {
+        document.body.style.paddingRight = `${scrollbarWidth}px`
+      }
     }
 
     activeModalLayerCount += 1
@@ -66,6 +73,7 @@ export const useModalBackgroundInert = (active: boolean) =>
       }
 
       document.body.style.overflow = previousOverflow ?? ''
+      document.body.style.paddingRight = previousPaddingRight ?? ''
     }
   }, [active])
 }

@@ -2,6 +2,7 @@
 // sortable item tile — displays image or text, handles drag & delete
 
 import { memo, useCallback, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, PenLine, X } from 'lucide-react'
@@ -166,13 +167,14 @@ export const TierItem = memo(
           )}
         </div>
 
-        {showEditPopover && (
+        {showEditPopover && createPortal(
           <ItemEditPopover
             itemId={itemId}
             anchorRef={itemRef}
             triggerRef={editButtonRef}
             onClose={closeEditPopover}
-          />
+          />,
+          document.body
         )}
       </>
     )

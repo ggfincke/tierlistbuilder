@@ -2,6 +2,7 @@
 // tier row component — label, sortable item grid, & row controls
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   SortableContext,
   rectSortingStrategy,
@@ -304,7 +305,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
         )}
       </BoardRowSurface>
 
-      {showColorPicker && (
+      {showColorPicker && createPortal(
         <OverlayFixedPopupSurface
           ref={colorPickerRef}
           className="z-50"
@@ -325,10 +326,11 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
               setShowCustomColorPicker((current) => !current)
             }}
           />
-        </OverlayFixedPopupSurface>
+        </OverlayFixedPopupSurface>,
+        document.body
       )}
 
-      {showCustomColorPicker && (
+      {showCustomColorPicker && createPortal(
         <OverlayFixedPopupSurface
           ref={customColorPickerRef}
           className="z-[60] shadow-2xl"
@@ -348,7 +350,8 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
             onCancel={closeCustomColorPicker}
             onPreview={setPreviewColor}
           />
-        </OverlayFixedPopupSurface>
+        </OverlayFixedPopupSurface>,
+        document.body
       )}
     </div>
   )

@@ -7,11 +7,6 @@ import {
   MENU_SUBMENU_FLIP_RIGHT_TOKENS,
 } from '../utils/menuPosition'
 
-const CLEAR_FLIP_TOKENS = [
-  ...MENU_SUBMENU_FLIP_LEFT_TOKENS,
-  ...MENU_SUBMENU_FLIP_RIGHT_TOKENS,
-]
-
 export const resolveMenuOverflowFlipTokens = (
   rect: Pick<DOMRect, 'left' | 'right'>,
   viewportWidth: number
@@ -41,13 +36,16 @@ const applyMenuOverflowFlip = (
   }
 
   const rect = node.getBoundingClientRect()
-  const nextTokens = resolveMenuOverflowFlipTokens(rect, viewportWidth)
 
-  node.classList.remove(...CLEAR_FLIP_TOKENS)
-
-  if (nextTokens.length > 0)
+  if (rect.right > viewportWidth)
   {
-    node.classList.add(...nextTokens)
+    node.classList.add(...MENU_SUBMENU_FLIP_LEFT_TOKENS)
+    return
+  }
+
+  if (rect.left < 0)
+  {
+    node.classList.add(...MENU_SUBMENU_FLIP_RIGHT_TOKENS)
   }
 }
 
