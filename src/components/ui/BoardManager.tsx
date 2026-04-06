@@ -72,31 +72,33 @@ export const BoardManager = ({
   return (
     <>
       {/* collapsed trigger — icon pill w/ board count */}
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label="Board manager"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        title="Your Lists"
-        onClick={() =>
-        {
-          setOpen((current) =>
+      {!showPresetPicker && (
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label="Board manager"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          title="Your Lists"
+          onClick={() =>
           {
-            if (current)
+            setOpen((current) =>
             {
-              cancelEdit()
-            }
+              if (current)
+              {
+                cancelEdit()
+              }
 
-            return !current
-          })
-        }}
-        className={`focus-custom board-manager-trigger fixed z-40 flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-3 py-2 text-sm text-[var(--t-text)] shadow-lg transition hover:border-[var(--t-border-secondary)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-page)] ${flipSide ? 'board-manager-flip' : ''}`}
-      >
-        <Layers className="h-4 w-4" strokeWidth={1.8} />
-        <span className="font-medium">{boards.length}</span>
-      </button>
+              return !current
+            })
+          }}
+          className={`focus-custom board-manager-trigger fixed z-40 flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-sunken)] px-3 py-2 text-sm text-[var(--t-text)] shadow-lg transition hover:border-[var(--t-border-secondary)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-page)] ${flipSide ? 'board-manager-flip' : ''}`}
+        >
+          <Layers className="h-4 w-4" strokeWidth={1.8} />
+          <span className="font-medium">{boards.length}</span>
+        </button>
+      )}
 
       {/* expanded panel — opens upward from the trigger */}
       {open && (
