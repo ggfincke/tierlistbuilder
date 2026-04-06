@@ -174,18 +174,101 @@ export const ExportMenu = ({
             className={`${menuPos.primary} ${menuPos.animationClass} text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
           >
             {/* image submenu — click to reveal download, copy, & format options */}
-            <OverlayMenuItem
-              aria-controls={imageOptionsGroupId}
-              aria-haspopup="dialog"
-              aria-expanded={showImageMenu}
-              className={`${showImageMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
-              onClick={() => toggleMenu('image')}
-            >
-              Export Image
-              <ChevronRight
-                className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
-              />
-            </OverlayMenuItem>
+            <div className="relative">
+              <OverlayMenuItem
+                aria-controls={imageOptionsGroupId}
+                aria-haspopup="dialog"
+                aria-expanded={showImageMenu}
+                className={`${showImageMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
+                onClick={() => toggleMenu('image')}
+              >
+                Export Image
+                <ChevronRight
+                  className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
+                />
+              </OverlayMenuItem>
+
+              {showImageMenu && (
+                <OverlayMenuSurface
+                  id={imageOptionsGroupId}
+                  ref={getOverflowRef('image')}
+                  role="group"
+                  aria-label="Image export options"
+                  className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
+                >
+                  <OverlayMenuItem
+                    onClick={() =>
+                    {
+                      closeAllMenus()
+                      void onExport(imageFormat)
+                    }}
+                    className="disabled:opacity-45"
+                    disabled={exportStatus !== null}
+                  >
+                    <Download className="h-3.5 w-3.5 shrink-0" />
+                    Download
+                  </OverlayMenuItem>
+                  <OverlayMenuItem
+                    onClick={() =>
+                    {
+                      closeAllMenus()
+                      void onCopyToClipboard()
+                    }}
+                    className="disabled:opacity-45"
+                    disabled={exportStatus !== null}
+                  >
+                    <Copy className="h-3.5 w-3.5 shrink-0" />
+                    <span className="whitespace-nowrap">Copy to Clipboard</span>
+                  </OverlayMenuItem>
+
+                  <OverlayDivider />
+
+                  {/* format selector — click to reveal format choices */}
+                  <div className="relative">
+                    <OverlayMenuItem
+                      aria-controls={formatOptionsGroupId}
+                      aria-haspopup="dialog"
+                      aria-expanded={showFormatMenu}
+                      className={`${showFormatMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-4`}
+                      onClick={() => toggleMenu('format')}
+                    >
+                      {FORMAT_LABELS[imageFormat]}
+                      <ChevronRight
+                        className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
+                      />
+                    </OverlayMenuItem>
+
+                    {showFormatMenu && (
+                      <OverlayMenuSurface
+                        id={formatOptionsGroupId}
+                        ref={getOverflowRef('format')}
+                        role="group"
+                        aria-label="Image format options"
+                        className={`${menuPos.sub} z-50 text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
+                      >
+                        {(['png', 'jpeg', 'webp'] as const).map((fmt) => (
+                          <OverlayMenuItem
+                            key={fmt}
+                            onClick={() =>
+                            {
+                              setImageFormat(fmt)
+                              closeMenu('format')
+                            }}
+                          >
+                            {imageFormat === fmt ? (
+                              <Check className="h-3.5 w-3.5 shrink-0" />
+                            ) : (
+                              <span className="h-3.5 w-3.5 shrink-0" />
+                            )}
+                            {FORMAT_LABELS[fmt]}
+                          </OverlayMenuItem>
+                        ))}
+                      </OverlayMenuSurface>
+                    )}
+                  </div>
+                </OverlayMenuSurface>
+              )}
+            </div>
 
             <OverlayMenuItem
               onClick={() =>
@@ -221,141 +304,64 @@ export const ExportMenu = ({
               <>
                 <OverlayDivider />
 
-                <OverlayMenuItem
-                  aria-controls={exportAllOptionsGroupId}
-                  aria-haspopup="dialog"
-                  aria-expanded={showExportAllMenu}
-                  className={`${showExportAllMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
-                  onClick={() => toggleMenu('exportAll')}
-                >
-                  <span className="flex items-center gap-2">
-                    <Layers className="h-3.5 w-3.5 shrink-0" />
-                    Export All ({boardCount})
-                  </span>
-                  <ChevronRight
-                    className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
-                  />
-                </OverlayMenuItem>
-              </>
-            )}
-
-            {showImageMenu && (
-              <OverlayMenuSurface
-                id={imageOptionsGroupId}
-                ref={getOverflowRef('image')}
-                role="group"
-                aria-label="Image export options"
-                className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
-              >
-                <OverlayMenuItem
-                  onClick={() =>
-                  {
-                    closeAllMenus()
-                    void onExport(imageFormat)
-                  }}
-                  className="disabled:opacity-45"
-                  disabled={exportStatus !== null}
-                >
-                  <Download className="h-3.5 w-3.5 shrink-0" />
-                  Download
-                </OverlayMenuItem>
-                <OverlayMenuItem
-                  onClick={() =>
-                  {
-                    closeAllMenus()
-                    void onCopyToClipboard()
-                  }}
-                  className="disabled:opacity-45"
-                  disabled={exportStatus !== null}
-                >
-                  <Copy className="h-3.5 w-3.5 shrink-0" />
-                  <span className="whitespace-nowrap">Copy to Clipboard</span>
-                </OverlayMenuItem>
-
-                <OverlayDivider />
-
-                {/* format selector — click to reveal format choices */}
-                <OverlayMenuItem
-                  aria-controls={formatOptionsGroupId}
-                  aria-haspopup="dialog"
-                  aria-expanded={showFormatMenu}
-                  className={`${showFormatMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-4`}
-                  onClick={() => toggleMenu('format')}
-                >
-                  {FORMAT_LABELS[imageFormat]}
-                  <ChevronRight
-                    className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
-                  />
-                </OverlayMenuItem>
-
-                {showFormatMenu && (
-                  <OverlayMenuSurface
-                    id={formatOptionsGroupId}
-                    ref={getOverflowRef('format')}
-                    role="group"
-                    aria-label="Image format options"
-                    className={`${menuPos.sub} z-50 text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
-                  >
-                    {(['png', 'jpeg', 'webp'] as const).map((fmt) => (
-                      <OverlayMenuItem
-                        key={fmt}
-                        onClick={() =>
-                        {
-                          setImageFormat(fmt)
-                          closeMenu('format')
-                        }}
-                      >
-                        {imageFormat === fmt ? (
-                          <Check className="h-3.5 w-3.5 shrink-0" />
-                        ) : (
-                          <span className="h-3.5 w-3.5 shrink-0" />
-                        )}
-                        {FORMAT_LABELS[fmt]}
-                      </OverlayMenuItem>
-                    ))}
-                  </OverlayMenuSurface>
-                )}
-              </OverlayMenuSurface>
-            )}
-
-            {boardCount > 1 && showExportAllMenu && (
-              <OverlayMenuSurface
-                id={exportAllOptionsGroupId}
-                ref={getOverflowRef('exportAll')}
-                role="group"
-                aria-label="Export all options"
-                className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
-              >
-                {[
-                  {
-                    format: 'json' as const,
-                    Icon: FileDown,
-                    label: 'All as JSON',
-                  },
-                  {
-                    format: 'pdf' as const,
-                    Icon: FileDown,
-                    label: 'All as PDF',
-                  },
-                  {
-                    format: imageFormat,
-                    Icon: Download,
-                    label: `All as ${FORMAT_LABELS[imageFormat]} (ZIP)`,
-                  },
-                ].map(({ format, Icon, label }) => (
+                <div className="relative">
                   <OverlayMenuItem
-                    key={format}
-                    onClick={() =>
-                    {
-                      closeAllMenus()
-                      void onExportAll(format)
-                    }}
+                    aria-controls={exportAllOptionsGroupId}
+                    aria-haspopup="dialog"
+                    aria-expanded={showExportAllMenu}
+                    className={`${showExportAllMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
+                    onClick={() => toggleMenu('exportAll')}
                   >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    {label}
+                    <span className="flex items-center gap-2">
+                      <Layers className="h-3.5 w-3.5 shrink-0" />
+                      Export All ({boardCount})
+                    </span>
+                    <ChevronRight
+                      className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
+                    />
                   </OverlayMenuItem>
-                ))}
-              </OverlayMenuSurface>
+
+                  {showExportAllMenu && (
+                    <OverlayMenuSurface
+                      id={exportAllOptionsGroupId}
+                      ref={getOverflowRef('exportAll')}
+                      role="group"
+                      aria-label="Export all options"
+                      className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
+                    >
+                      {[
+                        {
+                          format: 'json' as const,
+                          Icon: FileDown,
+                          label: 'All as JSON',
+                        },
+                        {
+                          format: 'pdf' as const,
+                          Icon: FileDown,
+                          label: 'All as PDF',
+                        },
+                        {
+                          format: imageFormat,
+                          Icon: Download,
+                          label: `All as ${FORMAT_LABELS[imageFormat]} (ZIP)`,
+                        },
+                      ].map(({ format, Icon, label }) => (
+                        <OverlayMenuItem
+                          key={format}
+                          onClick={() =>
+                          {
+                            closeAllMenus()
+                            void onExportAll(format)
+                          }}
+                        >
+                          <Icon className="h-3.5 w-3.5 shrink-0" />
+                          {label}
+                        </OverlayMenuItem>
+                      ))}
+                    </OverlayMenuSurface>
+                  )}
+                </div>
+              </>
             )}
           </OverlayMenuSurface>
         )}
