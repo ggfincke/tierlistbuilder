@@ -1,17 +1,14 @@
 // src/components/settings/TierSettings.tsx
 // settings panel — tabbed modal that orchestrates per-tab settings content
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { getPaletteColors } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
-import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
-import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
 import { useRovingSelection } from '../../hooks/useRovingSelection'
 import { useTierListStore } from '../../store/useTierListStore'
 import { getStorageUsageBytes } from '../../utils/storage'
+import { BaseModal } from '../ui/BaseModal'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { SecondaryButton } from '../ui/SecondaryButton'
 import { TierSettingsAppearanceTab } from './TierSettingsAppearanceTab'
@@ -45,7 +42,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
   const [textLabel, setTextLabel] = useState('')
   const [textColor, setTextColor] = useState(defaultTextColor)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
-  const dialogRef = useRef<HTMLDivElement>(null)
   const lastDefaultTextColorRef = useRef(defaultTextColor)
   const titleId = useId()
   const tabsId = useId()
@@ -59,14 +55,12 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
     lastDefaultTextColorRef.current = defaultTextColor
   }, [defaultTextColor])
 
-  useDismissibleLayer({
-    open,
-    onDismiss: onClose,
-    closeOnInteractOutside: false,
-  })
+  const handleClose = useCallback(() =>
+  {
+    setShowClearAllConfirm(false)
+    onClose()
+  }, [onClose])
 
-  useFocusTrap(dialogRef, open)
-  useModalBackgroundInert(open)
   const {
     getItemProps: getTabProps,
     groupProps: tabListProps,
@@ -85,12 +79,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
     [open, activeTab]
   )
 
-  // render nothing when closed to avoid mounting the uploader unnecessarily
-  if (!open)
-  {
-    return null
-  }
-
   const handleAddTextItem = () =>
   {
     const trimmed = textLabel.trim()
@@ -102,20 +90,13 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
     setTextLabel('')
   }
 
-  return createPortal(
+  return (
     <>
-      {/* backdrop — click to close */}
-      <div
-        className="fixed inset-0 z-40 bg-black/60 animate-[fadeIn_100ms_ease-out]"
-        onClick={onClose}
-      />
-
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="fixed inset-0 z-50 m-auto flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl animate-[scaleIn_150ms_ease-out]"
+      <BaseModal
+        open={open}
+        onClose={handleClose}
+        labelledBy={titleId}
+        panelClassName="flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col p-4"
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -125,7 +106,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
             >
               Settings
             </h2>
-            {/* tab buttons */}
             <div
               {...tabListProps}
               className="flex gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5"
@@ -147,7 +127,7 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
               ))}
             </div>
           </div>
-          <SecondaryButton size="sm" onClick={onClose}>
+          <SecondaryButton size="sm" onClick={handleClose}>
             Done
           </SecondaryButton>
         </div>
@@ -175,12 +155,12 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
           {activeTab === 'more' && (
             <TierSettingsMoreTab
               storageBytes={storageBytes}
-              onClose={onClose}
+              onClose={handleClose}
               onRequestClearAll={() => setShowClearAllConfirm(true)}
             />
           )}
         </div>
-      </div>
+      </BaseModal>
 
       <ConfirmDialog
         open={showClearAllConfirm}
@@ -194,7 +174,6 @@ export const TierSettings = ({ open, onClose }: TierSettingsProps) =>
         }}
         onCancel={() => setShowClearAllConfirm(false)}
       />
-    </>,
-    document.body
+    </>
   )
 }

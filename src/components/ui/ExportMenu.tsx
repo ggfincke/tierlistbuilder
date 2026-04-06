@@ -1,7 +1,7 @@
 // src/components/ui/ExportMenu.tsx
-// export dropdown w/ click-open submenus for image, PDF, JSON, & export-all
+// export dropdown backed by a shared nested-menu tree for export actions
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import {
   Check,
   ChevronRight,
@@ -15,8 +15,11 @@ import {
 
 import type { ImageFormat } from '../../types'
 import type { MenuPositionClasses } from '../../utils/menuPosition'
-import { useHybridMenu } from '../../hooks/useHybridMenu'
-import { useMenuOverflowFlip } from '../../hooks/useMenuOverflowFlip'
+import { useMenuOverflowFlipRefs } from '../../hooks/useMenuOverflowFlip'
+import {
+  useNestedMenus,
+  type NestedMenuDefinition,
+} from '../../hooks/useNestedMenus'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import {
@@ -39,6 +42,15 @@ const FORMAT_LABELS: Record<ImageFormat, string> = {
   jpeg: 'JPEG',
   webp: 'WebP',
 }
+
+type ExportMenuId = 'root' | 'image' | 'format' | 'exportAll'
+
+const EXPORT_MENU_DEFINITIONS: readonly NestedMenuDefinition<ExportMenuId>[] = [
+  { id: 'root' },
+  { id: 'image', parentId: 'root' },
+  { id: 'format', parentId: 'image' },
+  { id: 'exportAll', parentId: 'root' },
+]
 
 interface ExportMenuProps
 {
@@ -74,47 +86,35 @@ export const ExportMenu = ({
   const imageOptionsGroupId = useId()
   const formatOptionsGroupId = useId()
   const exportAllOptionsGroupId = useId()
-
-  const {
-    open: showMenu,
-    closeMenu: closeRootMenu,
-    togglePinnedOpen: toggleRootMenu,
-  } = useHybridMenu({ disabled: isDisabled })
-
-  const {
-    open: showImageMenu,
-    closeMenu: closeImageMenu,
-    togglePinnedOpen: toggleImageMenu,
-  } = useHybridMenu({ disabled: isDisabled })
-
-  const {
-    open: showFormatMenu,
-    closeMenu: closeFormatMenu,
-    togglePinnedOpen: toggleFormatMenu,
-  } = useHybridMenu({ disabled: isDisabled })
-
-  const {
-    open: showExportAllMenu,
-    closeMenu: closeExportAllMenu,
-    togglePinnedOpen: toggleExportAllMenu,
-  } = useHybridMenu({
-    disabled: isDisabled || boardCount < 2,
-  })
-
-  // close the full export menu tree together
-  const closeExportMenu = useCallback(() =>
+  const disabledMenuIds = useMemo(() =>
   {
-    closeRootMenu()
-    closeImageMenu()
-    closeFormatMenu()
-    closeExportAllMenu()
-  }, [closeExportAllMenu, closeFormatMenu, closeImageMenu, closeRootMenu])
+    if (isDisabled)
+    {
+      return ['root', 'image', 'format', 'exportAll'] as const
+    }
+
+    if (boardCount < 2)
+    {
+      return ['exportAll'] as const
+    }
+
+    return [] as const
+  }, [boardCount, isDisabled])
+  const { getRef: getOverflowRef } = useMenuOverflowFlipRefs<ExportMenuId>()
+  const { closeAllMenus, closeMenu, isOpen, toggleMenu } = useNestedMenus({
+    definitions: EXPORT_MENU_DEFINITIONS,
+    disabledIds: disabledMenuIds,
+  })
+  const showMenu = isOpen('root')
+  const showImageMenu = isOpen('image')
+  const showFormatMenu = isOpen('format')
+  const showExportAllMenu = isOpen('exportAll')
 
   const handleJsonExport = () =>
   {
     const data = extractBoardData(useTierListStore.getState())
     exportBoardAsJson(data, title)
-    closeExportMenu()
+    closeAllMenus()
   }
 
   const handleJsonImport = async (file: File) =>
@@ -138,38 +138,14 @@ export const ExportMenu = ({
         err instanceof Error ? err.message : 'Failed to import JSON file.'
       )
     }
-    closeExportMenu()
+    closeAllMenus()
   }
-
-  // collapse nested menus whenever the root menu closes
-  useEffect(() =>
-  {
-    if (!showMenu)
-    {
-      closeImageMenu()
-      closeFormatMenu()
-      closeExportAllMenu()
-    }
-  }, [closeExportAllMenu, closeFormatMenu, closeImageMenu, showMenu])
-
-  // close the format submenu when its parent image menu collapses
-  useEffect(() =>
-  {
-    if (!showImageMenu)
-    {
-      closeFormatMenu()
-    }
-  }, [closeFormatMenu, showImageMenu])
-
-  const { ref: imageFlipRef } = useMenuOverflowFlip()
-  const { ref: formatFlipRef } = useMenuOverflowFlip()
-  const { ref: exportAllFlipRef } = useMenuOverflowFlip()
 
   usePopupClose({
     show: showMenu,
     triggerRef: buttonRef,
     popupRef: menuRef,
-    onClose: closeExportMenu,
+    onClose: closeAllMenus,
   })
 
   return (
@@ -179,7 +155,7 @@ export const ExportMenu = ({
           ref={buttonRef}
           label="Open export options"
           title="Export"
-          onClick={toggleRootMenu}
+          onClick={() => toggleMenu('root')}
           disabled={isDisabled}
           hasPopup="dialog"
           expanded={showMenu}
@@ -203,11 +179,7 @@ export const ExportMenu = ({
               aria-haspopup="dialog"
               aria-expanded={showImageMenu}
               className={`${showImageMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
-              onClick={() =>
-              {
-                closeExportAllMenu()
-                toggleImageMenu()
-              }}
+              onClick={() => toggleMenu('image')}
             >
               Export Image
               <ChevronRight
@@ -218,7 +190,7 @@ export const ExportMenu = ({
             <OverlayMenuItem
               onClick={() =>
               {
-                closeExportMenu()
+                closeAllMenus()
                 void onExport('pdf')
               }}
               className="disabled:opacity-45"
@@ -236,7 +208,7 @@ export const ExportMenu = ({
             <OverlayMenuItem
               onClick={() =>
               {
-                closeExportMenu()
+                closeAllMenus()
                 jsonInputRef.current?.click()
               }}
             >
@@ -254,12 +226,7 @@ export const ExportMenu = ({
                   aria-haspopup="dialog"
                   aria-expanded={showExportAllMenu}
                   className={`${showExportAllMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
-                  onClick={() =>
-                  {
-                    closeImageMenu()
-                    closeFormatMenu()
-                    toggleExportAllMenu()
-                  }}
+                  onClick={() => toggleMenu('exportAll')}
                 >
                   <span className="flex items-center gap-2">
                     <Layers className="h-3.5 w-3.5 shrink-0" />
@@ -275,7 +242,7 @@ export const ExportMenu = ({
             {showImageMenu && (
               <OverlayMenuSurface
                 id={imageOptionsGroupId}
-                ref={imageFlipRef}
+                ref={getOverflowRef('image')}
                 role="group"
                 aria-label="Image export options"
                 className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
@@ -283,7 +250,7 @@ export const ExportMenu = ({
                 <OverlayMenuItem
                   onClick={() =>
                   {
-                    closeExportMenu()
+                    closeAllMenus()
                     void onExport(imageFormat)
                   }}
                   className="disabled:opacity-45"
@@ -295,7 +262,7 @@ export const ExportMenu = ({
                 <OverlayMenuItem
                   onClick={() =>
                   {
-                    closeExportMenu()
+                    closeAllMenus()
                     void onCopyToClipboard()
                   }}
                   className="disabled:opacity-45"
@@ -313,7 +280,7 @@ export const ExportMenu = ({
                   aria-haspopup="dialog"
                   aria-expanded={showFormatMenu}
                   className={`${showFormatMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-4`}
-                  onClick={toggleFormatMenu}
+                  onClick={() => toggleMenu('format')}
                 >
                   {FORMAT_LABELS[imageFormat]}
                   <ChevronRight
@@ -324,7 +291,7 @@ export const ExportMenu = ({
                 {showFormatMenu && (
                   <OverlayMenuSurface
                     id={formatOptionsGroupId}
-                    ref={formatFlipRef}
+                    ref={getOverflowRef('format')}
                     role="group"
                     aria-label="Image format options"
                     className={`${menuPos.sub} z-50 text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
@@ -335,7 +302,7 @@ export const ExportMenu = ({
                         onClick={() =>
                         {
                           setImageFormat(fmt)
-                          closeFormatMenu()
+                          closeMenu('format')
                         }}
                       >
                         {imageFormat === fmt ? (
@@ -354,7 +321,7 @@ export const ExportMenu = ({
             {boardCount > 1 && showExportAllMenu && (
               <OverlayMenuSurface
                 id={exportAllOptionsGroupId}
-                ref={exportAllFlipRef}
+                ref={getOverflowRef('exportAll')}
                 role="group"
                 aria-label="Export all options"
                 className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
@@ -380,7 +347,7 @@ export const ExportMenu = ({
                     key={format}
                     onClick={() =>
                     {
-                      closeExportMenu()
+                      closeAllMenus()
                       void onExportAll(format)
                     }}
                   >

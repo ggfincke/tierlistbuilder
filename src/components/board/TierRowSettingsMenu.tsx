@@ -7,8 +7,7 @@ import { Settings as SettingsIcon } from 'lucide-react'
 import type { PaletteId, Tier } from '../../types'
 import { useTierListStore } from '../../store/useTierListStore'
 import { computeSettingsMenuStyle } from '../../utils/popupPosition'
-import { useAnchoredPosition } from '../../hooks/useAnchoredPosition'
-import { usePopupClose } from '../../hooks/usePopupClose'
+import { useAnchoredPopup } from '../../hooks/useAnchoredPopup'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { OverlayMenuItem, OverlayMenuSurface } from '../ui/OverlayPrimitives'
 import { TextInput } from '../ui/TextInput'
@@ -49,20 +48,16 @@ export const TierRowSettingsMenu = ({
   const menuRef = useRef<HTMLDivElement>(null)
   const dialogId = useId()
   const titleId = useId()
-  const { style: menuStyle, updatePosition: updateMenuPosition } =
-    useAnchoredPosition({
-      computePosition: () =>
-        gearButtonRef.current
-          ? computeSettingsMenuStyle(gearButtonRef.current)
-          : null,
-    })
-
-  usePopupClose({
-    show,
+  const handleClose = useCallback(() => onClose(), [onClose])
+  const { style: menuStyle } = useAnchoredPopup({
+    open: show,
     triggerRef: gearButtonRef,
     popupRef: menuRef,
-    onClose: useCallback(() => onClose(), [onClose]),
-    onScroll: updateMenuPosition,
+    onClose: handleClose,
+    computePosition: () =>
+      gearButtonRef.current
+        ? computeSettingsMenuStyle(gearButtonRef.current)
+        : null,
   })
 
   return (
@@ -79,11 +74,7 @@ export const TierRowSettingsMenu = ({
             return
           }
 
-          if (gearButtonRef.current)
-          {
-            updateMenuPosition()
-            onToggle()
-          }
+          onToggle()
         }}
         aria-label="Row settings"
         aria-haspopup="dialog"

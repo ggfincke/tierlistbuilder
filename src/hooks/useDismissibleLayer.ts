@@ -3,6 +3,8 @@
 
 import { useEffect, type RefObject } from 'react'
 
+import { hasActiveModalLayer } from './useModalBackgroundInert'
+
 interface UseDismissibleLayerOptions
 {
   open: boolean
@@ -52,8 +54,26 @@ export const useDismissibleLayer = ({
       return ignoreRefs.some((ref) => ref.current?.contains(target))
     }
 
+    const isManagedInsideModal = (): boolean =>
+    {
+      const managedElements = [
+        layerRef?.current,
+        triggerRef?.current,
+        ...ignoreRefs.map((ref) => ref.current),
+      ]
+
+      return managedElements.some((element) =>
+        element?.closest('[aria-modal="true"]')
+      )
+    }
+
     const handlePointerDown = (event: PointerEvent) =>
     {
+      if (hasActiveModalLayer() && !isManagedInsideModal())
+      {
+        return
+      }
+
       if (!closeOnInteractOutside)
       {
         return
@@ -71,6 +91,16 @@ export const useDismissibleLayer = ({
 
     const handleKeyDown = (event: KeyboardEvent) =>
     {
+      if (event.defaultPrevented)
+      {
+        return
+      }
+
+      if (hasActiveModalLayer() && !isManagedInsideModal())
+      {
+        return
+      }
+
       if (!closeOnEscape || event.key !== 'Escape')
       {
         return

@@ -48,9 +48,6 @@ export const TierItem = memo(
       useKeyboardDrag(itemId)
 
     const [showEditPopover, setShowEditPopover] = useState(false)
-    const [popoverAnchorRect, setPopoverAnchorRect] = useState<DOMRect | null>(
-      null
-    )
     const itemRef = useRef<HTMLDivElement | null>(null)
     const editButtonRef = useRef<HTMLButtonElement | null>(null)
 
@@ -83,11 +80,7 @@ export const TierItem = memo(
     const openEditPopover = useCallback((e: React.MouseEvent) =>
     {
       e.stopPropagation()
-      if (itemRef.current)
-      {
-        setPopoverAnchorRect(itemRef.current.getBoundingClientRect())
-        setShowEditPopover(true)
-      }
+      setShowEditPopover(true)
     }, [])
     const closeEditPopover = useCallback(() =>
     {
@@ -173,10 +166,11 @@ export const TierItem = memo(
           )}
         </div>
 
-        {showEditPopover && popoverAnchorRect && (
+        {showEditPopover && (
           <ItemEditPopover
             itemId={itemId}
-            anchorRect={popoverAnchorRect}
+            anchorRef={itemRef}
+            triggerRef={editButtonRef}
             onClose={closeEditPopover}
           />
         )}

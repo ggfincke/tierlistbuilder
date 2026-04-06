@@ -2,19 +2,16 @@
 // modal for choosing a board preset when creating a new list
 
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 
 import type { PresetId, TierPreset } from '../../types'
 import { BUILTIN_PRESETS } from '../../domain/presets'
 import { resolveTierColorSpec } from '../../domain/tierColors'
 import { useCurrentPaletteId } from '../../hooks/useCurrentPaletteId'
-import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useInlineEdit } from '../../hooks/useInlineEdit'
-import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
 import { usePresetStore } from '../../store/usePresetStore'
 import { getTextColor } from '../../utils/color'
+import { BaseModal } from './BaseModal'
 import { ConfirmDialog } from './ConfirmDialog'
 import { SecondaryButton } from './SecondaryButton'
 import { TextInput } from './TextInput'
@@ -39,7 +36,6 @@ export const PresetPickerModal = ({
   const removePreset = usePresetStore((state) => state.removePreset)
   const renamePreset = usePresetStore((state) => state.renamePreset)
 
-  const dialogRef = useRef<HTMLDivElement>(null)
   const blankBoardButtonRef = useRef<HTMLButtonElement>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<PresetId | null>(null)
   const titleId = useId()
@@ -64,36 +60,14 @@ export const PresetPickerModal = ({
     onClose()
   }, [cancelEdit, onClose])
 
-  useDismissibleLayer({
-    open,
-    onDismiss: handleClose,
-    closeOnInteractOutside: false,
-  })
-
-  useFocusTrap(dialogRef, {
-    active: open,
-    initialFocusRef: blankBoardButtonRef,
-  })
-  useModalBackgroundInert(open)
-
-  if (!open)
-  {
-    return null
-  }
-
-  return createPortal(
+  return (
     <>
-      <div
-        className="fixed inset-0 z-40 bg-black/60 animate-[fadeIn_100ms_ease-out]"
-        onClick={handleClose}
-      />
-
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="fixed inset-0 z-50 m-auto flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl animate-[scaleIn_150ms_ease-out]"
+      <BaseModal
+        open={open}
+        onClose={handleClose}
+        labelledBy={titleId}
+        initialFocusRef={blankBoardButtonRef}
+        panelClassName="flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col p-4"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2
@@ -107,8 +81,7 @@ export const PresetPickerModal = ({
           </SecondaryButton>
         </div>
 
-        <div className="min-h-0 flex-1 grid grid-cols-4 gap-2 overflow-y-auto pr-1 auto-rows-min">
-          {/* blank board option */}
+        <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-4 gap-2 overflow-y-auto pr-1">
           <button
             ref={blankBoardButtonRef}
             type="button"
@@ -132,13 +105,12 @@ export const PresetPickerModal = ({
             </p>
           </button>
 
-          {/* preset list */}
           {allPresets.map((preset) =>
           {
             const presetIsEditing = isEditing(preset.id)
             const previewPills = (
               <div className="mt-1 flex flex-wrap gap-1">
-                {preset.tiers.map((tier, i) =>
+                {preset.tiers.map((tier, index) =>
                 {
                   const tierColor = resolveTierColorSpec(
                     paletteId,
@@ -148,7 +120,7 @@ export const PresetPickerModal = ({
 
                   return (
                     <span
-                      key={i}
+                      key={index}
                       className="rounded px-1.5 py-0.5 text-[0.6rem] font-medium leading-none"
                       style={{
                         backgroundColor: tierColor,
@@ -202,7 +174,6 @@ export const PresetPickerModal = ({
                   </button>
                 )}
 
-                {/* actions for user presets */}
                 {!preset.builtIn && !presetIsEditing && (
                   <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
@@ -227,7 +198,7 @@ export const PresetPickerModal = ({
             )
           })}
         </div>
-      </div>
+      </BaseModal>
 
       <ConfirmDialog
         open={confirmDeleteId !== null}
@@ -237,11 +208,14 @@ export const PresetPickerModal = ({
         onCancel={() => setConfirmDeleteId(null)}
         onConfirm={() =>
         {
-          if (confirmDeleteId) removePreset(confirmDeleteId)
+          if (confirmDeleteId)
+          {
+            removePreset(confirmDeleteId)
+          }
+
           setConfirmDeleteId(null)
         }}
       />
-    </>,
-    document.body
+    </>
   )
 }

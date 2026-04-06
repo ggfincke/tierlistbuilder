@@ -1,27 +1,38 @@
 // src/components/board/ItemEditPopover.tsx
 // popover for editing item alt text
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react'
 
-import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
+import { useAnchoredPopup } from '../../hooks/useAnchoredPopup'
 import { useTierListStore } from '../../store/useTierListStore'
+import {
+  ITEM_EDIT_POPOVER_MIN_HEIGHT_PX,
+  ITEM_EDIT_POPOVER_WIDTH_PX,
+} from '../../utils/uiMeasurements'
+import { computeItemEditPopoverStyle } from '../../utils/popupPosition'
+import { OverlayFixedPopupSurface } from '../ui/OverlayPrimitives'
+import { SecondaryButton } from '../ui/SecondaryButton'
 import { TextInput } from '../ui/TextInput'
-
-const POPOVER_GAP = 6
-const POPOVER_HEIGHT = 140
-const POPOVER_WIDTH = 224
-const VIEWPORT_MARGIN = 8
 
 interface ItemEditPopoverProps
 {
   itemId: string
-  anchorRect: DOMRect
+  anchorRef: RefObject<HTMLDivElement | null>
+  triggerRef: RefObject<HTMLButtonElement | null>
   onClose: () => void
 }
 
 export const ItemEditPopover = ({
   itemId,
-  anchorRect,
+  anchorRef,
+  triggerRef,
   onClose,
 }: ItemEditPopoverProps) =>
 {
@@ -48,13 +59,27 @@ export const ItemEditPopover = ({
     onClose()
   }, [item, altText, itemId, setItemAltText, onClose])
 
-  useDismissibleLayer({
+  const { style: popoverStyle, updatePosition } = useAnchoredPopup({
     open: true,
-    layerRef: popoverRef,
-    onDismiss: handleClose,
-    closeOnEscape: true,
-    closeOnInteractOutside: true,
+    triggerRef,
+    popupRef: popoverRef,
+    onClose: handleClose,
     stopEscapePropagation: true,
+    computePosition: () =>
+    {
+      if (!anchorRef.current)
+      {
+        return null
+      }
+
+      return computeItemEditPopoverStyle(
+        anchorRef.current.getBoundingClientRect(),
+        popoverRef.current?.getBoundingClientRect().width ??
+          ITEM_EDIT_POPOVER_WIDTH_PX,
+        popoverRef.current?.getBoundingClientRect().height ??
+          ITEM_EDIT_POPOVER_MIN_HEIGHT_PX
+      )
+    },
   })
 
   // auto-focus input on open
@@ -63,26 +88,34 @@ export const ItemEditPopover = ({
     inputRef.current?.focus()
   }, [])
 
-  if (!item) return null
+  useEffect(() =>
+  {
+    if (!anchorRef.current || !popoverRef.current)
+    {
+      return
+    }
 
-  // position below the item, clamped to viewport
-  const top = Math.min(
-    anchorRect.bottom + POPOVER_GAP,
-    window.innerHeight - POPOVER_HEIGHT
-  )
-  const left = Math.max(
-    VIEWPORT_MARGIN,
-    Math.min(anchorRect.left, window.innerWidth - POPOVER_WIDTH)
-  )
+    // remeasure when either the anchor tile or the popover size changes
+    const resizeObserver = new ResizeObserver(() => updatePosition())
+    resizeObserver.observe(anchorRef.current)
+    resizeObserver.observe(popoverRef.current)
+
+    return () => resizeObserver.disconnect()
+  }, [anchorRef, updatePosition])
+
+  if (!item)
+  {
+    return null
+  }
 
   return (
-    <div
+    <OverlayFixedPopupSurface
       ref={popoverRef}
       role="dialog"
       aria-labelledby={labelId}
       aria-describedby={hintId}
-      className="fixed z-50 w-56 rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] p-3 shadow-lg"
-      style={{ top, left }}
+      className="fixed z-50 w-56 p-3"
+      style={popoverStyle}
     >
       <label
         id={labelId}
@@ -107,14 +140,10 @@ export const ItemEditPopover = ({
       </p>
 
       <div className="mt-2 flex justify-end">
-        <button
-          type="button"
-          onClick={handleClose}
-          className="focus-custom rounded-md bg-[var(--t-bg-active)] px-2.5 py-1 text-xs font-medium text-[var(--t-text)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
+        <SecondaryButton size="sm" variant="surface" onClick={handleClose}>
           Done
-        </button>
+        </SecondaryButton>
       </div>
-    </div>
+    </OverlayFixedPopupSurface>
   )
 }

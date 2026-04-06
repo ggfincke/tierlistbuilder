@@ -1,8 +1,7 @@
 // src/components/ui/BoardActionBar.tsx
 // floating action bar — undo/redo, add tier, settings, export, & reset controls
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import {
   BookmarkPlus,
   ChevronRight,
@@ -18,26 +17,30 @@ import {
 
 import type { ImageFormat, ToolbarPosition } from '../../types'
 import { extractPresetFromBoard } from '../../domain/presets'
-import { useDismissibleLayer } from '../../hooks/useDismissibleLayer'
-import { useHybridMenu } from '../../hooks/useHybridMenu'
-import { useModalBackgroundInert } from '../../hooks/useModalBackgroundInert'
 import { extractBoardData } from '../../domain/boardData'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { usePresetStore } from '../../store/usePresetStore'
 import { useTierListStore } from '../../store/useTierListStore'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import {
+  useNestedMenus,
+  type NestedMenuDefinition,
+} from '../../hooks/useNestedMenus'
 import { usePopupClose } from '../../hooks/usePopupClose'
 import {
   getMenuPositionClasses,
   isVerticalPosition,
 } from '../../utils/menuPosition'
-import { useMenuOverflowFlip } from '../../hooks/useMenuOverflowFlip'
+import { useMenuOverflowFlipRefs } from '../../hooks/useMenuOverflowFlip'
 import { ActionButton } from './ActionButton'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportMenu } from './ExportMenu'
 import { OverlayMenuItem, OverlayMenuSurface } from './OverlayPrimitives'
-import { SecondaryButton } from './SecondaryButton'
-import { TextInput } from './TextInput'
+import { SavePresetModal } from './SavePresetModal'
+
+type ShuffleMenuId = 'root' | 'shuffleAll'
+
+const SHUFFLE_MENU_DEFINITIONS: readonly NestedMenuDefinition<ShuffleMenuId>[] =
+  [{ id: 'root' }, { id: 'shuffleAll', parentId: 'root' }]
 
 interface BoardActionBarProps
 {
@@ -70,7 +73,6 @@ export const BoardActionBar = ({
   const isVertical = isVerticalPosition(toolbarPosition)
   const menuPos = getMenuPositionClasses(toolbarPosition)
   const reducedMotion = useSettingsStore((state) => state.reducedMotion)
-  const { ref: shuffleAllFlipRef } = useMenuOverflowFlip()
   const boardLocked = useSettingsStore((state) => state.boardLocked)
   const setBoardLocked = useSettingsStore((state) => state.setBoardLocked)
   const pastLength = useTierListStore((state) => state.past.length)
@@ -85,47 +87,31 @@ export const BoardActionBar = ({
     (state) => state.shuffleUnrankedItems
   )
   const addPreset = usePresetStore((state) => state.addPreset)
+  const boardTitle = useTierListStore((state) => state.title)
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmShuffleAll, setConfirmShuffleAll] = useState(false)
   const shuffleButtonRef = useRef<HTMLButtonElement | null>(null)
   const shuffleMenuRef = useRef<HTMLDivElement | null>(null)
   const [showSavePreset, setShowSavePreset] = useState(false)
-  const [presetName, setPresetName] = useState('')
-  const savePresetRef = useRef<HTMLDivElement | null>(null)
   const shuffleDialogId = useId()
   const shuffleAllGroupId = useId()
-  const savePresetTitleId = useId()
-  const savePresetDescriptionId = useId()
-  const savePresetInputId = useId()
-  const {
-    open: showShuffleMenu,
-    closeMenu: closeShuffleMenuRoot,
-    togglePinnedOpen: toggleShuffleMenu,
-  } = useHybridMenu({ disabled: boardLocked })
-
-  const {
-    open: showShuffleAllMenu,
-    closeMenu: closeShuffleAllMenu,
-    togglePinnedOpen: toggleShuffleAllMenu,
-  } = useHybridMenu({ disabled: boardLocked })
-
-  const closeShuffleMenu = useCallback(() =>
-  {
-    closeShuffleMenuRoot()
-    closeShuffleAllMenu()
-  }, [closeShuffleMenuRoot, closeShuffleAllMenu])
-
-  // collapse submenu when root menu closes
-  useEffect(() =>
-  {
-    if (!showShuffleMenu) closeShuffleAllMenu()
-  }, [showShuffleMenu, closeShuffleAllMenu])
+  const disabledMenuIds = useMemo(
+    () => (boardLocked ? (['root', 'shuffleAll'] as const) : ([] as const)),
+    [boardLocked]
+  )
+  const { getRef: getOverflowRef } = useMenuOverflowFlipRefs<ShuffleMenuId>()
+  const { closeAllMenus, isOpen, toggleMenu } = useNestedMenus({
+    definitions: SHUFFLE_MENU_DEFINITIONS,
+    disabledIds: disabledMenuIds,
+  })
+  const showShuffleMenu = isOpen('root')
+  const showShuffleAllMenu = isOpen('shuffleAll')
 
   usePopupClose({
     show: showShuffleMenu,
     triggerRef: shuffleButtonRef,
     popupRef: shuffleMenuRef,
-    onClose: closeShuffleMenu,
+    onClose: closeAllMenus,
   })
 
   // pending shuffle mode for the confirmation dialog
@@ -136,7 +122,7 @@ export const BoardActionBar = ({
   // shuffle w/ confirmation when items have been manually arranged
   const handleShuffle = (mode: 'even' | 'random' | 'unranked') =>
   {
-    closeShuffleMenu()
+    closeAllMenus()
     if (mode === 'unranked')
     {
       shuffleUnrankedItems()
@@ -151,22 +137,14 @@ export const BoardActionBar = ({
     shuffleAllItems(mode)
   }
 
-  useFocusTrap(savePresetRef, showSavePreset)
-  useModalBackgroundInert(showSavePreset)
-  useDismissibleLayer({
-    open: showSavePreset,
-    layerRef: savePresetRef,
-    onDismiss: () => setShowSavePreset(false),
-    stopEscapePropagation: true,
-  })
-
-  const savePreset = () =>
-  {
-    if (!presetName.trim()) return
-    const data = extractBoardData(useTierListStore.getState())
-    addPreset(extractPresetFromBoard(data, presetName.trim()))
-    setShowSavePreset(false)
-  }
+  const handleSavePreset = useCallback(
+    (presetName: string) =>
+    {
+      const data = extractBoardData(useTierListStore.getState())
+      addPreset(extractPresetFromBoard(data, presetName))
+    },
+    [addPreset]
+  )
 
   return (
     <>
@@ -215,7 +193,7 @@ export const BoardActionBar = ({
               ref={shuffleButtonRef}
               label="Shuffle items"
               title="Shuffle"
-              onClick={toggleShuffleMenu}
+              onClick={() => toggleMenu('root')}
               disabled={boardLocked}
               hasPopup="dialog"
               expanded={showShuffleMenu}
@@ -240,7 +218,7 @@ export const BoardActionBar = ({
                     aria-haspopup="dialog"
                     aria-expanded={showShuffleAllMenu}
                     className={`${showShuffleAllMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
-                    onClick={toggleShuffleAllMenu}
+                    onClick={() => toggleMenu('shuffleAll')}
                   >
                     Shuffle All
                     <ChevronRight
@@ -251,7 +229,7 @@ export const BoardActionBar = ({
                   {showShuffleAllMenu && (
                     <OverlayMenuSurface
                       id={shuffleAllGroupId}
-                      ref={shuffleAllFlipRef}
+                      ref={getOverflowRef('shuffleAll')}
                       role="group"
                       aria-label="Shuffle all options"
                       className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
@@ -306,11 +284,7 @@ export const BoardActionBar = ({
           <ActionButton
             label="Save as preset"
             title="Save Preset"
-            onClick={() =>
-            {
-              setPresetName(useTierListStore.getState().title)
-              setShowSavePreset(true)
-            }}
+            onClick={() => setShowSavePreset(true)}
           >
             <BookmarkPlus className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
@@ -364,64 +338,13 @@ export const BoardActionBar = ({
         }}
       />
 
-      {/* save-as-preset name prompt */}
-      {showSavePreset &&
-        createPortal(
-          <>
-            <div className="fixed inset-0 z-50 bg-black/60" />
-            <div
-              ref={savePresetRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={savePresetTitleId}
-              aria-describedby={savePresetDescriptionId}
-              className="fixed inset-0 z-50 m-auto flex h-fit w-full max-w-sm flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-4 shadow-2xl"
-            >
-              <h2
-                id={savePresetTitleId}
-                className="text-lg font-semibold text-[var(--t-text)]"
-              >
-                Save as Preset
-              </h2>
-              <p
-                id={savePresetDescriptionId}
-                className="mt-1 text-sm text-[var(--t-text-muted)]"
-              >
-                Saves the current tier structure (names & colors) for reuse.
-              </p>
-              <label htmlFor={savePresetInputId} className="sr-only">
-                Preset name
-              </label>
-              <TextInput
-                id={savePresetInputId}
-                autoFocus
-                value={presetName}
-                onChange={(e) => setPresetName(e.target.value)}
-                onKeyDown={(e) =>
-                {
-                  if (e.key === 'Enter') savePreset()
-                }}
-                placeholder="Preset name"
-                size="md"
-                className="mt-3 w-full rounded-lg border-[var(--t-border)] focus:border-[var(--t-accent-hover)]"
-              />
-              <div className="mt-3 flex justify-end gap-2">
-                <SecondaryButton onClick={() => setShowSavePreset(false)}>
-                  Cancel
-                </SecondaryButton>
-                <button
-                  type="button"
-                  disabled={!presetName.trim()}
-                  className="focus-custom rounded-md bg-[var(--t-accent)] px-3 py-1.5 text-sm font-medium text-[var(--t-accent-foreground)] hover:bg-[var(--t-accent-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:opacity-40"
-                  onClick={savePreset}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </>,
-          document.body
-        )}
+      {showSavePreset && (
+        <SavePresetModal
+          defaultName={boardTitle}
+          onClose={() => setShowSavePreset(false)}
+          onSave={handleSavePreset}
+        />
+      )}
     </>
   )
 }

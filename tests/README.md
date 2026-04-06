@@ -16,13 +16,15 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Board Data**: Board creation, reset, & legacy data normalization
 - **Board Operations**: Pure tier sorting & item shuffling logic
 - **Selection Primitives**: Shared radio/tab semantics behind roving selection
+- **Nested Menus**: Shared tree state for root/submenu orchestration
 - **ID Helpers**: Generated ID prefix contracts & guard helpers
+- **Popup/Menu Geometry**: Shared fixed-popup placement & submenu flip rules
 
 We intentionally do not test:
 
 - Every edge case or configuration combination
 - React components or hooks
-- DOM-dependent utilities (dragDomCapture, popup positioning)
+- DOM-dependent utilities that require live layout capture
 - Utility functions with obvious behavior (single ternary, field projection)
 - Export pipeline (PNG/PDF/JSON rendering)
 - Zustand store wiring
@@ -52,9 +54,12 @@ tests/
 ├── boardData.test.ts          — board creation & legacy normalization
 ├── boardOps.test.ts           — pure sorting & shuffling helpers
 ├── selectionState.test.ts     — shared radio/tab semantics for roving selection
+├── nestedMenus.test.ts        — nested root/submenu open-close tree rules
 ├── dragSnapshot.test.ts       — snapshot transforms & container queries
 ├── dragKeyboard.test.ts       — keyboard navigation resolution
-└── dragPointerMath.test.ts    — pointer insertion math
+├── dragPointerMath.test.ts    — pointer insertion math
+├── menuPosition.test.ts       — submenu direction & responsive toolbar helpers
+└── popupPosition.test.ts      — fixed popup placement & viewport clamping
 ```
 
 ## Fixtures
