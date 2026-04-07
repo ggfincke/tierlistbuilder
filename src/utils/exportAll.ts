@@ -11,9 +11,17 @@ import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
 import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
 import { withExportSession } from './exportBoardRender'
 
-// convert a base64 data URL to a Uint8Array for ZIP packaging
-const dataUrlToUint8Array = (dataUrl: string): Uint8Array =>
+// convert a data URL to raw bytes for ZIP packaging
+// handles both base64 (raster) & URL-encoded (SVG) data URLs
+const dataUrlToZipEntry = (dataUrl: string): Uint8Array | string =>
 {
+  // SVG data URLs are URL-encoded text, not base64
+  if (dataUrl.startsWith('data:image/svg+xml'))
+  {
+    const raw = dataUrl.split(',')[1]
+    return decodeURIComponent(raw)
+  }
+
   const base64 = dataUrl.split(',')[1]
   const binary = atob(base64)
   const bytes = new Uint8Array(binary.length)
@@ -194,7 +202,7 @@ export const exportAllBoardsAsImages = async (
     }
     usedNames.add(base)
 
-    zip.file(`${base}.${ext}`, dataUrlToUint8Array(cap.dataUrl))
+    zip.file(`${base}.${ext}`, dataUrlToZipEntry(cap.dataUrl))
   }
 
   const blob = await zip.generateAsync({ type: 'blob' })

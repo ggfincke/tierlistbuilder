@@ -33,6 +33,8 @@ export interface TierItem
   backgroundColor?: string
   // custom alt text for screen readers (falls back to label)
   altText?: string
+  // true when the image was stripped for share link encoding
+  imageStripped?: boolean
 }
 
 // stable palette slot used to derive a tier color from the active theme
@@ -142,7 +144,7 @@ export interface TierPreset
 }
 
 // supported image export formats
-export type ImageFormat = 'png' | 'jpeg' | 'webp'
+export type ImageFormat = 'png' | 'jpeg' | 'webp' | 'svg'
 
 // item display size presets
 export type ItemSize = 'small' | 'medium' | 'large'
