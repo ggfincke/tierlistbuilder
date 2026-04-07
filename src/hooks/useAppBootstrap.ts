@@ -7,8 +7,35 @@ import { useBoardManagerStore } from '../store/useBoardManagerStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import {
   bootstrapBoardSession,
+  importBoardSession,
   registerBoardAutosave,
 } from '../services/boardSession'
+import {
+  clearShareFragment,
+  decodeBoardFromShareFragment,
+  getShareFragment,
+} from '../utils/shareLink'
+
+// import a shared board from the URL hash fragment if present
+const handleShareFragment = async (): Promise<void> =>
+{
+  const fragment = getShareFragment()
+  if (!fragment) return
+
+  try
+  {
+    const data = await decodeBoardFromShareFragment(fragment)
+    importBoardSession(data)
+  }
+  catch
+  {
+    // silently ignore corrupted share links — board session is still valid
+  }
+  finally
+  {
+    clearShareFragment()
+  }
+}
 
 export const useAppBootstrap = (): boolean =>
 {
@@ -34,6 +61,7 @@ export const useAppBootstrap = (): boolean =>
       bootstrappedRef.current = true
       bootstrapBoardSession()
       registerBoardAutosave()
+      void handleShareFragment()
       setReady(true)
     }
 
