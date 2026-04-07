@@ -1,7 +1,7 @@
 // src/hooks/useExportController.ts
 // export controller hook — board export commands, progress, & runtime error handling
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import { useSettingsStore } from '../store/useSettingsStore'
 import { extractBoardData } from '../domain/boardData'
@@ -16,8 +16,12 @@ import {
 import {
   copyBoardToClipboard,
   exportTierListAsImage,
+  renderToDataUrl,
 } from '../utils/exportImage'
-import { getExportAppearance } from '../utils/exportBoardRender'
+import {
+  getExportAppearance,
+  withExportSession,
+} from '../utils/exportBoardRender'
 import { exportTierListAsPdf } from '../utils/exportPdf'
 
 const getExportBackgroundColor = () =>
@@ -31,9 +35,6 @@ const getCurrentExportAppearance = () =>
 
 export const useExportController = () =>
 {
-  const clearRuntimeError = useTierListStore((state) => state.clearRuntimeError)
-  const setRuntimeError = useTierListStore((state) => state.setRuntimeError)
-  const title = useTierListStore((state) => state.title)
   const [exportStatus, setExportStatus] = useState<
     ImageFormat | 'pdf' | 'clipboard' | null
   >(null)
@@ -42,52 +43,54 @@ export const useExportController = () =>
     total: number
   } | null>(null)
 
-  const runExport = useCallback(
-    async (type: ImageFormat | 'pdf') =>
+  // use refs for guard checks so callbacks stay stable across renders
+  const exportStatusRef = useRef(exportStatus)
+  exportStatusRef.current = exportStatus
+  const exportAllProgressRef = useRef(exportAllProgress)
+  exportAllProgressRef.current = exportAllProgress
+
+  const runExport = useCallback(async (type: ImageFormat | 'pdf') =>
+  {
+    if (exportStatusRef.current) return
+
+    useTierListStore.getState().clearRuntimeError()
+    setExportStatus(type)
+
+    try
     {
-      if (exportStatus)
-      {
-        return
-      }
+      const bgColor = getExportBackgroundColor()
+      const appearance = getCurrentExportAppearance()
+      const data = extractBoardData(useTierListStore.getState())
+      const title = useTierListStore.getState().title
 
-      clearRuntimeError()
-      setExportStatus(type)
-
-      try
+      if (type === 'pdf')
       {
-        const bgColor = getExportBackgroundColor()
-        const appearance = getCurrentExportAppearance()
-        const data = extractBoardData(useTierListStore.getState())
-
-        if (type === 'pdf')
-        {
-          await exportTierListAsPdf(data, title, appearance, bgColor)
-        }
-        else
-        {
-          await exportTierListAsImage(data, title, appearance, type, bgColor)
-        }
+        await exportTierListAsPdf(data, title, appearance, bgColor)
       }
-      catch
+      else
       {
-        setRuntimeError('Export failed. Try again after images finish loading.')
+        await exportTierListAsImage(data, title, appearance, type, bgColor)
       }
-      finally
-      {
-        setExportStatus(null)
-      }
-    },
-    [clearRuntimeError, exportStatus, setRuntimeError, title]
-  )
+    }
+    catch
+    {
+      useTierListStore
+        .getState()
+        .setRuntimeError(
+          'Export failed. Try again after images finish loading.'
+        )
+    }
+    finally
+    {
+      setExportStatus(null)
+    }
+  }, [])
 
   const runCopyToClipboard = useCallback(async () =>
   {
-    if (exportStatus)
-    {
-      return
-    }
+    if (exportStatusRef.current) return
 
-    clearRuntimeError()
+    useTierListStore.getState().clearRuntimeError()
     setExportStatus('clipboard')
 
     try
@@ -99,25 +102,24 @@ export const useExportController = () =>
     }
     catch (err)
     {
-      setRuntimeError(
-        err instanceof Error ? err.message : 'Failed to copy to clipboard.'
-      )
+      useTierListStore
+        .getState()
+        .setRuntimeError(
+          err instanceof Error ? err.message : 'Failed to copy to clipboard.'
+        )
     }
     finally
     {
       setExportStatus(null)
     }
-  }, [clearRuntimeError, exportStatus, setRuntimeError])
+  }, [])
 
   const runExportAll = useCallback(
     async (type: 'json' | 'pdf' | ImageFormat) =>
     {
-      if (exportStatus || exportAllProgress)
-      {
-        return
-      }
+      if (exportStatusRef.current || exportAllProgressRef.current) return
 
-      clearRuntimeError()
+      useTierListStore.getState().clearRuntimeError()
 
       if (type === 'json')
       {
@@ -127,7 +129,9 @@ export const useExportController = () =>
         }
         catch
         {
-          setRuntimeError('Export All failed. Try again.')
+          useTierListStore
+            .getState()
+            .setRuntimeError('Export All failed. Try again.')
         }
         return
       }
@@ -152,17 +156,57 @@ export const useExportController = () =>
       }
       catch
       {
-        setRuntimeError(
-          'Export All failed. Try again after images finish loading.'
-        )
+        useTierListStore
+          .getState()
+          .setRuntimeError(
+            'Export All failed. Try again after images finish loading.'
+          )
       }
       finally
       {
         setExportAllProgress(null)
       }
     },
-    [clearRuntimeError, exportAllProgress, exportStatus, setRuntimeError]
+    []
   )
+
+  // render the board to a data URL for annotation (does not download)
+  const runAnnotatedExport = useCallback(async (): Promise<string | null> =>
+  {
+    if (exportStatusRef.current) return null
+
+    useTierListStore.getState().clearRuntimeError()
+    setExportStatus('png')
+
+    try
+    {
+      const bgColor = getExportBackgroundColor()
+      const appearance = getCurrentExportAppearance()
+      const data = extractBoardData(useTierListStore.getState())
+
+      return await withExportSession(
+        { appearance, backgroundColor: bgColor },
+        async (session) =>
+        {
+          const element = await session.renderBoard(data)
+          return renderToDataUrl(element, 'png', bgColor)
+        }
+      )
+    }
+    catch
+    {
+      useTierListStore
+        .getState()
+        .setRuntimeError(
+          'Export failed. Try again after images finish loading.'
+        )
+      return null
+    }
+    finally
+    {
+      setExportStatus(null)
+    }
+  }, [])
 
   return {
     exportStatus,
@@ -170,5 +214,6 @@ export const useExportController = () =>
     runExport,
     runCopyToClipboard,
     runExportAll,
+    runAnnotatedExport,
   }
 }

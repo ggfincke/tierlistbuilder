@@ -3,15 +3,23 @@
 
 import { useCallback, useMemo, useState, type MouseEvent } from 'react'
 
+import { AnnotationEditor } from './components/annotation/AnnotationEditor'
+import { ComparisonModal } from './components/comparison/ComparisonModal'
+import { EmbedView } from './components/embed/EmbedView'
 import { BoardActionBar } from './components/ui/BoardActionBar'
 import { BoardManager } from './components/ui/BoardManager'
+import { EmbedSnippetModal } from './components/ui/EmbedSnippetModal'
 import { ExportProgressOverlay } from './components/ui/ExportProgressOverlay'
 import { LiveRegion } from './components/ui/LiveRegion'
+import { ShareLinkModal } from './components/ui/ShareLinkModal'
 import { ShortcutsPanel } from './components/ui/ShortcutsPanel'
+import { StatsModal } from './components/stats/StatsModal'
 import { TierList } from './components/board/TierList'
 import { TierSettings } from './components/settings/TierSettings'
 import { Toolbar } from './components/ui/Toolbar'
+import { extractBoardData } from './domain/boardData'
 import { useAppBootstrap } from './hooks/useAppBootstrap'
+import { useEmbedMode } from './hooks/useEmbedMode'
 import { useBoardTransition } from './hooks/useBoardTransition'
 import { useCurrentPaletteId } from './hooks/useCurrentPaletteId'
 import { useExportController } from './hooks/useExportController'
@@ -19,11 +27,14 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
 import { useThemeApplicator } from './hooks/useThemeApplicator'
 import { useAboveBreakpoint } from './hooks/useViewportWidth'
 import { getResponsiveToolbarPosition } from './utils/menuPosition'
+import { getShareUrl } from './utils/shareLink'
+import { shareToTwitter } from './utils/socialShare'
 import { useSettingsStore } from './store/useSettingsStore'
 import { useTierListStore } from './store/useTierListStore'
 
 function App()
 {
+  const isEmbed = useEmbedMode()
   const appReady = useAppBootstrap()
   const paletteId = useCurrentPaletteId()
   const runtimeError = useTierListStore((state) => state.runtimeError)
@@ -46,6 +57,7 @@ function App()
     runExport,
     runCopyToClipboard,
     runExportAll,
+    runAnnotatedExport,
   } = useExportController()
 
   const { showShortcutsPanel, closeShortcutsPanel } = useGlobalShortcuts({
@@ -53,6 +65,11 @@ function App()
   })
 
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
+  const [shareLinkOpen, setShareLinkOpen] = useState(false)
+  const [embedSnippetOpen, setEmbedSnippetOpen] = useState(false)
+  const [comparisonOpen, setComparisonOpen] = useState(false)
+  const [annotationImage, setAnnotationImage] = useState<string | null>(null)
   const handleAddTier = useMemo(
     () => () => addTier(paletteId),
     [addTier, paletteId]
@@ -62,6 +79,47 @@ function App()
     [paletteId, resetBoard]
   )
   const handleCloseSettings = useCallback(() => setSettingsOpen(false), [])
+  const handleOpenSettings = useCallback(() => setSettingsOpen(true), [])
+  const handleCloseStats = useCallback(() => setStatsOpen(false), [])
+  const handleOpenStats = useCallback(() => setStatsOpen(true), [])
+  const handleCloseShareLink = useCallback(() => setShareLinkOpen(false), [])
+  const handleOpenShareLink = useCallback(() => setShareLinkOpen(true), [])
+  const handleCloseEmbedSnippet = useCallback(
+    () => setEmbedSnippetOpen(false),
+    []
+  )
+  const handleOpenEmbedSnippet = useCallback(
+    () => setEmbedSnippetOpen(true),
+    []
+  )
+  const handleCloseComparison = useCallback(() => setComparisonOpen(false), [])
+  const handleOpenComparison = useCallback(() => setComparisonOpen(true), [])
+  const handleCloseAnnotation = useCallback(() => setAnnotationImage(null), [])
+
+  const handleShareToTwitter = useCallback(async () =>
+  {
+    try
+    {
+      const data = extractBoardData(useTierListStore.getState())
+      const url = await getShareUrl(data)
+      const title = useTierListStore.getState().title
+      shareToTwitter(`Check out my tier list: ${title}`, url)
+    }
+    catch
+    {
+      useTierListStore
+        .getState()
+        .setRuntimeError('Failed to generate share link.')
+    }
+  }, [])
+
+  const handleAnnotateExport = useCallback(() =>
+  {
+    void runAnnotatedExport().then((img) =>
+    {
+      if (img) setAnnotationImage(img)
+    })
+  }, [runAnnotatedExport])
   const handleSkipToBoard = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) =>
     {
@@ -80,6 +138,12 @@ function App()
     },
     []
   )
+
+  // embed mode — render a minimal read-only board w/o the full app shell
+  if (isEmbed)
+  {
+    return <EmbedView />
+  }
 
   if (!appReady)
   {
@@ -131,10 +195,16 @@ function App()
                 exportStatus={exportStatus}
                 exportingAll={exportAllProgress !== null}
                 onAddTier={handleAddTier}
-                onOpenSettings={() => setSettingsOpen(true)}
+                onOpenSettings={handleOpenSettings}
+                onOpenStats={handleOpenStats}
+                onOpenComparison={handleOpenComparison}
                 onExport={runExport}
                 onCopyToClipboard={runCopyToClipboard}
                 onExportAll={runExportAll}
+                onOpenShareLink={handleOpenShareLink}
+                onOpenEmbedSnippet={handleOpenEmbedSnippet}
+                onShareToTwitter={handleShareToTwitter}
+                onAnnotateExport={handleAnnotateExport}
                 onReset={handleResetBoard}
               />
             }
@@ -144,6 +214,18 @@ function App()
       </div>
 
       <TierSettings open={settingsOpen} onClose={handleCloseSettings} />
+      <StatsModal open={statsOpen} onClose={handleCloseStats} />
+      <ShareLinkModal open={shareLinkOpen} onClose={handleCloseShareLink} />
+      <EmbedSnippetModal
+        open={embedSnippetOpen}
+        onClose={handleCloseEmbedSnippet}
+      />
+      <ComparisonModal open={comparisonOpen} onClose={handleCloseComparison} />
+      <AnnotationEditor
+        open={annotationImage !== null}
+        onClose={handleCloseAnnotation}
+        backgroundImage={annotationImage}
+      />
       <BoardManager
         toolbarPosition={toolbarPosition}
         onSwitchBoard={transitionTo}

@@ -3,8 +3,10 @@
 
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import {
+  BarChart3,
   BookmarkPlus,
   ChevronRight,
+  // GitCompareArrows,
   Lock,
   Plus,
   Redo2,
@@ -18,6 +20,7 @@ import {
 import type { ImageFormat, ToolbarPosition } from '../../types'
 import { extractPresetFromBoard } from '../../domain/presets'
 import { extractBoardData } from '../../domain/boardData'
+// import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { usePresetStore } from '../../store/usePresetStore'
 import { useTierListStore } from '../../store/useTierListStore'
@@ -51,9 +54,15 @@ interface BoardActionBarProps
   exportingAll: boolean
   onAddTier: () => void
   onOpenSettings: () => void
+  onOpenStats: () => void
+  onOpenComparison: () => void
   onExport: (format: ImageFormat | 'pdf') => Promise<void>
   onCopyToClipboard: () => Promise<void>
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
+  onOpenShareLink: () => void
+  onOpenEmbedSnippet: () => void
+  onShareToTwitter: () => void
+  onAnnotateExport: () => void
   onReset: () => void
 }
 
@@ -64,14 +73,17 @@ export const BoardActionBar = ({
   exportingAll,
   onAddTier,
   onOpenSettings,
+  onOpenStats,
   onExport,
   onCopyToClipboard,
   onExportAll,
+  onAnnotateExport,
   onReset,
 }: BoardActionBarProps) =>
 {
   const isVertical = isVerticalPosition(toolbarPosition)
   const menuPos = getMenuPositionClasses(toolbarPosition)
+  // const boardCount = useBoardManagerStore((state) => state.boards.length)
   const reducedMotion = useSettingsStore((state) => state.reducedMotion)
   const boardLocked = useSettingsStore((state) => state.boardLocked)
   const setBoardLocked = useSettingsStore((state) => state.setBoardLocked)
@@ -278,7 +290,33 @@ export const BoardActionBar = ({
             onExport={onExport}
             onCopyToClipboard={onCopyToClipboard}
             onExportAll={onExportAll}
+            onOpenShareLink={() =>
+            {}}
+            onOpenEmbedSnippet={() =>
+            {}}
+            onShareToTwitter={() =>
+            {}}
+            onAnnotateExport={onAnnotateExport}
           />
+
+          {/* board statistics modal */}
+          <ActionButton
+            label="View statistics"
+            title="Statistics"
+            onClick={onOpenStats}
+          >
+            <BarChart3 className="h-5 w-5" strokeWidth={1.8} />
+          </ActionButton>
+
+          {/* compare two boards side-by-side (hidden — needs backend for sharing) */}
+          {/* <ActionButton
+            label="Compare boards"
+            title="Compare"
+            onClick={onOpenComparison}
+            disabled={boardCount < 2}
+          >
+            <GitCompareArrows className="h-5 w-5" strokeWidth={1.8} />
+          </ActionButton> */}
 
           {/* save current tier structure as a reusable preset */}
           <ActionButton

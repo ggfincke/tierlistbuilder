@@ -1,7 +1,7 @@
 // src/utils/exportImage.ts
 // image export utilities — render the tier list to PNG, JPEG, or WebP for download & clipboard
 
-import { toBlob, toCanvas, toJpeg, toPng } from 'html-to-image'
+import { toBlob, toCanvas, toJpeg, toPng, toSvg } from 'html-to-image'
 
 import type { ExportAppearance, ImageFormat, TierListData } from '../types'
 import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
@@ -31,6 +31,7 @@ export const FORMAT_EXT: Record<ImageFormat, string> = {
   png: 'png',
   jpeg: 'jpeg',
   webp: 'webp',
+  svg: 'svg',
 }
 
 // render an element to a data URL in the specified format
@@ -41,6 +42,10 @@ export const renderToDataUrl = async (
 ): Promise<string> =>
 {
   const opts = getBaseOptions(backgroundColor)
+  if (format === 'svg')
+  {
+    return toSvg(element, opts)
+  }
   if (format === 'jpeg')
   {
     return toJpeg(element, { ...opts, quality: IMAGE_QUALITY })
