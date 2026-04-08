@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   itemShape: 'square',
   compactMode: false,
   exportBackgroundOverride: null,
+  boardBackgroundOverride: null,
   labelWidth: 'default',
   hideRowControls: false,
   confirmBeforeDelete: false,
@@ -49,6 +50,7 @@ interface SettingsStore extends AppSettings
   setItemShape: (shape: ItemShape) => void
   setCompactMode: (compact: boolean) => void
   setExportBackgroundOverride: (color: string | null) => void
+  setBoardBackgroundOverride: (color: string | null) => void
   setLabelWidth: (width: LabelWidth) => void
   setHideRowControls: (hide: boolean) => void
   setConfirmBeforeDelete: (confirm: boolean) => void
@@ -87,6 +89,10 @@ export const useSettingsStore = create<SettingsStore>()(
       setExportBackgroundOverride: createSettingSetter(
         set,
         'exportBackgroundOverride'
+      ),
+      setBoardBackgroundOverride: createSettingSetter(
+        set,
+        'boardBackgroundOverride'
       ),
       setLabelWidth: createSettingSetter(set, 'labelWidth'),
       setHideRowControls: createSettingSetter(set, 'hideRowControls'),
@@ -132,7 +138,7 @@ export const useSettingsStore = create<SettingsStore>()(
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createAppPersistStorage(),
-      version: 11,
+      version: 12,
       migrate: (persisted, version) =>
       {
         let state = persisted as Record<string, unknown>
@@ -207,6 +213,10 @@ export const useSettingsStore = create<SettingsStore>()(
             toolbarPosition: 'top',
             showAltTextButton: false,
           }
+        }
+        if (version < 12)
+        {
+          state = { ...state, boardBackgroundOverride: null }
         }
         return state
       },

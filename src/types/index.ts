@@ -197,6 +197,7 @@ export interface AppSettings
   itemShape: ItemShape
   compactMode: boolean
   exportBackgroundOverride: string | null
+  boardBackgroundOverride: string | null
   labelWidth: LabelWidth
   hideRowControls: boolean
   confirmBeforeDelete: boolean
