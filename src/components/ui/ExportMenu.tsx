@@ -8,6 +8,7 @@ import {
   // Code2,
   Copy,
   Download,
+  Eye,
   Highlighter,
   FileDown,
   FileUp,
@@ -72,6 +73,7 @@ interface ExportMenuProps
   onOpenEmbedSnippet: () => void
   onShareToTwitter: () => void
   onAnnotateExport: () => void
+  onPreviewExport: () => void
 }
 
 export const ExportMenu = ({
@@ -82,6 +84,7 @@ export const ExportMenu = ({
   onCopyToClipboard,
   onExportAll,
   onAnnotateExport,
+  onPreviewExport,
 }: ExportMenuProps) =>
 {
   const boardCount = useBoardManagerStore((state) => state.boards.length)
@@ -232,6 +235,18 @@ export const ExportMenu = ({
                   >
                     <Copy className="h-3.5 w-3.5 shrink-0" />
                     <span className="whitespace-nowrap">Copy to Clipboard</span>
+                  </OverlayMenuItem>
+                  <OverlayMenuItem
+                    onClick={() =>
+                    {
+                      closeAllMenus()
+                      onPreviewExport()
+                    }}
+                    className="disabled:opacity-45"
+                    disabled={exportStatus !== null}
+                  >
+                    <Eye className="h-3.5 w-3.5 shrink-0" />
+                    Preview
                   </OverlayMenuItem>
                   <OverlayMenuItem
                     onClick={() =>

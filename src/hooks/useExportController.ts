@@ -8,6 +8,7 @@ import { extractBoardData } from '../domain/boardData'
 import { useTierListStore } from '../store/useTierListStore'
 import { THEMES } from '../theme/tokens'
 import type { ImageFormat } from '../types'
+import { toast } from '../store/useToastStore'
 import {
   exportAllBoardsAsImages,
   exportAllBoardsAsJson,
@@ -99,6 +100,7 @@ export const useExportController = () =>
       const appearance = getCurrentExportAppearance()
       const data = extractBoardData(useTierListStore.getState())
       await copyBoardToClipboard(data, appearance, bgColor)
+      toast('Copied to clipboard', 'success')
     }
     catch (err)
     {
@@ -208,6 +210,44 @@ export const useExportController = () =>
     }
   }, [])
 
+  // render board to a data URL for preview (does not download)
+  const runPreviewRender = useCallback(async (): Promise<string | null> =>
+  {
+    if (exportStatusRef.current) return null
+
+    useTierListStore.getState().clearRuntimeError()
+    setExportStatus('png')
+
+    try
+    {
+      const bgColor = getExportBackgroundColor()
+      const appearance = getCurrentExportAppearance()
+      const data = extractBoardData(useTierListStore.getState())
+
+      return await withExportSession(
+        { appearance, backgroundColor: bgColor },
+        async (session) =>
+        {
+          const element = await session.renderBoard(data)
+          return renderToDataUrl(element, 'png', bgColor)
+        }
+      )
+    }
+    catch
+    {
+      useTierListStore
+        .getState()
+        .setRuntimeError(
+          'Export failed. Try again after images finish loading.'
+        )
+      return null
+    }
+    finally
+    {
+      setExportStatus(null)
+    }
+  }, [])
+
   return {
     exportStatus,
     exportAllProgress,
@@ -215,5 +255,6 @@ export const useExportController = () =>
     runCopyToClipboard,
     runExportAll,
     runAnnotatedExport,
+    runPreviewRender,
   }
 }

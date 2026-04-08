@@ -20,6 +20,7 @@ import {
 import type { ImageFormat, ToolbarPosition } from '../../types'
 import { extractPresetFromBoard } from '../../domain/presets'
 import { extractBoardData } from '../../domain/boardData'
+import { toast } from '../../store/useToastStore'
 // import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { usePresetStore } from '../../store/usePresetStore'
@@ -63,6 +64,7 @@ interface BoardActionBarProps
   onOpenEmbedSnippet: () => void
   onShareToTwitter: () => void
   onAnnotateExport: () => void
+  onPreviewExport: () => void
   onReset: () => void
 }
 
@@ -78,6 +80,7 @@ export const BoardActionBar = ({
   onCopyToClipboard,
   onExportAll,
   onAnnotateExport,
+  onPreviewExport,
   onReset,
 }: BoardActionBarProps) =>
 {
@@ -174,7 +177,11 @@ export const BoardActionBar = ({
           <ActionButton
             label="Undo"
             title="Undo"
-            onClick={undo}
+            onClick={() =>
+            {
+              undo()
+              toast('Undone')
+            }}
             disabled={boardLocked || pastLength === 0}
           >
             <Undo2 className="h-5 w-5" strokeWidth={1.8} />
@@ -183,7 +190,11 @@ export const BoardActionBar = ({
           <ActionButton
             label="Redo"
             title="Redo"
-            onClick={redo}
+            onClick={() =>
+            {
+              redo()
+              toast('Redone')
+            }}
             disabled={boardLocked || futureLength === 0}
           >
             <Redo2 className="h-5 w-5" strokeWidth={1.8} />
@@ -297,6 +308,7 @@ export const BoardActionBar = ({
             onShareToTwitter={() =>
             {}}
             onAnnotateExport={onAnnotateExport}
+            onPreviewExport={onPreviewExport}
           />
 
           {/* board statistics modal */}
