@@ -104,6 +104,13 @@ export const migrateStorageKeys = (): void =>
   }
 }
 
+// check if an error is a storage quota exceeded error
+const isQuotaError = (error: unknown): boolean =>
+  error instanceof DOMException &&
+  (error.name === 'QuotaExceededError' ||
+    error.code === 22 ||
+    error.code === 1014)
+
 // save board data to its per-board localStorage key
 export const saveBoardToStorage = (
   boardId: BoardId,
@@ -121,12 +128,24 @@ export const saveBoardToStorage = (
       })
     )
   }
-  catch
+  catch (error)
   {
     onError?.(
-      'Could not save changes to localStorage. Free up browser storage and try again.'
+      isQuotaError(error)
+        ? 'Storage is full. Delete unused boards or remove items with large images to free space.'
+        : 'Could not save changes to localStorage. Free up browser storage and try again.'
     )
   }
+}
+
+// estimated localStorage quota in bytes (conservative cross-browser default)
+export const STORAGE_QUOTA_BYTES = 5 * 1024 * 1024
+
+// check if storage usage is above a warning threshold (0-1)
+export const getStorageUsageRatio = (): number =>
+{
+  const used = getStorageUsageBytes()
+  return used / STORAGE_QUOTA_BYTES
 }
 
 // load board data from its per-board localStorage key

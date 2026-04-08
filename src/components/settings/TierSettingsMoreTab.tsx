@@ -11,6 +11,7 @@ import {
 } from '../../services/boardSession'
 import { useBoardManagerStore } from '../../store/useBoardManagerStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
+import { STORAGE_QUOTA_BYTES } from '../../utils/storage'
 import { THEMES } from '../../theme/tokens'
 import { PresetPickerModal } from '../ui/PresetPickerModal'
 import { SecondaryButton } from '../ui/SecondaryButton'
@@ -53,7 +54,7 @@ export const TierSettingsMoreTab = ({
   const effectiveExportBg =
     exportBackgroundOverride ?? THEMES[themeId]['export-bg']
   const storageMb = storageBytes / (1024 * 1024)
-  const storageMaxMb = 5
+  const storageMaxMb = STORAGE_QUOTA_BYTES / (1024 * 1024)
   const storagePercent = Math.min((storageMb / storageMaxMb) * 100, 100)
   const storageColor =
     storagePercent > 85
@@ -142,6 +143,12 @@ export const TierSettingsMoreTab = ({
               style={{ width: `${storagePercent}%` }}
             />
           </div>
+          {storagePercent > 85 && (
+            <p className="mt-1.5 text-xs text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]">
+              Storage is almost full. Delete unused boards or remove items with
+              large images to free space.
+            </p>
+          )}
         </div>
       </SettingsSection>
 
