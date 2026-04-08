@@ -1,7 +1,9 @@
 // src/components/annotation/AnnotationCanvas.tsx
 // canvas overlay for drawing annotations on top of a background image
 
-import { memo, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
+
+import type { PendingTextInput } from '../../hooks/useAnnotationCanvas'
 
 interface AnnotationCanvasProps
 {
@@ -15,6 +17,85 @@ interface AnnotationCanvasProps
   onTouchMove: (e: React.TouchEvent) => void
   onTouchEnd: () => void
   cursor: string
+  pendingText: PendingTextInput | null
+  onCommitText: (text: string) => void
+  onCancelText: () => void
+}
+
+// inline text input positioned over the canvas at the click point
+const InlineTextInput = ({
+  pending,
+  onCommit,
+  onCancel,
+}: {
+  pending: PendingTextInput
+  onCommit: (text: string) => void
+  onCancel: () => void
+}) =>
+{
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [value, setValue] = useState('')
+
+  useEffect(() =>
+  {
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }, [])
+
+  const commit = useCallback(() =>
+  {
+    if (value.trim())
+    {
+      onCommit(value)
+    }
+    else
+    {
+      onCancel()
+    }
+  }, [onCancel, onCommit, value])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) =>
+    {
+      if (e.key === 'Enter')
+      {
+        e.preventDefault()
+        commit()
+      }
+      else if (e.key === 'Escape')
+      {
+        e.preventDefault()
+        onCancel()
+      }
+    },
+    [commit, onCancel]
+  )
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={handleKeyDown}
+      className="absolute z-10 border-none bg-transparent outline-none"
+      style={{
+        left: pending.cssX,
+        // offset upward by the text baseline so typed text aligns w/ fillText
+        top: pending.cssY - pending.cssFontSize * 0.85,
+        color: pending.color,
+        fontSize: pending.cssFontSize,
+        fontWeight: pending.bold ? 'bold' : 'normal',
+        fontStyle: pending.italic ? 'italic' : 'normal',
+        fontFamily: pending.fontFamily,
+        lineHeight: 1,
+        minWidth: 40,
+        caretColor: pending.color,
+      }}
+      autoComplete="off"
+      spellCheck={false}
+    />
+  )
 }
 
 export const AnnotationCanvas = memo(
@@ -29,12 +110,14 @@ export const AnnotationCanvas = memo(
     onTouchMove,
     onTouchEnd,
     cursor,
+    pendingText,
+    onCommitText,
+    onCancelText,
   }: AnnotationCanvasProps) =>
   {
     const containerRef = useRef<HTMLDivElement | null>(null)
     const bgRef = useRef<HTMLImageElement | null>(null)
 
-    // set canvas dimensions to match the background image
     useEffect(() =>
     {
       const img = new Image()
@@ -75,6 +158,13 @@ export const AnnotationCanvas = memo(
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         />
+        {pendingText && (
+          <InlineTextInput
+            pending={pendingText}
+            onCommit={onCommitText}
+            onCancel={onCancelText}
+          />
+        )}
       </div>
     )
   }

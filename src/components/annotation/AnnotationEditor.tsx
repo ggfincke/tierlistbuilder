@@ -33,11 +33,18 @@ export const AnnotationEditor = ({
     setColor,
     strokeWidth,
     setStrokeWidth,
+    fontSize,
+    setFontSize,
+    textStyle,
+    setTextStyle,
     history,
+    pendingText,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
     handleCanvasClick,
+    commitText,
+    cancelText,
     undo,
     clearAll,
     compositeAndDownload,
@@ -84,6 +91,10 @@ export const AnnotationEditor = ({
         onColorChange={setColor}
         strokeWidth={strokeWidth}
         onStrokeWidthChange={setStrokeWidth}
+        fontSize={fontSize}
+        onFontSizeChange={setFontSize}
+        textStyle={textStyle}
+        onTextStyleChange={setTextStyle}
         canUndo={history.length > 0}
         onUndo={undo}
         onClear={clearAll}
@@ -101,6 +112,9 @@ export const AnnotationEditor = ({
           onTouchMove={handlePointerMove}
           onTouchEnd={handlePointerUp}
           cursor={cursor}
+          pendingText={pendingText}
+          onCommitText={commitText}
+          onCancelText={cancelText}
         />
       </div>
     </BaseModal>

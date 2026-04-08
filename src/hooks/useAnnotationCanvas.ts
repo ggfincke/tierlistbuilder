@@ -19,6 +19,21 @@ export interface Stroke
   width: number
 }
 
+export type AnnotationFontFamily = 'sans-serif' | 'serif' | 'monospace'
+
+export const FONT_FAMILY_LABELS: Record<AnnotationFontFamily, string> = {
+  'sans-serif': 'Sans',
+  serif: 'Serif',
+  monospace: 'Mono',
+}
+
+export interface TextStyle
+{
+  bold: boolean
+  italic: boolean
+  fontFamily: AnnotationFontFamily
+}
+
 export interface TextAnnotation
 {
   x: number
@@ -26,13 +41,50 @@ export interface TextAnnotation
   text: string
   color: string
   fontSize: number
+  bold: boolean
+  italic: boolean
+  fontFamily: AnnotationFontFamily
 }
 
 export type AnnotationTool = 'pen' | 'text'
 
+// pending inline text input positioned over the canvas
+export interface PendingTextInput
+{
+  // canvas-space coordinates (for final rendering)
+  canvasX: number
+  canvasY: number
+  // CSS-space coordinates relative to the canvas container (for input positioning)
+  cssX: number
+  cssY: number
+  color: string
+  fontSize: number
+  // CSS-scaled font size for the input element
+  cssFontSize: number
+  bold: boolean
+  italic: boolean
+  fontFamily: AnnotationFontFamily
+}
+
 type AnnotationItem =
   | { type: 'stroke'; data: Stroke }
   | { type: 'text'; data: TextAnnotation }
+
+// build the canvas font string from text style properties
+const buildFontString = (
+  fontSize: number,
+  bold: boolean,
+  italic: boolean,
+  fontFamily: AnnotationFontFamily
+): string =>
+{
+  const parts: string[] = []
+  if (italic) parts.push('italic')
+  if (bold) parts.push('bold')
+  parts.push(`${fontSize}px`)
+  parts.push(fontFamily)
+  return parts.join(' ')
+}
 
 // render a single annotation item onto a canvas context
 const drawAnnotationItem = (
@@ -58,9 +110,9 @@ const drawAnnotationItem = (
   }
   else if (item.type === 'text')
   {
-    const { x, y, text, color, fontSize } = item.data
+    const { x, y, text, color, fontSize, bold, italic, fontFamily } = item.data
     ctx.fillStyle = color
-    ctx.font = `bold ${fontSize}px sans-serif`
+    ctx.font = buildFontString(fontSize, bold, italic, fontFamily)
     ctx.fillText(text, x, y)
   }
 }
@@ -74,10 +126,18 @@ export const useAnnotationCanvas = (
   const [activeTool, setActiveTool] = useState<AnnotationTool>('pen')
   const [color, setColor] = useState('#ff4444')
   const [strokeWidth, setStrokeWidth] = useState(3)
-  const fontSize = 18
+  const [fontSize, setFontSize] = useState(18)
+  const [textStyle, setTextStyle] = useState<TextStyle>({
+    bold: true,
+    italic: false,
+    fontFamily: 'sans-serif',
+  })
   const [history, setHistory] = useState<AnnotationItem[]>([])
   const [isDrawing, setIsDrawing] = useState(false)
   const currentStrokeRef = useRef<StrokePoint[]>([])
+
+  // pending inline text input — null when not editing
+  const [pendingText, setPendingText] = useState<PendingTextInput | null>(null)
 
   // get canvas-relative coordinates from a mouse/touch event
   const getCanvasPoint = useCallback(
@@ -109,6 +169,25 @@ export const useAnnotationCanvas = (
       return {
         x: (clientX - rect.left) * scaleX,
         y: (clientY - rect.top) * scaleY,
+      }
+    },
+    []
+  )
+
+  // get CSS-space coordinates relative to the canvas container
+  const getCssPoint = useCallback(
+    (
+      e: React.MouseEvent
+    ): { cssX: number; cssY: number; scaleY: number } | null =>
+    {
+      const canvas = canvasRef.current
+      if (!canvas) return null
+
+      const rect = canvas.getBoundingClientRect()
+      return {
+        cssX: e.clientX - rect.left,
+        cssY: e.clientY - rect.top,
+        scaleY: canvas.height / rect.height,
       }
     },
     []
@@ -185,31 +264,86 @@ export const useAnnotationCanvas = (
     setHistory((prev) => [...prev, newItem])
   }, [color, isDrawing, strokeWidth])
 
-  // text tool handler
+  // text tool — click canvas to start inline editing
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) =>
     {
       if (activeTool !== 'text') return
-      const point = getCanvasPoint(e)
-      if (!point) return
+      if (pendingText) return
 
-      const text = window.prompt('Enter text:')
-      if (!text) return
+      const canvasPoint = getCanvasPoint(e)
+      const cssPoint = getCssPoint(e)
+      if (!canvasPoint || !cssPoint) return
+
+      const cssFontSize = fontSize / cssPoint.scaleY
+
+      setPendingText({
+        canvasX: canvasPoint.x,
+        canvasY: canvasPoint.y,
+        cssX: cssPoint.cssX,
+        cssY: cssPoint.cssY,
+        color,
+        fontSize,
+        cssFontSize,
+        bold: textStyle.bold,
+        italic: textStyle.italic,
+        fontFamily: textStyle.fontFamily,
+      })
+    },
+    [
+      activeTool,
+      color,
+      fontSize,
+      getCanvasPoint,
+      getCssPoint,
+      pendingText,
+      textStyle,
+    ]
+  )
+
+  // commit inline text to canvas & history
+  const commitText = useCallback(
+    (text: string) =>
+    {
+      if (!pendingText) return
+      setPendingText(null)
+
+      const trimmed = text.trim()
+      if (!trimmed) return
 
       const newItem: AnnotationItem = {
         type: 'text',
-        data: { x: point.x, y: point.y, text, color, fontSize },
+        data: {
+          x: pendingText.canvasX,
+          y: pendingText.canvasY,
+          text: trimmed,
+          color: pendingText.color,
+          fontSize: pendingText.fontSize,
+          bold: pendingText.bold,
+          italic: pendingText.italic,
+          fontFamily: pendingText.fontFamily,
+        },
       }
-      const nextHistory = [...history, newItem]
-      setHistory(nextHistory)
-      redraw(nextHistory)
+      setHistory((prev) =>
+      {
+        const next = [...prev, newItem]
+        redraw(next)
+        return next
+      })
     },
-    [activeTool, color, fontSize, getCanvasPoint, history, redraw]
+    [pendingText, redraw]
   )
+
+  // cancel inline text without committing
+  const cancelText = useCallback(() =>
+  {
+    setPendingText(null)
+  }, [])
 
   // undo last annotation
   const undo = useCallback(() =>
   {
+    setPendingText(null)
     setHistory((prev) =>
     {
       const next = prev.slice(0, -1)
@@ -221,6 +355,7 @@ export const useAnnotationCanvas = (
   // clear all annotations
   const clearAll = useCallback(() =>
   {
+    setPendingText(null)
     setHistory([])
     const canvas = canvasRef.current
     if (!canvas) return
@@ -246,7 +381,6 @@ export const useAnnotationCanvas = (
     const ctx = output.getContext('2d')
     if (!ctx) return
 
-    // draw background then overlay annotations
     ctx.drawImage(img, 0, 0)
     for (const item of history) drawAnnotationItem(ctx, item)
 
@@ -262,11 +396,18 @@ export const useAnnotationCanvas = (
     setColor,
     strokeWidth,
     setStrokeWidth,
+    fontSize,
+    setFontSize,
+    textStyle,
+    setTextStyle,
     history,
+    pendingText,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
     handleCanvasClick,
+    commitText,
+    cancelText,
     undo,
     clearAll,
     compositeAndDownload,
