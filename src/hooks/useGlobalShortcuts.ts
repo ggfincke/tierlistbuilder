@@ -79,16 +79,34 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       // skip remaining shortcuts when modifiers are held
       if (mod || e.altKey) return
 
-      // delete focused item — Delete or Backspace
+      // clear bulk selection — Escape
+      if (e.key === 'Escape')
+      {
+        const state = useTierListStore.getState()
+        if (state.selectedItemIds.size > 0)
+        {
+          e.preventDefault()
+          state.clearSelection()
+          return
+        }
+      }
+
+      // delete focused item or selected items — Delete or Backspace
       if (e.key === 'Delete' || e.key === 'Backspace')
       {
         const state = useTierListStore.getState()
         const locked = useSettingsStore.getState().boardLocked
-        if (
-          !locked &&
-          state.keyboardMode === 'browse' &&
-          state.keyboardFocusItemId
-        )
+        if (locked) return
+
+        // bulk delete when items are selected
+        if (state.selectedItemIds.size > 0)
+        {
+          e.preventDefault()
+          state.deleteSelectedItems()
+          return
+        }
+
+        if (state.keyboardMode === 'browse' && state.keyboardFocusItemId)
         {
           e.preventDefault()
           state.removeItem(state.keyboardFocusItemId)

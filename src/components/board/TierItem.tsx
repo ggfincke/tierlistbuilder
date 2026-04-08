@@ -33,6 +33,12 @@ export const TierItem = memo(
   ({ itemId, containerId, onRequestDelete }: TierItemProps) =>
   {
     const item = useTierListStore((state) => state.items[itemId])
+    const isSelected = useTierListStore((state) =>
+      state.selectedItemIds.has(itemId)
+    )
+    const toggleItemSelected = useTierListStore(
+      (state) => state.toggleItemSelected
+    )
     const canDelete = containerId === UNRANKED_CONTAINER_ID
 
     const itemSize = useSettingsStore((state) => state.itemSize)
@@ -78,6 +84,32 @@ export const TierItem = memo(
       [setNodeRef]
     )
 
+    // track pointer position to distinguish clicks from drags
+    const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
+
+    const handlePointerDown = useCallback((e: React.PointerEvent) =>
+    {
+      pointerStartRef.current = { x: e.clientX, y: e.clientY }
+    }, [])
+
+    const handleClick = useCallback(
+      (e: React.MouseEvent) =>
+      {
+        if (boardLocked) return
+
+        // ignore if the pointer moved (was a drag, not a click)
+        if (pointerStartRef.current)
+        {
+          const dx = Math.abs(e.clientX - pointerStartRef.current.x)
+          const dy = Math.abs(e.clientY - pointerStartRef.current.y)
+          if (dx > 4 || dy > 4) return
+        }
+
+        toggleItemSelected(itemId, e.shiftKey)
+      },
+      [boardLocked, itemId, toggleItemSelected]
+    )
+
     const openEditPopover = useCallback((e: React.MouseEvent) =>
     {
       e.stopPropagation()
@@ -114,19 +146,24 @@ export const TierItem = memo(
             opacity: isDragging ? 0.4 : isKeyboardDragging ? 0.75 : 1,
           }}
           className={`focus-custom group relative touch-none overflow-hidden outline-none ${SHAPE_CLASS[itemShape]} ${
-            isKeyboardDragging
+            isSelected
               ? 'z-20 ring-2 ring-[var(--t-accent)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
-              : isKeyboardFocused
-                ? 'z-10 ring-2 ring-[var(--t-accent-hover)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
-                : ''
+              : isKeyboardDragging
+                ? 'z-20 ring-2 ring-[var(--t-accent)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
+                : isKeyboardFocused
+                  ? 'z-10 ring-2 ring-[var(--t-accent-hover)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
+                  : ''
           }`}
           data-keyboard-dragging={isKeyboardDragging ? 'true' : 'false'}
           data-keyboard-focused={isKeyboardFocused ? 'true' : 'false'}
+          data-selected={isSelected ? 'true' : undefined}
           {...attributes}
           {...listeners}
           tabIndex={0}
           onFocus={onFocus}
           onKeyDown={onKeyDown}
+          onPointerDown={handlePointerDown}
+          onClick={handleClick}
         >
           <ItemContent item={item} showLabel={showLabels && !!item.label} />
 

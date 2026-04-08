@@ -71,6 +71,11 @@ interface TierListStore extends TierListStoreRuntimeState
   shuffleUnrankedItems: () => void
   resetBoard: (paletteId: PaletteId) => void
   loadBoard: (data: TierListData) => void
+  toggleItemSelected: (itemId: string, shiftKey: boolean) => void
+  clearSelection: () => void
+  moveSelectedToTier: (tierId: string) => void
+  moveSelectedToUnranked: () => void
+  deleteSelectedItems: () => void
 }
 
 const pushUndo = (state: TierListStore) => ({
@@ -450,6 +455,8 @@ export const useTierListStore = create<TierListStore>()((set) => ({
 
       return {
         dragPreview: createContainerSnapshot(state),
+        selectedItemIds: new Set<string>(),
+        lastClickedItemId: null,
       }
     }),
 
@@ -508,6 +515,8 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         dragPreview: null,
         keyboardMode: 'idle',
         keyboardFocusItemId: null,
+        selectedItemIds: new Set<string>(),
+        lastClickedItemId: null,
       }
     }),
 
@@ -529,6 +538,8 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         dragPreview: null,
         keyboardMode: 'idle',
         keyboardFocusItemId: null,
+        selectedItemIds: new Set<string>(),
+        lastClickedItemId: null,
       }
     }),
 
@@ -604,4 +615,153 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       ...data,
       ...freshRuntimeState,
     })),
+
+  toggleItemSelected: (itemId, shiftKey) =>
+    set((state) =>
+    {
+      const next = new Set(state.selectedItemIds)
+
+      if (shiftKey && state.lastClickedItemId)
+      {
+        // build ordered list of all item IDs for range selection
+        const allIds = [
+          ...state.tiers.flatMap((t) => t.itemIds),
+          ...state.unrankedItemIds,
+        ]
+        const startIdx = allIds.indexOf(state.lastClickedItemId)
+        const endIdx = allIds.indexOf(itemId)
+
+        if (startIdx !== -1 && endIdx !== -1)
+        {
+          const [from, to] =
+            startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx]
+          for (let i = from; i <= to; i++)
+          {
+            next.add(allIds[i])
+          }
+        }
+        else
+        {
+          next.add(itemId)
+        }
+      }
+      else if (next.has(itemId))
+      {
+        next.delete(itemId)
+      }
+      else
+      {
+        next.add(itemId)
+      }
+
+      return {
+        selectedItemIds: next,
+        lastClickedItemId: itemId,
+      }
+    }),
+
+  clearSelection: () =>
+    set({ selectedItemIds: new Set<string>(), lastClickedItemId: null }),
+
+  moveSelectedToTier: (tierId) =>
+    set((state) =>
+    {
+      const selected = state.selectedItemIds
+      if (selected.size === 0) return state
+
+      const tier = state.tiers.find((t) => t.id === tierId)
+      if (!tier) return state
+
+      // remove selected items from all tiers & unranked
+      const tiers = state.tiers.map((t) => ({
+        ...t,
+        itemIds: t.itemIds.filter((id) => !selected.has(id)),
+      }))
+      const unrankedItemIds = state.unrankedItemIds.filter(
+        (id) => !selected.has(id)
+      )
+
+      // add selected items to the target tier
+      const targetIdx = tiers.findIndex((t) => t.id === tierId)
+      if (targetIdx !== -1)
+      {
+        tiers[targetIdx] = {
+          ...tiers[targetIdx],
+          itemIds: [...tiers[targetIdx].itemIds, ...selected],
+        }
+      }
+
+      announce(
+        `Moved ${selected.size} item${selected.size > 1 ? 's' : ''} to ${tier.name}`
+      )
+
+      return {
+        ...withUndo(state, { tiers, unrankedItemIds }),
+        selectedItemIds: new Set<string>(),
+        lastClickedItemId: null,
+      }
+    }),
+
+  moveSelectedToUnranked: () =>
+    set((state) =>
+    {
+      const selected = state.selectedItemIds
+      if (selected.size === 0) return state
+
+      const tiers = state.tiers.map((t) => ({
+        ...t,
+        itemIds: t.itemIds.filter((id) => !selected.has(id)),
+      }))
+      // remove from unranked first (prevent duplicates), then re-add
+      const unrankedItemIds = [
+        ...state.unrankedItemIds.filter((id) => !selected.has(id)),
+        ...selected,
+      ]
+
+      announce(
+        `Moved ${selected.size} item${selected.size > 1 ? 's' : ''} to unranked`
+      )
+
+      return {
+        ...withUndo(state, { tiers, unrankedItemIds }),
+        selectedItemIds: new Set<string>(),
+        lastClickedItemId: null,
+      }
+    }),
+
+  deleteSelectedItems: () =>
+    set((state) =>
+    {
+      const selected = state.selectedItemIds
+      if (selected.size === 0) return state
+
+      const tiers = state.tiers.map((t) => ({
+        ...t,
+        itemIds: t.itemIds.filter((id) => !selected.has(id)),
+      }))
+      const unrankedItemIds = state.unrankedItemIds.filter(
+        (id) => !selected.has(id)
+      )
+
+      const deletedItems = [...state.deletedItems]
+      for (const id of selected)
+      {
+        const item = state.items[id]
+        if (item) deletedItems.push(item)
+      }
+
+      const items = { ...state.items }
+      for (const id of selected)
+      {
+        delete items[id]
+      }
+
+      announce(`Deleted ${selected.size} item${selected.size > 1 ? 's' : ''}`)
+
+      return {
+        ...withUndo(state, { tiers, unrankedItemIds, items, deletedItems }),
+        selectedItemIds: new Set<string>(),
+        lastClickedItemId: null,
+      }
+    }),
 }))
