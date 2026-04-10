@@ -58,6 +58,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
   const compactMode = useSettingsStore((state) => state.compactMode)
   const storedTiers = useTierListStore((state) => state.tiers)
   const dragPreview = useTierListStore((state) => state.dragPreview)
+  const dragGroupIds = useTierListStore((state) => state.dragGroupIds)
   const keyboardMode = useTierListStore((state) => state.keyboardMode)
   const boardRef = useRef<HTMLDivElement>(null)
 
@@ -170,7 +171,10 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       {/* render ghost in the overlay while a drag is active */}
       <DragOverlay>
         {activeItem ? (
-          <DragOverlayItem item={activeItem} />
+          <DragOverlayItem
+            item={activeItem}
+            groupCount={dragGroupIds.length > 1 ? dragGroupIds.length - 1 : 0}
+          />
         ) : activeTier ? (
           <div
             className="flex items-center gap-2 rounded-lg px-4 py-2 shadow-xl"

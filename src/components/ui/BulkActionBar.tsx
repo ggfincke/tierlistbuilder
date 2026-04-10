@@ -11,7 +11,13 @@ import { getTextColor } from '../../utils/color'
 
 export const BulkActionBar = () =>
 {
-  const selectedCount = useTierListStore((state) => state.selectedItemIds.size)
+  const selectedCount = useTierListStore(
+    (state) => state.selectedItemIds.length
+  )
+  // hide the floating bar while a drag is in flight
+  const isDragging = useTierListStore(
+    (state) => state.dragPreview !== null || state.dragGroupIds.length > 0
+  )
   const tiers = useTierListStore((state) => state.tiers)
   const moveSelectedToTier = useTierListStore(
     (state) => state.moveSelectedToTier
@@ -26,7 +32,7 @@ export const BulkActionBar = () =>
   const reducedMotion = useSettingsStore((state) => state.reducedMotion)
   const paletteId = useCurrentPaletteId()
 
-  if (selectedCount === 0) return null
+  if (selectedCount === 0 || isDragging) return null
 
   return (
     <div

@@ -60,7 +60,7 @@ interface TierListStore extends TierListStoreRuntimeState
   permanentlyDeleteItem: (itemId: string) => void
   clearDeletedItems: () => void
   clearAllItems: () => void
-  beginDragPreview: () => void
+  beginDragPreview: (activeId?: string) => void
   updateDragPreview: (preview: ContainerSnapshot) => void
   commitDragPreview: () => void
   discardDragPreview: () => void
@@ -445,18 +445,53 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       }
     }),
 
-  beginDragPreview: () =>
+  beginDragPreview: (activeId) =>
     set((state) =>
     {
-      if (state.dragPreview)
+      if (state.dragPreview) return state
+
+      const selected = state.selectedItemIds
+      let dragGroupIds: string[] = []
+
+      if (activeId)
       {
-        return state
+        if (selected.includes(activeId))
+        {
+          // dragging a selected item — drag entire selection, primary first,
+          // then the remaining selected items in selection order; filter out
+          // any stale IDs that no longer reference live items
+          dragGroupIds = [
+            activeId,
+            ...selected.filter(
+              (id) => id !== activeId && state.items[id] !== undefined
+            ),
+          ]
+        }
+        else
+        {
+          // dragging a non-selected item — single-item drag, even if selection exists
+          dragGroupIds = [activeId]
+        }
+      }
+
+      // create snapshot & remove secondary items from it so their source tiles
+      // disappear & visually collapse into the dragged stack
+      const snapshot = createContainerSnapshot(state)
+      if (dragGroupIds.length > 1)
+      {
+        const secondaryIds = new Set(dragGroupIds.slice(1))
+        for (const tier of snapshot.tiers)
+        {
+          tier.itemIds = tier.itemIds.filter((id) => !secondaryIds.has(id))
+        }
+        snapshot.unrankedItemIds = snapshot.unrankedItemIds.filter(
+          (id) => !secondaryIds.has(id)
+        )
       }
 
       return {
-        dragPreview: createContainerSnapshot(state),
-        selectedItemIds: new Set<string>(),
-        lastClickedItemId: null,
+        dragPreview: snapshot,
+        dragGroupIds,
       }
     }),
 
@@ -476,26 +511,78 @@ export const useTierListStore = create<TierListStore>()((set) => ({
   commitDragPreview: () =>
     set((state) =>
     {
-      if (!state.dragPreview)
+      if (!state.dragPreview) return state
+
+      const groupIds = state.dragGroupIds
+      const isMultiDrag = groupIds.length > 1
+
+      // for multi-drag, skip consistency check (secondary items absent from snapshot)
+      if (!isMultiDrag && !isSnapshotConsistent(state.dragPreview, state))
       {
-        return state
+        return { dragPreview: null, dragGroupIds: [] }
       }
 
-      if (!isSnapshotConsistent(state.dragPreview, state))
+      // step 1: apply snapshot (positions the primary item)
+      let tiers = applyContainerSnapshotToTiers(state.tiers, state.dragPreview)
+      let unrankedItemIds = [...state.dragPreview.unrankedItemIds]
+
+      if (isMultiDrag)
       {
-        return { dragPreview: null }
+        const primaryId = groupIds[0]
+        const secondaryIds = groupIds.slice(1)
+        const secondarySet = new Set(secondaryIds)
+
+        // step 2: strip secondary items from all containers
+        tiers = tiers.map((tier) => ({
+          ...tier,
+          itemIds: tier.itemIds.filter((id) => !secondarySet.has(id)),
+        }))
+        unrankedItemIds = unrankedItemIds.filter((id) => !secondarySet.has(id))
+
+        // step 3: find where the primary landed & insert secondaries after it
+        let inserted = false
+        for (let t = 0; t < tiers.length; t++)
+        {
+          const pos = tiers[t].itemIds.indexOf(primaryId)
+          if (pos !== -1)
+          {
+            const itemIds = [...tiers[t].itemIds]
+            itemIds.splice(pos + 1, 0, ...secondaryIds)
+            tiers = tiers.map((tier, idx) =>
+              idx === t ? { ...tier, itemIds } : tier
+            )
+            inserted = true
+            break
+          }
+        }
+        if (!inserted)
+        {
+          const pos = unrankedItemIds.indexOf(primaryId)
+          if (pos !== -1)
+          {
+            unrankedItemIds.splice(pos + 1, 0, ...secondaryIds)
+          }
+        }
       }
+
+      // clear selection only on multi-drag commit — a single-item drag should
+      // leave any unrelated selection intact
+      const selectionReset: Partial<TierListStore> = isMultiDrag
+        ? { selectedItemIds: [], lastClickedItemId: null }
+        : {}
 
       return {
         ...pushUndo(state),
-        tiers: applyContainerSnapshotToTiers(state.tiers, state.dragPreview),
-        unrankedItemIds: [...state.dragPreview.unrankedItemIds],
+        tiers,
+        unrankedItemIds,
         dragPreview: null,
+        dragGroupIds: [],
+        ...selectionReset,
         itemsManuallyMoved: true,
       }
     }),
 
-  discardDragPreview: () => set({ dragPreview: null }),
+  discardDragPreview: () => set({ dragPreview: null, dragGroupIds: [] }),
 
   undo: () =>
     set((state) =>
@@ -513,9 +600,10 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         future: [extractBoardData(state), ...state.future].slice(0, 50),
         activeItemId: null,
         dragPreview: null,
+        dragGroupIds: [],
         keyboardMode: 'idle',
         keyboardFocusItemId: null,
-        selectedItemIds: new Set<string>(),
+        selectedItemIds: [],
         lastClickedItemId: null,
       }
     }),
@@ -536,9 +624,10 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         future: state.future.slice(1),
         activeItemId: null,
         dragPreview: null,
+        dragGroupIds: [],
         keyboardMode: 'idle',
         keyboardFocusItemId: null,
-        selectedItemIds: new Set<string>(),
+        selectedItemIds: [],
         lastClickedItemId: null,
       }
     }),
@@ -619,11 +708,14 @@ export const useTierListStore = create<TierListStore>()((set) => ({
   toggleItemSelected: (itemId, shiftKey) =>
     set((state) =>
     {
-      const next = new Set(state.selectedItemIds)
+      if (!shiftKey) return state
 
-      if (shiftKey && state.lastClickedItemId)
+      const prev = state.selectedItemIds
+      const idx = prev.indexOf(itemId)
+
+      if (state.lastClickedItemId && idx === -1)
       {
-        // build ordered list of all item IDs for range selection
+        // range selection: add all items between last clicked & current
         const allIds = [
           ...state.tiers.flatMap((t) => t.itemIds),
           ...state.unrankedItemIds,
@@ -635,53 +727,53 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         {
           const [from, to] =
             startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx]
+          const next = [...prev]
           for (let i = from; i <= to; i++)
           {
-            next.add(allIds[i])
+            if (!next.includes(allIds[i])) next.push(allIds[i])
           }
-        }
-        else
-        {
-          next.add(itemId)
+          return { selectedItemIds: next, lastClickedItemId: itemId }
         }
       }
-      else if (next.has(itemId))
+
+      // toggle: deselect if already selected, otherwise append
+      if (idx !== -1)
       {
-        next.delete(itemId)
-      }
-      else
-      {
-        next.add(itemId)
+        return {
+          selectedItemIds: prev.filter((id) => id !== itemId),
+          lastClickedItemId: itemId,
+        }
       }
 
       return {
-        selectedItemIds: next,
+        selectedItemIds: [...prev, itemId],
         lastClickedItemId: itemId,
       }
     }),
 
-  clearSelection: () =>
-    set({ selectedItemIds: new Set<string>(), lastClickedItemId: null }),
+  clearSelection: () => set({ selectedItemIds: [], lastClickedItemId: null }),
 
   moveSelectedToTier: (tierId) =>
     set((state) =>
     {
       const selected = state.selectedItemIds
-      if (selected.size === 0) return state
+      if (selected.length === 0) return state
 
       const tier = state.tiers.find((t) => t.id === tierId)
       if (!tier) return state
 
+      const selectedSet = new Set(selected)
+
       // remove selected items from all tiers & unranked
       const tiers = state.tiers.map((t) => ({
         ...t,
-        itemIds: t.itemIds.filter((id) => !selected.has(id)),
+        itemIds: t.itemIds.filter((id) => !selectedSet.has(id)),
       }))
       const unrankedItemIds = state.unrankedItemIds.filter(
-        (id) => !selected.has(id)
+        (id) => !selectedSet.has(id)
       )
 
-      // add selected items to the target tier
+      // add selected items to the target tier (in selection order)
       const targetIdx = tiers.findIndex((t) => t.id === tierId)
       if (targetIdx !== -1)
       {
@@ -692,12 +784,12 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       }
 
       announce(
-        `Moved ${selected.size} item${selected.size > 1 ? 's' : ''} to ${tier.name}`
+        `Moved ${selected.length} item${selected.length > 1 ? 's' : ''} to ${tier.name}`
       )
 
       return {
         ...withUndo(state, { tiers, unrankedItemIds }),
-        selectedItemIds: new Set<string>(),
+        selectedItemIds: [],
         lastClickedItemId: null,
       }
     }),
@@ -706,25 +798,27 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     set((state) =>
     {
       const selected = state.selectedItemIds
-      if (selected.size === 0) return state
+      if (selected.length === 0) return state
+
+      const selectedSet = new Set(selected)
 
       const tiers = state.tiers.map((t) => ({
         ...t,
-        itemIds: t.itemIds.filter((id) => !selected.has(id)),
+        itemIds: t.itemIds.filter((id) => !selectedSet.has(id)),
       }))
       // remove from unranked first (prevent duplicates), then re-add
       const unrankedItemIds = [
-        ...state.unrankedItemIds.filter((id) => !selected.has(id)),
+        ...state.unrankedItemIds.filter((id) => !selectedSet.has(id)),
         ...selected,
       ]
 
       announce(
-        `Moved ${selected.size} item${selected.size > 1 ? 's' : ''} to unranked`
+        `Moved ${selected.length} item${selected.length > 1 ? 's' : ''} to unranked`
       )
 
       return {
         ...withUndo(state, { tiers, unrankedItemIds }),
-        selectedItemIds: new Set<string>(),
+        selectedItemIds: [],
         lastClickedItemId: null,
       }
     }),
@@ -733,14 +827,16 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     set((state) =>
     {
       const selected = state.selectedItemIds
-      if (selected.size === 0) return state
+      if (selected.length === 0) return state
+
+      const selectedSet = new Set(selected)
 
       const tiers = state.tiers.map((t) => ({
         ...t,
-        itemIds: t.itemIds.filter((id) => !selected.has(id)),
+        itemIds: t.itemIds.filter((id) => !selectedSet.has(id)),
       }))
       const unrankedItemIds = state.unrankedItemIds.filter(
-        (id) => !selected.has(id)
+        (id) => !selectedSet.has(id)
       )
 
       const deletedItems = [...state.deletedItems]
@@ -756,11 +852,13 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         delete items[id]
       }
 
-      announce(`Deleted ${selected.size} item${selected.size > 1 ? 's' : ''}`)
+      announce(
+        `Deleted ${selected.length} item${selected.length > 1 ? 's' : ''}`
+      )
 
       return {
         ...withUndo(state, { tiers, unrankedItemIds, items, deletedItems }),
-        selectedItemIds: new Set<string>(),
+        selectedItemIds: [],
         lastClickedItemId: null,
       }
     }),

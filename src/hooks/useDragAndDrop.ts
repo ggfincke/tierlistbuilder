@@ -146,12 +146,17 @@ export const useDragAndDrop = () =>
       return
     }
 
-    beginDragPreview()
+    beginDragPreview(activeId)
     lastOverIdRef.current = activeId
     setActiveItemId(activeId)
-    const itemLabel =
-      useTierListStore.getState().items[activeId]?.label ?? 'item'
-    announce(`Picked up ${itemLabel}`)
+    const state = useTierListStore.getState()
+    const groupCount = state.dragGroupIds.length
+    const itemLabel = state.items[activeId]?.label ?? 'item'
+    announce(
+      groupCount > 1
+        ? `Picked up ${groupCount} items`
+        : `Picked up ${itemLabel}`
+    )
   }
 
   // live-update item position as pointer moves over containers & items
@@ -203,14 +208,26 @@ export const useDragAndDrop = () =>
 
     const overId = toStringId(event.over.id)
 
-    // drop on trash — discard preview & remove the item
+    // drop on trash — discard preview & remove all items in the drag group
     if (overId === TRASH_CONTAINER_ID && activeId)
     {
-      const label = useTierListStore.getState().items[activeId]?.label ?? 'item'
+      const state = useTierListStore.getState()
+      const groupIds =
+        state.dragGroupIds.length > 0 ? state.dragGroupIds : [activeId]
+      const label = state.items[activeId]?.label ?? 'item'
       discardDragPreview()
-      removeItem(activeId)
+      for (const id of groupIds) removeItem(id)
+      // multi-trash is a group commit — clear selection so the bar dismisses
+      if (groupIds.length > 1)
+      {
+        useTierListStore.getState().clearSelection()
+      }
       resetDragState()
-      announce(`${label} deleted`)
+      announce(
+        groupIds.length > 1
+          ? `${groupIds.length} items deleted`
+          : `${label} deleted`
+      )
       return
     }
 
@@ -240,6 +257,10 @@ export const useDragAndDrop = () =>
       }
     }
 
+    // capture the drag group size before commit clears it
+    const groupCountBeforeCommit =
+      useTierListStore.getState().dragGroupIds.length
+
     commitDragPreview()
 
     if (activeId)
@@ -248,8 +269,11 @@ export const useDragAndDrop = () =>
       const label = state.items[activeId]?.label ?? 'item'
       const preview = getEffectiveContainerSnapshot(state)
       const containerId = findContainer(preview, activeId)
+      const dest = getContainerLabel(containerId, state.tiers)
       announce(
-        `Dropped ${label} in ${getContainerLabel(containerId, state.tiers)}`
+        groupCountBeforeCommit > 1
+          ? `Dropped ${groupCountBeforeCommit} items in ${dest}`
+          : `Dropped ${label} in ${dest}`
       )
     }
 
