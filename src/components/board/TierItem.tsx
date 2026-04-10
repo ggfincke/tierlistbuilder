@@ -34,7 +34,7 @@ export const TierItem = memo(
   {
     const item = useTierListStore((state) => state.items[itemId])
     const isSelected = useTierListStore((state) =>
-      state.selectedItemIds.has(itemId)
+      state.selectedItemIds.includes(itemId)
     )
     const toggleItemSelected = useTierListStore(
       (state) => state.toggleItemSelected
@@ -84,10 +84,12 @@ export const TierItem = memo(
       [setNodeRef]
     )
 
-    // track pointer position to distinguish clicks from drags
+    // track pointer position to distinguish clicks from drags; use capture
+    // phase so it doesn't shadow dnd-kit's bubble-phase onPointerDown
+    // activator wired via {...listeners}
     const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
 
-    const handlePointerDown = useCallback((e: React.PointerEvent) =>
+    const handlePointerDownCapture = useCallback((e: React.PointerEvent) =>
     {
       pointerStartRef.current = { x: e.clientX, y: e.clientY }
     }, [])
@@ -162,7 +164,7 @@ export const TierItem = memo(
           tabIndex={0}
           onFocus={onFocus}
           onKeyDown={onKeyDown}
-          onPointerDown={handlePointerDown}
+          onPointerDownCapture={handlePointerDownCapture}
           onClick={handleClick}
         >
           <ItemContent item={item} showLabel={showLabels && !!item.label} />

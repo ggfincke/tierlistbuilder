@@ -83,7 +83,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (e.key === 'Escape')
       {
         const state = useTierListStore.getState()
-        if (state.selectedItemIds.size > 0)
+        if (state.selectedItemIds.length > 0)
         {
           e.preventDefault()
           state.clearSelection()
@@ -99,7 +99,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
         if (locked) return
 
         // bulk delete when items are selected
-        if (state.selectedItemIds.size > 0)
+        if (state.selectedItemIds.length > 0)
         {
           e.preventDefault()
           state.deleteSelectedItems()
