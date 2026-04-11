@@ -71,8 +71,14 @@ interface TierListStore extends TierListStoreRuntimeState
   shuffleUnrankedItems: () => void
   resetBoard: (paletteId: PaletteId) => void
   loadBoard: (data: TierListData) => void
-  toggleItemSelected: (itemId: string, shiftKey: boolean) => void
+  toggleItemSelected: (
+    itemId: string,
+    shiftKey: boolean,
+    modKey: boolean
+  ) => void
   clearSelection: () => void
+  selectAll: () => void
+  setLastClickedItemId: (itemId: string | null) => void
   moveSelectedToTier: (tierId: string) => void
   moveSelectedToUnranked: () => void
   deleteSelectedItems: () => void
@@ -91,15 +97,35 @@ const withUndo = (
   ...updates,
 })
 
-const keyboardCleanupForItem = (state: TierListStore, itemId: string) => ({
-  activeItemId: state.activeItemId === itemId ? null : state.activeItemId,
-  keyboardFocusItemId:
-    state.keyboardFocusItemId === itemId ? null : state.keyboardFocusItemId,
-  keyboardMode:
-    state.keyboardFocusItemId === itemId || state.activeItemId === itemId
-      ? ('idle' as KeyboardMode)
-      : state.keyboardMode,
-})
+const getAllBoardItemIds = (
+  state: Pick<TierListStore, 'tiers' | 'unrankedItemIds'>
+) =>
+{
+  return [
+    ...state.tiers.flatMap((tier) => tier.itemIds),
+    ...state.unrankedItemIds,
+  ]
+}
+
+const runtimeCleanupForItem = (state: TierListStore, itemId: string) =>
+{
+  const nextSelectedItemIds = state.selectedItemIds.filter(
+    (id) => id !== itemId
+  )
+
+  return {
+    activeItemId: state.activeItemId === itemId ? null : state.activeItemId,
+    keyboardFocusItemId:
+      state.keyboardFocusItemId === itemId ? null : state.keyboardFocusItemId,
+    keyboardMode:
+      state.keyboardFocusItemId === itemId || state.activeItemId === itemId
+        ? ('idle' as KeyboardMode)
+        : state.keyboardMode,
+    selectedItemIds: nextSelectedItemIds,
+    lastClickedItemId:
+      state.lastClickedItemId === itemId ? null : state.lastClickedItemId,
+  }
+}
 
 const reorderTiersByIndex = (
   state: TierListStore,
@@ -339,7 +365,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         ? [deletedItem, ...state.deletedItems].slice(0, 50)
         : state.deletedItems
 
-      const kbCleanup = keyboardCleanupForItem(state, itemId)
+      const runtimeCleanup = runtimeCleanupForItem(state, itemId)
 
       if (state.unrankedItemIds.includes(itemId))
       {
@@ -347,7 +373,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
           ...undo,
           items: nextItems,
           deletedItems: nextDeleted,
-          ...kbCleanup,
+          ...runtimeCleanup,
           unrankedItemIds: state.unrankedItemIds.filter((id) => id !== itemId),
         }
       }
@@ -369,7 +395,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         ...undo,
         items: nextItems,
         deletedItems: nextDeleted,
-        ...kbCleanup,
+        ...runtimeCleanup,
         tiers: state.tiers.map((tier) =>
           tier.id === ownerTier.id
             ? { ...tier, itemIds: tier.itemIds.filter((id) => id !== itemId) }
@@ -568,7 +594,10 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       // clear selection only on multi-drag commit — a single-item drag should
       // leave any unrelated selection intact
       const selectionReset: Partial<TierListStore> = isMultiDrag
-        ? { selectedItemIds: [], lastClickedItemId: null }
+        ? {
+            selectedItemIds: [],
+            lastClickedItemId: null,
+          }
         : {}
 
       return {
@@ -705,21 +734,16 @@ export const useTierListStore = create<TierListStore>()((set) => ({
       ...freshRuntimeState,
     })),
 
-  toggleItemSelected: (itemId, shiftKey) =>
+  toggleItemSelected: (itemId, shiftKey, modKey) =>
     set((state) =>
     {
-      if (!shiftKey) return state
-
       const prev = state.selectedItemIds
       const idx = prev.indexOf(itemId)
 
-      if (state.lastClickedItemId && idx === -1)
+      // shift+click: range selection from last clicked to current
+      if (shiftKey && state.lastClickedItemId)
       {
-        // range selection: add all items between last clicked & current
-        const allIds = [
-          ...state.tiers.flatMap((t) => t.itemIds),
-          ...state.unrankedItemIds,
-        ]
+        const allIds = getAllBoardItemIds(state)
         const startIdx = allIds.indexOf(state.lastClickedItemId)
         const endIdx = allIds.indexOf(itemId)
 
@@ -727,31 +751,69 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         {
           const [from, to] =
             startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx]
-          const next = [...prev]
+          const next = modKey ? [...prev] : []
           for (let i = from; i <= to; i++)
           {
             if (!next.includes(allIds[i])) next.push(allIds[i])
           }
-          return { selectedItemIds: next, lastClickedItemId: itemId }
+          return {
+            selectedItemIds: next,
+            lastClickedItemId: state.lastClickedItemId,
+          }
         }
       }
 
-      // toggle: deselect if already selected, otherwise append
-      if (idx !== -1)
+      // ctrl/cmd+click: toggle individual item in/out of selection
+      if (modKey)
       {
+        if (idx !== -1)
+        {
+          return {
+            selectedItemIds: prev.filter((id) => id !== itemId),
+            lastClickedItemId: itemId,
+          }
+        }
         return {
-          selectedItemIds: prev.filter((id) => id !== itemId),
+          selectedItemIds: [...prev, itemId],
           lastClickedItemId: itemId,
         }
       }
 
+      // plain click: select only this item (clear others)
+      // bail if already the sole selection to avoid a no-op state change
+      // that triggers DndContext remeasure loops
+      if (prev.length === 1 && prev[0] === itemId) return state
       return {
-        selectedItemIds: [...prev, itemId],
+        selectedItemIds: [itemId],
         lastClickedItemId: itemId,
       }
     }),
 
-  clearSelection: () => set({ selectedItemIds: [], lastClickedItemId: null }),
+  clearSelection: () =>
+    set({
+      selectedItemIds: [],
+      lastClickedItemId: null,
+    }),
+
+  selectAll: () =>
+    set((state) =>
+    {
+      const allIds = getAllBoardItemIds(state)
+      // bail if every item is already selected to avoid no-op state change
+      if (
+        allIds.length === state.selectedItemIds.length &&
+        allIds.every((id, i) => state.selectedItemIds[i] === id)
+      )
+      {
+        return state
+      }
+      return { selectedItemIds: allIds }
+    }),
+
+  setLastClickedItemId: (itemId) =>
+    set((state) =>
+      state.lastClickedItemId === itemId ? state : { lastClickedItemId: itemId }
+    ),
 
   moveSelectedToTier: (tierId) =>
     set((state) =>
