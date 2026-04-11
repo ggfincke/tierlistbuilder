@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
+import { handleKeyboardBoardJumpKey } from './keyboardDragController'
 import { hasActiveModalLayer } from './useModalBackgroundInert'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { useTierListStore } from '../store/useTierListStore'
@@ -76,12 +77,31 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
         return
       }
 
+      // select all items — Ctrl/Cmd+A
+      if (mod && e.key === 'a')
+      {
+        e.preventDefault()
+        const locked = useSettingsStore.getState().boardLocked
+        if (!locked) useTierListStore.getState().selectAll()
+        return
+      }
+
       // skip remaining shortcuts when modifiers are held
       if (mod || e.altKey) return
 
+      // jump back to the board from non-editable UI
+      if (!e.shiftKey && e.key.toLowerCase() === 'b')
+      {
+        e.preventDefault()
+        handleKeyboardBoardJumpKey()
+        return
+      }
+
       // clear bulk selection — Escape
+      // skip if already handled by a focused item's keyboard controller
       if (e.key === 'Escape')
       {
+        if (e.defaultPrevented) return
         const state = useTierListStore.getState()
         if (state.selectedItemIds.length > 0)
         {
@@ -106,7 +126,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
           return
         }
 
-        if (state.keyboardMode === 'browse' && state.keyboardFocusItemId)
+        if (state.keyboardMode !== 'dragging' && state.keyboardFocusItemId)
         {
           e.preventDefault()
           state.removeItem(state.keyboardFocusItemId)

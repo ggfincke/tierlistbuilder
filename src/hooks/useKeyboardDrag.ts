@@ -18,13 +18,25 @@ import type { KeyboardDragDirection } from '../utils/dragKeyboard'
 export const useKeyboardDrag = (itemId: string) =>
 {
   const isKeyboardFocused = useTierListStore(
-    (state) =>
-      state.keyboardMode !== 'idle' && state.keyboardFocusItemId === itemId
+    (state) => state.keyboardFocusItemId === itemId
   )
   const isKeyboardDragging = useTierListStore(
     (state) =>
       state.keyboardMode === 'dragging' && state.activeItemId === itemId
   )
+  const isKeyboardTabStop = useTierListStore((state) =>
+  {
+    if (state.keyboardFocusItemId)
+    {
+      return state.keyboardFocusItemId === itemId
+    }
+
+    const firstTierItemId =
+      state.tiers.find((tier) => tier.itemIds.length > 0)?.itemIds[0] ?? null
+    const firstBoardItemId = firstTierItemId ?? state.unrankedItemIds[0] ?? null
+
+    return firstBoardItemId === itemId
+  })
 
   const handleSpaceKey = useCallback(() =>
   {
@@ -84,5 +96,11 @@ export const useKeyboardDrag = (itemId: string) =>
     handleKeyboardItemFocus(itemId)
   }, [itemId])
 
-  return { isKeyboardFocused, isKeyboardDragging, onKeyDown, onFocus }
+  return {
+    isKeyboardFocused,
+    isKeyboardDragging,
+    isKeyboardTabStop,
+    onKeyDown,
+    onFocus,
+  }
 }

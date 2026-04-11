@@ -17,13 +17,16 @@ export const SHORTCUTS = [
   { keys: [MOD_KEY, 'Shift', 'Z'], description: 'Redo' },
   { keys: [MOD_KEY, 'S'], description: 'Export board' },
   { keys: [MOD_KEY, 'Shift', 'T'], description: 'Cycle toolbar position' },
+  { keys: [MOD_KEY, 'A'], description: 'Select all items' },
+  { keys: ['B'], description: 'Jump to the board' },
+  { keys: ['Tab'], description: 'Move between UI controls' },
   { keys: ['Delete'], description: 'Remove focused item' },
   {
     keys: ['Esc'],
-    description: 'Close modal / cancel edit / exit keyboard mode',
+    description: 'Close modal / cancel edit / cancel drag / clear selection',
   },
   { keys: ['Enter'], description: 'Confirm edit / submit' },
-  { keys: ['Space'], description: 'Enter keyboard mode / pick up / drop' },
+  { keys: ['Space'], description: 'Pick up / drop focused item' },
   { keys: ['Arrow Keys'], description: 'Browse items / move dragged item' },
   { keys: ['?'], description: 'Show keyboard shortcuts' },
 ] satisfies readonly ShortcutDefinition[]

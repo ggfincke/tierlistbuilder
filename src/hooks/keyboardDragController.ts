@@ -18,7 +18,10 @@ import {
   resolveNextKeyboardFocusItem,
 } from '../utils/dragKeyboard'
 import type { KeyboardDragDirection } from '../utils/dragKeyboard'
-import { scheduleKeyboardFocusRestore } from './keyboardFocus'
+import {
+  focusKeyboardBoardRegion,
+  scheduleKeyboardFocusRestore,
+} from './keyboardFocus'
 
 type TierListKeyboardState = ReturnType<typeof useTierListStore.getState>
 
@@ -29,6 +32,83 @@ export const KEYBOARD_DIRECTIONS = new Set<KeyboardDragDirection>([
   'ArrowDown',
 ])
 
+const getFirstBoardItemId = (state: TierListKeyboardState): string | null =>
+{
+  return (
+    state.tiers.find((tier) => tier.itemIds.length > 0)?.itemIds[0] ??
+    state.unrankedItemIds[0] ??
+    null
+  )
+}
+
+const getPreferredBoardFocusItemId = (
+  state: TierListKeyboardState
+): string | null =>
+{
+  const candidateIds = [
+    state.keyboardFocusItemId,
+    state.lastClickedItemId,
+    getFirstBoardItemId(state),
+  ]
+
+  for (const candidateId of candidateIds)
+  {
+    if (candidateId && state.items[candidateId])
+    {
+      return candidateId
+    }
+  }
+
+  return null
+}
+
+const setBrowseFocus = (
+  state: TierListKeyboardState,
+  itemId: string,
+  restoreFocus = false
+) =>
+{
+  state.setKeyboardFocusItemId(itemId)
+  state.setKeyboardMode('browse')
+
+  if (restoreFocus)
+  {
+    scheduleKeyboardFocusRestore(itemId)
+  }
+}
+
+const announceKeyboardDragMove = (
+  state: TierListKeyboardState,
+  itemId: string,
+  snapshot: ReturnType<typeof getEffectiveContainerSnapshot>
+) =>
+{
+  const containerId = findContainer(snapshot, itemId)
+
+  if (!containerId)
+  {
+    return
+  }
+
+  const containerItems = getItemsInContainer(snapshot, containerId)
+  const position = containerItems.indexOf(itemId) + 1
+
+  if (position <= 0)
+  {
+    return
+  }
+
+  const groupCount = state.dragGroupIds.length
+  const label = state.items[itemId]?.label ?? 'item'
+  const destination = getContainerLabel(containerId, state.tiers)
+
+  announce(
+    groupCount > 1
+      ? `Moved ${groupCount} items to ${destination}, starting at position ${position}`
+      : `Moved ${label} to ${destination}, position ${position} of ${containerItems.length}`
+  )
+}
+
 const handleBrowseModeArrowKey = (
   state: TierListKeyboardState,
   itemId: string,
@@ -38,18 +118,20 @@ const handleBrowseModeArrowKey = (
   const snapshot = getEffectiveContainerSnapshot(state)
   const focusedItemId = state.keyboardFocusItemId ?? itemId
 
-  // if the focused item no longer exists (e.g. deleted via undo),
-  // fall back to the current element's item & re-anchor focus
+  if (!findContainer(snapshot, focusedItemId))
+  {
+    setBrowseFocus(state, itemId, true)
+    return
+  }
+
   const focusContainerId = findContainer(snapshot, focusedItemId)
 
   if (!focusContainerId)
   {
-    state.setKeyboardFocusItemId(itemId)
-    scheduleKeyboardFocusRestore(itemId)
+    setBrowseFocus(state, itemId, true)
     return
   }
 
-  // check for intra-row navigation within a multi-row container
   if (direction === 'ArrowUp' || direction === 'ArrowDown')
   {
     const containerItems = getItemsInContainer(snapshot, focusContainerId)
@@ -62,8 +144,7 @@ const handleBrowseModeArrowKey = (
 
     if (intraMove)
     {
-      state.setKeyboardFocusItemId(intraMove.targetItemId)
-      scheduleKeyboardFocusRestore(intraMove.targetItemId)
+      setBrowseFocus(state, intraMove.targetItemId, true)
       return
     }
   }
@@ -79,7 +160,6 @@ const handleBrowseModeArrowKey = (
     return
   }
 
-  // column-aware focus when crossing tiers w/ ArrowUp/ArrowDown
   const nextFocusContainer = findContainer(snapshot, nextFocusItemId)
 
   if (
@@ -99,14 +179,12 @@ const handleBrowseModeArrowKey = (
 
     if (columnTarget)
     {
-      state.setKeyboardFocusItemId(columnTarget.targetItemId)
-      scheduleKeyboardFocusRestore(columnTarget.targetItemId)
+      setBrowseFocus(state, columnTarget.targetItemId, true)
       return
     }
   }
 
-  state.setKeyboardFocusItemId(nextFocusItemId)
-  scheduleKeyboardFocusRestore(nextFocusItemId)
+  setBrowseFocus(state, nextFocusItemId, true)
 }
 
 const handleDraggingModeArrowKey = (
@@ -155,6 +233,7 @@ const handleDraggingModeArrowKey = (
       state.updateDragPreview(nextPreview)
       state.setKeyboardFocusItemId(activeKeyboardItemId)
       scheduleKeyboardFocusRestore(activeKeyboardItemId)
+      announceKeyboardDragMove(state, activeKeyboardItemId, nextPreview)
       return
     }
   }
@@ -202,32 +281,13 @@ const handleDraggingModeArrowKey = (
   state.updateDragPreview(nextTarget.nextPreview)
   state.setKeyboardFocusItemId(activeKeyboardItemId)
   scheduleKeyboardFocusRestore(activeKeyboardItemId)
+  announceKeyboardDragMove(state, activeKeyboardItemId, nextTarget.nextPreview)
 }
 
-export const handleKeyboardSpaceKey = (itemId: string) =>
+const handleKeyboardPickupDropKey = (itemId: string) =>
 {
   const state = useTierListStore.getState()
   const focusedItemId = state.keyboardFocusItemId ?? itemId
-
-  if (state.keyboardMode === 'idle')
-  {
-    state.setKeyboardFocusItemId(itemId)
-    state.setKeyboardMode('browse')
-    announce('Keyboard mode. Arrow keys to browse, space to pick up.')
-    return
-  }
-
-  if (state.keyboardMode === 'browse')
-  {
-    const label = state.items[focusedItemId]?.label ?? 'item'
-    state.beginDragPreview()
-    state.setActiveItemId(focusedItemId)
-    state.setKeyboardFocusItemId(focusedItemId)
-    state.setKeyboardMode('dragging')
-    scheduleKeyboardFocusRestore(focusedItemId)
-    announce(`Picked up ${label}. Arrow keys to move, space to drop.`)
-    return
-  }
 
   if (
     state.keyboardMode === 'dragging' &&
@@ -236,6 +296,7 @@ export const handleKeyboardSpaceKey = (itemId: string) =>
   )
   {
     const droppedItemId = state.activeItemId
+    const groupCount = state.dragGroupIds.length
     const label = state.items[droppedItemId]?.label ?? 'item'
     state.commitDragPreview()
     state.setActiveItemId(null)
@@ -246,10 +307,33 @@ export const handleKeyboardSpaceKey = (itemId: string) =>
     const fresh = useTierListStore.getState()
     const snapshot = getEffectiveContainerSnapshot(fresh)
     const containerId = findContainer(snapshot, droppedItemId)
+    const dest = getContainerLabel(containerId, fresh.tiers)
     announce(
-      `Dropped ${label} in ${getContainerLabel(containerId, fresh.tiers)}`
+      groupCount > 1
+        ? `Dropped ${groupCount} items in ${dest}`
+        : `Dropped ${label} in ${dest}`
     )
+    return
   }
+
+  setBrowseFocus(state, focusedItemId)
+  state.beginDragPreview(focusedItemId)
+  state.setActiveItemId(focusedItemId)
+  state.setKeyboardFocusItemId(focusedItemId)
+  state.setKeyboardMode('dragging')
+  scheduleKeyboardFocusRestore(focusedItemId)
+  const groupCount = useTierListStore.getState().dragGroupIds.length
+  const label = state.items[focusedItemId]?.label ?? 'item'
+  announce(
+    groupCount > 1
+      ? `Picked up ${groupCount} items. Arrow keys to move, space or Enter to drop.`
+      : `Picked up ${label}. Arrow keys to move, space or Enter to drop.`
+  )
+}
+
+export const handleKeyboardSpaceKey = (itemId: string) =>
+{
+  handleKeyboardPickupDropKey(itemId)
 }
 
 export const handleKeyboardArrowKey = (
@@ -279,28 +363,59 @@ export const handleKeyboardEscapeKey = (itemId: string) =>
   const focusedItemId =
     state.activeItemId ?? state.keyboardFocusItemId ?? itemId
 
+  // priority 1: cancel active drag, return to browse
   if (state.keyboardMode === 'dragging')
   {
     state.discardDragPreview()
     state.setActiveItemId(null)
-  }
-
-  if (state.keyboardMode === 'idle')
-  {
+    state.setKeyboardMode('browse')
+    state.setKeyboardFocusItemId(focusedItemId)
+    scheduleKeyboardFocusRestore(focusedItemId)
+    announce('Drag cancelled')
     return
   }
 
-  state.clearKeyboardMode()
-  scheduleKeyboardFocusRestore(focusedItemId)
-  announce('Keyboard mode exited')
+  // priority 2: clear selection, stay in browse
+  if (state.keyboardMode === 'browse' && state.selectedItemIds.length > 0)
+  {
+    state.clearSelection()
+    announce('Selection cleared')
+    return
+  }
 }
 
 export const handleKeyboardItemFocus = (itemId: string) =>
 {
   const state = useTierListStore.getState()
 
-  if (state.keyboardMode !== 'idle')
+  if (state.keyboardMode === 'dragging')
   {
     state.setKeyboardFocusItemId(itemId)
+    return
   }
+
+  if (state.keyboardMode === 'browse' && state.keyboardFocusItemId === itemId)
+  {
+    return
+  }
+
+  setBrowseFocus(state, itemId)
+}
+
+export const handleKeyboardBoardJumpKey = () =>
+{
+  const state = useTierListStore.getState()
+  const targetItemId = getPreferredBoardFocusItemId(state)
+
+  if (!targetItemId)
+  {
+    focusKeyboardBoardRegion()
+    announce('Board focused. No items to navigate.')
+    return
+  }
+
+  setBrowseFocus(state, targetItemId, true)
+
+  const label = state.items[targetItemId]?.label ?? 'item'
+  announce(`Board focused on ${label}. Arrow keys move focus, space picks up.`)
 }

@@ -5,7 +5,7 @@ import { memo, useCallback, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, PenLine, X } from 'lucide-react'
+import { Check, GripVertical, PenLine, X } from 'lucide-react'
 
 import { useKeyboardDrag } from '../../hooks/useKeyboardDrag'
 import { useSettingsStore } from '../../store/useSettingsStore'
@@ -36,9 +36,17 @@ export const TierItem = memo(
     const isSelected = useTierListStore((state) =>
       state.selectedItemIds.includes(itemId)
     )
+    const hasKeyboardSelection = useTierListStore(
+      (state) =>
+        state.keyboardMode === 'browse' && state.selectedItemIds.length > 0
+    )
     const toggleItemSelected = useTierListStore(
       (state) => state.toggleItemSelected
     )
+    const setKeyboardFocusItemId = useTierListStore(
+      (state) => state.setKeyboardFocusItemId
+    )
+    const setKeyboardMode = useTierListStore((state) => state.setKeyboardMode)
     const canDelete = containerId === UNRANKED_CONTAINER_ID
 
     const itemSize = useSettingsStore((state) => state.itemSize)
@@ -51,8 +59,13 @@ export const TierItem = memo(
 
     const sizePx = ITEM_SIZE_PX[itemSize]
 
-    const { isKeyboardFocused, isKeyboardDragging, onKeyDown, onFocus } =
-      useKeyboardDrag(itemId)
+    const {
+      isKeyboardFocused,
+      isKeyboardDragging,
+      isKeyboardTabStop,
+      onKeyDown,
+      onFocus,
+    } = useKeyboardDrag(itemId)
 
     const [showEditPopover, setShowEditPopover] = useState(false)
     const itemRef = useRef<HTMLDivElement | null>(null)
@@ -88,10 +101,12 @@ export const TierItem = memo(
     // phase so it doesn't shadow dnd-kit's bubble-phase onPointerDown
     // activator wired via {...listeners}
     const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
+    const pointerFocusRef = useRef(false)
 
     const handlePointerDownCapture = useCallback((e: React.PointerEvent) =>
     {
       pointerStartRef.current = { x: e.clientX, y: e.clientY }
+      pointerFocusRef.current = true
     }, [])
 
     const handleClick = useCallback(
@@ -107,10 +122,43 @@ export const TierItem = memo(
           if (dx > 4 || dy > 4) return
         }
 
-        toggleItemSelected(itemId, e.shiftKey)
+        pointerFocusRef.current = false
+
+        const modKey = e.ctrlKey || e.metaKey
+
+        if (!e.shiftKey && !modKey && hasKeyboardSelection && isSelected)
+        {
+          toggleItemSelected(itemId, false, true)
+        }
+        else
+        {
+          toggleItemSelected(itemId, e.shiftKey, modKey)
+        }
+
+        setKeyboardFocusItemId(itemId)
+        setKeyboardMode('browse')
       },
-      [boardLocked, itemId, toggleItemSelected]
+      [
+        boardLocked,
+        hasKeyboardSelection,
+        itemId,
+        isSelected,
+        setKeyboardFocusItemId,
+        setKeyboardMode,
+        toggleItemSelected,
+      ]
     )
+
+    const handleItemFocus = useCallback(() =>
+    {
+      if (pointerFocusRef.current)
+      {
+        pointerFocusRef.current = false
+        return
+      }
+
+      onFocus()
+    }, [onFocus])
 
     const openEditPopover = useCallback((e: React.MouseEvent) =>
     {
@@ -148,26 +196,35 @@ export const TierItem = memo(
             opacity: isDragging ? 0.4 : isKeyboardDragging ? 0.75 : 1,
           }}
           className={`focus-custom group relative touch-none overflow-hidden outline-none ${SHAPE_CLASS[itemShape]} ${
-            isSelected
-              ? 'z-20 ring-2 ring-[var(--t-accent)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
-              : isKeyboardDragging
-                ? 'z-20 ring-2 ring-[var(--t-accent)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
-                : isKeyboardFocused
-                  ? 'z-10 ring-2 ring-[var(--t-accent-hover)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
-                  : ''
+            isSelected && isKeyboardFocused
+              ? 'z-20 scale-[1.04] ring-[3px] ring-[var(--t-accent)] ring-offset-[3px] ring-offset-[var(--t-bg-surface)] brightness-110 transition-transform duration-100 outline-2 outline-offset-[6px] outline-[var(--t-accent-hover)]'
+              : isSelected
+                ? 'z-20 scale-[1.04] ring-[3px] ring-[var(--t-accent)] ring-offset-[3px] ring-offset-[var(--t-bg-surface)] brightness-110 transition-transform duration-100'
+                : isKeyboardDragging
+                  ? 'z-20 ring-2 ring-[var(--t-accent)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
+                  : isKeyboardFocused
+                    ? 'z-10 ring-2 ring-[var(--t-accent-hover)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
+                    : ''
           }`}
           data-keyboard-dragging={isKeyboardDragging ? 'true' : 'false'}
           data-keyboard-focused={isKeyboardFocused ? 'true' : 'false'}
           data-selected={isSelected ? 'true' : undefined}
           {...attributes}
           {...listeners}
-          tabIndex={0}
-          onFocus={onFocus}
+          tabIndex={isKeyboardTabStop ? 0 : -1}
+          onFocus={handleItemFocus}
           onKeyDown={onKeyDown}
           onPointerDownCapture={handlePointerDownCapture}
           onClick={handleClick}
         >
           <ItemContent item={item} showLabel={showLabels && !!item.label} />
+
+          {/* selection check badge */}
+          {isSelected && (
+            <span className="pointer-events-none absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--t-accent)] shadow-sm">
+              <Check className="h-3 w-3 text-white" strokeWidth={3} />
+            </span>
+          )}
 
           {/* drag handle indicator — hover-reveal on desktop, persistent on mobile */}
           {!boardLocked && (
@@ -182,6 +239,7 @@ export const TierItem = memo(
               ref={editButtonRef}
               aria-label="Edit alt text"
               className="absolute bottom-0.5 left-0.5"
+              tabIndex={isKeyboardFocused ? 0 : -1}
               onClick={openEditPopover}
               onPointerDown={(e) => e.stopPropagation()}
             >
@@ -194,6 +252,7 @@ export const TierItem = memo(
             <ItemOverlayButton
               aria-label="Remove item"
               className="absolute top-0.5 right-0.5 max-sm:right-0 max-sm:top-0 max-sm:h-7 max-sm:w-7"
+              tabIndex={isKeyboardFocused ? 0 : -1}
               onClick={(e) =>
               {
                 e.stopPropagation()
