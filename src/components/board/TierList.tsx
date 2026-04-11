@@ -10,6 +10,7 @@ const EMPTY_SENSORS: never[] = []
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTierListStore } from '../../store/useTierListStore'
 import { THEMES } from '../../theme/tokens'
+import { announce } from '../../utils/announce'
 import { getTextColor } from '../../utils/color'
 import { getEffectiveTiers } from '../../utils/dragSnapshot'
 import { resolveTierColorSpec } from '../../domain/tierColors'
@@ -34,7 +35,7 @@ import { UnrankedPool } from './UnrankedPool'
 const DND_ACCESSIBILITY = {
   screenReaderInstructions: {
     draggable:
-      'Focus an item & press the space bar to enter keyboard mode. Use the arrow keys to move keyboard focus between items. Press space again to pick up the focused item, use the arrow keys to move it, press space to drop it, or press Escape to exit keyboard mode.',
+      'Press B to jump back to the board from the app chrome. On a focused item, use the arrow keys to move focus between items. Press space to pick up the focused item, use the arrow keys to move it, press space to drop, or press Escape to cancel.',
   },
 }
 
@@ -58,8 +59,9 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
   const compactMode = useSettingsStore((state) => state.compactMode)
   const storedTiers = useTierListStore((state) => state.tiers)
   const dragPreview = useTierListStore((state) => state.dragPreview)
-  const dragGroupIds = useTierListStore((state) => state.dragGroupIds)
+  const dragGroupCount = useTierListStore((state) => state.dragGroupIds.length)
   const keyboardMode = useTierListStore((state) => state.keyboardMode)
+  const boardShellRef = useRef<HTMLDivElement>(null)
   const boardRef = useRef<HTMLDivElement>(null)
 
   // sync keyboard focus item data attribute imperatively to avoid re-rendering
@@ -75,6 +77,45 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
     })
   }, [])
 
+  useEffect(() =>
+  {
+    const boardShellElement = boardShellRef.current
+
+    if (!boardShellElement)
+    {
+      return
+    }
+
+    const handleFocusOut = () =>
+    {
+      requestAnimationFrame(() =>
+      {
+        if (boardShellElement.contains(document.activeElement))
+        {
+          return
+        }
+
+        const state = useTierListStore.getState()
+
+        if (state.keyboardMode === 'dragging')
+        {
+          state.discardDragPreview()
+          state.setActiveItemId(null)
+          state.clearKeyboardMode()
+          announce('Drag cancelled')
+          return
+        }
+
+        state.clearKeyboardMode()
+      })
+    }
+
+    boardShellElement.addEventListener('focusout', handleFocusOut)
+
+    return () =>
+      boardShellElement.removeEventListener('focusout', handleFocusOut)
+  }, [])
+
   const tiers = useMemo(
     () =>
       dragPreview ? getEffectiveTiers(storedTiers, dragPreview) : storedTiers,
@@ -88,6 +129,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
     activeItem,
     activeTier,
     collisionDetection,
+    overlayModifiers,
     onDragStart,
     onDragMove,
     onDragOver,
@@ -112,7 +154,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       measuring={{
         // always remeasure droppables to handle dynamic content changes
         droppable: {
-          strategy: MeasuringStrategy.Always,
+          strategy: MeasuringStrategy.WhileDragging,
         },
       }}
       onDragStart={onDragStart}
@@ -121,59 +163,61 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      {/* toolbar + tier rows wrapper — toolbar sits alongside or above/below the tiers */}
-      <div
-        className={`${compactMode ? 'mt-1' : 'mt-3'} ${TOOLBAR_LAYOUT_CLASS[toolbarPosition]}`}
-      >
-        {/* tier rows column — unranked pool & trash zone live outside so
-            left/right toolbar centers on tiers only & bottom toolbar
-            sits above the pool */}
-        <div className={`${isVertical ? 'min-w-0 flex-1' : ''}`}>
-          {/* export capture wrapper */}
-          <div className="overflow-x-auto">
-            <div
-              id="tier-list"
-              ref={boardRef}
-              role="region"
-              aria-label="Tier list board"
-              data-testid="tier-list-board"
-              data-keyboard-mode={keyboardMode}
-              data-keyboard-focus-item-id=""
-              tabIndex={-1}
-              className="min-w-[860px]"
-              style={{ backgroundColor: exportBackgroundColor }}
-            >
-              <SortableContext
-                items={tierIds}
-                strategy={verticalListSortingStrategy}
+      <div ref={boardShellRef}>
+        {/* toolbar + tier rows wrapper — toolbar sits alongside or above/below the tiers */}
+        <div
+          className={`${compactMode ? 'mt-1' : 'mt-3'} ${TOOLBAR_LAYOUT_CLASS[toolbarPosition]}`}
+        >
+          {/* tier rows column — unranked pool & trash zone live outside so
+              left/right toolbar centers on tiers only & bottom toolbar
+              sits above the pool */}
+          <div className={`${isVertical ? 'min-w-0 flex-1' : ''}`}>
+            {/* export capture wrapper */}
+            <div className="overflow-x-auto">
+              <div
+                id="tier-list"
+                ref={boardRef}
+                role="region"
+                aria-label="Tier list board"
+                data-testid="tier-list-board"
+                data-keyboard-mode={keyboardMode}
+                data-keyboard-focus-item-id=""
+                tabIndex={-1}
+                className="min-w-[860px]"
+                style={{ backgroundColor: exportBackgroundColor }}
               >
-                {tiers.map((tier, index) => (
-                  <TierRow
-                    key={tier.id}
-                    tier={tier}
-                    index={index}
-                    totalTiers={tiers.length}
-                  />
-                ))}
-              </SortableContext>
+                <SortableContext
+                  items={tierIds}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {tiers.map((tier, index) => (
+                    <TierRow
+                      key={tier.id}
+                      tier={tier}
+                      index={index}
+                      totalTiers={tiers.length}
+                    />
+                  ))}
+                </SortableContext>
+              </div>
             </div>
           </div>
+
+          {/* sticky wrapper keeps the toolbar visible while scrolling tall boards */}
+          <div className={isVertical ? 'sticky top-4' : ''}>{toolbar}</div>
         </div>
 
-        {/* sticky wrapper keeps the toolbar visible while scrolling tall boards */}
-        <div className={isVertical ? 'sticky top-4' : ''}>{toolbar}</div>
+        <UnrankedPool />
+
+        <TrashZone />
       </div>
 
-      <UnrankedPool />
-
-      <TrashZone />
-
       {/* render ghost in the overlay while a drag is active */}
-      <DragOverlay>
+      <DragOverlay modifiers={overlayModifiers}>
         {activeItem ? (
           <DragOverlayItem
             item={activeItem}
-            groupCount={dragGroupIds.length > 1 ? dragGroupIds.length - 1 : 0}
+            groupCount={dragGroupCount > 1 ? dragGroupCount - 1 : 0}
           />
         ) : activeTier ? (
           <div

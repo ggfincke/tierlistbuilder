@@ -1,7 +1,8 @@
 // src/hooks/useDragAndDrop.ts
 // * drag-&-drop hook — wires dnd-kit sensors, collision detection, & item move logic
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { Modifier } from '@dnd-kit/core'
 import type { Tier } from '../types'
 import {
   type DragEndEvent,
@@ -60,6 +61,16 @@ export const useDragAndDrop = () =>
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null)
   // flag set when the dragged item crosses into a new container mid-drag
   const movedToNewContainerRef = useRef(false)
+  // active item's rect at drag start (before grid reflow); compared against
+  // dnd-kit's post-reflow frozen rect to compute the layout shift delta
+  const initialRectRef = useRef<{ left: number; top: number } | null>(null)
+  // dnd-kit's frozen activeNodeRect (first non-null measurement, post-reflow);
+  // captured on the modifier's first invocation so we match dnd-kit's own freeze
+  const frozenOverlayRectRef = useRef<{ left: number; top: number } | null>(
+    null
+  )
+  // whether this drag involves multiple items (enables overlay correction)
+  const isMultiDragRef = useRef(false)
 
   const sensors = useDragSensors()
 
@@ -112,6 +123,9 @@ export const useDragAndDrop = () =>
   {
     lastOverIdRef.current = null
     movedToNewContainerRef.current = false
+    initialRectRef.current = null
+    frozenOverlayRectRef.current = null
+    isMultiDragRef.current = false
     dragTypeRef.current = 'item'
     setDragTypeState('item')
     setActiveTierData(undefined)
@@ -146,11 +160,27 @@ export const useDragAndDrop = () =>
       return
     }
 
+    // capture active item's pre-reflow rect from the DOM directly —
+    // event.active.rect may not be populated at this point in the lifecycle
+    const activeNode = document.querySelector(
+      `[data-item-id="${activeId}"]`
+    ) as HTMLElement | null
+    if (activeNode)
+    {
+      const rect = activeNode.getBoundingClientRect()
+      initialRectRef.current = { left: rect.left, top: rect.top }
+    }
+    else
+    {
+      initialRectRef.current = null
+    }
+
     beginDragPreview(activeId)
     lastOverIdRef.current = activeId
     setActiveItemId(activeId)
     const state = useTierListStore.getState()
     const groupCount = state.dragGroupIds.length
+    isMultiDragRef.current = groupCount > 1
     const itemLabel = state.items[activeId]?.label ?? 'item'
     announce(
       groupCount > 1
@@ -295,6 +325,59 @@ export const useDragAndDrop = () =>
   const activeTier =
     showDragOverlay && dragTypeState === 'tier' ? activeTierData : undefined
 
+  // during multi-drag the grid reflows after secondary items are stripped,
+  // shifting the active item's position; this modifier corrects the overlay
+  // transform so the grab point stays under the cursor
+  //
+  // dnd-kit's DragOverlay renders at `initialRect + transform` where
+  // initialRect is the active node's rect frozen at first measurement (post-
+  // reflow) & transform is the pointer delta from the pre-reflow activation
+  // point. this mismatch creates a persistent offset equal to the layout
+  // shift. we correct by computing the shift delta & subtracting it.
+  const overlayModifier: Modifier = useCallback(
+    ({ activeNodeRect, transform }) =>
+    {
+      if (!isMultiDragRef.current || !initialRectRef.current)
+      {
+        return transform
+      }
+
+      if (!activeNodeRect) return transform
+
+      // freeze activeNodeRect on first invocation — mirrors dnd-kit's own
+      // useInitialValue(activeNodeRect) inside the DragOverlay component so
+      // our shift delta stays consistent even if the node moves mid-drag
+      if (!frozenOverlayRectRef.current)
+      {
+        frozenOverlayRectRef.current = {
+          left: activeNodeRect.left,
+          top: activeNodeRect.top,
+        }
+      }
+
+      // frozenOverlayRect = dnd-kit's frozen initialRect (post-reflow)
+      // initialRectRef = pre-reflow rect (where the item was when clicked)
+      // the layout shift = frozenOverlayRect - initialRectRef
+      const shiftX =
+        frozenOverlayRectRef.current.left - initialRectRef.current.left
+      const shiftY =
+        frozenOverlayRectRef.current.top - initialRectRef.current.top
+
+      // if no shift occurred, pass through unmodified
+      if (shiftX === 0 && shiftY === 0) return transform
+
+      // subtract the shift so the overlay stays where the cursor grabbed
+      return {
+        ...transform,
+        x: transform.x - shiftX,
+        y: transform.y - shiftY,
+      }
+    },
+    []
+  )
+
+  const overlayModifiers = useMemo(() => [overlayModifier], [overlayModifier])
+
   return {
     sensors,
     // resolve active item object from ID for the drag overlay
@@ -304,6 +387,7 @@ export const useDragAndDrop = () =>
         : undefined,
     activeTier,
     collisionDetection,
+    overlayModifiers,
     onDragStart,
     onDragMove,
     onDragOver,
