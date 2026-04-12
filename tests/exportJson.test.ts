@@ -98,7 +98,7 @@ describe('parseBoardJson', () =>
       items: {},
     }
     expect(() => parseBoardJson(JSON.stringify(bad))).toThrow(
-      'Invalid tier structure'
+      'missing a valid "id"'
     )
   })
 
@@ -109,7 +109,7 @@ describe('parseBoardJson', () =>
       items: {},
     }
     expect(() => parseBoardJson(JSON.stringify(bad))).toThrow(
-      'Invalid tier structure'
+      'missing color data'
     )
   })
 
@@ -126,7 +126,7 @@ describe('parseBoardJson', () =>
       items: {},
     }
     expect(() => parseBoardJson(JSON.stringify(bad))).toThrow(
-      'Invalid tier structure'
+      'missing "itemIds" array'
     )
   })
 
@@ -143,7 +143,7 @@ describe('parseBoardJson', () =>
       ],
     }
     expect(() => parseBoardJson(JSON.stringify(bad))).toThrow(
-      'Missing items map.'
+      'Missing items map'
     )
   })
 

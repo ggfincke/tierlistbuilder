@@ -5,6 +5,7 @@ import { normalizeTierListData } from '../domain/boardData'
 import type { TierListData } from '../types'
 import { toFileBase } from './constants'
 import { triggerDownload } from './exportImage'
+import { BOARD_DATA_VERSION } from './storage'
 
 interface TierListExport
 {
@@ -50,10 +51,78 @@ export const exportBoardAsJson = (data: TierListData, title: string) =>
   URL.revokeObjectURL(url)
 }
 
+// validate a single tier entry & return a descriptive error if invalid
+const validateTierEntry = (
+  tier: Record<string, unknown>,
+  index: number
+): string | null =>
+{
+  if (!tier.id || typeof tier.id !== 'string')
+  {
+    return `Tier #${index + 1} is missing a valid "id" (expected string).`
+  }
+
+  if (!tier.name || typeof tier.name !== 'string')
+  {
+    return `Tier "${tier.id}" is missing a valid "name" (expected string).`
+  }
+
+  const hasLegacyColor = typeof tier.color === 'string'
+  const hasCanonicalColorSpec =
+    !!tier.colorSpec && typeof tier.colorSpec === 'object'
+
+  if (!hasLegacyColor && !hasCanonicalColorSpec)
+  {
+    return `Tier "${tier.name}" is missing color data (expected "colorSpec" object or legacy "color" string).`
+  }
+
+  if (!Array.isArray(tier.itemIds))
+  {
+    return `Tier "${tier.name}" is missing "itemIds" array.`
+  }
+
+  return null
+}
+
+// validate a single item entry has the minimum required fields
+const validateItemEntry = (
+  id: string,
+  item: Record<string, unknown>
+): string | null =>
+{
+  if (typeof item !== 'object' || item === null)
+  {
+    return `Item "${id}" is not a valid object.`
+  }
+
+  const hasImage = typeof item.imageUrl === 'string' && item.imageUrl.length > 0
+  const hasLabel = typeof item.label === 'string' && item.label.length > 0
+  const hasBgColor =
+    typeof item.backgroundColor === 'string' && item.backgroundColor.length > 0
+
+  if (!hasImage && !hasLabel && !hasBgColor)
+  {
+    return `Item "${id}" has no imageUrl, label, or backgroundColor — it would be invisible.`
+  }
+
+  return null
+}
+
 // parse & validate a JSON string as board data, throwing descriptive errors on failure
 export const parseBoardJson = (text: string): TierListData =>
 {
   const envelope = parseJsonObject(text)
+
+  // warn if the file is from a newer schema version
+  if (
+    typeof envelope.version === 'number' &&
+    envelope.version > BOARD_DATA_VERSION
+  )
+  {
+    throw new Error(
+      `File uses schema version ${envelope.version}, but this app only supports up to version ${BOARD_DATA_VERSION}. Update the app or re-export from a compatible version.`
+    )
+  }
 
   // accept both wrapped { version, data } format & raw TierListData
   const raw =
@@ -67,37 +136,55 @@ export const parseBoardJson = (text: string): TierListData =>
     throw new Error('File must contain at least one tier.')
   }
 
-  // validate tier structure
-  for (const tier of data.tiers)
+  // validate tier structure w/ per-field diagnostics
+  for (let i = 0; i < data.tiers.length; i++)
   {
-    const hasLegacyColor =
-      typeof (tier as { color?: unknown }).color === 'string'
-    const hasCanonicalColorSpec =
-      !!tier.colorSpec && typeof tier.colorSpec === 'object'
-
-    if (
-      !tier.id ||
-      !tier.name ||
-      (!hasLegacyColor && !hasCanonicalColorSpec) ||
-      !Array.isArray(tier.itemIds)
+    const tierError = validateTierEntry(
+      data.tiers[i] as unknown as Record<string, unknown>,
+      i
     )
+    if (tierError)
     {
-      throw new Error(
-        'Invalid tier structure — each tier needs id, name, color data, & itemIds.'
-      )
+      throw new Error(tierError)
     }
   }
 
   if (!data.items || typeof data.items !== 'object')
   {
-    throw new Error('Missing items map.')
+    throw new Error('Missing items map — the file has no item data.')
   }
 
-  // validate all referenced item IDs exist in the items map
+  // validate individual item entries
+  for (const [id, item] of Object.entries(data.items))
+  {
+    const itemError = validateItemEntry(
+      id,
+      item as unknown as Record<string, unknown>
+    )
+    if (itemError)
+    {
+      throw new Error(itemError)
+    }
+  }
+
+  // detect duplicate item references across tiers
   const allReferencedIds = [
     ...data.tiers.flatMap((t) => t.itemIds),
     ...(Array.isArray(data.unrankedItemIds) ? data.unrankedItemIds : []),
   ]
+  const seen = new Set<string>()
+  for (const id of allReferencedIds)
+  {
+    if (seen.has(id))
+    {
+      throw new Error(
+        `Item "${id}" is referenced in multiple tiers — each item can only appear once.`
+      )
+    }
+    seen.add(id)
+  }
+
+  // validate all referenced item IDs exist in the items map
   for (const id of allReferencedIds)
   {
     if (!(id in data.items))
