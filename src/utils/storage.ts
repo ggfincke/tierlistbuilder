@@ -141,6 +141,9 @@ export const saveBoardToStorage = (
 // estimated localStorage quota in bytes (conservative cross-browser default)
 export const STORAGE_QUOTA_BYTES = 5 * 1024 * 1024
 
+// ratio at which a proactive warning is surfaced after a successful save
+const STORAGE_WARNING_THRESHOLD = 0.9
+
 // check if storage usage is above a warning threshold (0-1)
 export const getStorageUsageRatio = (): number =>
 {
@@ -148,17 +151,27 @@ export const getStorageUsageRatio = (): number =>
   return used / STORAGE_QUOTA_BYTES
 }
 
+// return true if storage usage is above the warning threshold
+export const isStorageNearFull = (): boolean =>
+  getStorageUsageRatio() >= STORAGE_WARNING_THRESHOLD
+
+// result of loading board data — distinguishes missing from corrupted
+export interface BoardLoadResult
+{
+  data: Partial<TierListData> | null
+  // true when the key existed but could not be parsed
+  corrupted: boolean
+}
+
 // load board data from its per-board localStorage key
-export const loadBoardFromStorage = (
-  boardId: BoardId
-): Partial<TierListData> | null =>
+export const loadBoardFromStorage = (boardId: BoardId): BoardLoadResult =>
 {
   try
   {
     const raw = readStorageItem(boardStorageKey(boardId))
     if (!raw)
     {
-      return null
+      return { data: null, corrupted: false }
     }
 
     const parsed = JSON.parse(raw) as
@@ -173,14 +186,31 @@ export const loadBoardFromStorage = (
       typeof parsed.data === 'object'
     )
     {
-      return parsed.data
+      return { data: parsed.data, corrupted: false }
     }
 
-    return parsed as Partial<TierListData>
+    return { data: parsed as Partial<TierListData>, corrupted: false }
   }
   catch
   {
-    return null
+    return { data: null, corrupted: true }
+  }
+}
+
+// check if a board's localStorage key exists & is parseable JSON without
+// deserializing the full payload (avoids reading megabytes of base64 data)
+export const isBoardStorageReadable = (boardId: BoardId): boolean =>
+{
+  try
+  {
+    const raw = readStorageItem(boardStorageKey(boardId))
+    if (!raw) return false
+    JSON.parse(raw)
+    return true
+  }
+  catch
+  {
+    return false
   }
 }
 

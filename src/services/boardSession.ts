@@ -11,12 +11,15 @@ import type {
 import { DEFAULT_TITLE } from '../utils/constants'
 import { generateBoardId } from '../utils/id'
 import {
+  isBoardStorageReadable,
+  isStorageNearFull,
   loadBoardFromStorage,
   migrateLegacyBoard,
   migrateStorageKeys,
   removeBoardFromStorage,
   saveBoardToStorage,
 } from '../utils/storage'
+import { toast } from '../store/useToastStore'
 import { normalizeTierListData } from '../domain/boardData'
 import { BUILTIN_PRESETS, createBoardDataFromPreset } from '../domain/presets'
 import { useBoardManagerStore } from '../store/useBoardManagerStore'
@@ -34,6 +37,9 @@ const PERSISTED_FIELDS = [
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
+// timestamp of last near-full warning — rate-limits the toast to once per 60s
+let storageWarningLastMs = 0
+const STORAGE_WARNING_COOLDOWN_MS = 60_000
 
 const getActivePaletteId = (): PaletteId =>
   useSettingsStore.getState().paletteId
@@ -70,6 +76,21 @@ export const saveBoardSnapshot = (boardId: BoardId): void =>
   saveBoardToStorage(boardId, data, (message) =>
     useTierListStore.getState().setRuntimeError(message)
   )
+
+  // proactive warning when storage is near full (rate-limited);
+  // skip the full localStorage scan when within the cooldown window
+  const now = Date.now()
+  if (
+    now - storageWarningLastMs > STORAGE_WARNING_COOLDOWN_MS &&
+    isStorageNearFull()
+  )
+  {
+    storageWarningLastMs = now
+    toast(
+      'Storage is almost full. Delete unused boards or remove large images to free space.',
+      'error'
+    )
+  }
 }
 
 export const saveActiveBoardSnapshot = (): void =>
@@ -84,8 +105,14 @@ export const saveActiveBoardSnapshot = (): void =>
 
 export const loadPersistedBoard = (boardId: BoardId): TierListData =>
 {
-  const stored = loadBoardFromStorage(boardId)
-  return normalizeTierListData(stored, getActivePaletteId())
+  const { data, corrupted } = loadBoardFromStorage(boardId)
+
+  if (corrupted)
+  {
+    toast('Board data was corrupted and has been reset.', 'error')
+  }
+
+  return normalizeTierListData(data, getActivePaletteId())
 }
 
 export const loadBoardIntoSession = (boardId: BoardId): TierListData =>
@@ -123,19 +150,59 @@ const saveAndActivateBoard = (
   return id
 }
 
+// remove registry entries whose board data is missing or unreadable, then
+// return the cleaned list so bootstrap can proceed w/ only valid boards
+const pruneOrphanedRegistryEntries = (): BoardMeta[] =>
+{
+  const boardStore = useBoardManagerStore.getState()
+  const healthy: BoardMeta[] = []
+  let pruned = 0
+
+  for (const meta of boardStore.boards)
+  {
+    if (!isBoardStorageReadable(meta.id))
+    {
+      removeBoardFromStorage(meta.id)
+      pruned++
+      continue
+    }
+
+    healthy.push(meta)
+  }
+
+  if (pruned > 0)
+  {
+    toast(
+      `${pruned} board${pruned > 1 ? 's' : ''} had corrupted data and ${pruned > 1 ? 'were' : 'was'} removed.`,
+      'error'
+    )
+  }
+
+  return healthy
+}
+
 export const bootstrapBoardSession = (): void =>
 {
   migrateStorageKeys()
 
   const boardStore = useBoardManagerStore.getState()
-  const nextActiveId =
-    boardStore.activeBoardId || boardStore.boards[0]?.id || ''
 
-  if (boardStore.boards.length > 0 && nextActiveId)
+  // prune registry entries whose localStorage data is missing or corrupted
+  const healthyBoards = pruneOrphanedRegistryEntries()
+  const nextActiveId =
+    (healthyBoards.some((b) => b.id === boardStore.activeBoardId)
+      ? boardStore.activeBoardId
+      : healthyBoards[0]?.id) || ''
+
+  if (healthyBoards.length > 0 && nextActiveId)
   {
-    if (boardStore.activeBoardId !== nextActiveId)
+    // update registry if any boards were pruned
+    if (
+      healthyBoards.length !== boardStore.boards.length ||
+      boardStore.activeBoardId !== nextActiveId
+    )
     {
-      boardStore.setActiveBoardId(nextActiveId)
+      boardStore.replaceRegistry(healthyBoards, nextActiveId)
     }
 
     loadBoardIntoSession(nextActiveId)
