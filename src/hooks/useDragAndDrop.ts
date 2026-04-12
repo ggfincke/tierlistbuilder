@@ -12,6 +12,7 @@ import {
   type UniqueIdentifier,
 } from '@dnd-kit/core'
 
+import { animateDropDistribute } from './dragDropAnimation'
 import { announce, getContainerLabel } from '../utils/announce'
 import { resolveDragCollisions } from './dragCollision'
 import { toStringId } from './dragHelpers'
@@ -99,8 +100,8 @@ export const useDragAndDrop = () =>
 
       if (state.keyboardMode === 'dragging')
       {
-        state.discardDragPreview()
-        state.setActiveItemId(null)
+        state.cancelKeyboardDrag()
+        return
       }
 
       state.clearKeyboardMode()
@@ -287,9 +288,22 @@ export const useDragAndDrop = () =>
       }
     }
 
-    // capture the drag group size before commit clears it
-    const groupCountBeforeCommit =
-      useTierListStore.getState().dragGroupIds.length
+    // capture group info before commit clears it
+    const stateBeforeCommit = useTierListStore.getState()
+    const groupIdsBeforeCommit = [...stateBeforeCommit.dragGroupIds]
+    const groupCountBeforeCommit = groupIdsBeforeCommit.length
+
+    // capture overlay position for the fan-out animation from the
+    // active element's translated rect (where the overlay was rendered)
+    let overlayOrigin: { x: number; y: number } | null = null
+    if (groupCountBeforeCommit > 1)
+    {
+      const translated = event.active.rect.current.translated
+      if (translated)
+      {
+        overlayOrigin = { x: translated.left, y: translated.top }
+      }
+    }
 
     commitDragPreview()
 
@@ -308,6 +322,16 @@ export const useDragAndDrop = () =>
     }
 
     resetDragState()
+
+    // trigger fan-out animation for multi-drag drops
+    if (overlayOrigin && groupIdsBeforeCommit.length > 1)
+    {
+      animateDropDistribute(
+        groupIdsBeforeCommit,
+        overlayOrigin.x,
+        overlayOrigin.y
+      )
+    }
   }
 
   // always discard the preview & clean up on keyboard/programmatic cancel
