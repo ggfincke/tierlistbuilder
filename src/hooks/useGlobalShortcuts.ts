@@ -98,16 +98,17 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // clear bulk selection — Escape
-      // skip if already handled by a focused item's keyboard controller
+      // skip if already handled by a focused item's keyboard controller or
+      // if a pointer drag is active (dnd-kit handles its own Escape)
       if (e.key === 'Escape')
       {
         if (e.defaultPrevented) return
         const state = useTierListStore.getState()
+        if (state.dragPreview !== null) return
         if (state.selectedItemIds.length > 0)
         {
           e.preventDefault()
           state.clearSelection()
-          return
         }
       }
 
@@ -142,8 +143,29 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
     }
 
+    // clear selection when clicking outside any item or the bulk action bar
+    const handlePointerDown = (e: PointerEvent) =>
+    {
+      const state = useTierListStore.getState()
+      if (state.selectedItemIds.length === 0) return
+      if (state.dragPreview !== null) return
+
+      const target = e.target as HTMLElement | null
+      if (!target) return
+
+      // keep selection if clicking on an item or the bulk action bar
+      if (target.closest('[data-item-id], [data-bulk-action-bar]')) return
+
+      state.clearSelection()
+    }
+
     document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () =>
+    {
+      document.removeEventListener('keydown', handler)
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
   }, [undo, redo, onExport])
 
   return {
