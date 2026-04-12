@@ -36,7 +36,9 @@ export const BulkActionBar = () =>
 
   return (
     <div
-      className={`fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-2xl border border-[rgb(var(--t-overlay)/0.18)] bg-[var(--t-bg-overlay)] px-4 py-2.5 shadow-xl ${reducedMotion ? '' : 'animate-[fadeIn_120ms_ease-out]'}`}
+      data-bulk-action-bar
+      className={`fixed z-40 left-1/2 -translate-x-1/2 rounded-2xl border border-[rgb(var(--t-overlay)/0.18)] bg-[var(--t-bg-overlay)] px-4 py-2.5 shadow-xl ${reducedMotion ? '' : 'animate-[fadeIn_120ms_ease-out]'}`}
+      style={{ bottom: `max(1.5rem, env(safe-area-inset-bottom, 0px))` }}
     >
       <div className="flex items-center gap-3">
         <span className="text-sm font-medium text-[var(--t-text)]">

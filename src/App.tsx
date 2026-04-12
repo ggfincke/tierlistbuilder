@@ -254,7 +254,7 @@ function App()
       >
         Skip to board
       </a>
-      <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+      <div className="app-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
         <Toolbar />
 
         {/* inline error banner — shown for storage & export errors */}

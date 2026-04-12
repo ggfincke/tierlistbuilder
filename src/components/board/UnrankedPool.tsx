@@ -134,7 +134,7 @@ export const UnrankedPool = () =>
           ref={setNodeRef}
           data-testid="unranked-container"
           data-tier-id={UNRANKED_CONTAINER_ID}
-          className={`flex min-h-24 flex-wrap border border-dashed p-2 transition ${compactMode ? 'gap-0' : 'gap-[2px]'} ${
+          className={`unranked-pool-grid flex min-h-24 flex-wrap border border-dashed p-2 transition ${compactMode ? 'gap-0' : 'gap-[2px]'} ${
             isOver
               ? 'border-[var(--t-border-hover)] bg-[var(--t-bg-drag-over)]'
               : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]'

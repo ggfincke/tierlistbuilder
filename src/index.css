@@ -262,4 +262,54 @@
       left: calc(env(safe-area-inset-left, 0px) + 1rem);
     }
   }
+
+  /* landscape phones — short viewports where vertical space is scarce */
+  @media (orientation: landscape) and (max-height: 500px)
+  {
+    /* reduce outer shell padding so the board gets more vertical room */
+    .app-content
+    {
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+
+    /* shrink the board manager away from edges on short screens */
+    .board-manager-trigger
+    {
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+    }
+
+    .board-manager-panel
+    {
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 3.5rem);
+      max-height: calc(100dvh - 4.5rem);
+      overflow-y: auto;
+    }
+
+    /* unranked pool — reduce minimum height on short viewports;
+       doubled selector overrides Tailwind's min-h-24 utility */
+    .unranked-pool-grid.unranked-pool-grid
+    {
+      min-height: 3rem;
+    }
+  }
+
+  /* safe-area horizontal insets for notched devices in landscape */
+  @media (orientation: landscape)
+  {
+    .app-content
+    {
+      padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+      padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    }
+  }
+
+  @media (orientation: landscape) and (min-width: 640px)
+  {
+    .app-content
+    {
+      padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+      padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+    }
+  }
 }
