@@ -90,6 +90,9 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
     {
       requestAnimationFrame(() =>
       {
+        // guard: element may have been unmounted during the async frame
+        if (!boardShellElement.isConnected) return
+
         if (boardShellElement.contains(document.activeElement))
         {
           return
@@ -99,9 +102,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
 
         if (state.keyboardMode === 'dragging')
         {
-          state.discardDragPreview()
-          state.setActiveItemId(null)
-          state.clearKeyboardMode()
+          state.cancelKeyboardDrag()
           announce('Drag cancelled')
           return
         }
@@ -212,8 +213,13 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         <TrashZone />
       </div>
 
-      {/* render ghost in the overlay while a drag is active */}
-      <DragOverlay modifiers={overlayModifiers}>
+      {/* render ghost in the overlay while a drag is active;
+          disable default drop animation during multi-drag so the
+          fan-out animation takes over immediately */}
+      <DragOverlay
+        modifiers={overlayModifiers}
+        dropAnimation={dragGroupCount > 1 ? null : undefined}
+      >
         {activeItem ? (
           <DragOverlayItem
             item={activeItem}

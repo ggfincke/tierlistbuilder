@@ -17,6 +17,7 @@ import {
 } from '../../utils/constants'
 import { ItemContent } from './ItemContent'
 import { ItemEditPopover } from './ItemEditPopover'
+import { resolveItemVisualState } from './itemVisualState'
 import { ItemOverlayButton } from '../ui/ItemOverlayButton'
 
 interface TierItemProps
@@ -119,6 +120,7 @@ export const TierItem = memo(
         {
           const dx = Math.abs(e.clientX - pointerStartRef.current.x)
           const dy = Math.abs(e.clientY - pointerStartRef.current.y)
+          pointerStartRef.current = null
           if (dx > 4 || dy > 4) return
         }
 
@@ -171,6 +173,13 @@ export const TierItem = memo(
       requestAnimationFrame(() => editButtonRef.current?.focus())
     }, [])
 
+    const { stateClass, opacity } = resolveItemVisualState({
+      isSelected,
+      isKeyboardFocused,
+      isKeyboardDragging,
+      isDragging,
+    })
+
     // item may have been deleted while dragging — render nothing
     if (!item)
     {
@@ -192,20 +201,9 @@ export const TierItem = memo(
             height: sizePx,
             transform: CSS.Transform.toString(transform),
             transition,
-            // fade the source tile while its ghost is shown in the overlay
-            opacity: isDragging ? 0.4 : isKeyboardDragging ? 0.75 : 1,
+            opacity,
           }}
-          className={`focus-custom group relative touch-none overflow-hidden outline-none ${SHAPE_CLASS[itemShape]} ${
-            isSelected && isKeyboardFocused
-              ? 'z-20 scale-[1.04] ring-[3px] ring-[var(--t-accent)] ring-offset-[3px] ring-offset-[var(--t-bg-surface)] brightness-110 transition-transform duration-100 outline-2 outline-offset-[6px] outline-[var(--t-accent-hover)]'
-              : isSelected
-                ? 'z-20 scale-[1.04] ring-[3px] ring-[var(--t-accent)] ring-offset-[3px] ring-offset-[var(--t-bg-surface)] brightness-110 transition-transform duration-100'
-                : isKeyboardDragging
-                  ? 'z-20 ring-2 ring-[var(--t-accent)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
-                  : isKeyboardFocused
-                    ? 'z-10 ring-2 ring-[var(--t-accent-hover)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
-                    : ''
-          }`}
+          className={`focus-custom group relative touch-none overflow-hidden outline-none ${SHAPE_CLASS[itemShape]} ${stateClass}`}
           data-keyboard-dragging={isKeyboardDragging ? 'true' : 'false'}
           data-keyboard-focused={isKeyboardFocused ? 'true' : 'false'}
           data-selected={isSelected ? 'true' : undefined}
