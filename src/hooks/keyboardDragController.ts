@@ -115,6 +115,9 @@ const handleBrowseModeArrowKey = (
   direction: KeyboardDragDirection
 ) =>
 {
+  // arrow navigation in browse mode supersedes pointer selection
+  state.clearSelection()
+
   const snapshot = getEffectiveContainerSnapshot(state)
   const focusedItemId = state.keyboardFocusItemId ?? itemId
 
@@ -205,9 +208,7 @@ const handleDraggingModeArrowKey = (
   // if the dragged item no longer exists, discard the preview & exit
   if (!activeContainerId)
   {
-    state.discardDragPreview()
-    state.setActiveItemId(null)
-    state.clearKeyboardMode()
+    state.cancelKeyboardDrag()
     return
   }
 
@@ -316,6 +317,9 @@ const handleKeyboardPickupDropKey = (itemId: string) =>
     return
   }
 
+  // keyboard pickup supersedes pointer selection
+  state.clearSelection()
+
   setBrowseFocus(state, focusedItemId)
   state.beginDragPreview(focusedItemId)
   state.setActiveItemId(focusedItemId)
@@ -331,9 +335,31 @@ const handleKeyboardPickupDropKey = (itemId: string) =>
   )
 }
 
+// safely reset keyboard drag state to idle — called when an exception leaves
+// the state machine in an inconsistent position
+const resetToSafeState = () =>
+{
+  try
+  {
+    useTierListStore.getState().cancelKeyboardDrag()
+  }
+  catch
+  {
+    // last resort — prevent a secondary crash from propagating
+  }
+}
+
 export const handleKeyboardSpaceKey = (itemId: string) =>
 {
-  handleKeyboardPickupDropKey(itemId)
+  try
+  {
+    handleKeyboardPickupDropKey(itemId)
+  }
+  catch (error)
+  {
+    console.error('keyboard space handler failed:', error)
+    resetToSafeState()
+  }
 }
 
 export const handleKeyboardArrowKey = (
@@ -341,20 +367,28 @@ export const handleKeyboardArrowKey = (
   direction: KeyboardDragDirection
 ) =>
 {
-  const state = useTierListStore.getState()
-
-  if (state.keyboardMode === 'browse')
+  try
   {
-    handleBrowseModeArrowKey(state, itemId, direction)
-    return
-  }
+    const state = useTierListStore.getState()
 
-  if (state.keyboardMode !== 'dragging' || !state.activeItemId)
+    if (state.keyboardMode === 'browse')
+    {
+      handleBrowseModeArrowKey(state, itemId, direction)
+      return
+    }
+
+    if (state.keyboardMode !== 'dragging' || !state.activeItemId)
+    {
+      return
+    }
+
+    handleDraggingModeArrowKey(state, direction)
+  }
+  catch (error)
   {
-    return
+    console.error('keyboard arrow handler failed:', error)
+    resetToSafeState()
   }
-
-  handleDraggingModeArrowKey(state, direction)
 }
 
 export const handleKeyboardEscapeKey = (itemId: string) =>
@@ -366,8 +400,7 @@ export const handleKeyboardEscapeKey = (itemId: string) =>
   // priority 1: cancel active drag, return to browse
   if (state.keyboardMode === 'dragging')
   {
-    state.discardDragPreview()
-    state.setActiveItemId(null)
+    state.cancelKeyboardDrag()
     state.setKeyboardMode('browse')
     state.setKeyboardFocusItemId(focusedItemId)
     scheduleKeyboardFocusRestore(focusedItemId)
@@ -406,6 +439,8 @@ export const handleKeyboardBoardJumpKey = () =>
 {
   const state = useTierListStore.getState()
   const targetItemId = getPreferredBoardFocusItemId(state)
+
+  state.clearSelection()
 
   if (!targetItemId)
   {

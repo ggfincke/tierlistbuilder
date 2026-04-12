@@ -25,7 +25,7 @@ const focusItemById = (itemId: string) =>
     `[data-testid="tier-item-${itemId}"]`
   )
 
-  if (itemElement)
+  if (itemElement?.isConnected)
   {
     itemElement.focus({ preventScroll: true })
     return

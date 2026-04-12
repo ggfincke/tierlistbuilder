@@ -82,12 +82,35 @@ interface TierListStore extends TierListStoreRuntimeState
   moveSelectedToTier: (tierId: string) => void
   moveSelectedToUnranked: () => void
   deleteSelectedItems: () => void
+  cancelKeyboardDrag: () => void
 }
 
-const pushUndo = (state: TierListStore) => ({
-  past: [...state.past, extractBoardData(state)].slice(-50),
-  future: [] as TierListData[],
-})
+// fast referential check (===) — catches same-object duplicates only, not
+// structural equality; this is intentional as a cheap no-op filter, not a
+// complete dedup (operations that spread inner arrays will bypass this)
+const isSameSnapshot = (a: TierListData, b: TierListData): boolean =>
+  a.title === b.title &&
+  a.tiers === b.tiers &&
+  a.unrankedItemIds === b.unrankedItemIds &&
+  a.items === b.items &&
+  a.deletedItems === b.deletedItems
+
+const pushUndo = (state: TierListStore) =>
+{
+  const snapshot = extractBoardData(state)
+  const lastSnapshot = state.past[state.past.length - 1]
+
+  // skip no-op: don't push if the board hasn't changed since the last snapshot
+  if (lastSnapshot && isSameSnapshot(snapshot, lastSnapshot))
+  {
+    return state.future.length === 0 ? {} : { future: [] as TierListData[] }
+  }
+
+  return {
+    past: [...state.past, snapshot].slice(-50),
+    future: [] as TierListData[],
+  }
+}
 
 const withUndo = (
   state: TierListStore,
@@ -591,12 +614,11 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         }
       }
 
-      // clear selection only on multi-drag commit — a single-item drag should
-      // leave any unrelated selection intact
-      const selectionReset: Partial<TierListStore> = isMultiDrag
+      // preserve selection after multi-drag so the group stays selected on drop
+      const selectionUpdate: Partial<TierListStore> = isMultiDrag
         ? {
-            selectedItemIds: [],
-            lastClickedItemId: null,
+            selectedItemIds: [...groupIds],
+            lastClickedItemId: groupIds[groupIds.length - 1],
           }
         : {}
 
@@ -606,7 +628,7 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         unrankedItemIds,
         dragPreview: null,
         dragGroupIds: [],
-        ...selectionReset,
+        ...selectionUpdate,
         itemsManuallyMoved: true,
       }
     }),
@@ -790,9 +812,10 @@ export const useTierListStore = create<TierListStore>()((set) => ({
     }),
 
   clearSelection: () =>
-    set({
-      selectedItemIds: [],
-      lastClickedItemId: null,
+    set((state) =>
+    {
+      if (state.selectedItemIds.length === 0) return state
+      return { selectedItemIds: [], lastClickedItemId: null }
     }),
 
   selectAll: () =>
@@ -883,6 +906,15 @@ export const useTierListStore = create<TierListStore>()((set) => ({
         selectedItemIds: [],
         lastClickedItemId: null,
       }
+    }),
+
+  cancelKeyboardDrag: () =>
+    set({
+      dragPreview: null,
+      dragGroupIds: [],
+      activeItemId: null,
+      keyboardMode: 'idle',
+      keyboardFocusItemId: null,
     }),
 
   deleteSelectedItems: () =>
