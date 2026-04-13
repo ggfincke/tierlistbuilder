@@ -6,7 +6,7 @@ import {
   moveItemInSnapshot,
   moveItemToIndexInSnapshot,
   resolveStoreInsertionIndex,
-} from '../src/utils/dragSnapshot'
+} from '@/features/workspace/boards/dnd/dragSnapshot'
 import { makeSnapshot } from './fixtures'
 
 describe('createContainerSnapshot', () =>

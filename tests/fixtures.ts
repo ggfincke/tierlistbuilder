@@ -1,5 +1,6 @@
-import type { ContainerSnapshot, Tier } from '../src/types'
-import { createPaletteTierColorSpec } from '../src/domain/tierColors'
+import type { Tier } from '@/features/workspace/boards/model/contract'
+import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
+import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
 
 export const TIER_IDS = ['tier-s', 'tier-a', 'tier-b'] as const
 export const ITEM_IDS = [

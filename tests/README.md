@@ -13,9 +13,9 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Pointer Math**: Drag target index calculation & insertion positioning
 - **Color Parsing**: Hex/RGB normalization, contrast calculation
 - **Tier Colors**: Palette/custom color spec creation & resolution
-- **Board Data**: Board creation, reset, tier factory, color spec normalization, & legacy data migration
+- **Board Snapshot**: Board creation, reset, tier factory, color spec normalization, & legacy data migration
 - **Board Operations**: Pure tier sorting & item shuffling logic
-- **Presets**: Preset-to-board conversion, board-to-preset extraction, & round-trip integrity
+- **Tier Presets**: Preset-to-board conversion, board-to-preset extraction, & round-trip integrity
 - **JSON Import**: Single & multi-board parsing, envelope detection, validation, & error reporting
 - **Selection Primitives**: Shared radio/tab semantics behind roving selection
 - **Nested Menus**: Shared tree state for root/submenu orchestration
@@ -53,16 +53,16 @@ tests/
 ├── id.test.ts                 — ID factory prefixes & guard helpers
 ├── color.test.ts              — hex/rgb parsing & contrast
 ├── tierColors.test.ts         — tier color spec creation & resolution
-├── boardData.test.ts          — board creation, tier factory, color spec normalization, & legacy migration
+├── boardSnapshot.test.ts      — board creation, tier factory, color spec normalization, & legacy migration
 ├── boardOps.test.ts           — pure sorting & shuffling helpers
-├── presets.test.ts            — preset-to-board & board-to-preset conversion
+├── tierPresets.test.ts        — preset-to-board & board-to-preset conversion
 ├── exportJson.test.ts         — JSON import parsing, validation, & multi-board envelope detection
 ├── selectionState.test.ts     — shared radio/tab semantics for roving selection
 ├── nestedMenus.test.ts        — nested root/submenu open-close tree rules
 ├── dragSnapshot.test.ts       — snapshot transforms & container queries
 ├── dragKeyboard.test.ts       — keyboard navigation resolution
 ├── dragPointerMath.test.ts    — pointer insertion math
-├── menuPosition.test.ts       — submenu direction & responsive toolbar helpers
+├── toolbarPosition.test.ts    — submenu direction & responsive toolbar helpers
 └── popupPosition.test.ts      — fixed popup placement & viewport clamping
 ```
 

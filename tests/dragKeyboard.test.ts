@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   resolveNextKeyboardDragPreview,
   resolveNextKeyboardFocusItem,
-} from '../src/utils/dragKeyboard'
+} from '@/features/workspace/boards/dnd/dragKeyboard'
 import { makeSnapshot } from './fixtures'
 
 describe('resolveNextKeyboardDragPreview', () =>

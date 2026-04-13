@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveNextSelectionIndex } from '../src/utils/selectionNavigation'
+import { resolveNextSelectionIndex } from '@/shared/selection/selectionNavigation'
 
 describe('resolveNextSelectionIndex', () =>
 {

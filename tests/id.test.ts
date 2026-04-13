@@ -7,7 +7,7 @@ import {
   isBoardId,
   isPresetId,
   isTierId,
-} from '../src/utils/id'
+} from '@/shared/lib/id'
 
 describe('ID helpers', () =>
 {

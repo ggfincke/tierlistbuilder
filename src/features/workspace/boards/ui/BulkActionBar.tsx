@@ -1,0 +1,102 @@
+// src/features/workspace/boards/ui/BulkActionBar.tsx
+// floating bar shown when items are selected — bulk move, delete, & clear selection
+
+import { ArrowRight, Trash2, X } from 'lucide-react'
+
+import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
+import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
+import { resolveTierColorSpec } from '@/shared/theme/tierColors'
+import { getTextColor } from '@/shared/lib/color'
+
+export const BulkActionBar = () =>
+{
+  const selectedCount = useActiveBoardStore(
+    (state) => state.selectedItemIds.length
+  )
+  // hide the floating bar while a drag is in flight
+  const isDragging = useActiveBoardStore(
+    (state) => state.dragPreview !== null || state.dragGroupIds.length > 0
+  )
+  const tiers = useActiveBoardStore((state) => state.tiers)
+  const moveSelectedToTier = useActiveBoardStore(
+    (state) => state.moveSelectedToTier
+  )
+  const moveSelectedToUnranked = useActiveBoardStore(
+    (state) => state.moveSelectedToUnranked
+  )
+  const deleteSelectedItems = useActiveBoardStore(
+    (state) => state.deleteSelectedItems
+  )
+  const clearSelection = useActiveBoardStore((state) => state.clearSelection)
+  const reducedMotion = useSettingsStore((state) => state.reducedMotion)
+  const paletteId = useCurrentPaletteId()
+
+  if (selectedCount === 0 || isDragging) return null
+
+  return (
+    <div
+      data-bulk-action-bar
+      className={`fixed z-40 left-1/2 -translate-x-1/2 rounded-2xl border border-[rgb(var(--t-overlay)/0.18)] bg-[var(--t-bg-overlay)] px-4 py-2.5 shadow-xl ${reducedMotion ? '' : 'animate-[fadeIn_120ms_ease-out]'}`}
+      style={{ bottom: `max(1.5rem, env(safe-area-inset-bottom, 0px))` }}
+    >
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-[var(--t-text)]">
+          {selectedCount} selected
+        </span>
+
+        <div className="h-4 w-px bg-[var(--t-border)]" />
+
+        {/* move to tier buttons */}
+        <div className="flex items-center gap-1.5">
+          <ArrowRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
+          {tiers.map((tier) =>
+          {
+            const bg = resolveTierColorSpec(paletteId, tier.colorSpec)
+            const fg = getTextColor(bg)
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                onClick={() => moveSelectedToTier(tier.id)}
+                className="rounded-md px-2 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80"
+                style={{ backgroundColor: bg, color: fg }}
+                title={`Move to ${tier.name}`}
+              >
+                {tier.name}
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            onClick={moveSelectedToUnranked}
+            className="rounded-md bg-[var(--t-bg-surface)] px-2 py-0.5 text-xs text-[var(--t-text-secondary)] transition-colors hover:bg-[var(--t-bg-hover)]"
+            title="Move to unranked"
+          >
+            Unranked
+          </button>
+        </div>
+
+        <div className="h-4 w-px bg-[var(--t-border)]" />
+
+        <button
+          type="button"
+          onClick={deleteSelectedItems}
+          className="rounded-md p-1 text-[var(--t-text-faint)] transition-colors hover:text-[var(--t-destructive)]"
+          title="Delete selected"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+
+        <button
+          type="button"
+          onClick={clearSelection}
+          className="rounded-md p-1 text-[var(--t-text-faint)] transition-colors hover:text-[var(--t-text)]"
+          title="Clear selection"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
+}

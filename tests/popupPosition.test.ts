@@ -4,7 +4,7 @@ import {
   computeCustomColorPickerStyle,
   computeItemEditPopoverStyle,
   computeSettingsMenuStyle,
-} from '../src/utils/popupPosition'
+} from '@/shared/overlay/popupPosition'
 
 const makeRect = (
   overrides: Partial<DOMRect> = {}

@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { parseBoardJson, parseBoardsJson } from '../src/utils/exportJson'
-import type { TierListData } from '../src/types'
-import { createPaletteTierColorSpec } from '../src/domain/tierColors'
+import {
+  parseBoardJson,
+  parseBoardsJson,
+} from '@/features/workspace/export/lib/exportJson'
+import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
 
 // minimal valid board data — satisfies parseBoardJson validation
-const makeValidBoard = (overrides?: Partial<TierListData>): TierListData => ({
+const makeValidBoard = (overrides?: Partial<BoardSnapshot>): BoardSnapshot => ({
   title: 'Test Board',
   tiers: [
     {
@@ -30,7 +33,7 @@ const makeValidBoard = (overrides?: Partial<TierListData>): TierListData => ({
 })
 
 // wrap board data in the versioned export envelope
-const wrapEnvelope = (data: TierListData) =>
+const wrapEnvelope = (data: BoardSnapshot) =>
   JSON.stringify({ version: 3, exportedAt: '2026-01-01T00:00:00Z', data })
 
 describe('parseBoardJson', () =>
@@ -45,7 +48,7 @@ describe('parseBoardJson', () =>
     expect(result.items['item-1'].label).toBe('First')
   })
 
-  it('parses raw TierListData without an envelope wrapper', () =>
+  it('parses raw BoardSnapshot without an envelope wrapper', () =>
   {
     const board = makeValidBoard()
     const result = parseBoardJson(JSON.stringify(board))
@@ -199,7 +202,7 @@ describe('parseBoardJson', () =>
     })
   })
 
-  it('normalizes data via normalizeTierListData (fallback title applied)', () =>
+  it('normalizes data via normalizeBoardSnapshot (fallback title applied)', () =>
   {
     const noTitle = {
       tiers: [

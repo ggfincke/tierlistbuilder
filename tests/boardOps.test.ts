@@ -6,9 +6,10 @@ import {
   shuffleAllBoardItems,
   shuffleUnrankedItems,
   sortTierItemsByName,
-} from '../src/domain/boardOps'
-import { createPaletteTierColorSpec } from '../src/domain/tierColors'
-import type { Tier, TierId } from '../src/types'
+} from '@/features/workspace/boards/model/boardOps'
+import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
+import type { Tier } from '@/features/workspace/boards/model/contract'
+import type { TierId } from '@/shared/types/ids'
 
 const makeTier = (
   id: TierId,

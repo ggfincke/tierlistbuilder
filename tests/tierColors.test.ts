@@ -6,7 +6,7 @@ import {
   resolveTierColorSpec,
   getAutoTierColorSpec,
   getTierColorFromPaletteSpec,
-} from '../src/domain/tierColors'
+} from '@/shared/theme/tierColors'
 
 describe('createPaletteTierColorSpec', () =>
 {

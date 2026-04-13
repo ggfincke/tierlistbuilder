@@ -6,7 +6,7 @@ import {
   rgbToHexColor,
   getTextColor,
   parseRgbInputState,
-} from '../src/utils/color'
+} from '@/shared/lib/color'
 
 describe('normalizeHexColor', () =>
 {

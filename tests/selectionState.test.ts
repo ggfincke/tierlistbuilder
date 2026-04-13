@@ -5,7 +5,7 @@ import {
   getSelectionItemState,
   resolveRovingTabIndex,
   resolveSelectionActiveKey,
-} from '../src/utils/selectionState'
+} from '@/shared/selection/selectionState'
 
 describe('resolveSelectionActiveKey', () =>
 {

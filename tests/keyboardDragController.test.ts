@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { createPaletteTierColorSpec } from '../src/domain/tierColors'
+import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
 import {
   handleKeyboardArrowKey,
   handleKeyboardBoardJumpKey,
   handleKeyboardEscapeKey,
   handleKeyboardItemFocus,
   handleKeyboardSpaceKey,
-} from '../src/hooks/keyboardDragController'
-import { useTierListStore } from '../src/store/useTierListStore'
-import type { TierListData } from '../src/types'
+} from '@/features/workspace/boards/interaction/keyboardDragController'
+import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
 
-const makeBoard = (): TierListData => ({
+const makeBoard = (): BoardSnapshot => ({
   title: 'Keyboard Board',
   tiers: [
     {
@@ -39,7 +39,7 @@ const makeBoard = (): TierListData => ({
 
 beforeEach(() =>
 {
-  useTierListStore.getState().loadBoard(makeBoard())
+  useActiveBoardStore.getState().loadBoard(makeBoard())
 })
 
 describe('keyboard drag controller', () =>
@@ -48,7 +48,7 @@ describe('keyboard drag controller', () =>
   {
     handleKeyboardItemFocus('item-2')
 
-    const state = useTierListStore.getState()
+    const state = useActiveBoardStore.getState()
 
     expect(state.keyboardMode).toBe('browse')
     expect(state.keyboardFocusItemId).toBe('item-2')
@@ -59,7 +59,7 @@ describe('keyboard drag controller', () =>
     handleKeyboardItemFocus('item-1')
     handleKeyboardSpaceKey('item-1')
 
-    const state = useTierListStore.getState()
+    const state = useActiveBoardStore.getState()
 
     expect(state.keyboardMode).toBe('dragging')
     expect(state.activeItemId).toBe('item-1')
@@ -68,11 +68,11 @@ describe('keyboard drag controller', () =>
 
   it('jumps back to the last active board item', () =>
   {
-    useTierListStore.getState().setLastClickedItemId('item-4')
+    useActiveBoardStore.getState().setLastClickedItemId('item-4')
 
     handleKeyboardBoardJumpKey()
 
-    const state = useTierListStore.getState()
+    const state = useActiveBoardStore.getState()
 
     expect(state.keyboardMode).toBe('browse')
     expect(state.keyboardFocusItemId).toBe('item-4')
@@ -83,7 +83,7 @@ describe('keyboard drag controller', () =>
     handleKeyboardItemFocus('item-1')
     handleKeyboardArrowKey('item-1', 'ArrowDown')
 
-    const state = useTierListStore.getState()
+    const state = useActiveBoardStore.getState()
 
     expect(state.keyboardMode).toBe('browse')
     expect(state.keyboardFocusItemId).toBe('item-3')
@@ -96,7 +96,7 @@ describe('keyboard drag controller', () =>
     handleKeyboardArrowKey('item-1', 'ArrowDown')
     handleKeyboardSpaceKey('item-1')
 
-    const state = useTierListStore.getState()
+    const state = useActiveBoardStore.getState()
 
     expect(state.keyboardMode).toBe('browse')
     expect(state.activeItemId).toBeNull()
@@ -108,11 +108,11 @@ describe('keyboard drag controller', () =>
 
   it('clears selection before leaving browse state on Escape', () =>
   {
-    useTierListStore.getState().selectAll()
+    useActiveBoardStore.getState().selectAll()
     handleKeyboardItemFocus('item-4')
     handleKeyboardEscapeKey('item-4')
 
-    const state = useTierListStore.getState()
+    const state = useActiveBoardStore.getState()
 
     expect(state.keyboardMode).toBe('browse')
     expect(state.keyboardFocusItemId).toBe('item-4')

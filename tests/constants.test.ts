@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import {
-  toFileBase,
-  clampIndex,
-  buildDefaultTiers,
-} from '../src/utils/constants'
+import { buildDefaultTiers } from '@/features/workspace/boards/lib/boardDefaults'
+import { toFileBase } from '@/shared/lib/fileName'
+import { clampIndex } from '@/shared/lib/math'
 
 describe('toFileBase', () =>
 {
