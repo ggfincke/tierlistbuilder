@@ -5,6 +5,7 @@ import { memo, useCallback, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { useShallow } from 'zustand/react/shallow'
 import { Check, GripVertical, PenLine, X } from 'lucide-react'
 
 import { useKeyboardDrag } from '@/features/workspace/boards/interaction/useKeyboardDrag'
@@ -16,15 +17,16 @@ import { ItemContent } from '@/shared/board-ui/ItemContent'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
 import { ItemOverlayButton } from '@/shared/ui/ItemOverlayButton'
+import type { ItemId } from '@/shared/types/ids'
 
 interface TierItemProps
 {
   // ID of the item to render
-  itemId: string
+  itemId: ItemId
   // ID of the container (tier or unranked pool) this item lives in
   containerId: string
   // called when user requests deletion (only used in the unranked pool)
-  onRequestDelete?: (itemId: string) => void
+  onRequestDelete?: (itemId: ItemId) => void
 }
 
 export const TierItem = memo(
@@ -32,30 +34,32 @@ export const TierItem = memo(
   {
     const item = useActiveBoardStore((state) => state.items[itemId])
     const isSelected = useActiveBoardStore((state) =>
-      state.selectedItemIds.includes(itemId)
+      state.selectedItemIdSet.has(itemId)
     )
     const hasKeyboardSelection = useActiveBoardStore(
       (state) =>
-        state.keyboardMode === 'browse' && state.selectedItemIds.length > 0
+        state.keyboardMode === 'browse' && state.selectedItemIdSet.size > 0
     )
-    const toggleItemSelected = useActiveBoardStore(
-      (state) => state.toggleItemSelected
-    )
-    const setKeyboardFocusItemId = useActiveBoardStore(
-      (state) => state.setKeyboardFocusItemId
-    )
-    const setKeyboardMode = useActiveBoardStore(
-      (state) => state.setKeyboardMode
-    )
+    const { toggleItemSelected, setKeyboardFocusItemId, setKeyboardMode } =
+      useActiveBoardStore(
+        useShallow((state) => ({
+          toggleItemSelected: state.toggleItemSelected,
+          setKeyboardFocusItemId: state.setKeyboardFocusItemId,
+          setKeyboardMode: state.setKeyboardMode,
+        }))
+      )
     const canDelete = containerId === UNRANKED_CONTAINER_ID
 
-    const itemSize = useSettingsStore((state) => state.itemSize)
-    const itemShape = useSettingsStore((state) => state.itemShape)
-    const showLabels = useSettingsStore((state) => state.showLabels)
-    const boardLocked = useSettingsStore((state) => state.boardLocked)
-    const showAltTextButton = useSettingsStore(
-      (state) => state.showAltTextButton
-    )
+    const { itemSize, itemShape, showLabels, boardLocked, showAltTextButton } =
+      useSettingsStore(
+        useShallow((state) => ({
+          itemSize: state.itemSize,
+          itemShape: state.itemShape,
+          showLabels: state.showLabels,
+          boardLocked: state.boardLocked,
+          showAltTextButton: state.showAltTextButton,
+        }))
+      )
 
     const sizePx = ITEM_SIZE_PX[itemSize]
 
@@ -219,13 +223,16 @@ export const TierItem = memo(
           {/* selection check badge */}
           {isSelected && (
             <span className="pointer-events-none absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--t-accent)] shadow-sm">
-              <Check className="h-3 w-3 text-white" strokeWidth={3} />
+              <Check
+                className="h-3 w-3 text-[var(--t-accent-foreground)]"
+                strokeWidth={3}
+              />
             </span>
           )}
 
           {/* drag handle indicator — hover-reveal on desktop, persistent on mobile */}
           {!boardLocked && (
-            <span className="pointer-events-none absolute top-0.5 left-0.5 flex h-5 w-5 items-center justify-center text-white/40 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 max-sm:opacity-30">
+            <span className="pointer-events-none absolute top-0.5 left-0.5 flex h-5 w-5 items-center justify-center text-[rgb(var(--t-overlay)/0.45)] opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 max-sm:opacity-30">
               <GripVertical className="h-3 w-3" />
             </span>
           )}

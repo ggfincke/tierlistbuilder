@@ -4,6 +4,7 @@
 import { announce } from '@/shared/a11y/announce'
 import { getContainerLabel } from '@/features/workspace/boards/lib/containerLabel'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import type { ItemId } from '@/shared/types/ids'
 import {
   findContainer,
   getEffectiveContainerSnapshot,
@@ -33,7 +34,7 @@ export const KEYBOARD_DIRECTIONS = new Set<KeyboardDragDirection>([
   'ArrowDown',
 ])
 
-const getFirstBoardItemId = (state: TierListKeyboardState): string | null =>
+const getFirstBoardItemId = (state: TierListKeyboardState): ItemId | null =>
 {
   return (
     state.tiers.find((tier) => tier.itemIds.length > 0)?.itemIds[0] ??
@@ -44,7 +45,7 @@ const getFirstBoardItemId = (state: TierListKeyboardState): string | null =>
 
 const getPreferredBoardFocusItemId = (
   state: TierListKeyboardState
-): string | null =>
+): ItemId | null =>
 {
   const candidateIds = [
     state.keyboardFocusItemId,
@@ -65,7 +66,7 @@ const getPreferredBoardFocusItemId = (
 
 const setBrowseFocus = (
   state: TierListKeyboardState,
-  itemId: string,
+  itemId: ItemId,
   restoreFocus = false
 ) =>
 {
@@ -80,7 +81,7 @@ const setBrowseFocus = (
 
 const announceKeyboardDragMove = (
   state: TierListKeyboardState,
-  itemId: string,
+  itemId: ItemId,
   snapshot: ReturnType<typeof getEffectiveContainerSnapshot>
 ) =>
 {
@@ -112,7 +113,7 @@ const announceKeyboardDragMove = (
 
 const handleBrowseModeArrowKey = (
   state: TierListKeyboardState,
-  itemId: string,
+  itemId: ItemId,
   direction: KeyboardDragDirection
 ) =>
 {
@@ -286,7 +287,7 @@ const handleDraggingModeArrowKey = (
   announceKeyboardDragMove(state, activeKeyboardItemId, nextTarget.nextPreview)
 }
 
-const handleKeyboardPickupDropKey = (itemId: string) =>
+const handleKeyboardPickupDropKey = (itemId: ItemId) =>
 {
   const state = useActiveBoardStore.getState()
   const focusedItemId = state.keyboardFocusItemId ?? itemId
@@ -350,7 +351,7 @@ const resetToSafeState = () =>
   }
 }
 
-export const handleKeyboardSpaceKey = (itemId: string) =>
+export const handleKeyboardSpaceKey = (itemId: ItemId) =>
 {
   try
   {
@@ -364,7 +365,7 @@ export const handleKeyboardSpaceKey = (itemId: string) =>
 }
 
 export const handleKeyboardArrowKey = (
-  itemId: string,
+  itemId: ItemId,
   direction: KeyboardDragDirection
 ) =>
 {
@@ -392,7 +393,7 @@ export const handleKeyboardArrowKey = (
   }
 }
 
-export const handleKeyboardEscapeKey = (itemId: string) =>
+export const handleKeyboardEscapeKey = (itemId: ItemId) =>
 {
   const state = useActiveBoardStore.getState()
   const focusedItemId =
@@ -418,7 +419,7 @@ export const handleKeyboardEscapeKey = (itemId: string) =>
   }
 }
 
-export const handleKeyboardItemFocus = (itemId: string) =>
+export const handleKeyboardItemFocus = (itemId: ItemId) =>
 {
   const state = useActiveBoardStore.getState()
 

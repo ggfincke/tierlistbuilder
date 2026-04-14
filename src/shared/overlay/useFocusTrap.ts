@@ -58,17 +58,9 @@ const getTopmostFocusTrap = (): FocusTrapEntry | undefined =>
 
 export const useFocusTrap = (
   containerRef: RefObject<HTMLElement | null>,
-  options: boolean | UseFocusTrapOptions
+  { active, initialFocusRef, restoreFocus = true }: UseFocusTrapOptions
 ) =>
 {
-  const {
-    active,
-    initialFocusRef,
-    restoreFocus = true,
-  } = typeof options === 'boolean'
-    ? { active: options, initialFocusRef: undefined, restoreFocus: true }
-    : options
-
   useEffect(() =>
   {
     if (!active)

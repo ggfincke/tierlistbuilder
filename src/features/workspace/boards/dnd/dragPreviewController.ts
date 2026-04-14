@@ -4,7 +4,7 @@
 import type { MutableRefObject } from 'react'
 import type { DragMoveEvent, DragOverEvent } from '@dnd-kit/core'
 
-import { toStringId } from './dragHelpers'
+import { toItemId, toStringId } from './dragHelpers'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
 import { TRASH_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
@@ -35,7 +35,7 @@ export const syncDraggedItemPosition = (
     return false
   }
 
-  const activeId = toStringId(event.active.id)
+  const activeId = toItemId(event.active.id)
   const overId = toStringId(event.over.id)
 
   if (!activeId || !overId || activeId === overId)

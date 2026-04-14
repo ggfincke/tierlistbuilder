@@ -3,26 +3,19 @@
 
 import { useId, useRef } from 'react'
 
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
 import { BaseModal } from '@/shared/overlay/BaseModal'
+import { PrimaryButton } from '@/shared/ui/PrimaryButton'
+import { SecondaryButton } from '@/shared/ui/SecondaryButton'
 
 interface ConfirmDialogProps
 {
-  // controls dialog visibility
   open: boolean
-  // bold heading shown at the top of the dialog
   title: string
-  // supporting body text describing the consequences
   description: string
-  // label for the confirm button (default: "Confirm")
   confirmText?: string
-  // label for the cancel button (default: "Cancel")
   cancelText?: string
-  // visual style of the confirm button (default: "destructive")
   variant?: 'destructive' | 'accent'
-  // called when the user confirms the action
   onConfirm: () => void
-  // called when the user cancels or closes the dialog
   onCancel: () => void
 }
 
@@ -68,17 +61,9 @@ export const ConfirmDialog = ({
         >
           {cancelText}
         </SecondaryButton>
-        <button
-          type="button"
-          className={`focus-custom rounded-md px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-overlay)] ${
-            variant === 'accent'
-              ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)] hover:bg-[var(--t-accent-hover)]'
-              : 'bg-[var(--t-destructive)] text-[var(--t-destructive-foreground)] hover:bg-[var(--t-destructive-hover)]'
-          }`}
-          onClick={onConfirm}
-        >
+        <PrimaryButton tone={variant} onClick={onConfirm}>
           {confirmText}
-        </button>
+        </PrimaryButton>
       </div>
     </BaseModal>
   )

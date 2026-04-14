@@ -16,14 +16,12 @@ import { ItemsTab } from './ItemsTab'
 import { LayoutTab } from './LayoutTab'
 import { MoreTab } from './MoreTab'
 
-type Tab = 'items' | 'appearance' | 'layout' | 'more'
-const TABS: Tab[] = ['items', 'appearance', 'layout', 'more']
+const TABS = ['items', 'appearance', 'layout', 'more'] as const
+type Tab = (typeof TABS)[number]
 
 interface BoardSettingsModalProps
 {
-  // controls panel visibility
   open: boolean
-  // called when the user closes the panel
   onClose: () => void
 }
 
@@ -76,7 +74,9 @@ export const BoardSettingsModal = ({
     groupLabel: 'Settings sections',
   })
 
-  // compute storage usage when preferences tab opens
+  // compute storage usage when the More tab is visible — useMemo derives it
+  // synchronously without an effect & re-computes only when [open, activeTab]
+  // change, so re-renders inside the More tab don't re-scan localStorage
   const storageBytes = useMemo(
     () => (open && activeTab === 'more' ? getStorageUsageBytes() : 0),
     [open, activeTab]

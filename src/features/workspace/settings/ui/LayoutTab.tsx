@@ -2,6 +2,8 @@
 // layout tab content for item sizing, label styling, & row controls
 
 import { PanelTop, PanelBottom, PanelLeft, PanelRight } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
+
 import { announce } from '@/shared/a11y/announce'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 import type {
@@ -18,37 +20,54 @@ import { Toggle } from './Toggle'
 
 export const LayoutTab = () =>
 {
-  const itemSize = useSettingsStore((state) => state.itemSize)
-  const showLabels = useSettingsStore((state) => state.showLabels)
-  const itemShape = useSettingsStore((state) => state.itemShape)
-  const compactMode = useSettingsStore((state) => state.compactMode)
-  const labelWidth = useSettingsStore((state) => state.labelWidth)
-  const hideRowControls = useSettingsStore((state) => state.hideRowControls)
-  const tierLabelBold = useSettingsStore((state) => state.tierLabelBold)
-  const tierLabelItalic = useSettingsStore((state) => state.tierLabelItalic)
-  const tierLabelFontSize = useSettingsStore((state) => state.tierLabelFontSize)
-  const setItemSize = useSettingsStore((state) => state.setItemSize)
-  const setShowLabels = useSettingsStore((state) => state.setShowLabels)
-  const setItemShape = useSettingsStore((state) => state.setItemShape)
-  const setCompactMode = useSettingsStore((state) => state.setCompactMode)
-  const setLabelWidth = useSettingsStore((state) => state.setLabelWidth)
-  const setHideRowControls = useSettingsStore(
-    (state) => state.setHideRowControls
-  )
-  const setTierLabelBold = useSettingsStore((state) => state.setTierLabelBold)
-  const setTierLabelItalic = useSettingsStore(
-    (state) => state.setTierLabelItalic
-  )
-  const setTierLabelFontSize = useSettingsStore(
-    (state) => state.setTierLabelFontSize
-  )
-  const showAltTextButton = useSettingsStore((state) => state.showAltTextButton)
-  const setShowAltTextButton = useSettingsStore(
-    (state) => state.setShowAltTextButton
-  )
-  const toolbarPosition = useSettingsStore((state) => state.toolbarPosition)
-  const setToolbarPosition = useSettingsStore(
-    (state) => state.setToolbarPosition
+  const {
+    itemSize,
+    showLabels,
+    itemShape,
+    compactMode,
+    labelWidth,
+    hideRowControls,
+    tierLabelBold,
+    tierLabelItalic,
+    tierLabelFontSize,
+    showAltTextButton,
+    toolbarPosition,
+    setItemSize,
+    setShowLabels,
+    setItemShape,
+    setCompactMode,
+    setLabelWidth,
+    setHideRowControls,
+    setTierLabelBold,
+    setTierLabelItalic,
+    setTierLabelFontSize,
+    setShowAltTextButton,
+    setToolbarPosition,
+  } = useSettingsStore(
+    useShallow((state) => ({
+      itemSize: state.itemSize,
+      showLabels: state.showLabels,
+      itemShape: state.itemShape,
+      compactMode: state.compactMode,
+      labelWidth: state.labelWidth,
+      hideRowControls: state.hideRowControls,
+      tierLabelBold: state.tierLabelBold,
+      tierLabelItalic: state.tierLabelItalic,
+      tierLabelFontSize: state.tierLabelFontSize,
+      showAltTextButton: state.showAltTextButton,
+      toolbarPosition: state.toolbarPosition,
+      setItemSize: state.setItemSize,
+      setShowLabels: state.setShowLabels,
+      setItemShape: state.setItemShape,
+      setCompactMode: state.setCompactMode,
+      setLabelWidth: state.setLabelWidth,
+      setHideRowControls: state.setHideRowControls,
+      setTierLabelBold: state.setTierLabelBold,
+      setTierLabelItalic: state.setTierLabelItalic,
+      setTierLabelFontSize: state.setTierLabelFontSize,
+      setShowAltTextButton: state.setShowAltTextButton,
+      setToolbarPosition: state.setToolbarPosition,
+    }))
   )
 
   return (

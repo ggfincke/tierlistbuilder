@@ -15,6 +15,7 @@ import { TierItem } from './TierItem'
 import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
 import { TextInput } from '@/shared/ui/TextInput'
 import { UploadDropzone } from '@/shared/ui/UploadDropzone'
+import type { ItemId } from '@/shared/types/ids'
 
 export const UnrankedPool = () =>
 {
@@ -51,11 +52,11 @@ export const UnrankedPool = () =>
     onFileInputChange,
   } = useImageImport()
 
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<ItemId | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
   const handleRequestDelete = useCallback(
-    (itemId: string) =>
+    (itemId: ItemId) =>
     {
       if (confirmBeforeDelete)
       {

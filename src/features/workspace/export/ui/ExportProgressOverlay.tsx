@@ -1,7 +1,7 @@
 // src/features/workspace/export/ui/ExportProgressOverlay.tsx
 // full-screen overlay shown during multi-board export to block interaction & show progress
 
-import { useId, useRef } from 'react'
+import { useId } from 'react'
 
 import { BaseModal } from '@/shared/overlay/BaseModal'
 
@@ -17,7 +17,6 @@ export const ExportProgressOverlay = ({
 }: ExportProgressOverlayProps) =>
 {
   const pct = total > 0 ? Math.round((current / total) * 100) : 0
-  const progressbarRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const statusId = useId()
 
@@ -44,7 +43,6 @@ export const ExportProgressOverlay = ({
         Exporting… {current} of {total}
       </p>
       <div
-        ref={progressbarRef}
         role="progressbar"
         aria-valuenow={pct}
         aria-valuemin={0}

@@ -12,79 +12,44 @@ import type {
   BoardSnapshot,
   Tier,
 } from '@/features/workspace/boards/model/contract'
-import type { PaletteId, TierColorSpec } from '@/shared/types/theme'
+import { asItemId, type ItemId } from '@/shared/types/ids'
+import type { PaletteId } from '@/shared/types/theme'
 import {
-  createCustomTierColorSpec,
-  createPaletteTierColorSpec,
   getAutoTierColorSpec,
   normalizeCanonicalTierColorSpec,
 } from '@/shared/theme/tierColors'
 import type { ActiveBoardRuntimeState } from './runtime'
 
-interface LegacyTier
+interface RawTier
 {
   id?: unknown
   name?: unknown
   description?: unknown
-  color?: unknown
-  colorSource?: unknown
   colorSpec?: unknown
   itemIds?: unknown
 }
 
-const isLegacyColorSource = (value: unknown): value is { index: number } =>
+// filter out non-string entries from a raw itemIds array & brand the rest
+const normalizeItemIds = (raw: unknown): ItemId[] =>
 {
-  if (!value || typeof value !== 'object')
+  if (!Array.isArray(raw))
   {
-    return false
+    return []
   }
 
-  const source = value as Record<string, unknown>
-
-  return typeof source.index === 'number'
-}
-
-const isDefaultTierIdentity = (tier: LegacyTier, index: number): boolean =>
-{
-  return (
-    tier.id === DEFAULT_TIER_IDS[index] &&
-    tier.name === DEFAULT_TIER_NAMES[index]
-  )
-}
-
-const normalizeTierColorSpec = (
-  tier: LegacyTier,
-  index: number,
-  paletteId: PaletteId
-): TierColorSpec =>
-{
-  const normalizedColorSpec = normalizeCanonicalTierColorSpec(tier.colorSpec)
-
-  if (normalizedColorSpec)
+  const result: ItemId[] = []
+  for (const value of raw)
   {
-    return normalizedColorSpec
+    if (typeof value === 'string')
+    {
+      result.push(asItemId(value))
+    }
   }
-
-  if (isLegacyColorSource(tier.colorSource))
-  {
-    return createPaletteTierColorSpec(tier.colorSource.index)
-  }
-
-  if (isDefaultTierIdentity(tier, index))
-  {
-    return createPaletteTierColorSpec(index)
-  }
-
-  if (typeof tier.color === 'string')
-  {
-    return createCustomTierColorSpec(tier.color)
-  }
-
-  return getAutoTierColorSpec(paletteId, index)
+  return result
 }
 
 const normalizeTier = (
-  tier: LegacyTier,
+  tier: RawTier,
   index: number,
   paletteId: PaletteId
 ): Tier => ({
@@ -98,10 +63,10 @@ const normalizeTier = (
       : (DEFAULT_TIER_NAMES[index] ?? `Tier ${index + 1}`),
   description:
     typeof tier.description === 'string' ? tier.description : undefined,
-  colorSpec: normalizeTierColorSpec(tier, index, paletteId),
-  itemIds: Array.isArray(tier.itemIds)
-    ? tier.itemIds.filter((id): id is string => typeof id === 'string')
-    : [],
+  colorSpec:
+    normalizeCanonicalTierColorSpec(tier.colorSpec) ??
+    getAutoTierColorSpec(paletteId, index),
+  itemIds: normalizeItemIds(tier.itemIds),
 })
 
 export const createInitialBoardData = (
@@ -169,18 +134,14 @@ export const normalizeBoardSnapshot = (
 {
   const tiers = Array.isArray(value?.tiers)
     ? value.tiers.map((tier, index) =>
-        normalizeTier(tier as LegacyTier, index, paletteId)
+        normalizeTier(tier as RawTier, index, paletteId)
       )
     : buildDefaultTiers(paletteId)
 
   return {
     title: value?.title ?? fallbackTitle,
     tiers,
-    unrankedItemIds: Array.isArray(value?.unrankedItemIds)
-      ? value.unrankedItemIds.filter(
-          (id): id is string => typeof id === 'string'
-        )
-      : [],
+    unrankedItemIds: normalizeItemIds(value?.unrankedItemIds),
     items: value?.items && typeof value.items === 'object' ? value.items : {},
     deletedItems: Array.isArray(value?.deletedItems) ? value.deletedItems : [],
   }

@@ -5,7 +5,6 @@ import { useId, useMemo, useRef, useState } from 'react'
 import {
   Check,
   ChevronRight,
-  // Code2,
   Copy,
   Download,
   Eye,
@@ -13,8 +12,6 @@ import {
   FileDown,
   FileUp,
   Layers,
-  // Link,
-  // Share2,
   SquareArrowUp,
 } from 'lucide-react'
 
@@ -25,7 +22,7 @@ import {
   useNestedMenus,
   type NestedMenuDefinition,
 } from '@/shared/overlay/useNestedMenus'
-import { usePopupClose } from '@/shared/overlay/usePopupClose'
+import { useDismissibleLayer } from '@/shared/overlay/useDismissibleLayer'
 import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
   importBoardSession,
@@ -37,6 +34,10 @@ import {
   exportBoardAsJson,
   parseBoardsJson,
 } from '@/features/workspace/export/lib/exportJson'
+import {
+  FORMAT_LABELS,
+  IMAGE_FORMATS,
+} from '@/features/workspace/export/lib/constants'
 import { ActionButton } from '@/shared/ui/ActionButton'
 import {
   OverlayDivider,
@@ -44,37 +45,23 @@ import {
   OverlayMenuSurface,
 } from '@/shared/overlay/OverlayPrimitives'
 
-// display labels for the image format selector
-const FORMAT_LABELS: Record<ImageFormat, string> = {
-  png: 'PNG',
-  jpeg: 'JPEG',
-  webp: 'WebP',
-  svg: 'SVG',
-}
-
-type ExportMenuId = 'root' | 'image' | 'format' | 'exportAll' | 'share'
+type ExportMenuId = 'root' | 'image' | 'format' | 'exportAll'
 
 const EXPORT_MENU_DEFINITIONS: readonly NestedMenuDefinition<ExportMenuId>[] = [
   { id: 'root' },
   { id: 'image', parentId: 'root' },
   { id: 'format', parentId: 'image' },
   { id: 'exportAll', parentId: 'root' },
-  { id: 'share', parentId: 'root' },
 ]
 
 interface ExportMenuProps
 {
   menuPos: MenuPositionClasses
-  // active export type while an export is in progress (null when idle)
   exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
-  // true while an "Export All" operation is running
   exportingAll: boolean
   onExport: (format: ImageFormat | 'pdf') => Promise<void>
   onCopyToClipboard: () => Promise<void>
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
-  onOpenShareLink: () => void
-  onOpenEmbedSnippet: () => void
-  onShareToTwitter: () => void
   onAnnotateExport: () => void
   onPreviewExport: () => void
 }
@@ -105,12 +92,11 @@ export const ExportMenu = ({
   const imageOptionsGroupId = useId()
   const formatOptionsGroupId = useId()
   const exportAllOptionsGroupId = useId()
-  // const shareOptionsGroupId = useId()
   const disabledMenuIds = useMemo(() =>
   {
     if (isDisabled)
     {
-      return ['root', 'image', 'format', 'exportAll', 'share'] as const
+      return ['root', 'image', 'format', 'exportAll'] as const
     }
 
     if (boardCount < 2)
@@ -129,7 +115,6 @@ export const ExportMenu = ({
   const showImageMenu = isOpen('image')
   const showFormatMenu = isOpen('format')
   const showExportAllMenu = isOpen('exportAll')
-  // const showShareMenu = isOpen('share')
 
   const handleJsonExport = () =>
   {
@@ -162,11 +147,11 @@ export const ExportMenu = ({
     closeAllMenus()
   }
 
-  usePopupClose({
-    show: showMenu,
+  useDismissibleLayer({
+    open: showMenu,
     triggerRef: buttonRef,
-    popupRef: menuRef,
-    onClose: closeAllMenus,
+    layerRef: menuRef,
+    onDismiss: closeAllMenus,
   })
 
   return (
@@ -293,25 +278,23 @@ export const ExportMenu = ({
                         aria-label="Image format options"
                         className={`${menuPos.sub} z-50 text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
                       >
-                        {(['png', 'jpeg', 'webp', 'svg'] as const).map(
-                          (fmt) => (
-                            <OverlayMenuItem
-                              key={fmt}
-                              onClick={() =>
-                              {
-                                setImageFormat(fmt)
-                                closeMenu('format')
-                              }}
-                            >
-                              {imageFormat === fmt ? (
-                                <Check className="h-3.5 w-3.5 shrink-0" />
-                              ) : (
-                                <span className="h-3.5 w-3.5 shrink-0" />
-                              )}
-                              {FORMAT_LABELS[fmt]}
-                            </OverlayMenuItem>
-                          )
-                        )}
+                        {IMAGE_FORMATS.map((fmt) => (
+                          <OverlayMenuItem
+                            key={fmt}
+                            onClick={() =>
+                            {
+                              setImageFormat(fmt)
+                              closeMenu('format')
+                            }}
+                          >
+                            {imageFormat === fmt ? (
+                              <Check className="h-3.5 w-3.5 shrink-0" />
+                            ) : (
+                              <span className="h-3.5 w-3.5 shrink-0" />
+                            )}
+                            {FORMAT_LABELS[fmt]}
+                          </OverlayMenuItem>
+                        ))}
                       </OverlayMenuSurface>
                     )}
                   </div>
@@ -347,68 +330,6 @@ export const ExportMenu = ({
               <FileUp className="h-3.5 w-3.5 shrink-0" />
               Import JSON
             </OverlayMenuItem>
-
-            {/* share submenu — hidden until backend URL shortener is available */}
-            {/* <OverlayDivider />
-
-            <div className="relative">
-              <OverlayMenuItem
-                aria-controls={shareOptionsGroupId}
-                aria-haspopup="dialog"
-                aria-expanded={showShareMenu}
-                className={`${showShareMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
-                onClick={() => toggleMenu('share')}
-              >
-                <span className="flex items-center gap-2">
-                  <Share2 className="h-3.5 w-3.5 shrink-0" />
-                  Share
-                </span>
-                <ChevronRight
-                  className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
-                />
-              </OverlayMenuItem>
-
-              {showShareMenu && (
-                <OverlayMenuSurface
-                  id={shareOptionsGroupId}
-                  ref={getOverflowRef('share')}
-                  role="group"
-                  aria-label="Share options"
-                  className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
-                >
-                  <OverlayMenuItem
-                    onClick={() =>
-                    {
-                      closeAllMenus()
-                      onOpenShareLink()
-                    }}
-                  >
-                    <Link className="h-3.5 w-3.5 shrink-0" />
-                    Copy Share Link
-                  </OverlayMenuItem>
-                  <OverlayMenuItem
-                    onClick={() =>
-                    {
-                      closeAllMenus()
-                      onShareToTwitter()
-                    }}
-                  >
-                    <Share2 className="h-3.5 w-3.5 shrink-0" />
-                    Share to Twitter/X
-                  </OverlayMenuItem>
-                  <OverlayMenuItem
-                    onClick={() =>
-                    {
-                      closeAllMenus()
-                      onOpenEmbedSnippet()
-                    }}
-                  >
-                    <Code2 className="h-3.5 w-3.5 shrink-0" />
-                    Embed Code
-                  </OverlayMenuItem>
-                </OverlayMenuSurface>
-              )}
-            </div> */}
 
             {/* export all submenu — only shown when multiple boards exist */}
             {boardCount > 1 && (

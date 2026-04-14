@@ -3,12 +3,14 @@
 
 import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
 import type { ExportAppearance, ImageFormat } from '@/shared/types/export'
+import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
 import {
   loadPersistedBoard,
   saveActiveBoardSnapshot,
 } from '@/features/workspace/boards/data/local/localBoardSession'
 import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
+import { toFileBase } from '@/shared/lib/fileName'
+import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
 import { withExportSession } from './exportBoardRender'
 
@@ -70,7 +72,7 @@ export const exportAllBoardsAsJson = () =>
   const allBoards = loadAllBoardData()
 
   const payload: MultiTierListExport = {
-    version: 2,
+    version: BOARD_DATA_VERSION,
     exportedAt: new Date().toISOString(),
     boards: allBoards.map(({ title, data }) => ({ title, data })),
   }
@@ -94,7 +96,6 @@ const captureAllBoards = async (
 > =>
 {
   const allBoards = loadAllBoardData()
-  const pixelRatio = 2
 
   return withExportSession({ appearance, backgroundColor }, async (session) =>
   {
@@ -114,8 +115,8 @@ const captureAllBoards = async (
       captures.push({
         title: allBoards[i].title,
         dataUrl,
-        width: element.offsetWidth * pixelRatio,
-        height: element.offsetHeight * pixelRatio,
+        width: element.offsetWidth * EXPORT_PIXEL_RATIO,
+        height: element.offsetHeight * EXPORT_PIXEL_RATIO,
       })
 
       onProgress?.(i + 1, allBoards.length)

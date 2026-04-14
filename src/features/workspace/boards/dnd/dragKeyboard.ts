@@ -4,6 +4,7 @@
 import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
 import { clampIndex } from '@/shared/lib/math'
 import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
+import type { ItemId } from '@/shared/types/ids'
 import {
   findContainer,
   getItemsInContainer,
@@ -19,7 +20,7 @@ export type KeyboardDragDirection =
 interface ResolveNextKeyboardDragPreviewArgs
 {
   snapshot: ContainerSnapshot
-  itemId: string
+  itemId: ItemId
   direction: KeyboardDragDirection
   appendToTargetEnd?: boolean
 }
@@ -169,7 +170,7 @@ export const resolveNextKeyboardFocusItem = ({
   snapshot,
   itemId,
   direction,
-}: ResolveNextKeyboardDragPreviewArgs): string | null =>
+}: ResolveNextKeyboardDragPreviewArgs): ItemId | null =>
 {
   const fromContainerId = findContainer(snapshot, itemId)
 

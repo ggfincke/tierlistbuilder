@@ -1,7 +1,7 @@
 // src/shared/overlay/useNestedMenus.ts
 // shared tree-aware state for nested click-open menus
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 export interface NestedMenuDefinition<MenuId extends string>
 {
@@ -219,19 +219,6 @@ export const toggleNestedMenuState = <MenuId extends string>(
   return openNestedMenuPath(prunedOpenIds, index, menuId)
 }
 
-const areMenuStatesEqual = <MenuId extends string>(
-  left: readonly MenuId[],
-  right: readonly MenuId[]
-): boolean =>
-{
-  if (left.length !== right.length)
-  {
-    return false
-  }
-
-  return left.every((menuId, index) => menuId === right[index])
-}
-
 export const useNestedMenus = <MenuId extends string>({
   definitions,
   disabledIds = [],
@@ -244,6 +231,9 @@ export const useNestedMenus = <MenuId extends string>({
   )
   const [openMenuIds, setOpenMenuIds] = useState<MenuId[]>([])
 
+  // pure derivation: hide any menus that are currently disabled w/o writing
+  // back to state — visibility recomputes whenever the user toggles a menu
+  // or the disabled set changes
   const visibleOpenMenuIds = useMemo(
     () => pruneNestedMenuState(openMenuIds, index, disabledIdSet),
     [disabledIdSet, index, openMenuIds]
@@ -252,21 +242,6 @@ export const useNestedMenus = <MenuId extends string>({
     () => new Set<MenuId>(visibleOpenMenuIds),
     [visibleOpenMenuIds]
   )
-
-  useEffect(() =>
-  {
-    if (areMenuStatesEqual(openMenuIds, visibleOpenMenuIds))
-    {
-      return
-    }
-
-    const syncTimer = window.setTimeout(() =>
-    {
-      setOpenMenuIds(visibleOpenMenuIds)
-    }, 0)
-
-    return () => window.clearTimeout(syncTimer)
-  }, [openMenuIds, visibleOpenMenuIds])
 
   const toggleMenu = useCallback(
     (menuId: MenuId) =>
@@ -282,19 +257,15 @@ export const useNestedMenus = <MenuId extends string>({
     (menuId: MenuId) =>
     {
       setOpenMenuIds((currentOpenMenuIds) =>
-        closeNestedMenuBranch(
-          pruneNestedMenuState(currentOpenMenuIds, index, disabledIdSet),
-          index,
-          menuId
-        )
+        closeNestedMenuBranch(currentOpenMenuIds, index, menuId)
       )
     },
-    [disabledIdSet, index]
+    [index]
   )
 
   const closeAllMenus = useCallback(() =>
   {
-    setOpenMenuIds([])
+    setOpenMenuIds((current) => (current.length === 0 ? current : []))
   }, [])
 
   const isOpen = useCallback(

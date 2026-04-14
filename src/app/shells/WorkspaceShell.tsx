@@ -1,14 +1,7 @@
 // src/app/shells/WorkspaceShell.tsx
 // full interactive workspace shell w/ board UI, modals, panels, & overlays
 
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useMemo,
-  useState,
-  type MouseEvent,
-} from 'react'
+import { lazy, Suspense, useCallback, useState, type MouseEvent } from 'react'
 
 import { useAppBootstrap } from '@/app/bootstrap/useAppBootstrap'
 import { useThemeApplicator } from '@/app/bootstrap/useThemeApplicator'
@@ -17,7 +10,6 @@ import { BoardManager } from '@/features/workspace/boards/ui/BoardManager'
 import { BoardHeader } from '@/features/workspace/boards/ui/BoardHeader'
 import { BulkActionBar } from '@/features/workspace/boards/ui/BulkActionBar'
 import { TierList } from '@/features/workspace/boards/ui/TierList'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
 import { useBoardTransition } from '@/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import { ExportProgressOverlay } from '@/features/workspace/export/ui/ExportProgressOverlay'
@@ -27,8 +19,6 @@ import { getWorkspacePath } from '@/app/routes/pathname'
 import { BoardSettingsModal } from '@/features/workspace/settings/ui/BoardSettingsModal'
 import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { getShareUrl } from '@/features/workspace/sharing/lib/hashShare'
-import { shareToTwitter } from '@/features/workspace/sharing/lib/socialShare'
 import { ShortcutsPanel } from '@/features/workspace/shortcuts/ui/ShortcutsPanel'
 import { useGlobalShortcuts } from '@/features/workspace/shortcuts/model/useGlobalShortcuts'
 import { LiveRegion } from '@/shared/a11y/LiveRegion'
@@ -40,21 +30,6 @@ import type { ImageFormat } from '@/shared/types/export'
 const AnnotationEditor = lazy(() =>
   import('@/features/workspace/annotation/ui/AnnotationEditor').then((m) => ({
     default: m.AnnotationEditor,
-  }))
-)
-const ComparisonModal = lazy(() =>
-  import('@/features/workspace/comparison/ui/ComparisonModal').then((m) => ({
-    default: m.ComparisonModal,
-  }))
-)
-const EmbedSnippetModal = lazy(() =>
-  import('@/features/workspace/sharing/ui/EmbedSnippetModal').then((m) => ({
-    default: m.EmbedSnippetModal,
-  }))
-)
-const ShareLinkModal = lazy(() =>
-  import('@/features/workspace/sharing/ui/ShareLinkModal').then((m) => ({
-    default: m.ShareLinkModal,
   }))
 )
 const ExportPreviewModal = lazy(() =>
@@ -108,56 +83,24 @@ export const WorkspaceShell = () =>
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
-  const [shareLinkOpen, setShareLinkOpen] = useState(false)
-  const [embedSnippetOpen, setEmbedSnippetOpen] = useState(false)
-  const [comparisonOpen, setComparisonOpen] = useState(false)
   const [annotationImage, setAnnotationImage] = useState<string | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [previewFormat, setPreviewFormat] = useState<ImageFormat>('png')
   const [previewOpen, setPreviewOpen] = useState(false)
 
-  const handleAddTier = useMemo(
-    () => () => addTier(paletteId),
+  const handleAddTier = useCallback(
+    () => addTier(paletteId),
     [addTier, paletteId]
   )
-  const handleResetBoard = useMemo(
-    () => () => resetBoard(paletteId),
+  const handleResetBoard = useCallback(
+    () => resetBoard(paletteId),
     [paletteId, resetBoard]
   )
   const handleCloseSettings = useCallback(() => setSettingsOpen(false), [])
   const handleOpenSettings = useCallback(() => setSettingsOpen(true), [])
   const handleCloseStats = useCallback(() => setStatsOpen(false), [])
   const handleOpenStats = useCallback(() => setStatsOpen(true), [])
-  const handleCloseShareLink = useCallback(() => setShareLinkOpen(false), [])
-  const handleOpenShareLink = useCallback(() => setShareLinkOpen(true), [])
-  const handleCloseEmbedSnippet = useCallback(
-    () => setEmbedSnippetOpen(false),
-    []
-  )
-  const handleOpenEmbedSnippet = useCallback(
-    () => setEmbedSnippetOpen(true),
-    []
-  )
-  const handleCloseComparison = useCallback(() => setComparisonOpen(false), [])
-  const handleOpenComparison = useCallback(() => setComparisonOpen(true), [])
   const handleCloseAnnotation = useCallback(() => setAnnotationImage(null), [])
-
-  const handleShareToTwitter = useCallback(async () =>
-  {
-    try
-    {
-      const data = extractBoardData(useActiveBoardStore.getState())
-      const url = await getShareUrl(data)
-      const title = useActiveBoardStore.getState().title
-      shareToTwitter(`Check out my tier list: ${title}`, url)
-    }
-    catch
-    {
-      useActiveBoardStore
-        .getState()
-        .setRuntimeError('Failed to generate share link.')
-    }
-  }, [])
 
   const handleAnnotateExport = useCallback(() =>
   {
@@ -281,13 +224,9 @@ export const WorkspaceShell = () =>
                   onAddTier={handleAddTier}
                   onOpenSettings={handleOpenSettings}
                   onOpenStats={handleOpenStats}
-                  onOpenComparison={handleOpenComparison}
                   onExport={runExport}
                   onCopyToClipboard={runCopyToClipboard}
                   onExportAll={runExportAll}
-                  onOpenShareLink={handleOpenShareLink}
-                  onOpenEmbedSnippet={handleOpenEmbedSnippet}
-                  onShareToTwitter={handleShareToTwitter}
                   onAnnotateExport={handleAnnotateExport}
                   onPreviewExport={handlePreviewExport}
                   onReset={handleResetBoard}
@@ -299,35 +238,19 @@ export const WorkspaceShell = () =>
         </div>
       </div>
 
-      <ErrorBoundary section="settings">
-        <BoardSettingsModal open={settingsOpen} onClose={handleCloseSettings} />
-      </ErrorBoundary>
+      {settingsOpen && (
+        <ErrorBoundary section="settings">
+          <BoardSettingsModal
+            open={settingsOpen}
+            onClose={handleCloseSettings}
+          />
+        </ErrorBoundary>
+      )}
       {statsOpen && (
         <Suspense>
           <ErrorBoundary section="statistics">
             <StatsModal open={statsOpen} onClose={handleCloseStats} />
           </ErrorBoundary>
-        </Suspense>
-      )}
-      {shareLinkOpen && (
-        <Suspense>
-          <ShareLinkModal open={shareLinkOpen} onClose={handleCloseShareLink} />
-        </Suspense>
-      )}
-      {embedSnippetOpen && (
-        <Suspense>
-          <EmbedSnippetModal
-            open={embedSnippetOpen}
-            onClose={handleCloseEmbedSnippet}
-          />
-        </Suspense>
-      )}
-      {comparisonOpen && (
-        <Suspense>
-          <ComparisonModal
-            open={comparisonOpen}
-            onClose={handleCloseComparison}
-          />
         </Suspense>
       )}
       {previewOpen && (

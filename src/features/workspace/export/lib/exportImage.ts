@@ -5,7 +5,8 @@ import { toBlob, toCanvas, toJpeg, toPng, toSvg } from 'html-to-image'
 
 import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
 import type { ExportAppearance, ImageFormat } from '@/shared/types/export'
-import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
+import { toFileBase } from '@/shared/lib/fileName'
+import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { withExportSession } from './exportBoardRender'
 
 // quality setting used for JPEG & WebP encoding
@@ -22,7 +23,7 @@ export const triggerDownload = (url: string, filename: string) =>
 
 // build export options for a given background color
 export const getBaseOptions = (bgColor: string) => ({
-  pixelRatio: 2,
+  pixelRatio: EXPORT_PIXEL_RATIO,
   cacheBust: true,
   backgroundColor: bgColor,
 })

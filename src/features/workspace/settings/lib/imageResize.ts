@@ -2,9 +2,7 @@
 // image resize & upload utilities — shrinks uploads to thumbnail size before storage
 
 import { MAX_THUMBNAIL_SIZE } from './constants'
-
-// strip the file extension to derive a display label from a filename
-const getFileLabel = (filename: string) => filename.replace(/\.[^.]+$/, '')
+import { deriveLabelFromFilename, getResizedDimensions } from './imageGeometry'
 
 // filter, resize, & collect image files — callers handle errors & store dispatch
 export const processImageFiles = async (
@@ -19,7 +17,7 @@ export const processImageFiles = async (
       try
       {
         const imageUrl = await resizeImageFile(imageFile)
-        return { imageUrl, label: getFileLabel(imageFile.name) }
+        return { imageUrl, label: deriveLabelFromFilename(imageFile.name) }
       }
       catch
       {
@@ -57,35 +55,6 @@ const loadImageElement = (file: File): Promise<HTMLImageElement> =>
 
     image.src = objectUrl
   })
-}
-
-// compute output dimensions that fit within maxSize while preserving aspect ratio
-const getResizedDimensions = (
-  width: number,
-  height: number,
-  maxSize: number
-) =>
-{
-  // image already fits — return original dimensions unchanged
-  if (width <= maxSize && height <= maxSize)
-  {
-    return { width, height }
-  }
-
-  // landscape or square — constrain by width
-  if (width >= height)
-  {
-    return {
-      width: maxSize,
-      height: Math.max(1, Math.round((height / width) * maxSize)),
-    }
-  }
-
-  // portrait — constrain by height
-  return {
-    width: Math.max(1, Math.round((width / height) * maxSize)),
-    height: maxSize,
-  }
 }
 
 // resize a File to a PNG data URL capped at maxSize px on the longest side

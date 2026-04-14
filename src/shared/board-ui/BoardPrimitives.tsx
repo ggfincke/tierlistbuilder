@@ -8,27 +8,19 @@ import {
   type Ref,
 } from 'react'
 
-import { ITEM_SIZE_PX, LABEL_WIDTH_PX } from './constants'
+import {
+  ITEM_SIZE_PX,
+  LABEL_FONT_SIZE_CLASS,
+  LABEL_PADDING_CLASS,
+  LABEL_WIDTH_PX,
+} from './constants'
 import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
 } from '@/shared/types/settings'
 import { getTextColor } from '../lib/color'
-
-const LABEL_FONT_SIZE_CLASS: Record<TierLabelFontSize, string> = {
-  xs: 'text-xs',
-  small: 'text-sm',
-  medium: 'text-base',
-  large: 'text-lg',
-  xl: 'text-xl',
-}
-
-const LABEL_PADDING_CLASS: Record<ItemSize, string> = {
-  small: 'px-1.5 py-1',
-  medium: 'px-3 py-2',
-  large: 'px-4 py-3',
-}
+import { joinClassNames } from '../lib/className'
 
 interface BoardRowContentProps
 {
@@ -38,9 +30,10 @@ interface BoardRowContentProps
 
 export const BoardRowContent = ({ index, children }: BoardRowContentProps) => (
   <div
-    className={`flex min-w-0 flex-1 border-b border-l border-[var(--t-border)]${
-      index === 0 ? ' border-t' : ''
-    }`}
+    className={joinClassNames(
+      'flex min-w-0 flex-1 border-b border-l border-[var(--t-border)]',
+      index === 0 && 'border-t'
+    )}
   >
     {children}
   </div>
@@ -57,9 +50,10 @@ export const BoardRowSurface = ({
   className,
 }: BoardRowSurfaceProps) => (
   <div
-    className={`flex bg-[var(--t-bg-surface)] transition-colors${
-      className ? ` ${className}` : ''
-    }`}
+    className={joinClassNames(
+      'flex bg-[var(--t-bg-surface)] transition-colors',
+      className
+    )}
   >
     {children}
   </div>
@@ -72,7 +66,7 @@ interface BoardItemsGridProps extends HTMLAttributes<HTMLDivElement>
 }
 
 export const BoardItemsGrid = forwardRef(function BoardItemsGrid(
-  { compactMode, minHeightPx, className, ...props }: BoardItemsGridProps,
+  { compactMode, minHeightPx, className, style, ...props }: BoardItemsGridProps,
   ref: Ref<HTMLDivElement>
 )
 {
@@ -80,10 +74,12 @@ export const BoardItemsGrid = forwardRef(function BoardItemsGrid(
     <div
       ref={ref}
       {...props}
-      className={`flex flex-1 flex-wrap content-start bg-[var(--t-bg-surface)] p-0 ${
-        compactMode ? 'gap-0' : 'gap-px'
-      }${className ? ` ${className}` : ''}`}
-      style={{ minHeight: minHeightPx, ...props.style }}
+      className={joinClassNames(
+        'flex flex-1 flex-wrap content-start bg-[var(--t-bg-surface)] p-0',
+        compactMode ? 'gap-0' : 'gap-px',
+        className
+      )}
+      style={{ ...style, minHeight: minHeightPx }}
     />
   )
 })

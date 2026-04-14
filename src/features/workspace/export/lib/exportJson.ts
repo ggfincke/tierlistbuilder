@@ -4,7 +4,8 @@
 import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
 import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
 import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
-import { toFileBase } from './constants'
+import { isRecord } from '@/shared/lib/typeGuards'
+import { toFileBase } from '@/shared/lib/fileName'
 import { triggerDownload } from './exportImage'
 
 interface TierListExport
@@ -27,19 +28,53 @@ const parseJsonObject = (text: string): Record<string, unknown> =>
     throw new Error('Invalid JSON file.')
   }
 
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+  if (!isRecord(parsed))
   {
     throw new Error('Invalid tier list format.')
   }
 
-  return parsed as Record<string, unknown>
+  return parsed
+}
+
+// reject payloads whose envelope version is newer than the app supports;
+// returns the schema version number for diagnostics
+const assertSupportedVersion = (envelope: Record<string, unknown>): number =>
+{
+  if (typeof envelope.version !== 'number')
+  {
+    throw new Error(
+      'Export file is missing a schema version. Re-export from a compatible version of the app.'
+    )
+  }
+
+  if (envelope.version > BOARD_DATA_VERSION)
+  {
+    throw new Error(
+      `File uses schema version ${envelope.version}, but this app only supports up to version ${BOARD_DATA_VERSION}. Update the app or re-export from a compatible version.`
+    )
+  }
+
+  return envelope.version
+}
+
+// unwrap the `data` payload from a versioned envelope
+const extractEnvelopeData = (
+  envelope: Record<string, unknown>
+): Record<string, unknown> =>
+{
+  if (!isRecord(envelope.data))
+  {
+    throw new Error('Export file is missing a "data" payload.')
+  }
+
+  return envelope.data
 }
 
 // download the board state as a JSON file
 export const exportBoardAsJson = (data: BoardSnapshot, title: string) =>
 {
   const payload: TierListExport = {
-    version: 3,
+    version: BOARD_DATA_VERSION,
     exportedAt: new Date().toISOString(),
     data,
   }
@@ -50,10 +85,6 @@ export const exportBoardAsJson = (data: BoardSnapshot, title: string) =>
   triggerDownload(url, `${toFileBase(title)}.json`)
   URL.revokeObjectURL(url)
 }
-
-// narrow an unknown JSON value to a plain object record
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  !!value && typeof value === 'object' && !Array.isArray(value)
 
 // validate a single tier entry & return a descriptive error if invalid
 const validateTierEntry = (tier: unknown, index: number): string | null =>
@@ -73,13 +104,9 @@ const validateTierEntry = (tier: unknown, index: number): string | null =>
     return `Tier "${tier.id}" is missing a valid "name" (expected string).`
   }
 
-  const hasLegacyColor = typeof tier.color === 'string'
-  const hasCanonicalColorSpec =
-    !!tier.colorSpec && typeof tier.colorSpec === 'object'
-
-  if (!hasLegacyColor && !hasCanonicalColorSpec)
+  if (!isRecord(tier.colorSpec))
   {
-    return `Tier "${tier.name}" is missing color data (expected "colorSpec" object or legacy "color" string).`
+    return `Tier "${tier.name}" is missing a valid "colorSpec" object.`
   }
 
   if (!Array.isArray(tier.itemIds))
@@ -111,27 +138,12 @@ const validateItemEntry = (id: string, item: unknown): string | null =>
   return null
 }
 
-// parse & validate a JSON string as board data, throwing descriptive errors on failure
-export const parseBoardJson = (text: string): BoardSnapshot =>
+// validate the inner board shape & return a normalized BoardSnapshot
+const parseBoardData = (
+  raw: Record<string, unknown>,
+  fallbackTitle: string
+): BoardSnapshot =>
 {
-  const envelope = parseJsonObject(text)
-
-  // warn if the file is from a newer schema version
-  if (
-    typeof envelope.version === 'number' &&
-    envelope.version > BOARD_DATA_VERSION
-  )
-  {
-    throw new Error(
-      `File uses schema version ${envelope.version}, but this app only supports up to version ${BOARD_DATA_VERSION}. Update the app or re-export from a compatible version.`
-    )
-  }
-
-  // accept both wrapped { version, data } format & raw BoardSnapshot
-  const raw =
-    typeof envelope.data === 'object' && envelope.data !== null
-      ? envelope.data
-      : envelope
   const data = raw as Partial<BoardSnapshot>
 
   if (!Array.isArray(data.tiers) || data.tiers.length === 0)
@@ -190,34 +202,57 @@ export const parseBoardJson = (text: string): BoardSnapshot =>
     }
   }
 
-  return normalizeBoardSnapshot(data, 'classic', 'Imported Tier List')
+  return normalizeBoardSnapshot(data, 'classic', fallbackTitle)
 }
 
-// detect single vs multi-board JSON & return validated board data for each
+// parse & validate a versioned single-board export envelope
+export const parseBoardJson = (text: string): BoardSnapshot =>
+{
+  const envelope = parseJsonObject(text)
+  assertSupportedVersion(envelope)
+  const raw = extractEnvelopeData(envelope)
+  return parseBoardData(raw, 'Imported Tier List')
+}
+
+// parse & validate a versioned multi-board export envelope; single-board
+// envelopes are auto-wrapped to a one-element array for call-site uniformity
 export const parseBoardsJson = (text: string): BoardSnapshot[] =>
 {
-  const obj = parseJsonObject(text)
+  const envelope = parseJsonObject(text)
+  assertSupportedVersion(envelope)
 
   // multi-board envelope — has a boards array
-  if (Array.isArray(obj.boards))
+  if (Array.isArray(envelope.boards))
   {
-    if (obj.boards.length === 0)
+    const boards = envelope.boards
+
+    if (boards.length === 0)
     {
       throw new Error('Export file contains no boards.')
     }
 
     const results: BoardSnapshot[] = []
-    for (let i = 0; i < obj.boards.length; i++)
+    for (let i = 0; i < boards.length; i++)
     {
-      const entry = obj.boards[i] as Record<string, unknown>
+      const entry = boards[i] as unknown
+      if (!isRecord(entry))
+      {
+        throw new Error(`Board #${i + 1} is not a valid object.`)
+      }
+
+      const innerData = isRecord(entry.data) ? entry.data : null
+      if (!innerData)
+      {
+        throw new Error(`Board #${i + 1} is missing a "data" payload.`)
+      }
+
+      const label = typeof entry.title === 'string' ? entry.title : `#${i + 1}`
       try
       {
-        results.push(parseBoardJson(JSON.stringify(entry.data ?? entry)))
+        results.push(parseBoardData(innerData, label))
       }
       catch (err)
       {
-        const label =
-          typeof entry.title === 'string' ? entry.title : `#${i + 1}`
         throw new Error(
           `Board "${label}" is invalid: ${err instanceof Error ? err.message : 'unknown error'}`
         )
@@ -226,6 +261,7 @@ export const parseBoardsJson = (text: string): BoardSnapshot[] =>
     return results
   }
 
-  // single-board — delegate to existing parser
-  return [parseBoardJson(text)]
+  // single-board envelope — delegate to the single-envelope parser
+  const raw = extractEnvelopeData(envelope)
+  return [parseBoardData(raw, 'Imported Tier List')]
 }

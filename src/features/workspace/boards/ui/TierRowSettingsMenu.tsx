@@ -1,13 +1,15 @@
 // src/features/workspace/boards/ui/TierRowSettingsMenu.tsx
 // gear button & popup settings menu for a tier row
 
-import { useCallback, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useShallow } from 'zustand/react/shallow'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 import type { Tier } from '@/features/workspace/boards/model/contract'
 import type { PaletteId } from '@/shared/types/theme'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
 import { computeSettingsMenuStyle } from '@/shared/overlay/popupPosition'
 import { useAnchoredPopup } from '@/shared/overlay/useAnchoredPopup'
 import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
@@ -16,6 +18,9 @@ import {
   OverlayMenuSurface,
 } from '@/shared/overlay/OverlayPrimitives'
 import { TextInput } from '@/shared/ui/TextInput'
+
+const NAME_EDITOR_ID = 'name'
+const DESCRIPTION_EDITOR_ID = 'description'
 
 interface TierRowSettingsMenuProps
 {
@@ -37,15 +42,22 @@ export const TierRowSettingsMenu = ({
   onClose,
 }: TierRowSettingsMenuProps) =>
 {
-  const renameTier = useActiveBoardStore((state) => state.renameTier)
-  const deleteTier = useActiveBoardStore((state) => state.deleteTier)
-  const clearTierItems = useActiveBoardStore((state) => state.clearTierItems)
-  const addTierAt = useActiveBoardStore((state) => state.addTierAt)
-  const setTierDescription = useActiveBoardStore(
-    (state) => state.setTierDescription
-  )
-  const sortTierItemsByName = useActiveBoardStore(
-    (state) => state.sortTierItemsByName
+  const {
+    renameTier,
+    deleteTier,
+    clearTierItems,
+    addTierAt,
+    setTierDescription,
+    sortTierItemsByName,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      renameTier: state.renameTier,
+      deleteTier: state.deleteTier,
+      clearTierItems: state.clearTierItems,
+      addTierAt: state.addTierAt,
+      setTierDescription: state.setTierDescription,
+      sortTierItemsByName: state.sortTierItemsByName,
+    }))
   )
 
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -53,17 +65,39 @@ export const TierRowSettingsMenu = ({
   const menuRef = useRef<HTMLDivElement>(null)
   const dialogId = useId()
   const titleId = useId()
-  const handleClose = useCallback(() => onClose(), [onClose])
   const { style: menuStyle } = useAnchoredPopup({
     open: show,
     triggerRef: gearButtonRef,
     popupRef: menuRef,
-    onClose: handleClose,
+    onClose,
     computePosition: () =>
       gearButtonRef.current
         ? computeSettingsMenuStyle(gearButtonRef.current)
         : null,
   })
+
+  // separate inline-edit hooks for the name & description fields; both commit
+  // on blur or Enter & cancel on Escape
+  const nameEdit = useInlineEdit<typeof NAME_EDITOR_ID>({
+    onCommit: (_id, value) => renameTier(tier.id, value),
+  })
+  const descriptionEdit = useInlineEdit<typeof DESCRIPTION_EDITOR_ID>({
+    onCommit: (_id, value) => setTierDescription(tier.id, value),
+    normalizeValue: (value) => value,
+  })
+
+  // start both editors when the menu opens so blur-commit always has a draft
+  useEffect(() =>
+  {
+    if (show)
+    {
+      nameEdit.startEdit(NAME_EDITOR_ID, tier.name)
+      descriptionEdit.startEdit(DESCRIPTION_EDITOR_ID, tier.description ?? '')
+    }
+    // ignore exhaustive-deps: starting editors is intentional only on `show`
+    // & the underlying tier identity (consumers re-render when those change)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, tier.id])
 
   return (
     <>
@@ -103,36 +137,22 @@ export const TierRowSettingsMenu = ({
               {tier.name} row settings
             </h2>
             <TextInput
-              defaultValue={tier.name}
-              onBlur={(e) =>
-              {
-                const val = e.currentTarget.value.trim()
-                if (val && val !== tier.name) renameTier(tier.id, val)
-              }}
-              onKeyDown={(e) =>
-              {
-                if (e.key === 'Enter') e.currentTarget.blur()
-              }}
-              className="mb-1.5 w-full rounded-lg border-[var(--t-border)] px-2 focus:border-[var(--t-accent-hover)]"
-              aria-label="Rename tier"
+              {...nameEdit.getInputProps({
+                'aria-label': 'Rename tier',
+                className:
+                  'mb-1.5 w-full rounded-lg border-[var(--t-border)] px-2 focus:border-[var(--t-accent-hover)]',
+              })}
+              ref={nameEdit.inputRef}
             />
 
             <TextInput
-              defaultValue={tier.description ?? ''}
-              placeholder="Description (optional)"
-              onBlur={(e) =>
-              {
-                const val = e.currentTarget.value
-                if (val !== (tier.description ?? ''))
-                  setTierDescription(tier.id, val)
-              }}
-              onKeyDown={(e) =>
-              {
-                if (e.key === 'Enter') e.currentTarget.blur()
-              }}
+              {...descriptionEdit.getInputProps({
+                placeholder: 'Description (optional)',
+                'aria-label': 'Tier description',
+                className:
+                  'mb-2 w-full rounded-lg border-[var(--t-border)] px-2 text-[var(--t-text-secondary)] focus:border-[var(--t-accent-hover)]',
+              })}
               size="xs"
-              className="mb-2 w-full rounded-lg border-[var(--t-border)] px-2 text-[var(--t-text-secondary)] focus:border-[var(--t-accent-hover)]"
-              aria-label="Tier description"
             />
 
             <OverlayMenuItem

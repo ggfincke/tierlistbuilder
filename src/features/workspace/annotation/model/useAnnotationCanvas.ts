@@ -117,6 +117,9 @@ const drawAnnotationItem = (
   }
 }
 
+// initial annotation color — bright red for high visibility on most screenshots
+const DEFAULT_ANNOTATION_COLOR = '#ff4444'
+
 export const useAnnotationCanvas = (
   backgroundImage: string | null,
   title: string
@@ -124,7 +127,7 @@ export const useAnnotationCanvas = (
 {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [activeTool, setActiveTool] = useState<AnnotationTool>('pen')
-  const [color, setColor] = useState('#ff4444')
+  const [color, setColor] = useState(DEFAULT_ANNOTATION_COLOR)
   const [strokeWidth, setStrokeWidth] = useState(3)
   const [fontSize, setFontSize] = useState(18)
   const [textStyle, setTextStyle] = useState<TextStyle>({

@@ -3,13 +3,12 @@
 
 import type {
   BoardId,
+  ItemId,
   PresetId,
   TierId,
   UserPresetId,
 } from '@/shared/types/ids'
-
-export const isBoardId = (value: string): value is BoardId =>
-  value.startsWith('board-')
+import { asItemId } from '@/shared/types/ids'
 
 export const isTierId = (value: string): value is TierId =>
   value.startsWith('tier-')
@@ -26,4 +25,4 @@ export const generateTierId = (): TierId =>
 export const generatePresetId = (): UserPresetId =>
   `preset-${crypto.randomUUID()}` as UserPresetId
 
-export const generateItemId = (): string => crypto.randomUUID()
+export const generateItemId = (): ItemId => asItemId(crypto.randomUUID())

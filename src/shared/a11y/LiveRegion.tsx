@@ -12,7 +12,7 @@ export const LiveRegion = () =>
 
   const handleAnnounce = useCallback((text: string) =>
   {
-    // clear previous message first so repeated identical messages are re-announced
+    // clear previous message first so repeated identical messages re-announce
     setMessage('')
 
     if (timeoutRef.current)
@@ -32,6 +32,7 @@ export const LiveRegion = () =>
     registerAnnouncer(handleAnnounce)
     return () =>
     {
+      registerAnnouncer(null)
       if (timeoutRef.current)
       {
         clearTimeout(timeoutRef.current)
@@ -41,7 +42,7 @@ export const LiveRegion = () =>
 
   return (
     <div
-      role="status"
+      role="alert"
       aria-live="assertive"
       aria-atomic="true"
       className="sr-only"

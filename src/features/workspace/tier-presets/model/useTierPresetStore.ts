@@ -8,7 +8,6 @@ import type { TierPreset } from '@/features/workspace/tier-presets/model/contrac
 import type { PresetId } from '@/shared/types/ids'
 import { createAppPersistStorage } from '@/shared/lib/browserStorage'
 import {
-  migrateTierPresetState,
   PRESET_STORAGE_KEY,
   PRESET_STORAGE_VERSION,
 } from '../data/local/tierPresetStorage'
@@ -47,7 +46,6 @@ export const useTierPresetStore = create<TierPresetStore>()(
       name: PRESET_STORAGE_KEY,
       storage: createAppPersistStorage(),
       version: PRESET_STORAGE_VERSION,
-      migrate: migrateTierPresetState,
     }
   )
 )

@@ -21,8 +21,8 @@ const SIZE_CLASS: Record<ItemOverlayButtonSize, string> = {
 
 const TONE_CLASS: Record<ItemOverlayButtonTone, string> = {
   default: '',
-  success: 'hover:text-green-400',
-  destructive: 'hover:text-rose-400',
+  success: 'hover:text-[var(--t-accent)]',
+  destructive: 'hover:text-[var(--t-destructive-hover)]',
 }
 
 const REVEAL_CLASS: Record<ItemOverlayButtonReveal, string> = {

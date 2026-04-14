@@ -2,6 +2,8 @@
 // FLIP animation for multi-drag drop — items fan out from the stacked
 // overlay position to their final grid slots w/ staggered timing
 
+import type { ItemId } from '@/shared/types/ids'
+
 const DURATION_MS = 300
 const STAGGER_MS = 30
 
@@ -13,7 +15,7 @@ interface AnimateDropDistributeOptions
 // animate dropped items from a shared origin (the overlay position) to
 // their final resting positions; called after commitDragPreview settles
 export const animateDropDistribute = (
-  itemIds: string[],
+  itemIds: ItemId[],
   originX: number,
   originY: number,
   { reducedMotion }: AnimateDropDistributeOptions
@@ -72,17 +74,31 @@ export const animateDropDistribute = (
         el.style.opacity = ''
       }
 
-      // clean up inline styles after the last item finishes
-      const totalMs = DURATION_MS + (targets.length - 1) * STAGGER_MS + 50
-      setTimeout(() =>
+      // clean up inline styles when the last item's translate transition
+      // ends, w/ a setTimeout safety net in case the event is missed (tab
+      // backgrounded mid-drop, parent unmounted, etc.)
+      const lastEl = targets[targets.length - 1].el
+      const cleanup = () =>
       {
+        lastEl.removeEventListener('transitionend', handleTransitionEnd)
+        clearTimeout(safetyTimer)
         for (const { el } of targets)
         {
           el.style.transition = ''
           el.style.translate = ''
           el.style.opacity = ''
         }
-      }, totalMs)
+      }
+      const handleTransitionEnd = (event: TransitionEvent) =>
+      {
+        if (event.propertyName === 'translate' && event.target === lastEl)
+        {
+          cleanup()
+        }
+      }
+      lastEl.addEventListener('transitionend', handleTransitionEnd)
+      const totalMs = DURATION_MS + (targets.length - 1) * STAGGER_MS + 100
+      const safetyTimer = setTimeout(cleanup, totalMs)
     })
   )
 }

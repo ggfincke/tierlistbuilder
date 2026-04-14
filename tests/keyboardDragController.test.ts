@@ -68,7 +68,7 @@ describe('keyboard drag controller', () =>
 
   it('jumps back to the last active board item', () =>
   {
-    useActiveBoardStore.getState().setLastClickedItemId('item-4')
+    useActiveBoardStore.setState({ lastClickedItemId: 'item-4' })
 
     handleKeyboardBoardJumpKey()
 

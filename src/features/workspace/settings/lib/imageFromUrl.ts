@@ -2,8 +2,8 @@
 // fetch a remote image by URL, resize to thumbnail, & return as a data URL
 
 import { MAX_THUMBNAIL_SIZE } from './constants'
+import { deriveLabelFromFilename, getResizedDimensions } from './imageGeometry'
 
-// timeout for image loading (ms)
 const LOAD_TIMEOUT = 15_000
 
 // derive a display label from a URL by extracting the filename w/o extension
@@ -13,41 +13,11 @@ const labelFromUrl = (url: string): string =>
   {
     const path = new URL(url).pathname
     const filename = path.split('/').pop() ?? ''
-    const label = filename
-      .replace(/\.[^.]+$/, '')
-      .replace(/[_-]+/g, ' ')
-      .trim()
-    return label || 'Image'
+    return deriveLabelFromFilename(filename)
   }
   catch
   {
     return 'Image'
-  }
-}
-
-// compute output dimensions that fit within maxSize while preserving aspect ratio
-const getResizedDimensions = (
-  width: number,
-  height: number,
-  maxSize: number
-) =>
-{
-  if (width <= maxSize && height <= maxSize)
-  {
-    return { width, height }
-  }
-
-  if (width >= height)
-  {
-    return {
-      width: maxSize,
-      height: Math.max(1, Math.round((height / width) * maxSize)),
-    }
-  }
-
-  return {
-    width: Math.max(1, Math.round((width / height) * maxSize)),
-    height: maxSize,
   }
 }
 

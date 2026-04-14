@@ -4,6 +4,7 @@
 import { useId, useRef, useState } from 'react'
 
 import { BaseModal } from '@/shared/overlay/BaseModal'
+import { PrimaryButton } from '@/shared/ui/PrimaryButton'
 import { SecondaryButton } from '@/shared/ui/SecondaryButton'
 import { TextInput } from '@/shared/ui/TextInput'
 
@@ -79,14 +80,9 @@ export const SavePresetModal = ({
       />
       <div className="mt-3 flex justify-end gap-2">
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
-        <button
-          type="button"
-          disabled={!presetName.trim()}
-          className="focus-custom rounded-md bg-[var(--t-accent)] px-3 py-1.5 text-sm font-medium text-[var(--t-accent-foreground)] hover:bg-[var(--t-accent-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:opacity-40"
-          onClick={handleSave}
-        >
+        <PrimaryButton disabled={!presetName.trim()} onClick={handleSave}>
           Save
-        </button>
+        </PrimaryButton>
       </div>
     </BaseModal>
   )

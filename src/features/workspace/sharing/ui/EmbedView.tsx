@@ -59,8 +59,8 @@ export const EmbedView = () =>
   if (error)
   {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#1a1a2e] p-4">
-        <p className="text-sm text-gray-400">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--t-bg-page)] p-4">
+        <p className="text-sm text-[var(--t-text-muted)]">
           Could not load embedded tier list.
         </p>
       </div>
@@ -70,8 +70,8 @@ export const EmbedView = () =>
   if (!data)
   {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#1a1a2e]">
-        <p className="text-sm text-gray-400">Loading…</p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--t-bg-page)]">
+        <p className="text-sm text-[var(--t-text-muted)]">Loading…</p>
       </div>
     )
   }
@@ -80,11 +80,11 @@ export const EmbedView = () =>
   const paletteId = 'classic' as const
 
   return (
-    <div className="min-h-screen bg-[#1a1a2e] text-gray-200">
+    <div className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text-secondary)]">
       <div className="mx-auto max-w-5xl">
         {data.title && (
           <div className="px-4 pt-3 pb-2">
-            <h1 className="text-base font-semibold text-gray-100">
+            <h1 className="text-base font-semibold text-[var(--t-text)]">
               {data.title}
             </h1>
           </div>
@@ -137,7 +137,7 @@ export const EmbedView = () =>
             href="https://tierlistbuilder.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-gray-500 transition-colors hover:text-gray-300"
+            className="text-xs text-[var(--t-text-dim)] transition-colors hover:text-[var(--t-text-secondary)]"
           >
             Made with Tier List Builder
           </a>

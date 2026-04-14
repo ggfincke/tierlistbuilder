@@ -3,14 +3,16 @@
 
 let announceFn: ((message: string) => void) | null = null
 
-// called by LiveRegion on mount to register the announcement callback
-export const registerAnnouncer = (fn: (message: string) => void) =>
+// register or clear the announcement callback (LiveRegion mounts & unmounts)
+export const registerAnnouncer = (
+  fn: ((message: string) => void) | null
+): void =>
 {
   announceFn = fn
 }
 
 // fire an announcement — callable from anywhere (hooks, store actions, etc.)
-export const announce = (message: string) =>
+export const announce = (message: string): void =>
 {
   announceFn?.(message)
 }

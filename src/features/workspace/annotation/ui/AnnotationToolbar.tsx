@@ -20,6 +20,7 @@ import type {
   TextStyle,
 } from '@/features/workspace/annotation/model/useAnnotationCanvas'
 import { FONT_FAMILY_LABELS } from '@/features/workspace/annotation/model/useAnnotationCanvas'
+import { ColorInput } from '@/shared/ui/ColorInput'
 
 const FONT_SIZE_PRESETS = [10, 12, 14, 18, 24, 36, 48, 60]
 
@@ -122,7 +123,7 @@ export const AnnotationToolbar = memo(
           onClick={() => onToolChange('pen')}
           className={`rounded-md p-2 transition-colors ${
             activeTool === 'pen'
-              ? 'bg-[var(--t-accent)] text-white'
+              ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
               : 'text-[var(--t-text-secondary)] hover:bg-[rgb(var(--t-overlay)/0.06)]'
           }`}
           title="Freehand Pen"
@@ -134,7 +135,7 @@ export const AnnotationToolbar = memo(
           onClick={() => onToolChange('text')}
           className={`rounded-md p-2 transition-colors ${
             activeTool === 'text'
-              ? 'bg-[var(--t-accent)] text-white'
+              ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
               : 'text-[var(--t-text-secondary)] hover:bg-[rgb(var(--t-overlay)/0.06)]'
           }`}
           title="Text"
@@ -145,11 +146,9 @@ export const AnnotationToolbar = memo(
         <div className="mx-0.5 h-5 w-px bg-[var(--t-border)]" />
 
         {/* color picker */}
-        <input
-          type="color"
+        <ColorInput
           value={color}
           onChange={(e) => onColorChange(e.target.value)}
-          className="h-7 w-7 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
           title="Annotation color"
         />
 

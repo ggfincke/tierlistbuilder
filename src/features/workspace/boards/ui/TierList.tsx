@@ -1,23 +1,34 @@
 // src/features/workspace/boards/ui/TierList.tsx
 // * top-level tier list — wraps dnd-kit context, tier rows, unranked pool, & drag overlay
 
-import { DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core'
+import {
+  DndContext,
+  DragOverlay,
+  MeasuringStrategy,
+  type SensorDescriptor,
+} from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-
-const EMPTY_SENSORS: never[] = []
 
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import { THEMES } from '@/shared/theme/tokens'
 import { announce } from '@/shared/a11y/announce'
-import { getTextColor } from '@/shared/lib/color'
+import { getContrastingTextShadow, getTextColor } from '@/shared/lib/color'
 import { getEffectiveTiers } from '@/features/workspace/boards/dnd/dragSnapshot'
 import { resolveTierColorSpec } from '@/shared/theme/tierColors'
 import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
 import type { ToolbarPosition } from '@/shared/types/settings'
 import { isVerticalPosition } from '@/shared/layout/toolbarPosition'
 import { useDragAndDrop } from '@/features/workspace/boards/dnd/useDragAndDrop'
+import { DragOverlayItem } from './DragOverlayItem'
+import { TierRow } from './TierRow'
+import { TrashZone } from './TrashZone'
+import { UnrankedPool } from './UnrankedPool'
+
+// stable empty sensor list — passed to DndContext when keyboard mode is active
+// to avoid re-creating dnd-kit's internal sensor coordinator per render
+const EMPTY_SENSORS: SensorDescriptor<object>[] = []
 
 // toolbar is rendered *after* content in DOM so it naturally paints on top
 // (dropdowns won't be clipped by the tier grid); flex-reverse restores visual order
@@ -27,10 +38,6 @@ const TOOLBAR_LAYOUT_CLASS: Record<ToolbarPosition, string> = {
   left: 'flex flex-row-reverse items-center gap-3',
   right: 'flex flex-row items-center gap-3',
 }
-import { DragOverlayItem } from './DragOverlayItem'
-import { TierRow } from './TierRow'
-import { TrashZone } from './TrashZone'
-import { UnrankedPool } from './UnrankedPool'
 
 const DND_ACCESSIBILITY = {
   screenReaderInstructions: {
@@ -233,10 +240,9 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
             style={{
               backgroundColor: activeTierColor ?? undefined,
               color: activeTierTextColor ?? undefined,
-              textShadow:
-                activeTierTextColor === '#ffffff'
-                  ? '0 0 2px rgba(0,0,0,0.4)'
-                  : '0 0 2px rgba(255,255,255,0.35)',
+              textShadow: activeTierColor
+                ? getContrastingTextShadow(activeTierColor)
+                : undefined,
             }}
           >
             <span className="text-sm font-semibold">{activeTier.name}</span>

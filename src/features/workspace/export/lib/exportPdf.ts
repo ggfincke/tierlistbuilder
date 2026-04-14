@@ -3,7 +3,8 @@
 
 import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
 import type { ExportAppearance } from '@/shared/types/export'
-import { EXPORT_BACKGROUND_COLOR, toFileBase } from './constants'
+import { toFileBase } from '@/shared/lib/fileName'
+import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { renderElementToPng } from './exportImage'
 import { withExportSession } from './exportBoardRender'
 
@@ -22,12 +23,11 @@ export const exportTierListAsPdf = async (
     async (session) =>
     {
       const element = await session.renderBoard(data)
-      const pixelRatio = 2
       const png = await renderElementToPng(element, backgroundColor)
 
       // derive pixel dimensions from the source element & known pixel ratio
-      const width = element.offsetWidth * pixelRatio
-      const height = element.offsetHeight * pixelRatio
+      const width = element.offsetWidth * EXPORT_PIXEL_RATIO
+      const height = element.offsetHeight * EXPORT_PIXEL_RATIO
       // choose orientation based on image aspect ratio
       const orientation = width >= height ? 'landscape' : 'portrait'
 

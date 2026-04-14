@@ -11,7 +11,7 @@ import { resolveTierColorSpec } from '@/shared/theme/tierColors'
 import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
 import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
 import { useTierPresetStore } from '@/features/workspace/tier-presets/model/useTierPresetStore'
-import { getTextColor } from '@/shared/lib/color'
+import { getContrastingTextShadow, getTextColor } from '@/shared/lib/color'
 import { BaseModal } from '@/shared/overlay/BaseModal'
 import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
 import { SecondaryButton } from '@/shared/ui/SecondaryButton'
@@ -126,10 +126,7 @@ export const PresetPickerModal = ({
                       style={{
                         backgroundColor: tierColor,
                         color: tierTextColor,
-                        textShadow:
-                          tierTextColor === '#ffffff'
-                            ? '0 0 2px rgba(0,0,0,0.4)'
-                            : '0 0 2px rgba(255,255,255,0.35)',
+                        textShadow: getContrastingTextShadow(tierColor),
                       }}
                     >
                       {tier.name}

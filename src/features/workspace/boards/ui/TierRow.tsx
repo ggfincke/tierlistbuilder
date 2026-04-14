@@ -139,11 +139,13 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
 
       if (customColorPickerRef.current)
       {
+        // single getBoundingClientRect call avoids back-to-back forced layouts
+        const rect = customColorPickerRef.current.getBoundingClientRect()
         return computeCustomColorPickerStyle(
           customColorButtonRef.current,
           colorPickerRef.current,
-          customColorPickerRef.current.getBoundingClientRect().width,
-          customColorPickerRef.current.getBoundingClientRect().height
+          rect.width,
+          rect.height
         )
       }
 

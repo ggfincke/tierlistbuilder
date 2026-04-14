@@ -50,7 +50,7 @@ export const computeBoardStats = (
   {
     tierDistribution.push({
       name: 'Unranked',
-      color: '#666666',
+      color: 'var(--t-text-dim)',
       count: unrankedItems,
       percentage: totalItems > 0 ? (unrankedItems / totalItems) * 100 : 0,
     })

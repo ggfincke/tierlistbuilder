@@ -17,7 +17,8 @@ import { useSettingsStore } from '@/features/workspace/settings/model/useSetting
 import { announce } from '@/shared/a11y/announce'
 import { getContainerLabel } from '@/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from './dragCollision'
-import { toStringId } from './dragHelpers'
+import { toItemId, toStringId } from './dragHelpers'
+import type { ItemId } from '@/shared/types/ids'
 import { syncDraggedItemPosition } from './dragPreviewController'
 import { useDragSensors } from './dragSensors'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
@@ -147,8 +148,8 @@ export const useDragAndDrop = () =>
   // capture snapshot & mark active item/tier when drag begins
   const onDragStart = (event: DragStartEvent) =>
   {
-    const activeId = toStringId(event.active.id)
-    if (!activeId)
+    const activeStringId = toStringId(event.active.id)
+    if (!activeStringId)
     {
       return
     }
@@ -164,10 +165,19 @@ export const useDragAndDrop = () =>
       // tier drag — no snapshot preview needed, dnd-kit handles visual reorder
       const tier = useActiveBoardStore
         .getState()
-        .tiers.find((t) => t.id === activeId)
+        .tiers.find((t) => t.id === activeStringId)
       setActiveTierData(tier)
-      setActiveItemId(activeId)
+      // tier IDs ride through the activeItemId field during tier drags;
+      // TierList keys this branch off dragTypeState, so the brand mismatch is
+      // inert here
+      setActiveItemId(activeStringId as ItemId)
       announce(`Picked up tier ${tier?.name ?? 'tier'}`)
+      return
+    }
+
+    const activeId = toItemId(event.active.id)
+    if (!activeId)
+    {
       return
     }
 
@@ -217,18 +227,18 @@ export const useDragAndDrop = () =>
   // commit the exact preview that was rendered, or discard it when dropped outside
   const onDragEnd = (event: DragEndEvent) =>
   {
-    const activeId = toStringId(event.active.id)
+    const activeStringId = toStringId(event.active.id)
 
     // tier drag — compute index swap from the sortable over target
     if (dragTypeRef.current === 'tier')
     {
-      if (activeId && event.over)
+      if (activeStringId && event.over)
       {
         const overId = toStringId(event.over.id)
-        if (overId && activeId !== overId)
+        if (overId && activeStringId !== overId)
         {
           const tiers = useActiveBoardStore.getState().tiers
-          const fromIndex = tiers.findIndex((t) => t.id === activeId)
+          const fromIndex = tiers.findIndex((t) => t.id === activeStringId)
           const toIndex = tiers.findIndex((t) => t.id === overId)
           if (fromIndex >= 0 && toIndex >= 0)
           {
@@ -239,6 +249,8 @@ export const useDragAndDrop = () =>
       resetDragState()
       return
     }
+
+    const activeId = toItemId(event.active.id)
 
     if (!event.over)
     {

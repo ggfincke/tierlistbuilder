@@ -8,6 +8,7 @@ import type {
 import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
 import { clampIndex } from '@/shared/lib/math'
 import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
+import type { ItemId } from '@/shared/types/ids'
 
 interface ResolveStoreInsertionIndexArgs
 {
@@ -20,7 +21,7 @@ interface ResolveStoreInsertionIndexArgs
 interface MoveItemToIndexInSnapshotArgs
 {
   snapshot: ContainerSnapshot
-  itemId: string
+  itemId: ItemId
   toContainerId: string
   toIndex: number
 }
@@ -41,7 +42,7 @@ const hasContainer = (
 const withContainerItems = (
   snapshot: ContainerSnapshot,
   containerId: string,
-  nextItemIds: string[]
+  nextItemIds: ItemId[]
 ): ContainerSnapshot =>
 {
   if (containerId === UNRANKED_CONTAINER_ID)
@@ -77,6 +78,8 @@ export const getEffectiveContainerSnapshot = (
   return state.dragPreview ?? createContainerSnapshot(state)
 }
 
+// overlay a drag preview onto the live tiers — returns input by reference when
+// nothing has actually changed so React/dnd-kit memoization can bail out
 export const getEffectiveTiers = (
   tiers: Tier[],
   dragPreview: ContainerSnapshot | null
@@ -91,18 +94,34 @@ export const getEffectiveTiers = (
     dragPreview.tiers.map((tier) => [tier.id, tier.itemIds] as const)
   )
 
-  return tiers.map((tier) => ({
-    ...tier,
-    itemIds: [...(itemIdsByTierId.get(tier.id) ?? tier.itemIds)],
-  }))
+  let changed = false
+  const next = tiers.map((tier) =>
+  {
+    const previewItemIds = itemIdsByTierId.get(tier.id)
+    if (!previewItemIds || previewItemIds === tier.itemIds)
+    {
+      return tier
+    }
+    changed = true
+    return { ...tier, itemIds: previewItemIds }
+  })
+
+  return changed ? next : tiers
 }
 
 export const getEffectiveUnrankedItemIds = (
-  unrankedItemIds: string[],
+  unrankedItemIds: ItemId[],
   dragPreview: ContainerSnapshot | null
-): string[] =>
+): ItemId[] =>
 {
-  return dragPreview ? [...dragPreview.unrankedItemIds] : unrankedItemIds
+  if (!dragPreview)
+  {
+    return unrankedItemIds
+  }
+
+  return dragPreview.unrankedItemIds === unrankedItemIds
+    ? unrankedItemIds
+    : dragPreview.unrankedItemIds
 }
 
 export const applyContainerSnapshotToTiers = (
@@ -114,10 +133,15 @@ export const applyContainerSnapshotToTiers = (
     snapshot.tiers.map((tier) => [tier.id, tier.itemIds] as const)
   )
 
-  return tiers.map((tier) => ({
-    ...tier,
-    itemIds: [...(itemIdsByTierId.get(tier.id) ?? tier.itemIds)],
-  }))
+  return tiers.map((tier) =>
+  {
+    const snapshotItemIds = itemIdsByTierId.get(tier.id)
+    if (!snapshotItemIds || snapshotItemIds === tier.itemIds)
+    {
+      return tier
+    }
+    return { ...tier, itemIds: [...snapshotItemIds] }
+  })
 }
 
 // verify that a snapshot references exactly the same item IDs as the live state
@@ -167,6 +191,8 @@ export const isSnapshotConsistent = (
   return true
 }
 
+// look up which container currently holds the given ID; accepts a bare
+// string so callers can pass container IDs (e.g. tier IDs) or item IDs
 export const findContainer = (
   snapshot: ContainerSnapshot,
   id: string
@@ -182,19 +208,21 @@ export const findContainer = (
     return id
   }
 
-  if (snapshot.unrankedItemIds.includes(id))
+  if ((snapshot.unrankedItemIds as readonly string[]).includes(id))
   {
     return UNRANKED_CONTAINER_ID
   }
 
-  const parentTier = snapshot.tiers.find((tier) => tier.itemIds.includes(id))
+  const parentTier = snapshot.tiers.find((tier) =>
+    (tier.itemIds as readonly string[]).includes(id)
+  )
   return parentTier?.id ?? null
 }
 
 export const getItemsInContainer = (
   snapshot: ContainerSnapshot,
   containerId: string
-): string[] =>
+): ItemId[] =>
 {
   if (containerId === UNRANKED_CONTAINER_ID)
   {
@@ -220,7 +248,7 @@ export const resolveStoreInsertionIndex = ({
 
 export const moveItemInSnapshot = (
   snapshot: ContainerSnapshot,
-  itemId: string,
+  itemId: ItemId,
   fromContainerId: string,
   toContainerId: string,
   toIndex: number

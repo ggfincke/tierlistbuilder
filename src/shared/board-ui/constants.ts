@@ -1,7 +1,12 @@
 // src/shared/board-ui/constants.ts
 // shared board-rendering constants used by live, export, & embed views
 
-import type { ItemShape, ItemSize, LabelWidth } from '@/shared/types/settings'
+import type {
+  ItemShape,
+  ItemSize,
+  LabelWidth,
+  TierLabelFontSize,
+} from '@/shared/types/settings'
 
 // item size presets in pixels
 export const ITEM_SIZE_PX: Record<ItemSize, number> = {
@@ -22,4 +27,20 @@ export const SHAPE_CLASS: Record<ItemShape, string> = {
   square: '',
   rounded: 'rounded-lg',
   circle: 'rounded-full',
+}
+
+// tier label font size token map
+export const LABEL_FONT_SIZE_CLASS: Record<TierLabelFontSize, string> = {
+  xs: 'text-xs',
+  small: 'text-sm',
+  medium: 'text-base',
+  large: 'text-lg',
+  xl: 'text-xl',
+}
+
+// tier label padding map keyed off item size — keeps text tightly centered
+export const LABEL_PADDING_CLASS: Record<ItemSize, string> = {
+  small: 'px-1.5 py-1',
+  medium: 'px-3 py-2',
+  large: 'px-4 py-3',
 }

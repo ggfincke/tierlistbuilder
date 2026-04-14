@@ -8,7 +8,7 @@ export type AppRoute =
 
 export const EMBED_ROUTE_PATH = '/embed'
 
-const normalizeBasePath = (): string =>
+export const normalizeBasePath = (): string =>
 {
   const baseUrl = import.meta.env.BASE_URL || '/'
 

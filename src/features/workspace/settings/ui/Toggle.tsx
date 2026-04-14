@@ -27,7 +27,7 @@ export const Toggle = ({
     }`}
   >
     <span
-      className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform max-sm:h-4 max-sm:w-4 ${
+      className={`inline-block h-3.5 w-3.5 rounded-full bg-[var(--t-accent-foreground)] transition-transform max-sm:h-4 max-sm:w-4 ${
         checked
           ? 'translate-x-[18px] max-sm:translate-x-[22px]'
           : 'translate-x-[3px]'

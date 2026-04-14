@@ -2,6 +2,7 @@
 // shared color utilities for picker parsing, normalization, & contrast
 
 import { hexToRgba, rgbToHex } from '@uiw/color-convert'
+import { clamp } from './math'
 
 // numeric rgb channel triplet
 export interface RgbColor
@@ -46,7 +47,7 @@ export const normalizeHexColor = (value: string): string | null =>
 
 // clamp a channel to the valid rgb byte range
 export const clampRgbChannel = (value: number): number =>
-  Math.min(255, Math.max(0, Math.round(value)))
+  clamp(Math.round(value), 0, 255)
 
 // convert a numeric rgb triplet to input strings
 export const formatRgbInputs = (color: RgbColor): RgbInputState => ({
@@ -146,11 +147,25 @@ export const getContrastRatio = (
   return (brighterLuminance + 0.05) / (darkerLuminance + 0.05)
 }
 
-// compute the higher-contrast text color between pure black & pure white
+// compute the higher-contrast text color between pure black & pure white;
+// computes the background luminance once (4x speedup vs. two getContrastRatio
+// calls) since both candidates are pure black & pure white
 export const getTextColor = (hexColor: string): string =>
 {
-  const darkContrast = getContrastRatio(hexColor, DARK_TEXT_COLOR)
-  const lightContrast = getContrastRatio(hexColor, LIGHT_TEXT_COLOR)
+  const rgb = hexToRgbColor(hexColor)
+  if (!rgb)
+  {
+    return LIGHT_TEXT_COLOR
+  }
 
-  return darkContrast >= lightContrast ? DARK_TEXT_COLOR : LIGHT_TEXT_COLOR
+  const luminance = getRelativeLuminance(rgb)
+  // contrast ratio against pure white (luminance 1) > against pure black
+  // (luminance 0) when luminance < ~0.179 — pick the higher-contrast option
+  return luminance > 0.179 ? DARK_TEXT_COLOR : LIGHT_TEXT_COLOR
 }
+
+// pick a 1-2px text-shadow that pops against the contrast text color of `hex`
+export const getContrastingTextShadow = (hexColor: string): string =>
+  getTextColor(hexColor) === LIGHT_TEXT_COLOR
+    ? '0 0 2px rgba(0,0,0,0.4)'
+    : '0 0 2px rgba(255,255,255,0.35)'

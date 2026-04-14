@@ -12,6 +12,13 @@ import {
   type KeyboardEvent,
 } from 'react'
 
+type InlineEditElement = HTMLInputElement | HTMLTextAreaElement
+
+type InlineEditInputTagName = 'input' | 'textarea'
+
+type InlineEditElementForTag<TTag extends InlineEditInputTagName> =
+  TTag extends 'textarea' ? HTMLTextAreaElement : HTMLInputElement
+
 interface EditingState<TId extends string>
 {
   id: TId
@@ -24,19 +31,24 @@ interface UseInlineEditOptions<TId extends string>
   normalizeValue?: (value: string) => string
 }
 
-type InlineEditInputProps = Omit<
-  ComponentPropsWithoutRef<'input'>,
+type InlineEditInputProps<TTag extends InlineEditInputTagName> = Omit<
+  ComponentPropsWithoutRef<TTag>,
   'value' | 'size'
 >
 
-export const useInlineEdit = <TId extends string>({
+export const useInlineEdit = <
+  TId extends string,
+  TTag extends InlineEditInputTagName = 'input',
+>({
   onCommit,
   normalizeValue = (value) => value.trim(),
 }: UseInlineEditOptions<TId>) =>
 {
+  type Element = InlineEditElementForTag<TTag>
+
   const [editing, setEditing] = useState<EditingState<TId> | null>(null)
   const [editValue, setEditValue] = useState('')
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  const inputRef = useRef<Element | null>(null)
   const blurActionRef = useRef<'commit' | 'cancel' | null>(null)
 
   useEffect(() =>
@@ -99,9 +111,13 @@ export const useInlineEdit = <TId extends string>({
   }, [cancelEdit, commitEdit])
 
   const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) =>
+    (event: KeyboardEvent<InlineEditElement>) =>
     {
-      if (event.key === 'Enter')
+      // Enter commits unless this is a textarea & the user holds Shift to
+      // insert a newline; Escape always cancels
+      const isTextarea = event.currentTarget instanceof HTMLTextAreaElement
+
+      if (event.key === 'Enter' && !(isTextarea && event.shiftKey))
       {
         event.preventDefault()
         blurActionRef.current = 'commit'
@@ -119,29 +135,38 @@ export const useInlineEdit = <TId extends string>({
   )
 
   const getInputProps = useCallback(
-    ({ onBlur, onChange, onKeyDown, ...props }: InlineEditInputProps = {}) => ({
+    (
+      {
+        onBlur,
+        onChange,
+        onKeyDown,
+        ...props
+      }: InlineEditInputProps<TTag> = {} as InlineEditInputProps<TTag>
+    ) => ({
       ...props,
       value: editValue,
-      onChange: (event: ChangeEvent<HTMLInputElement>) =>
+      onChange: (event: ChangeEvent<Element>) =>
       {
-        onChange?.(event)
+        ;(onChange as ((e: ChangeEvent<Element>) => void) | undefined)?.(event)
         setEditValue(event.target.value)
       },
-      onBlur: (event: FocusEvent<HTMLInputElement>) =>
+      onBlur: (event: FocusEvent<Element>) =>
       {
-        onBlur?.(event)
+        ;(onBlur as ((e: FocusEvent<Element>) => void) | undefined)?.(event)
         handleBlur()
       },
-      onKeyDown: (event: KeyboardEvent<HTMLInputElement>) =>
+      onKeyDown: (event: KeyboardEvent<Element>) =>
       {
-        onKeyDown?.(event)
+        ;(onKeyDown as ((e: KeyboardEvent<Element>) => void) | undefined)?.(
+          event
+        )
 
         if (event.defaultPrevented)
         {
           return
         }
 
-        handleKeyDown(event)
+        handleKeyDown(event as KeyboardEvent<InlineEditElement>)
       },
     }),
     [editValue, handleBlur, handleKeyDown]

@@ -6,6 +6,7 @@ import type { Coordinates } from '@dnd-kit/utilities'
 
 import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
 import { RENDERED_ROW_TOP_TOLERANCE_PX } from '@/shared/overlay/uiMeasurements'
+import type { ItemId } from '@/shared/types/ids'
 import {
   findContainer,
   getItemsInContainer,
@@ -33,7 +34,7 @@ interface ResolveDragTargetIndexArgs
 interface ResolveNextDragPreviewArgs
 {
   snapshot: ContainerSnapshot
-  itemId: string
+  itemId: ItemId
   overId: string
   draggedRect: ClientRect | null
   overRect: ClientRect
@@ -156,7 +157,7 @@ export const resolveNextDragPreview = ({
   const sourceItems = getItemsInContainer(snapshot, fromContainerId)
   const targetItems = getItemsInContainer(snapshot, toContainerId)
   const sourceIndex = sourceItems.indexOf(itemId)
-  const overIndex = targetItems.indexOf(overId)
+  const overIndex = (targetItems as readonly string[]).indexOf(overId)
   const targetIndex = resolveDragTargetIndex({
     draggedRect,
     overRect,

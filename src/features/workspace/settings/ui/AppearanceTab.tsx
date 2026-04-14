@@ -3,8 +3,11 @@
 
 import { useId } from 'react'
 import { RotateCcw } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
+import { ColorInput } from '@/shared/ui/ColorInput'
+import { THEMES } from '@/shared/theme/tokens'
 import { PalettePicker } from './PalettePicker'
 import { SettingRow } from './SettingRow'
 import { SettingsSection } from './SettingsSection'
@@ -14,16 +17,23 @@ import { Toggle } from './Toggle'
 
 export const AppearanceTab = () =>
 {
-  const reducedMotion = useSettingsStore((s) => s.reducedMotion)
-  const setReducedMotion = useSettingsStore((s) => s.setReducedMotion)
-  const themeId = useSettingsStore((s) => s.themeId)
-  const boardBackgroundOverride = useSettingsStore(
-    (s) => s.boardBackgroundOverride
+  const {
+    reducedMotion,
+    setReducedMotion,
+    themeId,
+    boardBackgroundOverride,
+    setBoardBackgroundOverride,
+    toggleHighContrast,
+  } = useSettingsStore(
+    useShallow((s) => ({
+      reducedMotion: s.reducedMotion,
+      setReducedMotion: s.setReducedMotion,
+      themeId: s.themeId,
+      boardBackgroundOverride: s.boardBackgroundOverride,
+      setBoardBackgroundOverride: s.setBoardBackgroundOverride,
+      toggleHighContrast: s.toggleHighContrast,
+    }))
   )
-  const setBoardBackgroundOverride = useSettingsStore(
-    (s) => s.setBoardBackgroundOverride
-  )
-  const toggleHighContrast = useSettingsStore((s) => s.toggleHighContrast)
   const highContrastDescriptionId = useId()
   const reduceMotionDescriptionId = useId()
 
@@ -47,12 +57,10 @@ export const AppearanceTab = () =>
                 <RotateCcw className="h-3.5 w-3.5" />
               </button>
             )}
-            <input
-              type="color"
-              value={boardBackgroundOverride ?? '#1a1a1a'}
+            <ColorInput
+              value={boardBackgroundOverride ?? THEMES[themeId]['bg-page']}
               onChange={(e) => setBoardBackgroundOverride(e.target.value)}
               aria-label="Page background color"
-              className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
             />
           </div>
         </SettingRow>

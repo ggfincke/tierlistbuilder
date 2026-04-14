@@ -73,10 +73,11 @@ export const resolveDragCollisions = (
 
       if (overIdString === overContainerId && overItems.length > 0)
       {
+        const overItemsAsStrings = overItems as readonly string[]
         const childDroppables = args.droppableContainers.filter((container) =>
         {
           const containerId = toStringId(container.id)
-          return containerId ? overItems.includes(containerId) : false
+          return containerId ? overItemsAsStrings.includes(containerId) : false
         })
 
         const nonActiveChildRects = childDroppables.flatMap((container) =>

@@ -115,33 +115,26 @@ export const AnnotationCanvas = memo(
     onCancelText,
   }: AnnotationCanvasProps) =>
   {
-    const containerRef = useRef<HTMLDivElement | null>(null)
-    const bgRef = useRef<HTMLImageElement | null>(null)
-
-    useEffect(() =>
-    {
-      const img = new Image()
-      img.src = backgroundImage
-      img.onload = () =>
+    const handleBackgroundLoad = useCallback(
+      (event: React.SyntheticEvent<HTMLImageElement>) =>
       {
-        bgRef.current = img
+        const img = event.currentTarget
         const canvas = canvasRef.current
         if (canvas)
         {
           canvas.width = img.naturalWidth
           canvas.height = img.naturalHeight
         }
-      }
-    }, [backgroundImage, canvasRef])
+      },
+      [canvasRef]
+    )
 
     return (
-      <div
-        ref={containerRef}
-        className="relative inline-block max-h-full max-w-full overflow-auto"
-      >
+      <div className="relative inline-block max-h-full max-w-full overflow-auto">
         <img
           src={backgroundImage}
           alt="Board export"
+          onLoad={handleBackgroundLoad}
           className="block max-h-[70vh] max-w-full"
           draggable={false}
         />

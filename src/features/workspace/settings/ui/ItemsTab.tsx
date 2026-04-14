@@ -5,6 +5,7 @@ import { useCallback, useId, useState } from 'react'
 
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import { fetchImageAsDataUrl } from '@/features/workspace/settings/lib/imageFromUrl'
+import { ColorInput } from '@/shared/ui/ColorInput'
 import { SecondaryButton } from '@/shared/ui/SecondaryButton'
 import { TextInput } from '@/shared/ui/TextInput'
 import { DeletedItemsSection } from './DeletedItemsSection'
@@ -148,12 +149,11 @@ export const ItemsTab = ({
           <label htmlFor={colorInputId} className="sr-only">
             Text item background color
           </label>
-          <input
+          <ColorInput
             id={colorInputId}
-            type="color"
+            size="md"
             value={textColor}
             onChange={(event) => onTextColorChange(event.target.value)}
-            className="h-8 w-8 shrink-0 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
           />
           <SecondaryButton
             disabled={!textLabel.trim()}

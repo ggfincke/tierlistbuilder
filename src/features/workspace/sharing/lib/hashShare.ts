@@ -2,19 +2,8 @@
 // shareable link encoding & decoding — compress board data into a URL hash fragment
 
 import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import { EMBED_ROUTE_PATH, normalizeBasePath } from '@/app/routes/pathname'
 import { parseBoardJson } from '@/features/workspace/export/lib/exportJson'
-
-const normalizeBasePath = (): string =>
-{
-  const baseUrl = import.meta.env.BASE_URL || '/'
-
-  if (baseUrl === '/')
-  {
-    return ''
-  }
-
-  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
-}
 
 const buildAppUrl = (pathname = ''): string =>
   `${window.location.origin}${normalizeBasePath()}${pathname}`
@@ -24,10 +13,12 @@ export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
 {
   const strippedItems: BoardSnapshot['items'] = {}
 
+  // items map is keyed by ItemId — brand the entries before writing back
   for (const [id, item] of Object.entries(data.items))
   {
-    const { imageUrl, ...rest } = item
-    strippedItems[id] = imageUrl ? { ...rest, imageStripped: true } : rest
+    const { imageUrl: _imageUrl, ...rest } = item
+    void _imageUrl
+    strippedItems[id as keyof BoardSnapshot['items']] = rest
   }
 
   return {
@@ -99,7 +90,7 @@ export const decodeBoardFromShareFragment = async (
 export const getWorkspaceBaseUrl = (): string => buildAppUrl()
 
 // embed base URL for the dedicated embed route
-export const getEmbedBaseUrl = (): string => buildAppUrl('/embed')
+export const getEmbedBaseUrl = (): string => buildAppUrl(EMBED_ROUTE_PATH)
 
 // build the full shareable URL w/ hash fragment
 export const getShareUrl = async (data: BoardSnapshot): Promise<string> =>

@@ -4,7 +4,6 @@ import {
   generateBoardId,
   generatePresetId,
   generateTierId,
-  isBoardId,
   isPresetId,
   isTierId,
 } from '@/shared/lib/id'
@@ -20,7 +19,6 @@ describe('ID helpers', () =>
 
   it('recognizes valid generated ID prefixes', () =>
   {
-    expect(isBoardId('board-123')).toBe(true)
     expect(isTierId('tier-123')).toBe(true)
     expect(isPresetId('preset-123')).toBe(true)
     expect(isPresetId('builtin-classic')).toBe(true)
@@ -28,7 +26,6 @@ describe('ID helpers', () =>
 
   it('rejects mismatched prefixes', () =>
   {
-    expect(isBoardId('tier-123')).toBe(false)
     expect(isTierId('custom-tier')).toBe(false)
     expect(isPresetId('custom-preset')).toBe(false)
   })

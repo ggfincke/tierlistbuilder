@@ -16,7 +16,7 @@ import {
 } from '@/features/workspace/boards/data/local/localBoardSession'
 import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
 import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { usePopupClose } from '@/shared/overlay/usePopupClose'
+import { useDismissibleLayer } from '@/shared/overlay/useDismissibleLayer'
 import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
 import { OverlayPanelSurface } from '@/shared/overlay/OverlayPrimitives'
 import { PresetPickerModal } from '@/features/workspace/tier-presets/ui/PresetPickerModal'
@@ -56,11 +56,11 @@ export const BoardManager = ({
     onCommit: renameBoardSession,
   })
 
-  usePopupClose({
-    show: open,
+  useDismissibleLayer({
+    open,
     triggerRef,
-    popupRef: panelRef,
-    onClose: useCallback(() =>
+    layerRef: panelRef,
+    onDismiss: useCallback(() =>
     {
       setOpen(false)
       cancelEdit()

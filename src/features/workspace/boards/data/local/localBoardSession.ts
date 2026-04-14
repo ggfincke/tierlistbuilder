@@ -10,14 +10,16 @@ import type { BoardId } from '@/shared/types/ids'
 import type { PaletteId } from '@/shared/types/theme'
 import { DEFAULT_TITLE } from '@/features/workspace/boards/lib/boardDefaults'
 import { generateBoardId } from '@/shared/lib/id'
-import { migrateLegacyBoard } from './boardMigration'
 import {
   loadBoardFromStorage,
   removeBoardFromStorage,
   saveBoardToStorage,
   type BoardLoadResult,
 } from './boardStorage'
-import { isStorageNearFull } from '@/shared/lib/storageMetering'
+import {
+  STORAGE_NEAR_FULL_MESSAGE,
+  isStorageNearFull,
+} from '@/shared/lib/storageMetering'
 import { toast } from '@/shared/notifications/useToastStore'
 import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
 import {
@@ -88,10 +90,7 @@ export const saveBoardSnapshot = (boardId: BoardId): void =>
   )
   {
     storageWarningLastMs = now
-    toast(
-      'Storage is almost full. Delete unused boards or remove large images to free space.',
-      'error'
-    )
+    toast(STORAGE_NEAR_FULL_MESSAGE, 'error')
   }
 }
 
@@ -160,97 +159,98 @@ const saveAndActivateBoard = (
   return id
 }
 
-interface PruneResult
+// schedule background work without blocking first paint; falls back to
+// setTimeout in browsers w/o requestIdleCallback (Safari)
+const scheduleIdle = (callback: () => void): void =>
 {
-  healthy: BoardMeta[]
-  // cached load results keyed by board ID — reused on bootstrap to skip a
-  // second parse pass for the active board's payload
-  results: Map<BoardId, BoardLoadResult>
+  type IdleScheduler = (cb: () => void, opts?: { timeout: number }) => number
+  const idleScheduler = (
+    window as unknown as { requestIdleCallback?: IdleScheduler }
+  ).requestIdleCallback
+
+  if (idleScheduler)
+  {
+    idleScheduler(callback, { timeout: 2_000 })
+  }
+  else
+  {
+    setTimeout(callback, 0)
+  }
 }
 
-// read each registry entry once, drop any that fail to parse, & retain the
-// parsed payloads so bootstrap can hand the active board straight into the
-// active store without re-reading localStorage
-const pruneOrphanedRegistryEntries = (): PruneResult =>
+// scan every registered board entry, dropping any that fail to parse;
+// runs asynchronously after first paint so a slow scan doesn't block startup
+const pruneOrphanedRegistryEntriesAsync = (
+  skipBoardId: BoardId | null
+): void =>
 {
-  const boardStore = useWorkspaceBoardRegistryStore.getState()
-  const healthy: BoardMeta[] = []
-  const results = new Map<BoardId, BoardLoadResult>()
-  let pruned = 0
-
-  for (const meta of boardStore.boards)
+  scheduleIdle(() =>
   {
-    const result = loadBoardFromStorage(meta.id)
+    const boardStore = useWorkspaceBoardRegistryStore.getState()
+    const healthy: BoardMeta[] = []
+    let pruned = 0
 
-    if (result.status !== 'ok')
+    for (const meta of boardStore.boards)
     {
-      removeBoardFromStorage(meta.id)
-      pruned++
-      continue
+      // active board is already loaded — assume it's healthy
+      if (meta.id === skipBoardId)
+      {
+        healthy.push(meta)
+        continue
+      }
+
+      const result = loadBoardFromStorage(meta.id)
+
+      if (result.status !== 'ok')
+      {
+        removeBoardFromStorage(meta.id)
+        pruned++
+        continue
+      }
+
+      healthy.push(meta)
     }
 
-    healthy.push(meta)
-    results.set(meta.id, result)
-  }
-
-  if (pruned > 0)
-  {
-    toast(
-      `${pruned} board${pruned > 1 ? 's' : ''} had corrupted data and ${pruned > 1 ? 'were' : 'was'} removed.`,
-      'error'
-    )
-  }
-
-  return { healthy, results }
+    if (pruned > 0)
+    {
+      const nextActiveId =
+        healthy.find((b) => b.id === boardStore.activeBoardId)?.id ??
+        healthy[0]?.id ??
+        ''
+      boardStore.replaceRegistry(healthy, nextActiveId)
+      toast(
+        `${pruned} board${pruned > 1 ? 's' : ''} had corrupted data and ${pruned > 1 ? 'were' : 'was'} removed.`,
+        'error'
+      )
+    }
+  })
 }
 
 export const bootstrapBoardSession = (): void =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
+  const requestedActiveId =
+    boardStore.activeBoardId || boardStore.boards[0]?.id || ''
 
-  // prune registry entries whose localStorage data is missing or corrupted
-  const { healthy: healthyBoards, results } = pruneOrphanedRegistryEntries()
-  const nextActiveId =
-    (healthyBoards.some((b) => b.id === boardStore.activeBoardId)
-      ? boardStore.activeBoardId
-      : healthyBoards[0]?.id) || ''
-
-  if (healthyBoards.length > 0 && nextActiveId)
+  if (requestedActiveId)
   {
-    // update registry if any boards were pruned
-    if (
-      healthyBoards.length !== boardStore.boards.length ||
-      boardStore.activeBoardId !== nextActiveId
-    )
+    const result = loadBoardFromStorage(requestedActiveId)
+
+    if (result.status === 'ok')
     {
-      boardStore.replaceRegistry(healthyBoards, nextActiveId)
+      const data = snapshotFromResult(result)
+      if (boardStore.activeBoardId !== requestedActiveId)
+      {
+        boardStore.setActiveBoardId(requestedActiveId)
+      }
+      useActiveBoardStore.getState().loadBoard(data)
+      pruneOrphanedRegistryEntriesAsync(requestedActiveId)
+      return
     }
 
-    // reuse the payload captured during pruning instead of re-parsing it
-    const cached = results.get(nextActiveId)
-    const data = cached
-      ? snapshotFromResult(cached)
-      : loadPersistedBoard(nextActiveId)
-    useActiveBoardStore.getState().loadBoard(data)
-    return
-  }
-
-  const legacy = migrateLegacyBoard(DEFAULT_TITLE)
-
-  if (legacy)
-  {
-    const data = normalizeBoardSnapshot(
-      legacy.data as Partial<BoardSnapshot>,
-      getActivePaletteId(),
-      DEFAULT_TITLE
-    )
-    saveBoardToStorage(legacy.id, data)
-    boardStore.replaceRegistry(
-      [createBoardMeta(legacy.id, data.title)],
-      legacy.id
-    )
-    useActiveBoardStore.getState().loadBoard(data)
-    return
+    // active board was corrupted — fall through to the fresh-board path
+    removeBoardFromStorage(requestedActiveId)
+    toast('Board data was corrupted and has been reset.', 'error')
   }
 
   const id = generateBoardId()

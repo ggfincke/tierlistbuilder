@@ -5,6 +5,10 @@ import { useEffect, type RefObject } from 'react'
 
 import { hasActiveModalLayer } from './useModalBackgroundInert'
 
+// shared empty array — avoids allocating a fresh array per render when callers
+// omit `ignoreRefs`, which would otherwise force the effect to re-subscribe
+const EMPTY_IGNORE_REFS: ReadonlyArray<RefObject<HTMLElement | null>> = []
+
 interface UseDismissibleLayerOptions
 {
   open: boolean
@@ -23,7 +27,7 @@ export const useDismissibleLayer = ({
   open,
   layerRef,
   triggerRef,
-  ignoreRefs = [],
+  ignoreRefs = EMPTY_IGNORE_REFS,
   onDismiss,
   closeOnEscape = true,
   closeOnInteractOutside = true,

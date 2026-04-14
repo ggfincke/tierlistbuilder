@@ -28,22 +28,26 @@ export type KeyboardMode = 'idle' | 'browse' | 'dragging'
 // full active-board runtime state — board snapshot plus transient drag, selection, & undo state
 export interface ActiveBoardRuntimeState extends BoardSnapshot
 {
-  activeItemId: string | null
+  activeItemId: ItemId | null
   dragPreview: ContainerSnapshot | null
   keyboardMode: KeyboardMode
-  keyboardFocusItemId: string | null
+  keyboardFocusItemId: ItemId | null
   // true after a manual drag-drop commit; reset on shuffle, board load, & undo/redo
   itemsManuallyMoved: boolean
   // ordered list of selected item IDs (insertion order for multi-drag)
-  selectedItemIds: string[]
+  selectedItemIds: ItemId[]
+  // O(1) lookup mirror of selectedItemIds — kept in sync by selection actions
+  selectedItemIdSet: ReadonlySet<ItemId>
   // last clicked item ID for shift-click range selection
-  lastClickedItemId: string | null
+  lastClickedItemId: ItemId | null
   // item IDs being dragged together (ordered — primary item first)
-  dragGroupIds: string[]
+  dragGroupIds: ItemId[]
   runtimeError: string | null
   past: BoardSnapshot[]
   future: BoardSnapshot[]
 }
+
+export const EMPTY_SELECTION_SET: ReadonlySet<ItemId> = new Set<ItemId>()
 
 export const freshRuntimeState: Omit<
   ActiveBoardRuntimeState,
@@ -55,6 +59,7 @@ export const freshRuntimeState: Omit<
   keyboardFocusItemId: null,
   itemsManuallyMoved: false,
   selectedItemIds: [],
+  selectedItemIdSet: EMPTY_SELECTION_SET,
   lastClickedItemId: null,
   dragGroupIds: [],
   runtimeError: null,
@@ -62,4 +67,4 @@ export const freshRuntimeState: Omit<
   future: [],
 }
 
-export type ItemRecord = Record<string, TierItem>
+export type ItemRecord = Record<ItemId, TierItem>

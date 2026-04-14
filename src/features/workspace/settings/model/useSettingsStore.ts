@@ -16,7 +16,6 @@ import type { PaletteId, TextStyleId, ThemeId } from '@/shared/types/theme'
 import { createAppPersistStorage } from '@/shared/lib/browserStorage'
 import { THEME_PALETTE } from '@/shared/theme/palettes'
 import {
-  migrateSettingsState,
   SETTINGS_STORAGE_KEY,
   SETTINGS_STORAGE_VERSION,
 } from '../data/local/settingsStorage'
@@ -141,7 +140,6 @@ export const useSettingsStore = create<SettingsStore>()(
       name: SETTINGS_STORAGE_KEY,
       storage: createAppPersistStorage(),
       version: SETTINGS_STORAGE_VERSION,
-      migrate: migrateSettingsState,
     }
   )
 )

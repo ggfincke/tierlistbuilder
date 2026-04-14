@@ -3,7 +3,6 @@
 
 import type { CSSProperties } from 'react'
 import {
-  CUSTOM_COLOR_PICKER_WIDTH_PX,
   FIXED_POPUP_GAP_PX,
   ITEM_EDIT_POPOVER_GAP_PX,
   ITEM_EDIT_POPOVER_MIN_HEIGHT_PX,
@@ -133,5 +132,3 @@ export function computeItemEditPopoverStyle(
     left: clampPopupLeft(anchorRect.left, popupWidth, width),
   }
 }
-
-export { CUSTOM_COLOR_PICKER_WIDTH_PX }

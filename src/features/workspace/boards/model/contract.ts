@@ -17,8 +17,6 @@ export interface TierItem
   backgroundColor?: string
   // custom alt text for screen readers (falls back to label)
   altText?: string
-  // true when the image was stripped for share link encoding
-  imageStripped?: boolean
 }
 
 // a single tier row w/ ordered item references
@@ -33,7 +31,7 @@ export interface Tier
   // canonical color spec for the label background
   colorSpec: TierColorSpec
   // ordered list of item IDs assigned to this tier
-  itemIds: string[]
+  itemIds: ItemId[]
 }
 
 // full serializable board snapshot — persisted per board & exchanged across import/export

@@ -6,6 +6,7 @@ import type { ClientRect } from '@dnd-kit/core'
 import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
 import { RENDERED_ROW_TOP_TOLERANCE_PX } from '@/shared/overlay/uiMeasurements'
 import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
+import { asItemId, type ItemId } from '@/shared/types/ids'
 
 export const sortByRenderedPosition = <
   T extends Pick<ClientRect, 'left' | 'top'>,
@@ -27,7 +28,7 @@ export const sortByRenderedPosition = <
 
 interface RenderedItemPosition
 {
-  itemId: string
+  itemId: ItemId
   left: number
   top: number
 }
@@ -56,7 +57,7 @@ const getPositionedItemsFromElement = (
 
     return [
       {
-        itemId,
+        itemId: asItemId(itemId),
         left: rect.left,
         top: rect.top,
       } satisfies RenderedItemPosition,
@@ -73,8 +74,8 @@ const getPositionedItemsFromElement = (
 
 const getRenderedItemIds = (
   containerElement: Element | null,
-  fallbackItemIds: string[]
-): string[] =>
+  fallbackItemIds: ItemId[]
+): ItemId[] =>
 {
   const positioned = getPositionedItemsFromElement(containerElement)
   return positioned
@@ -141,7 +142,7 @@ export const captureRenderedContainerSnapshot = (
 
 interface RenderedRowLayout
 {
-  rows: string[][]
+  rows: ItemId[][]
   rowCount: number
 }
 
@@ -168,7 +169,7 @@ const getRenderedContainerRowLayout = (
     return null
   }
 
-  const rows: string[][] = []
+  const rows: ItemId[][] = []
   const rowTops: number[] = []
 
   for (const item of sortedItems)
@@ -194,15 +195,15 @@ const getRenderedContainerRowLayout = (
 export interface IntraRowMoveResult
 {
   targetIndex: number
-  targetItemId: string
+  targetItemId: ItemId
 }
 
 // resolve an intra-container row move for ArrowUp/ArrowDown in multi-row containers
 export const resolveIntraContainerRowMove = (
   containerId: string,
-  itemId: string,
+  itemId: ItemId,
   direction: 'ArrowUp' | 'ArrowDown',
-  containerItemIds: string[]
+  containerItemIds: ItemId[]
 ): IntraRowMoveResult | null =>
 {
   const layout = getRenderedContainerRowLayout(containerId)
@@ -246,9 +247,9 @@ export const resolveIntraContainerRowMove = (
 // preserving the item's column position from its source row
 export const resolveColumnAwareCrossTierIndex = (
   sourceContainerId: string,
-  itemId: string,
+  itemId: ItemId,
   targetContainerId: string,
-  targetContainerItemIds: string[],
+  targetContainerItemIds: ItemId[],
   direction: 'ArrowUp' | 'ArrowDown'
 ): IntraRowMoveResult | null =>
 {

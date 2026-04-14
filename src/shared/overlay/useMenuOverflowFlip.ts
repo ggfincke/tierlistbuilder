@@ -35,29 +35,15 @@ const applyMenuOverflowFlip = (
     return
   }
 
-  const rect = node.getBoundingClientRect()
+  const tokens = resolveMenuOverflowFlipTokens(
+    node.getBoundingClientRect(),
+    viewportWidth
+  )
 
-  if (rect.right > viewportWidth)
+  if (tokens.length > 0)
   {
-    node.classList.add(...MENU_SUBMENU_FLIP_LEFT_TOKENS)
-    return
+    node.classList.add(...tokens)
   }
-
-  if (rect.left < 0)
-  {
-    node.classList.add(...MENU_SUBMENU_FLIP_RIGHT_TOKENS)
-  }
-}
-
-export const useMenuOverflowFlip = () =>
-{
-  // callback ref — measures on mount & applies flip imperatively
-  const ref = useCallback((node: HTMLDivElement | null) =>
-  {
-    applyMenuOverflowFlip(node, window.innerWidth)
-  }, [])
-
-  return { ref }
 }
 
 export const useMenuOverflowFlipRefs = <MenuId extends string>() =>

@@ -99,43 +99,22 @@ describe('normalizeBoardSnapshot', () =>
     }
   })
 
-  it('migrates legacy colorSource field to palette colorSpec', () =>
+  it('falls back to auto palette color when a tier is missing its colorSpec', () =>
   {
-    const legacyTiers = [
+    const rawTiers = [
       {
         id: 'tier-s',
         name: 'S',
-        colorSource: { paletteType: 'default', index: 0 },
         itemIds: [],
       },
     ]
     const result = normalizeBoardSnapshot(
-      { tiers: legacyTiers as never },
+      { tiers: rawTiers as never },
       'classic'
     )
     expect(result.tiers[0].colorSpec).toEqual({
       kind: 'palette',
       index: 0,
-    })
-  })
-
-  it('migrates legacy raw color string to custom colorSpec', () =>
-  {
-    const legacyTiers = [
-      {
-        id: 'custom-tier',
-        name: 'Custom',
-        color: '#abcdef',
-        itemIds: [],
-      },
-    ]
-    const result = normalizeBoardSnapshot(
-      { tiers: legacyTiers as never },
-      'classic'
-    )
-    expect(result.tiers[0].colorSpec).toEqual({
-      kind: 'custom',
-      hex: '#abcdef',
     })
   })
 })

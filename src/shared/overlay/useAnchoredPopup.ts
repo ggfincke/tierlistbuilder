@@ -1,10 +1,17 @@
 // src/shared/overlay/useAnchoredPopup.ts
-// shared fixed-popup hook that composes anchored positioning w/ popup dismissal
+// shared fixed-popup hook — anchored positioning + outside-click/Escape dismissal
 
-import { useLayoutEffect, type CSSProperties, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react'
 
-import { useAnchoredPosition } from './useAnchoredPosition'
-import { usePopupClose } from './usePopupClose'
+import { useDismissibleLayer } from './useDismissibleLayer'
 
 interface UseAnchoredPopupOptions
 {
@@ -24,7 +31,7 @@ export const useAnchoredPopup = ({
   open,
   triggerRef,
   popupRef,
-  ignoreRefs = [],
+  ignoreRefs,
   onClose,
   closeOnEscape = true,
   closeOnInteractOutside = true,
@@ -33,21 +40,35 @@ export const useAnchoredPopup = ({
   computePosition,
 }: UseAnchoredPopupOptions) =>
 {
-  const { style, updatePosition } = useAnchoredPosition({
-    computePosition,
-  })
+  const [style, setStyle] = useState<CSSProperties>({})
+  const computeRef = useRef(computePosition)
 
-  usePopupClose({
-    show: open,
+  useEffect(() =>
+  {
+    computeRef.current = computePosition
+  }, [computePosition])
+
+  const updatePosition = useCallback(() =>
+  {
+    const nextStyle = computeRef.current()
+
+    if (nextStyle)
+    {
+      setStyle(nextStyle)
+    }
+  }, [])
+
+  useDismissibleLayer({
+    open,
+    layerRef: popupRef,
     triggerRef,
-    popupRef,
     ignoreRefs,
-    onClose,
+    onDismiss: onClose,
     closeOnEscape,
     closeOnInteractOutside,
     escapePhase,
     stopEscapePropagation,
-    onScroll: updatePosition,
+    onPositionUpdate: updatePosition,
   })
 
   useLayoutEffect(() =>

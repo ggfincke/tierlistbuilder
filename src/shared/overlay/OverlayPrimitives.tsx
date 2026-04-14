@@ -9,13 +9,12 @@ import {
   type ReactNode,
 } from 'react'
 
+import { joinClassNames } from '@/shared/lib/className'
+
 interface OverlaySurfaceProps extends HTMLAttributes<HTMLDivElement>
 {
   style?: CSSProperties
 }
-
-const mergeClassName = (baseClassName: string, className?: string): string =>
-  className ? `${baseClassName} ${className}` : baseClassName
 
 export const OverlayMenuSurface = forwardRef<
   HTMLDivElement,
@@ -24,7 +23,7 @@ export const OverlayMenuSurface = forwardRef<
   <div
     ref={ref}
     {...props}
-    className={mergeClassName(
+    className={joinClassNames(
       'rounded-xl border border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-overlay)] p-1.5 shadow-2xl',
       className
     )}
@@ -40,7 +39,7 @@ export const OverlayPanelSurface = forwardRef<
   <div
     ref={ref}
     {...props}
-    className={mergeClassName(
+    className={joinClassNames(
       'rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] shadow-2xl',
       className
     )}
@@ -56,7 +55,7 @@ export const OverlayFixedPopupSurface = forwardRef<
   <div
     ref={ref}
     {...props}
-    className={mergeClassName(
+    className={joinClassNames(
       'rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] shadow-lg',
       className
     )}
@@ -79,7 +78,7 @@ export const OverlayMenuItem = ({
   <button
     type={type}
     {...props}
-    className={mergeClassName(
+    className={joinClassNames(
       'focus-custom flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)] focus-visible:bg-[rgb(var(--t-overlay)/0.08)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]',
       className
     )}
@@ -90,7 +89,7 @@ export const OverlayMenuItem = ({
 
 export const OverlayDivider = ({ className }: { className?: string }) => (
   <div
-    className={mergeClassName(
+    className={joinClassNames(
       'my-1 border-t border-[var(--t-border)]',
       className
     )}

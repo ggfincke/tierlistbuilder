@@ -33,6 +33,10 @@ export const TierDistributionChart = memo(
         {distribution.map((tier) =>
         {
           const widthPercent = maxCount > 0 ? (tier.count / maxCount) * 100 : 0
+          const isHexColor = tier.color.startsWith('#')
+          const labelColor = isHexColor
+            ? getTextColor(tier.color)
+            : 'var(--t-bg-page)'
 
           return (
             <div key={tier.name} className="flex items-center gap-3">
@@ -54,7 +58,7 @@ export const TierDistributionChart = memo(
                   {tier.count > 0 && (
                     <span
                       className="px-2 text-xs font-semibold"
-                      style={{ color: getTextColor(tier.color) }}
+                      style={{ color: labelColor }}
                     >
                       {tier.count}
                     </span>

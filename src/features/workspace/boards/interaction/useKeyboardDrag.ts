@@ -4,7 +4,10 @@
 import { useCallback } from 'react'
 
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import {
+  selectKeyboardTabStopItemId,
+  useActiveBoardStore,
+} from '@/features/workspace/boards/model/useActiveBoardStore'
 import {
   KEYBOARD_DIRECTIONS,
   handleKeyboardArrowKey,
@@ -13,9 +16,14 @@ import {
   handleKeyboardSpaceKey,
 } from './keyboardDragController'
 import type { KeyboardDragDirection } from '@/features/workspace/boards/dnd/dragKeyboard'
+import type { ItemId } from '@/shared/types/ids'
+
+// expose the shared selector for components that just need the tab-stop id
+export const useKeyboardTabStopItemId = (): ItemId | null =>
+  useActiveBoardStore(selectKeyboardTabStopItemId)
 
 // keyboard browse & drag hook — returns reactive state & event handlers
-export const useKeyboardDrag = (itemId: string) =>
+export const useKeyboardDrag = (itemId: ItemId) =>
 {
   const isKeyboardFocused = useActiveBoardStore(
     (state) => state.keyboardFocusItemId === itemId
@@ -24,19 +32,8 @@ export const useKeyboardDrag = (itemId: string) =>
     (state) =>
       state.keyboardMode === 'dragging' && state.activeItemId === itemId
   )
-  const isKeyboardTabStop = useActiveBoardStore((state) =>
-  {
-    if (state.keyboardFocusItemId)
-    {
-      return state.keyboardFocusItemId === itemId
-    }
-
-    const firstTierItemId =
-      state.tiers.find((tier) => tier.itemIds.length > 0)?.itemIds[0] ?? null
-    const firstBoardItemId = firstTierItemId ?? state.unrankedItemIds[0] ?? null
-
-    return firstBoardItemId === itemId
-  })
+  const tabStopItemId = useKeyboardTabStopItemId()
+  const isKeyboardTabStop = tabStopItemId === itemId
 
   const handleSpaceKey = useCallback(() =>
   {

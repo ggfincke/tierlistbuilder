@@ -26,6 +26,8 @@ import {
   type RgbInputState,
 } from '@/shared/lib/color'
 import { getColorName } from '@/shared/lib/colorName'
+import { PrimaryButton } from '@/shared/ui/PrimaryButton'
+import { SecondaryButton } from '@/shared/ui/SecondaryButton'
 import { TextInput } from '@/shared/ui/TextInput'
 
 interface ColorPickerProps
@@ -349,21 +351,13 @@ export const CustomColorPicker = memo(
           </p>
 
           <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              className="rounded-lg border border-[var(--t-border)] px-3 py-1.5 text-sm text-[var(--t-text)] transition hover:border-[var(--t-border-secondary)] hover:bg-[rgb(var(--t-overlay)/0.06)]"
-              onClick={onCancel}
-            >
+            <SecondaryButton variant="outline" onClick={onCancel}>
               Cancel
-            </button>
+            </SecondaryButton>
 
-            <button
-              type="submit"
-              className="rounded-lg bg-[var(--t-accent)] px-3 py-1.5 text-sm font-medium text-[var(--t-accent-foreground)] transition hover:bg-[var(--t-accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--t-border)] disabled:text-[var(--t-text-faint)]"
-              disabled={!draftState.isValid}
-            >
+            <PrimaryButton type="submit" disabled={!draftState.isValid}>
               Apply
-            </button>
+            </PrimaryButton>
           </div>
         </div>
       </form>

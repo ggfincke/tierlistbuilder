@@ -9,6 +9,16 @@ export const STORAGE_QUOTA_BYTES = 5 * 1024 * 1024
 // ratio at which a proactive warning is surfaced after a successful save
 const STORAGE_WARNING_THRESHOLD = 0.9
 
+// shared messaging surfaced from quota errors & near-full warnings
+export const STORAGE_FULL_MESSAGE =
+  'Storage is full. Delete unused boards or remove items with large images to free space.'
+
+export const STORAGE_NEAR_FULL_MESSAGE =
+  'Storage is almost full. Delete unused boards or remove items with large images to free space.'
+
+export const STORAGE_SAVE_FAILED_MESSAGE =
+  'Could not save changes to localStorage. Free up browser storage and try again.'
+
 // estimate total localStorage usage in bytes (UTF-16 = 2 bytes per char)
 export const getStorageUsageBytes = (): number =>
 {

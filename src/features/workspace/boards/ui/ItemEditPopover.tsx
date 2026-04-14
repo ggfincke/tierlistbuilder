@@ -20,10 +20,11 @@ import { computeItemEditPopoverStyle } from '@/shared/overlay/popupPosition'
 import { OverlayFixedPopupSurface } from '@/shared/overlay/OverlayPrimitives'
 import { SecondaryButton } from '@/shared/ui/SecondaryButton'
 import { TextInput } from '@/shared/ui/TextInput'
+import type { ItemId } from '@/shared/types/ids'
 
 interface ItemEditPopoverProps
 {
-  itemId: string
+  itemId: ItemId
   anchorRef: RefObject<HTMLDivElement | null>
   triggerRef: RefObject<HTMLButtonElement | null>
   onClose: () => void

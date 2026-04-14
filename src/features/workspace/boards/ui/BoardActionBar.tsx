@@ -2,11 +2,11 @@
 // floating action bar — undo/redo, add tier, settings, export, & reset controls
 
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   BarChart3,
   BookmarkPlus,
   ChevronRight,
-  // GitCompareArrows,
   Lock,
   Plus,
   Redo2,
@@ -22,7 +22,6 @@ import type { ToolbarPosition } from '@/shared/types/settings'
 import { extractPresetFromBoard } from '@/features/workspace/tier-presets/model/tierPresets'
 import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
 import { toast } from '@/shared/notifications/useToastStore'
-// import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 import { useTierPresetStore } from '@/features/workspace/tier-presets/model/useTierPresetStore'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
@@ -30,7 +29,7 @@ import {
   useNestedMenus,
   type NestedMenuDefinition,
 } from '@/shared/overlay/useNestedMenus'
-import { usePopupClose } from '@/shared/overlay/usePopupClose'
+import { useDismissibleLayer } from '@/shared/overlay/useDismissibleLayer'
 import {
   getMenuPositionClasses,
   isVerticalPosition,
@@ -53,20 +52,14 @@ const SHUFFLE_MENU_DEFINITIONS: readonly NestedMenuDefinition<ShuffleMenuId>[] =
 interface BoardActionBarProps
 {
   toolbarPosition: ToolbarPosition
-  // active export type while an export is in progress (null when idle)
   exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
-  // true while an "Export All" operation is running
   exportingAll: boolean
   onAddTier: () => void
   onOpenSettings: () => void
   onOpenStats: () => void
-  onOpenComparison: () => void
   onExport: (format: ImageFormat | 'pdf') => Promise<void>
   onCopyToClipboard: () => Promise<void>
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
-  onOpenShareLink: () => void
-  onOpenEmbedSnippet: () => void
-  onShareToTwitter: () => void
   onAnnotateExport: () => void
   onPreviewExport: () => void
   onReset: () => void
@@ -90,23 +83,33 @@ export const BoardActionBar = ({
 {
   const isVertical = isVerticalPosition(toolbarPosition)
   const menuPos = getMenuPositionClasses(toolbarPosition)
-  // const boardCount = useWorkspaceBoardRegistryStore((state) => state.boards.length)
-  const reducedMotion = useSettingsStore((state) => state.reducedMotion)
-  const boardLocked = useSettingsStore((state) => state.boardLocked)
-  const setBoardLocked = useSettingsStore((state) => state.setBoardLocked)
+  const { reducedMotion, boardLocked, setBoardLocked } = useSettingsStore(
+    useShallow((state) => ({
+      reducedMotion: state.reducedMotion,
+      boardLocked: state.boardLocked,
+      setBoardLocked: state.setBoardLocked,
+    }))
+  )
   const pastLength = useActiveBoardStore((state) => state.past.length)
   const futureLength = useActiveBoardStore((state) => state.future.length)
-  const undo = useActiveBoardStore((state) => state.undo)
-  const redo = useActiveBoardStore((state) => state.redo)
-  const itemsManuallyMoved = useActiveBoardStore(
-    (state) => state.itemsManuallyMoved
-  )
-  const shuffleAllItems = useActiveBoardStore((state) => state.shuffleAllItems)
-  const shuffleUnrankedItems = useActiveBoardStore(
-    (state) => state.shuffleUnrankedItems
+  const {
+    undo,
+    redo,
+    itemsManuallyMoved,
+    shuffleAllItems,
+    shuffleUnrankedItems,
+    boardTitle,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      undo: state.undo,
+      redo: state.redo,
+      itemsManuallyMoved: state.itemsManuallyMoved,
+      shuffleAllItems: state.shuffleAllItems,
+      shuffleUnrankedItems: state.shuffleUnrankedItems,
+      boardTitle: state.title,
+    }))
   )
   const addPreset = useTierPresetStore((state) => state.addPreset)
-  const boardTitle = useActiveBoardStore((state) => state.title)
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmShuffleAll, setConfirmShuffleAll] = useState(false)
   const shuffleButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -126,11 +129,11 @@ export const BoardActionBar = ({
   const showShuffleMenu = isOpen('root')
   const showShuffleAllMenu = isOpen('shuffleAll')
 
-  usePopupClose({
-    show: showShuffleMenu,
+  useDismissibleLayer({
+    open: showShuffleMenu,
     triggerRef: shuffleButtonRef,
-    popupRef: shuffleMenuRef,
-    onClose: closeAllMenus,
+    layerRef: shuffleMenuRef,
+    onDismiss: closeAllMenus,
   })
 
   // pending shuffle mode for the confirmation dialog
@@ -305,12 +308,6 @@ export const BoardActionBar = ({
             onExport={onExport}
             onCopyToClipboard={onCopyToClipboard}
             onExportAll={onExportAll}
-            onOpenShareLink={() =>
-            {}}
-            onOpenEmbedSnippet={() =>
-            {}}
-            onShareToTwitter={() =>
-            {}}
             onAnnotateExport={onAnnotateExport}
             onPreviewExport={onPreviewExport}
           />
@@ -323,16 +320,6 @@ export const BoardActionBar = ({
           >
             <BarChart3 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
-
-          {/* compare two boards side-by-side (hidden — needs backend for sharing) */}
-          {/* <ActionButton
-            label="Compare boards"
-            title="Compare"
-            onClick={onOpenComparison}
-            disabled={boardCount < 2}
-          >
-            <GitCompareArrows className="h-5 w-5" strokeWidth={1.8} />
-          </ActionButton> */}
 
           {/* save current tier structure as a reusable preset */}
           <ActionButton

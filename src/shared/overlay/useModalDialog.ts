@@ -8,21 +8,13 @@ import { useModalBackgroundInert } from './useModalBackgroundInert'
 
 interface UseModalDialogOptions
 {
-  // whether the modal is mounted & active
   open: boolean
-  // dialog surface used for focus trapping
   dialogRef: RefObject<HTMLElement | null>
-  // called when Escape should dismiss the modal
   onClose?: () => void
-  // preferred focus target when the modal opens
   initialFocusRef?: RefObject<HTMLElement | null>
-  // whether focus should return to the previously focused element on close
   restoreFocus?: boolean
-  // whether Escape should dismiss the modal
   closeOnEscape?: boolean
-  // event phase used for the Escape listener
   escapePhase?: 'capture' | 'bubble'
-  // whether the Escape handler should stop propagation
   stopEscapePropagation?: boolean
 }
 

@@ -1,6 +1,8 @@
 // src/shared/selection/selectionNavigation.ts
 // resolve the next selected index for tabs, radio groups, & grid pickers
 
+import { clamp } from '@/shared/lib/math'
+
 export type SelectionNavigationKey =
   | 'ArrowLeft'
   | 'ArrowRight'
@@ -48,7 +50,7 @@ export const resolveNextSelectionIndex = ({
     return null
   }
 
-  const normalizedColumns = Math.max(1, Math.min(columns, itemCount))
+  const normalizedColumns = clamp(columns, 1, itemCount)
 
   switch (key)
   {

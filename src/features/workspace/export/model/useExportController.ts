@@ -1,7 +1,7 @@
 // src/features/workspace/export/model/useExportController.ts
 // export controller hook — board export commands, progress, & runtime error handling
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
@@ -25,6 +25,9 @@ import {
 } from '@/features/workspace/export/lib/exportBoardRender'
 import { exportTierListAsPdf } from '@/features/workspace/export/lib/exportPdf'
 
+const EXPORT_FAIL_MESSAGE =
+  'Export failed. Try again after images finish loading.'
+
 const getExportBackgroundColor = () =>
 {
   const { exportBackgroundOverride, themeId } = useSettingsStore.getState()
@@ -44,11 +47,53 @@ export const useExportController = () =>
     total: number
   } | null>(null)
 
-  // use refs for guard checks so callbacks stay stable across renders
+  // mirror state into refs so async callbacks read the latest value w/o
+  // becoming dependencies — the effect runs after render, never during it
   const exportStatusRef = useRef(exportStatus)
-  exportStatusRef.current = exportStatus
   const exportAllProgressRef = useRef(exportAllProgress)
-  exportAllProgressRef.current = exportAllProgress
+  useEffect(() =>
+  {
+    exportStatusRef.current = exportStatus
+  }, [exportStatus])
+  useEffect(() =>
+  {
+    exportAllProgressRef.current = exportAllProgress
+  }, [exportAllProgress])
+
+  // render the board to a PNG data URL via a hidden export session — shared
+  // between annotate & preview flows
+  const renderBoardToDataUrl = useCallback(async (): Promise<string | null> =>
+  {
+    if (exportStatusRef.current) return null
+
+    useActiveBoardStore.getState().clearRuntimeError()
+    setExportStatus('png')
+
+    try
+    {
+      const bgColor = getExportBackgroundColor()
+      const appearance = getCurrentExportAppearance()
+      const data = extractBoardData(useActiveBoardStore.getState())
+
+      return await withExportSession(
+        { appearance, backgroundColor: bgColor },
+        async (session) =>
+        {
+          const element = await session.renderBoard(data)
+          return renderToDataUrl(element, 'png', bgColor)
+        }
+      )
+    }
+    catch
+    {
+      useActiveBoardStore.getState().setRuntimeError(EXPORT_FAIL_MESSAGE)
+      return null
+    }
+    finally
+    {
+      setExportStatus(null)
+    }
+  }, [])
 
   const runExport = useCallback(async (type: ImageFormat | 'pdf') =>
   {
@@ -75,11 +120,7 @@ export const useExportController = () =>
     }
     catch
     {
-      useActiveBoardStore
-        .getState()
-        .setRuntimeError(
-          'Export failed. Try again after images finish loading.'
-        )
+      useActiveBoardStore.getState().setRuntimeError(EXPORT_FAIL_MESSAGE)
     }
     finally
     {
@@ -172,89 +213,13 @@ export const useExportController = () =>
     []
   )
 
-  // render the board to a data URL for annotation (does not download)
-  const runAnnotatedExport = useCallback(async (): Promise<string | null> =>
-  {
-    if (exportStatusRef.current) return null
-
-    useActiveBoardStore.getState().clearRuntimeError()
-    setExportStatus('png')
-
-    try
-    {
-      const bgColor = getExportBackgroundColor()
-      const appearance = getCurrentExportAppearance()
-      const data = extractBoardData(useActiveBoardStore.getState())
-
-      return await withExportSession(
-        { appearance, backgroundColor: bgColor },
-        async (session) =>
-        {
-          const element = await session.renderBoard(data)
-          return renderToDataUrl(element, 'png', bgColor)
-        }
-      )
-    }
-    catch
-    {
-      useActiveBoardStore
-        .getState()
-        .setRuntimeError(
-          'Export failed. Try again after images finish loading.'
-        )
-      return null
-    }
-    finally
-    {
-      setExportStatus(null)
-    }
-  }, [])
-
-  // render board to a data URL for preview (does not download)
-  const runPreviewRender = useCallback(async (): Promise<string | null> =>
-  {
-    if (exportStatusRef.current) return null
-
-    useActiveBoardStore.getState().clearRuntimeError()
-    setExportStatus('png')
-
-    try
-    {
-      const bgColor = getExportBackgroundColor()
-      const appearance = getCurrentExportAppearance()
-      const data = extractBoardData(useActiveBoardStore.getState())
-
-      return await withExportSession(
-        { appearance, backgroundColor: bgColor },
-        async (session) =>
-        {
-          const element = await session.renderBoard(data)
-          return renderToDataUrl(element, 'png', bgColor)
-        }
-      )
-    }
-    catch
-    {
-      useActiveBoardStore
-        .getState()
-        .setRuntimeError(
-          'Export failed. Try again after images finish loading.'
-        )
-      return null
-    }
-    finally
-    {
-      setExportStatus(null)
-    }
-  }, [])
-
   return {
     exportStatus,
     exportAllProgress,
     runExport,
     runCopyToClipboard,
     runExportAll,
-    runAnnotatedExport,
-    runPreviewRender,
+    runAnnotatedExport: renderBoardToDataUrl,
+    runPreviewRender: renderBoardToDataUrl,
   }
 }

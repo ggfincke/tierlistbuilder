@@ -3,6 +3,7 @@
 
 import { useId, useState } from 'react'
 import { Github, Layers, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
 import {
@@ -11,7 +12,11 @@ import {
 } from '@/features/workspace/boards/data/local/localBoardSession'
 import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { STORAGE_QUOTA_BYTES } from '@/shared/lib/storageMetering'
+import { ColorInput } from '@/shared/ui/ColorInput'
+import {
+  STORAGE_NEAR_FULL_MESSAGE,
+  STORAGE_QUOTA_BYTES,
+} from '@/shared/lib/storageMetering'
 import { THEMES } from '@/shared/theme/tokens'
 import { PresetPickerModal } from '@/features/workspace/tier-presets/ui/PresetPickerModal'
 import { SecondaryButton } from '@/shared/ui/SecondaryButton'
@@ -34,18 +39,20 @@ export const MoreTab = ({
 }: MoreTabProps) =>
 {
   const boards = useWorkspaceBoardRegistryStore((state) => state.boards)
-  const exportBackgroundOverride = useSettingsStore(
-    (state) => state.exportBackgroundOverride
-  )
-  const themeId = useSettingsStore((state) => state.themeId)
-  const confirmBeforeDelete = useSettingsStore(
-    (state) => state.confirmBeforeDelete
-  )
-  const setExportBackgroundOverride = useSettingsStore(
-    (state) => state.setExportBackgroundOverride
-  )
-  const setConfirmBeforeDelete = useSettingsStore(
-    (state) => state.setConfirmBeforeDelete
+  const {
+    exportBackgroundOverride,
+    themeId,
+    confirmBeforeDelete,
+    setExportBackgroundOverride,
+    setConfirmBeforeDelete,
+  } = useSettingsStore(
+    useShallow((state) => ({
+      exportBackgroundOverride: state.exportBackgroundOverride,
+      themeId: state.themeId,
+      confirmBeforeDelete: state.confirmBeforeDelete,
+      setExportBackgroundOverride: state.setExportBackgroundOverride,
+      setConfirmBeforeDelete: state.setConfirmBeforeDelete,
+    }))
   )
 
   const [showPresetPicker, setShowPresetPicker] = useState(false)
@@ -79,15 +86,13 @@ export const MoreTab = ({
                 <RotateCcw className="h-3.5 w-3.5" />
               </button>
             )}
-            <input
+            <ColorInput
               id={exportBackgroundInputId}
-              type="color"
               value={effectiveExportBg}
               onChange={(event) =>
                 setExportBackgroundOverride(event.target.value)
               }
               aria-label="Export background color"
-              className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[var(--t-border-secondary)] bg-transparent"
             />
           </div>
         </SettingRow>
@@ -145,8 +150,7 @@ export const MoreTab = ({
           </div>
           {storagePercent > 85 && (
             <p className="mt-1.5 text-xs text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]">
-              Storage is almost full. Delete unused boards or remove items with
-              large images to free space.
+              {STORAGE_NEAR_FULL_MESSAGE}
             </p>
           )}
         </div>

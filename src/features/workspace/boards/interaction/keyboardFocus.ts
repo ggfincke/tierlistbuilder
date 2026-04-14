@@ -1,6 +1,8 @@
 // src/features/workspace/boards/interaction/keyboardFocus.ts
 // focus helpers for keyboard browse & drag mode
 
+import type { ItemId } from '@/shared/types/ids'
+
 const focusBoardRegion = () =>
 {
   if (typeof document === 'undefined')
@@ -14,7 +16,7 @@ const focusBoardRegion = () =>
   boardElement?.focus({ preventScroll: true })
 }
 
-const focusItemById = (itemId: string) =>
+const focusItemById = (itemId: ItemId) =>
 {
   if (typeof document === 'undefined')
   {
@@ -38,7 +40,7 @@ const focusItemById = (itemId: string) =>
 // from rapid arrow key presses
 let pendingFocusFrame = 0
 
-export const scheduleKeyboardFocusRestore = (itemId: string) =>
+export const scheduleKeyboardFocusRestore = (itemId: ItemId) =>
 {
   if (typeof requestAnimationFrame === 'undefined')
   {

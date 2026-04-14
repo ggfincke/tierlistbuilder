@@ -5,17 +5,13 @@ import { useId, useRef, useState } from 'react'
 import { Check, Copy, Download, Highlighter } from 'lucide-react'
 
 import type { ImageFormat } from '@/shared/types/export'
+import {
+  FORMAT_LABELS,
+  IMAGE_FORMATS,
+} from '@/features/workspace/export/lib/constants'
 import { useClipboardCopy } from '@/shared/hooks/useClipboardCopy'
 import { BaseModal } from '@/shared/overlay/BaseModal'
 import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-
-const FORMAT_LABELS: Record<ImageFormat, string> = {
-  png: 'PNG',
-  jpeg: 'JPEG',
-  webp: 'WebP',
-  svg: 'SVG',
-}
-const FORMATS: readonly ImageFormat[] = ['png', 'jpeg', 'webp', 'svg']
 
 interface ExportPreviewModalProps
 {
@@ -96,14 +92,14 @@ export const ExportPreviewModal = ({
       {/* format selector & actions */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
-          {FORMATS.map((fmt) => (
+          {IMAGE_FORMATS.map((fmt) => (
             <button
               key={fmt}
               type="button"
               onClick={() => onFormatChange(fmt)}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
                 format === fmt
-                  ? 'bg-[var(--t-accent)] text-white'
+                  ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
                   : 'bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)] hover:bg-[var(--t-bg-hover)]'
               }`}
             >
@@ -127,7 +123,7 @@ export const ExportPreviewModal = ({
             disabled={exporting || !previewDataUrl}
           >
             {copied ? (
-              <Check className="h-3.5 w-3.5 text-green-400" />
+              <Check className="h-3.5 w-3.5 text-[var(--t-accent)]" />
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}

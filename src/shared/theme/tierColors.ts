@@ -1,6 +1,7 @@
 // src/shared/theme/tierColors.ts
 // canonical tier-color helpers — create, resolve, & migrate tier color specs
 
+import { normalizeHexColor } from '../lib/color'
 import { PALETTES } from './palettes'
 import type {
   PaletteId,
@@ -101,10 +102,4 @@ export const getAutoTierColorSpec = (
   }
 
   return createPaletteTierColorSpec(tierIndex % colorCount)
-}
-
-const normalizeHexColor = (value: string): string | null =>
-{
-  const hex = value.trim().toLowerCase()
-  return /^#[0-9a-f]{6}$/i.test(hex) ? hex : null
 }
