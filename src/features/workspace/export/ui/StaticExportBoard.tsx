@@ -60,52 +60,59 @@ export const StaticExportBoard = memo(
         className="min-w-[860px]"
         style={{ backgroundColor }}
       >
-        {data.tiers.map((tier, index) => (
-          <BoardRowSurface key={tier.id}>
-            <BoardRowContent index={index}>
-              <BoardLabelCellFrame
-                color={resolveTierColorSpec(
-                  appearance.paletteId,
-                  tier.colorSpec
-                )}
-                itemSize={appearance.itemSize}
-                labelWidth={appearance.labelWidth}
-                tierLabelBold={appearance.tierLabelBold}
-                tierLabelItalic={appearance.tierLabelItalic}
-                tierLabelFontSize={appearance.tierLabelFontSize}
-              >
-                <div className="flex flex-col items-center">
-                  <span className="block max-w-full break-words [overflow-wrap:anywhere]">
-                    {tier.name}
-                  </span>
-                  <TierDescriptionSubtitle description={tier.description} />
-                </div>
-              </BoardLabelCellFrame>
+        {data.tiers.map((tier, index) =>
+        {
+          const rowBg = tier.rowColorSpec
+            ? resolveTierColorSpec(appearance.paletteId, tier.rowColorSpec)
+            : null
+          return (
+            <BoardRowSurface key={tier.id} backgroundOverride={rowBg}>
+              <BoardRowContent index={index}>
+                <BoardLabelCellFrame
+                  color={resolveTierColorSpec(
+                    appearance.paletteId,
+                    tier.colorSpec
+                  )}
+                  itemSize={appearance.itemSize}
+                  labelWidth={appearance.labelWidth}
+                  tierLabelBold={appearance.tierLabelBold}
+                  tierLabelItalic={appearance.tierLabelItalic}
+                  tierLabelFontSize={appearance.tierLabelFontSize}
+                >
+                  <div className="flex flex-col items-center">
+                    <span className="block max-w-full break-words [overflow-wrap:anywhere]">
+                      {tier.name}
+                    </span>
+                    <TierDescriptionSubtitle description={tier.description} />
+                  </div>
+                </BoardLabelCellFrame>
 
-              <BoardItemsGrid
-                compactMode={appearance.compactMode}
-                minHeightPx={sizePx}
-              >
-                {tier.itemIds.map((itemId) =>
-                {
-                  const item = data.items[itemId]
-                  if (!item)
+                <BoardItemsGrid
+                  compactMode={appearance.compactMode}
+                  minHeightPx={sizePx}
+                  backgroundOverride={rowBg}
+                >
+                  {tier.itemIds.map((itemId) =>
                   {
-                    return null
-                  }
+                    const item = data.items[itemId]
+                    if (!item)
+                    {
+                      return null
+                    }
 
-                  return (
-                    <StaticExportItem
-                      key={itemId}
-                      item={item}
-                      appearance={appearance}
-                    />
-                  )
-                })}
-              </BoardItemsGrid>
-            </BoardRowContent>
-          </BoardRowSurface>
-        ))}
+                    return (
+                      <StaticExportItem
+                        key={itemId}
+                        item={item}
+                        appearance={appearance}
+                      />
+                    )
+                  })}
+                </BoardItemsGrid>
+              </BoardRowContent>
+            </BoardRowSurface>
+          )
+        })}
       </div>
     )
   }

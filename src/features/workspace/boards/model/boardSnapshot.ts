@@ -26,6 +26,7 @@ interface RawTier
   name?: unknown
   description?: unknown
   colorSpec?: unknown
+  rowColorSpec?: unknown
   itemIds?: unknown
 }
 
@@ -52,22 +53,30 @@ const normalizeTier = (
   tier: RawTier,
   index: number,
   paletteId: PaletteId
-): Tier => ({
-  id:
-    typeof tier.id === 'string' && isTierId(tier.id)
-      ? tier.id
-      : (DEFAULT_TIER_IDS[index] ?? generateTierId()),
-  name:
-    typeof tier.name === 'string'
-      ? tier.name
-      : (DEFAULT_TIER_NAMES[index] ?? `Tier ${index + 1}`),
-  description:
-    typeof tier.description === 'string' ? tier.description : undefined,
-  colorSpec:
-    normalizeCanonicalTierColorSpec(tier.colorSpec) ??
-    getAutoTierColorSpec(paletteId, index),
-  itemIds: normalizeItemIds(tier.itemIds),
-})
+): Tier =>
+{
+  const rowColorSpec = normalizeCanonicalTierColorSpec(tier.rowColorSpec)
+
+  const normalized: Tier = {
+    id:
+      typeof tier.id === 'string' && isTierId(tier.id)
+        ? tier.id
+        : (DEFAULT_TIER_IDS[index] ?? generateTierId()),
+    name:
+      typeof tier.name === 'string'
+        ? tier.name
+        : (DEFAULT_TIER_NAMES[index] ?? `Tier ${index + 1}`),
+    description:
+      typeof tier.description === 'string' ? tier.description : undefined,
+    colorSpec:
+      normalizeCanonicalTierColorSpec(tier.colorSpec) ??
+      getAutoTierColorSpec(paletteId, index),
+    itemIds: normalizeItemIds(tier.itemIds),
+  }
+
+  if (rowColorSpec) normalized.rowColorSpec = rowColorSpec
+  return normalized
+}
 
 export const createInitialBoardData = (
   paletteId: PaletteId,

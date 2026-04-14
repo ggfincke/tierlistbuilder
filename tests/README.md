@@ -48,22 +48,34 @@ npx vitest run tests/dragSnapshot.test.ts
 
 ```
 tests/
-├── fixtures.ts                — shared snapshot/tier builders & constants
-├── constants.test.ts          — toFileBase, clampIndex, buildDefaultTiers
-├── id.test.ts                 — ID factory prefixes & guard helpers
-├── color.test.ts              — hex/rgb parsing & contrast
-├── tierColors.test.ts         — tier color spec creation & resolution
-├── boardSnapshot.test.ts      — board creation, tier factory, color spec normalization, & legacy migration
-├── boardOps.test.ts           — pure sorting & shuffling helpers
-├── tierPresets.test.ts        — preset-to-board & board-to-preset conversion
-├── exportJson.test.ts         — JSON import parsing, validation, & multi-board envelope detection
-├── selectionState.test.ts     — shared radio/tab semantics for roving selection
-├── nestedMenus.test.ts        — nested root/submenu open-close tree rules
-├── dragSnapshot.test.ts       — snapshot transforms & container queries
-├── dragKeyboard.test.ts       — keyboard navigation resolution
-├── dragPointerMath.test.ts    — pointer insertion math
-├── toolbarPosition.test.ts    — submenu direction & responsive toolbar helpers
-└── popupPosition.test.ts      — fixed popup placement & viewport clamping
+├── fixtures.ts                    — shared snapshot/tier builders & constants
+├── board/
+│   ├── constants.test.ts          — toFileBase, clampIndex, buildDefaultTiers
+│   ├── boardSnapshot.test.ts      — board creation, tier factory, color spec normalization, & legacy migration
+│   ├── boardOps.test.ts           — pure sorting & shuffling helpers
+│   ├── tierColors.test.ts         — tier color spec creation & resolution
+│   └── tierPresets.test.ts        — preset-to-board & board-to-preset conversion
+├── data/
+│   └── exportJson.test.ts         — JSON import parsing, validation, & multi-board envelope detection
+├── dnd/
+│   ├── dragSnapshot.test.ts       — snapshot transforms & container queries
+│   ├── dragKeyboard.test.ts       — keyboard navigation resolution
+│   ├── dragPointerMath.test.ts    — pointer insertion math
+│   └── keyboardDragController.test.ts — keyboard drag state machine
+├── interaction/
+│   ├── keyboardTabStop.test.ts    — roving tab-stop selector cache
+│   ├── selectionNavigation.test.ts — selection arrow-key navigation
+│   └── selectionState.test.ts     — shared radio/tab semantics for roving selection
+├── overlay/
+│   ├── nestedMenus.test.ts        — nested root/submenu open-close tree rules
+│   ├── popupPosition.test.ts      — fixed popup placement & viewport clamping
+│   └── toolbarPosition.test.ts    — submenu direction & responsive toolbar helpers
+├── store/
+│   ├── undoLabels.test.ts         — labeled undo/redo stack semantics
+│   └── tierRowColor.test.ts       — per-tier row background actions & round-trip
+└── utils/
+    ├── color.test.ts              — hex/rgb parsing & contrast
+    └── id.test.ts                 — ID factory prefixes & guard helpers
 ```
 
 ## Fixtures

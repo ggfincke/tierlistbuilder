@@ -30,6 +30,9 @@ export interface Tier
   description?: string
   // canonical color spec for the label background
   colorSpec: TierColorSpec
+  // optional color spec for the entire row's background (behind items);
+  // absent means the row uses the theme's surface token
+  rowColorSpec?: TierColorSpec
   // ordered list of item IDs assigned to this tier
   itemIds: ItemId[]
 }

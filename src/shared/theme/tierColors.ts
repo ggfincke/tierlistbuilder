@@ -68,6 +68,34 @@ export const normalizeCanonicalTierColorSpec = (
   return null
 }
 
+export const areTierColorSpecsEqual = (
+  left: TierColorSpec | null | undefined,
+  right: TierColorSpec | null | undefined
+): boolean =>
+{
+  if (!left && !right)
+  {
+    return true
+  }
+
+  if (!left || !right || left.kind !== right.kind)
+  {
+    return false
+  }
+
+  if (left.kind === 'palette' && right.kind === 'palette')
+  {
+    return left.index === right.index
+  }
+
+  if (left.kind === 'custom' && right.kind === 'custom')
+  {
+    return left.hex === right.hex
+  }
+
+  return false
+}
+
 export const getPaletteColors = (paletteId: PaletteId): string[] =>
   (PALETTES[paletteId] ?? PALETTES.classic).colors
 

@@ -186,8 +186,8 @@ export const BoardActionBar = ({
             title="Undo"
             onClick={() =>
             {
-              undo()
-              toast('Undone')
+              const result = undo()
+              if (result) toast(`Undid ${result.label.toLowerCase()}`)
             }}
             disabled={boardLocked || pastLength === 0}
           >
@@ -199,8 +199,8 @@ export const BoardActionBar = ({
             title="Redo"
             onClick={() =>
             {
-              redo()
-              toast('Redone')
+              const result = redo()
+              if (result) toast(`Redid ${result.label.toLowerCase()}`)
             }}
             disabled={boardLocked || futureLength === 0}
           >

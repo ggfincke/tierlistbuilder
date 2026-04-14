@@ -91,45 +91,55 @@ export const EmbedView = () =>
         )}
 
         <div>
-          {data.tiers.map((tier, index) => (
-            <BoardRowSurface key={tier.id}>
-              <BoardRowContent index={index}>
-                <BoardLabelCellFrame
-                  color={resolveTierColorSpec(paletteId, tier.colorSpec)}
-                  itemSize="medium"
-                  labelWidth="default"
-                  tierLabelBold={false}
-                  tierLabelItalic={false}
-                  tierLabelFontSize="medium"
-                >
-                  <div className="flex flex-col items-center">
-                    <span className="block max-w-full break-words [overflow-wrap:anywhere]">
-                      {tier.name}
-                    </span>
-                    <TierDescriptionSubtitle description={tier.description} />
-                  </div>
-                </BoardLabelCellFrame>
+          {data.tiers.map((tier, index) =>
+          {
+            const rowBg = tier.rowColorSpec
+              ? resolveTierColorSpec(paletteId, tier.rowColorSpec)
+              : null
+            return (
+              <BoardRowSurface key={tier.id} backgroundOverride={rowBg}>
+                <BoardRowContent index={index}>
+                  <BoardLabelCellFrame
+                    color={resolveTierColorSpec(paletteId, tier.colorSpec)}
+                    itemSize="medium"
+                    labelWidth="default"
+                    tierLabelBold={false}
+                    tierLabelItalic={false}
+                    tierLabelFontSize="medium"
+                  >
+                    <div className="flex flex-col items-center">
+                      <span className="block max-w-full break-words [overflow-wrap:anywhere]">
+                        {tier.name}
+                      </span>
+                      <TierDescriptionSubtitle description={tier.description} />
+                    </div>
+                  </BoardLabelCellFrame>
 
-                <BoardItemsGrid compactMode={false} minHeightPx={sizePx}>
-                  {tier.itemIds.map((itemId) =>
-                  {
-                    const item = data.items[itemId]
-                    if (!item) return null
+                  <BoardItemsGrid
+                    compactMode={false}
+                    minHeightPx={sizePx}
+                    backgroundOverride={rowBg}
+                  >
+                    {tier.itemIds.map((itemId) =>
+                    {
+                      const item = data.items[itemId]
+                      if (!item) return null
 
-                    return (
-                      <div
-                        key={itemId}
-                        style={{ width: sizePx, height: sizePx }}
-                        className={`relative overflow-hidden ${SHAPE_CLASS.square}`}
-                      >
-                        <ItemContent item={item} showLabel={!!item.label} />
-                      </div>
-                    )
-                  })}
-                </BoardItemsGrid>
-              </BoardRowContent>
-            </BoardRowSurface>
-          ))}
+                      return (
+                        <div
+                          key={itemId}
+                          style={{ width: sizePx, height: sizePx }}
+                          className={`relative overflow-hidden ${SHAPE_CLASS.square}`}
+                        >
+                          <ItemContent item={item} showLabel={!!item.label} />
+                        </div>
+                      )
+                    })}
+                  </BoardItemsGrid>
+                </BoardRowContent>
+              </BoardRowSurface>
+            )
+          })}
         </div>
 
         <div className="px-4 py-2 text-right">

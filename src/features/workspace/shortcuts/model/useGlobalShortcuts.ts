@@ -8,6 +8,7 @@ import { useSettingsStore } from '@/features/workspace/settings/model/useSetting
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import { nextToolbarPosition } from '@/shared/layout/toolbarPosition'
 import { announce } from '@/shared/a11y/announce'
+import { toast } from '@/shared/notifications/useToastStore'
 import { hasActiveModalLayer } from '@/shared/overlay/useModalBackgroundInert'
 
 interface UseGlobalShortcutsOptions
@@ -40,11 +41,18 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
 
       const mod = e.ctrlKey || e.metaKey
 
+      // drop Ctrl/Cmd+Z/Y mid-drag — dnd-kit still holds its own active state,
+      // & undoing out from under it leaves the overlay & refs stranded
+      const dragActive = useActiveBoardStore.getState().dragPreview !== null
+
       // undo — Ctrl/Cmd+Z
       if (mod && e.key === 'z' && !e.shiftKey)
       {
         e.preventDefault()
-        undo()
+        const locked = useSettingsStore.getState().boardLocked
+        if (dragActive || locked) return
+        const result = undo()
+        if (result) toast(`Undid ${result.label.toLowerCase()}`)
         return
       }
 
@@ -52,7 +60,10 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (mod && ((e.key === 'z' && e.shiftKey) || e.key === 'y'))
       {
         e.preventDefault()
-        redo()
+        const locked = useSettingsStore.getState().boardLocked
+        if (dragActive || locked) return
+        const result = redo()
+        if (result) toast(`Redid ${result.label.toLowerCase()}`)
         return
       }
 

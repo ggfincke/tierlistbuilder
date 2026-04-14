@@ -4,6 +4,7 @@
 import { announce } from '@/shared/a11y/announce'
 import { clampIndex } from '@/shared/lib/math'
 import { generateItemId } from '@/shared/lib/id'
+import { areTierColorSpecsEqual } from '@/shared/theme/tierColors'
 import {
   createInitialBoardData,
   createNewTier,
@@ -47,7 +48,7 @@ const reorderTiersByIndex = (
   const [moved] = nextTiers.splice(fromIndex, 1)
   nextTiers.splice(toIndex, 0, moved)
 
-  return withUndo(state, { tiers: nextTiers })
+  return withUndo(state, { tiers: nextTiers }, 'Reorder tiers')
 }
 
 export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
@@ -60,9 +61,13 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
   addTier: (paletteId) =>
   {
     set((state) =>
-      withUndo(state, {
-        tiers: [...state.tiers, createNewTier(paletteId, state.tiers.length)],
-      })
+      withUndo(
+        state,
+        {
+          tiers: [...state.tiers, createNewTier(paletteId, state.tiers.length)],
+        },
+        'Add tier'
+      )
     )
     announce('Tier added')
   },
@@ -76,11 +81,15 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       const nextName = name.trim() || tier.name
       if (nextName === tier.name) return state
 
-      return withUndo(state, {
-        tiers: state.tiers.map((entry) =>
-          entry.id === tierId ? { ...entry, name: nextName } : entry
-        ),
-      })
+      return withUndo(
+        state,
+        {
+          tiers: state.tiers.map((entry) =>
+            entry.id === tierId ? { ...entry, name: nextName } : entry
+          ),
+        },
+        'Rename tier'
+      )
     }),
 
   setTierDescription: (tierId, description) =>
@@ -92,26 +101,70 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       const nextDescription = description.trim() || undefined
       if (nextDescription === tier.description) return state
 
-      return withUndo(state, {
-        tiers: state.tiers.map((entry) =>
-          entry.id === tierId
-            ? { ...entry, description: nextDescription }
-            : entry
-        ),
-      })
+      return withUndo(
+        state,
+        {
+          tiers: state.tiers.map((entry) =>
+            entry.id === tierId
+              ? { ...entry, description: nextDescription }
+              : entry
+          ),
+        },
+        'Edit tier description'
+      )
     }),
 
   recolorTier: (tierId, colorSpec) =>
     set((state) =>
     {
       const tier = state.tiers.find((entry) => entry.id === tierId)
-      if (!tier || tier.colorSpec === colorSpec) return state
+      if (!tier || areTierColorSpecsEqual(tier.colorSpec, colorSpec)) return state
 
-      return withUndo(state, {
-        tiers: state.tiers.map((entry) =>
-          entry.id === tierId ? { ...entry, colorSpec } : entry
-        ),
-      })
+      return withUndo(
+        state,
+        {
+          tiers: state.tiers.map((entry) =>
+            entry.id === tierId ? { ...entry, colorSpec } : entry
+          ),
+        },
+        'Recolor tier'
+      )
+    }),
+
+  recolorTierRow: (tierId, rowColorSpec) =>
+    set((state) =>
+    {
+      const tier = state.tiers.find((entry) => entry.id === tierId)
+      if (!tier) return state
+
+      // no-op when resetting an already-absent row color or reselecting the
+      // same semantic color value
+      if (
+        (rowColorSpec === null && tier.rowColorSpec === undefined) ||
+        areTierColorSpecsEqual(tier.rowColorSpec, rowColorSpec)
+      )
+      {
+        return state
+      }
+
+      return withUndo(
+        state,
+        {
+          tiers: state.tiers.map((entry) =>
+          {
+            if (entry.id !== tierId) return entry
+            if (rowColorSpec === null)
+            {
+              // drop the field entirely so normalized snapshots stay compact
+              const { rowColorSpec: _drop, ...rest } = entry
+              void _drop
+              return rest
+            }
+            return { ...entry, rowColorSpec }
+          }),
+        },
+        rowColorSpec === null ? 'Clear row color' : 'Recolor row'
+      )
     }),
 
   reorderTier: (tierId, direction) =>
@@ -152,7 +205,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       }
 
       return {
-        ...withUndo(state, {}),
+        ...withUndo(state, {}, 'Delete tier'),
         tiers: state.tiers.filter((entry) => entry.id !== tierId),
         unrankedItemIds: [...tier.itemIds, ...state.unrankedItemIds],
       }
@@ -171,7 +224,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       }
 
       return {
-        ...withUndo(state, {}),
+        ...withUndo(state, {}, 'Clear tier'),
         tiers: state.tiers.map((entry) =>
           entry.id === tierId ? { ...entry, itemIds: [] } : entry
         ),
@@ -190,7 +243,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
         createNewTier(paletteId, state.tiers.length)
       )
 
-      return withUndo(state, { tiers: nextTiers })
+      return withUndo(state, { tiers: nextTiers }, 'Add tier')
     }),
 
   addItems: (newItems) =>
@@ -212,8 +265,13 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
         nextUnranked.push(id)
       }
 
+      const label =
+        newItems.length === 1
+          ? 'Add item'
+          : `Add ${newItems.length} items`
+
       return {
-        ...withUndo(state, {}),
+        ...withUndo(state, {}, label),
         items: nextItems,
         unrankedItemIds: nextUnranked,
       }
@@ -227,7 +285,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       const id = generateItemId()
 
       return {
-        ...withUndo(state, {}),
+        ...withUndo(state, {}, 'Add item'),
         items: {
           ...state.items,
           [id]: { id, label, backgroundColor },
@@ -245,12 +303,16 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       const nextAltText = altText.trim() || undefined
       if (nextAltText === item.altText) return state
 
-      return withUndo(state, {
-        items: {
-          ...state.items,
-          [itemId]: { ...item, altText: nextAltText },
+      return withUndo(
+        state,
+        {
+          items: {
+            ...state.items,
+            [itemId]: { ...item, altText: nextAltText },
+          },
         },
-      })
+        'Edit item'
+      )
     }),
 
   removeItem: (itemId) =>
@@ -258,7 +320,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
     const label = get().items[itemId]?.label ?? 'item'
     set((state) =>
     {
-      const undo = pushUndo(state) ?? {}
+      const undo = pushUndo(state, 'Delete item') ?? {}
       const deletedItem = state.items[itemId]
       const nextItems = { ...state.items }
       delete nextItems[itemId]
@@ -318,7 +380,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       }
 
       return {
-        ...withUndo(state, {}),
+        ...withUndo(state, {}, 'Restore item'),
         items: { ...state.items, [item.id]: item },
         unrankedItemIds: [...state.unrankedItemIds, item.id],
         deletedItems: state.deletedItems.filter((entry) => entry.id !== itemId),
@@ -327,16 +389,26 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
 
   permanentlyDeleteItem: (itemId) =>
     set((state) =>
-      withUndo(state, {
-        deletedItems: state.deletedItems.filter((entry) => entry.id !== itemId),
-      })
+      withUndo(
+        state,
+        {
+          deletedItems: state.deletedItems.filter(
+            (entry) => entry.id !== itemId
+          ),
+        },
+        'Discard item'
+      )
     ),
 
   clearDeletedItems: () =>
     set((state) =>
-      withUndo(state, {
-        deletedItems: [],
-      })
+      withUndo(
+        state,
+        {
+          deletedItems: [],
+        },
+        'Empty trash'
+      )
     ),
 
   clearAllItems: () =>
@@ -367,7 +439,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       }
 
       return {
-        ...withUndo(state, {}),
+        ...withUndo(state, {}, 'Clear items'),
         items: nextItems,
         deletedItems: nextDeleted,
         tiers: state.tiers.map((tier) => ({ ...tier, itemIds: [] })),
@@ -389,9 +461,13 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
         return state
       }
 
-      return withUndo(state, {
-        tiers: nextTiers,
-      })
+      return withUndo(
+        state,
+        {
+          tiers: nextTiers,
+        },
+        'Sort tier'
+      )
     }),
 
   shuffleAllItems: (mode) =>
@@ -409,10 +485,14 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       }
 
       return {
-        ...withUndo(state, {
-          tiers: shuffled.tiers,
-          unrankedItemIds: shuffled.unrankedItemIds,
-        }),
+        ...withUndo(
+          state,
+          {
+            tiers: shuffled.tiers,
+            unrankedItemIds: shuffled.unrankedItemIds,
+          },
+          'Shuffle items'
+        ),
         itemsManuallyMoved: false,
       }
     }),
@@ -431,10 +511,14 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       }
 
       return {
-        ...withUndo(state, {
-          tiers: shuffled.tiers,
-          unrankedItemIds: shuffled.unrankedItemIds,
-        }),
+        ...withUndo(
+          state,
+          {
+            tiers: shuffled.tiers,
+            unrankedItemIds: shuffled.unrankedItemIds,
+          },
+          'Shuffle unranked'
+        ),
         itemsManuallyMoved: false,
       }
     }),

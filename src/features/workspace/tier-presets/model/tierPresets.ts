@@ -2,7 +2,10 @@
 // board preset definitions & conversion helpers
 
 import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
+import type {
+  TierPreset,
+  TierPresetTier,
+} from '@/features/workspace/tier-presets/model/contract'
 import { DEFAULT_TITLE } from '@/features/workspace/boards/lib/boardDefaults'
 import { generatePresetId, generateTierId } from '@/shared/lib/id'
 import {
@@ -92,13 +95,18 @@ export const createBoardDataFromPreset = (
   title = DEFAULT_TITLE
 ): BoardSnapshot => ({
   title,
-  tiers: preset.tiers.map((t) => ({
-    id: generateTierId(),
-    name: t.name,
-    description: t.description,
-    colorSpec: t.colorSpec,
-    itemIds: [],
-  })),
+  tiers: preset.tiers.map((t) =>
+  {
+    const tier: BoardSnapshot['tiers'][number] = {
+      id: generateTierId(),
+      name: t.name,
+      description: t.description,
+      colorSpec: t.colorSpec,
+      itemIds: [],
+    }
+    if (t.rowColorSpec) tier.rowColorSpec = t.rowColorSpec
+    return tier
+  }),
   unrankedItemIds: [],
   items: {},
   deletedItems: [],
@@ -112,9 +120,14 @@ export const extractPresetFromBoard = (
   id: generatePresetId(),
   name,
   builtIn: false,
-  tiers: data.tiers.map((tier) => ({
-    name: tier.name,
-    colorSpec: tier.colorSpec,
-    description: tier.description,
-  })),
+  tiers: data.tiers.map((tier) =>
+  {
+    const presetTier: TierPresetTier = {
+      name: tier.name,
+      colorSpec: tier.colorSpec,
+      description: tier.description,
+    }
+    if (tier.rowColorSpec) presetTier.rowColorSpec = tier.rowColorSpec
+    return presetTier
+  }),
 })

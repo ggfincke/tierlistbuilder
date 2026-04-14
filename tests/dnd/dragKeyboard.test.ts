@@ -3,7 +3,7 @@ import {
   resolveNextKeyboardDragPreview,
   resolveNextKeyboardFocusItem,
 } from '@/features/workspace/boards/dnd/dragKeyboard'
-import { makeSnapshot } from './fixtures'
+import { makeSnapshot } from '../fixtures'
 
 describe('resolveNextKeyboardDragPreview', () =>
 {

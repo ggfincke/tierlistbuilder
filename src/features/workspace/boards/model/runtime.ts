@@ -44,7 +44,9 @@ export interface ActiveBoardRuntimeState extends BoardSnapshot
   dragGroupIds: ItemId[]
   runtimeError: string | null
   past: BoardSnapshot[]
+  pastLabels: string[]
   future: BoardSnapshot[]
+  futureLabels: string[]
 }
 
 export const EMPTY_SELECTION_SET: ReadonlySet<ItemId> = new Set<ItemId>()
@@ -64,7 +66,9 @@ export const freshRuntimeState: Omit<
   dragGroupIds: [],
   runtimeError: null,
   past: [],
+  pastLabels: [],
   future: [],
+  futureLabels: [],
 }
 
 export type ItemRecord = Record<ItemId, TierItem>

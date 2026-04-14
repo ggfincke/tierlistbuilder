@@ -23,6 +23,7 @@ export interface BoardDataSlice extends BoardSnapshot
   renameTier: (tierId: TierId, name: string) => void
   setTierDescription: (tierId: TierId, description: string) => void
   recolorTier: (tierId: TierId, colorSpec: TierColorSpec) => void
+  recolorTierRow: (tierId: TierId, rowColorSpec: TierColorSpec | null) => void
   reorderTier: (tierId: TierId, direction: 'up' | 'down') => void
   reorderTierByIndex: (fromIndex: number, toIndex: number) => void
   deleteTier: (tierId: TierId) => void
@@ -85,13 +86,17 @@ export interface KeyboardSlice
   cancelKeyboardDrag: () => void
 }
 
-// undo slice — past/future snapshot stacks & navigation
+// undo slice — past/future snapshot stacks & navigation. pastLabels/futureLabels
+// are parallel arrays describing the action that produced each snapshot, used
+// for undo/redo toasts; must remain length-synced w/ past/future
 export interface UndoSlice
 {
   past: BoardSnapshot[]
+  pastLabels: string[]
   future: BoardSnapshot[]
-  undo: () => void
-  redo: () => void
+  futureLabels: string[]
+  undo: () => { label: string } | null
+  redo: () => { label: string } | null
 }
 
 // runtime error slice — user-visible banner message for fatal operations

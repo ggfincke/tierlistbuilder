@@ -1,7 +1,7 @@
 // src/features/workspace/boards/ui/TierRow.tsx
 // tier row component — label, sortable item grid, & row controls
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   SortableContext,
@@ -46,7 +46,7 @@ interface TierRowProps
   totalTiers: number
 }
 
-export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
+const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
 {
   const reorderTier = useActiveBoardStore((state) => state.reorderTier)
   const recolorTier = useActiveBoardStore((state) => state.recolorTier)
@@ -59,6 +59,9 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
   const sizePx = ITEM_SIZE_PX[itemSize]
   const paletteColors = getPaletteColors(paletteId)
   const resolvedTierColor = resolveTierColorSpec(paletteId, tier.colorSpec)
+  const resolvedRowColor = tier.rowColorSpec
+    ? resolveTierColorSpec(paletteId, tier.rowColorSpec)
+    : null
 
   // tier-level sortable — drag handle on the grip icon reorders entire rows
   const {
@@ -217,9 +220,16 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [showColorPicker, showCustomColorPicker])
 
+  // hovered drag-over visual supersedes the custom row color; when no drag
+  // hover is active, the tier's own row color takes precedence
+  const effectiveRowBackground = isOver ? null : resolvedRowColor
+
   return (
     <div ref={setTierSortableRef} style={tierStyle} {...tierAttributes}>
-      <BoardRowSurface className={isOver ? 'bg-[var(--t-bg-drag-over)]' : ''}>
+      <BoardRowSurface
+        backgroundOverride={effectiveRowBackground}
+        className={isOver ? 'bg-[var(--t-bg-drag-over)]' : ''}
+      >
         <BoardRowContent index={index}>
           {/* tier drag handle — grip icon on the left edge of the label */}
           {!hideRowControls && !boardLocked && (
@@ -239,6 +249,7 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
               ref={setNodeRef}
               compactMode={compactMode}
               minHeightPx={sizePx}
+              backgroundOverride={effectiveRowBackground}
               data-testid={`tier-container-${tier.id}`}
               data-tier-id={tier.id}
             >
@@ -360,3 +371,5 @@ export const TierRow = ({ tier, index, totalTiers }: TierRowProps) =>
     </div>
   )
 }
+
+export const TierRow = memo(TierRowImpl)

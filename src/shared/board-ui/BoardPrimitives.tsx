@@ -43,17 +43,23 @@ interface BoardRowSurfaceProps
 {
   children: ReactNode
   className?: string
+  // explicit row background override — leaves the theme surface token in
+  // place when absent, so untouched rows still pick up theme changes
+  backgroundOverride?: string | null
 }
 
 export const BoardRowSurface = ({
   children,
   className,
+  backgroundOverride,
 }: BoardRowSurfaceProps) => (
   <div
     className={joinClassNames(
-      'flex bg-[var(--t-bg-surface)] transition-colors',
+      'flex transition-colors',
+      backgroundOverride ? '' : 'bg-[var(--t-bg-surface)]',
       className
     )}
+    style={backgroundOverride ? { backgroundColor: backgroundOverride } : undefined}
   >
     {children}
   </div>
@@ -63,10 +69,20 @@ interface BoardItemsGridProps extends HTMLAttributes<HTMLDivElement>
 {
   compactMode: boolean
   minHeightPx: number
+  // explicit grid background override — applied alongside the row surface
+  // override so the grid cell doesn't paint the theme color on top
+  backgroundOverride?: string | null
 }
 
 export const BoardItemsGrid = forwardRef(function BoardItemsGrid(
-  { compactMode, minHeightPx, className, style, ...props }: BoardItemsGridProps,
+  {
+    compactMode,
+    minHeightPx,
+    backgroundOverride,
+    className,
+    style,
+    ...props
+  }: BoardItemsGridProps,
   ref: Ref<HTMLDivElement>
 )
 {
@@ -75,11 +91,16 @@ export const BoardItemsGrid = forwardRef(function BoardItemsGrid(
       ref={ref}
       {...props}
       className={joinClassNames(
-        'flex flex-1 flex-wrap content-start bg-[var(--t-bg-surface)] p-0',
+        'flex flex-1 flex-wrap content-start p-0',
+        backgroundOverride ? '' : 'bg-[var(--t-bg-surface)]',
         compactMode ? 'gap-0' : 'gap-px',
         className
       )}
-      style={{ ...style, minHeight: minHeightPx }}
+      style={{
+        ...style,
+        minHeight: minHeightPx,
+        ...(backgroundOverride ? { backgroundColor: backgroundOverride } : {}),
+      }}
     />
   )
 })

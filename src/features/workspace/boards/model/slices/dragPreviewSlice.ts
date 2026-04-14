@@ -96,12 +96,9 @@ export const createDragPreviewSlice: ActiveBoardSliceCreator<
       const isMultiDrag = groupIds.length > 1
 
       // for multi-drag, skip consistency check (secondary items absent from snapshot);
-      // gate the full Set scan to dev so prod drops avoid the per-item overhead
-      if (
-        import.meta.env.DEV &&
-        !isMultiDrag &&
-        !isSnapshotConsistent(state.dragPreview, state)
-      )
+      // otherwise verify the snapshot references the same item IDs as the live
+      // state — protects against stale snapshots from mid-drag store resets
+      if (!isMultiDrag && !isSnapshotConsistent(state.dragPreview, state))
       {
         return { dragPreview: null, dragGroupIds: [] }
       }
@@ -157,8 +154,13 @@ export const createDragPreviewSlice: ActiveBoardSliceCreator<
           }
         : {}
 
+      const dragLabel =
+        groupIds.length > 1
+          ? `Move ${groupIds.length} items`
+          : 'Move item'
+
       return {
-        ...(pushUndo(state) ?? {}),
+        ...(pushUndo(state, dragLabel) ?? {}),
         tiers,
         unrankedItemIds,
         dragPreview: null,

@@ -7,7 +7,7 @@ import {
   moveItemToIndexInSnapshot,
   resolveStoreInsertionIndex,
 } from '@/features/workspace/boards/dnd/dragSnapshot'
-import { makeSnapshot } from './fixtures'
+import { makeSnapshot } from '../fixtures'
 
 describe('createContainerSnapshot', () =>
 {

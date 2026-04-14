@@ -125,8 +125,13 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
         `Moved ${selected.length} item${selected.length > 1 ? 's' : ''} to ${tier.name}`
       )
 
+      const moveLabel =
+        selected.length === 1
+          ? `Move item to ${tier.name}`
+          : `Move ${selected.length} items to ${tier.name}`
+
       return {
-        ...withUndo(state, { tiers, unrankedItemIds }),
+        ...withUndo(state, { tiers, unrankedItemIds }, moveLabel),
         ...selectionUpdate([]),
         lastClickedItemId: null,
       }
@@ -154,8 +159,13 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
         `Moved ${selected.length} item${selected.length > 1 ? 's' : ''} to unranked`
       )
 
+      const moveLabel =
+        selected.length === 1
+          ? 'Move item to unranked'
+          : `Move ${selected.length} items to unranked`
+
       return {
-        ...withUndo(state, { tiers, unrankedItemIds }),
+        ...withUndo(state, { tiers, unrankedItemIds }, moveLabel),
         ...selectionUpdate([]),
         lastClickedItemId: null,
       }
@@ -194,8 +204,17 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
         `Deleted ${selected.length} item${selected.length > 1 ? 's' : ''}`
       )
 
+      const deleteLabel =
+        selected.length === 1
+          ? 'Delete item'
+          : `Delete ${selected.length} items`
+
       return {
-        ...withUndo(state, { tiers, unrankedItemIds, items, deletedItems }),
+        ...withUndo(
+          state,
+          { tiers, unrankedItemIds, items, deletedItems },
+          deleteLabel
+        ),
         ...selectionUpdate([]),
         lastClickedItemId: null,
       }
