@@ -17,85 +17,94 @@
 
 ## Directory Structure
 
+The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/workspace/*` (per-slice feature code), and `shared/*` (cross-feature primitives). The structure is designed to grow into `features/community/` and `features/platform/` when backend work begins. See `dev-docs/directory-restructure-proposal.mdx` for the long-form rationale.
+
 ```
 src/
-├── App.tsx                        # root layout, export orchestration, error banner
-├── main.tsx                       # React mount, legacy key migration
-├── types/
-│   └── index.ts                   # TierItem, Tier, ContainerSnapshot, TierListData, AppSettings
-├── store/
-│   ├── useTierListStore.ts        # single active board state, drag preview, undo/redo
-│   ├── useBoardManagerStore.ts    # multi-board registry, board lifecycle actions
-│   └── useSettingsStore.ts        # global user preferences (sizes, shapes, labels, etc.)
-├── components/
-│   ├── ui/
-│   │   ├── Toolbar.tsx            # display-only board title
-│   │   ├── BoardActionBar.tsx     # action bar layout: undo/redo, add, settings, export, reset
-│   │   ├── ExportMenu.tsx         # export dropdown w/ nested hover submenus
-│   │   ├── ActionButton.tsx       # reusable circular icon button
-│   │   ├── UploadDropzone.tsx     # shared image upload dropzone surface
-│   │   ├── BoardManager.tsx       # floating panel for board list management
-│   │   ├── ConfirmDialog.tsx      # reusable confirmation modal
-│   │   └── ExportProgressOverlay.tsx  # blocking overlay during export-all
+├── app/
+│   ├── App.tsx                      # root component — delegates to AppRouter
+│   ├── main.tsx                     # React mount + legacy storage key migration
+│   ├── index.css                    # Tailwind entry
+│   ├── bootstrap/
+│   │   ├── useAppBootstrap.ts       # hydrate stores, bootstrap session, register autosave
+│   │   ├── useThemeApplicator.ts    # sync theme/text-style tokens to :root
+│   │   └── storageMigration.ts      # cross-feature legacy localStorage key migration
+│   ├── routes/
+│   │   ├── AppRouter.tsx            # popstate-driven route selection
+│   │   ├── WorkspaceRoute.tsx       # workspace entry
+│   │   ├── EmbedRoute.tsx           # embed entry
+│   │   ├── NotFoundRoute.tsx        # 404 fallback
+│   │   └── pathname.ts              # resolveAppRoute + workspace/embed path builders
+│   └── shells/
+│       ├── WorkspaceShell.tsx       # full editable workspace shell
+│       └── EmbedShell.tsx           # read-only embed shell
+├── features/workspace/
+│   ├── annotation/{model,ui}        # draw-over annotation editor
+│   ├── boards/
+│   │   ├── data/local/              # per-board & registry localStorage I/O, migration, session
+│   │   ├── dnd/                     # dnd-kit wiring, sensors, pointer math, snapshot transforms
+│   │   ├── interaction/             # keyboard drag controller, focus restore, useKeyboardDrag
+│   │   ├── lib/                     # boardDefaults, dndIds, containerLabel (pure helpers)
+│   │   ├── model/                   # active board store, registry store, snapshot ops, contract.ts, runtime.ts
+│   │   └── ui/                      # TierList, TierRow, TierItem, BoardHeader, BoardActionBar, etc.
+│   ├── comparison/{model,ui}        # side-by-side board comparison & diff
+│   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
 │   ├── settings/
-│   │   ├── TierSettings.tsx       # tabbed modal shell & confirm flows
-│   │   ├── TierSettingsItemsTab.tsx # items tab content
-│   │   ├── TierSettingsAppearanceTab.tsx # appearance tab content
-│   │   ├── TierSettingsLayoutTab.tsx # layout tab content
-│   │   ├── TierSettingsMoreTab.tsx # export, storage, & shortcut tab content
-│   │   ├── DeletedItemsSection.tsx # recently deleted items grid w/ restore/delete
-│   │   └── ImageUploader.tsx      # image upload drop zone
-│   └── board/
-│       ├── TierList.tsx           # DndContext wrapper, tier rows, unranked pool, drag overlay
-│       ├── TierRow.tsx            # tier label + sortable item grid + color picker popups
-│       ├── TierRowSettingsMenu.tsx # gear button + row settings popup + delete confirm
-│       ├── TierLabel.tsx          # colored label cell (editable name)
-│       ├── TierItem.tsx           # sortable item tile (delegates keyboard to useKeyboardDrag)
-│       ├── ItemContent.tsx        # shared image-vs-text item rendering
-│       ├── DragOverlayItem.tsx    # ghost item during drag
-│       ├── ColorPicker.tsx        # fixed-position color swatch popup
-│       ├── UnrankedPool.tsx       # droppable pool for unassigned items
-│       └── TrashZone.tsx          # drag-to-trash zone
-├── components/export/
-│   └── StaticExportBoard.tsx      # store-free off-screen export renderer
-├── hooks/
-│   ├── useDragAndDrop.ts          # dnd-kit sensors, collision detection, move logic
-│   ├── useKeyboardDrag.ts         # keyboard hook facade for item handlers
-│   ├── keyboardDragController.ts  # keyboard browse & drag state-machine helpers
-│   ├── keyboardFocus.ts           # RAF focus-restore helpers
-│   ├── useImageImport.ts          # shared image upload: drag state, resize, error feedback
-│   ├── useBoardTransition.ts      # fade animation on board switch
-│   ├── useUndoRedo.ts             # Ctrl+Z / Ctrl+Shift+Z keyboard wiring
-│   ├── usePopupClose.ts           # popup wrapper over shared dismissal mechanics
-│   ├── useDismissibleLayer.ts     # shared outside-click, Escape, & reposition listeners
-│   └── useAnchoredPosition.ts     # shared anchored-position state for fixed overlays
-└── utils/
-    ├── dragSnapshot.ts            # pure snapshot transforms & container queries
-    ├── dragPointerMath.ts         # pointer/mouse insertion math
-    ├── dragKeyboard.ts            # keyboard navigation logic
-    ├── dragDomCapture.ts          # DOM reading for rendered layout & positions
-    ├── exportImage.ts             # PNG/JPEG/WebP/clipboard export
-    ├── exportPdf.ts               # PDF generation via jsPDF
-    ├── exportJson.ts              # JSON board serialization/deserialization
-    ├── exportBoardRender.tsx      # hidden export-capture root & static render session
-    ├── imageResize.ts             # canvas-based image resizing (120px max)
-    ├── popupPosition.ts           # shared popup positioning pure functions
-    ├── color.ts                   # hex parsing, contrast detection
-    ├── constants.ts               # defaults, tier presets, size/shape options
-    └── storage.ts                 # localStorage keys, board I/O, migrations, persist adapters
+│   │   ├── data/local/              # settings storage key + versioned migration
+│   │   ├── lib/                     # image upload constants & helpers
+│   │   ├── model/                   # settings store, palette selector, image import hook
+│   │   └── ui/                      # BoardSettingsModal & tabbed content
+│   ├── sharing/{lib,ui}             # hash-share encoding, social share, share/embed modals, EmbedView
+│   ├── shortcuts/{lib,model,ui}     # keyboard shortcut registry, panel, list
+│   ├── stats/{model,ui}             # board statistics & distribution chart
+│   └── tier-presets/                # reusable tier structures (local storage, independent of boards)
+│       ├── data/local/              # preset storage key + versioned migration
+│       ├── model/                   # tier preset store, built-in presets, contract.ts
+│       └── ui/                      # PresetPickerModal, SavePresetModal
+└── shared/
+    ├── a11y/                        # announce() module, LiveRegion component
+    ├── board-ui/                    # BoardPrimitives, ItemContent, board rendering constants
+    ├── hooks/                       # useClipboardCopy, useInlineEdit, useViewportWidth
+    ├── layout/                      # toolbarPosition (cross-feature menu chrome math)
+    ├── lib/                         # color, id, math, fileName, browserStorage, storageMetering
+    ├── notifications/               # ToastContainer, useToastStore
+    ├── overlay/                     # BaseModal, ConfirmDialog, OverlayPrimitives, menuClasses,
+    │                                # popupPosition, uiMeasurements, useAnchoredPopup,
+    │                                # useAnchoredPosition, useDismissibleLayer, useFocusTrap,
+    │                                # useMenuOverflowFlip, useModalBackgroundInert, useModalDialog,
+    │                                # useNestedMenus, usePopupClose
+    ├── selection/                   # useRovingSelection, selectionNavigation, selectionState
+    ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors, index
+    ├── types/                       # shared universals only: ids, theme, settings, export (no barrel)
+    └── ui/                          # ActionButton, ErrorBoundary, ItemOverlayButton, SecondaryButton,
+                                     # TextInput, UploadDropzone
 ```
 
 ## State Management
 
-Three Zustand stores form the data layer:
+Four Zustand stores form the workspace data layer:
 
-**`useTierListStore`** — the single active board. Holds `TierListData` (title, tiers, unrankedItemIds, items map) and runtime-only fields (`activeItemId`, `dragPreview`, `keyboardMode`, `runtimeError`). It is an in-memory store with no persist middleware — persistence is handled by the board manager. The store also manages undo/redo history and the drag preview lifecycle.
+**`useActiveBoardStore`** (`features/workspace/boards/model/useActiveBoardStore.ts`) — the single active board. Holds a `BoardSnapshot` (title, tiers, unrankedItemIds, items map, deletedItems) and runtime-only fields (`activeItemId`, `dragPreview`, `keyboardMode`, `keyboardFocusItemId`, `selectedItemIds`, `runtimeError`, undo/redo stacks). It is an in-memory store with no persist middleware — persistence is orchestrated by `localBoardSession.ts`. The store manages undo/redo history, selection, and the drag preview lifecycle.
 
-**`useBoardManagerStore`** — multi-board registry. Uses Zustand `persist` middleware with `partialize` to persist `boards` and `activeBoardId`. Handles create, switch, delete, duplicate, rename, and auto-save (a debounced subscriber on `useTierListStore` that compares `PERSISTED_FIELDS` to detect changes worth saving). Explicit board renames flow through `renameBoard()` (updates both the registry and the tier store), and `resetBoard()` preserves the current title.
+**`useWorkspaceBoardRegistryStore`** (`features/workspace/boards/model/useWorkspaceBoardRegistryStore.ts`) — multi-board registry. Uses Zustand `persist` middleware with `partialize` to persist `boards` and `activeBoardId`. Handles create, switch, delete, duplicate, and rename. A debounced subscriber on `useActiveBoardStore` auto-saves the active board's data via the local data layer.
 
-**`useSettingsStore`** — global user preferences (item size, shape, label visibility, compact mode, label width, etc.). Persisted independently to localStorage.
+**`useSettingsStore`** (`features/workspace/settings/model/useSettingsStore.ts`) — global user preferences (item size, shape, label visibility, compact mode, label width, theme, palette, text style, reduced motion, toolbar position, etc.). Persisted independently with its own versioned migration.
 
-**`storage.ts`** — centralized localStorage layer. Owns all storage keys, per-board I/O (`saveBoardToStorage`, `loadBoardFromStorage`, `removeBoardFromStorage`), the shared Zustand persist adapter, legacy key migration, legacy single-board migration, and storage metering. Quota errors are surfaced via an `onError` callback to avoid store imports.
+**`useTierPresetStore`** (`features/workspace/tier-presets/model/useTierPresetStore.ts`) — user-saved tier structure presets. Persisted with versioned migration. Built-in presets (Classic, Top 10, Yes/No/Maybe, etc.) are defined in `tierPresets.ts` and merged at runtime.
+
+### Local persistence layer
+
+Persistence is split across features instead of living in a single monolithic `storage.ts`:
+
+- `features/workspace/boards/data/local/boardStorage.ts` — per-board localStorage I/O, versioned envelopes, typed `ok`/`missing`/`corrupted` load outcomes, quota error messaging
+- `features/workspace/boards/data/local/boardRegistryStorage.ts` — registry storage key
+- `features/workspace/boards/data/local/boardMigration.ts` — legacy single-board migration (`tier-list-maker-state` → modern registry)
+- `features/workspace/boards/data/local/localBoardSession.ts` — session bootstrap, autosave subscription, orchestration between registry & active board
+- `features/workspace/settings/data/local/settingsStorage.ts` — settings storage key + multi-version migration
+- `features/workspace/tier-presets/data/local/tierPresetStorage.ts` — preset storage key + migration
+- `shared/lib/browserStorage.ts` — generic localStorage wrapper, Zustand persist adapter
+- `shared/lib/storageMetering.ts` — quota estimation, near-full warnings
+- `app/bootstrap/storageMigration.ts` — cross-feature legacy key migration (runs before any store hydrates)
 
 ## Drag and Drop
 
@@ -110,57 +119,80 @@ Drag-and-drop uses a **snapshot-based preview** pattern that separates visual fe
 4b. discardDragPreview() → throws snapshot away (on cancel)
 ```
 
-**Drag logic** is split across four modules:
+**Drag logic** lives under `features/workspace/boards/dnd/`:
 
 - `dragSnapshot.ts` — pure snapshot transforms, container queries, & item movement (`moveItemInSnapshot`, `findContainer`, `getEffectiveTiers`, etc.)
 - `dragPointerMath.ts` — pointer/mouse insertion math (`resolveDragTargetIndex`, `resolveNextDragPreview`, etc.)
 - `dragKeyboard.ts` — keyboard navigation (`resolveNextKeyboardDragPreview`, `resolveNextKeyboardFocusItem`)
 - `dragDomCapture.ts` — DOM reading for rendered layout & positions (`captureRenderedContainerSnapshot`, `resolveIntraContainerRowMove`, etc.)
+- `dragCollision.ts`, `dragPreviewController.ts`, `dragDropAnimation.ts`, `dragHelpers.ts`, `dragSensors.ts`, `useDragAndDrop.ts` — dnd-kit wiring, sensors, collision resolution, drop animation, & lifecycle
 
-**dnd-kit wiring** (`src/hooks/useDragAndDrop.ts`) configures pointer and touch sensors, collision detection, and maps dnd-kit lifecycle events (`onDragStart`, `onDragOver`, `onDragEnd`, `onDragCancel`) to store actions.
+**Keyboard interaction** lives under `features/workspace/boards/interaction/`:
 
-**Keyboard controller** (`src/hooks/useKeyboardDrag.ts`) is the item-facing hook. The 3-state machine (idle → browse → dragging), arrow key navigation with intra-row and column-aware cross-tier logic, and RAF-debounced focus restoration now live in `keyboardDragController.ts` and `keyboardFocus.ts`. Each `TierItem` still calls `useKeyboardDrag()` and wires its returned `onKeyDown`/`onFocus` handlers into the DOM.
+- `useKeyboardDrag.ts` — item-facing hook consumed by `TierItem`
+- `keyboardDragController.ts` — 3-state machine (idle → browse → dragging), arrow key navigation with intra-row and column-aware cross-tier logic
+- `keyboardFocus.ts` — RAF-debounced focus restoration helpers
+
+The separation ensures board-input orchestration (selection, focus persistence, board re-entry, drag cancellation) lives in `interaction/` while pure drag helpers live in `dnd/`. Interaction may call into dnd helpers; the reverse is not allowed.
+
+## Routing
+
+`app/routes/AppRouter.tsx` subscribes to `popstate` via `useSyncExternalStore` and selects a route from `resolveAppRoute(pathname)`:
+
+- `/` → `WorkspaceRoute` → `WorkspaceShell` (full editable shell)
+- `/embed` → `EmbedRoute` → `EmbedShell` → `EmbedView` (reads `#share=…` fragment, renders read-only board)
+- anything else → `NotFoundRoute`
+
+Share links point at the workspace route with a hash fragment; embed iframe URLs point at `/embed#share=…`. The embed route parses the fragment, decodes the serialized board, and renders through `shared/board-ui/` primitives without mounting the editable active-board store.
 
 ## Component Hierarchy
 
 ```
-App
-├── Toolbar                    # board title
-├── BoardActionBar             # action bar layout: undo/redo, add, settings, export, reset
-│   ├── ActionButton[]         # reusable circular icon buttons
-│   └── ExportMenu             # export dropdown w/ nested hover submenus
-├── TierList                   # DndContext wrapper, tier rows, unranked pool, drag overlay
-│   ├── TierRow[]              # tier label + sortable item grid + color picker popups
-│   │   ├── TierLabel          # colored label (editable name)
-│   │   ├── TierItem[]         # sortable items (delegates keyboard to useKeyboardDrag)
-│   │   ├── TierRowSettingsMenu # gear button + row settings popup
-│   │   └── ColorPicker        # fixed-position color swatch popup
-│   ├── UnrankedPool           # droppable pool for unassigned items
-│   └── TrashZone              # drag-to-trash (visible during drag)
-├── TierSettings               # tabbed modal shell w/ per-tab subcomponents
-│   ├── TierSettingsItemsTab   # import, text items, deleted items
-│   ├── TierSettingsAppearanceTab # theme, text style, tier-color sync
-│   ├── TierSettingsLayoutTab  # item sizing & tier-label layout
-│   └── TierSettingsMoreTab    # export prefs, storage, shortcuts
-├── BoardManager               # floating panel (bottom-right) for board switching
-├── DragOverlay                # ghost item (uses ItemContent for rendering)
-├── ConfirmDialog              # modal for delete confirmations
-└── ExportProgressOverlay      # blocking overlay during export-all
+App (app/App.tsx → AppRouter)
+├── WorkspaceRoute → WorkspaceShell
+│   ├── BoardHeader                — click-to-edit board title
+│   ├── BoardActionBar             — undo/redo, add tier, settings, export, reset
+│   │   ├── ActionButton[]         — reusable circular icon buttons
+│   │   └── ExportMenu             — export dropdown w/ nested hover submenus
+│   ├── TierList                   — DndContext wrapper, tier rows, unranked pool, drag overlay
+│   │   ├── TierRow[]              — tier label + sortable item grid + color picker popups
+│   │   │   ├── TierLabel          — colored label (editable name)
+│   │   │   ├── TierItem[]         — sortable items (delegates keyboard to useKeyboardDrag)
+│   │   │   ├── TierRowSettingsMenu — gear button + row settings popup
+│   │   │   └── ColorPicker        — fixed-position color swatch popup
+│   │   ├── UnrankedPool           — droppable pool for unassigned items
+│   │   └── TrashZone              — drag-to-trash (visible during drag)
+│   ├── BoardSettingsModal         — tabbed modal shell w/ per-tab subcomponents
+│   │   ├── ItemsTab               — import, text items, deleted items
+│   │   ├── AppearanceTab          — theme, text style, tier-color sync
+│   │   ├── LayoutTab              — item sizing & tier-label layout
+│   │   └── MoreTab                — export prefs, storage, shortcuts
+│   ├── BoardManager               — floating panel (bottom-right) for board switching
+│   ├── DragOverlay                — ghost item (uses ItemContent for rendering)
+│   ├── ConfirmDialog              — modal for delete confirmations
+│   ├── ExportProgressOverlay      — blocking overlay during export-all
+│   ├── BulkActionBar              — floating bar for multi-select operations
+│   ├── ShortcutsPanel             — help panel listing keyboard shortcuts
+│   ├── ToastContainer             — auto-dismissing notifications
+│   └── LiveRegion                 — screen reader announcement target
+└── EmbedRoute → EmbedShell → EmbedView — read-only iframe view
 ```
 
 ## Popup Positioning
 
-Tier-row popups (`ColorPicker`, `TierRowSettingsMenu`) use `fixed` positioning computed from `getBoundingClientRect()` at open time. This avoids clipping from `overflow-x-auto` on the tier list wrapper. Positioning functions live in `src/utils/popupPosition.ts`.
+Tier-row popups (`ColorPicker`, `TierRowSettingsMenu`) use `fixed` positioning computed from `getBoundingClientRect()` at open time. This avoids clipping from `overflow-x-auto` on the tier list wrapper. Pure positioning functions live in `shared/overlay/popupPosition.ts`.
 
-Shared overlay behavior lives in `useDismissibleLayer.ts` and `useAnchoredPosition.ts`. `usePopupClose.ts` remains a popup-specific wrapper over that shared behavior for row popups.
+Shared overlay behavior lives under `shared/overlay/`: `useDismissibleLayer`, `useAnchoredPosition`, `useFocusTrap`, `useMenuOverflowFlip`, `useModalBackgroundInert`, `useModalDialog`, `useNestedMenus`, `menuClasses`, `uiMeasurements`. `usePopupClose` remains a popup-focused wrapper over the shared dismissal mechanics for tier-row popups.
 
-The shared layer covers:
+The shared dismissal layer covers:
 
 - Outside-click dismissal (excluding both popup and trigger from the check)
 - Escape key to close
 - Scroll and resize-based repositioning
 
-`BoardManager` and `ExportMenu` keep their own anchored layout markup while reusing the shared dismissal plumbing.
+`BoardManager` and `ExportMenu` keep their own anchored layout markup while reusing the shared plumbing.
+
+Toolbar-position-aware submenu class sets live in `shared/layout/toolbarPosition.ts`, consumed by `BoardActionBar`, `ExportMenu`, `TierList`, `useGlobalShortcuts`, and the workspace shell.
 
 ## Export Pipeline
 
@@ -170,4 +202,34 @@ The shared layer covers:
 
 **PDF** — uses the same isolated export renderer, captures a PNG, then `jsPDF` creates a document sized to match the rendered image dimensions and embeds the rasterized image.
 
-**JSON** — `exportJson.ts` serializes the full board state (`TierListData`) to a downloadable `.json` file. Import accepts both single-board and multi-board JSON envelopes — `parseBoardsJson()` auto-detects the format and validates each board before restoring.
+**JSON** — `exportJson.ts` serializes the full `BoardSnapshot` to a downloadable `.json` file. Import accepts both single-board and multi-board JSON envelopes — `parseBoardsJson()` auto-detects the format and validates each board before restoring.
+
+All export lib code lives in `features/workspace/export/lib/`; the UI (`ExportMenu`, `ExportPreviewModal`, `ExportProgressOverlay`, `StaticExportBoard`) lives in `features/workspace/export/ui/`; the controller hook is `features/workspace/export/model/useExportController.ts`.
+
+## Boundary Rules
+
+- `shared/*` must not import from `features/*`. Shared code is framework-only and feature-agnostic.
+- Inside `features/workspace/*`, cross-slice imports are allowed in the direction of structural dependency. `tier-presets` may import board contract types because presets produce boards; `comparison` may read both boards and settings.
+- The embed shell renders through `shared/board-ui/*` primitives only and never mounts the editable active-board store.
+- UI (`ui/`) → model (`model/`) → data (`data/local/`). Components don't call localStorage directly.
+
+## Types
+
+Types are **slice-owned**. Each feature owns the types it produces, split into `contract.ts` (stable, serializable, Phase-7 lift-ready) and `runtime.ts` (implementation-private). There is no `shared/types/index.ts` barrel — imports always point at the file that defines the type.
+
+**Slice-owned contracts:**
+
+- `features/workspace/boards/model/contract.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec`, `TierPaletteColorSpec`, `TierCustomColorSpec`, `NewTierItem`, `BoardMeta`. Anything serialized (localStorage, JSON exports, share links, future Convex functions).
+- `features/workspace/boards/model/runtime.ts` — `ContainerSnapshot`, `ContainerSnapshotTier`, `KeyboardMode`, `ActiveBoardRuntimeState`, `freshRuntimeState`, `ItemRecord`. Runtime-only state, never persisted.
+- `features/workspace/tier-presets/model/contract.ts` — `TierPreset`, `TierPresetTier`.
+
+**Shared universals (`shared/types/`):**
+
+- `ids.ts` — `BoardId`, `TierId`, `ItemId`, `PresetId`, `UserPresetId`, `BuiltinPresetId` branded primitives
+- `theme.ts` — `ThemeId`, `PaletteId`, `TextStyleId`
+- `settings.ts` — `AppSettings`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`
+- `export.ts` — `ImageFormat`, `ExportAppearance`
+
+Settings and export types live in `shared/` because they're consumed widely across slices with no benefit from stricter ownership today. The rest live with the code that produces them.
+
+When Phase 7 introduces `packages/contracts/`, every `features/*/model/contract.ts` lifts via `git mv` with minimal import rewiring. `runtime.ts` files stay in the frontend tree because they're tied to store implementation. `BoardSnapshot` is the canonical serializable board shape (renamed from the earlier `TierListData`).
