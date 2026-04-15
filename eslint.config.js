@@ -10,8 +10,15 @@ import prettierConfig from 'eslint-config-prettier'
 import localRules from './eslint-rules/index.js'
 
 export default defineConfig([
-  // exclude build output from linting
-  globalIgnores(['dist']),
+  // exclude build output & generated code from linting
+  globalIgnores([
+    'dist',
+    'convex/_generated',
+    '.agents',
+    '.claude',
+    '.convex',
+    'skills-lock.json',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -35,6 +42,16 @@ export default defineConfig([
       'ggfincke/file-header': 'error',
       'ggfincke/comment-style-guide': 'warn',
       'no-inline-comments': 'error',
+      // honor _-prefix as "intentionally unused" for args, caught errors, & destructured rest siblings
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
     },
   },
 ])
