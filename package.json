@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.6.0",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -18,7 +21,9 @@
     "version": "node scripts/check-changelog.mjs && git add CHANGELOG.md"
   },
   "dependencies": {
+    "@auth/core": "^0.37.4",
     "@babel/runtime": "^7.29.2",
+    "@convex-dev/auth": "^0.0.91",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -26,6 +31,7 @@
     "@uiw/color-convert": "^2.9.6",
     "@uiw/react-color-shade-slider": "^2.9.6",
     "@uiw/react-color-wheel": "^2.9.6",
+    "convex": "^1.35.1",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.0",
     "jszip": "^3.10.1",
