@@ -1,4 +1,4 @@
-// src/shared/types/theme.ts
+// packages/contracts/lib/theme.ts
 // theme, palette, text-style identifiers, & tier color spec primitives
 
 // color theme identifiers

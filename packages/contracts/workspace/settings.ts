@@ -1,7 +1,7 @@
-// src/shared/types/settings.ts
+// packages/contracts/workspace/settings.ts
 // app-wide user settings & presentation presets
 
-import type { PaletteId, TextStyleId, ThemeId } from './theme'
+import type { PaletteId, TextStyleId, ThemeId } from '../lib/theme'
 
 // item display size presets
 export type ItemSize = 'small' | 'medium' | 'large'

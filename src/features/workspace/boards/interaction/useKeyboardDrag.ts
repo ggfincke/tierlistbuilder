@@ -16,7 +16,7 @@ import {
   handleKeyboardSpaceKey,
 } from './keyboardDragController'
 import type { KeyboardDragDirection } from '@/features/workspace/boards/dnd/dragKeyboard'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 // expose the shared selector for components that just need the tab-stop id
 export const useKeyboardTabStopItemId = (): ItemId | null =>

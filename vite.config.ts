@@ -13,14 +13,25 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 const require = createRequire(import.meta.url)
 const { version } = require('./package.json') as { version: string }
 const srcRoot = path.resolve(__dirname, './src')
+const contractsRoot = path.resolve(__dirname, './packages/contracts')
 const sourceAlias = {
   find: /^@\//,
   replacement: `${srcRoot}/`,
 }
+// resolve subpath imports like @tierlistbuilder/contracts/workspace/board
+const contractsSubpathAlias = {
+  find: /^@tierlistbuilder\/contracts\/(.*)$/,
+  replacement: `${contractsRoot}/$1`,
+}
+// resolve bare import @tierlistbuilder/contracts to the barrel
+const contractsBarrelAlias = {
+  find: /^@tierlistbuilder\/contracts$/,
+  replacement: `${contractsRoot}/index.ts`,
+}
 
 export default defineConfig({
   resolve: {
-    alias: [sourceAlias],
+    alias: [sourceAlias, contractsSubpathAlias, contractsBarrelAlias],
   },
   plugins: [
     react(),
@@ -62,6 +73,6 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(version),
   },
   test: {
-    alias: [sourceAlias],
+    alias: [sourceAlias, contractsSubpathAlias, contractsBarrelAlias],
   },
 })

@@ -1,7 +1,7 @@
 // src/features/workspace/sharing/lib/hashShare.ts
 // shareable link encoding & decoding — compress board data into a URL hash fragment
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { EMBED_ROUTE_PATH, normalizeBasePath } from '@/app/routes/pathname'
 import { parseBoardJson } from '@/features/workspace/export/lib/exportJson'
 

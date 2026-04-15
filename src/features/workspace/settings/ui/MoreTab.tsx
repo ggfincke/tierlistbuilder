@@ -5,7 +5,7 @@ import { useId, useState } from 'react'
 import { Github, Layers, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
+import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
   createBoardSession,
   createBoardSessionFromPreset,

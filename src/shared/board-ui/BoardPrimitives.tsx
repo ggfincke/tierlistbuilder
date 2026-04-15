@@ -18,7 +18,7 @@ import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
-} from '@/shared/types/settings'
+} from '@tierlistbuilder/contracts/workspace/settings'
 import { getTextColor } from '../lib/color'
 import { joinClassNames } from '../lib/className'
 

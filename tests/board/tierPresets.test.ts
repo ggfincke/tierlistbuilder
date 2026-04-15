@@ -8,8 +8,8 @@ import {
   createPaletteTierColorSpec,
   createCustomTierColorSpec,
 } from '@/shared/theme/tierColors'
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 
 const CLASSIC_PRESET = BUILTIN_PRESETS.find((p) => p.id === 'builtin-classic')!
 

@@ -9,7 +9,7 @@ import {
   handleKeyboardSpaceKey,
 } from '@/features/workspace/boards/interaction/keyboardDragController'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 
 const makeBoard = (): BoardSnapshot => ({
   title: 'Keyboard Board',

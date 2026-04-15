@@ -6,7 +6,7 @@ import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
-} from '@/shared/types/settings'
+} from '@tierlistbuilder/contracts/workspace/settings'
 
 // item size presets in pixels
 export const ITEM_SIZE_PX: Record<ItemSize, number> = {

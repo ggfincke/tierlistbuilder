@@ -1,7 +1,7 @@
 // src/features/workspace/boards/interaction/keyboardFocus.ts
 // focus helpers for keyboard browse & drag mode
 
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 const focusBoardRegion = () =>
 {

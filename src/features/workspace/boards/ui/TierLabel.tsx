@@ -4,8 +4,8 @@
 import { memo, useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import type { Tier } from '@/features/workspace/boards/model/contract'
-import type { TierId } from '@/shared/types/ids'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
 import { resolveTierColorSpec } from '@/shared/theme/tierColors'
 import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'

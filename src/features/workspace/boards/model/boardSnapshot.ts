@@ -11,9 +11,9 @@ import { generateTierId, isTierId } from '@/shared/lib/id'
 import type {
   BoardSnapshot,
   Tier,
-} from '@/features/workspace/boards/model/contract'
-import { asItemId, type ItemId } from '@/shared/types/ids'
-import type { PaletteId } from '@/shared/types/theme'
+} from '@tierlistbuilder/contracts/workspace/board'
+import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import {
   getAutoTierColorSpec,
   normalizeCanonicalTierColorSpec,

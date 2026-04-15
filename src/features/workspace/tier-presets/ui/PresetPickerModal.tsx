@@ -4,8 +4,8 @@
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
-import type { PresetId } from '@/shared/types/ids'
+import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import type { PresetId } from '@tierlistbuilder/contracts/lib/ids'
 import { BUILTIN_PRESETS } from '@/features/workspace/tier-presets/model/tierPresets'
 import { resolveTierColorSpec } from '@/shared/theme/tierColors'
 import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'

@@ -15,7 +15,7 @@ import { TierItem } from './TierItem'
 import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
 import { TextInput } from '@/shared/ui/TextInput'
 import { UploadDropzone } from '@/shared/ui/UploadDropzone'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export const UnrankedPool = () =>
 {

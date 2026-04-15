@@ -4,9 +4,9 @@
 import { useCallback, useId, useRef, useState } from 'react'
 import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
-import type { BoardId } from '@/shared/types/ids'
-import type { ToolbarPosition } from '@/shared/types/settings'
+import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
 import {
   createBoardSession,
   createBoardSessionFromPreset,

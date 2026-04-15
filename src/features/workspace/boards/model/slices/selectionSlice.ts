@@ -2,7 +2,7 @@
 // selection slice — multi-item selection state & bulk move/delete actions
 
 import { announce } from '@/shared/a11y/announce'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { getAllBoardItemIds, selectionUpdate } from './helpers'
 import { withUndo } from './undoSlice'
 import type { ActiveBoardSliceCreator, SelectionSlice } from './types'

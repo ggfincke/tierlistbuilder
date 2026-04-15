@@ -1,7 +1,7 @@
 // src/shared/theme/palettes.ts
 // coordinated tier label palettes — ordered swatches per palette
 
-import type { PaletteId, ThemeId } from '@/shared/types/theme'
+import type { PaletteId, ThemeId } from '@tierlistbuilder/contracts/lib/theme'
 
 export interface PaletteDefinition
 {

@@ -6,7 +6,7 @@ import {
   createContainerSnapshot,
   isSnapshotConsistent,
 } from '@/features/workspace/boards/dnd/dragSnapshot'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { selectionUpdate } from './helpers'
 import { pushUndo } from './undoSlice'
 import type {

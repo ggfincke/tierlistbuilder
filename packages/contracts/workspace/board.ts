@@ -1,8 +1,8 @@
-// src/features/workspace/boards/model/contract.ts
+// packages/contracts/workspace/board.ts
 // * serializable board contract — persisted per board & exchanged across import/export
 
-import type { BoardId, ItemId, TierId } from '@/shared/types/ids'
-import type { TierColorSpec } from '@/shared/types/theme'
+import type { BoardId, ItemId, TierId } from '../lib/ids'
+import type { TierColorSpec } from '../lib/theme'
 
 // single item placed in a tier or the unranked pool
 export interface TierItem

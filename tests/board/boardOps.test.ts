@@ -8,8 +8,8 @@ import {
   sortTierItemsByName,
 } from '@/features/workspace/boards/model/boardOps'
 import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
-import type { Tier } from '@/features/workspace/boards/model/contract'
-import type { TierId } from '@/shared/types/ids'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
 
 const makeTier = (
   id: TierId,

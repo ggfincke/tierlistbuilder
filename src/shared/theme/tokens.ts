@@ -1,7 +1,7 @@
 // src/shared/theme/tokens.ts
 // color token definitions for all 8 themes
 
-import type { ThemeId } from '@/shared/types/theme'
+import type { ThemeId } from '@tierlistbuilder/contracts/lib/theme'
 
 // shape of a single theme's color token set
 export interface ThemeDefinition

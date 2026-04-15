@@ -1,11 +1,11 @@
 // src/features/workspace/tier-presets/model/tierPresets.ts
 // board preset definitions & conversion helpers
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   TierPreset,
   TierPresetTier,
-} from '@/features/workspace/tier-presets/model/contract'
+} from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { DEFAULT_TITLE } from '@/features/workspace/boards/lib/boardDefaults'
 import { generatePresetId, generateTierId } from '@/shared/lib/id'
 import {

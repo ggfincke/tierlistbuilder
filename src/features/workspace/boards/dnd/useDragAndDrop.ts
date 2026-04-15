@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Modifier } from '@dnd-kit/core'
-import type { Tier } from '@/features/workspace/boards/model/contract'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import {
   type DragEndEvent,
   type DragMoveEvent,
@@ -18,7 +18,7 @@ import { announce } from '@/shared/a11y/announce'
 import { getContainerLabel } from '@/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from './dragCollision'
 import { toItemId, toStringId } from './dragHelpers'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { syncDraggedItemPosition } from './dragPreviewController'
 import { useDragSensors } from './dragSensors'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'

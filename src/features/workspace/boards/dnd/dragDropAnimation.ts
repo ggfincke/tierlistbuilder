@@ -2,7 +2,7 @@
 // FLIP animation for multi-drag drop — items fan out from the stacked
 // overlay position to their final grid slots w/ staggered timing
 
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 const DURATION_MS = 300
 const STAGGER_MS = 30

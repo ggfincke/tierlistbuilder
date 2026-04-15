@@ -1,9 +1,9 @@
 // src/features/workspace/boards/lib/boardDefaults.ts
 // canonical default board structure & board-level defaults
 
-import type { Tier } from '@/features/workspace/boards/model/contract'
-import type { TierId } from '@/shared/types/ids'
-import type { PaletteId } from '@/shared/types/theme'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { getAutoTierColorSpec } from '@/shared/theme/tierColors'
 
 // default board title used on first load & for newly created boards

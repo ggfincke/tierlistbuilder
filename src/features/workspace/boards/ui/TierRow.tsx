@@ -18,7 +18,7 @@ import {
   resolveTierColorSpec,
 } from '@/shared/theme/tierColors'
 import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import type { Tier } from '@/features/workspace/boards/model/contract'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import { ITEM_SIZE_PX } from '@/shared/board-ui/constants'

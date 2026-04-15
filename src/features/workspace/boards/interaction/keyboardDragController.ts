@@ -4,7 +4,7 @@
 import { announce } from '@/shared/a11y/announce'
 import { getContainerLabel } from '@/features/workspace/boards/lib/containerLabel'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   findContainer,
   getEffectiveContainerSnapshot,

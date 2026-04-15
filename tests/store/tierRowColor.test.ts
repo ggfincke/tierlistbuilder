@@ -14,8 +14,8 @@ import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
 } from '@/shared/theme/tierColors'
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 
 const resetStore = () =>
 {
