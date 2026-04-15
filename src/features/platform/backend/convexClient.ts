@@ -1,9 +1,8 @@
 // src/features/platform/backend/convexClient.ts
 // * convex client singleton — backend entry point for the frontend
-// not yet mounted into a React provider; the provider lands alongside the
-// auth UI PR. existing features import this client only via repository
-// adapters under features/*/data/cloud/ — UI components must not import it
-// directly
+// mounted into ConvexAuthProvider in src/app/main.tsx. UI components must
+// not import this directly; go through features/*/data/cloud/ adapters or
+// the auth slice's useAuthSession hook
 
 import { ConvexReactClient } from 'convex/react'
 

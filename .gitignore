@@ -30,8 +30,17 @@ dist-ssr
 .env*
 !.env.example
 
-# convex generated files
-convex/_generated
+# typescript build cache — produced by `tsc -b`, lives at the path each
+# tsconfig points to via tsBuildInfoFile (we use node_modules/.tmp/), but
+# orphan files outside that path should never be tracked
+*.tsbuildinfo
+
+# convex generated files — the runtime .js, type .d.ts, & sourcemaps under
+# convex/_generated/ are committed so both `tsc -b` & `vite build` can run
+# in CI w/o a deployment. they regenerate on every `npx convex dev` run, so
+# expect occasional small diffs when schema or function signatures change.
+# ai/ dir is per-user tooling output & never committed
+convex/_generated/ai/
 .convex
 
 # convex AI files dropped by `npx convex dev`

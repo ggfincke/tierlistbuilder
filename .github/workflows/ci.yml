@@ -18,11 +18,11 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
+      # tsc -b walks tsconfig.app.json, tsconfig.node.json, & convex/tsconfig.json
+      # via the project references in tsconfig.json. convex/_generated/*.d.ts
+      # files are committed (the .js siblings are gitignored) so the convex
+      # source files typecheck against the real api shape w/o needing a CI deploy
       - run: npx tsc -b --noEmit
-      # todo: convex function typecheck runs locally via `npx convex dev --once`
-      # against a developer's own deployment. CI-side typecheck requires either
-      # committing convex/_generated/ or provisioning a CI-only Convex deployment
-      # w/ a stored token — deferred to a later PR
       - run: npm test
 
   build:

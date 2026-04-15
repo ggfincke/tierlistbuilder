@@ -13,10 +13,16 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 const require = createRequire(import.meta.url)
 const { version } = require('./package.json') as { version: string }
 const srcRoot = path.resolve(__dirname, './src')
+const convexRoot = path.resolve(__dirname, './convex')
 const contractsRoot = path.resolve(__dirname, './packages/contracts')
 const sourceAlias = {
   find: /^@\//,
   replacement: `${srcRoot}/`,
+}
+// resolve @convex/_generated/* imports for the typed api & dataModel
+const convexAlias = {
+  find: /^@convex\//,
+  replacement: `${convexRoot}/`,
 }
 // resolve subpath imports like @tierlistbuilder/contracts/workspace/board
 const contractsSubpathAlias = {
@@ -31,7 +37,12 @@ const contractsBarrelAlias = {
 
 export default defineConfig({
   resolve: {
-    alias: [sourceAlias, contractsSubpathAlias, contractsBarrelAlias],
+    alias: [
+      sourceAlias,
+      convexAlias,
+      contractsSubpathAlias,
+      contractsBarrelAlias,
+    ],
   },
   plugins: [
     react(),
@@ -73,6 +84,11 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(version),
   },
   test: {
-    alias: [sourceAlias, contractsSubpathAlias, contractsBarrelAlias],
+    alias: [
+      sourceAlias,
+      convexAlias,
+      contractsSubpathAlias,
+      contractsBarrelAlias,
+    ],
   },
 })
