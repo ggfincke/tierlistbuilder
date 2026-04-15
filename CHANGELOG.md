@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-14
+
+### Added
+
+- **Toast Notifications**: Auto-dismissing toast stack w/ info, success, & error variants, wired to undo/redo & clipboard copy (#25)
+- **Error Boundary**: Root-level React error boundary w/ themed fallback, plus section boundaries around board & modal regions (#25)
+- **Storage Resilience**: Quota detection, corruption-aware loads, orphan registry pruning, & proactive near-full warning toast (#25)
+- **Annotation Text Tool**: Inline text editing w/ font family, size stepper, & bold/italic formatting bar (#25)
+- **Bulk Selection**: Click to select, ctrl/cmd toggle, shift-range, ctrl+A select-all, & floating BulkActionBar for move/delete (#25)
+- **Multi-Drag**: Drag a selection as a group w/ stacked overlay, count badge, group-aware trash, fan-out FLIP animation, & post-drop selection preservation (#25)
+- **Keyboard Navigation Overhaul**: Roving tabindex, B key to jump back to board, browse-mode-first focus, & multi-drag-aware announcements (#25)
+- **Custom Page Background**: Appearance setting to override theme page background w/ color picker & reset (#25)
+- **Export Preview Modal**: Format selector w/ copy, annotate, & download actions (#25)
+- **Viewport Hardening**: `viewport-fit=cover`, safe-area insets for toast & bulk bar, & landscape short-viewport padding (#25)
+
+### Changed
+
+- **Directory Restructure**: Flat `components/domain/hooks/utils/store/services` layout replaced w/ three-layer `app/`, `features/workspace/*`, & `shared/*` architecture (#25)
+- **Active Board Store**: Split into boardData, selection, dragPreview, keyboard, undo, & runtimeError slice creators under `boards/model/slices/` (#25)
+- **ItemId Branding**: Nominal `ItemId` brand propagated through dnd, interaction, selection, & contract types w/ `asItemId` casts at trust boundaries (#25)
+- **Lazy Modals**: Annotation, comparison, share, embed, stats, & preview modals lazy-loaded w/ Suspense (#25)
+- **Undo/Redo**: Labeled undo stack w/ toast feedback, locked during drag or boardLocked (#25)
+- **Tier Row Background**: Per-row background theming (palette or hex), undoable, round-trips through presets & export (#25)
+- **JSON Import Validation**: Per-field diagnostics, duplicate item detection, schema version guard, & required versioned envelope (#25)
+- **Perf**: TierRow memoization, tab-stop selector cache, & `MeasuringStrategy.WhileDragging` (#25)
+- **Tests**: Reorganized into `board/data/dnd/interaction/overlay/store/utils` subdirs (#25)
+
+### Removed
+
+- **Legacy Bridges**: Storage key rename migration, single→multi-board migration, settings/preset migration chains, & legacy tier color normalizers dropped (deliberate wipe; storage versions reset to 1) (#25)
+- **Features**: Comparison mode, share link modal, embed snippet modal, & socialShare removed (#25)
+- **Hooks**: `useAnchoredPosition` & `usePopupClose` removed (#25)
+- **Markers**: `imageStripped` export marker & `isBoardId` dead export removed (#25)
+
 ## [0.5.0] - 2026-04-05
 
 ### Added
