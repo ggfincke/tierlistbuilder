@@ -11,12 +11,13 @@ import { getStorageUsageBytes } from '@/shared/lib/storageMetering'
 import { BaseModal } from '@/shared/overlay/BaseModal'
 import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
 import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+import { AccountTab } from './AccountTab'
 import { AppearanceTab } from './AppearanceTab'
 import { ItemsTab } from './ItemsTab'
 import { LayoutTab } from './LayoutTab'
 import { MoreTab } from './MoreTab'
 
-const TABS = ['items', 'appearance', 'layout', 'more'] as const
+const TABS = ['items', 'appearance', 'layout', 'more', 'account'] as const
 type Tab = (typeof TABS)[number]
 
 interface BoardSettingsModalProps
@@ -162,6 +163,8 @@ export const BoardSettingsModal = ({
               onRequestClearAll={() => setShowClearAllConfirm(true)}
             />
           )}
+
+          {activeTab === 'account' && <AccountTab />}
         </div>
       </BaseModal>
 
