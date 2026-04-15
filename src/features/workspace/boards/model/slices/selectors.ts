@@ -1,9 +1,9 @@
 // src/features/workspace/boards/model/slices/selectors.ts
 // cross-slice selectors derived from the combined active-board store
 
-import type { Tier } from '@/features/workspace/boards/model/contract'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import type { ActiveBoardRuntimeState } from '@/features/workspace/boards/model/runtime'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 // cached fallback item ID keyed by the exact tiers & unranked array refs;
 // avoids re-walking containers for every subscriber when the identity is

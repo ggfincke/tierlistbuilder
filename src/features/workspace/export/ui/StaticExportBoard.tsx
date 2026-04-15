@@ -6,7 +6,7 @@ import { memo } from 'react'
 import type {
   BoardSnapshot,
   TierItem,
-} from '@/features/workspace/boards/model/contract'
+} from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance } from '@/shared/types/export'
 import { resolveTierColorSpec } from '@/shared/theme/tierColors'
 import { ITEM_SIZE_PX, SHAPE_CLASS } from '@/shared/board-ui/constants'

@@ -1,7 +1,7 @@
 // src/features/workspace/export/lib/exportAll.ts
 // export-all utilities — bundle every board into a single JSON, PDF, or image ZIP
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance, ImageFormat } from '@/shared/types/export'
 import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
 import {

@@ -6,8 +6,8 @@ import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
-} from './settings'
-import type { PaletteId } from './theme'
+} from '@tierlistbuilder/contracts/workspace/settings'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 
 // supported image export formats
 export type ImageFormat = 'png' | 'jpeg' | 'webp' | 'svg'

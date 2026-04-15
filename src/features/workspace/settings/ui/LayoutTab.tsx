@@ -12,7 +12,7 @@ import type {
   LabelWidth,
   TierLabelFontSize,
   ToolbarPosition,
-} from '@/shared/types/settings'
+} from '@tierlistbuilder/contracts/workspace/settings'
 import { SegmentedControl } from './SegmentedControl'
 import { SettingRow } from './SettingRow'
 import { SettingsSection } from './SettingsSection'

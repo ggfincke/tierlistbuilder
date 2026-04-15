@@ -16,7 +16,7 @@ import {
   createPaletteTierColorSpec,
   FALLBACK_COLOR,
 } from '@/shared/theme/tierColors'
-import type { TierColorSpec } from '@/shared/types/theme'
+import type { TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
 import {
   formatRgbInputs,
   hexToRgbColor,

@@ -1,4 +1,4 @@
-// src/shared/types/ids.ts
+// packages/contracts/lib/ids.ts
 // branded ID types used across board, tier, preset, & item references
 
 // generated board ID stored in the board registry & per-board storage keys

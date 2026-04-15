@@ -1,13 +1,13 @@
 // src/features/workspace/boards/model/slices/helpers.ts
 // cross-slice helpers shared by the active board slice creators
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import {
   EMPTY_SELECTION_SET,
   type ActiveBoardRuntimeState,
   type KeyboardMode,
 } from '@/features/workspace/boards/model/runtime'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 // max entries kept in the undo & redo stacks
 export const MAX_UNDO_HISTORY = 50

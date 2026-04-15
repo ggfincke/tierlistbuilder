@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 
 import type { ImageFormat } from '@/shared/types/export'
-import type { ToolbarPosition } from '@/shared/types/settings'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
 import { extractPresetFromBoard } from '@/features/workspace/tier-presets/model/tierPresets'
 import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
 import { toast } from '@/shared/notifications/useToastStore'

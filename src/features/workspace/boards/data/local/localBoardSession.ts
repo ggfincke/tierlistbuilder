@@ -4,10 +4,10 @@
 import type {
   BoardMeta,
   BoardSnapshot,
-} from '@/features/workspace/boards/model/contract'
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
-import type { BoardId } from '@/shared/types/ids'
-import type { PaletteId } from '@/shared/types/theme'
+} from '@tierlistbuilder/contracts/workspace/board'
+import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { DEFAULT_TITLE } from '@/features/workspace/boards/lib/boardDefaults'
 import { generateBoardId } from '@/shared/lib/id'
 import {

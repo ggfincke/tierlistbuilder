@@ -7,8 +7,8 @@ import type {
   PresetId,
   TierId,
   UserPresetId,
-} from '@/shared/types/ids'
-import { asItemId } from '@/shared/types/ids'
+} from '@tierlistbuilder/contracts/lib/ids'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export const isTierId = (value: string): value is TierId =>
   value.startsWith('tier-')

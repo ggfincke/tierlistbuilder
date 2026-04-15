@@ -1,8 +1,8 @@
 // src/features/workspace/stats/model/boardStats.ts
 // pure statistics computation for board data — items per tier, distribution, & summary
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
-import type { PaletteId } from '@/shared/types/theme'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { resolveTierColorSpec } from '@/shared/theme/tierColors'
 
 export interface TierStat

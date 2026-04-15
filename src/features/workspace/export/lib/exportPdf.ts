@@ -1,7 +1,7 @@
 // src/features/workspace/export/lib/exportPdf.ts
 // PDF export utility — renders the tier list element to a downloadable PDF
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance } from '@/shared/types/export'
 import { toFileBase } from '@/shared/lib/fileName'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'

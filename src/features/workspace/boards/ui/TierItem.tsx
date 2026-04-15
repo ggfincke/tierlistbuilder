@@ -17,7 +17,7 @@ import { ItemContent } from '@/shared/board-ui/ItemContent'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
 import { ItemOverlayButton } from '@/shared/ui/ItemOverlayButton'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 interface TierItemProps
 {

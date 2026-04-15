@@ -1,7 +1,7 @@
 // src/features/workspace/boards/model/slices/undoSlice.ts
 // undo/redo history slice — snapshots past/future board state & exposes helpers
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
 import { MAX_UNDO_HISTORY, isSameSnapshot, selectionUpdate } from './helpers'
 import type {

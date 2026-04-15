@@ -3,8 +3,8 @@
 
 import type { UniqueIdentifier } from '@dnd-kit/core'
 
-import type { ItemId } from '@/shared/types/ids'
-import { asItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 // coerce a dnd-kit UniqueIdentifier to a string, returning null for numeric IDs
 export const toStringId = (id: UniqueIdentifier): string | null =>

@@ -1,8 +1,8 @@
 // src/features/workspace/boards/model/boardOps.ts
 // pure board operations — sorting & shuffling helpers
 
-import type { Tier, TierItem } from '@/features/workspace/boards/model/contract'
-import type { ItemId } from '@/shared/types/ids'
+import type { Tier, TierItem } from '@tierlistbuilder/contracts/workspace/board'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 type ItemLookup = Record<ItemId, Pick<TierItem, 'label'> | undefined>
 type RandomIndexResolver = (maxExclusive: number) => number

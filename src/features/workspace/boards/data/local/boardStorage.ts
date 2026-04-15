@@ -1,8 +1,8 @@
 // src/features/workspace/boards/data/local/boardStorage.ts
 // board localStorage I/O for persisted board payloads
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
-import type { BoardId } from '@/shared/types/ids'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   deleteBrowserStorageItem,
   getBrowserStorage,

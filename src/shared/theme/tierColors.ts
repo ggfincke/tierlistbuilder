@@ -8,7 +8,7 @@ import type {
   TierColorSpec,
   TierCustomColorSpec,
   TierPaletteColorSpec,
-} from '@/shared/types/theme'
+} from '@tierlistbuilder/contracts/lib/theme'
 
 export const FALLBACK_COLOR = '#888888'
 

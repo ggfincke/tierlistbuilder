@@ -1,7 +1,7 @@
 // src/shared/theme/textStyles.ts
 // text style definitions — font family, weights, & letter spacing per style
 
-import type { TextStyleId } from '@/shared/types/theme'
+import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 
 export interface TextStyleDefinition
 {

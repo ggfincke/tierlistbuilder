@@ -1,8 +1,11 @@
 // src/features/workspace/boards/model/runtime.ts
 // runtime-only active-board state — drag preview snapshots, keyboard mode, store runtime state
 
-import type { ItemId, TierId } from '@/shared/types/ids'
-import type { BoardSnapshot, TierItem } from './contract'
+import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
+import type {
+  BoardSnapshot,
+  TierItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 
 // lightweight ordering snapshot used during drag preview
 export interface ContainerSnapshotTier

@@ -6,14 +6,17 @@ import type { StateCreator } from 'zustand'
 import type {
   BoardSnapshot,
   NewTierItem,
-} from '@/features/workspace/boards/model/contract'
+} from '@tierlistbuilder/contracts/workspace/board'
 import type {
   ActiveBoardRuntimeState,
   ContainerSnapshot,
   KeyboardMode,
 } from '@/features/workspace/boards/model/runtime'
-import type { ItemId, TierId } from '@/shared/types/ids'
-import type { PaletteId, TierColorSpec } from '@/shared/types/theme'
+import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
+import type {
+  PaletteId,
+  TierColorSpec,
+} from '@tierlistbuilder/contracts/lib/theme'
 
 // board data slice — serializable board snapshot + CRUD & shuffle actions
 export interface BoardDataSlice extends BoardSnapshot

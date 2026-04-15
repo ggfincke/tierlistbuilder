@@ -2,7 +2,7 @@
 // ghost item rendered in the dnd-kit DragOverlay while dragging
 
 import { memo } from 'react'
-import type { TierItem as TierItemType } from '@/features/workspace/boards/model/contract'
+import type { TierItem as TierItemType } from '@tierlistbuilder/contracts/workspace/board'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 import { ITEM_SIZE_PX, SHAPE_CLASS } from '@/shared/board-ui/constants'
 import { ItemContent } from '@/shared/board-ui/ItemContent'

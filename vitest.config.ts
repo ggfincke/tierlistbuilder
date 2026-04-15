@@ -5,16 +5,26 @@ import path from 'node:path'
 import { defineConfig } from 'vitest/config'
 
 const srcRoot = path.resolve(__dirname, './src')
+const contractsRoot = path.resolve(__dirname, './packages/contracts')
 const sourceAlias = {
   find: /^@\//,
   replacement: `${srcRoot}/`,
 }
+const contractsSubpathAlias = {
+  find: /^@tierlistbuilder\/contracts\/(.*)$/,
+  replacement: `${contractsRoot}/$1`,
+}
+const contractsBarrelAlias = {
+  find: /^@tierlistbuilder\/contracts$/,
+  replacement: `${contractsRoot}/index.ts`,
+}
+const aliases = [sourceAlias, contractsSubpathAlias, contractsBarrelAlias]
 
 export default defineConfig({
   resolve: {
-    alias: [sourceAlias],
+    alias: aliases,
   },
   test: {
-    alias: [sourceAlias],
+    alias: aliases,
   },
 })

@@ -5,8 +5,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { selectKeyboardTabStopItemId } from '@/features/workspace/boards/model/slices/selectors'
-import { asItemId } from '@/shared/types/ids'
-import type { Tier } from '@/features/workspace/boards/model/contract'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
 
 const makeTier = (id: string, itemIds: string[]): Tier => ({

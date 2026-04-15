@@ -1,7 +1,7 @@
-import type { Tier } from '@/features/workspace/boards/model/contract'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
 import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
-import { asItemId, type ItemId } from '@/shared/types/ids'
+import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export const TIER_IDS = ['tier-s', 'tier-a', 'tier-b'] as const
 export const ITEM_IDS: readonly ItemId[] = [

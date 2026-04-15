@@ -4,7 +4,7 @@ import {
   parseBoardsJson,
 } from '@/features/workspace/export/lib/exportJson'
 import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
 
 // minimal valid board data — satisfies parseBoardJson validation

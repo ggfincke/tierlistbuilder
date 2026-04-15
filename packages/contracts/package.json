@@ -1,0 +1,15 @@
+{
+  "name": "@tierlistbuilder/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cross-runtime contracts shared between the frontend & convex backend",
+  "exports": {
+    ".": "./index.ts",
+    "./workspace/board": "./workspace/board.ts",
+    "./workspace/tierPreset": "./workspace/tierPreset.ts",
+    "./workspace/settings": "./workspace/settings.ts",
+    "./lib/ids": "./lib/ids.ts",
+    "./lib/theme": "./lib/theme.ts"
+  }
+}

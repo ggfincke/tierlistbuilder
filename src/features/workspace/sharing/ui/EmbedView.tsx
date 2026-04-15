@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { resolveTierColorSpec } from '@/shared/theme/tierColors'
 import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
 import {

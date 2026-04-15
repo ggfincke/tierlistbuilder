@@ -6,8 +6,11 @@ import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { Settings as SettingsIcon, X as ClearIcon } from 'lucide-react'
 
-import type { Tier } from '@/features/workspace/boards/model/contract'
-import type { PaletteId, TierColorSpec } from '@/shared/types/theme'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  PaletteId,
+  TierColorSpec,
+} from '@tierlistbuilder/contracts/lib/theme'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
 import { computeSettingsMenuStyle } from '@/shared/overlay/popupPosition'

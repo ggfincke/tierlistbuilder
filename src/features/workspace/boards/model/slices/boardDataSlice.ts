@@ -17,7 +17,7 @@ import {
   sortTierItemsByName as sortTierItemsByNameInBoard,
 } from '@/features/workspace/boards/model/boardOps'
 import { freshRuntimeState } from '@/features/workspace/boards/model/runtime'
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { MAX_DELETED_ITEMS, runtimeCleanupForItem } from './helpers'
 import { pushUndo, withUndo } from './undoSlice'
 import type {

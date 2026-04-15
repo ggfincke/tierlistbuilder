@@ -2,7 +2,7 @@
 // JSON export & import utilities for board data
 
 import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
 import { isRecord } from '@/shared/lib/typeGuards'
 import { toFileBase } from '@/shared/lib/fileName'

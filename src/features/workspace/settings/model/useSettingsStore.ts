@@ -11,8 +11,12 @@ import type {
   LabelWidth,
   TierLabelFontSize,
   ToolbarPosition,
-} from '@/shared/types/settings'
-import type { PaletteId, TextStyleId, ThemeId } from '@/shared/types/theme'
+} from '@tierlistbuilder/contracts/workspace/settings'
+import type {
+  PaletteId,
+  TextStyleId,
+  ThemeId,
+} from '@tierlistbuilder/contracts/lib/theme'
 import { createAppPersistStorage } from '@/shared/lib/browserStorage'
 import { THEME_PALETTE } from '@/shared/theme/palettes'
 import {

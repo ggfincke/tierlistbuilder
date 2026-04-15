@@ -4,9 +4,9 @@
 import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance } from '@/shared/types/export'
-import type { AppSettings } from '@/shared/types/settings'
+import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 import { StaticExportBoard } from '@/features/workspace/export/ui/StaticExportBoard'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
