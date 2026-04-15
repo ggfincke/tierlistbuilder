@@ -1,0 +1,20 @@
+# build output
+dist
+.convex
+.wrangler
+
+# convex generated files
+convex/_generated
+
+# third-party tooling drop-ins
+.agents
+.claude
+skills-lock.json
+
+# pre-existing unformatted docs tracked in the repo
+agents.md
+CLAUDE.md
+
+# lockfiles & node_modules
+node_modules
+package-lock.json
