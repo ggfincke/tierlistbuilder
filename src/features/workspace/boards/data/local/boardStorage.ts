@@ -93,7 +93,9 @@ const hasPersistedBoardDataShape = (
   Array.isArray(value.deletedItems)
 
 const hasBoardSyncState = (value: BoardSyncState): boolean =>
-  value.lastSyncedRevision !== null || value.cloudBoardExternalId !== null
+  value.lastSyncedRevision !== null ||
+  value.cloudBoardExternalId !== null ||
+  value.pendingSyncAt !== null
 
 const writeBoardSyncState = (
   boardId: BoardId,

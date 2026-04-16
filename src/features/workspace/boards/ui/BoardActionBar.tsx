@@ -43,6 +43,7 @@ import {
   OverlayMenuSurface,
 } from '~/shared/overlay/OverlayPrimitives'
 import { SavePresetModal } from '~/features/workspace/tier-presets/ui/SavePresetModal'
+import { SyncStatusIndicator } from '~/features/workspace/boards/ui/SyncStatusIndicator'
 
 type ShuffleMenuId = 'root' | 'shuffleAll'
 
@@ -52,6 +53,7 @@ const SHUFFLE_MENU_DEFINITIONS: readonly NestedMenuDefinition<ShuffleMenuId>[] =
 interface BoardActionBarProps
 {
   toolbarPosition: ToolbarPosition
+  cloudSyncActive: boolean
   exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
   exportingAll: boolean
   onAddTier: () => void
@@ -68,6 +70,7 @@ interface BoardActionBarProps
 // primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
   toolbarPosition,
+  cloudSyncActive,
   exportStatus,
   exportingAll,
   onAddTier,
@@ -342,6 +345,11 @@ export const BoardActionBar = ({
               <Unlock className="h-5 w-5" strokeWidth={1.8} />
             )}
           </ActionButton>
+
+          {/* cloud sync status — passive indicator at the trailing edge.
+              spinner during flushes, alert chrome on errors / conflicts,
+              cloud-off when the browser reports offline */}
+          <SyncStatusIndicator active={cloudSyncActive} />
         </div>
       </div>
 

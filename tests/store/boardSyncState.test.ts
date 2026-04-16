@@ -38,6 +38,7 @@ const resetStore = () =>
     runtimeError: null,
     lastSyncedRevision: 5,
     cloudBoardExternalId: 'cloud-board-5',
+    pendingSyncAt: null,
   })
 }
 
@@ -60,6 +61,7 @@ describe('active board sync state', () =>
     useActiveBoardStore.getState().loadBoard(makeBoard('Loaded'), {
       lastSyncedRevision: 9,
       cloudBoardExternalId: 'cloud-board-9',
+      pendingSyncAt: null,
     })
 
     const state = useActiveBoardStore.getState()

@@ -36,6 +36,7 @@ const makeWork = (boardId: BoardId, title: string): PendingBoardSync =>
     syncState: {
       lastSyncedRevision: null,
       cloudBoardExternalId: null,
+      pendingSyncAt: null,
     },
   }
 }
@@ -45,6 +46,7 @@ const synced = (revision: number, externalId: string): FlushResult => ({
   syncState: {
     lastSyncedRevision: revision,
     cloudBoardExternalId: externalId,
+    pendingSyncAt: null,
   },
 })
 
@@ -97,9 +99,13 @@ describe('cloud sync scheduler', () =>
 
     expect(flush).toHaveBeenCalledTimes(2)
     expect(flush.mock.calls[1][0].snapshot.title).toBe('Second')
+    // synced flush persists w/ revision advanced & dirty marker cleared.
+    // (the earlier dirty-marker persist on queue() is also recorded — we
+    // assert on the synced one specifically via toHaveBeenCalledWith)
     expect(persist).toHaveBeenCalledWith('board-a', {
       lastSyncedRevision: 2,
       cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: null,
     })
 
     await scheduler.dispose()
@@ -188,7 +194,15 @@ describe('cloud sync scheduler', () =>
     await flushPromises()
 
     expect(flush).toHaveBeenCalledTimes(1)
-    expect(persist).not.toHaveBeenCalled()
+    // queue() persists a dirty marker, but the conflict path must NOT
+    // advance lastSyncedRevision — assert on the absence of any synced
+    // persist instead of the absence of all persists
+    expect(persist).not.toHaveBeenCalledWith(
+      'board-a',
+      expect.objectContaining({
+        lastSyncedRevision: expect.any(Number),
+      })
+    )
     expect(onConflict).toHaveBeenCalledWith('board-a', serverState)
 
     await scheduler.dispose()
@@ -218,7 +232,93 @@ describe('cloud sync scheduler', () =>
     await flushPromises()
 
     expect(onError).toHaveBeenCalledWith('board-a', err)
-    expect(persist).not.toHaveBeenCalled()
+    // queue() persists a dirty marker, but the error path must NOT advance
+    // lastSyncedRevision
+    expect(persist).not.toHaveBeenCalledWith(
+      'board-a',
+      expect.objectContaining({
+        lastSyncedRevision: expect.any(Number),
+      })
+    )
+
+    await scheduler.dispose()
+  })
+
+  it('retries a failed flush even when no newer edit arrives', async () =>
+  {
+    const persist = vi.fn()
+    const onError = vi.fn()
+    const flush = vi
+      .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
+      .mockResolvedValueOnce({
+        kind: 'error',
+        error: new Error('temporary outage'),
+      })
+      .mockResolvedValueOnce(synced(7, 'cloud-a'))
+
+    const scheduler = createCloudSyncScheduler({
+      debounceMs: 5,
+      hasBoard: () => true,
+      flush,
+      persist,
+      onError,
+    })
+
+    scheduler.queue(makeWork('board-a' as BoardId, 'First'))
+    vi.advanceTimersByTime(5)
+    await flushPromises()
+
+    expect(flush).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(5)
+    await flushPromises()
+
+    expect(flush).toHaveBeenCalledTimes(2)
+    expect(flush.mock.calls[1][0].snapshot.title).toBe('First')
+    expect(persist).toHaveBeenLastCalledWith('board-a', {
+      lastSyncedRevision: 7,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: null,
+    })
+
+    await scheduler.dispose()
+  })
+
+  it('clears pendingSyncAt when queued work reverts to the last synced state', async () =>
+  {
+    const persist = vi.fn()
+    const flush = vi.fn().mockResolvedValueOnce(synced(3, 'cloud-a'))
+
+    const scheduler = createCloudSyncScheduler({
+      debounceMs: 5,
+      hasBoard: () => true,
+      flush,
+      persist,
+    })
+
+    const syncedWork = makeWork('board-a' as BoardId, 'Same')
+    scheduler.queue(syncedWork)
+    vi.advanceTimersByTime(5)
+    await flushPromises()
+
+    scheduler.queue({
+      ...syncedWork,
+      syncState: {
+        lastSyncedRevision: 3,
+        cloudBoardExternalId: 'cloud-a',
+        pendingSyncAt: null,
+      },
+    })
+    vi.advanceTimersByTime(5)
+    await flushPromises()
+
+    expect(flush).toHaveBeenCalledTimes(1)
+    expect(persist).toHaveBeenLastCalledWith('board-a', {
+      lastSyncedRevision: 3,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: null,
+    })
 
     await scheduler.dispose()
   })
@@ -243,7 +343,15 @@ describe('cloud sync scheduler', () =>
     await flushPromises()
 
     expect(flush).not.toHaveBeenCalled()
-    expect(persist).not.toHaveBeenCalled()
+    // the dirty-marker persist on queue() runs unconditionally — it captures
+    // local edits regardless of whether we'll get to push them. assert that
+    // no synced persist (revision advancement) happened
+    expect(persist).not.toHaveBeenCalledWith(
+      'board-a',
+      expect.objectContaining({
+        lastSyncedRevision: expect.any(Number),
+      })
+    )
 
     await scheduler.dispose()
   })

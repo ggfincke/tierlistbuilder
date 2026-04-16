@@ -33,13 +33,14 @@ import {
 } from './cloudSyncScheduler'
 import { flushBoardToCloud, readBoardStateForCloudSync } from './cloudFlush'
 import { useConflictQueueStore } from './useConflictQueueStore'
+import { useSyncStatusStore } from './syncStatusStore'
+import { setupConnectivity } from './connectivity'
+import { resumePendingSyncs } from './pendingSyncRecovery'
 import { pluralizeWord } from '~/shared/lib/pluralize'
+import { CLOUD_SYNC_ENABLED } from './cloudSyncConfig'
 
 const SYNC_DEBOUNCE_MS = 2500
 const FIRST_LOGIN_BOARD_CONCURRENCY = 3
-
-// set VITE_ENABLE_CLOUD_SYNC=false to keep auth on while disabling sync
-const CLOUD_SYNC_ENABLED = import.meta.env.VITE_ENABLE_CLOUD_SYNC !== 'false'
 
 // push all local boards to the cloud (first-login, cloud-empty case)
 const pushAllLocalBoards = async (
@@ -85,6 +86,7 @@ const pushAllLocalBoards = async (
           lastSyncedRevision: outcome.revision,
           cloudBoardExternalId:
             syncState.cloudBoardExternalId ?? boardExternalId,
+          pendingSyncAt: null,
         })
         return { boardId: meta.id, synced: true, aborted: false }
       }
@@ -233,10 +235,11 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
     authEpochRef.current++
     const authEpoch = authEpochRef.current
     currentUserIdRef.current = userId
-    // fresh sign-in starts w/ no carry-over conflicts. clears stale entries
-    // in case sign-out raced w/ in-flight resolution (the sign-out cleanup
-    // also clears, but be defensive on a re-entry)
+    // fresh sign-in starts w/ no carry-over conflicts or stale per-board
+    // statuses. clears defensively in case sign-out raced w/ in-flight
+    // resolution (the cleanup also clears both stores)
     useConflictQueueStore.getState().clear()
+    useSyncStatusStore.getState().clear()
 
     const capturedUserId = userId
     let lastLoadedBoardId =
@@ -263,6 +266,18 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
           }
         }
 
+        // short-circuit when offline — the connectivity module has flipped
+        // the global online flag, the indicator already reads 'offline',
+        // & a network call here would just throw. backoff still applies
+        // (each offline edit drives one synthetic retry up to the backoff
+        // cap) which is fine; resumePendingSyncs() resets backoff on
+        // online -> we get a fresh fast retry as soon as connectivity
+        // returns
+        if (!useSyncStatusStore.getState().online)
+        {
+          return { kind: 'error', error: new Error('offline') }
+        }
+
         const boardExternalId =
           work.syncState.cloudBoardExternalId ?? work.boardId
         const outcome = await flushBoardToCloud(
@@ -287,30 +302,63 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
             lastSyncedRevision: outcome.revision,
             cloudBoardExternalId:
               work.syncState.cloudBoardExternalId ?? boardExternalId,
+            pendingSyncAt: null,
           },
         }
       },
       persist: persistBoardSyncState,
       onError: (boardId, error) =>
       {
+        // suppress the warn for synthetic offline errors — they're expected
+        // & not worth surfacing in console for every offline edit
+        const message = error instanceof Error ? error.message : String(error)
+        if (message === 'offline') return
         console.warn(`Board sync failed for ${boardId}:`, error)
       },
       onConflict: (boardId, serverState) =>
       {
         useConflictQueueStore.getState().enqueue(boardId, serverState)
       },
+      onStatusChange: (boardId, status) =>
+      {
+        useSyncStatusStore.getState().setBoardStatus(boardId, status)
+      },
     })
 
     // wire up the cloud image fetcher (idempotent)
     setupCloudImageFetcher()
 
+    // window online/offline listeners — flip the global online flag in the
+    // status store & re-queue any boards w/ a pendingSyncAt marker on
+    // offline -> online
+    const disposeConnectivity = setupConnectivity({
+      onOnline: () =>
+      {
+        if (!shouldProceed()) return
+        resumePendingSyncs({
+          queueWork: (work) => scheduler.queue(work),
+          shouldProceed,
+        })
+      },
+    })
+
     firstLoginMergeRef.current = true
     void runFirstLoginMerge(user, shouldProceed).finally(() =>
     {
-      if (authEpochRef.current === authEpoch)
+      if (authEpochRef.current !== authEpoch)
       {
-        firstLoginMergeRef.current = false
+        return
       }
+      firstLoginMergeRef.current = false
+
+      // after the merge resolves, sweep persisted BoardSyncState for any
+      // boards w/ unflushed local edits (pendingSyncAt set) & queue them.
+      // covers the page-died-before-flush case from a prior session &
+      // the kept-tab-open-but-tab-died case
+      resumePendingSyncs({
+        queueWork: (work) => scheduler.queue(work),
+        shouldProceed,
+      })
     })
 
     // subscribe only to persisted data fields via a shallow selector
@@ -350,10 +398,13 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
     {
       void scheduler.dispose()
       unsubscribe()
+      disposeConnectivity()
       firstLoginMergeRef.current = false
-      // sign-out / user switch — drop pending conflicts for the previous
-      // user so a different sign-in doesn't surface stale modal entries
+      // sign-out / user switch — drop pending conflicts & per-board sync
+      // statuses for the previous user so a different sign-in doesn't
+      // surface stale modal entries or stale indicator chrome
       useConflictQueueStore.getState().clear()
+      useSyncStatusStore.getState().clear()
     }
   }, [userId, user])
 }
