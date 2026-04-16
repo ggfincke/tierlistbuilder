@@ -38,6 +38,24 @@ const createMemoryStorage = (): Storage =>
   } as Storage
 }
 
+const createFailingStorage = (blockedKeys: Set<string>): Storage =>
+{
+  const storage = createMemoryStorage()
+
+  return {
+    ...storage,
+    setItem: (key, value) =>
+    {
+      if (blockedKeys.has(key))
+      {
+        throw new DOMException('quota', 'QuotaExceededError')
+      }
+
+      storage.setItem(key, value)
+    },
+  } as Storage
+}
+
 describe('boardStorage sync metadata', () =>
 {
   beforeEach(() =>
@@ -199,5 +217,25 @@ describe('boardStorage sync metadata', () =>
       data: null,
       sync: EMPTY_BOARD_SYNC_STATE,
     })
+  })
+
+  it('returns a failed write result without persisting sync metadata first', () =>
+  {
+    vi.stubGlobal(
+      'localStorage',
+      createFailingStorage(new Set([boardStorageKey(TEST_BOARD_ID)]))
+    )
+
+    const snapshot = createInitialBoardData('classic')
+    const result = saveBoardToStorage(TEST_BOARD_ID, snapshot, {
+      syncState: {
+        lastSyncedRevision: 9,
+        cloudBoardExternalId: 'cloud-board-9',
+      },
+    })
+
+    expect(result).toMatchObject({ ok: false })
+    expect(localStorage.getItem(boardStorageKey(TEST_BOARD_ID))).toBeNull()
+    expect(localStorage.getItem(boardSyncStorageKey(TEST_BOARD_ID))).toBeNull()
   })
 })

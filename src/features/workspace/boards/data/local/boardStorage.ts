@@ -61,23 +61,26 @@ interface SaveBoardToStorageOptions
   onError?: (message: string) => void
 }
 
+export type StorageWriteResult = { ok: true } | { ok: false; message: string }
+
 const writeStorageValue = (
   key: string,
   value: string,
   onError?: (message: string) => void
-): void =>
+): StorageWriteResult =>
 {
   try
   {
     getBrowserStorage()?.setItem(key, value)
+    return { ok: true }
   }
   catch (error)
   {
-    onError?.(
-      isStorageQuotaError(error)
-        ? STORAGE_FULL_MESSAGE
-        : STORAGE_SAVE_FAILED_MESSAGE
-    )
+    const message = isStorageQuotaError(error)
+      ? STORAGE_FULL_MESSAGE
+      : STORAGE_SAVE_FAILED_MESSAGE
+    onError?.(message)
+    return { ok: false, message }
   }
 }
 
@@ -96,9 +99,9 @@ const writeBoardSyncState = (
   boardId: BoardId,
   syncState: BoardSyncState,
   onError?: (message: string) => void
-): void =>
+): StorageWriteResult =>
 {
-  writeStorageValue(
+  return writeStorageValue(
     boardSyncStorageKey(boardId),
     JSON.stringify(syncState),
     onError
@@ -138,9 +141,13 @@ const writeBoardEnvelope = (
   boardId: BoardId,
   envelope: StoredBoardEnvelope,
   onError?: (message: string) => void
-): void =>
+): StorageWriteResult =>
 {
-  writeStorageValue(boardStorageKey(boardId), JSON.stringify(envelope), onError)
+  return writeStorageValue(
+    boardStorageKey(boardId),
+    JSON.stringify(envelope),
+    onError
+  )
 }
 
 const readStoredBoardEnvelope = (
@@ -218,9 +225,9 @@ export const saveBoardToStorage = (
   boardId: BoardId,
   data: BoardSnapshot,
   options: SaveBoardToStorageOptions = {}
-): void =>
+): StorageWriteResult =>
 {
-  writeBoardEnvelope(
+  const envelopeResult = writeBoardEnvelope(
     boardId,
     {
       version: BOARD_DATA_VERSION,
@@ -231,8 +238,15 @@ export const saveBoardToStorage = (
 
   if (options.syncState)
   {
-    writeBoardSyncState(boardId, options.syncState, options.onError)
+    if (!envelopeResult.ok)
+    {
+      return envelopeResult
+    }
+
+    return writeBoardSyncState(boardId, options.syncState, options.onError)
   }
+
+  return envelopeResult
 }
 
 // save sync metadata to its own key so autosave & sync completion don't race
@@ -240,9 +254,9 @@ export const saveBoardSyncToStorage = (
   boardId: BoardId,
   syncState: BoardSyncState,
   onError?: (message: string) => void
-): void =>
+): StorageWriteResult =>
 {
-  writeBoardSyncState(boardId, syncState, onError)
+  return writeBoardSyncState(boardId, syncState, onError)
 }
 
 // load board data from its per-board localStorage key

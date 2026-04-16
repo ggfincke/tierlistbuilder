@@ -5,7 +5,6 @@
 import { useEffect, useRef } from 'react'
 import type { Doc } from '@convex/_generated/dataModel'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
@@ -13,27 +12,18 @@ import {
   extractBoardData,
   selectBoardDataFields,
 } from '~/features/workspace/boards/model/boardSnapshot'
-import {
-  extractBoardSyncState,
-  type BoardSyncState,
-} from '~/features/workspace/boards/model/sync'
-import {
-  upsertBoardStateImperative,
-  listMyBoardsImperative,
-} from '~/features/workspace/boards/data/cloud/boardRepository'
-import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
-import { uploadBoardImages } from '~/features/workspace/boards/data/cloud/imageUploader'
+import { extractBoardSyncState } from '~/features/workspace/boards/model/sync'
+import { listMyBoardsImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { setupCloudImageFetcher } from './cloudImageFetcher'
+import { pullAllCloudBoards } from './cloudPull'
 import {
   decideFirstLoginMerge,
   markCloudPullCompleted,
   hasCompletedCloudPull,
+  markCloudPullPending,
 } from './cloudMerge'
 import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
-import {
-  loadPersistedBoardState,
-  persistBoardSyncState,
-} from '~/features/workspace/boards/data/local/localBoardSession'
+import { persistBoardSyncState } from '~/features/workspace/boards/data/local/localBoardSession'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
@@ -41,92 +31,39 @@ import {
   type FlushResult,
   type PendingBoardSync,
 } from './cloudSyncScheduler'
+import { flushBoardToCloud, readBoardStateForCloudSync } from './cloudFlush'
+import { useConflictQueueStore } from './useConflictQueueStore'
 import { pluralizeWord } from '~/shared/lib/pluralize'
 
 const SYNC_DEBOUNCE_MS = 2500
 const FIRST_LOGIN_BOARD_CONCURRENCY = 3
 
-// feature flag — leave cloud sync off by setting VITE_ENABLE_CLOUD_SYNC=false
-// until the first-login pull path (pullCloudBoards below) actually downloads
-// full board state & images. while the flag is off the sign-in flow still
-// works (so users can create an account) but background push is disabled
+// set VITE_ENABLE_CLOUD_SYNC=false to keep auth on while disabling sync
 const CLOUD_SYNC_ENABLED = import.meta.env.VITE_ENABLE_CLOUD_SYNC !== 'false'
-
-const readBoardStateForCloudSync = (
-  boardId: BoardId
-): {
-  snapshot: ReturnType<typeof extractBoardData>
-  syncState: BoardSyncState
-} =>
-{
-  if (useWorkspaceBoardRegistryStore.getState().activeBoardId === boardId)
-  {
-    const state = useActiveBoardStore.getState()
-
-    return {
-      snapshot: extractBoardData(state),
-      syncState: extractBoardSyncState(state),
-    }
-  }
-
-  return loadPersistedBoardState(boardId)
-}
-
-// flush a single board snapshot to the cloud. returns a tri-state result so
-// the caller can persist state only on real success — a conflict response
-// must NOT advance lastSyncedRevision, an error must bubble for retry
-const flushBoardToCloud = async (
-  snapshot: BoardSnapshot,
-  boardExternalId: string,
-  baseRevision: number | null,
-  userId: string
-): Promise<
-  | { kind: 'synced'; revision: number }
-  | { kind: 'conflict' }
-  | { kind: 'error'; error: unknown }
-> =>
-{
-  try
-  {
-    const uploadResult = await uploadBoardImages(snapshot, userId)
-    const payload = snapshotToCloudPayload(snapshot, uploadResult)
-
-    const result = await upsertBoardStateImperative({
-      boardExternalId,
-      baseRevision,
-      title: payload.title,
-      tiers: payload.tiers,
-      items: payload.items,
-      deletedItemIds: payload.deletedItemIds,
-    })
-
-    if (result.conflict)
-    {
-      return { kind: 'conflict' }
-    }
-
-    return { kind: 'synced', revision: result.newRevision }
-  }
-  catch (error)
-  {
-    return { kind: 'error', error }
-  }
-}
 
 // push all local boards to the cloud (first-login, cloud-empty case)
 const pushAllLocalBoards = async (
-  userId: string
+  userId: string,
+  shouldProceed?: () => boolean
 ): Promise<{
   failedBoardIds: BoardId[]
+  aborted: boolean
 }> =>
 {
   const boards = [...useWorkspaceBoardRegistryStore.getState().boards]
+
+  const canProceed = (): boolean => (shouldProceed ? shouldProceed() : true)
 
   const results = await mapAsyncLimit(
     boards,
     FIRST_LOGIN_BOARD_CONCURRENCY,
     async (meta) =>
     {
+      if (!canProceed())
+      {
+        return { boardId: meta.id, synced: false, aborted: true }
+      }
+
       const { snapshot, syncState } = readBoardStateForCloudSync(meta.id)
 
       const boardExternalId = syncState.cloudBoardExternalId ?? meta.id
@@ -139,23 +76,31 @@ const pushAllLocalBoards = async (
 
       if (outcome.kind === 'synced')
       {
+        if (!canProceed())
+        {
+          return { boardId: meta.id, synced: false, aborted: true }
+        }
+
         persistBoardSyncState(meta.id, {
           lastSyncedRevision: outcome.revision,
           cloudBoardExternalId:
             syncState.cloudBoardExternalId ?? boardExternalId,
         })
-        return { boardId: meta.id, synced: true }
+        return { boardId: meta.id, synced: true, aborted: false }
       }
 
       if (outcome.kind === 'error')
       {
         console.warn(`Board sync failed for ${meta.id}:`, outcome.error)
       }
-      // conflict & error both count as "not synced" here — a first-login
-      // conflict is surfaced via the dedicated toast once at the end
-      return { boardId: meta.id, synced: false }
+      return { boardId: meta.id, synced: false, aborted: false }
     }
   )
+
+  if (!canProceed() || results.some((result) => result.aborted))
+  {
+    return { failedBoardIds: [], aborted: true }
+  }
 
   const failedBoardIds = results
     .filter((result) => !result.synced)
@@ -169,31 +114,23 @@ const pushAllLocalBoards = async (
     )
   }
 
-  return { failedBoardIds }
-}
-
-// pull cloud boards into local storage (first-login, local-is-default case)
-// todo: PR 4 will download full board state & images from cloud
-const pullCloudBoards = async (): Promise<void> =>
-{
-  const cloudBoards = await listMyBoardsImperative()
-  if (cloudBoards.length === 0) return
-
-  toast(
-    `${cloudBoards.length} ${pluralizeWord(cloudBoards.length, 'board')} found in the cloud.`,
-    'info'
-  )
+  return { failedBoardIds, aborted: false }
 }
 
 // run the first-login merge flow
-const runFirstLoginMerge = async (user: Doc<'users'>): Promise<void> =>
+const runFirstLoginMerge = async (
+  user: Doc<'users'>,
+  shouldProceed: () => boolean
+): Promise<void> =>
 {
   const userId = getUserStableId(user)
-  if (hasCompletedCloudPull(userId)) return
+  if (hasCompletedCloudPull(userId) || !shouldProceed()) return
 
   try
   {
     const cloudBoards = await listMyBoardsImperative()
+    if (!shouldProceed()) return
+
     const localBoards = useWorkspaceBoardRegistryStore.getState().boards
     const decision = decideFirstLoginMerge(cloudBoards, localBoards, userId)
 
@@ -201,32 +138,75 @@ const runFirstLoginMerge = async (user: Doc<'users'>): Promise<void> =>
     {
       case 'push-local':
       {
-        const result = await pushAllLocalBoards(userId)
-        if (result.failedBoardIds.length === 0)
+        const result = await pushAllLocalBoards(userId, shouldProceed)
+        if (!result.aborted && result.failedBoardIds.length === 0)
         {
           markCloudPullCompleted(userId)
         }
         break
       }
       case 'pull-cloud':
-        // don't mark completed — actual pull is not implemented yet.
-        // the next sign-in will re-enter this flow
-        await pullCloudBoards()
+      case 'resume-pull-cloud':
+      {
+        try
+        {
+          markCloudPullPending(userId)
+
+          const result = await pullAllCloudBoards({
+            cloudBoards,
+            mode:
+              decision.action === 'pull-cloud' ? 'replace' : 'merge-missing',
+            shouldProceed,
+          })
+          if (result.kind === 'aborted' || !shouldProceed())
+          {
+            return
+          }
+
+          if (result.failedCount > 0 && result.pulledCount === 0)
+          {
+            toast('Failed to load cloud boards. Please try again.', 'error')
+          }
+          else
+          {
+            if (result.failedCount === 0)
+            {
+              markCloudPullCompleted(userId)
+            }
+
+            if (result.attemptedCount === 0)
+            {
+              break
+            }
+
+            toast(
+              result.failedCount > 0
+                ? `Loaded ${result.pulledCount} of ${result.attemptedCount} ${pluralizeWord(result.attemptedCount, 'board')}. Missing boards will be retried next sign-in.`
+                : `Loaded ${result.pulledCount} ${pluralizeWord(result.pulledCount, 'board')} from the cloud.`,
+              result.failedCount > 0 ? 'info' : 'success'
+            )
+          }
+        }
+        catch (error)
+        {
+          console.warn('Cloud pull failed:', error)
+          if (shouldProceed())
+          {
+            toast('Failed to load cloud boards. Please try again.', 'error')
+          }
+        }
         break
+      }
       case 'conflict':
         toast(
           'You have boards on both this device and the cloud. Merge support coming soon.',
           'info'
         )
+        markCloudPullCompleted(userId)
         break
       case 'skip':
+        markCloudPullCompleted(userId)
         break
-    }
-
-    // only mark completed for paths that actually finished their work
-    if (decision.action === 'skip' || decision.action === 'conflict')
-    {
-      markCloudPullCompleted(userId)
     }
   }
   catch (error)
@@ -238,14 +218,9 @@ const runFirstLoginMerge = async (user: Doc<'users'>): Promise<void> =>
 export const useCloudSync = (user: Doc<'users'> | null): void =>
 {
   const userId = user ? getUserStableId(user) : null
-  // bumped on every sign-in/out so inflight work can tell "auth changed
-  // mid-flush" apart from "same user, later edit"
   const authEpochRef = useRef(0)
   const currentUserIdRef = useRef<string | null>(null)
-  // avoid duplicate conflict toasts for the same board flip-flop. the
-  // scheduler will call onConflict repeatedly as edits queue; one
-  // notification per board while the conflict is unresolved is plenty
-  const conflictNoticedBoardIdsRef = useRef(new Set<BoardId>())
+  const firstLoginMergeRef = useRef(false)
 
   useEffect(() =>
   {
@@ -258,7 +233,10 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
     authEpochRef.current++
     const authEpoch = authEpochRef.current
     currentUserIdRef.current = userId
-    conflictNoticedBoardIdsRef.current.clear()
+    // fresh sign-in starts w/ no carry-over conflicts. clears stale entries
+    // in case sign-out raced w/ in-flight resolution (the sign-out cleanup
+    // also clears, but be defensive on a re-entry)
+    useConflictQueueStore.getState().clear()
 
     const capturedUserId = userId
     let lastLoadedBoardId =
@@ -296,7 +274,7 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
 
         if (outcome.kind === 'conflict')
         {
-          return { kind: 'conflict' }
+          return { kind: 'conflict', serverState: outcome.serverState }
         }
         if (outcome.kind === 'error')
         {
@@ -317,23 +295,22 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
       {
         console.warn(`Board sync failed for ${boardId}:`, error)
       },
-      onConflict: (boardId) =>
+      onConflict: (boardId, serverState) =>
       {
-        if (conflictNoticedBoardIdsRef.current.has(boardId)) return
-        conflictNoticedBoardIdsRef.current.add(boardId)
-        toast(
-          'Board has conflicting edits from another device. Sign-in again or reopen to resolve.',
-          'error'
-        )
+        useConflictQueueStore.getState().enqueue(boardId, serverState)
       },
     })
 
     // wire up the cloud image fetcher (idempotent)
     setupCloudImageFetcher()
 
-    void runFirstLoginMerge(user).catch((error) =>
+    firstLoginMergeRef.current = true
+    void runFirstLoginMerge(user, shouldProceed).finally(() =>
     {
-      console.warn('First-login merge failed:', error)
+      if (authEpochRef.current === authEpoch)
+      {
+        firstLoginMergeRef.current = false
+      }
     })
 
     // subscribe only to persisted data fields via a shallow selector
@@ -341,7 +318,7 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
       selectBoardDataFields,
       () =>
       {
-        if (!shouldProceed()) return
+        if (!shouldProceed() || firstLoginMergeRef.current) return
 
         const boardId = useWorkspaceBoardRegistryStore.getState().activeBoardId
         if (!boardId)
@@ -354,9 +331,6 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
         if (boardId !== lastLoadedBoardId)
         {
           lastLoadedBoardId = boardId
-          // edits on a freshly switched board are legitimate — clear the
-          // "already notified" latch so a follow-up conflict still surfaces
-          conflictNoticedBoardIdsRef.current.delete(boardId)
           return
         }
 
@@ -376,6 +350,10 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
     {
       void scheduler.dispose()
       unsubscribe()
+      firstLoginMergeRef.current = false
+      // sign-out / user switch — drop pending conflicts for the previous
+      // user so a different sign-in doesn't surface stale modal entries
+      useConflictQueueStore.getState().clear()
     }
   }, [userId, user])
 }

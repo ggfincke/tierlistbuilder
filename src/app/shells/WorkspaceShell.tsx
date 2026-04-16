@@ -23,6 +23,8 @@ import { ShortcutsPanel } from '~/features/workspace/shortcuts/ui/ShortcutsPanel
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useCloudSync } from '~/features/platform/sync/useCloudSync'
+import { ConflictResolverModal } from '~/features/platform/sync/ConflictResolverModal'
+import { CloudPullProgressOverlay } from '~/features/platform/sync/CloudPullProgressOverlay'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
@@ -69,7 +71,9 @@ export const WorkspaceShell = () =>
   useThemeApplicator()
 
   const authSession = useAuthSession()
-  useCloudSync(authSession.status === 'signed-in' ? authSession.user : null)
+  const signedInUser =
+    authSession.status === 'signed-in' ? authSession.user : null
+  useCloudSync(signedInUser)
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
   const {
@@ -296,6 +300,8 @@ export const WorkspaceShell = () =>
       )}
       {showShortcutsPanel && <ShortcutsPanel onClose={closeShortcutsPanel} />}
       <BulkActionBar />
+      <ConflictResolverModal user={signedInUser} />
+      <CloudPullProgressOverlay />
       <ToastContainer reducedMotion={reducedMotion} />
       <LiveRegion />
     </main>

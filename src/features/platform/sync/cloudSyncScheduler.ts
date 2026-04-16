@@ -3,6 +3,7 @@
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import {
   boardDataFieldsEqual,
   type BoardDataSelection,
@@ -18,13 +19,10 @@ export interface PendingBoardSync
   syncState: BoardSyncState
 }
 
-// tri-state result returned by the flush callback. callers use this to tell
-// "don't advance lastSyncedRevision" (conflict) apart from "retry later"
-// (error) — the previous null-as-both-conflict-& -error shape silently
-// persisted the pre-conflict revision as if the push had succeeded
+// flush result kinds keep conflict retries distinct from real success
 export type FlushResult =
   | { kind: 'synced'; syncState: BoardSyncState }
-  | { kind: 'conflict' }
+  | { kind: 'conflict'; serverState: CloudBoardState }
   | { kind: 'error'; error: unknown }
 
 interface BoardSyncController
@@ -32,9 +30,7 @@ interface BoardSyncController
   timer: ReturnType<typeof setTimeout> | null
   queued: PendingBoardSync | null
   inFlight: PendingBoardSync | null
-  // snapshot-selection the scheduler last successfully uploaded. used to
-  // short-circuit queued work when the board data hasn't changed from the
-  // last-uploaded state (avoids redundant round trips on identical edits)
+  // short-circuit identical uploads after the last successful push
   lastUploadedSelection: BoardDataSelection | null
 }
 
@@ -45,16 +41,14 @@ interface CreateCloudSyncSchedulerOptions
   flush: (work: PendingBoardSync) => Promise<FlushResult>
   persist: (boardId: BoardId, syncState: BoardSyncState) => void
   onError?: (boardId: BoardId, error: unknown) => void
-  onConflict?: (boardId: BoardId) => void
-  // optional auth/epoch gate — returning false short-circuits flushes so
-  // a mid-flush sign-out doesn't persist state for the previous user
+  onConflict?: (boardId: BoardId, serverState: CloudBoardState) => void
+  // stop queued work after auth churn
   shouldProceed?: () => boolean
 }
 
 export interface SchedulerDisposeOptions
 {
-  // drain queued work synchronously before tearing down. used on unload to
-  // flush pending edits before the tab goes away. ignored in tests
+  // drain queued work before teardown
   flush?: boolean
 }
 
@@ -168,7 +162,7 @@ export const createCloudSyncScheduler = (
             // deliberately do NOT advance lastSyncedRevision; the next push
             // w/ the same baseRevision must surface the conflict again
             syncConflicted = true
-            options.onConflict?.(work.boardId)
+            options.onConflict?.(work.boardId, result.serverState)
             return
           }
 

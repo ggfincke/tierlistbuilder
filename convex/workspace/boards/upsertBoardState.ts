@@ -4,8 +4,7 @@
 
 import { v } from 'convex/values'
 import { mutation } from '../../_generated/server'
-import type { Doc, Id } from '../../_generated/dataModel'
-import type { MutationCtx } from '../../_generated/server'
+import type { Id } from '../../_generated/dataModel'
 import type {
   CloudBoardState,
   CloudBoardItemWire as WireItem,
@@ -15,24 +14,19 @@ import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import { requireCurrentUserId } from '../../lib/auth'
 import { tierColorSpecValidator } from '../../lib/validators'
 import { diffTiers, diffItems } from '../sync/boardReconciler'
+import { loadBoardCloudState } from '../sync/boardStateLoader'
+import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
+import { MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../sync/boardSyncLimits'
 import {
   findOwnedActiveBoardByExternalId,
   findOwnedMediaAssetByExternalId,
 } from '../../lib/permissions'
 
-const MAX_TIERS = 50
-const MAX_ITEMS = 2000
 const MAX_LABEL_LEN = 200
 const MAX_ALT_LEN = 500
 const MAX_TIER_NAME_LEN = 100
 const MAX_TIER_DESCRIPTION_LEN = 500
 const MAX_BACKGROUND_COLOR_LEN = 32
-// tombstones older than this are dropped from the server state payload so
-// the client stops re-sending them in deletedItemIds. clients that held an
-// older version offline will still try to delete them, which is a no-op on
-// rows the server already purged. 30 days matches the soft-delete retention
-// window in crons.ts so the two aren't out of sync
-const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 // validators whose shapes match WireTier & WireItem from boardReconciler.
 // v.string() has no .max() — runtime length guards enforced in the handler
@@ -98,101 +92,6 @@ type UpsertResult =
   | { conflict: null; newRevision: number }
   | { conflict: CloudBoardState; newRevision: null }
 
-const loadServerState = async (
-  ctx: MutationCtx,
-  board: Doc<'boards'>,
-  serverTiers: Doc<'boardTiers'>[],
-  serverItems: Doc<'boardItems'>[]
-): Promise<CloudBoardState> =>
-{
-  const mediaIds = new Set<Id<'mediaAssets'>>()
-  for (const item of serverItems)
-  {
-    if (item.mediaAssetId) mediaIds.add(item.mediaAssetId)
-  }
-
-  // convex mutations are single-threaded, so Promise.all here buys nothing
-  // over a sequential loop & throws on the first missing asset would let
-  // an orphaned item poison the whole conflict payload. loop w/ a throw
-  // so orphans surface loudly instead of being silently elided
-  const mediaIdToExternalId = new Map<Id<'mediaAssets'>, string>()
-  for (const id of mediaIds)
-  {
-    const asset = await ctx.db.get(id)
-    if (!asset)
-    {
-      throw new Error(
-        `dangling media reference in server state: ${id} (board ${board._id})`
-      )
-    }
-    mediaIdToExternalId.set(id, asset.externalId)
-  }
-
-  const tierIdToExternalId = new Map<Id<'boardTiers'>, string>()
-  for (const tier of serverTiers)
-  {
-    tierIdToExternalId.set(tier._id, tier.externalId)
-  }
-
-  const tierItemIds = new Map<string, string[]>()
-  for (const tier of serverTiers)
-  {
-    tierItemIds.set(tier.externalId, [])
-  }
-
-  const sortedActiveItems = serverItems
-    .filter((i) => i.deletedAt === null)
-    .sort((a, b) => a.order - b.order)
-
-  for (const item of sortedActiveItems)
-  {
-    if (!item.tierId) continue
-    const tierExtId = tierIdToExternalId.get(item.tierId)
-    if (tierExtId)
-    {
-      tierItemIds.get(tierExtId)?.push(item.externalId)
-    }
-  }
-
-  // drop tombstones past TOMBSTONE_TTL_MS so the conflict payload stays
-  // bounded & clients stop re-sending them in deletedItemIds
-  const tombstoneCutoff = Date.now() - TOMBSTONE_TTL_MS
-  const itemsForPayload = serverItems.filter(
-    (item) => item.deletedAt === null || item.deletedAt >= tombstoneCutoff
-  )
-
-  return {
-    title: board.title,
-    revision: board.revision ?? 0,
-    tiers: serverTiers
-      .slice()
-      .sort((a, b) => a.order - b.order)
-      .map((t) => ({
-        externalId: t.externalId,
-        name: t.name,
-        description: t.description,
-        colorSpec: t.colorSpec,
-        rowColorSpec: t.rowColorSpec,
-        order: t.order,
-        itemIds: tierItemIds.get(t.externalId) ?? [],
-      })),
-    items: itemsForPayload.map((item) => ({
-      externalId: item.externalId,
-      tierId: item.tierId
-        ? (tierIdToExternalId.get(item.tierId) ?? null)
-        : null,
-      label: item.label,
-      backgroundColor: item.backgroundColor,
-      altText: item.altText,
-      mediaExternalId: item.mediaAssetId
-        ? mediaIdToExternalId.get(item.mediaAssetId)
-        : undefined,
-      order: item.order,
-      deletedAt: item.deletedAt,
-    })),
-  }
-}
-
 export const upsertBoardState = mutation({
   args: {
     boardExternalId: v.string(),
@@ -208,16 +107,16 @@ export const upsertBoardState = mutation({
 
     validateBoardExternalId(args.boardExternalId)
 
-    if (args.tiers.length > MAX_TIERS)
+    if (args.tiers.length > MAX_SYNC_TIERS)
     {
       throw new Error(
-        `too many tiers: ${args.tiers.length} exceeds ${MAX_TIERS}`
+        `too many tiers: ${args.tiers.length} exceeds ${MAX_SYNC_TIERS}`
       )
     }
-    if (args.items.length > MAX_ITEMS)
+    if (args.items.length > MAX_SYNC_ITEMS)
     {
       throw new Error(
-        `too many items: ${args.items.length} exceeds ${MAX_ITEMS}`
+        `too many items: ${args.items.length} exceeds ${MAX_SYNC_ITEMS}`
       )
     }
 
@@ -311,20 +210,15 @@ export const upsertBoardState = mutation({
       throw new Error('cannot sync to a deleted board')
     }
 
-    const serverTiers = await ctx.db
-      .query('boardTiers')
-      .withIndex('byBoard', (q) => q.eq('boardId', board!._id))
-      .take(MAX_TIERS * 2)
-
-    const serverItems = await ctx.db
-      .query('boardItems')
-      .withIndex('byBoardAndTier', (q) => q.eq('boardId', board!._id))
-      .take(MAX_ITEMS * 2)
+    const { serverTiers, serverItems } = await loadBoundedBoardRows(
+      ctx,
+      board._id
+    )
 
     const currentRevision = board.revision ?? 0
     if (args.baseRevision !== null && args.baseRevision !== currentRevision)
     {
-      const serverState = await loadServerState(
+      const serverState = await loadBoardCloudState(
         ctx,
         board,
         serverTiers,

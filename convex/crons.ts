@@ -5,8 +5,8 @@ import { cronJobs } from 'convex/server'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
+import { BOARD_TOMBSTONE_RETENTION_MS } from './workspace/sync/boardSyncLimits'
 
-const BOARD_HARD_DELETE_AFTER_MS = 30 * 24 * 60 * 60 * 1000
 const HARD_DELETE_SCHEDULE_BATCH = 64
 
 // schedule hard-deletes for boards past the soft-delete retention window
@@ -14,7 +14,7 @@ export const scheduleHardDeletes = internalMutation({
   args: { cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, args): Promise<{ scheduled: number }> =>
   {
-    const cutoff = Date.now() - BOARD_HARD_DELETE_AFTER_MS
+    const cutoff = Date.now() - BOARD_TOMBSTONE_RETENTION_MS
     // gt(0) is a half-open range that excludes both deletedAt === null (the
     // index skips nulls) & deletedAt === 0. in practice deleteBoard sets
     // deletedAt to Date.now() which is always >>> 0, so this never excludes

@@ -133,11 +133,11 @@ export const snapshotToCloudPayload = (
   return { title: snapshot.title, tiers, items, deletedItemIds }
 }
 
-// convert server state to a local BoardSnapshot. mediaExternalId -> hash
-// reverse mapping must be provided by the caller
+// convert cloud server state to a local BoardSnapshot. images are wired
+// from the server's contentHash + externalId — the lazy fetcher hydrates
+// blobs into IDB on first render
 export const serverStateToSnapshot = (
-  serverState: CloudBoardState,
-  mediaReverseMap: Map<string, string>
+  serverState: CloudBoardState
 ): BoardSnapshot =>
 {
   const items: Record<ItemId, TierItem> = {}
@@ -152,15 +152,16 @@ export const serverStateToSnapshot = (
   for (const item of serverState.items)
   {
     const mediaExternalId = item.mediaExternalId ?? undefined
-    const hash = mediaExternalId
-      ? mediaReverseMap.get(mediaExternalId)
-      : undefined
+    const mediaContentHash = item.mediaContentHash
 
     items[asItemId(item.externalId)] = {
       id: asItemId(item.externalId),
       imageRef:
-        hash && mediaExternalId
-          ? { hash, cloudMediaExternalId: mediaExternalId }
+        mediaContentHash && mediaExternalId
+          ? {
+              hash: mediaContentHash,
+              cloudMediaExternalId: mediaExternalId,
+            }
           : undefined,
       label: item.label,
       backgroundColor: item.backgroundColor,
