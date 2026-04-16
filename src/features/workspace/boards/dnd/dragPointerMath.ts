@@ -4,8 +4,8 @@
 import type { ClientRect, Translate } from '@dnd-kit/core'
 import type { Coordinates } from '@dnd-kit/utilities'
 
-import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
-import { RENDERED_ROW_TOP_TOLERANCE_PX } from '@/shared/overlay/uiMeasurements'
+import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
+import { RENDERED_ROW_TOP_TOLERANCE_PX } from '~/shared/overlay/uiMeasurements'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   findContainer,

@@ -7,17 +7,17 @@ import type {
   BoardSnapshot,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance } from '@/shared/types/export'
-import { resolveTierColorSpec } from '@/shared/theme/tierColors'
-import { ITEM_SIZE_PX, SHAPE_CLASS } from '@/shared/board-ui/constants'
+import type { ExportAppearance } from '~/shared/types/export'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
+import { ITEM_SIZE_PX, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import {
   BoardItemsGrid,
   BoardLabelCellFrame,
   BoardRowContent,
   BoardRowSurface,
   TierDescriptionSubtitle,
-} from '@/shared/board-ui/BoardPrimitives'
-import { ItemContent } from '@/shared/board-ui/ItemContent'
+} from '~/shared/board-ui/BoardPrimitives'
+import { ItemContent } from '~/shared/board-ui/ItemContent'
 
 interface StaticExportItemProps
 {

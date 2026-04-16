@@ -11,7 +11,8 @@ import type {
   ActiveBoardRuntimeState,
   ContainerSnapshot,
   KeyboardMode,
-} from '@/features/workspace/boards/model/runtime'
+} from '~/features/workspace/boards/model/runtime'
+import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   PaletteId,
@@ -44,7 +45,7 @@ export interface BoardDataSlice extends BoardSnapshot
   shuffleAllItems: (mode: 'even' | 'random') => void
   shuffleUnrankedItems: () => void
   resetBoard: (paletteId: PaletteId) => void
-  loadBoard: (data: BoardSnapshot) => void
+  loadBoard: (data: BoardSnapshot, syncState?: BoardSyncState) => void
 }
 
 // selection slice — multi-item selection state & bulk actions
@@ -110,13 +111,23 @@ export interface RuntimeErrorSlice
   clearRuntimeError: () => void
 }
 
+// sync slice — cloud sync revision cursor & board identity
+export interface SyncSlice extends BoardSyncState
+{
+  setSyncState: (state: {
+    lastSyncedRevision?: number | null
+    cloudBoardExternalId?: string | null
+  }) => void
+}
+
 // the full combined store shape — every slice merged into one flat object
 export type ActiveBoardStore = BoardDataSlice &
   SelectionSlice &
   DragPreviewSlice &
   KeyboardSlice &
   UndoSlice &
-  RuntimeErrorSlice
+  RuntimeErrorSlice &
+  SyncSlice
 
 // convenience alias — every slice creator takes the combined store shape so
 // cross-slice reads via `get()` work w/o extra plumbing

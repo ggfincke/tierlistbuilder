@@ -3,7 +3,7 @@
 
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 
-import { joinClassNames } from '@/shared/lib/className'
+import { joinClassNames } from '~/shared/lib/className'
 
 type PrimaryButtonTone = 'accent' | 'destructive'
 type PrimaryButtonSize = 'sm' | 'md'

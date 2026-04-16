@@ -15,6 +15,11 @@ export const scheduleHardDeletes = internalMutation({
   handler: async (ctx, args): Promise<{ scheduled: number }> =>
   {
     const cutoff = Date.now() - BOARD_HARD_DELETE_AFTER_MS
+    // gt(0) is a half-open range that excludes both deletedAt === null (the
+    // index skips nulls) & deletedAt === 0. in practice deleteBoard sets
+    // deletedAt to Date.now() which is always >>> 0, so this never excludes
+    // a real soft-delete. the lt(cutoff) bound keeps recently-deleted rows
+    // past the retention window
     const page = await ctx.db
       .query('boards')
       .withIndex('byDeletedAt', (q) =>

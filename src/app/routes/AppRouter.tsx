@@ -3,7 +3,7 @@
 
 import { useSyncExternalStore } from 'react'
 
-import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
+import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import { EmbedRoute } from './EmbedRoute'
 import { NotFoundRoute } from './NotFoundRoute'
 import { resolveAppRoute } from './pathname'

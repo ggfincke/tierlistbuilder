@@ -1,9 +1,9 @@
 // src/features/workspace/settings/ui/PalettePicker.tsx
 // grid of clickable palette preview cards for the Appearance section
 
-import { useRovingSelection } from '@/shared/selection/useRovingSelection'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { PALETTE_META, PALETTES } from '@/shared/theme'
+import { useRovingSelection } from '~/shared/selection/useRovingSelection'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { PALETTE_META, PALETTES } from '~/shared/theme'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 
 const PALETTE_IDS = PALETTE_META.map((m) => m.id) as PaletteId[]

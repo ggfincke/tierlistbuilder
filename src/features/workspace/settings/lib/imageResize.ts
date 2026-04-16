@@ -2,7 +2,7 @@
 // image resize & upload utilities — shrinks uploads to thumbnail size before storage
 
 import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
-import { persistBlobSources } from '@/shared/images/imagePersistence'
+import { persistBlobSources } from '~/shared/images/imagePersistence'
 import { MAX_THUMBNAIL_SIZE } from './constants'
 import {
   canvasToPngBlob,

@@ -3,13 +3,13 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
-import { handleKeyboardBoardJumpKey } from '@/features/workspace/boards/interaction/keyboardDragController'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { nextToolbarPosition } from '@/shared/layout/toolbarPosition'
-import { announce } from '@/shared/a11y/announce'
-import { toast } from '@/shared/notifications/useToastStore'
-import { hasActiveModalLayer } from '@/shared/overlay/useModalBackgroundInert'
+import { handleKeyboardBoardJumpKey } from '~/features/workspace/boards/interaction/keyboardDragController'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { nextToolbarPosition } from '~/shared/layout/toolbarPosition'
+import { announce } from '~/shared/a11y/announce'
+import { toast } from '~/shared/notifications/useToastStore'
+import { hasActiveModalLayer } from '~/shared/overlay/useModalBackgroundInert'
 
 interface UseGlobalShortcutsOptions
 {

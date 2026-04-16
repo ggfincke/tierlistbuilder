@@ -3,11 +3,11 @@
 
 import { useCallback } from 'react'
 
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import {
   selectKeyboardTabStopItemId,
   useActiveBoardStore,
-} from '@/features/workspace/boards/model/useActiveBoardStore'
+} from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   KEYBOARD_DIRECTIONS,
   handleKeyboardArrowKey,
@@ -15,7 +15,7 @@ import {
   handleKeyboardItemFocus,
   handleKeyboardSpaceKey,
 } from './keyboardDragController'
-import type { KeyboardDragDirection } from '@/features/workspace/boards/dnd/dragKeyboard'
+import type { KeyboardDragDirection } from '~/features/workspace/boards/dnd/dragKeyboard'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 // expose the shared selector for components that just need the tab-stop id

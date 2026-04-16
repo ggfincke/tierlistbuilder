@@ -7,7 +7,7 @@
     "module": "ESNext",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
+      "~/*": ["./src/*"],
       "@convex/*": ["./convex/*"],
       "@tierlistbuilder/contracts": ["./packages/contracts/index.ts"],
       "@tierlistbuilder/contracts/*": ["./packages/contracts/*"]

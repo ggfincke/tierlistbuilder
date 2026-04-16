@@ -2,7 +2,7 @@
 // cross-slice selectors derived from the combined active-board store
 
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
-import type { ActiveBoardRuntimeState } from '@/features/workspace/boards/model/runtime'
+import type { ActiveBoardRuntimeState } from '~/features/workspace/boards/model/runtime'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 // cached fallback item ID keyed by tiers & unranked array refs;

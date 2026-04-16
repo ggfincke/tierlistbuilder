@@ -4,7 +4,7 @@
 import {
   SHORTCUTS,
   type ShortcutDefinition,
-} from '@/features/workspace/shortcuts/lib/shortcuts'
+} from '~/features/workspace/shortcuts/lib/shortcuts'
 
 interface ShortcutsListProps
 {

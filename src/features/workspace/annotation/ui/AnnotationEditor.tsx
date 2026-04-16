@@ -3,10 +3,10 @@
 
 import { useId } from 'react'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { useAnnotationCanvas } from '@/features/workspace/annotation/model/useAnnotationCanvas'
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useAnnotationCanvas } from '~/features/workspace/annotation/model/useAnnotationCanvas'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AnnotationCanvas } from './AnnotationCanvas'
 import { AnnotationToolbar } from './AnnotationToolbar'
 

@@ -6,8 +6,8 @@ import {
   shuffleAllBoardItems,
   shuffleUnrankedItems,
   sortTierItemsByName,
-} from '@/features/workspace/boards/model/boardOps'
-import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
+} from '~/features/workspace/boards/model/boardOps'
+import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
 

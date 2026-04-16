@@ -18,9 +18,9 @@ import type {
   AnnotationFontFamily,
   AnnotationTool,
   TextStyle,
-} from '@/features/workspace/annotation/model/useAnnotationCanvas'
-import { FONT_FAMILY_LABELS } from '@/features/workspace/annotation/model/useAnnotationCanvas'
-import { ColorInput } from '@/shared/ui/ColorInput'
+} from '~/features/workspace/annotation/model/useAnnotationCanvas'
+import { FONT_FAMILY_LABELS } from '~/features/workspace/annotation/model/useAnnotationCanvas'
+import { ColorInput } from '~/shared/ui/ColorInput'
 
 const FONT_SIZE_PRESETS = [10, 12, 14, 18, 24, 36, 48, 60]
 

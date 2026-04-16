@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 
 import type { ReactNode } from 'react'
 
-import { useRovingSelection } from '@/shared/selection/useRovingSelection'
+import { useRovingSelection } from '~/shared/selection/useRovingSelection'
 
 interface SegmentedControlProps<T extends string>
 {

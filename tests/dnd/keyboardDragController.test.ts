@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
+import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import {
   handleKeyboardArrowKey,
   handleKeyboardBoardJumpKey,
   handleKeyboardEscapeKey,
   handleKeyboardItemFocus,
   handleKeyboardSpaceKey,
-} from '@/features/workspace/boards/interaction/keyboardDragController'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+} from '~/features/workspace/boards/interaction/keyboardDragController'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 
 const makeBoard = (): BoardSnapshot => ({

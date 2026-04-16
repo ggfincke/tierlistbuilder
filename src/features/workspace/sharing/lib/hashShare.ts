@@ -2,10 +2,10 @@
 // shareable link encoding & decoding — compress board data into a URL hash fragment
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { EMBED_ROUTE_PATH, normalizeBasePath } from '@/app/routes/pathname'
-import { parseBoardSnapshotJson } from '@/features/workspace/export/lib/exportJson'
-import { base64ToBytes, bytesToBase64 } from '@/shared/lib/binaryCodec'
-import { mapSnapshotItems } from '@/shared/lib/boardSnapshotItems'
+import { EMBED_ROUTE_PATH, normalizeBasePath } from '~/app/routes/pathname'
+import { parseBoardSnapshotJson } from '~/features/workspace/export/lib/exportJson'
+import { base64ToBytes, bytesToBase64 } from '~/shared/lib/binaryCodec'
+import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 
 const buildAppUrl = (pathname = ''): string =>
   `${window.location.origin}${normalizeBasePath()}${pathname}`

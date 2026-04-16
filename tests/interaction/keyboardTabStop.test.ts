@@ -4,10 +4,10 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { selectKeyboardTabStopItemId } from '@/features/workspace/boards/model/slices/selectors'
+import { selectKeyboardTabStopItemId } from '~/features/workspace/boards/model/slices/selectors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
-import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
+import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 
 const makeTier = (id: string, itemIds: string[]): Tier => ({
   id: id as Tier['id'],

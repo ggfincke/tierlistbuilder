@@ -15,7 +15,7 @@ import { Pipette } from 'lucide-react'
 import {
   createPaletteTierColorSpec,
   FALLBACK_COLOR,
-} from '@/shared/theme/tierColors'
+} from '~/shared/theme/tierColors'
 import type { TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
 import {
   formatRgbInputs,
@@ -24,11 +24,11 @@ import {
   parseRgbInputState,
   rgbToHexColor,
   type RgbInputState,
-} from '@/shared/lib/color'
-import { getColorName } from '@/shared/lib/colorName'
-import { PrimaryButton } from '@/shared/ui/PrimaryButton'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-import { TextInput } from '@/shared/ui/TextInput'
+} from '~/shared/lib/color'
+import { getColorName } from '~/shared/lib/colorName'
+import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { TextInput } from '~/shared/ui/TextInput'
 
 interface ColorPickerProps
 {

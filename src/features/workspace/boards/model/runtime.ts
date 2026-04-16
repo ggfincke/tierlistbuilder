@@ -6,6 +6,7 @@ import type {
   BoardSnapshot,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardSyncState } from './sync'
 
 // lightweight ordering snapshot used during drag preview
 export interface ContainerSnapshotTier
@@ -29,7 +30,7 @@ export interface ContainerSnapshot
 export type KeyboardMode = 'idle' | 'browse' | 'dragging'
 
 // full active-board runtime state — board snapshot plus transient drag, selection, & undo state
-export interface ActiveBoardRuntimeState extends BoardSnapshot
+export interface ActiveBoardRuntimeState extends BoardSnapshot, BoardSyncState
 {
   activeItemId: ItemId | null
   dragPreview: ContainerSnapshot | null
@@ -56,7 +57,7 @@ export const EMPTY_SELECTION_SET: ReadonlySet<ItemId> = new Set<ItemId>()
 
 export const freshRuntimeState: Omit<
   ActiveBoardRuntimeState,
-  keyof BoardSnapshot
+  keyof BoardSnapshot | keyof BoardSyncState
 > = {
   activeItemId: null,
   dragPreview: null,

@@ -7,7 +7,7 @@ import {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
-import { getAutoTierColorSpec } from '@/shared/theme/tierColors'
+import { getAutoTierColorSpec } from '~/shared/theme/tierColors'
 
 // default board title used on first load & for newly created boards
 export const DEFAULT_TITLE = DEFAULT_BOARD_TITLE

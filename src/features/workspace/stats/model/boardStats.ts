@@ -3,7 +3,7 @@
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
-import { resolveTierColorSpec } from '@/shared/theme/tierColors'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 
 export interface TierStat
 {

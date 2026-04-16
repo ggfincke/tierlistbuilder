@@ -13,14 +13,14 @@ import {
   deleteBoardSession,
   duplicateBoardSession,
   renameBoardSession,
-} from '@/features/workspace/boards/data/local/localBoardSession'
-import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useDismissibleLayer } from '@/shared/overlay/useDismissibleLayer'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
-import { OverlayPanelSurface } from '@/shared/overlay/OverlayPrimitives'
-import { PresetPickerModal } from '@/features/workspace/tier-presets/ui/PresetPickerModal'
-import { TextInput } from '@/shared/ui/TextInput'
+} from '~/features/workspace/boards/data/local/localBoardSession'
+import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { useDismissibleLayer } from '~/shared/overlay/useDismissibleLayer'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { OverlayPanelSurface } from '~/shared/overlay/OverlayPrimitives'
+import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
+import { TextInput } from '~/shared/ui/TextInput'
 
 interface BoardManagerProps
 {

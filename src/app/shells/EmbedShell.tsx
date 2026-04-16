@@ -3,8 +3,8 @@
 
 import { useEffect } from 'react'
 
-import { EmbedView } from '@/features/workspace/sharing/ui/EmbedView'
-import { applyTextStyle, applyThemeTokens } from '@/shared/theme/runtime'
+import { EmbedView } from '~/features/workspace/sharing/ui/EmbedView'
+import { applyTextStyle, applyThemeTokens } from '~/shared/theme/runtime'
 
 export const EmbedShell = () =>
 {

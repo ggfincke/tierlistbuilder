@@ -3,10 +3,10 @@ import {
   parseBoardJson,
   parseBoardSnapshotJson,
   parseBoardsJson,
-} from '@/features/workspace/export/lib/exportJson'
-import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
+} from '~/features/workspace/export/lib/exportJson'
+import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/boardStorage'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
+import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 
 // minimal valid board data — satisfies parseBoardJson validation
 const makeValidBoard = (overrides?: Partial<BoardSnapshot>): BoardSnapshot => ({

@@ -1,7 +1,9 @@
 // convex/lib/validators.ts
 // reusable v.object() validators that mirror packages/contracts shapes
 
+import type { Infer } from 'convex/values'
 import { v } from 'convex/values'
+import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 
 // TierColorSpec — either a palette slot or a literal custom hex
 // mirrors packages/contracts/lib/theme.ts
@@ -99,7 +101,6 @@ const toolbarPositionValidator = v.union(
 )
 
 // full AppSettings shape — must stay in sync w/ packages/contracts/workspace/settings.ts
-// todo: add a compile-time check that every AppSettings field is covered here
 export const appSettingsValidator = v.object({
   itemSize: itemSizeValidator,
   showLabels: v.boolean(),
@@ -123,3 +124,16 @@ export const appSettingsValidator = v.object({
   toolbarPosition: toolbarPositionValidator,
   showAltTextButton: v.boolean(),
 })
+
+// compile-time coverage check — any AppSettings field added, removed, or
+// renamed that isn't reflected in appSettingsValidator will fail the build.
+// _Assert<true> type-checks only when the conditional resolves to `true`,
+// turning a silent drift into a tsc error at the schema boundary
+type _Assert<T extends true> = T
+type _AppSettingsValidatorInfer = Infer<typeof appSettingsValidator>
+export type _AppSettingsCovers = _Assert<
+  AppSettings extends _AppSettingsValidatorInfer ? true : false
+>
+export type _AppSettingsNoExtra = _Assert<
+  _AppSettingsValidatorInfer extends AppSettings ? true : false
+>

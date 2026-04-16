@@ -3,12 +3,12 @@
 
 import { useId, useMemo } from 'react'
 
-import { computeBoardStats } from '@/features/workspace/stats/model/boardStats'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+import { computeBoardStats } from '~/features/workspace/stats/model/boardStats'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TierDistributionChart } from './TierDistributionChart'
 
 interface StatsModalProps

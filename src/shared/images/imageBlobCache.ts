@@ -2,8 +2,47 @@
 // in-memory object URL cache keyed by content hash
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { collectSnapshotImageHashes } from '@/shared/lib/boardSnapshotItems'
+import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { getBlobsBatch } from './imageStore'
+
+// pluggable cloud image fetcher — features register an implementation at boot;
+// shared code calls it w/o importing feature modules directly
+type CloudImageFetcher = (
+  hash: string,
+  cloudMediaExternalId: string
+) => Promise<void>
+
+let cloudFetcher: CloudImageFetcher | null = null
+const pendingCloudFetches = new Map<string, Promise<void>>()
+
+export const registerCloudImageFetcher = (fn: CloudImageFetcher): void =>
+{
+  if (cloudFetcher && cloudFetcher !== fn)
+  {
+    console.warn(
+      'Cloud image fetcher already registered; keeping the first one.'
+    )
+    return
+  }
+
+  cloudFetcher = fn
+}
+
+// trigger a cloud fetch for a missing image (deduped by hash)
+export const requestCloudImage = (
+  hash: string,
+  cloudMediaExternalId: string
+): void =>
+{
+  if (!cloudFetcher || pendingCloudFetches.has(hash)) return
+
+  pendingCloudFetches.set(
+    hash,
+    cloudFetcher(hash, cloudMediaExternalId).finally(() =>
+      pendingCloudFetches.delete(hash)
+    )
+  )
+}
 
 interface CachedImageEntry
 {
@@ -168,6 +207,26 @@ export const cacheFreshBlob = (hash: string, blob: Blob): void =>
   cacheFreshBlobs([[hash, blob]])
 }
 
+// revoke every cached object URL & clear subscribers. call on pagehide to
+// release blob memory eagerly; the browser would otherwise hold the
+// Blob-backed URLs alive until full GC or tab teardown
+export const disposeImageBlobCache = (): void =>
+{
+  for (const [, entry] of cache)
+  {
+    URL.revokeObjectURL(entry.url)
+  }
+  cache.clear()
+  listeners.clear()
+}
+
+// wire the pagehide teardown once at module init. pagehide fires reliably
+// on tab close & bfcache navigation where beforeunload is skipped
+if (typeof window !== 'undefined')
+{
+  window.addEventListener('pagehide', disposeImageBlobCache)
+}
+
 export const warmFromBoard = async (snapshot: BoardSnapshot): Promise<void> =>
 {
   const referenced = new Set(collectSnapshotImageHashes(snapshot))
@@ -195,6 +254,13 @@ export const warmFromBoard = async (snapshot: BoardSnapshot): Promise<void> =>
 
   for (const hash of missing)
   {
+    const existing = cache.get(hash)
+    if (existing)
+    {
+      existing.lastAccessedAt = now
+      continue
+    }
+
     const record = records.get(hash)
     if (!record?.bytes)
     {

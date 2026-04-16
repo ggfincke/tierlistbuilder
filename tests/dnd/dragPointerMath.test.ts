@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   getDraggedItemRect,
   resolveDragTargetIndex,
-} from '@/features/workspace/boards/dnd/dragPointerMath'
+} from '~/features/workspace/boards/dnd/dragPointerMath'
 
 const makeRect = (
   left: number,

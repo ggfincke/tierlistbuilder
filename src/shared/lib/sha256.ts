@@ -24,6 +24,11 @@ export const sha256HexFromBlob = async (blob: Blob): Promise<string> =>
   return sha256Hex(buffer)
 }
 
+// upper bound on decoded data URL size — legacy inline board images should
+// never approach this, but an attacker-crafted board could otherwise drive
+// us to allocate gigabytes on a legacy import path
+const MAX_DATA_URL_BYTES = 25 * 1024 * 1024
+
 // decode a base64 data URL into its raw bytes. throws if the input is not a
 // data: URL — callers must guard. used by the migration path to hash existing
 // imageUrl strings without re-decoding the image
@@ -42,7 +47,20 @@ export const dataUrlToBytes = (dataUrl: string): Uint8Array =>
   // token in the header distinguishes them
   if (header.includes(';base64'))
   {
+    // base64 inflates by ~4/3; reject before decoding so we never allocate
+    // more than MAX_DATA_URL_BYTES worth of bytes
+    if (payload.length > (MAX_DATA_URL_BYTES * 4) / 3)
+    {
+      throw new Error(
+        `data URL exceeds size limit (${MAX_DATA_URL_BYTES} bytes)`
+      )
+    }
     return base64ToBytes(payload)
+  }
+
+  if (payload.length > MAX_DATA_URL_BYTES)
+  {
+    throw new Error(`data URL exceeds size limit (${MAX_DATA_URL_BYTES} bytes)`)
   }
 
   const decoded = decodeURIComponent(payload)

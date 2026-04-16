@@ -3,11 +3,11 @@
 
 import { ArrowRight, Trash2, X } from 'lucide-react'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { resolveTierColorSpec } from '@/shared/theme/tierColors'
-import { getTextColor } from '@/shared/lib/color'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
+import { getTextColor } from '~/shared/lib/color'
 
 export const BulkActionBar = () =>
 {

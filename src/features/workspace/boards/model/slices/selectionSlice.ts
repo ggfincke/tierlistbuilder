@@ -1,8 +1,9 @@
 // src/features/workspace/boards/model/slices/selectionSlice.ts
 // selection slice — multi-item selection state & bulk move/delete actions
 
-import { announce } from '@/shared/a11y/announce'
+import { announce } from '~/shared/a11y/announce'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { pluralizeWord } from '~/shared/lib/pluralize'
 import { getAllBoardItemIds, selectionUpdate } from './helpers'
 import { withUndo } from './undoSlice'
 import type { ActiveBoardSliceCreator, SelectionSlice } from './types'
@@ -122,7 +123,7 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
       }
 
       announce(
-        `Moved ${selected.length} item${selected.length > 1 ? 's' : ''} to ${tier.name}`
+        `Moved ${selected.length} ${pluralizeWord(selected.length, 'item')} to ${tier.name}`
       )
 
       const moveLabel =
@@ -156,7 +157,7 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
       ]
 
       announce(
-        `Moved ${selected.length} item${selected.length > 1 ? 's' : ''} to unranked`
+        `Moved ${selected.length} ${pluralizeWord(selected.length, 'item')} to unranked`
       )
 
       const moveLabel =
@@ -201,7 +202,7 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
       }
 
       announce(
-        `Deleted ${selected.length} item${selected.length > 1 ? 's' : ''}`
+        `Deleted ${selected.length} ${pluralizeWord(selected.length, 'item')}`
       )
 
       const deleteLabel =

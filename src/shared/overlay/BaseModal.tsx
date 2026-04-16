@@ -4,7 +4,7 @@
 import { useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 
-import { joinClassNames } from '@/shared/lib/className'
+import { joinClassNames } from '~/shared/lib/className'
 import { useModalDialog } from './useModalDialog'
 
 interface BaseModalProps

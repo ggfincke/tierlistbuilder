@@ -3,7 +3,7 @@
 // falls back to inline data URLs when local image storage is unavailable
 
 import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
-import { persistBlobSource } from '@/shared/images/imagePersistence'
+import { persistBlobSource } from '~/shared/images/imagePersistence'
 import { MAX_THUMBNAIL_SIZE } from './constants'
 import {
   canvasToPngBlob,

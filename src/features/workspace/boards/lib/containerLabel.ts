@@ -1,7 +1,7 @@
 // src/features/workspace/boards/lib/containerLabel.ts
 // human-readable container label for drag & drop screen-reader announcements
 
-import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
+import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 
 // build a human-readable container label for drop announcements
 export const getContainerLabel = (

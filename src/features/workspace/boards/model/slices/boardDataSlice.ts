@@ -1,22 +1,26 @@
 // src/features/workspace/boards/model/slices/boardDataSlice.ts
 // board data slice — tiers, items, unranked pool, deleted buffer, & CRUD actions
 
-import { announce } from '@/shared/a11y/announce'
-import { clampIndex } from '@/shared/lib/math'
-import { generateItemId } from '@/shared/lib/id'
-import { areTierColorSpecsEqual } from '@/shared/theme/tierColors'
+import { announce } from '~/shared/a11y/announce'
+import { clampIndex } from '~/shared/lib/math'
+import { generateItemId } from '~/shared/lib/id'
+import { areTierColorSpecsEqual } from '~/shared/theme/tierColors'
 import {
   createInitialBoardData,
   createNewTier,
   extractBoardData,
   resetBoardData,
-} from '@/features/workspace/boards/model/boardSnapshot'
+} from '~/features/workspace/boards/model/boardSnapshot'
 import {
   shuffleAllBoardItems,
   shuffleUnrankedItems as shuffleUnrankedBoardItems,
   sortTierItemsByName as sortTierItemsByNameInBoard,
-} from '@/features/workspace/boards/model/boardOps'
-import { freshRuntimeState } from '@/features/workspace/boards/model/runtime'
+} from '~/features/workspace/boards/model/boardOps'
+import { freshRuntimeState } from '~/features/workspace/boards/model/runtime'
+import {
+  EMPTY_BOARD_SYNC_STATE,
+  extractBoardSyncState,
+} from '~/features/workspace/boards/model/sync'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { MAX_DELETED_ITEMS, runtimeCleanupForItem } from './helpers'
 import { pushUndo, withUndo } from './undoSlice'
@@ -526,12 +530,14 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
     set((state) => ({
       ...resetBoardData(state, paletteId),
       ...freshRuntimeState,
+      ...extractBoardSyncState(state),
     })),
 
-  loadBoard: (data) =>
+  loadBoard: (data, syncState = EMPTY_BOARD_SYNC_STATE) =>
     set(() => ({
       ...data,
       ...freshRuntimeState,
+      ...syncState,
     })),
 })
 

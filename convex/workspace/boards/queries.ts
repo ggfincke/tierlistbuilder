@@ -5,7 +5,8 @@ import { v } from 'convex/values'
 import { query } from '../../_generated/server'
 import type { Doc } from '../../_generated/dataModel'
 import type { BoardListItem } from '@tierlistbuilder/contracts/workspace/board'
-import { getCurrentUser } from '../../lib/auth'
+import { getCurrentUserId } from '../../lib/auth'
+import { findOwnedActiveBoardByExternalId } from '../../lib/permissions'
 
 const MAX_BOARDS_PER_USER = 200
 
@@ -17,28 +18,29 @@ const toBoardListItem = (board: Doc<'boards'>): BoardListItem => ({
   revision: board.revision ?? 0,
 })
 
-// list the authenticated caller's non-deleted boards, newest updated first
+// list the authenticated caller's non-deleted boards, newest updated first.
+// the byOwnerDeletedUpdatedAt index has updatedAt as the trailing field so
+// order('desc') returns rows in the order we want & avoids a full-table
+// read + in-memory sort that would grow w/ the user's board count
 export const getMyBoards = query({
   args: {},
   handler: async (ctx): Promise<BoardListItem[]> =>
   {
-    const user = await getCurrentUser(ctx)
-    if (!user)
+    const userId = await getCurrentUserId(ctx)
+    if (!userId)
     {
       return []
     }
 
     const rows = await ctx.db
       .query('boards')
-      .withIndex('byOwnerAndDeleted', (q) =>
-        q.eq('ownerId', user._id).eq('deletedAt', null)
+      .withIndex('byOwnerDeletedUpdatedAt', (q) =>
+        q.eq('ownerId', userId).eq('deletedAt', null)
       )
+      .order('desc')
       .take(MAX_BOARDS_PER_USER)
 
-    return rows
-      .slice()
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .map(toBoardListItem)
+    return rows.map(toBoardListItem)
   },
 })
 
@@ -47,18 +49,18 @@ export const getBoardByExternalId = query({
   args: { externalId: v.string() },
   handler: async (ctx, args): Promise<BoardListItem | null> =>
   {
-    const user = await getCurrentUser(ctx)
-    if (!user)
+    const userId = await getCurrentUserId(ctx)
+    if (!userId)
     {
       return null
     }
 
-    const board = await ctx.db
-      .query('boards')
-      .withIndex('byExternalId', (q) => q.eq('externalId', args.externalId))
-      .unique()
-
-    if (!board || board.ownerId !== user._id || board.deletedAt !== null)
+    const board = await findOwnedActiveBoardByExternalId(
+      ctx,
+      args.externalId,
+      userId
+    )
+    if (!board)
     {
       return null
     }

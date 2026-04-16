@@ -3,11 +3,11 @@ import {
   createBoardDataFromPreset,
   extractPresetFromBoard,
   BUILTIN_PRESETS,
-} from '@/features/workspace/tier-presets/model/tierPresets'
+} from '~/features/workspace/tier-presets/model/tierPresets'
 import {
   createPaletteTierColorSpec,
   createCustomTierColorSpec,
-} from '@/shared/theme/tierColors'
+} from '~/shared/theme/tierColors'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 

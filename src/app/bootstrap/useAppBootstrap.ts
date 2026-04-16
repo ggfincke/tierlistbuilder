@@ -3,18 +3,18 @@
 
 import { useEffect, useState } from 'react'
 
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import {
   bootstrapBoardSession,
   importBoardSession,
   registerBoardAutosave,
-} from '@/features/workspace/boards/data/local/localBoardSession'
+} from '~/features/workspace/boards/data/local/localBoardSession'
 import {
   clearShareFragment,
   decodeBoardFromShareFragment,
   getShareFragment,
-} from '@/features/workspace/sharing/lib/hashShare'
+} from '~/features/workspace/sharing/lib/hashShare'
 
 // import a shared board from the URL hash fragment if present
 const handleShareFragment = async (): Promise<void> =>

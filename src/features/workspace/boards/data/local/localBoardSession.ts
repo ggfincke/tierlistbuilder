@@ -8,39 +8,42 @@ import type {
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
-import { DEFAULT_TITLE } from '@/features/workspace/boards/lib/boardDefaults'
-import { generateBoardId } from '@/shared/lib/id'
+import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
+import { generateBoardId } from '~/shared/lib/id'
 import {
   loadBoardFromStorage,
   removeBoardFromStorage,
   saveBoardToStorage,
+  saveBoardSyncToStorage,
   type BoardLoadResult,
 } from './boardStorage'
-import { warmFromBoard } from '@/shared/images/imageBlobCache'
-import { migrateBoardImages } from '@/shared/images/boardImageMigration'
-import { mapAsyncLimit } from '@/shared/lib/asyncMapLimit'
+import { warmFromBoard } from '~/shared/images/imageBlobCache'
+import { migrateBoardImages } from '~/shared/images/boardImageMigration'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import {
   STORAGE_NEAR_FULL_MESSAGE,
   isStorageNearFull,
-} from '@/shared/lib/storageMetering'
-import { toast } from '@/shared/notifications/useToastStore'
-import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
+} from '~/shared/lib/storageMetering'
+import { toast } from '~/shared/notifications/useToastStore'
+import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
 import {
   BUILTIN_PRESETS,
   createBoardDataFromPreset,
-} from '@/features/workspace/tier-presets/model/tierPresets'
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-
-const PERSISTED_FIELDS = [
-  'title',
-  'tiers',
-  'unrankedItemIds',
-  'items',
-  'deletedItems',
-] as const
+} from '~/features/workspace/tier-presets/model/tierPresets'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import {
+  boardDataFieldsChanged,
+  extractBoardData,
+} from '~/features/workspace/boards/model/boardSnapshot'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import {
+  EMPTY_BOARD_SYNC_STATE,
+  extractBoardSyncState,
+  type BoardSyncState,
+} from '~/features/workspace/boards/model/sync'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { scheduleIdle } from '~/shared/lib/scheduleIdle'
+import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
@@ -70,10 +73,22 @@ const clearPendingAutosave = (): void =>
   saveTimeout = null
 }
 
-const loadBoardState = (snapshot: BoardSnapshot): void =>
+interface LoadedBoardState
+{
+  snapshot: BoardSnapshot
+  syncState: BoardSyncState
+}
+
+const getActiveBoardSyncState = (): BoardSyncState =>
+  extractBoardSyncState(useActiveBoardStore.getState())
+
+const loadBoardState = (
+  snapshot: BoardSnapshot,
+  syncState: BoardSyncState = EMPTY_BOARD_SYNC_STATE
+): void =>
 {
   suppressNextAutosave = true
-  useActiveBoardStore.getState().loadBoard(snapshot)
+  useActiveBoardStore.getState().loadBoard(snapshot, syncState)
 }
 
 const deduplicateTitle = (title: string, boards: BoardMeta[]): string =>
@@ -99,9 +114,11 @@ const deduplicateTitle = (title: string, boards: BoardMeta[]): string =>
 export const saveBoardSnapshot = (boardId: BoardId): void =>
 {
   const data = extractBoardData(useActiveBoardStore.getState())
-  saveBoardToStorage(boardId, data, (message) =>
-    useActiveBoardStore.getState().setRuntimeError(message)
-  )
+  saveBoardToStorage(boardId, data, {
+    syncState: getActiveBoardSyncState(),
+    onError: (message) =>
+      useActiveBoardStore.getState().setRuntimeError(message),
+  })
 
   // proactive warning when storage is near full (rate-limited);
   // skip the full localStorage scan when within the cooldown window
@@ -128,23 +145,30 @@ export const saveActiveBoardSnapshot = (): void =>
   }
 }
 
-// normalize a BoardLoadResult into a BoardSnapshot, surfacing a corrupted
-// toast when the load failed; lets callers reuse a result they already have
-const snapshotFromResult = (result: BoardLoadResult): BoardSnapshot =>
+// normalize a BoardLoadResult into a loadable board state, surfacing a
+// corrupted toast when the load failed; lets callers reuse a result they
+// already have
+const stateFromResult = (result: BoardLoadResult): LoadedBoardState =>
 {
   if (result.status === 'corrupted')
   {
     toast('Board data was corrupted and has been reset.', 'error')
   }
 
-  return normalizeBoardSnapshot(
-    result.status === 'ok' ? result.data : null,
-    getActivePaletteId()
-  )
+  return {
+    snapshot: normalizeBoardSnapshot(
+      result.status === 'ok' ? result.data : null,
+      getActivePaletteId()
+    ),
+    syncState: result.status === 'ok' ? result.sync : EMPTY_BOARD_SYNC_STATE,
+  }
 }
 
 export const loadPersistedBoard = (boardId: BoardId): BoardSnapshot =>
-  snapshotFromResult(loadBoardFromStorage(boardId))
+  stateFromResult(loadBoardFromStorage(boardId)).snapshot
+
+export const loadPersistedBoardState = (boardId: BoardId): LoadedBoardState =>
+  stateFromResult(loadBoardFromStorage(boardId))
 
 const prepareBoardForLoad = async (
   boardId: BoardId,
@@ -175,9 +199,9 @@ export const loadBoardIntoSession = async (
   boardId: BoardId
 ): Promise<BoardSnapshot> =>
 {
-  const data = loadPersistedBoard(boardId)
-  const prepared = await prepareBoardForLoad(boardId, data)
-  loadBoardState(prepared)
+  const state = loadPersistedBoardState(boardId)
+  const prepared = await prepareBoardForLoad(boardId, state.snapshot)
+  loadBoardState(prepared, state.syncState)
   return prepared
 }
 
@@ -212,25 +236,6 @@ const saveAndActivateBoard = async (
     .addBoardMeta(createBoardMeta(id, title), true)
   loadBoardState(prepared)
   return id
-}
-
-// schedule background work without blocking first paint; falls back to
-// setTimeout in browsers w/o requestIdleCallback (Safari)
-const scheduleIdle = (callback: () => void): void =>
-{
-  type IdleScheduler = (cb: () => void, opts?: { timeout: number }) => number
-  const idleScheduler = (
-    window as unknown as { requestIdleCallback?: IdleScheduler }
-  ).requestIdleCallback
-
-  if (idleScheduler)
-  {
-    idleScheduler(callback, { timeout: 2_000 })
-  }
-  else
-  {
-    setTimeout(callback, 0)
-  }
 }
 
 // scan every registered board entry, dropping any that fail to parse;
@@ -274,7 +279,7 @@ const pruneOrphanedRegistryEntriesAsync = (
         ''
       boardStore.replaceRegistry(healthy, nextActiveId)
       toast(
-        `${pruned} board${pruned > 1 ? 's' : ''} had corrupted data and ${pruned > 1 ? 'were' : 'was'} removed.`,
+        `${pruned} ${pluralizeWord(pruned, 'board')} had corrupted data and ${pluralizeVerb(pruned, 'was', 'were')} removed.`,
         'error'
       )
     }
@@ -293,13 +298,16 @@ export const bootstrapBoardSession = async (): Promise<void> =>
 
     if (result.status === 'ok')
     {
-      const data = snapshotFromResult(result)
+      const state = stateFromResult(result)
       if (boardStore.activeBoardId !== requestedActiveId)
       {
         boardStore.setActiveBoardId(requestedActiveId)
       }
-      const prepared = await prepareBoardForLoad(requestedActiveId, data)
-      loadBoardState(prepared)
+      const prepared = await prepareBoardForLoad(
+        requestedActiveId,
+        state.snapshot
+      )
+      loadBoardState(prepared, state.syncState)
       pruneOrphanedRegistryEntriesAsync(requestedActiveId)
       return
     }
@@ -318,6 +326,28 @@ export const bootstrapBoardSession = async (): Promise<void> =>
   loadBoardState(data)
 }
 
+export const persistBoardSyncState = (
+  boardId: BoardId,
+  syncState: BoardSyncState
+): void =>
+{
+  if (
+    !useWorkspaceBoardRegistryStore
+      .getState()
+      .boards.some((board) => board.id === boardId)
+  )
+  {
+    return
+  }
+
+  saveBoardSyncToStorage(boardId, syncState)
+
+  if (useWorkspaceBoardRegistryStore.getState().activeBoardId === boardId)
+  {
+    useActiveBoardStore.getState().setSyncState(syncState)
+  }
+}
+
 export const registerBoardAutosave = (): (() => void) =>
 {
   if (autosaveUnsubscribe)
@@ -333,7 +363,7 @@ export const registerBoardAutosave = (): (() => void) =>
       return
     }
 
-    if (PERSISTED_FIELDS.every((key) => state[key] === prevState[key]))
+    if (!boardDataFieldsChanged(state, prevState))
     {
       return
     }
@@ -393,8 +423,8 @@ export const switchBoardSession = async (boardId: BoardId): Promise<void> =>
 
   useActiveBoardStore.getState().discardDragPreview()
   saveActiveBoardSnapshot()
-  await loadBoardIntoSession(boardId)
   boardStore.setActiveBoardId(boardId)
+  await loadBoardIntoSession(boardId)
 }
 
 export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>
@@ -482,7 +512,7 @@ export const importBoardsSession = async (
   saveActiveBoardSnapshot()
 
   const boardStore = useWorkspaceBoardRegistryStore.getState()
-  let nextBoards = boardStore.boards
+  const nextBoards = boardStore.boards.slice()
   let lastId = boardStore.activeBoardId
   const plannedImports: Array<{
     id: BoardId
@@ -500,7 +530,7 @@ export const importBoardsSession = async (
     )
 
     plannedImports.push({ id, normalized })
-    nextBoards = [...nextBoards, createBoardMeta(id, title)]
+    nextBoards.push(createBoardMeta(id, title))
     lastId = id
   }
 

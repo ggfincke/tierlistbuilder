@@ -11,24 +11,24 @@ import type {
   PaletteId,
   TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
-import { computeSettingsMenuStyle } from '@/shared/overlay/popupPosition'
-import { useAnchoredPopup } from '@/shared/overlay/useAnchoredPopup'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
+import { computeSettingsMenuStyle } from '~/shared/overlay/popupPosition'
+import { useAnchoredPopup } from '~/shared/overlay/useAnchoredPopup'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import {
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '@/shared/overlay/OverlayPrimitives'
-import { TextInput } from '@/shared/ui/TextInput'
+} from '~/shared/overlay/OverlayPrimitives'
+import { TextInput } from '~/shared/ui/TextInput'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
   getPaletteColors,
   resolveTierColorSpec,
-} from '@/shared/theme/tierColors'
-import { normalizeHexColor } from '@/shared/lib/color'
-import { getColorName } from '@/shared/lib/colorName'
+} from '~/shared/theme/tierColors'
+import { normalizeHexColor } from '~/shared/lib/color'
+import { getColorName } from '~/shared/lib/colorName'
 
 const NAME_EDITOR_ID = 'name'
 const DESCRIPTION_EDITOR_ID = 'description'

@@ -1,25 +1,25 @@
 // src/features/workspace/boards/interaction/keyboardDragController.ts
 // keyboard browse & drag state-machine helpers for tier items
 
-import { announce } from '@/shared/a11y/announce'
-import { getContainerLabel } from '@/features/workspace/boards/lib/containerLabel'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import { announce } from '~/shared/a11y/announce'
+import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   findContainer,
   getEffectiveContainerSnapshot,
   getItemsInContainer,
   moveItemToIndexInSnapshot,
-} from '@/features/workspace/boards/dnd/dragSnapshot'
+} from '~/features/workspace/boards/dnd/dragSnapshot'
 import {
   resolveColumnAwareCrossTierIndex,
   resolveIntraContainerRowMove,
-} from '@/features/workspace/boards/dnd/dragDomCapture'
+} from '~/features/workspace/boards/dnd/dragDomCapture'
 import {
   resolveNextKeyboardDragPreview,
   resolveNextKeyboardFocusItem,
-} from '@/features/workspace/boards/dnd/dragKeyboard'
-import type { KeyboardDragDirection } from '@/features/workspace/boards/dnd/dragKeyboard'
+} from '~/features/workspace/boards/dnd/dragKeyboard'
+import type { KeyboardDragDirection } from '~/features/workspace/boards/dnd/dragKeyboard'
 import {
   focusKeyboardBoardRegion,
   scheduleKeyboardFocusRestore,

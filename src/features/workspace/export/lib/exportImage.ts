@@ -4,8 +4,8 @@
 import { toBlob, toCanvas, toJpeg, toPng, toSvg } from 'html-to-image'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance, ImageFormat } from '@/shared/types/export'
-import { toFileBase } from '@/shared/lib/fileName'
+import type { ExportAppearance, ImageFormat } from '~/shared/types/export'
+import { toFileBase } from '~/shared/lib/fileName'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { withExportSession } from './exportBoardRender'
 

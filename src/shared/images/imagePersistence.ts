@@ -2,15 +2,17 @@
 // hash, persist, & optionally inline image bytes for local board items
 
 import type { TierItemImageRef } from '@tierlistbuilder/contracts/workspace/board'
-import { blobToDataUrl } from '@/shared/lib/binaryCodec'
+import { blobToDataUrl } from '~/shared/lib/binaryCodec'
 import {
   dataUrlMimeType,
   dataUrlToBytes,
   sha256HexFromBlob,
   sha256Hex,
-} from '@/shared/lib/sha256'
+} from '~/shared/lib/sha256'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { cacheFreshBlobs } from './imageBlobCache'
 import { probeImageStore, putBlobs, type BlobRecord } from './imageStore'
+import { createBlobRecord } from './blobRecord'
 
 // image value stored on a board item
 export interface PersistedImageSource
@@ -27,6 +29,8 @@ export interface PreparedBlobRecord
   blob: Blob
 }
 
+const BLOB_PREPARE_CONCURRENCY = 3
+
 // prepare a batch-ready blob record from raw blob bytes
 export const prepareBlobRecord = async (
   blob: Blob
@@ -37,13 +41,7 @@ export const prepareBlobRecord = async (
   return {
     imageRef: { hash },
     blob,
-    record: {
-      hash,
-      mimeType: blob.type || 'image/png',
-      byteSize: blob.size,
-      createdAt: Date.now(),
-      bytes: blob,
-    },
+    record: createBlobRecord(hash, blob),
   }
 }
 
@@ -60,13 +58,7 @@ export const prepareDataUrlRecord = async (
   return {
     imageRef: { hash },
     blob,
-    record: {
-      hash,
-      mimeType,
-      byteSize: bytes.byteLength,
-      createdAt: Date.now(),
-      bytes: blob,
-    },
+    record: createBlobRecord(hash, blob, mimeType),
   }
 }
 
@@ -120,15 +112,19 @@ export const persistBlobSources = async (
       throw new Error('Image storage is not available in this browser.')
     }
 
-    return Promise.all(
-      blobs.map(async (blob) => ({
+    return await mapAsyncLimit(
+      blobs,
+      BLOB_PREPARE_CONCURRENCY,
+      async (blob) => ({
         imageUrl: await blobToDataUrl(blob),
-      }))
+      })
     )
   }
 
-  const prepared = await Promise.all(
-    blobs.map((blob) => prepareBlobRecord(blob))
+  const prepared = await mapAsyncLimit(
+    blobs,
+    BLOB_PREPARE_CONCURRENCY,
+    prepareBlobRecord
   )
 
   try
@@ -145,10 +141,12 @@ export const persistBlobSources = async (
       throw new Error('Failed to store image bytes locally.')
     }
 
-    return Promise.all(
-      blobs.map(async (blob) => ({
+    return await mapAsyncLimit(
+      blobs,
+      BLOB_PREPARE_CONCURRENCY,
+      async (blob) => ({
         imageUrl: await blobToDataUrl(blob),
-      }))
+      })
     )
   }
 }

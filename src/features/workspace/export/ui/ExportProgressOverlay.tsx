@@ -3,7 +3,7 @@
 
 import { useId } from 'react'
 
-import { BaseModal } from '@/shared/overlay/BaseModal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
 
 interface ExportProgressOverlayProps
 {

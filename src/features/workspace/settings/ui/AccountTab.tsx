@@ -3,7 +3,7 @@
 // so the tab can grow into profile settings (display name, avatar, delete
 // account) w/o pulling ui concerns back into MoreTab
 
-import { AccountSection } from '@/features/platform/auth/ui/AccountSection'
+import { AccountSection } from '~/features/platform/auth/ui/AccountSection'
 
 export const AccountTab = () =>
 {

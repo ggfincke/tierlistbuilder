@@ -1,8 +1,8 @@
 // src/features/workspace/export/lib/constants.ts
 // export-specific constants — file-name helpers, format labels, & render settings
 
-import type { ImageFormat } from '@/shared/types/export'
-import { THEMES } from '@/shared/theme'
+import type { ImageFormat } from '~/shared/types/export'
+import { THEMES } from '~/shared/theme'
 
 // background color applied during PNG & PDF export (mirrors classic theme)
 export const EXPORT_BACKGROUND_COLOR = THEMES.classic['export-bg']

@@ -5,9 +5,9 @@ import type {
   BoardSnapshot,
   Tier,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
-import { clampIndex } from '@/shared/lib/math'
-import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
+import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
+import { clampIndex } from '~/shared/lib/math'
+import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 interface ResolveStoreInsertionIndexArgs

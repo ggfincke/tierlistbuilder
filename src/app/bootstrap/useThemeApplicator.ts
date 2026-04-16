@@ -3,8 +3,8 @@
 
 import { useEffect } from 'react'
 
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { applyTextStyle, applyThemeTokens } from '@/shared/theme/runtime'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { applyTextStyle, applyThemeTokens } from '~/shared/theme/runtime'
 
 // hook called once in App — keeps DOM theme runtime in sync w/ settings
 export function useThemeApplicator(): void

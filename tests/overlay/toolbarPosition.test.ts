@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { resolveMenuOverflowFlipTokens } from '@/shared/overlay/useMenuOverflowFlip'
+import { resolveMenuOverflowFlipTokens } from '~/shared/overlay/useMenuOverflowFlip'
 import {
   MENU_SUBMENU_FLIP_LEFT_TOKENS,
   MENU_SUBMENU_FLIP_RIGHT_TOKENS,
   MENU_SUBMENU_LEFT_OFFSET_CLASS,
   MENU_SUBMENU_RIGHT_OFFSET_CLASS,
-} from '@/shared/overlay/menuClasses'
+} from '~/shared/overlay/menuClasses'
 import {
   getMenuPositionClasses,
   getResponsiveToolbarPosition,
-} from '@/shared/layout/toolbarPosition'
+} from '~/shared/layout/toolbarPosition'
 
 describe('getMenuPositionClasses', () =>
 {

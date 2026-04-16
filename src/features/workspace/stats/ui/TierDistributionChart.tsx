@@ -3,8 +3,8 @@
 
 import { memo } from 'react'
 
-import type { TierStat } from '@/features/workspace/stats/model/boardStats'
-import { getTextColor } from '@/shared/lib/color'
+import type { TierStat } from '~/features/workspace/stats/model/boardStats'
+import { getTextColor } from '~/shared/lib/color'
 
 interface TierDistributionChartProps
 {

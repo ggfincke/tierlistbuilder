@@ -15,35 +15,35 @@ import {
   SquareArrowUp,
 } from 'lucide-react'
 
-import type { ImageFormat } from '@/shared/types/export'
-import type { MenuPositionClasses } from '@/shared/layout/toolbarPosition'
-import { useMenuOverflowFlipRefs } from '@/shared/overlay/useMenuOverflowFlip'
+import type { ImageFormat } from '~/shared/types/export'
+import type { MenuPositionClasses } from '~/shared/layout/toolbarPosition'
+import { useMenuOverflowFlipRefs } from '~/shared/overlay/useMenuOverflowFlip'
 import {
   useNestedMenus,
   type NestedMenuDefinition,
-} from '@/shared/overlay/useNestedMenus'
-import { useDismissibleLayer } from '@/shared/overlay/useDismissibleLayer'
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+} from '~/shared/overlay/useNestedMenus'
+import { useDismissibleLayer } from '~/shared/overlay/useDismissibleLayer'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
   importBoardSession,
   importBoardsSession,
-} from '@/features/workspace/boards/data/local/localBoardSession'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+} from '~/features/workspace/boards/data/local/localBoardSession'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   exportBoardAsJson,
   parseBoardsJson,
-} from '@/features/workspace/export/lib/exportJson'
+} from '~/features/workspace/export/lib/exportJson'
 import {
   FORMAT_LABELS,
   IMAGE_FORMATS,
-} from '@/features/workspace/export/lib/constants'
-import { ActionButton } from '@/shared/ui/ActionButton'
+} from '~/features/workspace/export/lib/constants'
+import { ActionButton } from '~/shared/ui/ActionButton'
 import {
   OverlayDivider,
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '@/shared/overlay/OverlayPrimitives'
+} from '~/shared/overlay/OverlayPrimitives'
 
 type ExportMenuId = 'root' | 'image' | 'format' | 'exportAll'
 

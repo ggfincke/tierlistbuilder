@@ -25,8 +25,10 @@ import type * as users from "../users.js";
 import type * as workspace_boards_internal from "../workspace/boards/internal.js";
 import type * as workspace_boards_mutations from "../workspace/boards/mutations.js";
 import type * as workspace_boards_queries from "../workspace/boards/queries.js";
+import type * as workspace_boards_upsertBoardState from "../workspace/boards/upsertBoardState.js";
 import type * as workspace_settings_mutations from "../workspace/settings/mutations.js";
 import type * as workspace_settings_queries from "../workspace/settings/queries.js";
+import type * as workspace_sync_boardReconciler from "../workspace/sync/boardReconciler.js";
 import type * as workspace_tierPresets_mutations from "../workspace/tierPresets/mutations.js";
 import type * as workspace_tierPresets_queries from "../workspace/tierPresets/queries.js";
 
@@ -54,8 +56,10 @@ declare const fullApi: ApiFromModules<{
   "workspace/boards/internal": typeof workspace_boards_internal;
   "workspace/boards/mutations": typeof workspace_boards_mutations;
   "workspace/boards/queries": typeof workspace_boards_queries;
+  "workspace/boards/upsertBoardState": typeof workspace_boards_upsertBoardState;
   "workspace/settings/mutations": typeof workspace_settings_mutations;
   "workspace/settings/queries": typeof workspace_settings_queries;
+  "workspace/sync/boardReconciler": typeof workspace_sync_boardReconciler;
   "workspace/tierPresets/mutations": typeof workspace_tierPresets_mutations;
   "workspace/tierPresets/queries": typeof workspace_tierPresets_queries;
 }>;

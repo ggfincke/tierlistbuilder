@@ -17,8 +17,8 @@ import type {
   TextStyleId,
   ThemeId,
 } from '@tierlistbuilder/contracts/lib/theme'
-import { createAppPersistStorage } from '@/shared/lib/browserStorage'
-import { THEME_PALETTE } from '@/shared/theme/palettes'
+import { createAppPersistStorage } from '~/shared/lib/browserStorage'
+import { THEME_PALETTE } from '~/shared/theme/palettes'
 import {
   SETTINGS_STORAGE_KEY,
   SETTINGS_STORAGE_VERSION,

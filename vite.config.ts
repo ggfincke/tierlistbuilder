@@ -2,47 +2,20 @@
 // Vite build config — React plugin w/ fast-refresh, Tailwind CSS v4, & PWA
 
 import { createRequire } from 'node:module'
-import path from 'node:path'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vitest/config'
 
 import { cloudflare } from '@cloudflare/vite-plugin'
+import { moduleAliases } from './config/aliases'
 
 const require = createRequire(import.meta.url)
 const { version } = require('./package.json') as { version: string }
-const srcRoot = path.resolve(__dirname, './src')
-const convexRoot = path.resolve(__dirname, './convex')
-const contractsRoot = path.resolve(__dirname, './packages/contracts')
-const sourceAlias = {
-  find: /^@\//,
-  replacement: `${srcRoot}/`,
-}
-// resolve @convex/_generated/* imports for the typed api & dataModel
-const convexAlias = {
-  find: /^@convex\//,
-  replacement: `${convexRoot}/`,
-}
-// resolve subpath imports like @tierlistbuilder/contracts/workspace/board
-const contractsSubpathAlias = {
-  find: /^@tierlistbuilder\/contracts\/(.*)$/,
-  replacement: `${contractsRoot}/$1`,
-}
-// resolve bare import @tierlistbuilder/contracts to the barrel
-const contractsBarrelAlias = {
-  find: /^@tierlistbuilder\/contracts$/,
-  replacement: `${contractsRoot}/index.ts`,
-}
 
 export default defineConfig({
   resolve: {
-    alias: [
-      sourceAlias,
-      convexAlias,
-      contractsSubpathAlias,
-      contractsBarrelAlias,
-    ],
+    alias: moduleAliases,
   },
   plugins: [
     react(),
@@ -84,11 +57,6 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(version),
   },
   test: {
-    alias: [
-      sourceAlias,
-      convexAlias,
-      contractsSubpathAlias,
-      contractsBarrelAlias,
-    ],
+    alias: moduleAliases,
   },
 })

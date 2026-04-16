@@ -8,7 +8,7 @@ import {
   MENU_SUBMENU_BRIDGE_TO_RIGHT_EDGE_CLASS,
   MENU_SUBMENU_LEFT_OFFSET_CLASS,
   MENU_SUBMENU_RIGHT_OFFSET_CLASS,
-} from '@/shared/overlay/menuClasses'
+} from '~/shared/overlay/menuClasses'
 
 export interface MenuPositionClasses
 {

@@ -14,10 +14,10 @@ import type {
   TextStyleId,
   ThemeId,
 } from '@tierlistbuilder/contracts/lib/theme'
-import { isRecord } from '@/shared/lib/typeGuards'
-import { PALETTES } from '@/shared/theme/palettes'
-import { TEXT_STYLES } from '@/shared/theme/textStyles'
-import { THEMES } from '@/shared/theme/tokens'
+import { isRecord } from '~/shared/lib/typeGuards'
+import { PALETTES } from '~/shared/theme/palettes'
+import { TEXT_STYLES } from '~/shared/theme/textStyles'
+import { THEMES } from '~/shared/theme/tokens'
 
 const ITEM_SIZES = new Set<ItemSize>(['small', 'medium', 'large'])
 const ITEM_SHAPES = new Set<ItemShape>(['square', 'rounded', 'circle'])

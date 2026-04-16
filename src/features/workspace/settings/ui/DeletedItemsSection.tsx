@@ -4,10 +4,10 @@
 import { useState } from 'react'
 import { RotateCcw, Trash2, X } from 'lucide-react'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { ItemContent } from '@/shared/board-ui/ItemContent'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
-import { ItemOverlayButton } from '@/shared/ui/ItemOverlayButton'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ItemOverlayButton } from '~/shared/ui/ItemOverlayButton'
 
 export const DeletedItemsSection = () =>
 {

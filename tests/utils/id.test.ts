@@ -6,7 +6,7 @@ import {
   generateTierId,
   isPresetId,
   isTierId,
-} from '@/shared/lib/id'
+} from '~/shared/lib/id'
 
 describe('ID helpers', () =>
 {
