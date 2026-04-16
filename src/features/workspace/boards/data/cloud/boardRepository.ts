@@ -7,7 +7,10 @@ import { useMutation, useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import type { BoardListItem } from '@tierlistbuilder/contracts/workspace/board'
-import type { CloudBoardPayload } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import type {
+  CloudBoardPayload,
+  CloudBoardState,
+} from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { convexClient } from '~/features/platform/backend/convexClient'
 
 export const useListMyBoards = (
@@ -69,3 +72,19 @@ export const finalizeUploadImperative = (args: {
 
 export const listMyBoardsImperative = () =>
   convexClient.query(api.workspace.boards.queries.getMyBoards, {})
+
+export const getBoardStateByExternalIdImperative = (args: {
+  boardExternalId: string
+}): Promise<CloudBoardState | null> =>
+  convexClient.query(
+    api.workspace.boards.queries.getBoardStateByExternalId,
+    args
+  )
+
+export const getBoardStatesByExternalIdsImperative = (args: {
+  boardExternalIds: string[]
+}): Promise<Array<CloudBoardState | null>> =>
+  convexClient.query(
+    api.workspace.boards.queries.getBoardStatesByExternalIds,
+    args
+  )

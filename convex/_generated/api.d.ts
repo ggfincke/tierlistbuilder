@@ -29,6 +29,7 @@ import type * as workspace_boards_upsertBoardState from "../workspace/boards/ups
 import type * as workspace_settings_mutations from "../workspace/settings/mutations.js";
 import type * as workspace_settings_queries from "../workspace/settings/queries.js";
 import type * as workspace_sync_boardReconciler from "../workspace/sync/boardReconciler.js";
+import type * as workspace_sync_boardStateLoader from "../workspace/sync/boardStateLoader.js";
 import type * as workspace_tierPresets_mutations from "../workspace/tierPresets/mutations.js";
 import type * as workspace_tierPresets_queries from "../workspace/tierPresets/queries.js";
 
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "workspace/settings/mutations": typeof workspace_settings_mutations;
   "workspace/settings/queries": typeof workspace_settings_queries;
   "workspace/sync/boardReconciler": typeof workspace_sync_boardReconciler;
+  "workspace/sync/boardStateLoader": typeof workspace_sync_boardStateLoader;
   "workspace/tierPresets/mutations": typeof workspace_tierPresets_mutations;
   "workspace/tierPresets/queries": typeof workspace_tierPresets_queries;
 }>;

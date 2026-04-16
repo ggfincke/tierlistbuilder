@@ -196,11 +196,18 @@ const prepareBoardForLoad = async (
 }
 
 export const loadBoardIntoSession = async (
-  boardId: BoardId
+  boardId: BoardId,
+  shouldProceed?: () => boolean
 ): Promise<BoardSnapshot> =>
 {
   const state = loadPersistedBoardState(boardId)
   const prepared = await prepareBoardForLoad(boardId, state.snapshot)
+
+  if (shouldProceed && !shouldProceed())
+  {
+    return prepared
+  }
+
   loadBoardState(prepared, state.syncState)
   return prepared
 }
@@ -340,7 +347,15 @@ export const persistBoardSyncState = (
     return
   }
 
-  saveBoardSyncToStorage(boardId, syncState)
+  const saveResult = saveBoardSyncToStorage(boardId, syncState)
+  if (!saveResult.ok)
+  {
+    if (useWorkspaceBoardRegistryStore.getState().activeBoardId === boardId)
+    {
+      useActiveBoardStore.getState().setRuntimeError(saveResult.message)
+    }
+    return
+  }
 
   if (useWorkspaceBoardRegistryStore.getState().activeBoardId === boardId)
   {

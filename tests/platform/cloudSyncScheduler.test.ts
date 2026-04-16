@@ -164,10 +164,16 @@ describe('cloud sync scheduler', () =>
   {
     const persist = vi.fn()
     const onConflict = vi.fn()
+    const serverState = {
+      title: 'Cloud board',
+      revision: 4,
+      tiers: [],
+      items: [],
+    }
 
     const flush = vi
       .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
-      .mockResolvedValueOnce({ kind: 'conflict' })
+      .mockResolvedValueOnce({ kind: 'conflict', serverState })
 
     const scheduler = createCloudSyncScheduler({
       debounceMs: 5,
@@ -183,7 +189,7 @@ describe('cloud sync scheduler', () =>
 
     expect(flush).toHaveBeenCalledTimes(1)
     expect(persist).not.toHaveBeenCalled()
-    expect(onConflict).toHaveBeenCalledWith('board-a')
+    expect(onConflict).toHaveBeenCalledWith('board-a', serverState)
 
     await scheduler.dispose()
   })

@@ -46,6 +46,11 @@ export interface CloudBoardStateTier extends CloudBoardTierWire
 export interface CloudBoardStateItem extends CloudBoardItemWire
 {
   deletedAt: number | null
+  // sha256 of the underlying asset bytes — surfaced so the client can wire
+  // image refs straight into IDB on a cloud-pull / keep-cloud resolution
+  // for items whose blobs were uploaded on another device. undefined when
+  // the item has no image
+  mediaContentHash?: string
 }
 
 export interface CloudBoardState
