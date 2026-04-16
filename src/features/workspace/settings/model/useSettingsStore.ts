@@ -2,7 +2,7 @@
 // * global settings store — user preferences persisted independently of per-board data
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, subscribeWithSelector } from 'zustand/middleware'
 
 import type {
   AppSettings,
@@ -83,70 +83,76 @@ const createSettingSetter = <K extends keyof AppSettings>(
     set({ [key]: value } as Pick<AppSettings, K>)
 }
 
+// subscribeWithSelector wraps persist so the cloud-sync layer can subscribe
+// to AppSettings field changes w/ a custom equalityFn (the field projection
+// returns a fresh object each tick & default referential equality would
+// fire on every store action otherwise)
 export const useSettingsStore = create<SettingsStore>()(
-  persist(
-    (set) => ({
-      ...DEFAULT_SETTINGS,
+  subscribeWithSelector(
+    persist(
+      (set) => ({
+        ...DEFAULT_SETTINGS,
 
-      setItemSize: createSettingSetter(set, 'itemSize'),
-      setShowLabels: createSettingSetter(set, 'showLabels'),
-      setItemShape: createSettingSetter(set, 'itemShape'),
-      setCompactMode: createSettingSetter(set, 'compactMode'),
-      setExportBackgroundOverride: createSettingSetter(
-        set,
-        'exportBackgroundOverride'
-      ),
-      setBoardBackgroundOverride: createSettingSetter(
-        set,
-        'boardBackgroundOverride'
-      ),
-      setLabelWidth: createSettingSetter(set, 'labelWidth'),
-      setHideRowControls: createSettingSetter(set, 'hideRowControls'),
-      setConfirmBeforeDelete: createSettingSetter(set, 'confirmBeforeDelete'),
-      setThemeId: createSettingSetter(set, 'themeId'),
-      setPaletteId: createSettingSetter(set, 'paletteId'),
-      setTextStyleId: createSettingSetter(set, 'textStyleId'),
-      setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
-      setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
-      setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
-      setBoardLocked: createSettingSetter(set, 'boardLocked'),
-      setReducedMotion: createSettingSetter(set, 'reducedMotion'),
-      setToolbarPosition: createSettingSetter(set, 'toolbarPosition'),
-      setShowAltTextButton: createSettingSetter(set, 'showAltTextButton'),
-      toggleHighContrast: (enabled) =>
-        set((state) =>
-        {
-          if (enabled)
+        setItemSize: createSettingSetter(set, 'itemSize'),
+        setShowLabels: createSettingSetter(set, 'showLabels'),
+        setItemShape: createSettingSetter(set, 'itemShape'),
+        setCompactMode: createSettingSetter(set, 'compactMode'),
+        setExportBackgroundOverride: createSettingSetter(
+          set,
+          'exportBackgroundOverride'
+        ),
+        setBoardBackgroundOverride: createSettingSetter(
+          set,
+          'boardBackgroundOverride'
+        ),
+        setLabelWidth: createSettingSetter(set, 'labelWidth'),
+        setHideRowControls: createSettingSetter(set, 'hideRowControls'),
+        setConfirmBeforeDelete: createSettingSetter(set, 'confirmBeforeDelete'),
+        setThemeId: createSettingSetter(set, 'themeId'),
+        setPaletteId: createSettingSetter(set, 'paletteId'),
+        setTextStyleId: createSettingSetter(set, 'textStyleId'),
+        setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
+        setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
+        setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
+        setBoardLocked: createSettingSetter(set, 'boardLocked'),
+        setReducedMotion: createSettingSetter(set, 'reducedMotion'),
+        setToolbarPosition: createSettingSetter(set, 'toolbarPosition'),
+        setShowAltTextButton: createSettingSetter(set, 'showAltTextButton'),
+        toggleHighContrast: (enabled) =>
+          set((state) =>
           {
-            return {
-              preHighContrastThemeId: state.themeId,
-              preHighContrastPaletteId: state.paletteId,
-              themeId: 'high-contrast' as const,
-              paletteId: THEME_PALETTE['high-contrast'],
+            if (enabled)
+            {
+              return {
+                preHighContrastThemeId: state.themeId,
+                preHighContrastPaletteId: state.paletteId,
+                themeId: 'high-contrast' as const,
+                paletteId: THEME_PALETTE['high-contrast'],
+              }
             }
-          }
-          const restoreTheme =
-            state.preHighContrastThemeId &&
-            state.preHighContrastThemeId !== 'high-contrast'
-              ? state.preHighContrastThemeId
-              : ('classic' as const)
-          const restorePalette =
-            state.preHighContrastPaletteId ?? THEME_PALETTE[restoreTheme]
-          return {
-            themeId: restoreTheme,
-            paletteId: restorePalette,
-            preHighContrastThemeId: null,
-            preHighContrastPaletteId: null,
-          }
-        }),
-      resetSettings: () => set(DEFAULT_SETTINGS),
-    }),
-    {
-      name: SETTINGS_STORAGE_KEY,
-      storage: createAppPersistStorage(),
-      version: SETTINGS_STORAGE_VERSION,
-      migrate: (persistedState) =>
-        migrateSettingsState(persistedState, DEFAULT_SETTINGS),
-    }
+            const restoreTheme =
+              state.preHighContrastThemeId &&
+              state.preHighContrastThemeId !== 'high-contrast'
+                ? state.preHighContrastThemeId
+                : ('classic' as const)
+            const restorePalette =
+              state.preHighContrastPaletteId ?? THEME_PALETTE[restoreTheme]
+            return {
+              themeId: restoreTheme,
+              paletteId: restorePalette,
+              preHighContrastThemeId: null,
+              preHighContrastPaletteId: null,
+            }
+          }),
+        resetSettings: () => set(DEFAULT_SETTINGS),
+      }),
+      {
+        name: SETTINGS_STORAGE_KEY,
+        storage: createAppPersistStorage(),
+        version: SETTINGS_STORAGE_VERSION,
+        migrate: (persistedState) =>
+          migrateSettingsState(persistedState, DEFAULT_SETTINGS),
+      }
+    )
   )
 )

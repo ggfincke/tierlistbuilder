@@ -1,15 +1,42 @@
 // convex/workspace/tierPresets/queries.ts
-// tier preset queries — all stubbed; real implementations land in the presets sync PR
+// tier preset queries — list-all read path for the authenticated caller.
+// built-in presets stay client-side (defined in tierPresets.ts) & are not
+// represented on the server, so the list returned here is user presets only
 
+import type { Doc } from '../../_generated/dataModel'
+import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'
 import { query } from '../../_generated/server'
+import { getCurrentUserId } from '../../lib/auth'
 
-// list the authenticated caller's saved tier presets
-// built-in presets stay client-side & are not included in this query
-// todo: implement in tier preset sync PR
+const MAX_PRESETS_PER_USER = 200
+
+const toCloudRow = (row: Doc<'tierPresets'>): TierPresetCloudRow => ({
+  externalId: row.externalId,
+  name: row.name,
+  tiers: row.tiers,
+  createdAt: row.createdAt,
+  updatedAt: row.updatedAt,
+})
+
+// list the authenticated caller's saved tier presets, newest updated first.
+// returns an empty list when unauthenticated so callers can use the same
+// shape regardless of auth state
 export const getMyTierPresets = query({
   args: {},
-  handler: async () =>
+  handler: async (ctx): Promise<TierPresetCloudRow[]> =>
   {
-    throw new Error('not implemented: getMyTierPresets — presets sync PR')
+    const userId = await getCurrentUserId(ctx)
+    if (!userId)
+    {
+      return []
+    }
+
+    const rows = await ctx.db
+      .query('tierPresets')
+      .withIndex('byOwner', (q) => q.eq('ownerId', userId))
+      .order('desc')
+      .take(MAX_PRESETS_PER_USER)
+
+    return rows.map(toCloudRow)
   },
 })

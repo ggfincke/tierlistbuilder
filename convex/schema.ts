@@ -155,7 +155,11 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('byOwner', ['ownerId', 'updatedAt'])
-    .index('byExternalId', ['externalId']),
+    .index('byExternalId', ['externalId'])
+    // ordered lookup for ownership-scoped externalId resolution — mirrors the
+    // boards index. lets the preset CRUD mutations short-circuit a separate
+    // ownership check after the row lookup
+    .index('byOwnerAndExternalId', ['ownerId', 'externalId']),
 
   // short URL indirection for shareable board links & snapshot blobs
   shortLinks: defineTable(

@@ -127,3 +127,33 @@ export const requireTierPresetOwnership = async (
   }
   return preset
 }
+
+// resolve one owned preset by externalId, or null if it doesn't exist for
+// this owner. mirrors findOwnedActiveBoardByExternalId — preset rows have
+// no soft-delete, so the "active" qualifier from boards doesn't apply
+export const findOwnedTierPresetByExternalId = async (
+  ctx: QueryCtx | MutationCtx,
+  externalId: string,
+  userId: Id<'users'>
+): Promise<Doc<'tierPresets'> | null> =>
+  await ctx.db
+    .query('tierPresets')
+    .withIndex('byOwnerAndExternalId', (q) =>
+      q.eq('ownerId', userId).eq('externalId', externalId)
+    )
+    .unique()
+
+// assert the caller owns the preset resolved from an externalId
+export const requireTierPresetOwnershipByExternalId = async (
+  ctx: QueryCtx | MutationCtx,
+  externalId: string,
+  userId: Id<'users'>
+): Promise<Doc<'tierPresets'>> =>
+{
+  const preset = await findOwnedTierPresetByExternalId(ctx, externalId, userId)
+  if (!preset)
+  {
+    throw new Error('preset not found')
+  }
+  return preset
+}
