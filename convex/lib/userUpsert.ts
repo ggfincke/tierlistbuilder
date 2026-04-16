@@ -1,8 +1,6 @@
 // convex/lib/userUpsert.ts
-// populate app-owned fields on the users row after the auth library
-// creates or updates the auth-managed shape. called from the
-// afterUserCreatedOrUpdated callback in convex/auth.ts; idempotent so
-// repeated sign-ins only refresh updatedAt
+// populate app-owned fields after auth library creates/updates a user.
+// called from afterUserCreatedOrUpdated; idempotent on repeated sign-ins
 
 import type { MutationCtx } from '../_generated/server'
 import type { Id } from '../_generated/dataModel'

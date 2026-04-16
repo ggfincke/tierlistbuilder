@@ -1,23 +1,38 @@
 // src/features/workspace/settings/lib/imageResize.ts
 // image resize & upload utilities — shrinks uploads to thumbnail size before storage
 
+import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
+import { persistBlobSources } from '@/shared/images/imagePersistence'
 import { MAX_THUMBNAIL_SIZE } from './constants'
-import { deriveLabelFromFilename, getResizedDimensions } from './imageGeometry'
+import {
+  canvasToPngBlob,
+  deriveLabelFromFilename,
+  getResizedDimensions,
+} from './imageGeometry'
 
-// filter, resize, & collect image files — callers handle errors & store dispatch
+// processed upload result w/ partial-failure accounting
+export interface ProcessImageFilesResult
+{
+  items: Array<NewTierItem & { label: string }>
+  failedCount: number
+}
+
+// filter, resize, persist, & collect image files
 export const processImageFiles = async (
   files: File[]
-): Promise<{ imageUrl: string; label: string }[]> =>
+): Promise<ProcessImageFilesResult> =>
 {
   const images = files.filter((f) => f.type.startsWith('image/'))
-
-  const results = await Promise.all(
+  const resized = await Promise.all(
     images.map(async (imageFile) =>
     {
       try
       {
-        const imageUrl = await resizeImageFile(imageFile)
-        return { imageUrl, label: deriveLabelFromFilename(imageFile.name) }
+        const blob = await resizeImageFileToBlob(imageFile)
+        return {
+          blob,
+          label: deriveLabelFromFilename(imageFile.name),
+        }
       }
       catch
       {
@@ -26,9 +41,22 @@ export const processImageFiles = async (
     })
   )
 
-  return results.filter(
-    (item): item is { imageUrl: string; label: string } => item !== null
+  const preparedItems = resized.filter(
+    (item): item is { blob: Blob; label: string } => item !== null
   )
+  const sources = await persistBlobSources(
+    preparedItems.map((item) => item.blob),
+    { fallbackToDataUrl: true }
+  )
+  const items = sources.map((source, index) => ({
+    ...source,
+    label: preparedItems[index].label,
+  })) satisfies Array<NewTierItem & { label: string }>
+
+  return {
+    items,
+    failedCount: images.length - items.length,
+  }
 }
 
 // load a File into an HTMLImageElement via object URL (fallback path)
@@ -57,11 +85,13 @@ const loadImageElement = (file: File): Promise<HTMLImageElement> =>
   })
 }
 
-// resize a File to a PNG data URL capped at maxSize px on the longest side
-export const resizeImageFile = async (
+// resize a File to a PNG Blob capped at maxSize px on the longest side.
+// returns raw bytes instead of a data URL so the caller can hash & persist
+// directly to the IndexedDB image store w/o an intermediate base64 decode
+const resizeImageFileToBlob = async (
   file: File,
   maxSize = MAX_THUMBNAIL_SIZE
-): Promise<string> =>
+): Promise<Blob> =>
 {
   let imageBitmap: ImageBitmap | null = null
   let source: CanvasImageSource
@@ -108,5 +138,6 @@ export const resizeImageFile = async (
 
   // free the bitmap memory before encoding
   imageBitmap?.close()
-  return canvas.toDataURL('image/png')
+
+  return canvasToPngBlob(canvas)
 }

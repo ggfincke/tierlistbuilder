@@ -1,7 +1,7 @@
 // src/app/bootstrap/useAppBootstrap.ts
 // bootstrap hook — hydrate persisted stores, initialize board session, & register autosave
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
@@ -25,7 +25,7 @@ const handleShareFragment = async (): Promise<void> =>
   try
   {
     const data = await decodeBoardFromShareFragment(fragment)
-    importBoardSession(data)
+    await importBoardSession(data)
   }
   catch
   {
@@ -37,43 +37,69 @@ const handleShareFragment = async (): Promise<void> =>
   }
 }
 
+const storesHydrated = () =>
+  useSettingsStore.persist.hasHydrated() &&
+  useWorkspaceBoardRegistryStore.persist.hasHydrated()
+
+// module-level promise shared across StrictMode double-mount so the first &
+// second effect both await the same run; a per-instance ref would let the
+// second mount see "already started" & bail before setting ready
+let bootstrapPromise: Promise<void> | null = null
+
+const runBootstrapOnce = (): Promise<void> =>
+{
+  if (!bootstrapPromise)
+  {
+    bootstrapPromise = (async () =>
+    {
+      await bootstrapBoardSession()
+      registerBoardAutosave()
+      await handleShareFragment()
+    })()
+  }
+  return bootstrapPromise
+}
+
 export const useAppBootstrap = (): boolean =>
 {
-  const [ready, setReady] = useState(
-    useSettingsStore.persist.hasHydrated() &&
-      useWorkspaceBoardRegistryStore.persist.hasHydrated()
-  )
-  const bootstrappedRef = useRef(false)
+  const [ready, setReady] = useState(false)
 
   useEffect(() =>
   {
-    const finishBootstrap = () =>
+    let cancelled = false
+
+    const tryBootstrap = async () =>
     {
-      if (
-        !useSettingsStore.persist.hasHydrated() ||
-        !useWorkspaceBoardRegistryStore.persist.hasHydrated() ||
-        bootstrappedRef.current
-      )
+      if (!storesHydrated())
       {
         return
       }
 
-      bootstrappedRef.current = true
-      bootstrapBoardSession()
-      registerBoardAutosave()
-      void handleShareFragment()
-      setReady(true)
+      await runBootstrapOnce()
+
+      if (!cancelled)
+      {
+        setReady(true)
+      }
     }
 
-    const offSettingsHydration =
-      useSettingsStore.persist.onFinishHydration(finishBootstrap)
+    const offSettingsHydration = useSettingsStore.persist.onFinishHydration(
+      () =>
+      {
+        void tryBootstrap()
+      }
+    )
     const offBoardsHydration =
-      useWorkspaceBoardRegistryStore.persist.onFinishHydration(finishBootstrap)
+      useWorkspaceBoardRegistryStore.persist.onFinishHydration(() =>
+      {
+        void tryBootstrap()
+      })
 
-    finishBootstrap()
+    void tryBootstrap()
 
     return () =>
     {
+      cancelled = true
       offSettingsHydration()
       offBoardsHydration()
     }

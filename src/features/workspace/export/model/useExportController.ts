@@ -168,7 +168,7 @@ export const useExportController = () =>
       {
         try
         {
-          exportAllBoardsAsJson()
+          await exportAllBoardsAsJson()
         }
         catch
         {

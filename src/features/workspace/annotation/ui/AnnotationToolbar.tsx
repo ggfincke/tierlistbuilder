@@ -41,7 +41,7 @@ interface AnnotationToolbarProps
   onClear: () => void
 }
 
-// toggle button for bold/italic — Google Docs-style pressed state
+// render a bold/italic toggle button — Google Docs-style pressed state
 const FormatToggle = ({
   active,
   onClick,

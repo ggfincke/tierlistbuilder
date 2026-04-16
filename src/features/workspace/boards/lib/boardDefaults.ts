@@ -1,13 +1,16 @@
 // src/features/workspace/boards/lib/boardDefaults.ts
 // canonical default board structure & board-level defaults
 
-import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  DEFAULT_BOARD_TITLE,
+  type Tier,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { getAutoTierColorSpec } from '@/shared/theme/tierColors'
 
 // default board title used on first load & for newly created boards
-export const DEFAULT_TITLE = 'My Tier List'
+export const DEFAULT_TITLE = DEFAULT_BOARD_TITLE
 
 // stable tier IDs for the default S–E rows (indexed by position)
 export const DEFAULT_TIER_IDS: TierId[] = [

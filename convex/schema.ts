@@ -26,14 +26,9 @@ export default defineSchema({
   // authRefreshTokens, authRateLimits. do not rename or move — managed by the lib
   ...authTables,
 
-  // users table is provided by authTables but extended here w/ app-specific
-  // fields. any field added below lives alongside the auth-managed fields on
-  // the same doc. auth-managed fields (name, image, email, emailVerificationTime,
-  // phone, phoneVerificationTime, isAnonymous) remain writable only by the
-  // auth library itself. app-managed fields are populated by the users upsert
-  // helper on first sign-in. do not duplicate the auth library's email or
-  // phone indexes — they are re-applied via authTables.users above & this
-  // override replaces the entire users table definition
+  // users table extended w/ app-specific fields alongside auth-managed ones.
+  // auth-managed fields remain writable only by the auth library; app-managed
+  // fields populated on first sign-in. do not duplicate auth indexes here
   users: defineTable({
     // auth library-owned fields — must stay in sync w/ authTables.users shape
     name: v.optional(v.string()),
@@ -79,6 +74,10 @@ export default defineSchema({
     updatedAt: v.number(),
     // soft delete timestamp — powers "recently deleted boards" restore UI
     deletedAt: v.union(v.number(), v.null()),
+    // monotonic revision cursor — bumped atomically on every upsertBoardState
+    // mutation & used for optimistic-concurrency conflict detection. optional
+    // so createBoard can insert a bare row before the first state upsert
+    revision: v.optional(v.number()),
   })
     .index('byOwner', ['ownerId', 'updatedAt'])
     .index('byOwnerAndDeleted', ['ownerId', 'deletedAt'])

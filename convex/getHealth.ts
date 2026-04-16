@@ -1,7 +1,6 @@
 // convex/getHealth.ts
-// * foundation PR smoke test — minimal end-to-end query w/ no auth required
-// lets us verify the pipe (frontend → convex → schema) is wired before any
-// real feature lands. safe to remove once a real feature query replaces it
+// smoke test query — verifies frontend -> convex -> schema wiring w/ no auth.
+// safe to remove when real feature queries land
 
 import { query } from './_generated/server'
 

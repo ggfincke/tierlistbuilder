@@ -278,7 +278,7 @@ export const resolveColumnAwareCrossTierIndex = (
     return null
   }
 
-  // ArrowUp → land on the last row, ArrowDown → land on the first row
+  // ArrowUp -> land on the last row, ArrowDown -> land on the first row
   const targetRow =
     direction === 'ArrowUp'
       ? targetLayout.rows[targetLayout.rowCount - 1]

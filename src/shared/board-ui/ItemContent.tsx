@@ -1,11 +1,14 @@
 // src/shared/board-ui/ItemContent.tsx
 // shared image-vs-text item rendering — used by board tiles, drag overlay, & deleted items
 
+import { useImageUrl } from '@/shared/hooks/useImageUrl'
+import type { TierItemImageRef } from '@tierlistbuilder/contracts/workspace/board'
 import { getTextColor } from '../lib/color'
 
 interface ItemContentProps
 {
   item: {
+    imageRef?: TierItemImageRef
     imageUrl?: string
     label?: string
     backgroundColor?: string
@@ -24,13 +27,15 @@ export const ItemContent = ({
 }: ItemContentProps) =>
 {
   const bgColor = item.backgroundColor
+  const cachedImageUrl = useImageUrl(item.imageRef?.hash)
+  const imageUrl = cachedImageUrl ?? item.imageUrl ?? null
 
-  if (item.imageUrl)
+  if (imageUrl)
   {
     return (
       <>
         <img
-          src={item.imageUrl}
+          src={imageUrl}
           alt={item.altText ?? item.label ?? 'Tier item'}
           className="h-full w-full object-cover"
           draggable={false}

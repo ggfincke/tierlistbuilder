@@ -16,8 +16,9 @@ import {
 import { isRecord } from '@/shared/lib/typeGuards'
 
 // current board payload schema version — bumped only on genuinely breaking
-// user-data changes; see CLAUDE.md for the migration policy
-export const BOARD_DATA_VERSION = 1
+// user-data changes. v2 moves image bytes from inline `imageUrl` to IDB,
+// referenced by content-hash via `imageRef`
+export const BOARD_DATA_VERSION = 2
 
 // build a per-board localStorage key from its ID
 export const boardStorageKey = (id: BoardId): string => `tier-list-board-${id}`
@@ -75,12 +76,33 @@ export const loadBoardFromStorage = (boardId: BoardId): BoardLoadResult =>
     }
 
     const parsed: unknown = JSON.parse(raw)
-    if (!isRecord(parsed) || !isRecord(parsed.data))
+    if (!isRecord(parsed))
     {
       return { status: 'corrupted', data: null }
     }
 
-    return { status: 'ok', data: parsed.data as Partial<BoardSnapshot> }
+    if (isRecord(parsed.data))
+    {
+      const version = typeof parsed.version === 'number' ? parsed.version : 1
+      if (
+        !Number.isFinite(version) ||
+        version < 1 ||
+        version > BOARD_DATA_VERSION
+      )
+      {
+        return { status: 'corrupted', data: null }
+      }
+
+      return {
+        status: 'ok',
+        data: parsed.data as Partial<BoardSnapshot>,
+      }
+    }
+
+    return {
+      status: 'ok',
+      data: parsed as Partial<BoardSnapshot>,
+    }
   }
   catch
   {

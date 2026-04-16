@@ -3,54 +3,39 @@
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { EMBED_ROUTE_PATH, normalizeBasePath } from '@/app/routes/pathname'
-import { parseBoardJson } from '@/features/workspace/export/lib/exportJson'
+import { parseBoardSnapshotJson } from '@/features/workspace/export/lib/exportJson'
+import { base64ToBytes, bytesToBase64 } from '@/shared/lib/binaryCodec'
+import { mapSnapshotItems } from '@/shared/lib/boardSnapshotItems'
 
 const buildAppUrl = (pathname = ''): string =>
   `${window.location.origin}${normalizeBasePath()}${pathname}`
 
-// strip image data URLs from items to keep the share payload small
+// drop image bytes & deleted items from share payloads
 export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
 {
-  const strippedItems: BoardSnapshot['items'] = {}
-
-  // items map is keyed by ItemId — brand the entries before writing back
-  for (const [id, item] of Object.entries(data.items))
-  {
-    const { imageUrl: _imageUrl, ...rest } = item
-    void _imageUrl
-    strippedItems[id as keyof BoardSnapshot['items']] = rest
-  }
-
   return {
-    ...data,
-    items: strippedItems,
+    ...mapSnapshotItems(data, (item) =>
+    {
+      const { imageRef: _imageRef, imageUrl: _imageUrl, ...rest } = item
+      return rest
+    }),
     deletedItems: [],
   }
 }
 
 // base64url encode a Uint8Array
 const toBase64Url = (bytes: Uint8Array): string =>
-{
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++)
-  {
-    binary += String.fromCharCode(bytes[i])
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
+  bytesToBase64(bytes)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
 
 // base64url decode to a Uint8Array
 const fromBase64Url = (str: string): Uint8Array =>
 {
   const base64 = str.replace(/-/g, '+').replace(/_/g, '/')
   const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-  const binary = atob(padded)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++)
-  {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes
+  return base64ToBytes(padded)
 }
 
 // encode board data into a compressed base64url string
@@ -83,7 +68,7 @@ export const decodeBoardFromShareFragment = async (
   const decoder = new TextDecoder()
   const json = decoder.decode(bytes)
 
-  return parseBoardJson(json)
+  return parseBoardSnapshotJson(json, 'Shared Tier List')
 }
 
 // workspace base URL (origin + configured base path)

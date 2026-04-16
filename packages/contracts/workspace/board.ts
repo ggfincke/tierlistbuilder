@@ -4,16 +4,46 @@
 import type { BoardId, ItemId, TierId } from '../lib/ids'
 import type { TierColorSpec } from '../lib/theme'
 
+// default board title used across local & cloud-backed board creation
+export const DEFAULT_BOARD_TITLE = 'My Tier List'
+
+// hard cap for user-supplied board titles
+export const MAX_BOARD_TITLE_LENGTH = 200
+
+// trim board titles & fall back to the shared default
+export const normalizeBoardTitle = (raw: string): string =>
+{
+  const trimmed = raw.trim()
+  if (!trimmed)
+  {
+    return DEFAULT_BOARD_TITLE
+  }
+
+  return trimmed.length > MAX_BOARD_TITLE_LENGTH
+    ? trimmed.slice(0, MAX_BOARD_TITLE_LENGTH)
+    : trimmed
+}
+
+// content-addressable image pointer for bytes stored outside the snapshot
+export interface TierItemImageRef
+{
+  hash: string
+  cloudMediaExternalId?: string
+}
+
 // single item placed in a tier or the unranked pool
 export interface TierItem
 {
   // unique identifier
   id: ItemId
-  // base64 data URL or image path (absent for text-only items)
+  // content-addressable reference to a stored image
+  imageRef?: TierItemImageRef
+  // inline data URL fallback used while migrating legacy boards or when
+  // IndexedDB is unavailable
   imageUrl?: string
   // optional display label (derived from filename on upload, required for text-only)
   label?: string
-  // hex background color used when imageUrl is absent
+  // hex background color used when imageRef is absent
   backgroundColor?: string
   // custom alt text for screen readers (falls back to label)
   altText?: string
@@ -52,15 +82,43 @@ export interface BoardSnapshot
   deletedItems: TierItem[]
 }
 
-// payload for adding new items (before IDs are assigned)
+// payload for adding new items (before IDs are assigned). the image
+// resizer is responsible for writing the blob to the IndexedDB store &
+// passing the resulting hash here
 export interface NewTierItem
 {
-  // base64 data URL produced by the image resizer (absent for text-only items)
+  // content-addressable reference to an already-stored image
+  imageRef?: TierItemImageRef
+  // inline data URL fallback when the local image store is unavailable
   imageUrl?: string
   // optional label derived from the source filename, required for text-only items
   label?: string
   // hex background color for text-only items
   backgroundColor?: string
+}
+
+// wire-format variant of `TierItem` used at JSON import/export boundaries
+// & at the share-link encode layer. carries a base64 `imageUrl` so exported
+// files stay self-contained — the import path decodes the base64 back into
+// the IndexedDB store & produces a `TierItem` w/ `imageRef` instead
+export interface TierItemWire
+{
+  id: ItemId
+  imageUrl?: string
+  label?: string
+  backgroundColor?: string
+  altText?: string
+}
+
+// wire-format variant of `BoardSnapshot` — same shape as in-memory but
+// items carry inline base64 image bytes instead of IndexedDB references
+export interface BoardSnapshotWire
+{
+  title: string
+  tiers: Tier[]
+  unrankedItemIds: ItemId[]
+  items: Record<ItemId, TierItemWire>
+  deletedItems: TierItemWire[]
 }
 
 // metadata entry for a single board in the multi-board registry
@@ -72,4 +130,14 @@ export interface BoardMeta
   title: string
   // epoch millis when the board was created
   createdAt: number
+}
+
+// cloud board list row returned by the Convex board listing queries
+export interface BoardListItem
+{
+  externalId: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  revision: number
 }

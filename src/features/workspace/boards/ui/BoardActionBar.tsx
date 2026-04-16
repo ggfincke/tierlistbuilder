@@ -65,7 +65,7 @@ interface BoardActionBarProps
   onReset: () => void
 }
 
-// * primary board action bar — rendered below the toolbar in App
+// primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
   toolbarPosition,
   exportStatus,

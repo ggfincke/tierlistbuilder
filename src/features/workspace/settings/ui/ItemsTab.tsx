@@ -4,7 +4,7 @@
 import { useCallback, useId, useState } from 'react'
 
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { fetchImageAsDataUrl } from '@/features/workspace/settings/lib/imageFromUrl'
+import { fetchImageAsItemImage } from '@/features/workspace/settings/lib/imageFromUrl'
 import { ColorInput } from '@/shared/ui/ColorInput'
 import { SecondaryButton } from '@/shared/ui/SecondaryButton'
 import { TextInput } from '@/shared/ui/TextInput'
@@ -67,8 +67,8 @@ export const ItemsTab = ({
 
     try
     {
-      const result = await fetchImageAsDataUrl(trimmed)
-      addItems([{ imageUrl: result.imageUrl, label: result.label }])
+      const result = await fetchImageAsItemImage(trimmed)
+      addItems([result])
       setImageUrl('')
     }
     catch (err)

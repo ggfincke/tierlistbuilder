@@ -1,38 +1,92 @@
 // convex/workspace/boards/mutations.ts
-// board mutations — all stubbed; real implementations land in the cloud sync PR
+// board mutations — create, rename, & soft-delete owned boards
 
-import { mutation } from '../../_generated/server'
 import { v } from 'convex/values'
+import { mutation } from '../../_generated/server'
+import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
+import { requireCurrentUser } from '../../lib/auth'
+import { newBoardExternalId } from '../../lib/ids'
+import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
 
 // create a new empty board for the authenticated caller
-// todo: implement in cloud sync PR
 export const createBoard = mutation({
   args: { title: v.string() },
-  handler: async (_ctx, _args) =>
+  handler: async (ctx, args): Promise<{ externalId: string }> =>
   {
-    throw new Error('not implemented: createBoard — cloud sync PR')
+    const user = await requireCurrentUser(ctx)
+    const now = Date.now()
+    const externalId = newBoardExternalId()
+
+    await ctx.db.insert('boards', {
+      externalId,
+      ownerId: user._id,
+      title: normalizeBoardTitle(args.title),
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      revision: 0,
+    })
+
+    return { externalId }
   },
 })
 
-// rename an existing board owned by the caller
-// todo: implement in cloud sync PR
+// rename an existing owned board
 export const updateBoardMeta = mutation({
   args: {
     boardExternalId: v.string(),
     title: v.optional(v.string()),
   },
-  handler: async (_ctx, _args) =>
+  handler: async (ctx, args): Promise<null> =>
   {
-    throw new Error('not implemented: updateBoardMeta — cloud sync PR')
+    const user = await requireCurrentUser(ctx)
+    const board = await requireBoardOwnershipByExternalId(
+      ctx,
+      args.boardExternalId,
+      user._id
+    )
+
+    if (board.deletedAt !== null)
+    {
+      throw new Error('cannot update a deleted board')
+    }
+
+    if (args.title === undefined)
+    {
+      return null
+    }
+
+    await ctx.db.patch(board._id, {
+      title: normalizeBoardTitle(args.title),
+      updatedAt: Date.now(),
+    })
+
+    return null
   },
 })
 
-// soft-delete a board — sets deletedAt, does not cascade tiers/items
-// todo: implement in cloud sync PR; permanent delete happens in a scheduled job
+// soft-delete an owned board
 export const deleteBoard = mutation({
   args: { boardExternalId: v.string() },
-  handler: async (_ctx, _args) =>
+  handler: async (ctx, args): Promise<null> =>
   {
-    throw new Error('not implemented: deleteBoard — cloud sync PR')
+    const user = await requireCurrentUser(ctx)
+    const board = await requireBoardOwnershipByExternalId(
+      ctx,
+      args.boardExternalId,
+      user._id
+    )
+
+    if (board.deletedAt !== null)
+    {
+      return null
+    }
+
+    await ctx.db.patch(board._id, {
+      deletedAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+
+    return null
   },
 })

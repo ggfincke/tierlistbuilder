@@ -1,6 +1,6 @@
 // src/features/workspace/boards/model/useActiveBoardStore.ts
 // * active board store — composes board data, selection, drag preview,
-// * keyboard, undo, & runtime-error slices into a single Zustand store
+// keyboard, undo, & runtime-error slices into a single Zustand store
 
 import { create } from 'zustand'
 

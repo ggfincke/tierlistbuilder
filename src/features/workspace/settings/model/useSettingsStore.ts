@@ -23,6 +23,7 @@ import {
   SETTINGS_STORAGE_KEY,
   SETTINGS_STORAGE_VERSION,
 } from '../data/local/settingsStorage'
+import { migrateSettingsState } from './settingsStorageMigration'
 
 const DEFAULT_SETTINGS: AppSettings = {
   itemSize: 'medium',
@@ -144,6 +145,8 @@ export const useSettingsStore = create<SettingsStore>()(
       name: SETTINGS_STORAGE_KEY,
       storage: createAppPersistStorage(),
       version: SETTINGS_STORAGE_VERSION,
+      migrate: (persistedState) =>
+        migrateSettingsState(persistedState, DEFAULT_SETTINGS),
     }
   )
 )

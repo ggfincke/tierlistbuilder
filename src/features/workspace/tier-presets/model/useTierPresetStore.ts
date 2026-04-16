@@ -11,6 +11,7 @@ import {
   PRESET_STORAGE_KEY,
   PRESET_STORAGE_VERSION,
 } from '../data/local/tierPresetStorage'
+import { migrateTierPresetState } from './tierPresetStorageMigration'
 
 interface TierPresetStore
 {
@@ -46,6 +47,7 @@ export const useTierPresetStore = create<TierPresetStore>()(
       name: PRESET_STORAGE_KEY,
       storage: createAppPersistStorage(),
       version: PRESET_STORAGE_VERSION,
+      migrate: migrateTierPresetState,
     }
   )
 )
