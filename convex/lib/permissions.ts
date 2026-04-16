@@ -3,10 +3,13 @@
 
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
+import { requireCurrentUserId } from './auth'
 
 type BoardOwnershipCtx = QueryCtx | MutationCtx
+type MediaOwnershipCtx = QueryCtx | MutationCtx
 
-// assert the caller owns the given board — throws if not found or not theirs
+// low-level: assert the caller owns the given board — throws if not found or
+// not theirs. prefer requireOwnedBoard() unless you already have userId
 export const requireBoardOwnership = async (
   ctx: BoardOwnershipCtx,
   boardId: Id<'boards'>,
@@ -25,30 +28,86 @@ export const requireBoardOwnership = async (
   return board
 }
 
-// assert the caller owns the board resolved from an externalId
+// high-level: derive the caller & enforce ownership in one call. returns
+// both the board & the resolved userId so handlers don't need a second
+// requireCurrentUserId round trip
+export const requireOwnedBoard = async (
+  ctx: BoardOwnershipCtx,
+  boardId: Id<'boards'>
+): Promise<{ board: Doc<'boards'>; userId: Id<'users'> }> =>
+{
+  const userId = await requireCurrentUserId(ctx)
+  const board = await requireBoardOwnership(ctx, boardId, userId)
+  return { board, userId }
+}
+
+// resolve one owned board by externalId (including soft-deleted rows).
+// callers that care about soft-deletes must filter themselves — most callers
+// want findOwnedActiveBoardByExternalId instead
+export const findOwnedBoardByExternalIdIncludingDeleted = async (
+  ctx: BoardOwnershipCtx,
+  externalId: string,
+  userId: Id<'users'>
+): Promise<Doc<'boards'> | null> =>
+  await ctx.db
+    .query('boards')
+    .withIndex('byOwnerAndExternalId', (q) =>
+      q.eq('ownerId', userId).eq('externalId', externalId)
+    )
+    .unique()
+
+// resolve one owned active (non-soft-deleted) board by externalId. returns
+// null for both "never existed" & "soft-deleted" cases — callers that need
+// to distinguish those should use the includesDeleted variant
+export const findOwnedActiveBoardByExternalId = async (
+  ctx: BoardOwnershipCtx,
+  externalId: string,
+  userId: Id<'users'>
+): Promise<Doc<'boards'> | null> =>
+{
+  const board = await findOwnedBoardByExternalIdIncludingDeleted(
+    ctx,
+    externalId,
+    userId
+  )
+  return board && board.deletedAt === null ? board : null
+}
+
+// assert the caller owns the board resolved from an externalId. matches the
+// includesDeleted variant so callers (e.g. the delete mutation) can make
+// their own call about what to do w/ a soft-deleted row
 export const requireBoardOwnershipByExternalId = async (
   ctx: BoardOwnershipCtx,
   externalId: string,
   userId: Id<'users'>
 ): Promise<Doc<'boards'>> =>
 {
-  const board = await ctx.db
-    .query('boards')
-    .withIndex('byExternalId', (q) => q.eq('externalId', externalId))
-    .unique()
+  const board = await findOwnedBoardByExternalIdIncludingDeleted(
+    ctx,
+    externalId,
+    userId
+  )
 
   if (!board)
   {
     throw new Error('board not found')
   }
 
-  if (board.ownerId !== userId)
-  {
-    throw new Error('forbidden: caller does not own board')
-  }
-
   return board
 }
+
+// resolve one owned media asset by externalId, or null if it doesn't exist
+export const findOwnedMediaAssetByExternalId = async (
+  ctx: MediaOwnershipCtx,
+  externalId: string,
+  userId: Id<'users'>
+): Promise<Doc<'mediaAssets'> | null> =>
+  await ctx.db
+    .query('mediaAssets')
+    .withIndex('byOwnerAndExternalId', (q) =>
+      q.eq('ownerId', userId).eq('externalId', externalId)
+    )
+    .unique()
 
 // assert the caller owns the given preset — throws if not found or not theirs
 export const requireTierPresetOwnership = async (

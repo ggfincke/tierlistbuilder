@@ -81,6 +81,10 @@ export default defineSchema({
   })
     .index('byOwner', ['ownerId', 'updatedAt'])
     .index('byOwnerAndDeleted', ['ownerId', 'deletedAt'])
+    // ordered index powering getMyBoards — eq on (ownerId, deletedAt:null)
+    // & order('desc') yields active boards sorted by most-recently-updated
+    .index('byOwnerDeletedUpdatedAt', ['ownerId', 'deletedAt', 'updatedAt'])
+    .index('byOwnerAndExternalId', ['ownerId', 'externalId'])
     .index('byDeletedAt', ['deletedAt'])
     .index('byExternalId', ['externalId']),
 
@@ -113,6 +117,10 @@ export default defineSchema({
     order: v.number(),
     // soft delete timestamp — powers the deleted items restore panel
     deletedAt: v.union(v.number(), v.null()),
+    // client-supplied wall-clock stamp for the last edit. reserved for a
+    // future last-writer-wins conflict resolver — stored but not enforced.
+    // null/undefined on items that predate the field
+    clientUpdatedAt: v.optional(v.number()),
   })
     .index('byBoardAndTier', ['boardId', 'tierId', 'order'])
     .index('byMedia', ['mediaAssetId'])
@@ -131,9 +139,10 @@ export default defineSchema({
     width: v.number(),
     height: v.number(),
     byteSize: v.number(),
-    createdAt: v.number(),
+    createdAt: v.optional(v.number()),
   })
     .index('byExternalId', ['externalId'])
+    .index('byOwnerAndExternalId', ['ownerId', 'externalId'])
     .index('byOwnerAndHash', ['ownerId', 'contentHash']),
 
   // reusable tier structure owned by a user — independent of boards

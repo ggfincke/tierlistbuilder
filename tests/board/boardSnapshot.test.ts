@@ -4,8 +4,8 @@ import {
   createNewTier,
   resetBoardData,
   normalizeBoardSnapshot,
-} from '@/features/workspace/boards/model/boardSnapshot'
-import { normalizeCanonicalTierColorSpec } from '@/shared/theme/tierColors'
+} from '~/features/workspace/boards/model/boardSnapshot'
+import { normalizeCanonicalTierColorSpec } from '~/shared/theme/tierColors'
 
 describe('createInitialBoardData', () =>
 {

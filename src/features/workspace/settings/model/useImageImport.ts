@@ -3,8 +3,9 @@
 
 import { useCallback, useRef, useState } from 'react'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { processImageFiles } from '@/features/workspace/settings/lib/imageResize'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { processImageFiles } from '~/features/workspace/settings/lib/imageResize'
+import { pluralizeWord } from '~/shared/lib/pluralize'
 
 interface UseImageImportReturn
 {
@@ -64,14 +65,14 @@ export const useImageImport = (): UseImageImportReturn =>
         if (failedCount > 0)
         {
           messages.push(
-            `Skipped ${failedCount} image file${failedCount > 1 ? 's' : ''} that could not be processed.`
+            `Skipped ${failedCount} image ${pluralizeWord(failedCount, 'file')} that could not be processed.`
           )
         }
 
         if (skippedCount > 0)
         {
           messages.push(
-            `Skipped ${skippedCount} non-image file${skippedCount > 1 ? 's' : ''}.`
+            `Skipped ${skippedCount} non-image ${pluralizeWord(skippedCount, 'file')}.`
           )
         }
 

@@ -6,15 +6,15 @@ import { useShallow } from 'zustand/react/shallow'
 
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
-import { resolveTierColorSpec } from '@/shared/theme/tierColors'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import {
   BoardLabelCellFrame,
   TierDescriptionSubtitle,
-} from '@/shared/board-ui/BoardPrimitives'
+} from '~/shared/board-ui/BoardPrimitives'
 
 interface TierLabelProps
 {

@@ -16,28 +16,28 @@ import {
   createCustomTierColorSpec,
   getPaletteColors,
   resolveTierColorSpec,
-} from '@/shared/theme/tierColors'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
+} from '~/shared/theme/tierColors'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { ITEM_SIZE_PX } from '@/shared/board-ui/constants'
-import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '@/shared/overlay/uiMeasurements'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { ITEM_SIZE_PX } from '~/shared/board-ui/constants'
+import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '~/shared/overlay/uiMeasurements'
 import {
   computeColorPickerStyle,
   computeCustomColorPickerStyle,
-} from '@/shared/overlay/popupPosition'
-import { useAnchoredPopup } from '@/shared/overlay/useAnchoredPopup'
+} from '~/shared/overlay/popupPosition'
+import { useAnchoredPopup } from '~/shared/overlay/useAnchoredPopup'
 import {
   BoardItemsGrid,
   BoardRowContent,
   BoardRowSurface,
-} from '@/shared/board-ui/BoardPrimitives'
+} from '~/shared/board-ui/BoardPrimitives'
 import { TierItem } from './TierItem'
 import { TierLabel } from './TierLabel'
 import { TierRowSettingsMenu } from './TierRowSettingsMenu'
 import { ColorPicker, CustomColorPicker } from './ColorPicker'
-import { OverlayFixedPopupSurface } from '@/shared/overlay/OverlayPrimitives'
+import { OverlayFixedPopupSurface } from '~/shared/overlay/OverlayPrimitives'
 
 interface TierRowProps
 {

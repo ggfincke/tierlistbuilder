@@ -17,32 +17,32 @@ import {
   Unlock,
 } from 'lucide-react'
 
-import type { ImageFormat } from '@/shared/types/export'
+import type { ImageFormat } from '~/shared/types/export'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
-import { extractPresetFromBoard } from '@/features/workspace/tier-presets/model/tierPresets'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
-import { toast } from '@/shared/notifications/useToastStore'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useTierPresetStore } from '@/features/workspace/tier-presets/model/useTierPresetStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import { extractPresetFromBoard } from '~/features/workspace/tier-presets/model/tierPresets'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { toast } from '~/shared/notifications/useToastStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   useNestedMenus,
   type NestedMenuDefinition,
-} from '@/shared/overlay/useNestedMenus'
-import { useDismissibleLayer } from '@/shared/overlay/useDismissibleLayer'
+} from '~/shared/overlay/useNestedMenus'
+import { useDismissibleLayer } from '~/shared/overlay/useDismissibleLayer'
 import {
   getMenuPositionClasses,
   isVerticalPosition,
-} from '@/shared/layout/toolbarPosition'
-import { useMenuOverflowFlipRefs } from '@/shared/overlay/useMenuOverflowFlip'
-import { ActionButton } from '@/shared/ui/ActionButton'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
-import { ExportMenu } from '@/features/workspace/export/ui/ExportMenu'
+} from '~/shared/layout/toolbarPosition'
+import { useMenuOverflowFlipRefs } from '~/shared/overlay/useMenuOverflowFlip'
+import { ActionButton } from '~/shared/ui/ActionButton'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ExportMenu } from '~/features/workspace/export/ui/ExportMenu'
 import {
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '@/shared/overlay/OverlayPrimitives'
-import { SavePresetModal } from '@/features/workspace/tier-presets/ui/SavePresetModal'
+} from '~/shared/overlay/OverlayPrimitives'
+import { SavePresetModal } from '~/features/workspace/tier-presets/ui/SavePresetModal'
 
 type ShuffleMenuId = 'root' | 'shuffleAll'
 

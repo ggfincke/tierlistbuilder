@@ -3,11 +3,11 @@
 
 import { useCallback, useId, useState } from 'react'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { fetchImageAsItemImage } from '@/features/workspace/settings/lib/imageFromUrl'
-import { ColorInput } from '@/shared/ui/ColorInput'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-import { TextInput } from '@/shared/ui/TextInput'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { fetchImageAsItemImage } from '~/features/workspace/settings/lib/imageFromUrl'
+import { ColorInput } from '~/shared/ui/ColorInput'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { TextInput } from '~/shared/ui/TextInput'
 import { DeletedItemsSection } from './DeletedItemsSection'
 import { ImageUploader } from './ImageUploader'
 import { SettingsSection } from './SettingsSection'

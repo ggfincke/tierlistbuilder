@@ -3,7 +3,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 
-import type { PendingTextInput } from '@/features/workspace/annotation/model/useAnnotationCanvas'
+import type { PendingTextInput } from '~/features/workspace/annotation/model/useAnnotationCanvas'
 
 interface AnnotationCanvasProps
 {

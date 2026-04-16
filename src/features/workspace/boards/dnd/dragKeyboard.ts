@@ -1,9 +1,9 @@
 // src/features/workspace/boards/dnd/dragKeyboard.ts
 // keyboard navigation logic for drag-&-drop item movement
 
-import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
-import { clampIndex } from '@/shared/lib/math'
-import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
+import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
+import { clampIndex } from '~/shared/lib/math'
+import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   findContainer,

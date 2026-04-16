@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
-import { migrateSettingsState } from '@/features/workspace/settings/model/settingsStorageMigration'
-import { migrateTierPresetState } from '@/features/workspace/tier-presets/model/tierPresetStorageMigration'
+import { migrateSettingsState } from '~/features/workspace/settings/model/settingsStorageMigration'
+import { migrateTierPresetState } from '~/features/workspace/tier-presets/model/tierPresetStorageMigration'
 
 const DEFAULT_SETTINGS: AppSettings = {
   itemSize: 'medium',

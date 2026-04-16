@@ -7,6 +7,7 @@
   "exports": {
     ".": "./index.ts",
     "./workspace/board": "./workspace/board.ts",
+    "./workspace/cloudBoard": "./workspace/cloudBoard.ts",
     "./workspace/tierPreset": "./workspace/tierPreset.ts",
     "./workspace/settings": "./workspace/settings.ts",
     "./lib/ids": "./lib/ids.ts",

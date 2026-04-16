@@ -6,7 +6,7 @@ import { persist } from 'zustand/middleware'
 
 import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import { createAppPersistStorage } from '@/shared/lib/browserStorage'
+import { createAppPersistStorage } from '~/shared/lib/browserStorage'
 import { BOARD_REGISTRY_KEY } from '../data/local/boardRegistryStorage'
 
 interface WorkspaceBoardRegistryStore

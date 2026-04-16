@@ -1,8 +1,8 @@
 // src/features/workspace/settings/ui/ImageUploader.tsx
 // drag-&-drop & click-to-upload zone — resizes & adds images to the board
 
-import { useImageImport } from '@/features/workspace/settings/model/useImageImport'
-import { UploadDropzone } from '@/shared/ui/UploadDropzone'
+import { useImageImport } from '~/features/workspace/settings/model/useImageImport'
+import { UploadDropzone } from '~/shared/ui/UploadDropzone'
 
 export const ImageUploader = () =>
 {

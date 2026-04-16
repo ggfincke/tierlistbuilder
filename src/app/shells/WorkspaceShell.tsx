@@ -3,42 +3,44 @@
 
 import { lazy, Suspense, useCallback, useState, type MouseEvent } from 'react'
 
-import { useAppBootstrap } from '@/app/bootstrap/useAppBootstrap'
-import { useThemeApplicator } from '@/app/bootstrap/useThemeApplicator'
-import { BoardActionBar } from '@/features/workspace/boards/ui/BoardActionBar'
-import { BoardManager } from '@/features/workspace/boards/ui/BoardManager'
-import { BoardHeader } from '@/features/workspace/boards/ui/BoardHeader'
-import { BulkActionBar } from '@/features/workspace/boards/ui/BulkActionBar'
-import { TierList } from '@/features/workspace/boards/ui/TierList'
-import { useBoardTransition } from '@/features/workspace/boards/model/useBoardTransition'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { ExportProgressOverlay } from '@/features/workspace/export/ui/ExportProgressOverlay'
-import { useExportController } from '@/features/workspace/export/model/useExportController'
-import { getResponsiveToolbarPosition } from '@/shared/layout/toolbarPosition'
-import { getWorkspacePath } from '@/app/routes/pathname'
-import { BoardSettingsModal } from '@/features/workspace/settings/ui/BoardSettingsModal'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { ShortcutsPanel } from '@/features/workspace/shortcuts/ui/ShortcutsPanel'
-import { useGlobalShortcuts } from '@/features/workspace/shortcuts/model/useGlobalShortcuts'
-import { LiveRegion } from '@/shared/a11y/LiveRegion'
-import { useAboveBreakpoint } from '@/shared/hooks/useViewportWidth'
-import { ToastContainer } from '@/shared/notifications/ToastContainer'
-import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
-import type { ImageFormat } from '@/shared/types/export'
+import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
+import { useThemeApplicator } from '~/app/bootstrap/useThemeApplicator'
+import { BoardActionBar } from '~/features/workspace/boards/ui/BoardActionBar'
+import { BoardManager } from '~/features/workspace/boards/ui/BoardManager'
+import { BoardHeader } from '~/features/workspace/boards/ui/BoardHeader'
+import { BulkActionBar } from '~/features/workspace/boards/ui/BulkActionBar'
+import { TierList } from '~/features/workspace/boards/ui/TierList'
+import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { ExportProgressOverlay } from '~/features/workspace/export/ui/ExportProgressOverlay'
+import { useExportController } from '~/features/workspace/export/model/useExportController'
+import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
+import { getWorkspacePath } from '~/app/routes/pathname'
+import { BoardSettingsModal } from '~/features/workspace/settings/ui/BoardSettingsModal'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { ShortcutsPanel } from '~/features/workspace/shortcuts/ui/ShortcutsPanel'
+import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { useCloudSync } from '~/features/platform/sync/useCloudSync'
+import { LiveRegion } from '~/shared/a11y/LiveRegion'
+import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
+import { ToastContainer } from '~/shared/notifications/ToastContainer'
+import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
+import type { ImageFormat } from '~/shared/types/export'
 
 const AnnotationEditor = lazy(() =>
-  import('@/features/workspace/annotation/ui/AnnotationEditor').then((m) => ({
+  import('~/features/workspace/annotation/ui/AnnotationEditor').then((m) => ({
     default: m.AnnotationEditor,
   }))
 )
 const ExportPreviewModal = lazy(() =>
-  import('@/features/workspace/export/ui/ExportPreviewModal').then((m) => ({
+  import('~/features/workspace/export/ui/ExportPreviewModal').then((m) => ({
     default: m.ExportPreviewModal,
   }))
 )
 const StatsModal = lazy(() =>
-  import('@/features/workspace/stats/ui/StatsModal').then((m) => ({
+  import('~/features/workspace/stats/ui/StatsModal').then((m) => ({
     default: m.StatsModal,
   }))
 )
@@ -65,6 +67,9 @@ export const WorkspaceShell = () =>
   )
 
   useThemeApplicator()
+
+  const authSession = useAuthSession()
+  useCloudSync(authSession.status === 'signed-in' ? authSession.user : null)
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
   const {

@@ -6,7 +6,7 @@ import { persist } from 'zustand/middleware'
 
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { PresetId } from '@tierlistbuilder/contracts/lib/ids'
-import { createAppPersistStorage } from '@/shared/lib/browserStorage'
+import { createAppPersistStorage } from '~/shared/lib/browserStorage'
 import {
   PRESET_STORAGE_KEY,
   PRESET_STORAGE_VERSION,

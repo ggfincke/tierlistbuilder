@@ -6,11 +6,11 @@ import type {
   TierPresetTier,
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { PresetId } from '@tierlistbuilder/contracts/lib/ids'
-import { isRecord } from '@/shared/lib/typeGuards'
+import { isRecord } from '~/shared/lib/typeGuards'
 import {
   createPaletteTierColorSpec,
   normalizeCanonicalTierColorSpec,
-} from '@/shared/theme/tierColors'
+} from '~/shared/theme/tierColors'
 
 const normalizePresetTier = (
   value: unknown,

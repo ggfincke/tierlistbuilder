@@ -5,16 +5,18 @@ import type {
   BoardSnapshot,
   BoardSnapshotWire,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance, ImageFormat } from '@/shared/types/export'
-import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
+import type { ExportAppearance, ImageFormat } from '~/shared/types/export'
+import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/boardStorage'
 import {
   loadPersistedBoard,
   saveActiveBoardSnapshot,
-} from '@/features/workspace/boards/data/local/localBoardSession'
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { toFileBase } from '@/shared/lib/fileName'
-import { mapAsyncLimit } from '@/shared/lib/asyncMapLimit'
-import { mapSnapshotItems } from '@/shared/lib/boardSnapshotItems'
+} from '~/features/workspace/boards/data/local/localBoardSession'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { toFileBase } from '~/shared/lib/fileName'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
 import { withExportSession } from './exportBoardRender'
@@ -22,7 +24,7 @@ import {
   collectSnapshotImageHashes,
   snapshotToWireWithBlobs,
 } from './boardWireMapper'
-import { getBlobsBatch } from '@/shared/images/imageStore'
+import { getBlobsBatch } from '~/shared/images/imageStore'
 
 const BOARD_JSON_EXPORT_CONCURRENCY = 2
 
@@ -66,14 +68,20 @@ const loadAllBoardData = (): Array<{
   data: BoardSnapshot
 }> =>
 {
-  const { boards } = useWorkspaceBoardRegistryStore.getState()
+  const { boards, activeBoardId } = useWorkspaceBoardRegistryStore.getState()
 
   saveActiveBoardSnapshot()
 
+  const activeBoardData = activeBoardId
+    ? extractBoardData(useActiveBoardStore.getState())
+    : null
   const results: Array<{ id: string; title: string; data: BoardSnapshot }> = []
   for (const board of boards)
   {
-    const data = loadPersistedBoard(board.id)
+    const data =
+      activeBoardId === board.id && activeBoardData
+        ? activeBoardData
+        : loadPersistedBoard(board.id)
     results.push({ id: board.id, title: board.title, data })
   }
   return results

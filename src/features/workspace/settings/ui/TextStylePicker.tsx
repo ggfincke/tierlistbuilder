@@ -1,9 +1,9 @@
 // src/features/workspace/settings/ui/TextStylePicker.tsx
 // row of clickable text style previews for the Appearance section
 
-import { useRovingSelection } from '@/shared/selection/useRovingSelection'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { TEXT_STYLES } from '@/shared/theme'
+import { useRovingSelection } from '~/shared/selection/useRovingSelection'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { TEXT_STYLES } from '~/shared/theme'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 
 const STYLE_OPTIONS: { id: TextStyleId; label: string }[] = [

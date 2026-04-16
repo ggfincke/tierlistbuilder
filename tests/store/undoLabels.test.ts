@@ -3,8 +3,8 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 
 const resetStore = () =>
 {

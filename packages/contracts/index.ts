@@ -5,5 +5,6 @@
 export * from './lib/ids'
 export * from './lib/theme'
 export * from './workspace/board'
+export * from './workspace/cloudBoard'
 export * from './workspace/tierPreset'
 export * from './workspace/settings'

@@ -5,7 +5,7 @@ import {
   applyContainerSnapshotToTiers,
   createContainerSnapshot,
   isSnapshotConsistent,
-} from '@/features/workspace/boards/dnd/dragSnapshot'
+} from '~/features/workspace/boards/dnd/dragSnapshot'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { selectionUpdate } from './helpers'
 import { pushUndo } from './undoSlice'

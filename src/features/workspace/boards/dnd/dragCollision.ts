@@ -12,14 +12,14 @@ import {
 } from '@dnd-kit/core'
 
 import { toStringId } from './dragHelpers'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { TRASH_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import {
   findContainer,
   getEffectiveContainerSnapshot,
   getItemsInContainer,
-} from '@/features/workspace/boards/dnd/dragSnapshot'
-import { isPointerInTrailingLastRowSpace } from '@/features/workspace/boards/dnd/dragPointerMath'
+} from '~/features/workspace/boards/dnd/dragSnapshot'
+import { isPointerInTrailingLastRowSpace } from '~/features/workspace/boards/dnd/dragPointerMath'
 
 export const resolveDragCollisions = (
   args: Parameters<CollisionDetection>[0],

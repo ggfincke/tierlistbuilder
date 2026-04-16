@@ -3,17 +3,17 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
 import {
   createBoardDataFromPreset,
   extractPresetFromBoard,
-} from '@/features/workspace/tier-presets/model/tierPresets'
+} from '~/features/workspace/tier-presets/model/tierPresets'
 import {
   areTierColorSpecsEqual,
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
-} from '@/shared/theme/tierColors'
+} from '~/shared/theme/tierColors'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 

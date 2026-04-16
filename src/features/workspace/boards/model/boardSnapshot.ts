@@ -6,8 +6,8 @@ import {
   DEFAULT_TIER_NAMES,
   DEFAULT_TITLE,
   buildDefaultTiers,
-} from '@/features/workspace/boards/lib/boardDefaults'
-import { generateTierId, isTierId } from '@/shared/lib/id'
+} from '~/features/workspace/boards/lib/boardDefaults'
+import { generateTierId, isTierId } from '~/shared/lib/id'
 import type {
   BoardSnapshot,
   Tier,
@@ -17,7 +17,7 @@ import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import {
   getAutoTierColorSpec,
   normalizeCanonicalTierColorSpec,
-} from '@/shared/theme/tierColors'
+} from '~/shared/theme/tierColors'
 import type { ActiveBoardRuntimeState } from './runtime'
 
 interface RawTier
@@ -100,12 +100,69 @@ export const createNewTier = (
   itemIds: [],
 })
 
-export const extractBoardData = (
-  state: Pick<
-    ActiveBoardRuntimeState,
-    'title' | 'tiers' | 'unrankedItemIds' | 'items' | 'deletedItems'
-  >
-): BoardSnapshot => ({
+// canonical list of BoardSnapshot keys that constitute persisted board data
+export const BOARD_DATA_FIELDS = [
+  'title',
+  'tiers',
+  'unrankedItemIds',
+  'items',
+  'deletedItems',
+] as const satisfies ReadonlyArray<keyof BoardSnapshot>
+
+type BoardDataState = Pick<
+  ActiveBoardRuntimeState,
+  'title' | 'tiers' | 'unrankedItemIds' | 'items' | 'deletedItems'
+>
+
+export type BoardDataSelection = [
+  BoardDataState['title'],
+  BoardDataState['tiers'],
+  BoardDataState['unrankedItemIds'],
+  BoardDataState['items'],
+  BoardDataState['deletedItems'],
+]
+
+export const selectBoardDataFields = (
+  state: BoardDataState
+): BoardDataSelection => [
+  state.title,
+  state.tiers,
+  state.unrankedItemIds,
+  state.items,
+  state.deletedItems,
+]
+
+export const boardDataFieldsEqual = (
+  a: BoardDataSelection,
+  b: BoardDataSelection
+): boolean =>
+{
+  if (a.length !== b.length)
+  {
+    return false
+  }
+
+  for (let i = 0; i < a.length; i++)
+  {
+    if (a[i] !== b[i])
+    {
+      return false
+    }
+  }
+
+  return true
+}
+
+export const boardDataFieldsChanged = (
+  state: BoardDataState,
+  prevState: BoardDataState
+): boolean =>
+  !boardDataFieldsEqual(
+    selectBoardDataFields(state),
+    selectBoardDataFields(prevState)
+  )
+
+export const extractBoardData = (state: BoardDataState): BoardSnapshot => ({
   title: state.title,
   tiers: state.tiers,
   unrankedItemIds: state.unrankedItemIds,

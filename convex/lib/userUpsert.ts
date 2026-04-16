@@ -35,9 +35,13 @@ export const upsertAppUserFields = async (
 
   // first sign-in — populate app-owned fields. fall back to the auth
   // library's name field for displayName, or the email local-part if no
-  // name is present (e.g. github accounts w/o a public display name)
+  // name is present (e.g. github accounts w/o a public display name).
+  // guard against malformed email (empty local part) so we don't set an
+  // empty displayName that would break downstream UI assumptions
+  const emailLocalPart = user.email?.split('@')[0]?.trim()
   const fallbackName =
-    user.name ?? (user.email ? user.email.split('@')[0] : 'New user')
+    user.name ??
+    (emailLocalPart && emailLocalPart.length > 0 ? emailLocalPart : 'New user')
 
   await ctx.db.patch(userId, {
     externalId: newUserExternalId(),

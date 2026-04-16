@@ -3,9 +3,9 @@
 
 import type { ClientRect } from '@dnd-kit/core'
 
-import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
-import { RENDERED_ROW_TOP_TOLERANCE_PX } from '@/shared/overlay/uiMeasurements'
-import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
+import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
+import { RENDERED_ROW_TOP_TOLERANCE_PX } from '~/shared/overlay/uiMeasurements'
+import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export const sortByRenderedPosition = <

@@ -3,8 +3,8 @@
 
 import { useCallback, useRef, useState } from 'react'
 
-import { triggerDownload } from '@/features/workspace/export/lib/exportImage'
-import { toFileBase } from '@/shared/lib/fileName'
+import { triggerDownload } from '~/features/workspace/export/lib/exportImage'
+import { toFileBase } from '~/shared/lib/fileName'
 
 export interface StrokePoint
 {

@@ -4,14 +4,14 @@
 import { useId, useRef, useState } from 'react'
 import { Check, Copy, Download, Highlighter } from 'lucide-react'
 
-import type { ImageFormat } from '@/shared/types/export'
+import type { ImageFormat } from '~/shared/types/export'
 import {
   FORMAT_LABELS,
   IMAGE_FORMATS,
-} from '@/features/workspace/export/lib/constants'
-import { useClipboardCopy } from '@/shared/hooks/useClipboardCopy'
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+} from '~/features/workspace/export/lib/constants'
+import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
 interface ExportPreviewModalProps
 {

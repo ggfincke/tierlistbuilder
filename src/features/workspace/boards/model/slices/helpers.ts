@@ -6,7 +6,7 @@ import {
   EMPTY_SELECTION_SET,
   type ActiveBoardRuntimeState,
   type KeyboardMode,
-} from '@/features/workspace/boards/model/runtime'
+} from '~/features/workspace/boards/model/runtime'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 // max entries kept in the undo & redo stacks

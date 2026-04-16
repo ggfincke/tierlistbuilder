@@ -1,14 +1,14 @@
 // src/features/workspace/export/lib/exportJson.ts
 // JSON export & import utilities for board data
 
-import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
+import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
 import type {
   BoardSnapshot,
   BoardSnapshotWire,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
-import { isRecord } from '@/shared/lib/typeGuards'
-import { toFileBase } from '@/shared/lib/fileName'
+import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/boardStorage'
+import { isRecord } from '~/shared/lib/typeGuards'
+import { toFileBase } from '~/shared/lib/fileName'
 import { triggerDownload } from './exportImage'
 import { snapshotToWire, wireToSnapshot } from './boardWireMapper'
 

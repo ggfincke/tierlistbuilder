@@ -6,12 +6,12 @@ import type {
   TierPreset,
   TierPresetTier,
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import { DEFAULT_TITLE } from '@/features/workspace/boards/lib/boardDefaults'
-import { generatePresetId, generateTierId } from '@/shared/lib/id'
+import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
+import { generatePresetId, generateTierId } from '~/shared/lib/id'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
-} from '@/shared/theme/tierColors'
+} from '~/shared/theme/tierColors'
 
 export const BUILTIN_PRESETS: TierPreset[] = [
   {

@@ -4,21 +4,21 @@
 import { useEffect, useState } from 'react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { resolveTierColorSpec } from '@/shared/theme/tierColors'
-import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
+import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
 import {
   decodeBoardFromShareFragment,
   getShareFragment,
-} from '@/features/workspace/sharing/lib/hashShare'
-import { ITEM_SIZE_PX, SHAPE_CLASS } from '@/shared/board-ui/constants'
-import { ItemContent } from '@/shared/board-ui/ItemContent'
+} from '~/features/workspace/sharing/lib/hashShare'
+import { ITEM_SIZE_PX, SHAPE_CLASS } from '~/shared/board-ui/constants'
+import { ItemContent } from '~/shared/board-ui/ItemContent'
 import {
   BoardItemsGrid,
   BoardLabelCellFrame,
   BoardRowContent,
   BoardRowSurface,
   TierDescriptionSubtitle,
-} from '@/shared/board-ui/BoardPrimitives'
+} from '~/shared/board-ui/BoardPrimitives'
 
 // load embed data from the URL share fragment
 const loadEmbedData = async (): Promise<BoardSnapshot | null> =>

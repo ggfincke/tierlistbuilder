@@ -4,14 +4,14 @@
 // slice so future template gallery & community views can render the same
 // account surface w/o reaching into settings code
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LogIn, LogOut } from 'lucide-react'
 
-import { useAuthActions } from '@/features/platform/auth/model/useAuthActions'
-import { useAuthSession } from '@/features/platform/auth/model/useAuthSession'
-import { SignInModal } from '@/features/platform/auth/ui/SignInModal'
-import { SettingsSection } from '@/features/workspace/settings/ui/SettingsSection'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { SignInModal } from '~/features/platform/auth/ui/SignInModal'
+import { SettingsSection } from '~/features/workspace/settings/ui/SettingsSection'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
 export const AccountSection = () =>
 {
@@ -19,6 +19,17 @@ export const AccountSection = () =>
   const { signOut } = useAuthActions()
   const [showSignIn, setShowSignIn] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  // sign-out swaps the session state, which in turn usually unmounts the
+  // account section (the signed-in branch disappears). guard the state
+  // update so we never call setSigningOut on an unmounted component
+  const isMountedRef = useRef(true)
+  useEffect(
+    () => () =>
+    {
+      isMountedRef.current = false
+    },
+    []
+  )
 
   const handleSignOut = async () =>
   {
@@ -29,7 +40,10 @@ export const AccountSection = () =>
     }
     finally
     {
-      setSigningOut(false)
+      if (isMountedRef.current)
+      {
+        setSigningOut(false)
+      }
     }
   }
 

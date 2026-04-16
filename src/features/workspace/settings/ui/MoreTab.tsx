@@ -9,18 +9,18 @@ import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset
 import {
   createBoardSession,
   createBoardSessionFromPreset,
-} from '@/features/workspace/boards/data/local/localBoardSession'
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { ColorInput } from '@/shared/ui/ColorInput'
+} from '~/features/workspace/boards/data/local/localBoardSession'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { ColorInput } from '~/shared/ui/ColorInput'
 import {
   STORAGE_NEAR_FULL_MESSAGE,
   STORAGE_QUOTA_BYTES,
-} from '@/shared/lib/storageMetering'
-import { THEMES } from '@/shared/theme/tokens'
-import { PresetPickerModal } from '@/features/workspace/tier-presets/ui/PresetPickerModal'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-import { ShortcutsList } from '@/features/workspace/shortcuts/ui/ShortcutsList'
+} from '~/shared/lib/storageMetering'
+import { THEMES } from '~/shared/theme/tokens'
+import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
 import { SettingRow } from './SettingRow'
 import { SettingsSection } from './SettingsSection'
 import { Toggle } from './Toggle'

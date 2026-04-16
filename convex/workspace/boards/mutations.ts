@@ -4,7 +4,7 @@
 import { v } from 'convex/values'
 import { mutation } from '../../_generated/server'
 import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
-import { requireCurrentUser } from '../../lib/auth'
+import { requireCurrentUserId } from '../../lib/auth'
 import { newBoardExternalId } from '../../lib/ids'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
 
@@ -13,13 +13,13 @@ export const createBoard = mutation({
   args: { title: v.string() },
   handler: async (ctx, args): Promise<{ externalId: string }> =>
   {
-    const user = await requireCurrentUser(ctx)
+    const userId = await requireCurrentUserId(ctx)
     const now = Date.now()
     const externalId = newBoardExternalId()
 
     await ctx.db.insert('boards', {
       externalId,
-      ownerId: user._id,
+      ownerId: userId,
       title: normalizeBoardTitle(args.title),
       createdAt: now,
       updatedAt: now,
@@ -39,11 +39,11 @@ export const updateBoardMeta = mutation({
   },
   handler: async (ctx, args): Promise<null> =>
   {
-    const user = await requireCurrentUser(ctx)
+    const userId = await requireCurrentUserId(ctx)
     const board = await requireBoardOwnershipByExternalId(
       ctx,
       args.boardExternalId,
-      user._id
+      userId
     )
 
     if (board.deletedAt !== null)
@@ -70,11 +70,11 @@ export const deleteBoard = mutation({
   args: { boardExternalId: v.string() },
   handler: async (ctx, args): Promise<null> =>
   {
-    const user = await requireCurrentUser(ctx)
+    const userId = await requireCurrentUserId(ctx)
     const board = await requireBoardOwnershipByExternalId(
       ctx,
       args.boardExternalId,
-      user._id
+      userId
     )
 
     if (board.deletedAt !== null)

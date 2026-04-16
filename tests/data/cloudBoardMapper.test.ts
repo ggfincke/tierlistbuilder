@@ -1,0 +1,157 @@
+import { describe, expect, it } from 'vitest'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
+import type { BoardImageUploadResult } from '~/features/workspace/boards/data/cloud/imageUploader'
+import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
+
+const makeSnapshot = (item: BoardSnapshot['items'][string]): BoardSnapshot =>
+{
+  const itemId = asItemId('item-1')
+
+  return {
+    title: 'Board',
+    tiers: [
+      {
+        id: 'tier-s',
+        name: 'S',
+        colorSpec: createPaletteTierColorSpec(0),
+        itemIds: [itemId],
+      },
+    ],
+    unrankedItemIds: [],
+    items: {
+      [itemId]: {
+        ...item,
+        id: itemId,
+      },
+    },
+    deletedItems: [],
+  }
+}
+
+const emptyUploadResult = (): BoardImageUploadResult => ({
+  mediaExternalIdByHash: new Map(),
+  mediaExternalIdByItemId: new Map(),
+})
+
+describe('snapshotToCloudPayload media mapping', () =>
+{
+  it('prefers a freshly uploaded mediaExternalId when present', () =>
+  {
+    const payload = snapshotToCloudPayload(
+      makeSnapshot({
+        id: asItemId('item-1'),
+        imageRef: {
+          hash: 'hash-1',
+          cloudMediaExternalId: 'media-old',
+        },
+      }),
+      {
+        ...emptyUploadResult(),
+        mediaExternalIdByHash: new Map([['hash-1', 'media-new']]),
+      }
+    )
+
+    expect(payload.items[0].mediaExternalId).toBe('media-new')
+  })
+
+  it('falls back to the existing cloud media id when upload resolution is missing', () =>
+  {
+    const payload = snapshotToCloudPayload(
+      makeSnapshot({
+        id: asItemId('item-1'),
+        imageRef: {
+          hash: 'hash-1',
+          cloudMediaExternalId: 'media-existing',
+        },
+      }),
+      emptyUploadResult()
+    )
+
+    expect(payload.items[0].mediaExternalId).toBe('media-existing')
+  })
+
+  it('uses inline-image upload results when the item has no imageRef', () =>
+  {
+    const payload = snapshotToCloudPayload(
+      makeSnapshot({
+        id: asItemId('item-1'),
+        imageUrl: 'data:image/png;base64,AAAA',
+      }),
+      {
+        ...emptyUploadResult(),
+        mediaExternalIdByItemId: new Map([
+          [asItemId('item-1'), 'media-inline'],
+        ]),
+      }
+    )
+
+    expect(payload.items[0].mediaExternalId).toBe('media-inline')
+  })
+
+  it('throws when a legacy inline image cannot be uploaded (matching hash-backed behavior)', () =>
+  {
+    // the uploader is now all-or-nothing; an unresolved inline image at
+    // mapping time is a bug we want to surface loudly rather than silently
+    // drop a reference on the wire (which would leave items pointing at
+    // nothing across devices)
+    expect(() =>
+      snapshotToCloudPayload(
+        makeSnapshot({
+          id: asItemId('item-1'),
+          imageUrl: 'data:image/png;base64,AAAA',
+        }),
+        emptyUploadResult()
+      )
+    ).toThrow('Unable to sync image')
+  })
+
+  it('throws when a hash-backed image has no upload mapping or cloud id', () =>
+  {
+    expect(() =>
+      snapshotToCloudPayload(
+        makeSnapshot({
+          id: asItemId('item-1'),
+          imageRef: { hash: 'hash-1' },
+        }),
+        emptyUploadResult()
+      )
+    ).toThrow('Unable to sync image')
+  })
+
+  it('sends an explicit media clear when an item has no image', () =>
+  {
+    const payload = snapshotToCloudPayload(
+      makeSnapshot({
+        id: asItemId('item-1'),
+        label: 'Text only',
+      }),
+      emptyUploadResult()
+    )
+
+    expect(payload.items[0].mediaExternalId).toBeNull()
+  })
+
+  it('uses the deleted-item sentinel order', () =>
+  {
+    const itemId = asItemId('item-deleted')
+    const payload = snapshotToCloudPayload(
+      {
+        title: 'Board',
+        tiers: [],
+        unrankedItemIds: [],
+        items: {},
+        deletedItems: [
+          {
+            id: itemId,
+            label: 'Deleted',
+          },
+        ],
+      },
+      emptyUploadResult()
+    )
+
+    expect(payload.items[0].order).toBe(-1)
+  })
+})

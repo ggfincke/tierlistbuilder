@@ -7,11 +7,11 @@ import type {
   TierItem,
   TierItemWire,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { blobToDataUrl } from '@/shared/lib/binaryCodec'
-import { mapAsyncLimit } from '@/shared/lib/asyncMapLimit'
-import { collectSnapshotImageHashes } from '@/shared/lib/boardSnapshotItems'
-import { getBlobsBatch } from '@/shared/images/imageStore'
-import { isRecord } from '@/shared/lib/typeGuards'
+import { blobToDataUrl } from '~/shared/lib/binaryCodec'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
+import { getBlobsBatch } from '~/shared/images/imageStore'
+import { isRecord } from '~/shared/lib/typeGuards'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
 
