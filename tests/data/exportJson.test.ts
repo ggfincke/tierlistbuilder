@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseBoardJson,
+  parseBoardSnapshotJson,
   parseBoardsJson,
 } from '@/features/workspace/export/lib/exportJson'
 import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
@@ -258,6 +259,52 @@ describe('parseBoardJson', () =>
     const result = parseBoardJson(JSON.stringify(noTitle))
     expect(result.title).toBe('Imported Tier List')
   })
+
+  it('preserves inline imageUrl values for later migration', () =>
+  {
+    const board = makeValidBoard({
+      items: {
+        'item-1': {
+          id: 'item-1',
+          imageUrl: 'data:image/png;base64,AA==',
+        },
+        'item-2': { id: 'item-2', label: 'Second' },
+      },
+    })
+
+    const result = parseBoardJson(wrapEnvelope(board))
+    expect(result.items['item-1'].imageUrl).toBe('data:image/png;base64,AA==')
+  })
+
+  it('rejects local-only imageRef entries without inline image bytes', () =>
+  {
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        title: 'Broken Export',
+        tiers: [
+          {
+            id: 'tier-s',
+            name: 'S',
+            colorSpec: { kind: 'palette', index: 0 },
+            itemIds: ['item-1'],
+          },
+        ],
+        items: {
+          'item-1': {
+            id: 'item-1',
+            imageRef: { hash: 'abc123' },
+          },
+        },
+        deletedItems: [],
+        unrankedItemIds: [],
+      },
+    }
+
+    expect(() => parseBoardJson(JSON.stringify(payload))).toThrow(
+      'uses a local imageRef without inline imageUrl bytes'
+    )
+  })
 })
 
 describe('parseBoardsJson', () =>
@@ -325,5 +372,16 @@ describe('parseBoardsJson', () =>
     expect(() => parseBoardsJson(JSON.stringify(multi))).toThrow(
       'missing a "data" payload'
     )
+  })
+})
+
+describe('parseBoardSnapshotJson', () =>
+{
+  it('parses a bare snapshot payload for share-link decode', () =>
+  {
+    const board = makeValidBoard({ title: 'Shared Board' })
+    const result = parseBoardSnapshotJson(JSON.stringify(board), 'Shared Board')
+    expect(result.title).toBe('Shared Board')
+    expect(result.items['item-1'].label).toBe('First')
   })
 })

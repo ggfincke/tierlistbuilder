@@ -16,6 +16,9 @@ import {
   saveBoardToStorage,
   type BoardLoadResult,
 } from './boardStorage'
+import { warmFromBoard } from '@/shared/images/imageBlobCache'
+import { migrateBoardImages } from '@/shared/images/boardImageMigration'
+import { mapAsyncLimit } from '@/shared/lib/asyncMapLimit'
 import {
   STORAGE_NEAR_FULL_MESSAGE,
   isStorageNearFull,
@@ -41,9 +44,11 @@ const PERSISTED_FIELDS = [
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
+let suppressNextAutosave = false
 // timestamp of last near-full warning — rate-limits the toast to once per 60s
 let storageWarningLastMs = 0
 const STORAGE_WARNING_COOLDOWN_MS = 60_000
+const BOARD_IMPORT_CONCURRENCY = 3
 
 const getActivePaletteId = (): PaletteId =>
   useSettingsStore.getState().paletteId
@@ -53,6 +58,23 @@ const createBoardMeta = (id: BoardId, title: string): BoardMeta => ({
   title,
   createdAt: Date.now(),
 })
+
+const clearPendingAutosave = (): void =>
+{
+  if (!saveTimeout)
+  {
+    return
+  }
+
+  clearTimeout(saveTimeout)
+  saveTimeout = null
+}
+
+const loadBoardState = (snapshot: BoardSnapshot): void =>
+{
+  suppressNextAutosave = true
+  useActiveBoardStore.getState().loadBoard(snapshot)
+}
 
 const deduplicateTitle = (title: string, boards: BoardMeta[]): string =>
 {
@@ -96,6 +118,8 @@ export const saveBoardSnapshot = (boardId: BoardId): void =>
 
 export const saveActiveBoardSnapshot = (): void =>
 {
+  clearPendingAutosave()
+
   const { activeBoardId } = useWorkspaceBoardRegistryStore.getState()
 
   if (activeBoardId)
@@ -122,11 +146,39 @@ const snapshotFromResult = (result: BoardLoadResult): BoardSnapshot =>
 export const loadPersistedBoard = (boardId: BoardId): BoardSnapshot =>
   snapshotFromResult(loadBoardFromStorage(boardId))
 
-export const loadBoardIntoSession = (boardId: BoardId): BoardSnapshot =>
+const prepareBoardForLoad = async (
+  boardId: BoardId,
+  snapshot: BoardSnapshot,
+  options: {
+    persistMigrated?: boolean
+    warmCache?: boolean
+  } = {}
+): Promise<BoardSnapshot> =>
+{
+  const { persistMigrated = true, warmCache = true } = options
+  const migrated = await migrateBoardImages(snapshot)
+
+  if (persistMigrated && migrated !== snapshot)
+  {
+    saveBoardToStorage(boardId, migrated)
+  }
+
+  if (warmCache)
+  {
+    await warmFromBoard(migrated)
+  }
+
+  return migrated
+}
+
+export const loadBoardIntoSession = async (
+  boardId: BoardId
+): Promise<BoardSnapshot> =>
 {
   const data = loadPersistedBoard(boardId)
-  useActiveBoardStore.getState().loadBoard(data)
-  return data
+  const prepared = await prepareBoardForLoad(boardId, data)
+  loadBoardState(prepared)
+  return prepared
 }
 
 const createBlankBoardData = (): BoardSnapshot => ({
@@ -137,10 +189,10 @@ const createBlankBoardData = (): BoardSnapshot => ({
   deletedItems: [],
 })
 
-const saveAndActivateBoard = (
+const saveAndActivateBoard = async (
   data: BoardSnapshot,
   titleHint: string
-): BoardId =>
+): Promise<BoardId> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
   const id = generateBoardId()
@@ -151,11 +203,14 @@ const saveAndActivateBoard = (
     title
   )
 
-  saveBoardToStorage(id, normalized)
+  const prepared = await prepareBoardForLoad(id, normalized, {
+    persistMigrated: false,
+  })
+  saveBoardToStorage(id, prepared)
   useWorkspaceBoardRegistryStore
     .getState()
     .addBoardMeta(createBoardMeta(id, title), true)
-  useActiveBoardStore.getState().loadBoard(normalized)
+  loadBoardState(prepared)
   return id
 }
 
@@ -226,7 +281,7 @@ const pruneOrphanedRegistryEntriesAsync = (
   })
 }
 
-export const bootstrapBoardSession = (): void =>
+export const bootstrapBoardSession = async (): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
   const requestedActiveId =
@@ -243,7 +298,8 @@ export const bootstrapBoardSession = (): void =>
       {
         boardStore.setActiveBoardId(requestedActiveId)
       }
-      useActiveBoardStore.getState().loadBoard(data)
+      const prepared = await prepareBoardForLoad(requestedActiveId, data)
+      loadBoardState(prepared)
       pruneOrphanedRegistryEntriesAsync(requestedActiveId)
       return
     }
@@ -258,7 +314,8 @@ export const bootstrapBoardSession = (): void =>
   const data = createBoardDataFromPreset(classicPreset)
   saveBoardToStorage(id, data)
   boardStore.replaceRegistry([createBoardMeta(id, data.title)], id)
-  useActiveBoardStore.getState().loadBoard(data)
+  await warmFromBoard(data)
+  loadBoardState(data)
 }
 
 export const registerBoardAutosave = (): (() => void) =>
@@ -270,18 +327,22 @@ export const registerBoardAutosave = (): (() => void) =>
 
   const unsubscribe = useActiveBoardStore.subscribe((state, prevState) =>
   {
+    if (suppressNextAutosave)
+    {
+      suppressNextAutosave = false
+      return
+    }
+
     if (PERSISTED_FIELDS.every((key) => state[key] === prevState[key]))
     {
       return
     }
 
-    if (saveTimeout)
-    {
-      clearTimeout(saveTimeout)
-    }
+    clearPendingAutosave()
 
     saveTimeout = setTimeout(() =>
     {
+      saveTimeout = null
       saveActiveBoardSnapshot()
     }, 300)
   })
@@ -301,20 +362,22 @@ export const registerBoardAutosave = (): (() => void) =>
   return autosaveUnsubscribe
 }
 
-export const createBoardSession = (): void =>
+export const createBoardSession = async (): Promise<void> =>
 {
   saveActiveBoardSnapshot()
-  saveAndActivateBoard(createBlankBoardData(), DEFAULT_TITLE)
+  await saveAndActivateBoard(createBlankBoardData(), DEFAULT_TITLE)
 }
 
-export const createBoardSessionFromPreset = (preset: TierPreset): void =>
+export const createBoardSessionFromPreset = async (
+  preset: TierPreset
+): Promise<void> =>
 {
   saveActiveBoardSnapshot()
   const data = createBoardDataFromPreset(preset)
-  saveAndActivateBoard(data, DEFAULT_TITLE)
+  await saveAndActivateBoard(data, DEFAULT_TITLE)
 }
 
-export const switchBoardSession = (boardId: BoardId): void =>
+export const switchBoardSession = async (boardId: BoardId): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
 
@@ -330,11 +393,11 @@ export const switchBoardSession = (boardId: BoardId): void =>
 
   useActiveBoardStore.getState().discardDragPreview()
   saveActiveBoardSnapshot()
-  loadBoardIntoSession(boardId)
+  await loadBoardIntoSession(boardId)
   boardStore.setActiveBoardId(boardId)
 }
 
-export const deleteBoardSession = (boardId: BoardId): void =>
+export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
 
@@ -353,14 +416,16 @@ export const deleteBoardSession = (boardId: BoardId): void =>
   {
     const nextActiveId = nextBoards[0].id
     boardStore.replaceRegistry(nextBoards, nextActiveId)
-    loadBoardIntoSession(nextActiveId)
+    await loadBoardIntoSession(nextActiveId)
     return
   }
 
   boardStore.removeBoardMeta(boardId)
 }
 
-export const duplicateBoardSession = (boardId: BoardId): void =>
+export const duplicateBoardSession = async (
+  boardId: BoardId
+): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
 
@@ -376,7 +441,7 @@ export const duplicateBoardSession = (boardId: BoardId): void =>
       ? extractBoardData(useActiveBoardStore.getState())
       : loadPersistedBoard(boardId)
 
-  saveAndActivateBoard(source, source.title || DEFAULT_TITLE)
+  await saveAndActivateBoard(source, source.title || DEFAULT_TITLE)
 }
 
 export const renameBoardSession = (boardId: BoardId, title: string): void =>
@@ -397,13 +462,17 @@ export const renameBoardSession = (boardId: BoardId, title: string): void =>
   }
 }
 
-export const importBoardSession = (data: BoardSnapshot): void =>
+export const importBoardSession = async (
+  data: BoardSnapshot
+): Promise<void> =>
 {
   saveActiveBoardSnapshot()
-  saveAndActivateBoard(data, data.title || DEFAULT_TITLE)
+  await saveAndActivateBoard(data, data.title || DEFAULT_TITLE)
 }
 
-export const importBoardsSession = (boards: BoardSnapshot[]): void =>
+export const importBoardsSession = async (
+  boards: BoardSnapshot[]
+): Promise<void> =>
 {
   if (boards.length === 0)
   {
@@ -415,6 +484,10 @@ export const importBoardsSession = (boards: BoardSnapshot[]): void =>
   const boardStore = useWorkspaceBoardRegistryStore.getState()
   let nextBoards = boardStore.boards
   let lastId = boardStore.activeBoardId
+  const plannedImports: Array<{
+    id: BoardId
+    normalized: BoardSnapshot
+  }> = []
 
   for (const board of boards)
   {
@@ -426,10 +499,22 @@ export const importBoardsSession = (boards: BoardSnapshot[]): void =>
       title
     )
 
-    saveBoardToStorage(id, normalized)
+    plannedImports.push({ id, normalized })
     nextBoards = [...nextBoards, createBoardMeta(id, title)]
     lastId = id
   }
+
+  await mapAsyncLimit(
+    plannedImports,
+    BOARD_IMPORT_CONCURRENCY,
+    async (entry) =>
+    {
+      await prepareBoardForLoad(entry.id, entry.normalized, {
+        warmCache: false,
+      })
+      return entry
+    }
+  )
 
   if (!lastId)
   {
@@ -437,5 +522,5 @@ export const importBoardsSession = (boards: BoardSnapshot[]): void =>
   }
 
   useWorkspaceBoardRegistryStore.getState().replaceRegistry(nextBoards, lastId)
-  loadBoardIntoSession(lastId)
+  await loadBoardIntoSession(lastId)
 }

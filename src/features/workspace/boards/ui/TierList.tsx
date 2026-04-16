@@ -178,9 +178,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         <div
           className={`${compactMode ? 'mt-1' : 'mt-3'} ${TOOLBAR_LAYOUT_CLASS[toolbarPosition]}`}
         >
-          {/* tier rows column — unranked pool & trash zone live outside so
-              left/right toolbar centers on tiers only & bottom toolbar
-              sits above the pool */}
+          {/* tier rows column — unranked pool & trash zone live outside so left/right toolbar centers on tiers only & bottom toolbar sits above the pool */}
           <div className={`${isVertical ? 'min-w-0 flex-1' : ''}`}>
             {/* export capture wrapper */}
             <div className="overflow-x-auto">
@@ -222,9 +220,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         <TrashZone />
       </div>
 
-      {/* render ghost in the overlay while a drag is active;
-          disable default drop animation during multi-drag so the
-          fan-out animation takes over immediately */}
+      {/* render ghost in overlay while drag is active; disable default drop animation during multi-drag so fan-out animation takes over */}
       <DragOverlay
         modifiers={overlayModifiers}
         dropAnimation={dragGroupCount > 1 ? null : undefined}

@@ -25,11 +25,12 @@ const STYLE_FADING_IN: React.CSSProperties = {
 
 const STYLE_IDLE: React.CSSProperties = {}
 
-// wraps board switching w/ a fade-out → swap → fade-in sequence
+// wraps board switching w/ a fade-out -> swap -> fade-in sequence
 export const useBoardTransition = () =>
 {
   const activeBoardId = useWorkspaceBoardRegistryStore((s) => s.activeBoardId)
   const [phase, setPhase] = useState<Phase>('idle')
+  const mountedRef = useRef(true)
 
   // use refs to avoid recreating transitionTo on every phase/activeBoardId change
   const phaseRef = useRef(phase)
@@ -61,38 +62,66 @@ export const useBoardTransition = () =>
     timersRef.current = { timeouts: [], raf: null }
   }, [])
 
-  // cleanup on unmount
-  useEffect(() => cancelTimers, [cancelTimers])
+  const safeSetPhase = useCallback((nextPhase: Phase) =>
+  {
+    if (mountedRef.current)
+    {
+      setPhase(nextPhase)
+    }
+  }, [])
+
+  useEffect(
+    () => () =>
+    {
+      mountedRef.current = false
+      cancelTimers()
+    },
+    [cancelTimers]
+  )
 
   // fade out, swap board, fade in
-  const transitionTo = useCallback((boardId: BoardId) =>
-  {
-    if (boardId === activeBoardIdRef.current || phaseRef.current !== 'idle')
-      return
-
-    setPhase('fading-out')
-
-    // after fade-out completes, swap & fade in
-    const t1 = setTimeout(() =>
+  const transitionTo = useCallback(
+    (boardId: BoardId) =>
     {
-      switchBoardSession(boardId)
+      if (boardId === activeBoardIdRef.current || phaseRef.current !== 'idle')
+        return
 
-      // start faded-in state on next frame so the transition fires
-      const raf = requestAnimationFrame(() =>
+      safeSetPhase('fading-out')
+
+      // after fade-out completes, swap & fade in
+      const t1 = setTimeout(() =>
       {
-        setPhase('fading-in')
+        void switchBoardSession(boardId)
+          .then(() =>
+          {
+            if (!mountedRef.current)
+            {
+              return
+            }
 
-        const t2 = setTimeout(() =>
-        {
-          setPhase('idle')
-          timersRef.current = { timeouts: [], raf: null }
-        }, FADE_IN_MS)
-        timersRef.current.timeouts.push(t2)
-      })
-      timersRef.current.raf = raf
-    }, FADE_OUT_MS)
-    timersRef.current.timeouts.push(t1)
-  }, [])
+            const raf = requestAnimationFrame(() =>
+            {
+              safeSetPhase('fading-in')
+
+              const t2 = setTimeout(() =>
+              {
+                safeSetPhase('idle')
+                timersRef.current = { timeouts: [], raf: null }
+              }, FADE_IN_MS)
+              timersRef.current.timeouts.push(t2)
+            })
+            timersRef.current.raf = raf
+          })
+          .catch(() =>
+          {
+            safeSetPhase('idle')
+            timersRef.current = { timeouts: [], raf: null }
+          })
+      }, FADE_OUT_MS)
+      timersRef.current.timeouts.push(t1)
+    },
+    [safeSetPhase]
+  )
 
   const style = useMemo(
     () =>

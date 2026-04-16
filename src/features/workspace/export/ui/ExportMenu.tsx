@@ -116,10 +116,19 @@ export const ExportMenu = ({
   const showFormatMenu = isOpen('format')
   const showExportAllMenu = isOpen('exportAll')
 
-  const handleJsonExport = () =>
+  const handleJsonExport = async () =>
   {
     const data = extractBoardData(useActiveBoardStore.getState())
-    exportBoardAsJson(data, title)
+    try
+    {
+      await exportBoardAsJson(data, title)
+    }
+    catch (err)
+    {
+      setRuntimeError(
+        err instanceof Error ? err.message : 'Failed to export JSON file.'
+      )
+    }
     closeAllMenus()
   }
 
@@ -128,14 +137,14 @@ export const ExportMenu = ({
     try
     {
       const text = await file.text()
-      const boards = parseBoardsJson(text)
+      const boards = await parseBoardsJson(text)
       if (boards.length === 1)
       {
-        importBoardSession(boards[0])
+        await importBoardSession(boards[0])
       }
       else
       {
-        importBoardsSession(boards)
+        await importBoardsSession(boards)
       }
     }
     catch (err)

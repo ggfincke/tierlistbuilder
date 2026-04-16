@@ -35,7 +35,6 @@ const getDragType = (event: {
   active: { data: { current?: { type?: string } } }
 }): DragType => (event.active.data.current?.type === 'tier' ? 'tier' : 'item')
 
-// * primary drag-&-drop hook consumed by TierList
 export const useDragAndDrop = () =>
 {
   const items = useActiveBoardStore((state) => state.items)
@@ -375,14 +374,8 @@ export const useDragAndDrop = () =>
     showDragOverlay && dragTypeState === 'tier' ? activeTierData : undefined
 
   // during multi-drag the grid reflows after secondary items are stripped,
-  // shifting the active item's position; this modifier corrects the overlay
-  // transform so the grab point stays under the cursor
-  //
-  // dnd-kit's DragOverlay renders at `initialRect + transform` where
-  // initialRect is the active node's rect frozen at first measurement (post-
-  // reflow) & transform is the pointer delta from the pre-reflow activation
-  // point. this mismatch creates a persistent offset equal to the layout
-  // shift. we correct by computing the shift delta & subtracting it.
+  // shifting the active item; this modifier corrects the overlay transform
+  // so the grab point stays under the cursor by subtracting the layout delta
   const overlayModifier: Modifier = useCallback(
     ({ activeNodeRect, transform }) =>
     {

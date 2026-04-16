@@ -36,3 +36,22 @@ export const deriveLabelFromFilename = (filename: string): string =>
     .trim()
   return label || 'Image'
 }
+
+// encode a canvas as a PNG blob
+export const canvasToPngBlob = async (
+  canvas: HTMLCanvasElement
+): Promise<Blob> =>
+  new Promise((resolve, reject) =>
+  {
+    canvas.toBlob((blob) =>
+    {
+      if (blob)
+      {
+        resolve(blob)
+      }
+      else
+      {
+        reject(new Error('Failed to encode resized image as PNG.'))
+      }
+    }, 'image/png')
+  })

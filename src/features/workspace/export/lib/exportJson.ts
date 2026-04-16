@@ -2,23 +2,28 @@
 // JSON export & import utilities for board data
 
 import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardSnapshot,
+  BoardSnapshotWire,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
 import { isRecord } from '@/shared/lib/typeGuards'
 import { toFileBase } from '@/shared/lib/fileName'
 import { triggerDownload } from './exportImage'
+import { snapshotToWire, wireToSnapshot } from './boardWireMapper'
 
 interface TierListExport
 {
   version: number
   exportedAt: string
-  data: BoardSnapshot
+  data: BoardSnapshotWire
 }
 
-// parse a JSON string & validate it is a plain object (not null, not an array)
+// parse a JSON string & validate it is a plain object
 const parseJsonObject = (text: string): Record<string, unknown> =>
 {
   let parsed: unknown
+
   try
   {
     parsed = JSON.parse(text)
@@ -36,9 +41,8 @@ const parseJsonObject = (text: string): Record<string, unknown> =>
   return parsed
 }
 
-// reject payloads whose envelope version is newer than the app supports;
-// returns the schema version number for diagnostics
-const assertSupportedVersion = (envelope: Record<string, unknown>): number =>
+// reject envelopes newer than the app supports
+const assertSupportedVersion = (envelope: Record<string, unknown>): void =>
 {
   if (typeof envelope.version !== 'number')
   {
@@ -53,8 +57,6 @@ const assertSupportedVersion = (envelope: Record<string, unknown>): number =>
       `File uses schema version ${envelope.version}, but this app only supports up to version ${BOARD_DATA_VERSION}. Update the app or re-export from a compatible version.`
     )
   }
-
-  return envelope.version
 }
 
 // unwrap the `data` payload from a versioned envelope
@@ -70,13 +72,17 @@ const extractEnvelopeData = (
   return envelope.data
 }
 
-// download the board state as a JSON file
-export const exportBoardAsJson = (data: BoardSnapshot, title: string) =>
+// download board state as self-contained JSON
+export const exportBoardAsJson = async (
+  data: BoardSnapshot,
+  title: string
+): Promise<void> =>
 {
+  const wire = await snapshotToWire(data)
   const payload: TierListExport = {
     version: BOARD_DATA_VERSION,
     exportedAt: new Date().toISOString(),
-    data,
+    data: wire,
   }
 
   const json = JSON.stringify(payload, null, 2)
@@ -117,7 +123,7 @@ const validateTierEntry = (tier: unknown, index: number): string | null =>
   return null
 }
 
-// validate a single item entry has the minimum required fields
+// validate a single item entry has the minimum fields needed to render
 const validateItemEntry = (id: string, item: unknown): string | null =>
 {
   if (!isRecord(item))
@@ -125,33 +131,42 @@ const validateItemEntry = (id: string, item: unknown): string | null =>
     return `Item "${id}" is not a valid object.`
   }
 
-  const hasImage = typeof item.imageUrl === 'string' && item.imageUrl.length > 0
+  const hasImageUrl =
+    typeof item.imageUrl === 'string' && item.imageUrl.length > 0
+  const hasImageRef =
+    isRecord(item.imageRef) &&
+    typeof item.imageRef.hash === 'string' &&
+    item.imageRef.hash.length > 0
   const hasLabel = typeof item.label === 'string' && item.label.length > 0
   const hasBgColor =
     typeof item.backgroundColor === 'string' && item.backgroundColor.length > 0
 
-  if (!hasImage && !hasLabel && !hasBgColor)
+  if (hasImageRef && !hasImageUrl)
   {
-    return `Item "${id}" has no imageUrl, label, or backgroundColor — it would be invisible.`
+    return `Item "${id}" uses a local imageRef without inline imageUrl bytes. Re-export the board as JSON from a build that embeds images.`
+  }
+
+  if (!hasImageUrl && !hasLabel && !hasBgColor)
+  {
+    return `Item "${id}" has no image, label, or backgroundColor — it would be invisible.`
   }
 
   return null
 }
 
-// validate the inner board shape & return a normalized BoardSnapshot
+// validate board shape & normalize into an in-memory snapshot
 const parseBoardData = (
   raw: Record<string, unknown>,
   fallbackTitle: string
 ): BoardSnapshot =>
 {
-  const data = raw as Partial<BoardSnapshot>
+  const data = raw as Partial<BoardSnapshotWire>
 
   if (!Array.isArray(data.tiers) || data.tiers.length === 0)
   {
     throw new Error('File must contain at least one tier.')
   }
 
-  // validate tier structure w/ per-field diagnostics
   for (let i = 0; i < data.tiers.length; i++)
   {
     const tierError = validateTierEntry(data.tiers[i], i)
@@ -166,7 +181,6 @@ const parseBoardData = (
     throw new Error('Missing items map — the file has no item data.')
   }
 
-  // validate individual item entries
   for (const [id, item] of Object.entries(data.items))
   {
     const itemError = validateItemEntry(id, item)
@@ -176,12 +190,12 @@ const parseBoardData = (
     }
   }
 
-  // detect duplicate item references across tiers
   const allReferencedIds = [
-    ...data.tiers.flatMap((t) => t.itemIds),
+    ...data.tiers.flatMap((tier) => tier.itemIds),
     ...(Array.isArray(data.unrankedItemIds) ? data.unrankedItemIds : []),
   ]
   const seen = new Set<string>()
+
   for (const id of allReferencedIds)
   {
     if (seen.has(id))
@@ -190,10 +204,10 @@ const parseBoardData = (
         `Item "${id}" is referenced in multiple tiers — each item can only appear once.`
       )
     }
+
     seen.add(id)
   }
 
-  // validate all referenced item IDs exist in the items map
   for (const id of allReferencedIds)
   {
     if (!(id in data.items))
@@ -202,7 +216,11 @@ const parseBoardData = (
     }
   }
 
-  return normalizeBoardSnapshot(data, 'classic', fallbackTitle)
+  return normalizeBoardSnapshot(
+    wireToSnapshot(data, fallbackTitle),
+    'classic',
+    fallbackTitle
+  )
 }
 
 // parse & validate a versioned single-board export envelope
@@ -210,31 +228,33 @@ export const parseBoardJson = (text: string): BoardSnapshot =>
 {
   const envelope = parseJsonObject(text)
   assertSupportedVersion(envelope)
-  const raw = extractEnvelopeData(envelope)
-  return parseBoardData(raw, 'Imported Tier List')
+  return parseBoardData(extractEnvelopeData(envelope), 'Imported Tier List')
 }
 
-// parse & validate a versioned multi-board export envelope; single-board
-// envelopes are auto-wrapped to a one-element array for call-site uniformity
+// parse & validate a raw board snapshot JSON payload
+export const parseBoardSnapshotJson = (
+  text: string,
+  fallbackTitle = 'Imported Tier List'
+): BoardSnapshot => parseBoardData(parseJsonObject(text), fallbackTitle)
+
+// parse & validate a versioned multi-board export envelope
 export const parseBoardsJson = (text: string): BoardSnapshot[] =>
 {
   const envelope = parseJsonObject(text)
   assertSupportedVersion(envelope)
 
-  // multi-board envelope — has a boards array
   if (Array.isArray(envelope.boards))
   {
-    const boards = envelope.boards
-
-    if (boards.length === 0)
+    if (envelope.boards.length === 0)
     {
       throw new Error('Export file contains no boards.')
     }
 
     const results: BoardSnapshot[] = []
-    for (let i = 0; i < boards.length; i++)
+
+    for (let i = 0; i < envelope.boards.length; i++)
     {
-      const entry = boards[i] as unknown
+      const entry = envelope.boards[i] as unknown
       if (!isRecord(entry))
       {
         throw new Error(`Board #${i + 1} is not a valid object.`)
@@ -247,21 +267,21 @@ export const parseBoardsJson = (text: string): BoardSnapshot[] =>
       }
 
       const label = typeof entry.title === 'string' ? entry.title : `#${i + 1}`
+
       try
       {
         results.push(parseBoardData(innerData, label))
       }
-      catch (err)
+      catch (error)
       {
         throw new Error(
-          `Board "${label}" is invalid: ${err instanceof Error ? err.message : 'unknown error'}`
+          `Board "${label}" is invalid: ${error instanceof Error ? error.message : 'unknown error'}`
         )
       }
     }
+
     return results
   }
 
-  // single-board envelope — delegate to the single-envelope parser
-  const raw = extractEnvelopeData(envelope)
-  return [parseBoardData(raw, 'Imported Tier List')]
+  return [parseBoardData(extractEnvelopeData(envelope), 'Imported Tier List')]
 }

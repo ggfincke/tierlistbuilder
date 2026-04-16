@@ -1,12 +1,14 @@
 // convex/lib/permissions.ts
 // authorization helpers — ownership checks for boards, presets, & media
 
-import type { QueryCtx } from '../_generated/server'
+import type { MutationCtx, QueryCtx } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
+
+type BoardOwnershipCtx = QueryCtx | MutationCtx
 
 // assert the caller owns the given board — throws if not found or not theirs
 export const requireBoardOwnership = async (
-  ctx: QueryCtx,
+  ctx: BoardOwnershipCtx,
   boardId: Id<'boards'>,
   userId: Id<'users'>
 ): Promise<Doc<'boards'>> =>
@@ -20,6 +22,31 @@ export const requireBoardOwnership = async (
   {
     throw new Error('forbidden: caller does not own board')
   }
+  return board
+}
+
+// assert the caller owns the board resolved from an externalId
+export const requireBoardOwnershipByExternalId = async (
+  ctx: BoardOwnershipCtx,
+  externalId: string,
+  userId: Id<'users'>
+): Promise<Doc<'boards'>> =>
+{
+  const board = await ctx.db
+    .query('boards')
+    .withIndex('byExternalId', (q) => q.eq('externalId', externalId))
+    .unique()
+
+  if (!board)
+  {
+    throw new Error('board not found')
+  }
+
+  if (board.ownerId !== userId)
+  {
+    throw new Error('forbidden: caller does not own board')
+  }
+
   return board
 }
 

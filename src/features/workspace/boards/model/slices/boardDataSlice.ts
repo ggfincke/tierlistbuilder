@@ -157,8 +157,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
             if (rowColorSpec === null)
             {
               // drop the field entirely so normalized snapshots stay compact
-              const { rowColorSpec: _drop, ...rest } = entry
-              void _drop
+              const { rowColorSpec: _rowColorSpec, ...rest } = entry
               return rest
             }
             return { ...entry, rowColorSpec }
@@ -259,6 +258,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
         const id = generateItemId()
         nextItems[id] = {
           id,
+          imageRef: newItem.imageRef,
           imageUrl: newItem.imageUrl,
           label: newItem.label,
           backgroundColor: newItem.backgroundColor,

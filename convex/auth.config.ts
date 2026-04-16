@@ -1,7 +1,6 @@
 // convex/auth.config.ts
 // * convex auth configuration — registers OAuth provider domains for token verification
-// secrets (client IDs, client secrets, site URL) are read from environment variables
-// at mutation time — see README in this directory once created in a future auth PR
+// secrets read from environment variables at mutation time
 
 export default {
   providers: [

@@ -53,14 +53,31 @@ export const useImageImport = (): UseImageImportReturn =>
           return
         }
 
-        const newItems = await processImageFiles(files)
-        if (newItems.length > 0) addItems(newItems)
+        const { items, failedCount } = await processImageFiles(files)
+        if (items.length > 0)
+        {
+          addItems(items)
+        }
+
+        const messages: string[] = []
+
+        if (failedCount > 0)
+        {
+          messages.push(
+            `Skipped ${failedCount} image file${failedCount > 1 ? 's' : ''} that could not be processed.`
+          )
+        }
 
         if (skippedCount > 0)
         {
-          setRuntimeError(
+          messages.push(
             `Skipped ${skippedCount} non-image file${skippedCount > 1 ? 's' : ''}.`
           )
+        }
+
+        if (messages.length > 0)
+        {
+          setRuntimeError(messages.join(' '))
         }
       }
       finally

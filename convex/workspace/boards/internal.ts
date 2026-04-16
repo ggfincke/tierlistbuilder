@@ -1,16 +1,58 @@
 // convex/workspace/boards/internal.ts
-// internal-only board helpers — not callable from the client
+// internal-only board cleanup helpers
 
-import { internalMutation } from '../../_generated/server'
 import { v } from 'convex/values'
+import { internalMutation } from '../../_generated/server'
+import { internal } from '../../_generated/api'
 
-// cascade delete a board's tiers, items, & orphan media assets
-// called by a scheduled cleanup job after a board is soft-deleted for N days
-// todo: implement in cloud sync PR
+const CASCADE_DELETE_BATCH_SIZE = 256
+
+// cascade delete a board's items, tiers, & final board row
 export const cascadeDeleteBoard = internalMutation({
   args: { boardId: v.id('boards') },
-  handler: async (_ctx, _args) =>
+  handler: async (ctx, args): Promise<null> =>
   {
-    throw new Error('not implemented: cascadeDeleteBoard — cloud sync PR')
+    const board = await ctx.db.get(args.boardId)
+    if (!board)
+    {
+      return null
+    }
+
+    const itemBatch = await ctx.db
+      .query('boardItems')
+      .withIndex('byBoardAndTier', (q) => q.eq('boardId', args.boardId))
+      .take(CASCADE_DELETE_BATCH_SIZE)
+
+    await Promise.all(itemBatch.map((item) => ctx.db.delete(item._id)))
+
+    if (itemBatch.length === CASCADE_DELETE_BATCH_SIZE)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.workspace.boards.internal.cascadeDeleteBoard,
+        { boardId: args.boardId }
+      )
+      return null
+    }
+
+    const tierBatch = await ctx.db
+      .query('boardTiers')
+      .withIndex('byBoard', (q) => q.eq('boardId', args.boardId))
+      .take(CASCADE_DELETE_BATCH_SIZE)
+
+    await Promise.all(tierBatch.map((tier) => ctx.db.delete(tier._id)))
+
+    if (tierBatch.length === CASCADE_DELETE_BATCH_SIZE)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.workspace.boards.internal.cascadeDeleteBoard,
+        { boardId: args.boardId }
+      )
+      return null
+    }
+
+    await ctx.db.delete(args.boardId)
+    return null
   },
 })

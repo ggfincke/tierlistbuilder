@@ -1,5 +1,5 @@
 // convex/lib/validators.ts
-// * reusable v.object() validators that mirror packages/contracts shapes
+// reusable v.object() validators that mirror packages/contracts shapes
 
 import { v } from 'convex/values'
 

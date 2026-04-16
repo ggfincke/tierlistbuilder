@@ -1,8 +1,15 @@
 // src/features/workspace/settings/lib/imageFromUrl.ts
-// fetch a remote image by URL, resize to thumbnail, & return as a data URL
+// fetch remote image, resize to thumbnail & persist to blob store.
+// falls back to inline data URLs when local image storage is unavailable
 
+import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
+import { persistBlobSource } from '@/shared/images/imagePersistence'
 import { MAX_THUMBNAIL_SIZE } from './constants'
-import { deriveLabelFromFilename, getResizedDimensions } from './imageGeometry'
+import {
+  canvasToPngBlob,
+  deriveLabelFromFilename,
+  getResizedDimensions,
+} from './imageGeometry'
 
 const LOAD_TIMEOUT = 15_000
 
@@ -53,11 +60,12 @@ const loadImage = (url: string): Promise<HTMLImageElement> =>
     img.src = url
   })
 
-// fetch a remote image, resize, & return as a data URL w/ derived label
-export const fetchImageAsDataUrl = async (
+// fetch a remote image, resize, persist to the blob store, & return a
+// content-addressable reference + derived label
+export const fetchImageAsItemImage = async (
   url: string,
   maxSize = MAX_THUMBNAIL_SIZE
-): Promise<{ imageUrl: string; label: string }> =>
+): Promise<NewTierItem & { label: string }> =>
 {
   const img = await loadImage(url)
 
@@ -81,8 +89,11 @@ export const fetchImageAsDataUrl = async (
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(img, 0, 0, width, height)
 
+  const blob = await canvasToPngBlob(canvas)
+  const source = await persistBlobSource(blob, { fallbackToDataUrl: true })
+
   return {
-    imageUrl: canvas.toDataURL('image/png'),
+    ...source,
     label: labelFromUrl(url),
   }
 }
