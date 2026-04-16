@@ -1,0 +1,150 @@
+// src/features/workspace/settings/data/local/settingsSyncMeta.ts
+// localStorage sidecar tracking cloud sync state for the global settings doc.
+// kept separate from the persisted settings blob so a write to one doesn't
+// rewrite the other (matches how boards split data + sync metadata).
+//
+// shape semantics:
+//   pendingSyncAt — wall-clock millis stamped when local edits await a flush;
+//                   cleared on a successful upsert. survives tab close so the
+//                   next session can resume the flush
+//   lastSyncedAt — wall-clock millis returned by the last successful upsert;
+//                  used by the merge flow to compare against the cloud row's
+//                  updatedAt when deciding direction
+//   ownerUserId — stable user id for the session that stamped this sidecar;
+//                 null on legacy entries written before user scoping landed
+
+import {
+  deleteBrowserStorageItem,
+  readBrowserStorageItem,
+  writeBrowserStorageItem,
+} from '~/shared/lib/browserStorage'
+
+export const SETTINGS_SYNC_META_STORAGE_KEY =
+  'tier-list-builder-settings-sync-meta-v1'
+
+export interface SettingsSyncMeta
+{
+  pendingSyncAt: number | null
+  lastSyncedAt: number | null
+  ownerUserId: string | null
+}
+
+export const EMPTY_SETTINGS_SYNC_META: SettingsSyncMeta = {
+  pendingSyncAt: null,
+  lastSyncedAt: null,
+  ownerUserId: null,
+}
+
+const isFiniteMillis = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+
+const isUserId = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0
+
+const normalizeSettingsSyncMeta = (raw: unknown): SettingsSyncMeta =>
+{
+  if (!raw || typeof raw !== 'object')
+  {
+    return { ...EMPTY_SETTINGS_SYNC_META }
+  }
+
+  const candidate = raw as Partial<Record<keyof SettingsSyncMeta, unknown>>
+  return {
+    pendingSyncAt: isFiniteMillis(candidate.pendingSyncAt)
+      ? candidate.pendingSyncAt
+      : null,
+    lastSyncedAt: isFiniteMillis(candidate.lastSyncedAt)
+      ? candidate.lastSyncedAt
+      : null,
+    ownerUserId: isUserId(candidate.ownerUserId) ? candidate.ownerUserId : null,
+  }
+}
+
+export const loadSettingsSyncMeta = (): SettingsSyncMeta =>
+{
+  const raw = readBrowserStorageItem(SETTINGS_SYNC_META_STORAGE_KEY)
+  if (!raw) return { ...EMPTY_SETTINGS_SYNC_META }
+
+  try
+  {
+    return normalizeSettingsSyncMeta(JSON.parse(raw))
+  }
+  catch
+  {
+    return { ...EMPTY_SETTINGS_SYNC_META }
+  }
+}
+
+export const saveSettingsSyncMeta = (meta: SettingsSyncMeta): void =>
+{
+  // skip the write entirely when the meta is empty — keeps localStorage tidy
+  // for users who never sign in & avoids leaving a dangling key after sign-out
+  if (meta.pendingSyncAt === null && meta.lastSyncedAt === null)
+  {
+    deleteBrowserStorageItem(SETTINGS_SYNC_META_STORAGE_KEY)
+    return
+  }
+  writeBrowserStorageItem(SETTINGS_SYNC_META_STORAGE_KEY, JSON.stringify(meta))
+}
+
+export const clearSettingsSyncMeta = (): void =>
+  deleteBrowserStorageItem(SETTINGS_SYNC_META_STORAGE_KEY)
+
+export const loadSettingsSyncMetaForUser = (
+  userId: string
+): SettingsSyncMeta =>
+{
+  const meta = loadSettingsSyncMeta()
+  if (meta.ownerUserId !== null && meta.ownerUserId !== userId)
+  {
+    return { ...EMPTY_SETTINGS_SYNC_META }
+  }
+  return meta
+}
+
+// stamp pendingSyncAt to now if it isn't already set, leaving lastSyncedAt
+// untouched. idempotent — repeated edits during the debounce window only
+// stamp once. returns the resulting meta so callers don't need a re-read
+export const stampSettingsPending = (
+  ownerUserId: string,
+  now: number = Date.now()
+): SettingsSyncMeta =>
+{
+  const current = loadSettingsSyncMeta()
+  const scopedCurrent =
+    current.ownerUserId !== null && current.ownerUserId !== ownerUserId
+      ? {
+          ...EMPTY_SETTINGS_SYNC_META,
+          ownerUserId,
+        }
+      : {
+          ...current,
+          ownerUserId,
+        }
+
+  if (scopedCurrent.pendingSyncAt !== null)
+  {
+    return scopedCurrent
+  }
+  const next: SettingsSyncMeta = {
+    ...scopedCurrent,
+    pendingSyncAt: now,
+  }
+  saveSettingsSyncMeta(next)
+  return next
+}
+
+// clear pendingSyncAt & advance lastSyncedAt — the success path
+export const markSettingsSynced = (
+  ownerUserId: string,
+  syncedAt: number = Date.now()
+): SettingsSyncMeta =>
+{
+  const next: SettingsSyncMeta = {
+    pendingSyncAt: null,
+    lastSyncedAt: syncedAt,
+    ownerUserId,
+  }
+  saveSettingsSyncMeta(next)
+  return next
+}

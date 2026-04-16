@@ -1,68 +1,76 @@
 // src/features/platform/sync/pendingSyncRecovery.ts
-// resume sync work for boards w/ a non-null pendingSyncAt marker. called
-// after first-login merge resolves & on offline -> online transitions.
-// reads each registered board's persisted BoardSyncState from localStorage,
-// queues a fresh PendingBoardSync for any board that still has unflushed
-// local edits.
+// resume sync work for boards, settings, & user-saved presets w/ a
+// pending sidecar marker. called after first-login merge resolves & on
+// offline -> online transitions. for each persistence layer:
+//   - boards:   walks the registry, replays any board w/ a non-null
+//               BoardSyncState.pendingSyncAt
+//   - settings: replays the global settings doc if its sidecar has a
+//               non-null pendingSyncAt
+//   - presets:  walks the per-preset sidecar map, replays each entry's
+//               pendingOp ('upsert' or 'delete')
 //
-// safe to call repeatedly: the scheduler dedupes by board (queue() replaces
-// any pending work for the same boardId), & the persisted pendingSyncAt is
-// cleared in the scheduler's synced branch — so a board that's already
-// up-to-date is a no-op
+// safe to call repeatedly: the runner dedupes per key, & each sidecar
+// entry is cleared in the runner's synced branch so a fully-synced
+// state is a no-op
 
-import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { BoardId, UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import { selectBoardDataFields } from '~/features/workspace/boards/model/boardSnapshot'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { extractAppSettings } from '~/features/workspace/settings/model/appSettingsExtraction'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
+import { loadSettingsSyncMetaForUser } from '~/features/workspace/settings/data/local/settingsSyncMeta'
+import { loadTierPresetSyncMetaMapForUser } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
 import { readBoardStateForCloudSync } from './cloudFlush'
 import type { PendingBoardSync } from './cloudSyncScheduler'
+import type { TierPresetSyncWork } from './tierPresetCloudSync'
 
 interface ResumePendingSyncsOptions
 {
-  // hand the scheduler's queue method here. helper takes a callback rather
-  // than the scheduler directly to keep the dependency direction one-way:
-  // useCloudSync owns the scheduler & forwards queue, this helper stays
-  // ignorant of scheduler internals
-  queueWork: (work: PendingBoardSync) => void
-  // optional auth/online gate matching the scheduler's shouldProceed
-  // semantics. if it returns false, the helper bails before queueing
+  userId: string
+  // hand the board scheduler's queue method here. helper takes a callback
+  // rather than the scheduler directly to keep the dependency direction
+  // one-way: useCloudSync owns the runners & forwards the methods, this
+  // helper stays ignorant of runner internals
+  queueBoard: (work: PendingBoardSync) => void
+  // the settings & preset triggers are optional because the runners may
+  // not be installed yet (they mount AFTER the first-login merge resolves).
+  // when undefined, the corresponding resume pass is silently skipped &
+  // the next call will pick it up
+  triggerSettings?: () => void
+  enqueuePreset?: (work: TierPresetSyncWork) => void
+  // optional auth/online gate matching the runners' shouldProceed semantics.
+  // if it returns false at any boundary, the helper bails before queueing
   shouldProceed?: () => boolean
 }
 
 export interface ResumePendingSyncsResult
 {
   resumedBoardIds: BoardId[]
+  resumedSettings: boolean
+  resumedPresetIds: UserPresetId[]
 }
 
-export const resumePendingSyncs = (
-  options: ResumePendingSyncsOptions
-): ResumePendingSyncsResult =>
-{
-  const { queueWork, shouldProceed } = options
-  const canProceed = (): boolean => (shouldProceed ? shouldProceed() : true)
+const isUserPresetId = (id: string): id is UserPresetId =>
+  id.startsWith('preset-')
 
-  if (!canProceed())
-  {
-    return { resumedBoardIds: [] }
-  }
+const resumeBoards = (options: ResumePendingSyncsOptions): BoardId[] =>
+{
+  const canProceed = (): boolean =>
+    options.shouldProceed ? options.shouldProceed() : true
+  if (!canProceed()) return []
 
   const boards = useWorkspaceBoardRegistryStore.getState().boards
-  const resumedBoardIds: BoardId[] = []
+  const resumed: BoardId[] = []
 
   for (const meta of boards)
   {
-    if (!canProceed())
-    {
-      break
-    }
+    if (!canProceed()) break
 
     const { snapshot, syncState } = readBoardStateForCloudSync(meta.id)
+    if (syncState.pendingSyncAt === null) continue
 
-    if (syncState.pendingSyncAt === null)
-    {
-      continue
-    }
-
-    queueWork({
+    options.queueBoard({
       boardId: meta.id,
       snapshot,
       // selectBoardDataFields takes any object w/ the 5 BoardSnapshot data
@@ -70,9 +78,98 @@ export const resumePendingSyncs = (
       boardDataSelection: selectBoardDataFields(snapshot),
       syncState,
     })
-
-    resumedBoardIds.push(meta.id)
+    resumed.push(meta.id)
   }
 
-  return { resumedBoardIds }
+  return resumed
 }
+
+const resumeSettings = (options: ResumePendingSyncsOptions): boolean =>
+{
+  const canProceed = (): boolean =>
+    options.shouldProceed ? options.shouldProceed() : true
+  if (!canProceed()) return false
+  if (!options.triggerSettings) return false
+
+  const meta = loadSettingsSyncMetaForUser(options.userId)
+  if (meta.pendingSyncAt === null) return false
+
+  options.triggerSettings()
+  return true
+}
+
+const resumePresets = (options: ResumePendingSyncsOptions): UserPresetId[] =>
+{
+  const canProceed = (): boolean =>
+    options.shouldProceed ? options.shouldProceed() : true
+  if (!canProceed()) return []
+  if (!options.enqueuePreset) return []
+
+  const map = loadTierPresetSyncMetaMapForUser(options.userId)
+  if (Object.keys(map).length === 0) return []
+
+  const localPresets = useTierPresetStore.getState().userPresets
+  const localById = new Map(
+    localPresets
+      .filter((preset) => isUserPresetId(preset.id))
+      .map((preset) => [preset.id as UserPresetId, preset])
+  )
+
+  const resumed: UserPresetId[] = []
+
+  for (const [presetId, entry] of Object.entries(map) as Array<
+    [UserPresetId, (typeof map)[UserPresetId]]
+  >)
+  {
+    if (!canProceed()) break
+    if (entry.pendingOp === null) continue
+
+    const localPreset = localById.get(presetId)
+
+    if (entry.pendingOp === 'upsert')
+    {
+      // an 'upsert' sidecar entry without a matching store entry is a
+      // contradiction — the preset was deleted between the stamp & the
+      // resume. drop it & let normal flow eventually clear the sidecar
+      if (!localPreset) continue
+      options.enqueuePreset({
+        presetId,
+        op: 'upsert',
+        preset: localPreset,
+      })
+      resumed.push(presetId)
+      continue
+    }
+
+    if (entry.pendingOp === 'delete')
+    {
+      // a 'delete' sidecar entry w/ a matching store entry is also a
+      // contradiction — the preset reappeared. skip the delete since the
+      // upsert path will eventually take over once the user touches it
+      if (localPreset) continue
+      options.enqueuePreset({
+        presetId,
+        op: 'delete',
+      })
+      resumed.push(presetId)
+    }
+  }
+
+  return resumed
+}
+
+export const resumePendingSyncs = (
+  options: ResumePendingSyncsOptions
+): ResumePendingSyncsResult =>
+{
+  return {
+    resumedBoardIds: resumeBoards(options),
+    resumedSettings: resumeSettings(options),
+    resumedPresetIds: resumePresets(options),
+  }
+}
+
+// re-export for callers that only need to evaluate fresh-from-store settings
+// (the trigger fn captures useSettingsStore at call time, not at install time)
+export const buildSettingsTriggerSnapshot = () =>
+  extractAppSettings(useSettingsStore.getState())

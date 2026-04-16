@@ -1,6 +1,6 @@
 // src/features/platform/sync/useCloudSync.ts
 // top-level cloud sync subscriber — gated on signed-in status,
-// debounces board changes to Convex mutations
+// debounces board, settings, & preset changes to Convex mutations
 
 import { useEffect, useRef } from 'react'
 import type { Doc } from '@convex/_generated/dataModel'
@@ -16,12 +16,15 @@ import { extractBoardSyncState } from '~/features/workspace/boards/model/sync'
 import { listMyBoardsImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { setupCloudImageFetcher } from './cloudImageFetcher'
 import { pullAllCloudBoards } from './cloudPull'
+import { runFirstLoginSyncLifecycle } from './firstLoginSyncLifecycle'
 import {
   decideFirstLoginMerge,
   markCloudPullCompleted,
   hasCompletedCloudPull,
   markCloudPullPending,
 } from './cloudMerge'
+import { mergeSettingsOnFirstLogin } from './settingsCloudMerge'
+import { mergeTierPresetsOnFirstLogin } from './tierPresetCloudMerge'
 import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
 import { persistBoardSyncState } from '~/features/workspace/boards/data/local/localBoardSession'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
@@ -35,7 +38,18 @@ import { flushBoardToCloud, readBoardStateForCloudSync } from './cloudFlush'
 import { useConflictQueueStore } from './useConflictQueueStore'
 import { useSyncStatusStore } from './syncStatusStore'
 import { setupConnectivity } from './connectivity'
-import { resumePendingSyncs } from './pendingSyncRecovery'
+import {
+  buildSettingsTriggerSnapshot,
+  resumePendingSyncs,
+} from './pendingSyncRecovery'
+import {
+  setupSettingsCloudSync,
+  type SettingsCloudSyncHandle,
+} from './setupSettingsCloudSync'
+import {
+  setupTierPresetCloudSync,
+  type TierPresetCloudSyncHandle,
+} from './setupTierPresetCloudSync'
 import { pluralizeWord } from '~/shared/lib/pluralize'
 import { CLOUD_SYNC_ENABLED } from './cloudSyncConfig'
 
@@ -119,8 +133,10 @@ const pushAllLocalBoards = async (
   return { failedBoardIds, aborted: false }
 }
 
-// run the first-login merge flow
-const runFirstLoginMerge = async (
+// run the first-login merge flow for boards (settings & preset merges
+// run separately after this resolves so the board path can keep its
+// modal-driven UX without dragging cosmetic prefs into the same flow)
+const runFirstLoginBoardMerge = async (
   user: Doc<'users'>,
   shouldProceed: () => boolean
 ): Promise<void> =>
@@ -222,7 +238,9 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
   const userId = user ? getUserStableId(user) : null
   const authEpochRef = useRef(0)
   const currentUserIdRef = useRef<string | null>(null)
-  const firstLoginMergeRef = useRef(false)
+  const boardFirstLoginMergeRef = useRef(false)
+  const settingsHandleRef = useRef<SettingsCloudSyncHandle | null>(null)
+  const presetsHandleRef = useRef<TierPresetCloudSyncHandle | null>(null)
 
   useEffect(() =>
   {
@@ -328,45 +346,108 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
     // wire up the cloud image fetcher (idempotent)
     setupCloudImageFetcher()
 
-    // window online/offline listeners — flip the global online flag in the
-    // status store & re-queue any boards w/ a pendingSyncAt marker on
-    // offline -> online
-    const disposeConnectivity = setupConnectivity({
-      onOnline: () =>
-      {
-        if (!shouldProceed()) return
-        resumePendingSyncs({
-          queueWork: (work) => scheduler.queue(work),
-          shouldProceed,
-        })
-      },
-    })
-
-    firstLoginMergeRef.current = true
-    void runFirstLoginMerge(user, shouldProceed).finally(() =>
+    // helper: produces a resume call w/ the current handle refs threaded
+    // through. settings/preset triggers are no-ops until the merge resolves
+    // & those handles are installed; the next call (after install) drains
+    const triggerResume = (): void =>
     {
-      if (authEpochRef.current !== authEpoch)
+      if (!shouldProceed()) return
+      resumePendingSyncs({
+        userId: capturedUserId,
+        queueBoard: (work) => scheduler.queue(work),
+        triggerSettings: settingsHandleRef.current
+          ? () =>
+              settingsHandleRef.current?.runner.trigger(
+                buildSettingsTriggerSnapshot(),
+                { immediate: true }
+              )
+          : undefined,
+        enqueuePreset: presetsHandleRef.current
+          ? (work) =>
+              presetsHandleRef.current?.runner.enqueue(work, {
+                immediate: true,
+              })
+          : undefined,
+        shouldProceed,
+      })
+    }
+
+    const installSettingsSync = (): void =>
+    {
+      if (!shouldProceed() || settingsHandleRef.current)
       {
         return
       }
-      firstLoginMergeRef.current = false
 
-      // after the merge resolves, sweep persisted BoardSyncState for any
-      // boards w/ unflushed local edits (pendingSyncAt set) & queue them.
-      // covers the page-died-before-flush case from a prior session &
-      // the kept-tab-open-but-tab-died case
-      resumePendingSyncs({
-        queueWork: (work) => scheduler.queue(work),
+      settingsHandleRef.current = setupSettingsCloudSync({
+        debounceMs: SYNC_DEBOUNCE_MS,
+        userId: capturedUserId,
         shouldProceed,
       })
+      triggerResume()
+    }
+
+    const installPresetSync = (): void =>
+    {
+      if (!shouldProceed() || presetsHandleRef.current)
+      {
+        return
+      }
+
+      presetsHandleRef.current = setupTierPresetCloudSync({
+        debounceMs: SYNC_DEBOUNCE_MS,
+        userId: capturedUserId,
+        shouldProceed,
+      })
+      triggerResume()
+    }
+
+    // window online/offline listeners — flip the global online flag in the
+    // status store & re-queue any pending work on offline -> online
+    const disposeConnectivity = setupConnectivity({
+      onOnline: () =>
+      {
+        triggerResume()
+      },
     })
 
-    // subscribe only to persisted data fields via a shallow selector
+    boardFirstLoginMergeRef.current = true
+    void runFirstLoginSyncLifecycle({
+      shouldProceed,
+      runBoardMerge: () => runFirstLoginBoardMerge(user, shouldProceed),
+      runSettingsMerge: () =>
+        mergeSettingsOnFirstLogin({
+          userId: capturedUserId,
+          shouldProceed,
+        }),
+      runPresetMerge: () =>
+        mergeTierPresetsOnFirstLogin({
+          userId: capturedUserId,
+          shouldProceed,
+        }),
+      onBoardMergeSettled: () =>
+      {
+        lastLoadedBoardId =
+          useWorkspaceBoardRegistryStore.getState().activeBoardId
+        boardFirstLoginMergeRef.current = false
+        triggerResume()
+      },
+      onSettingsMergeSettled: () =>
+      {
+        installSettingsSync()
+      },
+      onPresetMergeSettled: () =>
+      {
+        installPresetSync()
+      },
+    })
+
+    // subscribe only to persisted board data fields via a shallow selector
     const unsubscribe = useActiveBoardStore.subscribe(
       selectBoardDataFields,
       () =>
       {
-        if (!shouldProceed() || firstLoginMergeRef.current) return
+        if (!shouldProceed() || boardFirstLoginMergeRef.current) return
 
         const boardId = useWorkspaceBoardRegistryStore.getState().activeBoardId
         if (!boardId)
@@ -399,7 +480,24 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
       void scheduler.dispose()
       unsubscribe()
       disposeConnectivity()
-      firstLoginMergeRef.current = false
+      boardFirstLoginMergeRef.current = false
+
+      // dispose settings + preset handles in parallel — each await waits
+      // for in-flight flushes to settle, but the two are independent so
+      // we don't need to serialize. errors already routed through onError
+      const handles = [
+        settingsHandleRef.current,
+        presetsHandleRef.current,
+      ].filter(
+        (handle): handle is NonNullable<typeof handle> => handle !== null
+      )
+      settingsHandleRef.current = null
+      presetsHandleRef.current = null
+      if (handles.length > 0)
+      {
+        void Promise.allSettled(handles.map((handle) => handle.dispose()))
+      }
+
       // sign-out / user switch — drop pending conflicts & per-board sync
       // statuses for the previous user so a different sign-in doesn't
       // surface stale modal entries or stale indicator chrome
