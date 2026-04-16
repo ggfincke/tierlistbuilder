@@ -7,18 +7,27 @@ export interface BoardSyncState
 {
   lastSyncedRevision: number | null
   cloudBoardExternalId: string | null
+  // epoch millis stamped when the scheduler queues an edit, cleared on a
+  // successful flush. survives tab close so the next session can re-queue
+  // any board whose edits never made it to the cloud
+  pendingSyncAt: number | null
 }
 
 export const EMPTY_BOARD_SYNC_STATE: BoardSyncState = {
   lastSyncedRevision: null,
   cloudBoardExternalId: null,
+  pendingSyncAt: null,
 }
 
 export const extractBoardSyncState = (
-  value: Pick<BoardSyncState, 'lastSyncedRevision' | 'cloudBoardExternalId'>
+  value: Pick<
+    BoardSyncState,
+    'lastSyncedRevision' | 'cloudBoardExternalId' | 'pendingSyncAt'
+  >
 ): BoardSyncState => ({
   lastSyncedRevision: value.lastSyncedRevision,
   cloudBoardExternalId: value.cloudBoardExternalId,
+  pendingSyncAt: value.pendingSyncAt,
 })
 
 export const normalizeBoardSyncState = (value: unknown): BoardSyncState =>
@@ -38,6 +47,12 @@ export const normalizeBoardSyncState = (value: unknown): BoardSyncState =>
       typeof value.cloudBoardExternalId === 'string' &&
       value.cloudBoardExternalId.length > 0
         ? value.cloudBoardExternalId
+        : null,
+    pendingSyncAt:
+      typeof value.pendingSyncAt === 'number' &&
+      Number.isFinite(value.pendingSyncAt) &&
+      value.pendingSyncAt > 0
+        ? value.pendingSyncAt
         : null,
   }
 }

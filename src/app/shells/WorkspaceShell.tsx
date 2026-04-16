@@ -25,6 +25,7 @@ import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useCloudSync } from '~/features/platform/sync/useCloudSync'
 import { ConflictResolverModal } from '~/features/platform/sync/ConflictResolverModal'
 import { CloudPullProgressOverlay } from '~/features/platform/sync/CloudPullProgressOverlay'
+import { CLOUD_SYNC_ENABLED } from '~/features/platform/sync/cloudSyncConfig'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
@@ -73,6 +74,7 @@ export const WorkspaceShell = () =>
   const authSession = useAuthSession()
   const signedInUser =
     authSession.status === 'signed-in' ? authSession.user : null
+  const cloudSyncActive = signedInUser !== null && CLOUD_SYNC_ENABLED
   useCloudSync(signedInUser)
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
@@ -228,6 +230,7 @@ export const WorkspaceShell = () =>
               toolbar={
                 <BoardActionBar
                   toolbarPosition={toolbarPosition}
+                  cloudSyncActive={cloudSyncActive}
                   exportStatus={exportStatus}
                   exportingAll={exportAllProgress !== null}
                   onAddTier={handleAddTier}

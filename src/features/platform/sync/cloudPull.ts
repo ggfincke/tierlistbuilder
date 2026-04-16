@@ -121,6 +121,7 @@ const persistDownloadedBoard = async (
     syncState: {
       lastSyncedRevision: state.revision,
       cloudBoardExternalId: meta.externalId,
+      pendingSyncAt: null,
     },
   })
 

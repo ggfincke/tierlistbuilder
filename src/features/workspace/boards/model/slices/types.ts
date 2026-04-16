@@ -117,6 +117,7 @@ export interface SyncSlice extends BoardSyncState
   setSyncState: (state: {
     lastSyncedRevision?: number | null
     cloudBoardExternalId?: string | null
+    pendingSyncAt?: number | null
   }) => void
 }
 

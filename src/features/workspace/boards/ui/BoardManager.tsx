@@ -21,6 +21,7 @@ import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { OverlayPanelSurface } from '~/shared/overlay/OverlayPrimitives'
 import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
 import { TextInput } from '~/shared/ui/TextInput'
+import { BoardSyncBadge } from '~/features/workspace/boards/ui/BoardSyncBadge'
 
 interface BoardManagerProps
 {
@@ -171,6 +172,14 @@ export const BoardManager = ({
                       >
                         {board.title}
                       </button>
+
+                      {/* per-board sync status — renders nothing when idle so
+                          most boards stay visually quiet; surfaces a small
+                          icon for syncing / error / conflict / offline */}
+                      <BoardSyncBadge
+                        boardId={board.id}
+                        boardTitle={board.title}
+                      />
 
                       {/* edit, duplicate, & delete buttons — appear on hover */}
                       <button

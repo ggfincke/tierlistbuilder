@@ -1,5 +1,6 @@
 // src/features/platform/sync/cloudSyncScheduler.ts
-// per-board cloud sync scheduler — debounce, in-flight serialization, & board-owned persistence
+// per-board cloud sync scheduler — debounce, in-flight serialization, board-owned
+// persistence, exponential retry backoff, & status callbacks for the indicator chrome
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
@@ -25,6 +26,16 @@ export type FlushResult =
   | { kind: 'conflict'; serverState: CloudBoardState }
   | { kind: 'error'; error: unknown }
 
+// statuses the scheduler emits via onStatusChange. 'conflict' & 'offline'
+// are derived elsewhere (conflict from useConflictQueueStore, offline from
+// the connectivity module) so the scheduler stays focused on flush state
+export type SchedulerBoardStatus = 'syncing' | 'idle' | 'error'
+
+// retry backoff: start at the standard debounce, double on each failure,
+// cap at 30s. resets to 0 after a successful flush.
+//   sequence (w/ 2.5s base): 2.5s, 5s, 10s, 20s, 30s, 30s, ...
+const RETRY_MAX_MS = 30_000
+
 interface BoardSyncController
 {
   timer: ReturnType<typeof setTimeout> | null
@@ -32,6 +43,8 @@ interface BoardSyncController
   inFlight: PendingBoardSync | null
   // short-circuit identical uploads after the last successful push
   lastUploadedSelection: BoardDataSelection | null
+  // 0 when healthy; bumped on each failed flush to drive exponential backoff
+  retryAttempt: number
 }
 
 interface CreateCloudSyncSchedulerOptions
@@ -42,6 +55,7 @@ interface CreateCloudSyncSchedulerOptions
   persist: (boardId: BoardId, syncState: BoardSyncState) => void
   onError?: (boardId: BoardId, error: unknown) => void
   onConflict?: (boardId: BoardId, serverState: CloudBoardState) => void
+  onStatusChange?: (boardId: BoardId, status: SchedulerBoardStatus) => void
   // stop queued work after auth churn
   shouldProceed?: () => boolean
 }
@@ -85,6 +99,7 @@ const getOrCreateBoardSyncController = (
     queued: null,
     inFlight: null,
     lastUploadedSelection: null,
+    retryAttempt: 0,
   }
   controllers.set(boardId, created)
   return created
@@ -109,6 +124,18 @@ const pruneBoardSyncController = (
   controllers.delete(boardId)
 }
 
+// compute next backoff delay from the controller's retry counter. caller
+// decides whether to bump retryAttempt afterwards (we increment AFTER reading
+// so the first retry uses the base delay)
+const computeBackoffDelay = (baseMs: number, retryAttempt: number): number =>
+{
+  // 2^attempt is bounded; clamp to RETRY_MAX_MS to avoid both overflow on
+  // pathological retry counts & multi-minute waits
+  const exponent = Math.min(retryAttempt, 16)
+  const computed = baseMs * 2 ** exponent
+  return Math.min(computed, RETRY_MAX_MS)
+}
+
 export const createCloudSyncScheduler = (
   options: CreateCloudSyncSchedulerOptions
 ): CloudSyncScheduler =>
@@ -118,9 +145,46 @@ export const createCloudSyncScheduler = (
   // tracks in-flight flush promises so dispose({ flush: true }) can await them
   const inFlightPromises = new Set<Promise<void>>()
 
+  // stamp pendingSyncAt on a fresh edit (transition from null) & persist so
+  // the marker survives tab close even if the debounce never fires
+  const ensurePendingSyncMarker = (
+    work: PendingBoardSync
+  ): PendingBoardSync =>
+  {
+    if (work.syncState.pendingSyncAt !== null)
+    {
+      return work
+    }
+
+    const dirtiedSyncState: BoardSyncState = {
+      ...work.syncState,
+      pendingSyncAt: Date.now(),
+    }
+    options.persist(work.boardId, dirtiedSyncState)
+
+    return { ...work, syncState: dirtiedSyncState }
+  }
+
+  const clearPendingSyncMarker = (work: PendingBoardSync): PendingBoardSync =>
+  {
+    if (work.syncState.pendingSyncAt === null)
+    {
+      return work
+    }
+
+    const cleanSyncState: BoardSyncState = {
+      ...work.syncState,
+      pendingSyncAt: null,
+    }
+    options.persist(work.boardId, cleanSyncState)
+
+    return { ...work, syncState: cleanSyncState }
+  }
+
   const scheduleBoardSyncFlush = (
     boardId: BoardId,
-    controller: BoardSyncController
+    controller: BoardSyncController,
+    delayMs: number = options.debounceMs
   ): void =>
   {
     clearBoardSyncTimer(controller)
@@ -128,7 +192,7 @@ export const createCloudSyncScheduler = (
     {
       controller.timer = null
       flushQueuedBoardSync(boardId)
-    }, options.debounceMs)
+    }, delayMs)
   }
 
   const runFlush = (
@@ -138,6 +202,7 @@ export const createCloudSyncScheduler = (
   ): Promise<void> =>
   {
     controller.inFlight = work
+    options.onStatusChange?.(boardId, 'syncing')
     let nextSyncState: BoardSyncState | null = null
     let syncErrored = false
     let syncConflicted = false
@@ -153,21 +218,27 @@ export const createCloudSyncScheduler = (
           {
             nextSyncState = result.syncState
             controller.lastUploadedSelection = work.boardDataSelection
+            controller.retryAttempt = 0
             options.persist(work.boardId, result.syncState)
+            options.onStatusChange?.(work.boardId, 'idle')
             return
           }
 
           if (result.kind === 'conflict')
           {
             // deliberately do NOT advance lastSyncedRevision; the next push
-            // w/ the same baseRevision must surface the conflict again
+            // w/ the same baseRevision must surface the conflict again.
+            // emit 'idle' — the conflict queue store carries the conflict
+            // signal; the combined hook surfaces it to the indicator
             syncConflicted = true
             options.onConflict?.(work.boardId, result.serverState)
+            options.onStatusChange?.(work.boardId, 'idle')
             return
           }
 
           syncErrored = true
           options.onError?.(work.boardId, result.error)
+          options.onStatusChange?.(work.boardId, 'error')
         },
         (error) =>
         {
@@ -176,6 +247,7 @@ export const createCloudSyncScheduler = (
           // but treat a throw as a transient error to keep retries working
           syncErrored = true
           options.onError?.(work.boardId, error)
+          options.onStatusChange?.(work.boardId, 'error')
         }
       )
       .finally(() =>
@@ -200,9 +272,21 @@ export const createCloudSyncScheduler = (
           return
         }
 
-        if (syncErrored && controller.queued)
+        if (syncErrored)
         {
-          scheduleBoardSyncFlush(boardId, controller)
+          if (!controller.queued)
+          {
+            controller.queued = work
+          }
+
+          // error retry uses exponential backoff. compute the delay first,
+          // then bump the counter so the NEXT retry waits longer
+          const delay = computeBackoffDelay(
+            options.debounceMs,
+            controller.retryAttempt
+          )
+          controller.retryAttempt++
+          scheduleBoardSyncFlush(boardId, controller, delay)
           return
         }
 
@@ -272,12 +356,24 @@ export const createCloudSyncScheduler = (
       )
     )
     {
+      clearPendingSyncMarker(work)
+      controller.retryAttempt = 0
+
+      // same bytes as the last successful upload — skip the round trip but
+      // still flip status back to idle since whatever the user did landed
+      // on identical state
+      options.onStatusChange?.(boardId, 'idle')
       pruneBoardSyncController(controllers, boardId, controller)
       return
     }
 
     if (!options.hasBoard(boardId))
     {
+      // board got deleted while queued; emit idle so any lingering chrome
+      // resets, then drop the controller. the consumer is responsible for
+      // calling removeBoardStatus on the syncStatusStore at delete time —
+      // emitting idle here is a defense-in-depth no-op for the UI
+      options.onStatusChange?.(boardId, 'idle')
       pruneBoardSyncController(controllers, boardId, controller)
       return
     }
@@ -287,7 +383,9 @@ export const createCloudSyncScheduler = (
       // another tab is pushing this board right now; re-queue for the
       // end of the TTL window rather than racing w/ that tab. on the
       // retry, isBoardLockedByPeer will have cleared (or the peer died
-      // & the TTL expired, whichever comes first)
+      // & the TTL expired, whichever comes first). status stays 'syncing'
+      // — from the user's perspective we ARE still trying to sync
+      controller.queued = work
       scheduleBoardSyncFlush(boardId, controller)
       return
     }
@@ -304,12 +402,25 @@ export const createCloudSyncScheduler = (
         return
       }
 
+      // stamp the dirty marker BEFORE anything else so a tab killed during
+      // the debounce window still leaves a trail for next-session recovery
+      const dirtiedWork = ensurePendingSyncMarker(work)
+
       const controller = getOrCreateBoardSyncController(
         controllers,
-        work.boardId
+        dirtiedWork.boardId
       )
-      controller.queued = work
-      scheduleBoardSyncFlush(work.boardId, controller)
+      controller.queued = dirtiedWork
+      // a fresh user edit cancels any pending backoff retry — the network
+      // might still be flaky but the UX should feel responsive. clear the
+      // counter so the standard debounce applies (the next failure resets
+      // the backoff progression from 0)
+      controller.retryAttempt = 0
+      scheduleBoardSyncFlush(dirtiedWork.boardId, controller)
+
+      // emit 'syncing' immediately so the indicator flips on edit, not
+      // 2.5s later when the timer fires
+      options.onStatusChange?.(dirtiedWork.boardId, 'syncing')
     },
 
     dispose: async ({ flush = false }: SchedulerDisposeOptions = {}) =>

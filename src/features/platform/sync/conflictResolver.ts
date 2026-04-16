@@ -58,6 +58,7 @@ export const resolveKeepLocal = async (
     persistBoardSyncState(boardId, {
       lastSyncedRevision: outcome.revision,
       cloudBoardExternalId: boardExternalId,
+      pendingSyncAt: null,
     })
     return { ok: true }
   }
@@ -87,6 +88,7 @@ export const resolveKeepCloud = async (
     syncState: {
       lastSyncedRevision: serverState.revision,
       cloudBoardExternalId,
+      pendingSyncAt: null,
     },
   })
   if (!saveResult.ok)
@@ -152,6 +154,7 @@ export const resolveKeepBoth = async (
     persistBoardSyncState(duplicateId, {
       lastSyncedRevision: pushOutcome.revision,
       cloudBoardExternalId: duplicateId,
+      pendingSyncAt: null,
     })
     duplicateSyncedToCloud = true
   }

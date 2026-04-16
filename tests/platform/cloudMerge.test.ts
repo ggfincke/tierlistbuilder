@@ -109,6 +109,7 @@ describe('cloudMerge', () =>
       syncState: {
         lastSyncedRevision: 1,
         cloudBoardExternalId: 'board-local',
+        pendingSyncAt: null,
       },
     })
 
@@ -135,6 +136,7 @@ describe('cloudMerge', () =>
       syncState: {
         lastSyncedRevision: null,
         cloudBoardExternalId: null,
+        pendingSyncAt: null,
       },
     })
 

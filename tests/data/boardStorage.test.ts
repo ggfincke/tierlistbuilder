@@ -75,6 +75,7 @@ describe('boardStorage sync metadata', () =>
       syncState: {
         lastSyncedRevision: 12,
         cloudBoardExternalId: 'cloud-board-12',
+        pendingSyncAt: null,
       },
     })
 
@@ -85,6 +86,7 @@ describe('boardStorage sync metadata', () =>
       JSON.stringify({
         lastSyncedRevision: 12,
         cloudBoardExternalId: 'cloud-board-12',
+        pendingSyncAt: null,
       })
     )
 
@@ -94,6 +96,7 @@ describe('boardStorage sync metadata', () =>
       sync: {
         lastSyncedRevision: 12,
         cloudBoardExternalId: 'cloud-board-12',
+        pendingSyncAt: null,
       },
     })
   })
@@ -105,6 +108,7 @@ describe('boardStorage sync metadata', () =>
       syncState: {
         lastSyncedRevision: 4,
         cloudBoardExternalId: 'cloud-board-4',
+        pendingSyncAt: null,
       },
     })
 
@@ -120,6 +124,7 @@ describe('boardStorage sync metadata', () =>
       sync: {
         lastSyncedRevision: 4,
         cloudBoardExternalId: 'cloud-board-4',
+        pendingSyncAt: null,
       },
     })
   })
@@ -138,6 +143,7 @@ describe('boardStorage sync metadata', () =>
     saveBoardSyncToStorage(TEST_BOARD_ID, {
       lastSyncedRevision: 7,
       cloudBoardExternalId: 'cloud-board-7',
+      pendingSyncAt: null,
     })
 
     expect(localStorage.getItem(boardStorageKey(TEST_BOARD_ID))).toBe(
@@ -150,6 +156,7 @@ describe('boardStorage sync metadata', () =>
       sync: {
         lastSyncedRevision: 7,
         cloudBoardExternalId: 'cloud-board-7',
+        pendingSyncAt: null,
       },
     })
   })
@@ -175,12 +182,14 @@ describe('boardStorage sync metadata', () =>
       sync: {
         lastSyncedRevision: 21,
         cloudBoardExternalId: 'cloud-board-21',
+        pendingSyncAt: null,
       },
     })
     expect(localStorage.getItem(boardSyncStorageKey(TEST_BOARD_ID))).toBe(
       JSON.stringify({
         lastSyncedRevision: 21,
         cloudBoardExternalId: 'cloud-board-21',
+        pendingSyncAt: null,
       })
     )
   })
@@ -231,6 +240,7 @@ describe('boardStorage sync metadata', () =>
       syncState: {
         lastSyncedRevision: 9,
         cloudBoardExternalId: 'cloud-board-9',
+        pendingSyncAt: null,
       },
     })
 
