@@ -7,7 +7,7 @@ import {
   MAX_INFLATED_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_COMPRESSED_BYTES,
 } from '@tierlistbuilder/contracts/platform/shortLink'
-import { EMBED_ROUTE_PATH, normalizeBasePath } from '~/app/routes/pathname'
+import { normalizeBasePath } from '~/app/routes/pathname'
 import { parseBoardSnapshotJson } from '~/features/workspace/export/lib/exportJson'
 import { base64ToBytes, bytesToBase64 } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
@@ -125,28 +125,6 @@ export const decodeBoardFromShareFragment = async (
     )
   }
   return inflateSnapshotBytes(compressed)
-}
-
-// workspace base URL (origin + configured base path)
-export const getWorkspaceBaseUrl = (): string => buildAppUrl()
-
-// embed base URL for the dedicated embed route
-export const getEmbedBaseUrl = (): string => buildAppUrl(EMBED_ROUTE_PATH)
-
-// build the full shareable URL w/ hash fragment
-export const getShareUrl = async (data: BoardSnapshot): Promise<string> =>
-{
-  const fragment = await encodeBoardToShareFragment(data)
-  return `${getWorkspaceBaseUrl()}#share=${fragment}`
-}
-
-// rough byte estimate of the encoded share URL
-export const estimateShareSize = (data: BoardSnapshot): number =>
-{
-  const stripped = stripImagesForShare(data)
-  const json = JSON.stringify(stripped)
-  // compression ratio is ~40-60% for JSON; base64url adds ~33% overhead
-  return Math.round(json.length * 0.5 * 1.33)
 }
 
 // check if the current URL has a share fragment

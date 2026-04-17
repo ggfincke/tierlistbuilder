@@ -8,9 +8,9 @@ import { fetchImageAsItemImage } from '~/features/workspace/settings/lib/imageFr
 import { ColorInput } from '~/shared/ui/ColorInput'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
+import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { DeletedItemsSection } from './DeletedItemsSection'
 import { ImageUploader } from './ImageUploader'
-import { SettingsSection } from './SettingsSection'
 
 interface ItemsTabProps
 {

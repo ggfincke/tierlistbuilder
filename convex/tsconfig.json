@@ -17,7 +17,6 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@tierlistbuilder/contracts": ["../packages/contracts/index.ts"],
       "@tierlistbuilder/contracts/*": ["../packages/contracts/*"]
     }
   },

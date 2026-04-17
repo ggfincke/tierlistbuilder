@@ -13,7 +13,7 @@ import { TierList } from '~/features/workspace/boards/ui/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
-import { ExportProgressOverlay } from '~/features/workspace/export/ui/ExportProgressOverlay'
+import { ProgressOverlay } from '~/shared/overlay/ProgressOverlay'
 import { useExportController } from '~/features/workspace/export/model/useExportController'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { getWorkspacePath } from '~/app/routes/pathname'
@@ -25,7 +25,7 @@ import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlob
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useCloudSync } from '~/features/platform/sync/lifecycle/useCloudSync'
 import { ConflictResolverModal } from '~/features/platform/sync/conflicts/ConflictResolverModal'
-import { CloudPullProgressOverlay } from '~/features/platform/sync/progress/CloudPullProgressOverlay'
+import { useCloudPullProgressStore } from '~/features/platform/sync/progress/useCloudPullProgressStore'
 import { CLOUD_SYNC_ENABLED } from '~/features/platform/sync/lib/cloudSyncConfig'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
@@ -69,6 +69,8 @@ export const WorkspaceShell = () =>
     (state) => state.boardBackgroundOverride
   )
   const reducedMotion = useSettingsStore((state) => state.reducedMotion)
+  const cloudPullCurrent = useCloudPullProgressStore((state) => state.current)
+  const cloudPullTotal = useCloudPullProgressStore((state) => state.total)
   const aboveSm = useAboveBreakpoint()
   const toolbarPosition = getResponsiveToolbarPosition(
     rawToolbarPosition,
@@ -320,7 +322,10 @@ export const WorkspaceShell = () =>
         onSwitchBoard={transitionTo}
       />
       {exportAllProgress && (
-        <ExportProgressOverlay
+        <ProgressOverlay
+          title="Exporting Boards"
+          statusVerb="Exporting"
+          progressLabel="Export progress"
           current={exportAllProgress.current}
           total={exportAllProgress.total}
         />
@@ -328,7 +333,13 @@ export const WorkspaceShell = () =>
       {showShortcutsPanel && <ShortcutsPanel onClose={closeShortcutsPanel} />}
       <BulkActionBar />
       <ConflictResolverModal user={signedInUser} />
-      <CloudPullProgressOverlay />
+      <ProgressOverlay
+        title="Loading your boards"
+        statusVerb="Downloading"
+        progressLabel="Cloud pull progress"
+        current={cloudPullCurrent}
+        total={cloudPullTotal}
+      />
       <ToastContainer reducedMotion={reducedMotion} />
       <LiveRegion />
     </main>

@@ -2,7 +2,7 @@
 // board data slice — tiers, items, unranked pool, deleted buffer, & CRUD actions
 
 import { announce } from '~/shared/a11y/announce'
-import { clampIndex } from '~/shared/lib/math'
+import { clamp } from '~/shared/lib/math'
 import { generateItemId } from '~/shared/lib/id'
 import { areTierColorSpecsEqual } from '~/shared/theme/tierColors'
 import {
@@ -239,7 +239,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
   addTierAt: (index, paletteId) =>
     set((state) =>
     {
-      const clampedIndex = clampIndex(index, 0, state.tiers.length)
+      const clampedIndex = clamp(index, 0, state.tiers.length)
       const nextTiers = [...state.tiers]
       nextTiers.splice(
         clampedIndex,

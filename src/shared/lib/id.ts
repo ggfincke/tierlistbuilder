@@ -4,7 +4,6 @@
 import type {
   BoardId,
   ItemId,
-  PresetId,
   TierId,
   UserPresetId,
 } from '@tierlistbuilder/contracts/lib/ids'
@@ -12,9 +11,6 @@ import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export const isTierId = (value: string): value is TierId =>
   value.startsWith('tier-')
-
-export const isPresetId = (value: string): value is PresetId =>
-  value.startsWith('preset-') || value.startsWith('builtin-')
 
 export const generateBoardId = (): BoardId =>
   `board-${crypto.randomUUID()}` as BoardId

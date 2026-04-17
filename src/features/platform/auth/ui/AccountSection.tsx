@@ -8,7 +8,7 @@ import { LogIn, LogOut } from 'lucide-react'
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { SignInModal } from '~/features/platform/auth/ui/SignInModal'
-import { SettingsSection } from '~/features/workspace/settings/ui/SettingsSection'
+import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
 export const AccountSection = () =>

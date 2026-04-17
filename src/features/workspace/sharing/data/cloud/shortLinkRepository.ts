@@ -47,13 +47,6 @@ export const useListMyShortLinks = (
     enabled ? {} : 'skip'
   )
 
-// imperative variant kept for parity w/ the deleted-boards repository
-// pattern. no current caller, but the symmetry pays off the next time a
-// non-React surface needs the listing
-export const listMyShortLinksImperative = (): Promise<
-  OwnedShortLinkListItem[]
-> => convexClient.query(api.platform.shortLinks.queries.getMyShortLinks, {})
-
 // revoke an owned short link by slug. silent no-op on missing slugs (reaped by TTL or
 // revoked elsewhere) — UI optimistically removes the row w/o special-casing
 export const revokeShortLinkImperative = (args: {

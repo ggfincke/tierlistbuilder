@@ -2,7 +2,7 @@
 // keyboard navigation logic for drag-&-drop item movement
 
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
-import { clampIndex } from '~/shared/lib/math'
+import { clamp } from '~/shared/lib/math'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
@@ -153,7 +153,7 @@ export const resolveNextKeyboardDragPreview = ({
   const targetItems = getItemsInContainer(snapshot, targetContainerId)
   const targetIndex = appendToTargetEnd
     ? targetItems.length
-    : clampIndex(sourceIndex, 0, targetItems.length)
+    : clamp(sourceIndex, 0, targetItems.length)
 
   return {
     containerId: targetContainerId,
@@ -210,7 +210,7 @@ export const resolveNextKeyboardFocusItem = ({
   }
 
   const targetItems = getItemsInContainer(snapshot, targetContainerId)
-  const targetIndex = clampIndex(sourceIndex, 0, targetItems.length - 1)
+  const targetIndex = clamp(sourceIndex, 0, targetItems.length - 1)
 
   return targetItems[targetIndex] ?? null
 }

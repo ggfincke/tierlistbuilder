@@ -11,7 +11,7 @@ import { getStorageUsageBytes } from '~/shared/lib/storageMetering'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { AccountTab } from './AccountTab'
+import { AccountSection } from '~/features/platform/auth/ui/AccountSection'
 import { AppearanceTab } from './AppearanceTab'
 import { ItemsTab } from './ItemsTab'
 import { LayoutTab } from './LayoutTab'
@@ -164,7 +164,7 @@ export const BoardSettingsModal = ({
             />
           )}
 
-          {activeTab === 'account' && <AccountTab />}
+          {activeTab === 'account' && <AccountSection />}
         </div>
       </BaseModal>
 

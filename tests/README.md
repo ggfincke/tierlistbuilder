@@ -50,7 +50,7 @@ npx vitest run tests/dragSnapshot.test.ts
 tests/
 ├── fixtures.ts                    — shared snapshot/tier builders & constants
 ├── board/
-│   ├── constants.test.ts          — toFileBase, clampIndex, buildDefaultTiers
+│   ├── constants.test.ts          — toFileBase, clamp, buildDefaultTiers
 │   ├── boardSnapshot.test.ts      — board creation, tier factory, color spec normalization, & legacy migration
 │   ├── boardOps.test.ts           — pure sorting & shuffling helpers
 │   ├── tierColors.test.ts         — tier color spec creation & resolution

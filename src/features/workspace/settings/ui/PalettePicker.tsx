@@ -3,7 +3,7 @@
 
 import { useRovingSelection } from '~/shared/selection/useRovingSelection'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
-import { PALETTE_META, PALETTES } from '~/shared/theme'
+import { PALETTE_META, PALETTES } from '~/shared/theme/palettes'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 
 const PALETTE_IDS = PALETTE_META.map((m) => m.id) as PaletteId[]

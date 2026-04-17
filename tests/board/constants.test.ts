@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildDefaultTiers } from '~/features/workspace/boards/lib/boardDefaults'
 import { toFileBase } from '~/shared/lib/fileName'
-import { clampIndex } from '~/shared/lib/math'
+import { clamp } from '~/shared/lib/math'
 
 describe('toFileBase', () =>
 {
@@ -16,13 +16,13 @@ describe('toFileBase', () =>
   })
 })
 
-describe('clampIndex', () =>
+describe('clamp', () =>
 {
   it('clamps values to [min, max] inclusive', () =>
   {
-    expect(clampIndex(-1, 0, 5)).toBe(0)
-    expect(clampIndex(10, 0, 5)).toBe(5)
-    expect(clampIndex(3, 0, 5)).toBe(3)
+    expect(clamp(-1, 0, 5)).toBe(0)
+    expect(clamp(10, 0, 5)).toBe(5)
+    expect(clamp(3, 0, 5)).toBe(3)
   })
 })
 

@@ -13,9 +13,9 @@ import type {
   TierLabelFontSize,
   ToolbarPosition,
 } from '@tierlistbuilder/contracts/workspace/settings'
+import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { SegmentedControl } from './SegmentedControl'
 import { SettingRow } from './SettingRow'
-import { SettingsSection } from './SettingsSection'
 import { Toggle } from './Toggle'
 
 export const LayoutTab = () =>
