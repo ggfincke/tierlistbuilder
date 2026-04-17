@@ -82,4 +82,15 @@ crons.cron(
   { cursor: null }
 )
 
+// daily snapshot-share TTL sweep — runs at 17 6 so the prior crons drain
+// first. shortLinks rows are deleted in-band; matching _storage blobs are
+// best-effort deleted in the same pass, & the next nightly gcOrphanedStorage
+// catches partial-failure residue
+crons.cron(
+  'gc expired snapshot share links',
+  '17 6 * * *',
+  internal.platform.shortLinks.internal.gcExpiredShortLinks,
+  { cursor: null }
+)
+
 export default crons

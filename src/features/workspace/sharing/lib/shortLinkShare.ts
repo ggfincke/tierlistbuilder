@@ -115,8 +115,12 @@ export const createBoardShortLink = async (
 
   if (signal?.aborted) throw signal.reason ?? new Error('aborted')
 
+  // forward the snapshot's title so the row carries a denormalized label
+  // for the signed-in "Recent shares" listing. server normalizes via
+  // normalizeBoardTitle (trim + cap), matching the boards table contract
   const { slug, createdAt } = await createSnapshotShortLinkImperative({
     snapshotStorageId: uploadJson.storageId,
+    boardTitle: data.title,
   })
 
   return {
