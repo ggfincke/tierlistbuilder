@@ -11,12 +11,9 @@ import {
 } from '@tierlistbuilder/contracts/platform/shortLink'
 import { getCurrentUserId } from '../../lib/auth'
 
-// resolve a slug to its snapshot blob URL, or signal a miss. callers
-// distinguish "deleted" from "never existed" only via the kind tag — we
-// don't expose the difference. recipient flow:
-//   resolveSlug({ slug }) -> { snapshotUrl, createdAt }
-//   fetch(snapshotUrl) -> compressed bytes
-//   inflate + parse -> BoardSnapshot (same pipeline as #share=... fragment)
+// resolve a slug to its snapshot blob URL, or signal a miss. callers distinguish
+// missing vs. expired only via the kind tag. recipient flow: resolveSlug -> fetch
+// snapshotUrl -> inflate -> BoardSnapshot (same pipeline as #share=... fragment)
 export const resolveSlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args): Promise<ShortLinkResolveResult> =>
@@ -54,11 +51,9 @@ export const resolveSlug = query({
   },
 })
 
-// list the authenticated caller's live snapshot shares, newest first. powers
-// the "Recent shares" surface. anon callers see an empty list (anon shares
-// have ownerId = null & no surface to manage them — they expire on TTL).
-// expired-but-not-yet-reaped rows are filtered out so the listing matches
-// the resolve query's "expired = gone" semantics
+// list the authenticated caller's live snapshot shares, newest first. anon callers
+// get an empty list — anon shares expire on TTL w/ no management surface.
+// expired-but-not-yet-reaped rows are filtered so listing matches resolve semantics
 export const getMyShortLinks = query({
   args: {},
   handler: async (ctx): Promise<OwnedShortLinkListItem[]> =>
@@ -69,10 +64,8 @@ export const getMyShortLinks = query({
       return []
     }
 
-    // byOwner.eq(userId).order('desc') walks the index in reverse — Convex
-    // secondary-sorts by _creationTime which matches our createdAt within
-    // the same row. cap before the post-filter; expired rows take a slot
-    // but the cap is large enough that tail-trimming isn't a real concern
+    // order('desc') walks byOwner in reverse — Convex secondary-sorts by _creationTime.
+    // cap before the post-filter; expired rows take a slot but the cap is large enough
     const rows = await ctx.db
       .query('shortLinks')
       .withIndex('byOwner', (q) => q.eq('ownerId', userId))

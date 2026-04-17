@@ -1,7 +1,6 @@
 // convex/workspace/tierPresets/queries.ts
 // tier preset queries — list-all read path for the authenticated caller.
-// built-in presets stay client-side (defined in tierPresets.ts) & are not
-// represented on the server, so the list returned here is user presets only
+// built-in presets are client-side only, so this returns user presets only
 
 import type { Doc } from '../../_generated/dataModel'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'

@@ -1,6 +1,5 @@
 // src/features/platform/auth/model/useAuthActions.ts
-// re-exported from @convex-dev/auth/react — signIn & signOut primitives.
-// UI components go through this module so the provider package is a single
-// seam we can swap later without hunting through every consumer
+// re-exports @convex-dev/auth/react signIn & signOut as a single swap seam
+// so the provider package stays isolated from every UI consumer
 
 export { useAuthActions } from '@convex-dev/auth/react'

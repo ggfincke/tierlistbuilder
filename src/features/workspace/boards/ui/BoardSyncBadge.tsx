@@ -1,8 +1,6 @@
 // src/features/workspace/boards/ui/BoardSyncBadge.tsx
-// inline sync-status badge for per-board lists (BoardManager). renders nothing
-// when the board is idle so the list stays uncluttered; surfaces a small icon
-// for every other state. shares the status taxonomy w/ SyncStatusIndicator
-// but uses smaller, inline-appropriate chrome
+// inline sync-status badge for per-board lists (BoardManager). renders nothing when idle;
+// surfaces a small icon for every other state. shares the taxonomy w/ SyncStatusIndicator
 
 import {
   AlertCircle,
@@ -16,7 +14,7 @@ import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   useBoardSyncStatus,
   type EffectiveBoardSyncStatus,
-} from '~/features/platform/sync/useBoardSyncStatus'
+} from '~/features/platform/sync/status/useBoardSyncStatus'
 
 interface BadgeVisual
 {

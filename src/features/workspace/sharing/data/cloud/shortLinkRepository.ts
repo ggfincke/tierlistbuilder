@@ -1,9 +1,6 @@
 // src/features/workspace/sharing/data/cloud/shortLinkRepository.ts
-// Convex query/mutation adapters for the snapshot-share short link layer.
-// resolve / generate-upload / create are imperative because they run before
-// React mounts (embed-route bootstrap & workspace inbound-share path).
-// list + revoke are reactive + imperative respectively because they back
-// the signed-in "Recent shares" management modal
+// Convex adapters for the snapshot-share short link layer.
+// resolve/generate/create are imperative (pre-React); list is reactive; revoke is imperative
 
 import { useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
@@ -28,10 +25,8 @@ export const generateSnapshotUploadUrlImperative = (): Promise<string> =>
     {}
   )
 
-// link an uploaded snapshot blob to a fresh short slug. anon-callable; when
-// signed in, the row's ownerId is set so the user can manage their links.
-// boardTitle is denormalized onto the row at create time so the listing UI
-// has a label w/o needing to fetch+inflate the blob
+// link an uploaded snapshot blob to a fresh slug. anon-callable; when signed in,
+// ownerId is set so the user can manage their links. boardTitle is denormalized for the listing UI
 export const createSnapshotShortLinkImperative = (args: {
   snapshotStorageId: Id<'_storage'>
   boardTitle: string
@@ -59,10 +54,8 @@ export const listMyShortLinksImperative = (): Promise<
   OwnedShortLinkListItem[]
 > => convexClient.query(api.platform.shortLinks.queries.getMyShortLinks, {})
 
-// revoke an owned short link by slug. silent no-op on missing slugs (already
-// reaped by TTL or revoked elsewhere) — the caller's UI optimistically
-// removes the row & doesn't need to special-case the rare "actually it was
-// already gone" path
+// revoke an owned short link by slug. silent no-op on missing slugs (reaped by TTL or
+// revoked elsewhere) — UI optimistically removes the row w/o special-casing
 export const revokeShortLinkImperative = (args: {
   slug: string
 }): Promise<null> =>

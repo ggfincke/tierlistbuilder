@@ -1,8 +1,6 @@
 // src/features/workspace/sharing/ui/ShareModal.tsx
-// share modal — shows a Generate button, then renders the minted URL + embed
-// snippet. generation is explicit (not auto on open) so each modal open
-// doesn't create a fresh shortLinks row + _storage blob for the same board
-// content. aborts in-flight work on unmount & on supersession
+// share modal — shows a Generate button, then renders the minted URL + embed snippet.
+// generation is explicit (not auto-on-open) to avoid creating a fresh blob per open. aborts on unmount
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, Link as LinkIcon, RefreshCw } from 'lucide-react'

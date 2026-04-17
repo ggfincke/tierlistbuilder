@@ -1,8 +1,6 @@
 // src/features/workspace/settings/data/cloud/settingsRepository.ts
-// Convex query/mutation adapters for cloud settings sync. matches the
-// boards/data/cloud/boardRepository pattern: hook-based wrappers for React
-// components, *Imperative variants for non-React sync logic (useCloudSync,
-// first-login merge, pendingSyncRecovery)
+// Convex query/mutation adapters for cloud settings sync.
+// mirrors boardRepository: hook-based wrappers for React; *Imperative variants for non-React sync logic
 
 import { useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'

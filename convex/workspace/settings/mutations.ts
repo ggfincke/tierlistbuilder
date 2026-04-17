@@ -1,11 +1,11 @@
 // convex/workspace/settings/mutations.ts
-// user settings mutations — single-row-per-user upsert; last-write-wins semantics
-// (no revision check). settings are cosmetic & user-driven; concurrent-edit
-// conflicts collapse to whichever debounced flush lands last
+// user settings mutations — single-row-per-user upsert w/ last-write-wins semantics.
+// concurrent-edit conflicts collapse to whichever debounced flush lands last
 
 import { mutation } from '../../_generated/server'
 import { requireCurrentUserId } from '../../lib/auth'
 import { appSettingsValidator } from '../../lib/validators'
+import { validateHexColor } from '../../lib/hexColor'
 
 // upsert the authenticated caller's AppSettings — replaces any existing row.
 // returns the wall-clock updatedAt the row landed at so the client can stamp
@@ -15,6 +15,25 @@ export const upsertMySettings = mutation({
   handler: async (ctx, args): Promise<{ updatedAt: number }> =>
   {
     const userId = await requireCurrentUserId(ctx)
+
+    // v.string() accepts arbitrary length & format — enforce hex shape here
+    // so a client can't smuggle a multi-KB payload or a malformed color
+    // into the background-override columns
+    if (args.settings.exportBackgroundOverride !== null)
+    {
+      validateHexColor(
+        args.settings.exportBackgroundOverride,
+        'exportBackgroundOverride'
+      )
+    }
+    if (args.settings.boardBackgroundOverride !== null)
+    {
+      validateHexColor(
+        args.settings.boardBackgroundOverride,
+        'boardBackgroundOverride'
+      )
+    }
+
     const now = Date.now()
 
     const existing = await ctx.db

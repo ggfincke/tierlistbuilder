@@ -127,9 +127,8 @@ const replaceInlineWithRefs = (
 }
 
 // migrate every inline image on a snapshot into the IndexedDB store.
-// persist-before-mutate: we hash & persist every candidate first, then
-// build a new snapshot from the persisted records. the input snapshot is
-// never mutated; on error the original is returned untouched
+// persist-before-mutate: hash & persist all candidates first, then build
+// a new snapshot from persisted records; returns the original on any error
 export const migrateBoardImages = async (
   snapshot: BoardSnapshot
 ): Promise<BoardSnapshot> =>

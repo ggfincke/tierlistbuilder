@@ -1,7 +1,6 @@
 // src/features/workspace/boards/ui/RecentlyDeletedModal.tsx
-// modal listing the caller's soft-deleted cloud boards w/ restore & permanent
-// delete actions. driven by the reactive useListMyDeletedBoards query so
-// other tabs / devices reflect restores & hard-deletes automatically
+// modal listing soft-deleted cloud boards w/ restore & permanent-delete actions.
+// driven by useListMyDeletedBoards so other tabs / devices reflect changes automatically
 
 import { useId, useState } from 'react'
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
@@ -14,7 +13,7 @@ import {
 import {
   restoreBoardFromCloud,
   RestoreBoardError,
-} from '~/features/platform/sync/cloudRestore'
+} from '~/features/platform/sync/boards/cloudRestore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { switchBoardSession } from '~/features/workspace/boards/data/local/localBoardSession'
 import { BaseModal } from '~/shared/overlay/BaseModal'

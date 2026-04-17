@@ -95,10 +95,8 @@ export const deleteBoard = mutation({
   },
 })
 
-// restore a previously soft-deleted board to active status. clears deletedAt
-// & bumps updatedAt so the row sorts back to the top of getMyBoards. no-op
-// for active rows so a duplicate restore call (e.g. retry after a network
-// hiccup) doesn't surface as an error
+// restore a previously soft-deleted board. clears deletedAt & bumps updatedAt
+// so the row sorts back to the top of getMyBoards. no-op for already-active rows
 export const restoreBoard = mutation({
   args: { boardExternalId: v.string() },
   handler: async (ctx, args): Promise<null> =>
@@ -124,10 +122,9 @@ export const restoreBoard = mutation({
   },
 })
 
-// permanently delete an owned board now, bypassing the retention cron.
-// schedules cascadeDeleteBoard which walks items + tiers in batches; the
-// board row itself is removed only after both child phases drain. callers
-// see the row disappear from getMyDeletedBoards on the next query tick
+// permanently delete an owned board, bypassing the retention cron. schedules
+// cascadeDeleteBoard which walks items + tiers in batches; the board row is removed
+// only after both child phases drain
 export const permanentlyDeleteBoard = mutation({
   args: { boardExternalId: v.string() },
   handler: async (ctx, args): Promise<null> =>
@@ -139,10 +136,8 @@ export const permanentlyDeleteBoard = mutation({
       userId
     )
 
-    // require the row to already be soft-deleted before the hard delete.
-    // matches the retention cron's gate & blocks misrouted calls that would
-    // nuke an active board. callers that want to skip the soft step should
-    // call deleteBoard first
+    // require soft-delete before hard delete — matches the retention cron's gate.
+    // callers wanting to skip the soft step should call deleteBoard first
     if (board.deletedAt === null)
     {
       throw new ConvexError({

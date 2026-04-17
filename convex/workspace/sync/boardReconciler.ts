@@ -52,14 +52,9 @@ export interface ItemDiff
   }>
 }
 
-// ! known limitation: the server currently applies wire-item changes in
-// the order the client sends them. concurrent edits from two devices can
-// lose either way depending on which push lands second. clientUpdatedAt
-// on CloudBoardItemWire is plumbed so a future LWW pass can skip a stale
-// resurrect or stale delete, but today the field is stored without being
-// consulted during the merge. we accept this in exchange for shipping the
-// end-to-end sync path & will revisit once the tombstone + undelete tests
-// in tests/data/boardReconciler.test.ts exercise the conflict matrix
+// ! known limitation: wire-item changes applied in client-send order; concurrent edits
+// from two devices can lose either way. clientUpdatedAt is plumbed for a future LWW pass
+// but currently stored w/o being consulted — revisit once conflict-matrix tests land
 
 const hasOwnKey = (obj: Record<string, unknown>): boolean =>
   Object.keys(obj).length > 0

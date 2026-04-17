@@ -1,8 +1,6 @@
 // packages/contracts/platform/errors.ts
-// shared error-code tokens thrown by convex mutations & matched by the
-// frontend drainers. substring-matching on message text is brittle — the
-// server emits ConvexError w/ a structured `{ code }` payload, & the client
-// inspects `error.data?.code` to decide fatal-drop vs retry
+// error-code tokens thrown by Convex mutations & matched by frontend drainers.
+// server emits ConvexError w/ `{ code }`; client checks `error.data?.code` for fatal-drop vs retry
 
 export const CONVEX_ERROR_CODES = {
   // caller owns no row matching the externalId (or the row is deleted &
@@ -21,6 +19,22 @@ export const CONVEX_ERROR_CODES = {
   slugAllocationFailed: 'slug_allocation_failed',
   // referenced _storage blob is missing — upload was dropped or race w/ GC
   storageMissing: 'storage_missing',
+  // caller has no authenticated session — distinct from forbidden so the
+  // client can prompt sign-in rather than treat as ACL failure
+  unauthenticated: 'unauthenticated',
+  // per-caller quota exhausted — client backs off & retries after a delay.
+  // NOT permanent: drainers keep the sidecar entry & re-try on next cycle
+  rateLimited: 'rate_limited',
+  // malformed caller input that schema validators can't enforce (hex-format
+  // mismatch, externalId prefix violation, oversized label, etc.). permanent
+  // — drainer drops sidecar & surfaces to the user
+  invalidInput: 'invalid_input',
+  // board-shaped sync limit (tier count, item count, row-read cap) exceeded.
+  // permanent — the client's data would need to shrink before retry succeeds
+  syncLimitExceeded: 'sync_limit_exceeded',
+  // sync target is soft-deleted; the client should drop the pending write &
+  // reconcile against the tombstone flow instead of retrying
+  boardDeleted: 'board_deleted',
 } as const
 
 export type ConvexErrorCode =

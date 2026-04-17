@@ -50,11 +50,9 @@ import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
 let suppressNextAutosave = false
-// listener registered by useCloudSync once a board-delete handle is mounted.
-// deleteBoardSession calls it after stamping the sidecar so the just-deleted
-// cloud row gets cleaned up immediately when sync is live; if no handle is
-// mounted (signed out, sync disabled, mid-bootstrap) the sidecar alone
-// preserves the intent for a future resumePendingSyncs pass
+// listener registered by useCloudSync once a board-delete handle mounts.
+// deleteBoardSession calls it to trigger immediate cleanup; when no handle is
+// mounted the sidecar alone preserves the intent for resumePendingSyncs
 let boardDeletedListener: (() => void) | null = null
 // timestamp of last near-full warning — rate-limits the toast to once per 60s
 let storageWarningLastMs = 0
@@ -450,10 +448,8 @@ export const switchBoardSession = async (boardId: BoardId): Promise<void> =>
   await loadBoardIntoSession(boardId)
 }
 
-// register a listener for "board deleted locally". installed by useCloudSync
-// when a board-delete handle mounts; cleared on sign-out so deletes that
-// happen while signed-out fall back to sidecar-only behavior (the next
-// sign-in's resumePendingSyncs will drain them)
+// register a listener for "board deleted locally". installed by useCloudSync on mount;
+// cleared on sign-out so offline deletes fall back to sidecar-only / resumePendingSyncs
 export const setBoardDeletedListener = (
   listener: (() => void) | null
 ): void =>
@@ -473,12 +469,9 @@ export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>
     return
   }
 
-  // capture the cloud externalId before removing local storage — once
-  // removeBoardFromStorage runs, the syncState is gone & we can't tell
-  // whether this board ever had a cloud row to delete. read the sync
-  // sidecar directly (not the envelope) so a corrupt envelope still
-  // surfaces the cloud id, & so we don't pay a full board JSON parse
-  // just to read one field on the delete path
+  // capture the cloud externalId before removing storage — syncState is gone after.
+  // read the sync sidecar directly so a corrupt envelope still surfaces the id
+  // w/o paying a full board JSON parse just to read one field
   const cloudBoardExternalId =
     loadBoardSyncStateOnly(boardId).cloudBoardExternalId
 

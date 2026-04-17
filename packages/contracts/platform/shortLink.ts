@@ -1,20 +1,20 @@
 // packages/contracts/platform/shortLink.ts
-// wire contracts for the snapshot-share short link primitive. resolveSlug
-// returns the URL where the recipient can fetch the compressed snapshot
-// blob; the frontend handles inflate + parse the same way the in-URL
-// #share=... fragment decoder does
+// wire contracts for snapshot-share short links. resolveSlug returns the URL for the compressed
+// snapshot blob; frontend inflates & parses it like the in-URL #share=... fragment decoder
 
 // max compressed bytes accepted by createSnapshotShortLink. cap is enforced
-// server-side after the upload lands but before the shortLinks row inserts.
-// covers boards w/ many items & deep tier metadata even when image bytes
-// have been stripped — generous enough for normal use, narrow enough to
-// keep an anonymous-uploadable surface from being abused as a blob store
+// server-side after upload & before shortLinks row insert. covers boards w/
+// many items even after strip-images; narrow enough to deter blob-store abuse
 export const MAX_SNAPSHOT_COMPRESSED_BYTES = 256 * 1024
 
-// default TTL applied to new snapshot shares. server-set on every
-// createSnapshotShortLink call so the gcExpiredShortLinks cron has a target
-// to reap. 90 days covers typical share lifecycles (a few weeks of active
-// reach, then quiet) w/o letting abandoned blobs accumulate forever
+// max inflated bytes the client accepts from an inbound share decode.
+// DEFLATE's adversarial ratio is ~1032:1 (256KB -> ~260MB), so this cap
+// forces early abort on zip-bomb payloads; 16MB covers real-world snapshots w/ headroom
+export const MAX_INFLATED_SNAPSHOT_BYTES = 16 * 1024 * 1024
+
+// default TTL applied to new snapshot shares — server-set on every
+// createSnapshotShortLink call so gcExpiredShortLinks has a reap target.
+// 90 days covers typical share lifecycles w/o letting abandoned blobs accumulate
 export const DEFAULT_SHARE_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000
 
 // hard cap on rows returned by getMyShortLinks. mirrors the deleted-boards
@@ -41,10 +41,9 @@ export type ShortLinkResolveResult =
   | ShortLinkResolveSnapshot
   | ShortLinkResolveMiss
 
-// signed-in "Recent shares" listing row. boardTitle may be null for PR 7-era
-// rows that predate the denormalized field (UI substitutes "Untitled");
-// expiresAt is null only for the same legacy rows since new shares always
-// receive a server-set TTL
+// signed-in "Recent shares" listing row. boardTitle & expiresAt may be null
+// for legacy rows that predate the denormalized fields; UI substitutes
+// "Untitled" & new shares always receive a server-set TTL
 export interface OwnedShortLinkListItem
 {
   slug: string

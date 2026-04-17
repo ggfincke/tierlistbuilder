@@ -2,7 +2,7 @@
 // fat reconciling mutation — receives full board snapshot + revision cursor,
 // diffs against existing rows, & returns new revision or conflict state
 
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { mutation } from '../../_generated/server'
 import type { Id } from '../../_generated/dataModel'
 import type {
@@ -11,7 +11,9 @@ import type {
   CloudBoardTierWire as WireTier,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
+import { validateHexColor } from '../../lib/hexColor'
 import { tierColorSpecValidator } from '../../lib/validators'
 import { diffTiers, diffItems } from '../sync/boardReconciler'
 import { loadBoardCloudState } from '../sync/boardStateLoader'
@@ -58,7 +60,10 @@ const validateBoardExternalId = (externalId: string): void =>
 {
   if (!externalId.startsWith('board-'))
   {
-    throw new Error('invalid boardExternalId: must start with "board-"')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'invalid boardExternalId: must start with "board-"',
+    })
   }
 }
 
@@ -66,7 +71,10 @@ const validateTierExternalId = (externalId: string): void =>
 {
   if (!externalId.startsWith('tier-'))
   {
-    throw new Error('invalid tierExternalId: must start with "tier-"')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'invalid tierExternalId: must start with "tier-"',
+    })
   }
 }
 
@@ -76,7 +84,10 @@ const validateItemExternalId = (externalId: string): void =>
 {
   if (externalId.length < 1 || externalId.length > 128)
   {
-    throw new Error('invalid itemExternalId: length must be 1..128')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'invalid itemExternalId: length must be 1..128',
+    })
   }
 }
 
@@ -84,7 +95,10 @@ const validateMediaExternalId = (externalId: string): void =>
 {
   if (!externalId.startsWith('media-'))
   {
-    throw new Error('invalid mediaExternalId: must start with "media-"')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'invalid mediaExternalId: must start with "media-"',
+    })
   }
 }
 
@@ -109,15 +123,17 @@ export const upsertBoardState = mutation({
 
     if (args.tiers.length > MAX_SYNC_TIERS)
     {
-      throw new Error(
-        `too many tiers: ${args.tiers.length} exceeds ${MAX_SYNC_TIERS}`
-      )
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.syncLimitExceeded,
+        message: `too many tiers: ${args.tiers.length} exceeds ${MAX_SYNC_TIERS}`,
+      })
     }
     if (args.items.length > MAX_SYNC_ITEMS)
     {
-      throw new Error(
-        `too many items: ${args.items.length} exceeds ${MAX_SYNC_ITEMS}`
-      )
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.syncLimitExceeded,
+        message: `too many items: ${args.items.length} exceeds ${MAX_SYNC_ITEMS}`,
+      })
     }
 
     // per-field bounds — prevents a client from smuggling oversized blobs
@@ -128,15 +144,25 @@ export const upsertBoardState = mutation({
       validateTierExternalId(tier.externalId)
       if (tier.name.length > MAX_TIER_NAME_LEN)
       {
-        throw new Error(
-          `tier name too long: ${tier.name.length} exceeds ${MAX_TIER_NAME_LEN}`
-        )
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidInput,
+          message: `tier name too long: ${tier.name.length} exceeds ${MAX_TIER_NAME_LEN}`,
+        })
       }
       if ((tier.description?.length ?? 0) > MAX_TIER_DESCRIPTION_LEN)
       {
-        throw new Error(
-          `tier description too long: exceeds ${MAX_TIER_DESCRIPTION_LEN}`
-        )
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidInput,
+          message: `tier description too long: exceeds ${MAX_TIER_DESCRIPTION_LEN}`,
+        })
+      }
+      if (tier.colorSpec.kind === 'custom')
+      {
+        validateHexColor(tier.colorSpec.hex, 'tier.colorSpec.hex')
+      }
+      if (tier.rowColorSpec?.kind === 'custom')
+      {
+        validateHexColor(tier.rowColorSpec.hex, 'tier.rowColorSpec.hex')
       }
     }
 
@@ -145,17 +171,28 @@ export const upsertBoardState = mutation({
       validateItemExternalId(item.externalId)
       if ((item.label?.length ?? 0) > MAX_LABEL_LEN)
       {
-        throw new Error(`item label too long: exceeds ${MAX_LABEL_LEN} chars`)
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidInput,
+          message: `item label too long: exceeds ${MAX_LABEL_LEN} chars`,
+        })
       }
       if ((item.altText?.length ?? 0) > MAX_ALT_LEN)
       {
-        throw new Error(`item altText too long: exceeds ${MAX_ALT_LEN} chars`)
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidInput,
+          message: `item altText too long: exceeds ${MAX_ALT_LEN} chars`,
+        })
       }
       if ((item.backgroundColor?.length ?? 0) > MAX_BACKGROUND_COLOR_LEN)
       {
-        throw new Error(
-          `item backgroundColor too long: exceeds ${MAX_BACKGROUND_COLOR_LEN} chars`
-        )
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidInput,
+          message: `item backgroundColor too long: exceeds ${MAX_BACKGROUND_COLOR_LEN} chars`,
+        })
+      }
+      if (item.backgroundColor)
+      {
+        validateHexColor(item.backgroundColor, 'item.backgroundColor')
       }
       if (item.mediaExternalId)
       {
@@ -190,7 +227,10 @@ export const upsertBoardState = mutation({
         .first()
       if (existingAny && existingAny.ownerId !== userId)
       {
-        throw new Error('boardExternalId already in use')
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.forbidden,
+          message: 'boardExternalId already in use',
+        })
       }
 
       const boardId = await ctx.db.insert('boards', {
@@ -207,7 +247,10 @@ export const upsertBoardState = mutation({
 
     if (board.deletedAt !== null)
     {
-      throw new Error('cannot sync to a deleted board')
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.boardDeleted,
+        message: 'cannot sync to a deleted board',
+      })
     }
 
     const { serverTiers, serverItems } = await loadBoundedBoardRows(
@@ -286,7 +329,10 @@ export const upsertBoardState = mutation({
       {
         // fail loudly — silently dropping references to unowned/missing
         // media was masking real bugs (orphaned items pointing at nothing)
-        throw new Error(`media not found or not owned: ${extId}`)
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.notFound,
+          message: `media not found or not owned: ${extId}`,
+        })
       }
       mediaExternalIdToId.set(extId, asset._id)
     }

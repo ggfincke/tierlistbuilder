@@ -1,7 +1,6 @@
 // src/features/workspace/tier-presets/data/cloud/tierPresetRepository.ts
-// Convex query/mutation adapters for cloud tier-preset sync. mirrors
-// boardRepository's hook + *Imperative split — React components prefer
-// the hooks, the sync layer & merge helpers use the imperative variants
+// Convex adapters for cloud tier-preset sync. mirrors boardRepository's
+// hook + *Imperative split — React uses hooks; sync layer uses imperative variants
 
 import { useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'

@@ -15,11 +15,8 @@ export const scheduleHardDeletes = internalMutation({
   handler: async (ctx, args): Promise<{ scheduled: number }> =>
   {
     const cutoff = Date.now() - BOARD_TOMBSTONE_RETENTION_MS
-    // gt(0) is a half-open range that excludes both deletedAt === null (the
-    // index skips nulls) & deletedAt === 0. in practice deleteBoard sets
-    // deletedAt to Date.now() which is always >>> 0, so this never excludes
-    // a real soft-delete. the lt(cutoff) bound keeps recently-deleted rows
-    // past the retention window
+    // gt(0) excludes deletedAt === null (index skips nulls) & === 0 (never set in practice).
+    // lt(cutoff) bounds the range to rows past the retention window
     const page = await ctx.db
       .query('boards')
       .withIndex('byDeletedAt', (q) =>
@@ -60,10 +57,9 @@ crons.cron(
   { cursor: null }
 )
 
-// daily orphan media GC — staggered an hour after the board hard-delete pass
-// so cascadeDeleteBoard has time to drain its boardItems phase first. running
-// in this order means the GC catches assets that were just orphaned by the
-// board cascade in the same nightly window
+// daily orphan media GC — staggered an hour after board hard-delete so cascadeDeleteBoard
+// drains its boardItems phase first, letting the GC catch freshly-orphaned assets in
+// the same nightly window
 crons.cron(
   'gc orphaned media assets',
   '17 4 * * *',
@@ -71,9 +67,8 @@ crons.cron(
   { cursor: null }
 )
 
-// daily orphan _storage sweep — staggered another hour after media GC so it
-// picks up blobs from dropped uploads (anon snapshot uploads, finalizeUpload
-// that never fired) plus anything left behind by a crashed media GC pass.
+// daily orphan _storage sweep — staggered after media GC to catch dropped uploads
+// (anon snapshots, finalizeUpload that never fired) & residue from crashed GC passes.
 // safety net for the whole storage-reference graph
 crons.cron(
   'gc orphaned storage blobs',
@@ -82,10 +77,9 @@ crons.cron(
   { cursor: null }
 )
 
-// daily snapshot-share TTL sweep — runs at 17 6 so the prior crons drain
-// first. shortLinks rows are deleted in-band; matching _storage blobs are
-// best-effort deleted in the same pass, & the next nightly gcOrphanedStorage
-// catches partial-failure residue
+// daily snapshot-share TTL sweep — staggered last so prior crons drain first.
+// shortLinks rows & matching _storage blobs deleted in-band; gcOrphanedStorage
+// catches any partial-failure residue on its next run
 crons.cron(
   'gc expired snapshot share links',
   '17 6 * * *',

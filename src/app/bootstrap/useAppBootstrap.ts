@@ -15,11 +15,9 @@ import { clearShortLinkSlugFromUrl } from '~/features/workspace/sharing/lib/shor
 import { resolveInboundShare } from '~/features/workspace/sharing/lib/inboundShare'
 import { toast } from '~/shared/notifications/useToastStore'
 
-// import a shared board if the URL carries a share marker. scrubs the
-// URL unconditionally so a refresh doesn't re-trigger the import, & surfaces
-// a user-facing toast only when a clicked short link failed (the legacy
-// fragment format is self-contained, so failure there means tampering —
-// silent recovery is the right UX)
+// import a shared board if the URL carries a share marker. scrubs the URL
+// unconditionally so a refresh doesn't re-trigger the import; toasts only
+// on slug failure (fragment failure is silent — tampering is the likely cause)
 const handleInboundShare = async (): Promise<void> =>
 {
   const result = await resolveInboundShare()

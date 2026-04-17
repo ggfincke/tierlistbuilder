@@ -1,12 +1,6 @@
 // src/features/workspace/tier-presets/model/tierPresetDiff.ts
-// pure helpers for comparing two snapshots of useTierPresetStore.userPresets.
-// used by the cloud-sync subscriber to derive per-preset operations:
-//   - present in next but not prev      -> upsert (created)
-//   - present in prev but not next      -> delete
-//   - present in both, content differs  -> upsert (updated)
-//
-// content equality is structural: name + tiers (order-sensitive). built-in
-// presets are excluded — they live client-side & never sync to the cloud
+// pure diff helpers for useTierPresetStore.userPresets; derives per-preset ops.
+// new -> upsert, removed -> delete, content changed -> upsert. built-ins excluded
 
 import type { UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import type {

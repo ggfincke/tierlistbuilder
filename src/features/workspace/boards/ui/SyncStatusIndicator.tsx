@@ -1,8 +1,6 @@
 // src/features/workspace/boards/ui/SyncStatusIndicator.tsx
-// active-board cloud sync status indicator. renders only when cloud sync is
-// active for the session, then reads useBoardSyncStatus for the active board.
-// passive — the scheduler retries errors automatically (exponential backoff)
-// & conflicts auto-open the resolver modal. fully-derived chrome; no actions
+// active-board cloud sync status indicator; renders only when sync is active.
+// passive chrome — the scheduler retries errors & conflicts auto-open the resolver; no actions
 
 import {
   AlertCircle,
@@ -17,7 +15,7 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import {
   useBoardSyncStatus,
   type EffectiveBoardSyncStatus,
-} from '~/features/platform/sync/useBoardSyncStatus'
+} from '~/features/platform/sync/status/useBoardSyncStatus'
 
 interface SyncStatusIndicatorProps
 {

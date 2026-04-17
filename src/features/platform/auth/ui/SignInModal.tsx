@@ -219,12 +219,9 @@ export const SignInModal = ({ open, onClose }: SignInModalProps) =>
   )
 }
 
-// translate convex-auth errors into something a non-developer should see.
-// the lib surfaces ConvexError instances w/ a short code in the message —
-// we map a few common ones & surface a generic fallback otherwise. the
-// original message is logged via console.warn for developer debugging so
-// production users never see internal error strings that could leak
-// information about the auth backend
+// map convex-auth error messages to user-friendly strings. common codes get
+// specific text; unknown codes get a generic fallback & are logged via
+// console.warn so developers can identify unmapped errors w/o leaking internals
 const mapAuthError = (message: string, mode: AuthMode): string =>
 {
   const lower = message.toLowerCase()

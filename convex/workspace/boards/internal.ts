@@ -12,11 +12,9 @@ const CASCADE_DELETE_BATCH_SIZE = 256
 // size doesn't loop forever on the first 256 rows (as .take() would)
 type CascadePhase = 'items' | 'tiers'
 
-// cascade delete a board's items, tiers, & final board row. runs in phases:
-// 'items' consumes every boardItems row paginated by the byBoardAndTier
-// index, 'tiers' does the same for boardTiers, then the board row is
-// deleted. phase+cursor state is passed through ctx.scheduler.runAfter so
-// each invocation stays inside the Convex mutation transaction limits
+// cascade delete a board's items, tiers, & final board row in phases.
+// phase+cursor state passed through ctx.scheduler.runAfter so each
+// invocation stays inside the Convex mutation transaction limits
 export const cascadeDeleteBoard = internalMutation({
   args: {
     boardId: v.id('boards'),
@@ -95,10 +93,8 @@ export const cascadeDeleteBoard = internalMutation({
 
     await ctx.db.delete(args.boardId)
 
-    // assets newly orphaned by this cascade are reaped by the daily
-    // gcOrphanedMediaAssets cron — running an inline scan here would
-    // require an O(n_items_in_board) walk of the byMedia index per cascade
-    // & duplicate the work the GC pass already does globally
+    // newly orphaned assets are reaped by the daily gcOrphanedMediaAssets cron —
+    // an inline scan would duplicate the GC pass & require O(n_items) byMedia walks
     return null
   },
 })

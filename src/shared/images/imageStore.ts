@@ -334,11 +334,9 @@ export const countStoredBlobs = async (): Promise<number> =>
   return result ?? 0
 }
 
-// todo: content-addressed store GC — add a `blobRefs { hash, refCount }`
-// store to this DB (bump DB_VERSION + 1), wire increment/decrement into
-// board-data mutations, & run a one-time reconciliation pass on startup
-// that walks all snapshots to compute the authoritative refcount & fixes
-// drift. tracked as a follow-up PR
+// todo: GC — add blobRefs store (bump DB_VERSION), wire refcount into board
+// mutations, & run a startup reconciliation pass over all snapshots to fix drift
+
 // clear all upload index entries for a user
 export const clearUploadIndex = async (userId: string): Promise<void> =>
 {

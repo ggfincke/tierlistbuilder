@@ -50,10 +50,8 @@ const resolveItemMediaExternalId = (
     return item.imageRef.cloudMediaExternalId
   }
 
-  // both the inline-image path & the hash-backed path must throw consistently.
-  // the uploader is now all-or-nothing, so any unresolved media at this point
-  // is a bug (or a stale cache) that should block the sync loudly rather than
-  // silently drop a reference
+  // uploader is all-or-nothing; any unresolved media is a bug or stale cache —
+  // block the sync loudly rather than silently drop a reference
   throw new Error(
     `Unable to sync image for item ${item.id}: missing cloud media mapping.`
   )

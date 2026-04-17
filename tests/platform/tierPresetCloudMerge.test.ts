@@ -22,7 +22,7 @@ vi.mock(
   })
 )
 
-import { mergeTierPresetsOnFirstLogin } from '~/features/platform/sync/tierPresetCloudMerge'
+import { mergeTierPresetsOnFirstLogin } from '~/features/platform/sync/tier-presets/cloudMerge'
 import {
   loadTierPresetSyncMetaMap,
   upsertTierPresetSyncMeta,

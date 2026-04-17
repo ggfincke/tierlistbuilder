@@ -1,7 +1,6 @@
 // convex/workspace/tierPresets/mutations.ts
-// tier preset mutations — create, update, delete owned presets. callers
-// supply a pre-generated externalId on create so the client can keep its
-// local PresetId & cloud externalId in sync (same pattern as boards)
+// tier preset mutations — create, update, delete owned presets. callers supply
+// a pre-generated externalId so local PresetId & cloud externalId stay in sync
 
 import { v } from 'convex/values'
 import { mutation } from '../../_generated/server'
@@ -16,10 +15,8 @@ import {
 } from '../../lib/permissions'
 import { tierPresetTiersValidator } from '../../lib/validators'
 
-// create a new preset for the authenticated caller. caller supplies the
-// externalId so the client's local UserPresetId stays canonical across the
-// boundary — same pattern boards use. idempotent: if a row w/ this externalId
-// already exists & the caller owns it, the body is patched instead of inserted
+// create a new preset; idempotent — if a row w/ this externalId already exists
+// & the caller owns it, patch instead of insert
 export const createTierPreset = mutation({
   args: {
     externalId: v.string(),
@@ -99,10 +96,8 @@ export const updateTierPreset = mutation({
   },
 })
 
-// delete an owned preset. presets have no soft-delete (unlike boards) —
-// cosmetic data, no restore UX. idempotent: deleting a non-existent preset
-// is a no-op rather than an error so re-tries after a partial network
-// failure don't surface phantom errors to the user
+// delete an owned preset. no soft-delete (cosmetic data, no restore UX).
+// idempotent — deleting a non-existent preset is a no-op so retries don't error
 export const deleteTierPreset = mutation({
   args: { presetExternalId: v.string() },
   handler: async (ctx, args): Promise<null> =>

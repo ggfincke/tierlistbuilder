@@ -16,14 +16,12 @@ export type BuiltinPresetId = `builtin-${string}`
 // valid preset ID for either a built-in or user-saved preset
 export type PresetId = UserPresetId | BuiltinPresetId
 
-// item IDs are branded strings — runtime representation is still a plain
-// string (bare UUID or legacy value) but the type is nominal so the compiler
-// won't let a raw string slip into a parameter that expects an ItemId. use
-// asItemId() at trust boundaries (JSON parse, storage load) to cast
+// item IDs are branded strings — runtime representation is a plain string but
+// the type is nominal so the compiler rejects raw strings where ItemId is expected.
+// use asItemId() at trust boundaries (JSON parse, storage load) to cast
 declare const ITEM_ID_BRAND: unique symbol
 export type ItemId = string & { readonly [ITEM_ID_BRAND]: void }
 
-// cast an arbitrary string to ItemId — call this at boundaries where the
-// type system has lost track of the brand (parsed JSON, share fragments,
-// legacy storage values)
+// cast an arbitrary string to ItemId at boundaries where the brand is lost
+// (parsed JSON, share fragments, legacy storage values)
 export const asItemId = (value: string): ItemId => value as ItemId

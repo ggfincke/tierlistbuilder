@@ -1,10 +1,12 @@
 // convex/platform/media/uploads.ts
 // media upload mutations — generate upload URLs & finalize w/ dedup
 
+import { ConvexError, v } from 'convex/values'
 import { mutation } from '../../_generated/server'
-import { v } from 'convex/values'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { newMediaAssetExternalId } from '../../lib/ids'
+import { enforceRateLimit } from '../../lib/rateLimiter'
 
 // hard cap on image byte size — 20MB matches the frontend uploader's cap
 const MAX_IMAGE_BYTE_SIZE = 20 * 1024 * 1024
@@ -13,19 +15,24 @@ const MAX_IMAGE_DIMENSION = 10_000
 // sha256 hex digest is always 64 lowercase hex chars
 const HEX_SHA256_PATTERN = /^[0-9a-f]{64}$/
 
-// generate a one-time upload URL for the frontend to POST image bytes
+// generate a one-time upload URL for the frontend to POST image bytes.
+// single rate-limit point for the 2-phase upload flow (100/hr per user);
+// legitimate bulk-imports (~50 items) stay well under the cap & aborts
+// between phases still count against quota
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx): Promise<string> =>
   {
-    await requireCurrentUserId(ctx)
+    const userId = await requireCurrentUserId(ctx)
+    await enforceRateLimit(ctx, 'userMediaUpload', userId)
     return await ctx.storage.generateUploadUrl()
   },
 })
 
 // finalize an upload — dedup by owner+hash, insert mediaAssets row if new.
 // the narrow mimeType validator below is the one source of truth for what
-// MIMEs the server accepts; the frontend uploader must pre-filter to match
+// MIMEs the server accepts; the frontend uploader must pre-filter to match.
+// rate limit lives on generateUploadUrl — one token per upload attempt
 export const finalizeUpload = mutation({
   args: {
     storageId: v.id('_storage'),
@@ -46,7 +53,10 @@ export const finalizeUpload = mutation({
 
     if (!HEX_SHA256_PATTERN.test(args.contentHash))
     {
-      throw new Error('contentHash must be 64-char lowercase hex (sha256)')
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: 'contentHash must be 64-char lowercase hex (sha256)',
+      })
     }
 
     if (
@@ -55,7 +65,10 @@ export const finalizeUpload = mutation({
       args.width > MAX_IMAGE_DIMENSION
     )
     {
-      throw new Error(`width out of range: must be 1..${MAX_IMAGE_DIMENSION}`)
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `width out of range: must be 1..${MAX_IMAGE_DIMENSION}`,
+      })
     }
 
     if (
@@ -64,7 +77,10 @@ export const finalizeUpload = mutation({
       args.height > MAX_IMAGE_DIMENSION
     )
     {
-      throw new Error(`height out of range: must be 1..${MAX_IMAGE_DIMENSION}`)
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `height out of range: must be 1..${MAX_IMAGE_DIMENSION}`,
+      })
     }
 
     if (
@@ -73,9 +89,10 @@ export const finalizeUpload = mutation({
       args.byteSize > MAX_IMAGE_BYTE_SIZE
     )
     {
-      throw new Error(
-        `byteSize out of range: must be 1..${MAX_IMAGE_BYTE_SIZE}`
-      )
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.payloadTooLarge,
+        message: `byteSize out of range: must be 1..${MAX_IMAGE_BYTE_SIZE}`,
+      })
     }
 
     const existing = await ctx.db

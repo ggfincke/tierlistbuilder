@@ -1,7 +1,6 @@
 // src/features/platform/auth/model/useAuthSession.ts
-// * single source of session state for the workspace UI
-// combines @convex-dev/auth's loading flag w/ the getMe query into a
-// discriminated 'loading' | 'signed-out' | 'signed-in' shape
+// * single source of session state — combines @convex-dev/auth's loading flag
+// w/ getMe into a 'loading' | 'signed-out' | 'signed-in' discriminated shape
 
 import { useConvexAuth, useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'

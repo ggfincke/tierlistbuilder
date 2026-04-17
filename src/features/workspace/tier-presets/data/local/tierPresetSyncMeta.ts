@@ -1,25 +1,6 @@
 // src/features/workspace/tier-presets/data/local/tierPresetSyncMeta.ts
-// localStorage sidecar tracking cloud sync state per user-saved preset.
-// keyed by UserPresetId, w/ one entry per preset that's been edited
-// locally but not yet flushed (or has been flushed in the past).
-//
-// shape semantics per entry:
-//   pendingOp     — the kind of mutation queued: 'upsert' for added or
-//                   modified presets, 'delete' for tombstones (preset
-//                   removed locally but the cloud delete hasn't landed).
-//                   null after a successful flush
-//   pendingSyncAt — wall-clock millis stamped when an op was queued. survives
-//                   tab close so resumePendingSyncs can replay the op
-//   lastSyncedAt  — wall-clock millis of the last successful cloud landing,
-//                   independent of pendingOp. used to decide direction in
-//                   the first-login merge (presence implies "we've pushed
-//                   this preset before; cloud version was authoritative")
-//   ownerUserId   — stable user id for the session that stamped this entry;
-//                   null on legacy entries written before user scoping landed
-//
-// op model is intentionally 2-state (not create/update/delete): the server's
-// createTierPreset mutation upserts on conflict, so the client never needs
-// to distinguish first push from subsequent updates
+// localStorage sidecar tracking cloud sync state per user-saved preset (keyed by UserPresetId).
+// fields: pendingOp ('upsert'|'delete'|null), pendingSyncAt, lastSyncedAt, ownerUserId
 
 import type { UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import {
@@ -242,14 +223,9 @@ export const removeTierPresetSyncMeta = (presetId: UserPresetId): void =>
   saveTierPresetSyncMetaMap(map)
 }
 
-// stamp a fresh pending op for one preset. preserves any prior lastSyncedAt
-// (so the merge flow can still distinguish "never synced" from "edited after
-// last sync"). idempotent for the same op kind: repeated stamps during the
-// debounce window keep the original pendingSyncAt.
-//
-// op promotion: a queued 'upsert' followed by a 'delete' for a preset that
-// has never landed in the cloud (lastSyncedAt === null) drops the entry
-// entirely — there's nothing to push & no cloud row to delete
+// stamp a fresh pending op for one preset. idempotent for the same op kind.
+// op promotion: a queued 'upsert' followed by a 'delete' w/ lastSyncedAt === null
+// drops the entry entirely — nothing to push & no cloud row to delete
 export const stampTierPresetPending = (
   presetId: UserPresetId,
   op: TierPresetPendingOp,

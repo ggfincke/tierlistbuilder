@@ -10,13 +10,13 @@ import {
   hasPendingCloudPull,
   markCloudPullCompleted,
   markCloudPullPending,
-} from '~/features/platform/sync/cloudMerge'
+} from '~/features/platform/sync/boards/cloudMerge'
 
 const { readBoardStateForCloudSyncMock } = vi.hoisted(() => ({
   readBoardStateForCloudSyncMock: vi.fn(),
 }))
 
-vi.mock('~/features/platform/sync/cloudFlush', () => ({
+vi.mock('~/features/platform/sync/boards/cloudFlush', () => ({
   readBoardStateForCloudSync: readBoardStateForCloudSyncMock,
 }))
 

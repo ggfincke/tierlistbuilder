@@ -4,6 +4,12 @@
 import type { Infer } from 'convex/values'
 import { v } from 'convex/values'
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
+import type {
+  PaletteId,
+  TextStyleId,
+  ThemeId,
+} from '@tierlistbuilder/contracts/lib/theme'
+import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 
 // TierColorSpec — either a palette slot or a literal custom hex
 // mirrors packages/contracts/lib/theme.ts
@@ -18,8 +24,9 @@ export const tierColorSpecValidator = v.union(
   })
 )
 
-// single tier inside a reusable preset — mirrors TierPresetTier in packages/contracts
-const tierPresetTierValidator = v.object({
+// single tier inside a reusable preset — mirrors TierPresetTier in packages/contracts.
+// exported so the full-shape _Assert check below can reach it
+export const tierPresetTierValidator = v.object({
   name: v.string(),
   colorSpec: tierColorSpecValidator,
   rowColorSpec: v.optional(tierColorSpecValidator),
@@ -125,10 +132,8 @@ export const appSettingsValidator = v.object({
   showAltTextButton: v.boolean(),
 })
 
-// compile-time coverage check — any AppSettings field added, removed, or
-// renamed that isn't reflected in appSettingsValidator will fail the build.
-// _Assert<true> type-checks only when the conditional resolves to `true`,
-// turning a silent drift into a tsc error at the schema boundary
+// compile-time coverage check — AppSettings fields added, removed, or renamed
+// w/o updating appSettingsValidator fail the build via _Assert<true>
 type _Assert<T extends true> = T
 type _AppSettingsValidatorInfer = Infer<typeof appSettingsValidator>
 export type _AppSettingsCovers = _Assert<
@@ -136,4 +141,35 @@ export type _AppSettingsCovers = _Assert<
 >
 export type _AppSettingsNoExtra = _Assert<
   _AppSettingsValidatorInfer extends AppSettings ? true : false
+>
+
+// same coverage discipline for theme/palette/text-style & tier-preset-tier shape —
+// contract-side renames or union additions not reflected here fail the build.
+// each pair asserts both directions (no missing members, no extras)
+export type _ThemeIdCovers = _Assert<
+  ThemeId extends Infer<typeof themeIdValidator> ? true : false
+>
+export type _ThemeIdNoExtra = _Assert<
+  Infer<typeof themeIdValidator> extends ThemeId ? true : false
+>
+
+export type _PaletteIdCovers = _Assert<
+  PaletteId extends Infer<typeof paletteIdValidator> ? true : false
+>
+export type _PaletteIdNoExtra = _Assert<
+  Infer<typeof paletteIdValidator> extends PaletteId ? true : false
+>
+
+export type _TextStyleIdCovers = _Assert<
+  TextStyleId extends Infer<typeof textStyleIdValidator> ? true : false
+>
+export type _TextStyleIdNoExtra = _Assert<
+  Infer<typeof textStyleIdValidator> extends TextStyleId ? true : false
+>
+
+export type _TierPresetTierCovers = _Assert<
+  TierPresetTier extends Infer<typeof tierPresetTierValidator> ? true : false
+>
+export type _TierPresetTierNoExtra = _Assert<
+  Infer<typeof tierPresetTierValidator> extends TierPresetTier ? true : false
 >

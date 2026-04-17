@@ -1,7 +1,6 @@
 // packages/contracts/workspace/cloudPreset.ts
-// wire contract for cloud-stored tier presets — what getMyTierPresets returns
-// & what create/update mutations accept. mirrors the on-disk row shape but
-// excludes server-private fields (_id, ownerId)
+// wire contract for cloud-stored tier presets — returned by getMyTierPresets &
+// accepted by create/update mutations. excludes server-private fields (_id, ownerId)
 
 import type { TierPresetTier } from './tierPreset'
 

@@ -1,12 +1,6 @@
 // convex/platform/media/internal.ts
-// internal media maintenance jobs:
-//   - gcOrphanedMediaAssets: reaps mediaAssets rows whose last referencing
-//     boardItems row has been deleted (typically by a board cascade-delete
-//     or user removing every item that pointed at a given image)
-//   - gcOrphanedStorage: reaps raw _storage blobs w/ no referencing row in
-//     any of mediaAssets, shortLinks, or users.avatarStorageId. covers
-//     upload URLs that landed a blob but whose follow-up mutation dropped
-//     (network failure, client navigation, rate-abuse uploads, etc.)
+// internal media maintenance — gcOrphanedMediaAssets reaps mediaAssets w/ no boardItems
+// reference; gcOrphanedStorage reaps _storage blobs w/ no row in any app table
 
 import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
@@ -16,13 +10,9 @@ import { internal } from '../../_generated/api'
 const MEDIA_GC_BATCH_SIZE = 64
 const STORAGE_GC_BATCH_SIZE = 64
 
-// in-flight upload protection: any row newer than this window is skipped.
-// covers the race between finalizeUpload landing the row & the first board-
-// state upsert wiring it into a boardItems entry — the upload step inserts
-// mediaAssets first, then the client follows up w/ a separate upsertBoardState
-// mutation, so a GC pass between those two transactions would otherwise reap
-// a fresh asset before the reference materialized. same window protects
-// shortLinks blob uploads that haven't yet called createSnapshotShortLink
+// in-flight upload protection: skip rows newer than this window. covers the race
+// between finalizeUpload inserting mediaAssets & upsertBoardState wiring the reference —
+// a GC pass between those two would otherwise reap a fresh asset
 const GC_GRACE_MS = 60 * 60 * 1000
 
 // concurrency for per-asset reference checks. byMedia index queries are
@@ -30,12 +20,9 @@ const GC_GRACE_MS = 60 * 60 * 1000
 // significantly for nightly batches
 const REFERENCE_CHECK_CONCURRENCY = 8
 
-// reap mediaAssets rows w/ no surviving boardItems references. paginates
-// across the full table so a single invocation stays inside a single
-// transaction's row-read budget; a continuation is scheduled when more
-// pages remain. delete order is storage blob first, then mediaAssets row,
-// so a crash between the two leaves only an orphaned _storage entry that
-// the next pass cleans up via gcOrphanedStorage
+// reap mediaAssets rows w/ no surviving boardItems references. paginates to stay
+// inside the transaction row-read budget; self-schedules continuations. row deleted
+// before storage blob so a crash leaves only an orphaned blob — caught by gcOrphanedStorage
 export const gcOrphanedMediaAssets = internalMutation({
   args: {
     cursor: v.union(v.string(), v.null()),
@@ -57,10 +44,8 @@ export const gcOrphanedMediaAssets = internalMutation({
       eligible.push(asset)
     }
 
-    // parallel reachability checks — each byMedia.take(1) is cheap &
-    // independent. kept as a chunked Promise.all (not full map) to respect
-    // the REFERENCE_CHECK_CONCURRENCY bound & avoid fan-out that would spike
-    // the function's read budget
+    // parallel reachability checks via chunked Promise.all — respects REFERENCE_CHECK_CONCURRENCY
+    // to avoid fan-out that would spike the function's read budget
     const orphaned: Doc<'mediaAssets'>[] = []
     for (let i = 0; i < eligible.length; i += REFERENCE_CHECK_CONCURRENCY)
     {
@@ -84,8 +69,19 @@ export const gcOrphanedMediaAssets = internalMutation({
     let deleted = 0
     for (const asset of orphaned)
     {
-      await ctx.storage.delete(asset.storageId)
+      // row first so gcOrphanedStorage can find & reap residue if the blob
+      // delete fails or a crash happens between the two ops
       await ctx.db.delete(asset._id)
+      try
+      {
+        await ctx.storage.delete(asset.storageId)
+      }
+      catch
+      {
+        // blob already gone (manual cleanup, race w/ a prior crashed pass).
+        // row delete already committed, so the orphan-storage GC will pick
+        // up any residue on its next run. nothing to surface here
+      }
       deleted++
     }
 
@@ -102,11 +98,9 @@ export const gcOrphanedMediaAssets = internalMutation({
   },
 })
 
-// build the set of _storage ids referenced by any app table. called per GC
-// batch — cheap for the current table sizes (all three tables combined are
-// bounded by user count + per-user asset count, which stays in 10^6 range
-// for the foreseeable future). if this becomes hot, cache across runs via
-// a dedicated referenceIndex table
+// build the set of _storage ids referenced by any app table. cheap for current
+// table sizes (bounded by user count × per-user assets, ~10^6 range). cache via
+// a referenceIndex table if this becomes hot
 const collectReferencedStorageIds = async (
   ctx: MutationCtx
 ): Promise<Set<Id<'_storage'>>> =>
@@ -134,13 +128,9 @@ const collectReferencedStorageIds = async (
   return referenced
 }
 
-// reap _storage blobs w/ no referencing row. paginates the system _storage
-// table so a single invocation stays inside the transaction budget; follow-up
-// runs are self-scheduled. grace window protects fresh uploads whose linking
-// mutation (finalizeUpload, createSnapshotShortLink, avatar upsert) hasn't
-// fired yet. designed to be a safety net for gcOrphanedMediaAssets — even
-// if the media GC fails between storage.delete & db.delete, this pass
-// eventually catches the residual blob
+// reap _storage blobs w/ no referencing row. paginates _storage & self-schedules
+// continuations. grace window protects fresh uploads whose linking mutation hasn't fired.
+// safety net for gcOrphanedMediaAssets — catches residual blobs from partial failures
 export const gcOrphanedStorage = internalMutation({
   args: {
     cursor: v.union(v.string(), v.null()),

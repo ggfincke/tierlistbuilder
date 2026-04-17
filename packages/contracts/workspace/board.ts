@@ -10,10 +10,9 @@ export const DEFAULT_BOARD_TITLE = 'My Tier List'
 // hard cap for user-supplied board titles
 export const MAX_BOARD_TITLE_LENGTH = 200
 
-// soft-delete retention window before the daily hard-delete cron purges a
-// board for good. exposed in contracts (not just convex-internal) so the
-// "Recently deleted" UI can compute & display the permanent-deletion date
-// w/o a server round trip
+// soft-delete retention window before the daily hard-delete cron purges a board.
+// exposed in contracts (not just Convex-internal) so the "Recently deleted" UI
+// can compute the permanent-deletion date w/o a server round trip
 export const BOARD_TOMBSTONE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 
 // trim board titles & fall back to the shared default
@@ -103,10 +102,9 @@ export interface NewTierItem
   backgroundColor?: string
 }
 
-// wire-format variant of `TierItem` used at JSON import/export boundaries
-// & at the share-link encode layer. carries a base64 `imageUrl` so exported
-// files stay self-contained — the import path decodes the base64 back into
-// the IndexedDB store & produces a `TierItem` w/ `imageRef` instead
+// wire-format TierItem used at JSON import/export & share-link encode boundaries.
+// carries a base64 `imageUrl` so exports are self-contained; the import path
+// decodes it into IndexedDB & produces a TierItem w/ `imageRef` instead
 export interface TierItemWire
 {
   id: ItemId
