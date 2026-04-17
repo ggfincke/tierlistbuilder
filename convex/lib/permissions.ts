@@ -1,8 +1,10 @@
 // convex/lib/permissions.ts
 // authorization helpers — ownership checks for boards, presets, & media
 
+import { ConvexError } from 'convex/values'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from './auth'
 
 type BoardOwnershipCtx = QueryCtx | MutationCtx
@@ -19,11 +21,17 @@ export const requireBoardOwnership = async (
   const board = await ctx.db.get(boardId)
   if (!board)
   {
-    throw new Error('board not found')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.notFound,
+      message: 'board not found',
+    })
   }
   if (board.ownerId !== userId)
   {
-    throw new Error('forbidden: caller does not own board')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.forbidden,
+      message: 'caller does not own board',
+    })
   }
   return board
 }
@@ -90,7 +98,10 @@ export const requireBoardOwnershipByExternalId = async (
 
   if (!board)
   {
-    throw new Error('board not found')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.notFound,
+      message: 'board not found',
+    })
   }
 
   return board
@@ -119,11 +130,17 @@ export const requireTierPresetOwnership = async (
   const preset = await ctx.db.get(presetId)
   if (!preset)
   {
-    throw new Error('preset not found')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.notFound,
+      message: 'preset not found',
+    })
   }
   if (preset.ownerId !== userId)
   {
-    throw new Error('forbidden: caller does not own preset')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.forbidden,
+      message: 'caller does not own preset',
+    })
   }
   return preset
 }
@@ -153,7 +170,10 @@ export const requireTierPresetOwnershipByExternalId = async (
   const preset = await findOwnedTierPresetByExternalId(ctx, externalId, userId)
   if (!preset)
   {
-    throw new Error('preset not found')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.notFound,
+      message: 'preset not found',
+    })
   }
   return preset
 }

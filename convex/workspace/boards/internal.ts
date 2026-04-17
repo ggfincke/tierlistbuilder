@@ -95,12 +95,10 @@ export const cascadeDeleteBoard = internalMutation({
 
     await ctx.db.delete(args.boardId)
 
-    // todo: media GC — when a board is cascaded we should also collect the
-    // mediaAssetIds referenced by its boardItems & delete any mediaAssets
-    // rows whose ownerId matches when no other boardItems reference them,
-    // plus ctx.storage.delete(asset.storageId). tracked as a follow-up PR
-    // (see "Follow-up PRs / Reference counting & GC") because it needs a
-    // refcount or scan to avoid deleting assets shared across boards
+    // assets newly orphaned by this cascade are reaped by the daily
+    // gcOrphanedMediaAssets cron — running an inline scan here would
+    // require an O(n_items_in_board) walk of the byMedia index per cascade
+    // & duplicate the work the GC pass already does globally
     return null
   },
 })

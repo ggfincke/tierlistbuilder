@@ -1,8 +1,8 @@
 // src/features/workspace/boards/ui/BoardManager.tsx
 // floating bottom-right panel for switching between multiple tier lists
 
-import { useCallback, useId, useRef, useState } from 'react'
-import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
+import { lazy, Suspense, useCallback, useId, useRef, useState } from 'react'
+import { Copy, History, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
@@ -23,14 +23,25 @@ import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPi
 import { TextInput } from '~/shared/ui/TextInput'
 import { BoardSyncBadge } from '~/features/workspace/boards/ui/BoardSyncBadge'
 
+const RecentlyDeletedModal = lazy(() =>
+  import('~/features/workspace/boards/ui/RecentlyDeletedModal').then((m) => ({
+    default: m.RecentlyDeletedModal,
+  }))
+)
+
 interface BoardManagerProps
 {
   toolbarPosition: ToolbarPosition
+  // signed-in + feature-flag on. gates the "Recently deleted" entry point
+  // & changes the delete-confirm copy — anon users have no cloud surface
+  // to restore from
+  cloudEnabled: boolean
   onSwitchBoard: (boardId: BoardId) => void
 }
 
 export const BoardManager = ({
   toolbarPosition,
+  cloudEnabled,
   onSwitchBoard,
 }: BoardManagerProps) =>
 {
@@ -42,6 +53,7 @@ export const BoardManager = ({
 
   const [open, setOpen] = useState(false)
   const [showPresetPicker, setShowPresetPicker] = useState(false)
+  const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<BoardId | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -173,9 +185,6 @@ export const BoardManager = ({
                         {board.title}
                       </button>
 
-                      {/* per-board sync status — renders nothing when idle so
-                          most boards stay visually quiet; surfaces a small
-                          icon for syncing / error / conflict / offline */}
                       <BoardSyncBadge
                         boardId={board.id}
                         boardTitle={board.title}
@@ -236,10 +245,26 @@ export const BoardManager = ({
               New List
             </button>
           </div>
+
+          {cloudEnabled && (
+            <div className="border-t border-[var(--t-border)] px-3 py-2">
+              <button
+                type="button"
+                onClick={() =>
+                {
+                  setOpen(false)
+                  setShowRecentlyDeleted(true)
+                }}
+                className="focus-custom flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
+              >
+                <History className="h-3 w-3" />
+                Recently deleted
+              </button>
+            </div>
+          )}
         </OverlayPanelSurface>
       )}
 
-      {/* preset picker for new lists */}
       <PresetPickerModal
         open={showPresetPicker}
         onClose={() => setShowPresetPicker(false)}
@@ -249,11 +274,14 @@ export const BoardManager = ({
         onSelectBlank={() => createBoardSession()}
       />
 
-      {/* confirm delete dialog */}
       <ConfirmDialog
         open={confirmDeleteId !== null}
         title="Delete list?"
-        description={`"${boardToDelete?.title ?? ''}" will be permanently deleted.`}
+        description={
+          cloudEnabled
+            ? `"${boardToDelete?.title ?? ''}" will be moved to Recently deleted. You can restore it for 30 days.`
+            : `"${boardToDelete?.title ?? ''}" will be permanently deleted.`
+        }
         confirmText="Delete"
         onCancel={() => setConfirmDeleteId(null)}
         onConfirm={() =>
@@ -265,6 +293,23 @@ export const BoardManager = ({
           }
         }}
       />
+
+      {showRecentlyDeleted && (
+        <Suspense
+          fallback={
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+              aria-hidden
+            />
+          }
+        >
+          <RecentlyDeletedModal
+            open={showRecentlyDeleted}
+            onClose={() => setShowRecentlyDeleted(false)}
+            enabled={cloudEnabled}
+          />
+        </Suspense>
+      )}
     </>
   )
 }

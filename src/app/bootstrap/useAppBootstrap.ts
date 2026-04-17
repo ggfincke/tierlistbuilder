@@ -10,30 +10,38 @@ import {
   importBoardSession,
   registerBoardAutosave,
 } from '~/features/workspace/boards/data/local/localBoardSession'
-import {
-  clearShareFragment,
-  decodeBoardFromShareFragment,
-  getShareFragment,
-} from '~/features/workspace/sharing/lib/hashShare'
+import { clearShareFragment } from '~/features/workspace/sharing/lib/hashShare'
+import { clearShortLinkSlugFromUrl } from '~/features/workspace/sharing/lib/shortLinkShare'
+import { resolveInboundShare } from '~/features/workspace/sharing/lib/inboundShare'
+import { toast } from '~/shared/notifications/useToastStore'
 
-// import a shared board from the URL hash fragment if present
-const handleShareFragment = async (): Promise<void> =>
+// import a shared board if the URL carries a share marker. scrubs the
+// URL unconditionally so a refresh doesn't re-trigger the import, & surfaces
+// a user-facing toast only when a clicked short link failed (the legacy
+// fragment format is self-contained, so failure there means tampering —
+// silent recovery is the right UX)
+const handleInboundShare = async (): Promise<void> =>
 {
-  const fragment = getShareFragment()
-  if (!fragment) return
+  const result = await resolveInboundShare()
 
   try
   {
-    const data = await decodeBoardFromShareFragment(fragment)
-    await importBoardSession(data)
-  }
-  catch
-  {
-    // silently ignore corrupted share links — board session is still valid
+    if (result.kind === 'resolved')
+    {
+      await importBoardSession(result.data)
+    }
+    else if (result.kind === 'failed' && result.source === 'slug')
+    {
+      toast(
+        'This share link is no longer available. It may have expired or been removed.',
+        'info'
+      )
+    }
   }
   finally
   {
     clearShareFragment()
+    clearShortLinkSlugFromUrl()
   }
 }
 
@@ -54,7 +62,7 @@ const runBootstrapOnce = (): Promise<void> =>
     {
       await bootstrapBoardSession()
       registerBoardAutosave()
-      await handleShareFragment()
+      await handleInboundShare()
     })()
   }
   return bootstrapPromise

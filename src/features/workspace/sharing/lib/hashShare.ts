@@ -1,5 +1,7 @@
 // src/features/workspace/sharing/lib/hashShare.ts
-// shareable link encoding & decoding — compress board data into a URL hash fragment
+// shareable link encoding & decoding — compress board data into a URL hash
+// fragment. the compression pipeline is reused by the shortLinkShare path
+// via compressSnapshotBytes / inflateSnapshotBytes
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { EMBED_ROUTE_PATH, normalizeBasePath } from '~/app/routes/pathname'
@@ -7,7 +9,9 @@ import { parseBoardSnapshotJson } from '~/features/workspace/export/lib/exportJs
 import { base64ToBytes, bytesToBase64 } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 
-const buildAppUrl = (pathname = ''): string =>
+// build an absolute URL for the app, appending the configured base path.
+// shared w/ the short-link URL builders
+export const buildAppUrl = (pathname = ''): string =>
   `${window.location.origin}${normalizeBasePath()}${pathname}`
 
 // drop image bytes & deleted items from share payloads
@@ -38,20 +42,38 @@ const fromBase64Url = (str: string): Uint8Array =>
   return base64ToBytes(padded)
 }
 
+// strip -> JSON -> encode -> deflate. raw bytes suitable for binary transport
+// (fragment encoder base64url-wraps; short-link encoder uploads as-is)
+export const compressSnapshotBytes = async (
+  data: BoardSnapshot
+): Promise<Uint8Array> =>
+{
+  const stripped = stripImagesForShare(data)
+  const json = JSON.stringify(stripped)
+  const bytes = new TextEncoder().encode(json)
+  const { deflate } = await import('pako')
+  return deflate(bytes)
+}
+
+// inflate -> decode -> parseBoardSnapshotJson. the default title matches the
+// fragment decoder's behavior; short-link decoder passes the same default
+export const inflateSnapshotBytes = async (
+  compressed: Uint8Array,
+  defaultTitle = 'Shared Tier List'
+): Promise<BoardSnapshot> =>
+{
+  const { inflate } = await import('pako')
+  const bytes = inflate(compressed)
+  const json = new TextDecoder().decode(bytes)
+  return parseBoardSnapshotJson(json, defaultTitle)
+}
+
 // encode board data into a compressed base64url string
 export const encodeBoardToShareFragment = async (
   data: BoardSnapshot
 ): Promise<string> =>
 {
-  const stripped = stripImagesForShare(data)
-  const json = JSON.stringify(stripped)
-  const encoder = new TextEncoder()
-  const bytes = encoder.encode(json)
-
-  // lazy-load pako for compression
-  const { deflate } = await import('pako')
-  const compressed = deflate(bytes)
-
+  const compressed = await compressSnapshotBytes(data)
   return toBase64Url(compressed)
 }
 
@@ -61,14 +83,7 @@ export const decodeBoardFromShareFragment = async (
 ): Promise<BoardSnapshot> =>
 {
   const compressed = fromBase64Url(fragment)
-
-  // lazy-load pako for decompression
-  const { inflate } = await import('pako')
-  const bytes = inflate(compressed)
-  const decoder = new TextDecoder()
-  const json = decoder.decode(bytes)
-
-  return parseBoardSnapshotJson(json, 'Shared Tier List')
+  return inflateSnapshotBytes(compressed)
 }
 
 // workspace base URL (origin + configured base path)

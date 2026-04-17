@@ -53,7 +53,7 @@ const SHUFFLE_MENU_DEFINITIONS: readonly NestedMenuDefinition<ShuffleMenuId>[] =
 interface BoardActionBarProps
 {
   toolbarPosition: ToolbarPosition
-  cloudSyncActive: boolean
+  cloudEnabled: boolean
   exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
   exportingAll: boolean
   onAddTier: () => void
@@ -64,13 +64,14 @@ interface BoardActionBarProps
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
   onAnnotateExport: () => void
   onPreviewExport: () => void
+  onShare: () => void
   onReset: () => void
 }
 
 // primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
   toolbarPosition,
-  cloudSyncActive,
+  cloudEnabled,
   exportStatus,
   exportingAll,
   onAddTier,
@@ -81,6 +82,7 @@ export const BoardActionBar = ({
   onExportAll,
   onAnnotateExport,
   onPreviewExport,
+  onShare,
   onReset,
 }: BoardActionBarProps) =>
 {
@@ -313,6 +315,7 @@ export const BoardActionBar = ({
             onExportAll={onExportAll}
             onAnnotateExport={onAnnotateExport}
             onPreviewExport={onPreviewExport}
+            onShare={onShare}
           />
 
           {/* board statistics modal */}
@@ -349,7 +352,7 @@ export const BoardActionBar = ({
           {/* cloud sync status — passive indicator at the trailing edge.
               spinner during flushes, alert chrome on errors / conflicts,
               cloud-off when the browser reports offline */}
-          <SyncStatusIndicator active={cloudSyncActive} />
+          <SyncStatusIndicator active={cloudEnabled} />
         </div>
       </div>
 

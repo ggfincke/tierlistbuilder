@@ -4,7 +4,10 @@
 import { v } from 'convex/values'
 import { query } from '../../_generated/server'
 import type { Doc } from '../../_generated/dataModel'
-import type { BoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardListItem,
+  DeletedBoardListItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { getCurrentUserId } from '../../lib/auth'
 import { findOwnedActiveBoardByExternalId } from '../../lib/permissions'
@@ -12,6 +15,7 @@ import { loadBoardCloudState } from '../sync/boardStateLoader'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 
 const MAX_BOARDS_PER_USER = 200
+const MAX_DELETED_BOARDS_PER_USER = 200
 const MAX_BOARD_STATE_BATCH = 3
 
 const toBoardListItem = (board: Doc<'boards'>): BoardListItem => ({
@@ -21,6 +25,23 @@ const toBoardListItem = (board: Doc<'boards'>): BoardListItem => ({
   updatedAt: board.updatedAt,
   revision: board.revision ?? 0,
 })
+
+// asserts the row's deletedAt is non-null & narrows the type for callers.
+// throws if the row was somehow returned by a deleted-board query w/o a
+// stamp — guards against an index/filter mismatch across schema changes
+const toDeletedBoardListItem = (board: Doc<'boards'>): DeletedBoardListItem =>
+{
+  if (board.deletedAt === null)
+  {
+    throw new Error(
+      `expected deletedAt on board ${board.externalId} but found null`
+    )
+  }
+  return {
+    ...toBoardListItem(board),
+    deletedAt: board.deletedAt,
+  }
+}
 
 // list the authenticated caller's non-deleted boards, newest updated first.
 // the byOwnerDeletedUpdatedAt index has updatedAt as the trailing field so
@@ -103,6 +124,36 @@ export const getBoardStateByExternalId = query({
     )
 
     return loadBoardCloudState(ctx, board, serverTiers, serverItems)
+  },
+})
+
+// list the authenticated caller's soft-deleted boards, newest deletion first.
+// powers the "Recently deleted" surface; rows past BOARD_TOMBSTONE_RETENTION_MS
+// will have been hard-deleted by the daily cron, so this list naturally
+// shrinks over time w/o the query needing to filter on retention itself
+export const getMyDeletedBoards = query({
+  args: {},
+  handler: async (ctx): Promise<DeletedBoardListItem[]> =>
+  {
+    const userId = await getCurrentUserId(ctx)
+    if (!userId)
+    {
+      return []
+    }
+
+    // gt(0) excludes both the index's null gap & deletedAt === 0 (which
+    // never occurs in practice — deleteBoard always stamps Date.now()).
+    // order('desc') walks the index in reverse, putting most-recently-
+    // deleted rows first
+    const rows = await ctx.db
+      .query('boards')
+      .withIndex('byOwnerAndDeleted', (q) =>
+        q.eq('ownerId', userId).gt('deletedAt', 0)
+      )
+      .order('desc')
+      .take(MAX_DELETED_BOARDS_PER_USER)
+
+    return rows.map(toDeletedBoardListItem)
   },
 })
 

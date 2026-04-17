@@ -18,6 +18,10 @@ import { setupCloudImageFetcher } from './cloudImageFetcher'
 import { pullAllCloudBoards } from './cloudPull'
 import { runFirstLoginSyncLifecycle } from './firstLoginSyncLifecycle'
 import {
+  setupBoardDeleteCloudSync,
+  type BoardDeleteCloudSyncHandle,
+} from './setupBoardDeleteCloudSync'
+import {
   decideFirstLoginMerge,
   markCloudPullCompleted,
   hasCompletedCloudPull,
@@ -26,7 +30,10 @@ import {
 import { mergeSettingsOnFirstLogin } from './settingsCloudMerge'
 import { mergeTierPresetsOnFirstLogin } from './tierPresetCloudMerge'
 import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
-import { persistBoardSyncState } from '~/features/workspace/boards/data/local/localBoardSession'
+import {
+  persistBoardSyncState,
+  setBoardDeletedListener,
+} from '~/features/workspace/boards/data/local/localBoardSession'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
@@ -241,6 +248,7 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
   const boardFirstLoginMergeRef = useRef(false)
   const settingsHandleRef = useRef<SettingsCloudSyncHandle | null>(null)
   const presetsHandleRef = useRef<TierPresetCloudSyncHandle | null>(null)
+  const boardDeleteHandleRef = useRef<BoardDeleteCloudSyncHandle | null>(null)
 
   useEffect(() =>
   {
@@ -347,8 +355,9 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
     setupCloudImageFetcher()
 
     // helper: produces a resume call w/ the current handle refs threaded
-    // through. settings/preset triggers are no-ops until the merge resolves
-    // & those handles are installed; the next call (after install) drains
+    // through. settings/preset/board-delete triggers are no-ops until the
+    // merge resolves & those handles are installed; the next call (after
+    // install) drains
     const triggerResume = (): void =>
     {
       if (!shouldProceed()) return
@@ -367,6 +376,9 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
               presetsHandleRef.current?.runner.enqueue(work, {
                 immediate: true,
               })
+          : undefined,
+        triggerBoardDelete: boardDeleteHandleRef.current
+          ? () => boardDeleteHandleRef.current?.triggerDrain()
           : undefined,
         shouldProceed,
       })
@@ -401,6 +413,25 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
       })
       triggerResume()
     }
+
+    // board-delete sync installs as soon as the effect runs — there's no
+    // first-login merge gate because deletes don't conflict w/ pulls (the
+    // pull walks active boards only via getMyBoards's index filter). doing
+    // this early means deletes that happen during the first-login merge
+    // window get a drain trigger right away instead of being deferred
+    boardDeleteHandleRef.current = setupBoardDeleteCloudSync({
+      shouldProceed,
+      onError: (cloudExternalId, error) =>
+      {
+        const message = error instanceof Error ? error.message : String(error)
+        if (message === 'offline') return
+        console.warn(
+          `Board delete cloud sync failed for ${cloudExternalId}:`,
+          error
+        )
+      },
+    })
+    setBoardDeletedListener(() => boardDeleteHandleRef.current?.triggerDrain())
 
     // window online/offline listeners — flip the global online flag in the
     // status store & re-queue any pending work on offline -> online
@@ -482,17 +513,22 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
       disposeConnectivity()
       boardFirstLoginMergeRef.current = false
 
-      // dispose settings + preset handles in parallel — each await waits
-      // for in-flight flushes to settle, but the two are independent so
-      // we don't need to serialize. errors already routed through onError
+      // detach the listener first so any in-flight delete doesn't dispatch
+      // into a disposed handle. the sidecar survives for the next sign-in
+      setBoardDeletedListener(null)
+
+      // dispose settings + preset + board-delete handles in parallel —
+      // each awaits its in-flight flushes, & the three don't share state
       const handles = [
         settingsHandleRef.current,
         presetsHandleRef.current,
+        boardDeleteHandleRef.current,
       ].filter(
         (handle): handle is NonNullable<typeof handle> => handle !== null
       )
       settingsHandleRef.current = null
       presetsHandleRef.current = null
+      boardDeleteHandleRef.current = null
       if (handles.length > 0)
       {
         void Promise.allSettled(handles.map((handle) => handle.dispose()))

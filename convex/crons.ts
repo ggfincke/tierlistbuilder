@@ -5,7 +5,7 @@ import { cronJobs } from 'convex/server'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
-import { BOARD_TOMBSTONE_RETENTION_MS } from './workspace/sync/boardSyncLimits'
+import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 
 const HARD_DELETE_SCHEDULE_BATCH = 64
 
@@ -57,6 +57,28 @@ crons.cron(
   'hard-delete expired soft-deleted boards',
   '17 3 * * *',
   internal.crons.scheduleHardDeletes,
+  { cursor: null }
+)
+
+// daily orphan media GC — staggered an hour after the board hard-delete pass
+// so cascadeDeleteBoard has time to drain its boardItems phase first. running
+// in this order means the GC catches assets that were just orphaned by the
+// board cascade in the same nightly window
+crons.cron(
+  'gc orphaned media assets',
+  '17 4 * * *',
+  internal.platform.media.internal.gcOrphanedMediaAssets,
+  { cursor: null }
+)
+
+// daily orphan _storage sweep — staggered another hour after media GC so it
+// picks up blobs from dropped uploads (anon snapshot uploads, finalizeUpload
+// that never fired) plus anything left behind by a crashed media GC pass.
+// safety net for the whole storage-reference graph
+crons.cron(
+  'gc orphaned storage blobs',
+  '17 5 * * *',
+  internal.platform.media.internal.gcOrphanedStorage,
   { cursor: null }
 )
 

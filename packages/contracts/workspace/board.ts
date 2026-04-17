@@ -10,6 +10,12 @@ export const DEFAULT_BOARD_TITLE = 'My Tier List'
 // hard cap for user-supplied board titles
 export const MAX_BOARD_TITLE_LENGTH = 200
 
+// soft-delete retention window before the daily hard-delete cron purges a
+// board for good. exposed in contracts (not just convex-internal) so the
+// "Recently deleted" UI can compute & display the permanent-deletion date
+// w/o a server round trip
+export const BOARD_TOMBSTONE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+
 // trim board titles & fall back to the shared default
 export const normalizeBoardTitle = (raw: string): string =>
 {
@@ -140,4 +146,12 @@ export interface BoardListItem
   createdAt: number
   updatedAt: number
   revision: number
+}
+
+// extended cloud board list row for the "Recently deleted" surface. carries
+// deletedAt so the client can sort + display "Will be permanently deleted in
+// N days" by adding BOARD_TOMBSTONE_RETENTION_MS
+export interface DeletedBoardListItem extends BoardListItem
+{
+  deletedAt: number
 }

@@ -10,17 +10,6 @@ import {
   tierPresetTiersValidator,
 } from './lib/validators'
 
-const shortLinkCommonFields = {
-  // short base62 slug exposed in the URL
-  slug: v.string(),
-  // null for anonymous snapshot shares
-  ownerId: v.union(v.id('users'), v.null()),
-  createdAt: v.number(),
-  // null = persistent, otherwise epoch millis for TTL cleanup
-  expiresAt: v.union(v.number(), v.null()),
-  viewCount: v.number(),
-}
-
 export default defineSchema({
   // @convex-dev/auth tables — authAccounts, authSessions, authVerificationCodes,
   // authRefreshTokens, authRateLimits. do not rename or move — managed by the lib
@@ -161,23 +150,23 @@ export default defineSchema({
     // ownership check after the row lookup
     .index('byOwnerAndExternalId', ['ownerId', 'externalId']),
 
-  // short URL indirection for shareable board links & snapshot blobs
-  shortLinks: defineTable(
-    v.union(
-      v.object({
-        ...shortLinkCommonFields,
-        // board-share slug — points at a live owned board
-        kind: v.literal('board'),
-        targetBoardId: v.id('boards'),
-      }),
-      v.object({
-        ...shortLinkCommonFields,
-        // snapshot-share slug — points at compressed snapshot bytes in _storage
-        kind: v.literal('snapshot'),
-        snapshotStorageId: v.id('_storage'),
-      })
-    )
-  )
+  // short URL indirection for shareable snapshot blobs. snapshot-only end
+  // state: a slug points at compressed BoardSnapshot bytes in _storage. live
+  // "follow my board" links (kind: 'board') were considered but deferred —
+  // adding them later would warrant its own design pass (permission model,
+  // recipient invalidation, etc.) so we don't pre-shape the schema for it
+  shortLinks: defineTable({
+    // short base62 slug exposed in the URL
+    slug: v.string(),
+    // null for anonymous snapshot shares
+    ownerId: v.union(v.id('users'), v.null()),
+    // _storage handle for the compressed snapshot bytes
+    snapshotStorageId: v.id('_storage'),
+    createdAt: v.number(),
+    // null = persistent (current default for snapshot shares), otherwise
+    // epoch millis for a future TTL cleanup pass via byExpiresAt
+    expiresAt: v.union(v.number(), v.null()),
+  })
     .index('bySlug', ['slug'])
     .index('byOwner', ['ownerId'])
     .index('byExpiresAt', ['expiresAt']),
