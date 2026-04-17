@@ -21,6 +21,7 @@ import { serverStateToSnapshot } from '~/features/workspace/boards/data/cloud/bo
 import { flushBoardToCloud, readBoardStateForCloudSync } from './cloudFlush'
 import { useConflictQueueStore } from './useConflictQueueStore'
 import { toast } from '~/shared/notifications/useToastStore'
+import { formatError } from '~/shared/lib/errors'
 
 const KEEP_BOTH_SUFFIX = '(this device)'
 
@@ -32,9 +33,6 @@ export interface ResolveContext
 }
 
 export type ResolveOutcome = { ok: true } | { ok: false; error: string }
-
-const formatErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error)
 
 // keep local — re-push the current local snapshot w/ baseRevision matching
 // the server's current revision (force-overwrite cloud)
@@ -71,7 +69,7 @@ export const resolveKeepLocal = async (
     return { ok: false, error: 'Cloud changed again — please resolve again.' }
   }
 
-  return { ok: false, error: formatErrorMessage(outcome.error) }
+  return { ok: false, error: formatError(outcome.error) }
 }
 
 // keep cloud — discard local edits, materialize server state into local

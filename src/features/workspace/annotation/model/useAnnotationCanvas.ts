@@ -373,9 +373,11 @@ export const useAnnotationCanvas = (
 
     const img = new Image()
     img.src = backgroundImage
-    await new Promise<void>((resolve) =>
+    await new Promise<void>((resolve, reject) =>
     {
       img.onload = () => resolve()
+      img.onerror = () =>
+        reject(new Error('Failed to decode annotation background image'))
     })
 
     const output = document.createElement('canvas')

@@ -2,6 +2,7 @@
 // board statistics modal — item distribution, summary cards, & tier chart
 
 import { useId, useMemo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { computeBoardStats } from '~/features/workspace/stats/model/boardStats'
 import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
@@ -35,12 +36,13 @@ export const StatsModal = ({ open, onClose }: StatsModalProps) =>
   const titleId = useId()
   const paletteId = useCurrentPaletteId()
 
-  const stats = useMemo(() =>
-  {
-    if (!open) return null
-    const data = extractBoardData(useActiveBoardStore.getState())
-    return computeBoardStats(data, paletteId)
-  }, [open, paletteId])
+  const boardData = useActiveBoardStore(
+    useShallow((state) => (open ? extractBoardData(state) : null))
+  )
+  const stats = useMemo(
+    () => (boardData ? computeBoardStats(boardData, paletteId) : null),
+    [boardData, paletteId]
+  )
 
   if (!stats) return null
 

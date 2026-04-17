@@ -45,24 +45,26 @@ export const AppearanceTab = () =>
         <ThemePicker />
 
         <SettingRow label="Page Background">
-          <div className="flex items-center gap-2">
-            {boardBackgroundOverride !== null && (
-              <button
-                type="button"
-                onClick={() => setBoardBackgroundOverride(null)}
-                aria-label="Reset page background to theme default"
-                className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
-                title="Reset to theme default"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <ColorInput
-              value={boardBackgroundOverride ?? THEMES[themeId]['bg-page']}
-              onChange={(e) => setBoardBackgroundOverride(e.target.value)}
-              aria-label="Page background color"
-            />
-          </div>
+          {(labelId) => (
+            <div className="flex items-center gap-2">
+              {boardBackgroundOverride !== null && (
+                <button
+                  type="button"
+                  onClick={() => setBoardBackgroundOverride(null)}
+                  aria-label="Reset page background to theme default"
+                  className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
+                  title="Reset to theme default"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <ColorInput
+                value={boardBackgroundOverride ?? THEMES[themeId]['bg-page']}
+                onChange={(e) => setBoardBackgroundOverride(e.target.value)}
+                aria-labelledby={labelId}
+              />
+            </div>
+          )}
         </SettingRow>
       </SettingsSection>
 
