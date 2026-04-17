@@ -2,7 +2,7 @@
 // export-specific constants — file-name helpers, format labels, & render settings
 
 import type { ImageFormat } from '~/shared/types/export'
-import { THEMES } from '~/shared/theme'
+import { THEMES } from '~/shared/theme/tokens'
 
 // background color applied during PNG & PDF export (mirrors classic theme)
 export const EXPORT_BACKGROUND_COLOR = THEMES.classic['export-bg']

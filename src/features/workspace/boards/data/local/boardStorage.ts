@@ -21,8 +21,8 @@ import {
 import { isRecord } from '~/shared/lib/typeGuards'
 
 // current board payload schema version — bumped only on genuinely breaking
-// user-data changes. v2 moves image bytes from inline `imageUrl` to IDB.
-// v3 wraps board snapshots in a versioned envelope
+// user-data changes. v3 wraps snapshots in a versioned envelope; unwrapped
+// pre-v3 payloads fail the envelope-shape check & parse as corrupted
 export const BOARD_DATA_VERSION = 3
 
 // build a per-board localStorage key from its ID
@@ -37,6 +37,11 @@ interface StoredBoardEnvelope
   version: number
   data: Partial<BoardSnapshot>
 }
+
+type LoadedBoardEnvelope =
+  | { status: 'missing'; data: null }
+  | { status: 'corrupted'; data: null }
+  | { status: 'ok'; data: Partial<BoardSnapshot> }
 
 export type BoardLoadResult =
   | {
@@ -84,19 +89,6 @@ const writeStorageValue = (
   }
 }
 
-const hasPersistedBoardDataShape = (
-  value: Record<string, unknown>
-): value is Partial<BoardSnapshot> =>
-  Array.isArray(value.tiers) ||
-  isRecord(value.items) ||
-  Array.isArray(value.unrankedItemIds) ||
-  Array.isArray(value.deletedItems)
-
-const hasBoardSyncState = (value: BoardSyncState): boolean =>
-  value.lastSyncedRevision !== null ||
-  value.cloudBoardExternalId !== null ||
-  value.pendingSyncAt !== null
-
 const writeBoardSyncState = (
   boardId: BoardId,
   syncState: BoardSyncState,
@@ -110,24 +102,10 @@ const writeBoardSyncState = (
   )
 }
 
-const readStoredBoardSyncState = (
-  boardId: BoardId,
-  legacySyncState: BoardSyncState = EMPTY_BOARD_SYNC_STATE
-): BoardSyncState =>
+const readStoredBoardSyncState = (boardId: BoardId): BoardSyncState =>
 {
   const raw = readBrowserStorageItem(boardSyncStorageKey(boardId))
-
-  if (!raw)
-  {
-    const normalizedLegacy = normalizeBoardSyncState(legacySyncState)
-
-    if (hasBoardSyncState(normalizedLegacy))
-    {
-      writeBoardSyncState(boardId, normalizedLegacy)
-    }
-
-    return normalizedLegacy
-  }
+  if (!raw) return EMPTY_BOARD_SYNC_STATE
 
   try
   {
@@ -135,7 +113,7 @@ const readStoredBoardSyncState = (
   }
   catch
   {
-    return normalizeBoardSyncState(legacySyncState)
+    return EMPTY_BOARD_SYNC_STATE
   }
 }
 
@@ -158,11 +136,7 @@ const writeBoardEnvelope = (
   )
 }
 
-const readStoredBoardEnvelope = (
-  boardId: BoardId
-): Omit<BoardLoadResult, 'sync'> & {
-  legacySyncState?: BoardSyncState
-} =>
+const readStoredBoardEnvelope = (boardId: BoardId): LoadedBoardEnvelope =>
 {
   try
   {
@@ -176,7 +150,7 @@ const readStoredBoardEnvelope = (
     }
 
     const parsed: unknown = JSON.parse(raw)
-    if (!isRecord(parsed))
+    if (!isRecord(parsed) || !isRecord(parsed.data))
     {
       return {
         status: 'corrupted',
@@ -184,29 +158,13 @@ const readStoredBoardEnvelope = (
       }
     }
 
-    if (isRecord(parsed.data))
-    {
-      const version = typeof parsed.version === 'number' ? parsed.version : 1
-      if (
-        !Number.isFinite(version) ||
-        version < 1 ||
-        version > BOARD_DATA_VERSION
-      )
-      {
-        return {
-          status: 'corrupted',
-          data: null,
-        }
-      }
-
-      return {
-        status: 'ok',
-        data: parsed.data as Partial<BoardSnapshot>,
-        legacySyncState: normalizeBoardSyncState(parsed.sync),
-      }
-    }
-
-    if (!hasPersistedBoardDataShape(parsed))
+    const { version } = parsed
+    if (
+      typeof version !== 'number' ||
+      !Number.isFinite(version) ||
+      version < 1 ||
+      version > BOARD_DATA_VERSION
+    )
     {
       return {
         status: 'corrupted',
@@ -216,7 +174,7 @@ const readStoredBoardEnvelope = (
 
     return {
       status: 'ok',
-      data: parsed as Partial<BoardSnapshot>,
+      data: parsed.data as Partial<BoardSnapshot>,
     }
   }
   catch
@@ -272,10 +230,10 @@ export const loadBoardFromStorage = (boardId: BoardId): BoardLoadResult =>
 {
   const result = readStoredBoardEnvelope(boardId)
 
-  if (result.status !== 'ok' || result.data === null)
+  if (result.status !== 'ok')
   {
     return {
-      status: result.status === 'ok' ? 'corrupted' : result.status,
+      status: result.status,
       data: null,
       sync: EMPTY_BOARD_SYNC_STATE,
     }
@@ -284,7 +242,7 @@ export const loadBoardFromStorage = (boardId: BoardId): BoardLoadResult =>
   return {
     status: 'ok',
     data: result.data,
-    sync: readStoredBoardSyncState(boardId, result.legacySyncState),
+    sync: readStoredBoardSyncState(boardId),
   }
 }
 

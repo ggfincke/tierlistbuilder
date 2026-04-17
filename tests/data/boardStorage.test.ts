@@ -161,46 +161,13 @@ describe('boardStorage sync metadata', () =>
     })
   })
 
-  it('loads sync metadata from a legacy combined envelope and migrates it', () =>
+  it('returns an empty sync state when no sidecar key exists', () =>
   {
     const snapshot = createInitialBoardData('classic')
     localStorage.setItem(
       boardStorageKey(TEST_BOARD_ID),
       JSON.stringify({
         version: 3,
-        data: snapshot,
-        sync: {
-          lastSyncedRevision: 21,
-          cloudBoardExternalId: 'cloud-board-21',
-        },
-      })
-    )
-
-    const loaded = loadBoardFromStorage(TEST_BOARD_ID)
-    expect(loaded).toMatchObject({
-      status: 'ok',
-      sync: {
-        lastSyncedRevision: 21,
-        cloudBoardExternalId: 'cloud-board-21',
-        pendingSyncAt: null,
-      },
-    })
-    expect(localStorage.getItem(boardSyncStorageKey(TEST_BOARD_ID))).toBe(
-      JSON.stringify({
-        lastSyncedRevision: 21,
-        cloudBoardExternalId: 'cloud-board-21',
-        pendingSyncAt: null,
-      })
-    )
-  })
-
-  it('defaults legacy board payloads to an empty sync state', () =>
-  {
-    const snapshot = createInitialBoardData('classic')
-    localStorage.setItem(
-      boardStorageKey(TEST_BOARD_ID),
-      JSON.stringify({
-        version: 2,
         data: snapshot,
       })
     )
@@ -212,12 +179,66 @@ describe('boardStorage sync metadata', () =>
     })
   })
 
-  it('rejects arbitrary JSON on the raw payload fallback path', () =>
+  it('rejects arbitrary JSON that lacks the envelope shape', () =>
   {
     localStorage.setItem(
       boardStorageKey(TEST_BOARD_ID),
       JSON.stringify({
         hello: 'world',
+      })
+    )
+
+    expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
+      status: 'corrupted',
+      data: null,
+      sync: EMPTY_BOARD_SYNC_STATE,
+    })
+  })
+
+  it('rejects an unwrapped pre-v3 board payload', () =>
+  {
+    localStorage.setItem(
+      boardStorageKey(TEST_BOARD_ID),
+      JSON.stringify({
+        tiers: [],
+        items: {},
+        unrankedItemIds: [],
+        deletedItems: [],
+      })
+    )
+
+    expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
+      status: 'corrupted',
+      data: null,
+      sync: EMPTY_BOARD_SYNC_STATE,
+    })
+  })
+
+  it('rejects a wrapped envelope missing the version field', () =>
+  {
+    const snapshot = createInitialBoardData('classic')
+    localStorage.setItem(
+      boardStorageKey(TEST_BOARD_ID),
+      JSON.stringify({
+        data: snapshot,
+      })
+    )
+
+    expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
+      status: 'corrupted',
+      data: null,
+      sync: EMPTY_BOARD_SYNC_STATE,
+    })
+  })
+
+  it('rejects a wrapped envelope with a version above the supported maximum', () =>
+  {
+    const snapshot = createInitialBoardData('classic')
+    localStorage.setItem(
+      boardStorageKey(TEST_BOARD_ID),
+      JSON.stringify({
+        version: 999,
+        data: snapshot,
       })
     )
 

@@ -6,7 +6,7 @@ import type {
   Tier,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
-import { clampIndex } from '~/shared/lib/math'
+import { clamp } from '~/shared/lib/math'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
@@ -243,7 +243,7 @@ export const resolveStoreInsertionIndex = ({
   const normalizedTargetIndex =
     sameContainer && targetIndex > sourceIndex ? targetIndex - 1 : targetIndex
 
-  return clampIndex(normalizedTargetIndex, 0, targetItemsLength)
+  return clamp(normalizedTargetIndex, 0, targetItemsLength)
 }
 
 export const moveItemInSnapshot = (
@@ -334,7 +334,7 @@ export const moveItemToIndexInSnapshot = ({
     fromContainerId === toContainerId
       ? sourceItems
       : [...getItemsInContainer(sourcePatchedSnapshot, toContainerId)]
-  const insertionIndex = clampIndex(toIndex, 0, targetItems.length)
+  const insertionIndex = clamp(toIndex, 0, targetItems.length)
 
   if (fromContainerId === toContainerId && insertionIndex === sourceIndex)
   {

@@ -28,16 +28,6 @@ const contractsSubpathAlias = {
   find: /^@tierlistbuilder\/contracts\/(.*)$/,
   replacement: `${contractsRoot}/$1`,
 }
-// resolve bare import @tierlistbuilder/contracts to the barrel
-const contractsBarrelAlias = {
-  find: /^@tierlistbuilder\/contracts$/,
-  replacement: `${contractsRoot}/index.ts`,
-}
 
 // vite & vitest both accept the array form of alias entries
-export const moduleAliases = [
-  sourceAlias,
-  convexAlias,
-  contractsSubpathAlias,
-  contractsBarrelAlias,
-]
+export const moduleAliases = [sourceAlias, convexAlias, contractsSubpathAlias]

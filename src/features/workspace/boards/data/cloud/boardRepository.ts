@@ -2,32 +2,15 @@
 // Convex query/mutation adapters for cloud board sync.
 // hook-based wrappers for React components; *Imperative variants for non-React sync logic
 
-import { useMutation, useQuery } from 'convex/react'
+import { useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import type {
-  BoardListItem,
-  DeletedBoardListItem,
-} from '@tierlistbuilder/contracts/workspace/board'
+import type { DeletedBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   CloudBoardPayload,
   CloudBoardState,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { convexClient } from '~/features/platform/backend/convexClient'
-
-export const useListMyBoards = (
-  enabled: boolean
-): BoardListItem[] | undefined =>
-  useQuery(api.workspace.boards.queries.getMyBoards, enabled ? {} : 'skip')
-
-export const useCreateBoard = () =>
-  useMutation(api.workspace.boards.mutations.createBoard)
-
-export const useDeleteBoard = () =>
-  useMutation(api.workspace.boards.mutations.deleteBoard)
-
-export const useUpdateBoardMeta = () =>
-  useMutation(api.workspace.boards.mutations.updateBoardMeta)
 
 // list the caller's soft-deleted boards. powers the "Recently deleted"
 // surface; reactive so a successful restore / permanent-delete on another

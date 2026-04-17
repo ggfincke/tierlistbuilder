@@ -170,7 +170,7 @@ App (app/App.tsx → AppRouter)
 │   ├── BoardManager               — floating panel (bottom-right) for board switching
 │   ├── DragOverlay                — ghost item (uses ItemContent for rendering)
 │   ├── ConfirmDialog              — modal for delete confirmations
-│   ├── ExportProgressOverlay      — blocking overlay during export-all
+│   ├── ProgressOverlay            — shared blocking overlay (used for export-all & cloud pull)
 │   ├── BulkActionBar              — floating bar for multi-select operations
 │   ├── ShortcutsPanel             — help panel listing keyboard shortcuts
 │   ├── ToastContainer             — auto-dismissing notifications
@@ -204,7 +204,7 @@ Toolbar-position-aware submenu class sets live in `shared/layout/toolbarPosition
 
 **JSON** — `exportJson.ts` serializes the full `BoardSnapshot` to a downloadable `.json` file. Import accepts both single-board and multi-board JSON envelopes — `parseBoardsJson()` auto-detects the format and validates each board before restoring.
 
-All export lib code lives in `features/workspace/export/lib/`; the UI (`ExportMenu`, `ExportPreviewModal`, `ExportProgressOverlay`, `StaticExportBoard`) lives in `features/workspace/export/ui/`; the controller hook is `features/workspace/export/model/useExportController.ts`.
+All export lib code lives in `features/workspace/export/lib/`; the UI (`ExportMenu`, `ExportPreviewModal`, `StaticExportBoard`) lives in `features/workspace/export/ui/`; the controller hook is `features/workspace/export/model/useExportController.ts`. Blocking export-all progress uses the shared `ProgressOverlay` at `shared/overlay/`.
 
 ## Boundary Rules
 

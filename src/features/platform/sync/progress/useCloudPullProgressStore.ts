@@ -1,6 +1,6 @@
 // src/features/platform/sync/progress/useCloudPullProgressStore.ts
-// progress store for the first-login cloud pull; kept separate from the
-// overlay so react-refresh treats the .tsx as component-only
+// progress store for the first-login cloud pull — WorkspaceShell reads it
+// directly & renders the blocking ProgressOverlay
 
 import { create } from 'zustand'
 

@@ -1,4 +1,4 @@
-// src/features/workspace/settings/ui/SettingsSection.tsx
+// src/shared/ui/SettingsSection.tsx
 // reusable settings section w/ styled border & heading
 
 interface SettingsSectionProps

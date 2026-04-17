@@ -5,11 +5,13 @@
   "type": "module",
   "description": "Cross-runtime contracts shared between the frontend & convex backend",
   "exports": {
-    ".": "./index.ts",
     "./workspace/board": "./workspace/board.ts",
     "./workspace/cloudBoard": "./workspace/cloudBoard.ts",
+    "./workspace/cloudPreset": "./workspace/cloudPreset.ts",
     "./workspace/tierPreset": "./workspace/tierPreset.ts",
     "./workspace/settings": "./workspace/settings.ts",
+    "./platform/errors": "./platform/errors.ts",
+    "./platform/shortLink": "./platform/shortLink.ts",
     "./lib/ids": "./lib/ids.ts",
     "./lib/theme": "./lib/theme.ts"
   }

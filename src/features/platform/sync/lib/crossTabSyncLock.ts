@@ -74,11 +74,3 @@ export const announceBoardLock = (boardId: BoardId): void =>
     // but inefficient)
   }
 }
-
-// release the channel (tests & teardown)
-export const __disposeCrossTabSyncLock = (): void =>
-{
-  channel?.close()
-  channel = null
-  lastAcquiredByPeer.clear()
-}

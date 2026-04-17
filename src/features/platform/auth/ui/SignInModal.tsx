@@ -219,9 +219,9 @@ export const SignInModal = ({ open, onClose }: SignInModalProps) =>
   )
 }
 
-// map convex-auth error messages to user-friendly strings. common codes get
-// specific text; unknown codes get a generic fallback & are logged via
-// console.warn so developers can identify unmapped errors w/o leaking internals
+// map convex-auth error messages to user-friendly strings. unknown codes get
+// a generic fallback; the dev-only warn surfaces unmapped codes during local
+// development w/o leaking internals to prod users
 const mapAuthError = (message: string, mode: AuthMode): string =>
 {
   const lower = message.toLowerCase()
@@ -239,6 +239,9 @@ const mapAuthError = (message: string, mode: AuthMode): string =>
   {
     return 'Password must be at least 8 characters.'
   }
-  console.warn('Unmapped auth error:', message)
+  if (import.meta.env.DEV)
+  {
+    console.warn('Unmapped auth error:', message)
+  }
   return 'Something went wrong. Please try again.'
 }

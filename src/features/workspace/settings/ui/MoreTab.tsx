@@ -21,8 +21,8 @@ import { THEMES } from '~/shared/theme/tokens'
 import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
+import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { SettingRow } from './SettingRow'
-import { SettingsSection } from './SettingsSection'
 import { Toggle } from './Toggle'
 
 interface MoreTabProps

@@ -22,9 +22,15 @@ export const ProgressOverlay = ({
   total,
 }: ProgressOverlayProps) =>
 {
-  const pct = total > 0 ? Math.round((current / total) * 100) : 0
   const titleId = useId()
   const statusId = useId()
+
+  if (total === 0)
+  {
+    return null
+  }
+
+  const pct = Math.round((current / total) * 100)
 
   return (
     <BaseModal

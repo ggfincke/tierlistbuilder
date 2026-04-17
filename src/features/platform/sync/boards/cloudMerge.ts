@@ -18,10 +18,7 @@ export const getCloudPullKey = (userId: string): string =>
   `${CLOUD_PULL_KEY_PREFIX}${userId}`
 
 export const hasCompletedCloudPull = (userId: string): boolean =>
-{
-  const value = readBrowserStorageItem(getCloudPullKey(userId))
-  return value === 'true' || value === CLOUD_PULL_STATE_COMPLETED
-}
+  readBrowserStorageItem(getCloudPullKey(userId)) === CLOUD_PULL_STATE_COMPLETED
 
 export const hasPendingCloudPull = (userId: string): boolean =>
   readBrowserStorageItem(getCloudPullKey(userId)) === CLOUD_PULL_STATE_PENDING

@@ -3,7 +3,7 @@
 
 import { useRovingSelection } from '~/shared/selection/useRovingSelection'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
-import { THEME_META, THEMES } from '~/shared/theme'
+import { THEME_META, THEMES } from '~/shared/theme/tokens'
 import type { ThemeId } from '@tierlistbuilder/contracts/lib/theme'
 
 const THEME_IDS = THEME_META.map((m) => m.id) as ThemeId[]
