@@ -163,9 +163,16 @@ export default defineSchema({
     // _storage handle for the compressed snapshot bytes
     snapshotStorageId: v.id('_storage'),
     createdAt: v.number(),
-    // null = persistent (current default for snapshot shares), otherwise
-    // epoch millis for a future TTL cleanup pass via byExpiresAt
+    // epoch millis for the daily gcExpiredShortLinks cron. createSnapshotShortLink
+    // defaults to createdAt + DEFAULT_SHARE_LINK_TTL_MS; PR 7-era rows w/ a
+    // null value are persistent by their original contract & the cron's
+    // byExpiresAt query naturally skips them
     expiresAt: v.union(v.number(), v.null()),
+    // denormalized snapshot of the source board's title at create time so the
+    // signed-in "Recent shares" listing can label rows w/o fetching+inflating
+    // each blob. optional because PR 7-era rows predate the field; the UI
+    // shows "Untitled" when missing
+    boardTitle: v.optional(v.string()),
   })
     .index('bySlug', ['slug'])
     .index('byOwner', ['ownerId'])
