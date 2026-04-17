@@ -12,6 +12,7 @@ import { BulkActionBar } from '~/features/workspace/boards/ui/BulkActionBar'
 import { TierList } from '~/features/workspace/boards/ui/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 import { ExportProgressOverlay } from '~/features/workspace/export/ui/ExportProgressOverlay'
 import { useExportController } from '~/features/workspace/export/model/useExportController'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
@@ -47,6 +48,11 @@ const StatsModal = lazy(() =>
     default: m.StatsModal,
   }))
 )
+const ShareModal = lazy(() =>
+  import('~/features/workspace/sharing/ui/ShareModal').then((m) => ({
+    default: m.ShareModal,
+  }))
+)
 
 export const WorkspaceShell = () =>
 {
@@ -74,7 +80,7 @@ export const WorkspaceShell = () =>
   const authSession = useAuthSession()
   const signedInUser =
     authSession.status === 'signed-in' ? authSession.user : null
-  const cloudSyncActive = signedInUser !== null && CLOUD_SYNC_ENABLED
+  const cloudEnabled = signedInUser !== null && CLOUD_SYNC_ENABLED
   useCloudSync(signedInUser)
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
@@ -94,6 +100,7 @@ export const WorkspaceShell = () =>
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [annotationImage, setAnnotationImage] = useState<string | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [previewFormat, setPreviewFormat] = useState<ImageFormat>('png')
@@ -111,6 +118,8 @@ export const WorkspaceShell = () =>
   const handleOpenSettings = useCallback(() => setSettingsOpen(true), [])
   const handleCloseStats = useCallback(() => setStatsOpen(false), [])
   const handleOpenStats = useCallback(() => setStatsOpen(true), [])
+  const handleCloseShare = useCallback(() => setShareOpen(false), [])
+  const handleOpenShare = useCallback(() => setShareOpen(true), [])
   const handleCloseAnnotation = useCallback(() => setAnnotationImage(null), [])
 
   const handleAnnotateExport = useCallback(() =>
@@ -230,7 +239,7 @@ export const WorkspaceShell = () =>
               toolbar={
                 <BoardActionBar
                   toolbarPosition={toolbarPosition}
-                  cloudSyncActive={cloudSyncActive}
+                  cloudEnabled={cloudEnabled}
                   exportStatus={exportStatus}
                   exportingAll={exportAllProgress !== null}
                   onAddTier={handleAddTier}
@@ -241,6 +250,7 @@ export const WorkspaceShell = () =>
                   onExportAll={runExportAll}
                   onAnnotateExport={handleAnnotateExport}
                   onPreviewExport={handlePreviewExport}
+                  onShare={handleOpenShare}
                   onReset={handleResetBoard}
                 />
               }
@@ -291,8 +301,22 @@ export const WorkspaceShell = () =>
           </ErrorBoundary>
         </Suspense>
       )}
+      {shareOpen && (
+        <Suspense>
+          <ErrorBoundary section="share">
+            <ShareModal
+              open={shareOpen}
+              onClose={handleCloseShare}
+              getSnapshot={() =>
+                extractBoardData(useActiveBoardStore.getState())
+              }
+            />
+          </ErrorBoundary>
+        </Suspense>
+      )}
       <BoardManager
         toolbarPosition={toolbarPosition}
+        cloudEnabled={cloudEnabled}
         onSwitchBoard={transitionTo}
       />
       {exportAllProgress && (

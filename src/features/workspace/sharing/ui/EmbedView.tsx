@@ -6,10 +6,7 @@ import { useEffect, useState } from 'react'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
-import {
-  decodeBoardFromShareFragment,
-  getShareFragment,
-} from '~/features/workspace/sharing/lib/hashShare'
+import { resolveInboundShare } from '~/features/workspace/sharing/lib/inboundShare'
 import { ITEM_SIZE_PX, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import {
@@ -20,20 +17,12 @@ import {
   TierDescriptionSubtitle,
 } from '~/shared/board-ui/BoardPrimitives'
 
-// load embed data from the URL share fragment
+// load embed data from either marker — shared resolver handles the
+// fragment-then-slug precedence so bootstrap & embed can't drift
 const loadEmbedData = async (): Promise<BoardSnapshot | null> =>
 {
-  const fragment = getShareFragment()
-  if (!fragment) return null
-
-  try
-  {
-    return await decodeBoardFromShareFragment(fragment)
-  }
-  catch
-  {
-    return null
-  }
+  const result = await resolveInboundShare()
+  return result.kind === 'resolved' ? result.data : null
 }
 
 export const EmbedView = () =>

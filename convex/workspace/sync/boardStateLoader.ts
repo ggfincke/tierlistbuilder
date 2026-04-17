@@ -5,7 +5,7 @@
 import type { QueryCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import { BOARD_TOMBSTONE_RETENTION_MS } from './boardSyncLimits'
+import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 
 export const loadBoardCloudState = async (
   ctx: QueryCtx,

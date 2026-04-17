@@ -12,11 +12,13 @@ import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
 import { generateBoardId } from '~/shared/lib/id'
 import {
   loadBoardFromStorage,
+  loadBoardSyncStateOnly,
   removeBoardFromStorage,
   saveBoardToStorage,
   saveBoardSyncToStorage,
   type BoardLoadResult,
 } from './boardStorage'
+import { stampPendingBoardDelete } from './boardDeleteSyncMeta'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
 import { migrateBoardImages } from '~/shared/images/boardImageMigration'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
@@ -48,6 +50,12 @@ import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
 let suppressNextAutosave = false
+// listener registered by useCloudSync once a board-delete handle is mounted.
+// deleteBoardSession calls it after stamping the sidecar so the just-deleted
+// cloud row gets cleaned up immediately when sync is live; if no handle is
+// mounted (signed out, sync disabled, mid-bootstrap) the sidecar alone
+// preserves the intent for a future resumePendingSyncs pass
+let boardDeletedListener: (() => void) | null = null
 // timestamp of last near-full warning — rate-limits the toast to once per 60s
 let storageWarningLastMs = 0
 const STORAGE_WARNING_COOLDOWN_MS = 60_000
@@ -442,6 +450,17 @@ export const switchBoardSession = async (boardId: BoardId): Promise<void> =>
   await loadBoardIntoSession(boardId)
 }
 
+// register a listener for "board deleted locally". installed by useCloudSync
+// when a board-delete handle mounts; cleared on sign-out so deletes that
+// happen while signed-out fall back to sidecar-only behavior (the next
+// sign-in's resumePendingSyncs will drain them)
+export const setBoardDeletedListener = (
+  listener: (() => void) | null
+): void =>
+{
+  boardDeletedListener = listener
+}
+
 export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
@@ -454,8 +473,23 @@ export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>
     return
   }
 
+  // capture the cloud externalId before removing local storage — once
+  // removeBoardFromStorage runs, the syncState is gone & we can't tell
+  // whether this board ever had a cloud row to delete. read the sync
+  // sidecar directly (not the envelope) so a corrupt envelope still
+  // surfaces the cloud id, & so we don't pay a full board JSON parse
+  // just to read one field on the delete path
+  const cloudBoardExternalId =
+    loadBoardSyncStateOnly(boardId).cloudBoardExternalId
+
   removeBoardFromStorage(boardId)
   const nextBoards = boardStore.boards.filter((board) => board.id !== boardId)
+
+  if (cloudBoardExternalId)
+  {
+    stampPendingBoardDelete(cloudBoardExternalId)
+    boardDeletedListener?.()
+  }
 
   if (boardId === boardStore.activeBoardId)
   {

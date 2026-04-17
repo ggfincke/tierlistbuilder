@@ -1,13 +1,15 @@
 // src/features/platform/sync/pendingSyncRecovery.ts
-// resume sync work for boards, settings, & user-saved presets w/ a
-// pending sidecar marker. called after first-login merge resolves & on
-// offline -> online transitions. for each persistence layer:
-//   - boards:   walks the registry, replays any board w/ a non-null
-//               BoardSyncState.pendingSyncAt
-//   - settings: replays the global settings doc if its sidecar has a
-//               non-null pendingSyncAt
-//   - presets:  walks the per-preset sidecar map, replays each entry's
-//               pendingOp ('upsert' or 'delete')
+// resume sync work for boards (content + delete), settings, & user-saved
+// presets w/ a pending sidecar marker. called after first-login merge
+// resolves & on offline -> online transitions. for each persistence layer:
+//   - boards (content): walks the registry, replays any board w/ a non-null
+//                       BoardSyncState.pendingSyncAt
+//   - boards (delete):  triggers the board-delete drainer so any sidecar
+//                       entries from offline / pre-sign-in deletes flush
+//   - settings:         replays the global settings doc if its sidecar has a
+//                       non-null pendingSyncAt
+//   - presets:          walks the per-preset sidecar map, replays each
+//                       entry's pendingOp ('upsert' or 'delete')
 //
 // safe to call repeatedly: the runner dedupes per key, & each sidecar
 // entry is cleared in the runner's synced branch so a fully-synced
@@ -15,6 +17,7 @@
 
 import type { BoardId, UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import { selectBoardDataFields } from '~/features/workspace/boards/model/boardSnapshot'
+import { loadBoardDeleteSyncMeta } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { extractAppSettings } from '~/features/workspace/settings/model/appSettingsExtraction'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
@@ -39,6 +42,10 @@ interface ResumePendingSyncsOptions
   // the next call will pick it up
   triggerSettings?: () => void
   enqueuePreset?: (work: TierPresetSyncWork) => void
+  // board-delete drain trigger. fire & forget; the drainer reads the
+  // sidecar internally & no-ops when empty, so passing it always (even
+  // when nothing is pending) is cheap
+  triggerBoardDelete?: () => void
   // optional auth/online gate matching the runners' shouldProceed semantics.
   // if it returns false at any boundary, the helper bails before queueing
   shouldProceed?: () => boolean
@@ -47,6 +54,7 @@ interface ResumePendingSyncsOptions
 export interface ResumePendingSyncsResult
 {
   resumedBoardIds: BoardId[]
+  resumedBoardDeleteIds: string[]
   resumedSettings: boolean
   resumedPresetIds: UserPresetId[]
 }
@@ -158,12 +166,31 @@ const resumePresets = (options: ResumePendingSyncsOptions): UserPresetId[] =>
   return resumed
 }
 
+const resumeBoardDeletes = (options: ResumePendingSyncsOptions): string[] =>
+{
+  const canProceed = (): boolean =>
+    options.shouldProceed ? options.shouldProceed() : true
+  if (!canProceed()) return []
+  if (!options.triggerBoardDelete) return []
+
+  // read the sidecar before firing so the return value is symmetric w/ the
+  // board/preset arrays — the caller sees exactly which ids the drainer
+  // was asked to flush. the drainer still does its own sidecar read, so
+  // this is cheap observability (one JSON parse, always small)
+  const meta = loadBoardDeleteSyncMeta()
+  if (meta.pendingExternalIds.length === 0) return []
+
+  options.triggerBoardDelete()
+  return meta.pendingExternalIds
+}
+
 export const resumePendingSyncs = (
   options: ResumePendingSyncsOptions
 ): ResumePendingSyncsResult =>
 {
   return {
     resumedBoardIds: resumeBoards(options),
+    resumedBoardDeleteIds: resumeBoardDeletes(options),
     resumedSettings: resumeSettings(options),
     resumedPresetIds: resumePresets(options),
   }

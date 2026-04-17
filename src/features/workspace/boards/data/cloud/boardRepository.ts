@@ -6,7 +6,10 @@
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import type { BoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardListItem,
+  DeletedBoardListItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type {
   CloudBoardPayload,
   CloudBoardState,
@@ -27,11 +30,33 @@ export const useDeleteBoard = () =>
 export const useUpdateBoardMeta = () =>
   useMutation(api.workspace.boards.mutations.updateBoardMeta)
 
+// list the caller's soft-deleted boards. powers the "Recently deleted"
+// surface; reactive so a successful restore / permanent-delete on another
+// tab refreshes this view automatically
+export const useListMyDeletedBoards = (
+  enabled: boolean
+): DeletedBoardListItem[] | undefined =>
+  useQuery(
+    api.workspace.boards.queries.getMyDeletedBoards,
+    enabled ? {} : 'skip'
+  )
+
 export const createBoardImperative = (args: { title: string }) =>
   convexClient.mutation(api.workspace.boards.mutations.createBoard, args)
 
 export const deleteBoardImperative = (args: { boardExternalId: string }) =>
   convexClient.mutation(api.workspace.boards.mutations.deleteBoard, args)
+
+export const restoreBoardImperative = (args: { boardExternalId: string }) =>
+  convexClient.mutation(api.workspace.boards.mutations.restoreBoard, args)
+
+export const permanentlyDeleteBoardImperative = (args: {
+  boardExternalId: string
+}) =>
+  convexClient.mutation(
+    api.workspace.boards.mutations.permanentlyDeleteBoard,
+    args
+  )
 
 export const updateBoardMetaImperative = (args: {
   boardExternalId: string

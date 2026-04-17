@@ -139,6 +139,12 @@ const readStoredBoardSyncState = (
   }
 }
 
+// read only the sync sidecar, skipping the envelope parse. used by delete
+// flows that need cloudBoardExternalId even when the envelope is corrupt,
+// so a corrupt local board still triggers the cloud-row cleanup
+export const loadBoardSyncStateOnly = (boardId: BoardId): BoardSyncState =>
+  readStoredBoardSyncState(boardId)
+
 const writeBoardEnvelope = (
   boardId: BoardId,
   envelope: StoredBoardEnvelope,

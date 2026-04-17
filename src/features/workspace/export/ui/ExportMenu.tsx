@@ -12,6 +12,7 @@ import {
   FileDown,
   FileUp,
   Layers,
+  Share2,
   SquareArrowUp,
 } from 'lucide-react'
 
@@ -64,6 +65,7 @@ interface ExportMenuProps
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
   onAnnotateExport: () => void
   onPreviewExport: () => void
+  onShare: () => void
 }
 
 export const ExportMenu = ({
@@ -75,6 +77,7 @@ export const ExportMenu = ({
   onExportAll,
   onAnnotateExport,
   onPreviewExport,
+  onShare,
 }: ExportMenuProps) =>
 {
   const boardCount = useWorkspaceBoardRegistryStore(
@@ -321,6 +324,17 @@ export const ExportMenu = ({
               disabled={exportStatus !== null}
             >
               Export PDF
+            </OverlayMenuItem>
+
+            <OverlayMenuItem
+              onClick={() =>
+              {
+                closeAllMenus()
+                onShare()
+              }}
+            >
+              <Share2 className="h-3.5 w-3.5 shrink-0" />
+              Share Link
             </OverlayMenuItem>
 
             <OverlayDivider />

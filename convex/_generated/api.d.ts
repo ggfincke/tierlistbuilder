@@ -17,6 +17,7 @@ import type * as lib_ids from "../lib/ids.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_userUpsert from "../lib/userUpsert.js";
 import type * as lib_validators from "../lib/validators.js";
+import type * as platform_media_internal from "../platform/media/internal.js";
 import type * as platform_media_queries from "../platform/media/queries.js";
 import type * as platform_media_uploads from "../platform/media/uploads.js";
 import type * as platform_shortLinks_mutations from "../platform/shortLinks/mutations.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   "lib/permissions": typeof lib_permissions;
   "lib/userUpsert": typeof lib_userUpsert;
   "lib/validators": typeof lib_validators;
+  "platform/media/internal": typeof platform_media_internal;
   "platform/media/queries": typeof platform_media_queries;
   "platform/media/uploads": typeof platform_media_uploads;
   "platform/shortLinks/mutations": typeof platform_shortLinks_mutations;
