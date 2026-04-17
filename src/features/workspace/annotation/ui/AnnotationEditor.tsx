@@ -6,6 +6,8 @@ import { useId } from 'react'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useAnnotationCanvas } from '~/features/workspace/annotation/model/useAnnotationCanvas'
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { formatError } from '~/shared/lib/errors'
+import { toast } from '~/shared/notifications/useToastStore'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AnnotationCanvas } from './AnnotationCanvas'
 import { AnnotationToolbar } from './AnnotationToolbar'
@@ -17,13 +19,21 @@ interface AnnotationEditorProps
   backgroundImage: string | null
 }
 
-export const AnnotationEditor = ({
+interface AnnotationEditorContentProps
+{
+  open: boolean
+  onClose: () => void
+  backgroundImage: string
+  titleId: string
+}
+
+const AnnotationEditorContent = ({
   open,
   onClose,
   backgroundImage,
-}: AnnotationEditorProps) =>
+  titleId,
+}: AnnotationEditorContentProps) =>
 {
-  const titleId = useId()
   const title = useActiveBoardStore((s) => s.title)
   const {
     canvasRef,
@@ -50,8 +60,6 @@ export const AnnotationEditor = ({
     compositeAndDownload,
   } = useAnnotationCanvas(backgroundImage, title)
 
-  if (!backgroundImage) return null
-
   const cursor = activeTool === 'pen' ? 'crosshair' : 'text'
 
   return (
@@ -75,7 +83,12 @@ export const AnnotationEditor = ({
             className="font-medium"
             onClick={() =>
             {
-              void compositeAndDownload()
+              void compositeAndDownload().catch((err) =>
+                toast(
+                  `Annotation download failed: ${formatError(err)}`,
+                  'error'
+                )
+              )
               onClose()
             }}
           >
@@ -118,5 +131,28 @@ export const AnnotationEditor = ({
         />
       </div>
     </BaseModal>
+  )
+}
+
+export const AnnotationEditor = ({
+  open,
+  onClose,
+  backgroundImage,
+}: AnnotationEditorProps) =>
+{
+  const titleId = useId()
+
+  if (!backgroundImage) return null
+
+  // remount the annotation session when the source export image changes so
+  // in-memory strokes, pending text, & undo history never bleed across images
+  return (
+    <AnnotationEditorContent
+      key={backgroundImage}
+      open={open}
+      onClose={onClose}
+      backgroundImage={backgroundImage}
+      titleId={titleId}
+    />
   )
 }

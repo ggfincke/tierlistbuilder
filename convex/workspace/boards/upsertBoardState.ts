@@ -318,6 +318,23 @@ export const upsertBoardState = mutation({
       })
     }
 
+    // skip the revision bump when nothing actually changed — other devices
+    // otherwise see a stale-looking "updated" ping & re-download for no edits
+    const tiersChanged =
+      tierDiff.remove.size > 0 ||
+      tierDiff.patch.length > 0 ||
+      tierDiff.insert.length > 0
+    const itemsChanged =
+      itemDiff.softDelete.length > 0 ||
+      itemDiff.patch.length > 0 ||
+      itemDiff.insert.length > 0
+    const titleChanged = normalizedTitle !== board.title
+
+    if (!tiersChanged && !itemsChanged && !titleChanged)
+    {
+      return { conflict: null, newRevision: currentRevision }
+    }
+
     const newRevision = currentRevision + 1
     await ctx.db.patch(board._id, {
       title: normalizedTitle,

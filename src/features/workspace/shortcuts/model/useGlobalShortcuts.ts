@@ -40,13 +40,16 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (hasActiveModalLayer()) return
 
       const mod = e.ctrlKey || e.metaKey
+      // normalize once — Shift flips printable keys to uppercase, which broke
+      // Ctrl/Cmd+Shift+Z since we compared against lowercase 'z'
+      const key = e.key.toLowerCase()
 
       // drop Ctrl/Cmd+Z/Y mid-drag — dnd-kit still holds its own active state,
       // & undoing out from under it leaves the overlay & refs stranded
       const dragActive = useActiveBoardStore.getState().dragPreview !== null
 
       // undo — Ctrl/Cmd+Z
-      if (mod && e.key === 'z' && !e.shiftKey)
+      if (mod && key === 'z' && !e.shiftKey)
       {
         e.preventDefault()
         const locked = useSettingsStore.getState().boardLocked
@@ -57,7 +60,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // redo — Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
-      if (mod && ((e.key === 'z' && e.shiftKey) || e.key === 'y'))
+      if (mod && ((key === 'z' && e.shiftKey) || key === 'y'))
       {
         e.preventDefault()
         const locked = useSettingsStore.getState().boardLocked
@@ -68,7 +71,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // export — Ctrl/Cmd+S
-      if (mod && e.key === 's')
+      if (mod && key === 's')
       {
         e.preventDefault()
         const locked = useSettingsStore.getState().boardLocked
@@ -77,7 +80,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // cycle toolbar position — Ctrl/Cmd+Shift+T
-      if (mod && e.shiftKey && e.key === 'T')
+      if (mod && e.shiftKey && key === 't')
       {
         e.preventDefault()
         const { toolbarPosition, setToolbarPosition } =
@@ -89,7 +92,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // select all items — Ctrl/Cmd+A
-      if (mod && e.key === 'a')
+      if (mod && key === 'a')
       {
         e.preventDefault()
         const locked = useSettingsStore.getState().boardLocked
@@ -101,7 +104,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (mod || e.altKey) return
 
       // jump back to the board from non-editable UI
-      if (!e.shiftKey && e.key.toLowerCase() === 'b')
+      if (!e.shiftKey && key === 'b')
       {
         e.preventDefault()
         handleKeyboardBoardJumpKey()
@@ -111,7 +114,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       // clear bulk selection — Escape
       // skip if already handled by a focused item's keyboard controller or
       // if a pointer drag is active (dnd-kit handles its own Escape)
-      if (e.key === 'Escape')
+      if (key === 'escape')
       {
         if (e.defaultPrevented) return
         const state = useActiveBoardStore.getState()
@@ -124,7 +127,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // delete focused item or selected items — Delete or Backspace
-      if (e.key === 'Delete' || e.key === 'Backspace')
+      if (key === 'delete' || key === 'backspace')
       {
         const state = useActiveBoardStore.getState()
         const locked = useSettingsStore.getState().boardLocked
@@ -147,7 +150,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       }
 
       // shortcuts panel — ? key
-      if (e.key === '?')
+      if (key === '?')
       {
         setShowShortcutsPanel((prev) => !prev)
         return

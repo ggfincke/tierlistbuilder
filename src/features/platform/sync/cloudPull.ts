@@ -188,6 +188,7 @@ const mergeIntoLocalRegistry = async (
   }
 
   const registryStore = useWorkspaceBoardRegistryStore.getState()
+  const hadActiveBoard = Boolean(registryStore.activeBoardId)
   const existingBoards = [...registryStore.boards]
   const existingIds = new Set(existingBoards.map((board) => board.id))
   const mergedBoards = [...existingBoards]
@@ -207,18 +208,23 @@ const mergeIntoLocalRegistry = async (
     return null
   }
 
-  if (!registryStore.activeBoardId)
+  // only load a board into session when we didn't already have an active one;
+  // otherwise the caller stays on the current board & we just extend the
+  // registry w/ newly-merged cloud metas
+  let loadedBoardId: BoardId | null = null
+  if (!hadActiveBoard)
   {
     await loadBoardIntoSession(nextActiveId, shouldProceed)
     if (!shouldContinue(shouldProceed))
     {
       return null
     }
+    loadedBoardId = nextActiveId
   }
 
   registryStore.replaceRegistry(mergedBoards, nextActiveId)
 
-  return registryStore.activeBoardId ? null : nextActiveId
+  return loadedBoardId
 }
 
 export const pullAllCloudBoards = async ({

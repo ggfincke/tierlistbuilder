@@ -74,27 +74,29 @@ export const MoreTab = ({
     <>
       <SettingsSection title="Export">
         <SettingRow label="Background Color">
-          <div className="flex items-center gap-2">
-            {exportBackgroundOverride !== null && (
-              <button
-                type="button"
-                onClick={() => setExportBackgroundOverride(null)}
-                aria-label="Reset export background color to the theme default"
-                className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
-                title="Reset to theme default"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <ColorInput
-              id={exportBackgroundInputId}
-              value={effectiveExportBg}
-              onChange={(event) =>
-                setExportBackgroundOverride(event.target.value)
-              }
-              aria-label="Export background color"
-            />
-          </div>
+          {(labelId) => (
+            <div className="flex items-center gap-2">
+              {exportBackgroundOverride !== null && (
+                <button
+                  type="button"
+                  onClick={() => setExportBackgroundOverride(null)}
+                  aria-label="Reset export background color to the theme default"
+                  className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
+                  title="Reset to theme default"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <ColorInput
+                id={exportBackgroundInputId}
+                value={effectiveExportBg}
+                onChange={(event) =>
+                  setExportBackgroundOverride(event.target.value)
+                }
+                aria-labelledby={labelId}
+              />
+            </div>
+          )}
         </SettingRow>
       </SettingsSection>
 
