@@ -1,14 +1,9 @@
 // src/features/workspace/sharing/lib/shortLinkShare.ts
-// snapshot-share short link helpers — the encoder side uploads compressed
-// snapshot bytes to convex storage & mints a short slug; the decoder side
-// resolves the slug, fetches the blob, & runs it through the same inflate
-// + parse pipeline as the legacy #share=... fragment decoder (via the
-// compressSnapshotBytes / inflateSnapshotBytes helpers in hashShare).
-//
-// separate file rather than extending hashShare so existing #share= URLs in
-// the wild keep decoding through the original helpers w/o ever touching Convex
+// snapshot-share short link helpers. encoder uploads to Convex & mints a slug;
+// decoder resolves & inflates via hashShare pipeline. separate so #share= URLs never touch Convex
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
 import type { Id } from '@convex/_generated/dataModel'
 import { EMBED_ROUTE_PATH } from '~/app/routes/pathname'
 import {
@@ -84,11 +79,9 @@ export const createBoardShortLink = async (
   const uploadUrl = await generateSnapshotUploadUrlImperative()
   if (signal?.aborted) throw signal.reason ?? new Error('aborted')
 
-  // wrap in a Blob so the fetch body satisfies TS's BodyInit (Uint8Array
-  // is accepted at runtime by every modern engine, but the lib.dom typing
-  // narrows BlobPart to Uint8Array<ArrayBuffer> & pako returns the broader
-  // Uint8Array<ArrayBufferLike>). cast at the boundary keeps the runtime
-  // path zero-copy & matches the pattern used by other binary-fetch sites
+  // wrap in Blob so the fetch body satisfies TS's BodyInit — lib.dom narrows BlobPart
+  // to Uint8Array<ArrayBuffer> but pako returns Uint8Array<ArrayBufferLike>.
+  // cast at the boundary is zero-copy at runtime
   const uploadResponse = await fetch(uploadUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/octet-stream' },
@@ -152,6 +145,32 @@ export const decodeBoardFromShortLink = async (
     )
   }
 
+  // defense-in-depth: server caps legit shares to 256KB, but a misconfigured CDN
+  // or forged URL could serve a larger blob — reject before arrayBuffer() allocates
+  const contentLengthHeader = blobResponse.headers.get('Content-Length')
+  if (contentLengthHeader !== null)
+  {
+    const contentLength = Number(contentLengthHeader)
+    if (
+      Number.isFinite(contentLength) &&
+      contentLength > MAX_SNAPSHOT_COMPRESSED_BYTES
+    )
+    {
+      throw new Error(
+        `short link blob too large: ${contentLength} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`
+      )
+    }
+  }
+
   const buffer = await blobResponse.arrayBuffer()
+  // second guard for servers that omit Content-Length (chunked transfer,
+  // misconfigured CDN). the Content-Length check above short-circuits
+  // when the header is present; this catches the header-less case
+  if (buffer.byteLength > MAX_SNAPSHOT_COMPRESSED_BYTES)
+  {
+    throw new Error(
+      `short link blob too large: ${buffer.byteLength} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`
+    )
+  }
   return inflateSnapshotBytes(new Uint8Array(buffer))
 }

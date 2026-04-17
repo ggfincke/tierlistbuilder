@@ -40,6 +40,10 @@ export default defineSchema({
     // subscription tier — reserved for future premium plan; defaults to "free"
     // optional so auth library can create users rows w/o knowing about tier
     tier: v.optional(v.union(v.literal('free'), v.literal('premium'))),
+    // diagnostic stamped when retryUpsertAppUserFields exhausts retries.
+    // present => upsert failed & needs intervention; absent => healthy.
+    // do not gate auth on this field — operator visibility only
+    lastUpsertError: v.optional(v.string()),
   })
     // indexes required by @convex-dev/auth — must match authTables.users
     .index('email', ['email'])
@@ -150,11 +154,9 @@ export default defineSchema({
     // ownership check after the row lookup
     .index('byOwnerAndExternalId', ['ownerId', 'externalId']),
 
-  // short URL indirection for shareable snapshot blobs. snapshot-only end
-  // state: a slug points at compressed BoardSnapshot bytes in _storage. live
-  // "follow my board" links (kind: 'board') were considered but deferred —
-  // adding them later would warrant its own design pass (permission model,
-  // recipient invalidation, etc.) so we don't pre-shape the schema for it
+  // short URL indirection for shareable snapshot blobs. slug -> compressed BoardSnapshot
+  // bytes in _storage. live "follow my board" links were deferred — adding them later
+  // warrants a separate design pass, so the schema is not pre-shaped for it
   shortLinks: defineTable({
     // short base62 slug exposed in the URL
     slug: v.string(),
@@ -163,15 +165,11 @@ export default defineSchema({
     // _storage handle for the compressed snapshot bytes
     snapshotStorageId: v.id('_storage'),
     createdAt: v.number(),
-    // epoch millis for the daily gcExpiredShortLinks cron. createSnapshotShortLink
-    // defaults to createdAt + DEFAULT_SHARE_LINK_TTL_MS; PR 7-era rows w/ a
-    // null value are persistent by their original contract & the cron's
-    // byExpiresAt query naturally skips them
+    // epoch millis for gcExpiredShortLinks. defaults to createdAt + DEFAULT_SHARE_LINK_TTL_MS;
+    // null rows are persistent by original contract & the byExpiresAt index skips them
     expiresAt: v.union(v.number(), v.null()),
-    // denormalized snapshot of the source board's title at create time so the
-    // signed-in "Recent shares" listing can label rows w/o fetching+inflating
-    // each blob. optional because PR 7-era rows predate the field; the UI
-    // shows "Untitled" when missing
+    // denormalized board title at share time so the "Recent shares" listing labels rows
+    // w/o fetching blobs. optional — older rows predate the field; UI shows "Untitled"
     boardTitle: v.optional(v.string()),
   })
     .index('bySlug', ['slug'])

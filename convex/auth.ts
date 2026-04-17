@@ -1,21 +1,32 @@
 // convex/auth.ts
 // * convex auth entry — exports signIn, signOut, auth, & store helpers
-// password provider is the only auth method today; google & apple OAuth
-// providers land in a follow-up PR. the afterUserCreatedOrUpdated callback
-// fires on createAccount (Password 'signUp' flow) & populates app-owned
-// fields (externalId, displayName, tier) once per user
+// afterUserCreatedOrUpdated populates app-owned fields; sync failure schedules a bounded retry
 
 import { Password } from '@convex-dev/auth/providers/Password'
 import { convexAuth } from '@convex-dev/auth/server'
 
-import { upsertAppUserFields } from './lib/userUpsert'
+import { scheduleUpsertRetry, upsertAppUserFields } from './lib/userUpsert'
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [Password()],
   callbacks: {
     afterUserCreatedOrUpdated: async (ctx, { userId }) =>
     {
-      await upsertAppUserFields(ctx, userId)
+      try
+      {
+        await upsertAppUserFields(ctx, userId)
+      }
+      catch (error)
+      {
+        // don't rethrow — auth lib would roll back the transaction & block sign-in.
+        // schedule a retry w/ exponential-ish backoff; user can use the app
+        // immediately while queries that need externalId return undefined until retry lands
+        console.warn(
+          `upsertAppUserFields failed for ${userId}; scheduling retry:`,
+          error
+        )
+        await scheduleUpsertRetry(ctx, userId)
+      }
     },
   },
 })

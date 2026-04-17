@@ -1,14 +1,6 @@
 // src/features/workspace/boards/data/local/boardDeleteSyncMeta.ts
-// localStorage sidecar for board deletes that haven't yet propagated to the
-// cloud. deleteBoardSession runs imperatively (not through the autosave
-// subscriber), so w/o a sidecar an offline or pre-sign-in delete would leave
-// the cloud row alive forever. on next sign-in to a fresh device the
-// soft-deleted-on-this-device board would reappear as active.
-//
-// no per-user gate at stamp time (deleteBoardSession has no user context).
-// the drainer captures userId at install time & fires only when signed in,
-// & permanent-failure codes (forbidden / not_found) drop stale entries so
-// cross-user leakage is self-healing
+// localStorage sidecar for board deletes not yet propagated to the cloud.
+// permanent-failure codes drop stale entries; w/o this sidecar offline deletes leave cloud rows alive
 
 import {
   deleteBrowserStorageItem,
@@ -19,10 +11,8 @@ import {
 export const BOARD_DELETE_SYNC_META_STORAGE_KEY =
   'tier-list-builder-board-delete-sync-meta-v1'
 
-// cap the sidecar size so a pathological offline-w/-errors session can't
-// grow unboundedly. oldest entries are dropped on overflow. 500 covers
-// real-world delete bursts w/ headroom; each entry is ~40 bytes so the
-// whole sidecar stays well under 25KB at the cap
+// cap sidecar size; oldest entries dropped on overflow. 500 entries covers real-world
+// delete bursts w/ headroom (~25KB total at ~40 bytes/entry)
 const MAX_PENDING_BOARD_DELETES = 500
 
 export interface BoardDeleteSyncMeta

@@ -83,10 +83,9 @@ const createSettingSetter = <K extends keyof AppSettings>(
     set({ [key]: value } as Pick<AppSettings, K>)
 }
 
-// subscribeWithSelector wraps persist so the cloud-sync layer can subscribe
-// to AppSettings field changes w/ a custom equalityFn (the field projection
-// returns a fresh object each tick & default referential equality would
-// fire on every store action otherwise)
+// subscribeWithSelector wraps persist so the cloud-sync layer can subscribe to AppSettings
+// changes w/ a custom equalityFn — the projection returns a fresh object each tick, so
+// default referential equality would fire on every store action otherwise
 export const useSettingsStore = create<SettingsStore>()(
   subscribeWithSelector(
     persist(

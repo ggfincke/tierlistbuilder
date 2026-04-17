@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveBoardSyncStatus } from '~/features/platform/sync/boardSyncStatus'
+import { resolveBoardSyncStatus } from '~/features/platform/sync/status/syncStatusStore'
 
 describe('board sync status', () =>
 {

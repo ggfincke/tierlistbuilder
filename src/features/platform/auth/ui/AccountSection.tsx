@@ -1,8 +1,6 @@
 // src/features/platform/auth/ui/AccountSection.tsx
-// settings tab block — shows sign-in trigger when signed out, profile card
-// + sign-out when signed in. lives inside MoreTab; lifted into its own
-// slice so future template gallery & community views can render the same
-// account surface w/o reaching into settings code
+// settings tab block — sign-in trigger when signed out, profile card + sign-out
+// when signed in. lifted into its own slice so community views can reuse it
 
 import { useEffect, useRef, useState } from 'react'
 import { LogIn, LogOut } from 'lucide-react'

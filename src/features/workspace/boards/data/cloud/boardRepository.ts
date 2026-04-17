@@ -1,7 +1,6 @@
 // src/features/workspace/boards/data/cloud/boardRepository.ts
 // Convex query/mutation adapters for cloud board sync.
-// hook-based wrappers are for React components; *Imperative variants are
-// for non-React sync logic (useCloudSync, first-login merge)
+// hook-based wrappers for React components; *Imperative variants for non-React sync logic
 
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'

@@ -23,10 +23,9 @@ export interface CloudBoardItemWire
   // string -> set media, null -> clear media, undefined -> preserve existing media
   mediaExternalId?: string | null
   order: number
-  // client-side wall-clock stamp when the item was last edited. plumbed
-  // through for a future last-writer-wins conflict resolver — the server
-  // currently stores it but does not enforce ordering. omit on boards that
-  // predate this field; reconciler treats missing as "infinitely old"
+  // client-side wall-clock stamp for last edit — plumbed for a future LWW
+  // conflict resolver. server stores it but doesn't enforce ordering; omit on
+  // boards predating this field; reconciler treats missing as "infinitely old"
   clientUpdatedAt?: number
 }
 
@@ -46,10 +45,9 @@ export interface CloudBoardStateTier extends CloudBoardTierWire
 export interface CloudBoardStateItem extends CloudBoardItemWire
 {
   deletedAt: number | null
-  // sha256 of the underlying asset bytes — surfaced so the client can wire
-  // image refs straight into IDB on a cloud-pull / keep-cloud resolution
-  // for items whose blobs were uploaded on another device. undefined when
-  // the item has no image
+  // sha256 of the asset bytes — lets the client wire image refs into IDB on
+  // cloud-pull or keep-cloud resolution for items uploaded on another device.
+  // undefined when the item has no image
   mediaContentHash?: string
 }
 

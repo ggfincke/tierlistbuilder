@@ -1,10 +1,6 @@
 // convex/platform/shortLinks/internal.ts
-// internal short-link maintenance jobs:
-//   - gcExpiredShortLinks: paginated reap of shortLinks rows whose expiresAt
-//     has passed. matches the shape of scheduleHardDeletes (cursor-driven
-//     self-rescheduling) & gcOrphanedMediaAssets (per-row blob delete after
-//     row delete). PR 7-era rows w/ expiresAt === null are persistent by
-//     their original contract & the byExpiresAt index naturally skips them
+// internal short-link maintenance — gcExpiredShortLinks: paginated reap of rows past
+// expiresAt. cursor-driven self-rescheduling; row deleted before blob; null rows skipped
 
 import { v } from 'convex/values'
 import { internalMutation } from '../../_generated/server'
@@ -12,21 +8,15 @@ import { internal } from '../../_generated/api'
 
 const EXPIRED_LINK_BATCH_SIZE = 64
 
-// reap shortLinks rows past their expiresAt + the matching _storage blob.
-// row delete commits first, then storage delete is best-effort. a crash
-// between the two leaves an orphaned blob — caught by the daily
-// gcOrphanedStorage pass which already walks shortLinks for its reachability
-// set, so the orphan is detected on its first run after the crash. the
-// inverse order (blob first, row second) would leave a row pointing at a
-// missing blob w/ no automatic recovery
+// reap shortLinks rows past expiresAt + matching _storage blob. row deleted first
+// so a crash leaves only an orphaned blob — caught by the daily gcOrphanedStorage pass.
+// inverse order (blob first) would leave a row pointing at a missing blob
 export const gcExpiredShortLinks = internalMutation({
   args: { cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, args): Promise<{ deleted: number }> =>
   {
-    // gt(0) is a half-open range that excludes both expiresAt === null (the
-    // index skips nulls) & expiresAt === 0. createSnapshotShortLink always
-    // sets expiresAt to now + DEFAULT_SHARE_LINK_TTL_MS (>>> 0), so this
-    // never excludes a real share. lt(now) bounds the range to expired rows
+    // gt(0) excludes expiresAt === null (index skips nulls) & === 0 (never set in practice).
+    // lt(now) bounds the range to expired rows
     const now = Date.now()
     const page = await ctx.db
       .query('shortLinks')

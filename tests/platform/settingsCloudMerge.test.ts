@@ -12,7 +12,7 @@ vi.mock('~/features/workspace/settings/data/cloud/settingsRepository', () => ({
   upsertMySettingsImperative: upsertMySettingsImperativeMock,
 }))
 
-import { mergeSettingsOnFirstLogin } from '~/features/platform/sync/settingsCloudMerge'
+import { mergeSettingsOnFirstLogin } from '~/features/platform/sync/settings/cloudMerge'
 import {
   loadSettingsSyncMeta,
   saveSettingsSyncMeta,

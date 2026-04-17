@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { runFirstLoginSyncLifecycle } from '~/features/platform/sync/firstLoginSyncLifecycle'
+import { runFirstLoginSyncLifecycle } from '~/features/platform/sync/lifecycle/firstLoginSyncLifecycle'
 
 interface DeferredPromise<T>
 {

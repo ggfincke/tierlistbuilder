@@ -1,7 +1,6 @@
 // src/features/workspace/settings/ui/SettingRow.tsx
-// reusable setting row w/ label on left, control on right. accepts a
-// render-prop child so composite controls can route labelId past a wrapper
-// element to the actual labelled control
+// reusable setting row w/ label left, control right. accepts a render-prop child
+// so composite controls can route labelId to the actual labelled element
 
 import {
   cloneElement,

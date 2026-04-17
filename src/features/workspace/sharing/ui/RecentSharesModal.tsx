@@ -1,9 +1,6 @@
 // src/features/workspace/sharing/ui/RecentSharesModal.tsx
-// modal listing the caller's live snapshot share links w/ copy & revoke
-// actions. driven by the reactive useListMyShortLinks query so other tabs
-// reflect new shares & revokes automatically. signed-in callers only —
-// the parent gates rendering by passing `enabled` & only mounting when
-// cloud sync is active
+// modal listing live snapshot share links w/ copy & revoke actions.
+// driven by useListMyShortLinks so other tabs reflect changes automatically. signed-in only
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, RefreshCw, Trash2 } from 'lucide-react'

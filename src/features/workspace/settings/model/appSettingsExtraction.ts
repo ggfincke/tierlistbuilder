@@ -1,8 +1,6 @@
 // src/features/workspace/settings/model/appSettingsExtraction.ts
-// helpers to project the AppSettings fields out of useSettingsStore (which
-// also carries setter functions) & to compare two AppSettings instances by
-// value. used by the cloud-sync subscriber & the first-login merge so they
-// stay aligned w/ a single source of truth for "what counts as a change"
+// project AppSettings fields out of useSettingsStore & compare two instances by value.
+// used by the cloud-sync subscriber & first-login merge as a single source of truth for change detection
 
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 
@@ -33,10 +31,8 @@ const APP_SETTINGS_KEYS: readonly (keyof AppSettings)[] = [
   'showAltTextButton',
 ] as const
 
-// compile-time exhaustiveness check — if AppSettings gains a key & it's
-// not added to APP_SETTINGS_KEYS, this conditional resolves to false &
-// the assertion below fails. typecheck error tells the future maintainer
-// what's missing
+// compile-time exhaustiveness guard — if AppSettings gains a key not in APP_SETTINGS_KEYS,
+// this resolves to false & tsc surfaces the gap
 type _Assert<T extends true> = T
 type _AppSettingsKeysExhaustive = _Assert<
   (typeof APP_SETTINGS_KEYS)[number] extends keyof AppSettings

@@ -1,6 +1,8 @@
 // convex/lib/auth.ts
 // helpers for resolving the authenticated caller in queries & mutations
 
+import { ConvexError } from 'convex/values'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
 import { getAuthUserId } from '@convex-dev/auth/server'
@@ -37,7 +39,10 @@ export const requireCurrentUserId = async (
   const userId = await getCurrentUserId(ctx)
   if (!userId)
   {
-    throw new Error('not authenticated')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.unauthenticated,
+      message: 'not authenticated',
+    })
   }
   return userId
 }
@@ -50,7 +55,10 @@ export const requireCurrentUser = async (
   const user = await getCurrentUser(ctx)
   if (!user)
   {
-    throw new Error('not authenticated')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.unauthenticated,
+      message: 'not authenticated',
+    })
   }
   return user
 }

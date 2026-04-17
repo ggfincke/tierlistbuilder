@@ -43,10 +43,8 @@ const toDeletedBoardListItem = (board: Doc<'boards'>): DeletedBoardListItem =>
   }
 }
 
-// list the authenticated caller's non-deleted boards, newest updated first.
-// the byOwnerDeletedUpdatedAt index has updatedAt as the trailing field so
-// order('desc') returns rows in the order we want & avoids a full-table
-// read + in-memory sort that would grow w/ the user's board count
+// list non-deleted boards, newest updated first. byOwnerDeletedUpdatedAt has
+// updatedAt trailing so order('desc') avoids a full-table scan + in-memory sort
 export const getMyBoards = query({
   args: {},
   handler: async (ctx): Promise<BoardListItem[]> =>
@@ -94,10 +92,8 @@ export const getBoardByExternalId = query({
   },
 })
 
-// fetch the full server-side state for an owned board — used by the
-// cloud-pull path on first sign-in & by conflict resolution to materialize
-// the cloud copy locally. returns the same shape upsertBoardState's
-// conflict response uses
+// fetch the full server-side state for an owned board — used by the cloud-pull path
+// on first sign-in & conflict resolution. returns the same shape as upsertBoardState's conflict response
 export const getBoardStateByExternalId = query({
   args: { boardExternalId: v.string() },
   handler: async (ctx, args): Promise<CloudBoardState | null> =>
@@ -127,10 +123,8 @@ export const getBoardStateByExternalId = query({
   },
 })
 
-// list the authenticated caller's soft-deleted boards, newest deletion first.
-// powers the "Recently deleted" surface; rows past BOARD_TOMBSTONE_RETENTION_MS
-// will have been hard-deleted by the daily cron, so this list naturally
-// shrinks over time w/o the query needing to filter on retention itself
+// list soft-deleted boards, newest deletion first. rows past BOARD_TOMBSTONE_RETENTION_MS
+// are hard-deleted by the daily cron, so this list shrinks naturally over time
 export const getMyDeletedBoards = query({
   args: {},
   handler: async (ctx): Promise<DeletedBoardListItem[]> =>
@@ -141,10 +135,8 @@ export const getMyDeletedBoards = query({
       return []
     }
 
-    // gt(0) excludes both the index's null gap & deletedAt === 0 (which
-    // never occurs in practice — deleteBoard always stamps Date.now()).
-    // order('desc') walks the index in reverse, putting most-recently-
-    // deleted rows first
+    // gt(0) excludes the index's null gap & deletedAt === 0 (never set in practice).
+    // order('desc') puts most-recently-deleted rows first
     const rows = await ctx.db
       .query('boards')
       .withIndex('byOwnerAndDeleted', (q) =>

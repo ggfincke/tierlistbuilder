@@ -1,17 +1,6 @@
 // src/features/workspace/settings/data/local/settingsSyncMeta.ts
-// localStorage sidecar tracking cloud sync state for the global settings doc.
-// kept separate from the persisted settings blob so a write to one doesn't
-// rewrite the other (matches how boards split data + sync metadata).
-//
-// shape semantics:
-//   pendingSyncAt — wall-clock millis stamped when local edits await a flush;
-//                   cleared on a successful upsert. survives tab close so the
-//                   next session can resume the flush
-//   lastSyncedAt — wall-clock millis returned by the last successful upsert;
-//                  used by the merge flow to compare against the cloud row's
-//                  updatedAt when deciding direction
-//   ownerUserId — stable user id for the session that stamped this sidecar;
-//                 null on legacy entries written before user scoping landed
+// localStorage sidecar for cloud sync state of the global settings doc; separate from the settings blob.
+// fields: pendingSyncAt, lastSyncedAt, ownerUserId (null on legacy entries before user scoping)
 
 import {
   deleteBrowserStorageItem,
