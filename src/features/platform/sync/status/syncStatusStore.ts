@@ -69,7 +69,8 @@ export interface SyncStatusState
 export const useSyncStatusStore = create<SyncStatusState>((set) => ({
   online: true,
   statusByBoard: {},
-  setOnline: (online) => set({ online }),
+  setOnline: (online) =>
+    set((state) => (state.online === online ? state : { online })),
   setBoardStatus: (boardId, status) =>
     set((state) =>
     {

@@ -5,6 +5,7 @@ import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { Search, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useImageImport } from '~/features/workspace/settings/model/useImageImport'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
@@ -19,16 +20,26 @@ import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export const UnrankedPool = () =>
 {
-  const compactMode = useSettingsStore((state) => state.compactMode)
-  const boardLocked = useSettingsStore((state) => state.boardLocked)
-  const confirmBeforeDelete = useSettingsStore(
-    (state) => state.confirmBeforeDelete
+  const { compactMode, boardLocked, confirmBeforeDelete } = useSettingsStore(
+    useShallow((state) => ({
+      compactMode: state.compactMode,
+      boardLocked: state.boardLocked,
+      confirmBeforeDelete: state.confirmBeforeDelete,
+    }))
   )
-  const storedUnrankedItemIds = useActiveBoardStore(
-    (state) => state.unrankedItemIds
+  const {
+    unrankedItemIds: storedUnrankedItemIds,
+    dragPreview,
+    items,
+    removeItem,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      unrankedItemIds: state.unrankedItemIds,
+      dragPreview: state.dragPreview,
+      items: state.items,
+      removeItem: state.removeItem,
+    }))
   )
-  const dragPreview = useActiveBoardStore((state) => state.dragPreview)
-  const items = useActiveBoardStore((state) => state.items)
   const unrankedItemIds = useMemo(
     () =>
       dragPreview
@@ -36,10 +47,7 @@ export const UnrankedPool = () =>
         : storedUnrankedItemIds,
     [dragPreview, storedUnrankedItemIds]
   )
-  const itemCount = useActiveBoardStore(
-    (state) => Object.keys(state.items).length
-  )
-  const removeItem = useActiveBoardStore((state) => state.removeItem)
+  const itemCount = Object.keys(items).length
 
   const {
     inputRef: fileInputRef,

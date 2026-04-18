@@ -34,8 +34,9 @@ import {
 } from '~/features/workspace/tier-presets/model/tierPresets'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
-  boardDataFieldsChanged,
+  boardDataFieldsEqual,
   extractBoardData,
+  selectBoardDataFields,
 } from '~/features/workspace/boards/model/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
@@ -89,13 +90,26 @@ interface LoadedBoardState
 const getActiveBoardSyncState = (): BoardSyncState =>
   extractBoardSyncState(useActiveBoardStore.getState())
 
+// zustand dispatches subscribers synchronously inside set(), so the autosave
+// listener (if any) observes the flag before control returns. clearing the
+// flag after the call keeps its lifetime bounded to this single dispatch &
+// avoids leaking into later state changes when the selector-based subscriber
+// doesn't fire (e.g. non-material loads, or bootstrap before the subscriber
+// is registered)
 const loadBoardState = (
   snapshot: BoardSnapshot,
   syncState: BoardSyncState = EMPTY_BOARD_SYNC_STATE
 ): void =>
 {
   suppressNextAutosave = true
-  useActiveBoardStore.getState().loadBoard(snapshot, syncState)
+  try
+  {
+    useActiveBoardStore.getState().loadBoard(snapshot, syncState)
+  }
+  finally
+  {
+    suppressNextAutosave = false
+  }
 }
 
 const deduplicateTitle = (title: string, boards: BoardMeta[]): string =>
@@ -378,27 +392,26 @@ export const registerBoardAutosave = (): (() => void) =>
     return autosaveUnsubscribe
   }
 
-  const unsubscribe = useActiveBoardStore.subscribe((state, prevState) =>
-  {
-    if (suppressNextAutosave)
+  const unsubscribe = useActiveBoardStore.subscribe(
+    selectBoardDataFields,
+    () =>
     {
-      suppressNextAutosave = false
-      return
-    }
+      if (suppressNextAutosave)
+      {
+        suppressNextAutosave = false
+        return
+      }
 
-    if (!boardDataFieldsChanged(state, prevState))
-    {
-      return
-    }
+      clearPendingAutosave()
 
-    clearPendingAutosave()
-
-    saveTimeout = setTimeout(() =>
-    {
-      saveTimeout = null
-      saveActiveBoardSnapshot()
-    }, 300)
-  })
+      saveTimeout = setTimeout(() =>
+      {
+        saveTimeout = null
+        saveActiveBoardSnapshot()
+      }, 300)
+    },
+    { equalityFn: boardDataFieldsEqual }
+  )
 
   autosaveUnsubscribe = () =>
   {

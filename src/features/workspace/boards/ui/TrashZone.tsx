@@ -3,6 +3,7 @@
 
 import { useDroppable } from '@dnd-kit/core'
 import { Trash2 } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -11,8 +12,12 @@ import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 export const TrashZone = () =>
 {
   const boardLocked = useSettingsStore((state) => state.boardLocked)
-  const activeItemId = useActiveBoardStore((state) => state.activeItemId)
-  const keyboardMode = useActiveBoardStore((state) => state.keyboardMode)
+  const { activeItemId, keyboardMode } = useActiveBoardStore(
+    useShallow((state) => ({
+      activeItemId: state.activeItemId,
+      keyboardMode: state.keyboardMode,
+    }))
+  )
   const isDragActive =
     !boardLocked && activeItemId !== null && keyboardMode !== 'dragging'
 

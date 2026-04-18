@@ -24,7 +24,11 @@ import { extractBoardData } from '~/features/workspace/boards/model/boardSnapsho
 import { toast } from '~/shared/notifications/useToastStore'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
-import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import {
+  selectCanRedo,
+  selectCanUndo,
+  useActiveBoardStore,
+} from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   useNestedMenus,
   type NestedMenuDefinition,
@@ -95,9 +99,9 @@ export const BoardActionBar = ({
       setBoardLocked: state.setBoardLocked,
     }))
   )
-  const pastLength = useActiveBoardStore((state) => state.past.length)
-  const futureLength = useActiveBoardStore((state) => state.future.length)
   const {
+    canUndo,
+    canRedo,
     undo,
     redo,
     itemsManuallyMoved,
@@ -106,6 +110,8 @@ export const BoardActionBar = ({
     boardTitle,
   } = useActiveBoardStore(
     useShallow((state) => ({
+      canUndo: selectCanUndo(state),
+      canRedo: selectCanRedo(state),
       undo: state.undo,
       redo: state.redo,
       itemsManuallyMoved: state.itemsManuallyMoved,
@@ -194,7 +200,7 @@ export const BoardActionBar = ({
               const result = undo()
               if (result) toast(`Undid ${result.label.toLowerCase()}`)
             }}
-            disabled={boardLocked || pastLength === 0}
+            disabled={boardLocked || !canUndo}
           >
             <Undo2 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
@@ -207,7 +213,7 @@ export const BoardActionBar = ({
               const result = redo()
               if (result) toast(`Redid ${result.label.toLowerCase()}`)
             }}
-            disabled={boardLocked || futureLength === 0}
+            disabled={boardLocked || !canRedo}
           >
             <Redo2 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>

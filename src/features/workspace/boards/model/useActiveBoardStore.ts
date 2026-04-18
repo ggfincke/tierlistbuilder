@@ -14,7 +14,13 @@ import { createSyncSlice } from './slices/syncSlice'
 import { createUndoSlice } from './slices/undoSlice'
 import type { ActiveBoardStore } from './slices/types'
 
-export { selectKeyboardTabStopItemId } from './slices/selectors'
+export {
+  selectCanRedo,
+  selectCanUndo,
+  selectHasKeyboardSelection,
+  selectIsDragging,
+  selectKeyboardTabStopItemId,
+} from './slices/selectors'
 export type { ActiveBoardStore } from './slices/types'
 
 export const useActiveBoardStore = create<ActiveBoardStore>()(

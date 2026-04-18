@@ -8,7 +8,13 @@ export const createRuntimeErrorSlice: ActiveBoardSliceCreator<
 > = (set) => ({
   runtimeError: null,
 
-  setRuntimeError: (message) => set({ runtimeError: message }),
+  setRuntimeError: (message) =>
+    set((state) =>
+      state.runtimeError === message ? state : { runtimeError: message }
+    ),
 
-  clearRuntimeError: () => set({ runtimeError: null }),
+  clearRuntimeError: () =>
+    set((state) =>
+      state.runtimeError === null ? state : { runtimeError: null }
+    ),
 })

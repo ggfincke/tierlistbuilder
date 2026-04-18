@@ -74,13 +74,20 @@ interface SettingsStore extends AppSettings
   resetSettings: () => void
 }
 
+// guard against same-value writes so re-clicking the active option doesn't
+// trigger a persist-middleware serialization + localStorage write + subscriber
+// fan-out
 const createSettingSetter = <K extends keyof AppSettings>(
   set: (partial: Partial<SettingsStore>) => void,
+  get: () => SettingsStore,
   key: K
 ) =>
 {
   return (value: AppSettings[K]) =>
+  {
+    if (get()[key] === value) return
     set({ [key]: value } as Pick<AppSettings, K>)
+  }
 }
 
 // subscribeWithSelector wraps persist so the cloud-sync layer can subscribe to AppSettings
@@ -89,34 +96,48 @@ const createSettingSetter = <K extends keyof AppSettings>(
 export const useSettingsStore = create<SettingsStore>()(
   subscribeWithSelector(
     persist(
-      (set) => ({
+      (set, get) => ({
         ...DEFAULT_SETTINGS,
 
-        setItemSize: createSettingSetter(set, 'itemSize'),
-        setShowLabels: createSettingSetter(set, 'showLabels'),
-        setItemShape: createSettingSetter(set, 'itemShape'),
-        setCompactMode: createSettingSetter(set, 'compactMode'),
+        setItemSize: createSettingSetter(set, get, 'itemSize'),
+        setShowLabels: createSettingSetter(set, get, 'showLabels'),
+        setItemShape: createSettingSetter(set, get, 'itemShape'),
+        setCompactMode: createSettingSetter(set, get, 'compactMode'),
         setExportBackgroundOverride: createSettingSetter(
           set,
+          get,
           'exportBackgroundOverride'
         ),
         setBoardBackgroundOverride: createSettingSetter(
           set,
+          get,
           'boardBackgroundOverride'
         ),
-        setLabelWidth: createSettingSetter(set, 'labelWidth'),
-        setHideRowControls: createSettingSetter(set, 'hideRowControls'),
-        setConfirmBeforeDelete: createSettingSetter(set, 'confirmBeforeDelete'),
-        setThemeId: createSettingSetter(set, 'themeId'),
-        setPaletteId: createSettingSetter(set, 'paletteId'),
-        setTextStyleId: createSettingSetter(set, 'textStyleId'),
-        setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
-        setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
-        setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
-        setBoardLocked: createSettingSetter(set, 'boardLocked'),
-        setReducedMotion: createSettingSetter(set, 'reducedMotion'),
-        setToolbarPosition: createSettingSetter(set, 'toolbarPosition'),
-        setShowAltTextButton: createSettingSetter(set, 'showAltTextButton'),
+        setLabelWidth: createSettingSetter(set, get, 'labelWidth'),
+        setHideRowControls: createSettingSetter(set, get, 'hideRowControls'),
+        setConfirmBeforeDelete: createSettingSetter(
+          set,
+          get,
+          'confirmBeforeDelete'
+        ),
+        setThemeId: createSettingSetter(set, get, 'themeId'),
+        setPaletteId: createSettingSetter(set, get, 'paletteId'),
+        setTextStyleId: createSettingSetter(set, get, 'textStyleId'),
+        setTierLabelBold: createSettingSetter(set, get, 'tierLabelBold'),
+        setTierLabelItalic: createSettingSetter(set, get, 'tierLabelItalic'),
+        setTierLabelFontSize: createSettingSetter(
+          set,
+          get,
+          'tierLabelFontSize'
+        ),
+        setBoardLocked: createSettingSetter(set, get, 'boardLocked'),
+        setReducedMotion: createSettingSetter(set, get, 'reducedMotion'),
+        setToolbarPosition: createSettingSetter(set, get, 'toolbarPosition'),
+        setShowAltTextButton: createSettingSetter(
+          set,
+          get,
+          'showAltTextButton'
+        ),
         toggleHighContrast: (enabled) =>
           set((state) =>
           {

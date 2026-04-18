@@ -11,6 +11,7 @@ import {
 import { useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import {
   createCustomTierColorSpec,
@@ -48,13 +49,22 @@ interface TierRowProps
 
 const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
 {
-  const reorderTier = useActiveBoardStore((state) => state.reorderTier)
-  const recolorTier = useActiveBoardStore((state) => state.recolorTier)
+  const { reorderTier, recolorTier } = useActiveBoardStore(
+    useShallow((state) => ({
+      reorderTier: state.reorderTier,
+      recolorTier: state.recolorTier,
+    }))
+  )
 
-  const itemSize = useSettingsStore((state) => state.itemSize)
-  const compactMode = useSettingsStore((state) => state.compactMode)
-  const boardLocked = useSettingsStore((state) => state.boardLocked)
-  const hideRowControls = useSettingsStore((state) => state.hideRowControls)
+  const { itemSize, compactMode, boardLocked, hideRowControls } =
+    useSettingsStore(
+      useShallow((state) => ({
+        itemSize: state.itemSize,
+        compactMode: state.compactMode,
+        boardLocked: state.boardLocked,
+        hideRowControls: state.hideRowControls,
+      }))
+    )
   const paletteId = useCurrentPaletteId()
   const sizePx = ITEM_SIZE_PX[itemSize]
   const paletteColors = getPaletteColors(paletteId)

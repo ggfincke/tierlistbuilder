@@ -22,7 +22,10 @@ export const createDragPreviewSlice: ActiveBoardSliceCreator<
   dragPreview: null,
   dragGroupIds: [],
 
-  setActiveItemId: (itemId) => set({ activeItemId: itemId }),
+  setActiveItemId: (itemId) =>
+    set((state) =>
+      state.activeItemId === itemId ? state : { activeItemId: itemId }
+    ),
 
   beginDragPreview: (activeId) =>
     set((state) =>
