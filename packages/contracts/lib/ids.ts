@@ -1,5 +1,5 @@
 // packages/contracts/lib/ids.ts
-// branded ID types used across board, tier, preset, & item references
+// branded ID types & factories shared across the frontend & convex backend
 
 // generated board ID stored in the board registry & per-board storage keys
 export type BoardId = `board-${string}`
@@ -26,7 +26,53 @@ export type ItemId = string & { readonly [ITEM_ID_BRAND]: void }
 // (parsed JSON, share fragments, legacy storage values)
 export const asItemId = (value: string): ItemId => value as ItemId
 
+// narrow a string to the tier-ID brand. used when rehydrating from storage
+// or accepting legacy tier references that carry the plain string shape
+export const isTierId = (value: string): value is TierId =>
+  value.startsWith('tier-')
+
 // narrow an unknown (or string) to the user-preset ID brand. user presets
 // always carry a 'preset-' prefix; built-ins use 'builtin-' & are client-only
 export const isUserPresetId = (value: unknown): value is UserPresetId =>
   typeof value === 'string' && value.startsWith('preset-')
+
+// fresh board ID — used both as the in-memory board registry key & as the
+// external identifier persisted to convex for sync
+export const generateBoardId = (): BoardId =>
+  `board-${crypto.randomUUID()}` as BoardId
+
+// fresh tier ID — used for default & newly created tiers on boards & presets
+export const generateTierId = (): TierId =>
+  `tier-${crypto.randomUUID()}` as TierId
+
+// fresh user-preset ID — built-ins use static 'builtin-*' slugs instead
+export const generatePresetId = (): UserPresetId =>
+  `preset-${crypto.randomUUID()}` as UserPresetId
+
+// fresh item ID — plain UUID under the branded nominal type
+export const generateItemId = (): ItemId => asItemId(crypto.randomUUID())
+
+// fresh media externalId — prefixed for stable public lookup & signed URLs
+export const generateMediaAssetExternalId = (): string =>
+  `media-${crypto.randomUUID()}`
+
+// fresh user externalId — prefixed for clarity across logs & admin UI
+export const generateUserExternalId = (): string =>
+  `user-${crypto.randomUUID()}`
+
+// base62 alphabet for short link slug generation
+const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+// fresh short link slug — 8 chars of base62 (~218 trillion combinations).
+// the short-links mutation must check for collisions before inserting
+export const generateShortLinkSlug = (): string =>
+{
+  const bytes = new Uint8Array(8)
+  crypto.getRandomValues(bytes)
+  let out = ''
+  for (const byte of bytes)
+  {
+    out += BASE62[byte % 62]
+  }
+  return out
+}

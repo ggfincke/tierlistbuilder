@@ -6,7 +6,7 @@ import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../_generated/server'
 import { internal } from '../_generated/api'
 import type { Id } from '../_generated/dataModel'
-import { newUserExternalId } from './ids'
+import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
 
 // absolute delay schedule (not relative) so ms math is obvious.
 // attempt indices are zero-based — first retry runs at RETRY_SCHEDULE_MS[0]
@@ -52,7 +52,7 @@ export const upsertAppUserFields = async (
     (emailLocalPart && emailLocalPart.length > 0 ? emailLocalPart : 'New user')
 
   await ctx.db.patch(userId, {
-    externalId: newUserExternalId(),
+    externalId: generateUserExternalId(),
     displayName: fallbackName,
     createdAt: now,
     updatedAt: now,

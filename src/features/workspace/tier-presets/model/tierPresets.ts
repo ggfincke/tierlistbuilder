@@ -6,8 +6,11 @@ import type {
   TierPreset,
   TierPresetTier,
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import {
+  generatePresetId,
+  generateTierId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
-import { generatePresetId, generateTierId } from '~/shared/lib/id'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,

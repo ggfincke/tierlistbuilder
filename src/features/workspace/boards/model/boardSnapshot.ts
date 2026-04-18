@@ -7,12 +7,16 @@ import {
   DEFAULT_TITLE,
   buildDefaultTiers,
 } from '~/features/workspace/boards/lib/boardDefaults'
-import { generateTierId, isTierId } from '~/shared/lib/id'
 import type {
   BoardSnapshot,
   Tier,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  asItemId,
+  generateTierId,
+  isTierId,
+  type ItemId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import {
   getAutoTierColorSpec,

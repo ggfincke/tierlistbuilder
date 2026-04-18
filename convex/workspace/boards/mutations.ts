@@ -6,8 +6,8 @@ import { mutation } from '../../_generated/server'
 import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { internal } from '../../_generated/api'
+import { generateBoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { requireCurrentUserId } from '../../lib/auth'
-import { newBoardExternalId } from '../../lib/ids'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
 
 // create a new empty board for the authenticated caller
@@ -17,7 +17,7 @@ export const createBoard = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
     const now = Date.now()
-    const externalId = newBoardExternalId()
+    const externalId = generateBoardId()
 
     await ctx.db.insert('boards', {
       externalId,

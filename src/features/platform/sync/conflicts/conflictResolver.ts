@@ -6,9 +6,11 @@ import type {
   BoardMeta,
   BoardSnapshot,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  generateBoardId,
+  type BoardId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import { generateBoardId } from '~/shared/lib/id'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import {

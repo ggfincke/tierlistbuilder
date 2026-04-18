@@ -5,7 +5,7 @@ import {
   generatePresetId,
   generateTierId,
   isTierId,
-} from '~/shared/lib/id'
+} from '@tierlistbuilder/contracts/lib/ids'
 
 describe('ID helpers', () =>
 {

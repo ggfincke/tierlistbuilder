@@ -13,8 +13,8 @@ import {
   normalizeBoardTitle,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import { generateShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
 import { getCurrentUserId } from '../../lib/auth'
-import { newShortLinkSlug } from '../../lib/ids'
 import { enforceAnonRateLimit, enforceRateLimit } from '../../lib/rateLimiter'
 
 // 8-char base62 has ~218T combinations; 5 attempts ≈ 1 in 10^60 chance of
@@ -95,7 +95,7 @@ export const createSnapshotShortLink = mutation({
     let lastError: unknown = null
     for (let attempt = 0; attempt < SLUG_INSERT_MAX_ATTEMPTS; attempt++)
     {
-      const slug = newShortLinkSlug()
+      const slug = generateShortLinkSlug()
       const collision = await ctx.db
         .query('shortLinks')
         .withIndex('bySlug', (q) => q.eq('slug', slug))

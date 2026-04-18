@@ -1,13 +1,18 @@
 // src/app/routes/AppRouter.tsx
 // app-level router that selects the workspace, embed, or not-found route
 
-import { useSyncExternalStore } from 'react'
+import { lazy, Suspense, useSyncExternalStore } from 'react'
 
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
-import { EmbedRoute } from './EmbedRoute'
 import { NotFoundRoute } from './NotFoundRoute'
 import { resolveAppRoute } from './pathname'
 import { WorkspaceRoute } from './WorkspaceRoute'
+
+// EmbedRoute ships shared/board-ui + EmbedView which workspace users never
+// hit — lazy load keeps them out of the primary bundle
+const EmbedRoute = lazy(() =>
+  import('./EmbedRoute').then((m) => ({ default: m.EmbedRoute }))
+)
 
 const subscribeToLocation = (onChange: () => void): (() => void) =>
 {
@@ -16,6 +21,12 @@ const subscribeToLocation = (onChange: () => void): (() => void) =>
 }
 
 const getLocationPathname = (): string => window.location.pathname
+
+// empty page-color shell while the embed chunk arrives — matches the locked
+// dark theme EmbedShell applies once mounted so there's no flash on load
+const EmbedFallback = () => (
+  <main className="min-h-screen bg-[var(--t-bg-page)]" />
+)
 
 export const AppRouter = () =>
 {
@@ -32,7 +43,9 @@ export const AppRouter = () =>
     case 'embed':
       return (
         <ErrorBoundary section="embedded board">
-          <EmbedRoute />
+          <Suspense fallback={<EmbedFallback />}>
+            <EmbedRoute />
+          </Suspense>
         </ErrorBoundary>
       )
 

@@ -14,7 +14,6 @@ import type * as getHealth from "../getHealth.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_hexColor from "../lib/hexColor.js";
-import type * as lib_ids from "../lib/ids.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_rateLimiter from "../lib/rateLimiter.js";
 import type * as lib_userUpsert from "../lib/userUpsert.js";
@@ -52,7 +51,6 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/hexColor": typeof lib_hexColor;
-  "lib/ids": typeof lib_ids;
   "lib/permissions": typeof lib_permissions;
   "lib/rateLimiter": typeof lib_rateLimiter;
   "lib/userUpsert": typeof lib_userUpsert;

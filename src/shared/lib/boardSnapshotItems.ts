@@ -6,6 +6,7 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isPresent } from '~/shared/lib/typeGuards'
 
 // visit every live & deleted snapshot item in stable order
@@ -96,48 +97,41 @@ export const mapSnapshotItems = (
   }
 }
 
-// async variant for transforms that depend on storage or hashing work
-export const mapSnapshotItemsAsync = async (
-  snapshot: BoardSnapshot,
-  mapItem: (item: TierItem, id: ItemId | null) => Promise<TierItem>
-): Promise<BoardSnapshot> =>
+export interface TransformedSnapshotItems<TOut>
 {
-  let changed = false
+  items: Record<string, TOut>
+  deletedItems: TOut[]
+}
 
-  const nextItems = Object.fromEntries(
-    await Promise.all(
-      Object.entries(snapshot.items).map(async ([id, item]) =>
-      {
-        const mapped = await mapItem(item, id as ItemId)
-        if (mapped !== item)
-        {
-          changed = true
-        }
-        return [id, mapped]
-      })
-    )
-  ) as BoardSnapshot['items']
+// concurrency-bounded async projection of every live & deleted item. output
+// order for deletedItems matches snapshot order; items key order follows
+// Object.entries iteration. pass Infinity for unbounded parallelism
+export const transformSnapshotItemsAsync = async <TOut>(
+  snapshot: BoardSnapshot,
+  limit: number,
+  mapItem: (item: TierItem, id: ItemId | null) => Promise<TOut>
+): Promise<TransformedSnapshotItems<TOut>> =>
+{
+  const itemEntries = Object.entries(snapshot.items)
 
-  const nextDeleted = await Promise.all(
-    snapshot.deletedItems.map(async (item) =>
-    {
-      const mapped = await mapItem(item, null)
-      if (mapped !== item)
-      {
-        changed = true
-      }
-      return mapped
-    })
+  const runBounded = <T>(
+    values: readonly T[],
+    task: (value: T, index: number) => Promise<TOut>
+  ): Promise<TOut[]> =>
+    limit === Infinity
+      ? Promise.all(values.map(task))
+      : mapAsyncLimit(values, limit, task)
+
+  const itemValues = await runBounded(itemEntries, ([id, item]) =>
+    mapItem(item, id as ItemId)
+  )
+  const deletedItems = await runBounded(snapshot.deletedItems, (item) =>
+    mapItem(item, null)
   )
 
-  if (!changed)
-  {
-    return snapshot
-  }
+  const items = Object.fromEntries(
+    itemEntries.map(([id], index) => [id, itemValues[index]])
+  )
 
-  return {
-    ...snapshot,
-    items: nextItems,
-    deletedItems: nextDeleted,
-  }
+  return { items, deletedItems }
 }

@@ -4,8 +4,8 @@
 import { ConvexError, v } from 'convex/values'
 import { mutation } from '../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import { generateMediaAssetExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import { requireCurrentUserId } from '../../lib/auth'
-import { newMediaAssetExternalId } from '../../lib/ids'
 import { enforceRateLimit } from '../../lib/rateLimiter'
 
 // hard cap on image byte size — 20MB matches the frontend uploader's cap
@@ -109,7 +109,7 @@ export const finalizeUpload = mutation({
       return { externalId: existing.externalId }
     }
 
-    const externalId = newMediaAssetExternalId()
+    const externalId = generateMediaAssetExternalId()
 
     await ctx.db.insert('mediaAssets', {
       ownerId: userId,
