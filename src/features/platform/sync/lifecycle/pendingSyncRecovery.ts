@@ -3,6 +3,7 @@
 // or offline -> online transition; safe to call repeatedly (dedupes per key)
 
 import {
+  asUserPresetId,
   isUserPresetId,
   type BoardId,
   type UserPresetId,
@@ -102,7 +103,7 @@ const resumePresets = (options: ResumePendingSyncsOptions): UserPresetId[] =>
   const localById = new Map(
     localPresets
       .filter((preset) => isUserPresetId(preset.id))
-      .map((preset) => [preset.id as UserPresetId, preset])
+      .map((preset) => [asUserPresetId(preset.id), preset])
   )
 
   const resumed: UserPresetId[] = []

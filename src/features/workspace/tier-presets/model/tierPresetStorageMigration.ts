@@ -5,7 +5,7 @@ import type {
   TierPreset,
   TierPresetTier,
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import type { PresetId } from '@tierlistbuilder/contracts/lib/ids'
+import { asPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import { isRecord } from '~/shared/lib/typeGuards'
 import {
   createPaletteTierColorSpec,
@@ -51,7 +51,7 @@ const normalizePreset = (value: unknown): TierPreset | null =>
     : []
 
   return {
-    id: value.id as PresetId,
+    id: asPresetId(value.id),
     name:
       typeof value.name === 'string' && value.name.trim()
         ? value.name

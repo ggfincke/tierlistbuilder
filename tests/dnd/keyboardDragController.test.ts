@@ -1,3 +1,6 @@
+// tests/dnd/keyboardDragController.test.ts
+// keyboard drag controller state-machine
+
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'

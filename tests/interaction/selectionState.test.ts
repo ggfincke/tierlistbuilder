@@ -1,3 +1,6 @@
+// tests/interaction/selectionState.test.ts
+// selection state helpers
+
 import { describe, expect, it } from 'vitest'
 
 import {

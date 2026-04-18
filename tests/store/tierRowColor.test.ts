@@ -1,4 +1,4 @@
-// tests/tierRowColor.test.ts
+// tests/store/tierRowColor.test.ts
 // per-tier row background — store actions, normalization, & preset round-trip
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'

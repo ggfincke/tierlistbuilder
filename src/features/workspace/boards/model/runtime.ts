@@ -11,18 +11,14 @@ import type { BoardSyncState } from './sync'
 // lightweight ordering snapshot used during drag preview
 export interface ContainerSnapshotTier
 {
-  // stable tier ID used to map preview order back onto the full tier metadata
   id: TierId
-  // ordered list of item IDs currently shown in this tier
   itemIds: ItemId[]
 }
 
 // runtime-only container ordering snapshot used for drag preview
 export interface ContainerSnapshot
 {
-  // item ordering for each tier row
   tiers: ContainerSnapshotTier[]
-  // ordering for items outside all tiers
   unrankedItemIds: ItemId[]
 }
 
@@ -67,14 +63,9 @@ export interface ActiveBoardRuntimeState extends BoardSnapshot, BoardSyncState
   dragPreview: ContainerSnapshot | null
   keyboardMode: KeyboardMode
   keyboardFocusItemId: ItemId | null
-  // true after a manual drag-drop commit; reset on shuffle, board load, & undo/redo
   itemsManuallyMoved: boolean
-  // bundled multi-item selection — ids for insertion order (multi-drag),
-  // set for O(1) membership checks
   selection: Selection
-  // last clicked item ID for shift-click range selection
   lastClickedItemId: ItemId | null
-  // item IDs being dragged together (ordered — primary item first)
   dragGroupIds: ItemId[]
   runtimeError: string | null
   past: UndoEntry[]

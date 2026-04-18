@@ -4,6 +4,7 @@
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
+import { isShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
 import type { Id } from '@convex/_generated/dataModel'
 import { EMBED_ROUTE_PATH } from '~/app/routes/pathname'
 import {
@@ -38,7 +39,7 @@ export const getShortLinkSlugFromUrl = (): string | null =>
   if (typeof window === 'undefined') return null
   const params = new URLSearchParams(window.location.search)
   const slug = params.get(SHORT_LINK_QUERY_PARAM)
-  return isNonEmptyString(slug) ? slug : null
+  return isNonEmptyString(slug) && isShortLinkSlug(slug) ? slug : null
 }
 
 // scrub the short-link slug from the address bar w/o triggering navigation.
@@ -132,6 +133,11 @@ export const decodeBoardFromShortLink = async (
   slug: string
 ): Promise<BoardSnapshot> =>
 {
+  if (!isShortLinkSlug(slug))
+  {
+    throw new Error(`invalid short link slug: ${slug}`)
+  }
+
   const result = await resolveShortLinkImperative({ slug })
   if (result.kind === 'not-found')
   {

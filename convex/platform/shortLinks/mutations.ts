@@ -13,7 +13,10 @@ import {
   normalizeBoardTitle,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { generateShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  generateShortLinkSlug,
+  isShortLinkSlug,
+} from '@tierlistbuilder/contracts/lib/ids'
 import { getCurrentUserId } from '../../lib/auth'
 import { enforceAnonRateLimit, enforceRateLimit } from '../../lib/rateLimiter'
 
@@ -22,10 +25,9 @@ import { enforceAnonRateLimit, enforceRateLimit } from '../../lib/rateLimiter'
 // widening the alphabet on a vanishingly-rare collision
 const SLUG_INSERT_MAX_ATTEMPTS = 5
 
-// generate a one-time upload URL for the snapshot blob. anon-callable; orphaned blobs
-// are reaped by gcOrphanedStorage. size cap enforced at createSnapshotShortLink.
-// single rate-limit point for the 2-phase share flow (10/hr per signed-in user,
-// 1000/hr global anon bucket) so aborts between phases still count against quota
+// generate a one-time upload URL for the snapshot blob. size cap is enforced
+// at createSnapshotShortLink, orphaned blobs are reaped by gcOrphanedStorage,
+// & this is the single rate-limit point for the 2-phase share flow
 export const generateSnapshotUploadUrl = mutation({
   args: {},
   handler: async (ctx): Promise<string> =>
@@ -43,10 +45,9 @@ export const generateSnapshotUploadUrl = mutation({
   },
 })
 
-// link a previously-uploaded snapshot blob to a fresh slug. anon-callable; ownerId set
-// when signed in. enforces a byte cap & deletes the blob on failure. expiresAt server-set
-// to createdAt + DEFAULT_SHARE_LINK_TTL_MS — no client opt-out for v1.
-// rate limit lives on generateSnapshotUploadUrl — one token per share attempt
+// link a previously-uploaded snapshot blob to a fresh slug. ownerId is set for
+// signed-in callers, failures delete the blob, & expiresAt is always server-set
+// to createdAt + DEFAULT_SHARE_LINK_TTL_MS. rate limit lives on the upload step
 export const createSnapshotShortLink = mutation({
   args: {
     snapshotStorageId: v.id('_storage'),
@@ -143,6 +144,11 @@ export const revokeMyShortLink = mutation({
   args: { slug: v.string() },
   handler: async (ctx, args): Promise<null> =>
   {
+    if (!isShortLinkSlug(args.slug))
+    {
+      return null
+    }
+
     const userId = await getCurrentUserId(ctx)
     if (!userId)
     {

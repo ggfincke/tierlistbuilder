@@ -1,3 +1,6 @@
+// tests/platform/tierPresetCloudMerge.test.ts
+// tier preset cloud merge strategy
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'

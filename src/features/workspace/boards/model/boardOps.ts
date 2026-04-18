@@ -92,9 +92,9 @@ export const shuffleAllBoardItems = (
   }
 
   const shuffled = fisherYatesShuffle([...allItemIds], nextIndex)
-  const nextTiers = tiers.map((tier) => ({
+  const nextTiers: Tier[] = tiers.map((tier) => ({
     ...tier,
-    itemIds: [] as ItemId[],
+    itemIds: [],
   }))
 
   if (mode === 'even')

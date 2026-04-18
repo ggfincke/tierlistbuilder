@@ -1,3 +1,6 @@
+// tests/store/boardSyncState.test.ts
+// board sync state helpers
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'

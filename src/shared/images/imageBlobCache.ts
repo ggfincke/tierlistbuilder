@@ -5,10 +5,9 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { getBlobsBatch } from './imageStore'
 
-// pluggable cloud image batch fetcher — features register an implementation at
-// boot; shared code calls it w/o importing feature modules directly. the
-// fetcher receives an entire batch so one signin warm-up triggers one Convex
-// round-trip instead of N per-hash queries
+// pluggable cloud image batch fetcher — features register it at boot so shared
+// code stays feature-agnostic. batching keeps one sign-in warm-up to one
+// Convex round trip instead of N per-hash queries
 export interface CloudImageRequest
 {
   hash: string
@@ -107,10 +106,9 @@ export const requestCloudImage = (
   }
 }
 
-// mark requests whose batch query or blob fetch failed so the next reconnect
-// can retry them. called by the registered cloud fetcher while the batch's
-// in-flight marker is still set, so we only guard against already-cached &
-// already-pending hashes — the next retry will re-check in-flight state
+// mark batch/query failures for retry on the next reconnect. the caller runs
+// while the batch's in-flight marker is still set, so only guard against
+// already-cached & already-pending hashes here
 export const markCloudRequestsFailed = (
   requests: ReadonlyArray<CloudImageRequest>
 ): void =>

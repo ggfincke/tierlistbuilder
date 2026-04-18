@@ -1,3 +1,6 @@
+// tests/overlay/toolbarPosition.test.ts
+// toolbar-aware layout helpers
+
 import { describe, expect, it } from 'vitest'
 import { resolveMenuOverflowFlipTokens } from '~/shared/overlay/useMenuOverflowFlip'
 import {

@@ -1,3 +1,6 @@
+// tests/data/boardReconciler.test.ts
+// cloud board diffing helpers
+
 import { describe, expect, it } from 'vitest'
 import type { Id } from '@convex/_generated/dataModel'
 import { diffItems } from '../../convex/workspace/sync/boardReconciler'

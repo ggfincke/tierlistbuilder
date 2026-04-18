@@ -1,3 +1,6 @@
+// tests/data/persistMigration.test.ts
+// settings persistence migration helpers
+
 import { describe, expect, it } from 'vitest'
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 import { migrateSettingsState } from '~/features/workspace/settings/model/settingsStorageMigration'

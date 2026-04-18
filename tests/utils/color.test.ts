@@ -1,3 +1,6 @@
+// tests/utils/color.test.ts
+// color utility helpers
+
 import { describe, it, expect } from 'vitest'
 import {
   getContrastRatio,

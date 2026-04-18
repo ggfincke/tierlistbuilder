@@ -1,3 +1,6 @@
+// tests/interaction/selectionNavigation.test.ts
+// selection navigation helpers
+
 import { describe, expect, it } from 'vitest'
 
 import { resolveNextSelectionIndex } from '~/shared/selection/selectionNavigation'

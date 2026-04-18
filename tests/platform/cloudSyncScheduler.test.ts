@@ -1,3 +1,6 @@
+// tests/platform/cloudSyncScheduler.test.ts
+// cloud sync scheduler queue behavior
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'

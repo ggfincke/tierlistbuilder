@@ -5,7 +5,7 @@ import {
   DEFAULT_BOARD_TITLE,
   type Tier,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
+import { asTierId, type TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { getAutoTierColorSpec } from '~/shared/theme/tierColors'
 
@@ -30,7 +30,9 @@ export const buildDefaultTiers = (paletteId: PaletteId = 'classic'): Tier[] =>
   DEFAULT_TIER_NAMES.map((_, index) => ({
     id:
       DEFAULT_TIER_IDS[index] ??
-      (`tier-${(DEFAULT_TIER_NAMES[index] ?? `${index + 1}`).toLowerCase()}` as TierId),
+      asTierId(
+        `tier-${(DEFAULT_TIER_NAMES[index] ?? `${index + 1}`).toLowerCase()}`
+      ),
     name: DEFAULT_TIER_NAMES[index] ?? `Tier ${index + 1}`,
     colorSpec: getAutoTierColorSpec(paletteId, index),
     itemIds: [],

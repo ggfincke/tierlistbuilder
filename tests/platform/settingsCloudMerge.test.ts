@@ -1,3 +1,6 @@
+// tests/platform/settingsCloudMerge.test.ts
+// settings cloud merge strategy
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 import {

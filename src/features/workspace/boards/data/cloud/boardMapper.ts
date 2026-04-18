@@ -6,8 +6,11 @@ import type {
   TierItem,
   Tier,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
-import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  asItemId,
+  asTierId,
+  type ItemId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import type {
   CloudBoardItemWire,
   CloudBoardPayload,
@@ -172,7 +175,7 @@ export const serverStateToSnapshot = (
     .sort((a, b) => a.order - b.order)
 
   const tiers: Tier[] = sortedTiers.map((t) => ({
-    id: t.externalId as TierId,
+    id: asTierId(t.externalId),
     name: t.name,
     description: t.description,
     colorSpec: t.colorSpec,

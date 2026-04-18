@@ -1,3 +1,6 @@
+// tests/dnd/dragPointerMath.test.ts
+// pointer insertion math
+
 import { describe, it, expect } from 'vitest'
 import {
   getDraggedItemRect,

@@ -1,3 +1,6 @@
+// tests/platform/cloudMerge.test.ts
+// first-login cloud merge decisions
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   BoardListItem,

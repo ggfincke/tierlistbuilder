@@ -30,7 +30,6 @@ export type PaletteId =
 export interface TierPaletteColorSpec
 {
   kind: 'palette'
-  // zero-based index within the active palette's ordered swatch list
   index: number
 }
 
@@ -38,7 +37,6 @@ export interface TierPaletteColorSpec
 export interface TierCustomColorSpec
 {
   kind: 'custom'
-  // resolved hex color that should remain stable across theme changes
   hex: string
 }
 

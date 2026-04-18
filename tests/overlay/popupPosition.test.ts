@@ -1,3 +1,6 @@
+// tests/overlay/popupPosition.test.ts
+// anchored popup positioning
+
 import { describe, expect, it } from 'vitest'
 import {
   computeColorPickerStyle,

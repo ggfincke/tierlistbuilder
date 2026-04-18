@@ -92,12 +92,9 @@ interface LoadedBoardState
 const getActiveBoardSyncState = (): BoardSyncState =>
   extractBoardSyncState(useActiveBoardStore.getState())
 
-// zustand dispatches subscribers synchronously inside set(), so the autosave
-// listener (if any) observes the flag before control returns. clearing the
-// flag after the call keeps its lifetime bounded to this single dispatch &
-// avoids leaking into later state changes when the selector-based subscriber
-// doesn't fire (e.g. non-material loads, or bootstrap before the subscriber
-// is registered)
+// zustand subscribers run synchronously inside set(), so clear the autosave
+// suppression flag immediately after loadBoard returns. this keeps the flag
+// scoped to one dispatch, even when no selector-based autosave fires
 const loadBoardState = (
   snapshot: BoardSnapshot,
   syncState: BoardSyncState = EMPTY_BOARD_SYNC_STATE

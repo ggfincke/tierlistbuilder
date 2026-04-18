@@ -1,3 +1,6 @@
+// tests/data/cloudBoardMapper.test.ts
+// cloud board <-> snapshot mapping
+
 import { describe, expect, it } from 'vitest'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -85,10 +88,9 @@ describe('snapshotToCloudPayload media mapping', () =>
 
   it('throws when a legacy inline image cannot be uploaded (matching hash-backed behavior)', () =>
   {
-    // the uploader is now all-or-nothing; an unresolved inline image at
-    // mapping time is a bug we want to surface loudly rather than silently
-    // drop a reference on the wire (which would leave items pointing at
-    // nothing across devices)
+    // the uploader is now all-or-nothing, so surface unresolved inline images
+    // loudly instead of silently dropping the wire reference & leaving items
+    // broken across devices
     expect(() =>
       snapshotToCloudPayload(
         makeBoardWithItem({

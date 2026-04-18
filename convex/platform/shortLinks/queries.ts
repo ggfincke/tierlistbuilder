@@ -9,6 +9,7 @@ import {
   type OwnedShortLinkListItem,
   type ShortLinkResolveResult,
 } from '@tierlistbuilder/contracts/platform/shortLink'
+import { isShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
 import { getCurrentUserId } from '../../lib/auth'
 
 // resolve a slug to its snapshot blob URL, or signal a miss. callers distinguish
@@ -18,6 +19,14 @@ export const resolveSlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args): Promise<ShortLinkResolveResult> =>
   {
+    // keep this public read cheap in-app: reject malformed slugs before the
+    // index lookup. if abuse ever becomes real, apply IP/CDN throttling at
+    // the edge instead of a shared anon limiter on a public share path
+    if (!isShortLinkSlug(args.slug))
+    {
+      return { kind: 'not-found' }
+    }
+
     const row = await ctx.db
       .query('shortLinks')
       .withIndex('bySlug', (q) => q.eq('slug', args.slug))
