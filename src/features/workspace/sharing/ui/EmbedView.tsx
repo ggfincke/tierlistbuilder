@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
 import { resolveInboundShare } from '~/features/workspace/sharing/lib/inboundShare'
@@ -16,6 +17,11 @@ import {
   BoardRowSurface,
   TierDescriptionSubtitle,
 } from '~/shared/board-ui/BoardPrimitives'
+import { APP_PUBLIC_URL } from '~/shared/lib/urls'
+
+// palette used to colorize embedded boards. `classic` is the app's neutral
+// baseline; embed consumers don't get palette choice today
+const EMBED_DEFAULT_PALETTE_ID: PaletteId = 'classic'
 
 // load embed data from either marker — shared resolver handles the
 // fragment-then-slug precedence so bootstrap & embed can't drift
@@ -36,7 +42,7 @@ export const EmbedView = () =>
     {
       if (result)
       {
-        setData(normalizeBoardSnapshot(result, 'classic'))
+        setData(normalizeBoardSnapshot(result, EMBED_DEFAULT_PALETTE_ID))
       }
       else
       {
@@ -66,7 +72,7 @@ export const EmbedView = () =>
   }
 
   const sizePx = ITEM_SIZE_PX.medium
-  const paletteId = 'classic' as const
+  const paletteId = EMBED_DEFAULT_PALETTE_ID
 
   return (
     <div className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text-secondary)]">
@@ -133,7 +139,7 @@ export const EmbedView = () =>
 
         <div className="px-4 py-2 text-right">
           <a
-            href="https://tierlistbuilder.com"
+            href={APP_PUBLIC_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-[var(--t-text-dim)] transition-colors hover:text-[var(--t-text-secondary)]"

@@ -3,6 +3,7 @@ import {
   resolveNextKeyboardDragPreview,
   resolveNextKeyboardFocusItem,
 } from '~/features/workspace/boards/dnd/dragKeyboard'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeSnapshot } from '../fixtures'
 
 describe('resolveNextKeyboardDragPreview', () =>
@@ -12,7 +13,7 @@ describe('resolveNextKeyboardDragPreview', () =>
     const snap = makeSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
-      itemId: 'item-2',
+      itemId: asItemId('item-2'),
       direction: 'ArrowLeft',
     })
     expect(result).not.toBeNull()
@@ -25,7 +26,7 @@ describe('resolveNextKeyboardDragPreview', () =>
     const snap = makeSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
-      itemId: 'item-1',
+      itemId: asItemId('item-1'),
       direction: 'ArrowLeft',
     })
     expect(result).toBeNull()
@@ -36,7 +37,7 @@ describe('resolveNextKeyboardDragPreview', () =>
     const snap = makeSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
-      itemId: 'item-2',
+      itemId: asItemId('item-2'),
       direction: 'ArrowRight',
     })
     expect(result).not.toBeNull()
@@ -49,7 +50,7 @@ describe('resolveNextKeyboardDragPreview', () =>
     const snap = makeSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
-      itemId: 'item-3',
+      itemId: asItemId('item-3'),
       direction: 'ArrowRight',
     })
     expect(result).toBeNull()
@@ -60,7 +61,7 @@ describe('resolveNextKeyboardDragPreview', () =>
     const snap = makeSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
-      itemId: 'item-1',
+      itemId: asItemId('item-1'),
       direction: 'ArrowDown',
     })
     expect(result).not.toBeNull()
@@ -76,7 +77,7 @@ describe('resolveNextKeyboardDragPreview', () =>
     const snap = makeSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
-      itemId: 'item-6',
+      itemId: asItemId('item-6'),
       direction: 'ArrowUp',
     })
     expect(result).not.toBeNull()
@@ -92,7 +93,7 @@ describe('resolveNextKeyboardFocusItem', () =>
     const snap = makeSnapshot()
     const result = resolveNextKeyboardFocusItem({
       snapshot: snap,
-      itemId: 'item-1',
+      itemId: asItemId('item-1'),
       direction: 'ArrowRight',
     })
     expect(result).toBe('item-2')
@@ -104,7 +105,7 @@ describe('resolveNextKeyboardFocusItem', () =>
     const snap = makeSnapshot()
     const result = resolveNextKeyboardFocusItem({
       snapshot: snap,
-      itemId: 'item-4',
+      itemId: asItemId('item-4'),
       direction: 'ArrowDown',
     })
     expect(result).toBe('item-6')

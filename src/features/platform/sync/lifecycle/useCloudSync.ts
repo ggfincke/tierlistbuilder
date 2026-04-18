@@ -232,7 +232,7 @@ const runFirstLoginBoardMerge = async (
       }
       case 'conflict':
         toast(
-          'You have boards on both this device and the cloud. Merge support coming soon.',
+          'Signed in. Your local and cloud boards are kept separately for now.',
           'info'
         )
         markCloudPullCompleted(userId)

@@ -222,7 +222,7 @@
   [data-theme='high-contrast'] :focus-visible
   {
     outline-width: 3px;
-    outline-color: #ffff00;
+    outline-color: var(--t-accent);
   }
 
   /* manual reduced-motion toggle via settings */

@@ -5,17 +5,7 @@ import {
   computeItemEditPopoverStyle,
   computeSettingsMenuStyle,
 } from '~/shared/overlay/popupPosition'
-
-const makeRect = (
-  overrides: Partial<DOMRect> = {}
-): Pick<DOMRect, 'bottom' | 'left' | 'right' | 'top'> =>
-  ({
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    ...overrides,
-  }) as Pick<DOMRect, 'bottom' | 'left' | 'right' | 'top'>
+import { makeRect } from '../fixtures'
 
 describe('computeColorPickerStyle', () =>
 {

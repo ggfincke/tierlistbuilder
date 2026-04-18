@@ -3,31 +3,24 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
 import type { BoardImageUploadResult } from '~/features/workspace/boards/data/cloud/imageUploader'
-import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
+import { makeBoardSnapshot, makeTier } from '../fixtures'
 
-const makeSnapshot = (item: BoardSnapshot['items'][string]): BoardSnapshot =>
+const makeBoardWithItem = (
+  item: BoardSnapshot['items'][string]
+): BoardSnapshot =>
 {
   const itemId = asItemId('item-1')
 
-  return {
+  return makeBoardSnapshot({
     title: 'Board',
-    tiers: [
-      {
-        id: 'tier-s',
-        name: 'S',
-        colorSpec: createPaletteTierColorSpec(0),
-        itemIds: [itemId],
-      },
-    ],
-    unrankedItemIds: [],
+    tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: [itemId] })],
     items: {
       [itemId]: {
         ...item,
         id: itemId,
       },
     },
-    deletedItems: [],
-  }
+  })
 }
 
 const emptyUploadResult = (): BoardImageUploadResult => ({
@@ -40,7 +33,7 @@ describe('snapshotToCloudPayload media mapping', () =>
   it('prefers a freshly uploaded mediaExternalId when present', () =>
   {
     const payload = snapshotToCloudPayload(
-      makeSnapshot({
+      makeBoardWithItem({
         id: asItemId('item-1'),
         imageRef: {
           hash: 'hash-1',
@@ -59,7 +52,7 @@ describe('snapshotToCloudPayload media mapping', () =>
   it('falls back to the existing cloud media id when upload resolution is missing', () =>
   {
     const payload = snapshotToCloudPayload(
-      makeSnapshot({
+      makeBoardWithItem({
         id: asItemId('item-1'),
         imageRef: {
           hash: 'hash-1',
@@ -75,7 +68,7 @@ describe('snapshotToCloudPayload media mapping', () =>
   it('uses inline-image upload results when the item has no imageRef', () =>
   {
     const payload = snapshotToCloudPayload(
-      makeSnapshot({
+      makeBoardWithItem({
         id: asItemId('item-1'),
         imageUrl: 'data:image/png;base64,AAAA',
       }),
@@ -98,7 +91,7 @@ describe('snapshotToCloudPayload media mapping', () =>
     // nothing across devices)
     expect(() =>
       snapshotToCloudPayload(
-        makeSnapshot({
+        makeBoardWithItem({
           id: asItemId('item-1'),
           imageUrl: 'data:image/png;base64,AAAA',
         }),
@@ -111,7 +104,7 @@ describe('snapshotToCloudPayload media mapping', () =>
   {
     expect(() =>
       snapshotToCloudPayload(
-        makeSnapshot({
+        makeBoardWithItem({
           id: asItemId('item-1'),
           imageRef: { hash: 'hash-1' },
         }),
@@ -123,7 +116,7 @@ describe('snapshotToCloudPayload media mapping', () =>
   it('sends an explicit media clear when an item has no image', () =>
   {
     const payload = snapshotToCloudPayload(
-      makeSnapshot({
+      makeBoardWithItem({
         id: asItemId('item-1'),
         label: 'Text only',
       }),
@@ -137,18 +130,15 @@ describe('snapshotToCloudPayload media mapping', () =>
   {
     const itemId = asItemId('item-deleted')
     const payload = snapshotToCloudPayload(
-      {
+      makeBoardSnapshot({
         title: 'Board',
-        tiers: [],
-        unrankedItemIds: [],
-        items: {},
         deletedItems: [
           {
             id: itemId,
             label: 'Deleted',
           },
         ],
-      },
+      }),
       emptyUploadResult()
     )
 

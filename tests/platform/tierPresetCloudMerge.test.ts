@@ -2,27 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
-
-const {
-  createTierPresetImperativeMock,
-  deleteTierPresetImperativeMock,
-  listMyTierPresetsImperativeMock,
-} = vi.hoisted(() => ({
-  createTierPresetImperativeMock: vi.fn(),
-  deleteTierPresetImperativeMock: vi.fn(),
-  listMyTierPresetsImperativeMock: vi.fn(),
-}))
-
-vi.mock(
-  '~/features/workspace/tier-presets/data/cloud/tierPresetRepository',
-  () => ({
-    createTierPresetImperative: createTierPresetImperativeMock,
-    deleteTierPresetImperative: deleteTierPresetImperativeMock,
-    listMyTierPresetsImperative: listMyTierPresetsImperativeMock,
-  })
-)
-
-import { mergeTierPresetsOnFirstLogin } from '~/features/platform/sync/tier-presets/cloudMerge'
+import {
+  mergeTierPresetsOnFirstLogin,
+  type TierPresetMergeDeps,
+} from '~/features/platform/sync/tier-presets/cloudMerge'
 import {
   loadTierPresetSyncMetaMap,
   upsertTierPresetSyncMeta,
@@ -68,14 +51,48 @@ const buildCloudRow = (presetId: UserPresetId): TierPresetCloudRow => ({
   updatedAt: 2,
 })
 
+interface FakeDepsConfig
+{
+  cloudRows?: TierPresetCloudRow[]
+}
+
+interface FakeDeps
+{
+  deps: TierPresetMergeDeps
+  createCalls: { externalId: string; name: string }[]
+  deleteCalls: { presetExternalId: string }[]
+}
+
+// in-memory deps that record calls — the production wiring uses convex
+// adapters, but the merge logic only cares about the surface contract
+const createFakeDeps = (config: FakeDepsConfig = {}): FakeDeps =>
+{
+  const createCalls: { externalId: string; name: string }[] = []
+  const deleteCalls: { presetExternalId: string }[] = []
+  return {
+    createCalls,
+    deleteCalls,
+    deps: {
+      listMyTierPresets: async () => config.cloudRows ?? [],
+      createTierPreset: async (args) =>
+      {
+        createCalls.push({ externalId: args.externalId, name: args.name })
+        return { updatedAt: 1 }
+      },
+      deleteTierPreset: async (args) =>
+      {
+        deleteCalls.push(args)
+        return null
+      },
+    },
+  }
+}
+
 describe('tierPresetCloudMerge', () =>
 {
   beforeEach(() =>
   {
     vi.stubGlobal('localStorage', createMemoryStorage())
-    createTierPresetImperativeMock.mockReset()
-    deleteTierPresetImperativeMock.mockReset()
-    listMyTierPresetsImperativeMock.mockReset()
     useTierPresetStore.setState({ userPresets: [] })
   })
 
@@ -93,17 +110,17 @@ describe('tierPresetCloudMerge', () =>
       ownerUserId: 'user-a',
     })
 
-    listMyTierPresetsImperativeMock.mockResolvedValue([
-      buildCloudRow('preset-delete' as UserPresetId),
-    ])
-    deleteTierPresetImperativeMock.mockResolvedValue(undefined)
+    const { deps, deleteCalls } = createFakeDeps({
+      cloudRows: [buildCloudRow('preset-delete' as UserPresetId)],
+    })
 
-    const result = await mergeTierPresetsOnFirstLogin({ userId: 'user-a' })
+    const result = await mergeTierPresetsOnFirstLogin({
+      userId: 'user-a',
+      deps,
+    })
 
     expect(result.deletedCount).toBe(1)
-    expect(deleteTierPresetImperativeMock).toHaveBeenCalledWith({
-      presetExternalId: 'preset-delete',
-    })
+    expect(deleteCalls).toEqual([{ presetExternalId: 'preset-delete' }])
     expect(useTierPresetStore.getState().userPresets).toEqual([])
     expect(loadTierPresetSyncMetaMap()).toEqual({})
   })
@@ -117,14 +134,17 @@ describe('tierPresetCloudMerge', () =>
       ownerUserId: 'user-a',
     })
 
-    listMyTierPresetsImperativeMock.mockResolvedValue([
-      buildCloudRow('preset-delete' as UserPresetId),
-    ])
+    const { deps, deleteCalls } = createFakeDeps({
+      cloudRows: [buildCloudRow('preset-delete' as UserPresetId)],
+    })
 
-    const result = await mergeTierPresetsOnFirstLogin({ userId: 'user-b' })
+    const result = await mergeTierPresetsOnFirstLogin({
+      userId: 'user-b',
+      deps,
+    })
 
     expect(result.pulledCount).toBe(1)
-    expect(deleteTierPresetImperativeMock).not.toHaveBeenCalled()
+    expect(deleteCalls).toEqual([])
     expect(useTierPresetStore.getState().userPresets).toHaveLength(1)
     expect(useTierPresetStore.getState().userPresets[0]?.id).toBe(
       'preset-delete'

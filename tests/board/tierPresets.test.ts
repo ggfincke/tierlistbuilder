@@ -8,8 +8,9 @@ import {
   createPaletteTierColorSpec,
   createCustomTierColorSpec,
 } from '~/shared/theme/tierColors'
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
 
 const CLASSIC_PRESET = BUILTIN_PRESETS.find((p) => p.id === 'builtin-classic')!
 
@@ -108,32 +109,30 @@ describe('createBoardDataFromPreset', () =>
 
 describe('extractPresetFromBoard', () =>
 {
-  const sampleBoard: BoardSnapshot = {
+  const sampleBoard = makeBoardSnapshot({
     title: 'My Board',
     tiers: [
-      {
+      makeTier({
         id: 'tier-s',
         name: 'S',
-        colorSpec: createPaletteTierColorSpec(0),
-        itemIds: ['item-1', 'item-2'],
-      },
-      {
+        itemIds: [asItemId('item-1'), asItemId('item-2')],
+      }),
+      makeTier({
         id: 'tier-a',
         name: 'A',
         description: 'Great picks',
         colorSpec: createCustomTierColorSpec('#abcdef'),
-        itemIds: ['item-3'],
-      },
+        itemIds: [asItemId('item-3')],
+      }),
     ],
-    unrankedItemIds: ['item-4'],
+    unrankedItemIds: [asItemId('item-4')],
     items: {
-      'item-1': { id: 'item-1' },
-      'item-2': { id: 'item-2' },
-      'item-3': { id: 'item-3' },
-      'item-4': { id: 'item-4' },
+      [asItemId('item-1')]: makeItem({ id: asItemId('item-1') }),
+      [asItemId('item-2')]: makeItem({ id: asItemId('item-2') }),
+      [asItemId('item-3')]: makeItem({ id: asItemId('item-3') }),
+      [asItemId('item-4')]: makeItem({ id: asItemId('item-4') }),
     },
-    deletedItems: [],
-  }
+  })
 
   it('generates a preset ID w/ the preset- prefix', () =>
   {

@@ -6,15 +6,9 @@ import { describe, expect, it } from 'vitest'
 
 import { selectKeyboardTabStopItemId } from '~/features/workspace/boards/model/slices/selectors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
-import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
+import { makeTier } from '../fixtures'
 
-const makeTier = (id: string, itemIds: string[]): Tier => ({
-  id: id as Tier['id'],
-  name: id.toUpperCase(),
-  colorSpec: createPaletteTierColorSpec(0),
-  itemIds: itemIds.map(asItemId),
-})
+const ids = (...values: string[]) => values.map(asItemId)
 
 describe('selectKeyboardTabStopItemId', () =>
 {
@@ -22,7 +16,7 @@ describe('selectKeyboardTabStopItemId', () =>
   {
     const state = {
       keyboardFocusItemId: asItemId('focus-me'),
-      tiers: [makeTier('tier-s', ['a', 'b'])],
+      tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: ids('a', 'b') })],
       unrankedItemIds: [],
     }
     expect(selectKeyboardTabStopItemId(state)).toBe('focus-me')
@@ -32,7 +26,10 @@ describe('selectKeyboardTabStopItemId', () =>
   {
     const state = {
       keyboardFocusItemId: null,
-      tiers: [makeTier('tier-s', ['first']), makeTier('tier-a', ['second'])],
+      tiers: [
+        makeTier({ id: 'tier-s', name: 'S', itemIds: ids('first') }),
+        makeTier({ id: 'tier-a', name: 'A', itemIds: ids('second') }),
+      ],
       unrankedItemIds: [],
     }
     expect(selectKeyboardTabStopItemId(state)).toBe('first')
@@ -42,8 +39,8 @@ describe('selectKeyboardTabStopItemId', () =>
   {
     const state = {
       keyboardFocusItemId: null,
-      tiers: [makeTier('tier-s', [])],
-      unrankedItemIds: [asItemId('u1')],
+      tiers: [makeTier({ id: 'tier-s', name: 'S' })],
+      unrankedItemIds: ids('u1'),
     }
     expect(selectKeyboardTabStopItemId(state)).toBe('u1')
   })
@@ -52,7 +49,7 @@ describe('selectKeyboardTabStopItemId', () =>
   {
     const state = {
       keyboardFocusItemId: null,
-      tiers: [makeTier('tier-s', [])],
+      tiers: [makeTier({ id: 'tier-s', name: 'S' })],
       unrankedItemIds: [],
     }
     expect(selectKeyboardTabStopItemId(state)).toBeNull()
@@ -60,8 +57,10 @@ describe('selectKeyboardTabStopItemId', () =>
 
   it('caches fallback when tiers & unranked are ref-stable', () =>
   {
-    const tiers = [makeTier('tier-s', ['a', 'b'])]
-    const unrankedItemIds = [asItemId('u1')]
+    const tiers = [
+      makeTier({ id: 'tier-s', name: 'S', itemIds: ids('a', 'b') }),
+    ]
+    const unrankedItemIds = ids('u1')
 
     const state = { keyboardFocusItemId: null, tiers, unrankedItemIds }
 
@@ -77,8 +76,8 @@ describe('selectKeyboardTabStopItemId', () =>
 
   it('invalidates cache when tiers reference changes', () =>
   {
-    const tiers1 = [makeTier('tier-s', ['a'])]
-    const tiers2 = [makeTier('tier-s', ['b'])]
+    const tiers1 = [makeTier({ id: 'tier-s', name: 'S', itemIds: ids('a') })]
+    const tiers2 = [makeTier({ id: 'tier-s', name: 'S', itemIds: ids('b') })]
 
     const first = selectKeyboardTabStopItemId({
       keyboardFocusItemId: null,
@@ -97,9 +96,9 @@ describe('selectKeyboardTabStopItemId', () =>
 
   it('invalidates cache when unranked reference changes', () =>
   {
-    const tiers = [makeTier('tier-s', [])]
-    const unranked1 = [asItemId('u1')]
-    const unranked2 = [asItemId('u2')]
+    const tiers = [makeTier({ id: 'tier-s', name: 'S' })]
+    const unranked1 = ids('u1')
+    const unranked2 = ids('u2')
 
     expect(
       selectKeyboardTabStopItemId({

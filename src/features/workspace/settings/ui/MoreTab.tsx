@@ -16,6 +16,7 @@ import {
   STORAGE_NEAR_FULL_MESSAGE,
   STORAGE_QUOTA_BYTES,
 } from '~/shared/lib/storageMetering'
+import { GITHUB_REPO_URL } from '~/shared/lib/urls'
 import { THEMES } from '~/shared/theme/tokens'
 import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -164,7 +165,7 @@ export const MoreTab = ({
           v{__APP_VERSION__}
         </span>
         <a
-          href="https://github.com/ggfincke/tierlistbuilder"
+          href={GITHUB_REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Open the tierlistbuilder GitHub repository"

@@ -1,22 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
+import { makeBoardSnapshot, makeTier } from '../fixtures'
 
-const makeBoard = (title: string): BoardSnapshot => ({
-  title,
-  tiers: [
-    {
-      id: 'tier-s',
-      name: 'S',
-      colorSpec: createPaletteTierColorSpec(0),
-      itemIds: [],
-    },
-  ],
-  unrankedItemIds: [],
-  items: {},
-  deletedItems: [],
-})
+const makeBoard = (title: string): BoardSnapshot =>
+  makeBoardSnapshot({
+    title,
+    tiers: [makeTier({ id: 'tier-s', name: 'S' })],
+  })
 
 const resetStore = () =>
 {

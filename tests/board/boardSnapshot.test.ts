@@ -6,6 +6,9 @@ import {
   normalizeBoardSnapshot,
 } from '~/features/workspace/boards/model/boardSnapshot'
 import { normalizeCanonicalTierColorSpec } from '~/shared/theme/tierColors'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
+import { asInvalid } from '../typeHelpers'
 
 describe('createInitialBoardData', () =>
 {
@@ -36,31 +39,30 @@ describe('resetBoardData', () =>
 {
   it('moves all items to unranked, resets tiers, & preserves title', () =>
   {
-    const state = {
+    const state = makeBoardSnapshot({
       title: 'Custom Title',
       tiers: [
-        {
+        makeTier({
           id: 'tier-s',
           name: 'S',
-          colorSpec: { kind: 'custom' as const, hex: '#ff0000' },
-          itemIds: ['a', 'b'],
-        },
-        {
+          colorSpec: { kind: 'custom', hex: '#ff0000' },
+          itemIds: [asItemId('a'), asItemId('b')],
+        }),
+        makeTier({
           id: 'tier-a',
           name: 'A',
-          colorSpec: { kind: 'custom' as const, hex: '#00ff00' },
-          itemIds: ['c'],
-        },
+          colorSpec: { kind: 'custom', hex: '#00ff00' },
+          itemIds: [asItemId('c')],
+        }),
       ],
-      unrankedItemIds: ['d'],
+      unrankedItemIds: [asItemId('d')],
       items: {
-        a: { id: 'a' },
-        b: { id: 'b' },
-        c: { id: 'c' },
-        d: { id: 'd' },
+        [asItemId('a')]: makeItem({ id: asItemId('a') }),
+        [asItemId('b')]: makeItem({ id: asItemId('b') }),
+        [asItemId('c')]: makeItem({ id: asItemId('c') }),
+        [asItemId('d')]: makeItem({ id: asItemId('d') }),
       },
-      deletedItems: [],
-    }
+    })
 
     const result = resetBoardData(state, 'classic')
     expect(result.title).toBe('Custom Title')
@@ -109,7 +111,7 @@ describe('normalizeBoardSnapshot', () =>
       },
     ]
     const result = normalizeBoardSnapshot(
-      { tiers: rawTiers as never },
+      { tiers: asInvalid(rawTiers) },
       'classic'
     )
     expect(result.tiers[0].colorSpec).toEqual({

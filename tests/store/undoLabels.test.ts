@@ -4,20 +4,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
+import { makeTier } from '../fixtures'
 
 const resetStore = () =>
 {
   useActiveBoardStore.setState({
     title: 'Test',
-    tiers: [
-      {
-        id: 't-1',
-        name: 'S',
-        colorSpec: createPaletteTierColorSpec(0),
-        itemIds: [],
-      },
-    ],
+    tiers: [makeTier({ id: 'tier-1', name: 'S' })],
     unrankedItemIds: [],
     items: {},
     deletedItems: [],

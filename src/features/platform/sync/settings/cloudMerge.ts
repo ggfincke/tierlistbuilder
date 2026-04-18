@@ -22,10 +22,27 @@ export type SettingsMergeResult =
   | { kind: 'aborted' }
   | { kind: 'error'; error: unknown }
 
+// repository surface injected by callers — production wires the convex
+// imperative adapters; tests pass in-memory fakes so the merge logic can
+// run w/o vi.mock around the cloud module
+export interface SettingsMergeDeps
+{
+  getMySettings: () => Promise<AppSettings | null>
+  upsertMySettings: (args: {
+    settings: AppSettings
+  }) => Promise<{ updatedAt: number }>
+}
+
+const DEFAULT_SETTINGS_MERGE_DEPS: SettingsMergeDeps = {
+  getMySettings: getMySettingsImperative,
+  upsertMySettings: upsertMySettingsImperative,
+}
+
 interface MergeSettingsOptions
 {
   userId: string
   shouldProceed?: () => boolean
+  deps?: SettingsMergeDeps
 }
 
 // load AppSettings into the store w/o tripping the subscriber — caller arms
@@ -40,6 +57,7 @@ const applyAppSettingsToStore = (settings: AppSettings): void =>
 export const mergeSettingsOnFirstLogin = async ({
   userId,
   shouldProceed,
+  deps = DEFAULT_SETTINGS_MERGE_DEPS,
 }: MergeSettingsOptions): Promise<SettingsMergeResult> =>
 {
   const canProceed = makeProceedGuard(shouldProceed)
@@ -52,7 +70,7 @@ export const mergeSettingsOnFirstLogin = async ({
   let cloudSettings: AppSettings | null
   try
   {
-    cloudSettings = await getMySettingsImperative()
+    cloudSettings = await deps.getMySettings()
   }
   catch (error)
   {
@@ -83,7 +101,7 @@ export const mergeSettingsOnFirstLogin = async ({
   const localSettings = extractAppSettings(useSettingsStore.getState())
   try
   {
-    const result = await upsertMySettingsImperative({ settings: localSettings })
+    const result = await deps.upsertMySettings({ settings: localSettings })
     if (!canProceed())
     {
       return { kind: 'aborted' }
