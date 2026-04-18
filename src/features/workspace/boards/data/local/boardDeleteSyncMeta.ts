@@ -7,6 +7,7 @@ import {
   readBrowserStorageItem,
   writeBrowserStorageItem,
 } from '~/shared/lib/browserStorage'
+import { isNonEmptyString } from '~/shared/lib/typeGuards'
 
 export const BOARD_DELETE_SYNC_META_STORAGE_KEY =
   'tier-list-builder-board-delete-sync-meta-v1'
@@ -19,9 +20,6 @@ export interface BoardDeleteSyncMeta
 {
   pendingExternalIds: string[]
 }
-
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.length > 0
 
 const normalizeBoardDeleteSyncMeta = (raw: unknown): BoardDeleteSyncMeta =>
 {

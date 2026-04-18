@@ -15,9 +15,13 @@ import {
   purgeTierPresetSyncMeta,
   stampTierPresetPending,
 } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
+import { computeBackoffDelay } from '~/shared/lib/sync/backoff'
+import {
+  isOfflineError,
+  makeOfflineError,
+} from '~/shared/lib/sync/offlineError'
+import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { useSyncStatusStore } from '../status/syncStatusStore'
-
-const RETRY_MAX_MS = 30_000
 
 // flush input — discriminated on op so 'delete' doesn't drag along an
 // unused snapshot field. for upserts the snapshot is the latest known
@@ -61,12 +65,6 @@ export interface TierPresetSyncRunner
   dispose: () => Promise<void>
 }
 
-const computeBackoffDelay = (baseMs: number, retryAttempt: number): number =>
-{
-  const exponent = Math.min(retryAttempt, 16)
-  return Math.min(baseMs * 2 ** exponent, RETRY_MAX_MS)
-}
-
 const createController = (): PresetController => ({
   timer: null,
   queued: null,
@@ -94,6 +92,7 @@ export const createTierPresetSyncRunner = (
 {
   const controllers = new Map<UserPresetId, PresetController>()
   const inFlightPromises = new Set<Promise<void>>()
+  const canProceed = makeProceedGuard(options.shouldProceed)
   let disposed = false
 
   const getController = (presetId: UserPresetId): PresetController =>
@@ -226,7 +225,7 @@ export const createTierPresetSyncRunner = (
   {
     if (disposed) return
 
-    if (options.shouldProceed && !options.shouldProceed())
+    if (!canProceed())
     {
       const controller = controllers.get(presetId)
       if (controller)
@@ -316,10 +315,10 @@ export interface TierPresetCloudSyncHandle
 
 const flushOne = async (
   work: TierPresetSyncWork,
-  shouldProceed?: () => boolean
+  canProceed: () => boolean
 ): Promise<TierPresetFlushResult> =>
 {
-  if (shouldProceed && !shouldProceed())
+  if (!canProceed())
   {
     return { kind: 'error', error: new Error('auth changed mid-flush') }
   }
@@ -329,7 +328,7 @@ const flushOne = async (
   // walks the sidecar on online -> drains everything in one pass
   if (!useSyncStatusStore.getState().online)
   {
-    return { kind: 'error', error: new Error('offline') }
+    return { kind: 'error', error: makeOfflineError() }
   }
 
   try
@@ -357,15 +356,15 @@ export const setupTierPresetCloudSync = (
   options: SetupTierPresetCloudSyncOptions
 ): TierPresetCloudSyncHandle =>
 {
+  const canProceed = makeProceedGuard(options.shouldProceed)
   const runner = createTierPresetSyncRunner({
     userId: options.userId,
     debounceMs: options.debounceMs,
     shouldProceed: options.shouldProceed,
-    flush: (work) => flushOne(work, options.shouldProceed),
+    flush: (work) => flushOne(work, canProceed),
     onError: (presetId, error) =>
     {
-      const message = error instanceof Error ? error.message : String(error)
-      if (message === 'offline') return
+      if (isOfflineError(error)) return
       console.warn(`Tier preset sync failed for ${presetId}:`, error)
     },
   })
@@ -378,7 +377,7 @@ export const setupTierPresetCloudSync = (
     (state) => state.userPresets,
     (next) =>
     {
-      if (options.shouldProceed && !options.shouldProceed()) return
+      if (!canProceed()) return
       const ops = diffUserPresets(prevPresets, next)
       prevPresets = next
 

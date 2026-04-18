@@ -16,6 +16,7 @@ import {
   generateSnapshotUploadUrlImperative,
   resolveShortLinkImperative,
 } from '~/features/workspace/sharing/data/cloud/shortLinkRepository'
+import { isNonEmptyString } from '~/shared/lib/typeGuards'
 
 const SHORT_LINK_QUERY_PARAM = 's'
 
@@ -37,7 +38,7 @@ export const getShortLinkSlugFromUrl = (): string | null =>
   if (typeof window === 'undefined') return null
   const params = new URLSearchParams(window.location.search)
   const slug = params.get(SHORT_LINK_QUERY_PARAM)
-  return slug && slug.length > 0 ? slug : null
+  return isNonEmptyString(slug) ? slug : null
 }
 
 // scrub the short-link slug from the address bar w/o triggering navigation.

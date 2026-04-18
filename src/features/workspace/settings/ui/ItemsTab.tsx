@@ -5,6 +5,7 @@ import { useCallback, useId, useState } from 'react'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { fetchImageAsItemImage } from '~/features/workspace/settings/lib/imageFromUrl'
+import { formatError } from '~/shared/lib/errors'
 import { ColorInput } from '~/shared/ui/ColorInput'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
@@ -73,7 +74,7 @@ export const ItemsTab = ({
     }
     catch (err)
     {
-      setUrlError(err instanceof Error ? err.message : 'Failed to load image.')
+      setUrlError(formatError(err, 'Failed to load image.'))
     }
     finally
     {

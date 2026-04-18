@@ -4,6 +4,7 @@
 import { announce } from '~/shared/a11y/announce'
 import { clamp } from '~/shared/lib/math'
 import { generateItemId } from '~/shared/lib/id'
+import { isPresent } from '~/shared/lib/typeGuards'
 import { areTierColorSpecsEqual } from '~/shared/theme/tierColors'
 import {
   createInitialBoardData,
@@ -429,7 +430,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
 
       const clearedItems = allItemIds
         .map((itemId) => state.items[itemId])
-        .filter(Boolean)
+        .filter(isPresent)
       const nextDeleted = [...clearedItems, ...state.deletedItems].slice(
         0,
         MAX_DELETED_ITEMS

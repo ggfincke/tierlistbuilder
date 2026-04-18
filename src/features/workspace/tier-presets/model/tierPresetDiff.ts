@@ -2,15 +2,15 @@
 // pure diff helpers for useTierPresetStore.userPresets; derives per-preset ops.
 // new -> upsert, removed -> delete, content changed -> upsert. built-ins excluded
 
-import type { UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  isUserPresetId,
+  type UserPresetId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import type {
   TierPreset,
   TierPresetTier,
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
-
-const isUserPresetId = (id: string): id is UserPresetId =>
-  id.startsWith('preset-')
 
 const colorSpecsEqual = (
   a: TierColorSpec | undefined,

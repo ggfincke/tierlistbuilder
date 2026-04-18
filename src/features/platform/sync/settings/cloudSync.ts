@@ -13,11 +13,12 @@ import {
   markSettingsSynced,
   stampSettingsPending,
 } from '~/features/workspace/settings/data/local/settingsSyncMeta'
+import { computeBackoffDelay } from '~/shared/lib/sync/backoff'
+import {
+  isOfflineError,
+  makeOfflineError,
+} from '~/shared/lib/sync/offlineError'
 import { useSyncStatusStore } from '../status/syncStatusStore'
-
-// retry backoff cap mirrors cloudSyncScheduler's RETRY_MAX_MS (30s) so
-// repeated transient failures don't eat infinite battery on offline phones
-const RETRY_MAX_MS = 30_000
 
 export type SettingsFlushResult =
   | { kind: 'synced'; updatedAt: number }
@@ -51,13 +52,6 @@ export interface SettingsSyncRunner
   // drain in-flight & queued work then prevent further scheduling. returns
   // when any current flush settles so callers can await tear-down cleanly
   dispose: () => Promise<void>
-}
-
-const computeBackoffDelay = (baseMs: number, retryAttempt: number): number =>
-{
-  const exponent = Math.min(retryAttempt, 16)
-  const computed = baseMs * 2 ** exponent
-  return Math.min(computed, RETRY_MAX_MS)
 }
 
 export const createSettingsSyncRunner = (
@@ -254,7 +248,7 @@ export const setupSettingsCloudSync = (
       // runner backs off w/o making a doomed network call
       if (!useSyncStatusStore.getState().online)
       {
-        return { kind: 'error', error: new Error('offline') }
+        return { kind: 'error', error: makeOfflineError() }
       }
 
       try
@@ -271,8 +265,7 @@ export const setupSettingsCloudSync = (
     {
       // suppress the warn for synthetic offline errors — they're expected
       // during disconnects & not worth surfacing per offline edit
-      const message = error instanceof Error ? error.message : String(error)
-      if (message === 'offline') return
+      if (isOfflineError(error)) return
       console.warn('Settings sync failed:', error)
     },
   })

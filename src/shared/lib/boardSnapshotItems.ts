@@ -6,6 +6,7 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { isPresent } from '~/shared/lib/typeGuards'
 
 // visit every live & deleted snapshot item in stable order
 export const forEachSnapshotItem = (
@@ -35,7 +36,7 @@ export const collectSnapshotItems = <T>(
   forEachSnapshotItem(snapshot, (item, id) =>
   {
     const value = collect(item, id)
-    if (value !== null && value !== undefined)
+    if (isPresent(value))
     {
       results.push(value)
     }

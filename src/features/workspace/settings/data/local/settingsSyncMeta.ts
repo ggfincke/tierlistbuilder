@@ -7,6 +7,10 @@ import {
   readBrowserStorageItem,
   writeBrowserStorageItem,
 } from '~/shared/lib/browserStorage'
+import {
+  isNonEmptyString,
+  isPositiveFiniteNumber,
+} from '~/shared/lib/typeGuards'
 
 export const SETTINGS_SYNC_META_STORAGE_KEY =
   'tier-list-builder-settings-sync-meta-v1'
@@ -24,12 +28,6 @@ export const EMPTY_SETTINGS_SYNC_META: SettingsSyncMeta = {
   ownerUserId: null,
 }
 
-const isFiniteMillis = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && value > 0
-
-const isUserId = (value: unknown): value is string =>
-  typeof value === 'string' && value.length > 0
-
 const normalizeSettingsSyncMeta = (raw: unknown): SettingsSyncMeta =>
 {
   if (!raw || typeof raw !== 'object')
@@ -39,13 +37,15 @@ const normalizeSettingsSyncMeta = (raw: unknown): SettingsSyncMeta =>
 
   const candidate = raw as Partial<Record<keyof SettingsSyncMeta, unknown>>
   return {
-    pendingSyncAt: isFiniteMillis(candidate.pendingSyncAt)
+    pendingSyncAt: isPositiveFiniteNumber(candidate.pendingSyncAt)
       ? candidate.pendingSyncAt
       : null,
-    lastSyncedAt: isFiniteMillis(candidate.lastSyncedAt)
+    lastSyncedAt: isPositiveFiniteNumber(candidate.lastSyncedAt)
       ? candidate.lastSyncedAt
       : null,
-    ownerUserId: isUserId(candidate.ownerUserId) ? candidate.ownerUserId : null,
+    ownerUserId: isNonEmptyString(candidate.ownerUserId)
+      ? candidate.ownerUserId
+      : null,
   }
 }
 

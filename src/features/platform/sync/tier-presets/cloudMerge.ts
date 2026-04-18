@@ -2,7 +2,10 @@
 // first-login merge for user-saved tier presets — silent union by externalId;
 // pendingOp drives direction (push/delete/pull); unflushed intent wins
 
-import type { UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  isUserPresetId,
+  type UserPresetId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'
 import {
@@ -17,6 +20,7 @@ import {
 } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
 import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
+import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 
 const PRESET_MERGE_CONCURRENCY = 3
 
@@ -34,12 +38,6 @@ interface MergePresetsOptions
   userId: string
   shouldProceed?: () => boolean
 }
-
-const shouldContinue = (shouldProceed?: () => boolean): boolean =>
-  shouldProceed ? shouldProceed() : true
-
-const isUserPresetId = (id: string): id is UserPresetId =>
-  id.startsWith('preset-')
 
 // hydrate a cloud row into a TierPreset; all cloud-stored presets are user
 // presets (built-ins are client-side only) & externalId == PresetId
@@ -180,10 +178,10 @@ const planMergeTasks = (
 const executeTask = async (
   task: MergeTask,
   userId: string,
-  shouldProceed?: () => boolean
+  canProceed: () => boolean
 ): Promise<{ ok: boolean }> =>
 {
-  if (!shouldContinue(shouldProceed))
+  if (!canProceed())
   {
     return { ok: false }
   }
@@ -225,7 +223,9 @@ export const mergeTierPresetsOnFirstLogin = async ({
   shouldProceed,
 }: MergePresetsOptions): Promise<PresetMergeResult> =>
 {
-  if (!shouldContinue(shouldProceed))
+  const canProceed = makeProceedGuard(shouldProceed)
+
+  if (!canProceed())
   {
     return {
       kind: 'aborted',
@@ -252,7 +252,7 @@ export const mergeTierPresetsOnFirstLogin = async ({
     }
   }
 
-  if (!shouldContinue(shouldProceed))
+  if (!canProceed())
   {
     return {
       kind: 'aborted',
@@ -279,10 +279,10 @@ export const mergeTierPresetsOnFirstLogin = async ({
   const settled = await mapAsyncLimitSettled(
     tasks,
     PRESET_MERGE_CONCURRENCY,
-    (task) => executeTask(task, userId, shouldProceed)
+    (task) => executeTask(task, userId, canProceed)
   )
 
-  if (!shouldContinue(shouldProceed))
+  if (!canProceed())
   {
     return {
       kind: 'aborted',

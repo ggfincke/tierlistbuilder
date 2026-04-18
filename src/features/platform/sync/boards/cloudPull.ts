@@ -16,6 +16,7 @@ import {
 import { loadBoardIntoSession } from '~/features/workspace/boards/data/local/localBoardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { useCloudPullProgressStore } from '../progress/useCloudPullProgressStore'
 
 const PULL_CONCURRENCY = 3
@@ -44,9 +45,6 @@ type PersistBoardResult =
   | { kind: 'success'; meta: BoardMeta }
   | { kind: 'failed' }
   | { kind: 'aborted' }
-
-const shouldContinue = (shouldProceed?: () => boolean): boolean =>
-  shouldProceed ? shouldProceed() : true
 
 const getExistingCloudBoardExternalIds = (): Set<string> =>
 {
@@ -100,7 +98,9 @@ const persistDownloadedBoard = async (
   shouldProceed?: () => boolean
 ): Promise<PersistBoardResult> =>
 {
-  if (!shouldContinue(shouldProceed))
+  const canProceed = makeProceedGuard(shouldProceed)
+
+  if (!canProceed())
   {
     return { kind: 'aborted' }
   }
@@ -110,7 +110,7 @@ const persistDownloadedBoard = async (
     return { kind: 'failed' }
   }
 
-  if (!shouldContinue(shouldProceed))
+  if (!canProceed())
   {
     return { kind: 'aborted' }
   }
@@ -158,11 +158,12 @@ const replaceLocalRegistry = async (
   shouldProceed?: () => boolean
 ): Promise<BoardId | null> =>
 {
+  const canProceed = makeProceedGuard(shouldProceed)
   const previousRegistry = [...useWorkspaceBoardRegistryStore.getState().boards]
   const firstId = newMetas[0]!.id
 
   await loadBoardIntoSession(firstId, shouldProceed)
-  if (!shouldContinue(shouldProceed))
+  if (!canProceed())
   {
     return null
   }
@@ -187,6 +188,7 @@ const mergeIntoLocalRegistry = async (
     return null
   }
 
+  const canProceed = makeProceedGuard(shouldProceed)
   const registryStore = useWorkspaceBoardRegistryStore.getState()
   const hadActiveBoard = Boolean(registryStore.activeBoardId)
   const existingBoards = [...registryStore.boards]
@@ -215,7 +217,7 @@ const mergeIntoLocalRegistry = async (
   if (!hadActiveBoard)
   {
     await loadBoardIntoSession(nextActiveId, shouldProceed)
-    if (!shouldContinue(shouldProceed))
+    if (!canProceed())
     {
       return null
     }
@@ -233,7 +235,9 @@ export const pullAllCloudBoards = async ({
   shouldProceed,
 }: PullCloudBoardsOptions): Promise<PullCloudBoardsResult> =>
 {
-  if (!shouldContinue(shouldProceed))
+  const canProceed = makeProceedGuard(shouldProceed)
+
+  if (!canProceed())
   {
     return { kind: 'aborted' }
   }
@@ -291,9 +295,7 @@ export const pullAllCloudBoards = async ({
           return chunk.map<PersistBoardResult>((_meta) =>
           {
             useCloudPullProgressStore.getState().bump()
-            return shouldContinue(shouldProceed)
-              ? { kind: 'failed' }
-              : { kind: 'aborted' }
+            return canProceed() ? { kind: 'failed' } : { kind: 'aborted' }
           })
         }
       }
@@ -308,10 +310,7 @@ export const pullAllCloudBoards = async ({
     result.kind === 'success' ? [result.meta] : []
   )
 
-  if (
-    !shouldContinue(shouldProceed) ||
-    results.some((result) => result.kind === 'aborted')
-  )
+  if (!canProceed() || results.some((result) => result.kind === 'aborted'))
   {
     cleanupPulledBoards(successful)
     return { kind: 'aborted' }
@@ -326,7 +325,7 @@ export const pullAllCloudBoards = async ({
         : await mergeIntoLocalRegistry(successful, shouldProceed)
   }
 
-  if (!shouldContinue(shouldProceed))
+  if (!canProceed())
   {
     cleanupPulledBoards(successful)
     return { kind: 'aborted' }

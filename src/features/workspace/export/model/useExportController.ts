@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { formatError } from '~/shared/lib/errors'
 import { THEMES } from '~/shared/theme/tokens'
 import type { ImageFormat } from '~/shared/types/export'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -147,9 +148,7 @@ export const useExportController = () =>
     {
       useActiveBoardStore
         .getState()
-        .setRuntimeError(
-          err instanceof Error ? err.message : 'Failed to copy to clipboard.'
-        )
+        .setRuntimeError(formatError(err, 'Failed to copy to clipboard.'))
     }
     finally
     {

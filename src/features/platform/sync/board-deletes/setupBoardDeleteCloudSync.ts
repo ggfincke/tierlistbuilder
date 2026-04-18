@@ -8,6 +8,8 @@ import {
 } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { deleteBoardImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
+import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
+import { makeOfflineError } from '~/shared/lib/sync/offlineError'
 import { isPermanentConvexError } from '../lib/convexErrorCode'
 import { useSyncStatusStore } from '../status/syncStatusStore'
 
@@ -43,8 +45,7 @@ export const setupBoardDeleteCloudSync = (
   let rerunRequested = false
   let disposed = false
 
-  const canProceed = (): boolean =>
-    options.shouldProceed ? options.shouldProceed() : true
+  const canProceed = makeProceedGuard(options.shouldProceed)
 
   const drainOnce = async (): Promise<void> =>
   {
@@ -67,7 +68,7 @@ export const setupBoardDeleteCloudSync = (
         async (cloudExternalId) =>
         {
           if (disposed || !canProceed()) throw new Error('aborted')
-          if (!useSyncStatusStore.getState().online) throw new Error('offline')
+          if (!useSyncStatusStore.getState().online) throw makeOfflineError()
           await deleteBoardImperative({ boardExternalId: cloudExternalId })
           return cloudExternalId
         }

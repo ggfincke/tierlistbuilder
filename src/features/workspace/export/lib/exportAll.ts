@@ -16,6 +16,7 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { toFileBase } from '~/shared/lib/fileName'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { dataUrlToBytes } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
@@ -27,27 +28,6 @@ import {
 import { getBlobsBatch } from '~/shared/images/imageStore'
 
 const BOARD_JSON_EXPORT_CONCURRENCY = 2
-
-// convert a data URL to raw bytes for ZIP packaging
-// handles both base64 (raster) & URL-encoded (SVG) data URLs
-const dataUrlToZipEntry = (dataUrl: string): Uint8Array | string =>
-{
-  // SVG data URLs are URL-encoded text, not base64
-  if (dataUrl.startsWith('data:image/svg+xml'))
-  {
-    const raw = dataUrl.split(',')[1]
-    return decodeURIComponent(raw)
-  }
-
-  const base64 = dataUrl.split(',')[1]
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++)
-  {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes
-}
 
 // envelope type for multi-board JSON export — each board's `data` is the
 // wire shape w/ inline base64 images so the file stays self-contained
@@ -262,7 +242,6 @@ export const exportAllBoardsAsPdf = async (
 
   if (captures.length === 0) return
 
-  // dynamically import jsPDF to keep the main bundle slim
   const { jsPDF } = await import('jspdf')
 
   // build multi-page PDF
@@ -304,7 +283,6 @@ export const exportAllBoardsAsImages = async (
 
   if (captures.length === 0) return
 
-  // dynamically import jszip to keep the main bundle slim
   const JSZip = (await import('jszip')).default
   const zip = new JSZip()
 
@@ -324,7 +302,7 @@ export const exportAllBoardsAsImages = async (
     }
     usedNames.add(base)
 
-    zip.file(`${base}.${ext}`, dataUrlToZipEntry(cap.dataUrl))
+    zip.file(`${base}.${ext}`, dataUrlToBytes(cap.dataUrl))
   }
 
   const blob = await zip.generateAsync({ type: 'blob' })
