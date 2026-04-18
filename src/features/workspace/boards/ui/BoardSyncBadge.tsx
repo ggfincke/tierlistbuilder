@@ -1,55 +1,11 @@
 // src/features/workspace/boards/ui/BoardSyncBadge.tsx
-// inline sync-status badge for per-board lists (BoardManager). renders nothing when idle;
-// surfaces a small icon for every other state. shares the taxonomy w/ SyncStatusIndicator
-
-import {
-  AlertCircle,
-  CloudOff,
-  RefreshCw,
-  TriangleAlert,
-  type LucideIcon,
-} from 'lucide-react'
+// inline sync-status badge for per-board lists (BoardManager); renders nothing
+// when idle, otherwise a small icon w/ short tooltip copy
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import {
-  useBoardSyncStatus,
-  type EffectiveBoardSyncStatus,
-} from '~/features/platform/sync/status/useBoardSyncStatus'
-
-interface BadgeVisual
-{
-  Icon: LucideIcon
-  description: string
-  colorClass: string
-  spin?: boolean
-}
-
-const BADGE_VISUALS: Record<
-  Exclude<EffectiveBoardSyncStatus, 'idle'>,
-  BadgeVisual
-> = {
-  syncing: {
-    Icon: RefreshCw,
-    description: 'Saving…',
-    colorClass: 'text-[var(--t-text-secondary)]',
-    spin: true,
-  },
-  error: {
-    Icon: TriangleAlert,
-    description: 'Sync failed — retrying',
-    colorClass: 'text-[var(--t-destructive-hover)]',
-  },
-  conflict: {
-    Icon: AlertCircle,
-    description: 'Conflicting edits — resolve in the dialog',
-    colorClass: 'text-[var(--t-destructive-hover)]',
-  },
-  offline: {
-    Icon: CloudOff,
-    description: 'Offline — will sync when connection returns',
-    colorClass: 'text-[var(--t-text-faint)]',
-  },
-}
+import { useBoardSyncStatus } from '~/features/platform/sync/status/useBoardSyncStatus'
+import { SyncStatusVisualView } from '~/features/platform/sync/status/SyncStatusVisualView'
+import { getSyncStatusVisual } from '~/features/platform/sync/status/syncStatusVisuals'
 
 interface BoardSyncBadgeProps
 {
@@ -71,22 +27,15 @@ export const BoardSyncBadge = ({
     return null
   }
 
-  const { Icon, description, colorClass, spin } = BADGE_VISUALS[status]
-  const tooltip = `${boardTitle}: ${description}`
+  const visual = getSyncStatusVisual(status, 'short')
+  const tooltip = `${boardTitle}: ${visual.description}`
 
   return (
-    <span
-      role="status"
-      aria-live="polite"
+    <SyncStatusVisualView
+      visual={visual}
+      variant="inline"
       title={tooltip}
-      className={`inline-flex h-4 w-4 shrink-0 items-center justify-center ${colorClass}`}
-    >
-      <Icon
-        className={`h-3 w-3 ${spin ? 'animate-spin' : ''}`}
-        strokeWidth={2}
-        aria-hidden="true"
-      />
-      <span className="sr-only">{tooltip}</span>
-    </span>
+      srLabel={tooltip}
+    />
   )
 }

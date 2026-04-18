@@ -3,6 +3,12 @@
 
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 
+import { joinClassNames } from '~/shared/lib/className'
+import {
+  BUTTON_DISABLED_CLASS,
+  BUTTON_FOCUS_CLASS,
+} from '~/shared/ui/buttonBase'
+
 type SecondaryButtonVariant = 'outline' | 'surface'
 type SecondaryButtonTone = 'default' | 'destructive'
 type SecondaryButtonSize = 'sm' | 'md'
@@ -48,7 +54,7 @@ export const SecondaryButton = forwardRef<
 >(
   (
     {
-      className = '',
+      className,
       size = 'md',
       tone = 'default',
       type = 'button',
@@ -60,7 +66,14 @@ export const SecondaryButton = forwardRef<
     <button
       ref={ref}
       type={type}
-      className={`focus-custom inline-flex items-center justify-center gap-1.5 rounded-md border transition disabled:cursor-not-allowed disabled:opacity-45 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${SIZE_CLASS[size]} ${getToneClass(variant, tone)} ${className}`}
+      className={joinClassNames(
+        BUTTON_FOCUS_CLASS,
+        'inline-flex items-center justify-center gap-1.5 rounded-md border transition focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]',
+        BUTTON_DISABLED_CLASS,
+        SIZE_CLASS[size],
+        getToneClass(variant, tone),
+        className
+      )}
       {...props}
     />
   )

@@ -22,9 +22,8 @@ export const selectCanRedo = (
 
 // true when the user is in keyboard-browse mode w/ at least one selected item
 export const selectHasKeyboardSelection = (
-  state: Pick<ActiveBoardRuntimeState, 'keyboardMode' | 'selectedItemIdSet'>
-): boolean =>
-  state.keyboardMode === 'browse' && state.selectedItemIdSet.size > 0
+  state: Pick<ActiveBoardRuntimeState, 'keyboardMode' | 'selection'>
+): boolean => state.keyboardMode === 'browse' && state.selection.ids.length > 0
 
 // cached fallback item ID keyed by tiers & unranked array refs;
 // avoids O(items²) re-walk when identity is unchanged across updates

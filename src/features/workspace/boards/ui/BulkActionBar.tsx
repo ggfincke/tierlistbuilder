@@ -25,7 +25,7 @@ export const BulkActionBar = () =>
     clearSelection,
   } = useActiveBoardStore(
     useShallow((state) => ({
-      selectedCount: state.selectedItemIds.length,
+      selectedCount: state.selection.ids.length,
       isDragging: selectIsDragging(state),
       tiers: state.tiers,
       moveSelectedToTier: state.moveSelectedToTier,

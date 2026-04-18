@@ -11,6 +11,8 @@ import type {
   ActiveBoardRuntimeState,
   ContainerSnapshot,
   KeyboardMode,
+  Selection,
+  UndoEntry,
 } from '~/features/workspace/boards/model/runtime'
 import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
@@ -51,8 +53,7 @@ export interface BoardDataSlice extends BoardSnapshot
 // selection slice — multi-item selection state & bulk actions
 export interface SelectionSlice
 {
-  selectedItemIds: ItemId[]
-  selectedItemIdSet: ReadonlySet<ItemId>
+  selection: Selection
   lastClickedItemId: ItemId | null
   toggleItemSelected: (
     itemId: ItemId,
@@ -90,15 +91,12 @@ export interface KeyboardSlice
   cancelKeyboardDrag: () => void
 }
 
-// undo slice — past/future snapshot stacks & navigation. pastLabels/futureLabels
-// are parallel arrays describing the action that produced each snapshot, used
-// for undo/redo toasts; must remain length-synced w/ past/future
+// undo slice — past/future UndoEntry stacks & navigation. each entry bundles
+// a board snapshot w/ the label describing the action that produced it
 export interface UndoSlice
 {
-  past: BoardSnapshot[]
-  pastLabels: string[]
-  future: BoardSnapshot[]
-  futureLabels: string[]
+  past: UndoEntry[]
+  future: UndoEntry[]
   undo: () => { label: string } | null
   redo: () => { label: string } | null
 }

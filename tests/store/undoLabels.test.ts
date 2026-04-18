@@ -1,5 +1,5 @@
-// tests/undoLabels.test.ts
-// undo/redo label tracking — parallel array length invariant & round-trip labels
+// tests/store/undoLabels.test.ts
+// undo/redo label tracking — UndoEntry snapshot/label pairing & round-trip labels
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -22,16 +22,13 @@ const resetStore = () =>
     items: {},
     deletedItems: [],
     past: [],
-    pastLabels: [],
     future: [],
-    futureLabels: [],
     activeItemId: null,
     dragPreview: null,
     dragGroupIds: [],
     keyboardMode: 'idle',
     keyboardFocusItemId: null,
-    selectedItemIds: [],
-    selectedItemIdSet: new Set(),
+    selection: { ids: [], set: new Set() },
     lastClickedItemId: null,
     itemsManuallyMoved: false,
     runtimeError: null,
@@ -50,16 +47,18 @@ describe('undo labels', () =>
     resetStore()
   })
 
-  it('keeps past/pastLabels & future/futureLabels length-synced', () =>
+  it('records labels on past entries in order', () =>
   {
     const store = useActiveBoardStore.getState()
     store.addTier('classic')
     store.addTier('classic')
 
     const state = useActiveBoardStore.getState()
-    expect(state.past.length).toBe(state.pastLabels.length)
-    expect(state.future.length).toBe(state.futureLabels.length)
-    expect(state.pastLabels).toEqual(['Add tier', 'Add tier'])
+    expect(state.past.map((entry) => entry.label)).toEqual([
+      'Add tier',
+      'Add tier',
+    ])
+    expect(state.future).toEqual([])
   })
 
   it('returns the label of the undone action', () =>
@@ -96,14 +95,14 @@ describe('undo labels', () =>
     store.addTier('classic')
 
     const before = useActiveBoardStore.getState()
-    expect(before.pastLabels).toEqual(['Add tier'])
-    expect(before.futureLabels).toEqual([])
+    expect(before.past.map((entry) => entry.label)).toEqual(['Add tier'])
+    expect(before.future).toEqual([])
 
     before.undo()
 
     const after = useActiveBoardStore.getState()
-    expect(after.pastLabels).toEqual([])
-    expect(after.futureLabels).toEqual(['Add tier'])
+    expect(after.past).toEqual([])
+    expect(after.future.map((entry) => entry.label)).toEqual(['Add tier'])
   })
 
   it('labels pluralize for bulk item adds', () =>
@@ -115,7 +114,9 @@ describe('undo labels', () =>
       { label: 'c', backgroundColor: '#000' },
     ])
 
-    expect(useActiveBoardStore.getState().pastLabels).toEqual(['Add 3 items'])
+    expect(
+      useActiveBoardStore.getState().past.map((entry) => entry.label)
+    ).toEqual(['Add 3 items'])
   })
 
   it('clears future stack on new action', () =>
@@ -131,6 +132,5 @@ describe('undo labels', () =>
     const state = useActiveBoardStore.getState()
 
     expect(state.future).toEqual([])
-    expect(state.futureLabels).toEqual([])
   })
 })

@@ -122,7 +122,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
         if (e.defaultPrevented) return
         const state = useActiveBoardStore.getState()
         if (selectIsDragging(state)) return
-        if (state.selectedItemIds.length > 0)
+        if (state.selection.ids.length > 0)
         {
           e.preventDefault()
           state.clearSelection()
@@ -137,7 +137,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
         if (locked) return
 
         // bulk delete when items are selected
-        if (state.selectedItemIds.length > 0)
+        if (state.selection.ids.length > 0)
         {
           e.preventDefault()
           state.deleteSelectedItems()
@@ -164,7 +164,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
     const handlePointerDown = (e: PointerEvent) =>
     {
       const state = useActiveBoardStore.getState()
-      if (state.selectedItemIds.length === 0) return
+      if (state.selection.ids.length === 0) return
       if (selectIsDragging(state)) return
 
       const target = e.target as HTMLElement | null

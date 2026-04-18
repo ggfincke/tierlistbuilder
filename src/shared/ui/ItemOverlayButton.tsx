@@ -3,6 +3,9 @@
 
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 
+import { joinClassNames } from '~/shared/lib/className'
+import { BUTTON_FOCUS_CLASS } from '~/shared/ui/buttonBase'
+
 type ItemOverlayButtonTone = 'default' | 'success' | 'destructive'
 type ItemOverlayButtonSize = 'xs' | 'sm'
 type ItemOverlayButtonReveal = 'hover' | 'always'
@@ -37,7 +40,7 @@ export const ItemOverlayButton = forwardRef<
 >(
   (
     {
-      className = '',
+      className,
       reveal = 'hover',
       size = 'sm',
       tone = 'default',
@@ -49,7 +52,14 @@ export const ItemOverlayButton = forwardRef<
     <button
       ref={ref}
       type={type}
-      className={`focus-custom flex items-center justify-center rounded-full bg-black/70 text-white focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${SIZE_CLASS[size]} ${TONE_CLASS[tone]} ${REVEAL_CLASS[reveal]} ${className}`}
+      className={joinClassNames(
+        BUTTON_FOCUS_CLASS,
+        'flex items-center justify-center rounded-full bg-black/70 text-white focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]',
+        SIZE_CLASS[size],
+        TONE_CLASS[tone],
+        REVEAL_CLASS[reveal],
+        className
+      )}
       {...props}
     />
   )

@@ -29,6 +29,37 @@ export interface ContainerSnapshot
 // runtime keyboard interaction states for item navigation & drag
 export type KeyboardMode = 'idle' | 'browse' | 'dragging'
 
+// one entry on the undo/redo stack — a board snapshot paired w/ the human-readable
+// label describing the action that produced it (rendered in undo/redo toasts)
+export interface UndoEntry
+{
+  snapshot: BoardSnapshot
+  label: string
+}
+
+// selection bundle — insertion-ordered IDs paired w/ an O(1) lookup set.
+// constructed only via makeSelection so ids & set cannot desync
+export interface Selection
+{
+  readonly ids: readonly ItemId[]
+  readonly set: ReadonlySet<ItemId>
+}
+
+const EMPTY_SET: ReadonlySet<ItemId> = new Set<ItemId>()
+
+export const EMPTY_SELECTION: Selection = Object.freeze({
+  ids: [] as readonly ItemId[],
+  set: EMPTY_SET,
+})
+
+export const makeSelection = (ids: readonly ItemId[]): Selection =>
+{
+  if (ids.length === 0) return EMPTY_SELECTION
+  // copy ids so later mutation of the input array can't desync ids & set
+  const copied = ids.slice()
+  return { ids: copied, set: new Set(copied) }
+}
+
 // full active-board runtime state — board snapshot plus transient drag, selection, & undo state
 export interface ActiveBoardRuntimeState extends BoardSnapshot, BoardSyncState
 {
@@ -38,41 +69,60 @@ export interface ActiveBoardRuntimeState extends BoardSnapshot, BoardSyncState
   keyboardFocusItemId: ItemId | null
   // true after a manual drag-drop commit; reset on shuffle, board load, & undo/redo
   itemsManuallyMoved: boolean
-  // ordered list of selected item IDs (insertion order for multi-drag)
-  selectedItemIds: ItemId[]
-  // O(1) lookup mirror of selectedItemIds — kept in sync by selection actions
-  selectedItemIdSet: ReadonlySet<ItemId>
+  // bundled multi-item selection — ids for insertion order (multi-drag),
+  // set for O(1) membership checks
+  selection: Selection
   // last clicked item ID for shift-click range selection
   lastClickedItemId: ItemId | null
   // item IDs being dragged together (ordered — primary item first)
   dragGroupIds: ItemId[]
   runtimeError: string | null
-  past: BoardSnapshot[]
-  pastLabels: string[]
-  future: BoardSnapshot[]
-  futureLabels: string[]
+  past: UndoEntry[]
+  future: UndoEntry[]
 }
 
-export const EMPTY_SELECTION_SET: ReadonlySet<ItemId> = new Set<ItemId>()
-
-export const freshRuntimeState: Omit<
+type RuntimeOnlyState = Omit<
   ActiveBoardRuntimeState,
   keyof BoardSnapshot | keyof BoardSyncState
-> = {
+>
+
+// factory — callers spread into set() patches. returning a fresh object
+// each call avoids aliasing the empty arrays/maps across store instances
+export const createFreshRuntimeState = (): RuntimeOnlyState => ({
   activeItemId: null,
   dragPreview: null,
   keyboardMode: 'idle',
   keyboardFocusItemId: null,
   itemsManuallyMoved: false,
-  selectedItemIds: [],
-  selectedItemIdSet: EMPTY_SELECTION_SET,
+  selection: EMPTY_SELECTION,
   lastClickedItemId: null,
   dragGroupIds: [],
   runtimeError: null,
   past: [],
-  pastLabels: [],
   future: [],
-  futureLabels: [],
-}
+})
+
+// subset reset used by undo/redo — keeps in-flight UI state aligned w/ the
+// restored snapshot without clobbering past/future/itemsManuallyMoved
+export type UndoRestoreRuntimePatch = Pick<
+  RuntimeOnlyState,
+  | 'activeItemId'
+  | 'dragPreview'
+  | 'dragGroupIds'
+  | 'keyboardMode'
+  | 'keyboardFocusItemId'
+  | 'selection'
+  | 'lastClickedItemId'
+>
+
+export const createUndoRestoreRuntimePatch = (): UndoRestoreRuntimePatch => ({
+  activeItemId: null,
+  dragPreview: null,
+  dragGroupIds: [],
+  keyboardMode: 'idle',
+  keyboardFocusItemId: null,
+  selection: EMPTY_SELECTION,
+  lastClickedItemId: null,
+})
 
 export type ItemRecord = Record<ItemId, TierItem>

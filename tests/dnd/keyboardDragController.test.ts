@@ -116,6 +116,6 @@ describe('keyboard drag controller', () =>
 
     expect(state.keyboardMode).toBe('browse')
     expect(state.keyboardFocusItemId).toBe('item-4')
-    expect(state.selectedItemIds).toEqual([])
+    expect(state.selection.ids).toEqual([])
   })
 })

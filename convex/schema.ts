@@ -35,11 +35,10 @@ export default defineSchema({
     displayName: v.optional(v.string()),
     // convex _storage handle for the avatar image, if uploaded
     avatarStorageId: v.optional(v.id('_storage')),
-    createdAt: v.optional(v.number()),
+    createdAt: v.number(),
     updatedAt: v.optional(v.number()),
-    // subscription tier — reserved for future premium plan; defaults to "free"
-    // optional so auth library can create users rows w/o knowing about tier
-    tier: v.optional(v.union(v.literal('free'), v.literal('premium'))),
+    // subscription tier — reserved for future premium plan; 'free' on first sign-in
+    tier: v.union(v.literal('free'), v.literal('premium')),
     // diagnostic stamped when retryUpsertAppUserFields exhausts retries.
     // present => upsert failed & needs intervention; absent => healthy.
     // do not gate auth on this field — operator visibility only
@@ -72,7 +71,6 @@ export default defineSchema({
     // so createBoard can insert a bare row before the first state upsert
     revision: v.optional(v.number()),
   })
-    .index('byOwner', ['ownerId', 'updatedAt'])
     .index('byOwnerAndDeleted', ['ownerId', 'deletedAt'])
     // ordered index powering getMyBoards — eq on (ownerId, deletedAt:null)
     // & order('desc') yields active boards sorted by most-recently-updated
@@ -132,7 +130,7 @@ export default defineSchema({
     width: v.number(),
     height: v.number(),
     byteSize: v.number(),
-    createdAt: v.optional(v.number()),
+    createdAt: v.number(),
   })
     .index('byExternalId', ['externalId'])
     .index('byOwnerAndExternalId', ['ownerId', 'externalId'])
@@ -174,5 +172,8 @@ export default defineSchema({
   })
     .index('bySlug', ['slug'])
     .index('byOwner', ['ownerId'])
-    .index('byExpiresAt', ['expiresAt']),
+    .index('byExpiresAt', ['expiresAt'])
+    // reverse lookup for storage-blob GC so gcOrphanedStorage can ask
+    // "is this blob referenced by any shortLink?" w/o scanning the table
+    .index('bySnapshotStorageId', ['snapshotStorageId']),
 })

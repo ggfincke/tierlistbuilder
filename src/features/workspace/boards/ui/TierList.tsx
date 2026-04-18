@@ -13,10 +13,10 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useEffectiveTiers } from '~/features/workspace/boards/model/useEffectiveBoard'
 import { THEMES } from '~/shared/theme/tokens'
 import { announce } from '~/shared/a11y/announce'
 import { getContrastingTextShadow, getTextColor } from '~/shared/lib/color'
-import { getEffectiveTiers } from '~/features/workspace/boards/dnd/dragSnapshot'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
@@ -68,15 +68,13 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
     )
   const exportBackgroundColor =
     exportBackgroundOverride ?? THEMES[themeId]['export-bg']
-  const { storedTiers, dragPreview, dragGroupCount, keyboardMode } =
-    useActiveBoardStore(
-      useShallow((state) => ({
-        storedTiers: state.tiers,
-        dragPreview: state.dragPreview,
-        dragGroupCount: state.dragGroupIds.length,
-        keyboardMode: state.keyboardMode,
-      }))
-    )
+  const { dragGroupCount, keyboardMode } = useActiveBoardStore(
+    useShallow((state) => ({
+      dragGroupCount: state.dragGroupIds.length,
+      keyboardMode: state.keyboardMode,
+    }))
+  )
+  const tiers = useEffectiveTiers()
   const boardShellRef = useRef<HTMLDivElement>(null)
   const boardRef = useRef<HTMLDivElement>(null)
 
@@ -136,12 +134,6 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
     return () =>
       boardShellElement.removeEventListener('focusout', handleFocusOut)
   }, [])
-
-  const tiers = useMemo(
-    () =>
-      dragPreview ? getEffectiveTiers(storedTiers, dragPreview) : storedTiers,
-    [dragPreview, storedTiers]
-  )
 
   const tierIds = useMemo(() => tiers.map((t) => t.id), [tiers])
 
