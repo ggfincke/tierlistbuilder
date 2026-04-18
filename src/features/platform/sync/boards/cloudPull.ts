@@ -1,7 +1,7 @@
 // src/features/platform/sync/boards/cloudPull.ts
 // first-login cloud pull helpers for replace & resume flows
 
-import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   BoardListItem,
   BoardMeta,
@@ -115,7 +115,7 @@ const persistDownloadedBoard = async (
     return { kind: 'aborted' }
   }
 
-  const boardId = meta.externalId as BoardId
+  const boardId = asBoardId(meta.externalId)
   const snapshot = serverStateToSnapshot(state)
   const saveResult = saveBoardToStorage(boardId, snapshot, {
     syncState: {

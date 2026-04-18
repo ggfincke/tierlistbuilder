@@ -131,7 +131,7 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
       </div>
 
       <p className="mb-4 text-xs text-[var(--t-text-muted)]">
-        Anyone w/ the link can view a snapshot of this board. The snapshot is
+        Anyone with the link can view a snapshot of this board. The snapshot is
         frozen at the moment of generation — edits made afterward won't appear
         in already-shared links.
       </p>

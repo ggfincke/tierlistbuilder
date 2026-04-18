@@ -1,3 +1,6 @@
+// tests/dnd/dragSnapshot.test.ts
+// drag snapshot container transforms
+
 import { describe, it, expect } from 'vitest'
 import {
   createContainerSnapshot,

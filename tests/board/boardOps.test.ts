@@ -1,3 +1,6 @@
+// tests/board/boardOps.test.ts
+// board sorting & shuffling helpers
+
 import { describe, expect, it } from 'vitest'
 
 import {

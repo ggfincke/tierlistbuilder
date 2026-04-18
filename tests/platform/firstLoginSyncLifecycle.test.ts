@@ -1,3 +1,6 @@
+// tests/platform/firstLoginSyncLifecycle.test.ts
+// first-login sync lifecycle orchestration
+
 import { describe, expect, it } from 'vitest'
 import { runFirstLoginSyncLifecycle } from '~/features/platform/sync/lifecycle/firstLoginSyncLifecycle'
 

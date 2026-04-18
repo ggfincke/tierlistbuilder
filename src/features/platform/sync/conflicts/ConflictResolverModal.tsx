@@ -157,7 +157,7 @@ const ConflictResolverDialog = ({
       <div className="mt-4 flex flex-col gap-2">
         <ConflictActionButton
           title="Keep this device"
-          description="Overwrite the cloud copy w/ what you have locally."
+          description="Overwrite the cloud copy with what you have locally."
           busyLabel="Keeping this device…"
           busy={busy === 'keep-local'}
           disabled={isBusy}

@@ -16,16 +16,8 @@ export interface ConflictEntry
 interface ConflictQueueStore
 {
   entries: ConflictEntry[]
-  // add a conflict for boardId. if the board is already queued, replace
-  // its serverState in place (newer wins, keeps position) so the UI doesn't
-  // jump as repeated flushes hit the same conflict
   enqueue: (boardId: BoardId, serverState: CloudBoardState) => void
-  // remove a board from the queue. called once the user picks a resolution
-  // action & the resolver runs to completion (or fails — see resolver
-  // for retry semantics)
   dismiss: (boardId: BoardId) => void
-  // drop the entire queue. called on sign-out to avoid surfacing stale
-  // conflicts to a different user signing in afterwards
   clear: () => void
 }
 

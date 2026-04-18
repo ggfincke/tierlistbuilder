@@ -1,3 +1,6 @@
+// tests/board/tierPresets.test.ts
+// built-in presets & board conversion helpers
+
 import { describe, it, expect } from 'vitest'
 import {
   createBoardDataFromPreset,

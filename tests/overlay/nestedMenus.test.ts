@@ -1,3 +1,6 @@
+// tests/overlay/nestedMenus.test.ts
+// nested menu state helpers
+
 import { describe, expect, it } from 'vitest'
 import {
   buildNestedMenuIndex,

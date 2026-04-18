@@ -72,10 +72,9 @@ const drainBlobFetches = async (
   await Promise.all(workers)
 }
 
-// batch fetcher: issue a single Convex query for all pending externalIds,
-// then download & cache each resolved blob. server-returned nulls are
-// silently dropped (asset truly missing); transient query or blob-fetch
-// errors get stashed for the next online-event retry
+// batch fetcher: issue one Convex lookup for all pending externalIds, then
+// download/cache each resolved blob. missing rows drop silently; transient
+// query/blob failures get stashed for the next online-event retry
 const fetchBatchFromCloud = async (
   requests: ReadonlyArray<CloudImageRequest>
 ): Promise<void> =>

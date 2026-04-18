@@ -1,7 +1,6 @@
 // config/aliases.ts
-// shared module alias config used by both Vite & Vitest. exports an alias
-// array compatible w/ both configs — keeping the source of truth in one
-// place so a new alias only needs to be added here once
+// shared module alias config used by both Vite & Vitest. export one alias
+// array for both configs so new aliases only need to be added in one place
 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'

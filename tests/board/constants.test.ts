@@ -1,3 +1,6 @@
+// tests/board/constants.test.ts
+// default board constants & tier seeds
+
 import { describe, it, expect } from 'vitest'
 import { buildDefaultTiers } from '~/features/workspace/boards/lib/boardDefaults'
 import { toFileBase } from '~/shared/lib/fileName'

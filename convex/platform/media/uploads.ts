@@ -15,10 +15,9 @@ const MAX_IMAGE_DIMENSION = 10_000
 // sha256 hex digest is always 64 lowercase hex chars
 const HEX_SHA256_PATTERN = /^[0-9a-f]{64}$/
 
-// generate a one-time upload URL for the frontend to POST image bytes.
-// single rate-limit point for the 2-phase upload flow (100/hr per user);
-// legitimate bulk-imports (~50 items) stay well under the cap & aborts
-// between phases still count against quota
+// generate a one-time upload URL for the frontend to POST image bytes. this is
+// the single rate-limit point for the 2-phase upload flow, so aborted attempts
+// still count against quota
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx): Promise<string> =>
@@ -29,10 +28,9 @@ export const generateUploadUrl = mutation({
   },
 })
 
-// finalize an upload — dedup by owner+hash, insert mediaAssets row if new.
-// the narrow mimeType validator below is the one source of truth for what
-// MIMEs the server accepts; the frontend uploader must pre-filter to match.
-// rate limit lives on generateUploadUrl — one token per upload attempt
+// finalize an upload — dedup by owner+hash, insert mediaAssets if new, & keep
+// the narrow mimeType validator below as the single source of truth. rate
+// limiting lives on generateUploadUrl — one token per upload attempt
 export const finalizeUpload = mutation({
   args: {
     storageId: v.id('_storage'),

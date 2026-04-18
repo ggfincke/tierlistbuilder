@@ -1,3 +1,6 @@
+// tests/board/boardSnapshot.test.ts
+// board snapshot creation & normalization helpers
+
 import { describe, it, expect } from 'vitest'
 import {
   createInitialBoardData,

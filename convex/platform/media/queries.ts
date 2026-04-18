@@ -19,10 +19,9 @@ interface MediaAssetLookup
   mimeType: string
 }
 
-// resolve a batch of media externalIds to signed download URLs. preserves
-// input order; missing or unowned entries resolve to null so the client can
-// pair each input w/ its result by index. single round trip regardless of
-// fan-out so a board w/ N cloud images only makes one Convex call
+// resolve a batch of media externalIds to signed download URLs. preserve input
+// order so the client can pair results by index, & collapse a board's cloud
+// image warm-up to one Convex call instead of N
 export const getMediaAssetsByExternalIds = query({
   args: { mediaExternalIds: v.array(v.string()) },
   handler: async (ctx, args): Promise<Array<MediaAssetLookup | null>> =>

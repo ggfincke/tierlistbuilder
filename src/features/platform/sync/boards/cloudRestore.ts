@@ -2,7 +2,7 @@
 // per-board restore helper for the "Recently deleted" surface. boardId mirrors
 // cloud externalId so restored boards slot back under their pre-deletion id
 
-import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import { asBoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
 import {
   getBoardStateByExternalIdImperative,
@@ -73,7 +73,7 @@ export const restoreBoardFromCloud = async (
     )
   }
 
-  const boardId = boardExternalId as BoardId
+  const boardId = asBoardId(boardExternalId)
   const snapshot = serverStateToSnapshot(cloudState)
 
   const saveResult = saveBoardToStorage(boardId, snapshot, {

@@ -233,7 +233,7 @@ const mapAuthError = (message: string, mode: AuthMode): string =>
   }
   if (lower.includes('account already exists') || lower.includes('exists'))
   {
-    return 'An account w/ that email already exists.'
+    return 'An account with that email already exists.'
   }
   if (lower.includes('password') && lower.includes('characters'))
   {

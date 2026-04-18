@@ -1,4 +1,4 @@
-// tests/keyboardTabStop.test.ts
+// tests/interaction/keyboardTabStop.test.ts
 // tab-stop selector fallback cache — verifies O(1) cache hits when the
 // tiers & unranked refs are unchanged
 

@@ -1,3 +1,6 @@
+// tests/board/tierColors.test.ts
+// tier color spec helpers
+
 import { describe, it, expect } from 'vitest'
 import {
   createPaletteTierColorSpec,

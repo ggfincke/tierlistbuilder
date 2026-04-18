@@ -5,7 +5,7 @@ import type {
   BoardSnapshot,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isPresent } from '~/shared/lib/typeGuards'
 
@@ -17,7 +17,7 @@ export const forEachSnapshotItem = (
 {
   for (const [id, item] of Object.entries(snapshot.items))
   {
-    visit(item, id as ItemId)
+    visit(item, asItemId(id))
   }
 
   for (const item of snapshot.deletedItems)
@@ -66,7 +66,7 @@ export const mapSnapshotItems = (
   const nextItems = Object.fromEntries(
     Object.entries(snapshot.items).map(([id, item]) =>
     {
-      const mapped = mapItem(item, id as ItemId)
+      const mapped = mapItem(item, asItemId(id))
       if (mapped !== item)
       {
         changed = true
@@ -123,7 +123,7 @@ export const transformSnapshotItemsAsync = async <TOut>(
       : mapAsyncLimit(values, limit, task)
 
   const itemValues = await runBounded(itemEntries, ([id, item]) =>
-    mapItem(item, id as ItemId)
+    mapItem(item, asItemId(id))
   )
   const deletedItems = await runBounded(snapshot.deletedItems, (item) =>
     mapItem(item, null)

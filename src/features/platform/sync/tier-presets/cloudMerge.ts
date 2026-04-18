@@ -3,6 +3,7 @@
 // pendingOp drives direction (push/delete/pull); unflushed intent wins
 
 import {
+  asUserPresetId,
   isUserPresetId,
   type UserPresetId,
 } from '@tierlistbuilder/contracts/lib/ids'
@@ -221,7 +222,7 @@ const executeTask = async (
         tiers: task.preset.tiers,
       })
       markTierPresetSynced(
-        task.preset.id as UserPresetId,
+        asUserPresetId(task.preset.id),
         userId,
         result.updatedAt
       )

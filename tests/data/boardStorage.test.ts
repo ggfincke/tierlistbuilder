@@ -1,3 +1,6 @@
+// tests/data/boardStorage.test.ts
+// local board storage envelope I/O
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'

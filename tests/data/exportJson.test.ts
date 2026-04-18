@@ -1,3 +1,6 @@
+// tests/data/exportJson.test.ts
+// JSON import/export parsing
+
 import { describe, it, expect } from 'vitest'
 import {
   parseBoardJson,

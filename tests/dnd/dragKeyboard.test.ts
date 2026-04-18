@@ -1,3 +1,6 @@
+// tests/dnd/dragKeyboard.test.ts
+// keyboard drag target helpers
+
 import { describe, it, expect } from 'vitest'
 import {
   resolveNextKeyboardDragPreview,
