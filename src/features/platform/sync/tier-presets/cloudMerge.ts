@@ -6,7 +6,10 @@ import {
   isUserPresetId,
   type UserPresetId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import type {
+  TierPreset,
+  TierPresetTier,
+} from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'
 import {
   createTierPresetImperative,
@@ -33,10 +36,31 @@ export interface PresetMergeResult
   failedCount: number
 }
 
+// repository surface injected by callers — production wires the convex
+// imperative adapters; tests pass in-memory fakes so the merge logic can
+// run w/o vi.mock around the cloud module
+export interface TierPresetMergeDeps
+{
+  listMyTierPresets: () => Promise<TierPresetCloudRow[]>
+  createTierPreset: (args: {
+    externalId: string
+    name: string
+    tiers: TierPresetTier[]
+  }) => Promise<{ updatedAt: number }>
+  deleteTierPreset: (args: { presetExternalId: string }) => Promise<null>
+}
+
+const DEFAULT_TIER_PRESET_MERGE_DEPS: TierPresetMergeDeps = {
+  listMyTierPresets: listMyTierPresetsImperative,
+  createTierPreset: createTierPresetImperative,
+  deleteTierPreset: deleteTierPresetImperative,
+}
+
 interface MergePresetsOptions
 {
   userId: string
   shouldProceed?: () => boolean
+  deps?: TierPresetMergeDeps
 }
 
 // hydrate a cloud row into a TierPreset; all cloud-stored presets are user
@@ -178,7 +202,8 @@ const planMergeTasks = (
 const executeTask = async (
   task: MergeTask,
   userId: string,
-  canProceed: () => boolean
+  canProceed: () => boolean,
+  deps: TierPresetMergeDeps
 ): Promise<{ ok: boolean }> =>
 {
   if (!canProceed())
@@ -190,7 +215,7 @@ const executeTask = async (
   {
     case 'push':
     {
-      const result = await createTierPresetImperative({
+      const result = await deps.createTierPreset({
         externalId: task.preset.id,
         name: task.preset.name,
         tiers: task.preset.tiers,
@@ -204,7 +229,7 @@ const executeTask = async (
     }
     case 'delete':
     {
-      await deleteTierPresetImperative({ presetExternalId: task.presetId })
+      await deps.deleteTierPreset({ presetExternalId: task.presetId })
       purgeTierPresetSyncMeta(task.presetId)
       return { ok: true }
     }
@@ -221,6 +246,7 @@ const executeTask = async (
 export const mergeTierPresetsOnFirstLogin = async ({
   userId,
   shouldProceed,
+  deps = DEFAULT_TIER_PRESET_MERGE_DEPS,
 }: MergePresetsOptions): Promise<PresetMergeResult> =>
 {
   const canProceed = makeProceedGuard(shouldProceed)
@@ -239,7 +265,7 @@ export const mergeTierPresetsOnFirstLogin = async ({
   let cloudRows: TierPresetCloudRow[]
   try
   {
-    cloudRows = await listMyTierPresetsImperative()
+    cloudRows = await deps.listMyTierPresets()
   }
   catch
   {
@@ -279,7 +305,7 @@ export const mergeTierPresetsOnFirstLogin = async ({
   const settled = await mapAsyncLimitSettled(
     tasks,
     PRESET_MERGE_CONCURRENCY,
-    (task) => executeTask(task, userId, canProceed)
+    (task) => executeTask(task, userId, canProceed, deps)
   )
 
   if (!canProceed())

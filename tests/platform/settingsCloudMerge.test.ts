@@ -1,18 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
-
-const { getMySettingsImperativeMock, upsertMySettingsImperativeMock } =
-  vi.hoisted(() => ({
-    getMySettingsImperativeMock: vi.fn(),
-    upsertMySettingsImperativeMock: vi.fn(),
-  }))
-
-vi.mock('~/features/workspace/settings/data/cloud/settingsRepository', () => ({
-  getMySettingsImperative: getMySettingsImperativeMock,
-  upsertMySettingsImperative: upsertMySettingsImperativeMock,
-}))
-
-import { mergeSettingsOnFirstLogin } from '~/features/platform/sync/settings/cloudMerge'
+import {
+  mergeSettingsOnFirstLogin,
+  type SettingsMergeDeps,
+} from '~/features/platform/sync/settings/cloudMerge'
 import {
   loadSettingsSyncMeta,
   saveSettingsSyncMeta,
@@ -53,13 +44,41 @@ const buildCloudSettings = (
   ...overrides,
 })
 
+interface FakeDepsConfig
+{
+  cloudSettings?: AppSettings | null
+  upsertResult?: { updatedAt: number }
+}
+
+interface FakeDeps
+{
+  deps: SettingsMergeDeps
+  upsertCalls: { settings: AppSettings }[]
+}
+
+// in-memory deps that record calls — the production wiring uses convex
+// adapters, but the merge logic only cares about the surface contract
+const createFakeDeps = (config: FakeDepsConfig = {}): FakeDeps =>
+{
+  const upsertCalls: { settings: AppSettings }[] = []
+  return {
+    upsertCalls,
+    deps: {
+      getMySettings: async () => config.cloudSettings ?? null,
+      upsertMySettings: async (args) =>
+      {
+        upsertCalls.push(args)
+        return config.upsertResult ?? { updatedAt: 1 }
+      },
+    },
+  }
+}
+
 describe('settingsCloudMerge', () =>
 {
   beforeEach(() =>
   {
     vi.stubGlobal('localStorage', createMemoryStorage())
-    getMySettingsImperativeMock.mockReset()
-    upsertMySettingsImperativeMock.mockReset()
     useSettingsStore.getState().resetSettings()
   })
 
@@ -82,20 +101,18 @@ describe('settingsCloudMerge', () =>
       ownerUserId: 'user-a',
     })
 
-    getMySettingsImperativeMock.mockResolvedValue(
-      buildCloudSettings({
+    const { deps, upsertCalls } = createFakeDeps({
+      cloudSettings: buildCloudSettings({
         compactMode: false,
         showLabels: false,
-      })
-    )
-    upsertMySettingsImperativeMock.mockResolvedValue({ updatedAt: 999 })
+      }),
+      upsertResult: { updatedAt: 999 },
+    })
 
-    const result = await mergeSettingsOnFirstLogin({ userId: 'user-a' })
+    const result = await mergeSettingsOnFirstLogin({ userId: 'user-a', deps })
 
     expect(result).toEqual({ kind: 'push', updatedAt: 999 })
-    expect(upsertMySettingsImperativeMock).toHaveBeenCalledWith({
-      settings: localSettings,
-    })
+    expect(upsertCalls).toEqual([{ settings: localSettings }])
     expect(useSettingsStore.getState().compactMode).toBe(true)
     expect(useSettingsStore.getState().showLabels).toBe(true)
     expect(loadSettingsSyncMeta()).toEqual({
@@ -118,17 +135,17 @@ describe('settingsCloudMerge', () =>
       ownerUserId: 'user-a',
     })
 
-    getMySettingsImperativeMock.mockResolvedValue(
-      buildCloudSettings({
+    const { deps, upsertCalls } = createFakeDeps({
+      cloudSettings: buildCloudSettings({
         compactMode: false,
         showLabels: true,
-      })
-    )
+      }),
+    })
 
-    const result = await mergeSettingsOnFirstLogin({ userId: 'user-b' })
+    const result = await mergeSettingsOnFirstLogin({ userId: 'user-b', deps })
 
     expect(result.kind).toBe('pull')
-    expect(upsertMySettingsImperativeMock).not.toHaveBeenCalled()
+    expect(upsertCalls).toEqual([])
     expect(useSettingsStore.getState().compactMode).toBe(false)
     expect(useSettingsStore.getState().showLabels).toBe(true)
     expect(loadSettingsSyncMeta().ownerUserId).toBe('user-b')

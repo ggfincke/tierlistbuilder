@@ -10,6 +10,7 @@ import {
 import { sha256Hex, sha256HexFromBlob } from '~/shared/lib/sha256'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { cacheFreshBlobs } from './imageBlobCache'
+import { BLOB_PREPARE_CONCURRENCY } from './imageConcurrency'
 import { probeImageStore, putBlobs, type BlobRecord } from './imageStore'
 import { createBlobRecord } from './blobRecord'
 
@@ -27,8 +28,6 @@ export interface PreparedBlobRecord
   record: BlobRecord
   blob: Blob
 }
-
-const BLOB_PREPARE_CONCURRENCY = 3
 
 // prepare a batch-ready blob record from raw blob bytes
 export const prepareBlobRecord = async (

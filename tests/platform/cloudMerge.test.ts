@@ -3,6 +3,7 @@ import type {
   BoardListItem,
   BoardMeta,
 } from '@tierlistbuilder/contracts/workspace/board'
+import { asItemId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   clearCloudPullCompleted,
   decideFirstLoginMerge,
@@ -11,18 +12,15 @@ import {
   markCloudPullCompleted,
   markCloudPullPending,
 } from '~/features/platform/sync/boards/cloudMerge'
-
-const { readBoardStateForCloudSyncMock } = vi.hoisted(() => ({
-  readBoardStateForCloudSyncMock: vi.fn(),
-}))
-
-vi.mock('~/features/platform/sync/boards/cloudFlush', () => ({
-  readBoardStateForCloudSync: readBoardStateForCloudSyncMock,
-}))
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { makeBoardSnapshot } from '../fixtures'
 
 const TEST_USER_ID = 'user-1'
+const LOCAL_BOARD_ID = 'board-local' as BoardId
 const LOCAL_BOARD: BoardMeta = {
-  id: 'board-local' as const,
+  id: LOCAL_BOARD_ID,
   title: 'Local board',
   createdAt: 1,
 }
@@ -60,16 +58,41 @@ const createMemoryStorage = (): Storage =>
   } as Storage
 }
 
+// seed the registry & active store so readBoardStateForCloudSync resolves
+// against the in-memory active-board path instead of falling through to
+// storage. tests that exercise the active-board branch call this directly
+const seedActiveBoard = (
+  id: BoardId,
+  snapshot: ReturnType<typeof makeBoardSnapshot>
+): void =>
+{
+  useWorkspaceBoardRegistryStore.setState({
+    boards: [{ id, title: snapshot.title, createdAt: 1 }],
+    activeBoardId: id,
+  })
+  useActiveBoardStore.getState().loadBoard(snapshot)
+}
+
+const resetStores = (): void =>
+{
+  useWorkspaceBoardRegistryStore.setState({
+    boards: [],
+    activeBoardId: '',
+  })
+  useActiveBoardStore.getState().loadBoard(createInitialBoardData('classic'))
+}
+
 describe('cloudMerge', () =>
 {
   beforeEach(() =>
   {
     vi.stubGlobal('localStorage', createMemoryStorage())
-    readBoardStateForCloudSyncMock.mockReset()
+    resetStores()
   })
 
   afterEach(() =>
   {
+    resetStores()
     vi.unstubAllGlobals()
   })
 
@@ -98,21 +121,6 @@ describe('cloudMerge', () =>
   {
     markCloudPullPending(TEST_USER_ID)
 
-    readBoardStateForCloudSyncMock.mockReturnValue({
-      snapshot: {
-        title: 'Local board',
-        tiers: [],
-        unrankedItemIds: [],
-        items: {},
-        deletedItems: [],
-      },
-      syncState: {
-        lastSyncedRevision: 1,
-        cloudBoardExternalId: 'board-local',
-        pendingSyncAt: null,
-      },
-    })
-
     expect(
       decideFirstLoginMerge([CLOUD_BOARD], [LOCAL_BOARD], TEST_USER_ID)
     ).toEqual({ action: 'resume-pull-cloud' })
@@ -120,25 +128,19 @@ describe('cloudMerge', () =>
 
   it('uses in-memory active-board data when classifying default local state', () =>
   {
-    readBoardStateForCloudSyncMock.mockReturnValue({
-      snapshot: {
+    seedActiveBoard(
+      LOCAL_BOARD_ID,
+      makeBoardSnapshot({
         title: 'Unsaved edit',
-        tiers: [],
-        unrankedItemIds: ['item-1'],
+        unrankedItemIds: [asItemId('item-1')],
         items: {
-          'item-1': {
-            id: 'item-1',
+          [asItemId('item-1')]: {
+            id: asItemId('item-1'),
             label: 'Unsaved item',
           },
         },
-        deletedItems: [],
-      },
-      syncState: {
-        lastSyncedRevision: null,
-        cloudBoardExternalId: null,
-        pendingSyncAt: null,
-      },
-    })
+      })
+    )
 
     expect(
       decideFirstLoginMerge([CLOUD_BOARD], [LOCAL_BOARD], TEST_USER_ID)

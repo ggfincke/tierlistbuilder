@@ -11,14 +11,13 @@ import {
   mapSnapshotItems,
 } from '~/shared/lib/boardSnapshotItems'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { BLOB_PREPARE_CONCURRENCY } from './imageConcurrency'
 import { probeImageStore } from './imageStore'
 import {
   prepareDataUrlRecord,
   persistPreparedBlobRecords,
   type PreparedBlobRecord,
 } from './imagePersistence'
-
-const BLOB_PREPARE_CONCURRENCY = 3
 
 // identity used to match items across the collect & replace passes. keyed on
 // id for live items & on the deletedItems array index for tombstones (those

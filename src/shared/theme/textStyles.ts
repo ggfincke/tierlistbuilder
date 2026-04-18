@@ -2,6 +2,7 @@
 // text style definitions — font family, weights, & letter spacing per style
 
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
+import { buildGoogleFontUrl } from '~/shared/lib/urls'
 
 export interface TextStyleDefinition
 {
@@ -27,31 +28,27 @@ export const TEXT_STYLES: Record<TextStyleId, TextStyleDefinition> = {
     weightNormal: '400',
     weightHeading: '700',
     letterSpacing: '-0.02em',
-    googleFontsUrl:
-      'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap',
+    googleFontsUrl: buildGoogleFontUrl('JetBrains Mono', '400;700'),
   },
   serif: {
     fontFamily: "'Source Serif 4', 'Georgia', 'Times New Roman', serif",
     weightNormal: '400',
     weightHeading: '700',
     letterSpacing: '0em',
-    googleFontsUrl:
-      'https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;700&display=swap',
+    googleFontsUrl: buildGoogleFontUrl('Source Serif 4', '400;700'),
   },
   rounded: {
     fontFamily: "'Nunito', 'Varela Round', 'Quicksand', system-ui, sans-serif",
     weightNormal: '400',
     weightHeading: '700',
     letterSpacing: '0.01em',
-    googleFontsUrl:
-      'https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap',
+    googleFontsUrl: buildGoogleFontUrl('Nunito', '400;700'),
   },
   display: {
     fontFamily: "'Outfit', 'Poppins', 'Montserrat', system-ui, sans-serif",
     weightNormal: '500',
     weightHeading: '800',
     letterSpacing: '-0.025em',
-    googleFontsUrl:
-      'https://fonts.googleapis.com/css2?family=Outfit:wght@500;800&display=swap',
+    googleFontsUrl: buildGoogleFontUrl('Outfit', '500;800'),
   },
 }

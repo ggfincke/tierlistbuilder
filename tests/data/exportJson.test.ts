@@ -7,32 +7,38 @@ import {
 import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/boardStorage'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
 
 // minimal valid board data — satisfies parseBoardJson validation
-const makeValidBoard = (overrides?: Partial<BoardSnapshot>): BoardSnapshot => ({
-  title: 'Test Board',
-  tiers: [
-    {
-      id: 'tier-s',
-      name: 'S',
-      colorSpec: createPaletteTierColorSpec(0),
-      itemIds: ['item-1'],
+const makeValidBoard = (overrides?: Partial<BoardSnapshot>): BoardSnapshot =>
+  makeBoardSnapshot({
+    title: 'Test Board',
+    tiers: [
+      makeTier({
+        id: 'tier-s',
+        name: 'S',
+        itemIds: [asItemId('item-1')],
+      }),
+      makeTier({
+        id: 'tier-a',
+        name: 'A',
+        colorSpec: createPaletteTierColorSpec(1),
+      }),
+    ],
+    unrankedItemIds: [asItemId('item-2')],
+    items: {
+      [asItemId('item-1')]: makeItem({
+        id: asItemId('item-1'),
+        label: 'First',
+      }),
+      [asItemId('item-2')]: makeItem({
+        id: asItemId('item-2'),
+        label: 'Second',
+      }),
     },
-    {
-      id: 'tier-a',
-      name: 'A',
-      colorSpec: createPaletteTierColorSpec(1),
-      itemIds: [],
-    },
-  ],
-  unrankedItemIds: ['item-2'],
-  items: {
-    'item-1': { id: 'item-1', label: 'First' },
-    'item-2': { id: 'item-2', label: 'Second' },
-  },
-  deletedItems: [],
-  ...overrides,
-})
+    ...overrides,
+  })
 
 // wrap board data in the current versioned export envelope
 const wrapEnvelope = (data: BoardSnapshot) =>
