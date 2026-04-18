@@ -8,8 +8,10 @@ import type {
   TierItemWire,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
-import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
-import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
+import {
+  collectSnapshotImageHashes,
+  transformSnapshotItemsAsync,
+} from '~/shared/lib/boardSnapshotItems'
 import { getBlobsBatch } from '~/shared/images/imageStore'
 import { isRecord } from '~/shared/lib/typeGuards'
 
@@ -141,24 +143,18 @@ export const snapshotToWireWithBlobs = async (
 {
   const dataUrlsByHash = new Map<string, Promise<string>>()
 
-  const itemEntries = await mapAsyncLimit(
-    Object.entries(snapshot.items),
-    IMAGE_EXPORT_CONCURRENCY,
-    async ([id, item]) =>
-      [id, await itemToWire(item, blobsByHash, dataUrlsByHash)] as const
-  )
-
-  const deletedItems = await mapAsyncLimit(
-    snapshot.deletedItems,
-    IMAGE_EXPORT_CONCURRENCY,
-    (item) => itemToWire(item, blobsByHash, dataUrlsByHash)
-  )
+  const { items, deletedItems } =
+    await transformSnapshotItemsAsync<TierItemWire>(
+      snapshot,
+      IMAGE_EXPORT_CONCURRENCY,
+      (item) => itemToWire(item, blobsByHash, dataUrlsByHash)
+    )
 
   return {
     title: snapshot.title,
     tiers: snapshot.tiers,
     unrankedItemIds: snapshot.unrankedItemIds,
-    items: Object.fromEntries(itemEntries) as BoardSnapshotWire['items'],
+    items: items as BoardSnapshotWire['items'],
     deletedItems,
   }
 }

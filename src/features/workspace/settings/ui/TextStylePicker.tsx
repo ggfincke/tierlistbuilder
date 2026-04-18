@@ -1,12 +1,18 @@
 // src/features/workspace/settings/ui/TextStylePicker.tsx
 // row of clickable text style previews for the Appearance section
 
-import { useRovingSelection } from '~/shared/selection/useRovingSelection'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
+import { PickerGrid } from '~/shared/ui/PickerGrid'
 
-const STYLE_OPTIONS: { id: TextStyleId; label: string }[] = [
+interface StyleOption
+{
+  id: TextStyleId
+  label: string
+}
+
+const STYLE_OPTIONS: readonly StyleOption[] = [
   { id: 'default', label: 'Default (Inter)' },
   { id: 'mono', label: 'Mono' },
   { id: 'serif', label: 'Serif' },
@@ -14,7 +20,21 @@ const STYLE_OPTIONS: { id: TextStyleId; label: string }[] = [
   { id: 'display', label: 'Display' },
 ]
 
-const STYLE_IDS = STYLE_OPTIONS.map((o) => o.id) as TextStyleId[]
+const renderStylePreview = (option: StyleOption) =>
+{
+  const style = TEXT_STYLES[option.id]
+  return (
+    <span
+      className="text-lg text-[var(--t-text)]"
+      style={{
+        fontFamily: style.fontFamily,
+        fontWeight: Number(style.weightHeading),
+      }}
+    >
+      Aa
+    </span>
+  )
+}
 
 interface TextStylePickerProps
 {
@@ -25,47 +45,16 @@ export const TextStylePicker = ({ ariaLabelledby }: TextStylePickerProps) =>
 {
   const textStyleId = useSettingsStore((s) => s.textStyleId)
   const setTextStyleId = useSettingsStore((s) => s.setTextStyleId)
-  const { getItemProps, groupProps, isActive } = useRovingSelection({
-    items: STYLE_IDS,
-    activeKey: textStyleId,
-    onSelect: setTextStyleId,
-    kind: 'radio',
-    groupLabelledby: ariaLabelledby,
-    groupLabel: ariaLabelledby ? undefined : 'Text style',
-  })
 
   return (
-    <div {...groupProps} className="flex gap-2">
-      {STYLE_OPTIONS.map(({ id, label }, index) =>
-      {
-        const style = TEXT_STYLES[id]
-        const itemIsActive = isActive(id)
-
-        return (
-          <button
-            key={id}
-            {...getItemProps(id, index)}
-            className={`focus-custom flex flex-col items-center gap-1 rounded-lg px-3 py-2 transition focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--t-bg-overlay)] ${
-              itemIsActive
-                ? 'ring-2 ring-[var(--t-accent)] ring-offset-1 ring-offset-[var(--t-bg-overlay)]'
-                : 'hover:bg-[rgb(var(--t-overlay)/0.06)]'
-            }`}
-          >
-            <span
-              className="text-lg text-[var(--t-text)]"
-              style={{
-                fontFamily: style.fontFamily,
-                fontWeight: Number(style.weightHeading),
-              }}
-            >
-              Aa
-            </span>
-            <span className="text-[10px] text-[var(--t-text-faint)]">
-              {label}
-            </span>
-          </button>
-        )
-      })}
-    </div>
+    <PickerGrid<TextStyleId, StyleOption>
+      items={STYLE_OPTIONS}
+      activeKey={textStyleId}
+      onSelect={setTextStyleId}
+      ariaLabel="Text style"
+      ariaLabelledby={ariaLabelledby}
+      buttonClassName="gap-1 px-3 py-2"
+      renderPreview={renderStylePreview}
+    />
   )
 }

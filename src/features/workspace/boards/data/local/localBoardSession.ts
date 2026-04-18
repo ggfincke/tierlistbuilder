@@ -6,10 +6,12 @@ import type {
   BoardSnapshot,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  generateBoardId,
+  type BoardId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
-import { generateBoardId } from '~/shared/lib/id'
 import {
   loadBoardFromStorage,
   loadBoardSyncStateOnly,

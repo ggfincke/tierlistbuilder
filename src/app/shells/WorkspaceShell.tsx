@@ -18,10 +18,8 @@ import { ProgressOverlay } from '~/shared/overlay/ProgressOverlay'
 import { useExportController } from '~/features/workspace/export/model/useExportController'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { getWorkspacePath } from '~/app/routes/pathname'
-import { BoardSettingsModal } from '~/features/workspace/settings/ui/BoardSettingsModal'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
-import { ShortcutsPanel } from '~/features/workspace/shortcuts/ui/ShortcutsPanel'
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useCloudSync } from '~/features/platform/sync/lifecycle/useCloudSync'
@@ -60,6 +58,16 @@ const StatsModal = lazy(() =>
 const ShareModal = lazy(() =>
   import('~/features/workspace/sharing/ui/ShareModal').then((m) => ({
     default: m.ShareModal,
+  }))
+)
+const BoardSettingsModal = lazy(() =>
+  import('~/features/workspace/settings/ui/BoardSettingsModal').then((m) => ({
+    default: m.BoardSettingsModal,
+  }))
+)
+const ShortcutsPanel = lazy(() =>
+  import('~/features/workspace/shortcuts/ui/ShortcutsPanel').then((m) => ({
+    default: m.ShortcutsPanel,
   }))
 )
 
@@ -276,9 +284,11 @@ export const WorkspaceShell = () =>
       </div>
 
       {modalState.settings && (
-        <ErrorBoundary section="settings">
-          <BoardSettingsModal open onClose={handleCloseSettings} />
-        </ErrorBoundary>
+        <Suspense>
+          <ErrorBoundary section="settings">
+            <BoardSettingsModal open onClose={handleCloseSettings} />
+          </ErrorBoundary>
+        </Suspense>
       )}
       {modalState.stats && (
         <Suspense>
@@ -289,17 +299,19 @@ export const WorkspaceShell = () =>
       )}
       {modalState.preview && (
         <Suspense>
-          <ExportPreviewModal
-            open
-            onClose={handleClosePreview}
-            previewDataUrl={modalState.preview.payload}
-            format={previewFormat}
-            onFormatChange={setPreviewFormat}
-            onDownload={handlePreviewDownload}
-            onCopyToClipboard={handlePreviewCopy}
-            onAnnotate={handlePreviewAnnotate}
-            exporting={exportStatus !== null}
-          />
+          <ErrorBoundary section="export preview">
+            <ExportPreviewModal
+              open
+              onClose={handleClosePreview}
+              previewDataUrl={modalState.preview.payload}
+              format={previewFormat}
+              onFormatChange={setPreviewFormat}
+              onDownload={handlePreviewDownload}
+              onCopyToClipboard={handlePreviewCopy}
+              onAnnotate={handlePreviewAnnotate}
+              exporting={exportStatus !== null}
+            />
+          </ErrorBoundary>
         </Suspense>
       )}
       {modalState.annotation && (
@@ -340,7 +352,13 @@ export const WorkspaceShell = () =>
           total={exportAllProgress.total}
         />
       )}
-      {showShortcutsPanel && <ShortcutsPanel onClose={closeShortcutsPanel} />}
+      {showShortcutsPanel && (
+        <Suspense>
+          <ErrorBoundary section="shortcuts">
+            <ShortcutsPanel onClose={closeShortcutsPanel} />
+          </ErrorBoundary>
+        </Suspense>
+      )}
       <BulkActionBar />
       <ConflictResolverModal user={signedInUser} />
       <ProgressOverlay

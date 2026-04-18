@@ -5,19 +5,41 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { getBlobsBatch } from './imageStore'
 
-// pluggable cloud image fetcher — features register an implementation at boot;
-// shared code calls it w/o importing feature modules directly
-type CloudImageFetcher = (
-  hash: string,
+// pluggable cloud image batch fetcher — features register an implementation at
+// boot; shared code calls it w/o importing feature modules directly. the
+// fetcher receives an entire batch so one signin warm-up triggers one Convex
+// round-trip instead of N per-hash queries
+export interface CloudImageRequest
+{
+  hash: string
   cloudMediaExternalId: string
+}
+
+export type CloudImageBatchFetcher = (
+  requests: ReadonlyArray<CloudImageRequest>
 ) => Promise<void>
 
-let cloudFetcher: CloudImageFetcher | null = null
-const pendingCloudFetches = new Map<string, Promise<void>>()
+let cloudBatchFetcher: CloudImageBatchFetcher | null = null
+// keyed by hash across all phases: pending (queued for next microtask flush),
+// in flight (batch query + URL fetch chain still resolving). prevents a second
+// useImageUrl effect on the same hash from re-enqueueing or racing the first
+const inFlightByHash = new Map<string, Promise<void>>()
+// next-flush buffer — keyed by hash so repeated requestCloudImage calls for
+// the same image collapse to a single entry before the microtask fires
+const pendingRequests = new Map<string, CloudImageRequest>()
+// requests whose last fetch attempt failed (batch query or blob download).
+// drained on `online` events so a momentary outage or auth blip doesn't leave
+// hashes blank for the rest of the session
+const failedCloudRequests = new Map<string, CloudImageRequest>()
+let flushScheduled = false
 
-export const registerCloudImageFetcher = (fn: CloudImageFetcher): void =>
+// Convex query is capped at MAX_BATCH_LOOKUP_SIZE (50) server-side; match the
+// chunk size on the client so oversize warm-ups split into multiple calls
+const MAX_BATCH_SIZE = 50
+
+export const registerCloudImageFetcher = (fn: CloudImageBatchFetcher): void =>
 {
-  if (cloudFetcher && cloudFetcher !== fn)
+  if (cloudBatchFetcher && cloudBatchFetcher !== fn)
   {
     console.warn(
       'Cloud image fetcher already registered; keeping the first one.'
@@ -25,23 +47,105 @@ export const registerCloudImageFetcher = (fn: CloudImageFetcher): void =>
     return
   }
 
-  cloudFetcher = fn
+  cloudBatchFetcher = fn
 }
 
-// trigger a cloud fetch for a missing image (deduped by hash)
+const runBatch = (requests: ReadonlyArray<CloudImageRequest>): void =>
+{
+  if (!cloudBatchFetcher || requests.length === 0) return
+
+  // split oversize batches so each Convex call fits the per-query cap
+  for (let start = 0; start < requests.length; start += MAX_BATCH_SIZE)
+  {
+    const chunk = requests.slice(start, start + MAX_BATCH_SIZE)
+    const promise = cloudBatchFetcher(chunk).finally(() =>
+    {
+      for (const { hash } of chunk)
+      {
+        if (inFlightByHash.get(hash) === promise)
+        {
+          inFlightByHash.delete(hash)
+        }
+      }
+    })
+
+    for (const { hash } of chunk)
+    {
+      inFlightByHash.set(hash, promise)
+    }
+  }
+}
+
+const flushPendingCloudRequests = (): void =>
+{
+  flushScheduled = false
+  if (pendingRequests.size === 0) return
+
+  const batch = [...pendingRequests.values()]
+  pendingRequests.clear()
+  runBatch(batch)
+}
+
+// queue a cloud fetch for a missing image. coalesces repeated calls for the
+// same hash across the current microtask & dedups against in-flight fetches
 export const requestCloudImage = (
   hash: string,
   cloudMediaExternalId: string
 ): void =>
 {
-  if (!cloudFetcher || pendingCloudFetches.has(hash)) return
+  if (!cloudBatchFetcher) return
+  if (inFlightByHash.has(hash)) return
+  if (pendingRequests.has(hash)) return
 
-  pendingCloudFetches.set(
-    hash,
-    cloudFetcher(hash, cloudMediaExternalId).finally(() =>
-      pendingCloudFetches.delete(hash)
-    )
-  )
+  pendingRequests.set(hash, { hash, cloudMediaExternalId })
+  failedCloudRequests.delete(hash)
+
+  if (!flushScheduled)
+  {
+    flushScheduled = true
+    queueMicrotask(flushPendingCloudRequests)
+  }
+}
+
+// mark requests whose batch query or blob fetch failed so the next reconnect
+// can retry them. called by the registered cloud fetcher while the batch's
+// in-flight marker is still set, so we only guard against already-cached &
+// already-pending hashes — the next retry will re-check in-flight state
+export const markCloudRequestsFailed = (
+  requests: ReadonlyArray<CloudImageRequest>
+): void =>
+{
+  for (const request of requests)
+  {
+    if (cache.has(request.hash)) continue
+    if (pendingRequests.has(request.hash)) continue
+    failedCloudRequests.set(request.hash, request)
+  }
+}
+
+// requeue previously-failed cloud requests. fired on `online` events so
+// transient outages self-heal; also invoked directly by callers that know
+// recovery is likely (e.g. sign-in completion)
+export const retryFailedCloudRequests = (): void =>
+{
+  if (failedCloudRequests.size === 0) return
+
+  let queued = 0
+  for (const [hash, request] of failedCloudRequests)
+  {
+    if (cache.has(hash)) continue
+    if (inFlightByHash.has(hash)) continue
+    if (pendingRequests.has(hash)) continue
+    pendingRequests.set(hash, request)
+    queued++
+  }
+  failedCloudRequests.clear()
+
+  if (queued > 0 && !flushScheduled)
+  {
+    flushScheduled = true
+    queueMicrotask(flushPendingCloudRequests)
+  }
 }
 
 interface CachedImageEntry
@@ -220,11 +324,13 @@ export const disposeImageBlobCache = (): void =>
   listeners.clear()
 }
 
-// wire the pagehide teardown once at module init. pagehide fires reliably
-// on tab close & bfcache navigation where beforeunload is skipped
+// wire the pagehide teardown & online-driven retry once at module init.
+// pagehide fires reliably on tab close & bfcache navigation; `online` fires
+// when a broken connection recovers so stashed failures get another shot
 if (typeof window !== 'undefined')
 {
   window.addEventListener('pagehide', disposeImageBlobCache)
+  window.addEventListener('online', retryFailedCloudRequests)
 }
 
 export const warmFromBoard = async (snapshot: BoardSnapshot): Promise<void> =>

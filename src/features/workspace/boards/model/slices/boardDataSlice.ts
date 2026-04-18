@@ -3,7 +3,6 @@
 
 import { announce } from '~/shared/a11y/announce'
 import { clamp } from '~/shared/lib/math'
-import { generateItemId } from '~/shared/lib/id'
 import { isPresent } from '~/shared/lib/typeGuards'
 import { areTierColorSpecsEqual } from '~/shared/theme/tierColors'
 import {
@@ -22,7 +21,7 @@ import {
   EMPTY_BOARD_SYNC_STATE,
   extractBoardSyncState,
 } from '~/features/workspace/boards/model/sync'
-import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { generateItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { MAX_DELETED_ITEMS, runtimeCleanupForItem } from './helpers'
 import { mapTier, pushUndo, withUndo } from './undoSlice'
 import type {
