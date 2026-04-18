@@ -19,9 +19,12 @@ export const useCloudPullProgressStore = create<CloudPullProgressStore>(
     total: 0,
     start: (total) => set({ current: 0, total: Math.max(0, total) }),
     bump: () =>
-      set((state) => ({
-        current: Math.min(state.current + 1, state.total),
-      })),
+      set((state) =>
+      {
+        const next = Math.min(state.current + 1, state.total)
+        if (next === state.current) return state
+        return { current: next }
+      }),
     end: () => set({ current: 0, total: 0 }),
   })
 )

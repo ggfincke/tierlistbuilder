@@ -9,6 +9,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -56,34 +57,44 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
 {
   const isVertical = isVerticalPosition(toolbarPosition)
   const paletteId = useCurrentPaletteId()
-  const boardLocked = useSettingsStore((state) => state.boardLocked)
-  const exportBackgroundOverride = useSettingsStore(
-    (state) => state.exportBackgroundOverride
-  )
-  const themeId = useSettingsStore((state) => state.themeId)
+  const { boardLocked, exportBackgroundOverride, themeId, compactMode } =
+    useSettingsStore(
+      useShallow((state) => ({
+        boardLocked: state.boardLocked,
+        exportBackgroundOverride: state.exportBackgroundOverride,
+        themeId: state.themeId,
+        compactMode: state.compactMode,
+      }))
+    )
   const exportBackgroundColor =
     exportBackgroundOverride ?? THEMES[themeId]['export-bg']
-  const compactMode = useSettingsStore((state) => state.compactMode)
-  const storedTiers = useActiveBoardStore((state) => state.tiers)
-  const dragPreview = useActiveBoardStore((state) => state.dragPreview)
-  const dragGroupCount = useActiveBoardStore(
-    (state) => state.dragGroupIds.length
-  )
-  const keyboardMode = useActiveBoardStore((state) => state.keyboardMode)
+  const { storedTiers, dragPreview, dragGroupCount, keyboardMode } =
+    useActiveBoardStore(
+      useShallow((state) => ({
+        storedTiers: state.tiers,
+        dragPreview: state.dragPreview,
+        dragGroupCount: state.dragGroupIds.length,
+        keyboardMode: state.keyboardMode,
+      }))
+    )
   const boardShellRef = useRef<HTMLDivElement>(null)
   const boardRef = useRef<HTMLDivElement>(null)
 
   // sync keyboard focus item data attribute imperatively to avoid re-rendering
-  // the entire subtree on every arrow key press
+  // the entire subtree on every arrow key press. selector-based subscribe so
+  // drag updates (~60Hz) don't fire a no-op setAttribute each time
   useEffect(() =>
   {
-    return useActiveBoardStore.subscribe((state) =>
-    {
-      boardRef.current?.setAttribute(
-        'data-keyboard-focus-item-id',
-        state.keyboardFocusItemId ?? ''
-      )
-    })
+    return useActiveBoardStore.subscribe(
+      (state) => state.keyboardFocusItemId,
+      (focusId) =>
+      {
+        boardRef.current?.setAttribute(
+          'data-keyboard-focus-item-id',
+          focusId ?? ''
+        )
+      }
+    )
   }, [])
 
   useEffect(() =>

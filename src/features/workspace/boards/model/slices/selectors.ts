@@ -5,6 +5,27 @@ import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import type { ActiveBoardRuntimeState } from '~/features/workspace/boards/model/runtime'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
+// true while a pointer drag preview is active or a keyboard-drag group exists
+export const selectIsDragging = (
+  state: Pick<ActiveBoardRuntimeState, 'dragPreview' | 'dragGroupIds'>
+): boolean => state.dragPreview !== null || state.dragGroupIds.length > 0
+
+// whether the undo stack has anything to revert
+export const selectCanUndo = (
+  state: Pick<ActiveBoardRuntimeState, 'past'>
+): boolean => state.past.length > 0
+
+// whether the redo stack has anything to replay
+export const selectCanRedo = (
+  state: Pick<ActiveBoardRuntimeState, 'future'>
+): boolean => state.future.length > 0
+
+// true when the user is in keyboard-browse mode w/ at least one selected item
+export const selectHasKeyboardSelection = (
+  state: Pick<ActiveBoardRuntimeState, 'keyboardMode' | 'selectedItemIdSet'>
+): boolean =>
+  state.keyboardMode === 'browse' && state.selectedItemIdSet.size > 0
+
 // cached fallback item ID keyed by tiers & unranked array refs;
 // avoids O(items²) re-walk when identity is unchanged across updates
 let cachedTiersRef: readonly Tier[] | null = null

@@ -100,15 +100,6 @@ export const createNewTier = (
   itemIds: [],
 })
 
-// canonical list of BoardSnapshot keys that constitute persisted board data
-export const BOARD_DATA_FIELDS = [
-  'title',
-  'tiers',
-  'unrankedItemIds',
-  'items',
-  'deletedItems',
-] as const satisfies ReadonlyArray<keyof BoardSnapshot>
-
 type BoardDataState = Pick<
   ActiveBoardRuntimeState,
   'title' | 'tiers' | 'unrankedItemIds' | 'items' | 'deletedItems'
@@ -137,11 +128,6 @@ export const boardDataFieldsEqual = (
   b: BoardDataSelection
 ): boolean =>
 {
-  if (a.length !== b.length)
-  {
-    return false
-  }
-
   for (let i = 0; i < a.length; i++)
   {
     if (a[i] !== b[i])
@@ -152,15 +138,6 @@ export const boardDataFieldsEqual = (
 
   return true
 }
-
-export const boardDataFieldsChanged = (
-  state: BoardDataState,
-  prevState: BoardDataState
-): boolean =>
-  !boardDataFieldsEqual(
-    selectBoardDataFields(state),
-    selectBoardDataFields(prevState)
-  )
 
 export const extractBoardData = (state: BoardDataState): BoardSnapshot => ({
   title: state.title,

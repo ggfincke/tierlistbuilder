@@ -2,6 +2,7 @@
 // * drag-&-drop hook — wires dnd-kit sensors, collision detection, & item move logic
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import type { Modifier } from '@dnd-kit/core'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -37,30 +38,35 @@ const getDragType = (event: {
 
 export const useDragAndDrop = () =>
 {
-  const items = useActiveBoardStore((state) => state.items)
-  const dragPreview = useActiveBoardStore((state) => state.dragPreview)
-  const activeItemId = useActiveBoardStore((state) => state.activeItemId)
-  const keyboardMode = useActiveBoardStore((state) => state.keyboardMode)
-  const setActiveItemId = useActiveBoardStore((state) => state.setActiveItemId)
-  const clearKeyboardMode = useActiveBoardStore(
-    (state) => state.clearKeyboardMode
+  const {
+    items,
+    dragPreview,
+    activeItemId,
+    keyboardMode,
+    setActiveItemId,
+    clearKeyboardMode,
+    beginDragPreview,
+    updateDragPreview,
+    commitDragPreview,
+    discardDragPreview,
+    reorderTierByIndex,
+    removeItem,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      items: state.items,
+      dragPreview: state.dragPreview,
+      activeItemId: state.activeItemId,
+      keyboardMode: state.keyboardMode,
+      setActiveItemId: state.setActiveItemId,
+      clearKeyboardMode: state.clearKeyboardMode,
+      beginDragPreview: state.beginDragPreview,
+      updateDragPreview: state.updateDragPreview,
+      commitDragPreview: state.commitDragPreview,
+      discardDragPreview: state.discardDragPreview,
+      reorderTierByIndex: state.reorderTierByIndex,
+      removeItem: state.removeItem,
+    }))
   )
-  const beginDragPreview = useActiveBoardStore(
-    (state) => state.beginDragPreview
-  )
-  const updateDragPreview = useActiveBoardStore(
-    (state) => state.updateDragPreview
-  )
-  const commitDragPreview = useActiveBoardStore(
-    (state) => state.commitDragPreview
-  )
-  const discardDragPreview = useActiveBoardStore(
-    (state) => state.discardDragPreview
-  )
-  const reorderTierByIndex = useActiveBoardStore(
-    (state) => state.reorderTierByIndex
-  )
-  const removeItem = useActiveBoardStore((state) => state.removeItem)
   const [showDragOverlay, setShowDragOverlay] = useState(false)
   // tracks what kind of drag is active (ref for event handlers, state for render)
   const dragTypeRef = useRef<DragType>('item')

@@ -3,7 +3,6 @@
 
 import { useId, useState } from 'react'
 import { Github, Layers, Plus, RotateCcw, Trash2 } from 'lucide-react'
-import { useShallow } from 'zustand/react/shallow'
 
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
@@ -39,20 +38,18 @@ export const MoreTab = ({
 }: MoreTabProps) =>
 {
   const boards = useWorkspaceBoardRegistryStore((state) => state.boards)
-  const {
-    exportBackgroundOverride,
-    themeId,
-    confirmBeforeDelete,
-    setExportBackgroundOverride,
-    setConfirmBeforeDelete,
-  } = useSettingsStore(
-    useShallow((state) => ({
-      exportBackgroundOverride: state.exportBackgroundOverride,
-      themeId: state.themeId,
-      confirmBeforeDelete: state.confirmBeforeDelete,
-      setExportBackgroundOverride: state.setExportBackgroundOverride,
-      setConfirmBeforeDelete: state.setConfirmBeforeDelete,
-    }))
+  const exportBackgroundOverride = useSettingsStore(
+    (state) => state.exportBackgroundOverride
+  )
+  const themeId = useSettingsStore((state) => state.themeId)
+  const confirmBeforeDelete = useSettingsStore(
+    (state) => state.confirmBeforeDelete
+  )
+  const setExportBackgroundOverride = useSettingsStore(
+    (state) => state.setExportBackgroundOverride
+  )
+  const setConfirmBeforeDelete = useSettingsStore(
+    (state) => state.setConfirmBeforeDelete
   )
 
   const [showPresetPicker, setShowPresetPicker] = useState(false)

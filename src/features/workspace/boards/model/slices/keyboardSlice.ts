@@ -9,9 +9,17 @@ export const createKeyboardSlice: ActiveBoardSliceCreator<KeyboardSlice> = (
   keyboardMode: 'idle',
   keyboardFocusItemId: null,
 
-  setKeyboardMode: (mode) => set({ keyboardMode: mode }),
+  setKeyboardMode: (mode) =>
+    set((state) =>
+      state.keyboardMode === mode ? state : { keyboardMode: mode }
+    ),
 
-  setKeyboardFocusItemId: (itemId) => set({ keyboardFocusItemId: itemId }),
+  setKeyboardFocusItemId: (itemId) =>
+    set((state) =>
+      state.keyboardFocusItemId === itemId
+        ? state
+        : { keyboardFocusItemId: itemId }
+    ),
 
   clearKeyboardMode: () =>
     set({

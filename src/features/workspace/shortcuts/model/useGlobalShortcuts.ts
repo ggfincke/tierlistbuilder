@@ -5,7 +5,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { handleKeyboardBoardJumpKey } from '~/features/workspace/boards/interaction/keyboardDragController'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import {
+  selectIsDragging,
+  useActiveBoardStore,
+} from '~/features/workspace/boards/model/useActiveBoardStore'
 import { nextToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { announce } from '~/shared/a11y/announce'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -46,7 +49,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
 
       // drop Ctrl/Cmd+Z/Y mid-drag — dnd-kit still holds its own active state,
       // & undoing out from under it leaves the overlay & refs stranded
-      const dragActive = useActiveBoardStore.getState().dragPreview !== null
+      const dragActive = selectIsDragging(useActiveBoardStore.getState())
 
       // undo — Ctrl/Cmd+Z
       if (mod && key === 'z' && !e.shiftKey)
@@ -118,7 +121,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       {
         if (e.defaultPrevented) return
         const state = useActiveBoardStore.getState()
-        if (state.dragPreview !== null) return
+        if (selectIsDragging(state)) return
         if (state.selectedItemIds.length > 0)
         {
           e.preventDefault()
@@ -162,7 +165,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
     {
       const state = useActiveBoardStore.getState()
       if (state.selectedItemIds.length === 0) return
-      if (state.dragPreview !== null) return
+      if (selectIsDragging(state)) return
 
       const target = e.target as HTMLElement | null
       if (!target) return
