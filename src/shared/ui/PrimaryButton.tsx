@@ -4,6 +4,10 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 
 import { joinClassNames } from '~/shared/lib/className'
+import {
+  BUTTON_DISABLED_CLASS,
+  BUTTON_FOCUS_CLASS,
+} from '~/shared/ui/buttonBase'
 
 type PrimaryButtonTone = 'accent' | 'destructive'
 type PrimaryButtonSize = 'sm' | 'md'
@@ -35,7 +39,9 @@ export const PrimaryButton = forwardRef<HTMLButtonElement, PrimaryButtonProps>(
       ref={ref}
       type={type}
       className={joinClassNames(
-        'focus-custom inline-flex items-center justify-center gap-1.5 rounded-md font-medium focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-overlay)] disabled:cursor-not-allowed disabled:opacity-50',
+        BUTTON_FOCUS_CLASS,
+        'inline-flex items-center justify-center gap-1.5 rounded-md font-medium focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-overlay)]',
+        BUTTON_DISABLED_CLASS,
         SIZE_CLASS[size],
         TONE_CLASS[tone],
         className

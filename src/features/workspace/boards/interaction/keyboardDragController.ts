@@ -411,7 +411,7 @@ export const handleKeyboardEscapeKey = (itemId: ItemId) =>
   }
 
   // priority 2: clear selection, stay in browse
-  if (state.keyboardMode === 'browse' && state.selectedItemIds.length > 0)
+  if (state.keyboardMode === 'browse' && state.selection.ids.length > 0)
   {
     state.clearSelection()
     announce('Selection cleared')

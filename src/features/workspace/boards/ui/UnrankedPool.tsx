@@ -10,7 +10,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useImageImport } from '~/features/workspace/settings/model/useImageImport'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { getEffectiveUnrankedItemIds } from '~/features/workspace/boards/dnd/dragSnapshot'
+import { useEffectiveUnrankedItemIds } from '~/features/workspace/boards/model/useEffectiveBoard'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { TierItem } from './TierItem'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
@@ -27,26 +27,13 @@ export const UnrankedPool = () =>
       confirmBeforeDelete: state.confirmBeforeDelete,
     }))
   )
-  const {
-    unrankedItemIds: storedUnrankedItemIds,
-    dragPreview,
-    items,
-    removeItem,
-  } = useActiveBoardStore(
+  const { items, removeItem } = useActiveBoardStore(
     useShallow((state) => ({
-      unrankedItemIds: state.unrankedItemIds,
-      dragPreview: state.dragPreview,
       items: state.items,
       removeItem: state.removeItem,
     }))
   )
-  const unrankedItemIds = useMemo(
-    () =>
-      dragPreview
-        ? getEffectiveUnrankedItemIds(storedUnrankedItemIds, dragPreview)
-        : storedUnrankedItemIds,
-    [dragPreview, storedUnrankedItemIds]
-  )
+  const unrankedItemIds = useEffectiveUnrankedItemIds()
   const itemCount = Object.keys(items).length
 
   const {

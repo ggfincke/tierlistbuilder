@@ -5,6 +5,7 @@ import { lazy, Suspense, useCallback, useState, type MouseEvent } from 'react'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
 import { useThemeApplicator } from '~/app/bootstrap/useThemeApplicator'
+import { useModalStack } from '~/app/shells/useModalStack'
 import { BoardActionBar } from '~/features/workspace/boards/ui/BoardActionBar'
 import { BoardManager } from '~/features/workspace/boards/ui/BoardManager'
 import { BoardHeader } from '~/features/workspace/boards/ui/BoardHeader'
@@ -32,6 +33,14 @@ import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import type { ImageFormat } from '~/shared/types/export'
+
+type ModalPayloads = {
+  settings: undefined
+  stats: undefined
+  share: undefined
+  annotation: string
+  preview: string
+}
 
 const AnnotationEditor = lazy(() =>
   import('~/features/workspace/annotation/ui/AnnotationEditor').then((m) => ({
@@ -100,13 +109,12 @@ export const WorkspaceShell = () =>
     onExport: runExport,
   })
 
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [statsOpen, setStatsOpen] = useState(false)
-  const [shareOpen, setShareOpen] = useState(false)
-  const [annotationImage, setAnnotationImage] = useState<string | null>(null)
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const {
+    state: modalState,
+    open: openModal,
+    close: closeModal,
+  } = useModalStack<ModalPayloads>()
   const [previewFormat, setPreviewFormat] = useState<ImageFormat>('png')
-  const [previewOpen, setPreviewOpen] = useState(false)
 
   const handleAddTier = useCallback(
     () => addTier(paletteId),
@@ -116,13 +124,22 @@ export const WorkspaceShell = () =>
     () => resetBoard(paletteId),
     [paletteId, resetBoard]
   )
-  const handleCloseSettings = useCallback(() => setSettingsOpen(false), [])
-  const handleOpenSettings = useCallback(() => setSettingsOpen(true), [])
-  const handleCloseStats = useCallback(() => setStatsOpen(false), [])
-  const handleOpenStats = useCallback(() => setStatsOpen(true), [])
-  const handleCloseShare = useCallback(() => setShareOpen(false), [])
-  const handleOpenShare = useCallback(() => setShareOpen(true), [])
-  const handleCloseAnnotation = useCallback(() => setAnnotationImage(null), [])
+  const handleCloseSettings = useCallback(
+    () => closeModal('settings'),
+    [closeModal]
+  )
+  const handleOpenSettings = useCallback(
+    () => openModal('settings'),
+    [openModal]
+  )
+  const handleCloseStats = useCallback(() => closeModal('stats'), [closeModal])
+  const handleOpenStats = useCallback(() => openModal('stats'), [openModal])
+  const handleCloseShare = useCallback(() => closeModal('share'), [closeModal])
+  const handleOpenShare = useCallback(() => openModal('share'), [openModal])
+  const handleCloseAnnotation = useCallback(
+    () => closeModal('annotation'),
+    [closeModal]
+  )
 
   const handleAnnotateExport = useCallback(() =>
   {
@@ -130,47 +147,43 @@ export const WorkspaceShell = () =>
     {
       if (image)
       {
-        setAnnotationImage(image)
+        openModal('annotation', image)
       }
     })
-  }, [runAnnotatedExport])
+  }, [openModal, runAnnotatedExport])
   const handlePreviewExport = useCallback(() =>
   {
     void runPreviewRender().then((image) =>
     {
       if (image)
       {
-        setPreviewImage(image)
-        setPreviewOpen(true)
+        openModal('preview', image)
       }
     })
-  }, [runPreviewRender])
-  const handleClosePreview = useCallback(() =>
-  {
-    setPreviewOpen(false)
-    setPreviewImage(null)
-  }, [])
+  }, [openModal, runPreviewRender])
+  const handleClosePreview = useCallback(
+    () => closeModal('preview'),
+    [closeModal]
+  )
   const handlePreviewDownload = useCallback(() =>
   {
     void runExport(previewFormat)
-    setPreviewOpen(false)
-    setPreviewImage(null)
-  }, [runExport, previewFormat])
+    closeModal('preview')
+  }, [closeModal, runExport, previewFormat])
   const handlePreviewCopy = useCallback(() =>
   {
     void runCopyToClipboard()
-    setPreviewOpen(false)
-    setPreviewImage(null)
-  }, [runCopyToClipboard])
+    closeModal('preview')
+  }, [closeModal, runCopyToClipboard])
+  const previewImage = modalState.preview?.payload
   const handlePreviewAnnotate = useCallback(() =>
   {
-    setPreviewOpen(false)
+    closeModal('preview')
     if (previewImage)
     {
-      setAnnotationImage(previewImage)
-      setPreviewImage(null)
+      openModal('annotation', previewImage)
     }
-  }, [previewImage])
+  }, [closeModal, openModal, previewImage])
   const handleSkipToBoard = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) =>
     {
@@ -262,27 +275,24 @@ export const WorkspaceShell = () =>
         </div>
       </div>
 
-      {settingsOpen && (
+      {modalState.settings && (
         <ErrorBoundary section="settings">
-          <BoardSettingsModal
-            open={settingsOpen}
-            onClose={handleCloseSettings}
-          />
+          <BoardSettingsModal open onClose={handleCloseSettings} />
         </ErrorBoundary>
       )}
-      {statsOpen && (
+      {modalState.stats && (
         <Suspense>
           <ErrorBoundary section="statistics">
-            <StatsModal open={statsOpen} onClose={handleCloseStats} />
+            <StatsModal open onClose={handleCloseStats} />
           </ErrorBoundary>
         </Suspense>
       )}
-      {previewOpen && (
+      {modalState.preview && (
         <Suspense>
           <ExportPreviewModal
-            open={previewOpen}
+            open
             onClose={handleClosePreview}
-            previewDataUrl={previewImage}
+            previewDataUrl={modalState.preview.payload}
             format={previewFormat}
             onFormatChange={setPreviewFormat}
             onDownload={handlePreviewDownload}
@@ -292,22 +302,22 @@ export const WorkspaceShell = () =>
           />
         </Suspense>
       )}
-      {annotationImage !== null && (
+      {modalState.annotation && (
         <Suspense>
           <ErrorBoundary section="annotation">
             <AnnotationEditor
               open
               onClose={handleCloseAnnotation}
-              backgroundImage={annotationImage}
+              backgroundImage={modalState.annotation.payload}
             />
           </ErrorBoundary>
         </Suspense>
       )}
-      {shareOpen && (
+      {modalState.share && (
         <Suspense>
           <ErrorBoundary section="share">
             <ShareModal
-              open={shareOpen}
+              open
               onClose={handleCloseShare}
               getSnapshot={() =>
                 extractBoardData(useActiveBoardStore.getState())

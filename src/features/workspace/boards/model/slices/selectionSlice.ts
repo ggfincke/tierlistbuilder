@@ -4,21 +4,24 @@
 import { announce } from '~/shared/a11y/announce'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { pluralizeWord } from '~/shared/lib/pluralize'
-import { getAllBoardItemIds, selectionUpdate } from './helpers'
+import {
+  EMPTY_SELECTION,
+  makeSelection,
+} from '~/features/workspace/boards/model/runtime'
+import { getAllBoardItemIds, stripItemsFromContainers } from './helpers'
 import { withUndo } from './undoSlice'
 import type { ActiveBoardSliceCreator, SelectionSlice } from './types'
 
 export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
   set
 ) => ({
-  selectedItemIds: [],
-  selectedItemIdSet: new Set<ItemId>(),
+  selection: EMPTY_SELECTION,
   lastClickedItemId: null,
 
   toggleItemSelected: (itemId, shiftKey, modKey) =>
     set((state) =>
     {
-      const prev = state.selectedItemIds
+      const prev = state.selection.ids
       const idx = prev.indexOf(itemId)
 
       // shift+click: range selection from last clicked to current
@@ -32,13 +35,13 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
         {
           const [from, to] =
             startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx]
-          const next = modKey ? [...prev] : []
+          const next: ItemId[] = modKey ? [...prev] : []
           for (let i = from; i <= to; i++)
           {
             if (!next.includes(allIds[i])) next.push(allIds[i])
           }
           return {
-            ...selectionUpdate(next),
+            selection: makeSelection(next),
             lastClickedItemId: state.lastClickedItemId,
           }
         }
@@ -50,12 +53,12 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
         if (idx !== -1)
         {
           return {
-            ...selectionUpdate(prev.filter((id) => id !== itemId)),
+            selection: makeSelection(prev.filter((id) => id !== itemId)),
             lastClickedItemId: itemId,
           }
         }
         return {
-          ...selectionUpdate([...prev, itemId]),
+          selection: makeSelection([...prev, itemId]),
           lastClickedItemId: itemId,
         }
       }
@@ -65,7 +68,7 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
       // that triggers DndContext remeasure loops
       if (prev.length === 1 && prev[0] === itemId) return state
       return {
-        ...selectionUpdate([itemId]),
+        selection: makeSelection([itemId]),
         lastClickedItemId: itemId,
       }
     }),
@@ -73,54 +76,43 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
   clearSelection: () =>
     set((state) =>
     {
-      if (state.selectedItemIds.length === 0) return state
-      return { ...selectionUpdate([]), lastClickedItemId: null }
+      if (state.selection.ids.length === 0) return state
+      return { selection: EMPTY_SELECTION, lastClickedItemId: null }
     }),
 
   selectAll: () =>
     set((state) =>
     {
       const allIds = getAllBoardItemIds(state)
+      const current = state.selection.ids
       // bail if every item is already selected to avoid no-op state change
       if (
-        allIds.length === state.selectedItemIds.length &&
-        allIds.every((id, i) => state.selectedItemIds[i] === id)
+        allIds.length === current.length &&
+        allIds.every((id, i) => current[i] === id)
       )
       {
         return state
       }
-      return selectionUpdate(allIds)
+      return { selection: makeSelection(allIds) }
     }),
 
   moveSelectedToTier: (tierId) =>
     set((state) =>
     {
-      const selected = state.selectedItemIds
+      const selected = state.selection.ids
       if (selected.length === 0) return state
 
       const tier = state.tiers.find((t) => t.id === tierId)
       if (!tier) return state
 
-      const selectedSet = new Set(selected)
-
-      // remove selected items from all tiers & unranked
-      const tiers = state.tiers.map((t) => ({
-        ...t,
-        itemIds: t.itemIds.filter((id) => !selectedSet.has(id)),
-      }))
-      const unrankedItemIds = state.unrankedItemIds.filter(
-        (id) => !selectedSet.has(id)
-      )
+      const selectedSet = state.selection.set
+      const { tiers: strippedTiers, unrankedItemIds } =
+        stripItemsFromContainers(state, selectedSet)
 
       // add selected items to the target tier (in selection order)
-      const targetIdx = tiers.findIndex((t) => t.id === tierId)
-      if (targetIdx !== -1)
-      {
-        tiers[targetIdx] = {
-          ...tiers[targetIdx],
-          itemIds: [...tiers[targetIdx].itemIds, ...selected],
-        }
-      }
+      const tiers = strippedTiers.map((t) =>
+        t.id === tierId ? { ...t, itemIds: [...t.itemIds, ...selected] } : t
+      )
 
       announce(
         `Moved ${selected.length} ${pluralizeWord(selected.length, 'item')} to ${tier.name}`
@@ -133,7 +125,7 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
 
       return {
         ...withUndo(state, { tiers, unrankedItemIds }, moveLabel),
-        ...selectionUpdate([]),
+        selection: EMPTY_SELECTION,
         lastClickedItemId: null,
       }
     }),
@@ -141,20 +133,14 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
   moveSelectedToUnranked: () =>
     set((state) =>
     {
-      const selected = state.selectedItemIds
+      const selected = state.selection.ids
       if (selected.length === 0) return state
 
-      const selectedSet = new Set(selected)
-
-      const tiers = state.tiers.map((t) => ({
-        ...t,
-        itemIds: t.itemIds.filter((id) => !selectedSet.has(id)),
-      }))
-      // remove from unranked first (prevent duplicates), then re-add
-      const unrankedItemIds = [
-        ...state.unrankedItemIds.filter((id) => !selectedSet.has(id)),
-        ...selected,
-      ]
+      const selectedSet = state.selection.set
+      const { tiers, unrankedItemIds: strippedUnranked } =
+        stripItemsFromContainers(state, selectedSet)
+      // remove from unranked first (prevent duplicates), then re-add in selection order
+      const unrankedItemIds = [...strippedUnranked, ...selected]
 
       announce(
         `Moved ${selected.length} ${pluralizeWord(selected.length, 'item')} to unranked`
@@ -167,7 +153,7 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
 
       return {
         ...withUndo(state, { tiers, unrankedItemIds }, moveLabel),
-        ...selectionUpdate([]),
+        selection: EMPTY_SELECTION,
         lastClickedItemId: null,
       }
     }),
@@ -175,17 +161,13 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
   deleteSelectedItems: () =>
     set((state) =>
     {
-      const selected = state.selectedItemIds
+      const selected = state.selection.ids
       if (selected.length === 0) return state
 
-      const selectedSet = new Set(selected)
-
-      const tiers = state.tiers.map((t) => ({
-        ...t,
-        itemIds: t.itemIds.filter((id) => !selectedSet.has(id)),
-      }))
-      const unrankedItemIds = state.unrankedItemIds.filter(
-        (id) => !selectedSet.has(id)
+      const selectedSet = state.selection.set
+      const { tiers, unrankedItemIds } = stripItemsFromContainers(
+        state,
+        selectedSet
       )
 
       const deletedItems = [...state.deletedItems]
@@ -216,7 +198,7 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
           { tiers, unrankedItemIds, items, deletedItems },
           deleteLabel
         ),
-        ...selectionUpdate([]),
+        selection: EMPTY_SELECTION,
         lastClickedItemId: null,
       }
     }),

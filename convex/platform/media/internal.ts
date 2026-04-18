@@ -40,7 +40,7 @@ export const gcOrphanedMediaAssets = internalMutation({
     const eligible: Doc<'mediaAssets'>[] = []
     for (const asset of page.page)
     {
-      if ((asset.createdAt ?? 0) > cutoff) continue
+      if (asset.createdAt > cutoff) continue
       eligible.push(asset)
     }
 

@@ -2,11 +2,7 @@
 // localStorage sidecar for board deletes not yet propagated to the cloud.
 // permanent-failure codes drop stale entries; w/o this sidecar offline deletes leave cloud rows alive
 
-import {
-  deleteBrowserStorageItem,
-  readBrowserStorageItem,
-  writeBrowserStorageItem,
-} from '~/shared/lib/browserStorage'
+import { createLocalSidecar } from '~/shared/lib/localSidecar'
 import { isNonEmptyString } from '~/shared/lib/typeGuards'
 
 export const BOARD_DELETE_SYNC_META_STORAGE_KEY =
@@ -36,33 +32,14 @@ const normalizeBoardDeleteSyncMeta = (raw: unknown): BoardDeleteSyncMeta =>
   return { pendingExternalIds: Array.from(new Set(ids)) }
 }
 
-export const loadBoardDeleteSyncMeta = (): BoardDeleteSyncMeta =>
-{
-  const raw = readBrowserStorageItem(BOARD_DELETE_SYNC_META_STORAGE_KEY)
-  if (!raw) return { pendingExternalIds: [] }
+const sidecar = createLocalSidecar<BoardDeleteSyncMeta>({
+  storageKey: BOARD_DELETE_SYNC_META_STORAGE_KEY,
+  emptyValue: () => ({ pendingExternalIds: [] }),
+  normalize: normalizeBoardDeleteSyncMeta,
+  isEmpty: (meta) => meta.pendingExternalIds.length === 0,
+})
 
-  try
-  {
-    return normalizeBoardDeleteSyncMeta(JSON.parse(raw))
-  }
-  catch
-  {
-    return { pendingExternalIds: [] }
-  }
-}
-
-const saveBoardDeleteSyncMeta = (meta: BoardDeleteSyncMeta): void =>
-{
-  if (meta.pendingExternalIds.length === 0)
-  {
-    deleteBrowserStorageItem(BOARD_DELETE_SYNC_META_STORAGE_KEY)
-    return
-  }
-  writeBrowserStorageItem(
-    BOARD_DELETE_SYNC_META_STORAGE_KEY,
-    JSON.stringify(meta)
-  )
-}
+export const loadBoardDeleteSyncMeta = sidecar.load
 
 // stamp a cloud-board-externalId as awaiting deletion. idempotent & bounded:
 // duplicate stamps no-op; overflow past the cap drops the oldest entry
@@ -70,7 +47,7 @@ export const stampPendingBoardDelete = (
   cloudBoardExternalId: string
 ): BoardDeleteSyncMeta =>
 {
-  const current = loadBoardDeleteSyncMeta()
+  const current = sidecar.load()
   if (current.pendingExternalIds.includes(cloudBoardExternalId))
   {
     return current
@@ -81,7 +58,7 @@ export const stampPendingBoardDelete = (
       ? appended.slice(appended.length - MAX_PENDING_BOARD_DELETES)
       : appended
   const next: BoardDeleteSyncMeta = { pendingExternalIds: trimmed }
-  saveBoardDeleteSyncMeta(next)
+  sidecar.save(next)
   return next
 }
 
@@ -90,7 +67,7 @@ export const clearPendingBoardDelete = (
   cloudBoardExternalId: string
 ): BoardDeleteSyncMeta =>
 {
-  const current = loadBoardDeleteSyncMeta()
+  const current = sidecar.load()
   if (!current.pendingExternalIds.includes(cloudBoardExternalId))
   {
     return current
@@ -100,6 +77,6 @@ export const clearPendingBoardDelete = (
       (id) => id !== cloudBoardExternalId
     ),
   }
-  saveBoardDeleteSyncMeta(next)
+  sidecar.save(next)
   return next
 }

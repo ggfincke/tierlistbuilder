@@ -1,10 +1,14 @@
 // src/features/workspace/boards/model/slices/helpers.ts
 // cross-slice helpers shared by the active board slice creators
 
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardSnapshot,
+  Tier,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
-  EMPTY_SELECTION_SET,
+  makeSelection,
   type ActiveBoardRuntimeState,
+  type ContainerSnapshot,
   type KeyboardMode,
 } from '~/features/workspace/boards/model/runtime'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -15,40 +19,21 @@ export const MAX_UNDO_HISTORY = 50
 // max entries kept in the recently-deleted buffer
 export const MAX_DELETED_ITEMS = 50
 
-// build a fresh O(1) lookup set from a selection list
-export const toSelectionSet = (ids: readonly ItemId[]): ReadonlySet<ItemId> =>
-  ids.length === 0 ? EMPTY_SELECTION_SET : new Set(ids)
-
-// produce a paired selection update — array & matching lookup set
-export const selectionUpdate = (
-  ids: ItemId[]
-): {
-  selectedItemIds: ItemId[]
-  selectedItemIdSet: ReadonlySet<ItemId>
-} => ({
-  selectedItemIds: ids,
-  selectedItemIdSet: toSelectionSet(ids),
-})
-
-// shallow structural check — compares title, container lengths, & item-key
-// count; intentionally does not deep-compare inner item objects since every
-// store mutation rebuilds the relevant arrays/maps anyway
+// ref-equality check — mutations rebuild the touched array/map/tier so
+// per-field ref comparison catches any meaningful change w/o a deep walk
 export const isSameSnapshot = (a: BoardSnapshot, b: BoardSnapshot): boolean =>
 {
+  if (a === b) return true
   if (a.title !== b.title) return false
+  if (a.items !== b.items) return false
+  if (a.unrankedItemIds !== b.unrankedItemIds) return false
+  if (a.deletedItems !== b.deletedItems) return false
+  if (a.tiers === b.tiers) return true
   if (a.tiers.length !== b.tiers.length) return false
-  if (a.unrankedItemIds.length !== b.unrankedItemIds.length) return false
-  if (a.deletedItems.length !== b.deletedItems.length) return false
-  if (Object.keys(a.items).length !== Object.keys(b.items).length) return false
-
   for (let i = 0; i < a.tiers.length; i++)
   {
-    const tierA = a.tiers[i]
-    const tierB = b.tiers[i]
-    if (tierA.id !== tierB.id) return false
-    if (tierA.itemIds.length !== tierB.itemIds.length) return false
+    if (a.tiers[i] !== b.tiers[i]) return false
   }
-
   return true
 }
 
@@ -63,6 +48,82 @@ export const getAllBoardItemIds = (
   ]
 }
 
+// filter `ids` through `idSet` but return the input ref when nothing is
+// removed — lets downstream shallow-equality checks bail gratuitously
+const filterItemIdsPreservingRef = (
+  ids: ItemId[],
+  idSet: ReadonlySet<ItemId>
+): ItemId[] =>
+{
+  if (idSet.size === 0) return ids
+  let removed = false
+  const next: ItemId[] = []
+  for (const id of ids)
+  {
+    if (idSet.has(id))
+    {
+      removed = true
+      continue
+    }
+    next.push(id)
+  }
+  return removed ? next : ids
+}
+
+// remove items from every tier & the unranked pool — preserves tier refs
+// when a tier has nothing stripped, so downstream TierRow memoization bails
+export const stripItemsFromContainers = (
+  state: Pick<ActiveBoardRuntimeState, 'tiers' | 'unrankedItemIds'>,
+  idSet: ReadonlySet<ItemId>
+): { tiers: Tier[]; unrankedItemIds: ItemId[] } =>
+{
+  let tiersChanged = false
+  const tiers = state.tiers.map((tier) =>
+  {
+    const nextItemIds = filterItemIdsPreservingRef(tier.itemIds, idSet)
+    if (nextItemIds === tier.itemIds) return tier
+    tiersChanged = true
+    return { ...tier, itemIds: nextItemIds }
+  })
+  const unrankedItemIds = filterItemIdsPreservingRef(
+    state.unrankedItemIds,
+    idSet
+  )
+  return {
+    tiers: tiersChanged ? tiers : state.tiers,
+    unrankedItemIds,
+  }
+}
+
+// remove items from a drag preview snapshot — used when secondary selection
+// items must be hidden from the snapshot while their tiles collapse visually
+export const stripItemsFromSnapshot = (
+  snapshot: ContainerSnapshot,
+  idSet: ReadonlySet<ItemId>
+): ContainerSnapshot =>
+{
+  let tiersChanged = false
+  const tiers = snapshot.tiers.map((tier) =>
+  {
+    const nextItemIds = filterItemIdsPreservingRef(tier.itemIds, idSet)
+    if (nextItemIds === tier.itemIds) return tier
+    tiersChanged = true
+    return { id: tier.id, itemIds: nextItemIds }
+  })
+  const unrankedItemIds = filterItemIdsPreservingRef(
+    snapshot.unrankedItemIds,
+    idSet
+  )
+  if (!tiersChanged && unrankedItemIds === snapshot.unrankedItemIds)
+  {
+    return snapshot
+  }
+  return {
+    tiers: tiersChanged ? tiers : snapshot.tiers,
+    unrankedItemIds,
+  }
+}
+
 // clean up transient refs (active, focus, selection, last-click) that point
 // at an item being deleted or removed from the board
 export const runtimeCleanupForItem = (
@@ -70,9 +131,7 @@ export const runtimeCleanupForItem = (
   itemId: ItemId
 ) =>
 {
-  const nextSelectedItemIds = state.selectedItemIds.filter(
-    (id) => id !== itemId
-  )
+  const nextSelectionIds = state.selection.ids.filter((id) => id !== itemId)
 
   return {
     activeItemId: state.activeItemId === itemId ? null : state.activeItemId,
@@ -82,7 +141,7 @@ export const runtimeCleanupForItem = (
       state.keyboardFocusItemId === itemId || state.activeItemId === itemId
         ? ('idle' as KeyboardMode)
         : state.keyboardMode,
-    ...selectionUpdate(nextSelectedItemIds),
+    selection: makeSelection(nextSelectionIds),
     lastClickedItemId:
       state.lastClickedItemId === itemId ? null : state.lastClickedItemId,
   }

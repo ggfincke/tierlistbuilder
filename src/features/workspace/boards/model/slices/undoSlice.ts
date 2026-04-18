@@ -1,9 +1,14 @@
 // src/features/workspace/boards/model/slices/undoSlice.ts
 // undo/redo history slice — snapshots past/future board state & exposes helpers
 
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
-import { MAX_UNDO_HISTORY, isSameSnapshot, selectionUpdate } from './helpers'
+import {
+  createUndoRestoreRuntimePatch,
+  type UndoEntry,
+} from '~/features/workspace/boards/model/runtime'
+import { MAX_UNDO_HISTORY, isSameSnapshot } from './helpers'
 import type {
   ActiveBoardSliceCreator,
   ActiveBoardStore,
@@ -12,13 +17,7 @@ import type {
 
 export const DEFAULT_UNDO_LABEL = 'Change'
 
-interface UndoStacksPatch
-{
-  past: BoardSnapshot[]
-  pastLabels: string[]
-  future: BoardSnapshot[]
-  futureLabels: string[]
-}
+type UndoStacksPatch = Pick<ActiveBoardStore, 'past' | 'future'>
 
 // build the new past/future stacks for a mutation; returns null when the
 // snapshot is unchanged & the future stack is already empty (true no-op)
@@ -28,24 +27,20 @@ export const pushUndo = (
 ): UndoStacksPatch | null =>
 {
   const snapshot = extractBoardData(state)
-  const lastSnapshot = state.past[state.past.length - 1]
+  const lastEntry = state.past[state.past.length - 1]
 
-  if (lastSnapshot && isSameSnapshot(snapshot, lastSnapshot))
+  if (lastEntry && isSameSnapshot(snapshot, lastEntry.snapshot))
   {
     if (state.future.length === 0) return null
     return {
       past: state.past,
-      pastLabels: state.pastLabels,
       future: [],
-      futureLabels: [],
     }
   }
 
   return {
-    past: [...state.past, snapshot].slice(-MAX_UNDO_HISTORY),
-    pastLabels: [...state.pastLabels, label].slice(-MAX_UNDO_HISTORY),
+    past: [...state.past, { snapshot, label }].slice(-MAX_UNDO_HISTORY),
     future: [],
-    futureLabels: [],
   }
 }
 
@@ -62,14 +57,35 @@ export const withUndo = (
   return undo ? { ...undo, ...updates } : updates
 }
 
+// apply a mapper to a single tier by id; returns a withUndo patch or null
+// when the tier doesn't exist or the mapper short-circuits (returns null or
+// the same tier ref). used by boardDataSlice for rename/recolor/description
+export const mapTier = (
+  state: ActiveBoardStore,
+  tierId: TierId,
+  label: string,
+  mapper: (tier: Tier) => Tier | null
+): Partial<ActiveBoardStore> | null =>
+{
+  const tier = state.tiers.find((entry) => entry.id === tierId)
+  if (!tier) return null
+  const next = mapper(tier)
+  if (next === null || next === tier) return null
+  return withUndo(
+    state,
+    {
+      tiers: state.tiers.map((entry) => (entry.id === tierId ? next : entry)),
+    },
+    label
+  )
+}
+
 export const createUndoSlice: ActiveBoardSliceCreator<UndoSlice> = (
   set,
   get
 ) => ({
   past: [],
-  pastLabels: [],
   future: [],
-  futureLabels: [],
 
   undo: () =>
   {
@@ -77,28 +93,19 @@ export const createUndoSlice: ActiveBoardSliceCreator<UndoSlice> = (
     const prev = state.past[state.past.length - 1]
     if (!prev) return null
 
-    const label =
-      state.pastLabels[state.pastLabels.length - 1] ?? DEFAULT_UNDO_LABEL
+    const currentEntry: UndoEntry = {
+      snapshot: extractBoardData(state),
+      label: prev.label,
+    }
 
     set(() => ({
-      ...prev,
+      ...prev.snapshot,
       past: state.past.slice(0, -1),
-      pastLabels: state.pastLabels.slice(0, -1),
-      future: [extractBoardData(state), ...state.future].slice(
-        0,
-        MAX_UNDO_HISTORY
-      ),
-      futureLabels: [label, ...state.futureLabels].slice(0, MAX_UNDO_HISTORY),
-      activeItemId: null,
-      dragPreview: null,
-      dragGroupIds: [],
-      keyboardMode: 'idle',
-      keyboardFocusItemId: null,
-      ...selectionUpdate([]),
-      lastClickedItemId: null,
+      future: [currentEntry, ...state.future].slice(0, MAX_UNDO_HISTORY),
+      ...createUndoRestoreRuntimePatch(),
     }))
 
-    return { label }
+    return { label: prev.label }
   },
 
   redo: () =>
@@ -107,23 +114,18 @@ export const createUndoSlice: ActiveBoardSliceCreator<UndoSlice> = (
     const next = state.future[0]
     if (!next) return null
 
-    const label = state.futureLabels[0] ?? DEFAULT_UNDO_LABEL
+    const currentEntry: UndoEntry = {
+      snapshot: extractBoardData(state),
+      label: next.label,
+    }
 
     set(() => ({
-      ...next,
-      past: [...state.past, extractBoardData(state)].slice(-MAX_UNDO_HISTORY),
-      pastLabels: [...state.pastLabels, label].slice(-MAX_UNDO_HISTORY),
+      ...next.snapshot,
+      past: [...state.past, currentEntry].slice(-MAX_UNDO_HISTORY),
       future: state.future.slice(1),
-      futureLabels: state.futureLabels.slice(1),
-      activeItemId: null,
-      dragPreview: null,
-      dragGroupIds: [],
-      keyboardMode: 'idle',
-      keyboardFocusItemId: null,
-      ...selectionUpdate([]),
-      lastClickedItemId: null,
+      ...createUndoRestoreRuntimePatch(),
     }))
 
-    return { label }
+    return { label: next.label }
   },
 })

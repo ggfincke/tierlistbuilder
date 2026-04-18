@@ -1,12 +1,8 @@
 // src/features/workspace/settings/data/local/settingsSyncMeta.ts
-// localStorage sidecar for cloud sync state of the global settings doc; separate from the settings blob.
-// fields: pendingSyncAt, lastSyncedAt, ownerUserId (null on legacy entries before user scoping)
+// localStorage sidecar for cloud sync state of the global settings doc — separate
+// from the settings blob. fields: pendingSyncAt, lastSyncedAt, ownerUserId
 
-import {
-  deleteBrowserStorageItem,
-  readBrowserStorageItem,
-  writeBrowserStorageItem,
-} from '~/shared/lib/browserStorage'
+import { createLocalSidecar, isOwnedByUser } from '~/shared/lib/localSidecar'
 import {
   isNonEmptyString,
   isPositiveFiniteNumber,
@@ -49,42 +45,25 @@ const normalizeSettingsSyncMeta = (raw: unknown): SettingsSyncMeta =>
   }
 }
 
-export const loadSettingsSyncMeta = (): SettingsSyncMeta =>
-{
-  const raw = readBrowserStorageItem(SETTINGS_SYNC_META_STORAGE_KEY)
-  if (!raw) return { ...EMPTY_SETTINGS_SYNC_META }
+const sidecar = createLocalSidecar<SettingsSyncMeta>({
+  storageKey: SETTINGS_SYNC_META_STORAGE_KEY,
+  emptyValue: () => ({ ...EMPTY_SETTINGS_SYNC_META }),
+  normalize: normalizeSettingsSyncMeta,
+  // ownerUserId alone doesn't justify keeping the sidecar — w/o a pending
+  // or last-synced timestamp there's nothing to recover from it
+  isEmpty: (meta) => meta.pendingSyncAt === null && meta.lastSyncedAt === null,
+})
 
-  try
-  {
-    return normalizeSettingsSyncMeta(JSON.parse(raw))
-  }
-  catch
-  {
-    return { ...EMPTY_SETTINGS_SYNC_META }
-  }
-}
-
-export const saveSettingsSyncMeta = (meta: SettingsSyncMeta): void =>
-{
-  // skip the write entirely when the meta is empty — keeps localStorage tidy
-  // for users who never sign in & avoids leaving a dangling key after sign-out
-  if (meta.pendingSyncAt === null && meta.lastSyncedAt === null)
-  {
-    deleteBrowserStorageItem(SETTINGS_SYNC_META_STORAGE_KEY)
-    return
-  }
-  writeBrowserStorageItem(SETTINGS_SYNC_META_STORAGE_KEY, JSON.stringify(meta))
-}
-
-export const clearSettingsSyncMeta = (): void =>
-  deleteBrowserStorageItem(SETTINGS_SYNC_META_STORAGE_KEY)
+export const loadSettingsSyncMeta = sidecar.load
+export const saveSettingsSyncMeta = sidecar.save
+export const clearSettingsSyncMeta = sidecar.clear
 
 export const loadSettingsSyncMetaForUser = (
   userId: string
 ): SettingsSyncMeta =>
 {
   const meta = loadSettingsSyncMeta()
-  if (meta.ownerUserId !== null && meta.ownerUserId !== userId)
+  if (!isOwnedByUser(meta, userId))
   {
     return { ...EMPTY_SETTINGS_SYNC_META }
   }
@@ -100,16 +79,9 @@ export const stampSettingsPending = (
 ): SettingsSyncMeta =>
 {
   const current = loadSettingsSyncMeta()
-  const scopedCurrent =
-    current.ownerUserId !== null && current.ownerUserId !== ownerUserId
-      ? {
-          ...EMPTY_SETTINGS_SYNC_META,
-          ownerUserId,
-        }
-      : {
-          ...current,
-          ownerUserId,
-        }
+  const scopedCurrent = isOwnedByUser(current, ownerUserId)
+    ? { ...current, ownerUserId }
+    : { ...EMPTY_SETTINGS_SYNC_META, ownerUserId }
 
   if (scopedCurrent.pendingSyncAt !== null)
   {
@@ -132,6 +104,28 @@ export const markSettingsSynced = (
   const next: SettingsSyncMeta = {
     pendingSyncAt: null,
     lastSyncedAt: syncedAt,
+    ownerUserId,
+  }
+  saveSettingsSyncMeta(next)
+  return next
+}
+
+// clear pendingSyncAt w/o advancing lastSyncedAt — used when the runner
+// dedup bails: cloud is already at the current value so no new sync happened
+export const clearSettingsPending = (ownerUserId: string): SettingsSyncMeta =>
+{
+  const current = loadSettingsSyncMeta()
+  if (!isOwnedByUser(current, ownerUserId))
+  {
+    return { ...EMPTY_SETTINGS_SYNC_META }
+  }
+  if (current.pendingSyncAt === null)
+  {
+    return current
+  }
+  const next: SettingsSyncMeta = {
+    ...current,
+    pendingSyncAt: null,
     ownerUserId,
   }
   saveSettingsSyncMeta(next)

@@ -39,16 +39,13 @@ const resetStore = () =>
     items: {},
     deletedItems: [],
     past: [],
-    pastLabels: [],
     future: [],
-    futureLabels: [],
     activeItemId: null,
     dragPreview: null,
     dragGroupIds: [],
     keyboardMode: 'idle',
     keyboardFocusItemId: null,
-    selectedItemIds: [],
-    selectedItemIdSet: new Set(),
+    selection: { ids: [], set: new Set() },
     lastClickedItemId: null,
     itemsManuallyMoved: false,
     runtimeError: null,
@@ -117,8 +114,8 @@ describe('recolorTierRow', () =>
     const store = useActiveBoardStore.getState()
     store.recolorTierRow('t-1', createPaletteTierColorSpec(4))
 
-    const labels = useActiveBoardStore.getState().pastLabels
-    expect(labels[labels.length - 1]).toBe('Recolor row')
+    const past = useActiveBoardStore.getState().past
+    expect(past[past.length - 1]?.label).toBe('Recolor row')
 
     const result = useActiveBoardStore.getState().undo()
     expect(result).toEqual({ label: 'Recolor row' })
@@ -142,7 +139,7 @@ describe('recolorTierRow', () =>
     store.recolorTierRow('t-1', createPaletteTierColorSpec(3))
 
     const state = useActiveBoardStore.getState()
-    expect(state.pastLabels).toEqual(['Recolor row'])
+    expect(state.past.map((entry) => entry.label)).toEqual(['Recolor row'])
     expect(state.past).toHaveLength(1)
   })
 
@@ -153,7 +150,7 @@ describe('recolorTierRow', () =>
     store.recolorTier('t-1', createCustomTierColorSpec('#abcdef'))
 
     const state = useActiveBoardStore.getState()
-    expect(state.pastLabels).toEqual(['Recolor tier'])
+    expect(state.past.map((entry) => entry.label)).toEqual(['Recolor tier'])
     expect(state.past).toHaveLength(1)
   })
 })

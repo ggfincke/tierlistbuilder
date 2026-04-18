@@ -45,7 +45,7 @@ export const TierItem = memo(
     } = useActiveBoardStore(
       useShallow((state) => ({
         item: state.items[itemId],
-        isSelected: state.selectedItemIdSet.has(itemId),
+        isSelected: state.selection.set.has(itemId),
         hasKeyboardSelection: selectHasKeyboardSelection(state),
         toggleItemSelected: state.toggleItemSelected,
         setKeyboardFocusItemId: state.setKeyboardFocusItemId,

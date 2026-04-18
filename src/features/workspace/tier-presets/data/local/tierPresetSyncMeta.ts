@@ -6,11 +6,7 @@ import {
   isUserPresetId,
   type UserPresetId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import {
-  deleteBrowserStorageItem,
-  readBrowserStorageItem,
-  writeBrowserStorageItem,
-} from '~/shared/lib/browserStorage'
+import { createLocalSidecar, isOwnedByUser } from '~/shared/lib/localSidecar'
 import {
   isNonEmptyString,
   isPositiveFiniteNumber,
@@ -43,6 +39,11 @@ const EMPTY_ENTRY: TierPresetSyncMetaEntry = {
 
 const isPendingOp = (value: unknown): value is TierPresetPendingOp =>
   value === 'upsert' || value === 'delete'
+
+const isFullyEmpty = (entry: TierPresetSyncMetaEntry): boolean =>
+  entry.pendingOp === null &&
+  entry.pendingSyncAt === null &&
+  entry.lastSyncedAt === null
 
 const normalizeEntry = (raw: unknown): TierPresetSyncMetaEntry =>
 {
@@ -84,11 +85,7 @@ const normalizeMap = (raw: unknown): TierPresetSyncMetaMap =>
     const entry = normalizeEntry(value)
     // skip entries that decay to fully-empty after normalization — keeps
     // map size bounded across migrations & malformed legacy writes
-    if (
-      entry.pendingOp === null &&
-      entry.pendingSyncAt === null &&
-      entry.lastSyncedAt === null
-    )
+    if (isFullyEmpty(entry))
     {
       continue
     }
@@ -97,20 +94,16 @@ const normalizeMap = (raw: unknown): TierPresetSyncMetaMap =>
   return map
 }
 
-export const loadTierPresetSyncMetaMap = (): TierPresetSyncMetaMap =>
-{
-  const raw = readBrowserStorageItem(TIER_PRESET_SYNC_META_STORAGE_KEY)
-  if (!raw) return {}
+const sidecar = createLocalSidecar<TierPresetSyncMetaMap>({
+  storageKey: TIER_PRESET_SYNC_META_STORAGE_KEY,
+  emptyValue: () => ({}),
+  normalize: normalizeMap,
+  isEmpty: (map) => Object.keys(map).length === 0,
+})
 
-  try
-  {
-    return normalizeMap(JSON.parse(raw))
-  }
-  catch
-  {
-    return {}
-  }
-}
+export const loadTierPresetSyncMetaMap = sidecar.load
+export const saveTierPresetSyncMetaMap = sidecar.save
+export const clearAllTierPresetSyncMeta = sidecar.clear
 
 export const loadTierPresetSyncMetaMapForUser = (
   userId: string
@@ -123,7 +116,7 @@ export const loadTierPresetSyncMetaMapForUser = (
     [UserPresetId, TierPresetSyncMetaEntry]
   >)
   {
-    if (entry.ownerUserId !== null && entry.ownerUserId !== userId)
+    if (!isOwnedByUser(entry, userId))
     {
       continue
     }
@@ -133,33 +126,12 @@ export const loadTierPresetSyncMetaMapForUser = (
   return filtered
 }
 
-export const saveTierPresetSyncMetaMap = (map: TierPresetSyncMetaMap): void =>
-{
-  if (Object.keys(map).length === 0)
-  {
-    deleteBrowserStorageItem(TIER_PRESET_SYNC_META_STORAGE_KEY)
-    return
-  }
-  writeBrowserStorageItem(
-    TIER_PRESET_SYNC_META_STORAGE_KEY,
-    JSON.stringify(map)
-  )
-}
-
-export const clearAllTierPresetSyncMeta = (): void =>
-  deleteBrowserStorageItem(TIER_PRESET_SYNC_META_STORAGE_KEY)
-
-const isFullyEmpty = (entry: TierPresetSyncMetaEntry): boolean =>
-  entry.pendingOp === null &&
-  entry.pendingSyncAt === null &&
-  entry.lastSyncedAt === null
-
 const scopeEntryToOwner = (
   entry: TierPresetSyncMetaEntry,
   ownerUserId: string
 ): TierPresetSyncMetaEntry =>
 {
-  if (entry.ownerUserId !== null && entry.ownerUserId !== ownerUserId)
+  if (!isOwnedByUser(entry, ownerUserId))
   {
     return {
       ...EMPTY_ENTRY,
@@ -273,6 +245,31 @@ export const markTierPresetSynced = (
     pendingOp: null,
     pendingSyncAt: null,
     lastSyncedAt: syncedAt,
+    ownerUserId,
+  })
+}
+
+// clear pendingOp & pendingSyncAt w/o advancing lastSyncedAt — used when the
+// runner dedup bails: cloud is already at the current value so no new sync
+// happened. preserves existing lastSyncedAt so the "last synced" UI is stable
+export const clearTierPresetPending = (
+  presetId: UserPresetId,
+  ownerUserId: string
+): TierPresetSyncMetaEntry =>
+{
+  const map = loadTierPresetSyncMetaMap()
+  const current = map[presetId]
+  if (!current || !isOwnedByUser(current, ownerUserId))
+  {
+    return { ...EMPTY_ENTRY }
+  }
+  if (current.pendingOp === null && current.pendingSyncAt === null)
+  {
+    return current
+  }
+  return upsertTierPresetSyncMeta(presetId, {
+    pendingOp: null,
+    pendingSyncAt: null,
     ownerUserId,
   })
 }

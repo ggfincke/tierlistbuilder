@@ -17,14 +17,14 @@ import {
   shuffleUnrankedItems as shuffleUnrankedBoardItems,
   sortTierItemsByName as sortTierItemsByNameInBoard,
 } from '~/features/workspace/boards/model/boardOps'
-import { freshRuntimeState } from '~/features/workspace/boards/model/runtime'
+import { createFreshRuntimeState } from '~/features/workspace/boards/model/runtime'
 import {
   EMPTY_BOARD_SYNC_STATE,
   extractBoardSyncState,
 } from '~/features/workspace/boards/model/sync'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { MAX_DELETED_ITEMS, runtimeCleanupForItem } from './helpers'
-import { pushUndo, withUndo } from './undoSlice'
+import { mapTier, pushUndo, withUndo } from './undoSlice'
 import type {
   ActiveBoardSliceCreator,
   ActiveBoardStore,
@@ -78,99 +78,65 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
   },
 
   renameTier: (tierId, name) =>
-    set((state) =>
-    {
-      const tier = state.tiers.find((entry) => entry.id === tierId)
-      if (!tier) return state
-
-      const nextName = name.trim() || tier.name
-      if (nextName === tier.name) return state
-
-      return withUndo(
-        state,
+    set(
+      (state) =>
+        mapTier(state, tierId, 'Rename tier', (tier) =>
         {
-          tiers: state.tiers.map((entry) =>
-            entry.id === tierId ? { ...entry, name: nextName } : entry
-          ),
-        },
-        'Rename tier'
-      )
-    }),
+          const nextName = name.trim() || tier.name
+          return nextName === tier.name ? null : { ...tier, name: nextName }
+        }) ?? state
+    ),
 
   setTierDescription: (tierId, description) =>
-    set((state) =>
-    {
-      const tier = state.tiers.find((entry) => entry.id === tierId)
-      if (!tier) return state
-
-      const nextDescription = description.trim() || undefined
-      if (nextDescription === tier.description) return state
-
-      return withUndo(
-        state,
+    set(
+      (state) =>
+        mapTier(state, tierId, 'Edit tier description', (tier) =>
         {
-          tiers: state.tiers.map((entry) =>
-            entry.id === tierId
-              ? { ...entry, description: nextDescription }
-              : entry
-          ),
-        },
-        'Edit tier description'
-      )
-    }),
+          const nextDescription = description.trim() || undefined
+          return nextDescription === tier.description
+            ? null
+            : { ...tier, description: nextDescription }
+        }) ?? state
+    ),
 
   recolorTier: (tierId, colorSpec) =>
-    set((state) =>
-    {
-      const tier = state.tiers.find((entry) => entry.id === tierId)
-      if (!tier || areTierColorSpecsEqual(tier.colorSpec, colorSpec))
-        return state
-
-      return withUndo(
-        state,
-        {
-          tiers: state.tiers.map((entry) =>
-            entry.id === tierId ? { ...entry, colorSpec } : entry
-          ),
-        },
-        'Recolor tier'
-      )
-    }),
+    set(
+      (state) =>
+        mapTier(state, tierId, 'Recolor tier', (tier) =>
+          areTierColorSpecsEqual(tier.colorSpec, colorSpec)
+            ? null
+            : { ...tier, colorSpec }
+        ) ?? state
+    ),
 
   recolorTierRow: (tierId, rowColorSpec) =>
-    set((state) =>
-    {
-      const tier = state.tiers.find((entry) => entry.id === tierId)
-      if (!tier) return state
-
-      // no-op when resetting an already-absent row color or reselecting the
-      // same semantic color value
-      if (
-        (rowColorSpec === null && tier.rowColorSpec === undefined) ||
-        areTierColorSpecsEqual(tier.rowColorSpec, rowColorSpec)
-      )
-      {
-        return state
-      }
-
-      return withUndo(
-        state,
-        {
-          tiers: state.tiers.map((entry) =>
+    set(
+      (state) =>
+        mapTier(
+          state,
+          tierId,
+          rowColorSpec === null ? 'Clear row color' : 'Recolor row',
+          (tier) =>
           {
-            if (entry.id !== tierId) return entry
+            // no-op when resetting an already-absent row color or reselecting
+            // the same semantic color value
+            if (
+              (rowColorSpec === null && tier.rowColorSpec === undefined) ||
+              areTierColorSpecsEqual(tier.rowColorSpec, rowColorSpec)
+            )
+            {
+              return null
+            }
             if (rowColorSpec === null)
             {
               // drop the field entirely so normalized snapshots stay compact
-              const { rowColorSpec: _rowColorSpec, ...rest } = entry
+              const { rowColorSpec: _rowColorSpec, ...rest } = tier
               return rest
             }
-            return { ...entry, rowColorSpec }
-          }),
-        },
-        rowColorSpec === null ? 'Clear row color' : 'Recolor row'
-      )
-    }),
+            return { ...tier, rowColorSpec }
+          }
+        ) ?? state
+    ),
 
   reorderTier: (tierId, direction) =>
     set((state) =>
@@ -530,14 +496,14 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
   resetBoard: (paletteId) =>
     set((state) => ({
       ...resetBoardData(state, paletteId),
-      ...freshRuntimeState,
+      ...createFreshRuntimeState(),
       ...extractBoardSyncState(state),
     })),
 
   loadBoard: (data, syncState = EMPTY_BOARD_SYNC_STATE) =>
     set(() => ({
       ...data,
-      ...freshRuntimeState,
+      ...createFreshRuntimeState(),
       ...syncState,
     })),
 })
