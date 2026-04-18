@@ -11,7 +11,9 @@ import {
   loadSettingsSyncMetaForUser,
   markSettingsSynced,
 } from '~/features/workspace/settings/data/local/settingsSyncMeta'
+import { extractAppSettings } from '~/features/workspace/settings/model/appSettingsExtraction'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 
 export type SettingsMergeResult =
   | { kind: 'push'; updatedAt: number }
@@ -26,36 +28,6 @@ interface MergeSettingsOptions
   shouldProceed?: () => boolean
 }
 
-// extract the AppSettings fields from the store. the store extends AppSettings
-// w/ setter functions; we need to peel those off before pushing to the cloud
-const extractAppSettingsFromStore = (): AppSettings =>
-{
-  const state = useSettingsStore.getState()
-  return {
-    itemSize: state.itemSize,
-    showLabels: state.showLabels,
-    itemShape: state.itemShape,
-    compactMode: state.compactMode,
-    exportBackgroundOverride: state.exportBackgroundOverride,
-    boardBackgroundOverride: state.boardBackgroundOverride,
-    labelWidth: state.labelWidth,
-    hideRowControls: state.hideRowControls,
-    confirmBeforeDelete: state.confirmBeforeDelete,
-    themeId: state.themeId,
-    paletteId: state.paletteId,
-    textStyleId: state.textStyleId,
-    tierLabelBold: state.tierLabelBold,
-    tierLabelItalic: state.tierLabelItalic,
-    tierLabelFontSize: state.tierLabelFontSize,
-    boardLocked: state.boardLocked,
-    reducedMotion: state.reducedMotion,
-    preHighContrastThemeId: state.preHighContrastThemeId,
-    preHighContrastPaletteId: state.preHighContrastPaletteId,
-    toolbarPosition: state.toolbarPosition,
-    showAltTextButton: state.showAltTextButton,
-  }
-}
-
 // load AppSettings into the store w/o tripping the subscriber — caller arms
 // the subscriber AFTER merge resolves so this store-load is invisible
 const applyAppSettingsToStore = (settings: AppSettings): void =>
@@ -65,15 +37,14 @@ const applyAppSettingsToStore = (settings: AppSettings): void =>
   useSettingsStore.setState(settings)
 }
 
-const shouldContinue = (shouldProceed?: () => boolean): boolean =>
-  shouldProceed ? shouldProceed() : true
-
 export const mergeSettingsOnFirstLogin = async ({
   userId,
   shouldProceed,
 }: MergeSettingsOptions): Promise<SettingsMergeResult> =>
 {
-  if (!shouldContinue(shouldProceed))
+  const canProceed = makeProceedGuard(shouldProceed)
+
+  if (!canProceed())
   {
     return { kind: 'aborted' }
   }
@@ -88,7 +59,7 @@ export const mergeSettingsOnFirstLogin = async ({
     return { kind: 'error', error }
   }
 
-  if (!shouldContinue(shouldProceed))
+  if (!canProceed())
   {
     return { kind: 'aborted' }
   }
@@ -109,11 +80,11 @@ export const mergeSettingsOnFirstLogin = async ({
 
   // push path: either cloud is empty, or local has pending edits we don't
   // want to lose. send the local state up
-  const localSettings = extractAppSettingsFromStore()
+  const localSettings = extractAppSettings(useSettingsStore.getState())
   try
   {
     const result = await upsertMySettingsImperative({ settings: localSettings })
-    if (!shouldContinue(shouldProceed))
+    if (!canProceed())
     {
       return { kind: 'aborted' }
     }

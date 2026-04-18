@@ -35,6 +35,11 @@ import {
   setBoardDeletedListener,
 } from '~/features/workspace/boards/data/local/localBoardSession'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
+import {
+  isOfflineError,
+  makeOfflineError,
+} from '~/shared/lib/sync/offlineError'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
   createCloudSyncScheduler,
@@ -77,7 +82,7 @@ const pushAllLocalBoards = async (
 {
   const boards = [...useWorkspaceBoardRegistryStore.getState().boards]
 
-  const canProceed = (): boolean => (shouldProceed ? shouldProceed() : true)
+  const canProceed = makeProceedGuard(shouldProceed)
 
   const results = await mapAsyncLimit(
     boards,
@@ -300,7 +305,7 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
         // resumePendingSyncs() fires on the next online transition
         if (!useSyncStatusStore.getState().online)
         {
-          return { kind: 'error', error: new Error('offline') }
+          return { kind: 'error', error: makeOfflineError() }
         }
 
         const boardExternalId =
@@ -336,8 +341,7 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
       {
         // suppress the warn for synthetic offline errors — they're expected
         // & not worth surfacing in console for every offline edit
-        const message = error instanceof Error ? error.message : String(error)
-        if (message === 'offline') return
+        if (isOfflineError(error)) return
         console.warn(`Board sync failed for ${boardId}:`, error)
       },
       onConflict: (boardId, serverState) =>
@@ -418,8 +422,7 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
       shouldProceed,
       onError: (cloudExternalId, error) =>
       {
-        const message = error instanceof Error ? error.message : String(error)
-        if (message === 'offline') return
+        if (isOfflineError(error)) return
         console.warn(
           `Board delete cloud sync failed for ${cloudExternalId}:`,
           error

@@ -25,3 +25,8 @@ export type ItemId = string & { readonly [ITEM_ID_BRAND]: void }
 // cast an arbitrary string to ItemId at boundaries where the brand is lost
 // (parsed JSON, share fragments, legacy storage values)
 export const asItemId = (value: string): ItemId => value as ItemId
+
+// narrow an unknown (or string) to the user-preset ID brand. user presets
+// always carry a 'preset-' prefix; built-ins use 'builtin-' & are client-only
+export const isUserPresetId = (value: unknown): value is UserPresetId =>
+  typeof value === 'string' && value.startsWith('preset-')

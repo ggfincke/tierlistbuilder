@@ -10,6 +10,7 @@ import {
   type BoardDataSelection,
 } from '~/features/workspace/boards/model/boardSnapshot'
 import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
+import { computeBackoffDelay } from '~/shared/lib/sync/backoff'
 import { announceBoardLock, isBoardLockedByPeer } from '../lib/crossTabSyncLock'
 
 export interface PendingBoardSync
@@ -30,11 +31,6 @@ export type FlushResult =
 // are derived elsewhere (conflict from useConflictQueueStore, offline from
 // the connectivity module) so the scheduler stays focused on flush state
 export type SchedulerBoardStatus = 'syncing' | 'idle' | 'error'
-
-// retry backoff: start at the standard debounce, double on each failure,
-// cap at 30s. resets to 0 after a successful flush.
-//   sequence (w/ 2.5s base): 2.5s, 5s, 10s, 20s, 30s, 30s, ...
-const RETRY_MAX_MS = 30_000
 
 interface BoardSyncController
 {
@@ -122,18 +118,6 @@ const pruneBoardSyncController = (
   }
 
   controllers.delete(boardId)
-}
-
-// compute next backoff delay from the controller's retry counter. caller
-// decides whether to bump retryAttempt afterwards (we increment AFTER reading
-// so the first retry uses the base delay)
-const computeBackoffDelay = (baseMs: number, retryAttempt: number): number =>
-{
-  // 2^attempt is bounded; clamp to RETRY_MAX_MS to avoid both overflow on
-  // pathological retry counts & multi-minute waits
-  const exponent = Math.min(retryAttempt, 16)
-  const computed = baseMs * 2 ** exponent
-  return Math.min(computed, RETRY_MAX_MS)
 }
 
 export const createCloudSyncScheduler = (

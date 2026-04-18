@@ -46,6 +46,7 @@ import {
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { scheduleIdle } from '~/shared/lib/scheduleIdle'
 import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
+import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
@@ -206,10 +207,11 @@ export const loadBoardIntoSession = async (
   shouldProceed?: () => boolean
 ): Promise<BoardSnapshot> =>
 {
+  const canProceed = makeProceedGuard(shouldProceed)
   const state = loadPersistedBoardState(boardId)
   const prepared = await prepareBoardForLoad(boardId, state.snapshot)
 
-  if (shouldProceed && !shouldProceed())
+  if (!canProceed())
   {
     return prepared
   }

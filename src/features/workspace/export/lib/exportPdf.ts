@@ -31,7 +31,6 @@ export const exportTierListAsPdf = async (
       // choose orientation based on image aspect ratio
       const orientation = width >= height ? 'landscape' : 'portrait'
 
-      // dynamically import jsPDF to keep the main bundle slim
       const { jsPDF } = await import('jspdf')
 
       // create a PDF sized to the exact pixel dimensions of the rendered image

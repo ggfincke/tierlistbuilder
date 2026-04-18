@@ -2,12 +2,19 @@
 // localStorage sidecar tracking cloud sync state per user-saved preset (keyed by UserPresetId).
 // fields: pendingOp ('upsert'|'delete'|null), pendingSyncAt, lastSyncedAt, ownerUserId
 
-import type { UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  isUserPresetId,
+  type UserPresetId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import {
   deleteBrowserStorageItem,
   readBrowserStorageItem,
   writeBrowserStorageItem,
 } from '~/shared/lib/browserStorage'
+import {
+  isNonEmptyString,
+  isPositiveFiniteNumber,
+} from '~/shared/lib/typeGuards'
 
 export const TIER_PRESET_SYNC_META_STORAGE_KEY =
   'tier-list-builder-tier-preset-sync-meta-v1'
@@ -34,14 +41,8 @@ const EMPTY_ENTRY: TierPresetSyncMetaEntry = {
   ownerUserId: null,
 }
 
-const isFiniteMillis = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && value > 0
-
 const isPendingOp = (value: unknown): value is TierPresetPendingOp =>
   value === 'upsert' || value === 'delete'
-
-const isUserId = (value: unknown): value is string =>
-  typeof value === 'string' && value.length > 0
 
 const normalizeEntry = (raw: unknown): TierPresetSyncMetaEntry =>
 {
@@ -54,18 +55,17 @@ const normalizeEntry = (raw: unknown): TierPresetSyncMetaEntry =>
   >
   return {
     pendingOp: isPendingOp(candidate.pendingOp) ? candidate.pendingOp : null,
-    pendingSyncAt: isFiniteMillis(candidate.pendingSyncAt)
+    pendingSyncAt: isPositiveFiniteNumber(candidate.pendingSyncAt)
       ? candidate.pendingSyncAt
       : null,
-    lastSyncedAt: isFiniteMillis(candidate.lastSyncedAt)
+    lastSyncedAt: isPositiveFiniteNumber(candidate.lastSyncedAt)
       ? candidate.lastSyncedAt
       : null,
-    ownerUserId: isUserId(candidate.ownerUserId) ? candidate.ownerUserId : null,
+    ownerUserId: isNonEmptyString(candidate.ownerUserId)
+      ? candidate.ownerUserId
+      : null,
   }
 }
-
-const isUserPresetId = (value: unknown): value is UserPresetId =>
-  typeof value === 'string' && value.startsWith('preset-')
 
 const normalizeMap = (raw: unknown): TierPresetSyncMetaMap =>
 {

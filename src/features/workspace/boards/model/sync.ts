@@ -1,7 +1,11 @@
 // src/features/workspace/boards/model/sync.ts
 // shared board sync metadata — mirrored in the active store & persisted per board
 
-import { isRecord } from '~/shared/lib/typeGuards'
+import {
+  isNonEmptyString,
+  isPositiveFiniteNumber,
+  isRecord,
+} from '~/shared/lib/typeGuards'
 
 export interface BoardSyncState
 {
@@ -43,16 +47,11 @@ export const normalizeBoardSyncState = (value: unknown): BoardSyncState =>
       Number.isFinite(value.lastSyncedRevision)
         ? value.lastSyncedRevision
         : null,
-    cloudBoardExternalId:
-      typeof value.cloudBoardExternalId === 'string' &&
-      value.cloudBoardExternalId.length > 0
-        ? value.cloudBoardExternalId
-        : null,
-    pendingSyncAt:
-      typeof value.pendingSyncAt === 'number' &&
-      Number.isFinite(value.pendingSyncAt) &&
-      value.pendingSyncAt > 0
-        ? value.pendingSyncAt
-        : null,
+    cloudBoardExternalId: isNonEmptyString(value.cloudBoardExternalId)
+      ? value.cloudBoardExternalId
+      : null,
+    pendingSyncAt: isPositiveFiniteNumber(value.pendingSyncAt)
+      ? value.pendingSyncAt
+      : null,
   }
 }

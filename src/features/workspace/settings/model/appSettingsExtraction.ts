@@ -1,13 +1,9 @@
 // src/features/workspace/settings/model/appSettingsExtraction.ts
-// project AppSettings fields out of useSettingsStore & compare two instances by value.
-// used by the cloud-sync subscriber & first-login merge as a single source of truth for change detection
+// project & compare AppSettings field values against wider store state
 
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 
-// ordered key list keeps both the projection & equality check exhaustive
-// at compile time. if a new AppSettings field is added, both helpers must
-// be updated (the type alias below catches drift via tsc)
-const APP_SETTINGS_KEYS: readonly (keyof AppSettings)[] = [
+const APP_SETTINGS_KEYS = [
   'itemSize',
   'showLabels',
   'itemShape',
@@ -29,36 +25,25 @@ const APP_SETTINGS_KEYS: readonly (keyof AppSettings)[] = [
   'preHighContrastPaletteId',
   'toolbarPosition',
   'showAltTextButton',
-] as const
+] as const satisfies readonly (keyof AppSettings)[]
 
-// compile-time exhaustiveness guard — if AppSettings gains a key not in APP_SETTINGS_KEYS,
-// this resolves to false & tsc surfaces the gap
-type _Assert<T extends true> = T
-type _AppSettingsKeysExhaustive = _Assert<
-  (typeof APP_SETTINGS_KEYS)[number] extends keyof AppSettings
-    ? keyof AppSettings extends (typeof APP_SETTINGS_KEYS)[number]
-      ? true
-      : false
-    : false
+// reverse-direction exhaustiveness — tsc errors here if AppSettings gains
+// a field missing from APP_SETTINGS_KEYS. exported only to satisfy
+// noUnusedLocals; consumers should ignore it
+type _AssertNever<T extends never> = T
+export type _AppSettingsKeysCover = _AssertNever<
+  Exclude<keyof AppSettings, (typeof APP_SETTINGS_KEYS)[number]>
 >
 
-export type _AppSettingsKeysGuard = _AppSettingsKeysExhaustive
+export const extractAppSettings = <T extends AppSettings>(
+  source: T
+): AppSettings =>
+  Object.fromEntries(
+    APP_SETTINGS_KEYS.map((key) => [key, source[key]])
+  ) as unknown as AppSettings
 
-export const extractAppSettings = (source: AppSettings): AppSettings =>
-{
-  const out: Partial<AppSettings> = {}
-  for (const key of APP_SETTINGS_KEYS)
-  {
-    // assignment is valid for every key in the exhaustive list — the
-    // type assertion here is a no-op at runtime & ts can't track the
-    // dynamic-key index assignment otherwise
-    out[key] = source[key] as AppSettings[typeof key] as never
-  }
-  return out as AppSettings
-}
-
-// shallow field equality across all AppSettings fields. works because every
-// field is a primitive or null — no nested object identity to worry about
+// shallow field equality across every AppSettings field — valid because
+// every field is a primitive or null, no nested identity to worry about
 export const appSettingsEqual = (a: AppSettings, b: AppSettings): boolean =>
 {
   for (const key of APP_SETTINGS_KEYS)

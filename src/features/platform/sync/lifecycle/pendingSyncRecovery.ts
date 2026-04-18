@@ -2,7 +2,11 @@
 // resumes pending sync for boards, settings, & presets after first-login merge
 // or offline -> online transition; safe to call repeatedly (dedupes per key)
 
-import type { BoardId, UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  isUserPresetId,
+  type BoardId,
+  type UserPresetId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import { selectBoardDataFields } from '~/features/workspace/boards/model/boardSnapshot'
 import { loadBoardDeleteSyncMeta } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
@@ -11,6 +15,7 @@ import { useSettingsStore } from '~/features/workspace/settings/model/useSetting
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
 import { loadSettingsSyncMetaForUser } from '~/features/workspace/settings/data/local/settingsSyncMeta'
 import { loadTierPresetSyncMetaMapForUser } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
+import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { readBoardStateForCloudSync } from '../boards/cloudFlush'
 import type { PendingBoardSync } from '../boards/cloudSyncScheduler'
 import type { TierPresetSyncWork } from '../tier-presets/cloudSync'
@@ -42,13 +47,9 @@ export interface ResumePendingSyncsResult
   resumedPresetIds: UserPresetId[]
 }
 
-const isUserPresetId = (id: string): id is UserPresetId =>
-  id.startsWith('preset-')
-
 const resumeBoards = (options: ResumePendingSyncsOptions): BoardId[] =>
 {
-  const canProceed = (): boolean =>
-    options.shouldProceed ? options.shouldProceed() : true
+  const canProceed = makeProceedGuard(options.shouldProceed)
   if (!canProceed()) return []
 
   const boards = useWorkspaceBoardRegistryStore.getState().boards
@@ -77,8 +78,7 @@ const resumeBoards = (options: ResumePendingSyncsOptions): BoardId[] =>
 
 const resumeSettings = (options: ResumePendingSyncsOptions): boolean =>
 {
-  const canProceed = (): boolean =>
-    options.shouldProceed ? options.shouldProceed() : true
+  const canProceed = makeProceedGuard(options.shouldProceed)
   if (!canProceed()) return false
   if (!options.triggerSettings) return false
 
@@ -91,8 +91,7 @@ const resumeSettings = (options: ResumePendingSyncsOptions): boolean =>
 
 const resumePresets = (options: ResumePendingSyncsOptions): UserPresetId[] =>
 {
-  const canProceed = (): boolean =>
-    options.shouldProceed ? options.shouldProceed() : true
+  const canProceed = makeProceedGuard(options.shouldProceed)
   if (!canProceed()) return []
   if (!options.enqueuePreset) return []
 
@@ -151,8 +150,7 @@ const resumePresets = (options: ResumePendingSyncsOptions): UserPresetId[] =>
 
 const resumeBoardDeletes = (options: ResumePendingSyncsOptions): string[] =>
 {
-  const canProceed = (): boolean =>
-    options.shouldProceed ? options.shouldProceed() : true
+  const canProceed = makeProceedGuard(options.shouldProceed)
   if (!canProceed()) return []
   if (!options.triggerBoardDelete) return []
 

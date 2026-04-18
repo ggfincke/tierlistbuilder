@@ -7,7 +7,8 @@ import type {
   BoardSnapshotWire,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/boardStorage'
-import { isRecord } from '~/shared/lib/typeGuards'
+import { formatError } from '~/shared/lib/errors'
+import { isNonEmptyString, isRecord } from '~/shared/lib/typeGuards'
 import { toFileBase } from '~/shared/lib/fileName'
 import { triggerDownload } from './exportImage'
 import { snapshotToWire, wireToSnapshot } from './boardWireMapper'
@@ -131,15 +132,11 @@ const validateItemEntry = (id: string, item: unknown): string | null =>
     return `Item "${id}" is not a valid object.`
   }
 
-  const hasImageUrl =
-    typeof item.imageUrl === 'string' && item.imageUrl.length > 0
+  const hasImageUrl = isNonEmptyString(item.imageUrl)
   const hasImageRef =
-    isRecord(item.imageRef) &&
-    typeof item.imageRef.hash === 'string' &&
-    item.imageRef.hash.length > 0
-  const hasLabel = typeof item.label === 'string' && item.label.length > 0
-  const hasBgColor =
-    typeof item.backgroundColor === 'string' && item.backgroundColor.length > 0
+    isRecord(item.imageRef) && isNonEmptyString(item.imageRef.hash)
+  const hasLabel = isNonEmptyString(item.label)
+  const hasBgColor = isNonEmptyString(item.backgroundColor)
 
   if (hasImageRef && !hasImageUrl)
   {
@@ -275,7 +272,7 @@ export const parseBoardsJson = (text: string): BoardSnapshot[] =>
       catch (error)
       {
         throw new Error(
-          `Board "${label}" is invalid: ${error instanceof Error ? error.message : 'unknown error'}`
+          `Board "${label}" is invalid: ${formatError(error, 'unknown error')}`
         )
       }
     }

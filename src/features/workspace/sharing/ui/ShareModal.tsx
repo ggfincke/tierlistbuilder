@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, Link as LinkIcon, RefreshCw } from 'lucide-react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import { formatError } from '~/shared/lib/errors'
 import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
@@ -90,9 +91,7 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
     catch (err)
     {
       if (controller.signal.aborted) return
-      const message =
-        err instanceof Error ? err.message : 'Failed to create share link.'
-      setError(message)
+      setError(formatError(err, 'Failed to create share link.'))
     }
     finally
     {

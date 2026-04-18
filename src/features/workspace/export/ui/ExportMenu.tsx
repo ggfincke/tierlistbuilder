@@ -18,6 +18,7 @@ import {
 
 import type { ImageFormat } from '~/shared/types/export'
 import type { MenuPositionClasses } from '~/shared/layout/toolbarPosition'
+import { formatError } from '~/shared/lib/errors'
 import { useMenuOverflowFlipRefs } from '~/shared/overlay/useMenuOverflowFlip'
 import {
   useNestedMenus,
@@ -128,9 +129,7 @@ export const ExportMenu = ({
     }
     catch (err)
     {
-      setRuntimeError(
-        err instanceof Error ? err.message : 'Failed to export JSON file.'
-      )
+      setRuntimeError(formatError(err, 'Failed to export JSON file.'))
     }
     closeAllMenus()
   }
@@ -152,9 +151,7 @@ export const ExportMenu = ({
     }
     catch (err)
     {
-      setRuntimeError(
-        err instanceof Error ? err.message : 'Failed to import JSON file.'
-      )
+      setRuntimeError(formatError(err, 'Failed to import JSON file.'))
     }
     closeAllMenus()
   }
