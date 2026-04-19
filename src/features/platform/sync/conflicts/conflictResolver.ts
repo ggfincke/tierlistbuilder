@@ -18,6 +18,7 @@ import {
   persistBoardSyncState,
   renameBoardSession,
 } from '~/features/workspace/boards/data/local/localBoardSession'
+import { markBoardSynced } from '~/features/workspace/boards/model/sync'
 import { serverStateToSnapshot } from '~/features/workspace/boards/data/cloud/boardMapper'
 import {
   flushBoardToCloud,
@@ -57,11 +58,10 @@ export const resolveKeepLocal = async (
 
   if (outcome.kind === 'synced')
   {
-    persistBoardSyncState(boardId, {
-      lastSyncedRevision: outcome.revision,
-      cloudBoardExternalId: boardExternalId,
-      pendingSyncAt: null,
-    })
+    persistBoardSyncState(
+      boardId,
+      markBoardSynced(outcome.revision, boardExternalId)
+    )
     return { ok: true }
   }
 
@@ -87,11 +87,7 @@ export const resolveKeepCloud = async (
   const cloudBoardExternalId = boardId
 
   const saveResult = saveBoardToStorage(boardId, cloudSnapshot, {
-    syncState: {
-      lastSyncedRevision: serverState.revision,
-      cloudBoardExternalId,
-      pendingSyncAt: null,
-    },
+    syncState: markBoardSynced(serverState.revision, cloudBoardExternalId),
   })
   if (!saveResult.ok)
   {
@@ -163,11 +159,10 @@ export const resolveKeepBoth = async (
 
   if (pushOutcome.kind === 'synced')
   {
-    persistBoardSyncState(duplicateId, {
-      lastSyncedRevision: pushOutcome.revision,
-      cloudBoardExternalId: duplicateId,
-      pendingSyncAt: null,
-    })
+    persistBoardSyncState(
+      duplicateId,
+      markBoardSynced(pushOutcome.revision, duplicateId)
+    )
     duplicateSyncedToCloud = true
   }
   // conflict on a brand new board is impossible (baseRevision=null skips

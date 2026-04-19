@@ -7,7 +7,7 @@ import {
   resolveNextKeyboardFocusItem,
 } from '~/features/workspace/boards/dnd/dragKeyboard'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeSnapshot } from '../fixtures'
+import { findTierById, makeSnapshot } from '../fixtures'
 
 describe('resolveNextKeyboardDragPreview', () =>
 {
@@ -20,7 +20,7 @@ describe('resolveNextKeyboardDragPreview', () =>
       direction: 'ArrowLeft',
     })
     expect(result).not.toBeNull()
-    const tierS = result!.nextPreview.tiers.find((t) => t.id === 'tier-s')!
+    const tierS = findTierById(result!.nextPreview.tiers, 'tier-s')
     expect(tierS.itemIds).toEqual(['item-2', 'item-1', 'item-3'])
   })
 
@@ -44,7 +44,7 @@ describe('resolveNextKeyboardDragPreview', () =>
       direction: 'ArrowRight',
     })
     expect(result).not.toBeNull()
-    const tierS = result!.nextPreview.tiers.find((t) => t.id === 'tier-s')!
+    const tierS = findTierById(result!.nextPreview.tiers, 'tier-s')
     expect(tierS.itemIds).toEqual(['item-1', 'item-3', 'item-2'])
   })
 
@@ -69,9 +69,9 @@ describe('resolveNextKeyboardDragPreview', () =>
     })
     expect(result).not.toBeNull()
     expect(result!.containerId).toBe('tier-a')
-    const tierS = result!.nextPreview.tiers.find((t) => t.id === 'tier-s')!
+    const tierS = findTierById(result!.nextPreview.tiers, 'tier-s')
     expect(tierS.itemIds).not.toContain('item-1')
-    const tierA = result!.nextPreview.tiers.find((t) => t.id === 'tier-a')!
+    const tierA = findTierById(result!.nextPreview.tiers, 'tier-a')
     expect(tierA.itemIds).toContain('item-1')
   })
 

@@ -19,6 +19,7 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 import { makeBoardSnapshot } from '../fixtures'
+import { createMemoryStorage } from '../utils/memoryStorage'
 
 const TEST_USER_ID = 'user-1'
 const LOCAL_BOARD_ID = 'board-local' as BoardId
@@ -33,32 +34,6 @@ const CLOUD_BOARD: BoardListItem = {
   createdAt: 1,
   updatedAt: 1,
   revision: 1,
-}
-
-const createMemoryStorage = (): Storage =>
-{
-  const values = new Map<string, string>()
-
-  return {
-    get length()
-    {
-      return values.size
-    },
-    clear: () =>
-    {
-      values.clear()
-    },
-    getItem: (key) => values.get(key) ?? null,
-    key: (index) => [...values.keys()][index] ?? null,
-    removeItem: (key) =>
-    {
-      values.delete(key)
-    },
-    setItem: (key, value) =>
-    {
-      values.set(key, value)
-    },
-  } as Storage
 }
 
 // seed the registry & active store so readBoardStateForCloudSync resolves

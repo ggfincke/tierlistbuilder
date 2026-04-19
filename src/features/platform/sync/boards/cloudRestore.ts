@@ -10,6 +10,7 @@ import {
 } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { serverStateToSnapshot } from '~/features/workspace/boards/data/cloud/boardMapper'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
+import { markBoardSynced } from '~/features/workspace/boards/model/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 
 export type RestoreErrorCode =
@@ -77,11 +78,7 @@ export const restoreBoardFromCloud = async (
   const snapshot = serverStateToSnapshot(cloudState)
 
   const saveResult = saveBoardToStorage(boardId, snapshot, {
-    syncState: {
-      lastSyncedRevision: cloudState.revision,
-      cloudBoardExternalId: boardExternalId,
-      pendingSyncAt: null,
-    },
+    syncState: markBoardSynced(cloudState.revision, boardExternalId),
   })
 
   if (!saveResult.ok)

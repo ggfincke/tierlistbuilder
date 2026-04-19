@@ -11,9 +11,12 @@ import {
   resolveStoreInsertionIndex,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeSnapshot, makeTier } from '../fixtures'
-
-const ids = (...values: string[]) => values.map(asItemId)
+import {
+  brandItemIds as ids,
+  findTierById,
+  makeSnapshot,
+  makeTier,
+} from '../fixtures'
 
 describe('createContainerSnapshot', () =>
 {
@@ -155,7 +158,7 @@ describe('moveItemInSnapshot', () =>
       'tier-s',
       2
     )
-    const tierS = result.tiers.find((t) => t.id === 'tier-s')!
+    const tierS = findTierById(result.tiers, 'tier-s')
     expect(tierS.itemIds).toEqual(['item-2', 'item-1', 'item-3'])
   })
 
@@ -169,7 +172,7 @@ describe('moveItemInSnapshot', () =>
       'unranked',
       0
     )
-    const tierS = result.tiers.find((t) => t.id === 'tier-s')!
+    const tierS = findTierById(result.tiers, 'tier-s')
     expect(tierS.itemIds).not.toContain('item-1')
     expect(result.unrankedItemIds[0]).toBe('item-1')
   })
@@ -199,7 +202,7 @@ describe('moveItemToIndexInSnapshot', () =>
       toContainerId: 'tier-a',
       toIndex: 1,
     })
-    const tierA = result.tiers.find((t) => t.id === 'tier-a')!
+    const tierA = findTierById(result.tiers, 'tier-a')
     expect(tierA.itemIds).toEqual(['item-4', 'item-6', 'item-5'])
     expect(result.unrankedItemIds).not.toContain('item-6')
   })

@@ -6,20 +6,12 @@ import { toBlob, toCanvas, toJpeg, toPng, toSvg } from 'html-to-image'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance, ImageFormat } from '../model/runtime'
 import { toFileBase } from '~/shared/lib/fileName'
+import { triggerDownload } from '~/shared/lib/downloadBlob'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { withExportSession } from './exportBoardRender'
 
 // quality setting used for JPEG & WebP encoding
 export const IMAGE_QUALITY = 0.92
-
-// trigger a browser download for any URL (data URL or blob URL) w/ the given filename
-export const triggerDownload = (url: string, filename: string) =>
-{
-  const anchor = document.createElement('a')
-  anchor.download = filename
-  anchor.href = url
-  anchor.click()
-}
 
 // build export options for a given background color
 export const getBaseOptions = (bgColor: string) => ({

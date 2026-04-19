@@ -12,7 +12,10 @@ import {
   extractBoardData,
   selectBoardDataFields,
 } from '~/features/workspace/boards/model/boardSnapshot'
-import { extractBoardSyncState } from '~/features/workspace/boards/model/sync'
+import {
+  extractBoardSyncState,
+  markBoardSynced,
+} from '~/features/workspace/boards/model/sync'
 import { listMyBoardsImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { setupCloudImageFetcher } from '../boards/cloudImageFetcher'
 import { pullAllCloudBoards } from '../boards/cloudPull'
@@ -113,12 +116,10 @@ const pushAllLocalBoards = async (
           return { boardId: meta.id, synced: false, aborted: true }
         }
 
-        persistBoardSyncState(meta.id, {
-          lastSyncedRevision: outcome.revision,
-          cloudBoardExternalId:
-            syncState.cloudBoardExternalId ?? boardExternalId,
-          pendingSyncAt: null,
-        })
+        persistBoardSyncState(
+          meta.id,
+          markBoardSynced(outcome.revision, boardExternalId)
+        )
         return { boardId: meta.id, synced: true, aborted: false }
       }
 
@@ -329,12 +330,7 @@ export const useCloudSync = (user: PublicUserMe | null): void =>
 
         return {
           kind: 'synced',
-          syncState: {
-            lastSyncedRevision: outcome.revision,
-            cloudBoardExternalId:
-              work.syncState.cloudBoardExternalId ?? boardExternalId,
-            pendingSyncAt: null,
-          },
+          syncState: markBoardSynced(outcome.revision, boardExternalId),
         }
       },
       persistSyncState: persistBoardSyncState,

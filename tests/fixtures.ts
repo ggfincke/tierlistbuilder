@@ -47,6 +47,24 @@ export const makeItem = (overrides?: Partial<TierItem>): TierItem => ({
   ...overrides,
 })
 
+// non-null lookup — callers use this in assertions after a snapshot-shape
+// test has already validated that the tier id exists; throws rather than
+// returning undefined so the test fails at the lookup site not the expect
+export const findTierById = <T extends { id: string }>(
+  tiers: readonly T[],
+  id: string
+): T =>
+{
+  const tier = tiers.find((t) => t.id === id)
+  if (!tier) throw new Error(`tier not found: ${id}`)
+  return tier
+}
+
+// brand a list of plain strings as ItemIds — single-line variadic form used
+// heavily in drag / selection tests where the only cast-surface is test-data
+export const brandItemIds = (...values: string[]): ItemId[] =>
+  values.map(asItemId)
+
 // returns an empty BoardSnapshot — callers compose tiers/items via overrides.
 // keeps the default minimal so each test reads as a focused scenario rather
 // than fighting boilerplate from a richer baseline

@@ -18,8 +18,9 @@ import { toFileBase } from '~/shared/lib/fileName'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { dataUrlToBytes } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
+import { downloadBlob } from '~/shared/lib/downloadBlob'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
-import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
+import { FORMAT_EXT, renderToDataUrl } from './exportImage'
 import { withExportSession } from './exportBoardRender'
 import {
   collectSnapshotImageHashes,
@@ -164,9 +165,7 @@ export const exportAllBoardsAsJson = async (): Promise<void> =>
 
   const json = JSON.stringify(payload, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  triggerDownload(url, 'all-tier-lists.json')
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, 'all-tier-lists.json')
 }
 
 // render each board inside a hidden off-screen export session, never touching
@@ -306,7 +305,5 @@ export const exportAllBoardsAsImages = async (
   }
 
   const blob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(blob)
-  triggerDownload(url, 'all-tier-lists.zip')
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, 'all-tier-lists.zip')
 }
