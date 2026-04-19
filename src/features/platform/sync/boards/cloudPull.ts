@@ -14,6 +14,7 @@ import {
   saveBoardToStorage,
 } from '~/features/workspace/boards/data/local/boardStorage'
 import { loadBoardIntoSession } from '~/features/workspace/boards/data/local/localBoardSession'
+import { markBoardSynced } from '~/features/workspace/boards/model/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
@@ -118,11 +119,7 @@ const persistDownloadedBoard = async (
   const boardId = asBoardId(meta.externalId)
   const snapshot = serverStateToSnapshot(state)
   const saveResult = saveBoardToStorage(boardId, snapshot, {
-    syncState: {
-      lastSyncedRevision: state.revision,
-      cloudBoardExternalId: meta.externalId,
-      pendingSyncAt: null,
-    },
+    syncState: markBoardSynced(state.revision, meta.externalId),
   })
 
   if (!saveResult.ok)

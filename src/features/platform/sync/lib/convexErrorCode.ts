@@ -8,6 +8,12 @@ import {
   type ConvexErrorCode,
 } from '@tierlistbuilder/contracts/platform/errors'
 
+// module-scope Set for O(1) code -> branded lookup; hot-path checks run on
+// every retried mutation so the per-call Object.values allocation mattered
+const KNOWN_CONVEX_ERROR_CODES: ReadonlySet<string> = new Set(
+  Object.values(CONVEX_ERROR_CODES)
+)
+
 // extract the code from a ConvexError's data payload, or null for any other
 // error shape — null means retriable transport failure (no structured code)
 export const getConvexErrorCode = (error: unknown): ConvexErrorCode | null =>
@@ -20,8 +26,7 @@ export const getConvexErrorCode = (error: unknown): ConvexErrorCode | null =>
   const code = (data as { code?: unknown }).code
   if (typeof code !== 'string') return null
 
-  const knownCodes = Object.values(CONVEX_ERROR_CODES) as string[]
-  return knownCodes.includes(code) ? (code as ConvexErrorCode) : null
+  return KNOWN_CONVEX_ERROR_CODES.has(code) ? (code as ConvexErrorCode) : null
 }
 
 // codes that mean the mutation will never succeed — allocated at module load

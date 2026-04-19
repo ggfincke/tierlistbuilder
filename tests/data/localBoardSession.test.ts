@@ -14,52 +14,12 @@ import {
 } from '~/features/workspace/boards/data/local/localBoardSession'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import {
+  createFailingStorage,
+  createMemoryStorage,
+} from '../utils/memoryStorage'
 
 const TEST_BOARD_ID = 'board-local-session-test' as BoardId
-
-const createMemoryStorage = (): Storage =>
-{
-  const values = new Map<string, string>()
-
-  return {
-    get length()
-    {
-      return values.size
-    },
-    clear: () =>
-    {
-      values.clear()
-    },
-    getItem: (key) => values.get(key) ?? null,
-    key: (index) => [...values.keys()][index] ?? null,
-    removeItem: (key) =>
-    {
-      values.delete(key)
-    },
-    setItem: (key, value) =>
-    {
-      values.set(key, value)
-    },
-  } as Storage
-}
-
-const createFailingStorage = (blockedKeys: Set<string>): Storage =>
-{
-  const storage = createMemoryStorage()
-
-  return {
-    ...storage,
-    setItem: (key, value) =>
-    {
-      if (blockedKeys.has(key))
-      {
-        throw new DOMException('quota', 'QuotaExceededError')
-      }
-
-      storage.setItem(key, value)
-    },
-  } as Storage
-}
 
 const resetStores = (): void =>
 {

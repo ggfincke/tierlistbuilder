@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { handleKeyboardBoardJumpKey } from '~/features/workspace/boards/interaction/keyboardDragController'
+import { ITEM_DATA_ATTR } from '~/features/workspace/boards/lib/dndIds'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import {
   selectIsDragging,
@@ -172,7 +173,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (!target) return
 
       // keep selection if clicking on an item or the bulk action bar
-      if (target.closest('[data-item-id], [data-bulk-action-bar]')) return
+      if (target.closest(`[${ITEM_DATA_ATTR}], [data-bulk-action-bar]`)) return
 
       state.clearSelection()
     }

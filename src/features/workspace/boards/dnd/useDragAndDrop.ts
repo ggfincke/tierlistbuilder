@@ -19,11 +19,14 @@ import { announce } from '~/shared/a11y/announce'
 import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from './dragCollision'
 import { toItemId, toStringId } from './dragHelpers'
-import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { syncDraggedItemPosition } from './dragPreviewController'
 import { useDragSensors } from './dragSensors'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
+import {
+  getItemElementById,
+  TRASH_CONTAINER_ID,
+} from '~/features/workspace/boards/lib/dndIds'
 import {
   findContainer,
   getEffectiveContainerSnapshot,
@@ -175,7 +178,7 @@ export const useDragAndDrop = () =>
       // tier IDs ride through the activeItemId field during tier drags;
       // TierList keys this branch off dragTypeState, so the brand mismatch is
       // inert here
-      setActiveItemId(activeStringId as ItemId)
+      setActiveItemId(asItemId(activeStringId))
       announce(`Picked up tier ${tier?.name ?? 'tier'}`)
       return
     }
@@ -188,9 +191,7 @@ export const useDragAndDrop = () =>
 
     // capture active item's pre-reflow rect from the DOM directly —
     // event.active.rect may not be populated at this point in the lifecycle
-    const activeNode = document.querySelector(
-      `[data-item-id="${activeId}"]`
-    ) as HTMLElement | null
+    const activeNode = getItemElementById(activeId)
     if (activeNode)
     {
       const rect = activeNode.getBoundingClientRect()

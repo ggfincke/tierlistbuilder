@@ -11,10 +11,7 @@ import {
   sortTierItemsByName,
 } from '~/features/workspace/boards/model/boardOps'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
-import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeTier } from '../fixtures'
-
-const ids = (...values: string[]) => values.map(asItemId)
+import { brandItemIds as ids, makeTier } from '../fixtures'
 
 const makeRandomIndexResolver = (...values: number[]) =>
 {

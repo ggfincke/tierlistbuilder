@@ -6,9 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import { selectKeyboardTabStopItemId } from '~/features/workspace/boards/model/slices/selectors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeTier } from '../fixtures'
-
-const ids = (...values: string[]) => values.map(asItemId)
+import { brandItemIds as ids, makeTier } from '../fixtures'
 
 describe('selectKeyboardTabStopItemId', () =>
 {

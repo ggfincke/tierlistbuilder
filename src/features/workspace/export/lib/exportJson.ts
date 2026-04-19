@@ -10,7 +10,7 @@ import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/board
 import { formatError } from '~/shared/lib/errors'
 import { isNonEmptyString, isRecord } from '~/shared/lib/typeGuards'
 import { toFileBase } from '~/shared/lib/fileName'
-import { triggerDownload } from './exportImage'
+import { downloadBlob } from '~/shared/lib/downloadBlob'
 import { snapshotToWire, wireToSnapshot } from './boardWireMapper'
 
 interface TierListExport
@@ -88,9 +88,7 @@ export const exportBoardAsJson = async (
 
   const json = JSON.stringify(payload, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  triggerDownload(url, `${toFileBase(title)}.json`)
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, `${toFileBase(title)}.json`)
 }
 
 // validate a single tier entry & return a descriptive error if invalid

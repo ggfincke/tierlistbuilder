@@ -23,6 +23,17 @@ export const EMPTY_BOARD_SYNC_STATE: BoardSyncState = {
   pendingSyncAt: null,
 }
 
+// fresh sync state after a successful cloud push or pull — pinned revision &
+// external id w/ pending marker cleared. used wherever a flush/pull settles
+export const markBoardSynced = (
+  revision: number,
+  cloudBoardExternalId: string
+): BoardSyncState => ({
+  lastSyncedRevision: revision,
+  cloudBoardExternalId,
+  pendingSyncAt: null,
+})
+
 export const extractBoardSyncState = (
   value: Pick<
     BoardSyncState,
