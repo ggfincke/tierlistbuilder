@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { RotateCcw, Trash2, X } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
@@ -11,15 +12,18 @@ import { ItemOverlayButton } from '~/shared/ui/ItemOverlayButton'
 
 export const DeletedItemsSection = () =>
 {
-  const deletedItems = useActiveBoardStore((state) => state.deletedItems)
-  const restoreDeletedItem = useActiveBoardStore(
-    (state) => state.restoreDeletedItem
-  )
-  const permanentlyDeleteItem = useActiveBoardStore(
-    (state) => state.permanentlyDeleteItem
-  )
-  const clearDeletedItems = useActiveBoardStore(
-    (state) => state.clearDeletedItems
+  const {
+    deletedItems,
+    restoreDeletedItem,
+    permanentlyDeleteItem,
+    clearDeletedItems,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      deletedItems: state.deletedItems,
+      restoreDeletedItem: state.restoreDeletedItem,
+      permanentlyDeleteItem: state.permanentlyDeleteItem,
+      clearDeletedItems: state.clearDeletedItems,
+    }))
   )
   const [showClearConfirm, setShowClearConfirm] = useState(false)
 

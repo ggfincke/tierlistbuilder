@@ -2,6 +2,7 @@
 // fixed-position toast stack — renders auto-dismissing notification toasts
 
 import { X } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useToastStore, type Toast } from './useToastStore'
 
@@ -23,8 +24,12 @@ export const ToastContainer = ({
   reducedMotion = false,
 }: ToastContainerProps = {}) =>
 {
-  const toasts = useToastStore((s) => s.toasts)
-  const removeToast = useToastStore((s) => s.removeToast)
+  const { toasts, removeToast } = useToastStore(
+    useShallow((s) => ({
+      toasts: s.toasts,
+      removeToast: s.removeToast,
+    }))
+  )
 
   if (toasts.length === 0) return null
 

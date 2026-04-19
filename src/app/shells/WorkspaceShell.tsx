@@ -2,6 +2,7 @@
 // full interactive workspace shell w/ board UI, modals, panels, & overlays
 
 import { lazy, Suspense, useCallback, useState, type MouseEvent } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
 import { useThemeApplicator } from '~/app/bootstrap/useThemeApplicator'
@@ -75,19 +76,30 @@ export const WorkspaceShell = () =>
 {
   const appReady = useAppBootstrap()
   const paletteId = useCurrentPaletteId()
-  const runtimeError = useActiveBoardStore((state) => state.runtimeError)
-  const clearRuntimeError = useActiveBoardStore(
-    (state) => state.clearRuntimeError
+  const { runtimeError, clearRuntimeError, addTier, resetBoard } =
+    useActiveBoardStore(
+      useShallow((state) => ({
+        runtimeError: state.runtimeError,
+        clearRuntimeError: state.clearRuntimeError,
+        addTier: state.addTier,
+        resetBoard: state.resetBoard,
+      }))
+    )
+  const {
+    toolbarPosition: rawToolbarPosition,
+    boardBackgroundOverride,
+    reducedMotion,
+  } = useSettingsStore(
+    useShallow((state) => ({
+      toolbarPosition: state.toolbarPosition,
+      boardBackgroundOverride: state.boardBackgroundOverride,
+      reducedMotion: state.reducedMotion,
+    }))
   )
-  const addTier = useActiveBoardStore((state) => state.addTier)
-  const resetBoard = useActiveBoardStore((state) => state.resetBoard)
-  const rawToolbarPosition = useSettingsStore((state) => state.toolbarPosition)
-  const boardBackgroundOverride = useSettingsStore(
-    (state) => state.boardBackgroundOverride
-  )
-  const reducedMotion = useSettingsStore((state) => state.reducedMotion)
-  const cloudPullCurrent = useCloudPullProgressStore((state) => state.current)
-  const cloudPullTotal = useCloudPullProgressStore((state) => state.total)
+  const { current: cloudPullCurrent, total: cloudPullTotal } =
+    useCloudPullProgressStore(
+      useShallow((state) => ({ current: state.current, total: state.total }))
+    )
   const aboveSm = useAboveBreakpoint()
   const toolbarPosition = getResponsiveToolbarPosition(
     rawToolbarPosition,

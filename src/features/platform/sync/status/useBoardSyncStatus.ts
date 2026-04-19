@@ -2,6 +2,8 @@
 // effective per-board sync status — combines syncStatusStore w/
 // useConflictQueueStore so priority logic lives in one place
 
+import { useShallow } from 'zustand/react/shallow'
+
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { useConflictQueueStore } from '../conflicts/useConflictQueueStore'
 import {
@@ -16,9 +18,12 @@ export const useBoardSyncStatus = (
   boardId: BoardId | null
 ): EffectiveBoardSyncStatus =>
 {
-  const online = useSyncStatusStore((state) => state.online)
-  const storedStatus = useSyncStatusStore((state) =>
-    boardId === null ? 'idle' : (state.statusByBoard[boardId] ?? 'idle')
+  const { online, storedStatus } = useSyncStatusStore(
+    useShallow((state) => ({
+      online: state.online,
+      storedStatus:
+        boardId === null ? 'idle' : (state.statusByBoard[boardId] ?? 'idle'),
+    }))
   )
   // boolean derivation keeps the subscription cheap — the hook only re-renders
   // when this board's conflict presence flips, not on every queue update

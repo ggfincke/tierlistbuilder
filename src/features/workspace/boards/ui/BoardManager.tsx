@@ -11,6 +11,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
@@ -59,8 +60,12 @@ export const BoardManager = ({
   onSwitchBoard,
 }: BoardManagerProps) =>
 {
-  const boards = useWorkspaceBoardRegistryStore((s) => s.boards)
-  const activeBoardId = useWorkspaceBoardRegistryStore((s) => s.activeBoardId)
+  const { boards, activeBoardId } = useWorkspaceBoardRegistryStore(
+    useShallow((s) => ({
+      boards: s.boards,
+      activeBoardId: s.activeBoardId,
+    }))
+  )
 
   // shift the FAB to the left side when toolbar is on the right
   const flipSide = toolbarPosition === 'right'

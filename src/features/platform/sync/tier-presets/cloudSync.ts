@@ -8,6 +8,7 @@ import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useT
 import {
   diffUserPresets,
   tierPresetEqual,
+  userPresetsEqual,
 } from '~/features/workspace/tier-presets/model/tierPresetDiff'
 import {
   createTierPresetImperative,
@@ -191,7 +192,8 @@ export const setupTierPresetCloudSync = (
           runner.enqueue({ presetId: op.presetId, op: 'delete' })
         }
       }
-    }
+    },
+    { equalityFn: userPresetsEqual }
   )
 
   return {
