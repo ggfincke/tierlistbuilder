@@ -2,6 +2,8 @@
 // ghost item rendered in the dnd-kit DragOverlay while dragging
 
 import { memo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
+
 import type { TierItem as TierItemType } from '@tierlistbuilder/contracts/workspace/board'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { ITEM_SIZE_PX, SHAPE_CLASS } from '~/shared/board-ui/constants'
@@ -18,8 +20,12 @@ interface DragOverlayItemProps
 export const DragOverlayItem = memo(
   ({ item, groupCount = 0 }: DragOverlayItemProps) =>
   {
-    const itemSize = useSettingsStore((state) => state.itemSize)
-    const itemShape = useSettingsStore((state) => state.itemShape)
+    const { itemSize, itemShape } = useSettingsStore(
+      useShallow((state) => ({
+        itemSize: state.itemSize,
+        itemShape: state.itemShape,
+      }))
+    )
     const sizePx = ITEM_SIZE_PX[itemSize]
     const shapeClass = SHAPE_CLASS[itemShape]
 

@@ -2,6 +2,7 @@
 // keyboard browse & drag controller for tier list items
 
 import { useCallback } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import {
@@ -25,15 +26,17 @@ export const useKeyboardTabStopItemId = (): ItemId | null =>
 // keyboard browse & drag hook — returns reactive state & event handlers
 export const useKeyboardDrag = (itemId: ItemId) =>
 {
-  const isKeyboardFocused = useActiveBoardStore(
-    (state) => state.keyboardFocusItemId === itemId
-  )
-  const isKeyboardDragging = useActiveBoardStore(
-    (state) =>
-      state.keyboardMode === 'dragging' && state.activeItemId === itemId
-  )
-  const tabStopItemId = useKeyboardTabStopItemId()
-  const isKeyboardTabStop = tabStopItemId === itemId
+  // single useShallow keeps per-item listener count at 1 instead of 3;
+  // on a 100-item board that's 200 fewer zustand subscribers per render cycle
+  const { isKeyboardFocused, isKeyboardDragging, isKeyboardTabStop } =
+    useActiveBoardStore(
+      useShallow((state) => ({
+        isKeyboardFocused: state.keyboardFocusItemId === itemId,
+        isKeyboardDragging:
+          state.keyboardMode === 'dragging' && state.activeItemId === itemId,
+        isKeyboardTabStop: selectKeyboardTabStopItemId(state) === itemId,
+      }))
+    )
 
   const handleSpaceKey = useCallback(() =>
   {

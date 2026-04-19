@@ -9,6 +9,7 @@ import {
   useState,
   type RefObject,
 } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useAnchoredPopup } from '~/shared/overlay/useAnchoredPopup'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -37,8 +38,12 @@ export const ItemEditPopover = ({
   onClose,
 }: ItemEditPopoverProps) =>
 {
-  const item = useActiveBoardStore((s) => s.items[itemId])
-  const setItemAltText = useActiveBoardStore((s) => s.setItemAltText)
+  const { item, setItemAltText } = useActiveBoardStore(
+    useShallow((s) => ({
+      item: s.items[itemId],
+      setItemAltText: s.setItemAltText,
+    }))
+  )
 
   const [altText, setAltText] = useState(item?.altText ?? '')
   const popoverRef = useRef<HTMLDivElement>(null)
