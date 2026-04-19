@@ -13,6 +13,7 @@ import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
 // create a new empty board for the authenticated caller
 export const createBoard = mutation({
   args: { title: v.string() },
+  returns: v.object({ externalId: v.string() }),
   handler: async (ctx, args): Promise<{ externalId: string }> =>
   {
     const userId = await requireCurrentUserId(ctx)
@@ -39,6 +40,7 @@ export const updateBoardMeta = mutation({
     boardExternalId: v.string(),
     title: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
@@ -50,7 +52,10 @@ export const updateBoardMeta = mutation({
 
     if (board.deletedAt !== null)
     {
-      throw new Error('cannot update a deleted board')
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.boardDeleted,
+        message: 'cannot update a deleted board',
+      })
     }
 
     if (args.title === undefined)
@@ -72,6 +77,7 @@ export const updateBoardMeta = mutation({
 // cron's clock isn't restarted by repeated client-side delete attempts
 export const deleteBoard = mutation({
   args: { boardExternalId: v.string() },
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
@@ -99,6 +105,7 @@ export const deleteBoard = mutation({
 // so the row sorts back to the top of getMyBoards. no-op for already-active rows
 export const restoreBoard = mutation({
   args: { boardExternalId: v.string() },
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
@@ -127,6 +134,7 @@ export const restoreBoard = mutation({
 // only after both child phases drain
 export const permanentlyDeleteBoard = mutation({
   args: { boardExternalId: v.string() },
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)

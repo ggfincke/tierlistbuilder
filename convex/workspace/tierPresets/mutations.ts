@@ -2,18 +2,33 @@
 // tier preset mutations — create, update, delete owned presets. callers supply
 // a pre-generated externalId so local PresetId & cloud externalId stay in sync
 
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { mutation } from '../../_generated/server'
 import {
   normalizeTierPresetName,
   PRESET_NAME_FALLBACK,
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import {
   findOwnedTierPresetByExternalId,
   requireTierPresetOwnershipByExternalId,
 } from '../../lib/permissions'
 import { tierPresetTiersValidator } from '../../lib/validators'
+
+// canonical preset externalId guard — must start w/ 'preset-' (client factory
+// generatePresetId). blocks a malicious client from shadowing a 'builtin-*'
+// or some other prefix family
+const validatePresetExternalId = (externalId: string): void =>
+{
+  if (!externalId.startsWith('preset-'))
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'invalid presetExternalId: must start with "preset-"',
+    })
+  }
+}
 
 // create a new preset; idempotent — if a row w/ this externalId already exists
 // & the caller owns it, patch instead of insert
@@ -23,9 +38,11 @@ export const createTierPreset = mutation({
     name: v.string(),
     tiers: tierPresetTiersValidator,
   },
+  returns: v.object({ updatedAt: v.number() }),
   handler: async (ctx, args): Promise<{ updatedAt: number }> =>
   {
     const userId = await requireCurrentUserId(ctx)
+    validatePresetExternalId(args.externalId)
     const now = Date.now()
     const name = normalizeTierPresetName(args.name) || PRESET_NAME_FALLBACK
 
@@ -66,9 +83,11 @@ export const updateTierPreset = mutation({
     name: v.optional(v.string()),
     tiers: v.optional(tierPresetTiersValidator),
   },
+  returns: v.object({ updatedAt: v.number() }),
   handler: async (ctx, args): Promise<{ updatedAt: number }> =>
   {
     const userId = await requireCurrentUserId(ctx)
+    validatePresetExternalId(args.presetExternalId)
     const preset = await requireTierPresetOwnershipByExternalId(
       ctx,
       args.presetExternalId,
@@ -100,9 +119,11 @@ export const updateTierPreset = mutation({
 // idempotent — deleting a non-existent preset is a no-op so retries don't error
 export const deleteTierPreset = mutation({
   args: { presetExternalId: v.string() },
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
+    validatePresetExternalId(args.presetExternalId)
     const preset = await findOwnedTierPresetByExternalId(
       ctx,
       args.presetExternalId,

@@ -4,12 +4,12 @@
 
 import { useConvexAuth, useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
-import type { Doc } from '@convex/_generated/dataModel'
+import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 
 export type AuthSession =
   | { status: 'loading' }
   | { status: 'signed-out' }
-  | { status: 'signed-in'; user: Doc<'users'> }
+  | { status: 'signed-in'; user: PublicUserMe }
 
 export const useAuthSession = (): AuthSession =>
 {

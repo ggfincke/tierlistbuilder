@@ -1,8 +1,10 @@
 // convex/workspace/settings/queries.ts
 // user settings queries — read-path is implemented, write-path lives in mutations.ts
 
+import { v } from 'convex/values'
 import { query } from '../../_generated/server'
-import { getCurrentUser } from '../../lib/auth'
+import { getCurrentUserId } from '../../lib/auth'
+import { cloudSettingsReadValidator } from '../../lib/validators'
 
 // return the authenticated caller's persisted AppSettings along w/ the cloud
 // row's updatedAt timestamp, or null if unauthenticated or no settings row
@@ -10,16 +12,17 @@ import { getCurrentUser } from '../../lib/auth'
 // timestamp feeds the client's lastSyncedAt sidecar for merge-direction logic
 export const getMySettings = query({
   args: {},
+  returns: v.union(cloudSettingsReadValidator, v.null()),
   handler: async (ctx) =>
   {
-    const user = await getCurrentUser(ctx)
-    if (!user)
+    const userId = await getCurrentUserId(ctx)
+    if (!userId)
     {
       return null
     }
     const row = await ctx.db
       .query('userSettings')
-      .withIndex('byUser', (q) => q.eq('userId', user._id))
+      .withIndex('byUser', (q) => q.eq('userId', userId))
       .unique()
     if (!row)
     {

@@ -4,7 +4,7 @@
 import { ConvexError, v } from 'convex/values'
 import { query } from '../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { getCurrentUserId } from '../../lib/auth'
+import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
 import { findOwnedMediaAssetByExternalId } from '../../lib/permissions'
 
 // hard cap per batch — protects the query's document read budget. clients
@@ -19,11 +19,19 @@ interface MediaAssetLookup
   mimeType: string
 }
 
+// return validator for the batch lookup — mirrors MediaAssetLookup
+const mediaAssetLookupValidator = v.object({
+  externalId: v.string(),
+  url: v.string(),
+  mimeType: v.string(),
+})
+
 // resolve a batch of media externalIds to signed download URLs. preserve input
 // order so the client can pair results by index, & collapse a board's cloud
 // image warm-up to one Convex call instead of N
 export const getMediaAssetsByExternalIds = query({
   args: { mediaExternalIds: v.array(v.string()) },
+  returns: v.array(v.union(mediaAssetLookupValidator, v.null())),
   handler: async (ctx, args): Promise<Array<MediaAssetLookup | null>> =>
   {
     if (args.mediaExternalIds.length === 0)
@@ -39,11 +47,7 @@ export const getMediaAssetsByExternalIds = query({
       })
     }
 
-    const userId = await getCurrentUserId(ctx)
-    if (!userId)
-    {
-      return args.mediaExternalIds.map(() => null)
-    }
+    const userId = await requireCurrentUserId(ctx)
 
     return Promise.all(
       args.mediaExternalIds.map(async (externalId) =>
@@ -75,6 +79,10 @@ export const getMediaAssetsByExternalIds = query({
 // once all deployed clients have picked up the batch-aware bundle
 export const getMediaAsset = query({
   args: { mediaExternalId: v.string() },
+  returns: v.union(
+    v.object({ url: v.string(), mimeType: v.string() }),
+    v.null()
+  ),
   handler: async (
     ctx,
     args
