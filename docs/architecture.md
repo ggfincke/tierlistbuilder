@@ -23,12 +23,11 @@ The codebase is organized into three top-level layers: `app/` (bootstrap & routi
 src/
 ├── app/
 │   ├── App.tsx                      # root component — delegates to AppRouter
-│   ├── main.tsx                     # React mount + legacy storage key migration
+│   ├── main.tsx                     # React mount
 │   ├── index.css                    # Tailwind entry
 │   ├── bootstrap/
 │   │   ├── useAppBootstrap.ts       # hydrate stores, bootstrap session, register autosave
-│   │   ├── useThemeApplicator.ts    # sync theme/text-style tokens to :root
-│   │   └── storageMigration.ts      # cross-feature legacy localStorage key migration
+│   │   └── useThemeApplicator.ts    # sync theme/text-style tokens to :root
 │   ├── routes/
 │   │   ├── AppRouter.tsx            # popstate-driven route selection
 │   │   ├── WorkspaceRoute.tsx       # workspace entry
@@ -97,14 +96,11 @@ Four Zustand stores form the workspace data layer:
 Persistence is split across features instead of living in a single monolithic `storage.ts`:
 
 - `features/workspace/boards/data/local/boardStorage.ts` — per-board localStorage I/O, versioned envelopes, typed `ok`/`missing`/`corrupted` load outcomes, quota error messaging
-- `features/workspace/boards/data/local/boardRegistryStorage.ts` — registry storage key
-- `features/workspace/boards/data/local/boardMigration.ts` — legacy single-board migration (`tier-list-maker-state` → modern registry)
 - `features/workspace/boards/data/local/localBoardSession.ts` — session bootstrap, autosave subscription, orchestration between registry & active board
-- `features/workspace/settings/data/local/settingsStorage.ts` — settings storage key + multi-version migration
-- `features/workspace/tier-presets/data/local/tierPresetStorage.ts` — preset storage key + migration
+- `features/workspace/settings/data/local/settingsStorage.ts` — settings storage key & schema version
+- `features/workspace/tier-presets/data/local/tierPresetStorage.ts` — preset storage key & schema version
 - `shared/lib/browserStorage.ts` — generic localStorage wrapper, Zustand persist adapter
 - `shared/lib/storageMetering.ts` — quota estimation, near-full warnings
-- `app/bootstrap/storageMigration.ts` — cross-feature legacy key migration (runs before any store hydrates)
 
 ## Drag and Drop
 

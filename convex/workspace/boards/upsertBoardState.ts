@@ -21,7 +21,7 @@ import {
 import { diffTiers, diffItems } from '../sync/boardReconciler'
 import { loadBoardCloudState } from '../sync/boardStateLoader'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
-import { MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../sync/boardSyncLimits'
+import { MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
 import {
   findOwnedBoardByExternalIdIncludingDeleted,
   findOwnedMediaAssetByExternalId,
@@ -52,9 +52,6 @@ const wireItemValidator = v.object({
   altText: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
   order: v.number(),
-  // optional — accepted & stored for future LWW conflict resolution. see
-  // convex/workspace/sync/boardReconciler.ts for the known limitation
-  clientUpdatedAt: v.optional(v.number()),
 })
 
 // canonical externalId prefix guards — server-side defense-in-depth atop the

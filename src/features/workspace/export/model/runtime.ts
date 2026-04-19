@@ -1,5 +1,6 @@
-// src/shared/types/export.ts
-// export format types & render-time appearance snapshots
+// src/features/workspace/export/model/runtime.ts
+// export format types & render-time appearance snapshots — runtime-only, not
+// persisted or sent across process boundaries so they live here vs. contracts
 
 import type {
   ItemShape,

@@ -1,4 +1,4 @@
-// convex/workspace/sync/boardSyncLimits.ts
+// convex/lib/limits.ts
 // shared sync bounds for board state payloads. retention constants live in
 // the contracts package; callers import them directly from there
 

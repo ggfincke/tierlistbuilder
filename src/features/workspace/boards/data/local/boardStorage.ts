@@ -21,9 +21,10 @@ import {
 import { isRecord } from '~/shared/lib/typeGuards'
 
 // current board payload schema version — bumped only on genuinely breaking
-// user-data changes. v3 wraps snapshots in a versioned envelope; unwrapped
-// pre-v3 payloads fail the envelope-shape check & parse as corrupted
-export const BOARD_DATA_VERSION = 3
+// user-data changes. pre-1.0 reset: previous iterations (v1/v2/v3) had no
+// migration chain, so the envelope check below treats any stored version
+// that doesn't equal this value as corrupted & loads defaults
+export const BOARD_DATA_VERSION = 1
 
 // build a per-board localStorage key from its ID
 export const boardStorageKey = (id: BoardId): string => `tier-list-board-${id}`

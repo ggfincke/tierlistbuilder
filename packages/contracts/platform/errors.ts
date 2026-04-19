@@ -39,9 +39,3 @@ export const CONVEX_ERROR_CODES = {
 
 export type ConvexErrorCode =
   (typeof CONVEX_ERROR_CODES)[keyof typeof CONVEX_ERROR_CODES]
-
-export interface ConvexErrorPayload
-{
-  code: ConvexErrorCode
-  message: string
-}

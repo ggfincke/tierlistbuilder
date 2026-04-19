@@ -10,7 +10,7 @@ import type {
   CloudBoardPayload,
   CloudBoardState,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import { convexClient } from '~/features/platform/backend/convexClient'
+import { convexClient } from '~/features/platform/convex/convexClient'
 
 // list the caller's soft-deleted boards. powers the "Recently deleted"
 // surface; reactive so a successful restore / permanent-delete on another
@@ -22,9 +22,6 @@ export const useListMyDeletedBoards = (
     api.workspace.boards.queries.getMyDeletedBoards,
     enabled ? {} : 'skip'
   )
-
-export const createBoardImperative = (args: { title: string }) =>
-  convexClient.mutation(api.workspace.boards.mutations.createBoard, args)
 
 export const deleteBoardImperative = (args: { boardExternalId: string }) =>
   convexClient.mutation(api.workspace.boards.mutations.deleteBoard, args)
@@ -39,12 +36,6 @@ export const permanentlyDeleteBoardImperative = (args: {
     api.workspace.boards.mutations.permanentlyDeleteBoard,
     args
   )
-
-export const updateBoardMetaImperative = (args: {
-  boardExternalId: string
-  title?: string
-}) =>
-  convexClient.mutation(api.workspace.boards.mutations.updateBoardMeta, args)
 
 export const upsertBoardStateImperative = (
   args: CloudBoardPayload & {

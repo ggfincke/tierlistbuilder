@@ -264,7 +264,3 @@ export const clearTierPresetPending = (
     ownerUserId,
   })
 }
-
-// drop the entry entirely after a successful delete-flush — the cloud row
-// is gone & we no longer need to remember anything about this preset
-export const purgeTierPresetSyncMeta = removeTierPresetSyncMeta

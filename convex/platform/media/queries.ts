@@ -4,7 +4,7 @@
 import { ConvexError, v } from 'convex/values'
 import { query } from '../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
+import { requireCurrentUserId } from '../../lib/auth'
 import { findOwnedMediaAssetByExternalId } from '../../lib/permissions'
 
 // hard cap per batch — protects the query's document read budget. clients
@@ -71,45 +71,5 @@ export const getMediaAssetsByExternalIds = query({
         return { externalId, url, mimeType: asset.mimeType }
       })
     )
-  },
-})
-
-// ! deprecated single-asset lookup — retained as a rollout-safe shim for
-// stale client bundles that still reference `getMediaAsset` by name. delete
-// once all deployed clients have picked up the batch-aware bundle
-export const getMediaAsset = query({
-  args: { mediaExternalId: v.string() },
-  returns: v.union(
-    v.object({ url: v.string(), mimeType: v.string() }),
-    v.null()
-  ),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ url: string; mimeType: string } | null> =>
-  {
-    const userId = await getCurrentUserId(ctx)
-    if (!userId)
-    {
-      return null
-    }
-
-    const asset = await findOwnedMediaAssetByExternalId(
-      ctx,
-      args.mediaExternalId,
-      userId
-    )
-    if (!asset)
-    {
-      return null
-    }
-
-    const url = await ctx.storage.getUrl(asset.storageId)
-    if (!url)
-    {
-      return null
-    }
-
-    return { url, mimeType: asset.mimeType }
   },
 })

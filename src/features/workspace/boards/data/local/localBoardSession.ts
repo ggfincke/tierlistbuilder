@@ -22,8 +22,6 @@ import {
 } from './boardStorage'
 import { stampPendingBoardDelete } from './boardDeleteSyncMeta'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
-import { migrateBoardImages } from '~/shared/images/boardImageMigration'
-import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import {
   STORAGE_NEAR_FULL_MESSAGE,
   isStorageNearFull,
@@ -61,7 +59,6 @@ let boardDeletedListener: (() => void) | null = null
 // timestamp of last near-full warning — rate-limits the toast to once per 60s
 let storageWarningLastMs = 0
 const STORAGE_WARNING_COOLDOWN_MS = 60_000
-const BOARD_IMPORT_CONCURRENCY = 3
 
 const getActivePaletteId = (): PaletteId =>
   useSettingsStore.getState().paletteId
@@ -237,31 +234,6 @@ export const loadPersistedBoard = (boardId: BoardId): BoardSnapshot =>
 export const loadPersistedBoardState = (boardId: BoardId): LoadedBoardState =>
   stateFromResult(loadBoardFromStorage(boardId))
 
-const prepareBoardForLoad = async (
-  boardId: BoardId,
-  snapshot: BoardSnapshot,
-  options: {
-    persistMigrated?: boolean
-    warmCache?: boolean
-  } = {}
-): Promise<BoardSnapshot> =>
-{
-  const { persistMigrated = true, warmCache = true } = options
-  const migrated = await migrateBoardImages(snapshot)
-
-  if (persistMigrated && migrated !== snapshot)
-  {
-    saveBoardToStorage(boardId, migrated)
-  }
-
-  if (warmCache)
-  {
-    await warmFromBoard(migrated)
-  }
-
-  return migrated
-}
-
 export const loadBoardIntoSession = async (
   boardId: BoardId,
   shouldProceed?: () => boolean
@@ -269,15 +241,15 @@ export const loadBoardIntoSession = async (
 {
   const canProceed = makeProceedGuard(shouldProceed)
   const state = loadPersistedBoardState(boardId)
-  const prepared = await prepareBoardForLoad(boardId, state.snapshot)
+  await warmFromBoard(state.snapshot)
 
   if (!canProceed())
   {
-    return prepared
+    return state.snapshot
   }
 
-  loadBoardState(prepared, state.syncState)
-  return prepared
+  loadBoardState(state.snapshot, state.syncState)
+  return state.snapshot
 }
 
 const createBlankBoardData = (): BoardSnapshot => ({
@@ -302,14 +274,12 @@ const saveAndActivateBoard = async (
     title
   )
 
-  const prepared = await prepareBoardForLoad(id, normalized, {
-    persistMigrated: false,
-  })
-  saveBoardToStorage(id, prepared)
+  await warmFromBoard(normalized)
+  saveBoardToStorage(id, normalized)
   useWorkspaceBoardRegistryStore
     .getState()
     .addBoardMeta(createBoardMeta(id, title), true)
-  loadBoardState(prepared)
+  loadBoardState(normalized)
   return id
 }
 
@@ -378,11 +348,8 @@ export const bootstrapBoardSession = async (): Promise<void> =>
       {
         boardStore.setActiveBoardId(requestedActiveId)
       }
-      const prepared = await prepareBoardForLoad(
-        requestedActiveId,
-        state.snapshot
-      )
-      loadBoardState(prepared, state.syncState)
+      await warmFromBoard(state.snapshot)
+      loadBoardState(state.snapshot, state.syncState)
       pruneOrphanedRegistryEntriesAsync(requestedActiveId)
       return
     }
@@ -623,10 +590,6 @@ export const importBoardsSession = async (
   const boardStore = useWorkspaceBoardRegistryStore.getState()
   const nextBoards = boardStore.boards.slice()
   let lastId = boardStore.activeBoardId
-  const plannedImports: Array<{
-    id: BoardId
-    normalized: BoardSnapshot
-  }> = []
 
   for (const board of boards)
   {
@@ -638,22 +601,10 @@ export const importBoardsSession = async (
       title
     )
 
-    plannedImports.push({ id, normalized })
+    saveBoardToStorage(id, normalized)
     nextBoards.push(createBoardMeta(id, title))
     lastId = id
   }
-
-  await mapAsyncLimit(
-    plannedImports,
-    BOARD_IMPORT_CONCURRENCY,
-    async (entry) =>
-    {
-      await prepareBoardForLoad(entry.id, entry.normalized, {
-        warmCache: false,
-      })
-      return entry
-    }
-  )
 
   if (!lastId)
   {

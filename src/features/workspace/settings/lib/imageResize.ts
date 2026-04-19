@@ -45,8 +45,7 @@ export const processImageFiles = async (
     (item): item is { blob: Blob; label: string } => item !== null
   )
   const sources = await persistBlobSources(
-    preparedItems.map((item) => item.blob),
-    { fallbackToDataUrl: true }
+    preparedItems.map((item) => item.blob)
   )
   const items = sources.map((source, index) => ({
     ...source,
@@ -59,32 +58,6 @@ export const processImageFiles = async (
   }
 }
 
-// load a File into an HTMLImageElement via object URL (fallback path)
-const loadImageElement = (file: File): Promise<HTMLImageElement> =>
-{
-  return new Promise((resolve, reject) =>
-  {
-    const objectUrl = URL.createObjectURL(file)
-    const image = new Image()
-
-    // revoke the object URL & resolve once the image is decoded
-    image.onload = () =>
-    {
-      URL.revokeObjectURL(objectUrl)
-      resolve(image)
-    }
-
-    // revoke the object URL & reject on decode failure
-    image.onerror = () =>
-    {
-      URL.revokeObjectURL(objectUrl)
-      reject(new Error(`Failed to load image: ${file.name}`))
-    }
-
-    image.src = objectUrl
-  })
-}
-
 // resize a File to a PNG Blob capped at maxSize px on the longest side.
 // returns raw bytes instead of a data URL so the caller can hash & persist
 // directly to the IndexedDB image store w/o an intermediate base64 decode
@@ -93,31 +66,11 @@ const resizeImageFileToBlob = async (
   maxSize = MAX_THUMBNAIL_SIZE
 ): Promise<Blob> =>
 {
-  let imageBitmap: ImageBitmap | null = null
-  let source: CanvasImageSource
-  let sourceWidth: number
-  let sourceHeight: number
+  const imageBitmap = await createImageBitmap(file)
 
-  // prefer createImageBitmap for performance; fall back to <img> element
-  if ('createImageBitmap' in window)
-  {
-    imageBitmap = await createImageBitmap(file)
-    source = imageBitmap
-    sourceWidth = imageBitmap.width
-    sourceHeight = imageBitmap.height
-  }
-  else
-  {
-    const imageElement = await loadImageElement(file)
-    source = imageElement
-    sourceWidth = imageElement.naturalWidth
-    sourceHeight = imageElement.naturalHeight
-  }
-
-  // calculate target canvas dimensions
   const { width, height } = getResizedDimensions(
-    sourceWidth,
-    sourceHeight,
+    imageBitmap.width,
+    imageBitmap.height,
     maxSize
   )
   const canvas = document.createElement('canvas')
@@ -127,17 +80,15 @@ const resizeImageFileToBlob = async (
   const context = canvas.getContext('2d')
   if (!context)
   {
-    imageBitmap?.close()
+    imageBitmap.close()
     throw new Error('Could not initialize a canvas context.')
   }
 
-  // enable high-quality downscaling
   context.imageSmoothingEnabled = true
   context.imageSmoothingQuality = 'high'
-  context.drawImage(source, 0, 0, width, height)
+  context.drawImage(imageBitmap, 0, 0, width, height)
 
-  // free the bitmap memory before encoding
-  imageBitmap?.close()
+  imageBitmap.close()
 
   return canvasToPngBlob(canvas)
 }

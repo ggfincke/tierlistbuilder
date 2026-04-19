@@ -5,7 +5,7 @@ import { ConvexError } from 'convex/values'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { QueryCtx } from '../../_generated/server'
-import { BOARD_ITEM_TAKE_LIMIT, BOARD_TIER_TAKE_LIMIT } from './boardSyncLimits'
+import { BOARD_ITEM_TAKE_LIMIT, BOARD_TIER_TAKE_LIMIT } from '../../lib/limits'
 
 interface HasDb
 {

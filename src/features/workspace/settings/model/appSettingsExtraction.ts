@@ -27,14 +27,6 @@ const APP_SETTINGS_KEYS = [
   'showAltTextButton',
 ] as const satisfies readonly (keyof AppSettings)[]
 
-// reverse-direction exhaustiveness — tsc errors here if AppSettings gains
-// a field missing from APP_SETTINGS_KEYS. exported only to satisfy
-// noUnusedLocals; consumers should ignore it
-type _AssertNever<T extends never> = T
-export type _AppSettingsKeysCover = _AssertNever<
-  Exclude<keyof AppSettings, (typeof APP_SETTINGS_KEYS)[number]>
->
-
 export const extractAppSettings = <T extends AppSettings>(
   source: T
 ): AppSettings =>

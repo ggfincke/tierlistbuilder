@@ -1,5 +1,5 @@
-// src/features/platform/backend/convexClient.ts
-// * convex client singleton — mounted into ConvexAuthProvider in main.tsx
+// src/features/platform/convex/convexClient.ts
+// * convex client singleton — mounted into ConvexAuthProvider in main.tsx.
 // UI goes through data/cloud/ adapters or useAuthSession, not this directly
 
 import { ConvexReactClient } from 'convex/react'

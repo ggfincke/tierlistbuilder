@@ -229,7 +229,6 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
         nextItems[id] = {
           id,
           imageRef: newItem.imageRef,
-          imageUrl: newItem.imageUrl,
           label: newItem.label,
           backgroundColor: newItem.backgroundColor,
         }

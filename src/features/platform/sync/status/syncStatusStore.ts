@@ -57,10 +57,6 @@ export interface SyncStatusState
   statusByBoard: Record<BoardId, StoredBoardSyncStatus>
   setOnline: (online: boolean) => void
   setBoardStatus: (boardId: BoardId, status: StoredBoardSyncStatus) => void
-  // remove a board's entry — called when the board is deleted or after a
-  // successful sync brings it back to 'idle' (idle is the implicit default,
-  // so we evict instead of storing)
-  removeBoardStatus: (boardId: BoardId) => void
   // wipe all per-board state — called on sign-out so a different user
   // signing in doesn't see stale statuses for the previous user's boards
   clear: () => void
@@ -82,26 +78,5 @@ export const useSyncStatusStore = create<SyncStatusState>((set) => ({
         statusByBoard: { ...state.statusByBoard, [boardId]: status },
       }
     }),
-  removeBoardStatus: (boardId) =>
-    set((state) =>
-    {
-      if (!(boardId in state.statusByBoard))
-      {
-        return state
-      }
-      const next = { ...state.statusByBoard }
-      delete next[boardId]
-      return { statusByBoard: next }
-    }),
   clear: () => set({ statusByBoard: {} }),
 }))
-
-export const selectOnline = (state: SyncStatusState): boolean => state.online
-
-export const selectStoredBoardStatus = (
-  boardId: BoardId | null
-): ((state: SyncStatusState) => StoredBoardSyncStatus) =>
-{
-  return (state) =>
-    boardId === null ? 'idle' : (state.statusByBoard[boardId] ?? 'idle')
-}

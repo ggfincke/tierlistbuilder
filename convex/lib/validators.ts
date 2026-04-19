@@ -235,7 +235,6 @@ const cloudBoardStateItemValidator = v.object({
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
   mediaContentHash: v.optional(v.string()),
   order: v.number(),
-  clientUpdatedAt: v.optional(v.number()),
   deletedAt: v.union(v.number(), v.null()),
 })
 

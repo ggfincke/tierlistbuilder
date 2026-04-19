@@ -16,7 +16,7 @@ import {
   SquareArrowUp,
 } from 'lucide-react'
 
-import type { ImageFormat } from '~/shared/types/export'
+import type { ImageFormat } from '../model/runtime'
 import type { MenuPositionClasses } from '~/shared/layout/toolbarPosition'
 import { formatError } from '~/shared/lib/errors'
 import { useMenuOverflowFlipRefs } from '~/shared/overlay/useMenuOverflowFlip'

@@ -23,10 +23,6 @@ export interface CloudBoardItemWire
   // string -> set media, null -> clear media, undefined -> preserve existing media
   mediaExternalId?: string | null
   order: number
-  // client-side wall-clock stamp for last edit — plumbed for a future LWW
-  // conflict resolver. server stores it but doesn't enforce ordering; omit on
-  // boards predating this field; reconciler treats missing as "infinitely old"
-  clientUpdatedAt?: number
 }
 
 export interface CloudBoardPayload

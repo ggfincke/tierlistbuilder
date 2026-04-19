@@ -90,7 +90,7 @@ export const fetchImageAsItemImage = async (
   ctx.drawImage(img, 0, 0, width, height)
 
   const blob = await canvasToPngBlob(canvas)
-  const source = await persistBlobSource(blob, { fallbackToDataUrl: true })
+  const source = await persistBlobSource(blob)
 
   return {
     ...source,

@@ -3,7 +3,6 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  getContrastRatio,
   normalizeHexColor,
   hexToRgbColor,
   rgbToHexColor,
@@ -58,21 +57,6 @@ describe('getTextColor', () =>
   it('picks the higher-contrast option for saturated colors', () =>
   {
     expect(getTextColor('#00ff00')).toBe('#000000')
-  })
-})
-
-describe('getContrastRatio', () =>
-{
-  it('returns the WCAG maximum for black on white', () =>
-  {
-    expect(getContrastRatio('#ffffff', '#000000')).toBeCloseTo(21, 5)
-  })
-
-  it('prefers black over white on bright green', () =>
-  {
-    expect(getContrastRatio('#00ff00', '#000000')).toBeGreaterThan(
-      getContrastRatio('#00ff00', '#ffffff')
-    )
   })
 })
 

@@ -131,8 +131,6 @@ const awaitTransaction = (tx: IDBTransaction): Promise<void> =>
       reject(tx.error ?? new Error('IndexedDB transaction aborted.'))
   })
 
-export const isImageStoreAvailable = (): boolean => !indexedDbUnavailable
-
 export const probeImageStore = async (): Promise<boolean> =>
 {
   const db = await openDatabaseSafe()
@@ -316,61 +314,5 @@ export const getUploadStatusBatch = async (
   return results
 }
 
-// count all blob records — used as a rough orphan-growth metric until the
-// full refcount/GC pass lands. todo: once blobRefs store ships this should
-// also return refCount totals & stale-entry counts for observability
-export const countStoredBlobs = async (): Promise<number> =>
-{
-  const db = await openDatabaseSafe()
-  if (!db)
-  {
-    return 0
-  }
-
-  const tx = db.transaction(BLOBS_STORE, 'readonly')
-  const result = (await awaitRequest(tx.objectStore(BLOBS_STORE).count())) as
-    | number
-    | undefined
-  return result ?? 0
-}
-
 // todo: GC — add blobRefs store (bump DB_VERSION), wire refcount into board
 // mutations, & run a startup reconciliation pass over all snapshots to fix drift
-
-// clear all upload index entries for a user
-export const clearUploadIndex = async (userId: string): Promise<void> =>
-{
-  const db = await openDatabaseSafe()
-  if (!db)
-  {
-    return
-  }
-
-  const tx = db.transaction(UPLOAD_INDEX_STORE, 'readwrite')
-  const store = tx.objectStore(UPLOAD_INDEX_STORE)
-  const range = IDBKeyRange.bound([userId], [userId, '\uffff'])
-  const cursorReq = store.openCursor(range)
-
-  await new Promise<void>((resolve, reject) =>
-  {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () =>
-      reject(tx.error ?? new Error('IndexedDB transaction failed.'))
-    tx.onabort = () =>
-      reject(tx.error ?? new Error('IndexedDB transaction aborted.'))
-
-    cursorReq.onsuccess = () =>
-    {
-      const cursor = cursorReq.result
-      if (!cursor)
-      {
-        return
-      }
-
-      cursor.delete()
-      cursor.continue()
-    }
-    cursorReq.onerror = () =>
-      reject(cursorReq.error ?? new Error('Failed to iterate upload index.'))
-  })
-}

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 import {
+  BOARD_DATA_VERSION,
   boardStorageKey,
   boardSyncStorageKey,
   loadBoardFromStorage,
@@ -170,7 +171,7 @@ describe('boardStorage sync metadata', () =>
     localStorage.setItem(
       boardStorageKey(TEST_BOARD_ID),
       JSON.stringify({
-        version: 3,
+        version: BOARD_DATA_VERSION,
         data: snapshot,
       })
     )

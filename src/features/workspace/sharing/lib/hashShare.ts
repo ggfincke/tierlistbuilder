@@ -23,7 +23,11 @@ export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
   return {
     ...mapSnapshotItems(data, (item) =>
     {
-      const { imageRef: _imageRef, imageUrl: _imageUrl, ...rest } = item
+      const {
+        imageRef: _imageRef,
+        imageUrl: _imageUrl,
+        ...rest
+      } = item as typeof item & { imageUrl?: string }
       return rest
     }),
     deletedItems: [],

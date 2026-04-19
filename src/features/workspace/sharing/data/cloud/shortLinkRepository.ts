@@ -9,7 +9,7 @@ import type {
   OwnedShortLinkListItem,
   ShortLinkResolveResult,
 } from '@tierlistbuilder/contracts/platform/shortLink'
-import { convexClient } from '~/features/platform/backend/convexClient'
+import { convexClient } from '~/features/platform/convex/convexClient'
 
 // imperative resolve for the embed-route bootstrap & workspace inbound-share
 // path; both run before any React tree mounts so a hook isn't an option

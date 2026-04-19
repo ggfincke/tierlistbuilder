@@ -20,7 +20,7 @@ import {
 import {
   loadTierPresetSyncMetaMapForUser,
   markTierPresetSynced,
-  purgeTierPresetSyncMeta,
+  removeTierPresetSyncMeta,
 } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
 import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
@@ -231,7 +231,7 @@ const executeTask = async (
     case 'delete':
     {
       await deps.deleteTierPreset({ presetExternalId: task.presetId })
-      purgeTierPresetSyncMeta(task.presetId)
+      removeTierPresetSyncMeta(task.presetId)
       return { ok: true }
     }
     case 'pull':

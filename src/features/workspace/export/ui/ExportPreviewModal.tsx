@@ -4,7 +4,7 @@
 import { useId, useRef, useState } from 'react'
 import { Check, Copy, Download, Highlighter } from 'lucide-react'
 
-import type { ImageFormat } from '~/shared/types/export'
+import type { ImageFormat } from '../model/runtime'
 import {
   FORMAT_LABELS,
   IMAGE_FORMATS,

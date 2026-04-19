@@ -17,7 +17,7 @@ import {
   Unlock,
 } from 'lucide-react'
 
-import type { ImageFormat } from '~/shared/types/export'
+import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
 import { extractPresetFromBoard } from '~/features/workspace/tier-presets/model/tierPresets'
 import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'

@@ -26,29 +26,20 @@ const resolveItemMediaExternalId = (
   uploadResult: BoardImageUploadResult
 ): string | null | undefined =>
 {
-  if (!item.imageRef && !item.imageUrl)
+  if (!item.imageRef)
   {
     return null
   }
 
-  const uploadedExternalId = item.imageRef?.hash
-    ? uploadResult.mediaExternalIdByHash.get(item.imageRef.hash)
-    : undefined
-
+  const uploadedExternalId = uploadResult.mediaExternalIdByHash.get(
+    item.imageRef.hash
+  )
   if (uploadedExternalId)
   {
     return uploadedExternalId
   }
 
-  const uploadedInlineExternalId = uploadResult.mediaExternalIdByItemId.get(
-    item.id
-  )
-  if (uploadedInlineExternalId)
-  {
-    return uploadedInlineExternalId
-  }
-
-  if (item.imageRef?.cloudMediaExternalId)
+  if (item.imageRef.cloudMediaExternalId)
   {
     return item.imageRef.cloudMediaExternalId
   }

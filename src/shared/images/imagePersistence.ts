@@ -2,23 +2,34 @@
 // hash, persist, & optionally inline image bytes for local board items
 
 import type { TierItemImageRef } from '@tierlistbuilder/contracts/workspace/board'
-import {
-  blobToDataUrl,
-  dataUrlMimeType,
-  dataUrlToBytes,
-} from '~/shared/lib/binaryCodec'
+import { dataUrlMimeType, dataUrlToBytes } from '~/shared/lib/binaryCodec'
 import { sha256Hex, sha256HexFromBlob } from '~/shared/lib/sha256'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { cacheFreshBlobs } from './imageBlobCache'
-import { BLOB_PREPARE_CONCURRENCY } from './imageConcurrency'
 import { probeImageStore, putBlobs, type BlobRecord } from './imageStore'
-import { createBlobRecord } from './blobRecord'
+
+// bound parallel blob prepare work (hash + record build). limit is low because
+// hashing is CPU-heavy & we don't want to starve the main thread
+export const BLOB_PREPARE_CONCURRENCY = 3
+
+// build a normalized IndexedDB blob record — exported for the cloud image
+// fetcher which constructs records from download responses
+export const createBlobRecord = (
+  hash: string,
+  blob: Blob,
+  mimeType = blob.type || 'image/png'
+): BlobRecord => ({
+  hash,
+  mimeType,
+  byteSize: blob.size,
+  createdAt: Date.now(),
+  bytes: blob,
+})
 
 // image value stored on a board item
 export interface PersistedImageSource
 {
   imageRef?: TierItemImageRef
-  imageUrl?: string
 }
 
 // prepared blob record ready for a single batch store write
@@ -81,42 +92,27 @@ export const persistPreparedBlobRecords = async (
   }
 }
 
-// persist one blob into IndexedDB or inline it when fallback is allowed
+// persist one blob into IndexedDB
 export const persistBlobSource = async (
   blob: Blob,
-  options: {
-    fallbackToDataUrl?: boolean
-    warmCache?: boolean
-  } = {}
+  options: { warmCache?: boolean } = {}
 ): Promise<PersistedImageSource> =>
   (await persistBlobSources([blob], options))[0]!
 
-// persist many blobs in one batch, falling back to inline data URLs if needed
+// persist many blobs in one batch. throws if IDB is unavailable or the
+// transaction fails — callers previously had an opt-in data-URL fallback but
+// that path is gone: TierItem no longer carries inline imageUrl in memory
 export const persistBlobSources = async (
   blobs: readonly Blob[],
-  options: {
-    fallbackToDataUrl?: boolean
-    warmCache?: boolean
-  } = {}
+  options: { warmCache?: boolean } = {}
 ): Promise<PersistedImageSource[]> =>
 {
-  const { fallbackToDataUrl = false, warmCache = true } = options
+  const { warmCache = true } = options
   const available = await probeImageStore()
 
   if (!available)
   {
-    if (!fallbackToDataUrl)
-    {
-      throw new Error('Image storage is not available in this browser.')
-    }
-
-    return await mapAsyncLimit(
-      blobs,
-      BLOB_PREPARE_CONCURRENCY,
-      async (blob) => ({
-        imageUrl: await blobToDataUrl(blob),
-      })
-    )
+    throw new Error('Image storage is not available in this browser.')
   }
 
   const prepared = await mapAsyncLimit(
@@ -125,26 +121,8 @@ export const persistBlobSources = async (
     prepareBlobRecord
   )
 
-  try
-  {
-    await persistPreparedBlobRecords(prepared, warmCache)
-    return prepared.map((entry) => ({
-      imageRef: entry.imageRef,
-    }))
-  }
-  catch
-  {
-    if (!fallbackToDataUrl)
-    {
-      throw new Error('Failed to store image bytes locally.')
-    }
-
-    return await mapAsyncLimit(
-      blobs,
-      BLOB_PREPARE_CONCURRENCY,
-      async (blob) => ({
-        imageUrl: await blobToDataUrl(blob),
-      })
-    )
-  }
+  await persistPreparedBlobRecords(prepared, warmCache)
+  return prepared.map((entry) => ({
+    imageRef: entry.imageRef,
+  }))
 }

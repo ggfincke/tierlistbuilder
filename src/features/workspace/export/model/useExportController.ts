@@ -8,7 +8,7 @@ import { extractBoardData } from '~/features/workspace/boards/model/boardSnapsho
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { formatError } from '~/shared/lib/errors'
 import { THEMES } from '~/shared/theme/tokens'
-import type { ImageFormat } from '~/shared/types/export'
+import type { ImageFormat } from './runtime'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
   exportAllBoardsAsImages,
