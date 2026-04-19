@@ -1,27 +1,17 @@
 // src/features/workspace/boards/data/cloud/imageUploader.ts
 // upload local image blobs to Convex storage & record the mapping
 
-import type {
-  BoardSnapshot,
-  TierItem,
-} from '@tierlistbuilder/contracts/workspace/board'
-import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { Id } from '@convex/_generated/dataModel'
-import {
-  collectSnapshotImageHashes,
-  forEachSnapshotItem,
-} from '~/shared/lib/boardSnapshotItems'
+import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
 import {
   getBlobsBatch,
   getUploadStatusBatch,
   markUploaded,
 } from '~/shared/images/imageStore'
-import { mapAsyncLimit, mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
+import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
 import { getImageDimensions } from '~/shared/images/imageDimensions'
-import {
-  prepareDataUrlRecord,
-  type PreparedBlobRecord,
-} from '~/shared/images/imagePersistence'
+import type { PreparedBlobRecord } from '~/shared/images/imagePersistence'
 import {
   generateUploadUrlImperative,
   finalizeUploadImperative,
@@ -53,40 +43,6 @@ const asSupportedMimeType = (mimeType: string): SupportedImageMimeType =>
 export interface BoardImageUploadResult
 {
   mediaExternalIdByHash: Map<string, string>
-  mediaExternalIdByItemId: Map<ItemId, string>
-}
-
-interface InlineImageUploadCandidate
-{
-  itemId: ItemId
-  prepared: PreparedBlobRecord
-}
-
-// hash inline legacy image URLs so they can reuse the normal upload index.
-// throws on any hash failure so the caller can surface a single aggregated
-// error rather than silently dropping unusable items
-const collectInlineUploadCandidates = async (
-  snapshot: BoardSnapshot
-): Promise<InlineImageUploadCandidate[]> =>
-{
-  const itemsWithInlineImages: TierItem[] = []
-
-  forEachSnapshotItem(snapshot, (item) =>
-  {
-    if (item.imageUrl && !item.imageRef?.cloudMediaExternalId)
-    {
-      itemsWithInlineImages.push(item)
-    }
-  })
-
-  return await mapAsyncLimit(
-    itemsWithInlineImages,
-    UPLOAD_CONCURRENCY,
-    async (item) => ({
-      itemId: item.id,
-      prepared: await prepareDataUrlRecord(item.imageUrl!),
-    })
-  )
 }
 
 // upload one image blob to Convex storage & finalize it. throws on any
@@ -153,25 +109,18 @@ export const uploadBoardImages = async (
   userId: string
 ): Promise<BoardImageUploadResult> =>
 {
-  const inlineCandidates = await collectInlineUploadCandidates(snapshot)
-  const allHashes = [
-    ...new Set([
-      ...collectSnapshotImageHashes(snapshot),
-      ...inlineCandidates.map((candidate) => candidate.prepared.record.hash),
-    ]),
-  ]
+  const hashes = collectSnapshotImageHashes(snapshot)
 
   const result: BoardImageUploadResult = {
     mediaExternalIdByHash: new Map<string, string>(),
-    mediaExternalIdByItemId: new Map<ItemId, string>(),
   }
 
-  if (allHashes.length === 0)
+  if (hashes.length === 0)
   {
     return result
   }
 
-  const existingMap = await getUploadStatusBatch(userId, allHashes)
+  const existingMap = await getUploadStatusBatch(userId, hashes)
 
   for (const [hash, externalId] of existingMap)
   {
@@ -181,23 +130,7 @@ export const uploadBoardImages = async (
     }
   }
 
-  const itemIdsByInlineHash = new Map<string, ItemId[]>()
-
-  for (const candidate of inlineCandidates)
-  {
-    const hash = candidate.prepared.record.hash
-    const itemIds = itemIdsByInlineHash.get(hash) ?? []
-    itemIds.push(candidate.itemId)
-    itemIdsByInlineHash.set(hash, itemIds)
-
-    const existingExternalId = result.mediaExternalIdByHash.get(hash)
-    if (existingExternalId)
-    {
-      result.mediaExternalIdByItemId.set(candidate.itemId, existingExternalId)
-    }
-  }
-
-  const needsBlobUpload = collectSnapshotImageHashes(snapshot).filter(
+  const needsBlobUpload = hashes.filter(
     (hash) => !result.mediaExternalIdByHash.has(hash)
   )
   const storedBlobRecords = await getBlobsBatch(needsBlobUpload)
@@ -216,7 +149,7 @@ export const uploadBoardImages = async (
     )
   }
 
-  const hashUploadResults = await mapAsyncLimitSettled(
+  const uploadResults = await mapAsyncLimitSettled(
     needsBlobUpload,
     UPLOAD_CONCURRENCY,
     async (hash) =>
@@ -231,66 +164,20 @@ export const uploadBoardImages = async (
     }
   )
 
-  const hashFailures = hashUploadResults.filter((r) => r.status === 'rejected')
-  if (hashFailures.length > 0)
+  const failures = uploadResults.filter((r) => r.status === 'rejected')
+  if (failures.length > 0)
   {
     throw new Error(
-      `failed to upload ${hashFailures.length} of ${needsBlobUpload.length} image blobs: ` +
-        String(firstRejectionReason(hashUploadResults))
+      `failed to upload ${failures.length} of ${needsBlobUpload.length} image blobs: ` +
+        String(firstRejectionReason(uploadResults))
     )
   }
 
-  for (const entry of hashUploadResults)
+  for (const entry of uploadResults)
   {
     if (entry.status === 'fulfilled')
     {
       result.mediaExternalIdByHash.set(entry.value.hash, entry.value.externalId)
-    }
-  }
-
-  const pendingInlineUploads = [
-    ...new Map(
-      inlineCandidates
-        .filter(
-          (candidate) =>
-            !result.mediaExternalIdByHash.has(candidate.prepared.record.hash)
-        )
-        .map((candidate) => [candidate.prepared.record.hash, candidate])
-    ).values(),
-  ]
-
-  const inlineUploadResults = await mapAsyncLimitSettled(
-    pendingInlineUploads,
-    UPLOAD_CONCURRENCY,
-    async (candidate) =>
-    {
-      const externalId = await uploadSingleImage(userId, candidate.prepared)
-      return { candidate, externalId }
-    }
-  )
-
-  const inlineFailures = inlineUploadResults.filter(
-    (r) => r.status === 'rejected'
-  )
-  if (inlineFailures.length > 0)
-  {
-    throw new Error(
-      `failed to upload ${inlineFailures.length} of ${pendingInlineUploads.length} inline images: ` +
-        String(firstRejectionReason(inlineUploadResults))
-    )
-  }
-
-  for (const entry of inlineUploadResults)
-  {
-    if (entry.status !== 'fulfilled') continue
-    const { candidate, externalId } = entry.value
-    result.mediaExternalIdByHash.set(candidate.prepared.record.hash, externalId)
-
-    for (const itemId of itemIdsByInlineHash.get(
-      candidate.prepared.record.hash
-    ) ?? [])
-    {
-      result.mediaExternalIdByItemId.set(itemId, externalId)
     }
   }
 

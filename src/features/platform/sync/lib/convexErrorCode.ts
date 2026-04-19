@@ -45,19 +45,3 @@ export const isPermanentConvexError = (error: unknown): boolean =>
   const code = getConvexErrorCode(error)
   return code !== null && PERMANENT_CONVEX_ERROR_CODES.has(code)
 }
-
-// pull retryAfter from the ConvexError payload so drainers honor the server's
-// backoff hint. returns null if not a rate-limit error or retryAfter is absent
-export const getRateLimitRetryAfter = (error: unknown): number | null =>
-{
-  const code = getConvexErrorCode(error)
-  if (code !== CONVEX_ERROR_CODES.rateLimited) return null
-  if (!(error instanceof ConvexError)) return null
-
-  const data = error.data as { retryAfter?: unknown } | null | undefined
-  if (!data || typeof data !== 'object') return null
-  const retryAfter = (data as { retryAfter?: unknown }).retryAfter
-  return typeof retryAfter === 'number' && Number.isFinite(retryAfter)
-    ? retryAfter
-    : null
-}

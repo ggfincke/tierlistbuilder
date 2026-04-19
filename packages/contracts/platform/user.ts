@@ -1,8 +1,8 @@
 // packages/contracts/platform/user.ts
 // public-facing user shape projected by users.getMe — narrower than the raw
 // users row: excludes operator diagnostics (lastUpsertError), auth internals
-// (isAnonymous, phone, phoneVerificationTime, emailVerificationTime), & the
-// raw avatarStorageId (clients use the resolved `image` URL instead)
+// (phone, phoneVerificationTime, emailVerificationTime), & the raw
+// avatarStorageId (clients use the resolved `image` URL instead)
 
 export type UserTier = 'free' | 'premium'
 

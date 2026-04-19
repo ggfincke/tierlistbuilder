@@ -5,49 +5,9 @@ import { ConvexError } from 'convex/values'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { requireCurrentUserId } from './auth'
 
 type BoardOwnershipCtx = QueryCtx | MutationCtx
 type MediaOwnershipCtx = QueryCtx | MutationCtx
-
-// low-level: assert the caller owns the given board — throws if not found or
-// not theirs. prefer requireOwnedBoard() unless you already have userId
-export const requireBoardOwnership = async (
-  ctx: BoardOwnershipCtx,
-  boardId: Id<'boards'>,
-  userId: Id<'users'>
-): Promise<Doc<'boards'>> =>
-{
-  const board = await ctx.db.get(boardId)
-  if (!board)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.notFound,
-      message: 'board not found',
-    })
-  }
-  if (board.ownerId !== userId)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.forbidden,
-      message: 'caller does not own board',
-    })
-  }
-  return board
-}
-
-// high-level: derive the caller & enforce ownership in one call. returns
-// both the board & the resolved userId so handlers don't need a second
-// requireCurrentUserId round trip
-export const requireOwnedBoard = async (
-  ctx: BoardOwnershipCtx,
-  boardId: Id<'boards'>
-): Promise<{ board: Doc<'boards'>; userId: Id<'users'> }> =>
-{
-  const userId = await requireCurrentUserId(ctx)
-  const board = await requireBoardOwnership(ctx, boardId, userId)
-  return { board, userId }
-}
 
 // resolve one owned board by externalId (including soft-deleted rows).
 // callers that care about soft-deletes must filter themselves — most callers
@@ -119,31 +79,6 @@ export const findOwnedMediaAssetByExternalId = async (
       q.eq('ownerId', userId).eq('externalId', externalId)
     )
     .unique()
-
-// assert the caller owns the given preset — throws if not found or not theirs
-export const requireTierPresetOwnership = async (
-  ctx: QueryCtx,
-  presetId: Id<'tierPresets'>,
-  userId: Id<'users'>
-): Promise<Doc<'tierPresets'>> =>
-{
-  const preset = await ctx.db.get(presetId)
-  if (!preset)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.notFound,
-      message: 'preset not found',
-    })
-  }
-  if (preset.ownerId !== userId)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.forbidden,
-      message: 'caller does not own preset',
-    })
-  }
-  return preset
-}
 
 // resolve one owned preset by externalId, or null if it doesn't exist for
 // this owner. mirrors findOwnedActiveBoardByExternalId — preset rows have

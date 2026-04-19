@@ -12,18 +12,19 @@ import {
   collectSnapshotImageHashes,
   transformSnapshotItemsAsync,
 } from '~/shared/lib/boardSnapshotItems'
-import { getBlobsBatch } from '~/shared/images/imageStore'
+import {
+  BLOB_PREPARE_CONCURRENCY,
+  persistPreparedBlobRecords,
+  prepareDataUrlRecord,
+  type PreparedBlobRecord,
+} from '~/shared/images/imagePersistence'
+import { getBlobsBatch, probeImageStore } from '~/shared/images/imageStore'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isRecord } from '~/shared/lib/typeGuards'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
 
 export { collectSnapshotImageHashes }
-
-const cloneWireItem = (item: TierItemWire): TierItem =>
-{
-  const { imageUrl, ...rest } = item
-  return imageUrl ? { ...rest, imageUrl } : rest
-}
 
 const isTierItemWire = (value: unknown): value is TierItemWire =>
 {
@@ -76,47 +77,17 @@ const getBlobDataUrl = async (
   return pending
 }
 
-const toSnapshotItems = (
-  items: Partial<BoardSnapshotWire['items']> | undefined
-): BoardSnapshot['items'] =>
-{
-  if (!items || typeof items !== 'object')
-  {
-    return {}
-  }
-
-  return Object.fromEntries(
-    Object.entries(items)
-      .filter((entry): entry is [string, TierItemWire] =>
-        isTierItemWire(entry[1])
-      )
-      .map(([id, item]) => [id, cloneWireItem(item)])
-  ) as BoardSnapshot['items']
-}
-
-const toSnapshotDeletedItems = (
-  items: Partial<BoardSnapshotWire['deletedItems']> | undefined
-): BoardSnapshot['deletedItems'] =>
-{
-  if (!Array.isArray(items))
-  {
-    return []
-  }
-
-  return items.filter(isTierItemWire).map((item) => cloneWireItem(item))
-}
-
 const itemToWire = async (
   item: TierItem,
   blobsByHash: ReadonlyMap<string, Blob | null>,
   dataUrlsByHash: Map<string, Promise<string>>
 ): Promise<TierItemWire> =>
 {
-  const { imageRef, imageUrl: inlineImageUrl, ...rest } = item
+  const { imageRef, ...rest } = item
 
   if (!imageRef)
   {
-    return inlineImageUrl ? { ...rest, imageUrl: inlineImageUrl } : rest
+    return rest
   }
 
   const imageUrl = await getBlobDataUrl(
@@ -124,15 +95,7 @@ const itemToWire = async (
     blobsByHash,
     dataUrlsByHash
   )
-  if (imageUrl)
-  {
-    return {
-      ...rest,
-      imageUrl,
-    }
-  }
-
-  return inlineImageUrl ? { ...rest, imageUrl: inlineImageUrl } : rest
+  return imageUrl ? { ...rest, imageUrl } : rest
 }
 
 // convert a snapshot to wire shape using a preloaded hash -> Blob map
@@ -176,16 +139,134 @@ export const snapshotToWire = async (
   return snapshotToWireWithBlobs(snapshot, blobsByHash)
 }
 
-// convert wire-format data back into an in-memory snapshot shape
-export const wireToSnapshot = (
+// hash inline wire imageUrls in parallel, persist all bytes in one IDB batch,
+// & return a map keyed by the wire item's id so the caller can swap each
+// imageUrl for the resulting imageRef. items w/ unparseable data URLs are
+// dropped silently; if IDB is unavailable the caller keeps the inline bytes
+// as an in-memory fallback (headless tests, private-browsing, quota-exhausted)
+const prepareInlineWireImages = async (
+  wireItems: readonly (readonly [string, TierItemWire])[]
+): Promise<Map<string, PreparedBlobRecord>> =>
+{
+  const byId = new Map<string, PreparedBlobRecord>()
+
+  const candidates = wireItems.filter(
+    ([, item]) => typeof item.imageUrl === 'string' && item.imageUrl.length > 0
+  )
+
+  if (candidates.length === 0 || !(await probeImageStore()))
+  {
+    return byId
+  }
+
+  const prepared = await mapAsyncLimit(
+    candidates,
+    BLOB_PREPARE_CONCURRENCY,
+    async ([id, item]) =>
+    {
+      try
+      {
+        const record = await prepareDataUrlRecord(item.imageUrl!)
+        return [id, record] as const
+      }
+      catch
+      {
+        return null
+      }
+    }
+  )
+
+  const records: PreparedBlobRecord[] = []
+  for (const entry of prepared)
+  {
+    if (!entry) continue
+    byId.set(entry[0], entry[1])
+    records.push(entry[1])
+  }
+
+  try
+  {
+    await persistPreparedBlobRecords(records)
+  }
+  catch
+  {
+    return new Map()
+  }
+  return byId
+}
+
+const wireItemToSnapshotItem = (
+  item: TierItemWire,
+  prepared: PreparedBlobRecord | undefined
+): TierItem =>
+{
+  const { id, label, backgroundColor, altText } = item
+  const base: TierItem = { id, label, backgroundColor, altText }
+
+  if (prepared)
+  {
+    return { ...base, imageRef: prepared.imageRef }
+  }
+
+  if (typeof item.imageUrl === 'string' && item.imageUrl.length > 0)
+  {
+    return {
+      ...base,
+      imageUrl: item.imageUrl,
+    } as TierItem
+  }
+
+  return base
+}
+
+// convert wire-format data back into an in-memory snapshot shape. async
+// because inline imageUrls are hashed & persisted to IDB when available,
+// otherwise the snapshot keeps inline bytes as a render fallback
+export const wireToSnapshot = async (
   wire: Partial<BoardSnapshotWire>,
   fallbackTitle = ''
-): BoardSnapshot => ({
-  title: typeof wire.title === 'string' ? wire.title : fallbackTitle,
-  tiers: Array.isArray(wire.tiers) ? wire.tiers : [],
-  unrankedItemIds: Array.isArray(wire.unrankedItemIds)
-    ? wire.unrankedItemIds
-    : [],
-  items: toSnapshotItems(wire.items),
-  deletedItems: toSnapshotDeletedItems(wire.deletedItems),
-})
+): Promise<BoardSnapshot> =>
+{
+  const liveEntries: [string, TierItemWire][] = []
+  const liveItems =
+    wire.items && typeof wire.items === 'object' ? wire.items : {}
+
+  for (const [id, raw] of Object.entries(liveItems))
+  {
+    if (isTierItemWire(raw))
+    {
+      liveEntries.push([id, raw])
+    }
+  }
+
+  const deletedRaw = Array.isArray(wire.deletedItems) ? wire.deletedItems : []
+  const deletedEntries: [string, TierItemWire][] = deletedRaw
+    .filter(isTierItemWire)
+    .map((item, index) => [`__deleted-${index}`, item])
+
+  const preparedById = await prepareInlineWireImages([
+    ...liveEntries,
+    ...deletedEntries,
+  ])
+
+  const items: BoardSnapshot['items'] = Object.fromEntries(
+    liveEntries.map(([id, item]) => [
+      id,
+      wireItemToSnapshotItem(item, preparedById.get(id)),
+    ])
+  ) as BoardSnapshot['items']
+
+  const deletedItems: BoardSnapshot['deletedItems'] = deletedEntries.map(
+    ([key, item]) => wireItemToSnapshotItem(item, preparedById.get(key))
+  )
+
+  return {
+    title: typeof wire.title === 'string' ? wire.title : fallbackTitle,
+    tiers: Array.isArray(wire.tiers) ? wire.tiers : [],
+    unrankedItemIds: Array.isArray(wire.unrankedItemIds)
+      ? wire.unrankedItemIds
+      : [],
+    items,
+    deletedItems,
+  }
+}

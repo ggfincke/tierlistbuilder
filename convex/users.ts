@@ -7,9 +7,8 @@ import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import { getCurrentUser } from './lib/auth'
 
 // return validator for getMe — narrowed public projection. excludes internal
-// fields (lastUpsertError, isAnonymous, phone*, emailVerificationTime,
-// avatarStorageId) so operator diagnostics & auth internals don't reach the
-// client bundle
+// fields (lastUpsertError, phone*, emailVerificationTime, avatarStorageId) so
+// operator diagnostics & auth internals don't reach the client bundle.
 // _id projected as plain string — contracts package cannot depend on Convex's
 // branded Id<'users'> type, so the wire shape uses a plain string. the brand
 // is lost at the frontend but the value is only used as an opaque identifier

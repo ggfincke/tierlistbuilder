@@ -46,19 +46,3 @@ export const requireCurrentUserId = async (
   }
   return userId
 }
-
-// resolve the current caller or throw — used by mutations that require auth
-export const requireCurrentUser = async (
-  ctx: AuthCtx
-): Promise<Doc<'users'>> =>
-{
-  const user = await getCurrentUser(ctx)
-  if (!user)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.unauthenticated,
-      message: 'not authenticated',
-    })
-  }
-  return user
-}

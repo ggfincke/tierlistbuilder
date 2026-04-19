@@ -5,7 +5,7 @@ import type {
   BoardSnapshot,
   BoardSnapshotWire,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance, ImageFormat } from '~/shared/types/export'
+import type { ExportAppearance, ImageFormat } from '../model/runtime'
 import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/boardStorage'
 import {
   loadPersistedBoard,

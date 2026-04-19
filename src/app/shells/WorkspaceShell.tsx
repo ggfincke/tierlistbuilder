@@ -30,7 +30,7 @@ import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
-import type { ImageFormat } from '~/shared/types/export'
+import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 
 type ModalPayloads = {
   settings: undefined

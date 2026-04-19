@@ -193,7 +193,7 @@ export const TierItem = memo(
       return null
     }
 
-    const hasImage = !!(item.imageRef || item.imageUrl)
+    const hasImage = !!item.imageRef
 
     return (
       <>

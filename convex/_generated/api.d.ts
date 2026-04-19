@@ -10,10 +10,10 @@
 
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
-import type * as getHealth from "../getHealth.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_hexColor from "../lib/hexColor.js";
+import type * as lib_limits from "../lib/limits.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_rateLimiter from "../lib/rateLimiter.js";
 import type * as lib_userUpsert from "../lib/userUpsert.js";
@@ -33,7 +33,6 @@ import type * as workspace_settings_mutations from "../workspace/settings/mutati
 import type * as workspace_settings_queries from "../workspace/settings/queries.js";
 import type * as workspace_sync_boardReconciler from "../workspace/sync/boardReconciler.js";
 import type * as workspace_sync_boardStateLoader from "../workspace/sync/boardStateLoader.js";
-import type * as workspace_sync_boardSyncLimits from "../workspace/sync/boardSyncLimits.js";
 import type * as workspace_sync_loadBoundedBoardRows from "../workspace/sync/loadBoundedBoardRows.js";
 import type * as workspace_tierPresets_mutations from "../workspace/tierPresets/mutations.js";
 import type * as workspace_tierPresets_queries from "../workspace/tierPresets/queries.js";
@@ -47,10 +46,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
-  getHealth: typeof getHealth;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/hexColor": typeof lib_hexColor;
+  "lib/limits": typeof lib_limits;
   "lib/permissions": typeof lib_permissions;
   "lib/rateLimiter": typeof lib_rateLimiter;
   "lib/userUpsert": typeof lib_userUpsert;
@@ -70,7 +69,6 @@ declare const fullApi: ApiFromModules<{
   "workspace/settings/queries": typeof workspace_settings_queries;
   "workspace/sync/boardReconciler": typeof workspace_sync_boardReconciler;
   "workspace/sync/boardStateLoader": typeof workspace_sync_boardStateLoader;
-  "workspace/sync/boardSyncLimits": typeof workspace_sync_boardSyncLimits;
   "workspace/sync/loadBoundedBoardRows": typeof workspace_sync_loadBoundedBoardRows;
   "workspace/tierPresets/mutations": typeof workspace_tierPresets_mutations;
   "workspace/tierPresets/queries": typeof workspace_tierPresets_queries;

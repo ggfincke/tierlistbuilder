@@ -1,7 +1,7 @@
 // src/features/platform/sync/boards/cloudImageFetcher.ts
 // registers the Convex-backed cloud image batch fetcher into the shared image cache
 
-import { convexClient } from '~/features/platform/backend/convexClient'
+import { convexClient } from '~/features/platform/convex/convexClient'
 import { api } from '@convex/_generated/api'
 import { putBlob } from '~/shared/images/imageStore'
 import {
@@ -10,7 +10,7 @@ import {
   registerCloudImageFetcher,
   type CloudImageRequest,
 } from '~/shared/images/imageBlobCache'
-import { createBlobRecord } from '~/shared/images/blobRecord'
+import { createBlobRecord } from '~/shared/images/imagePersistence'
 
 // max parallel URL fetches after the Convex query resolves — blob downloads
 // go to the Convex storage CDN, not the app server, so throttling here only

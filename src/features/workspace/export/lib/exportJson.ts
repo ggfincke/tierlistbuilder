@@ -151,11 +151,13 @@ const validateItemEntry = (id: string, item: unknown): string | null =>
   return null
 }
 
-// validate board shape & normalize into an in-memory snapshot
-const parseBoardData = (
+// validate board shape & normalize into an in-memory snapshot. async because
+// inline imageUrls are hashed into imageRefs when IDB is available, otherwise
+// the snapshot keeps the inline bytes as a render fallback
+const parseBoardData = async (
   raw: Record<string, unknown>,
   fallbackTitle: string
-): BoardSnapshot =>
+): Promise<BoardSnapshot> =>
 {
   const data = raw as Partial<BoardSnapshotWire>
 
@@ -214,14 +216,14 @@ const parseBoardData = (
   }
 
   return normalizeBoardSnapshot(
-    wireToSnapshot(data, fallbackTitle),
+    await wireToSnapshot(data, fallbackTitle),
     'classic',
     fallbackTitle
   )
 }
 
 // parse & validate a versioned single-board export envelope
-export const parseBoardJson = (text: string): BoardSnapshot =>
+export const parseBoardJson = async (text: string): Promise<BoardSnapshot> =>
 {
   const envelope = parseJsonObject(text)
   assertSupportedVersion(envelope)
@@ -232,10 +234,13 @@ export const parseBoardJson = (text: string): BoardSnapshot =>
 export const parseBoardSnapshotJson = (
   text: string,
   fallbackTitle = 'Imported Tier List'
-): BoardSnapshot => parseBoardData(parseJsonObject(text), fallbackTitle)
+): Promise<BoardSnapshot> =>
+  parseBoardData(parseJsonObject(text), fallbackTitle)
 
 // parse & validate a versioned multi-board export envelope
-export const parseBoardsJson = (text: string): BoardSnapshot[] =>
+export const parseBoardsJson = async (
+  text: string
+): Promise<BoardSnapshot[]> =>
 {
   const envelope = parseJsonObject(text)
   assertSupportedVersion(envelope)
@@ -267,7 +272,7 @@ export const parseBoardsJson = (text: string): BoardSnapshot[] =>
 
       try
       {
-        results.push(parseBoardData(innerData, label))
+        results.push(await parseBoardData(innerData, label))
       }
       catch (error)
       {
@@ -280,5 +285,7 @@ export const parseBoardsJson = (text: string): BoardSnapshot[] =>
     return results
   }
 
-  return [parseBoardData(extractEnvelopeData(envelope), 'Imported Tier List')]
+  return [
+    await parseBoardData(extractEnvelopeData(envelope), 'Imported Tier List'),
+  ]
 }

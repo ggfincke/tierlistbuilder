@@ -23,9 +23,8 @@ import {
   SETTINGS_STORAGE_KEY,
   SETTINGS_STORAGE_VERSION,
 } from '../data/local/settingsStorage'
-import { migrateSettingsState } from './settingsStorageMigration'
 
-const DEFAULT_SETTINGS: AppSettings = {
+export const DEFAULT_APP_SETTINGS: AppSettings = {
   itemSize: 'medium',
   showLabels: false,
   itemShape: 'square',
@@ -71,7 +70,6 @@ interface SettingsStore extends AppSettings
   setToolbarPosition: (position: ToolbarPosition) => void
   setShowAltTextButton: (show: boolean) => void
   toggleHighContrast: (enabled: boolean) => void
-  resetSettings: () => void
 }
 
 // guard against same-value writes so re-clicking the active option doesn't
@@ -97,7 +95,7 @@ export const useSettingsStore = create<SettingsStore>()(
   subscribeWithSelector(
     persist(
       (set, get) => ({
-        ...DEFAULT_SETTINGS,
+        ...DEFAULT_APP_SETTINGS,
 
         setItemSize: createSettingSetter(set, get, 'itemSize'),
         setShowLabels: createSettingSetter(set, get, 'showLabels'),
@@ -164,14 +162,11 @@ export const useSettingsStore = create<SettingsStore>()(
               preHighContrastPaletteId: null,
             }
           }),
-        resetSettings: () => set(DEFAULT_SETTINGS),
       }),
       {
         name: SETTINGS_STORAGE_KEY,
         storage: createAppPersistStorage(),
         version: SETTINGS_STORAGE_VERSION,
-        migrate: (persistedState) =>
-          migrateSettingsState(persistedState, DEFAULT_SETTINGS),
       }
     )
   )

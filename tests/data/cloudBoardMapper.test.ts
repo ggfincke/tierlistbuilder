@@ -28,7 +28,6 @@ const makeBoardWithItem = (
 
 const emptyUploadResult = (): BoardImageUploadResult => ({
   mediaExternalIdByHash: new Map(),
-  mediaExternalIdByItemId: new Map(),
 })
 
 describe('snapshotToCloudPayload media mapping', () =>
@@ -66,40 +65,6 @@ describe('snapshotToCloudPayload media mapping', () =>
     )
 
     expect(payload.items[0].mediaExternalId).toBe('media-existing')
-  })
-
-  it('uses inline-image upload results when the item has no imageRef', () =>
-  {
-    const payload = snapshotToCloudPayload(
-      makeBoardWithItem({
-        id: asItemId('item-1'),
-        imageUrl: 'data:image/png;base64,AAAA',
-      }),
-      {
-        ...emptyUploadResult(),
-        mediaExternalIdByItemId: new Map([
-          [asItemId('item-1'), 'media-inline'],
-        ]),
-      }
-    )
-
-    expect(payload.items[0].mediaExternalId).toBe('media-inline')
-  })
-
-  it('throws when a legacy inline image cannot be uploaded (matching hash-backed behavior)', () =>
-  {
-    // the uploader is now all-or-nothing, so surface unresolved inline images
-    // loudly instead of silently dropping the wire reference & leaving items
-    // broken across devices
-    expect(() =>
-      snapshotToCloudPayload(
-        makeBoardWithItem({
-          id: asItemId('item-1'),
-          imageUrl: 'data:image/png;base64,AAAA',
-        }),
-        emptyUploadResult()
-      )
-    ).toThrow('Unable to sync image')
   })
 
   it('throws when a hash-backed image has no upload mapping or cloud id', () =>

@@ -12,7 +12,10 @@ import {
   saveSettingsSyncMeta,
 } from '~/features/workspace/settings/data/local/settingsSyncMeta'
 import { extractAppSettings } from '~/features/workspace/settings/model/appSettingsExtraction'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import {
+  DEFAULT_APP_SETTINGS,
+  useSettingsStore,
+} from '~/features/workspace/settings/model/useSettingsStore'
 
 const createMemoryStorage = (): Storage =>
 {
@@ -89,7 +92,7 @@ describe('settingsCloudMerge', () =>
   beforeEach(() =>
   {
     vi.stubGlobal('localStorage', createMemoryStorage())
-    useSettingsStore.getState().resetSettings()
+    useSettingsStore.setState(DEFAULT_APP_SETTINGS)
   })
 
   afterEach(() =>

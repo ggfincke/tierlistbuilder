@@ -5,7 +5,7 @@
 import { api } from '@convex/_generated/api'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import { convexClient } from '~/features/platform/backend/convexClient'
+import { convexClient } from '~/features/platform/convex/convexClient'
 
 export const listMyTierPresetsImperative = (): Promise<TierPresetCloudRow[]> =>
   convexClient.query(api.workspace.tierPresets.queries.getMyTierPresets, {})

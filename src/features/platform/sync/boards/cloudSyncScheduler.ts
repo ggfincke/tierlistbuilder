@@ -384,7 +384,7 @@ export const createCloudSyncScheduler = (
     if (!options.hasBoard(boardId))
     {
       // board deleted while queued; emit idle to reset any lingering chrome
-      // & drop the controller (removeBoardStatus is the consumer's responsibility)
+      // & drop the controller
       options.onStatusChange?.(boardId, 'idle')
       pruneBoardSyncController(controllers, boardId, controller)
       return

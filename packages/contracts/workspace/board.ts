@@ -41,7 +41,6 @@ export interface TierItem
 {
   id: ItemId
   imageRef?: TierItemImageRef
-  imageUrl?: string
   label?: string
   backgroundColor?: string
   altText?: string
@@ -74,7 +73,6 @@ export interface BoardSnapshot
 export interface NewTierItem
 {
   imageRef?: TierItemImageRef
-  imageUrl?: string
   label?: string
   backgroundColor?: string
 }

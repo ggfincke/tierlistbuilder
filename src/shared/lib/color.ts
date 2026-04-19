@@ -126,30 +126,9 @@ const getRelativeLuminance = (color: RgbColor): number =>
   return 0.2126 * red + 0.7152 * green + 0.0722 * blue
 }
 
-export const getContrastRatio = (
-  backgroundHexColor: string,
-  foregroundHexColor: string
-): number =>
-{
-  const background = hexToRgbColor(backgroundHexColor)
-  const foreground = hexToRgbColor(foregroundHexColor)
-
-  if (!background || !foreground)
-  {
-    return 1
-  }
-
-  const backgroundLuminance = getRelativeLuminance(background)
-  const foregroundLuminance = getRelativeLuminance(foreground)
-  const brighterLuminance = Math.max(backgroundLuminance, foregroundLuminance)
-  const darkerLuminance = Math.min(backgroundLuminance, foregroundLuminance)
-
-  return (brighterLuminance + 0.05) / (darkerLuminance + 0.05)
-}
-
-// compute the higher-contrast text color between pure black & pure white;
-// computes the background luminance once (4x speedup vs. two getContrastRatio
-// calls) since both candidates are pure black & pure white
+// compute the higher-contrast text color between pure black & pure white.
+// picks the candidate via luminance threshold (~0.179) so it runs in one
+// pass instead of two full WCAG contrast-ratio computations
 export const getTextColor = (hexColor: string): string =>
 {
   const rgb = hexToRgbColor(hexColor)

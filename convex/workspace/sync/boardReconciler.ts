@@ -37,8 +37,6 @@ export interface ItemDiff
     mediaAssetId: Id<'mediaAssets'> | null
     order: number
     deletedAt: number | null
-    // client wall-clock stamp — reserved for future LWW resolution
-    clientUpdatedAt?: number
   }>
   patch: Array<{
     id: Id<'boardItems'>
@@ -52,9 +50,9 @@ export interface ItemDiff
   }>
 }
 
-// ! known limitation: wire-item changes applied in client-send order; concurrent edits
-// from two devices can lose either way. clientUpdatedAt is plumbed for a future LWW pass
-// but currently stored w/o being consulted — revisit once conflict-matrix tests land
+// ! known limitation: wire-item changes applied in client-send order;
+// concurrent edits from two devices can lose either way. LWW resolution is
+// deferred — revisit once conflict-matrix tests land
 
 const hasOwnKey = (obj: Record<string, unknown>): boolean =>
   Object.keys(obj).length > 0
@@ -165,9 +163,6 @@ export const diffItems = (
         mediaAssetId: resolvedMediaId,
         order: wire.order,
         deletedAt: isDeleted ? now : null,
-        ...(wire.clientUpdatedAt !== undefined
-          ? { clientUpdatedAt: wire.clientUpdatedAt }
-          : {}),
       })
       continue
     }
@@ -190,9 +185,6 @@ export const diffItems = (
           backgroundColor: wire.backgroundColor,
           altText: wire.altText,
           ...(hasMediaExternalId ? { mediaAssetId: resolvedMediaId } : {}),
-          ...(wire.clientUpdatedAt !== undefined
-            ? { clientUpdatedAt: wire.clientUpdatedAt }
-            : {}),
         },
       })
       continue
@@ -210,13 +202,6 @@ export const diffItems = (
     if (hasMediaExternalId && server.mediaAssetId !== resolvedMediaId)
     {
       fields.mediaAssetId = resolvedMediaId
-    }
-    if (
-      wire.clientUpdatedAt !== undefined &&
-      server.clientUpdatedAt !== wire.clientUpdatedAt
-    )
-    {
-      fields.clientUpdatedAt = wire.clientUpdatedAt
     }
 
     if (hasOwnKey(fields as Record<string, unknown>))

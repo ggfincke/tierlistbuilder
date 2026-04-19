@@ -16,7 +16,7 @@ import {
 import {
   clearTierPresetPending,
   markTierPresetSynced,
-  purgeTierPresetSyncMeta,
+  removeTierPresetSyncMeta,
   stampTierPresetPending,
 } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
 import {
@@ -80,7 +80,7 @@ export const createTierPresetSyncRunner = (
     {
       if (work.op === 'delete')
       {
-        purgeTierPresetSyncMeta(work.presetId)
+        removeTierPresetSyncMeta(work.presetId)
         return
       }
       markTierPresetSynced(work.presetId, options.userId, syncedAt)
@@ -92,7 +92,7 @@ export const createTierPresetSyncRunner = (
       // pendingOp & pendingSyncAt but leave lastSyncedAt alone
       if (work.op === 'delete')
       {
-        purgeTierPresetSyncMeta(work.presetId)
+        removeTierPresetSyncMeta(work.presetId)
         return
       }
       clearTierPresetPending(work.presetId, options.userId)

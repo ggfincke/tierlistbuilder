@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance } from '~/shared/types/export'
+import type { ExportAppearance } from '../model/runtime'
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
 
