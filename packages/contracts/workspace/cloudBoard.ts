@@ -20,7 +20,6 @@ export interface CloudBoardItemWire
   label?: string
   backgroundColor?: string
   altText?: string
-  // string -> set media, null -> clear media, undefined -> preserve existing media
   mediaExternalId?: string | null
   order: number
 }
@@ -41,9 +40,6 @@ export interface CloudBoardStateTier extends CloudBoardTierWire
 export interface CloudBoardStateItem extends CloudBoardItemWire
 {
   deletedAt: number | null
-  // sha256 of the asset bytes — lets the client wire image refs into IDB on
-  // cloud-pull or keep-cloud resolution for items uploaded on another device.
-  // undefined when the item has no image
   mediaContentHash?: string
 }
 

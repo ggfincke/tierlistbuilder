@@ -62,7 +62,7 @@ export const prepareDataUrlRecord = async (
   const bytes = dataUrlToBytes(dataUrl)
   const hash = await sha256Hex(bytes as unknown as BufferSource)
   const mimeType = dataUrlMimeType(dataUrl)
-  const blob = new Blob([bytes as BlobPart], { type: mimeType })
+  const blob = new Blob([bytes as unknown as BlobPart], { type: mimeType })
 
   return {
     imageRef: { hash },

@@ -21,6 +21,7 @@ import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
 import { isVerticalPosition } from '~/shared/layout/toolbarPosition'
+import { TIER_LIST_BOARD_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { useDragAndDrop } from '~/features/workspace/boards/dnd/useDragAndDrop'
 import { DragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
@@ -177,20 +178,17 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       onDragCancel={onDragCancel}
     >
       <div ref={boardShellRef}>
-        {/* toolbar + tier rows wrapper — toolbar sits alongside or above/below the tiers */}
         <div
           className={`${compactMode ? 'mt-1' : 'mt-3'} ${TOOLBAR_LAYOUT_CLASS[toolbarPosition]}`}
         >
-          {/* tier rows column — unranked pool & trash zone live outside so left/right toolbar centers on tiers only & bottom toolbar sits above the pool */}
           <div className={`${isVertical ? 'min-w-0 flex-1' : ''}`}>
-            {/* export capture wrapper */}
             <div className="overflow-x-auto">
               <div
                 id="tier-list"
                 ref={boardRef}
                 role="region"
                 aria-label="Tier list board"
-                data-testid="tier-list-board"
+                data-testid={TIER_LIST_BOARD_TEST_ID}
                 data-keyboard-mode={keyboardMode}
                 data-keyboard-focus-item-id=""
                 tabIndex={-1}
@@ -214,7 +212,6 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
             </div>
           </div>
 
-          {/* sticky wrapper keeps the toolbar visible while scrolling tall boards */}
           <div className={isVertical ? 'sticky top-4' : ''}>{toolbar}</div>
         </div>
 
@@ -223,7 +220,6 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         <TrashZone />
       </div>
 
-      {/* render ghost in overlay while drag is active; disable default drop animation during multi-drag so fan-out animation takes over */}
       <DragOverlay
         modifiers={overlayModifiers}
         dropAnimation={dragGroupCount > 1 ? null : undefined}

@@ -25,7 +25,7 @@ export interface ThemeDefinition
   'accent-hover': string
   destructive: string
   'destructive-hover': string
-  // space-separated RGB triplet for overlay opacity tinting
+  success: string
   overlay: string
   'export-bg': string
 }
@@ -51,6 +51,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#0ea5e9',
     destructive: '#f43f5e',
     'destructive-hover': '#fb7185',
+    success: '#4ade80',
     overlay: '255 255 255',
     'export-bg': '#232323',
   },
@@ -74,6 +75,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#0369a1',
     destructive: '#dc2626',
     'destructive-hover': '#b91c1c',
+    success: '#16a34a',
     overlay: '0 0 0',
     'export-bg': '#f5f5f0',
   },
@@ -97,6 +99,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#6366f1',
     destructive: '#f87171',
     'destructive-hover': '#ef4444',
+    success: '#4ade80',
     overlay: '255 255 255',
     'export-bg': '#0f172a',
   },
@@ -120,6 +123,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#22c55e',
     destructive: '#f97316',
     'destructive-hover': '#ea580c',
+    success: '#84cc16',
     overlay: '255 255 255',
     'export-bg': '#1a2218',
   },
@@ -143,6 +147,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#f97316',
     destructive: '#ef4444',
     'destructive-hover': '#dc2626',
+    success: '#4ade80',
     overlay: '255 255 255',
     'export-bg': '#1c1410',
   },
@@ -166,6 +171,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#d65d90',
     destructive: '#e11d48',
     'destructive-hover': '#be123c',
+    success: '#16a34a',
     overlay: '0 0 0',
     'export-bg': '#f6e8f0',
   },
@@ -189,6 +195,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#3b82f6',
     destructive: '#f87171',
     'destructive-hover': '#ef4444',
+    success: '#4ade80',
     overlay: '255 255 255',
     'export-bg': '#000000',
   },
@@ -212,6 +219,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#e6e600',
     destructive: '#ff6666',
     'destructive-hover': '#ff8888',
+    success: '#00ff00',
     overlay: '255 255 255',
     'export-bg': '#000000',
   },

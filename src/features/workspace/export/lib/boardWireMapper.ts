@@ -140,10 +140,8 @@ export const snapshotToWire = async (
 }
 
 // hash inline wire imageUrls in parallel, persist all bytes in one IDB batch,
-// & return a map keyed by the wire item's id so the caller can swap each
-// imageUrl for the resulting imageRef. items w/ unparseable data URLs are
-// dropped silently; if IDB is unavailable the caller keeps the inline bytes
-// as an in-memory fallback (headless tests, private-browsing, quota-exhausted)
+// & return a Map keyed by wire item id so callers can swap imageUrl -> imageRef.
+// unparseable data URLs drop silently; IDB-unavailable keeps inline fallback
 const prepareInlineWireImages = async (
   wireItems: readonly (readonly [string, TierItemWire])[]
 ): Promise<Map<string, PreparedBlobRecord>> =>

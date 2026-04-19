@@ -18,14 +18,10 @@ interface PickerGridProps<K extends string, M extends PickerItem<K>>
   items: readonly M[]
   activeKey: K
   onSelect: (key: K) => void
-  // fallback aria-label used when no external ariaLabelledby is supplied
   ariaLabel: string
   ariaLabelledby?: string
-  // number of grid columns; when omitted the items flow as a flex row
   columns?: number
-  // extra layout classes appended after the base grid/flex container class
   containerClassName?: string
-  // button padding/gap tweak — defaults to `gap-1.5 p-2` (card-style)
   buttonClassName?: string
   renderPreview: (item: M) => ReactNode
 }

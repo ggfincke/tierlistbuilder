@@ -9,12 +9,8 @@ import type { SyncStatusVisual } from './syncStatusVisuals'
 interface SyncStatusVisualViewProps
 {
   visual: SyncStatusVisual
-  // inline — small h-4 badge for list rows; block — toolbar chrome matching
-  // ActionButton height so status & actions share a baseline
   variant: 'inline' | 'block'
-  // tooltip override; falls back to visual.description when omitted
   title?: string
-  // sr-only label override; falls back to title / description
   srLabel?: string
 }
 

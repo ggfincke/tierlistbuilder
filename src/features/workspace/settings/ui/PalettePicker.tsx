@@ -17,12 +17,15 @@ interface PalettePickerProps
 
 // module-scope memo of preview swatches per palette — avoids re-slicing
 // palette.colors on every grid render
-const PREVIEW_COLORS_BY_PALETTE = Object.fromEntries(
-  PALETTE_META.map((m) => [
-    m.id,
-    PALETTES[m.id].colors.slice(0, PREVIEW_SWATCH_COUNT),
-  ])
-) as unknown as Record<PaletteId, readonly string[]>
+const PREVIEW_COLORS_BY_PALETTE: Record<PaletteId, readonly string[]> = (() =>
+{
+  const map: Record<string, readonly string[]> = {}
+  for (const meta of PALETTE_META)
+  {
+    map[meta.id] = PALETTES[meta.id].colors.slice(0, PREVIEW_SWATCH_COUNT)
+  }
+  return map as Record<PaletteId, readonly string[]>
+})()
 
 const renderPalettePreview = (meta: (typeof PALETTE_META)[number]) =>
 {

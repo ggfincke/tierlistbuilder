@@ -10,7 +10,6 @@ export interface TextStyleDefinition
   weightNormal: string
   weightHeading: string
   letterSpacing: string
-  // Google Fonts URL to load (null for system/already-available fonts)
   googleFontsUrl: string | null
 }
 

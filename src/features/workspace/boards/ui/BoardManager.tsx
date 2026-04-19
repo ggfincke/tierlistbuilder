@@ -47,9 +47,6 @@ const RecentSharesModal = lazy(() =>
 interface BoardManagerProps
 {
   toolbarPosition: ToolbarPosition
-  // signed-in + feature-flag on. gates the "Recently deleted" entry point
-  // & changes the delete-confirm copy — anon users have no cloud surface
-  // to restore from
   cloudEnabled: boolean
   onSwitchBoard: (boardId: BoardId) => void
 }
@@ -106,7 +103,6 @@ export const BoardManager = ({
 
   return (
     <>
-      {/* collapsed trigger — icon pill w/ board count */}
       {!showPresetPicker && (
         <button
           ref={triggerRef}
@@ -135,7 +131,6 @@ export const BoardManager = ({
         </button>
       )}
 
-      {/* expanded panel — opens upward from the trigger */}
       {open && (
         <OverlayPanelSurface
           id={panelId}
@@ -144,7 +139,6 @@ export const BoardManager = ({
           aria-labelledby={panelTitleId}
           className={`board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col animate-[slideUp_150ms_ease-out] ${flipSide ? 'board-manager-flip' : ''}`}
         >
-          {/* header */}
           <div className="flex items-center justify-between border-b border-[var(--t-border)] px-3 py-2.5">
             <span
               id={panelTitleId}
@@ -154,7 +148,6 @@ export const BoardManager = ({
             </span>
           </div>
 
-          {/* board list */}
           <div className="max-h-60 overflow-y-auto py-1">
             {boards.map((board) =>
             {
@@ -169,7 +162,6 @@ export const BoardManager = ({
                       : 'hover:bg-[var(--t-bg-hover)]'
                   }`}
                 >
-                  {/* active indicator dot */}
                   <div
                     className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                       isActive ? 'bg-[var(--t-accent)]' : 'bg-transparent'
@@ -188,7 +180,6 @@ export const BoardManager = ({
                     />
                   ) : (
                     <>
-                      {/* board title — click to switch */}
                       <button
                         type="button"
                         onClick={() =>
@@ -210,7 +201,6 @@ export const BoardManager = ({
                         boardTitle={board.title}
                       />
 
-                      {/* edit, duplicate, & delete buttons — appear on hover */}
                       <button
                         type="button"
                         aria-label={`Rename ${board.title}`}
@@ -250,7 +240,6 @@ export const BoardManager = ({
             })}
           </div>
 
-          {/* new list button — opens preset picker */}
           <div className="border-t border-[var(--t-border)] px-3 py-2">
             <button
               type="button"
@@ -330,7 +319,7 @@ export const BoardManager = ({
         <Suspense
           fallback={
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
               aria-hidden
             />
           }
@@ -347,7 +336,7 @@ export const BoardManager = ({
         <Suspense
           fallback={
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
               aria-hidden
             />
           }

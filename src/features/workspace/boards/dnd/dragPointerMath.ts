@@ -6,6 +6,7 @@ import type { Coordinates } from '@dnd-kit/utilities'
 
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 import { RENDERED_ROW_TOP_TOLERANCE_PX } from '~/shared/overlay/uiMeasurements'
+import { brandedStringArrayIndexOf } from '~/shared/lib/typeGuards'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   findContainer,
@@ -157,7 +158,7 @@ export const resolveNextDragPreview = ({
   const sourceItems = getItemsInContainer(snapshot, fromContainerId)
   const targetItems = getItemsInContainer(snapshot, toContainerId)
   const sourceIndex = sourceItems.indexOf(itemId)
-  const overIndex = (targetItems as readonly string[]).indexOf(overId)
+  const overIndex = brandedStringArrayIndexOf(targetItems, overId)
   const targetIndex = resolveDragTargetIndex({
     draggedRect,
     overRect,

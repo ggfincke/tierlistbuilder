@@ -52,7 +52,7 @@ export const renderToDataUrl = async (
   return toPng(element, opts)
 }
 
-// render the element to a 2x PNG data URL (used by PDF export)
+// render the element to a 2x PNG data URL
 export const renderElementToPng = (
   element: HTMLElement,
   backgroundColor = EXPORT_BACKGROUND_COLOR

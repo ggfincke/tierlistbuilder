@@ -64,14 +64,12 @@ export const StatsModal = ({ open, onClose }: StatsModalProps) =>
         </SecondaryButton>
       </div>
 
-      {/* summary cards */}
       <div className="mb-5 grid grid-cols-3 gap-3">
         <StatCard label="Total Items" value={stats.totalItems} />
         <StatCard label="Ranked" value={stats.rankedItems} />
         <StatCard label="Unranked" value={stats.unrankedItems} />
       </div>
 
-      {/* tier distribution chart */}
       {stats.totalItems > 0 && (
         <div className="mb-5">
           <h3 className="mb-3 text-sm font-medium text-[var(--t-text-secondary)]">
@@ -84,7 +82,6 @@ export const StatsModal = ({ open, onClose }: StatsModalProps) =>
         </div>
       )}
 
-      {/* additional stats */}
       {stats.totalItems > 0 && (
         <div className="space-y-2 border-t border-[var(--t-border)] pt-4">
           {stats.averageTierIndex !== null && (

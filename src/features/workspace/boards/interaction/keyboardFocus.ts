@@ -2,6 +2,10 @@
 // focus helpers for keyboard browse & drag mode
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  TIER_LIST_BOARD_SELECTOR,
+  tierItemSelector,
+} from '~/shared/board-ui/boardTestIds'
 
 const focusBoardRegion = () =>
 {
@@ -11,7 +15,7 @@ const focusBoardRegion = () =>
   }
 
   const boardElement = document.querySelector<HTMLElement>(
-    '[data-testid="tier-list-board"]'
+    TIER_LIST_BOARD_SELECTOR
   )
   boardElement?.focus({ preventScroll: true })
 }
@@ -24,7 +28,7 @@ const focusItemById = (itemId: ItemId) =>
   }
 
   const itemElement = document.querySelector<HTMLElement>(
-    `[data-testid="tier-item-${itemId}"]`
+    tierItemSelector(itemId)
   )
 
   if (itemElement?.isConnected)

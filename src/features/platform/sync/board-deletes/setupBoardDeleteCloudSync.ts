@@ -26,12 +26,7 @@ interface SetupBoardDeleteCloudSyncOptions
 
 export interface BoardDeleteCloudSyncHandle
 {
-  // fire & forget request to drain the sidecar. coalesces concurrent
-  // triggers into the next pass instead of running multiple drains in
-  // parallel, which would race over the sidecar's read-modify-write cycle
   triggerDrain: () => void
-  // awaits any in-flight drain so the caller can safely clear the sidecar
-  // after dispose returns
   dispose: () => Promise<void>
 }
 
@@ -144,7 +139,7 @@ export const setupBoardDeleteCloudSync = (
       // swallow rejections; errors are already routed through onError
       void runDrain().catch(() =>
       {
-        /* errors already routed through onError in drainOnce */
+        // errors already routed through onError in drainOnce
       })
     },
     dispose: async () =>
@@ -158,7 +153,7 @@ export const setupBoardDeleteCloudSync = (
         }
         catch
         {
-          /* errors already routed through onError */
+          // errors already routed through onError
         }
       }
     },

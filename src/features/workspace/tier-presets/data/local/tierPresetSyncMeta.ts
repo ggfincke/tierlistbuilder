@@ -195,11 +195,9 @@ export const removeTierPresetSyncMeta = (presetId: UserPresetId): void =>
   saveTierPresetSyncMetaMap(map)
 }
 
-// stamp a fresh pending op for one preset. idempotent for the same op kind.
-// we always let the op sequence play out (including upsert->delete on a
-// never-synced preset): dropping the sidecar optimistically was unsafe
-// because an in-flight upsert could still create a cloud row after the
-// drop, orphaning the row w/ no sidecar to drive the follow-up delete
+// stamp a fresh pending op for one preset. idempotent per op kind; always
+// plays the op sequence out (incl upsert->delete on never-synced presets)
+// since optimistic sidecar drop races w/ in-flight upserts (orphan rows)
 export const stampTierPresetPending = (
   presetId: UserPresetId,
   op: TierPresetPendingOp,

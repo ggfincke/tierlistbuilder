@@ -27,8 +27,6 @@ import { useSyncStatusStore } from '../status/syncStatusStore'
 interface CreateSettingsSyncRunnerOptions
 {
   userId: string
-  // base debounce window. cloudSyncScheduler uses 2.5s — we follow suit
-  // for consistent UX between board edits & settings toggles
   debounceMs: number
   shouldProceed?: () => boolean
 }
@@ -36,8 +34,6 @@ interface CreateSettingsSyncRunnerOptions
 export interface SettingsSyncRunner
 {
   trigger: (settings: AppSettings, options?: TriggerOptions) => void
-  // drain in-flight & queued work then prevent further scheduling. returns
-  // when any current flush settles so callers can await tear-down cleanly
   dispose: () => Promise<void>
 }
 
@@ -105,8 +101,6 @@ interface SetupSettingsCloudSyncOptions
 
 export interface SettingsCloudSyncHandle
 {
-  // expose the runner so callers (resumePendingSyncs) can trigger an
-  // immediate flush w/o waiting for a fresh user edit
   runner: SettingsSyncRunner
   dispose: () => Promise<void>
 }

@@ -1,6 +1,6 @@
 // src/features/platform/auth/ui/SignInModal.tsx
 // email/password sign-in & sign-up modal — calls @convex-dev/auth Password
-// provider w/ flow: 'signIn' | 'signUp'. OAuth providers land in a follow-up
+// provider w/ flow: 'signIn' | 'signUp'
 
 import { useId, useRef, useState, type FormEvent } from 'react'
 

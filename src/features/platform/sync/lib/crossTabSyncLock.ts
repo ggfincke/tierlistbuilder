@@ -4,8 +4,8 @@
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 
-// 10s TTL — long enough to cover a typical flush round trip, short enough
-// that a crashed tab doesn't block its peers forever
+// 10s TTL covers a typical flush round trip while keeping a crashed tab
+// from blocking peers indefinitely
 const LOCK_TTL_MS = 10_000
 const CHANNEL_NAME = 'tlb-sync'
 
@@ -13,13 +13,11 @@ interface LockMessage
 {
   type: 'lock'
   boardId: BoardId
-  // epoch millis when the lock was claimed (by the sending tab)
   at: number
 }
 
-// lastAcquiredByPeer[boardId] = most recent `at` timestamp we've observed
-// from a peer tab. if now - at < LOCK_TTL_MS, the local scheduler should
-// skip flushing that board
+// most-recent `at` observed per peer board. (now - at < LOCK_TTL_MS) ->
+// local scheduler skips flushing that board
 const lastAcquiredByPeer = new Map<BoardId, number>()
 
 let channel: BroadcastChannel | null = null
@@ -53,9 +51,8 @@ export const isBoardLockedByPeer = (boardId: BoardId): boolean =>
   return Date.now() - at < LOCK_TTL_MS
 }
 
-// ms until the peer lock expires for this board; 0 when not locked.
-// callers use this to wait out the lock exactly once instead of polling
-// the debounce interval while a fast-edit peer keeps the lock alive
+// ms until the peer lock expires; 0 when unlocked. callers wait this out
+// exactly once rather than polling through debounce cycles
 export const getPeerLockRemainingMs = (boardId: BoardId): number =>
 {
   const at = lastAcquiredByPeer.get(boardId)
@@ -64,8 +61,7 @@ export const getPeerLockRemainingMs = (boardId: BoardId): number =>
   return remaining > 0 ? remaining : 0
 }
 
-// broadcast a fresh claim for the given board. idempotent — calling twice
-// just bumps the TTL window for peers
+// broadcast a fresh claim; idempotent — re-calling bumps the TTL window
 export const announceBoardLock = (boardId: BoardId): void =>
 {
   const ch = getChannel()
@@ -80,8 +76,7 @@ export const announceBoardLock = (boardId: BoardId): void =>
   }
   catch
   {
-    // swallow — BroadcastChannel is best-effort, a failure just degrades
-    // back to the pre-coordination behavior (duplicate flushes are safe
-    // but inefficient)
+    // BroadcastChannel is best-effort; failure degrades to pre-coordination
+    // behavior — duplicate flushes are safe, just inefficient
   }
 }

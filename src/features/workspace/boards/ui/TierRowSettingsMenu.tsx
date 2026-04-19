@@ -38,7 +38,6 @@ interface TierRowSettingsMenuProps
   tier: Tier
   index: number
   paletteId: PaletteId
-  // controlled visibility — TierRow owns state for mutual exclusion w/ color picker
   show: boolean
   onToggle: () => void
   onClose: () => void

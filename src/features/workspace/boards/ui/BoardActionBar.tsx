@@ -191,7 +191,6 @@ export const BoardActionBar = ({
               : 'flex-wrap px-4 py-1.5 sm:gap-5 sm:px-8 sm:py-2'
           }`}
         >
-          {/* undo & redo controls */}
           <ActionButton
             label="Undo"
             title="Undo"
@@ -218,7 +217,6 @@ export const BoardActionBar = ({
             <Redo2 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* add a new tier row to the bottom of the board */}
           <ActionButton
             label="Add tier"
             title="Add Tier"
@@ -228,7 +226,6 @@ export const BoardActionBar = ({
             <Plus className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* shuffle dropdown — distribute items randomly across tiers */}
           <div className="relative">
             <ActionButton
               ref={shuffleButtonRef}
@@ -252,7 +249,6 @@ export const BoardActionBar = ({
                 aria-label="Shuffle options"
                 className={`${menuPos.primary} flex flex-col ${menuPos.animationClass} text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
               >
-                {/* shuffle all submenu — even or random distribution */}
                 <div className="relative">
                   <OverlayMenuItem
                     aria-controls={shuffleAllGroupId}
@@ -292,7 +288,6 @@ export const BoardActionBar = ({
             )}
           </div>
 
-          {/* reset — requires confirmation before restoring default tiers */}
           <ActionButton
             label="Reset board"
             title="Reset"
@@ -302,7 +297,6 @@ export const BoardActionBar = ({
             <RotateCcw className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* open the settings panel for image import & tier management */}
           <ActionButton
             label="Open settings"
             title="Settings"
@@ -311,7 +305,6 @@ export const BoardActionBar = ({
             <SettingsIcon className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* export button w/ dropdown menu */}
           <ExportMenu
             menuPos={menuPos}
             exportStatus={exportStatus}
@@ -324,7 +317,6 @@ export const BoardActionBar = ({
             onShare={onShare}
           />
 
-          {/* board statistics modal */}
           <ActionButton
             label="View statistics"
             title="Statistics"
@@ -333,7 +325,6 @@ export const BoardActionBar = ({
             <BarChart3 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* save current tier structure as a reusable preset */}
           <ActionButton
             label="Save as preset"
             title="Save Preset"
@@ -342,7 +333,6 @@ export const BoardActionBar = ({
             <BookmarkPlus className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* lock / unlock toggle */}
           <ActionButton
             label={boardLocked ? 'Unlock board' : 'Lock board'}
             title={boardLocked ? 'Unlock' : 'Lock'}
@@ -355,14 +345,10 @@ export const BoardActionBar = ({
             )}
           </ActionButton>
 
-          {/* cloud sync status — passive indicator at the trailing edge.
-              spinner during flushes, alert chrome on errors / conflicts,
-              cloud-off when the browser reports offline */}
           <SyncStatusIndicator active={cloudEnabled} />
         </div>
       </div>
 
-      {/* confirmation dialog shown before the destructive reset action */}
       <ConfirmDialog
         open={confirmReset}
         title="Reset board?"
@@ -376,7 +362,6 @@ export const BoardActionBar = ({
         }}
       />
 
-      {/* confirmation dialog shown before shuffling placed items */}
       <ConfirmDialog
         open={confirmShuffleAll}
         title="Shuffle all items?"

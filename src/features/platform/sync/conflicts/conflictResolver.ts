@@ -125,10 +125,9 @@ export const resolveKeepBoth = async (
     title: duplicateTitle,
   }
 
-  // stamp the duplicate w/ a pending marker BEFORE the cloud push. if the
-  // push fails, pendingSyncRecovery picks this board up on the next online
-  // transition; w/o the marker, the duplicate would only sync after the
-  // user's next edit (silent desync until then)
+  // stamp duplicate w/ pending marker BEFORE cloud push so pendingSyncRecovery
+  // can retry on next online transition; w/o it, a failed push would only
+  // retry after the user's next edit
   const saveResult = saveBoardToStorage(duplicateId, duplicateSnapshot, {
     syncState: {
       lastSyncedRevision: null,

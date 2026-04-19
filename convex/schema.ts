@@ -117,9 +117,8 @@ export default defineSchema({
     // the row lookup
     .index('byOwnerAndExternalId', ['ownerId', 'externalId']),
 
-  // short URL indirection for shareable snapshot blobs. slug -> compressed BoardSnapshot
-  // bytes in _storage. live "follow my board" links were deferred — adding them later
-  // warrants a separate design pass, so the schema is not pre-shaped for it
+  // short URL indirection for shareable snapshot blobs. slug -> compressed
+  // BoardSnapshot bytes in _storage
   shortLinks: defineTable({
     slug: v.string(),
     ownerId: v.union(v.id('users'), v.null()),

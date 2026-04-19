@@ -17,15 +17,12 @@ interface ExportPreviewModalProps
 {
   open: boolean
   onClose: () => void
-  // pre-rendered data URL of the board (PNG for preview)
   previewDataUrl: string | null
-  // active image format selection
   format: ImageFormat
   onFormatChange: (format: ImageFormat) => void
   onDownload: () => void
   onCopyToClipboard: () => void
   onAnnotate: () => void
-  // true while a download or copy is in progress
   exporting: boolean
 }
 

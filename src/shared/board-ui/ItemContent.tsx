@@ -1,5 +1,5 @@
 // src/shared/board-ui/ItemContent.tsx
-// shared image-vs-text item rendering — used by board tiles, drag overlay, & deleted items
+// shared image-vs-text item rendering primitive
 
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import type { TierItemImageRef } from '@tierlistbuilder/contracts/workspace/board'
@@ -14,9 +14,7 @@ interface ItemContentProps
     backgroundColor?: string
     altText?: string
   }
-  // "default" for board tiles & drag overlay, "compact" for deleted items
   variant?: 'default' | 'compact'
-  // show label overlay on image items (only used by board tiles)
   showLabel?: boolean
 }
 

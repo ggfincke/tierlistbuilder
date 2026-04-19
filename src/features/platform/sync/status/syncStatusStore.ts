@@ -47,18 +47,12 @@ export const resolveBoardSyncStatus = ({
   return 'idle'
 }
 
-// updated by cloudSyncScheduler & connectivity module. consumers read via
-// useBoardSyncStatus; raw selectors below are for online-flag-only callers
 export interface SyncStatusState
 {
-  // initialized to navigator.onLine in connectivity setup; defaults to true
-  // for SSR / test environments w/o a navigator
   online: boolean
   statusByBoard: Record<BoardId, StoredBoardSyncStatus>
   setOnline: (online: boolean) => void
   setBoardStatus: (boardId: BoardId, status: StoredBoardSyncStatus) => void
-  // wipe all per-board state — called on sign-out so a different user
-  // signing in doesn't see stale statuses for the previous user's boards
   clear: () => void
 }
 

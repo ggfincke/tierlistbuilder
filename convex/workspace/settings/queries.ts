@@ -6,10 +6,9 @@ import { query } from '../../_generated/server'
 import { getCurrentUserId } from '../../lib/auth'
 import { cloudSettingsReadValidator } from '../../lib/validators'
 
-// return the authenticated caller's persisted AppSettings along w/ the cloud
-// row's updatedAt timestamp, or null if unauthenticated or no settings row
-// exists yet. callers should treat null as "use client-side defaults"; the
-// timestamp feeds the client's lastSyncedAt sidecar for merge-direction logic
+// return the caller's persisted AppSettings + cloud updatedAt, or null when
+// unauthenticated / no row yet. null -> client-side defaults; timestamp feeds
+// the lastSyncedAt sidecar for merge-direction logic
 export const getMySettings = query({
   args: {},
   returns: v.union(cloudSettingsReadValidator, v.null()),

@@ -42,9 +42,8 @@ const PERMANENT_CONVEX_ERROR_CODES: ReadonlySet<string> = new Set([
   CONVEX_ERROR_CODES.boardDeleted,
 ])
 
-// is-this-a-permanent-failure predicate used by the board-delete drainer &
-// similar retry loops. true means dropping the sidecar entry is correct
-// because the mutation will never succeed for this input
+// true when the error will never succeed on retry, so retry loops should
+// drop the sidecar entry rather than back off
 export const isPermanentConvexError = (error: unknown): boolean =>
 {
   const code = getConvexErrorCode(error)

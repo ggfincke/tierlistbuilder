@@ -10,31 +10,18 @@ export type SyncFlushResult<TSuccess> =
 
 export interface DebouncedSyncRunnerOptions<TKey, TWork, TSuccess>
 {
-  // base debounce window; fresh edits reset the timer
   debounceMs: number
-  // perform the upload & return a result. throws are treated identically to
-  // { kind: 'error' } so callers may skip the try/catch wrapper
   flush: (work: TWork, key: TKey) => Promise<SyncFlushResult<TSuccess>>
-  // stamp a dirty marker when work is queued — runs synchronously so a tab
-  // crashing mid-debounce leaves a trail for the next session's resume helper
   onQueue?: (work: TWork, key: TKey) => void
-  // clear markers & write sync-meta sidecars on a successful flush
   onSuccess?: (success: TSuccess, work: TWork, key: TKey) => void
-  // clear the pending marker when dedup skips the round trip. cloud is
-  // already at TWork so lastSyncedAt stays put; callers use this to null
-  // out pendingSyncAt w/o advancing the success timestamp
   onDedup?: (work: TWork, key: TKey) => void
   onError?: (error: unknown, key: TKey) => void
-  // auth/online gate matching the board scheduler & useCloudSync subscribers
   shouldProceed?: () => boolean
-  // skip the round trip when the payload matches the last successful flush
   dedupEqual?: (a: TWork, b: TWork) => boolean
 }
 
 export interface TriggerOptions
 {
-  // skip the debounce & flush immediately if the controller is idle. used by
-  // resumePendingSyncs to drain persistent markers right after sign-in
   immediate?: boolean
 }
 
@@ -49,7 +36,6 @@ interface Controller<TWork>
   timer: ReturnType<typeof setTimeout> | null
   queued: TWork | null
   inFlight: TWork | null
-  // cached dedup key — cleared on prune when the controller goes idle
   lastFlushed: TWork | null
   retryAttempt: number
 }

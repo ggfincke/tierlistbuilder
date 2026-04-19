@@ -50,12 +50,7 @@ export interface ItemDiff
   }>
 }
 
-// ! known limitation: wire-item changes applied in client-send order;
-// concurrent edits from two devices can lose either way. LWW resolution is
-// deferred — revisit once conflict-matrix tests land
-
-const hasOwnKey = (obj: Record<string, unknown>): boolean =>
-  Object.keys(obj).length > 0
+const hasOwnKey = (obj: object): boolean => Object.keys(obj).length > 0
 
 export const diffTiers = (
   wireTiers: WireTier[],
@@ -105,7 +100,7 @@ export const diffTiers = (
       fields.rowColorSpec = wire.rowColorSpec
     }
 
-    if (hasOwnKey(fields as Record<string, unknown>))
+    if (hasOwnKey(fields))
     {
       diff.patch.push({ id: server._id, fields })
     }
@@ -204,7 +199,7 @@ export const diffItems = (
       fields.mediaAssetId = resolvedMediaId
     }
 
-    if (hasOwnKey(fields as Record<string, unknown>))
+    if (hasOwnKey(fields))
     {
       diff.patch.push({ id: server._id, fields })
     }

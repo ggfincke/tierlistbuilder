@@ -52,7 +52,6 @@ export const BulkActionBar = () =>
 
         <div className="h-4 w-px bg-[var(--t-border)]" />
 
-        {/* move to tier buttons */}
         <div className="flex items-center gap-1.5">
           <ArrowRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
           {tiers.map((tier) =>

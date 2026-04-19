@@ -14,8 +14,7 @@ export const getCurrentUserId = async (
   ctx: AuthCtx
 ): Promise<Id<'users'> | null> =>
 {
-  const userId = await getAuthUserId(ctx)
-  return userId ? (userId as Id<'users'>) : null
+  return (await getAuthUserId(ctx)) ?? null
 }
 
 // resolve the current caller's users row, or null if unauthenticated

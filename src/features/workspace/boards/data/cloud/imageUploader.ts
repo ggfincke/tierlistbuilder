@@ -12,6 +12,7 @@ import {
 import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
 import { getImageDimensions } from '~/shared/images/imageDimensions'
 import type { PreparedBlobRecord } from '~/shared/images/imagePersistence'
+import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
 import {
   generateUploadUrlImperative,
   finalizeUploadImperative,
@@ -31,7 +32,7 @@ const SUPPORTED_IMAGE_MIME_TYPES: readonly SupportedImageMimeType[] = [
 // narrow a BlobRecord mimeType into the server-accepted MIME set, or reject
 const asSupportedMimeType = (mimeType: string): SupportedImageMimeType =>
 {
-  if ((SUPPORTED_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType))
+  if (brandedStringArrayIncludes(SUPPORTED_IMAGE_MIME_TYPES, mimeType))
   {
     return mimeType as SupportedImageMimeType
   }

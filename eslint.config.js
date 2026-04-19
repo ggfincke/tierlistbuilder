@@ -41,6 +41,8 @@ export default defineConfig([
       'ggfincke/no-jsdoc-blocks': 'error',
       'ggfincke/file-header': 'error',
       'ggfincke/comment-style-guide': 'warn',
+      'ggfincke/comment-block-length': 'error',
+      'ggfincke/no-unicode-arrow': 'error',
       'no-inline-comments': 'error',
       // honor _-prefix as "intentionally unused" for args, caught errors, & destructured rest siblings
       '@typescript-eslint/no-unused-vars': [
