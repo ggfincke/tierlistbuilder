@@ -2,10 +2,12 @@
 // builds a CloudBoardState payload from server rows — shared by the
 // upsertBoardState conflict path & the getBoardStateByExternalId query
 
+import { ConvexError } from 'convex/values'
 import type { QueryCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
 export const loadBoardCloudState = async (
   ctx: QueryCtx,
@@ -30,9 +32,10 @@ export const loadBoardCloudState = async (
       const asset = await ctx.db.get(id)
       if (!asset)
       {
-        throw new Error(
-          `dangling media reference in server state: ${id} (board ${board._id})`
-        )
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidState,
+          message: `dangling media reference in server state: ${id} (board ${board._id})`,
+        })
       }
       return [id, asset] as const
     })

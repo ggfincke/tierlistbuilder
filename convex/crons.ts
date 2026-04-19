@@ -12,6 +12,7 @@ const HARD_DELETE_SCHEDULE_BATCH = 64
 // schedule hard-deletes for boards past the soft-delete retention window
 export const scheduleHardDeletes = internalMutation({
   args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ scheduled: v.number() }),
   handler: async (ctx, args): Promise<{ scheduled: number }> =>
   {
     const cutoff = Date.now() - BOARD_TOMBSTONE_RETENTION_MS

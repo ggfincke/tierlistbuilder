@@ -94,15 +94,22 @@ export const isShortLinkSlug = (value: unknown): value is string =>
   typeof value === 'string' && SHORT_LINK_SLUG_PATTERN.test(value)
 
 // fresh short link slug — 8 chars of base62 (~218 trillion combinations).
-// the short-links mutation must check for collisions before inserting
+// the short-links mutation must check for collisions before inserting.
+// rejection-sample bytes >= 248 so `byte % 62` stays uniform across the
+// alphabet (floor(256/62)*62 = 248; values 248..255 would skew toward 0..7)
 export const generateShortLinkSlug = (): string =>
 {
-  const bytes = new Uint8Array(SHORT_LINK_SLUG_LENGTH)
-  crypto.getRandomValues(bytes)
   let out = ''
-  for (const byte of bytes)
+  const buf = new Uint8Array(SHORT_LINK_SLUG_LENGTH)
+  while (out.length < SHORT_LINK_SLUG_LENGTH)
   {
-    out += BASE62[byte % 62]
+    crypto.getRandomValues(buf)
+    for (const byte of buf)
+    {
+      if (byte >= 248) continue
+      out += BASE62[byte % 62]
+      if (out.length === SHORT_LINK_SLUG_LENGTH) break
+    }
   }
   return out
 }

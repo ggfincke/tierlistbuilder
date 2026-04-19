@@ -14,13 +14,16 @@ import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
-import { tierColorSpecValidator } from '../../lib/validators'
+import {
+  cloudBoardStateValidator,
+  tierColorSpecValidator,
+} from '../../lib/validators'
 import { diffTiers, diffItems } from '../sync/boardReconciler'
 import { loadBoardCloudState } from '../sync/boardStateLoader'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 import { MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../sync/boardSyncLimits'
 import {
-  findOwnedActiveBoardByExternalId,
+  findOwnedBoardByExternalIdIncludingDeleted,
   findOwnedMediaAssetByExternalId,
 } from '../../lib/permissions'
 
@@ -115,6 +118,10 @@ export const upsertBoardState = mutation({
     items: v.array(wireItemValidator),
     deletedItemIds: v.array(v.string()),
   },
+  returns: v.union(
+    v.object({ conflict: v.null(), newRevision: v.number() }),
+    v.object({ conflict: cloudBoardStateValidator, newRevision: v.null() })
+  ),
   handler: async (ctx, args): Promise<UpsertResult> =>
   {
     const userId = await requireCurrentUserId(ctx)
@@ -208,7 +215,10 @@ export const upsertBoardState = mutation({
     // normalize + cap the title consistently w/ createBoard & updateBoardMeta
     const normalizedTitle = normalizeBoardTitle(args.title)
 
-    let board = await findOwnedActiveBoardByExternalId(
+    // include soft-deleted rows so we don't accidentally fall through & insert
+    // a second row w/ the same owner-scoped externalId. local boards survive
+    // sign-out, so another owner may legitimately reuse the same externalId
+    let board = await findOwnedBoardByExternalIdIncludingDeleted(
       ctx,
       args.boardExternalId,
       userId
@@ -216,23 +226,6 @@ export const upsertBoardState = mutation({
 
     if (!board)
     {
-      // defense-in-depth: the owner-scoped unique index already prevents
-      // per-user collisions, but an attacker could try to claim another
-      // user's boardExternalId. reject if the externalId is in use anywhere.
-      const existingAny = await ctx.db
-        .query('boards')
-        .withIndex('byExternalId', (q) =>
-          q.eq('externalId', args.boardExternalId)
-        )
-        .first()
-      if (existingAny && existingAny.ownerId !== userId)
-      {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.forbidden,
-          message: 'boardExternalId already in use',
-        })
-      }
-
       const boardId = await ctx.db.insert('boards', {
         externalId: args.boardExternalId,
         ownerId: userId,

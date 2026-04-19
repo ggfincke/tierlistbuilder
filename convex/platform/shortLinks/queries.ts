@@ -11,12 +11,17 @@ import {
 } from '@tierlistbuilder/contracts/platform/shortLink'
 import { isShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
 import { getCurrentUserId } from '../../lib/auth'
+import {
+  ownedShortLinkListItemValidator,
+  shortLinkResolveResultValidator,
+} from '../../lib/validators'
 
 // resolve a slug to its snapshot blob URL, or signal a miss. callers distinguish
 // missing vs. expired only via the kind tag. recipient flow: resolveSlug -> fetch
 // snapshotUrl -> inflate -> BoardSnapshot (same pipeline as #share=... fragment)
 export const resolveSlug = query({
   args: { slug: v.string() },
+  returns: shortLinkResolveResultValidator,
   handler: async (ctx, args): Promise<ShortLinkResolveResult> =>
   {
     // keep this public read cheap in-app: reject malformed slugs before the
@@ -65,6 +70,7 @@ export const resolveSlug = query({
 // expired-but-not-yet-reaped rows are filtered so listing matches resolve semantics
 export const getMyShortLinks = query({
   args: {},
+  returns: v.array(ownedShortLinkListItemValidator),
   handler: async (ctx): Promise<OwnedShortLinkListItem[]> =>
   {
     const userId = await getCurrentUserId(ctx)

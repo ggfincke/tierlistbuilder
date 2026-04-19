@@ -30,6 +30,7 @@ const SLUG_INSERT_MAX_ATTEMPTS = 5
 // & this is the single rate-limit point for the 2-phase share flow
 export const generateSnapshotUploadUrl = mutation({
   args: {},
+  returns: v.string(),
   handler: async (ctx): Promise<string> =>
   {
     const userId = await getCurrentUserId(ctx)
@@ -55,6 +56,7 @@ export const createSnapshotShortLink = mutation({
     // stored on the row so getMyShortLinks can render it w/o fetching the blob
     boardTitle: v.string(),
   },
+  returns: v.object({ slug: v.string(), createdAt: v.number() }),
   handler: async (ctx, args): Promise<{ slug: string; createdAt: number }> =>
   {
     const ownerId = await getCurrentUserId(ctx)
@@ -142,6 +144,7 @@ export const createSnapshotShortLink = mutation({
 // row deleted before blob so a crash leaves only an orphaned blob — caught by gcOrphanedStorage
 export const revokeMyShortLink = mutation({
   args: { slug: v.string() },
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
     if (!isShortLinkSlug(args.slug))

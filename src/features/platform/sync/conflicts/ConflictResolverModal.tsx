@@ -4,7 +4,7 @@
 
 import { useCallback, useId, useMemo, useState } from 'react'
 
-import type { Doc } from '@convex/_generated/dataModel'
+import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
@@ -24,7 +24,7 @@ import {
 
 interface ConflictResolverModalProps
 {
-  user: Doc<'users'> | null
+  user: PublicUserMe | null
 }
 
 type ResolutionKey = 'keep-local' | 'keep-cloud' | 'keep-both'
@@ -80,7 +80,7 @@ export const ConflictResolverModal = ({ user }: ConflictResolverModalProps) =>
 interface ConflictResolverDialogProps
 {
   current: ConflictEntry
-  user: Doc<'users'>
+  user: PublicUserMe
 }
 
 const ConflictResolverDialog = ({

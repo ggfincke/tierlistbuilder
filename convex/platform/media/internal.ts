@@ -27,6 +27,7 @@ export const gcOrphanedMediaAssets = internalMutation({
   args: {
     cursor: v.union(v.string(), v.null()),
   },
+  returns: v.object({ deleted: v.number() }),
   handler: async (ctx, args): Promise<{ deleted: number }> =>
   {
     const cutoff = Date.now() - GC_GRACE_MS
@@ -135,6 +136,7 @@ export const gcOrphanedStorage = internalMutation({
   args: {
     cursor: v.union(v.string(), v.null()),
   },
+  returns: v.object({ deleted: v.number() }),
   handler: async (ctx, args): Promise<{ deleted: number }> =>
   {
     const cutoff = Date.now() - GC_GRACE_MS

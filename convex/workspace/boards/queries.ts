@@ -1,7 +1,7 @@
 // convex/workspace/boards/queries.ts
 // board queries — list & lookup for the authenticated caller
 
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { query } from '../../_generated/server'
 import type { Doc } from '../../_generated/dataModel'
 import type {
@@ -9,8 +9,14 @@ import type {
   DeletedBoardListItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import { getCurrentUserId } from '../../lib/auth'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
 import { findOwnedActiveBoardByExternalId } from '../../lib/permissions'
+import {
+  boardListItemValidator,
+  cloudBoardStateValidator,
+  deletedBoardListItemValidator,
+} from '../../lib/validators'
 import { loadBoardCloudState } from '../sync/boardStateLoader'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 
@@ -33,9 +39,10 @@ const toDeletedBoardListItem = (board: Doc<'boards'>): DeletedBoardListItem =>
 {
   if (board.deletedAt === null)
   {
-    throw new Error(
-      `expected deletedAt on board ${board.externalId} but found null`
-    )
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: `expected deletedAt on board ${board.externalId} but found null`,
+    })
   }
   return {
     ...toBoardListItem(board),
@@ -47,6 +54,7 @@ const toDeletedBoardListItem = (board: Doc<'boards'>): DeletedBoardListItem =>
 // updatedAt trailing so order('desc') avoids a full-table scan + in-memory sort
 export const getMyBoards = query({
   args: {},
+  returns: v.array(boardListItemValidator),
   handler: async (ctx): Promise<BoardListItem[]> =>
   {
     const userId = await getCurrentUserId(ctx)
@@ -70,6 +78,7 @@ export const getMyBoards = query({
 // resolve one owned board by its stable externalId
 export const getBoardByExternalId = query({
   args: { externalId: v.string() },
+  returns: v.union(boardListItemValidator, v.null()),
   handler: async (ctx, args): Promise<BoardListItem | null> =>
   {
     const userId = await getCurrentUserId(ctx)
@@ -96,6 +105,7 @@ export const getBoardByExternalId = query({
 // on first sign-in & conflict resolution. returns the same shape as upsertBoardState's conflict response
 export const getBoardStateByExternalId = query({
   args: { boardExternalId: v.string() },
+  returns: v.union(cloudBoardStateValidator, v.null()),
   handler: async (ctx, args): Promise<CloudBoardState | null> =>
   {
     const userId = await getCurrentUserId(ctx)
@@ -127,6 +137,7 @@ export const getBoardStateByExternalId = query({
 // are hard-deleted by the daily cron, so this list shrinks naturally over time
 export const getMyDeletedBoards = query({
   args: {},
+  returns: v.array(deletedBoardListItemValidator),
   handler: async (ctx): Promise<DeletedBoardListItem[]> =>
   {
     const userId = await getCurrentUserId(ctx)
@@ -151,19 +162,17 @@ export const getMyDeletedBoards = query({
 
 export const getBoardStatesByExternalIds = query({
   args: { boardExternalIds: v.array(v.string()) },
+  returns: v.array(v.union(cloudBoardStateValidator, v.null())),
   handler: async (ctx, args): Promise<Array<CloudBoardState | null>> =>
   {
-    const userId = await getCurrentUserId(ctx)
-    if (!userId)
-    {
-      return args.boardExternalIds.map(() => null)
-    }
+    const userId = await requireCurrentUserId(ctx)
 
     if (args.boardExternalIds.length > MAX_BOARD_STATE_BATCH)
     {
-      throw new Error(
-        `too many boardExternalIds: ${args.boardExternalIds.length} exceeds ${MAX_BOARD_STATE_BATCH}`
-      )
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `too many boardExternalIds: ${args.boardExternalIds.length} exceeds ${MAX_BOARD_STATE_BATCH}`,
+      })
     }
 
     return Promise.all(

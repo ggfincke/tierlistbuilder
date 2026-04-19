@@ -20,6 +20,7 @@ const HEX_SHA256_PATTERN = /^[0-9a-f]{64}$/
 // still count against quota
 export const generateUploadUrl = mutation({
   args: {},
+  returns: v.string(),
   handler: async (ctx): Promise<string> =>
   {
     const userId = await requireCurrentUserId(ctx)
@@ -45,15 +46,20 @@ export const finalizeUpload = mutation({
     height: v.number(),
     byteSize: v.number(),
   },
+  returns: v.object({ externalId: v.string() }),
   handler: async (ctx, args): Promise<{ externalId: string }> =>
   {
     const userId = await requireCurrentUserId(ctx)
 
-    if (!HEX_SHA256_PATTERN.test(args.contentHash))
+    // normalize uppercase digests before the regex test; sha256 digests are
+    // case-insensitive but we canonicalize to lowercase so the dedup index
+    // (byOwnerAndHash) doesn't see two variants of the same logical hash
+    const contentHash = args.contentHash.toLowerCase()
+    if (!HEX_SHA256_PATTERN.test(contentHash))
     {
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.invalidInput,
-        message: 'contentHash must be 64-char lowercase hex (sha256)',
+        message: 'contentHash must be 64-char hex (sha256)',
       })
     }
 
@@ -96,7 +102,7 @@ export const finalizeUpload = mutation({
     const existing = await ctx.db
       .query('mediaAssets')
       .withIndex('byOwnerAndHash', (q) =>
-        q.eq('ownerId', userId).eq('contentHash', args.contentHash)
+        q.eq('ownerId', userId).eq('contentHash', contentHash)
       )
       .unique()
 
@@ -113,7 +119,7 @@ export const finalizeUpload = mutation({
       ownerId: userId,
       externalId,
       storageId: args.storageId,
-      contentHash: args.contentHash,
+      contentHash,
       mimeType: args.mimeType,
       width: args.width,
       height: args.height,

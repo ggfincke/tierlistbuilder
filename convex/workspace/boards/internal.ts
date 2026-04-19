@@ -21,6 +21,7 @@ export const cascadeDeleteBoard = internalMutation({
     cursor: v.optional(v.union(v.string(), v.null())),
     phase: v.optional(v.union(v.literal('items'), v.literal('tiers'))),
   },
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
     const board = await ctx.db.get(args.boardId)

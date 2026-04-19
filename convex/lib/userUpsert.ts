@@ -2,11 +2,12 @@
 // populate app-owned fields after auth creates/updates a user; on failure schedules
 // retryUpsertAppUserFields w/ bounded backoff so a transient hiccup doesn't lose externalId
 
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../_generated/server'
 import { internal } from '../_generated/api'
 import type { Id } from '../_generated/dataModel'
 import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
 // absolute delay schedule (not relative) so ms math is obvious.
 // attempt indices are zero-based — first retry runs at RETRY_SCHEDULE_MS[0]
@@ -26,9 +27,10 @@ export const upsertAppUserFields = async (
   {
     // auth lib should have created the row before our callback fires;
     // surface a loud error rather than silently dropping the upsert
-    throw new Error(
-      `upsertAppUserFields: users row ${userId} missing — auth lib did not insert before callback`
-    )
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: `upsertAppUserFields: users row ${userId} missing — auth lib did not insert before callback`,
+    })
   }
 
   const now = Date.now()
@@ -44,12 +46,10 @@ export const upsertAppUserFields = async (
     return
   }
 
-  // first sign-in — populate app-owned fields. fall back to auth lib's name,
-  // then email local-part; guard against empty local-part to avoid a blank displayName
-  const emailLocalPart = user.email?.split('@')[0]?.trim()
-  const fallbackName =
-    user.name ??
-    (emailLocalPart && emailLocalPart.length > 0 ? emailLocalPart : 'New user')
+  // first sign-in — populate app-owned fields. fall back to auth lib's name;
+  // never derive displayName from the email local-part — leaks the email in
+  // share attribution & other user-visible surfaces
+  const fallbackName = user.name ?? 'New user'
 
   await ctx.db.patch(userId, {
     externalId: generateUserExternalId(),
@@ -72,11 +72,13 @@ export const retryUpsertAppUserFields = internalMutation({
     // ladder stays monotonic
     attempt: v.number(),
   },
-  handler: async (ctx, args): Promise<void> =>
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
   {
     try
     {
       await upsertAppUserFields(ctx, args.userId)
+      return null
     }
     catch (error)
     {
@@ -90,7 +92,7 @@ export const retryUpsertAppUserFields = internalMutation({
           internal.lib.userUpsert.retryUpsertAppUserFields,
           { userId: args.userId, attempt: nextAttempt }
         )
-        return
+        return null
       }
 
       // budget exhausted — stamp the diagnostic for operator visibility via lastUpsertError.
@@ -102,6 +104,7 @@ export const retryUpsertAppUserFields = internalMutation({
           lastUpsertError: `retry ${nextAttempt}/${MAX_RETRY_ATTEMPTS} exhausted: ${message}`,
         })
       }
+      return null
     }
   },
 })

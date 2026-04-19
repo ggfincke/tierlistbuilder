@@ -3,8 +3,8 @@
 // debounces board, settings, & preset changes to Convex mutations
 
 import { useEffect, useRef } from 'react'
-import type { Doc } from '@convex/_generated/dataModel'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
@@ -249,7 +249,7 @@ const runFirstLoginBoardMerge = async (
   }
 }
 
-export const useCloudSync = (user: Doc<'users'> | null): void =>
+export const useCloudSync = (user: PublicUserMe | null): void =>
 {
   const userId = user ? getUserStableId(user) : null
   const authEpochRef = useRef(0)

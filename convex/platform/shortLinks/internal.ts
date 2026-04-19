@@ -13,6 +13,7 @@ const EXPIRED_LINK_BATCH_SIZE = 64
 // inverse order (blob first) would leave a row pointing at a missing blob
 export const gcExpiredShortLinks = internalMutation({
   args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ deleted: v.number() }),
   handler: async (ctx, args): Promise<{ deleted: number }> =>
   {
     // gt(0) excludes expiresAt === null (index skips nulls) & === 0 (never set in practice).

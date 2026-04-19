@@ -2,6 +2,7 @@
 // user settings mutations — single-row-per-user upsert w/ last-write-wins semantics.
 // concurrent-edit conflicts collapse to whichever debounced flush lands last
 
+import { v } from 'convex/values'
 import { mutation } from '../../_generated/server'
 import { requireCurrentUserId } from '../../lib/auth'
 import { appSettingsValidator } from '../../lib/validators'
@@ -12,6 +13,7 @@ import { validateHexColor } from '../../lib/hexColor'
 // its lastSyncedAt sidecar
 export const upsertMySettings = mutation({
   args: { settings: appSettingsValidator },
+  returns: v.object({ updatedAt: v.number() }),
   handler: async (ctx, args): Promise<{ updatedAt: number }> =>
   {
     const userId = await requireCurrentUserId(ctx)
