@@ -11,9 +11,6 @@ export interface BoardSyncState
 {
   lastSyncedRevision: number | null
   cloudBoardExternalId: string | null
-  // epoch millis stamped when the scheduler queues an edit, cleared on a
-  // successful flush. survives tab close so the next session can re-queue
-  // any board whose edits never made it to the cloud
   pendingSyncAt: number | null
 }
 

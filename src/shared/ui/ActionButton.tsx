@@ -20,17 +20,12 @@ interface ActionButtonProps extends Omit<
   | 'children'
 >
 {
-  // accessible label for screen readers
   label: string
-  // tooltip text shown on hover
   title: string
   children: ReactNode
-  // set to the popup role when the button toggles an overlay surface
   hasPopup?: 'dialog' | 'menu'
-  // current open state of the associated popup (only used w/ hasPopup)
   expanded?: boolean
   controlsId?: string
-  // keep the hover chrome visible while the related menu is open
   active?: boolean
 }
 

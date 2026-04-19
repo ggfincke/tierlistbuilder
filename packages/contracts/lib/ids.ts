@@ -93,10 +93,9 @@ const SHORT_LINK_SLUG_PATTERN = new RegExp(
 export const isShortLinkSlug = (value: unknown): value is string =>
   typeof value === 'string' && SHORT_LINK_SLUG_PATTERN.test(value)
 
-// fresh short link slug — 8 chars of base62 (~218 trillion combinations).
-// the short-links mutation must check for collisions before inserting.
-// rejection-sample bytes >= 248 so `byte % 62` stays uniform across the
-// alphabet (floor(256/62)*62 = 248; values 248..255 would skew toward 0..7)
+// fresh short-link slug — 8 chars of base62 (~218T combos); mutation checks
+// collisions before inserting. rejection-sample bytes >= 248 so `byte % 62`
+// stays uniform (248..255 would skew toward 0..7)
 export const generateShortLinkSlug = (): string =>
 {
   let out = ''

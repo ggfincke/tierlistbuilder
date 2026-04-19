@@ -19,8 +19,6 @@ interface RecentSharesModalProps
 {
   open: boolean
   onClose: () => void
-  // parent gates rendering on cloud-enabled + signed-in state & only mounts
-  // us when both are true, so we don't need to re-check here
   enabled: boolean
 }
 

@@ -12,6 +12,7 @@ import { useSettingsStore } from '~/features/workspace/settings/model/useSetting
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useEffectiveUnrankedItemIds } from '~/features/workspace/boards/model/useEffectiveBoard'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
+import { UNRANKED_CONTAINER_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { TierItem } from './TierItem'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { TextInput } from '~/shared/ui/TextInput'
@@ -95,7 +96,6 @@ export const UnrankedPool = () =>
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--t-text-muted)]">
           Unranked
         </h2>
-        {/* show total item count across the entire board */}
         <span className="text-xs text-[var(--t-text-faint)]">
           {isSearching
             ? `${filteredIds.length} of ${unrankedItemIds.length} items`
@@ -103,7 +103,6 @@ export const UnrankedPool = () =>
         </span>
       </div>
 
-      {/* search bar — only visible when there are unranked items */}
       {unrankedItemIds.length > 0 && (
         <div className="relative mb-2">
           <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[var(--t-text-faint)]" />
@@ -130,7 +129,7 @@ export const UnrankedPool = () =>
       <SortableContext items={filteredIds} strategy={rectSortingStrategy}>
         <div
           ref={setNodeRef}
-          data-testid="unranked-container"
+          data-testid={UNRANKED_CONTAINER_TEST_ID}
           data-tier-id={UNRANKED_CONTAINER_ID}
           className={`unranked-pool-grid flex min-h-24 flex-wrap border border-dashed p-2 transition ${compactMode ? 'gap-0' : 'gap-[2px]'} ${
             isOver
@@ -166,7 +165,6 @@ export const UnrankedPool = () =>
         </div>
       </SortableContext>
 
-      {/* hidden file input for the empty-state click-to-upload */}
       <input
         ref={fileInputRef}
         type="file"

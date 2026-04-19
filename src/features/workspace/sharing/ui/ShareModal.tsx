@@ -22,8 +22,6 @@ interface ShareModalProps
 {
   open: boolean
   onClose: () => void
-  // resolved on demand so we always serialize the latest board state at
-  // generation time, not whatever was current when the modal mounted
   getSnapshot: () => BoardSnapshot
 }
 

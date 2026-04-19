@@ -58,7 +58,6 @@ export const DeletedItemsSection = () =>
               className="group relative h-16 w-16 shrink-0 overflow-hidden rounded opacity-70"
             >
               <ItemContent item={item} variant="compact" />
-              {/* hover overlay — restore (bottom-left) & permanent delete (top-right) */}
               <div className="absolute inset-0 flex items-end justify-start bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <ItemOverlayButton
                   aria-label={`Restore ${item.label ?? 'item'}`}

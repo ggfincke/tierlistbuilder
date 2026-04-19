@@ -19,7 +19,6 @@ import {
 interface TierLabelProps
 {
   tier: Tier
-  // transient color override for live preview while the custom picker is open
   colorOverride?: string | null
 }
 

@@ -31,7 +31,6 @@ export interface TierPresetTier
 {
   name: string
   colorSpec: TierColorSpec
-  // optional row background (palette or custom), matching the Tier contract
   rowColorSpec?: TierColorSpec
   description?: string
 }

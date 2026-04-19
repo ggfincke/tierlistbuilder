@@ -15,6 +15,7 @@ import {
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
+import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
 import { ITEM_SIZE_PX, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { ItemEditPopover } from './ItemEditPopover'
@@ -24,11 +25,8 @@ import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 interface TierItemProps
 {
-  // ID of the item to render
   itemId: ItemId
-  // ID of the container (tier or unranked pool) this item lives in
   containerId: string
-  // called when user requests deletion (only used in the unranked pool)
   onRequestDelete?: (itemId: ItemId) => void
 }
 
@@ -199,7 +197,7 @@ export const TierItem = memo(
       <>
         <div
           ref={setRefs}
-          data-testid={`tier-item-${itemId}`}
+          data-testid={tierItemTestId(itemId)}
           data-item-id={itemId}
           data-item-label={item.label ?? ''}
           data-container-id={containerId}

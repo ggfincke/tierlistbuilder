@@ -48,18 +48,14 @@ export interface TextAnnotation
 
 export type AnnotationTool = 'pen' | 'text'
 
-// pending inline text input positioned over the canvas
 export interface PendingTextInput
 {
-  // canvas-space coordinates (for final rendering)
   canvasX: number
   canvasY: number
-  // CSS-space coordinates relative to the canvas container (for input positioning)
   cssX: number
   cssY: number
   color: string
   fontSize: number
-  // CSS-scaled font size for the input element
   cssFontSize: number
   bold: boolean
   italic: boolean

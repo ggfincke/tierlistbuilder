@@ -15,9 +15,7 @@ export const EmbedShell = () =>
     applyTextStyle('default')
 
     // restore user settings on unmount so navigation back to the workspace
-    // shell doesn't flash classic/default before its useThemeApplicator
-    // fires on mount. reads via getState so the cleanup captures the
-    // latest user preferences, not a stale closure
+    // shell doesn't flash classic/default before its useThemeApplicator fires
     return () =>
     {
       const { themeId, textStyleId } = useSettingsStore.getState()

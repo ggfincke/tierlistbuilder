@@ -8,6 +8,7 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance } from '../model/runtime'
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
+import { EXPORT_BOARD_ROOT_SELECTOR } from '~/shared/board-ui/boardTestIds'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
 
@@ -120,9 +121,7 @@ const createExportCaptureSession = ({
         )
       })
 
-      const board = host.querySelector<HTMLElement>(
-        '[data-testid="export-board-root"]'
-      )
+      const board = host.querySelector<HTMLElement>(EXPORT_BOARD_ROOT_SELECTOR)
 
       if (!board)
       {

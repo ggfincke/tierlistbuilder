@@ -146,10 +146,8 @@ export const getMyDeletedBoards = query({
       return []
     }
 
-    // gt(0) excludes the index's null gap & deletedAt === 0 (never set in practice).
-    // order('desc') sorts by deletedAt DESC w/ updatedAt DESC as tiebreaker,
-    // giving most-recently-deleted-first & most-recently-edited-within-that as
-    // a stable secondary order
+    // gt(0) skips the null gap & deletedAt===0 (never set). order('desc') sorts
+    // deletedAt DESC w/ updatedAt DESC as tiebreaker
     const rows = await ctx.db
       .query('boards')
       .withIndex('byOwnerDeletedUpdatedAt', (q) =>

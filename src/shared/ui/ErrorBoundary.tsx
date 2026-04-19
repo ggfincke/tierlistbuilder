@@ -6,9 +6,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 interface ErrorBoundaryProps
 {
   children: ReactNode
-  // label for the section this boundary wraps (shown in fallback)
   section?: string
-  // optional custom fallback renderer
   fallback?: (error: Error, reset: () => void) => ReactNode
 }
 

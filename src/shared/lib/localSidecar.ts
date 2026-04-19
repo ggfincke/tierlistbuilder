@@ -11,13 +11,8 @@ import {
 export interface LocalSidecarOptions<T>
 {
   storageKey: string
-  // zero-state value returned on miss, corruption, or legacy mismatches
   emptyValue: () => T
-  // coerce an unknown (parsed JSON) into a valid T; must never throw &
-  // must default invalid fields rather than propagate garbage
   normalize: (raw: unknown) => T
-  // bail the write path when the value has nothing worth persisting — keeps
-  // localStorage tidy for users w/ no sync state & avoids leaving `{}` blobs
   isEmpty: (value: T) => boolean
 }
 
@@ -61,9 +56,7 @@ export const createLocalSidecar = <T>(
   return { load, save, clear }
 }
 
-// shared scope predicate — true when the entry's ownerUserId matches the
-// current user, or is null (legacy marker from before user scoping landed).
-// used by settings & tier-preset sidecars; board-delete sidecar is unscoped
+// match when ownerUserId is the current user or null (legacy pre-scoping marker)
 export const isOwnedByUser = <T extends { ownerUserId: string | null }>(
   entry: T,
   userId: string

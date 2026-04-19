@@ -32,41 +32,27 @@ import { TextInput } from '~/shared/ui/TextInput'
 
 interface ColorPickerProps
 {
-  // canonical color spec for the current tier
   colorSpec: TierColorSpec
-  // ordered palette colors to show as swatches
   colors: string[]
-  // ref attached to the custom pipette trigger button
   customTriggerRef: RefObject<HTMLButtonElement | null>
-  // whether the separate custom popup is visible
   showCustomPicker: boolean
-  // called when a preset swatch is picked
   onChange: (colorSpec: TierColorSpec) => void
-  // called when the custom pipette button is clicked
   onToggleCustomPicker: () => void
 }
 
 interface CustomColorPickerProps
 {
-  // currently saved tier color
   value: string
-  // called when the current draft should be committed
   onApply: (color: string) => void
-  // called when the popup should close without saving
   onCancel: () => void
-  // called on every draft color change for live preview
   onPreview?: (color: string) => void
 }
 
 interface ColorDraftState
 {
-  // current hsva value shown by the wheel + slider
   hsva: HsvaColor
-  // raw hex input text
   hexInput: string
-  // raw rgb input text
   rgbInputs: RgbInputState
-  // whether the current inputs can be applied
   isValid: boolean
 }
 

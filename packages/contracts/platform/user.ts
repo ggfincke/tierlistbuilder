@@ -1,15 +1,11 @@
 // packages/contracts/platform/user.ts
-// public-facing user shape projected by users.getMe — narrower than the raw
-// users row: excludes operator diagnostics (lastUpsertError), auth internals
-// (phone, phoneVerificationTime, emailVerificationTime), & the raw
-// avatarStorageId (clients use the resolved `image` URL instead)
+// public user shape projected by users.getMe — narrower than Doc<'users'>,
+// excludes operator diagnostics, auth internals, & raw avatarStorageId
 
 export type UserTier = 'free' | 'premium'
 
 export interface PublicUserMe
 {
-  // Convex Id<'users'> — surfaced for userIdentity fallback when externalId
-  // is still being populated by the first-sign-in upsert
   _id: string
   email: string | null
   name: string | null

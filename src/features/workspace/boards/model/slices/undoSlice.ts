@@ -57,9 +57,8 @@ export const withUndo = (
   return undo ? { ...undo, ...updates } : updates
 }
 
-// apply a mapper to a single tier by id; returns a withUndo patch or null
-// when the tier doesn't exist or the mapper short-circuits (returns null or
-// the same tier ref). used by boardDataSlice for rename/recolor/description
+// apply a mapper to one tier; returns a withUndo patch, or null when the
+// tier is missing or the mapper returns null / the same ref
 export const mapTier = (
   state: ActiveBoardStore,
   tierId: TierId,

@@ -20,10 +20,9 @@ import {
 } from '~/shared/lib/storageMetering'
 import { isRecord } from '~/shared/lib/typeGuards'
 
-// current board payload schema version — bumped only on genuinely breaking
-// user-data changes. pre-1.0 reset: previous iterations (v1/v2/v3) had no
-// migration chain, so the envelope check below treats any stored version
-// that doesn't equal this value as corrupted & loads defaults
+// schema version for board payloads — bumped only on breaking user-data
+// changes. envelope treats any mismatched stored version as corrupted &
+// loads defaults (no migration chain before pre-1.0 reset)
 export const BOARD_DATA_VERSION = 1
 
 // build a per-board localStorage key from its ID
@@ -118,9 +117,8 @@ const readStoredBoardSyncState = (boardId: BoardId): BoardSyncState =>
   }
 }
 
-// read only the sync sidecar, skipping the envelope parse. used by delete
-// flows that need cloudBoardExternalId even when the envelope is corrupt,
-// so a corrupt local board still triggers the cloud-row cleanup
+// read only the sync sidecar & skip envelope parsing so a corrupt local board
+// still surfaces cloudBoardExternalId for cloud-row cleanup
 export const loadBoardSyncStateOnly = (boardId: BoardId): BoardSyncState =>
   readStoredBoardSyncState(boardId)
 

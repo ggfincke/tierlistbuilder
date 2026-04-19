@@ -9,6 +9,10 @@ import {
   ALL_ITEM_ELEMENTS_SELECTOR,
   UNRANKED_CONTAINER_ID,
 } from '~/features/workspace/boards/lib/dndIds'
+import {
+  UNRANKED_CONTAINER_SELECTOR,
+  tierContainerSelector,
+} from '~/shared/board-ui/boardTestIds'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export const sortByRenderedPosition = <
@@ -104,7 +108,7 @@ export const captureRenderedContainerSnapshot = (
       return {
         ...snapshot,
         unrankedItemIds: getRenderedItemIds(
-          document.querySelector('[data-testid="unranked-container"]'),
+          document.querySelector(UNRANKED_CONTAINER_SELECTOR),
           snapshot.unrankedItemIds
         ),
       }
@@ -117,9 +121,7 @@ export const captureRenderedContainerSnapshot = (
           ? {
               ...tier,
               itemIds: getRenderedItemIds(
-                document.querySelector(
-                  `[data-testid="tier-container-${tier.id}"]`
-                ),
+                document.querySelector(tierContainerSelector(tier.id)),
                 tier.itemIds
               ),
             }
@@ -132,12 +134,12 @@ export const captureRenderedContainerSnapshot = (
     tiers: snapshot.tiers.map((tier) => ({
       id: tier.id,
       itemIds: getRenderedItemIds(
-        document.querySelector(`[data-testid="tier-container-${tier.id}"]`),
+        document.querySelector(tierContainerSelector(tier.id)),
         tier.itemIds
       ),
     })),
     unrankedItemIds: getRenderedItemIds(
-      document.querySelector('[data-testid="unranked-container"]'),
+      document.querySelector(UNRANKED_CONTAINER_SELECTOR),
       snapshot.unrankedItemIds
     ),
   }
@@ -161,8 +163,8 @@ const getRenderedContainerRowLayout = (
 
   const selector =
     containerId === UNRANKED_CONTAINER_ID
-      ? '[data-testid="unranked-container"]'
-      : `[data-testid="tier-container-${containerId}"]`
+      ? UNRANKED_CONTAINER_SELECTOR
+      : tierContainerSelector(containerId)
   const sortedItems = getPositionedItemsFromElement(
     document.querySelector(selector)
   )

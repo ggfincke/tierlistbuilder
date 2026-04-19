@@ -14,6 +14,7 @@ import {
 import { toStringId } from './dragHelpers'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
+import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
 import {
   findContainer,
   getEffectiveContainerSnapshot,
@@ -73,11 +74,12 @@ export const resolveDragCollisions = (
 
       if (overIdString === overContainerId && overItems.length > 0)
       {
-        const overItemsAsStrings = overItems as readonly string[]
         const childDroppables = args.droppableContainers.filter((container) =>
         {
           const containerId = toStringId(container.id)
-          return containerId ? overItemsAsStrings.includes(containerId) : false
+          return containerId
+            ? brandedStringArrayIncludes(overItems, containerId)
+            : false
         })
 
         const nonActiveChildRects = childDroppables.flatMap((container) =>

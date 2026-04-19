@@ -10,8 +10,6 @@ import { getSyncStatusVisual } from '~/features/platform/sync/status/syncStatusV
 interface BoardSyncBadgeProps
 {
   boardId: BoardId
-  // shown alongside the icon's description in the title tooltip so the
-  // user sees which board the status refers to when this is one of many
   boardTitle: string
 }
 

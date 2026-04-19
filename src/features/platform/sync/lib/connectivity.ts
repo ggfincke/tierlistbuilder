@@ -6,8 +6,6 @@ import { useSyncStatusStore } from '../status/syncStatusStore'
 
 interface SetupConnectivityOptions
 {
-  // fires once per offline -> online transition (not on initial install,
-  // even if we boot online). consumer should re-queue pending boards here
   onOnline: () => void
 }
 
@@ -17,9 +15,8 @@ const readNavigatorOnline = (): boolean =>
   {
     return true
   }
-  // navigator.onLine is "the browser thinks the network adapter is up." it's
-  // not a real connectivity probe — false positives (captive portals, etc)
-  // happen, & a flush failure is the real signal — but pairing both is ok
+  // navigator.onLine reflects the adapter, not real connectivity (captive
+  // portals still report online); flush failures are the authoritative signal
   return navigator.onLine
 }
 
@@ -29,8 +26,6 @@ export const setupConnectivity = (
 {
   if (typeof window === 'undefined')
   {
-    // SSR / non-browser env — leave the store at its default (online: true)
-    // & return a no-op disposer
     return () => undefined
   }
 

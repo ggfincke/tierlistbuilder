@@ -8,6 +8,7 @@ import type {
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 import { clamp } from '~/shared/lib/math'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
+import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 interface ResolveStoreInsertionIndexArgs
@@ -208,13 +209,13 @@ export const findContainer = (
     return id
   }
 
-  if ((snapshot.unrankedItemIds as readonly string[]).includes(id))
+  if (brandedStringArrayIncludes(snapshot.unrankedItemIds, id))
   {
     return UNRANKED_CONTAINER_ID
   }
 
   const parentTier = snapshot.tiers.find((tier) =>
-    (tier.itemIds as readonly string[]).includes(id)
+    brandedStringArrayIncludes(tier.itemIds, id)
   )
   return parentTier?.id ?? null
 }

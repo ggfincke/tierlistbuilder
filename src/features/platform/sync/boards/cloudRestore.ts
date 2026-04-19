@@ -38,9 +38,6 @@ export class RestoreBoardError extends Error
 export interface RestoredBoard
 {
   meta: BoardMeta
-  // true when the board was already in the local registry (e.g. another
-  // device synced its restore first). caller may want to surface a
-  // different toast in that case
   alreadyInRegistry: boolean
 }
 

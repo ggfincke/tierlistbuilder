@@ -5,7 +5,6 @@ import type { PaletteId, ThemeId } from '@tierlistbuilder/contracts/lib/theme'
 
 export interface PaletteDefinition
 {
-  // ordered swatches used by both the picker UI & stored palette indices
   colors: string[]
 }
 

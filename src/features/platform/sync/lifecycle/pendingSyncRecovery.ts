@@ -24,19 +24,10 @@ import type { TierPresetSyncWork } from '../tier-presets/cloudSync'
 interface ResumePendingSyncsOptions
 {
   userId: string
-  // takes a callback rather than the scheduler directly so useCloudSync owns
-  // runners & this helper stays ignorant of runner internals
   queueBoard: (work: PendingBoardSync) => void
-  // optional — runners mount AFTER first-login merge resolves; if undefined
-  // the corresponding pass is silently skipped until the next call
   triggerSettings?: () => void
   enqueuePreset?: (work: TierPresetSyncWork) => void
-  // board-delete drain trigger. fire & forget; the drainer reads the
-  // sidecar internally & no-ops when empty, so passing it always (even
-  // when nothing is pending) is cheap
   triggerBoardDelete?: () => void
-  // optional auth/online gate matching the runners' shouldProceed semantics.
-  // if it returns false at any boundary, the helper bails before queueing
   shouldProceed?: () => boolean
 }
 

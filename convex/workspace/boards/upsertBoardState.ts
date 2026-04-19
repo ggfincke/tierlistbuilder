@@ -5,11 +5,7 @@
 import { ConvexError, v } from 'convex/values'
 import { mutation } from '../../_generated/server'
 import type { Id } from '../../_generated/dataModel'
-import type {
-  CloudBoardState,
-  CloudBoardItemWire as WireItem,
-  CloudBoardTierWire as WireTier,
-} from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
@@ -33,8 +29,8 @@ const MAX_TIER_NAME_LEN = 100
 const MAX_TIER_DESCRIPTION_LEN = 500
 const MAX_BACKGROUND_COLOR_LEN = 32
 
-// validators whose shapes match WireTier & WireItem from boardReconciler.
-// v.string() has no .max() — runtime length guards enforced in the handler
+// validator shapes match CloudBoard{Tier,Item}Wire contracts; runtime length
+// guards live in the handler since v.string() has no .max()
 const wireTierValidator = v.object({
   externalId: v.string(),
   name: v.string(),
@@ -260,9 +256,7 @@ export const upsertBoardState = mutation({
       return { conflict: serverState, newRevision: null }
     }
 
-    // the validator produces a structurally compatible type; Convex inferred
-    // types use v.Infer<> which is the same shape as WireTier/WireItem
-    const tierDiff = diffTiers(args.tiers as WireTier[], serverTiers)
+    const tierDiff = diffTiers(args.tiers, serverTiers)
 
     for (const tierId of tierDiff.remove)
     {
@@ -329,7 +323,7 @@ export const upsertBoardState = mutation({
 
     const deletedItemExternalIds = new Set(args.deletedItemIds)
     const itemDiff = diffItems(
-      args.items as WireItem[],
+      args.items,
       serverItems,
       tierExternalIdToId,
       mediaExternalIdToId,

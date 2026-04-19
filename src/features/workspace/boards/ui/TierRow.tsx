@@ -23,6 +23,7 @@ import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { ITEM_SIZE_PX } from '~/shared/board-ui/constants'
+import { tierContainerTestId } from '~/shared/board-ui/boardTestIds'
 import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '~/shared/overlay/uiMeasurements'
 import {
   computeColorPickerStyle,
@@ -241,7 +242,6 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
         className={isOver ? 'bg-[var(--t-bg-drag-over)]' : ''}
       >
         <BoardRowContent index={index}>
-          {/* tier drag handle — grip icon on the left edge of the label */}
           {!hideRowControls && !boardLocked && (
             <button
               type="button"
@@ -260,7 +260,7 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
               compactMode={compactMode}
               minHeightPx={sizePx}
               backgroundOverride={effectiveRowBackground}
-              data-testid={`tier-container-${tier.id}`}
+              data-testid={tierContainerTestId(tier.id)}
               data-tier-id={tier.id}
             >
               {tier.itemIds.map((itemId) => (

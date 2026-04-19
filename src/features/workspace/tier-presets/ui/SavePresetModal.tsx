@@ -10,11 +10,8 @@ import { TextInput } from '~/shared/ui/TextInput'
 
 interface SavePresetModalProps
 {
-  // starting value shown when the modal opens
   defaultName: string
-  // called when the modal closes
   onClose: () => void
-  // called after the user confirms a valid preset name
   onSave: (name: string) => void
 }
 

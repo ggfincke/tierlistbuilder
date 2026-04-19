@@ -30,9 +30,14 @@ const APP_SETTINGS_KEYS = [
 export const extractAppSettings = <T extends AppSettings>(
   source: T
 ): AppSettings =>
-  Object.fromEntries(
-    APP_SETTINGS_KEYS.map((key) => [key, source[key]])
-  ) as unknown as AppSettings
+{
+  const result = {} as Partial<AppSettings>
+  for (const key of APP_SETTINGS_KEYS)
+  {
+    ;(result as Record<string, unknown>)[key] = source[key]
+  }
+  return result as AppSettings
+}
 
 // shallow field equality across every AppSettings field — valid because
 // every field is a primitive or null, no nested identity to worry about

@@ -41,9 +41,7 @@ interface BoardSyncController
   timer: ReturnType<typeof setTimeout> | null
   queued: PendingBoardSync | null
   inFlight: PendingBoardSync | null
-  // short-circuit identical uploads after the last successful push
   lastUploadedSelection: BoardDataSelection | null
-  // 0 when healthy; bumped on each failed flush to drive exponential backoff
   retryAttempt: number
 }
 
@@ -61,13 +59,11 @@ interface CreateCloudSyncSchedulerOptions
   onError?: (boardId: BoardId, error: unknown) => void
   onConflict?: (boardId: BoardId, serverState: CloudBoardState) => void
   onStatusChange?: (boardId: BoardId, status: SchedulerBoardStatus) => void
-  // stop queued work after auth churn
   shouldProceed?: () => boolean
 }
 
 export interface SchedulerDisposeOptions
 {
-  // drain queued work before teardown
   flush?: boolean
 }
 

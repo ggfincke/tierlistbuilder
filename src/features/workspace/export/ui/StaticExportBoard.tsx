@@ -10,6 +10,7 @@ import type {
 import type { ExportAppearance } from '../model/runtime'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { ITEM_SIZE_PX, SHAPE_CLASS } from '~/shared/board-ui/constants'
+import { EXPORT_BOARD_ROOT_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import {
   BoardItemsGrid,
   BoardLabelCellFrame,
@@ -56,7 +57,7 @@ export const StaticExportBoard = memo(
 
     return (
       <div
-        data-testid="export-board-root"
+        data-testid={EXPORT_BOARD_ROOT_TEST_ID}
         className="min-w-[860px]"
         style={{ backgroundColor }}
       >

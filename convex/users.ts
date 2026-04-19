@@ -6,12 +6,9 @@ import { query } from './_generated/server'
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import { getCurrentUser } from './lib/auth'
 
-// return validator for getMe — narrowed public projection. excludes internal
-// fields (lastUpsertError, phone*, emailVerificationTime, avatarStorageId) so
-// operator diagnostics & auth internals don't reach the client bundle.
-// _id projected as plain string — contracts package cannot depend on Convex's
-// branded Id<'users'> type, so the wire shape uses a plain string. the brand
-// is lost at the frontend but the value is only used as an opaque identifier
+// validator for getMe — public projection excluding operator diagnostics &
+// auth internals. _id is a plain string (contracts can't depend on Convex's
+// branded Id<'users'>); brand is lost but only used as opaque identifier
 const publicUserMeValidator = v.object({
   _id: v.string(),
   email: v.union(v.string(), v.null()),
@@ -24,9 +21,8 @@ const publicUserMeValidator = v.object({
   updatedAt: v.union(v.number(), v.null()),
 })
 
-// return the authenticated caller's public profile, or null if unauthenticated.
-// the projection is intentionally narrower than Doc<'users'> — internal
-// bookkeeping (lastUpsertError, etc.) would otherwise leak to the client
+// return the caller's public profile, or null if unauthenticated.
+// narrower than Doc<'users'> to keep internal bookkeeping off the wire
 export const getMe = query({
   args: {},
   returns: v.union(publicUserMeValidator, v.null()),
