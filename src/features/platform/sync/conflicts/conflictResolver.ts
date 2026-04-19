@@ -129,7 +129,17 @@ export const resolveKeepBoth = async (
     title: duplicateTitle,
   }
 
-  const saveResult = saveBoardToStorage(duplicateId, duplicateSnapshot)
+  // stamp the duplicate w/ a pending marker BEFORE the cloud push. if the
+  // push fails, pendingSyncRecovery picks this board up on the next online
+  // transition; w/o the marker, the duplicate would only sync after the
+  // user's next edit (silent desync until then)
+  const saveResult = saveBoardToStorage(duplicateId, duplicateSnapshot, {
+    syncState: {
+      lastSyncedRevision: null,
+      cloudBoardExternalId: duplicateId,
+      pendingSyncAt: Date.now(),
+    },
+  })
   if (!saveResult.ok)
   {
     return { ok: false, error: saveResult.message }
@@ -160,15 +170,9 @@ export const resolveKeepBoth = async (
     })
     duplicateSyncedToCloud = true
   }
-  else if (pushOutcome.kind === 'error')
-  {
-    toast(
-      `"${duplicateTitle}" saved locally; cloud sync failed & will retry on next edit.`,
-      'error'
-    )
-  }
   // conflict on a brand new board is impossible (baseRevision=null skips
-  // the OCC check), so no third branch needed
+  // the OCC check) & the error branch is handled by the consolidated toast
+  // below so we don't double-toast the user
 
   const cloudOutcome = await resolveKeepCloud({
     boardId: ctx.boardId,

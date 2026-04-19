@@ -11,7 +11,11 @@ import {
 } from '~/features/workspace/boards/model/boardSnapshot'
 import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
 import { computeBackoffDelay } from '~/shared/lib/sync/backoff'
-import { announceBoardLock, isBoardLockedByPeer } from '../lib/crossTabSyncLock'
+import {
+  announceBoardLock,
+  getPeerLockRemainingMs,
+  isBoardLockedByPeer,
+} from '../lib/crossTabSyncLock'
 
 export interface PendingBoardSync
 {
@@ -48,7 +52,12 @@ interface CreateCloudSyncSchedulerOptions
   debounceMs: number
   hasBoard: (boardId: BoardId) => boolean
   flush: (work: PendingBoardSync) => Promise<FlushResult>
-  persist: (boardId: BoardId, syncState: BoardSyncState) => void
+  persistPendingWork: (work: PendingBoardSync) => boolean
+  persistSyncState: (boardId: BoardId, syncState: BoardSyncState) => void
+  persistSyncStateToStorage: (
+    boardId: BoardId,
+    syncState: BoardSyncState
+  ) => void
   onError?: (boardId: BoardId, error: unknown) => void
   onConflict?: (boardId: BoardId, serverState: CloudBoardState) => void
   onStatusChange?: (boardId: BoardId, status: SchedulerBoardStatus) => void
@@ -129,8 +138,9 @@ export const createCloudSyncScheduler = (
   // tracks in-flight flush promises so dispose({ flush: true }) can await them
   const inFlightPromises = new Set<Promise<void>>()
 
-  // stamp pendingSyncAt on a fresh edit (transition from null) & persist so
-  // the marker survives tab close even if the debounce never fires
+  // stamp pendingSyncAt on a fresh edit (transition from null) & try to
+  // persist the snapshot + sync state together so restart recovery only sees
+  // markers backed by a durable snapshot
   const ensurePendingSyncMarker = (
     work: PendingBoardSync
   ): PendingBoardSync =>
@@ -144,9 +154,10 @@ export const createCloudSyncScheduler = (
       ...work.syncState,
       pendingSyncAt: Date.now(),
     }
-    options.persist(work.boardId, dirtiedSyncState)
+    const dirtiedWork = { ...work, syncState: dirtiedSyncState }
+    options.persistPendingWork(dirtiedWork)
 
-    return { ...work, syncState: dirtiedSyncState }
+    return dirtiedWork
   }
 
   const clearPendingSyncMarker = (work: PendingBoardSync): PendingBoardSync =>
@@ -160,7 +171,7 @@ export const createCloudSyncScheduler = (
       ...work.syncState,
       pendingSyncAt: null,
     }
-    options.persist(work.boardId, cleanSyncState)
+    options.persistSyncState(work.boardId, cleanSyncState)
 
     return { ...work, syncState: cleanSyncState }
   }
@@ -188,6 +199,7 @@ export const createCloudSyncScheduler = (
     controller.inFlight = work
     options.onStatusChange?.(boardId, 'syncing')
     let nextSyncState: BoardSyncState | null = null
+    let nextQueuedWork: PendingBoardSync | null = null
     let syncErrored = false
     let syncConflicted = false
 
@@ -203,7 +215,30 @@ export const createCloudSyncScheduler = (
             nextSyncState = result.syncState
             controller.lastUploadedSelection = work.boardDataSelection
             controller.retryAttempt = 0
-            options.persist(work.boardId, result.syncState)
+
+            if (controller.queued)
+            {
+              nextQueuedWork = {
+                ...controller.queued,
+                syncState: {
+                  ...result.syncState,
+                  pendingSyncAt: controller.queued.syncState.pendingSyncAt,
+                },
+              }
+
+              if (!options.persistPendingWork(nextQueuedWork))
+              {
+                options.persistSyncStateToStorage(
+                  work.boardId,
+                  result.syncState
+                )
+              }
+            }
+            else
+            {
+              options.persistSyncState(work.boardId, result.syncState)
+            }
+
             options.onStatusChange?.(work.boardId, 'idle')
             return
           }
@@ -244,12 +279,9 @@ export const createCloudSyncScheduler = (
           return
         }
 
-        if (nextSyncState && controller.queued)
+        if (nextQueuedWork)
         {
-          controller.queued = {
-            ...controller.queued,
-            syncState: nextSyncState,
-          }
+          controller.queued = nextQueuedWork
           flushQueuedBoardSync(boardId)
           return
         }
@@ -360,10 +392,15 @@ export const createCloudSyncScheduler = (
 
     if (isBoardLockedByPeer(boardId))
     {
-      // another tab is pushing; re-queue for end of TTL window. on retry,
-      // the lock will have cleared or expired. status stays 'syncing'
+      // another tab is pushing; wait out the lock TTL instead of spinning
+      // the debounce — a peer editing every debounceMs keeps refreshing its
+      // lock & would otherwise loop us forever. retry once the lock expires
       controller.queued = work
-      scheduleBoardSyncFlush(boardId, controller)
+      const remaining = getPeerLockRemainingMs(boardId)
+      // small buffer avoids racing the exact boundary; clamp below to
+      // debounceMs so a near-expired lock still honors the debounce floor
+      const retryDelay = Math.max(options.debounceMs, remaining + 50)
+      scheduleBoardSyncFlush(boardId, controller, retryDelay)
       return
     }
 

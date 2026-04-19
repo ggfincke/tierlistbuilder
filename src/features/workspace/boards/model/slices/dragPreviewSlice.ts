@@ -38,7 +38,7 @@ export const createDragPreviewSlice: ActiveBoardSliceCreator<
 
       if (activeId)
       {
-        if (selected.includes(activeId))
+        if (state.selection.set.has(activeId))
         {
           // dragging a selected item — drag entire selection, primary first,
           // then the remaining selected items in selection order; filter out

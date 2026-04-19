@@ -127,6 +127,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
           e.preventDefault()
           state.clearSelection()
         }
+        return
       }
 
       // delete focused item or selected items — Delete or Backspace

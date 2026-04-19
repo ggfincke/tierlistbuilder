@@ -17,7 +17,7 @@ export const SyncStatusIndicator = ({ active }: SyncStatusIndicatorProps) =>
   const activeBoardId = useWorkspaceBoardRegistryStore(
     (state) => state.activeBoardId
   )
-  const boardId = active && activeBoardId !== '' ? activeBoardId : null
+  const boardId = active ? activeBoardId : null
   const status = useBoardSyncStatus(boardId)
 
   if (boardId === null)

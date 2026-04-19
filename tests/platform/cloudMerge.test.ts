@@ -80,7 +80,7 @@ const resetStores = (): void =>
 {
   useWorkspaceBoardRegistryStore.setState({
     boards: [],
-    activeBoardId: '',
+    activeBoardId: null,
   })
   useActiveBoardStore.getState().loadBoard(createInitialBoardData('classic'))
 }

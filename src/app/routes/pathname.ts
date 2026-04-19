@@ -54,9 +54,15 @@ const stripBasePath = (pathname: string): string =>
   return pathname || '/'
 }
 
+// strip a single trailing slash (except when the whole path IS "/")
+const stripTrailingSlash = (pathname: string): string =>
+  pathname.length > 1 && pathname.endsWith('/')
+    ? pathname.slice(0, -1)
+    : pathname
+
 export const resolveAppRoute = (pathname: string): AppRoute =>
 {
-  const relativePathname = stripBasePath(pathname)
+  const relativePathname = stripTrailingSlash(stripBasePath(pathname))
 
   if (relativePathname === '/' || relativePathname === '')
   {

@@ -12,20 +12,25 @@ import { BOARD_REGISTRY_KEY } from '../data/local/boardRegistryStorage'
 interface WorkspaceBoardRegistryStore
 {
   boards: BoardMeta[]
-  activeBoardId: BoardId | ''
-  replaceRegistry: (boards: BoardMeta[], activeBoardId: BoardId) => void
+  activeBoardId: BoardId | null
+  replaceRegistry: (boards: BoardMeta[], activeBoardId: BoardId | null) => void
   addBoardMeta: (board: BoardMeta, active?: boolean) => void
-  setActiveBoardId: (boardId: BoardId) => void
+  setActiveBoardId: (boardId: BoardId | null) => void
   renameBoardMeta: (boardId: BoardId, title: string) => void
   removeBoardMeta: (boardId: BoardId) => void
 }
+
+// v2: activeBoardId sentinel migrated from '' -> null. keeps the field
+// nullable instead of carrying an empty-string BoardId through the type
+// system
+const BOARD_REGISTRY_STORAGE_VERSION = 2
 
 export const useWorkspaceBoardRegistryStore =
   create<WorkspaceBoardRegistryStore>()(
     persist(
       (set) => ({
         boards: [],
-        activeBoardId: '',
+        activeBoardId: null,
 
         replaceRegistry: (boards, activeBoardId) =>
           set({ boards, activeBoardId }),
@@ -53,6 +58,23 @@ export const useWorkspaceBoardRegistryStore =
       {
         name: BOARD_REGISTRY_KEY,
         storage: createAppPersistStorage(),
+        version: BOARD_REGISTRY_STORAGE_VERSION,
+        migrate: (persisted) =>
+        {
+          // v1 stored activeBoardId as BoardId | ''. cast through unknown so
+          // we can detect & replace the empty-string sentinel; the legacy
+          // shape no longer exists in the store's type surface
+          const raw = persisted as Record<string, unknown>
+          const legacyActiveId = raw.activeBoardId
+          const nextActiveId =
+            typeof legacyActiveId === 'string' && legacyActiveId.length > 0
+              ? (legacyActiveId as BoardId)
+              : null
+          return {
+            ...raw,
+            activeBoardId: nextActiveId,
+          } as WorkspaceBoardRegistryStore
+        },
         partialize: (state) => ({
           boards: state.boards,
           activeBoardId: state.activeBoardId,

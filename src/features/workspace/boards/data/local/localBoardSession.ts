@@ -92,6 +92,53 @@ interface LoadedBoardState
 const getActiveBoardSyncState = (): BoardSyncState =>
   extractBoardSyncState(useActiveBoardStore.getState())
 
+const hasBoardMeta = (boardId: BoardId): boolean =>
+  useWorkspaceBoardRegistryStore
+    .getState()
+    .boards.some((board) => board.id === boardId)
+
+const setActiveBoardSyncState = (
+  boardId: BoardId,
+  syncState: BoardSyncState
+): void =>
+{
+  if (useWorkspaceBoardRegistryStore.getState().activeBoardId !== boardId)
+  {
+    return
+  }
+
+  useActiveBoardStore.getState().setSyncState(syncState)
+}
+
+const handleBoardPersistError = (boardId: BoardId, message: string): void =>
+{
+  if (useWorkspaceBoardRegistryStore.getState().activeBoardId !== boardId)
+  {
+    return
+  }
+
+  useActiveBoardStore.getState().setRuntimeError(message)
+}
+
+const persistBoardSyncStateToStorage = (
+  boardId: BoardId,
+  syncState: BoardSyncState
+): void =>
+{
+  if (!hasBoardMeta(boardId))
+  {
+    return
+  }
+
+  const saveResult = saveBoardSyncToStorage(boardId, syncState, (message) =>
+    handleBoardPersistError(boardId, message)
+  )
+  if (!saveResult.ok)
+  {
+    return
+  }
+}
+
 // zustand subscribers run synchronously inside set(), so clear the autosave
 // suppression flag immediately after loadBoard returns. this keeps the flag
 // scoped to one dispatch, even when no selector-based autosave fires
@@ -304,7 +351,7 @@ const pruneOrphanedRegistryEntriesAsync = (
       const nextActiveId =
         healthy.find((b) => b.id === boardStore.activeBoardId)?.id ??
         healthy[0]?.id ??
-        ''
+        null
       boardStore.replaceRegistry(healthy, nextActiveId)
       toast(
         `${pruned} ${pluralizeWord(pruned, 'board')} had corrupted data and ${pluralizeVerb(pruned, 'was', 'were')} removed.`,
@@ -318,7 +365,7 @@ export const bootstrapBoardSession = async (): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
   const requestedActiveId =
-    boardStore.activeBoardId || boardStore.boards[0]?.id || ''
+    boardStore.activeBoardId ?? boardStore.boards[0]?.id ?? null
 
   if (requestedActiveId)
   {
@@ -359,29 +406,35 @@ export const persistBoardSyncState = (
   syncState: BoardSyncState
 ): void =>
 {
-  if (
-    !useWorkspaceBoardRegistryStore
-      .getState()
-      .boards.some((board) => board.id === boardId)
-  )
+  setActiveBoardSyncState(boardId, syncState)
+  persistBoardSyncStateToStorage(boardId, syncState)
+}
+
+export const persistBoardStateForSync = (
+  boardId: BoardId,
+  snapshot: BoardSnapshot,
+  syncState: BoardSyncState
+): boolean =>
+{
+  setActiveBoardSyncState(boardId, syncState)
+
+  if (!hasBoardMeta(boardId))
   {
-    return
+    return false
   }
 
-  const saveResult = saveBoardSyncToStorage(boardId, syncState)
-  if (!saveResult.ok)
-  {
-    if (useWorkspaceBoardRegistryStore.getState().activeBoardId === boardId)
-    {
-      useActiveBoardStore.getState().setRuntimeError(saveResult.message)
-    }
-    return
-  }
+  return saveBoardToStorage(boardId, snapshot, {
+    syncState,
+    onError: (message) => handleBoardPersistError(boardId, message),
+  }).ok
+}
 
-  if (useWorkspaceBoardRegistryStore.getState().activeBoardId === boardId)
-  {
-    useActiveBoardStore.getState().setSyncState(syncState)
-  }
+export const persistBoardSyncStateToStorageOnly = (
+  boardId: BoardId,
+  syncState: BoardSyncState
+): void =>
+{
+  persistBoardSyncStateToStorage(boardId, syncState)
 }
 
 export const registerBoardAutosave = (): (() => void) =>

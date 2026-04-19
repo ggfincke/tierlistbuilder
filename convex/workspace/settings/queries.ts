@@ -4,9 +4,10 @@
 import { query } from '../../_generated/server'
 import { getCurrentUser } from '../../lib/auth'
 
-// return the authenticated caller's persisted AppSettings, or null if
-// unauthenticated or no settings row exists yet
-// callers should treat null as "use client-side defaults"
+// return the authenticated caller's persisted AppSettings along w/ the cloud
+// row's updatedAt timestamp, or null if unauthenticated or no settings row
+// exists yet. callers should treat null as "use client-side defaults"; the
+// timestamp feeds the client's lastSyncedAt sidecar for merge-direction logic
 export const getMySettings = query({
   args: {},
   handler: async (ctx) =>
@@ -20,6 +21,10 @@ export const getMySettings = query({
       .query('userSettings')
       .withIndex('byUser', (q) => q.eq('userId', user._id))
       .unique()
-    return row?.settings ?? null
+    if (!row)
+    {
+      return null
+    }
+    return { settings: row.settings, updatedAt: row.updatedAt }
   },
 })

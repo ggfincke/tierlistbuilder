@@ -31,7 +31,9 @@ import { mergeSettingsOnFirstLogin } from '../settings/cloudMerge'
 import { mergeTierPresetsOnFirstLogin } from '../tier-presets/cloudMerge'
 import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
 import {
+  persistBoardStateForSync,
   persistBoardSyncState,
+  persistBoardSyncStateToStorageOnly,
   setBoardDeletedListener,
 } from '~/features/workspace/boards/data/local/localBoardSession'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
@@ -152,11 +154,10 @@ const pushAllLocalBoards = async (
 // run separately after this resolves so the board path can keep its
 // modal-driven UX without dragging cosmetic prefs into the same flow)
 const runFirstLoginBoardMerge = async (
-  user: Doc<'users'>,
+  userId: string,
   shouldProceed: () => boolean
 ): Promise<void> =>
 {
-  const userId = getUserStableId(user)
   if (hasCompletedCloudPull(userId) || !shouldProceed()) return
 
   try
@@ -260,7 +261,7 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
 
   useEffect(() =>
   {
-    if (!userId || !user || !CLOUD_SYNC_ENABLED)
+    if (!userId || !CLOUD_SYNC_ENABLED)
     {
       currentUserIdRef.current = null
       return
@@ -336,7 +337,10 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
           },
         }
       },
-      persist: persistBoardSyncState,
+      persistSyncState: persistBoardSyncState,
+      persistSyncStateToStorage: persistBoardSyncStateToStorageOnly,
+      persistPendingWork: (work) =>
+        persistBoardStateForSync(work.boardId, work.snapshot, work.syncState),
       onError: (boardId, error) =>
       {
         // suppress the warn for synthetic offline errors — they're expected
@@ -443,7 +447,8 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
     boardFirstLoginMergeRef.current = true
     void runFirstLoginSyncLifecycle({
       shouldProceed,
-      runBoardMerge: () => runFirstLoginBoardMerge(user, shouldProceed),
+      runBoardMerge: () =>
+        runFirstLoginBoardMerge(capturedUserId, shouldProceed),
       runSettingsMerge: () =>
         mergeSettingsOnFirstLogin({
           userId: capturedUserId,
@@ -538,5 +543,8 @@ export const useCloudSync = (user: Doc<'users'> | null): void =>
       useConflictQueueStore.getState().clear()
       useSyncStatusStore.getState().clear()
     }
-  }, [userId, user])
+    // intentionally scoped to userId only — Convex re-renders the user
+    // doc on every tier/image/auth-lib patch; re-running the effect would
+    // tear down the entire sync stack & wipe the conflict queue every time
+  }, [userId])
 }

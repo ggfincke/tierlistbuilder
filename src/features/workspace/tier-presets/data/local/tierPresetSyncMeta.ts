@@ -196,8 +196,10 @@ export const removeTierPresetSyncMeta = (presetId: UserPresetId): void =>
 }
 
 // stamp a fresh pending op for one preset. idempotent for the same op kind.
-// op promotion: a queued 'upsert' followed by a 'delete' w/ lastSyncedAt === null
-// drops the entry entirely — nothing to push & no cloud row to delete
+// we always let the op sequence play out (including upsert->delete on a
+// never-synced preset): dropping the sidecar optimistically was unsafe
+// because an in-flight upsert could still create a cloud row after the
+// drop, orphaning the row w/ no sidecar to drive the follow-up delete
 export const stampTierPresetPending = (
   presetId: UserPresetId,
   op: TierPresetPendingOp,
@@ -210,17 +212,6 @@ export const stampTierPresetPending = (
     map[presetId] ?? { ...EMPTY_ENTRY },
     ownerUserId
   )
-
-  if (
-    current.pendingOp === 'upsert' &&
-    op === 'delete' &&
-    current.lastSyncedAt === null
-  )
-  {
-    delete map[presetId]
-    saveTierPresetSyncMetaMap(map)
-    return { ...EMPTY_ENTRY }
-  }
 
   const isSameOp = current.pendingOp === op
   const next: TierPresetSyncMetaEntry = {

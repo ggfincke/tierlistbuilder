@@ -1,7 +1,7 @@
 // src/features/workspace/annotation/model/useAnnotationCanvas.ts
 // canvas state management for screenshot annotation — strokes, text, & compositing
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { triggerDownload } from '~/features/workspace/export/lib/exportImage'
 import { toFileBase } from '~/shared/lib/fileName'
@@ -208,6 +208,14 @@ export const useAnnotationCanvas = (
     for (const item of items) drawAnnotationItem(ctx, item)
   }, [])
 
+  // keep the canvas in sync w/ history. driving redraw from an effect avoids
+  // running side-effects inside setState updaters (which StrictMode would
+  // double-invoke, causing double-draws of pending transitions)
+  useEffect(() =>
+  {
+    redraw(history)
+  }, [history, redraw])
+
   // pen tool handlers
   const handlePointerDown = useCallback(
     (e: React.MouseEvent | React.TouchEvent) =>
@@ -327,14 +335,9 @@ export const useAnnotationCanvas = (
           fontFamily: pendingText.fontFamily,
         },
       }
-      setHistory((prev) =>
-      {
-        const next = [...prev, newItem]
-        redraw(next)
-        return next
-      })
+      setHistory((prev) => [...prev, newItem])
     },
-    [pendingText, redraw]
+    [pendingText]
   )
 
   // cancel inline text without committing
@@ -347,23 +350,14 @@ export const useAnnotationCanvas = (
   const undo = useCallback(() =>
   {
     setPendingText(null)
-    setHistory((prev) =>
-    {
-      const next = prev.slice(0, -1)
-      redraw(next)
-      return next
-    })
-  }, [redraw])
+    setHistory((prev) => prev.slice(0, -1))
+  }, [])
 
-  // clear all annotations
+  // clear all annotations — the history-effect handles the canvas clear
   const clearAll = useCallback(() =>
   {
     setPendingText(null)
     setHistory([])
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    ctx?.clearRect(0, 0, canvas.width, canvas.height)
   }, [])
 
   // composite background + annotations & trigger download
