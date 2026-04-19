@@ -42,13 +42,36 @@ export const runFirstLoginSyncLifecycle = async ({
   onPresetMergeSettled,
 }: FirstLoginSyncLifecycleOptions): Promise<void> =>
 {
-  await runBoardMerge()
+  // try/finally ensures onBoardMergeSettled fires even if runBoardMerge
+  // throws — without it, a board-merge throw leaves
+  // boardFirstLoginMergeRef stuck at true, permanently blocking the active
+  // store subscriber from queuing any future edits
+  let boardMergeThrew: unknown = null
+  try
+  {
+    await runBoardMerge()
+  }
+  catch (error)
+  {
+    boardMergeThrew = error
+  }
+  finally
+  {
+    if (shouldProceed())
+    {
+      onBoardMergeSettled()
+    }
+  }
+
+  if (boardMergeThrew !== null)
+  {
+    console.warn('First-login board merge threw:', boardMergeThrew)
+  }
+
   if (!shouldProceed())
   {
     return
   }
-
-  onBoardMergeSettled()
 
   await Promise.allSettled([
     runAuxiliaryMerge(runSettingsMerge, onSettingsMergeSettled, shouldProceed),

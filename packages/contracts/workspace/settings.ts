@@ -43,3 +43,12 @@ export interface AppSettings
   toolbarPosition: ToolbarPosition
   showAltTextButton: boolean
 }
+
+// cloud-read wire shape for user settings. server wall-clock updatedAt
+// accompanies the payload so the client's sidecar can mark lastSyncedAt w/
+// the actual cloud timestamp instead of an approximation
+export interface CloudSettingsRead
+{
+  settings: AppSettings
+  updatedAt: number
+}

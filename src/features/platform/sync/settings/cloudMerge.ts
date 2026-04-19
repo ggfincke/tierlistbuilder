@@ -2,7 +2,10 @@
 // first-login settings merge — silent. pending local edit -> push local;
 // cloud row & no pending edit -> pull cloud; otherwise -> push local defaults
 
-import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
+import type {
+  AppSettings,
+  CloudSettingsRead,
+} from '@tierlistbuilder/contracts/workspace/settings'
 import {
   getMySettingsImperative,
   upsertMySettingsImperative,
@@ -27,7 +30,7 @@ export type SettingsMergeResult =
 // run w/o vi.mock around the cloud module
 export interface SettingsMergeDeps
 {
-  getMySettings: () => Promise<AppSettings | null>
+  getMySettings: () => Promise<CloudSettingsRead | null>
   upsertMySettings: (args: {
     settings: AppSettings
   }) => Promise<{ updatedAt: number }>
@@ -67,10 +70,10 @@ export const mergeSettingsOnFirstLogin = async ({
     return { kind: 'aborted' }
   }
 
-  let cloudSettings: AppSettings | null
+  let cloudRead: CloudSettingsRead | null
   try
   {
-    cloudSettings = await deps.getMySettings()
+    cloudRead = await deps.getMySettings()
   }
   catch (error)
   {
@@ -86,14 +89,13 @@ export const mergeSettingsOnFirstLogin = async ({
   const hasPendingLocal = sidecar.pendingSyncAt !== null
 
   // pull path: cloud non-null & local has no pending edit. apply cloud &
-  // stamp the sidecar so future flushes know cloud was latest
-  if (cloudSettings !== null && !hasPendingLocal)
+  // stamp the sidecar w/ the cloud row's actual updatedAt so future merges
+  // can compare timestamps correctly
+  if (cloudRead !== null && !hasPendingLocal)
   {
-    applyAppSettingsToStore(cloudSettings)
-    // getMySettings returns just the blob, not updatedAt; use Date.now() as
-    // a reasonable approximation (only consumed by future merge direction logic)
-    const meta = markSettingsSynced(userId, Date.now())
-    return { kind: 'pull', updatedAt: meta.lastSyncedAt ?? Date.now() }
+    applyAppSettingsToStore(cloudRead.settings)
+    markSettingsSynced(userId, cloudRead.updatedAt)
+    return { kind: 'pull', updatedAt: cloudRead.updatedAt }
   }
 
   // push path: either cloud is empty, or local has pending edits we don't

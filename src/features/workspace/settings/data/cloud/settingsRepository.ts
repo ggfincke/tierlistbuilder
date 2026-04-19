@@ -3,11 +3,14 @@
 // the sync lifecycle layer, so no React hook wrappers are exposed
 
 import { api } from '@convex/_generated/api'
-import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
+import type {
+  AppSettings,
+  CloudSettingsRead,
+} from '@tierlistbuilder/contracts/workspace/settings'
 import { convexClient } from '~/features/platform/backend/convexClient'
 
 // imperative one-shot fetch for the cloud merge flow & resume helpers
-export const getMySettingsImperative = (): Promise<AppSettings | null> =>
+export const getMySettingsImperative = (): Promise<CloudSettingsRead | null> =>
   convexClient.query(api.workspace.settings.queries.getMySettings, {})
 
 // imperative whole-document upsert. settings are last-write-wins (no

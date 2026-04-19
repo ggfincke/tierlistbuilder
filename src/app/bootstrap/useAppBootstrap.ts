@@ -61,7 +61,14 @@ const runBootstrapOnce = (): Promise<void> =>
       await bootstrapBoardSession()
       registerBoardAutosave()
       await handleInboundShare()
-    })()
+    })().catch((error) =>
+    {
+      // clear the cached promise on reject so a subsequent mount can
+      // retry instead of awaiting a rejected promise forever (e.g. after
+      // a transient quota error during bootstrapBoardSession)
+      bootstrapPromise = null
+      throw error
+    })
   }
   return bootstrapPromise
 }

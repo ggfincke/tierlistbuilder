@@ -50,6 +50,7 @@ const buildCloudSettings = (
 interface FakeDepsConfig
 {
   cloudSettings?: AppSettings | null
+  cloudUpdatedAt?: number
   upsertResult?: { updatedAt: number }
 }
 
@@ -67,7 +68,13 @@ const createFakeDeps = (config: FakeDepsConfig = {}): FakeDeps =>
   return {
     upsertCalls,
     deps: {
-      getMySettings: async () => config.cloudSettings ?? null,
+      getMySettings: async () =>
+        config.cloudSettings
+          ? {
+              settings: config.cloudSettings,
+              updatedAt: config.cloudUpdatedAt ?? 1,
+            }
+          : null,
       upsertMySettings: async (args) =>
       {
         upsertCalls.push(args)

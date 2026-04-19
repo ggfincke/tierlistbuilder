@@ -44,6 +44,8 @@ const makeWork = (boardId: BoardId, title: string): PendingBoardSync =>
   }
 }
 
+const makePersistPendingWork = () => vi.fn(() => true)
+
 const synced = (revision: number, externalId: string): FlushResult => ({
   kind: 'synced',
   syncState: {
@@ -68,7 +70,9 @@ describe('cloud sync scheduler', () =>
 
   it('retries queued work after an in-flight failure instead of dropping it', async () =>
   {
-    const persist = vi.fn()
+    const persistSyncState = vi.fn()
+    const persistPendingWork = makePersistPendingWork()
+    const persistSyncStateToStorage = vi.fn()
     let rejectFirstFlush: ((error?: unknown) => void) | null = null
 
     const flush = vi
@@ -86,7 +90,9 @@ describe('cloud sync scheduler', () =>
       debounceMs: 10,
       hasBoard: () => true,
       flush,
-      persist,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
     })
 
     scheduler.queue(makeWork('board-a' as BoardId, 'First'))
@@ -102,14 +108,17 @@ describe('cloud sync scheduler', () =>
 
     expect(flush).toHaveBeenCalledTimes(2)
     expect(flush.mock.calls[1][0].snapshot.title).toBe('Second')
-    // synced flush persists w/ revision advanced & dirty marker cleared.
-    // (the earlier dirty-marker persist on queue() is also recorded — we
-    // assert on the synced one specifically via toHaveBeenCalledWith)
-    expect(persist).toHaveBeenCalledWith('board-a', {
+    expect(persistSyncState).toHaveBeenCalledWith('board-a', {
       lastSyncedRevision: 2,
       cloudBoardExternalId: 'cloud-a',
       pendingSyncAt: null,
     })
+    expect(persistPendingWork).toHaveBeenCalledWith(
+      expect.objectContaining({
+        boardId: 'board-a',
+        snapshot: expect.objectContaining({ title: 'First' }),
+      })
+    )
 
     await scheduler.dispose()
   })
@@ -117,12 +126,15 @@ describe('cloud sync scheduler', () =>
   it('dedupes the last uploaded board state but still syncs later edits', async () =>
   {
     const flush = vi.fn().mockResolvedValue(synced(3, 'cloud-a'))
+    const persistPendingWork = makePersistPendingWork()
 
     const scheduler = createCloudSyncScheduler({
       debounceMs: 5,
       hasBoard: () => true,
       flush,
-      persist: vi.fn(),
+      persistPendingWork,
+      persistSyncState: vi.fn(),
+      persistSyncStateToStorage: vi.fn(),
     })
 
     const first = makeWork('board-a' as BoardId, 'Same')
@@ -146,12 +158,15 @@ describe('cloud sync scheduler', () =>
   it('keeps board queues isolated so each board flushes its own snapshot', async () =>
   {
     const flush = vi.fn().mockResolvedValue(synced(1, 'cloud'))
+    const persistPendingWork = makePersistPendingWork()
 
     const scheduler = createCloudSyncScheduler({
       debounceMs: 5,
       hasBoard: () => true,
       flush,
-      persist: vi.fn(),
+      persistPendingWork,
+      persistSyncState: vi.fn(),
+      persistSyncStateToStorage: vi.fn(),
     })
 
     scheduler.queue(makeWork('board-a' as BoardId, 'Board A'))
@@ -171,7 +186,9 @@ describe('cloud sync scheduler', () =>
 
   it('does NOT advance persisted revision on a conflict result', async () =>
   {
-    const persist = vi.fn()
+    const persistSyncState = vi.fn()
+    const persistPendingWork = makePersistPendingWork()
+    const persistSyncStateToStorage = vi.fn()
     const onConflict = vi.fn()
     const serverState = {
       title: 'Cloud board',
@@ -188,7 +205,9 @@ describe('cloud sync scheduler', () =>
       debounceMs: 5,
       hasBoard: () => true,
       flush,
-      persist,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
       onConflict,
     })
 
@@ -200,7 +219,7 @@ describe('cloud sync scheduler', () =>
     // queue() persists a dirty marker, but the conflict path must NOT
     // advance lastSyncedRevision — assert on the absence of any synced
     // persist instead of the absence of all persists
-    expect(persist).not.toHaveBeenCalledWith(
+    expect(persistSyncState).not.toHaveBeenCalledWith(
       'board-a',
       expect.objectContaining({
         lastSyncedRevision: expect.any(Number),
@@ -213,7 +232,9 @@ describe('cloud sync scheduler', () =>
 
   it('routes error results through onError without persisting', async () =>
   {
-    const persist = vi.fn()
+    const persistSyncState = vi.fn()
+    const persistPendingWork = makePersistPendingWork()
+    const persistSyncStateToStorage = vi.fn()
     const onError = vi.fn()
     const err = new Error('boom')
 
@@ -226,7 +247,9 @@ describe('cloud sync scheduler', () =>
       debounceMs: 5,
       hasBoard: () => true,
       flush,
-      persist,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
       onError,
     })
 
@@ -237,7 +260,7 @@ describe('cloud sync scheduler', () =>
     expect(onError).toHaveBeenCalledWith('board-a', err)
     // queue() persists a dirty marker, but the error path must NOT advance
     // lastSyncedRevision
-    expect(persist).not.toHaveBeenCalledWith(
+    expect(persistSyncState).not.toHaveBeenCalledWith(
       'board-a',
       expect.objectContaining({
         lastSyncedRevision: expect.any(Number),
@@ -249,7 +272,9 @@ describe('cloud sync scheduler', () =>
 
   it('retries a failed flush even when no newer edit arrives', async () =>
   {
-    const persist = vi.fn()
+    const persistSyncState = vi.fn()
+    const persistPendingWork = makePersistPendingWork()
+    const persistSyncStateToStorage = vi.fn()
     const onError = vi.fn()
     const flush = vi
       .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
@@ -263,7 +288,9 @@ describe('cloud sync scheduler', () =>
       debounceMs: 5,
       hasBoard: () => true,
       flush,
-      persist,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
       onError,
     })
 
@@ -279,7 +306,7 @@ describe('cloud sync scheduler', () =>
 
     expect(flush).toHaveBeenCalledTimes(2)
     expect(flush.mock.calls[1][0].snapshot.title).toBe('First')
-    expect(persist).toHaveBeenLastCalledWith('board-a', {
+    expect(persistSyncState).toHaveBeenLastCalledWith('board-a', {
       lastSyncedRevision: 7,
       cloudBoardExternalId: 'cloud-a',
       pendingSyncAt: null,
@@ -290,14 +317,18 @@ describe('cloud sync scheduler', () =>
 
   it('clears pendingSyncAt when queued work reverts to the last synced state', async () =>
   {
-    const persist = vi.fn()
+    const persistSyncState = vi.fn()
+    const persistPendingWork = makePersistPendingWork()
+    const persistSyncStateToStorage = vi.fn()
     const flush = vi.fn().mockResolvedValueOnce(synced(3, 'cloud-a'))
 
     const scheduler = createCloudSyncScheduler({
       debounceMs: 5,
       hasBoard: () => true,
       flush,
-      persist,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
     })
 
     const syncedWork = makeWork('board-a' as BoardId, 'Same')
@@ -317,7 +348,7 @@ describe('cloud sync scheduler', () =>
     await flushPromises()
 
     expect(flush).toHaveBeenCalledTimes(1)
-    expect(persist).toHaveBeenLastCalledWith('board-a', {
+    expect(persistSyncState).toHaveBeenLastCalledWith('board-a', {
       lastSyncedRevision: 3,
       cloudBoardExternalId: 'cloud-a',
       pendingSyncAt: null,
@@ -328,7 +359,9 @@ describe('cloud sync scheduler', () =>
 
   it('skips queued work when shouldProceed returns false (auth churn)', async () =>
   {
-    const persist = vi.fn()
+    const persistSyncState = vi.fn()
+    const persistPendingWork = makePersistPendingWork()
+    const persistSyncStateToStorage = vi.fn()
     const flush = vi.fn()
     let allow = true
 
@@ -337,7 +370,9 @@ describe('cloud sync scheduler', () =>
       hasBoard: () => true,
       shouldProceed: () => allow,
       flush,
-      persist,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
     })
 
     scheduler.queue(makeWork('board-a' as BoardId, 'First'))
@@ -349,12 +384,145 @@ describe('cloud sync scheduler', () =>
     // the dirty-marker persist on queue() runs unconditionally — it captures
     // local edits regardless of whether we'll get to push them. assert that
     // no synced persist (revision advancement) happened
-    expect(persist).not.toHaveBeenCalledWith(
+    expect(persistSyncState).not.toHaveBeenCalledWith(
       'board-a',
       expect.objectContaining({
         lastSyncedRevision: expect.any(Number),
       })
     )
+
+    await scheduler.dispose()
+  })
+
+  it('persists queued snapshots before preserving their dirty marker after a sync', async () =>
+  {
+    const persistSyncState = vi.fn()
+    const persistPendingWork = makePersistPendingWork()
+    const persistSyncStateToStorage = vi.fn()
+    let resolveFirstFlush: ((value: FlushResult) => void) | null = null
+
+    const flush = vi
+      .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) =>
+          {
+            resolveFirstFlush = resolve
+          })
+      )
+      .mockResolvedValueOnce(synced(8, 'cloud-a'))
+
+    const scheduler = createCloudSyncScheduler({
+      debounceMs: 5,
+      hasBoard: () => true,
+      flush,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
+    })
+
+    scheduler.queue(makeWork('board-a' as BoardId, 'First'))
+    vi.advanceTimersByTime(5)
+    await flushPromises()
+
+    scheduler.queue({
+      ...makeWork('board-a' as BoardId, 'Second'),
+      syncState: {
+        lastSyncedRevision: null,
+        cloudBoardExternalId: null,
+        pendingSyncAt: 123,
+      },
+    })
+
+    resolveFirstFlush?.(synced(7, 'cloud-a'))
+    await flushPromises()
+
+    expect(persistPendingWork).toHaveBeenCalledWith(
+      expect.objectContaining({
+        boardId: 'board-a',
+        snapshot: expect.objectContaining({ title: 'Second' }),
+        syncState: {
+          lastSyncedRevision: 7,
+          cloudBoardExternalId: 'cloud-a',
+          pendingSyncAt: 123,
+        },
+      })
+    )
+    expect(persistSyncState).not.toHaveBeenCalledWith('board-a', {
+      lastSyncedRevision: 7,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: 123,
+    })
+
+    vi.advanceTimersByTime(5)
+    await flushPromises()
+
+    expect(flush).toHaveBeenCalledTimes(2)
+
+    await scheduler.dispose()
+  })
+
+  it('drops the queued dirty marker when the queued snapshot cannot be durably saved', async () =>
+  {
+    const persistSyncState = vi.fn()
+    const persistSyncStateToStorage = vi.fn()
+    const persistPendingWork = vi
+      .fn<(work: PendingBoardSync) => boolean>()
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(false)
+    let resolveFirstFlush: ((value: FlushResult) => void) | null = null
+
+    const flush = vi
+      .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) =>
+          {
+            resolveFirstFlush = resolve
+          })
+      )
+      .mockResolvedValueOnce(synced(12, 'cloud-a'))
+
+    const scheduler = createCloudSyncScheduler({
+      debounceMs: 5,
+      hasBoard: () => true,
+      flush,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
+    })
+
+    scheduler.queue(makeWork('board-a' as BoardId, 'First'))
+    vi.advanceTimersByTime(5)
+    await flushPromises()
+
+    scheduler.queue({
+      ...makeWork('board-a' as BoardId, 'Second'),
+      syncState: {
+        lastSyncedRevision: null,
+        cloudBoardExternalId: null,
+        pendingSyncAt: 456,
+      },
+    })
+
+    resolveFirstFlush?.(synced(11, 'cloud-a'))
+    await flushPromises()
+
+    expect(persistSyncStateToStorage).toHaveBeenCalledWith('board-a', {
+      lastSyncedRevision: 11,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: null,
+    })
+    expect(persistSyncState).not.toHaveBeenCalledWith('board-a', {
+      lastSyncedRevision: 11,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: null,
+    })
+    expect(persistSyncStateToStorage).not.toHaveBeenCalledWith('board-a', {
+      lastSyncedRevision: 11,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: 456,
+    })
 
     await scheduler.dispose()
   })

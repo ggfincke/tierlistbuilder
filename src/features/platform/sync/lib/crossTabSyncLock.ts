@@ -53,6 +53,17 @@ export const isBoardLockedByPeer = (boardId: BoardId): boolean =>
   return Date.now() - at < LOCK_TTL_MS
 }
 
+// ms until the peer lock expires for this board; 0 when not locked.
+// callers use this to wait out the lock exactly once instead of polling
+// the debounce interval while a fast-edit peer keeps the lock alive
+export const getPeerLockRemainingMs = (boardId: BoardId): number =>
+{
+  const at = lastAcquiredByPeer.get(boardId)
+  if (at === undefined) return 0
+  const remaining = LOCK_TTL_MS - (Date.now() - at)
+  return remaining > 0 ? remaining : 0
+}
+
 // broadcast a fresh claim for the given board. idempotent — calling twice
 // just bumps the TTL window for peers
 export const announceBoardLock = (boardId: BoardId): void =>

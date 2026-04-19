@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react'
 
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { EmbedView } from '~/features/workspace/sharing/ui/EmbedView'
 import { applyTextStyle, applyThemeTokens } from '~/shared/theme/runtime'
 
@@ -12,6 +13,17 @@ export const EmbedShell = () =>
   {
     applyThemeTokens('classic')
     applyTextStyle('default')
+
+    // restore user settings on unmount so navigation back to the workspace
+    // shell doesn't flash classic/default before its useThemeApplicator
+    // fires on mount. reads via getState so the cleanup captures the
+    // latest user preferences, not a stale closure
+    return () =>
+    {
+      const { themeId, textStyleId } = useSettingsStore.getState()
+      applyThemeTokens(themeId)
+      applyTextStyle(textStyleId)
+    }
   }, [])
 
   return <EmbedView />
