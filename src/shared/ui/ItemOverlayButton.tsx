@@ -1,68 +1,29 @@
 // src/shared/ui/ItemOverlayButton.tsx
-// shared item-tile overlay action button for edit, restore, & delete affordances
+// shim — forwards to the unified Button w/ variant='overlay'
 
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 
-import { joinClassNames } from '~/shared/lib/className'
-import { BUTTON_FOCUS_CLASS } from '~/shared/ui/buttonBase'
-
-type ItemOverlayButtonTone = 'default' | 'success' | 'destructive'
-type ItemOverlayButtonSize = 'xs' | 'sm'
-type ItemOverlayButtonReveal = 'hover' | 'always'
+import { Button } from '~/shared/ui/Button'
 
 interface ItemOverlayButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 {
-  tone?: ItemOverlayButtonTone
-  size?: ItemOverlayButtonSize
-  reveal?: ItemOverlayButtonReveal
-}
-
-const SIZE_CLASS: Record<ItemOverlayButtonSize, string> = {
-  xs: 'h-4 w-4',
-  sm: 'h-5 w-5',
-}
-
-const TONE_CLASS: Record<ItemOverlayButtonTone, string> = {
-  default: '',
-  success: 'hover:text-[var(--t-accent)]',
-  destructive: 'hover:text-[var(--t-destructive-hover)]',
-}
-
-const REVEAL_CLASS: Record<ItemOverlayButtonReveal, string> = {
-  hover:
-    'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100',
-  always: '',
+  tone?: 'default' | 'success' | 'destructive'
+  size?: 'xs' | 'sm'
+  reveal?: 'hover' | 'always'
 }
 
 export const ItemOverlayButton = forwardRef<
   HTMLButtonElement,
   ItemOverlayButtonProps
->(
-  (
-    {
-      className,
-      reveal = 'hover',
-      size = 'sm',
-      tone = 'default',
-      type = 'button',
-      ...props
-    },
-    ref
-  ) => (
-    <button
-      ref={ref}
-      type={type}
-      className={joinClassNames(
-        BUTTON_FOCUS_CLASS,
-        'flex items-center justify-center rounded-full bg-black/70 text-white focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]',
-        SIZE_CLASS[size],
-        TONE_CLASS[tone],
-        REVEAL_CLASS[reveal],
-        className
-      )}
-      {...props}
-    />
-  )
-)
+>(({ tone = 'default', size = 'sm', reveal = 'hover', ...props }, ref) => (
+  <Button
+    ref={ref}
+    variant="overlay"
+    tone={tone}
+    size={size}
+    reveal={reveal}
+    {...props}
+  />
+))
 
 ItemOverlayButton.displayName = 'ItemOverlayButton'

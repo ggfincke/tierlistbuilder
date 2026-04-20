@@ -29,7 +29,7 @@ export const ItemContent = ({
     item.imageRef?.hash,
     item.imageRef?.cloudMediaExternalId
   )
-  const imageUrl = cachedImageUrl ?? item.imageUrl ?? null
+  const imageUrl = item.imageUrl ?? cachedImageUrl
 
   if (imageUrl)
   {

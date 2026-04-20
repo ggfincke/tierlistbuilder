@@ -6,7 +6,7 @@ import type {
   BoardSnapshot,
   BoardSnapshotWire,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/boardStorage'
+import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import { formatError } from '~/shared/lib/errors'
 import { isNonEmptyString, isRecord } from '~/shared/lib/typeGuards'
 import { toFileBase } from '~/shared/lib/fileName'
@@ -150,8 +150,7 @@ const validateItemEntry = (id: string, item: unknown): string | null =>
 }
 
 // validate board shape & normalize into an in-memory snapshot. async because
-// inline imageUrls are hashed into imageRefs when IDB is available, otherwise
-// the snapshot keeps the inline bytes as a render fallback
+// inline imageUrls are hashed into imageRefs via IDB before the snapshot is built
 const parseBoardData = async (
   raw: Record<string, unknown>,
   fallbackTitle: string

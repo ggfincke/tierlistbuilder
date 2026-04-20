@@ -3,6 +3,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import {
   createCloudSyncScheduler,
@@ -236,7 +237,11 @@ describe('cloud sync scheduler', () =>
     const persistPendingWork = makePersistPendingWork()
     const persistSyncStateToStorage = vi.fn()
     const onError = vi.fn()
-    const err = new Error('boom')
+    const err = {
+      kind: 'unknown' as const,
+      permanent: false as const,
+      cause: new Error('boom'),
+    }
 
     const flush = vi
       .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
@@ -280,7 +285,11 @@ describe('cloud sync scheduler', () =>
       .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
       .mockResolvedValueOnce({
         kind: 'error',
-        error: new Error('temporary outage'),
+        error: {
+          kind: 'unknown',
+          permanent: false,
+          cause: new Error('temporary outage'),
+        },
       })
       .mockResolvedValueOnce(synced(7, 'cloud-a'))
 
@@ -523,6 +532,58 @@ describe('cloud sync scheduler', () =>
       cloudBoardExternalId: 'cloud-a',
       pendingSyncAt: 456,
     })
+
+    await scheduler.dispose()
+  })
+
+  it('clears persisted pendingSyncAt on permanent errors', async () =>
+  {
+    const persistSyncState = vi.fn()
+    const persistPendingWork = makePersistPendingWork()
+    const persistSyncStateToStorage = vi.fn()
+    const onError = vi.fn()
+    const flush = vi.fn().mockResolvedValueOnce({
+      kind: 'error',
+      error: {
+        kind: 'convex',
+        code: CONVEX_ERROR_CODES.forbidden,
+        permanent: true,
+        cause: new Error('forbidden'),
+      },
+    })
+
+    const scheduler = createCloudSyncScheduler({
+      debounceMs: 5,
+      hasBoard: () => true,
+      flush,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
+      onError,
+    })
+
+    scheduler.queue({
+      ...makeWork('board-a' as BoardId, 'First'),
+      syncState: {
+        lastSyncedRevision: 4,
+        cloudBoardExternalId: 'cloud-a',
+        pendingSyncAt: 123,
+      },
+    })
+    vi.advanceTimersByTime(5)
+    await flushPromises()
+
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(persistSyncState).toHaveBeenCalledWith('board-a', {
+      lastSyncedRevision: 4,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: null,
+    })
+
+    vi.advanceTimersByTime(50)
+    await flushPromises()
+
+    expect(flush).toHaveBeenCalledTimes(1)
 
     await scheduler.dispose()
   })

@@ -4,7 +4,7 @@
 import { useEffect } from 'react'
 
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
-import { EmbedView } from '~/features/workspace/sharing/ui/EmbedView'
+import { EmbedView } from '~/features/embed/ui/EmbedView'
 import { applyTextStyle, applyThemeTokens } from '~/shared/theme/runtime'
 
 export const EmbedShell = () =>

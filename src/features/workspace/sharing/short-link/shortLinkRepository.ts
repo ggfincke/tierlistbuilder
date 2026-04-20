@@ -1,4 +1,4 @@
-// src/features/workspace/sharing/data/cloud/shortLinkRepository.ts
+// src/features/workspace/sharing/short-link/shortLinkRepository.ts
 // Convex adapters for the snapshot-share short link layer.
 // resolve/generate/create are imperative (pre-React); list is reactive; revoke is imperative
 

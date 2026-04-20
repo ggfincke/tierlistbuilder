@@ -9,8 +9,8 @@ import {
 import { deleteBoardImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
-import { makeOfflineError } from '~/shared/lib/sync/offlineError'
-import { isPermanentConvexError } from '../lib/convexErrorCode'
+import { makeOfflineError } from '~/features/platform/sync/lib/errors'
+import { isPermanentConvexError } from '../lib/errors'
 import { useSyncStatusStore } from '../status/syncStatusStore'
 
 // parallel delete concurrency — independent rows on the server, but we

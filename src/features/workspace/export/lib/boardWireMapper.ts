@@ -141,7 +141,7 @@ export const snapshotToWire = async (
 
 // hash inline wire imageUrls in parallel, persist all bytes in one IDB batch,
 // & return a Map keyed by wire item id so callers can swap imageUrl -> imageRef.
-// unparseable data URLs drop silently; IDB-unavailable keeps inline fallback
+// unparseable data URLs drop; IDB failures fall back to keeping imageUrl inline
 const prepareInlineWireImages = async (
   wireItems: readonly (readonly [string, TierItemWire])[]
 ): Promise<Map<string, PreparedBlobRecord>> =>
@@ -198,7 +198,7 @@ const wireItemToSnapshotItem = (
   prepared: PreparedBlobRecord | undefined
 ): TierItem =>
 {
-  const { id, label, backgroundColor, altText } = item
+  const { id, imageUrl, label, backgroundColor, altText } = item
   const base: TierItem = { id, label, backgroundColor, altText }
 
   if (prepared)
@@ -206,20 +206,12 @@ const wireItemToSnapshotItem = (
     return { ...base, imageRef: prepared.imageRef }
   }
 
-  if (typeof item.imageUrl === 'string' && item.imageUrl.length > 0)
-  {
-    return {
-      ...base,
-      imageUrl: item.imageUrl,
-    } as TierItem
-  }
-
-  return base
+  return imageUrl ? { ...base, imageUrl } : base
 }
 
 // convert wire-format data back into an in-memory snapshot shape. async
-// because inline imageUrls are hashed & persisted to IDB when available,
-// otherwise the snapshot keeps inline bytes as a render fallback
+// because inline imageUrls are hashed & persisted to IDB before the snapshot
+// is built when possible; otherwise the inline bytes stay on the item
 export const wireToSnapshot = async (
   wire: Partial<BoardSnapshotWire>,
   fallbackTitle = ''

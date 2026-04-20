@@ -10,9 +10,9 @@ import {
   importBoardSession,
   registerBoardAutosave,
 } from '~/features/workspace/boards/data/local/localBoardSession'
-import { clearShareFragment } from '~/features/workspace/sharing/lib/hashShare'
-import { clearShortLinkSlugFromUrl } from '~/features/workspace/sharing/lib/shortLinkShare'
-import { resolveInboundShare } from '~/features/workspace/sharing/lib/inboundShare'
+import { clearShareFragment } from '~/features/workspace/sharing/snapshot-compression/hashShare'
+import { clearShortLinkSlugFromUrl } from '~/features/workspace/sharing/short-link/shortLinkShare'
+import { resolveInboundShare } from '~/features/workspace/sharing/inbound/inboundShare'
 import { toast } from '~/shared/notifications/useToastStore'
 
 // import a shared board if the URL carries a share marker. scrubs the URL

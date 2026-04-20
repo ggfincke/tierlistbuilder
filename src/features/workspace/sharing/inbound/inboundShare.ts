@@ -1,13 +1,16 @@
-// src/features/workspace/sharing/lib/inboundShare.ts
+// src/features/workspace/sharing/inbound/inboundShare.ts
 // unified inbound share resolver — checks legacy #share= fragment first (no network),
 // then ?s=<slug> short link. keeps bootstrap & embed paths consistent on precedence order
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { decodeBoardFromShareFragment, getShareFragment } from './hashShare'
+import {
+  decodeBoardFromShareFragment,
+  getShareFragment,
+} from '~/features/workspace/sharing/snapshot-compression/hashShare'
 import {
   decodeBoardFromShortLink,
   getShortLinkSlugFromUrl,
-} from './shortLinkShare'
+} from '~/features/workspace/sharing/short-link/shortLinkShare'
 
 export type InboundShareSource = 'fragment' | 'slug'
 

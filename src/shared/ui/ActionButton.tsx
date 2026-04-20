@@ -1,13 +1,10 @@
 // src/shared/ui/ActionButton.tsx
-// reusable circular icon button for the board action bar
+// shim — forwards to the unified Button w/ variant='action'. preserves the
+// label/title prop shape (ActionButton requires both for a11y + tooltip)
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
-import { joinClassNames } from '~/shared/lib/className'
-import {
-  BUTTON_DISABLED_CLASS,
-  BUTTON_FOCUS_CLASS,
-} from '~/shared/ui/buttonBase'
+import { Button } from '~/shared/ui/Button'
 
 interface ActionButtonProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -39,38 +36,24 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
       expanded,
       controlsId,
       active = false,
-      className,
       ...rest
     },
     ref
-  ) =>
-  {
-    const chromeClassName = active
-      ? 'border-[rgb(var(--t-overlay)/0.22)] bg-[var(--t-bg-hover)] shadow-[inset_0_1px_0_rgba(var(--t-overlay),0.04),0_0_0_1px_rgba(var(--t-overlay),0.08)]'
-      : 'border-[rgb(var(--t-overlay)/0.12)] bg-[var(--t-bg-page)] hover:border-[rgb(var(--t-overlay)/0.22)] hover:bg-[var(--t-bg-hover)]'
-
-    return (
-      <button
-        ref={ref}
-        type="button"
-        aria-label={label}
-        title={title}
-        aria-haspopup={hasPopup}
-        aria-controls={controlsId}
-        aria-expanded={hasPopup ? expanded : undefined}
-        {...rest}
-        className={joinClassNames(
-          BUTTON_FOCUS_CLASS,
-          'flex h-10 w-10 items-center justify-center rounded-[1.1rem] border text-[var(--t-text)] transition-none max-sm:h-11 max-sm:w-11 max-sm:rounded-[1.3rem] focus-visible:border-[rgb(var(--t-overlay)/0.22)] focus-visible:bg-[var(--t-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--t-overlay)/0.14)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-sunken)]',
-          BUTTON_DISABLED_CLASS,
-          chromeClassName,
-          className
-        )}
-      >
-        {children}
-      </button>
-    )
-  }
+  ) => (
+    <Button
+      ref={ref}
+      variant="action"
+      active={active}
+      aria-label={label}
+      title={title}
+      aria-haspopup={hasPopup}
+      aria-controls={controlsId}
+      aria-expanded={hasPopup ? expanded : undefined}
+      {...rest}
+    >
+      {children}
+    </Button>
+  )
 )
 
 ActionButton.displayName = 'ActionButton'

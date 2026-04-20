@@ -13,8 +13,9 @@ import {
 } from '~/features/workspace/boards/model/sync'
 import { upsertBoardStateImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
-import { uploadBoardImages } from '~/features/workspace/boards/data/cloud/imageUploader'
+import { uploadBoardImages } from '~/features/platform/media/imageUploader'
 import { loadPersistedBoardState } from '~/features/workspace/boards/data/local/localBoardSession'
+import { classifySyncError, type SyncError } from '../lib/errors'
 
 // read unsaved active-board edits before falling back to storage
 export const readBoardStateForCloudSync = (
@@ -37,11 +38,13 @@ export const readBoardStateForCloudSync = (
   return loadPersistedBoardState(boardId)
 }
 
-// callers only advance sync state on the synced variant
+// callers only advance sync state on the synced variant. `error` is pre-
+// classified so schedulers can short-circuit permanent failures via
+// `error.permanent` instead of retrying forever
 export type FlushBoardOutcome =
   | { kind: 'synced'; revision: number }
   | { kind: 'conflict'; serverState: CloudBoardState }
-  | { kind: 'error'; error: unknown }
+  | { kind: 'error'; error: SyncError }
 
 export const flushBoardToCloud = async (
   snapshot: BoardSnapshot,
@@ -73,6 +76,6 @@ export const flushBoardToCloud = async (
   }
   catch (error)
   {
-    return { kind: 'error', error }
+    return { kind: 'error', error: classifySyncError(error) }
   }
 }

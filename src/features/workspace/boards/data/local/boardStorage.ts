@@ -3,10 +3,11 @@
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { BoardSyncState } from '@tierlistbuilder/contracts/workspace/boardSync'
+import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import {
   EMPTY_BOARD_SYNC_STATE,
   normalizeBoardSyncState,
-  type BoardSyncState,
 } from '~/features/workspace/boards/model/sync'
 import {
   deleteBrowserStorageItem,
@@ -19,11 +20,6 @@ import {
   STORAGE_SAVE_FAILED_MESSAGE,
 } from '~/shared/lib/storageMetering'
 import { isRecord } from '~/shared/lib/typeGuards'
-
-// schema version for board payloads — bumped only on breaking user-data
-// changes. envelope treats any mismatched stored version as corrupted &
-// loads defaults (no migration chain before pre-1.0 reset)
-export const BOARD_DATA_VERSION = 1
 
 // build a per-board localStorage key from its ID
 export const boardStorageKey = (id: BoardId): string => `tier-list-board-${id}`

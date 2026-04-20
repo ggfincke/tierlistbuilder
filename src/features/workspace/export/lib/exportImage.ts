@@ -58,6 +58,44 @@ export const renderElementToPng = (
   backgroundColor = EXPORT_BACKGROUND_COLOR
 ): Promise<string> => toPng(element, getBaseOptions(backgroundColor))
 
+export interface CapturedBoardImage
+{
+  dataUrl: string
+  // source element pixel dimensions scaled by the export pixel ratio; PDF
+  // callers size pages against these, image callers can ignore them
+  width: number
+  height: number
+}
+
+interface CaptureBoardOptions
+{
+  appearance: ExportAppearance
+  backgroundColor?: string
+  format: ImageFormat
+}
+
+// capture a single board as a data URL inside an isolated export session.
+// for batch capture (all boards) use captureAllBoards in exportAll.ts which
+// keeps one session open across boards to avoid re-mounting the hidden host
+export const captureBoardAsDataUrl = async (
+  data: BoardSnapshot,
+  {
+    appearance,
+    backgroundColor = EXPORT_BACKGROUND_COLOR,
+    format,
+  }: CaptureBoardOptions
+): Promise<CapturedBoardImage> =>
+  withExportSession({ appearance, backgroundColor }, async (session) =>
+  {
+    const element = await session.renderBoard(data)
+    const dataUrl = await renderToDataUrl(element, format, backgroundColor)
+    return {
+      dataUrl,
+      width: element.offsetWidth * EXPORT_PIXEL_RATIO,
+      height: element.offsetHeight * EXPORT_PIXEL_RATIO,
+    }
+  })
+
 // download the tier list as the specified image format
 export const exportTierListAsImage = async (
   data: BoardSnapshot,
@@ -66,12 +104,14 @@ export const exportTierListAsImage = async (
   format: ImageFormat,
   backgroundColor = EXPORT_BACKGROUND_COLOR
 ): Promise<void> =>
-  withExportSession({ appearance, backgroundColor }, async (session) =>
-  {
-    const element = await session.renderBoard(data)
-    const dataUrl = await renderToDataUrl(element, format, backgroundColor)
-    triggerDownload(dataUrl, `${toFileBase(title)}.${FORMAT_EXT[format]}`)
+{
+  const { dataUrl } = await captureBoardAsDataUrl(data, {
+    appearance,
+    backgroundColor,
+    format,
   })
+  triggerDownload(dataUrl, `${toFileBase(title)}.${FORMAT_EXT[format]}`)
+}
 
 // render the board as PNG & copy it to the system clipboard
 export const copyBoardToClipboard = async (

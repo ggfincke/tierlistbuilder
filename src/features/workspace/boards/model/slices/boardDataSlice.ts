@@ -61,6 +61,20 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
 ) => ({
   ...createInitialBoardData('classic'),
   itemsManuallyMoved: false,
+  ...EMPTY_BOARD_SYNC_STATE,
+  runtimeError: null,
+
+  setSyncState: (state) => set(state),
+
+  setRuntimeError: (message) =>
+    set((state) =>
+      state.runtimeError === message ? state : { runtimeError: message }
+    ),
+
+  clearRuntimeError: () =>
+    set((state) =>
+      state.runtimeError === null ? state : { runtimeError: null }
+    ),
 
   addTier: (paletteId) =>
   {

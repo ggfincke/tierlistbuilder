@@ -1,4 +1,4 @@
-// src/features/workspace/boards/data/cloud/imageUploader.ts
+// src/features/platform/media/imageUploader.ts
 // upload local image blobs to Convex storage & record the mapping
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
@@ -14,20 +14,16 @@ import { getImageDimensions } from '~/shared/images/imageDimensions'
 import type { PreparedBlobRecord } from '~/shared/images/imagePersistence'
 import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
 import {
+  SUPPORTED_IMAGE_MIME_TYPES,
+  type SupportedImageMimeType,
+} from '@tierlistbuilder/contracts/platform/media'
+import {
   generateUploadUrlImperative,
   finalizeUploadImperative,
-  type SupportedImageMimeType,
-} from './boardRepository'
+} from '~/features/workspace/boards/data/cloud/boardRepository'
 
 // 3 keeps the uploader polite on slow connections; raise if we see latency stalls
 const UPLOAD_CONCURRENCY = 3
-
-const SUPPORTED_IMAGE_MIME_TYPES: readonly SupportedImageMimeType[] = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-]
 
 // narrow a BlobRecord mimeType into the server-accepted MIME set, or reject
 const asSupportedMimeType = (mimeType: string): SupportedImageMimeType =>

@@ -1,4 +1,4 @@
-// src/features/platform/sync/boards/cloudImageFetcher.ts
+// src/features/platform/media/imageFetcher.ts
 // registers the Convex-backed cloud image batch fetcher into the shared image cache
 
 import { convexClient } from '~/features/platform/convex/convexClient'

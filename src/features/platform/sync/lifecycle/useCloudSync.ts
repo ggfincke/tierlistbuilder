@@ -17,7 +17,7 @@ import {
   markBoardSynced,
 } from '~/features/workspace/boards/model/sync'
 import { listMyBoardsImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
-import { setupCloudImageFetcher } from '../boards/cloudImageFetcher'
+import { setupCloudImageFetcher } from '~/features/platform/media/imageFetcher'
 import { pullAllCloudBoards } from '../boards/cloudPull'
 import { runFirstLoginSyncLifecycle } from './firstLoginSyncLifecycle'
 import {
@@ -42,9 +42,10 @@ import {
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import {
+  classifySyncError,
   isOfflineError,
   makeOfflineError,
-} from '~/shared/lib/sync/offlineError'
+} from '~/features/platform/sync/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
   createCloudSyncScheduler,
@@ -298,7 +299,7 @@ export const useCloudSync = (user: PublicUserMe | null): void =>
         {
           return {
             kind: 'error',
-            error: new Error('auth changed mid-flush'),
+            error: classifySyncError(new Error('auth changed mid-flush')),
           }
         }
 
@@ -307,7 +308,10 @@ export const useCloudSync = (user: PublicUserMe | null): void =>
         // resumePendingSyncs() fires on the next online transition
         if (!useSyncStatusStore.getState().online)
         {
-          return { kind: 'error', error: makeOfflineError() }
+          return {
+            kind: 'error',
+            error: classifySyncError(makeOfflineError()),
+          }
         }
 
         const boardExternalId =

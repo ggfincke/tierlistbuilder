@@ -5,15 +5,13 @@ import { ConvexError, v } from 'convex/values'
 import { mutation } from '../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { generateMediaAssetExternalId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  HEX_SHA256_PATTERN,
+  MAX_IMAGE_BYTE_SIZE,
+  MAX_IMAGE_DIMENSION,
+} from '@tierlistbuilder/contracts/platform/media'
 import { requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
-
-// hard cap on image byte size — 20MB matches the frontend uploader's cap
-const MAX_IMAGE_BYTE_SIZE = 20 * 1024 * 1024
-// sanity bound on image dimensions — rejects obviously malformed data
-const MAX_IMAGE_DIMENSION = 10_000
-// sha256 hex digest is always 64 lowercase hex chars
-const HEX_SHA256_PATTERN = /^[0-9a-f]{64}$/
 
 // generate a one-time upload URL for the frontend to POST image bytes. this is
 // the single rate-limit point for the 2-phase upload flow, so aborted attempts

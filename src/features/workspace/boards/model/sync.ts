@@ -1,18 +1,14 @@
 // src/features/workspace/boards/model/sync.ts
-// shared board sync metadata — mirrored in the active store & persisted per board
+// helpers around the BoardSyncState contract — empty value, normalize, & post-flush marker
 
+import type { BoardSyncState } from '@tierlistbuilder/contracts/workspace/boardSync'
 import {
   isNonEmptyString,
   isPositiveFiniteNumber,
   isRecord,
 } from '~/shared/lib/typeGuards'
 
-export interface BoardSyncState
-{
-  lastSyncedRevision: number | null
-  cloudBoardExternalId: string | null
-  pendingSyncAt: number | null
-}
+export type { BoardSyncState }
 
 export const EMPTY_BOARD_SYNC_STATE: BoardSyncState = {
   lastSyncedRevision: null,

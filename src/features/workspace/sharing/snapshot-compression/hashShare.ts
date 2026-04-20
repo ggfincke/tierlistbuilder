@@ -1,4 +1,4 @@
-// src/features/workspace/sharing/lib/hashShare.ts
+// src/features/workspace/sharing/snapshot-compression/hashShare.ts
 // shareable link encoding & decoding — compress board data into a URL hash fragment.
 // compression pipeline reused by shortLinkShare via compressSnapshotBytes / inflateSnapshotBytes
 
@@ -17,17 +17,13 @@ import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 export const buildAppUrl = (pathname = ''): string =>
   `${window.location.origin}${normalizeBasePath()}${pathname}`
 
-// drop image bytes & deleted items from share payloads
+// drop image refs, inline image bytes, & deleted items from share payloads
 export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
 {
   return {
     ...mapSnapshotItems(data, (item) =>
     {
-      const {
-        imageRef: _imageRef,
-        imageUrl: _imageUrl,
-        ...rest
-      } = item as typeof item & { imageUrl?: string }
+      const { imageRef: _imageRef, imageUrl: _imageUrl, ...rest } = item
       return rest
     }),
     deletedItems: [],

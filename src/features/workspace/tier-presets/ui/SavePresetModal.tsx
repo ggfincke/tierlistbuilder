@@ -1,6 +1,7 @@
 // src/features/workspace/tier-presets/ui/SavePresetModal.tsx
 // modal prompt for naming & saving the current board as a reusable preset
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState } from 'react'
 
 import { BaseModal } from '~/shared/overlay/BaseModal'
@@ -49,9 +50,7 @@ export const SavePresetModal = ({
       initialFocusRef={inputRef}
       panelClassName="w-full max-w-sm p-4"
     >
-      <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-        Save as Preset
-      </h2>
+      <ModalHeader titleId={titleId}>Save as Preset</ModalHeader>
       <p id={descriptionId} className="mt-1 text-sm text-[var(--t-text-muted)]">
         Saves the current tier structure (names & colors) for reuse.
       </p>

@@ -100,8 +100,7 @@ export const persistBlobSource = async (
   (await persistBlobSources([blob], options))[0]!
 
 // persist many blobs in one batch. throws if IDB is unavailable or the
-// transaction fails — callers previously had an opt-in data-URL fallback but
-// that path is gone: TierItem no longer carries inline imageUrl in memory
+// transaction fails — JSON import/export keeps its own inline-image fallback
 export const persistBlobSources = async (
   blobs: readonly Blob[],
   options: { warmCache?: boolean } = {}

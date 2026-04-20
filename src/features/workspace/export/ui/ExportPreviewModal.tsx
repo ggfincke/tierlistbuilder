@@ -1,6 +1,7 @@
 // src/features/workspace/export/ui/ExportPreviewModal.tsx
 // export preview modal — shows rendered board image before download w/ format selector
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState } from 'react'
 import { Check, Copy, Download, Highlighter } from 'lucide-react'
 
@@ -60,9 +61,7 @@ export const ExportPreviewModal = ({
       panelClassName="flex w-full max-w-3xl flex-col p-4"
     >
       <div className="mb-3 flex items-center justify-between gap-4">
-        <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-          Export Preview
-        </h2>
+        <ModalHeader titleId={titleId}>Export Preview</ModalHeader>
         <SecondaryButton size="sm" onClick={onClose}>
           Done
         </SecondaryButton>

@@ -1,6 +1,7 @@
 // src/features/workspace/tier-presets/ui/PresetPickerModal.tsx
 // modal for choosing a board preset when creating a new list
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 
@@ -71,12 +72,7 @@ export const PresetPickerModal = ({
         panelClassName="flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col p-4"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2
-            id={titleId}
-            className="text-lg font-semibold text-[var(--t-text)]"
-          >
-            New List
-          </h2>
+          <ModalHeader titleId={titleId}>New List</ModalHeader>
           <SecondaryButton size="sm" onClick={handleClose}>
             Cancel
           </SecondaryButton>
