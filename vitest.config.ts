@@ -11,5 +11,6 @@ export default defineConfig({
   test: {
     alias: moduleAliases,
     exclude: ['node_modules', 'dist', '.idea', '.git', '.cache', '.claude/**'],
+    setupFiles: ['tests/setup.ts'],
   },
 })

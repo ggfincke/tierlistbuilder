@@ -1,7 +1,7 @@
 // tests/data/boardStorage.test.ts
 // local board storage envelope I/O
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
@@ -13,25 +13,12 @@ import {
   saveBoardToStorage,
 } from '~/features/workspace/boards/data/local/boardStorage'
 import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
-import {
-  createFailingStorage,
-  createMemoryStorage,
-} from '../utils/memoryStorage'
+import { createFailingStorage } from '../shared-lib/memoryStorage'
 
 const TEST_BOARD_ID = 'board-storage-test' as BoardId
 
 describe('boardStorage sync metadata', () =>
 {
-  beforeEach(() =>
-  {
-    vi.stubGlobal('localStorage', createMemoryStorage())
-  })
-
-  afterEach(() =>
-  {
-    vi.unstubAllGlobals()
-  })
-
   it('persists sync metadata alongside the board snapshot', () =>
   {
     const snapshot = createInitialBoardData('classic')

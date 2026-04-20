@@ -1,7 +1,7 @@
 // tests/platform/cloudMerge.test.ts
 // first-login cloud merge decisions
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type {
   BoardListItem,
   BoardMeta,
@@ -19,7 +19,6 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 import { makeBoardSnapshot } from '../fixtures'
-import { createMemoryStorage } from '../utils/memoryStorage'
 
 const TEST_USER_ID = 'user-1'
 const LOCAL_BOARD_ID = 'board-local' as BoardId
@@ -64,14 +63,12 @@ describe('cloudMerge', () =>
 {
   beforeEach(() =>
   {
-    vi.stubGlobal('localStorage', createMemoryStorage())
     resetStores()
   })
 
   afterEach(() =>
   {
     resetStores()
-    vi.unstubAllGlobals()
   })
 
   it('tracks pending vs completed cloud pull state', () =>

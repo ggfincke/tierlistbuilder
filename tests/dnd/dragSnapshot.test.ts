@@ -14,7 +14,7 @@ import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   brandItemIds as ids,
   findTierById,
-  makeSnapshot,
+  makeContainerSnapshot,
   makeTier,
 } from '../fixtures'
 
@@ -61,7 +61,7 @@ describe('createContainerSnapshot', () =>
 
 describe('findContainer', () =>
 {
-  const snap = makeSnapshot()
+  const snap = makeContainerSnapshot()
 
   it('returns tier ID when item is in a tier', () =>
   {
@@ -149,7 +149,7 @@ describe('moveItemInSnapshot', () =>
 {
   it('reorders an item within the same tier', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     // move item-1 from index 0 to index 2 in tier-s
     const result = moveItemInSnapshot(
       snap,
@@ -164,7 +164,7 @@ describe('moveItemInSnapshot', () =>
 
   it('moves an item from a tier to the unranked pool', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = moveItemInSnapshot(
       snap,
       asItemId('item-1'),
@@ -179,7 +179,7 @@ describe('moveItemInSnapshot', () =>
 
   it('returns unchanged snapshot when source container is invalid', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = moveItemInSnapshot(
       snap,
       asItemId('item-1'),
@@ -195,7 +195,7 @@ describe('moveItemToIndexInSnapshot', () =>
 {
   it('moves an item to an exact index in a different container', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = moveItemToIndexInSnapshot({
       snapshot: snap,
       itemId: asItemId('item-6'),
