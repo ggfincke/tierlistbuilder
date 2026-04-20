@@ -24,8 +24,7 @@ import {
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
 import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
-
-const PRESET_MERGE_CONCURRENCY = 3
+import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 
 export interface PresetMergeResult
 {
@@ -304,7 +303,7 @@ export const mergeTierPresetsOnFirstLogin = async ({
 
   const settled = await mapAsyncLimitSettled(
     tasks,
-    PRESET_MERGE_CONCURRENCY,
+    SYNC_CONCURRENCY.presetMerge,
     (task) => executeTask(task, userId, canProceed, deps)
   )
 

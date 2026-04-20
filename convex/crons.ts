@@ -6,8 +6,7 @@ import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
-
-const HARD_DELETE_SCHEDULE_BATCH = 64
+import { BATCH_LIMITS } from './lib/limits'
 
 // schedule hard-deletes for boards past the soft-delete retention window
 export const scheduleHardDeletes = internalMutation({
@@ -24,7 +23,7 @@ export const scheduleHardDeletes = internalMutation({
         q.gt('deletedAt', 0).lt('deletedAt', cutoff)
       )
       .paginate({
-        numItems: HARD_DELETE_SCHEDULE_BATCH,
+        numItems: BATCH_LIMITS.hardDeleteSchedule,
         cursor: args.cursor,
       })
 

@@ -22,7 +22,25 @@ import type {
 import { FONT_FAMILY_LABELS } from '~/features/workspace/annotation/model/useAnnotationCanvas'
 import { ColorInput } from '~/shared/ui/ColorInput'
 
-const FONT_SIZE_PRESETS = [10, 12, 14, 18, 24, 36, 48, 60]
+// min/max match the number input's advertised range so the stepper doesn't
+// disable before the input bound & out-of-range typed values aren't silently dropped
+const FONT_SIZE_MIN = 6
+const FONT_SIZE_MAX = 120
+const FONT_SIZE_PRESETS = [
+  FONT_SIZE_MIN,
+  8,
+  10,
+  12,
+  14,
+  18,
+  24,
+  36,
+  48,
+  60,
+  72,
+  96,
+  FONT_SIZE_MAX,
+]
 
 interface AnnotationToolbarProps
 {
@@ -218,15 +236,15 @@ export const AnnotationToolbar = memo(
                 onChange={(e) =>
                 {
                   const n = parseInt(e.target.value, 10)
-                  if (!isNaN(n) && n >= 6 && n <= 120)
+                  if (!isNaN(n) && n >= FONT_SIZE_MIN && n <= FONT_SIZE_MAX)
                   {
                     onFontSizeChange(n)
                   }
                 }}
                 className="h-6 w-9 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-center text-xs text-[var(--t-text)] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 title="Font size"
-                min={6}
-                max={120}
+                min={FONT_SIZE_MIN}
+                max={FONT_SIZE_MAX}
               />
               <button
                 type="button"

@@ -11,8 +11,7 @@ import {
   type TierPresetCloudSyncHandle,
 } from '~/features/workspace/tier-presets/data/cloud/cloudSync'
 import type { BoardDeleteCloudSyncHandle } from '~/features/workspace/boards/data/cloud/setupBoardDeleteCloudSync'
-
-const SYNC_DEBOUNCE_MS = 2500
+import { CLOUD_SYNC_DEBOUNCE_MS } from '~/features/platform/sync/lib/concurrency'
 
 export interface InstallOptions
 {
@@ -57,7 +56,7 @@ export const useHandleRegistry = (): HandleRegistry =>
       if (!shouldProceed() || settingsRef.current) return
 
       settingsRef.current = setupSettingsCloudSync({
-        debounceMs: SYNC_DEBOUNCE_MS,
+        debounceMs: CLOUD_SYNC_DEBOUNCE_MS,
         userId,
         shouldProceed,
       })
@@ -73,7 +72,7 @@ export const useHandleRegistry = (): HandleRegistry =>
       if (!shouldProceed() || presetsRef.current) return
 
       presetsRef.current = setupTierPresetCloudSync({
-        debounceMs: SYNC_DEBOUNCE_MS,
+        debounceMs: CLOUD_SYNC_DEBOUNCE_MS,
         userId,
         shouldProceed,
       })

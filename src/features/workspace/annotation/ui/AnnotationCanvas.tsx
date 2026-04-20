@@ -9,6 +9,7 @@ interface AnnotationCanvasProps
 {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
   backgroundImage: string
+  captureTouchGestures: boolean
   onMouseDown: (e: React.MouseEvent) => void
   onMouseMove: (e: React.MouseEvent) => void
   onMouseUp: () => void
@@ -102,6 +103,7 @@ export const AnnotationCanvas = memo(
   ({
     canvasRef,
     backgroundImage,
+    captureTouchGestures,
     onMouseDown,
     onMouseMove,
     onMouseUp,
@@ -141,7 +143,10 @@ export const AnnotationCanvas = memo(
         <canvas
           ref={canvasRef}
           className="absolute inset-0 h-full w-full"
-          style={{ cursor }}
+          style={{
+            cursor,
+            touchAction: captureTouchGestures ? 'none' : 'auto',
+          }}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}

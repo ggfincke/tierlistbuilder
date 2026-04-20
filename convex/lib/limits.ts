@@ -6,3 +6,17 @@ export const MAX_SYNC_TIERS = 50
 export const MAX_SYNC_ITEMS = 2000
 export const BOARD_TIER_TAKE_LIMIT = MAX_SYNC_TIERS * 2
 export const BOARD_ITEM_TAKE_LIMIT = MAX_SYNC_ITEMS * 2
+
+// per-op batch sizes for scheduled / crons workloads
+export const BATCH_LIMITS = {
+  // hard-delete scheduler picks up this many soft-deleted boards per tick
+  hardDeleteSchedule: 64,
+  // media GC scans this many image rows per batch
+  mediaGc: 64,
+  // storage GC cleans this many orphaned storage blobs per batch
+  storageGc: 64,
+  // expired-link cleanup removes this many short-links per batch
+  expiredLink: 64,
+  // cascading board deletion pages through tiers & items this many at a time
+  cascadeDelete: 256,
+} as const

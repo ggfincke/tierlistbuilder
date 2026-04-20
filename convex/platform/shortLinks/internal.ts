@@ -5,8 +5,7 @@
 import { v } from 'convex/values'
 import { internalMutation } from '../../_generated/server'
 import { internal } from '../../_generated/api'
-
-const EXPIRED_LINK_BATCH_SIZE = 64
+import { BATCH_LIMITS } from '../../lib/limits'
 
 // reap shortLinks rows past expiresAt + matching _storage blob. row deleted first
 // so a crash leaves only an orphaned blob — caught by the daily gcOrphanedStorage pass.
@@ -25,7 +24,7 @@ export const gcExpiredShortLinks = internalMutation({
         q.gt('expiresAt', 0).lt('expiresAt', now)
       )
       .paginate({
-        numItems: EXPIRED_LINK_BATCH_SIZE,
+        numItems: BATCH_LIMITS.expiredLink,
         cursor: args.cursor,
       })
 

@@ -3,7 +3,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-export const useClipboardCopy = (timeoutMs = 2000) =>
+// default duration of the transient "copied" feedback state
+export const COPIED_FEEDBACK_MS = 2000
+
+export const useClipboardCopy = (timeoutMs = COPIED_FEEDBACK_MS) =>
 {
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)

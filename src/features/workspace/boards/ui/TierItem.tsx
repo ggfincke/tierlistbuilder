@@ -20,7 +20,7 @@ import { ITEM_SIZE_PX, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
-import { ItemOverlayButton } from '~/shared/ui/ItemOverlayButton'
+import { ItemOverlayButton } from '~/shared/board-ui/ItemOverlayButton'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 interface TierItemProps

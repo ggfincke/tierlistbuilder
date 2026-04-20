@@ -21,9 +21,7 @@ import {
   generateUploadUrlImperative,
   finalizeUploadImperative,
 } from '~/features/workspace/boards/data/cloud/boardRepository'
-
-// 3 keeps the uploader polite on slow connections; raise if we see latency stalls
-const UPLOAD_CONCURRENCY = 3
+import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 
 // narrow a BlobRecord mimeType into the server-accepted MIME set, or reject
 const asSupportedMimeType = (mimeType: string): SupportedImageMimeType =>
@@ -148,7 +146,7 @@ export const uploadBoardImages = async (
 
   const uploadResults = await mapAsyncLimitSettled(
     needsBlobUpload,
-    UPLOAD_CONCURRENCY,
+    SYNC_CONCURRENCY.upload,
     async (hash) =>
     {
       const record = storedBlobRecords.get(hash)!

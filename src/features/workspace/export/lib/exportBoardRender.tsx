@@ -9,6 +9,7 @@ import type { ExportAppearance } from '../model/runtime'
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
 import { EXPORT_BOARD_ROOT_SELECTOR } from '~/shared/board-ui/boardTestIds'
+import { Z } from '~/shared/theme/zIndex'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
 
@@ -88,7 +89,7 @@ const createCaptureHost = (): HTMLDivElement =>
   host.style.top = '0'
   host.style.pointerEvents = 'none'
   host.style.opacity = '1'
-  host.style.zIndex = '-1'
+  host.style.zIndex = String(Z.offscreen)
   host.style.width = 'max-content'
   document.body.appendChild(host)
   return host

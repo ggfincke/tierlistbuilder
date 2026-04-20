@@ -6,7 +6,7 @@ import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 
 // 10s TTL covers a typical flush round trip while keeping a crashed tab
 // from blocking peers indefinitely
-const LOCK_TTL_MS = 10_000
+const PEER_LOCK_TTL_MS = 10_000
 const CHANNEL_NAME = 'tlb-sync'
 
 interface LockMessage
@@ -16,7 +16,7 @@ interface LockMessage
   at: number
 }
 
-// most-recent `at` observed per peer board. (now - at < LOCK_TTL_MS) ->
+// most-recent `at` observed per peer board. (now - at < PEER_LOCK_TTL_MS) ->
 // local scheduler skips flushing that board
 const lastAcquiredByPeer = new Map<BoardId, number>()
 
@@ -48,7 +48,7 @@ export const isBoardLockedByPeer = (boardId: BoardId): boolean =>
 {
   const at = lastAcquiredByPeer.get(boardId)
   if (at === undefined) return false
-  return Date.now() - at < LOCK_TTL_MS
+  return Date.now() - at < PEER_LOCK_TTL_MS
 }
 
 // ms until the peer lock expires; 0 when unlocked. callers wait this out
@@ -57,7 +57,7 @@ export const getPeerLockRemainingMs = (boardId: BoardId): number =>
 {
   const at = lastAcquiredByPeer.get(boardId)
   if (at === undefined) return 0
-  const remaining = LOCK_TTL_MS - (Date.now() - at)
+  const remaining = PEER_LOCK_TTL_MS - (Date.now() - at)
   return remaining > 0 ? remaining : 0
 }
 

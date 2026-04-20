@@ -2,7 +2,7 @@
 // settings tab block — sign-in trigger when signed out, profile card + sign-out
 // when signed in. lifted into its own slice so community views can reuse it
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { LogIn, LogOut } from 'lucide-react'
 
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
@@ -17,17 +17,6 @@ export const AccountSection = () =>
   const { signOut } = useAuthActions()
   const [showSignIn, setShowSignIn] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
-  // sign-out swaps the session state, which in turn usually unmounts the
-  // account section (the signed-in branch disappears). guard the state
-  // update so we never call setSigningOut on an unmounted component
-  const isMountedRef = useRef(true)
-  useEffect(
-    () => () =>
-    {
-      isMountedRef.current = false
-    },
-    []
-  )
 
   const handleSignOut = async () =>
   {
@@ -38,10 +27,7 @@ export const AccountSection = () =>
     }
     finally
     {
-      if (isMountedRef.current)
-      {
-        setSigningOut(false)
-      }
+      setSigningOut(false)
     }
   }
 
@@ -56,7 +42,7 @@ export const AccountSection = () =>
       {session.status === 'signed-out' && (
         <>
           <p className="text-sm text-[var(--t-text-secondary)]">
-            Sign in to sync your boards across devices & publish templates.
+            Sign in to sync your boards across devices.
           </p>
           <SecondaryButton
             variant="surface"

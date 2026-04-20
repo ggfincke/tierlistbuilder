@@ -7,8 +7,18 @@ export interface ShortcutDefinition
   description: string
 }
 
-export const IS_MAC =
-  typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac')
+// prefer the modern UA-Data platform string; fall back to navigator.platform
+// for browsers that haven't shipped it (Firefox, Safari at time of writing)
+const detectPlatform = (): string =>
+{
+  if (typeof navigator === 'undefined') return ''
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { platform?: string } }
+  ).userAgentData
+  return uaData?.platform ?? navigator.platform ?? ''
+}
+
+export const IS_MAC = detectPlatform().toLowerCase().startsWith('mac')
 
 export const MOD_KEY = IS_MAC ? 'Cmd' : 'Ctrl'
 

@@ -82,13 +82,13 @@ export const StatsModal = ({ open, onClose }: StatsModalProps) =>
 
       {stats.totalItems > 0 && (
         <div className="space-y-2 border-t border-[var(--t-border)] pt-4">
-          {stats.averageTierIndex !== null && (
+          {stats.averageTierRank !== null && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-[var(--t-text-muted)]">
                 Average Tier Position
               </span>
               <span className="font-medium text-[var(--t-text)]">
-                {stats.averageTierIndex.toFixed(1)}
+                {stats.averageTierRank.toFixed(1)}
               </span>
             </div>
           )}

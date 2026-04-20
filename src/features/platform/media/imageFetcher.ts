@@ -11,11 +11,7 @@ import {
   type CloudImageRequest,
 } from '~/shared/images/imageBlobCache'
 import { createBlobRecord } from '~/shared/images/imagePersistence'
-
-// max parallel URL fetches after the Convex query resolves — blob downloads
-// go to the Convex storage CDN, not the app server, so throttling here only
-// protects the browser's connection pool from 50 simultaneous requests
-const BLOB_FETCH_CONCURRENCY = 8
+import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 
 interface ResolvedAsset
 {
@@ -57,7 +53,7 @@ const drainBlobFetches = async (
 ): Promise<void> =>
 {
   const workers = Array.from(
-    { length: Math.min(BLOB_FETCH_CONCURRENCY, queue.length) },
+    { length: Math.min(SYNC_CONCURRENCY.blobFetch, queue.length) },
     async () =>
     {
       while (queue.length > 0)

@@ -34,8 +34,7 @@ import {
   resumePendingSyncs,
 } from './pendingSyncRecovery'
 import type { HandleRegistry } from './useHandleRegistry'
-
-const SYNC_DEBOUNCE_MS = 2500
+import { CLOUD_SYNC_DEBOUNCE_MS } from '~/features/platform/sync/lib/concurrency'
 
 export interface SyncSession
 {
@@ -67,7 +66,7 @@ export const createSyncSession = ({
   let mergePending = false
 
   const scheduler = createCloudSyncScheduler({
-    debounceMs: SYNC_DEBOUNCE_MS,
+    debounceMs: CLOUD_SYNC_DEBOUNCE_MS,
     hasBoard: (boardId) =>
       useWorkspaceBoardRegistryStore
         .getState()
