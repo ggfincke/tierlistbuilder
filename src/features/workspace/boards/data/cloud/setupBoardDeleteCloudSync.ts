@@ -13,11 +13,7 @@ import {
   isPermanentConvexError,
 } from '~/features/platform/sync/lib/errors'
 import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
-
-// parallel delete concurrency — independent rows on the server, but we
-// bound to 4 so a user w/ dozens of queued deletes doesn't fan out a
-// thundering herd on the first online tick
-const DELETE_CONCURRENCY = 4
+import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 
 interface SetupBoardDeleteCloudSyncOptions
 {
@@ -60,7 +56,7 @@ export const setupBoardDeleteCloudSync = (
       let progressed = 0
       const results = await mapAsyncLimitSettled(
         ids,
-        DELETE_CONCURRENCY,
+        SYNC_CONCURRENCY.delete,
         async (cloudExternalId) =>
         {
           if (disposed || !canProceed()) throw new Error('aborted')

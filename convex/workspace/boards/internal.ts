@@ -4,8 +4,7 @@
 import { v } from 'convex/values'
 import { internalMutation } from '../../_generated/server'
 import { internal } from '../../_generated/api'
-
-const CASCADE_DELETE_BATCH_SIZE = 256
+import { BATCH_LIMITS } from '../../lib/limits'
 
 // cascade phases — items first, then tiers, then the board row itself.
 // each phase walks its own cursor so a large board that exceeds the batch
@@ -38,7 +37,7 @@ export const cascadeDeleteBoard = internalMutation({
         .query('boardItems')
         .withIndex('byBoardAndTier', (q) => q.eq('boardId', args.boardId))
         .paginate({
-          numItems: CASCADE_DELETE_BATCH_SIZE,
+          numItems: BATCH_LIMITS.cascadeDelete,
           cursor: args.cursor ?? null,
         })
 
@@ -72,7 +71,7 @@ export const cascadeDeleteBoard = internalMutation({
       .query('boardTiers')
       .withIndex('byBoard', (q) => q.eq('boardId', args.boardId))
       .paginate({
-        numItems: CASCADE_DELETE_BATCH_SIZE,
+        numItems: BATCH_LIMITS.cascadeDelete,
         cursor: args.cursor ?? null,
       })
 

@@ -115,6 +115,7 @@ const AnnotationEditorContent = ({
         <AnnotationCanvas
           canvasRef={canvasRef}
           backgroundImage={backgroundImage}
+          captureTouchGestures={activeTool === 'pen'}
           onMouseDown={handlePointerDown}
           onMouseMove={handlePointerMove}
           onMouseUp={handlePointerUp}

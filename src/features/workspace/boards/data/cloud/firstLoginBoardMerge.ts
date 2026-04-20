@@ -21,8 +21,7 @@ import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { toast } from '~/shared/notifications/useToastStore'
 import { pluralizeWord } from '~/shared/lib/pluralize'
-
-const FIRST_LOGIN_BOARD_CONCURRENCY = 3
+import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 
 // push all local boards to the cloud (first-login, cloud-empty case)
 export const pushAllLocalBoards = async (
@@ -39,7 +38,7 @@ export const pushAllLocalBoards = async (
 
   const results = await mapAsyncLimit(
     boards,
-    FIRST_LOGIN_BOARD_CONCURRENCY,
+    SYNC_CONCURRENCY.firstLoginBoard,
     async (meta) =>
     {
       if (!canProceed())

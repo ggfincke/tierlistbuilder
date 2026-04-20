@@ -12,6 +12,7 @@ import {
 } from '~/features/workspace/sharing/short-link/shortLinkRepository'
 import { getShareUrlFromSlug } from '~/features/workspace/sharing/short-link/shortLinkShare'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { COPIED_FEEDBACK_MS } from '~/shared/hooks/useClipboardCopy'
 import { toast } from '~/shared/notifications/useToastStore'
 
 interface RecentSharesModalProps
@@ -20,8 +21,6 @@ interface RecentSharesModalProps
   onClose: () => void
   enabled: boolean
 }
-
-const COPIED_FEEDBACK_MS = 2000
 
 const formatAbsoluteDate = (epochMs: number): string =>
 {

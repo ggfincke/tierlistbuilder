@@ -19,9 +19,7 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { useCloudPullProgressStore } from '~/features/platform/sync/state/useCloudPullProgressStore'
-
-const PULL_CONCURRENCY = 3
-const PULL_BATCH_SIZE = 3
+import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 
 type PullMode = 'replace' | 'merge-missing'
 
@@ -83,9 +81,9 @@ const chunkBoards = (boards: BoardListItem[]): BoardListItem[][] =>
 {
   const chunks: BoardListItem[][] = []
 
-  for (let i = 0; i < boards.length; i += PULL_BATCH_SIZE)
+  for (let i = 0; i < boards.length; i += SYNC_CONCURRENCY.pullBatch)
   {
-    chunks.push(boards.slice(i, i + PULL_BATCH_SIZE))
+    chunks.push(boards.slice(i, i + SYNC_CONCURRENCY.pullBatch))
   }
 
   return chunks
@@ -259,7 +257,7 @@ export const pullAllCloudBoards = async ({
     const boardChunks = chunkBoards(boardsToDownload)
     results = await mapAsyncLimit(
       boardChunks,
-      PULL_CONCURRENCY,
+      SYNC_CONCURRENCY.pull,
       async (chunk) =>
       {
         try

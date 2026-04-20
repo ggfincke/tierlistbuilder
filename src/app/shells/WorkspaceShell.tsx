@@ -5,7 +5,7 @@ import { lazy, useCallback, useState, type MouseEvent } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
-import { useThemeApplicator } from '~/app/bootstrap/useThemeApplicator'
+import { useThemeSync } from '~/app/bootstrap/useThemeSync'
 import { useModalStack } from '~/app/shells/useModalStack'
 import { BoardActionBar } from '~/features/workspace/boards/ui/BoardActionBar'
 import { BoardManager } from '~/features/workspace/boards/ui/BoardManager'
@@ -106,7 +106,7 @@ export const WorkspaceShell = () =>
     aboveSm
   )
 
-  useThemeApplicator()
+  useThemeSync()
 
   const authSession = useAuthSession()
   const signedInUser =

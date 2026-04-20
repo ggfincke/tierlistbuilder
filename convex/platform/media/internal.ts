@@ -6,9 +6,7 @@ import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { internal } from '../../_generated/api'
-
-const MEDIA_GC_BATCH_SIZE = 64
-const STORAGE_GC_BATCH_SIZE = 64
+import { BATCH_LIMITS } from '../../lib/limits'
 
 // in-flight upload protection: skip rows newer than this window. covers the race
 // between finalizeUpload inserting mediaAssets & upsertBoardState wiring the reference -
@@ -33,7 +31,7 @@ export const gcOrphanedMediaAssets = internalMutation({
     const cutoff = Date.now() - GC_GRACE_MS
 
     const page = await ctx.db.query('mediaAssets').paginate({
-      numItems: MEDIA_GC_BATCH_SIZE,
+      numItems: BATCH_LIMITS.mediaGc,
       cursor: args.cursor,
     })
 
@@ -140,7 +138,7 @@ export const gcOrphanedStorage = internalMutation({
     const cutoff = Date.now() - GC_GRACE_MS
 
     const page = await ctx.db.system.query('_storage').paginate({
-      numItems: STORAGE_GC_BATCH_SIZE,
+      numItems: BATCH_LIMITS.storageGc,
       cursor: args.cursor,
     })
 

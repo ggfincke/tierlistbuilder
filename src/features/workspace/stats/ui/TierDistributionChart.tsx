@@ -3,7 +3,10 @@
 
 import { memo } from 'react'
 
-import type { TierStat } from '~/features/workspace/stats/model/boardStats'
+import type {
+  TierStat,
+  TierStatColor,
+} from '~/features/workspace/stats/model/boardStats'
 import { getTextColor } from '~/shared/lib/color'
 
 interface TierDistributionChartProps
@@ -11,6 +14,17 @@ interface TierDistributionChartProps
   distribution: TierStat[]
   maxCount: number
 }
+
+// resolve the tagged color source to a CSS color string for backgrounds & text
+const resolveColor = (color: TierStatColor): string =>
+  color.kind === 'unranked' ? 'var(--t-text-dim)' : color.value
+
+// label text sits on the filled bar; use dark/light vs. palette color & fall
+// back to page bg for the unranked var (which is a CSS custom property)
+const resolveLabelColor = (color: TierStatColor): string =>
+  color.kind === 'palette' && color.value.startsWith('#')
+    ? getTextColor(color.value)
+    : 'var(--t-bg-page)'
 
 export const TierDistributionChart = memo(
   ({ distribution, maxCount }: TierDistributionChartProps) =>
@@ -33,16 +47,14 @@ export const TierDistributionChart = memo(
         {distribution.map((tier) =>
         {
           const widthPercent = maxCount > 0 ? (tier.count / maxCount) * 100 : 0
-          const isHexColor = tier.color.startsWith('#')
-          const labelColor = isHexColor
-            ? getTextColor(tier.color)
-            : 'var(--t-bg-page)'
+          const cssColor = resolveColor(tier.color)
+          const labelColor = resolveLabelColor(tier.color)
 
           return (
             <div key={tier.name} className="flex items-center gap-3">
               <span
                 className="w-16 shrink-0 truncate text-right text-xs font-medium"
-                style={{ color: tier.color }}
+                style={{ color: cssColor }}
                 title={tier.name}
               >
                 {tier.name}
@@ -52,7 +64,7 @@ export const TierDistributionChart = memo(
                   className="flex h-full items-center rounded-sm transition-all"
                   style={{
                     width: `${Math.max(widthPercent, tier.count > 0 ? 3 : 0)}%`,
-                    backgroundColor: tier.color,
+                    backgroundColor: cssColor,
                   }}
                 >
                   {tier.count > 0 && (
