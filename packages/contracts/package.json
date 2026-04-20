@@ -6,13 +6,18 @@
   "description": "Cross-runtime contracts shared between the frontend & convex backend",
   "exports": {
     "./workspace/board": "./workspace/board.ts",
+    "./workspace/boardEnvelope": "./workspace/boardEnvelope.ts",
+    "./workspace/boardSync": "./workspace/boardSync.ts",
     "./workspace/cloudBoard": "./workspace/cloudBoard.ts",
     "./workspace/cloudPreset": "./workspace/cloudPreset.ts",
     "./workspace/tierPreset": "./workspace/tierPreset.ts",
     "./workspace/settings": "./workspace/settings.ts",
     "./platform/errors": "./platform/errors.ts",
+    "./platform/media": "./platform/media.ts",
     "./platform/shortLink": "./platform/shortLink.ts",
+    "./platform/user": "./platform/user.ts",
     "./lib/ids": "./lib/ids.ts",
-    "./lib/theme": "./lib/theme.ts"
+    "./lib/theme": "./lib/theme.ts",
+    "./lib/themeDefinition": "./lib/themeDefinition.ts"
   }
 }

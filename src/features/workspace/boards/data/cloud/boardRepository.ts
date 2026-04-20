@@ -11,7 +11,7 @@ import type {
   CloudBoardState,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type { SupportedImageMimeType } from '@tierlistbuilder/contracts/platform/media'
-import { convexClient } from '~/features/platform/convex/convexClient'
+import { convexClient } from '~/features/platform/sync/lib/convexClient'
 
 // list the caller's soft-deleted boards. powers the "Recently deleted"
 // surface; reactive so a successful restore / permanent-delete on another

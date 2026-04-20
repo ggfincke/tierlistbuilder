@@ -6,7 +6,7 @@ import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 import {
   mergeSettingsOnFirstLogin,
   type SettingsMergeDeps,
-} from '~/features/platform/sync/settings/cloudMerge'
+} from '~/features/workspace/settings/data/cloud/cloudMerge'
 import {
   loadSettingsSyncMeta,
   saveSettingsSyncMeta,

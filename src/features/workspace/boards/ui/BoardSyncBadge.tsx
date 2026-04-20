@@ -3,9 +3,9 @@
 // when idle, otherwise a small icon w/ short tooltip copy
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import { useBoardSyncStatus } from '~/features/platform/sync/status/useBoardSyncStatus'
-import { SyncStatusVisualView } from '~/features/platform/sync/status/SyncStatusVisualView'
-import { getSyncStatusVisual } from '~/features/platform/sync/status/syncStatusVisuals'
+import { useBoardSyncStatus } from '~/features/platform/sync/state/useBoardSyncStatus'
+import { SyncStatusVisualView } from '~/features/platform/sync/state/SyncStatusVisualView'
+import { getSyncStatusVisual } from '~/features/platform/sync/state/syncStatusVisuals'
 
 interface BoardSyncBadgeProps
 {

@@ -1,0 +1,90 @@
+// src/features/workspace/boards/data/cloud/cloudRestore.ts
+// per-board restore helper for "Recently deleted"; boardId mirrors cloud externalId
+
+import { asBoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  getBoardStateByExternalIdImperative,
+  restoreBoardImperative,
+} from '~/features/workspace/boards/data/cloud/boardRepository'
+import { serverStateToSnapshot } from '~/features/workspace/boards/data/cloud/boardMapper'
+import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
+import { markBoardSynced } from '~/features/workspace/boards/model/sync'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { RestoreBoardError } from '~/features/platform/sync/lib/errors'
+
+export { RestoreBoardError }
+export type { RestoreErrorCode } from '~/features/platform/sync/lib/errors'
+
+export interface RestoredBoard
+{
+  meta: BoardMeta
+  alreadyInRegistry: boolean
+}
+
+// restore a soft-deleted cloud board & materialize it locally. throws on
+// any leg so the caller handles a single error path (UI shows retry option)
+export const restoreBoardFromCloud = async (
+  boardExternalId: string
+): Promise<RestoredBoard> =>
+{
+  try
+  {
+    await restoreBoardImperative({ boardExternalId })
+  }
+  catch (error)
+  {
+    throw new RestoreBoardError(
+      'cloud-error',
+      `restore mutation failed for ${boardExternalId}`,
+      error
+    )
+  }
+
+  const cloudState = await getBoardStateByExternalIdImperative({
+    boardExternalId,
+  })
+  if (!cloudState)
+  {
+    throw new RestoreBoardError(
+      'concurrent-hard-delete',
+      `restored board ${boardExternalId} returned no state — hard-deleted concurrently`
+    )
+  }
+
+  const boardId = asBoardId(boardExternalId)
+  const snapshot = serverStateToSnapshot(cloudState)
+
+  const saveResult = saveBoardToStorage(boardId, snapshot, {
+    syncState: markBoardSynced(cloudState.revision, boardExternalId),
+  })
+
+  if (!saveResult.ok)
+  {
+    throw new RestoreBoardError(
+      'persist-failed',
+      `failed to persist restored board ${boardExternalId}: ${saveResult.message}`
+    )
+  }
+
+  const registryStore = useWorkspaceBoardRegistryStore.getState()
+  const existing = registryStore.boards.find((b) => b.id === boardId)
+  if (existing)
+  {
+    return {
+      meta: existing,
+      alreadyInRegistry: true,
+    }
+  }
+
+  // CloudBoardState has no createdAt; re-stamp w/ now() — registry's
+  // createdAt only drives display order, so this is safe & avoids a second query
+  const meta: BoardMeta = {
+    id: boardId,
+    title: snapshot.title,
+    createdAt: Date.now(),
+  }
+  registryStore.addBoardMeta(meta, false)
+
+  return { meta, alreadyInRegistry: false }
+}

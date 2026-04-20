@@ -2,16 +2,10 @@
 // text style definitions — font family, weights, & letter spacing per style
 
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
+import type { TextStyleDefinition } from '@tierlistbuilder/contracts/lib/themeDefinition'
 import { buildGoogleFontUrl } from '~/shared/lib/urls'
 
-export interface TextStyleDefinition
-{
-  fontFamily: string
-  weightNormal: string
-  weightHeading: string
-  letterSpacing: string
-  googleFontsUrl: string | null
-}
+export type { TextStyleDefinition }
 
 export const TEXT_STYLES: Record<TextStyleId, TextStyleDefinition> = {
   default: {

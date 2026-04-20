@@ -52,6 +52,10 @@ import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
 let suppressNextAutosave = false
+// listener registered by the sync subscriber to track board loads that swap
+// the active store wholesale. keeps the next real edit from being mistaken
+// for the load itself after pull/bootstrap/switch paths
+let boardLoadedListener: ((boardId: BoardId) => void) | null = null
 // listener registered by useCloudSync once a board-delete handle mounts.
 // deleteBoardSession calls it to trigger immediate cleanup; when no handle is
 // mounted the sidecar alone preserves the intent for resumePendingSyncs
@@ -140,6 +144,7 @@ const persistBoardSyncStateToStorage = (
 // suppression flag immediately after loadBoard returns. this keeps the flag
 // scoped to one dispatch, even when no selector-based autosave fires
 const loadBoardState = (
+  boardId: BoardId,
   snapshot: BoardSnapshot,
   syncState: BoardSyncState = EMPTY_BOARD_SYNC_STATE
 ): void =>
@@ -153,6 +158,8 @@ const loadBoardState = (
   {
     suppressNextAutosave = false
   }
+
+  boardLoadedListener?.(boardId)
 }
 
 const deduplicateTitle = (title: string, boards: BoardMeta[]): string =>
@@ -248,7 +255,7 @@ export const loadBoardIntoSession = async (
     return state.snapshot
   }
 
-  loadBoardState(state.snapshot, state.syncState)
+  loadBoardState(boardId, state.snapshot, state.syncState)
   return state.snapshot
 }
 
@@ -279,7 +286,7 @@ const saveAndActivateBoard = async (
   useWorkspaceBoardRegistryStore
     .getState()
     .addBoardMeta(createBoardMeta(id, title), true)
-  loadBoardState(normalized)
+  loadBoardState(id, normalized)
   return id
 }
 
@@ -349,7 +356,7 @@ export const bootstrapBoardSession = async (): Promise<void> =>
         boardStore.setActiveBoardId(requestedActiveId)
       }
       await warmFromBoard(state.snapshot)
-      loadBoardState(state.snapshot, state.syncState)
+      loadBoardState(requestedActiveId, state.snapshot, state.syncState)
       pruneOrphanedRegistryEntriesAsync(requestedActiveId)
       return
     }
@@ -365,7 +372,7 @@ export const bootstrapBoardSession = async (): Promise<void> =>
   saveBoardToStorage(id, data)
   boardStore.replaceRegistry([createBoardMeta(id, data.title)], id)
   await warmFromBoard(data)
-  loadBoardState(data)
+  loadBoardState(id, data)
 }
 
 export const persistBoardSyncState = (
@@ -489,6 +496,15 @@ export const setBoardDeletedListener = (
 ): void =>
 {
   boardDeletedListener = listener
+}
+
+// register a listener for "board loaded into the active session". installed by
+// the sync subscriber so non-edit loads can reset its loaded-board marker
+export const setBoardLoadedListener = (
+  listener: ((boardId: BoardId) => void) | null
+): void =>
+{
+  boardLoadedListener = listener
 }
 
 export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>

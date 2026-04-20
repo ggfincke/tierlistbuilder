@@ -11,7 +11,7 @@ const MEDIA_GC_BATCH_SIZE = 64
 const STORAGE_GC_BATCH_SIZE = 64
 
 // in-flight upload protection: skip rows newer than this window. covers the race
-// between finalizeUpload inserting mediaAssets & upsertBoardState wiring the reference —
+// between finalizeUpload inserting mediaAssets & upsertBoardState wiring the reference -
 // a GC pass between those two would otherwise reap a fresh asset
 const GC_GRACE_MS = 60 * 60 * 1000
 
@@ -99,39 +99,37 @@ export const gcOrphanedMediaAssets = internalMutation({
   },
 })
 
-// build the set of _storage ids referenced by any app table. cheap for current
-// table sizes (bounded by user count × per-user assets, ~10^6 range). cache via
-// a referenceIndex table if this becomes hot
-const collectReferencedStorageIds = async (
-  ctx: MutationCtx
-): Promise<Set<Id<'_storage'>>> =>
+// check whether any app table still references a storage blob. use indexes so
+// each lookup stays bounded & the scheduler continuation only needs a cursor
+const hasStorageReference = async (
+  ctx: MutationCtx,
+  storageId: Id<'_storage'>
+): Promise<boolean> =>
 {
-  const referenced = new Set<Id<'_storage'>>()
+  const [assetRefs, shortLinkRefs, avatarRefs] = await Promise.all([
+    ctx.db
+      .query('mediaAssets')
+      .withIndex('byStorageId', (q) => q.eq('storageId', storageId))
+      .take(1),
+    ctx.db
+      .query('shortLinks')
+      .withIndex('bySnapshotStorageId', (q) =>
+        q.eq('snapshotStorageId', storageId)
+      )
+      .take(1),
+    ctx.db
+      .query('users')
+      .withIndex('byAvatarStorageId', (q) => q.eq('avatarStorageId', storageId))
+      .take(1),
+  ])
 
-  for await (const asset of ctx.db.query('mediaAssets'))
-  {
-    referenced.add(asset.storageId)
-  }
-
-  for await (const link of ctx.db.query('shortLinks'))
-  {
-    referenced.add(link.snapshotStorageId)
-  }
-
-  for await (const user of ctx.db.query('users'))
-  {
-    if (user.avatarStorageId)
-    {
-      referenced.add(user.avatarStorageId)
-    }
-  }
-
-  return referenced
+  return (
+    assetRefs.length > 0 || shortLinkRefs.length > 0 || avatarRefs.length > 0
+  )
 }
 
-// reap _storage blobs w/ no referencing row. paginates _storage & self-schedules
-// continuations. grace window protects fresh uploads whose linking mutation hasn't fired.
-// safety net for gcOrphanedMediaAssets — catches residual blobs from partial failures
+// reap _storage blobs w/ no referencing row - safety net for gcOrphanedMediaAssets.
+// use per-blob indexed lookups so continuations stay under scheduler arg limits
 export const gcOrphanedStorage = internalMutation({
   args: {
     cursor: v.union(v.string(), v.null()),
@@ -146,20 +144,26 @@ export const gcOrphanedStorage = internalMutation({
       cursor: args.cursor,
     })
 
-    const referenced =
-      page.page.length > 0
-        ? await collectReferencedStorageIds(ctx)
-        : new Set<Id<'_storage'>>()
+    const eligible = page.page.filter((blob) => blob._creationTime <= cutoff)
+    const orphaned: Id<'_storage'>[] = []
+
+    for (let i = 0; i < eligible.length; i += REFERENCE_CHECK_CONCURRENCY)
+    {
+      const chunk = eligible.slice(i, i + REFERENCE_CHECK_CONCURRENCY)
+      const flags = await Promise.all(
+        chunk.map(async (blob) => !(await hasStorageReference(ctx, blob._id)))
+      )
+
+      for (let j = 0; j < chunk.length; j++)
+      {
+        if (flags[j]) orphaned.push(chunk[j]._id)
+      }
+    }
 
     let deleted = 0
-    for (const blob of page.page)
+    for (const storageId of orphaned)
     {
-      // convex system _storage table — _creationTime is the insertion wall
-      // clock in millis, which doubles as the in-flight grace window
-      if (blob._creationTime > cutoff) continue
-      if (referenced.has(blob._id)) continue
-
-      await ctx.storage.delete(blob._id)
+      await ctx.storage.delete(storageId)
       deleted++
     }
 

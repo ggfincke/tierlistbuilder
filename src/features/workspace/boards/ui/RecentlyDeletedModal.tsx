@@ -2,7 +2,7 @@
 // modal listing soft-deleted cloud boards w/ restore & permanent-delete actions.
 // driven by useListMyDeletedBoards so other tabs / devices reflect changes automatically
 
-import { ModalHeader } from '~/shared/overlay/ModalHeader'
+import { ModalHeader, BaseModal, ConfirmDialog } from '~/shared/overlay/Modal'
 import { useId, useState } from 'react'
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 
@@ -14,11 +14,9 @@ import {
 import {
   restoreBoardFromCloud,
   RestoreBoardError,
-} from '~/features/platform/sync/boards/cloudRestore'
+} from '~/features/workspace/boards/data/cloud/cloudRestore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { switchBoardSession } from '~/features/workspace/boards/data/local/localBoardSession'
-import { BaseModal } from '~/shared/overlay/BaseModal'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { toast } from '~/shared/notifications/useToastStore'
 

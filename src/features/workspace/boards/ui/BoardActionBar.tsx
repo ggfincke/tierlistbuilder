@@ -31,21 +31,23 @@ import {
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   useNestedMenus,
+  useDismissibleLayer,
+  useMenuOverflowFlipRefs,
   type NestedMenuDefinition,
-} from '~/shared/overlay/useNestedMenus'
-import { useDismissibleLayer } from '~/shared/overlay/useDismissibleLayer'
+} from '~/shared/overlay/menu'
+
 import {
   getMenuPositionClasses,
   isVerticalPosition,
 } from '~/shared/layout/toolbarPosition'
-import { useMenuOverflowFlipRefs } from '~/shared/overlay/useMenuOverflowFlip'
 import { ActionButton } from '~/shared/ui/ActionButton'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { ExportMenu } from '~/features/workspace/export/ui/ExportMenu'
 import {
+  ConfirmDialog,
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '~/shared/overlay/OverlayPrimitives'
+} from '~/shared/overlay/Modal'
+
 import { SavePresetModal } from '~/features/workspace/tier-presets/ui/SavePresetModal'
 import { SyncStatusIndicator } from '~/features/workspace/boards/ui/SyncStatusIndicator'
 

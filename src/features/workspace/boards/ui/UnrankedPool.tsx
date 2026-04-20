@@ -14,7 +14,7 @@ import { useEffectiveUnrankedItemIds } from '~/features/workspace/boards/model/u
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { UNRANKED_CONTAINER_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { TierItem } from './TierItem'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ConfirmDialog } from '~/shared/overlay/Modal'
 import { TextInput } from '~/shared/ui/TextInput'
 import { UploadDropzone } from '~/shared/ui/UploadDropzone'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'

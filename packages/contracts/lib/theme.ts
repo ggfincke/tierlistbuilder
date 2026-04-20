@@ -2,29 +2,40 @@
 // theme, palette, text-style identifiers, & tier color spec primitives
 
 // color theme identifiers
-export type ThemeId =
-  | 'classic'
-  | 'classic-light'
-  | 'midnight'
-  | 'forest'
-  | 'ember'
-  | 'sakura'
-  | 'amoled'
-  | 'high-contrast'
+export const THEME_IDS = [
+  'classic',
+  'classic-light',
+  'midnight',
+  'forest',
+  'ember',
+  'sakura',
+  'amoled',
+  'high-contrast',
+] as const
+export type ThemeId = (typeof THEME_IDS)[number]
 
 // text style identifiers
-export type TextStyleId = 'default' | 'mono' | 'serif' | 'rounded' | 'display'
+export const TEXT_STYLE_IDS = [
+  'default',
+  'mono',
+  'serif',
+  'rounded',
+  'display',
+] as const
+export type TextStyleId = (typeof TEXT_STYLE_IDS)[number]
 
 // tier label palette identifiers
-export type PaletteId =
-  | 'classic'
-  | 'ocean'
-  | 'midnight'
-  | 'forest'
-  | 'ember'
-  | 'sakura'
-  | 'twilight'
-  | 'high-contrast'
+export const PALETTE_IDS = [
+  'classic',
+  'ocean',
+  'midnight',
+  'forest',
+  'ember',
+  'sakura',
+  'twilight',
+  'high-contrast',
+] as const
+export type PaletteId = (typeof PALETTE_IDS)[number]
 
 // stable palette slot used to derive a tier color from the active theme
 export interface TierPaletteColorSpec

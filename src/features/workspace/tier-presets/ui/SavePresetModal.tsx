@@ -1,10 +1,9 @@
 // src/features/workspace/tier-presets/ui/SavePresetModal.tsx
 // modal prompt for naming & saving the current board as a reusable preset
 
-import { ModalHeader } from '~/shared/overlay/ModalHeader'
+import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
 import { useId, useRef, useState } from 'react'
 
-import { BaseModal } from '~/shared/overlay/BaseModal'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'

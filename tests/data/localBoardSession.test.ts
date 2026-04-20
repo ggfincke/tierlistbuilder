@@ -9,17 +9,21 @@ import {
   boardSyncStorageKey,
 } from '~/features/workspace/boards/data/local/boardStorage'
 import {
+  loadBoardIntoSession,
   persistBoardStateForSync,
   persistBoardSyncState,
+  setBoardLoadedListener,
 } from '~/features/workspace/boards/data/local/localBoardSession'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import {
   createFailingStorage,
   createMemoryStorage,
 } from '../utils/memoryStorage'
 
 const TEST_BOARD_ID = 'board-local-session-test' as BoardId
+const OTHER_BOARD_ID = 'board-local-session-other' as BoardId
 
 const resetStores = (): void =>
 {
@@ -64,6 +68,7 @@ describe('local board session sync persistence', () =>
 
   afterEach(() =>
   {
+    setBoardLoadedListener(null)
     resetStores()
     vi.unstubAllGlobals()
   })
@@ -111,5 +116,43 @@ describe('local board session sync persistence', () =>
     expect(useActiveBoardStore.getState().lastSyncedRevision).toBe(9)
     expect(useActiveBoardStore.getState().cloudBoardExternalId).toBe('cloud-a')
     expect(localStorage.getItem(boardSyncStorageKey(TEST_BOARD_ID))).toBeNull()
+  })
+
+  it('notifies board loads even before the registry active id flips', async () =>
+  {
+    useWorkspaceBoardRegistryStore.setState({
+      boards: [
+        {
+          id: OTHER_BOARD_ID,
+          title: 'Old board',
+          createdAt: Date.now(),
+        },
+        {
+          id: TEST_BOARD_ID,
+          title: 'Loaded board',
+          createdAt: Date.now(),
+        },
+      ],
+      activeBoardId: OTHER_BOARD_ID,
+    })
+
+    saveBoardToStorage(TEST_BOARD_ID, {
+      ...createInitialBoardData('classic'),
+      title: 'Loaded board',
+    })
+
+    const loadedBoardIds: BoardId[] = []
+    setBoardLoadedListener((boardId) =>
+    {
+      loadedBoardIds.push(boardId)
+    })
+
+    await loadBoardIntoSession(TEST_BOARD_ID)
+
+    expect(loadedBoardIds).toEqual([TEST_BOARD_ID])
+    expect(useActiveBoardStore.getState().title).toBe('Loaded board')
+    expect(useWorkspaceBoardRegistryStore.getState().activeBoardId).toBe(
+      OTHER_BOARD_ID
+    )
   })
 })

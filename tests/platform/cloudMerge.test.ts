@@ -14,7 +14,7 @@ import {
   hasPendingCloudPull,
   markCloudPullCompleted,
   markCloudPullPending,
-} from '~/features/platform/sync/boards/cloudMerge'
+} from '~/features/workspace/boards/data/cloud/cloudMerge'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'

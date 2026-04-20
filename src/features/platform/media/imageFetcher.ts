@@ -1,7 +1,7 @@
 // src/features/platform/media/imageFetcher.ts
 // registers the Convex-backed cloud image batch fetcher into the shared image cache
 
-import { convexClient } from '~/features/platform/convex/convexClient'
+import { convexClient } from '~/features/platform/sync/lib/convexClient'
 import { api } from '@convex/_generated/api'
 import { putBlob } from '~/shared/images/imageStore'
 import {

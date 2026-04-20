@@ -1,7 +1,7 @@
 // src/features/workspace/settings/ui/BoardSettingsModal.tsx
 // settings panel — tabbed modal that orchestrates per-tab settings content
 
-import { ModalHeader } from '~/shared/overlay/ModalHeader'
+import { ModalHeader, BaseModal, ConfirmDialog } from '~/shared/overlay/Modal'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { FALLBACK_COLOR, getPaletteColors } from '~/shared/theme/tierColors'
@@ -9,8 +9,6 @@ import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurr
 import { useRovingSelection } from '~/shared/selection/useRovingSelection'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { getStorageUsageBytes } from '~/shared/lib/storageMetering'
-import { BaseModal } from '~/shared/overlay/BaseModal'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AccountSection } from '~/features/platform/auth/ui/AccountSection'
 import { AppearanceTab } from './AppearanceTab'

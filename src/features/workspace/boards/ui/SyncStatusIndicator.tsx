@@ -3,9 +3,9 @@
 // scheduler retries errors & conflicts auto-open the resolver, so no actions here
 
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useBoardSyncStatus } from '~/features/platform/sync/status/useBoardSyncStatus'
-import { SyncStatusVisualView } from '~/features/platform/sync/status/SyncStatusVisualView'
-import { getSyncStatusVisual } from '~/features/platform/sync/status/syncStatusVisuals'
+import { useBoardSyncStatus } from '~/features/platform/sync/state/useBoardSyncStatus'
+import { SyncStatusVisualView } from '~/features/platform/sync/state/SyncStatusVisualView'
+import { getSyncStatusVisual } from '~/features/platform/sync/state/syncStatusVisuals'
 
 interface SyncStatusIndicatorProps
 {

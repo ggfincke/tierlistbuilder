@@ -2,7 +2,7 @@
 // board sync status resolution
 
 import { describe, expect, it } from 'vitest'
-import { resolveBoardSyncStatus } from '~/features/platform/sync/status/syncStatusStore'
+import { resolveBoardSyncStatus } from '~/features/platform/sync/state/syncStatusStore'
 
 describe('board sync status', () =>
 {

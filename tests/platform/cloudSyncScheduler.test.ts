@@ -9,7 +9,7 @@ import {
   createCloudSyncScheduler,
   type FlushResult,
   type PendingBoardSync,
-} from '~/features/platform/sync/boards/cloudSyncScheduler'
+} from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 
 const flushPromises = async (): Promise<void> =>

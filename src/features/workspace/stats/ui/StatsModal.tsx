@@ -1,7 +1,7 @@
 // src/features/workspace/stats/ui/StatsModal.tsx
 // board statistics modal — item distribution, summary cards, & tier chart
 
-import { ModalHeader } from '~/shared/overlay/ModalHeader'
+import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
 import { useId, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -9,7 +9,6 @@ import { computeBoardStats } from '~/features/workspace/stats/model/boardStats'
 import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { BaseModal } from '~/shared/overlay/BaseModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TierDistributionChart } from './TierDistributionChart'
 
