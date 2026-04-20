@@ -2,6 +2,7 @@
 // modal listing soft-deleted cloud boards w/ restore & permanent-delete actions.
 // driven by useListMyDeletedBoards so other tabs / devices reflect changes automatically
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useState } from 'react'
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 
@@ -259,12 +260,7 @@ export const RecentlyDeletedModal = ({
         panelClassName="flex w-full max-w-xl flex-col p-4"
       >
         <div className="mb-2 flex items-center justify-between gap-4">
-          <h2
-            id={titleId}
-            className="text-lg font-semibold text-[var(--t-text)]"
-          >
-            Recently deleted
-          </h2>
+          <ModalHeader titleId={titleId}>Recently deleted</ModalHeader>
           <SecondaryButton size="sm" onClick={onClose}>
             Done
           </SecondaryButton>

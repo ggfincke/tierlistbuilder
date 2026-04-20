@@ -27,7 +27,7 @@ import {
 import {
   isOfflineError,
   makeOfflineError,
-} from '~/shared/lib/sync/offlineError'
+} from '~/features/platform/sync/lib/errors'
 import { useSyncStatusStore } from '../status/syncStatusStore'
 
 // flush input — discriminated on op so 'delete' doesn't drag along an

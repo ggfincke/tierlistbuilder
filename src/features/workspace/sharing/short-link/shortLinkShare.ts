@@ -1,4 +1,4 @@
-// src/features/workspace/sharing/lib/shortLinkShare.ts
+// src/features/workspace/sharing/short-link/shortLinkShare.ts
 // snapshot-share short link helpers. encoder uploads to Convex & mints a slug;
 // decoder resolves & inflates via hashShare pipeline. separate so #share= URLs never touch Convex
 
@@ -11,12 +11,12 @@ import {
   buildAppUrl,
   compressSnapshotBytes,
   inflateSnapshotBytes,
-} from './hashShare'
+} from '~/features/workspace/sharing/snapshot-compression/hashShare'
 import {
   createSnapshotShortLinkImperative,
   generateSnapshotUploadUrlImperative,
   resolveShortLinkImperative,
-} from '~/features/workspace/sharing/data/cloud/shortLinkRepository'
+} from '~/features/workspace/sharing/short-link/shortLinkRepository'
 import { isNonEmptyString } from '~/shared/lib/typeGuards'
 
 const SHORT_LINK_QUERY_PARAM = 's'

@@ -12,28 +12,10 @@ import { serverStateToSnapshot } from '~/features/workspace/boards/data/cloud/bo
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import { markBoardSynced } from '~/features/workspace/boards/model/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { RestoreBoardError } from '~/features/platform/sync/lib/errors'
 
-export type RestoreErrorCode =
-  | 'concurrent-hard-delete'
-  | 'persist-failed'
-  | 'cloud-error'
-
-// typed restore error for user-friendly toast mapping; raw error stays on cause
-export class RestoreBoardError extends Error
-{
-  readonly code: RestoreErrorCode
-
-  constructor(code: RestoreErrorCode, message: string, cause?: unknown)
-  {
-    super(message)
-    this.name = 'RestoreBoardError'
-    this.code = code
-    if (cause !== undefined)
-    {
-      ;(this as { cause?: unknown }).cause = cause
-    }
-  }
-}
+export { RestoreBoardError }
+export type { RestoreErrorCode } from '~/features/platform/sync/lib/errors'
 
 export interface RestoredBoard
 {

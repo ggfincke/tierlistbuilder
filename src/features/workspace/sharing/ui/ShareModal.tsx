@@ -2,6 +2,7 @@
 // share modal — shows a Generate button, then renders the minted URL + embed snippet.
 // generation is explicit (not auto-on-open) to avoid creating a fresh blob per open. aborts on unmount
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, Link as LinkIcon, RefreshCw } from 'lucide-react'
 
@@ -16,7 +17,7 @@ import { TextInput } from '~/shared/ui/TextInput'
 import {
   createBoardShortLink,
   type ShortLinkCreateResult,
-} from '~/features/workspace/sharing/lib/shortLinkShare'
+} from '~/features/workspace/sharing/short-link/shortLinkShare'
 
 interface ShareModalProps
 {
@@ -120,9 +121,7 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
       panelClassName="flex w-full max-w-lg flex-col p-4"
     >
       <div className="mb-3 flex items-center justify-between gap-4">
-        <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-          Share Tier List
-        </h2>
+        <ModalHeader titleId={titleId}>Share Tier List</ModalHeader>
         <SecondaryButton size="sm" onClick={onClose}>
           Done
         </SecondaryButton>

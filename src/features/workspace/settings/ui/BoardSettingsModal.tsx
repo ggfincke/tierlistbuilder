@@ -1,6 +1,7 @@
 // src/features/workspace/settings/ui/BoardSettingsModal.tsx
 // settings panel — tabbed modal that orchestrates per-tab settings content
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { FALLBACK_COLOR, getPaletteColors } from '~/shared/theme/tierColors'
@@ -104,12 +105,7 @@ export const BoardSettingsModal = ({
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2
-              id={titleId}
-              className="text-lg font-semibold text-[var(--t-text)]"
-            >
-              Settings
-            </h2>
+            <ModalHeader titleId={titleId}>Settings</ModalHeader>
             <div
               {...tabListProps}
               className="flex gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5"

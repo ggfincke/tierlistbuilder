@@ -1,17 +1,19 @@
 // tests/data/exportJson.test.ts
 // JSON import/export parsing
 
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   parseBoardJson,
   parseBoardSnapshotJson,
   parseBoardsJson,
 } from '~/features/workspace/export/lib/exportJson'
-import { stripImagesForShare } from '~/features/workspace/sharing/lib/hashShare'
-import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/boardStorage'
+import { stripImagesForShare } from '~/features/workspace/sharing/snapshot-compression/hashShare'
+import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import * as imagePersistence from '~/shared/images/imagePersistence'
+import * as imageStore from '~/shared/images/imageStore'
 import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
 
 // minimal valid board data — satisfies parseBoardJson validation
@@ -51,6 +53,11 @@ const wrapEnvelope = (data: BoardSnapshot) =>
     exportedAt: '2026-01-01T00:00:00Z',
     data,
   })
+
+afterEach(() =>
+{
+  vi.restoreAllMocks()
+})
 
 describe('parseBoardJson', () =>
 {
@@ -276,46 +283,95 @@ describe('parseBoardJson', () =>
     expect(result.title).toBe('Imported Tier List')
   })
 
-  it('keeps inline imageUrl on TierItem when IDB is unavailable', async () =>
+  it('drops image data from share payloads', async () =>
   {
-    // headless tests have no IDB, so the parser keeps inline bytes on the
-    // in-memory item instead of dropping an otherwise self-contained image
     const board = makeValidBoard({
       items: {
-        'item-1': {
-          id: 'item-1',
-          imageUrl: 'data:image/png;base64,AA==',
-        },
-        'item-2': { id: 'item-2', label: 'Second' },
+        'item-1': makeItem({
+          id: asItemId('item-1'),
+          imageRef: { hash: 'abc' },
+          imageUrl: 'data:image/png;base64,AAAA',
+        }),
+        'item-2': makeItem({ id: asItemId('item-2'), label: 'Second' }),
       },
     })
 
-    const result = await parseBoardJson(wrapEnvelope(board))
-    expect((result.items['item-1'] as { imageUrl?: string }).imageUrl).toBe(
-      'data:image/png;base64,AA=='
-    )
-  })
-
-  it('drops inline imageUrl from share payloads', async () =>
-  {
-    const board = await parseBoardJson(
-      wrapEnvelope(
-        makeValidBoard({
-          items: {
-            'item-1': {
-              id: 'item-1',
-              imageUrl: 'data:image/png;base64,AA==',
-            },
-            'item-2': { id: 'item-2', label: 'Second' },
-          },
-        })
-      )
-    )
-
     const shared = stripImagesForShare(board)
     expect(
-      (shared.items['item-1'] as { imageUrl?: string }).imageUrl
+      (shared.items['item-1'] as { imageRef?: unknown }).imageRef
     ).toBeUndefined()
+    expect(
+      (shared.items['item-1'] as { imageUrl?: unknown }).imageUrl
+    ).toBeUndefined()
+  })
+
+  it('keeps inline imageUrl when IDB is unavailable during import', async () =>
+  {
+    vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(false)
+
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        title: 'Inline Import',
+        tiers: [
+          {
+            id: 'tier-s',
+            name: 'S',
+            colorSpec: { kind: 'palette', index: 0 },
+            itemIds: ['item-1'],
+          },
+        ],
+        items: {
+          'item-1': {
+            id: 'item-1',
+            imageUrl: 'data:image/png;base64,AAAA',
+          },
+        },
+        deletedItems: [],
+        unrankedItemIds: [],
+      },
+    }
+
+    const result = await parseBoardJson(JSON.stringify(payload))
+
+    expect(result.items['item-1'].imageRef).toBeUndefined()
+    expect(result.items['item-1'].imageUrl).toBe('data:image/png;base64,AAAA')
+  })
+
+  it('keeps inline imageUrl when imported image persistence fails', async () =>
+  {
+    vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(true)
+    vi.spyOn(imagePersistence, 'persistPreparedBlobRecords').mockRejectedValue(
+      new Error('persist failed')
+    )
+
+    const payload = {
+      version: BOARD_DATA_VERSION,
+      data: {
+        title: 'Inline Import',
+        tiers: [
+          {
+            id: 'tier-s',
+            name: 'S',
+            colorSpec: { kind: 'palette', index: 0 },
+            itemIds: ['item-1'],
+          },
+        ],
+        items: {
+          'item-1': {
+            id: 'item-1',
+            imageUrl: 'data:image/png;base64,AAAA',
+          },
+        },
+        deletedItems: [],
+        unrankedItemIds: [],
+      },
+    }
+
+    const result = await parseBoardJson(JSON.stringify(payload))
+
+    expect(result.items['item-1'].imageRef).toBeUndefined()
+    expect(result.items['item-1'].imageUrl).toBe('data:image/png;base64,AAAA')
   })
 
   it('rejects local-only imageRef entries without inline image bytes', async () =>

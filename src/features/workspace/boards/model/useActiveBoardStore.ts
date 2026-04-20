@@ -1,6 +1,6 @@
 // src/features/workspace/boards/model/useActiveBoardStore.ts
 // * active board store — composes board data, selection, drag preview,
-// keyboard, undo, & runtime-error slices into a single Zustand store
+// keyboard, & undo slices into a single Zustand store
 
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
@@ -8,9 +8,7 @@ import { subscribeWithSelector } from 'zustand/middleware'
 import { createBoardDataSlice } from './slices/boardDataSlice'
 import { createDragPreviewSlice } from './slices/dragPreviewSlice'
 import { createKeyboardSlice } from './slices/keyboardSlice'
-import { createRuntimeErrorSlice } from './slices/runtimeErrorSlice'
 import { createSelectionSlice } from './slices/selectionSlice'
-import { createSyncSlice } from './slices/syncSlice'
 import { createUndoSlice } from './slices/undoSlice'
 import type { ActiveBoardStore } from './slices/types'
 
@@ -30,7 +28,5 @@ export const useActiveBoardStore = create<ActiveBoardStore>()(
     ...createDragPreviewSlice(...args),
     ...createKeyboardSlice(...args),
     ...createUndoSlice(...args),
-    ...createRuntimeErrorSlice(...args),
-    ...createSyncSlice(...args),
   }))
 )

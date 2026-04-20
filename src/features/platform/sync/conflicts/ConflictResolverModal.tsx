@@ -2,6 +2,7 @@
 // blocking modal for unresolved sync conflicts — opens for the head of
 // useConflictQueueStore; cannot be dismissed w/o picking a resolution action
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useCallback, useId, useMemo, useState } from 'react'
 
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
@@ -145,9 +146,7 @@ const ConflictResolverDialog = ({
       closeOnBackdrop={false}
       panelClassName="w-full max-w-md p-5"
     >
-      <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-        Conflicting edits
-      </h2>
+      <ModalHeader titleId={titleId}>Conflicting edits</ModalHeader>
       <p id={descId} className="mt-2 text-sm text-[var(--t-text-muted)]">
         <span className="font-medium text-[var(--t-text)]">{boardTitle}</span>{' '}
         was edited on another device while you were offline. Choose which

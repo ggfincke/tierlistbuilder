@@ -6,7 +6,7 @@ import type {
   BoardSnapshotWire,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance, ImageFormat } from '../model/runtime'
-import { BOARD_DATA_VERSION } from '~/features/workspace/boards/data/local/boardStorage'
+import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import {
   loadPersistedBoard,
   saveActiveBoardSnapshot,

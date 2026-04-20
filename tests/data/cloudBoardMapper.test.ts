@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
-import type { BoardImageUploadResult } from '~/features/workspace/boards/data/cloud/imageUploader'
+import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
 import { makeBoardSnapshot, makeTier } from '../fixtures'
 
 const makeBoardWithItem = (

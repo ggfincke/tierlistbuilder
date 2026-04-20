@@ -23,21 +23,9 @@ const seededBoardState = {
   ],
   unrankedItemIds: [],
   items: {
-    'sample-apex': {
-      id: 'sample-apex',
-      label: 'Apex',
-      imageUrl: '/sample-items/apex.jpg',
-    },
-    'sample-comet': {
-      id: 'sample-comet',
-      label: 'Comet',
-      imageUrl: '/sample-items/comet.jpg',
-    },
-    'sample-drift': {
-      id: 'sample-drift',
-      label: 'Drift',
-      imageUrl: '/sample-items/drift.jpg',
-    },
+    'sample-apex': { id: 'sample-apex', label: 'Apex' },
+    'sample-comet': { id: 'sample-comet', label: 'Comet' },
+    'sample-drift': { id: 'sample-drift', label: 'Drift' },
   },
 }
 

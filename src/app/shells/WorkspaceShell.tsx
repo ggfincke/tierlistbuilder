@@ -1,7 +1,7 @@
 // src/app/shells/WorkspaceShell.tsx
 // full interactive workspace shell w/ board UI, modals, panels, & overlays
 
-import { lazy, Suspense, useCallback, useState, type MouseEvent } from 'react'
+import { lazy, useCallback, useState, type MouseEvent } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
@@ -15,6 +15,7 @@ import { TierList } from '~/features/workspace/boards/ui/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { ProgressOverlay } from '~/shared/overlay/ProgressOverlay'
 import { useExportController } from '~/features/workspace/export/model/useExportController'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
@@ -295,61 +296,45 @@ export const WorkspaceShell = () =>
         </div>
       </div>
 
-      {modalState.settings && (
-        <Suspense>
-          <ErrorBoundary section="settings">
-            <BoardSettingsModal open onClose={handleCloseSettings} />
-          </ErrorBoundary>
-        </Suspense>
-      )}
-      {modalState.stats && (
-        <Suspense>
-          <ErrorBoundary section="statistics">
-            <StatsModal open onClose={handleCloseStats} />
-          </ErrorBoundary>
-        </Suspense>
-      )}
-      {modalState.preview && (
-        <Suspense>
-          <ErrorBoundary section="export preview">
-            <ExportPreviewModal
-              open
-              onClose={handleClosePreview}
-              previewDataUrl={modalState.preview.payload}
-              format={previewFormat}
-              onFormatChange={setPreviewFormat}
-              onDownload={handlePreviewDownload}
-              onCopyToClipboard={handlePreviewCopy}
-              onAnnotate={handlePreviewAnnotate}
-              exporting={exportStatus !== null}
-            />
-          </ErrorBoundary>
-        </Suspense>
-      )}
-      {modalState.annotation && (
-        <Suspense>
-          <ErrorBoundary section="annotation">
-            <AnnotationEditor
-              open
-              onClose={handleCloseAnnotation}
-              backgroundImage={modalState.annotation.payload}
-            />
-          </ErrorBoundary>
-        </Suspense>
-      )}
-      {modalState.share && (
-        <Suspense>
-          <ErrorBoundary section="share">
-            <ShareModal
-              open
-              onClose={handleCloseShare}
-              getSnapshot={() =>
-                extractBoardData(useActiveBoardStore.getState())
-              }
-            />
-          </ErrorBoundary>
-        </Suspense>
-      )}
+      <LazyModalSlot when={modalState.settings} section="settings">
+        {() => <BoardSettingsModal open onClose={handleCloseSettings} />}
+      </LazyModalSlot>
+      <LazyModalSlot when={modalState.stats} section="statistics">
+        {() => <StatsModal open onClose={handleCloseStats} />}
+      </LazyModalSlot>
+      <LazyModalSlot when={modalState.preview} section="export preview">
+        {(preview) => (
+          <ExportPreviewModal
+            open
+            onClose={handleClosePreview}
+            previewDataUrl={preview.payload}
+            format={previewFormat}
+            onFormatChange={setPreviewFormat}
+            onDownload={handlePreviewDownload}
+            onCopyToClipboard={handlePreviewCopy}
+            onAnnotate={handlePreviewAnnotate}
+            exporting={exportStatus !== null}
+          />
+        )}
+      </LazyModalSlot>
+      <LazyModalSlot when={modalState.annotation} section="annotation">
+        {(annotation) => (
+          <AnnotationEditor
+            open
+            onClose={handleCloseAnnotation}
+            backgroundImage={annotation.payload}
+          />
+        )}
+      </LazyModalSlot>
+      <LazyModalSlot when={modalState.share} section="share">
+        {() => (
+          <ShareModal
+            open
+            onClose={handleCloseShare}
+            getSnapshot={() => extractBoardData(useActiveBoardStore.getState())}
+          />
+        )}
+      </LazyModalSlot>
       <BoardManager
         toolbarPosition={toolbarPosition}
         cloudEnabled={cloudEnabled}
@@ -364,13 +349,9 @@ export const WorkspaceShell = () =>
           total={exportAllProgress.total}
         />
       )}
-      {showShortcutsPanel && (
-        <Suspense>
-          <ErrorBoundary section="shortcuts">
-            <ShortcutsPanel onClose={closeShortcutsPanel} />
-          </ErrorBoundary>
-        </Suspense>
-      )}
+      <LazyModalSlot when={showShortcutsPanel} section="shortcuts">
+        {() => <ShortcutsPanel onClose={closeShortcutsPanel} />}
+      </LazyModalSlot>
       <BulkActionBar />
       <ConflictResolverModal user={signedInUser} />
       <ProgressOverlay

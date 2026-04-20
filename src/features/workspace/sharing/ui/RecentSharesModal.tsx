@@ -2,14 +2,15 @@
 // modal listing live snapshot share links w/ copy & revoke actions.
 // driven by useListMyShortLinks so other tabs reflect changes automatically. signed-in only
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, RefreshCw, Trash2 } from 'lucide-react'
 
 import {
   revokeShortLinkImperative,
   useListMyShortLinks,
-} from '~/features/workspace/sharing/data/cloud/shortLinkRepository'
-import { getShareUrlFromSlug } from '~/features/workspace/sharing/lib/shortLinkShare'
+} from '~/features/workspace/sharing/short-link/shortLinkRepository'
+import { getShareUrlFromSlug } from '~/features/workspace/sharing/short-link/shortLinkShare'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -237,12 +238,7 @@ export const RecentSharesModal = ({
         panelClassName="flex w-full max-w-xl flex-col p-4"
       >
         <div className="mb-2 flex items-center justify-between gap-4">
-          <h2
-            id={titleId}
-            className="text-lg font-semibold text-[var(--t-text)]"
-          >
-            Recent shares
-          </h2>
+          <ModalHeader titleId={titleId}>Recent shares</ModalHeader>
           <SecondaryButton size="sm" onClick={onClose}>
             Done
           </SecondaryButton>

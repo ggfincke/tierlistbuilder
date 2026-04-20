@@ -17,7 +17,7 @@ import type {
   CloudBoardState,
   CloudBoardTierWire,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import type { BoardImageUploadResult } from './imageUploader'
+import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
 
 const DELETED_ITEM_ORDER = -1
 

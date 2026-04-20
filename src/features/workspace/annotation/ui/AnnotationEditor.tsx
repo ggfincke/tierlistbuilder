@@ -1,6 +1,7 @@
 // src/features/workspace/annotation/ui/AnnotationEditor.tsx
 // full-screen annotation editor — draw on top of an exported board image
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId } from 'react'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -70,9 +71,7 @@ const AnnotationEditorContent = ({
       panelClassName="flex h-[min(95vh,60rem)] w-full max-w-5xl flex-col p-4"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-          Annotate Export
-        </h2>
+        <ModalHeader titleId={titleId}>Annotate Export</ModalHeader>
         <div className="flex items-center gap-2">
           <SecondaryButton size="sm" onClick={onClose}>
             Cancel

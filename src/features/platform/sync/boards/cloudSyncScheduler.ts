@@ -16,6 +16,7 @@ import {
   getPeerLockRemainingMs,
   isBoardLockedByPeer,
 } from '../lib/crossTabSyncLock'
+import type { SyncError } from '../lib/errors'
 
 export interface PendingBoardSync
 {
@@ -29,7 +30,7 @@ export interface PendingBoardSync
 export type FlushResult =
   | { kind: 'synced'; syncState: BoardSyncState }
   | { kind: 'conflict'; serverState: CloudBoardState }
-  | { kind: 'error'; error: unknown }
+  | { kind: 'error'; error: SyncError }
 
 // statuses the scheduler emits via onStatusChange. 'conflict' & 'offline'
 // are derived elsewhere (conflict from useConflictQueueStore, offline from
@@ -56,7 +57,7 @@ interface CreateCloudSyncSchedulerOptions
     boardId: BoardId,
     syncState: BoardSyncState
   ) => void
-  onError?: (boardId: BoardId, error: unknown) => void
+  onError?: (boardId: BoardId, error: SyncError | unknown) => void
   onConflict?: (boardId: BoardId, serverState: CloudBoardState) => void
   onStatusChange?: (boardId: BoardId, status: SchedulerBoardStatus) => void
   shouldProceed?: () => boolean
@@ -250,8 +251,21 @@ export const createCloudSyncScheduler = (
           }
 
           syncErrored = true
+          // permanent errors (forbidden, notFound, invalidState…) will never
+          // succeed on retry; clear the persisted marker & drop the queue so
+          // reconnect/session recovery does not requeue the same doomed work
+          if (result.error.permanent)
+          {
+            clearPendingSyncMarker(controller.queued ?? work)
+            controller.queued = null
+            controller.retryAttempt = 0
+            syncErrored = false
+          }
           options.onError?.(work.boardId, result.error)
-          options.onStatusChange?.(work.boardId, 'error')
+          options.onStatusChange?.(
+            work.boardId,
+            result.error.permanent ? 'idle' : 'error'
+          )
         },
         (error) =>
         {

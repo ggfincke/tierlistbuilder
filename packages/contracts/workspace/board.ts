@@ -36,11 +36,13 @@ export interface TierItemImageRef
   cloudMediaExternalId?: string
 }
 
-// single item placed in a tier or the unranked pool
+// single item placed in a tier or the unranked pool. `imageUrl` is an inline
+// fallback used when imported image bytes can't be persisted locally yet
 export interface TierItem
 {
   id: ItemId
   imageRef?: TierItemImageRef
+  imageUrl?: string
   label?: string
   backgroundColor?: string
   altText?: string

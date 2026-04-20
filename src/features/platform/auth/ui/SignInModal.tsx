@@ -2,6 +2,7 @@
 // email/password sign-in & sign-up modal — calls @convex-dev/auth Password
 // provider w/ flow: 'signIn' | 'signUp'
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState, type FormEvent } from 'react'
 
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
@@ -97,9 +98,9 @@ export const SignInModal = ({ open, onClose }: SignInModalProps) =>
       initialFocusRef={emailRef}
       panelClassName="w-full max-w-sm p-4"
     >
-      <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
+      <ModalHeader titleId={titleId}>
         {mode === 'sign-in' ? 'Sign in' : 'Create account'}
-      </h2>
+      </ModalHeader>
       <p id={descriptionId} className="mt-1 text-sm text-[var(--t-text-muted)]">
         {mode === 'sign-in'
           ? 'Sign in to sync your boards across devices.'

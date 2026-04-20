@@ -21,10 +21,20 @@ import type {
   TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 
-// board data slice — serializable board snapshot + CRUD & shuffle actions
-export interface BoardDataSlice extends BoardSnapshot
+// board data slice — serializable board snapshot + CRUD & shuffle actions +
+// sync-state cursor & runtime error banner (the latter two are small enough
+// that separate slices didn't pay rent)
+export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
 {
   itemsManuallyMoved: boolean
+  runtimeError: string | null
+  setSyncState: (state: {
+    lastSyncedRevision?: number | null
+    cloudBoardExternalId?: string | null
+    pendingSyncAt?: number | null
+  }) => void
+  setRuntimeError: (message: string) => void
+  clearRuntimeError: () => void
   addTier: (paletteId: PaletteId) => void
   renameTier: (tierId: TierId, name: string) => void
   setTierDescription: (tierId: TierId, description: string) => void
@@ -101,32 +111,12 @@ export interface UndoSlice
   redo: () => { label: string } | null
 }
 
-// runtime error slice — user-visible banner message for fatal operations
-export interface RuntimeErrorSlice
-{
-  runtimeError: string | null
-  setRuntimeError: (message: string) => void
-  clearRuntimeError: () => void
-}
-
-// sync slice — cloud sync revision cursor & board identity
-export interface SyncSlice extends BoardSyncState
-{
-  setSyncState: (state: {
-    lastSyncedRevision?: number | null
-    cloudBoardExternalId?: string | null
-    pendingSyncAt?: number | null
-  }) => void
-}
-
 // the full combined store shape — every slice merged into one flat object
 export type ActiveBoardStore = BoardDataSlice &
   SelectionSlice &
   DragPreviewSlice &
   KeyboardSlice &
-  UndoSlice &
-  RuntimeErrorSlice &
-  SyncSlice
+  UndoSlice
 
 // convenience alias — every slice creator takes the combined store shape so
 // cross-slice reads via `get()` work w/o extra plumbing

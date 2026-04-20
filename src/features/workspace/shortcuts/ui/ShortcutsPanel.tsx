@@ -1,6 +1,7 @@
 // src/features/workspace/shortcuts/ui/ShortcutsPanel.tsx
 // floating overlay listing all keyboard shortcuts
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef } from 'react'
 
 import { BaseModal } from '~/shared/overlay/BaseModal'
@@ -25,12 +26,12 @@ export const ShortcutsPanel = ({ onClose }: ShortcutsPanelProps) =>
       initialFocusRef={closeButtonRef}
       panelClassName="w-full max-w-md p-5"
     >
-      <h2
-        id={titleId}
+      <ModalHeader
+        titleId={titleId}
         className="mb-4 text-lg font-semibold text-[var(--t-text)]"
       >
         Keyboard Shortcuts
-      </h2>
+      </ModalHeader>
 
       <ShortcutsList />
 

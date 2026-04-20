@@ -1,6 +1,7 @@
 // src/features/workspace/stats/ui/StatsModal.tsx
 // board statistics modal — item distribution, summary cards, & tier chart
 
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -56,9 +57,7 @@ export const StatsModal = ({ open, onClose }: StatsModalProps) =>
       panelClassName="flex w-full max-w-lg flex-col p-5"
     >
       <div className="mb-5 flex items-center justify-between">
-        <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-          Board Statistics
-        </h2>
+        <ModalHeader titleId={titleId}>Board Statistics</ModalHeader>
         <SecondaryButton size="sm" onClick={onClose}>
           Done
         </SecondaryButton>

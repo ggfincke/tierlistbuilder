@@ -10,6 +10,7 @@ import type {
   CloudBoardPayload,
   CloudBoardState,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import type { SupportedImageMimeType } from '@tierlistbuilder/contracts/platform/media'
 import { convexClient } from '~/features/platform/convex/convexClient'
 
 // list the caller's soft-deleted boards. powers the "Recently deleted"
@@ -50,14 +51,6 @@ export const upsertBoardStateImperative = (
 
 export const generateUploadUrlImperative = () =>
   convexClient.mutation(api.platform.media.uploads.generateUploadUrl, {})
-
-// narrow MIME types accepted by the server-side finalizeUpload validator.
-// keep in sync w/ convex/platform/media/uploads.ts
-export type SupportedImageMimeType =
-  | 'image/jpeg'
-  | 'image/png'
-  | 'image/webp'
-  | 'image/gif'
 
 export const finalizeUploadImperative = (args: {
   storageId: Id<'_storage'>
