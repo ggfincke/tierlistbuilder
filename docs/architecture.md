@@ -17,7 +17,7 @@
 
 ## Directory Structure
 
-The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/workspace/*` (per-slice feature code), and `shared/*` (cross-feature primitives). The structure is designed to grow into `features/community/` and `features/platform/` when backend work begins. See `dev-docs/directory-restructure-proposal.mdx` for the long-form rationale.
+The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package. See `dev-docs/directory-restructure-proposal.mdx` for the long-form rationale.
 
 ```
 src/
@@ -27,7 +27,7 @@ src/
 │   ├── index.css                    # Tailwind entry
 │   ├── bootstrap/
 │   │   ├── useAppBootstrap.ts       # hydrate stores, bootstrap session, register autosave
-│   │   └── useThemeApplicator.ts    # sync theme/text-style tokens to :root
+│   │   └── useThemeSync.ts          # sync theme/text-style tokens to :root (+ useLockedTheme)
 │   ├── routes/
 │   │   ├── AppRouter.tsx            # popstate-driven route selection
 │   │   ├── WorkspaceRoute.tsx       # workspace entry
@@ -40,32 +40,44 @@ src/
 ├── features/workspace/
 │   ├── annotation/{model,ui}        # draw-over annotation editor
 │   ├── boards/
-│   │   ├── data/local/              # per-board & registry localStorage I/O, migration, session
+│   │   ├── data/
+│   │   │   ├── local/               # per-board & registry localStorage I/O, session bootstrap
+│   │   │   └── cloud/               # Convex board repo/mapper, pull/flush/restore/merge, scheduler, conflict UI
 │   │   ├── dnd/                     # dnd-kit wiring, sensors, pointer math, snapshot transforms
 │   │   ├── interaction/             # keyboard drag controller, focus restore, useKeyboardDrag
 │   │   ├── lib/                     # boardDefaults, dndIds, containerLabel (pure helpers)
-│   │   ├── model/                   # active board store, registry store, snapshot ops, contract.ts, runtime.ts
+│   │   ├── model/                   # active board store (sliced), registry store, snapshot ops, runtime.ts
 │   │   └── ui/                      # TierList, TierRow, TierItem, BoardHeader, BoardActionBar, etc.
-│   ├── comparison/{model,ui}        # side-by-side board comparison & diff
 │   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
 │   ├── settings/
-│   │   ├── data/local/              # settings storage key + versioned migration
+│   │   ├── data/{local,cloud}       # settings storage key + versioned migration; Convex sync
 │   │   ├── lib/                     # image upload constants & helpers
 │   │   ├── model/                   # settings store, palette selector, image import hook
 │   │   └── ui/                      # BoardSettingsModal & tabbed content
 │   ├── sharing/{lib,ui}             # hash-share encoding, social share, share/embed modals, EmbedView
 │   ├── shortcuts/{lib,model,ui}     # keyboard shortcut registry, panel, list
 │   ├── stats/{model,ui}             # board statistics & distribution chart
-│   └── tier-presets/                # reusable tier structures (local storage, independent of boards)
-│       ├── data/local/              # preset storage key + versioned migration
-│       ├── model/                   # tier preset store, built-in presets, contract.ts
+│   └── tier-presets/                # reusable tier structures (local + cloud storage, independent of boards)
+│       ├── data/{local,cloud}       # preset storage key; Convex preset sync
+│       ├── model/                   # tier preset store, built-in presets
 │       └── ui/                      # PresetPickerModal, SavePresetModal
+├── features/platform/
+│   ├── auth/{model,ui}              # SignInModal, AccountSection, Convex auth wiring
+│   ├── media/                       # imageFetcher, imageUploader (Convex storage transport)
+│   └── sync/
+│       ├── lib/                     # cloudSyncConfig, concurrency, convexClient, crossTabSyncLock, errors
+│       ├── orchestration/           # createSyncSession, firstLoginSyncLifecycle, useCloudSync, subscribers
+│       ├── state/                   # syncStatusStore, syncStatusVisuals, useBoardSyncStatus
+│       └── transport/               # connectivity detection
+├── features/embed/ui                # read-only EmbedView primitives
 └── shared/
     ├── a11y/                        # announce() module, LiveRegion component
-    ├── board-ui/                    # BoardPrimitives, ItemContent, board rendering constants
-    ├── hooks/                       # useClipboardCopy, useInlineEdit, useViewportWidth
+    ├── board-ui/                    # BoardPrimitives, ItemContent, ItemOverlayButton, StaticBoard, boardTestIds, constants
+    ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl, useViewportWidth
     ├── layout/                      # toolbarPosition (cross-feature menu chrome math)
-    ├── lib/                         # color, id, math, fileName, browserStorage, storageMetering
+    ├── lib/                         # color, math, fileName, browserStorage, storageMetering,
+    │                                # logger, urls, typeGuards, sync (debouncedSyncRunner), asyncMapLimit,
+    │                                # binaryCodec, boardSnapshotItems, errors, localSidecar, scheduleIdle, sha256
     ├── notifications/               # ToastContainer, useToastStore
     ├── overlay/                     # BaseModal, ConfirmDialog, OverlayPrimitives, menuClasses,
     │                                # popupPosition, uiMeasurements, useAnchoredPopup,
@@ -73,10 +85,14 @@ src/
     │                                # useMenuOverflowFlip, useModalBackgroundInert, useModalDialog,
     │                                # useNestedMenus, usePopupClose
     ├── selection/                   # useRovingSelection, selectionNavigation, selectionState
-    ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors, index
-    ├── types/                       # shared universals only: ids, theme, settings, export (no barrel)
-    └── ui/                          # ActionButton, ErrorBoundary, ItemOverlayButton, SecondaryButton,
-                                     # TextInput, UploadDropzone
+    ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors, zIndex
+    └── ui/                          # ActionButton, Button, ErrorBoundary, PrimaryButton, SecondaryButton,
+                                     # ColorInput, PickerGrid, SettingsSection, TextArea, TextInput, UploadDropzone
+
+packages/contracts/                  # @tierlistbuilder/contracts — cross-runtime wire types
+├── lib/                             # ids, theme, themeDefinition
+├── workspace/                       # board, boardEnvelope, boardSync, cloudBoard, cloudPreset, settings, tierPreset
+└── platform/                        # errors, media, shortLink, user
 ```
 
 ## State Management
@@ -164,6 +180,10 @@ App (app/App.tsx → AppRouter)
 │   │   ├── LayoutTab              — item sizing & tier-label layout
 │   │   └── MoreTab                — export prefs, storage, shortcuts
 │   ├── BoardManager               — floating panel (bottom-right) for board switching
+│   ├── PresetPickerModal          — modal for selecting built-in & user tier presets
+│   ├── PalettePicker              — palette selector in appearance settings
+│   ├── AccountSection             — sign-in / sign-out + sync status
+│   ├── SignInModal                — Convex auth entry
 │   ├── DragOverlay                — ghost item (uses ItemContent for rendering)
 │   ├── ConfirmDialog              — modal for delete confirmations
 │   ├── ProgressOverlay            — shared blocking overlay (used for export-all & cloud pull)
@@ -205,27 +225,32 @@ All export lib code lives in `features/workspace/export/lib/`; the UI (`ExportMe
 ## Boundary Rules
 
 - `shared/*` must not import from `features/*`. Shared code is framework-only and feature-agnostic.
-- Inside `features/workspace/*`, cross-slice imports are allowed in the direction of structural dependency. `tier-presets` may import board contract types because presets produce boards; `comparison` may read both boards and settings.
+- Inside `features/workspace/*`, cross-slice imports are allowed in the direction of structural dependency. `tier-presets` may import board contract types because presets produce boards.
 - The embed shell renders through `shared/board-ui/*` primitives only and never mounts the editable active-board store.
-- UI (`ui/`) → model (`model/`) → data (`data/local/`). Components don't call localStorage directly.
+- UI (`ui/`) → model (`model/`) → data (`data/{local,cloud}/`). Components don't call localStorage or Convex directly — they go through `model/` selectors or `data/*` helpers.
+- Cloud sync orchestration lives in `features/platform/sync/`. Per-slice cloud transport (Convex args, mappers) lives in each slice's `data/cloud/`.
 
 ## Types
 
-Types are **slice-owned**. Each feature owns the types it produces, split into `contract.ts` (stable, serializable, Phase-7 lift-ready) and `runtime.ts` (implementation-private). There is no `shared/types/index.ts` barrel — imports always point at the file that defines the type.
+Types are split between `packages/contracts/` (stable, serializable, cross-runtime) and slice-local `runtime.ts` files (implementation-private, never persisted or sent across boundaries). There is no barrel file — every import points directly at the module that defines the type.
 
-**Slice-owned contracts:**
+**Contracts (`@tierlistbuilder/contracts`, `packages/contracts/`):**
 
-- `features/workspace/boards/model/contract.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec`, `TierPaletteColorSpec`, `TierCustomColorSpec`, `NewTierItem`, `BoardMeta`. Anything serialized (localStorage, JSON exports, share links, future Convex functions).
-- `features/workspace/boards/model/runtime.ts` — `ContainerSnapshot`, `ContainerSnapshotTier`, `KeyboardMode`, `ActiveBoardRuntimeState`, `freshRuntimeState`, `ItemRecord`. Runtime-only state, never persisted.
-- `features/workspace/tier-presets/model/contract.ts` — `TierPreset`, `TierPresetTier`.
+Anything that crosses a process boundary — localStorage, JSON exports, share links, Convex function arguments/results — lives here:
 
-**Shared universals (`shared/types/`):**
+- `lib/ids.ts` — `BoardId`, `TierId`, `PresetId`, `UserPresetId`, `BuiltinPresetId` template-literal brands; `ItemId` is a nominal brand w/ `asItemId()` cast at trust boundaries. `generate*` ID factories shared across frontend & Convex.
+- `lib/theme.ts`, `lib/themeDefinition.ts` — `ThemeId`, `PaletteId`, `TextStyleId`.
+- `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`.
+- `workspace/settings.ts` — `AppSettings`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
+- `workspace/tierPreset.ts` — `TierPreset`, `TierPresetTier`.
+- `workspace/cloudBoard.ts`, `workspace/cloudPreset.ts`, `workspace/boardSync.ts`, `workspace/boardEnvelope.ts` — cloud-sync & envelope wire types.
+- `platform/*` — platform-level shared contracts (`errors`, `media`, `shortLink`, `user`).
 
-- `ids.ts` — `BoardId`, `TierId`, `ItemId`, `PresetId`, `UserPresetId`, `BuiltinPresetId` branded primitives
-- `theme.ts` — `ThemeId`, `PaletteId`, `TextStyleId`
-- `settings.ts` — `AppSettings`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`
-- `export.ts` — `ImageFormat`, `ExportAppearance`
+**Runtime (slice-local `runtime.ts`):**
 
-Settings and export types live in `shared/` because they're consumed widely across slices with no benefit from stricter ownership today. The rest live with the code that produces them.
+Types that only live in memory stay in the frontend tree, collocated w/ the stores that use them:
 
-When Phase 7 introduces `packages/contracts/`, every `features/*/model/contract.ts` lifts via `git mv` with minimal import rewiring. `runtime.ts` files stay in the frontend tree because they're tied to store implementation. `BoardSnapshot` is the canonical serializable board shape (renamed from the earlier `TierListData`).
+- `features/workspace/boards/model/runtime.ts` — `ContainerSnapshot`, `ContainerSnapshotTier`, `KeyboardMode`, `ActiveBoardRuntimeState`, `freshRuntimeState`, `ItemRecord`.
+- `features/workspace/export/model/runtime.ts` — `ImageFormat`, `ExportAppearance`.
+
+`BoardSnapshot` is the canonical serializable board shape. `ContainerSnapshot` is the runtime-only lightweight ordering used during drag preview — it mirrors tier/unranked item ID arrays without carrying full tier metadata.
