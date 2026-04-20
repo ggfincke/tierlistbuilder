@@ -34,7 +34,7 @@ We intentionally do not test:
 ## Running Tests
 
 ```bash
-# run all tests (single pass)
+# run all unit/integration tests (single pass)
 npm test
 
 # run in watch mode
@@ -42,48 +42,69 @@ npm run test:watch
 
 # run a specific test file
 npx vitest run tests/dnd/dragSnapshot.test.ts
+
+# run the Playwright E2E smoke suite (requires `npx playwright install chromium` once)
+npm run test:e2eX
+npm run test:e2e:ui
 ```
+
+E2E tests live in `e2e/` at the repo root and are excluded from the Vitest run via `vitest.config.ts`.
 
 ## Structure
 
 ```
 tests/
-├── fixtures.ts                    — shared snapshot/tier builders & constants
-├── setup.ts                       — global vitest setup (localStorage stub + resetAllMocks)
+├── fixtures.ts                      — shared snapshot/tier builders & constants
+├── typeHelpers.ts                   — asInvalid<T> for intentionally malformed inputs
+├── setup.ts                         — global vitest setup (localStorage stub + resetAllMocks)
 ├── board/
-│   ├── constants.test.ts          — buildDefaultTiers
-│   ├── boardSnapshot.test.ts      — board creation, tier factory, color spec normalization, & legacy migration
-│   ├── boardOps.test.ts           — pure sorting & shuffling helpers
-│   ├── tierColors.test.ts         — tier color spec creation & resolution
-│   └── tierPresets.test.ts        — preset-to-board & board-to-preset conversion
+│   ├── constants.test.ts            — buildDefaultTiers
+│   ├── boardSnapshot.test.ts        — board creation, tier factory, color spec normalization
+│   ├── boardOps.test.ts             — pure sorting & shuffling helpers
+│   ├── itemContent.test.ts          — item content rendering helpers
+│   ├── tierColors.test.ts           — tier color spec creation & resolution
+│   └── tierPresets.test.ts          — preset-to-board & board-to-preset conversion
 ├── convex/
-│   └── boardReconciler.test.ts    — cloud-vs-local board reconciliation
+│   └── boardReconciler.test.ts      — cloud-vs-local board reconciliation
 ├── data/
-│   └── exportJson.test.ts         — JSON import parsing, validation, & multi-board envelope detection
+│   ├── boardStorage.test.ts         — per-board localStorage envelope & load outcomes
+│   ├── cloudBoardMapper.test.ts     — Convex board wire <-> BoardSnapshot mapping
+│   ├── exportJson.test.ts           — JSON import parsing, validation, multi-board envelope detection
+│   ├── imageBlobCache.test.ts       — shared image blob cache lifecycle
+│   └── localBoardSession.test.ts    — session bootstrap, autosave, registry orchestration
 ├── dnd/
-│   ├── dragSnapshot.test.ts       — snapshot transforms & container queries
-│   ├── dragKeyboard.test.ts       — keyboard navigation resolution
-│   ├── dragPointerMath.test.ts    — pointer insertion math
+│   ├── dragSnapshot.test.ts         — snapshot transforms & container queries
+│   ├── dragKeyboard.test.ts         — keyboard navigation resolution
+│   ├── dragPointerMath.test.ts      — pointer insertion math
 │   └── keyboardDragController.test.ts — keyboard drag state machine
 ├── interaction/
-│   ├── keyboardTabStop.test.ts    — roving tab-stop selector cache
-│   ├── selectionNavigation.test.ts — selection arrow-key navigation
-│   └── selectionState.test.ts     — shared radio/tab semantics for roving selection
+│   ├── keyboardTabStop.test.ts      — roving tab-stop selector cache
+│   ├── selectionNavigation.test.ts  — selection arrow-key navigation
+│   └── selectionState.test.ts       — shared radio/tab semantics for roving selection
 ├── overlay/
-│   ├── nestedMenus.test.ts        — nested root/submenu open-close tree rules
-│   ├── popupPosition.test.ts      — fixed popup placement & viewport clamping
-│   └── toolbarPosition.test.ts    — submenu direction & responsive toolbar helpers
+│   ├── nestedMenus.test.ts          — nested root/submenu open-close tree rules
+│   ├── popupPosition.test.ts        — fixed popup placement & viewport clamping
+│   └── toolbarPosition.test.ts      — submenu direction & responsive toolbar helpers
+├── platform/
+│   ├── boardSyncStatus.test.ts      — per-board sync status derivation
+│   ├── cloudMerge.test.ts           — cloud/local board merge strategy
+│   ├── cloudSyncScheduler.test.ts   — debounced sync scheduler semantics
+│   ├── firstLoginBoardMerge.test.ts — first-login board merge resolution
+│   ├── firstLoginSyncLifecycle.test.ts — first-login orchestration
+│   ├── settingsCloudMerge.test.ts   — settings cloud merge
+│   └── tierPresetCloudMerge.test.ts — preset cloud merge
 ├── sharing/
-│   └── hashShare.test.ts          — share-fragment codec round-trip & image stripping
+│   └── hashShare.test.ts            — share-fragment codec round-trip & image handling
 ├── shared-lib/
-│   ├── color.test.ts              — hex/rgb parsing & contrast
-│   ├── fileName.test.ts           — file-name slug helper
-│   ├── id.test.ts                 — ID factory prefixes & guard helpers
-│   ├── math.test.ts               — numeric clamp helper
-│   └── memoryStorage.ts           — in-memory localStorage stub for tests
+│   ├── color.test.ts                — hex/rgb parsing & contrast
+│   ├── fileName.test.ts             — file-name slug helper
+│   ├── id.test.ts                   — ID factory prefixes & guard helpers
+│   ├── math.test.ts                 — numeric clamp helper
+│   └── memoryStorage.ts             — in-memory localStorage stub for tests
 └── store/
-    ├── undoLabels.test.ts         — labeled undo/redo stack semantics
-    └── tierRowColor.test.ts       — per-tier row background actions & round-trip
+    ├── boardSyncState.test.ts       — board sync status store semantics
+    ├── tierRowColor.test.ts         — per-tier row background actions & round-trip
+    └── undoLabels.test.ts           — labeled undo/redo stack semantics
 ```
 
 ## Fixtures

@@ -17,6 +17,8 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
+desktop.ini
 *.suo
 *.ntvs*
 *.njsproj
@@ -59,3 +61,13 @@ skills-lock.json
 /playwright-report
 /.playwright
 /playwright/.cache
+
+# Vitest coverage output
+/coverage
+/.nyc_output
+
+# vite-plugin-pwa dev build output
+dev-dist
+
+# ESLint cache (when run w/ --cache)
+.eslintcache
