@@ -138,6 +138,12 @@ describe('recolorTierRow', () =>
     expect(state.past.map((entry) => entry.label)).toEqual(['Recolor row'])
     expect(state.past).toHaveLength(1)
   })
+})
+
+describe('recolorTier', () =>
+{
+  beforeEach(resetStore)
+  afterEach(resetStore)
 
   it('does not create undo history when reapplying the same label color', () =>
   {

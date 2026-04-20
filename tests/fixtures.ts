@@ -19,7 +19,7 @@ export const ITEM_IDS: readonly ItemId[] = [
   asItemId('item-8'),
 ] as const
 
-export const makeSnapshot = (
+export const makeContainerSnapshot = (
   overrides?: Partial<ContainerSnapshot>
 ): ContainerSnapshot => ({
   tiers: [

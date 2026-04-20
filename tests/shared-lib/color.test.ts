@@ -1,4 +1,4 @@
-// tests/utils/color.test.ts
+// tests/shared-lib/color.test.ts
 // color utility helpers
 
 import { describe, it, expect } from 'vitest'

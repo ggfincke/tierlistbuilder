@@ -1,4 +1,4 @@
-// tests/utils/id.test.ts
+// tests/shared-lib/id.test.ts
 // branded ID & short-link slug helpers
 
 import { describe, expect, it } from 'vitest'

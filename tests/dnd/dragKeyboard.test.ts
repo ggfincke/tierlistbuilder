@@ -7,26 +7,27 @@ import {
   resolveNextKeyboardFocusItem,
 } from '~/features/workspace/boards/dnd/dragKeyboard'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { findTierById, makeSnapshot } from '../fixtures'
+import { findTierById, makeContainerSnapshot } from '../fixtures'
 
 describe('resolveNextKeyboardDragPreview', () =>
 {
   it('ArrowLeft from middle moves item one position left', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
       itemId: asItemId('item-2'),
       direction: 'ArrowLeft',
     })
     expect(result).not.toBeNull()
-    const tierS = findTierById(result!.nextPreview.tiers, 'tier-s')
+    if (!result) return
+    const tierS = findTierById(result.nextPreview.tiers, 'tier-s')
     expect(tierS.itemIds).toEqual(['item-2', 'item-1', 'item-3'])
   })
 
   it('ArrowLeft from first position returns null', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
       itemId: asItemId('item-1'),
@@ -37,20 +38,21 @@ describe('resolveNextKeyboardDragPreview', () =>
 
   it('ArrowRight from middle moves item one position right', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
       itemId: asItemId('item-2'),
       direction: 'ArrowRight',
     })
     expect(result).not.toBeNull()
-    const tierS = findTierById(result!.nextPreview.tiers, 'tier-s')
+    if (!result) return
+    const tierS = findTierById(result.nextPreview.tiers, 'tier-s')
     expect(tierS.itemIds).toEqual(['item-1', 'item-3', 'item-2'])
   })
 
   it('ArrowRight from last position returns null', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
       itemId: asItemId('item-3'),
@@ -61,31 +63,33 @@ describe('resolveNextKeyboardDragPreview', () =>
 
   it('ArrowDown moves item to the next tier below', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
       itemId: asItemId('item-1'),
       direction: 'ArrowDown',
     })
     expect(result).not.toBeNull()
-    expect(result!.containerId).toBe('tier-a')
-    const tierS = findTierById(result!.nextPreview.tiers, 'tier-s')
+    if (!result) return
+    expect(result.containerId).toBe('tier-a')
+    const tierS = findTierById(result.nextPreview.tiers, 'tier-s')
     expect(tierS.itemIds).not.toContain('item-1')
-    const tierA = findTierById(result!.nextPreview.tiers, 'tier-a')
+    const tierA = findTierById(result.nextPreview.tiers, 'tier-a')
     expect(tierA.itemIds).toContain('item-1')
   })
 
   it('ArrowUp from unranked moves item to the last tier', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = resolveNextKeyboardDragPreview({
       snapshot: snap,
       itemId: asItemId('item-6'),
       direction: 'ArrowUp',
     })
     expect(result).not.toBeNull()
-    expect(result!.containerId).toBe('tier-b')
-    expect(result!.nextPreview.unrankedItemIds).not.toContain('item-6')
+    if (!result) return
+    expect(result.containerId).toBe('tier-b')
+    expect(result.nextPreview.unrankedItemIds).not.toContain('item-6')
   })
 })
 
@@ -93,7 +97,7 @@ describe('resolveNextKeyboardFocusItem', () =>
 {
   it('ArrowRight returns the adjacent item in the same container', () =>
   {
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = resolveNextKeyboardFocusItem({
       snapshot: snap,
       itemId: asItemId('item-1'),
@@ -105,7 +109,7 @@ describe('resolveNextKeyboardFocusItem', () =>
   it('ArrowDown skips empty containers & focuses item in next non-empty one', () =>
   {
     // tier-b is empty, so ArrowDown from tier-a should go to unranked
-    const snap = makeSnapshot()
+    const snap = makeContainerSnapshot()
     const result = resolveNextKeyboardFocusItem({
       snapshot: snap,
       itemId: asItemId('item-4'),

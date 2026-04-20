@@ -1,7 +1,7 @@
 // tests/platform/tierPresetCloudMerge.test.ts
 // tier preset cloud merge strategy
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { UserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
@@ -14,7 +14,6 @@ import {
   upsertTierPresetSyncMeta,
 } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
-import { createMemoryStorage } from '../utils/memoryStorage'
 
 const buildCloudRow = (presetId: UserPresetId): TierPresetCloudRow => ({
   externalId: presetId,
@@ -70,13 +69,7 @@ describe('tierPresetCloudMerge', () =>
 {
   beforeEach(() =>
   {
-    vi.stubGlobal('localStorage', createMemoryStorage())
     useTierPresetStore.setState({ userPresets: [] })
-  })
-
-  afterEach(() =>
-  {
-    vi.unstubAllGlobals()
   })
 
   it('preserves same-user delete tombstones across remounts', async () =>

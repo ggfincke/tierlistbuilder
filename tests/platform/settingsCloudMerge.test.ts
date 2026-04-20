@@ -1,7 +1,7 @@
 // tests/platform/settingsCloudMerge.test.ts
 // settings cloud merge strategy
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 import {
   mergeSettingsOnFirstLogin,
@@ -16,7 +16,6 @@ import {
   DEFAULT_APP_SETTINGS,
   useSettingsStore,
 } from '~/features/workspace/settings/model/useSettingsStore'
-import { createMemoryStorage } from '../utils/memoryStorage'
 
 const buildCloudSettings = (
   overrides: Partial<AppSettings> = {}
@@ -66,13 +65,7 @@ describe('settingsCloudMerge', () =>
 {
   beforeEach(() =>
   {
-    vi.stubGlobal('localStorage', createMemoryStorage())
     useSettingsStore.setState(DEFAULT_APP_SETTINGS)
-  })
-
-  afterEach(() =>
-  {
-    vi.unstubAllGlobals()
   })
 
   it('pushes local settings when the pending sidecar belongs to the signed-in user', async () =>

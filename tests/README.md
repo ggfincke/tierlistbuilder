@@ -41,7 +41,7 @@ npm test
 npm run test:watch
 
 # run a specific test file
-npx vitest run tests/dragSnapshot.test.ts
+npx vitest run tests/dnd/dragSnapshot.test.ts
 ```
 
 ## Structure
@@ -49,12 +49,15 @@ npx vitest run tests/dragSnapshot.test.ts
 ```
 tests/
 ├── fixtures.ts                    — shared snapshot/tier builders & constants
+├── setup.ts                       — global vitest setup (localStorage stub + resetAllMocks)
 ├── board/
-│   ├── constants.test.ts          — toFileBase, clamp, buildDefaultTiers
+│   ├── constants.test.ts          — buildDefaultTiers
 │   ├── boardSnapshot.test.ts      — board creation, tier factory, color spec normalization, & legacy migration
 │   ├── boardOps.test.ts           — pure sorting & shuffling helpers
 │   ├── tierColors.test.ts         — tier color spec creation & resolution
 │   └── tierPresets.test.ts        — preset-to-board & board-to-preset conversion
+├── convex/
+│   └── boardReconciler.test.ts    — cloud-vs-local board reconciliation
 ├── data/
 │   └── exportJson.test.ts         — JSON import parsing, validation, & multi-board envelope detection
 ├── dnd/
@@ -70,27 +73,32 @@ tests/
 │   ├── nestedMenus.test.ts        — nested root/submenu open-close tree rules
 │   ├── popupPosition.test.ts      — fixed popup placement & viewport clamping
 │   └── toolbarPosition.test.ts    — submenu direction & responsive toolbar helpers
-├── store/
-│   ├── undoLabels.test.ts         — labeled undo/redo stack semantics
-│   └── tierRowColor.test.ts       — per-tier row background actions & round-trip
-└── utils/
-    ├── color.test.ts              — hex/rgb parsing & contrast
-    └── id.test.ts                 — ID factory prefixes & guard helpers
+├── sharing/
+│   └── hashShare.test.ts          — share-fragment codec round-trip & image stripping
+├── shared-lib/
+│   ├── color.test.ts              — hex/rgb parsing & contrast
+│   ├── fileName.test.ts           — file-name slug helper
+│   ├── id.test.ts                 — ID factory prefixes & guard helpers
+│   ├── math.test.ts               — numeric clamp helper
+│   └── memoryStorage.ts           — in-memory localStorage stub for tests
+└── store/
+    ├── undoLabels.test.ts         — labeled undo/redo stack semantics
+    └── tierRowColor.test.ts       — per-tier row background actions & round-trip
 ```
 
 ## Fixtures
 
 Shared test data defined in `fixtures.ts`:
 
-| Export                          | Description                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `TIER_IDS`                      | Stable tier ID constants (`'tier-s'`, `'tier-a'`, `'tier-b'`)                                          |
-| `ITEM_IDS`                      | Stable item ID constants (`'item-1'` through `'item-8'`)                                               |
-| `makeSnapshot(overrides?)`      | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items                                                      |
-| `makeBoardSnapshot(overrides?)` | Builds an empty `BoardSnapshot` — compose tiers/items via overrides                                    |
-| `makeTier(overrides?)`          | Builds a `Tier` w/ palette colorSpec defaults                                                          |
-| `makeItem(overrides?)`          | Builds a `TierItem` w/ a default item ID                                                               |
-| `makeRect(overrides?)`          | Builds a `DOMRect` for layout/popup tests; derives `right`/`bottom` from `left`/`top`/`width`/`height` |
+| Export                              | Description                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `TIER_IDS`                          | Stable tier ID constants (`'tier-s'`, `'tier-a'`, `'tier-b'`)                                          |
+| `ITEM_IDS`                          | Stable item ID constants (`'item-1'` through `'item-8'`)                                               |
+| `makeContainerSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items                                                      |
+| `makeBoardSnapshot(overrides?)`     | Builds an empty `BoardSnapshot` — compose tiers/items via overrides                                    |
+| `makeTier(overrides?)`              | Builds a `Tier` w/ palette colorSpec defaults                                                          |
+| `makeItem(overrides?)`              | Builds a `TierItem` w/ a default item ID                                                               |
+| `makeRect(overrides?)`              | Builds a `DOMRect` for layout/popup tests; derives `right`/`bottom` from `left`/`top`/`width`/`height` |
 
 `tests/typeHelpers.ts` provides `asInvalid<T>(value)` for tests that intentionally pass malformed input. Prefer it over a bare `as never` cast so the intent is explicit.
 

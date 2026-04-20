@@ -17,10 +17,7 @@ import {
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
-import {
-  createFailingStorage,
-  createMemoryStorage,
-} from '../utils/memoryStorage'
+import { createFailingStorage } from '../shared-lib/memoryStorage'
 
 const TEST_BOARD_ID = 'board-local-session-test' as BoardId
 const OTHER_BOARD_ID = 'board-local-session-other' as BoardId
@@ -62,7 +59,6 @@ describe('local board session sync persistence', () =>
 {
   beforeEach(() =>
   {
-    vi.stubGlobal('localStorage', createMemoryStorage())
     resetStores()
   })
 
@@ -70,7 +66,6 @@ describe('local board session sync persistence', () =>
   {
     setBoardLoadedListener(null)
     resetStores()
-    vi.unstubAllGlobals()
   })
 
   it('keeps active sync state in memory when snapshot persistence fails', () =>

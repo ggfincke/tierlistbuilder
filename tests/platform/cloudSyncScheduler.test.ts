@@ -18,14 +18,14 @@ const flushPromises = async (): Promise<void> =>
   await Promise.resolve()
 }
 
-const makeSnapshot = (title: string): BoardSnapshot => ({
+const makeBoardWithTitle = (title: string): BoardSnapshot => ({
   ...createInitialBoardData('classic'),
   title,
 })
 
 const makeWork = (boardId: BoardId, title: string): PendingBoardSync =>
 {
-  const snapshot = makeSnapshot(title)
+  const snapshot = makeBoardWithTitle(title)
 
   return {
     boardId,
