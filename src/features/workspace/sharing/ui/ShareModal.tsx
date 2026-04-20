@@ -2,14 +2,13 @@
 // share modal — shows a Generate button, then renders the minted URL + embed snippet.
 // generation is explicit (not auto-on-open) to avoid creating a fresh blob per open. aborts on unmount
 
-import { ModalHeader } from '~/shared/overlay/ModalHeader'
+import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, Link as LinkIcon, RefreshCw } from 'lucide-react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { formatError } from '~/shared/lib/errors'
 import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
-import { BaseModal } from '~/shared/overlay/BaseModal'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextArea } from '~/shared/ui/TextArea'

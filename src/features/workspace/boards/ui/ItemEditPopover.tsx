@@ -11,14 +11,14 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { useAnchoredPopup } from '~/shared/overlay/useAnchoredPopup'
+import { useAnchoredPopup } from '~/shared/overlay/menu'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   ITEM_EDIT_POPOVER_MIN_HEIGHT_PX,
   ITEM_EDIT_POPOVER_WIDTH_PX,
 } from '~/shared/overlay/uiMeasurements'
 import { computeItemEditPopoverStyle } from '~/shared/overlay/popupPosition'
-import { OverlayFixedPopupSurface } from '~/shared/overlay/OverlayPrimitives'
+import { OverlayFixedPopupSurface } from '~/shared/overlay/Modal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'

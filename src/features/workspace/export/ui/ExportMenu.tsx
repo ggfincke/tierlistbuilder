@@ -19,12 +19,13 @@ import {
 import type { ImageFormat } from '../model/runtime'
 import type { MenuPositionClasses } from '~/shared/layout/toolbarPosition'
 import { formatError } from '~/shared/lib/errors'
-import { useMenuOverflowFlipRefs } from '~/shared/overlay/useMenuOverflowFlip'
 import {
+  useMenuOverflowFlipRefs,
+  useDismissibleLayer,
   useNestedMenus,
   type NestedMenuDefinition,
-} from '~/shared/overlay/useNestedMenus'
-import { useDismissibleLayer } from '~/shared/overlay/useDismissibleLayer'
+} from '~/shared/overlay/menu'
+
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
   importBoardSession,
@@ -45,7 +46,7 @@ import {
   OverlayDivider,
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '~/shared/overlay/OverlayPrimitives'
+} from '~/shared/overlay/Modal'
 
 type ExportMenuId = 'root' | 'image' | 'format' | 'exportAll'
 

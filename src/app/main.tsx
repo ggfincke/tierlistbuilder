@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { ConvexAuthProvider } from '@convex-dev/auth/react'
 import './index.css'
 import App from './App.tsx'
-import { convexClient } from '~/features/platform/convex/convexClient'
+import { convexClient } from '~/features/platform/sync/lib/convexClient'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
 // mount app into DOM root

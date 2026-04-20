@@ -14,12 +14,13 @@ import type {
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import { computeSettingsMenuStyle } from '~/shared/overlay/popupPosition'
-import { useAnchoredPopup } from '~/shared/overlay/useAnchoredPopup'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { useAnchoredPopup } from '~/shared/overlay/menu'
 import {
+  ConfirmDialog,
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '~/shared/overlay/OverlayPrimitives'
+} from '~/shared/overlay/Modal'
+
 import { TextInput } from '~/shared/ui/TextInput'
 import {
   createCustomTierColorSpec,

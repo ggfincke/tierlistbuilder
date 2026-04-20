@@ -1,7 +1,7 @@
 // src/features/workspace/tier-presets/ui/PresetPickerModal.tsx
 // modal for choosing a board preset when creating a new list
 
-import { ModalHeader } from '~/shared/overlay/ModalHeader'
+import { ModalHeader, BaseModal, ConfirmDialog } from '~/shared/overlay/Modal'
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 
@@ -13,8 +13,6 @@ import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurr
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
 import { getContrastingTextShadow, getTextColor } from '~/shared/lib/color'
-import { BaseModal } from '~/shared/overlay/BaseModal'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
 

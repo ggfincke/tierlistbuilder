@@ -33,9 +33,10 @@ export default defineSchema({
     tier: v.union(v.literal('free'), v.literal('premium')),
     lastUpsertError: v.optional(v.string()),
   })
-    // indexes required by @convex-dev/auth — must match authTables.users
+    // indexes required by @convex-dev/auth - must match authTables.users
     .index('email', ['email'])
-    .index('phone', ['phone']),
+    .index('phone', ['phone'])
+    .index('byAvatarStorageId', ['avatarStorageId']),
 
   // per-user global app settings — mirrors AppSettings from packages/contracts
   userSettings: defineTable({
@@ -100,7 +101,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('byOwnerAndExternalId', ['ownerId', 'externalId'])
-    .index('byOwnerAndHash', ['ownerId', 'contentHash']),
+    .index('byOwnerAndHash', ['ownerId', 'contentHash'])
+    .index('byStorageId', ['storageId']),
 
   // reusable tier structure owned by a user — independent of boards
   tierPresets: defineTable({
@@ -129,5 +131,6 @@ export default defineSchema({
   })
     .index('bySlug', ['slug'])
     .index('byOwner', ['ownerId'])
-    .index('byExpiresAt', ['expiresAt']),
+    .index('byExpiresAt', ['expiresAt'])
+    .index('bySnapshotStorageId', ['snapshotStorageId']),
 })

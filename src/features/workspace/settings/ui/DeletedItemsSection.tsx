@@ -7,7 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ConfirmDialog } from '~/shared/overlay/Modal'
 import { ItemOverlayButton } from '~/shared/ui/ItemOverlayButton'
 
 export const DeletedItemsSection = () =>

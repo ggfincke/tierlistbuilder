@@ -29,7 +29,7 @@ import {
   computeColorPickerStyle,
   computeCustomColorPickerStyle,
 } from '~/shared/overlay/popupPosition'
-import { useAnchoredPopup } from '~/shared/overlay/useAnchoredPopup'
+import { useAnchoredPopup } from '~/shared/overlay/menu'
 import {
   BoardItemsGrid,
   BoardRowContent,
@@ -39,7 +39,7 @@ import { TierItem } from './TierItem'
 import { TierLabel } from './TierLabel'
 import { TierRowSettingsMenu } from './TierRowSettingsMenu'
 import { ColorPicker, CustomColorPicker } from './ColorPicker'
-import { OverlayFixedPopupSurface } from '~/shared/overlay/OverlayPrimitives'
+import { OverlayFixedPopupSurface } from '~/shared/overlay/Modal'
 
 interface TierRowProps
 {

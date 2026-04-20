@@ -2,11 +2,9 @@
 // coordinated tier label palettes — ordered swatches per palette
 
 import type { PaletteId, ThemeId } from '@tierlistbuilder/contracts/lib/theme'
+import type { PaletteDefinition } from '@tierlistbuilder/contracts/lib/themeDefinition'
 
-export interface PaletteDefinition
-{
-  colors: string[]
-}
+export type { PaletteDefinition }
 
 export const PALETTES: Record<PaletteId, PaletteDefinition> = {
   classic: {

@@ -1,16 +1,24 @@
 // convex/lib/validators.ts
 // reusable v.object() validators that mirror packages/contracts shapes
 
-import type { Infer } from 'convex/values'
+import type { Infer, Validator } from 'convex/values'
 import { v } from 'convex/values'
-import type {
-  AppSettings,
-  CloudSettingsRead,
+import {
+  ITEM_SHAPES,
+  ITEM_SIZES,
+  LABEL_WIDTHS,
+  TIER_LABEL_FONT_SIZES,
+  TOOLBAR_POSITIONS,
+  type AppSettings,
+  type CloudSettingsRead,
 } from '@tierlistbuilder/contracts/workspace/settings'
-import type {
-  PaletteId,
-  TextStyleId,
-  ThemeId,
+import {
+  PALETTE_IDS,
+  TEXT_STYLE_IDS,
+  THEME_IDS,
+  type PaletteId,
+  type TextStyleId,
+  type ThemeId,
 } from '@tierlistbuilder/contracts/lib/theme'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
@@ -53,76 +61,23 @@ export const tierPresetTierValidator = v.object({
 // array of tiers stored inline on a tierPresets row
 export const tierPresetTiersValidator = v.array(tierPresetTierValidator)
 
-// ThemeId — must stay in sync w/ packages/contracts/lib/theme.ts
-const themeIdValidator = v.union(
-  v.literal('classic'),
-  v.literal('classic-light'),
-  v.literal('midnight'),
-  v.literal('forest'),
-  v.literal('ember'),
-  v.literal('sakura'),
-  v.literal('amoled'),
-  v.literal('high-contrast')
-)
+// build a v.union of v.literal() from a readonly tuple sourced in contracts.
+// the _Assert pairs below still catch drift in either direction at compile time
+const literalUnion = <T extends readonly [string, string, ...string[]]>(
+  values: T
+): Validator<T[number]> =>
+  v.union(...values.map((value) => v.literal(value))) as unknown as Validator<
+    T[number]
+  >
 
-// PaletteId — must stay in sync w/ packages/contracts/lib/theme.ts
-const paletteIdValidator = v.union(
-  v.literal('classic'),
-  v.literal('ocean'),
-  v.literal('midnight'),
-  v.literal('forest'),
-  v.literal('ember'),
-  v.literal('sakura'),
-  v.literal('twilight'),
-  v.literal('high-contrast')
-)
-
-// TextStyleId — must stay in sync w/ packages/contracts/lib/theme.ts
-const textStyleIdValidator = v.union(
-  v.literal('default'),
-  v.literal('mono'),
-  v.literal('serif'),
-  v.literal('rounded'),
-  v.literal('display')
-)
-
-// ItemSize — must stay in sync w/ packages/contracts/workspace/settings.ts
-const itemSizeValidator = v.union(
-  v.literal('small'),
-  v.literal('medium'),
-  v.literal('large')
-)
-
-// ItemShape — must stay in sync w/ packages/contracts/workspace/settings.ts
-const itemShapeValidator = v.union(
-  v.literal('square'),
-  v.literal('rounded'),
-  v.literal('circle')
-)
-
-// LabelWidth — must stay in sync w/ packages/contracts/workspace/settings.ts
-const labelWidthValidator = v.union(
-  v.literal('narrow'),
-  v.literal('default'),
-  v.literal('wide')
-)
-
-// TierLabelFontSize — must stay in sync w/ packages/contracts/workspace/settings.ts
-const tierLabelFontSizeValidator = v.union(
-  v.literal('xs'),
-  v.literal('small'),
-  v.literal('medium'),
-  v.literal('large'),
-  v.literal('xl')
-)
-
-// ToolbarPosition — must stay in sync w/ packages/contracts/workspace/settings.ts
-const toolbarPositionValidator = v.union(
-  v.literal('top'),
-  v.literal('bottom'),
-  v.literal('left'),
-  v.literal('right')
-)
+const themeIdValidator = literalUnion(THEME_IDS)
+const paletteIdValidator = literalUnion(PALETTE_IDS)
+const textStyleIdValidator = literalUnion(TEXT_STYLE_IDS)
+const itemSizeValidator = literalUnion(ITEM_SIZES)
+const itemShapeValidator = literalUnion(ITEM_SHAPES)
+const labelWidthValidator = literalUnion(LABEL_WIDTHS)
+const tierLabelFontSizeValidator = literalUnion(TIER_LABEL_FONT_SIZES)
+const toolbarPositionValidator = literalUnion(TOOLBAR_POSITIONS)
 
 // full AppSettings shape — must stay in sync w/ packages/contracts/workspace/settings.ts
 export const appSettingsValidator = v.object({

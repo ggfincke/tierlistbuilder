@@ -8,7 +8,7 @@ import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import {
   mergeTierPresetsOnFirstLogin,
   type TierPresetMergeDeps,
-} from '~/features/platform/sync/tier-presets/cloudMerge'
+} from '~/features/workspace/tier-presets/data/cloud/cloudMerge'
 import {
   loadTierPresetSyncMetaMap,
   upsertTierPresetSyncMeta,

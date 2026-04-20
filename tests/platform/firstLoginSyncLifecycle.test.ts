@@ -2,7 +2,7 @@
 // first-login sync lifecycle orchestration
 
 import { describe, expect, it } from 'vitest'
-import { runFirstLoginSyncLifecycle } from '~/features/platform/sync/lifecycle/firstLoginSyncLifecycle'
+import { runFirstLoginSyncLifecycle } from '~/features/platform/sync/orchestration/firstLoginSyncLifecycle'
 
 interface DeferredPromise<T>
 {

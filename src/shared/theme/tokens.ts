@@ -2,33 +2,9 @@
 // color token definitions for all 8 themes
 
 import type { ThemeId } from '@tierlistbuilder/contracts/lib/theme'
+import type { ThemeDefinition } from '@tierlistbuilder/contracts/lib/themeDefinition'
 
-// shape of a single theme's color token set
-export interface ThemeDefinition
-{
-  'bg-page': string
-  'bg-surface': string
-  'bg-sunken': string
-  'bg-overlay': string
-  'bg-drag-over': string
-  'bg-hover': string
-  'bg-active': string
-  border: string
-  'border-secondary': string
-  'border-hover': string
-  text: string
-  'text-secondary': string
-  'text-muted': string
-  'text-faint': string
-  'text-dim': string
-  accent: string
-  'accent-hover': string
-  destructive: string
-  'destructive-hover': string
-  success: string
-  overlay: string
-  'export-bg': string
-}
+export type { ThemeDefinition }
 
 export const THEMES: Record<ThemeId, ThemeDefinition> = {
   classic: {

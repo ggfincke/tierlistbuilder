@@ -1,12 +1,11 @@
 // src/features/workspace/annotation/ui/AnnotationEditor.tsx
 // full-screen annotation editor — draw on top of an exported board image
 
-import { ModalHeader } from '~/shared/overlay/ModalHeader'
+import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
 import { useId } from 'react'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useAnnotationCanvas } from '~/features/workspace/annotation/model/useAnnotationCanvas'
-import { BaseModal } from '~/shared/overlay/BaseModal'
 import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'

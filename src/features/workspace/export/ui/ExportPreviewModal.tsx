@@ -1,7 +1,7 @@
 // src/features/workspace/export/ui/ExportPreviewModal.tsx
 // export preview modal — shows rendered board image before download w/ format selector
 
-import { ModalHeader } from '~/shared/overlay/ModalHeader'
+import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
 import { useId, useRef, useState } from 'react'
 import { Check, Copy, Download, Highlighter } from 'lucide-react'
 
@@ -11,7 +11,6 @@ import {
   IMAGE_FORMATS,
 } from '~/features/workspace/export/lib/constants'
 import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
-import { BaseModal } from '~/shared/overlay/BaseModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
 interface ExportPreviewModalProps

@@ -7,7 +7,7 @@ import type {
   AppSettings,
   CloudSettingsRead,
 } from '@tierlistbuilder/contracts/workspace/settings'
-import { convexClient } from '~/features/platform/convex/convexClient'
+import { convexClient } from '~/features/platform/sync/lib/convexClient'
 
 // imperative one-shot fetch for the cloud merge flow & resume helpers
 export const getMySettingsImperative = (): Promise<CloudSettingsRead | null> =>
