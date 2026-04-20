@@ -14,6 +14,7 @@ import { getShareUrlFromSlug } from '~/features/workspace/sharing/short-link/sho
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { COPIED_FEEDBACK_MS } from '~/shared/hooks/useClipboardCopy'
 import { toast } from '~/shared/notifications/useToastStore'
+import { logger } from '~/shared/lib/logger'
 
 interface RecentSharesModalProps
 {
@@ -99,7 +100,7 @@ export const RecentSharesModal = ({
     }
     catch (error)
     {
-      console.warn('Copy share link failed:', error)
+      logger.warn('share', 'Copy share link failed:', error)
       toast('Failed to copy link.', 'error')
     }
   }
@@ -122,7 +123,7 @@ export const RecentSharesModal = ({
     }
     catch (error)
     {
-      console.warn('Revoke share failed:', error)
+      logger.warn('share', 'Revoke share failed:', error)
       toast('Failed to revoke share.', 'error')
     }
     finally

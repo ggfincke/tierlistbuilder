@@ -169,11 +169,16 @@ export const useExportController = () =>
         {
           await exportAllBoardsAsJson()
         }
-        catch
+        catch (err)
         {
           useActiveBoardStore
             .getState()
-            .setRuntimeError('Export All failed. Try again.')
+            .setRuntimeError(
+              formatError(
+                err,
+                'Export All failed. Try again after images finish loading.'
+              )
+            )
         }
         return
       }

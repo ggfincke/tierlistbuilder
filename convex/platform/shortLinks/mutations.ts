@@ -4,6 +4,7 @@
 
 import { ConvexError, v } from 'convex/values'
 import { mutation } from '../../_generated/server'
+import type { MutationCtx } from '../../_generated/server'
 import {
   DEFAULT_SHARE_LINK_TTL_MS,
   MAX_SNAPSHOT_COMPRESSED_BYTES,
@@ -25,30 +26,52 @@ import { enforceAnonRateLimit, enforceRateLimit } from '../../lib/rateLimiter'
 // widening the alphabet on a vanishingly-rare collision
 const SLUG_INSERT_MAX_ATTEMPTS = 5
 
+const enforceShortLinkUploadRateLimit = async (
+  ctx: MutationCtx
+): Promise<void> =>
+{
+  const userId = await getCurrentUserId(ctx)
+  if (userId)
+  {
+    await enforceRateLimit(ctx, 'userShortLink', userId)
+  }
+  else
+  {
+    await enforceAnonRateLimit(ctx, 'anonShortLink')
+  }
+}
+
+const enforceShortLinkCreateRateLimit = async (
+  ctx: MutationCtx,
+  ownerId: Awaited<ReturnType<typeof getCurrentUserId>>
+): Promise<void> =>
+{
+  if (ownerId)
+  {
+    await enforceRateLimit(ctx, 'userShortLinkCreate', ownerId)
+  }
+  else
+  {
+    await enforceAnonRateLimit(ctx, 'anonShortLinkCreate')
+  }
+}
+
 // generate a one-time upload URL for the snapshot blob. size cap is enforced
 // at createSnapshotShortLink, orphaned blobs are reaped by gcOrphanedStorage,
-// & this is the single rate-limit point for the 2-phase share flow
+// & upload-url creation is rate-limited separately from slug creation
 export const generateSnapshotUploadUrl = mutation({
   args: {},
   returns: v.string(),
   handler: async (ctx): Promise<string> =>
   {
-    const userId = await getCurrentUserId(ctx)
-    if (userId)
-    {
-      await enforceRateLimit(ctx, 'userShortLink', userId)
-    }
-    else
-    {
-      await enforceAnonRateLimit(ctx, 'anonShortLink')
-    }
+    await enforceShortLinkUploadRateLimit(ctx)
     return await ctx.storage.generateUploadUrl()
   },
 })
 
 // link a previously-uploaded snapshot blob to a fresh slug. ownerId is set for
 // signed-in callers, failures delete the blob, & expiresAt is always server-set
-// to createdAt + DEFAULT_SHARE_LINK_TTL_MS. rate limit lives on the upload step
+// to createdAt + DEFAULT_SHARE_LINK_TTL_MS. slug creation is rate-limited too
 export const createSnapshotShortLink = mutation({
   args: {
     snapshotStorageId: v.id('_storage'),
@@ -60,6 +83,7 @@ export const createSnapshotShortLink = mutation({
   handler: async (ctx, args): Promise<{ slug: string; createdAt: number }> =>
   {
     const ownerId = await getCurrentUserId(ctx)
+    await enforceShortLinkCreateRateLimit(ctx, ownerId)
 
     const blobMeta = await ctx.db.system.get(args.snapshotStorageId)
     if (!blobMeta)

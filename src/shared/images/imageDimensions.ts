@@ -1,6 +1,8 @@
 // src/shared/images/imageDimensions.ts
 // decode image dimensions w/ an ImageBitmap fallback to 0x0
 
+import { logger } from '~/shared/lib/logger'
+
 export const getImageDimensions = async (
   blob: Blob
 ): Promise<{ width: number; height: number }> =>
@@ -19,7 +21,11 @@ export const getImageDimensions = async (
   }
   catch (error)
   {
-    console.warn('ImageBitmap decode failed, using 0x0 fallback:', error)
+    logger.warn(
+      'media',
+      'ImageBitmap decode failed, using 0x0 fallback:',
+      error
+    )
     return { width: 0, height: 0 }
   }
 }

@@ -103,6 +103,52 @@ describe('settingsCloudMerge', () =>
     })
   })
 
+  it('pushes local settings when the user edits during the merge fetch window', async () =>
+  {
+    let resolveCloud!: (value: AppSettings) => void
+    const upsertCalls: { settings: AppSettings }[] = []
+    const deps: SettingsMergeDeps = {
+      getMySettings: async () =>
+      {
+        const settings = await new Promise<AppSettings>((resolve) =>
+        {
+          resolveCloud = resolve
+        })
+        return { settings, updatedAt: 10 }
+      },
+      upsertMySettings: async (args) =>
+      {
+        upsertCalls.push(args)
+        return { updatedAt: 20 }
+      },
+    }
+
+    const mergePromise = mergeSettingsOnFirstLogin({ userId: 'user-a', deps })
+    useSettingsStore.setState({
+      compactMode: true,
+      showLabels: true,
+    })
+    const localSettings = extractAppSettings(useSettingsStore.getState())
+    resolveCloud(
+      buildCloudSettings({
+        compactMode: false,
+        showLabels: false,
+      })
+    )
+
+    const result = await mergePromise
+
+    expect(result).toEqual({ kind: 'push', updatedAt: 20 })
+    expect(upsertCalls).toEqual([{ settings: localSettings }])
+    expect(useSettingsStore.getState().compactMode).toBe(true)
+    expect(useSettingsStore.getState().showLabels).toBe(true)
+    expect(loadSettingsSyncMeta()).toEqual({
+      pendingSyncAt: null,
+      lastSyncedAt: 20,
+      ownerUserId: 'user-a',
+    })
+  })
+
   it('ignores a different user’s pending sidecar & pulls cloud settings instead', async () =>
   {
     useSettingsStore.setState({

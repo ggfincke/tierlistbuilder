@@ -15,23 +15,16 @@ import { extractBoardData } from '~/features/workspace/boards/model/boardSnapsho
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { toFileBase } from '~/shared/lib/fileName'
-import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { dataUrlToBytes } from '~/shared/lib/binaryCodec'
-import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 import { downloadBlob } from '~/shared/lib/downloadBlob'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { FORMAT_EXT, renderToDataUrl } from './exportImage'
 import { withExportSession } from './exportBoardRender'
-import {
-  collectSnapshotImageHashes,
-  snapshotToWireWithBlobs,
-} from './boardWireMapper'
-import { getBlobsBatch } from '~/shared/images/imageStore'
+import { snapshotToWire } from './boardWireMapper'
+import { warmFromBoard } from '~/shared/images/imageBlobCache'
 
-const BOARD_JSON_EXPORT_CONCURRENCY = 2
-
-// envelope type for multi-board JSON export — each board's `data` is the
-// wire shape w/ inline base64 images so the file stays self-contained
+// envelope type for multi-board JSON export — each board's `data` is
+// self-contained so image-backed items survive import into another browser
 interface MultiTierListExport
 {
   version: number
@@ -68,93 +61,25 @@ const loadAllBoardData = (): Array<{
   return results
 }
 
+// prewarm the shared image blob cache so the off-screen render tree resolves
+// every imageRef -> object URL synchronously through useImageUrl
 const prepareBoardsForCapture = async (
   boards: Array<{ id: string; title: string; data: BoardSnapshot }>
-): Promise<{
-  boards: Array<{ id: string; title: string; data: BoardSnapshot }>
-  revoke: () => void
-}> =>
+): Promise<void> =>
 {
-  const hashes = [
-    ...new Set(boards.flatMap(({ data }) => collectSnapshotImageHashes(data))),
-  ]
-  const records = await getBlobsBatch(hashes)
-  const urlsByHash = new Map<string, string>()
-
-  for (const hash of hashes)
-  {
-    const blob = records.get(hash)?.bytes ?? null
-    if (blob)
-    {
-      urlsByHash.set(hash, URL.createObjectURL(blob))
-    }
-  }
-
-  if (urlsByHash.size === 0)
-  {
-    return {
-      boards,
-      revoke: () =>
-      {},
-    }
-  }
-
-  return {
-    boards: boards.map((board) => ({
-      ...board,
-      data: mapSnapshotItems(board.data, (item) =>
-      {
-        const hash = item.imageRef?.hash
-        const imageUrl = hash ? urlsByHash.get(hash) : null
-
-        if (!imageUrl)
-        {
-          return item
-        }
-
-        const { imageRef: _imageRef, ...rest } = item
-        return {
-          ...rest,
-          imageUrl,
-        }
-      }),
-    })),
-    revoke: () =>
-    {
-      for (const url of urlsByHash.values())
-      {
-        URL.revokeObjectURL(url)
-      }
-    },
-  }
+  await Promise.all(boards.map(({ data }) => warmFromBoard(data)))
 }
 
-// download all boards as a single JSON file. async because every board's
-// images have to be pulled out of IndexedDB & base64-encoded in the wire
-// mapper before serialization
+// download all boards as a single self-contained JSON file
 export const exportAllBoardsAsJson = async (): Promise<void> =>
 {
   const allBoards = loadAllBoardData()
-  const hashes = [
-    ...new Set(
-      allBoards.flatMap(({ data }) => collectSnapshotImageHashes(data))
-    ),
-  ]
-  const records = await getBlobsBatch(hashes)
-  const blobsByHash = new Map<string, Blob | null>()
 
-  for (const hash of hashes)
-  {
-    blobsByHash.set(hash, records.get(hash)?.bytes ?? null)
-  }
-
-  const wireBoards = await mapAsyncLimit(
-    allBoards,
-    BOARD_JSON_EXPORT_CONCURRENCY,
-    async ({ title, data }) => ({
+  const wireBoards = await Promise.all(
+    allBoards.map(async ({ title, data }) => ({
       title,
-      data: await snapshotToWireWithBlobs(data, blobsByHash),
-    })
+      data: await snapshotToWire(data),
+    }))
   )
 
   const payload: MultiTierListExport = {
@@ -180,49 +105,38 @@ const captureAllBoards = async (
 > =>
 {
   const allBoards = loadAllBoardData()
-  const prepared = await prepareBoardsForCapture(allBoards)
+  await prepareBoardsForCapture(allBoards)
 
-  try
-  {
-    return await withExportSession(
-      { appearance, backgroundColor },
-      async (session) =>
+  return await withExportSession(
+    { appearance, backgroundColor },
+    async (session) =>
+    {
+      const captures: Array<{
+        title: string
+        dataUrl: string
+        width: number
+        height: number
+      }> = []
+
+      for (let i = 0; i < allBoards.length; i++)
       {
-        const captures: Array<{
-          title: string
-          dataUrl: string
-          width: number
-          height: number
-        }> = []
+        const board = allBoards[i]
+        const element = await session.renderBoard(board.data)
+        const dataUrl = await renderToDataUrl(element, format, backgroundColor)
 
-        for (let i = 0; i < prepared.boards.length; i++)
-        {
-          const board = prepared.boards[i]
-          const element = await session.renderBoard(board.data)
-          const dataUrl = await renderToDataUrl(
-            element,
-            format,
-            backgroundColor
-          )
+        captures.push({
+          title: board.title,
+          dataUrl,
+          width: element.offsetWidth * EXPORT_PIXEL_RATIO,
+          height: element.offsetHeight * EXPORT_PIXEL_RATIO,
+        })
 
-          captures.push({
-            title: board.title,
-            dataUrl,
-            width: element.offsetWidth * EXPORT_PIXEL_RATIO,
-            height: element.offsetHeight * EXPORT_PIXEL_RATIO,
-          })
-
-          onProgress?.(i + 1, prepared.boards.length)
-        }
-
-        return captures
+        onProgress?.(i + 1, allBoards.length)
       }
-    )
-  }
-  finally
-  {
-    prepared.revoke()
-  }
+
+      return captures
+    }
+  )
 }
 
 // download all boards as a multi-page PDF (one page per board)

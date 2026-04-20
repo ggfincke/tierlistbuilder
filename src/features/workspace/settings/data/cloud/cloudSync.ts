@@ -22,6 +22,7 @@ import {
   makeOfflineError,
 } from '~/features/platform/sync/lib/errors'
 import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
+import { logger } from '~/shared/lib/logger'
 
 interface CreateSettingsSyncRunnerOptions
 {
@@ -61,7 +62,7 @@ export const createSettingsSyncRunner = (
       // suppress the warn for synthetic offline errors — they're expected
       // during disconnects & not worth surfacing per offline edit
       if (isOfflineError(error)) return
-      console.warn('Settings sync failed:', error)
+      logger.warn('sync', 'Settings sync failed:', error)
     },
     flush: async (settings) =>
     {

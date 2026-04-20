@@ -2,6 +2,7 @@
 // browser online/offline detection; mirrors navigator.onLine into syncStatusStore
 
 import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
+import { logger } from '~/shared/lib/logger'
 
 interface SetupConnectivityOptions
 {
@@ -45,7 +46,7 @@ export const setupConnectivity = (
       }
       catch (error)
       {
-        console.warn('connectivity onOnline handler threw:', error)
+        logger.warn('sync', 'connectivity onOnline handler threw:', error)
       }
     }
   }

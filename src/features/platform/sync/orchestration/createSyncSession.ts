@@ -28,6 +28,7 @@ import {
 import { flushBoardToCloud } from '~/features/workspace/boards/data/cloud/cloudFlush'
 import { useConflictQueueStore } from '~/features/workspace/boards/data/cloud/conflicts/useConflictQueueStore'
 import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
+import { logger } from '~/shared/lib/logger'
 import { setupConnectivity } from '~/features/platform/sync/transport/connectivity'
 import {
   buildSettingsTriggerSnapshot,
@@ -125,7 +126,7 @@ export const createSyncSession = ({
       // suppress the warn for synthetic offline errors — they're expected
       // & not worth surfacing in console for every offline edit
       if (isOfflineError(error)) return
-      console.warn(`Board sync failed for ${boardId}:`, error)
+      logger.warn('sync', `Board sync failed for ${boardId}:`, error)
     },
     onConflict: (boardId, serverState) =>
     {
@@ -176,7 +177,8 @@ export const createSyncSession = ({
     onError: (cloudExternalId, error) =>
     {
       if (isOfflineError(error)) return
-      console.warn(
+      logger.warn(
+        'sync',
         `Board delete cloud sync failed for ${cloudExternalId}:`,
         error
       )

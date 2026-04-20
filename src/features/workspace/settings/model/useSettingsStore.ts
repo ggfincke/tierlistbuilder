@@ -42,13 +42,25 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   tierLabelFontSize: 'small',
   boardLocked: false,
   reducedMotion: false,
-  preHighContrastThemeId: null,
-  preHighContrastPaletteId: null,
   toolbarPosition: 'top',
   showAltTextButton: false,
 }
 
-interface SettingsStore extends AppSettings
+// runtime-only transition state for the high-contrast toggle — remembers the
+// theme & palette to restore when the user turns HC back off. not persisted
+// because it's a transient undo hint, not a user preference
+interface HighContrastTransitionState
+{
+  preHighContrastThemeId: ThemeId | null
+  preHighContrastPaletteId: PaletteId | null
+}
+
+const DEFAULT_HIGH_CONTRAST_TRANSITION: HighContrastTransitionState = {
+  preHighContrastThemeId: null,
+  preHighContrastPaletteId: null,
+}
+
+interface SettingsStore extends AppSettings, HighContrastTransitionState
 {
   setItemSize: (size: ItemSize) => void
   setShowLabels: (show: boolean) => void
@@ -96,6 +108,7 @@ export const useSettingsStore = create<SettingsStore>()(
     persist(
       (set, get) => ({
         ...DEFAULT_APP_SETTINGS,
+        ...DEFAULT_HIGH_CONTRAST_TRANSITION,
 
         setItemSize: createSettingSetter(set, get, 'itemSize'),
         setShowLabels: createSettingSetter(set, get, 'showLabels'),
@@ -167,6 +180,11 @@ export const useSettingsStore = create<SettingsStore>()(
         name: SETTINGS_STORAGE_KEY,
         storage: createAppPersistStorage(),
         version: SETTINGS_STORAGE_VERSION,
+        partialize: ({
+          preHighContrastThemeId: _t,
+          preHighContrastPaletteId: _p,
+          ...rest
+        }) => rest,
       }
     )
   )

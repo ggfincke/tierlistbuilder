@@ -1,6 +1,8 @@
 // src/features/platform/sync/orchestration/firstLoginSyncLifecycle.ts
 // first-login sync orchestration; runs board merge first & arms remaining sync paths
 
+import { logger } from '~/shared/lib/logger'
+
 interface FirstLoginSyncLifecycleOptions
 {
   shouldProceed: () => boolean
@@ -63,7 +65,7 @@ export const runFirstLoginSyncLifecycle = async ({
 
   if (boardMergeThrew !== null)
   {
-    console.warn('First-login board merge threw:', boardMergeThrew)
+    logger.warn('sync', 'First-login board merge threw:', boardMergeThrew)
   }
 
   if (!shouldProceed())

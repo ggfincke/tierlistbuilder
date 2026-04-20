@@ -16,6 +16,8 @@
     "audit:drag": "node scripts/drag-audit.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "screenshots": "node scripts/screenshots.mjs",
     "preview": "vite preview",
     "version": "node scripts/check-changelog.mjs && git add CHANGELOG.md"

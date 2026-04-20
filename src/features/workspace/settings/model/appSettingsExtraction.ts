@@ -21,8 +21,6 @@ const APP_SETTINGS_KEYS = [
   'tierLabelFontSize',
   'boardLocked',
   'reducedMotion',
-  'preHighContrastThemeId',
-  'preHighContrastPaletteId',
   'toolbarPosition',
   'showAltTextButton',
 ] as const satisfies readonly (keyof AppSettings)[]

@@ -12,8 +12,12 @@ import {
 import {
   loadSettingsSyncMetaForUser,
   markSettingsSynced,
+  stampSettingsPending,
 } from '~/features/workspace/settings/data/local/settingsSyncMeta'
-import { extractAppSettings } from '~/features/workspace/settings/model/appSettingsExtraction'
+import {
+  appSettingsEqual,
+  extractAppSettings,
+} from '~/features/workspace/settings/model/appSettingsExtraction'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 
@@ -63,55 +67,71 @@ export const mergeSettingsOnFirstLogin = async ({
 }: MergeSettingsOptions): Promise<SettingsMergeResult> =>
 {
   const canProceed = makeProceedGuard(shouldProceed)
+  const unsubscribe = useSettingsStore.subscribe(
+    (state) => extractAppSettings(state),
+    () =>
+    {
+      if (!canProceed()) return
+      stampSettingsPending(userId)
+    },
+    { equalityFn: appSettingsEqual }
+  )
 
-  if (!canProceed())
-  {
-    return { kind: 'aborted' }
-  }
-
-  let cloudRead: CloudSettingsRead | null
   try
   {
-    cloudRead = await deps.getMySettings()
-  }
-  catch (error)
-  {
-    return { kind: 'error', error }
-  }
-
-  if (!canProceed())
-  {
-    return { kind: 'aborted' }
-  }
-
-  const sidecar = loadSettingsSyncMetaForUser(userId)
-  const hasPendingLocal = sidecar.pendingSyncAt !== null
-
-  // pull path: cloud non-null & local has no pending edit. apply cloud &
-  // stamp the sidecar w/ the cloud row's actual updatedAt so future merges
-  // can compare timestamps correctly
-  if (cloudRead !== null && !hasPendingLocal)
-  {
-    applyAppSettingsToStore(cloudRead.settings)
-    markSettingsSynced(userId, cloudRead.updatedAt)
-    return { kind: 'pull', updatedAt: cloudRead.updatedAt }
-  }
-
-  // push path: either cloud is empty, or local has pending edits we don't
-  // want to lose. send the local state up
-  const localSettings = extractAppSettings(useSettingsStore.getState())
-  try
-  {
-    const result = await deps.upsertMySettings({ settings: localSettings })
     if (!canProceed())
     {
       return { kind: 'aborted' }
     }
-    markSettingsSynced(userId, result.updatedAt)
-    return { kind: 'push', updatedAt: result.updatedAt }
+
+    let cloudRead: CloudSettingsRead | null
+    try
+    {
+      cloudRead = await deps.getMySettings()
+    }
+    catch (error)
+    {
+      return { kind: 'error', error }
+    }
+
+    if (!canProceed())
+    {
+      return { kind: 'aborted' }
+    }
+
+    const sidecar = loadSettingsSyncMetaForUser(userId)
+    const hasPendingLocal = sidecar.pendingSyncAt !== null
+
+    // pull path: cloud non-null & local has no pending edit. apply cloud &
+    // stamp the sidecar w/ the cloud row's actual updatedAt so future merges
+    // can compare timestamps correctly
+    if (cloudRead !== null && !hasPendingLocal)
+    {
+      applyAppSettingsToStore(cloudRead.settings)
+      markSettingsSynced(userId, cloudRead.updatedAt)
+      return { kind: 'pull', updatedAt: cloudRead.updatedAt }
+    }
+
+    // push path: either cloud is empty, or local has pending edits we don't
+    // want to lose. send the local state up
+    const localSettings = extractAppSettings(useSettingsStore.getState())
+    try
+    {
+      const result = await deps.upsertMySettings({ settings: localSettings })
+      if (!canProceed())
+      {
+        return { kind: 'aborted' }
+      }
+      markSettingsSynced(userId, result.updatedAt)
+      return { kind: 'push', updatedAt: result.updatedAt }
+    }
+    catch (error)
+    {
+      return { kind: 'error', error }
+    }
   }
-  catch (error)
+  finally
   {
-    return { kind: 'error', error }
+    unsubscribe()
   }
 }

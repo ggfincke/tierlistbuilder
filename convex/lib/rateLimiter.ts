@@ -10,11 +10,18 @@ import type { MutationCtx } from '../_generated/server'
 import type { Id } from '../_generated/dataModel'
 
 // rate-limit bucket identifiers — narrow union so call sites are typo-safe.
-// anonShortLink: global (no identity), 1000/hr; userShortLink: 10/hr per user;
-// userMediaUpload: 100/hr per user covers importing a full library in one sitting
+// anonShortLink & userShortLink gate upload-url creation; the matching
+// *Create buckets gate slug creation. userMediaUpload covers imports
 const rateLimiter = new RateLimiter(components.rateLimiter, {
   anonShortLink: { kind: 'fixed window', rate: 1000, period: HOUR },
+  anonShortLinkCreate: { kind: 'fixed window', rate: 1000, period: HOUR },
   userShortLink: { kind: 'token bucket', rate: 10, period: HOUR, capacity: 10 },
+  userShortLinkCreate: {
+    kind: 'token bucket',
+    rate: 10,
+    period: HOUR,
+    capacity: 10,
+  },
   userMediaUpload: {
     kind: 'token bucket',
     rate: 100,
@@ -28,7 +35,7 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
 // the global anonShortLink bucket
 export const enforceRateLimit = async (
   ctx: MutationCtx,
-  name: 'userShortLink' | 'userMediaUpload',
+  name: 'userShortLink' | 'userShortLinkCreate' | 'userMediaUpload',
   userId: Id<'users'>
 ): Promise<void> =>
 {
@@ -45,7 +52,7 @@ export const enforceRateLimit = async (
 
 export const enforceAnonRateLimit = async (
   ctx: MutationCtx,
-  name: 'anonShortLink'
+  name: 'anonShortLink' | 'anonShortLinkCreate'
 ): Promise<void> =>
 {
   const status = await rateLimiter.limit(ctx, name)

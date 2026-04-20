@@ -121,7 +121,7 @@ export const ExportMenu = ({
   const showFormatMenu = isOpen('format')
   const showExportAllMenu = isOpen('exportAll')
 
-  const handleJsonExport = async () =>
+  const handleJsonExport = async (): Promise<void> =>
   {
     const data = extractBoardData(useActiveBoardStore.getState())
     try
@@ -132,7 +132,10 @@ export const ExportMenu = ({
     {
       setRuntimeError(formatError(err, 'Failed to export JSON file.'))
     }
-    closeAllMenus()
+    finally
+    {
+      closeAllMenus()
+    }
   }
 
   const handleJsonImport = async (file: File) =>
@@ -337,7 +340,7 @@ export const ExportMenu = ({
 
             <OverlayDivider />
 
-            <OverlayMenuItem onClick={handleJsonExport}>
+            <OverlayMenuItem onClick={() => void handleJsonExport()}>
               <FileDown className="h-3.5 w-3.5 shrink-0" />
               Export JSON
             </OverlayMenuItem>

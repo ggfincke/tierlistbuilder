@@ -12,6 +12,7 @@ import {
 } from '~/shared/images/imageBlobCache'
 import { createBlobRecord } from '~/shared/images/imagePersistence'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
+import { logger } from '~/shared/lib/logger'
 
 interface ResolvedAsset
 {
@@ -39,7 +40,12 @@ const fetchBlobAndCache = async (asset: ResolvedAsset): Promise<boolean> =>
   }
   catch (error)
   {
-    console.warn('Cloud image fetch failed for hash', asset.request.hash, error)
+    logger.warn(
+      'media',
+      'Cloud image fetch failed for hash',
+      asset.request.hash,
+      error
+    )
     return false
   }
 }
@@ -94,7 +100,7 @@ const fetchBatchFromCloud = async (
   }
   catch (error)
   {
-    console.warn('Cloud image batch lookup failed', error)
+    logger.warn('media', 'Cloud image batch lookup failed', error)
     markCloudRequestsFailed(requests)
     return
   }
