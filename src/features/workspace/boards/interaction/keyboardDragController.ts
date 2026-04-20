@@ -24,6 +24,7 @@ import {
   focusKeyboardBoardRegion,
   scheduleKeyboardFocusRestore,
 } from './keyboardFocus'
+import { logger } from '~/shared/lib/logger'
 
 type TierListKeyboardState = ReturnType<typeof useActiveBoardStore.getState>
 
@@ -359,7 +360,7 @@ export const handleKeyboardSpaceKey = (itemId: ItemId) =>
   }
   catch (error)
   {
-    console.error('keyboard space handler failed:', error)
+    logger.error('keyboard', 'keyboard space handler failed:', error)
     resetToSafeState()
   }
 }
@@ -388,7 +389,7 @@ export const handleKeyboardArrowKey = (
   }
   catch (error)
   {
-    console.error('keyboard arrow handler failed:', error)
+    logger.error('keyboard', 'keyboard arrow handler failed:', error)
     resetToSafeState()
   }
 }

@@ -19,6 +19,7 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import { switchBoardSession } from '~/features/workspace/boards/data/local/localBoardSession'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { toast } from '~/shared/notifications/useToastStore'
+import { logger } from '~/shared/lib/logger'
 
 interface RecentlyDeletedModalProps
 {
@@ -121,7 +122,7 @@ export const RecentlyDeletedModal = ({
     }
     catch (error)
     {
-      console.warn('Restore board failed:', error)
+      logger.warn('sync', 'Restore board failed:', error)
       toast(restoreErrorToastText(error), 'error')
     }
     finally
@@ -152,7 +153,7 @@ export const RecentlyDeletedModal = ({
     }
     catch (error)
     {
-      console.warn('Permanent delete failed:', error)
+      logger.warn('sync', 'Permanent delete failed:', error)
       toast('Failed to permanently delete board.', 'error')
     }
     finally

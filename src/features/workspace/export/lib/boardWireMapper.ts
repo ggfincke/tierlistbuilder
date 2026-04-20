@@ -5,6 +5,7 @@ import type {
   BoardSnapshot,
   BoardSnapshotWire,
   TierItem,
+  TierItemImageRef,
   TierItemWire,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
@@ -25,6 +26,19 @@ import { isRecord } from '~/shared/lib/typeGuards'
 const IMAGE_EXPORT_CONCURRENCY = 4
 
 export { collectSnapshotImageHashes }
+
+const isTierItemImageRef = (value: unknown): value is TierItemImageRef =>
+{
+  if (!isRecord(value) || typeof value.hash !== 'string')
+  {
+    return false
+  }
+
+  return (
+    value.cloudMediaExternalId === undefined ||
+    typeof value.cloudMediaExternalId === 'string'
+  )
+}
 
 const isTierItemWire = (value: unknown): value is TierItemWire =>
 {
@@ -83,19 +97,32 @@ const itemToWire = async (
   dataUrlsByHash: Map<string, Promise<string>>
 ): Promise<TierItemWire> =>
 {
-  const { imageRef, ...rest } = item
+  const { imageRef, imageUrl, ...rest } = item
+
+  if (imageUrl)
+  {
+    return { ...rest, imageUrl }
+  }
 
   if (!imageRef)
   {
     return rest
   }
 
-  const imageUrl = await getBlobDataUrl(
+  const inlineImageUrl = await getBlobDataUrl(
     imageRef.hash,
     blobsByHash,
     dataUrlsByHash
   )
-  return imageUrl ? { ...rest, imageUrl } : rest
+
+  if (!inlineImageUrl)
+  {
+    throw new Error(
+      `Missing image bytes for item "${item.id}". Wait for images to finish loading, then try exporting again.`
+    )
+  }
+
+  return { ...rest, imageUrl: inlineImageUrl }
 }
 
 // convert a snapshot to wire shape using a preloaded hash -> Blob map
@@ -259,4 +286,19 @@ export const wireToSnapshot = async (
     items,
     deletedItems,
   }
+}
+
+export const itemUsesLocalImageRef = (value: unknown): boolean =>
+{
+  if (!isRecord(value))
+  {
+    return false
+  }
+
+  if (!isTierItemImageRef(value.imageRef))
+  {
+    return false
+  }
+
+  return typeof value.imageUrl !== 'string' || value.imageUrl.length === 0
 }

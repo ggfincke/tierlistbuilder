@@ -53,3 +53,9 @@ skills-lock.json
 
 # Generated screenshots (local dev only)
 /screenshots
+
+# Playwright output
+/test-results
+/playwright-report
+/.playwright
+/playwright/.cache

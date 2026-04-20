@@ -20,6 +20,7 @@ import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { useCloudPullProgressStore } from '~/features/platform/sync/state/useCloudPullProgressStore'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
+import { logger } from '~/shared/lib/logger'
 
 type PullMode = 'replace' | 'merge-missing'
 
@@ -123,7 +124,8 @@ const persistDownloadedBoard = async (
   if (!saveResult.ok)
   {
     removeBoardFromStorage(boardId)
-    console.warn(
+    logger.warn(
+      'sync',
       `Failed to persist cloud board ${meta.externalId}:`,
       saveResult.message
     )
@@ -282,7 +284,8 @@ export const pullAllCloudBoards = async ({
         }
         catch (error)
         {
-          console.warn(
+          logger.warn(
+            'sync',
             `Failed to download cloud board batch: ${chunk.map((meta) => meta.externalId).join(', ')}`,
             error
           )

@@ -3,6 +3,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  exportBoardAsJson,
   parseBoardJson,
   parseBoardSnapshotJson,
   parseBoardsJson,
@@ -14,6 +15,7 @@ import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
+import * as downloadBlobModule from '~/shared/lib/downloadBlob'
 import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
 
 // minimal valid board data — satisfies parseBoardJson validation
@@ -283,7 +285,7 @@ describe('parseBoardJson', () =>
     expect(result.title).toBe('Imported Tier List')
   })
 
-  it('drops image data from share payloads', async () =>
+  it('drops image refs, imageUrl, & deleted items from share payloads', async () =>
   {
     const board = makeValidBoard({
       items: {
@@ -303,6 +305,7 @@ describe('parseBoardJson', () =>
     expect(
       (shared.items['item-1'] as { imageUrl?: unknown }).imageUrl
     ).toBeUndefined()
+    expect(shared.deletedItems).toHaveLength(0)
   })
 
   it('keeps inline imageUrl when IDB is unavailable during import', async () =>
@@ -402,6 +405,28 @@ describe('parseBoardJson', () =>
     await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
       'uses a local imageRef without inline imageUrl bytes'
     )
+  })
+
+  it('fails export when a referenced image blob is missing', async () =>
+  {
+    const board = makeValidBoard({
+      items: {
+        [asItemId('item-1')]: makeItem({
+          id: asItemId('item-1'),
+          imageRef: { hash: 'missing-hash' },
+        }),
+        [asItemId('item-2')]: makeItem({
+          id: asItemId('item-2'),
+          label: 'Second',
+        }),
+      },
+    })
+    const downloadSpy = vi.spyOn(downloadBlobModule, 'downloadBlob')
+
+    await expect(exportBoardAsJson(board, board.title)).rejects.toThrow(
+      'Missing image bytes for item "item-1"'
+    )
+    expect(downloadSpy).not.toHaveBeenCalled()
   })
 })
 

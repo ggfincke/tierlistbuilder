@@ -11,7 +11,11 @@ import { formatError } from '~/shared/lib/errors'
 import { isNonEmptyString, isRecord } from '~/shared/lib/typeGuards'
 import { toFileBase } from '~/shared/lib/fileName'
 import { downloadBlob } from '~/shared/lib/downloadBlob'
-import { snapshotToWire, wireToSnapshot } from './boardWireMapper'
+import {
+  itemUsesLocalImageRef,
+  snapshotToWire,
+  wireToSnapshot,
+} from './boardWireMapper'
 
 interface TierListExport
 {
@@ -136,12 +140,12 @@ const validateItemEntry = (id: string, item: unknown): string | null =>
   const hasLabel = isNonEmptyString(item.label)
   const hasBgColor = isNonEmptyString(item.backgroundColor)
 
-  if (hasImageRef && !hasImageUrl)
+  if (itemUsesLocalImageRef(item))
   {
     return `Item "${id}" uses a local imageRef without inline imageUrl bytes. Re-export the board as JSON from a build that embeds images.`
   }
 
-  if (!hasImageUrl && !hasLabel && !hasBgColor)
+  if (!hasImageUrl && !hasImageRef && !hasLabel && !hasBgColor)
   {
     return `Item "${id}" has no image, label, or backgroundColor — it would be invisible.`
   }

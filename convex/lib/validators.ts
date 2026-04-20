@@ -98,8 +98,6 @@ export const appSettingsValidator = v.object({
   tierLabelFontSize: tierLabelFontSizeValidator,
   boardLocked: v.boolean(),
   reducedMotion: v.boolean(),
-  preHighContrastThemeId: v.union(themeIdValidator, v.null()),
-  preHighContrastPaletteId: v.union(paletteIdValidator, v.null()),
   toolbarPosition: toolbarPositionValidator,
   showAltTextButton: v.boolean(),
 })

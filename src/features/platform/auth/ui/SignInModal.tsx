@@ -9,6 +9,7 @@ import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
+import { logger } from '~/shared/lib/logger'
 
 type AuthMode = 'sign-in' | 'sign-up'
 
@@ -239,9 +240,6 @@ const mapAuthError = (message: string, mode: AuthMode): string =>
   {
     return 'Password must be at least 8 characters.'
   }
-  if (import.meta.env.DEV)
-  {
-    console.warn('Unmapped auth error:', message)
-  }
+  logger.debug('auth', 'Unmapped auth error:', message)
   return 'Something went wrong. Please try again.'
 }

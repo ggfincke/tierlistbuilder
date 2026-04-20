@@ -40,7 +40,7 @@ describe('hashShare codec', () =>
         [asItemId('a')]: {
           id: asItemId('a'),
           label: 'x',
-          imageRef: 'img-1',
+          imageRef: { hash: 'img-1' },
           imageUrl: 'data:image/png;base64,AAAA',
         },
       },

@@ -27,6 +27,14 @@ export const markBoardSynced = (
   pendingSyncAt: null,
 })
 
+export const markBoardPendingSync = (
+  value: BoardSyncState,
+  pendingSyncAt: number = Date.now()
+): BoardSyncState => ({
+  ...value,
+  pendingSyncAt: value.pendingSyncAt ?? pendingSyncAt,
+})
+
 export const extractBoardSyncState = (
   value: Pick<
     BoardSyncState,

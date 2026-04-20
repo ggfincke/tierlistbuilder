@@ -49,8 +49,6 @@ export interface AppSettings
   tierLabelFontSize: TierLabelFontSize
   boardLocked: boolean
   reducedMotion: boolean
-  preHighContrastThemeId: ThemeId | null
-  preHighContrastPaletteId: PaletteId | null
   toolbarPosition: ToolbarPosition
   showAltTextButton: boolean
 }

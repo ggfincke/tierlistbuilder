@@ -28,6 +28,7 @@ import {
   makeOfflineError,
 } from '~/features/platform/sync/lib/errors'
 import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
+import { logger } from '~/shared/lib/logger'
 
 // flush input — discriminated on op so 'delete' doesn't drag along an
 // unused snapshot field. for upserts the snapshot is the latest known
@@ -100,7 +101,7 @@ export const createTierPresetSyncRunner = (
     onError: (error, presetId) =>
     {
       if (isOfflineError(error)) return
-      console.warn(`Tier preset sync failed for ${presetId}:`, error)
+      logger.warn('sync', `Tier preset sync failed for ${presetId}:`, error)
     },
     flush: async (work) =>
     {

@@ -2,8 +2,12 @@
 // first-login board merge: push-all-local & decide/pull-cloud paths + helper
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { BoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { markBoardSynced } from '~/features/workspace/boards/model/sync'
+import {
+  markBoardPendingSync,
+  markBoardSynced,
+} from '~/features/workspace/boards/model/sync'
 import { listMyBoardsImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { pullAllCloudBoards } from '~/features/workspace/boards/data/cloud/cloudPull'
 import {
@@ -22,11 +26,44 @@ import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { toast } from '~/shared/notifications/useToastStore'
 import { pluralizeWord } from '~/shared/lib/pluralize'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
+import { logger } from '~/shared/lib/logger'
+
+export interface FirstLoginBoardMergeDeps
+{
+  listMyBoards: () => Promise<BoardListItem[]>
+  pullAllCloudBoards: typeof pullAllCloudBoards
+  decideFirstLoginMerge: typeof decideFirstLoginMerge
+  hasCompletedCloudPull: typeof hasCompletedCloudPull
+  markCloudPullCompleted: typeof markCloudPullCompleted
+  markCloudPullPending: typeof markCloudPullPending
+  flushBoardToCloud: typeof flushBoardToCloud
+  readBoardStateForCloudSync: typeof readBoardStateForCloudSync
+  persistBoardSyncState: typeof persistBoardSyncState
+  notify: typeof toast
+  loggerWarn: typeof logger.warn
+  now: () => number
+}
+
+const DEFAULT_FIRST_LOGIN_BOARD_MERGE_DEPS: FirstLoginBoardMergeDeps = {
+  listMyBoards: listMyBoardsImperative,
+  pullAllCloudBoards,
+  decideFirstLoginMerge,
+  hasCompletedCloudPull,
+  markCloudPullCompleted,
+  markCloudPullPending,
+  flushBoardToCloud,
+  readBoardStateForCloudSync,
+  persistBoardSyncState,
+  notify: toast,
+  loggerWarn: logger.warn,
+  now: () => Date.now(),
+}
 
 // push all local boards to the cloud (first-login, cloud-empty case)
 export const pushAllLocalBoards = async (
   userId: string,
-  shouldProceed?: () => boolean
+  shouldProceed?: () => boolean,
+  deps: FirstLoginBoardMergeDeps = DEFAULT_FIRST_LOGIN_BOARD_MERGE_DEPS
 ): Promise<{
   failedBoardIds: BoardId[]
   aborted: boolean
@@ -46,10 +83,10 @@ export const pushAllLocalBoards = async (
         return { boardId: meta.id, synced: false, aborted: true }
       }
 
-      const { snapshot, syncState } = readBoardStateForCloudSync(meta.id)
+      const { snapshot, syncState } = deps.readBoardStateForCloudSync(meta.id)
 
       const boardExternalId = syncState.cloudBoardExternalId ?? meta.id
-      const outcome = await flushBoardToCloud(
+      const outcome = await deps.flushBoardToCloud(
         snapshot,
         boardExternalId,
         syncState.lastSyncedRevision,
@@ -63,7 +100,7 @@ export const pushAllLocalBoards = async (
           return { boardId: meta.id, synced: false, aborted: true }
         }
 
-        persistBoardSyncState(
+        deps.persistBoardSyncState(
           meta.id,
           markBoardSynced(outcome.revision, boardExternalId)
         )
@@ -72,8 +109,18 @@ export const pushAllLocalBoards = async (
 
       if (outcome.kind === 'error')
       {
-        console.warn(`Board sync failed for ${meta.id}:`, outcome.error)
+        deps.loggerWarn(
+          'sync',
+          `Board sync failed for ${meta.id}:`,
+          outcome.error
+        )
       }
+
+      deps.persistBoardSyncState(
+        meta.id,
+        markBoardPendingSync(syncState, deps.now())
+      )
+
       return { boardId: meta.id, synced: false, aborted: false }
     }
   )
@@ -89,7 +136,7 @@ export const pushAllLocalBoards = async (
 
   if (failedBoardIds.length > 0)
   {
-    toast(
+    deps.notify(
       `${failedBoardIds.length} ${pluralizeWord(failedBoardIds.length, 'board')} failed to sync. They will be retried next sign-in.`,
       'error'
     )
@@ -103,27 +150,32 @@ export const pushAllLocalBoards = async (
 // modal-driven UX without dragging cosmetic prefs into the same flow)
 export const runFirstLoginBoardMerge = async (
   userId: string,
-  shouldProceed: () => boolean
+  shouldProceed: () => boolean,
+  deps: FirstLoginBoardMergeDeps = DEFAULT_FIRST_LOGIN_BOARD_MERGE_DEPS
 ): Promise<void> =>
 {
-  if (hasCompletedCloudPull(userId) || !shouldProceed()) return
+  if (deps.hasCompletedCloudPull(userId) || !shouldProceed()) return
 
   try
   {
-    const cloudBoards = await listMyBoardsImperative()
+    const cloudBoards = await deps.listMyBoards()
     if (!shouldProceed()) return
 
     const localBoards = useWorkspaceBoardRegistryStore.getState().boards
-    const decision = decideFirstLoginMerge(cloudBoards, localBoards, userId)
+    const decision = deps.decideFirstLoginMerge(
+      cloudBoards,
+      localBoards,
+      userId
+    )
 
     switch (decision.action)
     {
       case 'push-local':
       {
-        const result = await pushAllLocalBoards(userId, shouldProceed)
+        const result = await pushAllLocalBoards(userId, shouldProceed, deps)
         if (!result.aborted && result.failedBoardIds.length === 0)
         {
-          markCloudPullCompleted(userId)
+          deps.markCloudPullCompleted(userId)
         }
         break
       }
@@ -132,9 +184,9 @@ export const runFirstLoginBoardMerge = async (
       {
         try
         {
-          markCloudPullPending(userId)
+          deps.markCloudPullPending(userId)
 
-          const result = await pullAllCloudBoards({
+          const result = await deps.pullAllCloudBoards({
             cloudBoards,
             mode:
               decision.action === 'pull-cloud' ? 'replace' : 'merge-missing',
@@ -145,23 +197,27 @@ export const runFirstLoginBoardMerge = async (
             return
           }
 
+          if (result.attemptedCount === 0)
+          {
+            deps.markCloudPullCompleted(userId)
+            break
+          }
+
           if (result.failedCount > 0 && result.pulledCount === 0)
           {
-            toast('Failed to load cloud boards. Please try again.', 'error')
+            deps.notify(
+              'Failed to load cloud boards. Please try again.',
+              'error'
+            )
           }
           else
           {
             if (result.failedCount === 0)
             {
-              markCloudPullCompleted(userId)
+              deps.markCloudPullCompleted(userId)
             }
 
-            if (result.attemptedCount === 0)
-            {
-              break
-            }
-
-            toast(
+            deps.notify(
               result.failedCount > 0
                 ? `Loaded ${result.pulledCount} of ${result.attemptedCount} ${pluralizeWord(result.attemptedCount, 'board')}. Missing boards will be retried next sign-in.`
                 : `Loaded ${result.pulledCount} ${pluralizeWord(result.pulledCount, 'board')} from the cloud.`,
@@ -171,28 +227,31 @@ export const runFirstLoginBoardMerge = async (
         }
         catch (error)
         {
-          console.warn('Cloud pull failed:', error)
+          deps.loggerWarn('sync', 'Cloud pull failed:', error)
           if (shouldProceed())
           {
-            toast('Failed to load cloud boards. Please try again.', 'error')
+            deps.notify(
+              'Failed to load cloud boards. Please try again.',
+              'error'
+            )
           }
         }
         break
       }
       case 'conflict':
-        toast(
+        deps.notify(
           'Signed in. Your local and cloud boards are kept separately for now.',
           'info'
         )
-        markCloudPullCompleted(userId)
+        deps.markCloudPullCompleted(userId)
         break
       case 'skip':
-        markCloudPullCompleted(userId)
+        deps.markCloudPullCompleted(userId)
         break
     }
   }
   catch (error)
   {
-    console.warn('First-login merge failed:', error)
+    deps.loggerWarn('sync', 'First-login merge failed:', error)
   }
 }

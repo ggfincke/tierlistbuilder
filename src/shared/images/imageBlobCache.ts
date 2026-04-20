@@ -3,6 +3,7 @@
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
+import { logger } from '~/shared/lib/logger'
 import { getBlobsBatch } from './imageStore'
 
 // pluggable cloud image batch fetcher — features register it at boot so shared
@@ -40,7 +41,8 @@ export const registerCloudImageFetcher = (fn: CloudImageBatchFetcher): void =>
 {
   if (cloudBatchFetcher && cloudBatchFetcher !== fn)
   {
-    console.warn(
+    logger.warn(
+      'media',
       'Cloud image fetcher already registered; keeping the first one.'
     )
     return
@@ -309,9 +311,7 @@ export const cacheFreshBlob = (hash: string, blob: Blob): void =>
   cacheFreshBlobs([[hash, blob]])
 }
 
-// revoke every cached object URL & clear subscribers. call on pagehide to
-// release blob memory eagerly; the browser would otherwise hold the
-// Blob-backed URLs alive until full GC or tab teardown
+// revoke every cached object URL & clear subscribers
 export const disposeImageBlobCache = (): void =>
 {
   for (const [, entry] of cache)
@@ -322,12 +322,24 @@ export const disposeImageBlobCache = (): void =>
   listeners.clear()
 }
 
+export const handlePageHide = (
+  event: Pick<PageTransitionEvent, 'persisted'>
+): void =>
+{
+  if (event.persisted)
+  {
+    return
+  }
+
+  disposeImageBlobCache()
+}
+
 // wire the pagehide teardown & online-driven retry once at module init.
-// pagehide fires reliably on tab close & bfcache navigation; `online` fires
-// when a broken connection recovers so stashed failures get another shot
+// ignore persisted pagehide events so mounted subscribers survive a
+// history restore. `online` retries previously-failed cloud fetches
 if (typeof window !== 'undefined')
 {
-  window.addEventListener('pagehide', disposeImageBlobCache)
+  window.addEventListener('pagehide', handlePageHide)
   window.addEventListener('online', retryFailedCloudRequests)
 }
 

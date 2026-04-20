@@ -104,8 +104,6 @@ function buildSettingsPayload(position)
       tierLabelFontSize: 'small',
       boardLocked: false,
       reducedMotion: false,
-      preHighContrastThemeId: null,
-      preHighContrastPaletteId: null,
       toolbarPosition: position,
       showAltTextButton: false,
     },
