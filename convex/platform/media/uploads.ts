@@ -1,130 +1,148 @@
 // convex/platform/media/uploads.ts
-// media upload mutations — generate upload URLs & finalize w/ dedup
+// media upload entry points — issue token-bound upload URLs & finalize in an action
 
 import { ConvexError, v } from 'convex/values'
-import { mutation } from '../../_generated/server'
+import { action, mutation } from '../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { generateMediaAssetExternalId } from '@tierlistbuilder/contracts/lib/ids'
-import {
-  HEX_SHA256_PATTERN,
-  MAX_IMAGE_BYTE_SIZE,
-  MAX_IMAGE_DIMENSION,
-} from '@tierlistbuilder/contracts/platform/media'
+import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import { requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
+import { internal } from '../../_generated/api'
+import { parseUploadedImageMetadata } from '../../lib/imageValidation'
+import { generateUploadToken } from '../../lib/uploadToken'
+import {
+  UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
+  unwrapUploadEnvelope,
+} from '@tierlistbuilder/contracts/platform/uploadEnvelope'
+import { deleteStorageSilently } from '../../lib/storage'
+import { sha256Hex } from '../../lib/sha256'
+import type { Id } from '../../_generated/dataModel'
+
+const uploadUrlResultValidator = v.object({
+  uploadUrl: v.string(),
+  uploadToken: v.string(),
+})
 
 // generate a one-time upload URL for the frontend to POST image bytes. this is
 // the single rate-limit point for the 2-phase upload flow, so aborted attempts
 // still count against quota
 export const generateUploadUrl = mutation({
   args: {},
-  returns: v.string(),
-  handler: async (ctx): Promise<string> =>
+  returns: uploadUrlResultValidator,
+  handler: async (ctx): Promise<{ uploadUrl: string; uploadToken: string }> =>
   {
     const userId = await requireCurrentUserId(ctx)
     await enforceRateLimit(ctx, 'userMediaUpload', userId)
-    return await ctx.storage.generateUploadUrl()
+    return {
+      uploadUrl: await ctx.storage.generateUploadUrl(),
+      uploadToken: generateUploadToken(),
+    }
   },
 })
 
-// finalize an upload — dedup by owner+hash, insert mediaAssets if new, & keep
-// the narrow mimeType validator below as the single source of truth. rate
-// limiting lives on generateUploadUrl — one token per upload attempt
-export const finalizeUpload = mutation({
+// finalize an upload — verify the upload envelope, inspect the real image
+// bytes server-side, then hand off the clean blob to an internal mutation
+export const finalizeUpload = action({
   args: {
     storageId: v.id('_storage'),
-    contentHash: v.string(),
-    mimeType: v.union(
-      v.literal('image/jpeg'),
-      v.literal('image/png'),
-      v.literal('image/webp'),
-      v.literal('image/gif')
-    ),
-    width: v.number(),
-    height: v.number(),
-    byteSize: v.number(),
+    uploadToken: v.string(),
   },
   returns: v.object({ externalId: v.string() }),
   handler: async (ctx, args): Promise<{ externalId: string }> =>
   {
     const userId = await requireCurrentUserId(ctx)
 
-    // normalize uppercase digests before the regex test; sha256 digests are
-    // case-insensitive but we canonicalize to lowercase so the dedup index
-    // (byOwnerAndHash) doesn't see two variants of the same logical hash
-    const contentHash = args.contentHash.toLowerCase()
-    if (!HEX_SHA256_PATTERN.test(contentHash))
+    // pre-fetch size gate — reject oversized blobs before ctx.storage.get
+    // forces a full arrayBuffer() allocation. slack absorbs envelope header
+    const storageSize = await ctx.runQuery(
+      internal.lib.storage.peekStorageSize,
+      { storageId: args.storageId }
+    )
+    if (storageSize === null)
     {
       throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: 'contentHash must be 64-char hex (sha256)',
+        code: CONVEX_ERROR_CODES.storageMissing,
+        message: 'uploaded image blob not found in storage',
       })
     }
-
-    if (
-      !Number.isInteger(args.width) ||
-      args.width < 1 ||
-      args.width > MAX_IMAGE_DIMENSION
-    )
+    if (storageSize > MAX_IMAGE_BYTE_SIZE + UPLOAD_ENVELOPE_MAX_HEADER_BYTES)
     {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: `width out of range: must be 1..${MAX_IMAGE_DIMENSION}`,
-      })
-    }
-
-    if (
-      !Number.isInteger(args.height) ||
-      args.height < 1 ||
-      args.height > MAX_IMAGE_DIMENSION
-    )
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: `height out of range: must be 1..${MAX_IMAGE_DIMENSION}`,
-      })
-    }
-
-    if (
-      !Number.isInteger(args.byteSize) ||
-      args.byteSize < 1 ||
-      args.byteSize > MAX_IMAGE_BYTE_SIZE
-    )
-    {
+      await deleteStorageSilently(ctx, args.storageId)
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.payloadTooLarge,
-        message: `byteSize out of range: must be 1..${MAX_IMAGE_BYTE_SIZE}`,
+        message: `uploaded image blob too large: ${storageSize} > ${MAX_IMAGE_BYTE_SIZE}`,
       })
     }
 
-    const existing = await ctx.db
-      .query('mediaAssets')
-      .withIndex('byOwnerAndHash', (q) =>
-        q.eq('ownerId', userId).eq('contentHash', contentHash)
-      )
-      .unique()
-
-    if (existing)
+    const rawBlob = await ctx.storage.get(args.storageId)
+    if (!rawBlob)
     {
-      // duplicate — delete the just-uploaded blob & return the existing asset
-      await ctx.storage.delete(args.storageId)
-      return { externalId: existing.externalId }
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.storageMissing,
+        message: 'uploaded image blob not found in storage',
+      })
     }
 
-    const externalId = generateMediaAssetExternalId()
+    const wrappedBytes = new Uint8Array(await rawBlob.arrayBuffer())
+    const payload = unwrapUploadEnvelope(
+      'media',
+      userId,
+      args.uploadToken,
+      wrappedBytes
+    )
+    if (!payload)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.forbidden,
+        message: 'upload token mismatch for image blob',
+      })
+    }
 
-    await ctx.db.insert('mediaAssets', {
-      ownerId: userId,
-      externalId,
-      storageId: args.storageId,
-      contentHash,
-      mimeType: args.mimeType,
-      width: args.width,
-      height: args.height,
-      byteSize: args.byteSize,
-      createdAt: Date.now(),
-    })
+    let cleanStorageId: Id<'_storage'> | null = null
+    try
+    {
+      if (payload.byteLength < 1 || payload.byteLength > MAX_IMAGE_BYTE_SIZE)
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.payloadTooLarge,
+          message: `byteSize out of range: must be 1..${MAX_IMAGE_BYTE_SIZE}`,
+        })
+      }
 
-    return { externalId }
+      const { mimeType, width, height } = parseUploadedImageMetadata(payload)
+      // cast at the Blob/BufferSource boundary — lib.dom narrows to
+      // Uint8Array<ArrayBuffer> but subarrays carry ArrayBufferLike. zero-copy
+      const contentHash = await sha256Hex(payload as BufferSource)
+
+      cleanStorageId = await ctx.storage.store(
+        new Blob([payload as BlobPart], { type: mimeType }),
+        { sha256: contentHash }
+      )
+
+      return await ctx.runMutation(
+        internal.platform.media.internal.finalizeVerifiedUpload,
+        {
+          userId,
+          storageId: cleanStorageId,
+          contentHash,
+          mimeType,
+          width,
+          height,
+          byteSize: payload.byteLength,
+        }
+      )
+    }
+    catch (error)
+    {
+      if (cleanStorageId)
+      {
+        await deleteStorageSilently(ctx, cleanStorageId)
+      }
+      throw error
+    }
+    finally
+    {
+      await deleteStorageSilently(ctx, args.storageId)
+    }
   },
 })

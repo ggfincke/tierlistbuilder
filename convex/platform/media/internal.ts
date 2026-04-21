@@ -1,12 +1,14 @@
 // convex/platform/media/internal.ts
-// internal media maintenance — gcOrphanedMediaAssets reaps mediaAssets w/ no boardItems
-// reference; gcOrphanedStorage reaps _storage blobs w/ no row in any app table
+// internal media functions: finalizeVerifiedUpload (post-action dedup-&-insert),
+// gcOrphanedMediaAssets (unreferenced mediaAssets), gcOrphanedStorage (residue)
 
 import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { internal } from '../../_generated/api'
 import { BATCH_LIMITS } from '../../lib/limits'
+import { generateMediaAssetExternalId } from '@tierlistbuilder/contracts/lib/ids'
+import { deleteStorageSilently } from '../../lib/storage'
 
 // in-flight upload protection: skip rows newer than this window. covers the race
 // between finalizeUpload inserting mediaAssets & upsertBoardState wiring the reference -
@@ -17,6 +19,56 @@ const GC_GRACE_MS = 60 * 60 * 1000
 // independent across assets so bounded parallelism cuts wall clock
 // significantly for nightly batches
 const REFERENCE_CHECK_CONCURRENCY = 8
+
+// finalize a verified image upload — dedup by owner+hash after the action has
+// stripped the upload envelope & stored a clean image blob
+export const finalizeVerifiedUpload = internalMutation({
+  args: {
+    userId: v.id('users'),
+    storageId: v.id('_storage'),
+    contentHash: v.string(),
+    mimeType: v.union(
+      v.literal('image/jpeg'),
+      v.literal('image/png'),
+      v.literal('image/webp'),
+      v.literal('image/gif')
+    ),
+    width: v.number(),
+    height: v.number(),
+    byteSize: v.number(),
+  },
+  returns: v.object({ externalId: v.string() }),
+  handler: async (ctx, args): Promise<{ externalId: string }> =>
+  {
+    const existing = await ctx.db
+      .query('mediaAssets')
+      .withIndex('byOwnerAndHash', (q) =>
+        q.eq('ownerId', args.userId).eq('contentHash', args.contentHash)
+      )
+      .unique()
+
+    if (existing)
+    {
+      await deleteStorageSilently(ctx, args.storageId)
+      return { externalId: existing.externalId }
+    }
+
+    const externalId = generateMediaAssetExternalId()
+    await ctx.db.insert('mediaAssets', {
+      ownerId: args.userId,
+      externalId,
+      storageId: args.storageId,
+      contentHash: args.contentHash,
+      mimeType: args.mimeType,
+      width: args.width,
+      height: args.height,
+      byteSize: args.byteSize,
+      createdAt: Date.now(),
+    })
+
+    return { externalId }
+  },
+})
 
 // reap mediaAssets rows w/ no surviving boardItems references. paginates to stay
 // inside the transaction row-read budget; self-schedules continuations. row deleted
@@ -71,16 +123,7 @@ export const gcOrphanedMediaAssets = internalMutation({
       // row first so gcOrphanedStorage can find & reap residue if the blob
       // delete fails or a crash happens between the two ops
       await ctx.db.delete(asset._id)
-      try
-      {
-        await ctx.storage.delete(asset.storageId)
-      }
-      catch
-      {
-        // blob already gone (manual cleanup, race w/ a prior crashed pass).
-        // row delete already committed, so the orphan-storage GC will pick
-        // up any residue on its next run. nothing to surface here
-      }
+      await deleteStorageSilently(ctx, asset.storageId)
       deleted++
     }
 
@@ -161,7 +204,7 @@ export const gcOrphanedStorage = internalMutation({
     let deleted = 0
     for (const storageId of orphaned)
     {
-      await ctx.storage.delete(storageId)
+      await deleteStorageSilently(ctx, storageId)
       deleted++
     }
 

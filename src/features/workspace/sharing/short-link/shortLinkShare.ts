@@ -4,6 +4,7 @@
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
+import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import { isShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
 import type { Id } from '@convex/_generated/dataModel'
 import { EMBED_ROUTE_PATH } from '~/app/routes/pathname'
@@ -68,18 +69,23 @@ export interface ShortLinkCreateResult
 }
 
 // orchestrate the full create-link flow: compress -> upload bytes -> mint
-// slug. signal supports canceling in-flight requests when a caller supersedes
-// (e.g. share modal regenerate) so we don't leak uploads to storage
+// slug. signal cancels in-flight requests on supersede; userId binds the
+// envelope so intercepted (storageId, token) pairs can't cross-account finalize
 export const createBoardShortLink = async (
   data: BoardSnapshot,
+  userId: string,
   signal?: AbortSignal
 ): Promise<ShortLinkCreateResult> =>
 {
   const compressed = await compressSnapshotBytes(data)
   if (signal?.aborted) throw signal.reason ?? new Error('aborted')
 
-  const uploadUrl = await generateSnapshotUploadUrlImperative()
+  const { uploadUrl, uploadToken } = await generateSnapshotUploadUrlImperative()
   if (signal?.aborted) throw signal.reason ?? new Error('aborted')
+
+  const envelopeHeader = Uint8Array.from(
+    getUploadEnvelopeHeader('snapshot', userId, uploadToken)
+  )
 
   // wrap in Blob so the fetch body satisfies TS's BodyInit — lib.dom narrows BlobPart
   // to Uint8Array<ArrayBuffer> but pako returns Uint8Array<ArrayBufferLike>.
@@ -87,7 +93,7 @@ export const createBoardShortLink = async (
   const uploadResponse = await fetch(uploadUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/octet-stream' },
-    body: new Blob([compressed as BlobPart], {
+    body: new Blob([envelopeHeader, compressed as BlobPart], {
       type: 'application/octet-stream',
     }),
     signal,
@@ -115,6 +121,7 @@ export const createBoardShortLink = async (
   // normalizeBoardTitle (trim + cap), matching the boards table contract
   const { slug, createdAt } = await createSnapshotShortLinkImperative({
     snapshotStorageId: uploadJson.storageId,
+    uploadToken,
     boardTitle: data.title,
   })
 

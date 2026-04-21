@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, Link as LinkIcon, RefreshCw } from 'lucide-react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { formatError } from '~/shared/lib/errors'
 import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
@@ -38,6 +39,7 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
 
+  const authSession = useAuthSession()
   const shareCopy = useClipboardCopy()
   const embedCopy = useClipboardCopy()
 
@@ -72,6 +74,13 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
 
   const generate = async (): Promise<void> =>
   {
+    if (authSession.status !== 'signed-in')
+    {
+      setError('Sign in to create share links.')
+      return
+    }
+
+    const userId = authSession.user._id
     activeAbortRef.current?.abort()
     const controller = new AbortController()
     activeAbortRef.current = controller
@@ -81,6 +90,7 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
     {
       const result = await createBoardShortLink(
         getSnapshotRef.current(),
+        userId,
         controller.signal
       )
       if (controller.signal.aborted) return
@@ -132,6 +142,19 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
         in already-shared links.
       </p>
 
+      {authSession.status === 'signed-out' && (
+        <p className="mb-3 text-xs text-[var(--t-text-muted)]">
+          Sign in to create and manage share links.
+        </p>
+      )}
+
+      {authSession.status === 'loading' && (
+        <p className="mb-3 flex items-center gap-2 text-xs text-[var(--t-text-muted)]">
+          <RefreshCw className="h-3 w-3 animate-spin" />
+          Checking sign-in…
+        </p>
+      )}
+
       {error && (
         <div className="mb-3 rounded-md border border-[var(--t-border-secondary)] bg-[rgb(var(--t-overlay)/0.06)] px-3 py-2 text-xs text-[var(--t-destructive-hover)]">
           {error}
@@ -142,7 +165,10 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
           open-churn orphan path a prior auto-on-open design had */}
       {!hasLink && !generating && !error && (
         <div className="flex justify-center py-6">
-          <PrimaryButton onClick={() => void generate()}>
+          <PrimaryButton
+            onClick={() => void generate()}
+            disabled={authSession.status !== 'signed-in'}
+          >
             <LinkIcon className="h-3.5 w-3.5" />
             Generate share link
           </PrimaryButton>
