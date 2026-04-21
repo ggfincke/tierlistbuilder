@@ -26,7 +26,7 @@ export const resolveSlug = query({
   {
     // keep this public read cheap in-app: reject malformed slugs before the
     // index lookup. if abuse ever becomes real, apply IP/CDN throttling at
-    // the edge instead of a shared anon limiter on a public share path
+    // the edge rather than a shared limiter on a public share path
     if (!isShortLinkSlug(args.slug))
     {
       return { kind: 'not-found' }
@@ -65,9 +65,9 @@ export const resolveSlug = query({
   },
 })
 
-// list the authenticated caller's live snapshot shares, newest first. anon callers
-// get an empty list — anon shares expire on TTL w/ no management surface.
-// expired-but-not-yet-reaped rows are filtered so listing matches resolve semantics
+// list the authenticated caller's live snapshot shares, newest first.
+// unauthenticated callers get an empty list. expired-but-not-yet-reaped rows
+// are filtered so listing matches resolve's expiry semantics
 export const getMyShortLinks = query({
   args: {},
   returns: v.array(ownedShortLinkListItemValidator),

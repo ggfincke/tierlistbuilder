@@ -1,92 +1,93 @@
 // convex/platform/shortLinks/mutations.ts
-// snapshot-share short link mutations — anonymous-callable so the share UX works
-// for unauthenticated users. signed-in callers get ownerId set; anon callers get null
+// snapshot-share mutations — issue token-bound upload URLs & finalize in an action
 
 import { ConvexError, v } from 'convex/values'
-import { mutation } from '../../_generated/server'
-import type { MutationCtx } from '../../_generated/server'
-import {
-  DEFAULT_SHARE_LINK_TTL_MS,
-  MAX_SNAPSHOT_COMPRESSED_BYTES,
-} from '@tierlistbuilder/contracts/platform/shortLink'
-import {
-  MAX_BOARD_TITLE_LENGTH,
-  normalizeBoardTitle,
-} from '@tierlistbuilder/contracts/workspace/board'
+import { action, mutation } from '../../_generated/server'
+import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
+import { MAX_BOARD_TITLE_LENGTH } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import { isShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
+import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
+import { enforceRateLimit } from '../../lib/rateLimiter'
+import { internal } from '../../_generated/api'
+import { generateUploadToken } from '../../lib/uploadToken'
 import {
-  generateShortLinkSlug,
-  isShortLinkSlug,
-} from '@tierlistbuilder/contracts/lib/ids'
-import { getCurrentUserId } from '../../lib/auth'
-import { enforceAnonRateLimit, enforceRateLimit } from '../../lib/rateLimiter'
+  UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
+  unwrapUploadEnvelope,
+} from '@tierlistbuilder/contracts/platform/uploadEnvelope'
+import { deleteStorageSilently } from '../../lib/storage'
+import type { Id } from '../../_generated/dataModel'
 
-// 8-char base62 has ~218T combinations; 5 attempts ≈ 1 in 10^60 chance of
-// repeated collision. retry on conflict to keep the slug short instead of
-// widening the alphabet on a vanishingly-rare collision
-const SLUG_INSERT_MAX_ATTEMPTS = 5
+const uploadUrlResultValidator = v.object({
+  uploadUrl: v.string(),
+  uploadToken: v.string(),
+})
 
-const enforceShortLinkUploadRateLimit = async (
-  ctx: MutationCtx
-): Promise<void> =>
-{
-  const userId = await getCurrentUserId(ctx)
-  if (userId)
-  {
-    await enforceRateLimit(ctx, 'userShortLink', userId)
-  }
-  else
-  {
-    await enforceAnonRateLimit(ctx, 'anonShortLink')
-  }
-}
-
-const enforceShortLinkCreateRateLimit = async (
-  ctx: MutationCtx,
-  ownerId: Awaited<ReturnType<typeof getCurrentUserId>>
-): Promise<void> =>
-{
-  if (ownerId)
-  {
-    await enforceRateLimit(ctx, 'userShortLinkCreate', ownerId)
-  }
-  else
-  {
-    await enforceAnonRateLimit(ctx, 'anonShortLinkCreate')
-  }
-}
-
-// generate a one-time upload URL for the snapshot blob. size cap is enforced
-// at createSnapshotShortLink, orphaned blobs are reaped by gcOrphanedStorage,
-// & upload-url creation is rate-limited separately from slug creation
+// generate a one-time upload URL for the snapshot blob. signed-in only;
+// rate-limited separately from slug creation. size cap enforced at
+// createSnapshotShortLink; orphaned blobs are reaped by gcOrphanedStorage
 export const generateSnapshotUploadUrl = mutation({
   args: {},
-  returns: v.string(),
-  handler: async (ctx): Promise<string> =>
+  returns: uploadUrlResultValidator,
+  handler: async (ctx): Promise<{ uploadUrl: string; uploadToken: string }> =>
   {
-    await enforceShortLinkUploadRateLimit(ctx)
-    return await ctx.storage.generateUploadUrl()
+    const userId = await requireCurrentUserId(ctx)
+    await enforceRateLimit(ctx, 'userShortLink', userId)
+    return {
+      uploadUrl: await ctx.storage.generateUploadUrl(),
+      uploadToken: generateUploadToken(),
+    }
   },
 })
 
-// link a previously-uploaded snapshot blob to a fresh slug. ownerId is set for
-// signed-in callers, failures delete the blob, & expiresAt is always server-set
-// to createdAt + DEFAULT_SHARE_LINK_TTL_MS. slug creation is rate-limited too
-export const createSnapshotShortLink = mutation({
+// link a previously-uploaded snapshot blob to a fresh slug. the action
+// verifies the upload envelope, stores a clean snapshot blob, & hands off
+// slug allocation to an internal mutation
+export const createSnapshotShortLink = action({
   args: {
     snapshotStorageId: v.id('_storage'),
-    // denormalized board title trimmed server-side via normalizeBoardTitle.
-    // stored on the row so getMyShortLinks can render it w/o fetching the blob
+    uploadToken: v.string(),
     boardTitle: v.string(),
   },
   returns: v.object({ slug: v.string(), createdAt: v.number() }),
   handler: async (ctx, args): Promise<{ slug: string; createdAt: number }> =>
   {
-    const ownerId = await getCurrentUserId(ctx)
-    await enforceShortLinkCreateRateLimit(ctx, ownerId)
+    const ownerId = await requireCurrentUserId(ctx)
+    if (args.boardTitle.length > MAX_BOARD_TITLE_LENGTH * 2)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.payloadTooLarge,
+        message: `board title too long: ${args.boardTitle.length} chars`,
+      })
+    }
 
-    const blobMeta = await ctx.db.system.get(args.snapshotStorageId)
-    if (!blobMeta)
+    // pre-fetch size gate — reject oversized blobs before ctx.storage.get
+    // forces a full arrayBuffer() allocation. slack absorbs envelope header
+    const storageSize = await ctx.runQuery(
+      internal.lib.storage.peekStorageSize,
+      { storageId: args.snapshotStorageId }
+    )
+    if (storageSize === null)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.storageMissing,
+        message: 'snapshot blob not found in storage',
+      })
+    }
+    if (
+      storageSize >
+      MAX_SNAPSHOT_COMPRESSED_BYTES + UPLOAD_ENVELOPE_MAX_HEADER_BYTES
+    )
+    {
+      await deleteStorageSilently(ctx, args.snapshotStorageId)
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.payloadTooLarge,
+        message: `snapshot blob too large: ${storageSize} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`,
+      })
+    }
+
+    const rawBlob = await ctx.storage.get(args.snapshotStorageId)
+    if (!rawBlob)
     {
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.storageMissing,
@@ -94,78 +95,64 @@ export const createSnapshotShortLink = mutation({
       })
     }
 
-    if (blobMeta.size > MAX_SNAPSHOT_COMPRESSED_BYTES)
+    const wrappedBytes = new Uint8Array(await rawBlob.arrayBuffer())
+    const payload = unwrapUploadEnvelope(
+      'snapshot',
+      ownerId,
+      args.uploadToken,
+      wrappedBytes
+    )
+    if (!payload)
     {
-      await ctx.storage.delete(args.snapshotStorageId)
       throw new ConvexError({
-        code: CONVEX_ERROR_CODES.payloadTooLarge,
-        message: `snapshot too large: ${blobMeta.size} > ${MAX_SNAPSHOT_COMPRESSED_BYTES} bytes`,
+        code: CONVEX_ERROR_CODES.forbidden,
+        message: 'upload token mismatch for snapshot blob',
       })
     }
 
-    // belt & suspenders — defend against malformed callers even though the
-    // existing share modal already submits a normalized title. cap matches
-    // the boards table for consistency
-    if (args.boardTitle.length > MAX_BOARD_TITLE_LENGTH * 2)
+    let cleanStorageId: Id<'_storage'> | null = null
+    try
     {
-      await ctx.storage.delete(args.snapshotStorageId)
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.payloadTooLarge,
-        message: `board title too long: ${args.boardTitle.length} chars`,
-      })
-    }
-    const boardTitle = normalizeBoardTitle(args.boardTitle)
-
-    const now = Date.now()
-    const expiresAt = now + DEFAULT_SHARE_LINK_TTL_MS
-
-    let lastError: unknown = null
-    for (let attempt = 0; attempt < SLUG_INSERT_MAX_ATTEMPTS; attempt++)
-    {
-      const slug = generateShortLinkSlug()
-      const collision = await ctx.db
-        .query('shortLinks')
-        .withIndex('bySlug', (q) => q.eq('slug', slug))
-        .unique()
-
-      if (collision)
+      if (payload.byteLength > MAX_SNAPSHOT_COMPRESSED_BYTES)
       {
-        continue
-      }
-
-      try
-      {
-        await ctx.db.insert('shortLinks', {
-          slug,
-          ownerId,
-          snapshotStorageId: args.snapshotStorageId,
-          createdAt: now,
-          expiresAt,
-          boardTitle,
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.payloadTooLarge,
+          message: `snapshot too large: ${payload.byteLength} > ${MAX_SNAPSHOT_COMPRESSED_BYTES} bytes`,
         })
-        return { slug, createdAt: now }
       }
-      catch (error)
-      {
-        // unique-index race (another tx took the same slug between our
-        // lookup & insert). retry w/ a fresh slug
-        lastError = error
-      }
-    }
 
-    await ctx.storage.delete(args.snapshotStorageId)
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.slugAllocationFailed,
-      message: `failed to allocate a unique short link slug after ${SLUG_INSERT_MAX_ATTEMPTS} attempts: ${
-        lastError instanceof Error ? lastError.message : String(lastError)
-      }`,
-    })
+      // cast at the Blob boundary — lib.dom narrows BlobPart to
+      // Uint8Array<ArrayBuffer> but subarrays carry ArrayBufferLike. zero-copy
+      cleanStorageId = await ctx.storage.store(
+        new Blob([payload as BlobPart], { type: 'application/octet-stream' })
+      )
+
+      return await ctx.runMutation(
+        internal.platform.shortLinks.internal.createVerifiedSnapshotShortLink,
+        {
+          ownerId,
+          snapshotStorageId: cleanStorageId,
+          boardTitle: args.boardTitle,
+        }
+      )
+    }
+    catch (error)
+    {
+      if (cleanStorageId)
+      {
+        await deleteStorageSilently(ctx, cleanStorageId)
+      }
+      throw error
+    }
+    finally
+    {
+      await deleteStorageSilently(ctx, args.snapshotStorageId)
+    }
   },
 })
 
-// revoke an owned short link. signed-in only — anon shares expire on TTL.
-// silent no-op when slug is already gone so optimistic UI removes don't error.
-// row deleted before blob so a crash leaves only an orphaned blob — caught by gcOrphanedStorage
+// revoke an owned short link. signed-in only; silent no-op when the slug is
+// already gone so optimistic UI removes don't error
 export const revokeMyShortLink = mutation({
   args: { slug: v.string() },
   returns: v.null(),
@@ -200,9 +187,8 @@ export const revokeMyShortLink = mutation({
 
     if (row.ownerId !== userId)
     {
-      // anon shares (ownerId === null) & shares owned by another user.
-      // both surface as forbidden so the caller never learns whether the
-      // slug exists for someone else
+      // surface other users' slugs as forbidden so the caller never learns
+      // whether a given slug exists outside their account
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.forbidden,
         message: 'not the owner of this short link',
@@ -211,18 +197,7 @@ export const revokeMyShortLink = mutation({
 
     const storageId = row.snapshotStorageId
     await ctx.db.delete(row._id)
-
-    try
-    {
-      await ctx.storage.delete(storageId)
-    }
-    catch
-    {
-      // blob already gone (manual cleanup, prior crash, etc.). row delete
-      // already committed, so the orphan-storage GC will pick up any
-      // residue on its next pass. nothing for the caller to act on
-    }
-
+    await deleteStorageSilently(ctx, storageId)
     return null
   },
 })

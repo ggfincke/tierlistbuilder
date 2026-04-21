@@ -1,6 +1,6 @@
 // convex/convex.config.ts
-// * register convex components — rate-limiter protects anon-callable mutations
-// from resource abuse & caps signed-in callers on storage-touching paths
+// * register convex components — rate-limiter caps signed-in callers on
+// storage-touching paths (upload-url issue, short-link create, media upload)
 
 import { defineApp } from 'convex/server'
 import rateLimiter from '@convex-dev/rate-limiter/convex.config.js'

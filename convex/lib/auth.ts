@@ -3,11 +3,12 @@
 
 import { ConvexError } from 'convex/values'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import type { MutationCtx, QueryCtx } from '../_generated/server'
+import type { ActionCtx, MutationCtx, QueryCtx } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
 import { getAuthUserId } from '@convex-dev/auth/server'
 
-type AuthCtx = QueryCtx | MutationCtx
+type AuthCtx = QueryCtx | MutationCtx | ActionCtx
+type AuthDbCtx = QueryCtx | MutationCtx
 
 // resolve the current caller's users row ID, or null if unauthenticated
 export const getCurrentUserId = async (
@@ -19,7 +20,7 @@ export const getCurrentUserId = async (
 
 // resolve the current caller's users row, or null if unauthenticated
 export const getCurrentUser = async (
-  ctx: AuthCtx
+  ctx: AuthDbCtx
 ): Promise<Doc<'users'> | null> =>
 {
   const userId = await getCurrentUserId(ctx)

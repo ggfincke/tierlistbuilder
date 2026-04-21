@@ -10,7 +10,6 @@ import type {
   CloudBoardPayload,
   CloudBoardState,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import type { SupportedImageMimeType } from '@tierlistbuilder/contracts/platform/media'
 import { convexClient } from '~/features/platform/sync/lib/convexClient'
 
 // list the caller's soft-deleted boards. powers the "Recently deleted"
@@ -49,17 +48,15 @@ export const upsertBoardStateImperative = (
     args
   )
 
-export const generateUploadUrlImperative = () =>
-  convexClient.mutation(api.platform.media.uploads.generateUploadUrl, {})
+export const generateUploadUrlImperative = (): Promise<{
+  uploadUrl: string
+  uploadToken: string
+}> => convexClient.mutation(api.platform.media.uploads.generateUploadUrl, {})
 
 export const finalizeUploadImperative = (args: {
   storageId: Id<'_storage'>
-  contentHash: string
-  mimeType: SupportedImageMimeType
-  width: number
-  height: number
-  byteSize: number
-}) => convexClient.mutation(api.platform.media.uploads.finalizeUpload, args)
+  uploadToken: string
+}) => convexClient.action(api.platform.media.uploads.finalizeUpload, args)
 
 export const listMyBoardsImperative = () =>
   convexClient.query(api.workspace.boards.queries.getMyBoards, {})

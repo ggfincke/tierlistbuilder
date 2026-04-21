@@ -18,27 +18,31 @@ export const resolveShortLinkImperative = (args: {
 }): Promise<ShortLinkResolveResult> =>
   convexClient.query(api.platform.shortLinks.queries.resolveSlug, args)
 
-// generate a one-time _storage upload URL for the snapshot blob. anon-callable
-export const generateSnapshotUploadUrlImperative = (): Promise<string> =>
+// generate a one-time _storage upload URL for the snapshot blob. signed-in only
+export const generateSnapshotUploadUrlImperative = (): Promise<{
+  uploadUrl: string
+  uploadToken: string
+}> =>
   convexClient.mutation(
     api.platform.shortLinks.mutations.generateSnapshotUploadUrl,
     {}
   )
 
-// link an uploaded snapshot blob to a fresh slug. anon-callable; when signed in,
-// ownerId is set so the user can manage their links. boardTitle is denormalized for the listing UI
+// link an uploaded snapshot blob to a fresh slug. signed-in only; boardTitle
+// is denormalized for the listing UI
 export const createSnapshotShortLinkImperative = (args: {
   snapshotStorageId: Id<'_storage'>
+  uploadToken: string
   boardTitle: string
 }): Promise<{ slug: string; createdAt: number }> =>
-  convexClient.mutation(
+  convexClient.action(
     api.platform.shortLinks.mutations.createSnapshotShortLink,
     args
   )
 
-// reactive listing for the "Recent shares" modal. anon callers see []. the
-// query also filters out expired-but-not-yet-reaped rows so the listing
-// matches the resolve query's expiry semantics
+// reactive listing for the "Recent shares" modal. unauthenticated callers
+// see []. the query filters out expired-but-not-yet-reaped rows so the
+// listing matches the resolve query's expiry semantics
 export const useListMyShortLinks = (
   enabled: boolean
 ): OwnedShortLinkListItem[] | undefined =>

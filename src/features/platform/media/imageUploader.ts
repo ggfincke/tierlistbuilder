@@ -3,6 +3,7 @@
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { Id } from '@convex/_generated/dataModel'
+import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
 import {
   getBlobsBatch,
@@ -10,25 +11,23 @@ import {
   markUploaded,
 } from '~/shared/images/imageStore'
 import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
-import { getImageDimensions } from '~/shared/images/imageDimensions'
 import type { PreparedBlobRecord } from '~/shared/images/imagePersistence'
 import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
-import {
-  SUPPORTED_IMAGE_MIME_TYPES,
-  type SupportedImageMimeType,
-} from '@tierlistbuilder/contracts/platform/media'
+import { SUPPORTED_IMAGE_MIME_TYPES } from '@tierlistbuilder/contracts/platform/media'
 import {
   generateUploadUrlImperative,
   finalizeUploadImperative,
 } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 
-// narrow a BlobRecord mimeType into the server-accepted MIME set, or reject
-const asSupportedMimeType = (mimeType: string): SupportedImageMimeType =>
+// throw if a locally-stored blob's mimeType is outside the server-accepted
+// set. server re-derives mimeType from bytes at finalize-time, but failing
+// fast here saves a round-trip & avoids leaving orphaned storage blobs
+const assertSupportedMimeType = (mimeType: string): void =>
 {
   if (brandedStringArrayIncludes(SUPPORTED_IMAGE_MIME_TYPES, mimeType))
   {
-    return mimeType as SupportedImageMimeType
+    return
   }
   throw new Error(
     `unsupported image MIME type: ${mimeType}. server accepts ${SUPPORTED_IMAGE_MIME_TYPES.join(', ')}`
@@ -49,16 +48,18 @@ const uploadSingleImage = async (
 {
   // pre-validate MIME so we don't upload bytes that finalizeUpload will
   // reject, leaving orphaned storage blobs
-  const mimeType = asSupportedMimeType(prepared.record.mimeType)
-
-  const dimensionsPromise = getImageDimensions(prepared.blob)
-
-  const uploadUrl = await generateUploadUrlImperative()
+  assertSupportedMimeType(prepared.record.mimeType)
+  const { uploadUrl, uploadToken } = await generateUploadUrlImperative()
+  const envelopeHeader = Uint8Array.from(
+    getUploadEnvelopeHeader('media', userId, uploadToken)
+  )
 
   const response = await fetch(uploadUrl, {
     method: 'POST',
-    headers: { 'Content-Type': mimeType },
-    body: prepared.record.bytes,
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: new Blob([envelopeHeader, prepared.record.bytes], {
+      type: 'application/octet-stream',
+    }),
   })
 
   if (!response.ok)
@@ -72,15 +73,9 @@ const uploadSingleImage = async (
     storageId: Id<'_storage'>
   }
 
-  const { width, height } = await dimensionsPromise
-
   const { externalId } = await finalizeUploadImperative({
     storageId,
-    contentHash: prepared.record.hash,
-    mimeType,
-    width,
-    height,
-    byteSize: prepared.record.byteSize,
+    uploadToken,
   })
 
   await markUploaded(userId, prepared.record.hash, externalId)

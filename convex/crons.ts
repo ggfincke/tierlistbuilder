@@ -67,9 +67,9 @@ crons.cron(
   { cursor: null }
 )
 
-// daily orphan _storage sweep — staggered after media GC to catch dropped uploads
-// (anon snapshots, finalizeUpload that never fired) & residue from crashed GC passes.
-// safety net for the whole storage-reference graph
+// daily orphan _storage sweep — staggered after media GC to catch dropped
+// uploads (finalizeUpload that never fired, historical anon-share residue)
+// & leftovers from crashed GC passes. safety net for the whole storage graph
 crons.cron(
   'gc orphaned storage blobs',
   '17 5 * * *',
