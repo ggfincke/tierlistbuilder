@@ -1,6 +1,6 @@
 // src/features/workspace/sharing/short-link/shortLinkShare.ts
 // snapshot-share short link helpers. encoder uploads to Convex & mints a slug;
-// decoder resolves & inflates via hashShare pipeline. separate so #share= URLs never touch Convex
+// decoder resolves & inflates via the shared snapshot codec
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
@@ -32,9 +32,7 @@ export const getShareUrlFromSlug = (slug: string): string =>
 export const getEmbedUrlFromSlug = (slug: string): string =>
   `${buildAppUrl(EMBED_ROUTE_PATH)}?${SHORT_LINK_QUERY_PARAM}=${encodeURIComponent(slug)}`
 
-// extract a short-link slug from the current URL's query string. returns
-// null when the param is missing or empty so callers can fall through to
-// the legacy #share=... fragment path w/o additional checks
+// extract a short-link slug from the current URL's query string
 export const getShortLinkSlugFromUrl = (): string | null =>
 {
   if (typeof window === 'undefined') return null
@@ -44,8 +42,7 @@ export const getShortLinkSlugFromUrl = (): string | null =>
 }
 
 // scrub the short-link slug from the address bar w/o triggering navigation.
-// matches clearShareFragment's contract — refresh after import shouldn't
-// re-trigger the import
+// refresh after import shouldn't re-trigger the import
 export const clearShortLinkSlugFromUrl = (): void =>
 {
   if (typeof window === 'undefined') return

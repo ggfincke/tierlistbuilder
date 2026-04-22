@@ -17,7 +17,7 @@
 
 ## Directory Structure
 
-The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package. See `dev-docs/directory-restructure-proposal.mdx` for the long-form rationale.
+The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package. See `dev-docs/archive/directory-restructure-proposal.mdx` for the long-form rationale.
 
 ```
 src/
@@ -50,11 +50,11 @@ src/
 │   │   └── ui/                      # TierList, TierRow, TierItem, BoardHeader, BoardActionBar, etc.
 │   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
 │   ├── settings/
-│   │   ├── data/{local,cloud}       # settings storage key + versioned migration; Convex sync
+│   │   ├── data/{local,cloud}       # settings storage key + Convex sync
 │   │   ├── lib/                     # image upload constants & helpers
 │   │   ├── model/                   # settings store, palette selector, image import hook
 │   │   └── ui/                      # BoardSettingsModal & tabbed content
-│   ├── sharing/{lib,ui}             # hash-share encoding, social share, share/embed modals, EmbedView
+│   ├── sharing/                     # snapshot compression, short-link helpers, share UI
 │   ├── shortcuts/{lib,model,ui}     # keyboard shortcut registry, panel, list
 │   ├── stats/{model,ui}             # board statistics & distribution chart
 │   └── tier-presets/                # reusable tier structures (local + cloud storage, independent of boards)
@@ -103,9 +103,9 @@ Four Zustand stores form the workspace data layer:
 
 **`useWorkspaceBoardRegistryStore`** (`features/workspace/boards/model/useWorkspaceBoardRegistryStore.ts`) — multi-board registry. Uses Zustand `persist` middleware with `partialize` to persist `boards` and `activeBoardId`. Handles create, switch, delete, duplicate, and rename. A debounced subscriber on `useActiveBoardStore` auto-saves the active board's data via the local data layer.
 
-**`useSettingsStore`** (`features/workspace/settings/model/useSettingsStore.ts`) — global user preferences (item size, shape, label visibility, compact mode, label width, theme, palette, text style, reduced motion, toolbar position, etc.). Persisted independently with its own versioned migration.
+**`useSettingsStore`** (`features/workspace/settings/model/useSettingsStore.ts`) — global user preferences (item size, shape, label visibility, compact mode, label width, theme, palette, text style, reduced motion, toolbar position, etc.). Persisted independently.
 
-**`useTierPresetStore`** (`features/workspace/tier-presets/model/useTierPresetStore.ts`) — user-saved tier structure presets. Persisted with versioned migration. Built-in presets (Classic, Top 10, Yes/No/Maybe, etc.) are defined in `tierPresets.ts` and merged at runtime.
+**`useTierPresetStore`** (`features/workspace/tier-presets/model/useTierPresetStore.ts`) — user-saved tier structure presets. Persisted independently. Built-in presets (Classic, Top 10, Yes/No/Maybe, etc.) are defined in `tierPresets.ts` and merged at runtime.
 
 ### Local persistence layer
 
@@ -152,10 +152,10 @@ The separation ensures board-input orchestration (selection, focus persistence, 
 `app/routes/AppRouter.tsx` subscribes to `popstate` via `useSyncExternalStore` and selects a route from `resolveAppRoute(pathname)`:
 
 - `/` → `WorkspaceRoute` → `WorkspaceShell` (full editable shell)
-- `/embed` → `EmbedRoute` → `EmbedShell` → `EmbedView` (reads `#share=…` fragment, renders read-only board)
+- `/embed` → `EmbedRoute` → `EmbedShell` → `EmbedView` (reads `?s=…` short-link query param, renders read-only board)
 - anything else → `NotFoundRoute`
 
-Share links point at the workspace route with a hash fragment; embed iframe URLs point at `/embed#share=…`. The embed route parses the fragment, decodes the serialized board, and renders through `shared/board-ui/` primitives without mounting the editable active-board store.
+Share links point at the workspace route with a `?s=…` query param; embed iframe URLs point at `/embed?s=…`. The embed route resolves the short link, decodes the serialized board, and renders through `shared/board-ui/` primitives without mounting the editable active-board store.
 
 ## Component Hierarchy
 

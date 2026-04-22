@@ -1,5 +1,5 @@
 // src/shared/theme/tierColors.ts
-// canonical tier-color helpers — create, resolve, & migrate tier color specs
+// canonical tier-color helpers — create, resolve, & normalize tier color specs
 
 import { normalizeHexColor } from '../lib/color'
 import { PALETTES } from './palettes'

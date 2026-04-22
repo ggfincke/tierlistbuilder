@@ -1,9 +1,9 @@
 // src/shared/lib/binaryCodec.ts
 // browser binary codecs for data URLs, base64, & blob download helpers
 
-// upper bound on decoded data URL size — legacy inline board images should
-// never approach this, but a crafted board could otherwise drive us to
-// allocate gigabytes on a legacy import path
+// upper bound on decoded data URL size — inline board images should never
+// approach this, but a crafted payload could otherwise drive us to
+// allocate gigabytes on import
 const MAX_DATA_URL_BYTES = 25 * 1024 * 1024
 
 // convert a Blob into a data URL via FileReader

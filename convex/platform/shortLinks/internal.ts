@@ -84,8 +84,8 @@ export const gcExpiredShortLinks = internalMutation({
   returns: v.object({ deleted: v.number() }),
   handler: async (ctx, args): Promise<{ deleted: number }> =>
   {
-    // gt(0) excludes expiresAt === null (index skips nulls) & === 0 (never set in practice).
-    // lt(now) bounds the range to expired rows
+    // gt(0) narrows to positive expiry timestamps; lt(now) bounds the range
+    // to rows already past their TTL
     const now = Date.now()
     const page = await ctx.db
       .query('shortLinks')

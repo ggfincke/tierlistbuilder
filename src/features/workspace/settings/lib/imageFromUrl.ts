@@ -1,6 +1,5 @@
 // src/features/workspace/settings/lib/imageFromUrl.ts
-// fetch remote image, resize to thumbnail & persist to blob store.
-// falls back to inline data URLs when local image storage is unavailable
+// fetch remote image, resize to thumbnail & persist to blob store
 
 import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
 import { persistBlobSource } from '~/shared/images/imagePersistence'
@@ -10,7 +9,7 @@ import {
   deriveLabelFromFilename,
   getResizedDimensions,
 } from './imageGeometry'
-import { decodeImageAspectRatioFromSrc, loadImageElement } from './imageLoad'
+import { loadImageElement } from './imageLoad'
 
 // derive a display label from a URL by extracting the filename w/o extension
 const labelFromUrl = (url: string): string =>
@@ -70,7 +69,3 @@ export const fetchImageAsItemImage = async (
     aspectRatio: img.naturalWidth / img.naturalHeight,
   }
 }
-
-// re-export so localBoardSession imports a single settings-layer helper rather
-// than reaching into another feature's data layer for image decode
-export { decodeImageAspectRatioFromSrc }

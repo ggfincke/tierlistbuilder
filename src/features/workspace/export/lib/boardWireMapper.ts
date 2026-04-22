@@ -21,6 +21,7 @@ import {
 } from '~/shared/images/imagePersistence'
 import { getBlobsBatch, probeImageStore } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { decodeImageAspectRatioFromSrc } from '~/features/workspace/settings/lib/imageLoad'
 import { isRecord } from '~/shared/lib/typeGuards'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
@@ -97,12 +98,7 @@ const itemToWire = async (
   dataUrlsByHash: Map<string, Promise<string>>
 ): Promise<TierItemWire> =>
 {
-  const { imageRef, imageUrl, ...rest } = item
-
-  if (imageUrl)
-  {
-    return { ...rest, imageUrl }
-  }
+  const { imageRef, ...rest } = item
 
   if (!imageRef)
   {
@@ -170,22 +166,36 @@ export const snapshotToWire = async (
   return snapshotToWireWithBlobs(snapshot, blobsByHash)
 }
 
-// hash inline wire imageUrls in parallel, persist all bytes in one IDB batch,
-// & return a Map keyed by wire item id so callers can swap imageUrl -> imageRef.
-// unparseable data URLs drop; IDB failures fall back to keeping imageUrl inline
+interface PreparedWireImage
+{
+  record: PreparedBlobRecord
+  // dimensions decoded from the inline data URL so imported items land w/
+  // an aspectRatio even when the wire payload didn't carry one
+  aspectRatio: number | undefined
+}
+
+// hash + decode inline wire imageUrls, persist bytes in one IDB batch, & return
+// a Map keyed by wire item id. throws if IDB is unavailable or the write fails
 const prepareInlineWireImages = async (
   wireItems: readonly (readonly [string, TierItemWire])[]
-): Promise<Map<string, PreparedBlobRecord>> =>
+): Promise<Map<string, PreparedWireImage>> =>
 {
-  const byId = new Map<string, PreparedBlobRecord>()
+  const byId = new Map<string, PreparedWireImage>()
 
   const candidates = wireItems.filter(
     ([, item]) => typeof item.imageUrl === 'string' && item.imageUrl.length > 0
   )
 
-  if (candidates.length === 0 || !(await probeImageStore()))
+  if (candidates.length === 0)
   {
     return byId
+  }
+
+  if (!(await probeImageStore()))
+  {
+    throw new Error(
+      'Image storage is unavailable in this browser — inline import is not supported.'
+    )
   }
 
   const prepared = await mapAsyncLimit(
@@ -195,8 +205,12 @@ const prepareInlineWireImages = async (
     {
       try
       {
-        const record = await prepareDataUrlRecord(item.imageUrl!)
-        return [id, record] as const
+        const dataUrl = item.imageUrl!
+        const [record, aspectRatio] = await Promise.all([
+          prepareDataUrlRecord(dataUrl),
+          decodeImageAspectRatioFromSrc(dataUrl),
+        ])
+        return [id, { record, aspectRatio: aspectRatio ?? undefined }] as const
       }
       catch
       {
@@ -210,17 +224,10 @@ const prepareInlineWireImages = async (
   {
     if (!entry) continue
     byId.set(entry[0], entry[1])
-    records.push(entry[1])
+    records.push(entry[1].record)
   }
 
-  try
-  {
-    await persistPreparedBlobRecords(records)
-  }
-  catch
-  {
-    return new Map()
-  }
+  await persistPreparedBlobRecords(records)
   return byId
 }
 
@@ -239,11 +246,14 @@ const normalizeEnumWire = <T extends string>(
 
 const wireItemToSnapshotItem = (
   item: TierItemWire,
-  prepared: PreparedBlobRecord | undefined
+  prepared: PreparedWireImage | undefined
 ): TierItem =>
 {
   const { id, imageUrl, label, backgroundColor, altText } = item
-  const aspectRatio = normalizePositiveFiniteWire(item.aspectRatio)
+  // prefer the wire's captured aspect ratio; fall back to the ratio decoded
+  // during persist so items without an explicit wire field still render right
+  const aspectRatio =
+    normalizePositiveFiniteWire(item.aspectRatio) ?? prepared?.aspectRatio
   const imageFit = normalizeEnumWire(item.imageFit, IMAGE_FITS)
   const base: TierItem = {
     id,
@@ -256,10 +266,19 @@ const wireItemToSnapshotItem = (
 
   if (prepared)
   {
-    return { ...base, imageRef: prepared.imageRef }
+    return { ...base, imageRef: prepared.record.imageRef }
   }
 
-  return imageUrl ? { ...base, imageUrl } : base
+  // wire carried inline bytes but IDB persist failed — fail the whole import
+  // loudly instead of silently dropping the image or leaving it text-only
+  if (typeof imageUrl === 'string' && imageUrl.length > 0)
+  {
+    throw new Error(
+      `Failed to persist image bytes for item "${id}". Image storage may be unavailable in this browser.`
+    )
+  }
+
+  return base
 }
 
 // convert wire-format data back into an in-memory snapshot shape. async

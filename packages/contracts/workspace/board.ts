@@ -44,17 +44,18 @@ export interface TierItemImageRef
   cloudMediaExternalId?: string
 }
 
-// single item placed in a tier or the unranked pool. `imageUrl` is an inline
-// fallback used when imported image bytes can't be persisted locally yet
+// single item placed in a tier or the unranked pool. images live exclusively
+// behind `imageRef`; wire payloads w/ inline base64 are persisted into IDB at
+// the boundary before being lifted into a `TierItem`
 export interface TierItem
 {
   id: ItemId
   imageRef?: TierItemImageRef
-  imageUrl?: string
   label?: string
   backgroundColor?: string
   altText?: string
-  // natural image aspect ratio (w/h); lazy-backfilled on load if absent
+  // natural image aspect ratio (w/h) captured at import; absent -> rendered
+  // w/ the board default (1:1 when the board has no override)
   aspectRatio?: number
   // per-item crop override; absent -> board default, then global 'cover'
   imageFit?: ImageFit

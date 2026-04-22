@@ -6,14 +6,14 @@ import {
   isUserPresetId,
   type UserPresetId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import { createLocalSidecar, isOwnedByUser } from '~/shared/lib/localSidecar'
+import { createLocalSidecar } from '~/shared/lib/localSidecar'
 import {
   isNonEmptyString,
   isPositiveFiniteNumber,
 } from '~/shared/lib/typeGuards'
 
 export const TIER_PRESET_SYNC_META_STORAGE_KEY =
-  'tier-list-builder-tier-preset-sync-meta-v1'
+  'tier-list-builder-tier-preset-sync-meta-v2'
 
 export type TierPresetPendingOp = 'upsert' | 'delete'
 
@@ -22,7 +22,7 @@ export interface TierPresetSyncMetaEntry
   pendingOp: TierPresetPendingOp | null
   pendingSyncAt: number | null
   lastSyncedAt: number | null
-  ownerUserId: string | null
+  ownerUserId: string
 }
 
 export type TierPresetSyncMetaMap = Record<
@@ -34,7 +34,7 @@ const EMPTY_ENTRY: TierPresetSyncMetaEntry = {
   pendingOp: null,
   pendingSyncAt: null,
   lastSyncedAt: null,
-  ownerUserId: null,
+  ownerUserId: '',
 }
 
 const isPendingOp = (value: unknown): value is TierPresetPendingOp =>
@@ -64,7 +64,7 @@ const normalizeEntry = (raw: unknown): TierPresetSyncMetaEntry =>
       : null,
     ownerUserId: isNonEmptyString(candidate.ownerUserId)
       ? candidate.ownerUserId
-      : null,
+      : '',
   }
 }
 
@@ -84,7 +84,7 @@ const normalizeMap = (raw: unknown): TierPresetSyncMetaMap =>
     }
     const entry = normalizeEntry(value)
     // skip entries that decay to fully-empty after normalization — keeps
-    // map size bounded across migrations & malformed legacy writes
+    // map size bounded across malformed or half-written local values
     if (isFullyEmpty(entry))
     {
       continue
@@ -116,7 +116,7 @@ export const loadTierPresetSyncMetaMapForUser = (
     [UserPresetId, TierPresetSyncMetaEntry]
   >)
   {
-    if (!isOwnedByUser(entry, userId))
+    if (entry.ownerUserId !== userId)
     {
       continue
     }
@@ -131,7 +131,7 @@ const scopeEntryToOwner = (
   ownerUserId: string
 ): TierPresetSyncMetaEntry =>
 {
-  if (!isOwnedByUser(entry, ownerUserId))
+  if (entry.ownerUserId !== ownerUserId)
   {
     return {
       ...EMPTY_ENTRY,
@@ -248,7 +248,7 @@ export const clearTierPresetPending = (
 {
   const map = loadTierPresetSyncMetaMap()
   const current = map[presetId]
-  if (!current || !isOwnedByUser(current, ownerUserId))
+  if (!current || current.ownerUserId !== ownerUserId)
   {
     return { ...EMPTY_ENTRY }
   }

@@ -35,27 +35,6 @@ describe('ItemContent', () =>
     expect(html).toContain('Resolved item')
   })
 
-  it('renders inline imageUrl fallback when imageRef is unavailable', () =>
-  {
-    vi.spyOn(imageUrlHook, 'useImageUrl').mockReturnValue(null)
-
-    const html = renderToStaticMarkup(
-      createElement(ItemContent, {
-        item: {
-          imageRef: { hash: 'abc' },
-          imageUrl: 'blob:export-image',
-          label: 'Inline item',
-          altText: 'Inline image',
-        },
-        showLabel: true,
-      })
-    )
-
-    expect(html).toContain('src="blob:export-image"')
-    expect(html).toContain('alt="Inline image"')
-    expect(html).toContain('Inline item')
-  })
-
   it('renders the text label when no image url resolves', () =>
   {
     vi.spyOn(imageUrlHook, 'useImageUrl').mockReturnValue(null)

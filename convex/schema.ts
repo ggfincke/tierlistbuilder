@@ -139,11 +139,11 @@ export default defineSchema({
   // BoardSnapshot bytes in _storage
   shortLinks: defineTable({
     slug: v.string(),
-    ownerId: v.union(v.id('users'), v.null()),
+    ownerId: v.id('users'),
     snapshotStorageId: v.id('_storage'),
     createdAt: v.number(),
-    expiresAt: v.union(v.number(), v.null()),
-    boardTitle: v.optional(v.string()),
+    expiresAt: v.number(),
+    boardTitle: v.string(),
   })
     .index('bySlug', ['slug'])
     .index('byOwner', ['ownerId'])

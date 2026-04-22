@@ -1,6 +1,6 @@
 // packages/contracts/platform/shortLink.ts
 // wire contracts for snapshot-share short links. resolveSlug returns the URL for the compressed
-// snapshot blob; frontend inflates & parses it like the in-URL #share=... fragment decoder
+// snapshot blob; frontend inflates & parses it via the shared snapshot codec
 
 // max compressed bytes accepted by createSnapshotShortLink. cap is enforced
 // server-side after upload & before shortLinks row insert. covers boards w/
@@ -29,7 +29,7 @@ export interface ShortLinkResolveMiss
 }
 
 // returned for a live snapshot — recipient fetches snapshotUrl, inflates,
-// & parses w/ the same pipeline that decodes today's #share=... fragments
+// & parses via the shared snapshot codec
 export interface ShortLinkResolveSnapshot
 {
   kind: 'snapshot'
@@ -41,13 +41,11 @@ export type ShortLinkResolveResult =
   | ShortLinkResolveSnapshot
   | ShortLinkResolveMiss
 
-// signed-in "Recent shares" listing row. boardTitle & expiresAt may be null
-// for legacy rows that predate the denormalized fields; UI substitutes
-// "Untitled" & new shares always receive a server-set TTL
+// signed-in "Recent shares" listing row
 export interface OwnedShortLinkListItem
 {
   slug: string
-  boardTitle: string | null
+  boardTitle: string
   createdAt: number
-  expiresAt: number | null
+  expiresAt: number
 }

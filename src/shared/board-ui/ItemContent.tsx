@@ -10,7 +10,6 @@ interface ItemContentProps
 {
   item: {
     imageRef?: TierItemImageRef
-    imageUrl?: string
     label?: string
     backgroundColor?: string
     altText?: string
@@ -29,11 +28,10 @@ export const ItemContent = ({
 }: ItemContentProps) =>
 {
   const bgColor = item.backgroundColor
-  const cachedImageUrl = useImageUrl(
+  const imageUrl = useImageUrl(
     item.imageRef?.hash,
     item.imageRef?.cloudMediaExternalId
   )
-  const imageUrl = item.imageUrl ?? cachedImageUrl
 
   if (imageUrl)
   {

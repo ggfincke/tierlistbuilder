@@ -55,9 +55,3 @@ export const createLocalSidecar = <T>(
 
   return { load, save, clear }
 }
-
-// match when ownerUserId is the current user or null (legacy pre-scoping marker)
-export const isOwnedByUser = <T extends { ownerUserId: string | null }>(
-  entry: T,
-  userId: string
-): boolean => entry.ownerUserId === null || entry.ownerUserId === userId

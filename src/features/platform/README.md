@@ -2,7 +2,7 @@
 
 Platform capabilities — auth, cloud sync, media, short links, notifications, moderation.
 
-Populated incrementally alongside the workspace slice. See `dev-docs/directory-restructure-proposal.mdx` for the long-form plan & boundary rules.
+Populated incrementally alongside the workspace slice. See `dev-docs/archive/directory-restructure-proposal.mdx` for the long-form plan & boundary rules.
 
 ## Current contents
 
