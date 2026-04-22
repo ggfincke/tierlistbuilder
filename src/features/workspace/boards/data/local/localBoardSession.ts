@@ -9,9 +9,11 @@ import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset
 import {
   generateBoardId,
   type BoardId,
+  type ItemId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
+import { decodeImageAspectRatioFromSrc } from '~/features/workspace/settings/lib/imageFromUrl'
 import {
   loadBoardFromStorage,
   loadBoardSyncStateOnly,
@@ -256,6 +258,7 @@ export const loadBoardIntoSession = async (
   }
 
   loadBoardState(boardId, state.snapshot, state.syncState)
+  scheduleAspectRatioBackfill()
   return state.snapshot
 }
 
@@ -287,7 +290,73 @@ const saveAndActivateBoard = async (
     .getState()
     .addBoardMeta(createBoardMeta(id, title), true)
   loadBoardState(id, normalized)
+  scheduleAspectRatioBackfill()
   return id
+}
+
+// cap concurrent image decodes so legacy boards w/ hundreds of items don't
+// spike memory by decoding every image at once
+const BACKFILL_CONCURRENCY = 8
+
+// drain a queue through N workers; swallows per-item errors (null ratios are
+// silently skipped at dispatch time)
+const runBackfillQueue = async (
+  queue: [ItemId, string][],
+  shouldCancel: () => boolean
+): Promise<Record<ItemId, number>> =>
+{
+  const values: Record<ItemId, number> = {}
+  const worker = async (): Promise<void> =>
+  {
+    while (queue.length > 0)
+    {
+      if (shouldCancel()) return
+      const next = queue.shift()
+      if (!next) return
+      const [id, url] = next
+      const ratio = await decodeImageAspectRatioFromSrc(url)
+      if (ratio != null && ratio > 0) values[id] = ratio
+    }
+  }
+  const workers = Array.from(
+    { length: Math.min(BACKFILL_CONCURRENCY, queue.length) },
+    () => worker()
+  )
+  await Promise.all(workers)
+  return values
+}
+
+// fill in aspect ratios for legacy items imported before the field existed.
+// runs at idle priority; captures the target board ID so decodes finishing
+// after a board switch are dropped instead of poisoning the active board
+const scheduleAspectRatioBackfill = (): void =>
+{
+  const targetBoardId = useWorkspaceBoardRegistryStore.getState().activeBoardId
+  scheduleIdle(() =>
+  {
+    const state = useActiveBoardStore.getState()
+    const queue: [ItemId, string][] = []
+    for (const item of Object.values(state.items))
+    {
+      if (item.imageUrl && item.aspectRatio === undefined)
+      {
+        queue.push([item.id, item.imageUrl])
+      }
+    }
+    if (queue.length === 0) return
+
+    const shouldCancel = () =>
+      useWorkspaceBoardRegistryStore.getState().activeBoardId !== targetBoardId
+
+    void runBackfillQueue(queue, shouldCancel).then((values) =>
+    {
+      if (shouldCancel()) return
+      if (Object.keys(values).length > 0)
+      {
+        useActiveBoardStore.getState().backfillItemAspectRatios(values)
+      }
+    })
+  })
 }
 
 // scan every registered board entry, dropping any that fail to parse;
@@ -357,6 +426,7 @@ export const bootstrapBoardSession = async (): Promise<void> =>
       }
       await warmFromBoard(state.snapshot)
       loadBoardState(requestedActiveId, state.snapshot, state.syncState)
+      scheduleAspectRatioBackfill()
       pruneOrphanedRegistryEntriesAsync(requestedActiveId)
       return
     }
@@ -373,6 +443,7 @@ export const bootstrapBoardSession = async (): Promise<void> =>
   boardStore.replaceRegistry([createBoardMeta(id, data.title)], id)
   await warmFromBoard(data)
   loadBoardState(id, data)
+  scheduleAspectRatioBackfill()
 }
 
 export const persistBoardSyncState = (

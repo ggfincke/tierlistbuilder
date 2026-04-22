@@ -37,6 +37,8 @@ export interface ItemDiff
     mediaAssetId: Id<'mediaAssets'> | null
     order: number
     deletedAt: number | null
+    aspectRatio?: number
+    imageFit?: 'cover' | 'contain'
   }>
   patch: Array<{
     id: Id<'boardItems'>
@@ -158,6 +160,8 @@ export const diffItems = (
         mediaAssetId: resolvedMediaId,
         order: wire.order,
         deletedAt: isDeleted ? now : null,
+        aspectRatio: wire.aspectRatio,
+        imageFit: wire.imageFit,
       })
       continue
     }
@@ -179,6 +183,8 @@ export const diffItems = (
           label: wire.label,
           backgroundColor: wire.backgroundColor,
           altText: wire.altText,
+          aspectRatio: wire.aspectRatio,
+          imageFit: wire.imageFit,
           ...(hasMediaExternalId ? { mediaAssetId: resolvedMediaId } : {}),
         },
       })
@@ -194,6 +200,11 @@ export const diffItems = (
       fields.backgroundColor = wire.backgroundColor
     }
     if (server.altText !== wire.altText) fields.altText = wire.altText
+    if (server.aspectRatio !== wire.aspectRatio)
+    {
+      fields.aspectRatio = wire.aspectRatio
+    }
+    if (server.imageFit !== wire.imageFit) fields.imageFit = wire.imageFit
     if (hasMediaExternalId && server.mediaAssetId !== resolvedMediaId)
     {
       fields.mediaAssetId = resolvedMediaId

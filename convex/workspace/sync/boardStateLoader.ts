@@ -82,6 +82,10 @@ export const loadBoardCloudState = async (
   return {
     title: board.title,
     revision: board.revision ?? 0,
+    itemAspectRatio: board.itemAspectRatio,
+    itemAspectRatioMode: board.itemAspectRatioMode,
+    aspectRatioPromptDismissed: board.aspectRatioPromptDismissed,
+    defaultItemImageFit: board.defaultItemImageFit,
     tiers: serverTiers
       .slice()
       .sort((a, b) => a.order - b.order)
@@ -111,6 +115,8 @@ export const loadBoardCloudState = async (
         mediaContentHash: mediaInfo?.contentHash,
         order: item.order,
         deletedAt: item.deletedAt,
+        aspectRatio: item.aspectRatio,
+        imageFit: item.imageFit,
       }
     }),
   }

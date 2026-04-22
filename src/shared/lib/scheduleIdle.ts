@@ -3,7 +3,10 @@
 
 export const scheduleIdle = (callback: () => void, timeout = 2_000): void =>
 {
-  if (typeof window.requestIdleCallback === 'function')
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.requestIdleCallback === 'function'
+  )
   {
     window.requestIdleCallback(callback, { timeout })
     return

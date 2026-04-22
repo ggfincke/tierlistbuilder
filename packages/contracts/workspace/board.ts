@@ -29,6 +29,14 @@ export const normalizeBoardTitle = (raw: string): string =>
     : trimmed
 }
 
+// how an image fills its slot when aspect ratios differ; also the canonical
+// value type used in per-item overrides & the board-wide default
+export type ImageFit = 'cover' | 'contain'
+
+// 'auto' recomputes the board ratio from majority of item ratios on import;
+// 'manual' pins the user-selected value
+export type ItemAspectRatioMode = 'auto' | 'manual'
+
 // content-addressable image pointer for bytes stored outside the snapshot
 export interface TierItemImageRef
 {
@@ -46,6 +54,10 @@ export interface TierItem
   label?: string
   backgroundColor?: string
   altText?: string
+  // natural image aspect ratio (w/h); lazy-backfilled on load if absent
+  aspectRatio?: number
+  // per-item crop override; absent -> board default, then global 'cover'
+  imageFit?: ImageFit
 }
 
 // a single tier row w/ ordered item references
@@ -67,6 +79,14 @@ export interface BoardSnapshot
   unrankedItemIds: ItemId[]
   items: Record<ItemId, TierItem>
   deletedItems: TierItem[]
+  // slot aspect ratio (w/h); absent -> 1 (square)
+  itemAspectRatio?: number
+  // 'auto' tracks content, 'manual' pins to itemAspectRatio; absent -> 'auto'
+  itemAspectRatioMode?: ItemAspectRatioMode
+  // suppresses the mixed-ratio modal on this board; absent -> not suppressed
+  aspectRatioPromptDismissed?: boolean
+  // board-wide fit when item has no override; absent -> 'cover'
+  defaultItemImageFit?: ImageFit
 }
 
 // payload for adding new items (before IDs are assigned). the image
@@ -77,6 +97,8 @@ export interface NewTierItem
   imageRef?: TierItemImageRef
   label?: string
   backgroundColor?: string
+  // natural image aspect ratio captured at import time
+  aspectRatio?: number
 }
 
 // wire-format TierItem used at JSON import/export & share-link encode boundaries.
@@ -89,6 +111,8 @@ export interface TierItemWire
   label?: string
   backgroundColor?: string
   altText?: string
+  aspectRatio?: number
+  imageFit?: ImageFit
 }
 
 // wire-format variant of `BoardSnapshot` — same shape as in-memory but
@@ -100,6 +124,10 @@ export interface BoardSnapshotWire
   unrankedItemIds: ItemId[]
   items: Record<ItemId, TierItemWire>
   deletedItems: TierItemWire[]
+  itemAspectRatio?: number
+  itemAspectRatioMode?: ItemAspectRatioMode
+  aspectRatioPromptDismissed?: boolean
+  defaultItemImageFit?: ImageFit
 }
 
 // metadata entry for a single board in the multi-board registry

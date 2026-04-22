@@ -2,6 +2,7 @@
 // shared cloud board wire contracts used by client sync & server reconciliation
 
 import type { TierColorSpec } from '../lib/theme'
+import type { ImageFit, ItemAspectRatioMode } from './board'
 
 export interface CloudBoardTierWire
 {
@@ -22,9 +23,23 @@ export interface CloudBoardItemWire
   altText?: string
   mediaExternalId?: string | null
   order: number
+  // natural image aspect ratio captured at import time
+  aspectRatio?: number
+  // per-item crop override
+  imageFit?: ImageFit
 }
 
-export interface CloudBoardPayload
+// board-wide aspect-ratio config shared by payload & state so a synced board
+// doesn't lose its ratio settings on a push/pull cycle
+export interface CloudBoardAspectRatioFields
+{
+  itemAspectRatio?: number
+  itemAspectRatioMode?: ItemAspectRatioMode
+  aspectRatioPromptDismissed?: boolean
+  defaultItemImageFit?: ImageFit
+}
+
+export interface CloudBoardPayload extends CloudBoardAspectRatioFields
 {
   title: string
   tiers: CloudBoardTierWire[]
@@ -43,7 +58,7 @@ export interface CloudBoardStateItem extends CloudBoardItemWire
   mediaContentHash?: string
 }
 
-export interface CloudBoardState
+export interface CloudBoardState extends CloudBoardAspectRatioFields
 {
   title: string
   revision: number

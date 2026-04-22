@@ -19,6 +19,9 @@ import { LazyModalSlot, ProgressOverlay } from '~/shared/overlay/Modal'
 import { useExportController } from '~/features/workspace/export/model/useExportController'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { getWorkspacePath } from '~/app/routes/pathname'
+import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
+import { AspectRatioIssueModal } from '~/features/workspace/settings/ui/AspectRatioIssueModal'
+import type { SettingsTab } from '~/features/workspace/settings/ui/BoardSettingsModal'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
@@ -34,7 +37,7 @@ import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 
 type ModalPayloads = {
-  settings: undefined
+  settings: SettingsTab
   stats: undefined
   share: undefined
   annotation: string
@@ -149,7 +152,13 @@ export const WorkspaceShell = () =>
     [closeModal]
   )
   const handleOpenSettings = useCallback(
-    () => openModal('settings'),
+    () => openModal('settings', 'items'),
+    [openModal]
+  )
+  // hop from the mixed-ratio prompt into the Layout tab so users can adjust
+  // per-item fit without closing the modal chain themselves
+  const handleAdjustEach = useCallback(
+    () => openModal('settings', 'layout'),
     [openModal]
   )
   const handleCloseStats = useCallback(() => closeModal('stats'), [closeModal])
@@ -234,134 +243,145 @@ export const WorkspaceShell = () =>
   }
 
   return (
-    <main
-      id="app-shell"
-      className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
-      style={
-        boardBackgroundOverride
-          ? { backgroundColor: boardBackgroundOverride }
-          : undefined
-      }
-    >
-      <a
-        href={`${getWorkspacePath()}#tier-list`}
-        onClick={handleSkipToBoard}
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-[var(--t-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--t-accent-foreground)] focus:shadow-lg"
+    <AspectRatioPromptProvider>
+      <main
+        id="app-shell"
+        className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
+        style={
+          boardBackgroundOverride
+            ? { backgroundColor: boardBackgroundOverride }
+            : undefined
+        }
       >
-        Skip to board
-      </a>
-      <div className="app-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
-        <BoardHeader />
+        <a
+          href={`${getWorkspacePath()}#tier-list`}
+          onClick={handleSkipToBoard}
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-[var(--t-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--t-accent-foreground)] focus:shadow-lg"
+        >
+          Skip to board
+        </a>
+        <div className="app-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+          <BoardHeader />
 
-        {runtimeError && (
-          <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--t-destructive)_70%,transparent)] bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)] px-3 py-2">
-            <p className="text-sm text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]">
-              {runtimeError}
-            </p>
-            <button
-              type="button"
-              className="rounded border border-[color-mix(in_srgb,var(--t-destructive-hover)_60%,transparent)] px-2 py-0.5 text-xs text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]"
-              onClick={clearRuntimeError}
-            >
-              Dismiss
-            </button>
+          {runtimeError && (
+            <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--t-destructive)_70%,transparent)] bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)] px-3 py-2">
+              <p className="text-sm text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]">
+                {runtimeError}
+              </p>
+              <button
+                type="button"
+                className="rounded border border-[color-mix(in_srgb,var(--t-destructive-hover)_60%,transparent)] px-2 py-0.5 text-xs text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]"
+                onClick={clearRuntimeError}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div style={boardTransitionStyle}>
+            <ErrorBoundary section="the board">
+              <TierList
+                toolbar={
+                  <BoardActionBar
+                    toolbarPosition={toolbarPosition}
+                    cloudEnabled={cloudEnabled}
+                    exportStatus={exportStatus}
+                    exportingAll={exportAllProgress !== null}
+                    onAddTier={handleAddTier}
+                    onOpenSettings={handleOpenSettings}
+                    onOpenStats={handleOpenStats}
+                    onExport={runExport}
+                    onCopyToClipboard={runCopyToClipboard}
+                    onExportAll={runExportAll}
+                    onAnnotateExport={handleAnnotateExport}
+                    onPreviewExport={handlePreviewExport}
+                    onShare={handleOpenShare}
+                    onReset={handleResetBoard}
+                  />
+                }
+                toolbarPosition={toolbarPosition}
+              />
+            </ErrorBoundary>
           </div>
-        )}
-
-        <div style={boardTransitionStyle}>
-          <ErrorBoundary section="the board">
-            <TierList
-              toolbar={
-                <BoardActionBar
-                  toolbarPosition={toolbarPosition}
-                  cloudEnabled={cloudEnabled}
-                  exportStatus={exportStatus}
-                  exportingAll={exportAllProgress !== null}
-                  onAddTier={handleAddTier}
-                  onOpenSettings={handleOpenSettings}
-                  onOpenStats={handleOpenStats}
-                  onExport={runExport}
-                  onCopyToClipboard={runCopyToClipboard}
-                  onExportAll={runExportAll}
-                  onAnnotateExport={handleAnnotateExport}
-                  onPreviewExport={handlePreviewExport}
-                  onShare={handleOpenShare}
-                  onReset={handleResetBoard}
-                />
-              }
-              toolbarPosition={toolbarPosition}
-            />
-          </ErrorBoundary>
         </div>
-      </div>
 
-      <LazyModalSlot when={modalState.settings} section="settings">
-        {() => <BoardSettingsModal open onClose={handleCloseSettings} />}
-      </LazyModalSlot>
-      <LazyModalSlot when={modalState.stats} section="statistics">
-        {() => <StatsModal open onClose={handleCloseStats} />}
-      </LazyModalSlot>
-      <LazyModalSlot when={modalState.preview} section="export preview">
-        {(preview) => (
-          <ExportPreviewModal
-            open
-            onClose={handleClosePreview}
-            previewDataUrl={preview.payload}
-            format={previewFormat}
-            onFormatChange={setPreviewFormat}
-            onDownload={handlePreviewDownload}
-            onCopyToClipboard={handlePreviewCopy}
-            onAnnotate={handlePreviewAnnotate}
-            exporting={exportStatus !== null}
-          />
-        )}
-      </LazyModalSlot>
-      <LazyModalSlot when={modalState.annotation} section="annotation">
-        {(annotation) => (
-          <AnnotationEditor
-            open
-            onClose={handleCloseAnnotation}
-            backgroundImage={annotation.payload}
-          />
-        )}
-      </LazyModalSlot>
-      <LazyModalSlot when={modalState.share} section="share">
-        {() => (
-          <ShareModal
-            open
-            onClose={handleCloseShare}
-            getSnapshot={() => extractBoardData(useActiveBoardStore.getState())}
-          />
-        )}
-      </LazyModalSlot>
-      <BoardManager
-        toolbarPosition={toolbarPosition}
-        cloudEnabled={cloudEnabled}
-        onSwitchBoard={transitionTo}
-      />
-      {exportAllProgress && (
-        <ProgressOverlay
-          title="Exporting Boards"
-          statusVerb="Exporting"
-          progressLabel="Export progress"
-          current={exportAllProgress.current}
-          total={exportAllProgress.total}
+        <LazyModalSlot when={modalState.settings} section="settings">
+          {(settings) => (
+            <BoardSettingsModal
+              open
+              onClose={handleCloseSettings}
+              initialTab={settings.payload}
+            />
+          )}
+        </LazyModalSlot>
+        <LazyModalSlot when={modalState.stats} section="statistics">
+          {() => <StatsModal open onClose={handleCloseStats} />}
+        </LazyModalSlot>
+        <LazyModalSlot when={modalState.preview} section="export preview">
+          {(preview) => (
+            <ExportPreviewModal
+              open
+              onClose={handleClosePreview}
+              previewDataUrl={preview.payload}
+              format={previewFormat}
+              onFormatChange={setPreviewFormat}
+              onDownload={handlePreviewDownload}
+              onCopyToClipboard={handlePreviewCopy}
+              onAnnotate={handlePreviewAnnotate}
+              exporting={exportStatus !== null}
+            />
+          )}
+        </LazyModalSlot>
+        <LazyModalSlot when={modalState.annotation} section="annotation">
+          {(annotation) => (
+            <AnnotationEditor
+              open
+              onClose={handleCloseAnnotation}
+              backgroundImage={annotation.payload}
+            />
+          )}
+        </LazyModalSlot>
+        <LazyModalSlot when={modalState.share} section="share">
+          {() => (
+            <ShareModal
+              open
+              onClose={handleCloseShare}
+              getSnapshot={() =>
+                extractBoardData(useActiveBoardStore.getState())
+              }
+            />
+          )}
+        </LazyModalSlot>
+        <BoardManager
+          toolbarPosition={toolbarPosition}
+          cloudEnabled={cloudEnabled}
+          onSwitchBoard={transitionTo}
         />
-      )}
-      <LazyModalSlot when={showShortcutsPanel} section="shortcuts">
-        {() => <ShortcutsPanel onClose={closeShortcutsPanel} />}
-      </LazyModalSlot>
-      <BulkActionBar />
-      <ConflictResolverModal user={signedInUser} />
-      <ProgressOverlay
-        title="Loading your boards"
-        statusVerb="Downloading"
-        progressLabel="Cloud pull progress"
-        current={cloudPullCurrent}
-        total={cloudPullTotal}
-      />
-      <ToastContainer reducedMotion={reducedMotion} />
-      <LiveRegion />
-    </main>
+        {exportAllProgress && (
+          <ProgressOverlay
+            title="Exporting Boards"
+            statusVerb="Exporting"
+            progressLabel="Export progress"
+            current={exportAllProgress.current}
+            total={exportAllProgress.total}
+          />
+        )}
+        <LazyModalSlot when={showShortcutsPanel} section="shortcuts">
+          {() => <ShortcutsPanel onClose={closeShortcutsPanel} />}
+        </LazyModalSlot>
+        <BulkActionBar />
+        <AspectRatioIssueModal onAdjustEach={handleAdjustEach} />
+        <ConflictResolverModal user={signedInUser} />
+        <ProgressOverlay
+          title="Loading your boards"
+          statusVerb="Downloading"
+          progressLabel="Cloud pull progress"
+          current={cloudPullCurrent}
+          total={cloudPullTotal}
+        />
+        <ToastContainer reducedMotion={reducedMotion} />
+        <LiveRegion />
+      </main>
+    </AspectRatioPromptProvider>
   )
 }

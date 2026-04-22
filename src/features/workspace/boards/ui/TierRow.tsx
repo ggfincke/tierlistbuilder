@@ -22,7 +22,8 @@ import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurr
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { ITEM_SIZE_PX } from '~/shared/board-ui/constants'
+import { itemSlotDimensions } from '~/shared/board-ui/constants'
+import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
 import { tierContainerTestId } from '~/shared/board-ui/boardTestIds'
 import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '~/shared/overlay/uiMeasurements'
 import {
@@ -56,6 +57,12 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
       recolorTier: state.recolorTier,
     }))
   )
+  const boardAspectRatio = useActiveBoardStore((state) =>
+    getBoardItemAspectRatio(state)
+  )
+  const boardDefaultFit = useActiveBoardStore(
+    (state) => state.defaultItemImageFit
+  )
 
   const { itemSize, compactMode, boardLocked, hideRowControls } =
     useSettingsStore(
@@ -67,7 +74,10 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
       }))
     )
   const paletteId = useCurrentPaletteId()
-  const sizePx = ITEM_SIZE_PX[itemSize]
+  const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
+    itemSize,
+    boardAspectRatio
+  )
   const paletteColors = getPaletteColors(paletteId)
   const resolvedTierColor = resolveTierColorSpec(paletteId, tier.colorSpec)
   const resolvedRowColor = tier.rowColorSpec
@@ -258,13 +268,20 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
             <BoardItemsGrid
               ref={setNodeRef}
               compactMode={compactMode}
-              minHeightPx={sizePx}
+              minHeightPx={slotHeight}
               backgroundOverride={effectiveRowBackground}
               data-testid={tierContainerTestId(tier.id)}
               data-tier-id={tier.id}
             >
               {tier.itemIds.map((itemId) => (
-                <TierItem key={itemId} itemId={itemId} containerId={tier.id} />
+                <TierItem
+                  key={itemId}
+                  itemId={itemId}
+                  containerId={tier.id}
+                  slotWidth={slotWidth}
+                  slotHeight={slotHeight}
+                  boardDefaultFit={boardDefaultFit}
+                />
               ))}
             </BoardItemsGrid>
           </SortableContext>

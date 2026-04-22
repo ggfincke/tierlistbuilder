@@ -17,17 +17,19 @@ import { LayoutTab } from './LayoutTab'
 import { MoreTab } from './MoreTab'
 
 const TABS = ['items', 'appearance', 'layout', 'more', 'account'] as const
-type Tab = (typeof TABS)[number]
+export type SettingsTab = (typeof TABS)[number]
 
 interface BoardSettingsModalProps
 {
   open: boolean
   onClose: () => void
+  initialTab?: SettingsTab
 }
 
 export const BoardSettingsModal = ({
   open,
   onClose,
+  initialTab = 'items',
 }: BoardSettingsModalProps) =>
 {
   const addTextItem = useActiveBoardStore((state) => state.addTextItem)
@@ -39,7 +41,7 @@ export const BoardSettingsModal = ({
     return colors[1] ?? colors[0] ?? FALLBACK_COLOR
   }, [paletteId])
 
-  const [activeTab, setActiveTab] = useState<Tab>('items')
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab)
   const [textLabel, setTextLabel] = useState('')
   const [textColor, setTextColor] = useState(defaultTextColor)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)

@@ -86,6 +86,8 @@ export const snapshotToCloudPayload = (
         altText: item.altText,
         mediaExternalId: resolveItemMediaExternalId(item, uploadResult),
         order: orderCounter++,
+        aspectRatio: item.aspectRatio,
+        imageFit: item.imageFit,
       })
     }
   }
@@ -103,6 +105,8 @@ export const snapshotToCloudPayload = (
       altText: item.altText,
       mediaExternalId: resolveItemMediaExternalId(item, uploadResult),
       order: orderCounter++,
+      aspectRatio: item.aspectRatio,
+      imageFit: item.imageFit,
     })
   }
 
@@ -117,12 +121,23 @@ export const snapshotToCloudPayload = (
       altText: item.altText,
       mediaExternalId: resolveItemMediaExternalId(item, uploadResult),
       order: DELETED_ITEM_ORDER,
+      aspectRatio: item.aspectRatio,
+      imageFit: item.imageFit,
     })
   }
 
   const deletedItemIds = snapshot.deletedItems.map((item) => item.id)
 
-  return { title: snapshot.title, tiers, items, deletedItemIds }
+  return {
+    title: snapshot.title,
+    tiers,
+    items,
+    deletedItemIds,
+    itemAspectRatio: snapshot.itemAspectRatio,
+    itemAspectRatioMode: snapshot.itemAspectRatioMode,
+    aspectRatioPromptDismissed: snapshot.aspectRatioPromptDismissed,
+    defaultItemImageFit: snapshot.defaultItemImageFit,
+  }
 }
 
 // convert cloud server state to a local BoardSnapshot. images are wired
@@ -158,6 +173,8 @@ export const serverStateToSnapshot = (
       label: item.label,
       backgroundColor: item.backgroundColor,
       altText: item.altText,
+      aspectRatio: item.aspectRatio,
+      imageFit: item.imageFit,
     }
   }
 
@@ -189,5 +206,9 @@ export const serverStateToSnapshot = (
     deletedItems: deletedItems
       .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0))
       .map((i) => items[asItemId(i.externalId)]),
+    itemAspectRatio: serverState.itemAspectRatio,
+    itemAspectRatioMode: serverState.itemAspectRatioMode,
+    aspectRatioPromptDismissed: serverState.aspectRatioPromptDismissed,
+    defaultItemImageFit: serverState.defaultItemImageFit,
   }
 }

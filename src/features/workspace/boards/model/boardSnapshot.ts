@@ -53,6 +53,19 @@ const normalizeItemIds = (raw: unknown): ItemId[] =>
   return result
 }
 
+const normalizePositiveFinite = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : undefined
+
+const normalizeEnum = <T extends string>(
+  value: unknown,
+  allowed: readonly T[]
+): T | undefined => (allowed.includes(value as T) ? (value as T) : undefined)
+
+const ASPECT_RATIO_MODES = ['auto', 'manual'] as const
+const IMAGE_FITS = ['cover', 'contain'] as const
+
 const normalizeTier = (
   tier: RawTier,
   index: number,
@@ -104,27 +117,34 @@ export const createNewTier = (
   itemIds: [],
 })
 
-type BoardDataState = Pick<
-  ActiveBoardRuntimeState,
-  'title' | 'tiers' | 'unrankedItemIds' | 'items' | 'deletedItems'
->
+type BoardSnapshotSource = Pick<ActiveBoardRuntimeState, keyof BoardSnapshot>
 
+// tuple mirrors every BoardSnapshot field so the autosave subscriber
+// re-fires when any persisted field changes, including aspect-ratio state
 export type BoardDataSelection = [
-  BoardDataState['title'],
-  BoardDataState['tiers'],
-  BoardDataState['unrankedItemIds'],
-  BoardDataState['items'],
-  BoardDataState['deletedItems'],
+  BoardSnapshotSource['title'],
+  BoardSnapshotSource['tiers'],
+  BoardSnapshotSource['unrankedItemIds'],
+  BoardSnapshotSource['items'],
+  BoardSnapshotSource['deletedItems'],
+  BoardSnapshotSource['itemAspectRatio'],
+  BoardSnapshotSource['itemAspectRatioMode'],
+  BoardSnapshotSource['aspectRatioPromptDismissed'],
+  BoardSnapshotSource['defaultItemImageFit'],
 ]
 
 export const selectBoardDataFields = (
-  state: BoardDataState
+  state: BoardSnapshotSource
 ): BoardDataSelection => [
   state.title,
   state.tiers,
   state.unrankedItemIds,
   state.items,
   state.deletedItems,
+  state.itemAspectRatio,
+  state.itemAspectRatioMode,
+  state.aspectRatioPromptDismissed,
+  state.defaultItemImageFit,
 ]
 
 export const boardDataFieldsEqual = (
@@ -143,19 +163,22 @@ export const boardDataFieldsEqual = (
   return true
 }
 
-export const extractBoardData = (state: BoardDataState): BoardSnapshot => ({
+export const extractBoardData = (
+  state: BoardSnapshotSource
+): BoardSnapshot => ({
   title: state.title,
   tiers: state.tiers,
   unrankedItemIds: state.unrankedItemIds,
   items: state.items,
   deletedItems: state.deletedItems,
+  itemAspectRatio: state.itemAspectRatio,
+  itemAspectRatioMode: state.itemAspectRatioMode,
+  aspectRatioPromptDismissed: state.aspectRatioPromptDismissed,
+  defaultItemImageFit: state.defaultItemImageFit,
 })
 
 export const resetBoardData = (
-  state: Pick<
-    ActiveBoardRuntimeState,
-    'title' | 'items' | 'deletedItems' | 'tiers' | 'unrankedItemIds'
-  >,
+  state: BoardSnapshotSource,
   paletteId: PaletteId
 ): BoardSnapshot =>
 {
@@ -165,11 +188,9 @@ export const resetBoardData = (
   ]
 
   return {
-    title: state.title,
+    ...extractBoardData(state),
     tiers: buildDefaultTiers(paletteId),
     unrankedItemIds: allItemIds,
-    items: state.items,
-    deletedItems: state.deletedItems,
   }
 }
 
@@ -191,5 +212,13 @@ export const normalizeBoardSnapshot = (
     unrankedItemIds: normalizeItemIds(value?.unrankedItemIds),
     items: value?.items && typeof value.items === 'object' ? value.items : {},
     deletedItems: Array.isArray(value?.deletedItems) ? value.deletedItems : [],
+    itemAspectRatio: normalizePositiveFinite(value?.itemAspectRatio),
+    itemAspectRatioMode: normalizeEnum(
+      value?.itemAspectRatioMode,
+      ASPECT_RATIO_MODES
+    ),
+    aspectRatioPromptDismissed:
+      value?.aspectRatioPromptDismissed === true ? true : undefined,
+    defaultItemImageFit: normalizeEnum(value?.defaultItemImageFit, IMAGE_FITS),
   }
 }

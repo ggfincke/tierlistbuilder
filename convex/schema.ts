@@ -54,6 +54,18 @@ export default defineSchema({
     updatedAt: v.number(),
     deletedAt: v.union(v.number(), v.null()),
     revision: v.optional(v.number()),
+    // slot aspect ratio (w/h); absent -> 1 (square)
+    itemAspectRatio: v.optional(v.number()),
+    // 'auto' tracks content, 'manual' pins to itemAspectRatio
+    itemAspectRatioMode: v.optional(
+      v.union(v.literal('auto'), v.literal('manual'))
+    ),
+    // suppresses the mixed-ratio modal on this board
+    aspectRatioPromptDismissed: v.optional(v.boolean()),
+    // board-wide fit when an item has no override
+    defaultItemImageFit: v.optional(
+      v.union(v.literal('cover'), v.literal('contain'))
+    ),
   })
     // ordered index powering getMyBoards & getMyDeletedBoards — eq on (ownerId,
     // deletedAt) + order('desc') yields the active or deleted set sorted by
@@ -84,6 +96,10 @@ export default defineSchema({
     mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
     deletedAt: v.union(v.number(), v.null()),
+    // natural image aspect ratio captured at import time
+    aspectRatio: v.optional(v.number()),
+    // per-item crop override
+    imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
   })
     .index('byBoardAndTier', ['boardId', 'tierId', 'order'])
     .index('byMedia', ['mediaAssetId']),
