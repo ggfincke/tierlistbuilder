@@ -227,9 +227,9 @@ export const shortLinkResolveResultValidator = v.union(
 // owned short link list row — mirrors OwnedShortLinkListItem
 export const ownedShortLinkListItemValidator = v.object({
   slug: v.string(),
-  boardTitle: v.union(v.string(), v.null()),
+  boardTitle: v.string(),
   createdAt: v.number(),
-  expiresAt: v.union(v.number(), v.null()),
+  expiresAt: v.number(),
 })
 
 // coverage asserts — contract-side renames or added fields not reflected in

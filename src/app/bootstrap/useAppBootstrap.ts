@@ -10,14 +10,12 @@ import {
   importBoardSession,
   registerBoardAutosave,
 } from '~/features/workspace/boards/data/local/localBoardSession'
-import { clearShareFragment } from '~/features/workspace/sharing/snapshot-compression/hashShare'
 import { clearShortLinkSlugFromUrl } from '~/features/workspace/sharing/short-link/shortLinkShare'
 import { resolveInboundShare } from '~/features/workspace/sharing/inbound/inboundShare'
 import { toast } from '~/shared/notifications/useToastStore'
 
-// import a shared board if the URL carries a share marker. scrubs the URL
-// unconditionally so a refresh doesn't re-trigger the import; toasts only
-// on slug failure (fragment failure is silent — tampering is the likely cause)
+// import a shared board if the URL carries a short-link slug. scrub the URL
+// unconditionally so a refresh doesn't re-trigger the import
 const handleInboundShare = async (): Promise<void> =>
 {
   const result = await resolveInboundShare()
@@ -28,7 +26,7 @@ const handleInboundShare = async (): Promise<void> =>
     {
       await importBoardSession(result.data)
     }
-    else if (result.kind === 'failed' && result.source === 'slug')
+    else if (result.kind === 'failed')
     {
       toast(
         'This share link is no longer available. It may have expired or been removed.',
@@ -38,7 +36,6 @@ const handleInboundShare = async (): Promise<void> =>
   }
   finally
   {
-    clearShareFragment()
     clearShortLinkSlugFromUrl()
   }
 }

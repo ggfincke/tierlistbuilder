@@ -633,40 +633,4 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
         'Set default fit'
       )
     }),
-
-  // silent — restores information that should've been captured at import
-  backfillItemAspectRatios: (values) =>
-    set((state) =>
-    {
-      let changed = false
-      const nextItems = { ...state.items }
-      for (const key of Object.keys(values))
-      {
-        const id = key as ItemId
-        const ratio = values[id]
-        const item = nextItems[id]
-        if (
-          item &&
-          item.aspectRatio === undefined &&
-          Number.isFinite(ratio) &&
-          ratio > 0
-        )
-        {
-          nextItems[id] = { ...item, aspectRatio: ratio }
-          changed = true
-        }
-      }
-      if (!changed) return state
-
-      let nextAspectRatio = state.itemAspectRatio
-      if (getBoardAspectRatioMode(state) === 'auto')
-      {
-        const computed = computeAutoBoardAspectRatio({ items: nextItems })
-        if (computed != null) nextAspectRatio = computed
-      }
-      return {
-        items: nextItems,
-        itemAspectRatio: nextAspectRatio,
-      }
-    }),
 })

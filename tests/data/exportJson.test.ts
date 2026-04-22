@@ -285,14 +285,13 @@ describe('parseBoardJson', () =>
     expect(result.title).toBe('Imported Tier List')
   })
 
-  it('drops image refs, imageUrl, & deleted items from share payloads', async () =>
+  it('drops image refs & deleted items from share payloads', async () =>
   {
     const board = makeValidBoard({
       items: {
         'item-1': makeItem({
           id: asItemId('item-1'),
           imageRef: { hash: 'abc' },
-          imageUrl: 'data:image/png;base64,AAAA',
         }),
         'item-2': makeItem({ id: asItemId('item-2'), label: 'Second' }),
       },
@@ -302,13 +301,10 @@ describe('parseBoardJson', () =>
     expect(
       (shared.items['item-1'] as { imageRef?: unknown }).imageRef
     ).toBeUndefined()
-    expect(
-      (shared.items['item-1'] as { imageUrl?: unknown }).imageUrl
-    ).toBeUndefined()
     expect(shared.deletedItems).toHaveLength(0)
   })
 
-  it('keeps inline imageUrl when IDB is unavailable during import', async () =>
+  it('aborts import when IDB is unavailable & the payload has inline bytes', async () =>
   {
     vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(false)
 
@@ -335,13 +331,12 @@ describe('parseBoardJson', () =>
       },
     }
 
-    const result = await parseBoardJson(JSON.stringify(payload))
-
-    expect(result.items['item-1'].imageRef).toBeUndefined()
-    expect(result.items['item-1'].imageUrl).toBe('data:image/png;base64,AAAA')
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      /Image storage is unavailable/i
+    )
   })
 
-  it('keeps inline imageUrl when imported image persistence fails', async () =>
+  it('aborts import when persisting inline bytes fails', async () =>
   {
     vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(true)
     vi.spyOn(imagePersistence, 'persistPreparedBlobRecords').mockRejectedValue(
@@ -371,10 +366,9 @@ describe('parseBoardJson', () =>
       },
     }
 
-    const result = await parseBoardJson(JSON.stringify(payload))
-
-    expect(result.items['item-1'].imageRef).toBeUndefined()
-    expect(result.items['item-1'].imageUrl).toBe('data:image/png;base64,AAAA')
+    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+      /persist failed/
+    )
   })
 
   it('rejects local-only imageRef entries without inline image bytes', async () =>

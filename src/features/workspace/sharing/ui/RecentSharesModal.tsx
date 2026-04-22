@@ -161,11 +161,8 @@ export const RecentSharesModal = ({
         {
           const revoking = revokingSlugs.has(share.slug)
           const copied = copiedSlug === share.slug
-          const label = share.boardTitle?.trim() || 'Untitled'
-          const expiresLabel =
-            share.expiresAt === null
-              ? 'Persistent'
-              : `Expires ${formatAbsoluteDate(share.expiresAt)}`
+          const label = share.boardTitle
+          const expiresLabel = `Expires ${formatAbsoluteDate(share.expiresAt)}`
           return (
             <div
               key={share.slug}

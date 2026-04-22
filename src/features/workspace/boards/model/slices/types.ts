@@ -66,7 +66,6 @@ export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
   setBoardAspectRatioMode: (mode: ItemAspectRatioMode) => void
   setItemImageFit: (itemId: ItemId, fit: ImageFit | null) => void
   setItemsImageFit: (itemIds: ItemId[], fit: ImageFit | null) => void
-  backfillItemAspectRatios: (values: Record<ItemId, number>) => void
   setAspectRatioPromptDismissed: (dismissed: boolean) => void
   setDefaultItemImageFit: (fit: ImageFit | null) => void
 }

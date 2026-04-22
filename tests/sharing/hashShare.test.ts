@@ -1,20 +1,18 @@
 // tests/sharing/hashShare.test.ts
-// share-fragment codec: round-trip, image stripping, oversize rejection
+// snapshot codec: round-trip, image stripping, oversize rejection
 
 import { describe, it, expect } from 'vitest'
 import {
   compressSnapshotBytes,
   inflateSnapshotBytes,
-  encodeBoardToShareFragment,
-  decodeBoardFromShareFragment,
   stripImagesForShare,
 } from '~/features/workspace/sharing/snapshot-compression/hashShare'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeBoardSnapshot, makeTier } from '../fixtures'
 
-describe('hashShare codec', () =>
+describe('snapshot codec', () =>
 {
-  it('round-trips a board snapshot through encode -> decode', async () =>
+  it('round-trips a board snapshot through compress -> inflate', async () =>
   {
     const original = makeBoardSnapshot({
       title: 'My Board',
@@ -24,8 +22,8 @@ describe('hashShare codec', () =>
       },
     })
 
-    const fragment = await encodeBoardToShareFragment(original)
-    const decoded = await decodeBoardFromShareFragment(fragment)
+    const bytes = await compressSnapshotBytes(original)
+    const decoded = await inflateSnapshotBytes(bytes)
 
     expect(decoded.title).toBe('My Board')
     expect(decoded.tiers).toHaveLength(1)
@@ -33,7 +31,7 @@ describe('hashShare codec', () =>
     expect(decoded.items['a']?.label).toBe('Hello')
   })
 
-  it('strips imageRef, imageUrl, & deletedItems from shared payloads', () =>
+  it('strips imageRef & deletedItems from shared payloads', () =>
   {
     const snapshot = makeBoardSnapshot({
       items: {
@@ -41,7 +39,6 @@ describe('hashShare codec', () =>
           id: asItemId('a'),
           label: 'x',
           imageRef: { hash: 'img-1' },
-          imageUrl: 'data:image/png;base64,AAAA',
         },
       },
       deletedItems: [{ id: asItemId('d'), label: 'deleted' }],
@@ -51,7 +48,6 @@ describe('hashShare codec', () =>
     const item = stripped.items[asItemId('a')]
     expect(item).toBeDefined()
     expect(item).not.toHaveProperty('imageRef')
-    expect(item).not.toHaveProperty('imageUrl')
     expect(stripped.deletedItems).toEqual([])
   })
 

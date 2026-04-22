@@ -23,7 +23,7 @@ declare const ITEM_ID_BRAND: unique symbol
 export type ItemId = string & { readonly [ITEM_ID_BRAND]: void }
 
 // cast an arbitrary string to ItemId at boundaries where the brand is lost
-// (parsed JSON, share fragments, legacy storage values)
+// (parsed JSON, persisted board payloads, share payloads)
 export const asItemId = (value: string): ItemId => value as ItemId
 
 // cast a plain string to BoardId at trust boundaries that already enforce
@@ -49,7 +49,7 @@ export const asBuiltinPresetId = (value: string): BuiltinPresetId =>
 export const asPresetId = (value: string): PresetId => value as PresetId
 
 // narrow a string to the tier-ID brand. used when rehydrating from storage
-// or accepting legacy tier references that carry the plain string shape
+// or accepting plain-string tier references
 export const isTierId = (value: string): value is TierId =>
   value.startsWith('tier-')
 

@@ -18,7 +18,7 @@ import {
 
 // resolve a slug to its snapshot blob URL, or signal a miss. callers distinguish
 // missing vs. expired only via the kind tag. recipient flow: resolveSlug -> fetch
-// snapshotUrl -> inflate -> BoardSnapshot (same pipeline as #share=... fragment)
+// snapshotUrl -> inflate -> BoardSnapshot via the shared snapshot codec
 export const resolveSlug = query({
   args: { slug: v.string() },
   returns: shortLinkResolveResultValidator,
@@ -89,10 +89,10 @@ export const getMyShortLinks = query({
 
     const now = Date.now()
     return rows
-      .filter((row) => row.expiresAt === null || row.expiresAt > now)
+      .filter((row) => row.expiresAt > now)
       .map((row) => ({
         slug: row.slug,
-        boardTitle: row.boardTitle ?? null,
+        boardTitle: row.boardTitle,
         createdAt: row.createdAt,
         expiresAt: row.expiresAt,
       }))

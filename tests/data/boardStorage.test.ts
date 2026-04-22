@@ -146,7 +146,7 @@ describe('boardStorage sync metadata', () =>
     })
   })
 
-  it('rejects an unwrapped pre-v3 board payload', () =>
+  it('rejects an unwrapped board payload', () =>
   {
     localStorage.setItem(
       boardStorageKey(TEST_BOARD_ID),

@@ -13,7 +13,7 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Pointer Math**: Drag target index calculation & insertion positioning
 - **Color Parsing**: Hex/RGB normalization, contrast calculation
 - **Tier Colors**: Palette/custom color spec creation & resolution
-- **Board Snapshot**: Board creation, reset, tier factory, color spec normalization, & legacy data migration
+- **Board Snapshot**: Board creation, reset, tier factory, & color spec normalization
 - **Board Operations**: Pure tier sorting & item shuffling logic
 - **Tier Presets**: Preset-to-board conversion, board-to-preset extraction, & round-trip integrity
 - **JSON Import**: Single & multi-board parsing, envelope detection, validation, & error reporting
@@ -94,7 +94,7 @@ tests/
 │   ├── settingsCloudMerge.test.ts   — settings cloud merge
 │   └── tierPresetCloudMerge.test.ts — preset cloud merge
 ├── sharing/
-│   └── hashShare.test.ts            — share-fragment codec round-trip & image handling
+│   └── hashShare.test.ts            — snapshot codec round-trip & image handling
 ├── shared-lib/
 │   ├── color.test.ts                — hex/rgb parsing & contrast
 │   ├── fileName.test.ts             — file-name slug helper

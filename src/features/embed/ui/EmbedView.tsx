@@ -29,8 +29,7 @@ const EMBED_APPEARANCE: StaticBoardAppearance = {
   tierLabelFontSize: 'medium',
 }
 
-// load embed data from either marker — shared resolver handles the
-// fragment-then-slug precedence so bootstrap & embed can't drift
+// load embed data from the current short-link slug
 const loadEmbedData = async (): Promise<BoardSnapshot | null> =>
 {
   const result = await resolveInboundShare()

@@ -164,7 +164,7 @@ export const majorityAspectRatio = (
 }
 
 // gather aspect ratios of every image item whose natural dimensions have
-// been captured — text items & pending-backfill items are skipped
+// been captured — text items (no imageRef) are skipped
 export const collectItemAspectRatios = (
   board: Pick<BoardSnapshot, 'items'>
 ): number[] =>
@@ -173,7 +173,7 @@ export const collectItemAspectRatios = (
   for (const item of Object.values(board.items))
   {
     if (
-      item.imageUrl &&
+      item.imageRef &&
       typeof item.aspectRatio === 'number' &&
       item.aspectRatio > 0
     )
@@ -185,7 +185,7 @@ export const collectItemAspectRatios = (
 }
 
 // true when the item has a known ratio that doesn't match the board's; items
-// w/o imageUrl or awaiting backfill return false (never appear as issues)
+// w/o an imageRef or a captured ratio return false (never appear as issues)
 export const itemHasAspectMismatch = (
   item: TierItem,
   boardRatio: number,
@@ -193,7 +193,7 @@ export const itemHasAspectMismatch = (
 ): boolean =>
 {
   if (
-    !item.imageUrl ||
+    !item.imageRef ||
     typeof item.aspectRatio !== 'number' ||
     item.aspectRatio <= 0
   )

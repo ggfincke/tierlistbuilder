@@ -21,10 +21,8 @@ interface WorkspaceBoardRegistryStore
   removeBoardMeta: (boardId: BoardId) => void
 }
 
-// v2: activeBoardId sentinel migrated from '' -> null. keeps the field
-// nullable instead of carrying an empty-string BoardId through the type
-// system
-const BOARD_REGISTRY_STORAGE_VERSION = 2
+// bump after the pre-1.0 cleanup so older persisted registries reset cleanly
+const BOARD_REGISTRY_STORAGE_VERSION = 3
 
 export const useWorkspaceBoardRegistryStore =
   create<WorkspaceBoardRegistryStore>()(
@@ -60,22 +58,6 @@ export const useWorkspaceBoardRegistryStore =
         name: BOARD_REGISTRY_KEY,
         storage: createAppPersistStorage(),
         version: BOARD_REGISTRY_STORAGE_VERSION,
-        migrate: (persisted) =>
-        {
-          // v1 stored activeBoardId as BoardId | ''. cast through unknown so
-          // we can detect & replace the empty-string sentinel; the legacy
-          // shape no longer exists in the store's type surface
-          const raw = persisted as Record<string, unknown>
-          const legacyActiveId = raw.activeBoardId
-          const nextActiveId =
-            typeof legacyActiveId === 'string' && legacyActiveId.length > 0
-              ? (legacyActiveId as BoardId)
-              : null
-          return {
-            ...raw,
-            activeBoardId: nextActiveId,
-          } as WorkspaceBoardRegistryStore
-        },
         partialize: (state) => ({
           boards: state.boards,
           activeBoardId: state.activeBoardId,

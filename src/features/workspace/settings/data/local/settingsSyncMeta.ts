@@ -2,26 +2,26 @@
 // localStorage sidecar for cloud sync state of the global settings doc — separate
 // from the settings blob. fields: pendingSyncAt, lastSyncedAt, ownerUserId
 
-import { createLocalSidecar, isOwnedByUser } from '~/shared/lib/localSidecar'
+import { createLocalSidecar } from '~/shared/lib/localSidecar'
 import {
   isNonEmptyString,
   isPositiveFiniteNumber,
 } from '~/shared/lib/typeGuards'
 
 export const SETTINGS_SYNC_META_STORAGE_KEY =
-  'tier-list-builder-settings-sync-meta-v1'
+  'tier-list-builder-settings-sync-meta-v2'
 
 export interface SettingsSyncMeta
 {
   pendingSyncAt: number | null
   lastSyncedAt: number | null
-  ownerUserId: string | null
+  ownerUserId: string
 }
 
 export const EMPTY_SETTINGS_SYNC_META: SettingsSyncMeta = {
   pendingSyncAt: null,
   lastSyncedAt: null,
-  ownerUserId: null,
+  ownerUserId: '',
 }
 
 const normalizeSettingsSyncMeta = (raw: unknown): SettingsSyncMeta =>
@@ -41,7 +41,7 @@ const normalizeSettingsSyncMeta = (raw: unknown): SettingsSyncMeta =>
       : null,
     ownerUserId: isNonEmptyString(candidate.ownerUserId)
       ? candidate.ownerUserId
-      : null,
+      : '',
   }
 }
 
@@ -63,7 +63,7 @@ export const loadSettingsSyncMetaForUser = (
 ): SettingsSyncMeta =>
 {
   const meta = loadSettingsSyncMeta()
-  if (!isOwnedByUser(meta, userId))
+  if (meta.ownerUserId !== userId)
   {
     return { ...EMPTY_SETTINGS_SYNC_META }
   }
@@ -79,9 +79,10 @@ export const stampSettingsPending = (
 ): SettingsSyncMeta =>
 {
   const current = loadSettingsSyncMeta()
-  const scopedCurrent = isOwnedByUser(current, ownerUserId)
-    ? { ...current, ownerUserId }
-    : { ...EMPTY_SETTINGS_SYNC_META, ownerUserId }
+  const scopedCurrent =
+    current.ownerUserId === ownerUserId
+      ? { ...current }
+      : { ...EMPTY_SETTINGS_SYNC_META, ownerUserId }
 
   if (scopedCurrent.pendingSyncAt !== null)
   {
@@ -115,7 +116,7 @@ export const markSettingsSynced = (
 export const clearSettingsPending = (ownerUserId: string): SettingsSyncMeta =>
 {
   const current = loadSettingsSyncMeta()
-  if (!isOwnedByUser(current, ownerUserId))
+  if (current.ownerUserId !== ownerUserId)
   {
     return { ...EMPTY_SETTINGS_SYNC_META }
   }
