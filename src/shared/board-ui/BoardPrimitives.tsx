@@ -9,7 +9,7 @@ import {
 } from 'react'
 
 import {
-  ITEM_SIZE_PX,
+  itemSlotDimensions,
   LABEL_FONT_SIZE_CLASS,
   LABEL_PADDING_CLASS,
   LABEL_WIDTH_PX,
@@ -115,6 +115,8 @@ interface BoardLabelCellFrameProps
   tierLabelBold: boolean
   tierLabelItalic: boolean
   tierLabelFontSize: TierLabelFontSize
+  // board-level aspect ratio (w/h) used to derive row min-height; defaults to 1
+  itemAspectRatio?: number
   children: ReactNode
 }
 
@@ -137,19 +139,21 @@ export const BoardLabelCellFrame = ({
   tierLabelBold,
   tierLabelItalic,
   tierLabelFontSize,
+  itemAspectRatio,
   children,
 }: BoardLabelCellFrameProps) =>
 {
   const fontClass = LABEL_FONT_SIZE_CLASS[tierLabelFontSize]
   const weightClass = tierLabelBold ? 'font-semibold' : 'font-normal'
   const italicClass = tierLabelItalic ? 'italic' : ''
+  const { height: slotHeight } = itemSlotDimensions(itemSize, itemAspectRatio)
 
   return (
     <div
       className="flex shrink-0 border-r border-[var(--t-border)] transition-[filter,box-shadow] hover:brightness-[1.04] focus-within:brightness-[1.04] focus-within:shadow-[inset_0_0_0_2px_rgba(var(--t-overlay),0.16)]"
       style={{
         width: LABEL_WIDTH_PX[labelWidth],
-        minHeight: ITEM_SIZE_PX[itemSize],
+        minHeight: slotHeight,
         backgroundColor: color,
         color: getTextColor(color),
       }}

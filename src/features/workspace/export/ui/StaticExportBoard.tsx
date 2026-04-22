@@ -5,11 +5,16 @@ import { memo } from 'react'
 
 import type {
   BoardSnapshot,
+  ImageFit,
   TierItem,
 } from '@/features/workspace/boards/model/contract'
 import type { ExportAppearance } from '@/shared/types/export'
 import { resolveTierColorSpec } from '@/shared/theme/tierColors'
-import { ITEM_SIZE_PX, SHAPE_CLASS } from '@/shared/board-ui/constants'
+import { itemSlotDimensions, SHAPE_CLASS } from '@/shared/board-ui/constants'
+import {
+  getBoardItemAspectRatio,
+  getEffectiveImageFit,
+} from '@/features/workspace/boards/lib/aspectRatio'
 import {
   BoardItemsGrid,
   BoardLabelCellFrame,
@@ -23,24 +28,36 @@ interface StaticExportItemProps
 {
   item: TierItem
   appearance: ExportAppearance
+  slotWidth: number
+  slotHeight: number
+  boardDefaultFit: ImageFit | undefined
 }
 
-const StaticExportItem = memo(({ item, appearance }: StaticExportItemProps) =>
-{
-  const sizePx = ITEM_SIZE_PX[appearance.itemSize]
+const StaticExportItem = memo(
+  ({
+    item,
+    appearance,
+    slotWidth,
+    slotHeight,
+    boardDefaultFit,
+  }: StaticExportItemProps) =>
+  {
+    const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
 
-  return (
-    <div
-      style={{ width: sizePx, height: sizePx }}
-      className={`relative overflow-hidden ${SHAPE_CLASS[appearance.itemShape]}`}
-    >
-      <ItemContent
-        item={item}
-        showLabel={appearance.showLabels && !!item.label}
-      />
-    </div>
-  )
-})
+    return (
+      <div
+        style={{ width: slotWidth, height: slotHeight }}
+        className={`relative overflow-hidden ${SHAPE_CLASS[appearance.itemShape]}`}
+      >
+        <ItemContent
+          item={item}
+          showLabel={appearance.showLabels && !!item.label}
+          fit={effectiveFit}
+        />
+      </div>
+    )
+  }
+)
 
 interface StaticExportBoardProps
 {
@@ -52,7 +69,11 @@ interface StaticExportBoardProps
 export const StaticExportBoard = memo(
   ({ data, appearance, backgroundColor }: StaticExportBoardProps) =>
   {
-    const sizePx = ITEM_SIZE_PX[appearance.itemSize]
+    const boardAspectRatio = getBoardItemAspectRatio(data)
+    const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
+      appearance.itemSize,
+      boardAspectRatio
+    )
 
     return (
       <div
@@ -78,6 +99,7 @@ export const StaticExportBoard = memo(
                   tierLabelBold={appearance.tierLabelBold}
                   tierLabelItalic={appearance.tierLabelItalic}
                   tierLabelFontSize={appearance.tierLabelFontSize}
+                  itemAspectRatio={boardAspectRatio}
                 >
                   <div className="flex flex-col items-center">
                     <span className="block max-w-full break-words [overflow-wrap:anywhere]">
@@ -89,7 +111,7 @@ export const StaticExportBoard = memo(
 
                 <BoardItemsGrid
                   compactMode={appearance.compactMode}
-                  minHeightPx={sizePx}
+                  minHeightPx={slotHeight}
                   backgroundOverride={rowBg}
                 >
                   {tier.itemIds.map((itemId) =>
@@ -105,6 +127,9 @@ export const StaticExportBoard = memo(
                         key={itemId}
                         item={item}
                         appearance={appearance}
+                        slotWidth={slotWidth}
+                        slotHeight={slotHeight}
+                        boardDefaultFit={data.defaultItemImageFit}
                       />
                     )
                   })}

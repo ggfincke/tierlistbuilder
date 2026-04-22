@@ -8,7 +8,6 @@ import { areTierColorSpecsEqual } from '@/shared/theme/tierColors'
 import {
   createInitialBoardData,
   createNewTier,
-  extractBoardData,
   resetBoardData,
 } from '@/features/workspace/boards/model/boardSnapshot'
 import {
@@ -16,6 +15,10 @@ import {
   shuffleUnrankedItems as shuffleUnrankedBoardItems,
   sortTierItemsByName as sortTierItemsByNameInBoard,
 } from '@/features/workspace/boards/model/boardOps'
+import {
+  computeAutoBoardAspectRatio,
+  getBoardAspectRatioMode,
+} from '@/features/workspace/boards/lib/aspectRatio'
 import { freshRuntimeState } from '@/features/workspace/boards/model/runtime'
 import type { ItemId } from '@/shared/types/ids'
 import { MAX_DELETED_ITEMS, runtimeCleanupForItem } from './helpers'
@@ -262,6 +265,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
           imageUrl: newItem.imageUrl,
           label: newItem.label,
           backgroundColor: newItem.backgroundColor,
+          aspectRatio: newItem.aspectRatio,
         }
         nextUnranked.push(id)
       }
@@ -269,10 +273,18 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       const label =
         newItems.length === 1 ? 'Add item' : `Add ${newItems.length} items`
 
+      let nextAspectRatio = state.itemAspectRatio
+      if (getBoardAspectRatioMode(state) === 'auto')
+      {
+        const computed = computeAutoBoardAspectRatio({ items: nextItems })
+        if (computed != null) nextAspectRatio = computed
+      }
+
       return {
         ...withUndo(state, {}, label),
         items: nextItems,
         unrankedItemIds: nextUnranked,
+        itemAspectRatio: nextAspectRatio,
       }
     })
     announce(`${newItems.length} item${newItems.length === 1 ? '' : 's'} added`)
@@ -533,8 +545,143 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
       ...data,
       ...freshRuntimeState,
     })),
-})
 
-// expose extractBoardData for autosave consumers; re-exported here so the
-// board data module owns the canonical serialization path
-export { extractBoardData }
+  setBoardItemAspectRatio: (value) =>
+    set((state) =>
+    {
+      if (!Number.isFinite(value) || value <= 0) return state
+      if (
+        state.itemAspectRatioMode === 'manual' &&
+        state.itemAspectRatio === value
+      )
+      {
+        return state
+      }
+      return withUndo(
+        state,
+        {
+          itemAspectRatio: value,
+          itemAspectRatioMode: 'manual',
+        },
+        'Set aspect ratio'
+      )
+    }),
+
+  setBoardAspectRatioMode: (mode) =>
+    set((state) =>
+    {
+      const currentMode = getBoardAspectRatioMode(state)
+      if (mode === currentMode) return state
+      if (mode === 'manual')
+      {
+        return withUndo(
+          state,
+          { itemAspectRatioMode: 'manual' },
+          'Pin aspect ratio'
+        )
+      }
+      const computed = computeAutoBoardAspectRatio(state)
+      return withUndo(
+        state,
+        {
+          itemAspectRatioMode: 'auto',
+          itemAspectRatio: computed ?? state.itemAspectRatio,
+        },
+        'Auto aspect ratio'
+      )
+    }),
+
+  setItemImageFit: (itemId, fit) =>
+    set((state) =>
+    {
+      const item = state.items[itemId]
+      if (!item) return state
+      const nextFit = fit ?? undefined
+      if (nextFit === item.imageFit) return state
+      return withUndo(
+        state,
+        {
+          items: {
+            ...state.items,
+            [itemId]: { ...item, imageFit: nextFit },
+          },
+        },
+        'Change image fit'
+      )
+    }),
+
+  setItemsImageFit: (itemIds, fit) =>
+    set((state) =>
+    {
+      if (itemIds.length === 0) return state
+      const nextFit = fit ?? undefined
+      const nextItems = { ...state.items }
+      let changed = false
+      for (const id of itemIds)
+      {
+        const item = nextItems[id]
+        if (!item || nextFit === item.imageFit) continue
+        nextItems[id] = { ...item, imageFit: nextFit }
+        changed = true
+      }
+      if (!changed) return state
+      return withUndo(state, { items: nextItems }, 'Change image fit')
+    }),
+
+  // silent — no undo entry; undefined-on-false keeps snapshots compact
+  setAspectRatioPromptDismissed: (dismissed) =>
+    set((state) =>
+    {
+      const current = state.aspectRatioPromptDismissed === true
+      if (current === dismissed) return state
+      return { aspectRatioPromptDismissed: dismissed ? true : undefined }
+    }),
+
+  setDefaultItemImageFit: (fit) =>
+    set((state) =>
+    {
+      const nextFit = fit ?? undefined
+      if (nextFit === state.defaultItemImageFit) return state
+      return withUndo(
+        state,
+        { defaultItemImageFit: nextFit },
+        'Set default fit'
+      )
+    }),
+
+  // silent — restores information that should've been captured at import
+  backfillItemAspectRatios: (values) =>
+    set((state) =>
+    {
+      let changed = false
+      const nextItems = { ...state.items }
+      for (const key of Object.keys(values))
+      {
+        const id = key as ItemId
+        const ratio = values[id]
+        const item = nextItems[id]
+        if (
+          item &&
+          item.aspectRatio === undefined &&
+          Number.isFinite(ratio) &&
+          ratio > 0
+        )
+        {
+          nextItems[id] = { ...item, aspectRatio: ratio }
+          changed = true
+        }
+      }
+      if (!changed) return state
+
+      let nextAspectRatio = state.itemAspectRatio
+      if (getBoardAspectRatioMode(state) === 'auto')
+      {
+        const computed = computeAutoBoardAspectRatio({ items: nextItems })
+        if (computed != null) nextAspectRatio = computed
+      }
+      return {
+        items: nextItems,
+        itemAspectRatio: nextAspectRatio,
+      }
+    }),
+})

@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from 'react'
 
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import { processImageFiles } from '@/features/workspace/settings/lib/imageResize'
+import { useAspectRatioPrompt } from '@/features/workspace/settings/model/useAspectRatioPrompt'
 
 interface UseImageImportReturn
 {
@@ -20,9 +21,9 @@ interface UseImageImportReturn
 
 export const useImageImport = (): UseImageImportReturn =>
 {
-  const addItems = useActiveBoardStore((s) => s.addItems)
   const clearRuntimeError = useActiveBoardStore((s) => s.clearRuntimeError)
   const setRuntimeError = useActiveBoardStore((s) => s.setRuntimeError)
+  const { importWithPromptCheck } = useAspectRatioPrompt()
 
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [isDraggingFiles, setIsDraggingFiles] = useState(false)
@@ -54,7 +55,7 @@ export const useImageImport = (): UseImageImportReturn =>
         }
 
         const newItems = await processImageFiles(files)
-        if (newItems.length > 0) addItems(newItems)
+        importWithPromptCheck(newItems)
 
         if (skippedCount > 0)
         {
@@ -69,7 +70,7 @@ export const useImageImport = (): UseImageImportReturn =>
         setIsDraggingFiles(false)
       }
     },
-    [addItems, clearRuntimeError, setRuntimeError]
+    [importWithPromptCheck, clearRuntimeError, setRuntimeError]
   )
 
   const openFilePicker = useCallback(() =>

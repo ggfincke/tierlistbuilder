@@ -13,6 +13,7 @@ import type {
   TierLabelFontSize,
   ToolbarPosition,
 } from '@/shared/types/settings'
+import { AspectRatioSection } from './AspectRatioSection'
 import { SegmentedControl } from './SegmentedControl'
 import { SettingRow } from './SettingRow'
 import { SettingsSection } from './SettingsSection'
@@ -140,6 +141,8 @@ export const LayoutTab = () =>
           <Toggle checked={showAltTextButton} onChange={setShowAltTextButton} />
         </SettingRow>
       </SettingsSection>
+
+      <AspectRatioSection />
 
       <SettingsSection title="Tier Labels">
         <SettingRow label="Label Width">

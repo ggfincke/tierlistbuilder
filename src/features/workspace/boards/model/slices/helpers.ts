@@ -30,23 +30,28 @@ export const selectionUpdate = (
   selectedItemIdSet: toSelectionSet(ids),
 })
 
-// shallow structural check — compares title, container lengths, & item-key
-// count; intentionally does not deep-compare inner item objects since every
-// store mutation rebuilds the relevant arrays/maps anyway
+// shallow structural check — compares title, container lengths, item-key
+// count, & scalar board fields (aspect ratio, fit defaults). deep item maps
+// are compared by reference since every mutation rebuilds the items/tiers
 export const isSameSnapshot = (a: BoardSnapshot, b: BoardSnapshot): boolean =>
 {
   if (a.title !== b.title) return false
   if (a.tiers.length !== b.tiers.length) return false
   if (a.unrankedItemIds.length !== b.unrankedItemIds.length) return false
   if (a.deletedItems.length !== b.deletedItems.length) return false
-  if (Object.keys(a.items).length !== Object.keys(b.items).length) return false
+  if (a.items !== b.items) return false
+  if (a.itemAspectRatio !== b.itemAspectRatio) return false
+  if (a.itemAspectRatioMode !== b.itemAspectRatioMode) return false
+  if (a.aspectRatioPromptDismissed !== b.aspectRatioPromptDismissed)
+    return false
+  if (a.defaultItemImageFit !== b.defaultItemImageFit) return false
 
   for (let i = 0; i < a.tiers.length; i++)
   {
     const tierA = a.tiers[i]
     const tierB = b.tiers[i]
     if (tierA.id !== tierB.id) return false
-    if (tierA.itemIds.length !== tierB.itemIds.length) return false
+    if (tierA !== tierB) return false
   }
 
   return true

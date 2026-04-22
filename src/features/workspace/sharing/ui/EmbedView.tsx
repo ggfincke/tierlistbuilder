@@ -10,7 +10,11 @@ import {
   decodeBoardFromShareFragment,
   getShareFragment,
 } from '@/features/workspace/sharing/lib/hashShare'
-import { ITEM_SIZE_PX, SHAPE_CLASS } from '@/shared/board-ui/constants'
+import { itemSlotDimensions, SHAPE_CLASS } from '@/shared/board-ui/constants'
+import {
+  getBoardItemAspectRatio,
+  getEffectiveImageFit,
+} from '@/features/workspace/boards/lib/aspectRatio'
 import { ItemContent } from '@/shared/board-ui/ItemContent'
 import {
   BoardItemsGrid,
@@ -76,7 +80,11 @@ export const EmbedView = () =>
     )
   }
 
-  const sizePx = ITEM_SIZE_PX.medium
+  const boardAspectRatio = getBoardItemAspectRatio(data)
+  const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
+    'medium',
+    boardAspectRatio
+  )
   const paletteId = 'classic' as const
 
   return (
@@ -106,6 +114,7 @@ export const EmbedView = () =>
                     tierLabelBold={false}
                     tierLabelItalic={false}
                     tierLabelFontSize="medium"
+                    itemAspectRatio={boardAspectRatio}
                   >
                     <div className="flex flex-col items-center">
                       <span className="block max-w-full break-words [overflow-wrap:anywhere]">
@@ -117,7 +126,7 @@ export const EmbedView = () =>
 
                   <BoardItemsGrid
                     compactMode={false}
-                    minHeightPx={sizePx}
+                    minHeightPx={slotHeight}
                     backgroundOverride={rowBg}
                   >
                     {tier.itemIds.map((itemId) =>
@@ -125,13 +134,21 @@ export const EmbedView = () =>
                       const item = data.items[itemId]
                       if (!item) return null
 
+                      const effectiveFit = getEffectiveImageFit(
+                        item,
+                        data.defaultItemImageFit
+                      )
                       return (
                         <div
                           key={itemId}
-                          style={{ width: sizePx, height: sizePx }}
+                          style={{ width: slotWidth, height: slotHeight }}
                           className={`relative overflow-hidden ${SHAPE_CLASS.square}`}
                         >
-                          <ItemContent item={item} showLabel={!!item.label} />
+                          <ItemContent
+                            item={item}
+                            showLabel={!!item.label}
+                            fit={effectiveFit}
+                          />
                         </div>
                       )
                     })}

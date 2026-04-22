@@ -10,7 +10,9 @@ import { useImageImport } from '@/features/workspace/settings/model/useImageImpo
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import { getEffectiveUnrankedItemIds } from '@/features/workspace/boards/dnd/dragSnapshot'
+import { getBoardItemAspectRatio } from '@/features/workspace/boards/lib/aspectRatio'
 import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
+import { itemSlotDimensions } from '@/shared/board-ui/constants'
 import { TierItem } from './TierItem'
 import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
 import { TextInput } from '@/shared/ui/TextInput'
@@ -21,6 +23,7 @@ export const UnrankedPool = () =>
 {
   const compactMode = useSettingsStore((state) => state.compactMode)
   const boardLocked = useSettingsStore((state) => state.boardLocked)
+  const itemSize = useSettingsStore((state) => state.itemSize)
   const confirmBeforeDelete = useSettingsStore(
     (state) => state.confirmBeforeDelete
   )
@@ -29,6 +32,16 @@ export const UnrankedPool = () =>
   )
   const dragPreview = useActiveBoardStore((state) => state.dragPreview)
   const items = useActiveBoardStore((state) => state.items)
+  const boardAspectRatio = useActiveBoardStore((state) =>
+    getBoardItemAspectRatio(state)
+  )
+  const boardDefaultFit = useActiveBoardStore(
+    (state) => state.defaultItemImageFit
+  )
+  const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
+    itemSize,
+    boardAspectRatio
+  )
   const unrankedItemIds = useMemo(
     () =>
       dragPreview
@@ -165,6 +178,9 @@ export const UnrankedPool = () =>
                 itemId={itemId}
                 containerId={UNRANKED_CONTAINER_ID}
                 onRequestDelete={handleRequestDelete}
+                slotWidth={slotWidth}
+                slotHeight={slotHeight}
+                boardDefaultFit={boardDefaultFit}
               />
             ))
           )}

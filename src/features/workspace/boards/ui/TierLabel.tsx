@@ -10,6 +10,7 @@ import { resolveTierColorSpec } from '@/shared/theme/tierColors'
 import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import { getBoardItemAspectRatio } from '@/features/workspace/boards/lib/aspectRatio'
 import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
 import {
   BoardLabelCellFrame,
@@ -41,6 +42,9 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
   const displayColor =
     colorOverride ?? resolveTierColorSpec(paletteId, tier.colorSpec)
   const renameTier = useActiveBoardStore((state) => state.renameTier)
+  const boardAspectRatio = useActiveBoardStore((state) =>
+    getBoardItemAspectRatio(state)
+  )
   const {
     itemSize,
     labelWidth,
@@ -83,6 +87,7 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
       tierLabelBold={tierLabelBold}
       tierLabelItalic={tierLabelItalic}
       tierLabelFontSize={tierLabelFontSize}
+      itemAspectRatio={boardAspectRatio}
     >
       {boardLocked ? (
         <div className="flex h-full w-full flex-col items-center justify-center text-center leading-tight">
