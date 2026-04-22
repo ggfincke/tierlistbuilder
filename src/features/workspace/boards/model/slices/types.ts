@@ -5,6 +5,8 @@ import type { StateCreator } from 'zustand'
 
 import type {
   BoardSnapshot,
+  ImageFit,
+  ItemAspectRatioMode,
   NewTierItem,
 } from '@/features/workspace/boards/model/contract'
 import type {
@@ -42,6 +44,15 @@ export interface BoardDataSlice extends BoardSnapshot
   shuffleUnrankedItems: () => void
   resetBoard: (paletteId: PaletteId) => void
   loadBoard: (data: BoardSnapshot) => void
+  // switches mode to 'manual'
+  setBoardItemAspectRatio: (value: number) => void
+  // 'auto' recomputes from current items; 'manual' preserves the value
+  setBoardAspectRatioMode: (mode: ItemAspectRatioMode) => void
+  setItemImageFit: (itemId: ItemId, fit: ImageFit | null) => void
+  setItemsImageFit: (itemIds: ItemId[], fit: ImageFit | null) => void
+  backfillItemAspectRatios: (values: Record<ItemId, number>) => void
+  setAspectRatioPromptDismissed: (dismissed: boolean) => void
+  setDefaultItemImageFit: (fit: ImageFit | null) => void
 }
 
 // selection slice — multi-item selection state & bulk actions

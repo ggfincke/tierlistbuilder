@@ -3,6 +3,14 @@
 
 import type { BoardId, ItemId, TierId } from '@/shared/types/ids'
 import type { TierColorSpec } from '@/shared/types/theme'
+import type { ImageFit } from '@/shared/board-ui/constants'
+
+// re-exported so feature code can import ImageFit alongside the board shapes
+// that reference it; canonical definition lives in shared/board-ui/constants
+export type { ImageFit }
+
+// 'auto' recomputes from majority of item ratios on import; 'manual' pins
+export type ItemAspectRatioMode = 'auto' | 'manual'
 
 // single item placed in a tier or the unranked pool
 export interface TierItem
@@ -17,6 +25,10 @@ export interface TierItem
   backgroundColor?: string
   // custom alt text for screen readers (falls back to label)
   altText?: string
+  // natural image aspect ratio (w/h); lazy-backfilled on load if absent
+  aspectRatio?: number
+  // per-item crop override; absent -> board default, then global 'cover'
+  imageFit?: ImageFit
 }
 
 // a single tier row w/ ordered item references
@@ -50,6 +62,14 @@ export interface BoardSnapshot
   items: Record<ItemId, TierItem>
   // recently deleted items available for restore (newest first, capped at 50)
   deletedItems: TierItem[]
+  // slot aspect ratio (w/h); absent -> 1 (square)
+  itemAspectRatio?: number
+  // 'auto' tracks content, 'manual' pins to itemAspectRatio; absent -> 'auto'
+  itemAspectRatioMode?: ItemAspectRatioMode
+  // suppresses the mixed-ratio modal on this board; absent -> not suppressed
+  aspectRatioPromptDismissed?: boolean
+  // board-wide fit when item has no override; absent -> 'cover'
+  defaultItemImageFit?: ImageFit
 }
 
 // payload for adding new items (before IDs are assigned)
@@ -61,6 +81,8 @@ export interface NewTierItem
   label?: string
   // hex background color for text-only items
   backgroundColor?: string
+  // natural image aspect ratio (w/h), computed at import
+  aspectRatio?: number
 }
 
 // metadata entry for a single board in the multi-board registry

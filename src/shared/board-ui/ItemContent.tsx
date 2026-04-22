@@ -2,6 +2,7 @@
 // shared image-vs-text item rendering — used by board tiles, drag overlay, & deleted items
 
 import { getTextColor } from '../lib/color'
+import { OBJECT_FIT_CLASS, type ImageFit } from './constants'
 
 interface ItemContentProps
 {
@@ -15,12 +16,15 @@ interface ItemContentProps
   variant?: 'default' | 'compact'
   // show label overlay on image items (only used by board tiles)
   showLabel?: boolean
+  // effective image fit — resolved by the caller from per-item + board defaults
+  fit?: ImageFit
 }
 
 export const ItemContent = ({
   item,
   variant = 'default',
   showLabel = false,
+  fit = 'cover',
 }: ItemContentProps) =>
 {
   const bgColor = item.backgroundColor
@@ -32,7 +36,7 @@ export const ItemContent = ({
         <img
           src={item.imageUrl}
           alt={item.altText ?? item.label ?? 'Tier item'}
-          className="h-full w-full object-cover"
+          className={`h-full w-full ${OBJECT_FIT_CLASS[fit]}`}
           draggable={false}
         />
         {showLabel && item.label && (
