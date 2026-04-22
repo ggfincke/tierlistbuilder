@@ -11,8 +11,10 @@ import { useImageImport } from '~/features/workspace/settings/model/useImageImpo
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useEffectiveUnrankedItemIds } from '~/features/workspace/boards/model/useEffectiveBoard'
+import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { UNRANKED_CONTAINER_TEST_ID } from '~/shared/board-ui/boardTestIds'
+import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import { TierItem } from './TierItem'
 import { ConfirmDialog } from '~/shared/overlay/Modal'
 import { TextInput } from '~/shared/ui/TextInput'
@@ -21,18 +23,30 @@ import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export const UnrankedPool = () =>
 {
-  const { compactMode, boardLocked, confirmBeforeDelete } = useSettingsStore(
-    useShallow((state) => ({
-      compactMode: state.compactMode,
-      boardLocked: state.boardLocked,
-      confirmBeforeDelete: state.confirmBeforeDelete,
-    }))
-  )
+  const { compactMode, boardLocked, itemSize, confirmBeforeDelete } =
+    useSettingsStore(
+      useShallow((state) => ({
+        compactMode: state.compactMode,
+        boardLocked: state.boardLocked,
+        itemSize: state.itemSize,
+        confirmBeforeDelete: state.confirmBeforeDelete,
+      }))
+    )
   const { items, removeItem } = useActiveBoardStore(
     useShallow((state) => ({
       items: state.items,
       removeItem: state.removeItem,
     }))
+  )
+  const boardAspectRatio = useActiveBoardStore((state) =>
+    getBoardItemAspectRatio(state)
+  )
+  const boardDefaultFit = useActiveBoardStore(
+    (state) => state.defaultItemImageFit
+  )
+  const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
+    itemSize,
+    boardAspectRatio
   )
   const unrankedItemIds = useEffectiveUnrankedItemIds()
   const itemCount = Object.keys(items).length
@@ -159,6 +173,9 @@ export const UnrankedPool = () =>
                 itemId={itemId}
                 containerId={UNRANKED_CONTAINER_ID}
                 onRequestDelete={handleRequestDelete}
+                slotWidth={slotWidth}
+                slotHeight={slotHeight}
+                boardDefaultFit={boardDefaultFit}
               />
             ))
           )}

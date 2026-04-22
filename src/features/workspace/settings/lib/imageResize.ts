@@ -17,6 +17,16 @@ export interface ProcessImageFilesResult
   failedCount: number
 }
 
+// intermediate blob + label + natural dimensions captured during resize.
+// aspect ratio is computed once so the persist step can thread it into the
+// returned NewTierItem alongside the blob-store imageRef
+interface PreparedImage
+{
+  blob: Blob
+  label: string
+  aspectRatio: number
+}
+
 // filter, resize, persist, & collect image files
 export const processImageFiles = async (
   files: File[]
@@ -28,11 +38,13 @@ export const processImageFiles = async (
     {
       try
       {
-        const blob = await resizeImageFileToBlob(imageFile)
+        const { blob, naturalWidth, naturalHeight } =
+          await resizeImageFileToBlob(imageFile)
         return {
           blob,
           label: deriveLabelFromFilename(imageFile.name),
-        }
+          aspectRatio: naturalWidth / naturalHeight,
+        } satisfies PreparedImage
       }
       catch
       {
@@ -42,7 +54,7 @@ export const processImageFiles = async (
   )
 
   const preparedItems = resized.filter(
-    (item): item is { blob: Blob; label: string } => item !== null
+    (item): item is PreparedImage => item !== null
   )
   const sources = await persistBlobSources(
     preparedItems.map((item) => item.blob)
@@ -50,6 +62,7 @@ export const processImageFiles = async (
   const items = sources.map((source, index) => ({
     ...source,
     label: preparedItems[index].label,
+    aspectRatio: preparedItems[index].aspectRatio,
   })) satisfies Array<NewTierItem & { label: string }>
 
   return {
@@ -58,19 +71,29 @@ export const processImageFiles = async (
   }
 }
 
+interface ResizedBlob
+{
+  blob: Blob
+  // source image dimensions before downscaling, used to derive aspect ratio
+  naturalWidth: number
+  naturalHeight: number
+}
+
 // resize a File to a PNG Blob capped at maxSize px on the longest side.
-// returns raw bytes instead of a data URL so the caller can hash & persist
-// directly to the IndexedDB image store w/o an intermediate base64 decode
+// returns raw bytes + source dimensions so the caller can hash & persist the
+// blob to the IndexedDB image store while still capturing the original ratio
 const resizeImageFileToBlob = async (
   file: File,
   maxSize = MAX_THUMBNAIL_SIZE
-): Promise<Blob> =>
+): Promise<ResizedBlob> =>
 {
   const imageBitmap = await createImageBitmap(file)
+  const naturalWidth = imageBitmap.width
+  const naturalHeight = imageBitmap.height
 
   const { width, height } = getResizedDimensions(
-    imageBitmap.width,
-    imageBitmap.height,
+    naturalWidth,
+    naturalHeight,
     maxSize
   )
   const canvas = document.createElement('canvas')
@@ -90,5 +113,6 @@ const resizeImageFileToBlob = async (
 
   imageBitmap.close()
 
-  return canvasToPngBlob(canvas)
+  const blob = await canvasToPngBlob(canvas)
+  return { blob, naturalWidth, naturalHeight }
 }

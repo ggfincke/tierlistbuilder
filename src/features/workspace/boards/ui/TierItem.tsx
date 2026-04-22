@@ -15,8 +15,9 @@ import {
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
+import { getEffectiveImageFit } from '~/features/workspace/boards/lib/aspectRatio'
 import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
-import { ITEM_SIZE_PX, SHAPE_CLASS } from '~/shared/board-ui/constants'
+import { SHAPE_CLASS, type ImageFit } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
@@ -28,10 +29,23 @@ interface TierItemProps
   itemId: ItemId
   containerId: string
   onRequestDelete?: (itemId: ItemId) => void
+  // slot width in px — derived once by the parent from board aspect ratio
+  slotWidth: number
+  // slot height in px — derived once by the parent from board aspect ratio
+  slotHeight: number
+  // board-wide image fit default — per-item override still wins
+  boardDefaultFit: ImageFit | undefined
 }
 
 export const TierItem = memo(
-  ({ itemId, containerId, onRequestDelete }: TierItemProps) =>
+  ({
+    itemId,
+    containerId,
+    onRequestDelete,
+    slotWidth,
+    slotHeight,
+    boardDefaultFit,
+  }: TierItemProps) =>
   {
     const {
       item,
@@ -52,10 +66,9 @@ export const TierItem = memo(
     )
     const canDelete = containerId === UNRANKED_CONTAINER_ID
 
-    const { itemSize, itemShape, showLabels, boardLocked, showAltTextButton } =
+    const { itemShape, showLabels, boardLocked, showAltTextButton } =
       useSettingsStore(
         useShallow((state) => ({
-          itemSize: state.itemSize,
           itemShape: state.itemShape,
           showLabels: state.showLabels,
           boardLocked: state.boardLocked,
@@ -63,7 +76,9 @@ export const TierItem = memo(
         }))
       )
 
-    const sizePx = ITEM_SIZE_PX[itemSize]
+    const effectiveFit = item
+      ? getEffectiveImageFit(item, boardDefaultFit)
+      : 'cover'
 
     const {
       isKeyboardFocused,
@@ -202,8 +217,8 @@ export const TierItem = memo(
           data-item-label={item.label ?? ''}
           data-container-id={containerId}
           style={{
-            width: sizePx,
-            height: sizePx,
+            width: slotWidth,
+            height: slotHeight,
             transform: CSS.Transform.toString(transform),
             transition,
             opacity,
@@ -220,7 +235,11 @@ export const TierItem = memo(
           onPointerDownCapture={handlePointerDownCapture}
           onClick={handleClick}
         >
-          <ItemContent item={item} showLabel={showLabels && !!item.label} />
+          <ItemContent
+            item={item}
+            showLabel={showLabels && !!item.label}
+            fit={effectiveFit}
+          />
 
           {/* selection check badge */}
           {isSelected && (

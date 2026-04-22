@@ -43,7 +43,21 @@ const wireItemValidator = v.object({
   altText: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
   order: v.number(),
+  aspectRatio: v.optional(v.number()),
+  imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
 })
+
+// board-level aspect-ratio args — validators match CloudBoardAspectRatioFields
+const boardAspectRatioValidators = {
+  itemAspectRatio: v.optional(v.number()),
+  itemAspectRatioMode: v.optional(
+    v.union(v.literal('auto'), v.literal('manual'))
+  ),
+  aspectRatioPromptDismissed: v.optional(v.boolean()),
+  defaultItemImageFit: v.optional(
+    v.union(v.literal('cover'), v.literal('contain'))
+  ),
+}
 
 interface UpsertArgs
 {
@@ -53,6 +67,10 @@ interface UpsertArgs
   tiers: Infer<typeof wireTierValidator>[]
   items: Infer<typeof wireItemValidator>[]
   deletedItemIds: string[]
+  itemAspectRatio?: number
+  itemAspectRatioMode?: 'auto' | 'manual'
+  aspectRatioPromptDismissed?: boolean
+  defaultItemImageFit?: 'cover' | 'contain'
 }
 
 type UpsertResult =
@@ -328,9 +346,16 @@ const applyBoardState = async (
     itemDiff.patch.length > 0 ||
     itemDiff.insert.length > 0
   const titleChanged = normalizedTitle !== board.title
+  // treat aspect-ratio scalars the same as title — changes bump the revision
+  const aspectChanged =
+    board.itemAspectRatio !== args.itemAspectRatio ||
+    board.itemAspectRatioMode !== args.itemAspectRatioMode ||
+    (board.aspectRatioPromptDismissed ?? false) !==
+      (args.aspectRatioPromptDismissed ?? false) ||
+    board.defaultItemImageFit !== args.defaultItemImageFit
 
   const currentRevision = board.revision ?? 0
-  if (!tiersChanged && !itemsChanged && !titleChanged)
+  if (!tiersChanged && !itemsChanged && !titleChanged && !aspectChanged)
   {
     return currentRevision
   }
@@ -340,6 +365,10 @@ const applyBoardState = async (
     title: normalizedTitle,
     updatedAt: Date.now(),
     revision: newRevision,
+    itemAspectRatio: args.itemAspectRatio,
+    itemAspectRatioMode: args.itemAspectRatioMode,
+    aspectRatioPromptDismissed: args.aspectRatioPromptDismissed,
+    defaultItemImageFit: args.defaultItemImageFit,
   })
   return newRevision
 }
@@ -354,6 +383,7 @@ export const upsertBoardState = mutation({
     tiers: v.array(wireTierValidator),
     items: v.array(wireItemValidator),
     deletedItemIds: v.array(v.string()),
+    ...boardAspectRatioValidators,
   },
   returns: v.union(
     v.object({ conflict: v.null(), newRevision: v.number() }),

@@ -12,8 +12,12 @@ import type {
   LabelWidth,
   TierLabelFontSize,
 } from '@tierlistbuilder/contracts/workspace/settings'
+import {
+  getBoardItemAspectRatio,
+  getEffectiveImageFit,
+} from '~/features/workspace/boards/lib/aspectRatio'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
-import { ITEM_SIZE_PX, SHAPE_CLASS } from '~/shared/board-ui/constants'
+import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import {
   BoardItemsGrid,
   BoardLabelCellFrame,
@@ -55,7 +59,12 @@ export const StaticBoard = memo(
     'data-testid': testId,
   }: StaticBoardProps) =>
   {
-    const sizePx = ITEM_SIZE_PX[appearance.itemSize]
+    const boardAspectRatio = getBoardItemAspectRatio(data)
+    const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
+      appearance.itemSize,
+      boardAspectRatio
+    )
+    const boardDefaultFit = data.defaultItemImageFit
 
     return (
       <div
@@ -82,6 +91,7 @@ export const StaticBoard = memo(
                   tierLabelBold={appearance.tierLabelBold}
                   tierLabelItalic={appearance.tierLabelItalic}
                   tierLabelFontSize={appearance.tierLabelFontSize}
+                  itemAspectRatio={boardAspectRatio}
                 >
                   <div className="flex flex-col items-center">
                     <span className="block max-w-full break-words [overflow-wrap:anywhere]">
@@ -93,7 +103,7 @@ export const StaticBoard = memo(
 
                 <BoardItemsGrid
                   compactMode={appearance.compactMode}
-                  minHeightPx={sizePx}
+                  minHeightPx={slotHeight}
                   backgroundOverride={rowBg}
                 >
                   {tier.itemIds.map((itemId) =>
@@ -104,12 +114,13 @@ export const StaticBoard = memo(
                     return (
                       <div
                         key={itemId}
-                        style={{ width: sizePx, height: sizePx }}
+                        style={{ width: slotWidth, height: slotHeight }}
                         className={`relative overflow-hidden ${SHAPE_CLASS[appearance.itemShape]}`}
                       >
                         <ItemContent
                           item={item}
                           showLabel={appearance.showLabels && !!item.label}
+                          fit={getEffectiveImageFit(item, boardDefaultFit)}
                         />
                       </div>
                     )

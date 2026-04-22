@@ -146,6 +146,10 @@ export const snapshotToWireWithBlobs = async (
     unrankedItemIds: snapshot.unrankedItemIds,
     items: items as BoardSnapshotWire['items'],
     deletedItems,
+    itemAspectRatio: snapshot.itemAspectRatio,
+    itemAspectRatioMode: snapshot.itemAspectRatioMode,
+    aspectRatioPromptDismissed: snapshot.aspectRatioPromptDismissed,
+    defaultItemImageFit: snapshot.defaultItemImageFit,
   }
 }
 
@@ -220,13 +224,35 @@ const prepareInlineWireImages = async (
   return byId
 }
 
+const ASPECT_RATIO_MODES = ['auto', 'manual'] as const
+const IMAGE_FITS = ['cover', 'contain'] as const
+
+const normalizePositiveFiniteWire = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : undefined
+
+const normalizeEnumWire = <T extends string>(
+  value: unknown,
+  allowed: readonly T[]
+): T | undefined => (allowed.includes(value as T) ? (value as T) : undefined)
+
 const wireItemToSnapshotItem = (
   item: TierItemWire,
   prepared: PreparedBlobRecord | undefined
 ): TierItem =>
 {
   const { id, imageUrl, label, backgroundColor, altText } = item
-  const base: TierItem = { id, label, backgroundColor, altText }
+  const aspectRatio = normalizePositiveFiniteWire(item.aspectRatio)
+  const imageFit = normalizeEnumWire(item.imageFit, IMAGE_FITS)
+  const base: TierItem = {
+    id,
+    label,
+    backgroundColor,
+    altText,
+    aspectRatio,
+    imageFit,
+  }
 
   if (prepared)
   {
@@ -285,6 +311,17 @@ export const wireToSnapshot = async (
       : [],
     items,
     deletedItems,
+    itemAspectRatio: normalizePositiveFiniteWire(wire.itemAspectRatio),
+    itemAspectRatioMode: normalizeEnumWire(
+      wire.itemAspectRatioMode,
+      ASPECT_RATIO_MODES
+    ),
+    aspectRatioPromptDismissed:
+      wire.aspectRatioPromptDismissed === true ? true : undefined,
+    defaultItemImageFit: normalizeEnumWire(
+      wire.defaultItemImageFit,
+      IMAGE_FITS
+    ),
   }
 }
 

@@ -3,13 +3,13 @@
 
 import { useCallback, useId, useState } from 'react'
 
-import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { fetchImageAsItemImage } from '~/features/workspace/settings/lib/imageFromUrl'
+import { useAspectRatioPrompt } from '~/features/workspace/settings/model/useAspectRatioPrompt'
 import { formatError } from '~/shared/lib/errors'
 import { ColorInput } from '~/shared/ui/ColorInput'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { TextInput } from '~/shared/ui/TextInput'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
+import { TextInput } from '~/shared/ui/TextInput'
 import { DeletedItemsSection } from './DeletedItemsSection'
 import { ImageUploader } from './ImageUploader'
 
@@ -48,7 +48,7 @@ export const ItemsTab = ({
   const colorInputId = useId()
   const urlInputId = useId()
 
-  const addItems = useActiveBoardStore((s) => s.addItems)
+  const { importWithPromptCheck } = useAspectRatioPrompt()
 
   const [imageUrl, setImageUrl] = useState('')
   const [urlLoading, setUrlLoading] = useState(false)
@@ -69,7 +69,7 @@ export const ItemsTab = ({
     try
     {
       const result = await fetchImageAsItemImage(trimmed)
-      addItems([result])
+      importWithPromptCheck([result])
       setImageUrl('')
     }
     catch (err)
@@ -80,7 +80,7 @@ export const ItemsTab = ({
     {
       setUrlLoading(false)
     }
-  }, [addItems, imageUrl])
+  }, [importWithPromptCheck, imageUrl])
 
   return (
     <>

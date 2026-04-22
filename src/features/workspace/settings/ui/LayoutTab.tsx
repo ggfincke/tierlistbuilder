@@ -14,6 +14,7 @@ import type {
   ToolbarPosition,
 } from '@tierlistbuilder/contracts/workspace/settings'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
+import { AspectRatioSection } from './AspectRatioSection'
 import { SegmentedControl } from './SegmentedControl'
 import { SettingRow } from './SettingRow'
 import { Toggle } from './Toggle'
@@ -140,6 +141,8 @@ export const LayoutTab = () =>
           <Toggle checked={showAltTextButton} onChange={setShowAltTextButton} />
         </SettingRow>
       </SettingsSection>
+
+      <AspectRatioSection />
 
       <SettingsSection title="Tier Labels">
         <SettingRow label="Label Width">

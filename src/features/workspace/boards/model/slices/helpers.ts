@@ -20,7 +20,8 @@ export const MAX_UNDO_HISTORY = 50
 export const MAX_DELETED_ITEMS = 50
 
 // ref-equality check — mutations rebuild the touched array/map/tier so
-// per-field ref comparison catches any meaningful change w/o a deep walk
+// per-field ref comparison catches any meaningful change w/o a deep walk.
+// aspect-ratio scalars are compared last so the cheap array-ref bails fire first
 export const isSameSnapshot = (a: BoardSnapshot, b: BoardSnapshot): boolean =>
 {
   if (a === b) return true
@@ -28,6 +29,11 @@ export const isSameSnapshot = (a: BoardSnapshot, b: BoardSnapshot): boolean =>
   if (a.items !== b.items) return false
   if (a.unrankedItemIds !== b.unrankedItemIds) return false
   if (a.deletedItems !== b.deletedItems) return false
+  if (a.itemAspectRatio !== b.itemAspectRatio) return false
+  if (a.itemAspectRatioMode !== b.itemAspectRatioMode) return false
+  if (a.aspectRatioPromptDismissed !== b.aspectRatioPromptDismissed)
+    return false
+  if (a.defaultItemImageFit !== b.defaultItemImageFit) return false
   if (a.tiers === b.tiers) return true
   if (a.tiers.length !== b.tiers.length) return false
   for (let i = 0; i < a.tiers.length; i++)
