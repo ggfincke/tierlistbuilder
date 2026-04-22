@@ -30,6 +30,15 @@ dist-ssr
 .env*
 !.env.example
 
+# convex (not yet tracked on main)
+convex/
+.convex
+
+# convex AI files dropped by `npx convex dev`
+.agents
+.claude
+skills-lock.json
+
 # Example assets (local dev only)
 /examples
 

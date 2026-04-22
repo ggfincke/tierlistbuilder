@@ -6,9 +6,10 @@ import type {
   BoardSnapshot,
 } from '@/features/workspace/boards/model/contract'
 import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
-import type { BoardId } from '@/shared/types/ids'
+import type { BoardId, ItemId } from '@/shared/types/ids'
 import type { PaletteId } from '@/shared/types/theme'
 import { DEFAULT_TITLE } from '@/features/workspace/boards/lib/boardDefaults'
+import { decodeImageAspectRatioFromSrc } from '@/features/workspace/settings/lib/imageFromUrl'
 import { generateBoardId } from '@/shared/lib/id'
 import {
   loadBoardFromStorage,
@@ -21,23 +22,39 @@ import {
   isStorageNearFull,
 } from '@/shared/lib/storageMetering'
 import { toast } from '@/shared/notifications/useToastStore'
-import { normalizeBoardSnapshot } from '@/features/workspace/boards/model/boardSnapshot'
+import {
+  extractBoardData,
+  normalizeBoardSnapshot,
+} from '@/features/workspace/boards/model/boardSnapshot'
 import {
   BUILTIN_PRESETS,
   createBoardDataFromPreset,
 } from '@/features/workspace/tier-presets/model/tierPresets'
 import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
 import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 
+// covers every BoardSnapshot field — a compile-time check below ensures this
+// list stays exhaustive, so future fields auto-persist
 const PERSISTED_FIELDS = [
   'title',
   'tiers',
   'unrankedItemIds',
   'items',
   'deletedItems',
-] as const
+  'itemAspectRatio',
+  'itemAspectRatioMode',
+  'aspectRatioPromptDismissed',
+  'defaultItemImageFit',
+] as const satisfies readonly (keyof BoardSnapshot)[]
+
+// exhaustiveness check — omitting a BoardSnapshot field above fails here
+type _PersistedFieldsExhaustive =
+  Exclude<keyof BoardSnapshot, (typeof PERSISTED_FIELDS)[number]> extends never
+    ? true
+    : false
+const _persistedFieldsCheck: _PersistedFieldsExhaustive = true
+void _persistedFieldsCheck
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 let autosaveUnsubscribe: (() => void) | null = null
@@ -126,6 +143,7 @@ export const loadBoardIntoSession = (boardId: BoardId): BoardSnapshot =>
 {
   const data = loadPersistedBoard(boardId)
   useActiveBoardStore.getState().loadBoard(data)
+  scheduleAspectRatioBackfill()
   return data
 }
 
@@ -156,6 +174,7 @@ const saveAndActivateBoard = (
     .getState()
     .addBoardMeta(createBoardMeta(id, title), true)
   useActiveBoardStore.getState().loadBoard(normalized)
+  scheduleAspectRatioBackfill()
   return id
 }
 
@@ -176,6 +195,72 @@ const scheduleIdle = (callback: () => void): void =>
   {
     setTimeout(callback, 0)
   }
+}
+
+// cap concurrent image decodes so legacy boards w/ hundreds of items don't
+// spike memory by decoding every image at once
+const BACKFILL_CONCURRENCY = 8
+
+// drain a queue through N workers; swallows per-item errors (null ratios are
+// silently skipped at dispatch time)
+const runBackfillQueue = async (
+  queue: [ItemId, string][],
+  shouldCancel: () => boolean
+): Promise<Record<ItemId, number>> =>
+{
+  const values: Record<ItemId, number> = {}
+  const worker = async (): Promise<void> =>
+  {
+    while (queue.length > 0)
+    {
+      if (shouldCancel()) return
+      const next = queue.shift()
+      if (!next) return
+      const [id, url] = next
+      const ratio = await decodeImageAspectRatioFromSrc(url)
+      if (ratio != null && ratio > 0) values[id] = ratio
+    }
+  }
+  const workers = Array.from(
+    { length: Math.min(BACKFILL_CONCURRENCY, queue.length) },
+    () => worker()
+  )
+  await Promise.all(workers)
+  return values
+}
+
+// fill in aspect ratios for legacy items imported before the field existed.
+// runs at idle priority so board load stays snappy; captures the target
+// board ID so decodes finishing after a board switch are ignored instead of
+// poisoning the active board's items map
+const scheduleAspectRatioBackfill = (): void =>
+{
+  const targetBoardId = useWorkspaceBoardRegistryStore.getState().activeBoardId
+  scheduleIdle(() =>
+  {
+    const state = useActiveBoardStore.getState()
+    const queue: [ItemId, string][] = []
+    for (const item of Object.values(state.items))
+    {
+      if (item.imageUrl && item.aspectRatio === undefined)
+      {
+        queue.push([item.id, item.imageUrl])
+      }
+    }
+    if (queue.length === 0) return
+
+    const shouldCancel = () =>
+      useWorkspaceBoardRegistryStore.getState().activeBoardId !== targetBoardId
+
+    void runBackfillQueue(queue, shouldCancel).then((values) =>
+    {
+      if (shouldCancel()) return
+      if (Object.keys(values).length > 0)
+      {
+        useActiveBoardStore.getState().backfillItemAspectRatios(values)
+      }
+    })
+  })
 }
 
 // scan every registered board entry, dropping any that fail to parse;
@@ -244,6 +329,7 @@ export const bootstrapBoardSession = (): void =>
         boardStore.setActiveBoardId(requestedActiveId)
       }
       useActiveBoardStore.getState().loadBoard(data)
+      scheduleAspectRatioBackfill()
       pruneOrphanedRegistryEntriesAsync(requestedActiveId)
       return
     }

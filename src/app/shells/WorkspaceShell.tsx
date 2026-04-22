@@ -16,7 +16,12 @@ import { ExportProgressOverlay } from '@/features/workspace/export/ui/ExportProg
 import { useExportController } from '@/features/workspace/export/model/useExportController'
 import { getResponsiveToolbarPosition } from '@/shared/layout/toolbarPosition'
 import { getWorkspacePath } from '@/app/routes/pathname'
-import { BoardSettingsModal } from '@/features/workspace/settings/ui/BoardSettingsModal'
+import { AspectRatioPromptProvider } from '@/features/workspace/settings/model/AspectRatioPromptProvider'
+import { AspectRatioIssueModal } from '@/features/workspace/settings/ui/AspectRatioIssueModal'
+import {
+  BoardSettingsModal,
+  type SettingsTab,
+} from '@/features/workspace/settings/ui/BoardSettingsModal'
 import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
 import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
 import { ShortcutsPanel } from '@/features/workspace/shortcuts/ui/ShortcutsPanel'
@@ -81,7 +86,8 @@ export const WorkspaceShell = () =>
     onExport: runExport,
   })
 
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  // single source for "is settings open + which tab". `null` means closed
+  const [settingsState, setSettingsState] = useState<SettingsTab | null>(null)
   const [statsOpen, setStatsOpen] = useState(false)
   const [annotationImage, setAnnotationImage] = useState<string | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -96,8 +102,9 @@ export const WorkspaceShell = () =>
     () => resetBoard(paletteId),
     [paletteId, resetBoard]
   )
-  const handleCloseSettings = useCallback(() => setSettingsOpen(false), [])
-  const handleOpenSettings = useCallback(() => setSettingsOpen(true), [])
+  const handleCloseSettings = useCallback(() => setSettingsState(null), [])
+  const handleOpenSettings = useCallback(() => setSettingsState('items'), [])
+  const handleAdjustEach = useCallback(() => setSettingsState('layout'), [])
   const handleCloseStats = useCallback(() => setStatsOpen(false), [])
   const handleOpenStats = useCallback(() => setStatsOpen(true), [])
   const handleCloseAnnotation = useCallback(() => setAnnotationImage(null), [])
@@ -179,120 +186,124 @@ export const WorkspaceShell = () =>
   }
 
   return (
-    <main
-      id="app-shell"
-      className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
-      style={
-        boardBackgroundOverride
-          ? { backgroundColor: boardBackgroundOverride }
-          : undefined
-      }
-    >
-      <a
-        href={`${getWorkspacePath()}#tier-list`}
-        onClick={handleSkipToBoard}
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-[var(--t-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--t-accent-foreground)] focus:shadow-lg"
+    <AspectRatioPromptProvider>
+      <main
+        id="app-shell"
+        className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
+        style={
+          boardBackgroundOverride
+            ? { backgroundColor: boardBackgroundOverride }
+            : undefined
+        }
       >
-        Skip to board
-      </a>
-      <div className="app-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
-        <BoardHeader />
+        <a
+          href={`${getWorkspacePath()}#tier-list`}
+          onClick={handleSkipToBoard}
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-[var(--t-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--t-accent-foreground)] focus:shadow-lg"
+        >
+          Skip to board
+        </a>
+        <div className="app-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+          <BoardHeader />
 
-        {runtimeError && (
-          <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--t-destructive)_70%,transparent)] bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)] px-3 py-2">
-            <p className="text-sm text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]">
-              {runtimeError}
-            </p>
-            <button
-              type="button"
-              className="rounded border border-[color-mix(in_srgb,var(--t-destructive-hover)_60%,transparent)] px-2 py-0.5 text-xs text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]"
-              onClick={clearRuntimeError}
-            >
-              Dismiss
-            </button>
+          {runtimeError && (
+            <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-[color-mix(in_srgb,var(--t-destructive)_70%,transparent)] bg-[color-mix(in_srgb,var(--t-destructive)_10%,transparent)] px-3 py-2">
+              <p className="text-sm text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]">
+                {runtimeError}
+              </p>
+              <button
+                type="button"
+                className="rounded border border-[color-mix(in_srgb,var(--t-destructive-hover)_60%,transparent)] px-2 py-0.5 text-xs text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]"
+                onClick={clearRuntimeError}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div style={boardTransitionStyle}>
+            <ErrorBoundary section="the board">
+              <TierList
+                toolbar={
+                  <BoardActionBar
+                    toolbarPosition={toolbarPosition}
+                    exportStatus={exportStatus}
+                    exportingAll={exportAllProgress !== null}
+                    onAddTier={handleAddTier}
+                    onOpenSettings={handleOpenSettings}
+                    onOpenStats={handleOpenStats}
+                    onExport={runExport}
+                    onCopyToClipboard={runCopyToClipboard}
+                    onExportAll={runExportAll}
+                    onAnnotateExport={handleAnnotateExport}
+                    onPreviewExport={handlePreviewExport}
+                    onReset={handleResetBoard}
+                  />
+                }
+                toolbarPosition={toolbarPosition}
+              />
+            </ErrorBoundary>
           </div>
-        )}
-
-        <div style={boardTransitionStyle}>
-          <ErrorBoundary section="the board">
-            <TierList
-              toolbar={
-                <BoardActionBar
-                  toolbarPosition={toolbarPosition}
-                  exportStatus={exportStatus}
-                  exportingAll={exportAllProgress !== null}
-                  onAddTier={handleAddTier}
-                  onOpenSettings={handleOpenSettings}
-                  onOpenStats={handleOpenStats}
-                  onExport={runExport}
-                  onCopyToClipboard={runCopyToClipboard}
-                  onExportAll={runExportAll}
-                  onAnnotateExport={handleAnnotateExport}
-                  onPreviewExport={handlePreviewExport}
-                  onReset={handleResetBoard}
-                />
-              }
-              toolbarPosition={toolbarPosition}
-            />
-          </ErrorBoundary>
         </div>
-      </div>
 
-      {settingsOpen && (
-        <ErrorBoundary section="settings">
-          <BoardSettingsModal
-            open={settingsOpen}
-            onClose={handleCloseSettings}
-          />
-        </ErrorBoundary>
-      )}
-      {statsOpen && (
-        <Suspense>
-          <ErrorBoundary section="statistics">
-            <StatsModal open={statsOpen} onClose={handleCloseStats} />
-          </ErrorBoundary>
-        </Suspense>
-      )}
-      {previewOpen && (
-        <Suspense>
-          <ExportPreviewModal
-            open={previewOpen}
-            onClose={handleClosePreview}
-            previewDataUrl={previewImage}
-            format={previewFormat}
-            onFormatChange={setPreviewFormat}
-            onDownload={handlePreviewDownload}
-            onCopyToClipboard={handlePreviewCopy}
-            onAnnotate={handlePreviewAnnotate}
-            exporting={exportStatus !== null}
-          />
-        </Suspense>
-      )}
-      {annotationImage !== null && (
-        <Suspense>
-          <ErrorBoundary section="annotation">
-            <AnnotationEditor
+        {settingsState !== null && (
+          <ErrorBoundary section="settings">
+            <BoardSettingsModal
               open
-              onClose={handleCloseAnnotation}
-              backgroundImage={annotationImage}
+              onClose={handleCloseSettings}
+              initialTab={settingsState}
             />
           </ErrorBoundary>
-        </Suspense>
-      )}
-      <BoardManager
-        toolbarPosition={toolbarPosition}
-        onSwitchBoard={transitionTo}
-      />
-      {exportAllProgress && (
-        <ExportProgressOverlay
-          current={exportAllProgress.current}
-          total={exportAllProgress.total}
+        )}
+        {statsOpen && (
+          <Suspense>
+            <ErrorBoundary section="statistics">
+              <StatsModal open={statsOpen} onClose={handleCloseStats} />
+            </ErrorBoundary>
+          </Suspense>
+        )}
+        {previewOpen && (
+          <Suspense>
+            <ExportPreviewModal
+              open={previewOpen}
+              onClose={handleClosePreview}
+              previewDataUrl={previewImage}
+              format={previewFormat}
+              onFormatChange={setPreviewFormat}
+              onDownload={handlePreviewDownload}
+              onCopyToClipboard={handlePreviewCopy}
+              onAnnotate={handlePreviewAnnotate}
+              exporting={exportStatus !== null}
+            />
+          </Suspense>
+        )}
+        {annotationImage !== null && (
+          <Suspense>
+            <ErrorBoundary section="annotation">
+              <AnnotationEditor
+                open
+                onClose={handleCloseAnnotation}
+                backgroundImage={annotationImage}
+              />
+            </ErrorBoundary>
+          </Suspense>
+        )}
+        <BoardManager
+          toolbarPosition={toolbarPosition}
+          onSwitchBoard={transitionTo}
         />
-      )}
-      {showShortcutsPanel && <ShortcutsPanel onClose={closeShortcutsPanel} />}
-      <BulkActionBar />
-      <ToastContainer reducedMotion={reducedMotion} />
-      <LiveRegion />
-    </main>
+        {exportAllProgress && (
+          <ExportProgressOverlay
+            current={exportAllProgress.current}
+            total={exportAllProgress.total}
+          />
+        )}
+        {showShortcutsPanel && <ShortcutsPanel onClose={closeShortcutsPanel} />}
+        <BulkActionBar />
+        <AspectRatioIssueModal onAdjustEach={handleAdjustEach} />
+        <ToastContainer reducedMotion={reducedMotion} />
+        <LiveRegion />
+      </main>
+    </AspectRatioPromptProvider>
   )
 }
