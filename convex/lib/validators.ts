@@ -189,12 +189,22 @@ const cloudBoardStateItemValidator = v.object({
   mediaContentHash: v.optional(v.string()),
   order: v.number(),
   deletedAt: v.union(v.number(), v.null()),
+  aspectRatio: v.optional(v.number()),
+  imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
 })
 
 // full cloud board state payload — mirrors CloudBoardState
 export const cloudBoardStateValidator = v.object({
   title: v.string(),
   revision: v.number(),
+  itemAspectRatio: v.optional(v.number()),
+  itemAspectRatioMode: v.optional(
+    v.union(v.literal('auto'), v.literal('manual'))
+  ),
+  aspectRatioPromptDismissed: v.optional(v.boolean()),
+  defaultItemImageFit: v.optional(
+    v.union(v.literal('cover'), v.literal('contain'))
+  ),
   tiers: v.array(cloudBoardStateTierValidator),
   items: v.array(cloudBoardStateItemValidator),
 })

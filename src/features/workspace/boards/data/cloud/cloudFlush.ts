@@ -65,12 +65,9 @@ export const flushBoardToCloud = async (
     const payload = snapshotToCloudPayload(snapshot, uploadResult)
 
     const result = await upsertBoardStateImperative({
+      ...payload,
       boardExternalId,
       baseRevision,
-      title: payload.title,
-      tiers: payload.tiers,
-      items: payload.items,
-      deletedItemIds: payload.deletedItemIds,
     })
 
     if (result.conflict)

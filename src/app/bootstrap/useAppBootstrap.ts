@@ -10,11 +10,13 @@ import {
   importBoardSession,
   registerBoardAutosave,
 } from '~/features/workspace/boards/data/local/localBoardSession'
-import { clearShortLinkSlugFromUrl } from '~/features/workspace/sharing/short-link/shortLinkShare'
-import { resolveInboundShare } from '~/features/workspace/sharing/inbound/inboundShare'
+import {
+  clearInboundShareFromUrl,
+  resolveInboundShare,
+} from '~/features/workspace/sharing/inbound/inboundShare'
 import { toast } from '~/shared/notifications/useToastStore'
 
-// import a shared board if the URL carries a short-link slug. scrub the URL
+// import a shared board if the URL carries an inbound share marker. scrub the URL
 // unconditionally so a refresh doesn't re-trigger the import
 const handleInboundShare = async (): Promise<void> =>
 {
@@ -36,7 +38,7 @@ const handleInboundShare = async (): Promise<void> =>
   }
   finally
   {
-    clearShortLinkSlugFromUrl()
+    clearInboundShareFromUrl()
   }
 }
 

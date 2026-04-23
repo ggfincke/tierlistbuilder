@@ -110,6 +110,7 @@ interface PullTask
 {
   kind: 'pull'
   preset: TierPreset
+  syncedAt: number
 }
 
 type MergeTask = PushTask | DeleteTask | PullTask
@@ -155,6 +156,23 @@ const planMergeTasks = (
 
     // synced before & no pending op — cloud is authoritative. if the cloud
     // row is missing treat it as deleted by another device; preserve local copy
+    const cloudRow = cloudIndex.get(preset.id)
+    if (!cloudRow)
+    {
+      continue
+    }
+    if (cloudRow.updatedAt > (meta.lastSyncedAt ?? 0))
+    {
+      const cloudPreset = cloudRowToTierPreset(cloudRow)
+      if (cloudPreset)
+      {
+        tasks.push({
+          kind: 'pull',
+          preset: cloudPreset,
+          syncedAt: cloudRow.updatedAt,
+        })
+      }
+    }
   }
 
   // sidecar entries w/ delete pending whose preset is no longer in the
@@ -192,7 +210,7 @@ const planMergeTasks = (
     {
       continue
     }
-    tasks.push({ kind: 'pull', preset })
+    tasks.push({ kind: 'pull', preset, syncedAt: row.updatedAt })
   }
 
   return tasks
@@ -320,7 +338,7 @@ export const mergeTierPresetsOnFirstLogin = async ({
 
   // commit successful pulls in one batch — adds them to the local store
   // & lets the subscriber fire just once for the whole pull set
-  const presetsToPull: TierPreset[] = []
+  const pullsToCommit: PullTask[] = []
   let pushedCount = 0
   let pulledCount = 0
   let deletedCount = 0
@@ -346,33 +364,42 @@ export const mergeTierPresetsOnFirstLogin = async ({
         deletedCount++
         break
       case 'pull':
-        presetsToPull.push(task.preset)
+        pullsToCommit.push(task)
         pulledCount++
         break
     }
   }
 
-  if (presetsToPull.length > 0)
+  if (pullsToCommit.length > 0)
   {
     const store = useTierPresetStore.getState()
-    const existingIds = new Set(store.userPresets.map((p) => p.id))
-    // dedupe in case a presetId snuck into the local store between the
-    // plan & the commit (e.g. a concurrent addPreset call)
-    const uniquePulls = presetsToPull.filter((p) => !existingIds.has(p.id))
-
+    const pulledById = new Map(
+      pullsToCommit.map((task) => [task.preset.id, task] as const)
+    )
+    const nextPresets = store.userPresets.map(
+      (preset) => pulledById.get(preset.id)?.preset ?? preset
+    )
+    const nextIds = new Set(nextPresets.map((preset) => preset.id))
+    for (const task of pullsToCommit)
+    {
+      if (!nextIds.has(task.preset.id))
+      {
+        nextPresets.push(task.preset)
+        nextIds.add(task.preset.id)
+      }
+    }
     useTierPresetStore.setState({
-      userPresets: [...store.userPresets, ...uniquePulls],
+      userPresets: nextPresets,
     })
 
     // mark each pulled preset as synced so future flushes know we have a
     // cloud row already — prevents the runtime subscriber from re-pushing
     // the just-pulled rows on its first diff
-    const now = Date.now()
-    for (const pulled of uniquePulls)
+    for (const task of pullsToCommit)
     {
-      if (isUserPresetId(pulled.id))
+      if (isUserPresetId(task.preset.id))
       {
-        markTierPresetSynced(pulled.id, userId, now)
+        markTierPresetSynced(task.preset.id, userId, task.syncedAt)
       }
     }
   }
