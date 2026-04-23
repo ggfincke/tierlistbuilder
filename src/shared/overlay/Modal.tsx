@@ -40,6 +40,7 @@ interface BaseModalProps
   containerClassName?: string
   backdropClassName?: string
   panelClassName?: string
+  panelStyle?: CSSProperties
 }
 
 export const BaseModal = ({
@@ -59,6 +60,7 @@ export const BaseModal = ({
   containerClassName,
   backdropClassName,
   panelClassName,
+  panelStyle,
 }: BaseModalProps) =>
 {
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -106,6 +108,7 @@ export const BaseModal = ({
             'pointer-events-auto max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] shadow-2xl animate-[scaleIn_150ms_ease-out]',
             panelClassName
           )}
+          style={panelStyle}
         >
           {children}
         </div>
