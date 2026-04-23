@@ -4,6 +4,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   compressSnapshotBytes,
+  decodeBoardFromShareFragment,
+  encodeBoardToShareFragment,
   inflateSnapshotBytes,
   stripImagesForShare,
 } from '~/features/workspace/sharing/snapshot-compression/hashShare'
@@ -67,5 +69,19 @@ describe('snapshot codec', () =>
     expect(bytes.byteLength).toBeGreaterThan(0)
     const decoded = await inflateSnapshotBytes(bytes)
     expect(decoded.title).toBe('Bytes Test')
+  })
+
+  it('decodes legacy share fragments', async () =>
+  {
+    const original = makeBoardSnapshot({
+      title: 'Legacy Fragment',
+      tiers: [makeTier({ id: 'tier-s' })],
+    })
+
+    const fragment = await encodeBoardToShareFragment(original)
+    const decoded = await decodeBoardFromShareFragment(fragment)
+
+    expect(decoded.title).toBe('Legacy Fragment')
+    expect(decoded.tiers[0].id).toBe('tier-s')
   })
 })

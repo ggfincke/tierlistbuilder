@@ -10,6 +10,7 @@ import {
   type TierPresetMergeDeps,
 } from '~/features/workspace/tier-presets/data/cloud/cloudMerge'
 import {
+  clearAllTierPresetSyncMeta,
   loadTierPresetSyncMetaMap,
   upsertTierPresetSyncMeta,
 } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
@@ -69,6 +70,7 @@ describe('tierPresetCloudMerge', () =>
 {
   beforeEach(() =>
   {
+    clearAllTierPresetSyncMeta()
     useTierPresetStore.setState({ userPresets: [] })
   })
 
@@ -123,5 +125,61 @@ describe('tierPresetCloudMerge', () =>
     expect(
       loadTierPresetSyncMetaMap()['preset-delete' as UserPresetId]
     ).toMatchObject({ ownerUserId: 'user-b', pendingOp: null })
+  })
+
+  it('replaces an already-synced local preset when the cloud row is newer', async () =>
+  {
+    const presetId = 'preset-existing' as UserPresetId
+    useTierPresetStore.setState({
+      userPresets: [
+        {
+          id: presetId,
+          name: 'Local preset',
+          builtIn: false,
+          tiers: [
+            {
+              name: 'A',
+              colorSpec: createPaletteTierColorSpec(1),
+            },
+          ],
+        },
+      ],
+    })
+    upsertTierPresetSyncMeta(presetId, {
+      pendingOp: null,
+      pendingSyncAt: null,
+      lastSyncedAt: 10,
+      ownerUserId: 'user-a',
+    })
+
+    const { deps, createCalls, deleteCalls } = createFakeDeps({
+      cloudRows: [
+        {
+          ...buildCloudRow(presetId),
+          name: 'Cloud renamed',
+          updatedAt: 20,
+        },
+      ],
+    })
+
+    const result = await mergeTierPresetsOnFirstLogin({
+      userId: 'user-a',
+      deps,
+    })
+
+    expect(result.pulledCount).toBe(1)
+    expect(createCalls).toEqual([])
+    expect(deleteCalls).toEqual([])
+    expect(useTierPresetStore.getState().userPresets).toEqual([
+      expect.objectContaining({
+        id: presetId,
+        name: 'Cloud renamed',
+      }),
+    ])
+    expect(loadTierPresetSyncMetaMap()[presetId]).toMatchObject({
+      ownerUserId: 'user-a',
+      pendingOp: null,
+      lastSyncedAt: 20,
+    })
   })
 })

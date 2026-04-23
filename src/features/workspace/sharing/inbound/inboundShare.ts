@@ -1,21 +1,31 @@
 // src/features/workspace/sharing/inbound/inboundShare.ts
-// inbound short-link resolver shared by workspace bootstrap & embed
+// inbound share resolver shared by workspace bootstrap & embed
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  clearShareFragment,
+  decodeBoardFromShareFragment,
+  getShareFragment,
+} from '~/features/workspace/sharing/snapshot-compression/hashShare'
+import {
+  clearShortLinkSlugFromUrl,
   decodeBoardFromShortLink,
   getShortLinkSlugFromUrl,
 } from '~/features/workspace/sharing/short-link/shortLinkShare'
 
+export type InboundShareSource = 'fragment' | 'slug'
+
 export interface InboundShareResolved
 {
   kind: 'resolved'
+  source: InboundShareSource
   data: BoardSnapshot
 }
 
 export interface InboundShareFailed
 {
   kind: 'failed'
+  source: InboundShareSource
   error: unknown
 }
 
@@ -29,9 +39,29 @@ export type InboundShareResult =
   | InboundShareFailed
   | InboundShareNone
 
-// resolve the current URL's short-link slug into a BoardSnapshot
+export const clearInboundShareFromUrl = (): void =>
+{
+  clearShareFragment()
+  clearShortLinkSlugFromUrl()
+}
+
+// resolve the current URL's share marker into a BoardSnapshot
 export const resolveInboundShare = async (): Promise<InboundShareResult> =>
 {
+  const fragment = getShareFragment()
+  if (fragment)
+  {
+    try
+    {
+      const data = await decodeBoardFromShareFragment(fragment)
+      return { kind: 'resolved', source: 'fragment', data }
+    }
+    catch (error)
+    {
+      return { kind: 'failed', source: 'fragment', error }
+    }
+  }
+
   const slug = getShortLinkSlugFromUrl()
   if (!slug)
   {
@@ -41,10 +71,10 @@ export const resolveInboundShare = async (): Promise<InboundShareResult> =>
   try
   {
     const data = await decodeBoardFromShortLink(slug)
-    return { kind: 'resolved', data }
+    return { kind: 'resolved', source: 'slug', data }
   }
   catch (error)
   {
-    return { kind: 'failed', error }
+    return { kind: 'failed', source: 'slug', error }
   }
 }

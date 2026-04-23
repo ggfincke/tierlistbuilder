@@ -28,9 +28,9 @@ export default defineSchema({
     externalId: v.optional(v.string()),
     displayName: v.optional(v.string()),
     avatarStorageId: v.optional(v.id('_storage')),
-    createdAt: v.number(),
+    createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
-    tier: v.union(v.literal('free'), v.literal('premium')),
+    tier: v.optional(v.union(v.literal('free'), v.literal('premium'))),
     lastUpsertError: v.optional(v.string()),
   })
     // indexes required by @convex-dev/auth - must match authTables.users

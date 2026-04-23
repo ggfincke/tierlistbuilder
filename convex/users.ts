@@ -40,8 +40,8 @@ export const getMe = query({
       displayName: user.displayName ?? null,
       image: user.image ?? null,
       externalId: user.externalId ?? null,
-      tier: user.tier,
-      createdAt: user.createdAt,
+      tier: user.tier ?? 'free',
+      createdAt: user.createdAt ?? user._creationTime,
       updatedAt: user.updatedAt ?? null,
     }
   },

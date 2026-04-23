@@ -111,4 +111,39 @@ describe('snapshotToCloudPayload media mapping', () =>
 
     expect(payload.items[0].order).toBe(-1)
   })
+
+  it('preserves board and item aspect settings in the cloud payload', () =>
+  {
+    const itemId = asItemId('item-1')
+    const payload = snapshotToCloudPayload(
+      makeBoardSnapshot({
+        title: 'Board',
+        itemAspectRatio: 16 / 9,
+        itemAspectRatioMode: 'manual',
+        aspectRatioPromptDismissed: true,
+        defaultItemImageFit: 'contain',
+        tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: [itemId] })],
+        items: {
+          [itemId]: {
+            id: itemId,
+            label: 'Wide item',
+            aspectRatio: 4 / 3,
+            imageFit: 'contain',
+          },
+        },
+      }),
+      emptyUploadResult()
+    )
+
+    expect(payload).toMatchObject({
+      itemAspectRatio: 16 / 9,
+      itemAspectRatioMode: 'manual',
+      aspectRatioPromptDismissed: true,
+      defaultItemImageFit: 'contain',
+    })
+    expect(payload.items[0]).toMatchObject({
+      aspectRatio: 4 / 3,
+      imageFit: 'contain',
+    })
+  })
 })

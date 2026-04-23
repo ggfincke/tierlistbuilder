@@ -2,15 +2,32 @@
 // snapshot compression helpers shared by short-link encode/decode
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { MAX_INFLATED_SNAPSHOT_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
+import {
+  MAX_INFLATED_SNAPSHOT_BYTES,
+  MAX_SNAPSHOT_COMPRESSED_BYTES,
+} from '@tierlistbuilder/contracts/platform/shortLink'
 import { normalizeBasePath } from '~/app/routes/pathname'
 import { parseBoardSnapshotJson } from '~/features/workspace/export/lib/exportJson'
+import { base64ToBytes, bytesToBase64 } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 
 // build an absolute URL for the app, appending the configured base path.
 // shared w/ the short-link URL builders
 export const buildAppUrl = (pathname = ''): string =>
   `${window.location.origin}${normalizeBasePath()}${pathname}`
+
+const toBase64Url = (bytes: Uint8Array): string =>
+  bytesToBase64(bytes)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+
+const fromBase64Url = (value: string): Uint8Array =>
+{
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+  return base64ToBytes(padded)
+}
 
 // drop image refs & deleted items from share payloads — inline bytes are
 // re-attached by the share encoder from the blob store, not the snapshot
@@ -79,4 +96,40 @@ export const inflateSnapshotBytes = async (
   const bytes = inflator.result as Uint8Array
   const json = new TextDecoder().decode(bytes)
   return parseBoardSnapshotJson(json, defaultTitle)
+}
+
+export const encodeBoardToShareFragment = async (
+  data: BoardSnapshot
+): Promise<string> => toBase64Url(await compressSnapshotBytes(data))
+
+export const decodeBoardFromShareFragment = async (
+  fragment: string
+): Promise<BoardSnapshot> =>
+{
+  const compressed = fromBase64Url(fragment)
+  if (compressed.length > MAX_SNAPSHOT_COMPRESSED_BYTES)
+  {
+    throw new Error(
+      `share fragment exceeds the ${MAX_SNAPSHOT_COMPRESSED_BYTES}-byte compressed cap`
+    )
+  }
+  return inflateSnapshotBytes(compressed)
+}
+
+export const getShareFragment = (): string | null =>
+{
+  if (typeof window === 'undefined') return null
+  const hash = window.location.hash
+  return hash.startsWith('#share=') ? hash.slice(7) : null
+}
+
+export const clearShareFragment = (): void =>
+{
+  if (typeof window === 'undefined') return
+  if (!window.location.hash.startsWith('#share=')) return
+  window.history.replaceState(
+    null,
+    '',
+    `${window.location.pathname}${window.location.search}`
+  )
 }

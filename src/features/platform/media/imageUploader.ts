@@ -4,7 +4,10 @@
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { Id } from '@convex/_generated/dataModel'
 import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
-import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
+import {
+  collectSnapshotImageHashes,
+  forEachSnapshotItem,
+} from '~/shared/lib/boardSnapshotItems'
 import {
   getBlobsBatch,
   getUploadStatusBatch,
@@ -37,6 +40,25 @@ const assertSupportedMimeType = (mimeType: string): void =>
 export interface BoardImageUploadResult
 {
   mediaExternalIdByHash: Map<string, string>
+}
+
+const seedExistingCloudMediaIds = (
+  snapshot: BoardSnapshot,
+  result: BoardImageUploadResult
+): void =>
+{
+  forEachSnapshotItem(snapshot, (item) =>
+  {
+    const imageRef = item.imageRef
+    if (!imageRef?.cloudMediaExternalId)
+    {
+      return
+    }
+    result.mediaExternalIdByHash.set(
+      imageRef.hash,
+      imageRef.cloudMediaExternalId
+    )
+  })
 }
 
 // upload one image blob to Convex storage & finalize it. throws on any
@@ -104,6 +126,8 @@ export const uploadBoardImages = async (
   const result: BoardImageUploadResult = {
     mediaExternalIdByHash: new Map<string, string>(),
   }
+
+  seedExistingCloudMediaIds(snapshot, result)
 
   if (hashes.length === 0)
   {
