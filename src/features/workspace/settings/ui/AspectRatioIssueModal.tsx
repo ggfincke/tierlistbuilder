@@ -170,16 +170,30 @@ const AspectRatioIssueModalBody = ({
       onClose={close}
       labelledBy={titleId}
       describedBy={descId}
+      closeOnBackdrop={false}
+      closeOnEscape={false}
+      shakeOnDismissBlocked
       panelClassName="w-full p-6"
       panelStyle={{ maxWidth: panelMaxWidth }}
     >
-      <ModalHeader titleId={titleId}>Mixed aspect ratios detected</ModalHeader>
-      <p id={descId} className="mt-2 text-sm text-[var(--t-text-muted)]">
-        {mismatched.length} item{mismatched.length === 1 ? '' : 's'} don&apos;t
-        match the <span className="text-[var(--t-text)]">{ratioLabel}</span>{' '}
-        board ratio. Pick a different one, or dismiss to override items
-        individually.
-      </p>
+      <ModalHeader
+        titleId={titleId}
+        className="text-center text-lg font-semibold text-[var(--t-text)]"
+      >
+        Mixed aspect ratios detected
+      </ModalHeader>
+      <div
+        id={descId}
+        className="mx-auto mt-2 max-w-xl text-center text-sm text-[var(--t-text-muted)]"
+      >
+        <p>
+          {mismatched.length} item{mismatched.length === 1 ? '' : 's'}{' '}
+          don&apos;t match the{' '}
+          <span className="text-[var(--t-text)]">{ratioLabel}</span> board
+          ratio.
+        </p>
+        <p>Pick a different one, or dismiss to override items individually.</p>
+      </div>
 
       <MismatchPreviewStrip
         snapshotIds={snapshotIds}

@@ -8,11 +8,11 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import {
   computeAutoBoardAspectRatio,
   CUSTOM_RATIO_OPTION,
-  formatCustomRatioDim,
   getBoardAspectRatioMode,
   getBoardItemAspectRatio,
   isValidCustomDim,
   ratioOptionForBoard,
+  resolveCustomRatioSeed,
   type RatioOption,
 } from '~/features/workspace/boards/lib/aspectRatio'
 import type { ItemAspectRatioMode } from '@tierlistbuilder/contracts/workspace/board'
@@ -27,6 +27,12 @@ export interface DeferredBoardAspectRatioPicker extends BoardAspectRatioPicker
 {
   // apply pending ratio & mode to the store; callers invoke on confirm
   commit: () => void
+}
+
+interface CustomRatioInputs
+{
+  width: string
+  height: string
 }
 
 export const useDeferredAspectRatioPicker =
@@ -53,16 +59,24 @@ export const useDeferredAspectRatioPicker =
       [pendingRatio, pendingMode]
     )
 
-    // prefill custom inputs from the pending ratio so the always-visible row
+    // prefill custom inputs from the board ratio so the always-visible row
     // reads as meaningful values instead of empty placeholders
-    const [customWidth, setCustomWidth] = useState(() =>
-      formatCustomRatioDim(
+    const [custom, setCustom] = useState<CustomRatioInputs>(() =>
+      resolveCustomRatioSeed(
         getBoardItemAspectRatio(useActiveBoardStore.getState())
       )
     )
-    const [customHeight, setCustomHeight] = useState('1')
     const [customOpen, setCustomOpen] = useState(
       selectedOption === CUSTOM_RATIO_OPTION
+    )
+
+    const setCustomWidth = useCallback(
+      (width: string) => setCustom((c) => ({ ...c, width })),
+      []
+    )
+    const setCustomHeight = useCallback(
+      (height: string) => setCustom((c) => ({ ...c, height })),
+      []
     )
 
     const handleOption = useCallback(
@@ -70,14 +84,14 @@ export const useDeferredAspectRatioPicker =
       {
         if (option.kind === 'auto')
         {
-          setPendingRatio(
-            resolvePendingAutoAspectRatio(
-              useActiveBoardStore.getState(),
-              pendingRatio
-            )
+          const nextRatio = resolvePendingAutoAspectRatio(
+            useActiveBoardStore.getState(),
+            pendingRatio
           )
+          setPendingRatio(nextRatio)
           setPendingMode('auto')
           setCustomOpen(false)
+          setCustom(resolveCustomRatioSeed(nextRatio))
           return
         }
         if (option.kind === 'preset' && option.value != null)
@@ -85,29 +99,25 @@ export const useDeferredAspectRatioPicker =
           setPendingMode('manual')
           setPendingRatio(option.value)
           setCustomOpen(false)
+          setCustom(resolveCustomRatioSeed(option.value))
           return
         }
         setCustomOpen(true)
-        if (!customWidth && !customHeight)
-        {
-          setCustomWidth(formatCustomRatioDim(pendingRatio))
-          setCustomHeight('1')
-        }
       },
-      [customWidth, customHeight, pendingRatio]
+      [pendingRatio]
     )
 
     const canApplyCustom =
-      isValidCustomDim(customWidth) && isValidCustomDim(customHeight)
+      isValidCustomDim(custom.width) && isValidCustomDim(custom.height)
 
     const applyCustom = useCallback(() =>
     {
       if (!canApplyCustom) return
-      const value = Number(customWidth) / Number(customHeight)
+      const value = Number(custom.width) / Number(custom.height)
       if (!Number.isFinite(value) || value <= 0) return
       setPendingMode('manual')
       setPendingRatio(value)
-    }, [canApplyCustom, customWidth, customHeight])
+    }, [canApplyCustom, custom.width, custom.height])
 
     const commit = useCallback(() =>
     {
@@ -128,8 +138,8 @@ export const useDeferredAspectRatioPicker =
     return {
       boardAspectRatio: pendingRatio,
       selectedOption,
-      customWidth,
-      customHeight,
+      customWidth: custom.width,
+      customHeight: custom.height,
       setCustomWidth,
       setCustomHeight,
       customOpen,
