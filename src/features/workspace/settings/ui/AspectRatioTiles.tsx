@@ -2,12 +2,16 @@
 // visual ratio tile grid w/ inline custom W:H for the mixed-ratio modal
 
 import {
-  RATIO_OPTIONS,
+  CUSTOM_RATIO_OPTION,
+  NON_CUSTOM_RATIO_OPTIONS,
   type RatioOption,
 } from '~/features/workspace/boards/lib/aspectRatio'
 
-const TILE_WIDTH = 48
 const RECT_BOX = 28
+
+const GRID_STYLE = {
+  gridTemplateColumns: `repeat(${NON_CUSTOM_RATIO_OPTIONS.length}, minmax(0, 1fr))`,
+}
 
 // scale a ratio-correct rect inside a square bounding box, floored so extreme
 // ratios still render a visible sliver instead of collapsing to zero
@@ -66,8 +70,7 @@ const RatioTile = ({
       type="button"
       aria-pressed={isActive}
       onClick={() => onSelect(option)}
-      className={`${TILE_SHELL} ${isActive ? TILE_ACTIVE : TILE_INACTIVE}`}
-      style={{ width: TILE_WIDTH }}
+      className={`${TILE_SHELL} w-full ${isActive ? TILE_ACTIVE : TILE_INACTIVE}`}
     >
       <div
         className="flex items-center justify-center"
@@ -202,34 +205,26 @@ export const AspectRatioTiles = ({
   canApplyCustom,
   autoRatio,
 }: AspectRatioTilesProps) => (
-  <div className="flex flex-wrap items-stretch gap-2">
-    {RATIO_OPTIONS.map((option) =>
-    {
-      const isActive = option === selectedOption
-      if (option.kind === 'custom')
-      {
-        return (
-          <CustomTile
-            key={option.label}
-            isActive={isActive}
-            width={customWidth}
-            height={customHeight}
-            onWidthChange={onCustomWidthChange}
-            onHeightChange={onCustomHeightChange}
-            onApply={onApplyCustom}
-            canApply={canApplyCustom}
-          />
-        )
-      }
-      return (
+  <div className="flex flex-col gap-2">
+    <div className="grid gap-2" style={GRID_STYLE}>
+      {NON_CUSTOM_RATIO_OPTIONS.map((option) => (
         <RatioTile
           key={option.label}
           option={option}
-          isActive={isActive}
+          isActive={option === selectedOption}
           onSelect={onSelect}
           autoRatio={autoRatio}
         />
-      )
-    })}
+      ))}
+    </div>
+    <CustomTile
+      isActive={CUSTOM_RATIO_OPTION === selectedOption}
+      width={customWidth}
+      height={customHeight}
+      onWidthChange={onCustomWidthChange}
+      onHeightChange={onCustomHeightChange}
+      onApply={onApplyCustom}
+      canApply={canApplyCustom}
+    />
   </div>
 )

@@ -175,6 +175,20 @@
     }
   }
 
+  @keyframes shakeX
+  {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  .shake-x
+  {
+    animation: shakeX 360ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  }
+
   /* global focus ring for keyboard navigation */
   :focus-visible
   {

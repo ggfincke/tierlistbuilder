@@ -4,8 +4,11 @@
 import {
   forwardRef,
   Suspense,
+  useCallback,
   useId,
   useRef,
+  useState,
+  type AnimationEvent,
   type ButtonHTMLAttributes,
   type CSSProperties,
   type HTMLAttributes,
@@ -41,6 +44,9 @@ interface BaseModalProps
   backdropClassName?: string
   panelClassName?: string
   panelStyle?: CSSProperties
+  // shake the panel when the user tries to dismiss via escape/backdrop while
+  // both dismissal paths are disabled; signals the modal as blocking
+  shakeOnDismissBlocked?: boolean
 }
 
 export const BaseModal = ({
@@ -61,20 +67,43 @@ export const BaseModal = ({
   backdropClassName,
   panelClassName,
   panelStyle,
+  shakeOnDismissBlocked = false,
 }: BaseModalProps) =>
 {
   const dialogRef = useRef<HTMLDivElement>(null)
+  const [shaking, setShaking] = useState(false)
+
+  const triggerShake = useCallback(() =>
+  {
+    // clear first & re-apply on the next frame so the keyframe replays even
+    // when the class is already present
+    setShaking(false)
+    requestAnimationFrame(() => setShaking(true))
+  }, [])
+
+  const handleDismissBlocked = shakeOnDismissBlocked ? triggerShake : undefined
 
   useModalDialog({
     open,
     dialogRef,
     onClose,
+    onDismissAttempt: handleDismissBlocked,
     initialFocusRef,
     restoreFocus,
     closeOnEscape,
     escapePhase,
     stopEscapePropagation,
   })
+
+  const handleBackdropClick = closeOnBackdrop ? onClose : handleDismissBlocked
+
+  const handleAnimationEnd = useCallback(
+    (event: AnimationEvent<HTMLDivElement>) =>
+    {
+      if (event.animationName === 'shakeX') setShaking(false)
+    },
+    []
+  )
 
   if (!open)
   {
@@ -89,7 +118,7 @@ export const BaseModal = ({
           'absolute inset-0 bg-black/60 animate-[fadeIn_100ms_ease-out]',
           backdropClassName
         )}
-        onClick={closeOnBackdrop ? onClose : undefined}
+        onClick={handleBackdropClick}
       />
       <div
         className={joinClassNames(
@@ -106,9 +135,11 @@ export const BaseModal = ({
           aria-label={ariaLabel}
           className={joinClassNames(
             'pointer-events-auto max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] shadow-2xl animate-[scaleIn_150ms_ease-out]',
-            panelClassName
+            panelClassName,
+            shaking && 'shake-x'
           )}
           style={panelStyle}
+          onAnimationEnd={handleAnimationEnd}
         >
           {children}
         </div>

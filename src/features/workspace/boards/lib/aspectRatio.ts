@@ -19,19 +19,28 @@ export interface AspectRatioPreset
 {
   // short display label ("1:1", "2:3")
   label: string
+  width: number
+  height: number
   // decimal value (width / height)
   value: number
 }
 
+const preset = (width: number, height: number): AspectRatioPreset => ({
+  label: `${width}:${height}`,
+  width,
+  height,
+  value: width / height,
+})
+
 // common presets offered in the settings picker
 export const ASPECT_RATIO_PRESETS: readonly AspectRatioPreset[] = [
-  { label: '1:1', value: 1 },
-  { label: '2:3', value: 2 / 3 },
-  { label: '3:4', value: 3 / 4 },
-  { label: '3:2', value: 3 / 2 },
-  { label: '4:3', value: 4 / 3 },
-  { label: '16:9', value: 16 / 9 },
-  { label: '9:16', value: 9 / 16 },
+  preset(1, 1),
+  preset(2, 3),
+  preset(3, 4),
+  preset(3, 2),
+  preset(4, 3),
+  preset(16, 9),
+  preset(9, 16),
 ]
 
 export interface RatioOption
@@ -41,22 +50,29 @@ export interface RatioOption
   value?: number
 }
 
+export const AUTO_RATIO_OPTION: RatioOption = { kind: 'auto', label: 'Auto' }
+export const CUSTOM_RATIO_OPTION: RatioOption = {
+  kind: 'custom',
+  label: 'Custom',
+}
+
+export const PRESET_RATIO_OPTIONS: readonly RatioOption[] =
+  ASPECT_RATIO_PRESETS.map(
+    (p): RatioOption => ({ kind: 'preset', label: p.label, value: p.value })
+  )
+
+// shown as a tile grid above the custom input row (auto + all presets)
+export const NON_CUSTOM_RATIO_OPTIONS: readonly RatioOption[] = [
+  AUTO_RATIO_OPTION,
+  ...PRESET_RATIO_OPTIONS,
+]
+
 // canonical ratio-picker options shared between the mixed-ratio modal & the
 // settings section; 'auto' is first, preset chips in the middle, 'custom' last
 export const RATIO_OPTIONS: readonly RatioOption[] = [
-  { kind: 'auto', label: 'Auto' },
-  ...ASPECT_RATIO_PRESETS.map(
-    (preset): RatioOption => ({
-      kind: 'preset',
-      label: preset.label,
-      value: preset.value,
-    })
-  ),
-  { kind: 'custom', label: 'Custom' },
+  ...NON_CUSTOM_RATIO_OPTIONS,
+  CUSTOM_RATIO_OPTION,
 ]
-
-export const AUTO_RATIO_OPTION = RATIO_OPTIONS[0]
-export const CUSTOM_RATIO_OPTION = RATIO_OPTIONS[RATIO_OPTIONS.length - 1]
 
 // validate a W or H dimension string for the custom ratio input
 export const isValidCustomDim = (value: string): boolean =>
@@ -289,6 +305,20 @@ export const findMatchingPreset = (
 ): AspectRatioPreset | undefined =>
   ASPECT_RATIO_PRESETS.find((preset) => ratiosMatch(preset.value, value, tol))
 
+// resolve clean W:H strings for the custom inputs; prefers a matching preset's
+// integer pair over a decimal ratio so users see "3:4" rather than "0.75:1"
+export const resolveCustomRatioSeed = (
+  ratio: number
+): { width: string; height: string } =>
+{
+  const match = findMatchingPreset(ratio)
+  if (match)
+  {
+    return { width: String(match.width), height: String(match.height) }
+  }
+  return { width: formatCustomRatioDim(ratio), height: '1' }
+}
+
 // pick the RatioOption that matches the current board state — 'Auto' when in
 // auto mode, a preset when the value matches, else 'Custom'
 export const ratioOptionForBoard = (
@@ -297,12 +327,11 @@ export const ratioOptionForBoard = (
 ): RatioOption =>
 {
   if (mode === 'auto') return AUTO_RATIO_OPTION
-  const preset = findMatchingPreset(ratio)
-  if (!preset) return CUSTOM_RATIO_OPTION
+  const match = findMatchingPreset(ratio)
+  if (!match) return CUSTOM_RATIO_OPTION
   return (
-    RATIO_OPTIONS.find(
-      (opt) => opt.kind === 'preset' && opt.label === preset.label
-    ) ?? AUTO_RATIO_OPTION
+    PRESET_RATIO_OPTIONS.find((opt) => opt.label === match.label) ??
+    CUSTOM_RATIO_OPTION
   )
 }
 
