@@ -205,19 +205,60 @@ export const itemHasAspectMismatch = (
 
 // list every mismatched item on the board (any order)
 export const findMismatchedItems = (
-  board: Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>
+  board: Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>,
+  tol = ASPECT_RATIO_TOLERANCE
 ): TierItem[] =>
 {
   const boardRatio = getBoardItemAspectRatio(board)
   const result: TierItem[] = []
   for (const item of Object.values(board.items))
   {
-    if (itemHasAspectMismatch(item, boardRatio))
+    if (itemHasAspectMismatch(item, boardRatio, tol))
     {
       result.push(item)
     }
   }
   return result
+}
+
+export interface MismatchGroup
+{
+  representative: number
+  items: TierItem[]
+}
+
+// group mismatched items into buckets by aspect ratio (same tolerance as ratio
+// bucketing). sorted by count desc so the biggest group shows first
+export const groupMismatchedItems = (
+  board: Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>,
+  tol = ASPECT_RATIO_TOLERANCE
+): MismatchGroup[] =>
+{
+  const mismatched = findMismatchedItems(board, tol)
+  const working: { ratios: number[]; items: TierItem[] }[] = []
+  for (const item of mismatched)
+  {
+    const ratio = item.aspectRatio
+    if (typeof ratio !== 'number' || ratio <= 0) continue
+    let placed = false
+    for (const group of working)
+    {
+      if (ratiosMatch(ratio, group.ratios[0], tol))
+      {
+        group.ratios.push(ratio)
+        group.items.push(item)
+        placed = true
+        break
+      }
+    }
+    if (!placed) working.push({ ratios: [ratio], items: [item] })
+  }
+  return working
+    .map((group) => ({
+      representative: medianOf(group.ratios),
+      items: group.items,
+    }))
+    .sort((a, b) => b.items.length - a.items.length)
 }
 
 // true if any item has a ratio that doesn't match the board's; short-circuits

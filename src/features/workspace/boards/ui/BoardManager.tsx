@@ -174,7 +174,11 @@ export const BoardManager = ({
                       size="sm"
                       {...getInputProps({
                         'aria-label': `Rename ${board.title}`,
-                        className: 'min-w-0 flex-1 rounded-none px-0 py-0',
+                        className: `min-w-0 flex-1 rounded-none px-0 py-0 ${
+                          isActive
+                            ? 'font-medium text-[var(--t-text)]'
+                            : 'text-[var(--t-text-muted)]'
+                        }`,
                       })}
                     />
                   ) : (

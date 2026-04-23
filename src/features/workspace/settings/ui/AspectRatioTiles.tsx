@@ -1,0 +1,235 @@
+// src/features/workspace/settings/ui/AspectRatioTiles.tsx
+// visual ratio tile grid w/ inline custom W:H for the mixed-ratio modal
+
+import {
+  RATIO_OPTIONS,
+  type RatioOption,
+} from '~/features/workspace/boards/lib/aspectRatio'
+
+const TILE_WIDTH = 48
+const RECT_BOX = 28
+
+// scale a ratio-correct rect inside a square bounding box, floored so extreme
+// ratios still render a visible sliver instead of collapsing to zero
+const fitRectInBox = (ratio: number, maxSize: number) =>
+  ratio >= 1
+    ? { width: maxSize, height: Math.max(2, maxSize / ratio) }
+    : { width: Math.max(2, maxSize * ratio), height: maxSize }
+
+const parseCustomRatio = (width: string, height: string): number =>
+{
+  const w = Number(width)
+  const h = Number(height)
+  return w > 0 && h > 0 && Number.isFinite(w) && Number.isFinite(h) ? w / h : 1
+}
+
+const TILE_SHELL =
+  'focus-custom flex flex-col items-center gap-1 rounded-md border p-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
+const TILE_ACTIVE =
+  'border-[var(--t-border-hover)] bg-[var(--t-bg-active)] text-[var(--t-text)]'
+const TILE_INACTIVE =
+  'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
+
+const INPUT_CLASS =
+  'focus-custom w-10 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-1.5 py-0.5 text-center text-xs text-[var(--t-text)] outline-none transition placeholder:text-[var(--t-text-faint)] focus:border-[var(--t-border-hover)]'
+
+const APPLY_BASE =
+  'focus-custom rounded border px-2 py-0.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-not-allowed disabled:opacity-60'
+const APPLY_READY =
+  'border-[var(--t-border-hover)] bg-[var(--t-bg-active)] text-[var(--t-text)]'
+const APPLY_IDLE =
+  'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-faint)]'
+
+interface RatioTileProps
+{
+  option: RatioOption
+  isActive: boolean
+  onSelect: (option: RatioOption) => void
+  // ratio preview for the Auto tile — derived from current items when available
+  autoRatio?: number
+}
+
+// preset / auto tile — rectangle preview drawn at the option's ratio + label
+const RatioTile = ({
+  option,
+  isActive,
+  onSelect,
+  autoRatio,
+}: RatioTileProps) =>
+{
+  const isAuto = option.kind === 'auto'
+  const ratio = isAuto ? (autoRatio ?? 1) : (option.value ?? 1)
+  const rect = fitRectInBox(ratio, RECT_BOX)
+
+  return (
+    <button
+      type="button"
+      aria-pressed={isActive}
+      onClick={() => onSelect(option)}
+      className={`${TILE_SHELL} ${isActive ? TILE_ACTIVE : TILE_INACTIVE}`}
+      style={{ width: TILE_WIDTH }}
+    >
+      <div
+        className="flex items-center justify-center"
+        style={{ width: RECT_BOX, height: RECT_BOX }}
+      >
+        <div
+          className={`border ${isAuto ? 'border-dashed' : ''} ${
+            isActive ? 'border-[var(--t-accent)]' : 'border-current'
+          }`}
+          style={{ width: rect.width, height: rect.height }}
+        />
+      </div>
+      <span className="text-[0.7rem] font-medium leading-tight">
+        {option.label}
+      </span>
+    </button>
+  )
+}
+
+interface CustomTileProps
+{
+  isActive: boolean
+  width: string
+  height: string
+  onWidthChange: (v: string) => void
+  onHeightChange: (v: string) => void
+  onApply: () => void
+  canApply: boolean
+}
+
+// custom tile — live-preview rect reflecting typed W:H + inline editor & apply
+const CustomTile = ({
+  isActive,
+  width,
+  height,
+  onWidthChange,
+  onHeightChange,
+  onApply,
+  canApply,
+}: CustomTileProps) =>
+{
+  const ratio = parseCustomRatio(width, height)
+  const rect = fitRectInBox(ratio, RECT_BOX)
+
+  const handleSubmit = (event: React.FormEvent) =>
+  {
+    event.preventDefault()
+    onApply()
+  }
+
+  return (
+    <div
+      className={`flex items-center gap-2.5 rounded-md border p-1.5 transition-colors ${
+        isActive
+          ? 'border-[var(--t-border-hover)] bg-[var(--t-bg-active)]'
+          : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]'
+      }`}
+    >
+      <div className="flex flex-col items-center gap-1">
+        <div
+          className="flex items-center justify-center"
+          style={{ width: RECT_BOX, height: RECT_BOX }}
+        >
+          <div
+            className={`border ${
+              isActive
+                ? 'border-[var(--t-accent)]'
+                : 'border-[var(--t-text-faint)]'
+            }`}
+            style={{ width: rect.width, height: rect.height }}
+          />
+        </div>
+        <span
+          className={`text-[0.7rem] font-medium leading-tight ${
+            isActive ? 'text-[var(--t-text)]' : 'text-[var(--t-text-faint)]'
+          }`}
+        >
+          Custom
+        </span>
+      </div>
+      <form className="flex items-center gap-1" onSubmit={handleSubmit}>
+        <input
+          aria-label="Custom width"
+          value={width}
+          onChange={(e) => onWidthChange(e.target.value)}
+          placeholder="W"
+          inputMode="decimal"
+          className={INPUT_CLASS}
+        />
+        <span className="text-xs text-[var(--t-text-faint)]">:</span>
+        <input
+          aria-label="Custom height"
+          value={height}
+          onChange={(e) => onHeightChange(e.target.value)}
+          placeholder="H"
+          inputMode="decimal"
+          className={INPUT_CLASS}
+        />
+        <button
+          type="submit"
+          disabled={!canApply}
+          className={`${APPLY_BASE} ${canApply ? APPLY_READY : APPLY_IDLE}`}
+        >
+          Apply
+        </button>
+      </form>
+    </div>
+  )
+}
+
+interface AspectRatioTilesProps
+{
+  selectedOption: RatioOption
+  onSelect: (option: RatioOption) => void
+  customWidth: string
+  customHeight: string
+  onCustomWidthChange: (v: string) => void
+  onCustomHeightChange: (v: string) => void
+  onApplyCustom: () => void
+  canApplyCustom: boolean
+  autoRatio?: number
+}
+
+export const AspectRatioTiles = ({
+  selectedOption,
+  onSelect,
+  customWidth,
+  customHeight,
+  onCustomWidthChange,
+  onCustomHeightChange,
+  onApplyCustom,
+  canApplyCustom,
+  autoRatio,
+}: AspectRatioTilesProps) => (
+  <div className="flex flex-wrap items-stretch gap-2">
+    {RATIO_OPTIONS.map((option) =>
+    {
+      const isActive = option === selectedOption
+      if (option.kind === 'custom')
+      {
+        return (
+          <CustomTile
+            key={option.label}
+            isActive={isActive}
+            width={customWidth}
+            height={customHeight}
+            onWidthChange={onCustomWidthChange}
+            onHeightChange={onCustomHeightChange}
+            onApply={onApplyCustom}
+            canApply={canApplyCustom}
+          />
+        )
+      }
+      return (
+        <RatioTile
+          key={option.label}
+          option={option}
+          isActive={isActive}
+          onSelect={onSelect}
+          autoRatio={autoRatio}
+        />
+      )
+    })}
+  </div>
+)
