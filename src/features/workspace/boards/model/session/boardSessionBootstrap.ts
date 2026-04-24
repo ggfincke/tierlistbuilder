@@ -7,6 +7,7 @@ import {
   type BoardId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import {
+  boardImageRefScope,
   loadBoardFromStorage,
   removeBoardFromStorage,
   saveBoardToStorage,
@@ -17,6 +18,12 @@ import {
 } from '~/features/workspace/tier-presets/model/tierPresets'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
+import {
+  pruneUnreferencedBlobs,
+  replaceBlobRefs,
+} from '~/shared/images/imageStore'
+import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
+import { logger } from '~/shared/lib/logger'
 import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
 import { scheduleIdle } from '~/shared/lib/scheduleIdle'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -73,6 +80,37 @@ const pruneOrphanedRegistryEntriesAsync = (
   })
 }
 
+const reconcileLocalImageRefsAsync = (): void =>
+{
+  scheduleIdle(() =>
+  {
+    void reconcileLocalImageRefs().catch((error) =>
+    {
+      logger.warn('image', 'Local image ref reconciliation failed:', error)
+    })
+  })
+}
+
+const reconcileLocalImageRefs = async (): Promise<void> =>
+{
+  const boardStore = useWorkspaceBoardRegistryStore.getState()
+
+  for (const meta of boardStore.boards)
+  {
+    const result = loadBoardFromStorage(meta.id)
+    const scope = boardImageRefScope(meta.id)
+    const hashes =
+      result.status === 'ok'
+        ? collectSnapshotImageHashes(
+            loadedBoardStateFromResult(result).snapshot
+          )
+        : []
+    await replaceBlobRefs(scope, hashes)
+  }
+
+  await pruneUnreferencedBlobs()
+}
+
 export const bootstrapBoardSession = async (): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
@@ -93,6 +131,7 @@ export const bootstrapBoardSession = async (): Promise<void> =>
       await warmFromBoard(state.snapshot)
       loadBoardState(requestedActiveId, state.snapshot, state.syncState)
       pruneOrphanedRegistryEntriesAsync(requestedActiveId)
+      reconcileLocalImageRefsAsync()
       return
     }
 
@@ -107,4 +146,5 @@ export const bootstrapBoardSession = async (): Promise<void> =>
   boardStore.replaceRegistry([createBoardMeta(id, data.title)], id)
   await warmFromBoard(data)
   loadBoardState(id, data)
+  reconcileLocalImageRefsAsync()
 }

@@ -139,8 +139,8 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
 
       <p className="mb-4 text-xs text-[var(--t-text-muted)]">
         Anyone with the link can view a snapshot of this board. The snapshot is
-        frozen at the moment of generation — edits made afterward won't appear
-        in already-shared links.
+        frozen at the moment of generation, includes current item images, and
+        omits deleted items.
       </p>
 
       {authSession.status === 'signed-out' && (

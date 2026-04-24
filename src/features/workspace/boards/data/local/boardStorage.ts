@@ -19,10 +19,19 @@ import {
   STORAGE_FULL_MESSAGE,
   STORAGE_SAVE_FAILED_MESSAGE,
 } from '~/shared/lib/storageMetering'
+import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
+import { logger } from '~/shared/lib/logger'
 import { isRecord } from '~/shared/lib/typeGuards'
+import {
+  clearBlobRefs,
+  pruneUnreferencedBlobs,
+  replaceBlobRefs,
+} from '~/shared/images/imageStore'
 
 // build a per-board localStorage key from its ID
 export const boardStorageKey = (id: BoardId): string => `tier-list-board-${id}`
+
+export const boardImageRefScope = (id: BoardId): string => `board:${id}`
 
 // build the per-board localStorage key for cloud sync metadata
 export const boardSyncStorageKey = (id: BoardId): string =>
@@ -131,6 +140,27 @@ const writeBoardEnvelope = (
   )
 }
 
+const trackBoardImageRefs = (boardId: BoardId, data: BoardSnapshot): void =>
+{
+  void replaceBlobRefs(
+    boardImageRefScope(boardId),
+    collectSnapshotImageHashes(data)
+  ).catch((error) =>
+  {
+    logger.warn('image', `Failed to update image refs for ${boardId}:`, error)
+  })
+}
+
+const clearBoardImageRefs = (boardId: BoardId): void =>
+{
+  void clearBlobRefs(boardImageRefScope(boardId))
+    .then(() => pruneUnreferencedBlobs())
+    .catch((error) =>
+    {
+      logger.warn('image', `Failed to clear image refs for ${boardId}:`, error)
+    })
+}
+
 const readStoredBoardEnvelope = (boardId: BoardId): LoadedBoardEnvelope =>
 {
   try
@@ -204,7 +234,18 @@ export const saveBoardToStorage = (
       return envelopeResult
     }
 
-    return writeBoardSyncState(boardId, options.syncState, options.onError)
+    const syncResult = writeBoardSyncState(
+      boardId,
+      options.syncState,
+      options.onError
+    )
+    trackBoardImageRefs(boardId, data)
+    return syncResult
+  }
+
+  if (envelopeResult.ok)
+  {
+    trackBoardImageRefs(boardId, data)
   }
 
   return envelopeResult
@@ -246,4 +287,5 @@ export const removeBoardFromStorage = (boardId: BoardId): void =>
 {
   deleteBrowserStorageItem(boardStorageKey(boardId))
   deleteBrowserStorageItem(boardSyncStorageKey(boardId))
+  clearBoardImageRefs(boardId)
 }

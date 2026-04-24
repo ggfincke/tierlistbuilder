@@ -82,7 +82,7 @@ src/
     ├── a11y/                        # announce() module, LiveRegion component
     ├── board-ui/                    # BoardPrimitives, ItemContent, ItemOverlayButton, StaticBoard, boardTestIds, constants
     ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl, useViewportWidth
-    ├── images/                      # imageStore, imageBlobCache, imagePersistence (IndexedDB blob layer)
+    ├── images/                      # imageStore, imageBlobCache, imagePersistence (IndexedDB blobs + refs)
     ├── layout/                      # toolbarPosition (cross-feature menu chrome math)
     ├── lib/                         # color, colorName, math, fileName, className, pluralize, downloadBlob,
     │                                # browserStorage, storageMetering, logger, urls, typeGuards,
@@ -136,6 +136,11 @@ IndexedDB payloads should be wiped by version reset/recreation instead of
 converted forward, while JSON/share import validation should continue rejecting
 malformed or unsupported files.
 
+Local images live in `shared/images/imageStore.ts` as content-addressed blobs.
+Board saves update board-scoped blob refs; workspace bootstrap reconciles refs
+from all local snapshots and prunes unreferenced blobs after the local image GC
+grace window. IndexedDB schema changes use a reset, not old-blob migration.
+
 ## Cloud Sync
 
 Cloud sync is split between platform lifecycle and workspace adapters:
@@ -185,8 +190,8 @@ The separation ensures board-input orchestration (selection, focus persistence, 
 
 Two share-link carriers land on these routes:
 
-- **Short-link query (`?s=<slug>`, primary).** `createBoardShortLink` uploads the compressed `BoardSnapshot` to Convex storage & mints a slug. `getShareUrlFromSlug` & `getEmbedUrlFromSlug` build `/?s=<slug>` & `/embed?s=<slug>`. On load, `useAppBootstrap` (workspace) or `EmbedView` (embed) detects the slug via `getShortLinkSlugFromUrl`, calls `resolveShortLink`, inflates the snapshot, renders, then scrubs the slug from the URL bar.
-- **Hash fragment (`#share=<base64url>`, fallback).** The snapshot compresses directly into a base64url URL fragment via `encodeBoardToShareFragment`. Used by the Playwright e2e suite & as a server-less fallback. Detected via `getShareFragment`, inflated via `decodeBoardFromShareFragment`, then cleared from the URL.
+- **Short-link query (`?s=<slug>`, primary).** `createBoardShortLink` strips deleted items, converts live image refs into inline JSON wire bytes, rejects payloads above `MAX_SNAPSHOT_COMPRESSED_BYTES` before upload, then uploads the compressed snapshot to Convex storage & mints a slug. `getShareUrlFromSlug` & `getEmbedUrlFromSlug` build `/?s=<slug>` & `/embed?s=<slug>`. On load, `useAppBootstrap` (workspace) or `EmbedView` (embed) detects the slug via `getShortLinkSlugFromUrl`, calls `resolveShortLink`, inflates the snapshot, renders, then scrubs the slug from the URL bar. Embed short-link fetches are abortable on unmount.
+- **Hash fragment (`#share=<base64url>`, fallback).** The snapshot strips image refs and deleted items, then compresses directly into a base64url URL fragment via `encodeBoardToShareFragment`. Used by the Playwright e2e suite & as a server-less fallback. Detected via `getShareFragment`, inflated via `decodeBoardFromShareFragment`, then cleared from the URL.
 
 In both cases the embed route inflates via `shared/board-ui/` primitives & never mounts the editable active-board store. Inbound detection & dispatch into the active board live under `features/workspace/sharing/inbound/`.
 
@@ -282,9 +287,16 @@ The `useThemeSync` hook (called in `WorkspaceShell` from `src/app/bootstrap/useT
 
 **PDF** — uses the same isolated export renderer, captures a PNG, then `jsPDF` creates a document sized to match the rendered image dimensions and embeds the rasterized image.
 
-**JSON** — `exportJson.ts` serializes the full `BoardSnapshot` to a downloadable `.json` file. Import accepts both single-board and multi-board JSON envelopes — `parseBoardsJson()` auto-detects the format and validates each board before restoring.
+**JSON** — `exportJson.ts` serializes the full `BoardSnapshot` to a downloadable `.json` file, embedding live and deleted item image bytes so files are self-contained. Import accepts both single-board and multi-board JSON envelopes — `parseBoardsJson()` auto-detects the format and validates each board before restoring.
 
 All export lib code lives in `features/workspace/export/lib/`; the UI (`ExportMenu`, `ExportPreviewModal`, `StaticExportBoard`) lives in `features/workspace/export/ui/`; the controller hook is `features/workspace/export/model/useExportController.ts`. Blocking export-all progress uses the shared `ProgressOverlay` at `shared/overlay/`.
+
+Share/export image behavior is intentionally split by carrier:
+
+- JSON export preserves live and deleted item images via inline bytes.
+- Short links preserve live item images via inline bytes, but drop deleted items.
+- Hash-fragment shares drop image refs and deleted items to keep URLs bounded.
+- Cloud sync preserves images through Convex media assets, not share snapshots.
 
 ## Boundary Rules
 

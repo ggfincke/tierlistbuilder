@@ -17,6 +17,7 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import { toFileBase } from '~/shared/lib/fileName'
 import { dataUrlToBytes } from '~/shared/lib/binaryCodec'
 import { downloadBlob } from '~/shared/lib/downloadBlob'
+import { loadPdfLib, loadZipLib } from '~/shared/lib/lazyDependencies'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { FORMAT_EXT, renderToDataUrl } from './exportImage'
 import { withExportSession } from './exportBoardRender'
@@ -155,7 +156,7 @@ export const exportAllBoardsAsPdf = async (
 
   if (captures.length === 0) return
 
-  const { jsPDF } = await import('jspdf')
+  const { jsPDF } = await loadPdfLib()
 
   // build multi-page PDF
   const first = captures[0]
@@ -196,7 +197,7 @@ export const exportAllBoardsAsImages = async (
 
   if (captures.length === 0) return
 
-  const JSZip = (await import('jszip')).default
+  const JSZip = await loadZipLib()
   const zip = new JSZip()
 
   const ext = FORMAT_EXT[format]

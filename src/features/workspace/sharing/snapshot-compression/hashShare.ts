@@ -6,10 +6,12 @@ import {
   MAX_INFLATED_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_COMPRESSED_BYTES,
 } from '@tierlistbuilder/contracts/platform/shortLink'
+import type { BoardSnapshotWire } from '@tierlistbuilder/contracts/workspace/board'
 import { normalizeBasePath } from '~/app/routes/pathname'
 import { parseBoardSnapshotJson } from '~/features/workspace/export/lib/exportJson'
 import { base64ToBytes, bytesToBase64 } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
+import { loadCompressionLib } from '~/shared/lib/lazyDependencies'
 
 // build an absolute URL for the app, appending the configured base path.
 // shared w/ the short-link URL builders
@@ -29,8 +31,7 @@ const fromBase64Url = (value: string): Uint8Array =>
   return base64ToBytes(padded)
 }
 
-// drop image refs & deleted items from share payloads — inline bytes are
-// re-attached by the share encoder from the blob store, not the snapshot
+// drop image refs & deleted items from hash-fragment payloads
 export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
 {
   return {
@@ -43,17 +44,31 @@ export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
   }
 }
 
-// strip -> JSON -> encode -> deflate. raw bytes suitable for binary transport
+export const stripDeletedItemsForShare = <
+  TSnapshot extends { deletedItems: unknown[] },
+>(
+  data: TSnapshot
+): TSnapshot => ({
+  ...data,
+  deletedItems: [],
+})
+
+// JSON -> encode -> deflate. raw bytes suitable for binary transport
+export const compressSnapshotPayloadBytes = async (
+  data: BoardSnapshot | BoardSnapshotWire
+): Promise<Uint8Array> =>
+{
+  const json = JSON.stringify(data)
+  const bytes = new TextEncoder().encode(json)
+  const { deflate } = await loadCompressionLib()
+  return deflate(bytes)
+}
+
+// hash fragments stay image-free so URLs remain bounded & portable
 export const compressSnapshotBytes = async (
   data: BoardSnapshot
 ): Promise<Uint8Array> =>
-{
-  const stripped = stripImagesForShare(data)
-  const json = JSON.stringify(stripped)
-  const bytes = new TextEncoder().encode(json)
-  const { deflate } = await import('pako')
-  return deflate(bytes)
-}
+  compressSnapshotPayloadBytes(stripImagesForShare(data))
 
 // inflate -> decode -> parseBoardSnapshotJson. uses pako's streaming Inflate to
 // early-abort when output exceeds MAX_INFLATED_SNAPSHOT_BYTES, defending against
@@ -63,7 +78,7 @@ export const inflateSnapshotBytes = async (
   defaultTitle = 'Shared Tier List'
 ): Promise<BoardSnapshot> =>
 {
-  const { Inflate } = await import('pako')
+  const { Inflate } = await loadCompressionLib()
   const inflator = new Inflate()
   // preserve pako's default chunk collection — overriding onData without
   // delegating would leave inflator.result empty

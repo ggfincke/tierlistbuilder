@@ -10,9 +10,12 @@ import type { Id } from '@convex/_generated/dataModel'
 import { EMBED_ROUTE_PATH } from '~/app/routes/pathname'
 import {
   buildAppUrl,
-  compressSnapshotBytes,
   inflateSnapshotBytes,
 } from '~/features/workspace/sharing/snapshot-compression/hashShare'
+import {
+  assertShortLinkSnapshotSize,
+  compressShortLinkSnapshotBytes,
+} from '~/features/workspace/sharing/short-link/shortLinkCodec'
 import {
   createSnapshotShortLinkImperative,
   generateSnapshotUploadUrlImperative,
@@ -74,7 +77,8 @@ export const createBoardShortLink = async (
   signal?: AbortSignal
 ): Promise<ShortLinkCreateResult> =>
 {
-  const compressed = await compressSnapshotBytes(data)
+  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
+  const compressed = await compressShortLinkSnapshotBytes(data)
   if (signal?.aborted) throw signal.reason ?? new Error('aborted')
 
   const { uploadUrl, uploadToken } = await generateSnapshotUploadUrlImperative()
@@ -121,6 +125,7 @@ export const createBoardShortLink = async (
     uploadToken,
     boardTitle: data.title,
   })
+  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
 
   return {
     slug,
@@ -134,21 +139,24 @@ export const createBoardShortLink = async (
 // unknown / expired / corrupt so callers can show a single error surface
 // rather than threading a result discriminator through the UI
 export const decodeBoardFromShortLink = async (
-  slug: string
+  slug: string,
+  signal?: AbortSignal
 ): Promise<BoardSnapshot> =>
 {
+  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
   if (!isShortLinkSlug(slug))
   {
     throw new Error(`invalid short link slug: ${slug}`)
   }
 
   const result = await resolveShortLinkImperative({ slug })
+  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
   if (result.kind === 'not-found')
   {
     throw new Error(`short link not found: ${slug}`)
   }
 
-  const blobResponse = await fetch(result.snapshotUrl)
+  const blobResponse = await fetch(result.snapshotUrl, { signal })
   if (!blobResponse.ok)
   {
     throw new Error(
@@ -174,6 +182,7 @@ export const decodeBoardFromShortLink = async (
   }
 
   const buffer = await blobResponse.arrayBuffer()
+  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
   // second guard for servers that omit Content-Length (chunked transfer,
   // misconfigured CDN). the Content-Length check above short-circuits
   // when the header is present; this catches the header-less case
@@ -183,5 +192,6 @@ export const decodeBoardFromShortLink = async (
       `short link blob too large: ${buffer.byteLength} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`
     )
   }
+  assertShortLinkSnapshotSize(buffer.byteLength)
   return inflateSnapshotBytes(new Uint8Array(buffer))
 }

@@ -18,6 +18,7 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Board Operations**: Pure tier sorting & item shuffling logic
 - **Tier Presets**: Preset-to-board conversion, board-to-preset extraction, & round-trip integrity
 - **JSON Import**: Single & multi-board parsing, envelope detection, validation, & error reporting
+- **Share Codecs**: Hash-share image stripping, short-link image preservation, size guards, & abort behavior
 - **Selection Primitives**: Shared radio/tab semantics behind roving selection
 - **Nested Menus**: Shared tree state for root/submenu orchestration
 - **ID Helpers**: Generated ID prefix contracts & guard helpers
@@ -84,6 +85,7 @@ tests/
 │   ├── cloudBoardMapper.test.ts     — Convex board wire <-> BoardSnapshot mapping
 │   ├── exportJson.test.ts           — JSON import parsing, validation, multi-board envelope detection
 │   ├── imageBlobCache.test.ts       — shared image blob cache lifecycle
+│   ├── imageStore.test.ts           — persistent image-store GC planning
 │   └── imageUploader.test.ts        — image upload planning & blob-cache reconciliation
 ├── dnd/
 │   ├── dragSnapshot.test.ts         — snapshot transforms & container queries
@@ -115,7 +117,9 @@ tests/
 │   ├── settingsCloudMerge.test.ts   — settings cloud merge
 │   └── tierPresetCloudMerge.test.ts — preset cloud merge
 ├── sharing/
-│   └── hashShare.test.ts            — snapshot codec round-trip & image handling
+│   ├── hashShare.test.ts            — hash-fragment snapshot codec & image stripping
+│   ├── shortLinkCodec.test.ts       — short-link snapshot image policy & size guard
+│   └── shortLinkShare.test.ts       — short-link fetch/decode abort behavior
 ├── settings/
 │   └── aspectRatioSettings.test.ts  — aspect-ratio pure settings behavior
 ├── shared-lib/
