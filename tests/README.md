@@ -57,8 +57,8 @@ npm run test:e2e:ui
 
 E2E tests live in `e2e/` at the repo root and are excluded from the Vitest run via `vitest.config.ts`. Keep them to a small smoke/guardrail set for workflows that need real React, routing, focus, or browser wiring.
 Current guardrails cover app boot, keyboard drag/focus restoration, pointer
-drag plus Undo, bulk delete/Undo, nested modal Escape, and hash-share embed
-rendering.
+drag plus Undo, bulk delete/Undo, nested modal Escape, mobile mixed-ratio prompt
+layout, and hash-share embed rendering.
 
 ## Structure
 
@@ -124,7 +124,7 @@ tests/
 │   ├── shortLinkCodec.test.ts       — short-link snapshot image policy & size guard
 │   └── shortLinkShare.test.ts       — short-link fetch/decode abort behavior
 ├── settings/
-│   └── aspectRatioSettings.test.ts  — aspect-ratio pure settings behavior
+│   └── aspectRatioSettings.test.ts  — aspect-ratio prompt snapshots & mismatch controls
 ├── shared-lib/
 │   ├── color.test.ts                — hex/rgb parsing & contrast
 │   ├── debouncedSyncRunner.test.ts  — shared sync runner extension hooks

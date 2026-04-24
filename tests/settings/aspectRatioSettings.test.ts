@@ -7,6 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { groupMismatchedItems } from '~/features/workspace/boards/lib/aspectRatio'
+import {
+  createAspectRatioPromptSnapshot,
+  resolveAspectRatioPromptItems,
+} from '~/features/workspace/settings/model/aspectRatioPromptSnapshot'
 import { resolvePendingAutoAspectRatio } from '~/features/workspace/settings/model/useDeferredAspectRatioPicker'
 import { MismatchRows } from '~/features/workspace/settings/ui/AspectRatioSection'
 import * as imageUrlHook from '~/shared/hooks/useImageUrl'
@@ -57,6 +61,93 @@ describe('resolvePendingAutoAspectRatio', () =>
     expect(resolvePendingAutoAspectRatio(makeBoardSnapshot(), fallback)).toBe(
       fallback
     )
+  })
+})
+
+describe('aspect ratio prompt snapshot', () =>
+{
+  it('limits prompt targets to the opening mismatch set', () =>
+  {
+    const wide = asItemId('wide')
+    const tall = asItemId('tall')
+    const square = asItemId('square')
+    const importedLater = asItemId('imported-later')
+
+    const board = makeBoardSnapshot({
+      itemAspectRatio: 1,
+      itemAspectRatioMode: 'manual',
+      items: {
+        [wide]: makeItem({
+          id: wide,
+          imageRef: { hash: 'wide' },
+          aspectRatio: 16 / 9,
+        }),
+        [tall]: makeItem({
+          id: tall,
+          imageRef: { hash: 'tall' },
+          aspectRatio: 2 / 3,
+        }),
+        [square]: makeItem({
+          id: square,
+          imageRef: { hash: 'square' },
+          aspectRatio: 1,
+        }),
+      },
+    })
+
+    const snapshot = createAspectRatioPromptSnapshot(board)
+    expect(snapshot.itemIds).toEqual([wide, tall])
+
+    const liveBoard = makeBoardSnapshot({
+      ...board,
+      itemAspectRatio: 16 / 9,
+      items: {
+        ...board.items,
+        [importedLater]: makeItem({
+          id: importedLater,
+          imageRef: { hash: 'imported-later' },
+          aspectRatio: 2 / 3,
+        }),
+      },
+    })
+
+    expect(
+      resolveAspectRatioPromptItems(snapshot, liveBoard).map((item) => item.id)
+    ).toEqual([tall])
+  })
+
+  it('drops snapshot items that no longer exist before bulk actions run', () =>
+  {
+    const wide = asItemId('wide')
+    const tall = asItemId('tall')
+
+    const board = makeBoardSnapshot({
+      itemAspectRatio: 1,
+      items: {
+        [wide]: makeItem({
+          id: wide,
+          imageRef: { hash: 'wide' },
+          aspectRatio: 16 / 9,
+        }),
+        [tall]: makeItem({
+          id: tall,
+          imageRef: { hash: 'tall' },
+          aspectRatio: 2 / 3,
+        }),
+      },
+    })
+
+    const snapshot = createAspectRatioPromptSnapshot(board)
+    const liveBoard = makeBoardSnapshot({
+      ...board,
+      items: {
+        [wide]: board.items[wide],
+      },
+    })
+
+    expect(
+      resolveAspectRatioPromptItems(snapshot, liveBoard).map((item) => item.id)
+    ).toEqual([wide])
   })
 })
 

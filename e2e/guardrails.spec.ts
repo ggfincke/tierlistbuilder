@@ -216,6 +216,60 @@ test('nested modal Escape closes only the topmost dialog', async ({ page }) =>
   await expect(settings).toBeHidden()
 })
 
+test('mixed aspect-ratio prompt fits a mobile settings viewport', async ({
+  page,
+}) =>
+{
+  await page.setViewportSize({ width: 360, height: 720 })
+  await page.route('**/e2e-wide.svg', async (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#444"/></svg>',
+    })
+  )
+
+  await openWorkspaceWithBoard(page)
+  await page.getByRole('button', { name: 'Open settings' }).click()
+  const settings = page.getByRole('dialog', { name: 'Settings' })
+  await expect(settings).toBeVisible()
+
+  await page.getByRole('tab', { name: /layout/i }).click()
+  await settings.getByRole('button', { name: '1:1' }).click()
+  await page.getByRole('tab', { name: /items/i }).click()
+
+  const imageUrl = new URL('/e2e-wide.svg', page.url()).toString()
+  await settings.getByLabel('Image URL').fill(imageUrl)
+  await settings.getByRole('button', { name: 'Add' }).first().click()
+
+  const prompt = page.getByRole('dialog', {
+    name: 'Mixed aspect ratios detected',
+  })
+  await expect(prompt).toBeVisible()
+  await expect(prompt).toContainText('1 item')
+
+  const promptOverflows = await prompt.evaluate(
+    (node) => node.scrollWidth > node.clientWidth + 1
+  )
+  expect(promptOverflows).toBe(false)
+
+  const tileRows = await prompt
+    .locator('button[aria-pressed]')
+    .evaluateAll(
+      (buttons) =>
+        new Set(
+          buttons.map((button) =>
+            Math.round(button.getBoundingClientRect().top)
+          )
+        ).size
+    )
+  expect(tileRows).toBeGreaterThan(1)
+
+  const pageOverflows = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth + 1
+  )
+  expect(pageOverflows).toBe(false)
+})
+
 test('embed route renders hash-share board without workspace controls', async ({
   page,
 }) =>
