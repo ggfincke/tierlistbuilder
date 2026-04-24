@@ -24,8 +24,8 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **ID Helpers**: Generated ID prefix contracts & guard helpers
 - **Popup/Menu Geometry**: Shared fixed-popup placement, submenu flip rules, &
   progress normalization
-- **Backend Selectors & Contracts**: Short-link listing, upload envelopes, and
-  image upload validation at pure boundaries
+- **Backend Selectors & Contracts**: Short-link listing, upload envelopes,
+  image upload validation, and Convex query/mutation limit edges
 - **Sync Runner Contracts**: Shared debounce/retry hooks, conflict pauses, and
   workspace scheduler adapter behavior
 
@@ -78,7 +78,10 @@ tests/
 │   └── uploadEnvelope.test.ts       — upload envelope owner/token validation & tamper rejection
 ├── convex/
 │   ├── boardReconciler.test.ts      — cloud-vs-local board reconciliation
+│   ├── boardUpsertLimits.test.ts    — real Convex board sync caps, media refs, & tombstones
+│   ├── convexTestHelpers.ts         — Convex test module harness
 │   ├── imageValidation.test.ts      — Convex image validation helpers
+│   ├── shortLinksIntegration.test.ts — real Convex owner+expiry listing query
 │   └── shortLinksListing.test.ts    — live short-link listing selection
 ├── data/
 │   ├── boardStorage.test.ts         — per-board localStorage envelope & load outcomes

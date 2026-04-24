@@ -17,9 +17,8 @@ export const MAX_INFLATED_SNAPSHOT_BYTES = 16 * 1024 * 1024
 // 90 days covers typical share lifecycles w/o letting abandoned blobs accumulate
 export const DEFAULT_SHARE_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000
 
-// hard cap on rows returned by getMyShortLinks. mirrors the deleted-boards
-// listing convention; pagination is intentionally deferred (TTL keeps the
-// listing trim for typical sharing patterns)
+// hard cap on live rows returned by getMyShortLinks. server queries the
+// owner+expiresAt range, so expired rows do not hide active shares
 export const MAX_OWNED_SHORT_LINKS = 200
 
 // returned when a slug points at no row (deleted, expired, or never existed)
