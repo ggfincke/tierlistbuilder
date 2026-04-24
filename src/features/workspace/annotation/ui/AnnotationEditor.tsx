@@ -1,7 +1,8 @@
 // src/features/workspace/annotation/ui/AnnotationEditor.tsx
 // full-screen annotation editor — draw on top of an exported board image
 
-import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId } from 'react'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'

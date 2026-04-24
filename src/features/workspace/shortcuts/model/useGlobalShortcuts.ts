@@ -14,7 +14,7 @@ import {
 import { nextToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { announce } from '~/shared/a11y/announce'
 import { toast } from '~/shared/notifications/useToastStore'
-import { hasActiveModalLayer } from '~/shared/overlay/useModal'
+import { hasActiveModalLayer } from '~/shared/overlay/modalLayer'
 
 interface UseGlobalShortcutsOptions
 {

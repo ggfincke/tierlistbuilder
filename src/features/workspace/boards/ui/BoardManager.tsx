@@ -1,7 +1,7 @@
 // src/features/workspace/boards/ui/BoardManager.tsx
 // floating bottom-right panel for switching between multiple tier lists
 
-import { lazy, Suspense, useCallback, useId, useRef, useState } from 'react'
+import { lazy, useCallback, useId, useRef, useState } from 'react'
 import {
   Copy,
   History,
@@ -25,8 +25,10 @@ import {
 } from '~/features/workspace/boards/model/boardSession'
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useDismissibleLayer } from '~/shared/overlay/menu'
-import { ConfirmDialog, OverlayPanelSurface } from '~/shared/overlay/Modal'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
+import { OverlayPanelSurface } from '~/shared/overlay/OverlaySurface'
+import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
 import { TextInput } from '~/shared/ui/TextInput'
 import { BoardSyncBadge } from '~/features/workspace/boards/ui/BoardSyncBadge'
@@ -318,39 +320,25 @@ export const BoardManager = ({
         }}
       />
 
-      {showRecentlyDeleted && (
-        <Suspense
-          fallback={
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-              aria-hidden
-            />
-          }
-        >
+      <LazyModalSlot when={showRecentlyDeleted} section="recently deleted">
+        {() => (
           <RecentlyDeletedModal
             open={showRecentlyDeleted}
             onClose={() => setShowRecentlyDeleted(false)}
             enabled={cloudEnabled}
           />
-        </Suspense>
-      )}
+        )}
+      </LazyModalSlot>
 
-      {showRecentShares && (
-        <Suspense
-          fallback={
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-              aria-hidden
-            />
-          }
-        >
+      <LazyModalSlot when={showRecentShares} section="recent shares">
+        {() => (
           <RecentSharesModal
             open={showRecentShares}
             onClose={() => setShowRecentShares(false)}
             enabled={cloudEnabled}
           />
-        </Suspense>
-      )}
+        )}
+      </LazyModalSlot>
     </>
   )
 }

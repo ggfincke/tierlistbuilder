@@ -1,7 +1,9 @@
 // src/features/workspace/tier-presets/ui/PresetPickerModal.tsx
 // modal for choosing a board preset when creating a new list
 
-import { ModalHeader, BaseModal, ConfirmDialog } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 

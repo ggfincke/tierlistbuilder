@@ -2,7 +2,8 @@
 // share modal — shows a Generate button, then renders the minted URL + embed snippet.
 // generation is explicit (not auto-on-open) to avoid creating a fresh blob per open. aborts on unmount
 
-import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, Link as LinkIcon, RefreshCw } from 'lucide-react'
 

@@ -19,7 +19,8 @@ import {
   useConflictQueueStore,
   type ConflictEntry,
 } from '~/features/workspace/boards/model/boardConflictQueueStore'
-import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 
 interface ConflictResolverModalProps
 {

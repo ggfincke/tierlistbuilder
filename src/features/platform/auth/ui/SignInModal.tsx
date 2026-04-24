@@ -2,7 +2,8 @@
 // email/password sign-in & sign-up modal — calls @convex-dev/auth Password
 // provider w/ flow: 'signIn' | 'signUp'
 
-import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState, type FormEvent } from 'react'
 
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
