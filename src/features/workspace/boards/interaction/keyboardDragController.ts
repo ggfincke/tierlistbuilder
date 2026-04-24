@@ -9,21 +9,20 @@ import {
   findContainer,
   getEffectiveContainerSnapshot,
   getItemsInContainer,
-  moveItemToIndexInSnapshot,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
 import {
-  resolveColumnAwareCrossTierIndex,
-  resolveIntraContainerRowMove,
-} from '~/features/workspace/boards/dnd/dragDomCapture'
-import {
-  resolveNextKeyboardDragPreview,
-  resolveNextKeyboardFocusItem,
-} from '~/features/workspace/boards/dnd/dragKeyboard'
+  captureDragLayoutSession,
+  createDragRowLayoutLookup,
+} from '~/features/workspace/boards/dnd/dragLayoutSession'
 import type { KeyboardDragDirection } from '~/features/workspace/boards/dnd/dragKeyboard'
 import {
   focusKeyboardBoardRegion,
   scheduleKeyboardFocusRestore,
 } from './keyboardFocus'
+import {
+  resolveBrowseKeyboardNavigation,
+  resolveDraggingKeyboardNavigation,
+} from './keyboardNavigation'
 import { logger } from '~/shared/lib/logger'
 
 type TierListKeyboardState = ReturnType<typeof useActiveBoardStore.getState>
@@ -122,72 +121,17 @@ const handleBrowseModeArrowKey = (
   state.clearSelection()
 
   const snapshot = getEffectiveContainerSnapshot(state)
-  const focusedItemId = state.keyboardFocusItemId ?? itemId
-
-  if (!findContainer(snapshot, focusedItemId))
-  {
-    setBrowseFocus(state, itemId, true)
-    return
-  }
-
-  const focusContainerId = findContainer(snapshot, focusedItemId)
-
-  if (!focusContainerId)
-  {
-    setBrowseFocus(state, itemId, true)
-    return
-  }
-
-  if (direction === 'ArrowUp' || direction === 'ArrowDown')
-  {
-    const containerItems = getItemsInContainer(snapshot, focusContainerId)
-    const intraMove = resolveIntraContainerRowMove(
-      focusContainerId,
-      focusedItemId,
-      direction,
-      containerItems
-    )
-
-    if (intraMove)
-    {
-      setBrowseFocus(state, intraMove.targetItemId, true)
-      return
-    }
-  }
-
-  const nextFocusItemId = resolveNextKeyboardFocusItem({
+  const nextFocusItemId = resolveBrowseKeyboardNavigation({
     snapshot,
-    itemId: focusedItemId,
+    itemId,
+    focusedItemId: state.keyboardFocusItemId,
     direction,
+    getRowLayout: createDragRowLayoutLookup(captureDragLayoutSession(snapshot)),
   })
 
   if (!nextFocusItemId)
   {
     return
-  }
-
-  const nextFocusContainer = findContainer(snapshot, nextFocusItemId)
-
-  if (
-    (direction === 'ArrowUp' || direction === 'ArrowDown') &&
-    nextFocusContainer &&
-    focusContainerId !== nextFocusContainer
-  )
-  {
-    const targetItems = getItemsInContainer(snapshot, nextFocusContainer)
-    const columnTarget = resolveColumnAwareCrossTierIndex(
-      focusContainerId,
-      focusedItemId,
-      nextFocusContainer,
-      targetItems,
-      direction
-    )
-
-    if (columnTarget)
-    {
-      setBrowseFocus(state, columnTarget.targetItemId, true)
-      return
-    }
   }
 
   setBrowseFocus(state, nextFocusItemId, true)
@@ -206,86 +150,28 @@ const handleDraggingModeArrowKey = (
   }
 
   const activeKeyboardItemId = state.activeItemId
-  const activeContainerId = findContainer(snapshot, activeKeyboardItemId)
+  const nextMove = resolveDraggingKeyboardNavigation({
+    snapshot,
+    itemId: activeKeyboardItemId,
+    direction,
+    getRowLayout: createDragRowLayoutLookup(captureDragLayoutSession(snapshot)),
+  })
 
-  // if the dragged item no longer exists, discard the preview & exit
-  if (!activeContainerId)
+  if (nextMove.kind === 'missing-active')
   {
     state.cancelKeyboardDrag()
     return
   }
 
-  // check for intra-row movement within a multi-row container
-  if (direction === 'ArrowUp' || direction === 'ArrowDown')
-  {
-    const containerItems = getItemsInContainer(snapshot, activeContainerId)
-    const intraMove = resolveIntraContainerRowMove(
-      activeContainerId,
-      activeKeyboardItemId,
-      direction,
-      containerItems
-    )
-
-    if (intraMove)
-    {
-      const nextPreview = moveItemToIndexInSnapshot({
-        snapshot,
-        itemId: activeKeyboardItemId,
-        toContainerId: activeContainerId,
-        toIndex: intraMove.targetIndex,
-      })
-      state.updateDragPreview(nextPreview)
-      state.setKeyboardFocusItemId(activeKeyboardItemId)
-      scheduleKeyboardFocusRestore(activeKeyboardItemId)
-      announceKeyboardDragMove(state, activeKeyboardItemId, nextPreview)
-      return
-    }
-  }
-
-  let nextTarget = resolveNextKeyboardDragPreview({
-    snapshot,
-    itemId: activeKeyboardItemId,
-    direction,
-  })
-
-  if (!nextTarget)
+  if (nextMove.kind === 'noop')
   {
     return
   }
 
-  // column-aware placement when crossing into a multi-row target
-  if (
-    (direction === 'ArrowUp' || direction === 'ArrowDown') &&
-    nextTarget.containerId !== activeContainerId
-  )
-  {
-    const targetItems = getItemsInContainer(snapshot, nextTarget.containerId)
-    const columnTarget = resolveColumnAwareCrossTierIndex(
-      activeContainerId,
-      activeKeyboardItemId,
-      nextTarget.containerId,
-      targetItems,
-      direction
-    )
-
-    if (columnTarget)
-    {
-      nextTarget = {
-        containerId: nextTarget.containerId,
-        nextPreview: moveItemToIndexInSnapshot({
-          snapshot,
-          itemId: activeKeyboardItemId,
-          toContainerId: nextTarget.containerId,
-          toIndex: columnTarget.targetIndex,
-        }),
-      }
-    }
-  }
-
-  state.updateDragPreview(nextTarget.nextPreview)
+  state.updateDragPreview(nextMove.nextPreview)
   state.setKeyboardFocusItemId(activeKeyboardItemId)
   scheduleKeyboardFocusRestore(activeKeyboardItemId)
-  announceKeyboardDragMove(state, activeKeyboardItemId, nextTarget.nextPreview)
+  announceKeyboardDragMove(state, activeKeyboardItemId, nextMove.nextPreview)
 }
 
 const handleKeyboardPickupDropKey = (itemId: ItemId) =>

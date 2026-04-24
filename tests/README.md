@@ -9,6 +9,7 @@ This directory contains the test suite for the tier list builder.
 We focus on testing critical pure-function logic that, if broken, would cause significant user impact:
 
 - **Drag Snapshot Logic**: Container snapshot transforms, item moves, consistency checks
+- **Drag Layout Logic**: Rendered-row grouping, scoped DOM capture, column-preserving row moves, & drag-end decisions
 - **Keyboard Navigation**: Arrow-key item movement & focus resolution
 - **Pointer Math**: Drag target index calculation & insertion positioning
 - **Color Parsing**: Hex/RGB normalization, contrast calculation
@@ -29,7 +30,7 @@ We intentionally do not test:
 
 - Every edge case or configuration combination
 - React components or hooks
-- DOM-dependent utilities that require live layout capture
+- Broad DOM-dependent utilities that require live layout capture
 - Utility functions with obvious behavior (single ternary, field projection)
 - Export rendering (PNG/PDF image capture)
 - Zustand store wiring
@@ -52,6 +53,9 @@ npm run test:e2e:ui
 ```
 
 E2E tests live in `e2e/` at the repo root and are excluded from the Vitest run via `vitest.config.ts`. Keep them to a small smoke/guardrail set for workflows that need real React, routing, focus, or browser wiring.
+Current guardrails cover app boot, keyboard drag/focus restoration, pointer
+drag plus Undo, bulk delete/Undo, nested modal Escape, and hash-share embed
+rendering.
 
 ## Structure
 
@@ -81,8 +85,12 @@ tests/
 │   └── imageUploader.test.ts        — image upload planning & blob-cache reconciliation
 ├── dnd/
 │   ├── dragSnapshot.test.ts         — snapshot transforms & container queries
-│   ├── dragKeyboard.test.ts         — keyboard navigation resolution
+│   ├── dragDomCapture.test.ts       — scoped rendered container capture
+│   ├── dragEndDecision.test.ts      — pointer drag-end decision classification
+│   ├── dragKeyboard.test.ts         — keyboard drag target helpers
+│   ├── dragLayoutRows.test.ts       — rendered row grouping & column targeting
 │   ├── dragPointerMath.test.ts      — pointer insertion math
+│   ├── keyboardNavigation.test.ts   — pure browse/drag keyboard navigation
 │   └── keyboardDragController.test.ts — keyboard drag state machine
 ├── interaction/
 │   ├── keyboardTabStop.test.ts      — roving tab-stop selector cache

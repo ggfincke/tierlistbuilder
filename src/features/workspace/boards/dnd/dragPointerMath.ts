@@ -2,10 +2,8 @@
 // pointer & mouse insertion math for drag-&-drop targeting
 
 import type { ClientRect, Translate } from '@dnd-kit/core'
-import type { Coordinates } from '@dnd-kit/utilities'
 
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
-import { RENDERED_ROW_TOP_TOLERANCE_PX } from '~/shared/overlay/uiMeasurements'
 import { brandedStringArrayIndexOf } from '~/shared/lib/typeGuards'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
@@ -13,7 +11,6 @@ import {
   getItemsInContainer,
   moveItemInSnapshot,
 } from './dragSnapshot'
-import { sortByRenderedPosition } from './dragDomCapture'
 
 interface GetDraggedItemRectArgs
 {
@@ -41,12 +38,6 @@ interface ResolveNextDragPreviewArgs
   overRect: ClientRect
 }
 
-interface IsPointerInTrailingLastRowSpaceArgs
-{
-  pointerCoordinates: Coordinates | null
-  itemRects: ClientRect[]
-}
-
 export const getDraggedItemRect = ({
   translatedRect,
   initialRect,
@@ -70,35 +61,6 @@ export const getDraggedItemRect = ({
     left: initialRect.left + delta.x,
     right: initialRect.right + delta.x,
   }
-}
-
-export const isPointerInTrailingLastRowSpace = ({
-  pointerCoordinates,
-  itemRects,
-}: IsPointerInTrailingLastRowSpaceArgs): boolean =>
-{
-  if (!pointerCoordinates || itemRects.length === 0)
-  {
-    return false
-  }
-
-  const sortedItemRects = sortByRenderedPosition(itemRects)
-  const lastRowTop = sortedItemRects[sortedItemRects.length - 1].top
-  const lastRowRects = sortedItemRects.filter(
-    (rect) => Math.abs(rect.top - lastRowTop) <= RENDERED_ROW_TOP_TOLERANCE_PX
-  )
-
-  const rightmostRect = lastRowRects.reduce((current, rect) =>
-    rect.right > current.right ? rect : current
-  )
-  const rowTop = Math.min(...lastRowRects.map((rect) => rect.top))
-  const rowBottom = Math.max(...lastRowRects.map((rect) => rect.bottom))
-
-  return (
-    pointerCoordinates.y >= rowTop &&
-    pointerCoordinates.y <= rowBottom &&
-    pointerCoordinates.x >= rightmostRect.right
-  )
 }
 
 // preserve the normal between-item threshold while honoring explicit front/back drops
