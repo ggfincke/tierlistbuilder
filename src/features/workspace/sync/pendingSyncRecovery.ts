@@ -1,5 +1,5 @@
-// src/features/platform/sync/orchestration/pendingSyncRecovery.ts
-// resumes pending sync for boards, settings, & presets; dedupes per key, idempotent
+// src/features/workspace/sync/pendingSyncRecovery.ts
+// resumes pending workspace sync sidecars after reconnect or sign-in
 
 import {
   asUserPresetId,
@@ -56,8 +56,6 @@ const resumeBoards = (options: ResumePendingSyncsOptions): BoardId[] =>
     options.queueBoard({
       boardId: meta.id,
       snapshot,
-      // selectBoardDataFields takes any object w/ the 5 BoardSnapshot data
-      // keys — a snapshot satisfies that shape directly
       boardDataSelection: selectBoardDataFields(snapshot),
       syncState,
     })
@@ -109,9 +107,6 @@ const resumePresets = (options: ResumePendingSyncsOptions): UserPresetId[] =>
 
     if (entry.pendingOp === 'upsert')
     {
-      // an 'upsert' sidecar entry without a matching store entry is a
-      // contradiction — the preset was deleted between the stamp & the
-      // resume. drop it & let normal flow eventually clear the sidecar
       if (!localPreset) continue
       options.enqueuePreset({
         presetId,
@@ -124,9 +119,6 @@ const resumePresets = (options: ResumePendingSyncsOptions): UserPresetId[] =>
 
     if (entry.pendingOp === 'delete')
     {
-      // a 'delete' sidecar entry w/ a matching store entry is also a
-      // contradiction — the preset reappeared. skip the delete since the
-      // upsert path will eventually take over once the user touches it
       if (localPreset) continue
       options.enqueuePreset({
         presetId,
@@ -145,8 +137,6 @@ const resumeBoardDeletes = (options: ResumePendingSyncsOptions): string[] =>
   if (!canProceed()) return []
   if (!options.triggerBoardDelete) return []
 
-  // read sidecar before firing so the return value mirrors board/preset arrays;
-  // the drainer re-reads internally, so this is cheap observability only
   const meta = loadBoardDeleteSyncMeta()
   if (meta.pendingExternalIds.length === 0) return []
 
@@ -166,7 +156,5 @@ export const resumePendingSyncs = (
   }
 }
 
-// re-export for callers that only need to evaluate fresh-from-store settings
-// (the trigger fn captures useSettingsStore at call time, not at install time)
 export const buildSettingsTriggerSnapshot = () =>
   extractAppSettings(useSettingsStore.getState())

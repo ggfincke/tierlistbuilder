@@ -4,46 +4,27 @@
 
 import { createLocalSidecar } from '~/shared/lib/localSidecar'
 import {
-  isNonEmptyString,
-  isPositiveFiniteNumber,
-} from '~/shared/lib/typeGuards'
+  EMPTY_OWNED_SYNC_META,
+  clearOwnedSyncPending,
+  isOwnedSyncMetaEmpty,
+  markOwnedSyncSynced,
+  normalizeOwnedSyncMeta,
+  scopeOwnedSyncMeta,
+  stampOwnedSyncPending,
+  type OwnedSyncMeta,
+} from '~/shared/lib/sync/ownedSyncMeta'
 
 export const SETTINGS_SYNC_META_STORAGE_KEY =
   'tier-list-builder-settings-sync-meta-v2'
 
-export interface SettingsSyncMeta
-{
-  pendingSyncAt: number | null
-  lastSyncedAt: number | null
-  ownerUserId: string
-}
+export type SettingsSyncMeta = OwnedSyncMeta
 
 export const EMPTY_SETTINGS_SYNC_META: SettingsSyncMeta = {
-  pendingSyncAt: null,
-  lastSyncedAt: null,
-  ownerUserId: '',
+  ...EMPTY_OWNED_SYNC_META,
 }
 
 const normalizeSettingsSyncMeta = (raw: unknown): SettingsSyncMeta =>
-{
-  if (!raw || typeof raw !== 'object')
-  {
-    return { ...EMPTY_SETTINGS_SYNC_META }
-  }
-
-  const candidate = raw as Partial<Record<keyof SettingsSyncMeta, unknown>>
-  return {
-    pendingSyncAt: isPositiveFiniteNumber(candidate.pendingSyncAt)
-      ? candidate.pendingSyncAt
-      : null,
-    lastSyncedAt: isPositiveFiniteNumber(candidate.lastSyncedAt)
-      ? candidate.lastSyncedAt
-      : null,
-    ownerUserId: isNonEmptyString(candidate.ownerUserId)
-      ? candidate.ownerUserId
-      : '',
-  }
-}
+  normalizeOwnedSyncMeta(raw)
 
 const sidecar = createLocalSidecar<SettingsSyncMeta>({
   storageKey: SETTINGS_SYNC_META_STORAGE_KEY,
@@ -51,7 +32,7 @@ const sidecar = createLocalSidecar<SettingsSyncMeta>({
   normalize: normalizeSettingsSyncMeta,
   // ownerUserId alone doesn't justify keeping the sidecar — w/o a pending
   // or last-synced timestamp there's nothing to recover from it
-  isEmpty: (meta) => meta.pendingSyncAt === null && meta.lastSyncedAt === null,
+  isEmpty: isOwnedSyncMetaEmpty,
 })
 
 export const loadSettingsSyncMeta = sidecar.load
@@ -79,19 +60,18 @@ export const stampSettingsPending = (
 ): SettingsSyncMeta =>
 {
   const current = loadSettingsSyncMeta()
-  const scopedCurrent =
-    current.ownerUserId === ownerUserId
-      ? { ...current }
-      : { ...EMPTY_SETTINGS_SYNC_META, ownerUserId }
+  const scopedCurrent = scopeOwnedSyncMeta(
+    current,
+    () => ({ ...EMPTY_SETTINGS_SYNC_META }),
+    ownerUserId
+  )
+  const next = stampOwnedSyncPending(scopedCurrent, now)
 
-  if (scopedCurrent.pendingSyncAt !== null)
+  if (next === scopedCurrent)
   {
     return scopedCurrent
   }
-  const next: SettingsSyncMeta = {
-    ...scopedCurrent,
-    pendingSyncAt: now,
-  }
+
   saveSettingsSyncMeta(next)
   return next
 }
@@ -102,11 +82,11 @@ export const markSettingsSynced = (
   syncedAt: number = Date.now()
 ): SettingsSyncMeta =>
 {
-  const next: SettingsSyncMeta = {
-    pendingSyncAt: null,
-    lastSyncedAt: syncedAt,
+  const next = markOwnedSyncSynced(
+    { ...EMPTY_SETTINGS_SYNC_META },
     ownerUserId,
-  }
+    syncedAt
+  )
   saveSettingsSyncMeta(next)
   return next
 }
@@ -124,11 +104,7 @@ export const clearSettingsPending = (ownerUserId: string): SettingsSyncMeta =>
   {
     return current
   }
-  const next: SettingsSyncMeta = {
-    ...current,
-    pendingSyncAt: null,
-    ownerUserId,
-  }
+  const next = clearOwnedSyncPending({ ...current, ownerUserId })
   saveSettingsSyncMeta(next)
   return next
 }

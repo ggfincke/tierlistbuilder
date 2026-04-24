@@ -12,11 +12,11 @@ import {
   makeOfflineError,
   isPermanentConvexError,
 } from '~/features/platform/sync/lib/errors'
-import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 
 interface SetupBoardDeleteCloudSyncOptions
 {
+  isOnline?: () => boolean
   shouldProceed?: () => boolean
   onError?: (cloudExternalId: string, error: unknown) => void
 }
@@ -31,6 +31,7 @@ export const setupBoardDeleteCloudSync = (
   options: SetupBoardDeleteCloudSyncOptions = {}
 ): BoardDeleteCloudSyncHandle =>
 {
+  const isOnline = options.isOnline ?? (() => true)
   let inFlight: Promise<void> | null = null
   // set when a drain is already running & a new trigger arrives — causes the
   // current drain to re-run immediately after finishing to avoid orphaning
@@ -46,7 +47,7 @@ export const setupBoardDeleteCloudSync = (
       const meta = loadBoardDeleteSyncMeta()
       if (meta.pendingExternalIds.length === 0) return
 
-      if (!useSyncStatusStore.getState().online) return
+      if (!isOnline()) return
 
       const ids = meta.pendingExternalIds
 
@@ -60,7 +61,7 @@ export const setupBoardDeleteCloudSync = (
         async (cloudExternalId) =>
         {
           if (disposed || !canProceed()) throw new Error('aborted')
-          if (!useSyncStatusStore.getState().online) throw makeOfflineError()
+          if (!isOnline()) throw makeOfflineError()
           await deleteBoardImperative({ boardExternalId: cloudExternalId })
           return cloudExternalId
         }

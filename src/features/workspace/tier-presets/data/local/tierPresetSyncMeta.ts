@@ -8,21 +8,24 @@ import {
 } from '@tierlistbuilder/contracts/lib/ids'
 import { createLocalSidecar } from '~/shared/lib/localSidecar'
 import {
-  isNonEmptyString,
-  isPositiveFiniteNumber,
-} from '~/shared/lib/typeGuards'
+  EMPTY_OWNED_SYNC_META,
+  clearOwnedSyncPending,
+  isOwnedSyncMetaEmpty,
+  markOwnedSyncSynced,
+  normalizeOwnedSyncMeta,
+  scopeOwnedSyncMeta,
+  stampOwnedSyncPending,
+  type OwnedSyncMeta,
+} from '~/shared/lib/sync/ownedSyncMeta'
 
 export const TIER_PRESET_SYNC_META_STORAGE_KEY =
   'tier-list-builder-tier-preset-sync-meta-v2'
 
 export type TierPresetPendingOp = 'upsert' | 'delete'
 
-export interface TierPresetSyncMetaEntry
+export interface TierPresetSyncMetaEntry extends OwnedSyncMeta
 {
   pendingOp: TierPresetPendingOp | null
-  pendingSyncAt: number | null
-  lastSyncedAt: number | null
-  ownerUserId: string
 }
 
 export type TierPresetSyncMetaMap = Record<
@@ -32,18 +35,14 @@ export type TierPresetSyncMetaMap = Record<
 
 const EMPTY_ENTRY: TierPresetSyncMetaEntry = {
   pendingOp: null,
-  pendingSyncAt: null,
-  lastSyncedAt: null,
-  ownerUserId: '',
+  ...EMPTY_OWNED_SYNC_META,
 }
 
 const isPendingOp = (value: unknown): value is TierPresetPendingOp =>
   value === 'upsert' || value === 'delete'
 
 const isFullyEmpty = (entry: TierPresetSyncMetaEntry): boolean =>
-  entry.pendingOp === null &&
-  entry.pendingSyncAt === null &&
-  entry.lastSyncedAt === null
+  entry.pendingOp === null && isOwnedSyncMetaEmpty(entry)
 
 const normalizeEntry = (raw: unknown): TierPresetSyncMetaEntry =>
 {
@@ -51,20 +50,10 @@ const normalizeEntry = (raw: unknown): TierPresetSyncMetaEntry =>
   {
     return { ...EMPTY_ENTRY }
   }
-  const candidate = raw as Partial<
-    Record<keyof TierPresetSyncMetaEntry, unknown>
-  >
+  const candidate = raw as Partial<Record<'pendingOp', unknown>>
   return {
+    ...normalizeOwnedSyncMeta(raw),
     pendingOp: isPendingOp(candidate.pendingOp) ? candidate.pendingOp : null,
-    pendingSyncAt: isPositiveFiniteNumber(candidate.pendingSyncAt)
-      ? candidate.pendingSyncAt
-      : null,
-    lastSyncedAt: isPositiveFiniteNumber(candidate.lastSyncedAt)
-      ? candidate.lastSyncedAt
-      : null,
-    ownerUserId: isNonEmptyString(candidate.ownerUserId)
-      ? candidate.ownerUserId
-      : '',
   }
 }
 
@@ -131,18 +120,7 @@ const scopeEntryToOwner = (
   ownerUserId: string
 ): TierPresetSyncMetaEntry =>
 {
-  if (entry.ownerUserId !== ownerUserId)
-  {
-    return {
-      ...EMPTY_ENTRY,
-      ownerUserId,
-    }
-  }
-
-  return {
-    ...entry,
-    ownerUserId,
-  }
+  return scopeOwnedSyncMeta(entry, () => ({ ...EMPTY_ENTRY }), ownerUserId)
 }
 
 // merge a partial entry update into the map for one preset. dropping
@@ -212,13 +190,12 @@ export const stampTierPresetPending = (
   )
 
   const isSameOp = current.pendingOp === op
-  const next: TierPresetSyncMetaEntry = {
+  const pendingBase: TierPresetSyncMetaEntry = {
+    ...current,
     pendingOp: op,
-    pendingSyncAt:
-      isSameOp && current.pendingSyncAt !== null ? current.pendingSyncAt : now,
-    lastSyncedAt: current.lastSyncedAt,
-    ownerUserId,
+    pendingSyncAt: isSameOp ? current.pendingSyncAt : null,
   }
+  const next = stampOwnedSyncPending(pendingBase, now)
   map[presetId] = next
   saveTierPresetSyncMetaMap(map)
   return next
@@ -230,11 +207,10 @@ export const markTierPresetSynced = (
   syncedAt: number = Date.now()
 ): TierPresetSyncMetaEntry =>
 {
+  const synced = markOwnedSyncSynced({ ...EMPTY_ENTRY }, ownerUserId, syncedAt)
   return upsertTierPresetSyncMeta(presetId, {
+    ...synced,
     pendingOp: null,
-    pendingSyncAt: null,
-    lastSyncedAt: syncedAt,
-    ownerUserId,
   })
 }
 
@@ -256,9 +232,12 @@ export const clearTierPresetPending = (
   {
     return current
   }
-  return upsertTierPresetSyncMeta(presetId, {
+  const cleared = clearOwnedSyncPending({
+    ...current,
     pendingOp: null,
-    pendingSyncAt: null,
     ownerUserId,
+  })
+  return upsertTierPresetSyncMeta(presetId, {
+    ...cleared,
   })
 }

@@ -1,5 +1,5 @@
-// src/features/platform/sync/orchestration/useBoardDataSubscriber.ts
-// subscribes to active-board data fields & forwards real edits to the scheduler
+// src/features/workspace/sync/useWorkspaceBoardSyncSubscriber.ts
+// subscribes to active board edits & forwards durable snapshots to workspace sync
 
 import { useEffect, useRef } from 'react'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -13,23 +13,18 @@ import {
 import { extractBoardSyncState } from '~/features/workspace/boards/model/sync'
 import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 
-export interface BoardDataSubscriberOptions
+export interface WorkspaceBoardSyncSubscriberOptions
 {
-  // null when the subscriber should stay detached (no active user)
   shouldProceed: (() => boolean) | null
-  // getter so first-login-merge gating stays live across renders
   isMergePending: () => boolean
   onEdit: (work: PendingBoardSync) => void
 }
 
-// subscribes to persisted board-data fields via a shallow selector; skips
-// the first change after a board load/switch & suppresses during merge.
-// options route through refs so subscription only rebuilds on shouldProceed
-export const useBoardDataSubscriber = ({
+export const useWorkspaceBoardSyncSubscriber = ({
   shouldProceed,
   isMergePending,
   onEdit,
-}: BoardDataSubscriberOptions): void =>
+}: WorkspaceBoardSyncSubscriberOptions): void =>
 {
   const isMergePendingRef = useRef(isMergePending)
   const onEditRef = useRef(onEdit)
@@ -72,8 +67,6 @@ export const useBoardDataSubscriber = ({
         const boardId = useWorkspaceBoardRegistryStore.getState().activeBoardId
         if (!boardId) return
 
-        // board loads/switches replace the active store wholesale. skip the
-        // first change for a newly loaded board & only sync later user edits
         if (boardId !== lastLoadedBoardIdRef.current)
         {
           lastLoadedBoardIdRef.current = boardId
@@ -81,13 +74,12 @@ export const useBoardDataSubscriber = ({
         }
 
         const state = useActiveBoardStore.getState()
-        const work: PendingBoardSync = {
+        onEditRef.current({
           boardId,
           snapshot: extractBoardData(state),
           boardDataSelection: selectBoardDataFields(state),
           syncState: extractBoardSyncState(state),
-        }
-        onEditRef.current(work)
+        })
       },
       { equalityFn: boardDataFieldsEqual }
     )

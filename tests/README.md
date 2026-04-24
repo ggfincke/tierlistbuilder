@@ -25,6 +25,8 @@ We focus on testing critical pure-function logic that, if broken, would cause si
   progress normalization
 - **Backend Selectors & Contracts**: Short-link listing, upload envelopes, and
   image upload validation at pure boundaries
+- **Sync Runner Contracts**: Shared debounce/retry hooks, conflict pauses, and
+  workspace scheduler adapter behavior
 
 We intentionally do not test:
 
@@ -97,6 +99,7 @@ tests/
 │   ├── selectionNavigation.test.ts  — selection arrow-key navigation
 │   └── selectionState.test.ts       — shared radio/tab semantics for roving selection
 ├── model/
+│   ├── boardConflictResolution.test.ts — conflict resolution sync identity
 │   └── boardSession.test.ts         — session bootstrap, autosave, registry orchestration
 ├── overlay/
 │   ├── nestedMenus.test.ts          — nested root/submenu open-close tree rules
@@ -117,6 +120,7 @@ tests/
 │   └── aspectRatioSettings.test.ts  — aspect-ratio pure settings behavior
 ├── shared-lib/
 │   ├── color.test.ts                — hex/rgb parsing & contrast
+│   ├── debouncedSyncRunner.test.ts  — shared sync runner extension hooks
 │   ├── fileName.test.ts             — file-name slug helper
 │   ├── id.test.ts                   — ID factory prefixes & guard helpers
 │   ├── math.test.ts                 — numeric clamp helper

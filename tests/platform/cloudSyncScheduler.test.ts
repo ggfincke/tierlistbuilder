@@ -200,7 +200,11 @@ describe('cloud sync scheduler', () =>
 
     const flush = vi
       .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
-      .mockResolvedValueOnce({ kind: 'conflict', serverState })
+      .mockResolvedValueOnce({
+        kind: 'conflict',
+        cloudBoardExternalId: 'cloud-a',
+        serverState,
+      })
 
     const scheduler = createCloudSyncScheduler({
       debounceMs: 5,
@@ -226,7 +230,7 @@ describe('cloud sync scheduler', () =>
         lastSyncedRevision: expect.any(Number),
       })
     )
-    expect(onConflict).toHaveBeenCalledWith('board-a', serverState)
+    expect(onConflict).toHaveBeenCalledWith('board-a', 'cloud-a', serverState)
 
     await scheduler.dispose()
   })

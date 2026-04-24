@@ -1,7 +1,6 @@
-// src/features/platform/sync/orchestration/useHandleRegistry.ts
-// settings/presets/board-delete cloud-sync handle refs + install & dispose helpers
+// src/features/workspace/sync/workspaceSyncHandles.ts
+// handle registry for workspace-owned cloud sync adapters
 
-import { useState } from 'react'
 import {
   setupSettingsCloudSync,
   type SettingsCloudSyncHandle,
@@ -13,29 +12,26 @@ import {
 import type { BoardDeleteCloudSyncHandle } from '~/features/workspace/boards/data/cloud/setupBoardDeleteCloudSync'
 import { CLOUD_SYNC_DEBOUNCE_MS } from '~/features/platform/sync/lib/concurrency'
 
-export interface InstallOptions
+export interface WorkspaceSyncInstallOptions
 {
   userId: string
+  isOnline: () => boolean
   shouldProceed: () => boolean
   onInstalled: () => void
 }
 
-export interface HandleRegistry
+export interface WorkspaceSyncHandleRegistry
 {
   settingsRef: { current: SettingsCloudSyncHandle | null }
   presetsRef: { current: TierPresetCloudSyncHandle | null }
   boardDeleteRef: { current: BoardDeleteCloudSyncHandle | null }
-  installSettings: (options: InstallOptions) => void
-  installPresets: (options: InstallOptions) => void
+  installSettings: (options: WorkspaceSyncInstallOptions) => void
+  installPresets: (options: WorkspaceSyncInstallOptions) => void
   disposeAll: () => void
 }
 
-// owns the three handle refs & guards install against shouldProceed + already-
-// installed. disposeAll clears refs first then fires handle.dispose in
-// parallel (handles don't share state). identity is stable across renders
-export const useHandleRegistry = (): HandleRegistry =>
-{
-  const [registry] = useState<HandleRegistry>(() =>
+export const createWorkspaceSyncHandleRegistry =
+  (): WorkspaceSyncHandleRegistry =>
   {
     const settingsRef: { current: SettingsCloudSyncHandle | null } = {
       current: null,
@@ -49,15 +45,17 @@ export const useHandleRegistry = (): HandleRegistry =>
 
     const installSettings = ({
       userId,
+      isOnline,
       shouldProceed,
       onInstalled,
-    }: InstallOptions): void =>
+    }: WorkspaceSyncInstallOptions): void =>
     {
       if (!shouldProceed() || settingsRef.current) return
 
       settingsRef.current = setupSettingsCloudSync({
         debounceMs: CLOUD_SYNC_DEBOUNCE_MS,
         userId,
+        isOnline,
         shouldProceed,
       })
       onInstalled()
@@ -65,15 +63,17 @@ export const useHandleRegistry = (): HandleRegistry =>
 
     const installPresets = ({
       userId,
+      isOnline,
       shouldProceed,
       onInstalled,
-    }: InstallOptions): void =>
+    }: WorkspaceSyncInstallOptions): void =>
     {
       if (!shouldProceed() || presetsRef.current) return
 
       presetsRef.current = setupTierPresetCloudSync({
         debounceMs: CLOUD_SYNC_DEBOUNCE_MS,
         userId,
+        isOnline,
         shouldProceed,
       })
       onInstalled()
@@ -105,7 +105,4 @@ export const useHandleRegistry = (): HandleRegistry =>
       installPresets,
       disposeAll,
     }
-  })
-
-  return registry
-}
+  }

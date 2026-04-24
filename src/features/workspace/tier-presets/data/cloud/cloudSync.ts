@@ -27,7 +27,6 @@ import {
   isOfflineError,
   makeOfflineError,
 } from '~/features/platform/sync/lib/errors'
-import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
 import { logger } from '~/shared/lib/logger'
 
 // flush input — discriminated on op so 'delete' doesn't drag along an
@@ -41,6 +40,7 @@ interface CreateTierPresetSyncRunnerOptions
 {
   userId: string
   debounceMs: number
+  isOnline?: () => boolean
   shouldProceed?: () => boolean
 }
 
@@ -67,6 +67,7 @@ export const createTierPresetSyncRunner = (
   options: CreateTierPresetSyncRunnerOptions
 ): TierPresetSyncRunner =>
 {
+  const isOnline = options.isOnline ?? (() => true)
   const runner = createDebouncedSyncRunner<
     UserPresetId,
     TierPresetSyncWork,
@@ -108,7 +109,7 @@ export const createTierPresetSyncRunner = (
       // mirror the board scheduler's offline gating so failed flushes back
       // off cleanly w/o issuing a doomed network call. resumePendingSyncs
       // walks the sidecar on online -> drains everything in one pass
-      if (!useSyncStatusStore.getState().online)
+      if (!isOnline())
       {
         return { kind: 'error', error: makeOfflineError() }
       }
@@ -146,6 +147,7 @@ interface SetupTierPresetCloudSyncOptions
 {
   debounceMs: number
   userId: string
+  isOnline?: () => boolean
   shouldProceed?: () => boolean
 }
 
@@ -162,6 +164,7 @@ export const setupTierPresetCloudSync = (
   const runner = createTierPresetSyncRunner({
     userId: options.userId,
     debounceMs: options.debounceMs,
+    isOnline: options.isOnline,
     shouldProceed: options.shouldProceed,
   })
 
