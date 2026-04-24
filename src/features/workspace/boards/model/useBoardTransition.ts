@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { switchBoardSession } from '~/features/workspace/boards/data/local/localBoardSession'
+import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 
 const FADE_OUT_MS = 120

@@ -22,7 +22,7 @@ import {
   deleteBoardSession,
   duplicateBoardSession,
   renameBoardSession,
-} from '~/features/workspace/boards/data/local/localBoardSession'
+} from '~/features/workspace/boards/model/boardSession'
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useDismissibleLayer } from '~/shared/overlay/menu'

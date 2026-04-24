@@ -147,6 +147,7 @@ export default defineSchema({
   })
     .index('bySlug', ['slug'])
     .index('byOwner', ['ownerId'])
+    .index('byOwnerAndExpiresAt', ['ownerId', 'expiresAt'])
     .index('byExpiresAt', ['expiresAt'])
     .index('bySnapshotStorageId', ['snapshotStorageId']),
 })

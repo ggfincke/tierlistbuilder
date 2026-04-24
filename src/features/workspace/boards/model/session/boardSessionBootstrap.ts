@@ -1,0 +1,110 @@
+// src/features/workspace/boards/model/session/boardSessionBootstrap.ts
+// board session startup & registry pruning
+
+import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  generateBoardId,
+  type BoardId,
+} from '@tierlistbuilder/contracts/lib/ids'
+import {
+  loadBoardFromStorage,
+  removeBoardFromStorage,
+  saveBoardToStorage,
+} from '~/features/workspace/boards/data/local/boardStorage'
+import {
+  BUILTIN_PRESETS,
+  createBoardDataFromPreset,
+} from '~/features/workspace/tier-presets/model/tierPresets'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { warmFromBoard } from '~/shared/images/imageBlobCache'
+import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
+import { scheduleIdle } from '~/shared/lib/scheduleIdle'
+import { toast } from '~/shared/notifications/useToastStore'
+import {
+  loadedBoardStateFromResult,
+  loadBoardState,
+} from './boardSessionPersistence'
+import { createBoardMeta } from './boardSessionRegistry'
+
+const pruneOrphanedRegistryEntriesAsync = (
+  skipBoardId: BoardId | null
+): void =>
+{
+  scheduleIdle(() =>
+  {
+    const boardStore = useWorkspaceBoardRegistryStore.getState()
+    const healthy: BoardMeta[] = []
+    let pruned = 0
+
+    for (const meta of boardStore.boards)
+    {
+      if (meta.id === skipBoardId)
+      {
+        healthy.push(meta)
+        continue
+      }
+
+      const result = loadBoardFromStorage(meta.id)
+
+      if (result.status !== 'ok')
+      {
+        removeBoardFromStorage(meta.id)
+        pruned++
+        continue
+      }
+
+      healthy.push(meta)
+    }
+
+    if (pruned === 0)
+    {
+      return
+    }
+
+    const nextActiveId =
+      healthy.find((b) => b.id === boardStore.activeBoardId)?.id ??
+      healthy[0]?.id ??
+      null
+    boardStore.replaceRegistry(healthy, nextActiveId)
+    toast(
+      `${pruned} ${pluralizeWord(pruned, 'board')} had corrupted data and ${pluralizeVerb(pruned, 'was', 'were')} removed.`,
+      'error'
+    )
+  })
+}
+
+export const bootstrapBoardSession = async (): Promise<void> =>
+{
+  const boardStore = useWorkspaceBoardRegistryStore.getState()
+  const requestedActiveId =
+    boardStore.activeBoardId ?? boardStore.boards[0]?.id ?? null
+
+  if (requestedActiveId)
+  {
+    const result = loadBoardFromStorage(requestedActiveId)
+
+    if (result.status === 'ok')
+    {
+      const state = loadedBoardStateFromResult(result)
+      if (boardStore.activeBoardId !== requestedActiveId)
+      {
+        boardStore.setActiveBoardId(requestedActiveId)
+      }
+      await warmFromBoard(state.snapshot)
+      loadBoardState(requestedActiveId, state.snapshot, state.syncState)
+      pruneOrphanedRegistryEntriesAsync(requestedActiveId)
+      return
+    }
+
+    removeBoardFromStorage(requestedActiveId)
+    toast('Board data was corrupted and has been reset.', 'error')
+  }
+
+  const id = generateBoardId()
+  const classicPreset = BUILTIN_PRESETS.find((p) => p.id === 'builtin-classic')!
+  const data = createBoardDataFromPreset(classicPreset)
+  saveBoardToStorage(id, data)
+  boardStore.replaceRegistry([createBoardMeta(id, data.title)], id)
+  await warmFromBoard(data)
+  loadBoardState(id, data)
+}

@@ -9,10 +9,6 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/settings'
 import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
 
-// re-export the contract-level type so board-ui consumers can keep importing
-// it alongside the other rendering constants that live here
-export type { ImageFit }
-
 // item long-edge size in pixels — the longer side of the slot is always
 // pinned here, & the shorter side is derived from the board's aspect ratio
 export const ITEM_LONG_EDGE_PX: Record<ItemSize, number> = {

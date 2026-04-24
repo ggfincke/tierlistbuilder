@@ -9,7 +9,6 @@ import {
   makeSelection,
   type ActiveBoardRuntimeState,
   type ContainerSnapshot,
-  type KeyboardMode,
 } from '~/features/workspace/boards/model/runtime'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
@@ -135,20 +134,32 @@ export const stripItemsFromSnapshot = (
 export const runtimeCleanupForItem = (
   state: ActiveBoardRuntimeState,
   itemId: ItemId
+) => runtimeCleanupForItems(state, new Set([itemId]))
+
+// clean up transient refs for a batch removal in one state patch
+export const runtimeCleanupForItems = (
+  state: ActiveBoardRuntimeState,
+  itemIds: ReadonlySet<ItemId>
 ) =>
 {
-  const nextSelectionIds = state.selection.ids.filter((id) => id !== itemId)
+  const nextSelectionIds = state.selection.ids.filter((id) => !itemIds.has(id))
+  const selection =
+    nextSelectionIds.length === state.selection.ids.length
+      ? state.selection
+      : makeSelection(nextSelectionIds)
+  const activeRemoved =
+    state.activeItemId !== null && itemIds.has(state.activeItemId)
+  const focusRemoved =
+    state.keyboardFocusItemId !== null && itemIds.has(state.keyboardFocusItemId)
 
   return {
-    activeItemId: state.activeItemId === itemId ? null : state.activeItemId,
-    keyboardFocusItemId:
-      state.keyboardFocusItemId === itemId ? null : state.keyboardFocusItemId,
-    keyboardMode:
-      state.keyboardFocusItemId === itemId || state.activeItemId === itemId
-        ? ('idle' as KeyboardMode)
-        : state.keyboardMode,
-    selection: makeSelection(nextSelectionIds),
+    activeItemId: activeRemoved ? null : state.activeItemId,
+    keyboardFocusItemId: focusRemoved ? null : state.keyboardFocusItemId,
+    keyboardMode: activeRemoved || focusRemoved ? 'idle' : state.keyboardMode,
+    selection,
     lastClickedItemId:
-      state.lastClickedItemId === itemId ? null : state.lastClickedItemId,
+      state.lastClickedItemId !== null && itemIds.has(state.lastClickedItemId)
+        ? null
+        : state.lastClickedItemId,
   }
 }

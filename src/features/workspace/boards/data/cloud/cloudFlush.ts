@@ -17,7 +17,7 @@ import {
 } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
 import { uploadBoardImages } from '~/features/platform/media/imageUploader'
-import { loadPersistedBoardState } from '~/features/workspace/boards/data/local/localBoardSession'
+import { loadPersistedBoardState } from '~/features/workspace/boards/model/boardSession'
 import {
   classifySyncError,
   type SyncError,

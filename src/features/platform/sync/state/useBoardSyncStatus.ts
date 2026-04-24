@@ -4,7 +4,7 @@
 import { useShallow } from 'zustand/react/shallow'
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import { useConflictQueueStore } from '~/features/workspace/boards/data/cloud/conflicts/useConflictQueueStore'
+import { useConflictQueueStore } from '~/features/workspace/boards/model/boardConflictQueueStore'
 import {
   resolveBoardSyncStatus,
   useSyncStatusStore,

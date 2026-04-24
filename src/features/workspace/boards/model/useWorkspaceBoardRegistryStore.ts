@@ -21,8 +21,8 @@ interface WorkspaceBoardRegistryStore
   removeBoardMeta: (boardId: BoardId) => void
 }
 
-// bump after the pre-1.0 cleanup so older persisted registries reset cleanly
-const BOARD_REGISTRY_STORAGE_VERSION = 3
+// pre-1.0 storage changes wipe mismatched registries
+const BOARD_REGISTRY_STORAGE_VERSION = 1
 
 export const useWorkspaceBoardRegistryStore =
   create<WorkspaceBoardRegistryStore>()(

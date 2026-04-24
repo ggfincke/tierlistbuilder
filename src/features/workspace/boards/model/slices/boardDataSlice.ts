@@ -25,8 +25,14 @@ import {
   extractBoardSyncState,
 } from '~/features/workspace/boards/model/sync'
 import { generateItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { MAX_DELETED_ITEMS, runtimeCleanupForItem } from './helpers'
+import {
+  MAX_DELETED_ITEMS,
+  runtimeCleanupForItem,
+  runtimeCleanupForItems,
+  stripItemsFromContainers,
+} from './helpers'
 import { mapTier, pushUndo, withUndo } from './undoSlice'
+import { createBoardSyncStatePatch } from './syncStateOps'
 import type {
   ActiveBoardSliceCreator,
   ActiveBoardStore,
@@ -67,7 +73,8 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
   ...EMPTY_BOARD_SYNC_STATE,
   runtimeError: null,
 
-  setSyncState: (state) => set(state),
+  setSyncState: (syncState) =>
+    set((state) => createBoardSyncStatePatch(state, syncState) ?? state),
 
   setRuntimeError: (message) =>
     set((state) =>
@@ -362,6 +369,50 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
     })
     announce(`${label} removed`)
   },
+
+  removeItems: (itemIds) =>
+    set((state) =>
+    {
+      const uniqueIds = [...new Set(itemIds)].filter((id) => state.items[id])
+
+      if (uniqueIds.length === 0)
+      {
+        return state
+      }
+
+      const idSet = new Set(uniqueIds)
+      const { tiers, unrankedItemIds } = stripItemsFromContainers(state, idSet)
+      const items = { ...state.items }
+      const removedItems = uniqueIds.map((id) => items[id]).filter(isPresent)
+
+      for (const id of uniqueIds)
+      {
+        delete items[id]
+      }
+
+      const deletedItems = [...removedItems, ...state.deletedItems].slice(
+        0,
+        MAX_DELETED_ITEMS
+      )
+      const deleteLabel =
+        uniqueIds.length === 1
+          ? 'Delete item'
+          : `Delete ${uniqueIds.length} items`
+
+      return {
+        ...withUndo(
+          state,
+          {
+            tiers,
+            unrankedItemIds,
+            items,
+            deletedItems,
+          },
+          deleteLabel
+        ),
+        ...runtimeCleanupForItems(state, idSet),
+      }
+    }),
 
   restoreDeletedItem: (itemId) =>
     set((state) =>

@@ -4,7 +4,7 @@
 import { useEffect, useRef } from 'react'
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import { getUserStableId } from '~/features/platform/auth/model/userIdentity'
-import { useConflictQueueStore } from '~/features/workspace/boards/data/cloud/conflicts/useConflictQueueStore'
+import { useConflictQueueStore } from '~/features/workspace/boards/model/boardConflictQueueStore'
 import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
 import { useSyncEpoch } from './useSyncEpoch'
 import { useHandleRegistry } from './useHandleRegistry'

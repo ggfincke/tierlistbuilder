@@ -9,7 +9,7 @@ import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset
 import {
   createBoardSession,
   createBoardSessionFromPreset,
-} from '~/features/workspace/boards/data/local/localBoardSession'
+} from '~/features/workspace/boards/model/boardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { ColorInput } from '~/shared/ui/ColorInput'

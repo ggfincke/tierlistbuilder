@@ -1,5 +1,5 @@
 // src/shared/ui/PrimaryButton.tsx
-// shim — forwards to the unified Button w/ variant='primary'
+// named primary button wrapper over the unified Button primitive
 
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 

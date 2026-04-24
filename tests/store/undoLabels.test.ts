@@ -4,7 +4,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { makeTier } from '../fixtures'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { makeItem, makeTier } from '../fixtures'
 
 const resetStore = () =>
 {
@@ -110,6 +111,62 @@ describe('undo labels', () =>
     expect(
       useActiveBoardStore.getState().past.map((entry) => entry.label)
     ).toEqual(['Add 3 items'])
+  })
+
+  it('removes multiple items through one undo entry', () =>
+  {
+    const firstId = asItemId('item-1')
+    const secondId = asItemId('item-2')
+    const keptId = asItemId('item-3')
+    const deletedId = asItemId('deleted-1')
+    const first = makeItem({ id: firstId, label: 'First' })
+    const second = makeItem({ id: secondId, label: 'Second' })
+    const kept = makeItem({ id: keptId, label: 'Kept' })
+    const alreadyDeleted = makeItem({ id: deletedId, label: 'Deleted' })
+
+    useActiveBoardStore.setState({
+      tiers: [makeTier({ id: 'tier-1', itemIds: [firstId, secondId] })],
+      unrankedItemIds: [keptId],
+      items: {
+        [firstId]: first,
+        [secondId]: second,
+        [keptId]: kept,
+      },
+      deletedItems: [alreadyDeleted],
+      activeItemId: firstId,
+      keyboardFocusItemId: secondId,
+      keyboardMode: 'dragging',
+      selection: {
+        ids: [firstId, secondId],
+        set: new Set([firstId, secondId]),
+      },
+      lastClickedItemId: secondId,
+    })
+
+    useActiveBoardStore.getState().removeItems([firstId, secondId])
+
+    const removed = useActiveBoardStore.getState()
+    expect(removed.tiers[0].itemIds).toEqual([])
+    expect(removed.unrankedItemIds).toEqual([keptId])
+    expect(removed.items).toEqual({ [keptId]: kept })
+    expect(removed.deletedItems).toEqual([first, second, alreadyDeleted])
+    expect(removed.past.map((entry) => entry.label)).toEqual(['Delete 2 items'])
+    expect(removed.activeItemId).toBeNull()
+    expect(removed.keyboardFocusItemId).toBeNull()
+    expect(removed.keyboardMode).toBe('idle')
+    expect(removed.selection.ids).toEqual([])
+    expect(removed.lastClickedItemId).toBeNull()
+
+    expect(removed.undo()).toEqual({ label: 'Delete 2 items' })
+
+    const restored = useActiveBoardStore.getState()
+    expect(restored.tiers[0].itemIds).toEqual([firstId, secondId])
+    expect(restored.items).toEqual({
+      [firstId]: first,
+      [secondId]: second,
+      [keptId]: kept,
+    })
+    expect(restored.deletedItems).toEqual([alreadyDeleted])
   })
 
   it('clears future stack on new action', () =>

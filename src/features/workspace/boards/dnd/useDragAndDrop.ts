@@ -53,7 +53,7 @@ export const useDragAndDrop = () =>
     commitDragPreview,
     discardDragPreview,
     reorderTierByIndex,
-    removeItem,
+    removeItems,
   } = useActiveBoardStore(
     useShallow((state) => ({
       items: state.items,
@@ -67,7 +67,7 @@ export const useDragAndDrop = () =>
       commitDragPreview: state.commitDragPreview,
       discardDragPreview: state.discardDragPreview,
       reorderTierByIndex: state.reorderTierByIndex,
-      removeItem: state.removeItem,
+      removeItems: state.removeItems,
     }))
   )
   const [showDragOverlay, setShowDragOverlay] = useState(false)
@@ -275,12 +275,7 @@ export const useDragAndDrop = () =>
         state.dragGroupIds.length > 0 ? state.dragGroupIds : [activeId]
       const label = state.items[activeId]?.label ?? 'item'
       discardDragPreview()
-      for (const id of groupIds) removeItem(id)
-      // multi-trash is a group commit — clear selection so the bar dismisses
-      if (groupIds.length > 1)
-      {
-        useActiveBoardStore.getState().clearSelection()
-      }
+      removeItems(groupIds)
       resetDragState()
       announce(
         groupIds.length > 1

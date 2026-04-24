@@ -1,5 +1,5 @@
 // src/shared/board-ui/ItemOverlayButton.tsx
-// shim — forwards to the unified Button w/ variant='overlay'
+// dark item-overlay button wrapper over the unified Button primitive
 
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 

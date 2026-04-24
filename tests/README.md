@@ -21,6 +21,8 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Nested Menus**: Shared tree state for root/submenu orchestration
 - **ID Helpers**: Generated ID prefix contracts & guard helpers
 - **Popup/Menu Geometry**: Shared fixed-popup placement & submenu flip rules
+- **Backend Selectors & Contracts**: Short-link listing, upload envelopes, and
+  image upload validation at pure boundaries
 
 We intentionally do not test:
 
@@ -44,11 +46,11 @@ npm run test:watch
 npx vitest run tests/dnd/dragSnapshot.test.ts
 
 # run the Playwright E2E smoke suite (requires `npx playwright install chromium` once)
-npm run test:e2eX
+npm run test:e2e
 npm run test:e2e:ui
 ```
 
-E2E tests live in `e2e/` at the repo root and are excluded from the Vitest run via `vitest.config.ts`.
+E2E tests live in `e2e/` at the repo root and are excluded from the Vitest run via `vitest.config.ts`. Keep them to a small smoke/guardrail set for workflows that need real React, routing, focus, or browser wiring.
 
 ## Structure
 
@@ -64,14 +66,18 @@ tests/
 │   ├── itemContent.test.ts          — item content rendering helpers
 │   ├── tierColors.test.ts           — tier color spec creation & resolution
 │   └── tierPresets.test.ts          — preset-to-board & board-to-preset conversion
+├── contracts/
+│   └── uploadEnvelope.test.ts       — upload envelope owner/token validation & tamper rejection
 ├── convex/
-│   └── boardReconciler.test.ts      — cloud-vs-local board reconciliation
+│   ├── boardReconciler.test.ts      — cloud-vs-local board reconciliation
+│   ├── imageValidation.test.ts      — Convex image validation helpers
+│   └── shortLinksListing.test.ts    — live short-link listing selection
 ├── data/
 │   ├── boardStorage.test.ts         — per-board localStorage envelope & load outcomes
 │   ├── cloudBoardMapper.test.ts     — Convex board wire <-> BoardSnapshot mapping
 │   ├── exportJson.test.ts           — JSON import parsing, validation, multi-board envelope detection
 │   ├── imageBlobCache.test.ts       — shared image blob cache lifecycle
-│   └── localBoardSession.test.ts    — session bootstrap, autosave, registry orchestration
+│   └── imageUploader.test.ts        — image upload planning & blob-cache reconciliation
 ├── dnd/
 │   ├── dragSnapshot.test.ts         — snapshot transforms & container queries
 │   ├── dragKeyboard.test.ts         — keyboard navigation resolution
@@ -81,6 +87,8 @@ tests/
 │   ├── keyboardTabStop.test.ts      — roving tab-stop selector cache
 │   ├── selectionNavigation.test.ts  — selection arrow-key navigation
 │   └── selectionState.test.ts       — shared radio/tab semantics for roving selection
+├── model/
+│   └── boardSession.test.ts         — session bootstrap, autosave, registry orchestration
 ├── overlay/
 │   ├── nestedMenus.test.ts          — nested root/submenu open-close tree rules
 │   ├── popupPosition.test.ts        — fixed popup placement & viewport clamping
@@ -95,6 +103,8 @@ tests/
 │   └── tierPresetCloudMerge.test.ts — preset cloud merge
 ├── sharing/
 │   └── hashShare.test.ts            — snapshot codec round-trip & image handling
+├── settings/
+│   └── aspectRatioSettings.test.ts  — aspect-ratio pure settings behavior
 ├── shared-lib/
 │   ├── color.test.ts                — hex/rgb parsing & contrast
 │   ├── fileName.test.ts             — file-name slug helper

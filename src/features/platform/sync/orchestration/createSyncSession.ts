@@ -14,7 +14,7 @@ import {
   persistBoardSyncState,
   persistBoardSyncStateToStorageOnly,
   setBoardDeletedListener,
-} from '~/features/workspace/boards/data/local/localBoardSession'
+} from '~/features/workspace/boards/model/boardSession'
 import {
   classifySyncError,
   isOfflineError,
@@ -26,7 +26,7 @@ import {
   type FlushResult,
 } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 import { flushBoardToCloud } from '~/features/workspace/boards/data/cloud/cloudFlush'
-import { useConflictQueueStore } from '~/features/workspace/boards/data/cloud/conflicts/useConflictQueueStore'
+import { useConflictQueueStore } from '~/features/workspace/boards/model/boardConflictQueueStore'
 import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
 import { logger } from '~/shared/lib/logger'
 import { setupConnectivity } from '~/features/platform/sync/transport/connectivity'

@@ -1,5 +1,5 @@
 // src/shared/ui/SecondaryButton.tsx
-// shim — forwards to the unified Button w/ variant='secondary'
+// named secondary button wrapper over the unified Button primitive
 
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 
