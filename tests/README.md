@@ -126,6 +126,7 @@ tests/
 ├── settings/
 │   └── aspectRatioSettings.test.ts  — aspect-ratio prompt snapshots & mismatch controls
 ├── shared-lib/
+│   ├── async.ts                     — queued Promise flushing helper
 │   ├── color.test.ts                — hex/rgb parsing & contrast
 │   ├── debouncedSyncRunner.test.ts  — shared sync runner extension hooks
 │   ├── fileName.test.ts             — file-name slug helper
@@ -148,11 +149,16 @@ Shared test data defined in `fixtures.ts`:
 | `ITEM_IDS`                          | Stable item ID constants (`'item-1'` through `'item-8'`)                                               |
 | `makeContainerSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items                                                      |
 | `makeBoardSnapshot(overrides?)`     | Builds an empty `BoardSnapshot` — compose tiers/items via overrides                                    |
+| `makeBoardMeta(overrides?)`         | Builds a registry `BoardMeta` row for local board/session tests                                        |
+| `makeBoardListItem(overrides?)`     | Builds a cloud `BoardListItem` row for sync and Convex list tests                                      |
 | `makeTier(overrides?)`              | Builds a `Tier` w/ palette colorSpec defaults                                                          |
 | `makeItem(overrides?)`              | Builds a `TierItem` w/ a default item ID                                                               |
 | `makeRect(overrides?)`              | Builds a `DOMRect` for layout/popup tests; derives `right`/`bottom` from `left`/`top`/`width`/`height` |
 
 `tests/typeHelpers.ts` provides `asInvalid<T>(value)` for tests that intentionally pass malformed input. Prefer it over a bare `as never` cast so the intent is explicit.
+
+`tests/shared-lib/async.ts` provides `flushPromises()` for tests that need
+queued Promise continuations to settle under fake timers.
 
 ## Adding Tests
 

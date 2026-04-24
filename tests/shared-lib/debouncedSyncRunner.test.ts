@@ -3,12 +3,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDebouncedSyncRunner } from '~/shared/lib/sync/debouncedSyncRunner'
-
-const flushPromises = async (): Promise<void> =>
-{
-  await Promise.resolve()
-  await Promise.resolve()
-}
+import { flushPromises } from './async'
 
 describe('debounced sync runner', () =>
 {

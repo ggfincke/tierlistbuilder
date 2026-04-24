@@ -2,7 +2,6 @@
 // first-login board merge retry behavior
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   pushAllLocalBoards,
@@ -10,13 +9,7 @@ import {
   type FirstLoginBoardMergeDeps,
 } from '~/features/workspace/boards/data/cloud/firstLoginBoardMerge'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { makeBoardSnapshot } from '../fixtures'
-
-const makeBoardMeta = (id: BoardId): BoardMeta => ({
-  id,
-  title: id,
-  createdAt: 1,
-})
+import { makeBoardMeta, makeBoardSnapshot } from '../fixtures'
 
 const resetRegistry = (): void =>
 {
@@ -69,8 +62,8 @@ describe('firstLoginBoardMerge', () =>
   {
     useWorkspaceBoardRegistryStore.setState({
       boards: [
-        makeBoardMeta('board-a' as BoardId),
-        makeBoardMeta('board-b' as BoardId),
+        makeBoardMeta({ id: 'board-a' as BoardId, title: 'board-a' }),
+        makeBoardMeta({ id: 'board-b' as BoardId, title: 'board-b' }),
       ],
       activeBoardId: null,
     })

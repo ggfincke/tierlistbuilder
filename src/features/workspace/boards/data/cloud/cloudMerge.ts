@@ -6,7 +6,6 @@ import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
 import {
   readBrowserStorageItem,
   writeBrowserStorageItem,
-  deleteBrowserStorageItem,
 } from '~/shared/lib/browserStorage'
 import { readBoardStateForCloudSync } from './cloudFlush'
 
@@ -14,7 +13,7 @@ const CLOUD_PULL_KEY_PREFIX = 'tierlistbuilder-cloud-pull-'
 const CLOUD_PULL_STATE_COMPLETED = 'completed'
 const CLOUD_PULL_STATE_PENDING = 'pending'
 
-export const getCloudPullKey = (userId: string): string =>
+const getCloudPullKey = (userId: string): string =>
   `${CLOUD_PULL_KEY_PREFIX}${userId}`
 
 export const hasCompletedCloudPull = (userId: string): boolean =>
@@ -28,9 +27,6 @@ export const markCloudPullCompleted = (userId: string): void =>
 
 export const markCloudPullPending = (userId: string): void =>
   writeBrowserStorageItem(getCloudPullKey(userId), CLOUD_PULL_STATE_PENDING)
-
-export const clearCloudPullCompleted = (userId: string): void =>
-  deleteBrowserStorageItem(getCloudPullKey(userId))
 
 export type MergeDecision =
   | { action: 'push-local' }
