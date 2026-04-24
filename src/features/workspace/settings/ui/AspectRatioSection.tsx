@@ -2,6 +2,7 @@
 // board-level item aspect ratio picker & mismatch list, wired to the active board store
 
 import { useMemo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import type {
@@ -11,7 +12,6 @@ import type {
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   formatAspectRatio,
-  getBoardAspectRatioMode,
   getEffectiveImageFit,
   groupMismatchedItems,
   type MismatchGroup,
@@ -39,24 +39,26 @@ export const AspectRatioSection = () =>
     handleOption,
     applyCustom,
     canApplyCustom,
+    mode,
   } = useBoardAspectRatioPicker()
-  const mode = useActiveBoardStore((state) => getBoardAspectRatioMode(state))
-  const items = useActiveBoardStore((state) => state.items)
-  const setItemImageFit = useActiveBoardStore((state) => state.setItemImageFit)
-  const setItemsImageFit = useActiveBoardStore(
-    (state) => state.setItemsImageFit
-  )
-  const promptDismissed = useActiveBoardStore(
-    (state) => state.aspectRatioPromptDismissed === true
-  )
-  const setAspectRatioPromptDismissed = useActiveBoardStore(
-    (state) => state.setAspectRatioPromptDismissed
-  )
-  const boardDefaultFit = useActiveBoardStore(
-    (state) => state.defaultItemImageFit
-  )
-  const setDefaultItemImageFit = useActiveBoardStore(
-    (state) => state.setDefaultItemImageFit
+  const {
+    items,
+    setItemImageFit,
+    setItemsImageFit,
+    promptDismissed,
+    setAspectRatioPromptDismissed,
+    boardDefaultFit,
+    setDefaultItemImageFit,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      items: state.items,
+      setItemImageFit: state.setItemImageFit,
+      setItemsImageFit: state.setItemsImageFit,
+      promptDismissed: state.aspectRatioPromptDismissed === true,
+      setAspectRatioPromptDismissed: state.setAspectRatioPromptDismissed,
+      boardDefaultFit: state.defaultItemImageFit,
+      setDefaultItemImageFit: state.setDefaultItemImageFit,
+    }))
   )
 
   const groups = useMemo<MismatchGroup[]>(

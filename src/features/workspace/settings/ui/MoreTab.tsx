@@ -115,9 +115,6 @@ export const MoreTab = ({
             New List
           </SecondaryButton>
         </div>
-        <p className="mt-2 text-xs text-[var(--t-text-dim)]">
-          Switch between lists using the button in the bottom-right corner.
-        </p>
 
         <div className="my-2 border-t border-[var(--t-border)]" />
 

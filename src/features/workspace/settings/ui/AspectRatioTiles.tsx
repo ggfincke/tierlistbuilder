@@ -10,7 +10,7 @@ import {
 const RECT_BOX = 28
 
 const GRID_STYLE = {
-  gridTemplateColumns: `repeat(${NON_CUSTOM_RATIO_OPTIONS.length}, minmax(0, 1fr))`,
+  gridTemplateColumns: 'repeat(auto-fit, minmax(4.5rem, 1fr))',
 }
 
 // scale a ratio-correct rect inside a square bounding box, floored so extreme
@@ -123,7 +123,7 @@ const CustomTile = ({
 
   return (
     <div
-      className={`flex items-center gap-2.5 rounded-md border p-1.5 transition-colors ${
+      className={`flex flex-wrap items-center gap-2.5 rounded-md border p-1.5 transition-colors ${
         isActive
           ? 'border-[var(--t-border-hover)] bg-[var(--t-bg-active)]'
           : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]'
@@ -151,7 +151,10 @@ const CustomTile = ({
           Custom
         </span>
       </div>
-      <form className="flex items-center gap-1" onSubmit={handleSubmit}>
+      <form
+        className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1"
+        onSubmit={handleSubmit}
+      >
         <input
           aria-label="Custom width"
           value={width}

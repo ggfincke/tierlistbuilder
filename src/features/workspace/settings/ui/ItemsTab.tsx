@@ -85,9 +85,6 @@ export const ItemsTab = ({
   return (
     <>
       <SettingsSection title="Import Images">
-        <p className="-mt-1 mb-2 text-xs text-[var(--t-text-muted)]">
-          Drop files here or choose them from your computer.
-        </p>
         <ImageUploader />
       </SettingsSection>
 

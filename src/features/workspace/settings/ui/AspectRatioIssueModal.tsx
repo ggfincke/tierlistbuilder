@@ -10,14 +10,11 @@ import type {
   ImageFit,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   ItemShape,
   ItemSize,
 } from '@tierlistbuilder/contracts/workspace/settings'
 import {
-  computeAutoBoardAspectRatio,
-  findMismatchedItems,
   formatAspectRatio,
   getEffectiveImageFit,
 } from '~/features/workspace/boards/lib/aspectRatio'
@@ -32,6 +29,10 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { useSettingsStore } from '../model/useSettingsStore'
 import { useAspectRatioPrompt } from '../model/useAspectRatioPrompt'
+import {
+  createAspectRatioPromptSnapshot,
+  resolveAspectRatioPromptItems,
+} from '../model/aspectRatioPromptSnapshot'
 import { useDeferredAspectRatioPicker } from '../model/useDeferredAspectRatioPicker'
 import { AspectRatioTiles } from './AspectRatioTiles'
 import { SegmentedControl } from './SegmentedControl'
@@ -76,20 +77,23 @@ const AspectRatioIssueModalBody = ({
     handleOption,
     applyCustom,
     canApplyCustom,
+    autoRatio,
     commit: commitPicker,
   } = useDeferredAspectRatioPicker()
-  const items = useActiveBoardStore((state) => state.items)
-  const setItemsImageFit = useActiveBoardStore(
-    (state) => state.setItemsImageFit
-  )
-  const setAspectRatioPromptDismissed = useActiveBoardStore(
-    (state) => state.setAspectRatioPromptDismissed
-  )
-  const boardDefaultFit = useActiveBoardStore(
-    (state) => state.defaultItemImageFit
-  )
-  const setDefaultItemImageFit = useActiveBoardStore(
-    (state) => state.setDefaultItemImageFit
+  const {
+    items,
+    setItemsImageFit,
+    setAspectRatioPromptDismissed,
+    boardDefaultFit,
+    setDefaultItemImageFit,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      items: state.items,
+      setItemsImageFit: state.setItemsImageFit,
+      setAspectRatioPromptDismissed: state.setAspectRatioPromptDismissed,
+      boardDefaultFit: state.defaultItemImageFit,
+      setDefaultItemImageFit: state.setDefaultItemImageFit,
+    }))
   )
   const { itemSize, itemShape } = useSettingsStore(
     useShallow((state) => ({
@@ -97,15 +101,23 @@ const AspectRatioIssueModalBody = ({
       itemShape: state.itemShape,
     }))
   )
-  // ratio that Auto would resolve to based on current items; feeds the Auto
-  // tile's preview rect so it shows what picking Auto would actually do
-  const autoRatio = useActiveBoardStore(
-    (state) => computeAutoBoardAspectRatio(state) ?? undefined
+
+  // capture the opening mismatch set; the blocking prompt resolves later
+  // previews/actions only against these ids
+  const [promptSnapshot] = useState(() =>
+    createAspectRatioPromptSnapshot({
+      items,
+      itemAspectRatio: boardAspectRatio,
+    })
   )
 
   const mismatched = useMemo<TierItem[]>(
-    () => findMismatchedItems({ items, itemAspectRatio: boardAspectRatio }),
-    [items, boardAspectRatio]
+    () =>
+      resolveAspectRatioPromptItems(promptSnapshot, {
+        items,
+        itemAspectRatio: boardAspectRatio,
+      }),
+    [items, boardAspectRatio, promptSnapshot]
   )
 
   // bulk fit stays a local preview until the user commits via Done / Adjust
@@ -149,12 +161,6 @@ const AspectRatioIssueModalBody = ({
     onAdjustEach?.()
   }, [commitPending, close, onAdjustEach])
 
-  // snapshot the mismatched item ids once when this body mounts (i.e. on open)
-  // so preview tiles stay stable as the user cycles ratios; only shape reshapes
-  const [snapshotIds] = useState<readonly ItemId[]>(() =>
-    mismatched.map((item) => item.id)
-  )
-
   const ratioLabel = formatAspectRatio(boardAspectRatio)
 
   // outer slot matches the board's configured item long edge, so preview tiles
@@ -197,9 +203,7 @@ const AspectRatioIssueModalBody = ({
       </div>
 
       <MismatchPreviewStrip
-        snapshotIds={snapshotIds}
-        items={items}
-        mismatchedCount={mismatched.length}
+        mismatchedItems={mismatched}
         boardAspectRatio={boardAspectRatio}
         boardDefaultFit={boardDefaultFit}
         pendingBulkFit={pendingBulkFit}
@@ -268,9 +272,7 @@ const AspectRatioIssueModalBody = ({
 
 interface MismatchPreviewStripProps
 {
-  snapshotIds: readonly ItemId[]
-  items: Record<ItemId, TierItem>
-  mismatchedCount: number
+  mismatchedItems: readonly TierItem[]
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
   pendingBulkFit: ImageFit | null
@@ -280,9 +282,7 @@ interface MismatchPreviewStripProps
 }
 
 const MismatchPreviewStrip = ({
-  snapshotIds,
-  items,
-  mismatchedCount,
+  mismatchedItems,
   boardAspectRatio,
   boardDefaultFit,
   pendingBulkFit,
@@ -291,15 +291,8 @@ const MismatchPreviewStrip = ({
   itemShape,
 }: MismatchPreviewStripProps) =>
 {
-  const previewItems = useMemo<TierItem[]>(
-    () =>
-      snapshotIds
-        .map((id) => items[id])
-        .filter((item): item is TierItem => !!item),
-    [snapshotIds, items]
-  )
-  const thumbnailItems = previewItems.slice(0, MAX_THUMBNAIL_PREVIEW)
-  const remaining = Math.max(0, mismatchedCount - thumbnailItems.length)
+  const thumbnailItems = mismatchedItems.slice(0, MAX_THUMBNAIL_PREVIEW)
+  const remaining = Math.max(0, mismatchedItems.length - thumbnailItems.length)
   if (thumbnailItems.length === 0) return null
 
   const innerSize = itemSlotDimensions(itemSize, boardAspectRatio)
