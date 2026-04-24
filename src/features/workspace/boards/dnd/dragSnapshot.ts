@@ -233,6 +233,13 @@ export const getItemsInContainer = (
   return snapshot.tiers.find((tier) => tier.id === containerId)?.itemIds ?? []
 }
 
+export const getOrderedContainerIds = (
+  snapshot: ContainerSnapshot
+): string[] =>
+{
+  return [...snapshot.tiers.map((tier) => tier.id), UNRANKED_CONTAINER_ID]
+}
+
 // convert a pre-removal target index into the actual splice position used by the store
 export const resolveStoreInsertionIndex = ({
   sameContainer,

@@ -18,15 +18,13 @@ import { useSettingsStore } from '~/features/workspace/settings/model/useSetting
 import { announce } from '~/shared/a11y/announce'
 import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from './dragCollision'
+import { resolveDragEndDecision } from './dragEndDecision'
 import { toItemId, toStringId } from './dragHelpers'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { syncDraggedItemPosition } from './dragPreviewController'
 import { useDragSensors } from './dragSensors'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import {
-  getItemElementById,
-  TRASH_CONTAINER_ID,
-} from '~/features/workspace/boards/lib/dndIds'
+import { getItemElementById } from '~/features/workspace/boards/lib/dndIds'
 import {
   findContainer,
   getEffectiveContainerSnapshot,
@@ -216,58 +214,48 @@ export const useDragAndDrop = () =>
   const onDragEnd = (event: DragEndEvent) =>
   {
     const activeStringId = toStringId(event.active.id)
+    const activeFallbackId = activeStringId ? toItemId(activeStringId) : null
     const activeDragState = activeDragRef.current
+    const stateAtEnd = useActiveBoardStore.getState()
+    const preview = getEffectiveContainerSnapshot(stateAtEnd)
+    const overId = event.over ? toStringId(event.over.id) : null
+    const decision = resolveDragEndDecision({
+      activeDrag: activeDragState,
+      activeFallbackId,
+      hasOver: event.over != null,
+      overId,
+      snapshot: preview,
+      tierIds: stateAtEnd.tiers.map((tier) => tier.id),
+    })
 
-    if (activeDragState.kind === 'tier')
+    if (decision.kind === 'tier-reorder')
     {
-      if (event.over)
-      {
-        const overId = toStringId(event.over.id)
-        if (overId && activeDragState.tierId !== overId)
-        {
-          const tiers = useActiveBoardStore.getState().tiers
-          const fromIndex = tiers.findIndex(
-            (tier) => tier.id === activeDragState.tierId
-          )
-          const toIndex = tiers.findIndex((tier) => tier.id === overId)
-          if (fromIndex >= 0 && toIndex >= 0)
-          {
-            reorderTierByIndex(fromIndex, toIndex)
-          }
-        }
-      }
+      reorderTierByIndex(decision.fromIndex, decision.toIndex)
       resetDragState()
       return
     }
 
-    const activeId =
-      activeDragState.kind === 'item'
-        ? activeDragState.itemId
-        : activeStringId
-          ? toItemId(activeStringId)
-          : null
-
-    if (!activeId)
+    if (decision.kind === 'reset')
     {
       resetDragState()
       return
     }
 
-    if (!event.over)
+    if (decision.kind === 'item-cancel')
     {
       discardDragPreview()
       resetDragState()
       return
     }
 
-    const overId = toStringId(event.over.id)
-
-    if (overId === TRASH_CONTAINER_ID)
+    if (decision.kind === 'item-trash')
     {
       const state = useActiveBoardStore.getState()
       const groupIds =
-        state.dragGroupIds.length > 0 ? state.dragGroupIds : [activeId]
-      const label = state.items[activeId]?.label ?? 'item'
+        state.dragGroupIds.length > 0
+          ? [...state.dragGroupIds]
+          : [decision.itemId]
+      const label = state.items[decision.itemId]?.label ?? 'item'
       discardDragPreview()
       removeItems(groupIds)
       resetDragState()
@@ -279,29 +267,19 @@ export const useDragAndDrop = () =>
       return
     }
 
-    if (overId)
+    if (decision.resyncContainerId)
     {
-      const preview = getEffectiveContainerSnapshot(
+      const latestPreview = getEffectiveContainerSnapshot(
         useActiveBoardStore.getState()
       )
-      const activeContainerId = findContainer(preview, activeId)
-      const overContainerId = findContainer(preview, overId)
-
-      if (
-        activeContainerId &&
-        overContainerId &&
-        activeContainerId === overContainerId
+      const renderedSnapshot = captureRenderedContainerSnapshot(
+        latestPreview,
+        decision.resyncContainerId
       )
-      {
-        const renderedSnapshot = captureRenderedContainerSnapshot(
-          preview,
-          activeContainerId
-        )
 
-        if (renderedSnapshot)
-        {
-          updateDragPreview(renderedSnapshot)
-        }
+      if (renderedSnapshot)
+      {
+        updateDragPreview(renderedSnapshot)
       }
     }
 
@@ -322,9 +300,9 @@ export const useDragAndDrop = () =>
     commitDragPreview()
 
     const state = useActiveBoardStore.getState()
-    const label = state.items[activeId]?.label ?? 'item'
-    const preview = getEffectiveContainerSnapshot(state)
-    const containerId = findContainer(preview, activeId)
+    const label = state.items[decision.itemId]?.label ?? 'item'
+    const committedPreview = getEffectiveContainerSnapshot(state)
+    const containerId = findContainer(committedPreview, decision.itemId)
     const dest = getContainerLabel(containerId, state.tiers)
     announce(
       groupCountBeforeCommit > 1

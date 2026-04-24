@@ -20,7 +20,7 @@ import {
   getEffectiveContainerSnapshot,
   getItemsInContainer,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
-import { isPointerInTrailingLastRowSpace } from '~/features/workspace/boards/dnd/dragPointerMath'
+import { isPointerInTrailingLastRowSpace } from './dragLayoutRows'
 
 export const resolveDragCollisions = (
   args: Parameters<CollisionDetection>[0],

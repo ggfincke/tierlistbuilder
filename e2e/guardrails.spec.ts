@@ -1,7 +1,7 @@
 // e2e/guardrails.spec.ts
 // Playwright guardrails for cross-layer board workflows
 
-import { expect, test, type Page } from 'playwright/test'
+import { expect, test, type Locator, type Page } from 'playwright/test'
 import { deflate } from 'pako'
 
 type E2eBoard = {
@@ -98,6 +98,32 @@ const openWorkspaceWithBoard = async (
   return board
 }
 
+const dragCenterToCenter = async (
+  page: Page,
+  source: Locator,
+  target: Locator
+): Promise<void> =>
+{
+  const sourceBox = await source.boundingBox()
+  const targetBox = await target.boundingBox()
+
+  if (!sourceBox || !targetBox)
+  {
+    throw new Error('unable to resolve drag boxes')
+  }
+
+  const sourceX = sourceBox.x + sourceBox.width / 2
+  const sourceY = sourceBox.y + sourceBox.height / 2
+  const targetX = targetBox.x + targetBox.width / 2
+  const targetY = targetBox.y + targetBox.height / 2
+
+  await page.mouse.move(sourceX, sourceY)
+  await page.mouse.down()
+  await page.mouse.move(sourceX + 12, sourceY + 12)
+  await page.mouse.move(targetX, targetY, { steps: 12 })
+  await page.mouse.up()
+}
+
 test.beforeEach(async ({ page }) =>
 {
   await resetBrowserStorage(page)
@@ -124,6 +150,25 @@ test('keyboard drag moves an item across tiers & restores focus', async ({
     destination.getByTestId(tierItemTestId('item-alpha'))
   ).toBeVisible()
   await expect(alpha).toBeFocused()
+})
+
+test('pointer drag moves an item across tiers & undo restores it', async ({
+  page,
+}) =>
+{
+  await openWorkspaceWithBoard(page)
+
+  const alpha = page.getByTestId(tierItemTestId('item-alpha'))
+  const tierS = page.getByTestId(tierContainerTestId('tier-s'))
+  const tierA = page.getByTestId(tierContainerTestId('tier-a'))
+  const beta = page.getByTestId(tierItemTestId('item-beta'))
+
+  await dragCenterToCenter(page, alpha, beta)
+
+  await expect(tierA.getByTestId(tierItemTestId('item-alpha'))).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeEnabled()
+  await page.keyboard.press(`${multiSelectModifier}+Z`)
+  await expect(tierS.getByTestId(tierItemTestId('item-alpha'))).toBeVisible()
 })
 
 test('bulk item delete is restored by one undo', async ({ page }) =>
