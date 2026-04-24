@@ -30,9 +30,11 @@ const EMBED_APPEARANCE: StaticBoardAppearance = {
 }
 
 // load embed data from the current short-link slug
-const loadEmbedData = async (): Promise<BoardSnapshot | null> =>
+const loadEmbedData = async (
+  signal: AbortSignal
+): Promise<BoardSnapshot | null> =>
 {
-  const result = await resolveInboundShare()
+  const result = await resolveInboundShare({ signal })
   return result.kind === 'resolved' ? result.data : null
 }
 
@@ -43,17 +45,28 @@ export const EmbedView = () =>
 
   useEffect(() =>
   {
-    void loadEmbedData().then((result) =>
-    {
-      if (result)
+    const controller = new AbortController()
+
+    void loadEmbedData(controller.signal)
+      .then((result) =>
       {
-        setData(normalizeBoardSnapshot(result, EMBED_DEFAULT_PALETTE_ID))
-      }
-      else
+        if (controller.signal.aborted) return
+        if (result)
+        {
+          setData(normalizeBoardSnapshot(result, EMBED_DEFAULT_PALETTE_ID))
+        }
+        else
+        {
+          setError(true)
+        }
+      })
+      .catch(() =>
       {
+        if (controller.signal.aborted) return
         setError(true)
-      }
-    })
+      })
+
+    return () => controller.abort()
   }, [])
 
   if (error)

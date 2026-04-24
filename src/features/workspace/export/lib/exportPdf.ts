@@ -4,6 +4,7 @@
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance } from '../model/runtime'
 import { toFileBase } from '~/shared/lib/fileName'
+import { loadPdfLib } from '~/shared/lib/lazyDependencies'
 import { captureBoardAsDataUrl } from './exportImage'
 
 // capture the element as a PNG then embed it in a pixel-perfect PDF & download
@@ -22,7 +23,7 @@ export const exportTierListAsPdf = async (
   // choose orientation based on image aspect ratio
   const orientation = width >= height ? 'landscape' : 'portrait'
 
-  const { jsPDF } = await import('jspdf')
+  const { jsPDF } = await loadPdfLib()
 
   // create a PDF sized to the exact pixel dimensions of the rendered image
   const pdf = new jsPDF({

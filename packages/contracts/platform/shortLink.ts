@@ -2,9 +2,9 @@
 // wire contracts for snapshot-share short links. resolveSlug returns the URL for the compressed
 // snapshot blob; frontend inflates & parses it via the shared snapshot codec
 
-// max compressed bytes accepted by createSnapshotShortLink. cap is enforced
-// server-side after upload & before shortLinks row insert. covers boards w/
-// many items even after strip-images; narrow enough to deter blob-store abuse
+// max compressed bytes accepted by createSnapshotShortLink. client enforces
+// before upload; server rechecks before shortLinks row insert. covers boards w/
+// many items & images while deterring blob-store abuse
 export const MAX_SNAPSHOT_COMPRESSED_BYTES = 256 * 1024
 
 // max inflated bytes the client accepts from an inbound share decode.

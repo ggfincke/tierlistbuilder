@@ -39,6 +39,11 @@ export type InboundShareResult =
   | InboundShareFailed
   | InboundShareNone
 
+export interface ResolveInboundShareOptions
+{
+  signal?: AbortSignal
+}
+
 export const clearInboundShareFromUrl = (): void =>
 {
   clearShareFragment()
@@ -46,14 +51,20 @@ export const clearInboundShareFromUrl = (): void =>
 }
 
 // resolve the current URL's share marker into a BoardSnapshot
-export const resolveInboundShare = async (): Promise<InboundShareResult> =>
+export const resolveInboundShare = async (
+  options: ResolveInboundShareOptions = {}
+): Promise<InboundShareResult> =>
 {
+  const { signal } = options
+  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
+
   const fragment = getShareFragment()
   if (fragment)
   {
     try
     {
       const data = await decodeBoardFromShareFragment(fragment)
+      if (signal?.aborted) throw signal.reason ?? new Error('aborted')
       return { kind: 'resolved', source: 'fragment', data }
     }
     catch (error)
@@ -70,7 +81,7 @@ export const resolveInboundShare = async (): Promise<InboundShareResult> =>
 
   try
   {
-    const data = await decodeBoardFromShortLink(slug)
+    const data = await decodeBoardFromShortLink(slug, signal)
     return { kind: 'resolved', source: 'slug', data }
   }
   catch (error)

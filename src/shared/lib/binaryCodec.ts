@@ -6,9 +6,17 @@
 // allocate gigabytes on import
 const MAX_DATA_URL_BYTES = 25 * 1024 * 1024
 
-// convert a Blob into a data URL via FileReader
+// convert a Blob into a data URL
 export const blobToDataUrl = async (blob: Blob): Promise<string> =>
-  new Promise((resolve, reject) =>
+{
+  if (typeof FileReader === 'undefined')
+  {
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    const mimeType = blob.type || 'application/octet-stream'
+    return `data:${mimeType};base64,${bytesToBase64(bytes)}`
+  }
+
+  return new Promise((resolve, reject) =>
   {
     const reader = new FileReader()
 
@@ -29,6 +37,7 @@ export const blobToDataUrl = async (blob: Blob): Promise<string> =>
 
     reader.readAsDataURL(blob)
   })
+}
 
 // convert Uint8Array bytes into a base64 string. chunk size is a multiple
 // of 3 so btoa's partial-group '=' padding only appears on the final chunk
