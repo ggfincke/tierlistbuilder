@@ -2,13 +2,8 @@
 // first-login cloud merge decisions
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type {
-  BoardListItem,
-  BoardMeta,
-} from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import {
-  clearCloudPullCompleted,
   decideFirstLoginMerge,
   hasCompletedCloudPull,
   hasPendingCloudPull,
@@ -18,22 +13,22 @@ import {
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
-import { makeBoardSnapshot } from '../fixtures'
+import {
+  makeBoardListItem,
+  makeBoardMeta,
+  makeBoardSnapshot,
+} from '../fixtures'
 
 const TEST_USER_ID = 'user-1'
 const LOCAL_BOARD_ID = 'board-local' as BoardId
-const LOCAL_BOARD: BoardMeta = {
+const LOCAL_BOARD = makeBoardMeta({
   id: LOCAL_BOARD_ID,
   title: 'Local board',
-  createdAt: 1,
-}
-const CLOUD_BOARD: BoardListItem = {
+})
+const CLOUD_BOARD = makeBoardListItem({
   externalId: 'board-cloud',
   title: 'Cloud board',
-  createdAt: 1,
-  updatedAt: 1,
-  revision: 1,
-}
+})
 
 // seed the registry & active store so readBoardStateForCloudSync resolves
 // against the in-memory active-board path instead of falling through to
@@ -86,10 +81,10 @@ describe('cloudMerge', () =>
     expect(hasCompletedCloudPull(TEST_USER_ID)).toBe(true)
     expect(hasPendingCloudPull(TEST_USER_ID)).toBe(false)
 
-    clearCloudPullCompleted(TEST_USER_ID)
+    markCloudPullPending(TEST_USER_ID)
 
     expect(hasCompletedCloudPull(TEST_USER_ID)).toBe(false)
-    expect(hasPendingCloudPull(TEST_USER_ID)).toBe(false)
+    expect(hasPendingCloudPull(TEST_USER_ID)).toBe(true)
   })
 
   it('resumes a pending cloud pull instead of treating the workspace as a conflict', () =>

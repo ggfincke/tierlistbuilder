@@ -4,28 +4,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import {
   createCloudSyncScheduler,
   type FlushResult,
   type PendingBoardSync,
 } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
-import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
-
-const flushPromises = async (): Promise<void> =>
-{
-  await Promise.resolve()
-  await Promise.resolve()
-}
-
-const makeBoardWithTitle = (title: string): BoardSnapshot => ({
-  ...createInitialBoardData('classic'),
-  title,
-})
+import { flushPromises } from '../shared-lib/async'
+import { makeBoardSnapshot } from '../fixtures'
 
 const makeWork = (boardId: BoardId, title: string): PendingBoardSync =>
 {
-  const snapshot = makeBoardWithTitle(title)
+  const snapshot = makeBoardSnapshot({ title })
 
   return {
     boardId,

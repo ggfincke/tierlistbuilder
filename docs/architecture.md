@@ -39,6 +39,10 @@ src/
 │   │   └── pathname.ts              # resolveAppRoute + workspace/embed path builders
 │   └── shells/
 │       ├── WorkspaceShell.tsx       # full editable workspace shell
+│       ├── WorkspaceModalLayer.tsx  # workspace modal/conflict/progress composition
+│       ├── useWorkspaceExportActions.ts # export preview + annotation actions
+│       ├── useModalStack.ts         # keyed modal state helper
+│       ├── workspaceModals.ts       # workspace modal payload map
 │       └── EmbedShell.tsx           # read-only embed shell
 ├── features/workspace/
 │   ├── annotation/{model,ui}        # draw-over annotation editor
@@ -46,7 +50,7 @@ src/
 │   │   ├── data/
 │   │   │   ├── local/               # per-board localStorage I/O + sync/delete sidecars
 │   │   │   └── cloud/               # Convex board repo/mapper, pull/flush/merge, scheduler
-│   │   ├── dnd/                     # dnd-kit wiring, sensors, pointer math, snapshot transforms
+│   │   ├── dnd/                     # dnd-kit wiring, sensors, pointer math, layout sessions
 │   │   ├── interaction/             # keyboard drag controller, focus restore, useKeyboardDrag
 │   │   ├── lib/                     # boardDefaults, dndIds, containerLabel, aspectRatio (pure helpers)
 │   │   ├── model/                   # active board store, registry, session facade, conflicts, snapshot ops
@@ -55,7 +59,7 @@ src/
 │   ├── settings/
 │   │   ├── data/{local,cloud}       # settings storage key + Convex sync
 │   │   ├── lib/                     # image upload constants & helpers
-│   │   ├── model/                   # settings store, palette selector, image import hook
+│   │   ├── model/                   # settings store, palette selector, aspect ratio, image import
 │   │   └── ui/                      # BoardSettingsModal & tabbed content
 │   ├── sharing/
 │   │   ├── inbound/                 # detect & import share URLs into the active board
@@ -90,10 +94,8 @@ src/
     │                                # localSidecar, scheduleIdle, sha256, sync/ (debouncedSyncRunner,
     │                                # ownedSyncMeta, backoff, proceedGuard)
     ├── notifications/               # ToastContainer, useToastStore
-    ├── overlay/                     # Modal.tsx (BaseModal, ConfirmDialog, ProgressOverlay, LazyModalSlot,
-    │                                # ModalHeader, OverlayPanelSurface), useModal (dismissible layer +
-    │                                # focus trap + nested stack), menu.ts (anchored menu hooks, overflow
-    │                                # flip, nested-menu tree), popupPosition, uiMeasurements
+    ├── overlay/                     # BaseModal, ConfirmDialog, progress, focus/inert dialog wiring,
+    │                                # dismissible layers, anchored popups, menu overflow, nested menus
     ├── selection/                   # useRovingSelection, selectionNavigation, selectionState
     ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors, zIndex
     └── ui/                          # ActionButton, Button, buttonBase, PrimaryButton, SecondaryButton,
@@ -112,7 +114,7 @@ Four Zustand stores form the workspace data layer:
 
 **`useActiveBoardStore`** (`features/workspace/boards/model/useActiveBoardStore.ts`) — the single active board. Holds a `BoardSnapshot` (title, tiers, unrankedItemIds, items map, deletedItems) and runtime-only fields (`activeItemId`, `dragPreview`, `keyboardMode`, `keyboardFocusItemId`, `selection`, `runtimeError`, undo/redo stacks). It is an in-memory store with no persist middleware — persistence is orchestrated by `features/workspace/boards/model/boardSession.ts` and its `model/session/*` helpers. The store manages undo/redo history, selection, and the drag preview lifecycle.
 
-**`useWorkspaceBoardRegistryStore`** (`features/workspace/boards/model/useWorkspaceBoardRegistryStore.ts`) — multi-board registry. Uses Zustand `persist` middleware with `partialize` to persist `boards` and `activeBoardId`. Handles create, switch, delete, duplicate, and rename. A debounced subscriber on `useActiveBoardStore` auto-saves the active board's data via the local data layer.
+**`useWorkspaceBoardRegistryStore`** (`features/workspace/boards/model/useWorkspaceBoardRegistryStore.ts`) — multi-board registry. Uses Zustand `persist` middleware with `partialize` to persist `boards` and `activeBoardId`. Handles create, switch, delete, duplicate, and rename. Active-board autosave is registered by `features/workspace/boards/model/boardSession.ts`, which keeps registry coordination and local persistence behind the model facade.
 
 **`useSettingsStore`** (`features/workspace/settings/model/useSettingsStore.ts`) — global user preferences (item size, shape, label visibility, compact mode, label width, theme, palette, text style, reduced motion, toolbar position, etc.). Persisted independently.
 
@@ -156,12 +158,12 @@ Cloud sync is split between platform lifecycle and workspace adapters:
 Drag-and-drop uses a **snapshot-based preview** pattern that separates visual feedback from persisted state:
 
 ```
-1. beginDragPreview()    → captures ContainerSnapshot (tier itemId arrays + unranked itemIds)
-2. updateDragPreview()   → applies moves to the snapshot, persisted state untouched
-3. getEffectiveTiers()   → overlays snapshot onto persisted tiers for rendering
+1. beginDragPreview()    -> captures ContainerSnapshot (tier itemId arrays + unranked itemIds)
+2. updateDragPreview()   -> applies moves to the snapshot, persisted state untouched
+3. getEffectiveTiers()   -> overlays snapshot onto persisted tiers for rendering
    getEffectiveUnrankedItemIds()
-4a. commitDragPreview()  → writes snapshot into persisted state (on drop)
-4b. discardDragPreview() → throws snapshot away (on cancel)
+4a. commitDragPreview()  -> writes snapshot into persisted state (on drop)
+4b. discardDragPreview() -> throws snapshot away (on cancel)
 ```
 
 **Drag logic** lives under `features/workspace/boards/dnd/`:
@@ -169,13 +171,17 @@ Drag-and-drop uses a **snapshot-based preview** pattern that separates visual fe
 - `dragSnapshot.ts` — pure snapshot transforms, container queries, & item movement (`moveItemInSnapshot`, `findContainer`, `getEffectiveTiers`, etc.)
 - `dragPointerMath.ts` — pointer/mouse insertion math (`resolveDragTargetIndex`, `resolveNextDragPreview`, etc.)
 - `dragKeyboard.ts` — keyboard navigation (`resolveNextKeyboardDragPreview`, `resolveNextKeyboardFocusItem`)
-- `dragDomCapture.ts` — DOM reading for rendered layout & positions (`captureRenderedContainerSnapshot`, `resolveIntraContainerRowMove`, etc.)
+- `dragLayoutRows.ts` — pure rendered-row grouping, pointer trailing-row, and column-targeting helpers.
+- `dragLayoutSession.ts` — cached DOM-backed layout sessions for rendered containers.
+- `dragDomCapture.ts` — scoped DOM snapshot rebuilding through layout sessions.
+- `dragEndDecision.ts` — pure pointer drag-end classification for item/tier drops.
 - `dragCollision.ts`, `dragPreviewController.ts`, `dragDropAnimation.ts`, `dragHelpers.ts`, `dragSensors.ts`, `useDragAndDrop.ts` — dnd-kit wiring, sensors, collision resolution, drop animation, & lifecycle
 
 **Keyboard interaction** lives under `features/workspace/boards/interaction/`:
 
 - `useKeyboardDrag.ts` — item-facing hook consumed by `TierItem`
 - `keyboardDragController.ts` — 3-state machine (idle → browse → dragging), arrow key navigation with intra-row and column-aware cross-tier logic
+- `keyboardNavigation.ts` — pure browse/drag navigation resolver shared by the controller.
 - `keyboardFocus.ts` — RAF-debounced focus restoration helpers
 
 The separation ensures board-input orchestration (selection, focus persistence, board re-entry, drag cancellation) lives in `interaction/` while pure drag helpers live in `dnd/`. Interaction may call into dnd helpers; the reverse is not allowed.
@@ -254,15 +260,14 @@ App (app/App.tsx → AppRouter)
 
 ## Overlay System
 
-`shared/overlay/` is consolidated into five files that own all dialog, popup, and menu chrome:
+`shared/overlay/` is split by responsibility so modal surfaces, focus
+management, popups, and menu behavior can change independently:
 
-- **`Modal.tsx`** — portal-mounted surfaces: `BaseModal`, `ConfirmDialog`, `ProgressOverlay`, `ModalHeader`, `LazyModalSlot`, `OverlayPanelSurface`.
-- **`useModal.ts`** — hook bundle for dialogs & popups: dismissible-layer registration, Escape & outside-click handling, focus trap, background inert, and the global modal stack (`useModalStack` under `app/shells/`).
-- **`menu.ts`** — anchored-menu machinery: placement hooks, overflow-flip rules, nested-menu tree state, & shared menu class sets.
-- **`popupPosition.ts`** — pure fixed-position math for tier-row popups; computes `left`/`top` from a trigger rect at open time so the popup escapes the `overflow-x-auto` tier wrapper without clipping.
-- **`uiMeasurements.ts`** — viewport & scrollbar measurements used by the positioning math.
+- **Dialog surfaces:** `BaseModal.tsx`, `ConfirmDialog.tsx`, `ProgressOverlay.tsx`, `LazyModalSlot.tsx`, `ModalHeader.tsx`, `DialogActions.tsx`, `OverlaySurface.tsx`, and `progress.ts`.
+- **Modal behavior:** `modalDialog.ts`, `focusTrap.ts`, and `modalLayer.ts` own Escape handling, focus containment, app-shell inert state, and scroll locking. The keyed modal stack lives in `app/shells/useModalStack.ts`.
+- **Popup/menu behavior:** `dismissibleLayer.ts`, `anchoredPopup.ts`, `popupPosition.ts`, `uiMeasurements.ts`, `menuOverflow.ts`, and `nestedMenus.ts` own outside interaction, positioning, overflow flipping, and submenu state.
 
-Tier-row popups (`ColorPicker`, `TierRowSettingsMenu`) compute their position via `popupPosition.ts` at open time. `BoardManager` and `ExportMenu` keep their own anchored layouts but reuse the dismissal & menu plumbing. `BoardSettingsModal`, `PresetPickerModal`, `ShareModal`, `RecentSharesModal`, `RecentlyDeletedModal`, `AspectRatioIssueModal`, `ConflictResolverModal`, and `SignInModal` all build on `BaseModal`.
+Tier-row popups (`ColorPicker`, `TierRowSettingsMenu`) compute their position via `popupPosition.ts` at open time. `BoardManager` and `ExportMenu` keep their own anchored layouts but reuse dismissal and overflow helpers. `BoardSettingsModal`, `PresetPickerModal`, `ShareModal`, `RecentSharesModal`, `RecentlyDeletedModal`, `AspectRatioIssueModal`, `ConflictResolverModal`, and `SignInModal` all build on `BaseModal`.
 
 Toolbar-position-aware submenu class sets live in `shared/layout/toolbarPosition.ts`, consumed by `BoardActionBar`, `ExportMenu`, `TierList`, `useGlobalShortcuts`, and the workspace shell.
 

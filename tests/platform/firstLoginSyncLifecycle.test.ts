@@ -3,17 +3,12 @@
 
 import { describe, expect, it } from 'vitest'
 import { runFirstLoginSyncLifecycle } from '~/features/platform/sync/orchestration/firstLoginSyncLifecycle'
+import { flushPromises } from '../shared-lib/async'
 
 interface DeferredPromise<T>
 {
   promise: Promise<T>
   resolve: (value: T | PromiseLike<T>) => void
-}
-
-const flushPromises = async (): Promise<void> =>
-{
-  await Promise.resolve()
-  await Promise.resolve()
 }
 
 const createDeferred = <T>(): DeferredPromise<T> =>
