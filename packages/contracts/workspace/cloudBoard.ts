@@ -4,6 +4,11 @@
 import type { TierColorSpec } from '../lib/theme'
 import type { ImageFit, ItemAspectRatioMode } from './board'
 
+// cloud board sync caps; server enforces these before writing row diffs.
+// clients/tests import the same contract so limit-edge behavior stays explicit
+export const MAX_CLOUD_BOARD_TIERS = 50
+export const MAX_CLOUD_BOARD_ITEMS = 2000
+
 export interface CloudBoardTierWire
 {
   externalId: string
