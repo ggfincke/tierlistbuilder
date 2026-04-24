@@ -17,6 +17,7 @@ import type {
   UndoEntry,
 } from '~/features/workspace/boards/model/runtime'
 import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
+import type { BoardSyncStatePatch } from './syncStateOps'
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   PaletteId,
@@ -30,11 +31,7 @@ export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
 {
   itemsManuallyMoved: boolean
   runtimeError: string | null
-  setSyncState: (state: {
-    lastSyncedRevision?: number | null
-    cloudBoardExternalId?: string | null
-    pendingSyncAt?: number | null
-  }) => void
+  setSyncState: (state: BoardSyncStatePatch) => void
   setRuntimeError: (message: string) => void
   clearRuntimeError: () => void
   addTier: (paletteId: PaletteId) => void
@@ -51,6 +48,7 @@ export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
   addTextItem: (label: string, backgroundColor: string) => void
   setItemAltText: (itemId: ItemId, altText: string) => void
   removeItem: (itemId: ItemId) => void
+  removeItems: (itemIds: readonly ItemId[]) => void
   restoreDeletedItem: (itemId: ItemId) => void
   permanentlyDeleteItem: (itemId: ItemId) => void
   clearDeletedItems: () => void
@@ -128,6 +126,34 @@ export type ActiveBoardStore = BoardDataSlice &
   KeyboardSlice &
   UndoSlice
 
+type DuplicateSliceKeyError<TSeen, TNext> = [
+  'Duplicate active board slice keys',
+  Extract<keyof TSeen, keyof TNext>,
+]
+
+type AssertNoDuplicateSliceKeys<
+  TSlices extends readonly object[],
+  TSeen extends object = object,
+> = TSlices extends readonly [
+  infer TNext extends object,
+  ...infer TRest extends object[],
+]
+  ? Extract<keyof TSeen, keyof TNext> extends never
+    ? AssertNoDuplicateSliceKeys<TRest, TSeen & TNext>
+    : DuplicateSliceKeyError<TSeen, TNext>
+  : true
+
+type AssertTrue<T extends true> = T
+
+type _ActiveBoardSliceKeyCheck = AssertTrue<
+  AssertNoDuplicateSliceKeys<
+    [BoardDataSlice, SelectionSlice, DragPreviewSlice, KeyboardSlice, UndoSlice]
+  >
+>
+
+const _sliceKeyCollisionCheck: _ActiveBoardSliceKeyCheck = true
+void _sliceKeyCollisionCheck
+
 // convenience alias — every slice creator takes the combined store shape so
 // cross-slice reads via `get()` work w/o extra plumbing
 export type ActiveBoardSliceCreator<TSlice> = StateCreator<
@@ -137,7 +163,7 @@ export type ActiveBoardSliceCreator<TSlice> = StateCreator<
   TSlice
 >
 
-// compile-time sanity check — ActiveBoardStore must remain compatible w/
+// compile-time sanity check — ActiveBoardStore must match
 // ActiveBoardRuntimeState so existing helpers/selectors keep working
 const _runtimeShapeCheck = (store: ActiveBoardStore): ActiveBoardRuntimeState =>
   store

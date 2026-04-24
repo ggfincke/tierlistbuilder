@@ -1,7 +1,6 @@
-// src/features/workspace/boards/data/cloud/conflicts/ConflictResolverModal.tsx
-// blocking modal for unresolved sync conflicts; opens for head of useConflictQueueStore
+// src/features/workspace/boards/ui/ConflictResolverModal.tsx
+// blocking modal for unresolved cloud-sync conflicts
 
-import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
 import { useCallback, useId, useMemo, useState } from 'react'
 
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
@@ -14,12 +13,13 @@ import {
   resolveKeepLocal,
   type ResolveContext,
   type ResolveOutcome,
-} from './conflictResolver'
+} from '~/features/workspace/boards/model/boardConflictResolution'
 import {
   selectCurrentConflict,
   useConflictQueueStore,
   type ConflictEntry,
-} from './useConflictQueueStore'
+} from '~/features/workspace/boards/model/boardConflictQueueStore'
+import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
 
 interface ConflictResolverModalProps
 {
@@ -155,7 +155,7 @@ const ConflictResolverDialog = ({
         <ConflictActionButton
           title="Keep this device"
           description="Overwrite the cloud copy with what you have locally."
-          busyLabel="Keeping this device…"
+          busyLabel="Keeping this device..."
           busy={busy === 'keep-local'}
           disabled={isBusy}
           onClick={() =>
@@ -166,7 +166,7 @@ const ConflictResolverDialog = ({
         <ConflictActionButton
           title="Keep cloud version"
           description="Discard local edits & load the cloud copy."
-          busyLabel="Loading cloud…"
+          busyLabel="Loading cloud..."
           busy={busy === 'keep-cloud'}
           disabled={isBusy}
           onClick={() =>
@@ -182,7 +182,7 @@ const ConflictResolverDialog = ({
         <ConflictActionButton
           title="Keep both copies"
           description="Save your local edits as a new board, then load the cloud copy here."
-          busyLabel="Saving both…"
+          busyLabel="Saving both..."
           busy={busy === 'keep-both'}
           disabled={isBusy}
           onClick={() => handleResolve('keep-both', () => resolveKeepBoth(ctx))}

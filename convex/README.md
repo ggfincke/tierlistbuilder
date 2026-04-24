@@ -45,21 +45,27 @@ convex/
   lib/
     auth.ts           # getCurrentUser, getCurrentUserId, requireCurrentUserId
     hexColor.ts       # runtime hex-color validator for handler args
-    limits.ts         # shared board-sync row-count caps
+    imageValidation.ts # mime/dimension/byte checks for media uploads
+    limits.ts         # shared board-sync row-count caps & GC batch sizes
     permissions.ts    # ownership-by-externalId resolvers for boards, presets, media
     rateLimiter.ts    # shared rate-limit bucket defs & throw helper
+    sha256.ts         # content-hash helper for media dedup
+    storage.ts        # _storage helpers (read URL, delete, size probe)
+    uploadToken.ts    # sign & verify upload tokens bound to purpose + owner
     userUpsert.ts     # populates app-owned user fields on first sign-in
     validators.ts     # v.object() shapes mirroring packages/contracts
   platform/
-    media/            # mediaAssets uploads, queries, & GC
-    shortLinks/       # share-link slug resolution & TTL sweeper
+    media/            # mediaAssets uploads (signed envelopes), queries, GC
+    shortLinks/       # share-link slug resolution, listing, mutations, TTL sweeper
   workspace/
-    boards/           # boards CRUD + cascade delete
+    boards/           # boards CRUD + cascade delete + upsertBoardState
     settings/         # userSettings get/upsert
-    sync/             # local/cloud board merge & reconciliation
+    sync/             # local/cloud board merge, reconciliation, bounded row loader
     tierPresets/      # user preset CRUD
   auth.config.ts      # auth.js provider domain config
   auth.ts             # convexAuth() wiring + afterUserCreatedOrUpdated
+  convex.config.ts    # defineApp() — registers rate-limiter component
+  crons.ts            # daily GC: hard-delete expired boards, orphan media, storage, expired shares
   http.ts             # /auth/* HTTP routes
   schema.ts           # app tables + @convex-dev/auth authTables
   users.ts            # getMe query
@@ -74,4 +80,4 @@ convex/
 
 ## Schema versioning
 
-Don't bump `schema.ts` validators in a way that breaks existing rows w/o a migration. Convex doesn't auto-migrate — see https://docs.convex.dev/database/schemas#schema-validation for the migration playbook.
+Pre-1.0 schema changes may be breaking. Prefer replacing incompatible rows, dropping stale tables/indexes, or resetting dev data over adding row conversion jobs. Only plan old-data support when the user explicitly asks for it.

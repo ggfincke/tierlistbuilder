@@ -52,14 +52,14 @@ const assertSupportedVersion = (envelope: Record<string, unknown>): void =>
   if (typeof envelope.version !== 'number')
   {
     throw new Error(
-      'Export file is missing a schema version. Re-export from a compatible version of the app.'
+      'Export file is missing a schema version. Re-export from the current app.'
     )
   }
 
   if (envelope.version > BOARD_DATA_VERSION)
   {
     throw new Error(
-      `File uses schema version ${envelope.version}, but this app only supports up to version ${BOARD_DATA_VERSION}. Update the app or re-export from a compatible version.`
+      `File uses schema version ${envelope.version}, but this app only supports up to version ${BOARD_DATA_VERSION}. Update the app or re-export from the current app.`
     )
   }
 }

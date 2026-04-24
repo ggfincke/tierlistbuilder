@@ -1,6 +1,6 @@
 // src/features/workspace/boards/ui/RecentlyDeletedModal.tsx
 // modal listing soft-deleted cloud boards w/ restore & permanent-delete actions.
-// driven by useListMyDeletedBoards so other tabs / devices reflect changes automatically
+// driven by the deleted-board session facade so other tabs reflect changes
 
 import { ModalHeader, BaseModal, ConfirmDialog } from '~/shared/overlay/Modal'
 import { useId, useState } from 'react'
@@ -8,15 +8,13 @@ import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 import {
-  permanentlyDeleteBoardImperative,
-  useListMyDeletedBoards,
-} from '~/features/workspace/boards/data/cloud/boardRepository'
-import {
-  restoreBoardFromCloud,
+  permanentlyDeleteDeletedBoardSession,
+  restoreDeletedBoardSession,
   RestoreBoardError,
-} from '~/features/workspace/boards/data/cloud/cloudRestore'
+  useDeletedBoardSessions,
+} from '~/features/workspace/boards/model/deletedBoardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { switchBoardSession } from '~/features/workspace/boards/data/local/localBoardSession'
+import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
@@ -72,7 +70,7 @@ export const RecentlyDeletedModal = ({
 }: RecentlyDeletedModalProps) =>
 {
   const titleId = useId()
-  const deletedBoards = useListMyDeletedBoards(enabled)
+  const deletedBoards = useDeletedBoardSessions(enabled)
 
   // per-row "in flight" tracking by externalId so multiple rows can have
   // their actions in flight at once w/o the buttons fighting over a single
@@ -105,7 +103,7 @@ export const RecentlyDeletedModal = ({
     updateIdSet(setRestoringIds, externalId, 'add')
     try
     {
-      const result = await restoreBoardFromCloud(externalId)
+      const result = await restoreDeletedBoardSession(externalId)
       const message = result.alreadyInRegistry
         ? `"${result.meta.title}" is already in your lists.`
         : `Restored "${result.meta.title}".`
@@ -146,9 +144,7 @@ export const RecentlyDeletedModal = ({
     updateIdSet(setDeletingIds, target.externalId, 'add')
     try
     {
-      await permanentlyDeleteBoardImperative({
-        boardExternalId: target.externalId,
-      })
+      await permanentlyDeleteDeletedBoardSession(target.externalId)
       toast(`"${target.title}" was permanently deleted.`, 'success')
     }
     catch (error)

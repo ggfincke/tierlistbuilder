@@ -2,9 +2,12 @@
 // shared image-vs-text item rendering primitive
 
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
-import type { TierItemImageRef } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  ImageFit,
+  TierItemImageRef,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { getTextColor } from '../lib/color'
-import { OBJECT_FIT_CLASS, type ImageFit } from './constants'
+import { OBJECT_FIT_CLASS } from './constants'
 
 interface ItemContentProps
 {

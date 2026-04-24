@@ -26,6 +26,7 @@ import type * as platform_media_internal from "../platform/media/internal.js";
 import type * as platform_media_queries from "../platform/media/queries.js";
 import type * as platform_media_uploads from "../platform/media/uploads.js";
 import type * as platform_shortLinks_internal from "../platform/shortLinks/internal.js";
+import type * as platform_shortLinks_listing from "../platform/shortLinks/listing.js";
 import type * as platform_shortLinks_mutations from "../platform/shortLinks/mutations.js";
 import type * as platform_shortLinks_queries from "../platform/shortLinks/queries.js";
 import type * as users from "../users.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   "platform/media/queries": typeof platform_media_queries;
   "platform/media/uploads": typeof platform_media_uploads;
   "platform/shortLinks/internal": typeof platform_shortLinks_internal;
+  "platform/shortLinks/listing": typeof platform_shortLinks_listing;
   "platform/shortLinks/mutations": typeof platform_shortLinks_mutations;
   "platform/shortLinks/queries": typeof platform_shortLinks_queries;
   users: typeof users;

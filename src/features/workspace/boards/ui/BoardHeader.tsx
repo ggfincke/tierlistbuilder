@@ -5,7 +5,7 @@ import { Lock } from 'lucide-react'
 import { useEffect, useId } from 'react'
 
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
-import { renameBoardSession } from '~/features/workspace/boards/data/local/localBoardSession'
+import { renameBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'

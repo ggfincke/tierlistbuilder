@@ -27,7 +27,7 @@ import { useSettingsStore } from '~/features/workspace/settings/model/useSetting
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useCloudSync } from '~/features/platform/sync/orchestration/useCloudSync'
-import { ConflictResolverModal } from '~/features/workspace/boards/data/cloud/conflicts/ConflictResolverModal'
+import { ConflictResolverModal } from '~/features/workspace/boards/ui/ConflictResolverModal'
 import { useCloudPullProgressStore } from '~/features/platform/sync/state/useCloudPullProgressStore'
 import { CLOUD_SYNC_ENABLED } from '~/features/platform/sync/lib/cloudSyncConfig'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'

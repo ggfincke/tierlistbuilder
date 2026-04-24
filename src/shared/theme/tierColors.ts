@@ -50,7 +50,7 @@ const isCustomColorSpec = (value: unknown): value is { hex: string } =>
   return spec.kind === 'custom' && typeof spec.hex === 'string'
 }
 
-// coerce an unknown persisted value into a canonical TierColorSpec, or null
+// validate an unknown value as a canonical TierColorSpec, or null
 export const normalizeCanonicalTierColorSpec = (
   value: unknown
 ): TierColorSpec | null =>

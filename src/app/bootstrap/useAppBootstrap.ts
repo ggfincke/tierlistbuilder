@@ -9,7 +9,7 @@ import {
   bootstrapBoardSession,
   importBoardSession,
   registerBoardAutosave,
-} from '~/features/workspace/boards/data/local/localBoardSession'
+} from '~/features/workspace/boards/model/boardSession'
 import {
   clearInboundShareFromUrl,
   resolveInboundShare,

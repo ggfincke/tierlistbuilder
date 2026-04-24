@@ -1,6 +1,5 @@
 // src/shared/ui/ActionButton.tsx
-// shim — forwards to the unified Button w/ variant='action'. preserves the
-// label/title prop shape (ActionButton requires both for a11y + tooltip)
+// action icon button requiring an accessible label & tooltip title
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 

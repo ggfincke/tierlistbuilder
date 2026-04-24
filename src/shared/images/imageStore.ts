@@ -4,7 +4,7 @@
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 
 const DB_NAME = 'tierlistbuilder-images'
-const DB_VERSION = 2
+const DB_VERSION = 3
 const BLOBS_STORE = 'blobs'
 const UPLOAD_INDEX_STORE = 'uploadIndex'
 
@@ -61,22 +61,19 @@ const openDatabase = (): Promise<IDBDatabase> =>
       return
     }
 
-    request.onupgradeneeded = (event) =>
+    request.onupgradeneeded = () =>
     {
       const db = request.result
-      const oldVersion = event.oldVersion
 
-      if (oldVersion < 1)
+      for (const storeName of Array.from(db.objectStoreNames))
       {
-        db.createObjectStore(BLOBS_STORE, { keyPath: 'hash' })
+        db.deleteObjectStore(storeName)
       }
 
-      if (oldVersion < 2)
-      {
-        db.createObjectStore(UPLOAD_INDEX_STORE, {
-          keyPath: ['userId', 'hash'],
-        })
-      }
+      db.createObjectStore(BLOBS_STORE, { keyPath: 'hash' })
+      db.createObjectStore(UPLOAD_INDEX_STORE, {
+        keyPath: ['userId', 'hash'],
+      })
     }
 
     request.onsuccess = () => resolve(request.result)
@@ -314,5 +311,5 @@ export const getUploadStatusBatch = async (
   return results
 }
 
-// todo: GC — add blobRefs store (bump DB_VERSION), wire refcount into board
-// mutations, & run a startup reconciliation pass over all snapshots to fix drift
+// todo: GC — add blobRefs via a pre-1.0 schema reset, wire refcount into board
+// mutations, & run startup reconciliation over all snapshots to fix drift

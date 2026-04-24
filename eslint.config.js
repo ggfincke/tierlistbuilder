@@ -56,4 +56,21 @@ export default defineConfig([
       ],
     },
   },
+  {
+    files: ['src/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['~/features/**/data/**'],
+              message:
+                'UI/app .tsx files must call model-level facades instead of data modules.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ])

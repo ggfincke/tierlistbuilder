@@ -1,6 +1,6 @@
 // src/shared/ui/Button.tsx
 // unified button primitive covering primary / secondary / action / overlay
-// variants; the four per-variant files re-export shims around it
+// variants; named wrappers keep semantic call sites compact
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 

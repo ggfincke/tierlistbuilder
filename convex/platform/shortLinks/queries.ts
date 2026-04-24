@@ -15,6 +15,7 @@ import {
   ownedShortLinkListItemValidator,
   shortLinkResolveResultValidator,
 } from '../../lib/validators'
+import { selectLiveOwnedShortLinks } from './listing'
 
 // resolve a slug to its snapshot blob URL, or signal a miss. callers distinguish
 // missing vs. expired only via the kind tag. recipient flow: resolveSlug -> fetch
@@ -79,22 +80,15 @@ export const getMyShortLinks = query({
       return []
     }
 
-    // order('desc') walks byOwner in reverse — Convex secondary-sorts by _creationTime.
-    // cap before the post-filter; expired rows take a slot but the cap is large enough
+    const now = Date.now()
     const rows = await ctx.db
       .query('shortLinks')
-      .withIndex('byOwner', (q) => q.eq('ownerId', userId))
+      .withIndex('byOwnerAndExpiresAt', (q) =>
+        q.eq('ownerId', userId).gt('expiresAt', now)
+      )
       .order('desc')
       .take(MAX_OWNED_SHORT_LINKS)
 
-    const now = Date.now()
-    return rows
-      .filter((row) => row.expiresAt > now)
-      .map((row) => ({
-        slug: row.slug,
-        boardTitle: row.boardTitle,
-        createdAt: row.createdAt,
-        expiresAt: row.expiresAt,
-      }))
+    return selectLiveOwnedShortLinks(rows, now)
   },
 })

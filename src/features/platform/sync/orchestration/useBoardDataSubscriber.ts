@@ -4,7 +4,7 @@
 import { useEffect, useRef } from 'react'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { setBoardLoadedListener } from '~/features/workspace/boards/data/local/localBoardSession'
+import { setBoardLoadedListener } from '~/features/workspace/boards/model/boardSession'
 import {
   boardDataFieldsEqual,
   extractBoardData,

@@ -30,7 +30,7 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import {
   importBoardSession,
   importBoardsSession,
-} from '~/features/workspace/boards/data/local/localBoardSession'
+} from '~/features/workspace/boards/model/boardSession'
 import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {

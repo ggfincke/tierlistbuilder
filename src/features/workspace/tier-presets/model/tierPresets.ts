@@ -90,7 +90,7 @@ export const BUILTIN_PRESETS: TierPreset[] = [
       colorSpec: createPaletteTierColorSpec(i),
     })),
   },
-]
+  ]
 
 // convert a preset into fresh board data w/ generated tier IDs
 export const createBoardDataFromPreset = (

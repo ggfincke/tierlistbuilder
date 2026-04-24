@@ -1,5 +1,5 @@
-// src/features/workspace/boards/data/cloud/conflicts/useConflictQueueStore.ts
-// queue of unresolved cloud-sync conflicts; modal opens for the head entry
+// src/features/workspace/boards/model/boardConflictQueueStore.ts
+// queue of unresolved cloud-sync conflicts for the resolver modal
 
 import { create } from 'zustand'
 
@@ -52,8 +52,6 @@ export const useConflictQueueStore = create<ConflictQueueStore>((set) => ({
   clear: () => set({ entries: [] }),
 }))
 
-// the conflict at the head of the queue — what the modal renders. null
-// means no pending conflicts, modal stays closed
 export const selectCurrentConflict = (
   state: ConflictQueueStore
 ): ConflictEntry | null => state.entries[0] ?? null

@@ -20,7 +20,7 @@ import {
   flushBoardToCloud,
   readBoardStateForCloudSync,
 } from '~/features/workspace/boards/data/cloud/cloudFlush'
-import { persistBoardSyncState } from '~/features/workspace/boards/data/local/localBoardSession'
+import { persistBoardSyncState } from '~/features/workspace/boards/model/boardSession'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { toast } from '~/shared/notifications/useToastStore'

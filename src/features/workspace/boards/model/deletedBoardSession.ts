@@ -1,11 +1,16 @@
-// src/features/workspace/boards/data/cloud/cloudRestore.ts
-// per-board restore helper for "Recently deleted"; boardId mirrors cloud externalId
+// src/features/workspace/boards/model/deletedBoardSession.ts
+// model facade for cloud-backed recently deleted board actions
 
 import { asBoardId } from '@tierlistbuilder/contracts/lib/ids'
-import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardMeta,
+  DeletedBoardListItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   getBoardStateByExternalIdImperative,
+  permanentlyDeleteBoardImperative,
   restoreBoardImperative,
+  useListMyDeletedBoards,
 } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { serverStateToSnapshot } from '~/features/workspace/boards/data/cloud/boardMapper'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
@@ -22,9 +27,14 @@ export interface RestoredBoard
   alreadyInRegistry: boolean
 }
 
-// restore a soft-deleted cloud board & materialize it locally. throws on
-// any leg so the caller handles a single error path (UI shows retry option)
-export const restoreBoardFromCloud = async (
+export const useDeletedBoardSessions = (
+  enabled: boolean
+): DeletedBoardListItem[] | undefined => useListMyDeletedBoards(enabled)
+
+export const permanentlyDeleteDeletedBoardSession = (boardExternalId: string) =>
+  permanentlyDeleteBoardImperative({ boardExternalId })
+
+export const restoreDeletedBoardSession = async (
   boardExternalId: string
 ): Promise<RestoredBoard> =>
 {
@@ -48,13 +58,12 @@ export const restoreBoardFromCloud = async (
   {
     throw new RestoreBoardError(
       'concurrent-hard-delete',
-      `restored board ${boardExternalId} returned no state — hard-deleted concurrently`
+      `restored board ${boardExternalId} returned no state`
     )
   }
 
   const boardId = asBoardId(boardExternalId)
   const snapshot = serverStateToSnapshot(cloudState)
-
   const saveResult = saveBoardToStorage(boardId, snapshot, {
     syncState: markBoardSynced(cloudState.revision, boardExternalId),
   })
@@ -77,8 +86,6 @@ export const restoreBoardFromCloud = async (
     }
   }
 
-  // CloudBoardState has no createdAt; re-stamp w/ now() — registry's
-  // createdAt only drives display order, so this is safe & avoids a second query
   const meta: BoardMeta = {
     id: boardId,
     title: snapshot.title,

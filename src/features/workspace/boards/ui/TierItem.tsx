@@ -17,12 +17,13 @@ import {
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { getEffectiveImageFit } from '~/features/workspace/boards/lib/aspectRatio'
 import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
-import { SHAPE_CLASS, type ImageFit } from '~/shared/board-ui/constants'
+import { SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
 import { ItemOverlayButton } from '~/shared/board-ui/ItemOverlayButton'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
 
 interface TierItemProps
 {

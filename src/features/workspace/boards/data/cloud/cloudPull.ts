@@ -13,7 +13,7 @@ import {
   removeBoardFromStorage,
   saveBoardToStorage,
 } from '~/features/workspace/boards/data/local/boardStorage'
-import { loadBoardIntoSession } from '~/features/workspace/boards/data/local/localBoardSession'
+import { loadBoardIntoSession } from '~/features/workspace/boards/model/boardSession'
 import { markBoardSynced } from '~/features/workspace/boards/model/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'

@@ -4,6 +4,5 @@
 // localStorage key for global user settings
 export const SETTINGS_STORAGE_KEY = 'tier-list-builder-settings'
 
-// bumped only on genuinely breaking user-data changes. mismatched versions
-// reset to defaults via Zustand's persist middleware
+// pre-1.0 storage changes wipe mismatched settings
 export const SETTINGS_STORAGE_VERSION = 1
