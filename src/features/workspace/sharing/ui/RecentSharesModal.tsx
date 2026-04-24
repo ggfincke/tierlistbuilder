@@ -2,7 +2,9 @@
 // modal listing live snapshot share links w/ copy & revoke actions.
 // driven by useListMyShortLinks so other tabs reflect changes automatically. signed-in only
 
-import { ModalHeader, BaseModal, ConfirmDialog } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, RefreshCw, Trash2 } from 'lucide-react'
 

@@ -19,7 +19,7 @@ import { announce } from '~/shared/a11y/announce'
 import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from './dragCollision'
 import { toItemId, toStringId } from './dragHelpers'
-import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { syncDraggedItemPosition } from './dragPreviewController'
 import { useDragSensors } from './dragSensors'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -35,6 +35,13 @@ import { captureRenderedContainerSnapshot } from '~/features/workspace/boards/dn
 
 type DragType = 'item' | 'tier'
 
+type ActivePointerDrag =
+  | { kind: 'idle' }
+  | { kind: 'item'; itemId: ItemId }
+  | { kind: 'tier'; tierId: string; tier: Tier | undefined }
+
+const IDLE_POINTER_DRAG: ActivePointerDrag = { kind: 'idle' }
+
 const getDragType = (event: {
   active: { data: { current?: { type?: string } } }
 }): DragType => (event.active.data.current?.type === 'tier' ? 'tier' : 'item')
@@ -44,7 +51,6 @@ export const useDragAndDrop = () =>
   const {
     items,
     dragPreview,
-    activeItemId,
     keyboardMode,
     setActiveItemId,
     clearKeyboardMode,
@@ -58,7 +64,6 @@ export const useDragAndDrop = () =>
     useShallow((state) => ({
       items: state.items,
       dragPreview: state.dragPreview,
-      activeItemId: state.activeItemId,
       keyboardMode: state.keyboardMode,
       setActiveItemId: state.setActiveItemId,
       clearKeyboardMode: state.clearKeyboardMode,
@@ -70,31 +75,25 @@ export const useDragAndDrop = () =>
       removeItems: state.removeItems,
     }))
   )
-  const [showDragOverlay, setShowDragOverlay] = useState(false)
-  // tracks what kind of drag is active (ref for event handlers, state for render)
-  const dragTypeRef = useRef<DragType>('item')
-  const [dragTypeState, setDragTypeState] = useState<DragType>('item')
-  const [activeTierData, setActiveTierData] = useState<Tier | undefined>(
-    undefined
-  )
-  // last resolved over-ID — used as fallback when pointer leaves all droppables
+  const activeDragRef = useRef<ActivePointerDrag>(IDLE_POINTER_DRAG)
+  const [activeDrag, setActiveDragState] =
+    useState<ActivePointerDrag>(IDLE_POINTER_DRAG)
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null)
-  // flag set when the dragged item crosses into a new container mid-drag
   const movedToNewContainerRef = useRef(false)
-  // active item's rect at drag start (before grid reflow); compared against
-  // dnd-kit's post-reflow frozen rect to compute the layout shift delta
   const initialRectRef = useRef<{ left: number; top: number } | null>(null)
-  // dnd-kit's frozen activeNodeRect (first non-null measurement, post-reflow);
-  // captured on the modifier's first invocation so we match dnd-kit's own freeze
   const frozenOverlayRectRef = useRef<{ left: number; top: number } | null>(
     null
   )
-  // whether this drag involves multiple items (enables overlay correction)
   const isMultiDragRef = useRef(false)
 
   const sensors = useDragSensors()
 
-  // reset the cross-container flag on the next animation frame after layout settles
+  const setActiveDrag = (drag: ActivePointerDrag) =>
+  {
+    activeDragRef.current = drag
+    setActiveDragState(drag)
+  }
+
   useEffect(() =>
   {
     const frame = requestAnimationFrame(() =>
@@ -112,7 +111,6 @@ export const useDragAndDrop = () =>
       return
     }
 
-    // exit keyboard browse/drag mode on the first pointer interaction
     const handlePointerDown = () =>
     {
       const state = useActiveBoardStore.getState()
@@ -138,7 +136,6 @@ export const useDragAndDrop = () =>
     []
   )
 
-  // clear all drag-tracking refs & deactivate the overlay
   const resetDragState = () =>
   {
     lastOverIdRef.current = null
@@ -146,14 +143,10 @@ export const useDragAndDrop = () =>
     initialRectRef.current = null
     frozenOverlayRectRef.current = null
     isMultiDragRef.current = false
-    dragTypeRef.current = 'item'
-    setDragTypeState('item')
-    setActiveTierData(undefined)
-    setShowDragOverlay(false)
+    setActiveDrag(IDLE_POINTER_DRAG)
     setActiveItemId(null)
   }
 
-  // capture snapshot & mark active item/tier when drag begins
   const onDragStart = (event: DragStartEvent) =>
   {
     const activeStringId = toStringId(event.active.id)
@@ -163,22 +156,14 @@ export const useDragAndDrop = () =>
     }
 
     const type = getDragType(event)
-    dragTypeRef.current = type
-    setDragTypeState(type)
     clearKeyboardMode()
-    setShowDragOverlay(true)
 
     if (type === 'tier')
     {
-      // tier drag — no snapshot preview needed, dnd-kit handles visual reorder
       const tier = useActiveBoardStore
         .getState()
-        .tiers.find((t) => t.id === activeStringId)
-      setActiveTierData(tier)
-      // tier IDs ride through the activeItemId field during tier drags;
-      // TierList keys this branch off dragTypeState, so the brand mismatch is
-      // inert here
-      setActiveItemId(asItemId(activeStringId))
+        .tiers.find((entry) => entry.id === activeStringId)
+      setActiveDrag({ kind: 'tier', tierId: activeStringId, tier })
       announce(`Picked up tier ${tier?.name ?? 'tier'}`)
       return
     }
@@ -189,8 +174,6 @@ export const useDragAndDrop = () =>
       return
     }
 
-    // capture active item's pre-reflow rect from the DOM directly —
-    // event.active.rect may not be populated at this point in the lifecycle
     const activeNode = getItemElementById(activeId)
     if (activeNode)
     {
@@ -205,6 +188,8 @@ export const useDragAndDrop = () =>
     beginDragPreview(activeId)
     lastOverIdRef.current = activeId
     setActiveItemId(activeId)
+    setActiveDrag({ kind: 'item', itemId: activeId })
+
     const state = useActiveBoardStore.getState()
     const groupCount = state.dragGroupIds.length
     isMultiDragRef.current = groupCount > 1
@@ -216,36 +201,35 @@ export const useDragAndDrop = () =>
     )
   }
 
-  // live-update item position as pointer moves over containers & items
   const onDragMove = (event: DragMoveEvent) =>
   {
-    if (dragTypeRef.current === 'tier') return
+    if (activeDragRef.current.kind !== 'item') return
     syncDraggedItemPosition(event, movedToNewContainerRef, updateDragPreview)
   }
 
-  // respond immediately when the active item enters a different droppable target
   const onDragOver = (event: DragOverEvent) =>
   {
-    if (dragTypeRef.current === 'tier') return
+    if (activeDragRef.current.kind !== 'item') return
     syncDraggedItemPosition(event, movedToNewContainerRef, updateDragPreview)
   }
 
-  // commit the exact preview that was rendered, or discard it when dropped outside
   const onDragEnd = (event: DragEndEvent) =>
   {
     const activeStringId = toStringId(event.active.id)
+    const activeDragState = activeDragRef.current
 
-    // tier drag — compute index swap from the sortable over target
-    if (dragTypeRef.current === 'tier')
+    if (activeDragState.kind === 'tier')
     {
-      if (activeStringId && event.over)
+      if (event.over)
       {
         const overId = toStringId(event.over.id)
-        if (overId && activeStringId !== overId)
+        if (overId && activeDragState.tierId !== overId)
         {
           const tiers = useActiveBoardStore.getState().tiers
-          const fromIndex = tiers.findIndex((t) => t.id === activeStringId)
-          const toIndex = tiers.findIndex((t) => t.id === overId)
+          const fromIndex = tiers.findIndex(
+            (tier) => tier.id === activeDragState.tierId
+          )
+          const toIndex = tiers.findIndex((tier) => tier.id === overId)
           if (fromIndex >= 0 && toIndex >= 0)
           {
             reorderTierByIndex(fromIndex, toIndex)
@@ -256,7 +240,18 @@ export const useDragAndDrop = () =>
       return
     }
 
-    const activeId = toItemId(event.active.id)
+    const activeId =
+      activeDragState.kind === 'item'
+        ? activeDragState.itemId
+        : activeStringId
+          ? toItemId(activeStringId)
+          : null
+
+    if (!activeId)
+    {
+      resetDragState()
+      return
+    }
 
     if (!event.over)
     {
@@ -267,8 +262,7 @@ export const useDragAndDrop = () =>
 
     const overId = toStringId(event.over.id)
 
-    // drop on trash — discard preview & remove all items in the drag group
-    if (overId === TRASH_CONTAINER_ID && activeId)
+    if (overId === TRASH_CONTAINER_ID)
     {
       const state = useActiveBoardStore.getState()
       const groupIds =
@@ -285,7 +279,7 @@ export const useDragAndDrop = () =>
       return
     }
 
-    if (activeId && overId)
+    if (overId)
     {
       const preview = getEffectiveContainerSnapshot(
         useActiveBoardStore.getState()
@@ -293,8 +287,6 @@ export const useDragAndDrop = () =>
       const activeContainerId = findContainer(preview, activeId)
       const overContainerId = findContainer(preview, overId)
 
-      // scope the DOM capture to only the active container to avoid
-      // overwriting uninvolved containers w/ potentially stale DOM state
       if (
         activeContainerId &&
         overContainerId &&
@@ -313,13 +305,10 @@ export const useDragAndDrop = () =>
       }
     }
 
-    // capture group info before commit clears it
     const stateBeforeCommit = useActiveBoardStore.getState()
     const groupIdsBeforeCommit = [...stateBeforeCommit.dragGroupIds]
     const groupCountBeforeCommit = groupIdsBeforeCommit.length
 
-    // capture overlay position for the fan-out animation from the
-    // active element's translated rect (where the overlay was rendered)
     let overlayOrigin: { x: number; y: number } | null = null
     if (groupCountBeforeCommit > 1)
     {
@@ -332,23 +321,19 @@ export const useDragAndDrop = () =>
 
     commitDragPreview()
 
-    if (activeId)
-    {
-      const state = useActiveBoardStore.getState()
-      const label = state.items[activeId]?.label ?? 'item'
-      const preview = getEffectiveContainerSnapshot(state)
-      const containerId = findContainer(preview, activeId)
-      const dest = getContainerLabel(containerId, state.tiers)
-      announce(
-        groupCountBeforeCommit > 1
-          ? `Dropped ${groupCountBeforeCommit} items in ${dest}`
-          : `Dropped ${label} in ${dest}`
-      )
-    }
+    const state = useActiveBoardStore.getState()
+    const label = state.items[activeId]?.label ?? 'item'
+    const preview = getEffectiveContainerSnapshot(state)
+    const containerId = findContainer(preview, activeId)
+    const dest = getContainerLabel(containerId, state.tiers)
+    announce(
+      groupCountBeforeCommit > 1
+        ? `Dropped ${groupCountBeforeCommit} items in ${dest}`
+        : `Dropped ${label} in ${dest}`
+    )
 
     resetDragState()
 
-    // trigger fan-out animation for multi-drag drops
     if (overlayOrigin && groupIdsBeforeCommit.length > 1)
     {
       animateDropDistribute(
@@ -360,10 +345,9 @@ export const useDragAndDrop = () =>
     }
   }
 
-  // always discard the preview & clean up on keyboard/programmatic cancel
   const onDragCancel = () =>
   {
-    if (dragTypeRef.current !== 'tier')
+    if (activeDragRef.current.kind === 'item')
     {
       discardDragPreview()
     }
@@ -371,13 +355,6 @@ export const useDragAndDrop = () =>
     announce('Drag cancelled')
   }
 
-  // resolve active tier for the drag overlay when dragging a tier row
-  const activeTier =
-    showDragOverlay && dragTypeState === 'tier' ? activeTierData : undefined
-
-  // during multi-drag the grid reflows after secondary items are stripped,
-  // shifting the active item; this modifier corrects the overlay transform
-  // so the grab point stays under the cursor by subtracting the layout delta
   const overlayModifier: Modifier = useCallback(
     ({ activeNodeRect, transform }) =>
     {
@@ -388,9 +365,6 @@ export const useDragAndDrop = () =>
 
       if (!activeNodeRect) return transform
 
-      // freeze activeNodeRect on first invocation — mirrors dnd-kit's own
-      // useInitialValue(activeNodeRect) inside the DragOverlay component so
-      // our shift delta stays consistent even if the node moves mid-drag
       if (!frozenOverlayRectRef.current)
       {
         frozenOverlayRectRef.current = {
@@ -399,18 +373,13 @@ export const useDragAndDrop = () =>
         }
       }
 
-      // frozenOverlayRect = dnd-kit's frozen initialRect (post-reflow)
-      // initialRectRef = pre-reflow rect (where the item was when clicked)
-      // the layout shift = frozenOverlayRect - initialRectRef
       const shiftX =
         frozenOverlayRectRef.current.left - initialRectRef.current.left
       const shiftY =
         frozenOverlayRectRef.current.top - initialRectRef.current.top
 
-      // if no shift occurred, pass through unmodified
       if (shiftX === 0 && shiftY === 0) return transform
 
-      // subtract the shift so the overlay stays where the cursor grabbed
       return {
         ...transform,
         x: transform.x - shiftX,
@@ -421,14 +390,13 @@ export const useDragAndDrop = () =>
   )
 
   const overlayModifiers = useMemo(() => [overlayModifier], [overlayModifier])
+  const activeItem =
+    activeDrag.kind === 'item' ? items[activeDrag.itemId] : undefined
+  const activeTier = activeDrag.kind === 'tier' ? activeDrag.tier : undefined
 
   return {
     sensors,
-    // resolve active item object from ID for the drag overlay
-    activeItem:
-      showDragOverlay && dragTypeState === 'item' && activeItemId
-        ? items[activeItemId]
-        : undefined,
+    activeItem,
     activeTier,
     collisionDetection,
     overlayModifiers,

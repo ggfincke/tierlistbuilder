@@ -1,15 +1,17 @@
 // src/features/workspace/boards/model/slices/selectionSlice.ts
 // selection slice — multi-item selection state & bulk move/delete actions
 
-import { announce } from '~/shared/a11y/announce'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { pluralizeWord } from '~/shared/lib/pluralize'
+import { announce } from '~/shared/a11y/announce'
 import {
   EMPTY_SELECTION,
   makeSelection,
 } from '~/features/workspace/boards/model/runtime'
-import { getAllBoardItemIds, stripItemsFromContainers } from './helpers'
-import { withUndo } from './undoSlice'
+import { getAllBoardItemIds } from './helpers'
+import {
+  buildSelectedItemsDelete,
+  buildSelectedItemsMove,
+} from './selectionBulkOps'
 import type { ActiveBoardSliceCreator, SelectionSlice } from './types'
 
 export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
@@ -97,109 +99,41 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
     }),
 
   moveSelectedToTier: (tierId) =>
+  {
+    let announcement: string | null = null
     set((state) =>
     {
-      const selected = state.selection.ids
-      if (selected.length === 0) return state
-
-      const tier = state.tiers.find((t) => t.id === tierId)
-      if (!tier) return state
-
-      const selectedSet = state.selection.set
-      const { tiers: strippedTiers, unrankedItemIds } =
-        stripItemsFromContainers(state, selectedSet)
-
-      // add selected items to the target tier (in selection order)
-      const tiers = strippedTiers.map((t) =>
-        t.id === tierId ? { ...t, itemIds: [...t.itemIds, ...selected] } : t
-      )
-
-      announce(
-        `Moved ${selected.length} ${pluralizeWord(selected.length, 'item')} to ${tier.name}`
-      )
-
-      const moveLabel =
-        selected.length === 1
-          ? `Move item to ${tier.name}`
-          : `Move ${selected.length} items to ${tier.name}`
-
-      return {
-        ...withUndo(state, { tiers, unrankedItemIds }, moveLabel),
-        selection: EMPTY_SELECTION,
-        lastClickedItemId: null,
-      }
-    }),
+      const mutation = buildSelectedItemsMove(state, { kind: 'tier', tierId })
+      if (!mutation) return state
+      announcement = mutation.announcement
+      return mutation.patch
+    })
+    if (announcement) announce(announcement)
+  },
 
   moveSelectedToUnranked: () =>
+  {
+    let announcement: string | null = null
     set((state) =>
     {
-      const selected = state.selection.ids
-      if (selected.length === 0) return state
-
-      const selectedSet = state.selection.set
-      const { tiers, unrankedItemIds: strippedUnranked } =
-        stripItemsFromContainers(state, selectedSet)
-      // remove from unranked first (prevent duplicates), then re-add in selection order
-      const unrankedItemIds = [...strippedUnranked, ...selected]
-
-      announce(
-        `Moved ${selected.length} ${pluralizeWord(selected.length, 'item')} to unranked`
-      )
-
-      const moveLabel =
-        selected.length === 1
-          ? 'Move item to unranked'
-          : `Move ${selected.length} items to unranked`
-
-      return {
-        ...withUndo(state, { tiers, unrankedItemIds }, moveLabel),
-        selection: EMPTY_SELECTION,
-        lastClickedItemId: null,
-      }
-    }),
+      const mutation = buildSelectedItemsMove(state, { kind: 'unranked' })
+      if (!mutation) return state
+      announcement = mutation.announcement
+      return mutation.patch
+    })
+    if (announcement) announce(announcement)
+  },
 
   deleteSelectedItems: () =>
+  {
+    let announcement: string | null = null
     set((state) =>
     {
-      const selected = state.selection.ids
-      if (selected.length === 0) return state
-
-      const selectedSet = state.selection.set
-      const { tiers, unrankedItemIds } = stripItemsFromContainers(
-        state,
-        selectedSet
-      )
-
-      const deletedItems = [...state.deletedItems]
-      for (const id of selected)
-      {
-        const item = state.items[id]
-        if (item) deletedItems.push(item)
-      }
-
-      const items = { ...state.items }
-      for (const id of selected)
-      {
-        delete items[id]
-      }
-
-      announce(
-        `Deleted ${selected.length} ${pluralizeWord(selected.length, 'item')}`
-      )
-
-      const deleteLabel =
-        selected.length === 1
-          ? 'Delete item'
-          : `Delete ${selected.length} items`
-
-      return {
-        ...withUndo(
-          state,
-          { tiers, unrankedItemIds, items, deletedItems },
-          deleteLabel
-        ),
-        selection: EMPTY_SELECTION,
-        lastClickedItemId: null,
-      }
-    }),
+      const mutation = buildSelectedItemsDelete(state)
+      if (!mutation) return state
+      announcement = mutation.announcement
+      return mutation.patch
+    })
+    if (announcement) announce(announcement)
+  },
 })

@@ -31,10 +31,10 @@ import {
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   useNestedMenus,
-  useDismissibleLayer,
-  useMenuOverflowFlipRefs,
   type NestedMenuDefinition,
-} from '~/shared/overlay/menu'
+} from '~/shared/overlay/nestedMenus'
+import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
+import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
 
 import {
   getMenuPositionClasses,
@@ -42,11 +42,11 @@ import {
 } from '~/shared/layout/toolbarPosition'
 import { ActionButton } from '~/shared/ui/ActionButton'
 import { ExportMenu } from '~/features/workspace/export/ui/ExportMenu'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import {
-  ConfirmDialog,
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '~/shared/overlay/Modal'
+} from '~/shared/overlay/OverlaySurface'
 
 import { SavePresetModal } from '~/features/workspace/tier-presets/ui/SavePresetModal'
 import { SyncStatusIndicator } from '~/features/workspace/boards/ui/SyncStatusIndicator'

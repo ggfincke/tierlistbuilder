@@ -1,7 +1,8 @@
 // src/features/workspace/shortcuts/ui/ShortcutsPanel.tsx
 // floating overlay listing all keyboard shortcuts
 
-import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef } from 'react'
 
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'

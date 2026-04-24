@@ -20,7 +20,8 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Selection Primitives**: Shared radio/tab semantics behind roving selection
 - **Nested Menus**: Shared tree state for root/submenu orchestration
 - **ID Helpers**: Generated ID prefix contracts & guard helpers
-- **Popup/Menu Geometry**: Shared fixed-popup placement & submenu flip rules
+- **Popup/Menu Geometry**: Shared fixed-popup placement, submenu flip rules, &
+  progress normalization
 - **Backend Selectors & Contracts**: Short-link listing, upload envelopes, and
   image upload validation at pure boundaries
 
@@ -92,6 +93,7 @@ tests/
 ├── overlay/
 │   ├── nestedMenus.test.ts          — nested root/submenu open-close tree rules
 │   ├── popupPosition.test.ts        — fixed popup placement & viewport clamping
+│   ├── progressOverlay.test.ts      — blocking overlay progress normalization
 │   └── toolbarPosition.test.ts      — submenu direction & responsive toolbar helpers
 ├── platform/
 │   ├── boardSyncStatus.test.ts      — per-board sync status derivation

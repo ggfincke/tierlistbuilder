@@ -8,7 +8,7 @@ import {
   pruneNestedMenuState,
   toggleNestedMenuState,
   type NestedMenuDefinition,
-} from '~/shared/overlay/menu'
+} from '~/shared/overlay/nestedMenus'
 
 type MenuId = 'root' | 'image' | 'format' | 'exportAll'
 

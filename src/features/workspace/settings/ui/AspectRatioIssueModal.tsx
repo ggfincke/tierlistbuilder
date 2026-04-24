@@ -27,7 +27,8 @@ import {
   SHAPE_CLASS,
 } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { BaseModal, ModalHeader } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { useSettingsStore } from '../model/useSettingsStore'
 import { useAspectRatioPrompt } from '../model/useAspectRatioPrompt'

@@ -8,7 +8,7 @@ import {
   MENU_SUBMENU_FLIP_RIGHT_TOKENS,
   MENU_SUBMENU_LEFT_OFFSET_CLASS,
   MENU_SUBMENU_RIGHT_OFFSET_CLASS,
-} from '~/shared/overlay/menu'
+} from '~/shared/overlay/menuOverflow'
 
 import {
   getMenuPositionClasses,

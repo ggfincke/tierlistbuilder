@@ -1,7 +1,8 @@
 // src/features/workspace/stats/ui/StatsModal.tsx
 // board statistics modal — item distribution, summary cards, & tier chart
 
-import { ModalHeader, BaseModal } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 

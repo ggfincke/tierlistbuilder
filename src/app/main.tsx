@@ -10,13 +10,15 @@ import { convexClient } from '~/features/platform/sync/lib/convexClient'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
 // mount app into DOM root
-// ErrorBoundary wraps ConvexAuthProvider so an auth bootstrap throw still
-// surfaces the themed fallback instead of a blank page
+// outer boundary catches provider bootstrap; inner boundary resets UI failures
+// w/o remounting Convex auth/session state
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ErrorBoundary section="the application">
+    <ErrorBoundary section="application bootstrap">
       <ConvexAuthProvider client={convexClient}>
-        <App />
+        <ErrorBoundary section="the application">
+          <App />
+        </ErrorBoundary>
       </ConvexAuthProvider>
     </ErrorBoundary>
   </StrictMode>

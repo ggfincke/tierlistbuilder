@@ -2,7 +2,9 @@
 // modal listing soft-deleted cloud boards w/ restore & permanent-delete actions.
 // driven by the deleted-board session facade so other tabs reflect changes
 
-import { ModalHeader, BaseModal, ConfirmDialog } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useState } from 'react'
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 

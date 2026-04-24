@@ -1,7 +1,9 @@
 // src/features/workspace/settings/ui/BoardSettingsModal.tsx
 // settings panel — tabbed modal that orchestrates per-tab settings content
 
-import { ModalHeader, BaseModal, ConfirmDialog } from '~/shared/overlay/Modal'
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { FALLBACK_COLOR, getPaletteColors } from '~/shared/theme/tierColors'
