@@ -73,4 +73,21 @@ export default defineConfig([
       ],
     },
   },
+  {
+    files: ['src/features/platform/sync/orchestration/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['~/features/workspace/**/data/**'],
+              message:
+                'Platform sync orchestration must use the workspace sync facade instead of workspace data modules.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ])

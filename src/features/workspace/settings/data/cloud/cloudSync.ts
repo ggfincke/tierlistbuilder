@@ -21,13 +21,13 @@ import {
   isOfflineError,
   makeOfflineError,
 } from '~/features/platform/sync/lib/errors'
-import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
 import { logger } from '~/shared/lib/logger'
 
 interface CreateSettingsSyncRunnerOptions
 {
   userId: string
   debounceMs: number
+  isOnline?: () => boolean
   shouldProceed?: () => boolean
 }
 
@@ -46,6 +46,7 @@ export const createSettingsSyncRunner = (
   options: CreateSettingsSyncRunnerOptions
 ): SettingsSyncRunner =>
 {
+  const isOnline = options.isOnline ?? (() => true)
   const runner = createDebouncedSyncRunner<
     SettingsKey,
     AppSettings,
@@ -68,7 +69,7 @@ export const createSettingsSyncRunner = (
     {
       // mirror the board scheduler's offline gating: short-circuit so the
       // runner backs off w/o making a doomed network call
-      if (!useSyncStatusStore.getState().online)
+      if (!isOnline())
       {
         return { kind: 'error', error: makeOfflineError() }
       }
@@ -96,6 +97,7 @@ interface SetupSettingsCloudSyncOptions
 {
   debounceMs: number
   userId: string
+  isOnline?: () => boolean
   shouldProceed?: () => boolean
 }
 
@@ -112,6 +114,7 @@ export const setupSettingsCloudSync = (
   const runner = createSettingsSyncRunner({
     userId: options.userId,
     debounceMs: options.debounceMs,
+    isOnline: options.isOnline,
     shouldProceed: options.shouldProceed,
   })
 

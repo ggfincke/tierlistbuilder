@@ -129,6 +129,7 @@ const ConflictResolverDialog = ({
   const userId = getUserStableId(user)
   const ctx: ResolveContext = {
     boardId: current.boardId,
+    cloudBoardExternalId: current.cloudBoardExternalId,
     serverState: current.serverState,
     userId,
   }
@@ -174,6 +175,7 @@ const ConflictResolverDialog = ({
             handleResolve('keep-cloud', () =>
               resolveKeepCloud({
                 boardId: ctx.boardId,
+                cloudBoardExternalId: ctx.cloudBoardExternalId,
                 serverState: ctx.serverState,
               })
             )

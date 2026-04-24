@@ -9,20 +9,25 @@ import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloud
 export interface ConflictEntry
 {
   boardId: BoardId
+  cloudBoardExternalId: string
   serverState: CloudBoardState
 }
 
 interface ConflictQueueStore
 {
   entries: ConflictEntry[]
-  enqueue: (boardId: BoardId, serverState: CloudBoardState) => void
+  enqueue: (
+    boardId: BoardId,
+    cloudBoardExternalId: string,
+    serverState: CloudBoardState
+  ) => void
   dismiss: (boardId: BoardId) => void
   clear: () => void
 }
 
 export const useConflictQueueStore = create<ConflictQueueStore>((set) => ({
   entries: [],
-  enqueue: (boardId, serverState) =>
+  enqueue: (boardId, cloudBoardExternalId, serverState) =>
     set((state) =>
     {
       const existingIndex = state.entries.findIndex(
@@ -31,18 +36,29 @@ export const useConflictQueueStore = create<ConflictQueueStore>((set) => ({
 
       if (existingIndex >= 0)
       {
-        if (state.entries[existingIndex]?.serverState === serverState)
+        const existing = state.entries[existingIndex]
+        if (
+          existing?.serverState === serverState &&
+          existing.cloudBoardExternalId === cloudBoardExternalId
+        )
         {
           return state
         }
 
         const next = state.entries.slice()
-        next[existingIndex] = { boardId, serverState }
+        next[existingIndex] = {
+          boardId,
+          cloudBoardExternalId,
+          serverState,
+        }
         return { entries: next }
       }
 
       return {
-        entries: [...state.entries, { boardId, serverState }],
+        entries: [
+          ...state.entries,
+          { boardId, cloudBoardExternalId, serverState },
+        ],
       }
     }),
   dismiss: (boardId) =>

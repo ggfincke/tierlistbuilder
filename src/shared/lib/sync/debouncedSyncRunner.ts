@@ -1,23 +1,79 @@
 // src/shared/lib/sync/debouncedSyncRunner.ts
-// generic debounced sync runner shared by settings & tier-preset cloud runners
+// generic debounced sync runner shared by workspace cloud adapters
 
 import { computeBackoffDelay } from './backoff'
 import { makeProceedGuard } from './proceedGuard'
 
-export type SyncFlushResult<TSuccess> =
+export type SyncFlushResult<TSuccess, TConflict = never> =
   | { kind: 'synced'; success: TSuccess }
+  | { kind: 'conflict'; conflict: TConflict }
   | { kind: 'error'; error: unknown }
 
-export interface DebouncedSyncRunnerOptions<TKey, TWork, TSuccess>
+export type BeforeSyncFlushDecision<TWork> =
+  | { kind: 'proceed'; work?: TWork }
+  | { kind: 'defer'; delayMs: number; work?: TWork }
+  | { kind: 'drop' }
+
+export interface SyncRunnerWorkContext<TWork>
+{
+  queuedWork: TWork | null
+}
+
+export interface SyncRunnerErrorContext<
+  TWork,
+> extends SyncRunnerWorkContext<TWork>
+{
+  retryAttempt: number
+}
+
+export interface DebouncedSyncRunnerDisposeOptions
+{
+  flush?: boolean
+}
+
+export interface DebouncedSyncRunnerOptions<TKey, TWork, TSuccess, TConflict>
 {
   debounceMs: number
-  flush: (work: TWork, key: TKey) => Promise<SyncFlushResult<TSuccess>>
+  flush: (
+    work: TWork,
+    key: TKey
+  ) => Promise<SyncFlushResult<TSuccess, TConflict>>
+  prepareWork?: (work: TWork, key: TKey) => TWork | null
+  beforeFlush?: (work: TWork, key: TKey) => BeforeSyncFlushDecision<TWork>
   onQueue?: (work: TWork, key: TKey) => void
-  onSuccess?: (success: TSuccess, work: TWork, key: TKey) => void
+  onFlushStart?: (work: TWork, key: TKey) => void
+  onSuccess?: (
+    success: TSuccess,
+    work: TWork,
+    key: TKey,
+    context: SyncRunnerWorkContext<TWork>
+  ) => void
+  rebaseQueuedOnSuccess?: (
+    queuedWork: TWork,
+    success: TSuccess,
+    flushedWork: TWork,
+    key: TKey
+  ) => TWork | null
   onDedup?: (work: TWork, key: TKey) => void
-  onError?: (error: unknown, key: TKey) => void
+  onConflict?: (conflict: TConflict, work: TWork, key: TKey) => void
+  onError?: (
+    error: unknown,
+    key: TKey,
+    work: TWork,
+    context: SyncRunnerErrorContext<TWork>
+  ) => void
+  shouldRetryError?: (
+    error: unknown,
+    key: TKey,
+    work: TWork,
+    context: SyncRunnerErrorContext<TWork>
+  ) => boolean
+  onDrop?: (work: TWork, key: TKey) => void
   shouldProceed?: () => boolean
   dedupEqual?: (a: TWork, b: TWork) => boolean
+  dropQueuedOnUnretryableError?: boolean
+  flushQueuedAfterSuccess?: 'debounce' | 'immediate'
+  retainLastFlushed?: boolean
 }
 
 export interface TriggerOptions
@@ -28,7 +84,7 @@ export interface TriggerOptions
 export interface DebouncedSyncRunner<TKey, TWork>
 {
   enqueue: (key: TKey, work: TWork, options?: TriggerOptions) => void
-  dispose: () => Promise<void>
+  dispose: (options?: DebouncedSyncRunnerDisposeOptions) => Promise<void>
 }
 
 interface Controller<TWork>
@@ -48,8 +104,13 @@ const createController = <TWork>(): Controller<TWork> => ({
   retryAttempt: 0,
 })
 
-export const createDebouncedSyncRunner = <TKey, TWork, TSuccess>(
-  options: DebouncedSyncRunnerOptions<TKey, TWork, TSuccess>
+export const createDebouncedSyncRunner = <
+  TKey,
+  TWork,
+  TSuccess,
+  TConflict = never,
+>(
+  options: DebouncedSyncRunnerOptions<TKey, TWork, TSuccess, TConflict>
 ): DebouncedSyncRunner<TKey, TWork> =>
 {
   const canProceed = makeProceedGuard(options.shouldProceed)
@@ -66,10 +127,11 @@ export const createDebouncedSyncRunner = <TKey, TWork, TSuccess>(
     return created
   }
 
-  // idle once no live work remains. lastFlushed is cache & is intentionally
-  // excluded — keeping it in the check would leak controllers forever
   const isIdle = (c: Controller<TWork>): boolean =>
-    c.timer === null && c.queued === null && c.inFlight === null
+    c.timer === null &&
+    c.queued === null &&
+    c.inFlight === null &&
+    (!options.retainLastFlushed || c.lastFlushed === null)
 
   const pruneIfIdle = (key: TKey, c: Controller<TWork>): void =>
   {
@@ -106,7 +168,26 @@ export const createDebouncedSyncRunner = <TKey, TWork, TSuccess>(
   ): Promise<void> =>
   {
     c.inFlight = work
-    let errored = false
+    options.onFlushStart?.(work, key)
+    let shouldRetry = false
+    let conflicted = false
+
+    const handleError = (error: unknown): void =>
+    {
+      const context: SyncRunnerErrorContext<TWork> = {
+        queuedWork: c.queued,
+        retryAttempt: c.retryAttempt,
+      }
+      options.onError?.(error, key, work, context)
+      shouldRetry = options.shouldRetryError
+        ? options.shouldRetryError(error, key, work, context)
+        : true
+
+      if (!shouldRetry && options.dropQueuedOnUnretryableError)
+      {
+        c.queued = null
+      }
+    }
 
     const promise = options
       .flush(work, key)
@@ -118,19 +199,36 @@ export const createDebouncedSyncRunner = <TKey, TWork, TSuccess>(
           {
             c.retryAttempt = 0
             c.lastFlushed = work
-            options.onSuccess?.(result.success, work, key)
+            const queuedWork = c.queued
+            options.onSuccess?.(result.success, work, key, { queuedWork })
+
+            if (queuedWork && options.rebaseQueuedOnSuccess)
+            {
+              c.queued = options.rebaseQueuedOnSuccess(
+                queuedWork,
+                result.success,
+                work,
+                key
+              )
+            }
             return
           }
-          errored = true
-          options.onError?.(result.error, key)
+
+          if (result.kind === 'conflict')
+          {
+            conflicted = true
+            c.retryAttempt = 0
+            options.onConflict?.(result.conflict, work, key)
+            return
+          }
+          handleError(result.error)
         },
         (error) =>
         {
           if (disposed) return
           // flush is expected to return a result; throws route through
           // onError so backoff retries still fire on unexpected errors
-          errored = true
-          options.onError?.(error, key)
+          handleError(error)
         }
       )
       .finally(() =>
@@ -138,20 +236,32 @@ export const createDebouncedSyncRunner = <TKey, TWork, TSuccess>(
         c.inFlight = null
         if (disposed) return
 
-        if (errored)
+        if (shouldRetry)
         {
           // re-queue the failed work so backoff replays the same payload
           // rather than racing the next edit
-          if (!c.queued) c.queued = work
+          if (c.queued === null) c.queued = work
           const delay = computeBackoffDelay(options.debounceMs, c.retryAttempt)
           c.retryAttempt++
           scheduleFlush(key, c, delay)
           return
         }
 
+        if (conflicted)
+        {
+          pruneIfIdle(key, c)
+          return
+        }
+
         // synced — drain any edit that arrived during the flush
         if (c.queued && !c.timer)
         {
+          if (options.flushQueuedAfterSuccess === 'immediate')
+          {
+            flushQueued(key)
+            return
+          }
+
           scheduleFlush(key, c)
           return
         }
@@ -186,7 +296,7 @@ export const createDebouncedSyncRunner = <TKey, TWork, TSuccess>(
     if (!c || c.inFlight) return
 
     const work = c.queued
-    if (!work)
+    if (work === null)
     {
       pruneIfIdle(key, c)
       return
@@ -204,7 +314,21 @@ export const createDebouncedSyncRunner = <TKey, TWork, TSuccess>(
       return
     }
 
-    void runFlush(key, c, work)
+    const decision = options.beforeFlush?.(work, key)
+    if (decision?.kind === 'defer')
+    {
+      c.queued = decision.work ?? work
+      scheduleFlush(key, c, decision.delayMs)
+      return
+    }
+    if (decision?.kind === 'drop')
+    {
+      options.onDrop?.(work, key)
+      pruneIfIdle(key, c)
+      return
+    }
+
+    void runFlush(key, c, decision?.work ?? work)
   }
 
   return {
@@ -215,10 +339,15 @@ export const createDebouncedSyncRunner = <TKey, TWork, TSuccess>(
       // not leave dirty markers that the next user's resume helper picks up
       if (!canProceed()) return
 
-      options.onQueue?.(work, key)
+      const preparedWork = options.prepareWork
+        ? options.prepareWork(work, key)
+        : work
+      if (preparedWork === null) return
+
+      options.onQueue?.(preparedWork, key)
 
       const c = getController(key)
-      c.queued = work
+      c.queued = preparedWork
       // a fresh edit cancels pending backoff — the user's intent beats the
       // retry ladder. failures rebuild the progression from 0
       c.retryAttempt = 0
@@ -233,10 +362,28 @@ export const createDebouncedSyncRunner = <TKey, TWork, TSuccess>(
       scheduleFlush(key, c)
     },
 
-    dispose: async () =>
+    dispose: async ({
+      flush = false,
+    }: DebouncedSyncRunnerDisposeOptions = {}) =>
     {
-      disposed = true
+      if (flush)
+      {
+        for (const [key, c] of controllers)
+        {
+          clearTimer(c)
+          if (!c.inFlight && c.queued !== null)
+          {
+            flushQueued(key)
+          }
+        }
 
+        while (inFlightPromises.size > 0)
+        {
+          await Promise.allSettled([...inFlightPromises])
+        }
+      }
+
+      disposed = true
       for (const c of controllers.values())
       {
         clearTimer(c)

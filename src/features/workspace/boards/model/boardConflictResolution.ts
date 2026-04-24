@@ -32,6 +32,7 @@ const KEEP_BOTH_SUFFIX = '(this device)'
 export interface ResolveContext
 {
   boardId: BoardId
+  cloudBoardExternalId: string
   serverState: CloudBoardState
   userId: string
 }
@@ -44,7 +45,8 @@ export const resolveKeepLocal = async (
 {
   const { boardId, serverState, userId } = ctx
   const { snapshot, syncState } = readBoardStateForCloudSync(boardId)
-  const boardExternalId = syncState.cloudBoardExternalId ?? boardId
+  const boardExternalId =
+    syncState.cloudBoardExternalId ?? ctx.cloudBoardExternalId
 
   const outcome = await flushBoardToCloud(
     snapshot,
@@ -64,7 +66,9 @@ export const resolveKeepLocal = async (
 
   if (outcome.kind === 'conflict')
   {
-    useConflictQueueStore.getState().enqueue(boardId, outcome.serverState)
+    useConflictQueueStore
+      .getState()
+      .enqueue(boardId, boardExternalId, outcome.serverState)
     return { ok: false, error: 'Cloud changed again. Please resolve again.' }
   }
 
@@ -75,9 +79,8 @@ export const resolveKeepCloud = async (
   ctx: Omit<ResolveContext, 'userId'>
 ): Promise<ResolveOutcome> =>
 {
-  const { boardId, serverState } = ctx
+  const { boardId, cloudBoardExternalId, serverState } = ctx
   const cloudSnapshot = serverStateToSnapshot(serverState)
-  const cloudBoardExternalId = boardId
 
   const saveResult = saveBoardToStorage(boardId, cloudSnapshot, {
     syncState: markBoardSynced(serverState.revision, cloudBoardExternalId),
@@ -150,6 +153,7 @@ export const resolveKeepBoth = async (
 
   const cloudOutcome = await resolveKeepCloud({
     boardId: ctx.boardId,
+    cloudBoardExternalId: ctx.cloudBoardExternalId,
     serverState: ctx.serverState,
   })
 

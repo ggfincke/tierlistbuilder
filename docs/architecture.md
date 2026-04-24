@@ -63,6 +63,7 @@ src/
 │   │   ├── snapshot-compression/    # hash fragment codec (pako deflate + base64url)
 │   │   └── ui/                      # ShareModal, RecentSharesModal
 │   ├── shortcuts/{lib,model,ui}     # keyboard shortcut registry, panel, list
+│   ├── sync/                        # workspace-owned sync session, adapters, pending sidecar recovery
 │   ├── stats/{model,ui}             # board statistics & distribution chart
 │   └── tier-presets/                # reusable tier structures (local + cloud storage, independent of boards)
 │       ├── data/{local,cloud}       # preset storage key; Convex preset sync
@@ -73,7 +74,7 @@ src/
 │   ├── media/                       # imageFetcher, imageUploader (Convex storage transport)
 │   └── sync/
 │       ├── lib/                     # cloudSyncConfig, concurrency, convexClient, crossTabSyncLock, errors
-│       ├── orchestration/           # createSyncSession, firstLoginSyncLifecycle, useCloudSync, subscribers
+│       ├── orchestration/           # createSyncSession, firstLoginSyncLifecycle, useCloudSync, auth epoch
 │       ├── state/                   # syncStatusStore, syncStatusVisuals, useBoardSyncStatus
 │       └── transport/               # connectivity detection
 ├── features/embed/ui                # read-only EmbedView primitives
@@ -87,7 +88,7 @@ src/
     │                                # browserStorage, storageMetering, logger, urls, typeGuards,
     │                                # asyncMapLimit, binaryCodec, boardSnapshotItems, errors,
     │                                # localSidecar, scheduleIdle, sha256, sync/ (debouncedSyncRunner,
-    │                                # backoff, proceedGuard)
+    │                                # ownedSyncMeta, backoff, proceedGuard)
     ├── notifications/               # ToastContainer, useToastStore
     ├── overlay/                     # Modal.tsx (BaseModal, ConfirmDialog, ProgressOverlay, LazyModalSlot,
     │                                # ModalHeader, OverlayPanelSurface), useModal (dismissible layer +
@@ -128,11 +129,22 @@ Persistence is split across features instead of living in a single monolithic `s
 - `features/workspace/tier-presets/data/local/tierPresetStorage.ts` — preset storage key & schema version
 - `shared/lib/browserStorage.ts` — generic localStorage wrapper, Zustand persist adapter
 - `shared/lib/storageMetering.ts` — quota estimation, near-full warnings
+- `shared/lib/sync/ownedSyncMeta.ts` — shared owner-scoped pending/synced timestamp helpers for settings and preset sidecars
 
 Pre-1.0 storage changes are allowed to be breaking. Incompatible localStorage or
 IndexedDB payloads should be wiped by version reset/recreation instead of
 converted forward, while JSON/share import validation should continue rejecting
 malformed or unsupported files.
+
+## Cloud Sync
+
+Cloud sync is split between platform lifecycle and workspace adapters:
+
+- `features/platform/sync/orchestration/createSyncSession.ts` owns platform startup: online/offline connectivity wiring, auth-epoch lifetime, and board sync status reporting.
+- `features/workspace/sync/workspaceSyncSession.ts` owns workspace sync adapters for boards, settings, tier presets, board deletes, pending sidecar recovery, first-login workspace merges, and conflict queueing.
+- `features/workspace/sync/useWorkspaceBoardSyncSubscriber.ts` observes active board edits and forwards `PendingBoardSync` work into the workspace session after the first-login board merge gate opens.
+- Per-slice cloud transport remains under `features/workspace/*/data/cloud/`; platform orchestration does not import those modules directly.
+- `shared/lib/sync/debouncedSyncRunner.ts` is the shared debounce/retry kernel. Settings and presets use it directly; board sync wraps it through `cloudSyncScheduler.ts` for peer-tab locks, conflict pauses, pending marker persistence, and permanent-error cleanup.
 
 ## Drag and Drop
 
@@ -280,7 +292,8 @@ All export lib code lives in `features/workspace/export/lib/`; the UI (`ExportMe
 - Inside `features/workspace/*`, cross-slice imports are allowed in the direction of structural dependency. `tier-presets` may import board contract types because presets produce boards.
 - The embed shell renders through `shared/board-ui/*` primitives only and never mounts the editable active-board store.
 - UI (`ui/`) → model (`model/`) → data (`data/{local,cloud}/`). Components don't call localStorage or Convex directly — they go through `model/` selectors or `data/*` helpers.
-- Cloud sync orchestration lives in `features/platform/sync/`. Per-slice cloud transport (Convex args, mappers) lives in each slice's `data/cloud/`.
+- Platform sync orchestration owns auth/connectivity/status only and starts `features/workspace/sync/`; it does not import workspace `data/*` modules directly.
+- Per-slice cloud transport (Convex args, mappers) lives in each slice's `data/cloud/`; workspace sync adapters are the bridge from platform lifecycle to those transports.
 
 ## Types
 
