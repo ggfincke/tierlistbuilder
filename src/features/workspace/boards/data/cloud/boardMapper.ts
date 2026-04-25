@@ -88,6 +88,7 @@ export const snapshotToCloudPayload = (
         order: orderCounter++,
         aspectRatio: item.aspectRatio,
         imageFit: item.imageFit,
+        transform: item.transform,
       })
     }
   }
@@ -107,6 +108,7 @@ export const snapshotToCloudPayload = (
       order: orderCounter++,
       aspectRatio: item.aspectRatio,
       imageFit: item.imageFit,
+      transform: item.transform,
     })
   }
 
@@ -123,6 +125,7 @@ export const snapshotToCloudPayload = (
       order: DELETED_ITEM_ORDER,
       aspectRatio: item.aspectRatio,
       imageFit: item.imageFit,
+      transform: item.transform,
     })
   }
 
@@ -175,6 +178,7 @@ export const serverStateToSnapshot = (
       altText: item.altText,
       aspectRatio: item.aspectRatio,
       imageFit: item.imageFit,
+      transform: item.transform,
     }
   }
 

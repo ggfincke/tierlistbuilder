@@ -74,7 +74,11 @@ export const DragOverlayItem = memo(
           className={`relative overflow-hidden border border-[var(--t-border-hover)] bg-[var(--t-bg-overlay)] shadow-xl ${shapeClass}`}
           style={{ width: slotWidth, height: slotHeight }}
         >
-          <ItemContent item={item} fit={effectiveFit} />
+          <ItemContent
+            item={item}
+            fit={effectiveFit}
+            frameAspectRatio={boardAspectRatio}
+          />
 
           {groupCount > 0 && (
             <span className="absolute top-0 right-0 z-10 flex h-5 min-w-5 items-center justify-center rounded-bl-md bg-[var(--t-accent)] px-1 text-[10px] font-bold text-[var(--t-accent-foreground)] shadow">

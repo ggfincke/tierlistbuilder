@@ -80,26 +80,15 @@ describe('parseBoardJson', () =>
     )
   })
 
-  it('throws on JSON array', async () =>
-  {
-    await expect(parseBoardJson('[1, 2, 3]')).rejects.toThrow(
-      'Invalid tier list format.'
-    )
-  })
-
-  it('throws on JSON null', async () =>
-  {
-    await expect(parseBoardJson('null')).rejects.toThrow(
-      'Invalid tier list format.'
-    )
-  })
-
-  it('throws on JSON primitive', async () =>
-  {
-    await expect(parseBoardJson('"hello"')).rejects.toThrow(
-      'Invalid tier list format.'
-    )
-  })
+  it.each([['[1, 2, 3]'], ['null'], ['"hello"']])(
+    'throws on valid JSON that is not an envelope object: %s',
+    async (input) =>
+    {
+      await expect(parseBoardJson(input)).rejects.toThrow(
+        'Invalid tier list format.'
+      )
+    }
+  )
 
   it('rejects envelopes missing a schema version', async () =>
   {
@@ -152,54 +141,23 @@ describe('parseBoardJson', () =>
     ).rejects.toThrow('File must contain at least one tier.')
   })
 
-  it('throws on invalid tier structure — missing id', async () =>
+  it.each([
+    [
+      'missing a valid "id"',
+      { name: 'S', colorSpec: { kind: 'palette', index: 0 }, itemIds: [] },
+    ],
+    ['missing a valid "colorSpec"', { id: 'tier-s', name: 'S', itemIds: [] }],
+    [
+      'missing "itemIds" array',
+      { id: 'tier-s', name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+    ],
+  ])('throws on invalid tier structure (%s)', async (expected, tier) =>
   {
     const bad = {
       version: BOARD_DATA_VERSION,
-      data: {
-        tiers: [
-          { name: 'S', colorSpec: { kind: 'palette', index: 0 }, itemIds: [] },
-        ],
-        items: {},
-      },
+      data: { tiers: [tier], items: {} },
     }
-    await expect(parseBoardJson(JSON.stringify(bad))).rejects.toThrow(
-      'missing a valid "id"'
-    )
-  })
-
-  it('throws on invalid tier structure — missing colorSpec', async () =>
-  {
-    const bad = {
-      version: BOARD_DATA_VERSION,
-      data: {
-        tiers: [{ id: 'tier-s', name: 'S', itemIds: [] }],
-        items: {},
-      },
-    }
-    await expect(parseBoardJson(JSON.stringify(bad))).rejects.toThrow(
-      'missing a valid "colorSpec"'
-    )
-  })
-
-  it('throws on invalid tier structure — missing itemIds', async () =>
-  {
-    const bad = {
-      version: BOARD_DATA_VERSION,
-      data: {
-        tiers: [
-          {
-            id: 'tier-s',
-            name: 'S',
-            colorSpec: { kind: 'palette', index: 0 },
-          },
-        ],
-        items: {},
-      },
-    }
-    await expect(parseBoardJson(JSON.stringify(bad))).rejects.toThrow(
-      'missing "itemIds" array'
-    )
+    await expect(parseBoardJson(JSON.stringify(bad))).rejects.toThrow(expected)
   })
 
   it('throws when items map is missing', async () =>

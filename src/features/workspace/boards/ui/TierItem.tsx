@@ -16,6 +16,7 @@ import {
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { getEffectiveImageFit } from '~/features/workspace/boards/lib/aspectRatio'
+import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
 import { SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
@@ -172,6 +173,17 @@ export const TierItem = memo(
       ]
     )
 
+    const handleContextMenu = useCallback(
+      (e: React.MouseEvent) =>
+      {
+        if (boardLocked) return
+        if (!item?.imageRef) return
+        e.preventDefault()
+        useImageEditorStore.getState().open({ itemId, filter: 'all' })
+      },
+      [boardLocked, item?.imageRef, itemId]
+    )
+
     const handleItemFocus = useCallback(() =>
     {
       if (pointerFocusRef.current)
@@ -235,11 +247,13 @@ export const TierItem = memo(
           onKeyDown={onKeyDown}
           onPointerDownCapture={handlePointerDownCapture}
           onClick={handleClick}
+          onContextMenu={handleContextMenu}
         >
           <ItemContent
             item={item}
             showLabel={showLabels && !!item.label}
             fit={effectiveFit}
+            frameAspectRatio={slotWidth / slotHeight}
           />
 
           {/* selection check badge */}

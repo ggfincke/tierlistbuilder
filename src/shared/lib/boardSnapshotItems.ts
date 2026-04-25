@@ -9,6 +9,18 @@ import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isPresent } from '~/shared/lib/typeGuards'
 
+const itemHasRenderTransform = (item: TierItem): boolean =>
+{
+  const transform = item.transform
+  return (
+    !!transform &&
+    (transform.rotation !== 0 ||
+      transform.zoom !== 1 ||
+      transform.offsetX !== 0 ||
+      transform.offsetY !== 0)
+  )
+}
+
 // visit every live & deleted snapshot item in stable order
 export const forEachSnapshotItem = (
   snapshot: BoardSnapshot,
@@ -52,6 +64,49 @@ export const collectSnapshotImageHashes = (
 ): string[] => [
   ...new Set(
     collectSnapshotItems(snapshot, (item) => item.imageRef?.hash ?? null)
+  ),
+]
+
+// collect hashes needed for visible board rendering, not unused edit sources
+export const collectSnapshotRenderImageHashes = (
+  snapshot: BoardSnapshot
+): string[] =>
+{
+  const hashes: Array<string | undefined> = []
+  const seen = new Set<ItemId>()
+  const visitId = (id: ItemId): void =>
+  {
+    if (seen.has(id)) return
+    seen.add(id)
+    const item = snapshot.items[id]
+    if (!item?.imageRef) return
+    hashes.push(item.imageRef.hash)
+    if (itemHasRenderTransform(item))
+    {
+      hashes.push(item.sourceImageRef?.hash)
+    }
+  }
+
+  for (const tier of snapshot.tiers)
+  {
+    for (const id of tier.itemIds) visitId(id)
+  }
+  for (const id of snapshot.unrankedItemIds) visitId(id)
+
+  return [...new Set(hashes.filter(isPresent))]
+}
+
+// collect every local blob hash the snapshot needs to retain
+export const collectSnapshotLocalImageHashes = (
+  snapshot: BoardSnapshot
+): string[] => [
+  ...new Set(
+    collectSnapshotItems(snapshot, (item) => [
+      item.imageRef?.hash,
+      item.sourceImageRef?.hash,
+    ])
+      .flat()
+      .filter(isPresent)
   ),
 ]
 

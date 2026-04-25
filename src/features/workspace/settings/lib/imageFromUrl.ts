@@ -1,14 +1,13 @@
 // src/features/workspace/settings/lib/imageFromUrl.ts
-// fetch remote image, resize to thumbnail & persist to blob store
+// fetch remote image, resize display + editor assets, & persist to blob store
 
 import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
-import { persistBlobSource } from '~/shared/images/imagePersistence'
-import { MAX_THUMBNAIL_SIZE } from './constants'
 import {
-  canvasToPngBlob,
-  deriveLabelFromFilename,
-  getResizedDimensions,
-} from './imageGeometry'
+  persistPreparedBlobRecords,
+  prepareBlobRecord,
+} from '~/shared/images/imagePersistence'
+import { MAX_EDITOR_SOURCE_SIZE, MAX_THUMBNAIL_SIZE } from './constants'
+import { deriveLabelFromFilename, drawImageToPngBlob } from './imageGeometry'
 import { loadImageElement } from './imageLoad'
 
 // derive a display label from a URL by extracting the filename w/o extension
@@ -26,8 +25,7 @@ const labelFromUrl = (url: string): string =>
   }
 }
 
-// fetch a remote image, resize, persist to the blob store, & return a
-// content-addressable reference + derived label + natural aspect ratio
+// fetch a remote image, persist display + editor refs, & return item fields
 export const fetchImageAsItemImage = async (
   url: string,
   maxSize = MAX_THUMBNAIL_SIZE
@@ -40,31 +38,24 @@ export const fetchImageAsItemImage = async (
       'Failed to load image. The server may block cross-origin requests.',
   })
 
-  const { width, height } = getResizedDimensions(
-    img.naturalWidth,
-    img.naturalHeight,
-    maxSize
-  )
-
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx)
-  {
-    throw new Error('Could not initialize a canvas context.')
-  }
-
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, 0, 0, width, height)
-
-  const blob = await canvasToPngBlob(canvas)
-  const source = await persistBlobSource(blob)
+  const [displayBlob, sourceBlob] = await Promise.all([
+    drawImageToPngBlob(img, img.naturalWidth, img.naturalHeight, maxSize),
+    drawImageToPngBlob(
+      img,
+      img.naturalWidth,
+      img.naturalHeight,
+      MAX_EDITOR_SOURCE_SIZE
+    ),
+  ])
+  const [display, source] = await Promise.all([
+    prepareBlobRecord(displayBlob),
+    prepareBlobRecord(sourceBlob),
+  ])
+  await persistPreparedBlobRecords([display, source])
 
   return {
-    ...source,
+    imageRef: display.imageRef,
+    sourceImageRef: source.imageRef,
     label: labelFromUrl(url),
     aspectRatio: img.naturalWidth / img.naturalHeight,
   }

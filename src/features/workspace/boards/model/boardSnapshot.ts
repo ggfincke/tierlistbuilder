@@ -11,9 +11,15 @@ import type {
   BoardSnapshot,
   ImageFit,
   ItemAspectRatioMode,
+  ItemRotation,
+  ItemTransform,
   Tier,
   TierItem,
   TierItemImageRef,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
+  ITEM_TRANSFORM_IDENTITY,
+  ITEM_TRANSFORM_LIMITS,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   asItemId,
@@ -85,6 +91,66 @@ const normalizeImageRef = (raw: unknown): TierItemImageRef | undefined =>
     : { hash }
 }
 
+const ROTATION_VALUES: readonly ItemRotation[] = [0, 90, 180, 270]
+
+const clampFiniteNumber = (
+  value: unknown,
+  min: number,
+  max: number
+): number | null =>
+{
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  if (value < min) return min
+  if (value > max) return max
+  return value
+}
+
+// validate & clamp untrusted transform input. returns undefined for missing
+// or malformed payloads so import + cloud-pull roundtrip a "no manual edit"
+// item w/o manufacturing a phantom transform that defeats the imageFit path
+const normalizeItemTransform = (raw: unknown): ItemTransform | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const rotation = raw.rotation
+  if (
+    typeof rotation !== 'number' ||
+    !ROTATION_VALUES.includes(rotation as ItemRotation)
+  )
+  {
+    return undefined
+  }
+  const zoom = clampFiniteNumber(
+    raw.zoom,
+    ITEM_TRANSFORM_LIMITS.zoomMin,
+    ITEM_TRANSFORM_LIMITS.zoomMax
+  )
+  if (zoom === null) return undefined
+  const offsetX = clampFiniteNumber(
+    raw.offsetX,
+    ITEM_TRANSFORM_LIMITS.offsetMin,
+    ITEM_TRANSFORM_LIMITS.offsetMax
+  )
+  if (offsetX === null) return undefined
+  const offsetY = clampFiniteNumber(
+    raw.offsetY,
+    ITEM_TRANSFORM_LIMITS.offsetMin,
+    ITEM_TRANSFORM_LIMITS.offsetMax
+  )
+  if (offsetY === null) return undefined
+  const normalized = {
+    rotation: rotation as ItemRotation,
+    zoom,
+    offsetX,
+    offsetY,
+  }
+  return normalized.rotation === ITEM_TRANSFORM_IDENTITY.rotation &&
+    normalized.zoom === ITEM_TRANSFORM_IDENTITY.zoom &&
+    normalized.offsetX === ITEM_TRANSFORM_IDENTITY.offsetX &&
+    normalized.offsetY === ITEM_TRANSFORM_IDENTITY.offsetY
+    ? undefined
+    : normalized
+}
+
 // drop unknown fields & validate primitive shapes. items w/o a valid `id`
 // are rejected
 const normalizeTierItem = (raw: unknown): TierItem | null =>
@@ -94,17 +160,21 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   const id = asItemId(raw.id)
 
   const imageRef = normalizeImageRef(raw.imageRef)
+  const sourceImageRef = normalizeImageRef(raw.sourceImageRef)
   const aspectRatio = normalizePositiveFinite(raw.aspectRatio)
   const imageFit = normalizeEnum(raw.imageFit, IMAGE_FITS)
+  const transform = normalizeItemTransform(raw.transform)
 
   const item: TierItem = { id }
   if (imageRef) item.imageRef = imageRef
+  if (sourceImageRef) item.sourceImageRef = sourceImageRef
   if (typeof raw.label === 'string') item.label = raw.label
   if (typeof raw.backgroundColor === 'string')
     item.backgroundColor = raw.backgroundColor
   if (typeof raw.altText === 'string') item.altText = raw.altText
   if (aspectRatio !== undefined) item.aspectRatio = aspectRatio
   if (imageFit !== undefined) item.imageFit = imageFit
+  if (transform !== undefined) item.transform = transform
   return item
 }
 

@@ -2,7 +2,7 @@
 // shared cloud board wire contracts used by client sync & server reconciliation
 
 import type { TierColorSpec } from '../lib/theme'
-import type { ImageFit, ItemAspectRatioMode } from './board'
+import type { ImageFit, ItemAspectRatioMode, ItemTransform } from './board'
 
 // cloud board sync caps; server enforces these before writing row diffs.
 // clients/tests import the same contract so limit-edge behavior stays explicit
@@ -32,6 +32,8 @@ export interface CloudBoardItemWire
   aspectRatio?: number
   // per-item crop override
   imageFit?: ImageFit
+  // per-item manual crop transform
+  transform?: ItemTransform
 }
 
 // board-wide aspect-ratio config shared by payload & state so a synced board

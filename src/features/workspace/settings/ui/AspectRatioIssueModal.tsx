@@ -317,6 +317,7 @@ const MismatchPreviewStrip = ({
               fit={
                 pendingBulkFit ?? getEffectiveImageFit(item, boardDefaultFit)
               }
+              frameAspectRatio={boardAspectRatio}
             />
           </div>
         </div>

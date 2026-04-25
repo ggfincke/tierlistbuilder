@@ -22,7 +22,7 @@ import {
   pruneUnreferencedBlobs,
   replaceBlobRefs,
 } from '~/shared/images/imageStore'
-import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
+import { collectSnapshotLocalImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
 import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
 import { scheduleIdle } from '~/shared/lib/scheduleIdle'
@@ -101,7 +101,7 @@ const reconcileLocalImageRefs = async (): Promise<void> =>
     const scope = boardImageRefScope(meta.id)
     const hashes =
       result.status === 'ok'
-        ? collectSnapshotImageHashes(
+        ? collectSnapshotLocalImageHashes(
             loadedBoardStateFromResult(result).snapshot
           )
         : []

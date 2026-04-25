@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  areTierColorSpecsEqual,
   createPaletteTierColorSpec,
   createCustomTierColorSpec,
   getPaletteColors,
@@ -122,5 +123,30 @@ describe('getPaletteColors', () =>
       '#c084fc',
       '#a78bfa',
     ])
+  })
+})
+
+describe('areTierColorSpecsEqual', () =>
+{
+  it('compares palette & custom specs by value', () =>
+  {
+    expect(
+      areTierColorSpecsEqual(
+        createPaletteTierColorSpec(2),
+        createPaletteTierColorSpec(2)
+      )
+    ).toBe(true)
+    expect(
+      areTierColorSpecsEqual(
+        createCustomTierColorSpec('#ABCDEF'),
+        createCustomTierColorSpec('#abcdef')
+      )
+    ).toBe(true)
+    expect(
+      areTierColorSpecsEqual(
+        createPaletteTierColorSpec(2),
+        createPaletteTierColorSpec(3)
+      )
+    ).toBe(false)
   })
 })

@@ -13,6 +13,8 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { ConflictResolverModal } from '~/features/workspace/boards/ui/ConflictResolverModal'
 import { useCloudPullProgressStore } from '~/features/platform/sync/state/useCloudPullProgressStore'
 import { AspectRatioIssueModal } from '~/features/workspace/settings/ui/AspectRatioIssueModal'
+import { ImageEditorModal } from '~/features/workspace/imageEditor/ui/ImageEditorModal'
+import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { ProgressOverlay } from '~/shared/overlay/ProgressOverlay'
 
@@ -82,7 +84,7 @@ export const WorkspaceModalLayer = ({
   onCloseShortcutsPanel,
 }: WorkspaceModalLayerProps) =>
 {
-  const { state: modalState, open: openModal, close: closeModal } = modalStack
+  const { state: modalState, close: closeModal } = modalStack
   const { current: cloudPullCurrent, total: cloudPullTotal } =
     useCloudPullProgressStore(
       useShallow((state) => ({ current: state.current, total: state.total }))
@@ -92,9 +94,9 @@ export const WorkspaceModalLayer = ({
     () => closeModal('settings'),
     [closeModal]
   )
-  const handleOpenLayoutSettings = useCallback(
-    () => openModal('settings', 'layout'),
-    [openModal]
+  const handleOpenImageEditorMismatched = useCallback(
+    () => useImageEditorStore.getState().open({ filter: 'mismatched' }),
+    []
   )
   const handleCloseStats = useCallback(() => closeModal('stats'), [closeModal])
   const handleCloseShare = useCallback(() => closeModal('share'), [closeModal])
@@ -166,7 +168,8 @@ export const WorkspaceModalLayer = ({
       <LazyModalSlot when={showShortcutsPanel} section="shortcuts">
         {() => <ShortcutsPanel onClose={onCloseShortcutsPanel} />}
       </LazyModalSlot>
-      <AspectRatioIssueModal onAdjustEach={handleOpenLayoutSettings} />
+      <AspectRatioIssueModal onAdjustEach={handleOpenImageEditorMismatched} />
+      <ImageEditorModal />
       <ConflictResolverModal user={signedInUser} />
       <ProgressOverlay
         title="Loading your boards"

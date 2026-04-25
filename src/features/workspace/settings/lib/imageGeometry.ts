@@ -27,6 +27,36 @@ export const getResizedDimensions = (
   }
 }
 
+// draw a source image into a PNG blob capped at maxSize on the long edge
+export const drawImageToPngBlob = async (
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  maxSize: number
+): Promise<Blob> =>
+{
+  const { width, height } = getResizedDimensions(
+    sourceWidth,
+    sourceHeight,
+    maxSize
+  )
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+
+  const context = canvas.getContext('2d')
+  if (!context)
+  {
+    throw new Error('Could not initialize a canvas context.')
+  }
+
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
+  context.drawImage(source, 0, 0, width, height)
+
+  return canvasToPngBlob(canvas)
+}
+
 // derive a display label from a filename — strip extension, convert separators
 export const deriveLabelFromFilename = (filename: string): string =>
 {
