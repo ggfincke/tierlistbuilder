@@ -245,9 +245,28 @@ const ImageEditorModalBody = () =>
     getAutoCropCacheVersion
   )
 
+  const filteredItems = useMemo(() =>
+  {
+    if (filter === 'mismatched')
+    {
+      return allImageItems.filter((it) =>
+        itemHasAspectMismatch(it, boardAspectRatio)
+      )
+    }
+    if (filter === 'adjusted')
+    {
+      return allImageItems.filter(
+        (it) => !!it.transform && !isIdentityTransform(it.transform)
+      )
+    }
+    return allImageItems
+  }, [filter, allImageItems, boardAspectRatio])
+
+  // auto-crop scope tracks the visible filter so cropping done in the issue
+  // modal (mismatched-only) carries over to the Mismatched view here
   const handleAutoCropAll = useCallback(async () =>
   {
-    const targets = allImageItems.filter((it) => !!getAutoCropHash(it))
+    const targets = filteredItems.filter((it) => !!getAutoCropHash(it))
     if (targets.length === 0) return
     setAutoCropProgress({ running: true, done: 0, total: targets.length })
     try
@@ -279,36 +298,19 @@ const ImageEditorModalBody = () =>
     {
       setAutoCropProgress({ running: false, done: 0, total: 0 })
     }
-  }, [allImageItems, boardAspectRatio, setItemsTransform])
+  }, [filteredItems, boardAspectRatio, setItemsTransform])
 
   const autoCropAllApplied = useMemo(() =>
   {
     void autoCropCacheVersion
     if (autoCropProgress.running) return false
-    return areCachedAutoCropsApplied(allImageItems, boardAspectRatio)
+    return areCachedAutoCropsApplied(filteredItems, boardAspectRatio)
   }, [
-    allImageItems,
     autoCropCacheVersion,
     autoCropProgress.running,
     boardAspectRatio,
+    filteredItems,
   ])
-
-  const filteredItems = useMemo(() =>
-  {
-    if (filter === 'mismatched')
-    {
-      return allImageItems.filter((it) =>
-        itemHasAspectMismatch(it, boardAspectRatio)
-      )
-    }
-    if (filter === 'adjusted')
-    {
-      return allImageItems.filter(
-        (it) => !!it.transform && !isIdentityTransform(it.transform)
-      )
-    }
-    return allImageItems
-  }, [filter, allImageItems, boardAspectRatio])
 
   // user's explicit pick; falls back to the filter's first item when stale
   const [pickedId, setPickedId] = useState<ItemId | null>(() =>
