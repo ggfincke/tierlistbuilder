@@ -17,32 +17,38 @@ import {
   Unlock,
 } from 'lucide-react'
 
-import type { ImageFormat } from '@/shared/types/export'
-import type { ToolbarPosition } from '@/shared/types/settings'
-import { extractPresetFromBoard } from '@/features/workspace/tier-presets/model/tierPresets'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
-import { toast } from '@/shared/notifications/useToastStore'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useTierPresetStore } from '@/features/workspace/tier-presets/model/useTierPresetStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import type { ImageFormat } from '~/features/workspace/export/model/runtime'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
+import { extractPresetFromBoard } from '~/features/workspace/tier-presets/model/tierPresets'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { toast } from '~/shared/notifications/useToastStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
+import {
+  selectCanRedo,
+  selectCanUndo,
+  useActiveBoardStore,
+} from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   useNestedMenus,
   type NestedMenuDefinition,
-} from '@/shared/overlay/useNestedMenus'
-import { useDismissibleLayer } from '@/shared/overlay/useDismissibleLayer'
+} from '~/shared/overlay/nestedMenus'
+import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
+import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
+
 import {
   getMenuPositionClasses,
   isVerticalPosition,
-} from '@/shared/layout/toolbarPosition'
-import { useMenuOverflowFlipRefs } from '@/shared/overlay/useMenuOverflowFlip'
-import { ActionButton } from '@/shared/ui/ActionButton'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
-import { ExportMenu } from '@/features/workspace/export/ui/ExportMenu'
+} from '~/shared/layout/toolbarPosition'
+import { ActionButton } from '~/shared/ui/ActionButton'
+import { ExportMenu } from '~/features/workspace/export/ui/ExportMenu'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import {
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '@/shared/overlay/OverlayPrimitives'
-import { SavePresetModal } from '@/features/workspace/tier-presets/ui/SavePresetModal'
+} from '~/shared/overlay/OverlaySurface'
+
+import { SavePresetModal } from '~/features/workspace/tier-presets/ui/SavePresetModal'
 
 type ShuffleMenuId = 'root' | 'shuffleAll'
 
@@ -62,10 +68,11 @@ interface BoardActionBarProps
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
   onAnnotateExport: () => void
   onPreviewExport: () => void
+  onShare: () => void
   onReset: () => void
 }
 
-// * primary board action bar — rendered below the toolbar in App
+// primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
   toolbarPosition,
   exportStatus,
@@ -78,6 +85,7 @@ export const BoardActionBar = ({
   onExportAll,
   onAnnotateExport,
   onPreviewExport,
+  onShare,
   onReset,
 }: BoardActionBarProps) =>
 {
@@ -90,9 +98,9 @@ export const BoardActionBar = ({
       setBoardLocked: state.setBoardLocked,
     }))
   )
-  const pastLength = useActiveBoardStore((state) => state.past.length)
-  const futureLength = useActiveBoardStore((state) => state.future.length)
   const {
+    canUndo,
+    canRedo,
     undo,
     redo,
     itemsManuallyMoved,
@@ -101,6 +109,8 @@ export const BoardActionBar = ({
     boardTitle,
   } = useActiveBoardStore(
     useShallow((state) => ({
+      canUndo: selectCanUndo(state),
+      canRedo: selectCanRedo(state),
       undo: state.undo,
       redo: state.redo,
       itemsManuallyMoved: state.itemsManuallyMoved,
@@ -180,7 +190,6 @@ export const BoardActionBar = ({
               : 'flex-wrap px-4 py-1.5 sm:gap-5 sm:px-8 sm:py-2'
           }`}
         >
-          {/* undo & redo controls */}
           <ActionButton
             label="Undo"
             title="Undo"
@@ -189,7 +198,7 @@ export const BoardActionBar = ({
               const result = undo()
               if (result) toast(`Undid ${result.label.toLowerCase()}`)
             }}
-            disabled={boardLocked || pastLength === 0}
+            disabled={boardLocked || !canUndo}
           >
             <Undo2 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
@@ -202,12 +211,11 @@ export const BoardActionBar = ({
               const result = redo()
               if (result) toast(`Redid ${result.label.toLowerCase()}`)
             }}
-            disabled={boardLocked || futureLength === 0}
+            disabled={boardLocked || !canRedo}
           >
             <Redo2 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* add a new tier row to the bottom of the board */}
           <ActionButton
             label="Add tier"
             title="Add Tier"
@@ -217,7 +225,6 @@ export const BoardActionBar = ({
             <Plus className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* shuffle dropdown — distribute items randomly across tiers */}
           <div className="relative">
             <ActionButton
               ref={shuffleButtonRef}
@@ -241,7 +248,6 @@ export const BoardActionBar = ({
                 aria-label="Shuffle options"
                 className={`${menuPos.primary} flex flex-col ${menuPos.animationClass} text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
               >
-                {/* shuffle all submenu — even or random distribution */}
                 <div className="relative">
                   <OverlayMenuItem
                     aria-controls={shuffleAllGroupId}
@@ -281,7 +287,6 @@ export const BoardActionBar = ({
             )}
           </div>
 
-          {/* reset — requires confirmation before restoring default tiers */}
           <ActionButton
             label="Reset board"
             title="Reset"
@@ -291,7 +296,6 @@ export const BoardActionBar = ({
             <RotateCcw className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* open the settings panel for image import & tier management */}
           <ActionButton
             label="Open settings"
             title="Settings"
@@ -300,7 +304,6 @@ export const BoardActionBar = ({
             <SettingsIcon className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* export button w/ dropdown menu */}
           <ExportMenu
             menuPos={menuPos}
             exportStatus={exportStatus}
@@ -310,9 +313,9 @@ export const BoardActionBar = ({
             onExportAll={onExportAll}
             onAnnotateExport={onAnnotateExport}
             onPreviewExport={onPreviewExport}
+            onShare={onShare}
           />
 
-          {/* board statistics modal */}
           <ActionButton
             label="View statistics"
             title="Statistics"
@@ -321,7 +324,6 @@ export const BoardActionBar = ({
             <BarChart3 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* save current tier structure as a reusable preset */}
           <ActionButton
             label="Save as preset"
             title="Save Preset"
@@ -330,7 +332,6 @@ export const BoardActionBar = ({
             <BookmarkPlus className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          {/* lock / unlock toggle */}
           <ActionButton
             label={boardLocked ? 'Unlock board' : 'Lock board'}
             title={boardLocked ? 'Unlock' : 'Lock'}
@@ -345,7 +346,6 @@ export const BoardActionBar = ({
         </div>
       </div>
 
-      {/* confirmation dialog shown before the destructive reset action */}
       <ConfirmDialog
         open={confirmReset}
         title="Reset board?"
@@ -359,7 +359,6 @@ export const BoardActionBar = ({
         }}
       />
 
-      {/* confirmation dialog shown before shuffling placed items */}
       <ConfirmDialog
         open={confirmShuffleAll}
         title="Shuffle all items?"

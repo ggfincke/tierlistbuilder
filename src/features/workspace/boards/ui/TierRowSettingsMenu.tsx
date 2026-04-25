@@ -6,26 +6,30 @@ import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { Settings as SettingsIcon, X as ClearIcon } from 'lucide-react'
 
-import type { Tier } from '@/features/workspace/boards/model/contract'
-import type { PaletteId, TierColorSpec } from '@/shared/types/theme'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
-import { computeSettingsMenuStyle } from '@/shared/overlay/popupPosition'
-import { useAnchoredPopup } from '@/shared/overlay/useAnchoredPopup'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  PaletteId,
+  TierColorSpec,
+} from '@tierlistbuilder/contracts/lib/theme'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
+import { computeSettingsMenuStyle } from '~/shared/overlay/popupPosition'
+import { useAnchoredPopup } from '~/shared/overlay/anchoredPopup'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import {
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '@/shared/overlay/OverlayPrimitives'
-import { TextInput } from '@/shared/ui/TextInput'
+} from '~/shared/overlay/OverlaySurface'
+
+import { TextInput } from '~/shared/ui/TextInput'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
   getPaletteColors,
   resolveTierColorSpec,
-} from '@/shared/theme/tierColors'
-import { normalizeHexColor } from '@/shared/lib/color'
-import { getColorName } from '@/shared/lib/colorName'
+} from '~/shared/theme/tierColors'
+import { normalizeHexColor } from '~/shared/lib/color'
+import { getColorName } from '~/shared/lib/colorName'
 
 const NAME_EDITOR_ID = 'name'
 const DESCRIPTION_EDITOR_ID = 'description'
@@ -35,7 +39,6 @@ interface TierRowSettingsMenuProps
   tier: Tier
   index: number
   paletteId: PaletteId
-  // controlled visibility — TierRow owns state for mutual exclusion w/ color picker
   show: boolean
   onToggle: () => void
   onClose: () => void

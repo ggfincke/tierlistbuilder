@@ -4,23 +4,22 @@
 import { memo, useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import type { Tier } from '@/features/workspace/boards/model/contract'
-import type { TierId } from '@/shared/types/ids'
-import { resolveTierColorSpec } from '@/shared/theme/tierColors'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { getBoardItemAspectRatio } from '@/features/workspace/boards/lib/aspectRatio'
-import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
+import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import {
   BoardLabelCellFrame,
   TierDescriptionSubtitle,
-} from '@/shared/board-ui/BoardPrimitives'
+} from '~/shared/board-ui/BoardPrimitives'
 
 interface TierLabelProps
 {
   tier: Tier
-  // transient color override for live preview while the custom picker is open
   colorOverride?: string | null
 }
 

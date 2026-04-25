@@ -15,8 +15,8 @@ import { Pipette } from 'lucide-react'
 import {
   createPaletteTierColorSpec,
   FALLBACK_COLOR,
-} from '@/shared/theme/tierColors'
-import type { TierColorSpec } from '@/shared/types/theme'
+} from '~/shared/theme/tierColors'
+import type { TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
 import {
   formatRgbInputs,
   hexToRgbColor,
@@ -24,49 +24,35 @@ import {
   parseRgbInputState,
   rgbToHexColor,
   type RgbInputState,
-} from '@/shared/lib/color'
-import { getColorName } from '@/shared/lib/colorName'
-import { PrimaryButton } from '@/shared/ui/PrimaryButton'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-import { TextInput } from '@/shared/ui/TextInput'
+} from '~/shared/lib/color'
+import { getColorName } from '~/shared/lib/colorName'
+import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { TextInput } from '~/shared/ui/TextInput'
 
 interface ColorPickerProps
 {
-  // canonical color spec for the current tier
   colorSpec: TierColorSpec
-  // ordered palette colors to show as swatches
   colors: string[]
-  // ref attached to the custom pipette trigger button
   customTriggerRef: RefObject<HTMLButtonElement | null>
-  // whether the separate custom popup is visible
   showCustomPicker: boolean
-  // called when a preset swatch is picked
   onChange: (colorSpec: TierColorSpec) => void
-  // called when the custom pipette button is clicked
   onToggleCustomPicker: () => void
 }
 
 interface CustomColorPickerProps
 {
-  // currently saved tier color
   value: string
-  // called when the current draft should be committed
   onApply: (color: string) => void
-  // called when the popup should close without saving
   onCancel: () => void
-  // called on every draft color change for live preview
   onPreview?: (color: string) => void
 }
 
 interface ColorDraftState
 {
-  // current hsva value shown by the wheel + slider
   hsva: HsvaColor
-  // raw hex input text
   hexInput: string
-  // raw rgb input text
   rgbInputs: RgbInputState
-  // whether the current inputs can be applied
   isValid: boolean
 }
 
