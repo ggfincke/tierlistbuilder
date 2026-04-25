@@ -4,7 +4,7 @@
 {
   :root
   {
-    /* theme color tokens — Classic defaults (overridden by useThemeApplicator) */
+    /* theme color tokens — Classic defaults (overridden by useThemeSync) */
     --t-bg-page: #232323;
     --t-bg-surface: #2b2b2b;
     --t-bg-sunken: #272727;
@@ -175,6 +175,36 @@
     }
   }
 
+  @keyframes shakeX
+  {
+    0%,
+    100%
+    {
+      transform: translateX(0);
+    }
+    20%
+    {
+      transform: translateX(-8px);
+    }
+    40%
+    {
+      transform: translateX(8px);
+    }
+    60%
+    {
+      transform: translateX(-6px);
+    }
+    80%
+    {
+      transform: translateX(6px);
+    }
+  }
+
+  .shake-x
+  {
+    animation: shakeX 360ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  }
+
   /* global focus ring for keyboard navigation */
   :focus-visible
   {
@@ -222,7 +252,7 @@
   [data-theme='high-contrast'] :focus-visible
   {
     outline-width: 3px;
-    outline-color: #ffff00;
+    outline-color: var(--t-accent);
   }
 
   /* manual reduced-motion toggle via settings */
