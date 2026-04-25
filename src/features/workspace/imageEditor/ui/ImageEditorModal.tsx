@@ -2,8 +2,24 @@
 // master-detail editor for per-item rotation, zoom, & pan transforms; crop
 // frame locks to the board aspect ratio so the preview matches the tier rows
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { RefreshCw, RotateCcw, RotateCw } from 'lucide-react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+import {
+  Check,
+  Crop,
+  Crosshair,
+  Loader2,
+  RefreshCw,
+  RotateCcw,
+  RotateCw,
+} from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -30,7 +46,6 @@ import {
   AspectRatioChips,
   CustomRatioInput,
 } from '~/features/workspace/settings/ui/AspectRatioPicker'
-import { SegmentedControl } from '~/features/workspace/settings/ui/SegmentedControl'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import {
   clampItemTransform,
@@ -40,7 +55,24 @@ import {
   resolveManualCropFitZoom,
   resolveManualCropImageSize,
 } from '~/shared/lib/imageTransform'
-import { clamp } from '~/shared/lib/math'
+import {
+  ceilToStep,
+  clamp,
+  floorToStep,
+  parsePercentInput,
+  roundToStep,
+} from '~/shared/lib/math'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import {
+  detectContentBBox,
+  areCachedAutoCropsApplied,
+  getAutoCropCacheVersion,
+  getAutoCropHash,
+  getCachedBBox,
+  resolveAutoCropTransform,
+  subscribeAutoCropCache,
+} from '~/shared/lib/autoCrop'
+import { getBlob } from '~/shared/images/imageStore'
 import { warmImageHashes } from '~/shared/images/imageBlobCache'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
@@ -59,12 +91,18 @@ const FILTER_OPTIONS: { value: ImageEditorFilter; label: string }[] = [
 // preview canvas long-edge in px; the short edge is derived from board ratio
 const CANVAS_BOUND = 420
 
-// upper end of the zoom slider — contract allows up to 10x but the slider
-// caps at 5x for usable resolution; users can still type-in past this if
-// the contract limit ever surfaces in a programmatic flow
-const SLIDER_ZOOM_MAX = 5
+// display-zoom bounds for the slider & percent input (independent of the
+// per-item baseline, so the UI floor/ceiling stay at 1% / 250%)
+const SLIDER_ZOOM_MIN = 0.01
+const SLIDER_ZOOM_MAX = 2.5
+const ZOOM_SLIDER_STEP = 0.01
 
 const PAN_START_THRESHOLD_PX = 4
+// snap-to-center bypassed when Alt is held; threshold is per axis
+const PAN_SNAP_THRESHOLD_PX = 5
+// coalesces a held arrow or a wheel burst into one undo entry
+const GESTURE_COMMIT_DEBOUNCE_MS = 250
+const WHEEL_ZOOM_SENSITIVITY = 0.0015
 
 const normalizeRotation = (raw: number): ItemRotation =>
 {
@@ -107,6 +145,35 @@ const transformKey = (transform: ItemTransform | undefined): string =>
     ? `${transform.rotation}:${transform.zoom}:${transform.offsetX}:${transform.offsetY}`
     : 'identity'
 
+const getDisplayZoomBounds = (
+  zoomBaseline: number
+): { min: number; max: number } =>
+{
+  const safeBaseline = zoomBaseline > 0 ? zoomBaseline : 1
+  const min = Math.max(
+    SLIDER_ZOOM_MIN,
+    ITEM_TRANSFORM_LIMITS.zoomMin / safeBaseline
+  )
+  return {
+    min,
+    max: Math.max(
+      min,
+      Math.min(SLIDER_ZOOM_MAX, ITEM_TRANSFORM_LIMITS.zoomMax / safeBaseline)
+    ),
+  }
+}
+
+const isInteractiveArrowTarget = (target: EventTarget | null): boolean =>
+{
+  if (!(target instanceof Element)) return false
+  if (target instanceof HTMLElement && target.isContentEditable) return true
+  return (
+    target.closest(
+      'button,input,textarea,select,[contenteditable="true"],[role="button"],[role="radio"],[role="tab"],[role="switch"],[role="slider"],[role="menuitem"],[role="option"]'
+    ) !== null
+  )
+}
+
 export const ImageEditorModal = () =>
 {
   const isOpen = useImageEditorStore((s) => s.isOpen)
@@ -131,9 +198,8 @@ const ImageEditorModalBody = () =>
     unrankedItemIds,
     boardAspectRatio,
     setItemTransform,
+    setItemsTransform,
     boardDefaultFit,
-    setDefaultItemImageFit,
-    setItemsImageFit,
   } = useActiveBoardStore(
     useShallow((s) => ({
       items: s.items,
@@ -141,9 +207,8 @@ const ImageEditorModalBody = () =>
       unrankedItemIds: s.unrankedItemIds,
       boardAspectRatio: getBoardItemAspectRatio(s),
       setItemTransform: s.setItemTransform,
+      setItemsTransform: s.setItemsTransform,
       boardDefaultFit: s.defaultItemImageFit,
-      setDefaultItemImageFit: s.setDefaultItemImageFit,
-      setItemsImageFit: s.setItemsImageFit,
     }))
   )
   const ratioPicker = useBoardAspectRatioPicker()
@@ -169,17 +234,64 @@ const ImageEditorModalBody = () =>
     return result
   }, [items, tiers, unrankedItemIds])
 
-  const handleSetAllFit = useCallback(
-    (fit: ImageFit) =>
-    {
-      const ids = allImageItems
-        .filter((it) => itemHasAspectMismatch(it, boardAspectRatio))
-        .map((it) => it.id)
-      if (ids.length > 0) setItemsImageFit(ids, fit)
-      setDefaultItemImageFit(fit)
-    },
-    [allImageItems, boardAspectRatio, setItemsImageFit, setDefaultItemImageFit]
+  const [autoCropProgress, setAutoCropProgress] = useState<{
+    running: boolean
+    done: number
+    total: number
+  }>({ running: false, done: 0, total: 0 })
+  const autoCropCacheVersion = useSyncExternalStore(
+    subscribeAutoCropCache,
+    getAutoCropCacheVersion,
+    getAutoCropCacheVersion
   )
+
+  const handleAutoCropAll = useCallback(async () =>
+  {
+    const targets = allImageItems.filter((it) => !!getAutoCropHash(it))
+    if (targets.length === 0) return
+    setAutoCropProgress({ running: true, done: 0, total: targets.length })
+    try
+    {
+      const entries = await mapAsyncLimit(targets, 4, async (it) =>
+      {
+        const hash = getAutoCropHash(it)!
+        let bbox = getCachedBBox(hash)
+        if (bbox === undefined)
+        {
+          const record = await getBlob(hash)
+          bbox = record ? await detectContentBBox(record.bytes, hash) : null
+        }
+        setAutoCropProgress((p) => (p.running ? { ...p, done: p.done + 1 } : p))
+        if (!bbox) return null
+        const transform = resolveAutoCropTransform(it, bbox, boardAspectRatio)
+        return { id: it.id, transform } as {
+          id: ItemId
+          transform: ItemTransform | null
+        }
+      })
+      const cropped = entries.filter(
+        (entry): entry is { id: ItemId; transform: ItemTransform | null } =>
+          entry !== null
+      )
+      if (cropped.length > 0) setItemsTransform(cropped)
+    }
+    finally
+    {
+      setAutoCropProgress({ running: false, done: 0, total: 0 })
+    }
+  }, [allImageItems, boardAspectRatio, setItemsTransform])
+
+  const autoCropAllApplied = useMemo(() =>
+  {
+    void autoCropCacheVersion
+    if (autoCropProgress.running) return false
+    return areCachedAutoCropsApplied(allImageItems, boardAspectRatio)
+  }, [
+    allImageItems,
+    autoCropCacheVersion,
+    autoCropProgress.running,
+    boardAspectRatio,
+  ])
 
   const filteredItems = useMemo(() =>
   {
@@ -245,10 +357,15 @@ const ImageEditorModalBody = () =>
       open
       onClose={close}
       labelledBy={titleId}
-      panelClassName="w-full p-0"
-      panelStyle={{ maxWidth: 960 }}
+      panelClassName="flex flex-col p-0"
+      panelStyle={{
+        height: 'calc(100dvh - 2rem)',
+        maxWidth: 'none',
+        overflowY: 'hidden',
+        width: 'min(1280px, calc(100vw - 2rem))',
+      }}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-3">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-3">
         <ModalHeader titleId={titleId}>Edit images</ModalHeader>
         <SecondaryButton onClick={close} variant="surface" size="sm">
           Done
@@ -256,10 +373,11 @@ const ImageEditorModalBody = () =>
       </div>
       <BoardControlsBar
         ratioPicker={ratioPicker}
-        boardDefaultFit={boardDefaultFit}
-        onSetAllFit={handleSetAllFit}
+        onAutoCropAll={handleAutoCropAll}
+        autoCropProgress={autoCropProgress}
+        autoCropAllApplied={autoCropAllApplied}
       />
-      <div className="flex h-[min(64dvh,560px)]">
+      <div className="flex min-h-0 flex-1">
         <ImageEditorRail
           filter={filter}
           onFilterChange={setFilter}
@@ -269,7 +387,7 @@ const ImageEditorModalBody = () =>
           selectedId={selectedId}
           onSelect={setPickedId}
         />
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           {selectedItem ? (
             <ImageEditorPane
               key={`${selectedItem.id}:${transformKey(selectedItem.transform)}:${boardAspectRatio}:${getEffectiveImageFit(selectedItem, boardDefaultFit)}`}
@@ -296,18 +414,19 @@ const ImageEditorModalBody = () =>
 interface BoardControlsBarProps
 {
   ratioPicker: ReturnType<typeof useBoardAspectRatioPicker>
-  boardDefaultFit: ImageFit | undefined
-  onSetAllFit: (fit: ImageFit) => void
+  onAutoCropAll: () => void
+  autoCropProgress: { running: boolean; done: number; total: number }
+  autoCropAllApplied: boolean
 }
 
-// board-wide controls — board ratio chips + Cover/Contain bulk fit; mirror
-// the AspectRatioSection wiring so changes here & in settings stay aligned
+// board-wide controls — board ratio chips plus crop actions for the editor
 const BoardControlsBar = ({
   ratioPicker,
-  boardDefaultFit,
-  onSetAllFit,
+  onAutoCropAll,
+  autoCropProgress,
+  autoCropAllApplied,
 }: BoardControlsBarProps) => (
-  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] px-5 py-2">
+  <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] px-5 py-2">
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-[var(--t-text-muted)]">
         Board ratio
@@ -315,6 +434,7 @@ const BoardControlsBar = ({
       <AspectRatioChips
         selectedOption={ratioPicker.selectedOption}
         onSelect={ratioPicker.handleOption}
+        autoRatio={ratioPicker.autoRatio}
       />
       {ratioPicker.customOpen && (
         <CustomRatioInput
@@ -327,17 +447,86 @@ const BoardControlsBar = ({
         />
       )}
     </div>
-    <SegmentedControl<ImageFit>
-      ariaLabel="Set fit for all mismatched items"
-      options={[
-        { value: 'cover', label: 'Cover all' },
-        { value: 'contain', label: 'Contain all' },
-      ]}
-      value={boardDefaultFit ?? 'cover'}
-      onChange={onSetAllFit}
-    />
+    <div className="flex items-center gap-2">
+      <AutoCropButton
+        onClick={onAutoCropAll}
+        disabled={autoCropProgress.running || autoCropAllApplied}
+        minWidthClassName="min-w-[8.75rem]"
+        state={
+          autoCropProgress.running
+            ? 'running'
+            : autoCropAllApplied
+              ? 'applied'
+              : 'idle'
+        }
+        variant="toolbar"
+        labels={{
+          running: `Auto-cropping... ${autoCropProgress.done}/${autoCropProgress.total}`,
+          applied: 'Auto-cropped all',
+          idle: 'Auto-crop all',
+        }}
+        aria-label="Auto-crop all images to detected content"
+        title={autoCropAllApplied ? 'Auto-crop is applied' : undefined}
+      />
+    </div>
   </div>
 )
+
+type AutoCropButtonState = 'idle' | 'running' | 'applied'
+type AutoCropButtonVariant = 'toolbar' | 'plain'
+
+interface AutoCropButtonProps
+{
+  state: AutoCropButtonState
+  variant: AutoCropButtonVariant
+  labels: Record<AutoCropButtonState, string>
+  minWidthClassName: string
+  disabled: boolean
+  onClick: () => void
+  'aria-label': string
+  title?: string
+}
+
+const AutoCropButton = ({
+  state,
+  variant,
+  labels,
+  minWidthClassName,
+  disabled,
+  onClick,
+  'aria-label': ariaLabel,
+  title,
+}: AutoCropButtonProps) =>
+{
+  const variantClass =
+    variant === 'toolbar'
+      ? 'border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)] enabled:hover:text-[var(--t-text)]'
+      : state === 'applied'
+        ? 'bg-[var(--t-bg-active)] text-[var(--t-text-muted)]'
+        : 'text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)]'
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`focus-custom inline-flex ${minWidthClassName} items-center justify-center gap-1 rounded px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${variantClass}`}
+      aria-label={ariaLabel}
+      title={title}
+    >
+      {state === 'running' ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : state === 'applied' ? (
+        <Check className="h-3 w-3" />
+      ) : (
+        <Crop className="h-3 w-3" />
+      )}
+      <span className={state === 'running' ? 'tabular-nums' : undefined}>
+        {labels[state]}
+      </span>
+    </button>
+  )
+}
 
 interface EmptyStateProps
 {
@@ -382,7 +571,7 @@ const ImageEditorRail = ({
   selectedId,
   onSelect,
 }: ImageEditorRailProps) => (
-  <aside className="flex w-64 shrink-0 flex-col border-r border-[var(--t-border-secondary)] bg-[var(--t-bg-page)]">
+  <aside className="flex min-h-0 w-64 shrink-0 flex-col border-r border-[var(--t-border-secondary)] bg-[var(--t-bg-page)]">
     <div
       role="tablist"
       aria-label="Filter items"
@@ -524,6 +713,7 @@ const ImageEditorPane = ({
   const sourceUrl = useImageUrl(item.sourceImageRef?.hash)
   const displayUrl = useImageUrl(item.imageRef?.hash)
   const url = sourceUrl ?? displayUrl
+  const autoCropHash = getAutoCropHash(item)
   const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
   const fitBaseline = useMemo(
     () => createFitBaselineTransform(item, boardAspectRatio, effectiveFit),
@@ -535,6 +725,18 @@ const ImageEditorPane = ({
     seedTransform(item, boardAspectRatio, effectiveFit)
   )
   const [isDragging, setIsDragging] = useState(false)
+  const [snap, setSnap] = useState<{ x: boolean; y: boolean }>({
+    x: false,
+    y: false,
+  })
+  const [autoCropping, setAutoCropping] = useState(false)
+  const canvasRef = useRef<HTMLDivElement | null>(null)
+  useSyncExternalStore(
+    subscribeAutoCropCache,
+    getAutoCropCacheVersion,
+    getAutoCropCacheVersion
+  )
+  const autoCropResult = getCachedBBox(autoCropHash)
 
   useEffect(() =>
   {
@@ -542,13 +744,72 @@ const ImageEditorPane = ({
     void warmImageHashes([item.sourceImageRef.hash])
   }, [item.sourceImageRef?.hash, sourceUrl])
 
+  // arrow-key & wheel gestures fire many micro-updates; we coalesce them
+  // into a single commit per gesture so undo history stays usable
+  const pendingCommitRef = useRef<{
+    timer: number | null
+    transform: ItemTransform | null
+  }>({ timer: null, transform: null })
+
+  const cancelPendingCommit = useCallback(() =>
+  {
+    const pending = pendingCommitRef.current
+    if (pending.timer !== null)
+    {
+      clearTimeout(pending.timer)
+      pending.timer = null
+    }
+    pending.transform = null
+  }, [])
+
+  // discrete commits (drag end, slider end, rotate, reset, center) supersede
+  // any in-flight debounced gesture, so we drop pending instead of flushing
   const flushCommit = useCallback(
     (transform: ItemTransform) =>
     {
+      cancelPendingCommit()
       const clamped = clampItemTransform(transform)
       onCommit(isSameItemTransform(clamped, fitBaseline) ? null : clamped)
     },
-    [onCommit, fitBaseline]
+    [onCommit, fitBaseline, cancelPendingCommit]
+  )
+
+  const flushPendingCommit = useCallback(() =>
+  {
+    const pending = pendingCommitRef.current
+    if (pending.timer === null) return
+    clearTimeout(pending.timer)
+    pending.timer = null
+    const t = pending.transform
+    pending.transform = null
+    if (t) flushCommit(t)
+  }, [flushCommit])
+
+  const scheduleCommit = useCallback(
+    (transform: ItemTransform) =>
+    {
+      const pending = pendingCommitRef.current
+      pending.transform = transform
+      if (pending.timer !== null) clearTimeout(pending.timer)
+      pending.timer = window.setTimeout(() =>
+      {
+        const t = pending.transform
+        pending.timer = null
+        pending.transform = null
+        if (t) flushCommit(t)
+      }, GESTURE_COMMIT_DEBOUNCE_MS)
+    },
+    [flushCommit]
+  )
+
+  // pane remounts mean the baseline changed; avoid resaving stale nudges.
+  // explicit pane navigation flushes pending gesture commits first
+  useEffect(
+    () => () =>
+    {
+      cancelPendingCommit()
+    },
+    [cancelPendingCommit]
   )
 
   const canvasW =
@@ -602,13 +863,34 @@ const ImageEditorPane = ({
         return
       }
       drag.moved = true
-      const dx = deltaX / canvasW
-      const dy = deltaY / canvasH
+      let nextOffsetX = drag.baseOffX + deltaX / canvasW
+      let nextOffsetY = drag.baseOffY + deltaY / canvasH
+      // Alt held bypasses snapping for fine alignment near the center
+      let snapX = false
+      let snapY = false
+      if (!e.altKey)
+      {
+        const thresholdX = PAN_SNAP_THRESHOLD_PX / canvasW
+        const thresholdY = PAN_SNAP_THRESHOLD_PX / canvasH
+        if (Math.abs(nextOffsetX) < thresholdX)
+        {
+          nextOffsetX = 0
+          snapX = true
+        }
+        if (Math.abs(nextOffsetY) < thresholdY)
+        {
+          nextOffsetY = 0
+          snapY = true
+        }
+      }
+      setSnap((prev) =>
+        prev.x === snapX && prev.y === snapY ? prev : { x: snapX, y: snapY }
+      )
       setWorking((w) =>
         clampItemTransform({
           ...w,
-          offsetX: drag.baseOffX + dx,
-          offsetY: drag.baseOffY + dy,
+          offsetX: nextOffsetX,
+          offsetY: nextOffsetY,
         })
       )
     },
@@ -634,6 +916,7 @@ const ImageEditorPane = ({
       }
       dragRef.current = null
       setIsDragging(false)
+      setSnap({ x: false, y: false })
       if (!drag.moved) return
       setWorking((w) =>
       {
@@ -689,13 +972,170 @@ const ImageEditorPane = ({
     flushCommit(next)
   }, [fitBaseline, flushCommit])
 
+  const goPrev = useCallback(() =>
+  {
+    flushPendingCommit()
+    onPrev()
+  }, [flushPendingCommit, onPrev])
+
+  const goNext = useCallback(() =>
+  {
+    flushPendingCommit()
+    onNext()
+  }, [flushPendingCommit, onNext])
+
+  const centerOffsets = useCallback(() =>
+  {
+    setWorking((w) =>
+    {
+      const next = clampItemTransform({ ...w, offsetX: 0, offsetY: 0 })
+      flushCommit(next)
+      return next
+    })
+  }, [flushCommit])
+
+  const autoCrop = useCallback(async () =>
+  {
+    if (!autoCropHash || autoCropping) return
+    setAutoCropping(true)
+    try
+    {
+      let bbox = getCachedBBox(autoCropHash)
+      if (bbox === undefined)
+      {
+        const record = await getBlob(autoCropHash)
+        if (!record) return
+        bbox = await detectContentBBox(record.bytes, autoCropHash)
+      }
+      if (!bbox) return
+      const next = resolveAutoCropTransform(
+        item,
+        bbox,
+        boardAspectRatio,
+        working.rotation
+      )
+      setWorking(next)
+      flushCommit(next)
+    }
+    finally
+    {
+      setAutoCropping(false)
+    }
+  }, [
+    autoCropHash,
+    autoCropping,
+    item,
+    boardAspectRatio,
+    working.rotation,
+    flushCommit,
+  ])
+
+  // arrow keys nudge by 1 canvas-px (Shift = 10px); interactive controls
+  // keep their own keyboard behavior
+  useEffect(() =>
+  {
+    if (!url) return
+    const onKey = (e: KeyboardEvent) =>
+    {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey) return
+      if (isInteractiveArrowTarget(e.target)) return
+      let dxPx = 0
+      let dyPx = 0
+      switch (e.key)
+      {
+        case 'ArrowLeft':
+          dxPx = -1
+          break
+        case 'ArrowRight':
+          dxPx = 1
+          break
+        case 'ArrowUp':
+          dyPx = -1
+          break
+        case 'ArrowDown':
+          dyPx = 1
+          break
+        default:
+          return
+      }
+      if (e.shiftKey)
+      {
+        dxPx *= 10
+        dyPx *= 10
+      }
+      e.preventDefault()
+      setWorking((w) =>
+      {
+        const next = clampItemTransform({
+          ...w,
+          offsetX: w.offsetX + dxPx / canvasW,
+          offsetY: w.offsetY + dyPx / canvasH,
+        })
+        scheduleCommit(next)
+        return next
+      })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [url, canvasW, canvasH, scheduleCommit])
+
+  // wheel-to-zoom anchored on the cursor; React's synthetic onWheel is
+  // passive so we attach a manual non-passive listener to preventDefault
+  useEffect(() =>
+  {
+    const canvas = canvasRef.current
+    if (!canvas || !url) return
+    const onWheel = (e: WheelEvent) =>
+    {
+      e.preventDefault()
+      const rect = canvas.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
+      const cursorFracX = (e.clientX - rect.left) / rect.width - 0.5
+      const cursorFracY = (e.clientY - rect.top) / rect.height - 0.5
+      const factor = Math.exp(-e.deltaY * WHEEL_ZOOM_SENSITIVITY)
+      setWorking((w) =>
+      {
+        const currentBaselineZoom = getFitBaselineZoom(w.rotation)
+        const { min, max } = getDisplayZoomBounds(currentBaselineZoom)
+        const nextDisplayZoom = clamp(
+          (w.zoom / currentBaselineZoom) * factor,
+          min,
+          max
+        )
+        const nextZoom = nextDisplayZoom * currentBaselineZoom
+        const actualFactor = nextZoom / w.zoom
+        const next = clampItemTransform({
+          ...w,
+          zoom: nextZoom,
+          offsetX: cursorFracX - actualFactor * (cursorFracX - w.offsetX),
+          offsetY: cursorFracY - actualFactor * (cursorFracY - w.offsetY),
+        })
+        scheduleCommit(next)
+        return next
+      })
+    }
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', onWheel)
+  }, [url, scheduleCommit, getFitBaselineZoom])
+
   const zoomBaseline = getFitBaselineZoom(working.rotation)
   const displayZoom = working.zoom / zoomBaseline
-  const displayZoomMin = ITEM_TRANSFORM_LIMITS.zoomMin / zoomBaseline
-  const displayZoomMax = Math.min(
-    SLIDER_ZOOM_MAX,
-    ITEM_TRANSFORM_LIMITS.zoomMax / zoomBaseline
+  const { min: displayZoomMin, max: displayZoomMax } =
+    getDisplayZoomBounds(zoomBaseline)
+  const displaySliderZoomMax = Math.min(
+    Math.max(SLIDER_ZOOM_MAX, displayZoom),
+    displayZoomMax
   )
+  const autoCropTransform = autoCropResult
+    ? resolveAutoCropTransform(
+        item,
+        autoCropResult,
+        boardAspectRatio,
+        working.rotation
+      )
+    : null
+  const autoCropApplied =
+    !!autoCropTransform && isSameItemTransform(working, autoCropTransform)
   const hasChanges =
     hasSavedTransform || !isSameItemTransform(working, fitBaseline)
   const useManualCrop =
@@ -728,7 +1168,7 @@ const ImageEditorPane = ({
     : '—'
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-2 text-xs text-[var(--t-text-muted)]">
         <span className="truncate font-medium text-[var(--t-text-secondary)]">
           {item.label ?? 'Untitled'}
@@ -737,8 +1177,9 @@ const ImageEditorPane = ({
           Item {ratioLabel} · Board {formatAspectRatio(boardAspectRatio)}
         </span>
       </div>
-      <div className="flex flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
+      <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
         <div
+          ref={canvasRef}
           className="relative overflow-hidden rounded border border-[var(--t-border-secondary)] bg-black/20 select-none"
           style={{
             width: canvasW,
@@ -764,6 +1205,18 @@ const ImageEditorPane = ({
             <div className="flex h-full w-full items-center justify-center text-xs text-[var(--t-text-faint)]">
               Loading...
             </div>
+          )}
+          {snap.x && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]"
+            />
+          )}
+          {snap.y && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]"
+            />
           )}
         </div>
       </div>
@@ -793,9 +1246,48 @@ const ImageEditorPane = ({
         <ZoomSlider
           value={displayZoom}
           min={displayZoomMin}
-          max={displayZoomMax}
+          sliderMax={displaySliderZoomMax}
           onLiveChange={setZoomLive}
           onCommit={commitWorking}
+        />
+        <button
+          type="button"
+          onClick={centerOffsets}
+          disabled={working.offsetX === 0 && working.offsetY === 0}
+          className="focus-custom inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          aria-label="Center image"
+        >
+          <Crosshair className="h-3 w-3" />
+          Center
+        </button>
+        <AutoCropButton
+          onClick={autoCrop}
+          disabled={
+            !autoCropHash ||
+            autoCropping ||
+            autoCropResult === null ||
+            autoCropApplied
+          }
+          minWidthClassName="min-w-[7.5rem]"
+          state={
+            autoCropping ? 'running' : autoCropApplied ? 'applied' : 'idle'
+          }
+          variant="plain"
+          labels={{
+            running: 'Auto-crop',
+            applied: 'Auto-cropped',
+            idle: 'Auto-crop',
+          }}
+          aria-label={
+            autoCropApplied ? 'Auto-crop applied' : 'Auto-crop to content'
+          }
+          title={
+            autoCropApplied
+              ? 'Auto-crop is applied'
+              : autoCropResult === null
+                ? 'No crop detected — image fills its frame'
+                : 'Frame the detected content'
+          }
         />
         <button
           type="button"
@@ -808,7 +1300,7 @@ const ImageEditorPane = ({
         </button>
         <div className="ml-auto flex items-center gap-2">
           <SecondaryButton
-            onClick={onPrev}
+            onClick={goPrev}
             disabled={!canPrev}
             variant="surface"
             size="sm"
@@ -816,7 +1308,7 @@ const ImageEditorPane = ({
             Prev
           </SecondaryButton>
           <SecondaryButton
-            onClick={onNext}
+            onClick={goNext}
             disabled={!canNext}
             variant="surface"
             size="sm"
@@ -833,7 +1325,7 @@ interface ZoomSliderProps
 {
   value: number
   min: number
-  max: number
+  sliderMax: number
   onLiveChange: (value: number) => void
   onCommit: () => void
 }
@@ -843,27 +1335,101 @@ interface ZoomSliderProps
 const ZoomSlider = ({
   value,
   min,
-  max,
+  sliderMax,
   onLiveChange,
   onCommit,
-}: ZoomSliderProps) => (
-  <label className="flex items-center gap-2 text-xs text-[var(--t-text-muted)]">
-    <span>Zoom</span>
-    <input
-      type="range"
-      min={min}
-      max={max}
-      step={0.05}
-      value={clamp(value, min, max)}
-      onChange={(e) => onLiveChange(Number(e.target.value))}
-      onPointerUp={onCommit}
-      onKeyUp={onCommit}
-      onBlur={onCommit}
-      className="w-40 accent-[var(--t-accent)]"
-      aria-label="Zoom"
-    />
-    <span className="w-12 text-right tabular-nums text-[var(--t-text)]">
-      {(value * 100).toFixed(0)}%
-    </span>
-  </label>
-)
+}: ZoomSliderProps) =>
+{
+  const percentValue = Math.round(clamp(value, min, sliderMax) * 100)
+  const percentMin = Math.ceil(min * 100)
+  const percentMax = Math.floor(sliderMax * 100)
+  const [draftPercent, setDraftPercent] = useState<string | null>(null)
+  const visiblePercent = draftPercent ?? String(percentValue)
+  const sliderMin = ceilToStep(min, ZOOM_SLIDER_STEP)
+  const sliderMaxValue = Math.max(
+    sliderMin,
+    floorToStep(sliderMax, ZOOM_SLIDER_STEP)
+  )
+  const sliderValue = clamp(
+    roundToStep(value, ZOOM_SLIDER_STEP),
+    sliderMin,
+    sliderMaxValue
+  )
+
+  const commitPercentInput = useCallback(() =>
+  {
+    const parsed = parsePercentInput(visiblePercent)
+    const nextPercent =
+      parsed === null
+        ? percentValue
+        : clamp(Math.round(parsed), percentMin, percentMax)
+
+    setDraftPercent(null)
+    onLiveChange(nextPercent / 100)
+    onCommit()
+  }, [
+    percentMax,
+    percentMin,
+    percentValue,
+    visiblePercent,
+    onLiveChange,
+    onCommit,
+  ])
+
+  const resetPercentInput = useCallback(() =>
+  {
+    setDraftPercent(null)
+  }, [])
+
+  return (
+    <div className="flex items-center gap-2 text-xs text-[var(--t-text-muted)]">
+      <span>Zoom</span>
+      <input
+        type="range"
+        min={sliderMin}
+        max={sliderMaxValue}
+        step={ZOOM_SLIDER_STEP}
+        value={sliderValue}
+        onChange={(e) =>
+          onLiveChange(
+            clamp(
+              roundToStep(Number(e.target.value), ZOOM_SLIDER_STEP),
+              sliderMin,
+              sliderMaxValue
+            )
+          )
+        }
+        onPointerUp={onCommit}
+        onKeyUp={onCommit}
+        onBlur={onCommit}
+        className="w-56 accent-[var(--t-accent)] max-sm:w-36"
+        aria-label="Zoom"
+      />
+      <label className="flex h-7 items-center rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-2 text-[var(--t-text-muted)] focus-within:border-[var(--t-border-hover)] focus-within:ring-2 focus-within:ring-[var(--t-accent)]">
+        <input
+          type="text"
+          value={visiblePercent}
+          onChange={(e) => setDraftPercent(e.target.value)}
+          onFocus={(e) =>
+          {
+            setDraftPercent(String(percentValue))
+            e.currentTarget.select()
+          }}
+          onBlur={commitPercentInput}
+          onKeyDown={(e) =>
+          {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') resetPercentInput()
+          }}
+          inputMode="numeric"
+          className="w-9 bg-transparent text-right tabular-nums text-[var(--t-text)] outline-none [appearance:textfield]"
+          aria-label="Zoom percent"
+          spellCheck={false}
+        />
+        <span aria-hidden="true" className="pl-0.5">
+          %
+        </span>
+      </label>
+    </div>
+  )
+}
