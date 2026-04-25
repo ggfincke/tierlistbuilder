@@ -10,7 +10,7 @@ import {
 const RECT_BOX = 28
 
 const GRID_STYLE = {
-  gridTemplateColumns: 'repeat(auto-fit, minmax(4.5rem, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(3rem, 1fr))',
 }
 
 // scale a ratio-correct rect inside a square bounding box, floored so extreme

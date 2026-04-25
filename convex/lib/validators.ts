@@ -191,6 +191,19 @@ const cloudBoardStateItemValidator = v.object({
   deletedAt: v.union(v.number(), v.null()),
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
+  transform: v.optional(
+    v.object({
+      rotation: v.union(
+        v.literal(0),
+        v.literal(90),
+        v.literal(180),
+        v.literal(270)
+      ),
+      zoom: v.number(),
+      offsetX: v.number(),
+      offsetY: v.number(),
+    })
+  ),
 })
 
 // full cloud board state payload — mirrors CloudBoardState

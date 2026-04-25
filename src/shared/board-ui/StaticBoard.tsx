@@ -121,6 +121,7 @@ export const StaticBoard = memo(
                           item={item}
                           showLabel={appearance.showLabels && !!item.label}
                           fit={getEffectiveImageFit(item, boardDefaultFit)}
+                          frameAspectRatio={boardAspectRatio}
                         />
                       </div>
                     )

@@ -130,67 +130,25 @@ describe('boardStorage sync metadata', () =>
     })
   })
 
-  it('rejects arbitrary JSON that lacks the envelope shape', () =>
+  it.each([
+    ['arbitrary JSON without envelope shape', { hello: 'world' }],
+    [
+      'unwrapped board payload',
+      { tiers: [], items: {}, unrankedItemIds: [], deletedItems: [] },
+    ],
+    [
+      'wrapped envelope missing version',
+      { data: createInitialBoardData('classic') },
+    ],
+    [
+      'wrapped envelope with unsupported version',
+      { version: 999, data: createInitialBoardData('classic') },
+    ],
+  ])('rejects %s as corrupted', (_label, payload) =>
   {
     localStorage.setItem(
       boardStorageKey(TEST_BOARD_ID),
-      JSON.stringify({
-        hello: 'world',
-      })
-    )
-
-    expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
-      status: 'corrupted',
-      data: null,
-      sync: EMPTY_BOARD_SYNC_STATE,
-    })
-  })
-
-  it('rejects an unwrapped board payload', () =>
-  {
-    localStorage.setItem(
-      boardStorageKey(TEST_BOARD_ID),
-      JSON.stringify({
-        tiers: [],
-        items: {},
-        unrankedItemIds: [],
-        deletedItems: [],
-      })
-    )
-
-    expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
-      status: 'corrupted',
-      data: null,
-      sync: EMPTY_BOARD_SYNC_STATE,
-    })
-  })
-
-  it('rejects a wrapped envelope missing the version field', () =>
-  {
-    const snapshot = createInitialBoardData('classic')
-    localStorage.setItem(
-      boardStorageKey(TEST_BOARD_ID),
-      JSON.stringify({
-        data: snapshot,
-      })
-    )
-
-    expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
-      status: 'corrupted',
-      data: null,
-      sync: EMPTY_BOARD_SYNC_STATE,
-    })
-  })
-
-  it('rejects a wrapped envelope with a version above the supported maximum', () =>
-  {
-    const snapshot = createInitialBoardData('classic')
-    localStorage.setItem(
-      boardStorageKey(TEST_BOARD_ID),
-      JSON.stringify({
-        version: 999,
-        data: snapshot,
-      })
+      JSON.stringify(payload)
     )
 
     expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({

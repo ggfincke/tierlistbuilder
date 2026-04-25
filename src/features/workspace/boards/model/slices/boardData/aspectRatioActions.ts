@@ -5,6 +5,11 @@ import {
   computeAutoBoardAspectRatio,
   getBoardAspectRatioMode,
 } from '~/features/workspace/boards/lib/aspectRatio'
+import {
+  clampItemTransform,
+  isIdentityTransform,
+  isSameItemTransform,
+} from '~/shared/lib/imageTransform'
 import { withUndo } from '../undoSlice'
 import type { ActiveBoardSliceCreator, BoardDataSlice } from '../types'
 
@@ -16,6 +21,7 @@ type AspectRatioActions = Pick<
   | 'setItemsImageFit'
   | 'setAspectRatioPromptDismissed'
   | 'setDefaultItemImageFit'
+  | 'setItemTransform'
 >
 
 type SliceArgs = Parameters<ActiveBoardSliceCreator<BoardDataSlice>>
@@ -74,13 +80,14 @@ export const createAspectRatioActions = (
       const item = state.items[itemId]
       if (!item) return state
       const nextFit = fit ?? undefined
-      if (nextFit === item.imageFit) return state
+      if (nextFit === item.imageFit && !item.transform) return state
+      const { transform: _transform, ...rest } = item
       return withUndo(
         state,
         {
           items: {
             ...state.items,
-            [itemId]: { ...item, imageFit: nextFit },
+            [itemId]: { ...rest, imageFit: nextFit },
           },
         },
         'Change image fit'
@@ -97,8 +104,9 @@ export const createAspectRatioActions = (
       for (const id of itemIds)
       {
         const item = nextItems[id]
-        if (!item || nextFit === item.imageFit) continue
-        nextItems[id] = { ...item, imageFit: nextFit }
+        if (!item || (nextFit === item.imageFit && !item.transform)) continue
+        const { transform: _transform, ...rest } = item
+        nextItems[id] = { ...rest, imageFit: nextFit }
         changed = true
       }
       if (!changed) return state
@@ -122,6 +130,37 @@ export const createAspectRatioActions = (
         state,
         { defaultItemImageFit: nextFit },
         'Set default fit'
+      )
+    }),
+
+  setItemTransform: (itemId, transform) =>
+    set((state) =>
+    {
+      const item = state.items[itemId]
+      if (!item) return state
+      // clamp incoming transform values to the contract's bounds; the editor
+      // can pass raw drag deltas without pre-validating them
+      const nextTransform = transform
+        ? clampItemTransform(transform)
+        : undefined
+      const savedTransform =
+        nextTransform && !isIdentityTransform(nextTransform)
+          ? nextTransform
+          : undefined
+      if (isSameItemTransform(item.transform, savedTransform)) return state
+      const { transform: _existingTransform, ...rest } = item
+      const nextItem = savedTransform
+        ? { ...item, transform: savedTransform }
+        : rest
+      return withUndo(
+        state,
+        {
+          items: {
+            ...state.items,
+            [itemId]: nextItem,
+          },
+        },
+        savedTransform ? 'Adjust image' : 'Reset image adjustment'
       )
     }),
 })

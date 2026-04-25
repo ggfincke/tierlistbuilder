@@ -2,7 +2,10 @@
 // cloud board <-> snapshot mapping
 
 import { describe, expect, it } from 'vitest'
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardSnapshot,
+  ItemTransform,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
 import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
@@ -145,5 +148,52 @@ describe('snapshotToCloudPayload media mapping', () =>
       aspectRatio: 4 / 3,
       imageFit: 'contain',
     })
+  })
+
+  it('preserves item transforms across all cloud payload item groups', () =>
+  {
+    const tieredId = asItemId('item-tiered')
+    const unrankedId = asItemId('item-unranked')
+    const deletedId = asItemId('item-deleted')
+    const transforms = {
+      [tieredId]: { rotation: 90, zoom: 1.5, offsetX: 0.2, offsetY: -0.3 },
+      [unrankedId]: { rotation: 180, zoom: 2, offsetX: -0.1, offsetY: 0.4 },
+      [deletedId]: { rotation: 270, zoom: 0.75, offsetX: 0, offsetY: 0.1 },
+    } satisfies Record<string, ItemTransform>
+
+    const payload = snapshotToCloudPayload(
+      makeBoardSnapshot({
+        title: 'Board',
+        tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: [tieredId] })],
+        unrankedItemIds: [unrankedId],
+        items: {
+          [tieredId]: {
+            id: tieredId,
+            label: 'Tiered',
+            transform: transforms[tieredId],
+          },
+          [unrankedId]: {
+            id: unrankedId,
+            label: 'Unranked',
+            transform: transforms[unrankedId],
+          },
+        },
+        deletedItems: [
+          {
+            id: deletedId,
+            label: 'Deleted',
+            transform: transforms[deletedId],
+          },
+        ],
+      }),
+      emptyUploadResult()
+    )
+
+    for (const [id, expected] of Object.entries(transforms))
+    {
+      expect(
+        payload.items.find((item) => item.externalId === id)?.transform
+      ).toEqual(expected)
+    }
   })
 })

@@ -117,6 +117,7 @@ export const loadBoardCloudState = async (
         deletedAt: item.deletedAt,
         aspectRatio: item.aspectRatio,
         imageFit: item.imageFit,
+        transform: item.transform,
       }
     }),
   }

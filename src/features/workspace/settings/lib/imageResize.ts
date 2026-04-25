@@ -1,14 +1,15 @@
 // src/features/workspace/settings/lib/imageResize.ts
-// image resize & upload utilities — shrinks uploads to thumbnail size before storage
+// image resize & upload utilities for display thumbs + editor source blobs
 
 import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
-import { persistBlobSources } from '~/shared/images/imagePersistence'
-import { MAX_THUMBNAIL_SIZE } from './constants'
 import {
-  canvasToPngBlob,
-  deriveLabelFromFilename,
-  getResizedDimensions,
-} from './imageGeometry'
+  BLOB_PREPARE_CONCURRENCY,
+  persistPreparedBlobRecords,
+  prepareBlobRecord,
+} from '~/shared/images/imagePersistence'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { MAX_EDITOR_SOURCE_SIZE, MAX_THUMBNAIL_SIZE } from './constants'
+import { deriveLabelFromFilename, drawImageToPngBlob } from './imageGeometry'
 
 // processed upload result w/ partial-failure accounting
 export interface ProcessImageFilesResult
@@ -17,12 +18,11 @@ export interface ProcessImageFilesResult
   failedCount: number
 }
 
-// intermediate blob + label + natural dimensions captured during resize.
-// aspect ratio is computed once so the persist step can thread it into the
-// returned NewTierItem alongside the blob-store imageRef
+// intermediate blobs + label + source aspect ratio captured during resize
 interface PreparedImage
 {
-  blob: Blob
+  displayBlob: Blob
+  sourceBlob: Blob
   label: string
   aspectRatio: number
 }
@@ -38,10 +38,11 @@ export const processImageFiles = async (
     {
       try
       {
-        const { blob, naturalWidth, naturalHeight } =
-          await resizeImageFileToBlob(imageFile)
+        const { displayBlob, sourceBlob, naturalWidth, naturalHeight } =
+          await resizeImageFileToBlobs(imageFile)
         return {
-          blob,
+          displayBlob,
+          sourceBlob,
           label: deriveLabelFromFilename(imageFile.name),
           aspectRatio: naturalWidth / naturalHeight,
         } satisfies PreparedImage
@@ -56,13 +57,23 @@ export const processImageFiles = async (
   const preparedItems = resized.filter(
     (item): item is PreparedImage => item !== null
   )
-  const sources = await persistBlobSources(
-    preparedItems.map((item) => item.blob)
+  const preparedSources = await mapAsyncLimit(
+    preparedItems,
+    BLOB_PREPARE_CONCURRENCY,
+    async (item) => ({
+      item,
+      display: await prepareBlobRecord(item.displayBlob),
+      source: await prepareBlobRecord(item.sourceBlob),
+    })
   )
-  const items = sources.map((source, index) => ({
-    ...source,
-    label: preparedItems[index].label,
-    aspectRatio: preparedItems[index].aspectRatio,
+  await persistPreparedBlobRecords(
+    preparedSources.flatMap((entry) => [entry.display, entry.source])
+  )
+  const items = preparedSources.map(({ item, display, source }) => ({
+    imageRef: display.imageRef,
+    sourceImageRef: source.imageRef,
+    label: item.label,
+    aspectRatio: item.aspectRatio,
   })) satisfies Array<NewTierItem & { label: string }>
 
   return {
@@ -73,46 +84,41 @@ export const processImageFiles = async (
 
 interface ResizedBlob
 {
-  blob: Blob
+  displayBlob: Blob
+  sourceBlob: Blob
   // source image dimensions before downscaling, used to derive aspect ratio
   naturalWidth: number
   naturalHeight: number
 }
 
-// resize a File to a PNG Blob capped at maxSize px on the longest side.
-// returns raw bytes + source dimensions so the caller can hash & persist the
-// blob to the IndexedDB image store while still capturing the original ratio
-const resizeImageFileToBlob = async (
-  file: File,
-  maxSize = MAX_THUMBNAIL_SIZE
-): Promise<ResizedBlob> =>
+// resize a File into display & editor PNG blobs while preserving source ratio
+const resizeImageFileToBlobs = async (file: File): Promise<ResizedBlob> =>
 {
   const imageBitmap = await createImageBitmap(file)
   const naturalWidth = imageBitmap.width
   const naturalHeight = imageBitmap.height
 
-  const { width, height } = getResizedDimensions(
-    naturalWidth,
-    naturalHeight,
-    maxSize
-  )
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
+  try
+  {
+    const [displayBlob, sourceBlob] = await Promise.all([
+      drawImageToPngBlob(
+        imageBitmap,
+        naturalWidth,
+        naturalHeight,
+        MAX_THUMBNAIL_SIZE
+      ),
+      drawImageToPngBlob(
+        imageBitmap,
+        naturalWidth,
+        naturalHeight,
+        MAX_EDITOR_SOURCE_SIZE
+      ),
+    ])
 
-  const context = canvas.getContext('2d')
-  if (!context)
+    return { displayBlob, sourceBlob, naturalWidth, naturalHeight }
+  }
+  finally
   {
     imageBitmap.close()
-    throw new Error('Could not initialize a canvas context.')
   }
-
-  context.imageSmoothingEnabled = true
-  context.imageSmoothingQuality = 'high'
-  context.drawImage(imageBitmap, 0, 0, width, height)
-
-  imageBitmap.close()
-
-  const blob = await canvasToPngBlob(canvas)
-  return { blob, naturalWidth, naturalHeight }
 }

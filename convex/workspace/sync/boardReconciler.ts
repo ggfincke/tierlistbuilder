@@ -6,6 +6,7 @@ import type {
   CloudBoardItemWire as WireItem,
   CloudBoardTierWire as WireTier,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 
 export interface TierDiff
 {
@@ -39,6 +40,7 @@ export interface ItemDiff
     deletedAt: number | null
     aspectRatio?: number
     imageFit?: 'cover' | 'contain'
+    transform?: ItemTransform
   }>
   patch: Array<{
     id: Id<'boardItems'>
@@ -53,6 +55,23 @@ export interface ItemDiff
 }
 
 const hasOwnKey = (obj: object): boolean => Object.keys(obj).length > 0
+
+// shallow structural compare — transforms are flat 4-field POJOs so a manual
+// compare is cheaper & clearer than JSON.stringify
+const transformsEqual = (
+  a: ItemTransform | undefined,
+  b: ItemTransform | undefined
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.rotation === b.rotation &&
+    a.zoom === b.zoom &&
+    a.offsetX === b.offsetX &&
+    a.offsetY === b.offsetY
+  )
+}
 
 export const diffTiers = (
   wireTiers: WireTier[],
@@ -162,6 +181,7 @@ export const diffItems = (
         deletedAt: isDeleted ? now : null,
         aspectRatio: wire.aspectRatio,
         imageFit: wire.imageFit,
+        transform: wire.transform,
       })
       continue
     }
@@ -185,6 +205,7 @@ export const diffItems = (
           altText: wire.altText,
           aspectRatio: wire.aspectRatio,
           imageFit: wire.imageFit,
+          transform: wire.transform,
           ...(hasMediaExternalId ? { mediaAssetId: resolvedMediaId } : {}),
         },
       })
@@ -205,6 +226,10 @@ export const diffItems = (
       fields.aspectRatio = wire.aspectRatio
     }
     if (server.imageFit !== wire.imageFit) fields.imageFit = wire.imageFit
+    if (!transformsEqual(server.transform, wire.transform))
+    {
+      fields.transform = wire.transform
+    }
     if (hasMediaExternalId && server.mediaAssetId !== resolvedMediaId)
     {
       fields.mediaAssetId = resolvedMediaId

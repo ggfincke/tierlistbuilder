@@ -37,6 +37,46 @@ export type ImageFit = 'cover' | 'contain'
 // 'manual' pins the user-selected value
 export type ItemAspectRatioMode = 'auto' | 'manual'
 
+// quarter-turn rotation in degrees applied to the rendered image content.
+// free rotation is out of scope so the export rasterizer doesn't have to
+// handle sub-pixel anti-aliasing on rotated edges
+export type ItemRotation = 0 | 90 | 180 | 270
+
+export const ITEM_ROTATIONS: readonly ItemRotation[] = [0, 90, 180, 270]
+
+// per-item manual crop transform layered on top of object-fit:cover. absent
+// -> renderer falls back to the imageFit (board default) object-fit path.
+// shared imageTransform helpers define runtime semantics
+export interface ItemTransform
+{
+  // 0 | 90 | 180 | 270 clockwise; mirroring intentionally not exposed
+  rotation: ItemRotation
+  // multiplier over the cover baseline; 1 = no zoom, must be > 0
+  zoom: number
+  // pan as a signed fraction of cell width; 0 = centered, +0.5 shifts the
+  // image half a cell-width right of the cell center
+  offsetX: number
+  // same convention as offsetX along the vertical axis
+  offsetY: number
+}
+
+export const ITEM_TRANSFORM_IDENTITY: ItemTransform = {
+  rotation: 0,
+  zoom: 1,
+  offsetX: 0,
+  offsetY: 0,
+}
+
+// soft caps applied by the editor & by import normalization. zoom is bounded
+// so a corrupt JSON can't push image size to a sub-pixel speck or gigapixel.
+// pan is allowed slightly past the cell so users can bake a margin
+export const ITEM_TRANSFORM_LIMITS = {
+  zoomMin: 0.1,
+  zoomMax: 10,
+  offsetMin: -2,
+  offsetMax: 2,
+} as const
+
 // content-addressable image pointer for bytes stored outside the snapshot
 export interface TierItemImageRef
 {
@@ -44,21 +84,24 @@ export interface TierItemImageRef
   cloudMediaExternalId?: string
 }
 
-// single item placed in a tier or the unranked pool. images live exclusively
-// behind `imageRef`; wire payloads w/ inline base64 are persisted into IDB at
-// the boundary before being lifted into a `TierItem`
+// single item placed in a tier or the unranked pool. display images live
+// behind `imageRef`; optional source refs keep higher-quality local edit bytes
 export interface TierItem
 {
   id: ItemId
   imageRef?: TierItemImageRef
+  sourceImageRef?: TierItemImageRef
   label?: string
   backgroundColor?: string
   altText?: string
   // natural image aspect ratio (w/h) captured at import; absent -> rendered
   // w/ the board default (1:1 when the board has no override)
   aspectRatio?: number
-  // per-item crop override; absent -> board default, then global 'cover'
+  // per-item crop override; absent -> board default, then global 'cover'.
+  // ignored at render time when `transform` is set (manual transform wins)
   imageFit?: ImageFit
+  // optional per-item manual crop; absent -> imageFit fallback path
+  transform?: ItemTransform
 }
 
 // a single tier row w/ ordered item references
@@ -90,12 +133,12 @@ export interface BoardSnapshot
   defaultItemImageFit?: ImageFit
 }
 
-// payload for adding new items (before IDs are assigned). the image
-// resizer is responsible for writing the blob to the IndexedDB store &
-// passing the resulting hash here
+// payload for adding new items before IDs are assigned. image import writes
+// display + editor blobs to IndexedDB & passes the resulting refs here
 export interface NewTierItem
 {
   imageRef?: TierItemImageRef
+  sourceImageRef?: TierItemImageRef
   label?: string
   backgroundColor?: string
   // natural image aspect ratio captured at import time
@@ -114,6 +157,7 @@ export interface TierItemWire
   altText?: string
   aspectRatio?: number
   imageFit?: ImageFit
+  transform?: ItemTransform
 }
 
 // wire-format variant of `BoardSnapshot` — same shape as in-memory but

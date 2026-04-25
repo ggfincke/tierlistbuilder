@@ -5,7 +5,10 @@
 import { ConvexError, v, type Infer } from 'convex/values'
 import { mutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
-import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  ITEM_TRANSFORM_LIMITS,
+  normalizeBoardTitle,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
@@ -35,6 +38,19 @@ const wireTierValidator = v.object({
   itemIds: v.array(v.string()),
 })
 
+// shared transform validator — same shape on the wire & on the persisted row
+const itemTransformValidator = v.object({
+  rotation: v.union(
+    v.literal(0),
+    v.literal(90),
+    v.literal(180),
+    v.literal(270)
+  ),
+  zoom: v.number(),
+  offsetX: v.number(),
+  offsetY: v.number(),
+})
+
 const wireItemValidator = v.object({
   externalId: v.string(),
   tierId: v.union(v.string(), v.null()),
@@ -45,6 +61,7 @@ const wireItemValidator = v.object({
   order: v.number(),
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
+  transform: v.optional(itemTransformValidator),
 })
 
 // board-level aspect-ratio args — validators match CloudBoardAspectRatioFields
@@ -166,6 +183,42 @@ const validateInputs = (args: UpsertArgs): void =>
     if (item.mediaExternalId && !item.mediaExternalId.startsWith('media-'))
     {
       failInput('invalid mediaExternalId: must start with "media-"')
+    }
+    if (item.transform)
+    {
+      const { zoom, offsetX, offsetY } = item.transform
+      if (!Number.isFinite(zoom) || zoom < ITEM_TRANSFORM_LIMITS.zoomMin)
+      {
+        failInput(
+          `invalid item.transform.zoom: must be >= ${ITEM_TRANSFORM_LIMITS.zoomMin}`
+        )
+      }
+      if (zoom > ITEM_TRANSFORM_LIMITS.zoomMax)
+      {
+        failInput(
+          `invalid item.transform.zoom: must be <= ${ITEM_TRANSFORM_LIMITS.zoomMax}`
+        )
+      }
+      if (
+        !Number.isFinite(offsetX) ||
+        offsetX < ITEM_TRANSFORM_LIMITS.offsetMin ||
+        offsetX > ITEM_TRANSFORM_LIMITS.offsetMax
+      )
+      {
+        failInput(
+          `invalid item.transform.offsetX: must be within [${ITEM_TRANSFORM_LIMITS.offsetMin}, ${ITEM_TRANSFORM_LIMITS.offsetMax}]`
+        )
+      }
+      if (
+        !Number.isFinite(offsetY) ||
+        offsetY < ITEM_TRANSFORM_LIMITS.offsetMin ||
+        offsetY > ITEM_TRANSFORM_LIMITS.offsetMax
+      )
+      {
+        failInput(
+          `invalid item.transform.offsetY: must be within [${ITEM_TRANSFORM_LIMITS.offsetMin}, ${ITEM_TRANSFORM_LIMITS.offsetMax}]`
+        )
+      }
     }
   }
 

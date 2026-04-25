@@ -2,7 +2,7 @@
 // in-memory object URL cache keyed by content hash
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
+import { collectSnapshotRenderImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
 import { getBlobsBatch } from './imageStore'
 
@@ -343,9 +343,15 @@ if (typeof window !== 'undefined')
   window.addEventListener('online', retryFailedCloudRequests)
 }
 
-export const warmFromBoard = async (snapshot: BoardSnapshot): Promise<void> =>
+export const warmImageHashes = async (
+  hashes: Iterable<string | null | undefined>
+): Promise<void> =>
 {
-  const referenced = new Set(collectSnapshotImageHashes(snapshot))
+  const referenced = new Set<string>()
+  for (const hash of hashes)
+  {
+    if (hash) referenced.add(hash)
+  }
   const missing: string[] = []
 
   touchCachedHashes(referenced)
@@ -396,4 +402,9 @@ export const warmFromBoard = async (snapshot: BoardSnapshot): Promise<void> =>
   }
 
   pruneCache(protectedHashes(referenced))
+}
+
+export const warmFromBoard = async (snapshot: BoardSnapshot): Promise<void> =>
+{
+  await warmImageHashes(collectSnapshotRenderImageHashes(snapshot))
 }

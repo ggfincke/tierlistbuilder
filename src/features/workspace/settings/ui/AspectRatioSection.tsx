@@ -16,7 +16,10 @@ import {
   groupMismatchedItems,
   type MismatchGroup,
 } from '~/features/workspace/boards/lib/aspectRatio'
+import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { isIdentityTransform } from '~/shared/lib/imageTransform'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { useBoardAspectRatioPicker } from '../model/useBoardAspectRatioPicker'
 import { AspectRatioChips, CustomRatioInput } from './AspectRatioPicker'
@@ -43,7 +46,6 @@ export const AspectRatioSection = () =>
   } = useBoardAspectRatioPicker()
   const {
     items,
-    setItemImageFit,
     setItemsImageFit,
     promptDismissed,
     setAspectRatioPromptDismissed,
@@ -52,7 +54,6 @@ export const AspectRatioSection = () =>
   } = useActiveBoardStore(
     useShallow((state) => ({
       items: state.items,
-      setItemImageFit: state.setItemImageFit,
       setItemsImageFit: state.setItemsImageFit,
       promptDismissed: state.aspectRatioPromptDismissed === true,
       setAspectRatioPromptDismissed: state.setAspectRatioPromptDismissed,
@@ -60,6 +61,7 @@ export const AspectRatioSection = () =>
       setDefaultItemImageFit: state.setDefaultItemImageFit,
     }))
   )
+  const openEditor = useImageEditorStore((s) => s.open)
 
   const groups = useMemo<MismatchGroup[]>(
     () => groupMismatchedItems({ items, itemAspectRatio: boardAspectRatio }),
@@ -110,26 +112,37 @@ export const AspectRatioSection = () =>
 
       {groups.length > 0 && (
         <div className="mt-3 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-page)]">
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-3 py-2">
             <span className="text-xs font-semibold text-[var(--t-text-secondary)]">
               {totalMismatched} item{totalMismatched === 1 ? '' : 's'}{' '}
               don&apos;t match the board ratio
             </span>
-            <SegmentedControl<ImageFit>
-              ariaLabel="Set fit for all mismatched items"
-              options={[
-                { value: 'cover', label: 'Cover all' },
-                { value: 'contain', label: 'Contain all' },
-              ]}
-              value={boardDefaultFit ?? 'cover'}
-              onChange={handleSetAll}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <SegmentedControl<ImageFit>
+                ariaLabel="Set fit for all mismatched items"
+                options={[
+                  { value: 'cover', label: 'Cover all' },
+                  { value: 'contain', label: 'Contain all' },
+                ]}
+                value={boardDefaultFit ?? 'cover'}
+                onChange={handleSetAll}
+              />
+              <SecondaryButton
+                onClick={() => openEditor({ filter: 'mismatched' })}
+                variant="surface"
+                size="sm"
+              >
+                Edit images...
+              </SecondaryButton>
+            </div>
           </div>
           <MismatchRows
             groups={groups}
             boardDefaultFit={boardDefaultFit}
             onSetGroupFit={setItemsImageFit}
-            onSetItemFit={setItemImageFit}
+            onEditItem={(itemId) =>
+              openEditor({ filter: 'mismatched', itemId })
+            }
           />
         </div>
       )}
@@ -149,14 +162,13 @@ interface MismatchGroupRowProps
   group: MismatchGroup
   boardDefaultFit: ImageFit | undefined
   onSetGroupFit: (itemIds: ItemId[], fit: ImageFit | null) => void
-  onSetItemFit: (itemId: ItemId, fit: ImageFit | null) => void
+  onEditItem: (itemId: ItemId) => void
 }
 
 interface MismatchItemRowProps
 {
   item: TierItem
-  boardDefaultFit: ImageFit | undefined
-  onSetFit: (itemId: ItemId, fit: ImageFit | null) => void
+  onEdit: (itemId: ItemId) => void
   nested?: boolean
 }
 
@@ -165,11 +177,9 @@ interface MismatchRowsProps
   groups: readonly MismatchGroup[]
   boardDefaultFit: ImageFit | undefined
   onSetGroupFit: (itemIds: ItemId[], fit: ImageFit | null) => void
-  onSetItemFit: (itemId: ItemId, fit: ImageFit | null) => void
+  onEditItem: (itemId: ItemId) => void
 }
 
-// pick the fit that the most items in the group render as; used to show a
-// sensible default on the group's toggle when per-item overrides are mixed
 const dominantGroupFit = (
   items: readonly TierItem[],
   boardDefaultFit: ImageFit | undefined
@@ -189,7 +199,7 @@ export const MismatchRows = ({
   groups,
   boardDefaultFit,
   onSetGroupFit,
-  onSetItemFit,
+  onEditItem,
 }: MismatchRowsProps) => (
   <ul className="flex max-h-72 flex-col divide-y divide-[var(--t-border-secondary)] overflow-y-auto">
     {groups.map((group) => (
@@ -198,7 +208,7 @@ export const MismatchRows = ({
         group={group}
         boardDefaultFit={boardDefaultFit}
         onSetGroupFit={onSetGroupFit}
-        onSetItemFit={onSetItemFit}
+        onEditItem={onEditItem}
       />
     ))}
   </ul>
@@ -208,19 +218,13 @@ const MismatchGroupRow = ({
   group,
   boardDefaultFit,
   onSetGroupFit,
-  onSetItemFit,
+  onEditItem,
 }: MismatchGroupRowProps) =>
 {
   const { representative, items } = group
   if (items.length === 1)
   {
-    return (
-      <MismatchItemRow
-        item={items[0]}
-        boardDefaultFit={boardDefaultFit}
-        onSetFit={onSetItemFit}
-      />
-    )
+    return <MismatchItemRow item={items[0]} onEdit={onEditItem} />
   }
 
   const ratioLabel = formatAspectRatio(representative)
@@ -275,8 +279,7 @@ const MismatchGroupRow = ({
           <MismatchItemRow
             key={item.id}
             item={item}
-            boardDefaultFit={boardDefaultFit}
-            onSetFit={onSetItemFit}
+            onEdit={onEditItem}
             nested
           />
         ))}
@@ -287,14 +290,13 @@ const MismatchGroupRow = ({
 
 const MismatchItemRow = ({
   item,
-  boardDefaultFit,
-  onSetFit,
+  onEdit,
   nested = false,
 }: MismatchItemRowProps) =>
 {
   const itemRatio = item.aspectRatio ?? 1
-  const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
   const label = item.label ?? 'Untitled item'
+  const adjusted = !!item.transform && !isIdentityTransform(item.transform)
 
   return (
     <li
@@ -311,17 +313,17 @@ const MismatchItemRow = ({
         </span>
         <span className="text-[0.65rem] text-[var(--t-text-faint)]">
           {formatAspectRatio(itemRatio)}
+          {adjusted ? ' · adjusted' : ''}
         </span>
       </div>
-      <SegmentedControl<ImageFit>
-        ariaLabel={`Fit for ${label}`}
-        options={[
-          { value: 'cover', label: 'Cover' },
-          { value: 'contain', label: 'Contain' },
-        ]}
-        value={effectiveFit}
-        onChange={(fit) => onSetFit(item.id, fit)}
-      />
+      <SecondaryButton
+        onClick={() => onEdit(item.id)}
+        variant="surface"
+        size="sm"
+        aria-label={`Edit ${label}`}
+      >
+        Edit
+      </SecondaryButton>
     </li>
   )
 }

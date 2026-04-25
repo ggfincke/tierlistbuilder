@@ -33,7 +33,7 @@ describe('snapshot codec', () =>
     expect(decoded.items['a']?.label).toBe('Hello')
   })
 
-  it('strips imageRef & deletedItems from shared payloads', () =>
+  it('strips image refs & deletedItems from shared payloads', () =>
   {
     const snapshot = makeBoardSnapshot({
       items: {
@@ -41,6 +41,7 @@ describe('snapshot codec', () =>
           id: asItemId('a'),
           label: 'x',
           imageRef: { hash: 'img-1' },
+          sourceImageRef: { hash: 'source-1' },
         },
       },
       deletedItems: [{ id: asItemId('d'), label: 'deleted' }],
@@ -50,6 +51,7 @@ describe('snapshot codec', () =>
     const item = stripped.items[asItemId('a')]
     expect(item).toBeDefined()
     expect(item).not.toHaveProperty('imageRef')
+    expect(item).not.toHaveProperty('sourceImageRef')
     expect(stripped.deletedItems).toEqual([])
   })
 

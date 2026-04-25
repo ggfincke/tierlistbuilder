@@ -139,6 +139,7 @@ converted forward, while JSON/share import validation should continue rejecting
 malformed or unsupported files.
 
 Local images live in `shared/images/imageStore.ts` as content-addressed blobs.
+Imported items keep a small display blob plus an optional editor source blob.
 Board saves update board-scoped blob refs; workspace bootstrap reconciles refs
 from all local snapshots and prunes unreferenced blobs after the local image GC
 grace window. IndexedDB schema changes use a reset, not old-blob migration.

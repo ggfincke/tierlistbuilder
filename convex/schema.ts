@@ -98,8 +98,22 @@ export default defineSchema({
     deletedAt: v.union(v.number(), v.null()),
     // natural image aspect ratio captured at import time
     aspectRatio: v.optional(v.number()),
-    // per-item crop override
+    // per-item crop override (object-fit fallback when no manual transform)
     imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
+    // per-item manual crop transform — when set, overrides imageFit at render
+    transform: v.optional(
+      v.object({
+        rotation: v.union(
+          v.literal(0),
+          v.literal(90),
+          v.literal(180),
+          v.literal(270)
+        ),
+        zoom: v.number(),
+        offsetX: v.number(),
+        offsetY: v.number(),
+      })
+    ),
   })
     .index('byBoardAndTier', ['boardId', 'tierId', 'order'])
     .index('byMedia', ['mediaAssetId']),

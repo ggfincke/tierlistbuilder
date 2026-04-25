@@ -13,17 +13,18 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Keyboard Navigation**: Arrow-key item movement & focus resolution
 - **Pointer Math**: Drag target index calculation & insertion positioning
 - **Color Parsing**: Hex/RGB normalization, contrast calculation
-- **Tier Colors**: Palette/custom color spec creation & resolution
-- **Board Snapshot**: Board creation, reset, tier factory, & color spec normalization
+- **Tier Colors**: Palette/custom color spec creation, resolution, & equality
+- **Board Snapshot**: Board creation, reset, tier factory, colorSpec & rowColorSpec normalization
 - **Board Operations**: Pure tier sorting & item shuffling logic
-- **Tier Presets**: Preset-to-board conversion, board-to-preset extraction, & round-trip integrity
+- **Tier Presets**: Preset-to-board conversion, board-to-preset extraction, row-color & round-trip integrity
 - **JSON Import**: Single & multi-board parsing, envelope detection, validation, & error reporting
 - **Share Codecs**: Hash-share image stripping, short-link image preservation, size guards, & abort behavior
 - **Selection Primitives**: Shared radio/tab semantics behind roving selection
 - **Nested Menus**: Shared tree state for root/submenu orchestration
-- **ID Helpers**: Generated ID prefix contracts & guard helpers
+- **ID Helpers**: Generated ID prefix contract & short-link slug shape
 - **Popup/Menu Geometry**: Shared fixed-popup placement, submenu flip rules, &
   progress normalization
+- **Image Crop Math**: Manual-crop sizing & pan-offset CSS positioning
 - **Backend Selectors & Contracts**: Short-link listing, upload envelopes,
   image upload validation, and Convex query/mutation limit edges
 - **Sync Runner Contracts**: Shared debounce/retry hooks, conflict pauses, and
@@ -68,12 +69,10 @@ tests/
 ├── typeHelpers.ts                   — asInvalid<T> for intentionally malformed inputs
 ├── setup.ts                         — global vitest setup (localStorage stub + resetAllMocks)
 ├── board/
-│   ├── constants.test.ts            — buildDefaultTiers
-│   ├── boardSnapshot.test.ts        — board creation, tier factory, color spec normalization
+│   ├── boardSnapshot.test.ts        — board creation, tier factory, colorSpec & rowColorSpec normalization
 │   ├── boardOps.test.ts             — pure sorting & shuffling helpers
-│   ├── itemContent.test.ts          — item content rendering helpers
-│   ├── tierColors.test.ts           — tier color spec creation & resolution
-│   └── tierPresets.test.ts          — preset-to-board & board-to-preset conversion
+│   ├── tierColors.test.ts           — tier color spec creation, resolution, & equality
+│   └── tierPresets.test.ts          — preset-to-board & board-to-preset conversion w/ row-color round-trip
 ├── contracts/
 │   └── uploadEnvelope.test.ts       — upload envelope owner/token validation & tamper rejection
 ├── convex/
@@ -124,19 +123,15 @@ tests/
 │   ├── shortLinkCodec.test.ts       — short-link snapshot image policy & size guard
 │   └── shortLinkShare.test.ts       — short-link fetch/decode abort behavior
 ├── settings/
-│   └── aspectRatioSettings.test.ts  — aspect-ratio prompt snapshots & mismatch controls
-├── shared-lib/
-│   ├── async.ts                     — queued Promise flushing helper
-│   ├── color.test.ts                — hex/rgb parsing & contrast
-│   ├── debouncedSyncRunner.test.ts  — shared sync runner extension hooks
-│   ├── fileName.test.ts             — file-name slug helper
-│   ├── id.test.ts                   — ID factory prefixes & guard helpers
-│   ├── math.test.ts                 — numeric clamp helper
-│   └── memoryStorage.ts             — in-memory localStorage stub for tests
-└── store/
-    ├── boardSyncState.test.ts       — board sync status store semantics
-    ├── tierRowColor.test.ts         — per-tier row background actions & round-trip
-    └── undoLabels.test.ts           — labeled undo/redo stack semantics
+│   └── aspectRatioSettings.test.ts  — aspect-ratio prompt snapshots & mismatch grouping
+└── shared-lib/
+    ├── async.ts                     — queued Promise flushing helper
+    ├── boardSnapshotItems.test.ts   — snapshot image-hash collection helpers
+    ├── color.test.ts                — hex/rgb parsing & contrast
+    ├── debouncedSyncRunner.test.ts  — shared sync runner extension hooks
+    ├── id.test.ts                   — ID factory prefix contract & short-link slug shape
+    ├── imageTransform.test.ts       — manual-crop sizing & pan-offset CSS
+    └── memoryStorage.ts             — in-memory localStorage stub for tests
 ```
 
 ## Fixtures

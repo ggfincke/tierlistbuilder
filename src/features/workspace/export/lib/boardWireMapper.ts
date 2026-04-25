@@ -4,9 +4,15 @@
 import type {
   BoardSnapshot,
   BoardSnapshotWire,
+  ItemRotation,
+  ItemTransform,
   TierItem,
   TierItemImageRef,
   TierItemWire,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
+  ITEM_TRANSFORM_IDENTITY,
+  ITEM_TRANSFORM_LIMITS,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
 import {
@@ -98,7 +104,7 @@ const itemToWire = async (
   dataUrlsByHash: Map<string, Promise<string>>
 ): Promise<TierItemWire> =>
 {
-  const { imageRef, ...rest } = item
+  const { imageRef, sourceImageRef: _sourceImageRef, ...rest } = item
 
   if (!imageRef)
   {
@@ -233,6 +239,7 @@ const prepareInlineWireImages = async (
 
 const ASPECT_RATIO_MODES = ['auto', 'manual'] as const
 const IMAGE_FITS = ['cover', 'contain'] as const
+const ROTATION_VALUES: readonly ItemRotation[] = [0, 90, 180, 270]
 
 const normalizePositiveFiniteWire = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) && value > 0
@@ -243,6 +250,67 @@ const normalizeEnumWire = <T extends string>(
   value: unknown,
   allowed: readonly T[]
 ): T | undefined => (allowed.includes(value as T) ? (value as T) : undefined)
+
+const clampFiniteWire = (
+  value: unknown,
+  min: number,
+  max: number
+): number | null =>
+{
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  if (value < min) return min
+  if (value > max) return max
+  return value
+}
+
+// duplicated alongside boardSnapshot's normalizer because share-link/import
+// rides this wire path before the snapshot normalizer ever runs. keeping both
+// in sync is enforced by ITEM_TRANSFORM_LIMITS being a single source of truth
+const normalizeItemTransformWire = (
+  raw: unknown
+): ItemTransform | undefined =>
+{
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const obj = raw as Record<string, unknown>
+  const rotation = obj.rotation
+  if (
+    typeof rotation !== 'number' ||
+    !ROTATION_VALUES.includes(rotation as ItemRotation)
+  )
+  {
+    return undefined
+  }
+  const zoom = clampFiniteWire(
+    obj.zoom,
+    ITEM_TRANSFORM_LIMITS.zoomMin,
+    ITEM_TRANSFORM_LIMITS.zoomMax
+  )
+  if (zoom === null) return undefined
+  const offsetX = clampFiniteWire(
+    obj.offsetX,
+    ITEM_TRANSFORM_LIMITS.offsetMin,
+    ITEM_TRANSFORM_LIMITS.offsetMax
+  )
+  if (offsetX === null) return undefined
+  const offsetY = clampFiniteWire(
+    obj.offsetY,
+    ITEM_TRANSFORM_LIMITS.offsetMin,
+    ITEM_TRANSFORM_LIMITS.offsetMax
+  )
+  if (offsetY === null) return undefined
+  const normalized = {
+    rotation: rotation as ItemRotation,
+    zoom,
+    offsetX,
+    offsetY,
+  }
+  return normalized.rotation === ITEM_TRANSFORM_IDENTITY.rotation &&
+    normalized.zoom === ITEM_TRANSFORM_IDENTITY.zoom &&
+    normalized.offsetX === ITEM_TRANSFORM_IDENTITY.offsetX &&
+    normalized.offsetY === ITEM_TRANSFORM_IDENTITY.offsetY
+    ? undefined
+    : normalized
+}
 
 const wireItemToSnapshotItem = (
   item: TierItemWire,
@@ -255,6 +323,7 @@ const wireItemToSnapshotItem = (
   const aspectRatio =
     normalizePositiveFiniteWire(item.aspectRatio) ?? prepared?.aspectRatio
   const imageFit = normalizeEnumWire(item.imageFit, IMAGE_FITS)
+  const transform = normalizeItemTransformWire(item.transform)
   const base: TierItem = {
     id,
     label,
@@ -262,6 +331,7 @@ const wireItemToSnapshotItem = (
     altText,
     aspectRatio,
     imageFit,
+    ...(transform ? { transform } : {}),
   }
 
   if (prepared)

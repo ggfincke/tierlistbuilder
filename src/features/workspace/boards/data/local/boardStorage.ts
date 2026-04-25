@@ -19,7 +19,7 @@ import {
   STORAGE_FULL_MESSAGE,
   STORAGE_SAVE_FAILED_MESSAGE,
 } from '~/shared/lib/storageMetering'
-import { collectSnapshotImageHashes } from '~/shared/lib/boardSnapshotItems'
+import { collectSnapshotLocalImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
 import { isRecord } from '~/shared/lib/typeGuards'
 import {
@@ -144,7 +144,7 @@ const trackBoardImageRefs = (boardId: BoardId, data: BoardSnapshot): void =>
 {
   void replaceBlobRefs(
     boardImageRefScope(boardId),
-    collectSnapshotImageHashes(data)
+    collectSnapshotLocalImageHashes(data)
   ).catch((error) =>
   {
     logger.warn('image', `Failed to update image refs for ${boardId}:`, error)

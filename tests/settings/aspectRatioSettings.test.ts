@@ -1,9 +1,7 @@
 // tests/settings/aspectRatioSettings.test.ts
-// aspect-ratio settings behavior for deferred auto preview & mismatch rows
+// pure helpers backing the aspect-ratio prompt & mismatch detection
 
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { groupMismatchedItems } from '~/features/workspace/boards/lib/aspectRatio'
@@ -12,14 +10,7 @@ import {
   resolveAspectRatioPromptItems,
 } from '~/features/workspace/settings/model/aspectRatioPromptSnapshot'
 import { resolvePendingAutoAspectRatio } from '~/features/workspace/settings/model/useDeferredAspectRatioPicker'
-import { MismatchRows } from '~/features/workspace/settings/ui/AspectRatioSection'
-import * as imageUrlHook from '~/shared/hooks/useImageUrl'
 import { makeBoardSnapshot, makeItem } from '../fixtures'
-
-afterEach(() =>
-{
-  vi.restoreAllMocks()
-})
 
 describe('resolvePendingAutoAspectRatio', () =>
 {
@@ -151,7 +142,7 @@ describe('aspect ratio prompt snapshot', () =>
   })
 })
 
-describe('AspectRatioSection mismatch controls', () =>
+describe('groupMismatchedItems', () =>
 {
   it('passes the caller tolerance through mismatch detection', () =>
   {
@@ -179,48 +170,5 @@ describe('AspectRatioSection mismatch controls', () =>
 
     expect(groupMismatchedItems(board, 0.005)).toHaveLength(2)
     expect(groupMismatchedItems(board, 0.05)).toHaveLength(0)
-  })
-
-  it('keeps per-item fit controls for same-ratio mismatches', () =>
-  {
-    vi.spyOn(imageUrlHook, 'useImageUrl').mockReturnValue(null)
-
-    const wideA = asItemId('wide-a')
-    const wideB = asItemId('wide-b')
-
-    const board = makeBoardSnapshot({
-      itemAspectRatio: 1,
-      itemAspectRatioMode: 'manual',
-      defaultItemImageFit: 'cover',
-      items: {
-        [wideA]: makeItem({
-          id: wideA,
-          label: 'Wide A',
-          imageRef: { hash: 'wide-a' },
-          aspectRatio: 16 / 9,
-          imageFit: 'cover',
-        }),
-        [wideB]: makeItem({
-          id: wideB,
-          label: 'Wide B',
-          imageRef: { hash: 'wide-b' },
-          aspectRatio: 16 / 9,
-          imageFit: 'contain',
-        }),
-      },
-    })
-
-    const html = renderToStaticMarkup(
-      createElement(MismatchRows, {
-        groups: groupMismatchedItems(board),
-        boardDefaultFit: board.defaultItemImageFit,
-        onSetGroupFit: vi.fn(),
-        onSetItemFit: vi.fn(),
-      })
-    )
-
-    expect(html).toContain('aria-label="Set fit for 16:9 group"')
-    expect(html).toContain('aria-label="Fit for Wide A"')
-    expect(html).toContain('aria-label="Fit for Wide B"')
   })
 })
