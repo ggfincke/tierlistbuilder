@@ -1,20 +1,24 @@
 // vitest.config.ts
 // Vitest config — mirror the app source alias for unit tests
 
-import path from 'node:path'
 import { defineConfig } from 'vitest/config'
-
-const srcRoot = path.resolve(__dirname, './src')
-const sourceAlias = {
-  find: /^@\//,
-  replacement: `${srcRoot}/`,
-}
+import { moduleAliases } from './config/aliases'
 
 export default defineConfig({
   resolve: {
-    alias: [sourceAlias],
+    alias: moduleAliases,
   },
   test: {
-    alias: [sourceAlias],
+    alias: moduleAliases,
+    exclude: [
+      'node_modules',
+      'dist',
+      '.idea',
+      '.git',
+      '.cache',
+      '.claude/**',
+      'e2e/**',
+    ],
+    setupFiles: ['tests/setup.ts'],
   },
 })

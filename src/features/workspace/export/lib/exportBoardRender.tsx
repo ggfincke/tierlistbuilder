@@ -4,10 +4,12 @@
 import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
-import type { ExportAppearance } from '@/shared/types/export'
-import type { AppSettings } from '@/shared/types/settings'
-import { StaticExportBoard } from '@/features/workspace/export/ui/StaticExportBoard'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type { ExportAppearance } from '../model/runtime'
+import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
+import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
+import { EXPORT_BOARD_ROOT_SELECTOR } from '~/shared/board-ui/boardTestIds'
+import { Z } from '~/shared/theme/zIndex'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
 
@@ -87,7 +89,7 @@ const createCaptureHost = (): HTMLDivElement =>
   host.style.top = '0'
   host.style.pointerEvents = 'none'
   host.style.opacity = '1'
-  host.style.zIndex = '-1'
+  host.style.zIndex = String(Z.offscreen)
   host.style.width = 'max-content'
   document.body.appendChild(host)
   return host
@@ -120,9 +122,7 @@ const createExportCaptureSession = ({
         )
       })
 
-      const board = host.querySelector<HTMLElement>(
-        '[data-testid="export-board-root"]'
-      )
+      const board = host.querySelector<HTMLElement>(EXPORT_BOARD_ROOT_SELECTOR)
 
       if (!board)
       {

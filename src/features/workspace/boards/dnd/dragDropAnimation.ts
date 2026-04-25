@@ -2,7 +2,8 @@
 // FLIP animation for multi-drag drop — items fan out from the stacked
 // overlay position to their final grid slots w/ staggered timing
 
-import type { ItemId } from '@/shared/types/ids'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { getItemElementById } from '~/features/workspace/boards/lib/dndIds'
 
 const DURATION_MS = 300
 const STAGGER_MS = 30
@@ -34,9 +35,7 @@ export const animateDropDistribute = (
 
       for (const id of itemIds)
       {
-        const el = document.querySelector(
-          `[data-item-id="${id}"]`
-        ) as HTMLElement | null
+        const el = getItemElementById(id)
         if (!el) continue
 
         const rect = el.getBoundingClientRect()

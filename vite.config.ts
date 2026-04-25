@@ -2,25 +2,20 @@
 // Vite build config — React plugin w/ fast-refresh, Tailwind CSS v4, & PWA
 
 import { createRequire } from 'node:module'
-import path from 'node:path'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vitest/config'
 
 import { cloudflare } from '@cloudflare/vite-plugin'
+import { moduleAliases } from './config/aliases'
 
 const require = createRequire(import.meta.url)
 const { version } = require('./package.json') as { version: string }
-const srcRoot = path.resolve(__dirname, './src')
-const sourceAlias = {
-  find: /^@\//,
-  replacement: `${srcRoot}/`,
-}
 
 export default defineConfig({
   resolve: {
-    alias: [sourceAlias],
+    alias: moduleAliases,
   },
   plugins: [
     react(),
@@ -62,6 +57,6 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(version),
   },
   test: {
-    alias: [sourceAlias],
+    alias: moduleAliases,
   },
 })

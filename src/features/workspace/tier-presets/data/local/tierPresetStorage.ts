@@ -3,6 +3,5 @@
 
 export const PRESET_STORAGE_KEY = 'tier-list-builder-presets'
 
-// bumped only on genuinely breaking user-data changes; legacy normalization
-// chains are removed as part of structural cleanups — see CLAUDE.md
+// pre-1.0 storage changes wipe mismatched presets
 export const PRESET_STORAGE_VERSION = 1

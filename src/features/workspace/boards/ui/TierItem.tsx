@@ -8,25 +8,28 @@ import { CSS } from '@dnd-kit/utilities'
 import { useShallow } from 'zustand/react/shallow'
 import { Check, GripVertical, PenLine, X } from 'lucide-react'
 
-import { useKeyboardDrag } from '@/features/workspace/boards/interaction/useKeyboardDrag'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
-import { getEffectiveImageFit } from '@/features/workspace/boards/lib/aspectRatio'
-import { SHAPE_CLASS, type ImageFit } from '@/shared/board-ui/constants'
-import { ItemContent } from '@/shared/board-ui/ItemContent'
+import { useKeyboardDrag } from '~/features/workspace/boards/interaction/useKeyboardDrag'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import {
+  selectHasKeyboardSelection,
+  useActiveBoardStore,
+} from '~/features/workspace/boards/model/useActiveBoardStore'
+import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
+import { getEffectiveImageFit } from '~/features/workspace/boards/lib/aspectRatio'
+import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
+import { SHAPE_CLASS } from '~/shared/board-ui/constants'
+import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
-import { ItemOverlayButton } from '@/shared/ui/ItemOverlayButton'
-import type { ItemId } from '@/shared/types/ids'
+import { ItemOverlayButton } from '~/shared/board-ui/ItemOverlayButton'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
 
 interface TierItemProps
 {
-  // ID of the item to render
   itemId: ItemId
-  // ID of the container (tier or unranked pool) this item lives in
   containerId: string
-  // called when user requests deletion (only used in the unranked pool)
   onRequestDelete?: (itemId: ItemId) => void
   // slot width in px — derived once by the parent from board aspect ratio
   slotWidth: number
@@ -46,22 +49,23 @@ export const TierItem = memo(
     boardDefaultFit,
   }: TierItemProps) =>
   {
-    const item = useActiveBoardStore((state) => state.items[itemId])
-    const isSelected = useActiveBoardStore((state) =>
-      state.selectedItemIdSet.has(itemId)
+    const {
+      item,
+      isSelected,
+      hasKeyboardSelection,
+      toggleItemSelected,
+      setKeyboardFocusItemId,
+      setKeyboardMode,
+    } = useActiveBoardStore(
+      useShallow((state) => ({
+        item: state.items[itemId],
+        isSelected: state.selection.set.has(itemId),
+        hasKeyboardSelection: selectHasKeyboardSelection(state),
+        toggleItemSelected: state.toggleItemSelected,
+        setKeyboardFocusItemId: state.setKeyboardFocusItemId,
+        setKeyboardMode: state.setKeyboardMode,
+      }))
     )
-    const hasKeyboardSelection = useActiveBoardStore(
-      (state) =>
-        state.keyboardMode === 'browse' && state.selectedItemIdSet.size > 0
-    )
-    const { toggleItemSelected, setKeyboardFocusItemId, setKeyboardMode } =
-      useActiveBoardStore(
-        useShallow((state) => ({
-          toggleItemSelected: state.toggleItemSelected,
-          setKeyboardFocusItemId: state.setKeyboardFocusItemId,
-          setKeyboardMode: state.setKeyboardMode,
-        }))
-      )
     const canDelete = containerId === UNRANKED_CONTAINER_ID
 
     const { itemShape, showLabels, boardLocked, showAltTextButton } =
@@ -169,6 +173,17 @@ export const TierItem = memo(
       ]
     )
 
+    const handleContextMenu = useCallback(
+      (e: React.MouseEvent) =>
+      {
+        if (boardLocked) return
+        if (!item?.imageRef) return
+        e.preventDefault()
+        useImageEditorStore.getState().open({ itemId, filter: 'all' })
+      },
+      [boardLocked, item?.imageRef, itemId]
+    )
+
     const handleItemFocus = useCallback(() =>
     {
       if (pointerFocusRef.current)
@@ -204,13 +219,13 @@ export const TierItem = memo(
       return null
     }
 
-    const hasImage = !!item.imageUrl
+    const hasImage = !!item.imageRef
 
     return (
       <>
         <div
           ref={setRefs}
-          data-testid={`tier-item-${itemId}`}
+          data-testid={tierItemTestId(itemId)}
           data-item-id={itemId}
           data-item-label={item.label ?? ''}
           data-container-id={containerId}
@@ -232,11 +247,13 @@ export const TierItem = memo(
           onKeyDown={onKeyDown}
           onPointerDownCapture={handlePointerDownCapture}
           onClick={handleClick}
+          onContextMenu={handleContextMenu}
         >
           <ItemContent
             item={item}
             showLabel={showLabels && !!item.label}
             fit={effectiveFit}
+            frameAspectRatio={slotWidth / slotHeight}
           />
 
           {/* selection check badge */}

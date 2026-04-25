@@ -7,20 +7,29 @@ import type {
   BoardSnapshot,
   ImageFit,
   ItemAspectRatioMode,
+  ItemTransform,
   NewTierItem,
-} from '@/features/workspace/boards/model/contract'
+} from '@tierlistbuilder/contracts/workspace/board'
 import type {
   ActiveBoardRuntimeState,
   ContainerSnapshot,
   KeyboardMode,
-} from '@/features/workspace/boards/model/runtime'
-import type { ItemId, TierId } from '@/shared/types/ids'
-import type { PaletteId, TierColorSpec } from '@/shared/types/theme'
+  Selection,
+  UndoEntry,
+} from '~/features/workspace/boards/model/runtime'
+import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
+import type {
+  PaletteId,
+  TierColorSpec,
+} from '@tierlistbuilder/contracts/lib/theme'
 
-// board data slice — serializable board snapshot + CRUD & shuffle actions
+// board data slice — serializable board snapshot + CRUD & shuffle actions.
 export interface BoardDataSlice extends BoardSnapshot
 {
   itemsManuallyMoved: boolean
+  runtimeError: string | null
+  setRuntimeError: (message: string) => void
+  clearRuntimeError: () => void
   addTier: (paletteId: PaletteId) => void
   renameTier: (tierId: TierId, name: string) => void
   setTierDescription: (tierId: TierId, description: string) => void
@@ -35,6 +44,7 @@ export interface BoardDataSlice extends BoardSnapshot
   addTextItem: (label: string, backgroundColor: string) => void
   setItemAltText: (itemId: ItemId, altText: string) => void
   removeItem: (itemId: ItemId) => void
+  removeItems: (itemIds: readonly ItemId[]) => void
   restoreDeletedItem: (itemId: ItemId) => void
   permanentlyDeleteItem: (itemId: ItemId) => void
   clearDeletedItems: () => void
@@ -50,16 +60,17 @@ export interface BoardDataSlice extends BoardSnapshot
   setBoardAspectRatioMode: (mode: ItemAspectRatioMode) => void
   setItemImageFit: (itemId: ItemId, fit: ImageFit | null) => void
   setItemsImageFit: (itemIds: ItemId[], fit: ImageFit | null) => void
-  backfillItemAspectRatios: (values: Record<ItemId, number>) => void
   setAspectRatioPromptDismissed: (dismissed: boolean) => void
   setDefaultItemImageFit: (fit: ImageFit | null) => void
+  // per-item manual crop transform — pass `null` to clear the override &
+  // fall back to the imageFit-driven object-fit path
+  setItemTransform: (itemId: ItemId, transform: ItemTransform | null) => void
 }
 
 // selection slice — multi-item selection state & bulk actions
 export interface SelectionSlice
 {
-  selectedItemIds: ItemId[]
-  selectedItemIdSet: ReadonlySet<ItemId>
+  selection: Selection
   lastClickedItemId: ItemId | null
   toggleItemSelected: (
     itemId: ItemId,
@@ -97,25 +108,14 @@ export interface KeyboardSlice
   cancelKeyboardDrag: () => void
 }
 
-// undo slice — past/future snapshot stacks & navigation. pastLabels/futureLabels
-// are parallel arrays describing the action that produced each snapshot, used
-// for undo/redo toasts; must remain length-synced w/ past/future
+// undo slice — past/future UndoEntry stacks & navigation. each entry bundles
+// a board snapshot w/ the label describing the action that produced it
 export interface UndoSlice
 {
-  past: BoardSnapshot[]
-  pastLabels: string[]
-  future: BoardSnapshot[]
-  futureLabels: string[]
+  past: UndoEntry[]
+  future: UndoEntry[]
   undo: () => { label: string } | null
   redo: () => { label: string } | null
-}
-
-// runtime error slice — user-visible banner message for fatal operations
-export interface RuntimeErrorSlice
-{
-  runtimeError: string | null
-  setRuntimeError: (message: string) => void
-  clearRuntimeError: () => void
 }
 
 // the full combined store shape — every slice merged into one flat object
@@ -123,8 +123,35 @@ export type ActiveBoardStore = BoardDataSlice &
   SelectionSlice &
   DragPreviewSlice &
   KeyboardSlice &
-  UndoSlice &
-  RuntimeErrorSlice
+  UndoSlice
+
+type DuplicateSliceKeyError<TSeen, TNext> = [
+  'Duplicate active board slice keys',
+  Extract<keyof TSeen, keyof TNext>,
+]
+
+type AssertNoDuplicateSliceKeys<
+  TSlices extends readonly object[],
+  TSeen extends object = object,
+> = TSlices extends readonly [
+  infer TNext extends object,
+  ...infer TRest extends object[],
+]
+  ? Extract<keyof TSeen, keyof TNext> extends never
+    ? AssertNoDuplicateSliceKeys<TRest, TSeen & TNext>
+    : DuplicateSliceKeyError<TSeen, TNext>
+  : true
+
+type AssertTrue<T extends true> = T
+
+type _ActiveBoardSliceKeyCheck = AssertTrue<
+  AssertNoDuplicateSliceKeys<
+    [BoardDataSlice, SelectionSlice, DragPreviewSlice, KeyboardSlice, UndoSlice]
+  >
+>
+
+const _sliceKeyCollisionCheck: _ActiveBoardSliceKeyCheck = true
+void _sliceKeyCollisionCheck
 
 // convenience alias — every slice creator takes the combined store shape so
 // cross-slice reads via `get()` work w/o extra plumbing
@@ -135,7 +162,7 @@ export type ActiveBoardSliceCreator<TSlice> = StateCreator<
   TSlice
 >
 
-// compile-time sanity check — ActiveBoardStore must remain compatible w/
+// compile-time sanity check — ActiveBoardStore must match
 // ActiveBoardRuntimeState so existing helpers/selectors keep working
 const _runtimeShapeCheck = (store: ActiveBoardStore): ActiveBoardRuntimeState =>
   store

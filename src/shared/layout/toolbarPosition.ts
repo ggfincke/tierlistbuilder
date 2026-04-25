@@ -1,14 +1,14 @@
 // src/shared/layout/toolbarPosition.ts
 // toolbar-position math & position-aware menu class presets
 
-import type { ToolbarPosition } from '@/shared/types/settings'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
 import {
   MENU_SUBMENU_BRIDGE_COMMON_TOKENS,
   MENU_SUBMENU_BRIDGE_TO_LEFT_EDGE_CLASS,
   MENU_SUBMENU_BRIDGE_TO_RIGHT_EDGE_CLASS,
   MENU_SUBMENU_LEFT_OFFSET_CLASS,
   MENU_SUBMENU_RIGHT_OFFSET_CLASS,
-} from '@/shared/overlay/menuClasses'
+} from '~/shared/overlay/menuOverflow'
 
 export interface MenuPositionClasses
 {

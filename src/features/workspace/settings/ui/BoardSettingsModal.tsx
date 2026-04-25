@@ -1,16 +1,17 @@
 // src/features/workspace/settings/ui/BoardSettingsModal.tsx
 // settings panel — tabbed modal that orchestrates per-tab settings content
 
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
-import { FALLBACK_COLOR, getPaletteColors } from '@/shared/theme/tierColors'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { useRovingSelection } from '@/shared/selection/useRovingSelection'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { getStorageUsageBytes } from '@/shared/lib/storageMetering'
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+import { FALLBACK_COLOR, getPaletteColors } from '~/shared/theme/tierColors'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useRovingSelection } from '~/shared/selection/useRovingSelection'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { getStorageUsageBytes } from '~/shared/lib/storageMetering'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AppearanceTab } from './AppearanceTab'
 import { ItemsTab } from './ItemsTab'
 import { LayoutTab } from './LayoutTab'
@@ -105,12 +106,7 @@ export const BoardSettingsModal = ({
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2
-              id={titleId}
-              className="text-lg font-semibold text-[var(--t-text)]"
-            >
-              Settings
-            </h2>
+            <ModalHeader titleId={titleId}>Settings</ModalHeader>
             <div
               {...tabListProps}
               className="flex gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5"

@@ -17,6 +17,8 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
+desktop.ini
 *.suo
 *.ntvs*
 *.njsproj
@@ -30,11 +32,12 @@ dist-ssr
 .env*
 !.env.example
 
-# convex (not yet tracked on main)
-convex/
-.convex
+# typescript build cache — produced by `tsc -b`, lives at the path each
+# tsconfig points to via tsBuildInfoFile (we use node_modules/.tmp/), but
+# orphan files outside that path should never be tracked
+*.tsbuildinfo
 
-# convex AI files dropped by `npx convex dev`
+# local AI agent metadata
 .agents
 .claude
 skills-lock.json
@@ -44,3 +47,19 @@ skills-lock.json
 
 # Generated screenshots (local dev only)
 /screenshots
+
+# Playwright output
+/test-results
+/playwright-report
+/.playwright
+/playwright/.cache
+
+# Vitest coverage output
+/coverage
+/.nyc_output
+
+# vite-plugin-pwa dev build output
+dev-dist
+
+# ESLint cache (when run w/ --cache)
+.eslintcache

@@ -1,21 +1,22 @@
 // src/features/workspace/tier-presets/ui/PresetPickerModal.tsx
 // modal for choosing a board preset when creating a new list
 
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
-import type { PresetId } from '@/shared/types/ids'
-import { BUILTIN_PRESETS } from '@/features/workspace/tier-presets/model/tierPresets'
-import { resolveTierColorSpec } from '@/shared/theme/tierColors'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
-import { useTierPresetStore } from '@/features/workspace/tier-presets/model/useTierPresetStore'
-import { getContrastingTextShadow, getTextColor } from '@/shared/lib/color'
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-import { TextInput } from '@/shared/ui/TextInput'
+import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import type { PresetId } from '@tierlistbuilder/contracts/lib/ids'
+import { BUILTIN_PRESETS } from '~/features/workspace/tier-presets/model/tierPresets'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
+import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
+import { getContrastingTextShadow, getTextColor } from '~/shared/lib/color'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { TextInput } from '~/shared/ui/TextInput'
 
 interface PresetPickerModalProps
 {
@@ -71,12 +72,7 @@ export const PresetPickerModal = ({
         panelClassName="flex h-[min(34rem,calc(100vh-4rem))] w-full max-w-4xl flex-col p-4"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2
-            id={titleId}
-            className="text-lg font-semibold text-[var(--t-text)]"
-          >
-            New List
-          </h2>
+          <ModalHeader titleId={titleId}>New List</ModalHeader>
           <SecondaryButton size="sm" onClick={handleClose}>
             Cancel
           </SecondaryButton>

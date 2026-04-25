@@ -3,14 +3,15 @@
 
 import { useCallback, useId, useState } from 'react'
 
-import { fetchImageAsDataUrl } from '@/features/workspace/settings/lib/imageFromUrl'
-import { useAspectRatioPrompt } from '@/features/workspace/settings/model/useAspectRatioPrompt'
-import { ColorInput } from '@/shared/ui/ColorInput'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-import { TextInput } from '@/shared/ui/TextInput'
+import { fetchImageAsItemImage } from '~/features/workspace/settings/lib/imageFromUrl'
+import { useAspectRatioPrompt } from '~/features/workspace/settings/model/useAspectRatioPrompt'
+import { formatError } from '~/shared/lib/errors'
+import { ColorInput } from '~/shared/ui/ColorInput'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { SettingsSection } from '~/shared/ui/SettingsSection'
+import { TextInput } from '~/shared/ui/TextInput'
 import { DeletedItemsSection } from './DeletedItemsSection'
 import { ImageUploader } from './ImageUploader'
-import { SettingsSection } from './SettingsSection'
 
 interface ItemsTabProps
 {
@@ -67,19 +68,13 @@ export const ItemsTab = ({
 
     try
     {
-      const result = await fetchImageAsDataUrl(trimmed)
-      importWithPromptCheck([
-        {
-          imageUrl: result.imageUrl,
-          label: result.label,
-          aspectRatio: result.aspectRatio,
-        },
-      ])
+      const result = await fetchImageAsItemImage(trimmed)
+      importWithPromptCheck([result])
       setImageUrl('')
     }
     catch (err)
     {
-      setUrlError(err instanceof Error ? err.message : 'Failed to load image.')
+      setUrlError(formatError(err, 'Failed to load image.'))
     }
     finally
     {
@@ -90,9 +85,6 @@ export const ItemsTab = ({
   return (
     <>
       <SettingsSection title="Import Images">
-        <p className="-mt-1 mb-2 text-xs text-[var(--t-text-muted)]">
-          Drop files here or choose them from your computer.
-        </p>
         <ImageUploader />
       </SettingsSection>
 

@@ -9,18 +9,20 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { THEMES } from '@/shared/theme/tokens'
-import { announce } from '@/shared/a11y/announce'
-import { getContrastingTextShadow, getTextColor } from '@/shared/lib/color'
-import { getEffectiveTiers } from '@/features/workspace/boards/dnd/dragSnapshot'
-import { resolveTierColorSpec } from '@/shared/theme/tierColors'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import type { ToolbarPosition } from '@/shared/types/settings'
-import { isVerticalPosition } from '@/shared/layout/toolbarPosition'
-import { useDragAndDrop } from '@/features/workspace/boards/dnd/useDragAndDrop'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useEffectiveTiers } from '~/features/workspace/boards/model/useEffectiveBoard'
+import { THEMES } from '~/shared/theme/tokens'
+import { announce } from '~/shared/a11y/announce'
+import { getContrastingTextShadow, getTextColor } from '~/shared/lib/color'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
+import { isVerticalPosition } from '~/shared/layout/toolbarPosition'
+import { TIER_LIST_BOARD_TEST_ID } from '~/shared/board-ui/boardTestIds'
+import { useDragAndDrop } from '~/features/workspace/boards/dnd/useDragAndDrop'
 import { DragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
 import { TrashZone } from './TrashZone'
@@ -56,34 +58,42 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
 {
   const isVertical = isVerticalPosition(toolbarPosition)
   const paletteId = useCurrentPaletteId()
-  const boardLocked = useSettingsStore((state) => state.boardLocked)
-  const exportBackgroundOverride = useSettingsStore(
-    (state) => state.exportBackgroundOverride
-  )
-  const themeId = useSettingsStore((state) => state.themeId)
+  const { boardLocked, exportBackgroundOverride, themeId, compactMode } =
+    useSettingsStore(
+      useShallow((state) => ({
+        boardLocked: state.boardLocked,
+        exportBackgroundOverride: state.exportBackgroundOverride,
+        themeId: state.themeId,
+        compactMode: state.compactMode,
+      }))
+    )
   const exportBackgroundColor =
     exportBackgroundOverride ?? THEMES[themeId]['export-bg']
-  const compactMode = useSettingsStore((state) => state.compactMode)
-  const storedTiers = useActiveBoardStore((state) => state.tiers)
-  const dragPreview = useActiveBoardStore((state) => state.dragPreview)
-  const dragGroupCount = useActiveBoardStore(
-    (state) => state.dragGroupIds.length
+  const { dragGroupCount, keyboardMode } = useActiveBoardStore(
+    useShallow((state) => ({
+      dragGroupCount: state.dragGroupIds.length,
+      keyboardMode: state.keyboardMode,
+    }))
   )
-  const keyboardMode = useActiveBoardStore((state) => state.keyboardMode)
+  const tiers = useEffectiveTiers()
   const boardShellRef = useRef<HTMLDivElement>(null)
   const boardRef = useRef<HTMLDivElement>(null)
 
   // sync keyboard focus item data attribute imperatively to avoid re-rendering
-  // the entire subtree on every arrow key press
+  // the entire subtree on every arrow key press. selector-based subscribe so
+  // drag updates (~60Hz) don't fire a no-op setAttribute each time
   useEffect(() =>
   {
-    return useActiveBoardStore.subscribe((state) =>
-    {
-      boardRef.current?.setAttribute(
-        'data-keyboard-focus-item-id',
-        state.keyboardFocusItemId ?? ''
-      )
-    })
+    return useActiveBoardStore.subscribe(
+      (state) => state.keyboardFocusItemId,
+      (focusId) =>
+      {
+        boardRef.current?.setAttribute(
+          'data-keyboard-focus-item-id',
+          focusId ?? ''
+        )
+      }
+    )
   }, [])
 
   useEffect(() =>
@@ -125,12 +135,6 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
     return () =>
       boardShellElement.removeEventListener('focusout', handleFocusOut)
   }, [])
-
-  const tiers = useMemo(
-    () =>
-      dragPreview ? getEffectiveTiers(storedTiers, dragPreview) : storedTiers,
-    [dragPreview, storedTiers]
-  )
 
   const tierIds = useMemo(() => tiers.map((t) => t.id), [tiers])
 
@@ -174,22 +178,17 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       onDragCancel={onDragCancel}
     >
       <div ref={boardShellRef}>
-        {/* toolbar + tier rows wrapper — toolbar sits alongside or above/below the tiers */}
         <div
           className={`${compactMode ? 'mt-1' : 'mt-3'} ${TOOLBAR_LAYOUT_CLASS[toolbarPosition]}`}
         >
-          {/* tier rows column — unranked pool & trash zone live outside so
-              left/right toolbar centers on tiers only & bottom toolbar
-              sits above the pool */}
           <div className={`${isVertical ? 'min-w-0 flex-1' : ''}`}>
-            {/* export capture wrapper */}
             <div className="overflow-x-auto">
               <div
                 id="tier-list"
                 ref={boardRef}
                 role="region"
                 aria-label="Tier list board"
-                data-testid="tier-list-board"
+                data-testid={TIER_LIST_BOARD_TEST_ID}
                 data-keyboard-mode={keyboardMode}
                 data-keyboard-focus-item-id=""
                 tabIndex={-1}
@@ -213,7 +212,6 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
             </div>
           </div>
 
-          {/* sticky wrapper keeps the toolbar visible while scrolling tall boards */}
           <div className={isVertical ? 'sticky top-4' : ''}>{toolbar}</div>
         </div>
 
@@ -222,9 +220,6 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         <TrashZone />
       </div>
 
-      {/* render ghost in the overlay while a drag is active;
-          disable default drop animation during multi-drag so the
-          fan-out animation takes over immediately */}
       <DragOverlay
         modifiers={overlayModifiers}
         dropAnimation={dragGroupCount > 1 ? null : undefined}

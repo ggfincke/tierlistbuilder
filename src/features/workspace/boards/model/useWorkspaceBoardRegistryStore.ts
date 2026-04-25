@@ -4,28 +4,32 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import type { BoardMeta } from '@/features/workspace/boards/model/contract'
-import type { BoardId } from '@/shared/types/ids'
-import { createAppPersistStorage } from '@/shared/lib/browserStorage'
-import { BOARD_REGISTRY_KEY } from '../data/local/boardRegistryStorage'
+import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import { createAppPersistStorage } from '~/shared/lib/browserStorage'
+
+const BOARD_REGISTRY_KEY = 'tier-list-builder-boards'
 
 interface WorkspaceBoardRegistryStore
 {
   boards: BoardMeta[]
-  activeBoardId: BoardId | ''
-  replaceRegistry: (boards: BoardMeta[], activeBoardId: BoardId) => void
+  activeBoardId: BoardId | null
+  replaceRegistry: (boards: BoardMeta[], activeBoardId: BoardId | null) => void
   addBoardMeta: (board: BoardMeta, active?: boolean) => void
-  setActiveBoardId: (boardId: BoardId) => void
+  setActiveBoardId: (boardId: BoardId | null) => void
   renameBoardMeta: (boardId: BoardId, title: string) => void
   removeBoardMeta: (boardId: BoardId) => void
 }
+
+// pre-1.0 storage changes wipe mismatched registries
+const BOARD_REGISTRY_STORAGE_VERSION = 1
 
 export const useWorkspaceBoardRegistryStore =
   create<WorkspaceBoardRegistryStore>()(
     persist(
       (set) => ({
         boards: [],
-        activeBoardId: '',
+        activeBoardId: null,
 
         replaceRegistry: (boards, activeBoardId) =>
           set({ boards, activeBoardId }),
@@ -53,6 +57,7 @@ export const useWorkspaceBoardRegistryStore =
       {
         name: BOARD_REGISTRY_KEY,
         storage: createAppPersistStorage(),
+        version: BOARD_REGISTRY_STORAGE_VERSION,
         partialize: (state) => ({
           boards: state.boards,
           activeBoardId: state.activeBoardId,

@@ -5,33 +5,40 @@ import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { Search, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
-import { useImageImport } from '@/features/workspace/settings/model/useImageImport'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { getEffectiveUnrankedItemIds } from '@/features/workspace/boards/dnd/dragSnapshot'
-import { getBoardItemAspectRatio } from '@/features/workspace/boards/lib/aspectRatio'
-import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
-import { itemSlotDimensions } from '@/shared/board-ui/constants'
+import { useImageImport } from '~/features/workspace/settings/model/useImageImport'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useEffectiveUnrankedItemIds } from '~/features/workspace/boards/model/useEffectiveBoard'
+import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
+import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
+import { UNRANKED_CONTAINER_TEST_ID } from '~/shared/board-ui/boardTestIds'
+import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import { TierItem } from './TierItem'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
-import { TextInput } from '@/shared/ui/TextInput'
-import { UploadDropzone } from '@/shared/ui/UploadDropzone'
-import type { ItemId } from '@/shared/types/ids'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { TextInput } from '~/shared/ui/TextInput'
+import { UploadDropzone } from '~/shared/ui/UploadDropzone'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 export const UnrankedPool = () =>
 {
-  const compactMode = useSettingsStore((state) => state.compactMode)
-  const boardLocked = useSettingsStore((state) => state.boardLocked)
-  const itemSize = useSettingsStore((state) => state.itemSize)
-  const confirmBeforeDelete = useSettingsStore(
-    (state) => state.confirmBeforeDelete
+  const { compactMode, boardLocked, itemSize, confirmBeforeDelete } =
+    useSettingsStore(
+      useShallow((state) => ({
+        compactMode: state.compactMode,
+        boardLocked: state.boardLocked,
+        itemSize: state.itemSize,
+        confirmBeforeDelete: state.confirmBeforeDelete,
+      }))
+    )
+  const { items, removeItem } = useActiveBoardStore(
+    useShallow((state) => ({
+      items: state.items,
+      removeItem: state.removeItem,
+    }))
   )
-  const storedUnrankedItemIds = useActiveBoardStore(
-    (state) => state.unrankedItemIds
-  )
-  const dragPreview = useActiveBoardStore((state) => state.dragPreview)
-  const items = useActiveBoardStore((state) => state.items)
   const boardAspectRatio = useActiveBoardStore((state) =>
     getBoardItemAspectRatio(state)
   )
@@ -42,17 +49,8 @@ export const UnrankedPool = () =>
     itemSize,
     boardAspectRatio
   )
-  const unrankedItemIds = useMemo(
-    () =>
-      dragPreview
-        ? getEffectiveUnrankedItemIds(storedUnrankedItemIds, dragPreview)
-        : storedUnrankedItemIds,
-    [dragPreview, storedUnrankedItemIds]
-  )
-  const itemCount = useActiveBoardStore(
-    (state) => Object.keys(state.items).length
-  )
-  const removeItem = useActiveBoardStore((state) => state.removeItem)
+  const unrankedItemIds = useEffectiveUnrankedItemIds()
+  const itemCount = Object.keys(items).length
 
   const {
     inputRef: fileInputRef,
@@ -113,15 +111,16 @@ export const UnrankedPool = () =>
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--t-text-muted)]">
           Unranked
         </h2>
-        {/* show total item count across the entire board */}
         <span className="text-xs text-[var(--t-text-faint)]">
           {isSearching
-            ? `${filteredIds.length} of ${unrankedItemIds.length} items`
-            : `${itemCount} total items`}
+            ? `${filteredIds.length} of ${formatCountedWord(
+                unrankedItemIds.length,
+                'item'
+              )}`
+            : `${formatCountedWord(itemCount, 'item')} total`}
         </span>
       </div>
 
-      {/* search bar — only visible when there are unranked items */}
       {unrankedItemIds.length > 0 && (
         <div className="relative mb-2">
           <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[var(--t-text-faint)]" />
@@ -148,7 +147,7 @@ export const UnrankedPool = () =>
       <SortableContext items={filteredIds} strategy={rectSortingStrategy}>
         <div
           ref={setNodeRef}
-          data-testid="unranked-container"
+          data-testid={UNRANKED_CONTAINER_TEST_ID}
           data-tier-id={UNRANKED_CONTAINER_ID}
           className={`unranked-pool-grid flex min-h-24 flex-wrap border border-dashed p-2 transition ${compactMode ? 'gap-0' : 'gap-[2px]'} ${
             isOver
@@ -187,7 +186,6 @@ export const UnrankedPool = () =>
         </div>
       </SortableContext>
 
-      {/* hidden file input for the empty-state click-to-upload */}
       <input
         ref={fileInputRef}
         type="file"

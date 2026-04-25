@@ -1,46 +1,36 @@
 // src/features/workspace/export/lib/exportAll.ts
 // export-all utilities — bundle every board into a single JSON, PDF, or image ZIP
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
-import type { ExportAppearance, ImageFormat } from '@/shared/types/export'
-import { BOARD_DATA_VERSION } from '@/features/workspace/boards/data/local/boardStorage'
+import type {
+  BoardSnapshot,
+  BoardSnapshotWire,
+} from '@tierlistbuilder/contracts/workspace/board'
+import type { ExportAppearance, ImageFormat } from '../model/runtime'
+import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import {
   loadPersistedBoard,
   saveActiveBoardSnapshot,
-} from '@/features/workspace/boards/data/local/localBoardSession'
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { toFileBase } from '@/shared/lib/fileName'
+} from '~/features/workspace/boards/model/boardSession'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { toFileBase } from '~/shared/lib/fileName'
+import { dataUrlToBytes } from '~/shared/lib/binaryCodec'
+import { downloadBlob } from '~/shared/lib/downloadBlob'
+import { loadPdfLib, loadZipLib } from '~/shared/lib/lazyDependencies'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
-import { FORMAT_EXT, renderToDataUrl, triggerDownload } from './exportImage'
+import { FORMAT_EXT, renderToDataUrl } from './exportImage'
 import { withExportSession } from './exportBoardRender'
+import { snapshotToWire } from './boardWireMapper'
+import { warmFromBoard } from '~/shared/images/imageBlobCache'
 
-// convert a data URL to raw bytes for ZIP packaging
-// handles both base64 (raster) & URL-encoded (SVG) data URLs
-const dataUrlToZipEntry = (dataUrl: string): Uint8Array | string =>
-{
-  // SVG data URLs are URL-encoded text, not base64
-  if (dataUrl.startsWith('data:image/svg+xml'))
-  {
-    const raw = dataUrl.split(',')[1]
-    return decodeURIComponent(raw)
-  }
-
-  const base64 = dataUrl.split(',')[1]
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++)
-  {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes
-}
-
-// envelope type for multi-board JSON export
+// envelope type for multi-board JSON export — each board's `data` is
+// self-contained so image-backed items survive import into another browser
 interface MultiTierListExport
 {
   version: number
   exportedAt: string
-  boards: Array<{ title: string; data: BoardSnapshot }>
+  boards: Array<{ title: string; data: BoardSnapshotWire }>
 }
 
 // progress callback type used by PDF & image exports
@@ -53,35 +43,55 @@ const loadAllBoardData = (): Array<{
   data: BoardSnapshot
 }> =>
 {
-  const { boards } = useWorkspaceBoardRegistryStore.getState()
+  const { boards, activeBoardId } = useWorkspaceBoardRegistryStore.getState()
 
   saveActiveBoardSnapshot()
 
+  const activeBoardData = activeBoardId
+    ? extractBoardData(useActiveBoardStore.getState())
+    : null
   const results: Array<{ id: string; title: string; data: BoardSnapshot }> = []
   for (const board of boards)
   {
-    const data = loadPersistedBoard(board.id)
+    const data =
+      activeBoardId === board.id && activeBoardData
+        ? activeBoardData
+        : loadPersistedBoard(board.id)
     results.push({ id: board.id, title: board.title, data })
   }
   return results
 }
 
-// download all boards as a single JSON file
-export const exportAllBoardsAsJson = () =>
+// prewarm the shared image blob cache so the off-screen render tree resolves
+// every imageRef -> object URL synchronously through useImageUrl
+const prepareBoardsForCapture = async (
+  boards: Array<{ id: string; title: string; data: BoardSnapshot }>
+): Promise<void> =>
+{
+  await Promise.all(boards.map(({ data }) => warmFromBoard(data)))
+}
+
+// download all boards as a single self-contained JSON file
+export const exportAllBoardsAsJson = async (): Promise<void> =>
 {
   const allBoards = loadAllBoardData()
+
+  const wireBoards = await Promise.all(
+    allBoards.map(async ({ title, data }) => ({
+      title,
+      data: await snapshotToWire(data),
+    }))
+  )
 
   const payload: MultiTierListExport = {
     version: BOARD_DATA_VERSION,
     exportedAt: new Date().toISOString(),
-    boards: allBoards.map(({ title, data }) => ({ title, data })),
+    boards: wireBoards,
   }
 
   const json = JSON.stringify(payload, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  triggerDownload(url, 'all-tier-lists.json')
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, 'all-tier-lists.json')
 }
 
 // render each board inside a hidden off-screen export session, never touching
@@ -96,34 +106,38 @@ const captureAllBoards = async (
 > =>
 {
   const allBoards = loadAllBoardData()
+  await prepareBoardsForCapture(allBoards)
 
-  return withExportSession({ appearance, backgroundColor }, async (session) =>
-  {
-    const captures: Array<{
-      title: string
-      dataUrl: string
-      width: number
-      height: number
-    }> = []
-
-    for (let i = 0; i < allBoards.length; i++)
+  return await withExportSession(
+    { appearance, backgroundColor },
+    async (session) =>
     {
-      const element = await session.renderBoard(allBoards[i].data)
+      const captures: Array<{
+        title: string
+        dataUrl: string
+        width: number
+        height: number
+      }> = []
 
-      const dataUrl = await renderToDataUrl(element, format, backgroundColor)
+      for (let i = 0; i < allBoards.length; i++)
+      {
+        const board = allBoards[i]
+        const element = await session.renderBoard(board.data)
+        const dataUrl = await renderToDataUrl(element, format, backgroundColor)
 
-      captures.push({
-        title: allBoards[i].title,
-        dataUrl,
-        width: element.offsetWidth * EXPORT_PIXEL_RATIO,
-        height: element.offsetHeight * EXPORT_PIXEL_RATIO,
-      })
+        captures.push({
+          title: board.title,
+          dataUrl,
+          width: element.offsetWidth * EXPORT_PIXEL_RATIO,
+          height: element.offsetHeight * EXPORT_PIXEL_RATIO,
+        })
 
-      onProgress?.(i + 1, allBoards.length)
+        onProgress?.(i + 1, allBoards.length)
+      }
+
+      return captures
     }
-
-    return captures
-  })
+  )
 }
 
 // download all boards as a multi-page PDF (one page per board)
@@ -142,8 +156,7 @@ export const exportAllBoardsAsPdf = async (
 
   if (captures.length === 0) return
 
-  // dynamically import jsPDF to keep the main bundle slim
-  const { jsPDF } = await import('jspdf')
+  const { jsPDF } = await loadPdfLib()
 
   // build multi-page PDF
   const first = captures[0]
@@ -184,8 +197,7 @@ export const exportAllBoardsAsImages = async (
 
   if (captures.length === 0) return
 
-  // dynamically import jszip to keep the main bundle slim
-  const JSZip = (await import('jszip')).default
+  const JSZip = await loadZipLib()
   const zip = new JSZip()
 
   const ext = FORMAT_EXT[format]
@@ -204,11 +216,9 @@ export const exportAllBoardsAsImages = async (
     }
     usedNames.add(base)
 
-    zip.file(`${base}.${ext}`, dataUrlToZipEntry(cap.dataUrl))
+    zip.file(`${base}.${ext}`, dataUrlToBytes(cap.dataUrl))
   }
 
   const blob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(blob)
-  triggerDownload(url, 'all-tier-lists.zip')
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, 'all-tier-lists.zip')
 }

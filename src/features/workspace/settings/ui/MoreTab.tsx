@@ -5,24 +5,26 @@ import { useId, useState } from 'react'
 import { Github, Layers, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
+import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
   createBoardSession,
   createBoardSessionFromPreset,
-} from '@/features/workspace/boards/data/local/localBoardSession'
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { ColorInput } from '@/shared/ui/ColorInput'
+} from '~/features/workspace/boards/model/boardSession'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { ColorInput } from '~/shared/ui/ColorInput'
 import {
   STORAGE_NEAR_FULL_MESSAGE,
   STORAGE_QUOTA_BYTES,
-} from '@/shared/lib/storageMetering'
-import { THEMES } from '@/shared/theme/tokens'
-import { PresetPickerModal } from '@/features/workspace/tier-presets/ui/PresetPickerModal'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-import { ShortcutsList } from '@/features/workspace/shortcuts/ui/ShortcutsList'
+} from '~/shared/lib/storageMetering'
+import { GITHUB_REPO_URL } from '~/shared/lib/urls'
+import { formatCountedWord } from '~/shared/lib/pluralize'
+import { THEMES } from '~/shared/theme/tokens'
+import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
+import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { SettingRow } from './SettingRow'
-import { SettingsSection } from './SettingsSection'
 import { Toggle } from './Toggle'
 
 interface MoreTabProps
@@ -74,27 +76,29 @@ export const MoreTab = ({
     <>
       <SettingsSection title="Export">
         <SettingRow label="Background Color">
-          <div className="flex items-center gap-2">
-            {exportBackgroundOverride !== null && (
-              <button
-                type="button"
-                onClick={() => setExportBackgroundOverride(null)}
-                aria-label="Reset export background color to the theme default"
-                className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
-                title="Reset to theme default"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <ColorInput
-              id={exportBackgroundInputId}
-              value={effectiveExportBg}
-              onChange={(event) =>
-                setExportBackgroundOverride(event.target.value)
-              }
-              aria-label="Export background color"
-            />
-          </div>
+          {(labelId) => (
+            <div className="flex items-center gap-2">
+              {exportBackgroundOverride !== null && (
+                <button
+                  type="button"
+                  onClick={() => setExportBackgroundOverride(null)}
+                  aria-label="Reset export background color to the theme default"
+                  className="rounded p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
+                  title="Reset to theme default"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <ColorInput
+                id={exportBackgroundInputId}
+                value={effectiveExportBg}
+                onChange={(event) =>
+                  setExportBackgroundOverride(event.target.value)
+                }
+                aria-labelledby={labelId}
+              />
+            </div>
+          )}
         </SettingRow>
       </SettingsSection>
 
@@ -102,7 +106,7 @@ export const MoreTab = ({
         <div className="flex items-center justify-between gap-3">
           <span className="flex items-center gap-1.5 text-sm text-[var(--t-text-faint)]">
             <Layers className="h-3.5 w-3.5" />
-            {boards.length} {boards.length === 1 ? 'list' : 'lists'} saved
+            {formatCountedWord(boards.length, 'list')} saved
           </span>
           <SecondaryButton
             variant="surface"
@@ -112,9 +116,6 @@ export const MoreTab = ({
             New List
           </SecondaryButton>
         </div>
-        <p className="mt-2 text-xs text-[var(--t-text-dim)]">
-          Switch between lists using the button in the bottom-right corner.
-        </p>
 
         <div className="my-2 border-t border-[var(--t-border)]" />
 
@@ -165,7 +166,7 @@ export const MoreTab = ({
           v{__APP_VERSION__}
         </span>
         <a
-          href="https://github.com/ggfincke/tierlistbuilder"
+          href={GITHUB_REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Open the tierlistbuilder GitHub repository"

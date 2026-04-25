@@ -4,11 +4,12 @@
 import type {
   BoardSnapshot,
   Tier,
-} from '@/features/workspace/boards/model/contract'
-import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
-import { clampIndex } from '@/shared/lib/math'
-import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
-import type { ItemId } from '@/shared/types/ids'
+} from '@tierlistbuilder/contracts/workspace/board'
+import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
+import { clamp } from '~/shared/lib/math'
+import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
+import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 interface ResolveStoreInsertionIndexArgs
 {
@@ -88,6 +89,26 @@ export const getEffectiveTiers = (
   if (!dragPreview)
   {
     return tiers
+  }
+
+  if (
+    tiers.length === dragPreview.tiers.length &&
+    tiers.every((tier, index) => tier.id === dragPreview.tiers[index]?.id)
+  )
+  {
+    let changed = false
+    const next = tiers.map((tier, index) =>
+    {
+      const previewItemIds = dragPreview.tiers[index].itemIds
+      if (previewItemIds === tier.itemIds)
+      {
+        return tier
+      }
+      changed = true
+      return { ...tier, itemIds: previewItemIds }
+    })
+
+    return changed ? next : tiers
   }
 
   const itemIdsByTierId = new Map(
@@ -208,13 +229,13 @@ export const findContainer = (
     return id
   }
 
-  if ((snapshot.unrankedItemIds as readonly string[]).includes(id))
+  if (brandedStringArrayIncludes(snapshot.unrankedItemIds, id))
   {
     return UNRANKED_CONTAINER_ID
   }
 
   const parentTier = snapshot.tiers.find((tier) =>
-    (tier.itemIds as readonly string[]).includes(id)
+    brandedStringArrayIncludes(tier.itemIds, id)
   )
   return parentTier?.id ?? null
 }
@@ -232,6 +253,13 @@ export const getItemsInContainer = (
   return snapshot.tiers.find((tier) => tier.id === containerId)?.itemIds ?? []
 }
 
+export const getOrderedContainerIds = (
+  snapshot: ContainerSnapshot
+): string[] =>
+{
+  return [...snapshot.tiers.map((tier) => tier.id), UNRANKED_CONTAINER_ID]
+}
+
 // convert a pre-removal target index into the actual splice position used by the store
 export const resolveStoreInsertionIndex = ({
   sameContainer,
@@ -243,7 +271,7 @@ export const resolveStoreInsertionIndex = ({
   const normalizedTargetIndex =
     sameContainer && targetIndex > sourceIndex ? targetIndex - 1 : targetIndex
 
-  return clampIndex(normalizedTargetIndex, 0, targetItemsLength)
+  return clamp(normalizedTargetIndex, 0, targetItemsLength)
 }
 
 export const moveItemInSnapshot = (
@@ -334,7 +362,7 @@ export const moveItemToIndexInSnapshot = ({
     fromContainerId === toContainerId
       ? sourceItems
       : [...getItemsInContainer(sourcePatchedSnapshot, toContainerId)]
-  const insertionIndex = clampIndex(toIndex, 0, targetItems.length)
+  const insertionIndex = clamp(toIndex, 0, targetItems.length)
 
   if (fromContainerId === toContainerId && insertionIndex === sourceIndex)
   {

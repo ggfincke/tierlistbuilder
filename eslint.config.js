@@ -10,8 +10,8 @@ import prettierConfig from 'eslint-config-prettier'
 import localRules from './eslint-rules/index.js'
 
 export default defineConfig([
-  // exclude build output from linting
-  globalIgnores(['dist']),
+  // exclude build output & local agent metadata from linting
+  globalIgnores(['dist', '.agents', '.claude', 'skills-lock.json']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -34,7 +34,36 @@ export default defineConfig([
       'ggfincke/no-jsdoc-blocks': 'error',
       'ggfincke/file-header': 'error',
       'ggfincke/comment-style-guide': 'warn',
+      'ggfincke/comment-block-length': 'error',
+      'ggfincke/no-unicode-arrow': 'error',
       'no-inline-comments': 'error',
+      // honor _-prefix as "intentionally unused" for args, caught errors, & destructured rest siblings
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['~/features/**/data/**'],
+              message:
+                'UI/app .tsx files must call model-level facades instead of data modules.',
+            },
+          ],
+        },
+      ],
     },
   },
 ])

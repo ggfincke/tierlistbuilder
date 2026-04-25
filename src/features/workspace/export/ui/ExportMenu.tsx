@@ -12,38 +12,41 @@ import {
   FileDown,
   FileUp,
   Layers,
+  Share2,
   SquareArrowUp,
 } from 'lucide-react'
 
-import type { ImageFormat } from '@/shared/types/export'
-import type { MenuPositionClasses } from '@/shared/layout/toolbarPosition'
-import { useMenuOverflowFlipRefs } from '@/shared/overlay/useMenuOverflowFlip'
+import type { ImageFormat } from '../model/runtime'
+import type { MenuPositionClasses } from '~/shared/layout/toolbarPosition'
+import { formatError } from '~/shared/lib/errors'
 import {
   useNestedMenus,
   type NestedMenuDefinition,
-} from '@/shared/overlay/useNestedMenus'
-import { useDismissibleLayer } from '@/shared/overlay/useDismissibleLayer'
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+} from '~/shared/overlay/nestedMenus'
+import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
+import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
+
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
   importBoardSession,
   importBoardsSession,
-} from '@/features/workspace/boards/data/local/localBoardSession'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+} from '~/features/workspace/boards/model/boardSession'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   exportBoardAsJson,
   parseBoardsJson,
-} from '@/features/workspace/export/lib/exportJson'
+} from '~/features/workspace/export/lib/exportJson'
 import {
   FORMAT_LABELS,
   IMAGE_FORMATS,
-} from '@/features/workspace/export/lib/constants'
-import { ActionButton } from '@/shared/ui/ActionButton'
+} from '~/features/workspace/export/lib/constants'
+import { ActionButton } from '~/shared/ui/ActionButton'
 import {
   OverlayDivider,
   OverlayMenuItem,
   OverlayMenuSurface,
-} from '@/shared/overlay/OverlayPrimitives'
+} from '~/shared/overlay/OverlaySurface'
 
 type ExportMenuId = 'root' | 'image' | 'format' | 'exportAll'
 
@@ -64,6 +67,7 @@ interface ExportMenuProps
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
   onAnnotateExport: () => void
   onPreviewExport: () => void
+  onShare: () => void
 }
 
 export const ExportMenu = ({
@@ -75,6 +79,7 @@ export const ExportMenu = ({
   onExportAll,
   onAnnotateExport,
   onPreviewExport,
+  onShare,
 }: ExportMenuProps) =>
 {
   const boardCount = useWorkspaceBoardRegistryStore(
@@ -116,11 +121,21 @@ export const ExportMenu = ({
   const showFormatMenu = isOpen('format')
   const showExportAllMenu = isOpen('exportAll')
 
-  const handleJsonExport = () =>
+  const handleJsonExport = async (): Promise<void> =>
   {
     const data = extractBoardData(useActiveBoardStore.getState())
-    exportBoardAsJson(data, title)
-    closeAllMenus()
+    try
+    {
+      await exportBoardAsJson(data, title)
+    }
+    catch (err)
+    {
+      setRuntimeError(formatError(err, 'Failed to export JSON file.'))
+    }
+    finally
+    {
+      closeAllMenus()
+    }
   }
 
   const handleJsonImport = async (file: File) =>
@@ -128,21 +143,19 @@ export const ExportMenu = ({
     try
     {
       const text = await file.text()
-      const boards = parseBoardsJson(text)
+      const boards = await parseBoardsJson(text)
       if (boards.length === 1)
       {
-        importBoardSession(boards[0])
+        await importBoardSession(boards[0])
       }
       else
       {
-        importBoardsSession(boards)
+        await importBoardsSession(boards)
       }
     }
     catch (err)
     {
-      setRuntimeError(
-        err instanceof Error ? err.message : 'Failed to import JSON file.'
-      )
+      setRuntimeError(formatError(err, 'Failed to import JSON file.'))
     }
     closeAllMenus()
   }
@@ -314,9 +327,20 @@ export const ExportMenu = ({
               Export PDF
             </OverlayMenuItem>
 
+            <OverlayMenuItem
+              onClick={() =>
+              {
+                closeAllMenus()
+                onShare()
+              }}
+            >
+              <Share2 className="h-3.5 w-3.5 shrink-0" />
+              Share Link
+            </OverlayMenuItem>
+
             <OverlayDivider />
 
-            <OverlayMenuItem onClick={handleJsonExport}>
+            <OverlayMenuItem onClick={() => void handleJsonExport()}>
               <FileDown className="h-3.5 w-3.5 shrink-0" />
               Export JSON
             </OverlayMenuItem>

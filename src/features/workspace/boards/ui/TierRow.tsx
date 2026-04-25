@@ -11,34 +11,36 @@ import {
 import { useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import {
   createCustomTierColorSpec,
   getPaletteColors,
   resolveTierColorSpec,
-} from '@/shared/theme/tierColors'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import type { Tier } from '@/features/workspace/boards/model/contract'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { itemSlotDimensions } from '@/shared/board-ui/constants'
-import { getBoardItemAspectRatio } from '@/features/workspace/boards/lib/aspectRatio'
-import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '@/shared/overlay/uiMeasurements'
+} from '~/shared/theme/tierColors'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { itemSlotDimensions } from '~/shared/board-ui/constants'
+import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
+import { tierContainerTestId } from '~/shared/board-ui/boardTestIds'
+import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '~/shared/overlay/uiMeasurements'
 import {
   computeColorPickerStyle,
   computeCustomColorPickerStyle,
-} from '@/shared/overlay/popupPosition'
-import { useAnchoredPopup } from '@/shared/overlay/useAnchoredPopup'
+} from '~/shared/overlay/popupPosition'
+import { useAnchoredPopup } from '~/shared/overlay/anchoredPopup'
 import {
   BoardItemsGrid,
   BoardRowContent,
   BoardRowSurface,
-} from '@/shared/board-ui/BoardPrimitives'
+} from '~/shared/board-ui/BoardPrimitives'
 import { TierItem } from './TierItem'
 import { TierLabel } from './TierLabel'
 import { TierRowSettingsMenu } from './TierRowSettingsMenu'
 import { ColorPicker, CustomColorPicker } from './ColorPicker'
-import { OverlayFixedPopupSurface } from '@/shared/overlay/OverlayPrimitives'
+import { OverlayFixedPopupSurface } from '~/shared/overlay/OverlaySurface'
 
 interface TierRowProps
 {
@@ -49,8 +51,12 @@ interface TierRowProps
 
 const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
 {
-  const reorderTier = useActiveBoardStore((state) => state.reorderTier)
-  const recolorTier = useActiveBoardStore((state) => state.recolorTier)
+  const { reorderTier, recolorTier } = useActiveBoardStore(
+    useShallow((state) => ({
+      reorderTier: state.reorderTier,
+      recolorTier: state.recolorTier,
+    }))
+  )
   const boardAspectRatio = useActiveBoardStore((state) =>
     getBoardItemAspectRatio(state)
   )
@@ -58,10 +64,15 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
     (state) => state.defaultItemImageFit
   )
 
-  const itemSize = useSettingsStore((state) => state.itemSize)
-  const compactMode = useSettingsStore((state) => state.compactMode)
-  const boardLocked = useSettingsStore((state) => state.boardLocked)
-  const hideRowControls = useSettingsStore((state) => state.hideRowControls)
+  const { itemSize, compactMode, boardLocked, hideRowControls } =
+    useSettingsStore(
+      useShallow((state) => ({
+        itemSize: state.itemSize,
+        compactMode: state.compactMode,
+        boardLocked: state.boardLocked,
+        hideRowControls: state.hideRowControls,
+      }))
+    )
   const paletteId = useCurrentPaletteId()
   const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
     itemSize,
@@ -241,7 +252,6 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
         className={isOver ? 'bg-[var(--t-bg-drag-over)]' : ''}
       >
         <BoardRowContent index={index}>
-          {/* tier drag handle — grip icon on the left edge of the label */}
           {!hideRowControls && !boardLocked && (
             <button
               type="button"
@@ -260,7 +270,7 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
               compactMode={compactMode}
               minHeightPx={slotHeight}
               backgroundOverride={effectiveRowBackground}
-              data-testid={`tier-container-${tier.id}`}
+              data-testid={tierContainerTestId(tier.id)}
               data-tier-id={tier.id}
             >
               {tier.itemIds.map((itemId) => (
