@@ -109,6 +109,50 @@ const reconcileLocalImageRefs = async (): Promise<void> =>
   await pruneUnreferencedBlobs()
 }
 
+const loadHealthyBoardSession = async (boardId: BoardId): Promise<boolean> =>
+{
+  const result = loadBoardFromStorage(boardId)
+
+  if (result.status !== 'ok')
+  {
+    return false
+  }
+
+  const snapshot = loadedBoardStateFromResult(result)
+  const boardStore = useWorkspaceBoardRegistryStore.getState()
+  if (boardStore.activeBoardId !== boardId)
+  {
+    boardStore.setActiveBoardId(boardId)
+  }
+  await warmFromBoard(snapshot)
+  loadBoardState(boardId, snapshot)
+  pruneOrphanedRegistryEntriesAsync(boardId)
+  reconcileLocalImageRefsAsync()
+  return true
+}
+
+const tryLoadSiblingBoardSession = async (
+  requestedActiveId: BoardId
+): Promise<boolean> =>
+{
+  const boardStore = useWorkspaceBoardRegistryStore.getState()
+  const siblingIds = boardStore.boards
+    .map((board) => board.id)
+    .filter((id) => id !== requestedActiveId)
+
+  for (const siblingId of siblingIds)
+  {
+    if (await loadHealthyBoardSession(siblingId))
+    {
+      return true
+    }
+
+    removeBoardFromStorage(siblingId)
+  }
+
+  return false
+}
+
 export const bootstrapBoardSession = async (): Promise<void> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
@@ -117,24 +161,18 @@ export const bootstrapBoardSession = async (): Promise<void> =>
 
   if (requestedActiveId)
   {
-    const result = loadBoardFromStorage(requestedActiveId)
-
-    if (result.status === 'ok')
+    if (await loadHealthyBoardSession(requestedActiveId))
     {
-      const snapshot = loadedBoardStateFromResult(result)
-      if (boardStore.activeBoardId !== requestedActiveId)
-      {
-        boardStore.setActiveBoardId(requestedActiveId)
-      }
-      await warmFromBoard(snapshot)
-      loadBoardState(requestedActiveId, snapshot)
-      pruneOrphanedRegistryEntriesAsync(requestedActiveId)
-      reconcileLocalImageRefsAsync()
       return
     }
 
     removeBoardFromStorage(requestedActiveId)
     toast('Board data was corrupted and has been reset.', 'error')
+
+    if (await tryLoadSiblingBoardSession(requestedActiveId))
+    {
+      return
+    }
   }
 
   const id = generateBoardId()

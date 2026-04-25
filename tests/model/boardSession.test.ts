@@ -6,6 +6,7 @@ import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
 import { boardStorageKey } from '~/features/workspace/boards/data/local/boardStorage'
 import {
+  bootstrapBoardSession,
   deleteBoardSession,
   loadBoardIntoSession,
   registerBoardAutosave,
@@ -129,6 +130,87 @@ describe('board session persistence', () =>
       localStorage.getItem(boardStorageKey(TEST_BOARD_ID)) ?? '{}'
     ) as { data?: { title?: string } }
     expect(after.data?.title).toBe('Autosaved')
+  })
+
+  it('clears pending autosaves before loading another board', async () =>
+  {
+    vi.useFakeTimers()
+    saveBoardToStorage(OTHER_BOARD_ID, {
+      ...createInitialBoardData('classic'),
+      title: 'Other board',
+    })
+    useWorkspaceBoardRegistryStore.setState({
+      boards: [
+        {
+          id: TEST_BOARD_ID,
+          title: 'Board',
+          createdAt: Date.now(),
+        },
+        {
+          id: OTHER_BOARD_ID,
+          title: 'Other board',
+          createdAt: Date.now(),
+        },
+      ],
+      activeBoardId: TEST_BOARD_ID,
+    })
+
+    disposeAutosave = registerBoardAutosave()
+    useActiveBoardStore.setState({ title: 'Pending edit' })
+    useWorkspaceBoardRegistryStore.getState().setActiveBoardId(OTHER_BOARD_ID)
+    const setItemSpy = vi.spyOn(localStorage, 'setItem')
+
+    await loadBoardIntoSession(OTHER_BOARD_ID)
+    vi.advanceTimersByTime(300)
+
+    const stored = JSON.parse(
+      localStorage.getItem(boardStorageKey(OTHER_BOARD_ID)) ?? '{}'
+    ) as { data?: { title?: string } }
+    expect(stored.data?.title).toBe('Other board')
+    expect(setItemSpy).not.toHaveBeenCalled()
+  })
+
+  it('keeps healthy board registry entries when active board data is corrupted', async () =>
+  {
+    vi.useFakeTimers()
+    vi.stubGlobal('window', {
+      clearTimeout: globalThis.clearTimeout,
+      setTimeout: globalThis.setTimeout,
+    })
+    useWorkspaceBoardRegistryStore.setState({
+      boards: [
+        {
+          id: TEST_BOARD_ID,
+          title: 'Corrupted board',
+          createdAt: Date.now(),
+        },
+        {
+          id: OTHER_BOARD_ID,
+          title: 'Healthy board',
+          createdAt: Date.now(),
+        },
+      ],
+      activeBoardId: TEST_BOARD_ID,
+    })
+    localStorage.setItem(boardStorageKey(TEST_BOARD_ID), '{broken')
+    saveBoardToStorage(OTHER_BOARD_ID, {
+      ...createInitialBoardData('classic'),
+      title: 'Healthy board',
+    })
+
+    await bootstrapBoardSession()
+    await vi.runOnlyPendingTimersAsync()
+
+    const registry = useWorkspaceBoardRegistryStore.getState()
+    expect(useActiveBoardStore.getState().title).toBe('Healthy board')
+    expect(registry.activeBoardId).toBe(OTHER_BOARD_ID)
+    expect(registry.boards).toEqual([
+      expect.objectContaining({
+        id: OTHER_BOARD_ID,
+        title: 'Healthy board',
+      }),
+    ])
+    expect(localStorage.getItem(boardStorageKey(OTHER_BOARD_ID))).not.toBeNull()
   })
 
   it('deletes local board data and registry metadata', async () =>

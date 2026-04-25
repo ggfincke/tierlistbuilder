@@ -28,6 +28,8 @@ export const loadBoardState = (
   snapshot: BoardSnapshot
 ): void =>
 {
+  clearPendingAutosave()
+
   runWithAutosaveSuppressed(() =>
   {
     useActiveBoardStore.getState().loadBoard(snapshot)
