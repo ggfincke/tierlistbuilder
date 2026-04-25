@@ -3,23 +3,27 @@
 
 import { useState } from 'react'
 import { RotateCcw, Trash2, X } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { ItemContent } from '@/shared/board-ui/ItemContent'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
-import { ItemOverlayButton } from '@/shared/ui/ItemOverlayButton'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { ItemOverlayButton } from '~/shared/board-ui/ItemOverlayButton'
 
 export const DeletedItemsSection = () =>
 {
-  const deletedItems = useActiveBoardStore((state) => state.deletedItems)
-  const restoreDeletedItem = useActiveBoardStore(
-    (state) => state.restoreDeletedItem
-  )
-  const permanentlyDeleteItem = useActiveBoardStore(
-    (state) => state.permanentlyDeleteItem
-  )
-  const clearDeletedItems = useActiveBoardStore(
-    (state) => state.clearDeletedItems
+  const {
+    deletedItems,
+    restoreDeletedItem,
+    permanentlyDeleteItem,
+    clearDeletedItems,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      deletedItems: state.deletedItems,
+      restoreDeletedItem: state.restoreDeletedItem,
+      permanentlyDeleteItem: state.permanentlyDeleteItem,
+      clearDeletedItems: state.clearDeletedItems,
+    }))
   )
   const [showClearConfirm, setShowClearConfirm] = useState(false)
 
@@ -54,7 +58,6 @@ export const DeletedItemsSection = () =>
               className="group relative h-16 w-16 shrink-0 overflow-hidden rounded opacity-70"
             >
               <ItemContent item={item} variant="compact" />
-              {/* hover overlay — restore (bottom-left) & permanent delete (top-right) */}
               <div className="absolute inset-0 flex items-end justify-start bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <ItemOverlayButton
                   aria-label={`Restore ${item.label ?? 'item'}`}

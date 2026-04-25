@@ -3,9 +3,10 @@
 
 import { useCallback, useRef, useState } from 'react'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { processImageFiles } from '@/features/workspace/settings/lib/imageResize'
-import { useAspectRatioPrompt } from '@/features/workspace/settings/model/useAspectRatioPrompt'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { processImageFiles } from '~/features/workspace/settings/lib/imageResize'
+import { useAspectRatioPrompt } from '~/features/workspace/settings/model/useAspectRatioPrompt'
+import { pluralizeWord } from '~/shared/lib/pluralize'
 
 interface UseImageImportReturn
 {
@@ -54,14 +55,31 @@ export const useImageImport = (): UseImageImportReturn =>
           return
         }
 
-        const newItems = await processImageFiles(files)
-        importWithPromptCheck(newItems)
+        const { items, failedCount } = await processImageFiles(files)
+        if (items.length > 0)
+        {
+          importWithPromptCheck(items)
+        }
+
+        const messages: string[] = []
+
+        if (failedCount > 0)
+        {
+          messages.push(
+            `Skipped ${failedCount} image ${pluralizeWord(failedCount, 'file')} that could not be processed.`
+          )
+        }
 
         if (skippedCount > 0)
         {
-          setRuntimeError(
-            `Skipped ${skippedCount} non-image file${skippedCount > 1 ? 's' : ''}.`
+          messages.push(
+            `Skipped ${skippedCount} non-image ${pluralizeWord(skippedCount, 'file')}.`
           )
+        }
+
+        if (messages.length > 0)
+        {
+          setRuntimeError(messages.join(' '))
         }
       }
       finally
