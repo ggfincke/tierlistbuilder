@@ -1,7 +1,13 @@
 // src/features/workspace/boards/ui/ItemContextMenu.tsx
 // right-click menu for a tier item — edit image, move-to, & remove
 
-import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import { ArrowRight, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -98,6 +104,15 @@ export const ItemContextMenu = ({
     onDismiss: onClose,
   })
 
+  // dismiss on any scroll — menu is anchored to viewport coords, so staying
+  // put while the underlying tile moves would be misleading
+  useEffect(() =>
+  {
+    const handleScroll = () => onClose()
+    window.addEventListener('scroll', handleScroll, true)
+    return () => window.removeEventListener('scroll', handleScroll, true)
+  }, [onClose])
+
   if (!item) return null
 
   const targetCount = selectionIds.length || 1
@@ -111,6 +126,14 @@ export const ItemContextMenu = ({
       aria-label="Item actions"
       className="z-50 min-w-44 text-sm shadow-md shadow-black/30"
       style={style}
+      onPointerDownCapture={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) =>
+      {
+        e.preventDefault()
+        e.stopPropagation()
+      }}
     >
       {showEdit && (
         <OverlayMenuItem
