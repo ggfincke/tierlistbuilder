@@ -1,20 +1,18 @@
 // src/features/workspace/tier-presets/ui/SavePresetModal.tsx
 // modal prompt for naming & saving the current board as a reusable preset
 
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState } from 'react'
 
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { PrimaryButton } from '@/shared/ui/PrimaryButton'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-import { TextInput } from '@/shared/ui/TextInput'
+import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { TextInput } from '~/shared/ui/TextInput'
 
 interface SavePresetModalProps
 {
-  // starting value shown when the modal opens
   defaultName: string
-  // called when the modal closes
   onClose: () => void
-  // called after the user confirms a valid preset name
   onSave: (name: string) => void
 }
 
@@ -52,9 +50,7 @@ export const SavePresetModal = ({
       initialFocusRef={inputRef}
       panelClassName="w-full max-w-sm p-4"
     >
-      <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-        Save as Preset
-      </h2>
+      <ModalHeader titleId={titleId}>Save as Preset</ModalHeader>
       <p id={descriptionId} className="mt-1 text-sm text-[var(--t-text-muted)]">
         Saves the current tier structure (names & colors) for reuse.
       </p>

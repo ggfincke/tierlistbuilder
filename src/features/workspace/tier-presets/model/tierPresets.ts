@@ -1,17 +1,20 @@
 // src/features/workspace/tier-presets/model/tierPresets.ts
 // board preset definitions & conversion helpers
 
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   TierPreset,
   TierPresetTier,
-} from '@/features/workspace/tier-presets/model/contract'
-import { DEFAULT_TITLE } from '@/features/workspace/boards/lib/boardDefaults'
-import { generatePresetId, generateTierId } from '@/shared/lib/id'
+} from '@tierlistbuilder/contracts/workspace/tierPreset'
+import {
+  generatePresetId,
+  generateTierId,
+} from '@tierlistbuilder/contracts/lib/ids'
+import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
-} from '@/shared/theme/tierColors'
+} from '~/shared/theme/tierColors'
 
 export const BUILTIN_PRESETS: TierPreset[] = [
   {

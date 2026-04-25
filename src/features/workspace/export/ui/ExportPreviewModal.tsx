@@ -1,31 +1,29 @@
 // src/features/workspace/export/ui/ExportPreviewModal.tsx
 // export preview modal — shows rendered board image before download w/ format selector
 
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState } from 'react'
 import { Check, Copy, Download, Highlighter } from 'lucide-react'
 
-import type { ImageFormat } from '@/shared/types/export'
+import type { ImageFormat } from '../model/runtime'
 import {
   FORMAT_LABELS,
   IMAGE_FORMATS,
-} from '@/features/workspace/export/lib/constants'
-import { useClipboardCopy } from '@/shared/hooks/useClipboardCopy'
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+} from '~/features/workspace/export/lib/constants'
+import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
 interface ExportPreviewModalProps
 {
   open: boolean
   onClose: () => void
-  // pre-rendered data URL of the board (PNG for preview)
   previewDataUrl: string | null
-  // active image format selection
   format: ImageFormat
   onFormatChange: (format: ImageFormat) => void
   onDownload: () => void
   onCopyToClipboard: () => void
   onAnnotate: () => void
-  // true while a download or copy is in progress
   exporting: boolean
 }
 
@@ -63,9 +61,7 @@ export const ExportPreviewModal = ({
       panelClassName="flex w-full max-w-3xl flex-col p-4"
     >
       <div className="mb-3 flex items-center justify-between gap-4">
-        <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-          Export Preview
-        </h2>
+        <ModalHeader titleId={titleId}>Export Preview</ModalHeader>
         <SecondaryButton size="sm" onClick={onClose}>
           Done
         </SecondaryButton>

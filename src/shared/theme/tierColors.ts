@@ -1,5 +1,5 @@
 // src/shared/theme/tierColors.ts
-// canonical tier-color helpers — create, resolve, & migrate tier color specs
+// canonical tier-color helpers — create, resolve, & normalize tier color specs
 
 import { normalizeHexColor } from '../lib/color'
 import { PALETTES } from './palettes'
@@ -8,7 +8,7 @@ import type {
   TierColorSpec,
   TierCustomColorSpec,
   TierPaletteColorSpec,
-} from '@/shared/types/theme'
+} from '@tierlistbuilder/contracts/lib/theme'
 
 export const FALLBACK_COLOR = '#888888'
 
@@ -50,7 +50,7 @@ const isCustomColorSpec = (value: unknown): value is { hex: string } =>
   return spec.kind === 'custom' && typeof spec.hex === 'string'
 }
 
-// coerce an unknown persisted value into a canonical TierColorSpec, or null
+// validate an unknown value as a canonical TierColorSpec, or null
 export const normalizeCanonicalTierColorSpec = (
   value: unknown
 ): TierColorSpec | null =>

@@ -1,3 +1,6 @@
+// tests/overlay/nestedMenus.test.ts
+// nested menu state helpers
+
 import { describe, expect, it } from 'vitest'
 import {
   buildNestedMenuIndex,
@@ -5,7 +8,7 @@ import {
   pruneNestedMenuState,
   toggleNestedMenuState,
   type NestedMenuDefinition,
-} from '@/shared/overlay/useNestedMenus'
+} from '~/shared/overlay/nestedMenus'
 
 type MenuId = 'root' | 'image' | 'format' | 'exportAll'
 

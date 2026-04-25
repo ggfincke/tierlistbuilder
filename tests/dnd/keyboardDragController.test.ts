@@ -1,41 +1,61 @@
+// tests/dnd/keyboardDragController.test.ts
+// keyboard drag controller state-machine
+
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { createPaletteTierColorSpec } from '@/shared/theme/tierColors'
+import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import {
   handleKeyboardArrowKey,
   handleKeyboardBoardJumpKey,
   handleKeyboardEscapeKey,
   handleKeyboardItemFocus,
   handleKeyboardSpaceKey,
-} from '@/features/workspace/boards/interaction/keyboardDragController'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import type { BoardSnapshot } from '@/features/workspace/boards/model/contract'
+} from '~/features/workspace/boards/interaction/keyboardDragController'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
 
-const makeBoard = (): BoardSnapshot => ({
-  title: 'Keyboard Board',
-  tiers: [
-    {
-      id: 'tier-s',
-      name: 'S',
-      colorSpec: createPaletteTierColorSpec(0),
-      itemIds: ['item-1', 'item-2'],
+const makeBoard = (): BoardSnapshot =>
+  makeBoardSnapshot({
+    title: 'Keyboard Board',
+    tiers: [
+      makeTier({
+        id: 'tier-s',
+        name: 'S',
+        itemIds: [asItemId('item-1'), asItemId('item-2')],
+      }),
+      makeTier({
+        id: 'tier-a',
+        name: 'A',
+        colorSpec: createPaletteTierColorSpec(1),
+        itemIds: [asItemId('item-3')],
+      }),
+    ],
+    unrankedItemIds: [asItemId('item-4')],
+    items: {
+      [asItemId('item-1')]: makeItem({
+        id: asItemId('item-1'),
+        label: 'One',
+        backgroundColor: '#111111',
+      }),
+      [asItemId('item-2')]: makeItem({
+        id: asItemId('item-2'),
+        label: 'Two',
+        backgroundColor: '#222222',
+      }),
+      [asItemId('item-3')]: makeItem({
+        id: asItemId('item-3'),
+        label: 'Three',
+        backgroundColor: '#333333',
+      }),
+      [asItemId('item-4')]: makeItem({
+        id: asItemId('item-4'),
+        label: 'Four',
+        backgroundColor: '#444444',
+      }),
     },
-    {
-      id: 'tier-a',
-      name: 'A',
-      colorSpec: createPaletteTierColorSpec(1),
-      itemIds: ['item-3'],
-    },
-  ],
-  unrankedItemIds: ['item-4'],
-  items: {
-    'item-1': { id: 'item-1', label: 'One', backgroundColor: '#111111' },
-    'item-2': { id: 'item-2', label: 'Two', backgroundColor: '#222222' },
-    'item-3': { id: 'item-3', label: 'Three', backgroundColor: '#333333' },
-    'item-4': { id: 'item-4', label: 'Four', backgroundColor: '#444444' },
-  },
-  deletedItems: [],
-})
+  })
 
 beforeEach(() =>
 {
@@ -116,6 +136,6 @@ describe('keyboard drag controller', () =>
 
     expect(state.keyboardMode).toBe('browse')
     expect(state.keyboardFocusItemId).toBe('item-4')
-    expect(state.selectedItemIds).toEqual([])
+    expect(state.selection.ids).toEqual([])
   })
 })

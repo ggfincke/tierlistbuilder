@@ -3,27 +3,28 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { THEMES } from '@/shared/theme/tokens'
-import type { ImageFormat } from '@/shared/types/export'
-import { toast } from '@/shared/notifications/useToastStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { formatError } from '~/shared/lib/errors'
+import { THEMES } from '~/shared/theme/tokens'
+import type { ImageFormat } from './runtime'
+import { toast } from '~/shared/notifications/useToastStore'
 import {
   exportAllBoardsAsImages,
   exportAllBoardsAsJson,
   exportAllBoardsAsPdf,
-} from '@/features/workspace/export/lib/exportAll'
+} from '~/features/workspace/export/lib/exportAll'
 import {
   copyBoardToClipboard,
   exportTierListAsImage,
   renderToDataUrl,
-} from '@/features/workspace/export/lib/exportImage'
+} from '~/features/workspace/export/lib/exportImage'
 import {
   getExportAppearance,
   withExportSession,
-} from '@/features/workspace/export/lib/exportBoardRender'
-import { exportTierListAsPdf } from '@/features/workspace/export/lib/exportPdf'
+} from '~/features/workspace/export/lib/exportBoardRender'
+import { exportTierListAsPdf } from '~/features/workspace/export/lib/exportPdf'
 
 const EXPORT_FAIL_MESSAGE =
   'Export failed. Try again after images finish loading.'
@@ -147,9 +148,7 @@ export const useExportController = () =>
     {
       useActiveBoardStore
         .getState()
-        .setRuntimeError(
-          err instanceof Error ? err.message : 'Failed to copy to clipboard.'
-        )
+        .setRuntimeError(formatError(err, 'Failed to copy to clipboard.'))
     }
     finally
     {
@@ -168,13 +167,18 @@ export const useExportController = () =>
       {
         try
         {
-          exportAllBoardsAsJson()
+          await exportAllBoardsAsJson()
         }
-        catch
+        catch (err)
         {
           useActiveBoardStore
             .getState()
-            .setRuntimeError('Export All failed. Try again.')
+            .setRuntimeError(
+              formatError(
+                err,
+                'Export All failed. Try again after images finish loading.'
+              )
+            )
         }
         return
       }

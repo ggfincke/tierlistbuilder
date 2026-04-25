@@ -3,24 +3,25 @@
 
 import { useCallback, useId, useRef, useState } from 'react'
 import { Copy, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
-import type { TierPreset } from '@/features/workspace/tier-presets/model/contract'
-import type { BoardId } from '@/shared/types/ids'
-import type { ToolbarPosition } from '@/shared/types/settings'
+import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
 import {
   createBoardSession,
   createBoardSessionFromPreset,
   deleteBoardSession,
   duplicateBoardSession,
   renameBoardSession,
-} from '@/features/workspace/boards/data/local/localBoardSession'
-import { useInlineEdit } from '@/shared/hooks/useInlineEdit'
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useDismissibleLayer } from '@/shared/overlay/useDismissibleLayer'
-import { ConfirmDialog } from '@/shared/overlay/ConfirmDialog'
-import { OverlayPanelSurface } from '@/shared/overlay/OverlayPrimitives'
-import { PresetPickerModal } from '@/features/workspace/tier-presets/ui/PresetPickerModal'
-import { TextInput } from '@/shared/ui/TextInput'
+} from '~/features/workspace/boards/model/boardSession'
+import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { OverlayPanelSurface } from '~/shared/overlay/OverlaySurface'
+import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
+import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
+import { TextInput } from '~/shared/ui/TextInput'
 
 interface BoardManagerProps
 {
@@ -33,8 +34,12 @@ export const BoardManager = ({
   onSwitchBoard,
 }: BoardManagerProps) =>
 {
-  const boards = useWorkspaceBoardRegistryStore((s) => s.boards)
-  const activeBoardId = useWorkspaceBoardRegistryStore((s) => s.activeBoardId)
+  const { boards, activeBoardId } = useWorkspaceBoardRegistryStore(
+    useShallow((s) => ({
+      boards: s.boards,
+      activeBoardId: s.activeBoardId,
+    }))
+  )
 
   // shift the FAB to the left side when toolbar is on the right
   const flipSide = toolbarPosition === 'right'
@@ -73,7 +78,6 @@ export const BoardManager = ({
 
   return (
     <>
-      {/* collapsed trigger — icon pill w/ board count */}
       {!showPresetPicker && (
         <button
           ref={triggerRef}
@@ -102,7 +106,6 @@ export const BoardManager = ({
         </button>
       )}
 
-      {/* expanded panel — opens upward from the trigger */}
       {open && (
         <OverlayPanelSurface
           id={panelId}
@@ -111,7 +114,6 @@ export const BoardManager = ({
           aria-labelledby={panelTitleId}
           className={`board-manager-panel fixed z-50 flex w-64 max-w-[calc(100vw-1.5rem)] flex-col animate-[slideUp_150ms_ease-out] ${flipSide ? 'board-manager-flip' : ''}`}
         >
-          {/* header */}
           <div className="flex items-center justify-between border-b border-[var(--t-border)] px-3 py-2.5">
             <span
               id={panelTitleId}
@@ -121,7 +123,6 @@ export const BoardManager = ({
             </span>
           </div>
 
-          {/* board list */}
           <div className="max-h-60 overflow-y-auto py-1">
             {boards.map((board) =>
             {
@@ -136,7 +137,6 @@ export const BoardManager = ({
                       : 'hover:bg-[var(--t-bg-hover)]'
                   }`}
                 >
-                  {/* active indicator dot */}
                   <div
                     className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                       isActive ? 'bg-[var(--t-accent)]' : 'bg-transparent'
@@ -150,12 +150,15 @@ export const BoardManager = ({
                       size="sm"
                       {...getInputProps({
                         'aria-label': `Rename ${board.title}`,
-                        className: 'min-w-0 flex-1 rounded-none px-0 py-0',
+                        className: `min-w-0 flex-1 rounded-none px-0 py-0 ${
+                          isActive
+                            ? 'font-medium text-[var(--t-text)]'
+                            : 'text-[var(--t-text-muted)]'
+                        }`,
                       })}
                     />
                   ) : (
                     <>
-                      {/* board title — click to switch */}
                       <button
                         type="button"
                         onClick={() =>
@@ -172,7 +175,6 @@ export const BoardManager = ({
                         {board.title}
                       </button>
 
-                      {/* edit, duplicate, & delete buttons — appear on hover */}
                       <button
                         type="button"
                         aria-label={`Rename ${board.title}`}
@@ -212,7 +214,6 @@ export const BoardManager = ({
             })}
           </div>
 
-          {/* new list button — opens preset picker */}
           <div className="border-t border-[var(--t-border)] px-3 py-2">
             <button
               type="button"
@@ -230,7 +231,6 @@ export const BoardManager = ({
         </OverlayPanelSurface>
       )}
 
-      {/* preset picker for new lists */}
       <PresetPickerModal
         open={showPresetPicker}
         onClose={() => setShowPresetPicker(false)}
@@ -240,7 +240,6 @@ export const BoardManager = ({
         onSelectBlank={() => createBoardSession()}
       />
 
-      {/* confirm delete dialog */}
       <ConfirmDialog
         open={confirmDeleteId !== null}
         title="Delete list?"

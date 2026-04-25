@@ -3,12 +3,12 @@
 
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 
+import { logger } from '~/shared/lib/logger'
+
 interface ErrorBoundaryProps
 {
   children: ReactNode
-  // label for the section this boundary wraps (shown in fallback)
   section?: string
-  // optional custom fallback renderer
   fallback?: (error: Error, reset: () => void) => ReactNode
 }
 
@@ -31,11 +31,10 @@ export class ErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo): void
   {
-    console.error(
-      `[ErrorBoundary${this.props.section ? `: ${this.props.section}` : ''}]`,
-      error,
-      info.componentStack
-    )
+    const scope = this.props.section
+      ? `error-boundary:${this.props.section}`
+      : 'error-boundary'
+    logger.error(scope, error.message, error, info.componentStack)
   }
 
   handleReset = () =>

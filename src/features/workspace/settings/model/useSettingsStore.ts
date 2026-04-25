@@ -2,7 +2,7 @@
 // * global settings store — user preferences persisted independently of per-board data
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, subscribeWithSelector } from 'zustand/middleware'
 
 import type {
   AppSettings,
@@ -11,16 +11,20 @@ import type {
   LabelWidth,
   TierLabelFontSize,
   ToolbarPosition,
-} from '@/shared/types/settings'
-import type { PaletteId, TextStyleId, ThemeId } from '@/shared/types/theme'
-import { createAppPersistStorage } from '@/shared/lib/browserStorage'
-import { THEME_PALETTE } from '@/shared/theme/palettes'
+} from '@tierlistbuilder/contracts/workspace/settings'
+import type {
+  PaletteId,
+  TextStyleId,
+  ThemeId,
+} from '@tierlistbuilder/contracts/lib/theme'
+import { createAppPersistStorage } from '~/shared/lib/browserStorage'
+import { THEME_PALETTE } from '~/shared/theme/palettes'
 import {
   SETTINGS_STORAGE_KEY,
   SETTINGS_STORAGE_VERSION,
 } from '../data/local/settingsStorage'
 
-const DEFAULT_SETTINGS: AppSettings = {
+export const DEFAULT_APP_SETTINGS: AppSettings = {
   itemSize: 'medium',
   showLabels: false,
   itemShape: 'square',
@@ -38,13 +42,25 @@ const DEFAULT_SETTINGS: AppSettings = {
   tierLabelFontSize: 'small',
   boardLocked: false,
   reducedMotion: false,
-  preHighContrastThemeId: null,
-  preHighContrastPaletteId: null,
   toolbarPosition: 'top',
   showAltTextButton: false,
 }
 
-interface SettingsStore extends AppSettings
+// runtime-only transition state for the high-contrast toggle — remembers the
+// theme & palette to restore when the user turns HC back off. not persisted
+// because it's a transient undo hint, not a user preference
+interface HighContrastTransitionState
+{
+  preHighContrastThemeId: ThemeId | null
+  preHighContrastPaletteId: PaletteId | null
+}
+
+const DEFAULT_HIGH_CONTRAST_TRANSITION: HighContrastTransitionState = {
+  preHighContrastThemeId: null,
+  preHighContrastPaletteId: null,
+}
+
+interface SettingsStore extends AppSettings, HighContrastTransitionState
 {
   setItemSize: (size: ItemSize) => void
   setShowLabels: (show: boolean) => void
@@ -66,80 +82,109 @@ interface SettingsStore extends AppSettings
   setToolbarPosition: (position: ToolbarPosition) => void
   setShowAltTextButton: (show: boolean) => void
   toggleHighContrast: (enabled: boolean) => void
-  resetSettings: () => void
 }
 
+// guard against same-value writes so re-clicking the active option doesn't
+// trigger a persist-middleware serialization + localStorage write + subscriber
+// fan-out
 const createSettingSetter = <K extends keyof AppSettings>(
   set: (partial: Partial<SettingsStore>) => void,
+  get: () => SettingsStore,
   key: K
 ) =>
 {
   return (value: AppSettings[K]) =>
+  {
+    if (get()[key] === value) return
     set({ [key]: value } as Pick<AppSettings, K>)
+  }
 }
 
+// subscribeWithSelector wraps persist so AppSettings projections can use a
+// custom equalityFn instead of firing on every store action
 export const useSettingsStore = create<SettingsStore>()(
-  persist(
-    (set) => ({
-      ...DEFAULT_SETTINGS,
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
+        ...DEFAULT_APP_SETTINGS,
+        ...DEFAULT_HIGH_CONTRAST_TRANSITION,
 
-      setItemSize: createSettingSetter(set, 'itemSize'),
-      setShowLabels: createSettingSetter(set, 'showLabels'),
-      setItemShape: createSettingSetter(set, 'itemShape'),
-      setCompactMode: createSettingSetter(set, 'compactMode'),
-      setExportBackgroundOverride: createSettingSetter(
-        set,
-        'exportBackgroundOverride'
-      ),
-      setBoardBackgroundOverride: createSettingSetter(
-        set,
-        'boardBackgroundOverride'
-      ),
-      setLabelWidth: createSettingSetter(set, 'labelWidth'),
-      setHideRowControls: createSettingSetter(set, 'hideRowControls'),
-      setConfirmBeforeDelete: createSettingSetter(set, 'confirmBeforeDelete'),
-      setThemeId: createSettingSetter(set, 'themeId'),
-      setPaletteId: createSettingSetter(set, 'paletteId'),
-      setTextStyleId: createSettingSetter(set, 'textStyleId'),
-      setTierLabelBold: createSettingSetter(set, 'tierLabelBold'),
-      setTierLabelItalic: createSettingSetter(set, 'tierLabelItalic'),
-      setTierLabelFontSize: createSettingSetter(set, 'tierLabelFontSize'),
-      setBoardLocked: createSettingSetter(set, 'boardLocked'),
-      setReducedMotion: createSettingSetter(set, 'reducedMotion'),
-      setToolbarPosition: createSettingSetter(set, 'toolbarPosition'),
-      setShowAltTextButton: createSettingSetter(set, 'showAltTextButton'),
-      toggleHighContrast: (enabled) =>
-        set((state) =>
-        {
-          if (enabled)
+        setItemSize: createSettingSetter(set, get, 'itemSize'),
+        setShowLabels: createSettingSetter(set, get, 'showLabels'),
+        setItemShape: createSettingSetter(set, get, 'itemShape'),
+        setCompactMode: createSettingSetter(set, get, 'compactMode'),
+        setExportBackgroundOverride: createSettingSetter(
+          set,
+          get,
+          'exportBackgroundOverride'
+        ),
+        setBoardBackgroundOverride: createSettingSetter(
+          set,
+          get,
+          'boardBackgroundOverride'
+        ),
+        setLabelWidth: createSettingSetter(set, get, 'labelWidth'),
+        setHideRowControls: createSettingSetter(set, get, 'hideRowControls'),
+        setConfirmBeforeDelete: createSettingSetter(
+          set,
+          get,
+          'confirmBeforeDelete'
+        ),
+        setThemeId: createSettingSetter(set, get, 'themeId'),
+        setPaletteId: createSettingSetter(set, get, 'paletteId'),
+        setTextStyleId: createSettingSetter(set, get, 'textStyleId'),
+        setTierLabelBold: createSettingSetter(set, get, 'tierLabelBold'),
+        setTierLabelItalic: createSettingSetter(set, get, 'tierLabelItalic'),
+        setTierLabelFontSize: createSettingSetter(
+          set,
+          get,
+          'tierLabelFontSize'
+        ),
+        setBoardLocked: createSettingSetter(set, get, 'boardLocked'),
+        setReducedMotion: createSettingSetter(set, get, 'reducedMotion'),
+        setToolbarPosition: createSettingSetter(set, get, 'toolbarPosition'),
+        setShowAltTextButton: createSettingSetter(
+          set,
+          get,
+          'showAltTextButton'
+        ),
+        toggleHighContrast: (enabled) =>
+          set((state) =>
           {
-            return {
-              preHighContrastThemeId: state.themeId,
-              preHighContrastPaletteId: state.paletteId,
-              themeId: 'high-contrast' as const,
-              paletteId: THEME_PALETTE['high-contrast'],
+            if (enabled)
+            {
+              return {
+                preHighContrastThemeId: state.themeId,
+                preHighContrastPaletteId: state.paletteId,
+                themeId: 'high-contrast' as const,
+                paletteId: THEME_PALETTE['high-contrast'],
+              }
             }
-          }
-          const restoreTheme =
-            state.preHighContrastThemeId &&
-            state.preHighContrastThemeId !== 'high-contrast'
-              ? state.preHighContrastThemeId
-              : ('classic' as const)
-          const restorePalette =
-            state.preHighContrastPaletteId ?? THEME_PALETTE[restoreTheme]
-          return {
-            themeId: restoreTheme,
-            paletteId: restorePalette,
-            preHighContrastThemeId: null,
-            preHighContrastPaletteId: null,
-          }
-        }),
-      resetSettings: () => set(DEFAULT_SETTINGS),
-    }),
-    {
-      name: SETTINGS_STORAGE_KEY,
-      storage: createAppPersistStorage(),
-      version: SETTINGS_STORAGE_VERSION,
-    }
+            const restoreTheme =
+              state.preHighContrastThemeId &&
+              state.preHighContrastThemeId !== 'high-contrast'
+                ? state.preHighContrastThemeId
+                : ('classic' as const)
+            const restorePalette =
+              state.preHighContrastPaletteId ?? THEME_PALETTE[restoreTheme]
+            return {
+              themeId: restoreTheme,
+              paletteId: restorePalette,
+              preHighContrastThemeId: null,
+              preHighContrastPaletteId: null,
+            }
+          }),
+      }),
+      {
+        name: SETTINGS_STORAGE_KEY,
+        storage: createAppPersistStorage(),
+        version: SETTINGS_STORAGE_VERSION,
+        partialize: ({
+          preHighContrastThemeId: _t,
+          preHighContrastPaletteId: _p,
+          ...rest
+        }) => rest,
+      }
+    )
   )
 )

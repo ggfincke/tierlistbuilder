@@ -2,33 +2,38 @@
 // floating bar shown when items are selected — bulk move, delete, & clear selection
 
 import { ArrowRight, Trash2, X } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { resolveTierColorSpec } from '@/shared/theme/tierColors'
-import { getTextColor } from '@/shared/lib/color'
+import {
+  selectIsDragging,
+  useActiveBoardStore,
+} from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
+import { getTextColor } from '~/shared/lib/color'
 
 export const BulkActionBar = () =>
 {
-  const selectedCount = useActiveBoardStore(
-    (state) => state.selectedItemIds.length
+  const {
+    selectedCount,
+    isDragging,
+    tiers,
+    moveSelectedToTier,
+    moveSelectedToUnranked,
+    deleteSelectedItems,
+    clearSelection,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      selectedCount: state.selection.ids.length,
+      isDragging: selectIsDragging(state),
+      tiers: state.tiers,
+      moveSelectedToTier: state.moveSelectedToTier,
+      moveSelectedToUnranked: state.moveSelectedToUnranked,
+      deleteSelectedItems: state.deleteSelectedItems,
+      clearSelection: state.clearSelection,
+    }))
   )
-  // hide the floating bar while a drag is in flight
-  const isDragging = useActiveBoardStore(
-    (state) => state.dragPreview !== null || state.dragGroupIds.length > 0
-  )
-  const tiers = useActiveBoardStore((state) => state.tiers)
-  const moveSelectedToTier = useActiveBoardStore(
-    (state) => state.moveSelectedToTier
-  )
-  const moveSelectedToUnranked = useActiveBoardStore(
-    (state) => state.moveSelectedToUnranked
-  )
-  const deleteSelectedItems = useActiveBoardStore(
-    (state) => state.deleteSelectedItems
-  )
-  const clearSelection = useActiveBoardStore((state) => state.clearSelection)
   const reducedMotion = useSettingsStore((state) => state.reducedMotion)
   const paletteId = useCurrentPaletteId()
 
@@ -47,7 +52,6 @@ export const BulkActionBar = () =>
 
         <div className="h-4 w-px bg-[var(--t-border)]" />
 
-        {/* move to tier buttons */}
         <div className="flex items-center gap-1.5">
           <ArrowRight className="h-3.5 w-3.5 text-[var(--t-text-faint)]" />
           {tiers.map((tier) =>

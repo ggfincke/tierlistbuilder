@@ -6,18 +6,31 @@ import {
   DEFAULT_TIER_NAMES,
   DEFAULT_TITLE,
   buildDefaultTiers,
-} from '@/features/workspace/boards/lib/boardDefaults'
-import { generateTierId, isTierId } from '@/shared/lib/id'
+} from '~/features/workspace/boards/lib/boardDefaults'
 import type {
   BoardSnapshot,
+  ImageFit,
+  ItemAspectRatioMode,
+  ItemRotation,
+  ItemTransform,
   Tier,
-} from '@/features/workspace/boards/model/contract'
-import { asItemId, type ItemId } from '@/shared/types/ids'
-import type { PaletteId } from '@/shared/types/theme'
+  TierItem,
+  TierItemImageRef,
+} from '@tierlistbuilder/contracts/workspace/board'
+import { ITEM_TRANSFORM_LIMITS } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  asItemId,
+  generateTierId,
+  isTierId,
+  type ItemId,
+} from '@tierlistbuilder/contracts/lib/ids'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import {
   getAutoTierColorSpec,
   normalizeCanonicalTierColorSpec,
-} from '@/shared/theme/tierColors'
+} from '~/shared/theme/tierColors'
+import { isIdentityTransform } from '~/shared/lib/imageTransform'
+import { isPositiveFiniteNumber, isRecord } from '~/shared/lib/typeGuards'
 import type { ActiveBoardRuntimeState } from './runtime'
 
 interface RawTier
@@ -50,17 +63,128 @@ const normalizeItemIds = (raw: unknown): ItemId[] =>
 }
 
 const normalizePositiveFinite = (value: unknown): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? value
-    : undefined
+  isPositiveFiniteNumber(value) ? value : undefined
 
 const normalizeEnum = <T extends string>(
   value: unknown,
   allowed: readonly T[]
 ): T | undefined => (allowed.includes(value as T) ? (value as T) : undefined)
 
-const ASPECT_RATIO_MODES = ['auto', 'manual'] as const
-const IMAGE_FITS = ['cover', 'contain'] as const
+const ASPECT_RATIO_MODES: readonly ItemAspectRatioMode[] = ['auto', 'manual']
+const IMAGE_FITS: readonly ImageFit[] = ['cover', 'contain']
+
+const normalizeImageRef = (raw: unknown): TierItemImageRef | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const hash = raw.hash
+  if (typeof hash !== 'string' || hash.length === 0) return undefined
+  return { hash }
+}
+
+const ROTATION_VALUES: readonly ItemRotation[] = [0, 90, 180, 270]
+
+const clampFiniteNumber = (
+  value: unknown,
+  min: number,
+  max: number
+): number | null =>
+{
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  if (value < min) return min
+  if (value > max) return max
+  return value
+}
+
+// validate & clamp untrusted transform input. returns undefined for missing or
+// malformed payloads instead of manufacturing a phantom manual edit
+const normalizeItemTransform = (raw: unknown): ItemTransform | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const rotation = raw.rotation
+  if (
+    typeof rotation !== 'number' ||
+    !ROTATION_VALUES.includes(rotation as ItemRotation)
+  )
+  {
+    return undefined
+  }
+  const zoom = clampFiniteNumber(
+    raw.zoom,
+    ITEM_TRANSFORM_LIMITS.zoomMin,
+    ITEM_TRANSFORM_LIMITS.zoomMax
+  )
+  if (zoom === null) return undefined
+  const offsetX = clampFiniteNumber(
+    raw.offsetX,
+    ITEM_TRANSFORM_LIMITS.offsetMin,
+    ITEM_TRANSFORM_LIMITS.offsetMax
+  )
+  if (offsetX === null) return undefined
+  const offsetY = clampFiniteNumber(
+    raw.offsetY,
+    ITEM_TRANSFORM_LIMITS.offsetMin,
+    ITEM_TRANSFORM_LIMITS.offsetMax
+  )
+  if (offsetY === null) return undefined
+  const normalized = {
+    rotation: rotation as ItemRotation,
+    zoom,
+    offsetX,
+    offsetY,
+  }
+  return isIdentityTransform(normalized) ? undefined : normalized
+}
+
+// drop unknown fields & validate primitive shapes. items w/o a valid `id`
+// are rejected
+const normalizeTierItem = (raw: unknown): TierItem | null =>
+{
+  if (!isRecord(raw)) return null
+  if (typeof raw.id !== 'string' || raw.id.length === 0) return null
+  const id = asItemId(raw.id)
+
+  const imageRef = normalizeImageRef(raw.imageRef)
+  const sourceImageRef = normalizeImageRef(raw.sourceImageRef)
+  const aspectRatio = normalizePositiveFinite(raw.aspectRatio)
+  const imageFit = normalizeEnum(raw.imageFit, IMAGE_FITS)
+  const transform = normalizeItemTransform(raw.transform)
+
+  const item: TierItem = { id }
+  if (imageRef) item.imageRef = imageRef
+  if (sourceImageRef) item.sourceImageRef = sourceImageRef
+  if (typeof raw.label === 'string') item.label = raw.label
+  if (typeof raw.backgroundColor === 'string')
+    item.backgroundColor = raw.backgroundColor
+  if (typeof raw.altText === 'string') item.altText = raw.altText
+  if (aspectRatio !== undefined) item.aspectRatio = aspectRatio
+  if (imageFit !== undefined) item.imageFit = imageFit
+  if (transform !== undefined) item.transform = transform
+  return item
+}
+
+const normalizeItemMap = (raw: unknown): Record<ItemId, TierItem> =>
+{
+  if (!isRecord(raw)) return {}
+  const result: Record<ItemId, TierItem> = {}
+  for (const [key, value] of Object.entries(raw))
+  {
+    const normalized = normalizeTierItem(value)
+    if (normalized) result[asItemId(key)] = normalized
+  }
+  return result
+}
+
+const normalizeItemList = (raw: unknown): TierItem[] =>
+{
+  if (!Array.isArray(raw)) return []
+  const result: TierItem[] = []
+  for (const entry of raw)
+  {
+    const normalized = normalizeTierItem(entry)
+    if (normalized) result.push(normalized)
+  }
+  return result
+}
 
 const normalizeTier = (
   tier: RawTier,
@@ -115,6 +239,26 @@ export const createNewTier = (
 
 type BoardSnapshotSource = Pick<ActiveBoardRuntimeState, keyof BoardSnapshot>
 
+export type BoardDataSelection = BoardSnapshotSource
+
+export const selectBoardDataFields = (
+  state: BoardSnapshotSource
+): BoardDataSelection => state
+
+export const boardDataFieldsEqual = (
+  a: BoardDataSelection,
+  b: BoardDataSelection
+): boolean =>
+  a.title === b.title &&
+  a.tiers === b.tiers &&
+  a.unrankedItemIds === b.unrankedItemIds &&
+  a.items === b.items &&
+  a.deletedItems === b.deletedItems &&
+  a.itemAspectRatio === b.itemAspectRatio &&
+  a.itemAspectRatioMode === b.itemAspectRatioMode &&
+  a.aspectRatioPromptDismissed === b.aspectRatioPromptDismissed &&
+  a.defaultItemImageFit === b.defaultItemImageFit
+
 export const extractBoardData = (
   state: BoardSnapshotSource
 ): BoardSnapshot => ({
@@ -162,8 +306,8 @@ export const normalizeBoardSnapshot = (
     title: value?.title ?? fallbackTitle,
     tiers,
     unrankedItemIds: normalizeItemIds(value?.unrankedItemIds),
-    items: value?.items && typeof value.items === 'object' ? value.items : {},
-    deletedItems: Array.isArray(value?.deletedItems) ? value.deletedItems : [],
+    items: normalizeItemMap(value?.items),
+    deletedItems: normalizeItemList(value?.deletedItems),
     itemAspectRatio: normalizePositiveFinite(value?.itemAspectRatio),
     itemAspectRatioMode: normalizeEnum(
       value?.itemAspectRatioMode,

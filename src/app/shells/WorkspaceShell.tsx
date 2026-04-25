@@ -1,98 +1,77 @@
 // src/app/shells/WorkspaceShell.tsx
 // full interactive workspace shell w/ board UI, modals, panels, & overlays
 
-import { lazy, Suspense, useCallback, useState, type MouseEvent } from 'react'
+import { useCallback, type MouseEvent } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
-import { useAppBootstrap } from '@/app/bootstrap/useAppBootstrap'
-import { useThemeApplicator } from '@/app/bootstrap/useThemeApplicator'
-import { BoardActionBar } from '@/features/workspace/boards/ui/BoardActionBar'
-import { BoardManager } from '@/features/workspace/boards/ui/BoardManager'
-import { BoardHeader } from '@/features/workspace/boards/ui/BoardHeader'
-import { BulkActionBar } from '@/features/workspace/boards/ui/BulkActionBar'
-import { TierList } from '@/features/workspace/boards/ui/TierList'
-import { useBoardTransition } from '@/features/workspace/boards/model/useBoardTransition'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { ExportProgressOverlay } from '@/features/workspace/export/ui/ExportProgressOverlay'
-import { useExportController } from '@/features/workspace/export/model/useExportController'
-import { getResponsiveToolbarPosition } from '@/shared/layout/toolbarPosition'
-import { getWorkspacePath } from '@/app/routes/pathname'
-import { AspectRatioPromptProvider } from '@/features/workspace/settings/model/AspectRatioPromptProvider'
-import { AspectRatioIssueModal } from '@/features/workspace/settings/ui/AspectRatioIssueModal'
-import {
-  BoardSettingsModal,
-  type SettingsTab,
-} from '@/features/workspace/settings/ui/BoardSettingsModal'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
-import { ShortcutsPanel } from '@/features/workspace/shortcuts/ui/ShortcutsPanel'
-import { useGlobalShortcuts } from '@/features/workspace/shortcuts/model/useGlobalShortcuts'
-import { LiveRegion } from '@/shared/a11y/LiveRegion'
-import { useAboveBreakpoint } from '@/shared/hooks/useViewportWidth'
-import { ToastContainer } from '@/shared/notifications/ToastContainer'
-import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
-import type { ImageFormat } from '@/shared/types/export'
-
-const AnnotationEditor = lazy(() =>
-  import('@/features/workspace/annotation/ui/AnnotationEditor').then((m) => ({
-    default: m.AnnotationEditor,
-  }))
-)
-const ExportPreviewModal = lazy(() =>
-  import('@/features/workspace/export/ui/ExportPreviewModal').then((m) => ({
-    default: m.ExportPreviewModal,
-  }))
-)
-const StatsModal = lazy(() =>
-  import('@/features/workspace/stats/ui/StatsModal').then((m) => ({
-    default: m.StatsModal,
-  }))
-)
+import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
+import { useThemeSync } from '~/app/bootstrap/useThemeSync'
+import { useModalStack } from '~/app/shells/useModalStack'
+import { WorkspaceModalLayer } from '~/app/shells/WorkspaceModalLayer'
+import { useWorkspaceExportActions } from '~/app/shells/useWorkspaceExportActions'
+import type { WorkspaceModalPayloads } from '~/app/shells/workspaceModals'
+import { BoardActionBar } from '~/features/workspace/boards/ui/BoardActionBar'
+import { BoardManager } from '~/features/workspace/boards/ui/BoardManager'
+import { BoardHeader } from '~/features/workspace/boards/ui/BoardHeader'
+import { BulkActionBar } from '~/features/workspace/boards/ui/BulkActionBar'
+import { TierList } from '~/features/workspace/boards/ui/TierList'
+import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
+import { getWorkspacePath } from '~/app/routes/pathname'
+import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
+import { LiveRegion } from '~/shared/a11y/LiveRegion'
+import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
+import { ToastContainer } from '~/shared/notifications/ToastContainer'
+import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
 export const WorkspaceShell = () =>
 {
   const appReady = useAppBootstrap()
   const paletteId = useCurrentPaletteId()
-  const runtimeError = useActiveBoardStore((state) => state.runtimeError)
-  const clearRuntimeError = useActiveBoardStore(
-    (state) => state.clearRuntimeError
+  const { runtimeError, clearRuntimeError, addTier, resetBoard } =
+    useActiveBoardStore(
+      useShallow((state) => ({
+        runtimeError: state.runtimeError,
+        clearRuntimeError: state.clearRuntimeError,
+        addTier: state.addTier,
+        resetBoard: state.resetBoard,
+      }))
+    )
+  const {
+    toolbarPosition: rawToolbarPosition,
+    boardBackgroundOverride,
+    reducedMotion,
+  } = useSettingsStore(
+    useShallow((state) => ({
+      toolbarPosition: state.toolbarPosition,
+      boardBackgroundOverride: state.boardBackgroundOverride,
+      reducedMotion: state.reducedMotion,
+    }))
   )
-  const addTier = useActiveBoardStore((state) => state.addTier)
-  const resetBoard = useActiveBoardStore((state) => state.resetBoard)
-  const rawToolbarPosition = useSettingsStore((state) => state.toolbarPosition)
-  const boardBackgroundOverride = useSettingsStore(
-    (state) => state.boardBackgroundOverride
-  )
-  const reducedMotion = useSettingsStore((state) => state.reducedMotion)
   const aboveSm = useAboveBreakpoint()
   const toolbarPosition = getResponsiveToolbarPosition(
     rawToolbarPosition,
     aboveSm
   )
 
-  useThemeApplicator()
+  useThemeSync()
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
-  const {
-    exportStatus,
-    exportAllProgress,
-    runExport,
-    runCopyToClipboard,
-    runExportAll,
-    runAnnotatedExport,
-    runPreviewRender,
-  } = useExportController()
-
-  const { showShortcutsPanel, closeShortcutsPanel } = useGlobalShortcuts({
-    onExport: runExport,
+  const modalStack = useModalStack<WorkspaceModalPayloads>()
+  const { state: modalState, open: openModal, close: closeModal } = modalStack
+  const exportActions = useWorkspaceExportActions({
+    modalState,
+    openModal,
+    closeModal,
   })
 
-  // single source for "is settings open + which tab". `null` means closed
-  const [settingsState, setSettingsState] = useState<SettingsTab | null>(null)
-  const [statsOpen, setStatsOpen] = useState(false)
-  const [annotationImage, setAnnotationImage] = useState<string | null>(null)
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
-  const [previewFormat, setPreviewFormat] = useState<ImageFormat>('png')
-  const [previewOpen, setPreviewOpen] = useState(false)
+  const { showShortcutsPanel, closeShortcutsPanel } = useGlobalShortcuts({
+    onExport: exportActions.runExport,
+  })
 
   const handleAddTier = useCallback(
     () => addTier(paletteId),
@@ -102,60 +81,12 @@ export const WorkspaceShell = () =>
     () => resetBoard(paletteId),
     [paletteId, resetBoard]
   )
-  const handleCloseSettings = useCallback(() => setSettingsState(null), [])
-  const handleOpenSettings = useCallback(() => setSettingsState('items'), [])
-  const handleAdjustEach = useCallback(() => setSettingsState('layout'), [])
-  const handleCloseStats = useCallback(() => setStatsOpen(false), [])
-  const handleOpenStats = useCallback(() => setStatsOpen(true), [])
-  const handleCloseAnnotation = useCallback(() => setAnnotationImage(null), [])
-
-  const handleAnnotateExport = useCallback(() =>
-  {
-    void runAnnotatedExport().then((image) =>
-    {
-      if (image)
-      {
-        setAnnotationImage(image)
-      }
-    })
-  }, [runAnnotatedExport])
-  const handlePreviewExport = useCallback(() =>
-  {
-    void runPreviewRender().then((image) =>
-    {
-      if (image)
-      {
-        setPreviewImage(image)
-        setPreviewOpen(true)
-      }
-    })
-  }, [runPreviewRender])
-  const handleClosePreview = useCallback(() =>
-  {
-    setPreviewOpen(false)
-    setPreviewImage(null)
-  }, [])
-  const handlePreviewDownload = useCallback(() =>
-  {
-    void runExport(previewFormat)
-    setPreviewOpen(false)
-    setPreviewImage(null)
-  }, [runExport, previewFormat])
-  const handlePreviewCopy = useCallback(() =>
-  {
-    void runCopyToClipboard()
-    setPreviewOpen(false)
-    setPreviewImage(null)
-  }, [runCopyToClipboard])
-  const handlePreviewAnnotate = useCallback(() =>
-  {
-    setPreviewOpen(false)
-    if (previewImage)
-    {
-      setAnnotationImage(previewImage)
-      setPreviewImage(null)
-    }
-  }, [previewImage])
+  const handleOpenSettings = useCallback(
+    () => openModal('settings', 'items'),
+    [openModal]
+  )
+  const handleOpenStats = useCallback(() => openModal('stats'), [openModal])
+  const handleOpenShare = useCallback(() => openModal('share'), [openModal])
   const handleSkipToBoard = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) =>
     {
@@ -227,16 +158,17 @@ export const WorkspaceShell = () =>
                 toolbar={
                   <BoardActionBar
                     toolbarPosition={toolbarPosition}
-                    exportStatus={exportStatus}
-                    exportingAll={exportAllProgress !== null}
+                    exportStatus={exportActions.exportStatus}
+                    exportingAll={exportActions.exportAllProgress !== null}
                     onAddTier={handleAddTier}
                     onOpenSettings={handleOpenSettings}
                     onOpenStats={handleOpenStats}
-                    onExport={runExport}
-                    onCopyToClipboard={runCopyToClipboard}
-                    onExportAll={runExportAll}
-                    onAnnotateExport={handleAnnotateExport}
-                    onPreviewExport={handlePreviewExport}
+                    onExport={exportActions.runExport}
+                    onCopyToClipboard={exportActions.runCopyToClipboard}
+                    onExportAll={exportActions.runExportAll}
+                    onAnnotateExport={exportActions.handleAnnotateExport}
+                    onPreviewExport={exportActions.handlePreviewExport}
+                    onShare={handleOpenShare}
                     onReset={handleResetBoard}
                   />
                 }
@@ -246,61 +178,23 @@ export const WorkspaceShell = () =>
           </div>
         </div>
 
-        {settingsState !== null && (
-          <ErrorBoundary section="settings">
-            <BoardSettingsModal
-              open
-              onClose={handleCloseSettings}
-              initialTab={settingsState}
-            />
-          </ErrorBoundary>
-        )}
-        {statsOpen && (
-          <Suspense>
-            <ErrorBoundary section="statistics">
-              <StatsModal open={statsOpen} onClose={handleCloseStats} />
-            </ErrorBoundary>
-          </Suspense>
-        )}
-        {previewOpen && (
-          <Suspense>
-            <ExportPreviewModal
-              open={previewOpen}
-              onClose={handleClosePreview}
-              previewDataUrl={previewImage}
-              format={previewFormat}
-              onFormatChange={setPreviewFormat}
-              onDownload={handlePreviewDownload}
-              onCopyToClipboard={handlePreviewCopy}
-              onAnnotate={handlePreviewAnnotate}
-              exporting={exportStatus !== null}
-            />
-          </Suspense>
-        )}
-        {annotationImage !== null && (
-          <Suspense>
-            <ErrorBoundary section="annotation">
-              <AnnotationEditor
-                open
-                onClose={handleCloseAnnotation}
-                backgroundImage={annotationImage}
-              />
-            </ErrorBoundary>
-          </Suspense>
-        )}
         <BoardManager
           toolbarPosition={toolbarPosition}
           onSwitchBoard={transitionTo}
         />
-        {exportAllProgress && (
-          <ExportProgressOverlay
-            current={exportAllProgress.current}
-            total={exportAllProgress.total}
-          />
-        )}
-        {showShortcutsPanel && <ShortcutsPanel onClose={closeShortcutsPanel} />}
+        <WorkspaceModalLayer
+          modalStack={modalStack}
+          exportStatus={exportActions.exportStatus}
+          exportAllProgress={exportActions.exportAllProgress}
+          previewFormat={exportActions.previewFormat}
+          onPreviewFormatChange={exportActions.setPreviewFormat}
+          onPreviewDownload={exportActions.handlePreviewDownload}
+          onPreviewCopy={exportActions.handlePreviewCopy}
+          onPreviewAnnotate={exportActions.handlePreviewAnnotate}
+          showShortcutsPanel={showShortcutsPanel}
+          onCloseShortcutsPanel={closeShortcutsPanel}
+        />
         <BulkActionBar />
-        <AspectRatioIssueModal onAdjustEach={handleAdjustEach} />
         <ToastContainer reducedMotion={reducedMotion} />
         <LiveRegion />
       </main>

@@ -126,30 +126,11 @@ const getRelativeLuminance = (color: RgbColor): number =>
   return 0.2126 * red + 0.7152 * green + 0.0722 * blue
 }
 
-export const getContrastRatio = (
-  backgroundHexColor: string,
-  foregroundHexColor: string
-): number =>
-{
-  const background = hexToRgbColor(backgroundHexColor)
-  const foreground = hexToRgbColor(foregroundHexColor)
+// WCAG luminance midpoint — above this prefers dark text, below prefers light;
+// matches the result of full contrast-ratio computation vs black & white
+const WCAG_LUMINANCE_MIDPOINT = 0.179
 
-  if (!background || !foreground)
-  {
-    return 1
-  }
-
-  const backgroundLuminance = getRelativeLuminance(background)
-  const foregroundLuminance = getRelativeLuminance(foreground)
-  const brighterLuminance = Math.max(backgroundLuminance, foregroundLuminance)
-  const darkerLuminance = Math.min(backgroundLuminance, foregroundLuminance)
-
-  return (brighterLuminance + 0.05) / (darkerLuminance + 0.05)
-}
-
-// compute the higher-contrast text color between pure black & pure white;
-// computes the background luminance once (4x speedup vs. two getContrastRatio
-// calls) since both candidates are pure black & pure white
+// compute the higher-contrast text color between pure black & pure white
 export const getTextColor = (hexColor: string): string =>
 {
   const rgb = hexToRgbColor(hexColor)
@@ -159,9 +140,9 @@ export const getTextColor = (hexColor: string): string =>
   }
 
   const luminance = getRelativeLuminance(rgb)
-  // contrast ratio against pure white (luminance 1) > against pure black
-  // (luminance 0) when luminance < ~0.179 — pick the higher-contrast option
-  return luminance > 0.179 ? DARK_TEXT_COLOR : LIGHT_TEXT_COLOR
+  return luminance > WCAG_LUMINANCE_MIDPOINT
+    ? DARK_TEXT_COLOR
+    : LIGHT_TEXT_COLOR
 }
 
 // pick a 1-2px text-shadow that pops against the contrast text color of `hex`

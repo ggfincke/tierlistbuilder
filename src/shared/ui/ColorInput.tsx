@@ -3,7 +3,7 @@
 
 import { forwardRef, type InputHTMLAttributes } from 'react'
 
-import { joinClassNames } from '@/shared/lib/className'
+import { joinClassNames } from '~/shared/lib/className'
 
 type ColorInputSize = 'sm' | 'md'
 

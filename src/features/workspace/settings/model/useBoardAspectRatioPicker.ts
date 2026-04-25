@@ -2,8 +2,9 @@
 // shared state + dispatch for the aspect-ratio picker used in modal & section
 
 import { useCallback, useMemo, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   CUSTOM_RATIO_OPTION,
   formatCustomRatioDim,
@@ -12,11 +13,13 @@ import {
   isValidCustomDim,
   ratioOptionForBoard,
   type RatioOption,
-} from '@/features/workspace/boards/lib/aspectRatio'
+} from '~/features/workspace/boards/lib/aspectRatio'
+import type { ItemAspectRatioMode } from '@tierlistbuilder/contracts/workspace/board'
 
 export interface BoardAspectRatioPicker
 {
   boardAspectRatio: number
+  mode: ItemAspectRatioMode
   selectedOption: RatioOption
   customWidth: string
   customHeight: string
@@ -30,15 +33,18 @@ export interface BoardAspectRatioPicker
 
 export const useBoardAspectRatioPicker = (): BoardAspectRatioPicker =>
 {
-  const boardAspectRatio = useActiveBoardStore((state) =>
-    getBoardItemAspectRatio(state)
-  )
-  const mode = useActiveBoardStore((state) => getBoardAspectRatioMode(state))
-  const setBoardItemAspectRatio = useActiveBoardStore(
-    (state) => state.setBoardItemAspectRatio
-  )
-  const setBoardAspectRatioMode = useActiveBoardStore(
-    (state) => state.setBoardAspectRatioMode
+  const {
+    boardAspectRatio,
+    mode,
+    setBoardItemAspectRatio,
+    setBoardAspectRatioMode,
+  } = useActiveBoardStore(
+    useShallow((state) => ({
+      boardAspectRatio: getBoardItemAspectRatio(state),
+      mode: getBoardAspectRatioMode(state),
+      setBoardItemAspectRatio: state.setBoardItemAspectRatio,
+      setBoardAspectRatioMode: state.setBoardAspectRatioMode,
+    }))
   )
 
   const selectedOption = useMemo(
@@ -96,6 +102,7 @@ export const useBoardAspectRatioPicker = (): BoardAspectRatioPicker =>
 
   return {
     boardAspectRatio,
+    mode,
     selectedOption,
     customWidth,
     customHeight,

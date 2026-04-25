@@ -1,13 +1,13 @@
 // src/features/workspace/boards/dnd/dragKeyboard.ts
 // keyboard navigation logic for drag-&-drop item movement
 
-import type { ContainerSnapshot } from '@/features/workspace/boards/model/runtime'
-import { clampIndex } from '@/shared/lib/math'
-import { UNRANKED_CONTAINER_ID } from '@/features/workspace/boards/lib/dndIds'
-import type { ItemId } from '@/shared/types/ids'
+import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
+import { clamp } from '~/shared/lib/math'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   findContainer,
   getItemsInContainer,
+  getOrderedContainerIds,
   moveItemToIndexInSnapshot,
 } from './dragSnapshot'
 
@@ -29,11 +29,6 @@ interface KeyboardDragTarget
 {
   containerId: string
   nextPreview: ContainerSnapshot
-}
-
-const getOrderedContainerIds = (snapshot: ContainerSnapshot): string[] =>
-{
-  return [...snapshot.tiers.map((tier) => tier.id), UNRANKED_CONTAINER_ID]
 }
 
 const getAdjacentKeyboardContainerId = (
@@ -153,7 +148,7 @@ export const resolveNextKeyboardDragPreview = ({
   const targetItems = getItemsInContainer(snapshot, targetContainerId)
   const targetIndex = appendToTargetEnd
     ? targetItems.length
-    : clampIndex(sourceIndex, 0, targetItems.length)
+    : clamp(sourceIndex, 0, targetItems.length)
 
   return {
     containerId: targetContainerId,
@@ -210,7 +205,7 @@ export const resolveNextKeyboardFocusItem = ({
   }
 
   const targetItems = getItemsInContainer(snapshot, targetContainerId)
-  const targetIndex = clampIndex(sourceIndex, 0, targetItems.length - 1)
+  const targetIndex = clamp(sourceIndex, 0, targetItems.length - 1)
 
   return targetItems[targetIndex] ?? null
 }

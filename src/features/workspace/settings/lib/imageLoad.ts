@@ -16,7 +16,7 @@ interface LoadImageOptions
 
 // load an image via <img>; resolves w/ the element once decoded, rejects on
 // error or after timeoutMs. single source of truth used by fetch, resize, &
-// backfill paths
+// inline import paths
 export const loadImageElement = ({
   src,
   crossOrigin,

@@ -4,19 +4,19 @@
 import { PanelTop, PanelBottom, PanelLeft, PanelRight } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { announce } from '@/shared/a11y/announce'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
+import { announce } from '~/shared/a11y/announce'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import type {
   ItemShape,
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
   ToolbarPosition,
-} from '@/shared/types/settings'
+} from '@tierlistbuilder/contracts/workspace/settings'
+import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { AspectRatioSection } from './AspectRatioSection'
 import { SegmentedControl } from './SegmentedControl'
 import { SettingRow } from './SettingRow'
-import { SettingsSection } from './SettingsSection'
 import { Toggle } from './Toggle'
 
 export const LayoutTab = () =>

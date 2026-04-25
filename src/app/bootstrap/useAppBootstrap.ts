@@ -1,79 +1,117 @@
 // src/app/bootstrap/useAppBootstrap.ts
 // bootstrap hook — hydrate persisted stores, initialize board session, & register autosave
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { useWorkspaceBoardRegistryStore } from '@/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import {
   bootstrapBoardSession,
   importBoardSession,
   registerBoardAutosave,
-} from '@/features/workspace/boards/data/local/localBoardSession'
+} from '~/features/workspace/boards/model/boardSession'
 import {
-  clearShareFragment,
-  decodeBoardFromShareFragment,
-  getShareFragment,
-} from '@/features/workspace/sharing/lib/hashShare'
+  clearInboundShareFromUrl,
+  resolveInboundShare,
+} from '~/features/workspace/sharing/inbound/inboundShare'
+import { toast } from '~/shared/notifications/useToastStore'
 
-// import a shared board from the URL hash fragment if present
-const handleShareFragment = async (): Promise<void> =>
+// import a shared board if the URL carries an inbound share marker. scrub the URL
+// unconditionally so a refresh doesn't re-trigger the import
+const handleInboundShare = async (): Promise<void> =>
 {
-  const fragment = getShareFragment()
-  if (!fragment) return
+  const result = await resolveInboundShare()
 
   try
   {
-    const data = await decodeBoardFromShareFragment(fragment)
-    importBoardSession(data)
-  }
-  catch
-  {
-    // silently ignore corrupted share links — board session is still valid
+    if (result.kind === 'resolved')
+    {
+      await importBoardSession(result.data)
+    }
+    else if (result.kind === 'failed')
+    {
+      toast(
+        'This share link is no longer available. It may have expired or been removed.',
+        'info'
+      )
+    }
   }
   finally
   {
-    clearShareFragment()
+    clearInboundShareFromUrl()
   }
+}
+
+const storesHydrated = () =>
+  useSettingsStore.persist.hasHydrated() &&
+  useWorkspaceBoardRegistryStore.persist.hasHydrated()
+
+// module-level promise shared across StrictMode double-mount so the first &
+// second effect both await the same run; a per-instance ref would let the
+// second mount see "already started" & bail before setting ready
+let bootstrapPromise: Promise<void> | null = null
+
+const runBootstrapOnce = (): Promise<void> =>
+{
+  if (!bootstrapPromise)
+  {
+    bootstrapPromise = (async () =>
+    {
+      await bootstrapBoardSession()
+      registerBoardAutosave()
+      await handleInboundShare()
+    })().catch((error) =>
+    {
+      // clear the cached promise on reject so a subsequent mount can
+      // retry instead of awaiting a rejected promise forever (e.g. after
+      // a transient quota error during bootstrapBoardSession)
+      bootstrapPromise = null
+      throw error
+    })
+  }
+  return bootstrapPromise
 }
 
 export const useAppBootstrap = (): boolean =>
 {
-  const [ready, setReady] = useState(
-    useSettingsStore.persist.hasHydrated() &&
-      useWorkspaceBoardRegistryStore.persist.hasHydrated()
-  )
-  const bootstrappedRef = useRef(false)
+  const [ready, setReady] = useState(false)
 
   useEffect(() =>
   {
-    const finishBootstrap = () =>
+    let cancelled = false
+
+    const tryBootstrap = async () =>
     {
-      if (
-        !useSettingsStore.persist.hasHydrated() ||
-        !useWorkspaceBoardRegistryStore.persist.hasHydrated() ||
-        bootstrappedRef.current
-      )
+      if (!storesHydrated())
       {
         return
       }
 
-      bootstrappedRef.current = true
-      bootstrapBoardSession()
-      registerBoardAutosave()
-      void handleShareFragment()
-      setReady(true)
+      await runBootstrapOnce()
+
+      if (!cancelled)
+      {
+        setReady(true)
+      }
     }
 
-    const offSettingsHydration =
-      useSettingsStore.persist.onFinishHydration(finishBootstrap)
+    const offSettingsHydration = useSettingsStore.persist.onFinishHydration(
+      () =>
+      {
+        void tryBootstrap()
+      }
+    )
     const offBoardsHydration =
-      useWorkspaceBoardRegistryStore.persist.onFinishHydration(finishBootstrap)
+      useWorkspaceBoardRegistryStore.persist.onFinishHydration(() =>
+      {
+        void tryBootstrap()
+      })
 
-    finishBootstrap()
+    void tryBootstrap()
 
     return () =>
     {
+      cancelled = true
       offSettingsHydration()
       offBoardsHydration()
     }

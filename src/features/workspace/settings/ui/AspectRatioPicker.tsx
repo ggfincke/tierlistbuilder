@@ -4,9 +4,7 @@
 import {
   RATIO_OPTIONS,
   type RatioOption,
-} from '@/features/workspace/boards/lib/aspectRatio'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
-import { TextInput } from '@/shared/ui/TextInput'
+} from '~/features/workspace/boards/lib/aspectRatio'
 
 const CHIP_BASE =
   'focus-custom rounded-md border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
@@ -14,6 +12,11 @@ const CHIP_ACTIVE =
   'border-[var(--t-border-hover)] bg-[var(--t-bg-active)] text-[var(--t-text)]'
 const CHIP_INACTIVE =
   'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-faint)] hover:text-[var(--t-text-secondary)]'
+
+// input chrome sized to match the chip row (text-xs px-2 py-1) so the custom
+// W:H Apply controls visually extend the chip row rather than tower over it
+const CUSTOM_INPUT_CLASS =
+  'focus-custom w-12 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-2 py-1 text-center text-xs text-[var(--t-text)] outline-none transition placeholder:text-[var(--t-text-faint)] focus:border-[var(--t-border-hover)]'
 
 interface AspectRatioChipsProps
 {
@@ -76,33 +79,32 @@ export const CustomRatioInput = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className={`flex items-center gap-2 ${className ?? ''}`.trimEnd()}
+      className={`flex items-center gap-1.5 ${className ?? ''}`.trimEnd()}
     >
-      <TextInput
+      <input
         aria-label="Custom width"
         value={width}
         onChange={(e) => onWidthChange(e.target.value)}
         placeholder="W"
-        className="w-16 text-center"
         inputMode="decimal"
+        className={CUSTOM_INPUT_CLASS}
       />
-      <span className="text-sm text-[var(--t-text-faint)]">:</span>
-      <TextInput
+      <span className="text-xs text-[var(--t-text-faint)]">:</span>
+      <input
         aria-label="Custom height"
         value={height}
         onChange={(e) => onHeightChange(e.target.value)}
         placeholder="H"
-        className="w-16 text-center"
         inputMode="decimal"
+        className={CUSTOM_INPUT_CLASS}
       />
-      <SecondaryButton
+      <button
         type="submit"
         disabled={!canApply}
-        variant="surface"
-        className="font-medium"
+        className={`${CHIP_BASE} ${canApply ? CHIP_ACTIVE : CHIP_INACTIVE} disabled:cursor-not-allowed disabled:opacity-60`}
       >
         Apply
-      </SecondaryButton>
+      </button>
     </form>
   )
 }

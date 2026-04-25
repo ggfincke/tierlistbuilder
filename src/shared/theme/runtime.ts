@@ -1,7 +1,7 @@
 // src/shared/theme/runtime.ts
 // theme runtime service — sync theme tokens & font loading to the DOM
 
-import type { TextStyleId, ThemeId } from '@/shared/types/theme'
+import type { TextStyleId, ThemeId } from '@tierlistbuilder/contracts/lib/theme'
 import { getTextColor } from '../lib/color'
 import { TEXT_STYLES } from './textStyles'
 import { THEMES } from './tokens'

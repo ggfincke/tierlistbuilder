@@ -3,9 +3,9 @@
 
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { hasAspectRatioIssues } from '@/features/workspace/boards/lib/aspectRatio'
-import type { NewTierItem } from '@/features/workspace/boards/model/contract'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { hasAspectRatioIssues } from '~/features/workspace/boards/lib/aspectRatio'
+import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
 import {
   AspectRatioPromptContext,
   type AspectRatioPromptController,

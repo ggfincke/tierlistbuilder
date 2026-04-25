@@ -5,9 +5,11 @@ import {
   applyContainerSnapshotToTiers,
   createContainerSnapshot,
   isSnapshotConsistent,
-} from '@/features/workspace/boards/dnd/dragSnapshot'
-import type { ItemId } from '@/shared/types/ids'
-import { selectionUpdate } from './helpers'
+} from '~/features/workspace/boards/dnd/dragSnapshot'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { makeSelection } from '~/features/workspace/boards/model/runtime'
+import { formatCountedWord } from '~/shared/lib/pluralize'
+import { stripItemsFromContainers, stripItemsFromSnapshot } from './helpers'
 import { pushUndo } from './undoSlice'
 import type {
   ActiveBoardSliceCreator,
@@ -22,19 +24,22 @@ export const createDragPreviewSlice: ActiveBoardSliceCreator<
   dragPreview: null,
   dragGroupIds: [],
 
-  setActiveItemId: (itemId) => set({ activeItemId: itemId }),
+  setActiveItemId: (itemId) =>
+    set((state) =>
+      state.activeItemId === itemId ? state : { activeItemId: itemId }
+    ),
 
   beginDragPreview: (activeId) =>
     set((state) =>
     {
       if (state.dragPreview) return state
 
-      const selected = state.selectedItemIds
+      const selected = state.selection.ids
       let dragGroupIds: ItemId[] = []
 
       if (activeId)
       {
-        if (selected.includes(activeId))
+        if (state.selection.set.has(activeId))
         {
           // dragging a selected item — drag entire selection, primary first,
           // then the remaining selected items in selection order; filter out
@@ -53,18 +58,14 @@ export const createDragPreviewSlice: ActiveBoardSliceCreator<
         }
       }
 
-      // create snapshot & remove secondary items from it so their source tiles
+      // create snapshot & strip secondary items so their source tiles
       // disappear & visually collapse into the dragged stack
-      const snapshot = createContainerSnapshot(state)
+      let snapshot = createContainerSnapshot(state)
       if (dragGroupIds.length > 1)
       {
-        const secondaryIds = new Set(dragGroupIds.slice(1))
-        for (const tier of snapshot.tiers)
-        {
-          tier.itemIds = tier.itemIds.filter((id) => !secondaryIds.has(id))
-        }
-        snapshot.unrankedItemIds = snapshot.unrankedItemIds.filter(
-          (id) => !secondaryIds.has(id)
+        snapshot = stripItemsFromSnapshot(
+          snapshot,
+          new Set(dragGroupIds.slice(1))
         )
       }
 
@@ -114,11 +115,10 @@ export const createDragPreviewSlice: ActiveBoardSliceCreator<
         const secondarySet = new Set(secondaryIds)
 
         // step 2: strip secondary items from all containers
-        tiers = tiers.map((tier) => ({
-          ...tier,
-          itemIds: tier.itemIds.filter((id) => !secondarySet.has(id)),
-        }))
-        unrankedItemIds = unrankedItemIds.filter((id) => !secondarySet.has(id))
+        ;({ tiers, unrankedItemIds } = stripItemsFromContainers(
+          { tiers, unrankedItemIds },
+          secondarySet
+        ))
 
         // step 3: find where the primary landed & insert secondaries after it
         let inserted = false
@@ -149,13 +149,15 @@ export const createDragPreviewSlice: ActiveBoardSliceCreator<
       // preserve selection after multi-drag so the group stays selected on drop
       const dragSelectionUpdate: Partial<ActiveBoardStore> = isMultiDrag
         ? {
-            ...selectionUpdate([...groupIds]),
+            selection: makeSelection([...groupIds]),
             lastClickedItemId: groupIds[groupIds.length - 1],
           }
         : {}
 
       const dragLabel =
-        groupIds.length > 1 ? `Move ${groupIds.length} items` : 'Move item'
+        groupIds.length > 1
+          ? `Move ${formatCountedWord(groupIds.length, 'item')}`
+          : 'Move item'
 
       return {
         ...(pushUndo(state, dragLabel) ?? {}),

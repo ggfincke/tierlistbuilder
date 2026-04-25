@@ -2,20 +2,20 @@
 // fixed-position toast stack — renders auto-dismissing notification toasts
 
 import { X } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useToastStore, type Toast } from './useToastStore'
 
 const TYPE_CLASSES: Record<Toast['type'], string> = {
   info: 'border-[rgb(var(--t-overlay)/0.18)] bg-[var(--t-bg-overlay)]',
   success:
-    'border-[color-mix(in_srgb,#4ade80_40%,transparent)] bg-[color-mix(in_srgb,#4ade80_10%,var(--t-bg-overlay))]',
+    'border-[color-mix(in_srgb,var(--t-success)_40%,transparent)] bg-[color-mix(in_srgb,var(--t-success)_10%,var(--t-bg-overlay))]',
   error:
     'border-[color-mix(in_srgb,var(--t-destructive)_50%,transparent)] bg-[color-mix(in_srgb,var(--t-destructive)_10%,var(--t-bg-overlay))]',
 }
 
 interface ToastContainerProps
 {
-  // skip entrance animations; host app passes a workspace/user setting or media query result
   reducedMotion?: boolean
 }
 
@@ -23,8 +23,12 @@ export const ToastContainer = ({
   reducedMotion = false,
 }: ToastContainerProps = {}) =>
 {
-  const toasts = useToastStore((s) => s.toasts)
-  const removeToast = useToastStore((s) => s.removeToast)
+  const { toasts, removeToast } = useToastStore(
+    useShallow((s) => ({
+      toasts: s.toasts,
+      removeToast: s.removeToast,
+    }))
+  )
 
   if (toasts.length === 0) return null
 

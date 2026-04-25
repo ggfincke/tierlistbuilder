@@ -6,7 +6,8 @@ import type {
   ImageFit,
   ItemAspectRatioMode,
   TierItem,
-} from '@/features/workspace/boards/model/contract'
+} from '@tierlistbuilder/contracts/workspace/board'
+import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 
 // relative difference within this fraction treats two ratios as equal; tuned
 // to absorb rounding & codec variance (e.g. 1000x1500 vs 1001x1500) without
@@ -19,19 +20,27 @@ export interface AspectRatioPreset
 {
   // short display label ("1:1", "2:3")
   label: string
+  width: number
+  height: number
   // decimal value (width / height)
   value: number
 }
 
-// common presets offered in the settings picker
+const preset = (width: number, height: number): AspectRatioPreset => ({
+  label: `${width}:${height}`,
+  width,
+  height,
+  value: width / height,
+})
+
 export const ASPECT_RATIO_PRESETS: readonly AspectRatioPreset[] = [
-  { label: '1:1', value: 1 },
-  { label: '2:3', value: 2 / 3 },
-  { label: '3:4', value: 3 / 4 },
-  { label: '3:2', value: 3 / 2 },
-  { label: '4:3', value: 4 / 3 },
-  { label: '16:9', value: 16 / 9 },
-  { label: '9:16', value: 9 / 16 },
+  preset(1, 1),
+  preset(2, 3),
+  preset(3, 4),
+  preset(3, 2),
+  preset(4, 3),
+  preset(16, 9),
+  preset(9, 16),
 ]
 
 export interface RatioOption
@@ -41,31 +50,35 @@ export interface RatioOption
   value?: number
 }
 
+export const AUTO_RATIO_OPTION: RatioOption = { kind: 'auto', label: 'Auto' }
+export const CUSTOM_RATIO_OPTION: RatioOption = {
+  kind: 'custom',
+  label: 'Custom',
+}
+
+export const PRESET_RATIO_OPTIONS: readonly RatioOption[] =
+  ASPECT_RATIO_PRESETS.map(
+    (p): RatioOption => ({ kind: 'preset', label: p.label, value: p.value })
+  )
+
+export const NON_CUSTOM_RATIO_OPTIONS: readonly RatioOption[] = [
+  AUTO_RATIO_OPTION,
+  ...PRESET_RATIO_OPTIONS,
+]
+
 // canonical ratio-picker options shared between the mixed-ratio modal & the
 // settings section; 'auto' is first, preset chips in the middle, 'custom' last
 export const RATIO_OPTIONS: readonly RatioOption[] = [
-  { kind: 'auto', label: 'Auto' },
-  ...ASPECT_RATIO_PRESETS.map(
-    (preset): RatioOption => ({
-      kind: 'preset',
-      label: preset.label,
-      value: preset.value,
-    })
-  ),
-  { kind: 'custom', label: 'Custom' },
+  ...NON_CUSTOM_RATIO_OPTIONS,
+  CUSTOM_RATIO_OPTION,
 ]
 
-export const AUTO_RATIO_OPTION = RATIO_OPTIONS[0]
-export const CUSTOM_RATIO_OPTION = RATIO_OPTIONS[RATIO_OPTIONS.length - 1]
-
-// validate a W or H dimension string for the custom ratio input
 export const isValidCustomDim = (value: string): boolean =>
 {
   const n = Number(value)
-  return Number.isFinite(n) && n > 0
+  return isPositiveFiniteNumber(n)
 }
 
-// stringify a numeric ratio component as a trim decimal ("1.6", not "1.6000")
 export const formatCustomRatioDim = (value: number, digits = 4): string =>
   value.toFixed(digits).replace(/\.?0+$/, '')
 
@@ -84,23 +97,18 @@ export const ratiosMatch = (
   return Math.abs(a - b) / max <= tol
 }
 
-// read the effective board aspect ratio w/ the default applied when absent
 export const getBoardItemAspectRatio = (
   board: Pick<BoardSnapshot, 'itemAspectRatio'>
 ): number =>
 {
   const value = board.itemAspectRatio
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? value
-    : DEFAULT_ITEM_ASPECT_RATIO
+  return isPositiveFiniteNumber(value) ? value : DEFAULT_ITEM_ASPECT_RATIO
 }
 
 export const getBoardAspectRatioMode = (
   board: Pick<BoardSnapshot, 'itemAspectRatioMode'>
 ): ItemAspectRatioMode => board.itemAspectRatioMode ?? 'auto'
 
-// resolves the rendered image fit for an item: per-item override wins, then
-// the board default (set via the bulk Cover all / Contain all), else 'cover'
 export const getEffectiveImageFit = (
   item: Pick<TierItem, 'imageFit'>,
   boardDefault: ImageFit | undefined
@@ -121,39 +129,52 @@ const medianOf = (values: readonly number[]): number =>
     : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
+interface RatioBucket<T>
+{
+  ratios: number[]
+  values: T[]
+}
+
+const bucketByRatio = <T>(
+  values: readonly T[],
+  getRatio: (value: T) => number | null | undefined,
+  tol = ASPECT_RATIO_TOLERANCE
+): RatioBucket<T>[] =>
+{
+  const buckets: RatioBucket<T>[] = []
+  for (const value of values)
+  {
+    const ratio = getRatio(value)
+    if (!isPositiveFiniteNumber(ratio)) continue
+    let placed = false
+    for (const bucket of buckets)
+    {
+      if (ratiosMatch(ratio, bucket.ratios[0], tol))
+      {
+        bucket.ratios.push(ratio)
+        bucket.values.push(value)
+        placed = true
+        break
+      }
+    }
+    if (!placed) buckets.push({ ratios: [ratio], values: [value] })
+  }
+  return buckets
+}
+
 // group ratios into buckets by tolerance; each bucket's representative is the
 // median of its members. returned sorted by bucket size desc
 export const bucketByAspectRatio = (
   ratios: readonly number[],
   tol = ASPECT_RATIO_TOLERANCE
 ): AspectRatioBucket[] =>
-{
-  const working: number[][] = []
-  for (const ratio of ratios)
-  {
-    if (!Number.isFinite(ratio) || ratio <= 0) continue
-    let placed = false
-    for (const group of working)
-    {
-      if (ratiosMatch(ratio, group[0], tol))
-      {
-        group.push(ratio)
-        placed = true
-        break
-      }
-    }
-    if (!placed) working.push([ratio])
-  }
-
-  return working
+  bucketByRatio(ratios, (ratio) => ratio, tol)
     .map((members) => ({
-      representative: medianOf(members),
-      count: members.length,
+      representative: medianOf(members.ratios),
+      count: members.values.length,
     }))
     .sort((a, b) => b.count - a.count)
-}
 
-// pick the ratio of the largest bucket, or null if no valid ratios were given
 export const majorityAspectRatio = (
   ratios: readonly number[],
   tol = ASPECT_RATIO_TOLERANCE
@@ -164,7 +185,7 @@ export const majorityAspectRatio = (
 }
 
 // gather aspect ratios of every image item whose natural dimensions have
-// been captured — text items & pending-backfill items are skipped
+// been captured — text items (no imageRef) are skipped
 export const collectItemAspectRatios = (
   board: Pick<BoardSnapshot, 'items'>
 ): number[] =>
@@ -172,11 +193,7 @@ export const collectItemAspectRatios = (
   const result: number[] = []
   for (const item of Object.values(board.items))
   {
-    if (
-      item.imageUrl &&
-      typeof item.aspectRatio === 'number' &&
-      item.aspectRatio > 0
-    )
+    if (item.imageRef && isPositiveFiniteNumber(item.aspectRatio))
     {
       result.push(item.aspectRatio)
     }
@@ -185,39 +202,57 @@ export const collectItemAspectRatios = (
 }
 
 // true when the item has a known ratio that doesn't match the board's; items
-// w/o imageUrl or awaiting backfill return false (never appear as issues)
+// w/o an imageRef or a captured ratio return false (never appear as issues)
 export const itemHasAspectMismatch = (
   item: TierItem,
   boardRatio: number,
   tol = ASPECT_RATIO_TOLERANCE
 ): boolean =>
 {
-  if (
-    !item.imageUrl ||
-    typeof item.aspectRatio !== 'number' ||
-    item.aspectRatio <= 0
-  )
+  if (!item.imageRef || !isPositiveFiniteNumber(item.aspectRatio))
   {
     return false
   }
   return !ratiosMatch(item.aspectRatio, boardRatio, tol)
 }
 
-// list every mismatched item on the board (any order)
 export const findMismatchedItems = (
-  board: Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>
+  board: Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>,
+  tol = ASPECT_RATIO_TOLERANCE
 ): TierItem[] =>
 {
   const boardRatio = getBoardItemAspectRatio(board)
   const result: TierItem[] = []
   for (const item of Object.values(board.items))
   {
-    if (itemHasAspectMismatch(item, boardRatio))
+    if (itemHasAspectMismatch(item, boardRatio, tol))
     {
       result.push(item)
     }
   }
   return result
+}
+
+export interface MismatchGroup
+{
+  representative: number
+  items: TierItem[]
+}
+
+// group mismatched items into buckets by aspect ratio (same tolerance as ratio
+// bucketing). sorted by count desc so the biggest group shows first
+export const groupMismatchedItems = (
+  board: Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>,
+  tol = ASPECT_RATIO_TOLERANCE
+): MismatchGroup[] =>
+{
+  const mismatched = findMismatchedItems(board, tol)
+  return bucketByRatio(mismatched, (item) => item.aspectRatio, tol)
+    .map((group) => ({
+      representative: medianOf(group.ratios),
+      items: group.values,
+    }))
+    .sort((a, b) => b.items.length - a.items.length)
 }
 
 // true if any item has a ratio that doesn't match the board's; short-circuits
@@ -241,12 +276,25 @@ export const computeAutoBoardAspectRatio = (
   board: Pick<BoardSnapshot, 'items'>
 ): number | null => majorityAspectRatio(collectItemAspectRatios(board))
 
-// find a preset whose value matches within tolerance, else undefined
 export const findMatchingPreset = (
   value: number,
   tol = ASPECT_RATIO_TOLERANCE
 ): AspectRatioPreset | undefined =>
   ASPECT_RATIO_PRESETS.find((preset) => ratiosMatch(preset.value, value, tol))
+
+// resolve clean W:H strings for the custom inputs; prefers a matching preset's
+// integer pair over a decimal ratio so users see "3:4" rather than "0.75:1"
+export const resolveCustomRatioSeed = (
+  ratio: number
+): { width: string; height: string } =>
+{
+  const match = findMatchingPreset(ratio)
+  if (match)
+  {
+    return { width: String(match.width), height: String(match.height) }
+  }
+  return { width: formatCustomRatioDim(ratio), height: '1' }
+}
 
 // pick the RatioOption that matches the current board state — 'Auto' when in
 // auto mode, a preset when the value matches, else 'Custom'
@@ -256,12 +304,11 @@ export const ratioOptionForBoard = (
 ): RatioOption =>
 {
   if (mode === 'auto') return AUTO_RATIO_OPTION
-  const preset = findMatchingPreset(ratio)
-  if (!preset) return CUSTOM_RATIO_OPTION
+  const match = findMatchingPreset(ratio)
+  if (!match) return CUSTOM_RATIO_OPTION
   return (
-    RATIO_OPTIONS.find(
-      (opt) => opt.kind === 'preset' && opt.label === preset.label
-    ) ?? AUTO_RATIO_OPTION
+    PRESET_RATIO_OPTIONS.find((opt) => opt.label === match.label) ??
+    CUSTOM_RATIO_OPTION
   )
 }
 
@@ -269,7 +316,7 @@ export const ratioOptionForBoard = (
 // rational approximations, else a 2-decimal string
 export const formatAspectRatio = (value: number): string =>
 {
-  if (!Number.isFinite(value) || value <= 0) return '1:1'
+  if (!isPositiveFiniteNumber(value)) return '1:1'
   const preset = findMatchingPreset(value)
   if (preset) return preset.label
 

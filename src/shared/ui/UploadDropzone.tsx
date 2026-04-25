@@ -4,6 +4,7 @@
 interface UploadDropzoneProps
 {
   variant?: 'panel' | 'empty'
+  showHint?: boolean
   isDraggingFiles: boolean
   isProcessing: boolean
   openFilePicker: () => void
@@ -14,6 +15,7 @@ interface UploadDropzoneProps
 
 export const UploadDropzone = ({
   variant = 'panel',
+  showHint = variant === 'empty',
   isDraggingFiles,
   isProcessing,
   openFilePicker,
@@ -54,9 +56,11 @@ export const UploadDropzone = ({
         onDrop={onDrop}
       >
         <p className="text-sm">{message}</p>
-        <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-          Square images (1:1) work best.
-        </p>
+        {showHint && (
+          <p className="mt-1 text-xs text-[var(--t-text-muted)]">
+            Square images (1:1) work best.
+          </p>
+        )}
       </div>
     )
   }
@@ -85,9 +89,11 @@ export const UploadDropzone = ({
       onDrop={onDrop}
     >
       <p className="text-sm font-semibold">{message}</p>
-      <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-        Square images (1:1) work best.
-      </p>
+      {showHint && (
+        <p className="mt-1 text-xs text-[var(--t-text-muted)]">
+          Square images (1:1) work best.
+        </p>
+      )}
     </div>
   )
 }

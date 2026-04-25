@@ -1,101 +1,64 @@
 # Tests
 
-This directory contains the test suite for the tier list builder.
+This directory contains the Vitest suite for the tier list builder.
 
 ## Philosophy
 
 **Only major, important tests — not exhaustive coverage.**
 
-We focus on testing critical pure-function logic that, if broken, would cause significant user impact:
+We focus on critical pure-function and local persistence behavior:
 
-- **Drag Snapshot Logic**: Container snapshot transforms, item moves, consistency checks
-- **Keyboard Navigation**: Arrow-key item movement & focus resolution
-- **Pointer Math**: Drag target index calculation & insertion positioning
-- **Color Parsing**: Hex/RGB normalization, contrast calculation
-- **Tier Colors**: Palette/custom color spec creation & resolution
-- **Board Snapshot**: Board creation, reset, tier factory, color spec normalization, & legacy data migration
-- **Board Operations**: Pure tier sorting & item shuffling logic
-- **Tier Presets**: Preset-to-board conversion, board-to-preset extraction, & round-trip integrity
-- **JSON Import**: Single & multi-board parsing, envelope detection, validation, & error reporting
-- **Selection Primitives**: Shared radio/tab semantics behind roving selection
-- **Nested Menus**: Shared tree state for root/submenu orchestration
-- **ID Helpers**: Generated ID prefix contracts & guard helpers
-- **Popup/Menu Geometry**: Shared fixed-popup placement & submenu flip rules
+- **Drag & Keyboard Logic**: snapshot transforms, rendered-row grouping, drag-end decisions, pointer math, and keyboard navigation
+- **Board Data**: snapshot normalization, board operations, tier colors, presets, local board sessions, and localStorage envelopes
+- **Import / Export / Sharing**: JSON parsing, multi-board envelopes, hash-share compression, and image byte preservation for JSON export
+- **Images**: content-addressed image store, blob cache lifecycle, and manual crop/transform math
+- **Shared UI Primitives**: roving selection, nested menus, popup geometry, toolbar placement, and progress normalization
 
-We intentionally do not test:
-
-- Every edge case or configuration combination
-- React components or hooks
-- DOM-dependent utilities that require live layout capture
-- Utility functions with obvious behavior (single ternary, field projection)
-- Export rendering (PNG/PDF image capture)
-- Zustand store wiring
+We intentionally do not test every configuration combination, React component rendering, broad DOM-dependent utilities, export rasterization, or routine Zustand wiring.
 
 ## Running Tests
 
 ```bash
-# run all tests (single pass)
 npm test
-
-# run in watch mode
 npm run test:watch
-
-# run a specific test file
-npx vitest run tests/dragSnapshot.test.ts
+npx vitest run tests/dnd/dragSnapshot.test.ts
+npm run test:e2e
+npm run test:e2e:ui
 ```
+
+E2E tests live in `e2e/` and are excluded from Vitest. Keep them to a small smoke/guardrail set for workflows that need real React, routing, focus, or browser wiring.
 
 ## Structure
 
 ```
 tests/
-├── fixtures.ts                    — shared snapshot/tier builders & constants
-├── board/
-│   ├── constants.test.ts          — toFileBase, clampIndex, buildDefaultTiers
-│   ├── boardSnapshot.test.ts      — board creation, tier factory, color spec normalization, & legacy migration
-│   ├── boardOps.test.ts           — pure sorting & shuffling helpers
-│   ├── tierColors.test.ts         — tier color spec creation & resolution
-│   └── tierPresets.test.ts        — preset-to-board & board-to-preset conversion
-├── data/
-│   └── exportJson.test.ts         — JSON import parsing, validation, & multi-board envelope detection
-├── dnd/
-│   ├── dragSnapshot.test.ts       — snapshot transforms & container queries
-│   ├── dragKeyboard.test.ts       — keyboard navigation resolution
-│   ├── dragPointerMath.test.ts    — pointer insertion math
-│   └── keyboardDragController.test.ts — keyboard drag state machine
-├── interaction/
-│   ├── keyboardTabStop.test.ts    — roving tab-stop selector cache
-│   ├── selectionNavigation.test.ts — selection arrow-key navigation
-│   └── selectionState.test.ts     — shared radio/tab semantics for roving selection
-├── overlay/
-│   ├── nestedMenus.test.ts        — nested root/submenu open-close tree rules
-│   ├── popupPosition.test.ts      — fixed popup placement & viewport clamping
-│   └── toolbarPosition.test.ts    — submenu direction & responsive toolbar helpers
-├── store/
-│   ├── undoLabels.test.ts         — labeled undo/redo stack semantics
-│   └── tierRowColor.test.ts       — per-tier row background actions & round-trip
-└── utils/
-    ├── color.test.ts              — hex/rgb parsing & contrast
-    └── id.test.ts                 — ID factory prefixes & guard helpers
+├── fixtures.ts                      — shared snapshot/tier builders & constants
+├── typeHelpers.ts                   — asInvalid<T> for intentionally malformed inputs
+├── setup.ts                         — global vitest setup
+├── board/                           — board snapshot, ops, tier colors, presets
+├── data/                            — board storage, export JSON, image cache/store
+├── dnd/                             — drag snapshot, DOM capture, pointer, keyboard, layout
+├── interaction/                     — tab stops, selection navigation, selection state
+├── model/                           — local board session behavior
+├── overlay/                         — nested menus, popup/progress/toolbar helpers
+├── settings/                        — aspect-ratio prompt snapshots & mismatch grouping
+├── sharing/                         — hash-fragment snapshot codec
+└── shared-lib/                      — color, IDs, image transforms, memory storage, async helpers
 ```
 
 ## Fixtures
 
 Shared test data defined in `fixtures.ts`:
 
-| Export                     | Description                                                   |
-| -------------------------- | ------------------------------------------------------------- |
-| `TIER_IDS`                 | Stable tier ID constants (`'tier-s'`, `'tier-a'`, `'tier-b'`) |
-| `ITEM_IDS`                 | Stable item ID constants (`'item-1'` through `'item-8'`)      |
-| `makeSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items             |
-| `makeTier(overrides?)`     | Builds a `Tier` w/ palette colorSpec defaults                 |
+| Export                              | Description                                                     |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `TIER_IDS`                          | Stable tier ID constants                                        |
+| `ITEM_IDS`                          | Stable item ID constants                                        |
+| `makeContainerSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items               |
+| `makeBoardSnapshot(overrides?)`     | Builds an empty `BoardSnapshot` for focused overrides           |
+| `makeBoardMeta(overrides?)`         | Builds a registry `BoardMeta` row for local board/session tests |
+| `makeTier(overrides?)`              | Builds a `Tier` w/ palette colorSpec defaults                   |
+| `makeItem(overrides?)`              | Builds a `TierItem` w/ a default item ID                        |
+| `makeRect(overrides?)`              | Builds a `DOMRect` for layout/popup tests                       |
 
-## Adding Tests
-
-Before adding a new test, ask:
-
-1. Does this test a critical path that would break core functionality if it failed?
-2. Is this behavior not already covered by existing tests?
-3. Can this be tested as a pure function without DOM or mocking?
-4. Would breakage cause significant user impact (data loss, broken drag, unreadable UI)?
-
-If yes to all four, add the test. Otherwise, consider whether it's truly necessary.
+`tests/typeHelpers.ts` provides `asInvalid<T>(value)` for tests that intentionally pass malformed input. Prefer it over a bare `as never` cast so the intent is explicit.

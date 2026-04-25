@@ -3,7 +3,7 @@
 
 import { createContext } from 'react'
 
-import type { NewTierItem } from '@/features/workspace/boards/model/contract'
+import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
 
 export interface AspectRatioPromptController
 {

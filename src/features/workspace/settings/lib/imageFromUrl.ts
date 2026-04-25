@@ -1,10 +1,14 @@
 // src/features/workspace/settings/lib/imageFromUrl.ts
-// fetch a remote image by URL, resize to thumbnail, & return as a data URL
+// fetch remote image, resize display + editor assets, & persist to blob store
 
-import type { NewTierItem } from '@/features/workspace/boards/model/contract'
-import { MAX_THUMBNAIL_SIZE } from './constants'
-import { deriveLabelFromFilename, getResizedDimensions } from './imageGeometry'
-import { decodeImageAspectRatioFromSrc, loadImageElement } from './imageLoad'
+import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  persistPreparedBlobRecords,
+  prepareBlobRecord,
+} from '~/shared/images/imagePersistence'
+import { MAX_EDITOR_SOURCE_SIZE, MAX_THUMBNAIL_SIZE } from './constants'
+import { deriveLabelFromFilename, drawImageToPngBlob } from './imageGeometry'
+import { loadImageElement } from './imageLoad'
 
 // derive a display label from a URL by extracting the filename w/o extension
 const labelFromUrl = (url: string): string =>
@@ -21,15 +25,11 @@ const labelFromUrl = (url: string): string =>
   }
 }
 
-export type FetchedImage = Required<
-  Pick<NewTierItem, 'imageUrl' | 'label' | 'aspectRatio'>
->
-
-// fetch a remote image, resize, & return as a data URL w/ derived label
-export const fetchImageAsDataUrl = async (
+// fetch a remote image, persist display + editor refs, & return item fields
+export const fetchImageAsItemImage = async (
   url: string,
   maxSize = MAX_THUMBNAIL_SIZE
-): Promise<FetchedImage> =>
+): Promise<NewTierItem & { label: string }> =>
 {
   const img = await loadImageElement({
     src: url,
@@ -38,33 +38,25 @@ export const fetchImageAsDataUrl = async (
       'Failed to load image. The server may block cross-origin requests.',
   })
 
-  const { width, height } = getResizedDimensions(
-    img.naturalWidth,
-    img.naturalHeight,
-    maxSize
-  )
-
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx)
-  {
-    throw new Error('Could not initialize a canvas context.')
-  }
-
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(img, 0, 0, width, height)
+  const [displayBlob, sourceBlob] = await Promise.all([
+    drawImageToPngBlob(img, img.naturalWidth, img.naturalHeight, maxSize),
+    drawImageToPngBlob(
+      img,
+      img.naturalWidth,
+      img.naturalHeight,
+      MAX_EDITOR_SOURCE_SIZE
+    ),
+  ])
+  const [display, source] = await Promise.all([
+    prepareBlobRecord(displayBlob),
+    prepareBlobRecord(sourceBlob),
+  ])
+  await persistPreparedBlobRecords([display, source])
 
   return {
-    imageUrl: canvas.toDataURL('image/png'),
+    imageRef: display.imageRef,
+    sourceImageRef: source.imageRef,
     label: labelFromUrl(url),
     aspectRatio: img.naturalWidth / img.naturalHeight,
   }
 }
-
-// re-export so localBoardSession imports a single settings-layer helper rather
-// than reaching into another feature's data layer for image decode
-export { decodeImageAspectRatioFromSrc }

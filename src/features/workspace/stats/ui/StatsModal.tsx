@@ -1,14 +1,16 @@
 // src/features/workspace/stats/ui/StatsModal.tsx
 // board statistics modal — item distribution, summary cards, & tier chart
 
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useMemo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
-import { computeBoardStats } from '@/features/workspace/stats/model/boardStats'
-import { extractBoardData } from '@/features/workspace/boards/model/boardSnapshot'
-import { useCurrentPaletteId } from '@/features/workspace/settings/model/useCurrentPaletteId'
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+import { computeBoardStats } from '~/features/workspace/stats/model/boardStats'
+import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TierDistributionChart } from './TierDistributionChart'
 
 interface StatsModalProps
@@ -35,12 +37,13 @@ export const StatsModal = ({ open, onClose }: StatsModalProps) =>
   const titleId = useId()
   const paletteId = useCurrentPaletteId()
 
-  const stats = useMemo(() =>
-  {
-    if (!open) return null
-    const data = extractBoardData(useActiveBoardStore.getState())
-    return computeBoardStats(data, paletteId)
-  }, [open, paletteId])
+  const boardData = useActiveBoardStore(
+    useShallow((state) => (open ? extractBoardData(state) : null))
+  )
+  const stats = useMemo(
+    () => (boardData ? computeBoardStats(boardData, paletteId) : null),
+    [boardData, paletteId]
+  )
 
   if (!stats) return null
 
@@ -54,22 +57,18 @@ export const StatsModal = ({ open, onClose }: StatsModalProps) =>
       panelClassName="flex w-full max-w-lg flex-col p-5"
     >
       <div className="mb-5 flex items-center justify-between">
-        <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-          Board Statistics
-        </h2>
+        <ModalHeader titleId={titleId}>Board Statistics</ModalHeader>
         <SecondaryButton size="sm" onClick={onClose}>
           Done
         </SecondaryButton>
       </div>
 
-      {/* summary cards */}
       <div className="mb-5 grid grid-cols-3 gap-3">
         <StatCard label="Total Items" value={stats.totalItems} />
         <StatCard label="Ranked" value={stats.rankedItems} />
         <StatCard label="Unranked" value={stats.unrankedItems} />
       </div>
 
-      {/* tier distribution chart */}
       {stats.totalItems > 0 && (
         <div className="mb-5">
           <h3 className="mb-3 text-sm font-medium text-[var(--t-text-secondary)]">
@@ -82,16 +81,15 @@ export const StatsModal = ({ open, onClose }: StatsModalProps) =>
         </div>
       )}
 
-      {/* additional stats */}
       {stats.totalItems > 0 && (
         <div className="space-y-2 border-t border-[var(--t-border)] pt-4">
-          {stats.averageTierIndex !== null && (
+          {stats.averageTierRank !== null && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-[var(--t-text-muted)]">
                 Average Tier Position
               </span>
               <span className="font-medium text-[var(--t-text)]">
-                {stats.averageTierIndex.toFixed(1)}
+                {stats.averageTierRank.toFixed(1)}
               </span>
             </div>
           )}

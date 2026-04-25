@@ -1,5 +1,6 @@
 // src/features/workspace/settings/ui/SettingRow.tsx
-// reusable setting row w/ label on left, control on right
+// reusable setting row w/ label left, control right. accepts a render-prop child
+// so composite controls can route labelId to the actual labelled element
 
 import {
   cloneElement,
@@ -9,26 +10,33 @@ import {
   type ReactNode,
 } from 'react'
 
-interface SettingRowProps
-{
-  label: string
-  children: ReactNode
-}
-
 interface LabelAwareControlProps
 {
   ariaLabelledby?: string
 }
 
+interface SettingRowProps
+{
+  label: string
+  children: ReactNode | ((labelId: string) => ReactNode)
+}
+
 export const SettingRow = ({ label, children }: SettingRowProps) =>
 {
   const labelId = useId()
-  const control = isValidElement(children)
-    ? cloneElement(children as ReactElement<LabelAwareControlProps>, {
-        ariaLabelledby:
-          (children.props as LabelAwareControlProps).ariaLabelledby ?? labelId,
-      })
-    : children
+  const isRenderProp = typeof children === 'function'
+  const resolved = isRenderProp ? children(labelId) : children
+  // auto-clone bare children that themselves accept ariaLabelledby; wrapped
+  // controls must use the function form so the caller threads labelId onto
+  // the actual labellable element rather than an unreachable wrapper div
+  const control =
+    !isRenderProp && isValidElement(resolved)
+      ? cloneElement(resolved as ReactElement<LabelAwareControlProps>, {
+          ariaLabelledby:
+            (resolved.props as LabelAwareControlProps).ariaLabelledby ??
+            labelId,
+        })
+      : resolved
 
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">

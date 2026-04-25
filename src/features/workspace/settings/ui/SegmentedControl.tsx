@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 
 import type { ReactNode } from 'react'
 
-import { useRovingSelection } from '@/shared/selection/useRovingSelection'
+import { useRovingSelection } from '~/shared/selection/useRovingSelection'
 
 interface SegmentedControlProps<T extends string>
 {
@@ -37,7 +37,7 @@ export const SegmentedControl = <T extends string>({
   return (
     <div
       {...groupProps}
-      className="flex rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]"
+      className="inline-flex rounded-lg border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]"
     >
       {options.map((opt, index) => (
         <button
