@@ -1,0 +1,16 @@
+{
+  "name": "@tierlistbuilder/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared frontend contracts for persisted and exported tier-list data",
+  "exports": {
+    "./workspace/board": "./workspace/board.ts",
+    "./workspace/boardEnvelope": "./workspace/boardEnvelope.ts",
+    "./workspace/tierPreset": "./workspace/tierPreset.ts",
+    "./workspace/settings": "./workspace/settings.ts",
+    "./lib/ids": "./lib/ids.ts",
+    "./lib/theme": "./lib/theme.ts",
+    "./lib/themeDefinition": "./lib/themeDefinition.ts"
+  }
+}
