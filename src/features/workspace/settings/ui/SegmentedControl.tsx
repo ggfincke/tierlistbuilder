@@ -38,8 +38,7 @@ export const SegmentedControl = <T extends string>({
   const keys = useMemo(() => options.map((o) => o.value), [options])
   // tabstop lands on the selected segment if enabled, else the first enabled
   // one — disabled buttons won't accept focus() so don't route nav there
-  const firstEnabledKey =
-    options.find((o) => !o.disabled)?.value ?? keys[0]
+  const firstEnabledKey = options.find((o) => !o.disabled)?.value ?? keys[0]
   const valueIsEnabled =
     value !== null && options.some((o) => o.value === value && !o.disabled)
   const rovingActiveKey = valueIsEnabled ? (value as T) : firstEnabledKey

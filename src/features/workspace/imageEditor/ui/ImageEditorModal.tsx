@@ -62,10 +62,10 @@ import {
   parsePercentInput,
   roundToStep,
 } from '~/shared/lib/math'
-import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import {
-  detectContentBBox,
   areCachedAutoCropsApplied,
+  collectAutoCropTransforms,
+  detectContentBBox,
   getAutoCropCacheVersion,
   getAutoCropHash,
   getCachedBBox,
@@ -74,6 +74,8 @@ import {
 } from '~/shared/lib/autoCrop'
 import { getBlob } from '~/shared/images/imageStore'
 import { warmImageHashes } from '~/shared/images/imageBlobCache'
+import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/useAutoCropTrimShadows'
+import { AutoCropTrimToggle } from '~/features/workspace/settings/ui/AutoCropTrimToggle'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -212,6 +214,7 @@ const ImageEditorModalBody = () =>
     }))
   )
   const ratioPicker = useBoardAspectRatioPicker()
+  const { trimSoftShadows, setTrimSoftShadows } = useAutoCropTrimShadows()
 
   const allImageItems = useMemo(() =>
   {
@@ -271,41 +274,34 @@ const ImageEditorModalBody = () =>
     setAutoCropProgress({ running: true, done: 0, total: targets.length })
     try
     {
-      const entries = await mapAsyncLimit(targets, 4, async (it) =>
-      {
-        const hash = getAutoCropHash(it)!
-        let bbox = getCachedBBox(hash)
-        if (bbox === undefined)
-        {
-          const record = await getBlob(hash)
-          bbox = record ? await detectContentBBox(record.bytes, hash) : null
-        }
-        setAutoCropProgress((p) => (p.running ? { ...p, done: p.done + 1 } : p))
-        if (!bbox) return null
-        const transform = resolveAutoCropTransform(it, bbox, boardAspectRatio)
-        return { id: it.id, transform } as {
-          id: ItemId
-          transform: ItemTransform | null
-        }
+      const entries = await collectAutoCropTransforms({
+        targets,
+        boardAspectRatio,
+        trimSoftShadows,
+        onProgress: () =>
+          setAutoCropProgress((p) =>
+            p.running ? { ...p, done: p.done + 1 } : p
+          ),
       })
-      const cropped = entries.filter(
-        (entry): entry is { id: ItemId; transform: ItemTransform | null } =>
-          entry !== null
-      )
-      if (cropped.length > 0) setItemsTransform(cropped)
+      if (entries.length > 0) setItemsTransform(entries)
     }
     finally
     {
       setAutoCropProgress({ running: false, done: 0, total: 0 })
     }
-  }, [filteredItems, boardAspectRatio, setItemsTransform])
+  }, [trimSoftShadows, filteredItems, boardAspectRatio, setItemsTransform])
 
   const autoCropAllApplied = useMemo(() =>
   {
     void autoCropCacheVersion
     if (autoCropProgress.running) return false
-    return areCachedAutoCropsApplied(filteredItems, boardAspectRatio)
+    return areCachedAutoCropsApplied(
+      filteredItems,
+      boardAspectRatio,
+      trimSoftShadows
+    )
   }, [
+    trimSoftShadows,
     autoCropCacheVersion,
     autoCropProgress.running,
     boardAspectRatio,
@@ -361,10 +357,10 @@ const ImageEditorModalBody = () =>
       labelledBy={titleId}
       panelClassName="flex flex-col p-0"
       panelStyle={{
-        height: 'calc(100dvh - 2rem)',
+        height: 'min(880px, calc(100dvh - 4rem))',
         maxWidth: 'none',
         overflowY: 'hidden',
-        width: 'min(1280px, calc(100vw - 2rem))',
+        width: 'min(1120px, calc(100vw - 4rem))',
       }}
     >
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-3">
@@ -378,6 +374,8 @@ const ImageEditorModalBody = () =>
         onAutoCropAll={handleAutoCropAll}
         autoCropProgress={autoCropProgress}
         autoCropAllApplied={autoCropAllApplied}
+        trimSoftShadows={trimSoftShadows}
+        onTrimSoftShadowsChange={setTrimSoftShadows}
       />
       <div className="flex min-h-0 flex-1">
         <ImageEditorRail
@@ -396,6 +394,7 @@ const ImageEditorModalBody = () =>
               item={selectedItem}
               boardAspectRatio={boardAspectRatio}
               boardDefaultFit={boardDefaultFit}
+              trimSoftShadows={trimSoftShadows}
               onCommit={(t) => handleCommit(selectedItem.id, t)}
               canPrev={selectedIndex > 0}
               canNext={
@@ -419,6 +418,8 @@ interface BoardControlsBarProps
   onAutoCropAll: () => void
   autoCropProgress: { running: boolean; done: number; total: number }
   autoCropAllApplied: boolean
+  trimSoftShadows: boolean
+  onTrimSoftShadowsChange: (trim: boolean) => void
 }
 
 // board-wide controls — board ratio chips plus crop actions for the editor
@@ -427,6 +428,8 @@ const BoardControlsBar = ({
   onAutoCropAll,
   autoCropProgress,
   autoCropAllApplied,
+  trimSoftShadows,
+  onTrimSoftShadowsChange,
 }: BoardControlsBarProps) => (
   <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] px-5 py-2">
     <div className="flex flex-wrap items-center gap-2">
@@ -449,7 +452,12 @@ const BoardControlsBar = ({
         />
       )}
     </div>
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <AutoCropTrimToggle
+        checked={trimSoftShadows}
+        onChange={onTrimSoftShadowsChange}
+        disabled={autoCropProgress.running}
+      />
       <AutoCropButton
         onClick={onAutoCropAll}
         disabled={autoCropProgress.running || autoCropAllApplied}
@@ -691,6 +699,7 @@ interface ImageEditorPaneProps
   // board-wide default fit; only consulted when the working transform is
   // identity, mirroring the actual tier-row render path
   boardDefaultFit: ImageFit | undefined
+  trimSoftShadows: boolean
   onCommit: (transform: ItemTransform | null) => void
   canPrev: boolean
   canNext: boolean
@@ -705,6 +714,7 @@ const ImageEditorPane = ({
   item,
   boardAspectRatio,
   boardDefaultFit,
+  trimSoftShadows,
   onCommit,
   canPrev,
   canNext,
@@ -738,7 +748,7 @@ const ImageEditorPane = ({
     getAutoCropCacheVersion,
     getAutoCropCacheVersion
   )
-  const autoCropResult = getCachedBBox(autoCropHash)
+  const autoCropResult = getCachedBBox(autoCropHash, trimSoftShadows)
 
   useEffect(() =>
   {
@@ -1002,12 +1012,16 @@ const ImageEditorPane = ({
     setAutoCropping(true)
     try
     {
-      let bbox = getCachedBBox(autoCropHash)
+      let bbox = getCachedBBox(autoCropHash, trimSoftShadows)
       if (bbox === undefined)
       {
         const record = await getBlob(autoCropHash)
         if (!record) return
-        bbox = await detectContentBBox(record.bytes, autoCropHash)
+        bbox = await detectContentBBox(
+          record.bytes,
+          autoCropHash,
+          trimSoftShadows
+        )
       }
       if (!bbox) return
       const next = resolveAutoCropTransform(
@@ -1025,6 +1039,7 @@ const ImageEditorPane = ({
     }
   }, [
     autoCropHash,
+    trimSoftShadows,
     autoCropping,
     item,
     boardAspectRatio,

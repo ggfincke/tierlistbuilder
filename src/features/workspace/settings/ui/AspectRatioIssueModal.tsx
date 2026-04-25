@@ -12,11 +12,9 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import type {
   ImageFit,
-  ItemTransform,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type {
@@ -33,29 +31,27 @@ import {
   SHAPE_CLASS,
 } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import {
   areCachedAutoCropsApplied,
-  detectContentBBox,
+  collectAutoCropTransforms,
   getAutoCropCacheVersion,
   getAutoCropHash,
-  getCachedBBox,
-  resolveAutoCropTransform,
   subscribeAutoCropCache,
 } from '~/shared/lib/autoCrop'
-import { getBlob } from '~/shared/images/imageStore'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { useSettingsStore } from '../model/useSettingsStore'
 import { useAspectRatioPrompt } from '../model/useAspectRatioPrompt'
+import { useAutoCropTrimShadows } from '../model/useAutoCropTrimShadows'
 import {
   createAspectRatioPromptSnapshot,
   resolveAspectRatioPromptItems,
 } from '../model/aspectRatioPromptSnapshot'
 import { useDeferredAspectRatioPicker } from '../model/useDeferredAspectRatioPicker'
 import { AspectRatioTiles } from './AspectRatioTiles'
+import { AutoCropTrimToggle } from './AutoCropTrimToggle'
 import { SegmentedControl } from './SegmentedControl'
 
 const MAX_THUMBNAIL_PREVIEW = 4
@@ -124,6 +120,7 @@ const AspectRatioIssueModalBody = ({
       itemShape: state.itemShape,
     }))
   )
+  const { trimSoftShadows, setTrimSoftShadows } = useAutoCropTrimShadows()
 
   // capture the opening mismatch set; the blocking prompt resolves later
   // previews/actions only against these ids
@@ -167,8 +164,13 @@ const AspectRatioIssueModalBody = ({
   {
     void autoCropCacheVersion
     if (autoCropProgress.running) return false
-    return areCachedAutoCropsApplied(autoCropTargets, boardAspectRatio)
+    return areCachedAutoCropsApplied(
+      autoCropTargets,
+      boardAspectRatio,
+      trimSoftShadows
+    )
   }, [
+    trimSoftShadows,
     autoCropCacheVersion,
     autoCropProgress.running,
     autoCropTargets,
@@ -210,25 +212,16 @@ const AspectRatioIssueModalBody = ({
     })
     try
     {
-      const entries = await mapAsyncLimit(autoCropTargets, 4, async (item) =>
-      {
-        const hash = getAutoCropHash(item)!
-        let bbox = getCachedBBox(hash)
-        if (bbox === undefined)
-        {
-          const record = await getBlob(hash)
-          bbox = record ? await detectContentBBox(record.bytes, hash) : null
-        }
-        setAutoCropProgress((p) => (p.running ? { ...p, done: p.done + 1 } : p))
-        if (!bbox) return null
-        const transform = resolveAutoCropTransform(item, bbox, boardAspectRatio)
-        return { id: item.id, transform }
+      const entries = await collectAutoCropTransforms({
+        targets: autoCropTargets,
+        boardAspectRatio,
+        trimSoftShadows,
+        onProgress: () =>
+          setAutoCropProgress((p) =>
+            p.running ? { ...p, done: p.done + 1 } : p
+          ),
       })
-      const cropped = entries.filter(
-        (entry): entry is { id: ItemId; transform: ItemTransform } =>
-          entry !== null
-      )
-      if (cropped.length > 0) setItemsTransform(cropped)
+      if (entries.length > 0) setItemsTransform(entries)
     }
     finally
     {
@@ -236,6 +229,7 @@ const AspectRatioIssueModalBody = ({
     }
   }, [
     autoCropTargets,
+    trimSoftShadows,
     autoCropProgress.running,
     boardAspectRatio,
     setItemsTransform,
@@ -327,6 +321,12 @@ const AspectRatioIssueModalBody = ({
             autoCropAvailable={autoCropTargets.length > 0}
             onSelectFit={setPendingBulkFit}
             onSelectAutoCrop={handleAutoCropAll}
+          />
+          <AutoCropTrimToggle
+            checked={trimSoftShadows}
+            onChange={setTrimSoftShadows}
+            disabled={autoCropProgress.running}
+            className="ml-auto"
           />
           {autoCropProgress.running && (
             <span

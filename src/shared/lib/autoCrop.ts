@@ -2,6 +2,7 @@
 // detect the bbox of an image's actual content (alpha or color based) &
 // translate it into an ItemTransform that frames the bbox in the cell
 
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   ItemRotation,
   ItemTransform,
@@ -9,6 +10,8 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import { ITEM_TRANSFORM_IDENTITY } from '@tierlistbuilder/contracts/workspace/board'
 
+import { getBlob } from '~/shared/images/imageStore'
+import { mapAsyncLimit } from './asyncMapLimit'
 import {
   clampItemTransform,
   isSameItemTransform,
@@ -25,6 +28,20 @@ const ANALYSIS_MAX_SIZE = 256
 // detection. anti-aliased edges fade through low alpha values, so a tiny
 // floor avoids pulling the bbox out to ghost pixels
 const ALPHA_CONTENT_THRESHOLD = 16
+
+// alpha threshold above which a pixel is treated as opaque "core" content;
+// soft fringes (drop shadows, glows, AA) sit between SOFT & SOLID
+const ALPHA_SOLID_THRESHOLD = 192
+
+// how far the soft bbox may extend past the solid bbox (per side, as a
+// fraction of image dim) before we treat that side as a soft tail &
+// snap to the solid edge
+const ALPHA_SOFT_EDGE_MAX_FRACTION = 0.02
+
+// require the solid core to occupy this fraction of the soft bbox area
+// before we consider trimming; otherwise the "soft tail" is the actual
+// subject (heavy translucency, faint art) & shouldn't be cropped away
+const ALPHA_SOLID_AREA_MIN_RATIO = 0.5
 
 // fraction of total pixels w/ alpha < threshold required to switch from
 // color-based to alpha-based detection. images w/ a few stray transparent
@@ -54,6 +71,9 @@ const FULL_IMAGE_EDGE_FRACTION = 0.995
 // resulting zoom naturally leaves a small margin around the content
 const DEFAULT_PADDING_FRACTION = 0.01
 
+// concurrency cap for blob decode + scan during bulk auto-crop runs
+const AUTO_CROP_BATCH_CONCURRENCY = 4
+
 export interface AutoCropBBox
 {
   // all values in [0, 1] image-natural coordinates (origin top-left, before
@@ -76,16 +96,34 @@ interface BBoxToTransformParams
   paddingFraction?: number
 }
 
-// hash -> cached result. null marks "detection ran but no useful crop" so
-// repeat calls short-circuit
-const bboxCache = new Map<string, AutoCropBBox | null>()
-const bboxCacheListeners = new Set<() => void>()
-let bboxCacheVersion = 0
-
-const emitBBoxCacheChange = (): void =>
+interface PixelBBox
 {
-  bboxCacheVersion += 1
-  for (const listener of bboxCacheListeners) listener()
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+// raw scan result, cached per image hash. holds both the soft (low-alpha or
+// color-cluster) & the solid (high-alpha) bbox so the trim-shadows toggle
+// can pick a final bbox w/o re-decoding & re-scanning the image
+interface CachedScan
+{
+  soft: PixelBBox
+  // populated only in alpha mode; null in corner-color mode (no solid pass)
+  solid: PixelBBox | null
+  width: number
+  height: number
+}
+
+const scanCache = new Map<string, CachedScan | null>()
+const scanCacheListeners = new Set<() => void>()
+let scanCacheVersion = 0
+
+const emitScanCacheChange = (): void =>
+{
+  scanCacheVersion += 1
+  for (const listener of scanCacheListeners) listener()
 }
 
 const getAnalysisDimensions = (
@@ -110,24 +148,31 @@ const getAnalysisDimensions = (
 
 export const clearAutoCropCache = (): void =>
 {
-  bboxCache.clear()
-  emitBBoxCacheChange()
+  scanCache.clear()
+  emitScanCacheChange()
 }
 
 export const subscribeAutoCropCache = (listener: () => void): (() => void) =>
 {
-  bboxCacheListeners.add(listener)
-  return () => bboxCacheListeners.delete(listener)
+  scanCacheListeners.add(listener)
+  return () => scanCacheListeners.delete(listener)
 }
 
-export const getAutoCropCacheVersion = (): number => bboxCacheVersion
+export const getAutoCropCacheVersion = (): number => scanCacheVersion
 
 export const getAutoCropHash = (item: TierItem): string | undefined =>
   item.sourceImageRef?.hash ?? item.imageRef?.hash
 
 export const getCachedBBox = (
-  hash: string | undefined
-): AutoCropBBox | null | undefined => (hash ? bboxCache.get(hash) : undefined)
+  hash: string | undefined,
+  trimSoftShadows: boolean
+): AutoCropBBox | null | undefined =>
+{
+  if (!hash) return undefined
+  if (!scanCache.has(hash)) return undefined
+  const scan = scanCache.get(hash)
+  return scan ? pickBBox(scan, trimSoftShadows) : null
+}
 
 export const resolveAutoCropTransform = (
   item: TierItem,
@@ -143,7 +188,8 @@ export const resolveAutoCropTransform = (
 
 export const areCachedAutoCropsApplied = (
   items: readonly TierItem[],
-  boardAspectRatio: number
+  boardAspectRatio: number,
+  trimSoftShadows: boolean
 ): boolean =>
 {
   let hasDetectedCrop = false
@@ -151,7 +197,7 @@ export const areCachedAutoCropsApplied = (
   {
     const hash = getAutoCropHash(item)
     if (!hash) continue
-    const bbox = getCachedBBox(hash)
+    const bbox = getCachedBBox(hash, trimSoftShadows)
     if (bbox === undefined) return false
     if (bbox === null) continue
     hasDetectedCrop = true
@@ -169,37 +215,103 @@ export const areCachedAutoCropsApplied = (
 }
 
 // detect content bbox; returns null when no useful crop exists (full image
-// or detection failure). cached by hash so bulk runs skip repeat decode
+// or detection failure). cached by hash so toggling the trim-shadows option
+// or repeat calls skip the decode/scan
 export const detectContentBBox = async (
   blob: Blob,
-  hash?: string
+  hash: string | undefined,
+  trimSoftShadows: boolean
 ): Promise<AutoCropBBox | null> =>
 {
-  if (hash && bboxCache.has(hash))
+  if (hash && scanCache.has(hash))
   {
-    return bboxCache.get(hash) ?? null
+    const cached = scanCache.get(hash)
+    return cached ? pickBBox(cached, trimSoftShadows) : null
   }
 
-  let result: AutoCropBBox | null = null
+  let scan: CachedScan | null = null
   try
   {
-    result = await runDetection(blob)
+    scan = await runScan(blob)
   }
   catch (error)
   {
     logger.warn('autoCrop', 'detection failed', error)
-    result = null
+    scan = null
   }
 
   if (hash)
   {
-    bboxCache.set(hash, result)
-    emitBBoxCacheChange()
+    scanCache.set(hash, scan)
+    emitScanCacheChange()
   }
-  return result
+  return scan ? pickBBox(scan, trimSoftShadows) : null
 }
 
-const runDetection = async (blob: Blob): Promise<AutoCropBBox | null> =>
+// exposed for unit tests that synthesize ImageData directly to verify
+// trim-shadows behavior without a real blob/decode round-trip
+export const detectContentBBoxFromImageData = (
+  imageData: ImageData,
+  trimSoftShadows = true
+): AutoCropBBox | null =>
+{
+  const scan = scanImageData(imageData)
+  return scan ? pickBBox(scan, trimSoftShadows) : null
+}
+
+interface AutoCropTransformEntry
+{
+  id: ItemId
+  transform: ItemTransform
+}
+
+interface CollectAutoCropTransformsParams
+{
+  // pre-filtered to items w/ a valid auto-crop hash
+  targets: readonly TierItem[]
+  boardAspectRatio: number
+  trimSoftShadows: boolean
+  onProgress?: () => void
+}
+
+// shared bulk auto-crop pipeline used by the issue modal & image editor:
+// decode-or-cache hit per target, scan, resolve transform, return only the
+// items that produced a useful crop. caller drives progress UI & commits
+export const collectAutoCropTransforms = async ({
+  targets,
+  boardAspectRatio,
+  trimSoftShadows,
+  onProgress,
+}: CollectAutoCropTransformsParams): Promise<AutoCropTransformEntry[]> =>
+{
+  const entries = await mapAsyncLimit(
+    targets,
+    AUTO_CROP_BATCH_CONCURRENCY,
+    async (item): Promise<AutoCropTransformEntry | null> =>
+    {
+      const hash = getAutoCropHash(item)!
+      let bbox = getCachedBBox(hash, trimSoftShadows)
+      if (bbox === undefined)
+      {
+        const record = await getBlob(hash)
+        bbox = record
+          ? await detectContentBBox(record.bytes, hash, trimSoftShadows)
+          : null
+      }
+      onProgress?.()
+      if (!bbox) return null
+      return {
+        id: item.id,
+        transform: resolveAutoCropTransform(item, bbox, boardAspectRatio),
+      }
+    }
+  )
+  return entries.filter(
+    (entry): entry is AutoCropTransformEntry => entry !== null
+  )
+}
+
+const runScan = async (blob: Blob): Promise<CachedScan | null> =>
 {
   const bitmap = await createImageBitmap(blob)
   try
@@ -215,13 +327,7 @@ const runDetection = async (blob: Blob): Promise<AutoCropBBox | null> =>
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return null
     ctx.drawImage(bitmap, 0, 0, targetW, targetH)
-    const imageData = ctx.getImageData(0, 0, targetW, targetH)
-    const bbox = scanBBox(imageData)
-    if (!bbox) return null
-    const area = (bbox.right - bbox.left) * (bbox.bottom - bbox.top)
-    if (area < MIN_BBOX_AREA_FRACTION) return null
-    if (isFullImageBBox(bbox)) return null
-    return bbox
+    return scanImageData(ctx.getImageData(0, 0, targetW, targetH))
   }
   finally
   {
@@ -230,17 +336,10 @@ const runDetection = async (blob: Blob): Promise<AutoCropBBox | null> =>
   }
 }
 
-const isFullImageBBox = (bbox: AutoCropBBox): boolean =>
-  bbox.left <= 1 - FULL_IMAGE_EDGE_FRACTION &&
-  bbox.top <= 1 - FULL_IMAGE_EDGE_FRACTION &&
-  bbox.right >= FULL_IMAGE_EDGE_FRACTION &&
-  bbox.bottom >= FULL_IMAGE_EDGE_FRACTION
-
-const scanBBox = (imageData: ImageData): AutoCropBBox | null =>
-{
-  const useAlpha = hasMeaningfulAlpha(imageData)
-  return useAlpha ? scanByAlpha(imageData) : scanByCornerColor(imageData)
-}
+const scanImageData = (imageData: ImageData): CachedScan | null =>
+  hasMeaningfulAlpha(imageData)
+    ? scanAlpha(imageData)
+    : scanCornerColor(imageData)
 
 const hasMeaningfulAlpha = (imageData: ImageData): boolean =>
 {
@@ -263,32 +362,64 @@ const hasMeaningfulAlpha = (imageData: ImageData): boolean =>
   return false
 }
 
-const scanByAlpha = (imageData: ImageData): AutoCropBBox | null =>
+// single pass tracks both the soft (≥CONTENT) & solid (≥SOLID) bboxes
+// so toggling trim-shadows never re-scans the image
+const scanAlpha = (imageData: ImageData): CachedScan | null =>
 {
   const { data, width, height } = imageData
-  let minX = width
-  let minY = height
-  let maxX = -1
-  let maxY = -1
+  let softMinX = width
+  let softMinY = height
+  let softMaxX = -1
+  let softMaxY = -1
+  let solidMinX = width
+  let solidMinY = height
+  let solidMaxX = -1
+  let solidMaxY = -1
   for (let y = 0; y < height; y++)
   {
     let row = (y * width) << 2
     for (let x = 0; x < width; x++, row += 4)
     {
-      if (data[row + 3] >= ALPHA_CONTENT_THRESHOLD)
+      const a = data[row + 3]
+      if (a >= ALPHA_CONTENT_THRESHOLD)
       {
-        if (x < minX) minX = x
-        if (x > maxX) maxX = x
-        if (y < minY) minY = y
-        if (y > maxY) maxY = y
+        if (x < softMinX) softMinX = x
+        if (x > softMaxX) softMaxX = x
+        if (y < softMinY) softMinY = y
+        if (y > softMaxY) softMaxY = y
+        if (a >= ALPHA_SOLID_THRESHOLD)
+        {
+          if (x < solidMinX) solidMinX = x
+          if (x > solidMaxX) solidMaxX = x
+          if (y < solidMinY) solidMinY = y
+          if (y > solidMaxY) solidMaxY = y
+        }
       }
     }
   }
-  if (maxX < 0) return null
-  return normalizeBBox(minX, minY, maxX, maxY, width, height)
+  if (softMaxX < 0) return null
+  return {
+    soft: {
+      minX: softMinX,
+      minY: softMinY,
+      maxX: softMaxX,
+      maxY: softMaxY,
+    },
+    solid:
+      solidMaxX < 0
+        ? null
+        : {
+            minX: solidMinX,
+            minY: solidMinY,
+            maxX: solidMaxX,
+            maxY: solidMaxY,
+          },
+    width,
+    height,
+  }
 }
 
-const scanByCornerColor = (imageData: ImageData): AutoCropBBox | null =>
+const scanCornerColor = (imageData: ImageData): CachedScan | null =>
 {
   const { data, width, height } = imageData
   const corners = [
@@ -328,7 +459,72 @@ const scanByCornerColor = (imageData: ImageData): AutoCropBBox | null =>
     }
   }
   if (maxX < 0) return null
-  return normalizeBBox(minX, minY, maxX, maxY, width, height)
+  return {
+    soft: { minX, minY, maxX, maxY },
+    solid: null,
+    width,
+    height,
+  }
+}
+
+// derive the final bbox from a scan & the trim-shadows toggle. trim falls
+// back to the soft bbox when the solid core is absent or too small a
+// fraction of the soft bbox to be a reliable trim anchor
+const pickBBox = (
+  scan: CachedScan,
+  trimSoftShadows: boolean
+): AutoCropBBox | null =>
+{
+  const pixel =
+    trimSoftShadows &&
+    scan.solid &&
+    shouldTrimSoftShadows(scan.soft, scan.solid)
+      ? trimSoftShadowBBox(scan.soft, scan.solid, scan.width, scan.height)
+      : scan.soft
+  const bbox = normalizeBBox(
+    pixel.minX,
+    pixel.minY,
+    pixel.maxX,
+    pixel.maxY,
+    scan.width,
+    scan.height
+  )
+  const area = (bbox.right - bbox.left) * (bbox.bottom - bbox.top)
+  if (area < MIN_BBOX_AREA_FRACTION) return null
+  if (isFullImageBBox(bbox)) return null
+  return bbox
+}
+
+const isFullImageBBox = (bbox: AutoCropBBox): boolean =>
+  bbox.left <= 1 - FULL_IMAGE_EDGE_FRACTION &&
+  bbox.top <= 1 - FULL_IMAGE_EDGE_FRACTION &&
+  bbox.right >= FULL_IMAGE_EDGE_FRACTION &&
+  bbox.bottom >= FULL_IMAGE_EDGE_FRACTION
+
+const shouldTrimSoftShadows = (soft: PixelBBox, solid: PixelBBox): boolean =>
+  getPixelBBoxArea(solid) / getPixelBBoxArea(soft) >= ALPHA_SOLID_AREA_MIN_RATIO
+
+const getPixelBBoxArea = (bbox: PixelBBox): number =>
+  (bbox.maxX - bbox.minX + 1) * (bbox.maxY - bbox.minY + 1)
+
+// snap the soft bbox to the solid bbox per side, but only on sides where the
+// soft tail extends meaningfully past the solid core. preserves short fringes
+// (anti-aliasing, faint outlines) on sides where the difference is small
+const trimSoftShadowBBox = (
+  soft: PixelBBox,
+  solid: PixelBBox,
+  width: number,
+  height: number
+): PixelBBox =>
+{
+  const maxSoftX = width * ALPHA_SOFT_EDGE_MAX_FRACTION
+  const maxSoftY = height * ALPHA_SOFT_EDGE_MAX_FRACTION
+  return {
+    minX: solid.minX - soft.minX > maxSoftX ? solid.minX : soft.minX,
+    minY: solid.minY - soft.minY > maxSoftY ? solid.minY : soft.minY,
+    maxX: soft.maxX - solid.maxX > maxSoftX ? solid.maxX : soft.maxX,
+    maxY: soft.maxY - solid.maxY > maxSoftY ? solid.maxY : soft.maxY,
+  }
 }
 
 interface RGB
