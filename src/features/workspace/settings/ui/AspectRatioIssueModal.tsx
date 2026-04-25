@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -319,60 +320,23 @@ const AspectRatioIssueModalBody = ({
 
       {mismatched.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <SegmentedControl<ImageFit>
-            ariaLabel="Bulk image fit"
-            options={[
-              { value: 'cover', label: 'Cover all' },
-              { value: 'contain', label: 'Contain all' },
-            ]}
-            value={pendingBulkFit ?? boardDefaultFit ?? 'cover'}
-            onChange={setPendingBulkFit}
+          <BulkFitSegmentedControl
+            pendingBulkFit={pendingBulkFit}
+            autoCropHonored={autoCropHonored}
+            autoCropRunning={autoCropProgress.running}
+            autoCropAvailable={autoCropTargets.length > 0}
+            onSelectFit={setPendingBulkFit}
+            onSelectAutoCrop={handleAutoCropAll}
           />
-          <button
-            type="button"
-            onClick={handleAutoCropAll}
-            disabled={
-              autoCropProgress.running ||
-              autoCropTargets.length === 0 ||
-              autoCropHonored
-            }
-            className={`focus-custom inline-flex w-[11.5rem] items-center justify-center gap-1 rounded border border-[var(--t-border-secondary)] px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${
-              autoCropHonored
-                ? 'bg-[var(--t-bg-active)] text-[var(--t-text-muted)]'
-                : 'bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)] enabled:hover:text-[var(--t-text)]'
-            }`}
-            aria-label={
-              autoCropHonored
-                ? 'Auto-crop applied to mismatched items'
-                : 'Auto-crop all mismatched items'
-            }
-            title={
-              autoCropHonored
-                ? 'Auto-crop is applied'
-                : autoCropTargets.length === 0
-                  ? 'No image bytes available to auto-crop'
-                  : 'Frame detected content for mismatched items'
-            }
-          >
-            {autoCropProgress.running ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span className="tabular-nums">
-                  Auto-cropping {autoCropProgress.done}/{autoCropProgress.total}
-                </span>
-              </>
-            ) : autoCropHonored ? (
-              <>
-                <Check className="h-3 w-3" />
-                <span>Auto-cropped all</span>
-              </>
-            ) : (
-              <>
-                <Crop className="h-3 w-3" />
-                <span>Auto-crop all</span>
-              </>
-            )}
-          </button>
+          {autoCropProgress.running && (
+            <span
+              className="text-xs tabular-nums text-[var(--t-text-muted)]"
+              role="status"
+              aria-live="polite"
+            >
+              {autoCropProgress.done}/{autoCropProgress.total}
+            </span>
+          )}
         </div>
       )}
 
@@ -483,5 +447,98 @@ const MismatchPreviewStrip = ({
         </div>
       )}
     </div>
+  )
+}
+
+type BulkFitMode = ImageFit | 'auto-crop'
+
+interface BulkFitSegmentedControlProps
+{
+  pendingBulkFit: ImageFit | null
+  autoCropHonored: boolean
+  autoCropRunning: boolean
+  autoCropAvailable: boolean
+  onSelectFit: (fit: ImageFit) => void
+  onSelectAutoCrop: () => void
+}
+
+// 3-segment control unifying Cover / Contain / Auto-crop. Cover & Contain
+// stay pending until Done (which strips any prior transform via
+// setItemsImageFit). Auto-crop runs immediately since detection is async
+const BulkFitSegmentedControl = ({
+  pendingBulkFit,
+  autoCropHonored,
+  autoCropRunning,
+  autoCropAvailable,
+  onSelectFit,
+  onSelectAutoCrop,
+}: BulkFitSegmentedControlProps) =>
+{
+  // pendingBulkFit (Cover/Contain) wins over the auto-crop honored state so
+  // the user's most recent intent is what the highlight reflects
+  const value: BulkFitMode | null =
+    pendingBulkFit ?? (autoCropHonored ? 'auto-crop' : null)
+
+  const handleChange = useCallback(
+    (next: BulkFitMode) =>
+    {
+      if (next === 'auto-crop') onSelectAutoCrop()
+      else onSelectFit(next)
+    },
+    [onSelectAutoCrop, onSelectFit]
+  )
+
+  // reserve the width of the widest possible label so the segment doesn't
+  // jitter as it cycles between idle / running / applied
+  const renderAutoCropLabel = (icon: ReactNode, text: string): ReactNode => (
+    <span className="relative inline-flex items-center justify-center">
+      <span
+        aria-hidden="true"
+        className="invisible inline-flex items-center gap-1"
+      >
+        <Check className="h-3 w-3" />
+        Auto-cropped all
+      </span>
+      <span className="absolute inset-0 inline-flex items-center justify-center gap-1">
+        {icon}
+        {text}
+      </span>
+    </span>
+  )
+
+  const autoCropLabel = autoCropRunning
+    ? renderAutoCropLabel(
+        <Loader2 className="h-3 w-3 animate-spin" />,
+        'Auto-crop all'
+      )
+    : autoCropHonored
+      ? renderAutoCropLabel(<Check className="h-3 w-3" />, 'Auto-cropped all')
+      : renderAutoCropLabel(<Crop className="h-3 w-3" />, 'Auto-crop all')
+
+  return (
+    <SegmentedControl<BulkFitMode>
+      ariaLabel="Bulk image fit"
+      value={value}
+      onChange={handleChange}
+      options={[
+        { value: 'cover', label: 'Cover all' },
+        { value: 'contain', label: 'Contain all' },
+        {
+          value: 'auto-crop',
+          label: autoCropLabel,
+          // honored state stays selected but unclickable so re-pressing
+          // doesn't re-run detection on already-cropped items
+          disabled: !autoCropAvailable || autoCropRunning || autoCropHonored,
+          ariaLabel: autoCropHonored
+            ? 'Auto-crop applied to mismatched items'
+            : 'Auto-crop all mismatched items',
+          title: autoCropHonored
+            ? 'Auto-crop is applied'
+            : !autoCropAvailable
+              ? 'No image bytes available to auto-crop'
+              : 'Frame detected content for mismatched items',
+        },
+      ]}
+    />
   )
 }
