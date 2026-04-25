@@ -1,12 +1,15 @@
 // src/features/workspace/annotation/ui/AnnotationEditor.tsx
 // full-screen annotation editor — draw on top of an exported board image
 
+import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId } from 'react'
 
-import { useActiveBoardStore } from '@/features/workspace/boards/model/useActiveBoardStore'
-import { useAnnotationCanvas } from '@/features/workspace/annotation/model/useAnnotationCanvas'
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useAnnotationCanvas } from '~/features/workspace/annotation/model/useAnnotationCanvas'
+import { formatError } from '~/shared/lib/errors'
+import { toast } from '~/shared/notifications/useToastStore'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AnnotationCanvas } from './AnnotationCanvas'
 import { AnnotationToolbar } from './AnnotationToolbar'
 
@@ -17,13 +20,21 @@ interface AnnotationEditorProps
   backgroundImage: string | null
 }
 
-export const AnnotationEditor = ({
+interface AnnotationEditorContentProps
+{
+  open: boolean
+  onClose: () => void
+  backgroundImage: string
+  titleId: string
+}
+
+const AnnotationEditorContent = ({
   open,
   onClose,
   backgroundImage,
-}: AnnotationEditorProps) =>
+  titleId,
+}: AnnotationEditorContentProps) =>
 {
-  const titleId = useId()
   const title = useActiveBoardStore((s) => s.title)
   const {
     canvasRef,
@@ -50,8 +61,6 @@ export const AnnotationEditor = ({
     compositeAndDownload,
   } = useAnnotationCanvas(backgroundImage, title)
 
-  if (!backgroundImage) return null
-
   const cursor = activeTool === 'pen' ? 'crosshair' : 'text'
 
   return (
@@ -62,9 +71,7 @@ export const AnnotationEditor = ({
       panelClassName="flex h-[min(95vh,60rem)] w-full max-w-5xl flex-col p-4"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-          Annotate Export
-        </h2>
+        <ModalHeader titleId={titleId}>Annotate Export</ModalHeader>
         <div className="flex items-center gap-2">
           <SecondaryButton size="sm" onClick={onClose}>
             Cancel
@@ -75,7 +82,12 @@ export const AnnotationEditor = ({
             className="font-medium"
             onClick={() =>
             {
-              void compositeAndDownload()
+              void compositeAndDownload().catch((err) =>
+                toast(
+                  `Annotation download failed: ${formatError(err)}`,
+                  'error'
+                )
+              )
               onClose()
             }}
           >
@@ -104,6 +116,7 @@ export const AnnotationEditor = ({
         <AnnotationCanvas
           canvasRef={canvasRef}
           backgroundImage={backgroundImage}
+          captureTouchGestures={activeTool === 'pen'}
           onMouseDown={handlePointerDown}
           onMouseMove={handlePointerMove}
           onMouseUp={handlePointerUp}
@@ -118,5 +131,28 @@ export const AnnotationEditor = ({
         />
       </div>
     </BaseModal>
+  )
+}
+
+export const AnnotationEditor = ({
+  open,
+  onClose,
+  backgroundImage,
+}: AnnotationEditorProps) =>
+{
+  const titleId = useId()
+
+  if (!backgroundImage) return null
+
+  // remount the annotation session when the source export image changes so
+  // in-memory strokes, pending text, & undo history never bleed across images
+  return (
+    <AnnotationEditorContent
+      key={backgroundImage}
+      open={open}
+      onClose={onClose}
+      backgroundImage={backgroundImage}
+      titleId={titleId}
+    />
   )
 }

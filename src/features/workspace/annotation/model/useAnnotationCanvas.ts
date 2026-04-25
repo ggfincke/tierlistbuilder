@@ -1,10 +1,10 @@
 // src/features/workspace/annotation/model/useAnnotationCanvas.ts
 // canvas state management for screenshot annotation — strokes, text, & compositing
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { triggerDownload } from '@/features/workspace/export/lib/exportImage'
-import { toFileBase } from '@/shared/lib/fileName'
+import { triggerDownload } from '~/shared/lib/downloadBlob'
+import { toFileBase } from '~/shared/lib/fileName'
 
 export interface StrokePoint
 {
@@ -48,18 +48,14 @@ export interface TextAnnotation
 
 export type AnnotationTool = 'pen' | 'text'
 
-// pending inline text input positioned over the canvas
 export interface PendingTextInput
 {
-  // canvas-space coordinates (for final rendering)
   canvasX: number
   canvasY: number
-  // CSS-space coordinates relative to the canvas container (for input positioning)
   cssX: number
   cssY: number
   color: string
   fontSize: number
-  // CSS-scaled font size for the input element
   cssFontSize: number
   bold: boolean
   italic: boolean
@@ -208,6 +204,14 @@ export const useAnnotationCanvas = (
     for (const item of items) drawAnnotationItem(ctx, item)
   }, [])
 
+  // keep the canvas in sync w/ history. driving redraw from an effect avoids
+  // running side-effects inside setState updaters (which StrictMode would
+  // double-invoke, causing double-draws of pending transitions)
+  useEffect(() =>
+  {
+    redraw(history)
+  }, [history, redraw])
+
   // pen tool handlers
   const handlePointerDown = useCallback(
     (e: React.MouseEvent | React.TouchEvent) =>
@@ -327,14 +331,9 @@ export const useAnnotationCanvas = (
           fontFamily: pendingText.fontFamily,
         },
       }
-      setHistory((prev) =>
-      {
-        const next = [...prev, newItem]
-        redraw(next)
-        return next
-      })
+      setHistory((prev) => [...prev, newItem])
     },
-    [pendingText, redraw]
+    [pendingText]
   )
 
   // cancel inline text without committing
@@ -347,23 +346,14 @@ export const useAnnotationCanvas = (
   const undo = useCallback(() =>
   {
     setPendingText(null)
-    setHistory((prev) =>
-    {
-      const next = prev.slice(0, -1)
-      redraw(next)
-      return next
-    })
-  }, [redraw])
+    setHistory((prev) => prev.slice(0, -1))
+  }, [])
 
-  // clear all annotations
+  // clear all annotations — the history-effect handles the canvas clear
   const clearAll = useCallback(() =>
   {
     setPendingText(null)
     setHistory([])
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    ctx?.clearRect(0, 0, canvas.width, canvas.height)
   }, [])
 
   // composite background + annotations & trigger download
@@ -373,9 +363,11 @@ export const useAnnotationCanvas = (
 
     const img = new Image()
     img.src = backgroundImage
-    await new Promise<void>((resolve) =>
+    await new Promise<void>((resolve, reject) =>
     {
       img.onload = () => resolve()
+      img.onerror = () =>
+        reject(new Error('Failed to decode annotation background image'))
     })
 
     const output = document.createElement('canvas')
