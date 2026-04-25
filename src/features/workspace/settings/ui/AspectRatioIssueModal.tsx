@@ -1,13 +1,21 @@
 // src/features/workspace/settings/ui/AspectRatioIssueModal.tsx
 // first-encounter prompt for mixed aspect ratio items w/ inline ratio picker
 
-import { ChevronRight } from 'lucide-react'
-import { useCallback, useId, useMemo, useState } from 'react'
+import { Check, ChevronRight, Crop, Loader2 } from 'lucide-react'
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import type {
   ImageFit,
+  ItemTransform,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type {
@@ -24,6 +32,17 @@ import {
   SHAPE_CLASS,
 } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import {
+  areCachedAutoCropsApplied,
+  detectContentBBox,
+  getAutoCropCacheVersion,
+  getAutoCropHash,
+  getCachedBBox,
+  resolveAutoCropTransform,
+  subscribeAutoCropCache,
+} from '~/shared/lib/autoCrop'
+import { getBlob } from '~/shared/images/imageStore'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -84,6 +103,7 @@ const AspectRatioIssueModalBody = ({
   const {
     items,
     setItemsImageFit,
+    setItemsTransform,
     setAspectRatioPromptDismissed,
     boardDefaultFit,
     setDefaultItemImageFit,
@@ -91,6 +111,7 @@ const AspectRatioIssueModalBody = ({
     useShallow((state) => ({
       items: state.items,
       setItemsImageFit: state.setItemsImageFit,
+      setItemsTransform: state.setItemsTransform,
       setAspectRatioPromptDismissed: state.setAspectRatioPromptDismissed,
       boardDefaultFit: state.defaultItemImageFit,
       setDefaultItemImageFit: state.setDefaultItemImageFit,
@@ -125,6 +146,34 @@ const AspectRatioIssueModalBody = ({
   // each — avoids polluting undo history when the user cycles fits
   const [pendingBulkFit, setPendingBulkFit] = useState<ImageFit | null>(null)
   const [dontAskAgain, setDontAskAgain] = useState(false)
+  const [autoCropProgress, setAutoCropProgress] = useState<{
+    running: boolean
+    done: number
+    total: number
+  }>({ running: false, done: 0, total: 0 })
+  const autoCropCacheVersion = useSyncExternalStore(
+    subscribeAutoCropCache,
+    getAutoCropCacheVersion,
+    getAutoCropCacheVersion
+  )
+
+  const autoCropTargets = useMemo(
+    () => mismatched.filter((item) => !!getAutoCropHash(item)),
+    [mismatched]
+  )
+
+  const autoCropAllApplied = useMemo(() =>
+  {
+    void autoCropCacheVersion
+    if (autoCropProgress.running) return false
+    return areCachedAutoCropsApplied(autoCropTargets, boardAspectRatio)
+  }, [
+    autoCropCacheVersion,
+    autoCropProgress.running,
+    autoCropTargets,
+    boardAspectRatio,
+  ])
+  const autoCropHonored = pendingBulkFit === null && autoCropAllApplied
 
   const commitPending = useCallback(() =>
   {
@@ -147,6 +196,48 @@ const AspectRatioIssueModalBody = ({
     setDefaultItemImageFit,
     dontAskAgain,
     setAspectRatioPromptDismissed,
+  ])
+
+  const handleAutoCropAll = useCallback(async () =>
+  {
+    if (autoCropTargets.length === 0 || autoCropProgress.running) return
+    setPendingBulkFit(null)
+    setAutoCropProgress({
+      running: true,
+      done: 0,
+      total: autoCropTargets.length,
+    })
+    try
+    {
+      const entries = await mapAsyncLimit(autoCropTargets, 4, async (item) =>
+      {
+        const hash = getAutoCropHash(item)!
+        let bbox = getCachedBBox(hash)
+        if (bbox === undefined)
+        {
+          const record = await getBlob(hash)
+          bbox = record ? await detectContentBBox(record.bytes, hash) : null
+        }
+        setAutoCropProgress((p) => (p.running ? { ...p, done: p.done + 1 } : p))
+        if (!bbox) return null
+        const transform = resolveAutoCropTransform(item, bbox, boardAspectRatio)
+        return { id: item.id, transform }
+      })
+      const cropped = entries.filter(
+        (entry): entry is { id: ItemId; transform: ItemTransform } =>
+          entry !== null
+      )
+      if (cropped.length > 0) setItemsTransform(cropped)
+    }
+    finally
+    {
+      setAutoCropProgress({ running: false, done: 0, total: 0 })
+    }
+  }, [
+    autoCropTargets,
+    autoCropProgress.running,
+    boardAspectRatio,
+    setItemsTransform,
   ])
 
   const handleDone = useCallback(() =>
@@ -227,7 +318,7 @@ const AspectRatioIssueModalBody = ({
       </div>
 
       {mismatched.length > 0 && (
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <SegmentedControl<ImageFit>
             ariaLabel="Bulk image fit"
             options={[
@@ -237,6 +328,51 @@ const AspectRatioIssueModalBody = ({
             value={pendingBulkFit ?? boardDefaultFit ?? 'cover'}
             onChange={setPendingBulkFit}
           />
+          <button
+            type="button"
+            onClick={handleAutoCropAll}
+            disabled={
+              autoCropProgress.running ||
+              autoCropTargets.length === 0 ||
+              autoCropHonored
+            }
+            className={`focus-custom inline-flex w-[11.5rem] items-center justify-center gap-1 rounded border border-[var(--t-border-secondary)] px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${
+              autoCropHonored
+                ? 'bg-[var(--t-bg-active)] text-[var(--t-text-muted)]'
+                : 'bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)] enabled:hover:text-[var(--t-text)]'
+            }`}
+            aria-label={
+              autoCropHonored
+                ? 'Auto-crop applied to mismatched items'
+                : 'Auto-crop all mismatched items'
+            }
+            title={
+              autoCropHonored
+                ? 'Auto-crop is applied'
+                : autoCropTargets.length === 0
+                  ? 'No image bytes available to auto-crop'
+                  : 'Frame detected content for mismatched items'
+            }
+          >
+            {autoCropProgress.running ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="tabular-nums">
+                  Auto-cropping {autoCropProgress.done}/{autoCropProgress.total}
+                </span>
+              </>
+            ) : autoCropHonored ? (
+              <>
+                <Check className="h-3 w-3" />
+                <span>Auto-cropped all</span>
+              </>
+            ) : (
+              <>
+                <Crop className="h-3 w-3" />
+                <span>Auto-crop all</span>
+              </>
+            )}
+          </button>
         </div>
       )}
 
@@ -255,13 +391,18 @@ const AspectRatioIssueModalBody = ({
             <button
               type="button"
               onClick={handleAdjustEach}
-              className="focus-custom inline-flex items-center gap-1 rounded text-sm text-[var(--t-text-muted)] transition-colors hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+              disabled={autoCropProgress.running}
+              className="focus-custom inline-flex items-center gap-1 rounded text-sm text-[var(--t-text-muted)] transition-colors enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
             >
               Adjust each item
               <ChevronRight className="h-4 w-4" strokeWidth={1.8} />
             </button>
           )}
-          <SecondaryButton onClick={handleDone} variant="surface">
+          <SecondaryButton
+            onClick={handleDone}
+            variant="surface"
+            disabled={autoCropProgress.running}
+          >
             Done
           </SecondaryButton>
         </div>
@@ -301,27 +442,32 @@ const MismatchPreviewStrip = ({
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
-      {thumbnailItems.map((item) => (
-        <div
-          key={item.id}
-          className="flex shrink-0 items-center justify-center"
-          style={slotStyle}
-          title={item.label ?? 'Item'}
-        >
+      {thumbnailItems.map((item) =>
+      {
+        const previewItem =
+          pendingBulkFit === null ? item : { ...item, transform: undefined }
+        return (
           <div
-            className={`relative overflow-hidden ${shapeClass}`}
-            style={innerSize}
+            key={item.id}
+            className="flex shrink-0 items-center justify-center"
+            style={slotStyle}
+            title={item.label ?? 'Item'}
           >
-            <ItemContent
-              item={item}
-              fit={
-                pendingBulkFit ?? getEffectiveImageFit(item, boardDefaultFit)
-              }
-              frameAspectRatio={boardAspectRatio}
-            />
+            <div
+              className={`relative overflow-hidden ${shapeClass}`}
+              style={innerSize}
+            >
+              <ItemContent
+                item={previewItem}
+                fit={
+                  pendingBulkFit ?? getEffectiveImageFit(item, boardDefaultFit)
+                }
+                frameAspectRatio={boardAspectRatio}
+              />
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
       {remaining > 0 && (
         <div
           aria-hidden="true"

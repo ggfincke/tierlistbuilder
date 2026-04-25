@@ -215,7 +215,6 @@ export const TierRowSettingsMenu = ({
               size="xs"
             />
 
-            {/* row background color — palette swatches + hex input */}
             <div className="mb-2 rounded-lg border border-[var(--t-border)] p-1.5">
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--t-text-faint)]">

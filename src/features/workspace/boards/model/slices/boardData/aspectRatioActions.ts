@@ -2,7 +2,11 @@
 // aspect-ratio & image-fit actions for board & item display settings
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  ImageFit,
+  ItemTransform,
+  TierItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   computeAutoBoardAspectRatio,
   getBoardAspectRatioMode,
@@ -29,6 +33,7 @@ type AspectRatioActions = Pick<
   | 'setAspectRatioPromptDismissed'
   | 'setDefaultItemImageFit'
   | 'setItemTransform'
+  | 'setItemsTransform'
 >
 
 type SliceArgs = Parameters<ActiveBoardSliceCreator<BoardDataSlice>>
@@ -55,6 +60,16 @@ const buildItemsImageFitPatch = (
   return nextItems
     ? withUndo(state, { items: nextItems }, 'Change image fit')
     : null
+}
+
+const applySavedTransform = (
+  item: TierItem,
+  savedTransform: ItemTransform | undefined
+): TierItem =>
+{
+  if (savedTransform) return { ...item, transform: savedTransform }
+  const { transform: _transform, ...rest } = item
+  return rest
 }
 
 export const createAspectRatioActions = (
@@ -146,10 +161,7 @@ export const createAspectRatioActions = (
           ? nextTransform
           : undefined
       if (isSameItemTransform(item.transform, savedTransform)) return state
-      const { transform: _existingTransform, ...rest } = item
-      const nextItem = savedTransform
-        ? { ...item, transform: savedTransform }
-        : rest
+      const nextItem = applySavedTransform(item, savedTransform)
       return withUndo(
         state,
         {
@@ -160,5 +172,25 @@ export const createAspectRatioActions = (
         },
         savedTransform ? 'Adjust image' : 'Reset image adjustment'
       )
+    }),
+
+  setItemsTransform: (entries) =>
+    set((state) =>
+    {
+      if (entries.length === 0) return state
+      let nextItems: ActiveBoardStore['items'] | null = null
+      for (const { id, transform } of entries)
+      {
+        const item = state.items[id]
+        if (!item) continue
+        const clamped = transform ? clampItemTransform(transform) : undefined
+        const saved =
+          clamped && !isIdentityTransform(clamped) ? clamped : undefined
+        if (isSameItemTransform(item.transform, saved)) continue
+        nextItems ??= { ...state.items }
+        nextItems[id] = applySavedTransform(item, saved)
+      }
+      if (!nextItems) return state
+      return withUndo(state, { items: nextItems }, 'Adjust images')
     }),
 })

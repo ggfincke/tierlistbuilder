@@ -2,6 +2,7 @@
 // presentational ratio chips & custom W:H input, shared by the modal & section
 
 import {
+  formatPreciseAspectRatio,
   RATIO_OPTIONS,
   type RatioOption,
 } from '~/features/workspace/boards/lib/aspectRatio'
@@ -22,6 +23,7 @@ interface AspectRatioChipsProps
 {
   selectedOption: RatioOption
   onSelect: (option: RatioOption) => void
+  autoRatio?: number
   // optional alignment override — modal wants left-align, section wants right
   alignClassName?: string
 }
@@ -29,20 +31,26 @@ interface AspectRatioChipsProps
 export const AspectRatioChips = ({
   selectedOption,
   onSelect,
+  autoRatio,
   alignClassName,
 }: AspectRatioChipsProps) => (
   <div className={`flex flex-wrap gap-1.5 ${alignClassName ?? ''}`.trimEnd()}>
     {RATIO_OPTIONS.map((option) =>
     {
       const isActive = option === selectedOption
+      const label =
+        option.kind === 'auto' && autoRatio
+          ? `Auto (${formatPreciseAspectRatio(autoRatio)})`
+          : option.label
       return (
         <button
           key={option.label}
           type="button"
           onClick={() => onSelect(option)}
+          aria-label={label}
           className={`${CHIP_BASE} ${isActive ? CHIP_ACTIVE : CHIP_INACTIVE}`}
         >
-          {option.label}
+          {label}
         </button>
       )
     })}

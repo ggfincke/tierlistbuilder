@@ -35,6 +35,7 @@ export const AspectRatioSection = () =>
   const {
     boardAspectRatio,
     selectedOption,
+    autoRatio,
     customWidth,
     customHeight,
     setCustomWidth,
@@ -95,6 +96,7 @@ export const AspectRatioSection = () =>
         <AspectRatioChips
           selectedOption={selectedOption}
           onSelect={handleOption}
+          autoRatio={autoRatio}
           alignClassName="justify-end"
         />
       </SettingRow>

@@ -3,6 +3,7 @@
 
 import {
   CUSTOM_RATIO_OPTION,
+  formatPreciseAspectRatio,
   NON_CUSTOM_RATIO_OPTIONS,
   type RatioOption,
 } from '~/features/workspace/boards/lib/aspectRatio'
@@ -65,10 +66,15 @@ const RatioTile = ({
   const isAuto = option.kind === 'auto'
   const ratio = isAuto ? (autoRatio ?? 1) : (option.value ?? 1)
   const rect = fitRectInBox(ratio, RECT_BOX)
+  const label =
+    isAuto && autoRatio
+      ? `Auto (${formatPreciseAspectRatio(autoRatio)})`
+      : option.label
 
   return (
     <button
       type="button"
+      aria-label={label}
       aria-pressed={isActive}
       onClick={() => onSelect(option)}
       className={`${TILE_SHELL} w-full ${isActive ? TILE_ACTIVE : TILE_INACTIVE}`}
@@ -84,9 +90,7 @@ const RatioTile = ({
           style={{ width: rect.width, height: rect.height }}
         />
       </div>
-      <span className="text-[0.7rem] font-medium leading-tight">
-        {option.label}
-      </span>
+      <span className="text-[0.7rem] font-medium leading-tight">{label}</span>
     </button>
   )
 }
