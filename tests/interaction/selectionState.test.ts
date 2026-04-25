@@ -1,3 +1,6 @@
+// tests/interaction/selectionState.test.ts
+// selection state helpers
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -5,7 +8,8 @@ import {
   getSelectionItemState,
   resolveRovingTabIndex,
   resolveSelectionActiveKey,
-} from '@/shared/selection/selectionState'
+} from '~/shared/selection/selectionState'
+import { asInvalid } from '../typeHelpers'
 
 describe('resolveSelectionActiveKey', () =>
 {
@@ -17,13 +21,16 @@ describe('resolveSelectionActiveKey', () =>
   it('falls back to the first item when the active key drifts', () =>
   {
     expect(
-      resolveSelectionActiveKey(['a', 'b', 'c'], 'z' as 'a' | 'b' | 'c')
+      resolveSelectionActiveKey(
+        ['a', 'b', 'c'],
+        asInvalid<'a' | 'b' | 'c'>('z')
+      )
     ).toBe('a')
   })
 
   it('returns null when the group is empty', () =>
   {
-    expect(resolveSelectionActiveKey([], 'z' as never)).toBeNull()
+    expect(resolveSelectionActiveKey([], asInvalid<never>('z'))).toBeNull()
   })
 })
 
