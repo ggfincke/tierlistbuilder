@@ -1,5 +1,5 @@
-// src/shared/overlay/useFocusTrap.ts
-// keep focus inside the topmost modal layer & restore it on close
+// src/shared/overlay/focusTrap.ts
+// focus containment for topmost modal dialogs
 
 import { useEffect, type RefObject } from 'react'
 

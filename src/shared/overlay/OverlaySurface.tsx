@@ -1,5 +1,5 @@
-// src/shared/overlay/OverlayPrimitives.tsx
-// shared overlay composition primitives for menus, panels, dividers, & fixed popups
+// src/shared/overlay/OverlaySurface.tsx
+// reusable surfaces for menus, panels, fixed popups, & menu rows
 
 import {
   forwardRef,
@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 
-import { joinClassNames } from '@/shared/lib/className'
+import { joinClassNames } from '~/shared/lib/className'
 
 interface OverlaySurfaceProps extends HTMLAttributes<HTMLDivElement>
 {

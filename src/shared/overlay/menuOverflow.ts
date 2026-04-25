@@ -1,11 +1,33 @@
-// src/shared/overlay/useMenuOverflowFlip.ts
-// flips a submenu to the opposite horizontal side when it overflows the viewport
+// src/shared/overlay/menuOverflow.ts
+// submenu offset tokens & viewport overflow flipping
 
 import { useCallback, useRef } from 'react'
-import {
-  MENU_SUBMENU_FLIP_LEFT_TOKENS,
-  MENU_SUBMENU_FLIP_RIGHT_TOKENS,
-} from './menuClasses'
+
+export const MENU_SUBMENU_RIGHT_OFFSET_CLASS = 'left-[calc(100%+0.375rem)]'
+export const MENU_SUBMENU_LEFT_OFFSET_CLASS = 'right-[calc(100%+0.375rem)]'
+export const MENU_SUBMENU_BRIDGE_TO_RIGHT_EDGE_CLASS = 'before:-left-2'
+export const MENU_SUBMENU_BRIDGE_TO_LEFT_EDGE_CLASS = 'before:-right-2'
+export const MENU_SUBMENU_BRIDGE_COMMON_TOKENS = [
+  'before:top-0',
+  'before:h-full',
+  'before:w-2',
+] as const
+
+export const MENU_SUBMENU_FLIP_LEFT_TOKENS = [
+  MENU_SUBMENU_LEFT_OFFSET_CLASS,
+  'left-auto',
+  MENU_SUBMENU_BRIDGE_TO_LEFT_EDGE_CLASS,
+  'before:left-auto',
+  ...MENU_SUBMENU_BRIDGE_COMMON_TOKENS,
+] as const
+
+export const MENU_SUBMENU_FLIP_RIGHT_TOKENS = [
+  MENU_SUBMENU_RIGHT_OFFSET_CLASS,
+  'right-auto',
+  MENU_SUBMENU_BRIDGE_TO_RIGHT_EDGE_CLASS,
+  'before:right-auto',
+  ...MENU_SUBMENU_BRIDGE_COMMON_TOKENS,
+] as const
 
 export const resolveMenuOverflowFlipTokens = (
   rect: Pick<DOMRect, 'left' | 'right'>,

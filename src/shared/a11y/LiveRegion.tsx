@@ -5,6 +5,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { registerAnnouncer } from './announce'
 
+// short delay so the empty-string reset commits to the DOM before the new
+// text is set — without it, repeated identical messages wouldn't re-announce
+const ANNOUNCEMENT_DELAY_MS = 50
+
 export const LiveRegion = () =>
 {
   const [message, setMessage] = useState('')
@@ -12,7 +16,6 @@ export const LiveRegion = () =>
 
   const handleAnnounce = useCallback((text: string) =>
   {
-    // clear previous message first so repeated identical messages re-announce
     setMessage('')
 
     if (timeoutRef.current)
@@ -20,11 +23,10 @@ export const LiveRegion = () =>
       clearTimeout(timeoutRef.current)
     }
 
-    // set message on next tick so the live region picks up the change
     timeoutRef.current = setTimeout(() =>
     {
       setMessage(text)
-    }, 50)
+    }, ANNOUNCEMENT_DELAY_MS)
   }, [])
 
   useEffect(() =>

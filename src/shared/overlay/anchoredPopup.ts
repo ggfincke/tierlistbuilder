@@ -1,5 +1,5 @@
-// src/shared/overlay/useAnchoredPopup.ts
-// shared fixed-popup hook — anchored positioning + outside-click/Escape dismissal
+// src/shared/overlay/anchoredPopup.ts
+// fixed-position popup hook anchored to a trigger element
 
 import {
   useCallback,
@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from 'react'
 
-import { useDismissibleLayer } from './useDismissibleLayer'
+import { useDismissibleLayer } from './dismissibleLayer'
 
 interface UseAnchoredPopupOptions
 {

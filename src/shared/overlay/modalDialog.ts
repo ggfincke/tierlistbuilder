@@ -1,16 +1,17 @@
-// src/shared/overlay/useModalDialog.ts
-// shared modal behavior stack for focus trap, inert background, & Escape dismissal
+// src/shared/overlay/modalDialog.ts
+// modal dialog wiring for focus, inert background, & Escape dismissal
 
 import { useEffect, type RefObject } from 'react'
 
-import { useFocusTrap } from './useFocusTrap'
-import { useModalBackgroundInert } from './useModalBackgroundInert'
+import { useFocusTrap } from './focusTrap'
+import { useModalBackgroundInert } from './modalLayer'
 
 interface UseModalDialogOptions
 {
   open: boolean
   dialogRef: RefObject<HTMLElement | null>
   onClose?: () => void
+  onDismissAttempt?: () => void
   initialFocusRef?: RefObject<HTMLElement | null>
   restoreFocus?: boolean
   closeOnEscape?: boolean
@@ -27,6 +28,7 @@ export const useModalDialog = ({
   open,
   dialogRef,
   onClose,
+  onDismissAttempt,
   initialFocusRef,
   restoreFocus = true,
   closeOnEscape = true,
@@ -48,23 +50,16 @@ export const useModalDialog = ({
       return
     }
 
-    const token = Symbol('modal-dialog')
-    const canDismissOnEscape = Boolean(onClose) && closeOnEscape
+    const escapeShouldClose = Boolean(onClose) && closeOnEscape
+    const hasEscapeHandler = escapeShouldClose || Boolean(onDismissAttempt)
 
-    ACTIVE_MODAL_DIALOGS.push(token)
-
-    if (!canDismissOnEscape)
+    if (!hasEscapeHandler)
     {
-      return () =>
-      {
-        const dialogIndex = ACTIVE_MODAL_DIALOGS.indexOf(token)
-
-        if (dialogIndex >= 0)
-        {
-          ACTIVE_MODAL_DIALOGS.splice(dialogIndex, 1)
-        }
-      }
+      return
     }
+
+    const token = Symbol('modal-dialog')
+    ACTIVE_MODAL_DIALOGS.push(token)
 
     const handleKeyDown = (event: KeyboardEvent) =>
     {
@@ -83,7 +78,14 @@ export const useModalDialog = ({
         event.stopPropagation()
       }
 
-      onClose?.()
+      if (escapeShouldClose)
+      {
+        onClose?.()
+      }
+      else
+      {
+        onDismissAttempt?.()
+      }
     }
 
     document.addEventListener(
@@ -107,5 +109,12 @@ export const useModalDialog = ({
         ACTIVE_MODAL_DIALOGS.splice(dialogIndex, 1)
       }
     }
-  }, [open, onClose, closeOnEscape, escapePhase, stopEscapePropagation])
+  }, [
+    open,
+    onClose,
+    onDismissAttempt,
+    closeOnEscape,
+    escapePhase,
+    stopEscapePropagation,
+  ])
 }

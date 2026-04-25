@@ -1,5 +1,5 @@
-// src/shared/overlay/useNestedMenus.ts
-// shared tree-aware state for nested click-open menus
+// src/shared/overlay/nestedMenus.ts
+// pure nested-menu state plus React hook wrapper
 
 import { useCallback, useMemo, useState } from 'react'
 
@@ -231,9 +231,6 @@ export const useNestedMenus = <MenuId extends string>({
   )
   const [openMenuIds, setOpenMenuIds] = useState<MenuId[]>([])
 
-  // pure derivation: hide any menus that are currently disabled w/o writing
-  // back to state — visibility recomputes whenever the user toggles a menu
-  // or the disabled set changes
   const visibleOpenMenuIds = useMemo(
     () => pruneNestedMenuState(openMenuIds, index, disabledIdSet),
     [disabledIdSet, index, openMenuIds]

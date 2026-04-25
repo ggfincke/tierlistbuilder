@@ -1,11 +1,19 @@
 // src/shared/overlay/BaseModal.tsx
-// shared modal shell for portal mounting, backdrop dismissal, & dialog chrome
+// portal-mounted dialog shell w/ backdrop dismissal & focus management
 
-import { useRef, type ReactNode, type RefObject } from 'react'
+import {
+  useCallback,
+  useRef,
+  useState,
+  type AnimationEvent,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { createPortal } from 'react-dom'
 
-import { joinClassNames } from '@/shared/lib/className'
-import { useModalDialog } from './useModalDialog'
+import { joinClassNames } from '~/shared/lib/className'
+import { useModalDialog } from './modalDialog'
 
 interface BaseModalProps
 {
@@ -25,6 +33,8 @@ interface BaseModalProps
   containerClassName?: string
   backdropClassName?: string
   panelClassName?: string
+  panelStyle?: CSSProperties
+  shakeOnDismissBlocked?: boolean
 }
 
 export const BaseModal = ({
@@ -44,20 +54,42 @@ export const BaseModal = ({
   containerClassName,
   backdropClassName,
   panelClassName,
+  panelStyle,
+  shakeOnDismissBlocked = false,
 }: BaseModalProps) =>
 {
   const dialogRef = useRef<HTMLDivElement>(null)
+  const [shaking, setShaking] = useState(false)
+
+  const triggerShake = useCallback(() =>
+  {
+    setShaking(false)
+    requestAnimationFrame(() => setShaking(true))
+  }, [])
+
+  const handleDismissBlocked = shakeOnDismissBlocked ? triggerShake : undefined
 
   useModalDialog({
     open,
     dialogRef,
     onClose,
+    onDismissAttempt: handleDismissBlocked,
     initialFocusRef,
     restoreFocus,
     closeOnEscape,
     escapePhase,
     stopEscapePropagation,
   })
+
+  const handleBackdropClick = closeOnBackdrop ? onClose : handleDismissBlocked
+
+  const handleAnimationEnd = useCallback(
+    (event: AnimationEvent<HTMLDivElement>) =>
+    {
+      if (event.animationName === 'shakeX') setShaking(false)
+    },
+    []
+  )
 
   if (!open)
   {
@@ -72,7 +104,7 @@ export const BaseModal = ({
           'absolute inset-0 bg-black/60 animate-[fadeIn_100ms_ease-out]',
           backdropClassName
         )}
-        onClick={closeOnBackdrop ? onClose : undefined}
+        onClick={handleBackdropClick}
       />
       <div
         className={joinClassNames(
@@ -89,8 +121,11 @@ export const BaseModal = ({
           aria-label={ariaLabel}
           className={joinClassNames(
             'pointer-events-auto max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] shadow-2xl animate-[scaleIn_150ms_ease-out]',
-            panelClassName
+            panelClassName,
+            shaking && 'shake-x'
           )}
+          style={panelStyle}
+          onAnimationEnd={handleAnimationEnd}
         >
           {children}
         </div>

@@ -1,12 +1,10 @@
-// src/shared/overlay/useDismissibleLayer.ts
-// shared dismissal mechanics for popups, menus, panels, & dialogs
+// src/shared/overlay/dismissibleLayer.ts
+// outside interaction, Escape, & position-update handling for popups
 
 import { useEffect, type RefObject } from 'react'
 
-import { hasActiveModalLayer } from './useModalBackgroundInert'
+import { hasActiveModalLayer } from './modalLayer'
 
-// shared empty array — avoids allocating a fresh array per render when callers
-// omit `ignoreRefs`, which would otherwise force the effect to re-subscribe
 const EMPTY_IGNORE_REFS: ReadonlyArray<RefObject<HTMLElement | null>> = []
 
 interface UseDismissibleLayerOptions

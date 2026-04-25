@@ -1,11 +1,13 @@
 // src/shared/overlay/ConfirmDialog.tsx
-// modal confirmation dialog w/ cancel & destructive confirm actions
+// alert dialog for destructive or accent confirmations
 
 import { useId, useRef } from 'react'
 
-import { BaseModal } from '@/shared/overlay/BaseModal'
-import { PrimaryButton } from '@/shared/ui/PrimaryButton'
-import { SecondaryButton } from '@/shared/ui/SecondaryButton'
+import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { BaseModal } from './BaseModal'
+import { DialogActions } from './DialogActions'
+import { ModalHeader } from './ModalHeader'
 
 interface ConfirmDialogProps
 {
@@ -46,14 +48,12 @@ export const ConfirmDialog = ({
       escapePhase="capture"
       panelClassName="w-full max-w-sm p-4"
     >
-      <h2 id={titleId} className="text-lg font-semibold text-[var(--t-text)]">
-        {title}
-      </h2>
+      <ModalHeader titleId={titleId}>{title}</ModalHeader>
       <p id={descriptionId} className="mt-2 text-sm text-[var(--t-text-muted)]">
         {description}
       </p>
 
-      <div className="mt-4 flex justify-end gap-2">
+      <DialogActions>
         <SecondaryButton
           ref={cancelButtonRef}
           className="focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-overlay)]"
@@ -64,7 +64,7 @@ export const ConfirmDialog = ({
         <PrimaryButton tone={variant} onClick={onConfirm}>
           {confirmText}
         </PrimaryButton>
-      </div>
+      </DialogActions>
     </BaseModal>
   )
 }

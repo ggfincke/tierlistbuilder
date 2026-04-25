@@ -18,7 +18,7 @@ import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
-} from '@/shared/types/settings'
+} from '@tierlistbuilder/contracts/workspace/settings'
 import { getTextColor } from '../lib/color'
 import { joinClassNames } from '../lib/className'
 
@@ -43,8 +43,6 @@ interface BoardRowSurfaceProps
 {
   children: ReactNode
   className?: string
-  // explicit row background override — leaves the theme surface token in
-  // place when absent, so untouched rows still pick up theme changes
   backgroundOverride?: string | null
 }
 
@@ -71,8 +69,6 @@ interface BoardItemsGridProps extends HTMLAttributes<HTMLDivElement>
 {
   compactMode: boolean
   minHeightPx: number
-  // explicit grid background override — applied alongside the row surface
-  // override so the grid cell doesn't paint the theme color on top
   backgroundOverride?: string | null
 }
 
