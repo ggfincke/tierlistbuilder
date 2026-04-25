@@ -1,14 +1,32 @@
 // src/features/workspace/boards/model/slices/selectors.ts
 // cross-slice selectors derived from the combined active-board store
 
-import type { Tier } from '@/features/workspace/boards/model/contract'
-import type { ActiveBoardRuntimeState } from '@/features/workspace/boards/model/runtime'
-import type { ItemId } from '@/shared/types/ids'
+import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import type { ActiveBoardRuntimeState } from '~/features/workspace/boards/model/runtime'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
-// cached fallback item ID keyed by the exact tiers & unranked array refs;
-// avoids re-walking containers for every subscriber when the identity is
-// unchanged. selectKeyboardTabStopItemId is called once per TierItem per
-// state update, so on a 100-item board the naive walk is O(items²)
+// true while a pointer drag preview is active or a keyboard-drag group exists
+export const selectIsDragging = (
+  state: Pick<ActiveBoardRuntimeState, 'dragPreview' | 'dragGroupIds'>
+): boolean => state.dragPreview !== null || state.dragGroupIds.length > 0
+
+// whether the undo stack has anything to revert
+export const selectCanUndo = (
+  state: Pick<ActiveBoardRuntimeState, 'past'>
+): boolean => state.past.length > 0
+
+// whether the redo stack has anything to replay
+export const selectCanRedo = (
+  state: Pick<ActiveBoardRuntimeState, 'future'>
+): boolean => state.future.length > 0
+
+// true when the user is in keyboard-browse mode w/ at least one selected item
+export const selectHasKeyboardSelection = (
+  state: Pick<ActiveBoardRuntimeState, 'keyboardMode' | 'selection'>
+): boolean => state.keyboardMode === 'browse' && state.selection.ids.length > 0
+
+// cached fallback item ID keyed by tiers & unranked array refs;
+// avoids O(items²) re-walk when identity is unchanged across updates
 let cachedTiersRef: readonly Tier[] | null = null
 let cachedUnrankedRef: readonly ItemId[] | null = null
 let cachedFallback: ItemId | null = null
