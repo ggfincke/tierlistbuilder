@@ -6,39 +6,36 @@ import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import { createServer } from 'node:net'
 
+const customColorSpec = (hex) => ({ kind: 'custom', hex })
+
+const auditTier = (id, name, hex, itemIds = []) => ({
+  id,
+  name,
+  colorSpec: customColorSpec(hex),
+  itemIds,
+})
+
 const seededBoardState = {
   title: 'Drag Feel Audit',
   tiers: [
-    {
-      id: 'tier-s',
-      name: 'S',
-      color: '#f47c7c',
-      itemIds: ['sample-apex', 'sample-comet', 'sample-drift'],
-    },
-    { id: 'tier-a', name: 'A', color: '#f1b878', itemIds: [] },
-    { id: 'tier-b', name: 'B', color: '#edd77b', itemIds: [] },
-    { id: 'tier-c', name: 'C', color: '#e3ea78', itemIds: [] },
-    { id: 'tier-d', name: 'D', color: '#abe36d', itemIds: [] },
-    { id: 'tier-e', name: 'E', color: '#74e56d', itemIds: [] },
+    auditTier('tier-s', 'S', '#f47c7c', [
+      'sample-apex',
+      'sample-comet',
+      'sample-drift',
+    ]),
+    auditTier('tier-a', 'A', '#f1b878'),
+    auditTier('tier-b', 'B', '#edd77b'),
+    auditTier('tier-c', 'C', '#e3ea78'),
+    auditTier('tier-d', 'D', '#abe36d'),
+    auditTier('tier-e', 'E', '#74e56d'),
   ],
   unrankedItemIds: [],
   items: {
-    'sample-apex': {
-      id: 'sample-apex',
-      label: 'Apex',
-      imageUrl: '/sample-items/apex.jpg',
-    },
-    'sample-comet': {
-      id: 'sample-comet',
-      label: 'Comet',
-      imageUrl: '/sample-items/comet.jpg',
-    },
-    'sample-drift': {
-      id: 'sample-drift',
-      label: 'Drift',
-      imageUrl: '/sample-items/drift.jpg',
-    },
+    'sample-apex': { id: 'sample-apex', label: 'Apex' },
+    'sample-comet': { id: 'sample-comet', label: 'Comet' },
+    'sample-drift': { id: 'sample-drift', label: 'Drift' },
   },
+  deletedItems: [],
 }
 
 const buildTextItem = (id, label) => ({
@@ -61,22 +58,12 @@ const wrappedIncomingItemId = 'wrapped-incoming'
 const wrappedBoardState = {
   title: 'Wrapped Drag Audit',
   tiers: [
-    {
-      id: 'tier-s',
-      name: 'S',
-      color: '#f47c7c',
-      itemIds: wrappedTierOrder,
-    },
-    {
-      id: 'tier-a',
-      name: 'A',
-      color: '#f1b878',
-      itemIds: [wrappedIncomingItemId],
-    },
-    { id: 'tier-b', name: 'B', color: '#edd77b', itemIds: [] },
-    { id: 'tier-c', name: 'C', color: '#e3ea78', itemIds: [] },
-    { id: 'tier-d', name: 'D', color: '#abe36d', itemIds: [] },
-    { id: 'tier-e', name: 'E', color: '#74e56d', itemIds: [] },
+    auditTier('tier-s', 'S', '#f47c7c', wrappedTierOrder),
+    auditTier('tier-a', 'A', '#f1b878', [wrappedIncomingItemId]),
+    auditTier('tier-b', 'B', '#edd77b'),
+    auditTier('tier-c', 'C', '#e3ea78'),
+    auditTier('tier-d', 'D', '#abe36d'),
+    auditTier('tier-e', 'E', '#74e56d'),
   ],
   unrankedItemIds: [],
   items: Object.fromEntries(
@@ -85,32 +72,22 @@ const wrappedBoardState = {
       buildTextItem(itemId, `Wrapped ${index + 1}`),
     ])
   ),
+  deletedItems: [],
 }
 
 const keyboardBoardState = {
   title: 'Keyboard Drag Audit',
   tiers: [
-    {
-      id: 'tier-s',
-      name: 'S',
-      color: '#f47c7c',
-      itemIds: ['sample-apex', 'sample-comet', 'sample-drift'],
-    },
-    {
-      id: 'tier-a',
-      name: 'A',
-      color: '#f1b878',
-      itemIds: ['sample-blaze'],
-    },
-    { id: 'tier-b', name: 'B', color: '#edd77b', itemIds: [] },
-    { id: 'tier-c', name: 'C', color: '#e3ea78', itemIds: [] },
-    { id: 'tier-d', name: 'D', color: '#abe36d', itemIds: [] },
-    {
-      id: 'tier-e',
-      name: 'E',
-      color: '#74e56d',
-      itemIds: ['sample-ember'],
-    },
+    auditTier('tier-s', 'S', '#f47c7c', [
+      'sample-apex',
+      'sample-comet',
+      'sample-drift',
+    ]),
+    auditTier('tier-a', 'A', '#f1b878', ['sample-blaze']),
+    auditTier('tier-b', 'B', '#edd77b'),
+    auditTier('tier-c', 'C', '#e3ea78'),
+    auditTier('tier-d', 'D', '#abe36d'),
+    auditTier('tier-e', 'E', '#74e56d', ['sample-ember']),
   ],
   unrankedItemIds: ['sample-frost'],
   items: Object.fromEntries(
@@ -126,9 +103,14 @@ const keyboardBoardState = {
       buildTextItem(itemId, `Keyboard ${index + 1}`),
     ])
   ),
+  deletedItems: [],
 }
 
-const appStorageKey = 'tier-list-builder-state'
+const auditBoardId = 'board-drag-audit'
+const boardRegistryStorageKey = 'tier-list-builder-boards'
+const boardStorageKey = `tier-list-board-${auditBoardId}`
+const boardDataVersion = 1
+const boardRegistryStorageVersion = 1
 const expectedInitialOrder = ['sample-apex', 'sample-comet', 'sample-drift']
 const expectedSwapOrder = ['sample-comet', 'sample-apex', 'sample-drift']
 const expectedCometMoveOrder = ['sample-apex', 'sample-drift', 'sample-comet']
@@ -144,6 +126,11 @@ const wrappedExpectedAfterLeftOrder = [
   ...wrappedTierOrder.slice(0, -1),
   wrappedIncomingItemId,
   wrappedTierOrder[wrappedTierOrder.length - 1],
+]
+const wrappedExpectedKeyboardAfterLeftOrder = [
+  ...wrappedTierOrder.slice(0, -2),
+  wrappedIncomingItemId,
+  ...wrappedTierOrder.slice(-2),
 ]
 const sampledOffsets = [
   -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
@@ -488,13 +475,6 @@ const navigateAndWait = async (client, url) =>
 {
   const loaded = client.waitForEvent('Page.loadEventFired')
   await client.send('Page.navigate', { url })
-  await loaded
-}
-
-const reloadAndWait = async (client) =>
-{
-  const loaded = client.waitForEvent('Page.loadEventFired')
-  await client.send('Page.reload', { ignoreCache: true })
   await loaded
 }
 
@@ -854,14 +834,44 @@ const getRenderedRowCount = async (client, tierId) =>
   })()`)
 }
 
-const seedBoard = async (client, boardState = seededBoardState) =>
+const buildBoardSeedPayloads = (boardState) =>
 {
-  const payload = JSON.stringify({ state: boardState, version: 2 })
+  const registry = JSON.stringify({
+    state: {
+      boards: [
+        {
+          id: auditBoardId,
+          title: boardState.title,
+          createdAt: Date.now(),
+        },
+      ],
+      activeBoardId: auditBoardId,
+    },
+    version: boardRegistryStorageVersion,
+  })
+  const payload = JSON.stringify({
+    version: boardDataVersion,
+    data: boardState,
+  })
 
-  await client.evaluate(`(() => {
-    localStorage.setItem(${JSON.stringify(appStorageKey)}, ${JSON.stringify(payload)})
+  return { registry, payload }
+}
+
+const installBoardSeedScript = async (
+  client,
+  boardState = seededBoardState
+) =>
+{
+  const { registry, payload } = buildBoardSeedPayloads(boardState)
+  const result = await client.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `(() => {
+    localStorage.setItem(${JSON.stringify(boardRegistryStorageKey)}, ${JSON.stringify(registry)})
+    localStorage.setItem(${JSON.stringify(boardStorageKey)}, ${JSON.stringify(payload)})
     return true
-  })()`)
+  })()`,
+  })
+
+  return result.identifier
 }
 
 const resetSeededBoard = async (
@@ -871,9 +881,19 @@ const resetSeededBoard = async (
   expectedOrder = expectedInitialOrder
 ) =>
 {
-  await navigateAndWait(client, baseUrl)
-  await seedBoard(client, boardState)
-  await reloadAndWait(client)
+  const seedScriptId = await installBoardSeedScript(client, boardState)
+
+  try
+  {
+    await navigateAndWait(client, baseUrl)
+  }
+  finally
+  {
+    await client.send('Page.removeScriptToEvaluateOnNewDocument', {
+      identifier: seedScriptId,
+    })
+  }
+
   await waitForCondition(
     client,
     `(() => {
@@ -1062,13 +1082,12 @@ const runKeyboardAudit = async (client, baseUrl) =>
   )
 
   await focusItem(client, 'sample-apex')
-  await pressSpace(client)
   const browseEntryState = await getKeyboardState(client)
 
   assert.equal(
     browseEntryState.keyboardMode,
     'browse',
-    'The first Space press should enter keyboard browse mode'
+    'Focusing an item should enter keyboard browse mode'
   )
   assert.equal(
     browseEntryState.keyboardFocusItem,
@@ -1078,7 +1097,7 @@ const runKeyboardAudit = async (client, baseUrl) =>
   assert.equal(
     browseEntryState.draggingItem,
     null,
-    'Entering keyboard mode should not pick up an item yet'
+    'Browse entry should not pick up an item yet'
   )
 
   await pressArrowKey(client, 'ArrowRight')
@@ -1116,7 +1135,7 @@ const runKeyboardAudit = async (client, baseUrl) =>
   assert.equal(
     pickupState.keyboardMode,
     'dragging',
-    'The second Space press should pick up the focused item'
+    'Space should pick up the focused item from browse mode'
   )
   assert.equal(
     pickupState.draggingItem,
@@ -1165,7 +1184,6 @@ const runKeyboardAudit = async (client, baseUrl) =>
   )
 
   await focusItem(client, 'sample-apex')
-  await pressSpace(client)
   await pressSpace(client)
   await pressArrowKey(client, 'ArrowDown')
   const crossTierPreview = await getKeyboardState(client)
@@ -1224,7 +1242,6 @@ const runKeyboardAudit = async (client, baseUrl) =>
 
   await focusItem(client, 'sample-apex')
   await pressSpace(client)
-  await pressSpace(client)
   await pressArrowKey(client, 'ArrowLeft')
   const boundaryPreview = await getKeyboardState(client)
 
@@ -1271,15 +1288,14 @@ const runKeyboardAudit = async (client, baseUrl) =>
   )
 
   await focusItem(client, 'sample-apex')
-  await pressSpace(client)
   await pressArrowKey(client, 'ArrowRight')
   await pressEscape(client)
   const escapeBrowseState = await getKeyboardState(client)
 
   assert.equal(
     escapeBrowseState.keyboardMode,
-    'idle',
-    'Escape should exit keyboard browse mode'
+    'browse',
+    'Escape in browse mode without selection should keep browse mode'
   )
   assert.deepEqual(
     escapeBrowseState.tierS,
@@ -1301,15 +1317,14 @@ const runKeyboardAudit = async (client, baseUrl) =>
 
   await focusItem(client, 'sample-apex')
   await pressSpace(client)
-  await pressSpace(client)
   await pressArrowKey(client, 'ArrowDown')
   await pressEscape(client)
   const escapeDraggingState = await getKeyboardState(client)
 
   assert.equal(
     escapeDraggingState.keyboardMode,
-    'idle',
-    'Escape should exit keyboard drag mode'
+    'browse',
+    'Escape should cancel keyboard drag mode back to browse mode'
   )
   assert.deepEqual(
     escapeDraggingState.tierS,
@@ -1335,7 +1350,6 @@ const runKeyboardAudit = async (client, baseUrl) =>
   )
 
   await focusItem(client, 'sample-apex')
-  await pressSpace(client)
   await pressArrowKey(client, 'ArrowRight')
   await clickTierContainer(client, 'tier-b')
   const pointerBrowseExitState = await getKeyboardState(client)
@@ -1359,7 +1373,6 @@ const runKeyboardAudit = async (client, baseUrl) =>
   )
 
   await focusItem(client, 'sample-apex')
-  await pressSpace(client)
   await pressSpace(client)
   await pressArrowKey(client, 'ArrowDown')
   await clickTierContainer(client, 'tier-b')
@@ -1389,7 +1402,6 @@ const runKeyboardAudit = async (client, baseUrl) =>
   )
 
   await focusItem(client, 'sample-ember')
-  await pressSpace(client)
   await pressSpace(client)
   await pressArrowKey(client, 'ArrowDown')
   const lastTierPreview = await getKeyboardState(client)
@@ -1442,7 +1454,6 @@ const runKeyboardAudit = async (client, baseUrl) =>
   )
 
   await focusItem(client, 'sample-frost')
-  await pressSpace(client)
   await pressSpace(client)
   await pressArrowKey(client, 'ArrowUp')
   const unrankedPreview = await getKeyboardState(client)
@@ -1507,14 +1518,13 @@ const runKeyboardAudit = async (client, baseUrl) =>
 
     await focusItem(client, wrappedIncomingItemId)
     await pressSpace(client)
-    await pressSpace(client)
     await pressArrowKey(client, 'ArrowUp')
     const wrappedAppendPreview = await getKeyboardState(client)
 
     assert.deepEqual(
       wrappedAppendPreview.tierS,
-      wrappedExpectedAppendedOrder,
-      'ArrowUp into a wrapped higher tier should append to the end'
+      wrappedExpectedAfterLeftOrder,
+      'ArrowUp into a wrapped higher tier should preserve rendered column'
     )
     assert.equal(
       wrappedAppendPreview.draggingItem,
@@ -1527,8 +1537,8 @@ const runKeyboardAudit = async (client, baseUrl) =>
 
     assert.deepEqual(
       wrappedAfterLeftPreview.tierS,
-      wrappedExpectedAfterLeftOrder,
-      'After appending upward, ArrowLeft should reposition within the target tier'
+      wrappedExpectedKeyboardAfterLeftOrder,
+      'After column-aware upward movement, ArrowLeft should reposition within the target tier'
     )
 
     await pressSpace(client)
@@ -1536,7 +1546,7 @@ const runKeyboardAudit = async (client, baseUrl) =>
 
     assert.deepEqual(
       wrappedFinal.tierS,
-      wrappedExpectedAfterLeftOrder,
+      wrappedExpectedKeyboardAfterLeftOrder,
       'Wrapped upward keyboard drop should preserve the preview order'
     )
     assert.equal(

@@ -3,7 +3,7 @@
 // Usage: npm run screenshots (requires dev server running on localhost:5173)
 
 import { chromium } from 'playwright'
-import { existsSync, mkdirSync, statSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, statSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -42,6 +42,25 @@ const TOOLBAR_POSITIONS = ['top', 'bottom', 'left', 'right']
 
 // Zustand settings store key (matches SETTINGS_STORAGE_KEY in storage.ts)
 const SETTINGS_KEY = 'tier-list-builder-settings'
+
+// parse SETTINGS_STORAGE_VERSION out of the source of truth so this script
+// stays in sync w/ the store version w/o needing a TS loader
+function readSettingsStorageVersion()
+{
+  const source = readFileSync(
+    join(
+      __dirname,
+      '..',
+      'src/features/workspace/settings/data/local/settingsStorage.ts'
+    ),
+    'utf8'
+  )
+  const match = source.match(/SETTINGS_STORAGE_VERSION\s*=\s*(\d+)/)
+  if (!match) throw new Error('could not parse SETTINGS_STORAGE_VERSION')
+  return Number.parseInt(match[1], 10)
+}
+
+const SETTINGS_STORAGE_VERSION = readSettingsStorageVersion()
 
 function formatSize(bytes)
 {
@@ -85,12 +104,10 @@ function buildSettingsPayload(position)
       tierLabelFontSize: 'small',
       boardLocked: false,
       reducedMotion: false,
-      preHighContrastThemeId: null,
-      preHighContrastPaletteId: null,
       toolbarPosition: position,
       showAltTextButton: false,
     },
-    version: 11,
+    version: SETTINGS_STORAGE_VERSION,
   })
 }
 
