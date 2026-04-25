@@ -2,12 +2,13 @@
 // keyboard browse & drag controller for tier list items
 
 import { useCallback } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
-import { useSettingsStore } from '@/features/workspace/settings/model/useSettingsStore'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import {
   selectKeyboardTabStopItemId,
   useActiveBoardStore,
-} from '@/features/workspace/boards/model/useActiveBoardStore'
+} from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   KEYBOARD_DIRECTIONS,
   handleKeyboardArrowKey,
@@ -15,8 +16,8 @@ import {
   handleKeyboardItemFocus,
   handleKeyboardSpaceKey,
 } from './keyboardDragController'
-import type { KeyboardDragDirection } from '@/features/workspace/boards/dnd/dragKeyboard'
-import type { ItemId } from '@/shared/types/ids'
+import type { KeyboardDragDirection } from '~/features/workspace/boards/dnd/dragKeyboard'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 // expose the shared selector for components that just need the tab-stop id
 export const useKeyboardTabStopItemId = (): ItemId | null =>
@@ -25,15 +26,17 @@ export const useKeyboardTabStopItemId = (): ItemId | null =>
 // keyboard browse & drag hook — returns reactive state & event handlers
 export const useKeyboardDrag = (itemId: ItemId) =>
 {
-  const isKeyboardFocused = useActiveBoardStore(
-    (state) => state.keyboardFocusItemId === itemId
-  )
-  const isKeyboardDragging = useActiveBoardStore(
-    (state) =>
-      state.keyboardMode === 'dragging' && state.activeItemId === itemId
-  )
-  const tabStopItemId = useKeyboardTabStopItemId()
-  const isKeyboardTabStop = tabStopItemId === itemId
+  // single useShallow keeps per-item listener count at 1 instead of 3;
+  // on a 100-item board that's 200 fewer zustand subscribers per render cycle
+  const { isKeyboardFocused, isKeyboardDragging, isKeyboardTabStop } =
+    useActiveBoardStore(
+      useShallow((state) => ({
+        isKeyboardFocused: state.keyboardFocusItemId === itemId,
+        isKeyboardDragging:
+          state.keyboardMode === 'dragging' && state.activeItemId === itemId,
+        isKeyboardTabStop: selectKeyboardTabStopItemId(state) === itemId,
+      }))
+    )
 
   const handleSpaceKey = useCallback(() =>
   {
