@@ -6,6 +6,8 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 import {
   appSettingsValidator,
+  templateCategoryValidator,
+  templateVisibilityValidator,
   tierColorSpecValidator,
   tierPresetTiersValidator,
 } from './lib/validators'
@@ -66,6 +68,8 @@ export default defineSchema({
     defaultItemImageFit: v.optional(
       v.union(v.literal('cover'), v.literal('contain'))
     ),
+    // source template for boards created through "Use this template"
+    sourceTemplateId: v.optional(v.id('templates')),
   })
     // ordered index powering getMyBoards & getMyDeletedBoards — eq on (ownerId,
     // deletedAt) + order('desc') yields the active or deleted set sorted by
@@ -114,6 +118,8 @@ export default defineSchema({
         offsetY: v.number(),
       })
     ),
+    // source marketplace item for future aggregate-ranking features
+    templateItemId: v.optional(v.id('templateItems')),
   })
     .index('byBoardAndTier', ['boardId', 'tierId', 'order'])
     .index('byMedia', ['mediaAssetId']),
@@ -148,6 +154,99 @@ export default defineSchema({
     // preset CRUD mutations short-circuit a separate ownership check after
     // the row lookup
     .index('byOwnerAndExternalId', ['ownerId', 'externalId']),
+
+  // public marketplace template — publishable item set w/ optional suggested tiers
+  templates: defineTable({
+    slug: v.string(),
+    authorId: v.id('users'),
+    title: v.string(),
+    description: v.union(v.string(), v.null()),
+    category: templateCategoryValidator,
+    tags: v.array(v.string()),
+    visibility: templateVisibilityValidator,
+    coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    suggestedTiers: tierPresetTiersValidator,
+    sourceBoardExternalId: v.union(v.string(), v.null()),
+    itemCount: v.number(),
+    useCount: v.number(),
+    viewCount: v.number(),
+    featuredRank: v.union(v.number(), v.null()),
+    creditLine: v.union(v.string(), v.null()),
+    searchText: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    unpublishedAt: v.union(v.number(), v.null()),
+  })
+    .index('bySlug', ['slug'])
+    .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
+    .index('byCoverMedia', ['coverMediaAssetId'])
+    .index('byVisibilityUnpublishedUpdatedAt', [
+      'visibility',
+      'unpublishedAt',
+      'updatedAt',
+    ])
+    .index('byVisibilityUnpublishedUseCount', [
+      'visibility',
+      'unpublishedAt',
+      'useCount',
+    ])
+    .index('byVisibilityUnpublishedFeaturedRank', [
+      'visibility',
+      'unpublishedAt',
+      'featuredRank',
+    ])
+    .index('byCategoryVisibilityUnpublishedUpdatedAt', [
+      'category',
+      'visibility',
+      'unpublishedAt',
+      'updatedAt',
+    ])
+    .index('byCategoryVisibilityUnpublishedUseCount', [
+      'category',
+      'visibility',
+      'unpublishedAt',
+      'useCount',
+    ])
+    .index('byCategoryVisibilityUnpublishedFeaturedRank', [
+      'category',
+      'visibility',
+      'unpublishedAt',
+      'featuredRank',
+    ])
+    .searchIndex('searchPublic', {
+      searchField: 'searchText',
+      filterFields: ['visibility', 'unpublishedAt', 'category'],
+    }),
+
+  // immutable-ish template item rows. rankings clone these into boardItems
+  // as unranked entries, preserving templateItemId for future aggregation
+  templateItems: defineTable({
+    templateId: v.id('templates'),
+    externalId: v.string(),
+    label: v.union(v.string(), v.null()),
+    backgroundColor: v.union(v.string(), v.null()),
+    altText: v.union(v.string(), v.null()),
+    mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    order: v.number(),
+    aspectRatio: v.union(v.number(), v.null()),
+    imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+    transform: v.union(
+      v.object({
+        rotation: v.union(
+          v.literal(0),
+          v.literal(90),
+          v.literal(180),
+          v.literal(270)
+        ),
+        zoom: v.number(),
+        offsetX: v.number(),
+        offsetY: v.number(),
+      }),
+      v.null()
+    ),
+  })
+    .index('byTemplate', ['templateId', 'order'])
+    .index('byMedia', ['mediaAssetId']),
 
   // short URL indirection for shareable snapshot blobs. slug -> compressed
   // BoardSnapshot bytes in _storage
