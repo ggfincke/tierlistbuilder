@@ -12,6 +12,7 @@
     "./workspace/cloudPreset": "./workspace/cloudPreset.ts",
     "./workspace/tierPreset": "./workspace/tierPreset.ts",
     "./workspace/settings": "./workspace/settings.ts",
+    "./marketplace/template": "./marketplace/template.ts",
     "./platform/errors": "./platform/errors.ts",
     "./platform/media": "./platform/media.ts",
     "./platform/shortLink": "./platform/shortLink.ts",

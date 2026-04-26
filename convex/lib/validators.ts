@@ -21,6 +21,21 @@ import {
   type ThemeId,
 } from '@tierlistbuilder/contracts/lib/theme'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
+import {
+  TEMPLATE_CATEGORIES,
+  TEMPLATE_LIST_SORTS,
+  TEMPLATE_VISIBILITIES,
+  type MarketplaceTemplateDetail,
+  type MarketplaceTemplateItem,
+  type MarketplaceTemplateListResult,
+  type MarketplaceTemplatePublishResult,
+  type MarketplaceTemplateSummary,
+  type MarketplaceTemplateUseResult,
+  type TemplateCategory,
+  type TemplateListSort,
+  type TemplateMediaRef,
+  type TemplateVisibility,
+} from '@tierlistbuilder/contracts/marketplace/template'
 import type {
   BoardListItem,
   DeletedBoardListItem,
@@ -78,6 +93,9 @@ const itemShapeValidator = literalUnion(ITEM_SHAPES)
 const labelWidthValidator = literalUnion(LABEL_WIDTHS)
 const tierLabelFontSizeValidator = literalUnion(TIER_LABEL_FONT_SIZES)
 const toolbarPositionValidator = literalUnion(TOOLBAR_POSITIONS)
+export const templateCategoryValidator = literalUnion(TEMPLATE_CATEGORIES)
+export const templateListSortValidator = literalUnion(TEMPLATE_LIST_SORTS)
+export const templateVisibilityValidator = literalUnion(TEMPLATE_VISIBILITIES)
 
 // full AppSettings shape — must stay in sync w/ packages/contracts/workspace/settings.ts
 export const appSettingsValidator = v.object({
@@ -143,6 +161,37 @@ export type _TierPresetTierCovers = _Assert<
 >
 export type _TierPresetTierNoExtra = _Assert<
   Infer<typeof tierPresetTierValidator> extends TierPresetTier ? true : false
+>
+
+export type _TemplateCategoryCovers = _Assert<
+  TemplateCategory extends Infer<typeof templateCategoryValidator>
+    ? true
+    : false
+>
+export type _TemplateCategoryNoExtra = _Assert<
+  Infer<typeof templateCategoryValidator> extends TemplateCategory
+    ? true
+    : false
+>
+export type _TemplateVisibilityCovers = _Assert<
+  TemplateVisibility extends Infer<typeof templateVisibilityValidator>
+    ? true
+    : false
+>
+export type _TemplateVisibilityNoExtra = _Assert<
+  Infer<typeof templateVisibilityValidator> extends TemplateVisibility
+    ? true
+    : false
+>
+export type _TemplateListSortCovers = _Assert<
+  TemplateListSort extends Infer<typeof templateListSortValidator>
+    ? true
+    : false
+>
+export type _TemplateListSortNoExtra = _Assert<
+  Infer<typeof templateListSortValidator> extends TemplateListSort
+    ? true
+    : false
 >
 
 // return-value validators — used by `returns:` on queries & mutations so the
@@ -256,6 +305,98 @@ export const ownedShortLinkListItemValidator = v.object({
   expiresAt: v.number(),
 })
 
+export const templateAuthorValidator = v.object({
+  id: v.string(),
+  displayName: v.string(),
+  avatarUrl: v.union(v.string(), v.null()),
+})
+
+export const templateMediaRefValidator = v.object({
+  externalId: v.string(),
+  contentHash: v.string(),
+  url: v.string(),
+  width: v.number(),
+  height: v.number(),
+  mimeType: v.string(),
+})
+
+export const marketplaceTemplateSummaryValidator = v.object({
+  slug: v.string(),
+  title: v.string(),
+  description: v.union(v.string(), v.null()),
+  category: templateCategoryValidator,
+  tags: v.array(v.string()),
+  visibility: templateVisibilityValidator,
+  author: templateAuthorValidator,
+  coverMedia: v.union(templateMediaRefValidator, v.null()),
+  itemCount: v.number(),
+  useCount: v.number(),
+  viewCount: v.number(),
+  featuredRank: v.union(v.number(), v.null()),
+  creditLine: v.union(v.string(), v.null()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  unpublishedAt: v.union(v.number(), v.null()),
+})
+
+export const marketplaceTemplateItemValidator = v.object({
+  externalId: v.string(),
+  label: v.union(v.string(), v.null()),
+  backgroundColor: v.union(v.string(), v.null()),
+  altText: v.union(v.string(), v.null()),
+  media: v.union(templateMediaRefValidator, v.null()),
+  order: v.number(),
+  aspectRatio: v.union(v.number(), v.null()),
+  imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+  transform: v.union(
+    v.object({
+      rotation: v.union(
+        v.literal(0),
+        v.literal(90),
+        v.literal(180),
+        v.literal(270)
+      ),
+      zoom: v.number(),
+      offsetX: v.number(),
+      offsetY: v.number(),
+    }),
+    v.null()
+  ),
+})
+
+export const marketplaceTemplateDetailValidator = v.object({
+  slug: v.string(),
+  title: v.string(),
+  description: v.union(v.string(), v.null()),
+  category: templateCategoryValidator,
+  tags: v.array(v.string()),
+  visibility: templateVisibilityValidator,
+  author: templateAuthorValidator,
+  coverMedia: v.union(templateMediaRefValidator, v.null()),
+  itemCount: v.number(),
+  useCount: v.number(),
+  viewCount: v.number(),
+  featuredRank: v.union(v.number(), v.null()),
+  creditLine: v.union(v.string(), v.null()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  unpublishedAt: v.union(v.number(), v.null()),
+  suggestedTiers: tierPresetTiersValidator,
+  items: v.array(marketplaceTemplateItemValidator),
+})
+
+export const marketplaceTemplateListResultValidator = v.object({
+  items: v.array(marketplaceTemplateSummaryValidator),
+})
+
+export const marketplaceTemplatePublishResultValidator = v.object({
+  slug: v.string(),
+})
+
+export const marketplaceTemplateUseResultValidator = v.object({
+  boardExternalId: v.string(),
+})
+
 // coverage asserts — contract-side renames or added fields not reflected in
 // the validators above fail the build. each pair covers both directions
 export type _BoardListItemCovers = _Assert<
@@ -334,6 +475,103 @@ export type _OwnedShortLinkListItemCovers = _Assert<
 >
 export type _OwnedShortLinkListItemNoExtra = _Assert<
   Infer<typeof ownedShortLinkListItemValidator> extends OwnedShortLinkListItem
+    ? true
+    : false
+>
+
+export type _TemplateMediaRefCovers = _Assert<
+  TemplateMediaRef extends Infer<typeof templateMediaRefValidator>
+    ? true
+    : false
+>
+export type _TemplateMediaRefNoExtra = _Assert<
+  Infer<typeof templateMediaRefValidator> extends TemplateMediaRef
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateSummaryCovers = _Assert<
+  MarketplaceTemplateSummary extends Infer<
+    typeof marketplaceTemplateSummaryValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateSummaryNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateSummaryValidator
+  > extends MarketplaceTemplateSummary
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateItemCovers = _Assert<
+  MarketplaceTemplateItem extends Infer<typeof marketplaceTemplateItemValidator>
+    ? true
+    : false
+>
+export type _MarketplaceTemplateItemNoExtra = _Assert<
+  Infer<typeof marketplaceTemplateItemValidator> extends MarketplaceTemplateItem
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateDetailCovers = _Assert<
+  MarketplaceTemplateDetail extends Infer<
+    typeof marketplaceTemplateDetailValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateDetailNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateDetailValidator
+  > extends MarketplaceTemplateDetail
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateListResultCovers = _Assert<
+  MarketplaceTemplateListResult extends Infer<
+    typeof marketplaceTemplateListResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateListResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateListResultValidator
+  > extends MarketplaceTemplateListResult
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplatePublishResultCovers = _Assert<
+  MarketplaceTemplatePublishResult extends Infer<
+    typeof marketplaceTemplatePublishResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplatePublishResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplatePublishResultValidator
+  > extends MarketplaceTemplatePublishResult
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateUseResultCovers = _Assert<
+  MarketplaceTemplateUseResult extends Infer<
+    typeof marketplaceTemplateUseResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateUseResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateUseResultValidator
+  > extends MarketplaceTemplateUseResult
     ? true
     : false
 >

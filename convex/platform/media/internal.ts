@@ -95,8 +95,8 @@ export const gcOrphanedMediaAssets = internalMutation({
       eligible.push(asset)
     }
 
-    // parallel reachability checks via chunked Promise.all — respects REFERENCE_CHECK_CONCURRENCY
-    // to avoid fan-out that would spike the function's read budget
+    // parallel reachability checks via chunked Promise.all — respects
+    // REFERENCE_CHECK_CONCURRENCY to avoid fan-out that would spike reads
     const orphaned: Doc<'mediaAssets'>[] = []
     for (let i = 0; i < eligible.length; i += REFERENCE_CHECK_CONCURRENCY)
     {
@@ -104,11 +104,29 @@ export const gcOrphanedMediaAssets = internalMutation({
       const flags = await Promise.all(
         chunk.map(async (asset) =>
         {
-          const referenced = await ctx.db
-            .query('boardItems')
-            .withIndex('byMedia', (q) => q.eq('mediaAssetId', asset._id))
-            .take(1)
-          return referenced.length === 0
+          const [boardRefs, templateItemRefs, templateCoverRefs] =
+            await Promise.all([
+              ctx.db
+                .query('boardItems')
+                .withIndex('byMedia', (q) => q.eq('mediaAssetId', asset._id))
+                .take(1),
+              ctx.db
+                .query('templateItems')
+                .withIndex('byMedia', (q) => q.eq('mediaAssetId', asset._id))
+                .take(1),
+              ctx.db
+                .query('templates')
+                .withIndex('byCoverMedia', (q) =>
+                  q.eq('coverMediaAssetId', asset._id)
+                )
+                .take(1),
+            ])
+
+          return (
+            boardRefs.length === 0 &&
+            templateItemRefs.length === 0 &&
+            templateCoverRefs.length === 0
+          )
         })
       )
       for (let j = 0; j < chunk.length; j++)

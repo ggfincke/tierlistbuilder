@@ -26,7 +26,7 @@ We focus on testing critical pure-function logic that, if broken, would cause si
   progress normalization
 - **Image Crop Math**: Manual-crop sizing & pan-offset CSS positioning
 - **Backend Selectors & Contracts**: Short-link listing, upload envelopes,
-  image upload validation, and Convex query/mutation limit edges
+  image upload validation, public templates, and Convex query/mutation limit edges
 - **Sync Runner Contracts**: Shared debounce/retry hooks, conflict pauses, and
   workspace scheduler adapter behavior
 
@@ -80,6 +80,7 @@ tests/
 │   ├── boardUpsertLimits.test.ts    — real Convex board sync caps, media refs, & tombstones
 │   ├── convexTestHelpers.ts         — Convex test module harness
 │   ├── imageValidation.test.ts      — Convex image validation helpers
+│   ├── marketplaceTemplates.test.ts — public template publish/list/use flows
 │   ├── shortLinksIntegration.test.ts — real Convex owner+expiry listing query
 │   └── shortLinksListing.test.ts    — live short-link listing selection
 ├── data/

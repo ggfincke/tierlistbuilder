@@ -104,6 +104,7 @@ src/
 
 packages/contracts/                  # @tierlistbuilder/contracts — cross-runtime wire types
 ├── lib/                             # ids, theme, themeDefinition
+├── marketplace/                     # public template marketplace contracts
 ├── workspace/                       # board, boardEnvelope, boardSync, cloudBoard, cloudPreset, settings, tierPreset
 └── platform/                        # errors, media, shortLink, uploadEnvelope, user
 ```

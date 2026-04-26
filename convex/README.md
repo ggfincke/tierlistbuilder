@@ -57,6 +57,8 @@ convex/
   platform/
     media/            # mediaAssets uploads (signed envelopes), queries, GC
     shortLinks/       # share-link slug resolution, listing, mutations, TTL sweeper
+  marketplace/
+    templates/        # public template publishing, gallery reads, clone-to-board
   workspace/
     boards/           # boards CRUD + cascade delete + upsertBoardState
     settings/         # userSettings get/upsert
