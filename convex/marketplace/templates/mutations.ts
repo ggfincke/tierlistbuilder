@@ -16,7 +16,10 @@ import type {
   MarketplaceTemplateUseResult,
   TemplateUseTierSelection,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  MAX_TEMPLATE_COVER_ITEMS,
+  isTemplateSlug,
+} from '@tierlistbuilder/contracts/marketplace/template'
 import { requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
 import {
@@ -190,6 +193,10 @@ export const publishFromBoard = mutation({
     const fallbackCoverMediaId =
       activeItems.find((item) => item.mediaAssetId !== null)?.mediaAssetId ??
       null
+    const coverItemMediaAssetIds = activeItems
+      .map((item) => item.mediaAssetId)
+      .filter((id): id is Id<'mediaAssets'> => id !== null)
+      .slice(0, MAX_TEMPLATE_COVER_ITEMS)
     const coverMediaAssetId = await resolveCoverMediaId(
       ctx,
       userId,
@@ -210,6 +217,7 @@ export const publishFromBoard = mutation({
       tags,
       visibility: args.visibility,
       coverMediaAssetId,
+      coverItemMediaAssetIds,
       suggestedTiers,
       sourceBoardExternalId: board.externalId,
       itemCount: activeItems.length,

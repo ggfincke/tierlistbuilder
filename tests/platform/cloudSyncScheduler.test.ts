@@ -366,6 +366,7 @@ describe('cloud sync scheduler', () =>
         kind: 'convex',
         code: CONVEX_ERROR_CODES.forbidden,
         permanent: true,
+        retryAfter: null,
         cause: new Error('forbidden'),
       },
     })
@@ -402,6 +403,60 @@ describe('cloud sync scheduler', () =>
     await flushPromises()
 
     expect(flush).toHaveBeenCalledTimes(1)
+
+    await scheduler.dispose()
+  })
+
+  it('honors rate-limit retryAfter before retrying or flushing newer edits', async () =>
+  {
+    const persistSyncState = vi.fn()
+    const persistPendingWork = makePersistPendingWork()
+    const persistSyncStateToStorage = vi.fn()
+    const onError = vi.fn()
+    const flush = vi
+      .fn<(work: PendingBoardSync) => Promise<FlushResult>>()
+      .mockResolvedValueOnce({
+        kind: 'error',
+        error: {
+          kind: 'convex',
+          code: CONVEX_ERROR_CODES.rateLimited,
+          permanent: false,
+          retryAfter: 40,
+          cause: new Error('rate limited'),
+        },
+      })
+      .mockResolvedValueOnce(synced(8, 'cloud-a'))
+
+    const scheduler = createCloudSyncScheduler({
+      debounceMs: 5,
+      hasBoard: () => true,
+      flush,
+      persistPendingWork,
+      persistSyncState,
+      persistSyncStateToStorage,
+      onError,
+    })
+
+    scheduler.queue(makeWork('board-a' as BoardId, 'First'))
+    vi.advanceTimersByTime(5)
+    await flushPromises()
+
+    scheduler.queue(makeWork('board-a' as BoardId, 'Second'))
+    vi.advanceTimersByTime(39)
+    await flushPromises()
+
+    expect(flush).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(1)
+    await flushPromises()
+
+    expect(flush).toHaveBeenCalledTimes(2)
+    expect(flush.mock.calls[1][0].snapshot.title).toBe('Second')
+    expect(persistSyncState).toHaveBeenLastCalledWith('board-a', {
+      lastSyncedRevision: 8,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: null,
+    })
 
     await scheduler.dispose()
   })

@@ -2,6 +2,8 @@
 // full interactive workspace shell w/ board UI, modals, panels, & overlays
 
 import { useCallback, type MouseEvent } from 'react'
+import { Library } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
@@ -18,7 +20,7 @@ import { TierList } from '~/features/workspace/boards/ui/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
-import { getWorkspacePath } from '~/app/routes/pathname'
+import { TEMPLATES_ROUTE_PATH, getWorkspacePath } from '~/app/routes/pathname'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
@@ -143,6 +145,14 @@ export const WorkspaceShell = () =>
         >
           Skip to board
         </a>
+        <Link
+          to={TEMPLATES_ROUTE_PATH}
+          className="focus-custom absolute right-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:right-6 sm:top-6"
+          aria-label="Open templates marketplace"
+        >
+          <Library className="h-3.5 w-3.5" strokeWidth={1.8} />
+          Templates
+        </Link>
         <div className="app-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
           <BoardHeader />
 

@@ -7,7 +7,10 @@ import type {
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { snapshotToCloudPayload } from '~/features/workspace/boards/data/cloud/boardMapper'
+import {
+  serverStateToSnapshot,
+  snapshotToCloudPayload,
+} from '~/features/workspace/boards/data/cloud/boardMapper'
 import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
 import { makeBoardSnapshot, makeTier } from '../fixtures'
 
@@ -70,6 +73,29 @@ describe('snapshotToCloudPayload media mapping', () =>
     expect(payload.items[0].mediaExternalId).toBe('media-existing')
   })
 
+  it('maps source image refs separately from display image refs', () =>
+  {
+    const payload = snapshotToCloudPayload(
+      makeBoardWithItem({
+        id: asItemId('item-1'),
+        imageRef: { hash: 'display-hash' },
+        sourceImageRef: { hash: 'source-hash' },
+      }),
+      {
+        ...emptyUploadResult(),
+        mediaExternalIdByHash: new Map([
+          ['display-hash', 'media-display'],
+          ['source-hash', 'media-source'],
+        ]),
+      }
+    )
+
+    expect(payload.items[0]).toMatchObject({
+      mediaExternalId: 'media-display',
+      sourceMediaExternalId: 'media-source',
+    })
+  })
+
   it('throws when a hash-backed image has no upload mapping or cloud id', () =>
   {
     expect(() =>
@@ -94,6 +120,7 @@ describe('snapshotToCloudPayload media mapping', () =>
     )
 
     expect(payload.items[0].mediaExternalId).toBeNull()
+    expect(payload.items[0].sourceMediaExternalId).toBeNull()
   })
 
   it('uses the deleted-item sentinel order', () =>
@@ -195,5 +222,39 @@ describe('snapshotToCloudPayload media mapping', () =>
         payload.items.find((item) => item.externalId === id)?.transform
       ).toEqual(expected)
     }
+  })
+})
+
+describe('serverStateToSnapshot media mapping', () =>
+{
+  it('restores display and source image refs from cloud media fields', () =>
+  {
+    const itemId = asItemId('item-1')
+    const snapshot = serverStateToSnapshot({
+      title: 'Board',
+      revision: 3,
+      tiers: [],
+      items: [
+        {
+          externalId: itemId,
+          tierId: null,
+          mediaExternalId: 'media-display',
+          sourceMediaExternalId: 'media-source',
+          mediaContentHash: 'display-hash',
+          sourceMediaContentHash: 'source-hash',
+          order: 0,
+          deletedAt: null,
+        },
+      ],
+    })
+
+    expect(snapshot.items[itemId].imageRef).toEqual({
+      hash: 'display-hash',
+      cloudMediaExternalId: 'media-display',
+    })
+    expect(snapshot.items[itemId].sourceImageRef).toEqual({
+      hash: 'source-hash',
+      cloudMediaExternalId: 'media-source',
+    })
   })
 })

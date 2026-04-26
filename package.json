@@ -34,7 +34,7 @@
     "@uiw/color-convert": "^2.9.6",
     "@uiw/react-color-shade-slider": "^2.9.6",
     "@uiw/react-color-wheel": "^2.9.6",
-    "convex": "^1.35.1",
+    "convex": "^1.36.1",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.0",
     "jszip": "^3.10.1",
@@ -42,6 +42,7 @@
     "pako": "^2.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^6.30.3",
     "tailwindcss": "^4.2.1",
     "zustand": "^5.0.11"
   },

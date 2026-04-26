@@ -58,6 +58,7 @@ const wireItemValidator = v.object({
   backgroundColor: v.optional(v.string()),
   altText: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
+  sourceMediaExternalId: v.optional(v.union(v.string(), v.null())),
   order: v.number(),
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
@@ -184,6 +185,13 @@ const validateInputs = (args: UpsertArgs): void =>
     {
       failInput('invalid mediaExternalId: must start with "media-"')
     }
+    if (
+      item.sourceMediaExternalId &&
+      !item.sourceMediaExternalId.startsWith('media-')
+    )
+    {
+      failInput('invalid sourceMediaExternalId: must start with "media-"')
+    }
     if (item.transform)
     {
       const { zoom, offsetX, offsetY } = item.transform
@@ -286,6 +294,10 @@ const resolveMediaReferences = async (
   for (const item of items)
   {
     if (item.mediaExternalId) mediaExternalIds.add(item.mediaExternalId)
+    if (item.sourceMediaExternalId)
+    {
+      mediaExternalIds.add(item.sourceMediaExternalId)
+    }
   }
 
   // parallel lookups — media table is indexed by externalId & requests are independent

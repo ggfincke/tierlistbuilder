@@ -23,24 +23,18 @@ export const loadBoundedBoardRows = async (
   boardId: Id<'boards'>
 ): Promise<BoardSyncRows> =>
 {
-  const [tierPage, itemPage] = await Promise.all([
+  const [serverTiers, serverItems] = await Promise.all([
     ctx.db
       .query('boardTiers')
       .withIndex('byBoard', (q) => q.eq('boardId', boardId))
-      .paginate({
-        numItems: BOARD_TIER_TAKE_LIMIT,
-        cursor: null,
-      }),
+      .take(BOARD_TIER_TAKE_LIMIT + 1),
     ctx.db
       .query('boardItems')
       .withIndex('byBoardAndTier', (q) => q.eq('boardId', boardId))
-      .paginate({
-        numItems: BOARD_ITEM_TAKE_LIMIT,
-        cursor: null,
-      }),
+      .take(BOARD_ITEM_TAKE_LIMIT + 1),
   ])
 
-  if (!tierPage.isDone)
+  if (serverTiers.length > BOARD_TIER_TAKE_LIMIT)
   {
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.syncLimitExceeded,
@@ -48,7 +42,7 @@ export const loadBoundedBoardRows = async (
     })
   }
 
-  if (!itemPage.isDone)
+  if (serverItems.length > BOARD_ITEM_TAKE_LIMIT)
   {
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.syncLimitExceeded,
@@ -57,7 +51,7 @@ export const loadBoundedBoardRows = async (
   }
 
   return {
-    serverTiers: tierPage.page,
-    serverItems: itemPage.page,
+    serverTiers,
+    serverItems,
   }
 }

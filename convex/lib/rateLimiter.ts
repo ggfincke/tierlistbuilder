@@ -19,11 +19,12 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: HOUR,
     capacity: 10,
   },
+  // high cap pairs w/ serial client uploads; boards can carry many images
   userMediaUpload: {
     kind: 'token bucket',
-    rate: 100,
+    rate: 1_000,
     period: HOUR,
-    capacity: 100,
+    capacity: 1_000,
   },
   userTemplatePublish: {
     kind: 'token bucket',

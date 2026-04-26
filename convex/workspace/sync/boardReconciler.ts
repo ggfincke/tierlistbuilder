@@ -36,6 +36,7 @@ export interface ItemDiff
     backgroundColor?: string
     altText?: string
     mediaAssetId: Id<'mediaAssets'> | null
+    sourceMediaAssetId: Id<'mediaAssets'> | null
     order: number
     deletedAt: number | null
     aspectRatio?: number
@@ -71,6 +72,34 @@ const transformsEqual = (
     a.offsetX === b.offsetX &&
     a.offsetY === b.offsetY
   )
+}
+
+type WireMediaField = 'mediaExternalId' | 'sourceMediaExternalId'
+type ServerMediaField = 'mediaAssetId' | 'sourceMediaAssetId'
+
+interface ResolvedMediaField
+{
+  has: boolean
+  resolved: Id<'mediaAssets'> | null
+}
+
+const resolveMediaField = (
+  wire: WireItem,
+  server: Doc<'boardItems'> | undefined,
+  wireField: WireMediaField,
+  serverField: ServerMediaField,
+  mediaExternalIdToId: Map<string, Id<'mediaAssets'>>
+): ResolvedMediaField =>
+{
+  const has = Object.hasOwn(wire, wireField)
+  const externalId = wire[wireField]
+  const resolved = !has
+    ? (server?.[serverField] ?? null)
+    : externalId
+      ? (mediaExternalIdToId.get(externalId) ?? null)
+      : null
+
+  return { has, resolved }
 }
 
 export const diffTiers = (
@@ -157,16 +186,24 @@ export const diffItems = (
   {
     seenExternalIds.add(wire.externalId)
     const server = serverByExternalId.get(wire.externalId)
-    const hasMediaExternalId = Object.hasOwn(wire, 'mediaExternalId')
+    const displayMedia = resolveMediaField(
+      wire,
+      server,
+      'mediaExternalId',
+      'mediaAssetId',
+      mediaExternalIdToId
+    )
+    const sourceMedia = resolveMediaField(
+      wire,
+      server,
+      'sourceMediaExternalId',
+      'sourceMediaAssetId',
+      mediaExternalIdToId
+    )
     const isDeleted = deletedItemExternalIds.has(wire.externalId)
     const resolvedTierId = wire.tierId
       ? (tierExternalIdToId.get(wire.tierId) ?? null)
       : null
-    const resolvedMediaId = !hasMediaExternalId
-      ? (server?.mediaAssetId ?? null)
-      : wire.mediaExternalId
-        ? (mediaExternalIdToId.get(wire.mediaExternalId) ?? null)
-        : null
 
     if (!server)
     {
@@ -176,7 +213,8 @@ export const diffItems = (
         label: wire.label,
         backgroundColor: wire.backgroundColor,
         altText: wire.altText,
-        mediaAssetId: resolvedMediaId,
+        mediaAssetId: displayMedia.resolved,
+        sourceMediaAssetId: sourceMedia.resolved,
         order: wire.order,
         deletedAt: isDeleted ? now : null,
         aspectRatio: wire.aspectRatio,
@@ -206,7 +244,10 @@ export const diffItems = (
           aspectRatio: wire.aspectRatio,
           imageFit: wire.imageFit,
           transform: wire.transform,
-          ...(hasMediaExternalId ? { mediaAssetId: resolvedMediaId } : {}),
+          ...(displayMedia.has ? { mediaAssetId: displayMedia.resolved } : {}),
+          ...(sourceMedia.has
+            ? { sourceMediaAssetId: sourceMedia.resolved }
+            : {}),
         },
       })
       continue
@@ -230,9 +271,13 @@ export const diffItems = (
     {
       fields.transform = wire.transform
     }
-    if (hasMediaExternalId && server.mediaAssetId !== resolvedMediaId)
+    if (displayMedia.has && server.mediaAssetId !== displayMedia.resolved)
     {
-      fields.mediaAssetId = resolvedMediaId
+      fields.mediaAssetId = displayMedia.resolved
+    }
+    if (sourceMedia.has && server.sourceMediaAssetId !== sourceMedia.resolved)
+    {
+      fields.sourceMediaAssetId = sourceMedia.resolved
     }
 
     if (hasOwnKey(fields))

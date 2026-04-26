@@ -3,6 +3,7 @@
 
 import type {
   BoardSnapshot,
+  TierItemImageRef,
   TierItem,
   Tier,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -21,34 +22,80 @@ import type { BoardImageUploadResult } from '~/features/platform/media/imageUplo
 
 const DELETED_ITEM_ORDER = -1
 
-const resolveItemMediaExternalId = (
+interface ResolvedItemMediaExternalIds
+{
+  mediaExternalId: string | null | undefined
+  sourceMediaExternalId: string | null | undefined
+}
+
+const resolveImageRefMediaExternalId = (
+  ref: TierItemImageRef | undefined,
+  uploadResult: BoardImageUploadResult,
   item: TierItem,
-  uploadResult: BoardImageUploadResult
+  fieldName: 'imageRef' | 'sourceImageRef'
 ): string | null | undefined =>
 {
-  if (!item.imageRef)
+  if (!ref)
   {
     return null
   }
 
-  const uploadedExternalId = uploadResult.mediaExternalIdByHash.get(
-    item.imageRef.hash
-  )
+  const uploadedExternalId = uploadResult.mediaExternalIdByHash.get(ref.hash)
   if (uploadedExternalId)
   {
     return uploadedExternalId
   }
 
-  if (item.imageRef.cloudMediaExternalId)
+  if (ref.cloudMediaExternalId)
   {
-    return item.imageRef.cloudMediaExternalId
+    return ref.cloudMediaExternalId
   }
 
   // uploader is all-or-nothing; any unresolved media is a bug or stale cache —
   // block the sync loudly rather than silently drop a reference
   throw new Error(
-    `Unable to sync image for item ${item.id}: missing cloud media mapping.`
+    `Unable to sync ${fieldName} for item ${item.id}: missing cloud media mapping.`
   )
+}
+
+const resolveItemMediaExternalIds = (
+  item: TierItem,
+  uploadResult: BoardImageUploadResult
+): ResolvedItemMediaExternalIds => ({
+  mediaExternalId: resolveImageRefMediaExternalId(
+    item.imageRef,
+    uploadResult,
+    item,
+    'imageRef'
+  ),
+  sourceMediaExternalId: resolveImageRefMediaExternalId(
+    item.sourceImageRef,
+    uploadResult,
+    item,
+    'sourceImageRef'
+  ),
+})
+
+const toCloudItemWire = (
+  item: TierItem,
+  tierId: string | null,
+  order: number,
+  uploadResult: BoardImageUploadResult
+): CloudBoardItemWire =>
+{
+  const media = resolveItemMediaExternalIds(item, uploadResult)
+  return {
+    externalId: item.id,
+    tierId,
+    label: item.label,
+    backgroundColor: item.backgroundColor,
+    altText: item.altText,
+    ...media,
+    order,
+    aspectRatio: item.aspectRatio,
+    imageFit: item.imageFit,
+    transform: item.transform,
+  }
 }
 
 // convert a local BoardSnapshot into the cloud upsert payload.
@@ -78,18 +125,7 @@ export const snapshotToCloudPayload = (
       const item = snapshot.items[itemId]
       if (!item) continue
 
-      items.push({
-        externalId: item.id,
-        tierId: tier.id,
-        label: item.label,
-        backgroundColor: item.backgroundColor,
-        altText: item.altText,
-        mediaExternalId: resolveItemMediaExternalId(item, uploadResult),
-        order: orderCounter++,
-        aspectRatio: item.aspectRatio,
-        imageFit: item.imageFit,
-        transform: item.transform,
-      })
+      items.push(toCloudItemWire(item, tier.id, orderCounter++, uploadResult))
     }
   }
 
@@ -98,35 +134,13 @@ export const snapshotToCloudPayload = (
     const item = snapshot.items[itemId]
     if (!item) continue
 
-    items.push({
-      externalId: item.id,
-      tierId: null,
-      label: item.label,
-      backgroundColor: item.backgroundColor,
-      altText: item.altText,
-      mediaExternalId: resolveItemMediaExternalId(item, uploadResult),
-      order: orderCounter++,
-      aspectRatio: item.aspectRatio,
-      imageFit: item.imageFit,
-      transform: item.transform,
-    })
+    items.push(toCloudItemWire(item, null, orderCounter++, uploadResult))
   }
 
   // include deleted items in the items array so the server knows about them
   for (const item of snapshot.deletedItems)
   {
-    items.push({
-      externalId: item.id,
-      tierId: null,
-      label: item.label,
-      backgroundColor: item.backgroundColor,
-      altText: item.altText,
-      mediaExternalId: resolveItemMediaExternalId(item, uploadResult),
-      order: DELETED_ITEM_ORDER,
-      aspectRatio: item.aspectRatio,
-      imageFit: item.imageFit,
-      transform: item.transform,
-    })
+    items.push(toCloudItemWire(item, null, DELETED_ITEM_ORDER, uploadResult))
   }
 
   const deletedItemIds = snapshot.deletedItems.map((item) => item.id)
@@ -163,6 +177,8 @@ export const serverStateToSnapshot = (
   {
     const mediaExternalId = item.mediaExternalId ?? undefined
     const mediaContentHash = item.mediaContentHash
+    const sourceMediaExternalId = item.sourceMediaExternalId ?? undefined
+    const sourceMediaContentHash = item.sourceMediaContentHash
 
     items[asItemId(item.externalId)] = {
       id: asItemId(item.externalId),
@@ -171,6 +187,13 @@ export const serverStateToSnapshot = (
           ? {
               hash: mediaContentHash,
               cloudMediaExternalId: mediaExternalId,
+            }
+          : undefined,
+      sourceImageRef:
+        sourceMediaContentHash && sourceMediaExternalId
+          ? {
+              hash: sourceMediaContentHash,
+              cloudMediaExternalId: sourceMediaExternalId,
             }
           : undefined,
       label: item.label,

@@ -21,6 +21,7 @@ import type { Id } from '../../_generated/dataModel'
 const uploadUrlResultValidator = v.object({
   uploadUrl: v.string(),
   uploadToken: v.string(),
+  envelopeUserId: v.string(),
 })
 
 // generate a one-time upload URL for the frontend to POST image bytes. this is
@@ -29,13 +30,20 @@ const uploadUrlResultValidator = v.object({
 export const generateUploadUrl = mutation({
   args: {},
   returns: uploadUrlResultValidator,
-  handler: async (ctx): Promise<{ uploadUrl: string; uploadToken: string }> =>
+  handler: async (
+    ctx
+  ): Promise<{
+    uploadUrl: string
+    uploadToken: string
+    envelopeUserId: string
+  }> =>
   {
     const userId = await requireCurrentUserId(ctx)
     await enforceRateLimit(ctx, 'userMediaUpload', userId)
     return {
       uploadUrl: await ctx.storage.generateUploadUrl(),
       uploadToken: generateUploadToken(),
+      envelopeUserId: userId,
     }
   },
 })

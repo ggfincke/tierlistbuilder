@@ -87,8 +87,9 @@ describe('firstLoginBoardMerge', () =>
     const result = await pushAllLocalBoards('user-a', () => true, deps)
 
     expect(result).toEqual({
+      status: 'completed',
       failedBoardIds: ['board-b'],
-      aborted: false,
+      permanentFailedBoardIds: [],
     })
     expect(persistBoardSyncState).toHaveBeenCalledWith('board-a', {
       lastSyncedRevision: 7,
@@ -100,6 +101,76 @@ describe('firstLoginBoardMerge', () =>
       cloudBoardExternalId: null,
       pendingSyncAt: 1234,
     })
+  })
+
+  it('keeps local permanent first-login push failures pending', async () =>
+  {
+    useWorkspaceBoardRegistryStore.setState({
+      boards: [makeBoardMeta({ id: 'board-a' as BoardId, title: 'board-a' })],
+      activeBoardId: null,
+    })
+
+    const persistBoardSyncState = vi.fn()
+    const deps = createDeps({
+      flushBoardToCloud: async () => ({
+        kind: 'error',
+        error: {
+          kind: 'local-permanent',
+          code: 'missing-local-image-blobs',
+          permanent: true,
+          cause: new Error('missing local blobs'),
+        },
+      }),
+      readBoardStateForCloudSync: (boardId) => ({
+        snapshot: makeBoardSnapshot({ title: boardId }),
+        syncState: {
+          lastSyncedRevision: 4,
+          cloudBoardExternalId: 'cloud-a',
+          pendingSyncAt: 456,
+        },
+      }),
+      persistBoardSyncState,
+    })
+
+    const result = await pushAllLocalBoards('user-a', () => true, deps)
+
+    expect(result).toEqual({
+      status: 'completed',
+      failedBoardIds: [],
+      permanentFailedBoardIds: ['board-a'],
+    })
+    expect(persistBoardSyncState).toHaveBeenCalledWith('board-a', {
+      lastSyncedRevision: 4,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: 456,
+    })
+  })
+
+  it('completes first-login merge when only permanent push failures remain', async () =>
+  {
+    useWorkspaceBoardRegistryStore.setState({
+      boards: [makeBoardMeta({ id: 'board-a' as BoardId, title: 'board-a' })],
+      activeBoardId: null,
+    })
+
+    const markCloudPullCompleted = vi.fn()
+    const deps = createDeps({
+      decideFirstLoginMerge: () => ({ action: 'push-local' }),
+      markCloudPullCompleted,
+      flushBoardToCloud: async () => ({
+        kind: 'error',
+        error: {
+          kind: 'local-permanent',
+          code: 'missing-local-image-blobs',
+          permanent: true,
+          cause: new Error('missing local blobs'),
+        },
+      }),
+    })
+
+    await runFirstLoginBoardMerge('user-a', () => true, deps)
+
+    expect(markCloudPullCompleted).toHaveBeenCalledWith('user-a')
   })
 
   it('marks no-op resumed pulls as completed', async () =>

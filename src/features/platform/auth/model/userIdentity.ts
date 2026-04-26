@@ -3,7 +3,6 @@
 
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 
-// derive a stable string identifier for a user doc. prefers the explicit
-// externalId (set by the auth provider) w/ a fallback to the Convex _id
-export const getUserStableId = (user: PublicUserMe): string =>
-  user.externalId ?? user._id
+// derive the user-owner key used by local sync sidecars & upload indexes.
+// match Convex's users row id so client scopes line up w/ server auth checks
+export const getUserStableId = (user: PublicUserMe): string => user._id

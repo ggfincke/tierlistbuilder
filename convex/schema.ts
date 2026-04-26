@@ -98,6 +98,7 @@ export default defineSchema({
     backgroundColor: v.optional(v.string()),
     altText: v.optional(v.string()),
     mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    sourceMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
     deletedAt: v.union(v.number(), v.null()),
     // natural image aspect ratio captured at import time
@@ -122,7 +123,8 @@ export default defineSchema({
     templateItemId: v.optional(v.id('templateItems')),
   })
     .index('byBoardAndTier', ['boardId', 'tierId', 'order'])
-    .index('byMedia', ['mediaAssetId']),
+    .index('byMedia', ['mediaAssetId'])
+    .index('bySourceMedia', ['sourceMediaAssetId']),
 
   // uploaded image metadata — references convex _storage for actual bytes
   mediaAssets: defineTable({
@@ -165,6 +167,7 @@ export default defineSchema({
     tags: v.array(v.string()),
     visibility: templateVisibilityValidator,
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    coverItemMediaAssetIds: v.array(v.id('mediaAssets')),
     suggestedTiers: tierPresetTiersValidator,
     sourceBoardExternalId: v.union(v.string(), v.null()),
     itemCount: v.number(),
