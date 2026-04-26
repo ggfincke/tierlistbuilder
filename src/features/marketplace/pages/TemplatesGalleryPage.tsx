@@ -1,8 +1,14 @@
 // src/features/marketplace/pages/TemplatesGalleryPage.tsx
-// gallery landing page — featured strip, popular & recent rails, search, &
-// the category/sort-filterable browse grid w/ a Create-new tile
+// gallery landing — eyebrow + heading + search, jump-back-in row, hero +
+// sidebar feature, rails, & a filterable browse grid
 
-import { Flame, ListFilter, Sparkles, TrendingUp } from 'lucide-react'
+import {
+  Flame,
+  ListChecks,
+  ListFilter,
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import {
@@ -14,6 +20,7 @@ import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { Card } from '~/features/marketplace/components/Card'
 import { CategoryChips } from '~/features/marketplace/components/CategoryChips'
 import { CreateTile } from '~/features/marketplace/components/CreateTile'
+import { DraftRail } from '~/features/marketplace/components/DraftRail'
 import { Hero } from '~/features/marketplace/components/Hero'
 import { PublishModal } from '~/features/marketplace/components/PublishModal'
 import { Rail } from '~/features/marketplace/components/Rail'
@@ -22,7 +29,9 @@ import { SearchInput } from '~/features/marketplace/components/SearchInput'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { promptSignIn } from '~/features/marketplace/model/useSignInPromptStore'
 import { useGalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
+import { useOpenTemplateDraft } from '~/features/marketplace/model/useOpenTemplateDraft'
 import { useTemplatesGallery } from '~/features/marketplace/model/useTemplatesGallery'
+import { formatCount } from '~/features/marketplace/model/formatters'
 
 const SORT_LABELS: Record<TemplateListSort, string> = {
   featured: 'Featured',
@@ -52,10 +61,10 @@ export const TemplatesGalleryPage = () =>
 {
   const session = useAuthSession()
   const filters = useGalleryFilters()
-  const gallery = useTemplatesGallery(filters)
-  const [publishOpen, setPublishOpen] = useState(false)
-
   const isSignedIn = session.status === 'signed-in'
+  const gallery = useTemplatesGallery(filters, isSignedIn)
+  const draftAction = useOpenTemplateDraft()
+  const [publishOpen, setPublishOpen] = useState(false)
 
   // keep the document title meaningful for the gallery so deep links / share
   // previews carry the marketplace context
@@ -73,11 +82,23 @@ export const TemplatesGalleryPage = () =>
   const heroSecondary = gallery.featured?.slice(1, 3) ?? []
 
   const showRails = !filters.searchDebounced && filters.category === null
+  const showJumpBackRail =
+    showRails &&
+    isSignedIn &&
+    (gallery.drafts === undefined || gallery.drafts.length > 0)
   const browseHeading = filters.category
     ? CATEGORY_META[filters.category].label
     : filters.searchDebounced
       ? `Results for "${filters.searchDebounced}"`
       : 'Browse everything'
+  const templateCountLabel =
+    gallery.templateCount === undefined
+      ? 'Templates marketplace'
+      : `Templates · ${
+          gallery.templateCount.isCapped
+            ? `${formatCount(gallery.templateCount.count)}+`
+            : formatCount(gallery.templateCount.count)
+        } available`
 
   const handleCreateTileClick = () =>
   {
@@ -104,22 +125,22 @@ export const TemplatesGalleryPage = () =>
 
   return (
     <>
-      <section className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-12 sm:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div className="max-w-2xl">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--t-text-faint)]">
-              Templates marketplace
-            </p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-[var(--t-text)] sm:text-5xl">
+      <section className="relative z-10 mx-auto w-full max-w-[1200px] px-6 pt-28 sm:px-10 sm:pt-32">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] lg:items-end">
+          <div>
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--t-text-faint)]">
+              {templateCountLabel}
+            </span>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-[var(--t-text)] sm:text-5xl">
               {greeting}
             </h1>
-            <p className="mt-3 max-w-xl text-sm text-[var(--t-text-muted)]">
+            <p className="mt-3 max-w-xl text-[14px] text-[var(--t-text-muted)]">
               {isSignedIn
                 ? 'Pick up a draft, or fork a community template into a new ranking.'
                 : 'Pre-built item sets you can fork into a new ranking with one click.'}
             </p>
           </div>
-          <div className="w-full max-w-md">
+          <div className="lg:pb-2">
             <SearchInput
               value={filters.searchInput}
               onChange={filters.setSearch}
@@ -128,10 +149,25 @@ export const TemplatesGalleryPage = () =>
         </div>
       </section>
 
+      {showJumpBackRail && (
+        <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] px-6 sm:px-10">
+          <RailHeader
+            title="Jump back in"
+            subtitle="In-progress rankings from templates"
+            icon={ListChecks}
+          />
+          <DraftRail
+            drafts={gallery.drafts}
+            pendingBoardExternalId={draftAction.pendingBoardExternalId}
+            onOpen={(draft) => void draftAction.open(draft)}
+          />
+        </section>
+      )}
+
       {!filters.searchDebounced &&
         filters.category === null &&
         heroFeatured && (
-          <section className="relative z-10 mx-auto mt-10 w-full max-w-[1240px] px-5 sm:px-8">
+          <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] px-6 sm:px-10">
             {heroSecondary.length > 0 ? (
               <div className="grid gap-5 lg:grid-cols-3">
                 <div className="lg:col-span-2">
@@ -139,7 +175,12 @@ export const TemplatesGalleryPage = () =>
                 </div>
                 <div className="grid grid-rows-2 gap-5">
                   {heroSecondary.map((tpl) => (
-                    <Card key={tpl.slug} template={tpl} size="default" />
+                    <Card
+                      key={tpl.slug}
+                      template={tpl}
+                      size="default"
+                      coverStyle="initials"
+                    />
                   ))}
                 </div>
               </div>
@@ -151,7 +192,7 @@ export const TemplatesGalleryPage = () =>
 
       {showRails && (
         <>
-          <section className="relative z-10 mx-auto mt-12 w-full max-w-[1240px] px-5 sm:px-8">
+          <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] px-6 sm:px-10">
             <RailHeader
               title="Most popular"
               subtitle="All-time forks"
@@ -160,7 +201,7 @@ export const TemplatesGalleryPage = () =>
             <Rail items={gallery.popular} size="small" />
           </section>
 
-          <section className="relative z-10 mx-auto mt-10 w-full max-w-[1240px] px-5 sm:px-8">
+          <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
             <RailHeader
               title="New & recently updated"
               subtitle="Fresh from creators"
@@ -171,7 +212,7 @@ export const TemplatesGalleryPage = () =>
         </>
       )}
 
-      <section className="relative z-10 mx-auto mt-12 w-full max-w-[1240px] border-t border-[var(--t-border)] px-5 pt-10 sm:px-8">
+      <section className="relative z-10 mx-auto mt-16 w-full max-w-[1200px] border-t border-[var(--t-border)] px-6 pt-12 sm:px-10">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-[var(--t-text)]">

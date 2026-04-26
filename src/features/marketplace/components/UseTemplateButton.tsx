@@ -13,12 +13,16 @@ interface UseTemplateButtonProps
   slug: string
   templateTitle: string
   size?: 'sm' | 'md'
+  // pass to make the button stretch in flex layouts (eg the detail-page CTA
+  // cluster where it sits next to a fixed-width share button)
+  className?: string
 }
 
 export const UseTemplateButton = ({
   slug,
   templateTitle,
   size = 'md',
+  className,
 }: UseTemplateButtonProps) =>
 {
   const session = useAuthSession()
@@ -31,6 +35,7 @@ export const UseTemplateButton = ({
       size={size}
       disabled={isPending || sessionLoading}
       onClick={() => run(slug, templateTitle)}
+      className={className}
     >
       {isPending ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />

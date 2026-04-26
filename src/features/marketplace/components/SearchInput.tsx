@@ -1,8 +1,11 @@
 // src/features/marketplace/components/SearchInput.tsx
-// gallery hero search box w/ a leading search glyph & clear-on-escape
+// gallery search box w/ a leading glyph, clear-on-escape, & a ⌘K kbd hint
+// that focuses the field globally (also accepts ctrl+k on non-mac)
 
 import { Search, X } from 'lucide-react'
-import { useId, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
+
+import { IS_MAC } from '~/features/workspace/shortcuts/lib/shortcuts'
 
 interface SearchInputProps
 {
@@ -19,6 +22,24 @@ export const SearchInput = ({
 {
   const inputRef = useRef<HTMLInputElement>(null)
   const labelId = useId()
+
+  useEffect(() =>
+  {
+    const handler = (event: KeyboardEvent) =>
+    {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k')
+      {
+        event.preventDefault()
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () =>
+    {
+      window.removeEventListener('keydown', handler)
+    }
+  }, [])
 
   const clear = () =>
   {
@@ -55,7 +76,7 @@ export const SearchInput = ({
         className="focus-custom flex-1 bg-transparent text-sm text-[var(--t-text)] outline-none placeholder:text-[var(--t-text-faint)]"
         autoComplete="off"
       />
-      {value && (
+      {value ? (
         <button
           type="button"
           aria-label="Clear search"
@@ -64,6 +85,13 @@ export const SearchInput = ({
         >
           <X className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
+      ) : (
+        <kbd
+          aria-hidden="true"
+          className="hidden items-center gap-0.5 rounded border border-[var(--t-border)] bg-[var(--t-bg-page)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--t-text-faint)] sm:inline-flex"
+        >
+          {IS_MAC ? '⌘' : 'Ctrl'}K
+        </kbd>
       )}
     </div>
   )

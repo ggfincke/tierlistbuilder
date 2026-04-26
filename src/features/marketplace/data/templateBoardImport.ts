@@ -8,6 +8,8 @@ import { serverStateToSnapshot } from '~/features/workspace/boards/data/cloud/bo
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import { markBoardSynced } from '~/features/workspace/boards/model/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
 import {
   loadBoardState,
   saveActiveBoardSnapshot,
@@ -62,6 +64,7 @@ export const importTemplateBoardAsActive = async (
   // persist whatever the user had open before swapping; loadBoardState then
   // populates useActiveBoardStore so a remount of WorkspaceShell renders the
   // newly-cloned board instead of the prior session's stale data
+  useActiveBoardStore.getState().discardDragPreview()
   saveActiveBoardSnapshot()
 
   const registry = useWorkspaceBoardRegistryStore.getState()
@@ -81,5 +84,27 @@ export const importTemplateBoardAsActive = async (
   await warmFromBoard(snapshot)
   loadBoardState(boardId, snapshot, syncState)
 
+  return boardId
+}
+
+export const activateTemplateBoardAsActive = async (
+  boardExternalId: string
+): Promise<BoardId> =>
+{
+  const boardId = asBoardId(boardExternalId)
+  const registry = useWorkspaceBoardRegistryStore.getState()
+  const existing = registry.boards.find((b) => b.id === boardId)
+
+  if (!existing)
+  {
+    return await importTemplateBoardAsActive(boardExternalId)
+  }
+
+  if (registry.activeBoardId === boardId)
+  {
+    return boardId
+  }
+
+  await switchBoardSession(boardId)
   return boardId
 }
