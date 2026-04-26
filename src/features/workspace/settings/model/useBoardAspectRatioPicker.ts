@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
+  computeAutoBoardAspectRatio,
   CUSTOM_RATIO_OPTION,
   formatCustomRatioDim,
   getBoardAspectRatioMode,
@@ -21,6 +22,7 @@ export interface BoardAspectRatioPicker
   boardAspectRatio: number
   mode: ItemAspectRatioMode
   selectedOption: RatioOption
+  autoRatio: number
   customWidth: string
   customHeight: string
   setCustomWidth: (v: string) => void
@@ -36,12 +38,15 @@ export const useBoardAspectRatioPicker = (): BoardAspectRatioPicker =>
   const {
     boardAspectRatio,
     mode,
+    autoRatio,
     setBoardItemAspectRatio,
     setBoardAspectRatioMode,
   } = useActiveBoardStore(
     useShallow((state) => ({
       boardAspectRatio: getBoardItemAspectRatio(state),
       mode: getBoardAspectRatioMode(state),
+      autoRatio:
+        computeAutoBoardAspectRatio(state) ?? getBoardItemAspectRatio(state),
       setBoardItemAspectRatio: state.setBoardItemAspectRatio,
       setBoardAspectRatioMode: state.setBoardAspectRatioMode,
     }))
@@ -104,6 +109,7 @@ export const useBoardAspectRatioPicker = (): BoardAspectRatioPicker =>
     boardAspectRatio,
     mode,
     selectedOption,
+    autoRatio,
     customWidth,
     customHeight,
     setCustomWidth,

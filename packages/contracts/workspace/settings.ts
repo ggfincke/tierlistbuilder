@@ -51,4 +51,5 @@ export interface AppSettings
   reducedMotion: boolean
   toolbarPosition: ToolbarPosition
   showAltTextButton: boolean
+  autoCropTrimSoftShadows: boolean
 }

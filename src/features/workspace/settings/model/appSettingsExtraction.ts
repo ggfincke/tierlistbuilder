@@ -23,6 +23,7 @@ const APP_SETTINGS_KEYS = [
   'reducedMotion',
   'toolbarPosition',
   'showAltTextButton',
+  'autoCropTrimSoftShadows',
 ] as const satisfies readonly (keyof AppSettings)[]
 
 export const extractAppSettings = <T extends AppSettings>(

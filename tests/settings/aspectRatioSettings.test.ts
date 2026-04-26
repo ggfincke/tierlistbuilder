@@ -4,7 +4,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { groupMismatchedItems } from '~/features/workspace/boards/lib/aspectRatio'
+import {
+  formatAspectRatio,
+  formatPreciseAspectRatio,
+  groupMismatchedItems,
+} from '~/features/workspace/boards/lib/aspectRatio'
 import {
   createAspectRatioPromptSnapshot,
   resolveAspectRatioPromptItems,
@@ -170,5 +174,19 @@ describe('groupMismatchedItems', () =>
 
     expect(groupMismatchedItems(board, 0.005)).toHaveLength(2)
     expect(groupMismatchedItems(board, 0.05)).toHaveLength(0)
+  })
+})
+
+describe('formatPreciseAspectRatio', () =>
+{
+  it('keeps near-square auto ratios distinct from display-rounded labels', () =>
+  {
+    expect(formatAspectRatio(1.01)).toBe('1:1')
+    expect(formatPreciseAspectRatio(1.01)).toBe('1.01:1')
+  })
+
+  it('still prefers exact small-denominator ratios', () =>
+  {
+    expect(formatPreciseAspectRatio(8 / 9)).toBe('8:9')
   })
 })

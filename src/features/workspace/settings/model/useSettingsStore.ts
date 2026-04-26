@@ -44,6 +44,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   reducedMotion: false,
   toolbarPosition: 'top',
   showAltTextButton: false,
+  autoCropTrimSoftShadows: true,
 }
 
 // runtime-only transition state for the high-contrast toggle — remembers the
@@ -81,6 +82,7 @@ interface SettingsStore extends AppSettings, HighContrastTransitionState
   setReducedMotion: (reduced: boolean) => void
   setToolbarPosition: (position: ToolbarPosition) => void
   setShowAltTextButton: (show: boolean) => void
+  setAutoCropTrimSoftShadows: (trim: boolean) => void
   toggleHighContrast: (enabled: boolean) => void
 }
 
@@ -147,6 +149,11 @@ export const useSettingsStore = create<SettingsStore>()(
           set,
           get,
           'showAltTextButton'
+        ),
+        setAutoCropTrimSoftShadows: createSettingSetter(
+          set,
+          get,
+          'autoCropTrimSoftShadows'
         ),
         toggleHighContrast: (enabled) =>
           set((state) =>

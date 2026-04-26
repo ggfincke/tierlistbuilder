@@ -65,6 +65,11 @@ export interface BoardDataSlice extends BoardSnapshot
   // per-item manual crop transform — pass `null` to clear the override &
   // fall back to the imageFit-driven object-fit path
   setItemTransform: (itemId: ItemId, transform: ItemTransform | null) => void
+  // batch transform commit — one undo entry covers every entry. used by
+  // bulk operations like Auto-crop all
+  setItemsTransform: (
+    entries: readonly { id: ItemId; transform: ItemTransform | null }[]
+  ) => void
 }
 
 // selection slice — multi-item selection state & bulk actions
