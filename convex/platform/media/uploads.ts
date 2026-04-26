@@ -127,7 +127,7 @@ export const finalizeUpload = action({
         { sha256: contentHash }
       )
 
-      return await ctx.runMutation(
+      const { externalId } = await ctx.runMutation(
         internal.platform.media.internal.finalizeVerifiedUpload,
         {
           userId,
@@ -139,6 +139,7 @@ export const finalizeUpload = action({
           byteSize: payload.byteLength,
         }
       )
+      return { externalId }
     }
     catch (error)
     {

@@ -6,6 +6,7 @@ import { query, type QueryCtx } from '../../_generated/server'
 import type { Doc } from '../../_generated/dataModel'
 import type {
   MarketplaceTemplateDetail,
+  MarketplaceTemplateDraftListResult,
   MarketplaceTemplateListResult,
   TemplateCategory,
   TemplateListSort,
@@ -14,15 +15,20 @@ import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
 import { getCurrentUserId } from '../../lib/auth'
 import {
   marketplaceTemplateDetailValidator,
+  marketplaceTemplateDraftListResultValidator,
   marketplaceTemplateListResultValidator,
   templateCategoryValidator,
   templateListSortValidator,
 } from '../../lib/validators'
 import {
+  createTemplateProjectionCache,
   findTemplateBySlug,
+  normalizeDraftLimit,
   normalizeListLimit,
   normalizeSearchQuery,
+  readPublicTemplateCount,
   toTemplateDetail,
+  toTemplateDraft,
   toTemplateSummary,
 } from './lib'
 
@@ -137,6 +143,18 @@ const searchPublicRows = async (
     })
     .take(options.limit)
 
+export const getPublicTemplateCount = query({
+  args: {},
+  returns: v.object({
+    count: v.number(),
+    isCapped: v.boolean(),
+  }),
+  handler: async (ctx) =>
+  {
+    return { count: await readPublicTemplateCount(ctx), isCapped: false }
+  },
+})
+
 export const listTemplates = query({
   args: {
     search: v.optional(v.union(v.string(), v.null())),
@@ -155,8 +173,11 @@ export const listTemplates = query({
       ? await searchPublicRows(ctx, { search, category, limit })
       : await takePublicRows(ctx, { category, sort, limit })
 
+    const cache = createTemplateProjectionCache()
     return {
-      items: await Promise.all(rows.map((row) => toTemplateSummary(ctx, row))),
+      items: await Promise.all(
+        rows.map((row) => toTemplateSummary(ctx, row, cache))
+      ),
     }
   },
 })
@@ -181,6 +202,49 @@ export const getTemplateBySlug = query({
   },
 })
 
+// related-templates rail on the detail page — same category, top use count,
+// excluding the current slug. fetches limit+1 then drops the self-match so the
+// final length is capped at limit even when the current template ranks
+const DEFAULT_RELATED_LIMIT = 4
+const MAX_RELATED_LIMIT = 12
+
+export const getRelatedTemplates = query({
+  args: {
+    slug: v.string(),
+    category: templateCategoryValidator,
+    limit: v.optional(v.number()),
+  },
+  returns: marketplaceTemplateListResultValidator,
+  handler: async (ctx, args): Promise<MarketplaceTemplateListResult> =>
+  {
+    const limit = Math.max(
+      1,
+      Math.min(MAX_RELATED_LIMIT, args.limit ?? DEFAULT_RELATED_LIMIT)
+    )
+    const rows = await ctx.db
+      .query('templates')
+      .withIndex('byCategoryVisibilityUnpublishedUseCount', (q) =>
+        q
+          .eq('category', args.category)
+          .eq('visibility', 'public')
+          .eq('unpublishedAt', null)
+      )
+      .order('desc')
+      .take(limit + 1)
+
+    const filtered = rows
+      .filter((row) => row.slug !== args.slug)
+      .slice(0, limit)
+
+    const cache = createTemplateProjectionCache()
+    return {
+      items: await Promise.all(
+        filtered.map((row) => toTemplateSummary(ctx, row, cache))
+      ),
+    }
+  },
+})
+
 export const getMyTemplates = query({
   args: { limit: v.optional(v.number()) },
   returns: marketplaceTemplateListResultValidator,
@@ -198,8 +262,66 @@ export const getMyTemplates = query({
       .order('desc')
       .take(normalizeListLimit(args.limit))
 
+    const cache = createTemplateProjectionCache()
     return {
-      items: await Promise.all(rows.map((row) => toTemplateSummary(ctx, row))),
+      items: await Promise.all(
+        rows.map((row) => toTemplateSummary(ctx, row, cache))
+      ),
     }
+  },
+})
+
+export const getMyTemplateDrafts = query({
+  args: { limit: v.optional(v.number()) },
+  returns: marketplaceTemplateDraftListResultValidator,
+  handler: async (ctx, args): Promise<MarketplaceTemplateDraftListResult> =>
+  {
+    const userId = await getCurrentUserId(ctx)
+    if (!userId)
+    {
+      return { drafts: [] }
+    }
+
+    const rows = await ctx.db
+      .query('boards')
+      .withIndex('byOwnerDeletedTemplateProgressUpdatedAt', (q) =>
+        q
+          .eq('ownerId', userId)
+          .eq('deletedAt', null)
+          .eq('templateProgressState', 'in-progress')
+      )
+      .order('desc')
+      .take(normalizeDraftLimit(args.limit))
+
+    const templateIds = [
+      ...new Set(
+        rows
+          .map((board) => board.sourceTemplateId)
+          .filter((id): id is NonNullable<typeof id> => id !== null)
+      ),
+    ]
+    const templateEntries = await Promise.all(
+      templateIds.map(
+        async (templateId) =>
+          [templateId, await ctx.db.get(templateId)] as const
+      )
+    )
+    const templatesById = new Map(templateEntries)
+    const cache = createTemplateProjectionCache()
+    const drafts = await Promise.all(
+      rows.map(async (board) =>
+      {
+        if (board.sourceTemplateId === null)
+        {
+          return null
+        }
+        const template = templatesById.get(board.sourceTemplateId)
+        return template
+          ? await toTemplateDraft(ctx, board, template, cache)
+          : null
+      })
+    )
+
+    return { drafts: drafts.filter((draft) => draft !== null) }
   },
 })

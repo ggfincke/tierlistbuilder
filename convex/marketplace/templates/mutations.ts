@@ -22,6 +22,7 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
+import { resolveTemplateProgressState } from '../../lib/templateProgress'
 import {
   findOwnedMediaAssetByExternalId,
   findOwnedTierPresetByExternalId,
@@ -36,6 +37,7 @@ import {
   tierPresetTiersValidator,
 } from '../../lib/validators'
 import {
+  adjustPublicTemplateCount,
   allocateTemplateSlug,
   buildSearchText,
   DEFAULT_TEMPLATE_TIERS,
@@ -43,6 +45,7 @@ import {
   findTemplateBySlug,
   insertBoardItemsFromTemplate,
   insertBoardTiers,
+  isPublicTemplateRow,
   loadTemplateItems,
   normalizeCreditLine,
   normalizeDescription,
@@ -193,10 +196,16 @@ export const publishFromBoard = mutation({
     const fallbackCoverMediaId =
       activeItems.find((item) => item.mediaAssetId !== null)?.mediaAssetId ??
       null
-    const coverItemMediaAssetIds = activeItems
-      .map((item) => item.mediaAssetId)
-      .filter((id): id is Id<'mediaAssets'> => id !== null)
+    const mediaBackedItems = activeItems
+      .filter(
+        (item): item is typeof item & { mediaAssetId: Id<'mediaAssets'> } =>
+          item.mediaAssetId !== null
+      )
       .slice(0, MAX_TEMPLATE_COVER_ITEMS)
+    const coverItems = mediaBackedItems.map((item) => ({
+      mediaAssetId: item.mediaAssetId,
+      label: item.label ?? null,
+    }))
     const coverMediaAssetId = await resolveCoverMediaId(
       ctx,
       userId,
@@ -217,7 +226,7 @@ export const publishFromBoard = mutation({
       tags,
       visibility: args.visibility,
       coverMediaAssetId,
-      coverItemMediaAssetIds,
+      coverItems,
       suggestedTiers,
       sourceBoardExternalId: board.externalId,
       itemCount: activeItems.length,
@@ -253,6 +262,10 @@ export const publishFromBoard = mutation({
         })
       )
     )
+    if (args.visibility === 'public')
+    {
+      await adjustPublicTemplateCount(ctx, 1)
+    }
 
     return { slug }
   },
@@ -299,6 +312,8 @@ export const updateMyTemplateMeta = mutation({
       args.creditLine === undefined
         ? template.creditLine
         : normalizeCreditLine(args.creditLine)
+    const previousPublic = isPublicTemplateRow(template)
+    const nextVisibility = args.visibility ?? template.visibility
     const coverMediaAssetId = await resolveCoverMediaId(
       ctx,
       userId,
@@ -311,7 +326,7 @@ export const updateMyTemplateMeta = mutation({
       description,
       category,
       tags,
-      visibility: args.visibility ?? template.visibility,
+      visibility: nextVisibility,
       coverMediaAssetId,
       creditLine,
       searchText: buildSearchText({
@@ -323,6 +338,12 @@ export const updateMyTemplateMeta = mutation({
       }),
       updatedAt: Date.now(),
     })
+    const nextPublic =
+      nextVisibility === 'public' && template.unpublishedAt === null
+    await adjustPublicTemplateCount(
+      ctx,
+      (nextPublic ? 1 : 0) - (previousPublic ? 1 : 0)
+    )
 
     return null
   },
@@ -350,6 +371,10 @@ export const unpublishMyTemplate = mutation({
       unpublishedAt: now,
       updatedAt: now,
     })
+    if (isPublicTemplateRow(template))
+    {
+      await adjustPublicTemplateCount(ctx, -1)
+    }
 
     return null
   },
@@ -399,6 +424,10 @@ export const useTemplate = mutation({
     )
     const boardExternalId = generateBoardId()
     const now = Date.now()
+    const progressCounts = {
+      activeItemCount: templateItems.length,
+      unrankedItemCount: templateItems.length,
+    }
     const boardId = await ctx.db.insert('boards', {
       externalId: boardExternalId,
       ownerId: userId,
@@ -410,6 +439,11 @@ export const useTemplate = mutation({
       deletedAt: null,
       revision: 0,
       sourceTemplateId: template._id,
+      ...progressCounts,
+      templateProgressState: resolveTemplateProgressState(
+        template._id,
+        progressCounts
+      ),
     })
 
     await insertBoardTiers(ctx, boardId, tiers)

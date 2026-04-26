@@ -80,7 +80,7 @@ tests/
 │   ├── boardUpsertLimits.test.ts    — real Convex board sync caps, media refs, & tombstones
 │   ├── convexTestHelpers.ts         — Convex test module harness
 │   ├── imageValidation.test.ts      — Convex image validation helpers
-│   ├── marketplaceTemplates.test.ts — public template publish/list/use flows
+│   ├── marketplaceTemplates.test.ts — public template publish/list/use & draft progress
 │   ├── shortLinksIntegration.test.ts — real Convex owner+expiry listing query
 │   └── shortLinksListing.test.ts    — live short-link listing selection
 ├── data/

@@ -7,6 +7,12 @@ import { describe, expect, it } from 'vitest'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
+import type {
+  CloudBoardItemWire,
+  CloudBoardState,
+  CloudBoardStateItem,
+  CloudBoardTierWire,
+} from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import schema from '../../convex/schema'
 import { modules } from './convexTestHelpers'
 
@@ -71,6 +77,10 @@ const seedSourceBoard = async (
       updatedAt: Date.now(),
       deletedAt: null,
       revision: 1,
+      sourceTemplateId: null,
+      activeItemCount: 2,
+      unrankedItemCount: 1,
+      templateProgressState: 'none',
     })
     const tierId = await ctx.db.insert('boardTiers', {
       boardId,
@@ -128,6 +138,61 @@ const seedTierPreset = async (
 
     return 'preset-consumer'
   })
+
+const setTemplateUseCount = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  slug: string,
+  useCount: number
+): Promise<void> =>
+{
+  await t.run(async (ctx) =>
+  {
+    const template = await ctx.db
+      .query('templates')
+      .withIndex('bySlug', (q) => q.eq('slug', slug))
+      .unique()
+    expect(template).not.toBeNull()
+    await ctx.db.patch(template!._id, { useCount })
+  })
+}
+
+const toWireTier = (
+  tier: CloudBoardState['tiers'][number],
+  itemIds: string[]
+): CloudBoardTierWire => ({
+  externalId: tier.externalId,
+  name: tier.name,
+  ...(tier.description !== undefined ? { description: tier.description } : {}),
+  colorSpec: tier.colorSpec,
+  ...(tier.rowColorSpec !== undefined
+    ? { rowColorSpec: tier.rowColorSpec }
+    : {}),
+  itemIds,
+})
+
+const toWireItem = (
+  item: CloudBoardStateItem,
+  tierId: string | null,
+  order: number
+): CloudBoardItemWire => ({
+  externalId: item.externalId,
+  tierId,
+  ...(item.label !== undefined ? { label: item.label } : {}),
+  ...(item.backgroundColor !== undefined
+    ? { backgroundColor: item.backgroundColor }
+    : {}),
+  ...(item.altText !== undefined ? { altText: item.altText } : {}),
+  ...(item.mediaExternalId !== undefined
+    ? { mediaExternalId: item.mediaExternalId }
+    : {}),
+  ...(item.sourceMediaExternalId !== undefined
+    ? { sourceMediaExternalId: item.sourceMediaExternalId }
+    : {}),
+  order,
+  ...(item.aspectRatio !== undefined ? { aspectRatio: item.aspectRatio } : {}),
+  ...(item.imageFit !== undefined ? { imageFit: item.imageFit } : {}),
+  ...(item.transform !== undefined ? { transform: item.transform } : {}),
+})
 
 describe('marketplace template Convex functions', () =>
 {
@@ -190,6 +255,157 @@ describe('marketplace template Convex functions', () =>
       'source-item-2',
     ])
     expect(unlistedDetail?.coverMedia?.contentHash).toBe('hash-source')
+  })
+
+  it('maintains the public template count without scanning templates', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    await seedSourceBoard(t, authorId)
+    const caller = asUser(t, authorId)
+
+    await expect(
+      t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
+    ).resolves.toEqual({ count: 0, isCapped: false })
+
+    const publicTemplate = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Public Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+
+    await expect(
+      t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
+    ).resolves.toEqual({ count: 1, isCapped: false })
+
+    const unlistedTemplate = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Unlisted Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'unlisted',
+      }
+    )
+
+    await expect(
+      t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
+    ).resolves.toEqual({ count: 1, isCapped: false })
+
+    await caller.mutation(
+      api.marketplace.templates.mutations.updateMyTemplateMeta,
+      {
+        slug: unlistedTemplate.slug,
+        visibility: 'public',
+      }
+    )
+
+    await expect(
+      t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
+    ).resolves.toEqual({ count: 2, isCapped: false })
+
+    await caller.mutation(
+      api.marketplace.templates.mutations.updateMyTemplateMeta,
+      {
+        slug: publicTemplate.slug,
+        visibility: 'unlisted',
+      }
+    )
+
+    await expect(
+      t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
+    ).resolves.toEqual({ count: 1, isCapped: false })
+
+    await caller.mutation(
+      api.marketplace.templates.mutations.unpublishMyTemplate,
+      { slug: unlistedTemplate.slug }
+    )
+
+    await expect(
+      t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
+    ).resolves.toEqual({ count: 0, isCapped: false })
+  })
+
+  it('lists related templates from the same public category by popularity', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    await seedSourceBoard(t, authorId)
+    const caller = asUser(t, authorId)
+
+    const current = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Current Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+    const relatedA = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Related A',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+    const relatedB = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Related B',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+    const otherCategory = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Other Category',
+        category: 'movies',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+    const unlisted = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Unlisted Related',
+        category: 'gaming',
+        tags: [],
+        visibility: 'unlisted',
+      }
+    )
+
+    await setTemplateUseCount(t, current.slug, 100)
+    await setTemplateUseCount(t, relatedA.slug, 50)
+    await setTemplateUseCount(t, relatedB.slug, 30)
+    await setTemplateUseCount(t, otherCategory.slug, 90)
+    await setTemplateUseCount(t, unlisted.slug, 80)
+
+    const related = await t.query(
+      api.marketplace.templates.queries.getRelatedTemplates,
+      { slug: current.slug, category: 'gaming', limit: 2 }
+    )
+
+    expect(related.items.map((item) => item.title)).toEqual([
+      'Related A',
+      'Related B',
+    ])
+    expect(related.items.map((item) => item.slug)).not.toContain(current.slug)
   })
 
   it('clones a template into a new board using a user tier preset', async () =>
@@ -267,5 +483,126 @@ describe('marketplace template Convex functions', () =>
 
     expect(clonedRows.storedBoard?.sourceTemplateId).toBeTruthy()
     expect(clonedRows.items.every((item) => item.templateItemId)).toBe(true)
+  })
+
+  it('lists in-progress template drafts and updates their progress', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    const consumerId = await seedUser(t, 'Consumer', 'consumer@example.com')
+    await seedSourceBoard(t, authorId)
+
+    const { slug } = await asUser(t, authorId).mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Draft Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+
+    const consumer = asUser(t, consumerId)
+    const { boardExternalId } = await consumer.mutation(
+      api.marketplace.templates.mutations.useTemplate,
+      { slug, title: 'My Draft' }
+    )
+
+    let drafts = await consumer.query(
+      api.marketplace.templates.queries.getMyTemplateDrafts,
+      {}
+    )
+    expect(drafts.drafts).toHaveLength(1)
+    expect(drafts.drafts[0]).toMatchObject({
+      boardExternalId,
+      boardTitle: 'My Draft',
+      activeItemCount: 2,
+      rankedItemCount: 0,
+      unrankedItemCount: 2,
+      progressPercent: 0,
+    })
+    expect(drafts.drafts[0].template.slug).toBe(slug)
+
+    const board = await consumer.query(
+      api.workspace.boards.queries.getBoardStateByExternalId,
+      { boardExternalId }
+    )
+    expect(board).not.toBeNull()
+
+    const firstTier = board!.tiers[0]
+    const sortedItems = board!.items.slice().sort((a, b) => a.order - b.order)
+    const [rankedItem, remainingItem] = sortedItems
+
+    await consumer.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId,
+        baseRevision: board!.revision,
+        title: board!.title,
+        tiers: board!.tiers.map((tier) =>
+          toWireTier(
+            tier,
+            tier.externalId === firstTier.externalId
+              ? [rankedItem.externalId]
+              : []
+          )
+        ),
+        items: [
+          toWireItem(rankedItem, firstTier.externalId, 0),
+          toWireItem(remainingItem, null, 1),
+        ],
+        deletedItemIds: [],
+      }
+    )
+
+    drafts = await consumer.query(
+      api.marketplace.templates.queries.getMyTemplateDrafts,
+      {}
+    )
+    expect(drafts.drafts).toHaveLength(1)
+    expect(drafts.drafts[0]).toMatchObject({
+      activeItemCount: 2,
+      rankedItemCount: 1,
+      unrankedItemCount: 1,
+      progressPercent: 50,
+    })
+
+    const updatedBoard = await consumer.query(
+      api.workspace.boards.queries.getBoardStateByExternalId,
+      { boardExternalId }
+    )
+    expect(updatedBoard).not.toBeNull()
+
+    const allRankedItems = updatedBoard!.items
+      .slice()
+      .sort((a, b) => a.order - b.order)
+
+    await consumer.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId,
+        baseRevision: updatedBoard!.revision,
+        title: updatedBoard!.title,
+        tiers: updatedBoard!.tiers.map((tier) =>
+          toWireTier(
+            tier,
+            tier.externalId === firstTier.externalId
+              ? allRankedItems.map((item) => item.externalId)
+              : []
+          )
+        ),
+        items: allRankedItems.map((item, order) =>
+          toWireItem(item, firstTier.externalId, order)
+        ),
+        deletedItemIds: [],
+      }
+    )
+
+    drafts = await consumer.query(
+      api.marketplace.templates.queries.getMyTemplateDrafts,
+      {}
+    )
+    expect(drafts.drafts).toEqual([])
   })
 })

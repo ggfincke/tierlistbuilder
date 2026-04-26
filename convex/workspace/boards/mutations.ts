@@ -9,6 +9,7 @@ import { internal } from '../../_generated/api'
 import { generateBoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { requireCurrentUserId } from '../../lib/auth'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
+import { resolveTemplateProgressState } from '../../lib/templateProgress'
 
 // create a new empty board for the authenticated caller
 export const createBoard = mutation({
@@ -28,6 +29,13 @@ export const createBoard = mutation({
       updatedAt: now,
       deletedAt: null,
       revision: 0,
+      sourceTemplateId: null,
+      activeItemCount: 0,
+      unrankedItemCount: 0,
+      templateProgressState: resolveTemplateProgressState(null, {
+        activeItemCount: 0,
+        unrankedItemCount: 0,
+      }),
     })
 
     return { externalId }

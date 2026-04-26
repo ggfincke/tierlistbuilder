@@ -12,16 +12,22 @@ import {
 } from '@tierlistbuilder/contracts/lib/ids'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
+  MarketplaceTemplateDraftTemplate,
   MarketplaceTemplateBase,
   MarketplaceTemplateDetail,
+  MarketplaceTemplateDraft,
   MarketplaceTemplateItem,
   MarketplaceTemplateSummary,
+  TemplateAuthor,
   TemplateCategory,
+  TemplateCoverItem,
   TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
+  DEFAULT_TEMPLATE_DRAFT_LIMIT,
   generateTemplateSlug,
+  MAX_TEMPLATE_DRAFT_LIMIT,
   MAX_TEMPLATE_COVER_ITEMS,
   MAX_TEMPLATE_CREDIT_LINE_LENGTH,
   MAX_TEMPLATE_DESCRIPTION_LENGTH,
@@ -36,8 +42,21 @@ import { validateHexColor } from '../../lib/hexColor'
 
 type DbCtx = QueryCtx | MutationCtx
 
+interface TemplateProjectionCache
+{
+  authors: Map<Id<'users'>, Promise<TemplateAuthor>>
+  media: Map<Id<'mediaAssets'>, Promise<TemplateMediaRef | null>>
+}
+
 const MAX_SEARCH_QUERY_LENGTH = 120
 const MAX_SLUG_ATTEMPTS = 8
+const MAX_DRAFT_COVER_ITEMS = 4
+const MARKETPLACE_STATS_KEY = 'templates'
+
+export const createTemplateProjectionCache = (): TemplateProjectionCache => ({
+  authors: new Map(),
+  media: new Map(),
+})
 
 export const DEFAULT_TEMPLATE_TIERS: readonly TierPresetTier[] = [
   { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
@@ -165,6 +184,19 @@ export const normalizeListLimit = (raw: number | undefined): number =>
   return Math.min(Math.floor(raw), MAX_TEMPLATE_LIST_LIMIT)
 }
 
+export const normalizeDraftLimit = (raw: number | undefined): number =>
+{
+  if (raw === undefined)
+  {
+    return DEFAULT_TEMPLATE_DRAFT_LIMIT
+  }
+  if (!Number.isFinite(raw) || raw < 1)
+  {
+    failInput('template draft limit must be a positive number')
+  }
+  return Math.min(Math.floor(raw), MAX_TEMPLATE_DRAFT_LIMIT)
+}
+
 export const buildSearchText = (fields: {
   title: string
   description: string | null
@@ -201,6 +233,55 @@ export const allocateTemplateSlug = async (ctx: DbCtx): Promise<string> =>
   throw new ConvexError({
     code: CONVEX_ERROR_CODES.slugAllocationFailed,
     message: 'failed to allocate a unique template slug',
+  })
+}
+
+export const isPublicTemplateRow = (
+  template: Pick<Doc<'templates'>, 'visibility' | 'unpublishedAt'>
+): boolean =>
+  template.visibility === 'public' && template.unpublishedAt === null
+
+export const readPublicTemplateCount = async (
+  ctx: QueryCtx
+): Promise<number> =>
+{
+  const stats = await ctx.db
+    .query('marketplaceStats')
+    .withIndex('byKey', (q) => q.eq('key', MARKETPLACE_STATS_KEY))
+    .unique()
+
+  return stats?.publicTemplateCount ?? 0
+}
+
+export const adjustPublicTemplateCount = async (
+  ctx: MutationCtx,
+  delta: number
+): Promise<void> =>
+{
+  if (delta === 0)
+  {
+    return
+  }
+
+  const stats = await ctx.db
+    .query('marketplaceStats')
+    .withIndex('byKey', (q) => q.eq('key', MARKETPLACE_STATS_KEY))
+    .unique()
+  const nextCount = Math.max(0, (stats?.publicTemplateCount ?? 0) + delta)
+
+  if (stats)
+  {
+    await ctx.db.patch(stats._id, {
+      publicTemplateCount: nextCount,
+      updatedAt: Date.now(),
+    })
+    return
+  }
+
+  await ctx.db.insert('marketplaceStats', {
+    key: MARKETPLACE_STATS_KEY,
+    publicTemplateCount: nextCount,
+    updatedAt: Date.now(),
   })
 }
 
@@ -263,16 +344,11 @@ export const loadTemplateItems = async (
   return items
 }
 
-export const toTemplateMediaRef = async (
+const loadTemplateMediaRef = async (
   ctx: DbCtx,
-  mediaAssetId: Id<'mediaAssets'> | null
+  mediaAssetId: Id<'mediaAssets'>
 ): Promise<TemplateMediaRef | null> =>
 {
-  if (!mediaAssetId)
-  {
-    return null
-  }
-
   const asset = await ctx.db.get(mediaAssetId)
   if (!asset)
   {
@@ -295,25 +371,67 @@ export const toTemplateMediaRef = async (
   }
 }
 
-// load denormalized cover media refs in template order. publish stores only
-// media-backed item ids, so summary reads avoid a per-card templateItems scan
-export const loadCoverItemMediaRefs = async (
+export const toTemplateMediaRef = async (
   ctx: DbCtx,
-  template: Pick<Doc<'templates'>, 'coverItemMediaAssetIds'>
-): Promise<TemplateMediaRef[]> =>
+  mediaAssetId: Id<'mediaAssets'> | null,
+  cache?: TemplateProjectionCache
+): Promise<TemplateMediaRef | null> =>
 {
-  const refs = await Promise.all(
-    template.coverItemMediaAssetIds
-      .slice(0, MAX_TEMPLATE_COVER_ITEMS)
-      .map((mediaAssetId) => toTemplateMediaRef(ctx, mediaAssetId))
-  )
-  return refs.filter((ref): ref is TemplateMediaRef => ref !== null)
+  if (!mediaAssetId)
+  {
+    return null
+  }
+
+  if (!cache)
+  {
+    return await loadTemplateMediaRef(ctx, mediaAssetId)
+  }
+
+  const existing = cache.media.get(mediaAssetId)
+  if (existing)
+  {
+    return await existing
+  }
+
+  const pending = loadTemplateMediaRef(ctx, mediaAssetId)
+  cache.media.set(mediaAssetId, pending)
+  return await pending
 }
 
-export const toTemplateAuthor = async (
+// load denormalized cover items in template order. publish stores only
+// media-backed item ids + labels, so summary reads avoid a templateItems scan
+export const loadCoverItems = async (
+  ctx: DbCtx,
+  template: Pick<Doc<'templates'>, 'coverItems'>,
+  options: {
+    cache?: TemplateProjectionCache
+    limit?: number
+  } = {}
+): Promise<TemplateCoverItem[]> =>
+{
+  const rows = template.coverItems.slice(
+    0,
+    options.limit ?? MAX_TEMPLATE_COVER_ITEMS
+  )
+  const refs = await Promise.all(
+    rows.map(async (item): Promise<TemplateCoverItem | null> =>
+    {
+      const media = await toTemplateMediaRef(
+        ctx,
+        item.mediaAssetId,
+        options.cache
+      )
+      return media ? { media, label: item.label } : null
+    })
+  )
+
+  return refs.filter((item): item is TemplateCoverItem => item !== null)
+}
+
+const loadTemplateAuthor = async (
   ctx: DbCtx,
   authorId: Id<'users'>
-): Promise<MarketplaceTemplateSummary['author']> =>
+): Promise<TemplateAuthor> =>
 {
   const author = await ctx.db.get(authorId)
   if (!author)
@@ -335,14 +453,37 @@ export const toTemplateAuthor = async (
   }
 }
 
+export const toTemplateAuthor = async (
+  ctx: DbCtx,
+  authorId: Id<'users'>,
+  cache?: TemplateProjectionCache
+): Promise<TemplateAuthor> =>
+{
+  if (!cache)
+  {
+    return await loadTemplateAuthor(ctx, authorId)
+  }
+
+  const existing = cache.authors.get(authorId)
+  if (existing)
+  {
+    return await existing
+  }
+
+  const pending = loadTemplateAuthor(ctx, authorId)
+  cache.authors.set(authorId, pending)
+  return await pending
+}
+
 export const toTemplateBase = async (
   ctx: DbCtx,
-  template: Doc<'templates'>
+  template: Doc<'templates'>,
+  cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateBase> =>
 {
   const [author, coverMedia] = await Promise.all([
-    toTemplateAuthor(ctx, template.authorId),
-    toTemplateMediaRef(ctx, template.coverMediaAssetId),
+    toTemplateAuthor(ctx, template.authorId, cache),
+    toTemplateMediaRef(ctx, template.coverMediaAssetId, cache),
   ])
 
   return {
@@ -367,13 +508,14 @@ export const toTemplateBase = async (
 
 export const toTemplateSummary = async (
   ctx: DbCtx,
-  template: Doc<'templates'>
+  template: Doc<'templates'>,
+  cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateSummary> =>
 {
-  const base = await toTemplateBase(ctx, template)
+  const base = await toTemplateBase(ctx, template, cache)
   const coverItems = base.coverMedia
     ? []
-    : await loadCoverItemMediaRefs(ctx, template)
+    : await loadCoverItems(ctx, template, { cache })
 
   return {
     ...base,
@@ -426,6 +568,50 @@ export const toTemplateDetail = async (
     ...base,
     suggestedTiers: template.suggestedTiers,
     items: projectedItems,
+  }
+}
+
+export const toTemplateDraft = async (
+  ctx: DbCtx,
+  board: Doc<'boards'>,
+  template: Doc<'templates'>,
+  cache?: TemplateProjectionCache
+): Promise<MarketplaceTemplateDraft> =>
+{
+  const activeItemCount = board.activeItemCount
+  const unrankedItemCount = board.unrankedItemCount
+  const rankedItemCount = activeItemCount - unrankedItemCount
+  const progressPercent =
+    activeItemCount === 0
+      ? 100
+      : Math.round((rankedItemCount / activeItemCount) * 100)
+  const coverMedia = await toTemplateMediaRef(
+    ctx,
+    template.coverMediaAssetId,
+    cache
+  )
+  const draftTemplate: MarketplaceTemplateDraftTemplate = {
+    slug: template.slug,
+    title: template.title,
+    category: template.category,
+    coverMedia,
+    coverItems: coverMedia
+      ? []
+      : await loadCoverItems(ctx, template, {
+          cache,
+          limit: MAX_DRAFT_COVER_ITEMS,
+        }),
+  }
+
+  return {
+    boardExternalId: board.externalId,
+    boardTitle: board.title,
+    updatedAt: board.updatedAt,
+    activeItemCount,
+    rankedItemCount,
+    unrankedItemCount,
+    progressPercent,
+    template: draftTemplate,
   }
 }
 

@@ -20,6 +20,11 @@ import {
   findOwnedBoardByExternalIdIncludingDeleted,
   findOwnedMediaAssetByExternalId,
 } from '../../lib/permissions'
+import {
+  countTemplateProgressItems,
+  resolveTemplateProgressState,
+  type TemplateProgressCounts,
+} from '../../lib/templateProgress'
 
 const MAX_LABEL_LEN = 200
 const MAX_ALT_LEN = 500
@@ -245,7 +250,8 @@ const ensureBoard = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
   boardExternalId: string,
-  normalizedTitle: string
+  normalizedTitle: string,
+  progressCounts: TemplateProgressCounts
 ): Promise<Doc<'boards'>> =>
 {
   // include soft-deleted rows so we don't accidentally insert a second row w/
@@ -267,6 +273,9 @@ const ensureBoard = async (
       updatedAt: Date.now(),
       deletedAt: null,
       revision: 0,
+      sourceTemplateId: null,
+      ...progressCounts,
+      templateProgressState: resolveTemplateProgressState(null, progressCounts),
     })
     board = (await ctx.db.get(boardId))!
   }
@@ -326,7 +335,9 @@ const applyBoardState = async (
   userId: Id<'users'>,
   board: Doc<'boards'>,
   args: UpsertArgs,
-  normalizedTitle: string
+  normalizedTitle: string,
+  progressCounts: TemplateProgressCounts,
+  deletedItemExternalIds: ReadonlySet<string>
 ): Promise<number> =>
 {
   const { serverTiers, serverItems } = await loadBoundedBoardRows(
@@ -376,7 +387,6 @@ const applyBoardState = async (
     args.items
   )
 
-  const deletedItemExternalIds = new Set(args.deletedItemIds)
   const itemDiff = diffItems(
     args.items,
     serverItems,
@@ -418,9 +428,23 @@ const applyBoardState = async (
     (board.aspectRatioPromptDismissed ?? false) !==
       (args.aspectRatioPromptDismissed ?? false) ||
     board.defaultItemImageFit !== args.defaultItemImageFit
+  const templateProgressState = resolveTemplateProgressState(
+    board.sourceTemplateId,
+    progressCounts
+  )
+  const progressChanged =
+    board.activeItemCount !== progressCounts.activeItemCount ||
+    board.unrankedItemCount !== progressCounts.unrankedItemCount ||
+    board.templateProgressState !== templateProgressState
 
   const currentRevision = board.revision ?? 0
-  if (!tiersChanged && !itemsChanged && !titleChanged && !aspectChanged)
+  if (
+    !tiersChanged &&
+    !itemsChanged &&
+    !titleChanged &&
+    !aspectChanged &&
+    !progressChanged
+  )
   {
     return currentRevision
   }
@@ -434,6 +458,9 @@ const applyBoardState = async (
     itemAspectRatioMode: args.itemAspectRatioMode,
     aspectRatioPromptDismissed: args.aspectRatioPromptDismissed,
     defaultItemImageFit: args.defaultItemImageFit,
+    activeItemCount: progressCounts.activeItemCount,
+    unrankedItemCount: progressCounts.unrankedItemCount,
+    templateProgressState,
   })
   return newRevision
 }
@@ -463,11 +490,17 @@ export const upsertBoardState = mutation({
     validateInputs(args)
 
     const normalizedTitle = normalizeBoardTitle(args.title)
+    const deletedItemExternalIds = new Set(args.deletedItemIds)
+    const progressCounts = countTemplateProgressItems(
+      args.items,
+      deletedItemExternalIds
+    )
     const board = await ensureBoard(
       ctx,
       userId,
       args.boardExternalId,
-      normalizedTitle
+      normalizedTitle,
+      progressCounts
     )
 
     // cheap revision compare BEFORE scanning rows — a conflict response no
@@ -487,7 +520,9 @@ export const upsertBoardState = mutation({
       userId,
       board,
       args,
-      normalizedTitle
+      normalizedTitle,
+      progressCounts,
+      deletedItemExternalIds
     )
     return { conflict: null, newRevision }
   },
