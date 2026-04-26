@@ -1,6 +1,12 @@
 // src/features/workspace/boards/model/slices/boardData/aspectRatioActions.ts
 // aspect-ratio & image-fit actions for board & item display settings
 
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type {
+  ImageFit,
+  ItemTransform,
+  TierItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   computeAutoBoardAspectRatio,
   getBoardAspectRatioMode,
@@ -10,8 +16,13 @@ import {
   isIdentityTransform,
   isSameItemTransform,
 } from '~/shared/lib/imageTransform'
+import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 import { withUndo } from '../undoSlice'
-import type { ActiveBoardSliceCreator, BoardDataSlice } from '../types'
+import type {
+  ActiveBoardSliceCreator,
+  ActiveBoardStore,
+  BoardDataSlice,
+} from '../types'
 
 type AspectRatioActions = Pick<
   BoardDataSlice,
@@ -22,9 +33,44 @@ type AspectRatioActions = Pick<
   | 'setAspectRatioPromptDismissed'
   | 'setDefaultItemImageFit'
   | 'setItemTransform'
+  | 'setItemsTransform'
 >
 
 type SliceArgs = Parameters<ActiveBoardSliceCreator<BoardDataSlice>>
+
+const buildItemsImageFitPatch = (
+  state: ActiveBoardStore,
+  itemIds: readonly ItemId[],
+  fit: ImageFit | null
+): Partial<ActiveBoardStore> | null =>
+{
+  if (itemIds.length === 0) return null
+  const nextFit = fit ?? undefined
+  let nextItems: ActiveBoardStore['items'] | null = null
+
+  for (const id of itemIds)
+  {
+    const item = state.items[id]
+    if (!item || (nextFit === item.imageFit && !item.transform)) continue
+    const { transform: _transform, ...rest } = item
+    nextItems ??= { ...state.items }
+    nextItems[id] = { ...rest, imageFit: nextFit }
+  }
+
+  return nextItems
+    ? withUndo(state, { items: nextItems }, 'Change image fit')
+    : null
+}
+
+const applySavedTransform = (
+  item: TierItem,
+  savedTransform: ItemTransform | undefined
+): TierItem =>
+{
+  if (savedTransform) return { ...item, transform: savedTransform }
+  const { transform: _transform, ...rest } = item
+  return rest
+}
 
 export const createAspectRatioActions = (
   set: SliceArgs[0]
@@ -32,7 +78,7 @@ export const createAspectRatioActions = (
   setBoardItemAspectRatio: (value) =>
     set((state) =>
     {
-      if (!Number.isFinite(value) || value <= 0) return state
+      if (!isPositiveFiniteNumber(value)) return state
       if (
         state.itemAspectRatioMode === 'manual' &&
         state.itemAspectRatio === value
@@ -75,43 +121,10 @@ export const createAspectRatioActions = (
     }),
 
   setItemImageFit: (itemId, fit) =>
-    set((state) =>
-    {
-      const item = state.items[itemId]
-      if (!item) return state
-      const nextFit = fit ?? undefined
-      if (nextFit === item.imageFit && !item.transform) return state
-      const { transform: _transform, ...rest } = item
-      return withUndo(
-        state,
-        {
-          items: {
-            ...state.items,
-            [itemId]: { ...rest, imageFit: nextFit },
-          },
-        },
-        'Change image fit'
-      )
-    }),
+    set((state) => buildItemsImageFitPatch(state, [itemId], fit) ?? state),
 
   setItemsImageFit: (itemIds, fit) =>
-    set((state) =>
-    {
-      if (itemIds.length === 0) return state
-      const nextFit = fit ?? undefined
-      const nextItems = { ...state.items }
-      let changed = false
-      for (const id of itemIds)
-      {
-        const item = nextItems[id]
-        if (!item || (nextFit === item.imageFit && !item.transform)) continue
-        const { transform: _transform, ...rest } = item
-        nextItems[id] = { ...rest, imageFit: nextFit }
-        changed = true
-      }
-      if (!changed) return state
-      return withUndo(state, { items: nextItems }, 'Change image fit')
-    }),
+    set((state) => buildItemsImageFitPatch(state, itemIds, fit) ?? state),
 
   setAspectRatioPromptDismissed: (dismissed) =>
     set((state) =>
@@ -148,10 +161,7 @@ export const createAspectRatioActions = (
           ? nextTransform
           : undefined
       if (isSameItemTransform(item.transform, savedTransform)) return state
-      const { transform: _existingTransform, ...rest } = item
-      const nextItem = savedTransform
-        ? { ...item, transform: savedTransform }
-        : rest
+      const nextItem = applySavedTransform(item, savedTransform)
       return withUndo(
         state,
         {
@@ -162,5 +172,25 @@ export const createAspectRatioActions = (
         },
         savedTransform ? 'Adjust image' : 'Reset image adjustment'
       )
+    }),
+
+  setItemsTransform: (entries) =>
+    set((state) =>
+    {
+      if (entries.length === 0) return state
+      let nextItems: ActiveBoardStore['items'] | null = null
+      for (const { id, transform } of entries)
+      {
+        const item = state.items[id]
+        if (!item) continue
+        const clamped = transform ? clampItemTransform(transform) : undefined
+        const saved =
+          clamped && !isIdentityTransform(clamped) ? clamped : undefined
+        if (isSameItemTransform(item.transform, saved)) continue
+        nextItems ??= { ...state.items }
+        nextItems[id] = applySavedTransform(item, saved)
+      }
+      if (!nextItems) return state
+      return withUndo(state, { items: nextItems }, 'Adjust images')
     }),
 })

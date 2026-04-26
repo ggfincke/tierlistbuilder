@@ -8,17 +8,12 @@ import type {
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isPresent } from '~/shared/lib/typeGuards'
+import { isIdentityTransform } from './imageTransform'
 
 const itemHasRenderTransform = (item: TierItem): boolean =>
 {
   const transform = item.transform
-  return (
-    !!transform &&
-    (transform.rotation !== 0 ||
-      transform.zoom !== 1 ||
-      transform.offsetX !== 0 ||
-      transform.offsetY !== 0)
-  )
+  return !!transform && !isIdentityTransform(transform)
 }
 
 // visit every live & deleted snapshot item in stable order
@@ -158,6 +153,10 @@ export interface TransformedSnapshotItems<TOut>
   deletedItems: TOut[]
 }
 
+type SnapshotItemTask =
+  | { kind: 'live'; entryIndex: number; id: string; item: TierItem }
+  | { kind: 'deleted'; entryIndex: number; item: TierItem }
+
 // concurrency-bounded async projection of every live & deleted item. output
 // order for deletedItems matches snapshot order; items key order follows
 // Object.entries iteration. pass Infinity for unbounded parallelism
@@ -168,6 +167,23 @@ export const transformSnapshotItemsAsync = async <TOut>(
 ): Promise<TransformedSnapshotItems<TOut>> =>
 {
   const itemEntries = Object.entries(snapshot.items)
+  const tasks: SnapshotItemTask[] = []
+  const taskCount = Math.max(itemEntries.length, snapshot.deletedItems.length)
+  for (let entryIndex = 0; entryIndex < taskCount; entryIndex++)
+  {
+    const liveEntry = itemEntries[entryIndex]
+    if (liveEntry)
+    {
+      const [id, item] = liveEntry
+      tasks.push({ kind: 'live', entryIndex, id, item })
+    }
+
+    const deletedItem = snapshot.deletedItems[entryIndex]
+    if (deletedItem)
+    {
+      tasks.push({ kind: 'deleted', entryIndex, item: deletedItem })
+    }
+  }
 
   const runBounded = <T>(
     values: readonly T[],
@@ -177,12 +193,26 @@ export const transformSnapshotItemsAsync = async <TOut>(
       ? Promise.all(values.map(task))
       : mapAsyncLimit(values, limit, task)
 
-  const itemValues = await runBounded(itemEntries, ([id, item]) =>
-    mapItem(item, asItemId(id))
+  const mapped = await runBounded(tasks, (task) =>
+    task.kind === 'live'
+      ? mapItem(task.item, asItemId(task.id))
+      : mapItem(task.item, null)
   )
-  const deletedItems = await runBounded(snapshot.deletedItems, (item) =>
-    mapItem(item, null)
-  )
+  const itemValues = new Array<TOut>(itemEntries.length)
+  const deletedItems = new Array<TOut>(snapshot.deletedItems.length)
+
+  for (let index = 0; index < tasks.length; index++)
+  {
+    const task = tasks[index]
+    if (task.kind === 'live')
+    {
+      itemValues[task.entryIndex] = mapped[index]
+    }
+    else
+    {
+      deletedItems[task.entryIndex] = mapped[index]
+    }
+  }
 
   const items = Object.fromEntries(
     itemEntries.map(([id], index) => [id, itemValues[index]])

@@ -32,6 +32,7 @@ export const LayoutTab = () =>
     tierLabelItalic,
     tierLabelFontSize,
     showAltTextButton,
+    autoCropTrimSoftShadows,
     toolbarPosition,
     setItemSize,
     setShowLabels,
@@ -43,6 +44,7 @@ export const LayoutTab = () =>
     setTierLabelItalic,
     setTierLabelFontSize,
     setShowAltTextButton,
+    setAutoCropTrimSoftShadows,
     setToolbarPosition,
   } = useSettingsStore(
     useShallow((state) => ({
@@ -56,6 +58,7 @@ export const LayoutTab = () =>
       tierLabelItalic: state.tierLabelItalic,
       tierLabelFontSize: state.tierLabelFontSize,
       showAltTextButton: state.showAltTextButton,
+      autoCropTrimSoftShadows: state.autoCropTrimSoftShadows,
       toolbarPosition: state.toolbarPosition,
       setItemSize: state.setItemSize,
       setShowLabels: state.setShowLabels,
@@ -67,6 +70,7 @@ export const LayoutTab = () =>
       setTierLabelItalic: state.setTierLabelItalic,
       setTierLabelFontSize: state.setTierLabelFontSize,
       setShowAltTextButton: state.setShowAltTextButton,
+      setAutoCropTrimSoftShadows: state.setAutoCropTrimSoftShadows,
       setToolbarPosition: state.setToolbarPosition,
     }))
   )
@@ -139,6 +143,12 @@ export const LayoutTab = () =>
         </SettingRow>
         <SettingRow label="Alt Text Button">
           <Toggle checked={showAltTextButton} onChange={setShowAltTextButton} />
+        </SettingRow>
+        <SettingRow label="Trim Shadows">
+          <Toggle
+            checked={autoCropTrimSoftShadows}
+            onChange={setAutoCropTrimSoftShadows}
+          />
         </SettingRow>
       </SettingsSection>
 

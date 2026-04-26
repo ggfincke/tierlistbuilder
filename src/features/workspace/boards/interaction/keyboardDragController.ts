@@ -24,6 +24,7 @@ import {
   resolveDraggingKeyboardNavigation,
 } from './keyboardNavigation'
 import { logger } from '~/shared/lib/logger'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 type TierListKeyboardState = ReturnType<typeof useActiveBoardStore.getState>
 
@@ -106,7 +107,10 @@ const announceKeyboardDragMove = (
 
   announce(
     groupCount > 1
-      ? `Moved ${groupCount} items to ${destination}, starting at position ${position}`
+      ? `Moved ${formatCountedWord(
+          groupCount,
+          'item'
+        )} to ${destination}, starting at position ${position}`
       : `Moved ${label} to ${destination}, position ${position} of ${containerItems.length}`
   )
 }
@@ -200,7 +204,7 @@ const handleKeyboardPickupDropKey = (itemId: ItemId) =>
     const dest = getContainerLabel(containerId, fresh.tiers)
     announce(
       groupCount > 1
-        ? `Dropped ${groupCount} items in ${dest}`
+        ? `Dropped ${formatCountedWord(groupCount, 'item')} in ${dest}`
         : `Dropped ${label} in ${dest}`
     )
     return
@@ -219,7 +223,10 @@ const handleKeyboardPickupDropKey = (itemId: ItemId) =>
   const label = state.items[focusedItemId]?.label ?? 'item'
   announce(
     groupCount > 1
-      ? `Picked up ${groupCount} items. Arrow keys to move, space or Enter to drop.`
+      ? `Picked up ${formatCountedWord(
+          groupCount,
+          'item'
+        )}. Arrow keys to move, space or Enter to drop.`
       : `Picked up ${label}. Arrow keys to move, space or Enter to drop.`
   )
 }

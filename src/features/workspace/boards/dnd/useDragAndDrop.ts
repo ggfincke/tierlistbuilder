@@ -30,6 +30,7 @@ import {
   getEffectiveContainerSnapshot,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
 import { captureRenderedContainerSnapshot } from '~/features/workspace/boards/dnd/dragDomCapture'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 type DragType = 'item' | 'tier'
 
@@ -194,7 +195,7 @@ export const useDragAndDrop = () =>
     const itemLabel = state.items[activeId]?.label ?? 'item'
     announce(
       groupCount > 1
-        ? `Picked up ${groupCount} items`
+        ? `Picked up ${formatCountedWord(groupCount, 'item')}`
         : `Picked up ${itemLabel}`
     )
   }
@@ -261,7 +262,7 @@ export const useDragAndDrop = () =>
       resetDragState()
       announce(
         groupIds.length > 1
-          ? `${groupIds.length} items deleted`
+          ? `${formatCountedWord(groupIds.length, 'item')} deleted`
           : `${label} deleted`
       )
       return
@@ -306,7 +307,7 @@ export const useDragAndDrop = () =>
     const dest = getContainerLabel(containerId, state.tiers)
     announce(
       groupCountBeforeCommit > 1
-        ? `Dropped ${groupCountBeforeCommit} items in ${dest}`
+        ? `Dropped ${formatCountedWord(groupCountBeforeCommit, 'item')} in ${dest}`
         : `Dropped ${label} in ${dest}`
     )
 

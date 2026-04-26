@@ -9,6 +9,8 @@ import {
   ITEM_TRANSFORM_IDENTITY,
   ITEM_TRANSFORM_LIMITS,
 } from '@tierlistbuilder/contracts/workspace/board'
+import { clamp } from './math'
+import { isPositiveFiniteNumber } from './typeGuards'
 
 interface ManualCropImageSize
 {
@@ -37,9 +39,9 @@ export const clampItemTransform = (transform: ItemTransform): ItemTransform =>
   const { zoomMin, zoomMax, offsetMin, offsetMax } = ITEM_TRANSFORM_LIMITS
   return {
     rotation: transform.rotation,
-    zoom: Math.min(zoomMax, Math.max(zoomMin, transform.zoom)),
-    offsetX: Math.min(offsetMax, Math.max(offsetMin, transform.offsetX)),
-    offsetY: Math.min(offsetMax, Math.max(offsetMin, transform.offsetY)),
+    zoom: clamp(transform.zoom, zoomMin, zoomMax),
+    offsetX: clamp(transform.offsetX, offsetMin, offsetMax),
+    offsetY: clamp(transform.offsetY, offsetMin, offsetMax),
   }
 }
 
@@ -64,9 +66,7 @@ export const isIdentityTransform = (transform: ItemTransform): boolean =>
   isSameItemTransform(transform, ITEM_TRANSFORM_IDENTITY)
 
 const validRatio = (value: number | undefined, fallback: number): number =>
-  typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? value
-    : fallback
+  isPositiveFiniteNumber(value) ? value : fallback
 
 const resolveManualCropGeometry = (
   imageAspectRatio: number | undefined,

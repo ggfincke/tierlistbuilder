@@ -3,6 +3,7 @@
 
 import { announce } from '~/shared/a11y/announce'
 import { isPresent } from '~/shared/lib/typeGuards'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 import {
   shuffleAllBoardItems,
   shuffleUnrankedItems as shuffleUnrankedBoardItems,
@@ -59,7 +60,9 @@ export const createItemActions = (
       }
 
       const label =
-        newItems.length === 1 ? 'Add item' : `Add ${newItems.length} items`
+        newItems.length === 1
+          ? 'Add item'
+          : `Add ${formatCountedWord(newItems.length, 'item')}`
 
       let nextAspectRatio = state.itemAspectRatio
       if (getBoardAspectRatioMode(state) === 'auto')
@@ -75,7 +78,7 @@ export const createItemActions = (
         itemAspectRatio: nextAspectRatio,
       }
     })
-    announce(`${newItems.length} item${newItems.length === 1 ? '' : 's'} added`)
+    announce(`${formatCountedWord(newItems.length, 'item')} added`)
   },
 
   addTextItem: (label, backgroundColor) =>
@@ -133,7 +136,7 @@ export const createItemActions = (
       const deleteLabel =
         uniqueIds.length === 1
           ? 'Delete item'
-          : `Delete ${uniqueIds.length} items`
+          : `Delete ${formatCountedWord(uniqueIds.length, 'item')}`
 
       return buildRemoveItemsPatch(state, uniqueIds, deleteLabel) ?? state
     }),

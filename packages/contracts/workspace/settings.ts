@@ -51,6 +51,7 @@ export interface AppSettings
   reducedMotion: boolean
   toolbarPosition: ToolbarPosition
   showAltTextButton: boolean
+  autoCropTrimSoftShadows: boolean
 }
 
 // cloud-read wire shape for user settings. server wall-clock updatedAt

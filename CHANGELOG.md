@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-04-25
+
+### Added
+
+- **Aspect Ratio Picker**: Per-board aspect ratio (square, 3:4, 4:3, 16:9, etc.) w/ live preview, applied to items, drag overlay, unranked pool, & static export (#26)
+- **Aspect Ratio Issue Modal**: Detects mismatched item images on import & offers crop, fit, or stretch resolution per board (#26)
+- **Image Editor**: Modal for cropping, rotating, & adjusting item images, backed by a dedicated image store (#27)
+- **Standalone Embed View**: Dedicated route & shell for embedding boards outside the workspace (#27)
+- **Contracts Package**: Shared `packages/contracts` for board, settings, theme, & tier preset types consumed across app & external surfaces (#27)
+- **Tooling**: Playwright e2e (smoke + guardrails), custom ESLint rules (comment block length, no-unicode-arrow), prettier ignore, & alias config (#27)
+
+### Changed
+
+- **Workspace Shell**: Split into modal layer, export actions hook, theme sync, & modal stack — replaces monolithic shell (#27)
+- **Board Session**: New session layer (`boardSession`) w/ autosave, bootstrap, CRUD, events, persistence, & registry modules; old `localBoardSession` retired (#27)
+- **Board Data Slice**: Decomposed into per-domain action modules (aspect ratio, deleted items, items, lifecycle, tiers) under `slices/boardData/` (#27)
+- **Drag & Drop**: Extracted `dragEndDecision`, `dragLayoutSession`, `dragLayoutRows`, & `keyboardNavigation`; trimmed `dragDomCapture` & `useDragAndDrop` (#27)
+- **Export Pipeline**: `boardWireMapper` centralizes board→export shape, runtime helper extracted, progress overlay refined (#27)
+- **Sharing**: `hashShare` moved into snapshot-compression, inbound share handler & dedicated `ShareModal` (#27)
+- **Settings**: Aspect ratio prompt split into provider/context/snapshot, settings extraction & tiles factored out (#27)
+- **Annotation, Shortcuts, Stats, Tier Presets**: Realigned on shared overlay primitives & lib utilities (#27)
+- **Docs**: Architecture guide & tests README refreshed (#27)
+
+### Fixed
+
+- **Board Session**: Fall back to sibling boards when active board is corrupted; clear pending autosave on load (#27)
+
 ## [0.6.0] - 2026-04-14
 
 ### Added

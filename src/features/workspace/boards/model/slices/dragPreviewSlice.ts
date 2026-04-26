@@ -8,6 +8,7 @@ import {
 } from '~/features/workspace/boards/dnd/dragSnapshot'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeSelection } from '~/features/workspace/boards/model/runtime'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 import { stripItemsFromContainers, stripItemsFromSnapshot } from './helpers'
 import { pushUndo } from './undoSlice'
 import type {
@@ -154,7 +155,9 @@ export const createDragPreviewSlice: ActiveBoardSliceCreator<
         : {}
 
       const dragLabel =
-        groupIds.length > 1 ? `Move ${groupIds.length} items` : 'Move item'
+        groupIds.length > 1
+          ? `Move ${formatCountedWord(groupIds.length, 'item')}`
+          : 'Move item'
 
       return {
         ...(pushUndo(state, dragLabel) ?? {}),

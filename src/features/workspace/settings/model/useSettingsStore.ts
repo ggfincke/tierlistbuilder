@@ -44,6 +44,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   reducedMotion: false,
   toolbarPosition: 'top',
   showAltTextButton: false,
+  autoCropTrimSoftShadows: true,
 }
 
 // runtime-only transition state for the high-contrast toggle — remembers the
@@ -81,6 +82,7 @@ interface SettingsStore extends AppSettings, HighContrastTransitionState
   setReducedMotion: (reduced: boolean) => void
   setToolbarPosition: (position: ToolbarPosition) => void
   setShowAltTextButton: (show: boolean) => void
+  setAutoCropTrimSoftShadows: (trim: boolean) => void
   toggleHighContrast: (enabled: boolean) => void
 }
 
@@ -100,9 +102,8 @@ const createSettingSetter = <K extends keyof AppSettings>(
   }
 }
 
-// subscribeWithSelector wraps persist so the cloud-sync layer can subscribe to AppSettings
-// changes w/ a custom equalityFn — the projection returns a fresh object each tick, so
-// default referential equality would fire on every store action otherwise
+// subscribeWithSelector wraps persist so AppSettings projections can use a
+// custom equalityFn instead of firing on every store action
 export const useSettingsStore = create<SettingsStore>()(
   subscribeWithSelector(
     persist(
@@ -148,6 +149,11 @@ export const useSettingsStore = create<SettingsStore>()(
           set,
           get,
           'showAltTextButton'
+        ),
+        setAutoCropTrimSoftShadows: createSettingSetter(
+          set,
+          get,
+          'autoCropTrimSoftShadows'
         ),
         toggleHighContrast: (enabled) =>
           set((state) =>
