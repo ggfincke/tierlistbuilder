@@ -69,13 +69,26 @@ export default defineSchema({
       v.union(v.literal('cover'), v.literal('contain'))
     ),
     // source template for boards created through "Use this template"
-    sourceTemplateId: v.optional(v.id('templates')),
+    sourceTemplateId: v.union(v.id('templates'), v.null()),
+    activeItemCount: v.number(),
+    unrankedItemCount: v.number(),
+    templateProgressState: v.union(
+      v.literal('none'),
+      v.literal('in-progress'),
+      v.literal('complete')
+    ),
   })
     // ordered index powering getMyBoards & getMyDeletedBoards — eq on (ownerId,
     // deletedAt) + order('desc') yields the active or deleted set sorted by
     // most-recently-updated first
     .index('byOwnerDeletedUpdatedAt', ['ownerId', 'deletedAt', 'updatedAt'])
     .index('byOwnerAndExternalId', ['ownerId', 'externalId'])
+    .index('byOwnerDeletedTemplateProgressUpdatedAt', [
+      'ownerId',
+      'deletedAt',
+      'templateProgressState',
+      'updatedAt',
+    ])
     .index('byDeletedAt', ['deletedAt']),
 
   // tier row within a board — ordered via sparse fractional "order" numbers
@@ -167,7 +180,12 @@ export default defineSchema({
     tags: v.array(v.string()),
     visibility: templateVisibilityValidator,
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
-    coverItemMediaAssetIds: v.array(v.id('mediaAssets')),
+    coverItems: v.array(
+      v.object({
+        mediaAssetId: v.id('mediaAssets'),
+        label: v.union(v.string(), v.null()),
+      })
+    ),
     suggestedTiers: tierPresetTiersValidator,
     sourceBoardExternalId: v.union(v.string(), v.null()),
     itemCount: v.number(),
@@ -220,6 +238,12 @@ export default defineSchema({
       searchField: 'searchText',
       filterFields: ['visibility', 'unpublishedAt', 'category'],
     }),
+
+  marketplaceStats: defineTable({
+    key: v.string(),
+    publicTemplateCount: v.number(),
+    updatedAt: v.number(),
+  }).index('byKey', ['key']),
 
   // immutable-ish template item rows. rankings clone these into boardItems
   // as unranked entries, preserving templateItemId for future aggregation

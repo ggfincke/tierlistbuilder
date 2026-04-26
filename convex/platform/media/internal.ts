@@ -37,8 +37,14 @@ export const finalizeVerifiedUpload = internalMutation({
     height: v.number(),
     byteSize: v.number(),
   },
-  returns: v.object({ externalId: v.string() }),
-  handler: async (ctx, args): Promise<{ externalId: string }> =>
+  returns: v.object({
+    externalId: v.string(),
+    mediaAssetId: v.id('mediaAssets'),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ externalId: string; mediaAssetId: Id<'mediaAssets'> }> =>
   {
     const existing = await ctx.db
       .query('mediaAssets')
@@ -50,11 +56,11 @@ export const finalizeVerifiedUpload = internalMutation({
     if (existing)
     {
       await deleteStorageSilently(ctx, args.storageId)
-      return { externalId: existing.externalId }
+      return { externalId: existing.externalId, mediaAssetId: existing._id }
     }
 
     const externalId = generateMediaAssetExternalId()
-    await ctx.db.insert('mediaAssets', {
+    const mediaAssetId = await ctx.db.insert('mediaAssets', {
       ownerId: args.userId,
       externalId,
       storageId: args.storageId,
@@ -66,7 +72,7 @@ export const finalizeVerifiedUpload = internalMutation({
       createdAt: Date.now(),
     })
 
-    return { externalId }
+    return { externalId, mediaAssetId }
   },
 })
 

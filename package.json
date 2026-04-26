@@ -14,6 +14,7 @@
     "format": "prettier --write . && eslint --fix .",
     "format:check": "prettier --check . && eslint .",
     "audit:drag": "node scripts/drag-audit.mjs",
+    "seed:marketplace": "node scripts/seed-marketplace-templates.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

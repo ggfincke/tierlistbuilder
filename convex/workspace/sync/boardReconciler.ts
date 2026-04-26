@@ -172,7 +172,7 @@ export const diffItems = (
   serverItems: Doc<'boardItems'>[],
   tierExternalIdToId: Map<string, Id<'boardTiers'>>,
   mediaExternalIdToId: Map<string, Id<'mediaAssets'>>,
-  deletedItemExternalIds: Set<string>
+  deletedItemExternalIds: ReadonlySet<string>
 ): ItemDiff =>
 {
   const serverByExternalId = new Map(

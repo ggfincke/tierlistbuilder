@@ -71,3 +71,6 @@ dev-dist
 
 # ESLint cache (when run w/ --cache)
 .eslintcache
+
+# Local scratch / throwaway artifacts
+.tmp/

@@ -30,6 +30,8 @@ export const MAX_TEMPLATE_TAGS = 12
 export const MAX_TEMPLATE_TAG_LENGTH = 32
 export const MAX_TEMPLATE_LIST_LIMIT = 48
 export const DEFAULT_TEMPLATE_LIST_LIMIT = 24
+export const DEFAULT_TEMPLATE_DRAFT_LIMIT = 8
+export const MAX_TEMPLATE_DRAFT_LIMIT = 24
 export const TEMPLATE_SLUG_LENGTH = 10
 
 // max images denormalized onto each summary projection so cards can render a
@@ -80,6 +82,12 @@ export interface TemplateMediaRef
   mimeType: string
 }
 
+export interface TemplateCoverItem
+{
+  media: TemplateMediaRef
+  label: string | null
+}
+
 export interface MarketplaceTemplateBase
 {
   slug: string
@@ -102,10 +110,17 @@ export interface MarketplaceTemplateBase
 
 export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase
 {
-  // first MAX_TEMPLATE_COVER_ITEMS item images in template order. used to
-  // render a mosaic cover when coverMedia is null & for image-only previews.
-  // entries w/o media (text-only items) are filtered out at projection time
-  coverItems: TemplateMediaRef[]
+  // first MAX_TEMPLATE_COVER_ITEMS media-backed items in template order
+  coverItems: TemplateCoverItem[]
+}
+
+export interface MarketplaceTemplateDraftTemplate
+{
+  slug: string
+  title: string
+  category: TemplateCategory
+  coverMedia: TemplateMediaRef | null
+  coverItems: TemplateCoverItem[]
 }
 
 export interface MarketplaceTemplateItem
@@ -130,6 +145,23 @@ export interface MarketplaceTemplateDetail extends MarketplaceTemplateBase
 export interface MarketplaceTemplateListResult
 {
   items: MarketplaceTemplateSummary[]
+}
+
+export interface MarketplaceTemplateDraft
+{
+  boardExternalId: string
+  boardTitle: string
+  updatedAt: number
+  activeItemCount: number
+  rankedItemCount: number
+  unrankedItemCount: number
+  progressPercent: number
+  template: MarketplaceTemplateDraftTemplate
+}
+
+export interface MarketplaceTemplateDraftListResult
+{
+  drafts: MarketplaceTemplateDraft[]
 }
 
 export interface MarketplaceTemplatePublishResult

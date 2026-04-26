@@ -26,12 +26,16 @@ import {
   TEMPLATE_LIST_SORTS,
   TEMPLATE_VISIBILITIES,
   type MarketplaceTemplateDetail,
+  type MarketplaceTemplateDraft,
+  type MarketplaceTemplateDraftListResult,
+  type MarketplaceTemplateDraftTemplate,
   type MarketplaceTemplateItem,
   type MarketplaceTemplateListResult,
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateSummary,
   type MarketplaceTemplateUseResult,
   type TemplateCategory,
+  type TemplateCoverItem,
   type TemplateListSort,
   type TemplateMediaRef,
   type TemplateVisibility,
@@ -322,6 +326,11 @@ export const templateMediaRefValidator = v.object({
   mimeType: v.string(),
 })
 
+export const templateCoverItemValidator = v.object({
+  media: templateMediaRefValidator,
+  label: v.union(v.string(), v.null()),
+})
+
 const marketplaceTemplateBaseFields = {
   slug: v.string(),
   title: v.string(),
@@ -343,7 +352,15 @@ const marketplaceTemplateBaseFields = {
 
 export const marketplaceTemplateSummaryValidator = v.object({
   ...marketplaceTemplateBaseFields,
-  coverItems: v.array(templateMediaRefValidator),
+  coverItems: v.array(templateCoverItemValidator),
+})
+
+export const marketplaceTemplateDraftTemplateValidator = v.object({
+  slug: v.string(),
+  title: v.string(),
+  category: templateCategoryValidator,
+  coverMedia: v.union(templateMediaRefValidator, v.null()),
+  coverItems: v.array(templateCoverItemValidator),
 })
 
 export const marketplaceTemplateItemValidator = v.object({
@@ -379,6 +396,21 @@ export const marketplaceTemplateDetailValidator = v.object({
 
 export const marketplaceTemplateListResultValidator = v.object({
   items: v.array(marketplaceTemplateSummaryValidator),
+})
+
+export const marketplaceTemplateDraftValidator = v.object({
+  boardExternalId: v.string(),
+  boardTitle: v.string(),
+  updatedAt: v.number(),
+  activeItemCount: v.number(),
+  rankedItemCount: v.number(),
+  unrankedItemCount: v.number(),
+  progressPercent: v.number(),
+  template: marketplaceTemplateDraftTemplateValidator,
+})
+
+export const marketplaceTemplateDraftListResultValidator = v.object({
+  drafts: v.array(marketplaceTemplateDraftValidator),
 })
 
 export const marketplaceTemplatePublishResultValidator = v.object({
@@ -482,6 +514,17 @@ export type _TemplateMediaRefNoExtra = _Assert<
     : false
 >
 
+export type _TemplateCoverItemCovers = _Assert<
+  TemplateCoverItem extends Infer<typeof templateCoverItemValidator>
+    ? true
+    : false
+>
+export type _TemplateCoverItemNoExtra = _Assert<
+  Infer<typeof templateCoverItemValidator> extends TemplateCoverItem
+    ? true
+    : false
+>
+
 export type _MarketplaceTemplateSummaryCovers = _Assert<
   MarketplaceTemplateSummary extends Infer<
     typeof marketplaceTemplateSummaryValidator
@@ -534,6 +577,51 @@ export type _MarketplaceTemplateListResultNoExtra = _Assert<
   Infer<
     typeof marketplaceTemplateListResultValidator
   > extends MarketplaceTemplateListResult
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateDraftTemplateCovers = _Assert<
+  MarketplaceTemplateDraftTemplate extends Infer<
+    typeof marketplaceTemplateDraftTemplateValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateDraftTemplateNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateDraftTemplateValidator
+  > extends MarketplaceTemplateDraftTemplate
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateDraftCovers = _Assert<
+  MarketplaceTemplateDraft extends Infer<
+    typeof marketplaceTemplateDraftValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateDraftNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateDraftValidator
+  > extends MarketplaceTemplateDraft
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateDraftListResultCovers = _Assert<
+  MarketplaceTemplateDraftListResult extends Infer<
+    typeof marketplaceTemplateDraftListResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateDraftListResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateDraftListResultValidator
+  > extends MarketplaceTemplateDraftListResult
     ? true
     : false
 >
