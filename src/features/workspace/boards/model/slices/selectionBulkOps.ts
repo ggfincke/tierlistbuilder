@@ -2,7 +2,7 @@
 // pure builders for multi-selection move & delete mutations
 
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
-import { pluralizeWord } from '~/shared/lib/pluralize'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 import { EMPTY_SELECTION } from '~/features/workspace/boards/model/runtime'
 import { stripItemsFromContainers } from './helpers'
 import { withUndo } from './undoSlice'
@@ -44,10 +44,10 @@ export const buildSelectedItemsMove = (
     const moveLabel =
       selected.length === 1
         ? 'Move item to unranked'
-        : `Move ${selected.length} items to unranked`
+        : `Move ${formatCountedWord(selected.length, 'item')} to unranked`
 
     return {
-      announcement: `Moved ${selected.length} ${pluralizeWord(
+      announcement: `Moved ${formatCountedWord(
         selected.length,
         'item'
       )} to unranked`,
@@ -73,10 +73,10 @@ export const buildSelectedItemsMove = (
   const moveLabel =
     selected.length === 1
       ? `Move item to ${tier.name}`
-      : `Move ${selected.length} items to ${tier.name}`
+      : `Move ${formatCountedWord(selected.length, 'item')} to ${tier.name}`
 
   return {
-    announcement: `Moved ${selected.length} ${pluralizeWord(
+    announcement: `Moved ${formatCountedWord(
       selected.length,
       'item'
     )} to ${tier.name}`,
@@ -99,16 +99,15 @@ export const buildSelectedItemsDelete = (
   if (selected.length === 0) return null
 
   const deleteLabel =
-    selected.length === 1 ? 'Delete item' : `Delete ${selected.length} items`
+    selected.length === 1
+      ? 'Delete item'
+      : `Delete ${formatCountedWord(selected.length, 'item')}`
   const patch = buildRemoveItemsPatch(state, selected, deleteLabel)
 
   if (!patch) return null
 
   return {
-    announcement: `Deleted ${selected.length} ${pluralizeWord(
-      selected.length,
-      'item'
-    )}`,
+    announcement: `Deleted ${formatCountedWord(selected.length, 'item')}`,
     patch: {
       ...patch,
       ...clearSelectionPatch,

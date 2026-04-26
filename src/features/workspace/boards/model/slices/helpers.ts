@@ -12,10 +12,8 @@ import {
 } from '~/features/workspace/boards/model/runtime'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
-// max entries kept in the undo & redo stacks
 export const MAX_UNDO_HISTORY = 50
 
-// max entries kept in the recently-deleted buffer
 export const MAX_DELETED_ITEMS = 50
 
 // ref-equality check — mutations rebuild the touched array/map/tier so
@@ -42,7 +40,6 @@ export const isSameSnapshot = (a: BoardSnapshot, b: BoardSnapshot): boolean =>
   return true
 }
 
-// flatten every live board item ID (all tiers + unranked) into one ordered list
 export const getAllBoardItemIds = (
   state: Pick<ActiveBoardRuntimeState, 'tiers' | 'unrankedItemIds'>
 ): ItemId[] =>
@@ -75,6 +72,22 @@ const filterItemIdsPreservingRef = (
   return removed ? next : ids
 }
 
+const stripItemsFromTiers = <TTier extends { itemIds: ItemId[] }>(
+  tiers: TTier[],
+  idSet: ReadonlySet<ItemId>
+): TTier[] =>
+{
+  let changed = false
+  const next = tiers.map((tier) =>
+  {
+    const nextItemIds = filterItemIdsPreservingRef(tier.itemIds, idSet)
+    if (nextItemIds === tier.itemIds) return tier
+    changed = true
+    return { ...tier, itemIds: nextItemIds }
+  })
+  return changed ? next : tiers
+}
+
 // remove items from every tier & the unranked pool — preserves tier refs
 // when a tier has nothing stripped, so downstream TierRow memoization bails
 export const stripItemsFromContainers = (
@@ -82,20 +95,13 @@ export const stripItemsFromContainers = (
   idSet: ReadonlySet<ItemId>
 ): { tiers: Tier[]; unrankedItemIds: ItemId[] } =>
 {
-  let tiersChanged = false
-  const tiers = state.tiers.map((tier) =>
-  {
-    const nextItemIds = filterItemIdsPreservingRef(tier.itemIds, idSet)
-    if (nextItemIds === tier.itemIds) return tier
-    tiersChanged = true
-    return { ...tier, itemIds: nextItemIds }
-  })
+  const tiers = stripItemsFromTiers(state.tiers, idSet)
   const unrankedItemIds = filterItemIdsPreservingRef(
     state.unrankedItemIds,
     idSet
   )
   return {
-    tiers: tiersChanged ? tiers : state.tiers,
+    tiers,
     unrankedItemIds,
   }
 }
@@ -107,24 +113,20 @@ export const stripItemsFromSnapshot = (
   idSet: ReadonlySet<ItemId>
 ): ContainerSnapshot =>
 {
-  let tiersChanged = false
-  const tiers = snapshot.tiers.map((tier) =>
-  {
-    const nextItemIds = filterItemIdsPreservingRef(tier.itemIds, idSet)
-    if (nextItemIds === tier.itemIds) return tier
-    tiersChanged = true
-    return { id: tier.id, itemIds: nextItemIds }
-  })
+  const tiers = stripItemsFromTiers(snapshot.tiers, idSet)
   const unrankedItemIds = filterItemIdsPreservingRef(
     snapshot.unrankedItemIds,
     idSet
   )
-  if (!tiersChanged && unrankedItemIds === snapshot.unrankedItemIds)
+  if (
+    tiers === snapshot.tiers &&
+    unrankedItemIds === snapshot.unrankedItemIds
+  )
   {
     return snapshot
   }
   return {
-    tiers: tiersChanged ? tiers : snapshot.tiers,
+    tiers,
     unrankedItemIds,
   }
 }
@@ -136,7 +138,6 @@ export const runtimeCleanupForItem = (
   itemId: ItemId
 ) => runtimeCleanupForItems(state, new Set([itemId]))
 
-// clean up transient refs for a batch removal in one state patch
 export const runtimeCleanupForItems = (
   state: ActiveBoardRuntimeState,
   itemIds: ReadonlySet<ItemId>

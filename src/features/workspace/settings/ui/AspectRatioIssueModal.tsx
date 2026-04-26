@@ -1,8 +1,15 @@
 // src/features/workspace/settings/ui/AspectRatioIssueModal.tsx
 // first-encounter prompt for mixed aspect ratio items w/ inline ratio picker
 
-import { ChevronRight } from 'lucide-react'
-import { useCallback, useId, useMemo, useState } from 'react'
+import { Check, ChevronRight, Crop, Loader2 } from 'lucide-react'
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -24,11 +31,20 @@ import {
   SHAPE_CLASS,
 } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import {
+  areCachedAutoCropsApplied,
+  collectAutoCropTransforms,
+  getAutoCropCacheVersion,
+  getAutoCropHash,
+  subscribeAutoCropCache,
+} from '~/shared/lib/autoCrop'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 import { useSettingsStore } from '../model/useSettingsStore'
 import { useAspectRatioPrompt } from '../model/useAspectRatioPrompt'
+import { useAutoCropTrimShadows } from '../model/useAutoCropTrimShadows'
 import {
   createAspectRatioPromptSnapshot,
   resolveAspectRatioPromptItems,
@@ -83,6 +99,7 @@ const AspectRatioIssueModalBody = ({
   const {
     items,
     setItemsImageFit,
+    setItemsTransform,
     setAspectRatioPromptDismissed,
     boardDefaultFit,
     setDefaultItemImageFit,
@@ -90,6 +107,7 @@ const AspectRatioIssueModalBody = ({
     useShallow((state) => ({
       items: state.items,
       setItemsImageFit: state.setItemsImageFit,
+      setItemsTransform: state.setItemsTransform,
       setAspectRatioPromptDismissed: state.setAspectRatioPromptDismissed,
       boardDefaultFit: state.defaultItemImageFit,
       setDefaultItemImageFit: state.setDefaultItemImageFit,
@@ -101,6 +119,9 @@ const AspectRatioIssueModalBody = ({
       itemShape: state.itemShape,
     }))
   )
+  // alert reads the global trim setting but doesn't expose the toggle here —
+  // the editor has it where users are already engaged w/ per-item tuning
+  const { trimSoftShadows } = useAutoCropTrimShadows()
 
   // capture the opening mismatch set; the blocking prompt resolves later
   // previews/actions only against these ids
@@ -124,6 +145,39 @@ const AspectRatioIssueModalBody = ({
   // each — avoids polluting undo history when the user cycles fits
   const [pendingBulkFit, setPendingBulkFit] = useState<ImageFit | null>(null)
   const [dontAskAgain, setDontAskAgain] = useState(false)
+  const [autoCropProgress, setAutoCropProgress] = useState<{
+    running: boolean
+    done: number
+    total: number
+  }>({ running: false, done: 0, total: 0 })
+  const autoCropCacheVersion = useSyncExternalStore(
+    subscribeAutoCropCache,
+    getAutoCropCacheVersion,
+    getAutoCropCacheVersion
+  )
+
+  const autoCropTargets = useMemo(
+    () => mismatched.filter((item) => !!getAutoCropHash(item)),
+    [mismatched]
+  )
+
+  const autoCropAllApplied = useMemo(() =>
+  {
+    void autoCropCacheVersion
+    if (autoCropProgress.running) return false
+    return areCachedAutoCropsApplied(
+      autoCropTargets,
+      boardAspectRatio,
+      trimSoftShadows
+    )
+  }, [
+    trimSoftShadows,
+    autoCropCacheVersion,
+    autoCropProgress.running,
+    autoCropTargets,
+    boardAspectRatio,
+  ])
+  const autoCropHonored = pendingBulkFit === null && autoCropAllApplied
 
   const commitPending = useCallback(() =>
   {
@@ -146,6 +200,40 @@ const AspectRatioIssueModalBody = ({
     setDefaultItemImageFit,
     dontAskAgain,
     setAspectRatioPromptDismissed,
+  ])
+
+  const handleAutoCropAll = useCallback(async () =>
+  {
+    if (autoCropTargets.length === 0 || autoCropProgress.running) return
+    setPendingBulkFit(null)
+    setAutoCropProgress({
+      running: true,
+      done: 0,
+      total: autoCropTargets.length,
+    })
+    try
+    {
+      const entries = await collectAutoCropTransforms({
+        targets: autoCropTargets,
+        boardAspectRatio,
+        trimSoftShadows,
+        onProgress: () =>
+          setAutoCropProgress((p) =>
+            p.running ? { ...p, done: p.done + 1 } : p
+          ),
+      })
+      if (entries.length > 0) setItemsTransform(entries)
+    }
+    finally
+    {
+      setAutoCropProgress({ running: false, done: 0, total: 0 })
+    }
+  }, [
+    autoCropTargets,
+    trimSoftShadows,
+    autoCropProgress.running,
+    boardAspectRatio,
+    setItemsTransform,
   ])
 
   const handleDone = useCallback(() =>
@@ -194,8 +282,7 @@ const AspectRatioIssueModalBody = ({
         className="mx-auto mt-2 max-w-xl text-center text-sm text-[var(--t-text-muted)]"
       >
         <p>
-          {mismatched.length} item{mismatched.length === 1 ? '' : 's'}{' '}
-          don&apos;t match the{' '}
+          {formatCountedWord(mismatched.length, 'item')} don&apos;t match the{' '}
           <span className="text-[var(--t-text)]">{ratioLabel}</span> board
           ratio.
         </p>
@@ -223,45 +310,65 @@ const AspectRatioIssueModalBody = ({
           onApplyCustom={applyCustom}
           canApplyCustom={canApplyCustom}
           autoRatio={autoRatio}
+          showCustom={false}
         />
       </div>
 
       {mismatched.length > 0 && (
-        <div className="mt-4">
-          <SegmentedControl<ImageFit>
-            ariaLabel="Bulk image fit"
-            options={[
-              { value: 'cover', label: 'Cover all' },
-              { value: 'contain', label: 'Contain all' },
-            ]}
-            value={pendingBulkFit ?? boardDefaultFit ?? 'cover'}
-            onChange={setPendingBulkFit}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <BulkFitSegmentedControl
+            pendingBulkFit={pendingBulkFit}
+            autoCropHonored={autoCropHonored}
+            autoCropRunning={autoCropProgress.running}
+            autoCropAvailable={autoCropTargets.length > 0}
+            onSelectFit={setPendingBulkFit}
+            onSelectAutoCrop={handleAutoCropAll}
           />
+          {autoCropProgress.running && (
+            <span
+              className="ml-auto text-xs tabular-nums text-[var(--t-text-muted)]"
+              role="status"
+              aria-live="polite"
+            >
+              {autoCropProgress.done}/{autoCropProgress.total}
+            </span>
+          )}
         </div>
       )}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--t-border-secondary)] pt-4">
-        <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--t-text-muted)] transition-colors hover:text-[var(--t-text-secondary)]">
-          <input
-            type="checkbox"
-            checked={dontAskAgain}
-            onChange={(e) => setDontAskAgain(e.target.checked)}
-            className="focus-custom h-3.5 w-3.5 cursor-pointer accent-[var(--t-accent)]"
-          />
-          Don&apos;t show again
-        </label>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+        <div className="flex flex-col gap-0.5">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--t-text-muted)] transition-colors hover:text-[var(--t-text-secondary)]">
+            <input
+              type="checkbox"
+              checked={dontAskAgain}
+              onChange={(e) => setDontAskAgain(e.target.checked)}
+              className="focus-custom h-3.5 w-3.5 cursor-pointer accent-[var(--t-accent)]"
+            />
+            Don&apos;t show again
+          </label>
+          <span className="pl-5 text-[0.65rem] text-[var(--t-text-faint)]">
+            Re-enable in board settings
+          </span>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {onAdjustEach && (
-            <button
-              type="button"
+            <SecondaryButton
               onClick={handleAdjustEach}
-              className="focus-custom inline-flex items-center gap-1 rounded text-sm text-[var(--t-text-muted)] transition-colors hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+              variant="outline"
+              disabled={autoCropProgress.running}
             >
-              Adjust each item
-              <ChevronRight className="h-4 w-4" strokeWidth={1.8} />
-            </button>
+              <span className="inline-flex items-center gap-1">
+                Adjust each item
+                <ChevronRight className="h-4 w-4" strokeWidth={1.8} />
+              </span>
+            </SecondaryButton>
           )}
-          <SecondaryButton onClick={handleDone} variant="surface">
+          <SecondaryButton
+            onClick={handleDone}
+            variant="surface"
+            disabled={autoCropProgress.running}
+          >
             Done
           </SecondaryButton>
         </div>
@@ -301,27 +408,32 @@ const MismatchPreviewStrip = ({
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-2">
-      {thumbnailItems.map((item) => (
-        <div
-          key={item.id}
-          className="flex shrink-0 items-center justify-center"
-          style={slotStyle}
-          title={item.label ?? 'Item'}
-        >
+      {thumbnailItems.map((item) =>
+      {
+        const previewItem =
+          pendingBulkFit === null ? item : { ...item, transform: undefined }
+        return (
           <div
-            className={`relative overflow-hidden ${shapeClass}`}
-            style={innerSize}
+            key={item.id}
+            className="flex shrink-0 items-center justify-center"
+            style={slotStyle}
+            title={item.label ?? 'Item'}
           >
-            <ItemContent
-              item={item}
-              fit={
-                pendingBulkFit ?? getEffectiveImageFit(item, boardDefaultFit)
-              }
-              frameAspectRatio={boardAspectRatio}
-            />
+            <div
+              className={`relative overflow-hidden ${shapeClass}`}
+              style={innerSize}
+            >
+              <ItemContent
+                item={previewItem}
+                fit={
+                  pendingBulkFit ?? getEffectiveImageFit(item, boardDefaultFit)
+                }
+                frameAspectRatio={boardAspectRatio}
+              />
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
       {remaining > 0 && (
         <div
           aria-hidden="true"
@@ -337,5 +449,98 @@ const MismatchPreviewStrip = ({
         </div>
       )}
     </div>
+  )
+}
+
+type BulkFitMode = ImageFit | 'auto-crop'
+
+interface BulkFitSegmentedControlProps
+{
+  pendingBulkFit: ImageFit | null
+  autoCropHonored: boolean
+  autoCropRunning: boolean
+  autoCropAvailable: boolean
+  onSelectFit: (fit: ImageFit) => void
+  onSelectAutoCrop: () => void
+}
+
+// 3-segment control unifying Cover / Contain / Auto-crop. Cover & Contain
+// stay pending until Done (which strips any prior transform via
+// setItemsImageFit). Auto-crop runs immediately since detection is async
+const BulkFitSegmentedControl = ({
+  pendingBulkFit,
+  autoCropHonored,
+  autoCropRunning,
+  autoCropAvailable,
+  onSelectFit,
+  onSelectAutoCrop,
+}: BulkFitSegmentedControlProps) =>
+{
+  // pendingBulkFit (Cover/Contain) wins over the auto-crop honored state so
+  // the user's most recent intent is what the highlight reflects
+  const value: BulkFitMode | null =
+    pendingBulkFit ?? (autoCropHonored ? 'auto-crop' : null)
+
+  const handleChange = useCallback(
+    (next: BulkFitMode) =>
+    {
+      if (next === 'auto-crop') onSelectAutoCrop()
+      else onSelectFit(next)
+    },
+    [onSelectAutoCrop, onSelectFit]
+  )
+
+  // reserve the width of the widest possible label so the segment doesn't
+  // jitter as it cycles between idle / running / applied
+  const renderAutoCropLabel = (icon: ReactNode, text: string): ReactNode => (
+    <span className="relative inline-flex items-center justify-center">
+      <span
+        aria-hidden="true"
+        className="invisible inline-flex items-center gap-1"
+      >
+        <Check className="h-3 w-3" />
+        Auto-cropped all
+      </span>
+      <span className="absolute inset-0 inline-flex items-center justify-center gap-1">
+        {icon}
+        {text}
+      </span>
+    </span>
+  )
+
+  const autoCropLabel = autoCropRunning
+    ? renderAutoCropLabel(
+        <Loader2 className="h-3 w-3 animate-spin" />,
+        'Auto-crop all'
+      )
+    : autoCropHonored
+      ? renderAutoCropLabel(<Check className="h-3 w-3" />, 'Auto-cropped all')
+      : renderAutoCropLabel(<Crop className="h-3 w-3" />, 'Auto-crop all')
+
+  return (
+    <SegmentedControl<BulkFitMode>
+      ariaLabel="Bulk image fit"
+      value={value}
+      onChange={handleChange}
+      options={[
+        { value: 'cover', label: 'Cover all' },
+        { value: 'contain', label: 'Contain all' },
+        {
+          value: 'auto-crop',
+          label: autoCropLabel,
+          // honored state stays selected but unclickable so re-pressing
+          // doesn't re-run detection on already-cropped items
+          disabled: !autoCropAvailable || autoCropRunning || autoCropHonored,
+          ariaLabel: autoCropHonored
+            ? 'Auto-crop applied to mismatched items'
+            : 'Auto-crop all mismatched items',
+          title: autoCropHonored
+            ? 'Auto-crop is applied'
+            : !autoCropAvailable
+              ? 'No image bytes available to auto-crop'
+              : 'Frame detected content for mismatched items',
+        },
+      ]}
+    />
   )
 }

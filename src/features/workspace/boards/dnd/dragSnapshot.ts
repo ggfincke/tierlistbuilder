@@ -91,6 +91,26 @@ export const getEffectiveTiers = (
     return tiers
   }
 
+  if (
+    tiers.length === dragPreview.tiers.length &&
+    tiers.every((tier, index) => tier.id === dragPreview.tiers[index]?.id)
+  )
+  {
+    let changed = false
+    const next = tiers.map((tier, index) =>
+    {
+      const previewItemIds = dragPreview.tiers[index].itemIds
+      if (previewItemIds === tier.itemIds)
+      {
+        return tier
+      }
+      changed = true
+      return { ...tier, itemIds: previewItemIds }
+    })
+
+    return changed ? next : tiers
+  }
+
   const itemIdsByTierId = new Map(
     dragPreview.tiers.map((tier) => [tier.id, tier.itemIds] as const)
   )

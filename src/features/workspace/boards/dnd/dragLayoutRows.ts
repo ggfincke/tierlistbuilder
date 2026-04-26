@@ -58,11 +58,13 @@ export const buildRenderedRowLayout = (
 
   for (const item of sortByRenderedPosition(positionedItems))
   {
-    const rowIndex = rowTops.findIndex(
-      (rowTop) => Math.abs(rowTop - item.top) <= RENDERED_ROW_TOP_TOLERANCE_PX
-    )
+    const rowIndex = rowTops.length - 1
+    const rowTop = rowTops[rowIndex]
 
-    if (rowIndex >= 0)
+    if (
+      rowTop !== undefined &&
+      Math.abs(rowTop - item.top) <= RENDERED_ROW_TOP_TOLERANCE_PX
+    )
     {
       rows[rowIndex].push(item.itemId)
     }
@@ -171,21 +173,28 @@ export const isPointerInTrailingLastRowSpace = ({
     return false
   }
 
-  const sortedItemRects = sortByRenderedPosition(itemRects)
-  const lastRowTop = sortedItemRects[sortedItemRects.length - 1].top
-  const lastRowRects = sortedItemRects.filter(
-    (rect) => Math.abs(rect.top - lastRowTop) <= RENDERED_ROW_TOP_TOLERANCE_PX
-  )
+  let lastRowTop = -Infinity
+  for (const rect of itemRects)
+  {
+    lastRowTop = Math.max(lastRowTop, rect.top)
+  }
 
-  const rightmostRect = lastRowRects.reduce((current, rect) =>
-    rect.right > current.right ? rect : current
-  )
-  const rowTop = Math.min(...lastRowRects.map((rect) => rect.top))
-  const rowBottom = Math.max(...lastRowRects.map((rect) => rect.bottom))
+  let rowTop = Infinity
+  let rowBottom = -Infinity
+  let rightmostEdge = -Infinity
+
+  for (const rect of itemRects)
+  {
+    if (Math.abs(rect.top - lastRowTop) > RENDERED_ROW_TOP_TOLERANCE_PX)
+      continue
+    rowTop = Math.min(rowTop, rect.top)
+    rowBottom = Math.max(rowBottom, rect.bottom)
+    rightmostEdge = Math.max(rightmostEdge, rect.right)
+  }
 
   return (
     pointerCoordinates.y >= rowTop &&
     pointerCoordinates.y <= rowBottom &&
-    pointerCoordinates.x >= rightmostRect.right
+    pointerCoordinates.x >= rightmostEdge
   )
 }

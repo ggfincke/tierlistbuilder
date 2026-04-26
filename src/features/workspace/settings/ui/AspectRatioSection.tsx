@@ -19,6 +19,7 @@ import {
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { useBoardAspectRatioPicker } from '../model/useBoardAspectRatioPicker'
@@ -34,6 +35,7 @@ export const AspectRatioSection = () =>
   const {
     boardAspectRatio,
     selectedOption,
+    autoRatio,
     customWidth,
     customHeight,
     setCustomWidth,
@@ -94,6 +96,7 @@ export const AspectRatioSection = () =>
         <AspectRatioChips
           selectedOption={selectedOption}
           onSelect={handleOption}
+          autoRatio={autoRatio}
           alignClassName="justify-end"
         />
       </SettingRow>
@@ -114,8 +117,8 @@ export const AspectRatioSection = () =>
         <div className="mt-3 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-page)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-3 py-2">
             <span className="text-xs font-semibold text-[var(--t-text-secondary)]">
-              {totalMismatched} item{totalMismatched === 1 ? '' : 's'}{' '}
-              don&apos;t match the board ratio
+              {formatCountedWord(totalMismatched, 'item')} don&apos;t match the
+              board ratio
             </span>
             <div className="flex flex-wrap items-center gap-2">
               <SegmentedControl<ImageFit>

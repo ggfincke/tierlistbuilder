@@ -8,6 +8,7 @@ import type {
   TierLabelFontSize,
 } from '@tierlistbuilder/contracts/workspace/settings'
 import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
+import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 
 // item long-edge size in pixels — the longer side of the slot is always
 // pinned here, & the shorter side is derived from the board's aspect ratio
@@ -32,8 +33,7 @@ export const itemSlotDimensions = (
 ): ItemSlotDimensions =>
 {
   const longEdge = ITEM_LONG_EDGE_PX[itemSize]
-  const ratio =
-    Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1
+  const ratio = isPositiveFiniteNumber(aspectRatio) ? aspectRatio : 1
   if (ratio >= 1)
   {
     return { width: longEdge, height: Math.round(longEdge / ratio) }

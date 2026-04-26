@@ -12,7 +12,35 @@ import {
   buildSelectedItemsDelete,
   buildSelectedItemsMove,
 } from './selectionBulkOps'
-import type { ActiveBoardSliceCreator, SelectionSlice } from './types'
+import type {
+  ActiveBoardSliceCreator,
+  ActiveBoardStore,
+  SelectionSlice,
+} from './types'
+
+type SelectionMutation = NonNullable<
+  ReturnType<typeof buildSelectedItemsDelete>
+>
+type SelectionMutationBuilder = (
+  state: ActiveBoardStore
+) => SelectionMutation | null
+type SelectionSet = Parameters<ActiveBoardSliceCreator<SelectionSlice>>[0]
+
+const runBulkSelection = (
+  set: SelectionSet,
+  buildMutation: SelectionMutationBuilder
+): void =>
+{
+  let announcement: string | null = null
+  set((state) =>
+  {
+    const mutation = buildMutation(state)
+    if (!mutation) return state
+    announcement = mutation.announcement
+    return mutation.patch
+  })
+  if (announcement) announce(announcement)
+}
 
 export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
   set
@@ -26,7 +54,6 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
       const prev = state.selection.ids
       const idx = prev.indexOf(itemId)
 
-      // shift+click: range selection from last clicked to current
       if (shiftKey && state.lastClickedItemId)
       {
         const allIds = getAllBoardItemIds(state)
@@ -49,7 +76,6 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
         }
       }
 
-      // ctrl/cmd+click: toggle individual item in/out of selection
       if (modKey)
       {
         if (idx !== -1)
@@ -65,7 +91,6 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
         }
       }
 
-      // plain click: select only this item (clear others)
       // bail if already the sole selection to avoid a no-op state change
       // that triggers DndContext remeasure loops
       if (prev.length === 1 && prev[0] === itemId) return state
@@ -87,6 +112,7 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
     {
       const allIds = getAllBoardItemIds(state)
       const current = state.selection.ids
+
       // bail if every item is already selected to avoid no-op state change
       if (
         allIds.length === current.length &&
@@ -99,41 +125,14 @@ export const createSelectionSlice: ActiveBoardSliceCreator<SelectionSlice> = (
     }),
 
   moveSelectedToTier: (tierId) =>
-  {
-    let announcement: string | null = null
-    set((state) =>
-    {
-      const mutation = buildSelectedItemsMove(state, { kind: 'tier', tierId })
-      if (!mutation) return state
-      announcement = mutation.announcement
-      return mutation.patch
-    })
-    if (announcement) announce(announcement)
-  },
+    runBulkSelection(set, (state) =>
+      buildSelectedItemsMove(state, { kind: 'tier', tierId })
+    ),
 
   moveSelectedToUnranked: () =>
-  {
-    let announcement: string | null = null
-    set((state) =>
-    {
-      const mutation = buildSelectedItemsMove(state, { kind: 'unranked' })
-      if (!mutation) return state
-      announcement = mutation.announcement
-      return mutation.patch
-    })
-    if (announcement) announce(announcement)
-  },
+    runBulkSelection(set, (state) =>
+      buildSelectedItemsMove(state, { kind: 'unranked' })
+    ),
 
-  deleteSelectedItems: () =>
-  {
-    let announcement: string | null = null
-    set((state) =>
-    {
-      const mutation = buildSelectedItemsDelete(state)
-      if (!mutation) return state
-      announcement = mutation.announcement
-      return mutation.patch
-    })
-    if (announcement) announce(announcement)
-  },
+  deleteSelectedItems: () => runBulkSelection(set, buildSelectedItemsDelete),
 })

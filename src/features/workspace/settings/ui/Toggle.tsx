@@ -5,6 +5,7 @@ interface ToggleProps
 {
   checked: boolean
   onChange: (v: boolean) => void
+  disabled?: boolean
   ariaLabelledby?: string
   ariaDescribedby?: string
 }
@@ -12,6 +13,7 @@ interface ToggleProps
 export const Toggle = ({
   checked,
   onChange,
+  disabled = false,
   ariaLabelledby,
   ariaDescribedby,
 }: ToggleProps) => (
@@ -21,8 +23,9 @@ export const Toggle = ({
     aria-checked={checked}
     aria-labelledby={ariaLabelledby}
     aria-describedby={ariaDescribedby}
+    disabled={disabled}
     onClick={() => onChange(!checked)}
-    className={`focus-custom relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-sunken)] max-sm:h-6 max-sm:w-11 ${
+    className={`focus-custom relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--t-bg-sunken)] max-sm:h-6 max-sm:w-11 ${
       checked ? 'bg-[var(--t-accent)]' : 'bg-[var(--t-border-secondary)]'
     }`}
   >

@@ -100,6 +100,7 @@ export const appSettingsValidator = v.object({
   reducedMotion: v.boolean(),
   toolbarPosition: toolbarPositionValidator,
   showAltTextButton: v.boolean(),
+  autoCropTrimSoftShadows: v.boolean(),
 })
 
 // compile-time coverage check — AppSettings fields added, removed, or renamed

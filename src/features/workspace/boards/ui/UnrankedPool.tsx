@@ -20,6 +20,7 @@ import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { TextInput } from '~/shared/ui/TextInput'
 import { UploadDropzone } from '~/shared/ui/UploadDropzone'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 export const UnrankedPool = () =>
 {
@@ -112,8 +113,11 @@ export const UnrankedPool = () =>
         </h2>
         <span className="text-xs text-[var(--t-text-faint)]">
           {isSearching
-            ? `${filteredIds.length} of ${unrankedItemIds.length} items`
-            : `${itemCount} total items`}
+            ? `${filteredIds.length} of ${formatCountedWord(
+                unrankedItemIds.length,
+                'item'
+              )}`
+            : `${formatCountedWord(itemCount, 'item')} total`}
         </span>
       </div>
 

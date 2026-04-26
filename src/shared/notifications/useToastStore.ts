@@ -3,9 +3,11 @@
 
 import { create } from 'zustand'
 
+type ToastId = `toast-${string}`
+
 export interface Toast
 {
-  id: string
+  id: ToastId
   message: string
   type: 'info' | 'success' | 'error'
 }
@@ -19,6 +21,8 @@ interface ToastStore
 
 const TOAST_DURATION_MS = 3_000
 const MAX_VISIBLE_TOASTS = 5
+
+const generateToastId = (): ToastId => `toast-${crypto.randomUUID()}`
 
 // per-toast auto-dismiss timer registry — clears when a toast is removed
 // manually or expires naturally so we never fire setState on stale ids
@@ -38,7 +42,7 @@ export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
   addToast: (message, type = 'info') =>
   {
-    const id = `toast-${crypto.randomUUID()}`
+    const id = generateToastId()
     set((state) =>
     {
       // drop the oldest dismissal timer if we're trimming the queue

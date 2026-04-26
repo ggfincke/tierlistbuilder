@@ -52,45 +52,14 @@ export const mapAsyncLimitSettled = async <T, TResult>(
   limit: number,
   mapValue: (value: T, _index: number) => Promise<TResult>
 ): Promise<PromiseSettledResult<TResult>[]> =>
-{
-  if (limit < 1)
+  mapAsyncLimit(values, limit, async (value, index) =>
   {
-    throw new Error('Concurrency limit must be at least 1.')
-  }
-
-  if (values.length === 0)
-  {
-    return []
-  }
-
-  const results = new Array<PromiseSettledResult<TResult>>(values.length)
-  let nextIndex = 0
-
-  const workerCount = Math.min(limit, values.length)
-  const workers = Array.from({ length: workerCount }, async () =>
-  {
-    while (true)
+    try
     {
-      const currentIndex = nextIndex
-      nextIndex++
-
-      if (currentIndex >= values.length)
-      {
-        return
-      }
-
-      try
-      {
-        const value = await mapValue(values[currentIndex], currentIndex)
-        results[currentIndex] = { status: 'fulfilled', value }
-      }
-      catch (reason)
-      {
-        results[currentIndex] = { status: 'rejected', reason }
-      }
+      return { status: 'fulfilled', value: await mapValue(value, index) }
+    }
+    catch (reason)
+    {
+      return { status: 'rejected', reason }
     }
   })
-
-  await Promise.all(workers)
-  return results
-}
