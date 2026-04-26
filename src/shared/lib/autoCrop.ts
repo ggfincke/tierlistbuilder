@@ -6,11 +6,16 @@ import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   ItemRotation,
   ItemTransform,
+  TierItemImageRef,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { ITEM_TRANSFORM_IDENTITY } from '@tierlistbuilder/contracts/workspace/board'
 
-import { getBlob } from '~/shared/images/imageStore'
+import {
+  cacheFreshBlob,
+  ensureCloudImageCached,
+} from '~/shared/images/imageBlobCache'
+import { getBlob, type BlobRecord } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from './asyncMapLimit'
 import {
   clampItemTransform,
@@ -61,10 +66,6 @@ const COLOR_CONTENT_DISTANCE_SQ = 32 * 32
 // considered useful; falls back to null below this so bulk crop doesn't
 // blow up zoom on a near-empty image
 const MIN_BBOX_AREA_FRACTION = 0.01
-
-// bbox coverage above this threshold means detection found no useful margin
-// to crop away, so the button should behave as a no-op
-const FULL_IMAGE_EDGE_FRACTION = 0.995
 
 // fraction of image dimensions added on each side as breathing room.
 // applied AFTER content detection but BEFORE the transform math so the
@@ -163,6 +164,28 @@ export const getAutoCropCacheVersion = (): number => scanCacheVersion
 export const getAutoCropHash = (item: TierItem): string | undefined =>
   item.sourceImageRef?.hash ?? item.imageRef?.hash
 
+const getAutoCropImageRef = (item: TierItem): TierItemImageRef | undefined =>
+  item.sourceImageRef ?? item.imageRef
+
+export const loadAutoCropBlob = async (
+  ref: TierItemImageRef | undefined
+): Promise<BlobRecord | null> =>
+{
+  if (!ref) return null
+
+  let record = await getBlob(ref.hash)
+  if (!record && ref.cloudMediaExternalId)
+  {
+    await ensureCloudImageCached(ref.hash, ref.cloudMediaExternalId)
+    record = await getBlob(ref.hash)
+  }
+  if (record)
+  {
+    cacheFreshBlob(ref.hash, record.bytes)
+  }
+  return record
+}
+
 export const getCachedBBox = (
   hash: string | undefined,
   trimSoftShadows: boolean
@@ -203,7 +226,7 @@ export const areCachedAutoCropsApplied = (
     hasDetectedCrop = true
     if (
       !isSameItemTransform(
-        item.transform,
+        item.transform ?? ITEM_TRANSFORM_IDENTITY,
         resolveAutoCropTransform(item, bbox, boardAspectRatio)
       )
     )
@@ -214,8 +237,8 @@ export const areCachedAutoCropsApplied = (
   return hasDetectedCrop
 }
 
-// detect content bbox; returns null when no useful crop exists (full image
-// or detection failure). cached by hash so toggling the trim-shadows option
+// detect content bbox; returns null when detection fails or only finds a tiny
+// false-positive region. cached by hash so toggling the trim-shadows option
 // or repeat calls skip the decode/scan
 export const detectContentBBox = async (
   blob: Blob,
@@ -276,7 +299,7 @@ interface CollectAutoCropTransformsParams
 
 // shared bulk auto-crop pipeline used by the issue modal & image editor:
 // decode-or-cache hit per target, scan, resolve transform, return only the
-// items that produced a useful crop. caller drives progress UI & commits
+// items that produced detected content. caller drives progress UI & commits
 export const collectAutoCropTransforms = async ({
   targets,
   boardAspectRatio,
@@ -289,11 +312,12 @@ export const collectAutoCropTransforms = async ({
     AUTO_CROP_BATCH_CONCURRENCY,
     async (item): Promise<AutoCropTransformEntry | null> =>
     {
-      const hash = getAutoCropHash(item)!
+      const ref = getAutoCropImageRef(item)!
+      const hash = ref.hash
       let bbox = getCachedBBox(hash, trimSoftShadows)
       if (bbox === undefined)
       {
-        const record = await getBlob(hash)
+        const record = await loadAutoCropBlob(ref)
         bbox = record
           ? await detectContentBBox(record.bytes, hash, trimSoftShadows)
           : null
@@ -491,15 +515,8 @@ const pickBBox = (
   )
   const area = (bbox.right - bbox.left) * (bbox.bottom - bbox.top)
   if (area < MIN_BBOX_AREA_FRACTION) return null
-  if (isFullImageBBox(bbox)) return null
   return bbox
 }
-
-const isFullImageBBox = (bbox: AutoCropBBox): boolean =>
-  bbox.left <= 1 - FULL_IMAGE_EDGE_FRACTION &&
-  bbox.top <= 1 - FULL_IMAGE_EDGE_FRACTION &&
-  bbox.right >= FULL_IMAGE_EDGE_FRACTION &&
-  bbox.bottom >= FULL_IMAGE_EDGE_FRACTION
 
 const shouldTrimSoftShadows = (soft: PixelBBox, solid: PixelBBox): boolean =>
   getPixelBBoxArea(solid) / getPixelBBoxArea(soft) >= ALPHA_SOLID_AREA_MIN_RATIO
