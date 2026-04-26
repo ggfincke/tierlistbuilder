@@ -3,9 +3,11 @@
 // frame locks to the board aspect ratio so the preview matches the tier rows
 
 import {
+  forwardRef,
   useCallback,
   useEffect,
   useId,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -40,6 +42,7 @@ import {
   itemHasAspectMismatch,
 } from '~/features/workspace/boards/lib/aspectRatio'
 import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
+import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/useBoardAspectRatioPicker'
 import {
@@ -77,6 +80,7 @@ import { warmImageHashes } from '~/shared/images/imageBlobCache'
 import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/useAutoCropTrimShadows'
 import { AutoCropTrimToggle } from '~/features/workspace/settings/ui/AutoCropTrimToggle'
 import { BaseModal } from '~/shared/overlay/BaseModal'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import {
@@ -92,6 +96,7 @@ const FILTER_OPTIONS: { value: ImageEditorFilter; label: string }[] = [
 
 // preview canvas long-edge in px; the short edge is derived from board ratio
 const CANVAS_BOUND = 420
+const RAIL_THUMBNAIL_BOUND = 36
 
 // display-zoom bounds for the slider & percent input (independent of the
 // per-item baseline, so the UI floor/ceiling stay at 1% / 250%)
@@ -102,8 +107,6 @@ const ZOOM_SLIDER_STEP = 0.01
 const PAN_START_THRESHOLD_PX = 4
 // snap-to-center bypassed when Alt is held; threshold is per axis
 const PAN_SNAP_THRESHOLD_PX = 5
-// coalesces a held arrow or a wheel burst into one undo entry
-const GESTURE_COMMIT_DEBOUNCE_MS = 250
 const WHEEL_ZOOM_SENSITIVITY = 0.0015
 
 const normalizeRotation = (raw: number): ItemRotation =>
@@ -146,6 +149,29 @@ const transformKey = (transform: ItemTransform | undefined): string =>
   transform
     ? `${transform.rotation}:${transform.zoom}:${transform.offsetX}:${transform.offsetY}`
     : 'identity'
+
+const boundedAspectSize = (
+  aspectRatio: number,
+  bound: number
+): { width: number; height: number } =>
+{
+  const safeRatio = aspectRatio > 0 ? aspectRatio : 1
+  return safeRatio >= 1
+    ? { width: bound, height: bound / safeRatio }
+    : { width: bound * safeRatio, height: bound }
+}
+
+interface PendingImageEditorPaneEdit
+{
+  id: ItemId
+  transform: ItemTransform | null
+}
+
+interface ImageEditorPaneHandle
+{
+  getPendingEdit: () => PendingImageEditorPaneEdit | null
+  flushPendingEdit: () => void
+}
 
 const getDisplayZoomBounds = (
   zoomBaseline: number
@@ -215,6 +241,7 @@ const ImageEditorModalBody = () =>
   )
   const ratioPicker = useBoardAspectRatioPicker()
   const { trimSoftShadows, setTrimSoftShadows } = useAutoCropTrimShadows()
+  const activePaneRef = useRef<ImageEditorPaneHandle | null>(null)
 
   const allImageItems = useMemo(() =>
   {
@@ -265,31 +292,53 @@ const ImageEditorModalBody = () =>
     return allImageItems
   }, [filter, allImageItems, boardAspectRatio])
 
+  const getItemsWithPendingEdit = useCallback(
+    (pendingEdit: PendingImageEditorPaneEdit | null): readonly TierItem[] =>
+    {
+      if (!pendingEdit) return filteredItems
+      let matched = false
+      const nextItems = filteredItems.map((it) =>
+      {
+        if (it.id !== pendingEdit.id) return it
+        matched = true
+        return {
+          ...it,
+          transform: pendingEdit.transform ?? undefined,
+        }
+      })
+      return matched ? nextItems : filteredItems
+    },
+    [filteredItems]
+  )
+
   // auto-crop scope tracks the visible filter so cropping done in the issue
   // modal (mismatched-only) carries over to the Mismatched view here
-  const handleAutoCropAll = useCallback(async () =>
-  {
-    const targets = filteredItems.filter((it) => !!getAutoCropHash(it))
-    if (targets.length === 0) return
-    setAutoCropProgress({ running: true, done: 0, total: targets.length })
-    try
+  const handleAutoCropAll = useCallback(
+    async (sourceItems: readonly TierItem[] = filteredItems) =>
     {
-      const entries = await collectAutoCropTransforms({
-        targets,
-        boardAspectRatio,
-        trimSoftShadows,
-        onProgress: () =>
-          setAutoCropProgress((p) =>
-            p.running ? { ...p, done: p.done + 1 } : p
-          ),
-      })
-      if (entries.length > 0) setItemsTransform(entries)
-    }
-    finally
-    {
-      setAutoCropProgress({ running: false, done: 0, total: 0 })
-    }
-  }, [trimSoftShadows, filteredItems, boardAspectRatio, setItemsTransform])
+      const targets = sourceItems.filter((it) => !!getAutoCropHash(it))
+      if (targets.length === 0) return
+      setAutoCropProgress({ running: true, done: 0, total: targets.length })
+      try
+      {
+        const entries = await collectAutoCropTransforms({
+          targets,
+          boardAspectRatio,
+          trimSoftShadows,
+          onProgress: () =>
+            setAutoCropProgress((p) =>
+              p.running ? { ...p, done: p.done + 1 } : p
+            ),
+        })
+        if (entries.length > 0) setItemsTransform(entries)
+      }
+      finally
+      {
+        setAutoCropProgress({ running: false, done: 0, total: 0 })
+      }
+    },
+    [trimSoftShadows, filteredItems, boardAspectRatio, setItemsTransform]
+  )
 
   const autoCropAllApplied = useMemo(() =>
   {
@@ -307,6 +356,96 @@ const ImageEditorModalBody = () =>
     boardAspectRatio,
     filteredItems,
   ])
+
+  // items the user (or a previous gesture) saved a transform on that doesn't
+  // match the cached auto-crop result — bulk auto-crop would overwrite them
+  const manuallyAdjustedTargets = useMemo(() =>
+  {
+    void autoCropCacheVersion
+    return filteredItems.filter(
+      (it) =>
+        !!it.transform &&
+        !isIdentityTransform(it.transform) &&
+        !areCachedAutoCropsApplied([it], boardAspectRatio, trimSoftShadows)
+    )
+  }, [filteredItems, boardAspectRatio, trimSoftShadows, autoCropCacheVersion])
+
+  const getPendingManualTarget = useCallback(
+    (pendingEdit: PendingImageEditorPaneEdit | null): TierItem | null =>
+    {
+      if (!pendingEdit) return null
+      const item = filteredItems.find((it) => it.id === pendingEdit.id)
+      if (!item || !getAutoCropHash(item)) return null
+      const pendingItem: TierItem = {
+        ...item,
+        transform: pendingEdit.transform ?? undefined,
+      }
+      return areCachedAutoCropsApplied(
+        [pendingItem],
+        boardAspectRatio,
+        trimSoftShadows
+      )
+        ? null
+        : pendingItem
+    },
+    [filteredItems, boardAspectRatio, trimSoftShadows]
+  )
+
+  const getManualAdjustmentCount = useCallback(
+    (pendingEdit: PendingImageEditorPaneEdit | null): number =>
+    {
+      const pendingTarget = getPendingManualTarget(pendingEdit)
+      if (
+        !pendingTarget ||
+        manuallyAdjustedTargets.some((it) => it.id === pendingTarget.id)
+      )
+      {
+        return manuallyAdjustedTargets.length
+      }
+      return manuallyAdjustedTargets.length + 1
+    },
+    [getPendingManualTarget, manuallyAdjustedTargets]
+  )
+
+  const [confirmAutoCropOpen, setConfirmAutoCropOpen] = useState(false)
+  const [confirmAutoCropCount, setConfirmAutoCropCount] = useState(0)
+
+  const flushActivePaneEdit = useCallback(() =>
+  {
+    activePaneRef.current?.flushPendingEdit()
+  }, [])
+
+  // gate the bulk run on a confirm when manual adjustments are at risk;
+  // skip the prompt when nothing meaningful would be overwritten
+  const requestAutoCropAll = useCallback(() =>
+  {
+    const pendingEdit = activePaneRef.current?.getPendingEdit() ?? null
+    const adjustmentCount = getManualAdjustmentCount(pendingEdit)
+    if (adjustmentCount > 0)
+    {
+      setConfirmAutoCropCount(adjustmentCount)
+      setConfirmAutoCropOpen(true)
+      return
+    }
+    const cropItems = getItemsWithPendingEdit(pendingEdit)
+    flushActivePaneEdit()
+    void handleAutoCropAll(cropItems)
+  }, [
+    getItemsWithPendingEdit,
+    getManualAdjustmentCount,
+    flushActivePaneEdit,
+    handleAutoCropAll,
+  ])
+
+  const confirmAutoCropAll = useCallback(() =>
+  {
+    const pendingEdit = activePaneRef.current?.getPendingEdit() ?? null
+    const cropItems = getItemsWithPendingEdit(pendingEdit)
+    setConfirmAutoCropOpen(false)
+    setConfirmAutoCropCount(0)
+    flushActivePaneEdit()
+    void handleAutoCropAll(cropItems)
+  }, [getItemsWithPendingEdit, flushActivePaneEdit, handleAutoCropAll])
 
   // user's explicit pick; falls back to the filter's first item when stale
   const [pickedId, setPickedId] = useState<ItemId | null>(() =>
@@ -371,7 +510,7 @@ const ImageEditorModalBody = () =>
       </div>
       <BoardControlsBar
         ratioPicker={ratioPicker}
-        onAutoCropAll={handleAutoCropAll}
+        onAutoCropAll={requestAutoCropAll}
         autoCropProgress={autoCropProgress}
         autoCropAllApplied={autoCropAllApplied}
         trimSoftShadows={trimSoftShadows}
@@ -384,12 +523,14 @@ const ImageEditorModalBody = () =>
           items={filteredItems}
           totalCount={allImageItems.length}
           boardAspectRatio={boardAspectRatio}
+          boardDefaultFit={boardDefaultFit}
           selectedId={selectedId}
           onSelect={setPickedId}
         />
         <div className="flex min-w-0 flex-1 flex-col">
           {selectedItem ? (
             <ImageEditorPane
+              ref={activePaneRef}
               key={`${selectedItem.id}:${transformKey(selectedItem.transform)}:${boardAspectRatio}:${getEffectiveImageFit(selectedItem, boardDefaultFit)}`}
               item={selectedItem}
               boardAspectRatio={boardAspectRatio}
@@ -408,6 +549,19 @@ const ImageEditorModalBody = () =>
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmAutoCropOpen}
+        title="Overwrite image adjustments?"
+        description={`Auto-crop will replace ${confirmAutoCropCount === 1 ? '1 saved or pending adjustment' : `${confirmAutoCropCount} saved or pending adjustments`} in this view. Items already auto-cropped or untouched stay as they are.`}
+        confirmText="Auto-crop all"
+        variant="accent"
+        onConfirm={confirmAutoCropAll}
+        onCancel={() =>
+        {
+          setConfirmAutoCropCount(0)
+          setConfirmAutoCropOpen(false)
+        }}
+      />
     </BaseModal>
   )
 }
@@ -568,6 +722,7 @@ interface ImageEditorRailProps
   items: readonly TierItem[]
   totalCount: number
   boardAspectRatio: number
+  boardDefaultFit: ImageFit | undefined
   selectedId: ItemId | null
   onSelect: (id: ItemId) => void
 }
@@ -578,6 +733,7 @@ const ImageEditorRail = ({
   items,
   totalCount,
   boardAspectRatio,
+  boardDefaultFit,
   selectedId,
   onSelect,
 }: ImageEditorRailProps) => (
@@ -604,6 +760,22 @@ const ImageEditorRail = ({
         </button>
       ))}
     </div>
+    <div className="flex items-center gap-3 border-b border-[var(--t-border-secondary)] px-3 py-1.5 text-[0.65rem] text-[var(--t-text-faint)]">
+      <span className="inline-flex items-center gap-1">
+        <span
+          aria-hidden="true"
+          className="h-1.5 w-1.5 rounded-full bg-amber-400"
+        />
+        mismatched
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span
+          aria-hidden="true"
+          className="h-1.5 w-1.5 rounded-full bg-[var(--t-accent)]"
+        />
+        adjusted
+      </span>
+    </div>
     <ul className="flex-1 overflow-y-auto">
       {items.length === 0 && (
         <li className="px-3 py-4 text-xs text-[var(--t-text-faint)]">
@@ -615,6 +787,7 @@ const ImageEditorRail = ({
           key={item.id}
           item={item}
           boardAspectRatio={boardAspectRatio}
+          boardDefaultFit={boardDefaultFit}
           selected={item.id === selectedId}
           onSelect={() => onSelect(item.id)}
         />
@@ -627,6 +800,7 @@ interface ImageEditorRailRowProps
 {
   item: TierItem
   boardAspectRatio: number
+  boardDefaultFit: ImageFit | undefined
   selected: boolean
   onSelect: () => void
 }
@@ -634,13 +808,20 @@ interface ImageEditorRailRowProps
 const ImageEditorRailRow = ({
   item,
   boardAspectRatio,
+  boardDefaultFit,
   selected,
   onSelect,
 }: ImageEditorRailRowProps) =>
 {
-  const url = useImageUrl(item.imageRef?.hash)
   const mismatched = itemHasAspectMismatch(item, boardAspectRatio)
   const adjusted = !!item.transform && !isIdentityTransform(item.transform)
+  // mirror the main canvas: ItemContent applies any saved transform & resolves
+  // the effective fit, so the thumb previews the same crop the board renders
+  const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
+  const thumbnailSize = boundedAspectSize(
+    boardAspectRatio,
+    RAIL_THUMBNAIL_BOUND
+  )
   return (
     <li>
       <button
@@ -653,15 +834,17 @@ const ImageEditorRailRow = ({
             : 'text-[var(--t-text-secondary)] hover:bg-[var(--t-bg-surface)]'
         }`}
       >
-        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-sunken)]">
-          {url && (
-            <img
-              src={url}
-              alt=""
-              className="h-full w-full object-cover"
-              draggable={false}
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center">
+          <div
+            className="relative overflow-hidden rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-sunken)]"
+            style={thumbnailSize}
+          >
+            <ItemContent
+              item={item}
+              fit={effectiveFit}
+              frameAspectRatio={boardAspectRatio}
             />
-          )}
+          </div>
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-medium">
@@ -707,636 +890,638 @@ interface ImageEditorPaneProps
   onNext: () => void
 }
 
-// editor state is held locally during a single drag/slider interaction so we
-// only push one undo entry per gesture; buttons commit immediately because
-// they're already discrete actions
-const ImageEditorPane = ({
-  item,
-  boardAspectRatio,
-  boardDefaultFit,
-  trimSoftShadows,
-  onCommit,
-  canPrev,
-  canNext,
-  onPrev,
-  onNext,
-}: ImageEditorPaneProps) =>
-{
-  const sourceUrl = useImageUrl(item.sourceImageRef?.hash)
-  const displayUrl = useImageUrl(item.imageRef?.hash)
-  const url = sourceUrl ?? displayUrl
-  const autoCropHash = getAutoCropHash(item)
-  const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
-  const fitBaseline = useMemo(
-    () => createFitBaselineTransform(item, boardAspectRatio, effectiveFit),
-    [item, boardAspectRatio, effectiveFit]
+// editor state stays local until Confirm, pane navigation, modal close, or
+// parent bulk actions flush pending work
+const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
+  function ImageEditorPane(
+    {
+      item,
+      boardAspectRatio,
+      boardDefaultFit,
+      trimSoftShadows,
+      onCommit,
+      canPrev,
+      canNext,
+      onPrev,
+      onNext,
+    }: ImageEditorPaneProps,
+    ref
   )
-  const savedTransform = getSavedTransform(item)
-  const hasSavedTransform = !!savedTransform
-  const [working, setWorking] = useState<ItemTransform>(() =>
-    seedTransform(item, boardAspectRatio, effectiveFit)
-  )
-  const [isDragging, setIsDragging] = useState(false)
-  const [snap, setSnap] = useState<{ x: boolean; y: boolean }>({
-    x: false,
-    y: false,
-  })
-  const [autoCropping, setAutoCropping] = useState(false)
-  const canvasRef = useRef<HTMLDivElement | null>(null)
-  useSyncExternalStore(
-    subscribeAutoCropCache,
-    getAutoCropCacheVersion,
-    getAutoCropCacheVersion
-  )
-  const autoCropResult = getCachedBBox(autoCropHash, trimSoftShadows)
-
-  useEffect(() =>
   {
-    if (!item.sourceImageRef?.hash || sourceUrl) return
-    void warmImageHashes([item.sourceImageRef.hash])
-  }, [item.sourceImageRef?.hash, sourceUrl])
+    const sourceUrl = useImageUrl(item.sourceImageRef?.hash)
+    const displayUrl = useImageUrl(item.imageRef?.hash)
+    const url = sourceUrl ?? displayUrl
+    const autoCropHash = getAutoCropHash(item)
+    const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
+    const fitBaseline = useMemo(
+      () => createFitBaselineTransform(item, boardAspectRatio, effectiveFit),
+      [item, boardAspectRatio, effectiveFit]
+    )
+    const savedTransform = getSavedTransform(item)
+    const hasSavedTransform = !!savedTransform
+    const [working, setWorking] = useState<ItemTransform>(() =>
+      seedTransform(item, boardAspectRatio, effectiveFit)
+    )
+    const [isDragging, setIsDragging] = useState(false)
+    const [snap, setSnap] = useState<{ x: boolean; y: boolean }>({
+      x: false,
+      y: false,
+    })
+    const [autoCropping, setAutoCropping] = useState(false)
+    const canvasRef = useRef<HTMLDivElement | null>(null)
+    useSyncExternalStore(
+      subscribeAutoCropCache,
+      getAutoCropCacheVersion,
+      getAutoCropCacheVersion
+    )
+    const autoCropResult = getCachedBBox(autoCropHash, trimSoftShadows)
 
-  // arrow-key & wheel gestures fire many micro-updates; we coalesce them
-  // into a single commit per gesture so undo history stays usable
-  const pendingCommitRef = useRef<{
-    timer: number | null
-    transform: ItemTransform | null
-  }>({ timer: null, transform: null })
-
-  const cancelPendingCommit = useCallback(() =>
-  {
-    const pending = pendingCommitRef.current
-    if (pending.timer !== null)
+    useEffect(() =>
     {
-      clearTimeout(pending.timer)
-      pending.timer = null
-    }
-    pending.transform = null
-  }, [])
+      if (!item.sourceImageRef?.hash || sourceUrl) return
+      void warmImageHashes([item.sourceImageRef.hash])
+    }, [item.sourceImageRef?.hash, sourceUrl])
 
-  // discrete commits (drag end, slider end, rotate, reset, center) supersede
-  // any in-flight debounced gesture, so we drop pending instead of flushing
-  const flushCommit = useCallback(
-    (transform: ItemTransform) =>
-    {
-      cancelPendingCommit()
-      const clamped = clampItemTransform(transform)
-      onCommit(isSameItemTransform(clamped, fitBaseline) ? null : clamped)
-    },
-    [onCommit, fitBaseline, cancelPendingCommit]
-  )
-
-  const flushPendingCommit = useCallback(() =>
-  {
-    const pending = pendingCommitRef.current
-    if (pending.timer === null) return
-    clearTimeout(pending.timer)
-    pending.timer = null
-    const t = pending.transform
-    pending.transform = null
-    if (t) flushCommit(t)
-  }, [flushCommit])
-
-  const scheduleCommit = useCallback(
-    (transform: ItemTransform) =>
-    {
-      const pending = pendingCommitRef.current
-      pending.transform = transform
-      if (pending.timer !== null) clearTimeout(pending.timer)
-      pending.timer = window.setTimeout(() =>
+    // commit-only flow — in-pane controls update local working state; saved
+    // transform changes on Confirm, unmount flush, or parent bulk flush
+    const resolveCommitTransform = useCallback(
+      (transform: ItemTransform): ItemTransform | null =>
       {
-        const t = pending.transform
-        pending.timer = null
-        pending.transform = null
-        if (t) flushCommit(t)
-      }, GESTURE_COMMIT_DEBOUNCE_MS)
-    },
-    [flushCommit]
-  )
+        const clamped = clampItemTransform(transform)
+        return isSameItemTransform(clamped, fitBaseline) ? null : clamped
+      },
+      [fitBaseline]
+    )
 
-  // pane remounts mean the baseline changed; avoid resaving stale nudges.
-  // explicit pane navigation flushes pending gesture commits first
-  useEffect(
-    () => () =>
-    {
-      cancelPendingCommit()
-    },
-    [cancelPendingCommit]
-  )
+    const flushCommit = useCallback(
+      (transform: ItemTransform) => onCommit(resolveCommitTransform(transform)),
+      [onCommit, resolveCommitTransform]
+    )
 
-  const canvasW =
-    boardAspectRatio >= 1 ? CANVAS_BOUND : CANVAS_BOUND * boardAspectRatio
-  const canvasH =
-    boardAspectRatio >= 1 ? CANVAS_BOUND / boardAspectRatio : CANVAS_BOUND
+    // committed reflects what's currently saved to the store (or baseline if
+    // none); working becomes "dirty" when it diverges from this
+    const committed = savedTransform ?? fitBaseline
+    const isDirty = !isSameItemTransform(working, committed)
 
-  const getFitBaselineZoom = useCallback(
-    (rotation: ItemRotation) =>
-      createFitBaselineTransform(item, boardAspectRatio, effectiveFit, rotation)
-        .zoom,
-    [item, boardAspectRatio, effectiveFit]
-  )
+    // refs keep the unmount-flush effect free of stale closures — we only
+    // re-run it on actual unmount, but it must see the latest working state
+    const workingRef = useRef(working)
+    workingRef.current = working
+    const isDirtyRef = useRef(isDirty)
+    isDirtyRef.current = isDirty
+    const flushCommitRef = useRef(flushCommit)
+    flushCommitRef.current = flushCommit
+    const itemIdRef = useRef(item.id)
+    itemIdRef.current = item.id
+    const resolveCommitTransformRef = useRef(resolveCommitTransform)
+    resolveCommitTransformRef.current = resolveCommitTransform
 
-  // drag-to-pan — cell-relative offset deltas match crop positioning
-  const dragRef = useRef<{
-    startX: number
-    startY: number
-    baseOffX: number
-    baseOffY: number
-    moved: boolean
-  } | null>(null)
-
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) =>
-    {
-      if (e.button !== 0 || !url) return
-      e.preventDefault()
-      e.currentTarget.setPointerCapture(e.pointerId)
-      setIsDragging(true)
-      dragRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        baseOffX: working.offsetX,
-        baseOffY: working.offsetY,
-        moved: false,
-      }
-    },
-    [working.offsetX, working.offsetY, url]
-  )
-
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) =>
-    {
-      const drag = dragRef.current
-      if (!drag) return
-      const deltaX = e.clientX - drag.startX
-      const deltaY = e.clientY - drag.startY
-      if (!drag.moved && Math.hypot(deltaX, deltaY) < PAN_START_THRESHOLD_PX)
+    useImperativeHandle(ref, () => ({
+      getPendingEdit: () =>
+        isDirtyRef.current
+          ? {
+              id: itemIdRef.current,
+              transform: resolveCommitTransformRef.current(workingRef.current),
+            }
+          : null,
+      flushPendingEdit: () =>
       {
-        return
-      }
-      drag.moved = true
-      let nextOffsetX = drag.baseOffX + deltaX / canvasW
-      let nextOffsetY = drag.baseOffY + deltaY / canvasH
-      // Alt held bypasses snapping for fine alignment near the center
-      let snapX = false
-      let snapY = false
-      if (!e.altKey)
+        if (!isDirtyRef.current) return
+        flushCommitRef.current(workingRef.current)
+        isDirtyRef.current = false
+      },
+    }))
+
+    // unmount = pane navigation or modal close; auto-flush so users don't lose
+    // a pending edit by hitting Done or scrolling to a different item
+    useEffect(
+      () => () =>
       {
-        const thresholdX = PAN_SNAP_THRESHOLD_PX / canvasW
-        const thresholdY = PAN_SNAP_THRESHOLD_PX / canvasH
-        if (Math.abs(nextOffsetX) < thresholdX)
-        {
-          nextOffsetX = 0
-          snapX = true
+        if (isDirtyRef.current) flushCommitRef.current(workingRef.current)
+      },
+      []
+    )
+
+    const canvasW =
+      boardAspectRatio >= 1 ? CANVAS_BOUND : CANVAS_BOUND * boardAspectRatio
+    const canvasH =
+      boardAspectRatio >= 1 ? CANVAS_BOUND / boardAspectRatio : CANVAS_BOUND
+
+    const getFitBaselineZoom = useCallback(
+      (rotation: ItemRotation) =>
+        createFitBaselineTransform(
+          item,
+          boardAspectRatio,
+          effectiveFit,
+          rotation
+        ).zoom,
+      [item, boardAspectRatio, effectiveFit]
+    )
+
+    // drag-to-pan — cell-relative offset deltas match crop positioning
+    const dragRef = useRef<{
+      startX: number
+      startY: number
+      baseOffX: number
+      baseOffY: number
+      moved: boolean
+    } | null>(null)
+
+    const onPointerDown = useCallback(
+      (e: React.PointerEvent<HTMLDivElement>) =>
+      {
+        if (e.button !== 0 || !url) return
+        e.preventDefault()
+        e.currentTarget.setPointerCapture(e.pointerId)
+        setIsDragging(true)
+        dragRef.current = {
+          startX: e.clientX,
+          startY: e.clientY,
+          baseOffX: working.offsetX,
+          baseOffY: working.offsetY,
+          moved: false,
         }
-        if (Math.abs(nextOffsetY) < thresholdY)
-        {
-          nextOffsetY = 0
-          snapY = true
-        }
-      }
-      setSnap((prev) =>
-        prev.x === snapX && prev.y === snapY ? prev : { x: snapX, y: snapY }
-      )
-      setWorking((w) =>
-        clampItemTransform({
-          ...w,
-          offsetX: nextOffsetX,
-          offsetY: nextOffsetY,
-        })
-      )
-    },
-    [canvasW, canvasH]
-  )
+      },
+      [working.offsetX, working.offsetY, url]
+    )
 
-  const onPointerEnd = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) =>
-    {
-      const drag = dragRef.current
-      if (!drag)
+    const onPointerMove = useCallback(
+      (e: React.PointerEvent<HTMLDivElement>) =>
       {
+        const drag = dragRef.current
+        if (!drag) return
+        const deltaX = e.clientX - drag.startX
+        const deltaY = e.clientY - drag.startY
+        if (
+          !drag.moved &&
+          Math.hypot(deltaX, deltaY) < PAN_START_THRESHOLD_PX
+        )
+        {
+          return
+        }
+        drag.moved = true
+        let nextOffsetX = drag.baseOffX + deltaX / canvasW
+        let nextOffsetY = drag.baseOffY + deltaY / canvasH
+        // Alt held bypasses snapping for fine alignment near the center
+        let snapX = false
+        let snapY = false
+        if (!e.altKey)
+        {
+          const thresholdX = PAN_SNAP_THRESHOLD_PX / canvasW
+          const thresholdY = PAN_SNAP_THRESHOLD_PX / canvasH
+          if (Math.abs(nextOffsetX) < thresholdX)
+          {
+            nextOffsetX = 0
+            snapX = true
+          }
+          if (Math.abs(nextOffsetY) < thresholdY)
+          {
+            nextOffsetY = 0
+            snapY = true
+          }
+        }
+        setSnap((prev) =>
+          prev.x === snapX && prev.y === snapY ? prev : { x: snapX, y: snapY }
+        )
+        setWorking((w) =>
+          clampItemTransform({
+            ...w,
+            offsetX: nextOffsetX,
+            offsetY: nextOffsetY,
+          })
+        )
+      },
+      [canvasW, canvasH]
+    )
+
+    const onPointerEnd = useCallback(
+      (e: React.PointerEvent<HTMLDivElement>) =>
+      {
+        const drag = dragRef.current
+        if (!drag)
+        {
+          setIsDragging(false)
+          return
+        }
+        try
+        {
+          e.currentTarget.releasePointerCapture(e.pointerId)
+        }
+        catch
+        {
+          // capture was already released; safe to ignore
+        }
+        dragRef.current = null
         setIsDragging(false)
-        return
-      }
+        setSnap({ x: false, y: false })
+      },
+      []
+    )
+
+    const rotate = useCallback(
+      (delta: 90 | -90) =>
+      {
+        const currentBaselineZoom = getFitBaselineZoom(working.rotation)
+        const displayZoom = working.zoom / currentBaselineZoom
+        const rotation = normalizeRotation(working.rotation + delta)
+        setWorking({
+          ...working,
+          rotation,
+          zoom: displayZoom * getFitBaselineZoom(rotation),
+        })
+      },
+      [working, getFitBaselineZoom]
+    )
+
+    const setZoomLive = useCallback(
+      (zoom: number) =>
+        setWorking((w) =>
+          clampItemTransform({
+            ...w,
+            zoom: zoom * getFitBaselineZoom(w.rotation),
+          })
+        ),
+      [getFitBaselineZoom]
+    )
+
+    const reset = useCallback(() =>
+    {
+      setWorking(fitBaseline)
+    }, [fitBaseline])
+
+    const confirm = useCallback(() =>
+    {
+      flushCommit(working)
+    }, [flushCommit, working])
+
+    const centerOffsets = useCallback(() =>
+    {
+      setWorking((w) => clampItemTransform({ ...w, offsetX: 0, offsetY: 0 }))
+    }, [])
+
+    const autoCrop = useCallback(async () =>
+    {
+      if (!autoCropHash || autoCropping) return
+      setAutoCropping(true)
       try
       {
-        e.currentTarget.releasePointerCapture(e.pointerId)
-      }
-      catch
-      {
-        // capture was already released; safe to ignore
-      }
-      dragRef.current = null
-      setIsDragging(false)
-      setSnap({ x: false, y: false })
-      if (!drag.moved) return
-      setWorking((w) =>
-      {
-        flushCommit(w)
-        return w
-      })
-    },
-    [flushCommit]
-  )
-
-  const rotate = useCallback(
-    (delta: 90 | -90) =>
-    {
-      const currentBaselineZoom = getFitBaselineZoom(working.rotation)
-      const displayZoom = working.zoom / currentBaselineZoom
-      const rotation = normalizeRotation(working.rotation + delta)
-      const next: ItemTransform = {
-        ...working,
-        rotation,
-        zoom: displayZoom * getFitBaselineZoom(rotation),
-      }
-      setWorking(next)
-      flushCommit(next)
-    },
-    [working, flushCommit, getFitBaselineZoom]
-  )
-
-  const setZoomLive = useCallback(
-    (zoom: number) =>
-      setWorking((w) =>
-        clampItemTransform({
-          ...w,
-          zoom: zoom * getFitBaselineZoom(w.rotation),
-        })
-      ),
-    [getFitBaselineZoom]
-  )
-
-  const commitWorking = useCallback(
-    () =>
-      setWorking((w) =>
-      {
-        flushCommit(w)
-        return w
-      }),
-    [flushCommit]
-  )
-
-  const reset = useCallback(() =>
-  {
-    const next = fitBaseline
-    setWorking(next)
-    flushCommit(next)
-  }, [fitBaseline, flushCommit])
-
-  const goPrev = useCallback(() =>
-  {
-    flushPendingCommit()
-    onPrev()
-  }, [flushPendingCommit, onPrev])
-
-  const goNext = useCallback(() =>
-  {
-    flushPendingCommit()
-    onNext()
-  }, [flushPendingCommit, onNext])
-
-  const centerOffsets = useCallback(() =>
-  {
-    setWorking((w) =>
-    {
-      const next = clampItemTransform({ ...w, offsetX: 0, offsetY: 0 })
-      flushCommit(next)
-      return next
-    })
-  }, [flushCommit])
-
-  const autoCrop = useCallback(async () =>
-  {
-    if (!autoCropHash || autoCropping) return
-    setAutoCropping(true)
-    try
-    {
-      let bbox = getCachedBBox(autoCropHash, trimSoftShadows)
-      if (bbox === undefined)
-      {
-        const record = await getBlob(autoCropHash)
-        if (!record) return
-        bbox = await detectContentBBox(
-          record.bytes,
-          autoCropHash,
-          trimSoftShadows
+        let bbox = getCachedBBox(autoCropHash, trimSoftShadows)
+        if (bbox === undefined)
+        {
+          const record = await getBlob(autoCropHash)
+          if (!record) return
+          bbox = await detectContentBBox(
+            record.bytes,
+            autoCropHash,
+            trimSoftShadows
+          )
+        }
+        if (!bbox) return
+        setWorking(
+          resolveAutoCropTransform(
+            item,
+            bbox,
+            boardAspectRatio,
+            working.rotation
+          )
         )
       }
-      if (!bbox) return
-      const next = resolveAutoCropTransform(
-        item,
-        bbox,
-        boardAspectRatio,
-        working.rotation
-      )
-      setWorking(next)
-      flushCommit(next)
-    }
-    finally
-    {
-      setAutoCropping(false)
-    }
-  }, [
-    autoCropHash,
-    trimSoftShadows,
-    autoCropping,
-    item,
-    boardAspectRatio,
-    working.rotation,
-    flushCommit,
-  ])
-
-  // arrow keys nudge by 1 canvas-px (Shift = 10px); interactive controls
-  // keep their own keyboard behavior
-  useEffect(() =>
-  {
-    if (!url) return
-    const onKey = (e: KeyboardEvent) =>
-    {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey) return
-      if (isInteractiveArrowTarget(e.target)) return
-      let dxPx = 0
-      let dyPx = 0
-      switch (e.key)
+      finally
       {
-        case 'ArrowLeft':
-          dxPx = -1
-          break
-        case 'ArrowRight':
-          dxPx = 1
-          break
-        case 'ArrowUp':
-          dyPx = -1
-          break
-        case 'ArrowDown':
-          dyPx = 1
-          break
-        default:
-          return
+        setAutoCropping(false)
       }
-      if (e.shiftKey)
-      {
-        dxPx *= 10
-        dyPx *= 10
-      }
-      e.preventDefault()
-      setWorking((w) =>
-      {
-        const next = clampItemTransform({
-          ...w,
-          offsetX: w.offsetX + dxPx / canvasW,
-          offsetY: w.offsetY + dyPx / canvasH,
-        })
-        scheduleCommit(next)
-        return next
-      })
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [url, canvasW, canvasH, scheduleCommit])
+    }, [
+      autoCropHash,
+      trimSoftShadows,
+      autoCropping,
+      item,
+      boardAspectRatio,
+      working.rotation,
+    ])
 
-  // wheel-to-zoom anchored on the cursor; React's synthetic onWheel is
-  // passive so we attach a manual non-passive listener to preventDefault
-  useEffect(() =>
-  {
-    const canvas = canvasRef.current
-    if (!canvas || !url) return
-    const onWheel = (e: WheelEvent) =>
+    // arrow keys nudge by 1 canvas-px (Shift = 10px); interactive controls
+    // keep their own keyboard behavior
+    useEffect(() =>
     {
-      e.preventDefault()
-      const rect = canvas.getBoundingClientRect()
-      if (rect.width === 0 || rect.height === 0) return
-      const cursorFracX = (e.clientX - rect.left) / rect.width - 0.5
-      const cursorFracY = (e.clientY - rect.top) / rect.height - 0.5
-      const factor = Math.exp(-e.deltaY * WHEEL_ZOOM_SENSITIVITY)
-      setWorking((w) =>
+      if (!url) return
+      const onKey = (e: KeyboardEvent) =>
       {
-        const currentBaselineZoom = getFitBaselineZoom(w.rotation)
-        const { min, max } = getDisplayZoomBounds(currentBaselineZoom)
-        const nextDisplayZoom = clamp(
-          (w.zoom / currentBaselineZoom) * factor,
-          min,
-          max
+        if (e.defaultPrevented || e.metaKey || e.ctrlKey) return
+        if (isInteractiveArrowTarget(e.target)) return
+        let dxPx = 0
+        let dyPx = 0
+        switch (e.key)
+        {
+          case 'ArrowLeft':
+            dxPx = -1
+            break
+          case 'ArrowRight':
+            dxPx = 1
+            break
+          case 'ArrowUp':
+            dyPx = -1
+            break
+          case 'ArrowDown':
+            dyPx = 1
+            break
+          default:
+            return
+        }
+        if (e.shiftKey)
+        {
+          dxPx *= 10
+          dyPx *= 10
+        }
+        e.preventDefault()
+        setWorking((w) =>
+          clampItemTransform({
+            ...w,
+            offsetX: w.offsetX + dxPx / canvasW,
+            offsetY: w.offsetY + dyPx / canvasH,
+          })
         )
-        const nextZoom = nextDisplayZoom * currentBaselineZoom
-        const actualFactor = nextZoom / w.zoom
-        const next = clampItemTransform({
-          ...w,
-          zoom: nextZoom,
-          offsetX: cursorFracX - actualFactor * (cursorFracX - w.offsetX),
-          offsetY: cursorFracY - actualFactor * (cursorFracY - w.offsetY),
-        })
-        scheduleCommit(next)
-        return next
-      })
-    }
-    canvas.addEventListener('wheel', onWheel, { passive: false })
-    return () => canvas.removeEventListener('wheel', onWheel)
-  }, [url, scheduleCommit, getFitBaselineZoom])
-
-  const zoomBaseline = getFitBaselineZoom(working.rotation)
-  const displayZoom = working.zoom / zoomBaseline
-  const { min: displayZoomMin, max: displayZoomMax } =
-    getDisplayZoomBounds(zoomBaseline)
-  const displaySliderZoomMax = Math.min(
-    Math.max(SLIDER_ZOOM_MAX, displayZoom),
-    displayZoomMax
-  )
-  const autoCropTransform = autoCropResult
-    ? resolveAutoCropTransform(
-        item,
-        autoCropResult,
-        boardAspectRatio,
-        working.rotation
-      )
-    : null
-  const autoCropApplied =
-    !!autoCropTransform && isSameItemTransform(working, autoCropTransform)
-  const hasChanges =
-    hasSavedTransform || !isSameItemTransform(working, fitBaseline)
-  const useManualCrop =
-    hasChanges || effectiveFit === 'cover' || !!item.aspectRatio
-  const cropSize = useManualCrop
-    ? resolveManualCropImageSize(
-        item.aspectRatio,
-        boardAspectRatio,
-        working.rotation
-      )
-    : null
-  const cropCss = useManualCrop ? itemTransformToCropCss(working) : null
-  const imgClass = useManualCrop
-    ? 'absolute max-w-none select-none'
-    : `h-full w-full ${OBJECT_FIT_CLASS[effectiveFit]}`
-  const imgStyle = useManualCrop
-    ? {
-        width: `${cropSize!.widthPercent}%`,
-        height: `${cropSize!.heightPercent}%`,
-        left: cropCss!.left,
-        top: cropCss!.top,
-        transform: cropCss!.transform,
-        transformOrigin: 'center center' as const,
-        pointerEvents: 'none' as const,
-        willChange: 'transform' as const,
       }
-    : { pointerEvents: 'none' as const }
-  const ratioLabel = item.aspectRatio
-    ? formatAspectRatio(item.aspectRatio)
-    : '—'
+      window.addEventListener('keydown', onKey)
+      return () => window.removeEventListener('keydown', onKey)
+    }, [url, canvasW, canvasH])
 
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-2 text-xs text-[var(--t-text-muted)]">
-        <span className="truncate font-medium text-[var(--t-text-secondary)]">
-          {item.label ?? 'Untitled'}
-        </span>
-        <span>
-          Item {ratioLabel} · Board {formatAspectRatio(boardAspectRatio)}
-        </span>
-      </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
-        <div
-          ref={canvasRef}
-          className="relative overflow-hidden rounded border border-[var(--t-border-secondary)] bg-black/20 select-none"
-          style={{
-            width: canvasW,
-            height: canvasH,
-            cursor: isDragging ? 'grabbing' : url ? 'grab' : 'default',
-            touchAction: 'none',
-          }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerEnd}
-          onPointerCancel={onPointerEnd}
-          role="presentation"
-        >
-          {url ? (
-            <img
-              src={url}
-              alt={item.altText ?? item.label ?? 'Tier item'}
-              className={imgClass}
-              style={imgStyle}
-              draggable={false}
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-[var(--t-text-faint)]">
-              Loading...
-            </div>
-          )}
-          {snap.x && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]"
-            />
-          )}
-          {snap.y && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]"
-            />
-          )}
+    // wheel-to-zoom anchored on the cursor; React's synthetic onWheel is
+    // passive so we attach a manual non-passive listener to preventDefault
+    useEffect(() =>
+    {
+      const canvas = canvasRef.current
+      if (!canvas || !url) return
+      const onWheel = (e: WheelEvent) =>
+      {
+        e.preventDefault()
+        const rect = canvas.getBoundingClientRect()
+        if (rect.width === 0 || rect.height === 0) return
+        const cursorFracX = (e.clientX - rect.left) / rect.width - 0.5
+        const cursorFracY = (e.clientY - rect.top) / rect.height - 0.5
+        const factor = Math.exp(-e.deltaY * WHEEL_ZOOM_SENSITIVITY)
+        setWorking((w) =>
+        {
+          const currentBaselineZoom = getFitBaselineZoom(w.rotation)
+          const { min, max } = getDisplayZoomBounds(currentBaselineZoom)
+          const nextDisplayZoom = clamp(
+            (w.zoom / currentBaselineZoom) * factor,
+            min,
+            max
+          )
+          const nextZoom = nextDisplayZoom * currentBaselineZoom
+          const actualFactor = nextZoom / w.zoom
+          return clampItemTransform({
+            ...w,
+            zoom: nextZoom,
+            offsetX: cursorFracX - actualFactor * (cursorFracX - w.offsetX),
+            offsetY: cursorFracY - actualFactor * (cursorFracY - w.offsetY),
+          })
+        })
+      }
+      canvas.addEventListener('wheel', onWheel, { passive: false })
+      return () => canvas.removeEventListener('wheel', onWheel)
+    }, [url, getFitBaselineZoom])
+
+    const zoomBaseline = getFitBaselineZoom(working.rotation)
+    const displayZoom = working.zoom / zoomBaseline
+    const { min: displayZoomMin, max: displayZoomMax } =
+      getDisplayZoomBounds(zoomBaseline)
+    const displaySliderZoomMax = Math.min(
+      Math.max(SLIDER_ZOOM_MAX, displayZoom),
+      displayZoomMax
+    )
+    const autoCropTransform = autoCropResult
+      ? resolveAutoCropTransform(
+          item,
+          autoCropResult,
+          boardAspectRatio,
+          working.rotation
+        )
+      : null
+    const autoCropApplied =
+      !!autoCropTransform && isSameItemTransform(working, autoCropTransform)
+    const hasChanges =
+      hasSavedTransform || !isSameItemTransform(working, fitBaseline)
+    const useManualCrop =
+      hasChanges || effectiveFit === 'cover' || !!item.aspectRatio
+    const cropSize = useManualCrop
+      ? resolveManualCropImageSize(
+          item.aspectRatio,
+          boardAspectRatio,
+          working.rotation
+        )
+      : null
+    const cropCss = useManualCrop ? itemTransformToCropCss(working) : null
+    const imgClass = useManualCrop
+      ? 'absolute max-w-none select-none'
+      : `h-full w-full ${OBJECT_FIT_CLASS[effectiveFit]}`
+    const imgStyle = useManualCrop
+      ? {
+          width: `${cropSize!.widthPercent}%`,
+          height: `${cropSize!.heightPercent}%`,
+          left: cropCss!.left,
+          top: cropCss!.top,
+          transform: cropCss!.transform,
+          transformOrigin: 'center center' as const,
+          pointerEvents: 'none' as const,
+          willChange: 'transform' as const,
+        }
+      : { pointerEvents: 'none' as const }
+    const ratioLabel = item.aspectRatio
+      ? formatAspectRatio(item.aspectRatio)
+      : '—'
+
+    const mismatched = itemHasAspectMismatch(item, boardAspectRatio)
+    const boardRatioLabel = formatAspectRatio(boardAspectRatio)
+    // amber tint draws the eye to mismatched items so users know exactly what
+    // the editor's reframing is reconciling
+    const ratioBadgeClass = mismatched
+      ? 'border-amber-400/40 bg-amber-400/10 text-amber-200'
+      : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-muted)]'
+
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-2 text-xs text-[var(--t-text-muted)]">
+          <span className="truncate font-medium text-[var(--t-text-secondary)]">
+            {item.label ?? 'Untitled'}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 tabular-nums ${ratioBadgeClass}`}
+            title={
+              mismatched
+                ? `Item ${ratioLabel} doesn't match board ${boardRatioLabel}`
+                : `Item & board both ${boardRatioLabel}`
+            }
+          >
+            <span>{ratioLabel}</span>
+            <span aria-hidden="true">-&gt;</span>
+            <span>{boardRatioLabel}</span>
+          </span>
         </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-3 border-t border-[var(--t-border-secondary)] px-5 py-3">
-        <div
-          className="flex items-center gap-1"
-          role="group"
-          aria-label="Rotate"
-        >
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
+          <div
+            ref={canvasRef}
+            className="relative overflow-hidden rounded border border-[var(--t-border-secondary)] bg-black/20 select-none"
+            style={{
+              width: canvasW,
+              height: canvasH,
+              cursor: isDragging ? 'grabbing' : url ? 'grab' : 'default',
+              touchAction: 'none',
+            }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerEnd}
+            onPointerCancel={onPointerEnd}
+            role="presentation"
+          >
+            {url ? (
+              <img
+                src={url}
+                alt={item.altText ?? item.label ?? 'Tier item'}
+                className={imgClass}
+                style={imgStyle}
+                draggable={false}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs text-[var(--t-text-faint)]">
+                Loading...
+              </div>
+            )}
+            {snap.x && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]"
+              />
+            )}
+            {snap.y && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]"
+              />
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 border-t border-[var(--t-border-secondary)] px-5 py-3">
+          <div
+            className="flex items-center gap-1"
+            role="group"
+            aria-label="Rotate"
+          >
+            <button
+              type="button"
+              onClick={() => rotate(-90)}
+              className="focus-custom rounded p-1.5 text-[var(--t-text-muted)] hover:bg-[var(--t-bg-surface)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+              aria-label="Rotate left 90 degrees"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => rotate(90)}
+              className="focus-custom rounded p-1.5 text-[var(--t-text-muted)] hover:bg-[var(--t-bg-surface)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+              aria-label="Rotate right 90 degrees"
+            >
+              <RotateCw className="h-4 w-4" />
+            </button>
+          </div>
+          <ZoomSlider
+            value={displayZoom}
+            min={displayZoomMin}
+            sliderMax={displaySliderZoomMax}
+            onLiveChange={setZoomLive}
+          />
           <button
             type="button"
-            onClick={() => rotate(-90)}
-            className="focus-custom rounded p-1.5 text-[var(--t-text-muted)] hover:bg-[var(--t-bg-surface)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-            aria-label="Rotate left 90 degrees"
+            onClick={centerOffsets}
+            disabled={working.offsetX === 0 && working.offsetY === 0}
+            className="focus-custom inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            aria-label="Center image"
           >
-            <RotateCcw className="h-4 w-4" />
+            <Crosshair className="h-3 w-3" />
+            Center
+          </button>
+          <AutoCropButton
+            onClick={autoCrop}
+            disabled={
+              !autoCropHash ||
+              autoCropping ||
+              autoCropResult === null ||
+              autoCropApplied
+            }
+            minWidthClassName="min-w-[7.5rem]"
+            state={
+              autoCropping ? 'running' : autoCropApplied ? 'applied' : 'idle'
+            }
+            variant="plain"
+            labels={{
+              running: 'Auto-crop',
+              applied: 'Auto-cropped',
+              idle: 'Auto-crop',
+            }}
+            aria-label={
+              autoCropApplied ? 'Auto-crop applied' : 'Auto-crop to content'
+            }
+            title={
+              autoCropApplied
+                ? 'Auto-crop is applied'
+                : autoCropResult === null
+                  ? 'No crop detected — image fills its frame'
+                  : 'Frame the detected content'
+            }
+          />
+          <button
+            type="button"
+            onClick={reset}
+            disabled={!hasChanges && !isDirty}
+            className="focus-custom inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Reset
           </button>
           <button
             type="button"
-            onClick={() => rotate(90)}
-            className="focus-custom rounded p-1.5 text-[var(--t-text-muted)] hover:bg-[var(--t-bg-surface)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-            aria-label="Rotate right 90 degrees"
+            onClick={confirm}
+            disabled={!isDirty}
+            aria-label={
+              isDirty ? 'Confirm changes' : 'No pending changes to confirm'
+            }
+            title={
+              isDirty
+                ? 'Save these adjustments to this item'
+                : 'No pending changes'
+            }
+            className={`focus-custom inline-flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${
+              isDirty
+                ? 'border-[var(--t-accent)] bg-[var(--t-accent)] text-[var(--t-accent-foreground)] enabled:hover:brightness-110'
+                : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-muted)]'
+            }`}
           >
-            <RotateCw className="h-4 w-4" />
+            <Check className="h-3 w-3" />
+            Confirm
           </button>
-        </div>
-        <ZoomSlider
-          value={displayZoom}
-          min={displayZoomMin}
-          sliderMax={displaySliderZoomMax}
-          onLiveChange={setZoomLive}
-          onCommit={commitWorking}
-        />
-        <button
-          type="button"
-          onClick={centerOffsets}
-          disabled={working.offsetX === 0 && working.offsetY === 0}
-          className="focus-custom inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-          aria-label="Center image"
-        >
-          <Crosshair className="h-3 w-3" />
-          Center
-        </button>
-        <AutoCropButton
-          onClick={autoCrop}
-          disabled={
-            !autoCropHash ||
-            autoCropping ||
-            autoCropResult === null ||
-            autoCropApplied
-          }
-          minWidthClassName="min-w-[7.5rem]"
-          state={
-            autoCropping ? 'running' : autoCropApplied ? 'applied' : 'idle'
-          }
-          variant="plain"
-          labels={{
-            running: 'Auto-crop',
-            applied: 'Auto-cropped',
-            idle: 'Auto-crop',
-          }}
-          aria-label={
-            autoCropApplied ? 'Auto-crop applied' : 'Auto-crop to content'
-          }
-          title={
-            autoCropApplied
-              ? 'Auto-crop is applied'
-              : autoCropResult === null
-                ? 'No crop detected — image fills its frame'
-                : 'Frame the detected content'
-          }
-        />
-        <button
-          type="button"
-          onClick={reset}
-          disabled={!hasChanges}
-          className="focus-custom inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          <RefreshCw className="h-3 w-3" />
-          Reset
-        </button>
-        <div className="ml-auto flex items-center gap-2">
-          <SecondaryButton
-            onClick={goPrev}
-            disabled={!canPrev}
-            variant="surface"
-            size="sm"
-          >
-            Prev
-          </SecondaryButton>
-          <SecondaryButton
-            onClick={goNext}
-            disabled={!canNext}
-            variant="surface"
-            size="sm"
-          >
-            Next
-          </SecondaryButton>
+          <div className="ml-auto flex items-center gap-2">
+            <SecondaryButton
+              onClick={onPrev}
+              disabled={!canPrev}
+              variant="surface"
+              size="sm"
+            >
+              Prev
+            </SecondaryButton>
+            <SecondaryButton
+              onClick={onNext}
+              disabled={!canNext}
+              variant="surface"
+              size="sm"
+            >
+              Next
+            </SecondaryButton>
+          </div>
         </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
+)
 
 interface ZoomSliderProps
 {
@@ -1344,17 +1529,15 @@ interface ZoomSliderProps
   min: number
   sliderMax: number
   onLiveChange: (value: number) => void
-  onCommit: () => void
 }
 
-// HTML range input fires onChange on every value tick; we use those for the
-// live preview & commit on pointer/key release so each drag is one undo entry
+// HTML range input fires onChange on every value tick; only working state
+// updates here — saving goes through the explicit Confirm button
 const ZoomSlider = ({
   value,
   min,
   sliderMax,
   onLiveChange,
-  onCommit,
 }: ZoomSliderProps) =>
 {
   const percentValue = Math.round(clamp(value, min, sliderMax) * 100)
@@ -1383,15 +1566,7 @@ const ZoomSlider = ({
 
     setDraftPercent(null)
     onLiveChange(nextPercent / 100)
-    onCommit()
-  }, [
-    percentMax,
-    percentMin,
-    percentValue,
-    visiblePercent,
-    onLiveChange,
-    onCommit,
-  ])
+  }, [percentMax, percentMin, percentValue, visiblePercent, onLiveChange])
 
   const resetPercentInput = useCallback(() =>
   {
@@ -1416,9 +1591,6 @@ const ZoomSlider = ({
             )
           )
         }
-        onPointerUp={onCommit}
-        onKeyUp={onCommit}
-        onBlur={onCommit}
         className="w-56 accent-[var(--t-accent)] max-sm:w-36"
         aria-label="Zoom"
       />
