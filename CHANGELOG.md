@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-04-26
+
+### Added
+
+- **Auto-Crop**: Detect & trim uniform borders on item images, w/ bulk apply across a board & per-item action in the image editor (#28)
+- **Trim Soft Shadows**: Layout setting & inline toggles to extend auto-crop through soft drop shadows (#28)
+- **Aspect Ratio Issue Modal**: Segmented bulk-fit control to apply crop / fit / stretch across all flagged items at once (#28)
+- **Item Context Menu**: Right-click menu on board items extracted into a dedicated component, dismisses on scroll (#28)
+- **Image Editor**: Rail thumbnails, pending-edit flush, zoom slider refinements, & confirm-on-close guard (#28)
+
+### Changed
+
+- **Aspect Ratio Picker**: Cleaner auto-ratio labels, `showCustom` toggle, & refined tile layout (#28)
+- **Shared Lib**: New `autoCrop` module plus `math` step/percent helpers & `formatPreciseAspectRatio` (#28)
+
+### Fixed
+
+- **Auto-Crop**: Scope "crop all" to the active filter in the image editor (#28)
+
 ## [0.7.0] - 2026-04-25
 
 ### Added
