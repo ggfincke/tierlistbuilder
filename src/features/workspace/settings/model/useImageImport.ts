@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { processImageFiles } from '~/features/workspace/settings/lib/imageResize'
 import { useAspectRatioPrompt } from '~/features/workspace/settings/model/useAspectRatioPrompt'
+import { formatError } from '~/shared/lib/errors'
 import { pluralizeWord } from '~/shared/lib/pluralize'
 
 interface UseImageImportReturn
@@ -81,6 +82,12 @@ export const useImageImport = (): UseImageImportReturn =>
         {
           setRuntimeError(messages.join(' '))
         }
+      }
+      catch (err)
+      {
+        setRuntimeError(
+          formatError(err, 'Failed to import images. Please try again.')
+        )
       }
       finally
       {
