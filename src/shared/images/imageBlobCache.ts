@@ -108,6 +108,18 @@ export const requestCloudImage = (
   }
 }
 
+export const ensureCloudImageCached = async (
+  hash: string,
+  cloudMediaExternalId: string
+): Promise<void> =>
+{
+  if (cache.has(hash)) return
+  requestCloudImage(hash, cloudMediaExternalId)
+  // wait for requestCloudImage's queued microtask to install inFlightByHash
+  await Promise.resolve()
+  await inFlightByHash.get(hash)
+}
+
 // mark batch/query failures for retry on the next reconnect. the caller runs
 // while the batch's in-flight marker is still set, so only guard against
 // already-cached & already-pending hashes here

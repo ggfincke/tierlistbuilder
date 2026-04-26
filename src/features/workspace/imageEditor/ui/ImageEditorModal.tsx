@@ -72,10 +72,10 @@ import {
   getAutoCropCacheVersion,
   getAutoCropHash,
   getCachedBBox,
+  loadAutoCropBlob,
   resolveAutoCropTransform,
   subscribeAutoCropCache,
 } from '~/shared/lib/autoCrop'
-import { getBlob } from '~/shared/images/imageStore'
 import { warmImageHashes } from '~/shared/images/imageBlobCache'
 import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/useAutoCropTrimShadows'
 import { AutoCropTrimToggle } from '~/features/workspace/settings/ui/AutoCropTrimToggle'
@@ -908,8 +908,14 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
     ref
   )
   {
-    const sourceUrl = useImageUrl(item.sourceImageRef?.hash)
-    const displayUrl = useImageUrl(item.imageRef?.hash)
+    const sourceUrl = useImageUrl(
+      item.sourceImageRef?.hash,
+      item.sourceImageRef?.cloudMediaExternalId
+    )
+    const displayUrl = useImageUrl(
+      item.imageRef?.hash,
+      item.imageRef?.cloudMediaExternalId
+    )
     const url = sourceUrl ?? displayUrl
     const autoCropHash = getAutoCropHash(item)
     const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
@@ -1168,7 +1174,11 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
         let bbox = getCachedBBox(autoCropHash, trimSoftShadows)
         if (bbox === undefined)
         {
-          const record = await getBlob(autoCropHash)
+          const autoCropRef =
+            item.sourceImageRef?.hash === autoCropHash
+              ? item.sourceImageRef
+              : item.imageRef
+          const record = await loadAutoCropBlob(autoCropRef)
           if (!record) return
           bbox = await detectContentBBox(
             record.bytes,
@@ -1465,7 +1475,7 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
               autoCropApplied
                 ? 'Auto-crop is applied'
                 : autoCropResult === null
-                  ? 'No crop detected — image fills its frame'
+                  ? 'No crop detected'
                   : 'Frame the detected content'
             }
           />

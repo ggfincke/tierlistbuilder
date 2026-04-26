@@ -20,6 +20,8 @@ interface ItemContentProps
   item: {
     imageRef?: TierItemImageRef
     sourceImageRef?: TierItemImageRef
+    imageUrl?: string
+    sourceImageUrl?: string
     label?: string
     backgroundColor?: string
     altText?: string
@@ -47,15 +49,24 @@ export const ItemContent = ({
     item.transform && !isIdentityTransform(item.transform)
       ? item.transform
       : undefined
-  const preferSource = !!transform && !!item.sourceImageRef
-  const sourceImageUrl = useImageUrl(
-    preferSource ? item.sourceImageRef?.hash : undefined,
-    preferSource ? item.sourceImageRef?.cloudMediaExternalId : undefined
+  const preferSource =
+    !!transform && (!!item.sourceImageRef || !!item.sourceImageUrl)
+  const cachedSourceImageUrl = useImageUrl(
+    preferSource && !item.sourceImageUrl
+      ? item.sourceImageRef?.hash
+      : undefined,
+    preferSource && !item.sourceImageUrl
+      ? item.sourceImageRef?.cloudMediaExternalId
+      : undefined
   )
-  const displayImageUrl = useImageUrl(
-    item.imageRef?.hash,
-    item.imageRef?.cloudMediaExternalId
+  const cachedDisplayImageUrl = useImageUrl(
+    item.imageUrl ? undefined : item.imageRef?.hash,
+    item.imageUrl ? undefined : item.imageRef?.cloudMediaExternalId
   )
+  const sourceImageUrl = preferSource
+    ? (item.sourceImageUrl ?? cachedSourceImageUrl)
+    : null
+  const displayImageUrl = item.imageUrl ?? cachedDisplayImageUrl
   const imageUrl = sourceImageUrl ?? displayImageUrl
 
   if (imageUrl)
