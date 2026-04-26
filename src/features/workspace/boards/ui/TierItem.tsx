@@ -16,10 +16,10 @@ import {
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { getEffectiveImageFit } from '~/features/workspace/boards/lib/aspectRatio'
-import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
 import { SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { ItemContextMenu } from './ItemContextMenu'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
 import { ItemOverlayButton } from '~/shared/board-ui/ItemOverlayButton'
@@ -91,6 +91,10 @@ export const TierItem = memo(
     } = useKeyboardDrag(itemId)
 
     const [showEditPopover, setShowEditPopover] = useState(false)
+    const [contextMenuPos, setContextMenuPos] = useState<{
+      x: number
+      y: number
+    } | null>(null)
     const itemRef = useRef<HTMLDivElement | null>(null)
     const editButtonRef = useRef<HTMLButtonElement | null>(null)
 
@@ -177,11 +181,25 @@ export const TierItem = memo(
       (e: React.MouseEvent) =>
       {
         if (boardLocked) return
-        if (!item?.imageRef) return
+        if (!item) return
         e.preventDefault()
-        useImageEditorStore.getState().open({ itemId, filter: 'all' })
+        // pin the right-clicked item as the sole selection so bulk move/remove
+        // act on what the user clicked; if it's already in a multi-selection,
+        // leave the selection alone & operate on the whole group
+        if (!isSelected) toggleItemSelected(itemId, false, false)
+        setKeyboardFocusItemId(itemId)
+        setKeyboardMode('browse')
+        setContextMenuPos({ x: e.clientX, y: e.clientY })
       },
-      [boardLocked, item?.imageRef, itemId]
+      [
+        boardLocked,
+        item,
+        isSelected,
+        itemId,
+        setKeyboardFocusItemId,
+        setKeyboardMode,
+        toggleItemSelected,
+      ]
     )
 
     const handleItemFocus = useCallback(() =>
@@ -312,6 +330,16 @@ export const TierItem = memo(
               anchorRef={itemRef}
               triggerRef={editButtonRef}
               onClose={closeEditPopover}
+            />,
+            document.body
+          )}
+
+        {contextMenuPos &&
+          createPortal(
+            <ItemContextMenu
+              itemId={itemId}
+              position={contextMenuPos}
+              onClose={() => setContextMenuPos(null)}
             />,
             document.body
           )}

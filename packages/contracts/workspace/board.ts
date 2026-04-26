@@ -62,11 +62,11 @@ export const ITEM_TRANSFORM_IDENTITY: ItemTransform = {
   offsetY: 0,
 }
 
-// soft caps applied by the editor & by import normalization. zoom is bounded
-// so a corrupt JSON can't push image size to a sub-pixel speck or gigapixel.
-// pan is allowed slightly past the cell so users can bake a margin
+// soft caps applied by the editor & by import normalization. zoom supports
+// 1% contain/auto-crop for extreme ratios without letting corrupt JSON shrink
+// content to a sub-pixel speck. pan can go slightly past the cell for margin
 export const ITEM_TRANSFORM_LIMITS = {
-  zoomMin: 0.1,
+  zoomMin: 0.01,
   zoomMax: 10,
   offsetMin: -2,
   offsetMax: 2,

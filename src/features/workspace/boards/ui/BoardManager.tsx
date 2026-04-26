@@ -179,7 +179,7 @@ export const BoardManager = ({
                         type="button"
                         aria-label={`Rename ${board.title}`}
                         onClick={() => startEdit(board.id, board.title)}
-                        className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] group-hover:opacity-100 group-focus-within:opacity-100 max-sm:p-1.5"
+                        className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] max-sm:p-1.5"
                       >
                         <Pencil className="h-3 w-3" />
                       </button>
@@ -192,21 +192,20 @@ export const BoardManager = ({
                           duplicateBoardSession(board.id)
                           setOpen(false)
                         }}
-                        className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-text)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] group-hover:opacity-100 group-focus-within:opacity-100 max-sm:p-1.5"
+                        className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] max-sm:p-1.5"
                       >
                         <Copy className="h-3 w-3" />
                       </button>
 
-                      {boards.length > 1 && (
-                        <button
-                          type="button"
-                          aria-label={`Delete ${board.title}`}
-                          onClick={() => setConfirmDeleteId(board.id)}
-                          className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] opacity-0 transition hover:text-[var(--t-destructive-hover)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] group-hover:opacity-100 group-focus-within:opacity-100 max-sm:p-1.5"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        aria-label={`Delete ${board.title}`}
+                        onClick={() => setConfirmDeleteId(board.id)}
+                        disabled={boards.length <= 1}
+                        className="focus-custom shrink-0 rounded p-0.5 text-[var(--t-text-dim)] transition hover:text-[var(--t-destructive-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-[var(--t-text-dim)] max-sm:p-1.5"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </>
                   )}
                 </div>

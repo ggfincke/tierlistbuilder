@@ -331,3 +331,20 @@ export const formatAspectRatio = (value: number): string =>
   }
   return value.toFixed(2)
 }
+
+export const formatPreciseAspectRatio = (value: number): string =>
+{
+  if (!isPositiveFiniteNumber(value)) return '1:1'
+
+  for (let denom = 1; denom <= 16; denom += 1)
+  {
+    const num = Math.round(value * denom)
+    if (num <= 0) continue
+    if (ratiosMatch(num / denom, value, 0.001))
+    {
+      return `${num}:${denom}`
+    }
+  }
+
+  return `${formatCustomRatioDim(value, 2)}:1`
+}
