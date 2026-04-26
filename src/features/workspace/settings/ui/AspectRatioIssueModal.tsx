@@ -51,7 +51,6 @@ import {
 } from '../model/aspectRatioPromptSnapshot'
 import { useDeferredAspectRatioPicker } from '../model/useDeferredAspectRatioPicker'
 import { AspectRatioTiles } from './AspectRatioTiles'
-import { AutoCropTrimToggle } from './AutoCropTrimToggle'
 import { SegmentedControl } from './SegmentedControl'
 
 const MAX_THUMBNAIL_PREVIEW = 4
@@ -120,7 +119,9 @@ const AspectRatioIssueModalBody = ({
       itemShape: state.itemShape,
     }))
   )
-  const { trimSoftShadows, setTrimSoftShadows } = useAutoCropTrimShadows()
+  // alert reads the global trim setting but doesn't expose the toggle here —
+  // the editor has it where users are already engaged w/ per-item tuning
+  const { trimSoftShadows } = useAutoCropTrimShadows()
 
   // capture the opening mismatch set; the blocking prompt resolves later
   // previews/actions only against these ids
@@ -309,6 +310,7 @@ const AspectRatioIssueModalBody = ({
           onApplyCustom={applyCustom}
           canApplyCustom={canApplyCustom}
           autoRatio={autoRatio}
+          showCustom={false}
         />
       </div>
 
@@ -322,15 +324,9 @@ const AspectRatioIssueModalBody = ({
             onSelectFit={setPendingBulkFit}
             onSelectAutoCrop={handleAutoCropAll}
           />
-          <AutoCropTrimToggle
-            checked={trimSoftShadows}
-            onChange={setTrimSoftShadows}
-            disabled={autoCropProgress.running}
-            className="ml-auto"
-          />
           {autoCropProgress.running && (
             <span
-              className="text-xs tabular-nums text-[var(--t-text-muted)]"
+              className="ml-auto text-xs tabular-nums text-[var(--t-text-muted)]"
               role="status"
               aria-live="polite"
             >
@@ -341,26 +337,32 @@ const AspectRatioIssueModalBody = ({
       )}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--t-border-secondary)] pt-4">
-        <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--t-text-muted)] transition-colors hover:text-[var(--t-text-secondary)]">
-          <input
-            type="checkbox"
-            checked={dontAskAgain}
-            onChange={(e) => setDontAskAgain(e.target.checked)}
-            className="focus-custom h-3.5 w-3.5 cursor-pointer accent-[var(--t-accent)]"
-          />
-          Don&apos;t show again
-        </label>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+        <div className="flex flex-col gap-0.5">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--t-text-muted)] transition-colors hover:text-[var(--t-text-secondary)]">
+            <input
+              type="checkbox"
+              checked={dontAskAgain}
+              onChange={(e) => setDontAskAgain(e.target.checked)}
+              className="focus-custom h-3.5 w-3.5 cursor-pointer accent-[var(--t-accent)]"
+            />
+            Don&apos;t show again
+          </label>
+          <span className="pl-5 text-[0.65rem] text-[var(--t-text-faint)]">
+            Re-enable in board settings
+          </span>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {onAdjustEach && (
-            <button
-              type="button"
+            <SecondaryButton
               onClick={handleAdjustEach}
+              variant="outline"
               disabled={autoCropProgress.running}
-              className="focus-custom inline-flex items-center gap-1 rounded text-sm text-[var(--t-text-muted)] transition-colors enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
             >
-              Adjust each item
-              <ChevronRight className="h-4 w-4" strokeWidth={1.8} />
-            </button>
+              <span className="inline-flex items-center gap-1">
+                Adjust each item
+                <ChevronRight className="h-4 w-4" strokeWidth={1.8} />
+              </span>
+            </SecondaryButton>
           )}
           <SecondaryButton
             onClick={handleDone}
