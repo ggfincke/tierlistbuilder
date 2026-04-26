@@ -1,63 +1,91 @@
 // src/app/routes/AppRouter.tsx
-// app-level router that selects the workspace, embed, or not-found route
+// react-router-dom v6 router — workspace, marketplace, embed, & 404 routes
 
-import { lazy, Suspense, useSyncExternalStore } from 'react'
+import { lazy, Suspense } from 'react'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
+import {
+  EMBED_ROUTE_PATH,
+  TEMPLATES_ROUTE_PATH,
+  normalizeBasePath,
+} from './pathname'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import { NotFoundRoute } from './NotFoundRoute'
-import { resolveAppRoute } from './pathname'
 import { WorkspaceRoute } from './WorkspaceRoute'
 
-// EmbedRoute ships shared/board-ui + EmbedView which workspace users never
-// hit — lazy load keeps them out of the primary bundle
+// embed bundle ships shared/board-ui + EmbedView which workspace users never
+// hit — lazy load keeps it out of the primary chunk
 const EmbedRoute = lazy(() =>
   import('./EmbedRoute').then((m) => ({ default: m.EmbedRoute }))
 )
 
-const subscribeToLocation = (onChange: () => void): (() => void) =>
-{
-  window.addEventListener('popstate', onChange)
-  return () => window.removeEventListener('popstate', onChange)
-}
+// marketplace pages share a slice bundle that workspace users only fetch when
+// they navigate to /templates — same lazy split as the embed route
+const MarketplaceLayout = lazy(() =>
+  import('~/features/marketplace/pages/MarketplaceLayout').then((m) => ({
+    default: m.MarketplaceLayout,
+  }))
+)
+const TemplatesGalleryPage = lazy(() =>
+  import('~/features/marketplace/pages/TemplatesGalleryPage').then((m) => ({
+    default: m.TemplatesGalleryPage,
+  }))
+)
+const TemplateDetailPage = lazy(() =>
+  import('~/features/marketplace/pages/TemplateDetailPage').then((m) => ({
+    default: m.TemplateDetailPage,
+  }))
+)
 
-const getLocationPathname = (): string => window.location.pathname
-
-// empty page-color shell while the embed chunk arrives — matches the locked
-// dark theme EmbedShell applies once mounted so there's no flash on load
-const EmbedFallback = () => (
+// matches the page-color shell each lazy chunk applies once mounted, so users
+// don't see a white flash while the JS arrives
+const RouteFallback = () => (
   <main className="min-h-screen bg-[var(--t-bg-page)]" />
 )
 
-export const AppRouter = () =>
-{
-  const pathname = useSyncExternalStore(
-    subscribeToLocation,
-    getLocationPathname,
-    () => '/'
-  )
+// react-router-dom 6 expects an absolute basename. BASE_URL defaults to '/'
+// when no Vite base is configured; normalizeBasePath() strips the trailing
+// slash for non-root deploys & returns '' at root, which we map back to '/'
+const routerBasename = normalizeBasePath() || '/'
 
-  const route = resolveAppRoute(pathname)
-
-  switch (route.kind)
-  {
-    case 'embed':
-      return (
-        <ErrorBoundary section="embedded board">
-          <Suspense fallback={<EmbedFallback />}>
-            <EmbedRoute />
-          </Suspense>
-        </ErrorBoundary>
-      )
-
-    case 'not-found':
-      return <NotFoundRoute pathname={route.pathname} />
-
-    case 'workspace':
-    default:
-      return (
-        <ErrorBoundary section="the application">
-          <WorkspaceRoute />
-        </ErrorBoundary>
-      )
-  }
-}
+export const AppRouter = () => (
+  <BrowserRouter
+    basename={routerBasename}
+    future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+  >
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <ErrorBoundary section="the application">
+            <WorkspaceRoute />
+          </ErrorBoundary>
+        }
+      />
+      <Route
+        path={TEMPLATES_ROUTE_PATH}
+        element={
+          <ErrorBoundary section="the templates marketplace">
+            <Suspense fallback={<RouteFallback />}>
+              <MarketplaceLayout />
+            </Suspense>
+          </ErrorBoundary>
+        }
+      >
+        <Route index element={<TemplatesGalleryPage />} />
+        <Route path=":slug" element={<TemplateDetailPage />} />
+      </Route>
+      <Route
+        path={EMBED_ROUTE_PATH}
+        element={
+          <ErrorBoundary section="embedded board">
+            <Suspense fallback={<RouteFallback />}>
+              <EmbedRoute />
+            </Suspense>
+          </ErrorBoundary>
+        }
+      />
+      <Route path="*" element={<NotFoundRoute />} />
+    </Routes>
+  </BrowserRouter>
+)

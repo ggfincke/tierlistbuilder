@@ -24,18 +24,48 @@ const KNOWN_CONVEX_ERROR_CODES: ReadonlySet<string> = new Set(
   Object.values(CONVEX_ERROR_CODES)
 )
 
+const getConvexErrorData = (error: unknown): Record<string, unknown> | null =>
+{
+  if (error instanceof ConvexError)
+  {
+    return typeof error.data === 'object' && error.data !== null
+      ? (error.data as Record<string, unknown>)
+      : null
+  }
+
+  if (typeof error !== 'object' || error === null || !('data' in error))
+  {
+    return null
+  }
+
+  const data = (error as { data?: unknown }).data
+  return typeof data === 'object' && data !== null
+    ? (data as Record<string, unknown>)
+    : null
+}
+
 export const getConvexErrorCode = (error: unknown): ConvexErrorCode | null =>
 {
-  if (!(error instanceof ConvexError)) return null
-
-  const data = error.data as { code?: unknown } | null | undefined
-  if (!data || typeof data !== 'object') return null
-
-  const code = (data as { code?: unknown }).code
+  const data = getConvexErrorData(error)
+  const code = data?.code
   if (typeof code !== 'string') return null
 
   return KNOWN_CONVEX_ERROR_CODES.has(code) ? (code as ConvexErrorCode) : null
 }
+
+export const getConvexRetryAfterMs = (error: unknown): number | null =>
+{
+  const data = getConvexErrorData(error)
+  const retryAfter = data?.retryAfter
+  return typeof retryAfter === 'number' &&
+    Number.isFinite(retryAfter) &&
+    retryAfter >= 0
+    ? retryAfter
+    : null
+}
+
+export const isRateLimitedError = (error: unknown): boolean =>
+  getConvexErrorCode(error) === CONVEX_ERROR_CODES.rateLimited
 
 // codes that will never succeed on retry — rateLimited & unauthenticated are
 // excluded since both are transient (bucket resets; next sign-in refreshes)
@@ -62,6 +92,8 @@ export type RestoreErrorCode =
   | 'persist-failed'
   | 'cloud-error'
 
+export type PermanentSyncErrorCode = 'missing-local-image-blobs'
+
 // typed restore error for user-friendly toast mapping; raw error stays on cause
 export class RestoreBoardError extends Error
 {
@@ -69,13 +101,22 @@ export class RestoreBoardError extends Error
 
   constructor(code: RestoreErrorCode, message: string, cause?: unknown)
   {
-    super(message)
+    super(message, cause === undefined ? undefined : { cause })
     this.name = 'RestoreBoardError'
     this.code = code
-    if (cause !== undefined)
-    {
-      ;(this as { cause?: unknown }).cause = cause
-    }
+  }
+}
+
+export class PermanentSyncError extends Error
+{
+  readonly code: PermanentSyncErrorCode
+  readonly permanent = true
+
+  constructor(code: PermanentSyncErrorCode, message: string, cause?: unknown)
+  {
+    super(message, cause === undefined ? undefined : { cause })
+    this.name = 'PermanentSyncError'
+    this.code = code
   }
 }
 
@@ -90,6 +131,7 @@ export type SyncError =
       kind: 'convex'
       code: ConvexErrorCode
       permanent: boolean
+      retryAfter: number | null
       cause: unknown
     }
   | {
@@ -98,13 +140,48 @@ export type SyncError =
       permanent: boolean
       cause: unknown
     }
+  | {
+      kind: 'local-permanent'
+      code: PermanentSyncErrorCode
+      permanent: true
+      cause: unknown
+    }
   | { kind: 'unknown'; permanent: false; cause: unknown }
 
 const isPermanentRestoreCode = (code: RestoreErrorCode): boolean =>
   code === 'concurrent-hard-delete' || code === 'persist-failed'
 
+const SYNC_ERROR_KINDS: ReadonlySet<SyncError['kind']> = new Set([
+  'offline',
+  'convex',
+  'restore',
+  'local-permanent',
+  'unknown',
+])
+
+const isClassifiedSyncError = (error: unknown): error is SyncError =>
+{
+  if (typeof error !== 'object' || error === null)
+  {
+    return false
+  }
+
+  const kind = (error as { kind?: unknown }).kind
+  const permanent = (error as { permanent?: unknown }).permanent
+  return (
+    typeof kind === 'string' &&
+    SYNC_ERROR_KINDS.has(kind as SyncError['kind']) &&
+    typeof permanent === 'boolean'
+  )
+}
+
 export const classifySyncError = (error: unknown): SyncError =>
 {
+  if (isClassifiedSyncError(error))
+  {
+    return error
+  }
+
   if (isOfflineError(error))
   {
     return { kind: 'offline', permanent: false, cause: error }
@@ -120,6 +197,16 @@ export const classifySyncError = (error: unknown): SyncError =>
     }
   }
 
+  if (error instanceof PermanentSyncError)
+  {
+    return {
+      kind: 'local-permanent',
+      code: error.code,
+      permanent: true,
+      cause: error,
+    }
+  }
+
   const convexCode = getConvexErrorCode(error)
   if (convexCode !== null)
   {
@@ -127,9 +214,15 @@ export const classifySyncError = (error: unknown): SyncError =>
       kind: 'convex',
       code: convexCode,
       permanent: PERMANENT_CONVEX_ERROR_CODES.has(convexCode),
+      retryAfter: getConvexRetryAfterMs(error),
       cause: error,
     }
   }
 
   return { kind: 'unknown', permanent: false, cause: error }
 }
+
+export const getRateLimitRetryAfterMs = (error: SyncError): number | null =>
+  error.kind === 'convex' && error.code === CONVEX_ERROR_CODES.rateLimited
+    ? error.retryAfter
+    : null

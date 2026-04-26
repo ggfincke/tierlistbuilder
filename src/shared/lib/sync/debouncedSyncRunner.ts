@@ -68,6 +68,12 @@ export interface DebouncedSyncRunnerOptions<TKey, TWork, TSuccess, TConflict>
     work: TWork,
     context: SyncRunnerErrorContext<TWork>
   ) => boolean
+  getRetryDelayMs?: (
+    error: unknown,
+    key: TKey,
+    work: TWork,
+    context: SyncRunnerErrorContext<TWork>
+  ) => number | null
   onDrop?: (work: TWork, key: TKey) => void
   shouldProceed?: () => boolean
   dedupEqual?: (a: TWork, b: TWork) => boolean
@@ -170,6 +176,7 @@ export const createDebouncedSyncRunner = <
     c.inFlight = work
     options.onFlushStart?.(work, key)
     let shouldRetry = false
+    let retryDelayMs: number | null = null
     let conflicted = false
 
     const handleError = (error: unknown): void =>
@@ -182,6 +189,10 @@ export const createDebouncedSyncRunner = <
       shouldRetry = options.shouldRetryError
         ? options.shouldRetryError(error, key, work, context)
         : true
+
+      retryDelayMs = shouldRetry
+        ? (options.getRetryDelayMs?.(error, key, work, context) ?? null)
+        : null
 
       if (!shouldRetry && options.dropQueuedOnUnretryableError)
       {
@@ -241,7 +252,9 @@ export const createDebouncedSyncRunner = <
           // re-queue the failed work so backoff replays the same payload
           // rather than racing the next edit
           if (c.queued === null) c.queued = work
-          const delay = computeBackoffDelay(options.debounceMs, c.retryAttempt)
+          const delay =
+            retryDelayMs ??
+            computeBackoffDelay(options.debounceMs, c.retryAttempt)
           c.retryAttempt++
           scheduleFlush(key, c, delay)
           return

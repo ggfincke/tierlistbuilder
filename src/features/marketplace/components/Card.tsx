@@ -1,0 +1,163 @@
+// src/features/marketplace/components/Card.tsx
+// repeat-unit template card used by the gallery grid & section rails — three
+// sizes share the same chrome but vary in art height & meta density
+
+import { Clock, Eye, Layers } from 'lucide-react'
+import { Link } from 'react-router-dom'
+
+import type { MarketplaceTemplateSummary } from '@tierlistbuilder/contracts/marketplace/template'
+
+import {
+  formatCount,
+  formatRelativeTime,
+  formatTimeToRank,
+} from '~/features/marketplace/model/formatters'
+import { CATEGORY_META } from '~/features/marketplace/model/categories'
+import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
+import { Cover } from './Cover'
+import type { MosaicDensity } from './Mosaic'
+
+export type CardSize = 'small' | 'default' | 'large'
+
+interface CardProps
+{
+  template: MarketplaceTemplateSummary
+  size?: CardSize
+}
+
+const SIZE_CONFIG: Record<
+  CardSize,
+  {
+    coverHeight: string
+    titleClass: string
+    metaClass: string
+    bodyPad: string
+    density: MosaicDensity
+  }
+> = {
+  small: {
+    coverHeight: 'h-32',
+    titleClass: 'text-[13px]',
+    metaClass: 'text-[10px]',
+    bodyPad: 'px-3 py-2.5',
+    density: 'small',
+  },
+  default: {
+    coverHeight: 'h-40',
+    titleClass: 'text-sm',
+    metaClass: 'text-[11px]',
+    bodyPad: 'px-3.5 py-3',
+    density: 'default',
+  },
+  large: {
+    coverHeight: 'h-56',
+    titleClass: 'text-base',
+    metaClass: 'text-xs',
+    bodyPad: 'px-4 py-3.5',
+    density: 'large',
+  },
+}
+
+export const Card = ({ template, size = 'default' }: CardProps) =>
+{
+  const cfg = SIZE_CONFIG[size]
+  const detailPath = `${TEMPLATES_ROUTE_PATH}/${template.slug}`
+
+  return (
+    <Link
+      to={detailPath}
+      className="group focus-custom relative flex h-full flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] transition hover:-translate-y-0.5 hover:border-[var(--t-border-hover)] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+      aria-label={`${template.title} — by ${template.author.displayName}`}
+    >
+      <div className={`relative w-full overflow-hidden ${cfg.coverHeight}`}>
+        <Cover template={template} density={cfg.density} />
+
+        <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
+          {template.featuredRank !== null && (
+            <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase backdrop-blur">
+              Featured
+            </span>
+          )}
+          <span className="ml-auto rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur">
+            {template.itemCount} {template.itemCount === 1 ? 'item' : 'items'}
+          </span>
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-2.5 pb-2">
+          <span
+            className="rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase backdrop-blur"
+            style={{ boxShadow: '0 0 0 1px rgb(255 255 255 / 0.06)' }}
+          >
+            {CATEGORY_META[template.category].label}
+          </span>
+        </div>
+      </div>
+
+      <div
+        className={`flex flex-1 flex-col gap-2 ${cfg.bodyPad} text-[var(--t-text)]`}
+      >
+        <h3
+          className={`line-clamp-2 font-semibold leading-snug ${cfg.titleClass}`}
+        >
+          {template.title}
+        </h3>
+
+        {size !== 'small' && (
+          <div
+            className={`flex items-center gap-1.5 ${cfg.metaClass} text-[var(--t-text-muted)]`}
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-[9px] font-semibold text-[var(--t-text)]"
+            >
+              {template.author.displayName.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="truncate">{template.author.displayName}</span>
+          </div>
+        )}
+
+        <div
+          className={`mt-auto flex items-center gap-3 ${cfg.metaClass} text-[var(--t-text-faint)]`}
+        >
+          <span
+            className="inline-flex items-center gap-1"
+            title={`${template.useCount} forks`}
+          >
+            <Layers className="h-3 w-3" strokeWidth={1.8} />
+            {formatCount(template.useCount)}
+          </span>
+          <span
+            className="inline-flex items-center gap-1"
+            title={`${template.viewCount} views`}
+          >
+            <Eye className="h-3 w-3" strokeWidth={1.8} />
+            {formatCount(template.viewCount)}
+          </span>
+          <span
+            className="inline-flex items-center gap-1"
+            title="Estimated time to rank"
+          >
+            <Clock className="h-3 w-3" strokeWidth={1.8} />
+            {formatTimeToRank(template.itemCount)}
+          </span>
+          <span className="ml-auto text-[var(--t-text-dim)]">
+            {formatRelativeTime(template.updatedAt)}
+          </span>
+        </div>
+
+        {size === 'large' && template.tags.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {template.tags.slice(0, 3).map((t) => (
+              <span
+                key={t}
+                className="rounded bg-[rgb(var(--t-overlay)/0.06)] px-1.5 py-0.5 text-[10px] text-[var(--t-text-muted)]"
+              >
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </Link>
+  )
+}

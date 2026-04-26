@@ -236,7 +236,9 @@ const cloudBoardStateItemValidator = v.object({
   backgroundColor: v.optional(v.string()),
   altText: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
+  sourceMediaExternalId: v.optional(v.union(v.string(), v.null())),
   mediaContentHash: v.optional(v.string()),
+  sourceMediaContentHash: v.optional(v.string()),
   order: v.number(),
   deletedAt: v.union(v.number(), v.null()),
   aspectRatio: v.optional(v.number()),
@@ -320,7 +322,7 @@ export const templateMediaRefValidator = v.object({
   mimeType: v.string(),
 })
 
-export const marketplaceTemplateSummaryValidator = v.object({
+const marketplaceTemplateBaseFields = {
   slug: v.string(),
   title: v.string(),
   description: v.union(v.string(), v.null()),
@@ -337,6 +339,11 @@ export const marketplaceTemplateSummaryValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   unpublishedAt: v.union(v.number(), v.null()),
+}
+
+export const marketplaceTemplateSummaryValidator = v.object({
+  ...marketplaceTemplateBaseFields,
+  coverItems: v.array(templateMediaRefValidator),
 })
 
 export const marketplaceTemplateItemValidator = v.object({
@@ -365,22 +372,7 @@ export const marketplaceTemplateItemValidator = v.object({
 })
 
 export const marketplaceTemplateDetailValidator = v.object({
-  slug: v.string(),
-  title: v.string(),
-  description: v.union(v.string(), v.null()),
-  category: templateCategoryValidator,
-  tags: v.array(v.string()),
-  visibility: templateVisibilityValidator,
-  author: templateAuthorValidator,
-  coverMedia: v.union(templateMediaRefValidator, v.null()),
-  itemCount: v.number(),
-  useCount: v.number(),
-  viewCount: v.number(),
-  featuredRank: v.union(v.number(), v.null()),
-  creditLine: v.union(v.string(), v.null()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-  unpublishedAt: v.union(v.number(), v.null()),
+  ...marketplaceTemplateBaseFields,
   suggestedTiers: tierPresetTiersValidator,
   items: v.array(marketplaceTemplateItemValidator),
 })

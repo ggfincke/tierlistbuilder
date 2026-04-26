@@ -9,6 +9,8 @@ import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloud
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
+type MediaInfo = { externalId: string; contentHash: string }
+
 export const loadBoardCloudState = async (
   ctx: QueryCtx,
   board: Doc<'boards'>,
@@ -20,12 +22,10 @@ export const loadBoardCloudState = async (
   for (const item of serverItems)
   {
     if (item.mediaAssetId) mediaIds.add(item.mediaAssetId)
+    if (item.sourceMediaAssetId) mediaIds.add(item.sourceMediaAssetId)
   }
 
-  const mediaIdToInfo = new Map<
-    Id<'mediaAssets'>,
-    { externalId: string; contentHash: string }
-  >()
+  const mediaIdToInfo = new Map<Id<'mediaAssets'>, MediaInfo>()
   const assets = await Promise.all(
     [...mediaIds].map(async (id) =>
     {
@@ -78,6 +78,8 @@ export const loadBoardCloudState = async (
   const itemsForPayload = serverItems.filter(
     (item) => item.deletedAt === null || item.deletedAt >= tombstoneCutoff
   )
+  const getMediaInfo = (id: Id<'mediaAssets'> | null): MediaInfo | undefined =>
+    id ? mediaIdToInfo.get(id) : undefined
 
   return {
     title: board.title,
@@ -100,9 +102,8 @@ export const loadBoardCloudState = async (
       })),
     items: itemsForPayload.map((item) =>
     {
-      const mediaInfo = item.mediaAssetId
-        ? mediaIdToInfo.get(item.mediaAssetId)
-        : undefined
+      const mediaInfo = getMediaInfo(item.mediaAssetId)
+      const sourceMediaInfo = getMediaInfo(item.sourceMediaAssetId)
       return {
         externalId: item.externalId,
         tierId: item.tierId
@@ -112,7 +113,9 @@ export const loadBoardCloudState = async (
         backgroundColor: item.backgroundColor,
         altText: item.altText,
         mediaExternalId: mediaInfo?.externalId,
+        sourceMediaExternalId: sourceMediaInfo?.externalId,
         mediaContentHash: mediaInfo?.contentHash,
+        sourceMediaContentHash: sourceMediaInfo?.contentHash,
         order: item.order,
         deletedAt: item.deletedAt,
         aspectRatio: item.aspectRatio,

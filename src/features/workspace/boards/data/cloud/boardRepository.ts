@@ -51,6 +51,7 @@ export const upsertBoardStateImperative = (
 export const generateUploadUrlImperative = (): Promise<{
   uploadUrl: string
   uploadToken: string
+  envelopeUserId: string
 }> => convexClient.mutation(api.platform.media.uploads.generateUploadUrl, {})
 
 export const finalizeUploadImperative = (args: {

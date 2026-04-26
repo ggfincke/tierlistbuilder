@@ -27,6 +27,7 @@ export interface CloudBoardItemWire
   backgroundColor?: string
   altText?: string
   mediaExternalId?: string | null
+  sourceMediaExternalId?: string | null
   order: number
   // natural image aspect ratio captured at import time
   aspectRatio?: number
@@ -63,6 +64,7 @@ export interface CloudBoardStateItem extends CloudBoardItemWire
 {
   deletedAt: number | null
   mediaContentHash?: string
+  sourceMediaContentHash?: string
 }
 
 export interface CloudBoardState extends CloudBoardAspectRatioFields

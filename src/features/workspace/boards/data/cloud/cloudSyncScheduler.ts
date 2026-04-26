@@ -14,7 +14,11 @@ import {
   getPeerLockRemainingMs,
   isBoardLockedByPeer,
 } from '~/features/platform/sync/lib/crossTabSyncLock'
-import type { SyncError } from '~/features/platform/sync/lib/errors'
+import {
+  classifySyncError,
+  getRateLimitRetryAfterMs,
+  type SyncError,
+} from '~/features/platform/sync/lib/errors'
 import {
   createDebouncedSyncRunner,
   type BeforeSyncFlushDecision,
@@ -77,11 +81,10 @@ export interface CloudSyncScheduler
   dispose: (options?: SchedulerDisposeOptions) => Promise<void>
 }
 
-const isPermanentSyncError = (error: unknown): error is SyncError =>
-  typeof error === 'object' &&
-  error !== null &&
-  'permanent' in error &&
-  (error as { permanent?: unknown }).permanent === true
+const isPermanentSyncError = (error: SyncError): boolean => error.permanent
+
+const shouldClearPendingMarkerForError = (error: SyncError): boolean =>
+  isPermanentSyncError(error) && error.kind !== 'local-permanent'
 
 export const createCloudSyncScheduler = (
   options: CreateCloudSyncSchedulerOptions
@@ -122,6 +125,30 @@ export const createCloudSyncScheduler = (
     return { ...work, syncState: cleanSyncState }
   }
 
+  let rateLimitedUntil = 0
+
+  const getRateLimitDelayMs = (error: SyncError): number | null =>
+  {
+    const retryAfterMs = getRateLimitRetryAfterMs(error)
+    return retryAfterMs === null
+      ? null
+      : Math.max(options.debounceMs, Math.ceil(retryAfterMs))
+  }
+
+  const deferForRateLimit = (
+    work: PendingBoardSync
+  ): BeforeSyncFlushDecision<PendingBoardSync> | null =>
+  {
+    const remaining = rateLimitedUntil - Date.now()
+    return remaining > 0
+      ? {
+          kind: 'defer',
+          delayMs: Math.max(options.debounceMs, remaining),
+          work,
+        }
+      : null
+  }
+
   const beforeFlush = (
     work: PendingBoardSync,
     boardId: BoardId
@@ -130,6 +157,12 @@ export const createCloudSyncScheduler = (
     if (!options.hasBoard(boardId))
     {
       return { kind: 'drop' }
+    }
+
+    const rateLimitDecision = deferForRateLimit(work)
+    if (rateLimitDecision)
+    {
+      return rateLimitDecision
     }
 
     if (isBoardLockedByPeer(boardId))
@@ -172,15 +205,25 @@ export const createCloudSyncScheduler = (
     context: SyncRunnerErrorContext<PendingBoardSync>
   ): void =>
   {
-    if (isPermanentSyncError(error))
+    const syncError = classifySyncError(error)
+    const rateLimitDelayMs = getRateLimitDelayMs(syncError)
+    if (rateLimitDelayMs !== null)
+    {
+      rateLimitedUntil = Math.max(
+        rateLimitedUntil,
+        Date.now() + rateLimitDelayMs
+      )
+    }
+
+    if (shouldClearPendingMarkerForError(syncError))
     {
       clearPendingSyncMarker(context.queuedWork ?? work)
     }
 
-    options.onError?.(boardId, error)
+    options.onError?.(boardId, syncError)
     options.onStatusChange?.(
       boardId,
-      isPermanentSyncError(error) ? 'idle' : 'error'
+      isPermanentSyncError(syncError) ? 'idle' : 'error'
     )
   }
 
@@ -250,7 +293,8 @@ export const createCloudSyncScheduler = (
       options.onStatusChange?.(work.boardId, 'idle')
     },
     onError: handleError,
-    shouldRetryError: (error) => !isPermanentSyncError(error),
+    shouldRetryError: (error) => !classifySyncError(error).permanent,
+    getRetryDelayMs: (error) => getRateLimitDelayMs(classifySyncError(error)),
     onDrop: (work) =>
     {
       options.onStatusChange?.(work.boardId, 'idle')

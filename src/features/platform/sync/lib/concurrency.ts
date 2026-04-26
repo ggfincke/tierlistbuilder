@@ -10,8 +10,8 @@ export const SYNC_CONCURRENCY = {
   pullBatch: 3,
   // parallel board deletes
   delete: 4,
-  // parallel media uploads
-  upload: 3,
+  // serial media uploads keep storage writes & finalize actions from bursting
+  upload: 1,
   // parallel preset merges during first-login reconciliation
   presetMerge: 3,
   // parallel board imports (inbound share resolution)

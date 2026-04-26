@@ -32,6 +32,11 @@ export const MAX_TEMPLATE_LIST_LIMIT = 48
 export const DEFAULT_TEMPLATE_LIST_LIMIT = 24
 export const TEMPLATE_SLUG_LENGTH = 10
 
+// max images denormalized onto each summary projection so cards can render a
+// tiermaker-style mosaic w/o issuing a per-card detail query. capped to keep
+// the gallery payload bounded even when templates are large
+export const MAX_TEMPLATE_COVER_ITEMS = 24
+
 const TEMPLATE_SLUG_PATTERN = new RegExp(
   `^[0-9A-Za-z]{${TEMPLATE_SLUG_LENGTH}}$`
 )
@@ -75,7 +80,7 @@ export interface TemplateMediaRef
   mimeType: string
 }
 
-export interface MarketplaceTemplateSummary
+export interface MarketplaceTemplateBase
 {
   slug: string
   title: string
@@ -95,6 +100,14 @@ export interface MarketplaceTemplateSummary
   unpublishedAt: number | null
 }
 
+export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase
+{
+  // first MAX_TEMPLATE_COVER_ITEMS item images in template order. used to
+  // render a mosaic cover when coverMedia is null & for image-only previews.
+  // entries w/o media (text-only items) are filtered out at projection time
+  coverItems: TemplateMediaRef[]
+}
+
 export interface MarketplaceTemplateItem
 {
   externalId: string
@@ -108,7 +121,7 @@ export interface MarketplaceTemplateItem
   transform: ItemTransform | null
 }
 
-export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
+export interface MarketplaceTemplateDetail extends MarketplaceTemplateBase
 {
   suggestedTiers: TierPresetTier[]
   items: MarketplaceTemplateItem[]

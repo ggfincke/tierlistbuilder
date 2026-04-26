@@ -5,7 +5,7 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { Id } from '@convex/_generated/dataModel'
 import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import {
-  collectSnapshotImageHashes,
+  collectSnapshotLocalImageHashes,
   forEachSnapshotItem,
 } from '~/shared/lib/boardSnapshotItems'
 import {
@@ -13,7 +13,7 @@ import {
   getUploadStatusBatch,
   markUploaded,
 } from '~/shared/images/imageStore'
-import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import type { PreparedBlobRecord } from '~/shared/images/imagePersistence'
 import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
 import { SUPPORTED_IMAGE_MIME_TYPES } from '@tierlistbuilder/contracts/platform/media'
@@ -22,6 +22,10 @@ import {
   finalizeUploadImperative,
 } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
+import {
+  isRateLimitedError,
+  PermanentSyncError,
+} from '~/features/platform/sync/lib/errors'
 
 // throw if a locally-stored blob's mimeType is outside the server-accepted
 // set. server re-derives mimeType from bytes at finalize-time, but failing
@@ -50,30 +54,39 @@ const seedExistingCloudMediaIds = (
   forEachSnapshotItem(snapshot, (item) =>
   {
     const imageRef = item.imageRef
-    if (!imageRef?.cloudMediaExternalId)
+    if (imageRef?.cloudMediaExternalId)
     {
-      return
+      result.mediaExternalIdByHash.set(
+        imageRef.hash,
+        imageRef.cloudMediaExternalId
+      )
     }
-    result.mediaExternalIdByHash.set(
-      imageRef.hash,
-      imageRef.cloudMediaExternalId
-    )
+
+    const sourceImageRef = item.sourceImageRef
+    if (sourceImageRef?.cloudMediaExternalId)
+    {
+      result.mediaExternalIdByHash.set(
+        sourceImageRef.hash,
+        sourceImageRef.cloudMediaExternalId
+      )
+    }
   })
 }
 
 // upload one image blob to Convex storage & finalize it. throws on any
 // failure so callers can aggregate & surface a single error
 const uploadSingleImage = async (
-  userId: string,
+  uploadIndexUserId: string,
   prepared: PreparedBlobRecord
 ): Promise<string> =>
 {
   // pre-validate MIME so we don't upload bytes that finalizeUpload will
   // reject, leaving orphaned storage blobs
   assertSupportedMimeType(prepared.record.mimeType)
-  const { uploadUrl, uploadToken } = await generateUploadUrlImperative()
+  const { uploadUrl, uploadToken, envelopeUserId } =
+    await generateUploadUrlImperative()
   const envelopeHeader = Uint8Array.from(
-    getUploadEnvelopeHeader('media', userId, uploadToken)
+    getUploadEnvelopeHeader('media', envelopeUserId, uploadToken)
   )
 
   const response = await fetch(uploadUrl, {
@@ -100,18 +113,13 @@ const uploadSingleImage = async (
     uploadToken,
   })
 
-  await markUploaded(userId, prepared.record.hash, externalId)
+  await markUploaded(uploadIndexUserId, prepared.record.hash, externalId)
   return externalId
 }
 
-// collect the first rejection reason from a settled batch so aggregated
-// errors still include useful context in the message
-const firstRejectionReason = (
-  results: readonly PromiseSettledResult<unknown>[]
-): unknown =>
-  results.find(
-    (result): result is PromiseRejectedResult => result.status === 'rejected'
-  )?.reason
+type UploadAttemptResult =
+  | { kind: 'uploaded'; hash: string; externalId: string }
+  | { kind: 'failed'; reason: unknown }
 
 // upload all un-uploaded images for a board & return a hash->mediaExternalId
 // map. all-or-nothing: throws if any upload or finalize step fails so the
@@ -121,7 +129,7 @@ export const uploadBoardImages = async (
   userId: string
 ): Promise<BoardImageUploadResult> =>
 {
-  const hashes = collectSnapshotImageHashes(snapshot)
+  const hashes = collectSnapshotLocalImageHashes(snapshot)
 
   const result: BoardImageUploadResult = {
     mediaExternalIdByHash: new Map<string, string>(),
@@ -156,43 +164,59 @@ export const uploadBoardImages = async (
   )
   if (missingBlobHashes.length > 0)
   {
-    throw new Error(
+    throw new PermanentSyncError(
+      'missing-local-image-blobs',
       `missing local blobs for ${missingBlobHashes.length} image hash(es): ` +
         missingBlobHashes.slice(0, 3).join(', ') +
         (missingBlobHashes.length > 3 ? '…' : '')
     )
   }
 
-  const uploadResults = await mapAsyncLimitSettled(
+  const uploadResults = await mapAsyncLimit(
     needsBlobUpload,
     SYNC_CONCURRENCY.upload,
-    async (hash) =>
+    async (hash): Promise<UploadAttemptResult> =>
     {
-      const record = storedBlobRecords.get(hash)!
-      const externalId = await uploadSingleImage(userId, {
-        imageRef: { hash },
-        blob: record.bytes,
-        record,
-      })
-      return { hash, externalId }
+      try
+      {
+        const record = storedBlobRecords.get(hash)!
+        const externalId = await uploadSingleImage(userId, {
+          imageRef: { hash },
+          blob: record.bytes,
+          record,
+        })
+        return { kind: 'uploaded', hash, externalId }
+      }
+      catch (error)
+      {
+        if (isRateLimitedError(error))
+        {
+          throw error
+        }
+        return { kind: 'failed', reason: error }
+      }
     }
   )
+  const uploaded = uploadResults.filter(
+    (entry): entry is Extract<UploadAttemptResult, { kind: 'uploaded' }> =>
+      entry.kind === 'uploaded'
+  )
+  const failures = uploadResults.filter(
+    (entry): entry is Extract<UploadAttemptResult, { kind: 'failed' }> =>
+      entry.kind === 'failed'
+  )
 
-  const failures = uploadResults.filter((r) => r.status === 'rejected')
   if (failures.length > 0)
   {
     throw new Error(
       `failed to upload ${failures.length} of ${needsBlobUpload.length} image blobs: ` +
-        String(firstRejectionReason(uploadResults))
+        String(failures[0]?.reason)
     )
   }
 
-  for (const entry of uploadResults)
+  for (const entry of uploaded)
   {
-    if (entry.status === 'fulfilled')
-    {
-      result.mediaExternalIdByHash.set(entry.value.hash, entry.value.externalId)
-    }
+    result.mediaExternalIdByHash.set(entry.hash, entry.externalId)
   }
 
   return result

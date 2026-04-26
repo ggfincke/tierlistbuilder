@@ -87,6 +87,7 @@ const seedSourceBoard = async (
       label: 'Image item',
       altText: 'Image item alt',
       mediaAssetId,
+      sourceMediaAssetId: null,
       order: 0,
       deletedAt: null,
       aspectRatio: 1,
@@ -99,6 +100,7 @@ const seedSourceBoard = async (
       label: 'Text item',
       backgroundColor: '#336699',
       mediaAssetId: null,
+      sourceMediaAssetId: null,
       order: 1,
       deletedAt: null,
     })

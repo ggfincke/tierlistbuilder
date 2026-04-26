@@ -15,7 +15,7 @@ import { deleteStorageSilently } from '../../lib/storage'
 // a GC pass between those two would otherwise reap a fresh asset
 const GC_GRACE_MS = 60 * 60 * 1000
 
-// concurrency for per-asset reference checks. byMedia index queries are
+// concurrency for per-asset reference checks. media-reference indexes are
 // independent across assets so bounded parallelism cuts wall clock
 // significantly for nightly batches
 const REFERENCE_CHECK_CONCURRENCY = 8
@@ -104,26 +104,37 @@ export const gcOrphanedMediaAssets = internalMutation({
       const flags = await Promise.all(
         chunk.map(async (asset) =>
         {
-          const [boardRefs, templateItemRefs, templateCoverRefs] =
-            await Promise.all([
-              ctx.db
-                .query('boardItems')
-                .withIndex('byMedia', (q) => q.eq('mediaAssetId', asset._id))
-                .take(1),
-              ctx.db
-                .query('templateItems')
-                .withIndex('byMedia', (q) => q.eq('mediaAssetId', asset._id))
-                .take(1),
-              ctx.db
-                .query('templates')
-                .withIndex('byCoverMedia', (q) =>
-                  q.eq('coverMediaAssetId', asset._id)
-                )
-                .take(1),
-            ])
+          const [
+            boardRefs,
+            boardSourceRefs,
+            templateItemRefs,
+            templateCoverRefs,
+          ] = await Promise.all([
+            ctx.db
+              .query('boardItems')
+              .withIndex('byMedia', (q) => q.eq('mediaAssetId', asset._id))
+              .take(1),
+            ctx.db
+              .query('boardItems')
+              .withIndex('bySourceMedia', (q) =>
+                q.eq('sourceMediaAssetId', asset._id)
+              )
+              .take(1),
+            ctx.db
+              .query('templateItems')
+              .withIndex('byMedia', (q) => q.eq('mediaAssetId', asset._id))
+              .take(1),
+            ctx.db
+              .query('templates')
+              .withIndex('byCoverMedia', (q) =>
+                q.eq('coverMediaAssetId', asset._id)
+              )
+              .take(1),
+          ])
 
           return (
             boardRefs.length === 0 &&
+            boardSourceRefs.length === 0 &&
             templateItemRefs.length === 0 &&
             templateCoverRefs.length === 0
           )

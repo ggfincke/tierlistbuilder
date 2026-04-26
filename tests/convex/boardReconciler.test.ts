@@ -6,10 +6,12 @@ import type { Id } from '@convex/_generated/dataModel'
 import { diffItems } from '../../convex/workspace/sync/boardReconciler'
 
 const MEDIA_ID = 'media-1' as Id<'mediaAssets'>
+const SOURCE_MEDIA_ID = 'media-source' as Id<'mediaAssets'>
 
 const makeServerItem = (
   overrides: Partial<{
     mediaAssetId: Id<'mediaAssets'> | null
+    sourceMediaAssetId: Id<'mediaAssets'> | null
     order: number
     deletedAt: number | null
   }> = {}
@@ -23,6 +25,7 @@ const makeServerItem = (
   backgroundColor: undefined,
   altText: undefined,
   mediaAssetId: MEDIA_ID,
+  sourceMediaAssetId: null,
   order: 0,
   deletedAt: null,
   ...overrides,
@@ -78,6 +81,60 @@ describe('boardReconciler media semantics', () =>
         id: 'row-1',
         fields: {
           mediaAssetId: null,
+        },
+      },
+    ])
+  })
+
+  it('updates source media independently from display media', () =>
+  {
+    const diff = diffItems(
+      [
+        {
+          externalId: 'item-1',
+          tierId: null,
+          sourceMediaExternalId: 'media-source',
+          order: 0,
+        },
+      ],
+      [makeServerItem()],
+      new Map(),
+      new Map([['media-source', SOURCE_MEDIA_ID]]),
+      new Set()
+    )
+
+    expect(diff.patch).toEqual([
+      {
+        id: 'row-1',
+        fields: {
+          sourceMediaAssetId: SOURCE_MEDIA_ID,
+        },
+      },
+    ])
+  })
+
+  it('clears source media when explicitly sent as null', () =>
+  {
+    const diff = diffItems(
+      [
+        {
+          externalId: 'item-1',
+          tierId: null,
+          sourceMediaExternalId: null,
+          order: 0,
+        },
+      ],
+      [makeServerItem({ sourceMediaAssetId: SOURCE_MEDIA_ID })],
+      new Map(),
+      new Map(),
+      new Set()
+    )
+
+    expect(diff.patch).toEqual([
+      {
+        id: 'row-1',
+        fields: {
+          sourceMediaAssetId: null,
         },
       },
     ])

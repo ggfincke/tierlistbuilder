@@ -1,12 +1,9 @@
 // src/app/routes/pathname.ts
-// app route parsing helpers for workspace & embed shells
-
-export type AppRoute =
-  | { kind: 'workspace' }
-  | { kind: 'embed' }
-  | { kind: 'not-found'; pathname: string }
+// app route path helpers — base-path-aware URL builders for non-React callers
+// (share-link composers etc); React components should use react-router hooks
 
 export const EMBED_ROUTE_PATH = '/embed'
+export const TEMPLATES_ROUTE_PATH = '/templates'
 
 export const normalizeBasePath = (): string =>
 {
@@ -32,50 +29,11 @@ export const getEmbedPath = (): string =>
   return `${basePath}${EMBED_ROUTE_PATH}`
 }
 
-const stripBasePath = (pathname: string): string =>
+export const getTemplatesPath = (): string =>
 {
   const basePath = normalizeBasePath()
-
-  if (!basePath)
-  {
-    return pathname || '/'
-  }
-
-  if (pathname === basePath)
-  {
-    return '/'
-  }
-
-  if (pathname.startsWith(`${basePath}/`))
-  {
-    return pathname.slice(basePath.length) || '/'
-  }
-
-  return pathname || '/'
+  return `${basePath}${TEMPLATES_ROUTE_PATH}`
 }
 
-// strip a single trailing slash (except when the whole path IS "/")
-const stripTrailingSlash = (pathname: string): string =>
-  pathname.length > 1 && pathname.endsWith('/')
-    ? pathname.slice(0, -1)
-    : pathname
-
-export const resolveAppRoute = (pathname: string): AppRoute =>
-{
-  const relativePathname = stripTrailingSlash(stripBasePath(pathname))
-
-  if (relativePathname === '/' || relativePathname === '')
-  {
-    return { kind: 'workspace' }
-  }
-
-  if (relativePathname === EMBED_ROUTE_PATH)
-  {
-    return { kind: 'embed' }
-  }
-
-  return {
-    kind: 'not-found',
-    pathname: relativePathname,
-  }
-}
+export const getTemplateDetailPath = (slug: string): string =>
+  `${getTemplatesPath()}/${slug}`

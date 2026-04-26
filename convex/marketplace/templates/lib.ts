@@ -12,6 +12,7 @@ import {
 } from '@tierlistbuilder/contracts/lib/ids'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
+  MarketplaceTemplateBase,
   MarketplaceTemplateDetail,
   MarketplaceTemplateItem,
   MarketplaceTemplateSummary,
@@ -21,6 +22,7 @@ import type {
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
   generateTemplateSlug,
+  MAX_TEMPLATE_COVER_ITEMS,
   MAX_TEMPLATE_CREDIT_LINE_LENGTH,
   MAX_TEMPLATE_DESCRIPTION_LENGTH,
   MAX_TEMPLATE_LIST_LIMIT,
@@ -293,6 +295,21 @@ export const toTemplateMediaRef = async (
   }
 }
 
+// load denormalized cover media refs in template order. publish stores only
+// media-backed item ids, so summary reads avoid a per-card templateItems scan
+export const loadCoverItemMediaRefs = async (
+  ctx: DbCtx,
+  template: Pick<Doc<'templates'>, 'coverItemMediaAssetIds'>
+): Promise<TemplateMediaRef[]> =>
+{
+  const refs = await Promise.all(
+    template.coverItemMediaAssetIds
+      .slice(0, MAX_TEMPLATE_COVER_ITEMS)
+      .map((mediaAssetId) => toTemplateMediaRef(ctx, mediaAssetId))
+  )
+  return refs.filter((ref): ref is TemplateMediaRef => ref !== null)
+}
+
 export const toTemplateAuthor = async (
   ctx: DbCtx,
   authorId: Id<'users'>
@@ -318,10 +335,10 @@ export const toTemplateAuthor = async (
   }
 }
 
-export const toTemplateSummary = async (
+export const toTemplateBase = async (
   ctx: DbCtx,
   template: Doc<'templates'>
-): Promise<MarketplaceTemplateSummary> =>
+): Promise<MarketplaceTemplateBase> =>
 {
   const [author, coverMedia] = await Promise.all([
     toTemplateAuthor(ctx, template.authorId),
@@ -348,28 +365,48 @@ export const toTemplateSummary = async (
   }
 }
 
+export const toTemplateSummary = async (
+  ctx: DbCtx,
+  template: Doc<'templates'>
+): Promise<MarketplaceTemplateSummary> =>
+{
+  const base = await toTemplateBase(ctx, template)
+  const coverItems = base.coverMedia
+    ? []
+    : await loadCoverItemMediaRefs(ctx, template)
+
+  return {
+    ...base,
+    coverItems,
+  }
+}
+
 export const toTemplateDetail = async (
   ctx: DbCtx,
   template: Doc<'templates'>
 ): Promise<MarketplaceTemplateDetail> =>
 {
-  const [summary, items] = await Promise.all([
-    toTemplateSummary(ctx, template),
+  const [base, items] = await Promise.all([
+    toTemplateBase(ctx, template),
     loadTemplateItems(ctx, template._id),
   ])
 
-  const mediaRefs = new Map<Id<'mediaAssets'>, TemplateMediaRef | null>()
-  for (const item of items)
-  {
-    if (!item.mediaAssetId || mediaRefs.has(item.mediaAssetId))
-    {
-      continue
-    }
-    mediaRefs.set(
-      item.mediaAssetId,
-      await toTemplateMediaRef(ctx, item.mediaAssetId)
+  const mediaAssetIds = [
+    ...new Set(
+      items
+        .map((item) => item.mediaAssetId)
+        .filter((id): id is Id<'mediaAssets'> => id !== null)
+    ),
+  ]
+  const mediaRefEntries = await Promise.all(
+    mediaAssetIds.map(
+      async (mediaAssetId) =>
+        [mediaAssetId, await toTemplateMediaRef(ctx, mediaAssetId)] as const
     )
-  }
+  )
+  const mediaRefs = new Map<Id<'mediaAssets'>, TemplateMediaRef | null>(
+    mediaRefEntries
+  )
 
   const projectedItems: MarketplaceTemplateItem[] = items.map((item) => ({
     externalId: item.externalId,
@@ -386,7 +423,7 @@ export const toTemplateDetail = async (
   }))
 
   return {
-    ...summary,
+    ...base,
     suggestedTiers: template.suggestedTiers,
     items: projectedItems,
   }
@@ -516,6 +553,7 @@ export const insertBoardItemsFromTemplate = async (
         mediaAssetId: item.mediaAssetId
           ? (mediaAliases.get(item.mediaAssetId) ?? null)
           : null,
+        sourceMediaAssetId: null,
         order: item.order,
         deletedAt: null,
         aspectRatio: item.aspectRatio ?? undefined,

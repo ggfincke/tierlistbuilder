@@ -59,15 +59,25 @@ const DEFAULT_FIRST_LOGIN_BOARD_MERGE_DEPS: FirstLoginBoardMergeDeps = {
   now: () => Date.now(),
 }
 
+type PushBoardResult =
+  | { status: 'synced'; boardId: BoardId }
+  | { status: 'failed'; boardId: BoardId; permanent: boolean }
+  | { status: 'aborted'; boardId: BoardId }
+
+type PushAllLocalBoardsResult =
+  | {
+      status: 'completed'
+      failedBoardIds: BoardId[]
+      permanentFailedBoardIds: BoardId[]
+    }
+  | { status: 'aborted' }
+
 // push all local boards to the cloud (first-login, cloud-empty case)
 export const pushAllLocalBoards = async (
   userId: string,
   shouldProceed?: () => boolean,
   deps: FirstLoginBoardMergeDeps = DEFAULT_FIRST_LOGIN_BOARD_MERGE_DEPS
-): Promise<{
-  failedBoardIds: BoardId[]
-  aborted: boolean
-}> =>
+): Promise<PushAllLocalBoardsResult> =>
 {
   const boards = [...useWorkspaceBoardRegistryStore.getState().boards]
 
@@ -80,7 +90,7 @@ export const pushAllLocalBoards = async (
     {
       if (!canProceed())
       {
-        return { boardId: meta.id, synced: false, aborted: true }
+        return { status: 'aborted', boardId: meta.id } satisfies PushBoardResult
       }
 
       const { snapshot, syncState } = deps.readBoardStateForCloudSync(meta.id)
@@ -97,14 +107,17 @@ export const pushAllLocalBoards = async (
       {
         if (!canProceed())
         {
-          return { boardId: meta.id, synced: false, aborted: true }
+          return {
+            status: 'aborted',
+            boardId: meta.id,
+          } satisfies PushBoardResult
         }
 
         deps.persistBoardSyncState(
           meta.id,
           markBoardSynced(outcome.revision, boardExternalId)
         )
-        return { boardId: meta.id, synced: true, aborted: false }
+        return { status: 'synced', boardId: meta.id } satisfies PushBoardResult
       }
 
       if (outcome.kind === 'error')
@@ -114,6 +127,18 @@ export const pushAllLocalBoards = async (
           `Board sync failed for ${meta.id}:`,
           outcome.error
         )
+        if (outcome.error.permanent)
+        {
+          deps.persistBoardSyncState(
+            meta.id,
+            markBoardPendingSync(syncState, deps.now())
+          )
+          return {
+            status: 'failed',
+            boardId: meta.id,
+            permanent: true,
+          } satisfies PushBoardResult
+        }
       }
 
       deps.persistBoardSyncState(
@@ -121,17 +146,30 @@ export const pushAllLocalBoards = async (
         markBoardPendingSync(syncState, deps.now())
       )
 
-      return { boardId: meta.id, synced: false, aborted: false }
+      return {
+        status: 'failed',
+        boardId: meta.id,
+        permanent: false,
+      } satisfies PushBoardResult
     }
   )
 
-  if (!canProceed() || results.some((result) => result.aborted))
+  if (!canProceed() || results.some((result) => result.status === 'aborted'))
   {
-    return { failedBoardIds: [], aborted: true }
+    return { status: 'aborted' }
   }
 
   const failedBoardIds = results
-    .filter((result) => !result.synced)
+    .filter(
+      (result): result is Extract<PushBoardResult, { status: 'failed' }> =>
+        result.status === 'failed' && !result.permanent
+    )
+    .map((result) => result.boardId)
+  const permanentFailedBoardIds = results
+    .filter(
+      (result): result is Extract<PushBoardResult, { status: 'failed' }> =>
+        result.status === 'failed' && result.permanent
+    )
     .map((result) => result.boardId)
 
   if (failedBoardIds.length > 0)
@@ -142,7 +180,19 @@ export const pushAllLocalBoards = async (
     )
   }
 
-  return { failedBoardIds, aborted: false }
+  if (permanentFailedBoardIds.length > 0)
+  {
+    deps.notify(
+      `${permanentFailedBoardIds.length} ${pluralizeWord(permanentFailedBoardIds.length, 'board')} could not sync until its local images are available again.`,
+      'error'
+    )
+  }
+
+  return {
+    status: 'completed',
+    failedBoardIds,
+    permanentFailedBoardIds,
+  }
 }
 
 // run the first-login merge flow for boards (settings & preset merges
@@ -173,7 +223,10 @@ export const runFirstLoginBoardMerge = async (
       case 'push-local':
       {
         const result = await pushAllLocalBoards(userId, shouldProceed, deps)
-        if (!result.aborted && result.failedBoardIds.length === 0)
+        if (
+          result.status === 'completed' &&
+          result.failedBoardIds.length === 0
+        )
         {
           deps.markCloudPullCompleted(userId)
         }
