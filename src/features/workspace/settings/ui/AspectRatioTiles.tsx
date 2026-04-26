@@ -66,15 +66,18 @@ const RatioTile = ({
   const isAuto = option.kind === 'auto'
   const ratio = isAuto ? (autoRatio ?? 1) : (option.value ?? 1)
   const rect = fitRectInBox(ratio, RECT_BOX)
-  const label =
-    isAuto && autoRatio
-      ? `Auto (${formatPreciseAspectRatio(autoRatio)})`
-      : option.label
+  // primary label stays terse ("Auto" / "1:1"); the resolved auto ratio moves
+  // to a muted subtitle line so users see what Auto resolves to w/o the
+  // decimal noise dominating the chip
+  const autoSubtitle =
+    isAuto && autoRatio ? formatPreciseAspectRatio(autoRatio) : null
+  const ariaLabel =
+    isAuto && autoSubtitle ? `Auto (${autoSubtitle})` : option.label
 
   return (
     <button
       type="button"
-      aria-label={label}
+      aria-label={ariaLabel}
       aria-pressed={isActive}
       onClick={() => onSelect(option)}
       className={`${TILE_SHELL} w-full ${isActive ? TILE_ACTIVE : TILE_INACTIVE}`}
@@ -90,7 +93,17 @@ const RatioTile = ({
           style={{ width: rect.width, height: rect.height }}
         />
       </div>
-      <span className="text-[0.7rem] font-medium leading-tight">{label}</span>
+      <span className="text-[0.7rem] font-medium leading-tight">
+        {option.label}
+      </span>
+      {autoSubtitle && (
+        <span
+          aria-hidden="true"
+          className="text-[0.6rem] leading-none text-[var(--t-text-faint)] tabular-nums"
+        >
+          {autoSubtitle}
+        </span>
+      )}
     </button>
   )
 }
@@ -200,6 +213,9 @@ interface AspectRatioTilesProps
   onApplyCustom: () => void
   canApplyCustom: boolean
   autoRatio?: number
+  // alert modal hides Custom to stay focused on the quick-fix path; settings
+  // & editor keep it visible for the power-user case
+  showCustom?: boolean
 }
 
 export const AspectRatioTiles = ({
@@ -212,6 +228,7 @@ export const AspectRatioTiles = ({
   onApplyCustom,
   canApplyCustom,
   autoRatio,
+  showCustom = true,
 }: AspectRatioTilesProps) => (
   <div className="flex flex-col gap-2">
     <div className="grid gap-2" style={GRID_STYLE}>
@@ -225,14 +242,16 @@ export const AspectRatioTiles = ({
         />
       ))}
     </div>
-    <CustomTile
-      isActive={CUSTOM_RATIO_OPTION === selectedOption}
-      width={customWidth}
-      height={customHeight}
-      onWidthChange={onCustomWidthChange}
-      onHeightChange={onCustomHeightChange}
-      onApply={onApplyCustom}
-      canApply={canApplyCustom}
-    />
+    {showCustom && (
+      <CustomTile
+        isActive={CUSTOM_RATIO_OPTION === selectedOption}
+        width={customWidth}
+        height={customHeight}
+        onWidthChange={onCustomWidthChange}
+        onHeightChange={onCustomHeightChange}
+        onApply={onApplyCustom}
+        canApply={canApplyCustom}
+      />
+    )}
   </div>
 )

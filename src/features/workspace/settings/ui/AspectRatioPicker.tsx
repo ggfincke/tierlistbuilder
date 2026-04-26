@@ -38,19 +38,22 @@ export const AspectRatioChips = ({
     {RATIO_OPTIONS.map((option) =>
     {
       const isActive = option === selectedOption
-      const label =
-        option.kind === 'auto' && autoRatio
-          ? `Auto (${formatPreciseAspectRatio(autoRatio)})`
-          : option.label
+      const isAuto = option.kind === 'auto'
+      // chip space is tight, so the precise ratio rides in title/aria-label
+      // rather than being baked into the visible chip text
+      const autoDetail =
+        isAuto && autoRatio ? formatPreciseAspectRatio(autoRatio) : null
+      const ariaLabel = autoDetail ? `Auto (${autoDetail})` : option.label
       return (
         <button
           key={option.label}
           type="button"
           onClick={() => onSelect(option)}
-          aria-label={label}
+          aria-label={ariaLabel}
+          title={autoDetail ? `Resolves to ${autoDetail}` : undefined}
           className={`${CHIP_BASE} ${isActive ? CHIP_ACTIVE : CHIP_INACTIVE}`}
         >
-          {label}
+          {option.label}
         </button>
       )
     })}
