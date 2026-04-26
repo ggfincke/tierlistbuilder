@@ -5,6 +5,7 @@ import { useMutation, useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
 import type {
   MarketplaceTemplateDetail,
+  MarketplaceTemplateDraftListResult,
   MarketplaceTemplateListResult,
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
@@ -41,6 +42,24 @@ export const useTemplateBySlug = (
     typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
   )
 
+export interface RelatedTemplatesArgs
+{
+  slug: string
+  category: TemplateCategory
+  limit?: number
+}
+
+// fed by the detail-page footer rail. resolves once the parent detail query
+// has a slug + category — passing 'skip' before that keeps Convex from
+// running an unparameterized read
+export const useRelatedTemplates = (
+  args: RelatedTemplatesArgs | 'skip'
+): MarketplaceTemplateListResult | undefined =>
+  useQuery(
+    api.marketplace.templates.queries.getRelatedTemplates,
+    args === 'skip' ? 'skip' : args
+  )
+
 export const useMyTemplates = (
   enabled: boolean
 ): MarketplaceTemplateListResult | undefined =>
@@ -48,6 +67,26 @@ export const useMyTemplates = (
     api.marketplace.templates.queries.getMyTemplates,
     enabled ? {} : 'skip'
   )
+
+export const useMyTemplateDrafts = (
+  enabled: boolean,
+  limit?: number
+): MarketplaceTemplateDraftListResult | undefined =>
+  useQuery(
+    api.marketplace.templates.queries.getMyTemplateDrafts,
+    enabled ? (limit === undefined ? {} : { limit }) : 'skip'
+  )
+
+export interface PublicTemplateCount
+{
+  count: number
+  isCapped: boolean
+}
+
+// bounded count used by the gallery eyebrow. resolves once on mount &
+// re-runs reactively when templates are published / unpublished
+export const usePublicTemplateCount = (): PublicTemplateCount | undefined =>
+  useQuery(api.marketplace.templates.queries.getPublicTemplateCount, {})
 
 export interface PublishFromBoardArgs
 {

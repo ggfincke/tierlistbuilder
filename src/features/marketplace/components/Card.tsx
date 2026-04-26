@@ -14,7 +14,7 @@ import {
 } from '~/features/marketplace/model/formatters'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
-import { Cover } from './Cover'
+import { Cover, type CoverStyle } from './Cover'
 import type { MosaicDensity } from './Mosaic'
 
 export type CardSize = 'small' | 'default' | 'large'
@@ -23,6 +23,9 @@ interface CardProps
 {
   template: MarketplaceTemplateSummary
   size?: CardSize
+  // override cover treatment for stylistic variants (eg trending/curated rails
+  // pass 'initials' so labels render instead of an image mosaic)
+  coverStyle?: CoverStyle
 }
 
 const SIZE_CONFIG: Record<
@@ -58,7 +61,7 @@ const SIZE_CONFIG: Record<
   },
 }
 
-export const Card = ({ template, size = 'default' }: CardProps) =>
+export const Card = ({ template, size = 'default', coverStyle }: CardProps) =>
 {
   const cfg = SIZE_CONFIG[size]
   const detailPath = `${TEMPLATES_ROUTE_PATH}/${template.slug}`
@@ -70,7 +73,7 @@ export const Card = ({ template, size = 'default' }: CardProps) =>
       aria-label={`${template.title} — by ${template.author.displayName}`}
     >
       <div className={`relative w-full overflow-hidden ${cfg.coverHeight}`}>
-        <Cover template={template} density={cfg.density} />
+        <Cover template={template} density={cfg.density} style={coverStyle} />
 
         <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
           {template.featuredRank !== null && (

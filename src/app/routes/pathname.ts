@@ -4,6 +4,7 @@
 
 export const EMBED_ROUTE_PATH = '/embed'
 export const TEMPLATES_ROUTE_PATH = '/templates'
+export const BOARDS_ROUTE_PATH = '/boards'
 
 export const normalizeBasePath = (): string =>
 {
@@ -33,6 +34,12 @@ export const getTemplatesPath = (): string =>
 {
   const basePath = normalizeBasePath()
   return `${basePath}${TEMPLATES_ROUTE_PATH}`
+}
+
+export const getBoardsPath = (): string =>
+{
+  const basePath = normalizeBasePath()
+  return `${basePath}${BOARDS_ROUTE_PATH}`
 }
 
 export const getTemplateDetailPath = (slug: string): string =>

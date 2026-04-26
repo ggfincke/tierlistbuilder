@@ -5,6 +5,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 import {
+  BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
@@ -20,7 +21,7 @@ const EmbedRoute = lazy(() =>
 )
 
 // marketplace pages share a slice bundle that workspace users only fetch when
-// they navigate to /templates — same lazy split as the embed route
+// they navigate to marketplace-adjacent routes
 const MarketplaceLayout = lazy(() =>
   import('~/features/marketplace/pages/MarketplaceLayout').then((m) => ({
     default: m.MarketplaceLayout,
@@ -35,6 +36,9 @@ const TemplateDetailPage = lazy(() =>
   import('~/features/marketplace/pages/TemplateDetailPage').then((m) => ({
     default: m.TemplateDetailPage,
   }))
+)
+const MyListsRoute = lazy(() =>
+  import('./MyListsRoute').then((m) => ({ default: m.MyListsRoute }))
 )
 
 // matches the page-color shell each lazy chunk applies once mounted, so users
@@ -63,17 +67,19 @@ export const AppRouter = () => (
         }
       />
       <Route
-        path={TEMPLATES_ROUTE_PATH}
         element={
-          <ErrorBoundary section="the templates marketplace">
+          <ErrorBoundary section="marketplace navigation">
             <Suspense fallback={<RouteFallback />}>
               <MarketplaceLayout />
             </Suspense>
           </ErrorBoundary>
         }
       >
-        <Route index element={<TemplatesGalleryPage />} />
-        <Route path=":slug" element={<TemplateDetailPage />} />
+        <Route path={TEMPLATES_ROUTE_PATH}>
+          <Route index element={<TemplatesGalleryPage />} />
+          <Route path=":slug" element={<TemplateDetailPage />} />
+        </Route>
+        <Route path={BOARDS_ROUTE_PATH} element={<MyListsRoute />} />
       </Route>
       <Route
         path={EMBED_ROUTE_PATH}
