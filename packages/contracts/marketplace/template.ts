@@ -7,9 +7,12 @@ import type { ImageFit, ItemTransform } from '../workspace/board'
 export const TEMPLATE_CATEGORIES = [
   'gaming',
   'movies',
+  'anime',
   'music',
-  'food',
   'sports',
+  'food',
+  'books',
+  'tech',
   'other',
 ] as const
 

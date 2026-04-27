@@ -26,20 +26,35 @@ export const CATEGORY_META: Record<TemplateCategory, CategoryMeta> = {
     label: 'Movies & TV',
     gradient: 'linear-gradient(135deg, #0e7490 0%, #1e3a8a 100%)',
   },
+  anime: {
+    id: 'anime',
+    label: 'Anime & Manga',
+    gradient: 'linear-gradient(135deg, #db2777 0%, #6d28d9 100%)',
+  },
   music: {
     id: 'music',
     label: 'Music',
     gradient: 'linear-gradient(135deg, #b45309 0%, #b91c1c 50%, #9d174d 100%)',
+  },
+  sports: {
+    id: 'sports',
+    label: 'Sports',
+    gradient: 'linear-gradient(135deg, #15803d 0%, #075985 100%)',
   },
   food: {
     id: 'food',
     label: 'Food & Drink',
     gradient: 'linear-gradient(135deg, #c2410c 0%, #a16207 100%)',
   },
-  sports: {
-    id: 'sports',
-    label: 'Sports',
-    gradient: 'linear-gradient(135deg, #15803d 0%, #075985 100%)',
+  books: {
+    id: 'books',
+    label: 'Books & Lit',
+    gradient: 'linear-gradient(135deg, #92400e 0%, #4c1d95 100%)',
+  },
+  tech: {
+    id: 'tech',
+    label: 'Tech & Products',
+    gradient: 'linear-gradient(135deg, #0369a1 0%, #0f766e 100%)',
   },
   other: {
     id: 'other',
