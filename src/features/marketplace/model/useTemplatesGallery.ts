@@ -38,7 +38,8 @@ export const useTemplatesGallery = (
 ): TemplatesGalleryData =>
 {
   const isSearching = filters.searchDebounced.trim().length > 0
-  const shouldLoadDrafts = includeDrafts && !isSearching && !filters.category
+  const shouldLoadDrafts =
+    includeDrafts && !isSearching && !filters.category && !filters.tag
 
   // featured & rail queries are driven by sort, never by the search input —
   // those rails serve as wayfinding when the user clears the input
@@ -62,6 +63,7 @@ export const useTemplatesGallery = (
     sort: filters.sort,
     limit: DEFAULT_TEMPLATE_LIST_LIMIT,
     category: filters.category ?? null,
+    tag: filters.tag ?? null,
   }
 
   const featured = useListTemplates(featuredArgs)

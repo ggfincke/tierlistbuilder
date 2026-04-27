@@ -24,10 +24,10 @@ interface HeroProps
 export const Hero = ({ template, coverStyle = 'auto' }: HeroProps) => (
   <Link
     to={`${TEMPLATES_ROUTE_PATH}/${template.slug}`}
-    className="group focus-custom relative block overflow-hidden rounded-2xl border border-[var(--t-border)] transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+    className="group focus-custom relative flex h-full min-h-[22rem] flex-col overflow-hidden rounded-2xl border border-[var(--t-border)] transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:min-h-[26rem]"
     aria-label={`Featured: ${template.title}`}
   >
-    <div className="relative h-[22rem] w-full overflow-hidden sm:h-[26rem]">
+    <div className="relative w-full flex-1 overflow-hidden">
       <Cover template={template} density="hero" style={coverStyle} />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/95 via-black/75 to-transparent" />

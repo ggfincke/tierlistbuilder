@@ -19,6 +19,9 @@ export interface ListTemplatesArgs
 {
   search?: string | null
   category?: TemplateCategory | null
+  // canonical lowercase tag — server normalizes & null-coerces over-length
+  // values so the gallery falls back to the unfiltered listing path
+  tag?: string | null
   sort?: TemplateListSort
   limit?: number
 }
@@ -45,13 +48,11 @@ export const useTemplateBySlug = (
 export interface RelatedTemplatesArgs
 {
   slug: string
-  category: TemplateCategory
   limit?: number
 }
 
-// fed by the detail-page footer rail. resolves once the parent detail query
-// has a slug + category — passing 'skip' before that keeps Convex from
-// running an unparameterized read
+// fed by the detail-page footer rail. category is derived server-side from
+// the slug so the rail stays correct even if the parent detail row mutates
 export const useRelatedTemplates = (
   args: RelatedTemplatesArgs | 'skip'
 ): MarketplaceTemplateListResult | undefined =>
@@ -80,11 +81,16 @@ export const useMyTemplateDrafts = (
 export interface PublicTemplateCount
 {
   count: number
+  // sparse — only categories w/ at least one public template are present.
+  // keyed by TemplateCategory string (kept loose so taxonomy churn stays
+  // additive on the wire). callers should fall back to 0 for missing keys
+  countByCategory: Record<string, number>
   isCapped: boolean
 }
 
-// bounded count used by the gallery eyebrow. resolves once on mount &
-// re-runs reactively when templates are published / unpublished
+// bounded count used by the gallery eyebrow & per-category chips. resolves
+// once on mount & re-runs reactively when templates are published /
+// unpublished / re-categorized
 export const usePublicTemplateCount = (): PublicTemplateCount | undefined =>
   useQuery(api.marketplace.templates.queries.getPublicTemplateCount, {})
 
