@@ -14,10 +14,7 @@ export const isPresent = <T>(value: T): value is NonNullable<T> =>
 export const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0
 
-// narrow an unknown to a strictly-positive finite number — guards millisecond
-// timestamps & other positive-only counters against NaN/Infinity/0/negative
-export const isPositiveFiniteNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && value > 0
+export { isPositiveFiniteNumber } from '@tierlistbuilder/contracts/lib/typeGuards'
 
 // membership check on a branded-string array vs a plain string. centralizes
 // the cast so call sites keep the brand at their surface

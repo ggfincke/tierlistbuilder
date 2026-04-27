@@ -1,9 +1,7 @@
 // src/shared/lib/math.ts
 // shared numeric helpers used across features
 
-// clamp a value to the inclusive [min, max] range
-export const clamp = (value: number, min: number, max: number): number =>
-  Math.max(min, Math.min(max, value))
+export { clamp } from '@tierlistbuilder/contracts/lib/math'
 
 export const ceilToStep = (value: number, step: number, digits = 2): number =>
   Number((Math.ceil(value / step) * step).toFixed(digits))
