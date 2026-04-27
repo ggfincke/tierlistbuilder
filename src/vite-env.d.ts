@@ -5,7 +5,7 @@ declare const __APP_VERSION__: string
 
 interface ImportMetaEnv
 {
-  // convex deployment URL injected by `convex dev` into .env.local
+  // convex deployment URL injected by `npm run dev` into .env.local
   readonly VITE_CONVEX_URL: string
 }
 
