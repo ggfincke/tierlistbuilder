@@ -37,11 +37,19 @@ export default defineSchema({
     updatedAt: v.optional(v.number()),
     tier: v.optional(v.union(v.literal('free'), v.literal('premium'))),
     lastUpsertError: v.optional(v.string()),
+    // public-profile fields — surfaced via /u/:handle once that route exists.
+    // handle is lowercase a-z/0-9/_/- ; uniqueness enforced via byHandle index
+    handle: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    location: v.optional(v.string()),
+    website: v.optional(v.string()),
+    pronouns: v.optional(v.string()),
   })
     // indexes required by @convex-dev/auth - must match authTables.users
     .index('email', ['email'])
     .index('phone', ['phone'])
-    .index('byAvatarStorageId', ['avatarStorageId']),
+    .index('byAvatarStorageId', ['avatarStorageId'])
+    .index('byHandle', ['handle']),
 
   // per-user global app settings — mirrors AppSettings from packages/contracts
   userSettings: defineTable({

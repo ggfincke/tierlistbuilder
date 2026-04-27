@@ -1,12 +1,10 @@
 // src/features/marketplace/pages/MarketplaceLayout.tsx
-// shared chrome for marketplace-adjacent routes: theme sync, top nav, footer,
-// toast container, & live region
+// marketplace route shell: theme sync, footer, toast container, & live region
 
 import { useEffect } from 'react'
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
 
 import { useThemeSync } from '~/app/bootstrap/useThemeSync'
-import { AppTopNav } from '~/app/shells/AppTopNav'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
@@ -32,7 +30,6 @@ export const MarketplaceLayout = () =>
 
   return (
     <main className="relative min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]">
-      <AppTopNav />
       <Outlet />
       <Footer />
 

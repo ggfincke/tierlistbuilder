@@ -7,7 +7,7 @@ Auth slice — wraps `@convex-dev/auth` for the workspace UI.
 - `model/useAuthSession.ts` — combines `useConvexAuth()` w/ `api.users.index.getMe` into a single discriminated session state. The only place UI components should reach for auth state.
 - `model/useAuthActions.ts` — re-exports `signIn`/`signOut` from `@convex-dev/auth/react` so UI components can stay agnostic of the underlying provider package.
 - `model/userIdentity.ts` — pure helper for deriving a stable per-user string ID (used as the IndexedDB upload-index partition key & as the cloud-merge "which user is this" cache key).
-- `ui/AccountSection.tsx` — settings tab block. Sign-in trigger when signed out, profile card + sign-out when signed in.
+- `ui/AccountModal.tsx` — account-management modal: profile fields (handle, display name, bio, location, website, pronouns) edited via a single `api.users.updateProfile` mutation w/ a unified Save button, read-only email & sign-in method, sign-out-everywhere, & delete-account (cascades to all owned data via `api.users.deleteAccount` → background `cascadeDeleteUserData` internal mutation).
 - `ui/SignInModal.tsx` — modal w/ email/password inputs. OAuth providers land in a follow-up once the app is registered.
 
 ## Rules
