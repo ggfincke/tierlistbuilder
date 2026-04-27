@@ -1,8 +1,10 @@
 // src/features/marketplace/components/Mosaic.tsx
 // tile-grid renderer for cover artwork — packs item images into a tight grid
-// w/ a subtle category gradient as backdrop & a soft inner ring
+// over the neutral media matte
 
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
+
+import { MediaMatteFrame } from './MediaMatteFrame'
 
 export type MosaicDensity = 'small' | 'default' | 'large' | 'hero'
 
@@ -10,9 +12,6 @@ interface MosaicProps
 {
   items: readonly TemplateCoverItem[]
   density: MosaicDensity
-  // shown only inside placeholder cells when items < slotCount — a brand tint
-  // instead of a colored frame around every tile
-  fallbackGradient: string
 }
 
 const DENSITY_CONFIG: Record<
@@ -62,7 +61,7 @@ const computeGridDims = (
   return { cols: bestCols, rows: bestRows }
 }
 
-export const Mosaic = ({ items, density, fallbackGradient }: MosaicProps) =>
+export const Mosaic = ({ items, density }: MosaicProps) =>
 {
   const { cols: baseCols, rows: baseRows, gap } = DENSITY_CONFIG[density]
   const baseSlotCount = baseCols * baseRows
@@ -72,10 +71,7 @@ export const Mosaic = ({ items, density, fallbackGradient }: MosaicProps) =>
   const emptyCount = slotCount - tiles.length
 
   return (
-    <div
-      className="absolute inset-0 bg-[var(--t-media-matte)]"
-      aria-hidden="true"
-    >
+    <MediaMatteFrame className="absolute inset-0">
       <div
         className="grid h-full w-full"
         style={{
@@ -85,23 +81,16 @@ export const Mosaic = ({ items, density, fallbackGradient }: MosaicProps) =>
         }}
       >
         {tiles.map((item, i) => (
-          <div
+          <MediaMatteFrame
             key={`${item.media.externalId}-${i}`}
-            className="overflow-hidden bg-black/40"
-          >
-            <img
-              src={item.media.url}
-              alt=""
-              loading="lazy"
-              draggable={false}
-              className="h-full w-full object-cover"
-            />
-          </div>
+            src={item.media.url}
+            className="overflow-hidden"
+          />
         ))}
         {Array.from({ length: emptyCount }).map((_, i) => (
-          <div key={`empty-${i}`} style={{ background: fallbackGradient }} />
+          <div key={`empty-${i}`} className="bg-[var(--t-media-matte)]" />
         ))}
       </div>
-    </div>
+    </MediaMatteFrame>
   )
 }

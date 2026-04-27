@@ -580,11 +580,12 @@ export const toTemplateSummary = async (
 
 export const toTemplateDetail = async (
   ctx: DbCtx,
-  template: Doc<'templates'>
+  template: Doc<'templates'>,
+  cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateDetail> =>
 {
   const [base, items] = await Promise.all([
-    toTemplateBase(ctx, template),
+    toTemplateBase(ctx, template, cache),
     loadTemplateItems(ctx, template._id),
   ])
 
@@ -598,7 +599,10 @@ export const toTemplateDetail = async (
   const mediaRefEntries = await Promise.all(
     mediaAssetIds.map(
       async (mediaAssetId) =>
-        [mediaAssetId, await toTemplateMediaRef(ctx, mediaAssetId)] as const
+        [
+          mediaAssetId,
+          await toTemplateMediaRef(ctx, mediaAssetId, cache),
+        ] as const
     )
   )
   const mediaRefs = new Map<Id<'mediaAssets'>, TemplateMediaRef | null>(
@@ -622,6 +626,8 @@ export const toTemplateDetail = async (
   return {
     ...base,
     suggestedTiers: template.suggestedTiers,
+    itemAspectRatio: template.itemAspectRatio ?? null,
+    defaultItemImageFit: template.defaultItemImageFit ?? null,
     items: projectedItems,
   }
 }
@@ -755,41 +761,74 @@ export const requireOwnedTemplate = async (
   return template
 }
 
-export const ensureUserMediaAlias = async (
+const ensureUserMediaAliases = async (
   ctx: MutationCtx,
   ownerId: Id<'users'>,
-  sourceMediaAssetId: Id<'mediaAssets'>
-): Promise<Id<'mediaAssets'>> =>
+  sourceMediaAssetIds: readonly Id<'mediaAssets'>[]
+): Promise<Map<Id<'mediaAssets'>, Id<'mediaAssets'>>> =>
 {
-  const source = await ctx.db.get(sourceMediaAssetId)
-  if (!source)
-  {
-    return failState(`source template media missing: ${sourceMediaAssetId}`)
-  }
-
-  const existing = await ctx.db
-    .query('mediaAssets')
-    .withIndex('byOwnerAndHash', (q) =>
-      q.eq('ownerId', ownerId).eq('contentHash', source.contentHash)
+  const uniqueSourceIds = [...new Set(sourceMediaAssetIds)]
+  const sourceEntries = await Promise.all(
+    uniqueSourceIds.map(
+      async (sourceId) => [sourceId, await ctx.db.get(sourceId)] as const
     )
-    .unique()
-
-  if (existing)
+  )
+  const sourcesById = new Map<Id<'mediaAssets'>, Doc<'mediaAssets'>>()
+  for (const [sourceId, source] of sourceEntries)
   {
-    return existing._id
+    if (!source)
+    {
+      return failState(`source template media missing: ${sourceId}`)
+    }
+    sourcesById.set(sourceId, source)
   }
 
-  return await ctx.db.insert('mediaAssets', {
-    ownerId,
-    externalId: generateMediaAssetExternalId(),
-    storageId: source.storageId,
-    contentHash: source.contentHash,
-    mimeType: source.mimeType,
-    width: source.width,
-    height: source.height,
-    byteSize: source.byteSize,
-    createdAt: Date.now(),
-  })
+  const sourcesByHash = new Map<string, Doc<'mediaAssets'>>()
+  for (const source of sourcesById.values())
+  {
+    if (!sourcesByHash.has(source.contentHash))
+    {
+      sourcesByHash.set(source.contentHash, source)
+    }
+  }
+
+  const aliasEntries = await Promise.all(
+    [...sourcesByHash.entries()].map(async ([contentHash, source]) =>
+    {
+      const existing = await ctx.db
+        .query('mediaAssets')
+        .withIndex('byOwnerAndHash', (q) =>
+          q.eq('ownerId', ownerId).eq('contentHash', contentHash)
+        )
+        .unique()
+
+      if (existing)
+      {
+        return [contentHash, existing._id] as const
+      }
+
+      const inserted = await ctx.db.insert('mediaAssets', {
+        ownerId,
+        externalId: generateMediaAssetExternalId(),
+        storageId: source.storageId,
+        contentHash: source.contentHash,
+        mimeType: source.mimeType,
+        width: source.width,
+        height: source.height,
+        byteSize: source.byteSize,
+        createdAt: Date.now(),
+      })
+      return [contentHash, inserted] as const
+    })
+  )
+  const aliasesByHash = new Map(aliasEntries)
+  const aliasesBySourceId = new Map<Id<'mediaAssets'>, Id<'mediaAssets'>>()
+  for (const [sourceId, source] of sourcesById)
+  {
+    const aliasId = aliasesByHash.get(source.contentHash)
+    if (aliasId) aliasesBySourceId.set(sourceId, aliasId)
+  }
+  return aliasesBySourceId
 }
 
 export const templateTitleToBoardTitle = (title: string): string =>
@@ -821,18 +860,13 @@ export const insertBoardItemsFromTemplate = async (
   templateItems: readonly Doc<'templateItems'>[]
 ): Promise<void> =>
 {
-  const mediaAliases = new Map<Id<'mediaAssets'>, Id<'mediaAssets'>>()
-  for (const item of templateItems)
-  {
-    if (!item.mediaAssetId || mediaAliases.has(item.mediaAssetId))
-    {
-      continue
-    }
-    mediaAliases.set(
-      item.mediaAssetId,
-      await ensureUserMediaAlias(ctx, ownerId, item.mediaAssetId)
-    )
-  }
+  const mediaAliases = await ensureUserMediaAliases(
+    ctx,
+    ownerId,
+    templateItems
+      .map((item) => item.mediaAssetId)
+      .filter((id): id is Id<'mediaAssets'> => id !== null)
+  )
 
   await Promise.all(
     templateItems.map((item) =>
@@ -844,7 +878,8 @@ export const insertBoardItemsFromTemplate = async (
         backgroundColor: item.backgroundColor ?? undefined,
         altText: item.altText ?? undefined,
         mediaAssetId: item.mediaAssetId
-          ? (mediaAliases.get(item.mediaAssetId) ?? null)
+          ? (mediaAliases.get(item.mediaAssetId) ??
+            failState(`media alias missing: ${item.mediaAssetId}`))
           : null,
         sourceMediaAssetId: null,
         order: item.order,

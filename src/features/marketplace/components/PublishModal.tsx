@@ -63,7 +63,9 @@ const PublishForm = ({ onClose }: PublishFormProps) =>
   )
   const [titleOverride, setTitleOverride] = useState<string | null>(null)
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState<TemplateCategory>('other')
+  // default to the most common gallery category so the publish flow lands in
+  // a discoverable bucket; 'other' is a fallback, not a starting point
+  const [category, setCategory] = useState<TemplateCategory>('gaming')
   const [tags, setTags] = useState<string[]>([])
   const [visibility, setVisibility] = useState<TemplateVisibility>('public')
   const [creditLine, setCreditLine] = useState('')

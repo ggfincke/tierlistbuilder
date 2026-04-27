@@ -14,6 +14,7 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import {
+  DEFAULT_TEMPLATE_LIST_LIMIT,
   TEMPLATE_LIST_SORTS,
   type TemplateCategory,
   type TemplateListSort,
@@ -96,31 +97,45 @@ export const TemplatesGalleryPage = () =>
     return template ? [{ template, label }] : []
   })
 
-  const showRails =
-    !filters.searchDebounced &&
-    filters.category === null &&
-    filters.tag === null
+  const filtersActive =
+    !!filters.searchDebounced ||
+    filters.category !== null ||
+    filters.tag !== null
+  const showRails = !filtersActive
   const showJumpBackRail =
     showRails &&
     isSignedIn &&
     (gallery.drafts === undefined || gallery.drafts.length > 0)
-  const browseHeading = filters.tag
-    ? `Tagged "${filters.tag}"${
-        filters.category ? ` · ${CATEGORY_META[filters.category].label}` : ''
-      }`
-    : filters.category
-      ? CATEGORY_META[filters.category].label
-      : filters.searchDebounced
-        ? `Results for "${filters.searchDebounced}"`
-        : 'Browse everything'
+  // chip counts are global per-category. they're misleading once a search or
+  // tag has narrowed the dataset, so suppress them in those modes & let chips
+  // render labels alone
+  const showChipCounts = !filters.searchDebounced && !filters.tag
+  const browseHeadingParts: string[] = []
+  if (filters.searchDebounced)
+  {
+    browseHeadingParts.push(`Results for "${filters.searchDebounced}"`)
+  }
+  if (filters.tag) browseHeadingParts.push(`#${filters.tag}`)
+  if (filters.category)
+  {
+    browseHeadingParts.push(CATEGORY_META[filters.category].label)
+  }
+  const browseHeading =
+    browseHeadingParts.length === 0
+      ? 'Browse everything'
+      : browseHeadingParts.join(' · ')
+  // results.length tops out at the page limit. show a "+" suffix so a full
+  // page reads as "potentially more" rather than the exact total
+  const resultsAtLimit =
+    gallery.results !== undefined &&
+    gallery.results.length === DEFAULT_TEMPLATE_LIST_LIMIT
+  const browseSubhead = gallery.results
+    ? `${gallery.results.length}${resultsAtLimit ? '+' : ''} ${gallery.results.length === 1 ? 'template' : 'templates'}`
+    : 'Loading…'
   const templateCountLabel =
     gallery.templateCount === undefined
       ? 'Templates marketplace'
-      : `Templates · ${
-          gallery.templateCount.isCapped
-            ? `${formatCount(gallery.templateCount.count)}+`
-            : formatCount(gallery.templateCount.count)
-        } available`
+      : `Templates · ${formatCount(gallery.templateCount.count)} available`
 
   const handleCreateTileClick = () =>
   {
@@ -132,8 +147,9 @@ export const TemplatesGalleryPage = () =>
     setPublishOpen(true)
   }
 
-  // anchor the browse section's window position across category/tag toggles
-  // so showing/hiding the upper rails doesn't shift the visible content
+  // anchor the browse section's window position across filter toggles.
+  // capture before state changes; rect.top is post-shift after re-render.
+  // restore in a layout effect so scroll adjusts before paint.
   const browseSectionRef = useRef<HTMLElement | null>(null)
   const pendingBrowseTopRef = useRef<number | null>(null)
   const captureBrowseAnchor = () =>
@@ -155,7 +171,7 @@ export const TemplatesGalleryPage = () =>
     {
       window.scrollBy(0, delta)
     }
-  }, [filters.category, filters.tag])
+  }, [filters.category, filters.tag, filters.searchDebounced])
 
   const handleCategoryChange = (next: TemplateCategory | null) =>
   {
@@ -166,6 +182,19 @@ export const TemplatesGalleryPage = () =>
   {
     captureBrowseAnchor()
     filters.setTag(null)
+  }
+  // capture only when typing toggles the rails-visibility predicate. capture
+  // fires in setSearch (before debounce) so the captured rect.top is the
+  // pre-flip position; the layout-effect restores after the debounce flips
+  const handleSearchChange = (next: string) =>
+  {
+    const wasSearchActive = !!filters.searchDebounced
+    const willSearchActivate = next.trim().length > 0
+    if (wasSearchActive !== willSearchActivate)
+    {
+      captureBrowseAnchor()
+    }
+    filters.setSearch(next)
   }
 
   const greeting = useMemo(() =>
@@ -201,7 +230,7 @@ export const TemplatesGalleryPage = () =>
           <div className="lg:pb-2">
             <SearchInput
               value={filters.searchInput}
-              onChange={filters.setSearch}
+              onChange={handleSearchChange}
             />
           </div>
         </div>
@@ -278,9 +307,7 @@ export const TemplatesGalleryPage = () =>
               {browseHeading}
             </h2>
             <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-              {gallery.results
-                ? `${gallery.results.length} ${gallery.results.length === 1 ? 'template' : 'templates'}`
-                : 'Loading…'}
+              {browseSubhead}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -314,7 +341,10 @@ export const TemplatesGalleryPage = () =>
               <ListFilter className="h-3 w-3" strokeWidth={1.8} />
               <span className="sr-only">Sort templates by</span>
               <select
-                value={filters.sort}
+                // tag listings are forced to recent server-side; reflect that
+                // in the displayed value instead of leaving the user's prior
+                // selection visible against an order the query no longer honors
+                value={filters.tag !== null ? 'recent' : filters.sort}
                 onChange={(e) =>
                   filters.setSort(e.target.value as TemplateListSort)
                 }
@@ -341,13 +371,19 @@ export const TemplatesGalleryPage = () =>
           <CategoryChips
             active={filters.category}
             onChange={handleCategoryChange}
-            counts={gallery.templateCount?.countByCategory}
-            totalCount={gallery.templateCount?.count}
+            counts={
+              showChipCounts
+                ? gallery.templateCount?.countByCategory
+                : undefined
+            }
+            totalCount={
+              showChipCounts ? gallery.templateCount?.count : undefined
+            }
           />
         </div>
 
         <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {!filters.searchDebounced && (
+          {!filtersActive && (
             <CreateTile onClick={handleCreateTileClick} size="default" />
           )}
           {gallery.results ? (
@@ -365,7 +401,13 @@ export const TemplatesGalleryPage = () =>
               No templates match your filters.
             </p>
             <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-              Try clearing the search or picking a different category.
+              {filters.tag
+                ? 'Try removing the tag or picking a different category.'
+                : filters.searchDebounced
+                  ? 'Try clearing the search or picking a different category.'
+                  : filters.category
+                    ? 'Try a different category.'
+                    : 'Check back soon — the gallery is still filling out.'}
             </p>
           </div>
         )}

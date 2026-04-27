@@ -6,8 +6,8 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 
 import type { MarketplaceTemplateDraft } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatRelativeTime } from '~/features/marketplace/model/formatters'
+import { MediaMatteFrame } from './MediaMatteFrame'
 
 interface DraftRailProps
 {
@@ -50,19 +50,10 @@ const ThumbnailStrip = ({ draft }: { draft: MarketplaceTemplateDraft }) =>
 {
   const coverMedia = draft.template.coverMedia
   const tiles = draft.template.coverItems.slice(0, STRIP_TILES)
-  const gradient = CATEGORY_META[draft.template.category].gradient
 
   if (coverMedia)
   {
-    return (
-      <img
-        src={coverMedia.url}
-        alt=""
-        loading="lazy"
-        draggable={false}
-        className="h-full w-full object-cover"
-      />
-    )
+    return <MediaMatteFrame src={coverMedia.url} className="h-full w-full" />
   }
 
   if (tiles.length === 0)
@@ -70,8 +61,7 @@ const ThumbnailStrip = ({ draft }: { draft: MarketplaceTemplateDraft }) =>
     return (
       <div
         aria-hidden="true"
-        className="flex h-full w-full items-center justify-center text-[10px] font-mono uppercase tracking-[0.2em] text-white/70"
-        style={{ background: gradient }}
+        className="flex h-full w-full items-center justify-center bg-[var(--t-media-matte)] text-[10px] font-mono uppercase tracking-[0.2em] text-white/70"
       >
         {draft.template.title.slice(0, 14)}
       </div>
@@ -79,9 +69,8 @@ const ThumbnailStrip = ({ draft }: { draft: MarketplaceTemplateDraft }) =>
   }
 
   return (
-    <div
-      aria-hidden="true"
-      className="grid h-full w-full bg-[var(--t-media-matte)]"
+    <MediaMatteFrame
+      className="grid h-full w-full"
       style={{
         gridTemplateColumns: '1fr 1fr',
         gridTemplateRows: '1fr 1fr',
@@ -93,24 +82,20 @@ const ThumbnailStrip = ({ draft }: { draft: MarketplaceTemplateDraft }) =>
         const item = tiles[i]
         if (!item)
         {
-          return <div key={`empty-${i}`} style={{ background: gradient }} />
+          return (
+            <div key={`empty-${i}`} className="bg-[var(--t-media-matte)]" />
+          )
         }
         return (
           <div
             key={item.media.externalId}
-            className="relative overflow-hidden bg-black/40"
+            className="relative overflow-hidden bg-[var(--t-media-matte)]"
           >
-            <img
-              src={item.media.url}
-              alt=""
-              loading="lazy"
-              draggable={false}
-              className="h-full w-full object-cover"
-            />
+            <MediaMatteFrame src={item.media.url} className="h-full w-full" />
           </div>
         )
       })}
-    </div>
+    </MediaMatteFrame>
   )
 }
 

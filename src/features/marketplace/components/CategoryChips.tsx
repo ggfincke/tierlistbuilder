@@ -56,7 +56,7 @@ export const CategoryChips = ({
   totalCount,
 }: CategoryChipsProps) => (
   <div
-    role="tablist"
+    role="group"
     aria-label="Template categories"
     className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1"
   >
