@@ -1,5 +1,5 @@
 // src/features/marketplace/components/InitialsGrid.tsx
-// label-initials cover — short codes from labels in a gradient grid; missing
+// label-initials cover — short codes from labels in a matte grid; missing
 // labels fall back to a stable code derived from the media externalId
 
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
@@ -10,8 +10,6 @@ interface InitialsGridProps
 {
   items: readonly TemplateCoverItem[]
   density: MosaicDensity
-  // backdrop gradient inherited from the template's category meta
-  fallbackGradient: string
 }
 
 const DENSITY_CONFIG: Record<
@@ -77,11 +75,7 @@ const resolveCode = (
   return externalIdToCode(item.media.externalId)
 }
 
-export const InitialsGrid = ({
-  items,
-  density,
-  fallbackGradient,
-}: InitialsGridProps) =>
+export const InitialsGrid = ({ items, density }: InitialsGridProps) =>
 {
   const { cols, rows, gap, fontPx, padY } = DENSITY_CONFIG[density]
   const slotCount = cols * rows
@@ -89,8 +83,7 @@ export const InitialsGrid = ({
 
   return (
     <div
-      className="absolute inset-0"
-      style={{ background: fallbackGradient }}
+      className="absolute inset-0 bg-[var(--t-media-matte)]"
       aria-hidden="true"
     >
       <div

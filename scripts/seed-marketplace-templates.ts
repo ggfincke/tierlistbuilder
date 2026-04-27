@@ -1,35 +1,48 @@
-#!/usr/bin/env node
-// scripts/seed-marketplace-templates.mjs
-// dev seeding for the templates marketplace — walks /examples, base64-encodes
-// each image set, & posts to the seedTemplateFromBlobs action via convex http
-// client. requires the seed author to already exist (sign up via the app
-// first), CONVEX_URL set, & CONVEX_SEED_ENABLED=true on the deployment
+#!/usr/bin/env tsx
+// scripts/seed-marketplace-templates.ts
+// dev seeding for the templates marketplace.
 
-import { mkdir, readdir, readFile, rm } from 'node:fs/promises'
+// walks /examples, probes each image w/ sharp to capture aspectRatio + auto-
+// crop bbox, picks a per-template slot ratio (snap-to-preset majority), then
+// bakes per-item transforms before posting chunked payloads over http.
+
+// requires the seed author to already exist (sign up via the app first),
+// CONVEX_URL set, & CONVEX_SEED_ENABLED=true on the deployment
+
+import { readdir, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ConvexHttpClient } from 'convex/browser'
 
 import { api } from '../convex/_generated/api.js'
+import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  majorityAspectRatio,
+  snapToNearestPreset,
+} from '@tierlistbuilder/contracts/workspace/imageMath'
+import { probeImage, resolveSeedAutoCropTransform } from './lib/autoCropDetect'
+import { mapAsyncLimit } from '../src/shared/lib/asyncMapLimit'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
 const EXAMPLES_DIR = join(REPO_ROOT, 'examples')
-const TMP_DIR = join(REPO_ROOT, '.tmp', 'marketplace-seed')
 
 const SEED_FOLDER_CONCURRENCY = 3
+const SEED_ITEM_IO_CONCURRENCY = 8
+const SEED_CHUNK_UPLOAD_CONCURRENCY = 2
 const SUPPORTED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif'])
-const EXTENSION_MIME = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.gif': 'image/gif',
+
+interface FolderMeta
+{
+  title?: string
+  category: string
+  description: string | null
+  tags: string[]
 }
 
 // folder slug -> { title, category, description, tags }. add new examples
 // here when /examples grows
-const TEMPLATE_META = {
+const TEMPLATE_META: Record<string, FolderMeta> = {
   'final-fantasy-mainline': {
     title: 'Final Fantasy mainline series',
     category: 'gaming',
@@ -132,17 +145,17 @@ const TEMPLATE_META = {
   },
 }
 
-const DEFAULT_META = {
+const DEFAULT_META: FolderMeta = {
   category: 'other',
   description: null,
   tags: [],
 }
 
-const usage = () =>
+const usage = (): never =>
 {
   process.stderr.write(
     [
-      'usage: node scripts/seed-marketplace-templates.mjs <author-email> [folder...]',
+      'usage: tsx scripts/seed-marketplace-templates.ts <author-email> [folder...]',
       '',
       '  <author-email>   email of the user to attribute seeded templates to.',
       '                   the user must already exist (sign in once via the app).',
@@ -159,11 +172,11 @@ const usage = () =>
   process.exit(1)
 }
 
-const titleizeFromFilename = (filename) =>
+const titleizeFromFilename = (filename: string): string =>
 {
   const dot = filename.lastIndexOf('.')
   const stem = dot === -1 ? filename : filename.slice(0, dot)
-  const noPrefix = stem.replace(/^\d+[-_\.]?/, '')
+  const noPrefix = stem.replace(/^\d+[-_.]?/, '')
   return noPrefix
     .split(/[-_\s]+/)
     .filter(Boolean)
@@ -171,7 +184,33 @@ const titleizeFromFilename = (filename) =>
     .join(' ')
 }
 
-const buildItemsForFolder = async (folderPath) =>
+interface ProbedItem
+{
+  label: string
+  filePath: string
+  byteSize: number
+  aspectRatio: number
+  // bbox null when detection finds nothing useful (eg full-bleed photo);
+  // transform stays null for those & the item falls back to imageFit/cover
+  bbox: Awaited<ReturnType<typeof probeImage>>['bbox']
+}
+
+interface PreparedItem
+{
+  label: string
+  filePath: string
+  byteSize: number
+  aspectRatio: number
+  transform: ItemTransform | null
+}
+
+interface PreparedFolder
+{
+  templateRatio: number | null
+  items: PreparedItem[]
+}
+
+const probeFolder = async (folderPath: string): Promise<ProbedItem[]> =>
 {
   const entries = await readdir(folderPath, { withFileTypes: true })
   const files = entries
@@ -185,38 +224,62 @@ const buildItemsForFolder = async (folderPath) =>
     })
     .sort()
 
-  const items = []
-  for (const name of files)
+  return await mapAsyncLimit(files, SEED_ITEM_IO_CONCURRENCY, async (name) =>
   {
-    const dot = name.lastIndexOf('.')
-    const ext = name.slice(dot).toLowerCase()
-    const mimeType = EXTENSION_MIME[ext]
-    if (!mimeType) continue
-    const buffer = await readFile(join(folderPath, name))
-    items.push({
+    const filePath = join(folderPath, name)
+    const buffer = await readFile(filePath)
+    const probe = await probeImage(new Uint8Array(buffer))
+    return {
       label: titleizeFromFilename(name),
-      contentBase64: buffer.toString('base64'),
-      mimeType,
-    })
-  }
-  return items
+      filePath,
+      byteSize: buffer.byteLength,
+      aspectRatio: probe.aspectRatio,
+      bbox: probe.bbox,
+    }
+  })
 }
 
-// rough JSON-overhead floor per item — base64 + label + envelope keys. used
-// to keep chunked payloads under the action body limit. anything larger than
-// this on the wire & we split. tuned conservatively against the ~8MB Convex
-// action body cap; bigger values risk "BadJsonBody / length limit exceeded"
+// pick the template's slot ratio (snap-to-preset majority of per-item ratios)
+// so each item's autocrop transform is computed against the same frame the
+// forked board will use, then bake transforms against that ratio
+const prepareFolder = (probes: ProbedItem[]): PreparedFolder =>
+{
+  const majority = majorityAspectRatio(probes.map((p) => p.aspectRatio))
+  const templateRatio = majority === null ? null : snapToNearestPreset(majority)
+  const frameRatio = templateRatio ?? 1
+  const items = probes.map((probe) => ({
+    label: probe.label,
+    filePath: probe.filePath,
+    byteSize: probe.byteSize,
+    aspectRatio: probe.aspectRatio,
+    transform: probe.bbox
+      ? resolveSeedAutoCropTransform({
+          imageAspectRatio: probe.aspectRatio,
+          bbox: probe.bbox,
+          boardAspectRatio: frameRatio,
+        })
+      : null,
+  }))
+  return { templateRatio, items }
+}
+
+// rough JSON-overhead floor per item — keeps chunked payloads under the
+// action body limit. tuned conservatively against the ~8MB Convex action
+// body cap; bigger values risk "BadJsonBody / length limit exceeded"
 const MAX_CHUNK_BASE64_BYTES = 5 * 1024 * 1024
 
-const chunkItemsBySize = (items) =>
+const estimateBase64Bytes = (byteSize: number): number =>
+  Math.ceil(byteSize / 3) * 4
+
+const chunkItemsBySize = (items: PreparedItem[]): PreparedItem[][] =>
 {
-  const chunks = []
-  let current = []
+  const chunks: PreparedItem[][] = []
+  let current: PreparedItem[] = []
   let currentSize = 0
 
   for (const item of items)
   {
-    const itemSize = item.contentBase64.length
+    const itemSize = estimateBase64Bytes(item.byteSize)
     if (current.length > 0 && currentSize + itemSize > MAX_CHUNK_BASE64_BYTES)
     {
       chunks.push(current)
@@ -234,21 +297,47 @@ const chunkItemsBySize = (items) =>
   return chunks
 }
 
-const seedFolder = async (client, folderName, authorEmail) =>
+const toPayloadItems = async (
+  items: readonly PreparedItem[]
+): Promise<
+  {
+    label: string
+    contentBase64: string
+    aspectRatio: number
+    transform: ItemTransform | null
+  }[]
+> =>
+  await mapAsyncLimit(items, SEED_ITEM_IO_CONCURRENCY, async (item) => ({
+    label: item.label,
+    contentBase64: (await readFile(item.filePath)).toString('base64'),
+    aspectRatio: item.aspectRatio,
+    transform: item.transform,
+  }))
+
+const seedFolder = async (
+  client: ConvexHttpClient,
+  folderName: string,
+  authorEmail: string
+): Promise<string | null> =>
 {
   const folderPath = join(EXAMPLES_DIR, folderName)
-  const meta = { ...DEFAULT_META, ...(TEMPLATE_META[folderName] ?? {}) }
+  const meta: FolderMeta = {
+    ...DEFAULT_META,
+    ...(TEMPLATE_META[folderName] ?? {}),
+  }
   const title = meta.title ?? titleizeFromFilename(folderName)
-  const items = await buildItemsForFolder(folderPath)
-  if (items.length === 0)
+  const probes = await probeFolder(folderPath)
+  if (probes.length === 0)
   {
     process.stdout.write(`  · ${folderName}: no images found, skipping\n`)
     return null
   }
 
+  const { templateRatio, items } = prepareFolder(probes)
+
   const chunks = chunkItemsBySize(items)
   process.stdout.write(
-    `  · ${folderName}: ${items.length} items in ${chunks.length} chunk(s), uploading…\n`
+    `  · ${folderName}: ${items.length} items in ${chunks.length} chunk(s) @ ratio ${templateRatio?.toFixed(3) ?? 'auto'}, uploading…\n`
   )
 
   const [firstChunk, ...remainingChunks] = chunks
@@ -260,32 +349,60 @@ const seedFolder = async (client, folderName, authorEmail) =>
       description: meta.description ?? null,
       category: meta.category,
       tags: meta.tags ?? [],
-      items: firstChunk.map(({ label, contentBase64 }) => ({
-        label,
-        contentBase64,
-      })),
+      itemAspectRatio: templateRatio,
+      items: await toPayloadItems(firstChunk),
     }
   )
 
   let totalItems = created.itemsCreated
+  const uploadJobs: {
+    chunk: PreparedItem[]
+    chunkNumber: number
+    startOrder: number
+  }[] = []
+  let nextStartOrder = firstChunk.length
   for (let i = 0; i < remainingChunks.length; i++)
   {
     const chunk = remainingChunks[i]
-    const result = await client.action(
-      api.marketplace.templates.seed.appendItemsToSeededTemplateBlobs,
+    uploadJobs.push({
+      chunk,
+      chunkNumber: i + 2,
+      startOrder: nextStartOrder,
+    })
+    nextStartOrder += chunk.length
+  }
+
+  await mapAsyncLimit(
+    uploadJobs,
+    SEED_CHUNK_UPLOAD_CONCURRENCY,
+    async ({ chunk, chunkNumber, startOrder }) =>
+    {
+      const result = await client.action(
+        api.marketplace.templates.seed.appendItemsToSeededTemplateBlobs,
+        {
+          authorEmail,
+          slug: created.slug,
+          startOrder,
+          items: await toPayloadItems(chunk),
+        }
+      )
+      process.stdout.write(
+        `    .. appended chunk ${chunkNumber}/${chunks.length} (${result.itemsAppended} items)\n`
+      )
+    }
+  )
+
+  if (remainingChunks.length > 0)
+  {
+    const finalized = await client.action(
+      api.marketplace.templates.seed.finalizeSeededTemplateChunks,
       {
         authorEmail,
         slug: created.slug,
-        items: chunk.map(({ label, contentBase64 }) => ({
-          label,
-          contentBase64,
-        })),
+        itemCount: items.length,
       }
     )
-    totalItems = result.totalItems
-    process.stdout.write(
-      `    .. appended chunk ${i + 2}/${chunks.length} (${result.itemsAppended} items, ${totalItems} total)\n`
-    )
+    totalItems = finalized.totalItems
   }
 
   process.stdout.write(
@@ -294,13 +411,23 @@ const seedFolder = async (client, folderName, authorEmail) =>
   return folderName
 }
 
-const seedFolders = async (client, targetFolders, authorEmail) =>
+interface SeedSummary
+{
+  succeeded: number
+  failed: number
+}
+
+const seedFolders = async (
+  client: ConvexHttpClient,
+  targetFolders: string[],
+  authorEmail: string
+): Promise<SeedSummary> =>
 {
   let succeeded = 0
   let failed = 0
   let nextIndex = 0
 
-  const runNext = async () =>
+  const runNext = async (): Promise<void> =>
   {
     while (nextIndex < targetFolders.length)
     {
@@ -315,9 +442,8 @@ const seedFolders = async (client, targetFolders, authorEmail) =>
       catch (error)
       {
         failed += 1
-        process.stderr.write(
-          `  ! ${folderName} failed: ${error?.message ?? error}\n`
-        )
+        const message = error instanceof Error ? error.message : String(error)
+        process.stderr.write(`  ! ${folderName} failed: ${message}\n`)
       }
     }
   }
@@ -332,7 +458,7 @@ const seedFolders = async (client, targetFolders, authorEmail) =>
   return { succeeded, failed }
 }
 
-const main = async () =>
+const main = async (): Promise<void> =>
 {
   const [authorEmail, ...folders] = process.argv.slice(2)
   if (!authorEmail || authorEmail.startsWith('-'))
@@ -361,7 +487,6 @@ const main = async () =>
   process.stdout.write(
     `seeding ${targetFolders.length} template(s) as ${authorEmail} on ${convexUrl}\n`
   )
-  await mkdir(TMP_DIR, { recursive: true })
 
   const { succeeded, failed } = await seedFolders(
     client,
@@ -369,7 +494,6 @@ const main = async () =>
     authorEmail
   )
 
-  await rm(TMP_DIR, { recursive: true, force: true })
   process.stdout.write(
     `\ndone — ${succeeded} succeeded, ${failed} failed of ${targetFolders.length}\n`
   )
@@ -378,8 +502,7 @@ const main = async () =>
 
 main().catch((error) =>
 {
-  process.stderr.write(
-    `seed failed: ${error?.stack ?? error?.message ?? error}\n`
-  )
+  const stack = error instanceof Error ? (error.stack ?? error.message) : error
+  process.stderr.write(`seed failed: ${stack}\n`)
   process.exit(1)
 })

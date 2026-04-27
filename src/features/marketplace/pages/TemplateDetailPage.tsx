@@ -31,11 +31,29 @@ import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
 
 const ITEM_SLOT_HEIGHT = 96
 const RELATED_LIMIT = 4
+// fallback when a template predates the itemAspectRatio field; preserves the
+// historical 1:1 thumbnail layout for older rows
+const FALLBACK_FRAME_RATIO = 1
 
-const ItemThumbnail = ({ item }: { item: MarketplaceTemplateItem }) => (
+interface FrameSpec
+{
+  aspectRatio: number
+  defaultFit: 'cover' | 'contain'
+}
+
+interface ItemThumbnailProps
+{
+  item: MarketplaceTemplateItem
+  frame: FrameSpec
+}
+
+const ItemThumbnail = ({ item, frame }: ItemThumbnailProps) => (
   <div
-    className="relative aspect-square w-full overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
-    style={{ minHeight: ITEM_SLOT_HEIGHT }}
+    className="relative w-full overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+    style={{
+      aspectRatio: frame.aspectRatio,
+      minHeight: ITEM_SLOT_HEIGHT,
+    }}
   >
     <ItemContent
       item={{
@@ -46,16 +64,19 @@ const ItemThumbnail = ({ item }: { item: MarketplaceTemplateItem }) => (
         aspectRatio: item.aspectRatio ?? undefined,
         transform: item.transform ?? undefined,
       }}
-      fit={item.imageFit ?? 'cover'}
+      fit={item.imageFit ?? frame.defaultFit}
+      frameAspectRatio={frame.aspectRatio}
     />
   </div>
 )
 
-const ItemsGrid = ({
-  items,
-}: {
+interface ItemsGridProps
+{
   items: readonly MarketplaceTemplateItem[]
-}) =>
+  frame: FrameSpec
+}
+
+const ItemsGrid = ({ items, frame }: ItemsGridProps) =>
 {
   if (items.length === 0)
   {
@@ -68,7 +89,7 @@ const ItemsGrid = ({
   return (
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
       {items.map((item) => (
-        <ItemThumbnail key={item.externalId} item={item} />
+        <ItemThumbnail key={item.externalId} item={item} frame={frame} />
       ))}
     </div>
   )
@@ -137,7 +158,7 @@ const RelatedSkeletonCard = () => (
 )
 
 const NotFound = () => (
-  <section className="relative z-10 mx-auto flex min-h-[60vh] w-full max-w-[1240px] items-center justify-center px-5 text-center sm:px-8">
+  <section className="relative z-10 mx-auto flex min-h-[60vh] w-full max-w-[1240px] items-center justify-center px-5 pt-20 text-center sm:px-8 sm:pt-24">
     <div className="max-w-md">
       <h1 className="text-2xl font-semibold text-[var(--t-text)]">
         Template not found
@@ -159,7 +180,7 @@ const NotFound = () => (
 const DetailSkeleton = () => (
   <section
     aria-hidden="true"
-    className="relative z-10 mx-auto w-full max-w-[1240px] animate-pulse px-5 pt-8 pb-20 sm:px-8 sm:pt-10"
+    className="relative z-10 mx-auto w-full max-w-[1240px] animate-pulse px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
   >
     <div className="h-3 w-48 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
     <div className="mt-5 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
@@ -260,7 +281,7 @@ export const TemplateDetailPage = () =>
       )
 
   return (
-    <article className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-6 pb-20 sm:px-8 sm:pt-10">
+    <article className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
       <nav
         aria-label="Breadcrumb"
         className="flex items-center gap-1.5 text-xs text-[var(--t-text-muted)]"
@@ -395,7 +416,13 @@ export const TemplateDetailPage = () =>
             {totalItems} {totalItems === 1 ? 'item' : 'items'}
           </span>
         </div>
-        <ItemsGrid items={detail.items} />
+        <ItemsGrid
+          items={detail.items}
+          frame={{
+            aspectRatio: detail.itemAspectRatio ?? FALLBACK_FRAME_RATIO,
+            defaultFit: detail.defaultItemImageFit ?? 'cover',
+          }}
+        />
       </section>
 
       {(detail.suggestedTiers.length > 0 || detail.creditLine) && (

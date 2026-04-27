@@ -10,6 +10,38 @@ import { BATCH_LIMITS } from '../../lib/limits'
 import { generateMediaAssetExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import { deleteStorageSilently } from '../../lib/storage'
 
+const verifiedUploadArgsValidator = {
+  userId: v.id('users'),
+  storageId: v.id('_storage'),
+  contentHash: v.string(),
+  mimeType: v.union(
+    v.literal('image/jpeg'),
+    v.literal('image/png'),
+    v.literal('image/webp'),
+    v.literal('image/gif')
+  ),
+  width: v.number(),
+  height: v.number(),
+  byteSize: v.number(),
+}
+
+interface VerifiedUploadArgs
+{
+  userId: Id<'users'>
+  storageId: Id<'_storage'>
+  contentHash: string
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+  width: number
+  height: number
+  byteSize: number
+}
+
+interface FinalizedUpload
+{
+  externalId: string
+  mediaAssetId: Id<'mediaAssets'>
+}
+
 // in-flight upload protection: skip rows newer than this window. covers the race
 // between finalizeUpload inserting mediaAssets & upsertBoardState wiring the reference -
 // a GC pass between those two would otherwise reap a fresh asset
@@ -20,59 +52,168 @@ const GC_GRACE_MS = 60 * 60 * 1000
 // significantly for nightly batches
 const REFERENCE_CHECK_CONCURRENCY = 8
 
+const finalizeVerifiedUploadImpl = async (
+  ctx: MutationCtx,
+  args: VerifiedUploadArgs,
+  finalizedByHash: Map<string, FinalizedUpload>
+): Promise<FinalizedUpload> =>
+{
+  const key = `${args.userId}:${args.contentHash}`
+  const finalized = finalizedByHash.get(key)
+  if (finalized)
+  {
+    await deleteStorageSilently(ctx, args.storageId)
+    return finalized
+  }
+
+  const existing = await ctx.db
+    .query('mediaAssets')
+    .withIndex('byOwnerAndHash', (q) =>
+      q.eq('ownerId', args.userId).eq('contentHash', args.contentHash)
+    )
+    .unique()
+
+  if (existing)
+  {
+    await deleteStorageSilently(ctx, args.storageId)
+    const result = {
+      externalId: existing.externalId,
+      mediaAssetId: existing._id,
+    }
+    finalizedByHash.set(key, result)
+    return result
+  }
+
+  const externalId = generateMediaAssetExternalId()
+  const mediaAssetId = await ctx.db.insert('mediaAssets', {
+    ownerId: args.userId,
+    externalId,
+    storageId: args.storageId,
+    contentHash: args.contentHash,
+    mimeType: args.mimeType,
+    width: args.width,
+    height: args.height,
+    byteSize: args.byteSize,
+    createdAt: Date.now(),
+  })
+
+  const result = { externalId, mediaAssetId }
+  finalizedByHash.set(key, result)
+  return result
+}
+
 // finalize a verified image upload — dedup by owner+hash after the action has
 // stripped the upload envelope & stored a clean image blob
 export const finalizeVerifiedUpload = internalMutation({
-  args: {
-    userId: v.id('users'),
-    storageId: v.id('_storage'),
-    contentHash: v.string(),
-    mimeType: v.union(
-      v.literal('image/jpeg'),
-      v.literal('image/png'),
-      v.literal('image/webp'),
-      v.literal('image/gif')
-    ),
-    width: v.number(),
-    height: v.number(),
-    byteSize: v.number(),
-  },
+  args: verifiedUploadArgsValidator,
   returns: v.object({
     externalId: v.string(),
     mediaAssetId: v.id('mediaAssets'),
   }),
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ externalId: string; mediaAssetId: Id<'mediaAssets'> }> =>
-  {
-    const existing = await ctx.db
-      .query('mediaAssets')
-      .withIndex('byOwnerAndHash', (q) =>
-        q.eq('ownerId', args.userId).eq('contentHash', args.contentHash)
-      )
-      .unique()
+  handler: async (ctx, args): Promise<FinalizedUpload> =>
+    await finalizeVerifiedUploadImpl(ctx, args, new Map()),
+})
 
-    if (existing)
+export const finalizeVerifiedUploads = internalMutation({
+  args: {
+    uploads: v.array(v.object(verifiedUploadArgsValidator)),
+  },
+  returns: v.array(
+    v.object({
+      externalId: v.string(),
+      mediaAssetId: v.id('mediaAssets'),
+    })
+  ),
+  handler: async (ctx, args): Promise<FinalizedUpload[]> =>
+  {
+    const firstUploadByKey = new Map<string, VerifiedUploadArgs>()
+    const duplicateStorageIds: Id<'_storage'>[] = []
+
+    for (const upload of args.uploads)
     {
-      await deleteStorageSilently(ctx, args.storageId)
-      return { externalId: existing.externalId, mediaAssetId: existing._id }
+      const key = `${upload.userId}:${upload.contentHash}`
+      if (firstUploadByKey.has(key))
+      {
+        duplicateStorageIds.push(upload.storageId)
+        continue
+      }
+      firstUploadByKey.set(key, upload)
     }
 
-    const externalId = generateMediaAssetExternalId()
-    const mediaAssetId = await ctx.db.insert('mediaAssets', {
-      ownerId: args.userId,
-      externalId,
-      storageId: args.storageId,
-      contentHash: args.contentHash,
-      mimeType: args.mimeType,
-      width: args.width,
-      height: args.height,
-      byteSize: args.byteSize,
-      createdAt: Date.now(),
-    })
+    const existingEntries = await Promise.all(
+      [...firstUploadByKey.entries()].map(async ([key, upload]) =>
+      {
+        const existing = await ctx.db
+          .query('mediaAssets')
+          .withIndex('byOwnerAndHash', (q) =>
+            q.eq('ownerId', upload.userId).eq('contentHash', upload.contentHash)
+          )
+          .unique()
+        return [key, upload, existing] as const
+      })
+    )
 
-    return { externalId, mediaAssetId }
+    const finalizedByKey = new Map<string, FinalizedUpload>()
+    const uploadsToInsert: Array<[string, VerifiedUploadArgs]> = []
+    const storageIdsToDelete = [...duplicateStorageIds]
+
+    for (const [key, upload, existing] of existingEntries)
+    {
+      if (existing)
+      {
+        finalizedByKey.set(key, {
+          externalId: existing.externalId,
+          mediaAssetId: existing._id,
+        })
+        storageIdsToDelete.push(upload.storageId)
+      }
+      else
+      {
+        uploadsToInsert.push([key, upload])
+      }
+    }
+
+    const now = Date.now()
+    const insertedEntries = await Promise.all(
+      uploadsToInsert.map(async ([key, upload]) =>
+      {
+        const externalId = generateMediaAssetExternalId()
+        const mediaAssetId = await ctx.db.insert('mediaAssets', {
+          ownerId: upload.userId,
+          externalId,
+          storageId: upload.storageId,
+          contentHash: upload.contentHash,
+          mimeType: upload.mimeType,
+          width: upload.width,
+          height: upload.height,
+          byteSize: upload.byteSize,
+          createdAt: now,
+        })
+        return [key, { externalId, mediaAssetId }] as const
+      })
+    )
+
+    for (const [key, finalized] of insertedEntries)
+    {
+      finalizedByKey.set(key, finalized)
+    }
+
+    await Promise.all(
+      storageIdsToDelete.map((storageId) =>
+        deleteStorageSilently(ctx, storageId)
+      )
+    )
+
+    return args.uploads.map((upload) =>
+    {
+      const key = `${upload.userId}:${upload.contentHash}`
+      const finalized = finalizedByKey.get(key)
+      if (!finalized)
+      {
+        throw new Error(`finalized upload missing: ${key}`)
+      }
+      return finalized
+    })
   },
 })
 

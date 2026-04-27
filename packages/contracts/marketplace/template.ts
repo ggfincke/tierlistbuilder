@@ -142,6 +142,12 @@ export interface MarketplaceTemplateItem
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateBase
 {
   suggestedTiers: TierPresetTier[]
+  // slot aspect ratio (w/h) the template was designed against — gallery thumbs
+  // & forked boards use this so per-item transforms frame correctly. null when
+  // the template predates the field; callers should fall back to 1 (square)
+  itemAspectRatio: number | null
+  // board-wide fit pinned by the publisher; null falls back to 'cover'
+  defaultItemImageFit: ImageFit | null
   items: MarketplaceTemplateItem[]
 }
 

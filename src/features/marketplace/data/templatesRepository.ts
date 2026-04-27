@@ -85,7 +85,6 @@ export interface PublicTemplateCount
   // keyed by TemplateCategory string (kept loose so taxonomy churn stays
   // additive on the wire). callers should fall back to 0 for missing keys
   countByCategory: Record<string, number>
-  isCapped: boolean
 }
 
 // bounded count used by the gallery eyebrow & per-category chips. resolves

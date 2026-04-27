@@ -56,13 +56,13 @@ export const Hero = ({ template, coverStyle = 'auto' }: HeroProps) => (
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <span className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-black transition group-hover:bg-white/90">
-            Use this template
+            View template
             <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
           </span>
           <div className="flex items-center gap-4 text-xs text-white/75">
             <span className="inline-flex items-center gap-1">
               <Layers className="h-3 w-3" strokeWidth={1.8} />
-              {formatCount(template.useCount)} ranked
+              {formatCount(template.useCount)} forks
             </span>
             <span className="inline-flex items-center gap-1">
               <Eye className="h-3 w-3" strokeWidth={1.8} />

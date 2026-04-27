@@ -16,7 +16,9 @@ import {
   MAX_TEMPLATE_COVER_ITEMS,
   type TemplateCategory,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  itemTransformValidator,
   templateCategoryValidator,
   tierPresetTiersValidator,
 } from '../../lib/validators'
@@ -31,10 +33,47 @@ import {
   toTemplateAuthor,
 } from './lib'
 
+// per-item payload sent by scripts/seed-marketplace-templates.ts. aspectRatio
+// & transform are pre-computed in the script (sharp + shared scan) so the
+// action runs in the V8 runtime w/o native deps
 const seedItemValidator = v.object({
   label: v.union(v.string(), v.null()),
   contentBase64: v.string(),
+  aspectRatio: v.union(v.number(), v.null()),
+  transform: v.union(itemTransformValidator, v.null()),
 })
+
+interface SeedInputItem
+{
+  label: string | null
+  contentBase64: string
+  aspectRatio: number | null
+  transform: ItemTransform | null
+}
+
+interface SeedStoredItem
+{
+  label: string | null
+  mediaAssetId: Id<'mediaAssets'>
+  aspectRatio: number | null
+  transform: ItemTransform | null
+}
+
+interface SeedImageUpload
+{
+  label: string | null
+  aspectRatio: number | null
+  transform: ItemTransform | null
+  upload: {
+    userId: Id<'users'>
+    storageId: Id<'_storage'>
+    contentHash: string
+    mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+    width: number
+    height: number
+    byteSize: number
+  }
+}
 
 const decodeBase64 = (input: string): Uint8Array =>
 {
@@ -72,10 +111,16 @@ export const insertSeedTemplate = internalMutation({
     category: templateCategoryValidator,
     tags: v.array(v.string()),
     suggestedTiers: tierPresetTiersValidator,
+    // template-level slot ratio chosen by the script (snap to nearest preset
+    // of the per-item majority). null when no items had usable dimensions —
+    // forks then fall back to the board default (1, square)
+    itemAspectRatio: v.union(v.number(), v.null()),
     items: v.array(
       v.object({
         label: v.union(v.string(), v.null()),
         mediaAssetId: v.id('mediaAssets'),
+        aspectRatio: v.union(v.number(), v.null()),
+        transform: v.union(itemTransformValidator, v.null()),
       })
     ),
   },
@@ -136,6 +181,12 @@ export const insertSeedTemplate = internalMutation({
         tags: args.tags,
         authorDisplayName: authorProjection.displayName,
       }),
+      // pre-baked design ratio + cover fit — the per-item transforms below
+      // were computed against this ratio, so forks must inherit it. mode is
+      // 'manual' to pin it; auto-recompute would drift on later edits
+      itemAspectRatio: args.itemAspectRatio,
+      itemAspectRatioMode: args.itemAspectRatio === null ? 'auto' : 'manual',
+      defaultItemImageFit: 'cover',
       createdAt: now,
       updatedAt: now,
       unpublishedAt: null,
@@ -151,9 +202,9 @@ export const insertSeedTemplate = internalMutation({
           altText: item.label,
           mediaAssetId: item.mediaAssetId,
           order,
-          aspectRatio: null,
+          aspectRatio: item.aspectRatio,
           imageFit: null,
-          transform: null,
+          transform: item.transform,
         })
       )
     )
@@ -171,13 +222,13 @@ export const insertSeedTemplate = internalMutation({
   },
 })
 
-const storeSeedImage = async (
+const prepareSeedImageUpload = async (
   ctx: ActionCtx,
   ownerId: Id<'users'>,
-  contentBase64: string
-): Promise<{ mediaAssetId: Id<'mediaAssets'> }> =>
+  item: SeedInputItem
+): Promise<SeedImageUpload> =>
 {
-  const bytes = decodeBase64(contentBase64)
+  const bytes = decodeBase64(item.contentBase64)
   const meta = parseUploadedImageMetadata(bytes)
   const contentHash = await sha256Hex(bytes as BufferSource)
   // intentionally drop the { sha256 } integrity option — the seed loop trips
@@ -186,9 +237,11 @@ const storeSeedImage = async (
   const storageId = await ctx.storage.store(
     new Blob([bytes as BlobPart], { type: meta.mimeType })
   )
-  const { mediaAssetId } = await ctx.runMutation(
-    internal.platform.media.internal.finalizeVerifiedUpload,
-    {
+  return {
+    label: item.label,
+    aspectRatio: item.aspectRatio,
+    transform: item.transform,
+    upload: {
       userId: ownerId,
       storageId,
       contentHash,
@@ -196,9 +249,30 @@ const storeSeedImage = async (
       width: meta.width,
       height: meta.height,
       byteSize: bytes.byteLength,
-    }
+    },
+  }
+}
+
+const storeSeedImages = async (
+  ctx: ActionCtx,
+  ownerId: Id<'users'>,
+  items: readonly SeedInputItem[]
+): Promise<SeedStoredItem[]> =>
+{
+  const uploads = await Promise.all(
+    items.map((item) => prepareSeedImageUpload(ctx, ownerId, item))
   )
-  return { mediaAssetId }
+  const finalized: { mediaAssetId: Id<'mediaAssets'> }[] =
+    await ctx.runMutation(
+      internal.platform.media.internal.finalizeVerifiedUploads,
+      { uploads: uploads.map((item) => item.upload) }
+    )
+  return uploads.map((item, index) => ({
+    label: item.label,
+    mediaAssetId: finalized[index].mediaAssetId,
+    aspectRatio: item.aspectRatio,
+    transform: item.transform,
+  }))
 }
 
 interface SeedAuthor
@@ -413,33 +487,41 @@ export const recomputeTemplateTagsImpl = internalMutation({
     tagsDeleted: number
   }> =>
   {
-    let templatesScanned = 0
-    let tagsInserted = 0
-    let tagsDeleted = 0
-    for await (const template of ctx.db.query('templates'))
-    {
-      templatesScanned += 1
-      const existing = await ctx.db
-        .query('templateTags')
-        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-        .collect()
-      tagsDeleted += existing.length
-      await Promise.all(existing.map((row) => ctx.db.delete(row._id)))
-      await Promise.all(
-        template.tags.map((tag) =>
-          ctx.db.insert('templateTags', {
-            templateId: template._id,
-            tag,
-            category: template.category,
-            visibility: template.visibility,
-            unpublishedAt: template.unpublishedAt,
-            updatedAt: template.updatedAt,
-          })
+    const templates = await ctx.db.query('templates').collect()
+    const results = await Promise.all(
+      templates.map(async (template) =>
+      {
+        const existing = await ctx.db
+          .query('templateTags')
+          .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+          .collect()
+        await Promise.all(existing.map((row) => ctx.db.delete(row._id)))
+        await Promise.all(
+          template.tags.map((tag) =>
+            ctx.db.insert('templateTags', {
+              templateId: template._id,
+              tag,
+              category: template.category,
+              visibility: template.visibility,
+              unpublishedAt: template.unpublishedAt,
+              updatedAt: template.updatedAt,
+            })
+          )
         )
-      )
-      tagsInserted += template.tags.length
+        return {
+          tagsDeleted: existing.length,
+          tagsInserted: template.tags.length,
+        }
+      })
+    )
+    return {
+      templatesScanned: templates.length,
+      tagsInserted: results.reduce(
+        (sum, result) => sum + result.tagsInserted,
+        0
+      ),
+      tagsDeleted: results.reduce((sum, result) => sum + result.tagsDeleted, 0),
     }
-    return { templatesScanned, tagsInserted, tagsDeleted }
   },
 })
 
@@ -475,19 +557,142 @@ export const clearSeededTemplateCovers = internalMutation({
   handler: async (ctx): Promise<{ cleared: number; scanned: number }> =>
   {
     const templates = await ctx.db.query('templates').collect()
-    let cleared = 0
-    for (const template of templates)
-    {
-      if (template.coverMediaAssetId === null) continue
-      const firstItem = await ctx.db
-        .query('templateItems')
-        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-        .first()
-      if (!firstItem || !firstItem.externalId.startsWith('seed-')) continue
-      await ctx.db.patch(template._id, { coverMediaAssetId: null })
-      cleared += 1
+    const candidates = templates.filter(
+      (template) => template.coverMediaAssetId !== null
+    )
+    const firstItemEntries = await Promise.all(
+      candidates.map(async (template) =>
+      {
+        const firstItem = await ctx.db
+          .query('templateItems')
+          .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+          .first()
+        return [template, firstItem] as const
+      })
+    )
+    const toClear = firstItemEntries.filter(
+      ([, firstItem]) => firstItem?.externalId.startsWith('seed-') === true
+    )
+    await Promise.all(
+      toClear.map(([template]) =>
+        ctx.db.patch(template._id, { coverMediaAssetId: null })
+      )
+    )
+    return { cleared: toClear.length, scanned: templates.length }
+  },
+})
+
+// dev-only — wipe ALL templates, templateItems, templateTags, marketplaceStats,
+// & any boards forked from those templates. used to reset local state when
+// the seed shape changes. skips users, sessions, & other identity tables
+export const wipeAllSeededDataImpl = internalMutation({
+  args: {},
+  returns: v.object({
+    templates: v.number(),
+    templateItems: v.number(),
+    templateTags: v.number(),
+    forkedBoards: v.number(),
+  }),
+  handler: async (ctx) =>
+  {
+    const templates = await ctx.db.query('templates').collect()
+    const templateRows = await Promise.all(
+      templates.map(async (template) =>
+      {
+        const [items, tags] = await Promise.all([
+          ctx.db
+            .query('templateItems')
+            .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+            .collect(),
+          ctx.db
+            .query('templateTags')
+            .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+            .collect(),
+        ])
+        return { template, items, tags }
+      })
+    )
+    const templateItems = templateRows.reduce(
+      (sum, row) => sum + row.items.length,
+      0
+    )
+    const templateTags = templateRows.reduce(
+      (sum, row) => sum + row.tags.length,
+      0
+    )
+    await Promise.all(
+      templateRows.flatMap(({ template, items, tags }) => [
+        ...items.map((item) => ctx.db.delete(item._id)),
+        ...tags.map((tag) => ctx.db.delete(tag._id)),
+        ctx.db.delete(template._id),
+      ])
+    )
+
+    const boards = await ctx.db.query('boards').collect()
+    const forkedBoardRows = await Promise.all(
+      boards
+        .filter((board) => board.sourceTemplateId !== null)
+        .map(async (board) =>
+        {
+          const [items, tiers] = await Promise.all([
+            ctx.db
+              .query('boardItems')
+              .withIndex('byBoardAndTier', (q) => q.eq('boardId', board._id))
+              .collect(),
+            ctx.db
+              .query('boardTiers')
+              .withIndex('byBoard', (q) => q.eq('boardId', board._id))
+              .collect(),
+          ])
+          return { board, items, tiers }
+        })
+    )
+    await Promise.all(
+      forkedBoardRows.flatMap(({ board, items, tiers }) => [
+        ...items.map((item) => ctx.db.delete(item._id)),
+        ...tiers.map((tier) => ctx.db.delete(tier._id)),
+        ctx.db.delete(board._id),
+      ])
+    )
+
+    const stats = await ctx.db
+      .query('marketplaceStats')
+      .withIndex('byKey', (q) => q.eq('key', 'templates'))
+      .unique()
+    if (stats) await ctx.db.delete(stats._id)
+
+    return {
+      templates: templates.length,
+      templateItems,
+      templateTags,
+      forkedBoards: forkedBoardRows.length,
     }
-    return { cleared, scanned: templates.length }
+  },
+})
+
+interface WipeResult
+{
+  templates: number
+  templateItems: number
+  templateTags: number
+  forkedBoards: number
+}
+
+export const wipeAllSeededData = action({
+  args: {},
+  returns: v.object({
+    templates: v.number(),
+    templateItems: v.number(),
+    templateTags: v.number(),
+    forkedBoards: v.number(),
+  }),
+  handler: async (ctx): Promise<WipeResult> =>
+  {
+    requireSeedEnabled()
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.wipeAllSeededDataImpl,
+      {}
+    )
   },
 })
 
@@ -505,15 +710,18 @@ export const clearSeededCovers = action({
 })
 
 // append items to a previously-seeded template. used by the seed script when
-// a folder's payload exceeds the action body limit & must be chunked. extends
-// coverItems if it isn't full yet so the chunk-1 cover stays representative
+// a folder's payload exceeds the action body limit & must be chunked. startOrder
+// lets chunk appends run in parallel while preserving final item order
 export const appendItemsToSeededTemplate = internalMutation({
   args: {
     slug: v.string(),
+    startOrder: v.number(),
     items: v.array(
       v.object({
         label: v.union(v.string(), v.null()),
         mediaAssetId: v.id('mediaAssets'),
+        aspectRatio: v.union(v.number(), v.null()),
+        transform: v.union(itemTransformValidator, v.null()),
       })
     ),
   },
@@ -522,7 +730,7 @@ export const appendItemsToSeededTemplate = internalMutation({
   {
     if (args.items.length === 0)
     {
-      return { totalItems: 0 }
+      return { totalItems: args.startOrder }
     }
 
     const template = await ctx.db
@@ -537,48 +745,73 @@ export const appendItemsToSeededTemplate = internalMutation({
       })
     }
 
-    const startOrder = template.itemCount
     await Promise.all(
       args.items.map((item, i) =>
         ctx.db.insert('templateItems', {
           templateId: template._id,
-          externalId: `seed-${args.slug}-${(startOrder + i).toString().padStart(4, '0')}`,
+          externalId: `seed-${args.slug}-${(args.startOrder + i).toString().padStart(4, '0')}`,
           label: item.label,
           backgroundColor: null,
           altText: item.label,
           mediaAssetId: item.mediaAssetId,
-          order: startOrder + i,
-          aspectRatio: null,
+          order: args.startOrder + i,
+          aspectRatio: item.aspectRatio,
           imageFit: null,
-          transform: null,
+          transform: item.transform,
         })
       )
     )
 
-    const coverRoom = MAX_TEMPLATE_COVER_ITEMS - template.coverItems.length
-    const extendedCoverItems =
-      coverRoom > 0
-        ? [
-            ...template.coverItems,
-            ...args.items.slice(0, coverRoom).map((item) => ({
-              mediaAssetId: item.mediaAssetId,
-              label: item.label ?? null,
-            })),
-          ]
-        : template.coverItems
-
-    const totalItems = template.itemCount + args.items.length
-    await ctx.db.patch(template._id, {
-      itemCount: totalItems,
-      coverItems: extendedCoverItems,
-      updatedAt: Date.now(),
-    })
-
+    const totalItems = args.startOrder + args.items.length
     return { totalItems }
   },
 })
 
-// dev-only — invoked from scripts/seed-marketplace-templates.mjs via the
+export const finalizeSeededTemplateChunksImpl = internalMutation({
+  args: {
+    slug: v.string(),
+    authorId: v.id('users'),
+    itemCount: v.number(),
+  },
+  returns: v.object({ totalItems: v.number() }),
+  handler: async (ctx, args): Promise<{ totalItems: number }> =>
+  {
+    const template = await ctx.db
+      .query('templates')
+      .withIndex('bySlug', (q) => q.eq('slug', args.slug))
+      .unique()
+    if (!template || template.authorId !== args.authorId)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `seeded template not found by slug: ${args.slug}`,
+      })
+    }
+
+    const coverItemRows = await ctx.db
+      .query('templateItems')
+      .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+      .take(MAX_TEMPLATE_COVER_ITEMS)
+    const coverItems = coverItemRows
+      .filter(
+        (item): item is typeof item & { mediaAssetId: Id<'mediaAssets'> } =>
+          item.mediaAssetId !== null
+      )
+      .map((item) => ({
+        mediaAssetId: item.mediaAssetId,
+        label: item.label ?? null,
+      }))
+
+    await ctx.db.patch(template._id, {
+      itemCount: args.itemCount,
+      coverItems,
+      updatedAt: Date.now(),
+    })
+    return { totalItems: args.itemCount }
+  },
+})
+
+// dev-only — invoked from scripts/seed-marketplace-templates.ts via the
 // http client. gated behind CONVEX_SEED_ENABLED so prod refuses callers.
 // resolves author by email, stores all images, inserts template + items
 export const seedTemplateFromBlobs = action({
@@ -589,6 +822,9 @@ export const seedTemplateFromBlobs = action({
     category: templateCategoryValidator,
     tags: v.array(v.string()),
     suggestedTiers: v.optional(tierPresetTiersValidator),
+    // template slot ratio chosen by the script (already snapped to a preset).
+    // null only when no items had usable dimensions
+    itemAspectRatio: v.union(v.number(), v.null()),
     items: v.array(seedItemValidator),
   },
   returns: v.object({
@@ -613,17 +849,7 @@ export const seedTemplateFromBlobs = action({
       })
     }
 
-    const stored = await Promise.all(
-      args.items.map(async (item) =>
-      {
-        const { mediaAssetId } = await storeSeedImage(
-          ctx,
-          author._id,
-          item.contentBase64
-        )
-        return { label: item.label, mediaAssetId }
-      })
-    )
+    const stored = await storeSeedImages(ctx, author._id, args.items)
 
     const result: SeedInsertResult = await ctx.runMutation(
       internal.marketplace.templates.seed.insertSeedTemplate,
@@ -634,6 +860,7 @@ export const seedTemplateFromBlobs = action({
         category: args.category,
         tags: args.tags,
         suggestedTiers: args.suggestedTiers ?? [...DEFAULT_TEMPLATE_TIERS],
+        itemAspectRatio: args.itemAspectRatio,
         items: stored,
       }
     )
@@ -649,6 +876,7 @@ export const appendItemsToSeededTemplateBlobs = action({
   args: {
     authorEmail: v.string(),
     slug: v.string(),
+    startOrder: v.number(),
     items: v.array(seedItemValidator),
   },
   returns: v.object({
@@ -673,26 +901,50 @@ export const appendItemsToSeededTemplateBlobs = action({
       })
     }
 
-    const stored = await Promise.all(
-      args.items.map(async (item) =>
-      {
-        const { mediaAssetId } = await storeSeedImage(
-          ctx,
-          author._id,
-          item.contentBase64
-        )
-        return { label: item.label, mediaAssetId }
-      })
-    )
+    const stored = await storeSeedImages(ctx, author._id, args.items)
 
     const result: { totalItems: number } = await ctx.runMutation(
       internal.marketplace.templates.seed.appendItemsToSeededTemplate,
       {
         slug: args.slug,
+        startOrder: args.startOrder,
         items: stored,
       }
     )
 
     return { itemsAppended: stored.length, totalItems: result.totalItems }
+  },
+})
+
+export const finalizeSeededTemplateChunks = action({
+  args: {
+    authorEmail: v.string(),
+    slug: v.string(),
+    itemCount: v.number(),
+  },
+  returns: v.object({ totalItems: v.number() }),
+  handler: async (ctx, args): Promise<{ totalItems: number }> =>
+  {
+    requireSeedEnabled()
+    const author: SeedAuthor | null = await ctx.runQuery(
+      internal.marketplace.templates.seed.findUserByEmail,
+      { email: args.authorEmail }
+    )
+    if (!author)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `seed author not found by email: ${args.authorEmail}. sign up in the app first`,
+      })
+    }
+
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.finalizeSeededTemplateChunksImpl,
+      {
+        slug: args.slug,
+        authorId: author._id,
+        itemCount: args.itemCount,
+      }
+    )
   },
 })

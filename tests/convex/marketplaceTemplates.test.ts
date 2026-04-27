@@ -8,6 +8,11 @@ import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
 import type {
+  ImageFit,
+  ItemAspectRatioMode,
+  ItemTransform,
+} from '@tierlistbuilder/contracts/workspace/board'
+import type {
   CloudBoardItemWire,
   CloudBoardState,
   CloudBoardStateItem,
@@ -49,9 +54,19 @@ const asUser = (
     issuer: 'https://convex.test',
   })
 
+interface SeedSourceBoardOptions
+{
+  itemAspectRatio?: number
+  itemAspectRatioMode?: ItemAspectRatioMode
+  defaultItemImageFit?: ImageFit
+  imageItemFit?: ImageFit | null
+  imageItemTransform?: ItemTransform
+}
+
 const seedSourceBoard = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
-  ownerId: Id<'users'>
+  ownerId: Id<'users'>,
+  options: SeedSourceBoardOptions = {}
 ): Promise<{ mediaExternalId: string }> =>
   await t.run(async (ctx) =>
   {
@@ -77,6 +92,15 @@ const seedSourceBoard = async (
       updatedAt: Date.now(),
       deletedAt: null,
       revision: 1,
+      ...(options.itemAspectRatio !== undefined
+        ? { itemAspectRatio: options.itemAspectRatio }
+        : {}),
+      ...(options.itemAspectRatioMode !== undefined
+        ? { itemAspectRatioMode: options.itemAspectRatioMode }
+        : {}),
+      ...(options.defaultItemImageFit !== undefined
+        ? { defaultItemImageFit: options.defaultItemImageFit }
+        : {}),
       sourceTemplateId: null,
       activeItemCount: 2,
       unrankedItemCount: 1,
@@ -101,7 +125,12 @@ const seedSourceBoard = async (
       order: 0,
       deletedAt: null,
       aspectRatio: 1,
-      imageFit: 'cover',
+      ...(options.imageItemFit === null
+        ? {}
+        : { imageFit: options.imageItemFit ?? 'cover' }),
+      ...(options.imageItemTransform
+        ? { transform: options.imageItemTransform }
+        : {}),
     })
     await ctx.db.insert('boardItems', {
       boardId,
@@ -269,7 +298,6 @@ describe('marketplace template Convex functions', () =>
     ).resolves.toEqual({
       count: 0,
       countByCategory: {},
-      isCapped: false,
     })
 
     const publicTemplate = await caller.mutation(
@@ -288,7 +316,6 @@ describe('marketplace template Convex functions', () =>
     ).resolves.toEqual({
       count: 1,
       countByCategory: { gaming: 1 },
-      isCapped: false,
     })
 
     const unlistedTemplate = await caller.mutation(
@@ -307,7 +334,6 @@ describe('marketplace template Convex functions', () =>
     ).resolves.toEqual({
       count: 1,
       countByCategory: { gaming: 1 },
-      isCapped: false,
     })
 
     await caller.mutation(
@@ -324,7 +350,6 @@ describe('marketplace template Convex functions', () =>
     ).resolves.toEqual({
       count: 2,
       countByCategory: { gaming: 1, movies: 1 },
-      isCapped: false,
     })
 
     await caller.mutation(
@@ -340,7 +365,6 @@ describe('marketplace template Convex functions', () =>
     ).resolves.toEqual({
       count: 1,
       countByCategory: { movies: 1 },
-      isCapped: false,
     })
 
     await caller.mutation(
@@ -353,7 +377,6 @@ describe('marketplace template Convex functions', () =>
     ).resolves.toEqual({
       count: 0,
       countByCategory: {},
-      isCapped: false,
     })
   })
 
@@ -508,6 +531,64 @@ describe('marketplace template Convex functions', () =>
 
     expect(clonedRows.storedBoard?.sourceTemplateId).toBeTruthy()
     expect(clonedRows.items.every((item) => item.templateItemId)).toBe(true)
+  })
+
+  it('publishes template layout settings and applies them when cloned', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    const consumerId = await seedUser(t, 'Consumer', 'consumer@example.com')
+    const transform: ItemTransform = {
+      rotation: 0,
+      zoom: 1.25,
+      offsetX: 0.1,
+      offsetY: -0.2,
+    }
+    await seedSourceBoard(t, authorId, {
+      itemAspectRatio: 16 / 9,
+      itemAspectRatioMode: 'manual',
+      defaultItemImageFit: 'contain',
+      imageItemFit: null,
+      imageItemTransform: transform,
+    })
+
+    const { slug } = await asUser(t, authorId).mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Widescreen Template',
+        category: 'movies',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+
+    const detail = await t.query(
+      api.marketplace.templates.queries.getTemplateBySlug,
+      { slug }
+    )
+    expect(detail).toMatchObject({
+      itemAspectRatio: 16 / 9,
+      defaultItemImageFit: 'contain',
+    })
+    expect(detail?.items[0]).toMatchObject({ transform, imageFit: null })
+
+    const result = await asUser(t, consumerId).mutation(
+      api.marketplace.templates.mutations.useTemplate,
+      { slug }
+    )
+    const board = await asUser(t, consumerId).query(
+      api.workspace.boards.queries.getBoardStateByExternalId,
+      { boardExternalId: result.boardExternalId }
+    )
+
+    expect(board).toMatchObject({
+      itemAspectRatio: 16 / 9,
+      itemAspectRatioMode: 'manual',
+      defaultItemImageFit: 'contain',
+    })
+    expect(board?.items[0]).toMatchObject({ transform })
+    expect(board?.items[0].imageFit).toBeUndefined()
   })
 
   it('lists in-progress template drafts and updates their progress', async () =>

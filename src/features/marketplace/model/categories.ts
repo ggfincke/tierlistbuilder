@@ -1,5 +1,5 @@
 // src/features/marketplace/model/categories.ts
-// presentation metadata for the marketplace's six template categories
+// presentation metadata for marketplace template categories
 
 import {
   TEMPLATE_CATEGORIES,

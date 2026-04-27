@@ -244,6 +244,9 @@ export const publishFromBoard = mutation({
         tags,
         authorDisplayName: author.displayName,
       }),
+      itemAspectRatio: board.itemAspectRatio ?? null,
+      itemAspectRatioMode: board.itemAspectRatioMode ?? null,
+      defaultItemImageFit: board.defaultItemImageFit ?? null,
       createdAt: now,
       updatedAt: now,
       unpublishedAt: null,
@@ -351,16 +354,23 @@ export const updateMyTemplateMeta = mutation({
     })
     const nextPublic =
       nextVisibility === 'public' && template.unpublishedAt === null
-    const transitions: { category: TemplateCategory; delta: number }[] = []
-    if (previousPublic)
+    // skip the counter round-trip when neither visibility nor category moved.
+    // a no-op pair like [{cat:X,-1},{cat:X,+1}] would still issue a write
+    const stayedPublicSameCategory =
+      previousPublic && nextPublic && template.category === category
+    if (!stayedPublicSameCategory)
     {
-      transitions.push({ category: template.category, delta: -1 })
+      const transitions: { category: TemplateCategory; delta: number }[] = []
+      if (previousPublic)
+      {
+        transitions.push({ category: template.category, delta: -1 })
+      }
+      if (nextPublic)
+      {
+        transitions.push({ category, delta: 1 })
+      }
+      await adjustPublicTemplateCount(ctx, transitions)
     }
-    if (nextPublic)
-    {
-      transitions.push({ category, delta: 1 })
-    }
-    await adjustPublicTemplateCount(ctx, transitions)
 
     const updated = await ctx.db.get(template._id)
     if (updated)
@@ -402,6 +412,46 @@ export const unpublishMyTemplate = mutation({
     }
     await patchTemplateTagRows(ctx, template._id, {
       unpublishedAt: now,
+      updatedAt: now,
+    })
+
+    return null
+  },
+})
+
+// reverse of unpublishMyTemplate — clears the tombstone & restores the
+// template to its stored visibility. counter & tag rows are re-credited only
+// when the resulting state is publicly visible
+export const republishMyTemplate = mutation({
+  args: { slug: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    if (!isTemplateSlug(args.slug))
+    {
+      return null
+    }
+
+    const userId = await requireCurrentUserId(ctx)
+    const template = await requireOwnedTemplate(ctx, args.slug, userId)
+    if (template.unpublishedAt === null)
+    {
+      return null
+    }
+
+    const now = Date.now()
+    await ctx.db.patch(template._id, {
+      unpublishedAt: null,
+      updatedAt: now,
+    })
+    if (template.visibility === 'public')
+    {
+      await adjustPublicTemplateCount(ctx, [
+        { category: template.category, delta: 1 },
+      ])
+    }
+    await patchTemplateTagRows(ctx, template._id, {
+      unpublishedAt: null,
       updatedAt: now,
     })
 
@@ -468,6 +518,12 @@ export const useTemplate = mutation({
       deletedAt: null,
       revision: 0,
       sourceTemplateId: template._id,
+      // propagate the template's design-time ratio so per-item transforms
+      // (computed in seed against this same ratio) frame correctly. unset
+      // values fall back to board defaults (1, auto, cover)
+      itemAspectRatio: template.itemAspectRatio ?? undefined,
+      itemAspectRatioMode: template.itemAspectRatioMode ?? undefined,
+      defaultItemImageFit: template.defaultItemImageFit ?? undefined,
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
         template._id,

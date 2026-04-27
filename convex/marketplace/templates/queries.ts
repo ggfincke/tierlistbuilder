@@ -126,6 +126,12 @@ const takePublicRows = async (
     .take(options.limit)
 }
 
+// handle search & tag together by over-fetching search results.
+// seed an id Set from templateTags for the active tag.
+// keep accuracy bounded to the search-index relevance window.
+const SEARCH_AND_TAG_OVERFETCH = MAX_TEMPLATE_LIST_LIMIT * 4
+const TAG_INTERSECT_ID_CAP = 512
+
 const searchPublicRows = async (
   ctx: QueryCtx,
   options: {
@@ -137,7 +143,35 @@ const searchPublicRows = async (
 ): Promise<Doc<'templates'>[]> =>
 {
   const tag = options.tag
-  const searchLimit = tag ? MAX_TEMPLATE_LIST_LIMIT : options.limit
+
+  let tagIdSet: Set<string> | null = null
+  if (tag)
+  {
+    const tagRows = options.category
+      ? await ctx.db
+          .query('templateTags')
+          .withIndex('byCategoryTagVisibilityUnpublishedUpdatedAt', (q) =>
+            q
+              .eq('category', options.category!)
+              .eq('tag', tag)
+              .eq('visibility', 'public')
+              .eq('unpublishedAt', null)
+          )
+          .take(TAG_INTERSECT_ID_CAP)
+      : await ctx.db
+          .query('templateTags')
+          .withIndex('byTagVisibilityUnpublishedUpdatedAt', (q) =>
+            q
+              .eq('tag', tag)
+              .eq('visibility', 'public')
+              .eq('unpublishedAt', null)
+          )
+          .take(TAG_INTERSECT_ID_CAP)
+    if (tagRows.length === 0) return []
+    tagIdSet = new Set(tagRows.map((row) => row.templateId as string))
+  }
+
+  const searchLimit = tag ? SEARCH_AND_TAG_OVERFETCH : options.limit
   const rows = await ctx.db
     .query('templates')
     .withSearchIndex('searchPublic', (q) =>
@@ -151,7 +185,9 @@ const searchPublicRows = async (
     })
     .take(searchLimit)
 
-  const filteredRows = tag ? rows.filter((row) => row.tags.includes(tag)) : rows
+  const filteredRows = tagIdSet
+    ? rows.filter((row) => tagIdSet!.has(row._id as string))
+    : rows
   return filteredRows.slice(0, options.limit)
 }
 
@@ -203,7 +239,6 @@ export const getPublicTemplateCount = query({
   returns: v.object({
     count: v.number(),
     countByCategory: v.record(v.string(), v.number()),
-    isCapped: v.boolean(),
   }),
   handler: async (ctx) =>
   {
@@ -211,7 +246,6 @@ export const getPublicTemplateCount = query({
     return {
       count: stats.count,
       countByCategory: stats.countByCategory,
-      isCapped: false,
     }
   },
 })
@@ -266,7 +300,8 @@ export const getTemplateBySlug = query({
       return null
     }
 
-    return await toTemplateDetail(ctx, template)
+    const cache = createTemplateProjectionCache()
+    return await toTemplateDetail(ctx, template, cache)
   },
 })
 

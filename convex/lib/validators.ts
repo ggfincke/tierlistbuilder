@@ -378,25 +378,18 @@ export const marketplaceTemplateItemValidator = v.object({
   order: v.number(),
   aspectRatio: v.union(v.number(), v.null()),
   imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
-  transform: v.union(
-    v.object({
-      rotation: v.union(
-        v.literal(0),
-        v.literal(90),
-        v.literal(180),
-        v.literal(270)
-      ),
-      zoom: v.number(),
-      offsetX: v.number(),
-      offsetY: v.number(),
-    }),
-    v.null()
-  ),
+  transform: v.union(itemTransformValidator, v.null()),
 })
 
 export const marketplaceTemplateDetailValidator = v.object({
   ...marketplaceTemplateBaseFields,
   suggestedTiers: tierPresetTiersValidator,
+  itemAspectRatio: v.union(v.number(), v.null()),
+  defaultItemImageFit: v.union(
+    v.literal('cover'),
+    v.literal('contain'),
+    v.null()
+  ),
   items: v.array(marketplaceTemplateItemValidator),
 })
 
