@@ -9,6 +9,7 @@ import {
   type FlushResult,
   type PendingBoardSync,
 } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
+import { selectBoardDataFields } from '~/features/workspace/boards/model/boardSnapshot'
 import { flushPromises } from '../shared-lib/async'
 import { makeBoardSnapshot } from '../fixtures'
 
@@ -19,13 +20,7 @@ const makeWork = (boardId: BoardId, title: string): PendingBoardSync =>
   return {
     boardId,
     snapshot,
-    boardDataSelection: [
-      snapshot.title,
-      snapshot.tiers,
-      snapshot.unrankedItemIds,
-      snapshot.items,
-      snapshot.deletedItems,
-    ],
+    boardDataSelection: selectBoardDataFields(snapshot),
     syncState: {
       lastSyncedRevision: null,
       cloudBoardExternalId: null,

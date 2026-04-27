@@ -1,7 +1,7 @@
 // packages/contracts/workspace/cloudBoard.ts
 // shared cloud board wire contracts used by client sync & server reconciliation
 
-import type { TierColorSpec } from '../lib/theme'
+import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
 import type { ImageFit, ItemAspectRatioMode, ItemTransform } from './board'
 
 // cloud board sync caps; server enforces these before writing row diffs.
@@ -47,8 +47,19 @@ export interface CloudBoardAspectRatioFields
   defaultItemImageFit?: ImageFit
 }
 
-export interface CloudBoardPayload extends CloudBoardAspectRatioFields
+// per-board overrides of user-default style — palette/text style/page bg.
+// shared by state read & sync push so a per-board override survives a push/pull
+// cycle. all fields optional; absent means "inherit user default"
+export interface CloudBoardStyleOverrideFields
 {
+  paletteId?: PaletteId
+  textStyleId?: TextStyleId
+  pageBackground?: string
+}
+
+export interface CloudBoardPayload
+  extends CloudBoardAspectRatioFields, CloudBoardStyleOverrideFields
+  {
   title: string
   tiers: CloudBoardTierWire[]
   items: CloudBoardItemWire[]
@@ -67,8 +78,9 @@ export interface CloudBoardStateItem extends CloudBoardItemWire
   sourceMediaContentHash?: string
 }
 
-export interface CloudBoardState extends CloudBoardAspectRatioFields
-{
+export interface CloudBoardState
+  extends CloudBoardAspectRatioFields, CloudBoardStyleOverrideFields
+  {
   title: string
   revision: number
   tiers: CloudBoardStateTier[]

@@ -7,6 +7,7 @@ import { createAspectRatioActions } from './boardData/aspectRatioActions'
 import { createDeletedItemActions } from './boardData/deletedItemActions'
 import { createItemActions } from './boardData/itemActions'
 import { createLifecycleActions } from './boardData/lifecycleActions'
+import { createStyleOverrideActions } from './boardData/styleOverrideActions'
 import { createTierActions } from './boardData/tierActions'
 import type { ActiveBoardSliceCreator, BoardDataSlice } from './types'
 
@@ -23,4 +24,5 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
   ...createItemActions(set, get),
   ...createDeletedItemActions(set),
   ...createAspectRatioActions(set),
+  ...createStyleOverrideActions(set),
 })

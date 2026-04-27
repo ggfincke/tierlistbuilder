@@ -88,6 +88,9 @@ export const loadBoardCloudState = async (
     itemAspectRatioMode: board.itemAspectRatioMode,
     aspectRatioPromptDismissed: board.aspectRatioPromptDismissed,
     defaultItemImageFit: board.defaultItemImageFit,
+    paletteId: board.paletteId,
+    textStyleId: board.textStyleId,
+    pageBackground: board.pageBackground,
     tiers: serverTiers
       .slice()
       .sort((a, b) => a.order - b.order)

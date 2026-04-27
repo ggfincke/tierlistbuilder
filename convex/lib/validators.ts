@@ -90,8 +90,8 @@ const literalUnion = <T extends readonly [string, string, ...string[]]>(
   >
 
 const themeIdValidator = literalUnion(THEME_IDS)
-const paletteIdValidator = literalUnion(PALETTE_IDS)
-const textStyleIdValidator = literalUnion(TEXT_STYLE_IDS)
+export const paletteIdValidator = literalUnion(PALETTE_IDS)
+export const textStyleIdValidator = literalUnion(TEXT_STYLE_IDS)
 const itemSizeValidator = literalUnion(ITEM_SIZES)
 const itemShapeValidator = literalUnion(ITEM_SHAPES)
 const labelWidthValidator = literalUnion(LABEL_WIDTHS)
@@ -232,6 +232,21 @@ const cloudBoardStateTierValidator = v.object({
   order: v.number(),
 })
 
+// per-item manual crop transform — mirrors ItemTransform in contracts/board.
+// shared between cloud board sync, template detail projections, & the seed
+// action so all callers stay coupled to the same shape
+export const itemTransformValidator = v.object({
+  rotation: v.union(
+    v.literal(0),
+    v.literal(90),
+    v.literal(180),
+    v.literal(270)
+  ),
+  zoom: v.number(),
+  offsetX: v.number(),
+  offsetY: v.number(),
+})
+
 // item row in a cloud board state payload — mirrors CloudBoardStateItem
 const cloudBoardStateItemValidator = v.object({
   externalId: v.string(),
@@ -247,19 +262,7 @@ const cloudBoardStateItemValidator = v.object({
   deletedAt: v.union(v.number(), v.null()),
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
-  transform: v.optional(
-    v.object({
-      rotation: v.union(
-        v.literal(0),
-        v.literal(90),
-        v.literal(180),
-        v.literal(270)
-      ),
-      zoom: v.number(),
-      offsetX: v.number(),
-      offsetY: v.number(),
-    })
-  ),
+  transform: v.optional(itemTransformValidator),
 })
 
 // full cloud board state payload — mirrors CloudBoardState
@@ -274,6 +277,9 @@ export const cloudBoardStateValidator = v.object({
   defaultItemImageFit: v.optional(
     v.union(v.literal('cover'), v.literal('contain'))
   ),
+  paletteId: v.optional(paletteIdValidator),
+  textStyleId: v.optional(textStyleIdValidator),
+  pageBackground: v.optional(v.string()),
   tiers: v.array(cloudBoardStateTierValidator),
   items: v.array(cloudBoardStateItemValidator),
 })

@@ -27,7 +27,12 @@ import {
   isTierId,
   type ItemId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
+import {
+  PALETTE_IDS,
+  TEXT_STYLE_IDS,
+  type PaletteId,
+} from '@tierlistbuilder/contracts/lib/theme'
+import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
 import {
   getAutoTierColorSpec,
   normalizeCanonicalTierColorSpec,
@@ -255,42 +260,48 @@ export const createNewTier = (
 
 type BoardSnapshotSource = Pick<ActiveBoardRuntimeState, keyof BoardSnapshot>
 
-// tuple mirrors every BoardSnapshot field so the autosave subscriber
-// re-fires when any persisted field changes, including aspect-ratio state
-export type BoardDataSelection = [
-  BoardSnapshotSource['title'],
-  BoardSnapshotSource['tiers'],
-  BoardSnapshotSource['unrankedItemIds'],
-  BoardSnapshotSource['items'],
-  BoardSnapshotSource['deletedItems'],
-  BoardSnapshotSource['itemAspectRatio'],
-  BoardSnapshotSource['itemAspectRatioMode'],
-  BoardSnapshotSource['aspectRatioPromptDismissed'],
-  BoardSnapshotSource['defaultItemImageFit'],
-]
+export type BoardDataSelection = Pick<BoardSnapshotSource, keyof BoardSnapshot>
+
+const BOARD_DATA_SELECTION_KEYS = [
+  'title',
+  'tiers',
+  'unrankedItemIds',
+  'items',
+  'deletedItems',
+  'itemAspectRatio',
+  'itemAspectRatioMode',
+  'aspectRatioPromptDismissed',
+  'defaultItemImageFit',
+  'paletteId',
+  'textStyleId',
+  'pageBackground',
+] as const satisfies readonly (keyof BoardDataSelection)[]
 
 export const selectBoardDataFields = (
   state: BoardSnapshotSource
-): BoardDataSelection => [
-  state.title,
-  state.tiers,
-  state.unrankedItemIds,
-  state.items,
-  state.deletedItems,
-  state.itemAspectRatio,
-  state.itemAspectRatioMode,
-  state.aspectRatioPromptDismissed,
-  state.defaultItemImageFit,
-]
+): BoardDataSelection => ({
+  title: state.title,
+  tiers: state.tiers,
+  unrankedItemIds: state.unrankedItemIds,
+  items: state.items,
+  deletedItems: state.deletedItems,
+  itemAspectRatio: state.itemAspectRatio,
+  itemAspectRatioMode: state.itemAspectRatioMode,
+  aspectRatioPromptDismissed: state.aspectRatioPromptDismissed,
+  defaultItemImageFit: state.defaultItemImageFit,
+  paletteId: state.paletteId,
+  textStyleId: state.textStyleId,
+  pageBackground: state.pageBackground,
+})
 
 export const boardDataFieldsEqual = (
   a: BoardDataSelection,
   b: BoardDataSelection
 ): boolean =>
 {
-  for (let i = 0; i < a.length; i++)
+  for (const key of BOARD_DATA_SELECTION_KEYS)
   {
-    if (a[i] !== b[i])
+    if (a[key] !== b[key])
     {
       return false
     }
@@ -311,6 +322,9 @@ export const extractBoardData = (
   itemAspectRatioMode: state.itemAspectRatioMode,
   aspectRatioPromptDismissed: state.aspectRatioPromptDismissed,
   defaultItemImageFit: state.defaultItemImageFit,
+  paletteId: state.paletteId,
+  textStyleId: state.textStyleId,
+  pageBackground: state.pageBackground,
 })
 
 export const resetBoardData = (
@@ -356,5 +370,10 @@ export const normalizeBoardSnapshot = (
     aspectRatioPromptDismissed:
       value?.aspectRatioPromptDismissed === true ? true : undefined,
     defaultItemImageFit: normalizeEnum(value?.defaultItemImageFit, IMAGE_FITS),
+    paletteId: normalizeEnum(value?.paletteId, PALETTE_IDS),
+    textStyleId: normalizeEnum(value?.textStyleId, TEXT_STYLE_IDS),
+    pageBackground: isHexColor(value?.pageBackground)
+      ? value.pageBackground
+      : undefined,
   }
 }

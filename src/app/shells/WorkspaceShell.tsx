@@ -5,7 +5,10 @@ import { useCallback, type MouseEvent } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
-import { useThemeSync } from '~/app/bootstrap/useThemeSync'
+import {
+  useBoardThemeOverrides,
+  useThemeSync,
+} from '~/app/bootstrap/useThemeSync'
 import { AppTopNav } from '~/app/shells/AppTopNav'
 import { useModalStack } from '~/app/shells/useModalStack'
 import { WorkspaceModalLayer } from '~/app/shells/WorkspaceModalLayer'
@@ -21,6 +24,7 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { getWorkspacePath } from '~/app/routes/pathname'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
+import { useCurrentPageBackground } from '~/features/workspace/settings/model/useCurrentPageBackground'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
@@ -45,24 +49,22 @@ export const WorkspaceShell = () =>
         resetBoard: state.resetBoard,
       }))
     )
-  const {
-    toolbarPosition: rawToolbarPosition,
-    boardBackgroundOverride,
-    reducedMotion,
-  } = useSettingsStore(
-    useShallow((state) => ({
-      toolbarPosition: state.toolbarPosition,
-      boardBackgroundOverride: state.boardBackgroundOverride,
-      reducedMotion: state.reducedMotion,
-    }))
-  )
+  const { toolbarPosition: rawToolbarPosition, reducedMotion } =
+    useSettingsStore(
+      useShallow((state) => ({
+        toolbarPosition: state.toolbarPosition,
+        reducedMotion: state.reducedMotion,
+      }))
+    )
+  const pageBackground = useCurrentPageBackground()
   const aboveSm = useAboveBreakpoint()
   const toolbarPosition = getResponsiveToolbarPosition(
     rawToolbarPosition,
     aboveSm
   )
 
-  useThemeSync()
+  useThemeSync({ syncTextStyle: false })
+  useBoardThemeOverrides()
 
   const authSession = useAuthSession()
   const signedInUser =
@@ -131,11 +133,7 @@ export const WorkspaceShell = () =>
       <main
         id="app-shell"
         className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
-        style={
-          boardBackgroundOverride
-            ? { backgroundColor: boardBackgroundOverride }
-            : undefined
-        }
+        style={pageBackground ? { backgroundColor: pageBackground } : undefined}
       >
         <a
           href={`${getWorkspacePath()}#tier-list`}

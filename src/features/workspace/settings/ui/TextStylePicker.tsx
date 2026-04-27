@@ -1,7 +1,6 @@
 // src/features/workspace/settings/ui/TextStylePicker.tsx
-// row of clickable text style previews for the Appearance section
+// controlled text-style preview picker for defaults & per-board overrides
 
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 import { PickerGrid } from '~/shared/ui/PickerGrid'
@@ -38,23 +37,26 @@ const renderStylePreview = (option: StyleOption) =>
 
 interface TextStylePickerProps
 {
+  value: TextStyleId
+  onChange: (textStyleId: TextStyleId) => void
+  disabled?: boolean
   ariaLabelledby?: string
 }
 
-export const TextStylePicker = ({ ariaLabelledby }: TextStylePickerProps) =>
-{
-  const textStyleId = useSettingsStore((s) => s.textStyleId)
-  const setTextStyleId = useSettingsStore((s) => s.setTextStyleId)
-
-  return (
-    <PickerGrid<TextStyleId, StyleOption>
-      items={STYLE_OPTIONS}
-      activeKey={textStyleId}
-      onSelect={setTextStyleId}
-      ariaLabel="Text style"
-      ariaLabelledby={ariaLabelledby}
-      buttonClassName="gap-1 px-3 py-2"
-      renderPreview={renderStylePreview}
-    />
-  )
-}
+export const TextStylePicker = ({
+  value,
+  onChange,
+  disabled = false,
+  ariaLabelledby,
+}: TextStylePickerProps) => (
+  <PickerGrid<TextStyleId, StyleOption>
+    items={STYLE_OPTIONS}
+    activeKey={value}
+    onSelect={onChange}
+    ariaLabel="Text style"
+    ariaLabelledby={ariaLabelledby}
+    buttonClassName="gap-1 px-3 py-2"
+    renderPreview={renderStylePreview}
+    disabled={disabled}
+  />
+)
