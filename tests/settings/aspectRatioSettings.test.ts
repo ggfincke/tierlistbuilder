@@ -4,7 +4,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { groupMismatchedItems } from '~/features/workspace/boards/lib/aspectRatio'
+import {
+  computeAutoBoardAspectRatio,
+  groupMismatchedItems,
+} from '~/features/workspace/boards/lib/aspectRatio'
 import {
   createAspectRatioPromptSnapshot,
   resolveAspectRatioPromptItems,
@@ -52,6 +55,28 @@ describe('resolvePendingAutoAspectRatio', () =>
     expect(resolvePendingAutoAspectRatio(makeBoardSnapshot(), fallback)).toBe(
       fallback
     )
+  })
+
+  it('preserves non-preset auto ratios when all imports agree', () =>
+  {
+    const itemA = asItemId('item-a')
+    const itemB = asItemId('item-b')
+    const board = makeBoardSnapshot({
+      items: {
+        [itemA]: makeItem({
+          id: itemA,
+          imageRef: { hash: 'item-a' },
+          aspectRatio: 5 / 4,
+        }),
+        [itemB]: makeItem({
+          id: itemB,
+          imageRef: { hash: 'item-b' },
+          aspectRatio: 5 / 4,
+        }),
+      },
+    })
+
+    expect(computeAutoBoardAspectRatio(board)).toBeCloseTo(5 / 4)
   })
 })
 

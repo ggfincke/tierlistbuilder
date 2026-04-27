@@ -4,6 +4,7 @@
 import { Check, ChevronRight, Crop, Loader2 } from 'lucide-react'
 import {
   useCallback,
+  useEffect,
   useId,
   useMemo,
   useState,
@@ -141,9 +142,20 @@ const AspectRatioIssueModalBody = ({
     [items, boardAspectRatio, promptSnapshot]
   )
 
+  const autoCropTargets = useMemo(
+    () => mismatched.filter((item) => !!getAutoCropHash(item)),
+    [mismatched]
+  )
+
   // bulk fit stays a local preview until the user commits via Done / Adjust
   // each — avoids polluting undo history when the user cycles fits
-  const [pendingBulkFit, setPendingBulkFit] = useState<ImageFit | null>(null)
+  const [pendingBulkFit, setPendingBulkFit] = useState<ImageFit | null>(() =>
+    mismatched.length > 0 && autoCropTargets.length === 0 ? 'cover' : null
+  )
+  const [shouldAutoCropOnOpen] = useState(() => autoCropTargets.length > 0)
+  const [autoCropHandledOnOpen, setAutoCropHandledOnOpen] = useState(
+    () => !shouldAutoCropOnOpen
+  )
   const [dontAskAgain, setDontAskAgain] = useState(false)
   const [autoCropProgress, setAutoCropProgress] = useState<{
     running: boolean
@@ -156,11 +168,6 @@ const AspectRatioIssueModalBody = ({
     getAutoCropCacheVersion
   )
 
-  const autoCropTargets = useMemo(
-    () => mismatched.filter((item) => !!getAutoCropHash(item)),
-    [mismatched]
-  )
-
   const autoCropAllApplied = useMemo(() =>
   {
     void autoCropCacheVersion
@@ -171,11 +178,11 @@ const AspectRatioIssueModalBody = ({
       trimSoftShadows
     )
   }, [
-    trimSoftShadows,
     autoCropCacheVersion,
     autoCropProgress.running,
     autoCropTargets,
     boardAspectRatio,
+    trimSoftShadows,
   ])
   const autoCropHonored = pendingBulkFit === null && autoCropAllApplied
 
@@ -235,6 +242,13 @@ const AspectRatioIssueModalBody = ({
     boardAspectRatio,
     setItemsTransform,
   ])
+
+  useEffect(() =>
+  {
+    if (autoCropHandledOnOpen) return
+    setAutoCropHandledOnOpen(true)
+    if (!autoCropAllApplied) void handleAutoCropAll()
+  }, [autoCropHandledOnOpen, autoCropAllApplied, handleAutoCropAll])
 
   const handleDone = useCallback(() =>
   {

@@ -350,11 +350,11 @@ const ImageEditorModalBody = () =>
       trimSoftShadows
     )
   }, [
-    trimSoftShadows,
     autoCropCacheVersion,
     autoCropProgress.running,
     boardAspectRatio,
     filteredItems,
+    trimSoftShadows,
   ])
 
   // items the user (or a previous gesture) saved a transform on that doesn't
@@ -368,7 +368,7 @@ const ImageEditorModalBody = () =>
         !isIdentityTransform(it.transform) &&
         !areCachedAutoCropsApplied([it], boardAspectRatio, trimSoftShadows)
     )
-  }, [filteredItems, boardAspectRatio, trimSoftShadows, autoCropCacheVersion])
+  }, [autoCropCacheVersion, boardAspectRatio, filteredItems, trimSoftShadows])
 
   const getPendingManualTarget = useCallback(
     (pendingEdit: PendingImageEditorPaneEdit | null): TierItem | null =>
