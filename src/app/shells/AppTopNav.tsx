@@ -9,10 +9,14 @@ import {
   ListChecks,
   LogIn,
   LogOut,
+  Settings,
+  UserCircle2,
 } from 'lucide-react'
 import {
   useCallback,
   useId,
+  lazy,
+  Suspense,
   useRef,
   useState,
   type ComponentType,
@@ -30,24 +34,27 @@ import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 
 type IconCmp = ComponentType<SVGProps<SVGSVGElement>>
 
+const PreferencesModal = lazy(() =>
+  import('~/features/platform/preferences/ui/PreferencesModal').then(
+    (module) => ({
+      default: module.PreferencesModal,
+    })
+  )
+)
+
 interface NavItem
 {
-  id: 'workspace' | 'boards' | 'templates'
+  id: 'workspace' | 'templates'
   label: string
   to: string
   icon: IconCmp
   end: boolean
 }
 
+// "My lists" lives in the avatar menu — it's user-scoped, not a peer surface.
+// keeping the pill row to public/shared surfaces
 const NAV_ITEMS: readonly NavItem[] = [
   { id: 'workspace', label: 'Workspace', to: '/', icon: Layers, end: true },
-  {
-    id: 'boards',
-    label: 'My lists',
-    to: BOARDS_ROUTE_PATH,
-    icon: ListChecks,
-    end: false,
-  },
   {
     id: 'templates',
     label: 'Templates',
@@ -65,6 +72,15 @@ const BrandCapsule = () => (
   >
     TierListBuilder
   </Link>
+)
+
+const MENU_ITEM_CLASS =
+  'focus-custom flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] text-[var(--t-text-secondary)] transition hover:bg-[rgb(var(--t-overlay)/0.05)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
+
+const MENU_DIVIDER = (
+  <li role="none" aria-hidden="true">
+    <div className="my-1 h-px bg-[var(--t-border)]" />
+  </li>
 )
 
 const GlobalMenu = ({
@@ -99,13 +115,46 @@ const GlobalMenu = ({
 
     <ul role="none" className="flex flex-col px-1.5 py-2">
       <li role="none">
+        <Link
+          role="menuitem"
+          to={BOARDS_ROUTE_PATH}
+          onClick={onClose}
+          className={MENU_ITEM_CLASS}
+        >
+          <ListChecks className="h-3.5 w-3.5" strokeWidth={1.8} />
+          My lists
+        </Link>
+      </li>
+      <li role="none">
+        {/* placeholder — public profile / social features land in a future
+            phase (see dev-docs/roadmap.md). disabled state communicates the
+            intent without sending users into a dead-end click */}
+        <button
+          role="menuitem"
+          type="button"
+          disabled
+          aria-disabled="true"
+          title="Coming soon"
+          className="flex w-full cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] text-[var(--t-text-faint)]"
+        >
+          <UserCircle2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+          <span className="flex-1">Account</span>
+          <span className="rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--t-text-faint)]">
+            Soon
+          </span>
+        </button>
+      </li>
+
+      {MENU_DIVIDER}
+
+      <li role="none">
         <a
           role="menuitem"
           href={GITHUB_REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
           onClick={onClose}
-          className="focus-custom flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-[var(--t-text-secondary)] transition hover:bg-[rgb(var(--t-overlay)/0.05)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          className={MENU_ITEM_CLASS}
         >
           <Github className="h-3.5 w-3.5" strokeWidth={1.8} />
           GitHub
@@ -120,7 +169,7 @@ const GlobalMenu = ({
             onSignOut()
             onClose()
           }}
-          className="focus-custom flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] text-[var(--t-text-secondary)] transition hover:bg-[rgb(var(--t-overlay)/0.05)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          className={MENU_ITEM_CLASS}
         >
           <LogOut className="h-3.5 w-3.5" strokeWidth={1.8} />
           Sign out
@@ -184,13 +233,29 @@ const SignInPill = ({
   </button>
 )
 
+// rendered inline w/ SurfacePill so visual rhythm matches workspace / templates.
+// it's an action (opens a modal), not a route, so it can't share NavLink — but
+// it shares the pill chrome so the row reads as a cohesive set
+const PreferencesPill = ({ onClick }: { onClick: () => void }) => (
+  <button
+    type="button"
+    aria-label="Preferences"
+    onClick={onClick}
+    className="focus-custom inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium text-[var(--t-text-muted)] transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:px-3"
+  >
+    <Settings className="h-3.5 w-3.5" strokeWidth={1.8} />
+    <span className="hidden sm:inline">Preferences</span>
+  </button>
+)
+
 const SurfacePill = ({ item }: { item: NavItem }) => (
   <NavLink
     to={item.to}
     end={item.end}
+    aria-label={item.label}
     className={({ isActive }) =>
       [
-        'focus-custom inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]',
+        'focus-custom inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium transition focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:px-3',
         isActive
           ? 'bg-[var(--t-text)] text-[var(--t-bg-page)] shadow-sm'
           : 'text-[var(--t-text-muted)] hover:text-[var(--t-text)]',
@@ -198,7 +263,7 @@ const SurfacePill = ({ item }: { item: NavItem }) => (
     }
   >
     <item.icon className="h-3.5 w-3.5" strokeWidth={1.8} />
-    {item.label}
+    <span className="hidden sm:inline">{item.label}</span>
   </NavLink>
 )
 
@@ -210,6 +275,7 @@ export const AppTopNav = () =>
   const signInOpen = useSignInPromptStore((s) => s.open)
   const hideSignIn = useSignInPromptStore((s) => s.hide)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [preferencesOpen, setPreferencesOpen] = useState(false)
   const menuId = useId()
   const accountWrapRef = useRef<HTMLDivElement>(null)
 
@@ -264,6 +330,7 @@ export const AppTopNav = () =>
           {NAV_ITEMS.map((item) => (
             <SurfacePill key={item.id} item={item} />
           ))}
+          <PreferencesPill onClick={() => setPreferencesOpen(true)} />
           <span
             aria-hidden="true"
             className="mx-0.5 h-5 w-px bg-[var(--t-border)] sm:mx-1"
@@ -297,6 +364,14 @@ export const AppTopNav = () =>
         </nav>
       </header>
       <SignInModal open={signInOpen} onClose={hideSignIn} />
+      {preferencesOpen && (
+        <Suspense fallback={null}>
+          <PreferencesModal
+            open={preferencesOpen}
+            onClose={() => setPreferencesOpen(false)}
+          />
+        </Suspense>
+      )}
     </>
   )
 }

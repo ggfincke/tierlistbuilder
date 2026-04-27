@@ -49,6 +49,14 @@
     min-height: 100%;
   }
 
+  /* reserve the scrollbar gutter so opening a modal (which sets body
+     overflow: hidden) doesn't shift fixed-position chrome to fill the
+     reclaimed scrollbar width */
+  html
+  {
+    scrollbar-gutter: stable;
+  }
+
   body
   {
     min-width: 320px;
