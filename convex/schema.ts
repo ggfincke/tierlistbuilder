@@ -6,8 +6,11 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 import {
   appSettingsValidator,
+  itemTransformValidator,
+  paletteIdValidator,
   templateCategoryValidator,
   templateVisibilityValidator,
+  textStyleIdValidator,
   tierColorSpecValidator,
   tierPresetTiersValidator,
 } from './lib/validators'
@@ -77,6 +80,12 @@ export default defineSchema({
       v.literal('in-progress'),
       v.literal('complete')
     ),
+    // per-board override of the user-default tier palette; absent -> user default
+    paletteId: v.optional(paletteIdValidator),
+    // per-board override of the user-default text style; absent -> user default
+    textStyleId: v.optional(textStyleIdValidator),
+    // per-board page background color override; absent -> user default
+    pageBackground: v.optional(v.string()),
   })
     // ordered index powering getMyBoards & getMyDeletedBoards — eq on (ownerId,
     // deletedAt) + order('desc') yields the active or deleted set sorted by
@@ -119,19 +128,7 @@ export default defineSchema({
     // per-item crop override (object-fit fallback when no manual transform)
     imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
     // per-item manual crop transform — when set, overrides imageFit at render
-    transform: v.optional(
-      v.object({
-        rotation: v.union(
-          v.literal(0),
-          v.literal(90),
-          v.literal(180),
-          v.literal(270)
-        ),
-        zoom: v.number(),
-        offsetX: v.number(),
-        offsetY: v.number(),
-      })
-    ),
+    transform: v.optional(itemTransformValidator),
     // source marketplace item for future aggregate-ranking features
     templateItemId: v.optional(v.id('templateItems')),
   })
@@ -194,6 +191,19 @@ export default defineSchema({
     featuredRank: v.union(v.number(), v.null()),
     creditLine: v.union(v.string(), v.null()),
     searchText: v.string(),
+    // slot aspect ratio (w/h) the template was designed against; absent ->
+    // forks fall back to the board default (1, square)
+    itemAspectRatio: v.optional(v.union(v.number(), v.null())),
+    // 'auto' tracks content; 'manual' pins the ratio. seed action snaps to a
+    // preset & writes 'manual' so forked boards land on the same canonical
+    // ratio the per-item transforms were computed against
+    itemAspectRatioMode: v.optional(
+      v.union(v.literal('auto'), v.literal('manual'), v.null())
+    ),
+    // board-wide fit when an item has no per-item override on the forked board
+    defaultItemImageFit: v.optional(
+      v.union(v.literal('cover'), v.literal('contain'), v.null())
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
     unpublishedAt: v.union(v.number(), v.null()),
@@ -287,20 +297,7 @@ export default defineSchema({
     order: v.number(),
     aspectRatio: v.union(v.number(), v.null()),
     imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
-    transform: v.union(
-      v.object({
-        rotation: v.union(
-          v.literal(0),
-          v.literal(90),
-          v.literal(180),
-          v.literal(270)
-        ),
-        zoom: v.number(),
-        offsetX: v.number(),
-        offsetY: v.number(),
-      }),
-      v.null()
-    ),
+    transform: v.union(itemTransformValidator, v.null()),
   })
     .index('byTemplate', ['templateId', 'order'])
     .index('byMedia', ['mediaAssetId']),

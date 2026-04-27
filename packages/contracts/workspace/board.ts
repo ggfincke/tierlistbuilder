@@ -2,7 +2,7 @@
 // * serializable board contract — persisted per board & exchanged across import/export
 
 import type { BoardId, ItemId, TierId } from '../lib/ids'
-import type { TierColorSpec } from '../lib/theme'
+import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
 
 // default board title used across local & cloud-backed board creation
 export const DEFAULT_BOARD_TITLE = 'My Tier List'
@@ -131,6 +131,13 @@ export interface BoardSnapshot
   aspectRatioPromptDismissed?: boolean
   // board-wide fit when item has no override; absent -> 'cover'
   defaultItemImageFit?: ImageFit
+  // per-board palette override; absent -> falls through to AppSettings.paletteId
+  paletteId?: PaletteId
+  // per-board text style override; absent -> falls through to AppSettings.textStyleId
+  textStyleId?: TextStyleId
+  // per-board page background color override; absent -> falls through to
+  // AppSettings.boardBackgroundOverride, then theme default
+  pageBackground?: string
 }
 
 // payload for adding new items before IDs are assigned. image import writes
@@ -173,6 +180,9 @@ export interface BoardSnapshotWire
   itemAspectRatioMode?: ItemAspectRatioMode
   aspectRatioPromptDismissed?: boolean
   defaultItemImageFit?: ImageFit
+  paletteId?: PaletteId
+  textStyleId?: TextStyleId
+  pageBackground?: string
 }
 
 // metadata entry for a single board in the multi-board registry

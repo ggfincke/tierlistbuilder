@@ -9,10 +9,18 @@ import {
   ITEM_TRANSFORM_LIMITS,
   normalizeBoardTitle,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  PaletteId,
+  TextStyleId,
+} from '@tierlistbuilder/contracts/lib/theme'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
-import { tierColorSpecValidator } from '../../lib/validators'
+import {
+  paletteIdValidator,
+  textStyleIdValidator,
+  tierColorSpecValidator,
+} from '../../lib/validators'
 import { diffTiers, diffItems } from '../sync/boardReconciler'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 import { MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
@@ -82,6 +90,14 @@ const boardAspectRatioValidators = {
   ),
 }
 
+// per-board style override args — validators match CloudBoardStyleOverrideFields.
+// each field absent on the wire means "no override; inherit user default"
+const boardStyleOverrideValidators = {
+  paletteId: v.optional(paletteIdValidator),
+  textStyleId: v.optional(textStyleIdValidator),
+  pageBackground: v.optional(v.string()),
+}
+
 interface UpsertArgs
 {
   boardExternalId: string
@@ -94,6 +110,9 @@ interface UpsertArgs
   itemAspectRatioMode?: 'auto' | 'manual'
   aspectRatioPromptDismissed?: boolean
   defaultItemImageFit?: 'cover' | 'contain'
+  paletteId?: PaletteId
+  textStyleId?: TextStyleId
+  pageBackground?: string
 }
 
 type UpsertResult =
@@ -241,6 +260,11 @@ const validateInputs = (args: UpsertArgs): void =>
     {
       failInput('invalid itemExternalId: length must be 1..128')
     }
+  }
+
+  if (args.pageBackground !== undefined)
+  {
+    validateHexColor(args.pageBackground, 'pageBackground')
   }
 }
 
@@ -428,6 +452,12 @@ const applyBoardState = async (
     (board.aspectRatioPromptDismissed ?? false) !==
       (args.aspectRatioPromptDismissed ?? false) ||
     board.defaultItemImageFit !== args.defaultItemImageFit
+  // per-board style overrides bump revision the same way — cross-device sync
+  // relies on the bump to fan out the change
+  const styleOverrideChanged =
+    board.paletteId !== args.paletteId ||
+    board.textStyleId !== args.textStyleId ||
+    board.pageBackground !== args.pageBackground
   const templateProgressState = resolveTemplateProgressState(
     board.sourceTemplateId,
     progressCounts
@@ -443,6 +473,7 @@ const applyBoardState = async (
     !itemsChanged &&
     !titleChanged &&
     !aspectChanged &&
+    !styleOverrideChanged &&
     !progressChanged
   )
   {
@@ -458,6 +489,9 @@ const applyBoardState = async (
     itemAspectRatioMode: args.itemAspectRatioMode,
     aspectRatioPromptDismissed: args.aspectRatioPromptDismissed,
     defaultItemImageFit: args.defaultItemImageFit,
+    paletteId: args.paletteId,
+    textStyleId: args.textStyleId,
+    pageBackground: args.pageBackground,
     activeItemCount: progressCounts.activeItemCount,
     unrankedItemCount: progressCounts.unrankedItemCount,
     templateProgressState,
@@ -476,6 +510,7 @@ export const upsertBoardState = mutation({
     items: v.array(wireItemValidator),
     deletedItemIds: v.array(v.string()),
     ...boardAspectRatioValidators,
+    ...boardStyleOverrideValidators,
   },
   returns: v.union(
     v.object({ conflict: v.null(), newRevision: v.number() }),

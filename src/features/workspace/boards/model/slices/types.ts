@@ -22,6 +22,7 @@ import type { BoardSyncStatePatch } from './syncStateOps'
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   PaletteId,
+  TextStyleId,
   TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 
@@ -75,6 +76,11 @@ export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
   setItemsTransform: (
     entries: readonly { id: ItemId; transform: ItemTransform | null }[]
   ) => void
+  // per-board style override setters — null clears the override so the board
+  // falls through to AppSettings defaults
+  setBoardPaletteOverride: (paletteId: PaletteId | null) => void
+  setBoardTextStyleOverride: (textStyleId: TextStyleId | null) => void
+  setBoardPageBackground: (color: string | null) => void
 }
 
 // selection slice — multi-item selection state & bulk actions

@@ -1,7 +1,10 @@
 // src/features/workspace/settings/model/useCurrentPaletteId.ts
-// read the active tier palette from the settings store
+// resolve the active tier palette for workspace renderers
 
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useCurrentBoardOverride } from './useCurrentBoardOverride'
 
 export const useCurrentPaletteId = () =>
-  useSettingsStore((state) => state.paletteId)
+  useCurrentBoardOverride(
+    (state) => state.paletteId,
+    (state) => state.paletteId
+  )

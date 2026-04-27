@@ -14,6 +14,11 @@ import {
   ITEM_TRANSFORM_IDENTITY,
   ITEM_TRANSFORM_LIMITS,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  PALETTE_IDS,
+  TEXT_STYLE_IDS,
+} from '@tierlistbuilder/contracts/lib/theme'
+import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
 import {
   collectSnapshotImageHashes,
@@ -152,6 +157,9 @@ export const snapshotToWireWithBlobs = async (
     itemAspectRatioMode: snapshot.itemAspectRatioMode,
     aspectRatioPromptDismissed: snapshot.aspectRatioPromptDismissed,
     defaultItemImageFit: snapshot.defaultItemImageFit,
+    paletteId: snapshot.paletteId,
+    textStyleId: snapshot.textStyleId,
+    pageBackground: snapshot.pageBackground,
   }
 }
 
@@ -411,6 +419,11 @@ export const wireToSnapshot = async (
       wire.defaultItemImageFit,
       IMAGE_FITS
     ),
+    paletteId: normalizeEnumWire(wire.paletteId, PALETTE_IDS),
+    textStyleId: normalizeEnumWire(wire.textStyleId, TEXT_STYLE_IDS),
+    pageBackground: isHexColor(wire.pageBackground)
+      ? wire.pageBackground
+      : undefined,
   }
 }
 

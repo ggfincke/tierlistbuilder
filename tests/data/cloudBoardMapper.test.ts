@@ -152,6 +152,9 @@ describe('snapshotToCloudPayload media mapping', () =>
         itemAspectRatioMode: 'manual',
         aspectRatioPromptDismissed: true,
         defaultItemImageFit: 'contain',
+        paletteId: 'twilight',
+        textStyleId: 'rounded',
+        pageBackground: '#123456',
         tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: [itemId] })],
         items: {
           [itemId]: {
@@ -170,6 +173,9 @@ describe('snapshotToCloudPayload media mapping', () =>
       itemAspectRatioMode: 'manual',
       aspectRatioPromptDismissed: true,
       defaultItemImageFit: 'contain',
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
     })
     expect(payload.items[0]).toMatchObject({
       aspectRatio: 4 / 3,
@@ -255,6 +261,25 @@ describe('serverStateToSnapshot media mapping', () =>
     expect(snapshot.items[itemId].sourceImageRef).toEqual({
       hash: 'source-hash',
       cloudMediaExternalId: 'media-source',
+    })
+  })
+
+  it('restores board style overrides from cloud state', () =>
+  {
+    const snapshot = serverStateToSnapshot({
+      title: 'Board',
+      revision: 3,
+      tiers: [],
+      items: [],
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
+    })
+
+    expect(snapshot).toMatchObject({
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
     })
   })
 })

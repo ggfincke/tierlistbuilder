@@ -1,13 +1,15 @@
 // src/features/workspace/settings/ui/ThemePicker.tsx
-// grid of clickable theme preview cards for the Appearance section
+// controlled theme preview picker for user preferences
 
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { THEME_META, THEMES } from '~/shared/theme/tokens'
 import type { ThemeId } from '@tierlistbuilder/contracts/lib/theme'
 import { PickerGrid } from '~/shared/ui/PickerGrid'
 
 interface ThemePickerProps
 {
+  value: ThemeId
+  onChange: (themeId: ThemeId) => void
+  disabled?: boolean
   ariaLabelledby?: string
 }
 
@@ -24,20 +26,20 @@ const renderThemePreview = (meta: (typeof THEME_META)[number]) =>
   )
 }
 
-export const ThemePicker = ({ ariaLabelledby }: ThemePickerProps) =>
-{
-  const themeId = useSettingsStore((s) => s.themeId)
-  const setThemeId = useSettingsStore((s) => s.setThemeId)
-
-  return (
-    <PickerGrid<ThemeId, (typeof THEME_META)[number]>
-      items={THEME_META}
-      activeKey={themeId}
-      onSelect={setThemeId}
-      ariaLabel="App theme"
-      ariaLabelledby={ariaLabelledby}
-      columns={4}
-      renderPreview={renderThemePreview}
-    />
-  )
-}
+export const ThemePicker = ({
+  value,
+  onChange,
+  disabled = false,
+  ariaLabelledby,
+}: ThemePickerProps) => (
+  <PickerGrid<ThemeId, (typeof THEME_META)[number]>
+    items={THEME_META}
+    activeKey={value}
+    onSelect={onChange}
+    ariaLabel="App theme"
+    ariaLabelledby={ariaLabelledby}
+    columns={4}
+    renderPreview={renderThemePreview}
+    disabled={disabled}
+  />
+)

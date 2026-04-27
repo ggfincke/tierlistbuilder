@@ -24,6 +24,7 @@ const EMBED_APPEARANCE: StaticBoardAppearance = {
   compactMode: false,
   labelWidth: 'default',
   paletteId: EMBED_DEFAULT_PALETTE_ID,
+  textStyleId: 'default',
   tierLabelBold: false,
   tierLabelItalic: false,
   tierLabelFontSize: 'medium',

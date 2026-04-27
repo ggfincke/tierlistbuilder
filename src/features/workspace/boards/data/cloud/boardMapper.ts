@@ -154,6 +154,9 @@ export const snapshotToCloudPayload = (
     itemAspectRatioMode: snapshot.itemAspectRatioMode,
     aspectRatioPromptDismissed: snapshot.aspectRatioPromptDismissed,
     defaultItemImageFit: snapshot.defaultItemImageFit,
+    paletteId: snapshot.paletteId,
+    textStyleId: snapshot.textStyleId,
+    pageBackground: snapshot.pageBackground,
   }
 }
 
@@ -237,5 +240,8 @@ export const serverStateToSnapshot = (
     itemAspectRatioMode: serverState.itemAspectRatioMode,
     aspectRatioPromptDismissed: serverState.aspectRatioPromptDismissed,
     defaultItemImageFit: serverState.defaultItemImageFit,
+    paletteId: serverState.paletteId,
+    textStyleId: serverState.textStyleId,
+    pageBackground: serverState.pageBackground,
   }
 }

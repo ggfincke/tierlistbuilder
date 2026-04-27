@@ -8,6 +8,10 @@ import {
   parseBoardSnapshotJson,
   parseBoardsJson,
 } from '~/features/workspace/export/lib/exportJson'
+import {
+  snapshotToWireWithBlobs,
+  wireToSnapshot,
+} from '~/features/workspace/export/lib/boardWireMapper'
 import { stripImagesForShare } from '~/features/workspace/sharing/snapshot-compression/hashShare'
 import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
@@ -241,6 +245,29 @@ describe('parseBoardJson', () =>
     }
     const result = await parseBoardJson(JSON.stringify(noTitle))
     expect(result.title).toBe('Imported Tier List')
+  })
+
+  it('preserves board style overrides through the JSON wire mapper', async () =>
+  {
+    const board = makeValidBoard({
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
+    })
+
+    const wire = await snapshotToWireWithBlobs(board, new Map())
+    expect(wire).toMatchObject({
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
+    })
+
+    const result = await wireToSnapshot(wire)
+    expect(result).toMatchObject({
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
+    })
   })
 
   it('drops image refs & deleted items from share payloads', async () =>
