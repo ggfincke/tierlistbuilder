@@ -10,6 +10,7 @@ import {
   TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
 } from './pathname'
+import { AppChromeLayout } from './AppChromeLayout'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import { NotFoundRoute } from './NotFoundRoute'
 import { WorkspaceRoute } from './WorkspaceRoute'
@@ -58,28 +59,30 @@ export const AppRouter = () => (
     future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
   >
     <Routes>
-      <Route
-        path="/"
-        element={
-          <ErrorBoundary section="the application">
-            <WorkspaceRoute />
-          </ErrorBoundary>
-        }
-      />
-      <Route
-        element={
-          <ErrorBoundary section="marketplace navigation">
-            <Suspense fallback={<RouteFallback />}>
-              <MarketplaceLayout />
-            </Suspense>
-          </ErrorBoundary>
-        }
-      >
-        <Route path={TEMPLATES_ROUTE_PATH}>
-          <Route index element={<TemplatesGalleryPage />} />
-          <Route path=":slug" element={<TemplateDetailPage />} />
+      <Route element={<AppChromeLayout />}>
+        <Route
+          path="/"
+          element={
+            <ErrorBoundary section="the application">
+              <WorkspaceRoute />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          element={
+            <ErrorBoundary section="marketplace navigation">
+              <Suspense fallback={<RouteFallback />}>
+                <MarketplaceLayout />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        >
+          <Route path={TEMPLATES_ROUTE_PATH}>
+            <Route index element={<TemplatesGalleryPage />} />
+            <Route path=":slug" element={<TemplateDetailPage />} />
+          </Route>
+          <Route path={BOARDS_ROUTE_PATH} element={<MyListsRoute />} />
         </Route>
-        <Route path={BOARDS_ROUTE_PATH} element={<MyListsRoute />} />
       </Route>
       <Route
         path={EMBED_ROUTE_PATH}

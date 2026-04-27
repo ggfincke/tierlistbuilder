@@ -15,4 +15,11 @@ export interface PublicUserMe
   tier: UserTier
   createdAt: number
   updatedAt: number | null
+  // public-profile fields — null until the user fills them in. surfaced on
+  // the future /u/:handle route; AccountModal lets users edit them today
+  handle: string | null
+  bio: string | null
+  location: string | null
+  website: string | null
+  pronouns: string | null
 }

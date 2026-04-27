@@ -1,11 +1,11 @@
 // src/features/platform/preferences/ui/PreferencesModal.tsx
-// user-level preferences modal for appearance, accessibility, & account
+// user-level preferences modal for appearance & accessibility — account
+// management lives in its own AccountModal opened from the avatar dropdown
 
 import { useId, useState } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { AccountSection } from '~/features/platform/auth/ui/AccountSection'
 import { PalettePicker } from '~/features/workspace/settings/ui/PalettePicker'
 import { SettingRow } from '~/features/workspace/settings/ui/SettingRow'
 import { TextStylePicker } from '~/features/workspace/settings/ui/TextStylePicker'
@@ -17,7 +17,7 @@ import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { TabbedSettingsModal } from '~/shared/ui/TabbedSettingsModal'
 import { THEMES } from '~/shared/theme/tokens'
 
-const TABS = ['appearance', 'accessibility', 'account'] as const
+const TABS = ['appearance', 'accessibility'] as const
 export type PreferencesTab = (typeof TABS)[number]
 
 interface PreferencesModalProps
@@ -165,7 +165,6 @@ export const PreferencesModal = ({
     >
       {activeTab === 'appearance' && <AppearancePane />}
       {activeTab === 'accessibility' && <AccessibilityPane />}
-      {activeTab === 'account' && <AccountSection />}
     </TabbedSettingsModal>
   )
 }

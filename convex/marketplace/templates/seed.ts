@@ -29,6 +29,8 @@ import {
   allocateTemplateSlug,
   buildSearchText,
   DEFAULT_TEMPLATE_TIERS,
+  isPublicTemplateRow,
+  patchTemplateTagRows,
   syncTemplateTagRows,
   toTemplateAuthor,
 } from './lib'
@@ -692,6 +694,68 @@ export const wipeAllSeededData = action({
     return await ctx.runMutation(
       internal.marketplace.templates.seed.wipeAllSeededDataImpl,
       {}
+    )
+  },
+})
+
+// soft-delete a single seeded template by slug (sets unpublishedAt + decrements
+// the public counter + patches tag rows). lets the seed script re-publish a
+// folder without leaving the prior copy visible in the marketplace
+export const unpublishSeededTemplateImpl = internalMutation({
+  args: { slug: v.string() },
+  returns: v.object({
+    found: v.boolean(),
+    alreadyUnpublished: v.boolean(),
+  }),
+  handler: async (ctx, args) =>
+  {
+    const template = await ctx.db
+      .query('templates')
+      .withIndex('bySlug', (q) => q.eq('slug', args.slug))
+      .unique()
+    if (!template)
+    {
+      return { found: false, alreadyUnpublished: false }
+    }
+    if (template.unpublishedAt !== null)
+    {
+      return { found: true, alreadyUnpublished: true }
+    }
+
+    const now = Date.now()
+    await ctx.db.patch(template._id, {
+      unpublishedAt: now,
+      updatedAt: now,
+    })
+    if (isPublicTemplateRow(template))
+    {
+      await adjustPublicTemplateCount(ctx, [
+        { category: template.category, delta: -1 },
+      ])
+    }
+    await patchTemplateTagRows(ctx, template._id, {
+      unpublishedAt: now,
+      updatedAt: now,
+    })
+    return { found: true, alreadyUnpublished: false }
+  },
+})
+
+export const unpublishSeededTemplate = action({
+  args: { slug: v.string() },
+  returns: v.object({
+    found: v.boolean(),
+    alreadyUnpublished: v.boolean(),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ found: boolean; alreadyUnpublished: boolean }> =>
+  {
+    requireSeedEnabled()
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.unpublishSeededTemplateImpl,
+      { slug: args.slug }
     )
   },
 })

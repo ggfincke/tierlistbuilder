@@ -3,7 +3,6 @@
 // avatar on the right. avatar doubles as a global-menu trigger when signed in
 
 import {
-  Github,
   Layers,
   Library,
   ListChecks,
@@ -29,7 +28,6 @@ import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { SignInModal } from '~/features/platform/auth/ui/SignInModal'
 import { useSignInPromptStore } from '~/features/marketplace/model/useSignInPromptStore'
 import { BOARDS_ROUTE_PATH, TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
-import { GITHUB_REPO_URL } from '~/shared/lib/urls'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 
 type IconCmp = ComponentType<SVGProps<SVGSVGElement>>
@@ -40,6 +38,12 @@ const PreferencesModal = lazy(() =>
       default: module.PreferencesModal,
     })
   )
+)
+
+const AccountModal = lazy(() =>
+  import('~/features/platform/auth/ui/AccountModal').then((module) => ({
+    default: module.AccountModal,
+  }))
 )
 
 interface NavItem
@@ -89,12 +93,14 @@ const GlobalMenu = ({
   signedInLabel,
   signedInEmail,
   onSignOut,
+  onOpenAccount,
 }: {
   onClose: () => void
   menuId: string
   signedInLabel: string
   signedInEmail: string | null
   onSignOut: () => void
+  onOpenAccount: () => void
 }) => (
   <div
     id={menuId}
@@ -115,6 +121,21 @@ const GlobalMenu = ({
 
     <ul role="none" className="flex flex-col px-1.5 py-2">
       <li role="none">
+        <button
+          role="menuitem"
+          type="button"
+          onClick={() =>
+          {
+            onOpenAccount()
+            onClose()
+          }}
+          className={MENU_ITEM_CLASS}
+        >
+          <UserCircle2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+          Account
+        </button>
+      </li>
+      <li role="none">
         <Link
           role="menuitem"
           to={BOARDS_ROUTE_PATH}
@@ -125,41 +146,9 @@ const GlobalMenu = ({
           My lists
         </Link>
       </li>
-      <li role="none">
-        {/* placeholder — public profile / social features land in a future
-            phase (see dev-docs/roadmap.md). disabled state communicates the
-            intent without sending users into a dead-end click */}
-        <button
-          role="menuitem"
-          type="button"
-          disabled
-          aria-disabled="true"
-          title="Coming soon"
-          className="flex w-full cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12px] text-[var(--t-text-faint)]"
-        >
-          <UserCircle2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-          <span className="flex-1">Account</span>
-          <span className="rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--t-text-faint)]">
-            Soon
-          </span>
-        </button>
-      </li>
 
       {MENU_DIVIDER}
 
-      <li role="none">
-        <a
-          role="menuitem"
-          href={GITHUB_REPO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={onClose}
-          className={MENU_ITEM_CLASS}
-        >
-          <Github className="h-3.5 w-3.5" strokeWidth={1.8} />
-          GitHub
-        </a>
-      </li>
       <li role="none">
         <button
           role="menuitem"
@@ -276,6 +265,7 @@ export const AppTopNav = () =>
   const hideSignIn = useSignInPromptStore((s) => s.hide)
   const [menuOpen, setMenuOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const menuId = useId()
   const accountWrapRef = useRef<HTMLDivElement>(null)
 
@@ -352,6 +342,7 @@ export const AppTopNav = () =>
                   signedInLabel={signedInLabel}
                   signedInEmail={signedInEmail}
                   onSignOut={handleSignOut}
+                  onOpenAccount={() => setAccountOpen(true)}
                 />
               )}
             </div>
@@ -369,6 +360,14 @@ export const AppTopNav = () =>
           <PreferencesModal
             open={preferencesOpen}
             onClose={() => setPreferencesOpen(false)}
+          />
+        </Suspense>
+      )}
+      {accountOpen && (
+        <Suspense fallback={null}>
+          <AccountModal
+            open={accountOpen}
+            onClose={() => setAccountOpen(false)}
           />
         </Suspense>
       )}

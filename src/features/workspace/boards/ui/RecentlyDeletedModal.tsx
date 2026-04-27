@@ -81,6 +81,13 @@ export const RecentlyDeletedModal = ({
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [confirmDelete, setConfirmDelete] =
     useState<PendingPermanentDelete | null>(null)
+  // bulk-action lock — only one bulk pass at a time, & per-row buttons stay
+  // disabled while a bulk pass is running (their externalId is also stuffed
+  // into restoringIds/deletingIds, which the row already keys off of)
+  const [bulkPending, setBulkPending] = useState<'restore' | 'delete' | null>(
+    null
+  )
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
 
   const updateIdSet = (
     setter: typeof setRestoringIds,
@@ -138,6 +145,120 @@ export const RecentlyDeletedModal = ({
     setConfirmDelete(board)
   }
 
+  const handleRestoreAll = async (): Promise<void> =>
+  {
+    if (
+      bulkPending !== null ||
+      deletedBoards === undefined ||
+      deletedBoards.length === 0
+    )
+    {
+      return
+    }
+    setBulkPending('restore')
+    const targets = deletedBoards.map((b) => b.externalId)
+    setRestoringIds((current) =>
+    {
+      const next = new Set(current)
+      for (const id of targets) next.add(id)
+      return next
+    })
+    // Promise.allSettled so a single failure doesn't abandon the rest. skip
+    // post-restore board switching on bulk — picking "the last one" is
+    // arbitrary and yanking the user into a board they didn't choose is rude
+    const results = await Promise.allSettled(
+      targets.map((id) => restoreDeletedBoardSession(id))
+    )
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length
+    const failed = results.length - succeeded
+    if (failed === 0)
+    {
+      toast(`Restored ${succeeded} board${succeeded === 1 ? '' : 's'}.`,
+        'success')
+    }
+    else if (succeeded === 0)
+    {
+      const firstError = results.find((r) => r.status === 'rejected')
+      logger.warn(
+        'sync',
+        'Restore all failed:',
+        firstError?.status === 'rejected' ? firstError.reason : undefined
+      )
+      toast('Failed to restore boards.', 'error')
+    }
+    else
+    {
+      toast(
+        `Restored ${succeeded} of ${results.length} boards. ${failed} failed.`,
+        'error'
+      )
+    }
+    setRestoringIds((current) =>
+    {
+      const next = new Set(current)
+      for (const id of targets) next.delete(id)
+      return next
+    })
+    setBulkPending(null)
+  }
+
+  const handleDeleteAllConfirm = async (): Promise<void> =>
+  {
+    setConfirmDeleteAll(false)
+    if (
+      bulkPending !== null ||
+      deletedBoards === undefined ||
+      deletedBoards.length === 0
+    )
+    {
+      return
+    }
+    setBulkPending('delete')
+    const targets = deletedBoards.map((b) => b.externalId)
+    setDeletingIds((current) =>
+    {
+      const next = new Set(current)
+      for (const id of targets) next.add(id)
+      return next
+    })
+    const results = await Promise.allSettled(
+      targets.map((id) => permanentlyDeleteDeletedBoardSession(id))
+    )
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length
+    const failed = results.length - succeeded
+    if (failed === 0)
+    {
+      toast(
+        `Permanently deleted ${succeeded} board${succeeded === 1 ? '' : 's'}.`,
+        'success'
+      )
+    }
+    else if (succeeded === 0)
+    {
+      const firstError = results.find((r) => r.status === 'rejected')
+      logger.warn(
+        'sync',
+        'Permanent delete all failed:',
+        firstError?.status === 'rejected' ? firstError.reason : undefined
+      )
+      toast('Failed to permanently delete boards.', 'error')
+    }
+    else
+    {
+      toast(
+        `Deleted ${succeeded} of ${results.length} boards. ${failed} failed.`,
+        'error'
+      )
+    }
+    setDeletingIds((current) =>
+    {
+      const next = new Set(current)
+      for (const id of targets) next.delete(id)
+      return next
+    })
+    setBulkPending(null)
+  }
+
   const handlePermanentDeleteConfirm = async (): Promise<void> =>
   {
     if (!confirmDelete) return
@@ -183,8 +304,46 @@ export const RecentlyDeletedModal = ({
       )
     }
 
+    const count = deletedBoards.length
+    const bulkBusy = bulkPending !== null
+
     return (
-      <div className="max-h-[60vh] overflow-y-auto">
+      <>
+        <div className="mb-2 flex items-center justify-end gap-2 border-b border-[var(--t-border)] pb-3">
+          <SecondaryButton
+            size="sm"
+            variant="surface"
+            disabled={bulkBusy}
+            onClick={() =>
+            {
+              void handleRestoreAll()
+            }}
+            aria-label={`Restore all ${count} boards`}
+          >
+            {bulkPending === 'restore' ? (
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="h-3.5 w-3.5" />
+            )}
+            Restore all ({count})
+          </SecondaryButton>
+          <SecondaryButton
+            size="sm"
+            variant="surface"
+            tone="destructive"
+            disabled={bulkBusy}
+            onClick={() => setConfirmDeleteAll(true)}
+            aria-label={`Permanently delete all ${count} boards`}
+          >
+            {bulkPending === 'delete' ? (
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Delete all ({count})
+          </SecondaryButton>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto">
         {deletedBoards.map((board) =>
         {
           const restoring = restoringIds.has(board.externalId)
@@ -244,7 +403,8 @@ export const RecentlyDeletedModal = ({
             </div>
           )
         })}
-      </div>
+        </div>
+      </>
     )
   }
 
@@ -279,6 +439,20 @@ export const RecentlyDeletedModal = ({
           onConfirm={() =>
           {
             void handlePermanentDeleteConfirm()
+          }}
+        />
+      )}
+
+      {confirmDeleteAll && deletedBoards && deletedBoards.length > 0 && (
+        <ConfirmDialog
+          open
+          title={`Permanently delete ${deletedBoards.length} board${deletedBoards.length === 1 ? '' : 's'}?`}
+          description="Every board in Recently deleted will be removed for good. This can't be undone."
+          confirmText="Delete all forever"
+          onCancel={() => setConfirmDeleteAll(false)}
+          onConfirm={() =>
+          {
+            void handleDeleteAllConfirm()
           }}
         />
       )}
