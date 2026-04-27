@@ -7,12 +7,15 @@ import {
   ListChecks,
   ListFilter,
   Sparkles,
+  Tag,
   TrendingUp,
+  X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import {
   TEMPLATE_LIST_SORTS,
+  type TemplateCategory,
   type TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
@@ -93,16 +96,23 @@ export const TemplatesGalleryPage = () =>
     return template ? [{ template, label }] : []
   })
 
-  const showRails = !filters.searchDebounced && filters.category === null
+  const showRails =
+    !filters.searchDebounced &&
+    filters.category === null &&
+    filters.tag === null
   const showJumpBackRail =
     showRails &&
     isSignedIn &&
     (gallery.drafts === undefined || gallery.drafts.length > 0)
-  const browseHeading = filters.category
-    ? CATEGORY_META[filters.category].label
-    : filters.searchDebounced
-      ? `Results for "${filters.searchDebounced}"`
-      : 'Browse everything'
+  const browseHeading = filters.tag
+    ? `Tagged "${filters.tag}"${
+        filters.category ? ` · ${CATEGORY_META[filters.category].label}` : ''
+      }`
+    : filters.category
+      ? CATEGORY_META[filters.category].label
+      : filters.searchDebounced
+        ? `Results for "${filters.searchDebounced}"`
+        : 'Browse everything'
   const templateCountLabel =
     gallery.templateCount === undefined
       ? 'Templates marketplace'
@@ -120,6 +130,42 @@ export const TemplatesGalleryPage = () =>
       return
     }
     setPublishOpen(true)
+  }
+
+  // anchor the browse section's window position across category/tag toggles
+  // so showing/hiding the upper rails doesn't shift the visible content
+  const browseSectionRef = useRef<HTMLElement | null>(null)
+  const pendingBrowseTopRef = useRef<number | null>(null)
+  const captureBrowseAnchor = () =>
+  {
+    if (browseSectionRef.current)
+    {
+      pendingBrowseTopRef.current =
+        browseSectionRef.current.getBoundingClientRect().top
+    }
+  }
+  useLayoutEffect(() =>
+  {
+    if (pendingBrowseTopRef.current === null) return
+    if (!browseSectionRef.current) return
+    const newTop = browseSectionRef.current.getBoundingClientRect().top
+    const delta = newTop - pendingBrowseTopRef.current
+    pendingBrowseTopRef.current = null
+    if (delta !== 0)
+    {
+      window.scrollBy(0, delta)
+    }
+  }, [filters.category, filters.tag])
+
+  const handleCategoryChange = (next: TemplateCategory | null) =>
+  {
+    captureBrowseAnchor()
+    filters.setCategory(next)
+  }
+  const handleTagClear = () =>
+  {
+    captureBrowseAnchor()
+    filters.setTag(null)
   }
 
   const greeting = useMemo(() =>
@@ -176,31 +222,29 @@ export const TemplatesGalleryPage = () =>
         </section>
       )}
 
-      {!filters.searchDebounced &&
-        filters.category === null &&
-        heroFeatured && (
-          <section className="relative z-10 mx-auto mt-8 w-full max-w-[1200px] px-6 sm:px-10">
-            {heroSecondary.length > 0 ? (
-              <div className="grid gap-5 lg:grid-cols-3">
-                <div className="lg:col-span-2 lg:self-center">
-                  <Hero template={heroFeatured} />
-                </div>
-                <div className="grid grid-rows-2 gap-5">
-                  {heroSecondary.map(({ template, label }) => (
-                    <Card
-                      key={template.slug}
-                      template={template}
-                      size="default"
-                      featuredLabel={label}
-                    />
-                  ))}
-                </div>
+      {showRails && heroFeatured && (
+        <section className="relative z-10 mx-auto mt-8 w-full max-w-[1200px] px-6 sm:px-10">
+          {heroSecondary.length > 0 ? (
+            <div className="grid gap-5 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <Hero template={heroFeatured} />
               </div>
-            ) : (
-              <Hero template={heroFeatured} />
-            )}
-          </section>
-        )}
+              <div className="grid grid-rows-2 gap-5">
+                {heroSecondary.map(({ template, label }) => (
+                  <Card
+                    key={template.slug}
+                    template={template}
+                    size="default"
+                    featuredLabel={label}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <Hero template={heroFeatured} />
+          )}
+        </section>
+      )}
 
       {showRails && (
         <>
@@ -224,7 +268,10 @@ export const TemplatesGalleryPage = () =>
         </>
       )}
 
-      <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] border-t border-[var(--t-border)] px-6 pt-10 sm:px-10">
+      <section
+        ref={browseSectionRef}
+        className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] border-t border-[var(--t-border)] px-6 pt-10 sm:px-10"
+      >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-[var(--t-text)]">
@@ -237,7 +284,33 @@ export const TemplatesGalleryPage = () =>
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs text-[var(--t-text-secondary)]">
+            {filters.tag && (
+              <button
+                type="button"
+                onClick={handleTagClear}
+                aria-label={`Remove tag filter "${filters.tag}"`}
+                className="focus-custom inline-flex items-center gap-1 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+              >
+                <Tag className="h-3 w-3" strokeWidth={1.8} />
+                <span className="font-medium text-[var(--t-text)]">
+                  #{filters.tag}
+                </span>
+                <X
+                  className="h-3 w-3 text-[var(--t-text-faint)]"
+                  strokeWidth={1.8}
+                />
+              </button>
+            )}
+            <label
+              className={`flex items-center gap-2 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs text-[var(--t-text-secondary)] ${
+                filters.tag ? 'opacity-50' : ''
+              }`}
+              title={
+                filters.tag
+                  ? 'Sort is fixed to recent while a tag filter is active'
+                  : undefined
+              }
+            >
               <ListFilter className="h-3 w-3" strokeWidth={1.8} />
               <span className="sr-only">Sort templates by</span>
               <select
@@ -245,7 +318,8 @@ export const TemplatesGalleryPage = () =>
                 onChange={(e) =>
                   filters.setSort(e.target.value as TemplateListSort)
                 }
-                className="focus-custom bg-transparent text-xs font-medium text-[var(--t-text)] outline-none"
+                disabled={filters.tag !== null}
+                className="focus-custom bg-transparent text-xs font-medium text-[var(--t-text)] outline-none disabled:cursor-not-allowed"
               >
                 {TEMPLATE_LIST_SORTS.map((s) => (
                   <option key={s} value={s}>
@@ -266,7 +340,9 @@ export const TemplatesGalleryPage = () =>
         <div className="mt-5">
           <CategoryChips
             active={filters.category}
-            onChange={filters.setCategory}
+            onChange={handleCategoryChange}
+            counts={gallery.templateCount?.countByCategory}
+            totalCount={gallery.templateCount?.count}
           />
         </div>
 

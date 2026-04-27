@@ -189,15 +189,13 @@ const DetailSkeleton = () => (
 
 const RelatedTemplatesRail = ({
   slug,
-  category,
   categoryLabel,
 }: {
   slug: string
-  category: MarketplaceTemplateDetail['category']
   categoryLabel: string
 }) =>
 {
-  const result = useRelatedTemplates({ slug, category, limit: RELATED_LIMIT })
+  const result = useRelatedTemplates({ slug, limit: RELATED_LIMIT })
 
   if (result === undefined)
   {
@@ -370,12 +368,13 @@ export const TemplateDetailPage = () =>
           {detail.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1.5">
               {detail.tags.map((t) => (
-                <span
+                <Link
                   key={t}
-                  className="rounded-md border border-[var(--t-border)] px-2 py-0.5 text-[11px] text-[var(--t-text-muted)]"
+                  to={`${TEMPLATES_ROUTE_PATH}?tag=${encodeURIComponent(t)}`}
+                  className="focus-custom rounded-md border border-[var(--t-border)] px-2 py-0.5 text-[11px] text-[var(--t-text-muted)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
                 >
                   #{t}
-                </span>
+                </Link>
               ))}
             </div>
           )}
@@ -421,7 +420,6 @@ export const TemplateDetailPage = () =>
         />
         <RelatedTemplatesRail
           slug={detail.slug}
-          category={detail.category}
           categoryLabel={categoryLabel}
         />
       </section>

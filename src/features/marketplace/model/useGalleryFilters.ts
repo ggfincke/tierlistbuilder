@@ -1,11 +1,12 @@
 // src/features/marketplace/model/useGalleryFilters.ts
-// debounced URL-driven filter state for the gallery — search + category +
-// sort. mirrors the controls in the page header so deep links can preselect
+// debounced URL-driven filter state for the gallery — search + category + tag
+// + sort. mirrors the controls in the page header so deep links preselect
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import {
+  MAX_TEMPLATE_TAG_LENGTH,
   TEMPLATE_CATEGORIES,
   TEMPLATE_LIST_SORTS,
   type TemplateCategory,
@@ -23,14 +24,24 @@ const isSort = (value: string | null): value is TemplateListSort =>
   typeof value === 'string' &&
   (TEMPLATE_LIST_SORTS as readonly string[]).includes(value)
 
+const normalizeTagFromUrl = (value: string | null): string | null =>
+{
+  if (typeof value !== 'string') return null
+  const tag = value.trim().toLowerCase()
+  if (!tag || tag.length > MAX_TEMPLATE_TAG_LENGTH) return null
+  return tag
+}
+
 export interface GalleryFilters
 {
   searchInput: string
   searchDebounced: string
   category: TemplateCategory | null
+  tag: string | null
   sort: TemplateListSort
   setSearch: (next: string) => void
   setCategory: (next: TemplateCategory | null) => void
+  setTag: (next: string | null) => void
   setSort: (next: TemplateListSort) => void
 }
 
@@ -42,6 +53,7 @@ export const useGalleryFilters = (): GalleryFilters =>
   const initialCategory = isCategory(params.get('cat'))
     ? (params.get('cat') as TemplateCategory)
     : null
+  const initialTag = normalizeTagFromUrl(params.get('tag'))
   const initialSort = isSort(params.get('sort'))
     ? (params.get('sort') as TemplateListSort)
     : DEFAULT_SORT
@@ -51,6 +63,7 @@ export const useGalleryFilters = (): GalleryFilters =>
   const [category, setCategoryState] = useState<TemplateCategory | null>(
     initialCategory
   )
+  const [tag, setTagState] = useState<string | null>(initialTag)
   const [sort, setSortState] = useState<TemplateListSort>(initialSort)
 
   // debounce only the value used for queries; the input itself stays
@@ -104,6 +117,17 @@ export const useGalleryFilters = (): GalleryFilters =>
       next.delete('cat')
       changed = true
     }
+    const currentTag = next.get('tag')
+    if (tag && tag !== currentTag)
+    {
+      next.set('tag', tag)
+      changed = true
+    }
+    else if (!tag && currentTag)
+    {
+      next.delete('tag')
+      changed = true
+    }
     const currentSort = next.get('sort')
     if (sort !== DEFAULT_SORT && sort !== currentSort)
     {
@@ -119,7 +143,7 @@ export const useGalleryFilters = (): GalleryFilters =>
     {
       setParams(next, { replace: true })
     }
-  }, [searchDebounced, category, sort, params, setParams])
+  }, [searchDebounced, category, tag, sort, params, setParams])
 
   const setSearch = useCallback((next: string) =>
   {
@@ -127,6 +151,10 @@ export const useGalleryFilters = (): GalleryFilters =>
   }, [])
   const setCategory = useCallback(
     (next: TemplateCategory | null) => setCategoryState(next),
+    []
+  )
+  const setTag = useCallback(
+    (next: string | null) => setTagState(normalizeTagFromUrl(next)),
     []
   )
   const setSort = useCallback(
@@ -138,9 +166,11 @@ export const useGalleryFilters = (): GalleryFilters =>
     searchInput,
     searchDebounced,
     category,
+    tag,
     sort,
     setSearch,
     setCategory,
+    setTag,
     setSort,
   }
 }
