@@ -7,7 +7,6 @@ const activeLayers = new Set<symbol>()
 let previousAriaHidden: string | null = null
 let previousInert = false
 let previousOverflow: string | null = null
-let previousPaddingRight: string | null = null
 
 const getAppShell = (): HTMLElement | null =>
   document.getElementById('app-shell') ??
@@ -15,21 +14,17 @@ const getAppShell = (): HTMLElement | null =>
 
 export const hasActiveModalLayer = (): boolean => activeLayers.size > 0
 
+// scrollbar-gutter: stable (in app/index.css) reserves the scrollbar's width
+// even when overflow: hidden hides it, so fixed-position chrome stays put.
+// no body padding-right hack required
 const applyInert = (appShell: HTMLElement): void =>
 {
   previousAriaHidden = appShell.getAttribute('aria-hidden')
   previousInert = appShell.hasAttribute('inert')
   previousOverflow = document.body.style.overflow
-  previousPaddingRight = document.body.style.paddingRight
-  const scrollbarWidth =
-    window.innerWidth - document.documentElement.clientWidth
   appShell.setAttribute('aria-hidden', 'true')
   appShell.setAttribute('inert', '')
   document.body.style.overflow = 'hidden'
-  if (scrollbarWidth > 0)
-  {
-    document.body.style.paddingRight = `${scrollbarWidth}px`
-  }
 }
 
 const releaseInert = (appShell: HTMLElement): void =>
@@ -49,7 +44,6 @@ const releaseInert = (appShell: HTMLElement): void =>
   }
 
   document.body.style.overflow = previousOverflow ?? ''
-  document.body.style.paddingRight = previousPaddingRight ?? ''
 }
 
 export const useModalBackgroundInert = (active: boolean) =>

@@ -1,24 +1,20 @@
 // src/features/workspace/settings/ui/BoardSettingsModal.tsx
 // settings panel — tabbed modal that orchestrates per-tab settings content
 
-import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
-import { ModalHeader } from '~/shared/overlay/ModalHeader'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { FALLBACK_COLOR, getPaletteColors } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
-import { useRovingSelection } from '~/shared/selection/useRovingSelection'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { getStorageUsageBytes } from '~/shared/lib/storageMetering'
-import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { AccountSection } from '~/features/platform/auth/ui/AccountSection'
+import { TabbedSettingsModal } from '~/shared/ui/TabbedSettingsModal'
 import { AppearanceTab } from './AppearanceTab'
 import { ItemsTab } from './ItemsTab'
 import { LayoutTab } from './LayoutTab'
 import { MoreTab } from './MoreTab'
 
-const TABS = ['items', 'appearance', 'layout', 'more', 'account'] as const
+const TABS = ['items', 'appearance', 'layout', 'more'] as const
 export type SettingsTab = (typeof TABS)[number]
 
 interface BoardSettingsModalProps
@@ -48,8 +44,6 @@ export const BoardSettingsModal = ({
   const [textColor, setTextColor] = useState(defaultTextColor)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
   const lastDefaultTextColorRef = useRef(defaultTextColor)
-  const titleId = useId()
-  const tabsId = useId()
 
   // keep the draft text-item color aligned to the active palette until the user customizes it
   useEffect(() =>
@@ -65,18 +59,6 @@ export const BoardSettingsModal = ({
     setShowClearAllConfirm(false)
     onClose()
   }, [onClose])
-
-  const {
-    getItemProps: getTabProps,
-    groupProps: tabListProps,
-    isActive,
-  } = useRovingSelection({
-    items: TABS,
-    activeKey: activeTab,
-    onSelect: setActiveTab,
-    kind: 'tab',
-    groupLabel: 'Settings sections',
-  })
 
   // compute storage usage when the More tab is visible — useMemo derives it
   // synchronously without an effect & re-computes only when [open, activeTab]
@@ -99,72 +81,37 @@ export const BoardSettingsModal = ({
 
   return (
     <>
-      <BaseModal
+      <TabbedSettingsModal
         open={open}
+        title="Settings"
+        tabs={TABS}
+        activeTab={activeTab}
+        groupLabel="Settings sections"
+        onActiveTabChange={setActiveTab}
         onClose={handleClose}
-        labelledBy={titleId}
-        panelClassName="flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col p-4"
       >
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <ModalHeader titleId={titleId}>Settings</ModalHeader>
-            <div
-              {...tabListProps}
-              className="flex gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5"
-            >
-              {TABS.map((tab, index) => (
-                <button
-                  key={tab}
-                  {...getTabProps(tab, index)}
-                  id={`${tabsId}-${tab}-tab`}
-                  aria-controls={`${tabsId}-${tab}-panel`}
-                  className={`focus-custom rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] max-sm:px-2 max-sm:py-2 ${
-                    isActive(tab)
-                      ? 'bg-[var(--t-bg-active)] text-[var(--t-text)] shadow-sm'
-                      : 'text-[var(--t-text-muted)] hover:text-[var(--t-text-secondary)]'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-          <SecondaryButton size="sm" onClick={handleClose}>
-            Done
-          </SecondaryButton>
-        </div>
+        {activeTab === 'items' && (
+          <ItemsTab
+            textLabel={textLabel}
+            textColor={textColor}
+            onTextLabelChange={setTextLabel}
+            onTextColorChange={setTextColor}
+            onAddTextItem={handleAddTextItem}
+          />
+        )}
 
-        <div
-          id={`${tabsId}-${activeTab}-panel`}
-          role="tabpanel"
-          aria-labelledby={`${tabsId}-${activeTab}-tab`}
-          className="min-h-0 space-y-5 overflow-y-auto pr-1"
-        >
-          {activeTab === 'items' && (
-            <ItemsTab
-              textLabel={textLabel}
-              textColor={textColor}
-              onTextLabelChange={setTextLabel}
-              onTextColorChange={setTextColor}
-              onAddTextItem={handleAddTextItem}
-            />
-          )}
+        {activeTab === 'appearance' && <AppearanceTab />}
 
-          {activeTab === 'appearance' && <AppearanceTab />}
+        {activeTab === 'layout' && <LayoutTab />}
 
-          {activeTab === 'layout' && <LayoutTab />}
-
-          {activeTab === 'more' && (
-            <MoreTab
-              storageBytes={storageBytes}
-              onClose={handleClose}
-              onRequestClearAll={() => setShowClearAllConfirm(true)}
-            />
-          )}
-
-          {activeTab === 'account' && <AccountSection />}
-        </div>
-      </BaseModal>
+        {activeTab === 'more' && (
+          <MoreTab
+            storageBytes={storageBytes}
+            onClose={handleClose}
+            onRequestClearAll={() => setShowClearAllConfirm(true)}
+          />
+        )}
+      </TabbedSettingsModal>
 
       <ConfirmDialog
         open={showClearAllConfirm}
