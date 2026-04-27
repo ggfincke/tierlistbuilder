@@ -2,7 +2,15 @@
 // repeat-unit template card used by the gallery grid & section rails — three
 // sizes share the same chrome but vary in art height & meta density
 
-import { Clock, Eye, Layers } from 'lucide-react'
+import {
+  BadgeCheck,
+  Clock,
+  Eye,
+  Layers,
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react'
+import type { ComponentType, SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 
 import type { MarketplaceTemplateSummary } from '@tierlistbuilder/contracts/marketplace/template'
@@ -19,6 +27,11 @@ import type { MosaicDensity } from './Mosaic'
 
 export type CardSize = 'small' | 'default' | 'large'
 
+// homepage curation slot. drives the top-left badge text & icon — independent
+// of the row's stored featuredRank so an unranked template can still appear in
+// a "trending" position when a query orders by useCount instead
+export type CardFeaturedLabel = 'editorsPick' | 'trending' | 'curated'
+
 interface CardProps
 {
   template: MarketplaceTemplateSummary
@@ -26,6 +39,18 @@ interface CardProps
   // override cover treatment for stylistic variants (eg trending/curated rails
   // pass 'initials' so labels render instead of an image mosaic)
   coverStyle?: CoverStyle
+  // homepage hero/trending/curated slot — when set, replaces the generic
+  // "Featured" pill w/ a slot-specific label & icon
+  featuredLabel?: CardFeaturedLabel
+}
+
+const FEATURED_LABEL_META: Record<
+  CardFeaturedLabel,
+  { text: string; icon: ComponentType<SVGProps<SVGSVGElement>> }
+> = {
+  editorsPick: { text: "Editor's pick", icon: Sparkles },
+  trending: { text: 'Trending', icon: TrendingUp },
+  curated: { text: 'Curated', icon: BadgeCheck },
 }
 
 const SIZE_CONFIG: Record<
@@ -61,10 +86,18 @@ const SIZE_CONFIG: Record<
   },
 }
 
-export const Card = ({ template, size = 'default', coverStyle }: CardProps) =>
+export const Card = ({
+  template,
+  size = 'default',
+  coverStyle,
+  featuredLabel,
+}: CardProps) =>
 {
   const cfg = SIZE_CONFIG[size]
   const detailPath = `${TEMPLATES_ROUTE_PATH}/${template.slug}`
+  const labelMeta = featuredLabel ? FEATURED_LABEL_META[featuredLabel] : null
+  const showGenericFeatured = !labelMeta && template.featuredRank !== null
+  const LabelIcon = labelMeta?.icon
 
   return (
     <Link
@@ -74,13 +107,20 @@ export const Card = ({ template, size = 'default', coverStyle }: CardProps) =>
     >
       <div className={`relative w-full overflow-hidden ${cfg.coverHeight}`}>
         <Cover template={template} density={cfg.density} style={coverStyle} />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
 
         <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
-          {template.featuredRank !== null && (
+          {labelMeta && LabelIcon ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase backdrop-blur">
+              <LabelIcon className="h-3 w-3" strokeWidth={2} />
+              {labelMeta.text}
+            </span>
+          ) : showGenericFeatured ? (
             <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase backdrop-blur">
               Featured
             </span>
-          )}
+          ) : null}
           <span className="ml-auto rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur">
             {template.itemCount} {template.itemCount === 1 ? 'item' : 'items'}
           </span>

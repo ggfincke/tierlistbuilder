@@ -17,7 +17,10 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 
-import { Card } from '~/features/marketplace/components/Card'
+import {
+  Card,
+  type CardFeaturedLabel,
+} from '~/features/marketplace/components/Card'
 import { CategoryChips } from '~/features/marketplace/components/CategoryChips'
 import { CreateTile } from '~/features/marketplace/components/CreateTile'
 import { DraftRail } from '~/features/marketplace/components/DraftRail'
@@ -38,6 +41,11 @@ const SORT_LABELS: Record<TemplateListSort, string> = {
   popular: 'Most popular',
   recent: 'Recently added',
 }
+
+const HERO_SECONDARY_LABELS = [
+  'trending',
+  'curated',
+] as const satisfies readonly CardFeaturedLabel[]
 
 const GridSkeleton = () => (
   <>
@@ -79,7 +87,11 @@ export const TemplatesGalleryPage = () =>
   }, [])
 
   const heroFeatured = gallery.featured?.[0] ?? null
-  const heroSecondary = gallery.featured?.slice(1, 3) ?? []
+  const heroSecondary = HERO_SECONDARY_LABELS.flatMap((label, index) =>
+  {
+    const template = gallery.featured?.[index + 1]
+    return template ? [{ template, label }] : []
+  })
 
   const showRails = !filters.searchDebounced && filters.category === null
   const showJumpBackRail =
@@ -125,7 +137,7 @@ export const TemplatesGalleryPage = () =>
 
   return (
     <>
-      <section className="relative z-10 mx-auto w-full max-w-[1200px] px-6 pt-28 sm:px-10 sm:pt-32">
+      <section className="relative z-10 mx-auto w-full max-w-[1200px] px-6 pt-20 sm:px-10 sm:pt-24">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] lg:items-end">
           <div>
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--t-text-faint)]">
@@ -150,7 +162,7 @@ export const TemplatesGalleryPage = () =>
       </section>
 
       {showJumpBackRail && (
-        <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] px-6 sm:px-10">
+        <section className="relative z-10 mx-auto mt-8 w-full max-w-[1200px] px-6 sm:px-10">
           <RailHeader
             title="Jump back in"
             subtitle="In-progress rankings from templates"
@@ -167,19 +179,19 @@ export const TemplatesGalleryPage = () =>
       {!filters.searchDebounced &&
         filters.category === null &&
         heroFeatured && (
-          <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] px-6 sm:px-10">
+          <section className="relative z-10 mx-auto mt-8 w-full max-w-[1200px] px-6 sm:px-10">
             {heroSecondary.length > 0 ? (
               <div className="grid gap-5 lg:grid-cols-3">
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 lg:self-center">
                   <Hero template={heroFeatured} />
                 </div>
                 <div className="grid grid-rows-2 gap-5">
-                  {heroSecondary.map((tpl) => (
+                  {heroSecondary.map(({ template, label }) => (
                     <Card
-                      key={tpl.slug}
-                      template={tpl}
+                      key={template.slug}
+                      template={template}
                       size="default"
-                      coverStyle="initials"
+                      featuredLabel={label}
                     />
                   ))}
                 </div>
@@ -192,7 +204,7 @@ export const TemplatesGalleryPage = () =>
 
       {showRails && (
         <>
-          <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] px-6 sm:px-10">
+          <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
             <RailHeader
               title="Most popular"
               subtitle="All-time forks"
@@ -212,7 +224,7 @@ export const TemplatesGalleryPage = () =>
         </>
       )}
 
-      <section className="relative z-10 mx-auto mt-16 w-full max-w-[1200px] border-t border-[var(--t-border)] px-6 pt-12 sm:px-10">
+      <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] border-t border-[var(--t-border)] px-6 pt-10 sm:px-10">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-[var(--t-text)]">

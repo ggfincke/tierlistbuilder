@@ -72,7 +72,10 @@ export const Mosaic = ({ items, density, fallbackGradient }: MosaicProps) =>
   const emptyCount = slotCount - tiles.length
 
   return (
-    <div className="absolute inset-0 bg-[#0a0a0c]" aria-hidden="true">
+    <div
+      className="absolute inset-0 bg-[var(--t-media-matte)]"
+      aria-hidden="true"
+    >
       <div
         className="grid h-full w-full"
         style={{

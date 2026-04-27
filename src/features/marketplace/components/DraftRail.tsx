@@ -81,9 +81,8 @@ const ThumbnailStrip = ({ draft }: { draft: MarketplaceTemplateDraft }) =>
   return (
     <div
       aria-hidden="true"
-      className="grid h-full w-full"
+      className="grid h-full w-full bg-[var(--t-media-matte)]"
       style={{
-        background: gradient,
         gridTemplateColumns: '1fr 1fr',
         gridTemplateRows: '1fr 1fr',
         gap: '2px',
@@ -94,10 +93,13 @@ const ThumbnailStrip = ({ draft }: { draft: MarketplaceTemplateDraft }) =>
         const item = tiles[i]
         if (!item)
         {
-          return <div key={`empty-${i}`} className="bg-black/15" />
+          return <div key={`empty-${i}`} style={{ background: gradient }} />
         }
         return (
-          <div key={item.media.externalId} className="relative overflow-hidden">
+          <div
+            key={item.media.externalId}
+            className="relative overflow-hidden bg-black/40"
+          >
             <img
               src={item.media.url}
               alt=""
