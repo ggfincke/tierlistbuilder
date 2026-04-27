@@ -28,6 +28,7 @@
     --t-destructive-foreground: #ffffff;
     --t-overlay: 255 255 255;
     --t-export-bg: #232323;
+    --t-media-matte: #0a0a0c;
 
     /* typography tokens — Default style */
     --ts-font-family: 'Inter', system-ui, -apple-system, sans-serif;

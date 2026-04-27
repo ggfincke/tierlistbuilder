@@ -21,7 +21,7 @@ interface HeroProps
   coverStyle?: CoverStyle
 }
 
-export const Hero = ({ template, coverStyle = 'initials' }: HeroProps) => (
+export const Hero = ({ template, coverStyle = 'auto' }: HeroProps) => (
   <Link
     to={`${TEMPLATES_ROUTE_PATH}/${template.slug}`}
     className="group focus-custom relative block overflow-hidden rounded-2xl border border-[var(--t-border)] transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
@@ -29,7 +29,8 @@ export const Hero = ({ template, coverStyle = 'initials' }: HeroProps) => (
   >
     <div className="relative h-[22rem] w-full overflow-hidden sm:h-[26rem]">
       <Cover template={template} density="hero" style={coverStyle} />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/95 via-black/75 to-transparent" />
 
       <div className="absolute inset-x-0 bottom-0 flex flex-col gap-4 p-6 text-white sm:p-8">
         <div className="flex flex-wrap items-center gap-2">

@@ -215,6 +215,107 @@ const requireSeedEnabled = (): void =>
   }
 }
 
+// dev-only — set the featuredRank on a single template by slug. rank=null
+// removes it from the featured rail. used by scripts to curate the homepage
+// hero/trending/curated trio w/o a re-seed
+export const setTemplateFeaturedRank = internalMutation({
+  args: {
+    slug: v.string(),
+    featuredRank: v.union(v.number(), v.null()),
+  },
+  returns: v.object({
+    slug: v.string(),
+    featuredRank: v.union(v.number(), v.null()),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ slug: string; featuredRank: number | null }> =>
+  {
+    const template = await ctx.db
+      .query('templates')
+      .withIndex('bySlug', (q) => q.eq('slug', args.slug))
+      .unique()
+    if (!template)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `template not found by slug: ${args.slug}`,
+      })
+    }
+    await ctx.db.patch(template._id, { featuredRank: args.featuredRank })
+    return { slug: args.slug, featuredRank: args.featuredRank }
+  },
+})
+
+// dev-only: reset homepage curation before assigning a new trio
+export const clearAllFeaturedRanksImpl = internalMutation({
+  args: {},
+  returns: v.object({ cleared: v.number(), scanned: v.number() }),
+  handler: async (ctx): Promise<{ cleared: number; scanned: number }> =>
+  {
+    const rankedTemplateIds: Id<'templates'>[] = []
+    const rankedTemplates = ctx.db
+      .query('templates')
+      .withIndex('byVisibilityUnpublishedFeaturedRank', (q) =>
+        q
+          .eq('visibility', 'public')
+          .eq('unpublishedAt', null)
+          .gt('featuredRank', -1)
+      )
+
+    for await (const template of rankedTemplates)
+    {
+      rankedTemplateIds.push(template._id)
+    }
+
+    await Promise.all(
+      rankedTemplateIds.map((templateId) =>
+        ctx.db.patch(templateId, { featuredRank: null })
+      )
+    )
+    return {
+      cleared: rankedTemplateIds.length,
+      scanned: rankedTemplateIds.length,
+    }
+  },
+})
+
+export const promoteFeatured = action({
+  args: {
+    slug: v.string(),
+    featuredRank: v.union(v.number(), v.null()),
+  },
+  returns: v.object({
+    slug: v.string(),
+    featuredRank: v.union(v.number(), v.null()),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ slug: string; featuredRank: number | null }> =>
+  {
+    requireSeedEnabled()
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.setTemplateFeaturedRank,
+      { slug: args.slug, featuredRank: args.featuredRank }
+    )
+  },
+})
+
+export const clearAllFeaturedRanks = action({
+  args: {},
+  returns: v.object({ cleared: v.number(), scanned: v.number() }),
+  handler: async (ctx): Promise<{ cleared: number; scanned: number }> =>
+  {
+    requireSeedEnabled()
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.clearAllFeaturedRanksImpl,
+      {}
+    )
+  },
+})
+
 // dev-only — strip the implicit single-image cover off seeded templates so
 // the gallery falls back to the item-grid Mosaic. detects seeded rows by the
 // `seed-` externalId prefix on their first templateItem

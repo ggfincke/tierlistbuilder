@@ -16,12 +16,21 @@ interface InitialsGridProps
 
 const DENSITY_CONFIG: Record<
   MosaicDensity,
-  { cols: number; rows: number; gap: number; fontPx: number }
+  {
+    cols: number
+    rows: number
+    gap: number
+    fontPx: number
+    // outer vertical padding leaves a clean dark strip at the top/bottom of
+    // the cover so card badges & meta bands don't fight w/ the first row of
+    // cells. horizontal padding stays at gap so cells span edge-to-edge
+    padY: number
+  }
 > = {
-  small: { cols: 5, rows: 3, gap: 4, fontPx: 11 },
-  default: { cols: 5, rows: 3, gap: 5, fontPx: 13 },
-  large: { cols: 5, rows: 3, gap: 6, fontPx: 15 },
-  hero: { cols: 5, rows: 3, gap: 8, fontPx: 22 },
+  small: { cols: 5, rows: 3, gap: 4, fontPx: 11, padY: 4 },
+  default: { cols: 5, rows: 3, gap: 5, fontPx: 13, padY: 18 },
+  large: { cols: 5, rows: 3, gap: 6, fontPx: 15, padY: 22 },
+  hero: { cols: 5, rows: 3, gap: 8, fontPx: 22, padY: 28 },
 }
 
 const NON_WORD = /[^A-Za-z0-9]+/g
@@ -74,7 +83,7 @@ export const InitialsGrid = ({
   fallbackGradient,
 }: InitialsGridProps) =>
 {
-  const { cols, rows, gap, fontPx } = DENSITY_CONFIG[density]
+  const { cols, rows, gap, fontPx, padY } = DENSITY_CONFIG[density]
   const slotCount = cols * rows
   const tiles = items.slice(0, slotCount)
 
@@ -90,7 +99,7 @@ export const InitialsGrid = ({
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
           gap: `${gap}px`,
-          padding: `${gap}px`,
+          padding: `${padY}px ${gap}px`,
         }}
       >
         {tiles.map((item, i) =>
