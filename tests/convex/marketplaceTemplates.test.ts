@@ -266,7 +266,11 @@ describe('marketplace template Convex functions', () =>
 
     await expect(
       t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
-    ).resolves.toEqual({ count: 0, isCapped: false })
+    ).resolves.toEqual({
+      count: 0,
+      countByCategory: {},
+      isCapped: false,
+    })
 
     const publicTemplate = await caller.mutation(
       api.marketplace.templates.mutations.publishFromBoard,
@@ -281,7 +285,11 @@ describe('marketplace template Convex functions', () =>
 
     await expect(
       t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
-    ).resolves.toEqual({ count: 1, isCapped: false })
+    ).resolves.toEqual({
+      count: 1,
+      countByCategory: { gaming: 1 },
+      isCapped: false,
+    })
 
     const unlistedTemplate = await caller.mutation(
       api.marketplace.templates.mutations.publishFromBoard,
@@ -296,19 +304,28 @@ describe('marketplace template Convex functions', () =>
 
     await expect(
       t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
-    ).resolves.toEqual({ count: 1, isCapped: false })
+    ).resolves.toEqual({
+      count: 1,
+      countByCategory: { gaming: 1 },
+      isCapped: false,
+    })
 
     await caller.mutation(
       api.marketplace.templates.mutations.updateMyTemplateMeta,
       {
         slug: unlistedTemplate.slug,
         visibility: 'public',
+        category: 'movies',
       }
     )
 
     await expect(
       t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
-    ).resolves.toEqual({ count: 2, isCapped: false })
+    ).resolves.toEqual({
+      count: 2,
+      countByCategory: { gaming: 1, movies: 1 },
+      isCapped: false,
+    })
 
     await caller.mutation(
       api.marketplace.templates.mutations.updateMyTemplateMeta,
@@ -320,7 +337,11 @@ describe('marketplace template Convex functions', () =>
 
     await expect(
       t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
-    ).resolves.toEqual({ count: 1, isCapped: false })
+    ).resolves.toEqual({
+      count: 1,
+      countByCategory: { movies: 1 },
+      isCapped: false,
+    })
 
     await caller.mutation(
       api.marketplace.templates.mutations.unpublishMyTemplate,
@@ -329,7 +350,11 @@ describe('marketplace template Convex functions', () =>
 
     await expect(
       t.query(api.marketplace.templates.queries.getPublicTemplateCount, {})
-    ).resolves.toEqual({ count: 0, isCapped: false })
+    ).resolves.toEqual({
+      count: 0,
+      countByCategory: {},
+      isCapped: false,
+    })
   })
 
   it('lists related templates from the same public category by popularity', async () =>
@@ -398,7 +423,7 @@ describe('marketplace template Convex functions', () =>
 
     const related = await t.query(
       api.marketplace.templates.queries.getRelatedTemplates,
-      { slug: current.slug, category: 'gaming', limit: 2 }
+      { slug: current.slug, limit: 2 }
     )
 
     expect(related.items.map((item) => item.title)).toEqual([
@@ -604,5 +629,127 @@ describe('marketplace template Convex functions', () =>
       {}
     )
     expect(drafts.drafts).toEqual([])
+  })
+
+  it('filters listings by tag using the normalized templateTags table', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    await seedSourceBoard(t, authorId)
+    const caller = asUser(t, authorId)
+
+    const tagged = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Tagged Public',
+        description: 'commonsearch',
+        category: 'gaming',
+        tags: ['RPG', 'Strategy'],
+        visibility: 'public',
+      }
+    )
+    const otherCategory = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Tagged Other Category',
+        description: 'commonsearch',
+        category: 'movies',
+        tags: ['rpg'],
+        visibility: 'public',
+      }
+    )
+    const noMatch = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Untagged',
+        description: 'commonsearch',
+        category: 'gaming',
+        tags: ['party'],
+        visibility: 'public',
+      }
+    )
+    const unlistedTagged = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Unlisted Tagged',
+        description: 'commonsearch',
+        category: 'gaming',
+        tags: ['rpg'],
+        visibility: 'unlisted',
+      }
+    )
+
+    // tag arg matches the canonical lowercase form; uppercase publish tags
+    // & repeated entries are normalized at write time
+    const byTag = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { tag: 'rpg' }
+    )
+    const titlesByTag = byTag.items.map((item) => item.title).sort()
+    expect(titlesByTag).toEqual(['Tagged Other Category', 'Tagged Public'])
+    expect(byTag.items.map((item) => item.slug)).not.toContain(noMatch.slug)
+    expect(byTag.items.map((item) => item.slug)).not.toContain(
+      unlistedTagged.slug
+    )
+
+    const bySearchAndTag = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { search: 'commonsearch', tag: 'rpg' }
+    )
+    const titlesBySearchAndTag = bySearchAndTag.items
+      .map((item) => item.title)
+      .sort()
+    expect(titlesBySearchAndTag).toEqual([
+      'Tagged Other Category',
+      'Tagged Public',
+    ])
+    expect(bySearchAndTag.items.map((item) => item.slug)).not.toContain(
+      noMatch.slug
+    )
+
+    // tag + category narrows further
+    const byTagAndCategory = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { tag: 'rpg', category: 'gaming' }
+    )
+    expect(byTagAndCategory.items.map((item) => item.title)).toEqual([
+      'Tagged Public',
+    ])
+
+    // visibility flips remove the tag row from public listings
+    await caller.mutation(
+      api.marketplace.templates.mutations.unpublishMyTemplate,
+      { slug: tagged.slug }
+    )
+    const afterUnpublish = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { tag: 'rpg' }
+    )
+    expect(afterUnpublish.items.map((item) => item.title)).toEqual([
+      'Tagged Other Category',
+    ])
+
+    // editing tags reflects in the next tag-filtered query
+    await caller.mutation(
+      api.marketplace.templates.mutations.updateMyTemplateMeta,
+      { slug: otherCategory.slug, tags: ['party'] }
+    )
+    const afterRetag = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { tag: 'rpg' }
+    )
+    expect(afterRetag.items).toEqual([])
+    const newTagHits = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { tag: 'party' }
+    )
+    expect(newTagHits.items.map((item) => item.title).sort()).toEqual([
+      'Tagged Other Category',
+      'Untagged',
+    ])
   })
 })

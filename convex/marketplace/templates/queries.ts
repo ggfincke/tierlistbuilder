@@ -11,7 +11,10 @@ import type {
   TemplateCategory,
   TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  MAX_TEMPLATE_LIST_LIMIT,
+  isTemplateSlug,
+} from '@tierlistbuilder/contracts/marketplace/template'
 import { getCurrentUserId } from '../../lib/auth'
 import {
   marketplaceTemplateDetailValidator,
@@ -26,7 +29,8 @@ import {
   normalizeDraftLimit,
   normalizeListLimit,
   normalizeSearchQuery,
-  readPublicTemplateCount,
+  normalizeTagArg,
+  readPublicTemplateStats,
   toTemplateDetail,
   toTemplateDraft,
   toTemplateSummary,
@@ -127,10 +131,14 @@ const searchPublicRows = async (
   options: {
     search: string
     category: TemplateCategory | null
+    tag: string | null
     limit: number
   }
 ): Promise<Doc<'templates'>[]> =>
-  await ctx.db
+{
+  const tag = options.tag
+  const searchLimit = tag ? MAX_TEMPLATE_LIST_LIMIT : options.limit
+  const rows = await ctx.db
     .query('templates')
     .withSearchIndex('searchPublic', (q) =>
     {
@@ -141,17 +149,70 @@ const searchPublicRows = async (
 
       return options.category ? base.eq('category', options.category) : base
     })
-    .take(options.limit)
+    .take(searchLimit)
+
+  const filteredRows = tag ? rows.filter((row) => row.tags.includes(tag)) : rows
+  return filteredRows.slice(0, options.limit)
+}
+
+// resolve tag-filtered template rows via the normalized templateTags table,
+// ordered by tag-row updatedAt desc. denormalized visibility/category fields
+// keep templates dropped from public view out of the join
+const takePublicRowsByTag = async (
+  ctx: QueryCtx,
+  options: {
+    tag: string
+    category: TemplateCategory | null
+    limit: number
+  }
+): Promise<Doc<'templates'>[]> =>
+{
+  const tagRows = options.category
+    ? await ctx.db
+        .query('templateTags')
+        .withIndex('byCategoryTagVisibilityUnpublishedUpdatedAt', (q) =>
+          q
+            .eq('category', options.category!)
+            .eq('tag', options.tag)
+            .eq('visibility', 'public')
+            .eq('unpublishedAt', null)
+        )
+        .order('desc')
+        .take(options.limit)
+    : await ctx.db
+        .query('templateTags')
+        .withIndex('byTagVisibilityUnpublishedUpdatedAt', (q) =>
+          q
+            .eq('tag', options.tag)
+            .eq('visibility', 'public')
+            .eq('unpublishedAt', null)
+        )
+        .order('desc')
+        .take(options.limit)
+
+  const templates = await Promise.all(
+    tagRows.map((row) => ctx.db.get(row.templateId))
+  )
+  return templates.filter(
+    (template): template is Doc<'templates'> => template !== null
+  )
+}
 
 export const getPublicTemplateCount = query({
   args: {},
   returns: v.object({
     count: v.number(),
+    countByCategory: v.record(v.string(), v.number()),
     isCapped: v.boolean(),
   }),
   handler: async (ctx) =>
   {
-    return { count: await readPublicTemplateCount(ctx), isCapped: false }
+    const stats = await readPublicTemplateStats(ctx)
+    return {
+      count: stats.count,
+      countByCategory: stats.countByCategory,
+      isCapped: false,
+    }
   },
 })
 
@@ -159,6 +220,7 @@ export const listTemplates = query({
   args: {
     search: v.optional(v.union(v.string(), v.null())),
     category: listCategoryArg,
+    tag: v.optional(v.union(v.string(), v.null())),
     sort: listSortArg,
     limit: v.optional(v.number()),
   },
@@ -168,10 +230,16 @@ export const listTemplates = query({
     const limit = normalizeListLimit(args.limit)
     const category = args.category ?? null
     const search = normalizeSearchQuery(args.search)
+    const tag = normalizeTagArg(args.tag)
     const sort = args.sort ?? 'recent'
+
+    // Search keeps relevance ordering; tag membership narrows the result set
+    // after the search-index read because searchPublic can't join templateTags.
     const rows = search
-      ? await searchPublicRows(ctx, { search, category, limit })
-      : await takePublicRows(ctx, { category, sort, limit })
+      ? await searchPublicRows(ctx, { search, category, tag, limit })
+      : tag
+        ? await takePublicRowsByTag(ctx, { tag, category, limit })
+        : await takePublicRows(ctx, { category, sort, limit })
 
     const cache = createTemplateProjectionCache()
     return {
@@ -203,20 +271,29 @@ export const getTemplateBySlug = query({
 })
 
 // related-templates rail on the detail page — same category, top use count,
-// excluding the current slug. fetches limit+1 then drops the self-match so the
-// final length is capped at limit even when the current template ranks
+// excluding the current slug. category is derived from the looked-up template
+// row to avoid stale client args
 const DEFAULT_RELATED_LIMIT = 4
 const MAX_RELATED_LIMIT = 12
 
 export const getRelatedTemplates = query({
   args: {
     slug: v.string(),
-    category: templateCategoryValidator,
     limit: v.optional(v.number()),
   },
   returns: marketplaceTemplateListResultValidator,
   handler: async (ctx, args): Promise<MarketplaceTemplateListResult> =>
   {
+    if (!isTemplateSlug(args.slug))
+    {
+      return { items: [] }
+    }
+    const template = await findTemplateBySlug(ctx, args.slug)
+    if (!template || template.unpublishedAt !== null)
+    {
+      return { items: [] }
+    }
+
     const limit = Math.max(
       1,
       Math.min(MAX_RELATED_LIMIT, args.limit ?? DEFAULT_RELATED_LIMIT)
@@ -225,7 +302,7 @@ export const getRelatedTemplates = query({
       .query('templates')
       .withIndex('byCategoryVisibilityUnpublishedUseCount', (q) =>
         q
-          .eq('category', args.category)
+          .eq('category', template.category)
           .eq('visibility', 'public')
           .eq('unpublishedAt', null)
       )

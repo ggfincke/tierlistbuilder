@@ -197,6 +197,19 @@ export const normalizeDraftLimit = (raw: number | undefined): number =>
   return Math.min(Math.floor(raw), MAX_TEMPLATE_DRAFT_LIMIT)
 }
 
+// canonicalize a query-string tag against the publish-time tag normalizer.
+// returns null on empty/over-length input so the query falls back to the
+// unfiltered listing path
+export const normalizeTagArg = (
+  raw: string | null | undefined
+): string | null =>
+{
+  const tag = raw?.trim().toLowerCase() ?? ''
+  if (!tag) return null
+  if (tag.length > MAX_TEMPLATE_TAG_LENGTH) return null
+  return tag
+}
+
 export const buildSearchText = (fields: {
   title: string
   description: string | null
@@ -241,24 +254,47 @@ export const isPublicTemplateRow = (
 ): boolean =>
   template.visibility === 'public' && template.unpublishedAt === null
 
-export const readPublicTemplateCount = async (
+export interface PublicTemplateStats
+{
+  count: number
+  countByCategory: Record<string, number>
+}
+
+export const readPublicTemplateStats = async (
   ctx: QueryCtx
-): Promise<number> =>
+): Promise<PublicTemplateStats> =>
 {
   const stats = await ctx.db
     .query('marketplaceStats')
     .withIndex('byKey', (q) => q.eq('key', MARKETPLACE_STATS_KEY))
     .unique()
 
-  return stats?.publicTemplateCount ?? 0
+  return {
+    count: stats?.publicTemplateCount ?? 0,
+    countByCategory: { ...(stats?.publicTemplateCountByCategory ?? {}) },
+  }
 }
 
+export interface PublicCategoryDelta
+{
+  category: TemplateCategory
+  delta: number
+}
+
+// batch-update both the total & per-category breakdown in a single read+write.
+// pass one delta per category-transition so a category change publishes as
+// `[{category: prev, delta: -1}, {category: next, delta: +1}]`
 export const adjustPublicTemplateCount = async (
   ctx: MutationCtx,
-  delta: number
+  changes: readonly PublicCategoryDelta[]
 ): Promise<void> =>
 {
-  if (delta === 0)
+  if (changes.length === 0)
+  {
+    return
+  }
+  const totalDelta = changes.reduce((sum, change) => sum + change.delta, 0)
+  if (totalDelta === 0 && changes.every((change) => change.delta === 0))
   {
     return
   }
@@ -267,13 +303,31 @@ export const adjustPublicTemplateCount = async (
     .query('marketplaceStats')
     .withIndex('byKey', (q) => q.eq('key', MARKETPLACE_STATS_KEY))
     .unique()
-  const nextCount = Math.max(0, (stats?.publicTemplateCount ?? 0) + delta)
+  const nextCount = Math.max(0, (stats?.publicTemplateCount ?? 0) + totalDelta)
 
+  const nextByCategory: Record<string, number> = {
+    ...(stats?.publicTemplateCountByCategory ?? {}),
+  }
+  for (const { category, delta } of changes)
+  {
+    const updated = Math.max(0, (nextByCategory[category] ?? 0) + delta)
+    if (updated === 0)
+    {
+      delete nextByCategory[category]
+    }
+    else
+    {
+      nextByCategory[category] = updated
+    }
+  }
+
+  const now = Date.now()
   if (stats)
   {
     await ctx.db.patch(stats._id, {
       publicTemplateCount: nextCount,
-      updatedAt: Date.now(),
+      publicTemplateCountByCategory: nextByCategory,
+      updatedAt: now,
     })
     return
   }
@@ -281,7 +335,8 @@ export const adjustPublicTemplateCount = async (
   await ctx.db.insert('marketplaceStats', {
     key: MARKETPLACE_STATS_KEY,
     publicTemplateCount: nextCount,
-    updatedAt: Date.now(),
+    publicTemplateCountByCategory: nextByCategory,
+    updatedAt: now,
   })
 }
 
@@ -623,6 +678,58 @@ export const findTemplateBySlug = async (
     .query('templates')
     .withIndex('bySlug', (q) => q.eq('slug', slug))
     .unique()
+
+// hard cap on tag-row reads; tags are bounded by MAX_TEMPLATE_TAGS at publish
+// time so this only protects against drift if that cap is later relaxed
+const TAG_ROW_READ_CAP = MAX_TEMPLATE_TAGS * 2
+
+// rebuild the templateTags rows for a single template. used after publish &
+// after any meta update — replace strategy is fine here because tag rows are
+// bounded (<= 12 per template) & per-template metadata writes are infrequent
+export const syncTemplateTagRows = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>
+): Promise<void> =>
+{
+  const existing = await ctx.db
+    .query('templateTags')
+    .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+    .take(TAG_ROW_READ_CAP)
+  await Promise.all(existing.map((row) => ctx.db.delete(row._id)))
+  await Promise.all(
+    template.tags.map((tag) =>
+      ctx.db.insert('templateTags', {
+        templateId: template._id,
+        tag,
+        category: template.category,
+        visibility: template.visibility,
+        unpublishedAt: template.unpublishedAt,
+        updatedAt: template.updatedAt,
+      })
+    )
+  )
+}
+
+// patch denormalized fields on every tag row of a template w/o touching the
+// tag list itself. used by unpublish & visibility-only flips so we don't churn
+// rows when the membership set is unchanged
+export const patchTemplateTagRows = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>,
+  fields: {
+    visibility?: Doc<'templates'>['visibility']
+    unpublishedAt?: Doc<'templates'>['unpublishedAt']
+    updatedAt?: number
+    category?: TemplateCategory
+  }
+): Promise<void> =>
+{
+  const rows = await ctx.db
+    .query('templateTags')
+    .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
+    .take(TAG_ROW_READ_CAP)
+  await Promise.all(rows.map((row) => ctx.db.patch(row._id, fields)))
+}
 
 export const requireOwnedTemplate = async (
   ctx: DbCtx,

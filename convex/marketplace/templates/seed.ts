@@ -27,6 +27,7 @@ import {
   allocateTemplateSlug,
   buildSearchText,
   DEFAULT_TEMPLATE_TIERS,
+  syncTemplateTagRows,
   toTemplateAuthor,
 } from './lib'
 
@@ -156,7 +157,15 @@ export const insertSeedTemplate = internalMutation({
         })
       )
     )
-    await adjustPublicTemplateCount(ctx, 1)
+    await adjustPublicTemplateCount(ctx, [
+      { category: args.category as TemplateCategory, delta: 1 },
+    ])
+
+    const inserted = await ctx.db.get(templateId)
+    if (inserted)
+    {
+      await syncTemplateTagRows(ctx, inserted)
+    }
 
     return { slug }
   },
@@ -311,6 +320,147 @@ export const clearAllFeaturedRanks = action({
     requireSeedEnabled()
     return await ctx.runMutation(
       internal.marketplace.templates.seed.clearAllFeaturedRanksImpl,
+      {}
+    )
+  },
+})
+
+// dev-only — rebuild marketplaceStats counters from current template rows.
+// run after introducing the per-category breakdown so the existing dataset
+// reflects in the gallery chips & the "By category" rail without a re-seed
+export const recomputeMarketplaceStatsImpl = internalMutation({
+  args: {},
+  returns: v.object({
+    count: v.number(),
+    countByCategory: v.record(v.string(), v.number()),
+  }),
+  handler: async (
+    ctx
+  ): Promise<{ count: number; countByCategory: Record<string, number> }> =>
+  {
+    const countByCategory: Record<string, number> = {}
+    let count = 0
+    for await (const template of ctx.db.query('templates'))
+    {
+      if (template.visibility !== 'public' || template.unpublishedAt !== null)
+      {
+        continue
+      }
+      count += 1
+      countByCategory[template.category] =
+        (countByCategory[template.category] ?? 0) + 1
+    }
+
+    const stats = await ctx.db
+      .query('marketplaceStats')
+      .withIndex('byKey', (q) => q.eq('key', 'templates'))
+      .unique()
+    const now = Date.now()
+    if (stats)
+    {
+      await ctx.db.patch(stats._id, {
+        publicTemplateCount: count,
+        publicTemplateCountByCategory: countByCategory,
+        updatedAt: now,
+      })
+    }
+    else
+    {
+      await ctx.db.insert('marketplaceStats', {
+        key: 'templates',
+        publicTemplateCount: count,
+        publicTemplateCountByCategory: countByCategory,
+        updatedAt: now,
+      })
+    }
+    return { count, countByCategory }
+  },
+})
+
+export const recomputeMarketplaceStats = action({
+  args: {},
+  returns: v.object({
+    count: v.number(),
+    countByCategory: v.record(v.string(), v.number()),
+  }),
+  handler: async (
+    ctx
+  ): Promise<{ count: number; countByCategory: Record<string, number> }> =>
+  {
+    requireSeedEnabled()
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.recomputeMarketplaceStatsImpl,
+      {}
+    )
+  },
+})
+
+// dev-only — rebuild templateTags rows from current template tags. run after
+// introducing the normalized tag table so tag filtering picks up rows that
+// pre-date the helper hookup
+export const recomputeTemplateTagsImpl = internalMutation({
+  args: {},
+  returns: v.object({
+    templatesScanned: v.number(),
+    tagsInserted: v.number(),
+    tagsDeleted: v.number(),
+  }),
+  handler: async (
+    ctx
+  ): Promise<{
+    templatesScanned: number
+    tagsInserted: number
+    tagsDeleted: number
+  }> =>
+  {
+    let templatesScanned = 0
+    let tagsInserted = 0
+    let tagsDeleted = 0
+    for await (const template of ctx.db.query('templates'))
+    {
+      templatesScanned += 1
+      const existing = await ctx.db
+        .query('templateTags')
+        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+        .collect()
+      tagsDeleted += existing.length
+      await Promise.all(existing.map((row) => ctx.db.delete(row._id)))
+      await Promise.all(
+        template.tags.map((tag) =>
+          ctx.db.insert('templateTags', {
+            templateId: template._id,
+            tag,
+            category: template.category,
+            visibility: template.visibility,
+            unpublishedAt: template.unpublishedAt,
+            updatedAt: template.updatedAt,
+          })
+        )
+      )
+      tagsInserted += template.tags.length
+    }
+    return { templatesScanned, tagsInserted, tagsDeleted }
+  },
+})
+
+export const recomputeTemplateTags = action({
+  args: {},
+  returns: v.object({
+    templatesScanned: v.number(),
+    tagsInserted: v.number(),
+    tagsDeleted: v.number(),
+  }),
+  handler: async (
+    ctx
+  ): Promise<{
+    templatesScanned: number
+    tagsInserted: number
+    tagsDeleted: number
+  }> =>
+  {
+    requireSeedEnabled()
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.recomputeTemplateTagsImpl,
       {}
     )
   },

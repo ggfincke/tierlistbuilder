@@ -14,6 +14,7 @@ import {
 import type {
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
+  TemplateCategory,
   TemplateUseTierSelection,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import {
@@ -51,7 +52,9 @@ import {
   normalizeDescription,
   normalizeTags,
   normalizeTemplateTitle,
+  patchTemplateTagRows,
   requireOwnedTemplate,
+  syncTemplateTagRows,
   templateTitleToBoardTitle,
   tiersFromBoardRows,
   toTemplateAuthor,
@@ -264,7 +267,15 @@ export const publishFromBoard = mutation({
     )
     if (args.visibility === 'public')
     {
-      await adjustPublicTemplateCount(ctx, 1)
+      await adjustPublicTemplateCount(ctx, [
+        { category: args.category, delta: 1 },
+      ])
+    }
+
+    const inserted = await ctx.db.get(templateId)
+    if (inserted)
+    {
+      await syncTemplateTagRows(ctx, inserted)
     }
 
     return { slug }
@@ -340,10 +351,22 @@ export const updateMyTemplateMeta = mutation({
     })
     const nextPublic =
       nextVisibility === 'public' && template.unpublishedAt === null
-    await adjustPublicTemplateCount(
-      ctx,
-      (nextPublic ? 1 : 0) - (previousPublic ? 1 : 0)
-    )
+    const transitions: { category: TemplateCategory; delta: number }[] = []
+    if (previousPublic)
+    {
+      transitions.push({ category: template.category, delta: -1 })
+    }
+    if (nextPublic)
+    {
+      transitions.push({ category, delta: 1 })
+    }
+    await adjustPublicTemplateCount(ctx, transitions)
+
+    const updated = await ctx.db.get(template._id)
+    if (updated)
+    {
+      await syncTemplateTagRows(ctx, updated)
+    }
 
     return null
   },
@@ -373,8 +396,14 @@ export const unpublishMyTemplate = mutation({
     })
     if (isPublicTemplateRow(template))
     {
-      await adjustPublicTemplateCount(ctx, -1)
+      await adjustPublicTemplateCount(ctx, [
+        { category: template.category, delta: -1 },
+      ])
     }
+    await patchTemplateTagRows(ctx, template._id, {
+      unpublishedAt: now,
+      updatedAt: now,
+    })
 
     return null
   },
