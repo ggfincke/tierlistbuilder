@@ -1,14 +1,9 @@
 // convex/lib/hexColor.ts
-// runtime hex-color validator — v.string() has no regex/length constraint, so fields like
-// backgroundOverride are validated in the handler. keeps format & error shape consistent
+// runtime hex-color validator for v.string() fields
 
 import { ConvexError } from 'convex/values'
+import { HEX_COLOR_PATTERN } from '@tierlistbuilder/contracts/lib/hexColor'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-
-// canonical #rrggbb hex form. clients normalize via ColorInput which
-// outputs lowercase 6-char hex w/ leading # — reject anything else so a
-// malformed value can't slip past & break the downstream color parser
-const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/
 
 export const validateHexColor = (value: string, fieldName: string): void =>
 {

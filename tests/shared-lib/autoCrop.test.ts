@@ -4,10 +4,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { ITEM_TRANSFORM_LIMITS } from '@tierlistbuilder/contracts/workspace/board'
-import {
-  bboxToItemTransform,
-  detectContentBBoxFromImageData,
-} from '~/shared/lib/autoCrop'
+import { bboxToItemTransform } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { detectContentBBoxFromImageData } from '~/shared/lib/autoCrop'
 
 interface AlphaRect
 {
