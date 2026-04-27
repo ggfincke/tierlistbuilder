@@ -242,8 +242,38 @@ export default defineSchema({
   marketplaceStats: defineTable({
     key: v.string(),
     publicTemplateCount: v.number(),
+    // denormalized per-category breakdown of public template count. keys are
+    // TemplateCategory values; categories w/ zero templates are absent so the
+    // record stays compact across taxonomy churn
+    publicTemplateCountByCategory: v.optional(v.record(v.string(), v.number())),
     updatedAt: v.number(),
   }).index('byKey', ['key']),
+
+  // helper table for tag filtering. one row per (template, tag) —
+  // denormalized fields mirror the parent template so the list query can
+  // sort & filter w/o a join
+  templateTags: defineTable({
+    templateId: v.id('templates'),
+    tag: v.string(),
+    category: templateCategoryValidator,
+    visibility: templateVisibilityValidator,
+    unpublishedAt: v.union(v.number(), v.null()),
+    updatedAt: v.number(),
+  })
+    .index('byTagVisibilityUnpublishedUpdatedAt', [
+      'tag',
+      'visibility',
+      'unpublishedAt',
+      'updatedAt',
+    ])
+    .index('byCategoryTagVisibilityUnpublishedUpdatedAt', [
+      'category',
+      'tag',
+      'visibility',
+      'unpublishedAt',
+      'updatedAt',
+    ])
+    .index('byTemplate', ['templateId']),
 
   // immutable-ish template item rows. rankings clone these into boardItems
   // as unranked entries, preserving templateItemId for future aggregation
