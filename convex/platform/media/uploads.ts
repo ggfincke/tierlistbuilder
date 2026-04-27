@@ -122,9 +122,10 @@ export const finalizeUpload = action({
       // Uint8Array<ArrayBuffer> but subarrays carry ArrayBufferLike. zero-copy
       const contentHash = await sha256Hex(payload as BufferSource)
 
+      // store without the sha256 integrity option; local Convex rejects it
+      // inside the storage syscall w/ "invalid HTTP header"
       cleanStorageId = await ctx.storage.store(
-        new Blob([payload as BlobPart], { type: mimeType }),
-        { sha256: contentHash }
+        new Blob([payload as BlobPart], { type: mimeType })
       )
 
       const { externalId } = await ctx.runMutation(

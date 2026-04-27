@@ -26,13 +26,19 @@ npm install
 npm run dev
 ```
 
-| Command           | Description              |
-| ----------------- | ------------------------ |
-| `npm run dev`     | Start dev server         |
-| `npm run build`   | Type-check & build       |
-| `npm run lint`    | Lint with ESLint         |
-| `npm run test`    | Run unit tests (Vitest)  |
-| `npm run preview` | Preview production build |
+`npm run dev` starts a local Convex deployment and Vite together. Local Convex
+state lives in `.convex/`; hosted production remains separate.
+
+| Command                     | Description                   |
+| --------------------------- | ----------------------------- |
+| `npm run dev`               | Start local Convex + Vite     |
+| `npm run dev:app`           | Start Vite only               |
+| `npm run dev:cloud`         | Start cloud dev Convex + Vite |
+| `npm run convex:auth:local` | Configure local Convex Auth   |
+| `npm run build`             | Type-check & build            |
+| `npm run lint`              | Lint with ESLint              |
+| `npm run test`              | Run unit tests (Vitest)       |
+| `npm run preview`           | Preview production build      |
 
 ## Stack
 
