@@ -1,15 +1,23 @@
 // src/features/platform/auth/ui/AccountModal.tsx
-// account-management modal — profile (handle, display name, bio, location,
-// website, pronouns), read-only email & sign-in method, sign-out-everywhere,
-// & delete-account w/ inline confirmation
+// account-management modal for profile, sessions, & delete-account
 
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useMutation } from 'convex/react'
 import { LogOut, Trash2 } from 'lucide-react'
 
 import { api } from '@convex/_generated/api'
+import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
+import {
+  MAX_BIO_LENGTH,
+  MAX_DISPLAY_NAME_LENGTH,
+  MAX_HANDLE_LENGTH,
+  MAX_LOCATION_LENGTH,
+  PRONOUN_OPTIONS,
+  normalizeHandleInput,
+} from '@tierlistbuilder/contracts/platform/user'
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -19,12 +27,6 @@ import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { TextArea } from '~/shared/ui/TextArea'
 import { TextInput } from '~/shared/ui/TextInput'
 
-const DISPLAY_NAME_MAX = 64
-const HANDLE_MAX = 24
-const BIO_MAX = 200
-const LOCATION_MAX = 80
-const WEBSITE_MAX = 200
-const PRONOUNS_MAX = 32
 const DELETE_CONFIRM_PHRASE = 'delete'
 
 interface AccountModalProps
@@ -74,7 +76,7 @@ export const AccountModal = ({ open, onClose }: AccountModalProps) =>
 interface SignedInBodyProps
 {
   onClose: () => void
-  session: Extract<ReturnType<typeof useAuthSession>, { status: 'signed-in' }>
+  session: { status: 'signed-in'; user: PublicUserMe }
 }
 
 const SignedInBody = ({ onClose, session }: SignedInBodyProps) =>
@@ -100,7 +102,7 @@ const SignedInBody = ({ onClose, session }: SignedInBodyProps) =>
 
 interface ProfileFieldsProps
 {
-  user: Extract<ReturnType<typeof useAuthSession>, { status: 'signed-in' }>['user']
+  user: PublicUserMe
 }
 
 interface ProfileDraft
@@ -109,25 +111,68 @@ interface ProfileDraft
   displayName: string
   bio: string
   location: string
-  website: string
   pronouns: string
 }
 
-const buildDraft = (
-  user: ProfileFieldsProps['user']
-): ProfileDraft => ({
+const buildDraft = (user: PublicUserMe): ProfileDraft => ({
   handle: user.handle ?? '',
-  displayName: user.displayName ?? user.name ?? '',
+  displayName: getDisplayName(user, '', { email: 'omit' }),
   bio: user.bio ?? '',
   location: user.location ?? '',
-  website: user.website ?? '',
   pronouns: user.pronouns ?? '',
 })
+
+const PROFILE_DRAFT_FIELDS = [
+  'handle',
+  'displayName',
+  'bio',
+  'location',
+  'pronouns',
+] as const
+
+const trimmed = (raw: string): string => raw.trim()
+
+// per-field canonicalizer used both for save-payload diffing and for comparing
+// server state against the draft. handle normalizes lowercase + charset; the
+// rest just trim
+const PROFILE_FIELD_NORMALIZERS: Record<
+  keyof ProfileDraft,
+  (raw: string) => string
+> = {
+  handle: normalizeHandleInput,
+  displayName: trimmed,
+  bio: trimmed,
+  location: trimmed,
+  pronouns: trimmed,
+}
+
+const draftsEqual = (left: ProfileDraft, right: ProfileDraft): boolean =>
+  PROFILE_DRAFT_FIELDS.every((field) => left[field] === right[field])
+
+const mergeCleanFields = (
+  current: ProfileDraft,
+  fresh: ProfileDraft,
+  synced: ProfileDraft
+): ProfileDraft =>
+{
+  let changed = false
+  const next = { ...current }
+  for (const field of PROFILE_DRAFT_FIELDS)
+  {
+    if (current[field] === synced[field] && current[field] !== fresh[field])
+    {
+      next[field] = fresh[field]
+      changed = true
+    }
+  }
+  return changed ? next : current
+}
 
 const ProfileFields = ({ user }: ProfileFieldsProps) =>
 {
   const updateProfile = useMutation(api.users.updateProfile)
-  const initial = buildDraft(user)
+  const [initial, setInitial] = useState<ProfileDraft>(() => buildDraft(user))
+  const lastSyncedRef = useRef<ProfileDraft>(initial)
   const [draft, setDraft] = useState<ProfileDraft>(initial)
   const [saving, setSaving] = useState(false)
 
@@ -135,63 +180,34 @@ const ProfileFields = ({ user }: ProfileFieldsProps) =>
   const nameId = useId()
   const bioId = useId()
   const locationId = useId()
-  const websiteId = useId()
   const pronounsId = useId()
   const emailId = useId()
   const providerId = useId()
 
-  // resync local state if the server pushes a new value (e.g. another tab
-  // edited the same fields). only resync when the user has nothing dirty —
-  // mid-edit overwrites would be hostile UX
   useEffect(() =>
   {
+    const fresh = buildDraft(user)
+    setInitial((current) => (draftsEqual(current, fresh) ? current : fresh))
     setDraft((current) =>
     {
-      const fresh = buildDraft(user)
-      const isClean =
-        current.handle === initial.handle &&
-        current.displayName === initial.displayName &&
-        current.bio === initial.bio &&
-        current.location === initial.location &&
-        current.website === initial.website &&
-        current.pronouns === initial.pronouns
-      return isClean ? fresh : current
+      const next = mergeCleanFields(current, fresh, lastSyncedRef.current)
+      return draftsEqual(current, next) ? current : next
     })
-    // initial is recomputed on every render; the user object is the
-    // real signal — re-running on user change is what we want
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    lastSyncedRef.current = fresh
   }, [user])
 
-  // build the diff vs the initial values; keys absent => unchanged
   const diff: Partial<ProfileDraft> = {}
-  if (draft.handle.trim().toLowerCase() !== initial.handle.toLowerCase())
+  for (const field of PROFILE_DRAFT_FIELDS)
   {
-    diff.handle = draft.handle
-  }
-  if (draft.displayName.trim() !== initial.displayName.trim())
-  {
-    diff.displayName = draft.displayName
-  }
-  if (draft.bio.trim() !== initial.bio.trim())
-  {
-    diff.bio = draft.bio
-  }
-  if (draft.location.trim() !== initial.location.trim())
-  {
-    diff.location = draft.location
-  }
-  if (draft.website.trim() !== initial.website.trim())
-  {
-    diff.website = draft.website
-  }
-  if (draft.pronouns.trim() !== initial.pronouns.trim())
-  {
-    diff.pronouns = draft.pronouns
+    const normalize = PROFILE_FIELD_NORMALIZERS[field]
+    const next = normalize(draft[field])
+    if (next !== normalize(initial[field]))
+    {
+      diff[field] = next
+    }
   }
   const dirty = Object.keys(diff).length > 0
-  // display name is the only field that cannot be cleared. block save when
-  // it would resolve to empty so the server doesn't have to
-  const displayNameInvalid = draft.displayName.trim().length === 0
+  const displayNameInvalid = trimmed(draft.displayName).length === 0
 
   const handleSave = async () =>
   {
@@ -223,7 +239,11 @@ const ProfileFields = ({ user }: ProfileFieldsProps) =>
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field labelId={handleId} label="Handle" hint="Used in your profile URL">
+        <Field
+          labelId={handleId}
+          label="Handle"
+          hint="Used in your profile URL"
+        >
           <div className="flex w-full items-center gap-2 rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-2.5 py-1.5 focus-within:border-[var(--t-border-hover)]">
             <span className="text-sm text-[var(--t-text-faint)]" aria-hidden>
               @
@@ -232,15 +252,13 @@ const ProfileFields = ({ user }: ProfileFieldsProps) =>
               id={handleId}
               type="text"
               value={draft.handle}
-              maxLength={HANDLE_MAX}
+              maxLength={MAX_HANDLE_LENGTH}
               autoComplete="off"
               spellCheck={false}
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
-                  handle: e.target.value
-                    .toLowerCase()
-                    .replace(/[^a-z0-9_-]/g, ''),
+                  handle: normalizeHandleInput(e.target.value),
                 }))
               }
               disabled={saving}
@@ -255,7 +273,7 @@ const ProfileFields = ({ user }: ProfileFieldsProps) =>
             id={nameId}
             className="w-full"
             value={draft.displayName}
-            maxLength={DISPLAY_NAME_MAX}
+            maxLength={MAX_DISPLAY_NAME_LENGTH}
             onChange={(e) =>
               setDraft((d) => ({ ...d, displayName: e.target.value }))
             }
@@ -267,14 +285,14 @@ const ProfileFields = ({ user }: ProfileFieldsProps) =>
       <Field
         labelId={bioId}
         label="Bio"
-        hint={`${draft.bio.length}/${BIO_MAX}`}
+        hint={`${draft.bio.length}/${MAX_BIO_LENGTH}`}
       >
         <TextArea
           id={bioId}
           rows={3}
           className="w-full resize-y"
           value={draft.bio}
-          maxLength={BIO_MAX}
+          maxLength={MAX_BIO_LENGTH}
           placeholder="Tell people what kinds of lists you make."
           onChange={(e) => setDraft((d) => ({ ...d, bio: e.target.value }))}
           disabled={saving}
@@ -287,7 +305,7 @@ const ProfileFields = ({ user }: ProfileFieldsProps) =>
             id={locationId}
             className="w-full"
             value={draft.location}
-            maxLength={LOCATION_MAX}
+            maxLength={MAX_LOCATION_LENGTH}
             placeholder="Earth"
             onChange={(e) =>
               setDraft((d) => ({ ...d, location: e.target.value }))
@@ -295,36 +313,25 @@ const ProfileFields = ({ user }: ProfileFieldsProps) =>
             disabled={saving}
           />
         </Field>
-        <Field labelId={websiteId} label="Website">
-          <TextInput
-            id={websiteId}
-            className="w-full"
-            type="url"
-            inputMode="url"
-            value={draft.website}
-            maxLength={WEBSITE_MAX}
-            placeholder="https://example.com"
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, website: e.target.value }))
-            }
+        <Field labelId={pronounsId} label="Pronouns">
+          <select
+            id={pronounsId}
+            value={draft.pronouns}
             disabled={saving}
-          />
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, pronouns: e.target.value }))
+            }
+            className="focus-custom w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-2.5 py-1.5 text-sm text-[var(--t-text)] focus:border-[var(--t-border-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">Not specified</option>
+            {PRONOUN_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </Field>
       </div>
-
-      <Field labelId={pronounsId} label="Pronouns">
-        <TextInput
-          id={pronounsId}
-          className="w-full"
-          value={draft.pronouns}
-          maxLength={PRONOUNS_MAX}
-          placeholder="He/him, She/her, They/them, …"
-          onChange={(e) =>
-            setDraft((d) => ({ ...d, pronouns: e.target.value }))
-          }
-          disabled={saving}
-        />
-      </Field>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field labelId={emailId} label="Email">
@@ -385,7 +392,6 @@ const SessionsActions = ({ onClose }: { onClose: () => void }) =>
     try
     {
       await signOutEverywhere({})
-      // sessions are gone server-side; clear local auth state too
       await signOut()
       toast('Signed out from every device', 'success')
       onClose()
@@ -439,8 +445,6 @@ const DeleteAccountAction = ({ onClose }: { onClose: () => void }) =>
     try
     {
       await deleteAccount({})
-      // server already nuked auth records; clear local state too so the
-      // app routes to its signed-out shell instead of throwing on stale tokens
       await signOut()
       toast('Account deleted', 'success')
       onClose()

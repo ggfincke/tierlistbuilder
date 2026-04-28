@@ -43,6 +43,27 @@ interface FolderMeta
 // folder slug -> { title, category, description, tags }. add new examples
 // here when /examples grows
 const TEMPLATE_META: Record<string, FolderMeta> = {
+  'breakfast-cereals': {
+    title: 'Breakfast cereals',
+    category: 'food',
+    description:
+      'A pantry shelf of iconic breakfast cereals and cereal brands.',
+    tags: ['food', 'cereal', 'breakfast'],
+  },
+  'fast-food-chains': {
+    title: 'Fast food chains',
+    category: 'food',
+    description:
+      'Major fast food and fast casual chains, from burgers to tacos.',
+    tags: ['food', 'restaurants', 'fast food'],
+  },
+  'ice-cream-flavors': {
+    title: 'Ice cream flavors',
+    category: 'food',
+    description:
+      'Classic and regional ice cream flavors, with scoops and desserts as reference art.',
+    tags: ['food', 'dessert', 'ice cream'],
+  },
   'final-fantasy-mainline': {
     title: 'Final Fantasy mainline series',
     category: 'gaming',

@@ -24,6 +24,7 @@ import {
 import { requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
 import { resolveTemplateProgressState } from '../../lib/templateProgress'
+import { failInput } from '../../lib/text'
 import {
   findOwnedMediaAssetByExternalId,
   findOwnedTierPresetByExternalId,
@@ -42,7 +43,6 @@ import {
   allocateTemplateSlug,
   buildSearchText,
   DEFAULT_TEMPLATE_TIERS,
-  failInput,
   findTemplateBySlug,
   insertBoardItemsFromTemplate,
   insertBoardTiers,

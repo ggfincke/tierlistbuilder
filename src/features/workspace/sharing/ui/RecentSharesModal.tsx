@@ -16,6 +16,7 @@ import { getShareUrlFromSlug } from '~/features/workspace/sharing/short-link/sho
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { COPIED_FEEDBACK_MS } from '~/shared/hooks/useClipboardCopy'
 import { toast } from '~/shared/notifications/useToastStore'
+import { formatAbsoluteDate } from '~/shared/lib/dateFormatting'
 import { logger } from '~/shared/lib/logger'
 
 interface RecentSharesModalProps
@@ -23,17 +24,6 @@ interface RecentSharesModalProps
   open: boolean
   onClose: () => void
   enabled: boolean
-}
-
-const formatAbsoluteDate = (epochMs: number): string =>
-{
-  const target = new Date(epochMs)
-  return target.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year:
-      target.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
-  })
 }
 
 interface PendingRevoke
