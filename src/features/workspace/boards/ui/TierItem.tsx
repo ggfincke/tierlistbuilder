@@ -19,6 +19,7 @@ import { getEffectiveImageFit } from '~/features/workspace/boards/lib/aspectRati
 import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
 import { SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { ItemContextMenu } from './ItemContextMenu'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
@@ -56,6 +57,7 @@ export const TierItem = memo(
       toggleItemSelected,
       setKeyboardFocusItemId,
       setKeyboardMode,
+      boardLabels,
     } = useActiveBoardStore(
       useShallow((state) => ({
         item: state.items[itemId],
@@ -64,6 +66,7 @@ export const TierItem = memo(
         toggleItemSelected: state.toggleItemSelected,
         setKeyboardFocusItemId: state.setKeyboardFocusItemId,
         setKeyboardMode: state.setKeyboardMode,
+        boardLabels: state.labels,
       }))
     )
     const canDelete = containerId === UNRANKED_CONTAINER_ID
@@ -269,7 +272,12 @@ export const TierItem = memo(
         >
           <ItemContent
             item={item}
-            showLabel={showLabels && !!item.label}
+            label={resolveLabelDisplay({
+              itemLabel: item.label,
+              itemOptions: item.labelOptions,
+              boardSettings: boardLabels,
+              globalShowLabels: showLabels,
+            })}
             fit={effectiveFit}
             frameAspectRatio={slotWidth / slotHeight}
           />

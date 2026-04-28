@@ -95,6 +95,7 @@ const toCloudItemWire = (
     aspectRatio: item.aspectRatio,
     imageFit: item.imageFit,
     transform: item.transform,
+    labelOptions: item.labelOptions,
   }
 }
 
@@ -157,6 +158,7 @@ export const snapshotToCloudPayload = (
     paletteId: snapshot.paletteId,
     textStyleId: snapshot.textStyleId,
     pageBackground: snapshot.pageBackground,
+    labels: snapshot.labels,
   }
 }
 
@@ -205,6 +207,7 @@ export const serverStateToSnapshot = (
       aspectRatio: item.aspectRatio,
       imageFit: item.imageFit,
       transform: item.transform,
+      labelOptions: item.labelOptions,
     }
   }
 
@@ -243,5 +246,6 @@ export const serverStateToSnapshot = (
     paletteId: serverState.paletteId,
     textStyleId: serverState.textStyleId,
     pageBackground: serverState.pageBackground,
+    labels: serverState.labels,
   }
 }

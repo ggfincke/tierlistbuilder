@@ -77,6 +77,92 @@ export const ITEM_TRANSFORM_LIMITS = {
   offsetMax: 2,
 } as const
 
+// caption placement modes — 'overlay' positions a content-sized block at
+// (x, y) ∈ [0, 1] inside the image frame (draggable in the editor);
+// 'captionAbove'/'captionBelow' render a full-width strip outside the image
+export const LABEL_PLACEMENT_MODES = [
+  'overlay',
+  'captionAbove',
+  'captionBelow',
+] as const
+export type LabelPlacementMode = (typeof LABEL_PLACEMENT_MODES)[number]
+
+// caption sits inside the image frame; (x, y) is the *center* of the caption
+// block (translate(-50%, -50%) at render time). axes normalized to [0, 1]
+export interface LabelOverlayPlacement
+{
+  mode: 'overlay'
+  x: number
+  y: number
+}
+
+export interface LabelCaptionAbovePlacement
+{
+  mode: 'captionAbove'
+}
+
+export interface LabelCaptionBelowPlacement
+{
+  mode: 'captionBelow'
+}
+
+// discriminated union — overlay carries position; caption modes are inline
+// strips so they don't need coordinates
+export type LabelPlacement =
+  | LabelOverlayPlacement
+  | LabelCaptionAbovePlacement
+  | LabelCaptionBelowPlacement
+
+// default overlay anchor — bottom-center, matches the legacy "overlayBottom"
+// behavior so unconfigured boards render the same way
+export const LABEL_PLACEMENT_DEFAULT: LabelPlacement = {
+  mode: 'overlay',
+  x: 0.5,
+  y: 0.95,
+}
+
+// snap presets surfaced in the editor — center-x w/ three canned y values
+// for quick top/middle/bottom alignment without precision dragging
+export const LABEL_PLACEMENT_OVERLAY_PRESETS = {
+  top: { mode: 'overlay', x: 0.5, y: 0.05 },
+  middle: { mode: 'overlay', x: 0.5, y: 0.5 },
+  bottom: { mode: 'overlay', x: 0.5, y: 0.95 },
+} as const satisfies Record<string, LabelOverlayPlacement>
+
+// scrim style behind overlay labels — 'none' means transparent (text floats
+// over the image), 'dark'/'light' draw a translucent bar for readability.
+// caption placements ignore scrim (they sit on their own surface)
+export const LABEL_SCRIMS = ['none', 'dark', 'light'] as const
+export type LabelScrim = (typeof LABEL_SCRIMS)[number]
+
+// caption font-size relative to the tile; resolved against the renderer's
+// pixel scale so a small label on a large tile still reads
+export const LABEL_SIZE_SCALES = ['sm', 'md', 'lg'] as const
+export type LabelSizeScale = (typeof LABEL_SIZE_SCALES)[number]
+
+// per-board label defaults — absent fields fall back to global/built-in
+// defaults. `show` overrides AppSettings.showLabels at the board level.
+// `textStyleId` overrides the board font for label captions only
+export interface BoardLabelSettings
+{
+  show?: boolean
+  placement?: LabelPlacement
+  scrim?: LabelScrim
+  sizeScale?: LabelSizeScale
+  textStyleId?: TextStyleId
+}
+
+// per-tile label override layered over board/global defaults. `visible`
+// undefined -> inherit; explicit boolean wins regardless of board settings
+export interface ItemLabelOptions
+{
+  visible?: boolean
+  placement?: LabelPlacement
+  scrim?: LabelScrim
+  sizeScale?: LabelSizeScale
+  textStyleId?: TextStyleId
+}
+
 // content-addressable image pointer for bytes stored outside the snapshot
 export interface TierItemImageRef
 {
@@ -102,6 +188,8 @@ export interface TierItem
   imageFit?: ImageFit
   // optional per-item manual crop; absent -> imageFit fallback path
   transform?: ItemTransform
+  // per-tile label rendering override; absent -> inherit from board/global
+  labelOptions?: ItemLabelOptions
 }
 
 // a single tier row w/ ordered item references
@@ -138,6 +226,8 @@ export interface BoardSnapshot
   // per-board page background color override; absent -> falls through to
   // AppSettings.boardBackgroundOverride, then theme default
   pageBackground?: string
+  // per-board label rendering defaults; absent fields fall through to global
+  labels?: BoardLabelSettings
 }
 
 // payload for adding new items before IDs are assigned. image import writes
@@ -165,6 +255,7 @@ export interface TierItemWire
   aspectRatio?: number
   imageFit?: ImageFit
   transform?: ItemTransform
+  labelOptions?: ItemLabelOptions
 }
 
 // wire-format variant of `BoardSnapshot` — same shape as in-memory but
@@ -183,6 +274,7 @@ export interface BoardSnapshotWire
   paletteId?: PaletteId
   textStyleId?: TextStyleId
   pageBackground?: string
+  labels?: BoardLabelSettings
 }
 
 // metadata entry for a single board in the multi-board registry

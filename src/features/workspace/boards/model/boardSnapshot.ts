@@ -8,11 +8,16 @@ import {
   buildDefaultTiers,
 } from '~/features/workspace/boards/lib/boardDefaults'
 import type {
+  BoardLabelSettings,
   BoardSnapshot,
   ImageFit,
   ItemAspectRatioMode,
+  ItemLabelOptions,
   ItemRotation,
   ItemTransform,
+  LabelPlacement,
+  LabelScrim,
+  LabelSizeScale,
   Tier,
   TierItem,
   TierItemImageRef,
@@ -20,6 +25,8 @@ import type {
 import {
   ITEM_TRANSFORM_IDENTITY,
   ITEM_TRANSFORM_LIMITS,
+  LABEL_SCRIMS,
+  LABEL_SIZE_SCALES,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   asItemId,
@@ -80,6 +87,67 @@ const normalizeEnum = <T extends string>(
 
 const ASPECT_RATIO_MODES: readonly ItemAspectRatioMode[] = ['auto', 'manual']
 const IMAGE_FITS: readonly ImageFit[] = ['cover', 'contain']
+
+// validate untrusted placement payloads. unknown modes & out-of-range
+// coordinates collapse to undefined so the renderer falls back to defaults
+// rather than carrying corrupt shape forward
+const normalizeLabelPlacement = (raw: unknown): LabelPlacement | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const mode = raw.mode
+  if (mode === 'overlay')
+  {
+    const x = clampFiniteNumber(raw.x, 0, 1)
+    const y = clampFiniteNumber(raw.y, 0, 1)
+    if (x === null || y === null) return undefined
+    return { mode: 'overlay', x, y }
+  }
+  if (mode === 'captionAbove') return { mode: 'captionAbove' }
+  if (mode === 'captionBelow') return { mode: 'captionBelow' }
+  return undefined
+}
+
+const normalizeItemLabelOptions = (
+  raw: unknown
+): ItemLabelOptions | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const result: ItemLabelOptions = {}
+  if (typeof raw.visible === 'boolean') result.visible = raw.visible
+  const placement = normalizeLabelPlacement(raw.placement)
+  if (placement) result.placement = placement
+  const scrim = normalizeEnum<LabelScrim>(raw.scrim, LABEL_SCRIMS)
+  if (scrim) result.scrim = scrim
+  const sizeScale = normalizeEnum<LabelSizeScale>(
+    raw.sizeScale,
+    LABEL_SIZE_SCALES
+  )
+  if (sizeScale) result.sizeScale = sizeScale
+  const textStyleId = normalizeEnum(raw.textStyleId, TEXT_STYLE_IDS)
+  if (textStyleId) result.textStyleId = textStyleId
+  return Object.keys(result).length > 0 ? result : undefined
+}
+
+const normalizeBoardLabelSettings = (
+  raw: unknown
+): BoardLabelSettings | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const result: BoardLabelSettings = {}
+  if (typeof raw.show === 'boolean') result.show = raw.show
+  const placement = normalizeLabelPlacement(raw.placement)
+  if (placement) result.placement = placement
+  const scrim = normalizeEnum<LabelScrim>(raw.scrim, LABEL_SCRIMS)
+  if (scrim) result.scrim = scrim
+  const sizeScale = normalizeEnum<LabelSizeScale>(
+    raw.sizeScale,
+    LABEL_SIZE_SCALES
+  )
+  if (sizeScale) result.sizeScale = sizeScale
+  const textStyleId = normalizeEnum(raw.textStyleId, TEXT_STYLE_IDS)
+  if (textStyleId) result.textStyleId = textStyleId
+  return Object.keys(result).length > 0 ? result : undefined
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -169,6 +237,7 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   const aspectRatio = normalizePositiveFinite(raw.aspectRatio)
   const imageFit = normalizeEnum(raw.imageFit, IMAGE_FITS)
   const transform = normalizeItemTransform(raw.transform)
+  const labelOptions = normalizeItemLabelOptions(raw.labelOptions)
 
   const item: TierItem = { id }
   if (imageRef) item.imageRef = imageRef
@@ -180,6 +249,7 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   if (aspectRatio !== undefined) item.aspectRatio = aspectRatio
   if (imageFit !== undefined) item.imageFit = imageFit
   if (transform !== undefined) item.transform = transform
+  if (labelOptions !== undefined) item.labelOptions = labelOptions
   return item
 }
 
@@ -275,6 +345,7 @@ const BOARD_DATA_SELECTION_KEYS = [
   'paletteId',
   'textStyleId',
   'pageBackground',
+  'labels',
 ] as const satisfies readonly (keyof BoardDataSelection)[]
 
 export const selectBoardDataFields = (
@@ -292,6 +363,7 @@ export const selectBoardDataFields = (
   paletteId: state.paletteId,
   textStyleId: state.textStyleId,
   pageBackground: state.pageBackground,
+  labels: state.labels,
 })
 
 export const boardDataFieldsEqual = (
@@ -325,6 +397,7 @@ export const extractBoardData = (
   paletteId: state.paletteId,
   textStyleId: state.textStyleId,
   pageBackground: state.pageBackground,
+  labels: state.labels,
 })
 
 export const resetBoardData = (
@@ -375,5 +448,6 @@ export const normalizeBoardSnapshot = (
     pageBackground: isHexColor(value?.pageBackground)
       ? value.pageBackground
       : undefined,
+    labels: normalizeBoardLabelSettings(value?.labels),
   }
 }

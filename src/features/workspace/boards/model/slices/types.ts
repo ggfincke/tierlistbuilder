@@ -4,9 +4,11 @@
 import type { StateCreator } from 'zustand'
 
 import type {
+  BoardLabelSettings,
   BoardSnapshot,
   ImageFit,
   ItemAspectRatioMode,
+  ItemLabelOptions,
   ItemTransform,
   NewTierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -81,6 +83,16 @@ export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
   setBoardPaletteOverride: (paletteId: PaletteId | null) => void
   setBoardTextStyleOverride: (textStyleId: TextStyleId | null) => void
   setBoardPageBackground: (color: string | null) => void
+  // per-board label defaults — null clears all overrides; partial patch
+  // merges into existing settings & strips empty objects
+  setBoardLabelSettings: (settings: BoardLabelSettings | null) => void
+  // per-tile label override — null clears the override
+  setItemLabelOptions: (
+    itemId: ItemId,
+    options: ItemLabelOptions | null
+  ) => void
+  // bulk update item label text
+  setItemLabel: (itemId: ItemId, label: string | null) => void
 }
 
 // selection slice — multi-item selection state & bulk actions

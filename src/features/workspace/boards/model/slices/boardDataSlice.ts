@@ -6,6 +6,7 @@ import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
 import { createAspectRatioActions } from './boardData/aspectRatioActions'
 import { createDeletedItemActions } from './boardData/deletedItemActions'
 import { createItemActions } from './boardData/itemActions'
+import { createLabelActions } from './boardData/labelActions'
 import { createLifecycleActions } from './boardData/lifecycleActions'
 import { createStyleOverrideActions } from './boardData/styleOverrideActions'
 import { createTierActions } from './boardData/tierActions'
@@ -25,4 +26,5 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
   ...createDeletedItemActions(set),
   ...createAspectRatioActions(set),
   ...createStyleOverrideActions(set),
+  ...createLabelActions(set),
 })

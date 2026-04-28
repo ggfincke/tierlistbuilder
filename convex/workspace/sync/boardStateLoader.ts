@@ -91,6 +91,7 @@ export const loadBoardCloudState = async (
     paletteId: board.paletteId,
     textStyleId: board.textStyleId,
     pageBackground: board.pageBackground,
+    labels: board.labels,
     tiers: serverTiers
       .slice()
       .sort((a, b) => a.order - b.order)
@@ -124,6 +125,7 @@ export const loadBoardCloudState = async (
         aspectRatio: item.aspectRatio,
         imageFit: item.imageFit,
         transform: item.transform,
+        labelOptions: item.labelOptions,
       }
     }),
   }

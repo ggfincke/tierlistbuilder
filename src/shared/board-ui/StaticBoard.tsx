@@ -29,6 +29,7 @@ import {
   TierDescriptionSubtitle,
 } from '~/shared/board-ui/BoardPrimitives'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
 
 export interface StaticBoardAppearance
@@ -123,7 +124,12 @@ export const StaticBoard = memo(
                       >
                         <ItemContent
                           item={item}
-                          showLabel={appearance.showLabels && !!item.label}
+                          label={resolveLabelDisplay({
+                            itemLabel: item.label,
+                            itemOptions: item.labelOptions,
+                            boardSettings: data.labels,
+                            globalShowLabels: appearance.showLabels,
+                          })}
                           fit={getEffectiveImageFit(item, boardDefaultFit)}
                           frameAspectRatio={boardAspectRatio}
                         />
