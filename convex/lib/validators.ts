@@ -13,6 +13,10 @@ import {
   type CloudSettingsRead,
 } from '@tierlistbuilder/contracts/workspace/settings'
 import {
+  LABEL_SCRIMS,
+  LABEL_SIZE_SCALES,
+} from '@tierlistbuilder/contracts/workspace/board'
+import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
   THEME_IDS,
@@ -247,6 +251,41 @@ export const itemTransformValidator = v.object({
   offsetY: v.number(),
 })
 
+// label scrim/size — mirrors contracts/workspace/board union types
+export const labelScrimValidator = literalUnion(LABEL_SCRIMS)
+export const labelSizeScaleValidator = literalUnion(LABEL_SIZE_SCALES)
+
+// label placement — discriminated union mirroring LabelPlacement in
+// contracts/board. overlay carries normalized (x, y) coordinates; the two
+// caption modes are inline strips & don't need coordinates
+export const labelPlacementValidator = v.union(
+  v.object({
+    mode: v.literal('overlay'),
+    x: v.number(),
+    y: v.number(),
+  }),
+  v.object({ mode: v.literal('captionAbove') }),
+  v.object({ mode: v.literal('captionBelow') })
+)
+
+// per-tile label override — mirrors ItemLabelOptions in contracts/board
+export const itemLabelOptionsValidator = v.object({
+  visible: v.optional(v.boolean()),
+  placement: v.optional(labelPlacementValidator),
+  scrim: v.optional(labelScrimValidator),
+  sizeScale: v.optional(labelSizeScaleValidator),
+  textStyleId: v.optional(textStyleIdValidator),
+})
+
+// per-board label defaults — mirrors BoardLabelSettings in contracts/board
+export const boardLabelSettingsValidator = v.object({
+  show: v.optional(v.boolean()),
+  placement: v.optional(labelPlacementValidator),
+  scrim: v.optional(labelScrimValidator),
+  sizeScale: v.optional(labelSizeScaleValidator),
+  textStyleId: v.optional(textStyleIdValidator),
+})
+
 // item row in a cloud board state payload — mirrors CloudBoardStateItem
 const cloudBoardStateItemValidator = v.object({
   externalId: v.string(),
@@ -263,6 +302,7 @@ const cloudBoardStateItemValidator = v.object({
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
   transform: v.optional(itemTransformValidator),
+  labelOptions: v.optional(itemLabelOptionsValidator),
 })
 
 // full cloud board state payload — mirrors CloudBoardState
@@ -280,6 +320,7 @@ export const cloudBoardStateValidator = v.object({
   paletteId: v.optional(paletteIdValidator),
   textStyleId: v.optional(textStyleIdValidator),
   pageBackground: v.optional(v.string()),
+  labels: v.optional(boardLabelSettingsValidator),
   tiers: v.array(cloudBoardStateTierValidator),
   items: v.array(cloudBoardStateItemValidator),
 })

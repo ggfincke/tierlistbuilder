@@ -1,6 +1,6 @@
 // src/features/workspace/imageEditor/ui/ImageEditorModal.tsx
 // master-detail editor for per-item rotation, zoom, & pan transforms; crop
-// frame locks to the board aspect ratio so the preview matches the tier rows
+// frame mirrors the rendered board item image area
 
 import {
   forwardRef,
@@ -12,6 +12,8 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
+  type RefObject,
 } from 'react'
 import {
   Check,
@@ -26,15 +28,31 @@ import { useShallow } from 'zustand/react/shallow'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
+  BoardLabelSettings,
   ImageFit,
+  ItemLabelOptions,
   ItemRotation,
   ItemTransform,
+  LabelOverlayPlacement,
+  LabelPlacement,
+  LabelPlacementMode,
+  LabelScrim,
+  LabelSizeScale,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   ITEM_TRANSFORM_IDENTITY,
   ITEM_TRANSFORM_LIMITS,
+  LABEL_PLACEMENT_DEFAULT,
+  LABEL_PLACEMENT_OVERLAY_PRESETS,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  TEXT_STYLE_IDS,
+  type TextStyleId,
+} from '@tierlistbuilder/contracts/lib/theme'
+import { resolveLabelLayout } from '~/shared/board-ui/labelDisplay'
+import { TEXT_STYLES } from '~/shared/theme/textStyles'
+import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import {
   formatAspectRatio,
   getBoardItemAspectRatio,
@@ -79,6 +97,7 @@ import {
 import { warmImageHashes } from '~/shared/images/imageBlobCache'
 import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/useAutoCropTrimShadows'
 import { AutoCropTrimToggle } from '~/features/workspace/settings/ui/AutoCropTrimToggle'
+import { Toggle } from '~/features/workspace/settings/ui/Toggle'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
@@ -161,6 +180,56 @@ const boundedAspectSize = (
     : { width: bound * safeRatio, height: bound }
 }
 
+interface ElementSize
+{
+  width: number
+  height: number
+}
+
+const useMeasuredElementSize = <T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  fallback: ElementSize
+): ElementSize =>
+{
+  const fallbackWidth = fallback.width
+  const fallbackHeight = fallback.height
+  const [size, setSize] = useState(() => ({
+    width: fallbackWidth,
+    height: fallbackHeight,
+  }))
+
+  useEffect(() =>
+  {
+    const element = ref.current
+    if (!element)
+    {
+      return
+    }
+
+    const update = () =>
+    {
+      const rect = element.getBoundingClientRect()
+      if (rect.width <= 0 || rect.height <= 0) return
+      setSize((current) =>
+        Math.abs(current.width - rect.width) < 0.5 &&
+        Math.abs(current.height - rect.height) < 0.5
+          ? current
+          : { width: rect.width, height: rect.height }
+      )
+    }
+
+    update()
+
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [ref, fallbackWidth, fallbackHeight])
+
+  return size
+}
+
 interface PendingImageEditorPaneEdit
 {
   id: ItemId
@@ -228,6 +297,10 @@ const ImageEditorModalBody = () =>
     setItemTransform,
     setItemsTransform,
     boardDefaultFit,
+    boardLabels,
+    setBoardLabelSettings,
+    setItemLabelOptions,
+    setItemLabel,
   } = useActiveBoardStore(
     useShallow((s) => ({
       items: s.items,
@@ -237,7 +310,21 @@ const ImageEditorModalBody = () =>
       setItemTransform: s.setItemTransform,
       setItemsTransform: s.setItemsTransform,
       boardDefaultFit: s.defaultItemImageFit,
+      boardLabels: s.labels,
+      setBoardLabelSettings: s.setBoardLabelSettings,
+      setItemLabelOptions: s.setItemLabelOptions,
+      setItemLabel: s.setItemLabel,
     }))
+  )
+  const globalShowLabels = useSettingsStore((s) => s.showLabels)
+  const effectiveShowLabels = boardLabels?.show ?? globalShowLabels
+  const handleShowLabelsChange = useCallback(
+    (show: boolean) =>
+    {
+      const next: BoardLabelSettings = { ...(boardLabels ?? {}), show }
+      setBoardLabelSettings(next)
+    },
+    [boardLabels, setBoardLabelSettings]
   )
   const ratioPicker = useBoardAspectRatioPicker()
   const { trimSoftShadows, setTrimSoftShadows } = useAutoCropTrimShadows()
@@ -515,6 +602,8 @@ const ImageEditorModalBody = () =>
         autoCropAllApplied={autoCropAllApplied}
         trimSoftShadows={trimSoftShadows}
         onTrimSoftShadowsChange={setTrimSoftShadows}
+        showLabels={effectiveShowLabels}
+        onShowLabelsChange={handleShowLabelsChange}
       />
       <div className="flex min-h-0 flex-1">
         <ImageEditorRail
@@ -524,6 +613,8 @@ const ImageEditorModalBody = () =>
           totalCount={allImageItems.length}
           boardAspectRatio={boardAspectRatio}
           boardDefaultFit={boardDefaultFit}
+          boardLabels={boardLabels}
+          globalShowLabels={globalShowLabels}
           selectedId={selectedId}
           onSelect={setPickedId}
         />
@@ -536,7 +627,13 @@ const ImageEditorModalBody = () =>
               boardAspectRatio={boardAspectRatio}
               boardDefaultFit={boardDefaultFit}
               trimSoftShadows={trimSoftShadows}
+              boardLabels={boardLabels}
+              globalShowLabels={globalShowLabels}
               onCommit={(t) => handleCommit(selectedItem.id, t)}
+              onLabelChange={(label) => setItemLabel(selectedItem.id, label)}
+              onLabelOptionsChange={(opts) =>
+                setItemLabelOptions(selectedItem.id, opts)
+              }
               canPrev={selectedIndex > 0}
               canNext={
                 selectedIndex >= 0 && selectedIndex < filteredItems.length - 1
@@ -574,6 +671,8 @@ interface BoardControlsBarProps
   autoCropAllApplied: boolean
   trimSoftShadows: boolean
   onTrimSoftShadowsChange: (trim: boolean) => void
+  showLabels: boolean
+  onShowLabelsChange: (show: boolean) => void
 }
 
 // board-wide controls — board ratio chips plus crop actions for the editor
@@ -584,6 +683,8 @@ const BoardControlsBar = ({
   autoCropAllApplied,
   trimSoftShadows,
   onTrimSoftShadowsChange,
+  showLabels,
+  onShowLabelsChange,
 }: BoardControlsBarProps) => (
   <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] px-5 py-2">
     <div className="flex flex-wrap items-center gap-2">
@@ -607,6 +708,7 @@ const BoardControlsBar = ({
       )}
     </div>
     <div className="flex flex-wrap items-center justify-end gap-2">
+      <ShowLabelsToggle checked={showLabels} onChange={onShowLabelsChange} />
       <AutoCropTrimToggle
         checked={trimSoftShadows}
         onChange={onTrimSoftShadowsChange}
@@ -635,6 +737,25 @@ const BoardControlsBar = ({
     </div>
   </div>
 )
+
+interface ShowLabelsToggleProps
+{
+  checked: boolean
+  onChange: (checked: boolean) => void
+}
+
+const ShowLabelsToggle = ({ checked, onChange }: ShowLabelsToggleProps) =>
+{
+  const labelId = useId()
+  return (
+    <div className="inline-flex items-center gap-2">
+      <span id={labelId} className="text-xs text-[var(--t-text-muted)]">
+        Show labels
+      </span>
+      <Toggle checked={checked} onChange={onChange} ariaLabelledby={labelId} />
+    </div>
+  )
+}
 
 type AutoCropButtonState = 'idle' | 'running' | 'applied'
 type AutoCropButtonVariant = 'toolbar' | 'plain'
@@ -723,6 +844,8 @@ interface ImageEditorRailProps
   totalCount: number
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
+  boardLabels: BoardLabelSettings | undefined
+  globalShowLabels: boolean
   selectedId: ItemId | null
   onSelect: (id: ItemId) => void
 }
@@ -734,6 +857,8 @@ const ImageEditorRail = ({
   totalCount,
   boardAspectRatio,
   boardDefaultFit,
+  boardLabels,
+  globalShowLabels,
   selectedId,
   onSelect,
 }: ImageEditorRailProps) => (
@@ -788,6 +913,8 @@ const ImageEditorRail = ({
           item={item}
           boardAspectRatio={boardAspectRatio}
           boardDefaultFit={boardDefaultFit}
+          boardLabels={boardLabels}
+          globalShowLabels={globalShowLabels}
           selected={item.id === selectedId}
           onSelect={() => onSelect(item.id)}
         />
@@ -801,6 +928,8 @@ interface ImageEditorRailRowProps
   item: TierItem
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
+  boardLabels: BoardLabelSettings | undefined
+  globalShowLabels: boolean
   selected: boolean
   onSelect: () => void
 }
@@ -809,12 +938,21 @@ const ImageEditorRailRow = ({
   item,
   boardAspectRatio,
   boardDefaultFit,
+  boardLabels,
+  globalShowLabels,
   selected,
   onSelect,
 }: ImageEditorRailRowProps) =>
 {
   const mismatched = itemHasAspectMismatch(item, boardAspectRatio)
   const adjusted = !!item.transform && !isIdentityTransform(item.transform)
+  const hasLabelOverride = !!item.labelOptions
+  const labelLayout = resolveLabelLayout({
+    itemOptions: item.labelOptions,
+    boardSettings: boardLabels,
+    globalShowLabels,
+  })
+  const labelHidden = !labelLayout.visible
   // mirror the main canvas: ItemContent applies any saved transform & resolves
   // the effective fit, so the thumb previews the same crop the board renders
   const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
@@ -869,6 +1007,17 @@ const ImageEditorRailRow = ({
               className="h-1.5 w-1.5 rounded-full bg-[var(--t-accent)]"
             />
           )}
+          {(hasLabelOverride || labelHidden) && (
+            <span
+              title={
+                labelHidden ? 'Label hidden' : 'Label has per-tile overrides'
+              }
+              aria-label={labelHidden ? 'Label hidden' : 'Label override'}
+              className={`h-1.5 w-1.5 rounded-full ${
+                labelHidden ? 'bg-[var(--t-text-faint)]' : 'bg-emerald-400'
+              }`}
+            />
+          )}
         </div>
       </button>
     </li>
@@ -883,15 +1032,19 @@ interface ImageEditorPaneProps
   // identity, mirroring the actual tier-row render path
   boardDefaultFit: ImageFit | undefined
   trimSoftShadows: boolean
+  boardLabels: BoardLabelSettings | undefined
+  globalShowLabels: boolean
   onCommit: (transform: ItemTransform | null) => void
+  onLabelChange: (label: string) => void
+  onLabelOptionsChange: (options: ItemLabelOptions | null) => void
   canPrev: boolean
   canNext: boolean
   onPrev: () => void
   onNext: () => void
 }
 
-// editor state stays local until Confirm, pane navigation, modal close, or
-// parent bulk actions flush pending work
+// editor state stays local until Confirm/blur, pane navigation, modal close,
+// or parent bulk actions flush pending work
 const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
   function ImageEditorPane(
     {
@@ -899,7 +1052,11 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
       boardAspectRatio,
       boardDefaultFit,
       trimSoftShadows,
+      boardLabels,
+      globalShowLabels,
       onCommit,
+      onLabelChange,
+      onLabelOptionsChange,
       canPrev,
       canNext,
       onPrev,
@@ -919,14 +1076,126 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
     const url = sourceUrl ?? displayUrl
     const autoCropHash = getAutoCropHash(item)
     const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
+    const labelLayout = useMemo(
+      () =>
+        resolveLabelLayout({
+          itemOptions: item.labelOptions,
+          boardSettings: boardLabels,
+          globalShowLabels,
+        }),
+      [item.labelOptions, boardLabels, globalShowLabels]
+    )
+    const previewLabelText = item.label?.trim() ?? ''
+    const showLivePreview = labelLayout.visible && previewLabelText.length > 0
+    const canvasRef = useRef<HTMLDivElement | null>(null)
+    const [labelDraft, setLabelDraft] = useState(item.label ?? '')
+    const labelDraftRef = useRef(labelDraft)
+    labelDraftRef.current = labelDraft
+    useEffect(() =>
+    {
+      const nextDraft = item.label ?? ''
+      labelDraftRef.current = nextDraft
+      setLabelDraft(nextDraft)
+    }, [item.id, item.label])
+    const updateLabelDraft = useCallback((value: string) =>
+    {
+      labelDraftRef.current = value
+      setLabelDraft(value)
+    }, [])
+    const commitLabel = useCallback(() =>
+    {
+      onLabelChange(labelDraftRef.current)
+    }, [onLabelChange])
+    const updateLabelOption = useCallback(
+      <K extends keyof ItemLabelOptions>(
+        key: K,
+        value: ItemLabelOptions[K] | undefined
+      ) =>
+      {
+        const current = item.labelOptions ?? {}
+        const next: ItemLabelOptions = { ...current }
+        if (value === undefined)
+        {
+          delete next[key]
+        }
+        else
+        {
+          next[key] = value
+        }
+        onLabelOptionsChange(Object.keys(next).length > 0 ? next : null)
+      },
+      [item.labelOptions, onLabelOptionsChange]
+    )
+    const clearLabelOptions = useCallback(
+      () => onLabelOptionsChange(null),
+      [onLabelOptionsChange]
+    )
+
+    // local draft used while the user is dragging the overlay caption — keeps
+    // the displayed position responsive without spamming the undo log on every
+    // pointer-move tick. drag end commits the final value via updateLabelOption
+    const [placementDraft, setPlacementDraft] =
+      useState<LabelOverlayPlacement | null>(null)
+    const placementDraftRef = useRef(placementDraft)
+    placementDraftRef.current = placementDraft
+
+    const handleLabelDragMove = useCallback((x: number, y: number) =>
+    {
+      setPlacementDraft({ mode: 'overlay', x, y })
+    }, [])
+
+    const handleLabelDragEnd = useCallback(() =>
+    {
+      const draft = placementDraftRef.current
+      if (!draft) return
+      updateLabelOption('placement', draft)
+      setPlacementDraft(null)
+    }, [updateLabelOption])
+
+    // navigating to a different tile resets any unsaved drag — a stale draft
+    // would otherwise leak into the next item's preview
+    useEffect(() =>
+    {
+      setPlacementDraft(null)
+    }, [item.id])
+
+    const handlePlacementChange = useCallback(
+      (placement: LabelPlacement) =>
+      {
+        setPlacementDraft(null)
+        updateLabelOption('placement', placement)
+      },
+      [updateLabelOption]
+    )
+
+    // mid-drag draft wins so the preview tracks the cursor in real time;
+    // commits flush to labelOptions on pointer up
+    const resolvedPlacement: LabelPlacement =
+      placementDraft ?? labelLayout.placement
+    const captionPreviewMode =
+      showLivePreview &&
+      (resolvedPlacement.mode === 'captionAbove' ||
+        resolvedPlacement.mode === 'captionBelow')
+    const previewW =
+      boardAspectRatio >= 1 ? CANVAS_BOUND : CANVAS_BOUND * boardAspectRatio
+    const previewH =
+      boardAspectRatio >= 1 ? CANVAS_BOUND / boardAspectRatio : CANVAS_BOUND
+    const canvasSize = useMeasuredElementSize(canvasRef, {
+      width: previewW,
+      height: previewH,
+    })
+    const canvasW = canvasSize.width
+    const canvasH = canvasSize.height
+    const frameAspectRatio =
+      canvasW > 0 && canvasH > 0 ? canvasW / canvasH : boardAspectRatio
     const fitBaseline = useMemo(
-      () => createFitBaselineTransform(item, boardAspectRatio, effectiveFit),
-      [item, boardAspectRatio, effectiveFit]
+      () => createFitBaselineTransform(item, frameAspectRatio, effectiveFit),
+      [item, frameAspectRatio, effectiveFit]
     )
     const savedTransform = getSavedTransform(item)
     const hasSavedTransform = !!savedTransform
     const [working, setWorking] = useState<ItemTransform>(() =>
-      seedTransform(item, boardAspectRatio, effectiveFit)
+      seedTransform(item, frameAspectRatio, effectiveFit)
     )
     const [isDragging, setIsDragging] = useState(false)
     const [snap, setSnap] = useState<{ x: boolean; y: boolean }>({
@@ -934,13 +1203,23 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
       y: false,
     })
     const [autoCropping, setAutoCropping] = useState(false)
-    const canvasRef = useRef<HTMLDivElement | null>(null)
     useSyncExternalStore(
       subscribeAutoCropCache,
       getAutoCropCacheVersion,
       getAutoCropCacheVersion
     )
     const autoCropResult = getCachedBBox(autoCropHash, trimSoftShadows)
+
+    const previousFitBaselineRef = useRef(fitBaseline)
+    useEffect(() =>
+    {
+      const previous = previousFitBaselineRef.current
+      previousFitBaselineRef.current = fitBaseline
+      if (hasSavedTransform) return
+      setWorking((current) =>
+        isSameItemTransform(current, previous) ? fitBaseline : current
+      )
+    }, [fitBaseline, hasSavedTransform])
 
     useEffect(() =>
     {
@@ -969,14 +1248,16 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
     const committed = savedTransform ?? fitBaseline
     const isDirty = !isSameItemTransform(working, committed)
 
-    // refs keep the unmount-flush effect free of stale closures — we only
-    // re-run it on actual unmount, but it must see the latest working state
+    // refs keep the unmount-flush effect free of stale closures while still
+    // seeing the latest draft & transform state
     const workingRef = useRef(working)
     workingRef.current = working
     const isDirtyRef = useRef(isDirty)
     isDirtyRef.current = isDirty
     const flushCommitRef = useRef(flushCommit)
     flushCommitRef.current = flushCommit
+    const commitLabelRef = useRef(commitLabel)
+    commitLabelRef.current = commitLabel
     const itemIdRef = useRef(item.id)
     itemIdRef.current = item.id
     const resolveCommitTransformRef = useRef(resolveCommitTransform)
@@ -992,6 +1273,7 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
           : null,
       flushPendingEdit: () =>
       {
+        commitLabelRef.current()
         if (!isDirtyRef.current) return
         flushCommitRef.current(workingRef.current)
         isDirtyRef.current = false
@@ -1003,25 +1285,21 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
     useEffect(
       () => () =>
       {
+        commitLabelRef.current()
         if (isDirtyRef.current) flushCommitRef.current(workingRef.current)
       },
       []
     )
 
-    const canvasW =
-      boardAspectRatio >= 1 ? CANVAS_BOUND : CANVAS_BOUND * boardAspectRatio
-    const canvasH =
-      boardAspectRatio >= 1 ? CANVAS_BOUND / boardAspectRatio : CANVAS_BOUND
-
     const getFitBaselineZoom = useCallback(
       (rotation: ItemRotation) =>
         createFitBaselineTransform(
           item,
-          boardAspectRatio,
+          frameAspectRatio,
           effectiveFit,
           rotation
         ).zoom,
-      [item, boardAspectRatio, effectiveFit]
+      [item, frameAspectRatio, effectiveFit]
     )
 
     // drag-to-pan — cell-relative offset deltas match crop positioning
@@ -1191,7 +1469,7 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
           resolveAutoCropTransform(
             item,
             bbox,
-            boardAspectRatio,
+            frameAspectRatio,
             working.rotation
           )
         )
@@ -1205,7 +1483,7 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
       trimSoftShadows,
       autoCropping,
       item,
-      boardAspectRatio,
+      frameAspectRatio,
       working.rotation,
     ])
 
@@ -1304,7 +1582,7 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
       ? resolveAutoCropTransform(
           item,
           autoCropResult,
-          boardAspectRatio,
+          frameAspectRatio,
           working.rotation
         )
       : null
@@ -1317,7 +1595,7 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
     const cropSize = useManualCrop
       ? resolveManualCropImageSize(
           item.aspectRatio,
-          boardAspectRatio,
+          frameAspectRatio,
           working.rotation
         )
       : null
@@ -1370,47 +1648,102 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
         </div>
         <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
           <div
-            ref={canvasRef}
-            className="relative overflow-hidden rounded border border-[var(--t-border-secondary)] bg-black/20 select-none"
+            className={`overflow-hidden rounded border border-[var(--t-border-secondary)] bg-black/20 select-none ${
+              captionPreviewMode ? 'flex flex-col' : ''
+            }`}
             style={{
-              width: canvasW,
-              height: canvasH,
-              cursor: isDragging ? 'grabbing' : url ? 'grab' : 'default',
-              touchAction: 'none',
+              width: previewW,
+              height: previewH,
             }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerEnd}
-            onPointerCancel={onPointerEnd}
-            role="presentation"
           >
-            {url ? (
-              <img
-                src={url}
-                alt={item.altText ?? item.label ?? 'Tier item'}
-                className={imgClass}
-                style={imgStyle}
-                draggable={false}
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-[var(--t-text-faint)]">
-                Loading...
-              </div>
-            )}
-            {snap.x && (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]"
-              />
-            )}
-            {snap.y && (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]"
-              />
-            )}
+            {captionPreviewMode &&
+              resolvedPlacement.mode === 'captionAbove' && (
+                <LabelCaptionStrip
+                  text={previewLabelText}
+                  sizeScale={labelLayout.sizeScale}
+                  textStyleId={labelLayout.textStyleId}
+                />
+              )}
+            <div
+              ref={canvasRef}
+              className={`relative overflow-hidden ${
+                captionPreviewMode ? 'min-h-0 flex-1' : 'h-full w-full'
+              }`}
+              style={{
+                cursor: isDragging ? 'grabbing' : url ? 'grab' : 'default',
+                touchAction: 'none',
+              }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerEnd}
+              onPointerCancel={onPointerEnd}
+              role="presentation"
+            >
+              {url ? (
+                <img
+                  src={url}
+                  alt={item.altText ?? item.label ?? 'Tier item'}
+                  className={imgClass}
+                  style={imgStyle}
+                  draggable={false}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs text-[var(--t-text-faint)]">
+                  Loading...
+                </div>
+              )}
+              {snap.x && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]"
+                />
+              )}
+              {snap.y && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]"
+                />
+              )}
+              {showLivePreview && resolvedPlacement.mode === 'overlay' && (
+                <DraggableLabelOverlay
+                  text={previewLabelText}
+                  placement={resolvedPlacement}
+                  scrim={labelLayout.scrim}
+                  sizeScale={labelLayout.sizeScale}
+                  textStyleId={labelLayout.textStyleId}
+                  canvasRef={canvasRef}
+                  onDragMove={handleLabelDragMove}
+                  onDragEnd={handleLabelDragEnd}
+                />
+              )}
+            </div>
+            {captionPreviewMode &&
+              resolvedPlacement.mode === 'captionBelow' && (
+                <LabelCaptionStrip
+                  text={previewLabelText}
+                  sizeScale={labelLayout.sizeScale}
+                  textStyleId={labelLayout.textStyleId}
+                />
+              )}
           </div>
         </div>
+        <LabelEditorRow
+          labelDraft={labelDraft}
+          onLabelDraftChange={updateLabelDraft}
+          onLabelCommit={commitLabel}
+          resolvedPlacement={resolvedPlacement}
+          resolvedScrim={labelLayout.scrim}
+          resolvedSizeScale={labelLayout.sizeScale}
+          resolvedTextStyleId={labelLayout.textStyleId}
+          resolvedVisible={labelLayout.visible}
+          itemOptions={item.labelOptions}
+          onPlacementChange={handlePlacementChange}
+          onScrimChange={(s) => updateLabelOption('scrim', s)}
+          onSizeScaleChange={(s) => updateLabelOption('sizeScale', s)}
+          onTextStyleChange={(t) => updateLabelOption('textStyleId', t)}
+          onVisibleChange={(v) => updateLabelOption('visible', v)}
+          onClearOverrides={clearLabelOptions}
+        />
         <div className="flex flex-wrap items-center gap-3 border-t border-[var(--t-border-secondary)] px-5 py-3">
           <div
             className="flex items-center gap-1"
@@ -1531,6 +1864,473 @@ const ImageEditorPane = forwardRef<ImageEditorPaneHandle, ImageEditorPaneProps>(
       </div>
     )
   }
+)
+
+const PREVIEW_SCRIM_CLASS: Record<LabelScrim, string> = {
+  none: '',
+  dark: 'bg-black/60',
+  light: 'bg-white/70',
+}
+
+const PREVIEW_TEXT_CLASS: Record<LabelScrim, string> = {
+  none: 'text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]',
+  dark: 'text-white',
+  light: 'text-[rgb(20,20,20)]',
+}
+
+// inline padding for the draggable overlay block — slightly looser than the
+// inline-strip caption variant since this block sits inside the image area
+const OVERLAY_PREVIEW_PADDING_CLASS: Record<LabelSizeScale, string> = {
+  sm: 'px-1 py-[1px]',
+  md: 'px-1.5 py-0.5',
+  lg: 'px-2 py-1',
+}
+
+const OVERLAY_PREVIEW_TEXT_SIZE_CLASS: Record<LabelSizeScale, string> = {
+  sm: 'text-[11px]',
+  md: 'text-xs',
+  lg: 'text-sm',
+}
+
+const previewFontStyle = (
+  id: TextStyleId | undefined
+): CSSProperties | undefined =>
+{
+  if (!id) return undefined
+  const style = TEXT_STYLES[id]
+  return { fontFamily: style.fontFamily, letterSpacing: style.letterSpacing }
+}
+
+const clamp01 = (value: number): number =>
+  value < 0 ? 0 : value > 1 ? 1 : value
+
+interface DraggableLabelOverlayProps
+{
+  text: string
+  placement: LabelOverlayPlacement
+  scrim: LabelScrim
+  sizeScale: LabelSizeScale
+  textStyleId: TextStyleId | undefined
+  canvasRef: RefObject<HTMLDivElement | null>
+  onDragMove: (x: number, y: number) => void
+  onDragEnd: () => void
+}
+
+// content-sized block centered on (x, y). pointer-events on so the user can
+// drag it; inner span has [overflow-wrap:anywhere] so very long captions wrap
+// gracefully instead of being clipped by the maxWidth guard
+const DraggableLabelOverlay = ({
+  text,
+  placement,
+  scrim,
+  sizeScale,
+  textStyleId,
+  canvasRef,
+  onDragMove,
+  onDragEnd,
+}: DraggableLabelOverlayProps) =>
+{
+  const dragRef = useRef<{
+    startX: number
+    startY: number
+    baseX: number
+    baseY: number
+    width: number
+    height: number
+  } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) =>
+    {
+      if (e.button !== 0) return
+      const canvas = canvasRef.current
+      if (!canvas) return
+      e.stopPropagation()
+      e.preventDefault()
+      const rect = canvas.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
+      e.currentTarget.setPointerCapture(e.pointerId)
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        baseX: placement.x,
+        baseY: placement.y,
+        width: rect.width,
+        height: rect.height,
+      }
+      setIsDragging(true)
+    },
+    [canvasRef, placement.x, placement.y]
+  )
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) =>
+    {
+      const drag = dragRef.current
+      if (!drag) return
+      e.stopPropagation()
+      const dx = (e.clientX - drag.startX) / drag.width
+      const dy = (e.clientY - drag.startY) / drag.height
+      onDragMove(clamp01(drag.baseX + dx), clamp01(drag.baseY + dy))
+    },
+    [onDragMove]
+  )
+
+  const onPointerEnd = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) =>
+    {
+      if (!dragRef.current) return
+      e.stopPropagation()
+      try
+      {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      }
+      catch
+      {
+        // capture was already released; safe to ignore
+      }
+      dragRef.current = null
+      setIsDragging(false)
+      onDragEnd()
+    },
+    [onDragEnd]
+  )
+
+  return (
+    <div
+      role="button"
+      aria-label="Drag to reposition caption"
+      tabIndex={-1}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerEnd}
+      onPointerCancel={onPointerEnd}
+      className={`absolute rounded ring-1 ring-[var(--t-accent)]/60 ring-offset-0 select-none ${OVERLAY_PREVIEW_PADDING_CLASS[sizeScale]} ${PREVIEW_SCRIM_CLASS[scrim]}`}
+      style={{
+        left: `${placement.x * 100}%`,
+        top: `${placement.y * 100}%`,
+        transform: 'translate(-50%, -50%)',
+        maxWidth: '95%',
+        cursor: isDragging ? 'grabbing' : 'grab',
+        // safari needs an explicit z-index here so the overlay stays above the
+        // image during drag; without it the block can disappear behind a
+        // transformed image
+        zIndex: 1,
+        touchAction: 'none',
+      }}
+    >
+      <span
+        className={`block text-center ${OVERLAY_PREVIEW_TEXT_SIZE_CLASS[sizeScale]} ${PREVIEW_TEXT_CLASS[scrim]} [overflow-wrap:anywhere]`}
+        style={previewFontStyle(textStyleId)}
+      >
+        {text}
+      </span>
+    </div>
+  )
+}
+
+interface LabelCaptionStripProps
+{
+  text: string
+  sizeScale: LabelSizeScale
+  textStyleId: TextStyleId | undefined
+}
+
+const CAPTION_PREVIEW_PADDING_CLASS: Record<LabelSizeScale, string> = {
+  sm: 'px-1 py-[1px]',
+  md: 'px-1 py-0.5',
+  lg: 'px-1.5 py-1',
+}
+
+const CAPTION_PREVIEW_TEXT_SIZE_CLASS: Record<LabelSizeScale, string> = {
+  sm: 'text-[9px]',
+  md: 'text-[10px]',
+  lg: 'text-xs',
+}
+
+const LabelCaptionStrip = ({
+  text,
+  sizeScale,
+  textStyleId,
+}: LabelCaptionStripProps) => (
+  <div
+    className={`shrink-0 ${CAPTION_PREVIEW_PADDING_CLASS[sizeScale]} bg-[var(--t-bg-surface)]`}
+  >
+    <span
+      className={`block truncate text-center font-medium ${CAPTION_PREVIEW_TEXT_SIZE_CLASS[sizeScale]} text-[var(--t-text)]`}
+      style={previewFontStyle(textStyleId)}
+    >
+      {text}
+    </span>
+  </div>
+)
+
+interface LabelEditorRowProps
+{
+  labelDraft: string
+  onLabelDraftChange: (value: string) => void
+  onLabelCommit: () => void
+  resolvedPlacement: LabelPlacement
+  resolvedScrim: LabelScrim
+  resolvedSizeScale: LabelSizeScale
+  resolvedTextStyleId: TextStyleId | undefined
+  resolvedVisible: boolean
+  itemOptions: ItemLabelOptions | undefined
+  onPlacementChange: (placement: LabelPlacement) => void
+  onScrimChange: (s: LabelScrim) => void
+  onSizeScaleChange: (s: LabelSizeScale) => void
+  onTextStyleChange: (t: TextStyleId | undefined) => void
+  onVisibleChange: (visible: boolean) => void
+  onClearOverrides: () => void
+}
+
+const LABEL_FONT_LABELS: Record<TextStyleId, string> = {
+  default: 'Sans',
+  mono: 'Mono',
+  serif: 'Serif',
+  rounded: 'Rounded',
+  display: 'Display',
+}
+
+const PLACEMENT_MODE_LABELS: Record<LabelPlacementMode, string> = {
+  overlay: 'Overlay',
+  captionAbove: 'Caption above',
+  captionBelow: 'Caption below',
+}
+
+const PLACEMENT_MODE_ORDER: readonly LabelPlacementMode[] = [
+  'overlay',
+  'captionAbove',
+  'captionBelow',
+]
+
+const PLACEMENT_PRESET_ORDER: readonly (keyof typeof LABEL_PLACEMENT_OVERLAY_PRESETS)[] =
+  ['top', 'middle', 'bottom']
+
+const PLACEMENT_PRESET_LABELS: Record<
+  keyof typeof LABEL_PLACEMENT_OVERLAY_PRESETS,
+  string
+> = {
+  top: 'Top',
+  middle: 'Middle',
+  bottom: 'Bottom',
+}
+
+// detect whether the resolved overlay placement matches a preset so the
+// preset chip can highlight the active snap target instead of looking dead
+const isOverlayPresetMatch = (
+  placement: LabelPlacement,
+  preset: LabelOverlayPlacement
+): boolean =>
+  placement.mode === 'overlay' &&
+  Math.abs(placement.x - preset.x) < 0.001 &&
+  Math.abs(placement.y - preset.y) < 0.001
+
+const LabelEditorRow = ({
+  labelDraft,
+  onLabelDraftChange,
+  onLabelCommit,
+  resolvedPlacement,
+  resolvedScrim,
+  resolvedSizeScale,
+  resolvedTextStyleId,
+  resolvedVisible,
+  itemOptions,
+  onPlacementChange,
+  onScrimChange,
+  onSizeScaleChange,
+  onTextStyleChange,
+  onVisibleChange,
+  onClearOverrides,
+}: LabelEditorRowProps) =>
+{
+  const labelInputId = useId()
+  const sizeId = useId()
+  const fontId = useId()
+  const isOverlay = resolvedPlacement.mode === 'overlay'
+  const hasOverrides = !!itemOptions
+
+  // mode change carries a sensible default placement — going back to overlay
+  // resets to the bottom anchor so the user has a deterministic landing spot
+  const handleModeSelect = (mode: LabelPlacementMode) =>
+  {
+    if (mode === resolvedPlacement.mode) return
+    if (mode === 'overlay')
+    {
+      onPlacementChange(
+        resolvedPlacement.mode === 'overlay'
+          ? resolvedPlacement
+          : LABEL_PLACEMENT_DEFAULT
+      )
+      return
+    }
+    onPlacementChange({ mode })
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-t border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] px-5 py-2 text-xs">
+      <div className="flex min-w-[14rem] flex-1 items-center gap-2">
+        <label
+          htmlFor={labelInputId}
+          className="shrink-0 text-[var(--t-text-muted)]"
+        >
+          Label
+        </label>
+        <input
+          id={labelInputId}
+          type="text"
+          value={labelDraft}
+          onChange={(e) => onLabelDraftChange(e.target.value)}
+          onBlur={onLabelCommit}
+          onKeyDown={(e) =>
+          {
+            if (e.key === 'Enter') e.currentTarget.blur()
+          }}
+          placeholder="Caption text"
+          className="focus-custom flex-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-2 py-1 text-[var(--t-text)] outline-none placeholder:text-[var(--t-text-faint)] focus-visible:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          spellCheck={false}
+        />
+      </div>
+      <div
+        className="flex items-center gap-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] p-0.5"
+        role="group"
+        aria-label="Placement"
+      >
+        {PLACEMENT_MODE_ORDER.map((mode) => (
+          <SegmentedChip
+            key={mode}
+            active={resolvedPlacement.mode === mode}
+            onClick={() => handleModeSelect(mode)}
+            label={PLACEMENT_MODE_LABELS[mode]}
+          />
+        ))}
+      </div>
+      {isOverlay && (
+        <div
+          className="flex items-center gap-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] p-0.5"
+          role="group"
+          aria-label="Snap"
+        >
+          {PLACEMENT_PRESET_ORDER.map((presetKey) =>
+          {
+            const preset = LABEL_PLACEMENT_OVERLAY_PRESETS[presetKey]
+            return (
+              <SegmentedChip
+                key={presetKey}
+                active={isOverlayPresetMatch(resolvedPlacement, preset)}
+                onClick={() => onPlacementChange(preset)}
+                label={PLACEMENT_PRESET_LABELS[presetKey]}
+              />
+            )
+          })}
+        </div>
+      )}
+      {isOverlay && (
+        <div className="flex items-center gap-2">
+          <label className="text-[var(--t-text-muted)]">Scrim</label>
+          <select
+            value={resolvedScrim}
+            onChange={(e) => onScrimChange(e.target.value as LabelScrim)}
+            className="focus-custom rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-1 py-1 text-[var(--t-text)] focus-visible:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            aria-label="Scrim"
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <label htmlFor={sizeId} className="text-[var(--t-text-muted)]">
+          Size
+        </label>
+        <select
+          id={sizeId}
+          value={resolvedSizeScale}
+          onChange={(e) => onSizeScaleChange(e.target.value as LabelSizeScale)}
+          className="focus-custom rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-1 py-1 text-[var(--t-text)] focus-visible:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+        >
+          <option value="sm">Small</option>
+          <option value="md">Medium</option>
+          <option value="lg">Large</option>
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <label htmlFor={fontId} className="text-[var(--t-text-muted)]">
+          Font
+        </label>
+        <select
+          id={fontId}
+          value={resolvedTextStyleId ?? '__inherit'}
+          onChange={(e) =>
+          {
+            const v = e.target.value
+            onTextStyleChange(
+              v === '__inherit' ? undefined : (v as TextStyleId)
+            )
+          }}
+          className="focus-custom rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-1 py-1 text-[var(--t-text)] focus-visible:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+        >
+          <option value="__inherit">Inherit</option>
+          {TEXT_STYLE_IDS.map((id) => (
+            <option key={id} value={id}>
+              {LABEL_FONT_LABELS[id]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div
+        className="flex items-center gap-1 rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] p-0.5"
+        role="group"
+        aria-label="Visibility"
+      >
+        <SegmentedChip
+          active={resolvedVisible}
+          onClick={() => onVisibleChange(true)}
+          label="Show"
+        />
+        <SegmentedChip
+          active={!resolvedVisible}
+          onClick={() => onVisibleChange(false)}
+          label="Hide"
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onClearOverrides}
+        disabled={!hasOverrides}
+        className="focus-custom inline-flex items-center gap-1 rounded px-2 py-1 text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+        title="Clear per-tile label overrides"
+      >
+        Reset
+      </button>
+    </div>
+  )
+}
+
+interface SegmentedChipProps
+{
+  active: boolean
+  onClick: () => void
+  label: string
+}
+
+// shared two/three-state chip used for placement, snap presets, & the
+// visibility toggle. one component keeps spacing & hover states consistent
+const SegmentedChip = ({ active, onClick, label }: SegmentedChipProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    className={`focus-custom rounded px-2 py-0.5 text-[11px] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${
+      active
+        ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
+        : 'text-[var(--t-text-muted)] hover:text-[var(--t-text)]'
+    }`}
+  >
+    {label}
+  </button>
 )
 
 interface ZoomSliderProps

@@ -13,6 +13,7 @@ import {
 } from '~/features/workspace/boards/lib/aspectRatio'
 import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 
 interface DragOverlayItemProps
 {
@@ -23,10 +24,11 @@ interface DragOverlayItemProps
 export const DragOverlayItem = memo(
   ({ item, groupCount = 0 }: DragOverlayItemProps) =>
   {
-    const { itemSize, itemShape } = useSettingsStore(
+    const { itemSize, itemShape, showLabels } = useSettingsStore(
       useShallow((state) => ({
         itemSize: state.itemSize,
         itemShape: state.itemShape,
+        showLabels: state.showLabels,
       }))
     )
     const boardAspectRatio = useActiveBoardStore((state) =>
@@ -35,6 +37,7 @@ export const DragOverlayItem = memo(
     const boardDefaultFit = useActiveBoardStore(
       (state) => state.defaultItemImageFit
     )
+    const boardLabels = useActiveBoardStore((state) => state.labels)
     const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
       itemSize,
       boardAspectRatio
@@ -76,6 +79,12 @@ export const DragOverlayItem = memo(
         >
           <ItemContent
             item={item}
+            label={resolveLabelDisplay({
+              itemLabel: item.label,
+              itemOptions: item.labelOptions,
+              boardSettings: boardLabels,
+              globalShowLabels: showLabels,
+            })}
             fit={effectiveFit}
             frameAspectRatio={boardAspectRatio}
           />

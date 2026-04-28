@@ -18,10 +18,16 @@ import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput } from '../../lib/text'
 import {
+  boardLabelSettingsValidator,
+  itemLabelOptionsValidator,
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
 } from '../../lib/validators'
+import type {
+  BoardLabelSettings,
+  LabelPlacement,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { diffTiers, diffItems } from '../sync/boardReconciler'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 import { MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
@@ -77,6 +83,7 @@ const wireItemValidator = v.object({
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
   transform: v.optional(itemTransformValidator),
+  labelOptions: v.optional(itemLabelOptionsValidator),
 })
 
 // board-level aspect-ratio args — validators match CloudBoardAspectRatioFields
@@ -97,6 +104,7 @@ const boardStyleOverrideValidators = {
   paletteId: v.optional(paletteIdValidator),
   textStyleId: v.optional(textStyleIdValidator),
   pageBackground: v.optional(v.string()),
+  labels: v.optional(boardLabelSettingsValidator),
 }
 
 interface UpsertArgs
@@ -114,6 +122,58 @@ interface UpsertArgs
   paletteId?: PaletteId
   textStyleId?: TextStyleId
   pageBackground?: string
+  labels?: BoardLabelSettings
+}
+
+// placements are discriminated unions — string-equal `mode` plus structural
+// compare of overlay coordinates. caption modes carry no extra fields
+const labelPlacementsEqual = (
+  a: LabelPlacement | undefined,
+  b: LabelPlacement | undefined
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  if (a.mode !== b.mode) return false
+  if (a.mode === 'overlay' && b.mode === 'overlay')
+  {
+    return a.x === b.x && a.y === b.y
+  }
+  return true
+}
+
+const validateLabelPlacement = (
+  placement: LabelPlacement | undefined,
+  field: string
+): void =>
+{
+  if (!placement || placement.mode !== 'overlay') return
+  if (!Number.isFinite(placement.x) || placement.x < 0 || placement.x > 1)
+  {
+    failInput(`invalid ${field}.x: must be within [0, 1]`)
+  }
+  if (!Number.isFinite(placement.y) || placement.y < 0 || placement.y > 1)
+  {
+    failInput(`invalid ${field}.y: must be within [0, 1]`)
+  }
+}
+
+// shallow structural compare for board label settings — flat 4-field POJOs,
+// so a manual compare is cheaper & clearer than JSON.stringify
+const boardLabelsEqual = (
+  a: BoardLabelSettings | undefined,
+  b: BoardLabelSettings | undefined
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  return (
+    a.show === b.show &&
+    labelPlacementsEqual(a.placement, b.placement) &&
+    a.scrim === b.scrim &&
+    a.sizeScale === b.sizeScale &&
+    a.textStyleId === b.textStyleId
+  )
 }
 
 type UpsertResult =
@@ -245,6 +305,10 @@ const validateInputs = (args: UpsertArgs): void =>
         )
       }
     }
+    validateLabelPlacement(
+      item.labelOptions?.placement,
+      'item.labelOptions.placement'
+    )
   }
 
   for (const deletedId of args.deletedItemIds)
@@ -259,6 +323,7 @@ const validateInputs = (args: UpsertArgs): void =>
   {
     validateHexColor(args.pageBackground, 'pageBackground')
   }
+  validateLabelPlacement(args.labels?.placement, 'labels.placement')
 }
 
 // --- phase 2: ensure board + early revision check ----------------------------
@@ -450,7 +515,8 @@ const applyBoardState = async (
   const styleOverrideChanged =
     board.paletteId !== args.paletteId ||
     board.textStyleId !== args.textStyleId ||
-    board.pageBackground !== args.pageBackground
+    board.pageBackground !== args.pageBackground ||
+    !boardLabelsEqual(board.labels, args.labels)
   const templateProgressState = resolveTemplateProgressState(
     board.sourceTemplateId,
     progressCounts
@@ -485,6 +551,7 @@ const applyBoardState = async (
     paletteId: args.paletteId,
     textStyleId: args.textStyleId,
     pageBackground: args.pageBackground,
+    labels: args.labels,
     activeItemCount: progressCounts.activeItemCount,
     unrankedItemCount: progressCounts.unrankedItemCount,
     templateProgressState,

@@ -2,7 +2,13 @@
 // shared cloud board wire contracts used by client sync & server reconciliation
 
 import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
-import type { ImageFit, ItemAspectRatioMode, ItemTransform } from './board'
+import type {
+  BoardLabelSettings,
+  ImageFit,
+  ItemAspectRatioMode,
+  ItemLabelOptions,
+  ItemTransform,
+} from './board'
 
 // cloud board sync caps; server enforces these before writing row diffs.
 // clients/tests import the same contract so limit-edge behavior stays explicit
@@ -35,6 +41,8 @@ export interface CloudBoardItemWire
   imageFit?: ImageFit
   // per-item manual crop transform
   transform?: ItemTransform
+  // per-tile label rendering override; absent -> inherit board/global
+  labelOptions?: ItemLabelOptions
 }
 
 // board-wide aspect-ratio config shared by payload & state so a synced board
@@ -55,6 +63,7 @@ export interface CloudBoardStyleOverrideFields
   paletteId?: PaletteId
   textStyleId?: TextStyleId
   pageBackground?: string
+  labels?: BoardLabelSettings
 }
 
 export interface CloudBoardPayload

@@ -204,6 +204,44 @@ describe('upsertBoardState Convex limits', () =>
     )
   })
 
+  it('rejects invalid label overlay coordinates', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t)
+    const caller = asUser(t, userId)
+    const itemPayload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+    const boardPayload = makeBoardPayload({ tierCount: 1, itemCount: 0 })
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-item-label',
+        baseRevision: null,
+        ...itemPayload,
+        items: [
+          {
+            ...itemPayload.items[0]!,
+            labelOptions: {
+              placement: { mode: 'overlay', x: Number.NaN, y: 0.5 },
+            },
+          },
+        ],
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-board-label',
+        baseRevision: null,
+        ...boardPayload,
+        labels: {
+          placement: { mode: 'overlay', x: 0.5, y: 1.2 },
+        },
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+  })
+
   it('handles a max-size tombstone update within the transaction budget', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })

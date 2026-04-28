@@ -2,10 +2,15 @@
 // BoardSnapshot <-> JSON wire shape for export, import, & share helpers
 
 import type {
+  BoardLabelSettings,
   BoardSnapshot,
   BoardSnapshotWire,
+  ItemLabelOptions,
   ItemRotation,
   ItemTransform,
+  LabelPlacement,
+  LabelScrim,
+  LabelSizeScale,
   TierItem,
   TierItemImageRef,
   TierItemWire,
@@ -13,6 +18,8 @@ import type {
 import {
   ITEM_TRANSFORM_IDENTITY,
   ITEM_TRANSFORM_LIMITS,
+  LABEL_SCRIMS,
+  LABEL_SIZE_SCALES,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   PALETTE_IDS,
@@ -132,6 +139,74 @@ const itemToWire = async (
   return { ...rest, imageUrl: inlineImageUrl }
 }
 
+// validate untrusted placement payloads from the wire (import / share-link).
+// unknown modes & out-of-range coordinates collapse to undefined so corrupt
+// snapshots fall back to the renderer's default placement
+const normalizeLabelPlacementWire = (
+  raw: unknown
+): LabelPlacement | undefined =>
+{
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const obj = raw as Record<string, unknown>
+  const mode = obj.mode
+  if (mode === 'overlay')
+  {
+    const x = clampFiniteWire(obj.x, 0, 1)
+    const y = clampFiniteWire(obj.y, 0, 1)
+    if (x === null || y === null) return undefined
+    return { mode: 'overlay', x, y }
+  }
+  if (mode === 'captionAbove') return { mode: 'captionAbove' }
+  if (mode === 'captionBelow') return { mode: 'captionBelow' }
+  return undefined
+}
+
+// strip unknown fields & coerce primitive shapes; returns undefined when
+// every field is missing so the field doesn't get serialized as `{}`
+const normalizeItemLabelOptionsWire = (
+  raw: unknown
+): ItemLabelOptions | undefined =>
+{
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const obj = raw as Record<string, unknown>
+  const result: ItemLabelOptions = {}
+  if (typeof obj.visible === 'boolean') result.visible = obj.visible
+  const placement = normalizeLabelPlacementWire(obj.placement)
+  if (placement) result.placement = placement
+  const scrim = normalizeEnumWire<LabelScrim>(obj.scrim, LABEL_SCRIMS)
+  if (scrim) result.scrim = scrim
+  const sizeScale = normalizeEnumWire<LabelSizeScale>(
+    obj.sizeScale,
+    LABEL_SIZE_SCALES
+  )
+  if (sizeScale) result.sizeScale = sizeScale
+  const textStyleId = normalizeEnumWire(obj.textStyleId, TEXT_STYLE_IDS)
+  if (textStyleId) result.textStyleId = textStyleId
+  return Object.keys(result).length > 0 ? result : undefined
+}
+
+const normalizeBoardLabelSettingsWire = (
+  raw: unknown
+): BoardLabelSettings | undefined =>
+{
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const obj = raw as Record<string, unknown>
+  const result: BoardLabelSettings = {}
+  if (typeof obj.show === 'boolean') result.show = obj.show
+  const placement = normalizeLabelPlacementWire(obj.placement)
+  if (placement) result.placement = placement
+  const scrim = normalizeEnumWire<LabelScrim>(obj.scrim, LABEL_SCRIMS)
+  if (scrim) result.scrim = scrim
+  const sizeScale = normalizeEnumWire<LabelSizeScale>(
+    obj.sizeScale,
+    LABEL_SIZE_SCALES
+  )
+  if (sizeScale) result.sizeScale = sizeScale
+  const textStyleId = normalizeEnumWire(obj.textStyleId, TEXT_STYLE_IDS)
+  if (textStyleId) result.textStyleId = textStyleId
+  return Object.keys(result).length > 0 ? result : undefined
+}
+
 // convert a snapshot to wire shape using a preloaded hash -> Blob map
 export const snapshotToWireWithBlobs = async (
   snapshot: BoardSnapshot,
@@ -160,6 +235,7 @@ export const snapshotToWireWithBlobs = async (
     paletteId: snapshot.paletteId,
     textStyleId: snapshot.textStyleId,
     pageBackground: snapshot.pageBackground,
+    labels: snapshot.labels,
   }
 }
 
@@ -332,6 +408,7 @@ const wireItemToSnapshotItem = (
     normalizePositiveFiniteWire(item.aspectRatio) ?? prepared?.aspectRatio
   const imageFit = normalizeEnumWire(item.imageFit, IMAGE_FITS)
   const transform = normalizeItemTransformWire(item.transform)
+  const labelOptions = normalizeItemLabelOptionsWire(item.labelOptions)
   const base: TierItem = {
     id,
     label,
@@ -340,6 +417,7 @@ const wireItemToSnapshotItem = (
     aspectRatio,
     imageFit,
     ...(transform ? { transform } : {}),
+    ...(labelOptions ? { labelOptions } : {}),
   }
 
   if (prepared)
@@ -424,6 +502,7 @@ export const wireToSnapshot = async (
     pageBackground: isHexColor(wire.pageBackground)
       ? wire.pageBackground
       : undefined,
+    labels: normalizeBoardLabelSettingsWire(wire.labels),
   }
 }
 

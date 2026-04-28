@@ -6,6 +6,8 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 import {
   appSettingsValidator,
+  boardLabelSettingsValidator,
+  itemLabelOptionsValidator,
   itemTransformValidator,
   paletteIdValidator,
   templateCategoryValidator,
@@ -93,6 +95,9 @@ export default defineSchema({
     textStyleId: v.optional(textStyleIdValidator),
     // per-board page background color override; absent -> user default
     pageBackground: v.optional(v.string()),
+    // per-board label rendering defaults; absent -> inherit AppSettings.showLabels
+    // & built-in defaults
+    labels: v.optional(boardLabelSettingsValidator),
   })
     // ordered index powering getMyBoards & getMyDeletedBoards — eq on (ownerId,
     // deletedAt) + order('desc') yields the active or deleted set sorted by
@@ -136,6 +141,8 @@ export default defineSchema({
     imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
     // per-item manual crop transform — when set, overrides imageFit at render
     transform: v.optional(itemTransformValidator),
+    // per-tile label rendering override; absent -> inherit board/global defaults
+    labelOptions: v.optional(itemLabelOptionsValidator),
     // source marketplace item for future aggregate-ranking features
     templateItemId: v.optional(v.id('templateItems')),
   })
