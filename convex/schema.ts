@@ -42,7 +42,6 @@ export default defineSchema({
     handle: v.optional(v.string()),
     bio: v.optional(v.string()),
     location: v.optional(v.string()),
-    website: v.optional(v.string()),
     pronouns: v.optional(v.string()),
   })
     // indexes required by @convex-dev/auth - must match authTables.users

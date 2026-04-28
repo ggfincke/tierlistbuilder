@@ -20,6 +20,7 @@ import {
   type TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 
 import {
   Card,
@@ -201,10 +202,7 @@ export const TemplatesGalleryPage = () =>
   {
     if (session.status === 'signed-in')
     {
-      const name =
-        session.user.displayName ??
-        session.user.name ??
-        session.user.email?.split('@')[0]
+      const name = getDisplayName(session.user, '', { email: 'local' })
       return name ? `Welcome back, ${name}.` : 'Welcome back.'
     }
     return 'Browse community templates.'

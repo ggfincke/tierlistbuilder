@@ -9,13 +9,13 @@ import {
   LogIn,
   LogOut,
   Settings,
+  User,
   UserCircle2,
 } from 'lucide-react'
 import {
   useCallback,
   useId,
   lazy,
-  Suspense,
   useRef,
   useState,
   type ComponentType,
@@ -25,10 +25,15 @@ import { Link, NavLink } from 'react-router-dom'
 
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import {
+  getDisplayName,
+  getUserInitial,
+} from '~/features/platform/auth/model/userIdentity'
 import { SignInModal } from '~/features/platform/auth/ui/SignInModal'
 import { useSignInPromptStore } from '~/features/marketplace/model/useSignInPromptStore'
 import { BOARDS_ROUTE_PATH, TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
+import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 
 type IconCmp = ComponentType<SVGProps<SVGSVGElement>>
 
@@ -72,7 +77,7 @@ const BrandCapsule = () => (
   <Link
     to="/"
     aria-label="TierListBuilder home"
-    className="focus-custom inline-flex items-center rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)]/85 px-4 py-1.5 text-[12px] font-semibold tracking-tight text-[var(--t-text)] backdrop-blur transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+    className="focus-custom pointer-events-auto inline-flex items-center rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)]/85 px-4 py-1.5 text-[12px] font-semibold tracking-tight text-[var(--t-text)] backdrop-blur transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
   >
     TierListBuilder
   </Link>
@@ -87,83 +92,134 @@ const MENU_DIVIDER = (
   </li>
 )
 
+interface GlobalMenuProps
+{
+  onClose: () => void
+  menuId: string
+  signedIn: boolean
+  signedInLabel: string | null
+  signedInEmail: string | null
+  onSignIn: () => void
+  onSignOut: () => void
+  onOpenAccount: () => void
+  onOpenPreferences: () => void
+}
+
 const GlobalMenu = ({
   onClose,
   menuId,
+  signedIn,
   signedInLabel,
   signedInEmail,
+  onSignIn,
   onSignOut,
   onOpenAccount,
-}: {
-  onClose: () => void
-  menuId: string
-  signedInLabel: string
-  signedInEmail: string | null
-  onSignOut: () => void
-  onOpenAccount: () => void
-}) => (
+  onOpenPreferences,
+}: GlobalMenuProps) => (
   <div
     id={menuId}
     role="menu"
     aria-label="Account menu"
     className="absolute right-0 top-[calc(100%+8px)] w-60 origin-top-right overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] shadow-2xl"
   >
-    <div className="border-b border-[var(--t-border)] px-3 py-3">
-      <p className="text-[12px] font-semibold text-[var(--t-text)]">
-        {signedInLabel}
-      </p>
-      {signedInEmail && (
-        <p className="mt-0.5 truncate text-[11px] text-[var(--t-text-faint)]">
-          {signedInEmail}
+    {signedIn && signedInLabel && (
+      <div className="border-b border-[var(--t-border)] px-3 py-3">
+        <p className="text-[12px] font-semibold text-[var(--t-text)]">
+          {signedInLabel}
         </p>
-      )}
-    </div>
+        {signedInEmail && (
+          <p className="mt-0.5 truncate text-[11px] text-[var(--t-text-faint)]">
+            {signedInEmail}
+          </p>
+        )}
+      </div>
+    )}
 
     <ul role="none" className="flex flex-col px-1.5 py-2">
+      {signedIn && (
+        <>
+          <li role="none">
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() =>
+              {
+                onOpenAccount()
+                onClose()
+              }}
+              className={MENU_ITEM_CLASS}
+            >
+              <UserCircle2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+              Account
+            </button>
+          </li>
+          <li role="none">
+            <Link
+              role="menuitem"
+              to={BOARDS_ROUTE_PATH}
+              onClick={onClose}
+              className={MENU_ITEM_CLASS}
+            >
+              <ListChecks className="h-3.5 w-3.5" strokeWidth={1.8} />
+              My lists
+            </Link>
+          </li>
+
+          {MENU_DIVIDER}
+        </>
+      )}
+
       <li role="none">
         <button
           role="menuitem"
           type="button"
           onClick={() =>
           {
-            onOpenAccount()
+            onOpenPreferences()
             onClose()
           }}
           className={MENU_ITEM_CLASS}
         >
-          <UserCircle2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-          Account
+          <Settings className="h-3.5 w-3.5" strokeWidth={1.8} />
+          Preferences
         </button>
-      </li>
-      <li role="none">
-        <Link
-          role="menuitem"
-          to={BOARDS_ROUTE_PATH}
-          onClick={onClose}
-          className={MENU_ITEM_CLASS}
-        >
-          <ListChecks className="h-3.5 w-3.5" strokeWidth={1.8} />
-          My lists
-        </Link>
       </li>
 
       {MENU_DIVIDER}
 
-      <li role="none">
-        <button
-          role="menuitem"
-          type="button"
-          onClick={() =>
-          {
-            onSignOut()
-            onClose()
-          }}
-          className={MENU_ITEM_CLASS}
-        >
-          <LogOut className="h-3.5 w-3.5" strokeWidth={1.8} />
-          Sign out
-        </button>
-      </li>
+      {signedIn ? (
+        <li role="none">
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() =>
+              {
+              onSignOut()
+              onClose()
+            }}
+            className={MENU_ITEM_CLASS}
+          >
+            <LogOut className="h-3.5 w-3.5" strokeWidth={1.8} />
+            Sign out
+          </button>
+        </li>
+      ) : (
+        <li role="none">
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() =>
+              {
+              onSignIn()
+              onClose()
+            }}
+            className={MENU_ITEM_CLASS}
+          >
+            <LogIn className="h-3.5 w-3.5" strokeWidth={1.8} />
+            Sign in
+          </button>
+        </li>
+      )}
     </ul>
   </div>
 )
@@ -175,13 +231,15 @@ const AvatarButton = ({
   menuOpen,
   menuId,
   onToggle,
+  loading,
 }: {
-  initial: string
+  initial: string | null
   imageUrl: string | null
   label: string
   menuOpen: boolean
   menuId: string
   onToggle: () => void
+  loading?: boolean
 }) => (
   <button
     type="button"
@@ -189,7 +247,8 @@ const AvatarButton = ({
     aria-expanded={menuOpen}
     aria-controls={menuId}
     onClick={onToggle}
-    className="focus-custom flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[var(--t-border)] bg-[var(--t-bg-page)] text-[11px] font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+    disabled={loading}
+    className="focus-custom flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[var(--t-border)] bg-[var(--t-bg-page)] text-[11px] font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-not-allowed disabled:opacity-60"
   >
     {imageUrl ? (
       <img
@@ -198,42 +257,15 @@ const AvatarButton = ({
         className="h-full w-full object-cover"
         draggable={false}
       />
-    ) : (
+    ) : initial ? (
       initial
+    ) : (
+      <User
+        className="h-4 w-4 text-[var(--t-text-muted)]"
+        strokeWidth={1.8}
+        aria-hidden
+      />
     )}
-  </button>
-)
-
-const SignInPill = ({
-  onClick,
-  loading,
-}: {
-  onClick: () => void
-  loading: boolean
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={loading}
-    className="focus-custom inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-[var(--t-text-secondary)] transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-not-allowed disabled:opacity-60"
-  >
-    <LogIn className="h-3.5 w-3.5" strokeWidth={1.8} />
-    Sign in
-  </button>
-)
-
-// rendered inline w/ SurfacePill so visual rhythm matches workspace / templates.
-// it's an action (opens a modal), not a route, so it can't share NavLink — but
-// it shares the pill chrome so the row reads as a cohesive set
-const PreferencesPill = ({ onClick }: { onClick: () => void }) => (
-  <button
-    type="button"
-    aria-label="Preferences"
-    onClick={onClick}
-    className="focus-custom inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium text-[var(--t-text-muted)] transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:px-3"
-  >
-    <Settings className="h-3.5 w-3.5" strokeWidth={1.8} />
-    <span className="hidden sm:inline">Preferences</span>
   </button>
 )
 
@@ -282,21 +314,14 @@ export const AppTopNav = () =>
 
   const signedInLabel =
     session.status === 'signed-in'
-      ? (session.user.displayName ?? session.user.name ?? 'Signed in')
+      ? getDisplayName(session.user, 'Signed in', { email: 'omit' })
       : null
   const signedInEmail =
     session.status === 'signed-in' ? (session.user.email ?? null) : null
   const initial =
-    session.status === 'signed-in'
-      ? (
-          session.user.displayName ??
-          session.user.name ??
-          session.user.email ??
-          'U'
-        )
-          .slice(0, 1)
-          .toUpperCase()
-      : 'U'
+    session.status === 'signed-in' ? getUserInitial(session.user) : null
+  const isSignedIn = session.status === 'signed-in'
+  const isLoading = session.status === 'loading'
 
   const handleSignOut = useCallback(() =>
   {
@@ -309,9 +334,7 @@ export const AppTopNav = () =>
         aria-label="Primary navigation"
         className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-start justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5"
       >
-        <div className="pointer-events-auto">
-          <BrandCapsule />
-        </div>
+        <BrandCapsule />
 
         <nav
           aria-label="Surfaces"
@@ -320,57 +343,49 @@ export const AppTopNav = () =>
           {NAV_ITEMS.map((item) => (
             <SurfacePill key={item.id} item={item} />
           ))}
-          <PreferencesPill onClick={() => setPreferencesOpen(true)} />
           <span
             aria-hidden="true"
             className="mx-0.5 h-5 w-px bg-[var(--t-border)] sm:mx-1"
           />
-          {session.status === 'signed-in' ? (
-            <div ref={accountWrapRef} className="relative">
-              <AvatarButton
-                initial={initial}
-                imageUrl={session.user.image ?? null}
-                label={`Account: ${signedInLabel ?? 'signed in'}`}
-                menuOpen={menuOpen}
-                menuId={menuId}
-                onToggle={() => setMenuOpen((v) => !v)}
-              />
-              {menuOpen && signedInLabel && (
-                <GlobalMenu
-                  onClose={closeMenu}
-                  menuId={menuId}
-                  signedInLabel={signedInLabel}
-                  signedInEmail={signedInEmail}
-                  onSignOut={handleSignOut}
-                  onOpenAccount={() => setAccountOpen(true)}
-                />
-              )}
-            </div>
-          ) : (
-            <SignInPill
-              onClick={showSignIn}
-              loading={session.status === 'loading'}
+          <div ref={accountWrapRef} className="relative">
+            <AvatarButton
+              initial={initial}
+              imageUrl={isSignedIn ? (session.user.image ?? null) : null}
+              label={
+                isSignedIn
+                  ? `Account: ${signedInLabel ?? 'signed in'}`
+                  : 'Open account menu'
+              }
+              menuOpen={menuOpen}
+              menuId={menuId}
+              onToggle={() => setMenuOpen((v) => !v)}
+              loading={isLoading}
             />
-          )}
+            {menuOpen && (
+              <GlobalMenu
+                onClose={closeMenu}
+                menuId={menuId}
+                signedIn={isSignedIn}
+                signedInLabel={signedInLabel}
+                signedInEmail={signedInEmail}
+                onSignIn={showSignIn}
+                onSignOut={handleSignOut}
+                onOpenAccount={() => setAccountOpen(true)}
+                onOpenPreferences={() => setPreferencesOpen(true)}
+              />
+            )}
+          </div>
         </nav>
       </header>
       <SignInModal open={signInOpen} onClose={hideSignIn} />
-      {preferencesOpen && (
-        <Suspense fallback={null}>
-          <PreferencesModal
-            open={preferencesOpen}
-            onClose={() => setPreferencesOpen(false)}
-          />
-        </Suspense>
-      )}
-      {accountOpen && (
-        <Suspense fallback={null}>
-          <AccountModal
-            open={accountOpen}
-            onClose={() => setAccountOpen(false)}
-          />
-        </Suspense>
-      )}
+      <LazyModalSlot when={preferencesOpen} section="preferences">
+        {() => (
+          <PreferencesModal open onClose={() => setPreferencesOpen(false)} />
+        )}
+      </LazyModalSlot>
+      <LazyModalSlot when={accountOpen} section="account">
+        {() => <AccountModal open onClose={() => setAccountOpen(false)} />}
+      </LazyModalSlot>
     </>
   )
 }

@@ -343,7 +343,10 @@ export const TemplateDetailPage = () =>
               aria-hidden="true"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-sm font-semibold text-[var(--t-text)]"
             >
-              {detail.author.displayName.slice(0, 1).toUpperCase()}
+              {detail.author.displayName
+                .replace(/^@/, '')
+                .slice(0, 1)
+                .toUpperCase()}
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[var(--t-text)]">

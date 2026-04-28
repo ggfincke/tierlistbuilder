@@ -153,7 +153,10 @@ export const Card = ({
               aria-hidden="true"
               className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-[9px] font-semibold text-[var(--t-text)]"
             >
-              {template.author.displayName.slice(0, 1).toUpperCase()}
+              {template.author.displayName
+                .replace(/^@/, '')
+                .slice(0, 1)
+                .toUpperCase()}
             </span>
             <span className="truncate">{template.author.displayName}</span>
           </div>

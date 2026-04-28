@@ -16,6 +16,7 @@ import type {
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
+import { failInput } from '../../lib/text'
 import {
   paletteIdValidator,
   textStyleIdValidator,
@@ -120,14 +121,6 @@ type UpsertResult =
   | { conflict: { serverRevision: number }; newRevision: null }
 
 // --- phase 1: validate inputs ------------------------------------------------
-
-const failInput = (message: string): never =>
-{
-  throw new ConvexError({
-    code: CONVEX_ERROR_CODES.invalidInput,
-    message,
-  })
-}
 
 const validateInputs = (args: UpsertArgs): void =>
 {

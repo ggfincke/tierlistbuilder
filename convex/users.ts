@@ -1,8 +1,8 @@
 // convex/users.ts
-// * user queries & account-management mutations — getMe, updateProfile,
-// updateHandle, signOutEverywhere, deleteAccount (kicks off phased cascade)
+// user query & account-management mutations
 
-import { ConvexError, v } from 'convex/values'
+import { getAuthSessionId } from '@convex-dev/auth/server'
+import { v, type Infer } from 'convex/values'
 import {
   internalMutation,
   mutation,
@@ -10,63 +10,33 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import { internal } from './_generated/api'
-import type { Id } from './_generated/dataModel'
-import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
-import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import type { Id, TableNames } from './_generated/dataModel'
 import {
-  getCurrentUser,
-  requireCurrentUserId,
-} from './lib/auth'
+  HANDLE_REGEX,
+  MAX_BIO_LENGTH,
+  MAX_DISPLAY_NAME_LENGTH,
+  MAX_HANDLE_LENGTH,
+  MAX_LOCATION_LENGTH,
+  MIN_HANDLE_LENGTH,
+  PRONOUN_OPTION_SET,
+  RESERVED_HANDLES,
+  type PublicUserMe,
+} from '@tierlistbuilder/contracts/platform/user'
+import { getCurrentUser, requireCurrentUserId } from './lib/auth'
 import { BATCH_LIMITS } from './lib/limits'
 import {
+  failInput,
+  normalizeNullableText,
+  normalizeRequiredText,
+} from './lib/text'
+import {
   adjustPublicTemplateCount,
+  deleteTemplateParentRow,
+  isPublicTemplateRow,
   type PublicCategoryDelta,
 } from './marketplace/templates/lib'
 
-const MAX_DISPLAY_NAME_LEN = 64
-const MAX_BIO_LEN = 200
-const MAX_LOCATION_LEN = 80
-const MAX_WEBSITE_LEN = 200
-const MAX_PRONOUNS_LEN = 32
-const MIN_HANDLE_LEN = 3
-const MAX_HANDLE_LEN = 24
-const HANDLE_REGEX = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/
-// reserved at the URL-routing level — these would collide w/ app routes if
-// we let users claim them as @handles. expand as we add public surfaces
-const RESERVED_HANDLES = new Set<string>([
-  'about',
-  'account',
-  'admin',
-  'api',
-  'auth',
-  'board',
-  'boards',
-  'dashboard',
-  'help',
-  'home',
-  'legal',
-  'login',
-  'logout',
-  'marketplace',
-  'me',
-  'preferences',
-  'privacy',
-  'profile',
-  'root',
-  'settings',
-  'signin',
-  'signout',
-  'signup',
-  'support',
-  'system',
-  'template',
-  'templates',
-  'terms',
-  'u',
-  'user',
-  'users',
-  'workspace',
-])
+const RESERVED_HANDLE_SET = new Set<string>(RESERVED_HANDLES)
 const CASCADE_PAGE_SIZE = BATCH_LIMITS.cascadeDelete
 
 // validator for getMe — public projection excluding operator diagnostics &
@@ -85,9 +55,20 @@ const publicUserMeValidator = v.object({
   handle: v.union(v.string(), v.null()),
   bio: v.union(v.string(), v.null()),
   location: v.union(v.string(), v.null()),
-  website: v.union(v.string(), v.null()),
   pronouns: v.union(v.string(), v.null()),
 })
+
+// drift guard: PublicUserMe (TS contract) & the runtime validator above must
+// stay structurally identical. adding a field to one without the other flips
+// this to `false`, failing compilation
+type _PublicUserMeMatchesValidator =
+  PublicUserMe extends Infer<typeof publicUserMeValidator>
+    ? Infer<typeof publicUserMeValidator> extends PublicUserMe
+      ? true
+      : false
+    : false
+const _publicUserMeContractCheck: _PublicUserMeMatchesValidator = true
+void _publicUserMeContractCheck
 
 // return the caller's public profile, or null if unauthenticated.
 // narrower than Doc<'users'> to keep internal bookkeeping off the wire
@@ -114,24 +95,19 @@ export const getMe = query({
       handle: user.handle ?? null,
       bio: user.bio ?? null,
       location: user.location ?? null,
-      website: user.website ?? null,
       pronouns: user.pronouns ?? null,
     }
   },
 })
 
-// update any subset of the caller's profile fields. omit a field to leave
-// it unchanged; pass empty string to clear (handle/bio/location/website/
-// pronouns). displayName cannot be cleared. handle is normalized lowercase
-// & checked for regex/reserved/uniqueness; failing any of those rejects the
-// whole patch (so other fields don't get half-applied)
+// patch caller profile fields. omit a field to keep it; '' clears nullable
+// fields. handle is lowercased, reserved/unique-checked, & rejects atomically
 export const updateProfile = mutation({
   args: {
     displayName: v.optional(v.string()),
     handle: v.optional(v.string()),
     bio: v.optional(v.string()),
     location: v.optional(v.string()),
-    website: v.optional(v.string()),
     pronouns: v.optional(v.string()),
   },
   returns: v.null(),
@@ -143,104 +119,47 @@ export const updateProfile = mutation({
       handle: string | undefined
       bio: string | undefined
       location: string | undefined
-      website: string | undefined
       pronouns: string | undefined
       updatedAt: number
     }> = {}
 
     if (args.displayName !== undefined)
     {
-      const trimmed = args.displayName.trim()
-      if (trimmed.length === 0)
-      {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.invalidInput,
-          message: 'display name cannot be empty',
-        })
-      }
-      if (trimmed.length > MAX_DISPLAY_NAME_LEN)
-      {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.invalidInput,
-          message: `display name must be at most ${MAX_DISPLAY_NAME_LEN} characters`,
-        })
-      }
-      patch.displayName = trimmed
+      patch.displayName = normalizeRequiredText(
+        args.displayName,
+        MAX_DISPLAY_NAME_LENGTH,
+        'display name'
+      )
     }
 
     if (args.bio !== undefined)
     {
-      const trimmed = args.bio.trim()
-      if (trimmed.length > MAX_BIO_LEN)
-      {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.invalidInput,
-          message: `bio must be at most ${MAX_BIO_LEN} characters`,
-        })
-      }
-      patch.bio = trimmed.length === 0 ? undefined : trimmed
+      patch.bio =
+        normalizeNullableText(args.bio, MAX_BIO_LENGTH, 'bio') ?? undefined
     }
 
     if (args.location !== undefined)
     {
-      const trimmed = args.location.trim()
-      if (trimmed.length > MAX_LOCATION_LEN)
-      {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.invalidInput,
-          message: `location must be at most ${MAX_LOCATION_LEN} characters`,
-        })
-      }
-      patch.location = trimmed.length === 0 ? undefined : trimmed
-    }
-
-    if (args.website !== undefined)
-    {
-      const trimmed = args.website.trim()
-      if (trimmed.length > MAX_WEBSITE_LEN)
-      {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.invalidInput,
-          message: `website must be at most ${MAX_WEBSITE_LEN} characters`,
-        })
-      }
-      if (trimmed.length > 0)
-      {
-        // accept bare domains too — many users will type "example.com" w/o
-        // the scheme. we prepend https:// before parsing & save the original
-        const candidate = /^https?:\/\//i.test(trimmed)
-          ? trimmed
-          : `https://${trimmed}`
-        try
-        {
-          const url = new URL(candidate)
-          if (url.protocol !== 'http:' && url.protocol !== 'https:')
-          {
-            throw new Error('non-http protocol')
-          }
-        }
-        catch
-        {
-          throw new ConvexError({
-            code: CONVEX_ERROR_CODES.invalidInput,
-            message: 'website must be a valid http(s) URL',
-          })
-        }
-      }
-      patch.website = trimmed.length === 0 ? undefined : trimmed
+      patch.location =
+        normalizeNullableText(args.location, MAX_LOCATION_LENGTH, 'location') ??
+        undefined
     }
 
     if (args.pronouns !== undefined)
     {
       const trimmed = args.pronouns.trim()
-      if (trimmed.length > MAX_PRONOUNS_LEN)
+      if (trimmed.length === 0)
       {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.invalidInput,
-          message: `pronouns must be at most ${MAX_PRONOUNS_LEN} characters`,
-        })
+        patch.pronouns = undefined
       }
-      patch.pronouns = trimmed.length === 0 ? undefined : trimmed
+      else
+      {
+        if (!PRONOUN_OPTION_SET.has(trimmed))
+        {
+          failInput('pronouns must be one of the supported options')
+        }
+        patch.pronouns = trimmed
+      }
     }
 
     if (args.handle !== undefined)
@@ -253,29 +172,23 @@ export const updateProfile = mutation({
       else
       {
         if (
-          normalized.length < MIN_HANDLE_LEN ||
-          normalized.length > MAX_HANDLE_LEN
+          normalized.length < MIN_HANDLE_LENGTH ||
+          normalized.length > MAX_HANDLE_LENGTH
         )
         {
-          throw new ConvexError({
-            code: CONVEX_ERROR_CODES.invalidInput,
-            message: `handle must be ${MIN_HANDLE_LEN}-${MAX_HANDLE_LEN} characters`,
-          })
+          failInput(
+            `handle must be ${MIN_HANDLE_LENGTH}-${MAX_HANDLE_LENGTH} characters`
+          )
         }
         if (!HANDLE_REGEX.test(normalized))
         {
-          throw new ConvexError({
-            code: CONVEX_ERROR_CODES.invalidInput,
-            message:
-              'handle must use lowercase letters, digits, _ or -; cannot start or end with - or _',
-          })
+          failInput(
+            'handle must use lowercase letters, digits, _ or -; cannot start or end with - or _'
+          )
         }
-        if (RESERVED_HANDLES.has(normalized))
+        if (RESERVED_HANDLE_SET.has(normalized))
         {
-          throw new ConvexError({
-            code: CONVEX_ERROR_CODES.invalidInput,
-            message: 'that handle is reserved',
-          })
+          failInput('that handle is reserved')
         }
         const existing = await ctx.db
           .query('users')
@@ -283,10 +196,7 @@ export const updateProfile = mutation({
           .first()
         if (existing && existing._id !== userId)
         {
-          throw new ConvexError({
-            code: CONVEX_ERROR_CODES.invalidInput,
-            message: 'that handle is taken',
-          })
+          failInput('that handle is taken')
         }
         patch.handle = normalized
       }
@@ -302,37 +212,33 @@ export const updateProfile = mutation({
   },
 })
 
-// delete every authSession for the caller (and their refresh tokens).
-// the current session is among them, so the next request from any client
-// will get rejected — including the one that just ran this mutation
+// revoke caller auth sessions before returning
 export const signOutEverywhere = mutation({
   args: {},
   returns: v.null(),
   handler: async (ctx): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
-    await deleteUserSessionsAndTokens(ctx, userId)
+    await drainAuthSessionCleanup(
+      ctx,
+      userId,
+      await getInitialAuthSessionState(ctx)
+    )
     return null
   },
 })
 
-// nuke the caller's account. inline: drop auth records so the user is locked
-// out immediately. then schedule the (potentially heavy) data cascade in a
-// background mutation that paginates through each owned table
+// delete caller account data through bounded auth & owned-data phases
 export const deleteAccount = mutation({
   args: {},
   returns: v.null(),
   handler: async (ctx): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
+    const sessionState = await getInitialAuthSessionState(ctx)
 
-    // lock the user out across every device first. authAccounts go too — w/o
-    // them the password provider can't re-establish a session for the same email
-    await deleteUserSessionsAndTokens(ctx, userId)
-    await deleteUserAccountsAndCodes(ctx, userId)
-
-    // hand off to the phased cascade — boards/templates/etc. may exceed a
-    // single mutation's write budget, so each phase reschedules itself
+    await drainAuthSessionCleanup(ctx, userId, sessionState)
+    await drainAuthAccountCleanup(ctx, userId, { cursor: null })
     await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, {
       userId,
       phase: 'boards',
@@ -342,186 +248,252 @@ export const deleteAccount = mutation({
   },
 })
 
-// phased background cascade for owned data. each phase paginates one
-// table; on isDone it transitions to the next phase w/ a fresh cursor.
-// finalize phase deletes the user record itself
-type CascadePhase =
-  | 'boards'
-  | 'templates'
-  | 'tierPresets'
-  | 'shortLinks'
-  | 'mediaAssets'
-  | 'userSettings'
-  | 'finalize'
+const cascadePhaseValidator = v.union(
+  v.literal('authSessions'),
+  v.literal('authAccounts'),
+  v.literal('boards'),
+  v.literal('templates'),
+  v.literal('tierPresets'),
+  v.literal('shortLinks'),
+  v.literal('mediaAssets'),
+  v.literal('userSettings')
+)
+type CascadePhase = Infer<typeof cascadePhaseValidator>
 
 const NEXT_PHASE: Record<CascadePhase, CascadePhase | null> = {
+  authSessions: 'authAccounts',
+  authAccounts: 'boards',
   boards: 'templates',
   templates: 'tierPresets',
   tierPresets: 'shortLinks',
   shortLinks: 'mediaAssets',
   mediaAssets: 'userSettings',
-  userSettings: 'finalize',
-  finalize: null,
+  userSettings: null,
 }
 
-export const cascadeDeleteUserData = internalMutation({
+interface AuthSessionCleanupState
+{
+  cursor: string | null
+  targetSessionId?: Id<'authSessions'>
+  tokenCursor?: string | null
+}
+
+interface AuthAccountCleanupState
+{
+  cursor: string | null
+  targetAccountId?: Id<'authAccounts'>
+  codeCursor?: string | null
+}
+
+type CleanupStep<TState> = { isDone: true } | ({ isDone: false } & TState)
+
+interface CascadeMutationArgs
+{
+  userId: Id<'users'>
+  phase: CascadePhase
+  cursor: string | null
+  targetSessionId?: Id<'authSessions'>
+  tokenCursor?: string | null
+  targetAccountId?: Id<'authAccounts'>
+  codeCursor?: string | null
+}
+
+type CascadePhaseHandler = (
+  ctx: MutationCtx,
+  args: CascadeMutationArgs
+) => Promise<null>
+
+export const cleanupAuthSessions = internalMutation({
   args: {
     userId: v.id('users'),
-    phase: v.union(
-      v.literal('boards'),
-      v.literal('templates'),
-      v.literal('tierPresets'),
-      v.literal('shortLinks'),
-      v.literal('mediaAssets'),
-      v.literal('userSettings'),
-      v.literal('finalize')
-    ),
     cursor: v.union(v.string(), v.null()),
+    targetSessionId: v.optional(v.id('authSessions')),
+    tokenCursor: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
-    const { userId, phase, cursor } = args
-
-    if (phase === 'boards')
+    const result = await deleteAuthSessionCleanupStep(ctx, args.userId, {
+      cursor: args.cursor,
+      targetSessionId: args.targetSessionId,
+      tokenCursor: args.tokenCursor,
+    })
+    if (!result.isDone)
     {
-      // schedule cascadeDeleteBoard for each owned board (active or soft-deleted)
-      const page = await ctx.db
-        .query('boards')
-        .withIndex('byOwnerDeletedUpdatedAt', (q) => q.eq('ownerId', userId))
-        .paginate({ numItems: CASCADE_PAGE_SIZE, cursor })
-      await Promise.all(
-        page.page.map((board) =>
-          ctx.scheduler.runAfter(
-            0,
-            internal.workspace.boards.internal.cascadeDeleteBoard,
-            { boardId: board._id }
-          )
-        )
-      )
-      return await advanceCascade(ctx, userId, page, 'boards')
-    }
-
-    if (phase === 'templates')
-    {
-      const page = await ctx.db
-        .query('templates')
-        .withIndex('byAuthorUpdatedAt', (q) => q.eq('authorId', userId))
-        .paginate({ numItems: CASCADE_PAGE_SIZE, cursor })
-
-      // accumulate per-category deltas for marketplaceStats — only public,
-      // currently-published rows count toward the displayed totals
-      const deltasByCategory = new Map<string, number>()
-      for (const template of page.page)
-      {
-        if (
-          template.visibility === 'public' &&
-          template.unpublishedAt === null
-        )
-        {
-          deltasByCategory.set(
-            template.category,
-            (deltasByCategory.get(template.category) ?? 0) - 1
-          )
-        }
-
-        // cascade the template's own children (items + tag rows) before the
-        // template row itself
-        const items = await ctx.db
-          .query('templateItems')
-          .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-          .collect()
-        await Promise.all(items.map((item) => ctx.db.delete(item._id)))
-
-        const tagRows = await ctx.db
-          .query('templateTags')
-          .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-          .collect()
-        await Promise.all(tagRows.map((row) => ctx.db.delete(row._id)))
-
-        await ctx.db.delete(template._id)
-      }
-
-      if (deltasByCategory.size > 0)
-      {
-        // category strings came directly from template rows whose validator
-        // is templateCategoryValidator — safe to round-trip through the map
-        await adjustPublicTemplateCount(
-          ctx,
-          [...deltasByCategory.entries()].map(([category, delta]) => ({
-            category: category as PublicCategoryDelta['category'],
-            delta,
-          }))
-        )
-      }
-
-      return await advanceCascade(ctx, userId, page, 'templates')
-    }
-
-    if (phase === 'tierPresets')
-    {
-      const page = await ctx.db
-        .query('tierPresets')
-        .withIndex('byOwner', (q) => q.eq('ownerId', userId))
-        .paginate({ numItems: CASCADE_PAGE_SIZE, cursor })
-      await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
-      return await advanceCascade(ctx, userId, page, 'tierPresets')
-    }
-
-    if (phase === 'shortLinks')
-    {
-      const page = await ctx.db
-        .query('shortLinks')
-        .withIndex('byOwnerAndExpiresAt', (q) => q.eq('ownerId', userId))
-        .paginate({ numItems: CASCADE_PAGE_SIZE, cursor })
-      // snapshot blobs orphaned in _storage; the existing storage GC cron
-      // sweeps them. cheaper than O(n) inline storage.delete calls
-      await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
-      return await advanceCascade(ctx, userId, page, 'shortLinks')
-    }
-
-    if (phase === 'mediaAssets')
-    {
-      const page = await ctx.db
-        .query('mediaAssets')
-        .withIndex('byOwnerAndExternalId', (q) => q.eq('ownerId', userId))
-        .paginate({ numItems: CASCADE_PAGE_SIZE, cursor })
-      // same logic — daily gcOrphanedMediaAssets handles the storage blobs
-      await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
-      return await advanceCascade(ctx, userId, page, 'mediaAssets')
-    }
-
-    if (phase === 'userSettings')
-    {
-      const settings = await ctx.db
-        .query('userSettings')
-        .withIndex('byUser', (q) => q.eq('userId', userId))
-        .unique()
-      if (settings)
-      {
-        await ctx.db.delete(settings._id)
-      }
-      await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, {
-        userId,
-        phase: 'finalize',
-        cursor: null,
-      })
-      return null
-    }
-
-    // finalize — delete the user row. avatar storage blob (if any) is left
-    // for the storage GC cron to reap, same as media assets above
-    const user = await ctx.db.get(userId)
-    if (user)
-    {
-      await ctx.db.delete(userId)
+      await scheduleAuthSessionCleanup(ctx, args.userId, result)
     }
     return null
   },
 })
 
-// rotate to the next page of the same phase, or transition to the next phase
-// once isDone. phaseOrder is fixed; finalize handles its own scheduling above
+const CASCADE_PHASE_HANDLERS: Record<CascadePhase, CascadePhaseHandler> = {
+  authSessions: async (ctx, args) => await handleAuthSessionsPhase(ctx, args),
+  authAccounts: async (ctx, args) => await handleAuthAccountsPhase(ctx, args),
+  boards: async (ctx, args) => await handleBoardsPhase(ctx, args),
+  templates: async (ctx, args) => await handleTemplatesPhase(ctx, args),
+  tierPresets: async (ctx, args) => await handleTierPresetsPhase(ctx, args),
+  shortLinks: async (ctx, args) => await handleShortLinksPhase(ctx, args),
+  mediaAssets: async (ctx, args) => await handleMediaAssetsPhase(ctx, args),
+  userSettings: async (ctx, args) => await handleUserSettingsPhase(ctx, args),
+}
+
+export const cascadeDeleteUserData = internalMutation({
+  args: {
+    userId: v.id('users'),
+    phase: cascadePhaseValidator,
+    cursor: v.union(v.string(), v.null()),
+    targetSessionId: v.optional(v.id('authSessions')),
+    tokenCursor: v.optional(v.union(v.string(), v.null())),
+    targetAccountId: v.optional(v.id('authAccounts')),
+    codeCursor: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    return await CASCADE_PHASE_HANDLERS[args.phase](ctx, args)
+  },
+})
+
+const handleAuthSessionsPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const result = await deleteAuthSessionCleanupStep(ctx, args.userId, {
+    cursor: args.cursor,
+    targetSessionId: args.targetSessionId,
+    tokenCursor: args.tokenCursor,
+  })
+  if (!result.isDone)
+  {
+    await scheduleCascadeAuthSessions(ctx, args.userId, result)
+    return null
+  }
+  return await advanceCascadePhase(ctx, args.userId, 'authSessions')
+}
+
+const handleAuthAccountsPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const result = await deleteAuthAccountCleanupStep(ctx, args.userId, {
+    cursor: args.cursor,
+    targetAccountId: args.targetAccountId,
+    codeCursor: args.codeCursor,
+  })
+  if (!result.isDone)
+  {
+    await scheduleCascadeAuthAccounts(ctx, args.userId, result)
+    return null
+  }
+  return await advanceCascadePhase(ctx, args.userId, 'authAccounts')
+}
+
+const handleBoardsPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const page = await ctx.db
+    .query('boards')
+    .withIndex('byOwnerDeletedUpdatedAt', (q) => q.eq('ownerId', args.userId))
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
+  await Promise.all(
+    page.page.map((board) =>
+      ctx.scheduler.runAfter(
+        0,
+        internal.workspace.boards.internal.cascadeDeleteBoard,
+        { boardId: board._id }
+      )
+    )
+  )
+  return await advanceCascade(ctx, args.userId, page, 'boards')
+}
+
+const handleTemplatesPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const page = await ctx.db
+    .query('templates')
+    .withIndex('byAuthorUpdatedAt', (q) => q.eq('authorId', args.userId))
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
+
+  const deltasByCategory = new Map<string, number>()
+  for (const template of page.page)
+  {
+    if (isPublicTemplateRow(template))
+    {
+      deltasByCategory.set(
+        template.category,
+        (deltasByCategory.get(template.category) ?? 0) - 1
+      )
+    }
+  }
+
+  if (deltasByCategory.size > 0)
+  {
+    await adjustPublicTemplateCount(
+      ctx,
+      [...deltasByCategory.entries()].map(([category, delta]) => ({
+        category: category as PublicCategoryDelta['category'],
+        delta,
+      }))
+    )
+  }
+
+  await Promise.all(
+    page.page.map((template) => deleteTemplateParentRow(ctx, template))
+  )
+
+  await Promise.all(
+    page.page.map((template) =>
+      ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal.cascadeDeleteTemplate,
+        { templateId: template._id }
+      )
+    )
+  )
+  return await advanceCascade(ctx, args.userId, page, 'templates')
+}
+
+const handleTierPresetsPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const page = await ctx.db
+    .query('tierPresets')
+    .withIndex('byOwner', (q) => q.eq('ownerId', args.userId))
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
+  return await deletePageRowsAndAdvance(ctx, args.userId, page, 'tierPresets')
+}
+
+const handleShortLinksPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const page = await ctx.db
+    .query('shortLinks')
+    .withIndex('byOwnerAndExpiresAt', (q) => q.eq('ownerId', args.userId))
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
+  return await deletePageRowsAndAdvance(ctx, args.userId, page, 'shortLinks')
+}
+
+const handleMediaAssetsPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const page = await ctx.db
+    .query('mediaAssets')
+    .withIndex('byOwnerAndExternalId', (q) => q.eq('ownerId', args.userId))
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
+  return await deletePageRowsAndAdvance(ctx, args.userId, page, 'mediaAssets')
+}
+
+const handleUserSettingsPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const settings = await ctx.db
+    .query('userSettings')
+    .withIndex('byUser', (q) => q.eq('userId', args.userId))
+    .unique()
+  if (settings)
+  {
+    await ctx.db.delete(settings._id)
+  }
+
+  const user = await ctx.db.get(args.userId)
+  if (user)
+  {
+    await ctx.db.delete(args.userId)
+  }
+  return null
+}
+
 const advanceCascade = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
@@ -539,6 +511,15 @@ const advanceCascade = async (
     return null
   }
 
+  return await advanceCascadePhase(ctx, userId, currentPhase)
+}
+
+const advanceCascadePhase = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  currentPhase: CascadePhase
+): Promise<null> =>
+{
   const next = NEXT_PHASE[currentPhase]
   if (next === null)
   {
@@ -552,50 +533,290 @@ const advanceCascade = async (
   return null
 }
 
-// auth lib helpers ---
-
-// drop every authSession for a user. for each session, sweep its refresh
-// tokens too. authVerifiers are short-lived OAuth/PKCE state w/ no userId
-// link so we let them expire naturally
-const deleteUserSessionsAndTokens = async (
+const deletePageRowsAndAdvance = async <TableName extends TableNames>(
   ctx: MutationCtx,
-  userId: Id<'users'>
+  userId: Id<'users'>,
+  page: {
+    page: Array<{ _id: Id<TableName> }>
+    isDone: boolean
+    continueCursor: string
+  },
+  currentPhase: CascadePhase
+): Promise<null> =>
+{
+  await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
+  return await advanceCascade(ctx, userId, page, currentPhase)
+}
+
+const getInitialAuthSessionState = async (
+  ctx: MutationCtx
+): Promise<AuthSessionCleanupState> =>
+{
+  const targetSessionId = await getAuthSessionId(ctx)
+  return targetSessionId
+    ? { cursor: null, targetSessionId, tokenCursor: null }
+    : { cursor: null }
+}
+
+const drainAuthSessionCleanup = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  state: AuthSessionCleanupState
 ): Promise<void> =>
 {
-  const sessions = await ctx.db
-    .query('authSessions')
-    .withIndex('userId', (q) => q.eq('userId', userId))
-    .collect()
-  for (const session of sessions)
+  let result = await deleteAuthSessionCleanupStep(ctx, userId, state)
+  while (!result.isDone)
   {
-    const tokens = await ctx.db
-      .query('authRefreshTokens')
-      .withIndex('sessionId', (q) => q.eq('sessionId', session._id))
-      .collect()
-    await Promise.all(tokens.map((t) => ctx.db.delete(t._id)))
-    await ctx.db.delete(session._id)
+    result = await deleteAuthSessionCleanupStep(ctx, userId, result)
   }
 }
 
-// drop every authAccount for a user (per-provider login link), plus any
-// outstanding verification codes. without this the same email could re-claim
-// the user record on next sign-in
-const deleteUserAccountsAndCodes = async (
+const drainAuthAccountCleanup = async (
   ctx: MutationCtx,
-  userId: Id<'users'>
+  userId: Id<'users'>,
+  state: AuthAccountCleanupState
 ): Promise<void> =>
 {
-  const accounts = await ctx.db
-    .query('authAccounts')
-    .withIndex('userIdAndProvider', (q) => q.eq('userId', userId))
-    .collect()
-  for (const account of accounts)
+  let result = await deleteAuthAccountCleanupStep(ctx, userId, state)
+  while (!result.isDone)
   {
-    const codes = await ctx.db
-      .query('authVerificationCodes')
-      .withIndex('accountId', (q) => q.eq('accountId', account._id))
-      .collect()
-    await Promise.all(codes.map((c) => ctx.db.delete(c._id)))
-    await ctx.db.delete(account._id)
+    result = await deleteAuthAccountCleanupStep(ctx, userId, result)
   }
+}
+
+const scheduleAuthSessionCleanup = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  state: AuthSessionCleanupState
+): Promise<void> =>
+{
+  const args: {
+    userId: Id<'users'>
+    cursor: string | null
+    targetSessionId?: Id<'authSessions'>
+    tokenCursor?: string | null
+  } = {
+    userId,
+    cursor: state.cursor,
+  }
+  if (state.targetSessionId !== undefined)
+  {
+    args.targetSessionId = state.targetSessionId
+  }
+  if (state.tokenCursor !== undefined)
+  {
+    args.tokenCursor = state.tokenCursor
+  }
+  await ctx.scheduler.runAfter(0, internal.users.cleanupAuthSessions, args)
+}
+
+const scheduleCascadeAuthSessions = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  state: AuthSessionCleanupState
+): Promise<void> =>
+{
+  const args: {
+    userId: Id<'users'>
+    phase: 'authSessions'
+    cursor: string | null
+    targetSessionId?: Id<'authSessions'>
+    tokenCursor?: string | null
+  } = {
+    userId,
+    phase: 'authSessions',
+    cursor: state.cursor,
+  }
+  if (state.targetSessionId !== undefined)
+  {
+    args.targetSessionId = state.targetSessionId
+  }
+  if (state.tokenCursor !== undefined)
+  {
+    args.tokenCursor = state.tokenCursor
+  }
+  await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, args)
+}
+
+const scheduleCascadeAuthAccounts = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  state: AuthAccountCleanupState
+): Promise<void> =>
+{
+  const args: {
+    userId: Id<'users'>
+    phase: 'authAccounts'
+    cursor: string | null
+    targetAccountId?: Id<'authAccounts'>
+    codeCursor?: string | null
+  } = {
+    userId,
+    phase: 'authAccounts',
+    cursor: state.cursor,
+  }
+  if (state.targetAccountId !== undefined)
+  {
+    args.targetAccountId = state.targetAccountId
+  }
+  if (state.codeCursor !== undefined)
+  {
+    args.codeCursor = state.codeCursor
+  }
+  await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, args)
+}
+
+const deleteAuthSessionCleanupStep = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  state: AuthSessionCleanupState
+): Promise<CleanupStep<AuthSessionCleanupState>> =>
+{
+  let session = state.targetSessionId
+    ? await ctx.db.get(state.targetSessionId)
+    : null
+  let cursor = state.cursor
+  let hasMoreSessions = state.targetSessionId !== undefined
+
+  if (session && session.userId !== userId)
+  {
+    return { isDone: false, cursor }
+  }
+
+  const targetSessionId = state.targetSessionId
+  if (!session && targetSessionId)
+  {
+    const tokenPage = await ctx.db
+      .query('authRefreshTokens')
+      .withIndex('sessionId', (q) => q.eq('sessionId', targetSessionId))
+      .paginate({
+        numItems: CASCADE_PAGE_SIZE,
+        cursor: state.tokenCursor ?? null,
+      })
+    await Promise.all(tokenPage.page.map((token) => ctx.db.delete(token._id)))
+
+    if (!tokenPage.isDone)
+    {
+      return {
+        isDone: false,
+        cursor,
+        targetSessionId,
+        tokenCursor: tokenPage.continueCursor,
+      }
+    }
+    return { isDone: false, cursor }
+  }
+
+  if (!session)
+  {
+    const page = await ctx.db
+      .query('authSessions')
+      .withIndex('userId', (q) => q.eq('userId', userId))
+      .paginate({ numItems: 1, cursor })
+    if (page.page.length === 0)
+    {
+      return { isDone: true }
+    }
+    session = page.page[0]
+    cursor = page.continueCursor
+    hasMoreSessions = !page.isDone
+  }
+
+  const tokenPage = await ctx.db
+    .query('authRefreshTokens')
+    .withIndex('sessionId', (q) => q.eq('sessionId', session._id))
+    .paginate({
+      numItems: CASCADE_PAGE_SIZE,
+      cursor: state.tokenCursor ?? null,
+    })
+  await Promise.all(tokenPage.page.map((token) => ctx.db.delete(token._id)))
+
+  if (!tokenPage.isDone)
+  {
+    return {
+      isDone: false,
+      cursor,
+      targetSessionId: session._id,
+      tokenCursor: tokenPage.continueCursor,
+    }
+  }
+
+  await ctx.db.delete(session._id)
+  return hasMoreSessions ? { isDone: false, cursor } : { isDone: true }
+}
+
+const deleteAuthAccountCleanupStep = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  state: AuthAccountCleanupState
+): Promise<CleanupStep<AuthAccountCleanupState>> =>
+{
+  let account = state.targetAccountId
+    ? await ctx.db.get(state.targetAccountId)
+    : null
+  let cursor = state.cursor
+  let hasMoreAccounts = state.targetAccountId !== undefined
+
+  if (account && account.userId !== userId)
+  {
+    return { isDone: false, cursor }
+  }
+
+  const targetAccountId = state.targetAccountId
+  if (!account && targetAccountId)
+  {
+    const codePage = await ctx.db
+      .query('authVerificationCodes')
+      .withIndex('accountId', (q) => q.eq('accountId', targetAccountId))
+      .paginate({
+        numItems: CASCADE_PAGE_SIZE,
+        cursor: state.codeCursor ?? null,
+      })
+    await Promise.all(codePage.page.map((code) => ctx.db.delete(code._id)))
+
+    if (!codePage.isDone)
+    {
+      return {
+        isDone: false,
+        cursor,
+        targetAccountId,
+        codeCursor: codePage.continueCursor,
+      }
+    }
+    return { isDone: false, cursor }
+  }
+
+  if (!account)
+  {
+    const page = await ctx.db
+      .query('authAccounts')
+      .withIndex('userIdAndProvider', (q) => q.eq('userId', userId))
+      .paginate({ numItems: 1, cursor })
+    if (page.page.length === 0)
+    {
+      return { isDone: true }
+    }
+    account = page.page[0]
+    cursor = page.continueCursor
+    hasMoreAccounts = !page.isDone
+  }
+
+  const codePage = await ctx.db
+    .query('authVerificationCodes')
+    .withIndex('accountId', (q) => q.eq('accountId', account._id))
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: state.codeCursor ?? null })
+  await Promise.all(codePage.page.map((code) => ctx.db.delete(code._id)))
+
+  if (!codePage.isDone)
+  {
+    return {
+      isDone: false,
+      cursor,
+      targetAccountId: account._id,
+      codeCursor: codePage.continueCursor,
+    }
+  }
+
+  await ctx.db.delete(account._id)
+  return hasMoreAccounts ? { isDone: false, cursor } : { isDone: true }
 }

@@ -5,7 +5,7 @@
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
-import { useId, useState } from 'react'
+import { useId, useState, type Dispatch, type SetStateAction } from 'react'
 import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
@@ -19,24 +19,16 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { toast } from '~/shared/notifications/useToastStore'
+import { formatAbsoluteDate } from '~/shared/lib/dateFormatting'
 import { logger } from '~/shared/lib/logger'
+import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 interface RecentlyDeletedModalProps
 {
   open: boolean
   onClose: () => void
   enabled: boolean
-}
-
-const formatPermanentDeleteDate = (deletedAt: number): string =>
-{
-  const target = new Date(deletedAt + BOARD_TOMBSTONE_RETENTION_MS)
-  return target.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year:
-      target.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
-  })
 }
 
 // map RestoreBoardError codes to short user-facing text. keeps raw external
@@ -65,6 +57,37 @@ interface PendingPermanentDelete
   title: string
 }
 
+type BulkAction = 'restore' | 'delete'
+type IdSetSetter = Dispatch<SetStateAction<Set<string>>>
+
+const BULK_ACTION_CONCURRENCY = 8
+
+interface BulkActionDef
+{
+  run: (externalId: string) => Promise<unknown>
+  successVerb: string
+  partialVerb: string
+  errorVerb: string
+  logLabel: string
+}
+
+const BULK_ACTION_DEFS: Record<BulkAction, BulkActionDef> = {
+  restore: {
+    run: restoreDeletedBoardSession,
+    successVerb: 'Restored',
+    partialVerb: 'Restored',
+    errorVerb: 'restore',
+    logLabel: 'Restore all failed:',
+  },
+  delete: {
+    run: permanentlyDeleteDeletedBoardSession,
+    successVerb: 'Permanently deleted',
+    partialVerb: 'Deleted',
+    errorVerb: 'permanently delete',
+    logLabel: 'Delete all failed:',
+  },
+}
+
 export const RecentlyDeletedModal = ({
   open,
   onClose,
@@ -81,16 +104,11 @@ export const RecentlyDeletedModal = ({
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [confirmDelete, setConfirmDelete] =
     useState<PendingPermanentDelete | null>(null)
-  // bulk-action lock — only one bulk pass at a time, & per-row buttons stay
-  // disabled while a bulk pass is running (their externalId is also stuffed
-  // into restoringIds/deletingIds, which the row already keys off of)
-  const [bulkPending, setBulkPending] = useState<'restore' | 'delete' | null>(
-    null
-  )
+  const [bulkPending, setBulkPending] = useState<BulkAction | null>(null)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
 
   const updateIdSet = (
-    setter: typeof setRestoringIds,
+    setter: IdSetSetter,
     externalId: string,
     action: 'add' | 'delete'
   ): void =>
@@ -103,6 +121,24 @@ export const RecentlyDeletedModal = ({
       const next = new Set(current)
       if (action === 'add') next.add(externalId)
       else next.delete(externalId)
+      return next
+    })
+  }
+
+  const updateIdSets = (
+    setter: IdSetSetter,
+    externalIds: readonly string[],
+    action: 'add' | 'delete'
+  ): void =>
+  {
+    setter((current) =>
+    {
+      const next = new Set(current)
+      for (const id of externalIds)
+      {
+        if (action === 'add') next.add(id)
+        else next.delete(id)
+      }
       return next
     })
   }
@@ -145,7 +181,7 @@ export const RecentlyDeletedModal = ({
     setConfirmDelete(board)
   }
 
-  const handleRestoreAll = async (): Promise<void> =>
+  const runBulkAction = async (action: BulkAction): Promise<void> =>
   {
     if (
       bulkPending !== null ||
@@ -155,108 +191,62 @@ export const RecentlyDeletedModal = ({
     {
       return
     }
-    setBulkPending('restore')
+    setBulkPending(action)
     const targets = deletedBoards.map((b) => b.externalId)
-    setRestoringIds((current) =>
+    const def = BULK_ACTION_DEFS[action]
+    const setter = action === 'restore' ? setRestoringIds : setDeletingIds
+
+    try
     {
-      const next = new Set(current)
-      for (const id of targets) next.add(id)
-      return next
-    })
-    // Promise.allSettled so a single failure doesn't abandon the rest. skip
-    // post-restore board switching on bulk — picking "the last one" is
-    // arbitrary and yanking the user into a board they didn't choose is rude
-    const results = await Promise.allSettled(
-      targets.map((id) => restoreDeletedBoardSession(id))
-    )
-    const succeeded = results.filter((r) => r.status === 'fulfilled').length
-    const failed = results.length - succeeded
-    if (failed === 0)
-    {
-      toast(`Restored ${succeeded} board${succeeded === 1 ? '' : 's'}.`,
-        'success')
-    }
-    else if (succeeded === 0)
-    {
-      const firstError = results.find((r) => r.status === 'rejected')
-      logger.warn(
-        'sync',
-        'Restore all failed:',
-        firstError?.status === 'rejected' ? firstError.reason : undefined
+      updateIdSets(setter, targets, 'add')
+      const results = await mapAsyncLimitSettled(
+        targets,
+        BULK_ACTION_CONCURRENCY,
+        async (id) =>
+        {
+          await def.run(id)
+        }
       )
-      toast('Failed to restore boards.', 'error')
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length
+      const failed = results.length - succeeded
+      if (failed === 0)
+      {
+        toast(
+          `${def.successVerb} ${formatCountedWord(succeeded, 'board')}.`,
+          'success'
+        )
+      }
+      else if (succeeded === 0)
+      {
+        const firstError = results.find((r) => r.status === 'rejected')
+        logger.warn(
+          'sync',
+          def.logLabel,
+          firstError?.status === 'rejected' ? firstError.reason : undefined
+        )
+        toast(`Failed to ${def.errorVerb} boards.`, 'error')
+      }
+      else
+      {
+        toast(
+          `${def.partialVerb} ${succeeded} of ${results.length} boards. ${failed} failed.`,
+          'error'
+        )
+      }
     }
-    else
+    finally
     {
-      toast(
-        `Restored ${succeeded} of ${results.length} boards. ${failed} failed.`,
-        'error'
-      )
+      updateIdSets(setter, targets, 'delete')
+      setBulkPending(null)
     }
-    setRestoringIds((current) =>
-    {
-      const next = new Set(current)
-      for (const id of targets) next.delete(id)
-      return next
-    })
-    setBulkPending(null)
   }
+
+  const handleRestoreAll = (): Promise<void> => runBulkAction('restore')
 
   const handleDeleteAllConfirm = async (): Promise<void> =>
   {
     setConfirmDeleteAll(false)
-    if (
-      bulkPending !== null ||
-      deletedBoards === undefined ||
-      deletedBoards.length === 0
-    )
-    {
-      return
-    }
-    setBulkPending('delete')
-    const targets = deletedBoards.map((b) => b.externalId)
-    setDeletingIds((current) =>
-    {
-      const next = new Set(current)
-      for (const id of targets) next.add(id)
-      return next
-    })
-    const results = await Promise.allSettled(
-      targets.map((id) => permanentlyDeleteDeletedBoardSession(id))
-    )
-    const succeeded = results.filter((r) => r.status === 'fulfilled').length
-    const failed = results.length - succeeded
-    if (failed === 0)
-    {
-      toast(
-        `Permanently deleted ${succeeded} board${succeeded === 1 ? '' : 's'}.`,
-        'success'
-      )
-    }
-    else if (succeeded === 0)
-    {
-      const firstError = results.find((r) => r.status === 'rejected')
-      logger.warn(
-        'sync',
-        'Permanent delete all failed:',
-        firstError?.status === 'rejected' ? firstError.reason : undefined
-      )
-      toast('Failed to permanently delete boards.', 'error')
-    }
-    else
-    {
-      toast(
-        `Deleted ${succeeded} of ${results.length} boards. ${failed} failed.`,
-        'error'
-      )
-    }
-    setDeletingIds((current) =>
-    {
-      const next = new Set(current)
-      for (const id of targets) next.delete(id)
-      return next
-    })
-    setBulkPending(null)
+    await runBulkAction('delete')
   }
 
   const handlePermanentDeleteConfirm = async (): Promise<void> =>
@@ -318,7 +308,7 @@ export const RecentlyDeletedModal = ({
             {
               void handleRestoreAll()
             }}
-            aria-label={`Restore all ${count} boards`}
+            aria-label={`Restore all ${formatCountedWord(count, 'board')}`}
           >
             {bulkPending === 'restore' ? (
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -333,7 +323,7 @@ export const RecentlyDeletedModal = ({
             tone="destructive"
             disabled={bulkBusy}
             onClick={() => setConfirmDeleteAll(true)}
-            aria-label={`Permanently delete all ${count} boards`}
+            aria-label={`Permanently delete all ${formatCountedWord(count, 'board')}`}
           >
             {bulkPending === 'delete' ? (
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -344,65 +334,67 @@ export const RecentlyDeletedModal = ({
           </SecondaryButton>
         </div>
         <div className="max-h-[60vh] overflow-y-auto">
-        {deletedBoards.map((board) =>
-        {
-          const restoring = restoringIds.has(board.externalId)
-          const deleting = deletingIds.has(board.externalId)
-          const busy = restoring || deleting
-          return (
-            <div
-              key={board.externalId}
-              className="flex items-center gap-3 border-b border-[var(--t-border)] px-1 py-3 last:border-b-0"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-[var(--t-text)]">
-                  {board.title || 'Untitled'}
+          {deletedBoards.map((board) =>
+          {
+            const restoring = restoringIds.has(board.externalId)
+            const deleting = deletingIds.has(board.externalId)
+            const busy = restoring || deleting
+            return (
+              <div
+                key={board.externalId}
+                className="flex items-center gap-3 border-b border-[var(--t-border)] px-1 py-3 last:border-b-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-[var(--t-text)]">
+                    {board.title || 'Untitled'}
+                  </div>
+                  <div className="mt-0.5 text-xs text-[var(--t-text-muted)]">
+                    Will be permanently deleted on{' '}
+                    {formatAbsoluteDate(
+                      board.deletedAt + BOARD_TOMBSTONE_RETENTION_MS
+                    )}
+                  </div>
                 </div>
-                <div className="mt-0.5 text-xs text-[var(--t-text-muted)]">
-                  Will be permanently deleted on{' '}
-                  {formatPermanentDeleteDate(board.deletedAt)}
-                </div>
+                <SecondaryButton
+                  size="sm"
+                  variant="surface"
+                  disabled={busy}
+                  onClick={() =>
+                  {
+                    void handleRestore(board.externalId)
+                  }}
+                  aria-label={`Restore ${board.title || 'Untitled'}`}
+                >
+                  {restoring ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  )}
+                  Restore
+                </SecondaryButton>
+                <SecondaryButton
+                  size="sm"
+                  variant="surface"
+                  tone="destructive"
+                  disabled={busy}
+                  onClick={() =>
+                    handlePermanentDeleteRequest({
+                      externalId: board.externalId,
+                      title: board.title || 'Untitled',
+                    })
+                  }
+                  aria-label={`Permanently delete ${board.title || 'Untitled'}`}
+                >
+                  {deleting ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                  Delete forever
+                </SecondaryButton>
               </div>
-              <SecondaryButton
-                size="sm"
-                variant="surface"
-                disabled={busy}
-                onClick={() =>
-                {
-                  void handleRestore(board.externalId)
-                }}
-                aria-label={`Restore ${board.title || 'Untitled'}`}
-              >
-                {restoring ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <RotateCcw className="h-3.5 w-3.5" />
-                )}
-                Restore
-              </SecondaryButton>
-              <SecondaryButton
-                size="sm"
-                variant="surface"
-                tone="destructive"
-                disabled={busy}
-                onClick={() =>
-                  handlePermanentDeleteRequest({
-                    externalId: board.externalId,
-                    title: board.title || 'Untitled',
-                  })
-                }
-                aria-label={`Permanently delete ${board.title || 'Untitled'}`}
-              >
-                {deleting ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
-                )}
-                Delete forever
-              </SecondaryButton>
-            </div>
-          )
-        })}
+            )
+          })}
         </div>
       </>
     )
@@ -446,7 +438,7 @@ export const RecentlyDeletedModal = ({
       {confirmDeleteAll && deletedBoards && deletedBoards.length > 0 && (
         <ConfirmDialog
           open
-          title={`Permanently delete ${deletedBoards.length} board${deletedBoards.length === 1 ? '' : 's'}?`}
+          title={`Permanently delete ${formatCountedWord(deletedBoards.length, 'board')}?`}
           description="Every board in Recently deleted will be removed for good. This can't be undone."
           confirmText="Delete all forever"
           onCancel={() => setConfirmDeleteAll(false)}

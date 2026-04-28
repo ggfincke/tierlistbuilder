@@ -39,6 +39,7 @@ import {
 import { MAX_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { DEFAULT_BOARD_TITLE } from '@tierlistbuilder/contracts/workspace/board'
 import { validateHexColor } from '../../lib/hexColor'
+import { failInput, normalizeNullableText } from '../../lib/text'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -67,14 +68,6 @@ export const DEFAULT_TEMPLATE_TIERS: readonly TierPresetTier[] = [
   { name: 'E', colorSpec: { kind: 'palette', index: 5 } },
 ]
 
-export const failInput = (message: string): never =>
-{
-  throw new ConvexError({
-    code: CONVEX_ERROR_CODES.invalidInput,
-    message,
-  })
-}
-
 const failState = (message: string): never =>
 {
   throw new ConvexError({
@@ -97,24 +90,6 @@ export const normalizeTemplateTitle = (raw: string): string =>
     )
   }
   return title
-}
-
-export const normalizeNullableText = (
-  raw: string | null | undefined,
-  maxLength: number,
-  field: string
-): string | null =>
-{
-  const value = raw?.trim() ?? ''
-  if (!value)
-  {
-    return null
-  }
-  if (value.length > maxLength)
-  {
-    failInput(`${field} too long: ${value.length} exceeds ${maxLength}`)
-  }
-  return value
 }
 
 export const normalizeDescription = (
@@ -340,6 +315,28 @@ export const adjustPublicTemplateCount = async (
   })
 }
 
+export const deleteTemplateParentRow = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>
+): Promise<void> =>
+{
+  await ctx.db.delete(template._id)
+}
+
+export const deleteTemplateParentForCascade = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>
+): Promise<void> =>
+{
+  if (isPublicTemplateRow(template))
+  {
+    await adjustPublicTemplateCount(ctx, [
+      { category: template.category, delta: -1 },
+    ])
+  }
+  await deleteTemplateParentRow(ctx, template)
+}
+
 export const tiersFromBoardRows = (
   tiers: readonly Doc<'boardTiers'>[]
 ): TierPresetTier[] =>
@@ -502,8 +499,12 @@ const loadTemplateAuthor = async (
 
   return {
     id: author.externalId ?? author._id,
-    displayName:
-      author.displayName ?? author.name ?? author.email ?? 'Tier list creator',
+    displayName: author.handle
+      ? `@${author.handle}`
+      : (author.displayName ??
+        author.name ??
+        author.email ??
+        'Tier list creator'),
     avatarUrl,
   }
 }
