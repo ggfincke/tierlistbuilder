@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { Id } from '@convex/_generated/dataModel'
+import type { ItemLabelOptions } from '@tierlistbuilder/contracts/workspace/board'
 import { diffItems } from '../../convex/workspace/sync/boardReconciler'
 
 const MEDIA_ID = 'media-1' as Id<'mediaAssets'>
@@ -14,6 +15,7 @@ const makeServerItem = (
     sourceMediaAssetId: Id<'mediaAssets'> | null
     order: number
     deletedAt: number | null
+    labelOptions: ItemLabelOptions
   }> = {}
 ) => ({
   _id: 'row-1' as Id<'boardItems'>,
@@ -166,6 +168,33 @@ describe('boardReconciler media semantics', () =>
           label: undefined,
           backgroundColor: undefined,
           altText: undefined,
+        },
+      },
+    ])
+  })
+
+  it('patches existing items when only label font size changes', () =>
+  {
+    const diff = diffItems(
+      [
+        {
+          externalId: 'item-1',
+          tierId: null,
+          order: 0,
+          labelOptions: { fontSizePx: 18 },
+        },
+      ],
+      [makeServerItem({ labelOptions: { fontSizePx: 12 } })],
+      new Map(),
+      new Map(),
+      new Set()
+    )
+
+    expect(diff.patch).toEqual([
+      {
+        id: 'row-1',
+        fields: {
+          labelOptions: { fontSizePx: 18 },
         },
       },
     ])

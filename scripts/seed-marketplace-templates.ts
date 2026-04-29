@@ -172,6 +172,16 @@ const DEFAULT_META: FolderMeta = {
   tags: [],
 }
 
+// homepage curation: rank 0 → hero/editor's pick, 1 → trending card,
+// 2 → curated card (see HERO_SECONDARY_LABELS in TemplatesGalleryPage).
+// when any of these folders is in the run, the script wipes all featured
+// ranks first, then promotes the freshly seeded templates into these slots.
+const FEATURED_RANKS: Record<string, number> = {
+  'ssbu-fighters': 0,
+  'nba-teams': 1,
+  'mcu-posters': 2,
+}
+
 const usage = (): never =>
 {
   process.stderr.write(
@@ -429,6 +439,18 @@ const seedFolder = async (
   process.stdout.write(
     `    -> seeded slug=${created.slug} (${totalItems} items)\n`
   )
+
+  const featuredRank = FEATURED_RANKS[folderName]
+  if (featuredRank !== undefined)
+  {
+    await client.action(api.marketplace.templates.seed.promoteFeatured, {
+      slug: created.slug,
+      featuredRank,
+    })
+    process.stdout.write(
+      `    -> promoted ${folderName} to featuredRank=${featuredRank}\n`
+    )
+  }
   return folderName
 }
 
@@ -508,6 +530,20 @@ const main = async (): Promise<void> =>
   process.stdout.write(
     `seeding ${targetFolders.length} template(s) as ${authorEmail} on ${convexUrl}\n`
   )
+
+  // wipe stale featured ranks first so we don't leave duplicates at the same
+  // slot — only when we'll actually be re-promoting at least one trio member
+  const willPromoteFeatured = targetFolders.some(
+    (folder) => folder in FEATURED_RANKS
+  )
+  if (willPromoteFeatured)
+  {
+    const { cleared } = await client.action(
+      api.marketplace.templates.seed.clearAllFeaturedRanks,
+      {}
+    )
+    process.stdout.write(`cleared ${cleared} prior featured rank(s)\n`)
+  }
 
   const { succeeded, failed } = await seedFolders(
     client,

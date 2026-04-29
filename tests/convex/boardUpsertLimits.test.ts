@@ -242,6 +242,76 @@ describe('upsertBoardState Convex limits', () =>
     )
   })
 
+  it('syncs board label font size as a revisioned style change', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t)
+    const caller = asUser(t, userId)
+    const payload = makeBoardPayload({ tierCount: 1, itemCount: 0 })
+
+    await caller.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId: 'board-label-font-size',
+        baseRevision: null,
+        ...payload,
+      }
+    )
+
+    const result = await caller.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId: 'board-label-font-size',
+        baseRevision: 1,
+        ...payload,
+        labels: { fontSizePx: 18 },
+      }
+    )
+
+    expect(result).toEqual({ conflict: null, newRevision: 2 })
+
+    const state = await caller.query(
+      api.workspace.boards.queries.getBoardStateByExternalId,
+      { boardExternalId: 'board-label-font-size' }
+    )
+
+    expect(state?.labels).toEqual({ fontSizePx: 18 })
+  })
+
+  it('rejects invalid label font sizes', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t)
+    const caller = asUser(t, userId)
+    const itemPayload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+    const boardPayload = makeBoardPayload({ tierCount: 1, itemCount: 0 })
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-item-label-size',
+        baseRevision: null,
+        ...itemPayload,
+        items: [
+          {
+            ...itemPayload.items[0]!,
+            labelOptions: { fontSizePx: Number.NaN },
+          },
+        ],
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+
+    await expectConvexCode(
+      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
+        boardExternalId: 'board-bad-board-label-size',
+        baseRevision: null,
+        ...boardPayload,
+        labels: { fontSizePx: 72 },
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+  })
+
   it('handles a max-size tombstone update within the transaction budget', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })

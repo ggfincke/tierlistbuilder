@@ -18,6 +18,7 @@ import type {
   LabelPlacement,
   LabelScrim,
   LabelSizeScale,
+  LabelTextColor,
   Tier,
   TierItem,
   TierItemImageRef,
@@ -27,6 +28,8 @@ import {
   ITEM_TRANSFORM_LIMITS,
   LABEL_SCRIMS,
   LABEL_SIZE_SCALES,
+  LABEL_TEXT_COLORS,
+  normalizeLabelFontSizePx,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   asItemId,
@@ -123,8 +126,15 @@ const normalizeItemLabelOptions = (
     LABEL_SIZE_SCALES
   )
   if (sizeScale) result.sizeScale = sizeScale
+  const fontSizePx = normalizeLabelFontSizePx(raw.fontSizePx)
+  if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
   const textStyleId = normalizeEnum(raw.textStyleId, TEXT_STYLE_IDS)
   if (textStyleId) result.textStyleId = textStyleId
+  const textColor = normalizeEnum<LabelTextColor>(
+    raw.textColor,
+    LABEL_TEXT_COLORS
+  )
+  if (textColor) result.textColor = textColor
   return Object.keys(result).length > 0 ? result : undefined
 }
 
@@ -144,8 +154,15 @@ const normalizeBoardLabelSettings = (
     LABEL_SIZE_SCALES
   )
   if (sizeScale) result.sizeScale = sizeScale
+  const fontSizePx = normalizeLabelFontSizePx(raw.fontSizePx)
+  if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
   const textStyleId = normalizeEnum(raw.textStyleId, TEXT_STYLE_IDS)
   if (textStyleId) result.textStyleId = textStyleId
+  const textColor = normalizeEnum<LabelTextColor>(
+    raw.textColor,
+    LABEL_TEXT_COLORS
+  )
+  if (textColor && textColor !== 'auto') result.textColor = textColor
   return Object.keys(result).length > 0 ? result : undefined
 }
 

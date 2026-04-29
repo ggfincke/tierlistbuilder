@@ -11,6 +11,7 @@ import type {
   LabelPlacement,
   LabelScrim,
   LabelSizeScale,
+  LabelTextColor,
   TierItem,
   TierItemImageRef,
   TierItemWire,
@@ -20,6 +21,8 @@ import {
   ITEM_TRANSFORM_LIMITS,
   LABEL_SCRIMS,
   LABEL_SIZE_SCALES,
+  LABEL_TEXT_COLORS,
+  normalizeLabelFontSizePx,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   PALETTE_IDS,
@@ -180,8 +183,15 @@ const normalizeItemLabelOptionsWire = (
     LABEL_SIZE_SCALES
   )
   if (sizeScale) result.sizeScale = sizeScale
+  const fontSizePx = normalizeLabelFontSizePx(obj.fontSizePx)
+  if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
   const textStyleId = normalizeEnumWire(obj.textStyleId, TEXT_STYLE_IDS)
   if (textStyleId) result.textStyleId = textStyleId
+  const textColor = normalizeEnumWire<LabelTextColor>(
+    obj.textColor,
+    LABEL_TEXT_COLORS
+  )
+  if (textColor) result.textColor = textColor
   return Object.keys(result).length > 0 ? result : undefined
 }
 
@@ -202,8 +212,15 @@ const normalizeBoardLabelSettingsWire = (
     LABEL_SIZE_SCALES
   )
   if (sizeScale) result.sizeScale = sizeScale
+  const fontSizePx = normalizeLabelFontSizePx(obj.fontSizePx)
+  if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
   const textStyleId = normalizeEnumWire(obj.textStyleId, TEXT_STYLE_IDS)
   if (textStyleId) result.textStyleId = textStyleId
+  const textColor = normalizeEnumWire<LabelTextColor>(
+    obj.textColor,
+    LABEL_TEXT_COLORS
+  )
+  if (textColor && textColor !== 'auto') result.textColor = textColor
   return Object.keys(result).length > 0 ? result : undefined
 }
 

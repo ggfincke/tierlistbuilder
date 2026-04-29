@@ -3,6 +3,7 @@
 
 import type { BoardId, ItemId, TierId } from '../lib/ids'
 import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
+import { clamp } from '../lib/math'
 
 // default board title used across local & cloud-backed board creation
 export const DEFAULT_BOARD_TITLE = 'My Tier List'
@@ -135,10 +136,55 @@ export const LABEL_PLACEMENT_OVERLAY_PRESETS = {
 export const LABEL_SCRIMS = ['none', 'dark', 'light'] as const
 export type LabelScrim = (typeof LABEL_SCRIMS)[number]
 
-// caption font-size relative to the tile; resolved against the renderer's
-// pixel scale so a small label on a large tile still reads
+// overlay-label text color palette. 'auto' inherits the scrim-derived color
+// (white over dark scrim, black over light scrim). caption placements ignore
+// this; it only applies to overlay text
+export const LABEL_TEXT_COLORS = [
+  'auto',
+  'white',
+  'black',
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'blue',
+  'purple',
+] as const
+export type LabelTextColor = (typeof LABEL_TEXT_COLORS)[number]
+
+// legacy caption-size enum — kept readable as a fallback for older saved
+// data; the user-facing control is now a numeric `fontSizePx` (see below)
 export const LABEL_SIZE_SCALES = ['sm', 'md', 'lg'] as const
 export type LabelSizeScale = (typeof LABEL_SIZE_SCALES)[number]
+
+// caption font-size in CSS px. clamped at the contract level so wire payloads
+// can't request absurd values; the editor UI exposes this as a numeric input
+export const LABEL_FONT_SIZE_PX_MIN = 8
+export const LABEL_FONT_SIZE_PX_MAX = 48
+export const LABEL_FONT_SIZE_PX_DEFAULT = 12
+
+export const clampLabelFontSizePx = (value: number): number =>
+  Math.round(clamp(value, LABEL_FONT_SIZE_PX_MIN, LABEL_FONT_SIZE_PX_MAX))
+
+export const normalizeLabelFontSizePx = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? clampLabelFontSizePx(value)
+    : undefined
+
+export const isValidLabelFontSizePx = (value: number | undefined): boolean =>
+  value === undefined ||
+  (Number.isFinite(value) &&
+    value >= LABEL_FONT_SIZE_PX_MIN &&
+    value <= LABEL_FONT_SIZE_PX_MAX)
+
+// resolved fallback px values when only the legacy `sizeScale` is present —
+// tuned to feel like a real S/M/L spread without changing existing renders
+// dramatically
+export const LABEL_SIZE_SCALE_PX: Record<LabelSizeScale, number> = {
+  sm: 9,
+  md: 12,
+  lg: 16,
+}
 
 // per-board label defaults — absent fields fall back to global/built-in
 // defaults. `show` overrides AppSettings.showLabels at the board level.
@@ -148,8 +194,13 @@ export interface BoardLabelSettings
   show?: boolean
   placement?: LabelPlacement
   scrim?: LabelScrim
+  // legacy preset; new writes prefer fontSizePx
   sizeScale?: LabelSizeScale
+  // exact caption size in CSS px; wins over sizeScale when set
+  fontSizePx?: number
   textStyleId?: TextStyleId
+  // overlay-only text color override; absent or 'auto' -> scrim default
+  textColor?: LabelTextColor
 }
 
 // per-tile label override layered over board/global defaults. `visible`
@@ -160,8 +211,85 @@ export interface ItemLabelOptions
   placement?: LabelPlacement
   scrim?: LabelScrim
   sizeScale?: LabelSizeScale
+  fontSizePx?: number
   textStyleId?: TextStyleId
+  textColor?: LabelTextColor
 }
+
+export const labelPlacementsEqual = (
+  a: LabelPlacement | undefined,
+  b: LabelPlacement | undefined
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  if (a.mode !== b.mode) return false
+  if (a.mode === 'overlay' && b.mode === 'overlay')
+  {
+    return a.x === b.x && a.y === b.y
+  }
+  return true
+}
+
+export const boardLabelSettingsEqual = (
+  a: BoardLabelSettings | undefined,
+  b: BoardLabelSettings | undefined
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  return (
+    a.show === b.show &&
+    labelPlacementsEqual(a.placement, b.placement) &&
+    a.scrim === b.scrim &&
+    a.sizeScale === b.sizeScale &&
+    a.fontSizePx === b.fontSizePx &&
+    a.textStyleId === b.textStyleId &&
+    a.textColor === b.textColor
+  )
+}
+
+export const itemLabelOptionsEqual = (
+  a: ItemLabelOptions | undefined,
+  b: ItemLabelOptions | undefined
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  return (
+    a.visible === b.visible &&
+    labelPlacementsEqual(a.placement, b.placement) &&
+    a.scrim === b.scrim &&
+    a.sizeScale === b.sizeScale &&
+    a.fontSizePx === b.fontSizePx &&
+    a.textStyleId === b.textStyleId &&
+    a.textColor === b.textColor
+  )
+}
+
+export const isEmptyBoardLabelSettings = (
+  settings: BoardLabelSettings | undefined
+): boolean =>
+  !settings ||
+  (settings.show === undefined &&
+    settings.placement === undefined &&
+    settings.scrim === undefined &&
+    settings.sizeScale === undefined &&
+    settings.fontSizePx === undefined &&
+    settings.textStyleId === undefined &&
+    settings.textColor === undefined)
+
+export const isEmptyItemLabelOptions = (
+  options: ItemLabelOptions | undefined
+): boolean =>
+  !options ||
+  (options.visible === undefined &&
+    options.placement === undefined &&
+    options.scrim === undefined &&
+    options.sizeScale === undefined &&
+    options.fontSizePx === undefined &&
+    options.textStyleId === undefined &&
+    options.textColor === undefined)
 
 // content-addressable image pointer for bytes stored outside the snapshot
 export interface TierItemImageRef

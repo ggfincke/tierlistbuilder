@@ -91,6 +91,12 @@ export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
     itemId: ItemId,
     options: ItemLabelOptions | null
   ) => void
+  // combined board default + per-tile override commit — one undo entry covers
+  // Apply to all items, where board defaults change & stale overrides clear
+  setBoardAndItemsLabelOptions: (
+    settings: BoardLabelSettings | null,
+    entries: readonly { id: ItemId; options: ItemLabelOptions | null }[]
+  ) => void
   // bulk update item label text
   setItemLabel: (itemId: ItemId, label: string | null) => void
 }

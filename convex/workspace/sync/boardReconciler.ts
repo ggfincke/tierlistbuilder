@@ -9,8 +9,8 @@ import type {
 import type {
   ItemLabelOptions,
   ItemTransform,
-  LabelPlacement,
 } from '@tierlistbuilder/contracts/workspace/board'
+import { itemLabelOptionsEqual } from '@tierlistbuilder/contracts/workspace/board'
 
 export interface TierDiff
 {
@@ -76,39 +76,6 @@ const transformsEqual = (
     a.zoom === b.zoom &&
     a.offsetX === b.offsetX &&
     a.offsetY === b.offsetY
-  )
-}
-
-// placements are discriminated unions — string-equal `mode` plus structural
-// compare of overlay coordinates. caption modes have no extra fields
-const labelPlacementsEqual = (
-  a: LabelPlacement | undefined,
-  b: LabelPlacement | undefined
-): boolean =>
-{
-  if (a === b) return true
-  if (!a || !b) return !a && !b
-  if (a.mode !== b.mode) return false
-  if (a.mode === 'overlay' && b.mode === 'overlay')
-  {
-    return a.x === b.x && a.y === b.y
-  }
-  return true
-}
-
-const labelOptionsEqual = (
-  a: ItemLabelOptions | undefined,
-  b: ItemLabelOptions | undefined
-): boolean =>
-{
-  if (a === b) return true
-  if (!a || !b) return !a && !b
-  return (
-    a.visible === b.visible &&
-    labelPlacementsEqual(a.placement, b.placement) &&
-    a.scrim === b.scrim &&
-    a.sizeScale === b.sizeScale &&
-    a.textStyleId === b.textStyleId
   )
 }
 
@@ -311,7 +278,7 @@ export const diffItems = (
     {
       fields.transform = wire.transform
     }
-    if (!labelOptionsEqual(server.labelOptions, wire.labelOptions))
+    if (!itemLabelOptionsEqual(server.labelOptions, wire.labelOptions))
     {
       fields.labelOptions = wire.labelOptions
     }

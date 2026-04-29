@@ -15,6 +15,7 @@ import {
 import {
   LABEL_SCRIMS,
   LABEL_SIZE_SCALES,
+  LABEL_TEXT_COLORS,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   PALETTE_IDS,
@@ -254,6 +255,7 @@ export const itemTransformValidator = v.object({
 // label scrim/size — mirrors contracts/workspace/board union types
 export const labelScrimValidator = literalUnion(LABEL_SCRIMS)
 export const labelSizeScaleValidator = literalUnion(LABEL_SIZE_SCALES)
+export const labelTextColorValidator = literalUnion(LABEL_TEXT_COLORS)
 
 // label placement — discriminated union mirroring LabelPlacement in
 // contracts/board. overlay carries normalized (x, y) coordinates; the two
@@ -274,7 +276,11 @@ export const itemLabelOptionsValidator = v.object({
   placement: v.optional(labelPlacementValidator),
   scrim: v.optional(labelScrimValidator),
   sizeScale: v.optional(labelSizeScaleValidator),
+  // numeric override; validated at the server boundary too. range mirrors
+  // contracts/board LABEL_FONT_SIZE_PX_MIN..MAX (8..48)
+  fontSizePx: v.optional(v.number()),
   textStyleId: v.optional(textStyleIdValidator),
+  textColor: v.optional(labelTextColorValidator),
 })
 
 // per-board label defaults — mirrors BoardLabelSettings in contracts/board
@@ -283,7 +289,9 @@ export const boardLabelSettingsValidator = v.object({
   placement: v.optional(labelPlacementValidator),
   scrim: v.optional(labelScrimValidator),
   sizeScale: v.optional(labelSizeScaleValidator),
+  fontSizePx: v.optional(v.number()),
   textStyleId: v.optional(textStyleIdValidator),
+  textColor: v.optional(labelTextColorValidator),
 })
 
 // item row in a cloud board state payload — mirrors CloudBoardStateItem
