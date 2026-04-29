@@ -247,6 +247,7 @@ export const publishFromBoard = mutation({
       itemAspectRatio: board.itemAspectRatio ?? null,
       itemAspectRatioMode: board.itemAspectRatioMode ?? null,
       defaultItemImageFit: board.defaultItemImageFit ?? null,
+      labels: board.labels ?? undefined,
       createdAt: now,
       updatedAt: now,
       unpublishedAt: null,
@@ -524,6 +525,7 @@ export const useTemplate = mutation({
       itemAspectRatio: template.itemAspectRatio ?? undefined,
       itemAspectRatioMode: template.itemAspectRatioMode ?? undefined,
       defaultItemImageFit: template.defaultItemImageFit ?? undefined,
+      labels: template.labels ?? undefined,
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
         template._id,

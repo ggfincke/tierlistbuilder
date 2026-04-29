@@ -2,7 +2,11 @@
 // public template marketplace contracts shared by Convex & frontend slices
 
 import type { TierPresetTier } from '../workspace/tierPreset'
-import type { ImageFit, ItemTransform } from '../workspace/board'
+import type {
+  BoardLabelSettings,
+  ImageFit,
+  ItemTransform,
+} from '../workspace/board'
 
 export const TEMPLATE_CATEGORIES = [
   'gaming',
@@ -148,6 +152,9 @@ export interface MarketplaceTemplateDetail extends MarketplaceTemplateBase
   itemAspectRatio: number | null
   // board-wide fit pinned by the publisher; null falls back to 'cover'
   defaultItemImageFit: ImageFit | null
+  // pre-baked board label settings; null falls back to the forking user's
+  // global showLabels + built-in defaults
+  labels: BoardLabelSettings | null
   items: MarketplaceTemplateItem[]
 }
 

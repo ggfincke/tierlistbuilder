@@ -15,7 +15,11 @@ import { fileURLToPath } from 'node:url'
 import { ConvexHttpClient } from 'convex/browser'
 
 import { api } from '../convex/_generated/api.js'
-import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  LABEL_FONT_SIZE_PX_DEFAULT,
+  type BoardLabelSettings,
+  type ItemTransform,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   majorityAspectRatio,
   snapToNearestPreset,
@@ -38,6 +42,22 @@ interface FolderMeta
   category: string
   description: string | null
   tags: string[]
+  // when set, the seeded template ships w/ these board-level label settings
+  // baked in. forked boards inherit them so captions show without each user
+  // toggling Show labels. shorthand `true` -> LABEL_DEFAULT_STYLE
+  labels?: true | BoardLabelSettings
+  // per-item label text overrides keyed by source filename (e.g.
+  // '01-pikachu.png'). missing keys fall through to titleizeFromFilename
+  itemLabels?: Record<string, string>
+}
+
+// shared caption styling for any folder opted in via `labels: true` — caption-
+// below, board font, 12px. matches the editor's "Apply to all items" default
+// the curation pass landed on; caption modes ignore scrim/textColor
+const LABEL_DEFAULT_STYLE: BoardLabelSettings = {
+  show: true,
+  placement: { mode: 'captionBelow' },
+  fontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
 }
 
 // folder slug -> { title, category, description, tags }. add new examples
@@ -63,6 +83,7 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
     description:
       'Classic and regional ice cream flavors, with scoops and desserts as reference art.',
     tags: ['food', 'dessert', 'ice cream'],
+    labels: true,
   },
   'final-fantasy-mainline': {
     title: 'Final Fantasy mainline series',
@@ -172,10 +193,8 @@ const DEFAULT_META: FolderMeta = {
   tags: [],
 }
 
-// homepage curation: rank 0 → hero/editor's pick, 1 → trending card,
-// 2 → curated card (see HERO_SECONDARY_LABELS in TemplatesGalleryPage).
-// when any of these folders is in the run, the script wipes all featured
-// ranks first, then promotes the freshly seeded templates into these slots.
+// homepage curation: rank 0 -> hero/editor's pick, 1 -> trending card,
+// 2 -> curated card. wipe ranks first, then promote freshly seeded templates.
 const FEATURED_RANKS: Record<string, number> = {
   'ssbu-fighters': 0,
   'nba-teams': 1,
@@ -241,7 +260,10 @@ interface PreparedFolder
   items: PreparedItem[]
 }
 
-const probeFolder = async (folderPath: string): Promise<ProbedItem[]> =>
+const probeFolder = async (
+  folderPath: string,
+  itemLabels: Record<string, string> | undefined
+): Promise<ProbedItem[]> =>
 {
   const entries = await readdir(folderPath, { withFileTypes: true })
   const files = entries
@@ -261,7 +283,7 @@ const probeFolder = async (folderPath: string): Promise<ProbedItem[]> =>
     const buffer = await readFile(filePath)
     const probe = await probeImage(new Uint8Array(buffer))
     return {
-      label: titleizeFromFilename(name),
+      label: itemLabels?.[name] ?? titleizeFromFilename(name),
       filePath,
       byteSize: buffer.byteLength,
       aspectRatio: probe.aspectRatio,
@@ -357,7 +379,7 @@ const seedFolder = async (
     ...(TEMPLATE_META[folderName] ?? {}),
   }
   const title = meta.title ?? titleizeFromFilename(folderName)
-  const probes = await probeFolder(folderPath)
+  const probes = await probeFolder(folderPath, meta.itemLabels)
   if (probes.length === 0)
   {
     process.stdout.write(`  · ${folderName}: no images found, skipping\n`)
@@ -365,10 +387,12 @@ const seedFolder = async (
   }
 
   const { templateRatio, items } = prepareFolder(probes)
+  const labels: BoardLabelSettings | null =
+    meta.labels === true ? LABEL_DEFAULT_STYLE : (meta.labels ?? null)
 
   const chunks = chunkItemsBySize(items)
   process.stdout.write(
-    `  · ${folderName}: ${items.length} items in ${chunks.length} chunk(s) @ ratio ${templateRatio?.toFixed(3) ?? 'auto'}, uploading…\n`
+    `  · ${folderName}: ${items.length} items in ${chunks.length} chunk(s) @ ratio ${templateRatio?.toFixed(3) ?? 'auto'}${labels ? ', labels on' : ''}, uploading…\n`
   )
 
   const [firstChunk, ...remainingChunks] = chunks
@@ -381,6 +405,7 @@ const seedFolder = async (
       category: meta.category,
       tags: meta.tags ?? [],
       itemAspectRatio: templateRatio,
+      labels,
       items: await toPayloadItems(firstChunk),
     }
   )

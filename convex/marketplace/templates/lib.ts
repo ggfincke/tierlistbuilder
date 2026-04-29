@@ -629,6 +629,7 @@ export const toTemplateDetail = async (
     suggestedTiers: template.suggestedTiers,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    labels: template.labels ?? null,
     items: projectedItems,
   }
 }
