@@ -129,6 +129,24 @@ describe('normalizeBoardSnapshot', () =>
     expect(result.items[id].transform).toBeUndefined()
   })
 
+  it('preserves explicit per-item Auto label color', () =>
+  {
+    const id = asItemId('item-auto-label')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        items: {
+          [id]: makeItem({
+            id,
+            labelOptions: { textColor: 'auto' },
+          }),
+        },
+      }),
+      'classic'
+    )
+
+    expect(result.items[id].labelOptions).toEqual({ textColor: 'auto' })
+  })
+
   it('falls back to auto palette color when a tier is missing its colorSpec', () =>
   {
     const rawTiers = [

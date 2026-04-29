@@ -270,6 +270,27 @@ describe('parseBoardJson', () =>
     })
   })
 
+  it('preserves explicit per-item Auto label color through the wire mapper', async () =>
+  {
+    const board = makeValidBoard({
+      labels: { textColor: 'blue' },
+      items: {
+        'item-1': makeItem({
+          id: asItemId('item-1'),
+          label: 'First',
+          labelOptions: { textColor: 'auto' },
+        }),
+        'item-2': makeItem({ id: asItemId('item-2'), label: 'Second' }),
+      },
+    })
+
+    const wire = await snapshotToWireWithBlobs(board, new Map())
+    expect(wire.items['item-1'].labelOptions).toEqual({ textColor: 'auto' })
+
+    const result = await wireToSnapshot(wire)
+    expect(result.items['item-1'].labelOptions).toEqual({ textColor: 'auto' })
+  })
+
   it('drops image refs & deleted items from share payloads', async () =>
   {
     const board = makeValidBoard({

@@ -33,6 +33,10 @@ import {
 } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import {
+  resolveEffectiveShowLabels,
+  withBoardShowLabels,
+} from '~/shared/board-ui/labelSettings'
+import {
   areCachedAutoCropsApplied,
   collectAutoCropTransforms,
   getAutoCropCacheVersion,
@@ -53,6 +57,7 @@ import {
 import { useDeferredAspectRatioPicker } from '../model/useDeferredAspectRatioPicker'
 import { AspectRatioTiles } from './AspectRatioTiles'
 import { SegmentedControl } from './SegmentedControl'
+import { ShowLabelsToggle } from './ShowLabelsToggle'
 
 const MAX_THUMBNAIL_PREVIEW = 4
 
@@ -104,6 +109,8 @@ const AspectRatioIssueModalBody = ({
     setAspectRatioPromptDismissed,
     boardDefaultFit,
     setDefaultItemImageFit,
+    boardLabels,
+    setBoardLabelSettings,
   } = useActiveBoardStore(
     useShallow((state) => ({
       items: state.items,
@@ -112,13 +119,27 @@ const AspectRatioIssueModalBody = ({
       setAspectRatioPromptDismissed: state.setAspectRatioPromptDismissed,
       boardDefaultFit: state.defaultItemImageFit,
       setDefaultItemImageFit: state.setDefaultItemImageFit,
+      boardLabels: state.labels,
+      setBoardLabelSettings: state.setBoardLabelSettings,
     }))
   )
-  const { itemSize, itemShape } = useSettingsStore(
+  const { itemSize, itemShape, globalShowLabels } = useSettingsStore(
     useShallow((state) => ({
       itemSize: state.itemSize,
       itemShape: state.itemShape,
+      globalShowLabels: state.showLabels,
     }))
+  )
+  const effectiveShowLabels = resolveEffectiveShowLabels(
+    boardLabels,
+    globalShowLabels
+  )
+  const handleShowLabelsChange = useCallback(
+    (show: boolean) =>
+    {
+      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
+    },
+    [boardLabels, setBoardLabelSettings]
   )
   // alert reads the global trim setting but doesn't expose the toggle here —
   // the editor has it where users are already engaged w/ per-item tuning
@@ -338,15 +359,21 @@ const AspectRatioIssueModalBody = ({
             onSelectFit={setPendingBulkFit}
             onSelectAutoCrop={handleAutoCropAll}
           />
-          {autoCropProgress.running && (
-            <span
-              className="ml-auto text-xs tabular-nums text-[var(--t-text-muted)]"
-              role="status"
-              aria-live="polite"
-            >
-              {autoCropProgress.done}/{autoCropProgress.total}
-            </span>
-          )}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+            {autoCropProgress.running && (
+              <span
+                className="text-xs tabular-nums text-[var(--t-text-muted)]"
+                role="status"
+                aria-live="polite"
+              >
+                {autoCropProgress.done}/{autoCropProgress.total}
+              </span>
+            )}
+            <ShowLabelsToggle
+              checked={effectiveShowLabels}
+              onChange={handleShowLabelsChange}
+            />
+          </div>
         </div>
       )}
 

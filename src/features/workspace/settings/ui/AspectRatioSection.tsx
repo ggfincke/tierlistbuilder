@@ -97,6 +97,7 @@ export const AspectRatioSection = () =>
           selectedOption={selectedOption}
           onSelect={handleOption}
           autoRatio={autoRatio}
+          customRatioValue={boardAspectRatio}
           alignClassName="justify-end"
         />
       </SettingRow>

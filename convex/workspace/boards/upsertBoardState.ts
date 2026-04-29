@@ -6,7 +6,11 @@ import { ConvexError, v, type Infer } from 'convex/values'
 import { mutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
+  boardLabelSettingsEqual,
+  isValidLabelFontSizePx,
   ITEM_TRANSFORM_LIMITS,
+  LABEL_FONT_SIZE_PX_MAX,
+  LABEL_FONT_SIZE_PX_MIN,
   normalizeBoardTitle,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type {
@@ -125,23 +129,6 @@ interface UpsertArgs
   labels?: BoardLabelSettings
 }
 
-// placements are discriminated unions — string-equal `mode` plus structural
-// compare of overlay coordinates. caption modes carry no extra fields
-const labelPlacementsEqual = (
-  a: LabelPlacement | undefined,
-  b: LabelPlacement | undefined
-): boolean =>
-{
-  if (a === b) return true
-  if (!a || !b) return !a && !b
-  if (a.mode !== b.mode) return false
-  if (a.mode === 'overlay' && b.mode === 'overlay')
-  {
-    return a.x === b.x && a.y === b.y
-  }
-  return true
-}
-
 const validateLabelPlacement = (
   placement: LabelPlacement | undefined,
   field: string
@@ -158,22 +145,18 @@ const validateLabelPlacement = (
   }
 }
 
-// shallow structural compare for board label settings — flat 4-field POJOs,
-// so a manual compare is cheaper & clearer than JSON.stringify
-const boardLabelsEqual = (
-  a: BoardLabelSettings | undefined,
-  b: BoardLabelSettings | undefined
-): boolean =>
+const validateLabelFontSize = (
+  fontSizePx: number | undefined,
+  field: string
+): void =>
 {
-  if (a === b) return true
-  if (!a || !b) return !a && !b
-  return (
-    a.show === b.show &&
-    labelPlacementsEqual(a.placement, b.placement) &&
-    a.scrim === b.scrim &&
-    a.sizeScale === b.sizeScale &&
-    a.textStyleId === b.textStyleId
-  )
+  if (fontSizePx === undefined) return
+  if (!isValidLabelFontSizePx(fontSizePx))
+  {
+    failInput(
+      `invalid ${field}: must be within [${LABEL_FONT_SIZE_PX_MIN}, ${LABEL_FONT_SIZE_PX_MAX}]`
+    )
+  }
 }
 
 type UpsertResult =
@@ -309,6 +292,10 @@ const validateInputs = (args: UpsertArgs): void =>
       item.labelOptions?.placement,
       'item.labelOptions.placement'
     )
+    validateLabelFontSize(
+      item.labelOptions?.fontSizePx,
+      'item.labelOptions.fontSizePx'
+    )
   }
 
   for (const deletedId of args.deletedItemIds)
@@ -324,6 +311,7 @@ const validateInputs = (args: UpsertArgs): void =>
     validateHexColor(args.pageBackground, 'pageBackground')
   }
   validateLabelPlacement(args.labels?.placement, 'labels.placement')
+  validateLabelFontSize(args.labels?.fontSizePx, 'labels.fontSizePx')
 }
 
 // --- phase 2: ensure board + early revision check ----------------------------
@@ -516,7 +504,7 @@ const applyBoardState = async (
     board.paletteId !== args.paletteId ||
     board.textStyleId !== args.textStyleId ||
     board.pageBackground !== args.pageBackground ||
-    !boardLabelsEqual(board.labels, args.labels)
+    !boardLabelSettingsEqual(board.labels, args.labels)
   const templateProgressState = resolveTemplateProgressState(
     board.sourceTemplateId,
     progressCounts

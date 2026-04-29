@@ -15,6 +15,10 @@ import { nextToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { announce } from '~/shared/a11y/announce'
 import { toast } from '~/shared/notifications/useToastStore'
 import { hasActiveModalLayer } from '~/shared/overlay/modalLayer'
+import {
+  getUndoRedoShortcut,
+  isEditableShortcutTarget,
+} from './undoRedoShortcut'
 
 interface UseGlobalShortcutsOptions
 {
@@ -37,11 +41,8 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
   {
     const handler = (e: KeyboardEvent) =>
     {
-      // skip when focus is inside a text input or editable element
-      const el = document.activeElement as HTMLElement | null
-      if (!el) return
-      const tag = el.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable) return
+      const el = document.activeElement
+      if (!el || isEditableShortcutTarget(el)) return
       if (hasActiveModalLayer()) return
 
       const mod = e.ctrlKey || e.metaKey
@@ -52,26 +53,20 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       // drop Ctrl/Cmd+Z/Y mid-drag — dnd-kit still holds its own active state,
       // & undoing out from under it leaves the overlay & refs stranded
       const dragActive = selectIsDragging(useActiveBoardStore.getState())
+      const undoRedoShortcut = getUndoRedoShortcut(e)
 
-      // undo — Ctrl/Cmd+Z
-      if (mod && key === 'z' && !e.shiftKey)
+      if (undoRedoShortcut)
       {
         e.preventDefault()
         const locked = useSettingsStore.getState().boardLocked
         if (dragActive || locked) return
-        const result = undo()
-        if (result) toast(`Undid ${result.label.toLowerCase()}`)
-        return
-      }
-
-      // redo — Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
-      if (mod && ((key === 'z' && e.shiftKey) || key === 'y'))
-      {
-        e.preventDefault()
-        const locked = useSettingsStore.getState().boardLocked
-        if (dragActive || locked) return
-        const result = redo()
-        if (result) toast(`Redid ${result.label.toLowerCase()}`)
+        const result = undoRedoShortcut === 'undo' ? undo() : redo()
+        if (result)
+        {
+          toast(
+            `${undoRedoShortcut === 'undo' ? 'Undid' : 'Redid'} ${result.label.toLowerCase()}`
+          )
+        }
         return
       }
 
