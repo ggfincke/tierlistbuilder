@@ -8,6 +8,7 @@ import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
 import type {
+  BoardLabelSettings,
   ImageFit,
   ItemAspectRatioMode,
   ItemTransform,
@@ -61,6 +62,7 @@ interface SeedSourceBoardOptions
   defaultItemImageFit?: ImageFit
   imageItemFit?: ImageFit | null
   imageItemTransform?: ItemTransform
+  labels?: BoardLabelSettings
 }
 
 const seedSourceBoard = async (
@@ -101,6 +103,7 @@ const seedSourceBoard = async (
       ...(options.defaultItemImageFit !== undefined
         ? { defaultItemImageFit: options.defaultItemImageFit }
         : {}),
+      ...(options.labels !== undefined ? { labels: options.labels } : {}),
       sourceTemplateId: null,
       activeItemCount: 2,
       unrankedItemCount: 1,
@@ -544,12 +547,18 @@ describe('marketplace template Convex functions', () =>
       offsetX: 0.1,
       offsetY: -0.2,
     }
+    const labels: BoardLabelSettings = {
+      show: true,
+      placement: { mode: 'captionBelow' },
+      fontSizePx: 18,
+    }
     await seedSourceBoard(t, authorId, {
       itemAspectRatio: 16 / 9,
       itemAspectRatioMode: 'manual',
       defaultItemImageFit: 'contain',
       imageItemFit: null,
       imageItemTransform: transform,
+      labels,
     })
 
     const { slug } = await asUser(t, authorId).mutation(
@@ -571,6 +580,7 @@ describe('marketplace template Convex functions', () =>
       itemAspectRatio: 16 / 9,
       defaultItemImageFit: 'contain',
     })
+    expect(detail?.labels).toEqual(labels)
     expect(detail?.items[0]).toMatchObject({ transform, imageFit: null })
 
     const result = await asUser(t, consumerId).mutation(
@@ -587,6 +597,7 @@ describe('marketplace template Convex functions', () =>
       itemAspectRatioMode: 'manual',
       defaultItemImageFit: 'contain',
     })
+    expect(board?.labels).toEqual(labels)
     expect(board?.items[0]).toMatchObject({ transform })
     expect(board?.items[0].imageFit).toBeUndefined()
   })

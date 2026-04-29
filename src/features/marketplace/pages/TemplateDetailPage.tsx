@@ -2,7 +2,7 @@
 // detail page — breadcrumb + hero (cover left / meta right), items grid,
 // recommended tiers, & a related-templates rail under the same category
 
-import { ArrowLeft, Clock, Eye, Layers, Sparkles } from 'lucide-react'
+import { ArrowLeft, Clock, Eye, Layers, Sparkles, Type } from 'lucide-react'
 import { useEffect, type ComponentType, type SVGProps } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -11,7 +11,9 @@ import {
   type MarketplaceTemplateDetail,
   type MarketplaceTemplateItem,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import {
   useRelatedTemplates,
   useTemplateBySlug,
@@ -45,38 +47,52 @@ interface ItemThumbnailProps
 {
   item: MarketplaceTemplateItem
   frame: FrameSpec
+  labelSettings: BoardLabelSettings | null
 }
 
-const ItemThumbnail = ({ item, frame }: ItemThumbnailProps) => (
-  <div
-    className="relative w-full overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
-    style={{
-      aspectRatio: frame.aspectRatio,
-      minHeight: ITEM_SLOT_HEIGHT,
-    }}
-  >
-    <ItemContent
-      item={{
-        imageUrl: item.media?.url,
-        label: item.label ?? undefined,
-        backgroundColor: item.backgroundColor ?? undefined,
-        altText: item.altText ?? undefined,
-        aspectRatio: item.aspectRatio ?? undefined,
-        transform: item.transform ?? undefined,
+const ItemThumbnail = ({ item, frame, labelSettings }: ItemThumbnailProps) =>
+{
+  // only honor the publisher's baked-in board settings here — viewers aren't
+  // signed in & we don't want global prefs to override the preview intent
+  const labelDisplay = resolveLabelDisplay({
+    itemLabel: item.label ?? undefined,
+    itemOptions: undefined,
+    boardSettings: labelSettings ?? undefined,
+    globalShowLabels: false,
+  })
+  return (
+    <div
+      className="relative w-full overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+      style={{
+        aspectRatio: frame.aspectRatio,
+        minHeight: ITEM_SLOT_HEIGHT,
       }}
-      fit={item.imageFit ?? frame.defaultFit}
-      frameAspectRatio={frame.aspectRatio}
-    />
-  </div>
-)
+    >
+      <ItemContent
+        item={{
+          imageUrl: item.media?.url,
+          label: item.label ?? undefined,
+          backgroundColor: item.backgroundColor ?? undefined,
+          altText: item.altText ?? undefined,
+          aspectRatio: item.aspectRatio ?? undefined,
+          transform: item.transform ?? undefined,
+        }}
+        label={labelDisplay}
+        fit={item.imageFit ?? frame.defaultFit}
+        frameAspectRatio={frame.aspectRatio}
+      />
+    </div>
+  )
+}
 
 interface ItemsGridProps
 {
   items: readonly MarketplaceTemplateItem[]
   frame: FrameSpec
+  labelSettings: BoardLabelSettings | null
 }
 
-const ItemsGrid = ({ items, frame }: ItemsGridProps) =>
+const ItemsGrid = ({ items, frame, labelSettings }: ItemsGridProps) =>
 {
   if (items.length === 0)
   {
@@ -89,7 +105,12 @@ const ItemsGrid = ({ items, frame }: ItemsGridProps) =>
   return (
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
       {items.map((item) => (
-        <ItemThumbnail key={item.externalId} item={item} frame={frame} />
+        <ItemThumbnail
+          key={item.externalId}
+          item={item}
+          frame={frame}
+          labelSettings={labelSettings}
+        />
       ))}
     </div>
   )
@@ -270,6 +291,7 @@ export const TemplateDetailPage = () =>
 
   const totalItems = detail.itemCount
   const categoryLabel = CATEGORY_META[detail.category].label
+  const hasBakedLabels = detail.labels?.show === true
 
   // mirror the summary projection so detail covers share the gallery renderer.
   // pass the full item set (Mosaic slices to its own slot count) — the stored
@@ -324,6 +346,15 @@ export const TemplateDetailPage = () =>
               <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
                 <Sparkles className="h-3 w-3" strokeWidth={1.8} />
                 Editor's pick
+              </span>
+            )}
+            {hasBakedLabels && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]"
+                title="Each item ships with a caption — forking carries them over"
+              >
+                <Type className="h-3 w-3" strokeWidth={1.8} />
+                Labeled
               </span>
             )}
           </div>
@@ -425,6 +456,7 @@ export const TemplateDetailPage = () =>
             aspectRatio: detail.itemAspectRatio ?? FALLBACK_FRAME_RATIO,
             defaultFit: detail.defaultItemImageFit ?? 'cover',
           }}
+          labelSettings={detail.labels}
         />
       </section>
 

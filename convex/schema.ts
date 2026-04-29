@@ -218,6 +218,9 @@ export default defineSchema({
     defaultItemImageFit: v.optional(
       v.union(v.literal('cover'), v.literal('contain'), v.null())
     ),
+    // pre-baked label rendering defaults — forked boards inherit these so the
+    // publisher's caption styling shows up without each user toggling labels
+    labels: v.optional(boardLabelSettingsValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
     unpublishedAt: v.union(v.number(), v.null()),

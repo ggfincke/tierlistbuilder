@@ -18,6 +18,7 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  boardLabelSettingsValidator,
   itemTransformValidator,
   templateCategoryValidator,
   tierPresetTiersValidator,
@@ -117,6 +118,9 @@ export const insertSeedTemplate = internalMutation({
     // of the per-item majority). null when no items had usable dimensions —
     // forks then fall back to the board default (1, square)
     itemAspectRatio: v.union(v.number(), v.null()),
+    // pre-baked board label settings; forks copy this onto the new board so
+    // the publisher's caption styling shows up without each user toggling
+    labels: v.union(boardLabelSettingsValidator, v.null()),
     items: v.array(
       v.object({
         label: v.union(v.string(), v.null()),
@@ -189,6 +193,7 @@ export const insertSeedTemplate = internalMutation({
       itemAspectRatio: args.itemAspectRatio,
       itemAspectRatioMode: args.itemAspectRatio === null ? 'auto' : 'manual',
       defaultItemImageFit: 'cover',
+      labels: args.labels ?? undefined,
       createdAt: now,
       updatedAt: now,
       unpublishedAt: null,
@@ -889,6 +894,8 @@ export const seedTemplateFromBlobs = action({
     // template slot ratio chosen by the script (already snapped to a preset).
     // null only when no items had usable dimensions
     itemAspectRatio: v.union(v.number(), v.null()),
+    // optional pre-baked board label settings — forks inherit when present
+    labels: v.optional(v.union(boardLabelSettingsValidator, v.null())),
     items: v.array(seedItemValidator),
   },
   returns: v.object({
@@ -925,6 +932,7 @@ export const seedTemplateFromBlobs = action({
         tags: args.tags,
         suggestedTiers: args.suggestedTiers ?? [...DEFAULT_TEMPLATE_TIERS],
         itemAspectRatio: args.itemAspectRatio,
+        labels: args.labels ?? null,
         items: stored,
       }
     )

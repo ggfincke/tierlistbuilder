@@ -439,6 +439,7 @@ export const marketplaceTemplateDetailValidator = v.object({
     v.literal('contain'),
     v.null()
   ),
+  labels: v.union(boardLabelSettingsValidator, v.null()),
   items: v.array(marketplaceTemplateItemValidator),
 })
 
