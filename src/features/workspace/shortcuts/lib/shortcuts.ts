@@ -9,7 +9,7 @@ export interface ShortcutDefinition
   description: string
 }
 
-export const MOD_KEY = IS_MAC ? 'Cmd' : 'Ctrl'
+const MOD_KEY = IS_MAC ? 'Cmd' : 'Ctrl'
 
 export const SHORTCUTS = [
   { keys: [MOD_KEY, 'Z'], description: 'Undo' },

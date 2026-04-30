@@ -13,12 +13,12 @@ import {
   type OwnedSyncMeta,
 } from '~/shared/lib/sync/ownedSyncMeta'
 
-export const PREFERENCES_SYNC_META_STORAGE_KEY =
+const PREFERENCES_SYNC_META_STORAGE_KEY =
   'tier-list-builder-preferences-sync-meta-v1'
 
-export type PreferencesSyncMeta = OwnedSyncMeta
+type PreferencesSyncMeta = OwnedSyncMeta
 
-export const EMPTY_PREFERENCES_SYNC_META: PreferencesSyncMeta = {
+const EMPTY_PREFERENCES_SYNC_META: PreferencesSyncMeta = {
   ...EMPTY_OWNED_SYNC_META,
 }
 
@@ -36,7 +36,6 @@ const sidecar = createLocalSidecar<PreferencesSyncMeta>({
 
 export const loadPreferencesSyncMeta = sidecar.load
 export const savePreferencesSyncMeta = sidecar.save
-export const clearPreferencesSyncMeta = sidecar.clear
 
 export const loadPreferencesSyncMetaForUser = (
   userId: string

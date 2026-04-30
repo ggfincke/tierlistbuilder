@@ -116,7 +116,3 @@ export const resolveLabelLayout = (
     input.boardSettings?.textColor ??
     DEFAULT_TEXT_COLOR,
 })
-
-export const LABEL_DEFAULTS = {
-  scrim: DEFAULT_SCRIM,
-} as const

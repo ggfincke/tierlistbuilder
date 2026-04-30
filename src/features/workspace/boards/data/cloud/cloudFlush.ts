@@ -47,7 +47,7 @@ export const readBoardStateForCloudSync = (
 // callers only advance sync state on the synced variant. `error` is pre-
 // classified so schedulers can short-circuit permanent failures via
 // `error.permanent` instead of retrying forever
-export type FlushBoardOutcome =
+type FlushBoardOutcome =
   | { kind: 'synced'; revision: number }
   | { kind: 'conflict'; serverState: CloudBoardState }
   | { kind: 'error'; error: SyncError }

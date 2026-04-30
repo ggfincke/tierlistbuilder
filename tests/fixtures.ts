@@ -13,18 +13,6 @@ import {
   type ItemId,
 } from '@tierlistbuilder/contracts/lib/ids'
 
-export const TIER_IDS = ['tier-s', 'tier-a', 'tier-b'] as const
-export const ITEM_IDS: readonly ItemId[] = [
-  asItemId('item-1'),
-  asItemId('item-2'),
-  asItemId('item-3'),
-  asItemId('item-4'),
-  asItemId('item-5'),
-  asItemId('item-6'),
-  asItemId('item-7'),
-  asItemId('item-8'),
-] as const
-
 export const makeContainerSnapshot = (
   overrides?: Partial<ContainerSnapshot>
 ): ContainerSnapshot => ({

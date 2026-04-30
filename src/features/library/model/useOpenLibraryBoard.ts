@@ -9,7 +9,7 @@ import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cl
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
 
-export interface OpenLibraryBoardAction
+interface OpenLibraryBoardAction
 {
   open: (board: LibraryBoardListItem) => Promise<void>
   pendingBoardExternalId: string | null

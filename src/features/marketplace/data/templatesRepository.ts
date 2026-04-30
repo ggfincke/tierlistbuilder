@@ -45,7 +45,7 @@ export const useTemplateBySlug = (
     typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
   )
 
-export interface RelatedTemplatesArgs
+interface RelatedTemplatesArgs
 {
   slug: string
   limit?: number
@@ -59,14 +59,6 @@ export const useRelatedTemplates = (
   useQuery(
     api.marketplace.templates.queries.getRelatedTemplates,
     args === 'skip' ? 'skip' : args
-  )
-
-export const useMyTemplates = (
-  enabled: boolean
-): MarketplaceTemplateListResult | undefined =>
-  useQuery(
-    api.marketplace.templates.queries.getMyTemplates,
-    enabled ? {} : 'skip'
   )
 
 export const useMyTemplateDrafts = (
@@ -112,7 +104,7 @@ export const usePublishFromBoardMutation = () =>
     args: PublishFromBoardArgs
   ) => Promise<MarketplaceTemplatePublishResult>
 
-export interface UseTemplateMutationArgs
+interface UseTemplateMutationArgs
 {
   slug: string
   title?: string

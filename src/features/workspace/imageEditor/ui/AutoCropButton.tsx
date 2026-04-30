@@ -3,8 +3,8 @@
 
 import { Check, Crop, Loader2 } from 'lucide-react'
 
-export type AutoCropButtonState = 'idle' | 'running' | 'applied'
-export type AutoCropButtonVariant = 'toolbar' | 'plain'
+type AutoCropButtonState = 'idle' | 'running' | 'applied'
+type AutoCropButtonVariant = 'toolbar' | 'plain'
 
 interface AutoCropButtonProps
 {

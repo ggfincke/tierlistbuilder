@@ -43,8 +43,6 @@ export type ItemAspectRatioMode = 'auto' | 'manual'
 // handle sub-pixel anti-aliasing on rotated edges
 export type ItemRotation = 0 | 90 | 180 | 270
 
-export const ITEM_ROTATIONS: readonly ItemRotation[] = [0, 90, 180, 270]
-
 // per-item manual crop transform layered on top of object-fit:cover. absent
 // -> renderer falls back to the imageFit (board default) object-fit path.
 // shared imageTransform helpers define runtime semantics
@@ -78,15 +76,9 @@ export const ITEM_TRANSFORM_LIMITS = {
   offsetMax: 2,
 } as const
 
-// caption placement modes — 'overlay' positions a content-sized block at
-// (x, y) ∈ [0, 1] inside the image frame (draggable in the editor);
-// 'captionAbove'/'captionBelow' render a full-width strip outside the image
-export const LABEL_PLACEMENT_MODES = [
-  'overlay',
-  'captionAbove',
-  'captionBelow',
-] as const
-export type LabelPlacementMode = (typeof LABEL_PLACEMENT_MODES)[number]
+// caption placement modes — overlay sits inside the image frame;
+// captionAbove/captionBelow render a full-width strip outside the image
+export type LabelPlacementMode = 'overlay' | 'captionAbove' | 'captionBelow'
 
 // caption sits inside the image frame; (x, y) is the *center* of the caption
 // block (translate(-50%, -50%) at render time). axes normalized to [0, 1]
@@ -97,12 +89,12 @@ export interface LabelOverlayPlacement
   y: number
 }
 
-export interface LabelCaptionAbovePlacement
+interface LabelCaptionAbovePlacement
 {
   mode: 'captionAbove'
 }
 
-export interface LabelCaptionBelowPlacement
+interface LabelCaptionBelowPlacement
 {
   mode: 'captionBelow'
 }
@@ -158,7 +150,7 @@ export const LABEL_FONT_SIZE_PX_MIN = 8
 export const LABEL_FONT_SIZE_PX_MAX = 48
 export const LABEL_FONT_SIZE_PX_DEFAULT = 12
 
-export const clampLabelFontSizePx = (value: number): number =>
+const clampLabelFontSizePx = (value: number): number =>
   Math.round(clamp(value, LABEL_FONT_SIZE_PX_MIN, LABEL_FONT_SIZE_PX_MAX))
 
 export const normalizeLabelFontSizePx = (value: unknown): number | undefined =>
@@ -198,7 +190,7 @@ export interface ItemLabelOptions
   textColor?: LabelTextColor
 }
 
-export const labelPlacementsEqual = (
+const labelPlacementsEqual = (
   a: LabelPlacement | undefined,
   b: LabelPlacement | undefined
 ): boolean =>

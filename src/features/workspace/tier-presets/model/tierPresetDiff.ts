@@ -96,7 +96,7 @@ const indexUserPresetsById = (
   return map
 }
 
-export type PresetDiffOp =
+type PresetDiffOp =
   | { presetId: UserPresetId; kind: 'upsert'; preset: TierPreset }
   | { presetId: UserPresetId; kind: 'delete' }
 

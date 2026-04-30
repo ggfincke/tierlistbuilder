@@ -11,8 +11,6 @@ import {
   type EffectiveBoardSyncStatus,
 } from './syncStatusStore'
 
-export type { EffectiveBoardSyncStatus } from './syncStatusStore'
-
 export const useBoardSyncStatus = (
   boardId: BoardId | null
 ): EffectiveBoardSyncStatus =>

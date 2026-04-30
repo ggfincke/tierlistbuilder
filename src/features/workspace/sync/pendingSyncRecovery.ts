@@ -30,7 +30,7 @@ interface ResumePendingSyncsOptions
   shouldProceed?: () => boolean
 }
 
-export interface ResumePendingSyncsResult
+interface ResumePendingSyncsResult
 {
   resumedBoardIds: BoardId[]
   resumedBoardDeleteIds: string[]

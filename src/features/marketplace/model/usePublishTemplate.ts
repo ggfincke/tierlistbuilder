@@ -16,7 +16,7 @@ import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
 
-export interface PublishTemplateInput extends Omit<
+interface PublishTemplateInput extends Omit<
   PublishFromBoardArgs,
   'coverMediaExternalId'
 >
@@ -27,7 +27,7 @@ export interface PublishTemplateInput extends Omit<
   clearCover: boolean
 }
 
-export interface PublishTemplateAction
+interface PublishTemplateAction
 {
   run: (input: PublishTemplateInput) => Promise<{ slug: string } | null>
   isPending: boolean

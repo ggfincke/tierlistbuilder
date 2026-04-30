@@ -44,7 +44,7 @@ interface CreateTierPresetSyncRunnerOptions
   shouldProceed?: () => boolean
 }
 
-export interface TierPresetSyncRunner
+interface TierPresetSyncRunner
 {
   enqueue: (work: TierPresetSyncWork, options?: TriggerOptions) => void
   dispose: () => Promise<void>
@@ -63,7 +63,7 @@ const tierPresetWorkEqual = (
   return tierPresetEqual(a.preset, (b as typeof a).preset)
 }
 
-export const createTierPresetSyncRunner = (
+const createTierPresetSyncRunner = (
   options: CreateTierPresetSyncRunnerOptions
 ): TierPresetSyncRunner =>
 {

@@ -4,7 +4,7 @@
 
 // cap on a single retry wait. repeated transient failures shouldn't eat
 // battery on an offline phone; 30s matches the board scheduler's original
-export const RETRY_MAX_MS = 30_000
+const RETRY_MAX_MS = 30_000
 
 // compute the next retry delay. caller decides whether to bump
 // retryAttempt afterwards — we read first so the first retry uses baseMs

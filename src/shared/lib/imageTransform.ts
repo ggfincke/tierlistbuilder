@@ -4,7 +4,6 @@
 
 export {
   clampItemTransform,
-  createIdentityTransform,
   isIdentityTransform,
   isSameItemTransform,
   itemTransformToCropCss,

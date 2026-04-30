@@ -351,7 +351,7 @@ Anything that crosses a process boundary — localStorage, JSON exports, share l
 
 Types that only live in memory stay in the frontend tree, collocated w/ the stores that use them:
 
-- `features/workspace/boards/model/runtime.ts` — `ContainerSnapshot`, `ContainerSnapshotTier`, `KeyboardMode`, `ActiveBoardRuntimeState`, `freshRuntimeState`, `ItemRecord`.
+- `features/workspace/boards/model/runtime.ts` — `ContainerSnapshot`, `KeyboardMode`, `ActiveBoardRuntimeState`, and runtime-state factories.
 - `features/workspace/export/model/runtime.ts` — `ImageFormat`, `ExportAppearance`.
 
 `BoardSnapshot` is the canonical serializable board shape. `ContainerSnapshot` is the runtime-only lightweight ordering used during drag preview — it mirrors tier/unranked item ID arrays without carrying full tier metadata.
@@ -384,5 +384,4 @@ Unit & integration tests live under `tests/` and run via Vitest. End-to-end Play
 - `npm run test:watch` — Vitest watch mode
 - `npm run test:e2e` — Playwright smoke + guardrails (requires `npx playwright install chromium` once)
 - `npm run test:e2e:ui` — Playwright headed runner
-  ├── routes/ # base-path-aware route constants/path builders
-  ├── sharing/ # hash-fragment compression & short-link snapshot codecs
+- `npm run audit:dead-code` — Knip unused dependency/export/file audit

@@ -18,20 +18,17 @@ import {
   type OwnedSyncMeta,
 } from '~/shared/lib/sync/ownedSyncMeta'
 
-export const TIER_PRESET_SYNC_META_STORAGE_KEY =
+const TIER_PRESET_SYNC_META_STORAGE_KEY =
   'tier-list-builder-tier-preset-sync-meta-v2'
 
-export type TierPresetPendingOp = 'upsert' | 'delete'
+type TierPresetPendingOp = 'upsert' | 'delete'
 
-export interface TierPresetSyncMetaEntry extends OwnedSyncMeta
+interface TierPresetSyncMetaEntry extends OwnedSyncMeta
 {
   pendingOp: TierPresetPendingOp | null
 }
 
-export type TierPresetSyncMetaMap = Record<
-  UserPresetId,
-  TierPresetSyncMetaEntry
->
+type TierPresetSyncMetaMap = Record<UserPresetId, TierPresetSyncMetaEntry>
 
 const EMPTY_ENTRY: TierPresetSyncMetaEntry = {
   pendingOp: null,
@@ -91,7 +88,7 @@ const sidecar = createLocalSidecar<TierPresetSyncMetaMap>({
 })
 
 export const loadTierPresetSyncMetaMap = sidecar.load
-export const saveTierPresetSyncMetaMap = sidecar.save
+const saveTierPresetSyncMetaMap = sidecar.save
 export const clearAllTierPresetSyncMeta = sidecar.clear
 
 export const loadTierPresetSyncMetaMapForUser = (

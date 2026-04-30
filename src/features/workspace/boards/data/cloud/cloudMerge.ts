@@ -28,7 +28,7 @@ export const markCloudPullCompleted = (userId: string): void =>
 export const markCloudPullPending = (userId: string): void =>
   writeBrowserStorageItem(getCloudPullKey(userId), CLOUD_PULL_STATE_PENDING)
 
-export type MergeDecision =
+type MergeDecision =
   | { action: 'push-local' }
   | { action: 'pull-cloud' }
   | { action: 'resume-pull-cloud' }

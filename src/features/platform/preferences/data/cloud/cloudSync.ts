@@ -31,7 +31,7 @@ interface CreatePreferencesSyncRunnerOptions
   shouldProceed?: () => boolean
 }
 
-export interface PreferencesSyncRunner
+interface PreferencesSyncRunner
 {
   trigger: (preferences: AppPreferences, options?: TriggerOptions) => void
   dispose: () => Promise<void>
@@ -42,7 +42,7 @@ export interface PreferencesSyncRunner
 const PREFERENCES_KEY = Symbol('preferences')
 type PreferencesKey = typeof PREFERENCES_KEY
 
-export const createPreferencesSyncRunner = (
+const createPreferencesSyncRunner = (
   options: CreatePreferencesSyncRunnerOptions
 ): PreferencesSyncRunner =>
 {

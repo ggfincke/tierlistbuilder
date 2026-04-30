@@ -19,9 +19,8 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import { RestoreBoardError } from '~/features/platform/sync/lib/errors'
 
 export { RestoreBoardError }
-export type { RestoreErrorCode } from '~/features/platform/sync/lib/errors'
 
-export interface RestoredBoard
+interface RestoredBoard
 {
   meta: BoardMeta
   alreadyInRegistry: boolean

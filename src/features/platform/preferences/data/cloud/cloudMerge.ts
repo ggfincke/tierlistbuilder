@@ -21,7 +21,7 @@ import {
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 
-export type PreferencesMergeResult =
+type PreferencesMergeResult =
   | { kind: 'push'; updatedAt: number }
   | { kind: 'pull'; updatedAt: number }
   | { kind: 'noop' }

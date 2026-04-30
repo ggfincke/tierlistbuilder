@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams, type SetURLSearchParams } from 'react-router-dom'
 
-export type SearchParamUpdateOptions = Parameters<SetURLSearchParams>[1]
+type SearchParamUpdateOptions = Parameters<SetURLSearchParams>[1]
 
 export const isStringMember = <T extends string>(
   value: string | null,

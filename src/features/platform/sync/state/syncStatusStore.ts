@@ -8,7 +8,7 @@ import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 // statuses that live in the store directly. 'conflict' & 'offline' are
 // derived at read time (conflict from useConflictQueueStore, offline from
 // the global flag below) so they don't get store entries of their own
-export type StoredBoardSyncStatus = 'idle' | 'syncing' | 'error'
+type StoredBoardSyncStatus = 'idle' | 'syncing' | 'error'
 
 // full status surfaced to UI — resolved from stored status + conflict
 // presence + online flag via resolveBoardSyncStatus
@@ -46,7 +46,7 @@ export const resolveBoardSyncStatus = ({
   return 'idle'
 }
 
-export interface SyncStatusState
+interface SyncStatusState
 {
   online: boolean
   statusByBoard: Record<BoardId, StoredBoardSyncStatus>

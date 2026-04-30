@@ -19,7 +19,7 @@ import {
   type RenderedRowLayout,
 } from './dragLayoutRows'
 
-export interface RenderedContainerLayout
+interface RenderedContainerLayout
 {
   rowLayout: RenderedRowLayout
 }
@@ -137,7 +137,7 @@ export const getDragLayoutItemIds = (
   return entry ? entry.rowLayout.rows.flat() : [...fallbackItemIds]
 }
 
-export const getDragLayoutRowLayout = (
+const getDragLayoutRowLayout = (
   session: DragLayoutSession | null,
   containerId: string
 ): RenderedRowLayout | null =>

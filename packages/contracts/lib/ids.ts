@@ -11,7 +11,7 @@ export type TierId = `tier-${string}`
 export type UserPresetId = `preset-${string}`
 
 // static preset IDs for built-in presets shipped w/ the app
-export type BuiltinPresetId = `builtin-${string}`
+type BuiltinPresetId = `builtin-${string}`
 
 // valid preset ID for either a built-in or user-saved preset
 export type PresetId = UserPresetId | BuiltinPresetId
@@ -38,15 +38,6 @@ export const asTierId = (value: string): TierId => value as TierId
 // the `preset-` prefix contract
 export const asUserPresetId = (value: string): UserPresetId =>
   value as UserPresetId
-
-// cast a plain string to BuiltinPresetId at trust boundaries that already enforce
-// the `builtin-` prefix contract
-export const asBuiltinPresetId = (value: string): BuiltinPresetId =>
-  value as BuiltinPresetId
-
-// cast a plain string to PresetId when the caller accepts either persisted
-// user presets or built-in preset IDs
-export const asPresetId = (value: string): PresetId => value as PresetId
 
 // narrow a string to the tier-ID brand. used when rehydrating from storage
 // or accepting plain-string tier references
@@ -84,7 +75,7 @@ export const generateUserExternalId = (): string =>
 
 // base62 alphabet for short link slug generation
 const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-export const SHORT_LINK_SLUG_LENGTH = 8
+const SHORT_LINK_SLUG_LENGTH = 8
 const SHORT_LINK_SLUG_PATTERN = new RegExp(
   `^[0-9A-Za-z]{${SHORT_LINK_SLUG_LENGTH}}$`
 )

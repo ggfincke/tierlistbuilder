@@ -10,10 +10,10 @@ import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { withExportSession } from './exportBoardRender'
 
 // quality setting used for JPEG & WebP encoding
-export const IMAGE_QUALITY = 0.92
+const IMAGE_QUALITY = 0.92
 
 // build export options for a given background color
-export const getBaseOptions = (bgColor: string) => ({
+const getBaseOptions = (bgColor: string) => ({
   pixelRatio: EXPORT_PIXEL_RATIO,
   cacheBust: true,
   backgroundColor: bgColor,
@@ -53,17 +53,7 @@ export const renderToDataUrl = async (
   return toPng(element, opts)
 }
 
-// render the element to a 2x PNG data URL
-export const renderElementToPng = async (
-  element: HTMLElement,
-  backgroundColor = EXPORT_BACKGROUND_COLOR
-): Promise<string> =>
-{
-  const { toPng } = await loadHtmlToImageLib()
-  return toPng(element, getBaseOptions(backgroundColor))
-}
-
-export interface CapturedBoardImage
+interface CapturedBoardImage
 {
   dataUrl: string
   // source element pixel dimensions scaled by the export pixel ratio; PDF

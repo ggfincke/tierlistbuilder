@@ -20,7 +20,7 @@ import {
 export const CANVAS_BOUND = 420
 export const RAIL_THUMBNAIL_BOUND = 36
 
-export const SLIDER_ZOOM_MIN = 0.01
+const SLIDER_ZOOM_MIN = 0.01
 export const SLIDER_ZOOM_MAX = 2.5
 export const ZOOM_SLIDER_STEP = 0.01
 
@@ -28,7 +28,7 @@ export const PAN_START_THRESHOLD_PX = 4
 export const PAN_SNAP_THRESHOLD_PX = 5
 export const WHEEL_ZOOM_SENSITIVITY = 0.0015
 
-export interface AxisSnapCandidate
+interface AxisSnapCandidate
 {
   value: number
   guide: boolean

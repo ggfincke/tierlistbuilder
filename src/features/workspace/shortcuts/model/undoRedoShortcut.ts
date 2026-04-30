@@ -1,7 +1,7 @@
 // src/features/workspace/shortcuts/model/undoRedoShortcut.ts
 // shared Cmd/Ctrl undo-redo keyboard shortcut helpers
 
-export type UndoRedoShortcut = 'undo' | 'redo'
+type UndoRedoShortcut = 'undo' | 'redo'
 
 export const isEditableShortcutTarget = (
   target: EventTarget | null

@@ -26,7 +26,7 @@ export const MAX_TEMPLATE_LIST_LIMIT = 48
 export const DEFAULT_TEMPLATE_LIST_LIMIT = 24
 export const DEFAULT_TEMPLATE_DRAFT_LIMIT = 8
 export const MAX_TEMPLATE_DRAFT_LIMIT = 24
-export const TEMPLATE_SLUG_LENGTH = 10
+const TEMPLATE_SLUG_LENGTH = 10
 
 // max images denormalized onto each summary projection so cards can render a
 // tiermaker-style mosaic w/o issuing a per-card detail query. capped to keep

@@ -46,7 +46,7 @@ export interface WorkspaceSyncSession
   dispose: () => void
 }
 
-export interface CreateWorkspaceSyncSessionOptions
+interface CreateWorkspaceSyncSessionOptions
 {
   userId: string
   isOnline: () => boolean

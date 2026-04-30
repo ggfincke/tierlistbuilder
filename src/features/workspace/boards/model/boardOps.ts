@@ -7,7 +7,7 @@ import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 type ItemLookup = Record<ItemId, Pick<TierItem, 'label'> | undefined>
 type RandomIndexResolver = (maxExclusive: number) => number
 
-export type ShuffleMode = 'even' | 'random'
+type ShuffleMode = 'even' | 'random'
 
 interface BoardShuffleResult
 {

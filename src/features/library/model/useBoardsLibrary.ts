@@ -6,7 +6,7 @@ import { useQuery } from 'convex/react'
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import { api } from '@convex/_generated/api'
 
-export interface BoardsLibraryResult
+interface BoardsLibraryResult
 {
   // null while the auth/query is loading; LibraryBoardListItem[] when ready
   // (empty array is a valid 'loaded but no rows' result, distinct from null)

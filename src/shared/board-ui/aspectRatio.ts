@@ -18,10 +18,7 @@ import {
 } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 
-export { snapToNearestPreset } from '@tierlistbuilder/contracts/workspace/imageMath'
-export type { AspectRatioPreset } from '@tierlistbuilder/contracts/workspace/imageMath'
-
-export const DEFAULT_ITEM_ASPECT_RATIO = 1
+const DEFAULT_ITEM_ASPECT_RATIO = 1
 
 export interface RatioOption
 {
@@ -30,20 +27,19 @@ export interface RatioOption
   value?: number
 }
 
-export const AUTO_RATIO_OPTION: RatioOption = { kind: 'auto', label: 'Auto' }
+const AUTO_RATIO_OPTION: RatioOption = { kind: 'auto', label: 'Auto' }
 export const CUSTOM_RATIO_OPTION: RatioOption = {
   kind: 'custom',
   label: 'Custom',
 }
 
-export const PRESET_RATIO_OPTIONS: readonly RatioOption[] =
-  ASPECT_RATIO_PRESETS.map(
-    (p: AspectRatioPreset): RatioOption => ({
-      kind: 'preset',
-      label: p.label,
-      value: p.value,
-    })
-  )
+const PRESET_RATIO_OPTIONS: readonly RatioOption[] = ASPECT_RATIO_PRESETS.map(
+  (p: AspectRatioPreset): RatioOption => ({
+    kind: 'preset',
+    label: p.label,
+    value: p.value,
+  })
+)
 
 export const NON_CUSTOM_RATIO_OPTIONS: readonly RatioOption[] = [
   AUTO_RATIO_OPTION,
@@ -85,7 +81,7 @@ export const getEffectiveImageFit = (
 
 // gather aspect ratios of every image item whose natural dimensions have
 // been captured — text items (no imageRef) are skipped
-export const collectItemAspectRatios = (
+const collectItemAspectRatios = (
   board: Pick<BoardSnapshot, 'items'>
 ): number[] =>
 {

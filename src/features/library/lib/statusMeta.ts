@@ -4,7 +4,7 @@
 
 import type { LibraryBoardStatus } from '@tierlistbuilder/contracts/workspace/board'
 
-export interface LibraryStatusMeta
+interface LibraryStatusMeta
 {
   label: string
   // text color of the pill label — saturated for AA over the surface chip

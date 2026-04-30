@@ -15,9 +15,9 @@ import {
 } from '~/features/workspace/boards/model/session/boardSessionPersistence'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
 
-export type CloudBoardActivationErrorKind = 'cloud-missing' | 'persist-failed'
+type CloudBoardActivationErrorKind = 'cloud-missing' | 'persist-failed'
 
-export class CloudBoardActivationError extends Error
+class CloudBoardActivationError extends Error
 {
   readonly kind: CloudBoardActivationErrorKind
 

@@ -8,9 +8,7 @@ import {
 } from '@tierlistbuilder/contracts/platform/errors'
 
 // extract a Convex error code out of a thrown value if present
-export const extractConvexErrorCode = (
-  error: unknown
-): ConvexErrorCode | null =>
+const extractConvexErrorCode = (error: unknown): ConvexErrorCode | null =>
 {
   if (!(error instanceof ConvexError))
   {

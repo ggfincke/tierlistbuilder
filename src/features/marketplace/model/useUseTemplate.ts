@@ -13,7 +13,7 @@ import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
 
-export interface UseTemplateAction
+interface UseTemplateAction
 {
   run: (slug: string, templateTitle: string) => Promise<void>
   isPending: boolean

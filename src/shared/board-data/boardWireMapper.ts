@@ -45,8 +45,6 @@ import { isRecord } from '~/shared/lib/typeGuards'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
 
-export { collectSnapshotImageHashes }
-
 const isTierItemImageRef = (value: unknown): value is TierItemImageRef =>
 {
   if (!isRecord(value) || typeof value.hash !== 'string')

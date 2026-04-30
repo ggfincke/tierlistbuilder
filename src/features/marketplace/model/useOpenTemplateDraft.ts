@@ -10,7 +10,7 @@ import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
 
-export interface OpenTemplateDraftAction
+interface OpenTemplateDraftAction
 {
   open: (draft: MarketplaceTemplateDraft) => Promise<void>
   pendingBoardExternalId: string | null

@@ -10,7 +10,7 @@ import {
 
 // -------- offline sentinel ---------------------------------------------------
 
-export const OFFLINE_SENTINEL = 'offline'
+const OFFLINE_SENTINEL = 'offline'
 
 export const makeOfflineError = (): Error => new Error(OFFLINE_SENTINEL)
 
@@ -44,7 +44,7 @@ const getConvexErrorData = (error: unknown): Record<string, unknown> | null =>
     : null
 }
 
-export const getConvexErrorCode = (error: unknown): ConvexErrorCode | null =>
+const getConvexErrorCode = (error: unknown): ConvexErrorCode | null =>
 {
   const data = getConvexErrorData(error)
   const code = data?.code
@@ -53,7 +53,7 @@ export const getConvexErrorCode = (error: unknown): ConvexErrorCode | null =>
   return KNOWN_CONVEX_ERROR_CODES.has(code) ? (code as ConvexErrorCode) : null
 }
 
-export const getConvexRetryAfterMs = (error: unknown): number | null =>
+const getConvexRetryAfterMs = (error: unknown): number | null =>
 {
   const data = getConvexErrorData(error)
   const retryAfter = data?.retryAfter
@@ -87,12 +87,12 @@ export const isPermanentConvexError = (error: unknown): boolean =>
 
 // -------- restore-path error class ------------------------------------------
 
-export type RestoreErrorCode =
+type RestoreErrorCode =
   | 'concurrent-hard-delete'
   | 'persist-failed'
   | 'cloud-error'
 
-export type PermanentSyncErrorCode = 'missing-local-image-blobs'
+type PermanentSyncErrorCode = 'missing-local-image-blobs'
 
 // typed restore error for user-friendly toast mapping; raw error stays on cause
 export class RestoreBoardError extends Error

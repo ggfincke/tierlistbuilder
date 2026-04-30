@@ -24,7 +24,7 @@ import {
 const SEARCH_DEBOUNCE_MS = 250
 const DEFAULT_SORT: TemplateListSort = 'recent'
 
-export interface GalleryFilterParams
+interface GalleryFilterParams
 {
   search: string
   category: TemplateCategory | null

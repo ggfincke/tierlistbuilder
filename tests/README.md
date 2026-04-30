@@ -158,8 +158,6 @@ Shared test data defined in `fixtures.ts`:
 
 | Export                              | Description                                                                                            |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `TIER_IDS`                          | Stable tier ID constants (`'tier-s'`, `'tier-a'`, `'tier-b'`)                                          |
-| `ITEM_IDS`                          | Stable item ID constants (`'item-1'` through `'item-8'`)                                               |
 | `makeContainerSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items                                                      |
 | `makeBoardSnapshot(overrides?)`     | Builds an empty `BoardSnapshot` — compose tiers/items via overrides                                    |
 | `makeBoardMeta(overrides?)`         | Builds a registry `BoardMeta` row for local board/session tests                                        |

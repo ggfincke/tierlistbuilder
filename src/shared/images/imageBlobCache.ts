@@ -15,7 +15,7 @@ export interface CloudImageRequest
   cloudMediaExternalId: string
 }
 
-export type CloudImageBatchFetcher = (
+type CloudImageBatchFetcher = (
   requests: ReadonlyArray<CloudImageRequest>
 ) => Promise<void>
 
@@ -138,7 +138,7 @@ export const markCloudRequestsFailed = (
 // requeue previously-failed cloud requests. fired on `online` events so
 // transient outages self-heal; also invoked directly by callers that know
 // recovery is likely (e.g. sign-in completion)
-export const retryFailedCloudRequests = (): void =>
+const retryFailedCloudRequests = (): void =>
 {
   if (failedCloudRequests.size === 0) return
 

@@ -70,7 +70,7 @@ interface CreateCloudSyncSchedulerOptions
   shouldProceed?: () => boolean
 }
 
-export interface SchedulerDisposeOptions
+interface SchedulerDisposeOptions
 {
   flush?: boolean
 }

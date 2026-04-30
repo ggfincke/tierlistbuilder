@@ -24,14 +24,14 @@ import { logger } from '~/shared/lib/logger'
 
 type PullMode = 'replace' | 'merge-missing'
 
-export interface PullCloudBoardsOptions
+interface PullCloudBoardsOptions
 {
   cloudBoards: BoardListItem[]
   mode: PullMode
   shouldProceed?: () => boolean
 }
 
-export type PullCloudBoardsResult =
+type PullCloudBoardsResult =
   | {
       kind: 'success'
       attemptedCount: number

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "includeEntryExports": true,
+  "ignoreDependencies": ["tailwindcss"],
+  "ignoreIssues": {
+    "convex/auth.ts": ["exports"],
+    "convex/_generated/**": ["exports", "types", "files"]
+  },
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.{mjs,ts}",
+        "tests/**/*.test.ts",
+        "e2e/**/*.ts",
+        "config/**/*.ts",
+        "eslint-rules/**/*.js",
+        "convex/**/*.{ts,d.ts}"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "convex/**/*.{ts,d.ts}",
+        "tests/**/*.ts",
+        "e2e/**/*.ts",
+        "scripts/**/*.{mjs,ts}",
+        "config/**/*.ts",
+        "eslint-rules/**/*.js"
+      ],
+      "paths": {
+        "~/*": ["./src/*"],
+        "@convex/*": ["./convex/*"],
+        "@tierlistbuilder/contracts/*": ["./packages/contracts/*"]
+      },
+      "convex": true,
+      "eslint": true,
+      "github-actions": true,
+      "playwright": true,
+      "tailwind": true,
+      "typescript": true,
+      "vite": true,
+      "vitest": true
+    },
+    "packages/contracts": {
+      "entry": ["**/*.ts"],
+      "project": ["**/*.ts"],
+      "includeEntryExports": true
+    }
+  }
+}

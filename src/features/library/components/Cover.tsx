@@ -4,7 +4,7 @@
 
 import type { LibraryBoardCoverItem } from '@tierlistbuilder/contracts/workspace/board'
 
-export type CoverDensity = 'dense' | 'default' | 'loose'
+type CoverDensity = 'dense' | 'default' | 'loose'
 
 interface CoverProps
 {

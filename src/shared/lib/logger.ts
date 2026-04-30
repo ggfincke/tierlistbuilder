@@ -4,7 +4,7 @@
 type Scope = string
 type LogFn = (scope: Scope, message: string, ...data: unknown[]) => void
 
-export interface Logger
+interface Logger
 {
   error: LogFn
   warn: LogFn
