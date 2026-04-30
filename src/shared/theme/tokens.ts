@@ -4,8 +4,6 @@
 import type { ThemeId } from '@tierlistbuilder/contracts/lib/theme'
 import type { ThemeDefinition } from '@tierlistbuilder/contracts/lib/themeDefinition'
 
-export type { ThemeDefinition }
-
 export const THEMES: Record<ThemeId, ThemeDefinition> = {
   classic: {
     'bg-page': '#232323',
@@ -202,7 +200,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
 }
 
 // theme metadata — collocated w/ definitions to prevent label/category drift
-export interface ThemeMeta
+interface ThemeMeta
 {
   id: ThemeId
   label: string

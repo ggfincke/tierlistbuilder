@@ -11,12 +11,6 @@ import {
 import { clamp } from '../lib/math'
 import { isPositiveFiniteNumber } from '../lib/typeGuards'
 
-// item-transform helpers shared by browser & backend code
-
-export const createIdentityTransform = (): ItemTransform => ({
-  ...ITEM_TRANSFORM_IDENTITY,
-})
-
 export const clampItemTransform = (transform: ItemTransform): ItemTransform =>
 {
   const { zoomMin, zoomMax, offsetMin, offsetMax } = ITEM_TRANSFORM_LIMITS
@@ -246,27 +240,6 @@ export const majorityAspectRatio = (
   return buckets[0]?.representative ?? null
 }
 
-// snap a ratio to the nearest preset by relative distance, so the auto
-// suggestion is always a clean w:h pair (1:1, 2:3, 3:4, ...) rather than the
-// raw bucket median (e.g. 0.6671 -> 2:3)
-export const snapToNearestPreset = (value: number): number =>
-{
-  if (!isPositiveFiniteNumber(value)) return value
-  let best = ASPECT_RATIO_PRESETS[0].value
-  let bestDistance = Infinity
-  for (const preset of ASPECT_RATIO_PRESETS)
-  {
-    const distance =
-      Math.abs(preset.value - value) / Math.max(preset.value, value)
-    if (distance < bestDistance)
-    {
-      bestDistance = distance
-      best = preset.value
-    }
-  }
-  return best
-}
-
 export const findMatchingPreset = (
   value: number,
   tol = ASPECT_RATIO_TOLERANCE
@@ -333,7 +306,7 @@ export interface AutoCropBBox
   bottom: number
 }
 
-export interface AutoCropPixelData
+interface AutoCropPixelData
 {
   data: Uint8Array | Uint8ClampedArray
   width: number

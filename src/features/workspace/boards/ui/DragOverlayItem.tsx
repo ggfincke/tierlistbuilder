@@ -47,7 +47,7 @@ export const ActiveDragOverlayItem = memo(
   }
 )
 
-export const DragOverlayItem = memo(
+const DragOverlayItem = memo(
   ({ item, groupCount = 0 }: DragOverlayItemProps) =>
   {
     const { itemSize, itemShape, showLabels } = usePreferencesStore(

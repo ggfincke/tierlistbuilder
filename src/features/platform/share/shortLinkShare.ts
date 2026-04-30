@@ -29,7 +29,7 @@ export const getShareUrlFromSlug = (slug: string): string =>
 
 // build an embed iframe URL — same slug as the workspace URL but routes
 // into the read-only embed shell
-export const getEmbedUrlFromSlug = (slug: string): string =>
+const getEmbedUrlFromSlug = (slug: string): string =>
   `${buildAppUrl(EMBED_ROUTE_PATH)}?${SHORT_LINK_QUERY_PARAM}=${encodeURIComponent(slug)}`
 
 // extract a short-link slug from the current URL's query string

@@ -5,14 +5,14 @@
 import { createLocalSidecar } from '~/shared/lib/localSidecar'
 import { isNonEmptyString } from '~/shared/lib/typeGuards'
 
-export const BOARD_DELETE_SYNC_META_STORAGE_KEY =
+const BOARD_DELETE_SYNC_META_STORAGE_KEY =
   'tier-list-builder-board-delete-sync-meta-v1'
 
 // cap sidecar size; oldest entries dropped on overflow. 500 entries covers real-world
 // delete bursts w/ headroom (~25KB total at ~40 bytes/entry)
 const MAX_PENDING_BOARD_DELETES = 500
 
-export interface BoardDeleteSyncMeta
+interface BoardDeleteSyncMeta
 {
   pendingExternalIds: string[]
 }

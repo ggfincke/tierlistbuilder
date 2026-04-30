@@ -26,7 +26,7 @@ import { mapAsyncLimitSettled } from '~/shared/lib/asyncMapLimit'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 
-export interface PresetMergeResult
+interface PresetMergeResult
 {
   kind: 'success' | 'aborted'
   pushedCount: number

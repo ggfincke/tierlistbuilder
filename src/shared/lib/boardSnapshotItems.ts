@@ -34,7 +34,7 @@ export const forEachSnapshotItem = (
 }
 
 // collect derived values while traversing every snapshot item once
-export const collectSnapshotItems = <T>(
+const collectSnapshotItems = <T>(
   snapshot: BoardSnapshot,
   collect: (item: TierItem, id: ItemId | null) => T | null | undefined
 ): T[] =>
@@ -147,7 +147,7 @@ export const mapSnapshotItems = (
   }
 }
 
-export interface TransformedSnapshotItems<TOut>
+interface TransformedSnapshotItems<TOut>
 {
   items: Record<string, TOut>
   deletedItems: TOut[]

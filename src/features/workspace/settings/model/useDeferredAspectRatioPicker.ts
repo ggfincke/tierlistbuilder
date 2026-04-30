@@ -24,7 +24,7 @@ export const resolvePendingAutoAspectRatio = (
   fallbackRatio: number
 ): number => computeAutoBoardAspectRatio(board) ?? fallbackRatio
 
-export interface DeferredBoardAspectRatioPicker extends BoardAspectRatioPicker
+interface DeferredBoardAspectRatioPicker extends BoardAspectRatioPicker
 {
   autoRatio: number
   // apply pending ratio & mode to the store; callers invoke on confirm

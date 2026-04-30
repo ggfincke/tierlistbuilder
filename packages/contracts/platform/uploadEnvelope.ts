@@ -2,10 +2,10 @@
 // upload-envelope helpers — bind raw storage uploads to a server-issued token
 // & the authenticated userId; server rebuilds the expected header at finalize
 
-export type UploadEnvelopeKind = 'media' | 'snapshot'
+type UploadEnvelopeKind = 'media' | 'snapshot'
 
 export const UPLOAD_TOKEN_BYTES = 32
-export const UPLOAD_TOKEN_HEX_LENGTH = UPLOAD_TOKEN_BYTES * 2
+const UPLOAD_TOKEN_HEX_LENGTH = UPLOAD_TOKEN_BYTES * 2
 
 // upper bound on envelope header size in bytes — server's pre-fetch size
 // guard caps at MAX_* + this. actual headers ~150 bytes; slack absorbs format
@@ -21,7 +21,7 @@ const UPLOAD_TOKEN_PATTERN = new RegExp(
 const UPLOAD_USER_ID_PATTERN = /^[A-Za-z0-9_-]+$/
 const textEncoder = new TextEncoder()
 
-export const isUploadToken = (token: string): boolean =>
+const isUploadToken = (token: string): boolean =>
   UPLOAD_TOKEN_PATTERN.test(token)
 
 const isValidEnvelopeUserId = (userId: string): boolean =>

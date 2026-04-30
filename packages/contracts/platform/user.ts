@@ -2,7 +2,7 @@
 // public user shape projected by users.getMe — narrower than Doc<'users'>,
 // excludes operator diagnostics, auth internals, & raw avatarStorageId
 
-export type UserTier = 'free' | 'premium'
+type UserTier = 'free' | 'premium'
 
 export const MAX_DISPLAY_NAME_LENGTH = 64
 export const MAX_BIO_LENGTH = 200
@@ -22,7 +22,6 @@ export const PRONOUN_OPTIONS = [
   'any pronouns',
   'prefer not to say',
 ] as const
-export type PronounOption = (typeof PRONOUN_OPTIONS)[number]
 export const PRONOUN_OPTION_SET: ReadonlySet<string> = new Set(PRONOUN_OPTIONS)
 
 export const RESERVED_HANDLES = [

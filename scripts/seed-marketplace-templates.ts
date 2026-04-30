@@ -942,6 +942,22 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
     description: 'Disney+ MCU shows from WandaVision onward.',
     tags: ['marvel', 'mcu', 'disney+'],
   },
+  'prestige-tv-dramas': {
+    title: 'Prestige TV dramas',
+    category: 'movies',
+    description:
+      'Landmark prestige dramas, dramatic anthologies, and limited series across HBO, AMC, FX, broadcast, and streaming eras.',
+    tags: ['tv', 'drama', 'prestige tv', 'series'],
+    labels: true,
+    itemLabels: {
+      '017-the-handmaids-tale.jpg': "The Handmaid's Tale",
+      '028-the-x-files.jpg': 'The X-Files',
+      '029-battlestar-galactica-2003.jpg': 'Battlestar Galactica (2003)',
+      '031-mr-robot.jpg': 'Mr. Robot',
+      '054-shogun.jpg': 'Shōgun',
+      '058-the-queens-gambit.jpg': "The Queen's Gambit",
+    },
+  },
   'one-piece-arcs': {
     title: 'One Piece story arcs',
     category: 'anime',
@@ -1249,6 +1265,45 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
     tags: ['star wars', 'characters', 'sci-fi', 'jedi', 'sith'],
     labels: true,
   },
+  'star-wars-heroes': {
+    title: 'Star Wars heroes',
+    category: 'movies',
+    description:
+      'Star Wars heroes & antiheroes — Jedi, Rebels, Resistance, Mandalorians, smugglers, droids, & redeemed allies.',
+    tags: ['star wars', 'heroes', 'jedi', 'rebels', 'resistance'],
+    labels: true,
+    itemLabels: {
+      '008-r2-d2.png': 'R2-D2',
+      '009-c-3po.png': 'C-3PO',
+      '020-bb-8.jpg': 'BB-8',
+      '026-k-2so.jpg': 'K-2SO',
+      '027-bo-katan-kryze.jpg': 'Bo-Katan Kryze',
+      '034-wicket-w-warrick.png': 'Wicket W. Warrick',
+      '040-ig-11.png': 'IG-11',
+      '047-ki-adi-mundi.png': 'Ki-Adi-Mundi',
+      '060-l3-37.png': 'L3-37',
+      '065-b2emo.png': 'B2EMO',
+    },
+  },
+  'star-wars-villains': {
+    title: 'Star Wars villains',
+    category: 'movies',
+    description:
+      'Star Wars villains — Sith Lords, Imperial brass, First Order leaders, Inquisitors, bounty hunters, & assorted scum.',
+    tags: ['star wars', 'villains', 'sith', 'empire', 'first order'],
+    labels: true,
+    itemLabels: {
+      '034-qira.png': "Qi'ra",
+    },
+  },
+  'star-wars-supporting-characters': {
+    title: 'Star Wars supporting characters',
+    category: 'movies',
+    description:
+      'Star Wars supporting cast — family, civilians, comic relief, traders, pirates, & non-combatant allies across the saga.',
+    tags: ['star wars', 'supporting', 'characters', 'civilians', 'side'],
+    labels: true,
+  },
   'mcu-characters': {
     title: 'MCU characters',
     category: 'movies',
@@ -1304,7 +1359,8 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
   'mcu-heroes': {
     title: 'MCU heroes',
     category: 'movies',
-    description: 'Heroes, antiheroes, and allies of the Marvel Cinematic Universe.',
+    description:
+      'Heroes, antiheroes, and allies of the Marvel Cinematic Universe.',
     tags: ['marvel', 'mcu', 'heroes', 'superheroes', 'avengers'],
     labels: true,
     itemLabels: {
@@ -1339,7 +1395,8 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
   'mcu-villains': {
     title: 'MCU villains',
     category: 'movies',
-    description: 'Antagonists, big bads, and rogues of the Marvel Cinematic Universe.',
+    description:
+      'Antagonists, big bads, and rogues of the Marvel Cinematic Universe.',
     tags: ['marvel', 'mcu', 'villains', 'supervillains'],
     labels: true,
     itemLabels: {

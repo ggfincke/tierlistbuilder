@@ -41,12 +41,6 @@ const emitScanCacheChange = (): void =>
   for (const listener of scanCacheListeners) listener()
 }
 
-export const clearAutoCropCache = (): void =>
-{
-  scanCache.clear()
-  emitScanCacheChange()
-}
-
 export const subscribeAutoCropCache = (listener: () => void): (() => void) =>
 {
   scanCacheListeners.add(listener)

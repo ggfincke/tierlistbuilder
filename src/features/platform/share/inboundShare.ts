@@ -13,33 +13,33 @@ import {
   getShortLinkSlugFromUrl,
 } from '~/features/platform/share/shortLinkShare'
 
-export type InboundShareSource = 'fragment' | 'slug'
+type InboundShareSource = 'fragment' | 'slug'
 
-export interface InboundShareResolved
+interface InboundShareResolved
 {
   kind: 'resolved'
   source: InboundShareSource
   data: BoardSnapshot
 }
 
-export interface InboundShareFailed
+interface InboundShareFailed
 {
   kind: 'failed'
   source: InboundShareSource
   error: unknown
 }
 
-export interface InboundShareNone
+interface InboundShareNone
 {
   kind: 'none'
 }
 
-export type InboundShareResult =
+type InboundShareResult =
   | InboundShareResolved
   | InboundShareFailed
   | InboundShareNone
 
-export interface ResolveInboundShareOptions
+interface ResolveInboundShareOptions
 {
   signal?: AbortSignal
 }

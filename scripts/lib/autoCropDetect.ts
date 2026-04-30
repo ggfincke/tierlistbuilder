@@ -14,7 +14,7 @@ import {
 } from '@tierlistbuilder/contracts/workspace/imageMath'
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 
-export interface ImageProbe
+interface ImageProbe
 {
   // natural pixel dimensions captured before resampling
   naturalWidth: number
@@ -68,7 +68,7 @@ export const probeImage = async (bytes: Uint8Array): Promise<ImageProbe> =>
   }
 }
 
-export interface ResolveAutoCropTransformParams
+interface ResolveAutoCropTransformParams
 {
   imageAspectRatio: number
   bbox: AutoCropBBox

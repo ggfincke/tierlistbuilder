@@ -29,7 +29,7 @@ import { notifyBoardLoaded } from './boardSessionEvents'
 import { getActivePaletteId, hasBoardMeta } from './boardSessionRegistry'
 import { reportStorageWarningIfNeeded } from './storageWarningReporter'
 
-export interface LoadedBoardState
+interface LoadedBoardState
 {
   snapshot: BoardSnapshot
   syncState: BoardSyncState
@@ -90,7 +90,7 @@ export const loadBoardState = (
   notifyBoardLoaded(boardId)
 }
 
-export const saveBoardSnapshot = (boardId: BoardId): void =>
+const saveBoardSnapshot = (boardId: BoardId): void =>
 {
   const data = extractBoardData(useActiveBoardStore.getState())
   saveBoardToStorage(boardId, data, {

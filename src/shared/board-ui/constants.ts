@@ -18,7 +18,7 @@ export const ITEM_LONG_EDGE_PX: Record<ItemSize, number> = {
   large: 140,
 }
 
-export interface ItemSlotDimensions
+interface ItemSlotDimensions
 {
   width: number
   height: number

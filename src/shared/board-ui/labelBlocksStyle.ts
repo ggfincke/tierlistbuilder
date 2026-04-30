@@ -24,18 +24,17 @@ export const LABEL_SCRIM_TEXT_CLASS = {
 // overlay text color palette — 'auto' inherits the scrim text color (white
 // on dark/none, black on light). other values force an explicit hex via
 // inline style so the scrim text class color is overridden cleanly
-export const LABEL_TEXT_COLOR_HEX: Record<LabelTextColor, string | undefined> =
-  {
-    auto: undefined,
-    white: '#ffffff',
-    black: '#141414',
-    red: '#ef4444',
-    orange: '#f59e0b',
-    yellow: '#facc15',
-    green: '#22c55e',
-    blue: '#3b82f6',
-    purple: '#a855f7',
-  }
+const LABEL_TEXT_COLOR_HEX: Record<LabelTextColor, string | undefined> = {
+  auto: undefined,
+  white: '#ffffff',
+  black: '#141414',
+  red: '#ef4444',
+  orange: '#f59e0b',
+  yellow: '#facc15',
+  green: '#22c55e',
+  blue: '#3b82f6',
+  purple: '#a855f7',
+}
 
 export const LABEL_TEXT_COLOR_STYLE = Object.fromEntries(
   Object.entries(LABEL_TEXT_COLOR_HEX).map(([color, hex]) => [

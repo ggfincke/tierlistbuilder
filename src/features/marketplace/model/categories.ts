@@ -6,7 +6,7 @@ import {
   type TemplateCategory,
 } from '@tierlistbuilder/contracts/marketplace/category'
 
-export interface CategoryMeta
+interface CategoryMeta
 {
   id: TemplateCategory
   label: string

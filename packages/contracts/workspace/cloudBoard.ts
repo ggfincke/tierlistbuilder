@@ -47,7 +47,7 @@ export interface CloudBoardItemWire
 
 // board-wide aspect-ratio config shared by payload & state so a synced board
 // doesn't lose its ratio settings on a push/pull cycle
-export interface CloudBoardAspectRatioFields
+interface CloudBoardAspectRatioFields
 {
   itemAspectRatio?: number
   itemAspectRatioMode?: ItemAspectRatioMode
@@ -58,7 +58,7 @@ export interface CloudBoardAspectRatioFields
 // per-board overrides of user-default style — palette/text style/page bg.
 // shared by state read & sync push so a per-board override survives a push/pull
 // cycle. all fields optional; absent means "inherit user default"
-export interface CloudBoardStyleOverrideFields
+interface CloudBoardStyleOverrideFields
 {
   paletteId?: PaletteId
   textStyleId?: TextStyleId

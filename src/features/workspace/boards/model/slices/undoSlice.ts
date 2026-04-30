@@ -15,7 +15,7 @@ import type {
   UndoSlice,
 } from './types'
 
-export const DEFAULT_UNDO_LABEL = 'Change'
+const DEFAULT_UNDO_LABEL = 'Change'
 
 type UndoStacksPatch = Pick<ActiveBoardStore, 'past' | 'future'>
 

@@ -3,7 +3,7 @@
 
 import { useEffect, useState, type RefObject } from 'react'
 
-export interface ElementSize
+interface ElementSize
 {
   width: number
   height: number

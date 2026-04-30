@@ -12,7 +12,7 @@ import {
 
 import type { EffectiveBoardSyncStatus } from './syncStatusStore'
 
-export type SyncStatusCopyVariant = 'short' | 'long'
+type SyncStatusCopyVariant = 'short' | 'long'
 
 export interface SyncStatusVisual
 {

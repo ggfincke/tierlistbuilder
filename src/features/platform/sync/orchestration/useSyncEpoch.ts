@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { CLOUD_SYNC_ENABLED } from '../lib/cloudSyncConfig'
 
-export interface SyncEpoch
+interface SyncEpoch
 {
   authEpoch: number
   capturedUserId: string

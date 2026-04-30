@@ -24,22 +24,10 @@ export const getWorkspacePath = (): string =>
   return basePath || '/'
 }
 
-export const getEmbedPath = (): string =>
-{
-  const basePath = normalizeBasePath()
-  return `${basePath}${EMBED_ROUTE_PATH}`
-}
-
-export const getTemplatesPath = (): string =>
+const getTemplatesPath = (): string =>
 {
   const basePath = normalizeBasePath()
   return `${basePath}${TEMPLATES_ROUTE_PATH}`
-}
-
-export const getBoardsPath = (): string =>
-{
-  const basePath = normalizeBasePath()
-  return `${basePath}${BOARDS_ROUTE_PATH}`
 }
 
 export const getTemplateDetailPath = (slug: string): string =>

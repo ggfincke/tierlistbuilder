@@ -18,7 +18,7 @@ export interface TierStat
   percentage: number
 }
 
-export interface BoardStats
+interface BoardStats
 {
   tierDistribution: TierStat[]
   totalItems: number

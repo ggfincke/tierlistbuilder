@@ -22,14 +22,14 @@ export const DEFAULT_SHARE_LINK_TTL_MS = 90 * 24 * 60 * 60 * 1000
 export const MAX_OWNED_SHORT_LINKS = 200
 
 // returned when a slug points at no row (deleted, expired, or never existed)
-export interface ShortLinkResolveMiss
+interface ShortLinkResolveMiss
 {
   kind: 'not-found'
 }
 
 // returned for a live snapshot — recipient fetches snapshotUrl, inflates,
 // & parses via the shared snapshot codec
-export interface ShortLinkResolveSnapshot
+interface ShortLinkResolveSnapshot
 {
   kind: 'snapshot'
   snapshotUrl: string

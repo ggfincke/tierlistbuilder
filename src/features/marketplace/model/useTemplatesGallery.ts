@@ -18,7 +18,7 @@ import {
 } from '~/features/marketplace/data/templatesRepository'
 import type { GalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
 
-export interface TemplatesGalleryData
+interface TemplatesGalleryData
 {
   featured: readonly MarketplaceTemplateSummary[] | undefined
   popular: readonly MarketplaceTemplateSummary[] | undefined

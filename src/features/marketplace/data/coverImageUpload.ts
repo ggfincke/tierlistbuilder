@@ -14,18 +14,18 @@ import {
 } from '~/features/platform/media/uploadsRepository'
 import type { Id } from '@convex/_generated/dataModel'
 
-export interface UploadedCoverImage
+interface UploadedCoverImage
 {
   externalId: string
 }
 
-export type CoverUploadErrorKind =
+type CoverUploadErrorKind =
   | 'unsupported-mime'
   | 'too-large'
   | 'upload-failed'
   | 'finalize-failed'
 
-export class CoverUploadError extends Error
+class CoverUploadError extends Error
 {
   readonly kind: CoverUploadErrorKind
 

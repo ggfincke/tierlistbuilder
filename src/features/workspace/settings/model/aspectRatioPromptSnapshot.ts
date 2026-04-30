@@ -14,7 +14,7 @@ import {
 
 type PromptBoard = Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>
 
-export interface AspectRatioPromptSnapshot
+interface AspectRatioPromptSnapshot
 {
   itemIds: readonly ItemId[]
 }

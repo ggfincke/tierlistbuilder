@@ -202,7 +202,7 @@ const dominantGroupFit = (
   return contain > cover ? 'contain' : 'cover'
 }
 
-export const MismatchRows = ({
+const MismatchRows = ({
   groups,
   boardDefaultFit,
   onSetGroupFit,

@@ -15,7 +15,7 @@ const UPLOAD_INDEX_BY_HASH = 'byHash'
 // over a single transaction could saturate the single-threaded IDB worker
 // on a large board load & stall the main thread
 const IDB_READ_CONCURRENCY = 8
-export const LOCAL_IMAGE_GC_GRACE_MS = 7 * 24 * 60 * 60 * 1000
+const LOCAL_IMAGE_GC_GRACE_MS = 7 * 24 * 60 * 60 * 1000
 
 // persisted blob metadata & bytes
 export interface BlobRecord
@@ -28,14 +28,14 @@ export interface BlobRecord
 }
 
 // upload tracking record — maps [userId, hash] to a cloud media externalId
-export interface UploadIndexRecord
+interface UploadIndexRecord
 {
   userId: string
   hash: string
   cloudMediaExternalId: string
 }
 
-export interface BlobRefRecord
+interface BlobRefRecord
 {
   id: string
   scope: string
@@ -545,33 +545,6 @@ export const markUploaded = async (
   {
     return
   }
-}
-
-// check if a hash has been uploaded for a given user
-export const getUploadStatus = async (
-  userId: string,
-  hash: string
-): Promise<string | null> =>
-{
-  const db = await openDatabaseSafe()
-  if (!db)
-  {
-    return (
-      memoryUploadIndex.get(uploadIndexKey(userId, hash))
-        ?.cloudMediaExternalId ?? null
-    )
-  }
-
-  const tx = db.transaction(UPLOAD_INDEX_STORE, 'readonly')
-  const result = (await awaitRequest(
-    tx.objectStore(UPLOAD_INDEX_STORE).get([userId, hash])
-  )) as UploadIndexRecord | undefined
-
-  return (
-    result?.cloudMediaExternalId ??
-    memoryUploadIndex.get(uploadIndexKey(userId, hash))?.cloudMediaExternalId ??
-    null
-  )
 }
 
 // check upload status for many hashes in one transaction

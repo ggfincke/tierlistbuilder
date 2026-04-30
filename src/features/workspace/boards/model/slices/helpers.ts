@@ -135,13 +135,6 @@ export const stripItemsFromSnapshot = (
   }
 }
 
-// clean up transient refs (active, focus, selection, last-click) that point
-// at an item being deleted or removed from the board
-export const runtimeCleanupForItem = (
-  state: ActiveBoardRuntimeState,
-  itemId: ItemId
-) => runtimeCleanupForItems(state, new Set([itemId]))
-
 export const runtimeCleanupForItems = (
   state: ActiveBoardRuntimeState,
   itemIds: ReadonlySet<ItemId>

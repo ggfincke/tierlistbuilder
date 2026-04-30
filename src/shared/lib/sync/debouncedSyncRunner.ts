@@ -4,7 +4,7 @@
 import { computeBackoffDelay } from './backoff'
 import { makeProceedGuard } from './proceedGuard'
 
-export type SyncFlushResult<TSuccess, TConflict = never> =
+type SyncFlushResult<TSuccess, TConflict = never> =
   | { kind: 'synced'; success: TSuccess }
   | { kind: 'conflict'; conflict: TConflict }
   | { kind: 'error'; error: unknown }
@@ -14,7 +14,7 @@ export type BeforeSyncFlushDecision<TWork> =
   | { kind: 'defer'; delayMs: number; work?: TWork }
   | { kind: 'drop' }
 
-export interface SyncRunnerWorkContext<TWork>
+interface SyncRunnerWorkContext<TWork>
 {
   queuedWork: TWork | null
 }
@@ -26,12 +26,12 @@ export interface SyncRunnerErrorContext<
   retryAttempt: number
 }
 
-export interface DebouncedSyncRunnerDisposeOptions
+interface DebouncedSyncRunnerDisposeOptions
 {
   flush?: boolean
 }
 
-export interface DebouncedSyncRunnerOptions<TKey, TWork, TSuccess, TConflict>
+interface DebouncedSyncRunnerOptions<TKey, TWork, TSuccess, TConflict>
 {
   debounceMs: number
   flush: (
@@ -87,7 +87,7 @@ export interface TriggerOptions
   immediate?: boolean
 }
 
-export interface DebouncedSyncRunner<TKey, TWork>
+interface DebouncedSyncRunner<TKey, TWork>
 {
   enqueue: (key: TKey, work: TWork, options?: TriggerOptions) => void
   dispose: (options?: DebouncedSyncRunnerDisposeOptions) => Promise<void>

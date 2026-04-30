@@ -31,7 +31,7 @@ const DEFAULT_LIBRARY_FILTER_PARAMS = {
   density: 'default' as LibraryBoardDensity,
 }
 
-export interface LibraryFilterParams
+interface LibraryFilterParams
 {
   search: string
   filter: LibraryBoardFilter
@@ -117,7 +117,7 @@ export const createLibraryFilterSearchParams = (
     writeLibraryFilterParams
   )
 
-export interface LibraryFilters
+interface LibraryFilters
 {
   searchInput: string
   searchDebounced: string

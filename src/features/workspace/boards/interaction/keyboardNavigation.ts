@@ -40,7 +40,7 @@ interface ResolveDraggingKeyboardNavigationArgs
   getRowLayout?: DragRowLayoutLookup
 }
 
-export type DraggingKeyboardNavigationResult =
+type DraggingKeyboardNavigationResult =
   | { kind: 'missing-active' }
   | { kind: 'move'; containerId: string; nextPreview: ContainerSnapshot }
   | { kind: 'noop' }

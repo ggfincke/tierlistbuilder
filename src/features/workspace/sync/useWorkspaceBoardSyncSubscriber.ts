@@ -13,7 +13,7 @@ import {
 import { extractBoardSyncState } from '~/features/workspace/boards/model/sync'
 import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 
-export interface WorkspaceBoardSyncSubscriberOptions
+interface WorkspaceBoardSyncSubscriberOptions
 {
   shouldProceed: (() => boolean) | null
   isMergePending: () => boolean

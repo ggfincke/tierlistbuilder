@@ -12,7 +12,7 @@ import {
 import type { BoardDeleteCloudSyncHandle } from '~/features/workspace/boards/data/cloud/setupBoardDeleteCloudSync'
 import { CLOUD_SYNC_DEBOUNCE_MS } from '~/features/platform/sync/lib/concurrency'
 
-export interface WorkspaceSyncInstallOptions
+interface WorkspaceSyncInstallOptions
 {
   userId: string
   isOnline: () => boolean
@@ -20,7 +20,7 @@ export interface WorkspaceSyncInstallOptions
   onInstalled: () => void
 }
 
-export interface WorkspaceSyncHandleRegistry
+interface WorkspaceSyncHandleRegistry
 {
   preferencesRef: { current: PreferencesCloudSyncHandle | null }
   presetsRef: { current: TierPresetCloudSyncHandle | null }

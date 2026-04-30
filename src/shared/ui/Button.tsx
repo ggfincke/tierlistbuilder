@@ -10,18 +10,18 @@ import {
   BUTTON_FOCUS_CLASS,
 } from '~/shared/ui/buttonBase'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'action' | 'overlay'
+type ButtonVariant = 'primary' | 'secondary' | 'action' | 'overlay'
 export type ButtonTone =
   | 'accent'
   | 'destructive'
   | 'neutral'
   | 'default'
   | 'success'
-export type ButtonSize = 'xs' | 'sm' | 'md'
-export type ButtonSurface = 'outline' | 'filled'
-export type ButtonReveal = 'hover' | 'always'
+type ButtonSize = 'xs' | 'sm' | 'md'
+type ButtonSurface = 'outline' | 'filled'
+type ButtonReveal = 'hover' | 'always'
 
-export interface ButtonProps extends Omit<
+interface ButtonProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
   'type'
 >

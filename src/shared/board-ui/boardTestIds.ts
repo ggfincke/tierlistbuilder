@@ -24,5 +24,5 @@ export const tierItemSelector = (itemId: string): string =>
 
 // data-bulk-action-bar marker — sibling of ITEM_DATA_ATTR for selection-preservation
 // pointerdown checks in useGlobalShortcuts
-export const BULK_ACTION_BAR_ATTR = 'data-bulk-action-bar'
+const BULK_ACTION_BAR_ATTR = 'data-bulk-action-bar'
 export const BULK_ACTION_BAR_SELECTOR = `[${BULK_ACTION_BAR_ATTR}]`

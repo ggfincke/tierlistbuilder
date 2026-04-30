@@ -16,7 +16,7 @@ export interface SyncSession
   dispose: () => void
 }
 
-export interface CreateSyncSessionOptions
+interface CreateSyncSessionOptions
 {
   userId: string
   shouldProceed: () => boolean

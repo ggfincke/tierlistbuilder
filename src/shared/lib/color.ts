@@ -4,7 +4,7 @@
 import { clamp } from './math'
 
 // numeric rgb channel triplet
-export interface RgbColor
+interface RgbColor
 {
   red: number
   green: number
@@ -45,7 +45,7 @@ export const normalizeHexColor = (value: string): string | null =>
 }
 
 // clamp a channel to the valid rgb byte range
-export const clampRgbChannel = (value: number): number =>
+const clampRgbChannel = (value: number): number =>
   clamp(Math.round(value), 0, 255)
 
 const toHexChannel = (value: number): string =>

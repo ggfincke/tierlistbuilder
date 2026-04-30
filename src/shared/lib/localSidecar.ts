@@ -8,7 +8,7 @@ import {
   writeBrowserStorageItem,
 } from './browserStorage'
 
-export interface LocalSidecarOptions<T>
+interface LocalSidecarOptions<T>
 {
   storageKey: string
   emptyValue: () => T
@@ -16,7 +16,7 @@ export interface LocalSidecarOptions<T>
   isEmpty: (value: T) => boolean
 }
 
-export interface LocalSidecar<T>
+interface LocalSidecar<T>
 {
   load: () => T
   save: (value: T) => void

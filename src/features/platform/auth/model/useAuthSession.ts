@@ -6,7 +6,7 @@ import { useConvexAuth, useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 
-export type AuthSession =
+type AuthSession =
   | { status: 'loading' }
   | { status: 'signed-out' }
   | { status: 'signed-in'; user: PublicUserMe }
