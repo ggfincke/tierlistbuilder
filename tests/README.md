@@ -27,6 +27,7 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Popup/Menu Geometry**: Shared fixed-popup placement, submenu flip rules, &
   progress normalization
 - **Image Crop Math**: Manual-crop sizing & pan-offset CSS positioning
+- **Image Editor Selection**: Image-item ordering, filters, & pending edit overlays
 - **Backend Selectors & Contracts**: Short-link listing, upload envelopes,
   image upload validation, public templates, and Convex query/mutation limit edges
 - **Sync Runner Contracts**: Shared debounce/retry hooks, conflict pauses, and
@@ -89,6 +90,7 @@ tests/
 │   ├── convexTestHelpers.ts         — Convex test module harness
 │   ├── imageValidation.test.ts      — Convex image validation helpers
 │   ├── marketplaceTemplates.test.ts — public template publish/list/use & draft progress
+│   ├── seedAuthorization.test.ts    — marketplace seed action secret gates
 │   ├── shortLinksIntegration.test.ts — real Convex owner+expiry listing query
 │   ├── shortLinksListing.test.ts    — live short-link listing selection
 │   └── userCascade.test.ts          — account deletion cascade coverage
@@ -116,6 +118,7 @@ tests/
 │   ├── boardRenderSelectors.test.ts — active-board render projection selectors
 │   ├── boardConflictResolution.test.ts — conflict resolution sync identity
 │   ├── boardSession.test.ts         — session bootstrap, autosave, registry orchestration
+│   ├── imageEditorItems.test.ts     — image-editor ordering, filters, & pending edits
 │   └── urlFilters.test.ts           — marketplace/library URL filter behavior
 ├── overlay/
 │   ├── nestedMenus.test.ts          — nested root/submenu open-close tree rules

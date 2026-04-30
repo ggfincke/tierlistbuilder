@@ -1,23 +1,11 @@
 // src/features/workspace/imageEditor/ui/ImageEditorModal.tsx
 // store-aware modal orchestration for per-item image editing
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type {
-  BoardLabelSettings,
-  ItemTransform,
-  TierItem,
-} from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { resolveLabelLayout } from '~/shared/board-ui/labelDisplay'
 import {
   resolveEffectiveShowLabels,
@@ -26,7 +14,6 @@ import {
 import {
   getBoardItemAspectRatio,
   getEffectiveImageFit,
-  itemHasAspectMismatch,
   type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -43,20 +30,13 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { toast } from '~/shared/notifications/useToastStore'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
-import {
-  areCachedAutoCropsApplied,
-  collectAutoCropTransforms,
-  getAutoCropCacheVersion,
-  getAutoCropHash,
-  subscribeAutoCropCache,
-} from '~/shared/lib/autoCrop'
 import { isInteractiveArrowTarget } from '../lib/imageEditorGeometry'
+import type { PendingImageEditorPaneEdit } from '../model/pendingImageEdit'
+import { useImageEditorAutoCropAll } from '../model/useImageEditorAutoCropAll'
+import { useImageEditorItems } from '../model/useImageEditorItems'
+import { useImageEditorSelection } from '../model/useImageEditorSelection'
 import { BoardControlsBar } from './BoardControlsBar'
-import {
-  ImageEditorPane,
-  type ImageEditorPaneHandle,
-  type PendingImageEditorPaneEdit,
-} from './ImageEditorPane'
+import { ImageEditorPane, type ImageEditorPaneHandle } from './ImageEditorPane'
 import { ImageEditorRail } from './ImageEditorRail'
 import {
   useImageEditorStore,
@@ -129,166 +109,25 @@ const ImageEditorModalBody = () =>
   const [captionExpanded, setCaptionExpanded] = useState(false)
   const [imageExpanded, setImageExpanded] = useState(false)
   const activePaneRef = useRef<ImageEditorPaneHandle | null>(null)
-
-  const allImageItems = useMemo(() =>
-  {
-    const result: TierItem[] = []
-    const seen = new Set<ItemId>()
-    const visitId = (id: ItemId): void =>
-    {
-      if (seen.has(id)) return
-      seen.add(id)
-      const item = items[id]
-      if (item?.imageRef) result.push(item)
-    }
-
-    for (const tier of tiers)
-    {
-      for (const id of tier.itemIds) visitId(id)
-    }
-    for (const id of unrankedItemIds) visitId(id)
-
-    return result
-  }, [items, tiers, unrankedItemIds])
-
-  const [autoCropProgress, setAutoCropProgress] = useState<{
-    running: boolean
-    done: number
-    total: number
-  }>({ running: false, done: 0, total: 0 })
-  const autoCropCacheVersion = useSyncExternalStore(
-    subscribeAutoCropCache,
-    getAutoCropCacheVersion,
-    getAutoCropCacheVersion
-  )
-
-  const filteredItems = useMemo(() =>
-  {
-    if (filter === 'mismatched')
-    {
-      return allImageItems.filter((it) =>
-        itemHasAspectMismatch(it, boardAspectRatio)
-      )
-    }
-    if (filter === 'adjusted')
-    {
-      return allImageItems.filter(
-        (it) => !!it.transform && !isIdentityTransform(it.transform)
-      )
-    }
-    return allImageItems
-  }, [filter, allImageItems, boardAspectRatio])
-
-  const getItemsWithPendingEdit = useCallback(
-    (pendingEdit: PendingImageEditorPaneEdit | null): readonly TierItem[] =>
-    {
-      if (!pendingEdit) return filteredItems
-      let matched = false
-      const nextItems = filteredItems.map((it) =>
-      {
-        if (it.id !== pendingEdit.id) return it
-        matched = true
-        return {
-          ...it,
-          transform: pendingEdit.transform ?? undefined,
-        }
-      })
-      return matched ? nextItems : filteredItems
-    },
-    [filteredItems]
-  )
-
-  const handleAutoCropAll = useCallback(
-    async (sourceItems: readonly TierItem[] = filteredItems) =>
-    {
-      const targets = sourceItems.filter((it) => !!getAutoCropHash(it))
-      if (targets.length === 0) return
-      setAutoCropProgress({ running: true, done: 0, total: targets.length })
-      try
-      {
-        const entries = await collectAutoCropTransforms({
-          targets,
-          boardAspectRatio,
-          trimSoftShadows,
-          onProgress: () =>
-            setAutoCropProgress((p) =>
-              p.running ? { ...p, done: p.done + 1 } : p
-            ),
-        })
-        if (entries.length > 0) setItemsTransform(entries)
-      }
-      finally
-      {
-        setAutoCropProgress({ running: false, done: 0, total: 0 })
-      }
-    },
-    [trimSoftShadows, filteredItems, boardAspectRatio, setItemsTransform]
-  )
-
-  const autoCropAllApplied = useMemo(() =>
-  {
-    void autoCropCacheVersion
-    if (autoCropProgress.running) return false
-    return areCachedAutoCropsApplied(
-      filteredItems,
+  const { allImageItems, filteredItems, getItemsWithPendingEdit } =
+    useImageEditorItems({
+      items,
+      tiers,
+      unrankedItemIds,
+      filter,
       boardAspectRatio,
-      trimSoftShadows
-    )
-  }, [
-    autoCropCacheVersion,
-    autoCropProgress.running,
-    boardAspectRatio,
+    })
+  const {
+    autoCropProgress,
+    autoCropAllApplied,
+    handleAutoCropAll,
+    getManualAdjustmentCount,
+  } = useImageEditorAutoCropAll({
     filteredItems,
+    boardAspectRatio,
     trimSoftShadows,
-  ])
-
-  const manuallyAdjustedTargets = useMemo(() =>
-  {
-    void autoCropCacheVersion
-    return filteredItems.filter(
-      (it) =>
-        !!it.transform &&
-        !isIdentityTransform(it.transform) &&
-        !areCachedAutoCropsApplied([it], boardAspectRatio, trimSoftShadows)
-    )
-  }, [autoCropCacheVersion, boardAspectRatio, filteredItems, trimSoftShadows])
-
-  const getPendingManualTarget = useCallback(
-    (pendingEdit: PendingImageEditorPaneEdit | null): TierItem | null =>
-    {
-      if (!pendingEdit) return null
-      const item = filteredItems.find((it) => it.id === pendingEdit.id)
-      if (!item || !getAutoCropHash(item)) return null
-      const pendingItem: TierItem = {
-        ...item,
-        transform: pendingEdit.transform ?? undefined,
-      }
-      return areCachedAutoCropsApplied(
-        [pendingItem],
-        boardAspectRatio,
-        trimSoftShadows
-      )
-        ? null
-        : pendingItem
-    },
-    [filteredItems, boardAspectRatio, trimSoftShadows]
-  )
-
-  const getManualAdjustmentCount = useCallback(
-    (pendingEdit: PendingImageEditorPaneEdit | null): number =>
-    {
-      const pendingTarget = getPendingManualTarget(pendingEdit)
-      if (
-        !pendingTarget ||
-        manuallyAdjustedTargets.some((it) => it.id === pendingTarget.id)
-      )
-      {
-        return manuallyAdjustedTargets.length
-      }
-      return manuallyAdjustedTargets.length + 1
-    },
-    [getPendingManualTarget, manuallyAdjustedTargets]
-  )
+    setItemsTransform,
+  })
 
   const [confirmAutoCropOpen, setConfirmAutoCropOpen] = useState(false)
   const [confirmAutoCropCount, setConfirmAutoCropCount] = useState(0)
@@ -483,93 +322,30 @@ const ImageEditorModalBody = () =>
     setConfirmApplyLabelCount(0)
   }, [])
 
-  const [pickedId, setPickedId] = useState<ItemId | null>(() =>
-  {
-    if (initialItemId && allImageItems.some((it) => it.id === initialItemId))
-    {
-      return initialItemId
-    }
-    return null
+  const {
+    selectedIndex,
+    selectedItem,
+    selectedId,
+    setPickedId,
+    goPrev,
+    goNext,
+    goSkip,
+    isSkipped,
+    clearSkipped,
+  } = useImageEditorSelection({
+    initialItemId,
+    allImageItems,
+    filteredItems,
+    filter,
   })
 
-  const selectedIndex = useMemo(() =>
-  {
-    if (pickedId)
-    {
-      const idx = filteredItems.findIndex((it) => it.id === pickedId)
-      if (idx >= 0) return idx
-    }
-    return filteredItems.length > 0 ? 0 : -1
-  }, [pickedId, filteredItems])
-
-  const selectedItem =
-    selectedIndex >= 0 ? filteredItems[selectedIndex] : undefined
-  const selectedId = selectedItem?.id ?? null
-
-  const goPrev = useCallback(() =>
-  {
-    if (selectedIndex <= 0) return
-    setPickedId(filteredItems[selectedIndex - 1].id)
-  }, [selectedIndex, filteredItems])
-
-  const [skippedIds, setSkippedIds] = useState<ReadonlySet<ItemId>>(
-    () => new Set()
-  )
-
-  const isSkipped = useCallback(
-    (id: ItemId) => skippedIds.has(id),
-    [skippedIds]
-  )
-
-  const goSkip = useCallback(() =>
-  {
-    if (selectedIndex < 0 || selectedIndex >= filteredItems.length - 1) return
-    const currentId = filteredItems[selectedIndex].id
-    setSkippedIds((prev) =>
-    {
-      if (prev.has(currentId)) return prev
-      const next = new Set(prev)
-      next.add(currentId)
-      return next
-    })
-    setPickedId(filteredItems[selectedIndex + 1].id)
-  }, [selectedIndex, filteredItems])
-
-  const goNext = useCallback(() =>
-  {
-    if (selectedIndex < 0 || selectedIndex >= filteredItems.length - 1) return
-    if (filter === 'mismatched')
-    {
-      for (let i = selectedIndex + 1; i < filteredItems.length; i += 1)
-      {
-        const it = filteredItems[i]
-        if (skippedIds.has(it.id)) continue
-        if (!it.transform || isIdentityTransform(it.transform))
-        {
-          setPickedId(it.id)
-          return
-        }
-      }
-    }
-    setPickedId(filteredItems[selectedIndex + 1].id)
-  }, [filter, selectedIndex, filteredItems, skippedIds])
-
   const handleCommit = useCallback(
-    (id: ItemId, transform: ItemTransform | null) =>
+    (id: ItemId, transform: Parameters<typeof setItemTransform>[1]) =>
     {
       setItemTransform(id, transform)
-      if (transform)
-      {
-        setSkippedIds((prev) =>
-        {
-          if (!prev.has(id)) return prev
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
-      }
+      if (transform) clearSkipped(id)
     },
-    [setItemTransform]
+    [clearSkipped, setItemTransform]
   )
 
   useEffect(() =>

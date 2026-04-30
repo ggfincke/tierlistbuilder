@@ -56,6 +56,10 @@ src/
 │   │   ├── model/                   # active board store, registry, session facade, conflicts, snapshot ops
 │   │   └── ui/                      # TierList, TierRow, TierItem, BoardHeader, BoardActionBar, etc.
 │   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
+│   ├── imageEditor/
+│   │   ├── lib/                     # crop geometry, label options, & measurement helpers
+│   │   ├── model/                   # open/filter store, item filtering, selection, bulk auto-crop, labels
+│   │   └── ui/                      # modal, pane, rail, preview canvas, footer, label controls
 │   ├── settings/
 │   │   ├── lib/                     # image upload constants & helpers
 │   │   ├── model/                   # board overrides, palette selectors, aspect ratio, image import
