@@ -138,6 +138,90 @@ const seedMediaAssets = async (
 
 describe('upsertBoardState Convex limits', () =>
 {
+  it('maintains the library summary during board upsert', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t)
+    await seedMediaAssets(t, userId, ['media-ranked'])
+    const caller = asUser(t, userId)
+
+    await caller.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId: 'board-library-summary',
+        baseRevision: null,
+        title: 'Library Board',
+        tiers: [
+          {
+            externalId: 'tier-ranked',
+            name: 'Ranked',
+            colorSpec: { kind: 'palette', index: 0 },
+            itemIds: ['item-ranked'],
+          },
+          {
+            externalId: 'tier-empty',
+            name: 'Empty',
+            colorSpec: { kind: 'palette', index: 1 },
+            itemIds: [],
+          },
+        ],
+        items: [
+          {
+            externalId: 'item-ranked',
+            tierId: 'tier-ranked',
+            label: 'Ranked item',
+            mediaExternalId: 'media-ranked',
+            order: 0,
+          },
+          {
+            externalId: 'item-unranked',
+            tierId: null,
+            label: 'Unranked item',
+            mediaExternalId: null,
+            order: 1,
+          },
+        ],
+        deletedItemIds: [],
+      }
+    )
+
+    const boards = await caller.query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+
+    expect(boards).toHaveLength(1)
+    expect(boards[0]).toMatchObject({
+      title: 'Library Board',
+      activeItemCount: 2,
+      unrankedItemCount: 1,
+      rankedItemCount: 1,
+      status: 'in_progress',
+      tierColors: [
+        { kind: 'palette', index: 0 },
+        { kind: 'palette', index: 1 },
+      ],
+      tierBreakdown: [
+        {
+          tierIndex: 0,
+          itemCount: 1,
+          colorSpec: { kind: 'palette', index: 0 },
+        },
+      ],
+      coverItems: [
+        {
+          label: 'Ranked item',
+          externalId: 'item-ranked',
+        },
+        {
+          label: 'Unranked item',
+          externalId: 'item-unranked',
+          mediaUrl: null,
+        },
+      ],
+    })
+  })
+
   it('accepts a max-size board where every item references owned media', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })

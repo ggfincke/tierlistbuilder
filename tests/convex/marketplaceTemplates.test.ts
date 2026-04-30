@@ -108,6 +108,28 @@ const seedSourceBoard = async (
       activeItemCount: 2,
       unrankedItemCount: 1,
       templateProgressState: 'none',
+      librarySummary: {
+        coverItems: [
+          {
+            label: 'Image item',
+            externalId: 'source-item-1',
+            storageId,
+          },
+          {
+            label: 'Text item',
+            externalId: 'source-item-2',
+            storageId: null,
+          },
+        ],
+        tierColors: [{ kind: 'palette', index: 1 }],
+        tierBreakdown: [
+          {
+            tierIndex: 0,
+            itemCount: 1,
+            colorSpec: { kind: 'palette', index: 1 },
+          },
+        ],
+      },
     })
     const tierId = await ctx.db.insert('boardTiers', {
       boardId,
@@ -287,6 +309,69 @@ describe('marketplace template Convex functions', () =>
       'source-item-2',
     ])
     expect(unlistedDetail?.coverMedia?.contentHash).toBe('hash-source')
+  })
+
+  it('projects library boards from summaries and indexed publish state', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    await seedSourceBoard(t, authorId)
+    const caller = asUser(t, authorId)
+
+    let boards = await caller.query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+
+    expect(boards).toHaveLength(1)
+    expect(boards[0]).toMatchObject({
+      title: 'Source Board',
+      activeItemCount: 2,
+      unrankedItemCount: 1,
+      rankedItemCount: 1,
+      status: 'in_progress',
+      visibility: 'private',
+      category: 'other',
+      tierColors: [{ kind: 'palette', index: 1 }],
+      tierBreakdown: [
+        {
+          tierIndex: 0,
+          itemCount: 1,
+          colorSpec: { kind: 'palette', index: 1 },
+        },
+      ],
+      coverItems: [
+        {
+          label: 'Image item',
+          externalId: 'source-item-1',
+        },
+        {
+          label: 'Text item',
+          externalId: 'source-item-2',
+          mediaUrl: null,
+        },
+      ],
+    })
+
+    await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Public Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+    boards = await caller.query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+
+    expect(boards[0]).toMatchObject({
+      status: 'published',
+      visibility: 'public',
+    })
   })
 
   it('maintains the public template count without scanning templates', async () =>

@@ -11,7 +11,7 @@ export const MIN_HANDLE_LENGTH = 3
 export const MAX_HANDLE_LENGTH = 24
 export const HANDLE_REGEX = /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/
 
-// fixed pronoun set — keeps profile data consistent and avoids open free-text.
+// fixed pronoun set — keeps profile data consistent & avoids open free-text.
 // '' means unset (the user hasn't picked). add more here if/when needed
 export const PRONOUN_OPTIONS = [
   'he/him',

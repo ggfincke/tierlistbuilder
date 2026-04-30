@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **My Lists**: `/boards` library page w/ stats strip, status filter chips, sort options, grid + list views, density toggle, search, deep-link params, & signed-out CTA — replaces the placeholder coming-soon shell
+- **Board Cards**: Cover artwork (initials mosaic over `--t-media-matte`, draft-pattern for empty boards), tier-color progress bar, status pill, visibility chip, hover CTA per status
+- **Library Contracts**: `LibraryBoardListItem` shape & `getMyLibraryBoards` Convex query — projects active/unranked counts, derived status (draft/in_progress/finished/published), visibility, source-template category, top-5 tier colorSpecs, per-tier item counts, & top-18 cover-item labels onto each board
+
 ## [0.7.1] - 2026-04-26
 
 ### Added

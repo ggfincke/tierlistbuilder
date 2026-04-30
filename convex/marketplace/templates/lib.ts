@@ -40,6 +40,7 @@ import { MAX_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/clou
 import { DEFAULT_BOARD_TITLE } from '@tierlistbuilder/contracts/workspace/board'
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput, normalizeNullableText } from '../../lib/text'
+import type { BoardLibrarySummaryItem } from '../../workspace/boards/librarySummary'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -47,6 +48,12 @@ interface TemplateProjectionCache
 {
   authors: Map<Id<'users'>, Promise<TemplateAuthor>>
   media: Map<Id<'mediaAssets'>, Promise<TemplateMediaRef | null>>
+}
+
+interface MediaAlias
+{
+  assetId: Id<'mediaAssets'>
+  storageId: Id<'_storage'>
 }
 
 const MAX_SEARCH_QUERY_LENGTH = 120
@@ -767,7 +774,7 @@ const ensureUserMediaAliases = async (
   ctx: MutationCtx,
   ownerId: Id<'users'>,
   sourceMediaAssetIds: readonly Id<'mediaAssets'>[]
-): Promise<Map<Id<'mediaAssets'>, Id<'mediaAssets'>>> =>
+): Promise<Map<Id<'mediaAssets'>, MediaAlias>> =>
 {
   const uniqueSourceIds = [...new Set(sourceMediaAssetIds)]
   const sourceEntries = await Promise.all(
@@ -806,7 +813,10 @@ const ensureUserMediaAliases = async (
 
       if (existing)
       {
-        return [contentHash, existing._id] as const
+        return [
+          contentHash,
+          { assetId: existing._id, storageId: existing.storageId },
+        ] as const
       }
 
       const inserted = await ctx.db.insert('mediaAssets', {
@@ -820,15 +830,18 @@ const ensureUserMediaAliases = async (
         byteSize: source.byteSize,
         createdAt: Date.now(),
       })
-      return [contentHash, inserted] as const
+      return [
+        contentHash,
+        { assetId: inserted, storageId: source.storageId },
+      ] as const
     })
   )
   const aliasesByHash = new Map(aliasEntries)
-  const aliasesBySourceId = new Map<Id<'mediaAssets'>, Id<'mediaAssets'>>()
+  const aliasesBySourceId = new Map<Id<'mediaAssets'>, MediaAlias>()
   for (const [sourceId, source] of sourcesById)
   {
-    const aliasId = aliasesByHash.get(source.contentHash)
-    if (aliasId) aliasesBySourceId.set(sourceId, aliasId)
+    const alias = aliasesByHash.get(source.contentHash)
+    if (alias) aliasesBySourceId.set(sourceId, alias)
   }
   return aliasesBySourceId
 }
@@ -860,7 +873,7 @@ export const insertBoardItemsFromTemplate = async (
   boardId: Id<'boards'>,
   ownerId: Id<'users'>,
   templateItems: readonly Doc<'templateItems'>[]
-): Promise<void> =>
+): Promise<BoardLibrarySummaryItem[]> =>
 {
   const mediaAliases = await ensureUserMediaAliases(
     ctx,
@@ -870,19 +883,23 @@ export const insertBoardItemsFromTemplate = async (
       .filter((id): id is Id<'mediaAssets'> => id !== null)
   )
 
-  await Promise.all(
-    templateItems.map((item) =>
-      ctx.db.insert('boardItems', {
+  const rows = templateItems.map((item) =>
+  {
+    const mediaAlias = item.mediaAssetId
+      ? (mediaAliases.get(item.mediaAssetId) ??
+        failState(`media alias missing: ${item.mediaAssetId}`))
+      : null
+    const externalId = generateItemId()
+
+    return {
+      insert: {
         boardId,
         tierId: null,
-        externalId: generateItemId(),
+        externalId,
         label: item.label ?? undefined,
         backgroundColor: item.backgroundColor ?? undefined,
         altText: item.altText ?? undefined,
-        mediaAssetId: item.mediaAssetId
-          ? (mediaAliases.get(item.mediaAssetId) ??
-            failState(`media alias missing: ${item.mediaAssetId}`))
-          : null,
+        mediaAssetId: mediaAlias?.assetId ?? null,
         sourceMediaAssetId: null,
         order: item.order,
         deletedAt: null,
@@ -890,7 +907,18 @@ export const insertBoardItemsFromTemplate = async (
         imageFit: item.imageFit ?? undefined,
         transform: item.transform ?? undefined,
         templateItemId: item._id,
-      })
-    )
-  )
+      },
+      summary: {
+        tierKey: null,
+        externalId,
+        label: item.label,
+        storageId: mediaAlias?.storageId ?? null,
+        order: item.order,
+        deletedAt: null,
+      },
+    }
+  })
+
+  await Promise.all(rows.map((row) => ctx.db.insert('boardItems', row.insert)))
+  return rows.map((row) => row.summary)
 }

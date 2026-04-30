@@ -10,6 +10,7 @@ import { generateBoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { requireCurrentUserId } from '../../lib/auth'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
 import { resolveTemplateProgressState } from '../../lib/templateProgress'
+import { EMPTY_BOARD_LIBRARY_SUMMARY } from './librarySummary'
 
 // create a new empty board for the authenticated caller
 export const createBoard = mutation({
@@ -36,6 +37,7 @@ export const createBoard = mutation({
         activeItemCount: 0,
         unrankedItemCount: 0,
       }),
+      librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
     })
 
     return { externalId }

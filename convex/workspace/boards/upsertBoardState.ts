@@ -44,6 +44,10 @@ import {
   resolveTemplateProgressState,
   type TemplateProgressCounts,
 } from '../../lib/templateProgress'
+import {
+  buildBoardLibrarySummary,
+  EMPTY_BOARD_LIBRARY_SUMMARY,
+} from './librarySummary'
 
 const MAX_LABEL_LEN = 200
 const MAX_ALT_LEN = 500
@@ -127,6 +131,12 @@ interface UpsertArgs
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+}
+
+interface ResolvedMediaReference
+{
+  assetId: Id<'mediaAssets'>
+  storageId: Id<'_storage'>
 }
 
 const validateLabelPlacement = (
@@ -346,6 +356,7 @@ const ensureBoard = async (
       sourceTemplateId: null,
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(null, progressCounts),
+      librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
     })
     board = (await ctx.db.get(boardId))!
   }
@@ -367,7 +378,7 @@ const resolveMediaReferences = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
   items: UpsertArgs['items']
-): Promise<Map<string, Id<'mediaAssets'>>> =>
+): Promise<Map<string, ResolvedMediaReference>> =>
 {
   const mediaExternalIds = new Set<string>()
   for (const item of items)
@@ -393,11 +404,89 @@ const resolveMediaReferences = async (
           message: `media not found or not owned: ${extId}`,
         })
       }
-      return [extId, asset._id] as const
+      return [
+        extId,
+        { assetId: asset._id, storageId: asset.storageId },
+      ] as const
     })
   )
 
   return new Map(results)
+}
+
+const buildLibrarySummaryFromArgs = (
+  args: UpsertArgs,
+  deletedItemExternalIds: ReadonlySet<string>,
+  mediaExternalIdToReference: Map<string, ResolvedMediaReference>,
+  serverStorageByItemExternalId: ReadonlyMap<string, Id<'_storage'>>
+) =>
+  buildBoardLibrarySummary({
+    tiers: args.tiers.map((tier, order) => ({
+      key: tier.externalId,
+      order,
+      colorSpec: tier.colorSpec,
+    })),
+    items: args.items.map((item) => ({
+      tierKey: item.tierId,
+      externalId: item.externalId,
+      label: item.label,
+      storageId:
+        item.mediaExternalId === undefined
+          ? (serverStorageByItemExternalId.get(item.externalId) ?? null)
+          : item.mediaExternalId
+            ? (mediaExternalIdToReference.get(item.mediaExternalId)
+                ?.storageId ?? null)
+            : null,
+      order: item.order,
+      deletedAt: deletedItemExternalIds.has(item.externalId) ? 1 : null,
+    })),
+  })
+
+const loadServerStorageByItemExternalId = async (
+  ctx: MutationCtx,
+  args: UpsertArgs,
+  serverItems: readonly Doc<'boardItems'>[]
+): Promise<Map<string, Id<'_storage'>>> =>
+{
+  const serverItemsByExternalId = new Map(
+    serverItems.map((item) => [item.externalId, item])
+  )
+  const neededMediaAssetIds = new Set<Id<'mediaAssets'>>()
+  for (const item of args.items)
+  {
+    if (item.mediaExternalId !== undefined) continue
+    const mediaAssetId = serverItemsByExternalId.get(
+      item.externalId
+    )?.mediaAssetId
+    if (mediaAssetId) neededMediaAssetIds.add(mediaAssetId)
+  }
+
+  const mediaEntries = await Promise.all(
+    [...neededMediaAssetIds].map(
+      async (mediaAssetId) =>
+        [mediaAssetId, await ctx.db.get(mediaAssetId)] as const
+    )
+  )
+  const storageIdByMediaAssetId = new Map<Id<'mediaAssets'>, Id<'_storage'>>()
+  for (const [mediaAssetId, mediaAsset] of mediaEntries)
+  {
+    if (mediaAsset)
+      storageIdByMediaAssetId.set(mediaAssetId, mediaAsset.storageId)
+  }
+
+  const storageIdByItemExternalId = new Map<string, Id<'_storage'>>()
+  for (const item of args.items)
+  {
+    if (item.mediaExternalId !== undefined) continue
+    const mediaAssetId = serverItemsByExternalId.get(
+      item.externalId
+    )?.mediaAssetId
+    const storageId = mediaAssetId
+      ? storageIdByMediaAssetId.get(mediaAssetId)
+      : null
+    if (storageId) storageIdByItemExternalId.set(item.externalId, storageId)
+  }
+  return storageIdByItemExternalId
 }
 
 const applyBoardState = async (
@@ -451,10 +540,16 @@ const applyBoardState = async (
     tierExternalIdToId.set(tier.externalId, insertedTierIds[i])
   })
 
-  const mediaExternalIdToId = await resolveMediaReferences(
+  const mediaExternalIdToReference = await resolveMediaReferences(
     ctx,
     userId,
     args.items
+  )
+  const mediaExternalIdToId = new Map(
+    [...mediaExternalIdToReference.entries()].map(([externalId, ref]) => [
+      externalId,
+      ref.assetId,
+    ])
   )
 
   const itemDiff = diffItems(
@@ -463,6 +558,17 @@ const applyBoardState = async (
     tierExternalIdToId,
     mediaExternalIdToId,
     deletedItemExternalIds
+  )
+  const serverStorageByItemExternalId = await loadServerStorageByItemExternalId(
+    ctx,
+    args,
+    serverItems
+  )
+  const librarySummary = buildLibrarySummaryFromArgs(
+    args,
+    deletedItemExternalIds,
+    mediaExternalIdToReference,
+    serverStorageByItemExternalId
   )
 
   // parallel item writes across all three phases — softDelete/patch/insert are
@@ -543,6 +649,7 @@ const applyBoardState = async (
     activeItemCount: progressCounts.activeItemCount,
     unrankedItemCount: progressCounts.unrankedItemCount,
     templateProgressState,
+    librarySummary,
   })
   return newRevision
 }

@@ -60,6 +60,10 @@ import {
   toTemplateAuthor,
   validateTemplateTiers,
 } from './lib'
+import {
+  buildBoardLibrarySummary,
+  EMPTY_BOARD_LIBRARY_SUMMARY,
+} from '../../workspace/boards/librarySummary'
 
 const templateTierSelectionValidator = v.union(
   v.object({ kind: v.literal('template') }),
@@ -531,10 +535,26 @@ export const useTemplate = mutation({
         template._id,
         progressCounts
       ),
+      librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
     })
 
     await insertBoardTiers(ctx, boardId, tiers)
-    await insertBoardItemsFromTemplate(ctx, boardId, userId, templateItems)
+    const summaryItems = await insertBoardItemsFromTemplate(
+      ctx,
+      boardId,
+      userId,
+      templateItems
+    )
+    await ctx.db.patch(boardId, {
+      librarySummary: buildBoardLibrarySummary({
+        tiers: tiers.map((tier, order) => ({
+          key: String(order),
+          order,
+          colorSpec: tier.colorSpec,
+        })),
+        items: summaryItems,
+      }),
+    })
     await ctx.db.patch(template._id, { useCount: template.useCount + 1 })
 
     return { boardExternalId }
