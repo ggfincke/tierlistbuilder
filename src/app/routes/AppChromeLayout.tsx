@@ -4,7 +4,7 @@
 import { useCallback, type MouseEvent } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 
-import { getWorkspacePath } from './pathname'
+import { getWorkspacePath } from '~/shared/routes/pathname'
 import { AppTopNav } from '~/app/shells/AppTopNav'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 

@@ -5,7 +5,7 @@ import { Pin } from 'lucide-react'
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 
-import { formatRelativeTime } from '~/features/marketplace/model/formatters'
+import { formatRelativeTime } from '~/shared/catalog/formatters'
 import { Cover } from './Cover'
 import { StatusPill } from './StatusPill'
 import { TierBar } from './TierBar'

@@ -7,7 +7,7 @@ import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloud
 import {
   boardDataFieldsEqual,
   type BoardDataSelection,
-} from '~/features/workspace/boards/model/boardSnapshot'
+} from '~/shared/board-data/boardSnapshot'
 import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
 import {
   announceBoardLock,

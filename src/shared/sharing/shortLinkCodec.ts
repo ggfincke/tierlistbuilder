@@ -1,13 +1,13 @@
-// src/features/workspace/sharing/short-link/shortLinkCodec.ts
+// src/shared/sharing/shortLinkCodec.ts
 // short-link snapshot codec: inline live images, drop deleted items, enforce cap
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
-import { snapshotToWire } from '~/features/workspace/export/lib/boardWireMapper'
+import { snapshotToWire } from '~/shared/board-data/boardWireMapper'
 import {
   compressSnapshotPayloadBytes,
   stripDeletedItemsForShare,
-} from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/sharing/hashShare'
 
 export const assertShortLinkSnapshotSize = (size: number): void =>
 {

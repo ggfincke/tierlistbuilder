@@ -12,7 +12,7 @@ import { createSelectBoardItemById } from '~/features/workspace/boards/model/sli
 import {
   getBoardItemAspectRatio,
   getEffectiveImageFit,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'

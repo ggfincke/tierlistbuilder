@@ -7,12 +7,9 @@ import { Link } from 'react-router-dom'
 
 import type { MarketplaceTemplateSummary } from '@tierlistbuilder/contracts/marketplace/template'
 
-import {
-  formatCount,
-  formatTimeToRank,
-} from '~/features/marketplace/model/formatters'
+import { formatCount, formatTimeToRank } from '~/shared/catalog/formatters'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { Cover, type CoverStyle } from './Cover'
 
 interface HeroProps

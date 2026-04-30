@@ -1,5 +1,5 @@
-// src/features/marketplace/model/useSignInPromptStore.ts
-// open/close state for the shared marketplace SignInModal so any CTA can
+// src/features/platform/auth/model/useSignInPromptStore.ts
+// open/close state for the shared SignInModal so any CTA can
 // prompt sign-in w/o prop drilling
 
 import { create } from 'zustand'

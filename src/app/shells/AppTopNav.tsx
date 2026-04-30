@@ -30,8 +30,11 @@ import {
   getUserInitial,
 } from '~/features/platform/auth/model/userIdentity'
 import { SignInModal } from '~/features/platform/auth/ui/SignInModal'
-import { useSignInPromptStore } from '~/features/marketplace/model/useSignInPromptStore'
-import { BOARDS_ROUTE_PATH, TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
+import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
+import {
+  BOARDS_ROUTE_PATH,
+  TEMPLATES_ROUTE_PATH,
+} from '~/shared/routes/pathname'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 

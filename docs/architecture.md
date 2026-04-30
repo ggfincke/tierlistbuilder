@@ -20,7 +20,7 @@
 
 ## Directory Structure
 
-The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package. See `dev-docs/archive/directory-restructure-proposal.mdx` for the long-form rationale.
+The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,platform,marketplace,library,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Cross-runtime wire types live in the top-level `packages/contracts/` workspace package. See `dev-docs/archive/directory-restructure-proposal.mdx` for the long-form rationale.
 
 ```
 src/
@@ -32,11 +32,12 @@ src/
 │   │   ├── useAppBootstrap.ts       # hydrate stores, bootstrap session, register autosave
 │   │   └── useThemeSync.ts          # sync theme/text-style tokens to :root (+ useLockedTheme)
 │   ├── routes/
-│   │   ├── AppRouter.tsx            # popstate-driven route selection
+│   │   ├── AppRouter.tsx            # React Router route tree
 │   │   ├── WorkspaceRoute.tsx       # workspace entry
 │   │   ├── EmbedRoute.tsx           # embed entry
+│   │   ├── MyListsRoute.tsx         # library entry
 │   │   ├── NotFoundRoute.tsx        # 404 fallback
-│   │   └── pathname.ts              # resolveAppRoute + workspace/embed path builders
+│   │   └── AppChromeLayout.tsx      # chrome wrapper for app routes
 │   └── shells/
 │       ├── WorkspaceShell.tsx       # full editable workspace shell
 │       ├── WorkspaceModalLayer.tsx  # workspace modal/conflict/progress composition
@@ -52,7 +53,7 @@ src/
 │   │   │   └── cloud/               # Convex board repo/mapper, pull/flush/merge, scheduler
 │   │   ├── dnd/                     # dnd-kit wiring, sensors, pointer math, layout sessions
 │   │   ├── interaction/             # keyboard drag controller, focus restore, useKeyboardDrag
-│   │   ├── lib/                     # boardDefaults, dndIds, containerLabel, aspectRatio (pure helpers)
+│   │   ├── lib/                     # dndIds, containerLabel
 │   │   ├── model/                   # active board store, registry, session facade, conflicts, snapshot ops
 │   │   └── ui/                      # TierList, TierRow, TierItem, BoardHeader, BoardActionBar, etc.
 │   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
@@ -61,11 +62,7 @@ src/
 │   │   ├── lib/                     # image upload constants & helpers
 │   │   ├── model/                   # settings store, palette selector, aspect ratio, image import
 │   │   └── ui/                      # BoardSettingsModal & tabbed content
-│   ├── sharing/
-│   │   ├── inbound/                 # detect & import share URLs into the active board
-│   │   ├── short-link/              # Convex short-link repo + encode/decode helpers
-│   │   ├── snapshot-compression/    # hash fragment codec (pako deflate + base64url)
-│   │   └── ui/                      # ShareModal, RecentSharesModal
+│   ├── sharing/ui                   # ShareModal, RecentSharesModal
 │   ├── shortcuts/{lib,model,ui}     # keyboard shortcut registry, panel, list
 │   ├── sync/                        # workspace-owned sync session, adapters, pending sidecar recovery
 │   ├── stats/{model,ui}             # board statistics & distribution chart
@@ -74,19 +71,24 @@ src/
 │       ├── model/                   # tier preset store, built-in presets
 │       └── ui/                      # PresetPickerModal, SavePresetModal
 ├── features/platform/
-│   ├── auth/{model,ui}              # SignInModal, AccountSection, Convex auth wiring
-│   ├── media/                       # imageFetcher, imageUploader (Convex storage transport)
+│   ├── auth/{model,ui}              # SignInModal, account UI, Convex auth wiring
+│   ├── media/                       # imageFetcher, imageUploader, Convex upload repository
+│   ├── share/                       # short-link repository, URL builders, inbound share resolver
 │   └── sync/
 │       ├── lib/                     # cloudSyncConfig, concurrency, convexClient, crossTabSyncLock, errors
 │       ├── orchestration/           # createSyncSession, firstLoginSyncLifecycle, useCloudSync, auth epoch
 │       ├── state/                   # syncStatusStore, syncStatusVisuals, useBoardSyncStatus
 │       └── transport/               # connectivity detection
+├── features/marketplace/            # template gallery, publish, use-template flows
+├── features/library/                # signed-in My Lists surface
 ├── features/embed/ui                # read-only EmbedView primitives
 └── shared/
     ├── a11y/                        # announce() module, LiveRegion component
+    ├── board-data/                  # default board, snapshot normalizer, JSON/wire parsers
     ├── board-ui/                    # BoardPrimitives, ItemContent, ItemOverlayButton, StaticBoard, boardTestIds, constants
+    ├── catalog/                     # compact count/date/estimate formatters
     ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl, useViewportWidth
-    ├── images/                      # imageStore, imageBlobCache, imagePersistence (IndexedDB blobs + refs)
+    ├── images/                      # imageStore, imageBlobCache, imagePersistence, imageLoad
     ├── layout/                      # toolbarPosition (cross-feature menu chrome math)
     ├── lib/                         # color, colorName, math, fileName, className, pluralize, downloadBlob,
     │                                # browserStorage, storageMetering, logger, urls, typeGuards,
@@ -96,7 +98,9 @@ src/
     ├── notifications/               # ToastContainer, useToastStore
     ├── overlay/                     # BaseModal, ConfirmDialog, progress, focus/inert dialog wiring,
     │                                # dismissible layers, anchored popups, menu overflow, nested menus
+    ├── routes/                      # base-path-aware route constants/path builders
     ├── selection/                   # useRovingSelection, selectionNavigation, selectionState
+    ├── sharing/                     # hash-fragment compression & short-link snapshot codecs
     ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors, zIndex
     └── ui/                          # ActionButton, Button, buttonBase, PrimaryButton, SecondaryButton,
                                      # ColorInput, ErrorBoundary, PickerGrid, SettingsSection,
@@ -104,7 +108,7 @@ src/
 
 packages/contracts/                  # @tierlistbuilder/contracts — cross-runtime wire types
 ├── lib/                             # ids, theme, themeDefinition
-├── marketplace/                     # public template marketplace contracts
+├── marketplace/                     # public template marketplace contracts + category taxonomy
 ├── workspace/                       # board, boardEnvelope, boardSync, cloudBoard, cloudPreset, settings, tierPreset
 └── platform/                        # errors, media, shortLink, uploadEnvelope, user
 ```
@@ -190,18 +194,23 @@ The separation ensures board-input orchestration (selection, focus persistence, 
 
 ## Routing
 
-`app/routes/AppRouter.tsx` subscribes to `popstate` via `useSyncExternalStore` and selects a route from `resolveAppRoute(pathname)`:
+`app/routes/AppRouter.tsx` owns the React Router tree and lazy-loads marketplace, library, and embed route chunks:
 
-- `/` → `WorkspaceRoute` → `WorkspaceShell` (full editable shell)
-- `/embed` → `EmbedRoute` → `EmbedShell` → `EmbedView` (read-only embed view)
-- anything else → `NotFoundRoute`
+- `/` -> `WorkspaceRoute` -> `WorkspaceShell` (full editable shell)
+- `/templates` -> `MarketplaceLayout` -> template gallery
+- `/templates/:slug` -> template detail
+- `/boards` -> `MyListsRoute` -> signed-in library
+- `/embed` -> `EmbedRoute` -> `EmbedShell` -> `EmbedView`
+- anything else -> `NotFoundRoute`
+
+Base-path-aware route constants and URL builders live in `shared/routes/pathname.ts` so feature slices can link without importing the app router.
 
 Two share-link carriers land on these routes:
 
-- **Short-link query (`?s=<slug>`, primary).** `createBoardShortLink` strips deleted items, converts live image refs into inline JSON wire bytes, rejects payloads above `MAX_SNAPSHOT_COMPRESSED_BYTES` before upload, then uploads the compressed snapshot to Convex storage & mints a slug. `getShareUrlFromSlug` & `getEmbedUrlFromSlug` build `/?s=<slug>` & `/embed?s=<slug>`. On load, `useAppBootstrap` (workspace) or `EmbedView` (embed) detects the slug via `getShortLinkSlugFromUrl`, calls `resolveShortLink`, inflates the snapshot, renders, then scrubs the slug from the URL bar. Embed short-link fetches are abortable on unmount.
-- **Hash fragment (`#share=<base64url>`, fallback).** The snapshot strips image refs and deleted items, then compresses directly into a base64url URL fragment via `encodeBoardToShareFragment`. Used by the Playwright e2e suite & as a server-less fallback. Detected via `getShareFragment`, inflated via `decodeBoardFromShareFragment`, then cleared from the URL.
+- **Short-link query (`?s=<slug>`, primary).** `createBoardShortLink` strips deleted items, converts live image refs into inline JSON wire bytes, rejects payloads above `MAX_SNAPSHOT_COMPRESSED_BYTES` before upload, then uploads the compressed snapshot to Convex storage & mints a slug. `getShareUrlFromSlug` and `getEmbedUrlFromSlug` live in `features/platform/share/shortLinkShare.ts`.
+- **Hash fragment (`#share=<base64url>`, fallback).** The snapshot strips image refs and deleted items, then compresses directly into a base64url URL fragment via `encodeBoardToShareFragment` in `shared/sharing/hashShare.ts`.
 
-In both cases the embed route inflates via `shared/board-ui/` primitives & never mounts the editable active-board store. Inbound detection & dispatch into the active board live under `features/workspace/sharing/inbound/`.
+`features/platform/share/inboundShare.ts` resolves the current URL into a `BoardSnapshot`. Workspace bootstrap imports the result into the active board session; embed normalizes it and renders through `shared/board-ui/*` without mounting the editable active-board store.
 
 ## Component Hierarchy
 
@@ -308,11 +317,12 @@ Share/export image behavior is intentionally split by carrier:
 ## Boundary Rules
 
 - `shared/*` must not import from `features/*`. Shared code is framework-only and feature-agnostic.
-- Inside `features/workspace/*`, cross-slice imports are allowed in the direction of structural dependency. `tier-presets` may import board contract types because presets produce boards.
-- The embed shell renders through `shared/board-ui/*` primitives only and never mounts the editable active-board store.
+- `shared/board-data/*`, `shared/board-ui/*`, `shared/sharing/*`, and `shared/routes/*` are the neutral homes for current board snapshot, rendering, share-codec, and route-path helpers.
+- The embed shell resolves shares through `features/platform/share/*`, renders through `shared/board-ui/*`, and never mounts the editable active-board store.
+- Workspace owns activation of cloud-backed boards via `features/workspace/boards/model/cloudBoardActivation.ts`; marketplace/library callers do not reach through workspace persistence internals directly.
 - UI (`ui/`) → model (`model/`) → data (`data/{local,cloud}/`). Components don't call localStorage or Convex directly — they go through `model/` selectors or `data/*` helpers.
 - Platform sync orchestration owns auth/connectivity/status only and starts `features/workspace/sync/`; it does not import workspace `data/*` modules directly.
-- Per-slice cloud transport (Convex args, mappers) lives in each slice's `data/cloud/`; workspace sync adapters are the bridge from platform lifecycle to those transports.
+- Per-slice cloud transport (Convex args, mappers) lives in the owning slice. Platform media and share repositories own storage upload URLs, media finalization, and short-link lookups.
 
 ## Types
 
@@ -324,6 +334,8 @@ Anything that crosses a process boundary — localStorage, JSON exports, share l
 
 - `lib/ids.ts` — `BoardId`, `TierId`, `PresetId`, `UserPresetId`, `BuiltinPresetId` template-literal brands; `ItemId` is a nominal brand w/ `asItemId()` cast at trust boundaries. `generate*` ID factories shared across frontend & Convex.
 - `lib/theme.ts`, `lib/themeDefinition.ts` — `ThemeId`, `PaletteId`, `TextStyleId`.
+- `marketplace/category.ts` — template category taxonomy shared by contracts, Convex validators, and UI filters.
+- `marketplace/template.ts` — public template summary/detail/draft/use contracts.
 - `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`.
 - `workspace/settings.ts` — `AppSettings`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
 - `workspace/tierPreset.ts` — `TierPreset`, `TierPresetTier`.
@@ -342,19 +354,23 @@ Types that only live in memory stay in the frontend tree, collocated w/ the stor
 
 ## Backend
 
-The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,settings,sync,tierPresets}` and `platform/{media,shortLinks}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
+The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,settings,sync,tierPresets}`, `platform/{media,shortLinks}`, and `marketplace/templates`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
 
-Key boundary: **UI components never call Convex directly**. Every query & mutation flows through a per-feature adapter under `src/features/*/data/cloud/*Repository.ts` or through `src/features/platform/auth/model/useAuthSession`. This keeps wire types, error surfaces, and retry policy out of the UI layer.
+Key boundary: **UI components never call Convex directly**. Every query & mutation flows through a per-feature adapter, platform repository, or auth hook. This keeps wire types, error surfaces, and retry policy out of the UI layer.
 
 Schema (`convex/schema.ts`) defines the app-owned tables alongside `@convex-dev/auth`'s `authTables`:
 
 - `users` — extends auth-managed fields w/ app-owned `displayName`, `avatarStorageId`, `tier`, timestamps.
 - `userSettings` — per-user mirror of `AppSettings`.
-- `boards` — owner-scoped boards w/ revision, soft-delete tombstone, aspect-ratio fields (`itemAspectRatio`, `itemAspectRatioMode`, `aspectRatioPromptDismissed`, `defaultItemImageFit`).
+- `boards` — owner-scoped boards w/ revision, source-template link, soft-delete tombstone, aspect-ratio fields, and per-board style overrides.
 - `boardTiers` / `boardItems` — ordered rows keyed by fractional `order` numbers. `boardItems` carry `aspectRatio` & `imageFit` overrides.
 - `mediaAssets` — uploaded image metadata, content-hash deduplicated, indexed by owner + hash.
 - `tierPresets` — reusable tier structures owned by a user.
 - `shortLinks` — share-link slug indirection backed by compressed snapshot blobs in `_storage`, TTL-swept via cron.
+- `templates` / `templateItems` / `templateTags` — public/unlisted marketplace templates, denormalized cover rows, tag rows, category counters, and fork tracking.
+- `marketplaceStats` — singleton marketplace aggregate counters used by gallery category chips.
+
+Marketplace seed actions are public only for script access, but they fail closed unless `CONVEX_SEED_ENABLED=true` and the caller passes the deployment's `CONVEX_SEED_SECRET` value.
 
 ## Testing
 
@@ -364,3 +380,5 @@ Unit & integration tests live under `tests/` and run via Vitest. End-to-end Play
 - `npm run test:watch` — Vitest watch mode
 - `npm run test:e2e` — Playwright smoke + guardrails (requires `npx playwright install chromium` once)
 - `npm run test:e2e:ui` — Playwright headed runner
+  ├── routes/ # base-path-aware route constants/path builders
+  ├── sharing/ # hash-fragment compression & short-link snapshot codecs

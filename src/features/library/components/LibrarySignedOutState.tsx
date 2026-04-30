@@ -4,8 +4,8 @@
 import { ArrowRight, ListChecks } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
-import { promptSignIn } from '~/features/marketplace/model/useSignInPromptStore'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
 
 export const LibrarySignedOutState = () => (
   <section className="mx-auto flex min-h-screen w-full max-w-[1200px] flex-col items-start justify-center gap-6 px-6 pt-32 pb-24 sm:px-10">

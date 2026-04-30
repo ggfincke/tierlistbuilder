@@ -6,13 +6,11 @@ import type {
   ItemLabelOptions,
   LabelPlacement,
   LabelScrim,
-  LabelSizeScale,
   LabelTextColor,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   LABEL_FONT_SIZE_PX_DEFAULT,
   LABEL_PLACEMENT_DEFAULT,
-  LABEL_SIZE_SCALE_PX,
   normalizeLabelFontSizePx,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
@@ -21,11 +19,6 @@ export interface ResolvedLabelDisplay
 {
   placement: LabelPlacement
   scrim: LabelScrim
-  // legacy enum kept on the resolved shape for downstream consumers (padding
-  // tables, snapshot writes); fontSizePx drives type-scale rendering
-  sizeScale: LabelSizeScale
-  // resolved caption size in CSS px — derived from fontSizePx when set,
-  // else mapped from sizeScale, else built-in default. always clamped.
   fontSizePx: number
   // optional caption font override; undefined -> inherit board/page font
   textStyleId: TextStyleId | undefined
@@ -35,7 +28,6 @@ export interface ResolvedLabelDisplay
 }
 
 const DEFAULT_SCRIM: LabelScrim = 'dark'
-const DEFAULT_SIZE_SCALE: LabelSizeScale = 'md'
 const DEFAULT_TEXT_COLOR: LabelTextColor = 'auto'
 
 const clampFontSizePx = (value: number | undefined): number | undefined =>
@@ -43,18 +35,14 @@ const clampFontSizePx = (value: number | undefined): number | undefined =>
 
 const resolveFontSizePx = (
   itemFont: number | undefined,
-  itemScale: LabelSizeScale | undefined,
-  boardFont: number | undefined,
-  boardScale: LabelSizeScale | undefined
+  boardFont: number | undefined
 ): number =>
 {
   // explicit pixel size wins, layered like everything else (item > board)
   const itemPx = clampFontSizePx(itemFont)
   if (itemPx !== undefined) return itemPx
-  if (itemScale) return LABEL_SIZE_SCALE_PX[itemScale]
   const boardPx = clampFontSizePx(boardFont)
   if (boardPx !== undefined) return boardPx
-  if (boardScale) return LABEL_SIZE_SCALE_PX[boardScale]
   return LABEL_FONT_SIZE_PX_DEFAULT
 }
 
@@ -88,15 +76,9 @@ export const resolveLabelDisplay = (
       LABEL_PLACEMENT_DEFAULT,
     scrim:
       input.itemOptions?.scrim ?? input.boardSettings?.scrim ?? DEFAULT_SCRIM,
-    sizeScale:
-      input.itemOptions?.sizeScale ??
-      input.boardSettings?.sizeScale ??
-      DEFAULT_SIZE_SCALE,
     fontSizePx: resolveFontSizePx(
       input.itemOptions?.fontSizePx,
-      input.itemOptions?.sizeScale,
-      input.boardSettings?.fontSizePx,
-      input.boardSettings?.sizeScale
+      input.boardSettings?.fontSizePx
     ),
     textStyleId:
       input.itemOptions?.textStyleId ?? input.boardSettings?.textStyleId,
@@ -123,15 +105,9 @@ export const resolveLabelLayout = (
     LABEL_PLACEMENT_DEFAULT,
   scrim:
     input.itemOptions?.scrim ?? input.boardSettings?.scrim ?? DEFAULT_SCRIM,
-  sizeScale:
-    input.itemOptions?.sizeScale ??
-    input.boardSettings?.sizeScale ??
-    DEFAULT_SIZE_SCALE,
   fontSizePx: resolveFontSizePx(
     input.itemOptions?.fontSizePx,
-    input.itemOptions?.sizeScale,
-    input.boardSettings?.fontSizePx,
-    input.boardSettings?.sizeScale
+    input.boardSettings?.fontSizePx
   ),
   textStyleId:
     input.itemOptions?.textStyleId ?? input.boardSettings?.textStyleId,
@@ -143,5 +119,4 @@ export const resolveLabelLayout = (
 
 export const LABEL_DEFAULTS = {
   scrim: DEFAULT_SCRIM,
-  sizeScale: DEFAULT_SIZE_SCALE,
 } as const

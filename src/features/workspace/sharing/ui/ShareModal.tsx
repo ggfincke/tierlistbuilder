@@ -18,7 +18,7 @@ import { TextInput } from '~/shared/ui/TextInput'
 import {
   createBoardShortLink,
   type ShortLinkCreateResult,
-} from '~/features/workspace/sharing/short-link/shortLinkShare'
+} from '~/features/platform/share/shortLinkShare'
 
 interface ShareModalProps
 {

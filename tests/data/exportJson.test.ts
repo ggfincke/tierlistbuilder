@@ -2,17 +2,17 @@
 // JSON import/export parsing
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { exportBoardAsJson } from '~/features/workspace/export/lib/exportJson'
 import {
-  exportBoardAsJson,
   parseBoardJson,
   parseBoardSnapshotJson,
   parseBoardsJson,
-} from '~/features/workspace/export/lib/exportJson'
+} from '~/shared/board-data/boardJson'
 import {
   snapshotToWireWithBlobs,
   wireToSnapshot,
-} from '~/features/workspace/export/lib/boardWireMapper'
-import { stripImagesForShare } from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/board-data/boardWireMapper'
+import { stripImagesForShare } from '~/shared/sharing/hashShare'
 import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'

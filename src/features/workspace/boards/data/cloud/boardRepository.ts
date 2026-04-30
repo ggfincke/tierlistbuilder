@@ -4,7 +4,6 @@
 
 import { useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
 import type { DeletedBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   CloudBoardPayload,
@@ -47,17 +46,6 @@ export const upsertBoardStateImperative = (
     api.workspace.boards.upsertBoardState.upsertBoardState,
     args
   )
-
-export const generateUploadUrlImperative = (): Promise<{
-  uploadUrl: string
-  uploadToken: string
-  envelopeUserId: string
-}> => convexClient.mutation(api.platform.media.uploads.generateUploadUrl, {})
-
-export const finalizeUploadImperative = (args: {
-  storageId: Id<'_storage'>
-  uploadToken: string
-}) => convexClient.action(api.platform.media.uploads.finalizeUpload, args)
 
 export const listMyBoardsImperative = () =>
   convexClient.query(api.workspace.boards.queries.getMyBoards, {})

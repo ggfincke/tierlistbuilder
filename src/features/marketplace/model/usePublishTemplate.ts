@@ -12,7 +12,7 @@ import {
   type PublishFromBoardArgs,
 } from '~/features/marketplace/data/templatesRepository'
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
-import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
 

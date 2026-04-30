@@ -28,7 +28,7 @@ import {
   getEffectiveImageFit,
   itemHasAspectMismatch,
   type RatioOption,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/useBoardAspectRatioPicker'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'

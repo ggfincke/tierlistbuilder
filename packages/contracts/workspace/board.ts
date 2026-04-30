@@ -152,11 +152,6 @@ export const LABEL_TEXT_COLORS = [
 ] as const
 export type LabelTextColor = (typeof LABEL_TEXT_COLORS)[number]
 
-// legacy caption-size enum — kept readable as a fallback for older saved
-// data; the user-facing control is now a numeric `fontSizePx` (see below)
-export const LABEL_SIZE_SCALES = ['sm', 'md', 'lg'] as const
-export type LabelSizeScale = (typeof LABEL_SIZE_SCALES)[number]
-
 // caption font-size in CSS px. clamped at the contract level so wire payloads
 // can't request absurd values; the editor UI exposes this as a numeric input
 export const LABEL_FONT_SIZE_PX_MIN = 8
@@ -177,15 +172,6 @@ export const isValidLabelFontSizePx = (value: number | undefined): boolean =>
     value >= LABEL_FONT_SIZE_PX_MIN &&
     value <= LABEL_FONT_SIZE_PX_MAX)
 
-// resolved fallback px values when only the legacy `sizeScale` is present —
-// tuned to feel like a real S/M/L spread without changing existing renders
-// dramatically
-export const LABEL_SIZE_SCALE_PX: Record<LabelSizeScale, number> = {
-  sm: 9,
-  md: 12,
-  lg: 16,
-}
-
 // per-board label defaults — absent fields fall back to global/built-in
 // defaults. `show` overrides AppSettings.showLabels at the board level.
 // `textStyleId` overrides the board font for label captions only
@@ -194,9 +180,6 @@ export interface BoardLabelSettings
   show?: boolean
   placement?: LabelPlacement
   scrim?: LabelScrim
-  // legacy preset; new writes prefer fontSizePx
-  sizeScale?: LabelSizeScale
-  // exact caption size in CSS px; wins over sizeScale when set
   fontSizePx?: number
   textStyleId?: TextStyleId
   // overlay-only text color override; absent or 'auto' -> scrim default
@@ -210,7 +193,6 @@ export interface ItemLabelOptions
   visible?: boolean
   placement?: LabelPlacement
   scrim?: LabelScrim
-  sizeScale?: LabelSizeScale
   fontSizePx?: number
   textStyleId?: TextStyleId
   textColor?: LabelTextColor
@@ -242,7 +224,6 @@ export const boardLabelSettingsEqual = (
     a.show === b.show &&
     labelPlacementsEqual(a.placement, b.placement) &&
     a.scrim === b.scrim &&
-    a.sizeScale === b.sizeScale &&
     a.fontSizePx === b.fontSizePx &&
     a.textStyleId === b.textStyleId &&
     a.textColor === b.textColor
@@ -260,7 +241,6 @@ export const itemLabelOptionsEqual = (
     a.visible === b.visible &&
     labelPlacementsEqual(a.placement, b.placement) &&
     a.scrim === b.scrim &&
-    a.sizeScale === b.sizeScale &&
     a.fontSizePx === b.fontSizePx &&
     a.textStyleId === b.textStyleId &&
     a.textColor === b.textColor
@@ -274,7 +254,6 @@ export const isEmptyBoardLabelSettings = (
   (settings.show === undefined &&
     settings.placement === undefined &&
     settings.scrim === undefined &&
-    settings.sizeScale === undefined &&
     settings.fontSizePx === undefined &&
     settings.textStyleId === undefined &&
     settings.textColor === undefined)
@@ -286,7 +265,6 @@ export const isEmptyItemLabelOptions = (
   (options.visible === undefined &&
     options.placement === undefined &&
     options.scrim === undefined &&
-    options.sizeScale === undefined &&
     options.fontSizePx === undefined &&
     options.textStyleId === undefined &&
     options.textColor === undefined)
@@ -507,7 +485,7 @@ export interface LibraryBoardListItem extends BoardListItem
   rankedItemCount: number
   status: LibraryBoardStatus
   visibility: LibraryBoardVisibility
-  category: import('../marketplace/template').TemplateCategory
+  category: import('../marketplace/category').TemplateCategory
   coverItems: LibraryBoardCoverItem[]
   paletteId: import('../lib/theme').PaletteId
   tierColors: import('../lib/theme').TierColorSpec[]

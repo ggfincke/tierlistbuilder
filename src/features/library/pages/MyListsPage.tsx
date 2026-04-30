@@ -10,7 +10,7 @@ import type {
   LibraryBoardListItem,
   LibraryBoardStatus,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 

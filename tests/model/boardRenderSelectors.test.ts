@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { asItemId, asTierId } from '@tierlistbuilder/contracts/lib/ids'
 
-import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
 import { createFreshRuntimeState } from '~/features/workspace/boards/model/runtime'
 import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'

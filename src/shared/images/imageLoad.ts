@@ -1,4 +1,4 @@
-// src/features/workspace/settings/lib/imageLoad.ts
+// src/shared/images/imageLoad.ts
 // shared Image() wrappers — element loading w/ timeout & aspect-ratio decode
 
 const DEFAULT_LOAD_TIMEOUT_MS = 15_000

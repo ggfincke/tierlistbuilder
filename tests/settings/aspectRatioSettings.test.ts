@@ -7,7 +7,7 @@ import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   computeAutoBoardAspectRatio,
   groupMismatchedItems,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import {
   createAspectRatioPromptSnapshot,
   resolveAspectRatioPromptItems,

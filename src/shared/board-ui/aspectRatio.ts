@@ -1,4 +1,4 @@
-// src/features/workspace/boards/lib/aspectRatio.ts
+// src/shared/board-ui/aspectRatio.ts
 // aspect-ratio bucketing, matching, & board-level mismatch detection
 
 import type {

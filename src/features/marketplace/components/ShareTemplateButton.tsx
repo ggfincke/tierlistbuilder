@@ -5,7 +5,7 @@
 import { Check, Share2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { getTemplateDetailPath } from '~/app/routes/pathname'
+import { getTemplateDetailPath } from '~/shared/routes/pathname'
 import { toast } from '~/shared/notifications/useToastStore'
 
 interface ShareTemplateButtonProps

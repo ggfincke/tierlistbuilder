@@ -18,7 +18,7 @@ import type {
 import {
   getBoardItemAspectRatio,
   getEffectiveImageFit,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import {

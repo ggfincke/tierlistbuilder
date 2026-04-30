@@ -8,9 +8,9 @@ import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateDraftListResult,
   MarketplaceTemplateListResult,
-  TemplateCategory,
   TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import {
   MAX_TEMPLATE_LIST_LIMIT,
   isTemplateSlug,

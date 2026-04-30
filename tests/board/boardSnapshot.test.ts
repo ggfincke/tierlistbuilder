@@ -7,7 +7,7 @@ import {
   createNewTier,
   resetBoardData,
   normalizeBoardSnapshot,
-} from '~/features/workspace/boards/model/boardSnapshot'
+} from '~/shared/board-data/boardSnapshot'
 import {
   createCustomTierColorSpec,
   normalizeCanonicalTierColorSpec,

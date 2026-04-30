@@ -15,6 +15,7 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Color Parsing**: Hex/RGB normalization, contrast calculation
 - **Tier Colors**: Palette/custom color spec creation, resolution, & equality
 - **Board Snapshot**: Board creation, reset, tier factory, colorSpec & rowColorSpec normalization
+- **Board Rendering**: Label display resolution and render-selector projections
 - **Board Statistics**: Tier distribution, empty-board summaries, and most/least populated tier tie behavior
 - **Board Operations**: Pure tier sorting & item shuffling logic
 - **Tier Presets**: Preset-to-board conversion, board-to-preset extraction, row-color & round-trip integrity
@@ -30,6 +31,8 @@ We focus on testing critical pure-function logic that, if broken, would cause si
   image upload validation, public templates, and Convex query/mutation limit edges
 - **Sync Runner Contracts**: Shared debounce/retry hooks, conflict pauses, and
   workspace scheduler adapter behavior
+- **Catalog Filters**: Marketplace/library URL filter parse, serialize, and default-pruning behavior
+- **User Contracts**: Profile shape, identity display, and account deletion cascades
 
 We intentionally do not test:
 
@@ -74,10 +77,12 @@ tests/
 │   ├── boardSnapshot.test.ts        — board creation, tier factory, colorSpec & rowColorSpec normalization
 │   ├── boardStats.test.ts           — tier distribution and population summary labels
 │   ├── boardOps.test.ts             — pure sorting & shuffling helpers
+│   ├── labelDisplay.test.ts         — per-item/board caption display resolution
 │   ├── tierColors.test.ts           — tier color spec creation, resolution, & equality
 │   └── tierPresets.test.ts          — preset-to-board & board-to-preset conversion w/ row-color round-trip
 ├── contracts/
-│   └── uploadEnvelope.test.ts       — upload envelope owner/token validation & tamper rejection
+│   ├── uploadEnvelope.test.ts       — upload envelope owner/token validation & tamper rejection
+│   └── userProfile.test.ts          — public user profile contract derivation
 ├── convex/
 │   ├── boardReconciler.test.ts      — cloud-vs-local board reconciliation
 │   ├── boardUpsertLimits.test.ts    — real Convex board sync caps, media refs, & tombstones
@@ -85,7 +90,8 @@ tests/
 │   ├── imageValidation.test.ts      — Convex image validation helpers
 │   ├── marketplaceTemplates.test.ts — public template publish/list/use & draft progress
 │   ├── shortLinksIntegration.test.ts — real Convex owner+expiry listing query
-│   └── shortLinksListing.test.ts    — live short-link listing selection
+│   ├── shortLinksListing.test.ts    — live short-link listing selection
+│   └── userCascade.test.ts          — account deletion cascade coverage
 ├── data/
 │   ├── boardStorage.test.ts         — per-board localStorage envelope & load outcomes
 │   ├── cloudBoardMapper.test.ts     — Convex board wire <-> BoardSnapshot mapping
@@ -107,8 +113,10 @@ tests/
 │   ├── selectionNavigation.test.ts  — selection arrow-key navigation
 │   └── selectionState.test.ts       — shared radio/tab semantics for roving selection
 ├── model/
+│   ├── boardRenderSelectors.test.ts — active-board render projection selectors
 │   ├── boardConflictResolution.test.ts — conflict resolution sync identity
-│   └── boardSession.test.ts         — session bootstrap, autosave, registry orchestration
+│   ├── boardSession.test.ts         — session bootstrap, autosave, registry orchestration
+│   └── urlFilters.test.ts           — marketplace/library URL filter behavior
 ├── overlay/
 │   ├── nestedMenus.test.ts          — nested root/submenu open-close tree rules
 │   ├── popupPosition.test.ts        — fixed popup placement & viewport clamping
@@ -121,7 +129,8 @@ tests/
 │   ├── firstLoginBoardMerge.test.ts — first-login board merge resolution
 │   ├── firstLoginSyncLifecycle.test.ts — first-login orchestration
 │   ├── settingsCloudMerge.test.ts   — settings cloud merge
-│   └── tierPresetCloudMerge.test.ts — preset cloud merge
+│   ├── tierPresetCloudMerge.test.ts — preset cloud merge
+│   └── userIdentity.test.ts         — stable user display identity helpers
 ├── sharing/
 │   ├── hashShare.test.ts            — hash-fragment snapshot codec & image stripping
 │   ├── shortLinkCodec.test.ts       — short-link snapshot image policy & size guard
@@ -129,6 +138,8 @@ tests/
 ├── settings/
 │   └── aspectRatioSettings.test.ts  — aspect-ratio prompt snapshots & mismatch grouping
 └── shared-lib/
+    ├── asyncMapLimit.test.ts        — bounded concurrency helper
+    ├── autoCrop.test.ts             — auto-crop transform resolution
     ├── async.ts                     — queued Promise flushing helper
     ├── boardSnapshotItems.test.ts   — snapshot image-hash collection helpers
     ├── color.test.ts                — hex/rgb parsing & contrast

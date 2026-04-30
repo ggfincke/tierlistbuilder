@@ -3,7 +3,7 @@
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 
-import { pluralize } from '~/features/marketplace/model/formatters'
+import { pluralize } from '~/shared/catalog/formatters'
 
 interface StatsStripProps
 {

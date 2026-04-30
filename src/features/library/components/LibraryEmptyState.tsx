@@ -4,7 +4,7 @@
 import { Layers } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 
 interface LibraryEmptyStateProps
 {

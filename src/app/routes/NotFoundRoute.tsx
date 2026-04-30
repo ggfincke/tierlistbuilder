@@ -3,7 +3,7 @@
 
 import { useLocation } from 'react-router-dom'
 
-import { getWorkspacePath } from './pathname'
+import { getWorkspacePath } from '~/shared/routes/pathname'
 
 export const NotFoundRoute = () =>
 {

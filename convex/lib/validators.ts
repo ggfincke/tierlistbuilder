@@ -14,9 +14,12 @@ import {
 } from '@tierlistbuilder/contracts/workspace/settings'
 import {
   LABEL_SCRIMS,
-  LABEL_SIZE_SCALES,
   LABEL_TEXT_COLORS,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  TEMPLATE_CATEGORIES,
+  type TemplateCategory,
+} from '@tierlistbuilder/contracts/marketplace/category'
 import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
@@ -27,7 +30,6 @@ import {
 } from '@tierlistbuilder/contracts/lib/theme'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
-  TEMPLATE_CATEGORIES,
   TEMPLATE_LIST_SORTS,
   TEMPLATE_VISIBILITIES,
   type MarketplaceTemplateDetail,
@@ -39,7 +41,6 @@ import {
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateSummary,
   type MarketplaceTemplateUseResult,
-  type TemplateCategory,
   type TemplateCoverItem,
   type TemplateListSort,
   type TemplateMediaRef,
@@ -306,9 +307,8 @@ export const itemTransformValidator = v.object({
   offsetY: v.number(),
 })
 
-// label scrim/size — mirrors contracts/workspace/board union types
+// label scrim/color — mirrors contracts/workspace/board union types
 export const labelScrimValidator = literalUnion(LABEL_SCRIMS)
-export const labelSizeScaleValidator = literalUnion(LABEL_SIZE_SCALES)
 export const labelTextColorValidator = literalUnion(LABEL_TEXT_COLORS)
 
 // label placement — discriminated union mirroring LabelPlacement in
@@ -329,7 +329,6 @@ export const itemLabelOptionsValidator = v.object({
   visible: v.optional(v.boolean()),
   placement: v.optional(labelPlacementValidator),
   scrim: v.optional(labelScrimValidator),
-  sizeScale: v.optional(labelSizeScaleValidator),
   // numeric override; validated at the server boundary too. range mirrors
   // contracts/board LABEL_FONT_SIZE_PX_MIN..MAX (8..48)
   fontSizePx: v.optional(v.number()),
@@ -342,7 +341,6 @@ export const boardLabelSettingsValidator = v.object({
   show: v.optional(v.boolean()),
   placement: v.optional(labelPlacementValidator),
   scrim: v.optional(labelScrimValidator),
-  sizeScale: v.optional(labelSizeScaleValidator),
   fontSizePx: v.optional(v.number()),
   textStyleId: v.optional(textStyleIdValidator),
   textColor: v.optional(labelTextColorValidator),

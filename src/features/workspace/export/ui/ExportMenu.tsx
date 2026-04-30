@@ -36,12 +36,10 @@ import {
   importBoardSession,
   importBoardsSession,
 } from '~/features/workspace/boards/model/boardSession'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import {
-  exportBoardAsJson,
-  parseBoardsJson,
-} from '~/features/workspace/export/lib/exportJson'
+import { exportBoardAsJson } from '~/features/workspace/export/lib/exportJson'
+import { parseBoardsJson } from '~/shared/board-data/boardJson'
 import {
   FORMAT_LABELS,
   IMAGE_FORMATS,

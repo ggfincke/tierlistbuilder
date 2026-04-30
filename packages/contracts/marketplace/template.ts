@@ -7,20 +7,7 @@ import type {
   ImageFit,
   ItemTransform,
 } from '../workspace/board'
-
-export const TEMPLATE_CATEGORIES = [
-  'gaming',
-  'movies',
-  'anime',
-  'music',
-  'sports',
-  'food',
-  'books',
-  'tech',
-  'other',
-] as const
-
-export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number]
+import type { TemplateCategory } from './category'
 
 export const TEMPLATE_VISIBILITIES = ['public', 'unlisted'] as const
 

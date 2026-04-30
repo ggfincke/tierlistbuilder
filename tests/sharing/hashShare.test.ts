@@ -8,7 +8,7 @@ import {
   encodeBoardToShareFragment,
   inflateSnapshotBytes,
   stripImagesForShare,
-} from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/sharing/hashShare'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeBoardSnapshot, makeTier } from '../fixtures'
 

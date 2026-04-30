@@ -4,7 +4,7 @@
 import { Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 
 // stretch tile to the grid row; align beside content-driven BoardCards
 export const NewListTile = () => (

@@ -7,8 +7,8 @@ import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   assertShortLinkSnapshotSize,
   compressShortLinkSnapshotBytes,
-} from '~/features/workspace/sharing/short-link/shortLinkCodec'
-import { inflateSnapshotBytes } from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/sharing/shortLinkCodec'
+import { inflateSnapshotBytes } from '~/shared/sharing/hashShare'
 import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
 import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'

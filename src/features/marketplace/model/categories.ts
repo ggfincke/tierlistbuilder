@@ -4,7 +4,7 @@
 import {
   TEMPLATE_CATEGORIES,
   type TemplateCategory,
-} from '@tierlistbuilder/contracts/marketplace/template'
+} from '@tierlistbuilder/contracts/marketplace/category'
 
 export interface CategoryMeta
 {

@@ -2,10 +2,10 @@
 // horizontal pill row for filtering the main grid by template category, w/
 // per-category counts when stats have resolved
 
-import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 
 import { CATEGORY_LIST } from '~/features/marketplace/model/categories'
-import { formatCount } from '~/features/marketplace/model/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
 
 interface CategoryChipsProps
 {

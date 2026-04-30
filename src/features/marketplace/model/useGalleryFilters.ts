@@ -6,11 +6,13 @@ import { useSearchParams } from 'react-router-dom'
 
 import {
   MAX_TEMPLATE_TAG_LENGTH,
-  TEMPLATE_CATEGORIES,
   TEMPLATE_LIST_SORTS,
-  type TemplateCategory,
   type TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  TEMPLATE_CATEGORIES,
+  type TemplateCategory,
+} from '@tierlistbuilder/contracts/marketplace/category'
 
 const SEARCH_DEBOUNCE_MS = 250
 const DEFAULT_SORT: TemplateListSort = 'recent'

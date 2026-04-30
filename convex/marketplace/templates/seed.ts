@@ -12,10 +12,8 @@ import {
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import {
-  MAX_TEMPLATE_COVER_ITEMS,
-  type TemplateCategory,
-} from '@tierlistbuilder/contracts/marketplace/template'
+import { MAX_TEMPLATE_COVER_ITEMS } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import {
@@ -83,6 +81,8 @@ interface SeedUserStatus
 {
   accountExists: boolean
 }
+
+const SEED_SECRET_ENV = 'CONVEX_SEED_SECRET'
 
 const decodeBase64 = (input: string): Uint8Array =>
 {
@@ -352,7 +352,7 @@ interface SeedInsertResult
   slug: string
 }
 
-const requireSeedEnabled = (): void =>
+const requireSeedAuthorized = (seedSecret: string): void =>
 {
   if (process.env.CONVEX_SEED_ENABLED !== 'true')
   {
@@ -360,6 +360,15 @@ const requireSeedEnabled = (): void =>
       code: CONVEX_ERROR_CODES.forbidden,
       message:
         'seeding is disabled — set CONVEX_SEED_ENABLED=true on this deployment to allow it',
+    })
+  }
+
+  const expectedSecret = process.env.CONVEX_SEED_SECRET
+  if (!expectedSecret || seedSecret !== expectedSecret)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.forbidden,
+      message: `seeding is locked — pass the deployment ${SEED_SECRET_ENV} value`,
     })
   }
 }
@@ -432,6 +441,7 @@ export const clearAllFeaturedRanksImpl = internalMutation({
 
 export const promoteFeatured = action({
   args: {
+    seedSecret: v.string(),
     slug: v.string(),
     featuredRank: v.union(v.number(), v.null()),
   },
@@ -444,7 +454,7 @@ export const promoteFeatured = action({
     args
   ): Promise<{ slug: string; featuredRank: number | null }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     return await ctx.runMutation(
       internal.marketplace.templates.seed.setTemplateFeaturedRank,
       { slug: args.slug, featuredRank: args.featuredRank }
@@ -453,11 +463,11 @@ export const promoteFeatured = action({
 })
 
 export const clearAllFeaturedRanks = action({
-  args: {},
+  args: { seedSecret: v.string() },
   returns: v.object({ cleared: v.number(), scanned: v.number() }),
-  handler: async (ctx): Promise<{ cleared: number; scanned: number }> =>
+  handler: async (ctx, args): Promise<{ cleared: number; scanned: number }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     return await ctx.runMutation(
       internal.marketplace.templates.seed.clearAllFeaturedRanksImpl,
       {}
@@ -466,20 +476,21 @@ export const clearAllFeaturedRanks = action({
 })
 
 export const getSeedUserStatus = action({
-  args: { email: v.string() },
+  args: { seedSecret: v.string(), email: v.string() },
   returns: v.object({ accountExists: v.boolean() }),
   handler: async (ctx, args): Promise<SeedUserStatus> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     return await ctx.runQuery(
       internal.marketplace.templates.seed.getSeedUserStatusImpl,
-      args
+      { email: args.email }
     )
   },
 })
 
 export const patchSeedUserProfile = action({
   args: {
+    seedSecret: v.string(),
     email: v.string(),
     displayName: v.string(),
   },
@@ -491,10 +502,10 @@ export const patchSeedUserProfile = action({
     found: boolean
   }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     return await ctx.runMutation(
       internal.marketplace.templates.seed.patchSeedUserProfileImpl,
-      args
+      { email: args.email, displayName: args.displayName }
     )
   },
 })
@@ -552,16 +563,17 @@ export const recomputeMarketplaceStatsImpl = internalMutation({
 })
 
 export const recomputeMarketplaceStats = action({
-  args: {},
+  args: { seedSecret: v.string() },
   returns: v.object({
     count: v.number(),
     countByCategory: v.record(v.string(), v.number()),
   }),
   handler: async (
-    ctx
+    ctx,
+    args
   ): Promise<{ count: number; countByCategory: Record<string, number> }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     return await ctx.runMutation(
       internal.marketplace.templates.seed.recomputeMarketplaceStatsImpl,
       {}
@@ -626,21 +638,22 @@ export const recomputeTemplateTagsImpl = internalMutation({
 })
 
 export const recomputeTemplateTags = action({
-  args: {},
+  args: { seedSecret: v.string() },
   returns: v.object({
     templatesScanned: v.number(),
     tagsInserted: v.number(),
     tagsDeleted: v.number(),
   }),
   handler: async (
-    ctx
+    ctx,
+    args
   ): Promise<{
     templatesScanned: number
     tagsInserted: number
     tagsDeleted: number
   }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     return await ctx.runMutation(
       internal.marketplace.templates.seed.recomputeTemplateTagsImpl,
       {}
@@ -779,16 +792,16 @@ interface WipeResult
 }
 
 export const wipeAllSeededData = action({
-  args: {},
+  args: { seedSecret: v.string() },
   returns: v.object({
     templates: v.number(),
     templateItems: v.number(),
     templateTags: v.number(),
     forkedBoards: v.number(),
   }),
-  handler: async (ctx): Promise<WipeResult> =>
+  handler: async (ctx, args): Promise<WipeResult> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     return await ctx.runMutation(
       internal.marketplace.templates.seed.wipeAllSeededDataImpl,
       {}
@@ -840,7 +853,7 @@ export const unpublishSeededTemplateImpl = internalMutation({
 })
 
 export const unpublishSeededTemplate = action({
-  args: { slug: v.string() },
+  args: { seedSecret: v.string(), slug: v.string() },
   returns: v.object({
     found: v.boolean(),
     alreadyUnpublished: v.boolean(),
@@ -850,7 +863,7 @@ export const unpublishSeededTemplate = action({
     args
   ): Promise<{ found: boolean; alreadyUnpublished: boolean }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     return await ctx.runMutation(
       internal.marketplace.templates.seed.unpublishSeededTemplateImpl,
       { slug: args.slug }
@@ -859,11 +872,11 @@ export const unpublishSeededTemplate = action({
 })
 
 export const clearSeededCovers = action({
-  args: {},
+  args: { seedSecret: v.string() },
   returns: v.object({ cleared: v.number(), scanned: v.number() }),
-  handler: async (ctx): Promise<{ cleared: number; scanned: number }> =>
+  handler: async (ctx, args): Promise<{ cleared: number; scanned: number }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     return await ctx.runMutation(
       internal.marketplace.templates.seed.clearSeededTemplateCovers,
       {}
@@ -974,10 +987,11 @@ export const finalizeSeededTemplateChunksImpl = internalMutation({
 })
 
 // dev-only — invoked from scripts/seed-marketplace-templates.ts via the
-// http client. gated behind CONVEX_SEED_ENABLED so prod refuses callers.
+// http client. gated by CONVEX_SEED_ENABLED + CONVEX_SEED_SECRET.
 // resolves author by email, stores all images, inserts template + items
 export const seedTemplateFromBlobs = action({
   args: {
+    seedSecret: v.string(),
     authorEmail: v.string(),
     title: v.string(),
     description: v.union(v.string(), v.null()),
@@ -1000,7 +1014,7 @@ export const seedTemplateFromBlobs = action({
     args
   ): Promise<{ slug: string; itemsCreated: number }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     const author: SeedAuthor | null = await ctx.runQuery(
       internal.marketplace.templates.seed.findUserByEmail,
       { email: args.authorEmail }
@@ -1036,9 +1050,10 @@ export const seedTemplateFromBlobs = action({
 
 // chunked-upload sibling of seedTemplateFromBlobs — the script creates the
 // template w/ chunk 1, then streams remaining items in size-bounded batches
-// through this action. same auth/seed gating
+// through this action. same seed-secret gate
 export const appendItemsToSeededTemplateBlobs = action({
   args: {
+    seedSecret: v.string(),
     authorEmail: v.string(),
     slug: v.string(),
     startOrder: v.number(),
@@ -1053,7 +1068,7 @@ export const appendItemsToSeededTemplateBlobs = action({
     args
   ): Promise<{ itemsAppended: number; totalItems: number }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     const author: SeedAuthor | null = await ctx.runQuery(
       internal.marketplace.templates.seed.findUserByEmail,
       { email: args.authorEmail }
@@ -1083,6 +1098,7 @@ export const appendItemsToSeededTemplateBlobs = action({
 
 export const finalizeSeededTemplateChunks = action({
   args: {
+    seedSecret: v.string(),
     authorEmail: v.string(),
     slug: v.string(),
     itemCount: v.number(),
@@ -1090,7 +1106,7 @@ export const finalizeSeededTemplateChunks = action({
   returns: v.object({ totalItems: v.number() }),
   handler: async (ctx, args): Promise<{ totalItems: number }> =>
   {
-    requireSeedEnabled()
+    requireSeedAuthorized(args.seedSecret)
     const author: SeedAuthor | null = await ctx.runQuery(
       internal.marketplace.templates.seed.findUserByEmail,
       { email: args.authorEmail }

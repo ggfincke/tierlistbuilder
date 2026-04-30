@@ -40,7 +40,7 @@ import {
   formatAspectRatio,
   getEffectiveImageFit,
   itemHasAspectMismatch,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import {
   itemSlotDimensions,
   OBJECT_FIT_CLASS,
@@ -294,7 +294,6 @@ export const ImageEditorPane = forwardRef<
     () => ({
       placement: resolvedPlacement,
       scrim: labelLayout.scrim,
-      sizeScale: labelLayout.sizeScale,
       fontSizePx: labelLayout.fontSizePx * previewScale,
       textStyleId: labelLayout.textStyleId,
       textColor: labelLayout.textColor,
@@ -303,7 +302,6 @@ export const ImageEditorPane = forwardRef<
     [
       resolvedPlacement,
       labelLayout.scrim,
-      labelLayout.sizeScale,
       labelLayout.fontSizePx,
       labelLayout.textStyleId,
       labelLayout.textColor,
@@ -999,7 +997,6 @@ export const ImageEditorPane = forwardRef<
         {
           const current = item.labelOptions ?? {}
           const next: ItemLabelOptions = { ...current }
-          delete next.sizeScale
           if (px === undefined) delete next.fontSizePx
           else next.fontSizePx = px
           onLabelOptionsChange(Object.keys(next).length > 0 ? next : null)

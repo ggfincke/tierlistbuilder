@@ -16,11 +16,11 @@ import {
 import {
   finalizeUploadImperative,
   generateUploadUrlImperative,
-} from '~/features/workspace/boards/data/cloud/boardRepository'
+} from '~/features/platform/media/uploadsRepository'
 import { PermanentSyncError } from '~/features/platform/sync/lib/errors'
 import { makeBoardSnapshot, makeItem } from '../fixtures'
 
-vi.mock('~/features/workspace/boards/data/cloud/boardRepository', () => ({
+vi.mock('~/features/platform/media/uploadsRepository', () => ({
   generateUploadUrlImperative: vi.fn(),
   finalizeUploadImperative: vi.fn(),
 }))

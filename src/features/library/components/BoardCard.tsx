@@ -9,7 +9,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 
 import { LIBRARY_STATUS_META } from '~/features/library/lib/statusMeta'
-import { formatRelativeTime } from '~/features/marketplace/model/formatters'
+import { formatRelativeTime } from '~/shared/catalog/formatters'
 import { Cover } from './Cover'
 import { TierBar } from './TierBar'
 import { VisibilityChip } from './VisibilityChip'

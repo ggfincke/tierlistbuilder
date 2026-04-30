@@ -11,7 +11,7 @@ import {
 import {
   finalizeUploadImperative,
   generateUploadUrlImperative,
-} from '~/features/workspace/boards/data/cloud/boardRepository'
+} from '~/features/platform/media/uploadsRepository'
 import type { Id } from '@convex/_generated/dataModel'
 
 export interface UploadedCoverImage

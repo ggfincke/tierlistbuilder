@@ -23,9 +23,9 @@ import {
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
   TEMPLATE_LIST_SORTS,
-  type TemplateCategory,
   type TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 
@@ -41,11 +41,11 @@ import { Rail } from '~/features/marketplace/components/Rail'
 import { RailHeader } from '~/features/marketplace/components/RailHeader'
 import { SearchInput } from '~/features/marketplace/components/SearchInput'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import { promptSignIn } from '~/features/marketplace/model/useSignInPromptStore'
+import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
 import { useGalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
 import { useOpenTemplateDraft } from '~/features/marketplace/model/useOpenTemplateDraft'
 import { useTemplatesGallery } from '~/features/marketplace/model/useTemplatesGallery'
-import { formatCount } from '~/features/marketplace/model/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
 import {
   loadPublishModal,
   preloadPublishModal,

@@ -773,6 +773,148 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
       '50-ballerina.png': 'Ballerina',
     },
   },
+  'javascript-frameworks': {
+    title: 'JavaScript frameworks',
+    category: 'tech',
+    description:
+      'Frontend frameworks, meta-frameworks, and UI libraries used across modern JavaScript apps.',
+    tags: ['javascript', 'frontend', 'frameworks'],
+    labels: true,
+    itemLabels: {
+      '01-react.png': 'React',
+      '02-vue.png': 'Vue',
+      '03-angular.png': 'Angular',
+      '04-svelte.png': 'Svelte',
+      '05-next-js.png': 'Next.js',
+      '06-nuxt.png': 'Nuxt',
+      '07-remix.png': 'Remix',
+      '08-astro.png': 'Astro',
+      '09-solid.png': 'Solid',
+      '10-ember-js.png': 'Ember.js',
+      '11-preact.png': 'Preact',
+      '12-qwik.png': 'Qwik',
+      '13-alpine-js.png': 'Alpine.js',
+    },
+  },
+  databases: {
+    title: 'Databases',
+    category: 'tech',
+    description:
+      'Relational, document, key-value, graph, search, and analytics databases.',
+    tags: ['databases', 'backend', 'data'],
+    labels: true,
+    itemLabels: {
+      '01-postgresql.png': 'PostgreSQL',
+      '02-mysql.png': 'MySQL',
+      '03-sqlite.png': 'SQLite',
+      '04-mongodb.png': 'MongoDB',
+      '05-redis.png': 'Redis',
+      '06-apache-cassandra.png': 'Apache Cassandra',
+      '07-elasticsearch.png': 'Elasticsearch',
+      '08-amazon-dynamodb.png': 'Amazon DynamoDB',
+      '09-snowflake.png': 'Snowflake',
+      '10-clickhouse.png': 'ClickHouse',
+      '11-neo4j.png': 'Neo4j',
+      '12-oracle-database.png': 'Oracle Database',
+      '13-microsoft-sql-server.png': 'Microsoft SQL Server',
+      '14-supabase.png': 'Supabase',
+    },
+  },
+  'cloud-platforms': {
+    title: 'Cloud platforms',
+    category: 'tech',
+    description:
+      'Cloud providers, app platforms, edge networks, and developer hosting services.',
+    tags: ['cloud', 'hosting', 'platforms'],
+    labels: true,
+    itemLabels: {
+      '01-amazon-web-services.png': 'Amazon Web Services',
+      '02-microsoft-azure.png': 'Microsoft Azure',
+      '03-google-cloud.png': 'Google Cloud',
+      '04-cloudflare.png': 'Cloudflare',
+      '05-vercel.png': 'Vercel',
+      '06-netlify.png': 'Netlify',
+      '07-heroku.png': 'Heroku',
+      '08-digitalocean.png': 'DigitalOcean',
+      '09-firebase.png': 'Firebase',
+      '10-supabase.png': 'Supabase',
+      '11-render.png': 'Render',
+      '12-railway.png': 'Railway',
+      '13-fly-io.png': 'Fly.io',
+    },
+  },
+  'design-tools': {
+    title: 'Design tools',
+    category: 'tech',
+    description:
+      'Product design, prototyping, visual design, whiteboarding, and motion tools.',
+    tags: ['design', 'creative', 'tools'],
+    labels: true,
+    itemLabels: {
+      '01-figma.png': 'Figma',
+      '02-sketch.png': 'Sketch',
+      '03-adobe-xd.png': 'Adobe XD',
+      '04-photoshop.png': 'Photoshop',
+      '05-illustrator.png': 'Illustrator',
+      '06-canva.png': 'Canva',
+      '07-framer.png': 'Framer',
+      '08-webflow.png': 'Webflow',
+      '09-penpot.png': 'Penpot',
+      '10-miro.png': 'Miro',
+      '11-invision.png': 'InVision',
+      '12-affinity-designer.png': 'Affinity Designer',
+      '13-blender.png': 'Blender',
+      '14-rive.png': 'Rive',
+    },
+  },
+  'productivity-apps': {
+    title: 'Productivity apps',
+    category: 'tech',
+    description:
+      'Collaboration, planning, notes, spreadsheets, calls, storage, and task apps.',
+    tags: ['productivity', 'apps', 'work'],
+    labels: true,
+    itemLabels: {
+      '01-slack.png': 'Slack',
+      '02-notion.png': 'Notion',
+      '03-trello.png': 'Trello',
+      '04-asana.png': 'Asana',
+      '05-jira.png': 'Jira',
+      '06-google-docs.png': 'Google Docs',
+      '07-google-sheets.png': 'Google Sheets',
+      '08-microsoft-teams.png': 'Microsoft Teams',
+      '09-zoom.png': 'Zoom',
+      '10-dropbox.png': 'Dropbox',
+      '11-todoist.png': 'Todoist',
+      '12-obsidian.png': 'Obsidian',
+    },
+  },
+  'ai-tools': {
+    title: 'AI tools',
+    category: 'tech',
+    description:
+      'AI assistants, coding copilots, model platforms, local runtimes, and ML workflow tools.',
+    tags: ['ai', 'machine learning', 'tools'],
+    labels: true,
+    itemLabels: {
+      '01-openai.png': 'OpenAI',
+      '02-claude.png': 'Claude',
+      '03-anthropic.png': 'Anthropic',
+      '04-google-gemini.png': 'Google Gemini',
+      '05-github-copilot.png': 'GitHub Copilot',
+      '06-perplexity.png': 'Perplexity',
+      '07-hugging-face.png': 'Hugging Face',
+      '08-ollama.png': 'Ollama',
+      '09-langchain.png': 'LangChain',
+      '10-replicate.png': 'Replicate',
+      '11-cursor.png': 'Cursor',
+      '12-replit.png': 'Replit',
+      '13-notebooklm.png': 'NotebookLM',
+      '14-google-colab.png': 'Google Colab',
+      '15-weights-and-biases.png': 'Weights & Biases',
+      '16-mlflow.png': 'MLflow',
+    },
+  },
   'final-fantasy-mainline': {
     title: 'Final Fantasy mainline series',
     category: 'gaming',
@@ -1057,6 +1199,63 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
       'Every Grammy Album of the Year winner from 1959 (The Music from Peter Gunn) through 2026 (Debí Tirar Más Fotos), spanning jazz, rock, pop, country, folk, hip-hop, and Latin.',
     tags: ['grammy', 'album of the year', 'music'],
   },
+  'james-bond-films': {
+    title: 'James Bond films',
+    category: 'movies',
+    description:
+      'All 25 Eon-produced 007 films from Dr. No (1962) to No Time to Die (2021).',
+    tags: ['movies', 'james bond', '007', 'spy', 'action'],
+  },
+  'christopher-nolan-films': {
+    title: 'Christopher Nolan films',
+    category: 'movies',
+    description:
+      'Every Christopher Nolan feature, from Following (1998) to Oppenheimer (2023).',
+    tags: ['movies', 'christopher nolan', 'director', 'filmography'],
+  },
+  'quentin-tarantino-films': {
+    title: 'Quentin Tarantino films',
+    category: 'movies',
+    description:
+      'Tarantino features from Reservoir Dogs (1992) through Once Upon a Time in Hollywood (2019).',
+    tags: ['movies', 'quentin tarantino', 'director', 'filmography'],
+  },
+  'a24-films': {
+    title: 'A24 films',
+    category: 'movies',
+    description:
+      'Iconic A24-distributed films from Spring Breakers (2013) through The Brutalist (2024) — horror, indie drama, & arthouse hits.',
+    tags: ['movies', 'a24', 'indie', 'arthouse', 'distributor'],
+  },
+  'wes-anderson-films': {
+    title: 'Wes Anderson films',
+    category: 'movies',
+    description:
+      'Every Wes Anderson feature, from Bottle Rocket (1996) through The Phoenician Scheme (2025).',
+    tags: ['movies', 'wes anderson', 'director', 'filmography', 'indie'],
+  },
+  'coen-brothers-films': {
+    title: 'Coen Brothers films',
+    category: 'movies',
+    description:
+      'Joel & Ethan Coen features from Blood Simple (1984) through The Ballad of Buster Scruggs (2018).',
+    tags: ['movies', 'coen brothers', 'director', 'filmography'],
+  },
+  'star-wars-characters': {
+    title: 'Star Wars characters',
+    category: 'movies',
+    description:
+      'Iconic Star Wars characters across the films & live-action shows.',
+    tags: ['star wars', 'characters', 'sci-fi', 'jedi', 'sith'],
+    labels: true,
+  },
+  'pixar-characters': {
+    title: 'Pixar characters',
+    category: 'movies',
+    description: 'Iconic characters from across the Pixar filmography.',
+    tags: ['pixar', 'characters', 'animation', 'disney'],
+    labels: true,
+  },
   'zelda-games': {
     title: 'Legend of Zelda mainline',
     category: 'gaming',
@@ -1138,6 +1337,71 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
       'A mix of current WWE stars, women’s division, and Hall of Fame icons.',
     tags: ['wwe', 'wrestling', 'sports entertainment'],
   },
+  'world-landmarks': {
+    title: 'World landmarks',
+    category: 'other',
+    description:
+      'Famous landmarks, monuments, ruins, bridges, towers, and architectural icons from around the world.',
+    tags: ['landmarks', 'travel', 'places'],
+    labels: true,
+  },
+  'us-national-parks': {
+    title: 'US national parks',
+    category: 'other',
+    description:
+      'Iconic US national parks across deserts, mountains, forests, wetlands, and volcanic landscapes.',
+    tags: ['national parks', 'travel', 'nature'],
+    labels: true,
+    itemLabels: {
+      '20-hawai-i-volcanoes.png': "Hawai'i Volcanoes",
+    },
+  },
+  'theme-park-rides': {
+    title: 'Theme park rides',
+    category: 'other',
+    description:
+      'Well-known coasters, dark rides, thrill rides, and park staples from major theme parks.',
+    tags: ['theme parks', 'rides', 'attractions'],
+    labels: true,
+    itemLabels: {
+      '05-tiana-s-bayou-adventure.png': "Tiana's Bayou Adventure",
+      '09-soarin.png': "Soarin'",
+      '12-hagrid-s-motorbike-adventure.png': "Hagrid's Motorbike Adventure",
+    },
+  },
+  'car-brands': {
+    title: 'Car brands',
+    category: 'other',
+    description:
+      'Major car brands across mass market, luxury, sports, electric, and off-road lineups.',
+    tags: ['cars', 'brands', 'automotive'],
+    labels: true,
+    itemLabels: {
+      '05-bmw.png': 'BMW',
+      '06-mercedes-benz.png': 'Mercedes-Benz',
+    },
+  },
+  'card-games': {
+    title: 'Card games',
+    category: 'other',
+    description:
+      'Classic card games, casino staples, family games, and modern tabletop card favorites.',
+    tags: ['cards', 'tabletop', 'games'],
+    labels: true,
+    itemLabels: {
+      '16-magic-the-gathering.png': 'Magic: The Gathering',
+      '17-pokemon-tcg.png': 'Pokemon TCG',
+      '18-yu-gi-oh.png': 'Yu-Gi-Oh!',
+    },
+  },
+  'art-movements': {
+    title: 'Art movements',
+    category: 'other',
+    description:
+      'Major art movements from Renaissance painting through modern and contemporary styles.',
+    tags: ['art', 'history', 'culture'],
+    labels: true,
+  },
   'board-games': {
     title: 'Board games',
     category: 'other',
@@ -1184,6 +1448,7 @@ const usage = (): never =>
       '  CONVEX_URL                       deployment URL (eg https://your-dev.convex.cloud)',
       '  CONVEX_SEED_ENABLED              must be "true" on the deployment env vars',
       '                                   (set via `npx convex env set CONVEX_SEED_ENABLED true`)',
+      '  CONVEX_SEED_SECRET               must be set locally and on the deployment',
       '',
     ].join('\n')
   )
@@ -1351,7 +1616,8 @@ const toPayloadItems = async (
 const seedFolder = async (
   client: ConvexHttpClient,
   folderName: string,
-  authorEmail: string
+  authorEmail: string,
+  seedSecret: string
 ): Promise<string | null> =>
 {
   const meta: FolderMeta = {
@@ -1382,6 +1648,7 @@ const seedFolder = async (
   const created = await client.action(
     api.marketplace.templates.seed.seedTemplateFromBlobs,
     {
+      seedSecret,
       authorEmail,
       title,
       description: meta.description ?? null,
@@ -1420,6 +1687,7 @@ const seedFolder = async (
         api.marketplace.templates.seed.appendItemsToSeededTemplateBlobs,
         {
           authorEmail,
+          seedSecret,
           slug: created.slug,
           startOrder,
           items: await toPayloadItems(chunk),
@@ -1436,6 +1704,7 @@ const seedFolder = async (
     const finalized = await client.action(
       api.marketplace.templates.seed.finalizeSeededTemplateChunks,
       {
+        seedSecret,
         authorEmail,
         slug: created.slug,
         itemCount: items.length,
@@ -1452,6 +1721,7 @@ const seedFolder = async (
   if (featuredRank !== undefined)
   {
     await client.action(api.marketplace.templates.seed.promoteFeatured, {
+      seedSecret,
       slug: created.slug,
       featuredRank,
     })
@@ -1500,7 +1770,8 @@ const isDefaultSeedAuthor = (email: string): boolean =>
 
 const ensureDefaultSeedAuthor = async (
   client: ConvexHttpClient,
-  authorEmail: string
+  authorEmail: string,
+  seedSecret: string
 ): Promise<void> =>
 {
   if (!isDefaultSeedAuthor(authorEmail))
@@ -1510,7 +1781,7 @@ const ensureDefaultSeedAuthor = async (
 
   const status = await client.action(
     api.marketplace.templates.seed.getSeedUserStatus,
-    { email: DEFAULT_SEED_AUTHOR.email }
+    { seedSecret, email: DEFAULT_SEED_AUTHOR.email }
   )
   await client.action(api.auth.signIn, {
     provider: 'password',
@@ -1524,6 +1795,7 @@ const ensureDefaultSeedAuthor = async (
   const profile = await client.action(
     api.marketplace.templates.seed.patchSeedUserProfile,
     {
+      seedSecret,
       email: DEFAULT_SEED_AUTHOR.email,
       displayName: DEFAULT_SEED_AUTHOR.displayName,
     }
@@ -1540,7 +1812,8 @@ const ensureDefaultSeedAuthor = async (
 const seedFolders = async (
   client: ConvexHttpClient,
   targetFolders: string[],
-  authorEmail: string
+  authorEmail: string,
+  seedSecret: string
 ): Promise<SeedSummary> =>
 {
   let succeeded = 0
@@ -1556,7 +1829,12 @@ const seedFolders = async (
 
       try
       {
-        const result = await seedFolder(client, folderName, authorEmail)
+        const result = await seedFolder(
+          client,
+          folderName,
+          authorEmail,
+          seedSecret
+        )
         if (result) succeeded += 1
       }
       catch (error)
@@ -1583,6 +1861,7 @@ const main = async (): Promise<void> =>
   const { authorEmail, folders } = parseArgs(process.argv.slice(2))
 
   const convexUrl = process.env.CONVEX_URL
+  const seedSecret = process.env.CONVEX_SEED_SECRET
   if (!convexUrl)
   {
     process.stderr.write(
@@ -1590,9 +1869,16 @@ const main = async (): Promise<void> =>
     )
     process.exit(1)
   }
+  if (!seedSecret)
+  {
+    process.stderr.write(
+      'CONVEX_SEED_SECRET is not set. Use the same value as the deployment env var.\n'
+    )
+    process.exit(1)
+  }
 
   const client = new ConvexHttpClient(convexUrl)
-  await ensureDefaultSeedAuthor(client, authorEmail)
+  await ensureDefaultSeedAuthor(client, authorEmail, seedSecret)
 
   // walk one level into examples/<category>/<folder>; the category dir layer
   // mirrors the marketplace category for navigability
@@ -1630,7 +1916,7 @@ const main = async (): Promise<void> =>
   {
     const { cleared } = await client.action(
       api.marketplace.templates.seed.clearAllFeaturedRanks,
-      {}
+      { seedSecret }
     )
     process.stdout.write(`cleared ${cleared} prior featured rank(s)\n`)
   }
@@ -1638,7 +1924,8 @@ const main = async (): Promise<void> =>
   const { succeeded, failed } = await seedFolders(
     client,
     targetFolders,
-    authorEmail
+    authorEmail,
+    seedSecret
   )
 
   process.stdout.write(

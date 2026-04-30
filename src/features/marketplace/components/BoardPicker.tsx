@@ -6,7 +6,7 @@ import { Layers } from 'lucide-react'
 import { useId } from 'react'
 
 import type { PublishableBoard } from '~/features/marketplace/model/useMyPublishableBoards'
-import { formatRelativeTime } from '~/features/marketplace/model/formatters'
+import { formatRelativeTime } from '~/shared/catalog/formatters'
 
 interface BoardPickerProps
 {

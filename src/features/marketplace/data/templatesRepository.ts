@@ -9,11 +9,11 @@ import type {
   MarketplaceTemplateListResult,
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
-  TemplateCategory,
   TemplateListSort,
   TemplateUseTierSelection,
   TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 
 export interface ListTemplatesArgs
 {

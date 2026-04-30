@@ -13,7 +13,7 @@ import {
 import {
   clearInboundShareFromUrl,
   resolveInboundShare,
-} from '~/features/workspace/sharing/inbound/inboundShare'
+} from '~/features/platform/share/inboundShare'
 import { toast } from '~/shared/notifications/useToastStore'
 
 // import a shared board if the URL carries an inbound share marker. scrub the URL

@@ -7,7 +7,7 @@ import {
   formatPreciseAspectRatio,
   RATIO_OPTIONS,
   type RatioOption,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { fitRectInBox } from './aspectRatioPreviewRect'
 
 const CHIP_BASE =

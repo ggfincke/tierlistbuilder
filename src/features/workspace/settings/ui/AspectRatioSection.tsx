@@ -15,7 +15,7 @@ import {
   getEffectiveImageFit,
   groupMismatchedItems,
   type MismatchGroup,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { ItemContent } from '~/shared/board-ui/ItemContent'

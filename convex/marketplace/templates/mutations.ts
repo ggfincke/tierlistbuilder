@@ -14,9 +14,9 @@ import {
 import type {
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
-  TemplateCategory,
   TemplateUseTierSelection,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import {
   MAX_TEMPLATE_COVER_ITEMS,
   isTemplateSlug,

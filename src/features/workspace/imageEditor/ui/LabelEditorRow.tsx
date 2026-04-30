@@ -337,10 +337,7 @@ export const LabelEditorRow = ({
             id={sizeId}
             value={resolvedFontSizePx}
             onChange={onFontSizePxChange}
-            active={
-              itemOptions?.fontSizePx !== undefined ||
-              itemOptions?.sizeScale !== undefined
-            }
+            active={itemOptions?.fontSizePx !== undefined}
           />
           <button
             type="button"
