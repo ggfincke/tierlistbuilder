@@ -3,14 +3,26 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared frontend contracts for persisted and exported tier-list data",
+  "description": "Cross-runtime contracts shared between the frontend & convex backend",
   "exports": {
     "./workspace/board": "./workspace/board.ts",
+    "./workspace/imageMath": "./workspace/imageMath.ts",
     "./workspace/boardEnvelope": "./workspace/boardEnvelope.ts",
+    "./workspace/boardSync": "./workspace/boardSync.ts",
+    "./workspace/cloudBoard": "./workspace/cloudBoard.ts",
+    "./workspace/cloudPreset": "./workspace/cloudPreset.ts",
     "./workspace/tierPreset": "./workspace/tierPreset.ts",
     "./workspace/settings": "./workspace/settings.ts",
+    "./marketplace/template": "./marketplace/template.ts",
+    "./platform/errors": "./platform/errors.ts",
+    "./platform/media": "./platform/media.ts",
+    "./platform/shortLink": "./platform/shortLink.ts",
+    "./platform/user": "./platform/user.ts",
+    "./lib/hexColor": "./lib/hexColor.ts",
     "./lib/ids": "./lib/ids.ts",
+    "./lib/math": "./lib/math.ts",
     "./lib/theme": "./lib/theme.ts",
-    "./lib/themeDefinition": "./lib/themeDefinition.ts"
+    "./lib/themeDefinition": "./lib/themeDefinition.ts",
+    "./lib/typeGuards": "./lib/typeGuards.ts"
   }
 }

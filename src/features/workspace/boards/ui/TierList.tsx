@@ -23,7 +23,7 @@ import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/setti
 import { isVerticalPosition } from '~/shared/layout/toolbarPosition'
 import { TIER_LIST_BOARD_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { useDragAndDrop } from '~/features/workspace/boards/dnd/useDragAndDrop'
-import { DragOverlayItem } from './DragOverlayItem'
+import { ActiveDragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
 import { TrashZone } from './TrashZone'
 import { UnrankedPool } from './UnrankedPool'
@@ -140,7 +140,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
 
   const {
     sensors,
-    activeItem,
+    activeItemId,
     activeTier,
     collisionDetection,
     overlayModifiers,
@@ -224,9 +224,9 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         modifiers={overlayModifiers}
         dropAnimation={dragGroupCount > 1 ? null : undefined}
       >
-        {activeItem ? (
-          <DragOverlayItem
-            item={activeItem}
+        {activeItemId ? (
+          <ActiveDragOverlayItem
+            itemId={activeItemId}
             groupCount={dragGroupCount > 1 ? dragGroupCount - 1 : 0}
           />
         ) : activeTier ? (

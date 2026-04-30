@@ -1,11 +1,14 @@
 // src/app/shells/WorkspaceShell.tsx
 // full interactive workspace shell w/ board UI, modals, panels, & overlays
 
-import { useCallback, type MouseEvent } from 'react'
+import { useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
-import { useThemeSync } from '~/app/bootstrap/useThemeSync'
+import {
+  useBoardThemeOverrides,
+  useThemeSync,
+} from '~/app/bootstrap/useThemeSync'
 import { useModalStack } from '~/app/shells/useModalStack'
 import { WorkspaceModalLayer } from '~/app/shells/WorkspaceModalLayer'
 import { useWorkspaceExportActions } from '~/app/shells/useWorkspaceExportActions'
@@ -18,11 +21,14 @@ import { TierList } from '~/features/workspace/boards/ui/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
-import { getWorkspacePath } from '~/app/routes/pathname'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
+import { useCurrentPageBackground } from '~/features/workspace/settings/model/useCurrentPageBackground'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { useCloudSync } from '~/features/platform/sync/orchestration/useCloudSync'
+import { CLOUD_SYNC_ENABLED } from '~/features/platform/sync/lib/cloudSyncConfig'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
@@ -41,24 +47,28 @@ export const WorkspaceShell = () =>
         resetBoard: state.resetBoard,
       }))
     )
-  const {
-    toolbarPosition: rawToolbarPosition,
-    boardBackgroundOverride,
-    reducedMotion,
-  } = useSettingsStore(
-    useShallow((state) => ({
-      toolbarPosition: state.toolbarPosition,
-      boardBackgroundOverride: state.boardBackgroundOverride,
-      reducedMotion: state.reducedMotion,
-    }))
-  )
+  const { toolbarPosition: rawToolbarPosition, reducedMotion } =
+    useSettingsStore(
+      useShallow((state) => ({
+        toolbarPosition: state.toolbarPosition,
+        reducedMotion: state.reducedMotion,
+      }))
+    )
+  const pageBackground = useCurrentPageBackground()
   const aboveSm = useAboveBreakpoint()
   const toolbarPosition = getResponsiveToolbarPosition(
     rawToolbarPosition,
     aboveSm
   )
 
-  useThemeSync()
+  useThemeSync({ syncTextStyle: false })
+  useBoardThemeOverrides()
+
+  const authSession = useAuthSession()
+  const signedInUser =
+    authSession.status === 'signed-in' ? authSession.user : null
+  const cloudEnabled = signedInUser !== null && CLOUD_SYNC_ENABLED
+  useCloudSync(signedInUser)
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
   const modalStack = useModalStack<WorkspaceModalPayloads>()
@@ -87,25 +97,6 @@ export const WorkspaceShell = () =>
   )
   const handleOpenStats = useCallback(() => openModal('stats'), [openModal])
   const handleOpenShare = useCallback(() => openModal('share'), [openModal])
-  const handleSkipToBoard = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) =>
-    {
-      event.preventDefault()
-
-      const board = document.getElementById('tier-list')
-
-      if (!(board instanceof HTMLElement))
-      {
-        return
-      }
-
-      board.scrollIntoView({ block: 'start' })
-      board.focus({ preventScroll: true })
-      window.history.replaceState(null, '', '#tier-list')
-    },
-    []
-  )
-
   if (!appReady)
   {
     return (
@@ -121,20 +112,9 @@ export const WorkspaceShell = () =>
       <main
         id="app-shell"
         className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
-        style={
-          boardBackgroundOverride
-            ? { backgroundColor: boardBackgroundOverride }
-            : undefined
-        }
+        style={pageBackground ? { backgroundColor: pageBackground } : undefined}
       >
-        <a
-          href={`${getWorkspacePath()}#tier-list`}
-          onClick={handleSkipToBoard}
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-[var(--t-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--t-accent-foreground)] focus:shadow-lg"
-        >
-          Skip to board
-        </a>
-        <div className="app-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+        <div className="app-content mx-auto w-full max-w-6xl px-3 pb-4 pt-20 sm:px-6 sm:pb-6 sm:pt-24">
           <BoardHeader />
 
           {runtimeError && (
@@ -158,6 +138,7 @@ export const WorkspaceShell = () =>
                 toolbar={
                   <BoardActionBar
                     toolbarPosition={toolbarPosition}
+                    cloudEnabled={cloudEnabled}
                     exportStatus={exportActions.exportStatus}
                     exportingAll={exportActions.exportAllProgress !== null}
                     onAddTier={handleAddTier}
@@ -180,10 +161,12 @@ export const WorkspaceShell = () =>
 
         <BoardManager
           toolbarPosition={toolbarPosition}
+          cloudEnabled={cloudEnabled}
           onSwitchBoard={transitionTo}
         />
         <WorkspaceModalLayer
           modalStack={modalStack}
+          signedInUser={signedInUser}
           exportStatus={exportActions.exportStatus}
           exportAllProgress={exportActions.exportAllProgress}
           previewFormat={exportActions.previewFormat}

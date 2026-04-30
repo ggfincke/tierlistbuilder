@@ -13,6 +13,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
@@ -35,6 +36,8 @@ interface ItemContextMenuProps
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
+
+const SCROLL_LISTENER_OPTIONS = { capture: true, passive: true } as const
 
 export const ItemContextMenu = ({
   itemId,
@@ -109,8 +112,13 @@ export const ItemContextMenu = ({
   useEffect(() =>
   {
     const handleScroll = () => onClose()
-    window.addEventListener('scroll', handleScroll, true)
-    return () => window.removeEventListener('scroll', handleScroll, true)
+    window.addEventListener('scroll', handleScroll, SCROLL_LISTENER_OPTIONS)
+    return () =>
+      window.removeEventListener(
+        'scroll',
+        handleScroll,
+        SCROLL_LISTENER_OPTIONS
+      )
   }, [onClose])
 
   if (!item) return null
@@ -138,6 +146,8 @@ export const ItemContextMenu = ({
       {showEdit && (
         <OverlayMenuItem
           role="menuitem"
+          onFocus={preloadImageEditorModal}
+          onPointerEnter={preloadImageEditorModal}
           onClick={() =>
           {
             useImageEditorStore.getState().open({ itemId, filter: 'all' })

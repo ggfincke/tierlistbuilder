@@ -20,7 +20,7 @@ import {
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
 import { extractPresetFromBoard } from '~/features/workspace/tier-presets/model/tierPresets'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { toast } from '~/shared/notifications/useToastStore'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
@@ -49,6 +49,7 @@ import {
 } from '~/shared/overlay/OverlaySurface'
 
 import { SavePresetModal } from '~/features/workspace/tier-presets/ui/SavePresetModal'
+import { SyncStatusIndicator } from '~/features/workspace/boards/ui/SyncStatusIndicator'
 
 type ShuffleMenuId = 'root' | 'shuffleAll'
 
@@ -58,6 +59,7 @@ const SHUFFLE_MENU_DEFINITIONS: readonly NestedMenuDefinition<ShuffleMenuId>[] =
 interface BoardActionBarProps
 {
   toolbarPosition: ToolbarPosition
+  cloudEnabled: boolean
   exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
   exportingAll: boolean
   onAddTier: () => void
@@ -75,6 +77,7 @@ interface BoardActionBarProps
 // primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
   toolbarPosition,
+  cloudEnabled,
   exportStatus,
   exportingAll,
   onAddTier,
@@ -343,6 +346,8 @@ export const BoardActionBar = ({
               <Unlock className="h-5 w-5" strokeWidth={1.8} />
             )}
           </ActionButton>
+
+          <SyncStatusIndicator active={cloudEnabled} />
         </div>
       </div>
 

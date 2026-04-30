@@ -3,7 +3,7 @@
 
 import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import {
   createUndoRestoreRuntimePatch,
   type UndoEntry,

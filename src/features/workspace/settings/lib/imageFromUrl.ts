@@ -8,7 +8,7 @@ import {
 } from '~/shared/images/imagePersistence'
 import { MAX_EDITOR_SOURCE_SIZE, MAX_THUMBNAIL_SIZE } from './constants'
 import { deriveLabelFromFilename, drawImageToPngBlob } from './imageGeometry'
-import { loadImageElement } from './imageLoad'
+import { loadImageElement } from '~/shared/images/imageLoad'
 
 // derive a display label from a URL by extracting the filename w/o extension
 const labelFromUrl = (url: string): string =>

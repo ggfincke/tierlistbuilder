@@ -1,5 +1,5 @@
 // packages/contracts/lib/ids.ts
-// branded ID types & factories shared across frontend modules
+// branded ID types & factories shared across the frontend & convex backend
 
 // generated board ID stored in the board registry & per-board storage keys
 export type BoardId = `board-${string}`
@@ -58,7 +58,8 @@ export const isTierId = (value: string): value is TierId =>
 export const isUserPresetId = (value: unknown): value is UserPresetId =>
   typeof value === 'string' && value.startsWith('preset-')
 
-// fresh board ID — used as the in-memory board registry key
+// fresh board ID — used both as the in-memory board registry key & as the
+// external identifier persisted to convex for sync
 export const generateBoardId = (): BoardId =>
   `board-${crypto.randomUUID()}` as BoardId
 
@@ -72,3 +73,42 @@ export const generatePresetId = (): UserPresetId =>
 
 // fresh item ID — plain UUID under the branded nominal type
 export const generateItemId = (): ItemId => asItemId(crypto.randomUUID())
+
+// fresh media externalId — prefixed for stable public lookup & signed URLs
+export const generateMediaAssetExternalId = (): string =>
+  `media-${crypto.randomUUID()}`
+
+// fresh user externalId — prefixed for clarity across logs & admin UI
+export const generateUserExternalId = (): string =>
+  `user-${crypto.randomUUID()}`
+
+// base62 alphabet for short link slug generation
+const BASE62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+export const SHORT_LINK_SLUG_LENGTH = 8
+const SHORT_LINK_SLUG_PATTERN = new RegExp(
+  `^[0-9A-Za-z]{${SHORT_LINK_SLUG_LENGTH}}$`
+)
+
+// narrow an unknown to the canonical short-link slug shape
+export const isShortLinkSlug = (value: unknown): value is string =>
+  typeof value === 'string' && SHORT_LINK_SLUG_PATTERN.test(value)
+
+// fresh short-link slug — 8 chars of base62 (~218T combos); mutation checks
+// collisions before inserting. rejection-sample bytes >= 248 so `byte % 62`
+// stays uniform (248..255 would skew toward 0..7)
+export const generateShortLinkSlug = (): string =>
+{
+  let out = ''
+  const buf = new Uint8Array(SHORT_LINK_SLUG_LENGTH)
+  while (out.length < SHORT_LINK_SLUG_LENGTH)
+  {
+    crypto.getRandomValues(buf)
+    for (const byte of buf)
+    {
+      if (byte >= 248) continue
+      out += BASE62[byte % 62]
+      if (out.length === SHORT_LINK_SLUG_LENGTH) break
+    }
+  }
+  return out
+}

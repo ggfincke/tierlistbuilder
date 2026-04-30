@@ -2,13 +2,17 @@
 // JSON import/export parsing
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { exportBoardAsJson } from '~/features/workspace/export/lib/exportJson'
 import {
-  exportBoardAsJson,
   parseBoardJson,
   parseBoardSnapshotJson,
   parseBoardsJson,
-} from '~/features/workspace/export/lib/exportJson'
-import { stripImagesForShare } from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/board-data/boardJson'
+import {
+  snapshotToWireWithBlobs,
+  wireToSnapshot,
+} from '~/shared/board-data/boardWireMapper'
+import { stripImagesForShare } from '~/shared/sharing/hashShare'
 import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
@@ -241,6 +245,50 @@ describe('parseBoardJson', () =>
     }
     const result = await parseBoardJson(JSON.stringify(noTitle))
     expect(result.title).toBe('Imported Tier List')
+  })
+
+  it('preserves board style overrides through the JSON wire mapper', async () =>
+  {
+    const board = makeValidBoard({
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
+    })
+
+    const wire = await snapshotToWireWithBlobs(board, new Map())
+    expect(wire).toMatchObject({
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
+    })
+
+    const result = await wireToSnapshot(wire)
+    expect(result).toMatchObject({
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
+    })
+  })
+
+  it('preserves explicit per-item Auto label color through the wire mapper', async () =>
+  {
+    const board = makeValidBoard({
+      labels: { textColor: 'blue' },
+      items: {
+        'item-1': makeItem({
+          id: asItemId('item-1'),
+          label: 'First',
+          labelOptions: { textColor: 'auto' },
+        }),
+        'item-2': makeItem({ id: asItemId('item-2'), label: 'Second' }),
+      },
+    })
+
+    const wire = await snapshotToWireWithBlobs(board, new Map())
+    expect(wire.items['item-1'].labelOptions).toEqual({ textColor: 'auto' })
+
+    const result = await wireToSnapshot(wire)
+    expect(result.items['item-1'].labelOptions).toEqual({ textColor: 'auto' })
   })
 
   it('drops image refs & deleted items from share payloads', async () =>

@@ -12,18 +12,26 @@ interface AutoCropTrimToggleProps
   onChange: (checked: boolean) => void
   disabled?: boolean
   className?: string
+  title?: string
 }
+
+const DEFAULT_TITLE =
+  'When auto-cropping, also trim soft drop-shadows around screenshots so framing hugs the actual content.'
 
 export const AutoCropTrimToggle = ({
   checked,
   onChange,
   disabled = false,
   className = '',
+  title = DEFAULT_TITLE,
 }: AutoCropTrimToggleProps) =>
 {
   const labelId = useId()
   return (
-    <div className={`inline-flex items-center gap-2 ${className}`}>
+    <div
+      className={`inline-flex items-center gap-2 ${className}`}
+      title={title}
+    >
       <span id={labelId} className="text-xs text-[var(--t-text-muted)]">
         Trim shadows
       </span>

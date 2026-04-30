@@ -5,8 +5,8 @@ import { useEffect, useState } from 'react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
-import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
-import { resolveInboundShare } from '~/features/workspace/sharing/inbound/inboundShare'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
+import { resolveInboundShare } from '~/features/platform/share/inboundShare'
 import {
   StaticBoard,
   type StaticBoardAppearance,
@@ -24,12 +24,13 @@ const EMBED_APPEARANCE: StaticBoardAppearance = {
   compactMode: false,
   labelWidth: 'default',
   paletteId: EMBED_DEFAULT_PALETTE_ID,
+  textStyleId: 'default',
   tierLabelBold: false,
   tierLabelItalic: false,
   tierLabelFontSize: 'medium',
 }
 
-// load embed data from the current share fragment
+// load embed data from the current short-link slug
 const loadEmbedData = async (
   signal: AbortSignal
 ): Promise<BoardSnapshot | null> =>

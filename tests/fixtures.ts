@@ -1,4 +1,5 @@
 import type {
+  BoardListItem,
   BoardMeta,
   BoardSnapshot,
   Tier,
@@ -88,6 +89,17 @@ export const makeBoardMeta = (overrides?: Partial<BoardMeta>): BoardMeta => ({
   id: asBoardId('board-test'),
   title: 'Test Board',
   createdAt: 1,
+  ...overrides,
+})
+
+export const makeBoardListItem = (
+  overrides?: Partial<BoardListItem>
+): BoardListItem => ({
+  externalId: 'cloud-board-test',
+  title: 'Cloud Board',
+  createdAt: 1,
+  updatedAt: 1,
+  revision: 1,
   ...overrides,
 })
 

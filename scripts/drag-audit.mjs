@@ -123,14 +123,14 @@ const wrappedExpectedAppendedOrder = [
   wrappedIncomingItemId,
 ]
 const wrappedExpectedAfterLeftOrder = [
-  ...wrappedTierOrder.slice(0, -1),
-  wrappedIncomingItemId,
-  wrappedTierOrder[wrappedTierOrder.length - 1],
-]
-const wrappedExpectedKeyboardAfterLeftOrder = [
   ...wrappedTierOrder.slice(0, -2),
   wrappedIncomingItemId,
   ...wrappedTierOrder.slice(-2),
+]
+const wrappedExpectedKeyboardAfterLeftOrder = [
+  ...wrappedTierOrder.slice(0, -3),
+  wrappedIncomingItemId,
+  ...wrappedTierOrder.slice(-3),
 ]
 const sampledOffsets = [
   -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
@@ -1721,7 +1721,7 @@ const main = async () =>
 
   const server = spawnProcess('npm', [
     'run',
-    'dev',
+    'dev:app',
     '--',
     '--host',
     '127.0.0.1',

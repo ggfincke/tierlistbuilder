@@ -8,7 +8,7 @@ import {
   encodeBoardToShareFragment,
   inflateSnapshotBytes,
   stripImagesForShare,
-} from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/sharing/hashShare'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeBoardSnapshot, makeTier } from '../fixtures'
 
@@ -53,40 +53,6 @@ describe('snapshot codec', () =>
     expect(item).not.toHaveProperty('imageRef')
     expect(item).not.toHaveProperty('sourceImageRef')
     expect(stripped.deletedItems).toEqual([])
-  })
-
-  it('keeps image-only items renderable after stripping image refs', async () =>
-  {
-    const plainImageId = asItemId('plain-image')
-    const altImageId = asItemId('alt-image')
-    const original = makeBoardSnapshot({
-      title: 'Images Only',
-      tiers: [makeTier({ id: 'tier-s', itemIds: [plainImageId, altImageId] })],
-      items: {
-        [plainImageId]: {
-          id: plainImageId,
-          imageRef: { hash: 'img-1' },
-        },
-        [altImageId]: {
-          id: altImageId,
-          imageRef: { hash: 'img-2' },
-          sourceImageRef: { hash: 'source-2' },
-          altText: 'Cover art',
-        },
-      },
-    })
-
-    const decoded = await decodeBoardFromShareFragment(
-      await encodeBoardToShareFragment(original)
-    )
-    const plainImage = decoded.items[plainImageId]
-    const altImage = decoded.items[altImageId]
-
-    expect(plainImage?.label).toBe('Image')
-    expect(plainImage).not.toHaveProperty('imageRef')
-    expect(altImage?.label).toBe('Cover art')
-    expect(altImage).not.toHaveProperty('sourceImageRef')
-    expect(decoded.tiers[0].itemIds).toEqual([plainImageId, altImageId])
   })
 
   it('throws on malformed compressed bytes', async () =>

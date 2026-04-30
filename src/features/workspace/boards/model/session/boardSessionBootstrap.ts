@@ -101,56 +101,14 @@ const reconcileLocalImageRefs = async (): Promise<void> =>
     const scope = boardImageRefScope(meta.id)
     const hashes =
       result.status === 'ok'
-        ? collectSnapshotLocalImageHashes(loadedBoardStateFromResult(result))
+        ? collectSnapshotLocalImageHashes(
+            loadedBoardStateFromResult(result).snapshot
+          )
         : []
     await replaceBlobRefs(scope, hashes)
   }
 
   await pruneUnreferencedBlobs()
-}
-
-const loadHealthyBoardSession = async (boardId: BoardId): Promise<boolean> =>
-{
-  const result = loadBoardFromStorage(boardId)
-
-  if (result.status !== 'ok')
-  {
-    return false
-  }
-
-  const snapshot = loadedBoardStateFromResult(result)
-  const boardStore = useWorkspaceBoardRegistryStore.getState()
-  if (boardStore.activeBoardId !== boardId)
-  {
-    boardStore.setActiveBoardId(boardId)
-  }
-  await warmFromBoard(snapshot)
-  loadBoardState(boardId, snapshot)
-  pruneOrphanedRegistryEntriesAsync(boardId)
-  reconcileLocalImageRefsAsync()
-  return true
-}
-
-const tryLoadSiblingBoardSession = async (
-  requestedActiveId: BoardId
-): Promise<boolean> =>
-{
-  const boardStore = useWorkspaceBoardRegistryStore.getState()
-  const siblingIds = boardStore.boards
-    .map((board) => board.id)
-    .filter((id) => id !== requestedActiveId)
-
-  for (const siblingId of siblingIds)
-  {
-    if (await loadHealthyBoardSession(siblingId))
-    {
-      return true
-    }
-
-    removeBoardFromStorage(siblingId)
-  }
-
-  return false
 }
 
 export const bootstrapBoardSession = async (): Promise<void> =>
@@ -161,18 +119,24 @@ export const bootstrapBoardSession = async (): Promise<void> =>
 
   if (requestedActiveId)
   {
-    if (await loadHealthyBoardSession(requestedActiveId))
+    const result = loadBoardFromStorage(requestedActiveId)
+
+    if (result.status === 'ok')
     {
+      const state = loadedBoardStateFromResult(result)
+      if (boardStore.activeBoardId !== requestedActiveId)
+      {
+        boardStore.setActiveBoardId(requestedActiveId)
+      }
+      await warmFromBoard(state.snapshot)
+      loadBoardState(requestedActiveId, state.snapshot, state.syncState)
+      pruneOrphanedRegistryEntriesAsync(requestedActiveId)
+      reconcileLocalImageRefsAsync()
       return
     }
 
     removeBoardFromStorage(requestedActiveId)
     toast('Board data was corrupted and has been reset.', 'error')
-
-    if (await tryLoadSiblingBoardSession(requestedActiveId))
-    {
-      return
-    }
   }
 
   const id = generateBoardId()

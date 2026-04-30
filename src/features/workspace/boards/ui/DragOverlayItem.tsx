@@ -1,18 +1,21 @@
 // src/features/workspace/boards/ui/DragOverlayItem.tsx
 // ghost item rendered in the dnd-kit DragOverlay while dragging
 
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { TierItem as TierItemType } from '@tierlistbuilder/contracts/workspace/board'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { createSelectBoardItemById } from '~/features/workspace/boards/model/slices/selectors'
 import {
   getBoardItemAspectRatio,
   getEffectiveImageFit,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 
 interface DragOverlayItemProps
 {
@@ -20,13 +23,38 @@ interface DragOverlayItemProps
   groupCount?: number
 }
 
+interface ActiveDragOverlayItemProps
+{
+  itemId: ItemId
+  groupCount?: number
+}
+
+export const ActiveDragOverlayItem = memo(
+  ({ itemId, groupCount = 0 }: ActiveDragOverlayItemProps) =>
+  {
+    const selectItem = useMemo(
+      () => createSelectBoardItemById(itemId),
+      [itemId]
+    )
+    const item = useActiveBoardStore(selectItem)
+
+    if (!item)
+    {
+      return null
+    }
+
+    return <DragOverlayItem item={item} groupCount={groupCount} />
+  }
+)
+
 export const DragOverlayItem = memo(
   ({ item, groupCount = 0 }: DragOverlayItemProps) =>
   {
-    const { itemSize, itemShape } = useSettingsStore(
+    const { itemSize, itemShape, showLabels } = useSettingsStore(
       useShallow((state) => ({
         itemSize: state.itemSize,
         itemShape: state.itemShape,
+        showLabels: state.showLabels,
       }))
     )
     const boardAspectRatio = useActiveBoardStore((state) =>
@@ -35,6 +63,7 @@ export const DragOverlayItem = memo(
     const boardDefaultFit = useActiveBoardStore(
       (state) => state.defaultItemImageFit
     )
+    const boardLabels = useActiveBoardStore((state) => state.labels)
     const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
       itemSize,
       boardAspectRatio
@@ -76,6 +105,12 @@ export const DragOverlayItem = memo(
         >
           <ItemContent
             item={item}
+            label={resolveLabelDisplay({
+              itemLabel: item.label,
+              itemOptions: item.labelOptions,
+              boardSettings: boardLabels,
+              globalShowLabels: showLabels,
+            })}
             fit={effectiveFit}
             frameAspectRatio={boardAspectRatio}
           />

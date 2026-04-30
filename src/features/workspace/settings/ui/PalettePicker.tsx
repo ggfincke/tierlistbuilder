@@ -1,7 +1,6 @@
 // src/features/workspace/settings/ui/PalettePicker.tsx
-// grid of clickable palette preview cards for the Appearance section
+// controlled palette preview picker for defaults & per-board overrides
 
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { PALETTE_META, PALETTES } from '~/shared/theme/palettes'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { PickerGrid } from '~/shared/ui/PickerGrid'
@@ -12,6 +11,9 @@ const PREVIEW_SWATCH_COUNT = 6
 
 interface PalettePickerProps
 {
+  value: PaletteId
+  onChange: (paletteId: PaletteId) => void
+  disabled?: boolean
   ariaLabelledby?: string
 }
 
@@ -39,20 +41,20 @@ const renderPalettePreview = (meta: (typeof PALETTE_META)[number]) =>
   )
 }
 
-export const PalettePicker = ({ ariaLabelledby }: PalettePickerProps) =>
-{
-  const paletteId = useSettingsStore((s) => s.paletteId)
-  const setPaletteId = useSettingsStore((s) => s.setPaletteId)
-
-  return (
-    <PickerGrid<PaletteId, (typeof PALETTE_META)[number]>
-      items={PALETTE_META}
-      activeKey={paletteId}
-      onSelect={setPaletteId}
-      ariaLabel="Tier color palette"
-      ariaLabelledby={ariaLabelledby}
-      columns={4}
-      renderPreview={renderPalettePreview}
-    />
-  )
-}
+export const PalettePicker = ({
+  value,
+  onChange,
+  disabled = false,
+  ariaLabelledby,
+}: PalettePickerProps) => (
+  <PickerGrid<PaletteId, (typeof PALETTE_META)[number]>
+    items={PALETTE_META}
+    activeKey={value}
+    onSelect={onChange}
+    ariaLabel="Tier color palette"
+    ariaLabelledby={ariaLabelledby}
+    columns={4}
+    renderPreview={renderPalettePreview}
+    disabled={disabled}
+  />
+)

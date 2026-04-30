@@ -11,8 +11,11 @@ import { probeImageStore, putBlobs, type BlobRecord } from './imageStore'
 // bound parallel blob prepare work (hash + record build). limit is low because
 // hashing is CPU-heavy & we don't want to starve the main thread
 export const BLOB_PREPARE_CONCURRENCY = 3
+const IMAGE_STORAGE_UNAVAILABLE_MESSAGE =
+  'Image storage is not available in this browser.'
 
-// build a normalized IndexedDB blob record
+// build a normalized IndexedDB blob record — exported for the cloud image
+// fetcher which constructs records from download responses
 export const createBlobRecord = (
   hash: string,
   blob: Blob,
@@ -81,7 +84,17 @@ export const persistPreparedBlobRecords = async (
     return
   }
 
-  await putBlobs(prepared.map((entry) => entry.record))
+  try
+  {
+    await putBlobs(prepared.map((entry) => entry.record))
+  }
+  catch (error)
+  {
+    if (error instanceof Error && error.message.includes('Image store'))
+    {
+      throw new Error(IMAGE_STORAGE_UNAVAILABLE_MESSAGE)
+    }
+  }
 
   if (warmCache)
   {
@@ -110,7 +123,7 @@ export const persistBlobSources = async (
 
   if (!available)
   {
-    throw new Error('Image storage is not available in this browser.')
+    throw new Error(IMAGE_STORAGE_UNAVAILABLE_MESSAGE)
   }
 
   const prepared = await mapAsyncLimit(

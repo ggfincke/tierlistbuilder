@@ -18,6 +18,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
+      # tsc -b walks tsconfig.app.json, tsconfig.node.json, & convex/tsconfig.json
+      # via the project references in tsconfig.json. convex/_generated/*.d.ts
+      # files are committed (the .js siblings are gitignored) so the convex
+      # source files typecheck against the real api shape w/o needing a CI deploy
       - run: npx tsc -b --noEmit
       - run: npm test
 

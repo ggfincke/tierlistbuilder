@@ -18,7 +18,6 @@ import {
   STORAGE_QUOTA_BYTES,
 } from '~/shared/lib/storageMetering'
 import { GITHUB_REPO_URL } from '~/shared/lib/urls'
-import { formatCountedWord } from '~/shared/lib/pluralize'
 import { THEMES } from '~/shared/theme/tokens'
 import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -106,7 +105,7 @@ export const MoreTab = ({
         <div className="flex items-center justify-between gap-3">
           <span className="flex items-center gap-1.5 text-sm text-[var(--t-text-faint)]">
             <Layers className="h-3.5 w-3.5" />
-            {formatCountedWord(boards.length, 'list')} saved
+            {boards.length} {boards.length === 1 ? 'list' : 'lists'} saved
           </span>
           <SecondaryButton
             variant="surface"

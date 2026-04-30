@@ -11,7 +11,7 @@ import {
   loadPersistedBoard,
   saveActiveBoardSnapshot,
 } from '~/features/workspace/boards/model/boardSession'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { toFileBase } from '~/shared/lib/fileName'
@@ -21,7 +21,7 @@ import { loadPdfLib, loadZipLib } from '~/shared/lib/lazyDependencies'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { FORMAT_EXT, renderToDataUrl } from './exportImage'
 import { withExportSession } from './exportBoardRender'
-import { snapshotToWire } from './boardWireMapper'
+import { snapshotToWire } from '~/shared/board-data/boardWireMapper'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
 
 // envelope type for multi-board JSON export — each board's `data` is

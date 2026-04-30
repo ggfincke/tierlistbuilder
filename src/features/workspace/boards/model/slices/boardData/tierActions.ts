@@ -4,7 +4,7 @@
 import { announce } from '~/shared/a11y/announce'
 import { clamp } from '~/shared/lib/math'
 import { areTierColorSpecsEqual } from '~/shared/theme/tierColors'
-import { createNewTier } from '~/features/workspace/boards/model/boardSnapshot'
+import { createNewTier } from '~/shared/board-data/boardSnapshot'
 import { mapTier, withUndo } from '../undoSlice'
 import type {
   ActiveBoardSliceCreator,

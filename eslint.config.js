@@ -10,8 +10,15 @@ import prettierConfig from 'eslint-config-prettier'
 import localRules from './eslint-rules/index.js'
 
 export default defineConfig([
-  // exclude build output & local agent metadata from linting
-  globalIgnores(['dist', '.agents', '.claude', 'skills-lock.json']),
+  // exclude build output & generated code from linting
+  globalIgnores([
+    'dist',
+    'convex/_generated',
+    '.agents',
+    '.claude',
+    '.convex',
+    'skills-lock.json',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -60,6 +67,23 @@ export default defineConfig([
               group: ['~/features/**/data/**'],
               message:
                 'UI/app .tsx files must call model-level facades instead of data modules.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/platform/sync/orchestration/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['~/features/workspace/**/data/**'],
+              message:
+                'Platform sync orchestration must use the workspace sync facade instead of workspace data modules.',
             },
           ],
         },

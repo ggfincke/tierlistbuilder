@@ -4,6 +4,7 @@
 import { Check, ChevronRight, Crop, Loader2 } from 'lucide-react'
 import {
   useCallback,
+  useEffect,
   useId,
   useMemo,
   useState,
@@ -24,13 +25,17 @@ import type {
 import {
   formatAspectRatio,
   getEffectiveImageFit,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import {
   ITEM_LONG_EDGE_PX,
   itemSlotDimensions,
   SHAPE_CLASS,
 } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import {
+  resolveEffectiveShowLabels,
+  withBoardShowLabels,
+} from '~/shared/board-ui/labelSettings'
 import {
   areCachedAutoCropsApplied,
   collectAutoCropTransforms,
@@ -52,6 +57,7 @@ import {
 import { useDeferredAspectRatioPicker } from '../model/useDeferredAspectRatioPicker'
 import { AspectRatioTiles } from './AspectRatioTiles'
 import { SegmentedControl } from './SegmentedControl'
+import { ShowLabelsToggle } from './ShowLabelsToggle'
 
 const MAX_THUMBNAIL_PREVIEW = 4
 
@@ -62,21 +68,29 @@ const MODAL_CHROME_PX = 80
 interface AspectRatioIssueModalProps
 {
   onAdjustEach?: () => void
+  onAdjustEachIntent?: () => void
 }
 
 // outer wrapper — gates on isOpen so the body unmounts (& its local state
 // resets) whenever the modal closes, instead of doing reset-in-effect
 export const AspectRatioIssueModal = ({
   onAdjustEach,
+  onAdjustEachIntent,
 }: AspectRatioIssueModalProps) =>
 {
   const { isOpen } = useAspectRatioPrompt()
   if (!isOpen) return null
-  return <AspectRatioIssueModalBody onAdjustEach={onAdjustEach} />
+  return (
+    <AspectRatioIssueModalBody
+      onAdjustEach={onAdjustEach}
+      onAdjustEachIntent={onAdjustEachIntent}
+    />
+  )
 }
 
 const AspectRatioIssueModalBody = ({
   onAdjustEach,
+  onAdjustEachIntent,
 }: AspectRatioIssueModalProps) =>
 {
   const { close } = useAspectRatioPrompt()
@@ -103,6 +117,8 @@ const AspectRatioIssueModalBody = ({
     setAspectRatioPromptDismissed,
     boardDefaultFit,
     setDefaultItemImageFit,
+    boardLabels,
+    setBoardLabelSettings,
   } = useActiveBoardStore(
     useShallow((state) => ({
       items: state.items,
@@ -111,13 +127,27 @@ const AspectRatioIssueModalBody = ({
       setAspectRatioPromptDismissed: state.setAspectRatioPromptDismissed,
       boardDefaultFit: state.defaultItemImageFit,
       setDefaultItemImageFit: state.setDefaultItemImageFit,
+      boardLabels: state.labels,
+      setBoardLabelSettings: state.setBoardLabelSettings,
     }))
   )
-  const { itemSize, itemShape } = useSettingsStore(
+  const { itemSize, itemShape, globalShowLabels } = useSettingsStore(
     useShallow((state) => ({
       itemSize: state.itemSize,
       itemShape: state.itemShape,
+      globalShowLabels: state.showLabels,
     }))
+  )
+  const effectiveShowLabels = resolveEffectiveShowLabels(
+    boardLabels,
+    globalShowLabels
+  )
+  const handleShowLabelsChange = useCallback(
+    (show: boolean) =>
+    {
+      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
+    },
+    [boardLabels, setBoardLabelSettings]
   )
   // alert reads the global trim setting but doesn't expose the toggle here —
   // the editor has it where users are already engaged w/ per-item tuning
@@ -141,9 +171,20 @@ const AspectRatioIssueModalBody = ({
     [items, boardAspectRatio, promptSnapshot]
   )
 
+  const autoCropTargets = useMemo(
+    () => mismatched.filter((item) => !!getAutoCropHash(item)),
+    [mismatched]
+  )
+
   // bulk fit stays a local preview until the user commits via Done / Adjust
   // each — avoids polluting undo history when the user cycles fits
-  const [pendingBulkFit, setPendingBulkFit] = useState<ImageFit | null>(null)
+  const [pendingBulkFit, setPendingBulkFit] = useState<ImageFit | null>(() =>
+    mismatched.length > 0 && autoCropTargets.length === 0 ? 'cover' : null
+  )
+  const [shouldAutoCropOnOpen] = useState(() => autoCropTargets.length > 0)
+  const [autoCropHandledOnOpen, setAutoCropHandledOnOpen] = useState(
+    () => !shouldAutoCropOnOpen
+  )
   const [dontAskAgain, setDontAskAgain] = useState(false)
   const [autoCropProgress, setAutoCropProgress] = useState<{
     running: boolean
@@ -156,11 +197,6 @@ const AspectRatioIssueModalBody = ({
     getAutoCropCacheVersion
   )
 
-  const autoCropTargets = useMemo(
-    () => mismatched.filter((item) => !!getAutoCropHash(item)),
-    [mismatched]
-  )
-
   const autoCropAllApplied = useMemo(() =>
   {
     void autoCropCacheVersion
@@ -171,11 +207,11 @@ const AspectRatioIssueModalBody = ({
       trimSoftShadows
     )
   }, [
-    trimSoftShadows,
     autoCropCacheVersion,
     autoCropProgress.running,
     autoCropTargets,
     boardAspectRatio,
+    trimSoftShadows,
   ])
   const autoCropHonored = pendingBulkFit === null && autoCropAllApplied
 
@@ -235,6 +271,13 @@ const AspectRatioIssueModalBody = ({
     boardAspectRatio,
     setItemsTransform,
   ])
+
+  useEffect(() =>
+  {
+    if (autoCropHandledOnOpen) return
+    setAutoCropHandledOnOpen(true)
+    if (!autoCropAllApplied) void handleAutoCropAll()
+  }, [autoCropHandledOnOpen, autoCropAllApplied, handleAutoCropAll])
 
   const handleDone = useCallback(() =>
   {
@@ -324,15 +367,21 @@ const AspectRatioIssueModalBody = ({
             onSelectFit={setPendingBulkFit}
             onSelectAutoCrop={handleAutoCropAll}
           />
-          {autoCropProgress.running && (
-            <span
-              className="ml-auto text-xs tabular-nums text-[var(--t-text-muted)]"
-              role="status"
-              aria-live="polite"
-            >
-              {autoCropProgress.done}/{autoCropProgress.total}
-            </span>
-          )}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+            {autoCropProgress.running && (
+              <span
+                className="text-xs tabular-nums text-[var(--t-text-muted)]"
+                role="status"
+                aria-live="polite"
+              >
+                {autoCropProgress.done}/{autoCropProgress.total}
+              </span>
+            )}
+            <ShowLabelsToggle
+              checked={effectiveShowLabels}
+              onChange={handleShowLabelsChange}
+            />
+          </div>
         </div>
       )}
 
@@ -355,6 +404,8 @@ const AspectRatioIssueModalBody = ({
           {onAdjustEach && (
             <SecondaryButton
               onClick={handleAdjustEach}
+              onFocus={onAdjustEachIntent}
+              onPointerEnter={onAdjustEachIntent}
               variant="outline"
               disabled={autoCropProgress.running}
             >

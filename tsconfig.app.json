@@ -8,6 +8,7 @@
     "baseUrl": ".",
     "paths": {
       "~/*": ["./src/*"],
+      "@convex/*": ["./convex/*"],
       "@tierlistbuilder/contracts/*": ["./packages/contracts/*"]
     },
     "types": ["vite/client"],
@@ -29,5 +30,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "packages/contracts"]
+  "include": ["src", "packages/contracts", "convex/_generated"]
 }

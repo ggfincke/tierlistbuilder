@@ -15,8 +15,9 @@ import {
   getEffectiveImageFit,
   groupMismatchedItems,
   type MismatchGroup,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import { formatCountedWord } from '~/shared/lib/pluralize'
@@ -97,6 +98,7 @@ export const AspectRatioSection = () =>
           selectedOption={selectedOption}
           onSelect={handleOption}
           autoRatio={autoRatio}
+          customRatioValue={boardAspectRatio}
           alignClassName="justify-end"
         />
       </SettingRow>
@@ -132,6 +134,8 @@ export const AspectRatioSection = () =>
               />
               <SecondaryButton
                 onClick={() => openEditor({ filter: 'mismatched' })}
+                onFocus={preloadImageEditorModal}
+                onPointerEnter={preloadImageEditorModal}
                 variant="surface"
                 size="sm"
               >
@@ -321,6 +325,8 @@ const MismatchItemRow = ({
       </div>
       <SecondaryButton
         onClick={() => onEdit(item.id)}
+        onFocus={preloadImageEditorModal}
+        onPointerEnter={preloadImageEditorModal}
         variant="surface"
         size="sm"
         aria-label={`Edit ${label}`}

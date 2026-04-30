@@ -4,10 +4,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { ITEM_TRANSFORM_LIMITS } from '@tierlistbuilder/contracts/workspace/board'
-import {
-  bboxToItemTransform,
-  detectContentBBoxFromImageData,
-} from '~/shared/lib/autoCrop'
+import { bboxToItemTransform } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { detectContentBBoxFromImageData } from '~/shared/lib/autoCrop'
 
 interface AlphaRect
 {
@@ -62,6 +60,28 @@ describe('auto-crop transform helpers', () =>
     )
 
     expect(transform.zoom).toBeCloseTo(8 / 9, 6)
+    expect(transform.offsetX).toBeCloseTo(0, 6)
+    expect(transform.offsetY).toBeCloseTo(0, 6)
+  })
+
+  it('contains a full portrait source image in a square frame', () =>
+  {
+    const transform = bboxToItemTransform(
+      {
+        left: 0,
+        top: 0,
+        right: 1,
+        bottom: 1,
+      },
+      {
+        imageAspectRatio: 5 / 7,
+        boardAspectRatio: 1,
+        rotation: 0,
+        paddingFraction: 0,
+      }
+    )
+
+    expect(transform.zoom).toBeCloseTo(5 / 7, 6)
     expect(transform.offsetX).toBeCloseTo(0, 6)
     expect(transform.offsetY).toBeCloseTo(0, 6)
   })
@@ -203,6 +223,23 @@ describe('auto-crop bbox detection', () =>
       top: 0.1,
       right: 0.8,
       bottom: 0.96,
+    })
+  })
+
+  it('keeps full-image bboxes so ratio changes can still be framed', () =>
+  {
+    const bbox = detectContentBBoxFromImageData(
+      createAlphaImageData(100, 100, [
+        { left: 0, top: 0, right: 100, bottom: 100, alpha: 255 },
+        { left: 10, top: 10, right: 30, bottom: 30, alpha: 0 },
+      ])
+    )
+
+    expect(bbox).toEqual({
+      left: 0,
+      top: 0,
+      right: 1,
+      bottom: 1,
     })
   })
 })

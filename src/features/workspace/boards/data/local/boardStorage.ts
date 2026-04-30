@@ -3,7 +3,12 @@
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { BoardSyncState } from '@tierlistbuilder/contracts/workspace/boardSync'
 import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
+import {
+  EMPTY_BOARD_SYNC_STATE,
+  normalizeBoardSyncState,
+} from '~/features/workspace/boards/model/sync'
 import {
   deleteBrowserStorageItem,
   getBrowserStorage,
@@ -28,28 +33,41 @@ export const boardStorageKey = (id: BoardId): string => `tier-list-board-${id}`
 
 export const boardImageRefScope = (id: BoardId): string => `board:${id}`
 
+// build the per-board localStorage key for cloud sync metadata
+export const boardSyncStorageKey = (id: BoardId): string =>
+  `tier-list-board-sync-${id}`
+
 interface StoredBoardEnvelope
 {
   version: number
   data: Partial<BoardSnapshot>
 }
 
+type LoadedBoardEnvelope =
+  | { status: 'missing'; data: null }
+  | { status: 'corrupted'; data: null }
+  | { status: 'ok'; data: Partial<BoardSnapshot> }
+
 export type BoardLoadResult =
   | {
       status: 'missing'
       data: null
+      sync: BoardSyncState
     }
   | {
       status: 'corrupted'
       data: null
+      sync: BoardSyncState
     }
   | {
       status: 'ok'
       data: Partial<BoardSnapshot>
+      sync: BoardSyncState
     }
 
 interface SaveBoardToStorageOptions
 {
+  syncState?: BoardSyncState
   onError?: (message: string) => void
 }
 
@@ -75,6 +93,39 @@ const writeStorageValue = (
     return { ok: false, message }
   }
 }
+
+const writeBoardSyncState = (
+  boardId: BoardId,
+  syncState: BoardSyncState,
+  onError?: (message: string) => void
+): StorageWriteResult =>
+{
+  return writeStorageValue(
+    boardSyncStorageKey(boardId),
+    JSON.stringify(syncState),
+    onError
+  )
+}
+
+const readStoredBoardSyncState = (boardId: BoardId): BoardSyncState =>
+{
+  const raw = readBrowserStorageItem(boardSyncStorageKey(boardId))
+  if (!raw) return EMPTY_BOARD_SYNC_STATE
+
+  try
+  {
+    return normalizeBoardSyncState(JSON.parse(raw))
+  }
+  catch
+  {
+    return EMPTY_BOARD_SYNC_STATE
+  }
+}
+
+// read only the sync sidecar & skip envelope parsing so a corrupt local board
+// still surfaces cloudBoardExternalId for cloud-row cleanup
+export const loadBoardSyncStateOnly = (boardId: BoardId): BoardSyncState =>
+  readStoredBoardSyncState(boardId)
 
 const writeBoardEnvelope = (
   boardId: BoardId,
@@ -110,7 +161,7 @@ const clearBoardImageRefs = (boardId: BoardId): void =>
     })
 }
 
-const readStoredBoardEnvelope = (boardId: BoardId): BoardLoadResult =>
+const readStoredBoardEnvelope = (boardId: BoardId): LoadedBoardEnvelope =>
 {
   try
   {
@@ -176,6 +227,22 @@ export const saveBoardToStorage = (
     options.onError
   )
 
+  if (options.syncState)
+  {
+    if (!envelopeResult.ok)
+    {
+      return envelopeResult
+    }
+
+    const syncResult = writeBoardSyncState(
+      boardId,
+      options.syncState,
+      options.onError
+    )
+    trackBoardImageRefs(boardId, data)
+    return syncResult
+  }
+
   if (envelopeResult.ok)
   {
     trackBoardImageRefs(boardId, data)
@@ -184,13 +251,41 @@ export const saveBoardToStorage = (
   return envelopeResult
 }
 
+// save sync metadata to its own key so autosave & sync completion don't race
+export const saveBoardSyncToStorage = (
+  boardId: BoardId,
+  syncState: BoardSyncState,
+  onError?: (message: string) => void
+): StorageWriteResult =>
+{
+  return writeBoardSyncState(boardId, syncState, onError)
+}
+
 // load board data from its per-board localStorage key
 export const loadBoardFromStorage = (boardId: BoardId): BoardLoadResult =>
-  readStoredBoardEnvelope(boardId)
+{
+  const result = readStoredBoardEnvelope(boardId)
+
+  if (result.status !== 'ok')
+  {
+    return {
+      status: result.status,
+      data: null,
+      sync: EMPTY_BOARD_SYNC_STATE,
+    }
+  }
+
+  return {
+    status: 'ok',
+    data: result.data,
+    sync: readStoredBoardSyncState(boardId),
+  }
+}
 
 // remove a board's per-board localStorage key
 export const removeBoardFromStorage = (boardId: BoardId): void =>
 {
   deleteBrowserStorageItem(boardStorageKey(boardId))
+  deleteBrowserStorageItem(boardSyncStorageKey(boardId))
   clearBoardImageRefs(boardId)
 }

@@ -5,10 +5,9 @@ import { describe, expect, it } from 'vitest'
 
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
-  formatAspectRatio,
-  formatPreciseAspectRatio,
+  computeAutoBoardAspectRatio,
   groupMismatchedItems,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import {
   createAspectRatioPromptSnapshot,
   resolveAspectRatioPromptItems,
@@ -56,6 +55,28 @@ describe('resolvePendingAutoAspectRatio', () =>
     expect(resolvePendingAutoAspectRatio(makeBoardSnapshot(), fallback)).toBe(
       fallback
     )
+  })
+
+  it('preserves non-preset auto ratios when all imports agree', () =>
+  {
+    const itemA = asItemId('item-a')
+    const itemB = asItemId('item-b')
+    const board = makeBoardSnapshot({
+      items: {
+        [itemA]: makeItem({
+          id: itemA,
+          imageRef: { hash: 'item-a' },
+          aspectRatio: 5 / 4,
+        }),
+        [itemB]: makeItem({
+          id: itemB,
+          imageRef: { hash: 'item-b' },
+          aspectRatio: 5 / 4,
+        }),
+      },
+    })
+
+    expect(computeAutoBoardAspectRatio(board)).toBeCloseTo(5 / 4)
   })
 })
 
@@ -174,19 +195,5 @@ describe('groupMismatchedItems', () =>
 
     expect(groupMismatchedItems(board, 0.005)).toHaveLength(2)
     expect(groupMismatchedItems(board, 0.05)).toHaveLength(0)
-  })
-})
-
-describe('formatPreciseAspectRatio', () =>
-{
-  it('keeps near-square auto ratios distinct from display-rounded labels', () =>
-  {
-    expect(formatAspectRatio(1.01)).toBe('1:1')
-    expect(formatPreciseAspectRatio(1.01)).toBe('1.01:1')
-  })
-
-  it('still prefers exact small-denominator ratios', () =>
-  {
-    expect(formatPreciseAspectRatio(8 / 9)).toBe('8:9')
   })
 })

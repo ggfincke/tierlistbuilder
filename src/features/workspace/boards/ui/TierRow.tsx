@@ -1,7 +1,16 @@
 // src/features/workspace/boards/ui/TierRow.tsx
 // tier row component — label, sortable item grid, & row controls
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  lazy,
+  memo,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { createPortal } from 'react-dom'
 import {
   SortableContext,
@@ -23,7 +32,7 @@ import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
-import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
+import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { tierContainerTestId } from '~/shared/board-ui/boardTestIds'
 import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '~/shared/overlay/uiMeasurements'
 import {
@@ -39,8 +48,32 @@ import {
 import { TierItem } from './TierItem'
 import { TierLabel } from './TierLabel'
 import { TierRowSettingsMenu } from './TierRowSettingsMenu'
-import { ColorPicker, CustomColorPicker } from './ColorPicker'
+import { ColorPicker } from './ColorPicker'
 import { OverlayFixedPopupSurface } from '~/shared/overlay/OverlaySurface'
+import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
+
+const loadCustomColorPicker = () => import('./CustomColorPicker')
+
+const CustomColorPicker = lazy(() =>
+  loadCustomColorPicker().then((m) => ({
+    default: m.CustomColorPicker,
+  }))
+)
+
+const CustomColorPickerFallback = () => (
+  <div
+    className="space-y-2 p-2.5"
+    role="status"
+    aria-live="polite"
+    aria-label="Loading custom color picker"
+  >
+    <div className="flex items-center gap-3 rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] p-2.5">
+      <span className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-[rgb(var(--t-overlay)/0.08)]" />
+      <span className="h-4 w-28 animate-pulse rounded bg-[rgb(var(--t-overlay)/0.08)]" />
+    </div>
+    <div className="h-48 animate-pulse rounded-xl border border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.06)]" />
+  </div>
+)
 
 interface TierRowProps
 {
@@ -129,6 +162,10 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
   {
     setShowCustomColorPicker(false)
     setPreviewColor(null)
+  }, [])
+  const handleCustomColorPickerIntent = useCallback(() =>
+  {
+    void loadCustomColorPicker()
   }, [])
 
   const { style: colorPickerStyle } = useAnchoredPopup({
@@ -229,17 +266,22 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
 
       if (showCustomColorPicker)
       {
-        setShowCustomColorPicker(false)
+        closeCustomColorPicker()
         return
       }
 
-      setShowColorPicker(false)
+      closeColorPickers()
     }
 
     document.addEventListener('keydown', handleKeyDown)
 
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [showColorPicker, showCustomColorPicker])
+  }, [
+    closeColorPickers,
+    closeCustomColorPicker,
+    showColorPicker,
+    showCustomColorPicker,
+  ])
 
   // hovered drag-over visual supersedes the custom row color; when no drag
   // hover is active, the tier's own row color takes precedence
@@ -362,6 +404,7 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
                 recolorTier(tier.id, colorSpec)
                 closeColorPickers()
               }}
+              onCustomPickerIntent={handleCustomColorPickerIntent}
               onToggleCustomPicker={() =>
               {
                 setShowCustomColorPicker((current) => !current)
@@ -381,17 +424,21 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
               width: 'min(17.5rem, calc(100vw - 16px))',
             }}
           >
-            <CustomColorPicker
-              key={`${resolvedTierColor}:${tier.colorSpec.kind === 'palette' ? tier.colorSpec.index : 'custom'}`}
-              value={resolvedTierColor}
-              onApply={(color) =>
-              {
-                recolorTier(tier.id, createCustomTierColorSpec(color))
-                closeColorPickers()
-              }}
-              onCancel={closeCustomColorPicker}
-              onPreview={setPreviewColor}
-            />
+            <ErrorBoundary section="custom color picker">
+              <Suspense fallback={<CustomColorPickerFallback />}>
+                <CustomColorPicker
+                  key={`${resolvedTierColor}:${tier.colorSpec.kind === 'palette' ? tier.colorSpec.index : 'custom'}`}
+                  value={resolvedTierColor}
+                  onApply={(color) =>
+                  {
+                    recolorTier(tier.id, createCustomTierColorSpec(color))
+                    closeColorPickers()
+                  }}
+                  onCancel={closeCustomColorPicker}
+                  onPreview={setPreviewColor}
+                />
+              </Suspense>
+            </ErrorBoundary>
           </OverlayFixedPopupSurface>,
           document.body
         )}

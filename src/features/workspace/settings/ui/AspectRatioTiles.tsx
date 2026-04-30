@@ -6,21 +6,15 @@ import {
   formatPreciseAspectRatio,
   NON_CUSTOM_RATIO_OPTIONS,
   type RatioOption,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
+import { fitRectInBox } from './aspectRatioPreviewRect'
 
 const RECT_BOX = 28
 
 const GRID_STYLE = {
   gridTemplateColumns: 'repeat(auto-fit, minmax(3rem, 1fr))',
 }
-
-// scale a ratio-correct rect inside a square bounding box, floored so extreme
-// ratios still render a visible sliver instead of collapsing to zero
-const fitRectInBox = (ratio: number, maxSize: number) =>
-  ratio >= 1
-    ? { width: maxSize, height: Math.max(2, maxSize / ratio) }
-    : { width: Math.max(2, maxSize * ratio), height: maxSize }
 
 const parseCustomRatio = (width: string, height: string): number =>
 {

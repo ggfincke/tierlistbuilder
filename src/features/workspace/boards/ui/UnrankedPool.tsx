@@ -4,14 +4,19 @@
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { Search, X } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useImageImport } from '~/features/workspace/settings/model/useImageImport'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import {
+  createSelectBoardItemById,
+  filterItemIdsByLabel,
+  selectActiveItemCount,
+} from '~/features/workspace/boards/model/slices/selectors'
 import { useEffectiveUnrankedItemIds } from '~/features/workspace/boards/model/useEffectiveBoard'
-import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
+import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { UNRANKED_CONTAINER_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
@@ -21,6 +26,56 @@ import { TextInput } from '~/shared/ui/TextInput'
 import { UploadDropzone } from '~/shared/ui/UploadDropzone'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { formatCountedWord } from '~/shared/lib/pluralize'
+
+interface UnrankedSearchResultsProps
+{
+  unrankedItemIds: ItemId[]
+  searchQuery: string
+  children: (filteredIds: ItemId[]) => ReactNode
+}
+
+const UnrankedSearchResults = ({
+  unrankedItemIds,
+  searchQuery,
+  children,
+}: UnrankedSearchResultsProps) =>
+{
+  const filteredIds = useActiveBoardStore(
+    useShallow((state) =>
+      filterItemIdsByLabel(state.items, unrankedItemIds, searchQuery)
+    )
+  )
+
+  return children(filteredIds)
+}
+
+interface PendingDeleteDialogProps
+{
+  itemId: ItemId
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+const PendingDeleteDialog = ({
+  itemId,
+  onConfirm,
+  onCancel,
+}: PendingDeleteDialogProps) =>
+{
+  const selectItem = useMemo(() => createSelectBoardItemById(itemId), [itemId])
+  const item = useActiveBoardStore(selectItem)
+
+  return (
+    <ConfirmDialog
+      open
+      title="Delete item?"
+      description={`Remove "${item?.label ?? 'this item'}" from the board?`}
+      confirmText="Delete"
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
+  )
+}
 
 export const UnrankedPool = () =>
 {
@@ -33,12 +88,8 @@ export const UnrankedPool = () =>
         confirmBeforeDelete: state.confirmBeforeDelete,
       }))
     )
-  const { items, removeItem } = useActiveBoardStore(
-    useShallow((state) => ({
-      items: state.items,
-      removeItem: state.removeItem,
-    }))
-  )
+  const removeItem = useActiveBoardStore((state) => state.removeItem)
+  const itemCount = useActiveBoardStore(selectActiveItemCount)
   const boardAspectRatio = useActiveBoardStore((state) =>
     getBoardItemAspectRatio(state)
   )
@@ -50,7 +101,6 @@ export const UnrankedPool = () =>
     boardAspectRatio
   )
   const unrankedItemIds = useEffectiveUnrankedItemIds()
-  const itemCount = Object.keys(items).length
 
   const {
     inputRef: fileInputRef,
@@ -81,16 +131,6 @@ export const UnrankedPool = () =>
     [confirmBeforeDelete, removeItem]
   )
 
-  // filter unranked items by label when searching
-  const filteredIds = useMemo(() =>
-  {
-    if (!searchQuery.trim()) return unrankedItemIds
-    const q = searchQuery.toLowerCase()
-    return unrankedItemIds.filter((id) =>
-      items[id]?.label?.toLowerCase().includes(q)
-    )
-  }, [unrankedItemIds, items, searchQuery])
-
   // register the pool as a droppable container w/ the unranked ID
   const droppableData = useMemo(
     () => ({ type: 'container' as const, containerId: UNRANKED_CONTAINER_ID }),
@@ -102,18 +142,15 @@ export const UnrankedPool = () =>
   })
 
   const isSearching = searchQuery.trim().length > 0
-
-  return (
-    <section
-      className={`border border-[var(--t-border)] bg-[var(--t-bg-page)] ${compactMode ? 'mt-1 p-1.5' : 'mt-3 p-3'}`}
-    >
+  const renderPoolContent = (visibleIds: ItemId[]) => (
+    <>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--t-text-muted)]">
           Unranked
         </h2>
         <span className="text-xs text-[var(--t-text-faint)]">
           {isSearching
-            ? `${filteredIds.length} of ${formatCountedWord(
+            ? `${visibleIds.length} of ${formatCountedWord(
                 unrankedItemIds.length,
                 'item'
               )}`
@@ -144,7 +181,7 @@ export const UnrankedPool = () =>
         </div>
       )}
 
-      <SortableContext items={filteredIds} strategy={rectSortingStrategy}>
+      <SortableContext items={visibleIds} strategy={rectSortingStrategy}>
         <div
           ref={setNodeRef}
           data-testid={UNRANKED_CONTAINER_TEST_ID}
@@ -155,8 +192,8 @@ export const UnrankedPool = () =>
               : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)]'
           }`}
         >
-          {filteredIds.length === 0 && !boardLocked && !isSearching ? (
-            // empty state — click to open file picker, or drop images directly
+          {visibleIds.length === 0 && !boardLocked && !isSearching ? (
+            // empty state: click to open file picker, or drop images directly
             <UploadDropzone
               variant="empty"
               isDraggingFiles={isDraggingFiles}
@@ -166,12 +203,12 @@ export const UnrankedPool = () =>
               onDragLeave={onDragLeave}
               onDrop={onDrop}
             />
-          ) : filteredIds.length === 0 ? (
+          ) : visibleIds.length === 0 ? (
             <p className="flex min-h-24 w-full items-center justify-center text-sm text-[var(--t-text-faint)]">
               {isSearching ? 'No matching items' : 'No unranked items'}
             </p>
           ) : (
-            filteredIds.map((itemId) => (
+            visibleIds.map((itemId) => (
               <TierItem
                 key={itemId}
                 itemId={itemId}
@@ -185,6 +222,23 @@ export const UnrankedPool = () =>
           )}
         </div>
       </SortableContext>
+    </>
+  )
+
+  return (
+    <section
+      className={`border border-[var(--t-border)] bg-[var(--t-bg-page)] ${compactMode ? 'mt-1 p-1.5' : 'mt-3 p-3'}`}
+    >
+      {isSearching ? (
+        <UnrankedSearchResults
+          unrankedItemIds={unrankedItemIds}
+          searchQuery={searchQuery}
+        >
+          {renderPoolContent}
+        </UnrankedSearchResults>
+      ) : (
+        renderPoolContent(unrankedItemIds)
+      )}
 
       <input
         ref={fileInputRef}
@@ -195,18 +249,17 @@ export const UnrankedPool = () =>
         onChange={onFileInputChange}
       />
 
-      <ConfirmDialog
-        open={pendingDeleteId !== null}
-        title="Delete item?"
-        description={`Remove "${items[pendingDeleteId!]?.label ?? 'this item'}" from the board?`}
-        confirmText="Delete"
-        onConfirm={() =>
-        {
-          if (pendingDeleteId) removeItem(pendingDeleteId)
-          setPendingDeleteId(null)
-        }}
-        onCancel={() => setPendingDeleteId(null)}
-      />
+      {pendingDeleteId && (
+        <PendingDeleteDialog
+          itemId={pendingDeleteId}
+          onConfirm={() =>
+          {
+            removeItem(pendingDeleteId)
+            setPendingDeleteId(null)
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </section>
   )
 }

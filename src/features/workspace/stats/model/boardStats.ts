@@ -77,18 +77,27 @@ export const computeBoardStats = (
     averageTierRank = weightedSum / rankedItems
   }
 
-  // find most & least populated tiers (among tiers w/ items)
-  const tiersWithItems = data.tiers.filter((t) => t.itemIds.length > 0)
   let mostPopulatedTier: string | null = null
   let leastPopulatedTier: string | null = null
+  let mostPopulatedCount = 0
+  let leastPopulatedCount = 0
 
-  if (tiersWithItems.length > 0)
+  for (const tier of data.tiers)
   {
-    const sorted = [...tiersWithItems].sort(
-      (a, b) => b.itemIds.length - a.itemIds.length
-    )
-    mostPopulatedTier = sorted[0].name
-    leastPopulatedTier = sorted[sorted.length - 1].name
+    const count = tier.itemIds.length
+    if (count === 0) continue
+
+    if (mostPopulatedTier === null || count > mostPopulatedCount)
+    {
+      mostPopulatedTier = tier.name
+      mostPopulatedCount = count
+    }
+
+    if (leastPopulatedTier === null || count <= leastPopulatedCount)
+    {
+      leastPopulatedTier = tier.name
+      leastPopulatedCount = count
+    }
   }
 
   const emptyTiers = data.tiers.filter((t) => t.itemIds.length === 0).length

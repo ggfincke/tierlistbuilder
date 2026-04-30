@@ -1,0 +1,71 @@
+// src/features/platform/sync/state/SyncStatusVisualView.tsx
+// shared render for sync-status chrome; inline & block variants share aria & sr-only label
+
+import type { ReactElement } from 'react'
+
+import type { SyncStatusVisual } from './syncStatusVisuals'
+
+interface SyncStatusVisualViewProps
+{
+  visual: SyncStatusVisual
+  variant: 'inline' | 'block'
+  title?: string
+  srLabel?: string
+}
+
+const INLINE_WRAPPER =
+  'inline-flex h-4 w-4 shrink-0 items-center justify-center'
+const BLOCK_WRAPPER =
+  'flex h-10 w-10 shrink-0 items-center justify-center max-sm:h-11 max-sm:w-11'
+
+export const SyncStatusVisualView = ({
+  visual,
+  variant,
+  title,
+  srLabel,
+}: SyncStatusVisualViewProps): ReactElement =>
+{
+  const resolvedTitle = title ?? visual.description
+  const resolvedSrLabel = srLabel ?? resolvedTitle
+  const isInline = variant === 'inline'
+  const iconSizeClass = isInline ? 'h-3 w-3' : 'h-5 w-5'
+  const strokeWidth = isInline ? 2 : 1.8
+  const { Icon } = visual
+
+  const body = (
+    <>
+      <Icon
+        className={`${iconSizeClass} ${visual.spin ? 'animate-spin' : ''}`}
+        strokeWidth={strokeWidth}
+        aria-hidden="true"
+      />
+      <span className="sr-only">{resolvedSrLabel}</span>
+    </>
+  )
+
+  if (isInline)
+  {
+    return (
+      <span
+        role="status"
+        aria-live="polite"
+        title={resolvedTitle}
+        className={`${INLINE_WRAPPER} ${visual.colorClass}`}
+      >
+        {body}
+      </span>
+    )
+  }
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      title={resolvedTitle}
+      className={`${BLOCK_WRAPPER} ${visual.colorClass}`}
+    >
+      {body}
+    </div>
+  )
+}

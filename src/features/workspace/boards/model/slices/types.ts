@@ -4,9 +4,11 @@
 import type { StateCreator } from 'zustand'
 
 import type {
+  BoardLabelSettings,
   BoardSnapshot,
   ImageFit,
   ItemAspectRatioMode,
+  ItemLabelOptions,
   ItemTransform,
   NewTierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -17,17 +19,23 @@ import type {
   Selection,
   UndoEntry,
 } from '~/features/workspace/boards/model/runtime'
+import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
+import type { BoardSyncStatePatch } from './syncStateOps'
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   PaletteId,
+  TextStyleId,
   TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 
-// board data slice — serializable board snapshot + CRUD & shuffle actions.
-export interface BoardDataSlice extends BoardSnapshot
+// board data slice — serializable board snapshot + CRUD & shuffle actions +
+// sync-state cursor & runtime error banner (the latter two are small enough
+// that separate slices didn't pay rent)
+export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
 {
   itemsManuallyMoved: boolean
   runtimeError: string | null
+  setSyncState: (state: BoardSyncStatePatch) => void
   setRuntimeError: (message: string) => void
   clearRuntimeError: () => void
   addTier: (paletteId: PaletteId) => void
@@ -53,7 +61,7 @@ export interface BoardDataSlice extends BoardSnapshot
   shuffleAllItems: (mode: 'even' | 'random') => void
   shuffleUnrankedItems: () => void
   resetBoard: (paletteId: PaletteId) => void
-  loadBoard: (data: BoardSnapshot) => void
+  loadBoard: (data: BoardSnapshot, syncState?: BoardSyncState) => void
   // switches mode to 'manual'
   setBoardItemAspectRatio: (value: number) => void
   // 'auto' recomputes from current items; 'manual' preserves the value
@@ -70,6 +78,27 @@ export interface BoardDataSlice extends BoardSnapshot
   setItemsTransform: (
     entries: readonly { id: ItemId; transform: ItemTransform | null }[]
   ) => void
+  // per-board style override setters — null clears the override so the board
+  // falls through to AppSettings defaults
+  setBoardPaletteOverride: (paletteId: PaletteId | null) => void
+  setBoardTextStyleOverride: (textStyleId: TextStyleId | null) => void
+  setBoardPageBackground: (color: string | null) => void
+  // per-board label defaults — null clears all overrides; partial patch
+  // merges into existing settings & strips empty objects
+  setBoardLabelSettings: (settings: BoardLabelSettings | null) => void
+  // per-tile label override — null clears the override
+  setItemLabelOptions: (
+    itemId: ItemId,
+    options: ItemLabelOptions | null
+  ) => void
+  // combined board default + per-tile override commit — one undo entry covers
+  // Apply to all items, where board defaults change & stale overrides clear
+  setBoardAndItemsLabelOptions: (
+    settings: BoardLabelSettings | null,
+    entries: readonly { id: ItemId; options: ItemLabelOptions | null }[]
+  ) => void
+  // bulk update item label text
+  setItemLabel: (itemId: ItemId, label: string | null) => void
 }
 
 // selection slice — multi-item selection state & bulk actions

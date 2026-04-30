@@ -2,7 +2,13 @@
 // persistent image-store GC planning
 
 import { describe, expect, it } from 'vitest'
-import { resolveUnreferencedBlobHashes } from '~/shared/images/imageStore'
+import {
+  getBlobsBatch,
+  getUploadStatusBatch,
+  markUploaded,
+  putBlobs,
+  resolveUnreferencedBlobHashes,
+} from '~/shared/images/imageStore'
 
 describe('imageStore GC planning', () =>
 {
@@ -23,5 +29,36 @@ describe('imageStore GC planning', () =>
     )
 
     expect(stale).toEqual(['unreferenced-old'])
+  })
+
+  it('keeps imported blobs available in memory when IndexedDB is unavailable', async () =>
+  {
+    await putBlobs([
+      {
+        hash: 'memory-only',
+        mimeType: 'image/png',
+        byteSize: 4,
+        createdAt: 1_000,
+        bytes: new Blob(['data'], { type: 'image/png' }),
+      },
+    ])
+
+    const blobs = await getBlobsBatch(['memory-only', 'missing'])
+
+    expect(blobs.get('memory-only')?.mimeType).toBe('image/png')
+    expect(blobs.get('missing')).toBeNull()
+  })
+
+  it('keeps upload status in memory when IndexedDB is unavailable', async () =>
+  {
+    await markUploaded('user-1', 'memory-upload', 'media-1')
+
+    const statuses = await getUploadStatusBatch('user-1', [
+      'memory-upload',
+      'missing-upload',
+    ])
+
+    expect(statuses.get('memory-upload')).toBe('media-1')
+    expect(statuses.get('missing-upload')).toBeNull()
   })
 })

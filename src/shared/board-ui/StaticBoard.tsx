@@ -1,11 +1,14 @@
 // src/shared/board-ui/StaticBoard.tsx
 // read-only board renderer shared between export capture & embed iframe
 
-import { memo } from 'react'
+import { memo, type CSSProperties } from 'react'
 import type { ReactNode } from 'react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
+import type {
+  PaletteId,
+  TextStyleId,
+} from '@tierlistbuilder/contracts/lib/theme'
 import type {
   ItemShape,
   ItemSize,
@@ -15,7 +18,7 @@ import type {
 import {
   getBoardItemAspectRatio,
   getEffectiveImageFit,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import {
@@ -26,6 +29,8 @@ import {
   TierDescriptionSubtitle,
 } from '~/shared/board-ui/BoardPrimitives'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { TEXT_STYLES } from '~/shared/theme/textStyles'
 
 export interface StaticBoardAppearance
 {
@@ -35,6 +40,7 @@ export interface StaticBoardAppearance
   compactMode: boolean
   labelWidth: LabelWidth
   paletteId: PaletteId
+  textStyleId: TextStyleId
   tierLabelBold: boolean
   tierLabelItalic: boolean
   tierLabelFontSize: TierLabelFontSize
@@ -65,27 +71,26 @@ export const StaticBoard = memo(
       boardAspectRatio
     )
     const boardDefaultFit = data.defaultItemImageFit
+    const paletteId = data.paletteId ?? appearance.paletteId
+    const textStyle = TEXT_STYLES[data.textStyleId ?? appearance.textStyleId]
+    const style: CSSProperties = {
+      ...(backgroundColor ? { backgroundColor } : {}),
+      fontFamily: textStyle.fontFamily,
+    }
 
     return (
-      <div
-        data-testid={testId}
-        className={className}
-        style={backgroundColor ? { backgroundColor } : undefined}
-      >
+      <div data-testid={testId} className={className} style={style}>
         {data.tiers.map((tier, index) =>
         {
           const rowBg = tier.rowColorSpec
-            ? resolveTierColorSpec(appearance.paletteId, tier.rowColorSpec)
+            ? resolveTierColorSpec(paletteId, tier.rowColorSpec)
             : null
 
           return (
             <BoardRowSurface key={tier.id} backgroundOverride={rowBg}>
               <BoardRowContent index={index}>
                 <BoardLabelCellFrame
-                  color={resolveTierColorSpec(
-                    appearance.paletteId,
-                    tier.colorSpec
-                  )}
+                  color={resolveTierColorSpec(paletteId, tier.colorSpec)}
                   itemSize={appearance.itemSize}
                   labelWidth={appearance.labelWidth}
                   tierLabelBold={appearance.tierLabelBold}
@@ -119,7 +124,12 @@ export const StaticBoard = memo(
                       >
                         <ItemContent
                           item={item}
-                          showLabel={appearance.showLabels && !!item.label}
+                          label={resolveLabelDisplay({
+                            itemLabel: item.label,
+                            itemOptions: item.labelOptions,
+                            boardSettings: data.labels,
+                            globalShowLabels: appearance.showLabels,
+                          })}
                           fit={getEffectiveImageFit(item, boardDefaultFit)}
                           frameAspectRatio={boardAspectRatio}
                         />

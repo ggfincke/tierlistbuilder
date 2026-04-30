@@ -1,7 +1,7 @@
 // src/features/workspace/boards/model/slices/selectors.ts
 // cross-slice selectors derived from the combined active-board store
 
-import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import type { Tier, TierItem } from '@tierlistbuilder/contracts/workspace/board'
 import type { ActiveBoardRuntimeState } from '~/features/workspace/boards/model/runtime'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
@@ -19,6 +19,29 @@ export const selectCanUndo = (
 export const selectCanRedo = (
   state: Pick<ActiveBoardRuntimeState, 'future'>
 ): boolean => state.future.length > 0
+
+// count active items without subscribing consumers to the item map object
+export const selectActiveItemCount = (
+  state: Pick<ActiveBoardRuntimeState, 'items'>
+): number => Object.keys(state.items).length
+
+export const createSelectBoardItemById =
+  (itemId: ItemId) =>
+  (state: Pick<ActiveBoardRuntimeState, 'items'>): TierItem | undefined =>
+    state.items[itemId]
+
+export const filterItemIdsByLabel = (
+  items: Pick<ActiveBoardRuntimeState, 'items'>['items'],
+  itemIds: readonly ItemId[],
+  query: string
+): ItemId[] =>
+{
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return [...itemIds]
+  return itemIds.filter((id) =>
+    items[id]?.label?.toLowerCase().includes(normalizedQuery)
+  )
+}
 
 // true when the user is in keyboard-browse mode w/ at least one selected item
 export const selectHasKeyboardSelection = (

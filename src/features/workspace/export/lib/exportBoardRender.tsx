@@ -35,6 +35,7 @@ export const getExportAppearance = (
   compactMode: settings.compactMode,
   labelWidth: settings.labelWidth,
   paletteId: settings.paletteId,
+  textStyleId: settings.textStyleId,
   tierLabelBold: settings.tierLabelBold,
   tierLabelItalic: settings.tierLabelItalic,
   tierLabelFontSize: settings.tierLabelFontSize,

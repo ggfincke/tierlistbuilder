@@ -7,17 +7,19 @@ import {
   generateBoardId,
   type BoardId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
+import { DEFAULT_TITLE } from '~/shared/board-data/boardDefaults'
 import {
   normalizeBoardSnapshot,
   extractBoardData,
-} from '~/features/workspace/boards/model/boardSnapshot'
+} from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
+  loadBoardSyncStateOnly,
   removeBoardFromStorage,
   saveBoardToStorage,
 } from '~/features/workspace/boards/data/local/boardStorage'
+import { stampPendingBoardDelete } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { createBoardDataFromPreset } from '~/features/workspace/tier-presets/model/tierPresets'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
 import {
@@ -31,6 +33,7 @@ import {
   loadPersistedBoard,
   saveActiveBoardSnapshot,
 } from './boardSessionPersistence'
+import { notifyBoardDeleted } from './boardSessionEvents'
 
 const createBlankBoardData = (): BoardSnapshot => ({
   title: DEFAULT_TITLE,
@@ -110,8 +113,17 @@ export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>
     return
   }
 
+  const cloudBoardExternalId =
+    loadBoardSyncStateOnly(boardId).cloudBoardExternalId
+
   removeBoardFromStorage(boardId)
   const nextBoards = boardStore.boards.filter((board) => board.id !== boardId)
+
+  if (cloudBoardExternalId)
+  {
+    stampPendingBoardDelete(cloudBoardExternalId)
+    notifyBoardDeleted()
+  }
 
   if (boardId === boardStore.activeBoardId)
   {

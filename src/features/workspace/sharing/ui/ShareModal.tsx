@@ -1,5 +1,6 @@
 // src/features/workspace/sharing/ui/ShareModal.tsx
-// share modal — renders local hash-fragment share & embed URLs
+// share modal — shows a Generate button, then renders the minted URL + embed snippet.
+// generation is explicit (not auto-on-open) to avoid creating a fresh blob per open. aborts on unmount
 
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
@@ -7,6 +8,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Check, Copy, Link as LinkIcon, RefreshCw } from 'lucide-react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { formatError } from '~/shared/lib/errors'
 import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
@@ -14,10 +16,9 @@ import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextArea } from '~/shared/ui/TextArea'
 import { TextInput } from '~/shared/ui/TextInput'
 import {
-  buildAppUrl,
-  encodeBoardToShareFragment,
-} from '~/features/workspace/sharing/snapshot-compression/hashShare'
-import { EMBED_ROUTE_PATH } from '~/app/routes/pathname'
+  createBoardShortLink,
+  type ShortLinkCreateResult,
+} from '~/features/platform/share/shortLinkShare'
 
 interface ShareModalProps
 {
@@ -29,22 +30,17 @@ interface ShareModalProps
 const buildEmbedSnippet = (embedUrl: string): string =>
   `<iframe src="${embedUrl}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
 
-interface LocalShareLink
-{
-  shareUrl: string
-  embedUrl: string
-}
-
 export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
 {
   const titleId = useId()
   const shareUrlId = useId()
   const embedSnippetId = useId()
 
-  const [link, setLink] = useState<LocalShareLink | null>(null)
+  const [link, setLink] = useState<ShortLinkCreateResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
 
+  const authSession = useAuthSession()
   const shareCopy = useClipboardCopy()
   const embedCopy = useClipboardCopy()
 
@@ -54,37 +50,62 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
   const getSnapshotRef = useRef(getSnapshot)
   getSnapshotRef.current = getSnapshot
 
-  // reset state when the modal opens. don't auto-generate so users can choose
-  // when the snapshot freezes.
+  // tracks the active generation's abort controller — supersedes aborts the
+  // previous one so only the newest fetch can complete & write state
+  const activeAbortRef = useRef<AbortController | null>(null)
+
+  // reset state when the modal opens. don't auto-generate — explicit user
+  // click is required, which eliminates the "open/close churn creates
+  // orphaned blobs" abuse path
   useEffect(() =>
   {
     if (!open) return
     setLink(null)
     setError(null)
     setGenerating(false)
+
+    return () =>
+    {
+      // modal closed (or unmounted) — abort any in-flight generation so
+      // the upload + createShortLink chain doesn't continue after dismiss
+      activeAbortRef.current?.abort()
+      activeAbortRef.current = null
+    }
   }, [open])
 
   const generate = async (): Promise<void> =>
   {
+    if (authSession.status !== 'signed-in')
+    {
+      setError('Sign in to create share links.')
+      return
+    }
+
+    const userId = authSession.user._id
+    activeAbortRef.current?.abort()
+    const controller = new AbortController()
+    activeAbortRef.current = controller
     setGenerating(true)
     setError(null)
     try
     {
-      const fragment = await encodeBoardToShareFragment(
-        getSnapshotRef.current()
+      const result = await createBoardShortLink(
+        getSnapshotRef.current(),
+        userId,
+        controller.signal
       )
-      setLink({
-        shareUrl: `${buildAppUrl('/')}#share=${fragment}`,
-        embedUrl: `${buildAppUrl(EMBED_ROUTE_PATH)}#share=${fragment}`,
-      })
+      if (controller.signal.aborted) return
+      setLink(result)
     }
     catch (err)
     {
+      if (controller.signal.aborted) return
       setError(formatError(err, 'Failed to create share link.'))
     }
     finally
     {
-      setGenerating(false)
+      if (!controller.signal.aborted) setGenerating(false)
+      if (activeAbortRef.current === controller) activeAbortRef.current = null
     }
   }
 
@@ -118,9 +139,22 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
 
       <p className="mb-4 text-xs text-[var(--t-text-muted)]">
         Anyone with the link can view a snapshot of this board. The snapshot is
-        frozen at the moment of generation. Hash links omit item images so the
-        URL stays portable.
+        frozen at the moment of generation, includes current item images, and
+        omits deleted items.
       </p>
+
+      {authSession.status === 'signed-out' && (
+        <p className="mb-3 text-xs text-[var(--t-text-muted)]">
+          Sign in to create and manage share links.
+        </p>
+      )}
+
+      {authSession.status === 'loading' && (
+        <p className="mb-3 flex items-center gap-2 text-xs text-[var(--t-text-muted)]">
+          <RefreshCw className="h-3 w-3 animate-spin" />
+          Checking sign-in…
+        </p>
+      )}
 
       {error && (
         <div className="mb-3 rounded-md border border-[var(--t-border-secondary)] bg-[rgb(var(--t-overlay)/0.06)] px-3 py-2 text-xs text-[var(--t-destructive-hover)]">
@@ -128,9 +162,14 @@ export const ShareModal = ({ open, onClose, getSnapshot }: ShareModalProps) =>
         </div>
       )}
 
+      {/* initial state: single Generate CTA. explicit click avoids the
+          open-churn orphan path a prior auto-on-open design had */}
       {!hasLink && !generating && !error && (
         <div className="flex justify-center py-6">
-          <PrimaryButton onClick={() => void generate()}>
+          <PrimaryButton
+            onClick={() => void generate()}
+            disabled={authSession.status !== 'signed-in'}
+          >
             <LinkIcon className="h-3.5 w-3.5" />
             Generate share link
           </PrimaryButton>

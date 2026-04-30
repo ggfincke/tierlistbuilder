@@ -31,6 +31,10 @@ export const isSameSnapshot = (a: BoardSnapshot, b: BoardSnapshot): boolean =>
   if (a.aspectRatioPromptDismissed !== b.aspectRatioPromptDismissed)
     return false
   if (a.defaultItemImageFit !== b.defaultItemImageFit) return false
+  if (a.paletteId !== b.paletteId) return false
+  if (a.textStyleId !== b.textStyleId) return false
+  if (a.pageBackground !== b.pageBackground) return false
+  if (a.labels !== b.labels) return false
   if (a.tiers === b.tiers) return true
   if (a.tiers.length !== b.tiers.length) return false
   for (let i = 0; i < a.tiers.length; i++)

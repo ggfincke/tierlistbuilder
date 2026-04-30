@@ -10,7 +10,7 @@ import type {
 import {
   computeAutoBoardAspectRatio,
   getBoardAspectRatioMode,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import {
   clampItemTransform,
   isIdentityTransform,

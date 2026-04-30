@@ -6,6 +6,7 @@ import type {
   BoardSnapshot,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardSyncState } from './sync'
 
 // lightweight ordering snapshot used during drag preview
 export interface ContainerSnapshotTier
@@ -56,7 +57,7 @@ export const makeSelection = (ids: readonly ItemId[]): Selection =>
 }
 
 // full active-board runtime state — board snapshot plus transient drag, selection, & undo state
-export interface ActiveBoardRuntimeState extends BoardSnapshot
+export interface ActiveBoardRuntimeState extends BoardSnapshot, BoardSyncState
 {
   activeItemId: ItemId | null
   dragPreview: ContainerSnapshot | null
@@ -71,7 +72,10 @@ export interface ActiveBoardRuntimeState extends BoardSnapshot
   future: UndoEntry[]
 }
 
-type RuntimeOnlyState = Omit<ActiveBoardRuntimeState, keyof BoardSnapshot>
+type RuntimeOnlyState = Omit<
+  ActiveBoardRuntimeState,
+  keyof BoardSnapshot | keyof BoardSyncState
+>
 
 // factory — callers spread into set() patches. returning a fresh object
 // each call avoids aliasing the empty arrays/maps across store instances

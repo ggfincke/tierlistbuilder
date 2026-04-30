@@ -7,7 +7,7 @@ import {
   createNewTier,
   resetBoardData,
   normalizeBoardSnapshot,
-} from '~/features/workspace/boards/model/boardSnapshot'
+} from '~/shared/board-data/boardSnapshot'
 import {
   createCustomTierColorSpec,
   normalizeCanonicalTierColorSpec,
@@ -127,6 +127,24 @@ describe('normalizeBoardSnapshot', () =>
 
     expect(result.items[id].sourceImageRef).toEqual({ hash: 'source-hash' })
     expect(result.items[id].transform).toBeUndefined()
+  })
+
+  it('preserves explicit per-item Auto label color', () =>
+  {
+    const id = asItemId('item-auto-label')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        items: {
+          [id]: makeItem({
+            id,
+            labelOptions: { textColor: 'auto' },
+          }),
+        },
+      }),
+      'classic'
+    )
+
+    expect(result.items[id].labelOptions).toEqual({ textColor: 'auto' })
   })
 
   it('falls back to auto palette color when a tier is missing its colorSpec', () =>
