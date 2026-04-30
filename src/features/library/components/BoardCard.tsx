@@ -11,7 +11,6 @@ import type {
 import { LIBRARY_STATUS_META } from '~/features/library/lib/statusMeta'
 import { formatRelativeTime } from '~/features/marketplace/model/formatters'
 import { Cover } from './Cover'
-import { StatusPill } from './StatusPill'
 import { TierBar } from './TierBar'
 import { VisibilityChip } from './VisibilityChip'
 
@@ -80,7 +79,7 @@ export const BoardCard = ({
       disabled={!onOpen || isPending}
       aria-label={`${board.title} — ${meta.label.toLowerCase()}`}
       aria-busy={isPending || undefined}
-      className="group focus-custom relative flex flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-left transition hover:-translate-y-0.5 hover:border-[var(--t-border-hover)] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-progress disabled:opacity-70"
+      className="group focus-custom relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-left transition hover:-translate-y-0.5 hover:border-[var(--t-border-hover)] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-progress disabled:opacity-70"
     >
       <div className={`relative w-full overflow-hidden ${cfg.coverHeight}`}>
         <Cover
@@ -89,9 +88,8 @@ export const BoardCard = ({
           isDraft={isDraft}
         />
 
-        <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start gap-1.5">
-          <StatusPill status={board.status} />
-          {board.pinned && (
+        {board.pinned && (
+          <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start gap-1.5">
             <span
               className="flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur"
               title="Pinned"
@@ -99,8 +97,8 @@ export const BoardCard = ({
             >
               <Pin className="h-3 w-3" strokeWidth={2} />
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {density !== 'dense' && (
           <div

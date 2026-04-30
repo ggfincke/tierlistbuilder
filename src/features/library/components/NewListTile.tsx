@@ -4,25 +4,14 @@
 import { Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/board'
 import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
 
-interface NewListTileProps
-{
-  density: LibraryBoardDensity
-}
-
-const HEIGHT_BY_DENSITY: Record<LibraryBoardDensity, string> = {
-  dense: 'h-[212px]',
-  default: 'h-[252px]',
-  loose: 'h-[292px]',
-}
-
-export const NewListTile = ({ density }: NewListTileProps) => (
+// stretch tile to the grid row; align beside content-driven BoardCards
+export const NewListTile = () => (
   <Link
     to={TEMPLATES_ROUTE_PATH}
     aria-label="Create a new list from a template"
-    className={`focus-custom group flex ${HEIGHT_BY_DENSITY[density]} flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] p-4 text-center transition hover:border-[var(--t-border-hover)] hover:bg-[rgb(var(--t-overlay)/0.05)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]`}
+    className="focus-custom group flex h-full w-full min-w-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] p-4 text-center transition hover:border-[var(--t-border-hover)] hover:bg-[rgb(var(--t-overlay)/0.05)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
   >
     <span className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.06)] text-[var(--t-text)] transition group-hover:border-[var(--t-border-hover)]">
       <Plus className="h-5 w-5" strokeWidth={2} aria-hidden />

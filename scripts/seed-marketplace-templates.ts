@@ -1,13 +1,6 @@
 #!/usr/bin/env tsx
 // scripts/seed-marketplace-templates.ts
-// dev seeding for the templates marketplace.
-
-// walks /examples, probes each image w/ sharp to capture aspectRatio + auto-
-// crop bbox, picks a per-template slot ratio (snap-to-preset majority), then
-// bakes per-item transforms before posting chunked payloads over http.
-
-// creates the default Terra seed author when needed. requires CONVEX_URL
-// set, & CONVEX_SEED_ENABLED=true on the deployment
+// dev seeding for templates marketplace; preserves uniform source ratios.
 
 import { readdir, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -21,8 +14,8 @@ import {
   type ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
-  majorityAspectRatio,
-  snapToNearestPreset,
+  bucketValuesByAspectRatio,
+  ratiosMatch,
 } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { probeImage, resolveSeedAutoCropTransform } from './lib/autoCropDetect'
 import { mapAsyncLimit } from '../src/shared/lib/asyncMapLimit'
@@ -34,6 +27,7 @@ const EXAMPLES_DIR = join(REPO_ROOT, 'examples')
 const SEED_FOLDER_CONCURRENCY = 3
 const SEED_ITEM_IO_CONCURRENCY = 8
 const SEED_CHUNK_UPLOAD_CONCURRENCY = 2
+const MIXED_TEMPLATE_ITEM_ASPECT_RATIO = 1
 const SUPPORTED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif'])
 const DEFAULT_SEED_AUTHOR = {
   email: 'tterrag456@gmail.com',
@@ -651,7 +645,7 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
   },
   'game-consoles': {
     title: 'Game consoles',
-    category: 'tech',
+    category: 'gaming',
     description:
       'Landmark home consoles, handhelds, microconsoles, and PC handhelds across console generations.',
     tags: ['gaming', 'consoles', 'hardware'],
@@ -902,6 +896,167 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
       "All of Taylor Swift's studio albums, including re-recordings.",
     tags: ['taylor swift', 'pop', 'albums'],
   },
+  'beatles-albums': {
+    title: 'The Beatles studio albums',
+    category: 'music',
+    description: 'Every Beatles studio album, by cover.',
+    tags: ['the beatles', 'rock', 'albums'],
+  },
+  'kendrick-lamar-albums': {
+    title: 'Kendrick Lamar studio albums',
+    category: 'music',
+    description:
+      "Kendrick Lamar's studio discography, plus Overly Dedicated and the Black Panther soundtrack he curated.",
+    tags: ['kendrick lamar', 'hip hop', 'albums'],
+  },
+  'beyonce-albums': {
+    title: 'Beyoncé studio albums',
+    category: 'music',
+    description:
+      "Beyoncé's studio discography from Dangerously in Love through Cowboy Carter, plus Everything Is Love and The Lion King: The Gift.",
+    tags: ['beyonce', 'pop', 'albums'],
+  },
+  'top-rap-albums': {
+    title: 'Top rap albums',
+    category: 'music',
+    description:
+      '100 widely-cited classic and modern rap albums, from Raising Hell (1986) through GNX (2024).',
+    tags: ['hip hop', 'rap', 'albums'],
+  },
+  'kanye-albums': {
+    title: 'Kanye West albums',
+    category: 'music',
+    description:
+      "Kanye's solo studio discography plus the Watch the Throne, Cruel Summer, Kids See Ghosts, and Vultures collaborations.",
+    tags: ['kanye west', 'hip hop', 'albums'],
+  },
+  'nirvana-albums': {
+    title: 'Nirvana albums',
+    category: 'music',
+    description:
+      'Every Nirvana studio album plus the major posthumous live and compilation releases.',
+    tags: ['nirvana', 'grunge', 'albums'],
+  },
+  'the-strokes-albums': {
+    title: 'The Strokes albums',
+    category: 'music',
+    description:
+      'Every Strokes studio album from Is This It through The New Abnormal.',
+    tags: ['the strokes', 'indie rock', 'albums'],
+  },
+  'mgmt-albums': {
+    title: 'MGMT albums',
+    category: 'music',
+    description:
+      'Every MGMT studio album from Oracular Spectacular through Loss of Life.',
+    tags: ['mgmt', 'indie', 'albums'],
+  },
+  'voidz-albums': {
+    title: 'The Voidz albums',
+    category: 'music',
+    description:
+      'Every Voidz studio album from Tyranny through Like All Before You, plus the 2025 Męğż Øf Råm EP.',
+    tags: ['the voidz', 'rock', 'albums'],
+  },
+  'drake-albums': {
+    title: 'Drake albums',
+    category: 'music',
+    description:
+      "Drake's studio discography from Thank Me Later through $ome $exy $ongs 4 U, plus the IYRTITL and What a Time to Be Alive collaborations.",
+    tags: ['drake', 'hip hop', 'albums'],
+  },
+  'eminem-albums': {
+    title: 'Eminem albums',
+    category: 'music',
+    description:
+      'Every Eminem studio album from Infinite (1996) through The Death of Slim Shady.',
+    tags: ['eminem', 'hip hop', 'albums'],
+  },
+  'queen-albums': {
+    title: 'Queen studio albums',
+    category: 'music',
+    description:
+      'Every Queen studio album from the 1973 self-titled debut through Made in Heaven.',
+    tags: ['queen', 'rock', 'albums'],
+  },
+  'pink-floyd-albums': {
+    title: 'Pink Floyd studio albums',
+    category: 'music',
+    description:
+      'Every Pink Floyd studio album from The Piper at the Gates of Dawn through The Endless River.',
+    tags: ['pink floyd', 'rock', 'albums'],
+  },
+  'led-zeppelin-albums': {
+    title: 'Led Zeppelin studio albums',
+    category: 'music',
+    description:
+      'Every Led Zeppelin studio album from the 1969 debut through the posthumous Coda.',
+    tags: ['led zeppelin', 'rock', 'albums'],
+  },
+  'metallica-albums': {
+    title: 'Metallica albums',
+    category: 'music',
+    description:
+      "Metallica's studio discography plus Garage Inc. and the Lou Reed collaboration Lulu.",
+    tags: ['metallica', 'metal', 'albums'],
+  },
+  'lady-gaga-albums': {
+    title: 'Lady Gaga albums',
+    category: 'music',
+    description:
+      'Every Lady Gaga studio album from The Fame through Mayhem, including the Tony Bennett duets and the A Star Is Born and Harlequin companion albums.',
+    tags: ['lady gaga', 'pop', 'albums'],
+  },
+  'the-weeknd-albums': {
+    title: 'The Weeknd albums',
+    category: 'music',
+    description:
+      "The Weeknd's Trilogy mixtapes plus every studio album from Kiss Land through Hurry Up Tomorrow.",
+    tags: ['the weeknd', 'r&b', 'albums'],
+  },
+  'daft-punk-albums': {
+    title: 'Daft Punk albums',
+    category: 'music',
+    description:
+      'Every Daft Punk studio album, plus the Tron: Legacy soundtrack.',
+    tags: ['daft punk', 'electronic', 'albums'],
+  },
+  'radiohead-albums': {
+    title: 'Radiohead albums',
+    category: 'music',
+    description:
+      'Every Radiohead studio album from Pablo Honey through A Moon Shaped Pool.',
+    tags: ['radiohead', 'rock', 'albums'],
+  },
+  'michael-jackson-albums': {
+    title: 'Michael Jackson albums',
+    category: 'music',
+    description:
+      'Every Michael Jackson solo studio album from Got to Be There through the posthumous Xscape.',
+    tags: ['michael jackson', 'pop', 'albums'],
+  },
+  'music-genres': {
+    title: 'Music genres',
+    category: 'music',
+    description:
+      'Music genres as black-square text cards, spanning core umbrellas and subgenres across rock, pop, hip hop, electronic, metal, jazz, latin, and world music.',
+    tags: ['music', 'genres'],
+  },
+  'music-festivals': {
+    title: 'Music festivals',
+    category: 'music',
+    description:
+      'Music festivals from Wikipedia, spanning mainstream (Coachella, Lollapalooza), European rock (Glastonbury, Wacken), EDM (Tomorrowland, EDC), genre festivals (Stagecoach, Newport Folk, Montreux Jazz), and defunct touring icons (Warped Tour, Ozzfest).',
+    tags: ['music', 'festivals'],
+    labels: true,
+  },
+  'grammy-album-of-the-year': {
+    title: 'Grammy Album of the Year winners',
+    category: 'music',
+    description:
+      'Every Grammy Album of the Year winner from 1959 (The Music from Peter Gunn) through 2026 (Debí Tirar Más Fotos), spanning jazz, rock, pop, country, folk, hip-hop, and Latin.',
+    tags: ['grammy', 'album of the year', 'music'],
+  },
   'zelda-games': {
     title: 'Legend of Zelda mainline',
     category: 'gaming',
@@ -1053,8 +1208,6 @@ interface ProbedItem
   filePath: string
   byteSize: number
   aspectRatio: number
-  // bbox null when detection finds nothing useful (eg full-bleed photo);
-  // transform stays null for those & the item falls back to imageFit/cover
   bbox: Awaited<ReturnType<typeof probeImage>>['bbox']
 }
 
@@ -1069,7 +1222,8 @@ interface PreparedItem
 
 interface PreparedFolder
 {
-  templateRatio: number | null
+  templateRatio: number
+  usedMixedRatioFallback: boolean
   items: PreparedItem[]
 }
 
@@ -1105,28 +1259,42 @@ const probeFolder = async (
   })
 }
 
-// pick the template's slot ratio (snap-to-preset majority of per-item ratios)
-// so each item's autocrop transform is computed against the same frame the
-// forked board will use, then bake transforms against that ratio
+const resolvePreparedTransform = (
+  probe: ProbedItem,
+  templateRatio: number
+): ItemTransform | null =>
+{
+  if (ratiosMatch(probe.aspectRatio, templateRatio) || !probe.bbox)
+  {
+    return null
+  }
+  return resolveSeedAutoCropTransform({
+    imageAspectRatio: probe.aspectRatio,
+    bbox: probe.bbox,
+    boardAspectRatio: templateRatio,
+  })
+}
+
 const prepareFolder = (probes: ProbedItem[]): PreparedFolder =>
 {
-  const majority = majorityAspectRatio(probes.map((p) => p.aspectRatio))
-  const templateRatio = majority === null ? null : snapToNearestPreset(majority)
-  const frameRatio = templateRatio ?? 1
+  const ratioBuckets = bucketValuesByAspectRatio(
+    probes,
+    (probe) => probe.aspectRatio
+  )
+  const usedMixedRatioFallback = ratioBuckets.length !== 1
+  const templateRatio = usedMixedRatioFallback
+    ? MIXED_TEMPLATE_ITEM_ASPECT_RATIO
+    : (ratioBuckets[0]?.representative ?? MIXED_TEMPLATE_ITEM_ASPECT_RATIO)
   const items = probes.map((probe) => ({
     label: probe.label,
     filePath: probe.filePath,
     byteSize: probe.byteSize,
     aspectRatio: probe.aspectRatio,
-    transform: probe.bbox
-      ? resolveSeedAutoCropTransform({
-          imageAspectRatio: probe.aspectRatio,
-          bbox: probe.bbox,
-          boardAspectRatio: frameRatio,
-        })
+    transform: usedMixedRatioFallback
+      ? resolvePreparedTransform(probe, templateRatio)
       : null,
   }))
-  return { templateRatio, items }
+  return { templateRatio, usedMixedRatioFallback, items }
 }
 
 // rough JSON-overhead floor per item — keeps chunked payloads under the
@@ -1186,11 +1354,11 @@ const seedFolder = async (
   authorEmail: string
 ): Promise<string | null> =>
 {
-  const folderPath = join(EXAMPLES_DIR, folderName)
   const meta: FolderMeta = {
     ...DEFAULT_META,
     ...(TEMPLATE_META[folderName] ?? {}),
   }
+  const folderPath = join(EXAMPLES_DIR, meta.category, folderName)
   const title = meta.title ?? titleizeFromFilename(folderName)
   const probes = await probeFolder(folderPath, meta.itemLabels)
   if (probes.length === 0)
@@ -1199,13 +1367,15 @@ const seedFolder = async (
     return null
   }
 
-  const { templateRatio, items } = prepareFolder(probes)
+  const { templateRatio, usedMixedRatioFallback, items } = prepareFolder(probes)
   const labels: BoardLabelSettings | null =
     meta.labels === true ? LABEL_DEFAULT_STYLE : (meta.labels ?? null)
 
   const chunks = chunkItemsBySize(items)
+  const cropped = items.filter((item) => item.transform !== null).length
+  const ratioSource = usedMixedRatioFallback ? 'mixed -> square' : 'consistent'
   process.stdout.write(
-    `  · ${folderName}: ${items.length} items in ${chunks.length} chunk(s) @ ratio ${templateRatio?.toFixed(3) ?? 'auto'}${labels ? ', labels on' : ''}, uploading…\n`
+    `  · ${folderName}: ${items.length} items in ${chunks.length} chunk(s) @ ratio ${templateRatio.toFixed(3)} (${ratioSource}), ${cropped} cropped${labels ? ', labels on' : ''}, uploading…\n`
   )
 
   const [firstChunk, ...remainingChunks] = chunks
@@ -1424,12 +1594,27 @@ const main = async (): Promise<void> =>
   const client = new ConvexHttpClient(convexUrl)
   await ensureDefaultSeedAuthor(client, authorEmail)
 
+  // walk one level into examples/<category>/<folder>; the category dir layer
+  // mirrors the marketplace category for navigability
   const targetFolders =
     folders.length > 0
       ? folders
-      : (await readdir(EXAMPLES_DIR, { withFileTypes: true }))
-          .filter((e) => e.isDirectory())
-          .map((e) => e.name)
+      : (
+          await Promise.all(
+            (await readdir(EXAMPLES_DIR, { withFileTypes: true }))
+              .filter((e) => e.isDirectory())
+              .map(async (cat) =>
+                (
+                  await readdir(join(EXAMPLES_DIR, cat.name), {
+                    withFileTypes: true,
+                  })
+                )
+                  .filter((e) => e.isDirectory())
+                  .map((e) => e.name)
+              )
+          )
+        )
+          .flat()
           .sort()
 
   process.stdout.write(

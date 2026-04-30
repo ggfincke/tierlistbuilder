@@ -88,12 +88,7 @@ export const LibraryFilterBar = ({
               }
             >
               {FILTER_LABELS[id]}
-              <span
-                className="tabular-nums"
-                style={{ opacity: active ? 0.6 : 0.55 }}
-              >
-                {count}
-              </span>
+              <span className="tabular-nums opacity-60">{count}</span>
             </button>
           )
         })}
