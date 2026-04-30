@@ -18,11 +18,11 @@ import {
 } from 'lucide-react'
 
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
-import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'
 import { extractPresetFromBoard } from '~/features/workspace/tier-presets/model/tierPresets'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { toast } from '~/shared/notifications/useToastStore'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
 import {
   selectCanRedo,
@@ -94,7 +94,7 @@ export const BoardActionBar = ({
 {
   const isVertical = isVerticalPosition(toolbarPosition)
   const menuPos = getMenuPositionClasses(toolbarPosition)
-  const { reducedMotion, boardLocked, setBoardLocked } = useSettingsStore(
+  const { reducedMotion, boardLocked, setBoardLocked } = usePreferencesStore(
     useShallow((state) => ({
       reducedMotion: state.reducedMotion,
       boardLocked: state.boardLocked,

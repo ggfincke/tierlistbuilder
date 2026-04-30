@@ -128,7 +128,7 @@ tests/
 │   ├── cloudSyncScheduler.test.ts   — debounced sync scheduler semantics
 │   ├── firstLoginBoardMerge.test.ts — first-login board merge resolution
 │   ├── firstLoginSyncLifecycle.test.ts — first-login orchestration
-│   ├── settingsCloudMerge.test.ts   — settings cloud merge
+│   ├── preferencesCloudMerge.test.ts — preferences cloud merge
 │   ├── tierPresetCloudMerge.test.ts — preset cloud merge
 │   └── userIdentity.test.ts         — stable user display identity helpers
 ├── sharing/

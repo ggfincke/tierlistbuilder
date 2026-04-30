@@ -31,7 +31,7 @@ import {
 } from '~/shared/board-ui/aspectRatio'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/useBoardAspectRatioPicker'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/useAutoCropTrimShadows'
 import {
   getUndoRedoShortcut,
@@ -110,9 +110,9 @@ const ImageEditorModalBody = () =>
       setItemLabel: s.setItemLabel,
     }))
   )
-  const globalShowLabels = useSettingsStore((s) => s.showLabels)
-  const globalTextStyleId = useSettingsStore((s) => s.textStyleId)
-  const boardItemSize = useSettingsStore((s) => s.itemSize)
+  const globalShowLabels = usePreferencesStore((s) => s.showLabels)
+  const globalTextStyleId = usePreferencesStore((s) => s.textStyleId)
+  const boardItemSize = usePreferencesStore((s) => s.itemSize)
   const effectiveShowLabels = resolveEffectiveShowLabels(
     boardLabels,
     globalShowLabels

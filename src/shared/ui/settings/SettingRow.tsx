@@ -1,4 +1,4 @@
-// src/features/workspace/settings/ui/SettingRow.tsx
+// src/shared/ui/settings/SettingRow.tsx
 // reusable setting row w/ label left, control right. accepts a render-prop child
 // so composite controls can route labelId to the actual labelled element
 

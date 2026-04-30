@@ -1,4 +1,4 @@
-// src/features/workspace/settings/ui/SegmentedControl.tsx
+// src/shared/ui/settings/SegmentedControl.tsx
 // reusable segmented control for selecting between discrete options
 
 import { useMemo } from 'react'

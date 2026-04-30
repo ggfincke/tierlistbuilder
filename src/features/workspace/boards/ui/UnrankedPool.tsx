@@ -8,7 +8,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useImageImport } from '~/features/workspace/settings/model/useImageImport'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   createSelectBoardItemById,
@@ -80,7 +80,7 @@ const PendingDeleteDialog = ({
 export const UnrankedPool = () =>
 {
   const { compactMode, boardLocked, itemSize, confirmBeforeDelete } =
-    useSettingsStore(
+    usePreferencesStore(
       useShallow((state) => ({
         compactMode: state.compactMode,
         boardLocked: state.boardLocked,

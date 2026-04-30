@@ -9,7 +9,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { Check, GripVertical, PenLine, X } from 'lucide-react'
 
 import { useKeyboardDrag } from '~/features/workspace/boards/interaction/useKeyboardDrag'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   selectHasKeyboardSelection,
   useActiveBoardStore,
@@ -72,7 +72,7 @@ export const TierItem = memo(
     const canDelete = containerId === UNRANKED_CONTAINER_ID
 
     const { itemShape, showLabels, boardLocked, showAltTextButton } =
-      useSettingsStore(
+      usePreferencesStore(
         useShallow((state) => ({
           itemShape: state.itemShape,
           showLabels: state.showLabels,

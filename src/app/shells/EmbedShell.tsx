@@ -1,7 +1,7 @@
 // src/app/shells/EmbedShell.tsx
 // embed shell for the dedicated read-only embed route — locks classic dark theme
 
-import { useLockedTheme } from '~/app/bootstrap/useThemeSync'
+import { useLockedTheme } from '~/features/platform/preferences/model/useThemeSync'
 import { EmbedView } from '~/features/embed/ui/EmbedView'
 
 export const EmbedShell = () =>

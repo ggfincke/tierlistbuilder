@@ -5,19 +5,19 @@ import { PanelTop, PanelBottom, PanelLeft, PanelRight } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { announce } from '~/shared/a11y/announce'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import type {
   ItemShape,
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
   ToolbarPosition,
-} from '@tierlistbuilder/contracts/workspace/settings'
+} from '@tierlistbuilder/contracts/platform/preferences'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { AspectRatioSection } from './AspectRatioSection'
-import { SegmentedControl } from './SegmentedControl'
-import { SettingRow } from './SettingRow'
-import { Toggle } from './Toggle'
+import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
+import { SettingRow } from '~/shared/ui/settings/SettingRow'
+import { Toggle } from '~/shared/ui/settings/Toggle'
 
 export const LayoutTab = () =>
 {
@@ -46,7 +46,7 @@ export const LayoutTab = () =>
     setShowAltTextButton,
     setAutoCropTrimSoftShadows,
     setToolbarPosition,
-  } = useSettingsStore(
+  } = usePreferencesStore(
     useShallow((state) => ({
       itemSize: state.itemSize,
       showLabels: state.showLabels,

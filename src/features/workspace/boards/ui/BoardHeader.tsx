@@ -7,7 +7,7 @@ import { useEffect, useId } from 'react'
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import { renameBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { DEFAULT_TITLE } from '~/shared/board-data/boardDefaults'
 import { TextInput } from '~/shared/ui/TextInput'
@@ -20,7 +20,7 @@ export const BoardHeader = () =>
   const activeBoardId = useWorkspaceBoardRegistryStore(
     (state) => state.activeBoardId
   )
-  const boardLocked = useSettingsStore((state) => state.boardLocked)
+  const boardLocked = usePreferencesStore((state) => state.boardLocked)
   const titleInputId = useId()
   const { cancelEdit, getInputProps, inputRef, isEditing, startEdit } =
     useInlineEdit<typeof TITLE_EDITOR_ID>({

@@ -7,7 +7,7 @@ import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
-} from '@tierlistbuilder/contracts/workspace/settings'
+} from '@tierlistbuilder/contracts/platform/preferences'
 import type {
   PaletteId,
   TextStyleId,

@@ -47,6 +47,6 @@ If we ever add a shared-device mode, the approach would be a deliberate `purgeLo
 If that helper lands, it would need to:
 
 1. Clear `useWorkspaceBoardRegistryStore` + every per-board localStorage key (`boardStorage.ts`).
-2. Clear `useSettingsStore` + `useTierPresetStore`.
+2. Clear `usePreferencesStore` + `useTierPresetStore`.
 3. Clear the IndexedDB `UPLOAD_INDEX_STORE` entries for that `userId` + open a transaction to clear the `BLOBS_STORE` object store.
 4. Clear `cloudMerge` markers so the next sign-in re-runs the merge flow.

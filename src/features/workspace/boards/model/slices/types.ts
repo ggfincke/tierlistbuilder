@@ -79,7 +79,7 @@ export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
     entries: readonly { id: ItemId; transform: ItemTransform | null }[]
   ) => void
   // per-board style override setters — null clears the override so the board
-  // falls through to AppSettings defaults
+  // falls through to AppPreferences defaults
   setBoardPaletteOverride: (paletteId: PaletteId | null) => void
   setBoardTextStyleOverride: (textStyleId: TextStyleId | null) => void
   setBoardPageBackground: (color: string | null) => void

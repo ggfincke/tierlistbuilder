@@ -1,6 +1,5 @@
-// src/features/marketplace/model/useMyPublishableBoards.ts
-// joins local registry w/ persisted snapshots to drive the publish-modal
-// board picker; filters to cloud-synced & non-empty boards
+// src/features/workspace/boards/model/usePublishableBoards.ts
+// exposes cloud-synced non-empty boards for publish flows
 
 import { useMemo } from 'react'
 
@@ -14,7 +13,7 @@ export interface PublishableBoard
   boardExternalId: string
   title: string
   itemCount: number
-  updatedAt: number | null
+  createdAt: number
 }
 
 const countActiveItems = (
@@ -24,7 +23,7 @@ const countActiveItems = (
 // recompute on every render — registry is a Zustand store so the subscription
 // keeps the result fresh; loadBoardFromStorage is a synchronous localStorage
 // read & each user typically has < 50 boards
-export const useMyPublishableBoards = (): {
+export const usePublishableBoards = (): {
   boards: readonly PublishableBoard[]
   hasUnsyncedBoards: boolean
 } =>
@@ -58,11 +57,11 @@ export const useMyPublishableBoards = (): {
         boardExternalId: cloudId,
         title: result.data.title || meta.title,
         itemCount,
-        updatedAt: meta.createdAt,
+        createdAt: meta.createdAt,
       })
     }
 
-    boards.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+    boards.sort((a, b) => b.createdAt - a.createdAt)
 
     return { boards, hasUnsyncedBoards }
   }, [registry])

@@ -1,4 +1,4 @@
-// src/features/workspace/settings/ui/Toggle.tsx
+// src/shared/ui/settings/Toggle.tsx
 // reusable toggle switch component
 
 interface ToggleProps

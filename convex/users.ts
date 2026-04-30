@@ -256,7 +256,7 @@ const cascadePhaseValidator = v.union(
   v.literal('tierPresets'),
   v.literal('shortLinks'),
   v.literal('mediaAssets'),
-  v.literal('userSettings')
+  v.literal('userPreferences')
 )
 type CascadePhase = Infer<typeof cascadePhaseValidator>
 
@@ -267,8 +267,8 @@ const NEXT_PHASE: Record<CascadePhase, CascadePhase | null> = {
   templates: 'tierPresets',
   tierPresets: 'shortLinks',
   shortLinks: 'mediaAssets',
-  mediaAssets: 'userSettings',
-  userSettings: null,
+  mediaAssets: 'userPreferences',
+  userPreferences: null,
 }
 
 interface AuthSessionCleanupState
@@ -334,7 +334,8 @@ const CASCADE_PHASE_HANDLERS: Record<CascadePhase, CascadePhaseHandler> = {
   tierPresets: async (ctx, args) => await handleTierPresetsPhase(ctx, args),
   shortLinks: async (ctx, args) => await handleShortLinksPhase(ctx, args),
   mediaAssets: async (ctx, args) => await handleMediaAssetsPhase(ctx, args),
-  userSettings: async (ctx, args) => await handleUserSettingsPhase(ctx, args),
+  userPreferences: async (ctx, args) =>
+    await handleUserPreferencesPhase(ctx, args),
 }
 
 export const cascadeDeleteUserData = internalMutation({
@@ -475,15 +476,15 @@ const handleMediaAssetsPhase: CascadePhaseHandler = async (ctx, args) =>
   return await deletePageRowsAndAdvance(ctx, args.userId, page, 'mediaAssets')
 }
 
-const handleUserSettingsPhase: CascadePhaseHandler = async (ctx, args) =>
+const handleUserPreferencesPhase: CascadePhaseHandler = async (ctx, args) =>
 {
-  const settings = await ctx.db
-    .query('userSettings')
+  const preferences = await ctx.db
+    .query('userPreferences')
     .withIndex('byUser', (q) => q.eq('userId', args.userId))
     .unique()
-  if (settings)
+  if (preferences)
   {
-    await ctx.db.delete(settings._id)
+    await ctx.db.delete(preferences._id)
   }
 
   const user = await ctx.db.get(args.userId)

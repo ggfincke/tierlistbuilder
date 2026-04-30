@@ -4,7 +4,7 @@
 
 import { useId } from 'react'
 
-import { Toggle } from './Toggle'
+import { Toggle } from '~/shared/ui/settings/Toggle'
 
 interface AutoCropTrimToggleProps
 {

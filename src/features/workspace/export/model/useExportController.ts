@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { formatError } from '~/shared/lib/errors'
@@ -31,12 +31,12 @@ const EXPORT_FAIL_MESSAGE =
 
 const getExportBackgroundColor = () =>
 {
-  const { exportBackgroundOverride, themeId } = useSettingsStore.getState()
+  const { exportBackgroundOverride, themeId } = usePreferencesStore.getState()
   return exportBackgroundOverride ?? THEMES[themeId]['export-bg']
 }
 
 const getCurrentExportAppearance = () =>
-  getExportAppearance(useSettingsStore.getState())
+  getExportAppearance(usePreferencesStore.getState())
 
 export const useExportController = () =>
 {

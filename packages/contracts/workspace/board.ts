@@ -173,7 +173,7 @@ export const isValidLabelFontSizePx = (value: number | undefined): boolean =>
     value <= LABEL_FONT_SIZE_PX_MAX)
 
 // per-board label defaults — absent fields fall back to global/built-in
-// defaults. `show` overrides AppSettings.showLabels at the board level.
+// defaults. `show` overrides AppPreferences.showLabels at the board level.
 // `textStyleId` overrides the board font for label captions only
 export interface BoardLabelSettings
 {
@@ -325,12 +325,12 @@ export interface BoardSnapshot
   aspectRatioPromptDismissed?: boolean
   // board-wide fit when item has no override; absent -> 'cover'
   defaultItemImageFit?: ImageFit
-  // per-board palette override; absent -> falls through to AppSettings.paletteId
+  // per-board palette override; absent -> falls through to AppPreferences.paletteId
   paletteId?: PaletteId
-  // per-board text style override; absent -> falls through to AppSettings.textStyleId
+  // per-board text style override; absent -> falls through to AppPreferences.textStyleId
   textStyleId?: TextStyleId
   // per-board page background color override; absent -> falls through to
-  // AppSettings.boardBackgroundOverride, then theme default
+  // AppPreferences.boardBackgroundOverride, then theme default
   pageBackground?: string
   // per-board label rendering defaults; absent fields fall through to global
   labels?: BoardLabelSettings

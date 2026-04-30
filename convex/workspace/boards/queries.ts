@@ -242,12 +242,12 @@ export const getMyLibraryBoards = query({
 
     // user default palette — board.paletteId overrides this; both fall back to
     // the contract default ('classic') when neither is set
-    const settingsRow = await ctx.db
-      .query('userSettings')
+    const preferencesRow = await ctx.db
+      .query('userPreferences')
       .withIndex('byUser', (q) => q.eq('userId', userId))
       .unique()
     const userDefaultPaletteId: PaletteId =
-      settingsRow?.settings.paletteId ?? DEFAULT_LIBRARY_PALETTE_ID
+      preferencesRow?.preferences.paletteId ?? DEFAULT_LIBRARY_PALETTE_ID
 
     // active boards, newest updated first — same shape as getMyBoards
     const boards = await ctx.db

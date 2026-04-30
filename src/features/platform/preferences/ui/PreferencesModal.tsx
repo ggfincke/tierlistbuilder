@@ -6,12 +6,12 @@ import { useId, useState } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { PalettePicker } from '~/features/workspace/settings/ui/PalettePicker'
-import { SettingRow } from '~/features/workspace/settings/ui/SettingRow'
-import { TextStylePicker } from '~/features/workspace/settings/ui/TextStylePicker'
-import { ThemePicker } from '~/features/workspace/settings/ui/ThemePicker'
-import { Toggle } from '~/features/workspace/settings/ui/Toggle'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { PalettePicker } from '~/shared/ui/settings/PalettePicker'
+import { SettingRow } from '~/shared/ui/settings/SettingRow'
+import { TextStylePicker } from '~/shared/ui/settings/TextStylePicker'
+import { ThemePicker } from '~/shared/ui/settings/ThemePicker'
+import { Toggle } from '~/shared/ui/settings/Toggle'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { ColorInput } from '~/shared/ui/ColorInput'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { TabbedSettingsModal } from '~/shared/ui/TabbedSettingsModal'
@@ -38,7 +38,7 @@ const AppearancePane = () =>
     setTextStyleId,
     boardBackgroundOverride,
     setBoardBackgroundOverride,
-  } = useSettingsStore(
+  } = usePreferencesStore(
     useShallow((s) => ({
       themeId: s.themeId,
       setThemeId: s.setThemeId,
@@ -100,7 +100,7 @@ const AppearancePane = () =>
 const AccessibilityPane = () =>
 {
   const { themeId, reducedMotion, setReducedMotion, toggleHighContrast } =
-    useSettingsStore(
+    usePreferencesStore(
       useShallow((s) => ({
         themeId: s.themeId,
         reducedMotion: s.reducedMotion,

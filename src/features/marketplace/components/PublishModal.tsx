@@ -22,9 +22,9 @@ import { TextInput } from '~/shared/ui/TextInput'
 import { CATEGORY_LIST } from '~/features/marketplace/model/categories'
 import { usePublishTemplate } from '~/features/marketplace/model/usePublishTemplate'
 import {
-  useMyPublishableBoards,
+  usePublishableBoards,
   type PublishableBoard,
-} from '~/features/marketplace/model/useMyPublishableBoards'
+} from '~/features/workspace/boards/model/usePublishableBoards'
 import { BoardPicker } from './BoardPicker'
 import { CoverImageInput } from './CoverImageInput'
 import { TagsInput } from './TagsInput'
@@ -55,7 +55,7 @@ const PublishForm = ({ onClose }: PublishFormProps) =>
   const visibilityFieldId = useId()
   const creditFieldId = useId()
 
-  const { boards, hasUnsyncedBoards } = useMyPublishableBoards()
+  const { boards, hasUnsyncedBoards } = usePublishableBoards()
   const { run, isPending, error } = usePublishTemplate()
 
   const [boardOverride, setBoardOverride] = useState<PublishableBoard | null>(

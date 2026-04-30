@@ -10,10 +10,10 @@ import {
 import { selectBoardDataFields } from '~/shared/board-data/boardSnapshot'
 import { loadBoardDeleteSyncMeta } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { extractAppSettings } from '~/features/workspace/settings/model/appSettingsExtraction'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { extractAppPreferences } from '~/features/platform/preferences/model/appPreferencesExtraction'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
-import { loadSettingsSyncMetaForUser } from '~/features/workspace/settings/data/local/settingsSyncMeta'
+import { loadPreferencesSyncMetaForUser } from '~/features/platform/preferences/data/local/preferencesSyncMeta'
 import { loadTierPresetSyncMetaMapForUser } from '~/features/workspace/tier-presets/data/local/tierPresetSyncMeta'
 import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 import { readBoardStateForCloudSync } from '~/features/workspace/boards/data/cloud/cloudFlush'
@@ -24,7 +24,7 @@ interface ResumePendingSyncsOptions
 {
   userId: string
   queueBoard: (work: PendingBoardSync) => void
-  triggerSettings?: () => void
+  triggerPreferences?: () => void
   enqueuePreset?: (work: TierPresetSyncWork) => void
   triggerBoardDelete?: () => void
   shouldProceed?: () => boolean
@@ -34,7 +34,7 @@ export interface ResumePendingSyncsResult
 {
   resumedBoardIds: BoardId[]
   resumedBoardDeleteIds: string[]
-  resumedSettings: boolean
+  resumedPreferences: boolean
   resumedPresetIds: UserPresetId[]
 }
 
@@ -65,16 +65,16 @@ const resumeBoards = (options: ResumePendingSyncsOptions): BoardId[] =>
   return resumed
 }
 
-const resumeSettings = (options: ResumePendingSyncsOptions): boolean =>
+const resumePreferences = (options: ResumePendingSyncsOptions): boolean =>
 {
   const canProceed = makeProceedGuard(options.shouldProceed)
   if (!canProceed()) return false
-  if (!options.triggerSettings) return false
+  if (!options.triggerPreferences) return false
 
-  const meta = loadSettingsSyncMetaForUser(options.userId)
+  const meta = loadPreferencesSyncMetaForUser(options.userId)
   if (meta.pendingSyncAt === null) return false
 
-  options.triggerSettings()
+  options.triggerPreferences()
   return true
 }
 
@@ -151,10 +151,10 @@ export const resumePendingSyncs = (
   return {
     resumedBoardIds: resumeBoards(options),
     resumedBoardDeleteIds: resumeBoardDeletes(options),
-    resumedSettings: resumeSettings(options),
+    resumedPreferences: resumePreferences(options),
     resumedPresetIds: resumePresets(options),
   }
 }
 
-export const buildSettingsTriggerSnapshot = () =>
-  extractAppSettings(useSettingsStore.getState())
+export const buildPreferencesTriggerSnapshot = () =>
+  extractAppPreferences(usePreferencesStore.getState())

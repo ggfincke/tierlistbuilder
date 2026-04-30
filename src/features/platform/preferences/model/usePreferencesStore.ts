@@ -1,17 +1,17 @@
-// src/features/workspace/settings/model/useSettingsStore.ts
-// * global settings store — user preferences persisted independently of per-board data
+// src/features/platform/preferences/model/usePreferencesStore.ts
+// * global preferences store persisted independently of per-board data
 
 import { create } from 'zustand'
 import { persist, subscribeWithSelector } from 'zustand/middleware'
 
 import type {
-  AppSettings,
+  AppPreferences,
   ItemShape,
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
   ToolbarPosition,
-} from '@tierlistbuilder/contracts/workspace/settings'
+} from '@tierlistbuilder/contracts/platform/preferences'
 import type {
   PaletteId,
   TextStyleId,
@@ -20,11 +20,11 @@ import type {
 import { createAppPersistStorage } from '~/shared/lib/browserStorage'
 import { THEME_PALETTE } from '~/shared/theme/palettes'
 import {
-  SETTINGS_STORAGE_KEY,
-  SETTINGS_STORAGE_VERSION,
-} from '../data/local/settingsStorage'
+  PREFERENCES_STORAGE_KEY,
+  PREFERENCES_STORAGE_VERSION,
+} from '../data/local/preferencesStorage'
 
-export const DEFAULT_APP_SETTINGS: AppSettings = {
+export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   itemSize: 'medium',
   showLabels: false,
   itemShape: 'square',
@@ -61,7 +61,7 @@ const DEFAULT_HIGH_CONTRAST_TRANSITION: HighContrastTransitionState = {
   preHighContrastPaletteId: null,
 }
 
-interface SettingsStore extends AppSettings, HighContrastTransitionState
+interface PreferencesStore extends AppPreferences, HighContrastTransitionState
 {
   setItemSize: (size: ItemSize) => void
   setShowLabels: (show: boolean) => void
@@ -89,68 +89,68 @@ interface SettingsStore extends AppSettings, HighContrastTransitionState
 // guard against same-value writes so re-clicking the active option doesn't
 // trigger a persist-middleware serialization + localStorage write + subscriber
 // fan-out
-const createSettingSetter = <K extends keyof AppSettings>(
-  set: (partial: Partial<SettingsStore>) => void,
-  get: () => SettingsStore,
+const createPreferenceSetter = <K extends keyof AppPreferences>(
+  set: (partial: Partial<PreferencesStore>) => void,
+  get: () => PreferencesStore,
   key: K
 ) =>
 {
-  return (value: AppSettings[K]) =>
+  return (value: AppPreferences[K]) =>
   {
     if (get()[key] === value) return
-    set({ [key]: value } as Pick<AppSettings, K>)
+    set({ [key]: value } as Pick<AppPreferences, K>)
   }
 }
 
-// subscribeWithSelector wraps persist so AppSettings projections can use a
+// subscribeWithSelector wraps persist so AppPreferences projections can use a
 // custom equalityFn instead of firing on every store action
-export const useSettingsStore = create<SettingsStore>()(
+export const usePreferencesStore = create<PreferencesStore>()(
   subscribeWithSelector(
     persist(
       (set, get) => ({
-        ...DEFAULT_APP_SETTINGS,
+        ...DEFAULT_APP_PREFERENCES,
         ...DEFAULT_HIGH_CONTRAST_TRANSITION,
 
-        setItemSize: createSettingSetter(set, get, 'itemSize'),
-        setShowLabels: createSettingSetter(set, get, 'showLabels'),
-        setItemShape: createSettingSetter(set, get, 'itemShape'),
-        setCompactMode: createSettingSetter(set, get, 'compactMode'),
-        setExportBackgroundOverride: createSettingSetter(
+        setItemSize: createPreferenceSetter(set, get, 'itemSize'),
+        setShowLabels: createPreferenceSetter(set, get, 'showLabels'),
+        setItemShape: createPreferenceSetter(set, get, 'itemShape'),
+        setCompactMode: createPreferenceSetter(set, get, 'compactMode'),
+        setExportBackgroundOverride: createPreferenceSetter(
           set,
           get,
           'exportBackgroundOverride'
         ),
-        setBoardBackgroundOverride: createSettingSetter(
+        setBoardBackgroundOverride: createPreferenceSetter(
           set,
           get,
           'boardBackgroundOverride'
         ),
-        setLabelWidth: createSettingSetter(set, get, 'labelWidth'),
-        setHideRowControls: createSettingSetter(set, get, 'hideRowControls'),
-        setConfirmBeforeDelete: createSettingSetter(
+        setLabelWidth: createPreferenceSetter(set, get, 'labelWidth'),
+        setHideRowControls: createPreferenceSetter(set, get, 'hideRowControls'),
+        setConfirmBeforeDelete: createPreferenceSetter(
           set,
           get,
           'confirmBeforeDelete'
         ),
-        setThemeId: createSettingSetter(set, get, 'themeId'),
-        setPaletteId: createSettingSetter(set, get, 'paletteId'),
-        setTextStyleId: createSettingSetter(set, get, 'textStyleId'),
-        setTierLabelBold: createSettingSetter(set, get, 'tierLabelBold'),
-        setTierLabelItalic: createSettingSetter(set, get, 'tierLabelItalic'),
-        setTierLabelFontSize: createSettingSetter(
+        setThemeId: createPreferenceSetter(set, get, 'themeId'),
+        setPaletteId: createPreferenceSetter(set, get, 'paletteId'),
+        setTextStyleId: createPreferenceSetter(set, get, 'textStyleId'),
+        setTierLabelBold: createPreferenceSetter(set, get, 'tierLabelBold'),
+        setTierLabelItalic: createPreferenceSetter(set, get, 'tierLabelItalic'),
+        setTierLabelFontSize: createPreferenceSetter(
           set,
           get,
           'tierLabelFontSize'
         ),
-        setBoardLocked: createSettingSetter(set, get, 'boardLocked'),
-        setReducedMotion: createSettingSetter(set, get, 'reducedMotion'),
-        setToolbarPosition: createSettingSetter(set, get, 'toolbarPosition'),
-        setShowAltTextButton: createSettingSetter(
+        setBoardLocked: createPreferenceSetter(set, get, 'boardLocked'),
+        setReducedMotion: createPreferenceSetter(set, get, 'reducedMotion'),
+        setToolbarPosition: createPreferenceSetter(set, get, 'toolbarPosition'),
+        setShowAltTextButton: createPreferenceSetter(
           set,
           get,
           'showAltTextButton'
         ),
-        setAutoCropTrimSoftShadows: createSettingSetter(
+        setAutoCropTrimSoftShadows: createPreferenceSetter(
           set,
           get,
           'autoCropTrimSoftShadows'
@@ -183,9 +183,9 @@ export const useSettingsStore = create<SettingsStore>()(
           }),
       }),
       {
-        name: SETTINGS_STORAGE_KEY,
+        name: PREFERENCES_STORAGE_KEY,
         storage: createAppPersistStorage(),
-        version: SETTINGS_STORAGE_VERSION,
+        version: PREFERENCES_STORAGE_VERSION,
         partialize: ({
           preHighContrastThemeId: _t,
           preHighContrastPaletteId: _p,

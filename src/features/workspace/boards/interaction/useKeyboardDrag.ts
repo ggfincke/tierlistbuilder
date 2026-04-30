@@ -4,7 +4,7 @@
 import { useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   selectKeyboardTabStopItemId,
   useActiveBoardStore,
@@ -59,7 +59,7 @@ export const useKeyboardDrag = (itemId: ItemId) =>
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) =>
     {
-      if (useSettingsStore.getState().boardLocked) return
+      if (usePreferencesStore.getState().boardLocked) return
 
       if (event.code === 'Space')
       {

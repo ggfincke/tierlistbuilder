@@ -1,4 +1,4 @@
-// src/features/workspace/settings/ui/ThemePicker.tsx
+// src/shared/ui/settings/ThemePicker.tsx
 // controlled theme preview picker for user preferences
 
 import { THEME_META, THEMES } from '~/shared/theme/tokens'

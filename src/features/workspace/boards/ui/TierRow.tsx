@@ -29,7 +29,7 @@ import {
 } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
@@ -98,7 +98,7 @@ const TierRowImpl = ({ tier, index, totalTiers }: TierRowProps) =>
   )
 
   const { itemSize, compactMode, boardLocked, hideRowControls } =
-    useSettingsStore(
+    usePreferencesStore(
       useShallow((state) => ({
         itemSize: state.itemSize,
         compactMode: state.compactMode,

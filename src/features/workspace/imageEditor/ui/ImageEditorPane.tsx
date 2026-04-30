@@ -35,7 +35,7 @@ import type {
   LabelPlacement,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { ItemSize } from '@tierlistbuilder/contracts/workspace/settings'
+import type { ItemSize } from '@tierlistbuilder/contracts/platform/preferences'
 import {
   formatAspectRatio,
   getEffectiveImageFit,

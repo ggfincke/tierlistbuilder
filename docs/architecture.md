@@ -29,8 +29,7 @@ src/
 │   ├── main.tsx                     # React mount
 │   ├── index.css                    # Tailwind entry
 │   ├── bootstrap/
-│   │   ├── useAppBootstrap.ts       # hydrate stores, bootstrap session, register autosave
-│   │   └── useThemeSync.ts          # sync theme/text-style tokens to :root (+ useLockedTheme)
+│   │   └── useAppBootstrap.ts       # hydrate stores, bootstrap session, register autosave
 │   ├── routes/
 │   │   ├── AppRouter.tsx            # React Router route tree
 │   │   ├── WorkspaceRoute.tsx       # workspace entry
@@ -58,10 +57,9 @@ src/
 │   │   └── ui/                      # TierList, TierRow, TierItem, BoardHeader, BoardActionBar, etc.
 │   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
 │   ├── settings/
-│   │   ├── data/{local,cloud}       # settings storage key + Convex sync
 │   │   ├── lib/                     # image upload constants & helpers
-│   │   ├── model/                   # settings store, palette selector, aspect ratio, image import
-│   │   └── ui/                      # BoardSettingsModal & tabbed content
+│   │   ├── model/                   # board overrides, palette selectors, aspect ratio, image import
+│   │   └── ui/                      # BoardSettingsModal & board-specific tabbed content
 │   ├── sharing/ui                   # ShareModal, RecentSharesModal
 │   ├── shortcuts/{lib,model,ui}     # keyboard shortcut registry, panel, list
 │   ├── sync/                        # workspace-owned sync session, adapters, pending sidecar recovery
@@ -73,6 +71,7 @@ src/
 ├── features/platform/
 │   ├── auth/{model,ui}              # SignInModal, account UI, Convex auth wiring
 │   ├── media/                       # imageFetcher, imageUploader, Convex upload repository
+│   ├── preferences/                 # global preferences store, sync, theme hooks, modal
 │   ├── share/                       # short-link repository, URL builders, inbound share resolver
 │   └── sync/
 │       ├── lib/                     # cloudSyncConfig, concurrency, convexClient, crossTabSyncLock, errors
@@ -86,7 +85,7 @@ src/
     ├── a11y/                        # announce() module, LiveRegion component
     ├── board-data/                  # default board, snapshot normalizer, JSON/wire parsers
     ├── board-ui/                    # BoardPrimitives, ItemContent, ItemOverlayButton, StaticBoard, boardTestIds, constants
-    ├── catalog/                     # compact count/date/estimate formatters
+    ├── catalog/                     # compact count/date/estimate formatters + URL filter helpers
     ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl, useViewportWidth
     ├── images/                      # imageStore, imageBlobCache, imagePersistence, imageLoad
     ├── layout/                      # toolbarPosition (cross-feature menu chrome math)
@@ -104,13 +103,13 @@ src/
     ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors, zIndex
     └── ui/                          # ActionButton, Button, buttonBase, PrimaryButton, SecondaryButton,
                                      # ColorInput, ErrorBoundary, PickerGrid, SettingsSection,
-                                     # TextArea, TextInput, UploadDropzone
+                                     # settings controls, TextArea, TextInput, UploadDropzone
 
 packages/contracts/                  # @tierlistbuilder/contracts — cross-runtime wire types
 ├── lib/                             # ids, theme, themeDefinition
 ├── marketplace/                     # public template marketplace contracts + category taxonomy
-├── workspace/                       # board, boardEnvelope, boardSync, cloudBoard, cloudPreset, settings, tierPreset
-└── platform/                        # errors, media, shortLink, uploadEnvelope, user
+├── workspace/                       # board, boardEnvelope, boardSync, cloudBoard, cloudPreset, tierPreset
+└── platform/                        # errors, media, preferences, shortLink, uploadEnvelope, user
 ```
 
 ## State Management
@@ -121,7 +120,7 @@ Four Zustand stores form the workspace data layer:
 
 **`useWorkspaceBoardRegistryStore`** (`features/workspace/boards/model/useWorkspaceBoardRegistryStore.ts`) — multi-board registry. Uses Zustand `persist` middleware with `partialize` to persist `boards` and `activeBoardId`. Handles create, switch, delete, duplicate, and rename. Active-board autosave is registered by `features/workspace/boards/model/boardSession.ts`, which keeps registry coordination and local persistence behind the model facade.
 
-**`useSettingsStore`** (`features/workspace/settings/model/useSettingsStore.ts`) — global user preferences (item size, shape, label visibility, compact mode, label width, theme, palette, text style, reduced motion, toolbar position, etc.). Persisted independently.
+**`usePreferencesStore`** (`features/platform/preferences/model/usePreferencesStore.ts`) — global user preferences (item size, shape, label visibility, compact mode, label width, theme, palette, text style, reduced motion, toolbar position, etc.). Persisted independently.
 
 **`useTierPresetStore`** (`features/workspace/tier-presets/model/useTierPresetStore.ts`) — user-saved tier structure presets. Persisted independently. Built-in presets (Classic, Top 10, Yes/No/Maybe, etc.) are defined in `tierPresets.ts` and merged at runtime.
 
@@ -132,11 +131,11 @@ Persistence is split across features instead of living in a single monolithic `s
 - `features/workspace/boards/model/boardSession.ts` — model facade for session bootstrap, autosave subscription, CRUD, registry coordination, event listeners, and persistence wrappers
 - `features/workspace/boards/model/session/*` — board-session internals split by autosave, bootstrap, CRUD, events, persistence, registry, and storage warning reporting
 - `features/workspace/boards/data/local/boardStorage.ts` — per-board localStorage I/O, versioned envelopes, typed `ok`/`missing`/`corrupted` load outcomes, quota error messaging
-- `features/workspace/settings/data/local/settingsStorage.ts` — settings storage key & schema version
+- `features/platform/preferences/data/local/preferencesStorage.ts` — preference storage key & schema version
 - `features/workspace/tier-presets/data/local/tierPresetStorage.ts` — preset storage key & schema version
 - `shared/lib/browserStorage.ts` — generic localStorage wrapper, Zustand persist adapter
 - `shared/lib/storageMetering.ts` — quota estimation, near-full warnings
-- `shared/lib/sync/ownedSyncMeta.ts` — shared owner-scoped pending/synced timestamp helpers for settings and preset sidecars
+- `shared/lib/sync/ownedSyncMeta.ts` — shared owner-scoped pending/synced timestamp helpers for preference and preset sidecars
 
 Pre-1.0 storage changes are allowed to be breaking. Incompatible localStorage or
 IndexedDB payloads should be wiped by version reset/recreation instead of
@@ -154,10 +153,10 @@ grace window. IndexedDB schema changes use a reset, not old-blob migration.
 Cloud sync is split between platform lifecycle and workspace adapters:
 
 - `features/platform/sync/orchestration/createSyncSession.ts` owns platform startup: online/offline connectivity wiring, auth-epoch lifetime, and board sync status reporting.
-- `features/workspace/sync/workspaceSyncSession.ts` owns workspace sync adapters for boards, settings, tier presets, board deletes, pending sidecar recovery, first-login workspace merges, and conflict queueing.
+- `features/workspace/sync/workspaceSyncSession.ts` owns workspace sync adapters for boards, preferences, tier presets, board deletes, pending sidecar recovery, first-login workspace merges, and conflict queueing.
 - `features/workspace/sync/useWorkspaceBoardSyncSubscriber.ts` observes active board edits and forwards `PendingBoardSync` work into the workspace session after the first-login board merge gate opens.
 - Per-slice cloud transport remains under `features/workspace/*/data/cloud/`; platform orchestration does not import those modules directly.
-- `shared/lib/sync/debouncedSyncRunner.ts` is the shared debounce/retry kernel. Settings and presets use it directly; board sync wraps it through `cloudSyncScheduler.ts` for peer-tab locks, conflict pauses, pending marker persistence, and permanent-error cleanup.
+- `shared/lib/sync/debouncedSyncRunner.ts` is the shared debounce/retry kernel. Preferences and presets use it directly; board sync wraps it through `cloudSyncScheduler.ts` for peer-tab locks, conflict pauses, pending marker persistence, and permanent-error cleanup.
 
 ## Drag and Drop
 
@@ -293,7 +292,7 @@ Toolbar-position-aware submenu class sets live in `shared/layout/toolbarPosition
 - `tierColors.ts` — `TierColorSpec` resolution against the active palette
 - `zIndex.ts` — centralized `Z` stacking layers for overlays, drag preview, offscreen export host
 
-The `useThemeSync` hook (called in `WorkspaceShell` from `src/app/bootstrap/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `useSettingsStore` to `:root`. `EmbedShell` calls `useLockedTheme('classic', 'default')` so embed iframes render a stable theme regardless of the host's preference. Non-system fonts are loaded dynamically from Google Fonts.
+The `useThemeSync` hook (`features/platform/preferences/model/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `usePreferencesStore` to `:root`. `WorkspaceShell` layers board text-style overrides through `useBoardThemeOverrides()`. `EmbedShell` calls `useLockedTheme('classic', 'default')` so embed iframes render a stable theme regardless of the host's preference. Non-system fonts are loaded dynamically from Google Fonts.
 
 ## Export Pipeline
 
@@ -320,6 +319,7 @@ Share/export image behavior is intentionally split by carrier:
 - `shared/board-data/*`, `shared/board-ui/*`, `shared/sharing/*`, and `shared/routes/*` are the neutral homes for current board snapshot, rendering, share-codec, and route-path helpers.
 - The embed shell resolves shares through `features/platform/share/*`, renders through `shared/board-ui/*`, and never mounts the editable active-board store.
 - Workspace owns activation of cloud-backed boards via `features/workspace/boards/model/cloudBoardActivation.ts`; marketplace/library callers do not reach through workspace persistence internals directly.
+- Workspace exposes publishable-board scanning via `features/workspace/boards/model/usePublishableBoards.ts`; marketplace publish UI does not read board storage directly.
 - UI (`ui/`) → model (`model/`) → data (`data/{local,cloud}/`). Components don't call localStorage or Convex directly — they go through `model/` selectors or `data/*` helpers.
 - Platform sync orchestration owns auth/connectivity/status only and starts `features/workspace/sync/`; it does not import workspace `data/*` modules directly.
 - Per-slice cloud transport (Convex args, mappers) lives in the owning slice. Platform media and share repositories own storage upload URLs, media finalization, and short-link lookups.
@@ -336,8 +336,8 @@ Anything that crosses a process boundary — localStorage, JSON exports, share l
 - `lib/theme.ts`, `lib/themeDefinition.ts` — `ThemeId`, `PaletteId`, `TextStyleId`.
 - `marketplace/category.ts` — template category taxonomy shared by contracts, Convex validators, and UI filters.
 - `marketplace/template.ts` — public template summary/detail/draft/use contracts.
+- `platform/preferences.ts` — `AppPreferences`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
 - `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`.
-- `workspace/settings.ts` — `AppSettings`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
 - `workspace/tierPreset.ts` — `TierPreset`, `TierPresetTier`.
 - `workspace/cloudBoard.ts`, `workspace/cloudPreset.ts`, `workspace/boardSync.ts`, `workspace/boardEnvelope.ts` — cloud-sync & envelope wire types.
 - `platform/errors.ts`, `platform/media.ts`, `platform/shortLink.ts`, `platform/user.ts` — platform-level shared contracts.
@@ -354,14 +354,14 @@ Types that only live in memory stay in the frontend tree, collocated w/ the stor
 
 ## Backend
 
-The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,settings,sync,tierPresets}`, `platform/{media,shortLinks}`, and `marketplace/templates`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
+The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{media,preferences,shortLinks}`, and `marketplace/templates`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
 
 Key boundary: **UI components never call Convex directly**. Every query & mutation flows through a per-feature adapter, platform repository, or auth hook. This keeps wire types, error surfaces, and retry policy out of the UI layer.
 
 Schema (`convex/schema.ts`) defines the app-owned tables alongside `@convex-dev/auth`'s `authTables`:
 
 - `users` — extends auth-managed fields w/ app-owned `displayName`, `avatarStorageId`, `tier`, timestamps.
-- `userSettings` — per-user mirror of `AppSettings`.
+- `userPreferences` — per-user mirror of `AppPreferences`.
 - `boards` — owner-scoped boards w/ revision, source-template link, soft-delete tombstone, aspect-ratio fields, and per-board style overrides.
 - `boardTiers` / `boardItems` — ordered rows keyed by fractional `order` numbers. `boardItems` carry `aspectRatio` & `imageFit` overrides.
 - `mediaAssets` — uploaded image metadata, content-hash deduplicated, indexed by owner + hash.

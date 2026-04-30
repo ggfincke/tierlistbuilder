@@ -5,7 +5,7 @@
 import { Layers } from 'lucide-react'
 import { useId } from 'react'
 
-import type { PublishableBoard } from '~/features/marketplace/model/useMyPublishableBoards'
+import type { PublishableBoard } from '~/features/workspace/boards/model/usePublishableBoards'
 import { formatRelativeTime } from '~/shared/catalog/formatters'
 
 interface BoardPickerProps
@@ -79,7 +79,7 @@ export const BoardPicker = ({
                   {board.itemCount} {board.itemCount === 1 ? 'item' : 'items'}
                 </span>
                 <span>·</span>
-                <span>created {formatRelativeTime(board.updatedAt ?? 0)}</span>
+                <span>created {formatRelativeTime(board.createdAt)}</span>
               </div>
             </div>
           </label>
