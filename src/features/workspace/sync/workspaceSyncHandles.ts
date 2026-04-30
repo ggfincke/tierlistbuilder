@@ -2,9 +2,9 @@
 // handle registry for workspace-owned cloud sync adapters
 
 import {
-  setupSettingsCloudSync,
-  type SettingsCloudSyncHandle,
-} from '~/features/workspace/settings/data/cloud/cloudSync'
+  setupPreferencesCloudSync,
+  type PreferencesCloudSyncHandle,
+} from '~/features/platform/preferences/data/cloud/cloudSync'
 import {
   setupTierPresetCloudSync,
   type TierPresetCloudSyncHandle,
@@ -22,10 +22,10 @@ export interface WorkspaceSyncInstallOptions
 
 export interface WorkspaceSyncHandleRegistry
 {
-  settingsRef: { current: SettingsCloudSyncHandle | null }
+  preferencesRef: { current: PreferencesCloudSyncHandle | null }
   presetsRef: { current: TierPresetCloudSyncHandle | null }
   boardDeleteRef: { current: BoardDeleteCloudSyncHandle | null }
-  installSettings: (options: WorkspaceSyncInstallOptions) => void
+  installPreferences: (options: WorkspaceSyncInstallOptions) => void
   installPresets: (options: WorkspaceSyncInstallOptions) => void
   disposeAll: () => void
 }
@@ -33,7 +33,7 @@ export interface WorkspaceSyncHandleRegistry
 export const createWorkspaceSyncHandleRegistry =
   (): WorkspaceSyncHandleRegistry =>
   {
-    const settingsRef: { current: SettingsCloudSyncHandle | null } = {
+    const preferencesRef: { current: PreferencesCloudSyncHandle | null } = {
       current: null,
     }
     const presetsRef: { current: TierPresetCloudSyncHandle | null } = {
@@ -43,16 +43,16 @@ export const createWorkspaceSyncHandleRegistry =
       current: null,
     }
 
-    const installSettings = ({
+    const installPreferences = ({
       userId,
       isOnline,
       shouldProceed,
       onInstalled,
     }: WorkspaceSyncInstallOptions): void =>
     {
-      if (!shouldProceed() || settingsRef.current) return
+      if (!shouldProceed() || preferencesRef.current) return
 
-      settingsRef.current = setupSettingsCloudSync({
+      preferencesRef.current = setupPreferencesCloudSync({
         debounceMs: CLOUD_SYNC_DEBOUNCE_MS,
         userId,
         isOnline,
@@ -82,13 +82,13 @@ export const createWorkspaceSyncHandleRegistry =
     const disposeAll = (): void =>
     {
       const handles = [
-        settingsRef.current,
+        preferencesRef.current,
         presetsRef.current,
         boardDeleteRef.current,
       ].filter(
         (handle): handle is NonNullable<typeof handle> => handle !== null
       )
-      settingsRef.current = null
+      preferencesRef.current = null
       presetsRef.current = null
       boardDeleteRef.current = null
       if (handles.length > 0)
@@ -98,10 +98,10 @@ export const createWorkspaceSyncHandleRegistry =
     }
 
     return {
-      settingsRef,
+      preferencesRef,
       presetsRef,
       boardDeleteRef,
-      installSettings,
+      installPreferences,
       installPresets,
       disposeAll,
     }

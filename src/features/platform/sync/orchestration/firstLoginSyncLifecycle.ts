@@ -7,10 +7,10 @@ interface FirstLoginSyncLifecycleOptions
 {
   shouldProceed: () => boolean
   runBoardMerge: () => Promise<void>
-  runSettingsMerge: () => Promise<unknown>
+  runPreferencesMerge: () => Promise<unknown>
   runPresetMerge: () => Promise<unknown>
   onBoardMergeSettled: () => void
-  onSettingsMergeSettled: () => void
+  onPreferencesMergeSettled: () => void
   onPresetMergeSettled: () => void
 }
 
@@ -36,10 +36,10 @@ const runAuxiliaryMerge = async (
 export const runFirstLoginSyncLifecycle = async ({
   shouldProceed,
   runBoardMerge,
-  runSettingsMerge,
+  runPreferencesMerge,
   runPresetMerge,
   onBoardMergeSettled,
-  onSettingsMergeSettled,
+  onPreferencesMergeSettled,
   onPresetMergeSettled,
 }: FirstLoginSyncLifecycleOptions): Promise<void> =>
 {
@@ -74,7 +74,11 @@ export const runFirstLoginSyncLifecycle = async ({
   }
 
   await Promise.allSettled([
-    runAuxiliaryMerge(runSettingsMerge, onSettingsMergeSettled, shouldProceed),
+    runAuxiliaryMerge(
+      runPreferencesMerge,
+      onPreferencesMergeSettled,
+      shouldProceed
+    ),
     runAuxiliaryMerge(runPresetMerge, onPresetMergeSettled, shouldProceed),
   ])
 }

@@ -1,8 +1,7 @@
 // src/features/marketplace/model/useGalleryFilters.ts
 // URL-canonical filter state for gallery search, category, tag, & sort
 
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useCallback } from 'react'
 
 import {
   MAX_TEMPLATE_TAG_LENGTH,
@@ -13,6 +12,14 @@ import {
   TEMPLATE_CATEGORIES,
   type TemplateCategory,
 } from '@tierlistbuilder/contracts/marketplace/category'
+import {
+  createPatchedSearchParams,
+  isStringMember,
+  readSearchParam,
+  useUrlFilterParams,
+  writeOptionalParam,
+  writeSearchParam,
+} from '~/shared/catalog/urlFilters'
 
 const SEARCH_DEBOUNCE_MS = 250
 const DEFAULT_SORT: TemplateListSort = 'recent'
@@ -26,15 +33,10 @@ export interface GalleryFilterParams
 }
 
 const isCategory = (value: string | null): value is TemplateCategory =>
-  typeof value === 'string' &&
-  (TEMPLATE_CATEGORIES as readonly string[]).includes(value)
+  isStringMember(value, TEMPLATE_CATEGORIES)
 
 const isSort = (value: string | null): value is TemplateListSort =>
-  typeof value === 'string' &&
-  (TEMPLATE_LIST_SORTS as readonly string[]).includes(value)
-
-const normalizeSearchFromUrl = (value: string | null): string =>
-  typeof value === 'string' ? value : ''
+  isStringMember(value, TEMPLATE_LIST_SORTS)
 
 const normalizeTagFromUrl = (value: string | null): string | null =>
 {
@@ -42,30 +44,6 @@ const normalizeTagFromUrl = (value: string | null): string | null =>
   const tag = value.trim().toLowerCase()
   if (!tag || tag.length > MAX_TEMPLATE_TAG_LENGTH) return null
   return tag
-}
-
-const writeOptionalParam = (
-  params: URLSearchParams,
-  key: string,
-  value: string | null
-) =>
-{
-  if (value)
-  {
-    params.set(key, value)
-    return
-  }
-  params.delete(key)
-}
-
-const writeSearchParam = (params: URLSearchParams, value: string) =>
-{
-  if (value.trim())
-  {
-    params.set('q', value)
-    return
-  }
-  params.delete('q')
 }
 
 export const parseGalleryFilterParams = (
@@ -76,39 +54,40 @@ export const parseGalleryFilterParams = (
   const sortParam = params.get('sort')
 
   return {
-    search: normalizeSearchFromUrl(params.get('q')),
+    search: readSearchParam(params.get('q')),
     category: isCategory(categoryParam) ? categoryParam : null,
     tag: normalizeTagFromUrl(params.get('tag')),
     sort: isSort(sortParam) ? sortParam : DEFAULT_SORT,
   }
 }
 
+const writeGalleryFilterParams = (
+  params: URLSearchParams,
+  filters: GalleryFilterParams
+): void =>
+{
+  writeSearchParam(params, 'q', filters.search)
+  writeOptionalParam(params, 'cat', filters.category)
+  writeOptionalParam(params, 'tag', normalizeTagFromUrl(filters.tag))
+
+  if (filters.sort === DEFAULT_SORT)
+  {
+    params.delete('sort')
+    return
+  }
+  params.set('sort', filters.sort)
+}
+
 export const createGalleryFilterSearchParams = (
   current: URLSearchParams,
   patch: Partial<GalleryFilterParams>
 ): URLSearchParams =>
-{
-  const nextFilters = {
-    ...parseGalleryFilterParams(current),
-    ...patch,
-  }
-  const next = new URLSearchParams(current)
-
-  writeSearchParam(next, nextFilters.search)
-  writeOptionalParam(next, 'cat', nextFilters.category)
-  writeOptionalParam(next, 'tag', normalizeTagFromUrl(nextFilters.tag))
-
-  if (nextFilters.sort === DEFAULT_SORT)
-  {
-    next.delete('sort')
-  }
-  else
-  {
-    next.set('sort', nextFilters.sort)
-  }
-
-  return next
-}
+  createPatchedSearchParams(
+    current,
+    patch,
+    parseGalleryFilterParams,
+    writeGalleryFilterParams
+  )
 
 export interface GalleryFilters
 {
@@ -125,48 +104,11 @@ export interface GalleryFilters
 
 export const useGalleryFilters = (): GalleryFilters =>
 {
-  const [params, setParams] = useSearchParams()
-  const filters = parseGalleryFilterParams(params)
-  const [searchDebounced, setSearchDebounced] = useState(filters.search.trim())
-  const paramsKey = params.toString()
-
-  const commitFilters = useCallback(
-    (
-      patch: Partial<GalleryFilterParams>,
-      options?: Parameters<typeof setParams>[1]
-    ) =>
-    {
-      const next = createGalleryFilterSearchParams(params, patch)
-      if (next.toString() !== params.toString())
-      {
-        setParams(next, options)
-      }
-    },
-    [params, setParams]
-  )
-
-  useEffect(() =>
-  {
-    const next = createGalleryFilterSearchParams(params, {})
-    if (next.toString() !== paramsKey)
-    {
-      setParams(next, { replace: true })
-    }
-  }, [params, paramsKey, setParams])
-
-  useEffect(() =>
-  {
-    const nextSearch = filters.search.trim()
-    if (searchDebounced === nextSearch) return
-    const timeout = window.setTimeout(() =>
-    {
-      setSearchDebounced(nextSearch)
-    }, SEARCH_DEBOUNCE_MS)
-    return () =>
-    {
-      window.clearTimeout(timeout)
-    }
-  }, [filters.search, searchDebounced])
+  const { filters, searchDebounced, commitFilters } = useUrlFilterParams({
+    debounceMs: SEARCH_DEBOUNCE_MS,
+    parse: parseGalleryFilterParams,
+    create: createGalleryFilterSearchParams,
+  })
 
   const setSearch = useCallback(
     (next: string) =>

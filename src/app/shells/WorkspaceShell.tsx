@@ -5,10 +5,7 @@ import { useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
-import {
-  useBoardThemeOverrides,
-  useThemeSync,
-} from '~/app/bootstrap/useThemeSync'
+import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
 import { useModalStack } from '~/app/shells/useModalStack'
 import { WorkspaceModalLayer } from '~/app/shells/WorkspaceModalLayer'
 import { useWorkspaceExportActions } from '~/app/shells/useWorkspaceExportActions'
@@ -24,7 +21,8 @@ import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
 import { useCurrentPageBackground } from '~/features/workspace/settings/model/useCurrentPageBackground'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useBoardThemeOverrides } from '~/features/workspace/settings/model/useBoardThemeOverrides'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useCloudSync } from '~/features/platform/sync/orchestration/useCloudSync'
@@ -48,7 +46,7 @@ export const WorkspaceShell = () =>
       }))
     )
   const { toolbarPosition: rawToolbarPosition, reducedMotion } =
-    useSettingsStore(
+    usePreferencesStore(
       useShallow((state) => ({
         toolbarPosition: state.toolbarPosition,
         reducedMotion: state.reducedMotion,

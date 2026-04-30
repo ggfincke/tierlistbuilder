@@ -87,12 +87,12 @@ convex/
     validators.ts     # v.object() shapes mirroring packages/contracts
   platform/
     media/            # mediaAssets uploads (signed envelopes), queries, GC
+    preferences/      # userPreferences get/upsert
     shortLinks/       # share-link slug resolution, listing, mutations, TTL sweeper
   marketplace/
     templates/        # public template publishing, gallery reads, clone-to-board
   workspace/
     boards/           # boards CRUD + cascade delete + upsertBoardState
-    settings/         # userSettings get/upsert
     sync/             # local/cloud board merge, reconciliation, bounded row loader
     tierPresets/      # user preset CRUD
   auth.config.ts      # auth.js provider domain config

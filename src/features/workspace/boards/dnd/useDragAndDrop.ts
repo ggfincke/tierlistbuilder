@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core'
 
 import { animateDropDistribute } from './dragDropAnimation'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { announce } from '~/shared/a11y/announce'
 import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from './dragCollision'
@@ -317,7 +317,7 @@ export const useDragAndDrop = () =>
         groupIdsBeforeCommit,
         overlayOrigin.x,
         overlayOrigin.y,
-        { reducedMotion: useSettingsStore.getState().reducedMotion }
+        { reducedMotion: usePreferencesStore.getState().reducedMotion }
       )
     }
   }

@@ -9,9 +9,9 @@ import {
   LABEL_WIDTHS,
   TIER_LABEL_FONT_SIZES,
   TOOLBAR_POSITIONS,
-  type AppSettings,
-  type CloudSettingsRead,
-} from '@tierlistbuilder/contracts/workspace/settings'
+  type AppPreferences,
+  type CloudPreferencesRead,
+} from '@tierlistbuilder/contracts/platform/preferences'
 import {
   LABEL_SCRIMS,
   LABEL_TEXT_COLORS,
@@ -111,8 +111,8 @@ export const templateCategoryValidator = literalUnion(TEMPLATE_CATEGORIES)
 export const templateListSortValidator = literalUnion(TEMPLATE_LIST_SORTS)
 export const templateVisibilityValidator = literalUnion(TEMPLATE_VISIBILITIES)
 
-// full AppSettings shape — must stay in sync w/ packages/contracts/workspace/settings.ts
-export const appSettingsValidator = v.object({
+// full AppPreferences shape — must stay in sync w/ packages/contracts/platform/preferences.ts
+export const appPreferencesValidator = v.object({
   itemSize: itemSizeValidator,
   showLabels: v.boolean(),
   itemShape: itemShapeValidator,
@@ -135,15 +135,15 @@ export const appSettingsValidator = v.object({
   autoCropTrimSoftShadows: v.boolean(),
 })
 
-// compile-time coverage check — AppSettings fields added, removed, or renamed
-// w/o updating appSettingsValidator fail the build via _Assert<true>
+// compile-time coverage check — AppPreferences fields added, removed, or renamed
+// w/o updating appPreferencesValidator fail the build via _Assert<true>
 type _Assert<T extends true> = T
-type _AppSettingsValidatorInfer = Infer<typeof appSettingsValidator>
-export type _AppSettingsCovers = _Assert<
-  AppSettings extends _AppSettingsValidatorInfer ? true : false
+type _AppPreferencesValidatorInfer = Infer<typeof appPreferencesValidator>
+export type _AppPreferencesCovers = _Assert<
+  AppPreferences extends _AppPreferencesValidatorInfer ? true : false
 >
-export type _AppSettingsNoExtra = _Assert<
-  _AppSettingsValidatorInfer extends AppSettings ? true : false
+export type _AppPreferencesNoExtra = _Assert<
+  _AppPreferencesValidatorInfer extends AppPreferences ? true : false
 >
 
 // same coverage discipline for theme/palette/text-style & tier-preset-tier shape —
@@ -394,9 +394,9 @@ export const tierPresetCloudRowValidator = v.object({
   updatedAt: v.number(),
 })
 
-// settings read payload — mirrors the shape returned by getMySettings
-export const cloudSettingsReadValidator = v.object({
-  settings: appSettingsValidator,
+// preferences read payload — mirrors the shape returned by getMyPreferences
+export const cloudPreferencesReadValidator = v.object({
+  preferences: appPreferencesValidator,
   updatedAt: v.number(),
 })
 
@@ -779,13 +779,13 @@ export type _MarketplaceTemplateUseResultNoExtra = _Assert<
     : false
 >
 
-export type _CloudSettingsReadCovers = _Assert<
-  CloudSettingsRead extends Infer<typeof cloudSettingsReadValidator>
+export type _CloudPreferencesReadCovers = _Assert<
+  CloudPreferencesRead extends Infer<typeof cloudPreferencesReadValidator>
     ? true
     : false
 >
-export type _CloudSettingsReadNoExtra = _Assert<
-  Infer<typeof cloudSettingsReadValidator> extends CloudSettingsRead
+export type _CloudPreferencesReadNoExtra = _Assert<
+  Infer<typeof cloudPreferencesReadValidator> extends CloudPreferencesRead
     ? true
     : false
 >

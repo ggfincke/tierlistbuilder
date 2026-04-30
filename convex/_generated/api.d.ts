@@ -32,6 +32,8 @@ import type * as marketplace_templates_seed from "../marketplace/templates/seed.
 import type * as platform_media_internal from "../platform/media/internal.js";
 import type * as platform_media_queries from "../platform/media/queries.js";
 import type * as platform_media_uploads from "../platform/media/uploads.js";
+import type * as platform_preferences_mutations from "../platform/preferences/mutations.js";
+import type * as platform_preferences_queries from "../platform/preferences/queries.js";
 import type * as platform_shortLinks_internal from "../platform/shortLinks/internal.js";
 import type * as platform_shortLinks_listing from "../platform/shortLinks/listing.js";
 import type * as platform_shortLinks_mutations from "../platform/shortLinks/mutations.js";
@@ -42,8 +44,6 @@ import type * as workspace_boards_librarySummary from "../workspace/boards/libra
 import type * as workspace_boards_mutations from "../workspace/boards/mutations.js";
 import type * as workspace_boards_queries from "../workspace/boards/queries.js";
 import type * as workspace_boards_upsertBoardState from "../workspace/boards/upsertBoardState.js";
-import type * as workspace_settings_mutations from "../workspace/settings/mutations.js";
-import type * as workspace_settings_queries from "../workspace/settings/queries.js";
 import type * as workspace_sync_boardReconciler from "../workspace/sync/boardReconciler.js";
 import type * as workspace_sync_boardStateLoader from "../workspace/sync/boardStateLoader.js";
 import type * as workspace_sync_loadBoundedBoardRows from "../workspace/sync/loadBoundedBoardRows.js";
@@ -81,6 +81,8 @@ declare const fullApi: ApiFromModules<{
   "platform/media/internal": typeof platform_media_internal;
   "platform/media/queries": typeof platform_media_queries;
   "platform/media/uploads": typeof platform_media_uploads;
+  "platform/preferences/mutations": typeof platform_preferences_mutations;
+  "platform/preferences/queries": typeof platform_preferences_queries;
   "platform/shortLinks/internal": typeof platform_shortLinks_internal;
   "platform/shortLinks/listing": typeof platform_shortLinks_listing;
   "platform/shortLinks/mutations": typeof platform_shortLinks_mutations;
@@ -91,8 +93,6 @@ declare const fullApi: ApiFromModules<{
   "workspace/boards/mutations": typeof workspace_boards_mutations;
   "workspace/boards/queries": typeof workspace_boards_queries;
   "workspace/boards/upsertBoardState": typeof workspace_boards_upsertBoardState;
-  "workspace/settings/mutations": typeof workspace_settings_mutations;
-  "workspace/settings/queries": typeof workspace_settings_queries;
   "workspace/sync/boardReconciler": typeof workspace_sync_boardReconciler;
   "workspace/sync/boardStateLoader": typeof workspace_sync_boardStateLoader;
   "workspace/sync/loadBoundedBoardRows": typeof workspace_sync_loadBoundedBoardRows;

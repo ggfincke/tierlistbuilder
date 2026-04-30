@@ -23,10 +23,10 @@ const createDeferred = <T>(): DeferredPromise<T> =>
 
 describe('firstLoginSyncLifecycle', () =>
 {
-  it('re-enables board sync before settings & presets settle', async () =>
+  it('re-enables board sync before preferences & presets settle', async () =>
   {
     const board = createDeferred<void>()
-    const settings = createDeferred<void>()
+    const preferences = createDeferred<void>()
     const presets = createDeferred<void>()
     const events: string[] = []
     let lifecycleSettled = false
@@ -39,11 +39,11 @@ describe('firstLoginSyncLifecycle', () =>
         await board.promise
         events.push('board:done')
       },
-      runSettingsMerge: async () =>
+      runPreferencesMerge: async () =>
       {
-        events.push('settings:start')
-        await settings.promise
-        events.push('settings:done')
+        events.push('preferences:start')
+        await preferences.promise
+        events.push('preferences:done')
       },
       runPresetMerge: async () =>
       {
@@ -55,9 +55,9 @@ describe('firstLoginSyncLifecycle', () =>
       {
         events.push('board:settled')
       },
-      onSettingsMergeSettled: () =>
+      onPreferencesMergeSettled: () =>
       {
-        events.push('settings:settled')
+        events.push('preferences:settled')
       },
       onPresetMergeSettled: () =>
       {
@@ -78,22 +78,22 @@ describe('firstLoginSyncLifecycle', () =>
       'board:start',
       'board:done',
       'board:settled',
-      'settings:start',
+      'preferences:start',
       'preset:start',
     ])
     expect(lifecycleSettled).toBe(false)
 
-    settings.resolve()
+    preferences.resolve()
     await flushPromises()
 
     expect(events).toEqual([
       'board:start',
       'board:done',
       'board:settled',
-      'settings:start',
+      'preferences:start',
       'preset:start',
-      'settings:done',
-      'settings:settled',
+      'preferences:done',
+      'preferences:settled',
     ])
     expect(lifecycleSettled).toBe(false)
 
@@ -104,10 +104,10 @@ describe('firstLoginSyncLifecycle', () =>
       'board:start',
       'board:done',
       'board:settled',
-      'settings:start',
+      'preferences:start',
       'preset:start',
-      'settings:done',
-      'settings:settled',
+      'preferences:done',
+      'preferences:settled',
       'preset:done',
       'preset:settled',
     ])
@@ -128,9 +128,9 @@ describe('firstLoginSyncLifecycle', () =>
         await board.promise
         events.push('board:done')
       },
-      runSettingsMerge: async () =>
+      runPreferencesMerge: async () =>
       {
-        events.push('settings:start')
+        events.push('preferences:start')
       },
       runPresetMerge: async () =>
       {
@@ -140,9 +140,9 @@ describe('firstLoginSyncLifecycle', () =>
       {
         events.push('board:settled')
       },
-      onSettingsMergeSettled: () =>
+      onPreferencesMergeSettled: () =>
       {
-        events.push('settings:settled')
+        events.push('preferences:settled')
       },
       onPresetMergeSettled: () =>
       {

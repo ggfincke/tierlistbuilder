@@ -6,14 +6,14 @@ import type { ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { ColorInput } from '~/shared/ui/ColorInput'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { THEMES } from '~/shared/theme/tokens'
-import { PalettePicker } from './PalettePicker'
-import { SettingRow } from './SettingRow'
-import { TextStylePicker } from './TextStylePicker'
-import { Toggle } from './Toggle'
+import { PalettePicker } from '~/shared/ui/settings/PalettePicker'
+import { SettingRow } from '~/shared/ui/settings/SettingRow'
+import { TextStylePicker } from '~/shared/ui/settings/TextStylePicker'
+import { Toggle } from '~/shared/ui/settings/Toggle'
 
 interface OverrideSectionProps
 {
@@ -42,10 +42,10 @@ const OverrideSection = ({
 
 export const AppearanceTab = () =>
 {
-  const userPaletteId = useSettingsStore((s) => s.paletteId)
-  const userTextStyleId = useSettingsStore((s) => s.textStyleId)
-  const userBgOverride = useSettingsStore((s) => s.boardBackgroundOverride)
-  const themeId = useSettingsStore((s) => s.themeId)
+  const userPaletteId = usePreferencesStore((s) => s.paletteId)
+  const userTextStyleId = usePreferencesStore((s) => s.textStyleId)
+  const userBgOverride = usePreferencesStore((s) => s.boardBackgroundOverride)
+  const themeId = usePreferencesStore((s) => s.themeId)
 
   const {
     paletteOverride,

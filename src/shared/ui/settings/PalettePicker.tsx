@@ -1,4 +1,4 @@
-// src/features/workspace/settings/ui/PalettePicker.tsx
+// src/shared/ui/settings/PalettePicker.tsx
 // controlled palette preview picker for defaults & per-board overrides
 
 import { PALETTE_META, PALETTES } from '~/shared/theme/palettes'

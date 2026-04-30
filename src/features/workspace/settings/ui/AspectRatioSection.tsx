@@ -25,9 +25,9 @@ import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { useBoardAspectRatioPicker } from '../model/useBoardAspectRatioPicker'
 import { AspectRatioChips, CustomRatioInput } from './AspectRatioPicker'
-import { SegmentedControl } from './SegmentedControl'
-import { SettingRow } from './SettingRow'
-import { Toggle } from './Toggle'
+import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
+import { SettingRow } from '~/shared/ui/settings/SettingRow'
+import { Toggle } from '~/shared/ui/settings/Toggle'
 
 const MAX_GROUP_THUMBNAILS = 3
 

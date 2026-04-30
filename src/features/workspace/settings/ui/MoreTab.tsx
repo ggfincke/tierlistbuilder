@@ -11,7 +11,7 @@ import {
   createBoardSessionFromPreset,
 } from '~/features/workspace/boards/model/boardSession'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { ColorInput } from '~/shared/ui/ColorInput'
 import {
   STORAGE_NEAR_FULL_MESSAGE,
@@ -23,8 +23,8 @@ import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPi
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
-import { SettingRow } from './SettingRow'
-import { Toggle } from './Toggle'
+import { SettingRow } from '~/shared/ui/settings/SettingRow'
+import { Toggle } from '~/shared/ui/settings/Toggle'
 
 interface MoreTabProps
 {
@@ -46,7 +46,7 @@ export const MoreTab = ({
     confirmBeforeDelete,
     setExportBackgroundOverride,
     setConfirmBeforeDelete,
-  } = useSettingsStore(
+  } = usePreferencesStore(
     useShallow((state) => ({
       exportBackgroundOverride: state.exportBackgroundOverride,
       themeId: state.themeId,

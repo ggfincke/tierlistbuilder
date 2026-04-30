@@ -6,7 +6,7 @@ import { createRoot, type Root } from 'react-dom/client'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance } from '../model/runtime'
-import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
+import type { AppPreferences } from '@tierlistbuilder/contracts/platform/preferences'
 import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
 import { EXPORT_BOARD_ROOT_SELECTOR } from '~/shared/board-ui/boardTestIds'
 import { Z } from '~/shared/theme/zIndex'
@@ -25,20 +25,20 @@ interface ExportCaptureSessionOptions
   backgroundColor: string
 }
 
-// pick only the settings that affect export board rendering
+// pick only the preferences that affect export board rendering
 export const getExportAppearance = (
-  settings: AppSettings
+  preferences: AppPreferences
 ): ExportAppearance => ({
-  itemSize: settings.itemSize,
-  showLabels: settings.showLabels,
-  itemShape: settings.itemShape,
-  compactMode: settings.compactMode,
-  labelWidth: settings.labelWidth,
-  paletteId: settings.paletteId,
-  textStyleId: settings.textStyleId,
-  tierLabelBold: settings.tierLabelBold,
-  tierLabelItalic: settings.tierLabelItalic,
-  tierLabelFontSize: settings.tierLabelFontSize,
+  itemSize: preferences.itemSize,
+  showLabels: preferences.showLabels,
+  itemShape: preferences.itemShape,
+  compactMode: preferences.compactMode,
+  labelWidth: preferences.labelWidth,
+  paletteId: preferences.paletteId,
+  textStyleId: preferences.textStyleId,
+  tierLabelBold: preferences.tierLabelBold,
+  tierLabelItalic: preferences.tierLabelItalic,
+  tierLabelFontSize: preferences.tierLabelFontSize,
 })
 
 const waitForNextFrame = (): Promise<void> =>

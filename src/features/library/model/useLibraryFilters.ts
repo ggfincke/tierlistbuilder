@@ -1,8 +1,7 @@
 // src/features/library/model/useLibraryFilters.ts
 // URL-canonical filter, sort, view, density, & search state for My Lists
 
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useCallback } from 'react'
 
 import {
   LIBRARY_BOARD_DENSITIES,
@@ -14,6 +13,14 @@ import {
   type LibraryBoardSort,
   type LibraryBoardView,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  createPatchedSearchParams,
+  isStringMember,
+  readSearchParam,
+  useUrlFilterParams,
+  writeDefaultedParam,
+  writeSearchParam,
+} from '~/shared/catalog/urlFilters'
 
 const SEARCH_DEBOUNCE_MS = 200
 
@@ -34,48 +41,16 @@ export interface LibraryFilterParams
 }
 
 const isFilter = (value: string | null): value is LibraryBoardFilter =>
-  typeof value === 'string' &&
-  (LIBRARY_BOARD_FILTERS as readonly string[]).includes(value)
+  isStringMember(value, LIBRARY_BOARD_FILTERS)
 
 const isSort = (value: string | null): value is LibraryBoardSort =>
-  typeof value === 'string' &&
-  (LIBRARY_BOARD_SORTS as readonly string[]).includes(value)
+  isStringMember(value, LIBRARY_BOARD_SORTS)
 
 const isView = (value: string | null): value is LibraryBoardView =>
-  typeof value === 'string' &&
-  (LIBRARY_BOARD_VIEWS as readonly string[]).includes(value)
+  isStringMember(value, LIBRARY_BOARD_VIEWS)
 
 const isDensity = (value: string | null): value is LibraryBoardDensity =>
-  typeof value === 'string' &&
-  (LIBRARY_BOARD_DENSITIES as readonly string[]).includes(value)
-
-const normalizeSearchFromUrl = (value: string | null): string =>
-  typeof value === 'string' ? value : ''
-
-const writeDefaultedParam = <T extends string>(
-  params: URLSearchParams,
-  key: string,
-  value: T,
-  defaultValue: T
-) =>
-{
-  if (value === defaultValue)
-  {
-    params.delete(key)
-    return
-  }
-  params.set(key, value)
-}
-
-const writeSearchParam = (params: URLSearchParams, value: string) =>
-{
-  if (value.trim())
-  {
-    params.set('q', value)
-    return
-  }
-  params.delete('q')
-}
+  isStringMember(value, LIBRARY_BOARD_DENSITIES)
 
 export const parseLibraryFilterParams = (
   params: URLSearchParams
@@ -87,7 +62,7 @@ export const parseLibraryFilterParams = (
   const densityParam = params.get('density')
 
   return {
-    search: normalizeSearchFromUrl(params.get('q')),
+    search: readSearchParam(params.get('q')),
     filter: isFilter(filterParam)
       ? filterParam
       : DEFAULT_LIBRARY_FILTER_PARAMS.filter,
@@ -99,45 +74,48 @@ export const parseLibraryFilterParams = (
   }
 }
 
+const writeLibraryFilterParams = (
+  params: URLSearchParams,
+  filters: LibraryFilterParams
+): void =>
+{
+  writeSearchParam(params, 'q', filters.search)
+  writeDefaultedParam(
+    params,
+    'status',
+    filters.filter,
+    DEFAULT_LIBRARY_FILTER_PARAMS.filter
+  )
+  writeDefaultedParam(
+    params,
+    'sort',
+    filters.sort,
+    DEFAULT_LIBRARY_FILTER_PARAMS.sort
+  )
+  writeDefaultedParam(
+    params,
+    'view',
+    filters.view,
+    DEFAULT_LIBRARY_FILTER_PARAMS.view
+  )
+  writeDefaultedParam(
+    params,
+    'density',
+    filters.density,
+    DEFAULT_LIBRARY_FILTER_PARAMS.density
+  )
+}
+
 export const createLibraryFilterSearchParams = (
   current: URLSearchParams,
   patch: Partial<LibraryFilterParams>
 ): URLSearchParams =>
-{
-  const nextFilters = {
-    ...parseLibraryFilterParams(current),
-    ...patch,
-  }
-  const next = new URLSearchParams(current)
-
-  writeSearchParam(next, nextFilters.search)
-  writeDefaultedParam(
-    next,
-    'status',
-    nextFilters.filter,
-    DEFAULT_LIBRARY_FILTER_PARAMS.filter
+  createPatchedSearchParams(
+    current,
+    patch,
+    parseLibraryFilterParams,
+    writeLibraryFilterParams
   )
-  writeDefaultedParam(
-    next,
-    'sort',
-    nextFilters.sort,
-    DEFAULT_LIBRARY_FILTER_PARAMS.sort
-  )
-  writeDefaultedParam(
-    next,
-    'view',
-    nextFilters.view,
-    DEFAULT_LIBRARY_FILTER_PARAMS.view
-  )
-  writeDefaultedParam(
-    next,
-    'density',
-    nextFilters.density,
-    DEFAULT_LIBRARY_FILTER_PARAMS.density
-  )
-
-  return next
-}
 
 export interface LibraryFilters
 {
@@ -156,48 +134,11 @@ export interface LibraryFilters
 
 export const useLibraryFilters = (): LibraryFilters =>
 {
-  const [params, setParams] = useSearchParams()
-  const filters = parseLibraryFilterParams(params)
-  const [searchDebounced, setSearchDebounced] = useState(filters.search.trim())
-  const paramsKey = params.toString()
-
-  const commitFilters = useCallback(
-    (
-      patch: Partial<LibraryFilterParams>,
-      options?: Parameters<typeof setParams>[1]
-    ) =>
-    {
-      const next = createLibraryFilterSearchParams(params, patch)
-      if (next.toString() !== params.toString())
-      {
-        setParams(next, options)
-      }
-    },
-    [params, setParams]
-  )
-
-  useEffect(() =>
-  {
-    const next = createLibraryFilterSearchParams(params, {})
-    if (next.toString() !== paramsKey)
-    {
-      setParams(next, { replace: true })
-    }
-  }, [params, paramsKey, setParams])
-
-  useEffect(() =>
-  {
-    const nextSearch = filters.search.trim()
-    if (searchDebounced === nextSearch) return
-    const timeout = window.setTimeout(() =>
-    {
-      setSearchDebounced(nextSearch)
-    }, SEARCH_DEBOUNCE_MS)
-    return () =>
-    {
-      window.clearTimeout(timeout)
-    }
-  }, [filters.search, searchDebounced])
+  const { filters, searchDebounced, commitFilters } = useUrlFilterParams({
+    debounceMs: SEARCH_DEBOUNCE_MS,
+    parse: parseLibraryFilterParams,
+    create: createLibraryFilterSearchParams,
+  })
 
   const setSearch = useCallback(
     (next: string) =>

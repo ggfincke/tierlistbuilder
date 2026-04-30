@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { handleKeyboardBoardJumpKey } from '~/features/workspace/boards/interaction/keyboardDragController'
 import { ITEM_DATA_ATTR } from '~/features/workspace/boards/lib/dndIds'
 import { BULK_ACTION_BAR_SELECTOR } from '~/shared/board-ui/boardTestIds'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   selectIsDragging,
   useActiveBoardStore,
@@ -58,7 +58,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (undoRedoShortcut)
       {
         e.preventDefault()
-        const locked = useSettingsStore.getState().boardLocked
+        const locked = usePreferencesStore.getState().boardLocked
         if (dragActive || locked) return
         const result = undoRedoShortcut === 'undo' ? undo() : redo()
         if (result)
@@ -74,7 +74,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (mod && key === 's')
       {
         e.preventDefault()
-        const locked = useSettingsStore.getState().boardLocked
+        const locked = usePreferencesStore.getState().boardLocked
         if (!locked) onExport('png')
         return
       }
@@ -84,7 +84,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       {
         e.preventDefault()
         const { toolbarPosition, setToolbarPosition } =
-          useSettingsStore.getState()
+          usePreferencesStore.getState()
         const next = nextToolbarPosition(toolbarPosition)
         setToolbarPosition(next)
         announce(`Toolbar moved to ${next}`)
@@ -95,7 +95,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (mod && key === 'a')
       {
         e.preventDefault()
-        const locked = useSettingsStore.getState().boardLocked
+        const locked = usePreferencesStore.getState().boardLocked
         if (!locked) useActiveBoardStore.getState().selectAll()
         return
       }
@@ -131,7 +131,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (key === 'delete' || key === 'backspace')
       {
         const state = useActiveBoardStore.getState()
-        const locked = useSettingsStore.getState().boardLocked
+        const locked = usePreferencesStore.getState().boardLocked
         if (locked) return
 
         // bulk delete when items are selected

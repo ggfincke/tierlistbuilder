@@ -1,5 +1,5 @@
-// packages/contracts/workspace/settings.ts
-// app-wide user settings & presentation presets
+// packages/contracts/platform/preferences.ts
+// app-wide user preferences & presentation presets
 
 import type { PaletteId, TextStyleId, ThemeId } from '../lib/theme'
 
@@ -29,8 +29,8 @@ export type TierLabelFontSize = (typeof TIER_LABEL_FONT_SIZES)[number]
 export const TOOLBAR_POSITIONS = ['top', 'bottom', 'left', 'right'] as const
 export type ToolbarPosition = (typeof TOOLBAR_POSITIONS)[number]
 
-// global app settings — persisted independently of per-board data
-export interface AppSettings
+// global app preferences — persisted independently of per-board data
+export interface AppPreferences
 {
   itemSize: ItemSize
   showLabels: boolean
@@ -54,11 +54,11 @@ export interface AppSettings
   autoCropTrimSoftShadows: boolean
 }
 
-// cloud-read wire shape for user settings. server wall-clock updatedAt
+// cloud-read wire shape for user preferences. server wall-clock updatedAt
 // accompanies the payload so the client's sidecar can mark lastSyncedAt w/
 // the actual cloud timestamp instead of an approximation
-export interface CloudSettingsRead
+export interface CloudPreferencesRead
 {
-  settings: AppSettings
+  preferences: AppPreferences
   updatedAt: number
 }

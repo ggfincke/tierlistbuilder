@@ -4,17 +4,17 @@
 import { useEffect } from 'react'
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
 
-import { useThemeSync } from '~/app/bootstrap/useThemeSync'
+import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { Footer } from '~/features/marketplace/components/Footer'
 
 export const MarketplaceLayout = () =>
 {
   useThemeSync()
 
-  const reducedMotion = useSettingsStore((state) => state.reducedMotion)
+  const reducedMotion = usePreferencesStore((state) => state.reducedMotion)
 
   // SPA route changes don't reset window scroll. send pushes/replaces back to
   // the top, but leave back/forward (POP) & in-page anchor jumps alone so

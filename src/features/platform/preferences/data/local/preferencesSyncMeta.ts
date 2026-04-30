@@ -1,6 +1,5 @@
-// src/features/workspace/settings/data/local/settingsSyncMeta.ts
-// localStorage sidecar for cloud sync state of the global settings doc — separate
-// from the settings blob. fields: pendingSyncAt, lastSyncedAt, ownerUserId
+// src/features/platform/preferences/data/local/preferencesSyncMeta.ts
+// localStorage sidecar for cloud sync state of the global preferences doc
 
 import { createLocalSidecar } from '~/shared/lib/localSidecar'
 import {
@@ -14,39 +13,39 @@ import {
   type OwnedSyncMeta,
 } from '~/shared/lib/sync/ownedSyncMeta'
 
-export const SETTINGS_SYNC_META_STORAGE_KEY =
-  'tier-list-builder-settings-sync-meta-v2'
+export const PREFERENCES_SYNC_META_STORAGE_KEY =
+  'tier-list-builder-preferences-sync-meta-v1'
 
-export type SettingsSyncMeta = OwnedSyncMeta
+export type PreferencesSyncMeta = OwnedSyncMeta
 
-export const EMPTY_SETTINGS_SYNC_META: SettingsSyncMeta = {
+export const EMPTY_PREFERENCES_SYNC_META: PreferencesSyncMeta = {
   ...EMPTY_OWNED_SYNC_META,
 }
 
-const normalizeSettingsSyncMeta = (raw: unknown): SettingsSyncMeta =>
+const normalizePreferencesSyncMeta = (raw: unknown): PreferencesSyncMeta =>
   normalizeOwnedSyncMeta(raw)
 
-const sidecar = createLocalSidecar<SettingsSyncMeta>({
-  storageKey: SETTINGS_SYNC_META_STORAGE_KEY,
-  emptyValue: () => ({ ...EMPTY_SETTINGS_SYNC_META }),
-  normalize: normalizeSettingsSyncMeta,
+const sidecar = createLocalSidecar<PreferencesSyncMeta>({
+  storageKey: PREFERENCES_SYNC_META_STORAGE_KEY,
+  emptyValue: () => ({ ...EMPTY_PREFERENCES_SYNC_META }),
+  normalize: normalizePreferencesSyncMeta,
   // ownerUserId alone doesn't justify keeping the sidecar — w/o a pending
   // or last-synced timestamp there's nothing to recover from it
   isEmpty: isOwnedSyncMetaEmpty,
 })
 
-export const loadSettingsSyncMeta = sidecar.load
-export const saveSettingsSyncMeta = sidecar.save
-export const clearSettingsSyncMeta = sidecar.clear
+export const loadPreferencesSyncMeta = sidecar.load
+export const savePreferencesSyncMeta = sidecar.save
+export const clearPreferencesSyncMeta = sidecar.clear
 
-export const loadSettingsSyncMetaForUser = (
+export const loadPreferencesSyncMetaForUser = (
   userId: string
-): SettingsSyncMeta =>
+): PreferencesSyncMeta =>
 {
-  const meta = loadSettingsSyncMeta()
+  const meta = loadPreferencesSyncMeta()
   if (meta.ownerUserId !== userId)
   {
-    return { ...EMPTY_SETTINGS_SYNC_META }
+    return { ...EMPTY_PREFERENCES_SYNC_META }
   }
   return meta
 }
@@ -54,15 +53,15 @@ export const loadSettingsSyncMetaForUser = (
 // stamp pendingSyncAt to now if it isn't already set, leaving lastSyncedAt
 // untouched. idempotent — repeated edits during the debounce window only
 // stamp once. returns the resulting meta so callers don't need a re-read
-export const stampSettingsPending = (
+export const stampPreferencesPending = (
   ownerUserId: string,
   now: number = Date.now()
-): SettingsSyncMeta =>
+): PreferencesSyncMeta =>
 {
-  const current = loadSettingsSyncMeta()
+  const current = loadPreferencesSyncMeta()
   const scopedCurrent = scopeOwnedSyncMeta(
     current,
-    () => ({ ...EMPTY_SETTINGS_SYNC_META }),
+    () => ({ ...EMPTY_PREFERENCES_SYNC_META }),
     ownerUserId
   )
   const next = stampOwnedSyncPending(scopedCurrent, now)
@@ -72,39 +71,41 @@ export const stampSettingsPending = (
     return scopedCurrent
   }
 
-  saveSettingsSyncMeta(next)
+  savePreferencesSyncMeta(next)
   return next
 }
 
 // clear pendingSyncAt & advance lastSyncedAt — the success path
-export const markSettingsSynced = (
+export const markPreferencesSynced = (
   ownerUserId: string,
   syncedAt: number = Date.now()
-): SettingsSyncMeta =>
+): PreferencesSyncMeta =>
 {
   const next = markOwnedSyncSynced(
-    { ...EMPTY_SETTINGS_SYNC_META },
+    { ...EMPTY_PREFERENCES_SYNC_META },
     ownerUserId,
     syncedAt
   )
-  saveSettingsSyncMeta(next)
+  savePreferencesSyncMeta(next)
   return next
 }
 
 // clear pendingSyncAt w/o advancing lastSyncedAt — used when the runner
 // dedup bails: cloud is already at the current value so no new sync happened
-export const clearSettingsPending = (ownerUserId: string): SettingsSyncMeta =>
+export const clearPreferencesPending = (
+  ownerUserId: string
+): PreferencesSyncMeta =>
 {
-  const current = loadSettingsSyncMeta()
+  const current = loadPreferencesSyncMeta()
   if (current.ownerUserId !== ownerUserId)
   {
-    return { ...EMPTY_SETTINGS_SYNC_META }
+    return { ...EMPTY_PREFERENCES_SYNC_META }
   }
   if (current.pendingSyncAt === null)
   {
     return current
   }
   const next = clearOwnedSyncPending({ ...current, ownerUserId })
-  saveSettingsSyncMeta(next)
+  savePreferencesSyncMeta(next)
   return next
 }

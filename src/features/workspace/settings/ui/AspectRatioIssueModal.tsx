@@ -21,7 +21,7 @@ import type {
 import type {
   ItemShape,
   ItemSize,
-} from '@tierlistbuilder/contracts/workspace/settings'
+} from '@tierlistbuilder/contracts/platform/preferences'
 import {
   formatAspectRatio,
   getEffectiveImageFit,
@@ -47,7 +47,7 @@ import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { formatCountedWord } from '~/shared/lib/pluralize'
-import { useSettingsStore } from '../model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useAspectRatioPrompt } from '../model/useAspectRatioPrompt'
 import { useAutoCropTrimShadows } from '../model/useAutoCropTrimShadows'
 import {
@@ -56,7 +56,7 @@ import {
 } from '../model/aspectRatioPromptSnapshot'
 import { useDeferredAspectRatioPicker } from '../model/useDeferredAspectRatioPicker'
 import { AspectRatioTiles } from './AspectRatioTiles'
-import { SegmentedControl } from './SegmentedControl'
+import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
 import { ShowLabelsToggle } from './ShowLabelsToggle'
 
 const MAX_THUMBNAIL_PREVIEW = 4
@@ -131,7 +131,7 @@ const AspectRatioIssueModalBody = ({
       setBoardLabelSettings: state.setBoardLabelSettings,
     }))
   )
-  const { itemSize, itemShape, globalShowLabels } = useSettingsStore(
+  const { itemSize, itemShape, globalShowLabels } = usePreferencesStore(
     useShallow((state) => ({
       itemSize: state.itemSize,
       itemShape: state.itemShape,

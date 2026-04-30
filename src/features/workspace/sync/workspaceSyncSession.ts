@@ -1,5 +1,5 @@
 // src/features/workspace/sync/workspaceSyncSession.ts
-// workspace sync session: board/settings/preset adapters, sidecars, & conflicts
+// workspace sync session: board/preferences/preset adapters, sidecars, & conflicts
 
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
@@ -8,7 +8,7 @@ import { setupCloudImageFetcher } from '~/features/platform/media/imageFetcher'
 import { runFirstLoginSyncLifecycle } from '~/features/platform/sync/orchestration/firstLoginSyncLifecycle'
 import { setupBoardDeleteCloudSync } from '~/features/workspace/boards/data/cloud/setupBoardDeleteCloudSync'
 import { runFirstLoginBoardMerge } from '~/features/workspace/boards/data/cloud/firstLoginBoardMerge'
-import { mergeSettingsOnFirstLogin } from '~/features/workspace/settings/data/cloud/cloudMerge'
+import { mergePreferencesOnFirstLogin } from '~/features/platform/preferences/data/cloud/cloudMerge'
 import { mergeTierPresetsOnFirstLogin } from '~/features/workspace/tier-presets/data/cloud/cloudMerge'
 import {
   persistBoardStateForSync,
@@ -33,7 +33,7 @@ import { useConflictQueueStore } from '~/features/workspace/boards/model/boardCo
 import { logger } from '~/shared/lib/logger'
 import { CLOUD_SYNC_DEBOUNCE_MS } from '~/features/platform/sync/lib/concurrency'
 import {
-  buildSettingsTriggerSnapshot,
+  buildPreferencesTriggerSnapshot,
   resumePendingSyncs,
 } from './pendingSyncRecovery'
 import { createWorkspaceSyncHandleRegistry } from './workspaceSyncHandles'
@@ -149,10 +149,10 @@ export const createWorkspaceSyncSession = ({
     resumePendingSyncs({
       userId,
       queueBoard: (work) => scheduler.queue(work),
-      triggerSettings: handles.settingsRef.current
+      triggerPreferences: handles.preferencesRef.current
         ? () =>
-            handles.settingsRef.current?.runner.trigger(
-              buildSettingsTriggerSnapshot(),
+            handles.preferencesRef.current?.runner.trigger(
+              buildPreferencesTriggerSnapshot(),
               { immediate: true }
             )
         : undefined,
@@ -188,8 +188,8 @@ export const createWorkspaceSyncSession = ({
   void runFirstLoginSyncLifecycle({
     shouldProceed,
     runBoardMerge: () => runFirstLoginBoardMerge(userId, shouldProceed),
-    runSettingsMerge: () =>
-      mergeSettingsOnFirstLogin({ userId, shouldProceed }),
+    runPreferencesMerge: () =>
+      mergePreferencesOnFirstLogin({ userId, shouldProceed }),
     runPresetMerge: () =>
       mergeTierPresetsOnFirstLogin({ userId, shouldProceed }),
     onBoardMergeSettled: () =>
@@ -197,9 +197,9 @@ export const createWorkspaceSyncSession = ({
       mergePending = false
       triggerResume()
     },
-    onSettingsMergeSettled: () =>
+    onPreferencesMergeSettled: () =>
     {
-      handles.installSettings({
+      handles.installPreferences({
         userId,
         isOnline,
         shouldProceed,

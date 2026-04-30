@@ -1,4 +1,4 @@
-// src/features/workspace/settings/ui/TextStylePicker.tsx
+// src/shared/ui/settings/TextStylePicker.tsx
 // controlled text-style preview picker for defaults & per-board overrides
 
 import { TEXT_STYLES } from '~/shared/theme/textStyles'

@@ -11,7 +11,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useEffectiveTiers } from '~/features/workspace/boards/model/useEffectiveBoard'
 import { THEMES } from '~/shared/theme/tokens'
@@ -19,7 +19,7 @@ import { announce } from '~/shared/a11y/announce'
 import { getContrastingTextShadow, getTextColor } from '~/shared/lib/color'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
-import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'
 import { isVerticalPosition } from '~/shared/layout/toolbarPosition'
 import { TIER_LIST_BOARD_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { useDragAndDrop } from '~/features/workspace/boards/dnd/useDragAndDrop'
@@ -59,7 +59,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
   const isVertical = isVerticalPosition(toolbarPosition)
   const paletteId = useCurrentPaletteId()
   const { boardLocked, exportBackgroundOverride, themeId, compactMode } =
-    useSettingsStore(
+    usePreferencesStore(
       useShallow((state) => ({
         boardLocked: state.boardLocked,
         exportBackgroundOverride: state.exportBackgroundOverride,

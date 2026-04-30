@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import type { TierItem as TierItemType } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { createSelectBoardItemById } from '~/features/workspace/boards/model/slices/selectors'
 import {
@@ -50,7 +50,7 @@ export const ActiveDragOverlayItem = memo(
 export const DragOverlayItem = memo(
   ({ item, groupCount = 0 }: DragOverlayItemProps) =>
   {
-    const { itemSize, itemShape, showLabels } = useSettingsStore(
+    const { itemSize, itemShape, showLabels } = usePreferencesStore(
       useShallow((state) => ({
         itemSize: state.itemSize,
         itemShape: state.itemShape,

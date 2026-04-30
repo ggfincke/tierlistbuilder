@@ -6,7 +6,7 @@ import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
-} from '@tierlistbuilder/contracts/workspace/settings'
+} from '@tierlistbuilder/contracts/platform/preferences'
 import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
 import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 

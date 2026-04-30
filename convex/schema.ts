@@ -5,7 +5,7 @@ import { authTables } from '@convex-dev/auth/server'
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 import {
-  appSettingsValidator,
+  appPreferencesValidator,
   boardLabelSettingsValidator,
   boardLibrarySummaryValidator,
   itemLabelOptionsValidator,
@@ -53,10 +53,10 @@ export default defineSchema({
     .index('byAvatarStorageId', ['avatarStorageId'])
     .index('byHandle', ['handle']),
 
-  // per-user global app settings — mirrors AppSettings from packages/contracts
-  userSettings: defineTable({
+  // per-user global app preferences — mirrors AppPreferences from contracts
+  userPreferences: defineTable({
     userId: v.id('users'),
-    settings: appSettingsValidator,
+    preferences: appPreferencesValidator,
     updatedAt: v.number(),
   }).index('byUser', ['userId']),
 
@@ -97,7 +97,7 @@ export default defineSchema({
     textStyleId: v.optional(textStyleIdValidator),
     // per-board page background color override; absent -> user default
     pageBackground: v.optional(v.string()),
-    // per-board label rendering defaults; absent -> inherit AppSettings.showLabels
+    // per-board label rendering defaults; absent -> inherit AppPreferences.showLabels
     // & built-in defaults
     labels: v.optional(boardLabelSettingsValidator),
   })

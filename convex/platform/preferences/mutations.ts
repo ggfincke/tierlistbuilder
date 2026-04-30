@@ -1,18 +1,18 @@
-// convex/workspace/settings/mutations.ts
-// user settings mutations — single-row-per-user upsert w/ last-write-wins semantics.
+// convex/platform/preferences/mutations.ts
+// user preference mutations — single-row-per-user upsert w/ last-write-wins.
 // concurrent-edit conflicts collapse to whichever debounced flush lands last
 
 import { v } from 'convex/values'
 import { mutation } from '../../_generated/server'
 import { requireCurrentUserId } from '../../lib/auth'
-import { appSettingsValidator } from '../../lib/validators'
+import { appPreferencesValidator } from '../../lib/validators'
 import { validateHexColor } from '../../lib/hexColor'
 
-// upsert the authenticated caller's AppSettings — replaces any existing row.
+// upsert the authenticated caller's AppPreferences — replaces any existing row.
 // returns the wall-clock updatedAt the row landed at so the client can stamp
 // its lastSyncedAt sidecar
-export const upsertMySettings = mutation({
-  args: { settings: appSettingsValidator },
+export const upsertMyPreferences = mutation({
+  args: { preferences: appPreferencesValidator },
   returns: v.object({ updatedAt: v.number() }),
   handler: async (ctx, args): Promise<{ updatedAt: number }> =>
   {
@@ -21,17 +21,17 @@ export const upsertMySettings = mutation({
     // v.string() accepts arbitrary length & format — enforce hex shape here
     // so a client can't smuggle a multi-KB payload or a malformed color
     // into the background-override columns
-    if (args.settings.exportBackgroundOverride !== null)
+    if (args.preferences.exportBackgroundOverride !== null)
     {
       validateHexColor(
-        args.settings.exportBackgroundOverride,
+        args.preferences.exportBackgroundOverride,
         'exportBackgroundOverride'
       )
     }
-    if (args.settings.boardBackgroundOverride !== null)
+    if (args.preferences.boardBackgroundOverride !== null)
     {
       validateHexColor(
-        args.settings.boardBackgroundOverride,
+        args.preferences.boardBackgroundOverride,
         'boardBackgroundOverride'
       )
     }
@@ -39,22 +39,22 @@ export const upsertMySettings = mutation({
     const now = Date.now()
 
     const existing = await ctx.db
-      .query('userSettings')
+      .query('userPreferences')
       .withIndex('byUser', (q) => q.eq('userId', userId))
       .unique()
 
     if (existing)
     {
       await ctx.db.patch(existing._id, {
-        settings: args.settings,
+        preferences: args.preferences,
         updatedAt: now,
       })
     }
     else
     {
-      await ctx.db.insert('userSettings', {
+      await ctx.db.insert('userPreferences', {
         userId,
-        settings: args.settings,
+        preferences: args.preferences,
         updatedAt: now,
       })
     }

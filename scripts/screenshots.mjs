@@ -40,27 +40,27 @@ const VIEWPORTS = [
 // toolbar positions to capture (set via Zustand localStorage injection)
 const TOOLBAR_POSITIONS = ['top', 'bottom', 'left', 'right']
 
-// Zustand settings store key (matches SETTINGS_STORAGE_KEY in storage.ts)
-const SETTINGS_KEY = 'tier-list-builder-settings'
+// Zustand preferences store key (matches PREFERENCES_STORAGE_KEY)
+const PREFERENCES_KEY = 'tier-list-builder-preferences'
 
-// parse SETTINGS_STORAGE_VERSION out of the source of truth so this script
+// parse PREFERENCES_STORAGE_VERSION out of the source of truth so this script
 // stays in sync w/ the store version w/o needing a TS loader
-function readSettingsStorageVersion()
+function readPreferencesStorageVersion()
 {
   const source = readFileSync(
     join(
       __dirname,
       '..',
-      'src/features/workspace/settings/data/local/settingsStorage.ts'
+      'src/features/platform/preferences/data/local/preferencesStorage.ts'
     ),
     'utf8'
   )
-  const match = source.match(/SETTINGS_STORAGE_VERSION\s*=\s*(\d+)/)
-  if (!match) throw new Error('could not parse SETTINGS_STORAGE_VERSION')
+  const match = source.match(/PREFERENCES_STORAGE_VERSION\s*=\s*(\d+)/)
+  if (!match) throw new Error('could not parse PREFERENCES_STORAGE_VERSION')
   return Number.parseInt(match[1], 10)
 }
 
-const SETTINGS_STORAGE_VERSION = readSettingsStorageVersion()
+const PREFERENCES_STORAGE_VERSION = readPreferencesStorageVersion()
 
 function formatSize(bytes)
 {
@@ -83,8 +83,8 @@ async function checkServer()
   }
 }
 
-// inject a toolbar position into the Zustand settings store via localStorage
-function buildSettingsPayload(position)
+// inject a toolbar position into the Zustand preferences store via localStorage
+function buildPreferencesPayload(position)
 {
   return JSON.stringify({
     state: {
@@ -93,6 +93,7 @@ function buildSettingsPayload(position)
       itemShape: 'square',
       compactMode: false,
       exportBackgroundOverride: null,
+      boardBackgroundOverride: null,
       labelWidth: 'default',
       hideRowControls: false,
       confirmBeforeDelete: false,
@@ -106,8 +107,9 @@ function buildSettingsPayload(position)
       reducedMotion: false,
       toolbarPosition: position,
       showAltTextButton: false,
+      autoCropTrimSoftShadows: true,
     },
-    version: SETTINGS_STORAGE_VERSION,
+    version: PREFERENCES_STORAGE_VERSION,
   })
 }
 
@@ -147,7 +149,7 @@ async function main()
         {
           localStorage.setItem(key, payload)
         },
-        { key: SETTINGS_KEY, payload: buildSettingsPayload(position) }
+        { key: PREFERENCES_KEY, payload: buildPreferencesPayload(position) }
       )
 
       const page = await context.newPage()
