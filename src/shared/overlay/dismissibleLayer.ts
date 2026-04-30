@@ -6,6 +6,7 @@ import { useEffect, type RefObject } from 'react'
 import { hasActiveModalLayer } from './modalLayer'
 
 const EMPTY_IGNORE_REFS: ReadonlyArray<RefObject<HTMLElement | null>> = []
+const SCROLL_LISTENER_OPTIONS = { capture: true, passive: true } as const
 
 interface UseDismissibleLayerOptions
 {
@@ -127,7 +128,11 @@ export const useDismissibleLayer = ({
 
     if (onPositionUpdate)
     {
-      window.addEventListener('scroll', handlePositionUpdate, true)
+      window.addEventListener(
+        'scroll',
+        handlePositionUpdate,
+        SCROLL_LISTENER_OPTIONS
+      )
       window.addEventListener('resize', handlePositionUpdate)
     }
 
@@ -142,7 +147,11 @@ export const useDismissibleLayer = ({
 
       if (onPositionUpdate)
       {
-        window.removeEventListener('scroll', handlePositionUpdate, true)
+        window.removeEventListener(
+          'scroll',
+          handlePositionUpdate,
+          SCROLL_LISTENER_OPTIONS
+        )
         window.removeEventListener('resize', handlePositionUpdate)
       }
     }

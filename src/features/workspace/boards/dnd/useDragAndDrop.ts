@@ -48,7 +48,6 @@ const getDragType = (event: {
 export const useDragAndDrop = () =>
 {
   const {
-    items,
     dragPreview,
     keyboardMode,
     setActiveItemId,
@@ -61,7 +60,6 @@ export const useDragAndDrop = () =>
     removeItems,
   } = useActiveBoardStore(
     useShallow((state) => ({
-      items: state.items,
       dragPreview: state.dragPreview,
       keyboardMode: state.keyboardMode,
       setActiveItemId: state.setActiveItemId,
@@ -369,13 +367,12 @@ export const useDragAndDrop = () =>
   )
 
   const overlayModifiers = useMemo(() => [overlayModifier], [overlayModifier])
-  const activeItem =
-    activeDrag.kind === 'item' ? items[activeDrag.itemId] : undefined
+  const activeItemId = activeDrag.kind === 'item' ? activeDrag.itemId : null
   const activeTier = activeDrag.kind === 'tier' ? activeDrag.tier : undefined
 
   return {
     sensors,
-    activeItem,
+    activeItemId,
     activeTier,
     collisionDetection,
     overlayModifiers,

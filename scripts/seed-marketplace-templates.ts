@@ -6,8 +6,8 @@
 // crop bbox, picks a per-template slot ratio (snap-to-preset majority), then
 // bakes per-item transforms before posting chunked payloads over http.
 
-// requires the seed author to already exist (sign up via the app first),
-// CONVEX_URL set, & CONVEX_SEED_ENABLED=true on the deployment
+// creates the default Terra seed author when needed. requires CONVEX_URL
+// set, & CONVEX_SEED_ENABLED=true on the deployment
 
 import { readdir, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -35,6 +35,11 @@ const SEED_FOLDER_CONCURRENCY = 3
 const SEED_ITEM_IO_CONCURRENCY = 8
 const SEED_CHUNK_UPLOAD_CONCURRENCY = 2
 const SUPPORTED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif'])
+const DEFAULT_SEED_AUTHOR = {
+  email: 'tterrag456@gmail.com',
+  password: 'Hello123!',
+  displayName: 'Terra',
+} as const
 
 interface FolderMeta
 {
@@ -1004,7 +1009,7 @@ const DEFAULT_META: FolderMeta = {
 // 2 -> curated card. wipe ranks first, then promote freshly seeded templates.
 const FEATURED_RANKS: Record<string, number> = {
   'ssbu-fighters': 0,
-  'nba-teams': 1,
+  'zelda-games': 1,
   'mcu-posters': 2,
 }
 
@@ -1012,10 +1017,11 @@ const usage = (): never =>
 {
   process.stderr.write(
     [
-      'usage: tsx scripts/seed-marketplace-templates.ts <author-email> [folder...]',
+      'usage: tsx scripts/seed-marketplace-templates.ts [author-email] [folder...]',
       '',
-      '  <author-email>   email of the user to attribute seeded templates to.',
-      '                   the user must already exist (sign in once via the app).',
+      `  [author-email]   email of the user to attribute seeded templates to.`,
+      `                   defaults to ${DEFAULT_SEED_AUTHOR.email}; that account`,
+      '                   is created/verified automatically for local seeding.',
       '  [folder]         optional list of /examples subfolders to seed; if',
       '                   omitted, every folder under examples/ is seeded.',
       '',
@@ -1292,6 +1298,75 @@ interface SeedSummary
   failed: number
 }
 
+interface ParsedArgs
+{
+  authorEmail: string
+  folders: string[]
+}
+
+const parseArgs = (rawArgs: string[]): ParsedArgs =>
+{
+  const [firstArg, ...rest] = rawArgs
+  if (firstArg?.startsWith('-'))
+  {
+    usage()
+  }
+
+  if (!firstArg)
+  {
+    return { authorEmail: DEFAULT_SEED_AUTHOR.email, folders: [] }
+  }
+
+  if (firstArg.includes('@'))
+  {
+    return { authorEmail: firstArg.trim().toLowerCase(), folders: rest }
+  }
+
+  return { authorEmail: DEFAULT_SEED_AUTHOR.email, folders: rawArgs }
+}
+
+const isDefaultSeedAuthor = (email: string): boolean =>
+  email.trim().toLowerCase() === DEFAULT_SEED_AUTHOR.email
+
+const ensureDefaultSeedAuthor = async (
+  client: ConvexHttpClient,
+  authorEmail: string
+): Promise<void> =>
+{
+  if (!isDefaultSeedAuthor(authorEmail))
+  {
+    return
+  }
+
+  const status = await client.action(
+    api.marketplace.templates.seed.getSeedUserStatus,
+    { email: DEFAULT_SEED_AUTHOR.email }
+  )
+  await client.action(api.auth.signIn, {
+    provider: 'password',
+    params: {
+      flow: status.accountExists ? 'signIn' : 'signUp',
+      email: DEFAULT_SEED_AUTHOR.email,
+      password: DEFAULT_SEED_AUTHOR.password,
+    },
+    calledBy: 'seed-marketplace-templates',
+  })
+  const profile = await client.action(
+    api.marketplace.templates.seed.patchSeedUserProfile,
+    {
+      email: DEFAULT_SEED_AUTHOR.email,
+      displayName: DEFAULT_SEED_AUTHOR.displayName,
+    }
+  )
+  if (!profile.found)
+  {
+    throw new Error(`seed author missing after sign-up: ${authorEmail}`)
+  }
+  process.stdout.write(
+    `seed author ready: ${DEFAULT_SEED_AUTHOR.displayName} <${DEFAULT_SEED_AUTHOR.email}>\n`
+  )
+}
+
 const seedFolders = async (
   client: ConvexHttpClient,
   targetFolders: string[],
@@ -1335,11 +1410,7 @@ const seedFolders = async (
 
 const main = async (): Promise<void> =>
 {
-  const [authorEmail, ...folders] = process.argv.slice(2)
-  if (!authorEmail || authorEmail.startsWith('-'))
-  {
-    usage()
-  }
+  const { authorEmail, folders } = parseArgs(process.argv.slice(2))
 
   const convexUrl = process.env.CONVEX_URL
   if (!convexUrl)
@@ -1351,6 +1422,8 @@ const main = async (): Promise<void> =>
   }
 
   const client = new ConvexHttpClient(convexUrl)
+  await ensureDefaultSeedAuthor(client, authorEmail)
+
   const targetFolders =
     folders.length > 0
       ? folders

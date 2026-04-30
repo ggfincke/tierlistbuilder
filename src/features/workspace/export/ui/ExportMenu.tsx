@@ -20,6 +20,11 @@ import type { ImageFormat } from '../model/runtime'
 import type { MenuPositionClasses } from '~/shared/layout/toolbarPosition'
 import { formatError } from '~/shared/lib/errors'
 import {
+  preloadHtmlToImageLib,
+  preloadPdfLib,
+  preloadZipLib,
+} from '~/shared/lib/lazyDependencies'
+import {
   useNestedMenus,
   type NestedMenuDefinition,
 } from '~/shared/overlay/nestedMenus'
@@ -68,6 +73,24 @@ interface ExportMenuProps
   onAnnotateExport: () => void
   onPreviewExport: () => void
   onShare: () => void
+}
+
+const preloadImageExport = () => preloadHtmlToImageLib()
+const preloadPdfExport = () =>
+{
+  preloadHtmlToImageLib()
+  preloadPdfLib()
+}
+const preloadImageZipExport = () =>
+{
+  preloadHtmlToImageLib()
+  preloadZipLib()
+}
+const preloadBulkExport = () =>
+{
+  preloadHtmlToImageLib()
+  preloadPdfLib()
+  preloadZipLib()
 }
 
 export const ExportMenu = ({
@@ -199,6 +222,8 @@ export const ExportMenu = ({
                 aria-haspopup="dialog"
                 aria-expanded={showImageMenu}
                 className={`${showImageMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
+                onFocus={preloadImageExport}
+                onPointerEnter={preloadImageExport}
                 onClick={() => toggleMenu('image')}
               >
                 Export Image
@@ -216,6 +241,8 @@ export const ExportMenu = ({
                   className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
                 >
                   <OverlayMenuItem
+                    onFocus={preloadImageExport}
+                    onPointerEnter={preloadImageExport}
                     onClick={() =>
                     {
                       closeAllMenus()
@@ -228,6 +255,8 @@ export const ExportMenu = ({
                     Download
                   </OverlayMenuItem>
                   <OverlayMenuItem
+                    onFocus={preloadImageExport}
+                    onPointerEnter={preloadImageExport}
                     onClick={() =>
                     {
                       closeAllMenus()
@@ -240,6 +269,8 @@ export const ExportMenu = ({
                     <span className="whitespace-nowrap">Copy to Clipboard</span>
                   </OverlayMenuItem>
                   <OverlayMenuItem
+                    onFocus={preloadImageExport}
+                    onPointerEnter={preloadImageExport}
                     onClick={() =>
                     {
                       closeAllMenus()
@@ -252,6 +283,8 @@ export const ExportMenu = ({
                     Preview
                   </OverlayMenuItem>
                   <OverlayMenuItem
+                    onFocus={preloadImageExport}
+                    onPointerEnter={preloadImageExport}
                     onClick={() =>
                     {
                       closeAllMenus()
@@ -321,6 +354,8 @@ export const ExportMenu = ({
                 closeAllMenus()
                 void onExport('pdf')
               }}
+              onFocus={preloadPdfExport}
+              onPointerEnter={preloadPdfExport}
               className="disabled:opacity-45"
               disabled={exportStatus !== null}
             >
@@ -366,6 +401,8 @@ export const ExportMenu = ({
                     aria-haspopup="dialog"
                     aria-expanded={showExportAllMenu}
                     className={`${showExportAllMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-6`}
+                    onFocus={preloadBulkExport}
+                    onPointerEnter={preloadBulkExport}
                     onClick={() => toggleMenu('exportAll')}
                   >
                     <span className="flex items-center gap-2">
@@ -404,6 +441,20 @@ export const ExportMenu = ({
                       ].map(({ format, Icon, label }) => (
                         <OverlayMenuItem
                           key={format}
+                          onFocus={
+                            format === 'json'
+                              ? undefined
+                              : format === 'pdf'
+                                ? preloadPdfExport
+                                : preloadImageZipExport
+                          }
+                          onPointerEnter={
+                            format === 'json'
+                              ? undefined
+                              : format === 'pdf'
+                                ? preloadPdfExport
+                                : preloadImageZipExport
+                          }
                           onClick={() =>
                           {
                             closeAllMenus()

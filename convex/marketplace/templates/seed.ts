@@ -17,6 +17,7 @@ import {
   type TemplateCategory,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
+import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   boardLabelSettingsValidator,
   itemTransformValidator,
@@ -78,6 +79,11 @@ interface SeedImageUpload
   }
 }
 
+interface SeedUserStatus
+{
+  accountExists: boolean
+}
+
 const decodeBase64 = (input: string): Uint8Array =>
 {
   const binary = atob(input)
@@ -103,6 +109,59 @@ export const findUserByEmail = internalQuery({
       .unique()
     if (!user) return null
     return { _id: user._id, email: user.email ?? null }
+  },
+})
+
+export const getSeedUserStatusImpl = internalQuery({
+  args: { email: v.string() },
+  returns: v.object({ accountExists: v.boolean() }),
+  handler: async (ctx, args): Promise<SeedUserStatus> =>
+  {
+    const account = await ctx.db
+      .query('authAccounts')
+      .withIndex('providerAndAccountId', (q) =>
+        q.eq('provider', 'password').eq('providerAccountId', args.email)
+      )
+      .unique()
+    return { accountExists: account !== null }
+  },
+})
+
+export const patchSeedUserProfileImpl = internalMutation({
+  args: {
+    email: v.string(),
+    displayName: v.string(),
+  },
+  returns: v.object({ found: v.boolean() }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    found: boolean
+  }> =>
+  {
+    const account = await ctx.db
+      .query('authAccounts')
+      .withIndex('providerAndAccountId', (q) =>
+        q.eq('provider', 'password').eq('providerAccountId', args.email)
+      )
+      .unique()
+    if (!account) return { found: false }
+
+    const user = await ctx.db.get(account.userId)
+    if (!user) return { found: false }
+
+    const now = Date.now()
+    await ctx.db.patch(user._id, {
+      name: args.displayName,
+      displayName: args.displayName,
+      externalId: user.externalId ?? generateUserExternalId(),
+      createdAt: user.createdAt ?? now,
+      updatedAt: now,
+      tier: user.tier ?? 'free',
+      lastUpsertError: undefined,
+    })
+    return { found: true }
   },
 })
 
@@ -402,6 +461,40 @@ export const clearAllFeaturedRanks = action({
     return await ctx.runMutation(
       internal.marketplace.templates.seed.clearAllFeaturedRanksImpl,
       {}
+    )
+  },
+})
+
+export const getSeedUserStatus = action({
+  args: { email: v.string() },
+  returns: v.object({ accountExists: v.boolean() }),
+  handler: async (ctx, args): Promise<SeedUserStatus> =>
+  {
+    requireSeedEnabled()
+    return await ctx.runQuery(
+      internal.marketplace.templates.seed.getSeedUserStatusImpl,
+      args
+    )
+  },
+})
+
+export const patchSeedUserProfile = action({
+  args: {
+    email: v.string(),
+    displayName: v.string(),
+  },
+  returns: v.object({ found: v.boolean() }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    found: boolean
+  }> =>
+  {
+    requireSeedEnabled()
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.patchSeedUserProfileImpl,
+      args
     )
   },
 })

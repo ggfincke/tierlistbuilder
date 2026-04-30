@@ -68,21 +68,29 @@ const MODAL_CHROME_PX = 80
 interface AspectRatioIssueModalProps
 {
   onAdjustEach?: () => void
+  onAdjustEachIntent?: () => void
 }
 
 // outer wrapper — gates on isOpen so the body unmounts (& its local state
 // resets) whenever the modal closes, instead of doing reset-in-effect
 export const AspectRatioIssueModal = ({
   onAdjustEach,
+  onAdjustEachIntent,
 }: AspectRatioIssueModalProps) =>
 {
   const { isOpen } = useAspectRatioPrompt()
   if (!isOpen) return null
-  return <AspectRatioIssueModalBody onAdjustEach={onAdjustEach} />
+  return (
+    <AspectRatioIssueModalBody
+      onAdjustEach={onAdjustEach}
+      onAdjustEachIntent={onAdjustEachIntent}
+    />
+  )
 }
 
 const AspectRatioIssueModalBody = ({
   onAdjustEach,
+  onAdjustEachIntent,
 }: AspectRatioIssueModalProps) =>
 {
   const { close } = useAspectRatioPrompt()
@@ -396,6 +404,8 @@ const AspectRatioIssueModalBody = ({
           {onAdjustEach && (
             <SecondaryButton
               onClick={handleAdjustEach}
+              onFocus={onAdjustEachIntent}
+              onPointerEnter={onAdjustEachIntent}
               variant="outline"
               disabled={autoCropProgress.running}
             >
