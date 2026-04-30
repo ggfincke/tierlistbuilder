@@ -12,7 +12,7 @@ import {
 import {
   computeAutoBoardAspectRatio,
   getBoardAspectRatioMode,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { generateItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { MAX_DELETED_ITEMS } from '../helpers'
 import { withUndo } from '../undoSlice'

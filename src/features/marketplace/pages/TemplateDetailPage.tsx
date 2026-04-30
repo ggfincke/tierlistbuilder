@@ -23,13 +23,13 @@ import {
   formatCount,
   formatRelativeTime,
   formatTimeToRank,
-} from '~/features/marketplace/model/formatters'
+} from '~/shared/catalog/formatters'
 import { Card } from '~/features/marketplace/components/Card'
 import { Cover } from '~/features/marketplace/components/Cover'
 import { RailHeader } from '~/features/marketplace/components/RailHeader'
 import { ShareTemplateButton } from '~/features/marketplace/components/ShareTemplateButton'
 import { UseTemplateButton } from '~/features/marketplace/components/UseTemplateButton'
-import { TEMPLATES_ROUTE_PATH } from '~/app/routes/pathname'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 
 const ITEM_SLOT_HEIGHT = 96
 const RELATED_LIMIT = 4

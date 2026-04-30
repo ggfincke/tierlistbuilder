@@ -9,8 +9,8 @@ import {
   saveBoardToStorage,
   type BoardLoadResult,
 } from '~/features/workspace/boards/data/local/boardStorage'
-import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
   EMPTY_BOARD_SYNC_STATE,

@@ -1,4 +1,4 @@
-// src/app/routes/pathname.ts
+// src/shared/routes/pathname.ts
 // app route path helpers — base-path-aware URL builders for non-React callers
 // (share-link composers etc); React components should use react-router hooks
 

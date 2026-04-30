@@ -32,7 +32,7 @@ import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
-import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
+import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { tierContainerTestId } from '~/shared/board-ui/boardTestIds'
 import { CUSTOM_COLOR_PICKER_WIDTH_PX } from '~/shared/overlay/uiMeasurements'
 import {

@@ -7,8 +7,8 @@ import { useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useUseTemplateMutation } from '~/features/marketplace/data/templatesRepository'
-import { importTemplateBoardAsActive } from '~/features/marketplace/data/templateBoardImport'
-import { promptSignIn } from '~/features/marketplace/model/useSignInPromptStore'
+import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
+import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
@@ -40,7 +40,7 @@ export const useUseTemplate = (): UseTemplateAction =>
       try
       {
         const { boardExternalId } = await cloneTemplate({ slug })
-        await importTemplateBoardAsActive(boardExternalId)
+        await importCloudBoardAsActive(boardExternalId)
         toast(`Forked "${templateTitle}" into a new board`, 'success')
         navigate('/')
       }

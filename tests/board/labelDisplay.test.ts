@@ -6,10 +6,10 @@ import { resolveLabelLayout } from '~/shared/board-ui/labelDisplay'
 
 describe('resolveLabelLayout', () =>
 {
-  it('lets legacy per-item sizeScale override board fontSizePx', () =>
+  it('lets per-item fontSizePx override board fontSizePx', () =>
   {
     const layout = resolveLabelLayout({
-      itemOptions: { sizeScale: 'lg' },
+      itemOptions: { fontSizePx: 16 },
       boardSettings: { fontSizePx: 9 },
       globalShowLabels: true,
     })

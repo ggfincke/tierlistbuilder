@@ -14,7 +14,7 @@ import {
   isValidCustomDim,
   ratioOptionForBoard,
   type RatioOption,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import type { ItemAspectRatioMode } from '@tierlistbuilder/contracts/workspace/board'
 
 export interface BoardAspectRatioPicker

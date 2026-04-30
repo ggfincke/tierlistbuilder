@@ -11,8 +11,8 @@ import { Check, Copy, RefreshCw, Trash2 } from 'lucide-react'
 import {
   revokeShortLinkImperative,
   useListMyShortLinks,
-} from '~/features/workspace/sharing/short-link/shortLinkRepository'
-import { getShareUrlFromSlug } from '~/features/workspace/sharing/short-link/shortLinkShare'
+} from '~/features/platform/share/shortLinkRepository'
+import { getShareUrlFromSlug } from '~/features/platform/share/shortLinkShare'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { COPIED_FEEDBACK_MS } from '~/shared/hooks/useClipboardCopy'
 import { toast } from '~/shared/notifications/useToastStore'

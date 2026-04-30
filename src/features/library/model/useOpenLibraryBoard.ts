@@ -5,8 +5,7 @@ import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
-import { activateTemplateBoardAsActive } from '~/features/marketplace/data/templateBoardImport'
-import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
+import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
 
@@ -31,20 +30,14 @@ export const useOpenLibraryBoard = (): OpenLibraryBoardAction =>
       setPendingBoardExternalId(board.externalId)
       try
       {
-        await activateTemplateBoardAsActive(board.externalId)
+        await activateCloudBoardAsActive(board.externalId)
         toast(`Opened "${board.title}"`, 'success')
         navigate('/')
       }
       catch (error)
       {
         logger.error('library', 'open library board failed', error)
-        toast(
-          formatMarketplaceError(
-            error,
-            'Could not open that board. Please try again.'
-          ),
-          'error'
-        )
+        toast('Could not open that board. Please try again.', 'error')
       }
       finally
       {

@@ -1,4 +1,4 @@
-// src/features/workspace/sharing/short-link/shortLinkShare.ts
+// src/features/platform/share/shortLinkShare.ts
 // snapshot-share short link helpers. encoder uploads to Convex & mints a slug;
 // decoder resolves & inflates via the shared snapshot codec
 
@@ -7,20 +7,17 @@ import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platfo
 import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import { isShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
 import type { Id } from '@convex/_generated/dataModel'
-import { EMBED_ROUTE_PATH } from '~/app/routes/pathname'
-import {
-  buildAppUrl,
-  inflateSnapshotBytes,
-} from '~/features/workspace/sharing/snapshot-compression/hashShare'
+import { EMBED_ROUTE_PATH } from '~/shared/routes/pathname'
+import { buildAppUrl, inflateSnapshotBytes } from '~/shared/sharing/hashShare'
 import {
   assertShortLinkSnapshotSize,
   compressShortLinkSnapshotBytes,
-} from '~/features/workspace/sharing/short-link/shortLinkCodec'
+} from '~/shared/sharing/shortLinkCodec'
 import {
   createSnapshotShortLinkImperative,
   generateSnapshotUploadUrlImperative,
   resolveShortLinkImperative,
-} from '~/features/workspace/sharing/short-link/shortLinkRepository'
+} from '~/features/platform/share/shortLinkRepository'
 import { isNonEmptyString } from '~/shared/lib/typeGuards'
 
 const SHORT_LINK_QUERY_PARAM = 's'

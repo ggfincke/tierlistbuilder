@@ -11,7 +11,7 @@ import {
   type LibraryBoardCoverItem,
   type LibraryBoardListItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'

@@ -9,7 +9,7 @@ import { renameBoardSession } from '~/features/workspace/boards/model/boardSessi
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
+import { DEFAULT_TITLE } from '~/shared/board-data/boardDefaults'
 import { TextInput } from '~/shared/ui/TextInput'
 
 const TITLE_EDITOR_ID = 'toolbar-title'

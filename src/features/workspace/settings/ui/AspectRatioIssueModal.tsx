@@ -25,7 +25,7 @@ import type {
 import {
   formatAspectRatio,
   getEffectiveImageFit,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import {
   ITEM_LONG_EDGE_PX,
   itemSlotDimensions,

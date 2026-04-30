@@ -173,7 +173,7 @@ export const ItemContent = ({
   const imageFrameAspectRatio = useMeasuredAspectRatio(
     imageAreaRef,
     frameAspectRatio,
-    `${imageUrl ?? ''}:${frameAspectRatio}:${placementKey(label)}:${label?.fontSizePx ?? 'none'}:${label?.sizeScale ?? 'none'}`
+    `${imageUrl ?? ''}:${frameAspectRatio}:${placementKey(label)}:${label?.fontSizePx ?? 'none'}`
   )
 
   if (imageUrl)

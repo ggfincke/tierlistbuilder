@@ -12,7 +12,7 @@ import {
 } from '~/features/workspace/boards/data/cloud/cloudMerge'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
 import {
   makeBoardListItem,
   makeBoardMeta,

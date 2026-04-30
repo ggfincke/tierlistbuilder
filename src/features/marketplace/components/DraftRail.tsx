@@ -6,7 +6,7 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 
 import type { MarketplaceTemplateDraft } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { formatRelativeTime } from '~/features/marketplace/model/formatters'
+import { formatRelativeTime } from '~/shared/catalog/formatters'
 import { MediaMatteFrame } from './MediaMatteFrame'
 
 interface DraftRailProps

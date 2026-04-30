@@ -1,4 +1,4 @@
-// src/features/workspace/boards/model/boardSnapshot.ts
+// src/shared/board-data/boardSnapshot.ts
 // board-data helpers — create, reset, extract, & normalize persisted boards
 
 import {
@@ -6,7 +6,7 @@ import {
   DEFAULT_TIER_NAMES,
   DEFAULT_TITLE,
   buildDefaultTiers,
-} from '~/features/workspace/boards/lib/boardDefaults'
+} from '~/shared/board-data/boardDefaults'
 import type {
   BoardLabelSettings,
   BoardSnapshot,
@@ -17,7 +17,6 @@ import type {
   ItemTransform,
   LabelPlacement,
   LabelScrim,
-  LabelSizeScale,
   LabelTextColor,
   Tier,
   TierItem,
@@ -27,7 +26,6 @@ import {
   ITEM_TRANSFORM_IDENTITY,
   ITEM_TRANSFORM_LIMITS,
   LABEL_SCRIMS,
-  LABEL_SIZE_SCALES,
   LABEL_TEXT_COLORS,
   normalizeLabelFontSizePx,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -47,7 +45,6 @@ import {
   getAutoTierColorSpec,
   normalizeCanonicalTierColorSpec,
 } from '~/shared/theme/tierColors'
-import type { ActiveBoardRuntimeState } from './runtime'
 
 interface RawTier
 {
@@ -121,11 +118,6 @@ const normalizeItemLabelOptions = (
   if (placement) result.placement = placement
   const scrim = normalizeEnum<LabelScrim>(raw.scrim, LABEL_SCRIMS)
   if (scrim) result.scrim = scrim
-  const sizeScale = normalizeEnum<LabelSizeScale>(
-    raw.sizeScale,
-    LABEL_SIZE_SCALES
-  )
-  if (sizeScale) result.sizeScale = sizeScale
   const fontSizePx = normalizeLabelFontSizePx(raw.fontSizePx)
   if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
   const textStyleId = normalizeEnum(raw.textStyleId, TEXT_STYLE_IDS)
@@ -149,11 +141,6 @@ const normalizeBoardLabelSettings = (
   if (placement) result.placement = placement
   const scrim = normalizeEnum<LabelScrim>(raw.scrim, LABEL_SCRIMS)
   if (scrim) result.scrim = scrim
-  const sizeScale = normalizeEnum<LabelSizeScale>(
-    raw.sizeScale,
-    LABEL_SIZE_SCALES
-  )
-  if (sizeScale) result.sizeScale = sizeScale
   const fontSizePx = normalizeLabelFontSizePx(raw.fontSizePx)
   if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
   const textStyleId = normalizeEnum(raw.textStyleId, TEXT_STYLE_IDS)
@@ -345,7 +332,7 @@ export const createNewTier = (
   itemIds: [],
 })
 
-type BoardSnapshotSource = Pick<ActiveBoardRuntimeState, keyof BoardSnapshot>
+type BoardSnapshotSource = BoardSnapshot
 
 export type BoardDataSelection = Pick<BoardSnapshotSource, keyof BoardSnapshot>
 

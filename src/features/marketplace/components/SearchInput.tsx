@@ -5,7 +5,7 @@
 import { Search, X } from 'lucide-react'
 import { useEffect, useId, useRef } from 'react'
 
-import { IS_MAC } from '~/features/workspace/shortcuts/lib/shortcuts'
+import { IS_MAC } from '~/shared/lib/platform'
 
 interface SearchInputProps
 {

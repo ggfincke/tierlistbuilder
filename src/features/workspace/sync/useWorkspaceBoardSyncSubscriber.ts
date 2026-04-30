@@ -9,7 +9,7 @@ import {
   boardDataFieldsEqual,
   extractBoardData,
   selectBoardDataFields,
-} from '~/features/workspace/boards/model/boardSnapshot'
+} from '~/shared/board-data/boardSnapshot'
 import { extractBoardSyncState } from '~/features/workspace/boards/model/sync'
 import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
 

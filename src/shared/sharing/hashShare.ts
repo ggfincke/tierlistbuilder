@@ -1,4 +1,4 @@
-// src/features/workspace/sharing/snapshot-compression/hashShare.ts
+// src/shared/sharing/hashShare.ts
 // snapshot compression helpers shared by short-link encode/decode
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
@@ -7,8 +7,8 @@ import {
   MAX_SNAPSHOT_COMPRESSED_BYTES,
 } from '@tierlistbuilder/contracts/platform/shortLink'
 import type { BoardSnapshotWire } from '@tierlistbuilder/contracts/workspace/board'
-import { normalizeBasePath } from '~/app/routes/pathname'
-import { parseBoardSnapshotJson } from '~/features/workspace/export/lib/exportJson'
+import { parseBoardSnapshotJson } from '~/shared/board-data/boardJson'
+import { normalizeBasePath } from '~/shared/routes/pathname'
 import { base64ToBytes, bytesToBase64 } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 import { loadCompressionLib } from '~/shared/lib/lazyDependencies'

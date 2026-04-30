@@ -7,11 +7,11 @@ import {
   generateBoardId,
   type BoardId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
+import { DEFAULT_TITLE } from '~/shared/board-data/boardDefaults'
 import {
   normalizeBoardSnapshot,
   extractBoardData,
-} from '~/features/workspace/boards/model/boardSnapshot'
+} from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {

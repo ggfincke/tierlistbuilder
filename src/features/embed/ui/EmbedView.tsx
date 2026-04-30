@@ -5,8 +5,8 @@ import { useEffect, useState } from 'react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
-import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
-import { resolveInboundShare } from '~/features/workspace/sharing/inbound/inboundShare'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
+import { resolveInboundShare } from '~/features/platform/share/inboundShare'
 import {
   StaticBoard,
   type StaticBoardAppearance,

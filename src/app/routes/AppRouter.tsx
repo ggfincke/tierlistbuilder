@@ -9,7 +9,7 @@ import {
   EMBED_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
-} from './pathname'
+} from '~/shared/routes/pathname'
 import { AppChromeLayout } from './AppChromeLayout'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 import { NotFoundRoute } from './NotFoundRoute'

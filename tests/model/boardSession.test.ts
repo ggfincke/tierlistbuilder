@@ -3,7 +3,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
 import {
   boardStorageKey,
   boardSyncStorageKey,

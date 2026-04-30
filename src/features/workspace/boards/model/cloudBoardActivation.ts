@@ -1,6 +1,5 @@
-// src/features/marketplace/data/templateBoardImport.ts
-// pulls a freshly-cloned cloud board into the local registry & activates it
-// so the workspace mounts on it after navigation
+// src/features/workspace/boards/model/cloudBoardActivation.ts
+// activates cloud-backed boards in the local workspace session
 
 import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { getBoardStateByExternalIdImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
@@ -16,24 +15,24 @@ import {
 } from '~/features/workspace/boards/model/session/boardSessionPersistence'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
 
-export type TemplateBoardImportErrorKind = 'cloud-missing' | 'persist-failed'
+export type CloudBoardActivationErrorKind = 'cloud-missing' | 'persist-failed'
 
-export class TemplateBoardImportError extends Error
+export class CloudBoardActivationError extends Error
 {
-  readonly kind: TemplateBoardImportErrorKind
+  readonly kind: CloudBoardActivationErrorKind
 
-  constructor(kind: TemplateBoardImportErrorKind, message: string)
+  constructor(kind: CloudBoardActivationErrorKind, message: string)
   {
     super(message)
     this.kind = kind
-    this.name = 'TemplateBoardImportError'
+    this.name = 'CloudBoardActivationError'
   }
 }
 
 // fetch the cloud state for `boardExternalId`, persist a local snapshot keyed
 // by the same id, & insert/activate a registry entry. resolves to the local
 // BoardId callers should set as active prior to navigating into the workspace
-export const importTemplateBoardAsActive = async (
+export const importCloudBoardAsActive = async (
   boardExternalId: string
 ): Promise<BoardId> =>
 {
@@ -42,9 +41,9 @@ export const importTemplateBoardAsActive = async (
   })
   if (!cloudState)
   {
-    throw new TemplateBoardImportError(
+    throw new CloudBoardActivationError(
       'cloud-missing',
-      `template-cloned board ${boardExternalId} returned no state`
+      `cloud board ${boardExternalId} returned no state`
     )
   }
 
@@ -55,9 +54,9 @@ export const importTemplateBoardAsActive = async (
 
   if (!saveResult.ok)
   {
-    throw new TemplateBoardImportError(
+    throw new CloudBoardActivationError(
       'persist-failed',
-      `failed to persist template-cloned board ${boardExternalId}: ${saveResult.message}`
+      `failed to persist cloud board ${boardExternalId}: ${saveResult.message}`
     )
   }
 
@@ -87,7 +86,7 @@ export const importTemplateBoardAsActive = async (
   return boardId
 }
 
-export const activateTemplateBoardAsActive = async (
+export const activateCloudBoardAsActive = async (
   boardExternalId: string
 ): Promise<BoardId> =>
 {
@@ -97,7 +96,7 @@ export const activateTemplateBoardAsActive = async (
 
   if (!existing)
   {
-    return await importTemplateBoardAsActive(boardExternalId)
+    return await importCloudBoardAsActive(boardExternalId)
   }
 
   if (registry.activeBoardId === boardId)

@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { formatError } from '~/shared/lib/errors'
 import { THEMES } from '~/shared/theme/tokens'

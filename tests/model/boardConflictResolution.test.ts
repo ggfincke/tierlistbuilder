@@ -9,7 +9,7 @@ import { resolveKeepCloud } from '~/features/workspace/boards/model/boardConflic
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
-import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
 
 const BOARD_ID = 'board-conflict-local' as BoardId
 

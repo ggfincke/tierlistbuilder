@@ -1,4 +1,4 @@
-// src/features/workspace/sharing/inbound/inboundShare.ts
+// src/features/platform/share/inboundShare.ts
 // inbound share resolver shared by workspace bootstrap & embed
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
@@ -6,12 +6,12 @@ import {
   clearShareFragment,
   decodeBoardFromShareFragment,
   getShareFragment,
-} from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/sharing/hashShare'
 import {
   clearShortLinkSlugFromUrl,
   decodeBoardFromShortLink,
   getShortLinkSlugFromUrl,
-} from '~/features/workspace/sharing/short-link/shortLinkShare'
+} from '~/features/platform/share/shortLinkShare'
 
 export type InboundShareSource = 'fragment' | 'slug'
 

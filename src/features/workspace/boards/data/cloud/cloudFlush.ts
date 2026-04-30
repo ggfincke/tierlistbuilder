@@ -6,7 +6,7 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import {
   extractBoardSyncState,
   type BoardSyncState,

@@ -9,7 +9,7 @@ import {
   type FlushResult,
   type PendingBoardSync,
 } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
-import { selectBoardDataFields } from '~/features/workspace/boards/model/boardSnapshot'
+import { selectBoardDataFields } from '~/shared/board-data/boardSnapshot'
 import { flushPromises } from '../shared-lib/async'
 import { makeBoardSnapshot } from '../fixtures'
 

@@ -5,7 +5,7 @@ import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import type { MarketplaceTemplateDraft } from '@tierlistbuilder/contracts/marketplace/template'
-import { activateTemplateBoardAsActive } from '~/features/marketplace/data/templateBoardImport'
+import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -31,7 +31,7 @@ export const useOpenTemplateDraft = (): OpenTemplateDraftAction =>
       setPendingBoardExternalId(draft.boardExternalId)
       try
       {
-        await activateTemplateBoardAsActive(draft.boardExternalId)
+        await activateCloudBoardAsActive(draft.boardExternalId)
         toast(`Opened "${draft.boardTitle}"`, 'success')
         navigate('/')
       }

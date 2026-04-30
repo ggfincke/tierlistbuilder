@@ -1,4 +1,4 @@
-// src/features/workspace/boards/lib/boardDefaults.ts
+// src/shared/board-data/boardDefaults.ts
 // canonical default board structure & board-level defaults
 
 import {

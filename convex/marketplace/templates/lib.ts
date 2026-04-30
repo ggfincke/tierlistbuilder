@@ -19,10 +19,10 @@ import type {
   MarketplaceTemplateItem,
   MarketplaceTemplateSummary,
   TemplateAuthor,
-  TemplateCategory,
   TemplateCoverItem,
   TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
   DEFAULT_TEMPLATE_DRAFT_LIMIT,

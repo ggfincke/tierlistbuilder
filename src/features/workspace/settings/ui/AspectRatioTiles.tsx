@@ -6,7 +6,7 @@ import {
   formatPreciseAspectRatio,
   NON_CUSTOM_RATIO_OPTIONS,
   type RatioOption,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 import { fitRectInBox } from './aspectRatioPreviewRect'
 

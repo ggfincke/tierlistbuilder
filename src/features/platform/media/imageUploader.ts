@@ -20,7 +20,7 @@ import { SUPPORTED_IMAGE_MIME_TYPES } from '@tierlistbuilder/contracts/platform/
 import {
   generateUploadUrlImperative,
   finalizeUploadImperative,
-} from '~/features/workspace/boards/data/cloud/boardRepository'
+} from '~/features/platform/media/uploadsRepository'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 import {
   isRateLimitedError,

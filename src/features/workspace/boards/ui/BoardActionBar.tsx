@@ -20,7 +20,7 @@ import {
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
 import { extractPresetFromBoard } from '~/features/workspace/tier-presets/model/tierPresets'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { toast } from '~/shared/notifications/useToastStore'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'

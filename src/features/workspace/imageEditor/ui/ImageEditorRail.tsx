@@ -13,7 +13,7 @@ import {
   formatAspectRatio,
   getEffectiveImageFit,
   itemHasAspectMismatch,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelLayout } from '~/shared/board-ui/labelDisplay'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'

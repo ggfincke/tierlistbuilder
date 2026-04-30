@@ -1,7 +1,7 @@
 // src/features/workspace/imageEditor/ui/BoardControlsBar.tsx
 // board-wide ratio, label, trim-shadow, & bulk auto-crop controls
 
-import type { RatioOption } from '~/features/workspace/boards/lib/aspectRatio'
+import type { RatioOption } from '~/shared/board-ui/aspectRatio'
 import type { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/useBoardAspectRatioPicker'
 import {
   AspectRatioChips,

@@ -9,7 +9,7 @@ const repositoryMocks = vi.hoisted(() => ({
   createSnapshotShortLinkImperative: vi.fn(),
 }))
 
-vi.mock('~/features/workspace/sharing/short-link/shortLinkRepository', () => ({
+vi.mock('~/features/platform/share/shortLinkRepository', () => ({
   resolveShortLinkImperative: repositoryMocks.resolveShortLinkImperative,
   generateSnapshotUploadUrlImperative:
     repositoryMocks.generateSnapshotUploadUrlImperative,
@@ -17,7 +17,7 @@ vi.mock('~/features/workspace/sharing/short-link/shortLinkRepository', () => ({
     repositoryMocks.createSnapshotShortLinkImperative,
 }))
 
-import { decodeBoardFromShortLink } from '~/features/workspace/sharing/short-link/shortLinkShare'
+import { decodeBoardFromShortLink } from '~/features/platform/share/shortLinkShare'
 
 describe('short-link decode', () =>
 {

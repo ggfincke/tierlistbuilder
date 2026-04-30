@@ -15,7 +15,7 @@ import {
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
-import { getEffectiveImageFit } from '~/features/workspace/boards/lib/aspectRatio'
+import { getEffectiveImageFit } from '~/shared/board-ui/aspectRatio'
 import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
 import { SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'

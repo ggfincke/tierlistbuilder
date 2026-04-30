@@ -3,7 +3,7 @@
 
 import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
 import { createFreshRuntimeState } from '~/features/workspace/boards/model/runtime'
-import { resetBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { resetBoardData } from '~/shared/board-data/boardSnapshot'
 import {
   EMPTY_BOARD_SYNC_STATE,
   extractBoardSyncState,

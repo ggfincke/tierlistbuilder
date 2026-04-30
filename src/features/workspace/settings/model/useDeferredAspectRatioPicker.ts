@@ -15,7 +15,7 @@ import {
   ratioOptionForBoard,
   resolveCustomRatioSeed,
   type RatioOption,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import type { ItemAspectRatioMode } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardAspectRatioPicker } from './useBoardAspectRatioPicker'
 

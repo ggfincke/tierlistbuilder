@@ -1,4 +1,4 @@
-// src/features/workspace/export/lib/boardWireMapper.ts
+// src/shared/board-data/boardWireMapper.ts
 // BoardSnapshot <-> JSON wire shape for export, import, & share helpers
 
 import type {
@@ -10,7 +10,6 @@ import type {
   ItemTransform,
   LabelPlacement,
   LabelScrim,
-  LabelSizeScale,
   LabelTextColor,
   TierItem,
   TierItemImageRef,
@@ -20,7 +19,6 @@ import {
   ITEM_TRANSFORM_IDENTITY,
   ITEM_TRANSFORM_LIMITS,
   LABEL_SCRIMS,
-  LABEL_SIZE_SCALES,
   LABEL_TEXT_COLORS,
   normalizeLabelFontSizePx,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -42,7 +40,7 @@ import {
 } from '~/shared/images/imagePersistence'
 import { getBlobsBatch, probeImageStore } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
-import { decodeImageAspectRatioFromSrc } from '~/features/workspace/settings/lib/imageLoad'
+import { decodeImageAspectRatioFromSrc } from '~/shared/images/imageLoad'
 import { isRecord } from '~/shared/lib/typeGuards'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
@@ -178,11 +176,6 @@ const normalizeItemLabelOptionsWire = (
   if (placement) result.placement = placement
   const scrim = normalizeEnumWire<LabelScrim>(obj.scrim, LABEL_SCRIMS)
   if (scrim) result.scrim = scrim
-  const sizeScale = normalizeEnumWire<LabelSizeScale>(
-    obj.sizeScale,
-    LABEL_SIZE_SCALES
-  )
-  if (sizeScale) result.sizeScale = sizeScale
   const fontSizePx = normalizeLabelFontSizePx(obj.fontSizePx)
   if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
   const textStyleId = normalizeEnumWire(obj.textStyleId, TEXT_STYLE_IDS)
@@ -207,11 +200,6 @@ const normalizeBoardLabelSettingsWire = (
   if (placement) result.placement = placement
   const scrim = normalizeEnumWire<LabelScrim>(obj.scrim, LABEL_SCRIMS)
   if (scrim) result.scrim = scrim
-  const sizeScale = normalizeEnumWire<LabelSizeScale>(
-    obj.sizeScale,
-    LABEL_SIZE_SCALES
-  )
-  if (sizeScale) result.sizeScale = sizeScale
   const fontSizePx = normalizeLabelFontSizePx(obj.fontSizePx)
   if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
   const textStyleId = normalizeEnumWire(obj.textStyleId, TEXT_STYLE_IDS)

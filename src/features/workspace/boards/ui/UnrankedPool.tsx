@@ -16,7 +16,7 @@ import {
   selectActiveItemCount,
 } from '~/features/workspace/boards/model/slices/selectors'
 import { useEffectiveUnrankedItemIds } from '~/features/workspace/boards/model/useEffectiveBoard'
-import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
+import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { UNRANKED_CONTAINER_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'

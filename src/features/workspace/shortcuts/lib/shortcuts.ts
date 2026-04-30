@@ -1,24 +1,13 @@
 // src/features/workspace/shortcuts/lib/shortcuts.ts
 // shared keyboard shortcut definitions & platform detection
 
+import { IS_MAC } from '~/shared/lib/platform'
+
 export interface ShortcutDefinition
 {
   keys: readonly string[]
   description: string
 }
-
-// prefer the modern UA-Data platform string; fall back to navigator.platform
-// for browsers that haven't shipped it (Firefox, Safari at time of writing)
-const detectPlatform = (): string =>
-{
-  if (typeof navigator === 'undefined') return ''
-  const uaData = (
-    navigator as Navigator & { userAgentData?: { platform?: string } }
-  ).userAgentData
-  return uaData?.platform ?? navigator.platform ?? ''
-}
-
-export const IS_MAC = detectPlatform().toLowerCase().startsWith('mac')
 
 export const MOD_KEY = IS_MAC ? 'Cmd' : 'Ctrl'
 

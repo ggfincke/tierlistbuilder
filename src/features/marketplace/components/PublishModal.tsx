@@ -10,9 +10,9 @@ import {
   MAX_TEMPLATE_DESCRIPTION_LENGTH,
   MAX_TEMPLATE_TITLE_LENGTH,
   TEMPLATE_VISIBILITIES,
-  type TemplateCategory,
   type TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'

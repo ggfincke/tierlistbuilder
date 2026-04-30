@@ -7,7 +7,7 @@ import {
   type BoardId,
   type UserPresetId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import { selectBoardDataFields } from '~/features/workspace/boards/model/boardSnapshot'
+import { selectBoardDataFields } from '~/shared/board-data/boardSnapshot'
 import { loadBoardDeleteSyncMeta } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { extractAppSettings } from '~/features/workspace/settings/model/appSettingsExtraction'
