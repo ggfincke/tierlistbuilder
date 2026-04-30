@@ -3,9 +3,10 @@
 
 import { Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useEffect, useMemo } from 'react'
+import { useDeferredValue, useEffect, useMemo, type CSSProperties } from 'react'
 
 import type {
+  LibraryBoardDensity,
   LibraryBoardListItem,
   LibraryBoardStatus,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -35,6 +36,15 @@ import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoar
 // columns per density for the grid view. dense packs 4 across, default 3,
 // loose 2 — large covers feel hero-ish at 2-up
 const COLUMNS_BY_DENSITY = { dense: 4, default: 3, loose: 2 } as const
+const GRID_INTRINSIC_HEIGHT_BY_DENSITY = {
+  dense: '205px',
+  default: '260px',
+  loose: '330px',
+} as const satisfies Record<LibraryBoardDensity, string>
+
+type DeferredGridStyle = CSSProperties & {
+  '--deferred-grid-item-height': string
+}
 
 // fold normalized title against a normalized search term — case + diacritics
 // folded so "Pokemon" matches "Pokémon". no fuzzy ranking yet; the v1 list
@@ -64,23 +74,35 @@ export const MyListsPage = () =>
 
   const filters = useLibraryFilters()
   const openBoard = useOpenLibraryBoard()
+  const deferredSearch = useDeferredValue(filters.searchDebounced)
+  const deferredFilter = useDeferredValue(filters.filter)
+  const deferredSort = useDeferredValue(filters.sort)
 
   const counts = useMemo(() => countLibraryStatuses(rows ?? []), [rows])
 
   const visibleBoards = useMemo(() =>
   {
     if (!rows) return null
-    const needle = filters.searchDebounced
+    const needle = deferredSearch
       .normalize('NFD')
       .replace(/[̀-ͯ]/g, '')
       .trim()
       .toLowerCase()
-    const filtered = filterLibraryBoards(rows, filters.filter)
+    const filtered = filterLibraryBoards(rows, deferredFilter)
     const searched = needle
       ? filtered.filter((board) => matchesSearch(board, needle))
       : filtered
-    return sortLibraryBoards(searched, filters.sort)
-  }, [rows, filters.filter, filters.sort, filters.searchDebounced])
+    return sortLibraryBoards(searched, deferredSort)
+  }, [rows, deferredFilter, deferredSort, deferredSearch])
+
+  const gridStyle = useMemo<DeferredGridStyle>(
+    () => ({
+      gridTemplateColumns: `repeat(${COLUMNS_BY_DENSITY[filters.density]}, minmax(0, 1fr))`,
+      '--deferred-grid-item-height':
+        GRID_INTRINSIC_HEIGHT_BY_DENSITY[filters.density],
+    }),
+    [filters.density]
+  )
 
   // document title for tab clarity & deep-link share previews
   useEffect(() =>
@@ -105,7 +127,11 @@ export const MyListsPage = () =>
       : 'Your library'
 
   const filtersActive =
-    filters.filter !== 'all' || filters.searchDebounced.trim().length > 0
+    deferredFilter !== 'all' || deferredSearch.trim().length > 0
+  const resultsPending =
+    filters.searchDebounced !== deferredSearch ||
+    filters.filter !== deferredFilter ||
+    filters.sort !== deferredSort
   const totalLoadedBoards = rows?.length ?? 0
   const totalVisible = visibleBoards?.length ?? 0
   const showEmptyState = !isLoading && rows !== null && totalVisible === 0
@@ -185,22 +211,22 @@ export const MyListsPage = () =>
               {filtersActive && (
                 <>
                   {' · filtered'}
-                  {filters.filter !== 'all' && (
+                  {deferredFilter !== 'all' && (
                     <>
                       {' by '}
                       <span className="text-[var(--t-text-secondary)]">
                         {LIBRARY_STATUS_META[
-                          filters.filter as LibraryBoardStatus
+                          deferredFilter as LibraryBoardStatus
                         ].label.toLowerCase()}
                       </span>
                     </>
                   )}
-                  {filters.searchDebounced.trim() && (
+                  {deferredSearch.trim() && (
                     <>
-                      {filters.filter !== 'all' ? ' · ' : ' · '}
+                      {deferredFilter !== 'all' ? ' · ' : ' · '}
                       matching "
                       <span className="text-[var(--t-text-secondary)]">
-                        {filters.searchDebounced.trim()}
+                        {deferredSearch.trim()}
                       </span>
                       "
                     </>
@@ -213,7 +239,10 @@ export const MyListsPage = () =>
       </div>
 
       {/* content */}
-      <div className="mt-4">
+      <div
+        className={`mt-4 transition-opacity ${resultsPending ? 'opacity-70' : ''}`}
+        aria-busy={resultsPending || undefined}
+      >
         {showSkeleton ? (
           <LibrarySkeleton
             density={filters.density}
@@ -237,23 +266,19 @@ export const MyListsPage = () =>
             pendingBoardExternalId={openBoard.pendingBoardExternalId}
           />
         ) : (
-          <div
-            className="grid gap-5"
-            style={{
-              gridTemplateColumns: `repeat(${COLUMNS_BY_DENSITY[filters.density]}, minmax(0, 1fr))`,
-            }}
-          >
+          <div className="grid gap-5" style={gridStyle}>
             {!filtersActive && <NewListTile density={filters.density} />}
             {(visibleBoards ?? []).map((board) => (
-              <BoardCard
-                key={board.externalId}
-                board={board}
-                density={filters.density}
-                onOpen={(b) => void openBoard.open(b)}
-                isPending={
-                  openBoard.pendingBoardExternalId === board.externalId
-                }
-              />
+              <div key={board.externalId} className="deferred-grid-item h-full">
+                <BoardCard
+                  board={board}
+                  density={filters.density}
+                  onOpen={(b) => void openBoard.open(b)}
+                  isPending={
+                    openBoard.pendingBoardExternalId === board.externalId
+                  }
+                />
+              </div>
             ))}
           </div>
         )}

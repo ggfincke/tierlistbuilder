@@ -1,12 +1,14 @@
 // src/features/workspace/boards/ui/DragOverlayItem.tsx
 // ghost item rendered in the dnd-kit DragOverlay while dragging
 
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { TierItem as TierItemType } from '@tierlistbuilder/contracts/workspace/board'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { createSelectBoardItemById } from '~/features/workspace/boards/model/slices/selectors'
 import {
   getBoardItemAspectRatio,
   getEffectiveImageFit,
@@ -20,6 +22,30 @@ interface DragOverlayItemProps
   item: TierItemType
   groupCount?: number
 }
+
+interface ActiveDragOverlayItemProps
+{
+  itemId: ItemId
+  groupCount?: number
+}
+
+export const ActiveDragOverlayItem = memo(
+  ({ itemId, groupCount = 0 }: ActiveDragOverlayItemProps) =>
+  {
+    const selectItem = useMemo(
+      () => createSelectBoardItemById(itemId),
+      [itemId]
+    )
+    const item = useActiveBoardStore(selectItem)
+
+    if (!item)
+    {
+      return null
+    }
+
+    return <DragOverlayItem item={item} groupCount={groupCount} />
+  }
+)
 
 export const DragOverlayItem = memo(
   ({ item, groupCount = 0 }: DragOverlayItemProps) =>

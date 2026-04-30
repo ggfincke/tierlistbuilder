@@ -17,6 +17,7 @@
     "lint:fix": "eslint --fix .",
     "format": "prettier --write . && eslint --fix .",
     "format:check": "prettier --check . && eslint .",
+    "bundle:report": "node scripts/report-bundle-size.mjs",
     "audit:drag": "node scripts/drag-audit.mjs",
     "seed:marketplace": "tsx scripts/seed-marketplace-templates.ts",
     "test": "vitest run",

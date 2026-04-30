@@ -11,7 +11,14 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  lazy,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
@@ -30,7 +37,6 @@ import { CategoryChips } from '~/features/marketplace/components/CategoryChips'
 import { CreateTile } from '~/features/marketplace/components/CreateTile'
 import { DraftRail } from '~/features/marketplace/components/DraftRail'
 import { Hero } from '~/features/marketplace/components/Hero'
-import { PublishModal } from '~/features/marketplace/components/PublishModal'
 import { Rail } from '~/features/marketplace/components/Rail'
 import { RailHeader } from '~/features/marketplace/components/RailHeader'
 import { SearchInput } from '~/features/marketplace/components/SearchInput'
@@ -40,6 +46,17 @@ import { useGalleryFilters } from '~/features/marketplace/model/useGalleryFilter
 import { useOpenTemplateDraft } from '~/features/marketplace/model/useOpenTemplateDraft'
 import { useTemplatesGallery } from '~/features/marketplace/model/useTemplatesGallery'
 import { formatCount } from '~/features/marketplace/model/formatters'
+import {
+  loadPublishModal,
+  preloadPublishModal,
+} from '~/features/marketplace/components/loadPublishModal'
+import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
+
+const PublishModal = lazy(() =>
+  loadPublishModal().then((m) => ({
+    default: m.PublishModal,
+  }))
+)
 
 const SORT_LABELS: Record<TemplateListSort, string> = {
   featured: 'Featured',
@@ -382,11 +399,17 @@ export const TemplatesGalleryPage = () =>
 
         <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {!filtersActive && (
-            <CreateTile onClick={handleCreateTileClick} size="default" />
+            <CreateTile
+              onClick={handleCreateTileClick}
+              onIntent={isSignedIn ? preloadPublishModal : undefined}
+              size="default"
+            />
           )}
           {gallery.results ? (
             gallery.results.map((template) => (
-              <Card key={template.slug} template={template} size="default" />
+              <div key={template.slug} className="deferred-grid-item h-full">
+                <Card template={template} size="default" />
+              </div>
             ))
           ) : (
             <GridSkeleton />
@@ -411,7 +434,9 @@ export const TemplatesGalleryPage = () =>
         )}
       </section>
 
-      <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} />
+      <LazyModalSlot when={publishOpen} section="publish template">
+        {() => <PublishModal open onClose={() => setPublishOpen(false)} />}
+      </LazyModalSlot>
     </>
   )
 }

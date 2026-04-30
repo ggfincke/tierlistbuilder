@@ -23,6 +23,12 @@ const multiSelectModifier: 'Meta' | 'Control' =
 const tierItemTestId = (itemId: string): string => `tier-item-${itemId}`
 const tierContainerTestId = (tierId: string): string =>
   `tier-container-${tierId}`
+const templateSearchBox = (page: Page): Locator =>
+  page.getByRole('searchbox', { name: 'Search templates' })
+const templateSortSelect = (page: Page): Locator =>
+  page.getByRole('combobox', { name: /sort templates by/i })
+const templateCategoryChip = (page: Page, label: string): Locator =>
+  page.getByRole('button', { name: new RegExp(`^${label}`) })
 
 const toBase64Url = (bytes: Uint8Array): string =>
   Buffer.from(bytes)
@@ -234,7 +240,7 @@ test('mixed aspect-ratio prompt fits a mobile settings viewport', async ({
   await expect(settings).toBeVisible()
 
   await page.getByRole('tab', { name: /layout/i }).click()
-  await settings.getByRole('button', { name: '1:1' }).click()
+  await settings.getByRole('button', { name: '1:1', exact: true }).click()
   await page.getByRole('tab', { name: /items/i }).click()
 
   const imageUrl = new URL('/e2e-wide.svg', page.url()).toString()
@@ -270,6 +276,46 @@ test('mixed aspect-ratio prompt fits a mobile settings viewport', async ({
   expect(pageOverflows).toBe(false)
 })
 
+test('mixed aspect-ratio prompt opens the image editor', async ({ page }) =>
+{
+  await page.route('**/e2e-editor-wide.svg', async (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#555"/></svg>',
+    })
+  )
+
+  await openWorkspaceWithBoard(page)
+  await page.getByRole('button', { name: 'Open settings' }).click()
+  const settings = page.getByRole('dialog', { name: 'Settings' })
+  await expect(settings).toBeVisible()
+
+  await page.getByRole('tab', { name: /layout/i }).click()
+  await settings.getByRole('button', { name: '1:1', exact: true }).click()
+  await page.getByRole('tab', { name: /items/i }).click()
+
+  const imageUrl = new URL('/e2e-editor-wide.svg', page.url()).toString()
+  await settings.getByLabel('Image URL').fill(imageUrl)
+  await settings.getByRole('button', { name: 'Add' }).first().click()
+
+  const prompt = page.getByRole('dialog', {
+    name: 'Mixed aspect ratios detected',
+  })
+  await expect(prompt).toBeVisible()
+  await prompt.getByRole('button', { name: /adjust each item/i }).click()
+  await expect(prompt).toBeHidden()
+
+  const editor = page.getByRole('dialog', {
+    name: 'Adjust items to fit board',
+  })
+  await expect(editor).toBeVisible()
+  await expect(editor.getByRole('tab', { name: 'Mismatched' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  )
+  await expect(editor).toContainText('Item 1 of 1')
+})
+
 test('embed route renders hash-share board without workspace controls', async ({
   page,
 }) =>
@@ -283,4 +329,76 @@ test('embed route renders hash-share board without workspace controls', async ({
   await expect(page.getByText('Alpha')).toBeVisible()
   await expect(page.getByText('Made with Tier List Builder')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add tier' })).toHaveCount(0)
+})
+
+test('marketplace filters follow query-param changes while mounted', async ({
+  page,
+}) =>
+{
+  await page.goto('/templates?q=zelda&cat=gaming&sort=popular')
+
+  const search = templateSearchBox(page)
+  const sort = templateSortSelect(page)
+  await expect(search).toHaveValue('zelda')
+  await expect(templateCategoryChip(page, 'Gaming')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  await expect(sort).toHaveValue('popular')
+
+  await page.evaluate(() =>
+  {
+    window.history.pushState(
+      null,
+      '',
+      '/templates?q=ghibli&cat=anime&sort=featured&tag=Bosses'
+    )
+    window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
+  })
+
+  await expect(search).toHaveValue('ghibli')
+  await expect(templateCategoryChip(page, 'Anime & Manga')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  await expect(
+    page.getByRole('button', { name: 'Remove tag filter "bosses"' })
+  ).toBeVisible()
+  await expect(sort).toHaveValue('recent')
+  await expect(sort).toBeDisabled()
+  await expect(page).toHaveURL(/tag=bosses/)
+})
+
+test('marketplace discrete filters create navigable history entries', async ({
+  page,
+}) =>
+{
+  await page.goto('/templates')
+
+  const all = templateCategoryChip(page, 'All')
+  const gaming = templateCategoryChip(page, 'Gaming')
+  const sort = templateSortSelect(page)
+
+  await gaming.click()
+  await expect(page).toHaveURL(/cat=gaming/)
+  await expect(gaming).toHaveAttribute('aria-pressed', 'true')
+
+  await sort.selectOption('popular')
+  await expect(page).toHaveURL(/sort=popular/)
+  await expect(sort).toHaveValue('popular')
+
+  await page.goBack()
+  await expect(page).not.toHaveURL(/sort=popular/)
+  await expect(gaming).toHaveAttribute('aria-pressed', 'true')
+  await expect(sort).toHaveValue('recent')
+
+  await page.goBack()
+  await expect(page).not.toHaveURL(/cat=gaming/)
+  await expect(all).toHaveAttribute('aria-pressed', 'true')
+
+  await page.goForward()
+  await expect(gaming).toHaveAttribute('aria-pressed', 'true')
+
+  await page.goForward()
+  await expect(sort).toHaveValue('popular')
 })

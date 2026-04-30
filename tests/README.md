@@ -15,6 +15,7 @@ We focus on testing critical pure-function logic that, if broken, would cause si
 - **Color Parsing**: Hex/RGB normalization, contrast calculation
 - **Tier Colors**: Palette/custom color spec creation, resolution, & equality
 - **Board Snapshot**: Board creation, reset, tier factory, colorSpec & rowColorSpec normalization
+- **Board Statistics**: Tier distribution, empty-board summaries, and most/least populated tier tie behavior
 - **Board Operations**: Pure tier sorting & item shuffling logic
 - **Tier Presets**: Preset-to-board conversion, board-to-preset extraction, row-color & round-trip integrity
 - **JSON Import**: Single & multi-board parsing, envelope detection, validation, & error reporting
@@ -60,6 +61,7 @@ E2E tests live in `e2e/` at the repo root and are excluded from the Vitest run v
 Current guardrails cover app boot, keyboard drag/focus restoration, pointer
 drag plus Undo, bulk delete/Undo, nested modal Escape, mobile mixed-ratio prompt
 layout, and hash-share embed rendering.
+The suite also checks that the mixed-ratio prompt opens the split image editor.
 
 ## Structure
 
@@ -70,6 +72,7 @@ tests/
 ├── setup.ts                         — global vitest setup (localStorage stub + resetAllMocks)
 ├── board/
 │   ├── boardSnapshot.test.ts        — board creation, tier factory, colorSpec & rowColorSpec normalization
+│   ├── boardStats.test.ts           — tier distribution and population summary labels
 │   ├── boardOps.test.ts             — pure sorting & shuffling helpers
 │   ├── tierColors.test.ts           — tier color spec creation, resolution, & equality
 │   └── tierPresets.test.ts          — preset-to-board & board-to-preset conversion w/ row-color round-trip
