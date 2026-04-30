@@ -13,17 +13,8 @@ import {
   useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import {
-  ChevronRight,
-  Crop,
-  Crosshair,
-  RefreshCw,
-  RotateCcw,
-  RotateCw,
-  SkipForward,
-} from 'lucide-react'
+import { Crop } from 'lucide-react'
 
-import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 import type {
   BoardLabelSettings,
@@ -31,8 +22,6 @@ import type {
   ItemLabelOptions,
   ItemRotation,
   ItemTransform,
-  LabelOverlayPlacement,
-  LabelPlacement,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemSize } from '@tierlistbuilder/contracts/platform/preferences'
@@ -41,15 +30,7 @@ import {
   getEffectiveImageFit,
   itemHasAspectMismatch,
 } from '~/shared/board-ui/aspectRatio'
-import {
-  itemSlotDimensions,
-  OBJECT_FIT_CLASS,
-} from '~/shared/board-ui/constants'
-import {
-  resolveLabelLayout,
-  type ResolvedLabelDisplay,
-} from '~/shared/board-ui/labelDisplay'
-import { CaptionStrip as SharedCaptionStrip } from '~/shared/board-ui/labelBlocks'
+import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import {
   clampItemTransform,
@@ -68,10 +49,8 @@ import {
   subscribeAutoCropCache,
 } from '~/shared/lib/autoCrop'
 import { warmImageHashes } from '~/shared/images/imageBlobCache'
-import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import {
   applyAxisSnap,
-  CANVAS_BOUND,
   createFitBaselineTransform,
   getDisplayZoomBounds,
   getSavedTransform,
@@ -83,19 +62,13 @@ import {
   SLIDER_ZOOM_MAX,
   WHEEL_ZOOM_SENSITIVITY,
 } from '../lib/imageEditorGeometry'
-import { LABEL_FONT_LABELS } from '../lib/labelEditorOptions'
 import { useMeasuredElementSize } from '../lib/useMeasuredElementSize'
-import { AutoCropButton } from './AutoCropButton'
-import { DraggableLabelOverlay } from './DraggableLabelOverlay'
+import type { PendingImageEditorPaneEdit } from '../model/pendingImageEdit'
+import { usePaneLabelEditor } from '../model/usePaneLabelEditor'
+import { ImageEditorPaneFooter } from './ImageEditorPaneFooter'
+import { ImageEditorPreviewCanvas } from './ImageEditorPreviewCanvas'
 import { LabelEditorRow } from './LabelEditorRow'
 import { SaveStatusIndicator } from './SaveStatusIndicator'
-import { ZoomSlider } from './ZoomSlider'
-
-export interface PendingImageEditorPaneEdit
-{
-  id: ItemId
-  transform: ItemTransform | null
-}
 
 export interface ImageEditorPaneHandle
 {
@@ -178,137 +151,37 @@ export const ImageEditorPane = forwardRef<
   const url = sourceUrl ?? displayUrl
   const autoCropHash = getAutoCropHash(item)
   const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
-  const labelLayout = useMemo(
-    () =>
-      resolveLabelLayout({
-        itemOptions: item.labelOptions,
-        boardSettings: boardLabels,
-        globalShowLabels,
-      }),
-    [item.labelOptions, boardLabels, globalShowLabels]
-  )
-  const previewLabelText = item.label?.trim() ?? ''
-  const showLivePreview = labelLayout.visible && previewLabelText.length > 0
   const canvasRef = useRef<HTMLDivElement | null>(null)
-  const [labelDraft, setLabelDraft] = useState(item.label ?? '')
-  const labelDraftRef = useRef(labelDraft)
-  labelDraftRef.current = labelDraft
-
-  useEffect(() =>
-  {
-    const nextDraft = item.label ?? ''
-    labelDraftRef.current = nextDraft
-    setLabelDraft(nextDraft)
-  }, [item.id, item.label])
-
-  const updateLabelDraft = useCallback((value: string) =>
-  {
-    labelDraftRef.current = value
-    setLabelDraft(value)
-  }, [])
-
-  const commitLabel = useCallback(() =>
-  {
-    onLabelChange(labelDraftRef.current)
-  }, [onLabelChange])
-
-  const updateLabelOption = useCallback(
-    <K extends keyof ItemLabelOptions>(
-      key: K,
-      value: ItemLabelOptions[K] | undefined
-    ) =>
-    {
-      const current = item.labelOptions ?? {}
-      const next: ItemLabelOptions = { ...current }
-      if (value === undefined)
-      {
-        delete next[key]
-      }
-      else
-      {
-        next[key] = value
-      }
-      onLabelOptionsChange(Object.keys(next).length > 0 ? next : null)
-    },
-    [item.labelOptions, onLabelOptionsChange]
-  )
-
-  const [placementDraft, setPlacementDraft] =
-    useState<LabelOverlayPlacement | null>(null)
-  const placementDraftRef = useRef(placementDraft)
-  placementDraftRef.current = placementDraft
-  const [labelDragSnap, setLabelDragSnap] = useState<{
-    x: boolean
-    y: boolean
-  }>({ x: false, y: false })
-
-  const handleLabelDragMove = useCallback(
-    (x: number, y: number, snap: { x: boolean; y: boolean }) =>
-    {
-      setPlacementDraft({ mode: 'overlay', x, y })
-      setLabelDragSnap((prev) =>
-        prev.x === snap.x && prev.y === snap.y ? prev : snap
-      )
-    },
-    []
-  )
-
-  const handleLabelDragEnd = useCallback(() =>
-  {
-    const draft = placementDraftRef.current
-    setLabelDragSnap({ x: false, y: false })
-    if (!draft) return
-    updateLabelOption('placement', draft)
-    setPlacementDraft(null)
-  }, [updateLabelOption])
-
-  useEffect(() =>
-  {
-    setPlacementDraft(null)
-    setLabelDragSnap({ x: false, y: false })
-  }, [item.id])
-
-  const handlePlacementChange = useCallback(
-    (placement: LabelPlacement) =>
-    {
-      setPlacementDraft(null)
-      updateLabelOption('placement', placement)
-    },
-    [updateLabelOption]
-  )
-
-  const resolvedPlacement: LabelPlacement =
-    placementDraft ?? labelLayout.placement
-  const captionPreviewMode =
-    showLivePreview &&
-    (resolvedPlacement.mode === 'captionAbove' ||
-      resolvedPlacement.mode === 'captionBelow')
-  const previewW =
-    boardAspectRatio >= 1 ? CANVAS_BOUND : CANVAS_BOUND * boardAspectRatio
-  const previewH =
-    boardAspectRatio >= 1 ? CANVAS_BOUND / boardAspectRatio : CANVAS_BOUND
-  const previewTileSize = itemSlotDimensions(boardItemSize, boardAspectRatio)
-  const previewScale =
-    previewTileSize.height > 0 ? previewH / previewTileSize.height : 1
-  const previewLabelDisplay = useMemo<ResolvedLabelDisplay>(
-    () => ({
-      placement: resolvedPlacement,
-      scrim: labelLayout.scrim,
-      fontSizePx: labelLayout.fontSizePx * previewScale,
-      textStyleId: labelLayout.textStyleId,
-      textColor: labelLayout.textColor,
-      text: previewLabelText,
-    }),
-    [
-      resolvedPlacement,
-      labelLayout.scrim,
-      labelLayout.fontSizePx,
-      labelLayout.textStyleId,
-      labelLayout.textColor,
-      previewScale,
-      previewLabelText,
-    ]
-  )
+  const {
+    labelDraft,
+    updateLabelDraft,
+    commitLabel,
+    updateLabelOption,
+    handleFontSizePxChange,
+    placementDraft,
+    labelDragSnap,
+    handleLabelDragMove,
+    handleLabelDragEnd,
+    handlePlacementChange,
+    resolvedPlacement,
+    captionPreviewMode,
+    previewW,
+    previewH,
+    previewLabelDisplay,
+    showLivePreview,
+    labelLayout,
+    inheritedTextStyleLabel,
+    boardDefaultVisible,
+  } = usePaneLabelEditor({
+    item,
+    boardAspectRatio,
+    boardLabels,
+    globalShowLabels,
+    globalTextStyleId,
+    boardItemSize,
+    onLabelChange,
+    onLabelOptionsChange,
+  })
   const canvasSize = useMeasuredElementSize(canvasRef, {
     width: previewW,
     height: previewH,
@@ -900,107 +773,41 @@ export const ImageEditorPane = forwardRef<
           </span>
         )}
       </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center bg-[var(--t-bg-sunken)] p-6">
-        <div
-          className={`overflow-hidden rounded border border-[var(--t-border-secondary)] bg-black/20 select-none ${
-            captionPreviewMode ? 'flex flex-col' : ''
-          }`}
-          style={{
-            width: previewW,
-            height: previewH,
-          }}
-        >
-          {captionPreviewMode && resolvedPlacement.mode === 'captionAbove' && (
-            <SharedCaptionStrip display={previewLabelDisplay} />
-          )}
-          <div
-            ref={canvasRef}
-            className={`relative overflow-hidden ${
-              captionPreviewMode ? 'min-h-0 flex-1' : 'h-full w-full'
-            }`}
-            style={{
-              cursor: isDragging ? 'grabbing' : url ? 'grab' : 'default',
-              touchAction: 'none',
-            }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerEnd}
-            onPointerCancel={onPointerEnd}
-            role="presentation"
-          >
-            {url ? (
-              <img
-                src={url}
-                alt={item.altText ?? item.label ?? 'Tier item'}
-                className={imgClass}
-                style={imgStyle}
-                draggable={false}
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-[var(--t-text-faint)]">
-                Loading...
-              </div>
-            )}
-            {snap.x && (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]"
-              />
-            )}
-            {snap.y && (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]"
-              />
-            )}
-            {placementDraft && labelDragSnap.x && (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--t-accent)]"
-              />
-            )}
-            {placementDraft && labelDragSnap.y && (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--t-accent)]"
-              />
-            )}
-            {showLivePreview && resolvedPlacement.mode === 'overlay' && (
-              <DraggableLabelOverlay
-                display={previewLabelDisplay}
-                canvasRef={canvasRef}
-                onDragMove={handleLabelDragMove}
-                onDragEnd={handleLabelDragEnd}
-              />
-            )}
-          </div>
-          {captionPreviewMode && resolvedPlacement.mode === 'captionBelow' && (
-            <SharedCaptionStrip display={previewLabelDisplay} />
-          )}
-        </div>
-      </div>
+      <ImageEditorPreviewCanvas
+        item={item}
+        url={url}
+        previewW={previewW}
+        previewH={previewH}
+        canvasRef={canvasRef}
+        captionPreviewMode={captionPreviewMode}
+        resolvedPlacement={resolvedPlacement}
+        previewLabelDisplay={previewLabelDisplay}
+        imgClass={imgClass}
+        imgStyle={imgStyle}
+        isDragging={isDragging}
+        snap={snap}
+        placementDraft={placementDraft}
+        labelDragSnap={labelDragSnap}
+        showLivePreview={showLivePreview}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerEnd={onPointerEnd}
+        onLabelDragMove={handleLabelDragMove}
+        onLabelDragEnd={handleLabelDragEnd}
+      />
       <LabelEditorRow
         resolvedPlacement={resolvedPlacement}
         resolvedScrim={labelLayout.scrim}
         resolvedTextColor={labelLayout.textColor}
         resolvedFontSizePx={labelLayout.fontSizePx}
         resolvedTextStyleId={labelLayout.textStyleId}
-        inheritedTextStyleLabel={
-          LABEL_FONT_LABELS[boardLabels?.textStyleId ?? globalTextStyleId]
-        }
-        boardDefaultVisible={boardLabels?.show ?? globalShowLabels}
+        inheritedTextStyleLabel={inheritedTextStyleLabel}
+        boardDefaultVisible={boardDefaultVisible}
         itemOptions={item.labelOptions}
         onPlacementChange={handlePlacementChange}
         onScrimChange={(s) => updateLabelOption('scrim', s)}
         onTextColorChange={(c) => updateLabelOption('textColor', c)}
-        onFontSizePxChange={(px) =>
-        {
-          const current = item.labelOptions ?? {}
-          const next: ItemLabelOptions = { ...current }
-          if (px === undefined) delete next.fontSizePx
-          else next.fontSizePx = px
-          onLabelOptionsChange(Object.keys(next).length > 0 ? next : null)
-        }}
+        onFontSizePxChange={handleFontSizePxChange}
         onTextStyleChange={(t) => updateLabelOption('textStyleId', t)}
         onVisibleChange={(v) => updateLabelOption('visible', v)}
         onClearOverrides={() => onLabelOptionsChange(null)}
@@ -1011,161 +818,32 @@ export const ImageEditorPane = forwardRef<
         expanded={captionExpanded}
         onExpandedChange={onCaptionExpandedChange}
       />
-      <div
-        className="sticky bottom-0 flex flex-col gap-2 border-t border-[var(--t-border-secondary)] bg-[var(--t-bg-page)] px-5 py-3"
-        role="group"
-        aria-label="Image controls and navigation"
-      >
-        <button
-          type="button"
-          onClick={() => onImageExpandedChange(!imageExpanded)}
-          aria-expanded={imageExpanded}
-          aria-controls={imageSectionId}
-          className="focus-custom inline-flex w-fit items-center gap-1 rounded px-1 py-0.5 text-[0.65rem] font-semibold tracking-wider text-[var(--t-text-faint)] uppercase hover:text-[var(--t-text-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-          title={
-            imageExpanded ? 'Collapse image controls' : 'Expand image controls'
-          }
-        >
-          <ChevronRight
-            className={`h-3 w-3 transition-transform ${imageExpanded ? 'rotate-90' : ''}`}
-          />
-          Image
-        </button>
-        {imageExpanded && (
-          <div
-            id={imageSectionId}
-            className="flex flex-wrap items-center gap-3"
-          >
-            <div
-              className="flex items-center gap-1"
-              role="group"
-              aria-label="Rotate"
-            >
-              <button
-                type="button"
-                onClick={() => rotate(-90)}
-                className="focus-custom rounded p-1.5 text-[var(--t-text-muted)] hover:bg-[var(--t-bg-surface)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-                aria-label="Rotate left 90 degrees"
-                title="Rotate 90 degrees counter-clockwise"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => rotate(90)}
-                className="focus-custom rounded p-1.5 text-[var(--t-text-muted)] hover:bg-[var(--t-bg-surface)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-                aria-label="Rotate right 90 degrees"
-                title="Rotate 90 degrees clockwise"
-              >
-                <RotateCw className="h-4 w-4" />
-              </button>
-            </div>
-            <ZoomSlider
-              value={displayZoom}
-              min={displayZoomMin}
-              sliderMax={displaySliderZoomMax}
-              onLiveChange={setZoomLive}
-            />
-            <button
-              type="button"
-              onClick={centerOffsets}
-              disabled={working.offsetX === 0 && working.offsetY === 0}
-              className="focus-custom inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-              aria-label="Center image"
-              title="Center the image - clears the pan offset"
-            >
-              <Crosshair className="h-3 w-3" />
-              Center
-            </button>
-            <AutoCropButton
-              onClick={autoCrop}
-              disabled={
-                !autoCropHash ||
-                autoCropping ||
-                autoCropResult === null ||
-                autoCropApplied
-              }
-              minWidthClassName="min-w-[7.5rem]"
-              state={
-                autoCropping ? 'running' : autoCropApplied ? 'applied' : 'idle'
-              }
-              variant="plain"
-              labels={{
-                running: 'Auto-crop',
-                applied: 'Auto-cropped',
-                idle: 'Auto-crop',
-              }}
-              ariaLabels={{
-                running: 'Auto-cropping in progress',
-                applied: 'Auto-crop applied to this image',
-                idle: 'Auto-crop this image to detected content',
-              }}
-              title={
-                autoCropApplied
-                  ? 'Already auto-cropped - adjust or reset to re-run'
-                  : autoCropResult === null
-                    ? 'No crop detected'
-                    : 'Frame the detected content'
-              }
-            />
-            <button
-              type="button"
-              onClick={reset}
-              disabled={!hasChanges && !isDirty}
-              className="focus-custom inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-              title="Reset rotation, zoom, and pan to the default fit"
-              aria-label="Reset image transforms (rotation, zoom, pan)"
-            >
-              <RefreshCw className="h-3 w-3" />
-              Reset image
-            </button>
-          </div>
-        )}
-        <div
-          className="flex flex-wrap items-center gap-3"
-          role="group"
-          aria-label="Navigation"
-        >
-          <span
-            className="text-[0.65rem] font-semibold tracking-wider text-[var(--t-text-faint)] uppercase"
-            aria-hidden="true"
-          >
-            Navigate
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <SecondaryButton
-              onClick={onPrev}
-              disabled={!canPrev}
-              variant="surface"
-              size="sm"
-              title="Previous item"
-            >
-              Prev
-            </SecondaryButton>
-            <SecondaryButton
-              onClick={onSkip}
-              disabled={!canSkip}
-              variant="outline"
-              size="sm"
-              title="Leave this item as-is and move on"
-            >
-              <span className="inline-flex items-center gap-1">
-                <SkipForward className="h-3 w-3" />
-                Skip
-              </span>
-            </SecondaryButton>
-            <SecondaryButton
-              onClick={onNext}
-              disabled={!canNext}
-              variant="surface"
-              size="sm"
-              title="Next item"
-            >
-              Next
-            </SecondaryButton>
-          </div>
-        </div>
-      </div>
+      <ImageEditorPaneFooter
+        imageSectionId={imageSectionId}
+        imageExpanded={imageExpanded}
+        onImageExpandedChange={onImageExpandedChange}
+        rotate={rotate}
+        displayZoom={displayZoom}
+        displayZoomMin={displayZoomMin}
+        displaySliderZoomMax={displaySliderZoomMax}
+        onZoomLiveChange={setZoomLive}
+        centerOffsets={centerOffsets}
+        working={working}
+        autoCrop={autoCrop}
+        autoCropHash={autoCropHash}
+        autoCropping={autoCropping}
+        autoCropResult={autoCropResult}
+        autoCropApplied={autoCropApplied}
+        reset={reset}
+        hasChanges={hasChanges}
+        isDirty={isDirty}
+        canPrev={canPrev}
+        canNext={canNext}
+        canSkip={canSkip}
+        onPrev={onPrev}
+        onNext={onNext}
+        onSkip={onSkip}
+      />
     </div>
   )
 })
