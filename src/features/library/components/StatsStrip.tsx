@@ -66,23 +66,17 @@ export const StatsStrip = ({ boards }: StatsStripProps) =>
       <StatCol
         label="In progress"
         value={totals.inProgress}
-        subtitle={
-          totals.inProgress === 1
-            ? 'currently ranking'
-            : 'currently ranking lists'
-        }
+        subtitle="currently ranking"
       />
       <StatCol
         label="Finished"
         value={totals.finished}
-        subtitle={totals.finished === 1 ? 'ready to share' : 'ready to share'}
+        subtitle="ready to share"
       />
       <StatCol
         label="Published"
         value={totals.published}
-        subtitle={
-          totals.published === 1 ? 'live as a template' : 'live as templates'
-        }
+        subtitle={`live as ${pluralize(totals.published, 'a template', 'templates')}`}
       />
     </div>
   )

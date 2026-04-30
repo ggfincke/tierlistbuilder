@@ -223,8 +223,7 @@ export const MyListsPage = () =>
                   )}
                   {deferredSearch.trim() && (
                     <>
-                      {deferredFilter !== 'all' ? ' · ' : ' · '}
-                      matching "
+                      {' · matching "'}
                       <span className="text-[var(--t-text-secondary)]">
                         {deferredSearch.trim()}
                       </span>
@@ -267,9 +266,12 @@ export const MyListsPage = () =>
           />
         ) : (
           <div className="grid gap-5" style={gridStyle}>
-            {!filtersActive && <NewListTile density={filters.density} />}
+            {!filtersActive && <NewListTile />}
             {(visibleBoards ?? []).map((board) => (
-              <div key={board.externalId} className="deferred-grid-item h-full">
+              <div
+                key={board.externalId}
+                className="deferred-grid-item h-full min-w-0"
+              >
                 <BoardCard
                   board={board}
                   density={filters.density}
