@@ -430,3 +430,112 @@ export interface DeletedBoardListItem extends BoardListItem
 {
   deletedAt: number
 }
+
+// derived completion status surfaced on the My Lists library page. these are
+// computed server-side from counts + indexed live-template lookup; the user
+// never sets these directly
+export const LIBRARY_BOARD_STATUSES = [
+  'draft',
+  'in_progress',
+  'finished',
+  'published',
+] as const
+export type LibraryBoardStatus = (typeof LIBRARY_BOARD_STATUSES)[number]
+
+// share-state — 'public' iff a live public template sourced from this board
+// exists; unlisted templates fold into 'private' here (not-discoverable)
+export const LIBRARY_BOARD_VISIBILITIES = ['private', 'public'] as const
+export type LibraryBoardVisibility = (typeof LIBRARY_BOARD_VISIBILITIES)[number]
+
+// status filter chip values on the My Lists page. 'all' is a UI-only filter
+// state that doesn't appear on individual rows
+export const LIBRARY_BOARD_FILTERS = ['all', ...LIBRARY_BOARD_STATUSES] as const
+export type LibraryBoardFilter = (typeof LIBRARY_BOARD_FILTERS)[number]
+
+// sort options on the My Lists page — 'updated' is the default; 'progress'
+// orders by ranked / activeItemCount w/ a draft-aware tiebreak
+export const LIBRARY_BOARD_SORTS = [
+  'updated',
+  'created',
+  'title',
+  'progress',
+] as const
+export type LibraryBoardSort = (typeof LIBRARY_BOARD_SORTS)[number]
+
+// view layout on the My Lists page — grid of cards or a dense table. board
+// (kanban) view is intentionally omitted; the columns map 1:1 to the status
+// filter & added complexity without a clear UX win on a single-user surface
+export const LIBRARY_BOARD_VIEWS = ['grid', 'list'] as const
+export type LibraryBoardView = (typeof LIBRARY_BOARD_VIEWS)[number]
+
+// grid card density. 'dense' = more columns, smaller covers; 'loose' = fewer
+// columns, larger hero-style covers; 'default' is the middle ground
+export const LIBRARY_BOARD_DENSITIES = ['dense', 'default', 'loose'] as const
+export type LibraryBoardDensity = (typeof LIBRARY_BOARD_DENSITIES)[number]
+
+// max cover-item labels per row — covers the densest 6x4 grid (24) w/ headroom
+export const LIBRARY_BOARD_COVER_ITEM_LIMIT = 18
+
+// max tier colorSpecs per row — matches the canonical 5-tier preset cap
+export const LIBRARY_BOARD_TIER_LIMIT = 5
+
+// single cover-item entry. label is null when the item has no caption;
+// mediaUrl is null when the item has no image bound (drafts, missing media)
+// — the renderer falls back to label or an externalId-derived code
+export interface LibraryBoardCoverItem
+{
+  label: string | null
+  externalId: string
+  mediaUrl: string | null
+}
+
+// per-tier breakdown entry. tierIndex is the row's position (0 = top tier);
+// colorSpec resolves against the response's `paletteId` field
+export interface LibraryBoardTierBreakdown
+{
+  tierIndex: number
+  itemCount: number
+  colorSpec: import('../lib/theme').TierColorSpec
+}
+
+// enriched board list row served by getMyLibraryBoards — adds counts, derived
+// status/visibility, source-template category, & cover-item labels
+export interface LibraryBoardListItem extends BoardListItem
+{
+  activeItemCount: number
+  unrankedItemCount: number
+  rankedItemCount: number
+  status: LibraryBoardStatus
+  visibility: LibraryBoardVisibility
+  category: import('../marketplace/template').TemplateCategory
+  coverItems: LibraryBoardCoverItem[]
+  paletteId: import('../lib/theme').PaletteId
+  tierColors: import('../lib/theme').TierColorSpec[]
+  tierBreakdown: LibraryBoardTierBreakdown[]
+  // forward-compat slot for a "pin to top" feature; always false today
+  pinned: boolean
+}
+
+export const deriveLibraryBoardStatus = (params: {
+  activeItemCount: number
+  unrankedItemCount: number
+  hasPublishedTemplate: boolean
+}): LibraryBoardStatus =>
+{
+  if (params.hasPublishedTemplate) return 'published'
+  if (params.activeItemCount === 0) return 'draft'
+  if (params.unrankedItemCount > 0) return 'in_progress'
+  return 'finished'
+}
+
+// progress as a ratio in [0, 1] — drafts (0 active items) report 0 so sort
+// comparisons stay sensible; otherwise it's ranked / active
+export const computeLibraryBoardProgress = (
+  row: Pick<LibraryBoardListItem, 'activeItemCount' | 'rankedItemCount'>
+): number =>
+{
+  if (row.activeItemCount <= 0) return 0
+  const ratio = row.rankedItemCount / row.activeItemCount
+  if (!Number.isFinite(ratio)) return 0
+  return Math.max(0, Math.min(1, ratio))
+}

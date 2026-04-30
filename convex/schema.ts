@@ -7,6 +7,7 @@ import { v } from 'convex/values'
 import {
   appSettingsValidator,
   boardLabelSettingsValidator,
+  boardLibrarySummaryValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
   paletteIdValidator,
@@ -89,6 +90,7 @@ export default defineSchema({
       v.literal('in-progress'),
       v.literal('complete')
     ),
+    librarySummary: boardLibrarySummaryValidator,
     // per-board override of the user-default tier palette; absent -> user default
     paletteId: v.optional(paletteIdValidator),
     // per-board override of the user-default text style; absent -> user default
@@ -227,6 +229,12 @@ export default defineSchema({
   })
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
+    .index('byAuthorSourceBoardVisibilityUnpublished', [
+      'authorId',
+      'sourceBoardExternalId',
+      'visibility',
+      'unpublishedAt',
+    ])
     .index('byCoverMedia', ['coverMediaAssetId'])
     .index('byVisibilityUnpublishedUpdatedAt', [
       'visibility',

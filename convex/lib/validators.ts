@@ -45,15 +45,19 @@ import {
   type TemplateMediaRef,
   type TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import type {
-  BoardListItem,
-  DeletedBoardListItem,
+import {
+  LIBRARY_BOARD_STATUSES,
+  LIBRARY_BOARD_VISIBILITIES,
+  type BoardListItem,
+  type DeletedBoardListItem,
+  type LibraryBoardListItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   CloudBoardState,
   CloudBoardStateTier,
   CloudBoardStateItem,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import type { BoardLibrarySummary } from '../workspace/boards/librarySummary'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'
 import type {
   OwnedShortLinkListItem,
@@ -224,6 +228,56 @@ export const deletedBoardListItemValidator = v.object({
   updatedAt: v.number(),
   revision: v.number(),
   deletedAt: v.number(),
+})
+
+// status & visibility unions — mirror the LIBRARY_BOARD_* tuples in contracts
+const libraryBoardStatusValidator = literalUnion(LIBRARY_BOARD_STATUSES)
+const libraryBoardVisibilityValidator = literalUnion(LIBRARY_BOARD_VISIBILITIES)
+
+// single cover-item entry on a library row — mirrors LibraryBoardCoverItem
+const libraryBoardCoverItemValidator = v.object({
+  label: v.union(v.string(), v.null()),
+  externalId: v.string(),
+  mediaUrl: v.union(v.string(), v.null()),
+})
+
+// per-tier breakdown row — mirrors LibraryBoardTierBreakdown
+const libraryBoardTierBreakdownValidator = v.object({
+  tierIndex: v.number(),
+  itemCount: v.number(),
+  colorSpec: tierColorSpecValidator,
+})
+
+export const boardLibrarySummaryValidator = v.object({
+  coverItems: v.array(
+    v.object({
+      label: v.union(v.string(), v.null()),
+      externalId: v.string(),
+      storageId: v.union(v.id('_storage'), v.null()),
+    })
+  ),
+  tierColors: v.array(tierColorSpecValidator),
+  tierBreakdown: v.array(libraryBoardTierBreakdownValidator),
+})
+
+// enriched my-lists library row — mirrors LibraryBoardListItem in contracts
+export const libraryBoardListItemValidator = v.object({
+  externalId: v.string(),
+  title: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  revision: v.number(),
+  activeItemCount: v.number(),
+  unrankedItemCount: v.number(),
+  rankedItemCount: v.number(),
+  status: libraryBoardStatusValidator,
+  visibility: libraryBoardVisibilityValidator,
+  category: templateCategoryValidator,
+  coverItems: v.array(libraryBoardCoverItemValidator),
+  paletteId: paletteIdValidator,
+  tierColors: v.array(tierColorSpecValidator),
+  tierBreakdown: v.array(libraryBoardTierBreakdownValidator),
+  pinned: v.boolean(),
 })
 
 // tier row in a cloud board state payload — mirrors CloudBoardStateTier
@@ -486,6 +540,28 @@ export type _DeletedBoardListItemCovers = _Assert<
 >
 export type _DeletedBoardListItemNoExtra = _Assert<
   Infer<typeof deletedBoardListItemValidator> extends DeletedBoardListItem
+    ? true
+    : false
+>
+
+export type _LibraryBoardListItemCovers = _Assert<
+  LibraryBoardListItem extends Infer<typeof libraryBoardListItemValidator>
+    ? true
+    : false
+>
+export type _LibraryBoardListItemNoExtra = _Assert<
+  Infer<typeof libraryBoardListItemValidator> extends LibraryBoardListItem
+    ? true
+    : false
+>
+
+export type _BoardLibrarySummaryCovers = _Assert<
+  BoardLibrarySummary extends Infer<typeof boardLibrarySummaryValidator>
+    ? true
+    : false
+>
+export type _BoardLibrarySummaryNoExtra = _Assert<
+  Infer<typeof boardLibrarySummaryValidator> extends BoardLibrarySummary
     ? true
     : false
 >

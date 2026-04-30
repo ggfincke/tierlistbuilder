@@ -132,7 +132,7 @@ const PROFILE_DRAFT_FIELDS = [
 
 const trimmed = (raw: string): string => raw.trim()
 
-// per-field canonicalizer used both for save-payload diffing and for comparing
+// per-field canonicalizer used both for save-payload diffing & for comparing
 // server state against the draft. handle normalizes lowercase + charset; the
 // rest just trim
 const PROFILE_FIELD_NORMALIZERS: Record<
