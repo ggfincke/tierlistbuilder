@@ -56,21 +56,30 @@ interface RawTier
   itemIds?: unknown
 }
 
-// filter out non-string entries from a raw itemIds array & brand the rest
-const normalizeItemIds = (raw: unknown): ItemId[] =>
+// per-call accumulators threaded through tier + item normalization so
+// duplicate tier ids & dangling/duplicate item refs never reach dnd-kit
+interface NormalizationContext
 {
-  if (!Array.isArray(raw))
-  {
-    return []
-  }
+  items: Record<ItemId, TierItem>
+  seenTierIds: Set<string>
+  seenItemIds: Set<ItemId>
+}
+
+const normalizeItemIds = (
+  raw: unknown,
+  ctx: NormalizationContext
+): ItemId[] =>
+{
+  if (!Array.isArray(raw)) return []
 
   const result: ItemId[] = []
   for (const value of raw)
   {
-    if (typeof value === 'string')
-    {
-      result.push(asItemId(value))
-    }
+    if (typeof value !== 'string') continue
+    const itemId = asItemId(value)
+    if (ctx.seenItemIds.has(itemId) || !ctx.items[itemId]) continue
+    ctx.seenItemIds.add(itemId)
+    result.push(itemId)
   }
   return result
 }
@@ -87,6 +96,35 @@ const normalizeEnum = <T extends string>(
 
 const ASPECT_RATIO_MODES: readonly ItemAspectRatioMode[] = ['auto', 'manual']
 const IMAGE_FITS: readonly ImageFit[] = ['cover', 'contain']
+
+// pick a unique tier id (caller-supplied -> default-by-index -> generated) &
+// claim it on the context so subsequent tiers can't collide
+const claimTierId = (
+  raw: unknown,
+  index: number,
+  ctx: NormalizationContext
+): Tier['id'] =>
+{
+  const resolved = pickTierId(raw, index, ctx.seenTierIds)
+  ctx.seenTierIds.add(resolved)
+  return resolved
+}
+
+const pickTierId = (
+  raw: unknown,
+  index: number,
+  seen: Set<string>
+): Tier['id'] =>
+{
+  if (typeof raw === 'string' && isTierId(raw) && !seen.has(raw)) return raw
+
+  const defaultId = DEFAULT_TIER_IDS[index]
+  if (defaultId && !seen.has(defaultId)) return defaultId
+
+  let generated = generateTierId()
+  while (seen.has(generated)) generated = generateTierId()
+  return generated
+}
 
 // validate untrusted placement payloads. unknown modes & out-of-range
 // coordinates collapse to undefined so the renderer falls back to defaults
@@ -284,16 +322,14 @@ const normalizeItemList = (raw: unknown): TierItem[] =>
 const normalizeTier = (
   tier: RawTier,
   index: number,
-  paletteId: PaletteId
+  paletteId: PaletteId,
+  ctx: NormalizationContext
 ): Tier =>
 {
   const rowColorSpec = normalizeCanonicalTierColorSpec(tier.rowColorSpec)
 
   const normalized: Tier = {
-    id:
-      typeof tier.id === 'string' && isTierId(tier.id)
-        ? tier.id
-        : (DEFAULT_TIER_IDS[index] ?? generateTierId()),
+    id: claimTierId(tier.id, index, ctx),
     name:
       typeof tier.name === 'string'
         ? tier.name
@@ -303,7 +339,7 @@ const normalizeTier = (
     colorSpec:
       normalizeCanonicalTierColorSpec(tier.colorSpec) ??
       getAutoTierColorSpec(paletteId, index),
-    itemIds: normalizeItemIds(tier.itemIds),
+    itemIds: normalizeItemIds(tier.itemIds, ctx),
   }
 
   if (rowColorSpec) normalized.rowColorSpec = rowColorSpec
@@ -427,17 +463,24 @@ export const normalizeBoardSnapshot = (
   fallbackTitle = DEFAULT_TITLE
 ): BoardSnapshot =>
 {
+  const ctx: NormalizationContext = {
+    items: normalizeItemMap(value?.items),
+    seenTierIds: new Set(),
+    seenItemIds: new Set(),
+  }
   const tiers = Array.isArray(value?.tiers)
     ? value.tiers.map((tier, index) =>
-        normalizeTier(tier as RawTier, index, paletteId)
+        normalizeTier(tier as RawTier, index, paletteId, ctx)
       )
     : buildDefaultTiers(paletteId)
 
+  // unranked is normalized AFTER tiers so an item present in both lands in the
+  // tier & is dropped from unranked (tier placement wins over orphan list)
   return {
     title: value?.title ?? fallbackTitle,
     tiers,
-    unrankedItemIds: normalizeItemIds(value?.unrankedItemIds),
-    items: normalizeItemMap(value?.items),
+    unrankedItemIds: normalizeItemIds(value?.unrankedItemIds, ctx),
+    items: ctx.items,
     deletedItems: normalizeItemList(value?.deletedItems),
     itemAspectRatio: normalizePositiveFinite(value?.itemAspectRatio),
     itemAspectRatioMode: normalizeEnum(

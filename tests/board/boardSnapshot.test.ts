@@ -104,6 +104,45 @@ describe('normalizeBoardSnapshot', () =>
     expect(result.tiers[0].colorSpec).toEqual({ kind: 'palette', index: 0 })
   })
 
+  it('drops duplicate or dangling board-order refs while preserving live items', () =>
+  {
+    const itemA = asItemId('item-a')
+    const itemB = asItemId('item-b')
+    const itemC = asItemId('item-c')
+
+    const result = normalizeBoardSnapshot(
+      {
+        tiers: asInvalid([
+          {
+            id: 'tier-s',
+            name: 'S',
+            colorSpec: { kind: 'palette', index: 0 },
+            itemIds: [itemA, 'missing-item', itemB, itemA],
+          },
+          {
+            id: 'tier-s',
+            name: 'Duplicate',
+            colorSpec: { kind: 'palette', index: 1 },
+            itemIds: [itemB],
+          },
+        ]),
+        unrankedItemIds: [itemC, itemA, 'missing-unranked'],
+        items: {
+          [itemA]: makeItem({ id: itemA }),
+          [itemB]: makeItem({ id: itemB }),
+          [itemC]: makeItem({ id: itemC }),
+        },
+      },
+      'classic'
+    )
+
+    expect(result.tiers.map((tier) => tier.id)).toEqual(['tier-s', 'tier-a'])
+    expect(result.tiers[0].itemIds).toEqual([itemA, itemB])
+    expect(result.tiers[1].itemIds).toEqual([])
+    expect(result.unrankedItemIds).toEqual([itemC])
+    expect(Object.keys(result.items)).toEqual([itemA, itemB, itemC])
+  })
+
   it('preserves a valid rowColorSpec & drops invalid input', () =>
   {
     const present = normalizeBoardSnapshot(

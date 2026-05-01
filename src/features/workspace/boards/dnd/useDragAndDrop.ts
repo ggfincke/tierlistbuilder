@@ -29,6 +29,7 @@ import {
   findContainer,
   getEffectiveContainerSnapshot,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
+import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 import { captureRenderedContainerSnapshot } from '~/features/workspace/boards/dnd/dragDomCapture'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 
@@ -82,6 +83,8 @@ export const useDragAndDrop = () =>
     null
   )
   const isMultiDragRef = useRef(false)
+  const pendingPreviewRef = useRef<ContainerSnapshot | null>(null)
+  const previewFrameRef = useRef<number | null>(null)
 
   const sensors = useDragSensors()
 
@@ -90,6 +93,50 @@ export const useDragAndDrop = () =>
     activeDragRef.current = drag
     setActiveDragState(drag)
   }
+
+  // drain the rAF-batched preview snapshot & cancel any pending frame;
+  // return the latest payload or null when nothing is queued
+  const consumePendingPreview = (): ContainerSnapshot | null =>
+  {
+    const pending = pendingPreviewRef.current
+    pendingPreviewRef.current = null
+    if (previewFrameRef.current !== null)
+    {
+      cancelAnimationFrame(previewFrameRef.current)
+      previewFrameRef.current = null
+    }
+    return pending
+  }
+
+  const flushPendingPreviewUpdate = () =>
+  {
+    const pending = consumePendingPreview()
+    if (pending) updateDragPreview(pending)
+  }
+
+  const getCurrentDragPreview = (): ContainerSnapshot =>
+    pendingPreviewRef.current ??
+    getEffectiveContainerSnapshot(useActiveBoardStore.getState())
+
+  const schedulePreviewUpdate = (preview: ContainerSnapshot) =>
+  {
+    pendingPreviewRef.current = preview
+    if (previewFrameRef.current !== null) return
+
+    previewFrameRef.current = requestAnimationFrame(() =>
+    {
+      const pending = consumePendingPreview()
+      if (pending) updateDragPreview(pending)
+    })
+  }
+
+  useEffect(
+    () => () =>
+    {
+      consumePendingPreview()
+    },
+    []
+  )
 
   useEffect(() =>
   {
@@ -135,6 +182,7 @@ export const useDragAndDrop = () =>
 
   const resetDragState = () =>
   {
+    consumePendingPreview()
     lastOverIdRef.current = null
     movedToNewContainerRef.current = false
     initialRectRef.current = null
@@ -198,20 +246,20 @@ export const useDragAndDrop = () =>
     )
   }
 
-  const onDragMove = (event: DragMoveEvent) =>
+  const syncItemDrag = (event: DragMoveEvent | DragOverEvent) =>
   {
     if (activeDragRef.current.kind !== 'item') return
-    syncDraggedItemPosition(event, movedToNewContainerRef, updateDragPreview)
-  }
-
-  const onDragOver = (event: DragOverEvent) =>
-  {
-    if (activeDragRef.current.kind !== 'item') return
-    syncDraggedItemPosition(event, movedToNewContainerRef, updateDragPreview)
+    syncDraggedItemPosition(
+      event,
+      getCurrentDragPreview(),
+      movedToNewContainerRef,
+      schedulePreviewUpdate
+    )
   }
 
   const onDragEnd = (event: DragEndEvent) =>
   {
+    flushPendingPreviewUpdate()
     const activeStringId = toStringId(event.active.id)
     const activeFallbackId = activeStringId ? toItemId(activeStringId) : null
     const activeDragState = activeDragRef.current
@@ -377,8 +425,8 @@ export const useDragAndDrop = () =>
     collisionDetection,
     overlayModifiers,
     onDragStart,
-    onDragMove,
-    onDragOver,
+    onDragMove: syncItemDrag,
+    onDragOver: syncItemDrag,
     onDragEnd,
     onDragCancel,
   }
