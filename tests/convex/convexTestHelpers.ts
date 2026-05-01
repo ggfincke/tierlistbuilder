@@ -82,6 +82,8 @@ export const seedPublishedTemplate = async (
     authorAvatarStorageId: author.avatarStorageId ?? null,
     coverMedia: null,
     coverItems: [],
+    itemAspectRatio: null,
+    defaultItemImageFit: null,
     featuredRank: null,
     useCount: 0,
     viewCount: 0,

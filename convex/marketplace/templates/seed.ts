@@ -219,6 +219,10 @@ export const insertSeedTemplate = internalMutation({
       .map((item) => ({
         mediaAssetId: item.mediaAssetId,
         label: item.label ?? null,
+        backgroundColor: null,
+        aspectRatio: item.aspectRatio,
+        imageFit: null,
+        transform: item.transform,
       }))
 
     // leave coverMediaAssetId null so the gallery renders the item-image
@@ -1177,6 +1181,10 @@ export const finalizeSeededTemplateChunksImpl = internalMutation({
       .map((item) => ({
         mediaAssetId: item.mediaAssetId,
         label: item.label ?? null,
+        backgroundColor: item.backgroundColor ?? null,
+        aspectRatio: item.aspectRatio ?? null,
+        imageFit: item.imageFit ?? null,
+        transform: item.transform ?? null,
       }))
 
     const now = Date.now()

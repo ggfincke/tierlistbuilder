@@ -139,6 +139,10 @@ export interface TemplateCoverItem
 {
   media: TemplateMediaRef
   label: string | null
+  backgroundColor: string | null
+  aspectRatio: number | null
+  imageFit: ImageFit | null
+  transform: ItemTransform | null
 }
 
 export interface MarketplaceTemplateBase
@@ -166,6 +170,12 @@ export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase
 {
   // first MAX_TEMPLATE_COVER_ITEMS media-backed items in template order
   coverItems: TemplateCoverItem[]
+  // slot aspect ratio (w/h) the template was designed against; null falls back
+  // to 1 (square). mirrored on summary so gallery cards can frame cover tiles
+  // identically to the detail item grid w/o a detail read
+  itemAspectRatio: number | null
+  // board-wide fit pinned by the publisher; null falls back to 'cover'
+  defaultItemImageFit: ImageFit | null
 }
 
 export interface MarketplaceTemplateGalleryCard extends MarketplaceTemplateSummary
@@ -214,12 +224,6 @@ export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
 {
   access: TemplateCardAccessState
   suggestedTiers: TierPresetTier[]
-  // slot aspect ratio (w/h) the template was designed against — gallery thumbs
-  // & forked boards use this so per-item transforms frame correctly. null when
-  // the template predates the field; callers should fall back to 1 (square)
-  itemAspectRatio: number | null
-  // board-wide fit pinned by the publisher; null falls back to 'cover'
-  defaultItemImageFit: ImageFit | null
   // pre-baked board label settings; null falls back to the forking user's
   // global showLabels + built-in defaults
   labels: BoardLabelSettings | null

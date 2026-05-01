@@ -73,6 +73,8 @@ type TemplateCardSource = Pick<
   | 'itemCount'
   | 'featuredRank'
   | 'creditLine'
+  | 'itemAspectRatio'
+  | 'defaultItemImageFit'
   | 'createdAt'
   | 'updatedAt'
 >
@@ -800,7 +802,16 @@ export const loadCoverItems = async (
         options.kind ?? 'tile',
         options.cache
       )
-      return media ? { media, label: item.label } : null
+      return media
+        ? {
+            media,
+            label: item.label,
+            backgroundColor: item.backgroundColor,
+            aspectRatio: item.aspectRatio,
+            imageFit: item.imageFit,
+            transform: item.transform,
+          }
+        : null
     })
   )
 
@@ -895,7 +906,16 @@ const toTemplateCardCoverItems = async (
     rows.map(async (item) =>
     {
       const media = await toTemplateCardMedia(ctx, item.mediaAssetId)
-      return media ? { media, label: item.label } : null
+      return media
+        ? {
+            media,
+            label: item.label,
+            backgroundColor: item.backgroundColor,
+            aspectRatio: item.aspectRatio,
+            imageFit: item.imageFit,
+            transform: item.transform,
+          }
+        : null
     })
   )
   return items.filter((item): item is TemplateCoverItemForCard => item !== null)
@@ -957,6 +977,8 @@ const buildTemplateCardFields = async (
     ...author,
     coverMedia,
     coverItems,
+    itemAspectRatio: template.itemAspectRatio ?? null,
+    defaultItemImageFit: template.defaultItemImageFit ?? null,
     featuredRank: template.featuredRank,
     useCount: stats.useCount,
     viewCount: stats.viewCount,
@@ -1129,7 +1151,16 @@ const toTemplateCardCoverItem = async (
 ): Promise<TemplateCoverItem | null> =>
 {
   const media = await toTemplateCardMediaRef(ctx, item.media, cache)
-  return media ? { media, label: item.label } : null
+  return media
+    ? {
+        media,
+        label: item.label,
+        backgroundColor: item.backgroundColor,
+        aspectRatio: item.aspectRatio,
+        imageFit: item.imageFit,
+        transform: item.transform,
+      }
+    : null
 }
 
 export const toTemplateCardSummary = async (
@@ -1166,6 +1197,8 @@ export const toTemplateCardSummary = async (
     author,
     coverMedia,
     coverItems,
+    itemAspectRatio: card.itemAspectRatio,
+    defaultItemImageFit: card.defaultItemImageFit,
     itemCount: card.itemCount,
     useCount: card.useCount,
     viewCount: card.viewCount,
@@ -1232,10 +1265,10 @@ export const toTemplateDetail = async (
   return {
     ...base,
     coverItems,
-    access: getTemplateAccessState(template, viewerPlan),
-    suggestedTiers: template.suggestedTiers,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
+    access: getTemplateAccessState(template, viewerPlan),
+    suggestedTiers: template.suggestedTiers,
     labels: template.labels ?? null,
   }
 }

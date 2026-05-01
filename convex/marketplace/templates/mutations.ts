@@ -230,7 +230,7 @@ const loadLargePublishCoverState = async (
   boardId: Id<'boards'>
 ): Promise<{
   fallbackCoverMediaId: Id<'mediaAssets'> | null
-  coverItems: Array<{ mediaAssetId: Id<'mediaAssets'>; label: string | null }>
+  coverItems: Doc<'templates'>['coverItems']
 }> =>
 {
   const items = await ctx.db
@@ -251,6 +251,10 @@ const loadLargePublishCoverState = async (
     coverItems: mediaBacked.map((item) => ({
       mediaAssetId: item.mediaAssetId,
       label: item.label ?? null,
+      backgroundColor: item.backgroundColor ?? null,
+      aspectRatio: item.aspectRatio ?? null,
+      imageFit: item.imageFit ?? null,
+      transform: item.transform ?? null,
     })),
   }
 }
@@ -503,6 +507,10 @@ export const publishFromBoard = mutation({
     const coverItems = mediaBackedItems.map((item) => ({
       mediaAssetId: item.mediaAssetId,
       label: item.label ?? null,
+      backgroundColor: item.backgroundColor ?? null,
+      aspectRatio: item.aspectRatio ?? null,
+      imageFit: item.imageFit ?? null,
+      transform: item.transform ?? null,
     }))
     const coverMediaAssetId = await resolveCoverMediaId(
       ctx,

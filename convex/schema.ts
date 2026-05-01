@@ -228,6 +228,10 @@ export default defineSchema({
       v.object({
         mediaAssetId: v.id('mediaAssets'),
         label: v.union(v.string(), v.null()),
+        backgroundColor: v.union(v.string(), v.null()),
+        aspectRatio: v.union(v.number(), v.null()),
+        imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+        transform: v.union(itemTransformValidator, v.null()),
       })
     ),
     suggestedTiers: tierPresetTiersValidator,
@@ -282,6 +286,15 @@ export default defineSchema({
     authorAvatarStorageId: v.union(v.id('_storage'), v.null()),
     coverMedia: v.union(templateCardMediaValidator, v.null()),
     coverItems: v.array(templateCardCoverItemValidator),
+    // mirror of templates.itemAspectRatio so gallery cards can frame cover
+    // tiles identically to the detail item grid w/o a parent-table read
+    itemAspectRatio: v.union(v.number(), v.null()),
+    // mirror of templates.defaultItemImageFit; null falls back to 'cover'
+    defaultItemImageFit: v.union(
+      v.literal('cover'),
+      v.literal('contain'),
+      v.null()
+    ),
     featuredRank: v.union(v.number(), v.null()),
     useCount: v.number(),
     viewCount: v.number(),
