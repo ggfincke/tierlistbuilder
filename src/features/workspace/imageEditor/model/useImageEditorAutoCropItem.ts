@@ -47,6 +47,25 @@ export type AutoCropStatus =
   | 'ready'
   | 'applied'
 
+interface AutoCropStatusInputs
+{
+  autoCropHash: string | undefined
+  autoCropping: boolean
+  autoCropResult: ReturnType<typeof getCachedBBox>
+  autoCropApplied: boolean
+}
+
+const resolveAutoCropStatus = (
+  inputs: AutoCropStatusInputs
+): AutoCropStatus =>
+{
+  if (!inputs.autoCropHash) return 'unavailable'
+  if (inputs.autoCropping) return 'cropping'
+  if (inputs.autoCropResult === undefined) return 'pending'
+  if (inputs.autoCropResult === null) return 'noContent'
+  return inputs.autoCropApplied ? 'applied' : 'ready'
+}
+
 export const useImageEditorAutoCropItem = ({
   item,
   sourceUrl,
@@ -119,7 +138,11 @@ export const useImageEditorAutoCropItem = ({
           item.sourceImageRef?.hash === autoCropHash
             ? item.sourceImageRef
             : item.imageRef
-        const record = await loadAutoCropBlob(autoCropRef, controller.signal)
+        const record = await loadAutoCropBlob(
+          autoCropRef,
+          controller.signal,
+          autoCropRef === item.sourceImageRef ? 'editor' : 'tile'
+        )
         if (!record) return
         bbox = await detectContentBBox(
           record.bytes,
@@ -159,17 +182,12 @@ export const useImageEditorAutoCropItem = ({
     setWorkingDraft,
   ])
 
-  const status: AutoCropStatus = !autoCropHash
-    ? 'unavailable'
-    : autoCropping
-      ? 'cropping'
-      : autoCropResult === undefined
-        ? 'pending'
-        : autoCropResult === null
-          ? 'noContent'
-          : autoCropApplied
-            ? 'applied'
-            : 'ready'
+  const status = resolveAutoCropStatus({
+    autoCropHash,
+    autoCropping,
+    autoCropResult,
+    autoCropApplied,
+  })
 
   return { status, autoCrop }
 }

@@ -3,10 +3,13 @@
 
 import { convexTest } from 'convex-test'
 import rateLimiter from '@convex-dev/rate-limiter/test'
+import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
+import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type {
   BoardLabelSettings,
   ImageFit,
@@ -32,7 +35,8 @@ const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
 const seedUser = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
   name: string,
-  email: string
+  email: string,
+  plan: 'free' | 'plus' = 'free'
 ): Promise<Id<'users'>> =>
   await t.run(
     async (ctx) =>
@@ -42,7 +46,7 @@ const seedUser = async (
         email,
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        tier: 'free',
+        plan,
       })
   )
 
@@ -72,26 +76,41 @@ const seedSourceBoard = async (
 ): Promise<{ mediaExternalId: string }> =>
   await t.run(async (ctx) =>
   {
+    const now = Date.now()
     const storageId = await ctx.storage.store(
       new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
     )
     const mediaAssetId = await ctx.db.insert('mediaAssets', {
       ownerId,
       externalId: 'media-source',
+      dedupeHash: 'hash-source',
+      tileVariant: {
+        storageId,
+        width: 64,
+        height: 64,
+        byteSize: 3,
+        mimeType: 'image/png',
+        contentHash: 'hash-source',
+      },
+      createdAt: now,
+    })
+    await ctx.db.insert('mediaVariants', {
+      mediaAssetId,
+      kind: 'tile',
       storageId,
-      contentHash: 'hash-source',
-      mimeType: 'image/png',
       width: 64,
       height: 64,
       byteSize: 3,
-      createdAt: Date.now(),
+      mimeType: 'image/png',
+      contentHash: 'hash-source',
+      createdAt: now,
     })
     const boardId = await ctx.db.insert('boards', {
       externalId: 'board-source',
       ownerId,
       title: 'Source Board',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
       deletedAt: null,
       revision: 1,
       ...(options.itemAspectRatio !== undefined
@@ -146,7 +165,6 @@ const seedSourceBoard = async (
       label: 'Image item',
       altText: 'Image item alt',
       mediaAssetId,
-      sourceMediaAssetId: null,
       order: 0,
       deletedAt: null,
       aspectRatio: 1,
@@ -164,7 +182,6 @@ const seedSourceBoard = async (
       label: 'Text item',
       backgroundColor: '#336699',
       mediaAssetId: null,
-      sourceMediaAssetId: null,
       order: 1,
       deletedAt: null,
     })
@@ -191,6 +208,94 @@ const seedTierPreset = async (
     })
     return 'preset-consumer'
   })
+
+const seedLargeSourceBoard = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  ownerId: Id<'users'>,
+  externalId: string
+): Promise<void> =>
+  await t.run(async (ctx) =>
+  {
+    const now = Date.now()
+    const boardId = await ctx.db.insert('boards', {
+      externalId,
+      ownerId,
+      title: 'Large Source Board',
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      revision: 1,
+      sourceTemplateId: null,
+      activeItemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+      unrankedItemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+      templateProgressState: 'none',
+      librarySummary: {
+        coverItems: [],
+        tierColors: [{ kind: 'palette', index: 0 }],
+        tierBreakdown: [],
+      },
+    })
+
+    for (let i = 0; i < MAX_STANDARD_CLOUD_BOARD_ITEMS + 1; i++)
+    {
+      await ctx.db.insert('boardItems', {
+        boardId,
+        tierId: null,
+        externalId: `large-item-${i}`,
+        label: `Large Item ${i}`,
+        mediaAssetId: null,
+        order: i,
+        deletedAt: null,
+      })
+    }
+  })
+
+const seedLargeTemplate = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  authorId: Id<'users'>
+): Promise<string> =>
+  await t.run(async (ctx) =>
+  {
+    const now = Date.now()
+    await ctx.db.insert('templates', {
+      slug: 'LargeTpl01',
+      authorId,
+      title: 'Large Template',
+      description: null,
+      category: 'gaming',
+      tags: [],
+      visibility: 'public',
+      coverMediaAssetId: null,
+      coverItems: [],
+      suggestedTiers: [{ name: 'S', colorSpec: { kind: 'palette', index: 0 } }],
+      sourceBoardExternalId: null,
+      itemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+      useCount: 0,
+      viewCount: 0,
+      featuredRank: null,
+      creditLine: null,
+      searchText: 'large template gaming',
+      createdAt: now,
+      updatedAt: now,
+      unpublishedAt: null,
+    })
+    return 'LargeTpl01'
+  })
+
+const expectConvexCode = async (
+  promise: Promise<unknown>,
+  code: string
+): Promise<void> =>
+{
+  await expect(promise).rejects.toSatisfy(
+    (error: unknown) =>
+      error instanceof ConvexError &&
+      typeof error.data === 'object' &&
+      error.data !== null &&
+      'code' in error.data &&
+      error.data.code === code
+  )
+}
 
 const toWireTier = (
   tier: CloudBoardState['tiers'][number],
@@ -220,9 +325,6 @@ const toWireItem = (
   ...(item.altText !== undefined ? { altText: item.altText } : {}),
   ...(item.mediaExternalId !== undefined
     ? { mediaExternalId: item.mediaExternalId }
-    : {}),
-  ...(item.sourceMediaExternalId !== undefined
-    ? { sourceMediaExternalId: item.sourceMediaExternalId }
     : {}),
   order,
   ...(item.aspectRatio !== undefined ? { aspectRatio: item.aspectRatio } : {}),
@@ -313,6 +415,66 @@ describe('marketplace template Convex functions', () =>
         {}
       )
     ).toEqual({ count: 1, countByCategory: { movies: 1 } })
+  })
+
+  it('keeps large publish and clone behind Plus and job feature gates', async () =>
+  {
+    const t = makeTest()
+    const freeAuthorId = await seedUser(t, 'Free Author', 'free@example.com')
+    const plusAuthorId = await seedUser(
+      t,
+      'Plus Author',
+      'plus@example.com',
+      'plus'
+    )
+    const consumerId = await seedUser(t, 'Consumer', 'consumer@example.com')
+
+    await seedLargeSourceBoard(t, freeAuthorId, 'board-large-free')
+    await seedLargeSourceBoard(t, plusAuthorId, 'board-large-plus')
+
+    await expectConvexCode(
+      asUser(t, freeAuthorId).mutation(
+        api.marketplace.templates.mutations.publishFromBoard,
+        {
+          boardExternalId: 'board-large-free',
+          title: 'Free Large',
+          category: 'gaming',
+          tags: [],
+          visibility: 'public',
+        }
+      ),
+      CONVEX_ERROR_CODES.largeTemplateRequiresPlus
+    )
+
+    await expectConvexCode(
+      asUser(t, plusAuthorId).mutation(
+        api.marketplace.templates.mutations.publishFromBoard,
+        {
+          boardExternalId: 'board-large-plus',
+          title: 'Plus Large',
+          category: 'gaming',
+          tags: [],
+          visibility: 'public',
+        }
+      ),
+      CONVEX_ERROR_CODES.largeTemplateFeatureNotReady
+    )
+
+    const slug = await seedLargeTemplate(t, plusAuthorId)
+    await expectConvexCode(
+      asUser(t, consumerId).mutation(
+        api.marketplace.templates.mutations.useTemplate,
+        { slug }
+      ),
+      CONVEX_ERROR_CODES.largeTemplateRequiresPlus
+    )
+    await expectConvexCode(
+      asUser(t, plusAuthorId).mutation(
+        api.marketplace.templates.mutations.useTemplate,
+        { slug }
+      ),
+      CONVEX_ERROR_CODES.largeTemplateFeatureNotReady
+    )
   })
 
   it('reflects publish state in library boards & filters listings by tag', async () =>

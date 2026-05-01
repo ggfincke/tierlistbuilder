@@ -6,6 +6,7 @@ import type {
   TierItem,
   TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isPresent } from '~/shared/lib/typeGuards'
@@ -87,6 +88,52 @@ export const collectSnapshotRenderImageRefs = (
     if (itemHasRenderTransform(item))
     {
       pushRef(item.sourceImageRef)
+    }
+  }
+
+  for (const tier of snapshot.tiers)
+  {
+    for (const id of tier.itemIds) visitId(id)
+  }
+  for (const id of snapshot.unrankedItemIds) visitId(id)
+
+  return refs
+}
+
+export interface SnapshotRenderImageRef
+{
+  ref: TierItemImageRef
+  variant: MediaVariantKind
+}
+
+export const collectSnapshotRenderImageVariantRefs = (
+  snapshot: BoardSnapshot
+): SnapshotRenderImageRef[] =>
+{
+  const refs: SnapshotRenderImageRef[] = []
+  const seen = new Set<ItemId>()
+  const seenKeys = new Set<string>()
+  const pushRef = (
+    ref: TierItemImageRef | undefined,
+    variant: MediaVariantKind
+  ): void =>
+  {
+    if (!ref) return
+    const key = `${ref.hash}:${variant}`
+    if (seenKeys.has(key)) return
+    seenKeys.add(key)
+    refs.push({ ref, variant })
+  }
+  const visitId = (id: ItemId): void =>
+  {
+    if (seen.has(id)) return
+    seen.add(id)
+    const item = snapshot.items[id]
+    if (!item?.imageRef) return
+    pushRef(item.imageRef, 'tile')
+    if (itemHasRenderTransform(item))
+    {
+      pushRef(item.sourceImageRef, 'editor')
     }
   }
 

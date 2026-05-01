@@ -7,9 +7,10 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
   generateItemId,
-  generateMediaAssetExternalId,
   generateTierId,
 } from '@tierlistbuilder/contracts/lib/ids'
+import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
+import { selectMediaVariantSummary } from '../../lib/mediaVariants'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
   MarketplaceTemplateDraftTemplate,
@@ -36,7 +37,7 @@ import {
   MAX_TEMPLATE_TAGS,
   MAX_TEMPLATE_TITLE_LENGTH,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { MAX_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { DEFAULT_BOARD_TITLE } from '@tierlistbuilder/contracts/workspace/board'
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput, normalizeNullableText } from '../../lib/text'
@@ -47,23 +48,23 @@ type DbCtx = QueryCtx | MutationCtx
 interface TemplateProjectionCache
 {
   authors: Map<Id<'users'>, Promise<TemplateAuthor>>
-  media: Map<Id<'mediaAssets'>, Promise<TemplateMediaRef | null>>
-}
-
-interface MediaAlias
-{
-  assetId: Id<'mediaAssets'>
-  storageId: Id<'_storage'>
+  // cached by mediaAssetId only — variant pick happens off the cached asset
+  // so a tile/preview/editor fallback iteration shares one asset lookup
+  assets: Map<Id<'mediaAssets'>, Promise<Doc<'mediaAssets'> | null>>
+  // url cached per (storageId) so different variants resolving to the same
+  // blob (rare but possible after dedupe) share one ctx.storage.getUrl call
+  urls: Map<Id<'_storage'>, Promise<string | null>>
 }
 
 const MAX_SEARCH_QUERY_LENGTH = 120
 const MAX_SLUG_ATTEMPTS = 8
 const MAX_DRAFT_COVER_ITEMS = 4
-const MARKETPLACE_STATS_KEY = 'templates'
+export const MARKETPLACE_STATS_KEY = 'templates'
 
 export const createTemplateProjectionCache = (): TemplateProjectionCache => ({
   authors: new Map(),
-  media: new Map(),
+  assets: new Map(),
+  urls: new Map(),
 })
 
 export const DEFAULT_TEMPLATE_TIERS: readonly TierPresetTier[] = [
@@ -390,71 +391,114 @@ export const loadTemplateItems = async (
   const items = await ctx.db
     .query('templateItems')
     .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
-    .take(MAX_CLOUD_BOARD_ITEMS + 1)
+    .take(MAX_LARGE_CLOUD_BOARD_ITEMS + 1)
 
-  if (items.length > MAX_CLOUD_BOARD_ITEMS)
+  if (items.length > MAX_LARGE_CLOUD_BOARD_ITEMS)
   {
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.syncLimitExceeded,
-      message: `template item rows exceed ${MAX_CLOUD_BOARD_ITEMS}`,
+      message: `template item rows exceed ${MAX_LARGE_CLOUD_BOARD_ITEMS}`,
     })
   }
 
   return items
 }
 
-const loadTemplateMediaRef = async (
+const loadAsset = async (
   ctx: DbCtx,
-  mediaAssetId: Id<'mediaAssets'>
+  mediaAssetId: Id<'mediaAssets'>,
+  cache?: TemplateProjectionCache
+): Promise<Doc<'mediaAssets'> | null> =>
+{
+  if (!cache) return await ctx.db.get(mediaAssetId)
+  const cached = cache.assets.get(mediaAssetId)
+  if (cached) return await cached
+  const pending = ctx.db.get(mediaAssetId)
+  cache.assets.set(mediaAssetId, pending)
+  return await pending
+}
+
+const loadAssetUrl = async (
+  ctx: DbCtx,
+  storageId: Id<'_storage'>,
+  cache?: TemplateProjectionCache
+): Promise<string | null> =>
+{
+  if (!cache) return await ctx.storage.getUrl(storageId)
+  const cached = cache.urls.get(storageId)
+  if (cached) return await cached
+  const pending = ctx.storage.getUrl(storageId)
+  cache.urls.set(storageId, pending)
+  return await pending
+}
+
+const buildMediaRef = async (
+  ctx: DbCtx,
+  asset: Doc<'mediaAssets'>,
+  kind: MediaVariantKind,
+  cache?: TemplateProjectionCache
 ): Promise<TemplateMediaRef | null> =>
 {
-  const asset = await ctx.db.get(mediaAssetId)
-  if (!asset)
-  {
-    return failState(`dangling template media reference: ${mediaAssetId}`)
-  }
-
-  const url = await ctx.storage.getUrl(asset.storageId)
-  if (!url)
-  {
-    return null
-  }
-
+  const variant = selectMediaVariantSummary(asset, kind)
+  if (!variant) return null
+  const url = await loadAssetUrl(ctx, variant.storageId, cache)
+  if (!url) return null
   return {
     externalId: asset.externalId,
-    contentHash: asset.contentHash,
+    contentHash: variant.contentHash,
     url,
-    width: asset.width,
-    height: asset.height,
-    mimeType: asset.mimeType,
+    width: variant.width,
+    height: variant.height,
+    mimeType: variant.mimeType,
   }
 }
 
 export const toTemplateMediaRef = async (
   ctx: DbCtx,
   mediaAssetId: Id<'mediaAssets'> | null,
+  kind: MediaVariantKind,
   cache?: TemplateProjectionCache
 ): Promise<TemplateMediaRef | null> =>
 {
-  if (!mediaAssetId)
+  if (!mediaAssetId) return null
+  const asset = await loadAsset(ctx, mediaAssetId, cache)
+  if (!asset)
   {
-    return null
+    return failState(`dangling template media reference: ${mediaAssetId}`)
   }
+  return await buildMediaRef(ctx, asset, kind, cache)
+}
 
-  if (!cache)
+const toTemplateMediaRefWithFallback = async (
+  ctx: DbCtx,
+  mediaAssetId: Id<'mediaAssets'> | null,
+  kinds: readonly MediaVariantKind[],
+  cache?: TemplateProjectionCache
+): Promise<TemplateMediaRef | null> =>
+{
+  if (!mediaAssetId) return null
+  const asset = await loadAsset(ctx, mediaAssetId, cache)
+  if (!asset)
   {
-    return await loadTemplateMediaRef(ctx, mediaAssetId)
+    return failState(`dangling template media reference: ${mediaAssetId}`)
   }
-
-  const existing = cache.media.get(mediaAssetId)
-  if (existing)
+  for (const kind of kinds)
   {
-    return await existing
+    const ref = await buildMediaRef(ctx, asset, kind, cache)
+    if (ref) return ref
   }
+  return null
+}
 
-  const pending = loadTemplateMediaRef(ctx, mediaAssetId)
-  cache.media.set(mediaAssetId, pending)
-  return await pending
+const loadMediaVariantStorageId = async (
+  ctx: DbCtx,
+  mediaAssetId: Id<'mediaAssets'>,
+  kind: MediaVariantKind = 'tile'
+): Promise<Id<'_storage'> | null> =>
+{
+  const asset = await ctx.db.get(mediaAssetId)
+  if (!asset) return null
+  return selectMediaVariantSummary(asset, kind)?.storageId ?? null
 }
 
 // load denormalized cover items in template order. publish stores only
@@ -465,6 +509,7 @@ export const loadCoverItems = async (
   options: {
     cache?: TemplateProjectionCache
     limit?: number
+    kind?: MediaVariantKind
   } = {}
 ): Promise<TemplateCoverItem[]> =>
 {
@@ -478,6 +523,7 @@ export const loadCoverItems = async (
       const media = await toTemplateMediaRef(
         ctx,
         item.mediaAssetId,
+        options.kind ?? 'tile',
         options.cache
       )
       return media ? { media, label: item.label } : null
@@ -541,12 +587,18 @@ export const toTemplateAuthor = async (
 export const toTemplateBase = async (
   ctx: DbCtx,
   template: Doc<'templates'>,
+  coverKinds: readonly MediaVariantKind[] = ['tile'],
   cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateBase> =>
 {
   const [author, coverMedia] = await Promise.all([
     toTemplateAuthor(ctx, template.authorId, cache),
-    toTemplateMediaRef(ctx, template.coverMediaAssetId, cache),
+    toTemplateMediaRefWithFallback(
+      ctx,
+      template.coverMediaAssetId,
+      coverKinds,
+      cache
+    ),
   ])
 
   return {
@@ -575,10 +627,10 @@ export const toTemplateSummary = async (
   cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateSummary> =>
 {
-  const base = await toTemplateBase(ctx, template, cache)
+  const base = await toTemplateBase(ctx, template, ['tile'], cache)
   const coverItems = base.coverMedia
     ? []
-    : await loadCoverItems(ctx, template, { cache })
+    : await loadCoverItems(ctx, template, { cache, kind: 'tile' })
 
   return {
     ...base,
@@ -593,7 +645,7 @@ export const toTemplateDetail = async (
 ): Promise<MarketplaceTemplateDetail> =>
 {
   const [base, items] = await Promise.all([
-    toTemplateBase(ctx, template, cache),
+    toTemplateBase(ctx, template, ['preview', 'editor', 'tile'], cache),
     loadTemplateItems(ctx, template._id),
   ])
 
@@ -609,7 +661,12 @@ export const toTemplateDetail = async (
       async (mediaAssetId) =>
         [
           mediaAssetId,
-          await toTemplateMediaRef(ctx, mediaAssetId, cache),
+          await toTemplateMediaRefWithFallback(
+            ctx,
+            mediaAssetId,
+            ['preview', 'editor', 'tile'],
+            cache
+          ),
         ] as const
     )
   )
@@ -658,6 +715,7 @@ export const toTemplateDraft = async (
   const coverMedia = await toTemplateMediaRef(
     ctx,
     template.coverMediaAssetId,
+    'tile',
     cache
   )
   const draftTemplate: MarketplaceTemplateDraftTemplate = {
@@ -770,82 +828,6 @@ export const requireOwnedTemplate = async (
   return template
 }
 
-const ensureUserMediaAliases = async (
-  ctx: MutationCtx,
-  ownerId: Id<'users'>,
-  sourceMediaAssetIds: readonly Id<'mediaAssets'>[]
-): Promise<Map<Id<'mediaAssets'>, MediaAlias>> =>
-{
-  const uniqueSourceIds = [...new Set(sourceMediaAssetIds)]
-  const sourceEntries = await Promise.all(
-    uniqueSourceIds.map(
-      async (sourceId) => [sourceId, await ctx.db.get(sourceId)] as const
-    )
-  )
-  const sourcesById = new Map<Id<'mediaAssets'>, Doc<'mediaAssets'>>()
-  for (const [sourceId, source] of sourceEntries)
-  {
-    if (!source)
-    {
-      return failState(`source template media missing: ${sourceId}`)
-    }
-    sourcesById.set(sourceId, source)
-  }
-
-  const sourcesByHash = new Map<string, Doc<'mediaAssets'>>()
-  for (const source of sourcesById.values())
-  {
-    if (!sourcesByHash.has(source.contentHash))
-    {
-      sourcesByHash.set(source.contentHash, source)
-    }
-  }
-
-  const aliasEntries = await Promise.all(
-    [...sourcesByHash.entries()].map(async ([contentHash, source]) =>
-    {
-      const existing = await ctx.db
-        .query('mediaAssets')
-        .withIndex('byOwnerAndHash', (q) =>
-          q.eq('ownerId', ownerId).eq('contentHash', contentHash)
-        )
-        .unique()
-
-      if (existing)
-      {
-        return [
-          contentHash,
-          { assetId: existing._id, storageId: existing.storageId },
-        ] as const
-      }
-
-      const inserted = await ctx.db.insert('mediaAssets', {
-        ownerId,
-        externalId: generateMediaAssetExternalId(),
-        storageId: source.storageId,
-        contentHash: source.contentHash,
-        mimeType: source.mimeType,
-        width: source.width,
-        height: source.height,
-        byteSize: source.byteSize,
-        createdAt: Date.now(),
-      })
-      return [
-        contentHash,
-        { assetId: inserted, storageId: source.storageId },
-      ] as const
-    })
-  )
-  const aliasesByHash = new Map(aliasEntries)
-  const aliasesBySourceId = new Map<Id<'mediaAssets'>, MediaAlias>()
-  for (const [sourceId, source] of sourcesById)
-  {
-    const alias = aliasesByHash.get(source.contentHash)
-    if (alias) aliasesBySourceId.set(sourceId, alias)
-  }
-  return aliasesBySourceId
-}
-
 export const templateTitleToBoardTitle = (title: string): string =>
   title.trim() || DEFAULT_BOARD_TITLE
 
@@ -871,53 +853,44 @@ export const insertBoardTiers = async (
 export const insertBoardItemsFromTemplate = async (
   ctx: MutationCtx,
   boardId: Id<'boards'>,
-  ownerId: Id<'users'>,
   templateItems: readonly Doc<'templateItems'>[]
 ): Promise<BoardLibrarySummaryItem[]> =>
 {
-  const mediaAliases = await ensureUserMediaAliases(
-    ctx,
-    ownerId,
-    templateItems
-      .map((item) => item.mediaAssetId)
-      .filter((id): id is Id<'mediaAssets'> => id !== null)
+  const rows = await Promise.all(
+    templateItems.map(async (item) =>
+    {
+      const storageId = item.mediaAssetId
+        ? await loadMediaVariantStorageId(ctx, item.mediaAssetId)
+        : null
+      const externalId = generateItemId()
+
+      return {
+        insert: {
+          boardId,
+          tierId: null,
+          externalId,
+          label: item.label ?? undefined,
+          backgroundColor: item.backgroundColor ?? undefined,
+          altText: item.altText ?? undefined,
+          mediaAssetId: item.mediaAssetId,
+          order: item.order,
+          deletedAt: null,
+          aspectRatio: item.aspectRatio ?? undefined,
+          imageFit: item.imageFit ?? undefined,
+          transform: item.transform ?? undefined,
+          templateItemId: item._id,
+        },
+        summary: {
+          tierKey: null,
+          externalId,
+          label: item.label,
+          storageId,
+          order: item.order,
+          deletedAt: null,
+        },
+      }
+    })
   )
-
-  const rows = templateItems.map((item) =>
-  {
-    const mediaAlias = item.mediaAssetId
-      ? (mediaAliases.get(item.mediaAssetId) ??
-        failState(`media alias missing: ${item.mediaAssetId}`))
-      : null
-    const externalId = generateItemId()
-
-    return {
-      insert: {
-        boardId,
-        tierId: null,
-        externalId,
-        label: item.label ?? undefined,
-        backgroundColor: item.backgroundColor ?? undefined,
-        altText: item.altText ?? undefined,
-        mediaAssetId: mediaAlias?.assetId ?? null,
-        sourceMediaAssetId: null,
-        order: item.order,
-        deletedAt: null,
-        aspectRatio: item.aspectRatio ?? undefined,
-        imageFit: item.imageFit ?? undefined,
-        transform: item.transform ?? undefined,
-        templateItemId: item._id,
-      },
-      summary: {
-        tierKey: null,
-        externalId,
-        label: item.label,
-        storageId: mediaAlias?.storageId ?? null,
-        order: item.order,
-        deletedAt: null,
-      },
-    }
-  })
 
   await Promise.all(rows.map((row) => ctx.db.insert('boardItems', row.insert)))
   return rows.map((row) => row.summary)

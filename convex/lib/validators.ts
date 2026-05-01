@@ -21,6 +21,12 @@ import {
   type TemplateCategory,
 } from '@tierlistbuilder/contracts/marketplace/category'
 import {
+  MEDIA_VARIANT_KINDS,
+  SUPPORTED_IMAGE_MIME_TYPES,
+  type MediaVariantKind,
+  type SupportedImageMimeType,
+} from '@tierlistbuilder/contracts/platform/media'
+import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
   THEME_IDS,
@@ -110,6 +116,19 @@ const toolbarPositionValidator = literalUnion(TOOLBAR_POSITIONS)
 export const templateCategoryValidator = literalUnion(TEMPLATE_CATEGORIES)
 export const templateListSortValidator = literalUnion(TEMPLATE_LIST_SORTS)
 export const templateVisibilityValidator = literalUnion(TEMPLATE_VISIBILITIES)
+export const mediaVariantKindValidator = literalUnion(MEDIA_VARIANT_KINDS)
+export const imageMimeTypeValidator = literalUnion(SUPPORTED_IMAGE_MIME_TYPES)
+
+// shape mirrors mediaVariants table rows — denormalized onto mediaAssets
+// for the cover variant tile/preview/editor summaries
+export const mediaVariantSummaryValidator = v.object({
+  storageId: v.id('_storage'),
+  width: v.number(),
+  height: v.number(),
+  byteSize: v.number(),
+  mimeType: v.string(),
+  contentHash: v.string(),
+})
 
 // full AppPreferences shape — must stay in sync w/ packages/contracts/platform/preferences.ts
 export const appPreferencesValidator = v.object({
@@ -354,7 +373,6 @@ const cloudBoardStateItemValidator = v.object({
   backgroundColor: v.optional(v.string()),
   altText: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
-  sourceMediaExternalId: v.optional(v.union(v.string(), v.null())),
   mediaContentHash: v.optional(v.string()),
   sourceMediaContentHash: v.optional(v.string()),
   order: v.number(),
@@ -786,6 +804,28 @@ export type _CloudPreferencesReadCovers = _Assert<
 >
 export type _CloudPreferencesReadNoExtra = _Assert<
   Infer<typeof cloudPreferencesReadValidator> extends CloudPreferencesRead
+    ? true
+    : false
+>
+
+export type _MediaVariantKindCovers = _Assert<
+  MediaVariantKind extends Infer<typeof mediaVariantKindValidator>
+    ? true
+    : false
+>
+export type _MediaVariantKindNoExtra = _Assert<
+  Infer<typeof mediaVariantKindValidator> extends MediaVariantKind
+    ? true
+    : false
+>
+
+export type _SupportedImageMimeTypeCovers = _Assert<
+  SupportedImageMimeType extends Infer<typeof imageMimeTypeValidator>
+    ? true
+    : false
+>
+export type _SupportedImageMimeTypeNoExtra = _Assert<
+  Infer<typeof imageMimeTypeValidator> extends SupportedImageMimeType
     ? true
     : false
 >

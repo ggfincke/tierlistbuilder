@@ -56,7 +56,7 @@ export const upsertAppUserFields = async (
     displayName: fallbackName,
     createdAt: now,
     updatedAt: now,
-    tier: 'free',
+    plan: 'free',
     lastUpsertError: undefined,
   })
 }

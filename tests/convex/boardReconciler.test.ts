@@ -7,12 +7,10 @@ import type { ItemLabelOptions } from '@tierlistbuilder/contracts/workspace/boar
 import { diffItems } from '../../convex/workspace/sync/boardReconciler'
 
 const MEDIA_ID = 'media-1' as Id<'mediaAssets'>
-const SOURCE_MEDIA_ID = 'media-source' as Id<'mediaAssets'>
 
 const makeServerItem = (
   overrides: Partial<{
     mediaAssetId: Id<'mediaAssets'> | null
-    sourceMediaAssetId: Id<'mediaAssets'> | null
     order: number
     deletedAt: number | null
     labelOptions: ItemLabelOptions
@@ -27,7 +25,6 @@ const makeServerItem = (
   backgroundColor: undefined,
   altText: undefined,
   mediaAssetId: MEDIA_ID,
-  sourceMediaAssetId: null,
   order: 0,
   deletedAt: null,
   ...overrides,
@@ -79,42 +76,24 @@ describe('diffItems media semantics', () =>
     ])
   })
 
-  it('treats source media independently from display media & patches label-only edits', () =>
+  it('patches display media changes & label-only edits', () =>
   {
-    const sourceSet = diffItems(
+    const mediaSet = diffItems(
       [
         {
           externalId: 'item-1',
           tierId: null,
-          sourceMediaExternalId: 'media-source',
+          mediaExternalId: 'media-2',
           order: 0,
         },
       ],
       [makeServerItem()],
       new Map(),
-      new Map([['media-source', SOURCE_MEDIA_ID]]),
+      new Map([['media-2', 'media-2' as Id<'mediaAssets'>]]),
       new Set()
     )
-    expect(sourceSet.patch).toEqual([
-      { id: 'row-1', fields: { sourceMediaAssetId: SOURCE_MEDIA_ID } },
-    ])
-
-    const sourceClear = diffItems(
-      [
-        {
-          externalId: 'item-1',
-          tierId: null,
-          sourceMediaExternalId: null,
-          order: 0,
-        },
-      ],
-      [makeServerItem({ sourceMediaAssetId: SOURCE_MEDIA_ID })],
-      new Map(),
-      new Map(),
-      new Set()
-    )
-    expect(sourceClear.patch).toEqual([
-      { id: 'row-1', fields: { sourceMediaAssetId: null } },
+    expect(mediaSet.patch).toEqual([
+      { id: 'row-1', fields: { mediaAssetId: 'media-2' } },
     ])
 
     const labelPatch = diffItems(

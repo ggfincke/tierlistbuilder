@@ -23,6 +23,7 @@ import {
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { Cover, type CoverStyle } from './Cover'
+import type { MediaLoading } from './MediaMatteFrame'
 import type { MosaicDensity } from './Mosaic'
 
 export type CardSize = 'small' | 'default' | 'large'
@@ -42,6 +43,7 @@ interface CardProps
   // homepage hero/trending/curated slot — when set, replaces the generic
   // "Featured" pill w/ a slot-specific label & icon
   featuredLabel?: CardFeaturedLabel
+  imageLoading?: MediaLoading
 }
 
 const FEATURED_LABEL_META: Record<
@@ -91,6 +93,7 @@ export const Card = ({
   size = 'default',
   coverStyle,
   featuredLabel,
+  imageLoading,
 }: CardProps) =>
 {
   const cfg = SIZE_CONFIG[size]
@@ -106,7 +109,12 @@ export const Card = ({
       aria-label={`${template.title} — by ${template.author.displayName}`}
     >
       <div className={`relative w-full overflow-hidden ${cfg.coverHeight}`}>
-        <Cover template={template} density={cfg.density} style={coverStyle} />
+        <Cover
+          template={template}
+          density={cfg.density}
+          style={coverStyle}
+          loading={imageLoading}
+        />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
 

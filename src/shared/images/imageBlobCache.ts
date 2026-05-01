@@ -2,7 +2,8 @@
 // in-memory object URL cache keyed by content hash
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { collectSnapshotRenderImageRefs } from '~/shared/lib/boardSnapshotItems'
+import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
+import { collectSnapshotRenderImageVariantRefs } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
 import { getBlobsBatch } from './imageStore'
 
@@ -13,6 +14,7 @@ export interface CloudImageRequest
 {
   hash: string
   cloudMediaExternalId: string
+  variant: MediaVariantKind
 }
 
 type CloudImageBatchFetcher = (
@@ -101,13 +103,14 @@ const flushPendingCloudRequests = (): void =>
 // in `pendingRequests` until `registerCloudImageFetcher` drains them
 export const requestCloudImage = (
   hash: string,
-  cloudMediaExternalId: string
+  cloudMediaExternalId: string,
+  variant: MediaVariantKind = 'tile'
 ): void =>
 {
   if (inFlightByHash.has(hash)) return
   if (pendingRequests.has(hash)) return
 
-  pendingRequests.set(hash, { hash, cloudMediaExternalId })
+  pendingRequests.set(hash, { hash, cloudMediaExternalId, variant })
   failedCloudRequests.delete(hash)
 
   if (!cloudBatchFetcher) return
@@ -121,11 +124,12 @@ export const requestCloudImage = (
 
 export const ensureCloudImageCached = async (
   hash: string,
-  cloudMediaExternalId: string
+  cloudMediaExternalId: string,
+  variant: MediaVariantKind = 'tile'
 ): Promise<void> =>
 {
   if (cache.has(hash)) return
-  requestCloudImage(hash, cloudMediaExternalId)
+  requestCloudImage(hash, cloudMediaExternalId, variant)
   // wait for requestCloudImage's queued microtask to install inFlightByHash
   await Promise.resolve()
   await inFlightByHash.get(hash)
@@ -437,9 +441,9 @@ export const warmFromBoard = async (
   options: WarmFromBoardOptions = {}
 ): Promise<void> =>
 {
-  const refs = collectSnapshotRenderImageRefs(snapshot)
+  const refs = collectSnapshotRenderImageVariantRefs(snapshot)
   await warmImageHashes(
-    refs.map((ref) => ref.hash),
+    refs.map(({ ref }) => ref.hash),
     options.signal
   )
 
@@ -452,9 +456,9 @@ export const warmFromBoard = async (
   // ensureCloudImageCached is idempotent on already-cached hashes, so just
   // hand it every cloud-backed ref & let it filter
   await Promise.all(
-    refs.map((ref) =>
+    refs.map(({ ref, variant }) =>
       ref.cloudMediaExternalId
-        ? ensureCloudImageCached(ref.hash, ref.cloudMediaExternalId)
+        ? ensureCloudImageCached(ref.hash, ref.cloudMediaExternalId, variant)
         : null
     )
   )

@@ -280,6 +280,7 @@ export const TemplatesGalleryPage = () =>
                     template={template}
                     size="default"
                     featuredLabel={label}
+                    imageLoading="eager"
                   />
                 ))}
               </div>
@@ -406,10 +407,13 @@ export const TemplatesGalleryPage = () =>
             />
           )}
           {gallery.results ? (
-            gallery.results.map((template) => (
-              <div key={template.slug} className="deferred-grid-item h-full">
-                <Card template={template} size="default" />
-              </div>
+            gallery.results.map((template, index) => (
+              <Card
+                key={template.slug}
+                template={template}
+                size="default"
+                imageLoading={filtersActive && index < 4 ? 'eager' : undefined}
+              />
             ))
           ) : (
             <GridSkeleton />

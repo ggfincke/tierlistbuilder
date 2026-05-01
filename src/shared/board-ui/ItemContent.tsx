@@ -174,22 +174,30 @@ export const ItemContent = ({
       : undefined
   const preferSource =
     !!transform && (!!item.sourceImageRef || !!item.sourceImageUrl)
-  const cachedSourceImageUrl = useImageUrl(
-    preferSource && !item.sourceImageUrl
-      ? item.sourceImageRef?.hash
-      : undefined,
-    preferSource && !item.sourceImageUrl
-      ? item.sourceImageRef?.cloudMediaExternalId
+
+  // single useImageUrl subscription per render — the source variant takes
+  // priority when a manual transform is active so the editor sees uncropped
+  // pixels; otherwise the display tile variant is used
+  const useSourceVariant = preferSource && !item.sourceImageUrl
+  const useDisplayVariant = !useSourceVariant && !item.imageUrl
+  const subscriberRef = useSourceVariant
+    ? item.sourceImageRef
+    : useDisplayVariant
+      ? item.imageRef
       : undefined
-  )
-  const cachedDisplayImageUrl = useImageUrl(
-    item.imageUrl ? undefined : item.imageRef?.hash,
-    item.imageUrl ? undefined : item.imageRef?.cloudMediaExternalId
+  const subscriberVariant: 'editor' | 'tile' = useSourceVariant
+    ? 'editor'
+    : 'tile'
+  const cachedImageUrl = useImageUrl(
+    subscriberRef?.hash,
+    subscriberRef?.cloudMediaExternalId,
+    subscriberVariant
   )
   const sourceImageUrl = preferSource
-    ? (item.sourceImageUrl ?? cachedSourceImageUrl)
+    ? (item.sourceImageUrl ?? (useSourceVariant ? cachedImageUrl : null))
     : null
-  const displayImageUrl = item.imageUrl ?? cachedDisplayImageUrl
+  const displayImageUrl =
+    item.imageUrl ?? (useDisplayVariant ? cachedImageUrl : null)
   const imageUrl = sourceImageUrl ?? displayImageUrl
   const imageAreaRef = useRef<HTMLDivElement | null>(null)
   const imageFrameAspectRatio = useMeasuredAspectRatio(

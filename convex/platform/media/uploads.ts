@@ -1,15 +1,20 @@
 // convex/platform/media/uploads.ts
-// media upload entry points — issue token-bound upload URLs & finalize in an action
+// media upload entry points — issue token-bound upload URLs & finalize variants
 
 import { ConvexError, v } from 'convex/values'
-import { action, mutation } from '../../_generated/server'
+import { action, mutation, type ActionCtx } from '../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
+import {
+  MAX_IMAGE_BYTE_SIZE,
+  MAX_MEDIA_VARIANTS_PER_ASSET,
+} from '@tierlistbuilder/contracts/platform/media'
+import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
 import { internal } from '../../_generated/api'
 import { parseUploadedImageMetadata } from '../../lib/imageValidation'
 import { generateUploadToken } from '../../lib/uploadToken'
+import { mediaVariantKindValidator } from '../../lib/validators'
 import {
   UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
   unwrapUploadEnvelope,
@@ -18,84 +23,193 @@ import { deleteStorageSilently } from '../../lib/storage'
 import { sha256Hex } from '../../lib/sha256'
 import type { Id } from '../../_generated/dataModel'
 
-const uploadUrlResultValidator = v.object({
+// per-call cap on URLs in a single batch. one asset never needs more than the
+// canonical tile/preview/editor set in a single upload group
+const MAX_UPLOAD_URLS_PER_CALL = MAX_MEDIA_VARIANTS_PER_ASSET
+
+const uploadUrlBatchEntryValidator = v.object({
   uploadUrl: v.string(),
   uploadToken: v.string(),
-  envelopeUserId: v.string(),
 })
 
-// generate a one-time upload URL for the frontend to POST image bytes. this is
-// the single rate-limit point for the 2-phase upload flow, so aborted attempts
-// still count against quota
-export const generateUploadUrl = mutation({
-  args: {},
-  returns: uploadUrlResultValidator,
-  handler: async (
-    ctx
-  ): Promise<{
-    uploadUrl: string
-    uploadToken: string
-    envelopeUserId: string
-  }> =>
+const uploadUrlsResultValidator = v.object({
+  envelopeUserId: v.string(),
+  urls: v.array(uploadUrlBatchEntryValidator),
+})
+
+interface UploadUrlBatchEntry
+{
+  uploadUrl: string
+  uploadToken: string
+}
+
+interface UploadUrlsResult
+{
+  envelopeUserId: string
+  urls: UploadUrlBatchEntry[]
+}
+
+const uploadVariantValidator = v.object({
+  kind: mediaVariantKindValidator,
+  storageId: v.id('_storage'),
+  uploadToken: v.string(),
+})
+
+interface UploadVariantArg
+{
+  kind: MediaVariantKind
+  storageId: Id<'_storage'>
+  uploadToken: string
+}
+
+interface VerifiedVariant
+{
+  kind: MediaVariantKind
+  storageId: Id<'_storage'>
+  contentHash: string
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+  width: number
+  height: number
+  byteSize: number
+}
+
+const cleanupRejectedVariants = async (
+  ctx: ActionCtx,
+  variants: readonly UploadVariantArg[]
+): Promise<void> =>
+{
+  await Promise.all(
+    variants.map((variant) => deleteStorageSilently(ctx, variant.storageId))
+  )
+}
+
+const validateVariantRequest = async (
+  ctx: ActionCtx,
+  variants: readonly UploadVariantArg[]
+): Promise<void> =>
+{
+  if (variants.length < 1 || variants.length > MAX_MEDIA_VARIANTS_PER_ASSET)
   {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `variants must include 1..${MAX_MEDIA_VARIANTS_PER_ASSET} entries`,
+    })
+  }
+
+  const seen = new Set<MediaVariantKind>()
+  for (const variant of variants)
+  {
+    if (seen.has(variant.kind))
+    {
+      await cleanupRejectedVariants(ctx, variants)
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `duplicate media variant kind: ${variant.kind}`,
+      })
+    }
+    seen.add(variant.kind)
+  }
+
+  if (!seen.has('tile'))
+  {
+    await cleanupRejectedVariants(ctx, variants)
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'media asset finalization requires a tile variant',
+    })
+  }
+}
+
+// issue N one-time upload URLs in a single rate-limited call. callers should
+// request all variants of one logical upload (tile + preview + editor) in one
+// batch so the rate-limit token count matches "uploads," not "blobs."
+export const generateUploadUrls = mutation({
+  args: { count: v.number() },
+  returns: uploadUrlsResultValidator,
+  handler: async (ctx, args): Promise<UploadUrlsResult> =>
+  {
+    if (
+      !Number.isInteger(args.count) ||
+      args.count < 1 ||
+      args.count > MAX_UPLOAD_URLS_PER_CALL
+    )
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `count must be 1..${MAX_UPLOAD_URLS_PER_CALL}`,
+      })
+    }
     const userId = await requireCurrentUserId(ctx)
     await enforceRateLimit(ctx, 'userMediaUpload', userId)
-    return {
-      uploadUrl: await ctx.storage.generateUploadUrl(),
-      uploadToken: generateUploadToken(),
-      envelopeUserId: userId,
+    const urls: UploadUrlBatchEntry[] = []
+    for (let i = 0; i < args.count; i++)
+    {
+      urls.push({
+        uploadUrl: await ctx.storage.generateUploadUrl(),
+        uploadToken: generateUploadToken(),
+      })
     }
+    return { envelopeUserId: userId, urls }
   },
 })
 
-// finalize an upload — verify the upload envelope, inspect the real image
-// bytes server-side, then hand off the clean blob to an internal mutation
-export const finalizeUpload = action({
-  args: {
-    storageId: v.id('_storage'),
-    uploadToken: v.string(),
-  },
-  returns: v.object({ externalId: v.string() }),
-  handler: async (ctx, args): Promise<{ externalId: string }> =>
+const assertStorageMetadata = async (
+  ctx: ActionCtx,
+  storageId: Id<'_storage'>
+): Promise<void> =>
+{
+  const metadata = await ctx.runQuery(internal.lib.storage.getStorageMetadata, {
+    storageId,
+  })
+  if (!metadata)
   {
-    const userId = await requireCurrentUserId(ctx)
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.storageMissing,
+      message: 'uploaded image blob not found in storage',
+    })
+  }
+  if (!metadata.sha256)
+  {
+    await deleteStorageSilently(ctx, storageId)
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'uploaded image blob missing storage sha256 metadata',
+    })
+  }
+  if (metadata.size > MAX_IMAGE_BYTE_SIZE + UPLOAD_ENVELOPE_MAX_HEADER_BYTES)
+  {
+    await deleteStorageSilently(ctx, storageId)
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.payloadTooLarge,
+      message: `uploaded image blob too large: ${metadata.size} > ${MAX_IMAGE_BYTE_SIZE}`,
+    })
+  }
+}
 
-    // pre-fetch size gate — reject oversized blobs before ctx.storage.get
-    // forces a full arrayBuffer() allocation. slack absorbs envelope header
-    const storageSize = await ctx.runQuery(
-      internal.lib.storage.peekStorageSize,
-      { storageId: args.storageId }
-    )
-    if (storageSize === null)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.storageMissing,
-        message: 'uploaded image blob not found in storage',
-      })
-    }
-    if (storageSize > MAX_IMAGE_BYTE_SIZE + UPLOAD_ENVELOPE_MAX_HEADER_BYTES)
-    {
-      await deleteStorageSilently(ctx, args.storageId)
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.payloadTooLarge,
-        message: `uploaded image blob too large: ${storageSize} > ${MAX_IMAGE_BYTE_SIZE}`,
-      })
-    }
+const loadVerifiedVariant = async (
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  variant: UploadVariantArg
+): Promise<VerifiedVariant> =>
+{
+  await assertStorageMetadata(ctx, variant.storageId)
 
-    const rawBlob = await ctx.storage.get(args.storageId)
-    if (!rawBlob)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.storageMissing,
-        message: 'uploaded image blob not found in storage',
-      })
-    }
+  const rawBlob = await ctx.storage.get(variant.storageId)
+  if (!rawBlob)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.storageMissing,
+      message: 'uploaded image blob not found in storage',
+    })
+  }
 
+  try
+  {
     const wrappedBytes = new Uint8Array(await rawBlob.arrayBuffer())
     const payload = unwrapUploadEnvelope(
       'media',
       userId,
-      args.uploadToken,
+      variant.uploadToken,
       wrappedBytes
     )
     if (!payload)
@@ -105,54 +219,74 @@ export const finalizeUpload = action({
         message: 'upload token mismatch for image blob',
       })
     }
-
-    let cleanStorageId: Id<'_storage'> | null = null
-    try
+    if (payload.byteLength < 1 || payload.byteLength > MAX_IMAGE_BYTE_SIZE)
     {
-      if (payload.byteLength < 1 || payload.byteLength > MAX_IMAGE_BYTE_SIZE)
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.payloadTooLarge,
+        message: `byteSize out of range: must be 1..${MAX_IMAGE_BYTE_SIZE}`,
+      })
+    }
+
+    const { mimeType, width, height } = parseUploadedImageMetadata(payload)
+    const contentHash = await sha256Hex(payload as BufferSource)
+    const cleanStorageId = await ctx.storage.store(
+      new Blob([payload as BlobPart], { type: mimeType })
+    )
+
+    return {
+      kind: variant.kind,
+      storageId: cleanStorageId,
+      contentHash,
+      mimeType,
+      width,
+      height,
+      byteSize: payload.byteLength,
+    }
+  }
+  finally
+  {
+    await deleteStorageSilently(ctx, variant.storageId)
+  }
+}
+
+const finalizeVariantsImpl = async (
+  ctx: ActionCtx,
+  variants: readonly UploadVariantArg[]
+): Promise<{ externalId: string }> =>
+{
+  const userId = await requireCurrentUserId(ctx)
+  await validateVariantRequest(ctx, variants)
+  const verified: VerifiedVariant[] = []
+  try
+  {
+    for (const variant of variants)
+    {
+      verified.push(await loadVerifiedVariant(ctx, userId, variant))
+    }
+
+    const { externalId } = await ctx.runMutation(
+      internal.platform.media.internal.finalizeVerifiedMediaAsset,
       {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.payloadTooLarge,
-          message: `byteSize out of range: must be 1..${MAX_IMAGE_BYTE_SIZE}`,
-        })
+        userId,
+        variants: verified,
       }
+    )
+    return { externalId }
+  }
+  catch (error)
+  {
+    await Promise.all(
+      verified.map((variant) => deleteStorageSilently(ctx, variant.storageId))
+    )
+    throw error
+  }
+}
 
-      const { mimeType, width, height } = parseUploadedImageMetadata(payload)
-      // cast at the Blob/BufferSource boundary — lib.dom narrows to
-      // Uint8Array<ArrayBuffer> but subarrays carry ArrayBufferLike. zero-copy
-      const contentHash = await sha256Hex(payload as BufferSource)
-
-      // store without the sha256 integrity option; local Convex rejects it
-      // inside the storage syscall w/ "invalid HTTP header"
-      cleanStorageId = await ctx.storage.store(
-        new Blob([payload as BlobPart], { type: mimeType })
-      )
-
-      const { externalId } = await ctx.runMutation(
-        internal.platform.media.internal.finalizeVerifiedUpload,
-        {
-          userId,
-          storageId: cleanStorageId,
-          contentHash,
-          mimeType,
-          width,
-          height,
-          byteSize: payload.byteLength,
-        }
-      )
-      return { externalId }
-    }
-    catch (error)
-    {
-      if (cleanStorageId)
-      {
-        await deleteStorageSilently(ctx, cleanStorageId)
-      }
-      throw error
-    }
-    finally
-    {
-      await deleteStorageSilently(ctx, args.storageId)
-    }
+export const finalizeUploadVariants = action({
+  args: {
+    variants: v.array(uploadVariantValidator),
   },
+  returns: v.object({ externalId: v.string() }),
+  handler: async (ctx, args): Promise<{ externalId: string }> =>
+    await finalizeVariantsImpl(ctx, args.variants),
 })

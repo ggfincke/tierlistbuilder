@@ -128,7 +128,8 @@ export const ImageEditorPane = forwardRef<
   const imageSectionId = useId()
   const sourceUrl = useImageUrl(
     item.sourceImageRef?.hash,
-    item.sourceImageRef?.cloudMediaExternalId
+    item.sourceImageRef?.cloudMediaExternalId,
+    'editor'
   )
   const displayUrl = useImageUrl(
     item.imageRef?.hash,

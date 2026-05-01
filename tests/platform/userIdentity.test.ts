@@ -16,7 +16,7 @@ const makeUser = (overrides: Partial<PublicUserMe>): PublicUserMe => ({
   displayName: null,
   image: null,
   externalId: null,
-  tier: 'free',
+  plan: 'free',
   createdAt: 1,
   updatedAt: null,
   handle: null,

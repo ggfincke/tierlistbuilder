@@ -8,15 +8,17 @@ import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
-  MAX_CLOUD_BOARD_ITEMS,
   MAX_CLOUD_BOARD_TIERS,
+  MAX_LARGE_CLOUD_BOARD_ITEMS,
+  MAX_STANDARD_CLOUD_BOARD_ITEMS,
   type CloudBoardPayload,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import schema from '../../convex/schema'
 import { modules } from './convexTestHelpers'
 
 const seedUser = async (
-  t: ReturnType<typeof convexTest<typeof schema>>
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  plan: 'free' | 'plus' = 'free'
 ): Promise<Id<'users'>> =>
   await t.run(
     async (ctx) =>
@@ -26,7 +28,7 @@ const seedUser = async (
         email: 'board@example.com',
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        tier: 'free',
+        plan,
       })
   )
 
@@ -105,21 +107,37 @@ const seedMediaAssets = async (
 {
   await t.run(async (ctx) =>
   {
-    const storageId = await ctx.storage.store(new Blob(['image-bytes']))
     await Promise.all(
-      mediaExternalIds.map((externalId, i) =>
-        ctx.db.insert('mediaAssets', {
+      mediaExternalIds.map(async (externalId, i) =>
+      {
+        const now = Date.now()
+        const storageId = await ctx.storage.store(new Blob(['image-bytes']))
+        const mediaAssetId = await ctx.db.insert('mediaAssets', {
           ownerId: userId,
           externalId,
+          dedupeHash: `hash-${i}`,
+          tileVariant: {
+            storageId,
+            width: 100,
+            height: 100,
+            byteSize: 10,
+            mimeType: 'image/png',
+            contentHash: `hash-${i}`,
+          },
+          createdAt: now,
+        })
+        await ctx.db.insert('mediaVariants', {
+          mediaAssetId,
+          kind: 'tile',
           storageId,
-          contentHash: `hash-${i}`,
-          mimeType: 'image/png',
           width: 100,
           height: 100,
           byteSize: 10,
-          createdAt: Date.now(),
+          mimeType: 'image/png',
+          contentHash: `hash-${i}`,
+          createdAt: now,
         })
-      )
+      })
     )
   })
 }
@@ -186,11 +204,60 @@ describe('upsertBoardState', () =>
     })
   })
 
-  it('accepts max-size boards (incl. all-tombstone updates) within tx budget', async () =>
+  it('enforces standard and large cloud item limits by plan', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })
-    const userId = await seedUser(t)
-    const mediaIds = makeMediaExternalIds(MAX_CLOUD_BOARD_ITEMS)
+    const freeUserId = await seedUser(t)
+    const plusUserId = await seedUser(t, 'plus')
+
+    await expectConvexCode(
+      asUser(t, freeUserId).mutation(
+        api.workspace.boards.upsertBoardState.upsertBoardState,
+        {
+          boardExternalId: 'board-free-too-large',
+          baseRevision: null,
+          ...makeBoardPayload({
+            tierCount: 1,
+            itemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+          }),
+        }
+      ),
+      CONVEX_ERROR_CODES.cloudItemLimitExceeded
+    )
+
+    const synced = await asUser(t, plusUserId).mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId: 'board-plus-large',
+        baseRevision: null,
+        ...makeBoardPayload({
+          tierCount: 1,
+          itemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+        }),
+      }
+    )
+    expect(synced).toEqual({ conflict: null, newRevision: 1 })
+
+    const deletedOverflow = await asUser(t, freeUserId).mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId: 'board-free-deleted-overflow',
+        baseRevision: null,
+        ...makeBoardPayload({
+          tierCount: 1,
+          itemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+          deletedItemCount: 1,
+        }),
+      }
+    )
+    expect(deletedOverflow).toEqual({ conflict: null, newRevision: 1 })
+  })
+
+  it('accepts max-size Plus boards (incl. all-tombstone updates) within tx budget', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t, 'plus')
+    const mediaIds = makeMediaExternalIds(MAX_LARGE_CLOUD_BOARD_ITEMS)
     await seedMediaAssets(t, userId, mediaIds)
     const caller = asUser(t, userId)
 
@@ -201,7 +268,7 @@ describe('upsertBoardState', () =>
         baseRevision: null,
         ...makeBoardPayload({
           tierCount: MAX_CLOUD_BOARD_TIERS,
-          itemCount: MAX_CLOUD_BOARD_ITEMS,
+          itemCount: MAX_LARGE_CLOUD_BOARD_ITEMS,
           mediaExternalIds: mediaIds,
         }),
       }
@@ -215,8 +282,8 @@ describe('upsertBoardState', () =>
         baseRevision: 1,
         ...makeBoardPayload({
           tierCount: MAX_CLOUD_BOARD_TIERS,
-          itemCount: MAX_CLOUD_BOARD_ITEMS,
-          deletedItemCount: MAX_CLOUD_BOARD_ITEMS,
+          itemCount: MAX_LARGE_CLOUD_BOARD_ITEMS,
+          deletedItemCount: MAX_LARGE_CLOUD_BOARD_ITEMS,
         }),
       }
     )
@@ -226,7 +293,7 @@ describe('upsertBoardState', () =>
       api.workspace.boards.queries.getBoardStateByExternalId,
       { boardExternalId: 'board-tombstones' }
     )
-    expect(state?.items).toHaveLength(MAX_CLOUD_BOARD_ITEMS)
+    expect(state?.items).toHaveLength(MAX_LARGE_CLOUD_BOARD_ITEMS)
     expect(state?.items.every((item) => item.deletedAt !== null)).toBe(true)
   })
 

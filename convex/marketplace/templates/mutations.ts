@@ -23,6 +23,10 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
+import {
+  assertCanPublishTemplate,
+  assertCanUseTemplate,
+} from '../../lib/entitlements'
 import { resolveTemplateProgressState } from '../../lib/templateProgress'
 import { failInput } from '../../lib/text'
 import {
@@ -198,6 +202,7 @@ export const publishFromBoard = mutation({
     {
       failInput('cannot publish an empty template')
     }
+    await assertCanPublishTemplate(ctx, userId, activeItems.length)
 
     const author = await toTemplateAuthor(ctx, userId)
     const fallbackCoverMediaId =
@@ -490,6 +495,7 @@ export const useTemplate = mutation({
         message: 'template not found',
       })
     }
+    await assertCanUseTemplate(ctx, userId, template)
 
     const templateItems = await loadTemplateItems(ctx, template._id)
     if (templateItems.length === 0)
@@ -499,6 +505,9 @@ export const useTemplate = mutation({
         message: 'template has no items',
       })
     }
+    await assertCanUseTemplate(ctx, userId, {
+      itemCount: templateItems.length,
+    })
 
     const tiers = await resolveTemplateTiers(
       ctx,
@@ -542,7 +551,6 @@ export const useTemplate = mutation({
     const summaryItems = await insertBoardItemsFromTemplate(
       ctx,
       boardId,
-      userId,
       templateItems
     )
     await ctx.db.patch(boardId, {

@@ -2,7 +2,9 @@
 // public user shape projected by users.getMe — narrower than Doc<'users'>,
 // excludes operator diagnostics, auth internals, & raw avatarStorageId
 
-type UserTier = 'free' | 'premium'
+export const USER_PLANS = ['free', 'plus'] as const
+
+export type UserPlan = (typeof USER_PLANS)[number]
 
 export const MAX_DISPLAY_NAME_LENGTH = 64
 export const MAX_BIO_LENGTH = 200
@@ -73,7 +75,7 @@ export interface PublicUserMe
   displayName: string | null
   image: string | null
   externalId: string | null
-  tier: UserTier
+  plan: UserPlan
   createdAt: number
   updatedAt: number | null
   // public-profile fields — null until the user fills them in. surfaced on

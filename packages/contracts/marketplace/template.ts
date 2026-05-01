@@ -31,7 +31,7 @@ const TEMPLATE_SLUG_LENGTH = 10
 // max images denormalized onto each summary projection so cards can render a
 // tiermaker-style mosaic w/o issuing a per-card detail query. capped to keep
 // the gallery payload bounded even when templates are large
-export const MAX_TEMPLATE_COVER_ITEMS = 24
+export const MAX_TEMPLATE_COVER_ITEMS = 6
 
 const TEMPLATE_SLUG_PATTERN = new RegExp(
   `^[0-9A-Za-z]{${TEMPLATE_SLUG_LENGTH}}$`

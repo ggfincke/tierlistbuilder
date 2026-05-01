@@ -9,6 +9,7 @@ import type {
   TierItemImageRef,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { ITEM_TRANSFORM_IDENTITY } from '@tierlistbuilder/contracts/workspace/board'
 import {
   AUTO_CROP_ANALYSIS_MAX_SIZE,
@@ -57,7 +58,8 @@ const getAutoCropImageRef = (item: TierItem): TierItemImageRef | undefined =>
 
 export const loadAutoCropBlob = async (
   ref: TierItemImageRef | undefined,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  variant: MediaVariantKind = 'tile'
 ): Promise<BlobRecord | null> =>
 {
   if (!ref) return null
@@ -67,7 +69,7 @@ export const loadAutoCropBlob = async (
   if (!record && ref.cloudMediaExternalId)
   {
     signal?.throwIfAborted()
-    await ensureCloudImageCached(ref.hash, ref.cloudMediaExternalId)
+    await ensureCloudImageCached(ref.hash, ref.cloudMediaExternalId, variant)
     signal?.throwIfAborted()
     record = await getBlob(ref.hash)
   }
@@ -215,11 +217,12 @@ export const collectAutoCropTransforms = async ({
     {
       signal?.throwIfAborted()
       const ref = getAutoCropImageRef(item)!
+      const variant = item.sourceImageRef ? 'editor' : 'tile'
       const hash = ref.hash
       let bbox = getCachedBBox(hash, trimSoftShadows)
       if (bbox === undefined)
       {
-        const record = await loadAutoCropBlob(ref, signal)
+        const record = await loadAutoCropBlob(ref, signal, variant)
         bbox = record
           ? await detectContentBBox(record.bytes, hash, trimSoftShadows, signal)
           : null

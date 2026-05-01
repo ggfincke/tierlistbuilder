@@ -7,10 +7,12 @@ import {
   subscribeCachedImageUrl,
   requestCloudImage,
 } from '~/shared/images/imageBlobCache'
+import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 
 export const useImageUrl = (
   hash: string | undefined,
-  cloudMediaExternalId?: string
+  cloudMediaExternalId?: string,
+  variant: MediaVariantKind = 'tile'
 ): string | null =>
 {
   const subscribe = useCallback(
@@ -24,8 +26,8 @@ export const useImageUrl = (
   useEffect(() =>
   {
     if (!hash || !cloudMediaExternalId || url) return
-    requestCloudImage(hash, cloudMediaExternalId)
-  }, [hash, cloudMediaExternalId, url])
+    requestCloudImage(hash, cloudMediaExternalId, variant)
+  }, [hash, cloudMediaExternalId, variant, url])
 
   return url
 }

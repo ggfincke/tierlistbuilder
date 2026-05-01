@@ -3,10 +3,20 @@
 
 import type { CSSProperties, ReactNode } from 'react'
 
+export type MediaLoading = 'eager' | 'lazy'
+export type MediaDecoding = 'async' | 'auto' | 'sync'
+
 interface MediaMatteFrameProps
 {
   src?: string
   alt?: string
+  // intrinsic image dimensions — when provided, set as html width/height attrs
+  // so the browser can reserve layout space & size the decoded bitmap budget
+  // appropriately. callers should pass these whenever data has them
+  width?: number
+  height?: number
+  loading?: MediaLoading
+  decoding?: MediaDecoding
   className?: string
   imageClassName?: string
   style?: CSSProperties
@@ -20,6 +30,10 @@ const joinClassName = (...parts: (string | undefined)[]): string =>
 export const MediaMatteFrame = ({
   src,
   alt = '',
+  width,
+  height,
+  loading = 'lazy',
+  decoding = 'async',
   className,
   imageClassName,
   style,
@@ -35,8 +49,10 @@ export const MediaMatteFrame = ({
       <img
         src={src}
         alt={alt}
-        loading="lazy"
-        decoding="async"
+        width={width}
+        height={height}
+        loading={loading}
+        decoding={decoding}
         draggable={false}
         className={joinClassName('h-full w-full object-cover', imageClassName)}
       />

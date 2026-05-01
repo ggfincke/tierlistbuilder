@@ -10,6 +10,8 @@ import {
   boardLibrarySummaryValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
+  mediaVariantKindValidator,
+  mediaVariantSummaryValidator,
   paletteIdValidator,
   templateCategoryValidator,
   templateVisibilityValidator,
@@ -38,7 +40,7 @@ export default defineSchema({
     avatarStorageId: v.optional(v.id('_storage')),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
-    tier: v.optional(v.union(v.literal('free'), v.literal('premium'))),
+    plan: v.optional(v.union(v.literal('free'), v.literal('plus'))),
     lastUpsertError: v.optional(v.string()),
     // public-profile fields — surfaced via /u/:handle once that route exists.
     // handle is lowercase a-z/0-9/_/- ; uniqueness enforced via byHandle index
@@ -134,7 +136,6 @@ export default defineSchema({
     backgroundColor: v.optional(v.string()),
     altText: v.optional(v.string()),
     mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
-    sourceMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
     deletedAt: v.union(v.number(), v.null()),
     // natural image aspect ratio captured at import time
@@ -149,23 +150,34 @@ export default defineSchema({
     templateItemId: v.optional(v.id('templateItems')),
   })
     .index('byBoardAndTier', ['boardId', 'tierId', 'order'])
-    .index('byMedia', ['mediaAssetId'])
-    .index('bySourceMedia', ['sourceMediaAssetId']),
+    .index('byMedia', ['mediaAssetId']),
 
-  // uploaded image metadata — references convex _storage for actual bytes
+  // logical uploaded image identity; physical blobs live in mediaVariants
   mediaAssets: defineTable({
     ownerId: v.id('users'),
     externalId: v.string(),
+    dedupeHash: v.string(),
+    tileVariant: mediaVariantSummaryValidator,
+    previewVariant: v.optional(mediaVariantSummaryValidator),
+    editorVariant: v.optional(mediaVariantSummaryValidator),
+    createdAt: v.number(),
+  })
+    .index('byExternalId', ['externalId'])
+    .index('byOwnerAndExternalId', ['ownerId', 'externalId'])
+    .index('byOwnerAndDedupeHash', ['ownerId', 'dedupeHash']),
+
+  mediaVariants: defineTable({
+    mediaAssetId: v.id('mediaAssets'),
+    kind: mediaVariantKindValidator,
     storageId: v.id('_storage'),
-    contentHash: v.string(),
-    mimeType: v.string(),
     width: v.number(),
     height: v.number(),
     byteSize: v.number(),
+    mimeType: v.string(),
+    contentHash: v.string(),
     createdAt: v.number(),
   })
-    .index('byOwnerAndExternalId', ['ownerId', 'externalId'])
-    .index('byOwnerAndHash', ['ownerId', 'contentHash'])
+    .index('byMediaAssetAndKind', ['mediaAssetId', 'kind'])
     .index('byStorageId', ['storageId']),
 
   // reusable tier structure owned by a user — independent of boards

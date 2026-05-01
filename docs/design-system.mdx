@@ -42,16 +42,16 @@ Three rules keep this stack honest:
 
 Defined per theme in `src/shared/theme/tokens.ts`, written to `:root` by `applyThemeTokens()` in `src/shared/theme/runtime.ts`. There are **22 color tokens** grouped by role:
 
-| Role        | Tokens                                                                                                      |
-| ----------- | ----------------------------------------------------------------------------------------------------------- |
+| Role        | Tokens                                                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Backgrounds | `--t-bg-page`, `--t-bg-surface`, `--t-bg-sunken`, `--t-bg-overlay`, `--t-bg-drag-over`, `--t-bg-hover`, `--t-bg-active` |
-| Borders     | `--t-border`, `--t-border-secondary`, `--t-border-hover`                                                    |
-| Text        | `--t-text`, `--t-text-secondary`, `--t-text-muted`, `--t-text-faint`, `--t-text-dim`                        |
-| Accent      | `--t-accent`, `--t-accent-hover`, `--t-accent-foreground` (computed contrast)                               |
-| Destructive | `--t-destructive`, `--t-destructive-hover`, `--t-destructive-foreground` (computed contrast)                |
-| Success     | `--t-success`                                                                                               |
-| Mixing      | `--t-overlay` (space-separated RGB triplet for `rgb(var(--t-overlay)/0.12)` opacity tints)                   |
-| Export      | `--t-export-bg`                                                                                             |
+| Borders     | `--t-border`, `--t-border-secondary`, `--t-border-hover`                                                                |
+| Text        | `--t-text`, `--t-text-secondary`, `--t-text-muted`, `--t-text-faint`, `--t-text-dim`                                    |
+| Accent      | `--t-accent`, `--t-accent-hover`, `--t-accent-foreground` (computed contrast)                                           |
+| Destructive | `--t-destructive`, `--t-destructive-hover`, `--t-destructive-foreground` (computed contrast)                            |
+| Success     | `--t-success`                                                                                                           |
+| Mixing      | `--t-overlay` (space-separated RGB triplet for `rgb(var(--t-overlay)/0.12)` opacity tints)                              |
+| Export      | `--t-export-bg`                                                                                                         |
 
 > [!TIP]
 > Use `rgb(var(--t-overlay)/<alpha>)` instead of stacking translucent layers when you want a hover/active wash that blends with whatever surface sits behind it. The triplet (`255 255 255` on dark themes, `0 0 0` on light) flips automatically.
@@ -61,11 +61,12 @@ Defined per theme in `src/shared/theme/tokens.ts`, written to `:root` by `applyT
 These are the only sanctioned exceptions:
 
 :::warning Always-dark overlay exceptions
+
 - **Modal backdrops** -> `bg-black/60`
 - **Image/media overlays** (item overlay buttons, export-preview matte) -> `bg-black/50`, `bg-black/60`, `bg-black/70`
 - **Annotation workspace matte** -> `bg-black/30`
 - **Black drop shadows** -> `shadow-black/*`
-:::
+  :::
 
 :::info User-chosen colors
 Tier-color palettes (`shared/theme/palettes.ts`), user-picked item backgrounds, and theme definition tables themselves use raw hex values. These are **data**, not chrome.
@@ -75,12 +76,12 @@ Tier-color palettes (`shared/theme/palettes.ts`), user-picked item backgrounds, 
 
 Defined in `src/shared/theme/textStyles.ts`. Five text styles ship: `default`, `mono`, `serif`, `rounded`, `display`. Each writes four properties:
 
-| Token                 | Role                                |
-| --------------------- | ----------------------------------- |
-| `--ts-font-family`    | Font family stack                   |
-| `--ts-weight-normal`  | Body weight                         |
-| `--ts-weight-heading` | Heading/emphasis weight             |
-| `--ts-letter-spacing` | Global letter-spacing adjustment    |
+| Token                 | Role                             |
+| --------------------- | -------------------------------- |
+| `--ts-font-family`    | Font family stack                |
+| `--ts-weight-normal`  | Body weight                      |
+| `--ts-weight-heading` | Heading/emphasis weight          |
+| `--ts-letter-spacing` | Global letter-spacing adjustment |
 
 `useThemeSync` (`features/platform/preferences/model/useThemeSync.ts`) syncs the active style to `:root`. Non-system fonts are loaded dynamically from Google Fonts by `applyTextStyle()` — keep new styles offline-capable by listing system fallbacks first.
 
@@ -88,13 +89,13 @@ Defined in `src/shared/theme/textStyles.ts`. Five text styles ship: `default`, `
 
 ```typescript title="src/shared/theme/zIndex.ts"
 export const Z = {
-  offscreen: -1,  // export hosts that mount but don't render
+  offscreen: -1, // export hosts that mount but don't render
   base: 0,
-  dropdown: 10,   // item focus rings, inline canvas text input, drag-raised items
-  popup: 20,      // selected/active item elevation
-  submenu: 30,    // primary submenu layer for toolbar popups
-  overlay: 40,    // floating panels (board manager, bulk action bar)
-  modal: 50,      // modals, toasts, modal-layer menus
+  dropdown: 10, // item focus rings, inline canvas text input, drag-raised items
+  popup: 20, // selected/active item elevation
+  submenu: 30, // primary submenu layer for toolbar popups
+  overlay: 40, // floating panels (board manager, bulk action bar)
+  modal: 50, // modals, toasts, modal-layer menus
 } as const
 ```
 
@@ -107,12 +108,12 @@ export const Z = {
 
 One unified primitive (`shared/ui/Button.tsx`) covers four variants. Named wrappers exist for the common cases so call sites stay semantic.
 
-| Pick                | When                                                         | Where                          |
-| ------------------- | ------------------------------------------------------------ | ------------------------------ |
-| `PrimaryButton`     | Submit/confirm action — modal CTA, save, publish             | `shared/ui/PrimaryButton.tsx`  |
-| `SecondaryButton`   | Cancel, dismiss, dialog secondary action, settings rows      | `shared/ui/SecondaryButton.tsx`|
-| `ActionButton`      | Circular icon button in a toolbar — must take `label` + `title` | `shared/ui/ActionButton.tsx`   |
-| `Button` (raw)      | You need a variant the wrappers don't expose (e.g. `overlay`) | `shared/ui/Button.tsx`         |
+| Pick              | When                                                            | Where                           |
+| ----------------- | --------------------------------------------------------------- | ------------------------------- |
+| `PrimaryButton`   | Submit/confirm action — modal CTA, save, publish                | `shared/ui/PrimaryButton.tsx`   |
+| `SecondaryButton` | Cancel, dismiss, dialog secondary action, settings rows         | `shared/ui/SecondaryButton.tsx` |
+| `ActionButton`    | Circular icon button in a toolbar — must take `label` + `title` | `shared/ui/ActionButton.tsx`    |
+| `Button` (raw)    | You need a variant the wrappers don't expose (e.g. `overlay`)   | `shared/ui/Button.tsx`          |
 
 ### Decision guide
 
@@ -139,20 +140,21 @@ graph TD
 ### Anti-patterns
 
 :::danger Don't
+
 - **Don't** roll your own `<button>` chrome — it will drift from focus-ring & disabled defaults.
 - **Don't** use `PrimaryButton` for both confirm and cancel in the same dialog. Pair `PrimaryButton` (CTA) with `SecondaryButton` (cancel).
 - **Don't** put `tone="destructive"` on a button that doesn't actually destroy data. Reserve red for actions a user would want to undo.
-:::
+  :::
 
 ---
 
 ## Form & input primitives
 
-| Pick           | When                                                       | Where                       |
-| -------------- | ---------------------------------------------------------- | --------------------------- |
-| `TextInput`    | Single-line text — board title, item label, modal field    | `shared/ui/TextInput.tsx`   |
-| `TextArea`     | Multi-line text — paste-many imports, descriptions         | `shared/ui/TextArea.tsx`    |
-| `ColorInput`   | Native `<input type="color">` swatch                       | `shared/ui/ColorInput.tsx`  |
+| Pick             | When                                                      | Where                          |
+| ---------------- | --------------------------------------------------------- | ------------------------------ |
+| `TextInput`      | Single-line text — board title, item label, modal field   | `shared/ui/TextInput.tsx`      |
+| `TextArea`       | Multi-line text — paste-many imports, descriptions        | `shared/ui/TextArea.tsx`       |
+| `ColorInput`     | Native `<input type="color">` swatch                      | `shared/ui/ColorInput.tsx`     |
 | `UploadDropzone` | Image drop target — settings panel & unranked empty state | `shared/ui/UploadDropzone.tsx` |
 
 `TextInput` and `TextArea` share two variants:
@@ -168,16 +170,16 @@ Sizes (`xs`, `sm`, `md`) match the button scale, so a `TextInput size="sm"` next
 
 Live under `src/shared/ui/settings/` and consumed primarily by `BoardSettingsModal` and `PreferencesModal`. They compose into rows so a settings tab reads as a vertical list.
 
-| Component             | Role                                                          |
-| --------------------- | ------------------------------------------------------------- |
-| `SettingsSection`     | Titled rounded panel — wraps a group of related rows          |
-| `SettingRow`          | Label + control row, with optional helper text                |
-| `Toggle`              | Boolean on/off — bound to `aria-checked`                      |
-| `SegmentedControl`    | Mutually exclusive choice — 2-4 options, all visible at once  |
-| `PickerGrid`          | 5+ visual options w/ roving keyboard nav (themes, palettes)   |
-| `ThemePicker`         | `PickerGrid` specialization for theme tokens                  |
-| `PalettePicker`       | `PickerGrid` specialization for tier palettes                 |
-| `TextStylePicker`     | `PickerGrid` specialization for text styles                   |
+| Component             | Role                                                                           |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `SettingsSection`     | Titled rounded panel — wraps a group of related rows                           |
+| `SettingRow`          | Label + control row, with optional helper text                                 |
+| `Toggle`              | Boolean on/off — bound to `aria-checked`                                       |
+| `SegmentedControl`    | Mutually exclusive choice — 2-4 options, all visible at once                   |
+| `PickerGrid`          | 5+ visual options w/ roving keyboard nav (themes, palettes)                    |
+| `ThemePicker`         | `PickerGrid` specialization for theme tokens                                   |
+| `PalettePicker`       | `PickerGrid` specialization for tier palettes                                  |
+| `TextStylePicker`     | `PickerGrid` specialization for text styles                                    |
 | `TabbedSettingsModal` | Modal shell w/ tab strip + active panel — used by board settings & preferences |
 
 ### When to reach for which control
@@ -204,13 +206,13 @@ graph TD
 
 ### Dialog surface picker
 
-| Pick                | When                                                                      | Where                              |
-| ------------------- | ------------------------------------------------------------------------- | ---------------------------------- |
-| `ConfirmDialog`     | Destructive or accent confirmation w/ a yes/no                            | `shared/overlay/ConfirmDialog.tsx` |
-| `ProgressOverlay`   | Long-running blocking task w/ N-of-M progress                             | `shared/overlay/ProgressOverlay.tsx` |
-| `TabbedSettingsModal` | Multi-tab settings panel                                                | `shared/ui/TabbedSettingsModal.tsx`|
-| `BaseModal`         | Anything else — custom-shaped dialog, compose your own header/body/footer | `shared/overlay/BaseModal.tsx`     |
-| `LazyModalSlot`     | Wrap a modal you want to lazy-load via `React.lazy`                       | `shared/overlay/LazyModalSlot.tsx` |
+| Pick                  | When                                                                      | Where                                |
+| --------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
+| `ConfirmDialog`       | Destructive or accent confirmation w/ a yes/no                            | `shared/overlay/ConfirmDialog.tsx`   |
+| `ProgressOverlay`     | Long-running blocking task w/ N-of-M progress                             | `shared/overlay/ProgressOverlay.tsx` |
+| `TabbedSettingsModal` | Multi-tab settings panel                                                  | `shared/ui/TabbedSettingsModal.tsx`  |
+| `BaseModal`           | Anything else — custom-shaped dialog, compose your own header/body/footer | `shared/overlay/BaseModal.tsx`       |
+| `LazyModalSlot`       | Wrap a modal you want to lazy-load via `React.lazy`                       | `shared/overlay/LazyModalSlot.tsx`   |
 
 > [!IMPORTANT]
 > Always prefer `ConfirmDialog` over hand-rolled `BaseModal` for yes/no flows — it bakes in destructive vs. accent variants, focus order, and Escape behavior. If you find yourself reimplementing those, you've probably reached for the wrong primitive.
@@ -219,26 +221,26 @@ graph TD
 
 `BaseModal` already wires these — you only call them directly if you're building a new dialog primitive:
 
-| Module             | Role                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------- |
-| `modalDialog.ts`   | `useModalDialog()` — composes focus trap + inert background + Escape into one hook    |
-| `focusTrap.ts`     | Focus containment for the topmost dialog                                              |
-| `modalLayer.ts`    | Active-modal registry, app-shell `inert`, scroll lock w/ `scrollbar-gutter: stable`   |
-| `progress.ts`      | `resolveProgressOverlayState()` — pure progress-string formatter                      |
+| Module           | Role                                                                                |
+| ---------------- | ----------------------------------------------------------------------------------- |
+| `modalDialog.ts` | `useModalDialog()` — composes focus trap + inert background + Escape into one hook  |
+| `focusTrap.ts`   | Focus containment for the topmost dialog                                            |
+| `modalLayer.ts`  | Active-modal registry, app-shell `inert`, scroll lock w/ `scrollbar-gutter: stable` |
+| `progress.ts`    | `resolveProgressOverlayState()` — pure progress-string formatter                    |
 
 ### Popup & menu building blocks
 
 Used by `ColorPicker`, `TierRowSettingsMenu`, `BoardManager`, `ExportMenu`, `ItemEditPopover`, etc.
 
-| Module                | Role                                                                          |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `dismissibleLayer.ts` | Outside-interaction & Escape dismissal — does **not** trap focus              |
-| `anchoredPopup.ts`    | Fixed-position popup tied to a trigger element                                |
-| `popupPosition.ts`    | Pure positioning math — viewport flipping, gap constants                      |
-| `uiMeasurements.ts`   | Shared px constants for popup gaps & menu heights                             |
-| `menuOverflow.ts`     | Submenu offset class tokens + viewport-aware flip-left/flip-right hook        |
-| `nestedMenus.ts`      | Pure nested-menu state machine + React hook wrapper                           |
-| `OverlaySurface.tsx`  | `OverlayMenuSurface`, `OverlayPanelSurface`, etc. — themed chrome for popups  |
+| Module                | Role                                                                         |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `dismissibleLayer.ts` | Outside-interaction & Escape dismissal — does **not** trap focus             |
+| `anchoredPopup.ts`    | Fixed-position popup tied to a trigger element                               |
+| `popupPosition.ts`    | Pure positioning math — viewport flipping, gap constants                     |
+| `uiMeasurements.ts`   | Shared px constants for popup gaps & menu heights                            |
+| `menuOverflow.ts`     | Submenu offset class tokens + viewport-aware flip-left/flip-right hook       |
+| `nestedMenus.ts`      | Pure nested-menu state machine + React hook wrapper                          |
+| `OverlaySurface.tsx`  | `OverlayMenuSurface`, `OverlayPanelSurface`, etc. — themed chrome for popups |
 
 > [!CAUTION]
 > Popups and modals are **not** interchangeable. Modals trap focus, set `inert` on the app shell, and lock scroll. Popups dismiss on outside click, don't trap focus, and don't lock scroll. If you're not sure which you want, you probably want a modal.
@@ -297,19 +299,19 @@ Updates to this doc happen in the same PR as the primitive change, alongside any
 
 ## Reference index
 
-| Topic              | Source                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------------------- |
-| Color tokens       | `src/shared/theme/tokens.ts`                                                                       |
-| Tier palettes      | `src/shared/theme/palettes.ts`                                                                     |
-| Text styles        | `src/shared/theme/textStyles.ts`                                                                   |
-| Theme runtime      | `src/shared/theme/runtime.ts`                                                                      |
-| Tier color helpers | `src/shared/theme/tierColors.ts`                                                                   |
-| Z ladder           | `src/shared/theme/zIndex.ts`                                                                       |
-| Button primitive   | `src/shared/ui/Button.tsx`, `buttonBase.ts`                                                        |
-| Form inputs        | `src/shared/ui/TextInput.tsx`, `TextArea.tsx`, `ColorInput.tsx`, `UploadDropzone.tsx`              |
-| Settings controls  | `src/shared/ui/settings/`, `SettingsSection.tsx`, `TabbedSettingsModal.tsx`, `PickerGrid.tsx`      |
-| Overlay surfaces   | `src/shared/overlay/BaseModal.tsx`, `ConfirmDialog.tsx`, `ProgressOverlay.tsx`, `OverlaySurface.tsx` |
-| Modal behavior     | `src/shared/overlay/modalDialog.ts`, `focusTrap.ts`, `modalLayer.ts`                               |
+| Topic              | Source                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Color tokens       | `src/shared/theme/tokens.ts`                                                                                          |
+| Tier palettes      | `src/shared/theme/palettes.ts`                                                                                        |
+| Text styles        | `src/shared/theme/textStyles.ts`                                                                                      |
+| Theme runtime      | `src/shared/theme/runtime.ts`                                                                                         |
+| Tier color helpers | `src/shared/theme/tierColors.ts`                                                                                      |
+| Z ladder           | `src/shared/theme/zIndex.ts`                                                                                          |
+| Button primitive   | `src/shared/ui/Button.tsx`, `buttonBase.ts`                                                                           |
+| Form inputs        | `src/shared/ui/TextInput.tsx`, `TextArea.tsx`, `ColorInput.tsx`, `UploadDropzone.tsx`                                 |
+| Settings controls  | `src/shared/ui/settings/`, `SettingsSection.tsx`, `TabbedSettingsModal.tsx`, `PickerGrid.tsx`                         |
+| Overlay surfaces   | `src/shared/overlay/BaseModal.tsx`, `ConfirmDialog.tsx`, `ProgressOverlay.tsx`, `OverlaySurface.tsx`                  |
+| Modal behavior     | `src/shared/overlay/modalDialog.ts`, `focusTrap.ts`, `modalLayer.ts`                                                  |
 | Popup behavior     | `src/shared/overlay/anchoredPopup.ts`, `dismissibleLayer.ts`, `popupPosition.ts`, `menuOverflow.ts`, `nestedMenus.ts` |
-| Theme spec (long)  | [`dev-docs/theming-system.mdx`](../dev-docs/theming-system.mdx)                                    |
-| Style conventions  | [`AGENTS.md` § Style conventions](../AGENTS.md#style-conventions)                                  |
+| Theme spec (long)  | [`dev-docs/theming-system.mdx`](../dev-docs/theming-system.mdx)                                                       |
+| Style conventions  | [`AGENTS.md` § Style conventions](../AGENTS.md#style-conventions)                                                     |
