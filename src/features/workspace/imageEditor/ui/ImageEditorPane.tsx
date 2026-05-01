@@ -7,10 +7,8 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { Crop } from 'lucide-react'
@@ -20,7 +18,6 @@ import type {
   BoardLabelSettings,
   ImageFit,
   ItemLabelOptions,
-  ItemRotation,
   ItemTransform,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -34,36 +31,25 @@ import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import {
   clampItemTransform,
-  isSameItemTransform,
   itemTransformToCropCss,
   resolveManualCropImageSize,
 } from '~/shared/lib/imageTransform'
-import { clamp } from '~/shared/lib/math'
-import {
-  detectContentBBox,
-  getAutoCropCacheVersion,
-  getAutoCropHash,
-  getCachedBBox,
-  loadAutoCropBlob,
-  resolveAutoCropTransform,
-  subscribeAutoCropCache,
-} from '~/shared/lib/autoCrop'
-import { warmImageHashes } from '~/shared/images/imageBlobCache'
 import {
   applyAxisSnap,
-  createFitBaselineTransform,
   getDisplayZoomBounds,
-  getSavedTransform,
   isInteractiveArrowTarget,
-  normalizeRotation,
   PAN_SNAP_THRESHOLD_PX,
   PAN_START_THRESHOLD_PX,
-  seedTransform,
-  SLIDER_ZOOM_MAX,
   WHEEL_ZOOM_SENSITIVITY,
 } from '../lib/imageEditorGeometry'
 import { useMeasuredElementSize } from '../lib/useMeasuredElementSize'
 import type { PendingImageEditorPaneEdit } from '../model/pendingImageEdit'
+import {
+  nudgeImageEditorTransformByPixels,
+  zoomImageEditorTransformAtPoint,
+} from '../lib/imageEditorTransformOps'
+import { useImageEditorAutoCropItem } from '../model/useImageEditorAutoCropItem'
+import { useImageEditorTransformDraft } from '../model/useImageEditorTransformDraft'
 import { usePaneLabelEditor } from '../model/usePaneLabelEditor'
 import { ImageEditorPaneFooter } from './ImageEditorPaneFooter'
 import { ImageEditorPreviewCanvas } from './ImageEditorPreviewCanvas'
@@ -149,7 +135,6 @@ export const ImageEditorPane = forwardRef<
     item.imageRef?.cloudMediaExternalId
   )
   const url = sourceUrl ?? displayUrl
-  const autoCropHash = getAutoCropHash(item)
   const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const {
@@ -190,191 +175,67 @@ export const ImageEditorPane = forwardRef<
   const canvasH = canvasSize.height
   const frameAspectRatio =
     canvasW > 0 && canvasH > 0 ? canvasW / canvasH : boardAspectRatio
-  const fitBaseline = useMemo(
-    () => createFitBaselineTransform(item, frameAspectRatio, effectiveFit),
-    [item, frameAspectRatio, effectiveFit]
-  )
-  const savedTransform = getSavedTransform(item)
-  const hasSavedTransform = !!savedTransform
-  const [working, setWorking] = useState<ItemTransform>(() =>
-    seedTransform(item, frameAspectRatio, effectiveFit)
-  )
+  const {
+    working,
+    setWorkingDraft,
+    isDirty,
+    savedFlash,
+    hasChanges,
+    displayZoom,
+    displayZoomMin,
+    displaySliderZoomMax,
+    getFitBaselineZoom,
+    getPendingTransformEdit,
+    flushPendingTransform,
+    rotate,
+    setZoomLive,
+    reset,
+    centerOffsets,
+  } = useImageEditorTransformDraft({
+    item,
+    frameAspectRatio,
+    effectiveFit,
+    onCommit,
+  })
+  const { status: autoCropStatus, autoCrop } = useImageEditorAutoCropItem({
+    item,
+    sourceUrl,
+    trimSoftShadows,
+    frameAspectRatio,
+    working,
+    setWorkingDraft,
+  })
   const [isDragging, setIsDragging] = useState(false)
   const [snap, setSnap] = useState<{ x: boolean; y: boolean }>({
     x: false,
     y: false,
   })
-  const [autoCropping, setAutoCropping] = useState(false)
-
-  useSyncExternalStore(
-    subscribeAutoCropCache,
-    getAutoCropCacheVersion,
-    getAutoCropCacheVersion
-  )
-  const autoCropResult = getCachedBBox(autoCropHash, trimSoftShadows)
-
-  useEffect(() =>
-  {
-    if (!item.sourceImageRef?.hash || sourceUrl) return
-    void warmImageHashes([item.sourceImageRef.hash])
-  }, [item.sourceImageRef?.hash, sourceUrl])
-
-  const resolveCommitTransform = useCallback(
-    (transform: ItemTransform): ItemTransform | null =>
-    {
-      const clamped = clampItemTransform(transform)
-      return isSameItemTransform(clamped, fitBaseline) ? null : clamped
-    },
-    [fitBaseline]
-  )
-
-  const flushCommit = useCallback(
-    (transform: ItemTransform) => onCommit(resolveCommitTransform(transform)),
-    [onCommit, resolveCommitTransform]
-  )
-
-  const committed = savedTransform ?? fitBaseline
-  const isDirty = !isSameItemTransform(working, committed)
-  const [savedFlash, setSavedFlash] = useState(false)
-  const workingRef = useRef(working)
-  workingRef.current = working
-  const committedRef = useRef(committed)
-  committedRef.current = committed
-  const isDirtyRef = useRef(isDirty)
-  isDirtyRef.current = isDirty
-  const flushCommitRef = useRef(flushCommit)
-  flushCommitRef.current = flushCommit
   const commitLabelRef = useRef(commitLabel)
-  commitLabelRef.current = commitLabel
-  const itemIdRef = useRef(item.id)
-  itemIdRef.current = item.id
-  const resolveCommitTransformRef = useRef(resolveCommitTransform)
-  resolveCommitTransformRef.current = resolveCommitTransform
-  const autoCommitTimerRef = useRef<number | null>(null)
-  const savedFlashTimerRef = useRef<number | null>(null)
 
-  const clearAutoCommitTimer = useCallback(() =>
-  {
-    if (autoCommitTimerRef.current === null) return
-    window.clearTimeout(autoCommitTimerRef.current)
-    autoCommitTimerRef.current = null
-  }, [])
-
-  const clearSavedFlashTimer = useCallback(() =>
-  {
-    if (savedFlashTimerRef.current === null) return
-    window.clearTimeout(savedFlashTimerRef.current)
-    savedFlashTimerRef.current = null
-  }, [])
-
-  const showSavedFlash = useCallback(() =>
-  {
-    clearSavedFlashTimer()
-    setSavedFlash(true)
-    savedFlashTimerRef.current = window.setTimeout(() =>
-    {
-      savedFlashTimerRef.current = null
-      setSavedFlash(false)
-    }, 1200)
-  }, [clearSavedFlashTimer])
-
-  const scheduleAutoCommit = useCallback(() =>
-  {
-    clearAutoCommitTimer()
-    autoCommitTimerRef.current = window.setTimeout(() =>
-    {
-      autoCommitTimerRef.current = null
-      if (!isDirtyRef.current) return
-      flushCommitRef.current(workingRef.current)
-      isDirtyRef.current = false
-      showSavedFlash()
-    }, 350)
-  }, [clearAutoCommitTimer, showSavedFlash])
-
-  const setWorkingDraft = useCallback(
-    (
-      nextOrUpdate: ItemTransform | ((current: ItemTransform) => ItemTransform)
-    ) =>
-    {
-      const current = workingRef.current
-      const next =
-        typeof nextOrUpdate === 'function'
-          ? nextOrUpdate(current)
-          : nextOrUpdate
-      if (isSameItemTransform(current, next)) return
-      workingRef.current = next
-      const nextDirty = !isSameItemTransform(next, committedRef.current)
-      isDirtyRef.current = nextDirty
-      if (nextDirty)
-      {
-        setSavedFlash(false)
-        scheduleAutoCommit()
-      }
-      else
-      {
-        clearAutoCommitTimer()
-      }
-      setWorking(next)
-    },
-    [clearAutoCommitTimer, scheduleAutoCommit]
-  )
-
-  const previousCommittedRef = useRef(committed)
   useEffect(() =>
   {
-    const previous = previousCommittedRef.current
-    if (isSameItemTransform(previous, committed)) return
-    previousCommittedRef.current = committed
-    const current = workingRef.current
-    if (isSameItemTransform(current, previous))
-    {
-      workingRef.current = committed
-      isDirtyRef.current = false
-      clearAutoCommitTimer()
-      setWorking(committed)
-      return
-    }
-    if (isSameItemTransform(current, committed))
-    {
-      isDirtyRef.current = false
-      clearAutoCommitTimer()
-    }
-  }, [clearAutoCommitTimer, committed])
+    commitLabelRef.current = commitLabel
+  }, [commitLabel])
 
-  useImperativeHandle(ref, () => ({
-    getPendingEdit: () =>
-      isDirtyRef.current
-        ? {
-            id: itemIdRef.current,
-            transform: resolveCommitTransformRef.current(workingRef.current),
-          }
-        : null,
-    flushPendingEdit: () =>
-    {
-      commitLabelRef.current()
-      if (!isDirtyRef.current) return
-      clearAutoCommitTimer()
-      flushCommitRef.current(workingRef.current)
-      isDirtyRef.current = false
-    },
-  }))
+  useImperativeHandle(
+    ref,
+    () => ({
+      getPendingEdit: getPendingTransformEdit,
+      flushPendingEdit: () =>
+      {
+        commitLabelRef.current()
+        flushPendingTransform()
+      },
+    }),
+    [flushPendingTransform, getPendingTransformEdit]
+  )
 
   useEffect(
     () => () =>
     {
-      clearAutoCommitTimer()
-      clearSavedFlashTimer()
       commitLabelRef.current()
-      if (isDirtyRef.current) flushCommitRef.current(workingRef.current)
     },
-    [clearAutoCommitTimer, clearSavedFlashTimer]
-  )
-
-  const getFitBaselineZoom = useCallback(
-    (rotation: ItemRotation) =>
-      createFitBaselineTransform(item, frameAspectRatio, effectiveFit, rotation)
-        .zoom,
-    [item, frameAspectRatio, effectiveFit]
+    []
   )
 
   const dragRef = useRef<{
@@ -510,82 +371,6 @@ export const ImageEditorPane = forwardRef<
     setSnap({ x: false, y: false })
   }, [])
 
-  const rotate = useCallback(
-    (delta: 90 | -90) =>
-    {
-      const currentBaselineZoom = getFitBaselineZoom(working.rotation)
-      const displayZoom = working.zoom / currentBaselineZoom
-      const rotation = normalizeRotation(working.rotation + delta)
-      setWorkingDraft({
-        ...working,
-        rotation,
-        zoom: displayZoom * getFitBaselineZoom(rotation),
-      })
-    },
-    [working, getFitBaselineZoom, setWorkingDraft]
-  )
-
-  const setZoomLive = useCallback(
-    (zoom: number) =>
-      setWorkingDraft((w) =>
-        clampItemTransform({
-          ...w,
-          zoom: zoom * getFitBaselineZoom(w.rotation),
-        })
-      ),
-    [getFitBaselineZoom, setWorkingDraft]
-  )
-
-  const reset = useCallback(() =>
-  {
-    setWorkingDraft(fitBaseline)
-  }, [fitBaseline, setWorkingDraft])
-
-  const centerOffsets = useCallback(() =>
-  {
-    setWorkingDraft((w) => clampItemTransform({ ...w, offsetX: 0, offsetY: 0 }))
-  }, [setWorkingDraft])
-
-  const autoCrop = useCallback(async () =>
-  {
-    if (!autoCropHash || autoCropping) return
-    setAutoCropping(true)
-    try
-    {
-      let bbox = getCachedBBox(autoCropHash, trimSoftShadows)
-      if (bbox === undefined)
-      {
-        const autoCropRef =
-          item.sourceImageRef?.hash === autoCropHash
-            ? item.sourceImageRef
-            : item.imageRef
-        const record = await loadAutoCropBlob(autoCropRef)
-        if (!record) return
-        bbox = await detectContentBBox(
-          record.bytes,
-          autoCropHash,
-          trimSoftShadows
-        )
-      }
-      if (!bbox) return
-      setWorkingDraft(
-        resolveAutoCropTransform(item, bbox, frameAspectRatio, working.rotation)
-      )
-    }
-    finally
-    {
-      setAutoCropping(false)
-    }
-  }, [
-    autoCropHash,
-    trimSoftShadows,
-    autoCropping,
-    item,
-    frameAspectRatio,
-    setWorkingDraft,
-    working.rotation,
-  ])
-
   useEffect(() =>
   {
     if (!url) return
@@ -619,11 +404,7 @@ export const ImageEditorPane = forwardRef<
       }
       e.preventDefault()
       setWorkingDraft((w) =>
-        clampItemTransform({
-          ...w,
-          offsetX: w.offsetX + dxPx / canvasW,
-          offsetY: w.offsetY + dyPx / canvasH,
-        })
+        nudgeImageEditorTransformByPixels(w, dxPx, dyPx, canvasW, canvasH)
       )
     }
     window.addEventListener('keydown', onKey)
@@ -646,18 +427,14 @@ export const ImageEditorPane = forwardRef<
       {
         const currentBaselineZoom = getFitBaselineZoom(w.rotation)
         const { min, max } = getDisplayZoomBounds(currentBaselineZoom)
-        const nextDisplayZoom = clamp(
-          (w.zoom / currentBaselineZoom) * factor,
-          min,
-          max
-        )
-        const nextZoom = nextDisplayZoom * currentBaselineZoom
-        const actualFactor = nextZoom / w.zoom
-        return clampItemTransform({
-          ...w,
-          zoom: nextZoom,
-          offsetX: cursorFracX - actualFactor * (cursorFracX - w.offsetX),
-          offsetY: cursorFracY - actualFactor * (cursorFracY - w.offsetY),
+        return zoomImageEditorTransformAtPoint({
+          transform: w,
+          baselineZoom: currentBaselineZoom,
+          displayZoomMin: min,
+          displayZoomMax: max,
+          cursorFracX,
+          cursorFracY,
+          factor,
         })
       })
     }
@@ -665,26 +442,6 @@ export const ImageEditorPane = forwardRef<
     return () => canvas.removeEventListener('wheel', onWheel)
   }, [url, getFitBaselineZoom, setWorkingDraft])
 
-  const zoomBaseline = getFitBaselineZoom(working.rotation)
-  const displayZoom = working.zoom / zoomBaseline
-  const { min: displayZoomMin, max: displayZoomMax } =
-    getDisplayZoomBounds(zoomBaseline)
-  const displaySliderZoomMax = Math.min(
-    Math.max(SLIDER_ZOOM_MAX, displayZoom),
-    displayZoomMax
-  )
-  const autoCropTransform = autoCropResult
-    ? resolveAutoCropTransform(
-        item,
-        autoCropResult,
-        frameAspectRatio,
-        working.rotation
-      )
-    : null
-  const autoCropApplied =
-    !!autoCropTransform && isSameItemTransform(working, autoCropTransform)
-  const hasChanges =
-    hasSavedTransform || !isSameItemTransform(working, fitBaseline)
   const useManualCrop =
     hasChanges || effectiveFit === 'cover' || !!item.aspectRatio
   const cropSize = useManualCrop
@@ -722,7 +479,7 @@ export const ImageEditorPane = forwardRef<
     ? 'cursor-pointer hover:border-amber-200 hover:bg-amber-300/20 active:bg-amber-300/30'
     : 'cursor-pointer hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-active)]'
   const ratioChipActionable =
-    mismatched && !!autoCropHash && autoCropResult !== null && !autoCropApplied
+    mismatched && (autoCropStatus === 'ready' || autoCropStatus === 'pending')
   const ratioChipTitle = mismatched
     ? ratioChipActionable
       ? `Item is ${ratioLabel} - board is ${boardRatioLabel}. Click to auto-crop to fit.`
@@ -830,10 +587,7 @@ export const ImageEditorPane = forwardRef<
         centerOffsets={centerOffsets}
         working={working}
         autoCrop={autoCrop}
-        autoCropHash={autoCropHash}
-        autoCropping={autoCropping}
-        autoCropResult={autoCropResult}
-        autoCropApplied={autoCropApplied}
+        autoCropStatus={autoCropStatus}
         reset={reset}
         hasChanges={hasChanges}
         isDirty={isDirty}

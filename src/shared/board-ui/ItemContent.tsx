@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
   type RefObject,
 } from 'react'
 
@@ -78,6 +79,27 @@ const ImageArea = ({
     )}
   </div>
 )
+
+// wraps content in a flex column w/ a CaptionStrip above or below — used by
+// both the resolved-image & matte-while-loading branches so they stay
+// layout-identical
+const CaptionedFrame = ({
+  caption,
+  children,
+}: {
+  caption: ResolvedLabelDisplay
+  children: ReactNode
+}) =>
+{
+  const isAbove = caption.placement.mode === 'captionAbove'
+  return (
+    <div className="flex h-full w-full flex-col">
+      {isAbove && <CaptionStrip display={caption} />}
+      <div className="relative min-h-0 flex-1">{children}</div>
+      {!isAbove && <CaptionStrip display={caption} />}
+    </div>
+  )
+}
 
 const MEASURED_ASPECT_RATIO_DELTA = 0.001
 
@@ -203,54 +225,47 @@ export const ItemContent = ({
       : undefined
     const alt = item.altText ?? item.label ?? 'Tier item'
     const placementMode = label?.placement.mode
-
-    if (label && placementMode === 'captionBelow')
-    {
-      return (
-        <div className="flex h-full w-full flex-col">
-          <div className="relative min-h-0 flex-1">
-            <ImageArea
-              frameRef={imageAreaRef}
-              imageUrl={imageUrl}
-              alt={alt}
-              imgClassName={imgClassName}
-              imgStyle={imgStyle}
-              overlay={null}
-            />
-          </div>
-          <CaptionStrip display={label} />
-        </div>
-      )
-    }
-
-    if (label && placementMode === 'captionAbove')
-    {
-      return (
-        <div className="flex h-full w-full flex-col">
-          <CaptionStrip display={label} />
-          <div className="relative min-h-0 flex-1">
-            <ImageArea
-              frameRef={imageAreaRef}
-              imageUrl={imageUrl}
-              alt={alt}
-              imgClassName={imgClassName}
-              imgStyle={imgStyle}
-              overlay={null}
-            />
-          </div>
-        </div>
-      )
-    }
-
-    return (
+    const isCaptioned =
+      label &&
+      (placementMode === 'captionAbove' || placementMode === 'captionBelow')
+    const imageArea = (
       <ImageArea
         frameRef={imageAreaRef}
         imageUrl={imageUrl}
         alt={alt}
         imgClassName={imgClassName}
         imgStyle={imgStyle}
-        overlay={label}
+        overlay={isCaptioned ? null : label}
       />
+    )
+
+    return isCaptioned ? (
+      <CaptionedFrame caption={label}>{imageArea}</CaptionedFrame>
+    ) : (
+      imageArea
+    )
+  }
+
+  // image is expected (item carries a hash) but URL hasn't resolved yet —
+  // cloud fetch in flight on first load, or IDB warm catching up. render a
+  // flat matte so we don't flash the text fallback before the image lands
+  if (item.imageRef?.hash || item.sourceImageRef?.hash)
+  {
+    const placementMode = label?.placement.mode
+    const isCaptioned =
+      label &&
+      (placementMode === 'captionAbove' || placementMode === 'captionBelow')
+    const matte = (
+      <div
+        ref={imageAreaRef}
+        className="relative h-full w-full overflow-hidden bg-[var(--t-bg-surface)]"
+      />
+    )
+
+    return isCaptioned ? (
+      <CaptionedFrame caption={label}>{matte}</CaptionedFrame>
+    ) : (
+      matte
     )
   }
 

@@ -1,5 +1,5 @@
-// tests/data/boardReconciler.test.ts
-// cloud board diffing helpers
+// tests/convex/boardReconciler.test.ts
+// cloud board diffing: media preservation, clear semantics, & label patching
 
 import { describe, expect, it } from 'vitest'
 import type { Id } from '@convex/_generated/dataModel'
@@ -33,132 +33,38 @@ const makeServerItem = (
   ...overrides,
 })
 
-describe('boardReconciler media semantics', () =>
+describe('diffItems media semantics', () =>
 {
-  it('preserves existing media when the wire item omits mediaExternalId', () =>
+  it('preserves media on omit, clears on explicit null, & restores deleted items', () =>
   {
-    const diff = diffItems(
-      [
-        {
-          externalId: 'item-1',
-          tierId: null,
-          order: 1,
-        },
-      ],
+    const omit = diffItems(
+      [{ externalId: 'item-1', tierId: null, order: 1 }],
       [makeServerItem()],
       new Map(),
       new Map(),
       new Set()
     )
+    expect(omit.patch).toEqual([{ id: 'row-1', fields: { order: 1 } }])
 
-    expect(diff.patch).toEqual([
-      {
-        id: 'row-1',
-        fields: {
-          order: 1,
-        },
-      },
-    ])
-  })
-
-  it('clears media when the wire item explicitly sends mediaExternalId null', () =>
-  {
-    const diff = diffItems(
-      [
-        {
-          externalId: 'item-1',
-          tierId: null,
-          mediaExternalId: null,
-          order: 0,
-        },
-      ],
+    const clear = diffItems(
+      [{ externalId: 'item-1', tierId: null, mediaExternalId: null, order: 0 }],
       [makeServerItem()],
       new Map(),
       new Map(),
       new Set()
     )
-
-    expect(diff.patch).toEqual([
-      {
-        id: 'row-1',
-        fields: {
-          mediaAssetId: null,
-        },
-      },
+    expect(clear.patch).toEqual([
+      { id: 'row-1', fields: { mediaAssetId: null } },
     ])
-  })
 
-  it('updates source media independently from display media', () =>
-  {
-    const diff = diffItems(
-      [
-        {
-          externalId: 'item-1',
-          tierId: null,
-          sourceMediaExternalId: 'media-source',
-          order: 0,
-        },
-      ],
-      [makeServerItem()],
-      new Map(),
-      new Map([['media-source', SOURCE_MEDIA_ID]]),
-      new Set()
-    )
-
-    expect(diff.patch).toEqual([
-      {
-        id: 'row-1',
-        fields: {
-          sourceMediaAssetId: SOURCE_MEDIA_ID,
-        },
-      },
-    ])
-  })
-
-  it('clears source media when explicitly sent as null', () =>
-  {
-    const diff = diffItems(
-      [
-        {
-          externalId: 'item-1',
-          tierId: null,
-          sourceMediaExternalId: null,
-          order: 0,
-        },
-      ],
-      [makeServerItem({ sourceMediaAssetId: SOURCE_MEDIA_ID })],
-      new Map(),
-      new Map(),
-      new Set()
-    )
-
-    expect(diff.patch).toEqual([
-      {
-        id: 'row-1',
-        fields: {
-          sourceMediaAssetId: null,
-        },
-      },
-    ])
-  })
-
-  it('preserves existing media when restoring a deleted item without a media field', () =>
-  {
-    const diff = diffItems(
-      [
-        {
-          externalId: 'item-1',
-          tierId: null,
-          order: 4,
-        },
-      ],
+    const restored = diffItems(
+      [{ externalId: 'item-1', tierId: null, order: 4 }],
       [makeServerItem({ deletedAt: 123 })],
       new Map(),
       new Map(),
       new Set()
     )
-
-    expect(diff.patch).toEqual([
+    expect(restored.patch).toEqual([
       {
         id: 'row-1',
         fields: {
@@ -173,9 +79,45 @@ describe('boardReconciler media semantics', () =>
     ])
   })
 
-  it('patches existing items when only label font size changes', () =>
+  it('treats source media independently from display media & patches label-only edits', () =>
   {
-    const diff = diffItems(
+    const sourceSet = diffItems(
+      [
+        {
+          externalId: 'item-1',
+          tierId: null,
+          sourceMediaExternalId: 'media-source',
+          order: 0,
+        },
+      ],
+      [makeServerItem()],
+      new Map(),
+      new Map([['media-source', SOURCE_MEDIA_ID]]),
+      new Set()
+    )
+    expect(sourceSet.patch).toEqual([
+      { id: 'row-1', fields: { sourceMediaAssetId: SOURCE_MEDIA_ID } },
+    ])
+
+    const sourceClear = diffItems(
+      [
+        {
+          externalId: 'item-1',
+          tierId: null,
+          sourceMediaExternalId: null,
+          order: 0,
+        },
+      ],
+      [makeServerItem({ sourceMediaAssetId: SOURCE_MEDIA_ID })],
+      new Map(),
+      new Map(),
+      new Set()
+    )
+    expect(sourceClear.patch).toEqual([
+      { id: 'row-1', fields: { sourceMediaAssetId: null } },
+    ])
+
+    const labelPatch = diffItems(
       [
         {
           externalId: 'item-1',
@@ -189,14 +131,8 @@ describe('boardReconciler media semantics', () =>
       new Map(),
       new Set()
     )
-
-    expect(diff.patch).toEqual([
-      {
-        id: 'row-1',
-        fields: {
-          labelOptions: { fontSizePx: 18 },
-        },
-      },
+    expect(labelPatch.patch).toEqual([
+      { id: 'row-1', fields: { labelOptions: { fontSizePx: 18 } } },
     ])
   })
 })

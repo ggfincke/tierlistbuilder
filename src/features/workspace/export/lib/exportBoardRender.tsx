@@ -9,6 +9,7 @@ import type { ExportAppearance } from '../model/runtime'
 import type { AppPreferences } from '@tierlistbuilder/contracts/platform/preferences'
 import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
 import { EXPORT_BOARD_ROOT_SELECTOR } from '~/shared/board-ui/boardTestIds'
+import { warmFromBoard } from '~/shared/images/imageBlobCache'
 import { Z } from '~/shared/theme/zIndex'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
@@ -112,6 +113,8 @@ const createExportCaptureSession = ({
   return {
     renderBoard: async (data) =>
     {
+      await warmFromBoard(data, { includeCloud: true })
+
       flushSync(() =>
       {
         root.render(

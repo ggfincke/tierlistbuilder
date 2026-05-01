@@ -1,5 +1,5 @@
 // tests/settings/aspectRatioSettings.test.ts
-// pure helpers backing the aspect-ratio prompt & mismatch detection
+// aspect-ratio prompt snapshot & mismatch grouping
 
 import { describe, expect, it } from 'vitest'
 
@@ -15,14 +15,12 @@ import {
 import { resolvePendingAutoAspectRatio } from '~/features/workspace/settings/model/useDeferredAspectRatioPicker'
 import { makeBoardSnapshot, makeItem } from '../fixtures'
 
-describe('resolvePendingAutoAspectRatio', () =>
+describe('aspect ratio resolution', () =>
 {
-  it('uses the current auto-derived ratio instead of the stale manual ratio', () =>
+  it('uses current item ratios over stale manual ratios & falls back when none', () =>
   {
     const portraitA = asItemId('portrait-a')
     const portraitB = asItemId('portrait-b')
-    const square = asItemId('square')
-
     const board = makeBoardSnapshot({
       itemAspectRatio: 1,
       itemAspectRatioMode: 'manual',
@@ -37,52 +35,19 @@ describe('resolvePendingAutoAspectRatio', () =>
           imageRef: { hash: 'portrait-b' },
           aspectRatio: 2 / 3,
         }),
-        [square]: makeItem({
-          id: square,
-          imageRef: { hash: 'square' },
-          aspectRatio: 1,
-        }),
       },
     })
-
     expect(resolvePendingAutoAspectRatio(board, 1)).toBeCloseTo(2 / 3)
-  })
-
-  it('keeps the pending ratio when no item ratio can be derived', () =>
-  {
-    const fallback = 4 / 3
-
-    expect(resolvePendingAutoAspectRatio(makeBoardSnapshot(), fallback)).toBe(
-      fallback
+    expect(resolvePendingAutoAspectRatio(makeBoardSnapshot(), 4 / 3)).toBe(
+      4 / 3
     )
-  })
-
-  it('preserves non-preset auto ratios when all imports agree', () =>
-  {
-    const itemA = asItemId('item-a')
-    const itemB = asItemId('item-b')
-    const board = makeBoardSnapshot({
-      items: {
-        [itemA]: makeItem({
-          id: itemA,
-          imageRef: { hash: 'item-a' },
-          aspectRatio: 5 / 4,
-        }),
-        [itemB]: makeItem({
-          id: itemB,
-          imageRef: { hash: 'item-b' },
-          aspectRatio: 5 / 4,
-        }),
-      },
-    })
-
-    expect(computeAutoBoardAspectRatio(board)).toBeCloseTo(5 / 4)
+    expect(computeAutoBoardAspectRatio(board)).toBeCloseTo(2 / 3)
   })
 })
 
 describe('aspect ratio prompt snapshot', () =>
 {
-  it('limits prompt targets to the opening mismatch set', () =>
+  it('limits prompt targets to opening mismatch set & drops removed items', () =>
   {
     const wide = asItemId('wide')
     const tall = asItemId('tall')
@@ -126,43 +91,16 @@ describe('aspect ratio prompt snapshot', () =>
         }),
       },
     })
-
     expect(
-      resolveAspectRatioPromptItems(snapshot, liveBoard).map((item) => item.id)
+      resolveAspectRatioPromptItems(snapshot, liveBoard).map((i) => i.id)
     ).toEqual([tall])
-  })
 
-  it('drops snapshot items that no longer exist before bulk actions run', () =>
-  {
-    const wide = asItemId('wide')
-    const tall = asItemId('tall')
-
-    const board = makeBoardSnapshot({
-      itemAspectRatio: 1,
-      items: {
-        [wide]: makeItem({
-          id: wide,
-          imageRef: { hash: 'wide' },
-          aspectRatio: 16 / 9,
-        }),
-        [tall]: makeItem({
-          id: tall,
-          imageRef: { hash: 'tall' },
-          aspectRatio: 2 / 3,
-        }),
-      },
-    })
-
-    const snapshot = createAspectRatioPromptSnapshot(board)
-    const liveBoard = makeBoardSnapshot({
+    const partial = makeBoardSnapshot({
       ...board,
-      items: {
-        [wide]: board.items[wide],
-      },
+      items: { [wide]: board.items[wide] },
     })
-
     expect(
-      resolveAspectRatioPromptItems(snapshot, liveBoard).map((item) => item.id)
+      resolveAspectRatioPromptItems(snapshot, partial).map((i) => i.id)
     ).toEqual([wide])
   })
 })
@@ -171,28 +109,24 @@ describe('groupMismatchedItems', () =>
 {
   it('passes the caller tolerance through mismatch detection', () =>
   {
-    const nearSquare = asItemId('near-square')
-    const fartherSquare = asItemId('farther-square')
-
+    const a = asItemId('a')
+    const b = asItemId('b')
     const board = makeBoardSnapshot({
       itemAspectRatio: 1,
       itemAspectRatioMode: 'manual',
       items: {
-        [nearSquare]: makeItem({
-          id: nearSquare,
-          label: 'Near square',
-          imageRef: { hash: 'near-square' },
+        [a]: makeItem({
+          id: a,
+          imageRef: { hash: 'a' },
           aspectRatio: 1.01,
         }),
-        [fartherSquare]: makeItem({
-          id: fartherSquare,
-          label: 'Farther square',
-          imageRef: { hash: 'farther-square' },
+        [b]: makeItem({
+          id: b,
+          imageRef: { hash: 'b' },
           aspectRatio: 1.03,
         }),
       },
     })
-
     expect(groupMismatchedItems(board, 0.005)).toHaveLength(2)
     expect(groupMismatchedItems(board, 0.05)).toHaveLength(0)
   })

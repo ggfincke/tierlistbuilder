@@ -7,8 +7,7 @@ import { persist } from 'zustand/middleware'
 import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { createAppPersistStorage } from '~/shared/lib/browserStorage'
-
-const BOARD_REGISTRY_KEY = 'tier-list-builder-boards'
+import { BOARD_REGISTRY_STORAGE_KEY } from '../data/local/storageKeys'
 
 interface WorkspaceBoardRegistryStore
 {
@@ -55,7 +54,7 @@ export const useWorkspaceBoardRegistryStore =
           })),
       }),
       {
-        name: BOARD_REGISTRY_KEY,
+        name: BOARD_REGISTRY_STORAGE_KEY,
         storage: createAppPersistStorage(),
         version: BOARD_REGISTRY_STORAGE_VERSION,
         partialize: (state) => ({

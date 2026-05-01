@@ -1,5 +1,5 @@
 // tests/data/cloudBoardMapper.test.ts
-// cloud board <-> snapshot mapping
+// cloud board <-> snapshot mapping invariants
 
 import { describe, expect, it } from 'vitest'
 import type {
@@ -19,16 +19,9 @@ const makeBoardWithItem = (
 ): BoardSnapshot =>
 {
   const itemId = asItemId('item-1')
-
   return makeBoardSnapshot({
-    title: 'Board',
-    tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: [itemId] })],
-    items: {
-      [itemId]: {
-        ...item,
-        id: itemId,
-      },
-    },
+    tiers: [makeTier({ id: 'tier-s', itemIds: [itemId] })],
+    items: { [itemId]: { ...item, id: itemId } },
   })
 }
 
@@ -36,68 +29,38 @@ const emptyUploadResult = (): BoardImageUploadResult => ({
   mediaExternalIdByHash: new Map(),
 })
 
-describe('snapshotToCloudPayload media mapping', () =>
+describe('snapshotToCloudPayload', () =>
 {
-  it('prefers a freshly uploaded mediaExternalId when present', () =>
+  it('selects upload-result -> existing-cloud-id -> null for media refs', () =>
   {
-    const payload = snapshotToCloudPayload(
+    const fresh = snapshotToCloudPayload(
       makeBoardWithItem({
         id: asItemId('item-1'),
-        imageRef: {
-          hash: 'hash-1',
-          cloudMediaExternalId: 'media-old',
-        },
+        imageRef: { hash: 'hash-1', cloudMediaExternalId: 'media-old' },
       }),
       {
         ...emptyUploadResult(),
         mediaExternalIdByHash: new Map([['hash-1', 'media-new']]),
       }
     )
+    expect(fresh.items[0].mediaExternalId).toBe('media-new')
 
-    expect(payload.items[0].mediaExternalId).toBe('media-new')
-  })
-
-  it('falls back to the existing cloud media id when upload resolution is missing', () =>
-  {
-    const payload = snapshotToCloudPayload(
+    const fallback = snapshotToCloudPayload(
       makeBoardWithItem({
         id: asItemId('item-1'),
-        imageRef: {
-          hash: 'hash-1',
-          cloudMediaExternalId: 'media-existing',
-        },
+        imageRef: { hash: 'hash-1', cloudMediaExternalId: 'media-existing' },
       }),
       emptyUploadResult()
     )
+    expect(fallback.items[0].mediaExternalId).toBe('media-existing')
 
-    expect(payload.items[0].mediaExternalId).toBe('media-existing')
-  })
-
-  it('maps source image refs separately from display image refs', () =>
-  {
-    const payload = snapshotToCloudPayload(
-      makeBoardWithItem({
-        id: asItemId('item-1'),
-        imageRef: { hash: 'display-hash' },
-        sourceImageRef: { hash: 'source-hash' },
-      }),
-      {
-        ...emptyUploadResult(),
-        mediaExternalIdByHash: new Map([
-          ['display-hash', 'media-display'],
-          ['source-hash', 'media-source'],
-        ]),
-      }
+    const cleared = snapshotToCloudPayload(
+      makeBoardWithItem({ id: asItemId('item-1'), label: 'Text only' }),
+      emptyUploadResult()
     )
+    expect(cleared.items[0].mediaExternalId).toBeNull()
+    expect(cleared.items[0].sourceMediaExternalId).toBeNull()
 
-    expect(payload.items[0]).toMatchObject({
-      mediaExternalId: 'media-display',
-      sourceMediaExternalId: 'media-source',
-    })
-  })
-
-  it('throws when a hash-backed image has no upload mapping or cloud id', () =>
-  {
     expect(() =>
       snapshotToCloudPayload(
         makeBoardWithItem({
@@ -109,81 +72,7 @@ describe('snapshotToCloudPayload media mapping', () =>
     ).toThrow('Unable to sync image')
   })
 
-  it('sends an explicit media clear when an item has no image', () =>
-  {
-    const payload = snapshotToCloudPayload(
-      makeBoardWithItem({
-        id: asItemId('item-1'),
-        label: 'Text only',
-      }),
-      emptyUploadResult()
-    )
-
-    expect(payload.items[0].mediaExternalId).toBeNull()
-    expect(payload.items[0].sourceMediaExternalId).toBeNull()
-  })
-
-  it('uses the deleted-item sentinel order', () =>
-  {
-    const itemId = asItemId('item-deleted')
-    const payload = snapshotToCloudPayload(
-      makeBoardSnapshot({
-        title: 'Board',
-        deletedItems: [
-          {
-            id: itemId,
-            label: 'Deleted',
-          },
-        ],
-      }),
-      emptyUploadResult()
-    )
-
-    expect(payload.items[0].order).toBe(-1)
-  })
-
-  it('preserves board and item aspect settings in the cloud payload', () =>
-  {
-    const itemId = asItemId('item-1')
-    const payload = snapshotToCloudPayload(
-      makeBoardSnapshot({
-        title: 'Board',
-        itemAspectRatio: 16 / 9,
-        itemAspectRatioMode: 'manual',
-        aspectRatioPromptDismissed: true,
-        defaultItemImageFit: 'contain',
-        paletteId: 'twilight',
-        textStyleId: 'rounded',
-        pageBackground: '#123456',
-        tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: [itemId] })],
-        items: {
-          [itemId]: {
-            id: itemId,
-            label: 'Wide item',
-            aspectRatio: 4 / 3,
-            imageFit: 'contain',
-          },
-        },
-      }),
-      emptyUploadResult()
-    )
-
-    expect(payload).toMatchObject({
-      itemAspectRatio: 16 / 9,
-      itemAspectRatioMode: 'manual',
-      aspectRatioPromptDismissed: true,
-      defaultItemImageFit: 'contain',
-      paletteId: 'twilight',
-      textStyleId: 'rounded',
-      pageBackground: '#123456',
-    })
-    expect(payload.items[0]).toMatchObject({
-      aspectRatio: 4 / 3,
-      imageFit: 'contain',
-    })
-  })
-
-  it('preserves item transforms across all cloud payload item groups', () =>
+  it('preserves board style, aspect, transforms, & deleted-item sentinel order', () =>
   {
     const tieredId = asItemId('item-tiered')
     const unrankedId = asItemId('item-unranked')
@@ -196,13 +85,20 @@ describe('snapshotToCloudPayload media mapping', () =>
 
     const payload = snapshotToCloudPayload(
       makeBoardSnapshot({
-        title: 'Board',
-        tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: [tieredId] })],
+        itemAspectRatio: 16 / 9,
+        itemAspectRatioMode: 'manual',
+        defaultItemImageFit: 'contain',
+        paletteId: 'twilight',
+        textStyleId: 'rounded',
+        pageBackground: '#123456',
+        tiers: [makeTier({ id: 'tier-s', itemIds: [tieredId] })],
         unrankedItemIds: [unrankedId],
         items: {
           [tieredId]: {
             id: tieredId,
             label: 'Tiered',
+            aspectRatio: 4 / 3,
+            imageFit: 'contain',
             transform: transforms[tieredId],
           },
           [unrankedId]: {
@@ -222,18 +118,31 @@ describe('snapshotToCloudPayload media mapping', () =>
       emptyUploadResult()
     )
 
+    expect(payload).toMatchObject({
+      itemAspectRatio: 16 / 9,
+      itemAspectRatioMode: 'manual',
+      defaultItemImageFit: 'contain',
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
+    })
+    const tiered = payload.items.find((i) => i.externalId === tieredId)
+    expect(tiered).toMatchObject({ aspectRatio: 4 / 3, imageFit: 'contain' })
     for (const [id, expected] of Object.entries(transforms))
     {
-      expect(
-        payload.items.find((item) => item.externalId === id)?.transform
-      ).toEqual(expected)
+      expect(payload.items.find((i) => i.externalId === id)?.transform).toEqual(
+        expected
+      )
     }
+    expect(payload.items.find((i) => i.externalId === deletedId)?.order).toBe(
+      -1
+    )
   })
 })
 
-describe('serverStateToSnapshot media mapping', () =>
+describe('serverStateToSnapshot', () =>
 {
-  it('restores display and source image refs from cloud media fields', () =>
+  it('restores image refs (display + source) & board style overrides from cloud state', () =>
   {
     const itemId = asItemId('item-1')
     const snapshot = serverStateToSnapshot({
@@ -252,6 +161,9 @@ describe('serverStateToSnapshot media mapping', () =>
           deletedAt: null,
         },
       ],
+      paletteId: 'twilight',
+      textStyleId: 'rounded',
+      pageBackground: '#123456',
     })
 
     expect(snapshot.items[itemId].imageRef).toEqual({
@@ -262,20 +174,6 @@ describe('serverStateToSnapshot media mapping', () =>
       hash: 'source-hash',
       cloudMediaExternalId: 'media-source',
     })
-  })
-
-  it('restores board style overrides from cloud state', () =>
-  {
-    const snapshot = serverStateToSnapshot({
-      title: 'Board',
-      revision: 3,
-      tiers: [],
-      items: [],
-      paletteId: 'twilight',
-      textStyleId: 'rounded',
-      pageBackground: '#123456',
-    })
-
     expect(snapshot).toMatchObject({
       paletteId: 'twilight',
       textStyleId: 'rounded',

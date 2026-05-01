@@ -8,7 +8,6 @@ import {
   useId,
   useMemo,
   useState,
-  useSyncExternalStore,
   type ReactNode,
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -39,10 +38,9 @@ import {
 import {
   areCachedAutoCropsApplied,
   collectAutoCropTransforms,
-  getAutoCropCacheVersion,
   getAutoCropHash,
-  subscribeAutoCropCache,
 } from '~/shared/lib/autoCrop'
+import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -191,11 +189,7 @@ const AspectRatioIssueModalBody = ({
     done: number
     total: number
   }>({ running: false, done: 0, total: 0 })
-  const autoCropCacheVersion = useSyncExternalStore(
-    subscribeAutoCropCache,
-    getAutoCropCacheVersion,
-    getAutoCropCacheVersion
-  )
+  const autoCropCacheVersion = useAutoCropCacheVersion()
 
   const autoCropAllApplied = useMemo(() =>
   {

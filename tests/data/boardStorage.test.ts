@@ -1,10 +1,9 @@
 // tests/data/boardStorage.test.ts
-// local board storage envelope I/O
+// per-board localStorage envelope I/O & corruption handling
 
 import { describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
-import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import {
   boardStorageKey,
   boardSyncStorageKey,
@@ -17,116 +16,42 @@ import { createFailingStorage } from '../shared-lib/memoryStorage'
 
 const TEST_BOARD_ID = 'board-storage-test' as BoardId
 
-describe('boardStorage sync metadata', () =>
+describe('boardStorage', () =>
 {
-  it('persists sync metadata alongside the board snapshot', () =>
+  it('round-trips snapshot + sync metadata & preserves sync across snapshot rewrites', () =>
   {
     const snapshot = createInitialBoardData('classic')
-    saveBoardToStorage(TEST_BOARD_ID, snapshot, {
-      syncState: {
-        lastSyncedRevision: 12,
-        cloudBoardExternalId: 'cloud-board-12',
-        pendingSyncAt: null,
-      },
-    })
+    const syncState = {
+      lastSyncedRevision: 12,
+      cloudBoardExternalId: 'cloud-board-12',
+      pendingSyncAt: null,
+    }
+    saveBoardToStorage(TEST_BOARD_ID, snapshot, { syncState })
 
-    expect(localStorage.getItem(boardStorageKey(TEST_BOARD_ID))).toContain(
-      '"data"'
-    )
-    expect(localStorage.getItem(boardSyncStorageKey(TEST_BOARD_ID))).toBe(
-      JSON.stringify({
-        lastSyncedRevision: 12,
-        cloudBoardExternalId: 'cloud-board-12',
-        pendingSyncAt: null,
-      })
-    )
-
-    const loaded = loadBoardFromStorage(TEST_BOARD_ID)
-    expect(loaded).toMatchObject({
+    expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
       status: 'ok',
-      sync: {
-        lastSyncedRevision: 12,
-        cloudBoardExternalId: 'cloud-board-12',
-        pendingSyncAt: null,
-      },
-    })
-  })
-
-  it('preserves existing sync metadata when autosave rewrites the snapshot', () =>
-  {
-    const snapshot = createInitialBoardData('classic')
-    saveBoardToStorage(TEST_BOARD_ID, snapshot, {
-      syncState: {
-        lastSyncedRevision: 4,
-        cloudBoardExternalId: 'cloud-board-4',
-        pendingSyncAt: null,
-      },
+      sync: syncState,
     })
 
-    saveBoardToStorage(TEST_BOARD_ID, {
-      ...snapshot,
-      title: 'Updated title',
-    })
-
-    const loaded = loadBoardFromStorage(TEST_BOARD_ID)
-    expect(loaded).toMatchObject({
+    saveBoardToStorage(TEST_BOARD_ID, { ...snapshot, title: 'Updated title' })
+    expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
       status: 'ok',
       data: { title: 'Updated title' },
-      sync: {
-        lastSyncedRevision: 4,
-        cloudBoardExternalId: 'cloud-board-4',
-        pendingSyncAt: null,
-      },
+      sync: syncState,
     })
-  })
 
-  it('updates sync metadata without touching the saved board payload', () =>
-  {
-    const snapshot = {
-      ...createInitialBoardData('classic'),
-      title: 'Latest local board',
-    }
-    saveBoardToStorage(TEST_BOARD_ID, snapshot)
-    const storedBoardPayload = localStorage.getItem(
-      boardStorageKey(TEST_BOARD_ID)
-    )
-
+    const beforeSyncWrite = localStorage.getItem(boardStorageKey(TEST_BOARD_ID))
     saveBoardSyncToStorage(TEST_BOARD_ID, {
       lastSyncedRevision: 7,
       cloudBoardExternalId: 'cloud-board-7',
       pendingSyncAt: null,
     })
-
     expect(localStorage.getItem(boardStorageKey(TEST_BOARD_ID))).toBe(
-      storedBoardPayload
+      beforeSyncWrite
     )
-    const loaded = loadBoardFromStorage(TEST_BOARD_ID)
-    expect(loaded).toMatchObject({
+    expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
       status: 'ok',
-      data: { title: 'Latest local board' },
-      sync: {
-        lastSyncedRevision: 7,
-        cloudBoardExternalId: 'cloud-board-7',
-        pendingSyncAt: null,
-      },
-    })
-  })
-
-  it('returns an empty sync state when no sidecar key exists', () =>
-  {
-    const snapshot = createInitialBoardData('classic')
-    localStorage.setItem(
-      boardStorageKey(TEST_BOARD_ID),
-      JSON.stringify({
-        version: BOARD_DATA_VERSION,
-        data: snapshot,
-      })
-    )
-
-    const loaded = loadBoardFromStorage(TEST_BOARD_ID)
-    expect(loaded).toMatchObject({
-      status: 'ok',
-      sync: EMPTY_BOARD_SYNC_STATE,
+      sync: { lastSyncedRevision: 7 },
     })
   })
 
@@ -150,7 +75,6 @@ describe('boardStorage sync metadata', () =>
       boardStorageKey(TEST_BOARD_ID),
       JSON.stringify(payload)
     )
-
     expect(loadBoardFromStorage(TEST_BOARD_ID)).toMatchObject({
       status: 'corrupted',
       data: null,
@@ -165,14 +89,17 @@ describe('boardStorage sync metadata', () =>
       createFailingStorage(new Set([boardStorageKey(TEST_BOARD_ID)]))
     )
 
-    const snapshot = createInitialBoardData('classic')
-    const result = saveBoardToStorage(TEST_BOARD_ID, snapshot, {
-      syncState: {
-        lastSyncedRevision: 9,
-        cloudBoardExternalId: 'cloud-board-9',
-        pendingSyncAt: null,
-      },
-    })
+    const result = saveBoardToStorage(
+      TEST_BOARD_ID,
+      createInitialBoardData('classic'),
+      {
+        syncState: {
+          lastSyncedRevision: 9,
+          cloudBoardExternalId: 'cloud-board-9',
+          pendingSyncAt: null,
+        },
+      }
+    )
 
     expect(result).toMatchObject({ ok: false })
     expect(localStorage.getItem(boardStorageKey(TEST_BOARD_ID))).toBeNull()

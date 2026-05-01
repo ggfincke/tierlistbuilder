@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
-import type { AutoCropBBox } from '@tierlistbuilder/contracts/workspace/imageMath'
+import type { AutoCropStatus } from '../model/useImageEditorAutoCropItem'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AutoCropButton } from './AutoCropButton'
 import { ZoomSlider } from './ZoomSlider'
@@ -29,10 +29,7 @@ interface ImageEditorPaneFooterProps
   centerOffsets: () => void
   working: ItemTransform
   autoCrop: () => void
-  autoCropHash: string | undefined
-  autoCropping: boolean
-  autoCropResult: AutoCropBBox | null | undefined
-  autoCropApplied: boolean
+  autoCropStatus: AutoCropStatus
   reset: () => void
   hasChanges: boolean
   isDirty: boolean
@@ -76,10 +73,7 @@ export const ImageEditorPaneFooter = ({
   centerOffsets,
   working,
   autoCrop,
-  autoCropHash,
-  autoCropping,
-  autoCropResult,
-  autoCropApplied,
+  autoCropStatus,
   reset,
   hasChanges,
   isDirty,
@@ -149,15 +143,14 @@ export const ImageEditorPaneFooter = ({
         </button>
         <AutoCropButton
           onClick={autoCrop}
-          disabled={
-            !autoCropHash ||
-            autoCropping ||
-            autoCropResult === null ||
-            autoCropApplied
-          }
+          disabled={autoCropStatus !== 'pending' && autoCropStatus !== 'ready'}
           minWidthClassName="min-w-[7.5rem]"
           state={
-            autoCropping ? 'running' : autoCropApplied ? 'applied' : 'idle'
+            autoCropStatus === 'cropping'
+              ? 'running'
+              : autoCropStatus === 'applied'
+                ? 'applied'
+                : 'idle'
           }
           variant="plain"
           labels={{
@@ -171,9 +164,9 @@ export const ImageEditorPaneFooter = ({
             idle: 'Auto-crop this image to detected content',
           }}
           title={
-            autoCropApplied
+            autoCropStatus === 'applied'
               ? 'Already auto-cropped - adjust or reset to re-run'
-              : autoCropResult === null
+              : autoCropStatus === 'noContent'
                 ? 'No crop detected'
                 : 'Frame the detected content'
           }

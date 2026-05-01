@@ -1,12 +1,12 @@
 // tests/platform/boardSyncStatus.test.ts
-// board sync status resolution
+// per-board sync status derivation
 
 import { describe, expect, it } from 'vitest'
 import { resolveBoardSyncStatus } from '~/features/platform/sync/state/syncStatusStore'
 
-describe('board sync status', () =>
+describe('resolveBoardSyncStatus', () =>
 {
-  it('keeps fully idle boards idle while offline', () =>
+  it('reports offline for dirty boards, conflict overrides offline, idle stays idle, & online passes through', () =>
   {
     expect(
       resolveBoardSyncStatus({
@@ -15,10 +15,7 @@ describe('board sync status', () =>
         hasConflict: false,
       })
     ).toBe('idle')
-  })
 
-  it('reports offline for dirty boards while disconnected', () =>
-  {
     expect(
       resolveBoardSyncStatus({
         online: false,
@@ -26,7 +23,6 @@ describe('board sync status', () =>
         hasConflict: false,
       })
     ).toBe('offline')
-
     expect(
       resolveBoardSyncStatus({
         online: false,
@@ -34,10 +30,7 @@ describe('board sync status', () =>
         hasConflict: false,
       })
     ).toBe('offline')
-  })
 
-  it('keeps conflicts visible even while offline', () =>
-  {
     expect(
       resolveBoardSyncStatus({
         online: false,
@@ -45,10 +38,7 @@ describe('board sync status', () =>
         hasConflict: true,
       })
     ).toBe('conflict')
-  })
 
-  it('passes through online per-board states when connected', () =>
-  {
     expect(
       resolveBoardSyncStatus({
         online: true,
@@ -56,7 +46,6 @@ describe('board sync status', () =>
         hasConflict: false,
       })
     ).toBe('syncing')
-
     expect(
       resolveBoardSyncStatus({
         online: true,

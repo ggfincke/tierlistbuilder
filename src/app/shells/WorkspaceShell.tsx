@@ -17,6 +17,7 @@ import { BulkActionBar } from '~/features/workspace/boards/ui/BulkActionBar'
 import { TierList } from '~/features/workspace/boards/ui/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useWarmActiveBoardImages } from '~/features/workspace/boards/model/useWarmActiveBoardImages'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
 import { useCurrentPageBackground } from '~/features/workspace/settings/model/useCurrentPageBackground'
@@ -61,6 +62,7 @@ export const WorkspaceShell = () =>
 
   useThemeSync({ syncTextStyle: false })
   useBoardThemeOverrides()
+  useWarmActiveBoardImages(appReady)
 
   const authSession = useAuthSession()
   const signedInUser =

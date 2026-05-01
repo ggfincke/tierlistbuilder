@@ -212,14 +212,14 @@ export const updateProfile = mutation({
   },
 })
 
-// revoke caller auth sessions before returning
+// schedule caller auth-session cleanup; the client clears its local token
 export const signOutEverywhere = mutation({
   args: {},
   returns: v.null(),
   handler: async (ctx): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
-    await drainAuthSessionCleanup(
+    await scheduleAuthSessionCleanup(
       ctx,
       userId,
       await getInitialAuthSessionState(ctx)
@@ -228,22 +228,18 @@ export const signOutEverywhere = mutation({
   },
 })
 
-// delete caller account data through bounded auth & owned-data phases
+// schedule caller account deletion through bounded auth & owned-data phases
 export const deleteAccount = mutation({
   args: {},
   returns: v.null(),
   handler: async (ctx): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
-    const sessionState = await getInitialAuthSessionState(ctx)
-
-    await drainAuthSessionCleanup(ctx, userId, sessionState)
-    await drainAuthAccountCleanup(ctx, userId, { cursor: null })
-    await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, {
+    await scheduleCascadeAuthSessions(
+      ctx,
       userId,
-      phase: 'boards',
-      cursor: null,
-    })
+      await getInitialAuthSessionState(ctx)
+    )
     return null
   },
 })
@@ -557,32 +553,6 @@ const getInitialAuthSessionState = async (
   return targetSessionId
     ? { cursor: null, targetSessionId, tokenCursor: null }
     : { cursor: null }
-}
-
-const drainAuthSessionCleanup = async (
-  ctx: MutationCtx,
-  userId: Id<'users'>,
-  state: AuthSessionCleanupState
-): Promise<void> =>
-{
-  let result = await deleteAuthSessionCleanupStep(ctx, userId, state)
-  while (!result.isDone)
-  {
-    result = await deleteAuthSessionCleanupStep(ctx, userId, result)
-  }
-}
-
-const drainAuthAccountCleanup = async (
-  ctx: MutationCtx,
-  userId: Id<'users'>,
-  state: AuthAccountCleanupState
-): Promise<void> =>
-{
-  let result = await deleteAuthAccountCleanupStep(ctx, userId, state)
-  while (!result.isDone)
-  {
-    result = await deleteAuthAccountCleanupStep(ctx, userId, result)
-  }
 }
 
 const scheduleAuthSessionCleanup = async (

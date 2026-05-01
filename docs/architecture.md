@@ -38,6 +38,8 @@ src/
 │   │   ├── NotFoundRoute.tsx        # 404 fallback
 │   │   └── AppChromeLayout.tsx      # chrome wrapper for app routes
 │   └── shells/
+│       ├── AppTopNav.tsx            # fixed global chrome composition
+│       ├── topNav/                  # brand link, route pills, account menu, modal slots
 │       ├── WorkspaceShell.tsx       # full editable workspace shell
 │       ├── WorkspaceModalLayer.tsx  # workspace modal/conflict/progress composition
 │       ├── useWorkspaceExportActions.ts # export preview + annotation actions
@@ -58,7 +60,7 @@ src/
 │   ├── export/{lib,model,ui}        # PNG/JPEG/WebP/PDF/JSON export + preview + progress
 │   ├── imageEditor/
 │   │   ├── lib/                     # crop geometry, label options, & measurement helpers
-│   │   ├── model/                   # open/filter store, item filtering, selection, bulk auto-crop, labels
+│   │   ├── model/                   # open/filter store, item filtering, selection, transform drafts, modal actions, auto-crop, labels
 │   │   └── ui/                      # modal, pane, rail, preview canvas, footer, label controls
 │   ├── settings/
 │   │   ├── lib/                     # image upload constants & helpers
@@ -73,7 +75,7 @@ src/
 │       ├── model/                   # tier preset store, built-in presets
 │       └── ui/                      # PresetPickerModal, SavePresetModal
 ├── features/platform/
-│   ├── auth/{model,ui}              # SignInModal, account UI, Convex auth wiring
+│   ├── auth/{model,ui}              # SignInModal, account profile sections, profile draft helpers, Convex auth wiring
 │   ├── media/                       # imageFetcher, imageUploader, Convex upload repository
 │   ├── preferences/                 # global preferences store, sync, theme hooks, modal
 │   ├── share/                       # short-link repository, URL builders, inbound share resolver
@@ -219,6 +221,10 @@ Two share-link carriers land on these routes:
 
 ```
 App (app/App.tsx → AppRouter)
+├── AppTopNav                       — fixed global chrome shell
+│   ├── SurfaceNav                  — Workspace/Templates route pills
+│   ├── TopNavAccountControl        — avatar trigger, account menu, sign-out
+│   └── TopNavModalLayer            — lazy SignIn/Account/Preferences launchers
 ├── WorkspaceRoute → WorkspaceShell
 │   ├── BoardHeader                — click-to-edit board title
 │   ├── BoardActionBar             — undo/redo, add tier, settings, export, reset, share
@@ -259,8 +265,6 @@ App (app/App.tsx → AppRouter)
 │   │   ├── AnnotationCanvas
 │   │   └── AnnotationToolbar
 │   ├── ItemEditPopover            — inline item label & background editor
-│   ├── AccountSection             — sign-in / sign-out + sync status
-│   ├── SignInModal                — Convex auth entry (email + password)
 │   ├── SyncStatusIndicator        — global cloud sync state indicator
 │   ├── DragOverlay → DragOverlayItem — ghost item (uses ItemContent for rendering)
 │   ├── ConfirmDialog              — shared modal for destructive confirmations
@@ -287,7 +291,7 @@ Toolbar-position-aware submenu class sets live in `shared/layout/toolbarPosition
 
 ## Theming
 
-8 color themes + 5 text styles, controlled via CSS custom properties (`--t-*` for colors, `--ts-*` for typography). Theme definitions live in `src/shared/theme/`:
+See **[`docs/design-system.mdx`](design-system.mdx)** for the runtime token contract, primitive picker, and overlay composition rules. 8 color themes + 5 text styles, controlled via CSS custom properties (`--t-*` for colors, `--ts-*` for typography). Theme definitions live in `src/shared/theme/`:
 
 - `tokens.ts` — `--t-*` color tokens applied at `:root`
 - `palettes.ts` — tier-color palettes
@@ -376,12 +380,21 @@ Schema (`convex/schema.ts`) defines the app-owned tables alongside `@convex-dev/
 
 Marketplace seed actions are public only for script access, but they fail closed unless `CONVEX_SEED_ENABLED=true` and the caller passes the deployment's `CONVEX_SEED_SECRET` value.
 
+Account deletion and sign-out-everywhere cleanup schedule one paginated auth
+cleanup step per Convex mutation, then continue through internal scheduled
+functions. The client clears its local auth token after scheduling so browser
+state updates immediately while backend-owned data cleanup finishes out of band.
+
 ## Testing
 
 Unit & integration tests live under `tests/` and run via Vitest. End-to-end Playwright tests live under `e2e/` and are excluded from the Vitest run. See **[`tests/README.md`](../tests/README.md)** for the full test inventory, fixtures, and the "major & important only" philosophy that gates new tests.
 
 - `npm test` — Vitest single pass
 - `npm run test:watch` — Vitest watch mode
-- `npm run test:e2e` — Playwright smoke + guardrails (requires `npx playwright install chromium` once)
+- `npm run test:e2e` — Playwright smoke + guardrails for workspace, image-editor persistence, account profile/delete, embed, marketplace filters, signed-in publish/use-template, and My Lists activation (requires `npx playwright install chromium` once; config prepares local Convex Auth)
 - `npm run test:e2e:ui` — Playwright headed runner
 - `npm run audit:dead-code` — Knip unused dependency/export/file audit
+
+Docs are part of the maintenance surface: when a consolidation pass changes
+slice ownership, public contracts, or test coverage, update this file and
+`tests/README.md` in the same change.
