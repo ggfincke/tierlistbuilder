@@ -13,6 +13,7 @@ import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media
 import { selectMediaVariantSummary } from '../../lib/mediaVariants'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
+  TemplateCardAccessState,
   MarketplaceTemplateDraftTemplate,
   MarketplaceTemplateBase,
   MarketplaceTemplateDetail,
@@ -20,10 +21,12 @@ import type {
   MarketplaceTemplateItem,
   MarketplaceTemplateSummary,
   TemplateAuthor,
+  TemplateJobStatus,
   TemplateCoverItem,
   TemplateMediaRef,
   TemplatePublicationState,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { UserPlan } from '@tierlistbuilder/contracts/platform/user'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
@@ -37,15 +40,48 @@ import {
   MAX_TEMPLATE_TAG_LENGTH,
   MAX_TEMPLATE_TAGS,
   MAX_TEMPLATE_TITLE_LENGTH,
+  isActiveTemplateJobStatus,
+  isFinishedTemplateJobStatus,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { DEFAULT_BOARD_TITLE } from '@tierlistbuilder/contracts/workspace/board'
-import { classifyItemCount } from '../../lib/entitlements'
+import {
+  classifyItemCount,
+  getLargeTemplateFeatureState,
+} from '../../lib/entitlements'
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput, normalizeNullableText } from '../../lib/text'
 import type { BoardLibrarySummaryItem } from '../../workspace/boards/librarySummary'
 
 type DbCtx = QueryCtx | MutationCtx
+
+type TemplateCardSource = Pick<
+  Doc<'templates'>,
+  | '_id'
+  | 'slug'
+  | 'authorId'
+  | 'title'
+  | 'description'
+  | 'category'
+  | 'tags'
+  | 'visibility'
+  | 'coverMediaAssetId'
+  | 'coverItems'
+  | 'sizeClass'
+  | 'publicationState'
+  | 'isPubliclyListable'
+  | 'itemCount'
+  | 'useCount'
+  | 'viewCount'
+  | 'featuredRank'
+  | 'creditLine'
+  | 'createdAt'
+  | 'updatedAt'
+>
+
+type TemplateCardMedia = NonNullable<Doc<'templateCards'>['coverMedia']>
+
+type TemplatePatch = Partial<Omit<Doc<'templates'>, '_id' | '_creationTime'>>
 
 interface TemplateProjectionCache
 {
@@ -240,7 +276,7 @@ export const isPublicTemplateRow = (
 
 export const isReadableTemplateRow = (
   template: Pick<Doc<'templates'>, 'publicationState'>
-): boolean => template.publicationState !== 'unpublished'
+): boolean => template.publicationState === 'published'
 
 export const buildTemplateStateFields = (
   itemCount: number,
@@ -256,6 +292,24 @@ export const buildTemplateStateFields = (
   }
 }
 
+export const getTemplateAccessState = (
+  template: Pick<Doc<'templates'> | Doc<'templateCards'>, 'sizeClass'>,
+  viewerPlan: UserPlan
+): TemplateCardAccessState =>
+{
+  if (template.sizeClass === 'standard') return 'usable'
+  if (viewerPlan !== 'plus') return 'requiresPlus'
+  return getLargeTemplateFeatureState() === 'public'
+    ? 'usable'
+    : 'featureNotReady'
+}
+
+export const isActiveTemplateJob = (status: TemplateJobStatus): boolean =>
+  isActiveTemplateJobStatus(status)
+
+export const isFinishedTemplateJob = (status: TemplateJobStatus): boolean =>
+  isFinishedTemplateJobStatus(status)
+
 export const clearSourceBoardLivePublicTemplate = async (
   ctx: MutationCtx,
   template: Doc<'templates'>
@@ -270,18 +324,26 @@ export const clearSourceBoardLivePublicTemplate = async (
   })
 }
 
-export const markTemplateUnpublished = async (
+export const markTemplateNotPublic = async (
   ctx: MutationCtx,
   template: Doc<'templates'>,
   now: number,
+  publicationState: Exclude<TemplatePublicationState, 'published'>,
   options: { clearSourceBoard?: boolean } = {}
-): Promise<void> =>
+): Promise<Doc<'templates'>> =>
 {
-  if (template.publicationState === 'unpublished') return
-
   const wasPublic = isPublicTemplateRow(template)
-  await ctx.db.patch(template._id, {
-    publicationState: 'unpublished',
+  if (template.publicationState === publicationState && !wasPublic)
+  {
+    return template
+  }
+
+  const nextTemplate = await patchTemplateAndSyncCard(ctx, template, {
+    publicationState,
+    isPubliclyListable: false,
+    updatedAt: now,
+  })
+  await patchTemplateTagRows(ctx, template._id, {
     isPubliclyListable: false,
     updatedAt: now,
   })
@@ -291,14 +353,21 @@ export const markTemplateUnpublished = async (
       { category: template.category, delta: -1 },
     ])
   }
-  await patchTemplateTagRows(ctx, template._id, {
-    isPubliclyListable: false,
-    updatedAt: now,
-  })
   if (options.clearSourceBoard ?? true)
   {
     await clearSourceBoardLivePublicTemplate(ctx, template)
   }
+  return nextTemplate
+}
+
+export const markTemplateUnpublished = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>,
+  now: number,
+  options: { clearSourceBoard?: boolean } = {}
+): Promise<void> =>
+{
+  await markTemplateNotPublic(ctx, template, now, 'unpublished', options)
 }
 
 export const setSourceBoardLivePublicTemplate = async (
@@ -422,6 +491,7 @@ export const deleteTemplateParentRow = async (
 ): Promise<void> =>
 {
   await clearSourceBoardLivePublicTemplate(ctx, template)
+  await deleteTemplateCard(ctx, template._id)
   await ctx.db.delete(template._id)
 }
 
@@ -638,6 +708,7 @@ const loadTemplateAuthor = async (
     return failState(`template author missing: ${authorId}`)
   }
 
+  const displayName = toAuthorDisplayName(author)
   const avatarUrl =
     author.image ??
     (author.avatarStorageId
@@ -646,12 +717,7 @@ const loadTemplateAuthor = async (
 
   return {
     id: author.externalId ?? author._id,
-    displayName: author.handle
-      ? `@${author.handle}`
-      : (author.displayName ??
-        author.name ??
-        author.email ??
-        'Tier list creator'),
+    displayName,
     avatarUrl,
   }
 }
@@ -676,6 +742,309 @@ export const toTemplateAuthor = async (
   const pending = loadTemplateAuthor(ctx, authorId)
   cache.authors.set(authorId, pending)
   return await pending
+}
+
+const toAuthorDisplayName = (
+  author: Pick<Doc<'users'>, 'handle' | 'displayName' | 'name' | 'email'>
+): string =>
+  author.handle
+    ? `@${author.handle}`
+    : (author.displayName ?? author.name ?? author.email ?? 'Tier list creator')
+
+const toTemplateCardMedia = async (
+  ctx: DbCtx,
+  mediaAssetId: Id<'mediaAssets'> | null
+): Promise<TemplateCardMedia | null> =>
+{
+  if (!mediaAssetId) return null
+  const asset = await ctx.db.get(mediaAssetId)
+  if (!asset)
+  {
+    return failState(`dangling template media reference: ${mediaAssetId}`)
+  }
+  const variant = selectMediaVariantSummary(asset, 'tile')
+  if (!variant) return null
+  return {
+    externalId: asset.externalId,
+    storageId: variant.storageId,
+    width: variant.width,
+    height: variant.height,
+    byteSize: variant.byteSize,
+    mimeType: variant.mimeType,
+    contentHash: variant.contentHash,
+  }
+}
+
+const toTemplateCardCoverItems = async (
+  ctx: DbCtx,
+  template: Pick<TemplateCardSource, 'coverItems'>
+): Promise<Doc<'templateCards'>['coverItems']> =>
+{
+  const rows = template.coverItems.slice(0, MAX_TEMPLATE_COVER_ITEMS)
+  const items = await Promise.all(
+    rows.map(async (item) =>
+    {
+      const media = await toTemplateCardMedia(ctx, item.mediaAssetId)
+      return media ? { media, label: item.label } : null
+    })
+  )
+  return items.filter((item): item is TemplateCoverItemForCard => item !== null)
+}
+
+type TemplateCoverItemForCard = Doc<'templateCards'>['coverItems'][number]
+
+const toTemplateCardAuthorFields = async (
+  ctx: DbCtx,
+  authorId: Id<'users'>
+): Promise<
+  Pick<
+    Doc<'templateCards'>,
+    | 'authorExternalId'
+    | 'authorDisplayName'
+    | 'authorImageUrl'
+    | 'authorAvatarStorageId'
+  >
+> =>
+{
+  const author = await ctx.db.get(authorId)
+  if (!author)
+  {
+    return failState(`template author missing: ${authorId}`)
+  }
+
+  return {
+    authorExternalId: author.externalId ?? author._id,
+    authorDisplayName: toAuthorDisplayName(author),
+    authorImageUrl: author.image ?? null,
+    authorAvatarStorageId: author.avatarStorageId ?? null,
+  }
+}
+
+const buildTemplateCardFields = async (
+  ctx: DbCtx,
+  template: TemplateCardSource
+): Promise<Omit<Doc<'templateCards'>, '_id' | '_creationTime'>> =>
+{
+  const author = await toTemplateCardAuthorFields(ctx, template.authorId)
+  const [coverMedia, coverItems] = await Promise.all([
+    toTemplateCardMedia(ctx, template.coverMediaAssetId),
+    toTemplateCardCoverItems(ctx, template),
+  ])
+  return {
+    templateId: template._id,
+    slug: template.slug,
+    title: template.title,
+    description: template.description,
+    category: template.category,
+    tags: template.tags,
+    visibility: template.visibility,
+    publicationState: template.publicationState,
+    isPubliclyListable: template.isPubliclyListable,
+    itemCount: template.itemCount,
+    sizeClass: template.sizeClass,
+    authorId: template.authorId,
+    ...author,
+    coverMedia,
+    coverItems,
+    featuredRank: template.featuredRank,
+    useCount: template.useCount,
+    viewCount: template.viewCount,
+    popularityScore: template.useCount,
+    creditLine: template.creditLine,
+    searchText: buildSearchText({
+      title: template.title,
+      description: template.description,
+      category: template.category,
+      tags: template.tags,
+      authorDisplayName: author.authorDisplayName,
+    }),
+    createdAt: template.createdAt,
+    updatedAt: template.updatedAt,
+  }
+}
+
+export const findTemplateCardByTemplateId = async (
+  ctx: DbCtx,
+  templateId: Id<'templates'>
+): Promise<Doc<'templateCards'> | null> =>
+  await ctx.db
+    .query('templateCards')
+    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+    .unique()
+
+export const syncTemplateCard = async (
+  ctx: MutationCtx,
+  template: TemplateCardSource
+): Promise<void> =>
+{
+  const fields = await buildTemplateCardFields(ctx, template)
+  const existing = await findTemplateCardByTemplateId(ctx, template._id)
+  if (existing)
+  {
+    await ctx.db.patch(existing._id, fields)
+    return
+  }
+
+  await ctx.db.insert('templateCards', fields)
+}
+
+export const patchTemplateAndSyncCard = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>,
+  patch: TemplatePatch
+): Promise<Doc<'templates'>> =>
+{
+  await ctx.db.patch(template._id, patch)
+  const nextTemplate = { ...template, ...patch }
+  await syncTemplateCard(ctx, nextTemplate)
+  return nextTemplate
+}
+
+export const patchTemplateAndSyncCardById = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>,
+  patch: TemplatePatch
+): Promise<Doc<'templates'> | null> =>
+{
+  const template = await ctx.db.get(templateId)
+  if (!template)
+  {
+    await deleteTemplateCard(ctx, templateId)
+    return null
+  }
+  return await patchTemplateAndSyncCard(ctx, template, patch)
+}
+
+export const syncTemplateCardById = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>
+): Promise<void> =>
+{
+  const template = await ctx.db.get(templateId)
+  if (!template)
+  {
+    await deleteTemplateCard(ctx, templateId)
+    return
+  }
+  await syncTemplateCard(ctx, template)
+}
+
+export const syncTemplateCardStats = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>,
+  stats: { useCount?: number; viewCount?: number }
+): Promise<void> =>
+{
+  const card = await findTemplateCardByTemplateId(ctx, templateId)
+  if (!card) return
+
+  const useCount = stats.useCount ?? card.useCount
+  await ctx.db.patch(card._id, {
+    ...stats,
+    popularityScore: useCount,
+  })
+}
+
+export const deleteTemplateCard = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>
+): Promise<void> =>
+{
+  const existing = await findTemplateCardByTemplateId(ctx, templateId)
+  if (existing)
+  {
+    await ctx.db.delete(existing._id)
+  }
+}
+
+const toTemplateCardAuthor = async (
+  ctx: DbCtx,
+  card: Doc<'templateCards'>,
+  cache?: TemplateProjectionCache
+): Promise<TemplateAuthor> =>
+{
+  const avatarUrl =
+    card.authorImageUrl ??
+    (card.authorAvatarStorageId
+      ? await loadAssetUrl(ctx, card.authorAvatarStorageId, cache)
+      : null)
+  return {
+    id: card.authorExternalId,
+    displayName: card.authorDisplayName,
+    avatarUrl,
+  }
+}
+
+const toTemplateCardMediaRef = async (
+  ctx: DbCtx,
+  media: TemplateCardMedia,
+  cache?: TemplateProjectionCache
+): Promise<TemplateMediaRef | null> =>
+{
+  const url = await loadAssetUrl(ctx, media.storageId, cache)
+  if (!url) return null
+  return {
+    externalId: media.externalId,
+    contentHash: media.contentHash,
+    url,
+    width: media.width,
+    height: media.height,
+    mimeType: media.mimeType,
+  }
+}
+
+const toTemplateCardCoverItem = async (
+  ctx: DbCtx,
+  item: TemplateCoverItemForCard,
+  cache?: TemplateProjectionCache
+): Promise<TemplateCoverItem | null> =>
+{
+  const media = await toTemplateCardMediaRef(ctx, item.media, cache)
+  return media ? { media, label: item.label } : null
+}
+
+export const toTemplateCardSummary = async (
+  ctx: DbCtx,
+  card: Doc<'templateCards'>,
+  cache?: TemplateProjectionCache
+): Promise<MarketplaceTemplateSummary> =>
+{
+  const [author, coverMedia] = await Promise.all([
+    toTemplateCardAuthor(ctx, card, cache),
+    card.coverMedia
+      ? toTemplateCardMediaRef(ctx, card.coverMedia, cache)
+      : null,
+  ])
+  const coverItems = coverMedia
+    ? []
+    : (
+        await Promise.all(
+          card.coverItems.map((item) =>
+            toTemplateCardCoverItem(ctx, item, cache)
+          )
+        )
+      ).filter((item): item is TemplateCoverItem => item !== null)
+
+  return {
+    slug: card.slug,
+    title: card.title,
+    description: card.description,
+    category: card.category,
+    tags: card.tags,
+    visibility: card.visibility,
+    sizeClass: card.sizeClass,
+    publicationState: card.publicationState,
+    author,
+    coverMedia,
+    coverItems,
+    itemCount: card.itemCount,
+    useCount: card.useCount,
+    viewCount: card.viewCount,
+    featuredRank: card.featuredRank,
+    creditLine: card.creditLine,
+    createdAt: card.createdAt,
+    updatedAt: card.updatedAt,
+  }
 }
 
 export const toTemplateBase = async (
@@ -736,62 +1105,45 @@ export const toTemplateSummary = async (
 export const toTemplateDetail = async (
   ctx: DbCtx,
   template: Doc<'templates'>,
+  viewerPlan: UserPlan,
   cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateDetail> =>
 {
-  const [base, items] = await Promise.all([
+  const [base, coverItems] = await Promise.all([
     toTemplateBase(ctx, template, ['preview', 'editor', 'tile'], cache),
-    loadTemplateItems(ctx, template._id),
+    template.coverMediaAssetId
+      ? []
+      : loadCoverItems(ctx, template, { cache, kind: 'tile' }),
   ])
-
-  const mediaAssetIds = [
-    ...new Set(
-      items
-        .map((item) => item.mediaAssetId)
-        .filter((id): id is Id<'mediaAssets'> => id !== null)
-    ),
-  ]
-  const mediaRefEntries = await Promise.all(
-    mediaAssetIds.map(
-      async (mediaAssetId) =>
-        [
-          mediaAssetId,
-          await toTemplateMediaRefWithFallback(
-            ctx,
-            mediaAssetId,
-            ['preview', 'editor', 'tile'],
-            cache
-          ),
-        ] as const
-    )
-  )
-  const mediaRefs = new Map<Id<'mediaAssets'>, TemplateMediaRef | null>(
-    mediaRefEntries
-  )
-
-  const projectedItems: MarketplaceTemplateItem[] = items.map((item) => ({
-    externalId: item.externalId,
-    label: item.label,
-    backgroundColor: item.backgroundColor,
-    altText: item.altText,
-    media: item.mediaAssetId
-      ? (mediaRefs.get(item.mediaAssetId) ?? null)
-      : null,
-    order: item.order,
-    aspectRatio: item.aspectRatio,
-    imageFit: item.imageFit,
-    transform: item.transform,
-  }))
 
   return {
     ...base,
+    coverItems,
+    access: getTemplateAccessState(template, viewerPlan),
     suggestedTiers: template.suggestedTiers,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
     labels: template.labels ?? null,
-    items: projectedItems,
   }
 }
+
+export const toTemplateItem = async (
+  ctx: DbCtx,
+  item: Doc<'templateItems'>,
+  cache?: TemplateProjectionCache
+): Promise<MarketplaceTemplateItem> => ({
+  externalId: item.externalId,
+  label: item.label,
+  backgroundColor: item.backgroundColor,
+  altText: item.altText,
+  media: item.mediaAssetId
+    ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)
+    : null,
+  order: item.order,
+  aspectRatio: item.aspectRatio,
+  imageFit: item.imageFit,
+  transform: item.transform,
+})
 
 export const toTemplateDraft = async (
   ctx: DbCtx,
@@ -946,6 +1298,26 @@ export const insertBoardTiers = async (
     )
   )
 
+export const buildBoardItemInsertFromTemplateItem = (
+  boardId: Id<'boards'>,
+  item: Doc<'templateItems'>,
+  externalId: string = generateItemId()
+) => ({
+  boardId,
+  tierId: null,
+  externalId,
+  label: item.label ?? undefined,
+  backgroundColor: item.backgroundColor ?? undefined,
+  altText: item.altText ?? undefined,
+  mediaAssetId: item.mediaAssetId,
+  order: item.order,
+  deletedAt: null,
+  aspectRatio: item.aspectRatio ?? undefined,
+  imageFit: item.imageFit ?? undefined,
+  transform: item.transform ?? undefined,
+  templateItemId: item._id,
+})
+
 export const insertBoardItemsFromTemplate = async (
   ctx: MutationCtx,
   boardId: Id<'boards'>,
@@ -961,21 +1333,7 @@ export const insertBoardItemsFromTemplate = async (
       const externalId = generateItemId()
 
       return {
-        insert: {
-          boardId,
-          tierId: null,
-          externalId,
-          label: item.label ?? undefined,
-          backgroundColor: item.backgroundColor ?? undefined,
-          altText: item.altText ?? undefined,
-          mediaAssetId: item.mediaAssetId,
-          order: item.order,
-          deletedAt: null,
-          aspectRatio: item.aspectRatio ?? undefined,
-          imageFit: item.imageFit ?? undefined,
-          transform: item.transform ?? undefined,
-          templateItemId: item._id,
-        },
+        insert: buildBoardItemInsertFromTemplateItem(boardId, item, externalId),
         summary: {
           tierKey: null,
           externalId,

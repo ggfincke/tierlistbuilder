@@ -1,11 +1,18 @@
 // src/features/marketplace/data/templatesRepository.ts
 // Convex query/mutation adapters for the public template marketplace
 
-import { useMutation, useQuery } from 'convex/react'
+import {
+  useMutation,
+  usePaginatedQuery,
+  useQuery,
+  type UsePaginatedQueryResult,
+} from 'convex/react'
 import { api } from '@convex/_generated/api'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateDraftListResult,
+  MarketplaceTemplateGalleryResult,
+  MarketplaceTemplateItem,
   MarketplaceTemplateListResult,
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
@@ -13,7 +20,9 @@ import type {
   TemplateUseTierSelection,
   TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import { DEFAULT_TEMPLATE_ITEM_PAGE_SIZE } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
+import { convexClient } from '~/features/platform/sync/lib/convexClient'
 
 export interface ListTemplatesArgs
 {
@@ -26,17 +35,17 @@ export interface ListTemplatesArgs
   limit?: number
 }
 
-// reactive list query — pass undefined to skip until inputs settle. caller
-// receives `undefined` while loading & a populated list once Convex resolves
-export const useListTemplates = (
-  args: ListTemplatesArgs | 'skip'
-): MarketplaceTemplateListResult | undefined =>
-  useQuery(
-    api.marketplace.templates.queries.listTemplates,
-    args === 'skip' ? 'skip' : args
+// point-in-time public gallery snapshot. the caller decides when to refresh;
+// drafts & owner-specific state stay on reactive queries.
+export const getTemplatesGalleryImperative = (
+  args: ListTemplatesArgs
+): Promise<MarketplaceTemplateGalleryResult> =>
+  convexClient.query(
+    api.marketplace.templates.queries.getTemplatesGallery,
+    args
   )
 
-// reactive detail query — slug-keyed; null when no template matches
+// reactive detail metadata query — item rows load through pagination below
 export const useTemplateBySlug = (
   slug: string | null | undefined
 ): MarketplaceTemplateDetail | null | undefined =>
@@ -44,6 +53,15 @@ export const useTemplateBySlug = (
     api.marketplace.templates.queries.getTemplateBySlug,
     typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
   )
+
+export const useTemplateItems = (
+  slug: string | null | undefined
+): UsePaginatedQueryResult<MarketplaceTemplateItem> =>
+  usePaginatedQuery(
+    api.marketplace.templates.queries.listTemplateItems,
+    typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip',
+    { initialNumItems: DEFAULT_TEMPLATE_ITEM_PAGE_SIZE }
+  ) as UsePaginatedQueryResult<MarketplaceTemplateItem>
 
 interface RelatedTemplatesArgs
 {
@@ -69,21 +87,6 @@ export const useMyTemplateDrafts = (
     api.marketplace.templates.queries.getMyTemplateDrafts,
     enabled ? (limit === undefined ? {} : { limit }) : 'skip'
   )
-
-export interface PublicTemplateCount
-{
-  count: number
-  // sparse — only categories w/ at least one public template are present.
-  // keyed by TemplateCategory string (kept loose so taxonomy churn stays
-  // additive on the wire). callers should fall back to 0 for missing keys
-  countByCategory: Record<string, number>
-}
-
-// bounded count used by the gallery eyebrow & per-category chips. resolves
-// once on mount & re-runs reactively when templates are published /
-// unpublished / re-categorized
-export const usePublicTemplateCount = (): PublicTemplateCount | undefined =>
-  useQuery(api.marketplace.templates.queries.getPublicTemplateCount, {})
 
 export interface PublishFromBoardArgs
 {

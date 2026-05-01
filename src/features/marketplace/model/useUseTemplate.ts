@@ -12,6 +12,7 @@ import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStor
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
+import { BOARDS_ROUTE_PATH } from '~/shared/routes/pathname'
 
 interface UseTemplateAction
 {
@@ -39,8 +40,15 @@ export const useUseTemplate = (): UseTemplateAction =>
       setIsPending(true)
       try
       {
-        const { boardExternalId } = await cloneTemplate({ slug })
-        await importCloudBoardAsActive(boardExternalId)
+        const result = await cloneTemplate({ slug })
+        if (result.status === 'jobQueued')
+        {
+          toast(`Forking "${templateTitle}"`, 'success')
+          navigate(BOARDS_ROUTE_PATH)
+          return
+        }
+
+        await importCloudBoardAsActive(result.boardExternalId)
         toast(`Forked "${templateTitle}" into a new board`, 'success')
         navigate('/')
       }

@@ -439,7 +439,13 @@ export const TemplatesGalleryPage = () =>
       </section>
 
       <LazyModalSlot when={publishOpen} section="publish template">
-        {() => <PublishModal open onClose={() => setPublishOpen(false)} />}
+        {() => (
+          <PublishModal
+            open
+            onClose={() => setPublishOpen(false)}
+            onPublished={() => void gallery.refresh()}
+          />
+        )}
       </LazyModalSlot>
     </>
   )

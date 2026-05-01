@@ -2,11 +2,20 @@
 // detail page — breadcrumb + hero (cover left / meta right), items grid,
 // recommended tiers, & a related-templates rail under the same category
 
-import { ArrowLeft, Clock, Eye, Layers, Sparkles, Type } from 'lucide-react'
+import {
+  ArrowLeft,
+  Clock,
+  Eye,
+  Layers,
+  Loader2,
+  Sparkles,
+  Type,
+} from 'lucide-react'
 import { useEffect, type ComponentType, type SVGProps } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import {
+  DEFAULT_TEMPLATE_ITEM_PAGE_SIZE,
   isTemplateSlug,
   type MarketplaceTemplateDetail,
   type MarketplaceTemplateItem,
@@ -17,6 +26,7 @@ import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import {
   useRelatedTemplates,
   useTemplateBySlug,
+  useTemplateItems,
 } from '~/features/marketplace/model/useTemplateDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import {
@@ -115,6 +125,20 @@ const ItemsGrid = ({ items, frame, labelSettings }: ItemsGridProps) =>
     </div>
   )
 }
+
+const ItemsGridSkeleton = () => (
+  <div
+    aria-hidden="true"
+    className="grid animate-pulse grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+  >
+    {Array.from({ length: 24 }).map((_, i) => (
+      <div
+        key={i}
+        className="aspect-square rounded-md bg-[rgb(var(--t-overlay)/0.06)]"
+      />
+    ))}
+  </div>
+)
 
 interface StatTileProps
 {
@@ -273,6 +297,7 @@ export const TemplateDetailPage = () =>
   const { slug } = useParams<{ slug: string }>()
   const validSlug = slug && isTemplateSlug(slug) ? slug : null
   const detail = useTemplateBySlug(validSlug)
+  const itemPage = useTemplateItems(validSlug)
 
   useEffect(() =>
   {
@@ -292,15 +317,9 @@ export const TemplateDetailPage = () =>
   const totalItems = detail.itemCount
   const categoryLabel = CATEGORY_META[detail.category].label
   const hasBakedLabels = detail.labels?.show === true
-
-  // mirror the summary projection so detail covers share the gallery renderer.
-  // pass the full item set (Mosaic slices to its own slot count) — the stored
-  // coverItems cap doesn't apply here because we have detail.items in hand
-  const detailCoverItems = detail.coverMedia
-    ? []
-    : detail.items.flatMap((item) =>
-        item.media ? [{ media: item.media, label: item.label }] : []
-      )
+  const isLoadingFirstItemPage = itemPage.status === 'LoadingFirstPage'
+  const isLoadingMoreItems = itemPage.status === 'LoadingMore'
+  const canLoadMoreItems = itemPage.status === 'CanLoadMore'
 
   return (
     <article className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
@@ -331,7 +350,7 @@ export const TemplateDetailPage = () =>
           <Cover
             template={{
               ...detail,
-              coverItems: detailCoverItems,
+              coverItems: detail.coverItems,
             }}
             density="hero"
           />
@@ -450,14 +469,40 @@ export const TemplateDetailPage = () =>
             {totalItems} {totalItems === 1 ? 'item' : 'items'}
           </span>
         </div>
-        <ItemsGrid
-          items={detail.items}
-          frame={{
-            aspectRatio: detail.itemAspectRatio ?? FALLBACK_FRAME_RATIO,
-            defaultFit: detail.defaultItemImageFit ?? 'cover',
-          }}
-          labelSettings={detail.labels}
-        />
+        {isLoadingFirstItemPage ? (
+          <ItemsGridSkeleton />
+        ) : (
+          <>
+            <ItemsGrid
+              items={itemPage.results}
+              frame={{
+                aspectRatio: detail.itemAspectRatio ?? FALLBACK_FRAME_RATIO,
+                defaultFit: detail.defaultItemImageFit ?? 'cover',
+              }}
+              labelSettings={detail.labels}
+            />
+            {canLoadMoreItems || isLoadingMoreItems ? (
+              <div className="mt-5 flex justify-center">
+                <button
+                  type="button"
+                  disabled={!canLoadMoreItems}
+                  onClick={() =>
+                    itemPage.loadMore(DEFAULT_TEMPLATE_ITEM_PAGE_SIZE)
+                  }
+                  className="focus-custom inline-flex h-10 items-center gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 text-sm font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                >
+                  {isLoadingMoreItems && (
+                    <Loader2
+                      className="h-3.5 w-3.5 animate-spin"
+                      strokeWidth={2}
+                    />
+                  )}
+                  {isLoadingMoreItems ? 'Loading items...' : 'Load more items'}
+                </button>
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
 
       {(detail.suggestedTiers.length > 0 || detail.creditLine) && (

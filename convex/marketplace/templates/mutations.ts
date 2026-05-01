@@ -3,6 +3,7 @@
 
 import { ConvexError, v } from 'convex/values'
 import { mutation, type MutationCtx } from '../../_generated/server'
+import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { generateBoardId } from '@tierlistbuilder/contracts/lib/ids'
@@ -17,10 +18,13 @@ import type {
   TemplateUseTierSelection,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
+import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
+  ACTIVE_TEMPLATE_JOB_STATUSES,
   MAX_TEMPLATE_COVER_ITEMS,
   isTemplateSlug,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
 import {
@@ -46,12 +50,12 @@ import {
   adjustPublicTemplateCount,
   allocateTemplateSlug,
   buildTemplateStateFields,
-  buildSearchText,
   clearSourceBoardLivePublicTemplate,
   DEFAULT_TEMPLATE_TIERS,
   findTemplateBySlug,
   insertBoardItemsFromTemplate,
   insertBoardTiers,
+  isFinishedTemplateJob,
   isPublicTemplateRow,
   isReadableTemplateRow,
   loadTemplateItems,
@@ -61,12 +65,14 @@ import {
   normalizeTags,
   normalizeTemplateTitle,
   patchTemplateTagRows,
+  patchTemplateAndSyncCard,
   requireOwnedTemplate,
   setSourceBoardLivePublicTemplate,
+  syncTemplateCardById,
+  syncTemplateCardStats,
   syncTemplateTagRows,
   templateTitleToBoardTitle,
   tiersFromBoardRows,
-  toTemplateAuthor,
   validateTemplateTiers,
 } from './lib'
 import {
@@ -90,6 +96,13 @@ const itemTransformOrNull = (
 
 const imageFitOrNull = (imageFit: ImageFit | undefined): ImageFit | null =>
   imageFit ?? null
+
+const stringArraysEqual = (
+  left: readonly string[],
+  right: readonly string[]
+): boolean =>
+  left.length === right.length &&
+  left.every((value, index) => value === right[index])
 
 const resolveCoverMediaId = async (
   ctx: MutationCtx,
@@ -162,6 +175,250 @@ const resolveTemplateTiers = async (
   return preset.tiers
 }
 
+const findActivePublishJobForBoard = async (
+  ctx: MutationCtx,
+  sourceBoardId: Id<'boards'>
+): Promise<Doc<'templatePublishJobs'> | null> =>
+{
+  const results = await Promise.all(
+    ACTIVE_TEMPLATE_JOB_STATUSES.map((status) =>
+      ctx.db
+        .query('templatePublishJobs')
+        .withIndex('bySourceBoardStatus', (q) =>
+          q.eq('sourceBoardId', sourceBoardId).eq('status', status)
+        )
+        .take(1)
+    )
+  )
+  return results.flat()[0] ?? null
+}
+
+const findActiveCloneJobForTemplate = async (
+  ctx: MutationCtx,
+  ownerId: Id<'users'>,
+  sourceTemplateId: Id<'templates'>
+): Promise<Doc<'templateCloneJobs'> | null> =>
+{
+  const results = await Promise.all(
+    ACTIVE_TEMPLATE_JOB_STATUSES.map((status) =>
+      ctx.db
+        .query('templateCloneJobs')
+        .withIndex('byOwnerSourceTemplateStatus', (q) =>
+          q
+            .eq('ownerId', ownerId)
+            .eq('sourceTemplateId', sourceTemplateId)
+            .eq('status', status)
+        )
+        .take(1)
+    )
+  )
+  return results.flat()[0] ?? null
+}
+
+const loadBoardTiersForTemplate = async (
+  ctx: MutationCtx,
+  boardId: Id<'boards'>
+) =>
+  await ctx.db
+    .query('boardTiers')
+    .withIndex('byBoard', (q) => q.eq('boardId', boardId))
+    .take(51)
+
+const loadLargePublishCoverState = async (
+  ctx: MutationCtx,
+  boardId: Id<'boards'>
+): Promise<{
+  fallbackCoverMediaId: Id<'mediaAssets'> | null
+  coverItems: Array<{ mediaAssetId: Id<'mediaAssets'>; label: string | null }>
+}> =>
+{
+  const items = await ctx.db
+    .query('boardItems')
+    .withIndex('byBoardDeletedAtOrder', (q) =>
+      q.eq('boardId', boardId).eq('deletedAt', null)
+    )
+    .take(MAX_STANDARD_CLOUD_BOARD_ITEMS)
+  const mediaBacked = items
+    .filter(
+      (item): item is typeof item & { mediaAssetId: Id<'mediaAssets'> } =>
+        item.mediaAssetId !== null
+    )
+    .slice(0, MAX_TEMPLATE_COVER_ITEMS)
+
+  return {
+    fallbackCoverMediaId: mediaBacked[0]?.mediaAssetId ?? null,
+    coverItems: mediaBacked.map((item) => ({
+      mediaAssetId: item.mediaAssetId,
+      label: item.label ?? null,
+    })),
+  }
+}
+
+const queueLargeTemplatePublish = async (
+  ctx: MutationCtx,
+  args: {
+    title: string
+    description: string | null
+    category: TemplateCategory
+    tags: string[]
+    visibility: Doc<'templates'>['visibility']
+    coverMediaExternalId: string | null | undefined
+    creditLine: string | null
+  },
+  userId: Id<'users'>,
+  board: Doc<'boards'>
+): Promise<MarketplaceTemplatePublishResult> =>
+{
+  const existingJob = await findActivePublishJobForBoard(ctx, board._id)
+  if (existingJob)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'a publish job is already running for this board',
+    })
+  }
+
+  const [serverTiers, coverState] = await Promise.all([
+    loadBoardTiersForTemplate(ctx, board._id),
+    loadLargePublishCoverState(ctx, board._id),
+  ])
+  const suggestedTiers = tiersFromBoardRows(serverTiers)
+  validateTemplateTiers(suggestedTiers)
+  const coverMediaAssetId = await resolveCoverMediaId(
+    ctx,
+    userId,
+    args.coverMediaExternalId,
+    coverState.fallbackCoverMediaId
+  )
+
+  const now = Date.now()
+  const slug = await allocateTemplateSlug(ctx)
+  const templateState = buildTemplateStateFields(
+    board.activeItemCount,
+    args.visibility,
+    'publishPending'
+  )
+  const templateId = await ctx.db.insert('templates', {
+    slug,
+    authorId: userId,
+    title: args.title,
+    description: args.description,
+    category: args.category,
+    tags: args.tags,
+    visibility: args.visibility,
+    coverMediaAssetId,
+    coverItems: coverState.coverItems,
+    suggestedTiers,
+    sourceBoardId: board._id,
+    ...templateState,
+    itemCount: board.activeItemCount,
+    useCount: 0,
+    viewCount: 0,
+    featuredRank: null,
+    creditLine: args.creditLine,
+    createdAt: now,
+    updatedAt: now,
+  })
+  await syncTemplateCardById(ctx, templateId)
+  const jobId = await ctx.db.insert('templatePublishJobs', {
+    ownerId: userId,
+    sourceBoardId: board._id,
+    targetTemplateId: templateId,
+    status: 'queued',
+    itemCount: board.activeItemCount,
+    processedItemCount: 0,
+    nextCursor: null,
+    sourceBoardRevision: board.revision ?? 0,
+    errorCode: null,
+    retryCount: 0,
+    createdAt: now,
+    updatedAt: now,
+    startedAt: null,
+    completedAt: null,
+    canceledAt: null,
+  })
+  await ctx.scheduler.runAfter(
+    0,
+    internal.marketplace.templates.internal.processTemplatePublishJob,
+    { jobId }
+  )
+  return { status: 'jobQueued', slug, jobId }
+}
+
+const queueLargeTemplateClone = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  template: Doc<'templates'>,
+  title: string,
+  tiers: readonly TierPresetTier[]
+): Promise<MarketplaceTemplateUseResult> =>
+{
+  const existingJob = await findActiveCloneJobForTemplate(
+    ctx,
+    userId,
+    template._id
+  )
+  if (existingJob)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'a clone job is already running for this template',
+    })
+  }
+
+  const boardExternalId = generateBoardId()
+  const now = Date.now()
+  const boardId = await ctx.db.insert('boards', {
+    externalId: boardExternalId,
+    ownerId: userId,
+    title,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+    revision: 0,
+    sourceTemplateId: template._id,
+    sourceTemplateCategory: template.category,
+    sourceTemplateSizeClass: template.sizeClass,
+    ...buildFreshBoardCloudFields(now),
+    materializationState: 'clonePending',
+    itemAspectRatio: template.itemAspectRatio ?? undefined,
+    itemAspectRatioMode: template.itemAspectRatioMode ?? undefined,
+    defaultItemImageFit: template.defaultItemImageFit ?? undefined,
+    labels: template.labels ?? undefined,
+    activeItemCount: template.itemCount,
+    unrankedItemCount: template.itemCount,
+    templateProgressState: resolveTemplateProgressState(template._id, {
+      activeItemCount: template.itemCount,
+      unrankedItemCount: template.itemCount,
+    }),
+    librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+  })
+  await insertBoardTiers(ctx, boardId, tiers)
+
+  const jobId = await ctx.db.insert('templateCloneJobs', {
+    ownerId: userId,
+    sourceTemplateId: template._id,
+    targetBoardId: boardId,
+    status: 'queued',
+    itemCount: template.itemCount,
+    processedItemCount: 0,
+    nextCursor: null,
+    errorCode: null,
+    retryCount: 0,
+    createdAt: now,
+    updatedAt: now,
+    startedAt: null,
+    completedAt: null,
+    canceledAt: null,
+  })
+  await ctx.scheduler.runAfter(
+    0,
+    internal.marketplace.templates.internal.processTemplateCloneJob,
+    { jobId }
+  )
+  return { status: 'jobQueued', boardExternalId, jobId }
+}
+
 export const publishFromBoard = mutation({
   args: {
     boardExternalId: v.string(),
@@ -196,6 +453,29 @@ export const publishFromBoard = mutation({
     const description = normalizeDescription(args.description)
     const creditLine = normalizeCreditLine(args.creditLine)
     const tags = normalizeTags(args.tags)
+    if (board.activeItemCount === 0)
+    {
+      failInput('cannot publish an empty template')
+    }
+    await assertCanPublishTemplate(ctx, userId, board.activeItemCount)
+    if (board.activeItemCount > MAX_STANDARD_CLOUD_BOARD_ITEMS)
+    {
+      return await queueLargeTemplatePublish(
+        ctx,
+        {
+          title,
+          description,
+          category: args.category,
+          tags,
+          visibility: args.visibility,
+          coverMediaExternalId: args.coverMediaExternalId,
+          creditLine,
+        },
+        userId,
+        board
+      )
+    }
+
     const { serverTiers, serverItems } = await loadBoundedBoardRows(
       ctx,
       board._id
@@ -210,7 +490,6 @@ export const publishFromBoard = mutation({
     }
     await assertCanPublishTemplate(ctx, userId, activeItems.length)
 
-    const author = await toTemplateAuthor(ctx, userId)
     const fallbackCoverMediaId =
       activeItems.find((item) => item.mediaAssetId !== null)?.mediaAssetId ??
       null
@@ -257,13 +536,6 @@ export const publishFromBoard = mutation({
       viewCount: 0,
       featuredRank: null,
       creditLine,
-      searchText: buildSearchText({
-        title,
-        description,
-        category: args.category,
-        tags,
-        authorDisplayName: author.displayName,
-      }),
       itemAspectRatio: board.itemAspectRatio ?? null,
       itemAspectRatioMode: board.itemAspectRatioMode ?? null,
       defaultItemImageFit: board.defaultItemImageFit ?? null,
@@ -303,8 +575,9 @@ export const publishFromBoard = mutation({
       isPubliclyListable: templateState.isPubliclyListable,
       updatedAt: now,
     })
+    await syncTemplateCardById(ctx, templateId)
 
-    return { slug }
+    return { status: 'published', slug }
   },
 })
 
@@ -332,8 +605,6 @@ export const updateMyTemplateMeta = mutation({
 
     const userId = await requireCurrentUserId(ctx)
     const template = await requireOwnedTemplate(ctx, args.slug, userId)
-    const author = await toTemplateAuthor(ctx, userId)
-
     const title =
       args.title === undefined
         ? template.title
@@ -363,6 +634,21 @@ export const updateMyTemplateMeta = mutation({
       template.coverMediaAssetId
     )
 
+    const tagsChanged = !stringArraysEqual(template.tags, tags)
+    const nextPublic = nextTemplateState.isPubliclyListable
+    const templateChanged =
+      title !== template.title ||
+      description !== template.description ||
+      category !== template.category ||
+      tagsChanged ||
+      nextVisibility !== template.visibility ||
+      nextTemplateState.sizeClass !== template.sizeClass ||
+      nextTemplateState.publicationState !== template.publicationState ||
+      nextPublic !== previousPublic ||
+      coverMediaAssetId !== template.coverMediaAssetId ||
+      creditLine !== template.creditLine
+    if (!templateChanged) return null
+
     const now = Date.now()
     const templatePatch = {
       title,
@@ -373,19 +659,13 @@ export const updateMyTemplateMeta = mutation({
       ...nextTemplateState,
       coverMediaAssetId,
       creditLine,
-      searchText: buildSearchText({
-        title,
-        description,
-        category,
-        tags,
-        authorDisplayName: author.displayName,
-      }),
       updatedAt: now,
     }
-    await ctx.db.patch(template._id, templatePatch)
-    const nextPublic = nextTemplateState.isPubliclyListable
-    // skip the counter round-trip when neither visibility nor category moved.
-    // a no-op pair like [{cat:X,-1},{cat:X,+1}] would still issue a write
+    const nextTemplate = await patchTemplateAndSyncCard(
+      ctx,
+      template,
+      templatePatch
+    )
     const stayedPublicSameCategory =
       previousPublic && nextPublic && template.category === category
     if (!stayedPublicSameCategory)
@@ -405,7 +685,7 @@ export const updateMyTemplateMeta = mutation({
     {
       await clearSourceBoardLivePublicTemplate(ctx, template)
     }
-    if (nextPublic)
+    if (!previousPublic && nextPublic)
     {
       const sourceBoard =
         template.sourceBoardId === null
@@ -419,7 +699,17 @@ export const updateMyTemplateMeta = mutation({
       )
     }
 
-    await syncTemplateTagRows(ctx, { ...template, ...templatePatch })
+    if (tagsChanged || template.category !== category)
+    {
+      await syncTemplateTagRows(ctx, nextTemplate)
+    }
+    else if (previousPublic !== nextPublic)
+    {
+      await patchTemplateTagRows(ctx, template._id, {
+        isPubliclyListable: nextPublic,
+        updatedAt: now,
+      })
+    }
 
     return null
   },
@@ -475,7 +765,7 @@ export const republishMyTemplate = mutation({
       template.visibility,
       'published'
     )
-    await ctx.db.patch(template._id, {
+    await patchTemplateAndSyncCard(ctx, template, {
       ...nextTemplateState,
       updatedAt: now,
     })
@@ -532,6 +822,26 @@ export const useTemplate = mutation({
     }
     await assertCanUseTemplate(ctx, userId, template)
 
+    const tiers = await resolveTemplateTiers(
+      ctx,
+      userId,
+      template,
+      args.tierSelection
+    )
+    const boardTitle = normalizeBoardTitle(
+      args.title ?? templateTitleToBoardTitle(template.title)
+    )
+    if (template.itemCount > MAX_STANDARD_CLOUD_BOARD_ITEMS)
+    {
+      return await queueLargeTemplateClone(
+        ctx,
+        userId,
+        template,
+        boardTitle,
+        tiers
+      )
+    }
+
     const templateItems = await loadTemplateItems(ctx, template._id)
     if (templateItems.length === 0)
     {
@@ -544,12 +854,6 @@ export const useTemplate = mutation({
       itemCount: templateItems.length,
     })
 
-    const tiers = await resolveTemplateTiers(
-      ctx,
-      userId,
-      template,
-      args.tierSelection
-    )
     const boardExternalId = generateBoardId()
     const now = Date.now()
     const progressCounts = {
@@ -559,9 +863,7 @@ export const useTemplate = mutation({
     const boardId = await ctx.db.insert('boards', {
       externalId: boardExternalId,
       ownerId: userId,
-      title: normalizeBoardTitle(
-        args.title ?? templateTitleToBoardTitle(template.title)
-      ),
+      title: boardTitle,
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -601,8 +903,138 @@ export const useTemplate = mutation({
         items: summaryItems,
       }),
     })
-    await ctx.db.patch(template._id, { useCount: template.useCount + 1 })
+    const nextUseCount = template.useCount + 1
+    await ctx.db.patch(template._id, { useCount: nextUseCount })
+    await syncTemplateCardStats(ctx, template._id, { useCount: nextUseCount })
 
-    return { boardExternalId }
+    return { status: 'ready', boardExternalId }
+  },
+})
+
+export const retryTemplatePublishJob = mutation({
+  args: { jobId: v.id('templatePublishJobs') },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const job = await ctx.db.get(args.jobId)
+    if (!job || job.ownerId !== userId || job.status !== 'failed')
+    {
+      return null
+    }
+
+    const now = Date.now()
+    await ctx.db.patch(job._id, {
+      status: 'queued',
+      errorCode: null,
+      retryCount: job.retryCount + 1,
+      startedAt: null,
+      completedAt: null,
+      canceledAt: null,
+      updatedAt: now,
+    })
+    await ctx.scheduler.runAfter(
+      0,
+      internal.marketplace.templates.internal.processTemplatePublishJob,
+      { jobId: job._id }
+    )
+    return null
+  },
+})
+
+export const cancelTemplatePublishJob = mutation({
+  args: { jobId: v.id('templatePublishJobs') },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const job = await ctx.db.get(args.jobId)
+    if (!job || job.ownerId !== userId || isFinishedTemplateJob(job.status))
+    {
+      return null
+    }
+
+    const now = Date.now()
+    await ctx.db.patch(job._id, {
+      status: 'canceled',
+      errorCode: null,
+      canceledAt: now,
+      completedAt: now,
+      updatedAt: now,
+    })
+    await ctx.scheduler.runAfter(
+      0,
+      internal.marketplace.templates.internal.cascadeDeleteTemplate,
+      { templateId: job.targetTemplateId, cursor: null, phase: 'items' }
+    )
+    return null
+  },
+})
+
+export const retryTemplateCloneJob = mutation({
+  args: { jobId: v.id('templateCloneJobs') },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const job = await ctx.db.get(args.jobId)
+    if (!job || job.ownerId !== userId || job.status !== 'failed')
+    {
+      return null
+    }
+
+    const now = Date.now()
+    await ctx.db.patch(job._id, {
+      status: 'queued',
+      errorCode: null,
+      retryCount: job.retryCount + 1,
+      startedAt: null,
+      completedAt: null,
+      canceledAt: null,
+      updatedAt: now,
+    })
+    const board = await ctx.db.get(job.targetBoardId)
+    if (board)
+    {
+      await ctx.db.patch(board._id, {
+        materializationState: 'clonePending',
+        updatedAt: now,
+      })
+    }
+    await ctx.scheduler.runAfter(
+      0,
+      internal.marketplace.templates.internal.processTemplateCloneJob,
+      { jobId: job._id }
+    )
+    return null
+  },
+})
+
+export const cancelTemplateCloneJob = mutation({
+  args: { jobId: v.id('templateCloneJobs') },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const userId = await requireCurrentUserId(ctx)
+    const job = await ctx.db.get(args.jobId)
+    if (!job || job.ownerId !== userId || isFinishedTemplateJob(job.status))
+    {
+      return null
+    }
+
+    const now = Date.now()
+    await ctx.db.patch(job._id, {
+      status: 'canceled',
+      errorCode: null,
+      canceledAt: now,
+      completedAt: now,
+      updatedAt: now,
+    })
+    await ctx.scheduler.runAfter(
+      0,
+      internal.workspace.boards.internal.cascadeDeleteBoard,
+      { boardId: job.targetBoardId, cursor: null, phase: 'items' }
+    )
+    return null
   },
 })

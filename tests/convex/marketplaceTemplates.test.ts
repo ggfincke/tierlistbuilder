@@ -4,11 +4,14 @@
 import { convexTest } from 'convex-test'
 import rateLimiter from '@convex-dev/rate-limiter/test'
 import { ConvexError } from 'convex/values'
-import { describe, expect, it } from 'vitest'
-import { api } from '@convex/_generated/api'
+import { describe, expect, it, vi } from 'vitest'
+import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  MAX_TEMPLATE_ITEM_PAGE_SIZE,
+  isTemplateSlug,
+} from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type {
   BoardLabelSettings,
@@ -59,6 +62,29 @@ const asUser = (
     subject: `${userId}|test-session`,
     issuer: 'https://convex.test',
   })
+
+const withLargeTemplateJobsEnabled = async (
+  run: () => Promise<void>
+): Promise<void> =>
+{
+  const previous = process.env.LARGE_TEMPLATE_FEATURE_STATE
+  process.env.LARGE_TEMPLATE_FEATURE_STATE = 'public'
+  try
+  {
+    await run()
+  }
+  finally
+  {
+    if (previous === undefined)
+    {
+      delete process.env.LARGE_TEMPLATE_FEATURE_STATE
+    }
+    else
+    {
+      process.env.LARGE_TEMPLATE_FEATURE_STATE = previous
+    }
+  }
+}
 
 interface SeedSourceBoardOptions
 {
@@ -264,7 +290,8 @@ const seedLargeTemplate = async (
   await t.run(async (ctx) =>
   {
     const now = Date.now()
-    await ctx.db.insert('templates', {
+    const itemCount = MAX_STANDARD_CLOUD_BOARD_ITEMS + 1
+    const templateId = await ctx.db.insert('templates', {
       slug: 'LargeTpl01',
       authorId,
       title: 'Large Template',
@@ -279,15 +306,29 @@ const seedLargeTemplate = async (
       sizeClass: 'large',
       publicationState: 'published',
       isPubliclyListable: true,
-      itemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+      itemCount,
       useCount: 0,
       viewCount: 0,
       featuredRank: null,
       creditLine: null,
-      searchText: 'large template gaming',
       createdAt: now,
       updatedAt: now,
     })
+    for (let i = 0; i < itemCount; i++)
+    {
+      await ctx.db.insert('templateItems', {
+        templateId,
+        externalId: `large-template-item-${i}`,
+        label: `Large Template Item ${i}`,
+        backgroundColor: null,
+        altText: null,
+        mediaAssetId: null,
+        order: i,
+        aspectRatio: null,
+        imageFit: null,
+        transform: null,
+      })
+    }
     return 'LargeTpl01'
   })
 
@@ -385,6 +426,50 @@ describe('marketplace template Convex functions', () =>
       itemCount: 2,
       visibility: 'public',
     })
+    const cardRows = await t.run(
+      async (ctx) => await ctx.db.query('templateCards').collect()
+    )
+    expect(cardRows).toHaveLength(2)
+    const publicCard = cardRows.find(
+      (card) => card.slug === publicTemplate.slug
+    )
+    expect(publicCard).toMatchObject({
+      title: 'Public Template',
+      isPubliclyListable: true,
+      coverMedia: {
+        externalId: 'media-source',
+        width: 64,
+        height: 64,
+        contentHash: 'hash-source',
+      },
+      coverItems: [
+        {
+          label: 'Image item',
+          media: {
+            externalId: 'media-source',
+            width: 64,
+            height: 64,
+            contentHash: 'hash-source',
+          },
+        },
+      ],
+    })
+    expect(publicCard?.coverItems.some((item) => 'url' in item.media)).toBe(
+      false
+    )
+
+    const gallery = await t.query(
+      api.marketplace.templates.queries.getTemplatesGallery,
+      {}
+    )
+    expect(gallery.templateCount).toEqual({
+      count: 1,
+      countByCategory: { gaming: 1 },
+    })
+    expect(gallery.results.map((i) => i.title)).toEqual(['Public Template'])
+    expect(gallery.popular.map((i) => i.title)).toEqual(['Public Template'])
+    expect(gallery.recent.map((i) => i.title)).toEqual(['Public Template'])
+    expect(gallery.results[0]).toMatchObject({ access: 'usable' })
 
     const unlistedDetail = await t.query(
       api.marketplace.templates.queries.getTemplateBySlug,
@@ -394,6 +479,37 @@ describe('marketplace template Convex functions', () =>
       title: 'Unlisted Template',
       visibility: 'unlisted',
       itemCount: 2,
+      coverMedia: {
+        externalId: 'media-source',
+        contentHash: 'hash-source',
+      },
+      coverItems: [],
+    })
+    expect(unlistedDetail).not.toHaveProperty('items')
+    const firstItemsPage = await t.query(
+      api.marketplace.templates.queries.listTemplateItems,
+      {
+        slug: unlistedTemplate.slug,
+        paginationOpts: { cursor: null, numItems: 1 },
+      }
+    )
+    expect(firstItemsPage).toMatchObject({
+      isDone: false,
+      page: [{ label: 'Image item', order: 0 }],
+    })
+    const secondItemsPage = await t.query(
+      api.marketplace.templates.queries.listTemplateItems,
+      {
+        slug: unlistedTemplate.slug,
+        paginationOpts: {
+          cursor: firstItemsPage.continueCursor,
+          numItems: 1,
+        },
+      }
+    )
+    expect(secondItemsPage).toMatchObject({
+      isDone: true,
+      page: [{ label: 'Text item', order: 1 }],
     })
 
     expect(
@@ -508,6 +624,69 @@ describe('marketplace template Convex functions', () =>
     )
 
     const slug = await seedLargeTemplate(t, plusAuthorId)
+    await t.mutation(
+      internal.marketplace.templates.internal.syncTemplateCardsForAuthor,
+      { authorId: plusAuthorId, cursor: null }
+    )
+
+    const freeGallery = await t.query(
+      api.marketplace.templates.queries.getTemplatesGallery,
+      {}
+    )
+    expect(freeGallery.results).toEqual([
+      expect.objectContaining({ slug, access: 'requiresPlus' }),
+    ])
+
+    const plusGallery = await asUser(t, plusAuthorId).query(
+      api.marketplace.templates.queries.getTemplatesGallery,
+      {}
+    )
+    expect(plusGallery.results).toEqual([
+      expect.objectContaining({ slug, access: 'featureNotReady' }),
+    ])
+
+    const largeDetail = await t.query(
+      api.marketplace.templates.queries.getTemplateBySlug,
+      { slug }
+    )
+    expect(largeDetail).toMatchObject({
+      slug,
+      sizeClass: 'large',
+      itemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+      access: 'requiresPlus',
+    })
+    expect(largeDetail).not.toHaveProperty('items')
+    const largeItemsPage = await t.query(
+      api.marketplace.templates.queries.listTemplateItems,
+      {
+        slug,
+        paginationOpts: {
+          cursor: null,
+          numItems: MAX_TEMPLATE_ITEM_PAGE_SIZE + 50,
+        },
+      }
+    )
+    expect(largeItemsPage.page).toHaveLength(MAX_TEMPLATE_ITEM_PAGE_SIZE)
+    expect(largeItemsPage.isDone).toBe(false)
+    expect(largeItemsPage.page[0]).toMatchObject({
+      label: 'Large Template Item 0',
+      order: 0,
+    })
+    const finalLargeItemsPage = await t.query(
+      api.marketplace.templates.queries.listTemplateItems,
+      {
+        slug,
+        paginationOpts: {
+          cursor: largeItemsPage.continueCursor,
+          numItems: MAX_TEMPLATE_ITEM_PAGE_SIZE,
+        },
+      }
+    )
+    expect(finalLargeItemsPage).toMatchObject({
+      isDone: true,
+      page: [{ label: 'Large Template Item 200', order: 200 }],
+    })
+
     await expectConvexCode(
       asUser(t, consumerId).mutation(
         api.marketplace.templates.mutations.useTemplate,
@@ -522,6 +701,210 @@ describe('marketplace template Convex functions', () =>
       ),
       CONVEX_ERROR_CODES.largeTemplateFeatureNotReady
     )
+  })
+
+  it('publishes and clones large templates through scheduled jobs', async () =>
+  {
+    vi.useFakeTimers()
+    await withLargeTemplateJobsEnabled(async () =>
+    {
+      try
+      {
+        const t = makeTest()
+        const authorId = await seedUser(
+          t,
+          'Plus Author',
+          'plus-author@example.com',
+          'plus'
+        )
+        const consumerId = await seedUser(
+          t,
+          'Plus Consumer',
+          'plus-consumer@example.com',
+          'plus'
+        )
+        await seedLargeSourceBoard(t, authorId, 'board-large-job')
+
+        const publish = await asUser(t, authorId).mutation(
+          api.marketplace.templates.mutations.publishFromBoard,
+          {
+            boardExternalId: 'board-large-job',
+            title: 'Large Job Template',
+            category: 'gaming',
+            tags: ['big'],
+            visibility: 'public',
+          }
+        )
+        expect(publish).toMatchObject({
+          status: 'jobQueued',
+          slug: expect.any(String),
+          jobId: expect.any(String),
+        })
+        if (publish.status !== 'jobQueued') throw new Error('expected job')
+        expect(
+          await t.query(api.marketplace.templates.queries.getTemplateBySlug, {
+            slug: publish.slug,
+          })
+        ).toBeNull()
+
+        await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+        const publishJob = await asUser(t, authorId).query(
+          api.marketplace.templates.queries.getMyTemplatePublishJob,
+          { jobId: publish.jobId as Id<'templatePublishJobs'> }
+        )
+        expect(publishJob).toMatchObject({
+          status: 'succeeded',
+          processedItemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+        })
+        const detail = await t.query(
+          api.marketplace.templates.queries.getTemplateBySlug,
+          { slug: publish.slug }
+        )
+        expect(detail).toMatchObject({
+          slug: publish.slug,
+          itemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+          publicationState: 'published',
+        })
+
+        const clone = await asUser(t, consumerId).mutation(
+          api.marketplace.templates.mutations.useTemplate,
+          { slug: publish.slug, title: 'Large Clone' }
+        )
+        expect(clone).toMatchObject({
+          status: 'jobQueued',
+          boardExternalId: expect.any(String),
+          jobId: expect.any(String),
+        })
+        if (clone.status !== 'jobQueued') throw new Error('expected job')
+        expect(
+          await asUser(t, consumerId).query(
+            api.workspace.boards.queries.getBoardStateByExternalId,
+            { boardExternalId: clone.boardExternalId }
+          )
+        ).toBeNull()
+        expect(
+          (
+            await asUser(t, consumerId).query(
+              api.workspace.boards.queries.getMyLibraryBoards,
+              {}
+            )
+          )[0]
+        ).toMatchObject({
+          externalId: clone.boardExternalId,
+          status: 'syncing',
+          sourceTemplateSizeClass: 'large',
+        })
+
+        await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+        const cloneJob = await asUser(t, consumerId).query(
+          api.marketplace.templates.queries.getMyTemplateCloneJob,
+          { jobId: clone.jobId as Id<'templateCloneJobs'> }
+        )
+        expect(cloneJob).toMatchObject({
+          status: 'succeeded',
+          processedItemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
+        })
+        const board = await asUser(t, consumerId).query(
+          api.workspace.boards.queries.getBoardStateByExternalId,
+          { boardExternalId: clone.boardExternalId }
+        )
+        expect(board).toMatchObject({
+          title: 'Large Clone',
+          items: expect.arrayContaining([
+            expect.objectContaining({ label: 'Large Item 0' }),
+            expect.objectContaining({ label: 'Large Item 200' }),
+          ]),
+        })
+      }
+      finally
+      {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  it('keeps large job failures and cancelation out of public listings', async () =>
+  {
+    vi.useFakeTimers()
+    await withLargeTemplateJobsEnabled(async () =>
+    {
+      try
+      {
+        const t = makeTest()
+        const authorId = await seedUser(
+          t,
+          'Plus Author',
+          'plus-cancel@example.com',
+          'plus'
+        )
+        await seedLargeSourceBoard(t, authorId, 'board-large-cancel')
+        const caller = asUser(t, authorId)
+
+        const canceled = await caller.mutation(
+          api.marketplace.templates.mutations.publishFromBoard,
+          {
+            boardExternalId: 'board-large-cancel',
+            title: 'Canceled Large',
+            category: 'gaming',
+            tags: [],
+            visibility: 'public',
+          }
+        )
+        if (canceled.status !== 'jobQueued') throw new Error('expected job')
+        await caller.mutation(
+          api.marketplace.templates.mutations.cancelTemplatePublishJob,
+          { jobId: canceled.jobId as Id<'templatePublishJobs'> }
+        )
+        await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+        expect(
+          await t.query(api.marketplace.templates.queries.getTemplateBySlug, {
+            slug: canceled.slug,
+          })
+        ).toBeNull()
+
+        await seedLargeSourceBoard(t, authorId, 'board-large-stale')
+        const stale = await caller.mutation(
+          api.marketplace.templates.mutations.publishFromBoard,
+          {
+            boardExternalId: 'board-large-stale',
+            title: 'Stale Large',
+            category: 'gaming',
+            tags: [],
+            visibility: 'public',
+          }
+        )
+        if (stale.status !== 'jobQueued') throw new Error('expected job')
+        await t.run(async (ctx) =>
+        {
+          const board = await ctx.db
+            .query('boards')
+            .withIndex('byOwnerAndExternalId', (q) =>
+              q.eq('ownerId', authorId).eq('externalId', 'board-large-stale')
+            )
+            .unique()
+          await ctx.db.patch(board!._id, { revision: 2 })
+        })
+        await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+        const staleJob = await caller.query(
+          api.marketplace.templates.queries.getMyTemplatePublishJob,
+          { jobId: stale.jobId as Id<'templatePublishJobs'> }
+        )
+        expect(staleJob).toMatchObject({
+          status: 'failed',
+          errorCode: CONVEX_ERROR_CODES.invalidState,
+        })
+        expect(
+          await t.query(api.marketplace.templates.queries.listTemplates, {})
+        ).toMatchObject({ items: [] })
+      }
+      finally
+      {
+        vi.useRealTimers()
+      }
+    })
   })
 
   it('reflects publish state in library boards & filters listings by tag', async () =>
@@ -591,6 +974,43 @@ describe('marketplace template Convex functions', () =>
       { tag: 'rpg' }
     )
     expect(afterUnpublish.items).toEqual([])
+  })
+
+  it('refreshes card author fields and search text from profile changes', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    await seedSourceBoard(t, authorId)
+    const caller = asUser(t, authorId)
+
+    const { slug } = await caller.mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Author Search Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+
+    await caller.mutation(api.users.updateProfile, {
+      displayName: 'Renamed Author',
+    })
+    await t.mutation(
+      internal.marketplace.templates.internal.syncTemplateCardsForAuthor,
+      { authorId, cursor: null }
+    )
+
+    const byAuthor = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { search: 'renamed' }
+    )
+    expect(byAuthor.items).toHaveLength(1)
+    expect(byAuthor.items[0]).toMatchObject({
+      slug,
+      author: { displayName: 'Renamed Author' },
+    })
   })
 
   it('clones a template w/ user preset & propagates layout settings + transforms', async () =>

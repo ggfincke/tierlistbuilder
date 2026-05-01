@@ -212,6 +212,14 @@ export const updateProfile = mutation({
     }
     patch.updatedAt = Date.now()
     await ctx.db.patch(userId, patch)
+    if (args.displayName !== undefined || args.handle !== undefined)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal.syncTemplateCardsForAuthor,
+        { authorId: userId, cursor: null }
+      )
+    }
     return null
   },
 })

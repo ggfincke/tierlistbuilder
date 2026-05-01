@@ -2,44 +2,120 @@
 // public template gallery/detail reads plus signed-in ownership listing
 
 import { v } from 'convex/values'
+import { paginationOptsValidator } from 'convex/server'
 import { query, type QueryCtx } from '../../_generated/server'
 import type { Doc } from '../../_generated/dataModel'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateDraftListResult,
+  MarketplaceTemplateGalleryCard,
+  MarketplaceTemplateGalleryResult,
+  MarketplaceTemplateItemsResult,
+  MarketplaceTemplateCloneJobProgress,
   MarketplaceTemplateListResult,
+  MarketplaceTemplatePublishJobProgress,
   TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import type { UserPlan } from '@tierlistbuilder/contracts/platform/user'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import {
+  DEFAULT_TEMPLATE_ITEM_PAGE_SIZE,
+  MAX_TEMPLATE_ITEM_PAGE_SIZE,
   MAX_TEMPLATE_LIST_LIMIT,
   isTemplateSlug,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { getCurrentUserId } from '../../lib/auth'
+import { getCurrentUser, getCurrentUserId } from '../../lib/auth'
 import {
+  marketplaceTemplateGalleryResultValidator,
+  marketplaceTemplateCloneJobProgressValidator,
   marketplaceTemplateDetailValidator,
   marketplaceTemplateDraftListResultValidator,
+  marketplaceTemplateItemsResultValidator,
   marketplaceTemplateListResultValidator,
+  marketplaceTemplatePublishJobProgressValidator,
   templateCategoryValidator,
   templateListSortValidator,
 } from '../../lib/validators'
 import {
   createTemplateProjectionCache,
   findTemplateBySlug,
+  findTemplateCardByTemplateId,
   normalizeDraftLimit,
   normalizeListLimit,
   normalizeSearchQuery,
   normalizeTagArg,
   readPublicTemplateStats,
+  getTemplateAccessState,
   isReadableTemplateRow,
   toTemplateDetail,
   toTemplateDraft,
-  toTemplateSummary,
+  toTemplateCardSummary,
+  toTemplateItem,
 } from './lib'
 
 const listCategoryArg = v.optional(v.union(templateCategoryValidator, v.null()))
 
 const listSortArg = v.optional(templateListSortValidator)
+
+const FEATURED_LIMIT = 6
+const RAIL_LIMIT = 12
+
+const normalizeTemplateItemPageSize = (raw: number): number =>
+{
+  if (!Number.isFinite(raw)) return DEFAULT_TEMPLATE_ITEM_PAGE_SIZE
+  return Math.max(1, Math.min(MAX_TEMPLATE_ITEM_PAGE_SIZE, Math.floor(raw)))
+}
+
+const emptyTemplateItemsResult = (
+  cursor: string | null
+): MarketplaceTemplateItemsResult => ({
+  page: [],
+  isDone: true,
+  continueCursor: cursor ?? '',
+})
+
+const toBaseJobProgress = (
+  job: Doc<'templatePublishJobs'> | Doc<'templateCloneJobs'>
+) => ({
+  jobId: job._id,
+  status: job.status,
+  itemCount: job.itemCount,
+  processedItemCount: job.processedItemCount,
+  errorCode: job.errorCode,
+  createdAt: job.createdAt,
+  updatedAt: job.updatedAt,
+  startedAt: job.startedAt,
+  completedAt: job.completedAt,
+  canceledAt: job.canceledAt,
+})
+
+const toPublishJobProgress = async (
+  ctx: QueryCtx,
+  job: Doc<'templatePublishJobs'>
+): Promise<MarketplaceTemplatePublishJobProgress | null> =>
+{
+  const template = await ctx.db.get(job.targetTemplateId)
+  if (!template) return null
+  return {
+    kind: 'publish',
+    ...toBaseJobProgress(job),
+    slug: template.slug,
+  }
+}
+
+const toCloneJobProgress = async (
+  ctx: QueryCtx,
+  job: Doc<'templateCloneJobs'>
+): Promise<MarketplaceTemplateCloneJobProgress | null> =>
+{
+  const board = await ctx.db.get(job.targetBoardId)
+  if (!board) return null
+  return {
+    kind: 'clone',
+    ...toBaseJobProgress(job),
+    boardExternalId: board.externalId,
+  }
+}
 
 const takePublicRows = async (
   ctx: QueryCtx,
@@ -48,14 +124,14 @@ const takePublicRows = async (
     sort: TemplateListSort
     limit: number
   }
-): Promise<Doc<'templates'>[]> =>
+): Promise<Doc<'templateCards'>[]> =>
 {
   if (options.sort === 'featured')
   {
     if (options.category)
     {
       return await ctx.db
-        .query('templates')
+        .query('templateCards')
         .withIndex('byCategoryIsPubliclyListableFeaturedRank', (q) =>
           q
             .eq('category', options.category!)
@@ -67,7 +143,7 @@ const takePublicRows = async (
     }
 
     return await ctx.db
-      .query('templates')
+      .query('templateCards')
       .withIndex('byIsPubliclyListableFeaturedRank', (q) =>
         q.eq('isPubliclyListable', true).gt('featuredRank', -1)
       )
@@ -80,8 +156,8 @@ const takePublicRows = async (
     if (options.category)
     {
       return await ctx.db
-        .query('templates')
-        .withIndex('byCategoryIsPubliclyListableUseCount', (q) =>
+        .query('templateCards')
+        .withIndex('byCategoryIsPubliclyListablePopularityScore', (q) =>
           q.eq('category', options.category!).eq('isPubliclyListable', true)
         )
         .order('desc')
@@ -89,8 +165,8 @@ const takePublicRows = async (
     }
 
     return await ctx.db
-      .query('templates')
-      .withIndex('byIsPubliclyListableUseCount', (q) =>
+      .query('templateCards')
+      .withIndex('byIsPubliclyListablePopularityScore', (q) =>
         q.eq('isPubliclyListable', true)
       )
       .order('desc')
@@ -100,7 +176,7 @@ const takePublicRows = async (
   if (options.category)
   {
     return await ctx.db
-      .query('templates')
+      .query('templateCards')
       .withIndex('byCategoryIsPubliclyListableUpdatedAt', (q) =>
         q.eq('category', options.category!).eq('isPubliclyListable', true)
       )
@@ -109,7 +185,7 @@ const takePublicRows = async (
   }
 
   return await ctx.db
-    .query('templates')
+    .query('templateCards')
     .withIndex('byIsPubliclyListableUpdatedAt', (q) =>
       q.eq('isPubliclyListable', true)
     )
@@ -131,7 +207,7 @@ const searchPublicRows = async (
     tag: string | null
     limit: number
   }
-): Promise<Doc<'templates'>[]> =>
+): Promise<Doc<'templateCards'>[]> =>
 {
   const tag = options.tag
 
@@ -160,7 +236,7 @@ const searchPublicRows = async (
 
   const searchLimit = tag ? SEARCH_AND_TAG_OVERFETCH : options.limit
   const rows = await ctx.db
-    .query('templates')
+    .query('templateCards')
     .withSearchIndex('searchPublic', (q) =>
     {
       const base = q
@@ -172,7 +248,7 @@ const searchPublicRows = async (
     .take(searchLimit)
 
   const filteredRows = tagIdSet
-    ? rows.filter((row) => tagIdSet!.has(row._id as string))
+    ? rows.filter((row) => tagIdSet!.has(row.templateId as string))
     : rows
   return filteredRows.slice(0, options.limit)
 }
@@ -187,7 +263,7 @@ const takePublicRowsByTag = async (
     category: TemplateCategory | null
     limit: number
   }
-): Promise<Doc<'templates'>[]> =>
+): Promise<Doc<'templateCards'>[]> =>
 {
   const tagRows = options.category
     ? await ctx.db
@@ -208,14 +284,44 @@ const takePublicRowsByTag = async (
         .order('desc')
         .take(options.limit)
 
-  const templates = await Promise.all(
-    tagRows.map((row) => ctx.db.get(row.templateId))
+  const cards = await Promise.all(
+    tagRows.map((row) => findTemplateCardByTemplateId(ctx, row.templateId))
   )
-  return templates.filter(
-    (template): template is Doc<'templates'> =>
-      template !== null && template.isPubliclyListable
+  return cards.filter(
+    (card): card is Doc<'templateCards'> =>
+      card !== null && card.isPubliclyListable
   )
 }
+
+const readViewerPlan = async (ctx: QueryCtx): Promise<UserPlan> =>
+{
+  const user = await getCurrentUser(ctx)
+  return user?.plan ?? 'free'
+}
+
+const toTemplateGalleryCard = async (
+  ctx: QueryCtx,
+  row: Doc<'templateCards'>,
+  viewerPlan: UserPlan,
+  cache: ReturnType<typeof createTemplateProjectionCache>
+): Promise<MarketplaceTemplateGalleryCard> =>
+{
+  const summary = await toTemplateCardSummary(ctx, row, cache)
+  return {
+    ...summary,
+    access: getTemplateAccessState(row, viewerPlan),
+  }
+}
+
+const toTemplateGalleryCards = async (
+  ctx: QueryCtx,
+  rows: Doc<'templateCards'>[],
+  viewerPlan: UserPlan,
+  cache: ReturnType<typeof createTemplateProjectionCache>
+): Promise<MarketplaceTemplateGalleryCard[]> =>
+  await Promise.all(
+    rows.map((row) => toTemplateGalleryCard(ctx, row, viewerPlan, cache))
+  )
 
 export const getPublicTemplateCount = query({
   args: {},
@@ -261,8 +367,80 @@ export const listTemplates = query({
     const cache = createTemplateProjectionCache()
     return {
       items: await Promise.all(
-        rows.map((row) => toTemplateSummary(ctx, row, cache))
+        rows.map((row) => toTemplateCardSummary(ctx, row, cache))
       ),
+    }
+  },
+})
+
+export const getTemplatesGallery = query({
+  args: {
+    search: v.optional(v.union(v.string(), v.null())),
+    category: listCategoryArg,
+    tag: v.optional(v.union(v.string(), v.null())),
+    sort: listSortArg,
+    limit: v.optional(v.number()),
+  },
+  returns: marketplaceTemplateGalleryResultValidator,
+  handler: async (ctx, args): Promise<MarketplaceTemplateGalleryResult> =>
+  {
+    const limit = normalizeListLimit(args.limit)
+    const category = args.category ?? null
+    const search = normalizeSearchQuery(args.search)
+    const tag = normalizeTagArg(args.tag)
+    const sort = args.sort ?? 'recent'
+
+    const resultsPromise = search
+      ? searchPublicRows(ctx, { search, category, tag, limit })
+      : tag
+        ? takePublicRowsByTag(ctx, { tag, category, limit })
+        : takePublicRows(ctx, { category, sort, limit })
+
+    const [
+      featuredRows,
+      popularRows,
+      recentRows,
+      resultsRows,
+      stats,
+      viewerPlan,
+    ] = await Promise.all([
+      takePublicRows(ctx, {
+        category: null,
+        sort: 'featured',
+        limit: FEATURED_LIMIT,
+      }),
+      takePublicRows(ctx, {
+        category: null,
+        sort: 'popular',
+        limit: RAIL_LIMIT,
+      }),
+      takePublicRows(ctx, {
+        category: null,
+        sort: 'recent',
+        limit: RAIL_LIMIT,
+      }),
+      resultsPromise,
+      readPublicTemplateStats(ctx),
+      readViewerPlan(ctx),
+    ])
+
+    const cache = createTemplateProjectionCache()
+    const [featured, popular, recent, results] = await Promise.all([
+      toTemplateGalleryCards(ctx, featuredRows, viewerPlan, cache),
+      toTemplateGalleryCards(ctx, popularRows, viewerPlan, cache),
+      toTemplateGalleryCards(ctx, recentRows, viewerPlan, cache),
+      toTemplateGalleryCards(ctx, resultsRows, viewerPlan, cache),
+    ])
+
+    return {
+      featured,
+      popular,
+      recent,
+      results,
+      templateCount: {
+        count: stats.count,
+        countByCategory: stats.countByCategory,
+      },
     }
   },
 })
@@ -284,7 +462,79 @@ export const getTemplateBySlug = query({
     }
 
     const cache = createTemplateProjectionCache()
-    return await toTemplateDetail(ctx, template, cache)
+    const viewerPlan = await readViewerPlan(ctx)
+    return await toTemplateDetail(ctx, template, viewerPlan, cache)
+  },
+})
+
+export const listTemplateItems = query({
+  args: {
+    slug: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: marketplaceTemplateItemsResultValidator,
+  handler: async (ctx, args): Promise<MarketplaceTemplateItemsResult> =>
+  {
+    if (!isTemplateSlug(args.slug))
+    {
+      return emptyTemplateItemsResult(args.paginationOpts.cursor)
+    }
+
+    const template = await findTemplateBySlug(ctx, args.slug)
+    if (!template || !isReadableTemplateRow(template))
+    {
+      return emptyTemplateItemsResult(args.paginationOpts.cursor)
+    }
+
+    const result = await ctx.db
+      .query('templateItems')
+      .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+      .order('asc')
+      .paginate({
+        cursor: args.paginationOpts.cursor,
+        numItems: normalizeTemplateItemPageSize(args.paginationOpts.numItems),
+      })
+    const cache = createTemplateProjectionCache()
+    return {
+      ...result,
+      page: await Promise.all(
+        result.page.map((item) => toTemplateItem(ctx, item, cache))
+      ),
+    }
+  },
+})
+
+export const getMyTemplatePublishJob = query({
+  args: { jobId: v.id('templatePublishJobs') },
+  returns: v.union(marketplaceTemplatePublishJobProgressValidator, v.null()),
+  handler: async (
+    ctx,
+    args
+  ): Promise<MarketplaceTemplatePublishJobProgress | null> =>
+  {
+    const userId = await getCurrentUserId(ctx)
+    if (!userId) return null
+
+    const job = await ctx.db.get(args.jobId)
+    if (!job || job.ownerId !== userId) return null
+    return await toPublishJobProgress(ctx, job)
+  },
+})
+
+export const getMyTemplateCloneJob = query({
+  args: { jobId: v.id('templateCloneJobs') },
+  returns: v.union(marketplaceTemplateCloneJobProgressValidator, v.null()),
+  handler: async (
+    ctx,
+    args
+  ): Promise<MarketplaceTemplateCloneJobProgress | null> =>
+  {
+    const userId = await getCurrentUserId(ctx)
+    if (!userId) return null
+
+    const job = await ctx.db.get(args.jobId)
+    if (!job || job.ownerId !== userId) return null
+    return await toCloneJobProgress(ctx, job)
   },
 })
 
@@ -306,8 +556,11 @@ export const getRelatedTemplates = query({
     {
       return { items: [] }
     }
-    const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || !isReadableTemplateRow(template))
+    const card = await ctx.db
+      .query('templateCards')
+      .withIndex('bySlug', (q) => q.eq('slug', args.slug))
+      .unique()
+    if (!card || !card.isPubliclyListable)
     {
       return { items: [] }
     }
@@ -317,9 +570,9 @@ export const getRelatedTemplates = query({
       Math.min(MAX_RELATED_LIMIT, args.limit ?? DEFAULT_RELATED_LIMIT)
     )
     const rows = await ctx.db
-      .query('templates')
-      .withIndex('byCategoryIsPubliclyListableUseCount', (q) =>
-        q.eq('category', template.category).eq('isPubliclyListable', true)
+      .query('templateCards')
+      .withIndex('byCategoryIsPubliclyListablePopularityScore', (q) =>
+        q.eq('category', card.category).eq('isPubliclyListable', true)
       )
       .order('desc')
       .take(limit + 1)
@@ -331,7 +584,7 @@ export const getRelatedTemplates = query({
     const cache = createTemplateProjectionCache()
     return {
       items: await Promise.all(
-        filtered.map((row) => toTemplateSummary(ctx, row, cache))
+        filtered.map((row) => toTemplateCardSummary(ctx, row, cache))
       ),
     }
   },
@@ -349,7 +602,7 @@ export const getMyTemplates = query({
     }
 
     const rows = await ctx.db
-      .query('templates')
+      .query('templateCards')
       .withIndex('byAuthorUpdatedAt', (q) => q.eq('authorId', userId))
       .order('desc')
       .take(normalizeListLimit(args.limit))
@@ -357,7 +610,7 @@ export const getMyTemplates = query({
     const cache = createTemplateProjectionCache()
     return {
       items: await Promise.all(
-        rows.map((row) => toTemplateSummary(ctx, row, cache))
+        rows.map((row) => toTemplateCardSummary(ctx, row, cache))
       ),
     }
   },

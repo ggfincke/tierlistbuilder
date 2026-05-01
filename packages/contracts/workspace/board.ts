@@ -405,6 +405,8 @@ export interface DeletedBoardListItem extends BoardListItem
 // computed server-side from counts + denormalized publication state; the user
 // never sets these directly
 export const LIBRARY_BOARD_STATUSES = [
+  'syncing',
+  'failed',
   'draft',
   'in_progress',
   'finished',
@@ -511,8 +513,11 @@ export const deriveLibraryBoardStatus = (params: {
   activeItemCount: number
   unrankedItemCount: number
   hasPublishedTemplate: boolean
+  materializationState?: BoardMaterializationState
 }): LibraryBoardStatus =>
 {
+  if (params.materializationState === 'clonePending') return 'syncing'
+  if (params.materializationState === 'cloneFailed') return 'failed'
   if (params.hasPublishedTemplate) return 'published'
   if (params.activeItemCount === 0) return 'draft'
   if (params.unrankedItemCount > 0) return 'in_progress'

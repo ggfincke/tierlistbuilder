@@ -1,36 +1,36 @@
 // src/features/marketplace/model/useTemplatesGallery.ts
-// composes the multi-rail gallery query — featured strip, popular & recent
-// rails, & a filtered grid driven by gallery-filter state
+// composes the point-in-time gallery read, plus the reactive draft rail
 
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
   DEFAULT_TEMPLATE_DRAFT_LIMIT,
   type MarketplaceTemplateDraft,
-  type MarketplaceTemplateSummary,
+  type MarketplaceTemplateGalleryCard,
+  type MarketplaceTemplateGalleryResult,
+  type MarketplaceTemplateCount,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
 import {
-  useListTemplates,
+  getTemplatesGalleryImperative,
   useMyTemplateDrafts,
-  usePublicTemplateCount,
   type ListTemplatesArgs,
-  type PublicTemplateCount,
 } from '~/features/marketplace/data/templatesRepository'
 import type { GalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
+import { logger } from '~/shared/lib/logger'
 
 interface TemplatesGalleryData
 {
-  featured: readonly MarketplaceTemplateSummary[] | undefined
-  popular: readonly MarketplaceTemplateSummary[] | undefined
-  recent: readonly MarketplaceTemplateSummary[] | undefined
+  featured: readonly MarketplaceTemplateGalleryCard[] | undefined
+  popular: readonly MarketplaceTemplateGalleryCard[] | undefined
+  recent: readonly MarketplaceTemplateGalleryCard[] | undefined
   drafts: readonly MarketplaceTemplateDraft[] | undefined
-  results: readonly MarketplaceTemplateSummary[] | undefined
-  templateCount: PublicTemplateCount | undefined
+  results: readonly MarketplaceTemplateGalleryCard[] | undefined
+  templateCount: MarketplaceTemplateCount | undefined
   isSearching: boolean
+  isRefreshing: boolean
+  refresh: () => Promise<void>
 }
-
-const FEATURED_LIMIT = 6
-const RAIL_LIMIT = 12
 
 export const useTemplatesGallery = (
   filters: GalleryFilters,
@@ -41,48 +41,78 @@ export const useTemplatesGallery = (
   const shouldLoadDrafts =
     includeDrafts && !isSearching && !filters.category && !filters.tag
 
-  // featured & rail queries are driven by sort, never by the search input —
-  // those rails serve as wayfinding when the user clears the input
-  const featuredArgs: ListTemplatesArgs = {
-    sort: 'featured',
-    limit: FEATURED_LIMIT,
-    category: null,
-  }
-  const popularArgs: ListTemplatesArgs = {
-    sort: 'popular',
-    limit: RAIL_LIMIT,
-    category: null,
-  }
-  const recentArgs: ListTemplatesArgs = {
-    sort: 'recent',
-    limit: RAIL_LIMIT,
-    category: null,
-  }
-  const resultsArgs: ListTemplatesArgs = {
-    search: filters.searchDebounced || null,
-    sort: filters.sort,
-    limit: DEFAULT_TEMPLATE_LIST_LIMIT,
-    category: filters.category ?? null,
-    tag: filters.tag ?? null,
-  }
+  const galleryArgs = useMemo<ListTemplatesArgs>(
+    () => ({
+      search: filters.searchDebounced || null,
+      sort: filters.sort,
+      limit: DEFAULT_TEMPLATE_LIST_LIMIT,
+      category: filters.category ?? null,
+      tag: filters.tag ?? null,
+    }),
+    [filters.category, filters.searchDebounced, filters.sort, filters.tag]
+  )
 
-  const featured = useListTemplates(featuredArgs)
-  const popular = useListTemplates(popularArgs)
-  const recent = useListTemplates(recentArgs)
-  const results = useListTemplates(resultsArgs)
-  const templateCount = usePublicTemplateCount()
+  const [snapshot, setSnapshot] = useState<MarketplaceTemplateGalleryResult>()
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const mountedRef = useRef(true)
+  const requestIdRef = useRef(0)
+
+  useEffect(() =>
+  {
+    mountedRef.current = true
+    return () =>
+    {
+      mountedRef.current = false
+    }
+  }, [])
+
+  const refresh = useCallback(async () =>
+  {
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+    setIsRefreshing(true)
+
+    try
+    {
+      const next = await getTemplatesGalleryImperative(galleryArgs)
+      if (!mountedRef.current || requestId !== requestIdRef.current) return
+      setSnapshot(next)
+    }
+    catch (error)
+    {
+      if (!mountedRef.current || requestId !== requestIdRef.current) return
+      logger.warn('marketplace', 'getTemplatesGallery failed', error)
+    }
+    finally
+    {
+      if (mountedRef.current && requestId === requestIdRef.current)
+      {
+        setIsRefreshing(false)
+      }
+    }
+  }, [galleryArgs])
+
+  // Public cards are intentionally point-in-time. Keep the last snapshot
+  // visible during refresh; route/filter changes decide when to reread.
+  useEffect(() =>
+  {
+    void refresh()
+  }, [includeDrafts, refresh])
+
   const drafts = useMyTemplateDrafts(
     shouldLoadDrafts,
     DEFAULT_TEMPLATE_DRAFT_LIMIT
   )
 
   return {
-    featured: featured?.items,
-    popular: popular?.items,
-    recent: recent?.items,
+    featured: snapshot?.featured,
+    popular: snapshot?.popular,
+    recent: snapshot?.recent,
     drafts: drafts?.drafts,
-    results: results?.items,
-    templateCount,
+    results: snapshot?.results,
+    templateCount: snapshot?.templateCount,
     isSearching,
+    isRefreshing,
+    refresh,
   }
 }

@@ -28,12 +28,14 @@ import {
   adjustPublicTemplateCount,
   allocateTemplateSlug,
   buildTemplateStateFields,
-  buildSearchText,
   DEFAULT_TEMPLATE_TIERS,
   MARKETPLACE_STATS_KEY,
   markTemplateUnpublished,
+  patchTemplateAndSyncCard,
+  patchTemplateAndSyncCardById,
+  syncTemplateCard,
+  syncTemplateCardById,
   syncTemplateTagRows,
-  toTemplateAuthor,
 } from './lib'
 
 // per-item payload sent by scripts/seed-marketplace-templates.ts. aspectRatio
@@ -156,6 +158,11 @@ export const patchSeedUserProfileImpl = internalMutation({
       plan: user.plan ?? 'free',
       lastUpsertError: undefined,
     })
+    await ctx.scheduler.runAfter(
+      0,
+      internal.marketplace.templates.internal.syncTemplateCardsForAuthor,
+      { authorId: user._id, cursor: null }
+    )
     return { found: true }
   },
 })
@@ -204,7 +211,6 @@ export const insertSeedTemplate = internalMutation({
       })
     }
 
-    const authorProjection = await toTemplateAuthor(ctx, author._id)
     const coverItems = args.items
       .slice(0, MAX_TEMPLATE_COVER_ITEMS)
       .map((item) => ({
@@ -236,13 +242,6 @@ export const insertSeedTemplate = internalMutation({
       viewCount: 0,
       featuredRank: null,
       creditLine: null,
-      searchText: buildSearchText({
-        title: args.title,
-        description: args.description,
-        category: args.category,
-        tags: args.tags,
-        authorDisplayName: authorProjection.displayName,
-      }),
       // pre-baked design ratio + cover fit — the per-item transforms below
       // were computed against this ratio, so forks must inherit it. mode is
       // 'manual' to pin it; auto-recompute would drift on later edits
@@ -281,6 +280,7 @@ export const insertSeedTemplate = internalMutation({
       isPubliclyListable: templateState.isPubliclyListable,
       updatedAt: now,
     })
+    await syncTemplateCardById(ctx, templateId)
 
     return { slug }
   },
@@ -412,7 +412,9 @@ export const setTemplateFeaturedRank = internalMutation({
         message: `template not found by slug: ${args.slug}`,
       })
     }
-    await ctx.db.patch(template._id, { featuredRank: args.featuredRank })
+    await patchTemplateAndSyncCard(ctx, template, {
+      featuredRank: args.featuredRank,
+    })
     return { slug: args.slug, featuredRank: args.featuredRank }
   },
 })
@@ -424,21 +426,24 @@ export const clearAllFeaturedRanksImpl = internalMutation({
   handler: async (ctx): Promise<{ cleared: number; scanned: number }> =>
   {
     const rankedTemplateIds: Id<'templates'>[] = []
-    const rankedTemplates = ctx.db
-      .query('templates')
+    const rankedCards = ctx.db
+      .query('templateCards')
       .withIndex('byIsPubliclyListableFeaturedRank', (q) =>
         q.eq('isPubliclyListable', true).gt('featuredRank', -1)
       )
 
-    for await (const template of rankedTemplates)
+    for await (const card of rankedCards)
     {
-      rankedTemplateIds.push(template._id)
+      rankedTemplateIds.push(card.templateId)
     }
 
     await Promise.all(
-      rankedTemplateIds.map((templateId) =>
-        ctx.db.patch(templateId, { featuredRank: null })
-      )
+      rankedTemplateIds.map(async (templateId) =>
+      {
+        await patchTemplateAndSyncCardById(ctx, templateId, {
+          featuredRank: null,
+        })
+      })
     )
     return {
       cleared: rankedTemplateIds.length,
@@ -518,7 +523,7 @@ export const patchSeedUserProfile = action({
   },
 })
 
-// dev-only — rebuild marketplaceStats counters from current template rows.
+// dev-only — rebuild marketplaceStats counters from current card rows.
 // run after introducing the per-category breakdown so the existing dataset
 // reflects in the gallery chips & the "By category" rail without a re-seed
 export const recomputeMarketplaceStatsImpl = internalMutation({
@@ -533,16 +538,15 @@ export const recomputeMarketplaceStatsImpl = internalMutation({
   {
     const countByCategory: Record<string, number> = {}
     let count = 0
-    const publicTemplates = ctx.db
-      .query('templates')
+    const publicCards = ctx.db
+      .query('templateCards')
       .withIndex('byIsPubliclyListableUpdatedAt', (q) =>
         q.eq('isPubliclyListable', true)
       )
-    for await (const template of publicTemplates)
+    for await (const card of publicCards)
     {
       count += 1
-      countByCategory[template.category] =
-        (countByCategory[template.category] ?? 0) + 1
+      countByCategory[card.category] = (countByCategory[card.category] ?? 0) + 1
     }
 
     const stats = await ctx.db
@@ -658,6 +662,54 @@ export const recomputeTemplateTags = action({
   },
 })
 
+export const recomputeTemplateCardsImpl = internalMutation({
+  args: {},
+  returns: v.object({
+    templatesScanned: v.number(),
+    cardsDeleted: v.number(),
+  }),
+  handler: async (
+    ctx
+  ): Promise<{ templatesScanned: number; cardsDeleted: number }> =>
+  {
+    const templates = await ctx.db.query('templates').collect()
+    const liveTemplateIds = new Set(templates.map((template) => template._id))
+    const cards = await ctx.db.query('templateCards').collect()
+    const staleCards = cards.filter(
+      (card) => !liveTemplateIds.has(card.templateId)
+    )
+
+    await Promise.all(staleCards.map((card) => ctx.db.delete(card._id)))
+    await Promise.all(
+      templates.map((template) => syncTemplateCard(ctx, template))
+    )
+
+    return {
+      templatesScanned: templates.length,
+      cardsDeleted: staleCards.length,
+    }
+  },
+})
+
+export const recomputeTemplateCards = action({
+  args: { seedSecret: v.string() },
+  returns: v.object({
+    templatesScanned: v.number(),
+    cardsDeleted: v.number(),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ templatesScanned: number; cardsDeleted: number }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.recomputeTemplateCardsImpl,
+      {}
+    )
+  },
+})
+
 // dev-only — strip the implicit single-image cover off seeded templates so
 // the gallery falls back to the item-grid Mosaic. detects seeded rows by the
 // `seed-` externalId prefix on their first templateItem
@@ -684,21 +736,24 @@ export const clearSeededTemplateCovers = internalMutation({
       ([, firstItem]) => firstItem?.externalId.startsWith('seed-') === true
     )
     await Promise.all(
-      toClear.map(([template]) =>
-        ctx.db.patch(template._id, { coverMediaAssetId: null })
-      )
+      toClear.map(async ([template]) =>
+      {
+        await patchTemplateAndSyncCard(ctx, template, {
+          coverMediaAssetId: null,
+        })
+      })
     )
     return { cleared: toClear.length, scanned: templates.length }
   },
 })
 
 // dev-only — wipe ALL templates, templateItems, templateTags, marketplaceStats,
-// & any boards forked from those templates. used to reset local state when
-// the seed shape changes. skips users, sessions, & other identity tables
+// templateCards, & forked boards. skips users, sessions, & identity tables
 export const wipeAllSeededDataImpl = internalMutation({
   args: {},
   returns: v.object({
     templates: v.number(),
+    templateCards: v.number(),
     templateItems: v.number(),
     templateTags: v.number(),
     forkedBoards: v.number(),
@@ -706,6 +761,7 @@ export const wipeAllSeededDataImpl = internalMutation({
   handler: async (ctx) =>
   {
     const templates = await ctx.db.query('templates').collect()
+    const templateCards = await ctx.db.query('templateCards').collect()
     const templateRows = await Promise.all(
       templates.map(async (template) =>
       {
@@ -730,13 +786,14 @@ export const wipeAllSeededDataImpl = internalMutation({
       (sum, row) => sum + row.tags.length,
       0
     )
-    await Promise.all(
-      templateRows.flatMap(({ template, items, tags }) => [
+    await Promise.all([
+      ...templateCards.map((card) => ctx.db.delete(card._id)),
+      ...templateRows.flatMap(({ template, items, tags }) => [
         ...items.map((item) => ctx.db.delete(item._id)),
         ...tags.map((tag) => ctx.db.delete(tag._id)),
         ctx.db.delete(template._id),
-      ])
-    )
+      ]),
+    ])
 
     const boards = await ctx.db.query('boards').collect()
     const forkedBoardRows = await Promise.all(
@@ -773,6 +830,7 @@ export const wipeAllSeededDataImpl = internalMutation({
 
     return {
       templates: templates.length,
+      templateCards: templateCards.length,
       templateItems,
       templateTags,
       forkedBoards: forkedBoardRows.length,
@@ -783,6 +841,7 @@ export const wipeAllSeededDataImpl = internalMutation({
 interface WipeResult
 {
   templates: number
+  templateCards: number
   templateItems: number
   templateTags: number
   forkedBoards: number
@@ -792,6 +851,7 @@ export const wipeAllSeededData = action({
   args: { seedSecret: v.string() },
   returns: v.object({
     templates: v.number(),
+    templateCards: v.number(),
     templateItems: v.number(),
     templateTags: v.number(),
     forkedBoards: v.number(),
@@ -960,7 +1020,8 @@ export const finalizeSeededTemplateChunksImpl = internalMutation({
         label: item.label ?? null,
       }))
 
-    await ctx.db.patch(template._id, {
+    const now = Date.now()
+    const templatePatch = {
       itemCount: args.itemCount,
       coverItems,
       ...buildTemplateStateFields(
@@ -968,8 +1029,9 @@ export const finalizeSeededTemplateChunksImpl = internalMutation({
         template.visibility,
         template.publicationState
       ),
-      updatedAt: Date.now(),
-    })
+      updatedAt: now,
+    }
+    await patchTemplateAndSyncCard(ctx, template, templatePatch)
     return { totalItems: args.itemCount }
   },
 })

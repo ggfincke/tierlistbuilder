@@ -22,8 +22,13 @@ export interface PlanEntitlements
   maxCloudBoardItems: number
 }
 
-export const LARGE_TEMPLATE_FEATURE_STATE: LargeTemplateFeatureState =
-  'disabled'
+const normalizeLargeTemplateFeatureState = (
+  value: string | undefined
+): LargeTemplateFeatureState =>
+{
+  if (value === 'internal' || value === 'public') return value
+  return 'disabled'
+}
 
 export const classifyItemCount = (itemCount: number): TemplateSizeClass =>
   itemCount <= MAX_STANDARD_CLOUD_BOARD_ITEMS ? 'standard' : 'large'
@@ -33,7 +38,7 @@ export const requiredPlanForSizeClass = (
 ): UserPlan => (sizeClass === 'large' ? 'plus' : 'free')
 
 export const getLargeTemplateFeatureState = (): LargeTemplateFeatureState =>
-  LARGE_TEMPLATE_FEATURE_STATE
+  normalizeLargeTemplateFeatureState(process.env.LARGE_TEMPLATE_FEATURE_STATE)
 
 export const getPlanEntitlements = async (
   ctx: DbCtx,
@@ -104,11 +109,14 @@ export const assertCanPublishTemplate = async (
     })
   }
 
+  const featureState = getLargeTemplateFeatureState()
+  if (featureState === 'public') return
+
   throw new ConvexError({
     code: CONVEX_ERROR_CODES.largeTemplateFeatureNotReady,
     message: 'large template publish jobs are not ready',
     itemCount,
-    featureState: getLargeTemplateFeatureState(),
+    featureState,
   })
 }
 
@@ -140,10 +148,13 @@ export const assertCanUseTemplate = async (
     })
   }
 
+  const featureState = getLargeTemplateFeatureState()
+  if (featureState === 'public') return
+
   throw new ConvexError({
     code: CONVEX_ERROR_CODES.largeTemplateFeatureNotReady,
     message: 'large template clone jobs are not ready',
     itemCount: template.itemCount,
-    featureState: getLargeTemplateFeatureState(),
+    featureState,
   })
 }

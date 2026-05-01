@@ -17,14 +17,62 @@ export const TEMPLATE_SIZE_CLASSES = ['standard', 'large'] as const
 
 export type TemplateSizeClass = (typeof TEMPLATE_SIZE_CLASSES)[number]
 
-export const TEMPLATE_PUBLICATION_STATES = ['published', 'unpublished'] as const
+export const TEMPLATE_PUBLICATION_STATES = [
+  'publishPending',
+  'published',
+  'publishFailed',
+  'unpublished',
+] as const
 
 export type TemplatePublicationState =
   (typeof TEMPLATE_PUBLICATION_STATES)[number]
 
+export const TEMPLATE_JOB_STATUSES = [
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+  'canceled',
+] as const
+
+export type TemplateJobStatus = (typeof TEMPLATE_JOB_STATUSES)[number]
+
+export const ACTIVE_TEMPLATE_JOB_STATUSES = [
+  'queued',
+  'running',
+] as const satisfies readonly TemplateJobStatus[]
+
+export const FINISHED_TEMPLATE_JOB_STATUSES = [
+  'succeeded',
+  'canceled',
+] as const satisfies readonly TemplateJobStatus[]
+
+const ACTIVE_TEMPLATE_JOB_STATUS_SET: ReadonlySet<TemplateJobStatus> = new Set(
+  ACTIVE_TEMPLATE_JOB_STATUSES
+)
+
+const FINISHED_TEMPLATE_JOB_STATUS_SET: ReadonlySet<TemplateJobStatus> =
+  new Set(FINISHED_TEMPLATE_JOB_STATUSES)
+
+export const isActiveTemplateJobStatus = (status: TemplateJobStatus): boolean =>
+  ACTIVE_TEMPLATE_JOB_STATUS_SET.has(status)
+
+export const isFinishedTemplateJobStatus = (
+  status: TemplateJobStatus
+): boolean => FINISHED_TEMPLATE_JOB_STATUS_SET.has(status)
+
 export const TEMPLATE_LIST_SORTS = ['featured', 'popular', 'recent'] as const
 
 export type TemplateListSort = (typeof TEMPLATE_LIST_SORTS)[number]
+
+export const TEMPLATE_CARD_ACCESS_STATES = [
+  'usable',
+  'requiresPlus',
+  'featureNotReady',
+] as const
+
+export type TemplateCardAccessState =
+  (typeof TEMPLATE_CARD_ACCESS_STATES)[number]
 
 export const MAX_TEMPLATE_TITLE_LENGTH = 80
 export const MAX_TEMPLATE_DESCRIPTION_LENGTH = 500
@@ -33,6 +81,8 @@ export const MAX_TEMPLATE_TAGS = 12
 export const MAX_TEMPLATE_TAG_LENGTH = 32
 export const MAX_TEMPLATE_LIST_LIMIT = 48
 export const DEFAULT_TEMPLATE_LIST_LIMIT = 24
+export const DEFAULT_TEMPLATE_ITEM_PAGE_SIZE = 100
+export const MAX_TEMPLATE_ITEM_PAGE_SIZE = 200
 export const DEFAULT_TEMPLATE_DRAFT_LIMIT = 8
 export const MAX_TEMPLATE_DRAFT_LIMIT = 24
 const TEMPLATE_SLUG_LENGTH = 10
@@ -118,6 +168,26 @@ export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase
   coverItems: TemplateCoverItem[]
 }
 
+export interface MarketplaceTemplateGalleryCard extends MarketplaceTemplateSummary
+{
+  access: TemplateCardAccessState
+}
+
+export interface MarketplaceTemplateCount
+{
+  count: number
+  countByCategory: Record<string, number>
+}
+
+export interface MarketplaceTemplateGalleryResult
+{
+  featured: MarketplaceTemplateGalleryCard[]
+  popular: MarketplaceTemplateGalleryCard[]
+  recent: MarketplaceTemplateGalleryCard[]
+  results: MarketplaceTemplateGalleryCard[]
+  templateCount: MarketplaceTemplateCount
+}
+
 export interface MarketplaceTemplateDraftTemplate
 {
   slug: string
@@ -140,8 +210,9 @@ export interface MarketplaceTemplateItem
   transform: ItemTransform | null
 }
 
-export interface MarketplaceTemplateDetail extends MarketplaceTemplateBase
+export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
 {
+  access: TemplateCardAccessState
   suggestedTiers: TierPresetTier[]
   // slot aspect ratio (w/h) the template was designed against — gallery thumbs
   // & forked boards use this so per-item transforms frame correctly. null when
@@ -152,7 +223,15 @@ export interface MarketplaceTemplateDetail extends MarketplaceTemplateBase
   // pre-baked board label settings; null falls back to the forking user's
   // global showLabels + built-in defaults
   labels: BoardLabelSettings | null
-  items: MarketplaceTemplateItem[]
+}
+
+export interface MarketplaceTemplateItemsResult
+{
+  page: MarketplaceTemplateItem[]
+  continueCursor: string
+  isDone: boolean
+  splitCursor?: string | null
+  pageStatus?: 'SplitRecommended' | 'SplitRequired' | null
 }
 
 export interface MarketplaceTemplateListResult
@@ -177,18 +256,56 @@ export interface MarketplaceTemplateDraftListResult
   drafts: MarketplaceTemplateDraft[]
 }
 
-export interface MarketplaceTemplatePublishResult
+export interface MarketplaceTemplateJobProgress
 {
+  jobId: string
+  status: TemplateJobStatus
+  itemCount: number
+  processedItemCount: number
+  errorCode: string | null
+  createdAt: number
+  updatedAt: number
+  startedAt: number | null
+  completedAt: number | null
+  canceledAt: number | null
+}
+
+export interface MarketplaceTemplatePublishJobProgress extends MarketplaceTemplateJobProgress
+{
+  kind: 'publish'
   slug: string
 }
+
+export interface MarketplaceTemplateCloneJobProgress extends MarketplaceTemplateJobProgress
+{
+  kind: 'clone'
+  boardExternalId: string
+}
+
+export type MarketplaceTemplatePublishResult =
+  | {
+      status: 'published'
+      slug: string
+    }
+  | {
+      status: 'jobQueued'
+      slug: string
+      jobId: string
+    }
+
+export type MarketplaceTemplateUseResult =
+  | {
+      status: 'ready'
+      boardExternalId: string
+    }
+  | {
+      status: 'jobQueued'
+      boardExternalId: string
+      jobId: string
+    }
 
 export type TemplateUseTierSelection =
   | { kind: 'template' }
   | { kind: 'default' }
   | { kind: 'preset'; presetExternalId: string }
   | { kind: 'custom'; tiers: TierPresetTier[] }
-
-export interface MarketplaceTemplateUseResult
-{
-  boardExternalId: string
-}

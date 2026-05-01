@@ -352,6 +352,13 @@ const ensureBoard = async (
       message: 'cannot sync to a deleted board',
     })
   }
+  if (board.materializationState !== 'ready')
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'cannot sync a board while it is materializing',
+    })
+  }
 
   return board
 }
