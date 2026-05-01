@@ -170,6 +170,21 @@ export const mediaVariantSummaryValidator = v.object({
   contentHash: v.string(),
 })
 
+// per-item manual crop transform — mirrors ItemTransform in contracts/board.
+// shared between cloud board sync, template detail projections, & the seed
+// action so all callers stay coupled to the same shape
+export const itemTransformValidator = v.object({
+  rotation: v.union(
+    v.literal(0),
+    v.literal(90),
+    v.literal(180),
+    v.literal(270)
+  ),
+  zoom: v.number(),
+  offsetX: v.number(),
+  offsetY: v.number(),
+})
+
 export const templateCardMediaValidator = v.object({
   externalId: v.string(),
   ...mediaVariantSummaryValidator.fields,
@@ -178,6 +193,10 @@ export const templateCardMediaValidator = v.object({
 export const templateCardCoverItemValidator = v.object({
   media: templateCardMediaValidator,
   label: v.union(v.string(), v.null()),
+  backgroundColor: v.union(v.string(), v.null()),
+  aspectRatio: v.union(v.number(), v.null()),
+  imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+  transform: v.union(itemTransformValidator, v.null()),
 })
 
 // full AppPreferences shape — must stay in sync w/ packages/contracts/platform/preferences.ts
@@ -347,21 +366,6 @@ const cloudBoardStateTierValidator = v.object({
   order: v.number(),
 })
 
-// per-item manual crop transform — mirrors ItemTransform in contracts/board.
-// shared between cloud board sync, template detail projections, & the seed
-// action so all callers stay coupled to the same shape
-export const itemTransformValidator = v.object({
-  rotation: v.union(
-    v.literal(0),
-    v.literal(90),
-    v.literal(180),
-    v.literal(270)
-  ),
-  zoom: v.number(),
-  offsetX: v.number(),
-  offsetY: v.number(),
-})
-
 // label scrim/color — mirrors contracts/workspace/board union types
 export const labelScrimValidator = literalUnion(LABEL_SCRIMS)
 export const labelTextColorValidator = literalUnion(LABEL_TEXT_COLORS)
@@ -490,6 +494,10 @@ export const templateMediaRefValidator = v.object({
 export const templateCoverItemValidator = v.object({
   media: templateMediaRefValidator,
   label: v.union(v.string(), v.null()),
+  backgroundColor: v.union(v.string(), v.null()),
+  aspectRatio: v.union(v.number(), v.null()),
+  imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+  transform: v.union(itemTransformValidator, v.null()),
 })
 
 const marketplaceTemplateBaseFields = {
@@ -512,14 +520,23 @@ const marketplaceTemplateBaseFields = {
   updatedAt: v.number(),
 }
 
-export const marketplaceTemplateSummaryValidator = v.object({
+const marketplaceTemplateSummaryFields = {
   ...marketplaceTemplateBaseFields,
   coverItems: v.array(templateCoverItemValidator),
-})
+  itemAspectRatio: v.union(v.number(), v.null()),
+  defaultItemImageFit: v.union(
+    v.literal('cover'),
+    v.literal('contain'),
+    v.null()
+  ),
+}
+
+export const marketplaceTemplateSummaryValidator = v.object(
+  marketplaceTemplateSummaryFields
+)
 
 export const marketplaceTemplateGalleryCardValidator = v.object({
-  ...marketplaceTemplateBaseFields,
-  coverItems: v.array(templateCoverItemValidator),
+  ...marketplaceTemplateSummaryFields,
   access: templateCardAccessStateValidator,
 })
 
@@ -557,16 +574,9 @@ export const marketplaceTemplateItemValidator = v.object({
 })
 
 export const marketplaceTemplateDetailValidator = v.object({
-  ...marketplaceTemplateBaseFields,
-  coverItems: v.array(templateCoverItemValidator),
+  ...marketplaceTemplateSummaryFields,
   access: templateCardAccessStateValidator,
   suggestedTiers: tierPresetTiersValidator,
-  itemAspectRatio: v.union(v.number(), v.null()),
-  defaultItemImageFit: v.union(
-    v.literal('cover'),
-    v.literal('contain'),
-    v.null()
-  ),
   labels: v.union(boardLabelSettingsValidator, v.null()),
 })
 

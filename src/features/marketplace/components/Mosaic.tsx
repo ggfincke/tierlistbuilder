@@ -1,10 +1,15 @@
 // src/features/marketplace/components/Mosaic.tsx
-// tile-grid renderer for cover artwork — packs item images into a tight grid
-// over the neutral media matte
+// tile-grid cover renderer — packs items into a grid over the media matte;
+// tiles render through FramedItemMedia for parity w/ the detail item grid
 
 import { useMemo } from 'react'
 
+import type {
+  ImageFit,
+  ItemTransform,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
+import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
 
 import {
   MediaMatteFrame,
@@ -18,6 +23,9 @@ interface MosaicProps
 {
   items: readonly TemplateCoverItem[]
   density: MosaicDensity
+  // board-wide fit fallback when an item has no per-item override; null
+  // matches publisher-omitted -> 'cover'
+  defaultImageFit?: ImageFit | null
   loading?: MediaLoading
   decoding?: MediaDecoding
 }
@@ -69,9 +77,15 @@ const computeGridDims = (
   return { cols: bestCols, rows: bestRows }
 }
 
+const resolveFit = (
+  itemFit: ImageFit | null,
+  defaultFit: ImageFit | null | undefined
+): ImageFit => itemFit ?? defaultFit ?? 'cover'
+
 export const Mosaic = ({
   items,
   density,
+  defaultImageFit,
   loading = 'lazy',
   decoding = 'async',
 }: MosaicProps) =>
@@ -97,14 +111,12 @@ export const Mosaic = ({
         }}
       >
         {tiles.map((item, i) => (
-          <MediaMatteFrame
+          <CoverTile
             key={`${item.media.externalId}-${i}`}
-            src={item.media.url}
-            width={item.media.width}
-            height={item.media.height}
+            item={item}
+            defaultImageFit={defaultImageFit}
             loading={loading}
             decoding={decoding}
-            className="overflow-hidden"
           />
         ))}
         {Array.from({ length: emptyCount }).map((_, i) => (
@@ -112,5 +124,38 @@ export const Mosaic = ({
         ))}
       </div>
     </MediaMatteFrame>
+  )
+}
+
+interface CoverTileProps
+{
+  item: TemplateCoverItem
+  defaultImageFit: ImageFit | null | undefined
+  loading: MediaLoading
+  decoding: MediaDecoding
+}
+
+const CoverTile = ({
+  item,
+  defaultImageFit,
+  loading,
+  decoding,
+}: CoverTileProps) =>
+{
+  const transform: ItemTransform | null = item.transform
+  const fit = resolveFit(item.imageFit, defaultImageFit)
+  return (
+    <div className="overflow-hidden bg-[var(--t-media-matte)]">
+      <FramedItemMedia
+        imageUrl={item.media.url}
+        alt={item.label ?? ''}
+        fit={fit}
+        transform={transform}
+        aspectRatio={item.aspectRatio}
+        backgroundColor={item.backgroundColor}
+        loading={loading}
+        decoding={decoding}
+      />
+    </div>
   )
 }

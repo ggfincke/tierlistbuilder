@@ -21,6 +21,7 @@ interface CoverProps
 {
   template: Pick<MarketplaceTemplateSummary, 'coverMedia' | 'title'> & {
     coverItems?: readonly TemplateCoverItem[]
+    defaultItemImageFit?: MarketplaceTemplateSummary['defaultItemImageFit']
   }
   density: MosaicDensity
   style?: CoverStyle
@@ -87,6 +88,7 @@ export const Cover = ({
     <Mosaic
       items={items}
       density={density}
+      defaultImageFit={template.defaultItemImageFit ?? null}
       loading={loading}
       decoding={decoding}
     />
