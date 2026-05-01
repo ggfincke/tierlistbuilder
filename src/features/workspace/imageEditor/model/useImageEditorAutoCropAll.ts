@@ -1,7 +1,7 @@
 // src/features/workspace/imageEditor/model/useImageEditorAutoCropAll.ts
 // bulk auto-crop state for the image editor modal
 
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
@@ -11,11 +11,10 @@ import type {
 import {
   areCachedAutoCropsApplied,
   collectAutoCropTransforms,
-  getAutoCropCacheVersion,
   getAutoCropHash,
-  subscribeAutoCropCache,
 } from '~/shared/lib/autoCrop'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
+import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
 import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
 
 interface UseImageEditorAutoCropAllInput
@@ -40,10 +39,15 @@ export const useImageEditorAutoCropAll = ({
     done: number
     total: number
   }>({ running: false, done: 0, total: 0 })
-  const autoCropCacheVersion = useSyncExternalStore(
-    subscribeAutoCropCache,
-    getAutoCropCacheVersion,
-    getAutoCropCacheVersion
+  const autoCropCacheVersion = useAutoCropCacheVersion()
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(
+    () => () =>
+    {
+      abortRef.current?.abort()
+    },
+    []
   )
 
   const handleAutoCropAll = useCallback(
@@ -51,6 +55,9 @@ export const useImageEditorAutoCropAll = ({
     {
       const targets = sourceItems.filter((it) => !!getAutoCropHash(it))
       if (targets.length === 0) return
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
       setAutoCropProgress({ running: true, done: 0, total: targets.length })
       try
       {
@@ -58,15 +65,23 @@ export const useImageEditorAutoCropAll = ({
           targets,
           boardAspectRatio,
           trimSoftShadows,
+          signal: controller.signal,
           onProgress: () =>
             setAutoCropProgress((p) =>
               p.running ? { ...p, done: p.done + 1 } : p
             ),
         })
+        if (controller.signal.aborted) return
         if (entries.length > 0) setItemsTransform(entries)
+      }
+      catch (err)
+      {
+        if (!(err instanceof DOMException && err.name === 'AbortError'))
+          throw err
       }
       finally
       {
+        if (abortRef.current === controller) abortRef.current = null
         setAutoCropProgress({ running: false, done: 0, total: 0 })
       }
     },

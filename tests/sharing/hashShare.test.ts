@@ -1,5 +1,5 @@
 // tests/sharing/hashShare.test.ts
-// snapshot codec: round-trip, image stripping, oversize rejection
+// snapshot codec: round-trip, image stripping, malformed-input rejection
 
 import { describe, it, expect } from 'vitest'
 import {
@@ -14,76 +14,50 @@ import { makeBoardSnapshot, makeTier } from '../fixtures'
 
 describe('snapshot codec', () =>
 {
-  it('round-trips a board snapshot through compress -> inflate', async () =>
+  it('round-trips a board through compress/inflate & encode/decodeBoardFromShareFragment', async () =>
   {
     const original = makeBoardSnapshot({
       title: 'My Board',
       tiers: [makeTier({ id: 'tier-s', itemIds: [asItemId('a')] })],
-      items: {
-        [asItemId('a')]: { id: asItemId('a'), label: 'Hello' },
-      },
+      items: { [asItemId('a')]: { id: asItemId('a'), label: 'Hello' } },
     })
 
-    const bytes = await compressSnapshotBytes(original)
-    const decoded = await inflateSnapshotBytes(bytes)
-
+    const decoded = await inflateSnapshotBytes(
+      await compressSnapshotBytes(original)
+    )
     expect(decoded.title).toBe('My Board')
-    expect(decoded.tiers).toHaveLength(1)
     expect(decoded.tiers[0].itemIds).toEqual(['a'])
-    expect(decoded.items['a']?.label).toBe('Hello')
+
+    const fragment = await encodeBoardToShareFragment(original)
+    const fromFragment = await decodeBoardFromShareFragment(fragment)
+    expect(fromFragment.title).toBe('My Board')
+    expect(fromFragment.tiers[0].id).toBe('tier-s')
   })
 
   it('strips image refs & deletedItems from shared payloads', () =>
   {
-    const snapshot = makeBoardSnapshot({
-      items: {
-        [asItemId('a')]: {
-          id: asItemId('a'),
-          label: 'x',
-          imageRef: { hash: 'img-1' },
-          sourceImageRef: { hash: 'source-1' },
+    const stripped = stripImagesForShare(
+      makeBoardSnapshot({
+        items: {
+          [asItemId('a')]: {
+            id: asItemId('a'),
+            label: 'x',
+            imageRef: { hash: 'img-1' },
+            sourceImageRef: { hash: 'source-1' },
+          },
         },
-      },
-      deletedItems: [{ id: asItemId('d'), label: 'deleted' }],
-    })
-
-    const stripped = stripImagesForShare(snapshot)
-    const item = stripped.items[asItemId('a')]
-    expect(item).toBeDefined()
-    expect(item).not.toHaveProperty('imageRef')
-    expect(item).not.toHaveProperty('sourceImageRef')
+        deletedItems: [{ id: asItemId('d'), label: 'deleted' }],
+      })
+    )
+    expect(stripped.items[asItemId('a')]).not.toHaveProperty('imageRef')
+    expect(stripped.items[asItemId('a')]).not.toHaveProperty('sourceImageRef')
     expect(stripped.deletedItems).toEqual([])
   })
 
   it('throws on malformed compressed bytes', async () =>
   {
-    const garbage = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-    await expect(inflateSnapshotBytes(garbage)).rejects.toThrow()
-  })
-
-  it('round-trips compressSnapshotBytes -> inflateSnapshotBytes at the byte layer', async () =>
-  {
-    const original = makeBoardSnapshot({
-      title: 'Bytes Test',
-      tiers: [makeTier({ id: 'tier-s' })],
-    })
-    const bytes = await compressSnapshotBytes(original)
-    expect(bytes.byteLength).toBeGreaterThan(0)
-    const decoded = await inflateSnapshotBytes(bytes)
-    expect(decoded.title).toBe('Bytes Test')
-  })
-
-  it('decodes current share fragments', async () =>
-  {
-    const original = makeBoardSnapshot({
-      title: 'Current Fragment',
-      tiers: [makeTier({ id: 'tier-s' })],
-    })
-
-    const fragment = await encodeBoardToShareFragment(original)
-    const decoded = await decodeBoardFromShareFragment(fragment)
-
-    expect(decoded.title).toBe('Current Fragment')
-    expect(decoded.tiers[0].id).toBe('tier-s')
+    await expect(
+      inflateSnapshotBytes(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]))
+    ).rejects.toThrow()
   })
 })

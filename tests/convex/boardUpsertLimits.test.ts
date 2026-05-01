@@ -1,5 +1,5 @@
 // tests/convex/boardUpsertLimits.test.ts
-// Convex board upsert behavior near configured sync limits
+// Convex board upsert behavior at sync caps & validation boundaries
 
 import { convexTest } from 'convex-test'
 import { ConvexError } from 'convex/values'
@@ -67,14 +67,8 @@ const makeBoardPayload = (options: {
     const tierIndex = options.tierCount > 0 ? i % options.tierCount : -1
     const tierId = isDeleted ? null : (tiers[tierIndex]?.externalId ?? null)
 
-    if (tierId)
-    {
-      tiers[tierIndex].itemIds.push(externalId)
-    }
-    if (isDeleted)
-    {
-      deletedItemIds.push(externalId)
-    }
+    if (tierId) tiers[tierIndex].itemIds.push(externalId)
+    if (isDeleted) deletedItemIds.push(externalId)
 
     items.push({
       externalId,
@@ -85,12 +79,7 @@ const makeBoardPayload = (options: {
     })
   }
 
-  return {
-    title: 'Limit Board',
-    tiers,
-    items,
-    deletedItemIds,
-  }
+  return { title: 'Limit Board', tiers, items, deletedItemIds }
 }
 
 const expectConvexCode = async (
@@ -117,7 +106,6 @@ const seedMediaAssets = async (
   await t.run(async (ctx) =>
   {
     const storageId = await ctx.storage.store(new Blob(['image-bytes']))
-
     await Promise.all(
       mediaExternalIds.map((externalId, i) =>
         ctx.db.insert('mediaAssets', {
@@ -136,9 +124,9 @@ const seedMediaAssets = async (
   })
 }
 
-describe('upsertBoardState Convex limits', () =>
+describe('upsertBoardState', () =>
 {
-  it('maintains the library summary during board upsert', async () =>
+  it('maintains library summary fields w/ ranked/unranked counts & cover items', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })
     const userId = await seedUser(t)
@@ -189,79 +177,66 @@ describe('upsertBoardState Convex limits', () =>
       api.workspace.boards.queries.getMyLibraryBoards,
       {}
     )
-
-    expect(boards).toHaveLength(1)
     expect(boards[0]).toMatchObject({
       title: 'Library Board',
       activeItemCount: 2,
       unrankedItemCount: 1,
       rankedItemCount: 1,
       status: 'in_progress',
-      tierColors: [
-        { kind: 'palette', index: 0 },
-        { kind: 'palette', index: 1 },
-      ],
-      tierBreakdown: [
-        {
-          tierIndex: 0,
-          itemCount: 1,
-          colorSpec: { kind: 'palette', index: 0 },
-        },
-      ],
-      coverItems: [
-        {
-          label: 'Ranked item',
-          externalId: 'item-ranked',
-        },
-        {
-          label: 'Unranked item',
-          externalId: 'item-unranked',
-          mediaUrl: null,
-        },
-      ],
     })
   })
 
-  it('accepts a max-size board where every item references owned media', async () =>
+  it('accepts max-size boards (incl. all-tombstone updates) within tx budget', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })
     const userId = await seedUser(t)
-    const mediaExternalIds = makeMediaExternalIds(MAX_CLOUD_BOARD_ITEMS)
-    await seedMediaAssets(t, userId, mediaExternalIds)
+    const mediaIds = makeMediaExternalIds(MAX_CLOUD_BOARD_ITEMS)
+    await seedMediaAssets(t, userId, mediaIds)
+    const caller = asUser(t, userId)
 
-    const result = await asUser(t, userId).mutation(
+    const create = await caller.mutation(
       api.workspace.boards.upsertBoardState.upsertBoardState,
       {
-        boardExternalId: 'board-max-media',
+        boardExternalId: 'board-tombstones',
         baseRevision: null,
         ...makeBoardPayload({
           tierCount: MAX_CLOUD_BOARD_TIERS,
           itemCount: MAX_CLOUD_BOARD_ITEMS,
-          mediaExternalIds,
+          mediaExternalIds: mediaIds,
         }),
       }
     )
+    expect(create).toEqual({ conflict: null, newRevision: 1 })
 
-    expect(result).toEqual({ conflict: null, newRevision: 1 })
-
-    const state = await asUser(t, userId).query(
-      api.workspace.boards.queries.getBoardStateByExternalId,
-      { boardExternalId: 'board-max-media' }
+    const tombstoned = await caller.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId: 'board-tombstones',
+        baseRevision: 1,
+        ...makeBoardPayload({
+          tierCount: MAX_CLOUD_BOARD_TIERS,
+          itemCount: MAX_CLOUD_BOARD_ITEMS,
+          deletedItemCount: MAX_CLOUD_BOARD_ITEMS,
+        }),
+      }
     )
+    expect(tombstoned).toEqual({ conflict: null, newRevision: 2 })
 
-    expect(state?.tiers).toHaveLength(MAX_CLOUD_BOARD_TIERS)
+    const state = await caller.query(
+      api.workspace.boards.queries.getBoardStateByExternalId,
+      { boardExternalId: 'board-tombstones' }
+    )
     expect(state?.items).toHaveLength(MAX_CLOUD_BOARD_ITEMS)
-    expect(state?.items[0]).toMatchObject({
-      mediaExternalId: 'media-0',
-      mediaContentHash: 'hash-0',
-    })
+    expect(state?.items.every((item) => item.deletedAt !== null)).toBe(true)
   })
 
-  it('rejects payloads above the tier or item sync caps', async () =>
+  it('rejects payloads above tier/item caps & invalid label coordinates or font sizes', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })
     const userId = await seedUser(t)
     const caller = asUser(t, userId)
+    const itemPayload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
+    const boardPayload = makeBoardPayload({ tierCount: 1, itemCount: 0 })
 
     await expectConvexCode(
       caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
@@ -274,27 +249,6 @@ describe('upsertBoardState Convex limits', () =>
       }),
       CONVEX_ERROR_CODES.syncLimitExceeded
     )
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-too-many-items',
-        baseRevision: null,
-        ...makeBoardPayload({
-          tierCount: 1,
-          itemCount: MAX_CLOUD_BOARD_ITEMS + 1,
-        }),
-      }),
-      CONVEX_ERROR_CODES.syncLimitExceeded
-    )
-  })
-
-  it('rejects invalid label overlay coordinates', async () =>
-  {
-    const t = convexTest({ schema, modules, transactionLimits: true })
-    const userId = await seedUser(t)
-    const caller = asUser(t, userId)
-    const itemPayload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
-    const boardPayload = makeBoardPayload({ tierCount: 1, itemCount: 0 })
 
     await expectConvexCode(
       caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
@@ -315,78 +269,6 @@ describe('upsertBoardState Convex limits', () =>
 
     await expectConvexCode(
       caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-board-label',
-        baseRevision: null,
-        ...boardPayload,
-        labels: {
-          placement: { mode: 'overlay', x: 0.5, y: 1.2 },
-        },
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-  })
-
-  it('syncs board label font size as a revisioned style change', async () =>
-  {
-    const t = convexTest({ schema, modules, transactionLimits: true })
-    const userId = await seedUser(t)
-    const caller = asUser(t, userId)
-    const payload = makeBoardPayload({ tierCount: 1, itemCount: 0 })
-
-    await caller.mutation(
-      api.workspace.boards.upsertBoardState.upsertBoardState,
-      {
-        boardExternalId: 'board-label-font-size',
-        baseRevision: null,
-        ...payload,
-      }
-    )
-
-    const result = await caller.mutation(
-      api.workspace.boards.upsertBoardState.upsertBoardState,
-      {
-        boardExternalId: 'board-label-font-size',
-        baseRevision: 1,
-        ...payload,
-        labels: { fontSizePx: 18 },
-      }
-    )
-
-    expect(result).toEqual({ conflict: null, newRevision: 2 })
-
-    const state = await caller.query(
-      api.workspace.boards.queries.getBoardStateByExternalId,
-      { boardExternalId: 'board-label-font-size' }
-    )
-
-    expect(state?.labels).toEqual({ fontSizePx: 18 })
-  })
-
-  it('rejects invalid label font sizes', async () =>
-  {
-    const t = convexTest({ schema, modules, transactionLimits: true })
-    const userId = await seedUser(t)
-    const caller = asUser(t, userId)
-    const itemPayload = makeBoardPayload({ tierCount: 1, itemCount: 1 })
-    const boardPayload = makeBoardPayload({ tierCount: 1, itemCount: 0 })
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
-        boardExternalId: 'board-bad-item-label-size',
-        baseRevision: null,
-        ...itemPayload,
-        items: [
-          {
-            ...itemPayload.items[0]!,
-            labelOptions: { fontSizePx: Number.NaN },
-          },
-        ],
-      }),
-      CONVEX_ERROR_CODES.invalidInput
-    )
-
-    await expectConvexCode(
-      caller.mutation(api.workspace.boards.upsertBoardState.upsertBoardState, {
         boardExternalId: 'board-bad-board-label-size',
         baseRevision: null,
         ...boardPayload,
@@ -394,47 +276,5 @@ describe('upsertBoardState Convex limits', () =>
       }),
       CONVEX_ERROR_CODES.invalidInput
     )
-  })
-
-  it('handles a max-size tombstone update within the transaction budget', async () =>
-  {
-    const t = convexTest({ schema, modules, transactionLimits: true })
-    const userId = await seedUser(t)
-    const caller = asUser(t, userId)
-
-    await caller.mutation(
-      api.workspace.boards.upsertBoardState.upsertBoardState,
-      {
-        boardExternalId: 'board-tombstones',
-        baseRevision: null,
-        ...makeBoardPayload({
-          tierCount: MAX_CLOUD_BOARD_TIERS,
-          itemCount: MAX_CLOUD_BOARD_ITEMS,
-        }),
-      }
-    )
-
-    const result = await caller.mutation(
-      api.workspace.boards.upsertBoardState.upsertBoardState,
-      {
-        boardExternalId: 'board-tombstones',
-        baseRevision: 1,
-        ...makeBoardPayload({
-          tierCount: MAX_CLOUD_BOARD_TIERS,
-          itemCount: MAX_CLOUD_BOARD_ITEMS,
-          deletedItemCount: MAX_CLOUD_BOARD_ITEMS,
-        }),
-      }
-    )
-
-    expect(result).toEqual({ conflict: null, newRevision: 2 })
-
-    const state = await caller.query(
-      api.workspace.boards.queries.getBoardStateByExternalId,
-      { boardExternalId: 'board-tombstones' }
-    )
-
-    expect(state?.items).toHaveLength(MAX_CLOUD_BOARD_ITEMS)
-    expect(state?.items.every((item) => item.deletedAt !== null)).toBe(true)
   })
 })

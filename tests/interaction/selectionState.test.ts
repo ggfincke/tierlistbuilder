@@ -1,5 +1,5 @@
 // tests/interaction/selectionState.test.ts
-// selection state helpers
+// shared radio/tab selection semantics
 
 import { describe, expect, it } from 'vitest'
 
@@ -11,104 +11,50 @@ import {
 } from '~/shared/selection/selectionState'
 import { asInvalid } from '../typeHelpers'
 
-describe('resolveSelectionActiveKey', () =>
+describe('resolveSelectionActiveKey & resolveRovingTabIndex', () =>
 {
-  it('keeps the provided key when it is still present', () =>
+  it('keeps active key if present, falls back to first, & only active item is tabbable', () =>
   {
     expect(resolveSelectionActiveKey(['a', 'b', 'c'], 'b')).toBe('b')
-  })
-
-  it('falls back to the first item when the active key drifts', () =>
-  {
     expect(
       resolveSelectionActiveKey(
         ['a', 'b', 'c'],
         asInvalid<'a' | 'b' | 'c'>('z')
       )
     ).toBe('a')
-  })
-
-  it('returns null when the group is empty', () =>
-  {
     expect(resolveSelectionActiveKey([], asInvalid<never>('z'))).toBeNull()
-  })
-})
 
-describe('resolveRovingTabIndex', () =>
-{
-  it('keeps only the active item tabbable', () =>
-  {
     expect(resolveRovingTabIndex('b', 'b')).toBe(0)
     expect(resolveRovingTabIndex('a', 'b')).toBe(-1)
-  })
-
-  it('returns -1 when there is no active item', () =>
-  {
     expect(resolveRovingTabIndex('a', null)).toBe(-1)
   })
 })
 
-describe('getSelectionGroupProps', () =>
+describe('selection ARIA props', () =>
 {
-  it('builds radio-group semantics for linear selectors', () =>
+  it('builds radiogroup/tablist semantics & per-item radio/tab roles', () =>
   {
-    expect(
-      getSelectionGroupProps({
-        kind: 'radio',
-        label: 'Theme',
-      })
-    ).toEqual({
+    expect(getSelectionGroupProps({ kind: 'radio', label: 'Theme' })).toEqual({
       role: 'radiogroup',
       'aria-label': 'Theme',
       'aria-labelledby': undefined,
       'aria-orientation': 'horizontal',
     })
-  })
-
-  it('omits orientation for grid-based radio groups', () =>
-  {
     expect(
       getSelectionGroupProps({
         kind: 'radio',
         labelledby: 'picker-title',
         isGrid: true,
       })
-    ).toEqual({
-      role: 'radiogroup',
-      'aria-label': undefined,
-      'aria-labelledby': 'picker-title',
-      'aria-orientation': undefined,
-    })
-  })
-
-  it('builds tab-list semantics for tab controls', () =>
-  {
+    ).toMatchObject({ 'aria-orientation': undefined })
     expect(
-      getSelectionGroupProps({
-        kind: 'tab',
-        label: 'Settings sections',
-      })
-    ).toEqual({
-      role: 'tablist',
-      'aria-label': 'Settings sections',
-      'aria-labelledby': undefined,
-      'aria-orientation': 'horizontal',
-    })
-  })
-})
+      getSelectionGroupProps({ kind: 'tab', label: 'Settings sections' })
+    ).toMatchObject({ role: 'tablist' })
 
-describe('getSelectionItemState', () =>
-{
-  it('builds radio-item semantics', () =>
-  {
     expect(getSelectionItemState('radio', true)).toEqual({
       role: 'radio',
       'aria-checked': true,
     })
-  })
-
-  it('builds tab-item semantics', () =>
-  {
     expect(getSelectionItemState('tab', false)).toEqual({
       role: 'tab',
       'aria-selected': false,

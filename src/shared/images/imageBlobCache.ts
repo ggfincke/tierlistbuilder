@@ -2,7 +2,7 @@
 // in-memory object URL cache keyed by content hash
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { collectSnapshotRenderImageHashes } from '~/shared/lib/boardSnapshotItems'
+import { collectSnapshotRenderImageRefs } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
 import { getBlobsBatch } from './imageStore'
 
@@ -49,6 +49,15 @@ export const registerCloudImageFetcher = (fn: CloudImageBatchFetcher): void =>
   }
 
   cloudBatchFetcher = fn
+
+  // drain any requests that were queued before the fetcher was registered.
+  // ItemContent effects fire on first render & race the useCloudSync effect
+  // that wires this up, so the queue is non-empty in the common case
+  if (pendingRequests.size > 0 && !flushScheduled)
+  {
+    flushScheduled = true
+    queueMicrotask(flushPendingCloudRequests)
+  }
 }
 
 const runBatch = (requests: ReadonlyArray<CloudImageRequest>): void =>
@@ -88,18 +97,20 @@ const flushPendingCloudRequests = (): void =>
 }
 
 // queue a cloud fetch for a missing image. coalesces repeated calls for the
-// same hash across the current microtask & dedups against in-flight fetches
+// same hash & dedups against in-flight fetches. pre-registration calls stay
+// in `pendingRequests` until `registerCloudImageFetcher` drains them
 export const requestCloudImage = (
   hash: string,
   cloudMediaExternalId: string
 ): void =>
 {
-  if (!cloudBatchFetcher) return
   if (inFlightByHash.has(hash)) return
   if (pendingRequests.has(hash)) return
 
   pendingRequests.set(hash, { hash, cloudMediaExternalId })
   failedCloudRequests.delete(hash)
+
+  if (!cloudBatchFetcher) return
 
   if (!flushScheduled)
   {
@@ -202,6 +213,9 @@ const touchCachedHashes = (hashes: Iterable<string>): void =>
   }
 }
 
+// LRU eviction by lastAccessedAt; caller passes just-touched hashes so the
+// working set is preserved. mounted subscribers are also protected because
+// local-only images cannot rehydrate through useImageUrl after pruning
 const pruneCache = (protectedHashes: ReadonlySet<string>): void =>
 {
   if (cache.size <= MAX_CACHED_IMAGE_URLS)
@@ -210,7 +224,7 @@ const pruneCache = (protectedHashes: ReadonlySet<string>): void =>
   }
 
   const removable = [...cache.entries()]
-    .filter(([hash]) => !protectedHashes.has(hash))
+    .filter(([hash]) => !protectedHashes.has(hash) && !listeners.has(hash))
     .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt)
 
   const changed: string[] = []
@@ -229,18 +243,6 @@ const pruneCache = (protectedHashes: ReadonlySet<string>): void =>
   }
 }
 
-const protectedHashes = (keepHashes: Iterable<string>): Set<string> =>
-{
-  const protectedSet = new Set(keepHashes)
-
-  for (const hash of listeners.keys())
-  {
-    protectedSet.add(hash)
-  }
-
-  return protectedSet
-}
-
 export const subscribeCachedImageUrl = (
   hash: string | undefined,
   listener: () => void
@@ -251,6 +253,11 @@ export const subscribeCachedImageUrl = (
     return () =>
     {}
   }
+
+  // touch on subscribe so a freshly-mounted consumer renews LRU recency for
+  // its hash; w/o this, mount-then-evict cycles repeatedly target long-lived
+  // images
+  touchCachedHashes([hash])
 
   let subscribers = listeners.get(hash)
   if (!subscribers)
@@ -315,7 +322,7 @@ export const cacheFreshBlobs = (
     publish(changed)
   }
 
-  pruneCache(protectedHashes(changed))
+  pruneCache(changed)
 }
 
 export const cacheFreshBlob = (hash: string, blob: Blob): void =>
@@ -356,7 +363,8 @@ if (typeof window !== 'undefined')
 }
 
 export const warmImageHashes = async (
-  hashes: Iterable<string | null | undefined>
+  hashes: Iterable<string | null | undefined>,
+  signal?: AbortSignal
 ): Promise<void> =>
 {
   const referenced = new Set<string>()
@@ -378,11 +386,13 @@ export const warmImageHashes = async (
 
   if (missing.length === 0)
   {
-    pruneCache(protectedHashes(referenced))
+    pruneCache(referenced)
     return
   }
 
+  signal?.throwIfAborted()
   const records = await getBlobsBatch(missing)
+  signal?.throwIfAborted()
   const changed = new Set<string>()
   const now = Date.now()
 
@@ -413,10 +423,39 @@ export const warmImageHashes = async (
     publish(changed)
   }
 
-  pruneCache(protectedHashes(referenced))
+  pruneCache(referenced)
 }
 
-export const warmFromBoard = async (snapshot: BoardSnapshot): Promise<void> =>
+interface WarmFromBoardOptions
 {
-  await warmImageHashes(collectSnapshotRenderImageHashes(snapshot))
+  includeCloud?: boolean
+  signal?: AbortSignal
+}
+
+export const warmFromBoard = async (
+  snapshot: BoardSnapshot,
+  options: WarmFromBoardOptions = {}
+): Promise<void> =>
+{
+  const refs = collectSnapshotRenderImageRefs(snapshot)
+  await warmImageHashes(
+    refs.map((ref) => ref.hash),
+    options.signal
+  )
+
+  if (!options.includeCloud)
+  {
+    return
+  }
+
+  options.signal?.throwIfAborted()
+  // ensureCloudImageCached is idempotent on already-cached hashes, so just
+  // hand it every cloud-backed ref & let it filter
+  await Promise.all(
+    refs.map((ref) =>
+      ref.cloudMediaExternalId
+        ? ensureCloudImageCached(ref.hash, ref.cloudMediaExternalId)
+        : null
+    )
+  )
 }

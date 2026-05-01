@@ -1,183 +1,116 @@
 # Tests
 
-This directory contains the test suite for the tier list builder.
+Test suite for the tier list builder.
 
 ## Philosophy
 
-**Only major, important tests — not exhaustive coverage.**
+**Minimal tests, load-bearing only.** The suite stays small so it doesn't slow refactors. We test pure-function logic where breakage would cause silent data loss, broken drag, or unreadable UI. New tests are welcome when they fit this shape — the rules below describe what fits, not a ban on adding tests.
 
-We focus on testing critical pure-function logic that, if broken, would cause significant user impact:
+### Patterns to follow
 
-- **Drag Snapshot Logic**: Container snapshot transforms, item moves, consistency checks
-- **Drag Layout Logic**: Rendered-row grouping, scoped DOM capture, column-preserving row moves, & drag-end decisions
-- **Keyboard Navigation**: Arrow-key item movement & focus resolution
-- **Pointer Math**: Drag target index calculation & insertion positioning
-- **Color Parsing**: Hex/RGB normalization, contrast calculation
-- **Tier Colors**: Palette/custom color spec creation, resolution, & equality
-- **Board Snapshot**: Board creation, reset, tier factory, colorSpec & rowColorSpec normalization
-- **Board Rendering**: Label display resolution and render-selector projections
-- **Board Statistics**: Tier distribution, empty-board summaries, and most/least populated tier tie behavior
-- **Board Operations**: Pure tier sorting & item shuffling logic
-- **Tier Presets**: Preset-to-board conversion, board-to-preset extraction, row-color & round-trip integrity
-- **JSON Import**: Single & multi-board parsing, envelope detection, validation, & error reporting
-- **Share Codecs**: Hash-share image stripping, short-link image preservation, size guards, & abort behavior
-- **Selection Primitives**: Shared radio/tab semantics behind roving selection
-- **Nested Menus**: Shared tree state for root/submenu orchestration
-- **ID Helpers**: Generated ID prefix contract & short-link slug shape
-- **Popup/Menu Geometry**: Shared fixed-popup placement, submenu flip rules, &
-  progress normalization
-- **Image Crop Math**: Manual-crop sizing & pan-offset CSS positioning
-- **Image Editor Selection**: Image-item ordering, filters, & pending edit overlays
-- **Backend Selectors & Contracts**: Short-link listing, upload envelopes,
-  image upload validation, public templates, and Convex query/mutation limit edges
-- **Sync Runner Contracts**: Shared debounce/retry hooks, conflict pauses, and
-  workspace scheduler adapter behavior
-- **Catalog Filters**: Marketplace/library URL filter parse, serialize, and default-pruning behavior
-- **User Contracts**: Profile shape, identity display, and account deletion cascades
+1. **Group cases by behavior, not by case.** Multiple `expect()` calls inside one `it()` beat splitting "throws on missing version / missing data / bad version" across many blocks. They're the same behavior — one test.
+2. **Skip React component tests.** UI correctness is verified manually or via the e2e smoke suite. No `@testing-library/react`.
+3. **Skip DOM-dependent layout capture beyond the existing pure helpers** (`dragDomCapture`, `popupPosition`).
+4. **Skip tests for behavior the type system already enforces** — field projections, constant wrappers, "passes through unchanged".
+5. **Skip trivia** like ID prefix shape or default titles unless it's part of a load-bearing round-trip (e.g. JSON export round-trip).
+6. **Watch for mock-heavy tests.** If the mock setup is longer than the assertion, the test is probably testing implementation, not behavior — rethink the boundary.
+7. **Tiny new files are usually a smell.** A test file's overhead (imports, fixtures, README mention) should be justified by the assertion's value. Extend an existing file when possible.
 
-We intentionally do not test:
+### What we test
 
-- Every edge case or configuration combination
-- React components or hooks
-- Broad DOM-dependent utilities that require live layout capture
-- Utility functions with obvious behavior (single ternary, field projection)
-- Export rendering (PNG/PDF image capture)
-- Zustand store wiring
+The following areas are load-bearing — failure here causes real user harm. Everything else is out of scope.
 
-## Running Tests
+- **Drag** — snapshot transforms, container queries, keyboard nav, drag-end classification, pointer math, scoped DOM capture, the keyboard drag state machine.
+- **Board snapshot persistence** — JSON import/export validation, wire mapper round-trip, image strip-for-share, board storage corruption handling, cloud board mapper.
+- **Cloud sync** — scheduler retry/dedupe/conflict/error/rate-limit, first-login merge, preferences/preset cloud merges.
+- **Convex backend** — board upsert caps, library summary, image validation (security boundary), seed authorization, marketplace template publish/clone/draft, user cascade cleanup, short-link listing.
+- **Image editor** — transform commit/rotate/zoom math, modal apply-to-all plans, item ordering/filtering, draft sync.
+- **Share codecs** — hash share & short-link snapshot codec, abort behavior.
+- **Pure helpers w/ subtle math** — auto-crop bbox math, color contrast, async map limit, debounced sync runner, manual-crop CSS.
+- **Selection / overlay primitives** — roving tab-stop cache, nested menu state, popup placement, progress overlay clamping.
+- **Account profile + URL filter parsing** — handle normalization round-trips, filter parse/serialize.
+
+### What we do NOT test
+
+- React components or hooks (UI correctness is checked manually + via the e2e smoke suite)
+- Zustand store wiring, action plumbing, selector wiring beyond the few render-isolation tests
+- Trivial helpers (single ternary, field projection, constant export)
+- Every error message string verbatim
+- Every parser edge case — keep one happy path, one failure path, sometimes one edge case
+- Performance / benchmark assertions (no perf tests today; if added, they live in a separate file)
+- Cross-browser / accessibility behavior (those belong to e2e or manual review)
+
+## Adding a test
+
+Use the four-question gate to decide if the test is worth adding:
+
+1. Would this break silently if the helper regressed? (If a runtime error or type error already catches it, the test is redundant.)
+2. Would the breakage cause data loss, broken drag, or unreadable UI?
+3. Can it be tested as a pure function w/o DOM, React, or extensive mocking?
+4. Is this behavior not already covered by an existing test?
+
+Four "yes" answers → add the test. Anything less → likely redundant or out-of-scope.
+
+When you do add one, prefer extending an existing `it()` with another `expect()` over creating a new `it()` block, and prefer extending an existing file over creating a new one.
+
+## Running
 
 ```bash
-# run all unit/integration tests (single pass)
+# unit/integration tests
 npm test
-
-# run in watch mode
 npm run test:watch
+npx vitest run tests/<path>.test.ts
 
-# run a specific test file
-npx vitest run tests/dnd/dragSnapshot.test.ts
-
-# run the Playwright E2E smoke suite (requires `npx playwright install chromium` once)
+# Playwright e2e (requires `npx playwright install chromium` once)
 npm run test:e2e
 npm run test:e2e:ui
 ```
 
-E2E tests live in `e2e/` at the repo root and are excluded from the Vitest run via `vitest.config.ts`. Keep them to a small smoke/guardrail set for workflows that need real React, routing, focus, or browser wiring.
-Current guardrails cover app boot, keyboard drag/focus restoration, pointer
-drag plus Undo, bulk delete/Undo, nested modal Escape, mobile mixed-ratio prompt
-layout, and hash-share embed rendering.
-The suite also checks that the mixed-ratio prompt opens the split image editor.
+E2E lives in `e2e/` at the repo root and is excluded from the Vitest run. Keep it to a small smoke/guardrail set for cross-layer flows that need real React, routing, focus, or browser wiring. Current guardrails cover app boot, keyboard drag/focus restoration, pointer drag plus Undo, bulk delete/Undo, nested modal Escape, mobile mixed-ratio prompt, hash-share embed rendering, account profile edits, account deletion confirmation, image-editor autosave, marketplace URL filters, and the signed-in publish/use-template flow.
 
 ## Structure
 
 ```
+e2e/
+├── account.spec.ts                  — account profile edit & delete-confirmation
+├── helpers.ts                       — workspace/auth/catalog helpers
+├── guardrails.spec.ts               — drag, modal, embed, marketplace filter, library auth
+├── image-editor.spec.ts             — image-editor autosave & persisted transform
+├── marketplace-library.spec.ts      — signed-in publish/use-template + My Lists
+└── smoke.spec.ts                    — app boot
+
 tests/
-├── fixtures.ts                      — shared snapshot/tier builders & constants
-├── typeHelpers.ts                   — asInvalid<T> for intentionally malformed inputs
-├── setup.ts                         — global vitest setup (localStorage stub + resetAllMocks)
-├── board/
-│   ├── boardSnapshot.test.ts        — board creation, tier factory, colorSpec & rowColorSpec normalization
-│   ├── boardStats.test.ts           — tier distribution and population summary labels
-│   ├── boardOps.test.ts             — pure sorting & shuffling helpers
-│   ├── labelDisplay.test.ts         — per-item/board caption display resolution
-│   ├── tierColors.test.ts           — tier color spec creation, resolution, & equality
-│   └── tierPresets.test.ts          — preset-to-board & board-to-preset conversion w/ row-color round-trip
-├── contracts/
-│   ├── uploadEnvelope.test.ts       — upload envelope owner/token validation & tamper rejection
-│   └── userProfile.test.ts          — public user profile contract derivation
-├── convex/
-│   ├── boardReconciler.test.ts      — cloud-vs-local board reconciliation
-│   ├── boardUpsertLimits.test.ts    — real Convex board sync caps, media refs, & tombstones
-│   ├── convexTestHelpers.ts         — Convex test module harness
-│   ├── imageValidation.test.ts      — Convex image validation helpers
-│   ├── marketplaceTemplates.test.ts — public template publish/list/use & draft progress
-│   ├── seedAuthorization.test.ts    — marketplace seed action secret gates
-│   ├── shortLinksIntegration.test.ts — real Convex owner+expiry listing query
-│   ├── shortLinksListing.test.ts    — live short-link listing selection
-│   └── userCascade.test.ts          — account deletion cascade coverage
-├── data/
-│   ├── boardStorage.test.ts         — per-board localStorage envelope & load outcomes
-│   ├── cloudBoardMapper.test.ts     — Convex board wire <-> BoardSnapshot mapping
-│   ├── exportJson.test.ts           — JSON import parsing, validation, multi-board envelope detection
-│   ├── imageBlobCache.test.ts       — shared image blob cache lifecycle
-│   ├── imageStore.test.ts           — persistent image-store GC planning
-│   └── imageUploader.test.ts        — image upload planning & blob-cache reconciliation
-├── dnd/
-│   ├── dragSnapshot.test.ts         — snapshot transforms & container queries
-│   ├── dragDomCapture.test.ts       — scoped rendered container capture
-│   ├── dragEndDecision.test.ts      — pointer drag-end decision classification
-│   ├── dragKeyboard.test.ts         — keyboard drag target helpers
-│   ├── dragLayoutRows.test.ts       — rendered row grouping & column targeting
-│   ├── dragPointerMath.test.ts      — pointer insertion math
-│   ├── keyboardNavigation.test.ts   — pure browse/drag keyboard navigation
-│   └── keyboardDragController.test.ts — keyboard drag state machine
-├── interaction/
-│   ├── keyboardTabStop.test.ts      — roving tab-stop selector cache
-│   ├── selectionNavigation.test.ts  — selection arrow-key navigation
-│   └── selectionState.test.ts       — shared radio/tab semantics for roving selection
-├── model/
-│   ├── boardRenderSelectors.test.ts — active-board render projection selectors
-│   ├── boardConflictResolution.test.ts — conflict resolution sync identity
-│   ├── boardSession.test.ts         — session bootstrap, autosave, registry orchestration
-│   ├── imageEditorItems.test.ts     — image-editor ordering, filters, & pending edits
-│   └── urlFilters.test.ts           — marketplace/library URL filter behavior
-├── overlay/
-│   ├── nestedMenus.test.ts          — nested root/submenu open-close tree rules
-│   ├── popupPosition.test.ts        — fixed popup placement & viewport clamping
-│   ├── progressOverlay.test.ts      — blocking overlay progress normalization
-│   └── toolbarPosition.test.ts      — submenu direction & responsive toolbar helpers
-├── platform/
-│   ├── boardSyncStatus.test.ts      — per-board sync status derivation
-│   ├── cloudMerge.test.ts           — cloud/local board merge strategy
-│   ├── cloudSyncScheduler.test.ts   — debounced sync scheduler semantics
-│   ├── firstLoginBoardMerge.test.ts — first-login board merge resolution
-│   ├── firstLoginSyncLifecycle.test.ts — first-login orchestration
-│   ├── preferencesCloudMerge.test.ts — preferences cloud merge
-│   ├── tierPresetCloudMerge.test.ts — preset cloud merge
-│   └── userIdentity.test.ts         — stable user display identity helpers
-├── sharing/
-│   ├── hashShare.test.ts            — hash-fragment snapshot codec & image stripping
-│   ├── shortLinkCodec.test.ts       — short-link snapshot image policy & size guard
-│   └── shortLinkShare.test.ts       — short-link fetch/decode abort behavior
-├── settings/
-│   └── aspectRatioSettings.test.ts  — aspect-ratio prompt snapshots & mismatch grouping
-└── shared-lib/
-    ├── asyncMapLimit.test.ts        — bounded concurrency helper
-    ├── autoCrop.test.ts             — auto-crop transform resolution
-    ├── async.ts                     — queued Promise flushing helper
-    ├── boardSnapshotItems.test.ts   — snapshot image-hash collection helpers
-    ├── color.test.ts                — hex/rgb parsing & contrast
-    ├── debouncedSyncRunner.test.ts  — shared sync runner extension hooks
-    ├── id.test.ts                   — ID factory prefix contract & short-link slug shape
-    ├── imageTransform.test.ts       — manual-crop sizing & pan-offset CSS
-    └── memoryStorage.ts             — in-memory localStorage stub for tests
+├── fixtures.ts                      — shared snapshot/tier builders
+├── typeHelpers.ts                   — asInvalid<T> for malformed-input tests
+├── setup.ts                         — global vitest setup
+├── board/                           — snapshot, presets, tier colors, ops, stats
+├── contracts/                       — uploadEnvelope kind/userId/token binding
+├── convex/                          — board upsert caps, image validation, marketplace, user cascade, short-link listing
+├── data/                            — JSON import, board storage, cloud mapper, image uploader & store
+├── dnd/                             — drag snapshot, layout, pointer/keyboard, controller
+├── interaction/                     — selection roving tab-stop, navigation, ARIA
+├── model/                           — board session/conflict, render selectors, image editor, URL filters
+├── overlay/                         — nested menus, popup placement, progress, toolbar
+├── platform/                        — cloud sync scheduler, first-login merge, preferences/preset merge, account profile
+├── settings/                        — aspect-ratio prompt
+├── sharing/                         — hash share, short-link codec, share fetch abort
+└── shared-lib/                      — async map limit, autoCrop math, color, debounced runner, ID, image transform, snapshot items
 ```
 
 ## Fixtures
 
-Shared test data defined in `fixtures.ts`:
+Shared test data in `fixtures.ts`:
 
-| Export                              | Description                                                                                            |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `makeContainerSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items                                                      |
-| `makeBoardSnapshot(overrides?)`     | Builds an empty `BoardSnapshot` — compose tiers/items via overrides                                    |
-| `makeBoardMeta(overrides?)`         | Builds a registry `BoardMeta` row for local board/session tests                                        |
-| `makeBoardListItem(overrides?)`     | Builds a cloud `BoardListItem` row for sync and Convex list tests                                      |
-| `makeTier(overrides?)`              | Builds a `Tier` w/ palette colorSpec defaults                                                          |
-| `makeItem(overrides?)`              | Builds a `TierItem` w/ a default item ID                                                               |
-| `makeRect(overrides?)`              | Builds a `DOMRect` for layout/popup tests; derives `right`/`bottom` from `left`/`top`/`width`/`height` |
+| Export                              | Description                                               |
+| ----------------------------------- | --------------------------------------------------------- |
+| `makeContainerSnapshot(overrides?)` | `ContainerSnapshot` w/ 3 tiers & 8 items                  |
+| `makeBoardSnapshot(overrides?)`     | Empty `BoardSnapshot` — compose tiers/items via overrides |
+| `makeBoardMeta(overrides?)`         | Registry `BoardMeta` row for local board/session tests    |
+| `makeBoardListItem(overrides?)`     | Cloud `BoardListItem` row for sync & Convex list tests    |
+| `makeTier(overrides?)`              | `Tier` w/ palette colorSpec defaults                      |
+| `makeItem(overrides?)`              | `TierItem` w/ a default item ID                           |
+| `makeRect(overrides?)`              | `DOMRect` for layout/popup tests; derives right/bottom    |
 
-`tests/typeHelpers.ts` provides `asInvalid<T>(value)` for tests that intentionally pass malformed input. Prefer it over a bare `as never` cast so the intent is explicit.
+`tests/typeHelpers.ts` provides `asInvalid<T>(value)` for malformed-input tests.
 
-`tests/shared-lib/async.ts` provides `flushPromises()` for tests that need
-queued Promise continuations to settle under fake timers.
-
-## Adding Tests
-
-Before adding a new test, ask:
-
-1. Does this test a critical path that would break core functionality if it failed?
-2. Is this behavior not already covered by existing tests?
-3. Can this be tested as a pure function without DOM or mocking?
-4. Would breakage cause significant user impact (data loss, broken drag, unreadable UI)?
-
-If yes to all four, add the test. Otherwise, consider whether it's truly necessary.
+`tests/shared-lib/async.ts` provides `flushPromises()` for queued Promise continuations under fake timers.

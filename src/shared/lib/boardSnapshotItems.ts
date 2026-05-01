@@ -4,6 +4,7 @@
 import type {
   BoardSnapshot,
   TierItem,
+  TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
@@ -63,22 +64,29 @@ export const collectSnapshotImageHashes = (
 ]
 
 // collect hashes needed for visible board rendering, not unused edit sources
-export const collectSnapshotRenderImageHashes = (
+export const collectSnapshotRenderImageRefs = (
   snapshot: BoardSnapshot
-): string[] =>
+): TierItemImageRef[] =>
 {
-  const hashes: Array<string | undefined> = []
+  const refs: TierItemImageRef[] = []
   const seen = new Set<ItemId>()
+  const seenHashes = new Set<string>()
+  const pushRef = (ref: TierItemImageRef | undefined): void =>
+  {
+    if (!ref || seenHashes.has(ref.hash)) return
+    seenHashes.add(ref.hash)
+    refs.push(ref)
+  }
   const visitId = (id: ItemId): void =>
   {
     if (seen.has(id)) return
     seen.add(id)
     const item = snapshot.items[id]
     if (!item?.imageRef) return
-    hashes.push(item.imageRef.hash)
+    pushRef(item.imageRef)
     if (itemHasRenderTransform(item))
     {
-      hashes.push(item.sourceImageRef?.hash)
+      pushRef(item.sourceImageRef)
     }
   }
 
@@ -88,8 +96,12 @@ export const collectSnapshotRenderImageHashes = (
   }
   for (const id of snapshot.unrankedItemIds) visitId(id)
 
-  return [...new Set(hashes.filter(isPresent))]
+  return refs
 }
+
+export const collectSnapshotRenderImageHashes = (
+  snapshot: BoardSnapshot
+): string[] => collectSnapshotRenderImageRefs(snapshot).map((ref) => ref.hash)
 
 // collect every local blob hash the snapshot needs to retain
 export const collectSnapshotLocalImageHashes = (

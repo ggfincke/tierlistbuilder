@@ -1,5 +1,5 @@
 // tests/overlay/nestedMenus.test.ts
-// nested menu state helpers
+// nested menu open/close & prune helpers
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -18,28 +18,19 @@ const MENU_DEFINITIONS: readonly NestedMenuDefinition<MenuId>[] = [
   { id: 'format', parentId: 'image' },
   { id: 'exportAll', parentId: 'root' },
 ]
-
 const MENU_INDEX = buildNestedMenuIndex(MENU_DEFINITIONS)
 
 describe('toggleNestedMenuState', () =>
 {
-  it('opens the full ancestor path for a submenu', () =>
+  it('opens ancestors, closes siblings, toggles open submenus closed, & ignores disabled branches', () =>
   {
     expect(toggleNestedMenuState([], MENU_INDEX, 'image', new Set())).toEqual([
       'root',
       'image',
     ])
-  })
-
-  it('opens a nested child without collapsing its ancestors', () =>
-  {
     expect(
       toggleNestedMenuState(['root', 'image'], MENU_INDEX, 'format', new Set())
     ).toEqual(['root', 'image', 'format'])
-  })
-
-  it('closes sibling branches when another submenu opens', () =>
-  {
     expect(
       toggleNestedMenuState(
         ['root', 'image', 'format'],
@@ -48,10 +39,6 @@ describe('toggleNestedMenuState', () =>
         new Set()
       )
     ).toEqual(['root', 'exportAll'])
-  })
-
-  it('closes a submenu branch when toggled while already open', () =>
-  {
     expect(
       toggleNestedMenuState(
         ['root', 'image', 'format'],
@@ -60,10 +47,6 @@ describe('toggleNestedMenuState', () =>
         new Set()
       )
     ).toEqual(['root'])
-  })
-
-  it('ignores toggles for disabled branches', () =>
-  {
     expect(
       toggleNestedMenuState(
         ['root', 'image'],
@@ -75,9 +58,9 @@ describe('toggleNestedMenuState', () =>
   })
 })
 
-describe('closeNestedMenuBranch', () =>
+describe('closeNestedMenuBranch & pruneNestedMenuState', () =>
 {
-  it('removes the target menu & all descendants', () =>
+  it('removes target + descendants & prunes disabled branches', () =>
   {
     expect(
       closeNestedMenuBranch(
@@ -86,13 +69,7 @@ describe('closeNestedMenuBranch', () =>
         'image'
       )
     ).toEqual(['root', 'exportAll'])
-  })
-})
 
-describe('pruneNestedMenuState', () =>
-{
-  it('removes disabled sibling branches without touching active branches', () =>
-  {
     expect(
       pruneNestedMenuState(
         ['root', 'image', 'format', 'exportAll'],
@@ -100,10 +77,7 @@ describe('pruneNestedMenuState', () =>
         new Set<MenuId>(['exportAll'])
       )
     ).toEqual(['root', 'image', 'format'])
-  })
 
-  it('removes an entire tree when the root menu becomes disabled', () =>
-  {
     expect(
       pruneNestedMenuState(
         ['root', 'image', 'format'],

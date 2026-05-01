@@ -1,11 +1,9 @@
 // tests/convex/imageValidation.test.ts
-// verify server-side image sniffing reads trusted metadata from bytes. each
-// supported format gets at least one sniff & one reject (security boundary)
+// server-side image sniffing: trusted metadata reads & format rejections
 
 import { describe, expect, it } from 'vitest'
 import { parseUploadedImageMetadata } from '../../convex/lib/imageValidation'
 
-// build a minimal PNG IHDR header w/ the given dimensions
 const buildPngHeader = (width: number, height: number): Uint8Array =>
 {
   const bytes = new Uint8Array(24)
@@ -23,7 +21,6 @@ const buildPngHeader = (width: number, height: number): Uint8Array =>
   return bytes
 }
 
-// build a minimal GIF header (GIF89a + LE dims)
 const buildGifHeader = (width: number, height: number): Uint8Array =>
 {
   const bytes = new Uint8Array(10)
@@ -35,7 +32,6 @@ const buildGifHeader = (width: number, height: number): Uint8Array =>
   return bytes
 }
 
-// build a minimal JPEG w/ SOI + SOF0 segment carrying BE dims
 const buildJpegHeader = (width: number, height: number): Uint8Array =>
 {
   const bytes = new Uint8Array(21)
@@ -50,7 +46,6 @@ const buildJpegHeader = (width: number, height: number): Uint8Array =>
   return bytes
 }
 
-// build a minimal WebP w/ VP8X chunk (24-bit LE w-1 / h-1)
 const buildWebpVp8xHeader = (width: number, height: number): Uint8Array =>
 {
   const bytes = new Uint8Array(30)
@@ -69,7 +64,6 @@ const buildWebpVp8xHeader = (width: number, height: number): Uint8Array =>
   return bytes
 }
 
-// build a minimal WebP w/ lossy VP8 chunk carrying masked 14-bit LE dims
 const buildWebpVp8Header = (width: number, height: number): Uint8Array =>
 {
   const bytes = new Uint8Array(30)
@@ -86,7 +80,6 @@ const buildWebpVp8Header = (width: number, height: number): Uint8Array =>
   return bytes
 }
 
-// build a minimal WebP w/ lossless VP8L chunk carrying packed 14+14 bit dims
 const buildWebpVp8lHeader = (width: number, height: number): Uint8Array =>
 {
   const bytes = new Uint8Array(30)
@@ -104,35 +97,23 @@ const buildWebpVp8lHeader = (width: number, height: number): Uint8Array =>
 
 describe('parseUploadedImageMetadata', () =>
 {
-  it('reads png dimensions', () =>
+  it('reads dimensions for png, gif, jpeg, & webp (VP8X, VP8, VP8L)', () =>
   {
     expect(parseUploadedImageMetadata(buildPngHeader(64, 32))).toEqual({
       mimeType: 'image/png',
       width: 64,
       height: 32,
     })
-  })
-
-  it('reads gif dimensions (LE)', () =>
-  {
     expect(parseUploadedImageMetadata(buildGifHeader(300, 200))).toEqual({
       mimeType: 'image/gif',
       width: 300,
       height: 200,
     })
-  })
-
-  it('reads jpeg dimensions (BE in SOF0)', () =>
-  {
     expect(parseUploadedImageMetadata(buildJpegHeader(1024, 768))).toEqual({
       mimeType: 'image/jpeg',
       width: 1024,
       height: 768,
     })
-  })
-
-  it('reads webp VP8X extended-format dimensions', () =>
-  {
     expect(parseUploadedImageMetadata(buildWebpVp8xHeader(4096, 2048))).toEqual(
       {
         mimeType: 'image/webp',
@@ -140,19 +121,11 @@ describe('parseUploadedImageMetadata', () =>
         height: 2048,
       }
     )
-  })
-
-  it('reads webp VP8 lossy dimensions', () =>
-  {
     expect(parseUploadedImageMetadata(buildWebpVp8Header(640, 480))).toEqual({
       mimeType: 'image/webp',
       width: 640,
       height: 480,
     })
-  })
-
-  it('reads webp VP8L lossless dimensions', () =>
-  {
     expect(parseUploadedImageMetadata(buildWebpVp8lHeader(256, 128))).toEqual({
       mimeType: 'image/webp',
       width: 256,
@@ -160,43 +133,28 @@ describe('parseUploadedImageMetadata', () =>
     })
   })
 
-  it('rejects a completely malformed payload', () =>
+  it('rejects malformed payloads, oversized dimensions, & missing format signatures', () =>
   {
     expect(() => parseUploadedImageMetadata(new Uint8Array([1, 2, 3]))).toThrow(
       'unsupported or malformed image payload'
     )
-  })
 
-  it('rejects a PNG w/ a dimension past MAX_IMAGE_DIMENSION', () =>
-  {
-    const bytes = buildPngHeader(99_999, 10)
-    expect(() => parseUploadedImageMetadata(bytes)).toThrow(
+    expect(() =>
+      parseUploadedImageMetadata(buildPngHeader(99_999, 10))
+    ).toThrow(/dimensions out of range/)
+    expect(() => parseUploadedImageMetadata(buildJpegHeader(0, 10))).toThrow(
       /dimensions out of range/
     )
-  })
 
-  it('rejects a JPEG w/ a zero dimension', () =>
-  {
-    const bytes = buildJpegHeader(0, 10)
-    expect(() => parseUploadedImageMetadata(bytes)).toThrow(
-      /dimensions out of range/
-    )
-  })
-
-  it('rejects a GIF w/ an unknown signature prefix', () =>
-  {
-    const bytes = buildGifHeader(16, 16)
-    bytes[0] = 0x4a
-    expect(() => parseUploadedImageMetadata(bytes)).toThrow(
+    const badGif = buildGifHeader(16, 16)
+    badGif[0] = 0x4a
+    expect(() => parseUploadedImageMetadata(badGif)).toThrow(
       'unsupported or malformed image payload'
     )
-  })
 
-  it('rejects a WebP w/ a missing VP8 signature', () =>
-  {
-    const bytes = buildWebpVp8Header(64, 64)
-    bytes[23] = 0x00
-    expect(() => parseUploadedImageMetadata(bytes)).toThrow(
+    const badWebp = buildWebpVp8Header(64, 64)
+    badWebp[23] = 0x00
+    expect(() => parseUploadedImageMetadata(badWebp)).toThrow(
       'unsupported or malformed image payload'
     )
   })

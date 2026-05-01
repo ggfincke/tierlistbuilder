@@ -1,5 +1,5 @@
 // tests/convex/seedAuthorization.test.ts
-// Convex marketplace seed action authorization guardrails
+// marketplace seed action authorization gates
 
 import { convexTest } from 'convex-test'
 import rateLimiter from '@convex-dev/rate-limiter/test'
@@ -16,7 +16,6 @@ const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
 }
 
 const SEED_SECRET = 'test-seed-secret'
-
 const originalEnv = {
   enabled: process.env.CONVEX_SEED_ENABLED,
   secret: process.env.CONVEX_SEED_SECRET,
@@ -31,24 +30,16 @@ const restoreEnv = (): void =>
   else process.env.CONVEX_SEED_SECRET = originalEnv.secret
 }
 
-const disableSeeding = (): void =>
-{
-  delete process.env.CONVEX_SEED_ENABLED
-  delete process.env.CONVEX_SEED_SECRET
-}
-
-const enableSeeding = (): void =>
-{
-  process.env.CONVEX_SEED_ENABLED = 'true'
-  process.env.CONVEX_SEED_SECRET = SEED_SECRET
-}
-
 describe('marketplace seed authorization', () =>
 {
-  beforeEach(disableSeeding)
+  beforeEach(() =>
+  {
+    delete process.env.CONVEX_SEED_ENABLED
+    delete process.env.CONVEX_SEED_SECRET
+  })
   afterEach(restoreEnv)
 
-  it('rejects public seed status reads when seeding is disabled', async () =>
+  it('rejects seed actions when flag/secret missing or wrong; allows when both match', async () =>
   {
     const t = makeTest()
 
@@ -58,26 +49,16 @@ describe('marketplace seed authorization', () =>
         email: 'seed@example.com',
       })
     ).rejects.toThrow(/seeding is disabled/)
-  })
 
-  it('rejects public maintenance mutations when the deployment secret is missing', async () =>
-  {
-    const t = makeTest()
     process.env.CONVEX_SEED_ENABLED = 'true'
     delete process.env.CONVEX_SEED_SECRET
-
     await expect(
       t.action(api.marketplace.templates.seed.clearAllFeaturedRanks, {
         seedSecret: SEED_SECRET,
       })
     ).rejects.toThrow(/seeding is locked/)
-  })
 
-  it('rejects destructive seed uploads when the caller secret is wrong', async () =>
-  {
-    const t = makeTest()
-    enableSeeding()
-
+    process.env.CONVEX_SEED_SECRET = SEED_SECRET
     await expect(
       t.action(api.marketplace.templates.seed.seedTemplateFromBlobs, {
         seedSecret: 'wrong-secret',
@@ -90,12 +71,6 @@ describe('marketplace seed authorization', () =>
         items: [],
       })
     ).rejects.toThrow(/seeding is locked/)
-  })
-
-  it('allows seed status reads only when the flag and secret both match', async () =>
-  {
-    const t = makeTest()
-    enableSeeding()
 
     await expect(
       t.action(api.marketplace.templates.seed.getSeedUserStatus, {

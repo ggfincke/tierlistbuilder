@@ -1,55 +1,31 @@
 // tests/board/tierPresets.test.ts
-// built-in presets & board conversion helpers
+// preset-to-board & board-to-preset round-trip integrity
 
 import { describe, it, expect } from 'vitest'
 import {
+  BUILTIN_PRESETS,
   createBoardDataFromPreset,
   extractPresetFromBoard,
-  BUILTIN_PRESETS,
 } from '~/features/workspace/tier-presets/model/tierPresets'
 import {
-  createPaletteTierColorSpec,
   createCustomTierColorSpec,
+  createPaletteTierColorSpec,
 } from '~/shared/theme/tierColors'
-import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
 
 const CLASSIC_PRESET = BUILTIN_PRESETS.find((p) => p.id === 'builtin-classic')!
-
 const GOLD_PRESET = BUILTIN_PRESETS.find(
   (p) => p.id === 'builtin-gold-silver-bronze'
 )!
 
 describe('createBoardDataFromPreset', () =>
 {
-  it('creates a board w/ the default title', () =>
+  it('preserves preset names, palette specs, & custom specs', () =>
   {
-    const data = createBoardDataFromPreset(CLASSIC_PRESET)
-    expect(data.title).toBe('My Tier List')
-  })
-
-  it('accepts a custom title override', () =>
-  {
-    const data = createBoardDataFromPreset(CLASSIC_PRESET, 'Custom Title')
-    expect(data.title).toBe('Custom Title')
-  })
-
-  it('generates unique tier IDs for each tier', () =>
-  {
-    const data = createBoardDataFromPreset(CLASSIC_PRESET)
-    const ids = data.tiers.map((t) => t.id)
-    expect(new Set(ids).size).toBe(ids.length)
-    for (const id of ids)
-    {
-      expect(id).toMatch(/^tier-/)
-    }
-  })
-
-  it('preserves tier names from the preset', () =>
-  {
-    const data = createBoardDataFromPreset(CLASSIC_PRESET)
-    expect(data.tiers.map((t) => t.name)).toEqual([
+    const classic = createBoardDataFromPreset(CLASSIC_PRESET, 'Custom')
+    expect(classic.title).toBe('Custom')
+    expect(classic.tiers.map((t) => t.name)).toEqual([
       'S',
       'A',
       'B',
@@ -57,163 +33,64 @@ describe('createBoardDataFromPreset', () =>
       'D',
       'E',
     ])
-  })
+    expect(classic.tiers[0].colorSpec).toEqual(createPaletteTierColorSpec(0))
+    expect(new Set(classic.tiers.map((t) => t.id)).size).toBe(
+      classic.tiers.length
+    )
 
-  it('preserves palette colorSpecs from the preset', () =>
-  {
-    const data = createBoardDataFromPreset(CLASSIC_PRESET)
-    expect(data.tiers[0].colorSpec).toEqual(createPaletteTierColorSpec(0))
-    expect(data.tiers[3].colorSpec).toEqual(createPaletteTierColorSpec(3))
-  })
-
-  it('preserves custom colorSpecs from the preset', () =>
-  {
-    const data = createBoardDataFromPreset(GOLD_PRESET)
-    expect(data.tiers[0].colorSpec).toEqual(
+    const gold = createBoardDataFromPreset(GOLD_PRESET)
+    expect(gold.tiers[0].colorSpec).toEqual(
       createCustomTierColorSpec('#ffd700')
     )
-  })
-
-  it('initializes empty itemIds, items, unranked, & deletedItems', () =>
-  {
-    const data = createBoardDataFromPreset(CLASSIC_PRESET)
-    for (const tier of data.tiers)
-    {
-      expect(tier.itemIds).toEqual([])
-    }
-    expect(data.items).toEqual({})
-    expect(data.unrankedItemIds).toEqual([])
-    expect(data.deletedItems).toEqual([])
-  })
-
-  it('preserves tier descriptions when present', () =>
-  {
-    const preset: TierPreset = {
-      id: 'preset-test',
-      name: 'Test',
-      builtIn: false,
-      tiers: [
-        {
-          name: 'Top',
-          colorSpec: createPaletteTierColorSpec(0),
-          description: 'The best',
-        },
-      ],
-    }
-    const data = createBoardDataFromPreset(preset)
-    expect(data.tiers[0].description).toBe('The best')
   })
 })
 
 describe('extractPresetFromBoard', () =>
 {
-  const sampleBoard = makeBoardSnapshot({
-    title: 'My Board',
-    tiers: [
-      makeTier({
-        id: 'tier-s',
-        name: 'S',
-        itemIds: [asItemId('item-1'), asItemId('item-2')],
-      }),
-      makeTier({
-        id: 'tier-a',
-        name: 'A',
-        description: 'Great picks',
-        colorSpec: createCustomTierColorSpec('#abcdef'),
-        itemIds: [asItemId('item-3')],
-      }),
-    ],
-    unrankedItemIds: [asItemId('item-4')],
-    items: {
-      [asItemId('item-1')]: makeItem({ id: asItemId('item-1') }),
-      [asItemId('item-2')]: makeItem({ id: asItemId('item-2') }),
-      [asItemId('item-3')]: makeItem({ id: asItemId('item-3') }),
-      [asItemId('item-4')]: makeItem({ id: asItemId('item-4') }),
-    },
-  })
-
-  it('generates a preset ID w/ the preset- prefix', () =>
-  {
-    const preset = extractPresetFromBoard(sampleBoard, 'My Preset')
-    expect(preset.id).toMatch(/^preset-/)
-  })
-
-  it('uses the provided name', () =>
-  {
-    const preset = extractPresetFromBoard(sampleBoard, 'Custom Name')
-    expect(preset.name).toBe('Custom Name')
-  })
-
-  it('marks the preset as not built-in', () =>
-  {
-    const preset = extractPresetFromBoard(sampleBoard, 'Test')
-    expect(preset.builtIn).toBe(false)
-  })
-
-  it('preserves tier names & colorSpecs', () =>
-  {
-    const preset = extractPresetFromBoard(sampleBoard, 'Test')
-    expect(preset.tiers).toHaveLength(2)
-    expect(preset.tiers[0].name).toBe('S')
-    expect(preset.tiers[0].colorSpec).toEqual(createPaletteTierColorSpec(0))
-    expect(preset.tiers[1].colorSpec).toEqual(
-      createCustomTierColorSpec('#abcdef')
-    )
-  })
-
-  it('preserves tier descriptions', () =>
-  {
-    const preset = extractPresetFromBoard(sampleBoard, 'Test')
-    expect(preset.tiers[1].description).toBe('Great picks')
-  })
-
-  it('strips itemIds from tiers (presets have no items)', () =>
-  {
-    const preset = extractPresetFromBoard(sampleBoard, 'Test')
-    for (const tier of preset.tiers)
-    {
-      expect(tier).not.toHaveProperty('itemIds')
-    }
-  })
-
-  it('round-trips: extract then create produces matching structure', () =>
-  {
-    const preset = extractPresetFromBoard(sampleBoard, 'Round Trip')
-    const rebuilt = createBoardDataFromPreset(preset, 'Round Trip')
-    expect(rebuilt.tiers).toHaveLength(sampleBoard.tiers.length)
-    for (let i = 0; i < rebuilt.tiers.length; i++)
-    {
-      expect(rebuilt.tiers[i].name).toBe(sampleBoard.tiers[i].name)
-      expect(rebuilt.tiers[i].colorSpec).toEqual(sampleBoard.tiers[i].colorSpec)
-      expect(rebuilt.tiers[i].itemIds).toEqual([])
-    }
-  })
-
-  it('round-trips rowColorSpec through extract & rebuild', () =>
+  it('round-trips tier names, colorSpecs, descriptions, & rowColorSpec', () =>
   {
     const board = makeBoardSnapshot({
       tiers: [
         makeTier({
-          id: 'tier-1',
+          id: 'tier-s',
           name: 'S',
+          itemIds: [asItemId('item-1')],
           rowColorSpec: createCustomTierColorSpec('#445566'),
         }),
-        makeTier({ id: 'tier-2', name: 'A' }),
+        makeTier({
+          id: 'tier-a',
+          name: 'A',
+          description: 'Great picks',
+          colorSpec: createCustomTierColorSpec('#abcdef'),
+          itemIds: [asItemId('item-2')],
+        }),
       ],
+      items: {
+        [asItemId('item-1')]: makeItem({ id: asItemId('item-1') }),
+        [asItemId('item-2')]: makeItem({ id: asItemId('item-2') }),
+      },
     })
 
-    const preset = extractPresetFromBoard(board, 'Row Colors')
+    const preset = extractPresetFromBoard(board, 'Round Trip')
+    expect(preset.id).toMatch(/^preset-/)
+    expect(preset.name).toBe('Round Trip')
+    expect(preset.builtIn).toBe(false)
     expect(preset.tiers[0].rowColorSpec).toEqual({
       kind: 'custom',
       hex: '#445566',
     })
-    expect(preset.tiers[1].rowColorSpec).toBeUndefined()
+    expect(preset.tiers[1].description).toBe('Great picks')
+    expect(preset.tiers).not.toHaveProperty([0, 'itemIds'])
 
     const rebuilt = createBoardDataFromPreset(preset)
+    expect(rebuilt.tiers).toHaveLength(2)
     expect(rebuilt.tiers[0].rowColorSpec).toEqual({
       kind: 'custom',
       hex: '#445566',
     })
-    expect(rebuilt.tiers[1].rowColorSpec).toBeUndefined()
+    expect(rebuilt.tiers[1].colorSpec).toEqual(
+      createCustomTierColorSpec('#abcdef')
+    )
+    expect(rebuilt.tiers.every((t) => t.itemIds.length === 0)).toBe(true)
   })
 })

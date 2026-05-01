@@ -13,11 +13,10 @@ import {
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { nextToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { announce } from '~/shared/a11y/announce'
-import { toast } from '~/shared/notifications/useToastStore'
 import { hasActiveModalLayer } from '~/shared/overlay/modalLayer'
 import {
-  getUndoRedoShortcut,
   isEditableShortcutTarget,
+  runUndoRedoShortcut,
 } from './undoRedoShortcut'
 
 interface UseGlobalShortcutsOptions
@@ -27,9 +26,6 @@ interface UseGlobalShortcutsOptions
 
 export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
 {
-  const undo = useActiveBoardStore((state) => state.undo)
-  const redo = useActiveBoardStore((state) => state.redo)
-
   const [showShortcutsPanel, setShowShortcutsPanel] = useState(false)
 
   const closeShortcutsPanel = useCallback(
@@ -52,21 +48,14 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
 
       // drop Ctrl/Cmd+Z/Y mid-drag — dnd-kit still holds its own active state,
       // & undoing out from under it leaves the overlay & refs stranded
-      const dragActive = selectIsDragging(useActiveBoardStore.getState())
-      const undoRedoShortcut = getUndoRedoShortcut(e)
-
-      if (undoRedoShortcut)
+      if (
+        runUndoRedoShortcut(e, {
+          guard: () =>
+            selectIsDragging(useActiveBoardStore.getState()) ||
+            usePreferencesStore.getState().boardLocked,
+        })
+      )
       {
-        e.preventDefault()
-        const locked = usePreferencesStore.getState().boardLocked
-        if (dragActive || locked) return
-        const result = undoRedoShortcut === 'undo' ? undo() : redo()
-        if (result)
-        {
-          toast(
-            `${undoRedoShortcut === 'undo' ? 'Undid' : 'Redid'} ${result.label.toLowerCase()}`
-          )
-        }
         return
       }
 
@@ -182,7 +171,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       document.removeEventListener('keydown', handler)
       document.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [undo, redo, onExport])
+  }, [onExport])
 
   return {
     showShortcutsPanel,

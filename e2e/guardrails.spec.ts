@@ -1,134 +1,20 @@
 // e2e/guardrails.spec.ts
 // Playwright guardrails for cross-layer board workflows
 
-import { expect, test, type Locator, type Page } from 'playwright/test'
-import { deflate } from 'pako'
-
-type E2eBoard = {
-  title: string
-  tiers: {
-    id: string
-    name: string
-    colorSpec: { kind: 'palette'; index: number }
-    itemIds: string[]
-  }[]
-  unrankedItemIds: string[]
-  items: Record<string, { id: string; label: string; backgroundColor: string }>
-  deletedItems: []
-}
-
-const multiSelectModifier: 'Meta' | 'Control' =
-  process.platform === 'darwin' ? 'Meta' : 'Control'
-
-const tierItemTestId = (itemId: string): string => `tier-item-${itemId}`
-const tierContainerTestId = (tierId: string): string =>
-  `tier-container-${tierId}`
-const templateSearchBox = (page: Page): Locator =>
-  page.getByRole('searchbox', { name: 'Search templates' })
-const templateSortSelect = (page: Page): Locator =>
-  page.getByRole('combobox', { name: /sort templates by/i })
-const templateCategoryChip = (page: Page, label: string): Locator =>
-  page.getByRole('button', { name: new RegExp(`^${label}`) })
-
-const toBase64Url = (bytes: Uint8Array): string =>
-  Buffer.from(bytes)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-
-const encodeShareFragment = (board: E2eBoard): string =>
-  toBase64Url(deflate(new TextEncoder().encode(JSON.stringify(board))))
-
-const makeBoard = (title: string): E2eBoard => ({
-  title,
-  tiers: [
-    {
-      id: 'tier-s',
-      name: 'S',
-      colorSpec: { kind: 'palette', index: 0 },
-      itemIds: ['item-alpha'],
-    },
-    {
-      id: 'tier-a',
-      name: 'A',
-      colorSpec: { kind: 'palette', index: 1 },
-      itemIds: ['item-beta'],
-    },
-  ],
-  unrankedItemIds: ['item-gamma', 'item-delta'],
-  items: {
-    'item-alpha': {
-      id: 'item-alpha',
-      label: 'Alpha',
-      backgroundColor: '#111111',
-    },
-    'item-beta': {
-      id: 'item-beta',
-      label: 'Beta',
-      backgroundColor: '#222222',
-    },
-    'item-gamma': {
-      id: 'item-gamma',
-      label: 'Gamma',
-      backgroundColor: '#333333',
-    },
-    'item-delta': {
-      id: 'item-delta',
-      label: 'Delta',
-      backgroundColor: '#444444',
-    },
-  },
-  deletedItems: [],
-})
-
-const resetBrowserStorage = async (page: Page): Promise<void> =>
-{
-  await page.addInitScript(() =>
-  {
-    window.localStorage.clear()
-    window.sessionStorage.clear()
-  })
-}
-
-const openWorkspaceWithBoard = async (
-  page: Page,
-  board = makeBoard('Phase 1 Guardrail Board')
-): Promise<E2eBoard> =>
-{
-  await page.goto(`/#share=${encodeShareFragment(board)}`)
-  await expect(page.getByTestId('tier-list-board')).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: /edit board title/i })
-  ).toHaveText(board.title)
-  return board
-}
-
-const dragCenterToCenter = async (
-  page: Page,
-  source: Locator,
-  target: Locator
-): Promise<void> =>
-{
-  const sourceBox = await source.boundingBox()
-  const targetBox = await target.boundingBox()
-
-  if (!sourceBox || !targetBox)
-  {
-    throw new Error('unable to resolve drag boxes')
-  }
-
-  const sourceX = sourceBox.x + sourceBox.width / 2
-  const sourceY = sourceBox.y + sourceBox.height / 2
-  const targetX = targetBox.x + targetBox.width / 2
-  const targetY = targetBox.y + targetBox.height / 2
-
-  await page.mouse.move(sourceX, sourceY)
-  await page.mouse.down()
-  await page.mouse.move(sourceX + 12, sourceY + 12)
-  await page.mouse.move(targetX, targetY, { steps: 12 })
-  await page.mouse.up()
-}
+import { expect, test } from 'playwright/test'
+import {
+  dragCenterToCenter,
+  encodeShareFragment,
+  makeBoard,
+  multiSelectModifier,
+  openWorkspaceWithBoard,
+  resetBrowserStorage,
+  templateCategoryChip,
+  templateSearchBox,
+  templateSortSelect,
+  tierContainerTestId,
+  tierItemTestId,
+} from './helpers'
 
 test.beforeEach(async ({ page }) =>
 {
@@ -367,6 +253,37 @@ test('marketplace filters follow query-param changes while mounted', async ({
   await expect(sort).toHaveValue('recent')
   await expect(sort).toBeDisabled()
   await expect(page).toHaveURL(/tag=bosses/)
+})
+
+test('My Lists signed-out CTA opens auth and links to templates', async ({
+  page,
+}) =>
+{
+  await page.goto('/boards')
+
+  await expect(
+    page.getByRole('heading', {
+      name: "A home for every ranking you've made.",
+    })
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add tier' })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Sign in to see your lists' }).click()
+  const signIn = page.getByRole('dialog', { name: 'Sign in' })
+  await expect(signIn).toBeVisible()
+  await expect(signIn.getByLabel('Email')).toBeFocused()
+
+  await signIn.getByRole('tab', { name: 'Create account' }).click()
+  await expect(
+    page.getByRole('dialog', { name: 'Create account' })
+  ).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  await page.getByRole('link', { name: 'Browse templates' }).click()
+  await expect(page).toHaveURL(/\/templates$/)
+  await expect(templateSearchBox(page)).toBeVisible()
 })
 
 test('marketplace discrete filters create navigable history entries', async ({

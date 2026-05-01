@@ -28,14 +28,11 @@ import {
   replaceBlobRefs,
 } from '~/shared/images/imageStore'
 
-// build a per-board localStorage key from its ID
-export const boardStorageKey = (id: BoardId): string => `tier-list-board-${id}`
+import { boardStorageKey, boardSyncStorageKey } from './storageKeys'
+
+export { boardStorageKey, boardSyncStorageKey }
 
 export const boardImageRefScope = (id: BoardId): string => `board:${id}`
-
-// build the per-board localStorage key for cloud sync metadata
-export const boardSyncStorageKey = (id: BoardId): string =>
-  `tier-list-board-sync-${id}`
 
 interface StoredBoardEnvelope
 {

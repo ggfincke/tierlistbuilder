@@ -56,15 +56,19 @@ const getAutoCropImageRef = (item: TierItem): TierItemImageRef | undefined =>
   item.sourceImageRef ?? item.imageRef
 
 export const loadAutoCropBlob = async (
-  ref: TierItemImageRef | undefined
+  ref: TierItemImageRef | undefined,
+  signal?: AbortSignal
 ): Promise<BlobRecord | null> =>
 {
   if (!ref) return null
 
+  signal?.throwIfAborted()
   let record = await getBlob(ref.hash)
   if (!record && ref.cloudMediaExternalId)
   {
+    signal?.throwIfAborted()
     await ensureCloudImageCached(ref.hash, ref.cloudMediaExternalId)
+    signal?.throwIfAborted()
     record = await getBlob(ref.hash)
   }
   if (record)
@@ -131,9 +135,11 @@ export const areCachedAutoCropsApplied = (
 export const detectContentBBox = async (
   blob: Blob,
   hash: string | undefined,
-  trimSoftShadows: boolean
+  trimSoftShadows: boolean,
+  signal?: AbortSignal
 ): Promise<AutoCropBBox | null> =>
 {
+  signal?.throwIfAborted()
   if (hash && scanCache.has(hash))
   {
     const cached = scanCache.get(hash)
@@ -150,6 +156,7 @@ export const detectContentBBox = async (
     logger.warn('autoCrop', 'detection failed', error)
     scan = null
   }
+  signal?.throwIfAborted()
 
   if (hash)
   {
@@ -187,6 +194,7 @@ interface CollectAutoCropTransformsParams
   boardAspectRatio: number
   trimSoftShadows: boolean
   onProgress?: () => void
+  signal?: AbortSignal
 }
 
 // shared bulk auto-crop pipeline used by the issue modal & image editor:
@@ -197,6 +205,7 @@ export const collectAutoCropTransforms = async ({
   boardAspectRatio,
   trimSoftShadows,
   onProgress,
+  signal,
 }: CollectAutoCropTransformsParams): Promise<AutoCropTransformEntry[]> =>
 {
   const entries = await mapAsyncLimit(
@@ -204,14 +213,15 @@ export const collectAutoCropTransforms = async ({
     AUTO_CROP_BATCH_CONCURRENCY,
     async (item): Promise<AutoCropTransformEntry | null> =>
     {
+      signal?.throwIfAborted()
       const ref = getAutoCropImageRef(item)!
       const hash = ref.hash
       let bbox = getCachedBBox(hash, trimSoftShadows)
       if (bbox === undefined)
       {
-        const record = await loadAutoCropBlob(ref)
+        const record = await loadAutoCropBlob(ref, signal)
         bbox = record
-          ? await detectContentBBox(record.bytes, hash, trimSoftShadows)
+          ? await detectContentBBox(record.bytes, hash, trimSoftShadows, signal)
           : null
       }
       onProgress?.()

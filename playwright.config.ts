@@ -1,5 +1,5 @@
 // playwright.config.ts
-// minimal Playwright config — boots vite dev server & runs chromium smoke test
+// Playwright config — prepares local Convex Auth & boots the dev server
 
 import { defineConfig } from 'playwright/test'
 
@@ -24,7 +24,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run convex:auth:local && npm run dev',
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

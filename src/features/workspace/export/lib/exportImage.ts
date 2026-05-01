@@ -13,9 +13,8 @@ import { withExportSession } from './exportBoardRender'
 const IMAGE_QUALITY = 0.92
 
 // build export options for a given background color
-const getBaseOptions = (bgColor: string) => ({
+export const getExportImageOptions = (bgColor: string) => ({
   pixelRatio: EXPORT_PIXEL_RATIO,
-  cacheBust: true,
   backgroundColor: bgColor,
 })
 
@@ -34,7 +33,7 @@ export const renderToDataUrl = async (
   backgroundColor = EXPORT_BACKGROUND_COLOR
 ): Promise<string> =>
 {
-  const opts = getBaseOptions(backgroundColor)
+  const opts = getExportImageOptions(backgroundColor)
   const { toCanvas, toJpeg, toPng, toSvg } = await loadHtmlToImageLib()
 
   if (format === 'svg')
@@ -125,7 +124,7 @@ export const copyBoardToClipboard = async (
   await withExportSession({ appearance, backgroundColor }, async (session) =>
   {
     const element = await session.renderBoard(data)
-    const blob = await toBlob(element, getBaseOptions(backgroundColor))
+    const blob = await toBlob(element, getExportImageOptions(backgroundColor))
     if (!blob)
     {
       throw new Error('Failed to render image for clipboard.')

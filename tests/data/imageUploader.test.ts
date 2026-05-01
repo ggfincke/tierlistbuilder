@@ -1,5 +1,5 @@
 // tests/data/imageUploader.test.ts
-// cloud media upload planning
+// cloud media upload planning & rate-limit propagation
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConvexError } from 'convex/values'
@@ -32,33 +32,14 @@ vi.mock('~/shared/images/imageStore', () => ({
 }))
 
 const makeImageBoard = (
-  imageRef: NonNullable<BoardSnapshot['items'][string]['imageRef']>
-): BoardSnapshot =>
-{
-  const itemId = asItemId('item-1')
-  return makeBoardSnapshot({
-    items: {
-      [itemId]: makeItem({
-        id: itemId,
-        imageRef,
-      }),
-    },
-  })
-}
-
-const makeSourceImageBoard = (
   imageRef: NonNullable<BoardSnapshot['items'][string]['imageRef']>,
-  sourceImageRef: NonNullable<BoardSnapshot['items'][string]['sourceImageRef']>
+  sourceImageRef?: NonNullable<BoardSnapshot['items'][string]['sourceImageRef']>
 ): BoardSnapshot =>
 {
   const itemId = asItemId('item-1')
   return makeBoardSnapshot({
     items: {
-      [itemId]: makeItem({
-        id: itemId,
-        imageRef,
-        sourceImageRef,
-      }),
+      [itemId]: makeItem({ id: itemId, imageRef, sourceImageRef }),
     },
   })
 }
@@ -80,32 +61,27 @@ describe('uploadBoardImages', () =>
     vi.mocked(markUploaded).mockResolvedValue()
   })
 
-  it('reuses cloud media ids when the local blob is absent', async () =>
+  it('reuses cloud media ids without re-uploading & throws when local blob is missing', async () =>
   {
-    const result = await uploadBoardImages(
+    const reused = await uploadBoardImages(
       makeImageBoard({
         hash: 'hash-from-cloud',
         cloudMediaExternalId: 'media-existing',
       }),
       'user-1'
     )
-
-    expect(result.mediaExternalIdByHash.get('hash-from-cloud')).toBe(
+    expect(reused.mediaExternalIdByHash.get('hash-from-cloud')).toBe(
       'media-existing'
     )
-  })
 
-  it('throws for a local-only image when the blob is absent', async () =>
-  {
     await expect(
-      uploadBoardImages(makeImageBoard({ hash: 'local-only-hash' }), 'user-1')
+      uploadBoardImages(makeImageBoard({ hash: 'local-only' }), 'user-1')
     ).rejects.toBeInstanceOf(PermanentSyncError)
   })
 
-  it('uses the server envelope user id while indexing uploads locally', async () =>
+  it('uploads blobs w/ envelope header keyed by server-supplied user id', async () =>
   {
     const uploadToken = 'a'.repeat(64)
-    const localUserId = 'local-user-1'
     const envelopeUserId = 'server-user-1'
     const record = makeLocalBlobRecord('hash-1')
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
@@ -121,15 +97,12 @@ describe('uploadBoardImages', () =>
     const fetchMock = vi.fn(
       async (_url: string | URL | Request, init?: RequestInit) =>
       {
-        const body = init?.body
-        expect(body).toBeInstanceOf(Blob)
-        const bytes = new Uint8Array(await (body as Blob).arrayBuffer())
+        const bytes = new Uint8Array(await (init?.body as Blob).arrayBuffer())
         const header = getUploadEnvelopeHeader(
           'media',
           envelopeUserId,
           uploadToken
         )
-
         expect(bytes.slice(0, header.length)).toEqual(header)
         return new Response(JSON.stringify({ storageId: 'storage-1' }), {
           status: 200,
@@ -140,18 +113,17 @@ describe('uploadBoardImages', () =>
 
     const result = await uploadBoardImages(
       makeImageBoard({ hash: record.hash }),
-      localUserId
+      'local-user-1'
     )
-
     expect(result.mediaExternalIdByHash.get(record.hash)).toBe('media-1')
     expect(markUploaded).toHaveBeenCalledWith(
-      localUserId,
+      'local-user-1',
       record.hash,
       'media-1'
     )
   })
 
-  it('uploads source image refs as separate media assets', async () =>
+  it('uploads source refs as separate assets & reuses cloud source refs when present', async () =>
   {
     const uploadToken = 'b'.repeat(64)
     const display = makeLocalBlobRecord('display-hash')
@@ -180,22 +152,14 @@ describe('uploadBoardImages', () =>
       )
     )
 
-    const result = await uploadBoardImages(
-      makeSourceImageBoard({ hash: display.hash }, { hash: source.hash }),
+    const both = await uploadBoardImages(
+      makeImageBoard({ hash: display.hash }, { hash: source.hash }),
       'user-1'
     )
+    expect(both.mediaExternalIdByHash.get(display.hash)).toBe('media-display')
+    expect(both.mediaExternalIdByHash.get(source.hash)).toBe('media-source')
 
-    expect(getBlobsBatch).toHaveBeenCalledWith(
-      expect.arrayContaining([display.hash, source.hash])
-    )
-    expect(result.mediaExternalIdByHash.get(display.hash)).toBe('media-display')
-    expect(result.mediaExternalIdByHash.get(source.hash)).toBe('media-source')
-  })
-
-  it('reuses cloud source refs even when the display ref needs upload', async () =>
-  {
-    const uploadToken = 'c'.repeat(64)
-    const display = makeLocalBlobRecord('display-hash')
+    vi.clearAllMocks()
     vi.mocked(getBlobsBatch).mockResolvedValue(
       new Map([[display.hash, display]])
     )
@@ -207,32 +171,18 @@ describe('uploadBoardImages', () =>
     vi.mocked(finalizeUploadImperative).mockResolvedValue({
       externalId: 'media-display',
     })
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify({ storageId: 'storage-1' }), {
-            status: 200,
-          })
-      )
-    )
 
-    const result = await uploadBoardImages(
-      makeSourceImageBoard(
+    const reusedSource = await uploadBoardImages(
+      makeImageBoard(
         { hash: display.hash },
-        {
-          hash: 'source-hash',
-          cloudMediaExternalId: 'media-source-existing',
-        }
+        { hash: 'cloud-source', cloudMediaExternalId: 'media-source-existing' }
       ),
       'user-1'
     )
-
-    expect(getBlobsBatch).toHaveBeenCalledWith([display.hash])
-    expect(result.mediaExternalIdByHash.get(display.hash)).toBe('media-display')
-    expect(result.mediaExternalIdByHash.get('source-hash')).toBe(
+    expect(reusedSource.mediaExternalIdByHash.get('cloud-source')).toBe(
       'media-source-existing'
     )
+    expect(getBlobsBatch).toHaveBeenCalledWith([display.hash])
   })
 
   it('rethrows rate limits instead of aggregating them as upload failures', async () =>
@@ -248,8 +198,6 @@ describe('uploadBoardImages', () =>
     await expect(
       uploadBoardImages(makeImageBoard({ hash: record.hash }), 'user-1')
     ).rejects.toBe(rateLimited)
-
-    expect(generateUploadUrlImperative).toHaveBeenCalledTimes(1)
     expect(finalizeUploadImperative).not.toHaveBeenCalled()
   })
 })

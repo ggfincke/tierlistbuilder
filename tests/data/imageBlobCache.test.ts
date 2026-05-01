@@ -1,5 +1,5 @@
 // tests/data/imageBlobCache.test.ts
-// image blob cache pagehide behavior
+// image blob cache lifecycle & pruning behavior
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -7,6 +7,7 @@ import {
   disposeImageBlobCache,
   getCachedImageUrl,
   handlePageHide,
+  subscribeCachedImageUrl,
 } from '~/shared/images/imageBlobCache'
 
 const originalCreateObjectUrl = Object.getOwnPropertyDescriptor(
@@ -17,6 +18,7 @@ const originalRevokeObjectUrl = Object.getOwnPropertyDescriptor(
   URL,
   'revokeObjectURL'
 )
+let objectUrlId = 0
 
 const restoreUrlMethod = (
   key: 'createObjectURL' | 'revokeObjectURL',
@@ -36,10 +38,11 @@ describe('imageBlobCache', () =>
 {
   beforeEach(() =>
   {
+    objectUrlId = 0
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
       writable: true,
-      value: vi.fn(() => 'blob:test-url'),
+      value: vi.fn(() => `blob:test-url-${++objectUrlId}`),
     })
     Object.defineProperty(URL, 'revokeObjectURL', {
       configurable: true,
@@ -62,7 +65,41 @@ describe('imageBlobCache', () =>
 
     handlePageHide({ persisted: true })
 
-    expect(getCachedImageUrl('hash-a')).toBe('blob:test-url')
+    expect(getCachedImageUrl('hash-a')).toBe('blob:test-url-1')
     expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('keeps subscribed urls when cache pruning removes older entries', () =>
+  {
+    let now = 0
+    const dateNowSpy = vi.spyOn(Date, 'now').mockImplementation(() => ++now)
+    const listener = vi.fn()
+
+    try
+    {
+      cacheFreshBlob('hash-a', new Blob(['a'], { type: 'image/png' }))
+      const unsubscribe = subscribeCachedImageUrl('hash-a', listener)
+
+      try
+      {
+        for (let index = 0; index < 512; index++)
+        {
+          cacheFreshBlob(`hash-${index}`, new Blob(['x']))
+        }
+      }
+      finally
+      {
+        unsubscribe()
+      }
+    }
+    finally
+    {
+      dateNowSpy.mockRestore()
+    }
+
+    expect(getCachedImageUrl('hash-a')).toBe('blob:test-url-1')
+    expect(getCachedImageUrl('hash-0')).toBeNull()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-url-2')
+    expect(listener).not.toHaveBeenCalled()
   })
 })

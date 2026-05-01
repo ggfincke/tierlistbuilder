@@ -46,4 +46,5 @@ React 19 · TypeScript · Vite 7 · Tailwind CSS 4 · Zustand 5 · @dnd-kit · h
 
 ## Docs
 
-See [`docs/architecture.md`](docs/architecture.md) for architecture details.
+- [`docs/architecture.md`](docs/architecture.md) — architecture overview
+- [`docs/design-system.mdx`](docs/design-system.mdx) — tokens, primitives, and overlay patterns
