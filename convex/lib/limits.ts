@@ -24,4 +24,6 @@ export const BATCH_LIMITS = {
   expiredLink: 64,
   // cascading board deletion pages through tiers & items this many at a time
   cascadeDelete: 256,
+  // large template publish/clone jobs copy rows in bounded transactions
+  templateCopyJob: 100,
 } as const

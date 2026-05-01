@@ -3,6 +3,7 @@
 
 import type { Infer, Validator } from 'convex/values'
 import { v } from 'convex/values'
+import { paginationResultValidator } from 'convex/server'
 import {
   ITEM_SHAPES,
   ITEM_SIZES,
@@ -38,19 +39,28 @@ import {
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
   TEMPLATE_PUBLICATION_STATES,
+  TEMPLATE_JOB_STATUSES,
   TEMPLATE_SIZE_CLASSES,
+  TEMPLATE_CARD_ACCESS_STATES,
   TEMPLATE_LIST_SORTS,
   TEMPLATE_VISIBILITIES,
+  type MarketplaceTemplateCount,
   type MarketplaceTemplateDetail,
   type MarketplaceTemplateDraft,
   type MarketplaceTemplateDraftListResult,
   type MarketplaceTemplateDraftTemplate,
+  type MarketplaceTemplateGalleryCard,
+  type MarketplaceTemplateGalleryResult,
   type MarketplaceTemplateItem,
+  type MarketplaceTemplateItemsResult,
+  type MarketplaceTemplateCloneJobProgress,
   type MarketplaceTemplateListResult,
+  type MarketplaceTemplatePublishJobProgress,
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateSummary,
   type MarketplaceTemplateUseResult,
   type TemplateCoverItem,
+  type TemplateJobStatus,
   type TemplateListSort,
   type TemplateMediaRef,
   type TemplatePublicationState,
@@ -142,6 +152,10 @@ export const templateSizeClassValidator = literalUnion(TEMPLATE_SIZE_CLASSES)
 export const templatePublicationStateValidator = literalUnion(
   TEMPLATE_PUBLICATION_STATES
 )
+export const templateJobStatusValidator = literalUnion(TEMPLATE_JOB_STATUSES)
+export const templateCardAccessStateValidator = literalUnion(
+  TEMPLATE_CARD_ACCESS_STATES
+)
 export const mediaVariantKindValidator = literalUnion(MEDIA_VARIANT_KINDS)
 export const imageMimeTypeValidator = literalUnion(SUPPORTED_IMAGE_MIME_TYPES)
 
@@ -154,6 +168,16 @@ export const mediaVariantSummaryValidator = v.object({
   byteSize: v.number(),
   mimeType: v.string(),
   contentHash: v.string(),
+})
+
+export const templateCardMediaValidator = v.object({
+  externalId: v.string(),
+  ...mediaVariantSummaryValidator.fields,
+})
+
+export const templateCardCoverItemValidator = v.object({
+  media: templateCardMediaValidator,
+  label: v.union(v.string(), v.null()),
 })
 
 // full AppPreferences shape — must stay in sync w/ packages/contracts/platform/preferences.ts
@@ -216,6 +240,9 @@ export type _TemplatePublicationStateExact = _Assert<
     TemplatePublicationState,
     Infer<typeof templatePublicationStateValidator>
   >
+>
+export type _TemplateJobStatusExact = _Assert<
+  _Exact<TemplateJobStatus, Infer<typeof templateJobStatusValidator>>
 >
 export type _BoardCloudStateExact = _Assert<
   _Exact<BoardCloudState, Infer<typeof boardCloudStateValidator>>
@@ -490,6 +517,25 @@ export const marketplaceTemplateSummaryValidator = v.object({
   coverItems: v.array(templateCoverItemValidator),
 })
 
+export const marketplaceTemplateGalleryCardValidator = v.object({
+  ...marketplaceTemplateBaseFields,
+  coverItems: v.array(templateCoverItemValidator),
+  access: templateCardAccessStateValidator,
+})
+
+export const marketplaceTemplateCountValidator = v.object({
+  count: v.number(),
+  countByCategory: v.record(v.string(), v.number()),
+})
+
+export const marketplaceTemplateGalleryResultValidator = v.object({
+  featured: v.array(marketplaceTemplateGalleryCardValidator),
+  popular: v.array(marketplaceTemplateGalleryCardValidator),
+  recent: v.array(marketplaceTemplateGalleryCardValidator),
+  results: v.array(marketplaceTemplateGalleryCardValidator),
+  templateCount: marketplaceTemplateCountValidator,
+})
+
 export const marketplaceTemplateDraftTemplateValidator = v.object({
   slug: v.string(),
   title: v.string(),
@@ -512,6 +558,8 @@ export const marketplaceTemplateItemValidator = v.object({
 
 export const marketplaceTemplateDetailValidator = v.object({
   ...marketplaceTemplateBaseFields,
+  coverItems: v.array(templateCoverItemValidator),
+  access: templateCardAccessStateValidator,
   suggestedTiers: tierPresetTiersValidator,
   itemAspectRatio: v.union(v.number(), v.null()),
   defaultItemImageFit: v.union(
@@ -520,8 +568,10 @@ export const marketplaceTemplateDetailValidator = v.object({
     v.null()
   ),
   labels: v.union(boardLabelSettingsValidator, v.null()),
-  items: v.array(marketplaceTemplateItemValidator),
 })
+
+export const marketplaceTemplateItemsResultValidator =
+  paginationResultValidator(marketplaceTemplateItemValidator)
 
 export const marketplaceTemplateListResultValidator = v.object({
   items: v.array(marketplaceTemplateSummaryValidator),
@@ -542,13 +592,54 @@ export const marketplaceTemplateDraftListResultValidator = v.object({
   drafts: v.array(marketplaceTemplateDraftValidator),
 })
 
-export const marketplaceTemplatePublishResultValidator = v.object({
+const marketplaceTemplateJobProgressFields = {
+  jobId: v.string(),
+  status: templateJobStatusValidator,
+  itemCount: v.number(),
+  processedItemCount: v.number(),
+  errorCode: v.union(v.string(), v.null()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  startedAt: v.union(v.number(), v.null()),
+  completedAt: v.union(v.number(), v.null()),
+  canceledAt: v.union(v.number(), v.null()),
+}
+
+export const marketplaceTemplatePublishJobProgressValidator = v.object({
+  ...marketplaceTemplateJobProgressFields,
+  kind: v.literal('publish'),
   slug: v.string(),
 })
 
-export const marketplaceTemplateUseResultValidator = v.object({
+export const marketplaceTemplateCloneJobProgressValidator = v.object({
+  ...marketplaceTemplateJobProgressFields,
+  kind: v.literal('clone'),
   boardExternalId: v.string(),
 })
+
+export const marketplaceTemplatePublishResultValidator = v.union(
+  v.object({
+    status: v.literal('published'),
+    slug: v.string(),
+  }),
+  v.object({
+    status: v.literal('jobQueued'),
+    slug: v.string(),
+    jobId: v.string(),
+  })
+)
+
+export const marketplaceTemplateUseResultValidator = v.union(
+  v.object({
+    status: v.literal('ready'),
+    boardExternalId: v.string(),
+  }),
+  v.object({
+    status: v.literal('jobQueued'),
+    boardExternalId: v.string(),
+    jobId: v.string(),
+  })
+)
 
 // coverage asserts — contract-side renames or added fields not reflected in
 // the validators above fail the build. each pair covers both directions
@@ -691,6 +782,51 @@ export type _MarketplaceTemplateSummaryNoExtra = _Assert<
     : false
 >
 
+export type _MarketplaceTemplateGalleryCardCovers = _Assert<
+  MarketplaceTemplateGalleryCard extends Infer<
+    typeof marketplaceTemplateGalleryCardValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateGalleryCardNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateGalleryCardValidator
+  > extends MarketplaceTemplateGalleryCard
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateCountCovers = _Assert<
+  MarketplaceTemplateCount extends Infer<
+    typeof marketplaceTemplateCountValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateCountNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateCountValidator
+  > extends MarketplaceTemplateCount
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateGalleryResultCovers = _Assert<
+  MarketplaceTemplateGalleryResult extends Infer<
+    typeof marketplaceTemplateGalleryResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateGalleryResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateGalleryResultValidator
+  > extends MarketplaceTemplateGalleryResult
+    ? true
+    : false
+>
+
 export type _MarketplaceTemplateItemCovers = _Assert<
   MarketplaceTemplateItem extends Infer<typeof marketplaceTemplateItemValidator>
     ? true
@@ -713,6 +849,21 @@ export type _MarketplaceTemplateDetailNoExtra = _Assert<
   Infer<
     typeof marketplaceTemplateDetailValidator
   > extends MarketplaceTemplateDetail
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateItemsResultCovers = _Assert<
+  MarketplaceTemplateItemsResult extends Infer<
+    typeof marketplaceTemplateItemsResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateItemsResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateItemsResultValidator
+  > extends MarketplaceTemplateItemsResult
     ? true
     : false
 >
@@ -773,6 +924,36 @@ export type _MarketplaceTemplateDraftListResultNoExtra = _Assert<
   Infer<
     typeof marketplaceTemplateDraftListResultValidator
   > extends MarketplaceTemplateDraftListResult
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplatePublishJobProgressCovers = _Assert<
+  MarketplaceTemplatePublishJobProgress extends Infer<
+    typeof marketplaceTemplatePublishJobProgressValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplatePublishJobProgressNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplatePublishJobProgressValidator
+  > extends MarketplaceTemplatePublishJobProgress
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateCloneJobProgressCovers = _Assert<
+  MarketplaceTemplateCloneJobProgress extends Infer<
+    typeof marketplaceTemplateCloneJobProgressValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateCloneJobProgressNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateCloneJobProgressValidator
+  > extends MarketplaceTemplateCloneJobProgress
     ? true
     : false
 >

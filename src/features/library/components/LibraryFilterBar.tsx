@@ -32,6 +32,8 @@ interface LibraryFilterBarProps
 
 const FILTER_LABELS: Record<LibraryBoardFilter, string> = {
   all: 'All',
+  syncing: 'Syncing',
+  failed: 'Failed',
   draft: 'Drafts',
   in_progress: 'In progress',
   finished: 'Finished',

@@ -131,7 +131,6 @@ const seedTemplate = async (
       viewCount: 0,
       featuredRank: null,
       creditLine: null,
-      searchText: 'cascade template cleanup',
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })

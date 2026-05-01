@@ -67,7 +67,7 @@ export const usePublishTemplate = (): PublishTemplateAction =>
           coverMediaExternalId = null
         }
 
-        const { slug } = await publishMutation({
+        const result = await publishMutation({
           boardExternalId: input.boardExternalId,
           title: input.title,
           description: input.description,
@@ -78,9 +78,15 @@ export const usePublishTemplate = (): PublishTemplateAction =>
           coverMediaExternalId,
         })
 
+        if (result.status === 'jobQueued')
+        {
+          toast(`Publishing "${input.title}"`, 'success')
+          return { slug: result.slug }
+        }
+
         toast(`Published "${input.title}"`, 'success')
-        navigate(`${TEMPLATES_ROUTE_PATH}/${slug}`)
-        return { slug }
+        navigate(`${TEMPLATES_ROUTE_PATH}/${result.slug}`)
+        return { slug: result.slug }
       }
       catch (caught)
       {

@@ -4,5 +4,6 @@
 
 export {
   useTemplateBySlug,
+  useTemplateItems,
   useRelatedTemplates,
 } from '~/features/marketplace/data/templatesRepository'

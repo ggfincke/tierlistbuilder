@@ -325,7 +325,6 @@ describe('media variants', () =>
         viewCount: 0,
         featuredRank: null,
         creditLine: null,
-        searchText: 'shared template',
         createdAt: 0,
         updatedAt: 0,
       })

@@ -19,6 +19,18 @@ export const LIBRARY_STATUS_META: Record<
   LibraryBoardStatus,
   LibraryStatusMeta
 > = {
+  syncing: {
+    label: 'Syncing',
+    textColor: '#93c5fd',
+    dotColor: '#60a5fa',
+    hoverAction: 'View progress',
+  },
+  failed: {
+    label: 'Failed',
+    textColor: 'var(--t-destructive-hover)',
+    dotColor: '#ef4444',
+    hoverAction: 'Review',
+  },
   draft: {
     label: 'Draft',
     textColor: 'rgb(var(--t-overlay) / 0.55)',

@@ -104,6 +104,10 @@ export const getBoardByExternalId = query({
     {
       return null
     }
+    if (board.materializationState !== 'ready')
+    {
+      return null
+    }
 
     return toBoardListItem(board)
   },
@@ -128,6 +132,10 @@ export const getBoardStateByExternalId = query({
       userId
     )
     if (!board)
+    {
+      return null
+    }
+    if (board.materializationState !== 'ready')
     {
       return null
     }
@@ -192,6 +200,10 @@ export const getBoardStatesByExternalIds = query({
           userId
         )
         if (!board)
+        {
+          return null
+        }
+        if (board.materializationState !== 'ready')
         {
           return null
         }
@@ -293,6 +305,7 @@ const projectLibraryRow = async (
     activeItemCount: board.activeItemCount,
     unrankedItemCount: board.unrankedItemCount,
     hasPublishedTemplate,
+    materializationState: board.materializationState,
   })
 
   const rankedItemCount = Math.max(

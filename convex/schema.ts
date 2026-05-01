@@ -16,7 +16,10 @@ import {
   mediaVariantKindValidator,
   mediaVariantSummaryValidator,
   paletteIdValidator,
+  templateCardCoverItemValidator,
+  templateCardMediaValidator,
   templateCategoryValidator,
+  templateJobStatusValidator,
   templatePublicationStateValidator,
   templateSizeClassValidator,
   templateVisibilityValidator,
@@ -163,6 +166,8 @@ export default defineSchema({
     templateItemId: v.optional(v.id('templateItems')),
   })
     .index('byBoardAndTier', ['boardId', 'tierId', 'order'])
+    .index('byBoardDeletedAtOrder', ['boardId', 'deletedAt', 'order'])
+    .index('byBoardAndTemplateItem', ['boardId', 'templateItemId'])
     .index('byMedia', ['mediaAssetId']),
 
   // logical uploaded image identity; physical blobs live in mediaVariants
@@ -234,7 +239,6 @@ export default defineSchema({
     viewCount: v.number(),
     featuredRank: v.union(v.number(), v.null()),
     creditLine: v.union(v.string(), v.null()),
-    searchText: v.string(),
     // slot aspect ratio (w/h) the template was designed against; absent ->
     // forks fall back to the board default (1, square)
     itemAspectRatio: v.optional(v.union(v.number(), v.null())),
@@ -256,9 +260,46 @@ export default defineSchema({
   })
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
-    .index('byCoverMedia', ['coverMediaAssetId'])
+    .index('byCoverMedia', ['coverMediaAssetId']),
+
+  // compact public/owner card read model for marketplace list screens.
+  // media fields store refs only; queries resolve signed URLs per request
+  templateCards: defineTable({
+    templateId: v.id('templates'),
+    slug: v.string(),
+    title: v.string(),
+    description: v.union(v.string(), v.null()),
+    category: templateCategoryValidator,
+    tags: v.array(v.string()),
+    visibility: templateVisibilityValidator,
+    publicationState: templatePublicationStateValidator,
+    isPubliclyListable: v.boolean(),
+    itemCount: v.number(),
+    sizeClass: templateSizeClassValidator,
+    authorId: v.id('users'),
+    authorExternalId: v.string(),
+    authorDisplayName: v.string(),
+    authorImageUrl: v.union(v.string(), v.null()),
+    authorAvatarStorageId: v.union(v.id('_storage'), v.null()),
+    coverMedia: v.union(templateCardMediaValidator, v.null()),
+    coverItems: v.array(templateCardCoverItemValidator),
+    featuredRank: v.union(v.number(), v.null()),
+    useCount: v.number(),
+    viewCount: v.number(),
+    popularityScore: v.number(),
+    creditLine: v.union(v.string(), v.null()),
+    searchText: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('byTemplateId', ['templateId'])
+    .index('bySlug', ['slug'])
+    .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
     .index('byIsPubliclyListableUpdatedAt', ['isPubliclyListable', 'updatedAt'])
-    .index('byIsPubliclyListableUseCount', ['isPubliclyListable', 'useCount'])
+    .index('byIsPubliclyListablePopularityScore', [
+      'isPubliclyListable',
+      'popularityScore',
+    ])
     .index('byIsPubliclyListableFeaturedRank', [
       'isPubliclyListable',
       'featuredRank',
@@ -268,10 +309,10 @@ export default defineSchema({
       'isPubliclyListable',
       'updatedAt',
     ])
-    .index('byCategoryIsPubliclyListableUseCount', [
+    .index('byCategoryIsPubliclyListablePopularityScore', [
       'category',
       'isPubliclyListable',
-      'useCount',
+      'popularityScore',
     ])
     .index('byCategoryIsPubliclyListableFeaturedRank', [
       'category',
@@ -315,6 +356,52 @@ export default defineSchema({
     ])
     .index('byTemplate', ['templateId']),
 
+  templatePublishJobs: defineTable({
+    ownerId: v.id('users'),
+    sourceBoardId: v.id('boards'),
+    targetTemplateId: v.id('templates'),
+    status: templateJobStatusValidator,
+    itemCount: v.number(),
+    processedItemCount: v.number(),
+    nextCursor: v.union(v.string(), v.null()),
+    sourceBoardRevision: v.number(),
+    errorCode: v.union(v.string(), v.null()),
+    retryCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    startedAt: v.union(v.number(), v.null()),
+    completedAt: v.union(v.number(), v.null()),
+    canceledAt: v.union(v.number(), v.null()),
+  })
+    .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
+    .index('byTargetTemplate', ['targetTemplateId'])
+    .index('bySourceBoardStatus', ['sourceBoardId', 'status']),
+
+  templateCloneJobs: defineTable({
+    ownerId: v.id('users'),
+    sourceTemplateId: v.id('templates'),
+    targetBoardId: v.id('boards'),
+    status: templateJobStatusValidator,
+    itemCount: v.number(),
+    processedItemCount: v.number(),
+    nextCursor: v.union(v.string(), v.null()),
+    errorCode: v.union(v.string(), v.null()),
+    retryCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    startedAt: v.union(v.number(), v.null()),
+    completedAt: v.union(v.number(), v.null()),
+    canceledAt: v.union(v.number(), v.null()),
+  })
+    .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
+    .index('byTargetBoard', ['targetBoardId'])
+    .index('byOwnerSourceTemplateStatus', [
+      'ownerId',
+      'sourceTemplateId',
+      'status',
+    ])
+    .index('bySourceTemplateStatus', ['sourceTemplateId', 'status']),
+
   // immutable-ish template item rows. rankings clone these into boardItems
   // as unranked entries, preserving templateItemId for future aggregation
   templateItems: defineTable({
@@ -330,6 +417,7 @@ export default defineSchema({
     transform: v.union(itemTransformValidator, v.null()),
   })
     .index('byTemplate', ['templateId', 'order'])
+    .index('byTemplateAndExternalId', ['templateId', 'externalId'])
     .index('byMedia', ['mediaAssetId']),
 
   // short URL indirection for shareable snapshot blobs. slug -> compressed

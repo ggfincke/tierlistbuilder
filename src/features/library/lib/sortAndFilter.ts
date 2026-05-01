@@ -55,6 +55,8 @@ export const sortLibraryBoards = (
 export interface LibraryStatusCounts
 {
   all: number
+  syncing: number
+  failed: number
   draft: number
   in_progress: number
   finished: number
@@ -67,6 +69,8 @@ export const countLibraryStatuses = (
 {
   const counts: LibraryStatusCounts = {
     all: rows.length,
+    syncing: 0,
+    failed: 0,
     draft: 0,
     in_progress: 0,
     finished: 0,

@@ -33,6 +33,7 @@ interface PublishModalProps
 {
   open: boolean
   onClose: () => void
+  onPublished?: () => void
 }
 
 const VISIBILITY_LABELS: Record<TemplateVisibility, string> = {
@@ -43,11 +44,12 @@ const VISIBILITY_LABELS: Record<TemplateVisibility, string> = {
 interface PublishFormProps
 {
   onClose: () => void
+  onPublished?: () => void
 }
 
 // holds all form state; mounted only while the modal is open so reopening
 // the modal restarts w/ a clean draft
-const PublishForm = ({ onClose }: PublishFormProps) =>
+const PublishForm = ({ onClose, onPublished }: PublishFormProps) =>
 {
   const titleFieldId = useId()
   const descFieldId = useId()
@@ -130,6 +132,7 @@ const PublishForm = ({ onClose }: PublishFormProps) =>
 
     if (result)
     {
+      onPublished?.()
       onClose()
     }
   }
@@ -337,7 +340,11 @@ const PublishForm = ({ onClose }: PublishFormProps) =>
   )
 }
 
-export const PublishModal = ({ open, onClose }: PublishModalProps) =>
+export const PublishModal = ({
+  open,
+  onClose,
+  onPublished,
+}: PublishModalProps) =>
 {
   const titleId = useId()
 
@@ -354,7 +361,7 @@ export const PublishModal = ({ open, onClose }: PublishModalProps) =>
         their own tier list.
       </p>
 
-      <PublishForm onClose={onClose} />
+      <PublishForm onClose={onClose} onPublished={onPublished} />
     </BaseModal>
   )
 }
