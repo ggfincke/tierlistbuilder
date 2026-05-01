@@ -1,7 +1,7 @@
 // src/features/marketplace/model/useTemplatesGallery.ts
 // composes the point-in-time gallery read, plus the reactive draft rail
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
   DEFAULT_TEMPLATE_DRAFT_LIMIT,
@@ -17,6 +17,7 @@ import {
   type ListTemplatesArgs,
 } from '~/features/marketplace/data/templatesRepository'
 import type { GalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
+import { usePointInTimeQuery } from '~/shared/hooks/usePointInTimeQuery'
 import { logger } from '~/shared/lib/logger'
 
 interface TemplatesGalleryData
@@ -30,6 +31,11 @@ interface TemplatesGalleryData
   isSearching: boolean
   isRefreshing: boolean
   refresh: () => Promise<void>
+}
+
+const onGalleryError = (error: unknown): void =>
+{
+  logger.warn('marketplace', 'getTemplatesGallery failed', error)
 }
 
 export const useTemplatesGallery = (
@@ -52,52 +58,15 @@ export const useTemplatesGallery = (
     [filters.category, filters.searchDebounced, filters.sort, filters.tag]
   )
 
-  const [snapshot, setSnapshot] = useState<MarketplaceTemplateGalleryResult>()
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const mountedRef = useRef(true)
-  const requestIdRef = useRef(0)
-
-  useEffect(() =>
-  {
-    mountedRef.current = true
-    return () =>
-    {
-      mountedRef.current = false
-    }
-  }, [])
-
-  const refresh = useCallback(async () =>
-  {
-    const requestId = requestIdRef.current + 1
-    requestIdRef.current = requestId
-    setIsRefreshing(true)
-
-    try
-    {
-      const next = await getTemplatesGalleryImperative(galleryArgs)
-      if (!mountedRef.current || requestId !== requestIdRef.current) return
-      setSnapshot(next)
-    }
-    catch (error)
-    {
-      if (!mountedRef.current || requestId !== requestIdRef.current) return
-      logger.warn('marketplace', 'getTemplatesGallery failed', error)
-    }
-    finally
-    {
-      if (mountedRef.current && requestId === requestIdRef.current)
-      {
-        setIsRefreshing(false)
-      }
-    }
-  }, [galleryArgs])
-
-  // Public cards are intentionally point-in-time. Keep the last snapshot
-  // visible during refresh; route/filter changes decide when to reread.
-  useEffect(() =>
-  {
-    void refresh()
-  }, [includeDrafts, refresh])
+  const {
+    data: snapshot,
+    isRefreshing,
+    refresh,
+  } = usePointInTimeQuery<ListTemplatesArgs, MarketplaceTemplateGalleryResult>({
+    args: galleryArgs,
+    query: getTemplatesGalleryImperative,
+    onError: onGalleryError,
+  })
 
   const drafts = useMyTemplateDrafts(
     shouldLoadDrafts,

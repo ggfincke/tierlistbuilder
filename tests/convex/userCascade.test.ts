@@ -8,7 +8,7 @@ import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { classifyItemCount } from '../../convex/lib/entitlements'
 import schema from '../../convex/schema'
-import { modules } from './convexTestHelpers'
+import { modules, seedPublishedTemplate } from './convexTestHelpers'
 
 const TEMPLATE_SLUG = 'Cascade001'
 
@@ -111,28 +111,14 @@ const seedTemplate = async (
 ): Promise<Id<'templates'>> =>
   await t.run(async (ctx) =>
   {
-    const templateId = await ctx.db.insert('templates', {
+    const templateId = await seedPublishedTemplate(ctx, {
       slug: TEMPLATE_SLUG,
       authorId,
       title: 'Cascade Template',
-      description: null,
       category: 'gaming',
       tags: ['cleanup', 'cascade'],
-      visibility: 'public',
-      coverMediaAssetId: null,
-      coverItems: [],
-      suggestedTiers: [{ name: 'S', colorSpec: { kind: 'palette', index: 0 } }],
-      sourceBoardId: null,
       sizeClass: classifyItemCount(itemCount),
-      publicationState: 'published',
-      isPubliclyListable: true,
       itemCount,
-      useCount: 0,
-      viewCount: 0,
-      featuredRank: null,
-      creditLine: null,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
     })
     for (let i = 0; i < itemCount; i++)
     {
@@ -186,12 +172,17 @@ describe('user cascade cleanup', () =>
 
       const intermediate = await t.run(async (ctx) => ({
         template: await ctx.db.get(templateId),
+        stats: await ctx.db
+          .query('templateStats')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique(),
         items: await ctx.db
           .query('templateItems')
           .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
           .collect(),
       }))
       expect(intermediate.template).toBeNull()
+      expect(intermediate.stats).toBeNull()
       expect(intermediate.items.length).toBeGreaterThan(0)
 
       const listed = await t.query(
@@ -204,12 +195,17 @@ describe('user cascade cleanup', () =>
 
       const remaining = await t.run(async (ctx) => ({
         template: await ctx.db.get(templateId),
+        stats: await ctx.db
+          .query('templateStats')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique(),
         items: await ctx.db
           .query('templateItems')
           .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
           .collect(),
       }))
       expect(remaining.items).toHaveLength(0)
+      expect(remaining.stats).toBeNull()
     }
     finally
     {
@@ -237,6 +233,10 @@ describe('user cascade cleanup', () =>
       const remaining = await t.run(async (ctx) => ({
         user: await ctx.db.get(userId),
         template: await ctx.db.get(templateId),
+        stats: await ctx.db
+          .query('templateStats')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique(),
         items: await ctx.db
           .query('templateItems')
           .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
@@ -244,6 +244,7 @@ describe('user cascade cleanup', () =>
       }))
       expect(remaining.user).toBeNull()
       expect(remaining.template).toBeNull()
+      expect(remaining.stats).toBeNull()
       expect(remaining.items).toHaveLength(0)
     }
     finally

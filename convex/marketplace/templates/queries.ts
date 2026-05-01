@@ -46,7 +46,7 @@ import {
   normalizeTagArg,
   readPublicTemplateStats,
   getTemplateAccessState,
-  isReadableTemplateRow,
+  isPublishedTemplateRow,
   toTemplateDetail,
   toTemplateDraft,
   toTemplateCardSummary,
@@ -157,7 +157,7 @@ const takePublicRows = async (
     {
       return await ctx.db
         .query('templateCards')
-        .withIndex('byCategoryIsPubliclyListablePopularityScore', (q) =>
+        .withIndex('byCategoryIsPubliclyListableUseCount', (q) =>
           q.eq('category', options.category!).eq('isPubliclyListable', true)
         )
         .order('desc')
@@ -166,7 +166,7 @@ const takePublicRows = async (
 
     return await ctx.db
       .query('templateCards')
-      .withIndex('byIsPubliclyListablePopularityScore', (q) =>
+      .withIndex('byIsPubliclyListableUseCount', (q) =>
         q.eq('isPubliclyListable', true)
       )
       .order('desc')
@@ -323,22 +323,6 @@ const toTemplateGalleryCards = async (
     rows.map((row) => toTemplateGalleryCard(ctx, row, viewerPlan, cache))
   )
 
-export const getPublicTemplateCount = query({
-  args: {},
-  returns: v.object({
-    count: v.number(),
-    countByCategory: v.record(v.string(), v.number()),
-  }),
-  handler: async (ctx) =>
-  {
-    const stats = await readPublicTemplateStats(ctx)
-    return {
-      count: stats.count,
-      countByCategory: stats.countByCategory,
-    }
-  },
-})
-
 export const listTemplates = query({
   args: {
     search: v.optional(v.union(v.string(), v.null())),
@@ -456,7 +440,7 @@ export const getTemplateBySlug = query({
     }
 
     const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || !isReadableTemplateRow(template))
+    if (!template || !isPublishedTemplateRow(template))
     {
       return null
     }
@@ -481,7 +465,7 @@ export const listTemplateItems = query({
     }
 
     const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || !isReadableTemplateRow(template))
+    if (!template || !isPublishedTemplateRow(template))
     {
       return emptyTemplateItemsResult(args.paginationOpts.cursor)
     }
@@ -571,7 +555,7 @@ export const getRelatedTemplates = query({
     )
     const rows = await ctx.db
       .query('templateCards')
-      .withIndex('byCategoryIsPubliclyListablePopularityScore', (q) =>
+      .withIndex('byCategoryIsPubliclyListableUseCount', (q) =>
         q.eq('category', card.category).eq('isPubliclyListable', true)
       )
       .order('desc')

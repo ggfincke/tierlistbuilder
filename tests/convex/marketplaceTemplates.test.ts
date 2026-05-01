@@ -11,6 +11,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import {
   MAX_TEMPLATE_ITEM_PAGE_SIZE,
   isTemplateSlug,
+  type MarketplaceTemplateCount,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type {
@@ -27,7 +28,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import schema from '../../convex/schema'
 import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
-import { modules } from './convexTestHelpers'
+import { modules, seedPublishedTemplate } from './convexTestHelpers'
 
 const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
 {
@@ -85,6 +86,12 @@ const withLargeTemplateJobsEnabled = async (
     }
   }
 }
+
+const readPublicTemplateCount = async (
+  t: ReturnType<typeof convexTest<typeof schema>>
+): Promise<MarketplaceTemplateCount> =>
+  (await t.query(api.marketplace.templates.queries.getTemplatesGallery, {}))
+    .templateCount
 
 interface SeedSourceBoardOptions
 {
@@ -289,30 +296,13 @@ const seedLargeTemplate = async (
 ): Promise<string> =>
   await t.run(async (ctx) =>
   {
-    const now = Date.now()
     const itemCount = MAX_STANDARD_CLOUD_BOARD_ITEMS + 1
-    const templateId = await ctx.db.insert('templates', {
+    const templateId = await seedPublishedTemplate(ctx, {
       slug: 'LargeTpl01',
       authorId,
       title: 'Large Template',
-      description: null,
-      category: 'gaming',
-      tags: [],
-      visibility: 'public',
-      coverMediaAssetId: null,
-      coverItems: [],
-      suggestedTiers: [{ name: 'S', colorSpec: { kind: 'palette', index: 0 } }],
-      sourceBoardId: null,
       sizeClass: 'large',
-      publicationState: 'published',
-      isPubliclyListable: true,
       itemCount,
-      useCount: 0,
-      viewCount: 0,
-      featuredRank: null,
-      creditLine: null,
-      createdAt: now,
-      updatedAt: now,
     })
     for (let i = 0; i < itemCount; i++)
     {
@@ -512,12 +502,10 @@ describe('marketplace template Convex functions', () =>
       page: [{ label: 'Text item', order: 1 }],
     })
 
-    expect(
-      await t.query(
-        api.marketplace.templates.queries.getPublicTemplateCount,
-        {}
-      )
-    ).toEqual({ count: 1, countByCategory: { gaming: 1 } })
+    expect(await readPublicTemplateCount(t)).toEqual({
+      count: 1,
+      countByCategory: { gaming: 1 },
+    })
     expect(
       (
         await caller.query(api.workspace.boards.queries.getMyLibraryBoards, {})
@@ -530,12 +518,10 @@ describe('marketplace template Convex functions', () =>
       api.marketplace.templates.mutations.updateMyTemplateMeta,
       { slug: unlistedTemplate.slug, visibility: 'public' }
     )
-    expect(
-      await t.query(
-        api.marketplace.templates.queries.getPublicTemplateCount,
-        {}
-      )
-    ).toEqual({ count: 1, countByCategory: { movies: 1 } })
+    expect(await readPublicTemplateCount(t)).toEqual({
+      count: 1,
+      countByCategory: { movies: 1 },
+    })
 
     expect(
       await t.query(api.marketplace.templates.queries.getTemplateBySlug, {
@@ -554,23 +540,19 @@ describe('marketplace template Convex functions', () =>
       api.marketplace.templates.mutations.unpublishMyTemplate,
       { slug: publicTemplate.slug }
     )
-    expect(
-      await t.query(
-        api.marketplace.templates.queries.getPublicTemplateCount,
-        {}
-      )
-    ).toEqual({ count: 1, countByCategory: { movies: 1 } })
+    expect(await readPublicTemplateCount(t)).toEqual({
+      count: 1,
+      countByCategory: { movies: 1 },
+    })
 
     await caller.mutation(
       api.marketplace.templates.mutations.unpublishMyTemplate,
       { slug: unlistedTemplate.slug }
     )
-    expect(
-      await t.query(
-        api.marketplace.templates.queries.getPublicTemplateCount,
-        {}
-      )
-    ).toEqual({ count: 0, countByCategory: {} })
+    expect(await readPublicTemplateCount(t)).toEqual({
+      count: 0,
+      countByCategory: {},
+    })
     expect(
       (
         await caller.query(api.workspace.boards.queries.getMyLibraryBoards, {})
@@ -1093,6 +1075,30 @@ describe('marketplace template Convex functions', () =>
       { sort: 'popular' }
     )
     expect(popular.items[0]).toMatchObject({ slug, useCount: 1 })
+    const storedCounts = await t.run(async (ctx) =>
+    {
+      const template = await ctx.db
+        .query('templates')
+        .withIndex('bySlug', (q) => q.eq('slug', slug))
+        .unique()
+      if (!template) throw new Error('template missing')
+      const [stats, card] = await Promise.all([
+        ctx.db
+          .query('templateStats')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', template._id))
+          .unique(),
+        ctx.db
+          .query('templateCards')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', template._id))
+          .unique(),
+      ])
+      return { stats, card }
+    })
+    expect(storedCounts.stats).toMatchObject({
+      useCount: 1,
+      viewCount: 0,
+    })
+    expect(storedCounts.card).toMatchObject({ useCount: 1, viewCount: 0 })
   })
 
   it('lists template drafts in progress & updates progress as items get ranked', async () =>

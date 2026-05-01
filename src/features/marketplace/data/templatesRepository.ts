@@ -24,6 +24,16 @@ import { DEFAULT_TEMPLATE_ITEM_PAGE_SIZE } from '@tierlistbuilder/contracts/mark
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import { convexClient } from '~/features/platform/sync/lib/convexClient'
 
+export type TemplateItemsPageStatus =
+  UsePaginatedQueryResult<MarketplaceTemplateItem>['status']
+
+export interface TemplateItemsPage
+{
+  items: MarketplaceTemplateItem[]
+  status: TemplateItemsPageStatus
+  loadMore: (count?: number) => void
+}
+
 export interface ListTemplatesArgs
 {
   search?: string | null
@@ -56,12 +66,20 @@ export const useTemplateBySlug = (
 
 export const useTemplateItems = (
   slug: string | null | undefined
-): UsePaginatedQueryResult<MarketplaceTemplateItem> =>
-  usePaginatedQuery(
+): TemplateItemsPage =>
+{
+  const page = usePaginatedQuery(
     api.marketplace.templates.queries.listTemplateItems,
     typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip',
     { initialNumItems: DEFAULT_TEMPLATE_ITEM_PAGE_SIZE }
   ) as UsePaginatedQueryResult<MarketplaceTemplateItem>
+
+  return {
+    items: page.results,
+    status: page.status,
+    loadMore: (count = DEFAULT_TEMPLATE_ITEM_PAGE_SIZE) => page.loadMore(count),
+  }
+}
 
 interface RelatedTemplatesArgs
 {

@@ -9,7 +9,7 @@ import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import schema from '../../convex/schema'
 import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
-import { modules } from './convexTestHelpers'
+import { modules, seedPublishedTemplate } from './convexTestHelpers'
 
 const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
   convexTest({ schema, modules, transactionLimits: true })
@@ -303,30 +303,14 @@ describe('media variants', () =>
         order: 0,
         deletedAt: null,
       })
-      const templateId = await ctx.db.insert('templates', {
+      const templateId = await seedPublishedTemplate(ctx, {
         slug: 'Shared001',
         authorId: userId,
         title: 'Shared Template',
-        description: null,
-        category: 'gaming',
-        tags: [],
-        visibility: 'public',
-        coverMediaAssetId: null,
-        coverItems: [],
-        suggestedTiers: [
-          { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-        ],
         sourceBoardId: boardId,
         sizeClass: 'standard',
-        publicationState: 'published',
-        isPubliclyListable: true,
         itemCount: 1,
-        useCount: 0,
-        viewCount: 0,
-        featuredRank: null,
-        creditLine: null,
-        createdAt: 0,
-        updatedAt: 0,
+        now: 0,
       })
       await ctx.db.insert('templateItems', {
         templateId,

@@ -71,8 +71,6 @@ type TemplateCardSource = Pick<
   | 'publicationState'
   | 'isPubliclyListable'
   | 'itemCount'
-  | 'useCount'
-  | 'viewCount'
   | 'featuredRank'
   | 'creditLine'
   | 'createdAt'
@@ -80,6 +78,10 @@ type TemplateCardSource = Pick<
 >
 
 type TemplateCardMedia = NonNullable<Doc<'templateCards'>['coverMedia']>
+type TemplateStatsCounters = Pick<
+  Doc<'templateStats'>,
+  'useCount' | 'viewCount'
+>
 
 type TemplatePatch = Partial<Omit<Doc<'templates'>, '_id' | '_creationTime'>>
 
@@ -92,6 +94,7 @@ interface TemplateProjectionCache
   // url cached per (storageId) so different variants resolving to the same
   // blob (rare but possible after dedupe) share one ctx.storage.getUrl call
   urls: Map<Id<'_storage'>, Promise<string | null>>
+  stats: Map<Id<'templates'>, Promise<Doc<'templateStats'> | null>>
 }
 
 const MAX_SEARCH_QUERY_LENGTH = 120
@@ -103,6 +106,7 @@ export const createTemplateProjectionCache = (): TemplateProjectionCache => ({
   authors: new Map(),
   assets: new Map(),
   urls: new Map(),
+  stats: new Map(),
 })
 
 export const DEFAULT_TEMPLATE_TIERS: readonly TierPresetTier[] = [
@@ -114,7 +118,7 @@ export const DEFAULT_TEMPLATE_TIERS: readonly TierPresetTier[] = [
   { name: 'E', colorSpec: { kind: 'palette', index: 5 } },
 ]
 
-const failState = (message: string): never =>
+export const failState = (message: string): never =>
 {
   throw new ConvexError({
     code: CONVEX_ERROR_CODES.invalidState,
@@ -274,7 +278,7 @@ export const isPublicTemplateRow = (
   template: Pick<Doc<'templates'>, 'isPubliclyListable'>
 ): boolean => template.isPubliclyListable
 
-export const isReadableTemplateRow = (
+export const isPublishedTemplateRow = (
   template: Pick<Doc<'templates'>, 'publicationState'>
 ): boolean => template.publicationState === 'published'
 
@@ -485,13 +489,119 @@ export const adjustPublicTemplateCount = async (
   })
 }
 
+export const findTemplateStatsByTemplateId = async (
+  ctx: DbCtx,
+  templateId: Id<'templates'>,
+  cache?: TemplateProjectionCache
+): Promise<Doc<'templateStats'> | null> =>
+{
+  if (!cache)
+  {
+    return await ctx.db
+      .query('templateStats')
+      .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+      .unique()
+  }
+  const cached = cache.stats.get(templateId)
+  if (cached) return await cached
+  const pending = ctx.db
+    .query('templateStats')
+    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+    .unique()
+  cache.stats.set(templateId, pending)
+  return await pending
+}
+
+export const requireTemplateStats = async (
+  ctx: DbCtx,
+  templateId: Id<'templates'>,
+  cache?: TemplateProjectionCache
+): Promise<Doc<'templateStats'>> =>
+{
+  const stats = await findTemplateStatsByTemplateId(ctx, templateId, cache)
+  if (!stats)
+  {
+    return failState(`template stats missing: ${templateId}`)
+  }
+  return stats
+}
+
+export const createTemplateStats = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>,
+  now: number
+): Promise<TemplateStatsCounters> =>
+{
+  const stats = {
+    useCount: 0,
+    viewCount: 0,
+  }
+  await ctx.db.insert('templateStats', {
+    templateId,
+    ...stats,
+    updatedAt: now,
+  })
+  return stats
+}
+
+const deleteTemplateStatsIfExists = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>
+): Promise<void> =>
+{
+  const stats = await findTemplateStatsByTemplateId(ctx, templateId)
+  if (stats)
+  {
+    await ctx.db.delete(stats._id)
+  }
+}
+
+export const deleteTemplateStats = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>
+): Promise<void> =>
+{
+  const stats = await requireTemplateStats(ctx, templateId)
+  await ctx.db.delete(stats._id)
+}
+
+export const incrementTemplateUseStats = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>,
+  now: number
+): Promise<TemplateStatsCounters> =>
+{
+  const [stats, card] = await Promise.all([
+    requireTemplateStats(ctx, templateId),
+    requireTemplateCardByTemplateId(ctx, templateId),
+  ])
+  const next = {
+    useCount: stats.useCount + 1,
+    viewCount: stats.viewCount,
+  }
+  await Promise.all([
+    ctx.db.patch(stats._id, {
+      ...next,
+      updatedAt: now,
+    }),
+    ctx.db.patch(card._id, {
+      useCount: next.useCount,
+      viewCount: next.viewCount,
+    }),
+  ])
+  return next
+}
+
 export const deleteTemplateParentRow = async (
   ctx: MutationCtx,
   template: Doc<'templates'>
 ): Promise<void> =>
 {
-  await clearSourceBoardLivePublicTemplate(ctx, template)
-  await deleteTemplateCard(ctx, template._id)
+  await Promise.all([
+    clearSourceBoardLivePublicTemplate(ctx, template),
+    deleteTemplateCard(ctx, template._id),
+    deleteTemplateStats(ctx, template._id),
+  ])
   await ctx.db.delete(template._id)
 }
 
@@ -822,7 +932,8 @@ const toTemplateCardAuthorFields = async (
 
 const buildTemplateCardFields = async (
   ctx: DbCtx,
-  template: TemplateCardSource
+  template: TemplateCardSource,
+  stats: TemplateStatsCounters
 ): Promise<Omit<Doc<'templateCards'>, '_id' | '_creationTime'>> =>
 {
   const author = await toTemplateCardAuthorFields(ctx, template.authorId)
@@ -847,9 +958,8 @@ const buildTemplateCardFields = async (
     coverMedia,
     coverItems,
     featuredRank: template.featuredRank,
-    useCount: template.useCount,
-    viewCount: template.viewCount,
-    popularityScore: template.useCount,
+    useCount: stats.useCount,
+    viewCount: stats.viewCount,
     creditLine: template.creditLine,
     searchText: buildSearchText({
       title: template.title,
@@ -872,19 +982,56 @@ export const findTemplateCardByTemplateId = async (
     .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
     .unique()
 
-export const syncTemplateCard = async (
+const requireTemplateCardByTemplateId = async (
+  ctx: DbCtx,
+  templateId: Id<'templates'>
+): Promise<Doc<'templateCards'>> =>
+{
+  const card = await findTemplateCardByTemplateId(ctx, templateId)
+  if (!card)
+  {
+    return failState(`template card missing: ${templateId}`)
+  }
+  return card
+}
+
+// upsert a card w/ explicit counters. used for fresh inserts (publish/seed)
+// where stats are 0/0 or known, & during recompute where stats come from the
+// authoritative templateStats row
+export const writeTemplateCard = async (
   ctx: MutationCtx,
-  template: TemplateCardSource
+  template: TemplateCardSource,
+  stats: TemplateStatsCounters
 ): Promise<void> =>
 {
-  const fields = await buildTemplateCardFields(ctx, template)
+  const fields = await buildTemplateCardFields(ctx, template, stats)
   const existing = await findTemplateCardByTemplateId(ctx, template._id)
   if (existing)
   {
     await ctx.db.patch(existing._id, fields)
     return
   }
+  await ctx.db.insert('templateCards', fields)
+}
 
+// upsert a card while preserving its counters; counters live on templateCards
+// for the gallery sort indexes so a parent-only patch (title/category/tags)
+// must not zero them. falls back to templateStats only on first insert
+export const writeTemplateCardPreservingCounters = async (
+  ctx: MutationCtx,
+  template: TemplateCardSource
+): Promise<void> =>
+{
+  const card = await findTemplateCardByTemplateId(ctx, template._id)
+  const stats: TemplateStatsCounters = card
+    ? { useCount: card.useCount, viewCount: card.viewCount }
+    : await requireTemplateStats(ctx, template._id)
+  const fields = await buildTemplateCardFields(ctx, template, stats)
+  if (card)
+  {
+    await ctx.db.patch(card._id, fields)
+    return
+  }
   await ctx.db.insert('templateCards', fields)
 }
 
@@ -896,7 +1043,7 @@ export const patchTemplateAndSyncCard = async (
 {
   await ctx.db.patch(template._id, patch)
   const nextTemplate = { ...template, ...patch }
-  await syncTemplateCard(ctx, nextTemplate)
+  await writeTemplateCardPreservingCounters(ctx, nextTemplate)
   return nextTemplate
 }
 
@@ -909,43 +1056,16 @@ export const patchTemplateAndSyncCardById = async (
   const template = await ctx.db.get(templateId)
   if (!template)
   {
-    await deleteTemplateCard(ctx, templateId)
+    await Promise.all([
+      deleteTemplateCardIfExists(ctx, templateId),
+      deleteTemplateStatsIfExists(ctx, templateId),
+    ])
     return null
   }
   return await patchTemplateAndSyncCard(ctx, template, patch)
 }
 
-export const syncTemplateCardById = async (
-  ctx: MutationCtx,
-  templateId: Id<'templates'>
-): Promise<void> =>
-{
-  const template = await ctx.db.get(templateId)
-  if (!template)
-  {
-    await deleteTemplateCard(ctx, templateId)
-    return
-  }
-  await syncTemplateCard(ctx, template)
-}
-
-export const syncTemplateCardStats = async (
-  ctx: MutationCtx,
-  templateId: Id<'templates'>,
-  stats: { useCount?: number; viewCount?: number }
-): Promise<void> =>
-{
-  const card = await findTemplateCardByTemplateId(ctx, templateId)
-  if (!card) return
-
-  const useCount = stats.useCount ?? card.useCount
-  await ctx.db.patch(card._id, {
-    ...stats,
-    popularityScore: useCount,
-  })
-}
-
-export const deleteTemplateCard = async (
+const deleteTemplateCardIfExists = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>
 ): Promise<void> =>
@@ -955,6 +1075,15 @@ export const deleteTemplateCard = async (
   {
     await ctx.db.delete(existing._id)
   }
+}
+
+export const deleteTemplateCard = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>
+): Promise<void> =>
+{
+  const existing = await requireTemplateCardByTemplateId(ctx, templateId)
+  await ctx.db.delete(existing._id)
 }
 
 const toTemplateCardAuthor = async (
@@ -1054,7 +1183,7 @@ export const toTemplateBase = async (
   cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateBase> =>
 {
-  const [author, coverMedia] = await Promise.all([
+  const [author, coverMedia, stats] = await Promise.all([
     toTemplateAuthor(ctx, template.authorId, cache),
     toTemplateMediaRefWithFallback(
       ctx,
@@ -1062,6 +1191,7 @@ export const toTemplateBase = async (
       coverKinds,
       cache
     ),
+    requireTemplateStats(ctx, template._id, cache),
   ])
 
   return {
@@ -1076,29 +1206,12 @@ export const toTemplateBase = async (
     author,
     coverMedia,
     itemCount: template.itemCount,
-    useCount: template.useCount,
-    viewCount: template.viewCount,
+    useCount: stats.useCount,
+    viewCount: stats.viewCount,
     featuredRank: template.featuredRank,
     creditLine: template.creditLine,
     createdAt: template.createdAt,
     updatedAt: template.updatedAt,
-  }
-}
-
-export const toTemplateSummary = async (
-  ctx: DbCtx,
-  template: Doc<'templates'>,
-  cache?: TemplateProjectionCache
-): Promise<MarketplaceTemplateSummary> =>
-{
-  const base = await toTemplateBase(ctx, template, ['tile'], cache)
-  const coverItems = base.coverMedia
-    ? []
-    : await loadCoverItems(ctx, template, { cache, kind: 'tile' })
-
-  return {
-    ...base,
-    coverItems,
   }
 }
 

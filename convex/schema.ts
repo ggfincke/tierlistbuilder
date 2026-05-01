@@ -130,7 +130,8 @@ export default defineSchema({
       'templateProgressState',
       'updatedAt',
     ])
-    .index('byDeletedAt', ['deletedAt']),
+    .index('byDeletedAt', ['deletedAt'])
+    .index('bySourceTemplate', ['sourceTemplateId']),
 
   // tier row within a board — ordered via sparse fractional "order" numbers
   boardTiers: defineTable({
@@ -235,8 +236,6 @@ export default defineSchema({
     publicationState: templatePublicationStateValidator,
     isPubliclyListable: v.boolean(),
     itemCount: v.number(),
-    useCount: v.number(),
-    viewCount: v.number(),
     featuredRank: v.union(v.number(), v.null()),
     creditLine: v.union(v.string(), v.null()),
     // slot aspect ratio (w/h) the template was designed against; absent ->
@@ -286,7 +285,6 @@ export default defineSchema({
     featuredRank: v.union(v.number(), v.null()),
     useCount: v.number(),
     viewCount: v.number(),
-    popularityScore: v.number(),
     creditLine: v.union(v.string(), v.null()),
     searchText: v.string(),
     createdAt: v.number(),
@@ -296,10 +294,7 @@ export default defineSchema({
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
     .index('byIsPubliclyListableUpdatedAt', ['isPubliclyListable', 'updatedAt'])
-    .index('byIsPubliclyListablePopularityScore', [
-      'isPubliclyListable',
-      'popularityScore',
-    ])
+    .index('byIsPubliclyListableUseCount', ['isPubliclyListable', 'useCount'])
     .index('byIsPubliclyListableFeaturedRank', [
       'isPubliclyListable',
       'featuredRank',
@@ -309,10 +304,10 @@ export default defineSchema({
       'isPubliclyListable',
       'updatedAt',
     ])
-    .index('byCategoryIsPubliclyListablePopularityScore', [
+    .index('byCategoryIsPubliclyListableUseCount', [
       'category',
       'isPubliclyListable',
-      'popularityScore',
+      'useCount',
     ])
     .index('byCategoryIsPubliclyListableFeaturedRank', [
       'category',
@@ -323,6 +318,13 @@ export default defineSchema({
       searchField: 'searchText',
       filterFields: ['isPubliclyListable', 'category'],
     }),
+
+  templateStats: defineTable({
+    templateId: v.id('templates'),
+    useCount: v.number(),
+    viewCount: v.number(),
+    updatedAt: v.number(),
+  }).index('byTemplateId', ['templateId']),
 
   marketplaceStats: defineTable({
     key: v.string(),

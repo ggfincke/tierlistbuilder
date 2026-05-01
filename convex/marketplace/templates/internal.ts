@@ -18,14 +18,14 @@ import {
   buildBoardItemInsertFromTemplateItem,
   buildTemplateStateFields,
   deleteTemplateParentForCascade,
+  incrementTemplateUseStats,
   isActiveTemplateJob,
-  isReadableTemplateRow,
+  isPublishedTemplateRow,
   markTemplateNotPublic,
   patchTemplateAndSyncCard,
   setSourceBoardLivePublicTemplate,
-  syncTemplateCard,
-  syncTemplateCardStats,
   syncTemplateTagRows,
+  writeTemplateCardPreservingCounters,
 } from './lib'
 
 const cascadePhaseValidator = v.union(v.literal('items'), v.literal('tags'))
@@ -327,7 +327,7 @@ export const processTemplateCloneJob = internalMutation({
       ctx.db.get(job.sourceTemplateId),
       ctx.db.get(job.targetBoardId),
     ])
-    if (!template || !isReadableTemplateRow(template))
+    if (!template || !isPublishedTemplateRow(template))
     {
       await markCloneJobFailed(ctx, job, CONVEX_ERROR_CODES.notFound, now)
       return null
@@ -411,9 +411,7 @@ export const processTemplateCloneJob = internalMutation({
       librarySummary,
       updatedAt: now,
     })
-    const nextUseCount = template.useCount + 1
-    await ctx.db.patch(template._id, { useCount: nextUseCount })
-    await syncTemplateCardStats(ctx, template._id, { useCount: nextUseCount })
+    await incrementTemplateUseStats(ctx, template._id, now)
     await ctx.db.patch(job._id, {
       status: 'succeeded',
       processedItemCount,
@@ -522,7 +520,9 @@ export const syncTemplateCardsForAuthor = internalMutation({
       })
 
     await Promise.all(
-      page.page.map((template) => syncTemplateCard(ctx, template))
+      page.page.map((template) =>
+        writeTemplateCardPreservingCounters(ctx, template)
+      )
     )
 
     if (!page.isDone)

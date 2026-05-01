@@ -87,10 +87,10 @@ export const DEFAULT_TEMPLATE_DRAFT_LIMIT = 8
 export const MAX_TEMPLATE_DRAFT_LIMIT = 24
 const TEMPLATE_SLUG_LENGTH = 10
 
-// max images denormalized onto each summary projection so cards can render a
-// tiermaker-style mosaic w/o issuing a per-card detail query. capped to keep
-// the gallery payload bounded even when templates are large
-export const MAX_TEMPLATE_COVER_ITEMS = 6
+// max images denormalized onto summaries; cards render a mosaic without
+// per-card detail reads. ceiling matches the densest hero grid (6x4)
+// so big rosters fill the card instead of leaving empty cells
+export const MAX_TEMPLATE_COVER_ITEMS = 24
 
 const TEMPLATE_SLUG_PATTERN = new RegExp(
   `^[0-9A-Za-z]{${TEMPLATE_SLUG_LENGTH}}$`
