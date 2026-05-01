@@ -6,18 +6,24 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 import {
   appPreferencesValidator,
+  boardCloudStateValidator,
   boardLabelSettingsValidator,
   boardLibrarySummaryValidator,
+  boardMaterializationStateValidator,
+  boardPausedReasonValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
   mediaVariantKindValidator,
   mediaVariantSummaryValidator,
   paletteIdValidator,
   templateCategoryValidator,
+  templatePublicationStateValidator,
+  templateSizeClassValidator,
   templateVisibilityValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
   tierPresetTiersValidator,
+  userPlanValidator,
 } from './lib/validators'
 
 export default defineSchema({
@@ -40,7 +46,7 @@ export default defineSchema({
     avatarStorageId: v.optional(v.id('_storage')),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
-    plan: v.optional(v.union(v.literal('free'), v.literal('plus'))),
+    plan: v.optional(userPlanValidator),
     lastUpsertError: v.optional(v.string()),
     // public-profile fields — surfaced via /u/:handle once that route exists.
     // handle is lowercase a-z/0-9/_/- ; uniqueness enforced via byHandle index
@@ -85,6 +91,13 @@ export default defineSchema({
     ),
     // source template for boards created through "Use this template"
     sourceTemplateId: v.union(v.id('templates'), v.null()),
+    sourceTemplateCategory: v.union(templateCategoryValidator, v.null()),
+    sourceTemplateSizeClass: v.union(templateSizeClassValidator, v.null()),
+    livePublicTemplateId: v.union(v.id('templates'), v.null()),
+    cloudState: boardCloudStateValidator,
+    materializationState: boardMaterializationStateValidator,
+    cloudBackedAt: v.union(v.number(), v.null()),
+    pausedReason: v.union(boardPausedReasonValidator, v.null()),
     activeItemCount: v.number(),
     unrankedItemCount: v.number(),
     templateProgressState: v.union(
@@ -212,7 +225,10 @@ export default defineSchema({
       })
     ),
     suggestedTiers: tierPresetTiersValidator,
-    sourceBoardExternalId: v.union(v.string(), v.null()),
+    sourceBoardId: v.union(v.id('boards'), v.null()),
+    sizeClass: templateSizeClassValidator,
+    publicationState: templatePublicationStateValidator,
+    isPubliclyListable: v.boolean(),
     itemCount: v.number(),
     useCount: v.number(),
     viewCount: v.number(),
@@ -237,53 +253,34 @@ export default defineSchema({
     labels: v.optional(boardLabelSettingsValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
-    unpublishedAt: v.union(v.number(), v.null()),
   })
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
-    .index('byAuthorSourceBoardVisibilityUnpublished', [
-      'authorId',
-      'sourceBoardExternalId',
-      'visibility',
-      'unpublishedAt',
-    ])
     .index('byCoverMedia', ['coverMediaAssetId'])
-    .index('byVisibilityUnpublishedUpdatedAt', [
-      'visibility',
-      'unpublishedAt',
-      'updatedAt',
-    ])
-    .index('byVisibilityUnpublishedUseCount', [
-      'visibility',
-      'unpublishedAt',
-      'useCount',
-    ])
-    .index('byVisibilityUnpublishedFeaturedRank', [
-      'visibility',
-      'unpublishedAt',
+    .index('byIsPubliclyListableUpdatedAt', ['isPubliclyListable', 'updatedAt'])
+    .index('byIsPubliclyListableUseCount', ['isPubliclyListable', 'useCount'])
+    .index('byIsPubliclyListableFeaturedRank', [
+      'isPubliclyListable',
       'featuredRank',
     ])
-    .index('byCategoryVisibilityUnpublishedUpdatedAt', [
+    .index('byCategoryIsPubliclyListableUpdatedAt', [
       'category',
-      'visibility',
-      'unpublishedAt',
+      'isPubliclyListable',
       'updatedAt',
     ])
-    .index('byCategoryVisibilityUnpublishedUseCount', [
+    .index('byCategoryIsPubliclyListableUseCount', [
       'category',
-      'visibility',
-      'unpublishedAt',
+      'isPubliclyListable',
       'useCount',
     ])
-    .index('byCategoryVisibilityUnpublishedFeaturedRank', [
+    .index('byCategoryIsPubliclyListableFeaturedRank', [
       'category',
-      'visibility',
-      'unpublishedAt',
+      'isPubliclyListable',
       'featuredRank',
     ])
     .searchIndex('searchPublic', {
       searchField: 'searchText',
-      filterFields: ['visibility', 'unpublishedAt', 'category'],
+      filterFields: ['isPubliclyListable', 'category'],
     }),
 
   marketplaceStats: defineTable({
@@ -296,28 +293,24 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index('byKey', ['key']),
 
-  // helper table for tag filtering. one row per (template, tag) —
-  // denormalized fields mirror the parent template so the list query can
-  // sort & filter w/o a join
+  // helper table for tag filtering. one row per (template, tag); denormalized
+  // listability mirrors the parent so public tag queries avoid a join
   templateTags: defineTable({
     templateId: v.id('templates'),
     tag: v.string(),
     category: templateCategoryValidator,
-    visibility: templateVisibilityValidator,
-    unpublishedAt: v.union(v.number(), v.null()),
+    isPubliclyListable: v.boolean(),
     updatedAt: v.number(),
   })
-    .index('byTagVisibilityUnpublishedUpdatedAt', [
+    .index('byTagIsPubliclyListableUpdatedAt', [
       'tag',
-      'visibility',
-      'unpublishedAt',
+      'isPubliclyListable',
       'updatedAt',
     ])
-    .index('byCategoryTagVisibilityUnpublishedUpdatedAt', [
+    .index('byCategoryTagIsPubliclyListableUpdatedAt', [
       'category',
       'tag',
-      'visibility',
-      'unpublishedAt',
+      'isPubliclyListable',
       'updatedAt',
     ])
     .index('byTemplate', ['templateId']),

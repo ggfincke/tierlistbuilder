@@ -23,6 +23,7 @@ import type {
   CloudBoardTierWire,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import schema from '../../convex/schema'
+import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
 import { modules } from './convexTestHelpers'
 
 const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
@@ -124,6 +125,9 @@ const seedSourceBoard = async (
         : {}),
       ...(options.labels !== undefined ? { labels: options.labels } : {}),
       sourceTemplateId: null,
+      sourceTemplateCategory: null,
+      sourceTemplateSizeClass: null,
+      ...buildFreshBoardCloudFields(now),
       activeItemCount: 2,
       unrankedItemCount: 1,
       templateProgressState: 'none',
@@ -226,6 +230,9 @@ const seedLargeSourceBoard = async (
       deletedAt: null,
       revision: 1,
       sourceTemplateId: null,
+      sourceTemplateCategory: null,
+      sourceTemplateSizeClass: null,
+      ...buildFreshBoardCloudFields(now),
       activeItemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
       unrankedItemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
       templateProgressState: 'none',
@@ -268,7 +275,10 @@ const seedLargeTemplate = async (
       coverMediaAssetId: null,
       coverItems: [],
       suggestedTiers: [{ name: 'S', colorSpec: { kind: 'palette', index: 0 } }],
-      sourceBoardExternalId: null,
+      sourceBoardId: null,
+      sizeClass: 'large',
+      publicationState: 'published',
+      isPubliclyListable: true,
       itemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
       useCount: 0,
       viewCount: 0,
@@ -277,7 +287,6 @@ const seedLargeTemplate = async (
       searchText: 'large template gaming',
       createdAt: now,
       updatedAt: now,
-      unpublishedAt: null,
     })
     return 'LargeTpl01'
   })
@@ -393,6 +402,13 @@ describe('marketplace template Convex functions', () =>
         {}
       )
     ).toEqual({ count: 1, countByCategory: { gaming: 1 } })
+    expect(
+      (
+        await caller.query(api.workspace.boards.queries.getMyLibraryBoards, {})
+      )[0]
+    ).toMatchObject({
+      visibility: 'public',
+    })
 
     await caller.mutation(
       api.marketplace.templates.mutations.updateMyTemplateMeta,
@@ -403,7 +419,20 @@ describe('marketplace template Convex functions', () =>
         api.marketplace.templates.queries.getPublicTemplateCount,
         {}
       )
-    ).toEqual({ count: 2, countByCategory: { gaming: 1, movies: 1 } })
+    ).toEqual({ count: 1, countByCategory: { movies: 1 } })
+
+    expect(
+      await t.query(api.marketplace.templates.queries.getTemplateBySlug, {
+        slug: publicTemplate.slug,
+      })
+    ).toBeNull()
+    expect(
+      (
+        await caller.query(api.workspace.boards.queries.getMyLibraryBoards, {})
+      )[0]
+    ).toMatchObject({
+      visibility: 'public',
+    })
 
     await caller.mutation(
       api.marketplace.templates.mutations.unpublishMyTemplate,
@@ -415,6 +444,24 @@ describe('marketplace template Convex functions', () =>
         {}
       )
     ).toEqual({ count: 1, countByCategory: { movies: 1 } })
+
+    await caller.mutation(
+      api.marketplace.templates.mutations.unpublishMyTemplate,
+      { slug: unlistedTemplate.slug }
+    )
+    expect(
+      await t.query(
+        api.marketplace.templates.queries.getPublicTemplateCount,
+        {}
+      )
+    ).toEqual({ count: 0, countByCategory: {} })
+    expect(
+      (
+        await caller.query(api.workspace.boards.queries.getMyLibraryBoards, {})
+      )[0]
+    ).toMatchObject({
+      visibility: 'private',
+    })
   })
 
   it('keeps large publish and clone behind Plus and job feature gates', async () =>
@@ -503,6 +550,12 @@ describe('marketplace template Convex functions', () =>
         visibility: 'public',
       }
     )
+    const byTag = await t.query(
+      api.marketplace.templates.queries.listTemplates,
+      { tag: 'rpg' }
+    )
+    expect(byTag.items.map((i) => i.title)).toEqual(['Tagged Public'])
+
     await caller.mutation(
       api.marketplace.templates.mutations.publishFromBoard,
       {
@@ -523,11 +576,11 @@ describe('marketplace template Convex functions', () =>
       visibility: 'public',
     })
 
-    const byTag = await t.query(
+    const afterReplacement = await t.query(
       api.marketplace.templates.queries.listTemplates,
       { tag: 'rpg' }
     )
-    expect(byTag.items.map((i) => i.title)).toEqual(['Tagged Public'])
+    expect(afterReplacement.items).toEqual([])
 
     await caller.mutation(
       api.marketplace.templates.mutations.unpublishMyTemplate,
@@ -604,6 +657,15 @@ describe('marketplace template Convex functions', () =>
       label: 'Image item',
       mediaContentHash: 'hash-source',
       transform,
+    })
+    const libraryRows = await asUser(t, consumerId).query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(libraryRows[0]).toMatchObject({
+      externalId: result.boardExternalId,
+      category: 'sports',
+      sourceTemplateSizeClass: 'standard',
     })
 
     const popular = await t.query(

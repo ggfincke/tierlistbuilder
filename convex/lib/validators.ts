@@ -12,6 +12,7 @@ import {
   type AppPreferences,
   type CloudPreferencesRead,
 } from '@tierlistbuilder/contracts/platform/preferences'
+import { USER_PLANS } from '@tierlistbuilder/contracts/platform/user'
 import {
   LABEL_SCRIMS,
   LABEL_TEXT_COLORS,
@@ -36,6 +37,8 @@ import {
 } from '@tierlistbuilder/contracts/lib/theme'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
+  TEMPLATE_PUBLICATION_STATES,
+  TEMPLATE_SIZE_CLASSES,
   TEMPLATE_LIST_SORTS,
   TEMPLATE_VISIBILITIES,
   type MarketplaceTemplateDetail,
@@ -50,14 +53,22 @@ import {
   type TemplateCoverItem,
   type TemplateListSort,
   type TemplateMediaRef,
+  type TemplatePublicationState,
+  type TemplateSizeClass,
   type TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import {
+  BOARD_PAUSED_REASONS,
+  BOARD_CLOUD_STATES,
+  BOARD_MATERIALIZATION_STATES,
   LIBRARY_BOARD_STATUSES,
   LIBRARY_BOARD_VISIBILITIES,
   type BoardListItem,
+  type BoardCloudState,
   type DeletedBoardListItem,
   type LibraryBoardListItem,
+  type BoardMaterializationState,
+  type BoardPausedReason,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   CloudBoardState,
@@ -96,14 +107,24 @@ export const tierPresetTierValidator = v.object({
 // array of tiers stored inline on a tierPresets row
 export const tierPresetTiersValidator = v.array(tierPresetTierValidator)
 
-// build a v.union of v.literal() from a readonly tuple sourced in contracts.
-// the _Assert pairs below still catch drift in either direction at compile time
-const literalUnion = <T extends readonly [string, string, ...string[]]>(
+// build a validator from a readonly tuple sourced in contracts.
+const literalUnion = <T extends readonly [string, ...string[]]>(
   values: T
 ): Validator<T[number]> =>
-  v.union(...values.map((value) => v.literal(value))) as unknown as Validator<
-    T[number]
-  >
+{
+  const literals = values.map((value) => v.literal(value))
+  if (literals.length === 1)
+  {
+    return literals[0] as unknown as Validator<T[number]>
+  }
+  return v.union(
+    ...(literals as [
+      Validator<string>,
+      Validator<string>,
+      ...Validator<string>[],
+    ])
+  ) as unknown as Validator<T[number]>
+}
 
 const themeIdValidator = literalUnion(THEME_IDS)
 export const paletteIdValidator = literalUnion(PALETTE_IDS)
@@ -113,9 +134,14 @@ const itemShapeValidator = literalUnion(ITEM_SHAPES)
 const labelWidthValidator = literalUnion(LABEL_WIDTHS)
 const tierLabelFontSizeValidator = literalUnion(TIER_LABEL_FONT_SIZES)
 const toolbarPositionValidator = literalUnion(TOOLBAR_POSITIONS)
+export const userPlanValidator = literalUnion(USER_PLANS)
 export const templateCategoryValidator = literalUnion(TEMPLATE_CATEGORIES)
 export const templateListSortValidator = literalUnion(TEMPLATE_LIST_SORTS)
 export const templateVisibilityValidator = literalUnion(TEMPLATE_VISIBILITIES)
+export const templateSizeClassValidator = literalUnion(TEMPLATE_SIZE_CLASSES)
+export const templatePublicationStateValidator = literalUnion(
+  TEMPLATE_PUBLICATION_STATES
+)
 export const mediaVariantKindValidator = literalUnion(MEDIA_VARIANT_KINDS)
 export const imageMimeTypeValidator = literalUnion(SUPPORTED_IMAGE_MIME_TYPES)
 
@@ -154,77 +180,54 @@ export const appPreferencesValidator = v.object({
   autoCropTrimSoftShadows: v.boolean(),
 })
 
-// compile-time coverage check — AppPreferences fields added, removed, or renamed
-// w/o updating appPreferencesValidator fail the build via _Assert<true>
+// compile-time coverage check — field/union drift fails the build.
 type _Assert<T extends true> = T
+type _Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 type _AppPreferencesValidatorInfer = Infer<typeof appPreferencesValidator>
-export type _AppPreferencesCovers = _Assert<
-  AppPreferences extends _AppPreferencesValidatorInfer ? true : false
+export type _AppPreferencesExact = _Assert<
+  _Exact<AppPreferences, _AppPreferencesValidatorInfer>
 >
-export type _AppPreferencesNoExtra = _Assert<
-  _AppPreferencesValidatorInfer extends AppPreferences ? true : false
+export type _ThemeIdExact = _Assert<
+  _Exact<ThemeId, Infer<typeof themeIdValidator>>
 >
-
-// same coverage discipline for theme/palette/text-style & tier-preset-tier shape —
-// contract-side renames or union additions not reflected here fail the build.
-// each pair asserts both directions (no missing members, no extras)
-export type _ThemeIdCovers = _Assert<
-  ThemeId extends Infer<typeof themeIdValidator> ? true : false
+export type _PaletteIdExact = _Assert<
+  _Exact<PaletteId, Infer<typeof paletteIdValidator>>
 >
-export type _ThemeIdNoExtra = _Assert<
-  Infer<typeof themeIdValidator> extends ThemeId ? true : false
+export type _TextStyleIdExact = _Assert<
+  _Exact<TextStyleId, Infer<typeof textStyleIdValidator>>
 >
-
-export type _PaletteIdCovers = _Assert<
-  PaletteId extends Infer<typeof paletteIdValidator> ? true : false
+export type _TierPresetTierExact = _Assert<
+  _Exact<TierPresetTier, Infer<typeof tierPresetTierValidator>>
 >
-export type _PaletteIdNoExtra = _Assert<
-  Infer<typeof paletteIdValidator> extends PaletteId ? true : false
+export type _TemplateCategoryExact = _Assert<
+  _Exact<TemplateCategory, Infer<typeof templateCategoryValidator>>
 >
-
-export type _TextStyleIdCovers = _Assert<
-  TextStyleId extends Infer<typeof textStyleIdValidator> ? true : false
+export type _TemplateVisibilityExact = _Assert<
+  _Exact<TemplateVisibility, Infer<typeof templateVisibilityValidator>>
 >
-export type _TextStyleIdNoExtra = _Assert<
-  Infer<typeof textStyleIdValidator> extends TextStyleId ? true : false
+export type _TemplateListSortExact = _Assert<
+  _Exact<TemplateListSort, Infer<typeof templateListSortValidator>>
 >
-
-export type _TierPresetTierCovers = _Assert<
-  TierPresetTier extends Infer<typeof tierPresetTierValidator> ? true : false
+export type _TemplateSizeClassExact = _Assert<
+  _Exact<TemplateSizeClass, Infer<typeof templateSizeClassValidator>>
 >
-export type _TierPresetTierNoExtra = _Assert<
-  Infer<typeof tierPresetTierValidator> extends TierPresetTier ? true : false
+export type _TemplatePublicationStateExact = _Assert<
+  _Exact<
+    TemplatePublicationState,
+    Infer<typeof templatePublicationStateValidator>
+  >
 >
-
-export type _TemplateCategoryCovers = _Assert<
-  TemplateCategory extends Infer<typeof templateCategoryValidator>
-    ? true
-    : false
+export type _BoardCloudStateExact = _Assert<
+  _Exact<BoardCloudState, Infer<typeof boardCloudStateValidator>>
 >
-export type _TemplateCategoryNoExtra = _Assert<
-  Infer<typeof templateCategoryValidator> extends TemplateCategory
-    ? true
-    : false
+export type _BoardMaterializationStateExact = _Assert<
+  _Exact<
+    BoardMaterializationState,
+    Infer<typeof boardMaterializationStateValidator>
+  >
 >
-export type _TemplateVisibilityCovers = _Assert<
-  TemplateVisibility extends Infer<typeof templateVisibilityValidator>
-    ? true
-    : false
->
-export type _TemplateVisibilityNoExtra = _Assert<
-  Infer<typeof templateVisibilityValidator> extends TemplateVisibility
-    ? true
-    : false
->
-export type _TemplateListSortCovers = _Assert<
-  TemplateListSort extends Infer<typeof templateListSortValidator>
-    ? true
-    : false
->
-export type _TemplateListSortNoExtra = _Assert<
-  Infer<typeof templateListSortValidator> extends TemplateListSort
-    ? true
-    : false
+export type _BoardPausedReasonExact = _Assert<
+  _Exact<BoardPausedReason, Infer<typeof boardPausedReasonValidator>>
 >
 
 // return-value validators — used by `returns:` on queries & mutations so the
@@ -253,6 +256,11 @@ export const deletedBoardListItemValidator = v.object({
 // status & visibility unions — mirror the LIBRARY_BOARD_* tuples in contracts
 const libraryBoardStatusValidator = literalUnion(LIBRARY_BOARD_STATUSES)
 const libraryBoardVisibilityValidator = literalUnion(LIBRARY_BOARD_VISIBILITIES)
+export const boardCloudStateValidator = literalUnion(BOARD_CLOUD_STATES)
+export const boardMaterializationStateValidator = literalUnion(
+  BOARD_MATERIALIZATION_STATES
+)
+export const boardPausedReasonValidator = literalUnion(BOARD_PAUSED_REASONS)
 
 // single cover-item entry on a library row — mirrors LibraryBoardCoverItem
 const libraryBoardCoverItemValidator = v.object({
@@ -293,6 +301,7 @@ export const libraryBoardListItemValidator = v.object({
   status: libraryBoardStatusValidator,
   visibility: libraryBoardVisibilityValidator,
   category: templateCategoryValidator,
+  sourceTemplateSizeClass: v.union(templateSizeClassValidator, v.null()),
   coverItems: v.array(libraryBoardCoverItemValidator),
   paletteId: paletteIdValidator,
   tierColors: v.array(tierColorSpecValidator),
@@ -463,6 +472,8 @@ const marketplaceTemplateBaseFields = {
   category: templateCategoryValidator,
   tags: v.array(v.string()),
   visibility: templateVisibilityValidator,
+  sizeClass: templateSizeClassValidator,
+  publicationState: templatePublicationStateValidator,
   author: templateAuthorValidator,
   coverMedia: v.union(templateMediaRefValidator, v.null()),
   itemCount: v.number(),
@@ -472,7 +483,6 @@ const marketplaceTemplateBaseFields = {
   creditLine: v.union(v.string(), v.null()),
   createdAt: v.number(),
   updatedAt: v.number(),
-  unpublishedAt: v.union(v.number(), v.null()),
 }
 
 export const marketplaceTemplateSummaryValidator = v.object({

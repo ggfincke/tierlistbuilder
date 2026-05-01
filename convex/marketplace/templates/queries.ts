@@ -31,6 +31,7 @@ import {
   normalizeSearchQuery,
   normalizeTagArg,
   readPublicTemplateStats,
+  isReadableTemplateRow,
   toTemplateDetail,
   toTemplateDraft,
   toTemplateSummary,
@@ -55,11 +56,10 @@ const takePublicRows = async (
     {
       return await ctx.db
         .query('templates')
-        .withIndex('byCategoryVisibilityUnpublishedFeaturedRank', (q) =>
+        .withIndex('byCategoryIsPubliclyListableFeaturedRank', (q) =>
           q
             .eq('category', options.category!)
-            .eq('visibility', 'public')
-            .eq('unpublishedAt', null)
+            .eq('isPubliclyListable', true)
             .gt('featuredRank', -1)
         )
         .order('asc')
@@ -68,11 +68,8 @@ const takePublicRows = async (
 
     return await ctx.db
       .query('templates')
-      .withIndex('byVisibilityUnpublishedFeaturedRank', (q) =>
-        q
-          .eq('visibility', 'public')
-          .eq('unpublishedAt', null)
-          .gt('featuredRank', -1)
+      .withIndex('byIsPubliclyListableFeaturedRank', (q) =>
+        q.eq('isPubliclyListable', true).gt('featuredRank', -1)
       )
       .order('asc')
       .take(options.limit)
@@ -84,11 +81,8 @@ const takePublicRows = async (
     {
       return await ctx.db
         .query('templates')
-        .withIndex('byCategoryVisibilityUnpublishedUseCount', (q) =>
-          q
-            .eq('category', options.category!)
-            .eq('visibility', 'public')
-            .eq('unpublishedAt', null)
+        .withIndex('byCategoryIsPubliclyListableUseCount', (q) =>
+          q.eq('category', options.category!).eq('isPubliclyListable', true)
         )
         .order('desc')
         .take(options.limit)
@@ -96,8 +90,8 @@ const takePublicRows = async (
 
     return await ctx.db
       .query('templates')
-      .withIndex('byVisibilityUnpublishedUseCount', (q) =>
-        q.eq('visibility', 'public').eq('unpublishedAt', null)
+      .withIndex('byIsPubliclyListableUseCount', (q) =>
+        q.eq('isPubliclyListable', true)
       )
       .order('desc')
       .take(options.limit)
@@ -107,11 +101,8 @@ const takePublicRows = async (
   {
     return await ctx.db
       .query('templates')
-      .withIndex('byCategoryVisibilityUnpublishedUpdatedAt', (q) =>
-        q
-          .eq('category', options.category!)
-          .eq('visibility', 'public')
-          .eq('unpublishedAt', null)
+      .withIndex('byCategoryIsPubliclyListableUpdatedAt', (q) =>
+        q.eq('category', options.category!).eq('isPubliclyListable', true)
       )
       .order('desc')
       .take(options.limit)
@@ -119,8 +110,8 @@ const takePublicRows = async (
 
   return await ctx.db
     .query('templates')
-    .withIndex('byVisibilityUnpublishedUpdatedAt', (q) =>
-      q.eq('visibility', 'public').eq('unpublishedAt', null)
+    .withIndex('byIsPubliclyListableUpdatedAt', (q) =>
+      q.eq('isPubliclyListable', true)
     )
     .order('desc')
     .take(options.limit)
@@ -150,21 +141,17 @@ const searchPublicRows = async (
     const tagRows = options.category
       ? await ctx.db
           .query('templateTags')
-          .withIndex('byCategoryTagVisibilityUnpublishedUpdatedAt', (q) =>
+          .withIndex('byCategoryTagIsPubliclyListableUpdatedAt', (q) =>
             q
               .eq('category', options.category!)
               .eq('tag', tag)
-              .eq('visibility', 'public')
-              .eq('unpublishedAt', null)
+              .eq('isPubliclyListable', true)
           )
           .take(TAG_INTERSECT_ID_CAP)
       : await ctx.db
           .query('templateTags')
-          .withIndex('byTagVisibilityUnpublishedUpdatedAt', (q) =>
-            q
-              .eq('tag', tag)
-              .eq('visibility', 'public')
-              .eq('unpublishedAt', null)
+          .withIndex('byTagIsPubliclyListableUpdatedAt', (q) =>
+            q.eq('tag', tag).eq('isPubliclyListable', true)
           )
           .take(TAG_INTERSECT_ID_CAP)
     if (tagRows.length === 0) return []
@@ -178,8 +165,7 @@ const searchPublicRows = async (
     {
       const base = q
         .search('searchText', options.search)
-        .eq('visibility', 'public')
-        .eq('unpublishedAt', null)
+        .eq('isPubliclyListable', true)
 
       return options.category ? base.eq('category', options.category) : base
     })
@@ -192,8 +178,8 @@ const searchPublicRows = async (
 }
 
 // resolve tag-filtered template rows via the normalized templateTags table,
-// ordered by tag-row updatedAt desc. denormalized visibility/category fields
-// keep templates dropped from public view out of the join
+// ordered by tag-row updatedAt desc. denormalized listability keeps templates
+// dropped from public view out of the join
 const takePublicRowsByTag = async (
   ctx: QueryCtx,
   options: {
@@ -206,22 +192,18 @@ const takePublicRowsByTag = async (
   const tagRows = options.category
     ? await ctx.db
         .query('templateTags')
-        .withIndex('byCategoryTagVisibilityUnpublishedUpdatedAt', (q) =>
+        .withIndex('byCategoryTagIsPubliclyListableUpdatedAt', (q) =>
           q
             .eq('category', options.category!)
             .eq('tag', options.tag)
-            .eq('visibility', 'public')
-            .eq('unpublishedAt', null)
+            .eq('isPubliclyListable', true)
         )
         .order('desc')
         .take(options.limit)
     : await ctx.db
         .query('templateTags')
-        .withIndex('byTagVisibilityUnpublishedUpdatedAt', (q) =>
-          q
-            .eq('tag', options.tag)
-            .eq('visibility', 'public')
-            .eq('unpublishedAt', null)
+        .withIndex('byTagIsPubliclyListableUpdatedAt', (q) =>
+          q.eq('tag', options.tag).eq('isPubliclyListable', true)
         )
         .order('desc')
         .take(options.limit)
@@ -230,7 +212,8 @@ const takePublicRowsByTag = async (
     tagRows.map((row) => ctx.db.get(row.templateId))
   )
   return templates.filter(
-    (template): template is Doc<'templates'> => template !== null
+    (template): template is Doc<'templates'> =>
+      template !== null && template.isPubliclyListable
   )
 }
 
@@ -295,7 +278,7 @@ export const getTemplateBySlug = query({
     }
 
     const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || template.unpublishedAt !== null)
+    if (!template || !isReadableTemplateRow(template))
     {
       return null
     }
@@ -324,7 +307,7 @@ export const getRelatedTemplates = query({
       return { items: [] }
     }
     const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || template.unpublishedAt !== null)
+    if (!template || !isReadableTemplateRow(template))
     {
       return { items: [] }
     }
@@ -335,11 +318,8 @@ export const getRelatedTemplates = query({
     )
     const rows = await ctx.db
       .query('templates')
-      .withIndex('byCategoryVisibilityUnpublishedUseCount', (q) =>
-        q
-          .eq('category', template.category)
-          .eq('visibility', 'public')
-          .eq('unpublishedAt', null)
+      .withIndex('byCategoryIsPubliclyListableUseCount', (q) =>
+        q.eq('category', template.category).eq('isPubliclyListable', true)
       )
       .order('desc')
       .take(limit + 1)

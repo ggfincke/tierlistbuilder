@@ -105,7 +105,11 @@ const isMediaReferencedByTemplate = async (
     const templates = await Promise.all(
       templateIds.map((templateId) => ctx.db.get(templateId))
     )
-    if (templates.some((template) => template?.unpublishedAt === null))
+    if (
+      templates.some(
+        (template) => template && template.publicationState !== 'unpublished'
+      )
+    )
     {
       return true
     }
@@ -126,7 +130,9 @@ const isMediaReferencedByTemplate = async (
       .paginate({ cursor: coverCursor, numItems: MEDIA_REF_PAGE_SIZE })
     scannedCovers += page.page.length
 
-    if (page.page.some((template) => template.unpublishedAt === null))
+    if (
+      page.page.some((template) => template.publicationState !== 'unpublished')
+    )
     {
       return true
     }

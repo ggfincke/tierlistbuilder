@@ -8,6 +8,7 @@ import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import schema from '../../convex/schema'
+import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
 import { modules } from './convexTestHelpers'
 
 const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
@@ -281,6 +282,9 @@ describe('media variants', () =>
         deletedAt: null,
         revision: 1,
         sourceTemplateId: null,
+        sourceTemplateCategory: null,
+        sourceTemplateSizeClass: null,
+        ...buildFreshBoardCloudFields(0),
         activeItemCount: 1,
         unrankedItemCount: 1,
         templateProgressState: 'none',
@@ -312,7 +316,10 @@ describe('media variants', () =>
         suggestedTiers: [
           { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
         ],
-        sourceBoardExternalId: 'board-shared',
+        sourceBoardId: boardId,
+        sizeClass: 'standard',
+        publicationState: 'published',
+        isPubliclyListable: true,
         itemCount: 1,
         useCount: 0,
         viewCount: 0,
@@ -321,7 +328,6 @@ describe('media variants', () =>
         searchText: 'shared template',
         createdAt: 0,
         updatedAt: 0,
-        unpublishedAt: null,
       })
       await ctx.db.insert('templateItems', {
         templateId,

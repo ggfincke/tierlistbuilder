@@ -49,6 +49,7 @@ import {
   buildBoardLibrarySummary,
   EMPTY_BOARD_LIBRARY_SUMMARY,
 } from './librarySummary'
+import { buildFreshBoardCloudFields } from './cloudFields'
 
 const MAX_LABEL_LEN = 200
 const MAX_ALT_LEN = 500
@@ -334,6 +335,9 @@ const ensureBoard = async (
       deletedAt: null,
       revision: 0,
       sourceTemplateId: null,
+      sourceTemplateCategory: null,
+      sourceTemplateSizeClass: null,
+      ...buildFreshBoardCloudFields(Date.now()),
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(null, progressCounts),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,

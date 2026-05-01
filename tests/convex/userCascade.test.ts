@@ -6,6 +6,7 @@ import rateLimiter from '@convex-dev/rate-limiter/test'
 import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
+import { classifyItemCount } from '../../convex/lib/entitlements'
 import schema from '../../convex/schema'
 import { modules } from './convexTestHelpers'
 
@@ -121,7 +122,10 @@ const seedTemplate = async (
       coverMediaAssetId: null,
       coverItems: [],
       suggestedTiers: [{ name: 'S', colorSpec: { kind: 'palette', index: 0 } }],
-      sourceBoardExternalId: null,
+      sourceBoardId: null,
+      sizeClass: classifyItemCount(itemCount),
+      publicationState: 'published',
+      isPubliclyListable: true,
       itemCount,
       useCount: 0,
       viewCount: 0,
@@ -130,7 +134,6 @@ const seedTemplate = async (
       searchText: 'cascade template cleanup',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      unpublishedAt: null,
     })
     for (let i = 0; i < itemCount; i++)
     {
@@ -153,8 +156,7 @@ const seedTemplate = async (
         templateId,
         tag,
         category: 'gaming',
-        visibility: 'public',
-        unpublishedAt: null,
+        isPubliclyListable: true,
         updatedAt: Date.now(),
       })
     }

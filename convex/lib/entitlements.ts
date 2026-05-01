@@ -4,6 +4,7 @@
 import { ConvexError } from 'convex/values'
 import type { UserPlan } from '@tierlistbuilder/contracts/platform/user'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import type { TemplateSizeClass } from '@tierlistbuilder/contracts/marketplace/template'
 import {
   MAX_LARGE_CLOUD_BOARD_ITEMS,
   MAX_STANDARD_CLOUD_BOARD_ITEMS,
@@ -13,7 +14,6 @@ import type { MutationCtx, QueryCtx } from '../_generated/server'
 
 type DbCtx = MutationCtx | QueryCtx
 
-export type TemplateSizeClass = 'standard' | 'large'
 export type LargeTemplateFeatureState = 'disabled' | 'internal' | 'public'
 
 export interface PlanEntitlements
@@ -27,6 +27,10 @@ export const LARGE_TEMPLATE_FEATURE_STATE: LargeTemplateFeatureState =
 
 export const classifyItemCount = (itemCount: number): TemplateSizeClass =>
   itemCount <= MAX_STANDARD_CLOUD_BOARD_ITEMS ? 'standard' : 'large'
+
+export const requiredPlanForSizeClass = (
+  sizeClass: TemplateSizeClass
+): UserPlan => (sizeClass === 'large' ? 'plus' : 'free')
 
 export const getLargeTemplateFeatureState = (): LargeTemplateFeatureState =>
   LARGE_TEMPLATE_FEATURE_STATE

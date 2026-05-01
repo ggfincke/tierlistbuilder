@@ -2,7 +2,7 @@
 // board queries — list & lookup for the authenticated caller
 
 import { ConvexError, v } from 'convex/values'
-import { query, type QueryCtx } from '../../_generated/server'
+import { query } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
   deriveLibraryBoardStatus,
@@ -207,26 +207,6 @@ export const getBoardStatesByExternalIds = query({
   },
 })
 
-const hasLivePublicTemplateForBoard = async (
-  ctx: QueryCtx,
-  userId: Id<'users'>,
-  sourceBoardExternalId: string
-): Promise<boolean> =>
-{
-  const rows = await ctx.db
-    .query('templates')
-    .withIndex('byAuthorSourceBoardVisibilityUnpublished', (q) =>
-      q
-        .eq('authorId', userId)
-        .eq('sourceBoardExternalId', sourceBoardExternalId)
-        .eq('visibility', 'public')
-        .eq('unpublishedAt', null)
-    )
-    .take(1)
-
-  return rows.length > 0
-}
-
 // enriched my-lists row — adds counts, denormalized cover/tier data,
 // source-template category, & derived status/visibility onto each board
 export const getMyLibraryBoards = query({
@@ -263,38 +243,6 @@ export const getMyLibraryBoards = query({
       return []
     }
 
-    const publishedSourceEntries = await Promise.all(
-      boards.map(
-        async (board) =>
-          [
-            board.externalId,
-            await hasLivePublicTemplateForBoard(ctx, userId, board.externalId),
-          ] as const
-      )
-    )
-    const publishedSourceBoardIds = new Set(
-      publishedSourceEntries
-        .filter(([, hasPublishedTemplate]) => hasPublishedTemplate)
-        .map(([externalId]) => externalId)
-    )
-
-    // dedupe sourceTemplate fetches across boards forked from the same
-    // template — a user w/ 5 forks of the same template only loads it once
-    const sourceTemplateCache = new Map<
-      Id<'templates'>,
-      Promise<Doc<'templates'> | null>
-    >()
-    const loadSourceTemplate = (
-      templateId: Id<'templates'>
-    ): Promise<Doc<'templates'> | null> =>
-    {
-      const existing = sourceTemplateCache.get(templateId)
-      if (existing) return existing
-      const pending = ctx.db.get(templateId)
-      sourceTemplateCache.set(templateId, pending)
-      return pending
-    }
-
     const storageUrlCache = new Map<Id<'_storage'>, Promise<string | null>>()
     const loadStorageUrl = (
       storageId: Id<'_storage'>
@@ -310,9 +258,7 @@ export const getMyLibraryBoards = query({
     return Promise.all(
       boards.map((board) =>
         projectLibraryRow(board, {
-          publishedSourceBoardIds,
           userDefaultPaletteId,
-          loadSourceTemplate,
           loadStorageUrl,
         })
       )
@@ -322,11 +268,7 @@ export const getMyLibraryBoards = query({
 
 interface LibraryRowContext
 {
-  publishedSourceBoardIds: ReadonlySet<string>
   userDefaultPaletteId: PaletteId
-  loadSourceTemplate: (
-    templateId: Id<'templates'>
-  ) => Promise<Doc<'templates'> | null>
   loadStorageUrl: (storageId: Id<'_storage'>) => Promise<string | null>
 }
 
@@ -345,23 +287,8 @@ const projectLibraryRow = async (
     }))
   )
 
-  // category inherits from the source template; blank-pool & dangling-link
-  // boards fall to 'other'
-  let category: TemplateCategory = DEFAULT_LIBRARY_CATEGORY
-  if (board.sourceTemplateId)
-  {
-    const sourceTemplate = await rowCtx.loadSourceTemplate(
-      board.sourceTemplateId
-    )
-    if (sourceTemplate)
-    {
-      category = sourceTemplate.category
-    }
-  }
-
-  const hasPublishedTemplate = rowCtx.publishedSourceBoardIds.has(
-    board.externalId
-  )
+  const category = board.sourceTemplateCategory ?? DEFAULT_LIBRARY_CATEGORY
+  const hasPublishedTemplate = board.livePublicTemplateId !== null
   const status = deriveLibraryBoardStatus({
     activeItemCount: board.activeItemCount,
     unrankedItemCount: board.unrankedItemCount,
@@ -385,6 +312,7 @@ const projectLibraryRow = async (
     status,
     visibility: hasPublishedTemplate ? 'public' : 'private',
     category,
+    sourceTemplateSizeClass: board.sourceTemplateSizeClass,
     coverItems,
     paletteId: board.paletteId ?? rowCtx.userDefaultPaletteId,
     tierColors: board.librarySummary.tierColors,

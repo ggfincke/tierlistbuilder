@@ -13,6 +13,15 @@ export const TEMPLATE_VISIBILITIES = ['public', 'unlisted'] as const
 
 export type TemplateVisibility = (typeof TEMPLATE_VISIBILITIES)[number]
 
+export const TEMPLATE_SIZE_CLASSES = ['standard', 'large'] as const
+
+export type TemplateSizeClass = (typeof TEMPLATE_SIZE_CLASSES)[number]
+
+export const TEMPLATE_PUBLICATION_STATES = ['published', 'unpublished'] as const
+
+export type TemplatePublicationState =
+  (typeof TEMPLATE_PUBLICATION_STATES)[number]
+
 export const TEMPLATE_LIST_SORTS = ['featured', 'popular', 'recent'] as const
 
 export type TemplateListSort = (typeof TEMPLATE_LIST_SORTS)[number]
@@ -90,6 +99,8 @@ export interface MarketplaceTemplateBase
   category: TemplateCategory
   tags: string[]
   visibility: TemplateVisibility
+  sizeClass: TemplateSizeClass
+  publicationState: TemplatePublicationState
   author: TemplateAuthor
   coverMedia: TemplateMediaRef | null
   itemCount: number
@@ -99,7 +110,6 @@ export interface MarketplaceTemplateBase
   creditLine: string | null
   createdAt: number
   updatedAt: number
-  unpublishedAt: number | null
 }
 
 export interface MarketplaceTemplateSummary extends MarketplaceTemplateBase

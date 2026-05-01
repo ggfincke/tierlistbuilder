@@ -27,11 +27,11 @@ import { sha256Hex } from '../../lib/sha256'
 import {
   adjustPublicTemplateCount,
   allocateTemplateSlug,
+  buildTemplateStateFields,
   buildSearchText,
   DEFAULT_TEMPLATE_TIERS,
-  isPublicTemplateRow,
   MARKETPLACE_STATS_KEY,
-  patchTemplateTagRows,
+  markTemplateUnpublished,
   syncTemplateTagRows,
   toTemplateAuthor,
 } from './lib'
@@ -217,6 +217,7 @@ export const insertSeedTemplate = internalMutation({
     // it via the publish/edit flow
     const now = Date.now()
     const slug = await allocateTemplateSlug(ctx)
+    const templateState = buildTemplateStateFields(args.items.length, 'public')
     const templateId: Id<'templates'> = await ctx.db.insert('templates', {
       slug,
       authorId: args.authorId,
@@ -228,7 +229,8 @@ export const insertSeedTemplate = internalMutation({
       coverMediaAssetId: null,
       coverItems,
       suggestedTiers: args.suggestedTiers,
-      sourceBoardExternalId: null,
+      sourceBoardId: null,
+      ...templateState,
       itemCount: args.items.length,
       useCount: 0,
       viewCount: 0,
@@ -250,7 +252,6 @@ export const insertSeedTemplate = internalMutation({
       labels: args.labels ?? undefined,
       createdAt: now,
       updatedAt: now,
-      unpublishedAt: null,
     })
 
     await Promise.all(
@@ -273,11 +274,13 @@ export const insertSeedTemplate = internalMutation({
       { category: args.category, delta: 1 },
     ])
 
-    const inserted = await ctx.db.get(templateId)
-    if (inserted)
-    {
-      await syncTemplateTagRows(ctx, inserted)
-    }
+    await syncTemplateTagRows(ctx, {
+      _id: templateId,
+      tags: args.tags,
+      category: args.category,
+      isPubliclyListable: templateState.isPubliclyListable,
+      updatedAt: now,
+    })
 
     return { slug }
   },
@@ -423,11 +426,8 @@ export const clearAllFeaturedRanksImpl = internalMutation({
     const rankedTemplateIds: Id<'templates'>[] = []
     const rankedTemplates = ctx.db
       .query('templates')
-      .withIndex('byVisibilityUnpublishedFeaturedRank', (q) =>
-        q
-          .eq('visibility', 'public')
-          .eq('unpublishedAt', null)
-          .gt('featuredRank', -1)
+      .withIndex('byIsPubliclyListableFeaturedRank', (q) =>
+        q.eq('isPubliclyListable', true).gt('featuredRank', -1)
       )
 
     for await (const template of rankedTemplates)
@@ -533,12 +533,13 @@ export const recomputeMarketplaceStatsImpl = internalMutation({
   {
     const countByCategory: Record<string, number> = {}
     let count = 0
-    for await (const template of ctx.db.query('templates'))
+    const publicTemplates = ctx.db
+      .query('templates')
+      .withIndex('byIsPubliclyListableUpdatedAt', (q) =>
+        q.eq('isPubliclyListable', true)
+      )
+    for await (const template of publicTemplates)
     {
-      if (template.visibility !== 'public' || template.unpublishedAt !== null)
-      {
-        continue
-      }
       count += 1
       countByCategory[template.category] =
         (countByCategory[template.category] ?? 0) + 1
@@ -805,9 +806,8 @@ export const wipeAllSeededData = action({
   },
 })
 
-// soft-delete a single seeded template by slug (sets unpublishedAt + decrements
-// the public counter + patches tag rows). lets the seed script re-publish a
-// folder without leaving the prior copy visible in the marketplace
+// soft-delete a single seeded template by slug & update public read models.
+// lets the seed script re-publish a folder w/o leaving the prior copy visible
 export const unpublishSeededTemplateImpl = internalMutation({
   args: { slug: v.string() },
   returns: v.object({
@@ -824,26 +824,13 @@ export const unpublishSeededTemplateImpl = internalMutation({
     {
       return { found: false, alreadyUnpublished: false }
     }
-    if (template.unpublishedAt !== null)
+    if (template.publicationState === 'unpublished')
     {
       return { found: true, alreadyUnpublished: true }
     }
 
     const now = Date.now()
-    await ctx.db.patch(template._id, {
-      unpublishedAt: now,
-      updatedAt: now,
-    })
-    if (isPublicTemplateRow(template))
-    {
-      await adjustPublicTemplateCount(ctx, [
-        { category: template.category, delta: -1 },
-      ])
-    }
-    await patchTemplateTagRows(ctx, template._id, {
-      unpublishedAt: now,
-      updatedAt: now,
-    })
+    await markTemplateUnpublished(ctx, template, now)
     return { found: true, alreadyUnpublished: false }
   },
 })
@@ -976,6 +963,11 @@ export const finalizeSeededTemplateChunksImpl = internalMutation({
     await ctx.db.patch(template._id, {
       itemCount: args.itemCount,
       coverItems,
+      ...buildTemplateStateFields(
+        args.itemCount,
+        template.visibility,
+        template.publicationState
+      ),
       updatedAt: Date.now(),
     })
     return { totalItems: args.itemCount }

@@ -402,7 +402,7 @@ export interface DeletedBoardListItem extends BoardListItem
 }
 
 // derived completion status surfaced on the My Lists library page. these are
-// computed server-side from counts + indexed live-template lookup; the user
+// computed server-side from counts + denormalized publication state; the user
 // never sets these directly
 export const LIBRARY_BOARD_STATUSES = [
   'draft',
@@ -416,6 +416,24 @@ export type LibraryBoardStatus = (typeof LIBRARY_BOARD_STATUSES)[number]
 // exists; unlisted templates fold into 'private' here (not-discoverable)
 export const LIBRARY_BOARD_VISIBILITIES = ['private', 'public'] as const
 export type LibraryBoardVisibility = (typeof LIBRARY_BOARD_VISIBILITIES)[number]
+
+export const BOARD_CLOUD_STATES = [
+  'localOnly',
+  'cloudBacked',
+  'syncPausedForPlan',
+] as const
+export type BoardCloudState = (typeof BOARD_CLOUD_STATES)[number]
+
+export const BOARD_MATERIALIZATION_STATES = [
+  'ready',
+  'clonePending',
+  'cloneFailed',
+] as const
+export type BoardMaterializationState =
+  (typeof BOARD_MATERIALIZATION_STATES)[number]
+
+export const BOARD_PAUSED_REASONS = ['planLimit'] as const
+export type BoardPausedReason = (typeof BOARD_PAUSED_REASONS)[number]
 
 // status filter chip values on the My Lists page. 'all' is a UI-only filter
 // state that doesn't appear on individual rows
@@ -478,6 +496,9 @@ export interface LibraryBoardListItem extends BoardListItem
   status: LibraryBoardStatus
   visibility: LibraryBoardVisibility
   category: import('../marketplace/category').TemplateCategory
+  sourceTemplateSizeClass:
+    | import('../marketplace/template').TemplateSizeClass
+    | null
   coverItems: LibraryBoardCoverItem[]
   paletteId: import('../lib/theme').PaletteId
   tierColors: import('../lib/theme').TierColorSpec[]

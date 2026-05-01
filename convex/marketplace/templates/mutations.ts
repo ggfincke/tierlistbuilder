@@ -45,19 +45,24 @@ import {
 import {
   adjustPublicTemplateCount,
   allocateTemplateSlug,
+  buildTemplateStateFields,
   buildSearchText,
+  clearSourceBoardLivePublicTemplate,
   DEFAULT_TEMPLATE_TIERS,
   findTemplateBySlug,
   insertBoardItemsFromTemplate,
   insertBoardTiers,
   isPublicTemplateRow,
+  isReadableTemplateRow,
   loadTemplateItems,
+  markTemplateUnpublished,
   normalizeCreditLine,
   normalizeDescription,
   normalizeTags,
   normalizeTemplateTitle,
   patchTemplateTagRows,
   requireOwnedTemplate,
+  setSourceBoardLivePublicTemplate,
   syncTemplateTagRows,
   templateTitleToBoardTitle,
   tiersFromBoardRows,
@@ -68,6 +73,7 @@ import {
   buildBoardLibrarySummary,
   EMPTY_BOARD_LIBRARY_SUMMARY,
 } from '../../workspace/boards/librarySummary'
+import { buildFreshBoardCloudFields } from '../../workspace/boards/cloudFields'
 
 const templateTierSelectionValidator = v.union(
   v.object({ kind: v.literal('template') }),
@@ -229,6 +235,10 @@ export const publishFromBoard = mutation({
 
     const now = Date.now()
     const slug = await allocateTemplateSlug(ctx)
+    const templateState = buildTemplateStateFields(
+      activeItems.length,
+      args.visibility
+    )
     const templateId = await ctx.db.insert('templates', {
       slug,
       authorId: userId,
@@ -240,7 +250,8 @@ export const publishFromBoard = mutation({
       coverMediaAssetId,
       coverItems,
       suggestedTiers,
-      sourceBoardExternalId: board.externalId,
+      sourceBoardId: board._id,
+      ...templateState,
       itemCount: activeItems.length,
       useCount: 0,
       viewCount: 0,
@@ -259,7 +270,6 @@ export const publishFromBoard = mutation({
       labels: board.labels ?? undefined,
       createdAt: now,
       updatedAt: now,
-      unpublishedAt: null,
     })
 
     await Promise.all(
@@ -278,18 +288,21 @@ export const publishFromBoard = mutation({
         })
       )
     )
-    if (args.visibility === 'public')
+    if (templateState.isPubliclyListable)
     {
       await adjustPublicTemplateCount(ctx, [
         { category: args.category, delta: 1 },
       ])
+      await setSourceBoardLivePublicTemplate(ctx, board, templateId, now)
     }
 
-    const inserted = await ctx.db.get(templateId)
-    if (inserted)
-    {
-      await syncTemplateTagRows(ctx, inserted)
-    }
+    await syncTemplateTagRows(ctx, {
+      _id: templateId,
+      tags,
+      category: args.category,
+      isPubliclyListable: templateState.isPubliclyListable,
+      updatedAt: now,
+    })
 
     return { slug }
   },
@@ -338,6 +351,11 @@ export const updateMyTemplateMeta = mutation({
         : normalizeCreditLine(args.creditLine)
     const previousPublic = isPublicTemplateRow(template)
     const nextVisibility = args.visibility ?? template.visibility
+    const nextTemplateState = buildTemplateStateFields(
+      template.itemCount,
+      nextVisibility,
+      template.publicationState
+    )
     const coverMediaAssetId = await resolveCoverMediaId(
       ctx,
       userId,
@@ -345,12 +363,14 @@ export const updateMyTemplateMeta = mutation({
       template.coverMediaAssetId
     )
 
-    await ctx.db.patch(template._id, {
+    const now = Date.now()
+    const templatePatch = {
       title,
       description,
       category,
       tags,
       visibility: nextVisibility,
+      ...nextTemplateState,
       coverMediaAssetId,
       creditLine,
       searchText: buildSearchText({
@@ -360,10 +380,10 @@ export const updateMyTemplateMeta = mutation({
         tags,
         authorDisplayName: author.displayName,
       }),
-      updatedAt: Date.now(),
-    })
-    const nextPublic =
-      nextVisibility === 'public' && template.unpublishedAt === null
+      updatedAt: now,
+    }
+    await ctx.db.patch(template._id, templatePatch)
+    const nextPublic = nextTemplateState.isPubliclyListable
     // skip the counter round-trip when neither visibility nor category moved.
     // a no-op pair like [{cat:X,-1},{cat:X,+1}] would still issue a write
     const stayedPublicSameCategory =
@@ -381,12 +401,25 @@ export const updateMyTemplateMeta = mutation({
       }
       await adjustPublicTemplateCount(ctx, transitions)
     }
-
-    const updated = await ctx.db.get(template._id)
-    if (updated)
+    if (previousPublic && !nextPublic)
     {
-      await syncTemplateTagRows(ctx, updated)
+      await clearSourceBoardLivePublicTemplate(ctx, template)
     }
+    if (nextPublic)
+    {
+      const sourceBoard =
+        template.sourceBoardId === null
+          ? null
+          : await ctx.db.get(template.sourceBoardId)
+      await setSourceBoardLivePublicTemplate(
+        ctx,
+        sourceBoard,
+        template._id,
+        now
+      )
+    }
+
+    await syncTemplateTagRows(ctx, { ...template, ...templatePatch })
 
     return null
   },
@@ -404,26 +437,13 @@ export const unpublishMyTemplate = mutation({
 
     const userId = await requireCurrentUserId(ctx)
     const template = await requireOwnedTemplate(ctx, args.slug, userId)
-    if (template.unpublishedAt !== null)
+    if (template.publicationState === 'unpublished')
     {
       return null
     }
 
     const now = Date.now()
-    await ctx.db.patch(template._id, {
-      unpublishedAt: now,
-      updatedAt: now,
-    })
-    if (isPublicTemplateRow(template))
-    {
-      await adjustPublicTemplateCount(ctx, [
-        { category: template.category, delta: -1 },
-      ])
-    }
-    await patchTemplateTagRows(ctx, template._id, {
-      unpublishedAt: now,
-      updatedAt: now,
-    })
+    await markTemplateUnpublished(ctx, template, now)
 
     return null
   },
@@ -444,24 +464,39 @@ export const republishMyTemplate = mutation({
 
     const userId = await requireCurrentUserId(ctx)
     const template = await requireOwnedTemplate(ctx, args.slug, userId)
-    if (template.unpublishedAt === null)
+    if (template.publicationState !== 'unpublished')
     {
       return null
     }
 
     const now = Date.now()
+    const nextTemplateState = buildTemplateStateFields(
+      template.itemCount,
+      template.visibility,
+      'published'
+    )
     await ctx.db.patch(template._id, {
-      unpublishedAt: null,
+      ...nextTemplateState,
       updatedAt: now,
     })
-    if (template.visibility === 'public')
+    if (nextTemplateState.isPubliclyListable)
     {
       await adjustPublicTemplateCount(ctx, [
         { category: template.category, delta: 1 },
       ])
+      const sourceBoard =
+        template.sourceBoardId === null
+          ? null
+          : await ctx.db.get(template.sourceBoardId)
+      await setSourceBoardLivePublicTemplate(
+        ctx,
+        sourceBoard,
+        template._id,
+        now
+      )
     }
     await patchTemplateTagRows(ctx, template._id, {
-      unpublishedAt: null,
+      isPubliclyListable: nextTemplateState.isPubliclyListable,
       updatedAt: now,
     })
 
@@ -488,7 +523,7 @@ export const useTemplate = mutation({
 
     const userId = await requireCurrentUserId(ctx)
     const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || template.unpublishedAt !== null)
+    if (!template || !isReadableTemplateRow(template))
     {
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.notFound,
@@ -532,6 +567,9 @@ export const useTemplate = mutation({
       deletedAt: null,
       revision: 0,
       sourceTemplateId: template._id,
+      sourceTemplateCategory: template.category,
+      sourceTemplateSizeClass: template.sizeClass,
+      ...buildFreshBoardCloudFields(now),
       // propagate the template's design-time ratio so per-item transforms
       // (computed in seed against this same ratio) frame correctly. unset
       // values fall back to board defaults (1, auto, cover)
