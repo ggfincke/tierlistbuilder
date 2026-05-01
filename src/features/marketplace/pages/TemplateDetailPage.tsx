@@ -15,7 +15,6 @@ import { useEffect, type ComponentType, type SVGProps } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import {
-  DEFAULT_TEMPLATE_ITEM_PAGE_SIZE,
   isTemplateSlug,
   type MarketplaceTemplateDetail,
   type MarketplaceTemplateItem,
@@ -317,9 +316,7 @@ export const TemplateDetailPage = () =>
   const totalItems = detail.itemCount
   const categoryLabel = CATEGORY_META[detail.category].label
   const hasBakedLabels = detail.labels?.show === true
-  const isLoadingFirstItemPage = itemPage.status === 'LoadingFirstPage'
-  const isLoadingMoreItems = itemPage.status === 'LoadingMore'
-  const canLoadMoreItems = itemPage.status === 'CanLoadMore'
+  const itemPageStatus = itemPage.status
 
   return (
     <article className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
@@ -469,35 +466,36 @@ export const TemplateDetailPage = () =>
             {totalItems} {totalItems === 1 ? 'item' : 'items'}
           </span>
         </div>
-        {isLoadingFirstItemPage ? (
+        {itemPageStatus === 'LoadingFirstPage' ? (
           <ItemsGridSkeleton />
         ) : (
           <>
             <ItemsGrid
-              items={itemPage.results}
+              items={itemPage.items}
               frame={{
                 aspectRatio: detail.itemAspectRatio ?? FALLBACK_FRAME_RATIO,
                 defaultFit: detail.defaultItemImageFit ?? 'cover',
               }}
               labelSettings={detail.labels}
             />
-            {canLoadMoreItems || isLoadingMoreItems ? (
+            {itemPageStatus === 'CanLoadMore' ||
+            itemPageStatus === 'LoadingMore' ? (
               <div className="mt-5 flex justify-center">
                 <button
                   type="button"
-                  disabled={!canLoadMoreItems}
-                  onClick={() =>
-                    itemPage.loadMore(DEFAULT_TEMPLATE_ITEM_PAGE_SIZE)
-                  }
+                  disabled={itemPageStatus !== 'CanLoadMore'}
+                  onClick={() => itemPage.loadMore()}
                   className="focus-custom inline-flex h-10 items-center gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 text-sm font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
                 >
-                  {isLoadingMoreItems && (
+                  {itemPageStatus === 'LoadingMore' && (
                     <Loader2
                       className="h-3.5 w-3.5 animate-spin"
                       strokeWidth={2}
                     />
                   )}
-                  {isLoadingMoreItems ? 'Loading items...' : 'Load more items'}
+                  {itemPageStatus === 'LoadingMore'
+                    ? 'Loading items...'
+                    : 'Load more items'}
                 </button>
               </div>
             ) : null}

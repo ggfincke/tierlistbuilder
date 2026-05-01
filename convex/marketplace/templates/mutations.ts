@@ -51,13 +51,15 @@ import {
   allocateTemplateSlug,
   buildTemplateStateFields,
   clearSourceBoardLivePublicTemplate,
+  createTemplateStats,
   DEFAULT_TEMPLATE_TIERS,
   findTemplateBySlug,
+  incrementTemplateUseStats,
   insertBoardItemsFromTemplate,
   insertBoardTiers,
   isFinishedTemplateJob,
   isPublicTemplateRow,
-  isReadableTemplateRow,
+  isPublishedTemplateRow,
   loadTemplateItems,
   markTemplateUnpublished,
   normalizeCreditLine,
@@ -68,12 +70,11 @@ import {
   patchTemplateAndSyncCard,
   requireOwnedTemplate,
   setSourceBoardLivePublicTemplate,
-  syncTemplateCardById,
-  syncTemplateCardStats,
   syncTemplateTagRows,
   templateTitleToBoardTitle,
   tiersFromBoardRows,
   validateTemplateTiers,
+  writeTemplateCard,
 } from './lib'
 import {
   buildBoardLibrarySummary,
@@ -298,7 +299,7 @@ const queueLargeTemplatePublish = async (
     args.visibility,
     'publishPending'
   )
-  const templateId = await ctx.db.insert('templates', {
+  const templateFields = {
     slug,
     authorId: userId,
     title: args.title,
@@ -312,14 +313,14 @@ const queueLargeTemplatePublish = async (
     sourceBoardId: board._id,
     ...templateState,
     itemCount: board.activeItemCount,
-    useCount: 0,
-    viewCount: 0,
     featuredRank: null,
     creditLine: args.creditLine,
     createdAt: now,
     updatedAt: now,
-  })
-  await syncTemplateCardById(ctx, templateId)
+  } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
+  const templateId = await ctx.db.insert('templates', templateFields)
+  const stats = await createTemplateStats(ctx, templateId, now)
+  await writeTemplateCard(ctx, { _id: templateId, ...templateFields }, stats)
   const jobId = await ctx.db.insert('templatePublishJobs', {
     ownerId: userId,
     sourceBoardId: board._id,
@@ -518,7 +519,7 @@ export const publishFromBoard = mutation({
       activeItems.length,
       args.visibility
     )
-    const templateId = await ctx.db.insert('templates', {
+    const templateFields = {
       slug,
       authorId: userId,
       title,
@@ -532,8 +533,6 @@ export const publishFromBoard = mutation({
       sourceBoardId: board._id,
       ...templateState,
       itemCount: activeItems.length,
-      useCount: 0,
-      viewCount: 0,
       featuredRank: null,
       creditLine,
       itemAspectRatio: board.itemAspectRatio ?? null,
@@ -542,7 +541,9 @@ export const publishFromBoard = mutation({
       labels: board.labels ?? undefined,
       createdAt: now,
       updatedAt: now,
-    })
+    } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
+    const templateId = await ctx.db.insert('templates', templateFields)
+    const stats = await createTemplateStats(ctx, templateId, now)
 
     await Promise.all(
       activeItems.map((item, order) =>
@@ -575,7 +576,7 @@ export const publishFromBoard = mutation({
       isPubliclyListable: templateState.isPubliclyListable,
       updatedAt: now,
     })
-    await syncTemplateCardById(ctx, templateId)
+    await writeTemplateCard(ctx, { _id: templateId, ...templateFields }, stats)
 
     return { status: 'published', slug }
   },
@@ -813,7 +814,7 @@ export const useTemplate = mutation({
 
     const userId = await requireCurrentUserId(ctx)
     const template = await findTemplateBySlug(ctx, args.slug)
-    if (!template || !isReadableTemplateRow(template))
+    if (!template || !isPublishedTemplateRow(template))
     {
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.notFound,
@@ -903,9 +904,7 @@ export const useTemplate = mutation({
         items: summaryItems,
       }),
     })
-    const nextUseCount = template.useCount + 1
-    await ctx.db.patch(template._id, { useCount: nextUseCount })
-    await syncTemplateCardStats(ctx, template._id, { useCount: nextUseCount })
+    await incrementTemplateUseStats(ctx, template._id, now)
 
     return { status: 'ready', boardExternalId }
   },

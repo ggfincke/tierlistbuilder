@@ -2,7 +2,7 @@
 // dev-only seeding for the templates marketplace. takes raw image bytes &
 // item labels, stores blobs, then inserts a fully-formed template
 
-import { ConvexError, v } from 'convex/values'
+import { ConvexError, v, type Infer } from 'convex/values'
 import {
   action,
   internalMutation,
@@ -28,14 +28,17 @@ import {
   adjustPublicTemplateCount,
   allocateTemplateSlug,
   buildTemplateStateFields,
+  createTemplateStats,
   DEFAULT_TEMPLATE_TIERS,
+  findTemplateCardByTemplateId,
+  findTemplateStatsByTemplateId,
   MARKETPLACE_STATS_KEY,
   markTemplateUnpublished,
   patchTemplateAndSyncCard,
   patchTemplateAndSyncCardById,
-  syncTemplateCard,
-  syncTemplateCardById,
+  requireTemplateStats,
   syncTemplateTagRows,
+  writeTemplateCard,
 } from './lib'
 
 // per-item payload sent by scripts/seed-marketplace-templates.ts. aspectRatio
@@ -224,7 +227,7 @@ export const insertSeedTemplate = internalMutation({
     const now = Date.now()
     const slug = await allocateTemplateSlug(ctx)
     const templateState = buildTemplateStateFields(args.items.length, 'public')
-    const templateId: Id<'templates'> = await ctx.db.insert('templates', {
+    const templateFields = {
       slug,
       authorId: args.authorId,
       title: args.title,
@@ -238,8 +241,6 @@ export const insertSeedTemplate = internalMutation({
       sourceBoardId: null,
       ...templateState,
       itemCount: args.items.length,
-      useCount: 0,
-      viewCount: 0,
       featuredRank: null,
       creditLine: null,
       // pre-baked design ratio + cover fit — the per-item transforms below
@@ -251,7 +252,12 @@ export const insertSeedTemplate = internalMutation({
       labels: args.labels ?? undefined,
       createdAt: now,
       updatedAt: now,
-    })
+    } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
+    const templateId: Id<'templates'> = await ctx.db.insert(
+      'templates',
+      templateFields
+    )
+    const stats = await createTemplateStats(ctx, templateId, now)
 
     await Promise.all(
       args.items.map((item, order) =>
@@ -280,7 +286,7 @@ export const insertSeedTemplate = internalMutation({
       isPubliclyListable: templateState.isPubliclyListable,
       updatedAt: now,
     })
-    await syncTemplateCardById(ctx, templateId)
+    await writeTemplateCard(ctx, { _id: templateId, ...templateFields }, stats)
 
     return { slug }
   },
@@ -662,31 +668,68 @@ export const recomputeTemplateTags = action({
   },
 })
 
-export const recomputeTemplateCardsImpl = internalMutation({
-  args: {},
+// dev-only — rebuild templateCards rows for every template; delete stale
+// rows whose template was removed. paginated through two phases so a large
+// dev dataset doesn't trip the 4096-read mutation cap.
+const RECOMPUTE_BATCH = 100
+
+const recomputePhaseValidator = v.union(
+  v.literal('cleanStaleCards'),
+  v.literal('syncCards')
+)
+
+export const recomputeTemplateCardsBatchImpl = internalMutation({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    phase: recomputePhaseValidator,
+  },
   returns: v.object({
-    templatesScanned: v.number(),
+    cursor: v.string(),
+    isDone: v.boolean(),
     cardsDeleted: v.number(),
+    templatesScanned: v.number(),
   }),
-  handler: async (
-    ctx
-  ): Promise<{ templatesScanned: number; cardsDeleted: number }> =>
+  handler: async (ctx, args) =>
   {
-    const templates = await ctx.db.query('templates').collect()
-    const liveTemplateIds = new Set(templates.map((template) => template._id))
-    const cards = await ctx.db.query('templateCards').collect()
-    const staleCards = cards.filter(
-      (card) => !liveTemplateIds.has(card.templateId)
-    )
+    if (args.phase === 'cleanStaleCards')
+    {
+      const page = await ctx.db
+        .query('templateCards')
+        .paginate({ numItems: RECOMPUTE_BATCH, cursor: args.cursor })
+      const stale = await Promise.all(
+        page.page.map(async (card) =>
+        {
+          const template = await ctx.db.get(card.templateId)
+          return template ? null : card._id
+        })
+      )
+      const toDelete = stale.filter(
+        (id): id is NonNullable<typeof id> => id !== null
+      )
+      await Promise.all(toDelete.map((id) => ctx.db.delete(id)))
+      return {
+        cursor: page.continueCursor,
+        isDone: page.isDone,
+        cardsDeleted: toDelete.length,
+        templatesScanned: 0,
+      }
+    }
 
-    await Promise.all(staleCards.map((card) => ctx.db.delete(card._id)))
+    const page = await ctx.db
+      .query('templates')
+      .paginate({ numItems: RECOMPUTE_BATCH, cursor: args.cursor })
     await Promise.all(
-      templates.map((template) => syncTemplateCard(ctx, template))
+      page.page.map(async (template) =>
+      {
+        const stats = await requireTemplateStats(ctx, template._id)
+        await writeTemplateCard(ctx, template, stats)
+      })
     )
-
     return {
-      templatesScanned: templates.length,
-      cardsDeleted: staleCards.length,
+      cursor: page.continueCursor,
+      isDone: page.isDone,
+      cardsDeleted: 0,
+      templatesScanned: page.page.length,
     }
   },
 })
@@ -703,10 +746,29 @@ export const recomputeTemplateCards = action({
   ): Promise<{ templatesScanned: number; cardsDeleted: number }> =>
   {
     requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.recomputeTemplateCardsImpl,
-      {}
-    )
+    let cardsDeleted = 0
+    let templatesScanned = 0
+    for (const phase of ['cleanStaleCards', 'syncCards'] as const)
+    {
+      let cursor: string | null = null
+      while (true)
+      {
+        const result: {
+          cursor: string
+          isDone: boolean
+          cardsDeleted: number
+          templatesScanned: number
+        } = await ctx.runMutation(
+          internal.marketplace.templates.seed.recomputeTemplateCardsBatchImpl,
+          { cursor, phase }
+        )
+        cardsDeleted += result.cardsDeleted
+        templatesScanned += result.templatesScanned
+        if (result.isDone) break
+        cursor = result.cursor
+      }
+    }
+    return { templatesScanned, cardsDeleted }
   },
 })
 
@@ -747,59 +809,96 @@ export const clearSeededTemplateCovers = internalMutation({
   },
 })
 
-// dev-only — wipe ALL templates, templateItems, templateTags, marketplaceStats,
-// templateCards, & forked boards. skips users, sessions, & identity tables
-export const wipeAllSeededDataImpl = internalMutation({
-  args: {},
-  returns: v.object({
-    templates: v.number(),
-    templateCards: v.number(),
-    templateItems: v.number(),
-    templateTags: v.number(),
-    forkedBoards: v.number(),
-  }),
-  handler: async (ctx) =>
-  {
-    const templates = await ctx.db.query('templates').collect()
-    const templateCards = await ctx.db.query('templateCards').collect()
-    const templateRows = await Promise.all(
-      templates.map(async (template) =>
-      {
-        const [items, tags] = await Promise.all([
-          ctx.db
-            .query('templateItems')
-            .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-            .collect(),
-          ctx.db
-            .query('templateTags')
-            .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-            .collect(),
-        ])
-        return { template, items, tags }
-      })
-    )
-    const templateItems = templateRows.reduce(
-      (sum, row) => sum + row.items.length,
-      0
-    )
-    const templateTags = templateRows.reduce(
-      (sum, row) => sum + row.tags.length,
-      0
-    )
-    await Promise.all([
-      ...templateCards.map((card) => ctx.db.delete(card._id)),
-      ...templateRows.flatMap(({ template, items, tags }) => [
-        ...items.map((item) => ctx.db.delete(item._id)),
-        ...tags.map((tag) => ctx.db.delete(tag._id)),
-        ctx.db.delete(template._id),
-      ]),
-    ])
+// dev-only — paginated batch wipe of templates + their children, forked
+// boards + their children, & marketplaceStats. mutations stay under the
+// 4096-read txn cap; the action loops phases. skips identity/auth tables
+const WIPE_BATCH_TEMPLATES = 50
+const WIPE_BATCH_BOARDS = 50
 
-    const boards = await ctx.db.query('boards').collect()
-    const forkedBoardRows = await Promise.all(
-      boards
-        .filter((board) => board.sourceTemplateId !== null)
-        .map(async (board) =>
+const wipePhaseValidator = v.union(
+  v.literal('templates'),
+  v.literal('forkedBoards'),
+  v.literal('marketplaceStats')
+)
+type WipePhase = Infer<typeof wipePhaseValidator>
+
+export const wipeSeededDataBatchImpl = internalMutation({
+  args: { phase: wipePhaseValidator },
+  returns: v.object({
+    isDone: v.boolean(),
+    templatesDeleted: v.number(),
+    itemsDeleted: v.number(),
+    tagsDeleted: v.number(),
+    cardsDeleted: v.number(),
+    statsDeleted: v.number(),
+    boardsDeleted: v.number(),
+    boardItemsDeleted: v.number(),
+    boardTiersDeleted: v.number(),
+    marketplaceStatsCleared: v.boolean(),
+  }),
+  handler: async (ctx, args) =>
+  {
+    if (args.phase === 'templates')
+    {
+      const templates = await ctx.db
+        .query('templates')
+        .take(WIPE_BATCH_TEMPLATES)
+      const counts = await Promise.all(
+        templates.map(async (template) =>
+        {
+          const [items, tags, card, stats] = await Promise.all([
+            ctx.db
+              .query('templateItems')
+              .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+              .collect(),
+            ctx.db
+              .query('templateTags')
+              .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+              .collect(),
+            findTemplateCardByTemplateId(ctx, template._id),
+            findTemplateStatsByTemplateId(ctx, template._id),
+          ])
+          await Promise.all([
+            ...items.map((row) => ctx.db.delete(row._id)),
+            ...tags.map((row) => ctx.db.delete(row._id)),
+            card ? ctx.db.delete(card._id) : Promise.resolve(),
+            stats ? ctx.db.delete(stats._id) : Promise.resolve(),
+          ])
+          await ctx.db.delete(template._id)
+          return {
+            items: items.length,
+            tags: tags.length,
+            cards: card ? 1 : 0,
+            stats: stats ? 1 : 0,
+          }
+        })
+      )
+      return {
+        isDone: templates.length < WIPE_BATCH_TEMPLATES,
+        templatesDeleted: templates.length,
+        itemsDeleted: counts.reduce((sum, c) => sum + c.items, 0),
+        tagsDeleted: counts.reduce((sum, c) => sum + c.tags, 0),
+        cardsDeleted: counts.reduce((sum, c) => sum + c.cards, 0),
+        statsDeleted: counts.reduce((sum, c) => sum + c.stats, 0),
+        boardsDeleted: 0,
+        boardItemsDeleted: 0,
+        boardTiersDeleted: 0,
+        marketplaceStatsCleared: false,
+      }
+    }
+
+    if (args.phase === 'forkedBoards')
+    {
+      // bySourceTemplate index orders nullable id; non-null entries land in a
+      // contiguous range. paginate the index, drop nulls per page, & stop
+      // once a page returns fewer than the batch size
+      const page = await ctx.db
+        .query('boards')
+        .withIndex('bySourceTemplate')
+        .take(WIPE_BATCH_BOARDS)
+      const forked = page.filter((board) => board.sourceTemplateId !== null)
+      const counts = await Promise.all(
+        forked.map(async (board) =>
         {
           const [items, tiers] = await Promise.all([
             ctx.db
@@ -811,58 +910,118 @@ export const wipeAllSeededDataImpl = internalMutation({
               .withIndex('byBoard', (q) => q.eq('boardId', board._id))
               .collect(),
           ])
-          return { board, items, tiers }
+          await Promise.all([
+            ...items.map((row) => ctx.db.delete(row._id)),
+            ...tiers.map((row) => ctx.db.delete(row._id)),
+          ])
+          await ctx.db.delete(board._id)
+          return { items: items.length, tiers: tiers.length }
         })
-    )
-    await Promise.all(
-      forkedBoardRows.flatMap(({ board, items, tiers }) => [
-        ...items.map((item) => ctx.db.delete(item._id)),
-        ...tiers.map((tier) => ctx.db.delete(tier._id)),
-        ctx.db.delete(board._id),
-      ])
-    )
+      )
+      return {
+        isDone: page.length < WIPE_BATCH_BOARDS,
+        templatesDeleted: 0,
+        itemsDeleted: 0,
+        tagsDeleted: 0,
+        cardsDeleted: 0,
+        statsDeleted: 0,
+        boardsDeleted: forked.length,
+        boardItemsDeleted: counts.reduce((sum, c) => sum + c.items, 0),
+        boardTiersDeleted: counts.reduce((sum, c) => sum + c.tiers, 0),
+        marketplaceStatsCleared: false,
+      }
+    }
 
-    const stats = await ctx.db
+    const marketplaceStats = await ctx.db
       .query('marketplaceStats')
       .withIndex('byKey', (q) => q.eq('key', MARKETPLACE_STATS_KEY))
       .unique()
-    if (stats) await ctx.db.delete(stats._id)
-
+    if (marketplaceStats)
+    {
+      await ctx.db.delete(marketplaceStats._id)
+    }
     return {
-      templates: templates.length,
-      templateCards: templateCards.length,
-      templateItems,
-      templateTags,
-      forkedBoards: forkedBoardRows.length,
+      isDone: true,
+      templatesDeleted: 0,
+      itemsDeleted: 0,
+      tagsDeleted: 0,
+      cardsDeleted: 0,
+      statsDeleted: 0,
+      boardsDeleted: 0,
+      boardItemsDeleted: 0,
+      boardTiersDeleted: 0,
+      marketplaceStatsCleared: marketplaceStats !== null,
     }
   },
 })
 
-interface WipeResult
+interface WipeBatchResult
 {
-  templates: number
-  templateCards: number
-  templateItems: number
-  templateTags: number
-  forkedBoards: number
+  templatesDeleted: number
+  itemsDeleted: number
+  tagsDeleted: number
+  cardsDeleted: number
+  statsDeleted: number
+  boardsDeleted: number
+  boardItemsDeleted: number
+  boardTiersDeleted: number
+  marketplaceStatsCleared: boolean
 }
 
-export const wipeAllSeededData = action({
+export const wipeSeededDataBatch = action({
   args: { seedSecret: v.string() },
   returns: v.object({
-    templates: v.number(),
-    templateCards: v.number(),
-    templateItems: v.number(),
-    templateTags: v.number(),
-    forkedBoards: v.number(),
+    templatesDeleted: v.number(),
+    itemsDeleted: v.number(),
+    tagsDeleted: v.number(),
+    cardsDeleted: v.number(),
+    statsDeleted: v.number(),
+    boardsDeleted: v.number(),
+    boardItemsDeleted: v.number(),
+    boardTiersDeleted: v.number(),
+    marketplaceStatsCleared: v.boolean(),
   }),
-  handler: async (ctx, args): Promise<WipeResult> =>
+  handler: async (ctx, args): Promise<WipeBatchResult> =>
   {
     requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.wipeAllSeededDataImpl,
-      {}
-    )
+    const totals: WipeBatchResult = {
+      templatesDeleted: 0,
+      itemsDeleted: 0,
+      tagsDeleted: 0,
+      cardsDeleted: 0,
+      statsDeleted: 0,
+      boardsDeleted: 0,
+      boardItemsDeleted: 0,
+      boardTiersDeleted: 0,
+      marketplaceStatsCleared: false,
+    }
+    const phases: WipePhase[] = [
+      'templates',
+      'forkedBoards',
+      'marketplaceStats',
+    ]
+    for (const phase of phases)
+    {
+      while (true)
+      {
+        const result = await ctx.runMutation(
+          internal.marketplace.templates.seed.wipeSeededDataBatchImpl,
+          { phase }
+        )
+        totals.templatesDeleted += result.templatesDeleted
+        totals.itemsDeleted += result.itemsDeleted
+        totals.tagsDeleted += result.tagsDeleted
+        totals.cardsDeleted += result.cardsDeleted
+        totals.statsDeleted += result.statsDeleted
+        totals.boardsDeleted += result.boardsDeleted
+        totals.boardItemsDeleted += result.boardItemsDeleted
+        totals.boardTiersDeleted += result.boardTiersDeleted
+        totals.marketplaceStatsCleared =
+          totals.marketplaceStatsCleared || result.marketplaceStatsCleared
+        if (result.isDone) break
+      }
+    }
+    return totals
   },
 })
 

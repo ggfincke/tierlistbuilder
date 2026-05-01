@@ -25,9 +25,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
 const EXAMPLES_DIR = join(REPO_ROOT, 'examples')
 
-const SEED_FOLDER_CONCURRENCY = 3
+const SEED_FOLDER_CONCURRENCY = 2
 const SEED_ITEM_IO_CONCURRENCY = 8
 const SEED_CHUNK_UPLOAD_CONCURRENCY = 2
+// transient `fetch failed` from local Convex under heavy parallel load — retry
+// w/ exponential backoff before giving up on the whole folder
+const SEED_ACTION_MAX_ATTEMPTS = 4
+const SEED_ACTION_RETRY_BASE_MS = 750
 const MIXED_TEMPLATE_ITEM_ASPECT_RATIO = 1
 const SEED_TILE_MAX_SIZE = 120
 const SEED_PREVIEW_MAX_SIZE = 1280
@@ -2160,13 +2164,60 @@ const prepareFolder = (probes: ProbedItem[]): PreparedFolder =>
   return { templateRatio, usedMixedRatioFallback, items }
 }
 
-// rough JSON-overhead floor per item — keeps chunked payloads under the
-// action body limit. tuned conservatively against the ~8MB Convex action
-// body cap; bigger values risk "BadJsonBody / length limit exceeded"
-const MAX_CHUNK_BASE64_BYTES = 5 * 1024 * 1024
+// chunk budget is based on source bytes, but each item ships tile + preview.
+// PNG re-encoding can amplify JPEGs 3-4x, so leave headroom under Convex's
+// 16 MB action body cap
+const MAX_CHUNK_BASE64_BYTES = 2 * 1024 * 1024
 
 const estimateBase64Bytes = (byteSize: number): number =>
   Math.ceil(byteSize / 3) * 4
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((res) => setTimeout(res, ms))
+
+const isTransientActionError = (error: unknown): boolean =>
+{
+  const message = error instanceof Error ? error.message : String(error)
+  // node global fetch surfaces network drops as bare "fetch failed"; the
+  // Convex client wraps them w/ that prefix. retry; chunked uploads are
+  // idempotent at the templateItems level (startOrder is fixed per chunk)
+  return /fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up/i.test(
+    message
+  )
+}
+
+const runActionWithRetry = async <T>(
+  label: string,
+  fn: () => Promise<T>
+): Promise<T> =>
+{
+  let lastError: unknown
+  for (let attempt = 1; attempt <= SEED_ACTION_MAX_ATTEMPTS; attempt++)
+  {
+    try
+    {
+      return await fn()
+    }
+    catch (error)
+    {
+      lastError = error
+      if (
+        attempt === SEED_ACTION_MAX_ATTEMPTS ||
+        !isTransientActionError(error)
+      )
+      {
+        throw error
+      }
+      const delay = SEED_ACTION_RETRY_BASE_MS * 2 ** (attempt - 1)
+      const message = error instanceof Error ? error.message : String(error)
+      process.stderr.write(
+        `    .. ${label} transient error (attempt ${attempt}/${SEED_ACTION_MAX_ATTEMPTS}): ${message} — retrying in ${delay}ms\n`
+      )
+      await sleep(delay)
+    }
+  }
+  throw lastError
+}
 
 const chunkItemsBySize = (items: PreparedItem[]): PreparedItem[][] =>
 {
@@ -2211,6 +2262,9 @@ const toPayloadItems = async (
     // — re-opening the file twice doubled disk reads + decode work per item
     const sourceBytes = await readFile(item.filePath)
     const pipeline = sharp(sourceBytes).rotate()
+    // tile stays PNG for transparency. preview is JPEG because 1280px
+    // photographic PNGs can blow past Convex's action body cap; q85 keeps
+    // preview roughly source-sized
     const [tile, preview] = await Promise.all([
       pipeline
         .clone()
@@ -2230,7 +2284,8 @@ const toPayloadItems = async (
           fit: 'inside',
           withoutEnlargement: true,
         })
-        .png()
+        .flatten({ background: { r: 255, g: 255, b: 255 } })
+        .jpeg({ quality: 85, mozjpeg: true })
         .toBuffer(),
     ])
     return {
@@ -2244,14 +2299,20 @@ const toPayloadItems = async (
 
 const seedFolder = async (
   client: ConvexHttpClient,
-  folderName: string,
+  target: SeedTarget,
   authorEmail: string,
   seedSecret: string
 ): Promise<string | null> =>
 {
+  const folderName = target.folder
+  // disk layout is authoritative for category; meta fills title/tags/details.
+  // ad-hoc CLI runs without discovered category fall back to TEMPLATE_META,
+  // then DEFAULT_META
+  const metaOverride = TEMPLATE_META[folderName] ?? {}
   const meta: FolderMeta = {
     ...DEFAULT_META,
-    ...(TEMPLATE_META[folderName] ?? {}),
+    ...metaOverride,
+    category: target.category ?? metaOverride.category ?? DEFAULT_META.category,
   }
   const folderPath = join(EXAMPLES_DIR, meta.category, folderName)
   const title = meta.title ?? titleizeFromFilename(folderName)
@@ -2274,9 +2335,9 @@ const seedFolder = async (
   )
 
   const [firstChunk, ...remainingChunks] = chunks
-  const created = await client.action(
-    api.marketplace.templates.seed.seedTemplateFromBlobs,
-    {
+  const firstChunkPayload = await toPayloadItems(firstChunk)
+  const created = await runActionWithRetry(`${folderName} create`, () =>
+    client.action(api.marketplace.templates.seed.seedTemplateFromBlobs, {
       seedSecret,
       authorEmail,
       title,
@@ -2285,8 +2346,8 @@ const seedFolder = async (
       tags: meta.tags ?? [],
       itemAspectRatio: templateRatio,
       labels,
-      items: await toPayloadItems(firstChunk),
-    }
+      items: firstChunkPayload,
+    })
   )
 
   let totalItems = created.itemsCreated
@@ -2312,15 +2373,20 @@ const seedFolder = async (
     SEED_CHUNK_UPLOAD_CONCURRENCY,
     async ({ chunk, chunkNumber, startOrder }) =>
     {
-      const result = await client.action(
-        api.marketplace.templates.seed.appendItemsToSeededTemplateBlobs,
-        {
-          authorEmail,
-          seedSecret,
-          slug: created.slug,
-          startOrder,
-          items: await toPayloadItems(chunk),
-        }
+      const chunkPayload = await toPayloadItems(chunk)
+      const result = await runActionWithRetry(
+        `${folderName} chunk ${chunkNumber}/${chunks.length}`,
+        () =>
+          client.action(
+            api.marketplace.templates.seed.appendItemsToSeededTemplateBlobs,
+            {
+              authorEmail,
+              seedSecret,
+              slug: created.slug,
+              startOrder,
+              items: chunkPayload,
+            }
+          )
       )
       process.stdout.write(
         `    .. appended chunk ${chunkNumber}/${chunks.length} (${result.itemsAppended} items)\n`
@@ -2330,14 +2396,16 @@ const seedFolder = async (
 
   if (remainingChunks.length > 0)
   {
-    const finalized = await client.action(
-      api.marketplace.templates.seed.finalizeSeededTemplateChunks,
-      {
-        seedSecret,
-        authorEmail,
-        slug: created.slug,
-        itemCount: items.length,
-      }
+    const finalized = await runActionWithRetry(`${folderName} finalize`, () =>
+      client.action(
+        api.marketplace.templates.seed.finalizeSeededTemplateChunks,
+        {
+          seedSecret,
+          authorEmail,
+          slug: created.slug,
+          itemCount: items.length,
+        }
+      )
     )
     totalItems = finalized.totalItems
   }
@@ -2365,6 +2433,15 @@ interface SeedSummary
 {
   succeeded: number
   failed: number
+}
+
+// pairs a folder name w/ its actual category (parent dir on disk) so that
+// folders without a TEMPLATE_META entry — eg. all-pokemon under gaming/ —
+// resolve correctly instead of defaulting to "other" & ENOENT'ing
+interface SeedTarget
+{
+  folder: string
+  category: string | null
 }
 
 interface ParsedArgs
@@ -2440,7 +2517,7 @@ const ensureDefaultSeedAuthor = async (
 
 const seedFolders = async (
   client: ConvexHttpClient,
-  targetFolders: string[],
+  targets: SeedTarget[],
   authorEmail: string,
   seedSecret: string
 ): Promise<SeedSummary> =>
@@ -2451,33 +2528,28 @@ const seedFolders = async (
 
   const runNext = async (): Promise<void> =>
   {
-    while (nextIndex < targetFolders.length)
+    while (nextIndex < targets.length)
     {
-      const folderName = targetFolders[nextIndex]
+      const target = targets[nextIndex]
       nextIndex += 1
 
       try
       {
-        const result = await seedFolder(
-          client,
-          folderName,
-          authorEmail,
-          seedSecret
-        )
+        const result = await seedFolder(client, target, authorEmail, seedSecret)
         if (result) succeeded += 1
       }
       catch (error)
       {
         failed += 1
         const message = error instanceof Error ? error.message : String(error)
-        process.stderr.write(`  ! ${folderName} failed: ${message}\n`)
+        process.stderr.write(`  ! ${target.folder} failed: ${message}\n`)
       }
     }
   }
 
   await Promise.all(
     Array.from(
-      { length: Math.min(SEED_FOLDER_CONCURRENCY, targetFolders.length) },
+      { length: Math.min(SEED_FOLDER_CONCURRENCY, targets.length) },
       runNext
     )
   )
@@ -2510,36 +2582,43 @@ const main = async (): Promise<void> =>
   await ensureDefaultSeedAuthor(client, authorEmail, seedSecret)
 
   // walk one level into examples/<category>/<folder>; the category dir layer
-  // mirrors the marketplace category for navigability
-  const targetFolders =
-    folders.length > 0
-      ? folders
-      : (
-          await Promise.all(
-            (await readdir(EXAMPLES_DIR, { withFileTypes: true }))
-              .filter((e) => e.isDirectory())
-              .map(async (cat) =>
-                (
-                  await readdir(join(EXAMPLES_DIR, cat.name), {
-                    withFileTypes: true,
-                  })
-                )
-                  .filter((e) => e.isDirectory())
-                  .map((e) => e.name)
-              )
+  // mirrors the marketplace category for navigability. record the actual
+  // parent dir so folders without a TEMPLATE_META entry still resolve
+  const discovered = (
+    await Promise.all(
+      (await readdir(EXAMPLES_DIR, { withFileTypes: true }))
+        .filter((e) => e.isDirectory())
+        .map(async (cat) =>
+          (
+            await readdir(join(EXAMPLES_DIR, cat.name), {
+              withFileTypes: true,
+            })
           )
+            .filter((e) => e.isDirectory())
+            .map((e): SeedTarget => ({ folder: e.name, category: cat.name }))
         )
-          .flat()
-          .sort()
+    )
+  )
+    .flat()
+    .sort((a, b) => a.folder.localeCompare(b.folder))
+
+  const discoveredByFolder = new Map(discovered.map((t) => [t.folder, t]))
+  const targets: SeedTarget[] =
+    folders.length > 0
+      ? folders.map(
+          (folder) =>
+            discoveredByFolder.get(folder) ?? { folder, category: null }
+        )
+      : discovered
 
   process.stdout.write(
-    `seeding ${targetFolders.length} template(s) as ${authorEmail} on ${convexUrl}\n`
+    `seeding ${targets.length} template(s) as ${authorEmail} on ${convexUrl}\n`
   )
 
   // wipe stale featured ranks first so we don't leave duplicates at the same
   // slot — only when we'll actually be re-promoting at least one trio member
-  const willPromoteFeatured = targetFolders.some(
-    (folder) => folder in FEATURED_RANKS
+  const willPromoteFeatured = targets.some(
+    (target) => target.folder in FEATURED_RANKS
   )
   if (willPromoteFeatured)
   {
@@ -2552,13 +2631,13 @@ const main = async (): Promise<void> =>
 
   const { succeeded, failed } = await seedFolders(
     client,
-    targetFolders,
+    targets,
     authorEmail,
     seedSecret
   )
 
   process.stdout.write(
-    `\ndone — ${succeeded} succeeded, ${failed} failed of ${targetFolders.length}\n`
+    `\ndone — ${succeeded} succeeded, ${failed} failed of ${targets.length}\n`
   )
   if (failed > 0) process.exit(1)
 }
