@@ -5,13 +5,9 @@ import type { MutableRefObject } from 'react'
 import type { DragMoveEvent, DragOverEvent } from '@dnd-kit/core'
 
 import { toItemId, toStringId } from './dragHelpers'
-import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
-import {
-  findContainer,
-  getEffectiveContainerSnapshot,
-} from '~/features/workspace/boards/dnd/dragSnapshot'
+import { findContainer } from '~/features/workspace/boards/dnd/dragSnapshot'
 import {
   getDraggedItemRect,
   resolveNextDragPreview,
@@ -26,6 +22,7 @@ interface DragPositionEvent
 
 export const syncDraggedItemPosition = (
   event: DragPositionEvent,
+  preview: ContainerSnapshot,
   movedToNewContainerRef: MutableRefObject<boolean>,
   updateDragPreview: (preview: ContainerSnapshot) => void
 ): boolean =>
@@ -48,7 +45,6 @@ export const syncDraggedItemPosition = (
     return false
   }
 
-  const preview = getEffectiveContainerSnapshot(useActiveBoardStore.getState())
   const nextPreview = resolveNextDragPreview({
     snapshot: preview,
     itemId: activeId,

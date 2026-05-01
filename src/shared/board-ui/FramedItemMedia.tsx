@@ -109,7 +109,7 @@ export const FramedItemMedia = ({
 
   const cropSize = transform
     ? resolveManualCropImageSize(
-        aspectRatio ?? null,
+        aspectRatio ?? undefined,
         measuredAspect,
         transform.rotation
       )
@@ -136,11 +136,7 @@ export const FramedItemMedia = ({
     <div
       ref={ref}
       className={className ? `${baseClass} ${className}` : baseClass}
-      style={
-        backgroundColor
-          ? { backgroundColor }
-          : undefined
-      }
+      style={backgroundColor ? { backgroundColor } : undefined}
     >
       <img
         src={imageUrl}

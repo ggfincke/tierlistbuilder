@@ -66,7 +66,7 @@ npm run test:e2e
 npm run test:e2e:ui
 ```
 
-E2E lives in `e2e/` at the repo root and is excluded from the Vitest run. Keep it to a small smoke/guardrail set for cross-layer flows that need real React, routing, focus, or browser wiring. Current guardrails cover app boot, keyboard drag/focus restoration, pointer drag plus Undo, bulk delete/Undo, nested modal Escape, mobile mixed-ratio prompt, hash-share embed rendering, account profile edits, account deletion confirmation, image-editor autosave, marketplace URL filters, and the signed-in publish/use-template flow.
+E2E lives in `e2e/` at the repo root and is excluded from the Vitest run. Keep it to a small smoke/guardrail set for cross-layer flows that need real React, routing, focus, or browser wiring. Current guardrails cover app boot, keyboard drag/focus restoration, pointer drag plus Undo, tall-board drag measuring, bulk delete/Undo, nested modal Escape, mobile mixed-ratio prompt, hash-share embed rendering, account profile edits, account deletion confirmation, image-editor autosave, marketplace URL filters, and the signed-in publish/use-template flow.
 
 ## Structure
 

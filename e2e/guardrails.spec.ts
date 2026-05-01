@@ -63,6 +63,84 @@ test('pointer drag moves an item across tiers & undo restores it', async ({
   await expect(tierS.getByTestId(tierItemTestId('item-alpha'))).toBeVisible()
 })
 
+const makeTallDragBoard = () =>
+{
+  const board = makeBoard('Tall Drag Guardrail Board')
+  board.tiers = Array.from({ length: 10 }, (_, tierIndex) => ({
+    id: `tier-${tierIndex}`,
+    name: `T${tierIndex}`,
+    colorSpec: { kind: 'palette', index: tierIndex % 6 },
+    itemIds: Array.from(
+      { length: 6 },
+      (_, itemIndex) => `item-${tierIndex * 6 + itemIndex}`
+    ),
+  }))
+  board.unrankedItemIds = Array.from(
+    { length: 20 },
+    (_, index) => `item-${60 + index}`
+  )
+  board.items = Object.fromEntries(
+    Array.from({ length: 80 }, (_, index) => [
+      `item-${index}`,
+      {
+        id: `item-${index}`,
+        label: `Item ${index}`,
+        backgroundColor: '#333333',
+      },
+    ])
+  )
+  return board
+}
+
+test('pointer drag across a tall board does not trip DndContext measuring', async ({
+  page,
+}) =>
+{
+  const consoleErrors: string[] = []
+  page.on('console', (message) =>
+  {
+    if (
+      message.type() === 'error' &&
+      message.text().includes('Maximum update depth exceeded')
+    )
+    {
+      consoleErrors.push(message.text())
+    }
+  })
+
+  await openWorkspaceWithBoard(page, makeTallDragBoard())
+
+  const source = page.getByTestId(tierItemTestId('item-0'))
+  const target = page.getByTestId('unranked-container')
+  const sourceBox = await source.boundingBox()
+  const targetBox = await target.boundingBox()
+  if (!sourceBox || !targetBox)
+  {
+    throw new Error('unable to resolve tall board drag boxes')
+  }
+
+  const sourceX = sourceBox.x + sourceBox.width / 2
+  const sourceY = sourceBox.y + sourceBox.height / 2
+  const targetX = targetBox.x + targetBox.width / 2
+  const targetY = targetBox.y + 20
+
+  await page.mouse.move(sourceX, sourceY)
+  await page.mouse.down()
+  for (let step = 1; step <= 30; step++)
+  {
+    await page.mouse.move(
+      sourceX + ((targetX - sourceX) * step) / 30,
+      sourceY + ((targetY - sourceY) * step) / 30
+    )
+    await page.waitForTimeout(20)
+  }
+  await page.waitForTimeout(250)
+  await page.mouse.up()
+
+  await expect(target.getByTestId(tierItemTestId('item-0'))).toBeVisible()
+  expect(consoleErrors).toEqual([])
+})
+
 test('bulk item delete is restored by one undo', async ({ page }) =>
 {
   await openWorkspaceWithBoard(page)

@@ -5,6 +5,7 @@ import {
   DndContext,
   DragOverlay,
   MeasuringStrategy,
+  type MeasuringConfiguration,
   type SensorDescriptor,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -45,6 +46,15 @@ const DND_ACCESSIBILITY = {
   screenReaderInstructions: {
     draggable:
       'Press B to jump back to the board from the app chrome. On a focused item, use the arrow keys to move focus between items. Press space to pick up the focused item, use the arrow keys to move it, press space to drop, or press Escape to cancel.',
+  },
+}
+
+// remeasure droppables only while dragging — the default 'Always' strategy
+// re-runs every frame on tall boards & trips dnd-kit's "Maximum update depth"
+// guard. hoisted so the config reference is stable across renders
+const DND_MEASURING: MeasuringConfiguration = {
+  droppable: {
+    strategy: MeasuringStrategy.WhileDragging,
   },
 }
 
@@ -165,12 +175,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       sensors={activeSensors}
       collisionDetection={collisionDetection}
       accessibility={DND_ACCESSIBILITY}
-      measuring={{
-        // always remeasure droppables to handle dynamic content changes
-        droppable: {
-          strategy: MeasuringStrategy.WhileDragging,
-        },
-      }}
+      measuring={DND_MEASURING}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragOver={onDragOver}
