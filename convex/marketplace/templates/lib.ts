@@ -22,6 +22,7 @@ import type {
   TemplateAuthor,
   TemplateCoverItem,
   TemplateMediaRef,
+  TemplatePublicationState,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import {
@@ -39,6 +40,7 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { DEFAULT_BOARD_TITLE } from '@tierlistbuilder/contracts/workspace/board'
+import { classifyItemCount } from '../../lib/entitlements'
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput, normalizeNullableText } from '../../lib/text'
 import type { BoardLibrarySummaryItem } from '../../workspace/boards/librarySummary'
@@ -233,9 +235,100 @@ export const allocateTemplateSlug = async (ctx: DbCtx): Promise<string> =>
 }
 
 export const isPublicTemplateRow = (
-  template: Pick<Doc<'templates'>, 'visibility' | 'unpublishedAt'>
-): boolean =>
-  template.visibility === 'public' && template.unpublishedAt === null
+  template: Pick<Doc<'templates'>, 'isPubliclyListable'>
+): boolean => template.isPubliclyListable
+
+export const isReadableTemplateRow = (
+  template: Pick<Doc<'templates'>, 'publicationState'>
+): boolean => template.publicationState !== 'unpublished'
+
+export const buildTemplateStateFields = (
+  itemCount: number,
+  visibility: Doc<'templates'>['visibility'],
+  publicationState: TemplatePublicationState = 'published'
+) =>
+{
+  return {
+    sizeClass: classifyItemCount(itemCount),
+    publicationState,
+    isPubliclyListable:
+      publicationState === 'published' && visibility === 'public',
+  }
+}
+
+export const clearSourceBoardLivePublicTemplate = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>
+): Promise<void> =>
+{
+  if (template.sourceBoardId === null) return
+  const board = await ctx.db.get(template.sourceBoardId)
+  if (!board || board.livePublicTemplateId !== template._id) return
+
+  await ctx.db.patch(board._id, {
+    livePublicTemplateId: null,
+  })
+}
+
+export const markTemplateUnpublished = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>,
+  now: number,
+  options: { clearSourceBoard?: boolean } = {}
+): Promise<void> =>
+{
+  if (template.publicationState === 'unpublished') return
+
+  const wasPublic = isPublicTemplateRow(template)
+  await ctx.db.patch(template._id, {
+    publicationState: 'unpublished',
+    isPubliclyListable: false,
+    updatedAt: now,
+  })
+  if (wasPublic)
+  {
+    await adjustPublicTemplateCount(ctx, [
+      { category: template.category, delta: -1 },
+    ])
+  }
+  await patchTemplateTagRows(ctx, template._id, {
+    isPubliclyListable: false,
+    updatedAt: now,
+  })
+  if (options.clearSourceBoard ?? true)
+  {
+    await clearSourceBoardLivePublicTemplate(ctx, template)
+  }
+}
+
+export const setSourceBoardLivePublicTemplate = async (
+  ctx: MutationCtx,
+  sourceBoard: Doc<'boards'> | null,
+  templateId: Id<'templates'>,
+  now: number
+): Promise<void> =>
+{
+  if (!sourceBoard) return
+  if (sourceBoard.livePublicTemplateId === templateId) return
+
+  if (
+    sourceBoard.livePublicTemplateId !== null &&
+    sourceBoard.livePublicTemplateId !== templateId
+  )
+  {
+    const previous = await ctx.db.get(sourceBoard.livePublicTemplateId)
+    if (previous)
+    {
+      await markTemplateUnpublished(ctx, previous, now, {
+        clearSourceBoard: false,
+      })
+    }
+  }
+
+  await ctx.db.patch(sourceBoard._id, {
+    livePublicTemplateId: templateId,
+  })
+}
 
 export interface PublicTemplateStats
 {
@@ -328,6 +421,7 @@ export const deleteTemplateParentRow = async (
   template: Doc<'templates'>
 ): Promise<void> =>
 {
+  await clearSourceBoardLivePublicTemplate(ctx, template)
   await ctx.db.delete(template._id)
 }
 
@@ -608,6 +702,8 @@ export const toTemplateBase = async (
     category: template.category,
     tags: template.tags,
     visibility: template.visibility,
+    sizeClass: template.sizeClass,
+    publicationState: template.publicationState,
     author,
     coverMedia,
     itemCount: template.itemCount,
@@ -617,7 +713,6 @@ export const toTemplateBase = async (
     creditLine: template.creditLine,
     createdAt: template.createdAt,
     updatedAt: template.updatedAt,
-    unpublishedAt: template.unpublishedAt,
   }
 }
 
@@ -761,7 +856,10 @@ const TAG_ROW_READ_CAP = MAX_TEMPLATE_TAGS * 2
 // bounded (<= 12 per template) & per-template metadata writes are infrequent
 export const syncTemplateTagRows = async (
   ctx: MutationCtx,
-  template: Doc<'templates'>
+  template: Pick<
+    Doc<'templates'>,
+    '_id' | 'tags' | 'category' | 'isPubliclyListable' | 'updatedAt'
+  >
 ): Promise<void> =>
 {
   const existing = await ctx.db
@@ -775,8 +873,7 @@ export const syncTemplateTagRows = async (
         templateId: template._id,
         tag,
         category: template.category,
-        visibility: template.visibility,
-        unpublishedAt: template.unpublishedAt,
+        isPubliclyListable: template.isPubliclyListable,
         updatedAt: template.updatedAt,
       })
     )
@@ -790,8 +887,7 @@ export const patchTemplateTagRows = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
   fields: {
-    visibility?: Doc<'templates'>['visibility']
-    unpublishedAt?: Doc<'templates'>['unpublishedAt']
+    isPubliclyListable?: boolean
     updatedAt?: number
     category?: TemplateCategory
   }

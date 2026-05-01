@@ -42,6 +42,7 @@ import type * as platform_shortLinks_listing from "../platform/shortLinks/listin
 import type * as platform_shortLinks_mutations from "../platform/shortLinks/mutations.js";
 import type * as platform_shortLinks_queries from "../platform/shortLinks/queries.js";
 import type * as users from "../users.js";
+import type * as workspace_boards_cloudFields from "../workspace/boards/cloudFields.js";
 import type * as workspace_boards_internal from "../workspace/boards/internal.js";
 import type * as workspace_boards_librarySummary from "../workspace/boards/librarySummary.js";
 import type * as workspace_boards_mutations from "../workspace/boards/mutations.js";
@@ -94,6 +95,7 @@ declare const fullApi: ApiFromModules<{
   "platform/shortLinks/mutations": typeof platform_shortLinks_mutations;
   "platform/shortLinks/queries": typeof platform_shortLinks_queries;
   users: typeof users;
+  "workspace/boards/cloudFields": typeof workspace_boards_cloudFields;
   "workspace/boards/internal": typeof workspace_boards_internal;
   "workspace/boards/librarySummary": typeof workspace_boards_librarySummary;
   "workspace/boards/mutations": typeof workspace_boards_mutations;
