@@ -13,7 +13,6 @@ import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { MAX_TEMPLATE_COVER_ITEMS } from '@tierlistbuilder/contracts/marketplace/template'
-import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import {
@@ -22,6 +21,7 @@ import {
   templateCategoryValidator,
   tierPresetTiersValidator,
 } from '../../lib/validators'
+import { base64ToBytes } from '../../lib/base64'
 import { parseUploadedImageMetadata } from '../../lib/imageValidation'
 import { sha256Hex } from '../../lib/sha256'
 import {
@@ -30,6 +30,7 @@ import {
   buildSearchText,
   DEFAULT_TEMPLATE_TIERS,
   isPublicTemplateRow,
+  MARKETPLACE_STATS_KEY,
   patchTemplateTagRows,
   syncTemplateTagRows,
   toTemplateAuthor,
@@ -40,7 +41,8 @@ import {
 // action runs in the V8 runtime w/o native deps
 const seedItemValidator = v.object({
   label: v.union(v.string(), v.null()),
-  contentBase64: v.string(),
+  tileBase64: v.string(),
+  previewBase64: v.string(),
   aspectRatio: v.union(v.number(), v.null()),
   transform: v.union(itemTransformValidator, v.null()),
 })
@@ -48,7 +50,8 @@ const seedItemValidator = v.object({
 interface SeedInputItem
 {
   label: string | null
-  contentBase64: string
+  tileBase64: string
+  previewBase64: string
   aspectRatio: number | null
   transform: ItemTransform | null
 }
@@ -66,14 +69,17 @@ interface SeedImageUpload
   label: string | null
   aspectRatio: number | null
   transform: ItemTransform | null
-  upload: {
+  asset: {
     userId: Id<'users'>
-    storageId: Id<'_storage'>
-    contentHash: string
-    mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
-    width: number
-    height: number
-    byteSize: number
+    variants: Array<{
+      kind: 'tile' | 'preview'
+      storageId: Id<'_storage'>
+      contentHash: string
+      mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+      width: number
+      height: number
+      byteSize: number
+    }>
   }
 }
 
@@ -83,17 +89,6 @@ interface SeedUserStatus
 }
 
 const SEED_SECRET_ENV = 'CONVEX_SEED_SECRET'
-
-const decodeBase64 = (input: string): Uint8Array =>
-{
-  const binary = atob(input)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++)
-  {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes
-}
 
 export const findUserByEmail = internalQuery({
   args: { email: v.string() },
@@ -158,7 +153,7 @@ export const patchSeedUserProfileImpl = internalMutation({
       externalId: user.externalId ?? generateUserExternalId(),
       createdAt: user.createdAt ?? now,
       updatedAt: now,
-      tier: user.tier ?? 'free',
+      plan: user.plan ?? 'free',
       lastUpsertError: undefined,
     })
     return { found: true }
@@ -227,7 +222,7 @@ export const insertSeedTemplate = internalMutation({
       authorId: args.authorId,
       title: args.title,
       description: args.description,
-      category: args.category as TemplateCategory,
+      category: args.category,
       tags: args.tags,
       visibility: 'public',
       coverMediaAssetId: null,
@@ -242,7 +237,7 @@ export const insertSeedTemplate = internalMutation({
       searchText: buildSearchText({
         title: args.title,
         description: args.description,
-        category: args.category as TemplateCategory,
+        category: args.category,
         tags: args.tags,
         authorDisplayName: authorProjection.displayName,
       }),
@@ -275,7 +270,7 @@ export const insertSeedTemplate = internalMutation({
       )
     )
     await adjustPublicTemplateCount(ctx, [
-      { category: args.category as TemplateCategory, delta: 1 },
+      { category: args.category, delta: 1 },
     ])
 
     const inserted = await ctx.db.get(templateId)
@@ -288,33 +283,46 @@ export const insertSeedTemplate = internalMutation({
   },
 })
 
+const prepareSeedVariant = async (
+  ctx: ActionCtx,
+  kind: 'tile' | 'preview',
+  contentBase64: string
+): Promise<SeedImageUpload['asset']['variants'][number]> =>
+{
+  const bytes = base64ToBytes(contentBase64)
+  const meta = parseUploadedImageMetadata(bytes)
+  const contentHash = await sha256Hex(bytes as BufferSource)
+  const storageId = await ctx.storage.store(
+    new Blob([bytes as BlobPart], { type: meta.mimeType })
+  )
+  return {
+    kind,
+    storageId,
+    contentHash,
+    mimeType: meta.mimeType,
+    width: meta.width,
+    height: meta.height,
+    byteSize: bytes.byteLength,
+  }
+}
+
 const prepareSeedImageUpload = async (
   ctx: ActionCtx,
   ownerId: Id<'users'>,
   item: SeedInputItem
 ): Promise<SeedImageUpload> =>
 {
-  const bytes = decodeBase64(item.contentBase64)
-  const meta = parseUploadedImageMetadata(bytes)
-  const contentHash = await sha256Hex(bytes as BufferSource)
-  // intentionally drop the { sha256 } integrity option — the seed loop trips
-  // a Node "invalid HTTP header" inside the storage syscall when set; seed is
-  // dev-only & we still verify the hash ourselves in finalizeVerifiedUpload
-  const storageId = await ctx.storage.store(
-    new Blob([bytes as BlobPart], { type: meta.mimeType })
-  )
+  const variants = await Promise.all([
+    prepareSeedVariant(ctx, 'tile', item.tileBase64),
+    prepareSeedVariant(ctx, 'preview', item.previewBase64),
+  ])
   return {
     label: item.label,
     aspectRatio: item.aspectRatio,
     transform: item.transform,
-    upload: {
+    asset: {
       userId: ownerId,
-      storageId,
-      contentHash,
-      mimeType: meta.mimeType,
-      width: meta.width,
-      height: meta.height,
-      byteSize: bytes.byteLength,
+      variants,
     },
   }
 }
@@ -330,8 +338,8 @@ const storeSeedImages = async (
   )
   const finalized: { mediaAssetId: Id<'mediaAssets'> }[] =
     await ctx.runMutation(
-      internal.platform.media.internal.finalizeVerifiedUploads,
-      { uploads: uploads.map((item) => item.upload) }
+      internal.platform.media.internal.finalizeVerifiedMediaAssets,
+      { assets: uploads.map((item) => item.asset) }
     )
   return uploads.map((item, index) => ({
     label: item.label,
@@ -538,7 +546,7 @@ export const recomputeMarketplaceStatsImpl = internalMutation({
 
     const stats = await ctx.db
       .query('marketplaceStats')
-      .withIndex('byKey', (q) => q.eq('key', 'templates'))
+      .withIndex('byKey', (q) => q.eq('key', MARKETPLACE_STATS_KEY))
       .unique()
     const now = Date.now()
     if (stats)
@@ -552,7 +560,7 @@ export const recomputeMarketplaceStatsImpl = internalMutation({
     else
     {
       await ctx.db.insert('marketplaceStats', {
-        key: 'templates',
+        key: MARKETPLACE_STATS_KEY,
         publicTemplateCount: count,
         publicTemplateCountByCategory: countByCategory,
         updatedAt: now,
@@ -607,19 +615,7 @@ export const recomputeTemplateTagsImpl = internalMutation({
           .query('templateTags')
           .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
           .collect()
-        await Promise.all(existing.map((row) => ctx.db.delete(row._id)))
-        await Promise.all(
-          template.tags.map((tag) =>
-            ctx.db.insert('templateTags', {
-              templateId: template._id,
-              tag,
-              category: template.category,
-              visibility: template.visibility,
-              unpublishedAt: template.unpublishedAt,
-              updatedAt: template.updatedAt,
-            })
-          )
-        )
+        await syncTemplateTagRows(ctx, template)
         return {
           tagsDeleted: existing.length,
           tagsInserted: template.tags.length,
@@ -770,7 +766,7 @@ export const wipeAllSeededDataImpl = internalMutation({
 
     const stats = await ctx.db
       .query('marketplaceStats')
-      .withIndex('byKey', (q) => q.eq('key', 'templates'))
+      .withIndex('byKey', (q) => q.eq('key', MARKETPLACE_STATS_KEY))
       .unique()
     if (stats) await ctx.db.delete(stats._id)
 

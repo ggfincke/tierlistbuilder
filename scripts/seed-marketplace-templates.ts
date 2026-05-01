@@ -6,6 +6,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ConvexHttpClient } from 'convex/browser'
+import sharp from 'sharp'
 
 import { api } from '../convex/_generated/api.js'
 import {
@@ -28,6 +29,8 @@ const SEED_FOLDER_CONCURRENCY = 3
 const SEED_ITEM_IO_CONCURRENCY = 8
 const SEED_CHUNK_UPLOAD_CONCURRENCY = 2
 const MIXED_TEMPLATE_ITEM_ASPECT_RATIO = 1
+const SEED_TILE_MAX_SIZE = 120
+const SEED_PREVIEW_MAX_SIZE = 1280
 const SUPPORTED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif'])
 const DEFAULT_SEED_AUTHOR = {
   email: 'tterrag456@gmail.com',
@@ -1863,6 +1866,154 @@ const TEMPLATE_META: Record<string, FolderMeta> = {
       '019-rolls-royce.png': 'Rolls-Royce',
     },
   },
+  'big-tech-companies': {
+    title: 'Big tech companies',
+    category: 'tech',
+    description:
+      'Tech & finance employers — FAANG, AI labs, prop trading firms, fintechs, & startups commonly ranked in prestige lists — by official wordmark or logo.',
+    tags: ['tech', 'companies', 'logos', 'employers'],
+    labels: true,
+    itemLabels: {
+      '001-google.png': 'Google',
+      '002-intel.png': 'Intel',
+      '003-indeed.png': 'Indeed',
+      '004-disney.png': 'Disney',
+      '005-nextdoor.png': 'Nextdoor',
+      '006-ebay.png': 'eBay',
+      '007-deepmind.png': 'DeepMind',
+      '008-verily.png': 'Verily',
+      '009-waymo.png': 'Waymo',
+      '010-anthropic.png': 'Anthropic',
+      '011-openai.png': 'OpenAI',
+      '012-jane-street.png': 'Jane Street',
+      '013-renaissance-technologies.png': 'Renaissance Technologies',
+      '014-nvidia.png': 'NVIDIA',
+      '015-citadel.png': 'Citadel',
+      '016-hudson-river-trading.png': 'Hudson River Trading',
+      '017-optiver.png': 'Optiver',
+      '018-uber.png': 'Uber',
+      '019-airbnb.png': 'Airbnb',
+      '020-apple.png': 'Apple',
+      '021-stripe.png': 'Stripe',
+      '022-netflix.png': 'Netflix',
+      '023-d-e-shaw.png': 'D.E. Shaw',
+      '024-jump-trading.png': 'Jump Trading',
+      '025-akuna-capital.png': 'Akuna Capital',
+      '026-palantir.png': 'Palantir',
+      '027-doordash.png': 'DoorDash',
+      '028-snowflake.png': 'Snowflake',
+      '029-radix-trading.png': 'Radix Trading',
+      '030-meta.png': 'Meta',
+      '031-scale-ai.png': 'Scale AI',
+      '032-databricks.png': 'Databricks',
+      '033-roblox.png': 'Roblox',
+      '034-two-sigma.png': 'Two Sigma',
+      '035-microsoft.png': 'Microsoft',
+      '036-github.png': 'GitHub',
+      '037-spacex.png': 'SpaceX',
+      '038-xai.png': 'xAI',
+      '039-coinbase.png': 'Coinbase',
+      '040-hugging-face.png': 'Hugging Face',
+      '041-linkedin.png': 'LinkedIn',
+      '042-tesla.png': 'Tesla',
+      '043-spotify.png': 'Spotify',
+      '044-x.png': 'X',
+      '045-notion.png': 'Notion',
+      '046-robinhood.png': 'Robinhood',
+      '047-bloomberg.png': 'Bloomberg',
+      '048-slack.png': 'Slack',
+      '049-cursor.png': 'Cursor',
+      '050-riot-games.png': 'Riot Games',
+      '051-figma.png': 'Figma',
+      '052-oracle.png': 'Oracle',
+      '053-anduril.png': 'Anduril',
+      '054-twitch.png': 'Twitch',
+      '055-cloudflare.png': 'Cloudflare',
+      '056-pinterest.png': 'Pinterest',
+      '057-bytedance.png': 'ByteDance',
+      '058-discord.png': 'Discord',
+      '059-neuralink.png': 'Neuralink',
+      '060-mongodb.png': 'MongoDB',
+      '061-datadog.png': 'Datadog',
+      '062-snap.png': 'Snap',
+      '063-atlassian.png': 'Atlassian',
+      '064-duolingo.png': 'Duolingo',
+      '065-dropbox.png': 'Dropbox',
+      '066-ramp.png': 'Ramp',
+      '067-rippling.jpg': 'Rippling',
+      '068-adobe.png': 'Adobe',
+      '069-goldman-sachs.png': 'Goldman Sachs',
+      '070-amazon.png': 'Amazon',
+      '071-square.png': 'Square',
+      '072-reddit.png': 'Reddit',
+      '073-nasa.png': 'NASA',
+      '074-blue-origin.png': 'Blue Origin',
+      '075-capital-one.png': 'Capital One',
+      '076-salesforce.png': 'Salesforce',
+      '077-shopify.png': 'Shopify',
+      '078-morgan-stanley.png': 'Morgan Stanley',
+      '079-ibm.png': 'IBM',
+      '080-flow-traders.png': 'Flow Traders',
+      '081-blackrock.png': 'BlackRock',
+      '082-splunk.png': 'Splunk',
+      '083-docusign.png': 'Docusign',
+      '084-paypal.png': 'PayPal',
+      '085-cohere.png': 'Cohere',
+      '086-hubspot.png': 'HubSpot',
+      '087-glean.png': 'Glean',
+      '088-lyft.png': 'Lyft',
+      '089-zoom.png': 'Zoom',
+      '090-okta.png': 'Okta',
+      '091-box.png': 'Box',
+      '092-instacart.png': 'Instacart',
+      '093-red-hat.png': 'Red Hat',
+      '094-asana.png': 'Asana',
+      '095-canva.png': 'Canva',
+      '096-lockheed-martin.png': 'Lockheed Martin',
+      '097-jpmorgan-chase.png': 'JPMorgan Chase',
+      '098-plaid.png': 'Plaid',
+      '099-expedia.png': 'Expedia',
+      '100-cisco.png': 'Cisco',
+      '101-brex.png': 'Brex',
+      '102-zillow.png': 'Zillow',
+      '103-cruise.png': 'Cruise',
+      '104-palo-alto-networks.png': 'Palo Alto Networks',
+      '105-affirm.png': 'Affirm',
+      '106-samsung.png': 'Samsung',
+      '107-nuro.png': 'Nuro',
+      '108-intuit.png': 'Intuit',
+      '109-vmware.png': 'VMware',
+      '110-hulu.png': 'Hulu',
+      '111-walmart.png': 'Walmart',
+      '112-servicenow.png': 'ServiceNow',
+      '113-airtable.png': 'Airtable',
+      '114-twilio.png': 'Twilio',
+      '115-autodesk.png': 'Autodesk',
+      '116-grubhub.png': 'Grubhub',
+      '117-etsy.png': 'Etsy',
+      '118-arista-networks.png': 'Arista Networks',
+      '119-nutanix.png': 'Nutanix',
+      '120-elastic.png': 'Elastic',
+      '121-yelp.png': 'Yelp',
+      '122-bolt.png': 'Bolt',
+      '123-workday.png': 'Workday',
+      '124-quora.png': 'Quora',
+      '125-qualtrics.png': 'Qualtrics',
+      '126-samsara.png': 'Samsara',
+      '127-redfin.png': 'Redfin',
+      '128-tableau.png': 'Tableau',
+      '129-peloton.png': 'Peloton',
+      '130-voleon.png': 'Voleon',
+      '131-postmates.png': 'Postmates',
+      '132-kayak.png': 'Kayak',
+      '133-retool.png': 'Retool',
+      '134-wish.png': 'Wish',
+      '135-addepar.png': 'Addepar',
+      '136-flexport.png': 'Flexport',
+      '137-yext.png': 'Yext',
+      '138-carvana.png': 'Carvana',
+    },
+  },
 }
 
 const DEFAULT_META: FolderMeta = {
@@ -2048,17 +2199,48 @@ const toPayloadItems = async (
 ): Promise<
   {
     label: string
-    contentBase64: string
+    tileBase64: string
+    previewBase64: string
     aspectRatio: number
     transform: ItemTransform | null
   }[]
 > =>
-  await mapAsyncLimit(items, SEED_ITEM_IO_CONCURRENCY, async (item) => ({
-    label: item.label,
-    contentBase64: (await readFile(item.filePath)).toString('base64'),
-    aspectRatio: item.aspectRatio,
-    transform: item.transform,
-  }))
+  await mapAsyncLimit(items, SEED_ITEM_IO_CONCURRENCY, async (item) =>
+  {
+    // read source bytes once & clone the sharp pipeline for both variants
+    // — re-opening the file twice doubled disk reads + decode work per item
+    const sourceBytes = await readFile(item.filePath)
+    const pipeline = sharp(sourceBytes).rotate()
+    const [tile, preview] = await Promise.all([
+      pipeline
+        .clone()
+        .resize({
+          width: SEED_TILE_MAX_SIZE,
+          height: SEED_TILE_MAX_SIZE,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .png()
+        .toBuffer(),
+      pipeline
+        .clone()
+        .resize({
+          width: SEED_PREVIEW_MAX_SIZE,
+          height: SEED_PREVIEW_MAX_SIZE,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .png()
+        .toBuffer(),
+    ])
+    return {
+      label: item.label,
+      tileBase64: tile.toString('base64'),
+      previewBase64: preview.toString('base64'),
+      aspectRatio: item.aspectRatio,
+      transform: item.transform,
+    }
+  })
 
 const seedFolder = async (
   client: ConvexHttpClient,

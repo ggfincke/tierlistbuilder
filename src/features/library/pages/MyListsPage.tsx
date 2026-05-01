@@ -3,13 +3,9 @@
 
 import { Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useDeferredValue, useEffect, useMemo, type CSSProperties } from 'react'
+import { useDeferredValue, useEffect, useMemo } from 'react'
 
-import type {
-  LibraryBoardDensity,
-  LibraryBoardListItem,
-  LibraryBoardStatus,
-} from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardStatus } from '@tierlistbuilder/contracts/workspace/board'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
@@ -36,31 +32,11 @@ import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoar
 // columns per density for the grid view. dense packs 4 across, default 3,
 // loose 2 — large covers feel hero-ish at 2-up
 const COLUMNS_BY_DENSITY = { dense: 4, default: 3, loose: 2 } as const
-const GRID_INTRINSIC_HEIGHT_BY_DENSITY = {
-  dense: '205px',
-  default: '260px',
-  loose: '330px',
-} as const satisfies Record<LibraryBoardDensity, string>
 
-type DeferredGridStyle = CSSProperties & {
-  '--deferred-grid-item-height': string
-}
-
-// fold normalized title against a normalized search term — case + diacritics
-// folded so "Pokemon" matches "Pokémon". no fuzzy ranking yet; the v1 list
-// tops out at 200 boards so substring match is sufficient
-const matchesSearch = (
-  board: LibraryBoardListItem,
-  needle: string
-): boolean =>
-{
-  if (!needle) return true
-  const haystack = board.title
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-  return haystack.includes(needle)
-}
+// fold case + diacritics so "Pokemon" matches "Pokémon". no fuzzy ranking yet;
+// the v1 list tops out at 200 boards so substring match is sufficient
+const foldForSearch = (raw: string): string =>
+  raw.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export const MyListsPage = () =>
 {
@@ -80,26 +56,41 @@ export const MyListsPage = () =>
 
   const counts = useMemo(() => countLibraryStatuses(rows ?? []), [rows])
 
+  // precompute normalized titles once per row identity so the per-keystroke
+  // filter doesn't re-fold every haystack across every render
+  const foldedTitleByExternalId = useMemo(() =>
+  {
+    const map = new Map<string, string>()
+    if (!rows) return map
+    for (const row of rows)
+    {
+      map.set(row.externalId, foldForSearch(row.title))
+    }
+    return map
+  }, [rows])
+
   const visibleBoards = useMemo(() =>
   {
     if (!rows) return null
-    const needle = deferredSearch
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .trim()
-      .toLowerCase()
+    const needle = foldForSearch(deferredSearch.trim())
     const filtered = filterLibraryBoards(rows, deferredFilter)
     const searched = needle
-      ? filtered.filter((board) => matchesSearch(board, needle))
+      ? filtered.filter((board) =>
+          (foldedTitleByExternalId.get(board.externalId) ?? '').includes(needle)
+        )
       : filtered
     return sortLibraryBoards(searched, deferredSort)
-  }, [rows, deferredFilter, deferredSort, deferredSearch])
+  }, [
+    rows,
+    deferredFilter,
+    deferredSort,
+    deferredSearch,
+    foldedTitleByExternalId,
+  ])
 
-  const gridStyle = useMemo<DeferredGridStyle>(
+  const gridStyle = useMemo(
     () => ({
       gridTemplateColumns: `repeat(${COLUMNS_BY_DENSITY[filters.density]}, minmax(0, 1fr))`,
-      '--deferred-grid-item-height':
-        GRID_INTRINSIC_HEIGHT_BY_DENSITY[filters.density],
     }),
     [filters.density]
   )
@@ -268,10 +259,7 @@ export const MyListsPage = () =>
           <div className="grid gap-5" style={gridStyle}>
             {!filtersActive && <NewListTile />}
             {(visibleBoards ?? []).map((board) => (
-              <div
-                key={board.externalId}
-                className="deferred-grid-item h-full min-w-0"
-              >
+              <div key={board.externalId} className="h-full min-w-0">
                 <BoardCard
                   board={board}
                   density={filters.density}

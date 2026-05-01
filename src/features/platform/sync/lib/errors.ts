@@ -76,6 +76,11 @@ const PERMANENT_CONVEX_ERROR_CODES: ReadonlySet<string> = new Set([
   CONVEX_ERROR_CODES.invalidInput,
   CONVEX_ERROR_CODES.payloadTooLarge,
   CONVEX_ERROR_CODES.syncLimitExceeded,
+  CONVEX_ERROR_CODES.cloudItemLimitExceeded,
+  CONVEX_ERROR_CODES.largeTemplateRequiresPlus,
+  CONVEX_ERROR_CODES.largeTemplateFeatureNotReady,
+  CONVEX_ERROR_CODES.syncPausedForPlan,
+  CONVEX_ERROR_CODES.publishPausedForPlan,
   CONVEX_ERROR_CODES.boardDeleted,
 ])
 

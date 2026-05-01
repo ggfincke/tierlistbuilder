@@ -1,6 +1,5 @@
 // convex/platform/media/internal.ts
-// internal media functions: finalizeVerifiedUpload (post-action dedup-&-insert),
-// gcOrphanedMediaAssets (unreferenced mediaAssets), gcOrphanedStorage (residue)
+// internal media functions: finalize verified variants & reap unreachable assets
 
 import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
@@ -9,31 +8,48 @@ import { internal } from '../../_generated/api'
 import { BATCH_LIMITS } from '../../lib/limits'
 import { generateMediaAssetExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import { deleteStorageSilently } from '../../lib/storage'
+import {
+  MAX_MEDIA_VARIANTS_PER_ASSET,
+  MEDIA_VARIANT_KINDS,
+  type MediaVariantKind,
+  type SupportedImageMimeType,
+} from '@tierlistbuilder/contracts/platform/media'
+import type { MediaVariantSummary } from '../../lib/mediaVariants'
+import {
+  imageMimeTypeValidator,
+  mediaVariantKindValidator,
+} from '../../lib/validators'
 
-const verifiedUploadArgsValidator = {
-  userId: v.id('users'),
+const verifiedVariantArgsValidator = {
+  kind: mediaVariantKindValidator,
   storageId: v.id('_storage'),
   contentHash: v.string(),
-  mimeType: v.union(
-    v.literal('image/jpeg'),
-    v.literal('image/png'),
-    v.literal('image/webp'),
-    v.literal('image/gif')
-  ),
+  mimeType: imageMimeTypeValidator,
   width: v.number(),
   height: v.number(),
   byteSize: v.number(),
 }
 
-interface VerifiedUploadArgs
+const verifiedMediaAssetArgsValidator = {
+  userId: v.id('users'),
+  variants: v.array(v.object(verifiedVariantArgsValidator)),
+}
+
+interface VerifiedVariantArgs
 {
-  userId: Id<'users'>
+  kind: MediaVariantKind
   storageId: Id<'_storage'>
   contentHash: string
-  mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+  mimeType: SupportedImageMimeType
   width: number
   height: number
   byteSize: number
+}
+
+interface VerifiedMediaAssetArgs
+{
+  userId: Id<'users'>
+  variants: VerifiedVariantArgs[]
 }
 
 interface FinalizedUpload
@@ -41,6 +57,25 @@ interface FinalizedUpload
   externalId: string
   mediaAssetId: Id<'mediaAssets'>
 }
+
+interface NormalizedVariants
+{
+  variants: VerifiedVariantArgs[]
+  dedupeHash: string
+}
+
+const VARIANT_FIELD_BY_KIND: Record<
+  MediaVariantKind,
+  'tileVariant' | 'previewVariant' | 'editorVariant'
+> = {
+  tile: 'tileVariant',
+  preview: 'previewVariant',
+  editor: 'editorVariant',
+}
+
+// safety margin above MEDIA_VARIANT_KINDS so duplicate-kind rows from a prior
+// failed insert can be observed (& skipped) rather than silently truncated
+const MAX_VARIANT_ROWS_PER_ASSET = MEDIA_VARIANT_KINDS.length * 2
 
 // in-flight upload protection: skip rows newer than this window. covers the race
 // between finalizeUpload inserting mediaAssets & upsertBoardState wiring the reference -
@@ -52,30 +87,147 @@ const GC_GRACE_MS = 60 * 60 * 1000
 // significantly for nightly batches
 const REFERENCE_CHECK_CONCURRENCY = 8
 
-const finalizeVerifiedUploadImpl = async (
+const normalizeVerifiedVariants = (
+  variants: readonly VerifiedVariantArgs[]
+): NormalizedVariants =>
+{
+  if (variants.length < 1 || variants.length > MAX_MEDIA_VARIANTS_PER_ASSET)
+  {
+    throw new Error(
+      `media asset finalization requires 1..${MAX_MEDIA_VARIANTS_PER_ASSET} variants`
+    )
+  }
+
+  const byKind = new Map<MediaVariantKind, VerifiedVariantArgs>()
+  for (const variant of variants)
+  {
+    if (byKind.has(variant.kind))
+    {
+      throw new Error(`duplicate media variant kind: ${variant.kind}`)
+    }
+    byKind.set(variant.kind, variant)
+  }
+
+  const tile = byKind.get('tile')
+  if (!tile)
+  {
+    throw new Error('media asset finalization requires a tile variant')
+  }
+
+  const normalizedVariants = [...byKind.values()]
+  const dedupeHash = normalizedVariants
+    .map((variant) => `${variant.kind}:${variant.contentHash}`)
+    .sort()
+    .join('|')
+  return { variants: normalizedVariants, dedupeHash }
+}
+
+const deleteVariantStorageIds = async (
   ctx: MutationCtx,
-  args: VerifiedUploadArgs,
+  variants: readonly VerifiedVariantArgs[]
+): Promise<void> =>
+{
+  await Promise.all(
+    variants.map((variant) => deleteStorageSilently(ctx, variant.storageId))
+  )
+}
+
+const toMediaVariantSummary = (
+  variant: VerifiedVariantArgs
+): MediaVariantSummary => ({
+  storageId: variant.storageId,
+  width: variant.width,
+  height: variant.height,
+  byteSize: variant.byteSize,
+  mimeType: variant.mimeType,
+  contentHash: variant.contentHash,
+})
+
+const buildVariantSummariesForInsert = (
+  variants: readonly VerifiedVariantArgs[]
+): Pick<
+  Doc<'mediaAssets'>,
+  'tileVariant' | 'previewVariant' | 'editorVariant'
+> =>
+{
+  const summaries: Partial<
+    Pick<Doc<'mediaAssets'>, 'tileVariant' | 'previewVariant' | 'editorVariant'>
+  > = {}
+  for (const variant of variants)
+  {
+    summaries[VARIANT_FIELD_BY_KIND[variant.kind]] =
+      toMediaVariantSummary(variant)
+  }
+  return summaries as Pick<
+    Doc<'mediaAssets'>,
+    'tileVariant' | 'previewVariant' | 'editorVariant'
+  >
+}
+
+const insertMissingVariants = async (
+  ctx: MutationCtx,
+  mediaAssetId: Id<'mediaAssets'>,
+  variants: readonly VerifiedVariantArgs[]
+): Promise<void> =>
+{
+  const now = Date.now()
+  for (const variant of variants)
+  {
+    const existing = await ctx.db
+      .query('mediaVariants')
+      .withIndex('byMediaAssetAndKind', (q) =>
+        q.eq('mediaAssetId', mediaAssetId).eq('kind', variant.kind)
+      )
+      .unique()
+
+    if (existing)
+    {
+      await deleteStorageSilently(ctx, variant.storageId)
+      continue
+    }
+
+    await ctx.db.insert('mediaVariants', {
+      mediaAssetId,
+      kind: variant.kind,
+      storageId: variant.storageId,
+      width: variant.width,
+      height: variant.height,
+      byteSize: variant.byteSize,
+      mimeType: variant.mimeType,
+      contentHash: variant.contentHash,
+      createdAt: now,
+    })
+    await ctx.db.patch(mediaAssetId, {
+      [VARIANT_FIELD_BY_KIND[variant.kind]]: toMediaVariantSummary(variant),
+    })
+  }
+}
+
+const finalizeVerifiedMediaAssetImpl = async (
+  ctx: MutationCtx,
+  args: VerifiedMediaAssetArgs,
   finalizedByHash: Map<string, FinalizedUpload>
 ): Promise<FinalizedUpload> =>
 {
-  const key = `${args.userId}:${args.contentHash}`
+  const { variants, dedupeHash } = normalizeVerifiedVariants(args.variants)
+  const key = `${args.userId}:${dedupeHash}`
   const finalized = finalizedByHash.get(key)
   if (finalized)
   {
-    await deleteStorageSilently(ctx, args.storageId)
+    await deleteVariantStorageIds(ctx, variants)
     return finalized
   }
 
   const existing = await ctx.db
     .query('mediaAssets')
-    .withIndex('byOwnerAndHash', (q) =>
-      q.eq('ownerId', args.userId).eq('contentHash', args.contentHash)
+    .withIndex('byOwnerAndDedupeHash', (q) =>
+      q.eq('ownerId', args.userId).eq('dedupeHash', dedupeHash)
     )
     .unique()
 
   if (existing)
   {
-    await deleteStorageSilently(ctx, args.storageId)
+    await insertMissingVariants(ctx, existing._id, variants)
     const result = {
       externalId: existing.externalId,
       mediaAssetId: existing._id,
@@ -88,35 +240,30 @@ const finalizeVerifiedUploadImpl = async (
   const mediaAssetId = await ctx.db.insert('mediaAssets', {
     ownerId: args.userId,
     externalId,
-    storageId: args.storageId,
-    contentHash: args.contentHash,
-    mimeType: args.mimeType,
-    width: args.width,
-    height: args.height,
-    byteSize: args.byteSize,
+    dedupeHash,
+    ...buildVariantSummariesForInsert(variants),
     createdAt: Date.now(),
   })
+  await insertMissingVariants(ctx, mediaAssetId, variants)
 
   const result = { externalId, mediaAssetId }
   finalizedByHash.set(key, result)
   return result
 }
 
-// finalize a verified image upload — dedup by owner+hash after the action has
-// stripped the upload envelope & stored a clean image blob
-export const finalizeVerifiedUpload = internalMutation({
-  args: verifiedUploadArgsValidator,
+export const finalizeVerifiedMediaAsset = internalMutation({
+  args: verifiedMediaAssetArgsValidator,
   returns: v.object({
     externalId: v.string(),
     mediaAssetId: v.id('mediaAssets'),
   }),
   handler: async (ctx, args): Promise<FinalizedUpload> =>
-    await finalizeVerifiedUploadImpl(ctx, args, new Map()),
+    await finalizeVerifiedMediaAssetImpl(ctx, args, new Map()),
 })
 
-export const finalizeVerifiedUploads = internalMutation({
+export const finalizeVerifiedMediaAssets = internalMutation({
   args: {
-    uploads: v.array(v.object(verifiedUploadArgsValidator)),
+    assets: v.array(v.object(verifiedMediaAssetArgsValidator)),
   },
   returns: v.array(
     v.object({
@@ -126,100 +273,67 @@ export const finalizeVerifiedUploads = internalMutation({
   ),
   handler: async (ctx, args): Promise<FinalizedUpload[]> =>
   {
-    const firstUploadByKey = new Map<string, VerifiedUploadArgs>()
-    const duplicateStorageIds: Id<'_storage'>[] = []
-
-    for (const upload of args.uploads)
+    const finalizedByHash = new Map<string, FinalizedUpload>()
+    const results: FinalizedUpload[] = []
+    for (const asset of args.assets)
     {
-      const key = `${upload.userId}:${upload.contentHash}`
-      if (firstUploadByKey.has(key))
-      {
-        duplicateStorageIds.push(upload.storageId)
-        continue
-      }
-      firstUploadByKey.set(key, upload)
-    }
-
-    const existingEntries = await Promise.all(
-      [...firstUploadByKey.entries()].map(async ([key, upload]) =>
-      {
-        const existing = await ctx.db
-          .query('mediaAssets')
-          .withIndex('byOwnerAndHash', (q) =>
-            q.eq('ownerId', upload.userId).eq('contentHash', upload.contentHash)
-          )
-          .unique()
-        return [key, upload, existing] as const
-      })
-    )
-
-    const finalizedByKey = new Map<string, FinalizedUpload>()
-    const uploadsToInsert: Array<[string, VerifiedUploadArgs]> = []
-    const storageIdsToDelete = [...duplicateStorageIds]
-
-    for (const [key, upload, existing] of existingEntries)
-    {
-      if (existing)
-      {
-        finalizedByKey.set(key, {
-          externalId: existing.externalId,
-          mediaAssetId: existing._id,
-        })
-        storageIdsToDelete.push(upload.storageId)
-      }
-      else
-      {
-        uploadsToInsert.push([key, upload])
-      }
-    }
-
-    const now = Date.now()
-    const insertedEntries = await Promise.all(
-      uploadsToInsert.map(async ([key, upload]) =>
-      {
-        const externalId = generateMediaAssetExternalId()
-        const mediaAssetId = await ctx.db.insert('mediaAssets', {
-          ownerId: upload.userId,
-          externalId,
-          storageId: upload.storageId,
-          contentHash: upload.contentHash,
-          mimeType: upload.mimeType,
-          width: upload.width,
-          height: upload.height,
-          byteSize: upload.byteSize,
-          createdAt: now,
-        })
-        return [key, { externalId, mediaAssetId }] as const
-      })
-    )
-
-    for (const [key, finalized] of insertedEntries)
-    {
-      finalizedByKey.set(key, finalized)
-    }
-
-    await Promise.all(
-      storageIdsToDelete.map((storageId) =>
-        deleteStorageSilently(ctx, storageId)
+      results.push(
+        await finalizeVerifiedMediaAssetImpl(ctx, asset, finalizedByHash)
       )
-    )
-
-    return args.uploads.map((upload) =>
-    {
-      const key = `${upload.userId}:${upload.contentHash}`
-      const finalized = finalizedByKey.get(key)
-      if (!finalized)
-      {
-        throw new Error(`finalized upload missing: ${key}`)
-      }
-      return finalized
-    })
+    }
+    return results
   },
 })
 
-// reap mediaAssets rows w/ no surviving boardItems references. paginates to stay
-// inside the transaction row-read budget; self-schedules continuations. row deleted
-// before storage blob so a crash leaves only an orphaned blob — caught by gcOrphanedStorage
+// is a media asset still referenced by any board item, template item, or
+// template cover? shared between nightly orphan GC & the per-asset cascade
+// path so adding a fourth reference table changes one place
+export const hasMediaAssetReferences = async (
+  ctx: MutationCtx,
+  mediaAssetId: Id<'mediaAssets'>
+): Promise<boolean> =>
+{
+  const [boardRefs, templateItemRefs, templateCoverRefs] = await Promise.all([
+    ctx.db
+      .query('boardItems')
+      .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
+      .take(1),
+    ctx.db
+      .query('templateItems')
+      .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
+      .take(1),
+    ctx.db
+      .query('templates')
+      .withIndex('byCoverMedia', (q) => q.eq('coverMediaAssetId', mediaAssetId))
+      .take(1),
+  ])
+  return (
+    boardRefs.length > 0 ||
+    templateItemRefs.length > 0 ||
+    templateCoverRefs.length > 0
+  )
+}
+
+export const deleteMediaAssetWithVariants = async (
+  ctx: MutationCtx,
+  mediaAssetId: Id<'mediaAssets'>
+): Promise<void> =>
+{
+  const variants = await ctx.db
+    .query('mediaVariants')
+    .withIndex('byMediaAssetAndKind', (q) => q.eq('mediaAssetId', mediaAssetId))
+    .take(MAX_VARIANT_ROWS_PER_ASSET)
+
+  for (const variant of variants)
+  {
+    await ctx.db.delete(variant._id)
+    await deleteStorageSilently(ctx, variant.storageId)
+  }
+  await ctx.db.delete(mediaAssetId)
+}
+
+// reap mediaAssets rows w/ no surviving board/template references. paginates
+// to stay inside the transaction row-read budget; self-schedules continuations
 export const gcOrphanedMediaAssets = internalMutation({
   args: {
     cursor: v.union(v.string(), v.null()),
@@ -234,7 +348,6 @@ export const gcOrphanedMediaAssets = internalMutation({
       cursor: args.cursor,
     })
 
-    // partition: retain fresh rows (grace window) & check the rest in parallel
     const eligible: Doc<'mediaAssets'>[] = []
     for (const asset of page.page)
     {
@@ -242,64 +355,25 @@ export const gcOrphanedMediaAssets = internalMutation({
       eligible.push(asset)
     }
 
-    // parallel reachability checks via chunked Promise.all — respects
-    // REFERENCE_CHECK_CONCURRENCY to avoid fan-out that would spike reads
     const orphaned: Doc<'mediaAssets'>[] = []
     for (let i = 0; i < eligible.length; i += REFERENCE_CHECK_CONCURRENCY)
     {
       const chunk = eligible.slice(i, i + REFERENCE_CHECK_CONCURRENCY)
-      const flags = await Promise.all(
-        chunk.map(async (asset) =>
-        {
-          const [
-            boardRefs,
-            boardSourceRefs,
-            templateItemRefs,
-            templateCoverRefs,
-          ] = await Promise.all([
-            ctx.db
-              .query('boardItems')
-              .withIndex('byMedia', (q) => q.eq('mediaAssetId', asset._id))
-              .take(1),
-            ctx.db
-              .query('boardItems')
-              .withIndex('bySourceMedia', (q) =>
-                q.eq('sourceMediaAssetId', asset._id)
-              )
-              .take(1),
-            ctx.db
-              .query('templateItems')
-              .withIndex('byMedia', (q) => q.eq('mediaAssetId', asset._id))
-              .take(1),
-            ctx.db
-              .query('templates')
-              .withIndex('byCoverMedia', (q) =>
-                q.eq('coverMediaAssetId', asset._id)
-              )
-              .take(1),
-          ])
-
-          return (
-            boardRefs.length === 0 &&
-            boardSourceRefs.length === 0 &&
-            templateItemRefs.length === 0 &&
-            templateCoverRefs.length === 0
-          )
-        })
+      const isOrphaned = await Promise.all(
+        chunk.map(
+          async (asset) => !(await hasMediaAssetReferences(ctx, asset._id))
+        )
       )
       for (let j = 0; j < chunk.length; j++)
       {
-        if (flags[j]) orphaned.push(chunk[j])
+        if (isOrphaned[j]) orphaned.push(chunk[j])
       }
     }
 
     let deleted = 0
     for (const asset of orphaned)
     {
-      // row first so gcOrphanedStorage can find & reap residue if the blob
-      // delete fails or a crash happens between the two ops
-      await ctx.db.delete(asset._id)
-      await deleteStorageSilently(ctx, asset.storageId)
+      await deleteMediaAssetWithVariants(ctx, asset._id)
       deleted++
     }
 
@@ -316,16 +390,14 @@ export const gcOrphanedMediaAssets = internalMutation({
   },
 })
 
-// check whether any app table still references a storage blob. use indexes so
-// each lookup stays bounded & the scheduler continuation only needs a cursor
 const hasStorageReference = async (
   ctx: MutationCtx,
   storageId: Id<'_storage'>
 ): Promise<boolean> =>
 {
-  const [assetRefs, shortLinkRefs, avatarRefs] = await Promise.all([
+  const [variantRefs, shortLinkRefs, avatarRefs] = await Promise.all([
     ctx.db
-      .query('mediaAssets')
+      .query('mediaVariants')
       .withIndex('byStorageId', (q) => q.eq('storageId', storageId))
       .take(1),
     ctx.db
@@ -341,12 +413,12 @@ const hasStorageReference = async (
   ])
 
   return (
-    assetRefs.length > 0 || shortLinkRefs.length > 0 || avatarRefs.length > 0
+    variantRefs.length > 0 || shortLinkRefs.length > 0 || avatarRefs.length > 0
   )
 }
 
-// reap _storage blobs w/ no referencing row - safety net for gcOrphanedMediaAssets.
-// use per-blob indexed lookups so continuations stay under scheduler arg limits
+// reap _storage blobs w/ no referencing row. use per-blob indexed lookups so
+// continuations stay under scheduler arg limits
 export const gcOrphanedStorage = internalMutation({
   args: {
     cursor: v.union(v.string(), v.null()),

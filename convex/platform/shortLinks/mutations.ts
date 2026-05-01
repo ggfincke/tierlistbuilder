@@ -63,11 +63,11 @@ export const createSnapshotShortLink = action({
 
     // pre-fetch size gate — reject oversized blobs before ctx.storage.get
     // forces a full arrayBuffer() allocation. slack absorbs envelope header
-    const storageSize = await ctx.runQuery(
-      internal.lib.storage.peekStorageSize,
+    const metadata = await ctx.runQuery(
+      internal.lib.storage.getStorageMetadata,
       { storageId: args.snapshotStorageId }
     )
-    if (storageSize === null)
+    if (metadata === null)
     {
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.storageMissing,
@@ -75,14 +75,14 @@ export const createSnapshotShortLink = action({
       })
     }
     if (
-      storageSize >
+      metadata.size >
       MAX_SNAPSHOT_COMPRESSED_BYTES + UPLOAD_ENVELOPE_MAX_HEADER_BYTES
     )
     {
       await deleteStorageSilently(ctx, args.snapshotStorageId)
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.payloadTooLarge,
-        message: `snapshot blob too large: ${storageSize} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`,
+        message: `snapshot blob too large: ${metadata.size} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`,
       })
     }
 

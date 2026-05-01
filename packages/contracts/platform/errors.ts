@@ -13,6 +13,11 @@ export const CONVEX_ERROR_CODES = {
   rateLimited: 'rate_limited',
   invalidInput: 'invalid_input',
   syncLimitExceeded: 'sync_limit_exceeded',
+  cloudItemLimitExceeded: 'cloud_item_limit_exceeded',
+  largeTemplateRequiresPlus: 'large_template_requires_plus',
+  largeTemplateFeatureNotReady: 'large_template_feature_not_ready',
+  syncPausedForPlan: 'sync_paused_for_plan',
+  publishPausedForPlan: 'publish_paused_for_plan',
   boardDeleted: 'board_deleted',
 } as const
 

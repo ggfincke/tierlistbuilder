@@ -1,6 +1,5 @@
 // convex/workspace/boards/upsertBoardState.ts
-// reconciling mutation split into validate / ensureBoard / apply phases —
-// revision check now precedes row load so conflicts return early w/o scanning
+// reconciling mutation split into validate / ensureBoard / apply phases
 
 import { ConvexError, v, type Infer } from 'convex/values'
 import { mutation, type MutationCtx } from '../../_generated/server'
@@ -24,6 +23,7 @@ import { failInput } from '../../lib/text'
 import {
   boardLabelSettingsValidator,
   itemLabelOptionsValidator,
+  itemTransformValidator,
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
@@ -35,9 +35,10 @@ import type {
 import { diffTiers, diffItems } from '../sync/boardReconciler'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 import { MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
+import { assertCanCloudSyncBoard } from '../../lib/entitlements'
 import {
   findOwnedBoardByExternalIdIncludingDeleted,
-  findOwnedMediaAssetByExternalId,
+  findMediaAssetByExternalId,
 } from '../../lib/permissions'
 import {
   countTemplateProgressItems,
@@ -66,19 +67,6 @@ const wireTierValidator = v.object({
   itemIds: v.array(v.string()),
 })
 
-// shared transform validator — same shape on the wire & on the persisted row
-const itemTransformValidator = v.object({
-  rotation: v.union(
-    v.literal(0),
-    v.literal(90),
-    v.literal(180),
-    v.literal(270)
-  ),
-  zoom: v.number(),
-  offsetX: v.number(),
-  offsetY: v.number(),
-})
-
 const wireItemValidator = v.object({
   externalId: v.string(),
   tierId: v.union(v.string(), v.null()),
@@ -86,7 +74,6 @@ const wireItemValidator = v.object({
   backgroundColor: v.optional(v.string()),
   altText: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
-  sourceMediaExternalId: v.optional(v.union(v.string(), v.null())),
   order: v.number(),
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
@@ -255,13 +242,6 @@ const validateInputs = (args: UpsertArgs): void =>
     {
       failInput('invalid mediaExternalId: must start with "media-"')
     }
-    if (
-      item.sourceMediaExternalId &&
-      !item.sourceMediaExternalId.startsWith('media-')
-    )
-    {
-      failInput('invalid sourceMediaExternalId: must start with "media-"')
-    }
     if (item.transform)
     {
       const { zoom, offsetX, offsetY } = item.transform
@@ -374,44 +354,133 @@ const ensureBoard = async (
 
 // --- phase 3: apply diff & parallel writes -----------------------------------
 
-const resolveMediaReferences = async (
+interface ResolvedMediaState
+{
+  // wire-side externalId -> asset row (referenced by new/changed items)
+  mediaExternalIdToReference: Map<string, ResolvedMediaReference>
+  // wire-side itemExternalId -> existing tile storageId for items that did
+  // NOT include a mediaExternalId on the wire (the server keeps the existing
+  // reference). populated from serverItems' mediaAssetIds, deduped via assetCache
+  serverStorageByItemExternalId: Map<string, Id<'_storage'>>
+}
+
+const resolveMediaState = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
-  items: UpsertArgs['items']
-): Promise<Map<string, ResolvedMediaReference>> =>
+  items: UpsertArgs['items'],
+  serverItems: readonly Doc<'boardItems'>[]
+): Promise<ResolvedMediaState> =>
 {
-  const mediaExternalIds = new Set<string>()
-  for (const item of items)
+  const serverItemsByExternalId = new Map(
+    serverItems.map((item) => [item.externalId, item])
+  )
+  const existingMediaAssetIds = new Set(
+    serverItems
+      .map((item) => item.mediaAssetId)
+      .filter((id): id is Id<'mediaAssets'> => id !== null)
+  )
+
+  // shared cache keyed by mediaAssetId — wire-resolution & server-fallback
+  // paths both populate & consume so each asset is fetched at most once
+  const assetCache = new Map<
+    Id<'mediaAssets'>,
+    Promise<Doc<'mediaAssets'> | null>
+  >()
+  const cachedGet = (
+    mediaAssetId: Id<'mediaAssets'>
+  ): Promise<Doc<'mediaAssets'> | null> =>
   {
-    if (item.mediaExternalId) mediaExternalIds.add(item.mediaExternalId)
-    if (item.sourceMediaExternalId)
-    {
-      mediaExternalIds.add(item.sourceMediaExternalId)
-    }
+    const cached = assetCache.get(mediaAssetId)
+    if (cached) return cached
+    const pending = ctx.db.get(mediaAssetId)
+    assetCache.set(mediaAssetId, pending)
+    return pending
   }
 
-  // parallel lookups — media table is indexed by externalId & requests are independent
-  const results = await Promise.all(
+  const mediaExternalIds = new Set<string>()
+  const serverFallbackAssetIds = new Set<Id<'mediaAssets'>>()
+
+  for (const item of items)
+  {
+    if (item.mediaExternalId)
+    {
+      mediaExternalIds.add(item.mediaExternalId)
+      continue
+    }
+    if (item.mediaExternalId !== undefined) continue
+    const mediaAssetId = serverItemsByExternalId.get(
+      item.externalId
+    )?.mediaAssetId
+    if (mediaAssetId) serverFallbackAssetIds.add(mediaAssetId)
+  }
+
+  const wireEntries = await Promise.all(
     [...mediaExternalIds].map(async (extId) =>
     {
-      const asset = await findOwnedMediaAssetByExternalId(ctx, extId, userId)
+      const asset = await findMediaAssetByExternalId(ctx, extId)
       if (!asset)
       {
-        // fail loudly — silently dropping media references was masking real
-        // bugs (orphaned items pointing at nothing)
         throw new ConvexError({
           code: CONVEX_ERROR_CODES.notFound,
           message: `media not found or not owned: ${extId}`,
         })
       }
+      if (asset.ownerId !== userId && !existingMediaAssetIds.has(asset._id))
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.forbidden,
+          message: `media not owned by this account: ${extId}`,
+        })
+      }
+      assetCache.set(asset._id, Promise.resolve(asset))
       return [
         extId,
-        { assetId: asset._id, storageId: asset.storageId },
+        { assetId: asset._id, storageId: asset.tileVariant.storageId },
       ] as const
     })
   )
 
-  return new Map(results)
+  await Promise.all([...serverFallbackAssetIds].map(cachedGet))
+
+  const serverStorageByItemExternalId = new Map<string, Id<'_storage'>>()
+  for (const item of items)
+  {
+    if (item.mediaExternalId !== undefined) continue
+    const mediaAssetId = serverItemsByExternalId.get(
+      item.externalId
+    )?.mediaAssetId
+    if (!mediaAssetId) continue
+    const asset = await cachedGet(mediaAssetId)
+    if (asset)
+    {
+      serverStorageByItemExternalId.set(
+        item.externalId,
+        asset.tileVariant.storageId
+      )
+    }
+  }
+
+  return {
+    mediaExternalIdToReference: new Map(wireEntries),
+    serverStorageByItemExternalId,
+  }
+}
+
+const resolveLibrarySummaryStorageId = (
+  item: UpsertArgs['items'][number],
+  mediaExternalIdToReference: Map<string, ResolvedMediaReference>,
+  serverStorageByItemExternalId: ReadonlyMap<string, Id<'_storage'>>
+): Id<'_storage'> | null =>
+{
+  // wire field absent -> keep the existing server-side reference (if any)
+  if (item.mediaExternalId === undefined)
+  {
+    return serverStorageByItemExternalId.get(item.externalId) ?? null
+  }
+  // wire field present but null -> caller cleared the media reference
+  if (!item.mediaExternalId) return null
+  // wire field present w/ id -> use the resolved reference's tile storage
+  return mediaExternalIdToReference.get(item.mediaExternalId)?.storageId ?? null
 }
 
 const buildLibrarySummaryFromArgs = (
@@ -430,64 +499,15 @@ const buildLibrarySummaryFromArgs = (
       tierKey: item.tierId,
       externalId: item.externalId,
       label: item.label,
-      storageId:
-        item.mediaExternalId === undefined
-          ? (serverStorageByItemExternalId.get(item.externalId) ?? null)
-          : item.mediaExternalId
-            ? (mediaExternalIdToReference.get(item.mediaExternalId)
-                ?.storageId ?? null)
-            : null,
+      storageId: resolveLibrarySummaryStorageId(
+        item,
+        mediaExternalIdToReference,
+        serverStorageByItemExternalId
+      ),
       order: item.order,
       deletedAt: deletedItemExternalIds.has(item.externalId) ? 1 : null,
     })),
   })
-
-const loadServerStorageByItemExternalId = async (
-  ctx: MutationCtx,
-  args: UpsertArgs,
-  serverItems: readonly Doc<'boardItems'>[]
-): Promise<Map<string, Id<'_storage'>>> =>
-{
-  const serverItemsByExternalId = new Map(
-    serverItems.map((item) => [item.externalId, item])
-  )
-  const neededMediaAssetIds = new Set<Id<'mediaAssets'>>()
-  for (const item of args.items)
-  {
-    if (item.mediaExternalId !== undefined) continue
-    const mediaAssetId = serverItemsByExternalId.get(
-      item.externalId
-    )?.mediaAssetId
-    if (mediaAssetId) neededMediaAssetIds.add(mediaAssetId)
-  }
-
-  const mediaEntries = await Promise.all(
-    [...neededMediaAssetIds].map(
-      async (mediaAssetId) =>
-        [mediaAssetId, await ctx.db.get(mediaAssetId)] as const
-    )
-  )
-  const storageIdByMediaAssetId = new Map<Id<'mediaAssets'>, Id<'_storage'>>()
-  for (const [mediaAssetId, mediaAsset] of mediaEntries)
-  {
-    if (mediaAsset)
-      storageIdByMediaAssetId.set(mediaAssetId, mediaAsset.storageId)
-  }
-
-  const storageIdByItemExternalId = new Map<string, Id<'_storage'>>()
-  for (const item of args.items)
-  {
-    if (item.mediaExternalId !== undefined) continue
-    const mediaAssetId = serverItemsByExternalId.get(
-      item.externalId
-    )?.mediaAssetId
-    const storageId = mediaAssetId
-      ? storageIdByMediaAssetId.get(mediaAssetId)
-      : null
-    if (storageId) storageIdByItemExternalId.set(item.externalId, storageId)
-  }
-  return storageIdByItemExternalId
-}
 
 const applyBoardState = async (
   ctx: MutationCtx,
@@ -540,11 +560,8 @@ const applyBoardState = async (
     tierExternalIdToId.set(tier.externalId, insertedTierIds[i])
   })
 
-  const mediaExternalIdToReference = await resolveMediaReferences(
-    ctx,
-    userId,
-    args.items
-  )
+  const { mediaExternalIdToReference, serverStorageByItemExternalId } =
+    await resolveMediaState(ctx, userId, args.items, serverItems)
   const mediaExternalIdToId = new Map(
     [...mediaExternalIdToReference.entries()].map(([externalId, ref]) => [
       externalId,
@@ -558,11 +575,6 @@ const applyBoardState = async (
     tierExternalIdToId,
     mediaExternalIdToId,
     deletedItemExternalIds
-  )
-  const serverStorageByItemExternalId = await loadServerStorageByItemExternalId(
-    ctx,
-    args,
-    serverItems
   )
   const librarySummary = buildLibrarySummaryFromArgs(
     args,
@@ -597,15 +609,12 @@ const applyBoardState = async (
     itemDiff.patch.length > 0 ||
     itemDiff.insert.length > 0
   const titleChanged = normalizedTitle !== board.title
-  // treat aspect-ratio scalars the same as title — changes bump the revision
   const aspectChanged =
     board.itemAspectRatio !== args.itemAspectRatio ||
     board.itemAspectRatioMode !== args.itemAspectRatioMode ||
     (board.aspectRatioPromptDismissed ?? false) !==
       (args.aspectRatioPromptDismissed ?? false) ||
     board.defaultItemImageFit !== args.defaultItemImageFit
-  // per-board style overrides bump revision the same way — cross-device sync
-  // relies on the bump to fan out the change
   const styleOverrideChanged =
     board.paletteId !== args.paletteId ||
     board.textStyleId !== args.textStyleId ||
@@ -678,13 +687,14 @@ export const upsertBoardState = mutation({
   {
     const userId = await requireCurrentUserId(ctx)
     validateInputs(args)
-
-    const normalizedTitle = normalizeBoardTitle(args.title)
     const deletedItemExternalIds = new Set(args.deletedItemIds)
     const progressCounts = countTemplateProgressItems(
       args.items,
       deletedItemExternalIds
     )
+    await assertCanCloudSyncBoard(ctx, userId, progressCounts.activeItemCount)
+
+    const normalizedTitle = normalizeBoardTitle(args.title)
     const board = await ensureBoard(
       ctx,
       userId,
@@ -693,9 +703,9 @@ export const upsertBoardState = mutation({
       progressCounts
     )
 
-    // cheap revision compare BEFORE scanning rows — a conflict response no
-    // longer needs to load the full server state (~4000 rows). client follows
-    // up w/ getBoardStateByExternalId to populate the conflict UI
+    // cheap revision compare BEFORE loading rows — a conflict response avoids
+    // scanning the full server state. client follows up w/ getBoardStateByExternalId
+    // to populate the conflict UI
     const currentRevision = board.revision ?? 0
     if (args.baseRevision !== null && args.baseRevision !== currentRevision)
     {

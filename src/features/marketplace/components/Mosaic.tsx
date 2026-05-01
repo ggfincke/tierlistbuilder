@@ -2,9 +2,15 @@
 // tile-grid renderer for cover artwork — packs item images into a tight grid
 // over the neutral media matte
 
+import { useMemo } from 'react'
+
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { MediaMatteFrame } from './MediaMatteFrame'
+import {
+  MediaMatteFrame,
+  type MediaDecoding,
+  type MediaLoading,
+} from './MediaMatteFrame'
 
 export type MosaicDensity = 'small' | 'default' | 'large' | 'hero'
 
@@ -12,16 +18,18 @@ interface MosaicProps
 {
   items: readonly TemplateCoverItem[]
   density: MosaicDensity
+  loading?: MediaLoading
+  decoding?: MediaDecoding
 }
 
 const DENSITY_CONFIG: Record<
   MosaicDensity,
   { cols: number; rows: number; gap: number }
 > = {
-  small: { cols: 4, rows: 3, gap: 1 },
-  default: { cols: 5, rows: 3, gap: 1 },
-  large: { cols: 6, rows: 4, gap: 2 },
-  hero: { cols: 8, rows: 5, gap: 2 },
+  small: { cols: 4, rows: 2, gap: 1 },
+  default: { cols: 4, rows: 3, gap: 1 },
+  large: { cols: 5, rows: 3, gap: 2 },
+  hero: { cols: 6, rows: 4, gap: 2 },
 }
 
 // pick a (cols, rows) inside the base bounds that fits itemCount w/ the
@@ -61,12 +69,20 @@ const computeGridDims = (
   return { cols: bestCols, rows: bestRows }
 }
 
-export const Mosaic = ({ items, density }: MosaicProps) =>
+export const Mosaic = ({
+  items,
+  density,
+  loading = 'lazy',
+  decoding = 'async',
+}: MosaicProps) =>
 {
   const { cols: baseCols, rows: baseRows, gap } = DENSITY_CONFIG[density]
   const baseSlotCount = baseCols * baseRows
   const tiles = items.slice(0, baseSlotCount)
-  const { cols, rows } = computeGridDims(tiles.length, baseCols, baseRows)
+  const { cols, rows } = useMemo(
+    () => computeGridDims(tiles.length, baseCols, baseRows),
+    [tiles.length, baseCols, baseRows]
+  )
   const slotCount = cols * rows
   const emptyCount = slotCount - tiles.length
 
@@ -84,6 +100,10 @@ export const Mosaic = ({ items, density }: MosaicProps) =>
           <MediaMatteFrame
             key={`${item.media.externalId}-${i}`}
             src={item.media.url}
+            width={item.media.width}
+            height={item.media.height}
+            loading={loading}
+            decoding={decoding}
             className="overflow-hidden"
           />
         ))}

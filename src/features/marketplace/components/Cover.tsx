@@ -8,7 +8,11 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/template'
 
 import { InitialsGrid } from './InitialsGrid'
-import { MediaMatteFrame } from './MediaMatteFrame'
+import {
+  MediaMatteFrame,
+  type MediaDecoding,
+  type MediaLoading,
+} from './MediaMatteFrame'
 import { Mosaic, type MosaicDensity } from './Mosaic'
 
 export type CoverStyle = 'auto' | 'initials'
@@ -20,29 +24,52 @@ interface CoverProps
   }
   density: MosaicDensity
   style?: CoverStyle
+  loading?: MediaLoading
+  decoding?: MediaDecoding
 }
 
 const SingleImage = ({
   media,
   title,
+  loading,
+  decoding,
 }: {
   media: TemplateMediaRef
   title: string
+  loading?: MediaLoading
+  decoding?: MediaDecoding
 }) => (
   <MediaMatteFrame
     src={media.url}
     alt={`${title} cover`}
+    width={media.width}
+    height={media.height}
+    loading={loading}
+    decoding={decoding}
     className="absolute inset-0"
   />
 )
 
 const MatteOnly = () => <MediaMatteFrame className="absolute inset-0" />
 
-export const Cover = ({ template, density, style = 'auto' }: CoverProps) =>
+export const Cover = ({
+  template,
+  density,
+  style = 'auto',
+  loading,
+  decoding,
+}: CoverProps) =>
 {
   if (template.coverMedia)
   {
-    return <SingleImage media={template.coverMedia} title={template.title} />
+    return (
+      <SingleImage
+        media={template.coverMedia}
+        title={template.title}
+        loading={loading}
+        decoding={decoding}
+      />
+    )
   }
 
   const items = template.coverItems ?? []
@@ -56,5 +83,12 @@ export const Cover = ({ template, density, style = 'auto' }: CoverProps) =>
     return <InitialsGrid items={items} density={density} />
   }
 
-  return <Mosaic items={items} density={density} />
+  return (
+    <Mosaic
+      items={items}
+      density={density}
+      loading={loading}
+      decoding={decoding}
+    />
+  )
 }

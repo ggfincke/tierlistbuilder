@@ -25,7 +25,12 @@ export const Hero = ({ template, coverStyle = 'auto' }: HeroProps) => (
     aria-label={`Featured: ${template.title}`}
   >
     <div className="relative w-full flex-1 overflow-hidden">
-      <Cover template={template} density="hero" style={coverStyle} />
+      <Cover
+        template={template}
+        density="hero"
+        style={coverStyle}
+        loading="eager"
+      />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/95 via-black/75 to-transparent" />
 

@@ -9,7 +9,11 @@ import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloud
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
-type MediaInfo = { externalId: string; contentHash: string }
+type MediaInfo = {
+  externalId: string
+  tileContentHash: string
+  editorContentHash: string | null
+}
 
 export const loadBoardCloudState = async (
   ctx: QueryCtx,
@@ -22,7 +26,6 @@ export const loadBoardCloudState = async (
   for (const item of serverItems)
   {
     if (item.mediaAssetId) mediaIds.add(item.mediaAssetId)
-    if (item.sourceMediaAssetId) mediaIds.add(item.sourceMediaAssetId)
   }
 
   const mediaIdToInfo = new Map<Id<'mediaAssets'>, MediaInfo>()
@@ -44,7 +47,8 @@ export const loadBoardCloudState = async (
   {
     mediaIdToInfo.set(id, {
       externalId: asset.externalId,
-      contentHash: asset.contentHash,
+      tileContentHash: asset.tileVariant.contentHash,
+      editorContentHash: asset.editorVariant?.contentHash ?? null,
     })
   }
 
@@ -107,7 +111,6 @@ export const loadBoardCloudState = async (
     items: itemsForPayload.map((item) =>
     {
       const mediaInfo = getMediaInfo(item.mediaAssetId)
-      const sourceMediaInfo = getMediaInfo(item.sourceMediaAssetId)
       return {
         externalId: item.externalId,
         tierId: item.tierId
@@ -117,9 +120,8 @@ export const loadBoardCloudState = async (
         backgroundColor: item.backgroundColor,
         altText: item.altText,
         mediaExternalId: mediaInfo?.externalId,
-        sourceMediaExternalId: sourceMediaInfo?.externalId,
-        mediaContentHash: mediaInfo?.contentHash,
-        sourceMediaContentHash: sourceMediaInfo?.contentHash,
+        mediaContentHash: mediaInfo?.tileContentHash,
+        sourceMediaContentHash: mediaInfo?.editorContentHash ?? undefined,
         order: item.order,
         deletedAt: item.deletedAt,
         aspectRatio: item.aspectRatio,

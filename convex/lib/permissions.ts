@@ -80,6 +80,15 @@ export const findOwnedMediaAssetByExternalId = async (
     )
     .unique()
 
+export const findMediaAssetByExternalId = async (
+  ctx: Ctx,
+  externalId: string
+): Promise<Doc<'mediaAssets'> | null> =>
+  await ctx.db
+    .query('mediaAssets')
+    .withIndex('byExternalId', (q) => q.eq('externalId', externalId))
+    .unique()
+
 // resolve one owned preset by externalId, or null if it doesn't exist for
 // this owner. preset rows have no soft-delete, so the "active" qualifier
 // from boards doesn't apply

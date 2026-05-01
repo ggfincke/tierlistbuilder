@@ -6,6 +6,13 @@ import { v } from 'convex/values'
 import { internalQuery } from '../_generated/server'
 import type { Id } from '../_generated/dataModel'
 
+export interface StorageMetadata
+{
+  contentType: string | null
+  sha256: string
+  size: number
+}
+
 // accept any ctx that exposes storage.delete (MutationCtx, ActionCtx, or a
 // scoped sub-object) so callers don't have to widen to the full ctx type
 type StorageDeleteCtx = {
@@ -29,15 +36,28 @@ export const deleteStorageSilently = async (
   }
 }
 
-// peek a storage blob's byte size w/o fetching bytes. cheap gate for actions
-// that otherwise would allocate a full arrayBuffer() on an oversized upload.
+// peek storage metadata w/o fetching bytes. cheap gate for actions that
+// otherwise would allocate a full arrayBuffer() on an oversized upload.
 // returns null when the blob row is missing so callers can surface distinctly
-export const peekStorageSize = internalQuery({
+export const getStorageMetadata = internalQuery({
   args: { storageId: v.id('_storage') },
-  returns: v.union(v.null(), v.number()),
-  handler: async (ctx, args): Promise<number | null> =>
+  returns: v.union(
+    v.null(),
+    v.object({
+      contentType: v.union(v.string(), v.null()),
+      sha256: v.string(),
+      size: v.number(),
+    })
+  ),
+  handler: async (ctx, args): Promise<StorageMetadata | null> =>
   {
     const metadata = await ctx.db.system.get(args.storageId)
-    return metadata ? metadata.size : null
+    return metadata
+      ? {
+          contentType: metadata.contentType ?? null,
+          sha256: metadata.sha256,
+          size: metadata.size,
+        }
+      : null
   },
 })

@@ -25,7 +25,6 @@ const DELETED_ITEM_ORDER = -1
 interface ResolvedItemMediaExternalIds
 {
   mediaExternalId: string | null | undefined
-  sourceMediaExternalId: string | null | undefined
 }
 
 const resolveImageRefMediaExternalId = (
@@ -61,20 +60,34 @@ const resolveImageRefMediaExternalId = (
 const resolveItemMediaExternalIds = (
   item: TierItem,
   uploadResult: BoardImageUploadResult
-): ResolvedItemMediaExternalIds => ({
-  mediaExternalId: resolveImageRefMediaExternalId(
-    item.imageRef,
-    uploadResult,
-    item,
-    'imageRef'
-  ),
-  sourceMediaExternalId: resolveImageRefMediaExternalId(
+): ResolvedItemMediaExternalIds =>
+{
+  const itemExternalId = uploadResult.mediaExternalIdByItemId.get(item.id)
+  if (itemExternalId)
+  {
+    return { mediaExternalId: itemExternalId }
+  }
+
+  const sourceExternalId = resolveImageRefMediaExternalId(
     item.sourceImageRef,
     uploadResult,
     item,
     'sourceImageRef'
-  ),
-})
+  )
+  if (sourceExternalId)
+  {
+    return { mediaExternalId: sourceExternalId }
+  }
+
+  return {
+    mediaExternalId: resolveImageRefMediaExternalId(
+      item.imageRef,
+      uploadResult,
+      item,
+      'imageRef'
+    ),
+  }
+}
 
 const toCloudItemWire = (
   item: TierItem,
@@ -170,35 +183,30 @@ export const serverStateToSnapshot = (
 ): BoardSnapshot =>
 {
   const items: Record<ItemId, TierItem> = {}
-
   const activeItems: typeof serverState.items = []
   const deletedItems: typeof serverState.items = []
-  for (const item of serverState.items)
-  {
-    ;(item.deletedAt === null ? activeItems : deletedItems).push(item)
-  }
 
+  // single pass: split active/deleted & build the items record
   for (const item of serverState.items)
   {
+    if (item.deletedAt === null) activeItems.push(item)
+    else deletedItems.push(item)
+
     const mediaExternalId = item.mediaExternalId ?? undefined
-    const mediaContentHash = item.mediaContentHash
-    const sourceMediaExternalId = item.sourceMediaExternalId ?? undefined
-    const sourceMediaContentHash = item.sourceMediaContentHash
-
     items[asItemId(item.externalId)] = {
       id: asItemId(item.externalId),
       imageRef:
-        mediaContentHash && mediaExternalId
+        item.mediaContentHash && mediaExternalId
           ? {
-              hash: mediaContentHash,
+              hash: item.mediaContentHash,
               cloudMediaExternalId: mediaExternalId,
             }
           : undefined,
       sourceImageRef:
-        sourceMediaContentHash && sourceMediaExternalId
+        item.sourceMediaContentHash && mediaExternalId
           ? {
-              hash: sourceMediaContentHash,
-              cloudMediaExternalId: sourceMediaExternalId,
+              hash: item.sourceMediaContentHash,
+              cloudMediaExternalId: mediaExternalId,
             }
           : undefined,
       label: item.label,
@@ -224,7 +232,6 @@ export const serverStateToSnapshot = (
     itemIds: t.itemIds.map(asItemId),
   }))
 
-  // unranked = active items not in any tier
   const tieredItemIds = new Set(sortedTiers.flatMap((t) => t.itemIds))
   const unrankedItemIds = activeItems
     .filter((i) => !tieredItemIds.has(i.externalId))

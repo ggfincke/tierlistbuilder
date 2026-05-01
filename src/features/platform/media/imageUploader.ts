@@ -1,9 +1,7 @@
 // src/features/platform/media/imageUploader.ts
-// upload local image blobs to Convex storage & record the mapping
+// upload local image variant blobs to Convex storage & record the mapping
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import type { Id } from '@convex/_generated/dataModel'
-import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import {
   collectSnapshotLocalImageHashes,
   forEachSnapshotItem,
@@ -12,14 +10,19 @@ import {
   getBlobsBatch,
   getUploadStatusBatch,
   markUploaded,
+  type BlobRecord,
 } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
-import type { PreparedBlobRecord } from '~/shared/images/imagePersistence'
-import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
-import { SUPPORTED_IMAGE_MIME_TYPES } from '@tierlistbuilder/contracts/platform/media'
+import { brandedStringArrayIncludes, isPresent } from '~/shared/lib/typeGuards'
 import {
-  generateUploadUrlImperative,
-  finalizeUploadImperative,
+  SUPPORTED_IMAGE_MIME_TYPES,
+  type MediaVariantKind,
+} from '@tierlistbuilder/contracts/platform/media'
+import {
+  finalizeUploadVariantsImperative,
+  generateUploadUrlsImperative,
+  uploadEnvelopedBlob,
+  type UploadedVariant,
 } from '~/features/platform/media/uploadsRepository'
 import { SYNC_CONCURRENCY } from '~/features/platform/sync/lib/concurrency'
 import {
@@ -27,9 +30,6 @@ import {
   PermanentSyncError,
 } from '~/features/platform/sync/lib/errors'
 
-// throw if a locally-stored blob's mimeType is outside the server-accepted
-// set. server re-derives mimeType from bytes at finalize-time, but failing
-// fast here saves a round-trip & avoids leaving orphaned storage blobs
 const assertSupportedMimeType = (mimeType: string): void =>
 {
   if (brandedStringArrayIncludes(SUPPORTED_IMAGE_MIME_TYPES, mimeType))
@@ -44,7 +44,21 @@ const assertSupportedMimeType = (mimeType: string): void =>
 export interface BoardImageUploadResult
 {
   mediaExternalIdByHash: Map<string, string>
+  mediaExternalIdByItemId: Map<string, string>
 }
+
+interface MediaUploadGroup
+{
+  uploadKey: string
+  displayHash: string
+  sourceHash: string | null
+  itemIds: string[]
+}
+
+const makeMediaUploadKey = (
+  displayHash: string,
+  sourceHash: string | null
+): string => `media:${displayHash}:${sourceHash ?? ''}`
 
 const seedExistingCloudMediaIds = (
   snapshot: BoardSnapshot,
@@ -54,16 +68,28 @@ const seedExistingCloudMediaIds = (
   forEachSnapshotItem(snapshot, (item) =>
   {
     const imageRef = item.imageRef
+    const sourceImageRef = item.sourceImageRef
+    const mediaExternalId =
+      sourceImageRef?.cloudMediaExternalId ?? imageRef?.cloudMediaExternalId
+    if (mediaExternalId)
+    {
+      result.mediaExternalIdByItemId.set(item.id, mediaExternalId)
+    }
     if (imageRef?.cloudMediaExternalId)
     {
       result.mediaExternalIdByHash.set(
         imageRef.hash,
         imageRef.cloudMediaExternalId
       )
+      if (sourceImageRef?.hash)
+      {
+        result.mediaExternalIdByHash.set(
+          sourceImageRef.hash,
+          sourceImageRef.cloudMediaExternalId ?? imageRef.cloudMediaExternalId
+        )
+      }
     }
-
-    const sourceImageRef = item.sourceImageRef
-    if (sourceImageRef?.cloudMediaExternalId)
+    else if (sourceImageRef?.cloudMediaExternalId)
     {
       result.mediaExternalIdByHash.set(
         sourceImageRef.hash,
@@ -73,57 +99,118 @@ const seedExistingCloudMediaIds = (
   })
 }
 
-// upload one image blob to Convex storage & finalize it. throws on any
-// failure so callers can aggregate & surface a single error
-const uploadSingleImage = async (
-  uploadIndexUserId: string,
-  prepared: PreparedBlobRecord
-): Promise<string> =>
+const collectMediaUploadGroups = (
+  snapshot: BoardSnapshot
+): MediaUploadGroup[] =>
 {
-  // pre-validate MIME so we don't upload bytes that finalizeUpload will
-  // reject, leaving orphaned storage blobs
-  assertSupportedMimeType(prepared.record.mimeType)
-  const { uploadUrl, uploadToken, envelopeUserId } =
-    await generateUploadUrlImperative()
-  const envelopeHeader = Uint8Array.from(
-    getUploadEnvelopeHeader('media', envelopeUserId, uploadToken)
-  )
-
-  const response = await fetch(uploadUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream' },
-    body: new Blob([envelopeHeader, prepared.record.bytes], {
-      type: 'application/octet-stream',
-    }),
-  })
-
-  if (!response.ok)
+  const groups = new Map<string, MediaUploadGroup>()
+  forEachSnapshotItem(snapshot, (item) =>
   {
-    throw new Error(
-      `image upload failed for hash ${prepared.record.hash}: HTTP ${response.status}`
+    const displayHash = item.imageRef?.hash
+    if (!displayHash) return
+    const sourceHash = item.sourceImageRef?.hash ?? null
+    const groupKey = makeMediaUploadKey(displayHash, sourceHash)
+    const existing = groups.get(groupKey)
+    if (existing)
+    {
+      existing.itemIds.push(item.id)
+      return
+    }
+    groups.set(groupKey, {
+      uploadKey: groupKey,
+      displayHash,
+      sourceHash,
+      itemIds: [item.id],
+    })
+  })
+  return [...groups.values()]
+}
+
+interface VariantUploadInput
+{
+  kind: MediaVariantKind
+  hash: string
+  record: BlobRecord
+}
+
+const uploadMediaGroup = async (
+  uploadIndexUserId: string,
+  group: MediaUploadGroup,
+  storedBlobRecords: ReadonlyMap<string, BlobRecord>
+): Promise<{ hashes: string[]; externalId: string }> =>
+{
+  const displayRecord = storedBlobRecords.get(group.displayHash)
+  if (!displayRecord)
+  {
+    throw new PermanentSyncError(
+      'missing-local-image-blobs',
+      `missing local blob for ${group.displayHash}`
     )
   }
 
-  const { storageId } = (await response.json()) as {
-    storageId: Id<'_storage'>
+  const variantInputs: VariantUploadInput[] = [
+    { kind: 'tile', hash: group.displayHash, record: displayRecord },
+  ]
+  if (group.sourceHash)
+  {
+    const sourceRecord = storedBlobRecords.get(group.sourceHash)
+    if (!sourceRecord)
+    {
+      throw new PermanentSyncError(
+        'missing-local-image-blobs',
+        `missing local blob for ${group.sourceHash}`
+      )
+    }
+    variantInputs.push({
+      kind: 'editor',
+      hash: group.sourceHash,
+      record: sourceRecord,
+    })
   }
 
-  const { externalId } = await finalizeUploadImperative({
-    storageId,
-    uploadToken,
-  })
+  for (const input of variantInputs)
+  {
+    assertSupportedMimeType(input.record.mimeType)
+  }
 
-  await markUploaded(uploadIndexUserId, prepared.record.hash, externalId)
-  return externalId
+  // single rate-limit token per group covers all variant uploads
+  const { envelopeUserId, urls } = await generateUploadUrlsImperative(
+    variantInputs.length
+  )
+
+  const variants: UploadedVariant[] = await Promise.all(
+    variantInputs.map(async (input, i) =>
+    {
+      const { uploadUrl, uploadToken } = urls[i]
+      const storageId = await uploadEnvelopedBlob({
+        uploadUrl,
+        uploadToken,
+        envelopeUserId,
+        blob: new Blob([input.record.bytes as BlobPart]),
+      })
+      return { kind: input.kind, storageId, uploadToken }
+    })
+  )
+
+  const { externalId } = await finalizeUploadVariantsImperative({ variants })
+  const hashes = [group.displayHash, group.sourceHash].filter(isPresent)
+  await markUploaded(uploadIndexUserId, group.uploadKey, externalId)
+  return { hashes, externalId }
 }
 
+const getKnownGroupExternalId = (
+  group: MediaUploadGroup,
+  result: BoardImageUploadResult,
+  externalIdByUploadKey: ReadonlyMap<string, string | null>
+): string | undefined =>
+  externalIdByUploadKey.get(group.uploadKey) ??
+  result.mediaExternalIdByItemId.get(group.itemIds[0] ?? '') ??
+  undefined
+
 type UploadAttemptResult =
-  | { kind: 'uploaded'; hash: string; externalId: string }
+  | { kind: 'uploaded'; hashes: string[]; externalId: string }
   | { kind: 'failed'; reason: unknown }
 
-// upload all un-uploaded images for a board & return a hash->mediaExternalId
-// map. all-or-nothing: throws if any upload or finalize step fails so the
-// caller never persists a partially-synced state w/ dangling mediaExternalIds
 export const uploadBoardImages = async (
   snapshot: BoardSnapshot,
   userId: string
@@ -133,6 +220,7 @@ export const uploadBoardImages = async (
 
   const result: BoardImageUploadResult = {
     mediaExternalIdByHash: new Map<string, string>(),
+    mediaExternalIdByItemId: new Map<string, string>(),
   }
 
   seedExistingCloudMediaIds(snapshot, result)
@@ -142,24 +230,39 @@ export const uploadBoardImages = async (
     return result
   }
 
-  const existingMap = await getUploadStatusBatch(userId, hashes)
+  const groups = collectMediaUploadGroups(snapshot)
+  const existingMap = await getUploadStatusBatch(
+    userId,
+    groups.map((group) => group.uploadKey)
+  )
 
-  for (const [hash, externalId] of existingMap)
+  // walk groups once: propagate already-known externalIds for exact variant
+  // sets, then collect the groups that still need uploading
+  const uploadGroups: MediaUploadGroup[] = []
+  for (const group of groups)
   {
+    const externalId = getKnownGroupExternalId(group, result, existingMap)
     if (externalId)
     {
-      result.mediaExternalIdByHash.set(hash, externalId)
+      for (const itemId of group.itemIds)
+      {
+        result.mediaExternalIdByItemId.set(itemId, externalId)
+      }
+      continue
     }
+    uploadGroups.push(group)
   }
 
-  const needsBlobUpload = hashes.filter(
-    (hash) => !result.mediaExternalIdByHash.has(hash)
-  )
-  const storedBlobRecords = await getBlobsBatch(needsBlobUpload)
+  const groupHashes = [
+    ...new Set(
+      uploadGroups.flatMap((group) =>
+        [group.displayHash, group.sourceHash].filter(isPresent)
+      )
+    ),
+  ]
+  const storedBlobRecords = await getBlobsBatch(groupHashes)
 
-  // reject up-front if a referenced blob is missing locally. without this
-  // the item would sync w/ no mediaExternalId & load broken on every device
-  const missingBlobHashes = needsBlobUpload.filter(
+  const missingBlobHashes = groupHashes.filter(
     (hash) => !storedBlobRecords.get(hash)
   )
   if (missingBlobHashes.length > 0)
@@ -168,24 +271,35 @@ export const uploadBoardImages = async (
       'missing-local-image-blobs',
       `missing local blobs for ${missingBlobHashes.length} image hash(es): ` +
         missingBlobHashes.slice(0, 3).join(', ') +
-        (missingBlobHashes.length > 3 ? '…' : '')
+        (missingBlobHashes.length > 3 ? '...' : '')
     )
+  }
+  const presentBlobRecords = new Map<string, BlobRecord>()
+  for (const [hash, record] of storedBlobRecords)
+  {
+    if (record)
+    {
+      presentBlobRecords.set(hash, record)
+    }
   }
 
   const uploadResults = await mapAsyncLimit(
-    needsBlobUpload,
+    uploadGroups,
     SYNC_CONCURRENCY.upload,
-    async (hash): Promise<UploadAttemptResult> =>
+    async (group): Promise<UploadAttemptResult> =>
     {
       try
       {
-        const record = storedBlobRecords.get(hash)!
-        const externalId = await uploadSingleImage(userId, {
-          imageRef: { hash },
-          blob: record.bytes,
-          record,
-        })
-        return { kind: 'uploaded', hash, externalId }
+        const uploaded = await uploadMediaGroup(
+          userId,
+          group,
+          presentBlobRecords
+        )
+        for (const itemId of group.itemIds)
+        {
+          result.mediaExternalIdByItemId.set(itemId, uploaded.externalId)
+        }
+        return { kind: 'uploaded', ...uploaded }
       }
       catch (error)
       {
@@ -209,14 +323,17 @@ export const uploadBoardImages = async (
   if (failures.length > 0)
   {
     throw new Error(
-      `failed to upload ${failures.length} of ${needsBlobUpload.length} image blobs: ` +
+      `failed to upload ${failures.length} of ${uploadGroups.length} image groups: ` +
         String(failures[0]?.reason)
     )
   }
 
   for (const entry of uploaded)
   {
-    result.mediaExternalIdByHash.set(entry.hash, entry.externalId)
+    for (const hash of entry.hashes)
+    {
+      result.mediaExternalIdByHash.set(hash, entry.externalId)
+    }
   }
 
   return result

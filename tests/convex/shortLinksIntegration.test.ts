@@ -24,7 +24,7 @@ const seedUser = async (
         email: 'test@example.com',
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        tier: 'free',
+        plan: 'free',
       })
   )
 

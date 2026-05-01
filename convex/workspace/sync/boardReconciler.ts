@@ -40,7 +40,6 @@ export interface ItemDiff
     backgroundColor?: string
     altText?: string
     mediaAssetId: Id<'mediaAssets'> | null
-    sourceMediaAssetId: Id<'mediaAssets'> | null
     order: number
     deletedAt: number | null
     aspectRatio?: number
@@ -60,7 +59,7 @@ export interface ItemDiff
   }>
 }
 
-const hasOwnKey = (obj: object): boolean => Object.keys(obj).length > 0
+const isNonEmptyObject = (obj: object): boolean => Object.keys(obj).length > 0
 
 // shallow structural compare — transforms are flat 4-field POJOs so a manual
 // compare is cheaper & clearer than JSON.stringify
@@ -79,8 +78,29 @@ const transformsEqual = (
   )
 }
 
-type WireMediaField = 'mediaExternalId' | 'sourceMediaExternalId'
-type ServerMediaField = 'mediaAssetId' | 'sourceMediaAssetId'
+// tagged-union compare for tier color specs. JSON.stringify worked but was
+// fragile to property ordering; explicit shape match matches the rest of the
+// equality helpers in this file
+type TierColorSpec = Doc<'boardTiers'>['colorSpec']
+
+const colorSpecEqual = (
+  a: TierColorSpec | undefined,
+  b: TierColorSpec | undefined
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return false
+  if (a.kind !== b.kind) return false
+  if (a.kind === 'palette' && b.kind === 'palette')
+  {
+    return a.index === b.index
+  }
+  if (a.kind === 'custom' && b.kind === 'custom')
+  {
+    return a.hex === b.hex
+  }
+  return false
+}
 
 interface ResolvedMediaField
 {
@@ -91,15 +111,13 @@ interface ResolvedMediaField
 const resolveMediaField = (
   wire: WireItem,
   server: Doc<'boardItems'> | undefined,
-  wireField: WireMediaField,
-  serverField: ServerMediaField,
   mediaExternalIdToId: Map<string, Id<'mediaAssets'>>
 ): ResolvedMediaField =>
 {
-  const has = Object.hasOwn(wire, wireField)
-  const externalId = wire[wireField]
+  const has = Object.hasOwn(wire, 'mediaExternalId')
+  const externalId = wire.mediaExternalId
   const resolved = !has
-    ? (server?.[serverField] ?? null)
+    ? (server?.mediaAssetId ?? null)
     : externalId
       ? (mediaExternalIdToId.get(externalId) ?? null)
       : null
@@ -143,19 +161,17 @@ export const diffTiers = (
       (wire.description ?? undefined) !== (server.description ?? undefined)
     if (descChanged) fields.description = wire.description
 
-    if (JSON.stringify(server.colorSpec) !== JSON.stringify(wire.colorSpec))
+    if (!colorSpecEqual(server.colorSpec, wire.colorSpec))
     {
       fields.colorSpec = wire.colorSpec
     }
 
-    const wireRow = wire.rowColorSpec ?? undefined
-    const serverRow = server.rowColorSpec ?? undefined
-    if (JSON.stringify(wireRow) !== JSON.stringify(serverRow))
+    if (!colorSpecEqual(server.rowColorSpec, wire.rowColorSpec))
     {
       fields.rowColorSpec = wire.rowColorSpec
     }
 
-    if (hasOwnKey(fields))
+    if (isNonEmptyObject(fields))
     {
       diff.patch.push({ id: server._id, fields })
     }
@@ -191,20 +207,7 @@ export const diffItems = (
   {
     seenExternalIds.add(wire.externalId)
     const server = serverByExternalId.get(wire.externalId)
-    const displayMedia = resolveMediaField(
-      wire,
-      server,
-      'mediaExternalId',
-      'mediaAssetId',
-      mediaExternalIdToId
-    )
-    const sourceMedia = resolveMediaField(
-      wire,
-      server,
-      'sourceMediaExternalId',
-      'sourceMediaAssetId',
-      mediaExternalIdToId
-    )
+    const media = resolveMediaField(wire, server, mediaExternalIdToId)
     const isDeleted = deletedItemExternalIds.has(wire.externalId)
     const resolvedTierId = wire.tierId
       ? (tierExternalIdToId.get(wire.tierId) ?? null)
@@ -218,8 +221,7 @@ export const diffItems = (
         label: wire.label,
         backgroundColor: wire.backgroundColor,
         altText: wire.altText,
-        mediaAssetId: displayMedia.resolved,
-        sourceMediaAssetId: sourceMedia.resolved,
+        mediaAssetId: media.resolved,
         order: wire.order,
         deletedAt: isDeleted ? now : null,
         aspectRatio: wire.aspectRatio,
@@ -251,10 +253,7 @@ export const diffItems = (
           imageFit: wire.imageFit,
           transform: wire.transform,
           labelOptions: wire.labelOptions,
-          ...(displayMedia.has ? { mediaAssetId: displayMedia.resolved } : {}),
-          ...(sourceMedia.has
-            ? { sourceMediaAssetId: sourceMedia.resolved }
-            : {}),
+          ...(media.has ? { mediaAssetId: media.resolved } : {}),
         },
       })
       continue
@@ -282,16 +281,12 @@ export const diffItems = (
     {
       fields.labelOptions = wire.labelOptions
     }
-    if (displayMedia.has && server.mediaAssetId !== displayMedia.resolved)
+    if (media.has && server.mediaAssetId !== media.resolved)
     {
-      fields.mediaAssetId = displayMedia.resolved
-    }
-    if (sourceMedia.has && server.sourceMediaAssetId !== sourceMedia.resolved)
-    {
-      fields.sourceMediaAssetId = sourceMedia.resolved
+      fields.mediaAssetId = media.resolved
     }
 
-    if (hasOwnKey(fields))
+    if (isNonEmptyObject(fields))
     {
       diff.patch.push({ id: server._id, fields })
     }

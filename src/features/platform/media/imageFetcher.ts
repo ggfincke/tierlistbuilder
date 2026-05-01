@@ -94,7 +94,10 @@ const fetchBatchFromCloud = async (
     lookups = await convexClient.query(
       api.platform.media.queries.getMediaAssetsByExternalIds,
       {
-        mediaExternalIds: requests.map((r) => r.cloudMediaExternalId),
+        media: requests.map((r) => ({
+          externalId: r.cloudMediaExternalId,
+          variant: r.variant,
+        })),
       }
     )
   }

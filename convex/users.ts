@@ -35,6 +35,10 @@ import {
   isPublicTemplateRow,
   type PublicCategoryDelta,
 } from './marketplace/templates/lib'
+import {
+  deleteMediaAssetWithVariants,
+  hasMediaAssetReferences,
+} from './platform/media/internal'
 
 const RESERVED_HANDLE_SET = new Set<string>(RESERVED_HANDLES)
 const CASCADE_PAGE_SIZE = BATCH_LIMITS.cascadeDelete
@@ -49,7 +53,7 @@ const publicUserMeValidator = v.object({
   displayName: v.union(v.string(), v.null()),
   image: v.union(v.string(), v.null()),
   externalId: v.union(v.string(), v.null()),
-  tier: v.union(v.literal('free'), v.literal('premium')),
+  plan: v.union(v.literal('free'), v.literal('plus')),
   createdAt: v.number(),
   updatedAt: v.union(v.number(), v.null()),
   handle: v.union(v.string(), v.null()),
@@ -89,7 +93,7 @@ export const getMe = query({
       displayName: user.displayName ?? null,
       image: user.image ?? null,
       externalId: user.externalId ?? null,
-      tier: user.tier ?? 'free',
+      plan: user.plan ?? 'free',
       createdAt: user.createdAt ?? user._creationTime,
       updatedAt: user.updatedAt ?? null,
       handle: user.handle ?? null,
@@ -469,7 +473,19 @@ const handleMediaAssetsPhase: CascadePhaseHandler = async (ctx, args) =>
     .query('mediaAssets')
     .withIndex('byOwnerAndExternalId', (q) => q.eq('ownerId', args.userId))
     .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
-  return await deletePageRowsAndAdvance(ctx, args.userId, page, 'mediaAssets')
+  await Promise.all(
+    page.page.map((asset) => deleteUnreachableMediaAsset(ctx, asset._id))
+  )
+  return await advanceCascade(ctx, args.userId, page, 'mediaAssets')
+}
+
+const deleteUnreachableMediaAsset = async (
+  ctx: MutationCtx,
+  mediaAssetId: Id<'mediaAssets'>
+): Promise<void> =>
+{
+  if (await hasMediaAssetReferences(ctx, mediaAssetId)) return
+  await deleteMediaAssetWithVariants(ctx, mediaAssetId)
 }
 
 const handleUserPreferencesPhase: CascadePhaseHandler = async (ctx, args) =>

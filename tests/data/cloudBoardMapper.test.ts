@@ -27,6 +27,7 @@ const makeBoardWithItem = (
 
 const emptyUploadResult = (): BoardImageUploadResult => ({
   mediaExternalIdByHash: new Map(),
+  mediaExternalIdByItemId: new Map(),
 })
 
 describe('snapshotToCloudPayload', () =>
@@ -59,7 +60,6 @@ describe('snapshotToCloudPayload', () =>
       emptyUploadResult()
     )
     expect(cleared.items[0].mediaExternalId).toBeNull()
-    expect(cleared.items[0].sourceMediaExternalId).toBeNull()
 
     expect(() =>
       snapshotToCloudPayload(
@@ -153,8 +153,7 @@ describe('serverStateToSnapshot', () =>
         {
           externalId: itemId,
           tierId: null,
-          mediaExternalId: 'media-display',
-          sourceMediaExternalId: 'media-source',
+          mediaExternalId: 'media-1',
           mediaContentHash: 'display-hash',
           sourceMediaContentHash: 'source-hash',
           order: 0,
@@ -168,11 +167,11 @@ describe('serverStateToSnapshot', () =>
 
     expect(snapshot.items[itemId].imageRef).toEqual({
       hash: 'display-hash',
-      cloudMediaExternalId: 'media-display',
+      cloudMediaExternalId: 'media-1',
     })
     expect(snapshot.items[itemId].sourceImageRef).toEqual({
       hash: 'source-hash',
-      cloudMediaExternalId: 'media-source',
+      cloudMediaExternalId: 'media-1',
     })
     expect(snapshot).toMatchObject({
       paletteId: 'twilight',

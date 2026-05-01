@@ -29,7 +29,7 @@ const seedUser = async (
         email: 'cascade@example.com',
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        tier: 'free',
+        plan: 'free',
       })
   )
 
