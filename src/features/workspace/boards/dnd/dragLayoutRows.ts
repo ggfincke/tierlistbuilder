@@ -20,7 +20,7 @@ export interface RenderedRowLayout
   rowCount: number
 }
 
-export interface RowMoveResult
+interface RowMoveResult
 {
   targetIndex: number
   targetItemId: ItemId

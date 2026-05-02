@@ -5,13 +5,14 @@ import {
   DndContext,
   DragOverlay,
   MeasuringStrategy,
+  type MeasuringConfiguration,
   type SensorDescriptor,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useEffectiveTiers } from '~/features/workspace/boards/model/useEffectiveBoard'
 import { THEMES } from '~/shared/theme/tokens'
@@ -19,11 +20,11 @@ import { announce } from '~/shared/a11y/announce'
 import { getContrastingTextShadow, getTextColor } from '~/shared/lib/color'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
-import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'
 import { isVerticalPosition } from '~/shared/layout/toolbarPosition'
 import { TIER_LIST_BOARD_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { useDragAndDrop } from '~/features/workspace/boards/dnd/useDragAndDrop'
-import { DragOverlayItem } from './DragOverlayItem'
+import { ActiveDragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
 import { TrashZone } from './TrashZone'
 import { UnrankedPool } from './UnrankedPool'
@@ -48,6 +49,15 @@ const DND_ACCESSIBILITY = {
   },
 }
 
+// remeasure droppables only while dragging — the default 'Always' strategy
+// re-runs every frame on tall boards & trips dnd-kit's "Maximum update depth"
+// guard. hoisted so the config reference is stable across renders
+const DND_MEASURING: MeasuringConfiguration = {
+  droppable: {
+    strategy: MeasuringStrategy.WhileDragging,
+  },
+}
+
 interface TierListProps
 {
   toolbar: ReactNode
@@ -59,7 +69,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
   const isVertical = isVerticalPosition(toolbarPosition)
   const paletteId = useCurrentPaletteId()
   const { boardLocked, exportBackgroundOverride, themeId, compactMode } =
-    useSettingsStore(
+    usePreferencesStore(
       useShallow((state) => ({
         boardLocked: state.boardLocked,
         exportBackgroundOverride: state.exportBackgroundOverride,
@@ -140,7 +150,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
 
   const {
     sensors,
-    activeItem,
+    activeItemId,
     activeTier,
     collisionDetection,
     overlayModifiers,
@@ -165,12 +175,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
       sensors={activeSensors}
       collisionDetection={collisionDetection}
       accessibility={DND_ACCESSIBILITY}
-      measuring={{
-        // always remeasure droppables to handle dynamic content changes
-        droppable: {
-          strategy: MeasuringStrategy.WhileDragging,
-        },
-      }}
+      measuring={DND_MEASURING}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragOver={onDragOver}
@@ -224,9 +229,9 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
         modifiers={overlayModifiers}
         dropAnimation={dragGroupCount > 1 ? null : undefined}
       >
-        {activeItem ? (
-          <DragOverlayItem
-            item={activeItem}
+        {activeItemId ? (
+          <ActiveDragOverlayItem
+            itemId={activeItemId}
             groupCount={dragGroupCount > 1 ? dragGroupCount - 1 : 0}
           />
         ) : activeTier ? (
