@@ -1,22 +1,20 @@
 // src/features/workspace/export/lib/exportImage.ts
 // image export utilities — render the tier list to PNG, JPEG, or WebP for download & clipboard
 
-import { toBlob, toCanvas, toJpeg, toPng, toSvg } from 'html-to-image'
-
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance, ImageFormat } from '../model/runtime'
 import { toFileBase } from '~/shared/lib/fileName'
 import { triggerDownload } from '~/shared/lib/downloadBlob'
+import { loadHtmlToImageLib } from '~/shared/lib/lazyDependencies'
 import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
 import { withExportSession } from './exportBoardRender'
 
 // quality setting used for JPEG & WebP encoding
-export const IMAGE_QUALITY = 0.92
+const IMAGE_QUALITY = 0.92
 
 // build export options for a given background color
-export const getBaseOptions = (bgColor: string) => ({
+export const getExportImageOptions = (bgColor: string) => ({
   pixelRatio: EXPORT_PIXEL_RATIO,
-  cacheBust: true,
   backgroundColor: bgColor,
 })
 
@@ -35,7 +33,9 @@ export const renderToDataUrl = async (
   backgroundColor = EXPORT_BACKGROUND_COLOR
 ): Promise<string> =>
 {
-  const opts = getBaseOptions(backgroundColor)
+  const opts = getExportImageOptions(backgroundColor)
+  const { toCanvas, toJpeg, toPng, toSvg } = await loadHtmlToImageLib()
+
   if (format === 'svg')
   {
     return toSvg(element, opts)
@@ -52,13 +52,7 @@ export const renderToDataUrl = async (
   return toPng(element, opts)
 }
 
-// render the element to a 2x PNG data URL
-export const renderElementToPng = (
-  element: HTMLElement,
-  backgroundColor = EXPORT_BACKGROUND_COLOR
-): Promise<string> => toPng(element, getBaseOptions(backgroundColor))
-
-export interface CapturedBoardImage
+interface CapturedBoardImage
 {
   dataUrl: string
   // source element pixel dimensions scaled by the export pixel ratio; PDF
@@ -125,10 +119,12 @@ export const copyBoardToClipboard = async (
     throw new Error('Clipboard image copy is not supported in this browser.')
   }
 
+  const { toBlob } = await loadHtmlToImageLib()
+
   await withExportSession({ appearance, backgroundColor }, async (session) =>
   {
     const element = await session.renderBoard(data)
-    const blob = await toBlob(element, getBaseOptions(backgroundColor))
+    const blob = await toBlob(element, getExportImageOptions(backgroundColor))
     if (!blob)
     {
       throw new Error('Failed to render image for clipboard.')

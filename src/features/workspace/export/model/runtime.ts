@@ -7,8 +7,11 @@ import type {
   ItemSize,
   LabelWidth,
   TierLabelFontSize,
-} from '@tierlistbuilder/contracts/workspace/settings'
-import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
+} from '@tierlistbuilder/contracts/platform/preferences'
+import type {
+  PaletteId,
+  TextStyleId,
+} from '@tierlistbuilder/contracts/lib/theme'
 
 // supported image export formats
 export type ImageFormat = 'png' | 'jpeg' | 'webp' | 'svg'
@@ -22,6 +25,7 @@ export interface ExportAppearance
   compactMode: boolean
   labelWidth: LabelWidth
   paletteId: PaletteId
+  textStyleId: TextStyleId
   tierLabelBold: boolean
   tierLabelItalic: boolean
   tierLabelFontSize: TierLabelFontSize

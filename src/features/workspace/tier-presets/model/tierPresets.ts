@@ -10,7 +10,7 @@ import {
   generatePresetId,
   generateTierId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import { DEFAULT_TITLE } from '~/features/workspace/boards/lib/boardDefaults'
+import { DEFAULT_TITLE } from '~/shared/board-data/boardDefaults'
 import {
   createCustomTierColorSpec,
   createPaletteTierColorSpec,
