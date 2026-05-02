@@ -2,7 +2,7 @@
 // shared image helpers — dimension fitting & filename-to-label derivation
 
 // compute output dimensions that fit within maxSize while preserving aspect ratio
-export const getResizedDimensions = (
+const getResizedDimensions = (
   width: number,
   height: number,
   maxSize: number
@@ -68,9 +68,7 @@ export const deriveLabelFromFilename = (filename: string): string =>
 }
 
 // encode a canvas as a PNG blob
-export const canvasToPngBlob = async (
-  canvas: HTMLCanvasElement
-): Promise<Blob> =>
+const canvasToPngBlob = async (canvas: HTMLCanvasElement): Promise<Blob> =>
   new Promise((resolve, reject) =>
   {
     canvas.toBlob((blob) =>

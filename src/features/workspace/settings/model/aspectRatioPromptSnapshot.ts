@@ -10,11 +10,11 @@ import {
   findMismatchedItems,
   getBoardItemAspectRatio,
   itemHasAspectMismatch,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 
 type PromptBoard = Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>
 
-export interface AspectRatioPromptSnapshot
+interface AspectRatioPromptSnapshot
 {
   itemIds: readonly ItemId[]
 }

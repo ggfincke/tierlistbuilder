@@ -15,7 +15,7 @@ import {
   ratioOptionForBoard,
   resolveCustomRatioSeed,
   type RatioOption,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import type { ItemAspectRatioMode } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardAspectRatioPicker } from './useBoardAspectRatioPicker'
 
@@ -24,7 +24,7 @@ export const resolvePendingAutoAspectRatio = (
   fallbackRatio: number
 ): number => computeAutoBoardAspectRatio(board) ?? fallbackRatio
 
-export interface DeferredBoardAspectRatioPicker extends BoardAspectRatioPicker
+interface DeferredBoardAspectRatioPicker extends BoardAspectRatioPicker
 {
   autoRatio: number
   // apply pending ratio & mode to the store; callers invoke on confirm

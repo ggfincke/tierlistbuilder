@@ -12,7 +12,7 @@ import { MAX_EDITOR_SOURCE_SIZE, MAX_THUMBNAIL_SIZE } from './constants'
 import { deriveLabelFromFilename, drawImageToPngBlob } from './imageGeometry'
 
 // processed upload result w/ partial-failure accounting
-export interface ProcessImageFilesResult
+interface ProcessImageFilesResult
 {
   items: Array<NewTierItem & { label: string }>
   failedCount: number
