@@ -57,5 +57,7 @@ export const useModalStack = <
     })
   }, [])
 
+  // stable return — open/close identity never changes, so the memo returns
+  // a new object only when `state` actually changes
   return useMemo(() => ({ state, open, close }), [state, open, close])
 }

@@ -1,11 +1,11 @@
 // src/app/shells/WorkspaceShell.tsx
 // full interactive workspace shell w/ board UI, modals, panels, & overlays
 
-import { useCallback, type MouseEvent } from 'react'
+import { useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
-import { useThemeSync } from '~/app/bootstrap/useThemeSync'
+import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
 import { useModalStack } from '~/app/shells/useModalStack'
 import { WorkspaceModalLayer } from '~/app/shells/WorkspaceModalLayer'
 import { useWorkspaceExportActions } from '~/app/shells/useWorkspaceExportActions'
@@ -17,11 +17,13 @@ import { BulkActionBar } from '~/features/workspace/boards/ui/BulkActionBar'
 import { TierList } from '~/features/workspace/boards/ui/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useWarmActiveBoardImages } from '~/features/workspace/boards/model/useWarmActiveBoardImages'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
-import { getWorkspacePath } from '~/app/routes/pathname'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
+import { useCurrentPageBackground } from '~/features/workspace/settings/model/useCurrentPageBackground'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { useBoardThemeOverrides } from '~/features/workspace/settings/model/useBoardThemeOverrides'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
@@ -41,24 +43,23 @@ export const WorkspaceShell = () =>
         resetBoard: state.resetBoard,
       }))
     )
-  const {
-    toolbarPosition: rawToolbarPosition,
-    boardBackgroundOverride,
-    reducedMotion,
-  } = useSettingsStore(
-    useShallow((state) => ({
-      toolbarPosition: state.toolbarPosition,
-      boardBackgroundOverride: state.boardBackgroundOverride,
-      reducedMotion: state.reducedMotion,
-    }))
-  )
+  const { toolbarPosition: rawToolbarPosition, reducedMotion } =
+    usePreferencesStore(
+      useShallow((state) => ({
+        toolbarPosition: state.toolbarPosition,
+        reducedMotion: state.reducedMotion,
+      }))
+    )
+  const pageBackground = useCurrentPageBackground()
   const aboveSm = useAboveBreakpoint()
   const toolbarPosition = getResponsiveToolbarPosition(
     rawToolbarPosition,
     aboveSm
   )
 
-  useThemeSync()
+  useThemeSync({ syncTextStyle: false })
+  useBoardThemeOverrides()
+  useWarmActiveBoardImages(appReady)
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
   const modalStack = useModalStack<WorkspaceModalPayloads>()
@@ -87,25 +88,6 @@ export const WorkspaceShell = () =>
   )
   const handleOpenStats = useCallback(() => openModal('stats'), [openModal])
   const handleOpenShare = useCallback(() => openModal('share'), [openModal])
-  const handleSkipToBoard = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) =>
-    {
-      event.preventDefault()
-
-      const board = document.getElementById('tier-list')
-
-      if (!(board instanceof HTMLElement))
-      {
-        return
-      }
-
-      board.scrollIntoView({ block: 'start' })
-      board.focus({ preventScroll: true })
-      window.history.replaceState(null, '', '#tier-list')
-    },
-    []
-  )
-
   if (!appReady)
   {
     return (
@@ -121,20 +103,9 @@ export const WorkspaceShell = () =>
       <main
         id="app-shell"
         className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
-        style={
-          boardBackgroundOverride
-            ? { backgroundColor: boardBackgroundOverride }
-            : undefined
-        }
+        style={pageBackground ? { backgroundColor: pageBackground } : undefined}
       >
-        <a
-          href={`${getWorkspacePath()}#tier-list`}
-          onClick={handleSkipToBoard}
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-[var(--t-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--t-accent-foreground)] focus:shadow-lg"
-        >
-          Skip to board
-        </a>
-        <div className="app-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+        <div className="app-content mx-auto w-full max-w-6xl px-3 pb-4 pt-20 sm:px-6 sm:pb-6 sm:pt-24">
           <BoardHeader />
 
           {runtimeError && (

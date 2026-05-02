@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   bootstrapBoardSession,
   importBoardSession,
@@ -13,7 +13,7 @@ import {
 import {
   clearInboundShareFromUrl,
   resolveInboundShare,
-} from '~/features/workspace/sharing/inbound/inboundShare'
+} from '~/features/platform/share/inboundShare'
 import { toast } from '~/shared/notifications/useToastStore'
 
 // import a shared board if the URL carries an inbound share marker. scrub the URL
@@ -43,7 +43,7 @@ const handleInboundShare = async (): Promise<void> =>
 }
 
 const storesHydrated = () =>
-  useSettingsStore.persist.hasHydrated() &&
+  usePreferencesStore.persist.hasHydrated() &&
   useWorkspaceBoardRegistryStore.persist.hasHydrated()
 
 // module-level promise shared across StrictMode double-mount so the first &
@@ -95,12 +95,11 @@ export const useAppBootstrap = (): boolean =>
       }
     }
 
-    const offSettingsHydration = useSettingsStore.persist.onFinishHydration(
-      () =>
+    const offPreferencesHydration =
+      usePreferencesStore.persist.onFinishHydration(() =>
       {
         void tryBootstrap()
-      }
-    )
+      })
     const offBoardsHydration =
       useWorkspaceBoardRegistryStore.persist.onFinishHydration(() =>
       {
@@ -112,7 +111,7 @@ export const useAppBootstrap = (): boolean =>
     return () =>
     {
       cancelled = true
-      offSettingsHydration()
+      offPreferencesHydration()
       offBoardsHydration()
     }
   }, [])
