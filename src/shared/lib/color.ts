@@ -1,11 +1,10 @@
 // src/shared/lib/color.ts
 // shared color utilities for picker parsing, normalization, & contrast
 
-import { hexToRgba, rgbToHex } from '@uiw/color-convert'
 import { clamp } from './math'
 
 // numeric rgb channel triplet
-export interface RgbColor
+interface RgbColor
 {
   red: number
   green: number
@@ -46,8 +45,11 @@ export const normalizeHexColor = (value: string): string | null =>
 }
 
 // clamp a channel to the valid rgb byte range
-export const clampRgbChannel = (value: number): number =>
+const clampRgbChannel = (value: number): number =>
   clamp(Math.round(value), 0, 255)
+
+const toHexChannel = (value: number): string =>
+  clampRgbChannel(value).toString(16).padStart(2, '0')
 
 // convert a numeric rgb triplet to input strings
 export const formatRgbInputs = (color: RgbColor): RgbInputState => ({
@@ -65,23 +67,21 @@ export const hexToRgbColor = (hexColor: string): RgbColor | null =>
     return null
   }
 
-  const rgba = hexToRgba(normalized)
+  const hex = normalized.slice(1)
 
   return {
-    red: clampRgbChannel(rgba.r),
-    green: clampRgbChannel(rgba.g),
-    blue: clampRgbChannel(rgba.b),
+    red: Number.parseInt(hex.slice(0, 2), 16),
+    green: Number.parseInt(hex.slice(2, 4), 16),
+    blue: Number.parseInt(hex.slice(4, 6), 16),
   }
 }
 
 // convert numeric rgb channels to lowercase #rrggbb
 export const rgbToHexColor = (color: RgbColor): string =>
 {
-  return rgbToHex({
-    r: clampRgbChannel(color.red),
-    g: clampRgbChannel(color.green),
-    b: clampRgbChannel(color.blue),
-  }).toLowerCase()
+  return `#${toHexChannel(color.red)}${toHexChannel(color.green)}${toHexChannel(
+    color.blue
+  )}`
 }
 
 // parse the rgb text inputs if every channel is complete & in range
