@@ -4,8 +4,6 @@
 import type { ThemeId } from '@tierlistbuilder/contracts/lib/theme'
 import type { ThemeDefinition } from '@tierlistbuilder/contracts/lib/themeDefinition'
 
-export type { ThemeDefinition }
-
 export const THEMES: Record<ThemeId, ThemeDefinition> = {
   classic: {
     'bg-page': '#232323',
@@ -28,6 +26,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     destructive: '#f43f5e',
     'destructive-hover': '#fb7185',
     success: '#4ade80',
+    warning: '#fcd34d',
     overlay: '255 255 255',
     'export-bg': '#232323',
   },
@@ -52,6 +51,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     destructive: '#dc2626',
     'destructive-hover': '#b91c1c',
     success: '#16a34a',
+    warning: '#d97706',
     overlay: '0 0 0',
     'export-bg': '#f5f5f0',
   },
@@ -76,6 +76,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     destructive: '#f87171',
     'destructive-hover': '#ef4444',
     success: '#4ade80',
+    warning: '#fcd34d',
     overlay: '255 255 255',
     'export-bg': '#0f172a',
   },
@@ -100,6 +101,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     destructive: '#f97316',
     'destructive-hover': '#ea580c',
     success: '#84cc16',
+    warning: '#fcd34d',
     overlay: '255 255 255',
     'export-bg': '#1a2218',
   },
@@ -124,6 +126,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     destructive: '#ef4444',
     'destructive-hover': '#dc2626',
     success: '#4ade80',
+    warning: '#fdba74',
     overlay: '255 255 255',
     'export-bg': '#1c1410',
   },
@@ -148,6 +151,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     destructive: '#e11d48',
     'destructive-hover': '#be123c',
     success: '#16a34a',
+    warning: '#d97706',
     overlay: '0 0 0',
     'export-bg': '#f6e8f0',
   },
@@ -172,6 +176,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     destructive: '#f87171',
     'destructive-hover': '#ef4444',
     success: '#4ade80',
+    warning: '#fcd34d',
     overlay: '255 255 255',
     'export-bg': '#000000',
   },
@@ -196,13 +201,14 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     destructive: '#ff6666',
     'destructive-hover': '#ff8888',
     success: '#00ff00',
+    warning: '#ffaa00',
     overlay: '255 255 255',
     'export-bg': '#000000',
   },
 }
 
 // theme metadata — collocated w/ definitions to prevent label/category drift
-export interface ThemeMeta
+interface ThemeMeta
 {
   id: ThemeId
   label: string
