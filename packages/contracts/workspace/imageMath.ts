@@ -136,6 +136,8 @@ export const itemTransformToCropCss = (
 // to absorb rounding & codec variance (e.g. 1000x1500 vs 1001x1500) without
 // letting obviously different ratios (4:3 vs 1:1) collapse into one bucket
 export const ASPECT_RATIO_TOLERANCE = 0.02
+export const BOARD_ITEM_ASPECT_RATIO_MAX = 4
+export const BOARD_ITEM_ASPECT_RATIO_MIN = 1 / BOARD_ITEM_ASPECT_RATIO_MAX
 
 export interface AspectRatioPreset
 {
@@ -244,6 +246,13 @@ export const findMatchingPreset = (
   tol = ASPECT_RATIO_TOLERANCE
 ): AspectRatioPreset | undefined =>
   ASPECT_RATIO_PRESETS.find((preset) => ratiosMatch(preset.value, value, tol))
+
+export const normalizeBoardItemAspectRatio = (
+  value: unknown
+): number | undefined =>
+  isPositiveFiniteNumber(value)
+    ? clamp(value, BOARD_ITEM_ASPECT_RATIO_MIN, BOARD_ITEM_ASPECT_RATIO_MAX)
+    : undefined
 
 // auto-crop math: detect content bbox from raw RGBA pixel data, then translate
 // it into an ItemTransform that frames the bbox in the configured cell ratio

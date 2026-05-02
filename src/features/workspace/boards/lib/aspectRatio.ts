@@ -7,6 +7,7 @@ import type {
   ItemAspectRatioMode,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 
 // relative difference within this fraction treats two ratios as equal; tuned
@@ -102,7 +103,7 @@ export const getBoardItemAspectRatio = (
 ): number =>
 {
   const value = board.itemAspectRatio
-  return isPositiveFiniteNumber(value) ? value : DEFAULT_ITEM_ASPECT_RATIO
+  return normalizeBoardItemAspectRatio(value) ?? DEFAULT_ITEM_ASPECT_RATIO
 }
 
 export const getBoardAspectRatioMode = (
@@ -274,7 +275,11 @@ export const hasAspectRatioIssues = (
 // leave the existing value untouched
 export const computeAutoBoardAspectRatio = (
   board: Pick<BoardSnapshot, 'items'>
-): number | null => majorityAspectRatio(collectItemAspectRatios(board))
+): number | null =>
+{
+  const ratio = majorityAspectRatio(collectItemAspectRatios(board))
+  return normalizeBoardItemAspectRatio(ratio) ?? null
+}
 
 export const findMatchingPreset = (
   value: number,

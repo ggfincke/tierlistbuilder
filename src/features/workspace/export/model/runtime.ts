@@ -8,6 +8,7 @@ import type {
   LabelWidth,
   TierLabelFontSize,
 } from '@tierlistbuilder/contracts/platform/preferences'
+import type { LabelPlacementMode } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   PaletteId,
   TextStyleId,
@@ -21,6 +22,7 @@ export interface ExportAppearance
 {
   itemSize: ItemSize
   showLabels: boolean
+  defaultLabelPlacementMode: LabelPlacementMode
   itemShape: ItemShape
   compactMode: boolean
   labelWidth: LabelWidth

@@ -1,11 +1,20 @@
 // src/features/workspace/settings/ui/LayoutTab.tsx
 // layout tab content for item sizing, label styling, & row controls
 
-import { PanelTop, PanelBottom, PanelLeft, PanelRight } from 'lucide-react'
+import {
+  PanelTop,
+  PanelBottom,
+  PanelLeft,
+  PanelRight,
+  RotateCcw,
+} from 'lucide-react'
+import { useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { announce } from '~/shared/a11y/announce'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { selectLabelOverrideStatus } from '~/features/workspace/boards/model/slices/selectors'
 import type {
   ItemShape,
   ItemSize,
@@ -13,17 +22,41 @@ import type {
   TierLabelFontSize,
   ToolbarPosition,
 } from '@tierlistbuilder/contracts/platform/preferences'
+import type { LabelPlacementMode } from '@tierlistbuilder/contracts/workspace/board'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { AspectRatioSection } from './AspectRatioSection'
 import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
 import { SettingRow } from '~/shared/ui/settings/SettingRow'
 import { Toggle } from '~/shared/ui/settings/Toggle'
 
+const LABEL_PLACEMENT_MODE_LABEL: Record<LabelPlacementMode, string> = {
+  overlay: 'Overlay',
+  captionAbove: 'Above',
+  captionBelow: 'Below',
+}
+
+const CAPTION_PLACEMENT_OPTIONS = (
+  Object.keys(LABEL_PLACEMENT_MODE_LABEL) as LabelPlacementMode[]
+).map((value) => ({ value, label: LABEL_PLACEMENT_MODE_LABEL[value] }))
+
+const formatOverrideStatus = (
+  boardOverridden: boolean,
+  itemCount: number
+): string =>
+{
+  const itemPart =
+    itemCount === 0 ? '' : `${itemCount} item${itemCount === 1 ? '' : 's'}`
+  if (boardOverridden && itemPart) return `Board + ${itemPart}`
+  if (boardOverridden) return 'Board'
+  return itemPart
+}
+
 export const LayoutTab = () =>
 {
   const {
     itemSize,
     showLabels,
+    defaultLabelPlacementMode,
     itemShape,
     compactMode,
     labelWidth,
@@ -36,6 +69,7 @@ export const LayoutTab = () =>
     toolbarPosition,
     setItemSize,
     setShowLabels,
+    setDefaultLabelPlacementMode,
     setItemShape,
     setCompactMode,
     setLabelWidth,
@@ -50,6 +84,7 @@ export const LayoutTab = () =>
     useShallow((state) => ({
       itemSize: state.itemSize,
       showLabels: state.showLabels,
+      defaultLabelPlacementMode: state.defaultLabelPlacementMode,
       itemShape: state.itemShape,
       compactMode: state.compactMode,
       labelWidth: state.labelWidth,
@@ -62,6 +97,7 @@ export const LayoutTab = () =>
       toolbarPosition: state.toolbarPosition,
       setItemSize: state.setItemSize,
       setShowLabels: state.setShowLabels,
+      setDefaultLabelPlacementMode: state.setDefaultLabelPlacementMode,
       setItemShape: state.setItemShape,
       setCompactMode: state.setCompactMode,
       setLabelWidth: state.setLabelWidth,
@@ -74,6 +110,29 @@ export const LayoutTab = () =>
       setToolbarPosition: state.setToolbarPosition,
     }))
   )
+
+  // selector returns a stable reference when the override set is unchanged,
+  // so unrelated board mutations (drags, transforms, etc.) don't re-render
+  const overrideStatus = useActiveBoardStore(selectLabelOverrideStatus)
+  const setBoardAndItemsLabelOptions = useActiveBoardStore(
+    (state) => state.setBoardAndItemsLabelOptions
+  )
+
+  const canEditCaptionPlacement =
+    showLabels || overrideStatus.hasVisibleOverride
+  const overrideStatusText = formatOverrideStatus(
+    overrideStatus.boardOverridden,
+    overrideStatus.itemOverrideCount
+  )
+
+  const handleResetLabelOverrides = useCallback(() =>
+  {
+    setBoardAndItemsLabelOptions(
+      null,
+      overrideStatus.itemOverrideIds.map((id) => ({ id, options: null }))
+    )
+    announce('Label overrides cleared')
+  }, [overrideStatus.itemOverrideIds, setBoardAndItemsLabelOptions])
 
   return (
     <>
@@ -135,9 +194,6 @@ export const LayoutTab = () =>
             onChange={setItemShape}
           />
         </SettingRow>
-        <SettingRow label="Show Labels">
-          <Toggle checked={showLabels} onChange={setShowLabels} />
-        </SettingRow>
         <SettingRow label="Compact Mode">
           <Toggle checked={compactMode} onChange={setCompactMode} />
         </SettingRow>
@@ -150,6 +206,48 @@ export const LayoutTab = () =>
             onChange={setAutoCropTrimSoftShadows}
           />
         </SettingRow>
+        <SettingRow label="Show Labels">
+          <Toggle checked={showLabels} onChange={setShowLabels} />
+        </SettingRow>
+        {canEditCaptionPlacement && (
+          <SettingRow label="Caption Placement">
+            <SegmentedControl<LabelPlacementMode>
+              options={CAPTION_PLACEMENT_OPTIONS}
+              value={defaultLabelPlacementMode}
+              onChange={(mode) =>
+              {
+                setDefaultLabelPlacementMode(mode)
+                announce(
+                  `Caption placement set to ${LABEL_PLACEMENT_MODE_LABEL[mode].toLowerCase()}`
+                )
+              }}
+            />
+          </SettingRow>
+        )}
+        {overrideStatus.hasAny && (
+          <>
+            <SettingRow label="Label Overrides">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--t-text-muted)]">
+                  {overrideStatusText}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleResetLabelOverrides}
+                  aria-label="Reset label overrides to use Show Labels and Caption Placement defaults"
+                  title="Reset to defaults"
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-[var(--t-text-secondary)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)]"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Reset
+                </button>
+              </div>
+            </SettingRow>
+            <p className="-mt-1 mb-1 text-xs text-[var(--t-text-faint)]">
+              This board overrides the defaults above. Reset to use them.
+            </p>
+          </>
+        )}
       </SettingsSection>
 
       <AspectRatioSection />

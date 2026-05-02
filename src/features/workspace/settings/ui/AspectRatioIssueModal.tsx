@@ -25,11 +25,7 @@ import {
   formatAspectRatio,
   getEffectiveImageFit,
 } from '~/shared/board-ui/aspectRatio'
-import {
-  ITEM_LONG_EDGE_PX,
-  itemSlotDimensions,
-  SHAPE_CLASS,
-} from '~/shared/board-ui/constants'
+import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import {
   resolveEffectiveShowLabels,
@@ -288,9 +284,10 @@ const AspectRatioIssueModalBody = ({
 
   const ratioLabel = formatAspectRatio(boardAspectRatio)
 
-  // outer slot matches the board's configured item long edge, so preview tiles
-  // render at the same scale as the actual tier items behind the modal
-  const slotBound = ITEM_LONG_EDGE_PX[itemSize]
+  // outer slot matches the larger dimension of the rendered tile so the
+  // preview tracks whatever sqrt-pinned width or height the slot resolves to
+  const previewInnerSize = itemSlotDimensions(itemSize, boardAspectRatio)
+  const slotBound = Math.max(previewInnerSize.width, previewInnerSize.height)
   const slotCount = MAX_THUMBNAIL_PREVIEW + 1
   const stripWidth = slotBound * slotCount + 8 * (slotCount - 1)
   // floor at the old max-w-lg so small items don't collapse the modal

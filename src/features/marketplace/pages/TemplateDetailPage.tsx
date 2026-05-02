@@ -68,7 +68,7 @@ const ItemThumbnail = ({ item, frame, labelSettings }: ItemThumbnailProps) =>
     itemLabel: item.label ?? undefined,
     itemOptions: undefined,
     boardSettings: labelSettings ?? undefined,
-    globalShowLabels: false,
+    globalLabelDefaults: { showLabels: false, placementMode: 'overlay' },
   })
   return (
     <div

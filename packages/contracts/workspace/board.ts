@@ -109,6 +109,31 @@ export const LABEL_PLACEMENT_DEFAULT: LabelPlacement = {
   y: 0.95,
 }
 
+// frozen module-level placements so callers of placementFromMode return a
+// stable reference per mode — preserves downstream useMemo identity & avoids
+// per-item per-render allocations in the resolver hot path
+const PLACEMENT_CAPTION_ABOVE: LabelPlacement = { mode: 'captionAbove' }
+const PLACEMENT_CAPTION_BELOW: LabelPlacement = { mode: 'captionBelow' }
+
+const PLACEMENT_BY_MODE: Record<LabelPlacementMode, LabelPlacement> = {
+  overlay: LABEL_PLACEMENT_DEFAULT,
+  captionAbove: PLACEMENT_CAPTION_ABOVE,
+  captionBelow: PLACEMENT_CAPTION_BELOW,
+}
+
+// inflate a mode discriminant to a concrete LabelPlacement; overlay uses
+// the canonical bottom-center anchor since modes carry no x/y
+export const placementFromMode = (mode: LabelPlacementMode): LabelPlacement =>
+  PLACEMENT_BY_MODE[mode]
+
+// global label defaults bundled together — both fields always travel as a
+// pair through the resolver & per-board apply-to-all plans
+export interface GlobalLabelDefaults
+{
+  showLabels: boolean
+  placementMode: LabelPlacementMode
+}
+
 // snap presets surfaced in the editor — center-x w/ three canned y values
 // for quick top/middle/bottom alignment without precision dragging
 export const LABEL_PLACEMENT_OVERLAY_PRESETS = {

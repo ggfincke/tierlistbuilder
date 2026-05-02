@@ -25,6 +25,7 @@ import {
   type ItemId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import {
   getAutoTierColorSpec,
   normalizeCanonicalTierColorSpec,
@@ -308,7 +309,7 @@ export const normalizeBoardSnapshot = (
     unrankedItemIds: normalizeItemIds(value?.unrankedItemIds),
     items: normalizeItemMap(value?.items),
     deletedItems: normalizeItemList(value?.deletedItems),
-    itemAspectRatio: normalizePositiveFinite(value?.itemAspectRatio),
+    itemAspectRatio: normalizeBoardItemAspectRatio(value?.itemAspectRatio),
     itemAspectRatioMode: normalizeEnum(
       value?.itemAspectRatioMode,
       ASPECT_RATIO_MODES

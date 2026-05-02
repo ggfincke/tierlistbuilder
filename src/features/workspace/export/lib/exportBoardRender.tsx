@@ -32,6 +32,7 @@ export const getExportAppearance = (
 ): ExportAppearance => ({
   itemSize: preferences.itemSize,
   showLabels: preferences.showLabels,
+  defaultLabelPlacementMode: preferences.defaultLabelPlacementMode,
   itemShape: preferences.itemShape,
   compactMode: preferences.compactMode,
   labelWidth: preferences.labelWidth,

@@ -6,6 +6,7 @@ import type { AppSettings } from '@tierlistbuilder/contracts/workspace/settings'
 const APP_SETTINGS_KEYS = [
   'itemSize',
   'showLabels',
+  'defaultLabelPlacementMode',
   'itemShape',
   'compactMode',
   'exportBackgroundOverride',

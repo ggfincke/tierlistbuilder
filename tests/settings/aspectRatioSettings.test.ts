@@ -8,7 +8,10 @@ import {
   formatAspectRatio,
   formatPreciseAspectRatio,
   groupMismatchedItems,
-} from '~/features/workspace/boards/lib/aspectRatio'
+  computeAutoBoardAspectRatio,
+  getBoardItemAspectRatio,
+} from '~/shared/board-ui/aspectRatio'
+import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import {
   createAspectRatioPromptSnapshot,
   resolveAspectRatioPromptItems,
@@ -174,6 +177,49 @@ describe('groupMismatchedItems', () =>
 
     expect(groupMismatchedItems(board, 0.005)).toHaveLength(2)
     expect(groupMismatchedItems(board, 0.05)).toHaveLength(0)
+  })
+})
+
+describe('board slot aspect ratio bounds', () =>
+{
+  it('clamps extreme board ratios while preserving natural item ratios', () =>
+  {
+    const panoramic = asItemId('panoramic')
+    const tall = asItemId('tall')
+
+    const wideBoard = makeBoardSnapshot({
+      itemAspectRatio: 100,
+      items: {
+        [panoramic]: makeItem({
+          id: panoramic,
+          imageRef: { hash: 'panoramic' },
+          aspectRatio: 100,
+        }),
+      },
+    })
+    const tallBoard = makeBoardSnapshot({
+      itemAspectRatio: 0.01,
+      items: {
+        [tall]: makeItem({
+          id: tall,
+          imageRef: { hash: 'tall' },
+          aspectRatio: 0.01,
+        }),
+      },
+    })
+
+    expect(getBoardItemAspectRatio(wideBoard)).toBe(4)
+    expect(getBoardItemAspectRatio(tallBoard)).toBe(0.25)
+    expect(computeAutoBoardAspectRatio(wideBoard)).toBe(4)
+    expect(itemSlotDimensions('medium', 100)).toEqual({
+      width: 208,
+      height: 52,
+    })
+    expect(itemSlotDimensions('medium', 0.01)).toEqual({
+      width: 52,
+      height: 208,
+    })
+    expect(wideBoard.items[panoramic].aspectRatio).toBe(100)
   })
 })
 

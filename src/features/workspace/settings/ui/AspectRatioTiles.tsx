@@ -5,9 +5,9 @@ import {
   CUSTOM_RATIO_OPTION,
   formatPreciseAspectRatio,
   NON_CUSTOM_RATIO_OPTIONS,
+  parseCustomAspectRatio,
   type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
-import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 import { fitRectInBox } from './aspectRatioPreviewRect'
 
 const RECT_BOX = 28
@@ -17,11 +17,7 @@ const GRID_STYLE = {
 }
 
 const parseCustomRatio = (width: string, height: string): number =>
-{
-  const w = Number(width)
-  const h = Number(height)
-  return isPositiveFiniteNumber(w) && isPositiveFiniteNumber(h) ? w / h : 1
-}
+  parseCustomAspectRatio(width, height) ?? 1
 
 const TILE_SHELL =
   'focus-custom flex flex-col items-center gap-1 rounded-md border p-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'

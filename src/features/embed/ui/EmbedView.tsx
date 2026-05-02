@@ -20,6 +20,9 @@ const EMBED_DEFAULT_PALETTE_ID: PaletteId = 'classic'
 const EMBED_APPEARANCE: StaticBoardAppearance = {
   itemSize: 'medium',
   showLabels: true,
+  // viewers don't get to pick — fall back to overlay so unconfigured boards
+  // render the same way they did before this preference existed
+  defaultLabelPlacementMode: 'overlay',
   itemShape: 'square',
   compactMode: false,
   labelWidth: 'default',

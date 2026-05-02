@@ -8,7 +8,7 @@ import {
   parseBoardSnapshotJson,
   parseBoardsJson,
 } from '~/features/workspace/export/lib/exportJson'
-import { stripImagesForShare } from '~/features/workspace/sharing/snapshot-compression/hashShare'
+import { stripImagesForShare } from '~/shared/sharing/hashShare'
 import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'

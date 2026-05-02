@@ -4,7 +4,10 @@
 import { memo, type CSSProperties } from 'react'
 import type { ReactNode } from 'react'
 
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardSnapshot,
+  LabelPlacementMode,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type {
   PaletteId,
   TextStyleId,
@@ -36,6 +39,10 @@ export interface StaticBoardAppearance
 {
   itemSize: ItemSize
   showLabels: boolean
+  // fallback placement applied when neither item nor board pins one. embeds
+  // can pass 'overlay' to mirror the legacy default; export passes through
+  // the owner's preference
+  defaultLabelPlacementMode: LabelPlacementMode
   itemShape: ItemShape
   compactMode: boolean
   labelWidth: LabelWidth
@@ -128,7 +135,11 @@ export const StaticBoard = memo(
                             itemLabel: item.label,
                             itemOptions: item.labelOptions,
                             boardSettings: data.labels,
-                            globalShowLabels: appearance.showLabels,
+                            globalLabelDefaults: {
+                              showLabels: appearance.showLabels,
+                              placementMode:
+                                appearance.defaultLabelPlacementMode,
+                            },
                           })}
                           fit={getEffectiveImageFit(item, boardDefaultFit)}
                           frameAspectRatio={boardAspectRatio}

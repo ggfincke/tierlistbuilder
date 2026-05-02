@@ -11,7 +11,7 @@ import {
   formatCustomRatioDim,
   getBoardAspectRatioMode,
   getBoardItemAspectRatio,
-  isValidCustomDim,
+  parseCustomAspectRatio,
   ratioOptionForBoard,
   type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
@@ -94,16 +94,16 @@ export const useBoardAspectRatioPicker = (): BoardAspectRatioPicker =>
     ]
   )
 
-  const canApplyCustom =
-    isValidCustomDim(customWidth) && isValidCustomDim(customHeight)
+  const parsedCustomRatio = parseCustomAspectRatio(customWidth, customHeight)
+  const canApplyCustom = parsedCustomRatio !== null
 
   const applyCustom = useCallback(() =>
   {
-    if (!canApplyCustom) return
-    const value = Number(customWidth) / Number(customHeight)
-    if (!Number.isFinite(value) || value <= 0) return
-    setBoardItemAspectRatio(value)
-  }, [canApplyCustom, customWidth, customHeight, setBoardItemAspectRatio])
+    if (parsedCustomRatio === null) return
+    setBoardItemAspectRatio(parsedCustomRatio)
+    setCustomWidth(formatCustomRatioDim(parsedCustomRatio))
+    setCustomHeight('1')
+  }, [parsedCustomRatio, setBoardItemAspectRatio])
 
   return {
     boardAspectRatio,

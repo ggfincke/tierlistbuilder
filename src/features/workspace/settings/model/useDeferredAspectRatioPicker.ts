@@ -11,7 +11,7 @@ import {
   CUSTOM_RATIO_OPTION,
   getBoardAspectRatioMode,
   getBoardItemAspectRatio,
-  isValidCustomDim,
+  parseCustomAspectRatio,
   ratioOptionForBoard,
   resolveCustomRatioSeed,
   type RatioOption,
@@ -117,17 +117,19 @@ export const useDeferredAspectRatioPicker =
       [initial.autoRatio]
     )
 
-    const canApplyCustom =
-      isValidCustomDim(custom.width) && isValidCustomDim(custom.height)
+    const parsedCustomRatio = parseCustomAspectRatio(
+      custom.width,
+      custom.height
+    )
+    const canApplyCustom = parsedCustomRatio !== null
 
     const applyCustom = useCallback(() =>
     {
-      if (!canApplyCustom) return
-      const value = Number(custom.width) / Number(custom.height)
-      if (!Number.isFinite(value) || value <= 0) return
+      if (parsedCustomRatio === null) return
       setPendingMode('manual')
-      setPendingRatio(value)
-    }, [canApplyCustom, custom.width, custom.height])
+      setPendingRatio(parsedCustomRatio)
+      setCustom(resolveCustomRatioSeed(parsedCustomRatio))
+    }, [parsedCustomRatio])
 
     const commit = useCallback(() =>
     {

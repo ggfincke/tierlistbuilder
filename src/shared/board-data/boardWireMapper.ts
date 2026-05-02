@@ -13,6 +13,7 @@ import {
   TEXT_STYLE_IDS,
 } from '@tierlistbuilder/contracts/lib/theme'
 import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
 import {
   collectSnapshotImageHashes,
@@ -329,7 +330,7 @@ export const wireToSnapshot = async (
       : [],
     items,
     deletedItems,
-    itemAspectRatio: normalizePositiveFinite(wire.itemAspectRatio),
+    itemAspectRatio: normalizeBoardItemAspectRatio(wire.itemAspectRatio),
     itemAspectRatioMode: normalizeEnum(
       wire.itemAspectRatioMode,
       ASPECT_RATIO_MODES

@@ -2,6 +2,7 @@
 // app-wide user preferences & presentation presets
 
 import type { PaletteId, TextStyleId, ThemeId } from '../lib/theme'
+import type { LabelPlacementMode } from '../workspace/board'
 
 // item display size presets
 export const ITEM_SIZES = ['small', 'medium', 'large'] as const
@@ -34,6 +35,9 @@ export interface AppPreferences
 {
   itemSize: ItemSize
   showLabels: boolean
+  // fallback placement applied when a board (or item) has no explicit
+  // placement override — matches the LabelPlacement.mode discriminant
+  defaultLabelPlacementMode: LabelPlacementMode
   itemShape: ItemShape
   compactMode: boolean
   exportBackgroundOverride: string | null

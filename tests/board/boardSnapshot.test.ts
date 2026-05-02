@@ -7,7 +7,7 @@ import {
   createNewTier,
   resetBoardData,
   normalizeBoardSnapshot,
-} from '~/features/workspace/boards/model/boardSnapshot'
+} from '~/shared/board-data/boardSnapshot'
 import {
   createCustomTierColorSpec,
   normalizeCanonicalTierColorSpec,
@@ -127,6 +127,27 @@ describe('normalizeBoardSnapshot', () =>
 
     expect(result.items[id].sourceImageRef).toEqual({ hash: 'source-hash' })
     expect(result.items[id].transform).toBeUndefined()
+  })
+
+  it('clamps board slot ratios but preserves natural image ratios', () =>
+  {
+    const id = asItemId('panoramic')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        itemAspectRatio: 100,
+        items: {
+          [id]: makeItem({
+            id,
+            imageRef: { hash: 'panoramic' },
+            aspectRatio: 100,
+          }),
+        },
+      }),
+      'classic'
+    )
+
+    expect(result.itemAspectRatio).toBe(4)
+    expect(result.items[id].aspectRatio).toBe(100)
   })
 
   it('falls back to auto palette color when a tier is missing its colorSpec', () =>

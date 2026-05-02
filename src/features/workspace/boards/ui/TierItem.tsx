@@ -71,15 +71,21 @@ export const TierItem = memo(
     )
     const canDelete = containerId === UNRANKED_CONTAINER_ID
 
-    const { itemShape, showLabels, boardLocked, showAltTextButton } =
-      usePreferencesStore(
-        useShallow((state) => ({
-          itemShape: state.itemShape,
-          showLabels: state.showLabels,
-          boardLocked: state.boardLocked,
-          showAltTextButton: state.showAltTextButton,
-        }))
-      )
+    const {
+      itemShape,
+      showLabels,
+      defaultLabelPlacementMode,
+      boardLocked,
+      showAltTextButton,
+    } = usePreferencesStore(
+      useShallow((state) => ({
+        itemShape: state.itemShape,
+        showLabels: state.showLabels,
+        defaultLabelPlacementMode: state.defaultLabelPlacementMode,
+        boardLocked: state.boardLocked,
+        showAltTextButton: state.showAltTextButton,
+      }))
+    )
 
     const effectiveFit = item
       ? getEffectiveImageFit(item, boardDefaultFit)
@@ -276,7 +282,10 @@ export const TierItem = memo(
               itemLabel: item.label,
               itemOptions: item.labelOptions,
               boardSettings: boardLabels,
-              globalShowLabels: showLabels,
+              globalLabelDefaults: {
+                showLabels,
+                placementMode: defaultLabelPlacementMode,
+              },
             })}
             fit={effectiveFit}
             frameAspectRatio={slotWidth / slotHeight}

@@ -16,6 +16,7 @@ import { Crop } from 'lucide-react'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 import type {
   BoardLabelSettings,
+  GlobalLabelDefaults,
   ImageFit,
   ItemLabelOptions,
   ItemTransform,
@@ -69,7 +70,7 @@ interface ImageEditorPaneProps
   boardDefaultFit: ImageFit | undefined
   trimSoftShadows: boolean
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
   globalTextStyleId: TextStyleId
   boardItemSize: ItemSize
   onCommit: (transform: ItemTransform | null) => void
@@ -101,7 +102,7 @@ export const ImageEditorPane = forwardRef<
     boardDefaultFit,
     trimSoftShadows,
     boardLabels,
-    globalShowLabels,
+    globalLabelDefaults,
     globalTextStyleId,
     boardItemSize,
     onCommit,
@@ -155,7 +156,7 @@ export const ImageEditorPane = forwardRef<
     item,
     boardAspectRatio,
     boardLabels,
-    globalShowLabels,
+    globalLabelDefaults,
     globalTextStyleId,
     boardItemSize,
     onLabelChange,

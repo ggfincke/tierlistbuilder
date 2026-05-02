@@ -3,7 +3,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import { createInitialBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
 import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import {
   boardStorageKey,

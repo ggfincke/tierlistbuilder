@@ -11,12 +11,12 @@ import {
   computeAutoBoardAspectRatio,
   getBoardAspectRatioMode,
 } from '~/shared/board-ui/aspectRatio'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import {
   clampItemTransform,
   isIdentityTransform,
   isSameItemTransform,
 } from '~/shared/lib/imageTransform'
-import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 import { withUndo } from '../undoSlice'
 import type {
   ActiveBoardSliceCreator,
@@ -78,10 +78,11 @@ export const createAspectRatioActions = (
   setBoardItemAspectRatio: (value) =>
     set((state) =>
     {
-      if (!isPositiveFiniteNumber(value)) return state
+      const nextRatio = normalizeBoardItemAspectRatio(value)
+      if (nextRatio === undefined) return state
       if (
         state.itemAspectRatioMode === 'manual' &&
-        state.itemAspectRatio === value
+        state.itemAspectRatio === nextRatio
       )
       {
         return state
@@ -89,7 +90,7 @@ export const createAspectRatioActions = (
       return withUndo(
         state,
         {
-          itemAspectRatio: value,
+          itemAspectRatio: nextRatio,
           itemAspectRatioMode: 'manual',
         },
         'Set aspect ratio'
@@ -110,11 +111,12 @@ export const createAspectRatioActions = (
         )
       }
       const computed = computeAutoBoardAspectRatio(state)
+      const fallback = normalizeBoardItemAspectRatio(state.itemAspectRatio)
       return withUndo(
         state,
         {
           itemAspectRatioMode: 'auto',
-          itemAspectRatio: computed ?? state.itemAspectRatio,
+          itemAspectRatio: computed ?? fallback,
         },
         'Auto aspect ratio'
       )

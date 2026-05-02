@@ -13,6 +13,7 @@ import {
   bucketValuesByAspectRatio,
   findMatchingPreset,
   majorityAspectRatio,
+  normalizeBoardItemAspectRatio,
   ratiosMatch,
   type AspectRatioPreset,
 } from '@tierlistbuilder/contracts/workspace/imageMath'
@@ -59,6 +60,17 @@ export const isValidCustomDim = (value: string): boolean =>
   return isPositiveFiniteNumber(n)
 }
 
+export const parseCustomAspectRatio = (
+  width: string,
+  height: string
+): number | null =>
+{
+  const w = Number(width)
+  const h = Number(height)
+  if (!isPositiveFiniteNumber(w) || !isPositiveFiniteNumber(h)) return null
+  return normalizeBoardItemAspectRatio(w / h) ?? null
+}
+
 export const formatCustomRatioDim = (value: number, digits = 4): string =>
   value.toFixed(digits).replace(/\.?0+$/, '')
 
@@ -67,7 +79,7 @@ export const getBoardItemAspectRatio = (
 ): number =>
 {
   const value = board.itemAspectRatio
-  return isPositiveFiniteNumber(value) ? value : DEFAULT_ITEM_ASPECT_RATIO
+  return normalizeBoardItemAspectRatio(value) ?? DEFAULT_ITEM_ASPECT_RATIO
 }
 
 export const getBoardAspectRatioMode = (
@@ -173,7 +185,8 @@ export const computeAutoBoardAspectRatio = (
   board: Pick<BoardSnapshot, 'items'>
 ): number | null =>
 {
-  return majorityAspectRatio(collectItemAspectRatios(board))
+  const ratio = majorityAspectRatio(collectItemAspectRatios(board))
+  return normalizeBoardItemAspectRatio(ratio) ?? null
 }
 
 // resolve clean W:H strings for the custom inputs; prefers a matching preset's

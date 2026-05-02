@@ -7,6 +7,7 @@ import { Check, Crop, EyeOff, Pause } from 'lucide-react'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   BoardLabelSettings,
+  GlobalLabelDefaults,
   ImageFit,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -39,7 +40,7 @@ interface ImageEditorRailProps
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
   selectedId: ItemId | null
   onSelect: (id: ItemId) => void
   isSkipped: (id: ItemId) => boolean
@@ -53,7 +54,7 @@ export const ImageEditorRail = ({
   boardAspectRatio,
   boardDefaultFit,
   boardLabels,
-  globalShowLabels,
+  globalLabelDefaults,
   selectedId,
   onSelect,
   isSkipped,
@@ -136,7 +137,7 @@ export const ImageEditorRail = ({
           boardAspectRatio={boardAspectRatio}
           boardDefaultFit={boardDefaultFit}
           boardLabels={boardLabels}
-          globalShowLabels={globalShowLabels}
+          globalLabelDefaults={globalLabelDefaults}
           selected={item.id === selectedId}
           skipped={isSkipped(item.id)}
           onSelect={onSelect}
@@ -152,7 +153,7 @@ interface ImageEditorRailRowProps
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
   selected: boolean
   skipped: boolean
   onSelect: (id: ItemId) => void
@@ -164,7 +165,7 @@ const ImageEditorRailRow = memo(
     boardAspectRatio,
     boardDefaultFit,
     boardLabels,
-    globalShowLabels,
+    globalLabelDefaults,
     selected,
     skipped,
     onSelect,
@@ -176,7 +177,7 @@ const ImageEditorRailRow = memo(
     const labelLayout = resolveLabelLayout({
       itemOptions: item.labelOptions,
       boardSettings: boardLabels,
-      globalShowLabels,
+      globalLabelDefaults,
     })
     const labelHidden = !labelLayout.visible
     const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)

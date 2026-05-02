@@ -39,6 +39,7 @@ import {
   normalizeItemTransform,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 
 interface RawTier
 {
@@ -331,7 +332,7 @@ export const normalizeBoardSnapshot = (
     unrankedItemIds: normalizeItemIds(value?.unrankedItemIds, ctx),
     items: ctx.items,
     deletedItems: normalizeItemList(value?.deletedItems),
-    itemAspectRatio: normalizePositiveFinite(value?.itemAspectRatio),
+    itemAspectRatio: normalizeBoardItemAspectRatio(value?.itemAspectRatio),
     itemAspectRatioMode: normalizeEnum(
       value?.itemAspectRatioMode,
       ASPECT_RATIO_MODES
