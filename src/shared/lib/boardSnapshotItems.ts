@@ -9,13 +9,6 @@ import type {
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isPresent } from '~/shared/lib/typeGuards'
-import { isIdentityTransform } from './imageTransform'
-
-const itemHasRenderTransform = (item: TierItem): boolean =>
-{
-  const transform = item.transform
-  return !!transform && !isIdentityTransform(transform)
-}
 
 // visit every live & deleted snapshot item in stable order
 export const forEachSnapshotItem = (
@@ -63,7 +56,11 @@ export const collectSnapshotImageHashes = (
   ),
 ]
 
-// collect hashes needed for visible board rendering, not unused edit sources
+// collect hashes needed for visible board rendering. source refs warm first
+// so visible tiles render at editor-source quality and avoid a thumb→source
+// flash when entering the editor; display refs remain as warm-up fallback.
+// items created via image upload always carry both refs together, but the
+// loop tolerates either being absent
 export const collectSnapshotRenderImageRefs = (
   snapshot: BoardSnapshot
 ): TierItemImageRef[] =>
@@ -82,12 +79,9 @@ export const collectSnapshotRenderImageRefs = (
     if (seen.has(id)) return
     seen.add(id)
     const item = snapshot.items[id]
-    if (!item?.imageRef) return
+    if (!item) return
+    pushRef(item.sourceImageRef)
     pushRef(item.imageRef)
-    if (itemHasRenderTransform(item))
-    {
-      pushRef(item.sourceImageRef)
-    }
   }
 
   for (const tier of snapshot.tiers)

@@ -1,10 +1,8 @@
 // src/features/library/components/LibrarySignedOutState.tsx
-// local empty state for /boards — heading, workspace CTA, & templates link
+// local empty state for /boards — heading & workspace CTA
 
-import { ArrowRight, ListChecks } from 'lucide-react'
+import { ListChecks } from 'lucide-react'
 import { Link } from 'react-router-dom'
-
-import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 
 export const LibrarySignedOutState = () => (
   <section className="mx-auto flex min-h-screen w-full max-w-[1200px] flex-col items-start justify-center gap-6 px-6 pt-32 pb-24 sm:px-10">
@@ -25,13 +23,6 @@ export const LibrarySignedOutState = () => (
       >
         <ListChecks className="h-3.5 w-3.5" strokeWidth={2} />
         Open workspace
-      </Link>
-      <Link
-        to={TEMPLATES_ROUTE_PATH}
-        className="focus-custom inline-flex items-center gap-2 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 py-2 text-sm font-medium text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-      >
-        Browse templates
-        <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
       </Link>
     </div>
   </section>

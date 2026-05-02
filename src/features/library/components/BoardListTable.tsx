@@ -10,7 +10,6 @@ import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
 import { Cover } from './Cover'
 import { StatusPill } from './StatusPill'
 import { TierBar } from './TierBar'
-import { VisibilityChip } from './VisibilityChip'
 
 interface BoardListRowProps
 {
@@ -21,7 +20,7 @@ interface BoardListRowProps
 
 // shared grid template — keeps header columns aligned w/ row columns
 const COLUMN_TEMPLATE =
-  'minmax(56px, 56px) minmax(0, 2.6fr) minmax(120px, 1.6fr) 110px 96px 90px'
+  'minmax(56px, 56px) minmax(0, 2.6fr) minmax(120px, 1.6fr) 110px 90px'
 
 const BoardListRow = memo(({ board, onOpen, isPending }: BoardListRowProps) =>
 {
@@ -84,9 +83,6 @@ const BoardListRow = memo(({ board, onOpen, isPending }: BoardListRowProps) =>
       <div>
         <StatusPill status={board.status} />
       </div>
-      <div>
-        <VisibilityChip visibility={board.visibility} />
-      </div>
       <div className="text-right text-[11px] tabular-nums text-[var(--t-text-faint)]">
         {formatRelativeTime(board.updatedAt)}
       </div>
@@ -121,7 +117,6 @@ export const BoardListTable = ({
       <div role="columnheader">List</div>
       <div role="columnheader">Progress</div>
       <div role="columnheader">Status</div>
-      <div role="columnheader">Visibility</div>
       <div role="columnheader" className="text-right">
         Updated
       </div>

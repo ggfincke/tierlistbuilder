@@ -20,7 +20,6 @@ interface ItemContentProps
     imageRef?: TierItemImageRef
     sourceImageRef?: TierItemImageRef
     imageUrl?: string
-    sourceImageUrl?: string
     label?: string
     backgroundColor?: string
     altText?: string
@@ -67,26 +66,19 @@ export const ItemContent = ({
 {
   const bgColor = item.backgroundColor
   const transform = item.transform
-  const preferSource =
-    !!transform && (!!item.sourceImageRef || !!item.sourceImageUrl)
-
-  // single useImageUrl subscription per render — the source variant takes
-  // priority when a manual transform is active so the editor sees uncropped
-  // pixels; otherwise the display tile variant is used
-  const useSourceVariant = preferSource && !item.sourceImageUrl
-  const useDisplayVariant = !useSourceVariant && !item.imageUrl
-  const subscriberRef = useSourceVariant
-    ? item.sourceImageRef
-    : useDisplayVariant
-      ? item.imageRef
-      : undefined
-  const cachedImageUrl = useImageUrl(subscriberRef?.hash)
-  const sourceImageUrl = preferSource
-    ? (item.sourceImageUrl ?? (useSourceVariant ? cachedImageUrl : null))
-    : null
-  const displayImageUrl =
-    item.imageUrl ?? (useDisplayVariant ? cachedImageUrl : null)
-  const imageUrl = sourceImageUrl ?? displayImageUrl
+  const sourceImageUrl = useImageUrl(item.sourceImageRef?.hash)
+  const cachedDisplayImageUrl = useImageUrl(
+    item.imageUrl ? undefined : item.imageRef?.hash
+  )
+  const displayImageUrl = item.imageUrl ?? cachedDisplayImageUrl
+  // prefer source whenever it exists: the editor-source variant (1024 px)
+  // renders crisper on retina than the 120 px thumb and avoids a
+  // thumb→source flash when entering the editor. fall back to the display
+  // thumb during cache warm-up so the matte branch only kicks in when both
+  // are missing
+  const imageUrl = item.sourceImageRef
+    ? (sourceImageUrl ?? displayImageUrl)
+    : displayImageUrl
 
   if (imageUrl)
   {

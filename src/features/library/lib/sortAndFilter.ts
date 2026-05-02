@@ -2,11 +2,16 @@
 // pure helpers for the My Lists status filter & sort options
 
 import {
+  LIBRARY_BOARD_FILTERS,
   computeLibraryBoardProgress,
   type LibraryBoardFilter,
   type LibraryBoardListItem,
   type LibraryBoardSort,
 } from '@tierlistbuilder/contracts/workspace/board'
+
+export const VISIBLE_LIBRARY_BOARD_FILTERS = LIBRARY_BOARD_FILTERS.filter(
+  (filter) => filter !== 'published'
+)
 
 export const filterLibraryBoards = (
   rows: readonly LibraryBoardListItem[],

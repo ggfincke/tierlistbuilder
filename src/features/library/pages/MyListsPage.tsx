@@ -2,11 +2,9 @@
 // my-lists library landing — heading, stats strip, filter bar, grid or table
 
 import { Plus } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { useDeferredValue, useEffect, useMemo } from 'react'
 
 import type { LibraryBoardStatus } from '@tierlistbuilder/contracts/workspace/board'
-import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 
 import { BoardCard } from '~/features/library/components/BoardCard'
 import { BoardListTable } from '~/features/library/components/BoardListTable'
@@ -22,8 +20,10 @@ import {
   sortLibraryBoards,
 } from '~/features/library/lib/sortAndFilter'
 import { useBoardsLibrary } from '~/features/library/model/useBoardsLibrary'
+import { useCreateLibraryBoard } from '~/features/library/model/useCreateLibraryBoard'
 import { useLibraryFilters } from '~/features/library/model/useLibraryFilters'
 import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoard'
+import { Button } from '~/shared/ui/Button'
 
 const COLUMNS_BY_DENSITY = { dense: 4, default: 3, loose: 2 } as const
 
@@ -37,6 +37,7 @@ export const MyListsPage = () =>
   const { rows } = useBoardsLibrary()
 
   const filters = useLibraryFilters()
+  const createBoard = useCreateLibraryBoard()
   const openBoard = useOpenLibraryBoard()
   const deferredSearch = useDeferredValue(filters.searchDebounced)
   const deferredFilter = useDeferredValue(filters.filter)
@@ -127,13 +128,17 @@ export const MyListsPage = () =>
             value={filters.searchInput}
             onChange={filters.setSearch}
           />
-          <Link
-            to={TEMPLATES_ROUTE_PATH}
-            className="focus-custom inline-flex items-center gap-1.5 rounded-full bg-[var(--t-text)] px-4 py-2 text-[12px] font-semibold text-[var(--t-bg-page)] transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          <Button
+            variant="primary"
+            size="md"
+            onClick={createBoard.create}
+            disabled={createBoard.isPending}
+            aria-busy={createBoard.isPending || undefined}
+            className="rounded-full px-4 py-2 text-[12px] font-semibold"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
-            New list
-          </Link>
+            {createBoard.isPending ? 'Creating...' : 'New list'}
+          </Button>
         </div>
       </div>
 
@@ -202,6 +207,7 @@ export const MyListsPage = () =>
           visibleBoards,
           filtersActive,
           openBoard,
+          createBoard,
         })}
       </div>
     </section>
@@ -219,6 +225,7 @@ interface LibraryContentArgs
   visibleBoards: ReturnType<typeof sortLibraryBoards>
   filtersActive: boolean
   openBoard: ReturnType<typeof useOpenLibraryBoard>
+  createBoard: ReturnType<typeof useCreateLibraryBoard>
 }
 
 const renderLibraryContent = ({
@@ -231,14 +238,24 @@ const renderLibraryContent = ({
   visibleBoards,
   filtersActive,
   openBoard,
+  createBoard,
 }: LibraryContentArgs) =>
 {
   if (showEmptyState)
   {
     return totalLoadedBoards === 0 ? (
-      <LibraryEmptyState filtered={false} />
+      <LibraryEmptyState
+        filtered={false}
+        onCreate={createBoard.create}
+        createPending={createBoard.isPending}
+      />
     ) : (
-      <LibraryEmptyState filtered onClearFilter={handleClearFilter} />
+      <LibraryEmptyState
+        filtered
+        onClearFilter={handleClearFilter}
+        onCreate={createBoard.create}
+        createPending={createBoard.isPending}
+      />
     )
   }
   if (view === 'list')
@@ -253,7 +270,12 @@ const renderLibraryContent = ({
   }
   return (
     <div className="grid gap-5" style={gridStyle}>
-      {!filtersActive && <NewListTile />}
+      {!filtersActive && (
+        <NewListTile
+          onCreate={createBoard.create}
+          isPending={createBoard.isPending}
+        />
+      )}
       {visibleBoards.map((board) => (
         <BoardCard
           key={board.externalId}

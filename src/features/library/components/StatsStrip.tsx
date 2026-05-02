@@ -1,5 +1,5 @@
 // src/features/library/components/StatsStrip.tsx
-// 4-column stats bar — Lists / In progress / Finished / Published
+// 3-column stats bar — Lists / In progress / Finished
 
 import type { LibraryStatusCounts } from '~/features/library/lib/sortAndFilter'
 import { pluralize } from '~/shared/catalog/formatters'
@@ -37,7 +37,7 @@ const StatCol = ({ label, value, subtitle, isFirst }: StatColProps) => (
 export const StatsStrip = ({ counts, totalBoards }: StatsStripProps) => (
   <div
     className="grid overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-sunken)]"
-    style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}
+    style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}
   >
     <StatCol
       isFirst
@@ -54,11 +54,6 @@ export const StatsStrip = ({ counts, totalBoards }: StatsStripProps) => (
       label="Finished"
       value={counts.finished}
       subtitle="ready to share"
-    />
-    <StatCol
-      label="Published"
-      value={counts.published}
-      subtitle={`live as ${pluralize(counts.published, 'a template', 'templates')}`}
     />
   </div>
 )

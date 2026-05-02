@@ -3,7 +3,6 @@
 
 import {
   LIBRARY_BOARD_DENSITIES,
-  LIBRARY_BOARD_FILTERS,
   LIBRARY_BOARD_SORTS,
   LIBRARY_BOARD_VIEWS,
   type LibraryBoardDensity,
@@ -20,6 +19,7 @@ import {
   writeDefaultedParam,
   writeSearchParam,
 } from '~/shared/catalog/urlFilters'
+import { VISIBLE_LIBRARY_BOARD_FILTERS } from '~/features/library/lib/sortAndFilter'
 
 const SEARCH_DEBOUNCE_MS = 200
 
@@ -40,7 +40,7 @@ interface LibraryFilterParams
 }
 
 const isFilter = (value: string | null): value is LibraryBoardFilter =>
-  isStringMember(value, LIBRARY_BOARD_FILTERS)
+  isStringMember(value, VISIBLE_LIBRARY_BOARD_FILTERS)
 
 const isSort = (value: string | null): value is LibraryBoardSort =>
   isStringMember(value, LIBRARY_BOARD_SORTS)

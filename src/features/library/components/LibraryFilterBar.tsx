@@ -4,7 +4,6 @@
 import { ArrowUpDown, LayoutGrid, Rows3 } from 'lucide-react'
 
 import {
-  LIBRARY_BOARD_FILTERS,
   LIBRARY_BOARD_SORTS,
   LIBRARY_BOARD_VIEWS,
   type LibraryBoardDensity,
@@ -13,7 +12,10 @@ import {
   type LibraryBoardView,
 } from '@tierlistbuilder/contracts/workspace/board'
 
-import type { LibraryStatusCounts } from '~/features/library/lib/sortAndFilter'
+import {
+  VISIBLE_LIBRARY_BOARD_FILTERS,
+  type LibraryStatusCounts,
+} from '~/features/library/lib/sortAndFilter'
 import { DensityToggle } from './DensityToggle'
 
 interface LibraryFilterBarProps
@@ -71,7 +73,7 @@ export const LibraryFilterBar = ({
         className="flex flex-1 items-center gap-2 overflow-x-auto pb-1"
         style={{ scrollbarWidth: 'thin' }}
       >
-        {LIBRARY_BOARD_FILTERS.map((id) =>
+        {VISIBLE_LIBRARY_BOARD_FILTERS.map((id) =>
         {
           const active = filter === id
           const count = counts[id]

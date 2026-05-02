@@ -12,8 +12,8 @@ import type {
 import { LIBRARY_STATUS_META } from '~/features/library/lib/statusMeta'
 import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
 import { Cover } from './Cover'
+import { StatusPill } from './StatusPill'
 import { TierBar } from './TierBar'
-import { VisibilityChip } from './VisibilityChip'
 
 interface BoardCardProps
 {
@@ -142,7 +142,7 @@ const BoardCardImpl = ({
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-1 text-[11px] text-[var(--t-text-muted)]">
-          <VisibilityChip visibility={board.visibility} />
+          <StatusPill status={board.status} />
           <span className="text-[var(--t-text-faint)]">
             {formatRelativeTime(board.updatedAt)}
           </span>

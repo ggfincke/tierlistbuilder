@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import {
   collectSnapshotImageHashes,
   collectSnapshotLocalImageHashes,
+  collectSnapshotRenderImageHashes,
   transformSnapshotItemsAsync,
 } from '~/shared/lib/boardSnapshotItems'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -27,9 +28,30 @@ describe('board snapshot image hash collection', () =>
     })
 
     expect(collectSnapshotImageHashes(snapshot)).toEqual(['thumb-hash'])
+    expect(collectSnapshotRenderImageHashes(snapshot)).toEqual([])
     expect(collectSnapshotLocalImageHashes(snapshot)).toEqual([
       'thumb-hash',
       'source-hash',
+    ])
+  })
+
+  it('warms source images first for visible board rendering', () =>
+  {
+    const id = asItemId('item-image')
+    const snapshot = makeBoardSnapshot({
+      items: {
+        [id]: makeItem({
+          id,
+          imageRef: { hash: 'thumb-hash' },
+          sourceImageRef: { hash: 'source-hash' },
+        }),
+      },
+      unrankedItemIds: [id],
+    })
+
+    expect(collectSnapshotRenderImageHashes(snapshot)).toEqual([
+      'source-hash',
+      'thumb-hash',
     ])
   })
 
