@@ -25,6 +25,7 @@ export interface ExportAppearance
   defaultLabelPlacementMode: LabelPlacementMode
   itemShape: ItemShape
   compactMode: boolean
+  maxItemsPerRow: number
   labelWidth: LabelWidth
   paletteId: PaletteId
   textStyleId: TextStyleId

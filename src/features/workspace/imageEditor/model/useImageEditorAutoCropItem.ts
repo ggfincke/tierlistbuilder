@@ -15,9 +15,10 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { warmImageHashes } from '~/shared/images/imageBlobCache'
+import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import {
   detectContentBBox,
-  getAutoCropHash,
+  getAutoCropImageRef,
   getCachedBBox,
   loadAutoCropBlob,
   resolveAutoCropTransform,
@@ -29,7 +30,6 @@ import type { ImageEditorTransformDraftSetter } from './useImageEditorTransformD
 interface UseImageEditorAutoCropItemInput
 {
   item: TierItem
-  sourceUrl: string | null
   trimSoftShadows: boolean
   frameAspectRatio: number
   working: ItemTransform
@@ -68,7 +68,6 @@ const resolveAutoCropStatus = (
 
 export const useImageEditorAutoCropItem = ({
   item,
-  sourceUrl,
   trimSoftShadows,
   frameAspectRatio,
   working,
@@ -82,7 +81,8 @@ export const useImageEditorAutoCropItem = ({
   const mountedRef = useRef(true)
   const autoCropAbortRef = useRef<AbortController | null>(null)
   const workingRotationRef = useRef(working.rotation)
-  const autoCropHash = getAutoCropHash(item)
+  const autoCropHash = getAutoCropImageRef(item)?.hash
+  const autoCropUrl = useImageUrl(autoCropHash)
 
   useLayoutEffect(() =>
   {
@@ -103,9 +103,9 @@ export const useImageEditorAutoCropItem = ({
 
   useEffect(() =>
   {
-    if (!item.sourceImageRef?.hash || sourceUrl) return
-    void warmImageHashes([item.sourceImageRef.hash])
-  }, [item.sourceImageRef?.hash, sourceUrl])
+    if (!autoCropHash || autoCropUrl) return
+    void warmImageHashes([autoCropHash])
+  }, [autoCropHash, autoCropUrl])
 
   const autoCropTransform = useMemo(
     () =>
@@ -134,11 +134,10 @@ export const useImageEditorAutoCropItem = ({
       let bbox = getCachedBBox(autoCropHash, trimSoftShadows)
       if (bbox === undefined)
       {
-        const autoCropRef =
-          item.sourceImageRef?.hash === autoCropHash
-            ? item.sourceImageRef
-            : item.imageRef
-        const record = await loadAutoCropBlob(autoCropRef, controller.signal)
+        const record = await loadAutoCropBlob(
+          getAutoCropImageRef(item),
+          controller.signal
+        )
         if (!record) return
         bbox = await detectContentBBox(
           record.bytes,

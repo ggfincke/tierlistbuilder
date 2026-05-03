@@ -20,42 +20,33 @@ import {
 
 describe('createContainerSnapshot', () =>
 {
+  const buildState = () => ({
+    tiers: [
+      makeTier({
+        id: 'tier-t1',
+        name: 'S',
+        colorSpec: { kind: 'custom', hex: '#f00' },
+        itemIds: ids('a', 'b'),
+      }),
+    ],
+    unrankedItemIds: ids('c'),
+  })
+
   it('captures tier & unranked item ordering', () =>
   {
-    const state = {
-      tiers: [
-        makeTier({
-          id: 'tier-t1',
-          name: 'S',
-          colorSpec: { kind: 'custom', hex: '#f00' },
-          itemIds: ids('a', 'b'),
-        }),
-      ],
-      unrankedItemIds: ids('c'),
-    }
-    const snap = createContainerSnapshot(state)
+    const snap = createContainerSnapshot(buildState())
     expect(snap.tiers).toEqual([{ id: 'tier-t1', itemIds: ['a', 'b'] }])
     expect(snap.unrankedItemIds).toEqual(['c'])
   })
 
-  it('produces a defensive copy', () =>
+  it('produces a defensive copy so previews cannot bleed back into state', () =>
   {
-    const state = {
-      tiers: [
-        makeTier({
-          id: 'tier-t1',
-          name: 'S',
-          colorSpec: { kind: 'custom', hex: '#f00' },
-          itemIds: ids('a'),
-        }),
-      ],
-      unrankedItemIds: ids('b'),
-    }
+    const state = buildState()
     const snap = createContainerSnapshot(state)
     snap.tiers[0].itemIds.push(asItemId('mutated'))
     snap.unrankedItemIds.push(asItemId('mutated'))
-    expect(state.tiers[0].itemIds).toEqual(['a'])
-    expect(state.unrankedItemIds).toEqual(['b'])
+    expect(state.tiers[0].itemIds).toEqual(['a', 'b'])
+    expect(state.unrankedItemIds).toEqual(['c'])
   })
 })
 

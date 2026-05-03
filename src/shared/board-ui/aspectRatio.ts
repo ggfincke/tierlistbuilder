@@ -17,6 +17,7 @@ import {
   ratiosMatch,
   type AspectRatioPreset,
 } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 
 const DEFAULT_ITEM_ASPECT_RATIO = 1
@@ -92,7 +93,7 @@ export const getEffectiveImageFit = (
 ): ImageFit => item.imageFit ?? boardDefault ?? 'cover'
 
 // gather aspect ratios of every image item whose natural dimensions have
-// been captured — text items (no imageRef) are skipped
+// been captured; text items are skipped
 const collectItemAspectRatios = (
   board: Pick<BoardSnapshot, 'items'>
 ): number[] =>
@@ -100,7 +101,7 @@ const collectItemAspectRatios = (
   const result: number[] = []
   for (const item of Object.values(board.items))
   {
-    if (item.imageRef && isPositiveFiniteNumber(item.aspectRatio))
+    if (hasAnyImageRef(item) && isPositiveFiniteNumber(item.aspectRatio))
     {
       result.push(item.aspectRatio)
     }
@@ -108,15 +109,15 @@ const collectItemAspectRatios = (
   return result
 }
 
-// true when the item has a known ratio that doesn't match the board's; items
-// w/o an imageRef or a captured ratio return false (never appear as issues)
+// true when a known image ratio doesn't match the board's; items w/o image
+// bytes or a captured ratio return false so they never appear as issues
 export const itemHasAspectMismatch = (
   item: TierItem,
   boardRatio: number,
   tol = ASPECT_RATIO_TOLERANCE
 ): boolean =>
 {
-  if (!item.imageRef || !isPositiveFiniteNumber(item.aspectRatio))
+  if (!hasAnyImageRef(item) || !isPositiveFiniteNumber(item.aspectRatio))
   {
     return false
   }

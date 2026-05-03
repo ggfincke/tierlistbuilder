@@ -11,7 +11,7 @@ import type {
 import {
   areCachedAutoCropsApplied,
   collectAutoCropTransforms,
-  getAutoCropHash,
+  getAutoCropImageRef,
 } from '~/shared/lib/autoCrop'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
@@ -53,7 +53,7 @@ export const useImageEditorAutoCropAll = ({
   const handleAutoCropAll = useCallback(
     async (sourceItems: readonly TierItem[] = filteredItems) =>
     {
-      const targets = sourceItems.filter((it) => !!getAutoCropHash(it))
+      const targets = sourceItems.filter((it) => !!getAutoCropImageRef(it))
       if (targets.length === 0) return
       abortRef.current?.abort()
       const controller = new AbortController()
@@ -133,7 +133,7 @@ export const useImageEditorAutoCropAll = ({
     {
       if (!pendingEdit) return null
       const item = filteredItems.find((it) => it.id === pendingEdit.id)
-      if (!item || !getAutoCropHash(item)) return null
+      if (!item || !getAutoCropImageRef(item)) return null
       const pendingItem: TierItem = {
         ...item,
         transform: pendingEdit.transform ?? undefined,

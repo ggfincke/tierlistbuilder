@@ -30,6 +30,7 @@ import {
 } from '~/shared/board-ui/aspectRatio'
 import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
+import { getImageRefsByRendition } from '~/shared/lib/imageRefs'
 import {
   buildManualCropImgStyle,
   clampItemTransform,
@@ -127,9 +128,13 @@ export const ImageEditorPane = forwardRef<
 )
 {
   const imageSectionId = useId()
-  const sourceUrl = useImageUrl(item.sourceImageRef?.hash)
-  const displayUrl = useImageUrl(item.imageRef?.hash)
-  const url = sourceUrl ?? displayUrl
+  // editor priority is source -> tile -> preview; subscribe to all three so
+  // the canvas paints the next-best rendition while higher-quality bytes warm
+  const editorRefs = getImageRefsByRendition(item, 'editor')
+  const primaryUrl = useImageUrl(editorRefs[0]?.hash)
+  const secondaryUrl = useImageUrl(editorRefs[1]?.hash)
+  const tertiaryUrl = useImageUrl(editorRefs[2]?.hash)
+  const url = primaryUrl ?? secondaryUrl ?? tertiaryUrl
   const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const {
@@ -194,7 +199,6 @@ export const ImageEditorPane = forwardRef<
   })
   const { status: autoCropStatus, autoCrop } = useImageEditorAutoCropItem({
     item,
-    sourceUrl,
     trimSoftShadows,
     frameAspectRatio,
     working,

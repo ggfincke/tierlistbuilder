@@ -10,25 +10,24 @@ import { makeRect } from '../fixtures'
 
 describe('getDraggedItemRect', () =>
 {
-  it('returns translatedRect when available', () =>
+  it('prefers translatedRect, falls back to initialRect+delta, else null', () =>
   {
     const translated = makeRect({ left: 10, top: 20, width: 100, height: 50 })
-    const result = getDraggedItemRect({
-      translatedRect: translated,
-      initialRect: makeRect({ width: 100, height: 50 }),
-      delta: { x: 5, y: 5 },
-    })
-    expect(result).toBe(translated)
-  })
+    expect(
+      getDraggedItemRect({
+        translatedRect: translated,
+        initialRect: makeRect({ width: 100, height: 50 }),
+        delta: { x: 5, y: 5 },
+      })
+    ).toBe(translated)
 
-  it('computes rect from initialRect + delta when translatedRect is null', () =>
-  {
-    const result = getDraggedItemRect({
-      translatedRect: null,
-      initialRect: makeRect({ width: 100, height: 50 }),
-      delta: { x: 10, y: 20 },
-    })
-    expect(result).toMatchObject({
+    expect(
+      getDraggedItemRect({
+        translatedRect: null,
+        initialRect: makeRect({ width: 100, height: 50 }),
+        delta: { x: 10, y: 20 },
+      })
+    ).toMatchObject({
       left: 10,
       top: 20,
       right: 110,
@@ -36,16 +35,14 @@ describe('getDraggedItemRect', () =>
       width: 100,
       height: 50,
     })
-  })
 
-  it('returns null when both rects are null', () =>
-  {
-    const result = getDraggedItemRect({
-      translatedRect: null,
-      initialRect: null,
-      delta: { x: 0, y: 0 },
-    })
-    expect(result).toBeNull()
+    expect(
+      getDraggedItemRect({
+        translatedRect: null,
+        initialRect: null,
+        delta: { x: 0, y: 0 },
+      })
+    ).toBeNull()
   })
 })
 

@@ -10,6 +10,7 @@ const APP_PREFERENCES_KEYS = [
   'itemShape',
   'compactMode',
   'exportBackgroundOverride',
+  'exportItemsPerRow',
   'boardBackgroundOverride',
   'labelWidth',
   'hideRowControls',

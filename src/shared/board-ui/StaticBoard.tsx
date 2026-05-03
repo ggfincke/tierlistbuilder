@@ -34,6 +34,7 @@ import {
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
+import { getWrappedItemsGridStyle } from '~/shared/board-ui/wrappedItemsGrid'
 
 export interface StaticBoardAppearance
 {
@@ -45,6 +46,7 @@ export interface StaticBoardAppearance
   defaultLabelPlacementMode: LabelPlacementMode
   itemShape: ItemShape
   compactMode: boolean
+  maxItemsPerRow?: number | null
   labelWidth: LabelWidth
   paletteId: PaletteId
   textStyleId: TextStyleId
@@ -60,6 +62,7 @@ interface StaticBoardProps
   backgroundColor?: string
   className?: string
   children?: ReactNode
+  imageLoading?: 'eager' | 'lazy'
   'data-testid'?: string
 }
 
@@ -69,6 +72,7 @@ export const StaticBoard = memo(
     appearance,
     backgroundColor,
     className,
+    imageLoading,
     'data-testid': testId,
   }: StaticBoardProps) =>
   {
@@ -117,6 +121,11 @@ export const StaticBoard = memo(
                   compactMode={appearance.compactMode}
                   minHeightPx={slotHeight}
                   backgroundOverride={rowBg}
+                  style={getWrappedItemsGridStyle({
+                    compactMode: appearance.compactMode,
+                    maxItemsPerRow: appearance.maxItemsPerRow,
+                    slotWidth,
+                  })}
                 >
                   {tier.itemIds.map((itemId) =>
                   {
@@ -143,6 +152,7 @@ export const StaticBoard = memo(
                           })}
                           fit={getEffectiveImageFit(item, boardDefaultFit)}
                           frameAspectRatio={boardAspectRatio}
+                          imageLoading={imageLoading}
                         />
                       </div>
                     )

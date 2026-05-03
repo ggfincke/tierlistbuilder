@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  collectSnapshotImageHashes,
+  collectSnapshotExportImageHashes,
   collectSnapshotLocalImageHashes,
   collectSnapshotRenderImageHashes,
   transformSnapshotItemsAsync,
@@ -14,7 +14,7 @@ import { makeBoardSnapshot, makeItem } from '../fixtures'
 
 describe('board snapshot image hash collection', () =>
 {
-  it('keeps source image hashes local-only', () =>
+  it('collects export, render, & local image hashes by rendition role', () =>
   {
     const id = asItemId('item-image')
     const snapshot = makeBoardSnapshot({
@@ -22,36 +22,51 @@ describe('board snapshot image hash collection', () =>
         [id]: makeItem({
           id,
           imageRef: { hash: 'thumb-hash' },
+          tileImageRef: { hash: 'tile-hash' },
           sourceImageRef: { hash: 'source-hash' },
         }),
       },
     })
 
-    expect(collectSnapshotImageHashes(snapshot)).toEqual(['thumb-hash'])
+    expect(collectSnapshotExportImageHashes(snapshot)).toEqual([
+      'source-hash',
+      'tile-hash',
+      'thumb-hash',
+    ])
     expect(collectSnapshotRenderImageHashes(snapshot)).toEqual([])
     expect(collectSnapshotLocalImageHashes(snapshot)).toEqual([
       'thumb-hash',
+      'tile-hash',
       'source-hash',
     ])
   })
 
-  it('warms source images first for visible board rendering', () =>
+  it('warms tile images first for visible board rendering', () =>
   {
     const id = asItemId('item-image')
+    const sourceOnlyId = asItemId('item-source-only')
     const snapshot = makeBoardSnapshot({
       items: {
         [id]: makeItem({
           id,
           imageRef: { hash: 'thumb-hash' },
+          tileImageRef: { hash: 'tile-hash' },
           sourceImageRef: { hash: 'source-hash' },
         }),
+        [sourceOnlyId]: makeItem({
+          id: sourceOnlyId,
+          imageRef: { hash: 'fallback-thumb-hash' },
+          sourceImageRef: { hash: 'fallback-source-hash' },
+        }),
       },
-      unrankedItemIds: [id],
+      unrankedItemIds: [id, sourceOnlyId],
     })
 
     expect(collectSnapshotRenderImageHashes(snapshot)).toEqual([
-      'source-hash',
+      'tile-hash',
       'thumb-hash',
+      'fallback-source-hash',
+      'fallback-thumb-hash',
     ])
   })
 

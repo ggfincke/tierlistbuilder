@@ -30,6 +30,23 @@ export type TierLabelFontSize = (typeof TIER_LABEL_FONT_SIZES)[number]
 export const TOOLBAR_POSITIONS = ['top', 'bottom', 'left', 'right'] as const
 export type ToolbarPosition = (typeof TOOLBAR_POSITIONS)[number]
 
+export const EXPORT_ITEMS_PER_ROW_MIN = 4
+export const EXPORT_ITEMS_PER_ROW_MAX = 20
+export const EXPORT_ITEMS_PER_ROW_DEFAULT = 10
+
+export const normalizeExportItemsPerRow = (value: unknown): number =>
+{
+  if (typeof value !== 'number' || !Number.isFinite(value))
+  {
+    return EXPORT_ITEMS_PER_ROW_DEFAULT
+  }
+
+  return Math.min(
+    EXPORT_ITEMS_PER_ROW_MAX,
+    Math.max(EXPORT_ITEMS_PER_ROW_MIN, Math.round(value))
+  )
+}
+
 // global app preferences — persisted independently of per-board data
 export interface AppPreferences
 {
@@ -41,6 +58,7 @@ export interface AppPreferences
   itemShape: ItemShape
   compactMode: boolean
   exportBackgroundOverride: string | null
+  exportItemsPerRow: number
   boardBackgroundOverride: string | null
   labelWidth: LabelWidth
   hideRowControls: boolean

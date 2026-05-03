@@ -9,6 +9,7 @@ import { parseBoardSnapshotJson } from '~/shared/board-data/boardJson'
 import { EMBED_ROUTE_PATH, normalizeBasePath } from '~/shared/routes/pathname'
 import { base64ToBytes, bytesToBase64 } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { loadCompressionLib } from '~/shared/lib/lazyDependencies'
 
 const MAX_SNAPSHOT_COMPRESSED_BYTES = 256 * 1024
@@ -46,13 +47,15 @@ export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
   return {
     ...mapSnapshotItems(data, (item) =>
     {
+      const hadImage = hasAnyImageRef(item)
       const {
         imageRef: _imageRef,
+        tileImageRef: _tileImageRef,
         sourceImageRef: _sourceImageRef,
         ...rest
       } = item
       if (hasRenderableTextField(rest)) return rest
-      if (!_imageRef && !_sourceImageRef) return rest
+      if (!hadImage) return rest
       return { ...rest, label: getStrippedImageLabel(item) }
     }),
     deletedItems: [],

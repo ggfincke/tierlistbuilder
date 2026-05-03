@@ -16,9 +16,10 @@ import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
 import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
 import {
-  collectSnapshotImageHashes,
+  collectSnapshotExportImageHashes,
   transformSnapshotItemsAsync,
 } from '~/shared/lib/boardSnapshotItems'
+import { getImageRefsByRendition } from '~/shared/lib/imageRefs'
 import {
   BLOB_PREPARE_CONCURRENCY,
   persistPreparedBlobRecords,
@@ -103,27 +104,30 @@ const itemToWire = async (
   dataUrlsByHash: Map<string, Promise<string>>
 ): Promise<TierItemWire> =>
 {
-  const { imageRef, sourceImageRef: _sourceImageRef, ...rest } = item
+  const {
+    imageRef: _imageRef,
+    tileImageRef: _tileImageRef,
+    sourceImageRef: _sourceImageRef,
+    ...rest
+  } = item
 
-  if (!imageRef)
+  // editor priority maximizes export fidelity: source -> tile -> preview
+  const exportImageRefs = getImageRefsByRendition(item, 'editor')
+  if (exportImageRefs.length === 0) return rest
+
+  for (const ref of exportImageRefs)
   {
-    return rest
-  }
-
-  const inlineImageUrl = await getBlobDataUrl(
-    imageRef.hash,
-    blobsByHash,
-    dataUrlsByHash
-  )
-
-  if (!inlineImageUrl)
-  {
-    throw new Error(
-      `Missing image bytes for item "${item.id}". Wait for images to finish loading, then try exporting again.`
+    const inlineImageUrl = await getBlobDataUrl(
+      ref.hash,
+      blobsByHash,
+      dataUrlsByHash
     )
+    if (inlineImageUrl) return { ...rest, imageUrl: inlineImageUrl }
   }
 
-  return { ...rest, imageUrl: inlineImageUrl }
+  throw new Error(
+    `Missing image bytes for item "${item.id}". Wait for images to finish loading, then try exporting again.`
+  )
 }
 
 // convert a snapshot to wire shape using a preloaded hash -> Blob map
@@ -158,12 +162,13 @@ export const snapshotToWireWithBlobs = async (
   }
 }
 
-// convert one snapshot to wire shape by loading any referenced blobs first
+// convert one snapshot to wire shape by loading export candidate blobs first.
+// itemToWire prefers source bytes, then falls back to tile or preview bytes
 export const snapshotToWire = async (
   snapshot: BoardSnapshot
 ): Promise<BoardSnapshotWire> =>
 {
-  const hashes = collectSnapshotImageHashes(snapshot)
+  const hashes = collectSnapshotExportImageHashes(snapshot)
   const records = await getBlobsBatch(hashes)
   const blobsByHash = new Map<string, Blob | null>()
 
@@ -266,6 +271,9 @@ const wireItemToSnapshotItem = (
 
   if (prepared)
   {
+    // the inline blob (whichever rendition the exporter picked) always restores
+    // as `imageRef`; tile/source refs stay absent so the editor & auto-crop
+    // priority chains rebuild the higher-quality renditions on next edit
     return { ...base, imageRef: prepared.record.imageRef }
   }
 
@@ -349,15 +357,13 @@ export const wireToSnapshot = async (
 
 export const itemUsesLocalImageRef = (value: unknown): boolean =>
 {
-  if (!isRecord(value))
-  {
-    return false
-  }
+  if (!isRecord(value)) return false
 
-  if (!isTierItemImageRef(value.imageRef))
-  {
-    return false
-  }
+  const hasLocalRef =
+    isTierItemImageRef(value.imageRef) ||
+    isTierItemImageRef(value.tileImageRef) ||
+    isTierItemImageRef(value.sourceImageRef)
+  if (!hasLocalRef) return false
 
   return typeof value.imageUrl !== 'string' || value.imageUrl.length === 0
 }

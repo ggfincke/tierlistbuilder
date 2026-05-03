@@ -6,13 +6,17 @@ import { createRoot, type Root } from 'react-dom/client'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance } from '../model/runtime'
-import type { AppPreferences } from '@tierlistbuilder/contracts/platform/preferences'
+import {
+  normalizeExportItemsPerRow,
+  type AppPreferences,
+} from '@tierlistbuilder/contracts/platform/preferences'
 import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
 import { EXPORT_BOARD_ROOT_SELECTOR } from '~/shared/board-ui/boardTestIds'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
 import { Z } from '~/shared/theme/zIndex'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
+const EXPORT_IMAGE_READY_TIMEOUT_MS = 10_000
 
 interface ExportCaptureSession
 {
@@ -35,6 +39,7 @@ export const getExportAppearance = (
   defaultLabelPlacementMode: preferences.defaultLabelPlacementMode,
   itemShape: preferences.itemShape,
   compactMode: preferences.compactMode,
+  maxItemsPerRow: normalizeExportItemsPerRow(preferences.exportItemsPerRow),
   labelWidth: preferences.labelWidth,
   paletteId: preferences.paletteId,
   textStyleId: preferences.textStyleId,
@@ -46,6 +51,55 @@ export const getExportAppearance = (
 const waitForNextFrame = (): Promise<void> =>
   new Promise((resolve) => requestAnimationFrame(() => resolve()))
 
+const waitForImageLoadEvent = (image: HTMLImageElement): Promise<void> =>
+  new Promise((resolve) =>
+  {
+    const finish = () =>
+    {
+      image.removeEventListener('load', finish)
+      image.removeEventListener('error', finish)
+      resolve()
+    }
+
+    image.addEventListener('load', finish, { once: true })
+    image.addEventListener('error', finish, { once: true })
+  })
+
+const waitForImageReady = async (image: HTMLImageElement): Promise<void> =>
+{
+  if (image.complete)
+  {
+    return
+  }
+
+  const loadPromise =
+    typeof image.decode === 'function'
+      ? image.decode().catch(() => undefined)
+      : waitForImageLoadEvent(image)
+  let timeoutId: number | undefined
+
+  try
+  {
+    await Promise.race([
+      loadPromise,
+      new Promise<void>((_, reject) =>
+      {
+        timeoutId = window.setTimeout(
+          () => reject(new Error('Timed out waiting for export image.')),
+          EXPORT_IMAGE_READY_TIMEOUT_MS
+        )
+      }),
+    ])
+  }
+  finally
+  {
+    if (timeoutId !== undefined)
+    {
+      window.clearTimeout(timeoutId)
+    }
+  }
+}
+
 // wait for web fonts, image decode, & a paint tick before capture
 const waitForExportBoardReady = async (element: HTMLElement): Promise<void> =>
 {
@@ -56,27 +110,7 @@ const waitForExportBoardReady = async (element: HTMLElement): Promise<void> =>
 
   const images = Array.from(element.querySelectorAll<HTMLImageElement>('img'))
 
-  await Promise.all(
-    images.map(async (image) =>
-    {
-      if (image.complete)
-      {
-        return
-      }
-
-      if (typeof image.decode === 'function')
-      {
-        await image.decode().catch(() => undefined)
-        return
-      }
-
-      await new Promise<void>((resolve) =>
-      {
-        image.addEventListener('load', () => resolve(), { once: true })
-        image.addEventListener('error', () => resolve(), { once: true })
-      })
-    })
-  )
+  await Promise.all(images.map(waitForImageReady))
 
   await waitForNextFrame()
   await waitForNextFrame()

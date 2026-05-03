@@ -287,12 +287,13 @@ export interface TierItemImageRef
   hash: string
 }
 
-// single item placed in a tier or the unranked pool. display images live
-// behind `imageRef`; optional source refs keep higher-quality local edit bytes
+// single item placed in a tier or the unranked pool. imageRef is the small
+// preview thumb; tile refs target board rendering; source refs keep editor bytes
 export interface TierItem
 {
   id: ItemId
   imageRef?: TierItemImageRef
+  tileImageRef?: TierItemImageRef
   sourceImageRef?: TierItemImageRef
   label?: string
   backgroundColor?: string
@@ -348,10 +349,11 @@ export interface BoardSnapshot
 }
 
 // payload for adding new items before IDs are assigned. image import writes
-// display + editor blobs to IndexedDB & passes the resulting refs here
+// preview, tile, & editor blobs to IndexedDB before passing refs here
 export interface NewTierItem
 {
   imageRef?: TierItemImageRef
+  tileImageRef?: TierItemImageRef
   sourceImageRef?: TierItemImageRef
   label?: string
   backgroundColor?: string
@@ -360,8 +362,8 @@ export interface NewTierItem
 }
 
 // wire-format TierItem used at JSON import/export & share-link encode boundaries.
-// carries a base64 `imageUrl` so exports are self-contained; the import path
-// decodes it into IndexedDB & produces a TierItem w/ `imageRef` instead
+// carries a base64 `imageUrl` so exports are self-contained; import persists
+// the bytes to IndexedDB before restoring local image refs
 export interface TierItemWire
 {
   id: ItemId

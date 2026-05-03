@@ -34,7 +34,7 @@ import {
 import {
   areCachedAutoCropsApplied,
   collectAutoCropTransforms,
-  getAutoCropHash,
+  getAutoCropImageRef,
 } from '~/shared/lib/autoCrop'
 import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
 import { BaseModal } from '~/shared/overlay/BaseModal'
@@ -166,7 +166,7 @@ const AspectRatioIssueModalBody = ({
   )
 
   const autoCropTargets = useMemo(
-    () => mismatched.filter((item) => !!getAutoCropHash(item)),
+    () => mismatched.filter((item) => !!getAutoCropImageRef(item)),
     [mismatched]
   )
 

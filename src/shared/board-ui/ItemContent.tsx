@@ -7,8 +7,13 @@ import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import type {
   ImageFit,
   ItemTransform,
-  TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  getRenderImageHashes,
+  hasAnyImageRef,
+  type ImageRendition,
+  type ItemImageBundle,
+} from '~/shared/lib/imageRefs'
 import { getTextColor } from '../lib/color'
 import { FramedItemMedia } from './FramedItemMedia'
 import { CaptionStrip, OverlayLabelBlock } from './labelBlocks'
@@ -16,9 +21,7 @@ import type { ResolvedLabelDisplay } from './labelDisplay'
 
 interface ItemContentProps
 {
-  item: {
-    imageRef?: TierItemImageRef
-    sourceImageRef?: TierItemImageRef
+  item: ItemImageBundle & {
     imageUrl?: string
     label?: string
     backgroundColor?: string
@@ -33,6 +36,8 @@ interface ItemContentProps
   // effective image fit — resolved by the caller from per-item + board defaults.
   // ignored when `item.transform` is set (the manual transform wins)
   fit?: ImageFit
+  imageRendition?: ImageRendition
+  imageLoading?: 'eager' | 'lazy'
 }
 
 // wraps content in a flex column w/ a CaptionStrip above or below — used by
@@ -62,23 +67,16 @@ export const ItemContent = ({
   label = null,
   frameAspectRatio = 1,
   fit = 'cover',
+  imageRendition = 'board',
+  imageLoading = 'lazy',
 }: ItemContentProps) =>
 {
   const bgColor = item.backgroundColor
   const transform = item.transform
-  const sourceImageUrl = useImageUrl(item.sourceImageRef?.hash)
-  const cachedDisplayImageUrl = useImageUrl(
-    item.imageUrl ? undefined : item.imageRef?.hash
-  )
-  const displayImageUrl = item.imageUrl ?? cachedDisplayImageUrl
-  // prefer source whenever it exists: the editor-source variant (1024 px)
-  // renders crisper on retina than the 120 px thumb and avoids a
-  // thumb→source flash when entering the editor. fall back to the display
-  // thumb during cache warm-up so the matte branch only kicks in when both
-  // are missing
-  const imageUrl = item.sourceImageRef
-    ? (sourceImageUrl ?? displayImageUrl)
-    : displayImageUrl
+  const { primary, fallback } = getRenderImageHashes(item, imageRendition)
+  const cachedPrimaryUrl = useImageUrl(item.imageUrl ? undefined : primary)
+  const cachedFallbackUrl = useImageUrl(item.imageUrl ? undefined : fallback)
+  const imageUrl = item.imageUrl ?? cachedPrimaryUrl ?? cachedFallbackUrl
 
   if (imageUrl)
   {
@@ -95,6 +93,7 @@ export const ItemContent = ({
         transform={transform ?? null}
         aspectRatio={item.aspectRatio ?? null}
         frameAspectRatio={frameAspectRatio}
+        loading={imageLoading}
       >
         {!isCaptioned && label && label.placement.mode === 'overlay' && (
           <OverlayLabelBlock display={label} />
@@ -111,7 +110,7 @@ export const ItemContent = ({
 
   // image is expected (item carries a hash) but URL hasn't resolved yet.
   // render a flat matte so the text fallback doesn't flash before warm-up
-  if (item.imageRef?.hash || item.sourceImageRef?.hash)
+  if (hasAnyImageRef(item))
   {
     const placementMode = label?.placement.mode
     const isCaptioned =

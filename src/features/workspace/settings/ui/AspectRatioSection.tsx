@@ -249,7 +249,11 @@ const MismatchGroupRow = ({
               className="relative h-8 w-8 overflow-hidden rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-sunken)]"
               title={item.label ?? 'Item'}
             >
-              <ItemContent item={item} fit="contain" />
+              <ItemContent
+                item={item}
+                fit="contain"
+                imageRendition="thumbnail"
+              />
             </div>
           ))}
           {remaining > 0 && (
@@ -312,7 +316,7 @@ const MismatchItemRow = ({
       }`}
     >
       <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-sunken)]">
-        <ItemContent item={item} fit="contain" />
+        <ItemContent item={item} fit="contain" imageRendition="thumbnail" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-xs font-medium text-[var(--t-text)]">

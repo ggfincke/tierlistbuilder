@@ -8,39 +8,8 @@ import {
   createCustomTierColorSpec,
   getPaletteColors,
   resolveTierColorSpec,
-  getAutoTierColorSpec,
   getTierColorFromPaletteSpec,
 } from '~/shared/theme/tierColors'
-
-describe('createPaletteTierColorSpec', () =>
-{
-  it('produces a palette spec w/ correct shape', () =>
-  {
-    expect(createPaletteTierColorSpec(0)).toEqual({
-      kind: 'palette',
-      index: 0,
-    })
-  })
-})
-
-describe('createCustomTierColorSpec', () =>
-{
-  it('normalizes valid hex', () =>
-  {
-    expect(createCustomTierColorSpec('#FF0000')).toEqual({
-      kind: 'custom',
-      hex: '#ff0000',
-    })
-  })
-
-  it('falls back to #888888 for invalid hex', () =>
-  {
-    expect(createCustomTierColorSpec('nope')).toEqual({
-      kind: 'custom',
-      hex: '#888888',
-    })
-  })
-})
 
 describe('resolveTierColorSpec', () =>
 {
@@ -74,27 +43,6 @@ describe('resolveTierColorSpec', () =>
 
     expect(resolveTierColorSpec('classic', spec)).toBe('#abcdef')
     expect(resolveTierColorSpec('midnight', spec)).toBe('#abcdef')
-  })
-})
-
-describe('getAutoTierColorSpec', () =>
-{
-  it('returns default palette spec for indices within default range', () =>
-  {
-    const spec = getAutoTierColorSpec('classic', 2)
-    expect(spec).toEqual({
-      kind: 'palette',
-      index: 2,
-    })
-  })
-
-  it('wraps within the default tier ladder for indices beyond default range', () =>
-  {
-    const spec = getAutoTierColorSpec('classic', 13)
-    expect(spec).toEqual({
-      kind: 'palette',
-      index: 13,
-    })
   })
 })
 

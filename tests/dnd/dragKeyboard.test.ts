@@ -11,54 +11,48 @@ import { findTierById, makeContainerSnapshot } from '../fixtures'
 
 describe('resolveNextKeyboardDragPreview', () =>
 {
-  it('ArrowLeft from middle moves item one position left', () =>
+  it('shifts within a tier on ArrowLeft/Right & returns null at the edges', () =>
   {
     const snap = makeContainerSnapshot()
-    const result = resolveNextKeyboardDragPreview({
+
+    const left = resolveNextKeyboardDragPreview({
       snapshot: snap,
       itemId: asItemId('item-2'),
       direction: 'ArrowLeft',
     })
-    expect(result).not.toBeNull()
-    if (!result) return
-    const tierS = findTierById(result.nextPreview.tiers, 'tier-s')
-    expect(tierS.itemIds).toEqual(['item-2', 'item-1', 'item-3'])
-  })
+    expect(left).not.toBeNull()
+    if (left)
+    {
+      const tierS = findTierById(left.nextPreview.tiers, 'tier-s')
+      expect(tierS.itemIds).toEqual(['item-2', 'item-1', 'item-3'])
+    }
 
-  it('ArrowLeft from first position returns null', () =>
-  {
-    const snap = makeContainerSnapshot()
-    const result = resolveNextKeyboardDragPreview({
-      snapshot: snap,
-      itemId: asItemId('item-1'),
-      direction: 'ArrowLeft',
-    })
-    expect(result).toBeNull()
-  })
-
-  it('ArrowRight from middle moves item one position right', () =>
-  {
-    const snap = makeContainerSnapshot()
-    const result = resolveNextKeyboardDragPreview({
+    const right = resolveNextKeyboardDragPreview({
       snapshot: snap,
       itemId: asItemId('item-2'),
       direction: 'ArrowRight',
     })
-    expect(result).not.toBeNull()
-    if (!result) return
-    const tierS = findTierById(result.nextPreview.tiers, 'tier-s')
-    expect(tierS.itemIds).toEqual(['item-1', 'item-3', 'item-2'])
-  })
+    expect(right).not.toBeNull()
+    if (right)
+    {
+      const tierS = findTierById(right.nextPreview.tiers, 'tier-s')
+      expect(tierS.itemIds).toEqual(['item-1', 'item-3', 'item-2'])
+    }
 
-  it('ArrowRight from last position returns null', () =>
-  {
-    const snap = makeContainerSnapshot()
-    const result = resolveNextKeyboardDragPreview({
-      snapshot: snap,
-      itemId: asItemId('item-3'),
-      direction: 'ArrowRight',
-    })
-    expect(result).toBeNull()
+    expect(
+      resolveNextKeyboardDragPreview({
+        snapshot: snap,
+        itemId: asItemId('item-1'),
+        direction: 'ArrowLeft',
+      })
+    ).toBeNull()
+    expect(
+      resolveNextKeyboardDragPreview({
+        snapshot: snap,
+        itemId: asItemId('item-3'),
+        direction: 'ArrowRight',
+      })
+    ).toBeNull()
   })
 
   it('ArrowDown moves item to the next tier below', () =>

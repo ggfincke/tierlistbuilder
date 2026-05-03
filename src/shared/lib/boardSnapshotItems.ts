@@ -8,6 +8,10 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import {
+  getImageRefsByRendition,
+  getPrimaryImageRef,
+} from '~/shared/lib/imageRefs'
 import { isPresent } from '~/shared/lib/typeGuards'
 
 // visit every live & deleted snapshot item in stable order
@@ -47,20 +51,21 @@ const collectSnapshotItems = <T>(
   return results
 }
 
-// collect unique image hashes referenced anywhere on a snapshot
-export const collectSnapshotImageHashes = (
+// collect every editor-priority hash per item so wire export can fall back
+// when source bytes are missing but tile or preview bytes are still present
+export const collectSnapshotExportImageHashes = (
   snapshot: BoardSnapshot
 ): string[] => [
   ...new Set(
-    collectSnapshotItems(snapshot, (item) => item.imageRef?.hash ?? null)
+    collectSnapshotItems(snapshot, (item) =>
+      getImageRefsByRendition(item, 'editor').map((ref) => ref.hash)
+    ).flat()
   ),
 ]
 
-// collect hashes needed for visible board rendering. source refs warm first
-// so visible tiles render at editor-source quality and avoid a thumb→source
-// flash when entering the editor; display refs remain as warm-up fallback.
-// items created via image upload always carry both refs together, but the
-// loop tolerates either being absent
+// hashes needed for visible board rendering. board priority's primary blob
+// (tile -> source -> preview) carries the visible quality; preview is warmed
+// alongside as a cheap fallback while the primary decodes
 export const collectSnapshotRenderImageRefs = (
   snapshot: BoardSnapshot
 ): TierItemImageRef[] =>
@@ -80,8 +85,9 @@ export const collectSnapshotRenderImageRefs = (
     seen.add(id)
     const item = snapshot.items[id]
     if (!item) return
-    pushRef(item.sourceImageRef)
-    pushRef(item.imageRef)
+    const primary = getPrimaryImageRef(item, 'board')
+    pushRef(primary)
+    if (primary && primary !== item.imageRef) pushRef(item.imageRef)
   }
 
   for (const tier of snapshot.tiers)
@@ -97,13 +103,14 @@ export const collectSnapshotRenderImageHashes = (
   snapshot: BoardSnapshot
 ): string[] => collectSnapshotRenderImageRefs(snapshot).map((ref) => ref.hash)
 
-// collect every local blob hash the snapshot needs to retain
+// every local blob hash the snapshot needs to retain (drives IDB GC)
 export const collectSnapshotLocalImageHashes = (
   snapshot: BoardSnapshot
 ): string[] => [
   ...new Set(
     collectSnapshotItems(snapshot, (item) => [
       item.imageRef?.hash,
+      item.tileImageRef?.hash,
       item.sourceImageRef?.hash,
     ])
       .flat()

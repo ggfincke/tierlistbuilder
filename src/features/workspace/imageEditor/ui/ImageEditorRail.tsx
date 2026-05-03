@@ -207,6 +207,7 @@ const ImageEditorRailRow = memo(
                 item={item}
                 fit={effectiveFit}
                 frameAspectRatio={boardAspectRatio}
+                imageRendition="thumbnail"
               />
             </div>
           </div>

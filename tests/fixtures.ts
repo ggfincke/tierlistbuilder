@@ -1,16 +1,11 @@
 import type {
-  BoardMeta,
   BoardSnapshot,
   Tier,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
-import {
-  asBoardId,
-  asItemId,
-  type ItemId,
-} from '@tierlistbuilder/contracts/lib/ids'
+import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export const TIER_IDS = ['tier-s', 'tier-a', 'tier-b'] as const
 export const ITEM_IDS: readonly ItemId[] = [
@@ -81,13 +76,6 @@ export const makeBoardSnapshot = (
   unrankedItemIds: [],
   items: {},
   deletedItems: [],
-  ...overrides,
-})
-
-export const makeBoardMeta = (overrides?: Partial<BoardMeta>): BoardMeta => ({
-  id: asBoardId('board-test'),
-  title: 'Test Board',
-  createdAt: 1,
   ...overrides,
 })
 

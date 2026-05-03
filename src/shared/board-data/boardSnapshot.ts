@@ -125,6 +125,7 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   const id = asItemId(raw.id)
 
   const imageRef = normalizeImageRef(raw.imageRef)
+  const tileImageRef = normalizeImageRef(raw.tileImageRef)
   const sourceImageRef = normalizeImageRef(raw.sourceImageRef)
   const aspectRatio = normalizePositiveFinite(raw.aspectRatio)
   const imageFit = normalizeEnum(raw.imageFit, IMAGE_FITS)
@@ -133,6 +134,7 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
 
   const item: TierItem = { id }
   if (imageRef) item.imageRef = imageRef
+  if (tileImageRef) item.tileImageRef = tileImageRef
   if (sourceImageRef) item.sourceImageRef = sourceImageRef
   if (typeof raw.label === 'string') item.label = raw.label
   if (typeof raw.backgroundColor === 'string')

@@ -20,6 +20,7 @@ import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
 import { SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { ItemContextMenu } from './ItemContextMenu'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
@@ -246,7 +247,7 @@ export const TierItem = memo(
       return null
     }
 
-    const hasImage = !!item.imageRef
+    const hasImage = hasAnyImageRef(item)
 
     return (
       <>

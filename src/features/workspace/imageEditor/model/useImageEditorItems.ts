@@ -6,6 +6,7 @@ import { useCallback, useMemo } from 'react'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type { Tier, TierItem } from '@tierlistbuilder/contracts/workspace/board'
 import { itemHasAspectMismatch } from '~/shared/board-ui/aspectRatio'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import type { ImageEditorFilter } from './useImageEditorStore'
 import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
@@ -36,7 +37,7 @@ export const collectImageEditorItems = ({
     if (seen.has(id)) return
     seen.add(id)
     const item = items[id]
-    if (item?.imageRef) result.push(item)
+    if (item && hasAnyImageRef(item)) result.push(item)
   }
 
   for (const tier of tiers)

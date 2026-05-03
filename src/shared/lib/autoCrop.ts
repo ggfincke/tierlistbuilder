@@ -24,6 +24,7 @@ import {
 import { cacheFreshBlob } from '~/shared/images/imageBlobCache'
 import { getBlob, type BlobRecord } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from './asyncMapLimit'
+import { getPrimaryImageRef } from './imageRefs'
 import { logger } from './logger'
 
 const AUTO_CROP_BATCH_CONCURRENCY = 4
@@ -48,11 +49,9 @@ export const subscribeAutoCropCache = (listener: () => void): (() => void) =>
 
 export const getAutoCropCacheVersion = (): number => scanCacheVersion
 
-export const getAutoCropHash = (item: TierItem): string | undefined =>
-  item.sourceImageRef?.hash ?? item.imageRef?.hash
-
-const getAutoCropImageRef = (item: TierItem): TierItemImageRef | undefined =>
-  item.sourceImageRef ?? item.imageRef
+export const getAutoCropImageRef = (
+  item: TierItem
+): TierItemImageRef | undefined => getPrimaryImageRef(item, 'editor')
 
 export const loadAutoCropBlob = async (
   ref: TierItemImageRef | undefined,
@@ -102,7 +101,7 @@ export const areCachedAutoCropsApplied = (
   let hasDetectedCrop = false
   for (const item of items)
   {
-    const hash = getAutoCropHash(item)
+    const hash = getAutoCropImageRef(item)?.hash
     if (!hash) continue
     const bbox = getCachedBBox(hash, trimSoftShadows)
     if (bbox === undefined) return false

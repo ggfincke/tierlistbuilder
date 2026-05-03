@@ -4,6 +4,10 @@
 import { create } from 'zustand'
 import { persist, subscribeWithSelector } from 'zustand/middleware'
 
+import {
+  EXPORT_ITEMS_PER_ROW_DEFAULT,
+  normalizeExportItemsPerRow,
+} from '@tierlistbuilder/contracts/platform/preferences'
 import type {
   AppPreferences,
   ItemShape,
@@ -32,6 +36,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   itemShape: 'square',
   compactMode: false,
   exportBackgroundOverride: null,
+  exportItemsPerRow: EXPORT_ITEMS_PER_ROW_DEFAULT,
   boardBackgroundOverride: null,
   labelWidth: 'default',
   hideRowControls: false,
@@ -71,6 +76,7 @@ interface PreferencesStore extends AppPreferences, HighContrastTransitionState
   setItemShape: (shape: ItemShape) => void
   setCompactMode: (compact: boolean) => void
   setExportBackgroundOverride: (color: string | null) => void
+  setExportItemsPerRow: (count: number) => void
   setBoardBackgroundOverride: (color: string | null) => void
   setLabelWidth: (width: LabelWidth) => void
   setHideRowControls: (hide: boolean) => void
@@ -128,6 +134,12 @@ export const usePreferencesStore = create<PreferencesStore>()(
           get,
           'exportBackgroundOverride'
         ),
+        setExportItemsPerRow: (count) =>
+        {
+          const next = normalizeExportItemsPerRow(count)
+          if (get().exportItemsPerRow === next) return
+          set({ exportItemsPerRow: next })
+        },
         setBoardBackgroundOverride: createPreferenceSetter(
           set,
           get,

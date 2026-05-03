@@ -62,8 +62,8 @@ const loadAllBoardData = (): Array<{
   return results
 }
 
-// prewarm the shared image blob cache so the off-screen render tree resolves
-// every imageRef -> object URL synchronously through useImageUrl
+// prewarm the shared image blob cache so off-screen board tiles resolve
+// object URLs synchronously through useImageUrl
 const prepareBoardsForCapture = async (
   boards: Array<{ id: string; title: string; data: BoardSnapshot }>
 ): Promise<void> =>

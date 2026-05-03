@@ -50,15 +50,14 @@ tests/
 
 Shared test data defined in `fixtures.ts`:
 
-| Export                              | Description                                                     |
-| ----------------------------------- | --------------------------------------------------------------- |
-| `TIER_IDS`                          | Stable tier ID constants                                        |
-| `ITEM_IDS`                          | Stable item ID constants                                        |
-| `makeContainerSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items               |
-| `makeBoardSnapshot(overrides?)`     | Builds an empty `BoardSnapshot` for focused overrides           |
-| `makeBoardMeta(overrides?)`         | Builds a registry `BoardMeta` row for local board/session tests |
-| `makeTier(overrides?)`              | Builds a `Tier` w/ palette colorSpec defaults                   |
-| `makeItem(overrides?)`              | Builds a `TierItem` w/ a default item ID                        |
-| `makeRect(overrides?)`              | Builds a `DOMRect` for layout/popup tests                       |
+| Export                              | Description                                           |
+| ----------------------------------- | ----------------------------------------------------- |
+| `TIER_IDS`                          | Stable tier ID constants                              |
+| `ITEM_IDS`                          | Stable item ID constants                              |
+| `makeContainerSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items     |
+| `makeBoardSnapshot(overrides?)`     | Builds an empty `BoardSnapshot` for focused overrides |
+| `makeTier(overrides?)`              | Builds a `Tier` w/ palette colorSpec defaults         |
+| `makeItem(overrides?)`              | Builds a `TierItem` w/ a default item ID              |
+| `makeRect(overrides?)`              | Builds a `DOMRect` for layout/popup tests             |
 
 `tests/typeHelpers.ts` provides `asInvalid<T>(value)` for tests that intentionally pass malformed input. Prefer it over a bare `as never` cast so the intent is explicit.
