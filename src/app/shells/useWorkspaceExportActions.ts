@@ -1,5 +1,6 @@
 // src/app/shells/useWorkspaceExportActions.ts
-// workspace export commands that open preview & annotation modals
+// workspace export commands that open preview & annotation modals. owns
+// the shared image-format state used by both the menu picker & preview
 
 import { useCallback, useState } from 'react'
 
@@ -21,44 +22,43 @@ export const useWorkspaceExportActions = ({
   closeModal,
 }: UseWorkspaceExportActionsOptions) =>
 {
-  const [previewFormat, setPreviewFormat] = useState<ImageFormat>('png')
+  const [imageFormat, setImageFormat] = useState<ImageFormat>('png')
   const {
     exportStatus,
     exportAllProgress,
     runExport,
     runCopyToClipboard,
     runExportAll,
-    runAnnotatedExport,
-    runPreviewRender,
+    renderBoardToDataUrl,
   } = useExportController()
 
   const handleAnnotateExport = useCallback(() =>
   {
-    void runAnnotatedExport().then((image) =>
+    void renderBoardToDataUrl().then((image) =>
     {
       if (image)
       {
         openModal('annotation', image)
       }
     })
-  }, [openModal, runAnnotatedExport])
+  }, [openModal, renderBoardToDataUrl])
 
   const handlePreviewExport = useCallback(() =>
   {
-    void runPreviewRender().then((image) =>
+    void renderBoardToDataUrl().then((image) =>
     {
       if (image)
       {
         openModal('preview', image)
       }
     })
-  }, [openModal, runPreviewRender])
+  }, [openModal, renderBoardToDataUrl])
 
   const handlePreviewDownload = useCallback(() =>
   {
-    void runExport(previewFormat)
+    void runExport(imageFormat)
     closeModal('preview')
-  }, [closeModal, runExport, previewFormat])
+  }, [closeModal, runExport, imageFormat])
 
   const handlePreviewCopy = useCallback(() =>
   {
@@ -80,8 +80,8 @@ export const useWorkspaceExportActions = ({
   return {
     exportStatus,
     exportAllProgress,
-    previewFormat,
-    setPreviewFormat,
+    imageFormat,
+    setImageFormat,
     runExport,
     runCopyToClipboard,
     runExportAll,

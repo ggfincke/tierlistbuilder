@@ -1,5 +1,6 @@
 // src/features/workspace/export/model/useExportController.ts
-// export controller hook — board export commands, progress, & runtime error handling
+// export controller hook — board export commands, progress, & runtime
+// error handling. single-board paths share guardExport for the busy lock
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -26,8 +27,21 @@ import {
 } from '~/features/workspace/export/lib/exportBoardRender'
 import { exportTierListAsPdf } from '~/features/workspace/export/lib/exportPdf'
 
-const EXPORT_FAIL_MESSAGE =
+const FALLBACK_EXPORT_ERROR =
   'Export failed. Try again after images finish loading.'
+const FALLBACK_EXPORT_ALL_ERROR =
+  'Export All failed. Try again after images finish loading.'
+const FALLBACK_CLIPBOARD_ERROR = 'Failed to copy to clipboard.'
+
+// status of an in-flight export — UI uses this for spinners & disabled states.
+// 'render' covers preview & annotate flows that produce a data URL but don't
+// download a file
+export type ExportStatus =
+  | ImageFormat
+  | 'pdf'
+  | 'clipboard'
+  | 'render'
+  | null
 
 const getExportBackgroundColor = () =>
 {
@@ -40,9 +54,7 @@ const getCurrentExportAppearance = () =>
 
 export const useExportController = () =>
 {
-  const [exportStatus, setExportStatus] = useState<
-    ImageFormat | 'pdf' | 'clipboard' | null
-  >(null)
+  const [exportStatus, setExportStatus] = useState<ExportStatus>(null)
   const [exportAllProgress, setExportAllProgress] = useState<{
     current: number
     total: number
@@ -61,101 +73,114 @@ export const useExportController = () =>
     exportAllProgressRef.current = exportAllProgress
   }, [exportAllProgress])
 
-  // render the board to a PNG data URL via a hidden export session — shared
-  // between annotate & preview flows
-  const renderBoardToDataUrl = useCallback(async (): Promise<string | null> =>
-  {
-    if (exportStatusRef.current) return null
-
-    useActiveBoardStore.getState().clearRuntimeError()
-    setExportStatus('png')
-
-    try
+  // run an export action under the busy lock w/ consistent error handling.
+  // returns undefined if the lock was already held or the action threw —
+  // callers can use the truthy/falsy result to gate follow-up UI work
+  const guardExport = useCallback(
+    async <T,>(
+      status: Exclude<ExportStatus, null>,
+      fallbackMessage: string,
+      action: () => Promise<T>
+    ): Promise<T | undefined> =>
     {
-      const bgColor = getExportBackgroundColor()
-      const appearance = getCurrentExportAppearance()
-      const data = extractBoardData(useActiveBoardStore.getState())
+      if (exportStatusRef.current) return undefined
 
-      return await withExportSession(
-        { appearance, backgroundColor: bgColor },
-        async (session) =>
+      useActiveBoardStore.getState().clearRuntimeError()
+      setExportStatus(status)
+
+      try
+      {
+        return await action()
+      }
+      catch (err)
+      {
+        // log so the original stack survives; surface a user-facing message
+        // — formatError unwraps Error.message which is more informative than
+        // a static fallback when the underlying export pipeline gave one
+        console.error('[export]', err)
+        useActiveBoardStore
+          .getState()
+          .setRuntimeError(formatError(err, fallbackMessage))
+        return undefined
+      }
+      finally
+      {
+        setExportStatus(null)
+      }
+    },
+    []
+  )
+
+  // render the active board to a PNG data URL via a hidden export session —
+  // shared between preview & annotate flows
+  const renderBoardToDataUrl = useCallback(
+    async (): Promise<string | null> =>
+    {
+      const result = await guardExport(
+        'render',
+        FALLBACK_EXPORT_ERROR,
+        async () =>
         {
-          const element = await session.renderBoard(data)
-          return renderToDataUrl(element, 'png', bgColor)
+          const bgColor = getExportBackgroundColor()
+          const appearance = getCurrentExportAppearance()
+          const data = extractBoardData(useActiveBoardStore.getState())
+
+          return await withExportSession(
+            { appearance, backgroundColor: bgColor },
+            async (session) =>
+            {
+              const element = await session.renderBoard(data)
+              return renderToDataUrl(element, 'png', bgColor)
+            }
+          )
         }
       )
-    }
-    catch
-    {
-      useActiveBoardStore.getState().setRuntimeError(EXPORT_FAIL_MESSAGE)
-      return null
-    }
-    finally
-    {
-      setExportStatus(null)
-    }
-  }, [])
+      return result ?? null
+    },
+    [guardExport]
+  )
 
-  const runExport = useCallback(async (type: ImageFormat | 'pdf') =>
-  {
-    if (exportStatusRef.current) return
-
-    useActiveBoardStore.getState().clearRuntimeError()
-    setExportStatus(type)
-
-    try
-    {
-      const bgColor = getExportBackgroundColor()
-      const appearance = getCurrentExportAppearance()
-      const data = extractBoardData(useActiveBoardStore.getState())
-      const title = useActiveBoardStore.getState().title
-
-      if (type === 'pdf')
+  const runExport = useCallback(
+    (type: ImageFormat | 'pdf') =>
+      guardExport(type, FALLBACK_EXPORT_ERROR, async () =>
       {
-        await exportTierListAsPdf(data, title, appearance, bgColor)
-      }
-      else
-      {
-        await exportTierListAsImage(data, title, appearance, type, bgColor)
-      }
-    }
-    catch
-    {
-      useActiveBoardStore.getState().setRuntimeError(EXPORT_FAIL_MESSAGE)
-    }
-    finally
-    {
-      setExportStatus(null)
-    }
-  }, [])
+        const bgColor = getExportBackgroundColor()
+        const appearance = getCurrentExportAppearance()
+        const data = extractBoardData(useActiveBoardStore.getState())
+        const title = useActiveBoardStore.getState().title
+
+        if (type === 'pdf')
+        {
+          await exportTierListAsPdf(data, title, appearance, bgColor)
+        }
+        else
+        {
+          await exportTierListAsImage(data, title, appearance, type, bgColor)
+        }
+      }),
+    [guardExport]
+  )
 
   const runCopyToClipboard = useCallback(async () =>
   {
-    if (exportStatusRef.current) return
+    const ok = await guardExport(
+      'clipboard',
+      FALLBACK_CLIPBOARD_ERROR,
+      async () =>
+      {
+        const bgColor = getExportBackgroundColor()
+        const appearance = getCurrentExportAppearance()
+        const data = extractBoardData(useActiveBoardStore.getState())
+        await copyBoardToClipboard(data, appearance, bgColor)
+        return true
+      }
+    )
+    if (ok) toast('Copied to clipboard', 'success')
+  }, [guardExport])
 
-    useActiveBoardStore.getState().clearRuntimeError()
-    setExportStatus('clipboard')
-
-    try
-    {
-      const bgColor = getExportBackgroundColor()
-      const appearance = getCurrentExportAppearance()
-      const data = extractBoardData(useActiveBoardStore.getState())
-      await copyBoardToClipboard(data, appearance, bgColor)
-      toast('Copied to clipboard', 'success')
-    }
-    catch (err)
-    {
-      useActiveBoardStore
-        .getState()
-        .setRuntimeError(formatError(err, 'Failed to copy to clipboard.'))
-    }
-    finally
-    {
-      setExportStatus(null)
-    }
-  }, [])
-
+  // export-all is gated by both exportStatus & its own progress flag, so
+  // it can't share guardExport directly without either weakening that
+  // contract or adding a second status value. inline its lock instead
   const runExportAll = useCallback(
     async (type: 'json' | 'pdf' | ImageFormat) =>
     {
@@ -171,14 +196,10 @@ export const useExportController = () =>
         }
         catch (err)
         {
+          console.error('[export]', err)
           useActiveBoardStore
             .getState()
-            .setRuntimeError(
-              formatError(
-                err,
-                'Export All failed. Try again after images finish loading.'
-              )
-            )
+            .setRuntimeError(formatError(err, FALLBACK_EXPORT_ALL_ERROR))
         }
         return
       }
@@ -201,13 +222,12 @@ export const useExportController = () =>
           await exportAllBoardsAsImages(appearance, type, bgColor, onProgress)
         }
       }
-      catch
+      catch (err)
       {
+        console.error('[export]', err)
         useActiveBoardStore
           .getState()
-          .setRuntimeError(
-            'Export All failed. Try again after images finish loading.'
-          )
+          .setRuntimeError(formatError(err, FALLBACK_EXPORT_ALL_ERROR))
       }
       finally
       {
@@ -223,7 +243,6 @@ export const useExportController = () =>
     runExport,
     runCopyToClipboard,
     runExportAll,
-    runAnnotatedExport: renderBoardToDataUrl,
-    runPreviewRender: renderBoardToDataUrl,
+    renderBoardToDataUrl,
   }
 }

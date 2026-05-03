@@ -6,6 +6,7 @@ import { lazy, useCallback } from 'react'
 import type { ModalStack } from '~/app/shells/useModalStack'
 import type { WorkspaceModalPayloads } from './workspaceModals'
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
+import type { ExportStatus } from '~/features/workspace/export/model/useExportController'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { AspectRatioIssueModal } from '~/features/workspace/settings/ui/AspectRatioIssueModal'
@@ -62,10 +63,10 @@ interface ExportProgress
 interface WorkspaceModalLayerProps
 {
   modalStack: ModalStack<WorkspaceModalPayloads>
-  exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
+  exportStatus: ExportStatus
   exportAllProgress: ExportProgress | null
-  previewFormat: ImageFormat
-  onPreviewFormatChange: (format: ImageFormat) => void
+  imageFormat: ImageFormat
+  onImageFormatChange: (format: ImageFormat) => void
   onPreviewDownload: () => void
   onPreviewCopy: () => void
   onPreviewAnnotate: () => void
@@ -77,8 +78,8 @@ export const WorkspaceModalLayer = ({
   modalStack,
   exportStatus,
   exportAllProgress,
-  previewFormat,
-  onPreviewFormatChange,
+  imageFormat,
+  onImageFormatChange,
   onPreviewDownload,
   onPreviewCopy,
   onPreviewAnnotate,
@@ -132,8 +133,8 @@ export const WorkspaceModalLayer = ({
             open
             onClose={handleClosePreview}
             previewDataUrl={preview.payload}
-            format={previewFormat}
-            onFormatChange={onPreviewFormatChange}
+            format={imageFormat}
+            onFormatChange={onImageFormatChange}
             onDownload={onPreviewDownload}
             onCopyToClipboard={onPreviewCopy}
             onAnnotate={onPreviewAnnotate}

@@ -131,6 +131,8 @@ export const WorkspaceShell = () =>
                     toolbarPosition={toolbarPosition}
                     exportStatus={exportActions.exportStatus}
                     exportingAll={exportActions.exportAllProgress !== null}
+                    imageFormat={exportActions.imageFormat}
+                    onImageFormatChange={exportActions.setImageFormat}
                     onAddTier={handleAddTier}
                     onOpenSettings={handleOpenSettings}
                     onOpenStats={handleOpenStats}
@@ -157,8 +159,8 @@ export const WorkspaceShell = () =>
           modalStack={modalStack}
           exportStatus={exportActions.exportStatus}
           exportAllProgress={exportActions.exportAllProgress}
-          previewFormat={exportActions.previewFormat}
-          onPreviewFormatChange={exportActions.setPreviewFormat}
+          imageFormat={exportActions.imageFormat}
+          onImageFormatChange={exportActions.setImageFormat}
           onPreviewDownload={exportActions.handlePreviewDownload}
           onPreviewCopy={exportActions.handlePreviewCopy}
           onPreviewAnnotate={exportActions.handlePreviewAnnotate}

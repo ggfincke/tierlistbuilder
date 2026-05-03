@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
+import type { ExportStatus } from '~/features/workspace/export/model/useExportController'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'
 import { extractPresetFromBoard } from '~/features/workspace/tier-presets/model/tierPresets'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
@@ -58,8 +59,10 @@ const SHUFFLE_MENU_DEFINITIONS: readonly NestedMenuDefinition<ShuffleMenuId>[] =
 interface BoardActionBarProps
 {
   toolbarPosition: ToolbarPosition
-  exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
+  exportStatus: ExportStatus
   exportingAll: boolean
+  imageFormat: ImageFormat
+  onImageFormatChange: (format: ImageFormat) => void
   onAddTier: () => void
   onOpenSettings: () => void
   onOpenStats: () => void
@@ -77,6 +80,8 @@ export const BoardActionBar = ({
   toolbarPosition,
   exportStatus,
   exportingAll,
+  imageFormat,
+  onImageFormatChange,
   onAddTier,
   onOpenSettings,
   onOpenStats,
@@ -308,6 +313,8 @@ export const BoardActionBar = ({
             menuPos={menuPos}
             exportStatus={exportStatus}
             exportingAll={exportingAll}
+            imageFormat={imageFormat}
+            onImageFormatChange={onImageFormatChange}
             onExport={onExport}
             onCopyToClipboard={onCopyToClipboard}
             onExportAll={onExportAll}

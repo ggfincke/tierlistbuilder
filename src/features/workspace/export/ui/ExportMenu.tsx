@@ -1,7 +1,7 @@
 // src/features/workspace/export/ui/ExportMenu.tsx
 // export dropdown backed by a shared nested-menu tree for export actions
 
-import { useId, useMemo, useRef, useState } from 'react'
+import { useId, useMemo, useRef } from 'react'
 import {
   Check,
   ChevronRight,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 
 import type { ImageFormat } from '../model/runtime'
+import type { ExportStatus } from '../model/useExportController'
 import type { MenuPositionClasses } from '~/shared/layout/toolbarPosition'
 import { formatError } from '~/shared/lib/errors'
 import {
@@ -41,8 +42,8 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { exportBoardAsJson } from '~/features/workspace/export/lib/exportJson'
 import { parseBoardsJson } from '~/shared/board-data/boardJson'
 import {
-  FORMAT_LABELS,
   IMAGE_FORMATS,
+  IMAGE_FORMAT_META,
 } from '~/features/workspace/export/lib/constants'
 import { ActionButton } from '~/shared/ui/ActionButton'
 import {
@@ -63,8 +64,10 @@ const EXPORT_MENU_DEFINITIONS: readonly NestedMenuDefinition<ExportMenuId>[] = [
 interface ExportMenuProps
 {
   menuPos: MenuPositionClasses
-  exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
+  exportStatus: ExportStatus
   exportingAll: boolean
+  imageFormat: ImageFormat
+  onImageFormatChange: (format: ImageFormat) => void
   onExport: (format: ImageFormat | 'pdf') => Promise<void>
   onCopyToClipboard: () => Promise<void>
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
@@ -91,10 +94,48 @@ const preloadBulkExport = () =>
   preloadZipLib()
 }
 
+// Export-All submenu rows — each row carries its own preloader so we don't
+// re-derive it from a `format === 'json' ? … : format === 'pdf' ? …` ladder
+// at every render
+interface ExportAllRow
+{
+  key: string
+  format: 'json' | 'pdf' | ImageFormat
+  Icon: typeof FileDown
+  preload?: () => void
+  buildLabel: (imageFormat: ImageFormat) => string
+}
+
+const EXPORT_ALL_ROWS: readonly ExportAllRow[] = [
+  {
+    key: 'json',
+    format: 'json',
+    Icon: FileDown,
+    buildLabel: () => 'All as JSON',
+  },
+  {
+    key: 'pdf',
+    format: 'pdf',
+    Icon: FileDown,
+    preload: preloadPdfExport,
+    buildLabel: () => 'All as PDF',
+  },
+  {
+    key: 'images',
+    // resolved at click time so the row tracks the current image-format pick
+    format: 'png',
+    Icon: Download,
+    preload: preloadImageZipExport,
+    buildLabel: (fmt) => `All as ${IMAGE_FORMAT_META[fmt].label} (ZIP)`,
+  },
+]
+
 export const ExportMenu = ({
   menuPos,
   exportStatus,
   exportingAll,
+  imageFormat,
+  onImageFormatChange,
   onExport,
   onCopyToClipboard,
   onExportAll,
@@ -109,7 +150,6 @@ export const ExportMenu = ({
   const title = useActiveBoardStore((state) => state.title)
   const setRuntimeError = useActiveBoardStore((state) => state.setRuntimeError)
 
-  const [imageFormat, setImageFormat] = useState<ImageFormat>('png')
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const jsonInputRef = useRef<HTMLInputElement | null>(null)
@@ -308,7 +348,7 @@ export const ExportMenu = ({
                       className={`${showFormatMenu ? 'bg-[rgb(var(--t-overlay)/0.06)]' : ''} group justify-between gap-4`}
                       onClick={() => toggleMenu('format')}
                     >
-                      {FORMAT_LABELS[imageFormat]}
+                      {IMAGE_FORMAT_META[imageFormat].label}
                       <ChevronRight
                         className={`h-3.5 w-3.5 text-[var(--t-text-faint)] transition-colors group-hover:text-[var(--t-text-secondary)] ${menuPos.chevronClass}`}
                       />
@@ -327,7 +367,7 @@ export const ExportMenu = ({
                             key={fmt}
                             onClick={() =>
                             {
-                              setImageFormat(fmt)
+                              onImageFormatChange(fmt)
                               closeMenu('format')
                             }}
                           >
@@ -336,7 +376,7 @@ export const ExportMenu = ({
                             ) : (
                               <span className="h-3.5 w-3.5 shrink-0" />
                             )}
-                            {FORMAT_LABELS[fmt]}
+                            {IMAGE_FORMAT_META[fmt].label}
                           </OverlayMenuItem>
                         ))}
                       </OverlayMenuSurface>
@@ -420,49 +460,27 @@ export const ExportMenu = ({
                       aria-label="Export all options"
                       className={`${menuPos.sub} text-sm shadow-md shadow-black/30 ${menuPos.subBridge}`}
                     >
-                      {[
-                        {
-                          format: 'json' as const,
-                          Icon: FileDown,
-                          label: 'All as JSON',
-                        },
-                        {
-                          format: 'pdf' as const,
-                          Icon: FileDown,
-                          label: 'All as PDF',
-                        },
-                        {
-                          format: imageFormat,
-                          Icon: Download,
-                          label: `All as ${FORMAT_LABELS[imageFormat]} (ZIP)`,
-                        },
-                      ].map(({ format, Icon, label }) => (
-                        <OverlayMenuItem
-                          key={format}
-                          onFocus={
-                            format === 'json'
-                              ? undefined
-                              : format === 'pdf'
-                                ? preloadPdfExport
-                                : preloadImageZipExport
-                          }
-                          onPointerEnter={
-                            format === 'json'
-                              ? undefined
-                              : format === 'pdf'
-                                ? preloadPdfExport
-                                : preloadImageZipExport
-                          }
-                          onClick={() =>
-                          {
-                            closeAllMenus()
-                            void onExportAll(format)
-                          }}
-                        >
-                          <Icon className="h-3.5 w-3.5 shrink-0" />
-                          {label}
-                        </OverlayMenuItem>
-                      ))}
+                      {EXPORT_ALL_ROWS.map(
+                        ({ key, format, Icon, preload, buildLabel }) => (
+                          <OverlayMenuItem
+                            key={key}
+                            onFocus={preload}
+                            onPointerEnter={preload}
+                            onClick={() =>
+                            {
+                              closeAllMenus()
+                              // for the image-zip row, route through the
+                              // user's currently picked image format
+                              const resolved =
+                                key === 'images' ? imageFormat : format
+                              void onExportAll(resolved)
+                            }}
+                          >
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                            {buildLabel(imageFormat)}
+                          </OverlayMenuItem>
+                        )
+                      )}
                     </OverlayMenuSurface>
                   )}
                 </div>
