@@ -1,7 +1,7 @@
 // src/features/workspace/imageEditor/model/useImageEditorAutoCropAll.ts
 // bulk auto-crop state for the image editor modal
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
@@ -10,10 +10,10 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   areCachedAutoCropsApplied,
-  collectAutoCropTransforms,
   getAutoCropImageRef,
 } from '~/shared/lib/autoCrop'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
+import { useCollectAutoCropTransformsRunner } from '~/shared/lib/useCollectAutoCropTransformsRunner'
 import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
 import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
 
@@ -34,99 +34,43 @@ export const useImageEditorAutoCropAll = ({
   setItemsTransform,
 }: UseImageEditorAutoCropAllInput) =>
 {
-  const [autoCropProgress, setAutoCropProgress] = useState<{
-    running: boolean
-    done: number
-    total: number
-  }>({ running: false, done: 0, total: 0 })
-  const autoCropCacheVersion = useAutoCropCacheVersion()
-  const abortRef = useRef<AbortController | null>(null)
+  useAutoCropCacheVersion()
+  const { progress: autoCropProgress, run: runAutoCropTransforms } =
+    useCollectAutoCropTransformsRunner()
 
-  useEffect(
-    () => () =>
-    {
-      abortRef.current?.abort()
-    },
-    []
+  const filteredAutoCropTargets = useMemo(
+    () => filteredItems.filter((it) => !!getAutoCropImageRef(it)),
+    [filteredItems]
   )
 
   const handleAutoCropAll = useCallback(
     async (sourceItems: readonly TierItem[] = filteredItems) =>
     {
-      const targets = sourceItems.filter((it) => !!getAutoCropImageRef(it))
+      const targets =
+        sourceItems === filteredItems
+          ? filteredAutoCropTargets
+          : sourceItems.filter((it) => !!getAutoCropImageRef(it))
       if (targets.length === 0) return
-      abortRef.current?.abort()
-      const controller = new AbortController()
-      abortRef.current = controller
-      setAutoCropProgress({ running: true, done: 0, total: targets.length })
-      try
-      {
-        const entries = await collectAutoCropTransforms({
-          targets,
-          boardAspectRatio,
-          trimSoftShadows,
-          signal: controller.signal,
-          onProgress: () =>
-            setAutoCropProgress((p) =>
-              p.running ? { ...p, done: p.done + 1 } : p
-            ),
-        })
-        if (controller.signal.aborted) return
-        if (entries.length > 0) setItemsTransform(entries)
-      }
-      catch (err)
-      {
-        if (!(err instanceof DOMException && err.name === 'AbortError'))
-          throw err
-      }
-      finally
-      {
-        if (abortRef.current === controller) abortRef.current = null
-        setAutoCropProgress({ running: false, done: 0, total: 0 })
-      }
+      const entries = await runAutoCropTransforms({
+        targets,
+        boardAspectRatio,
+        trimSoftShadows,
+      })
+      if (entries?.length) setItemsTransform(entries)
     },
-    [trimSoftShadows, filteredItems, boardAspectRatio, setItemsTransform]
+    [
+      boardAspectRatio,
+      filteredAutoCropTargets,
+      filteredItems,
+      runAutoCropTransforms,
+      setItemsTransform,
+      trimSoftShadows,
+    ]
   )
 
-  // autoCropCacheVersion is referenced via `void` so the version bump retriggers
-  // the memo even though the variable isn't used in the body
-  const autoCropAllApplied = useMemo(() =>
-  {
-    void autoCropCacheVersion
-    if (autoCropProgress.running) return false
-    return areCachedAutoCropsApplied(
-      filteredItems,
-      boardAspectRatio,
-      trimSoftShadows
-    )
-  }, [
-    autoCropCacheVersion,
-    autoCropProgress.running,
-    boardAspectRatio,
-    filteredItems,
-    trimSoftShadows,
-  ])
-
-  const manuallyAdjustedTargets = useMemo(() =>
-  {
-    void autoCropCacheVersion
-    // bulk auto-crop emits a cache bump per processed item; recomputing the
-    // O(N) filter on every bump turns the run into O(N^2) in `filteredItems`.
-    // skip while running — the post-batch re-run gives the final answer
-    if (autoCropProgress.running) return []
-    return filteredItems.filter(
-      (it) =>
-        !!it.transform &&
-        !isIdentityTransform(it.transform) &&
-        !areCachedAutoCropsApplied([it], boardAspectRatio, trimSoftShadows)
-    )
-  }, [
-    autoCropCacheVersion,
-    autoCropProgress.running,
-    boardAspectRatio,
-    filteredItems,
-    trimSoftShadows,
-  ])
+  const autoCropAllApplied =
+    !autoCropProgress.running &&
+    areCachedAutoCropsApplied(filteredItems, boardAspectRatio, trimSoftShadows)
 
   const getPendingManualTarget = useCallback(
     (pendingEdit: PendingImageEditorPaneEdit | null): TierItem | null =>
@@ -152,6 +96,18 @@ export const useImageEditorAutoCropAll = ({
   const getManualAdjustmentCount = useCallback(
     (pendingEdit: PendingImageEditorPaneEdit | null): number =>
     {
+      const manuallyAdjustedTargets = autoCropProgress.running
+        ? []
+        : filteredItems.filter(
+            (it) =>
+              !!it.transform &&
+              !isIdentityTransform(it.transform) &&
+              !areCachedAutoCropsApplied(
+                [it],
+                boardAspectRatio,
+                trimSoftShadows
+              )
+          )
       const pendingTarget = getPendingManualTarget(pendingEdit)
       if (
         !pendingTarget ||
@@ -162,7 +118,13 @@ export const useImageEditorAutoCropAll = ({
       }
       return manuallyAdjustedTargets.length + 1
     },
-    [getPendingManualTarget, manuallyAdjustedTargets]
+    [
+      autoCropProgress.running,
+      boardAspectRatio,
+      filteredItems,
+      getPendingManualTarget,
+      trimSoftShadows,
+    ]
   )
 
   return {

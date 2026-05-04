@@ -15,6 +15,7 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { warmImageHashes } from '~/shared/images/imageBlobCache'
+import { useAbortControllerHandle } from '~/shared/hooks/useAbortControllerHandle'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import {
   detectContentBBox,
@@ -23,6 +24,7 @@ import {
   loadAutoCropBlob,
   resolveAutoCropTransform,
 } from '~/shared/lib/autoCrop'
+import { isAbortError } from '~/shared/lib/errors'
 import { isSameItemTransform } from '~/shared/lib/imageTransform'
 import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
 import type { ImageEditorTransformDraftSetter } from './useImageEditorTransformDraft'
@@ -79,7 +81,7 @@ export const useImageEditorAutoCropItem = ({
 {
   const [autoCropping, setAutoCropping] = useState(false)
   const mountedRef = useRef(true)
-  const autoCropAbortRef = useRef<AbortController | null>(null)
+  const autoCropAbort = useAbortControllerHandle()
   const workingRotationRef = useRef(working.rotation)
   const autoCropHash = getAutoCropImageRef(item)?.hash
   const autoCropUrl = useImageUrl(autoCropHash)
@@ -93,7 +95,6 @@ export const useImageEditorAutoCropItem = ({
     () => () =>
     {
       mountedRef.current = false
-      autoCropAbortRef.current?.abort()
     },
     []
   )
@@ -125,9 +126,7 @@ export const useImageEditorAutoCropItem = ({
   const autoCrop = useCallback(async () =>
   {
     if (!autoCropHash || autoCropping) return
-    autoCropAbortRef.current?.abort()
-    const controller = new AbortController()
-    autoCropAbortRef.current = controller
+    const controller = autoCropAbort.begin()
     setAutoCropping(true)
     try
     {
@@ -139,12 +138,13 @@ export const useImageEditorAutoCropItem = ({
           controller.signal
         )
         if (!record) return
-        bbox = await detectContentBBox(
+        const result = await detectContentBBox(
           record.bytes,
           autoCropHash,
           trimSoftShadows,
           controller.signal
         )
+        bbox = result.bbox
       }
       if (!bbox || !mountedRef.current || controller.signal.aborted) return
       setWorkingDraft(
@@ -158,14 +158,11 @@ export const useImageEditorAutoCropItem = ({
     }
     catch (err)
     {
-      if (!(err instanceof DOMException && err.name === 'AbortError')) throw err
+      if (!isAbortError(err)) throw err
     }
     finally
     {
-      if (autoCropAbortRef.current === controller)
-      {
-        autoCropAbortRef.current = null
-      }
+      autoCropAbort.clear(controller)
       if (mountedRef.current) setAutoCropping(false)
     }
   }, [
@@ -175,6 +172,7 @@ export const useImageEditorAutoCropItem = ({
     item,
     frameAspectRatio,
     setWorkingDraft,
+    autoCropAbort,
   ])
 
   const status = resolveAutoCropStatus({

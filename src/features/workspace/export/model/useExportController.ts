@@ -36,12 +36,7 @@ const FALLBACK_CLIPBOARD_ERROR = 'Failed to copy to clipboard.'
 // status of an in-flight export — UI uses this for spinners & disabled states.
 // 'render' covers preview & annotate flows that produce a data URL but don't
 // download a file
-export type ExportStatus =
-  | ImageFormat
-  | 'pdf'
-  | 'clipboard'
-  | 'render'
-  | null
+export type ExportStatus = ImageFormat | 'pdf' | 'clipboard' | 'render' | null
 
 const getExportBackgroundColor = () =>
 {
@@ -77,7 +72,7 @@ export const useExportController = () =>
   // returns undefined if the lock was already held or the action threw —
   // callers can use the truthy/falsy result to gate follow-up UI work
   const guardExport = useCallback(
-    async <T,>(
+    async <T>(
       status: Exclude<ExportStatus, null>,
       fallbackMessage: string,
       action: () => Promise<T>
@@ -113,32 +108,29 @@ export const useExportController = () =>
 
   // render the active board to a PNG data URL via a hidden export session —
   // shared between preview & annotate flows
-  const renderBoardToDataUrl = useCallback(
-    async (): Promise<string | null> =>
-    {
-      const result = await guardExport(
-        'render',
-        FALLBACK_EXPORT_ERROR,
-        async () =>
-        {
-          const bgColor = getExportBackgroundColor()
-          const appearance = getCurrentExportAppearance()
-          const data = extractBoardData(useActiveBoardStore.getState())
+  const renderBoardToDataUrl = useCallback(async (): Promise<string | null> =>
+  {
+    const result = await guardExport(
+      'render',
+      FALLBACK_EXPORT_ERROR,
+      async () =>
+      {
+        const bgColor = getExportBackgroundColor()
+        const appearance = getCurrentExportAppearance()
+        const data = extractBoardData(useActiveBoardStore.getState())
 
-          return await withExportSession(
-            { appearance, backgroundColor: bgColor },
-            async (session) =>
-            {
-              const element = await session.renderBoard(data)
-              return renderToDataUrl(element, 'png', bgColor)
-            }
-          )
-        }
-      )
-      return result ?? null
-    },
-    [guardExport]
-  )
+        return await withExportSession(
+          { appearance, backgroundColor: bgColor },
+          async (session) =>
+          {
+            const element = await session.renderBoard(data)
+            return renderToDataUrl(element, 'png', bgColor)
+          }
+        )
+      }
+    )
+    return result ?? null
+  }, [guardExport])
 
   const runExport = useCallback(
     (type: ImageFormat | 'pdf') =>

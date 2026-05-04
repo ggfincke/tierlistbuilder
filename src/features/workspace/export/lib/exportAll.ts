@@ -192,22 +192,19 @@ export const exportAllBoardsAsImages = async (
   const ext = IMAGE_FORMAT_META[format].ext
   const usedNames = new Set<string>()
 
-  await withExportSession(
-    { appearance, backgroundColor },
-    async (session) =>
+  await withExportSession({ appearance, backgroundColor }, async (session) =>
+  {
+    for (let i = 0; i < allBoards.length; i++)
     {
-      for (let i = 0; i < allBoards.length; i++)
-      {
-        const board = allBoards[i]
-        const element = await session.renderBoard(board.data)
-        const blob = await renderToBlob(element, format, backgroundColor)
-        const base = claimUniqueBase(board.title, usedNames)
+      const board = allBoards[i]
+      const element = await session.renderBoard(board.data)
+      const blob = await renderToBlob(element, format, backgroundColor)
+      const base = claimUniqueBase(board.title, usedNames)
 
-        zip.file(`${base}.${ext}`, blob)
-        onProgress?.(i + 1, allBoards.length)
-      }
+      zip.file(`${base}.${ext}`, blob)
+      onProgress?.(i + 1, allBoards.length)
     }
-  )
+  })
 
   const zipBlob = await zip.generateAsync({ type: 'blob' })
   downloadBlob(zipBlob, 'all-tier-lists.zip')

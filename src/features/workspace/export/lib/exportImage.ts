@@ -82,9 +82,7 @@ export const renderToBlob = async (
   {
     canvas.toBlob(
       (b) =>
-        b
-          ? resolve(b)
-          : reject(new Error(`Failed to render ${format} image.`)),
+        b ? resolve(b) : reject(new Error(`Failed to render ${format} image.`)),
       mime,
       IMAGE_QUALITY
     )

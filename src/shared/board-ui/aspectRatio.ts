@@ -190,20 +190,6 @@ export const computeAutoBoardAspectRatio = (
   return normalizeBoardItemAspectRatio(ratio) ?? null
 }
 
-// resolve clean W:H strings for the custom inputs; prefers a matching preset's
-// integer pair over a decimal ratio so users see "3:4" rather than "0.75:1"
-export const resolveCustomRatioSeed = (
-  ratio: number
-): { width: string; height: string } =>
-{
-  const match = findMatchingPreset(ratio)
-  if (match)
-  {
-    return { width: String(match.width), height: String(match.height) }
-  }
-  return { width: formatCustomRatioDim(ratio), height: '1' }
-}
-
 // pick the RatioOption that matches the current board state — 'Auto' when in
 // auto mode, a preset when the value matches, else 'Custom'
 export const ratioOptionForBoard = (

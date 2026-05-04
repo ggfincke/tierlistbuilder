@@ -281,17 +281,15 @@ const ALPHA_SOFT_EDGE_MAX_FRACTION = 0.02
 const ALPHA_SOLID_AREA_MIN_RATIO = 0.5
 
 // fraction of total pixels w/ alpha < threshold required to switch from
-// color-based to alpha-based detection. images w/ a few stray transparent
-// pixels (jpeg-to-png conversions, lossy edges) shouldn't fool the picker
+// color-based to alpha-based detection. stray transparent pixels
+// (jpeg-to-png conversions, lossy edges) shouldn't fool the picker
 const ALPHA_PRESENCE_FRACTION = 0.005
 
-// sample size (in px on the analysis canvas) for each corner patch when
-// inferring the background color of an opaque image
+// sample size for each corner patch when inferring opaque-image background
 const CORNER_PATCH_SIZE = 5
 
-// squared-RGB Euclidean distance threshold for a pixel to count as content
-// vs background in color-based detection. tuned for the common case of a
-// near-uniform background w/ moderate jpeg compression noise
+// squared-RGB distance threshold for content vs background; tuned for
+// near-uniform backgrounds w/ moderate jpeg compression noise
 const COLOR_CONTENT_DISTANCE_SQ = 32 * 32
 
 // minimum bbox area (as a fraction of image area) for the result to be
@@ -335,7 +333,7 @@ interface PixelBBox
 export interface AutoCropScan
 {
   soft: PixelBBox
-  // populated only in alpha mode; null in corner-color mode (no solid pass)
+  // populated only in alpha mode; null in corner-color mode
   solid: PixelBBox | null
   width: number
   height: number
@@ -460,8 +458,8 @@ const scanCornerColor = (pixels: AutoCropPixelData): AutoCropScan | null =>
       height - CORNER_PATCH_SIZE
     ),
   ]
-  // pick the modal background by clustering the 4 corners; if 3+ agree,
-  // their average wins. otherwise fall back to the median of all 4
+  // pick modal background by clustering 4 corners; if 3+ agree, average wins.
+  // otherwise fall back to median of all 4
   const bg = pickBackgroundColor(corners)
   let minX = width
   let minY = height

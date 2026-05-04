@@ -6,6 +6,7 @@ import { Check, Share2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getTemplateDetailPath } from '~/shared/routes/pathname'
+import { isAbortError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
 
 interface ShareTemplateButtonProps
@@ -104,10 +105,7 @@ export const ShareTemplateButton = ({
       catch (error)
       {
         // user cancelled — `AbortError` is expected & should not surface a toast
-        if (error instanceof DOMException && error.name === 'AbortError')
-        {
-          return
-        }
+        if (isAbortError(error)) return
         // any other share failure: drop down to clipboard copy
       }
     }
