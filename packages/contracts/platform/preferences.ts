@@ -30,7 +30,7 @@ export type TierLabelFontSize = (typeof TIER_LABEL_FONT_SIZES)[number]
 export const TOOLBAR_POSITIONS = ['top', 'bottom', 'left', 'right'] as const
 export type ToolbarPosition = (typeof TOOLBAR_POSITIONS)[number]
 
-export const EXPORT_ITEMS_PER_ROW_MIN = 4
+export const EXPORT_ITEMS_PER_ROW_MIN = 3
 export const EXPORT_ITEMS_PER_ROW_MAX = 20
 export const EXPORT_ITEMS_PER_ROW_DEFAULT = 10
 
