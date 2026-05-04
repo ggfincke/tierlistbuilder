@@ -6,12 +6,15 @@ import type {
   AppPreferences,
   CloudPreferencesRead,
 } from '@tierlistbuilder/contracts/platform/preferences'
-import { convexClient } from '~/features/platform/sync/lib/convexClient'
+import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 
 // imperative one-shot fetch for the cloud merge flow & resume helpers
 export const getMyPreferencesImperative =
   (): Promise<CloudPreferencesRead | null> =>
-    convexClient.query(api.platform.preferences.queries.getMyPreferences, {})
+    getConvexClient().query(
+      api.platform.preferences.queries.getMyPreferences,
+      {}
+    )
 
 // imperative whole-document upsert. preferences are last-write-wins (no
 // revision check) — concurrent edits resolve to whichever debounced flush
@@ -19,7 +22,7 @@ export const getMyPreferencesImperative =
 export const upsertMyPreferencesImperative = (args: {
   preferences: AppPreferences
 }): Promise<{ updatedAt: number }> =>
-  convexClient.mutation(
+  getConvexClient().mutation(
     api.platform.preferences.mutations.upsertMyPreferences,
     args
   )

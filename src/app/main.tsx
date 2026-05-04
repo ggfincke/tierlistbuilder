@@ -6,8 +6,10 @@ import { createRoot } from 'react-dom/client'
 import { ConvexAuthProvider } from '@convex-dev/auth/react'
 import './index.css'
 import App from './App.tsx'
-import { convexClient } from '~/features/platform/sync/lib/convexClient'
+import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
+
+const convexClient = getConvexClient()
 
 // mount app into DOM root
 // outer boundary catches provider bootstrap; inner boundary resets UI failures

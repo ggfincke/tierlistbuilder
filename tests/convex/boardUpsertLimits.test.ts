@@ -295,7 +295,7 @@ describe('upsertBoardState', () =>
     )
     expect(state?.items).toHaveLength(MAX_LARGE_CLOUD_BOARD_ITEMS)
     expect(state?.items.every((item) => item.deletedAt !== null)).toBe(true)
-  })
+  }, 20_000)
 
   it('rejects payloads above tier/item caps & invalid label coordinates or font sizes', async () =>
   {

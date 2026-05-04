@@ -1,7 +1,7 @@
 // src/features/platform/media/imageFetcher.ts
 // registers the Convex-backed cloud image batch fetcher into the shared image cache
 
-import { convexClient } from '~/features/platform/sync/lib/convexClient'
+import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 import { api } from '@convex/_generated/api'
 import { putBlob } from '~/shared/images/imageStore'
 import {
@@ -91,7 +91,7 @@ const fetchBatchFromCloud = async (
 
   try
   {
-    lookups = await convexClient.query(
+    lookups = await getConvexClient().query(
       api.platform.media.queries.getMediaAssetsByExternalIds,
       {
         media: requests.map((r) => ({

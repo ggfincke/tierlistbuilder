@@ -3,7 +3,7 @@
 
 import { api } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
-import { convexClient } from '~/features/platform/sync/lib/convexClient'
+import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 
@@ -31,14 +31,17 @@ export interface UploadedVariant
 export const generateUploadUrlsImperative = (
   count: number
 ): Promise<UploadUrlsResult> =>
-  convexClient.mutation(api.platform.media.uploads.generateUploadUrls, {
+  getConvexClient().mutation(api.platform.media.uploads.generateUploadUrls, {
     count,
   })
 
 export const finalizeUploadVariantsImperative = (args: {
   variants: UploadedVariant[]
 }) =>
-  convexClient.action(api.platform.media.uploads.finalizeUploadVariants, args)
+  getConvexClient().action(
+    api.platform.media.uploads.finalizeUploadVariants,
+    args
+  )
 
 // POST a blob to a pre-signed upload URL w/ the upload-token envelope header
 // prepended. shared by every variant-upload caller (cover + board image)
