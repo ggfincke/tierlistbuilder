@@ -1,15 +1,15 @@
 // src/features/library/components/BoardListTable.tsx
 // dense table-style list view for the My Lists page
 
+import { memo } from 'react'
 import { Pin } from 'lucide-react'
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 
-import { formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
 import { Cover } from './Cover'
 import { StatusPill } from './StatusPill'
 import { TierBar } from './TierBar'
-import { VisibilityChip } from './VisibilityChip'
 
 interface BoardListRowProps
 {
@@ -20,9 +20,9 @@ interface BoardListRowProps
 
 // shared grid template — keeps header columns aligned w/ row columns
 const COLUMN_TEMPLATE =
-  'minmax(56px, 56px) minmax(0, 2.6fr) minmax(120px, 1.6fr) 110px 96px 90px'
+  'minmax(56px, 56px) minmax(0, 2.6fr) minmax(120px, 1.6fr) 110px 90px'
 
-const BoardListRow = ({ board, onOpen, isPending }: BoardListRowProps) =>
+const BoardListRow = memo(({ board, onOpen, isPending }: BoardListRowProps) =>
 {
   const isDraft = board.status === 'draft'
 
@@ -67,13 +67,12 @@ const BoardListRow = ({ board, onOpen, isPending }: BoardListRowProps) =>
           </h4>
         </div>
         <p className="mt-0.5 truncate text-[11px] text-[var(--t-text-muted)]">
-          {board.activeItemCount}{' '}
-          {board.activeItemCount === 1 ? 'item' : 'items'}
+          {board.activeItemCount} {pluralize(board.activeItemCount, 'item')}
           {board.tierColors.length > 0 && (
             <>
               {' · '}
               {board.tierColors.length}{' '}
-              {board.tierColors.length === 1 ? 'tier' : 'tiers'}
+              {pluralize(board.tierColors.length, 'tier')}
             </>
           )}
         </p>
@@ -84,15 +83,13 @@ const BoardListRow = ({ board, onOpen, isPending }: BoardListRowProps) =>
       <div>
         <StatusPill status={board.status} />
       </div>
-      <div>
-        <VisibilityChip visibility={board.visibility} />
-      </div>
       <div className="text-right text-[11px] tabular-nums text-[var(--t-text-faint)]">
         {formatRelativeTime(board.updatedAt)}
       </div>
     </button>
   )
-}
+})
+BoardListRow.displayName = 'BoardListRow'
 
 interface BoardListTableProps
 {
@@ -120,7 +117,6 @@ export const BoardListTable = ({
       <div role="columnheader">List</div>
       <div role="columnheader">Progress</div>
       <div role="columnheader">Status</div>
-      <div role="columnheader">Visibility</div>
       <div role="columnheader" className="text-right">
         Updated
       </div>

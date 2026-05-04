@@ -101,15 +101,20 @@ const validateItemEntry = (id: string, item: unknown): string | null =>
     return `Item "${id}" is not a valid object.`
   }
 
+  const isHashedRef = (value: unknown): boolean =>
+    isRecord(value) && isNonEmptyString(value.hash)
+
   const hasImageUrl = isNonEmptyString(item.imageUrl)
   const hasImageRef =
-    isRecord(item.imageRef) && isNonEmptyString(item.imageRef.hash)
+    isHashedRef(item.imageRef) ||
+    isHashedRef(item.tileImageRef) ||
+    isHashedRef(item.sourceImageRef)
   const hasLabel = isNonEmptyString(item.label)
   const hasBgColor = isNonEmptyString(item.backgroundColor)
 
   if (itemUsesLocalImageRef(item))
   {
-    return `Item "${id}" uses a local imageRef without inline imageUrl bytes. Re-export the board as JSON from a build that embeds images.`
+    return `Item "${id}" uses a local image ref without inline imageUrl bytes. Re-export the board as JSON from a build that embeds images.`
   }
 
   if (!hasImageUrl && !hasImageRef && !hasLabel && !hasBgColor)

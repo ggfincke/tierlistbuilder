@@ -2,11 +2,24 @@
 // pure helpers for the My Lists status filter & sort options
 
 import {
+  LIBRARY_BOARD_FILTERS,
   computeLibraryBoardProgress,
   type LibraryBoardFilter,
   type LibraryBoardListItem,
   type LibraryBoardSort,
 } from '@tierlistbuilder/contracts/workspace/board'
+
+// transient cloud-clone states ('syncing'/'failed') are derived statuses, not
+// persistent rows the user filters by; hide their chips alongside 'published'
+const HIDDEN_FILTERS: ReadonlySet<LibraryBoardFilter> = new Set([
+  'published',
+  'syncing',
+  'failed',
+])
+
+export const VISIBLE_LIBRARY_BOARD_FILTERS = LIBRARY_BOARD_FILTERS.filter(
+  (filter) => !HIDDEN_FILTERS.has(filter)
+)
 
 export const filterLibraryBoards = (
   rows: readonly LibraryBoardListItem[],

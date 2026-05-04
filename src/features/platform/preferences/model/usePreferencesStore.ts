@@ -4,6 +4,10 @@
 import { create } from 'zustand'
 import { persist, subscribeWithSelector } from 'zustand/middleware'
 
+import {
+  EXPORT_ITEMS_PER_ROW_DEFAULT,
+  normalizeExportItemsPerRow,
+} from '@tierlistbuilder/contracts/platform/preferences'
 import type {
   AppPreferences,
   ItemShape,
@@ -12,6 +16,7 @@ import type {
   TierLabelFontSize,
   ToolbarPosition,
 } from '@tierlistbuilder/contracts/platform/preferences'
+import type { LabelPlacementMode } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   PaletteId,
   TextStyleId,
@@ -27,9 +32,11 @@ import {
 export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   itemSize: 'medium',
   showLabels: false,
+  defaultLabelPlacementMode: 'overlay',
   itemShape: 'square',
   compactMode: false,
   exportBackgroundOverride: null,
+  exportItemsPerRow: EXPORT_ITEMS_PER_ROW_DEFAULT,
   boardBackgroundOverride: null,
   labelWidth: 'default',
   hideRowControls: false,
@@ -65,9 +72,11 @@ interface PreferencesStore extends AppPreferences, HighContrastTransitionState
 {
   setItemSize: (size: ItemSize) => void
   setShowLabels: (show: boolean) => void
+  setDefaultLabelPlacementMode: (mode: LabelPlacementMode) => void
   setItemShape: (shape: ItemShape) => void
   setCompactMode: (compact: boolean) => void
   setExportBackgroundOverride: (color: string | null) => void
+  setExportItemsPerRow: (count: number) => void
   setBoardBackgroundOverride: (color: string | null) => void
   setLabelWidth: (width: LabelWidth) => void
   setHideRowControls: (hide: boolean) => void
@@ -113,6 +122,11 @@ export const usePreferencesStore = create<PreferencesStore>()(
 
         setItemSize: createPreferenceSetter(set, get, 'itemSize'),
         setShowLabels: createPreferenceSetter(set, get, 'showLabels'),
+        setDefaultLabelPlacementMode: createPreferenceSetter(
+          set,
+          get,
+          'defaultLabelPlacementMode'
+        ),
         setItemShape: createPreferenceSetter(set, get, 'itemShape'),
         setCompactMode: createPreferenceSetter(set, get, 'compactMode'),
         setExportBackgroundOverride: createPreferenceSetter(
@@ -120,6 +134,12 @@ export const usePreferencesStore = create<PreferencesStore>()(
           get,
           'exportBackgroundOverride'
         ),
+        setExportItemsPerRow: (count) =>
+        {
+          const next = normalizeExportItemsPerRow(count)
+          if (get().exportItemsPerRow === next) return
+          set({ exportItemsPerRow: next })
+        },
         setBoardBackgroundOverride: createPreferenceSetter(
           set,
           get,

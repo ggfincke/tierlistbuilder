@@ -15,6 +15,7 @@ import {
 } from '@tierlistbuilder/contracts/platform/preferences'
 import { USER_PLANS } from '@tierlistbuilder/contracts/platform/user'
 import {
+  LABEL_PLACEMENT_MODES,
   LABEL_SCRIMS,
   LABEL_TEXT_COLORS,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -144,6 +145,7 @@ const itemShapeValidator = literalUnion(ITEM_SHAPES)
 const labelWidthValidator = literalUnion(LABEL_WIDTHS)
 const tierLabelFontSizeValidator = literalUnion(TIER_LABEL_FONT_SIZES)
 const toolbarPositionValidator = literalUnion(TOOLBAR_POSITIONS)
+const labelPlacementModeValidator = literalUnion(LABEL_PLACEMENT_MODES)
 export const userPlanValidator = literalUnion(USER_PLANS)
 export const templateCategoryValidator = literalUnion(TEMPLATE_CATEGORIES)
 export const templateListSortValidator = literalUnion(TEMPLATE_LIST_SORTS)
@@ -203,9 +205,11 @@ export const templateCardCoverItemValidator = v.object({
 export const appPreferencesValidator = v.object({
   itemSize: itemSizeValidator,
   showLabels: v.boolean(),
+  defaultLabelPlacementMode: labelPlacementModeValidator,
   itemShape: itemShapeValidator,
   compactMode: v.boolean(),
   exportBackgroundOverride: v.union(v.string(), v.null()),
+  exportItemsPerRow: v.number(),
   boardBackgroundOverride: v.union(v.string(), v.null()),
   labelWidth: labelWidthValidator,
   hideRowControls: v.boolean(),

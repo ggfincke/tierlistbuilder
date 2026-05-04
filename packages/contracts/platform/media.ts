@@ -1,5 +1,5 @@
 // packages/contracts/platform/media.ts
-// media upload contract — shared limits & MIME set between frontend uploader & Convex validators
+// media contract - shared variant names, size limits, & supported MIME types
 
 export const MEDIA_VARIANT_KINDS = ['tile', 'preview', 'editor'] as const
 

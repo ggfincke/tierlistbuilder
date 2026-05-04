@@ -8,10 +8,10 @@ import type {
   TierLabelFontSize,
 } from '@tierlistbuilder/contracts/platform/preferences'
 import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
-import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 
-// item long-edge size in pixels — the longer side of the slot is always
-// pinned here, & the shorter side is derived from the board's aspect ratio
+// reference edge for a 1:1 slot — also the geometric mean for non-square
+// ratios, so all aspect ratios occupy the same visual area as the square
 export const ITEM_LONG_EDGE_PX: Record<ItemSize, number> = {
   small: 64,
   medium: 104,
@@ -24,21 +24,21 @@ interface ItemSlotDimensions
   height: number
 }
 
-// derive the slot dimensions for a given item size & aspect ratio (w/h). the
-// longer side stays pinned to ITEM_LONG_EDGE_PX so "large" items are always
-// ~140px on their longest side regardless of orientation
+// derive the slot dimensions for a given item size & aspect ratio (w/h).
+// pin by area (square edge²) so 1:1 stays its reference size & non-square
+// ratios scale to the same visual mass — width = edge·√r, height = edge/√r
 export const itemSlotDimensions = (
   itemSize: ItemSize,
   aspectRatio = 1
 ): ItemSlotDimensions =>
 {
-  const longEdge = ITEM_LONG_EDGE_PX[itemSize]
-  const ratio = isPositiveFiniteNumber(aspectRatio) ? aspectRatio : 1
-  if (ratio >= 1)
-  {
-    return { width: longEdge, height: Math.round(longEdge / ratio) }
+  const edge = ITEM_LONG_EDGE_PX[itemSize]
+  const ratio = normalizeBoardItemAspectRatio(aspectRatio) ?? 1
+  const sqrtRatio = Math.sqrt(ratio)
+  return {
+    width: Math.round(edge * sqrtRatio),
+    height: Math.round(edge / sqrtRatio),
   }
-  return { width: Math.round(longEdge * ratio), height: longEdge }
 }
 
 // tier label column width presets in pixels

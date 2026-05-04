@@ -13,9 +13,11 @@ import {
   bucketValuesByAspectRatio,
   findMatchingPreset,
   majorityAspectRatio,
+  normalizeBoardItemAspectRatio,
   ratiosMatch,
   type AspectRatioPreset,
 } from '@tierlistbuilder/contracts/workspace/imageMath'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
 
 const DEFAULT_ITEM_ASPECT_RATIO = 1
@@ -59,6 +61,17 @@ export const isValidCustomDim = (value: string): boolean =>
   return isPositiveFiniteNumber(n)
 }
 
+export const parseCustomAspectRatio = (
+  width: string,
+  height: string
+): number | null =>
+{
+  const w = Number(width)
+  const h = Number(height)
+  if (!isPositiveFiniteNumber(w) || !isPositiveFiniteNumber(h)) return null
+  return normalizeBoardItemAspectRatio(w / h) ?? null
+}
+
 export const formatCustomRatioDim = (value: number, digits = 4): string =>
   value.toFixed(digits).replace(/\.?0+$/, '')
 
@@ -67,7 +80,7 @@ export const getBoardItemAspectRatio = (
 ): number =>
 {
   const value = board.itemAspectRatio
-  return isPositiveFiniteNumber(value) ? value : DEFAULT_ITEM_ASPECT_RATIO
+  return normalizeBoardItemAspectRatio(value) ?? DEFAULT_ITEM_ASPECT_RATIO
 }
 
 export const getBoardAspectRatioMode = (
@@ -80,7 +93,7 @@ export const getEffectiveImageFit = (
 ): ImageFit => item.imageFit ?? boardDefault ?? 'cover'
 
 // gather aspect ratios of every image item whose natural dimensions have
-// been captured — text items (no imageRef) are skipped
+// been captured; text items are skipped
 const collectItemAspectRatios = (
   board: Pick<BoardSnapshot, 'items'>
 ): number[] =>
@@ -88,7 +101,7 @@ const collectItemAspectRatios = (
   const result: number[] = []
   for (const item of Object.values(board.items))
   {
-    if (item.imageRef && isPositiveFiniteNumber(item.aspectRatio))
+    if (hasAnyImageRef(item) && isPositiveFiniteNumber(item.aspectRatio))
     {
       result.push(item.aspectRatio)
     }
@@ -96,15 +109,15 @@ const collectItemAspectRatios = (
   return result
 }
 
-// true when the item has a known ratio that doesn't match the board's; items
-// w/o an imageRef or a captured ratio return false (never appear as issues)
+// true when a known image ratio doesn't match the board's; items w/o image
+// bytes or a captured ratio return false so they never appear as issues
 export const itemHasAspectMismatch = (
   item: TierItem,
   boardRatio: number,
   tol = ASPECT_RATIO_TOLERANCE
 ): boolean =>
 {
-  if (!item.imageRef || !isPositiveFiniteNumber(item.aspectRatio))
+  if (!hasAnyImageRef(item) || !isPositiveFiniteNumber(item.aspectRatio))
   {
     return false
   }
@@ -173,21 +186,8 @@ export const computeAutoBoardAspectRatio = (
   board: Pick<BoardSnapshot, 'items'>
 ): number | null =>
 {
-  return majorityAspectRatio(collectItemAspectRatios(board))
-}
-
-// resolve clean W:H strings for the custom inputs; prefers a matching preset's
-// integer pair over a decimal ratio so users see "3:4" rather than "0.75:1"
-export const resolveCustomRatioSeed = (
-  ratio: number
-): { width: string; height: string } =>
-{
-  const match = findMatchingPreset(ratio)
-  if (match)
-  {
-    return { width: String(match.width), height: String(match.height) }
-  }
-  return { width: formatCustomRatioDim(ratio), height: '1' }
+  const ratio = majorityAspectRatio(collectItemAspectRatios(board))
+  return normalizeBoardItemAspectRatio(ratio) ?? null
 }
 
 // pick the RatioOption that matches the current board state — 'Auto' when in

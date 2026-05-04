@@ -26,17 +26,19 @@ export const SettingRow = ({ label, children }: SettingRowProps) =>
   const labelId = useId()
   const isRenderProp = typeof children === 'function'
   const resolved = isRenderProp ? children(labelId) : children
-  // auto-clone bare children that themselves accept ariaLabelledby; wrapped
-  // controls must use the function form so the caller threads labelId onto
-  // the actual labellable element rather than an unreachable wrapper div
-  const control =
-    !isRenderProp && isValidElement(resolved)
-      ? cloneElement(resolved as ReactElement<LabelAwareControlProps>, {
-          ariaLabelledby:
-            (resolved.props as LabelAwareControlProps).ariaLabelledby ??
-            labelId,
-        })
-      : resolved
+  // auto-clone only custom React components — native HTML elements treat
+  // the camelCase prop as invalid; consumers wrapping in a div should use
+  // the function form to thread labelId to the labellable element
+  const shouldAutoClone =
+    !isRenderProp &&
+    isValidElement(resolved) &&
+    typeof resolved.type !== 'string'
+  const control = shouldAutoClone
+    ? cloneElement(resolved as ReactElement<LabelAwareControlProps>, {
+        ariaLabelledby:
+          (resolved.props as LabelAwareControlProps).ariaLabelledby ?? labelId,
+      })
+    : resolved
 
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">

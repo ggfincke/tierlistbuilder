@@ -6,9 +6,11 @@ import type { AppPreferences } from '@tierlistbuilder/contracts/platform/prefere
 const APP_PREFERENCES_KEYS = [
   'itemSize',
   'showLabels',
+  'defaultLabelPlacementMode',
   'itemShape',
   'compactMode',
   'exportBackgroundOverride',
+  'exportItemsPerRow',
   'boardBackgroundOverride',
   'labelWidth',
   'hideRowControls',

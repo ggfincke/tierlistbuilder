@@ -1,5 +1,5 @@
 // tests/dnd/dragSnapshot.test.ts
-// drag snapshot transforms & container queries
+// drag snapshot container transforms
 
 import { describe, it, expect } from 'vitest'
 import {
@@ -20,16 +20,29 @@ import {
 
 describe('createContainerSnapshot', () =>
 {
-  it('captures tier & unranked ordering w/ a defensive copy', () =>
+  const buildState = () => ({
+    tiers: [
+      makeTier({
+        id: 'tier-t1',
+        name: 'S',
+        colorSpec: { kind: 'custom', hex: '#f00' },
+        itemIds: ids('a', 'b'),
+      }),
+    ],
+    unrankedItemIds: ids('c'),
+  })
+
+  it('captures tier & unranked item ordering', () =>
   {
-    const state = {
-      tiers: [makeTier({ id: 'tier-t1', itemIds: ids('a', 'b') })],
-      unrankedItemIds: ids('c'),
-    }
-    const snap = createContainerSnapshot(state)
+    const snap = createContainerSnapshot(buildState())
     expect(snap.tiers).toEqual([{ id: 'tier-t1', itemIds: ['a', 'b'] }])
     expect(snap.unrankedItemIds).toEqual(['c'])
+  })
 
+  it('produces a defensive copy so previews cannot bleed back into state', () =>
+  {
+    const state = buildState()
+    const snap = createContainerSnapshot(state)
     snap.tiers[0].itemIds.push(asItemId('mutated'))
     snap.unrankedItemIds.push(asItemId('mutated'))
     expect(state.tiers[0].itemIds).toEqual(['a', 'b'])
@@ -39,90 +52,133 @@ describe('createContainerSnapshot', () =>
 
 describe('findContainer', () =>
 {
-  it('returns tier id, "unranked", or null based on item placement', () =>
+  const snap = makeContainerSnapshot()
+
+  it('returns tier ID when item is in a tier', () =>
   {
-    const snap = makeContainerSnapshot()
     expect(findContainer(snap, asItemId('item-1'))).toBe('tier-s')
+    expect(findContainer(snap, asItemId('item-4'))).toBe('tier-a')
+  })
+
+  it('returns "unranked" when item is in the unranked pool', () =>
+  {
     expect(findContainer(snap, asItemId('item-6'))).toBe('unranked')
+  })
+
+  it('returns null when item does not exist', () =>
+  {
     expect(findContainer(snap, asItemId('nonexistent'))).toBeNull()
   })
 })
 
 describe('isSnapshotConsistent', () =>
 {
-  it('detects orphaned items, phantoms, & matching states', () =>
+  it('returns true when snapshot matches state', () =>
   {
     const state = {
-      tiers: [makeTier({ id: 'tier-s', itemIds: ids('a', 'b') })],
+      tiers: [
+        makeTier({
+          id: 'tier-s',
+          name: 'S',
+          colorSpec: { kind: 'custom', hex: '#f00' },
+          itemIds: ids('a', 'b'),
+        }),
+      ],
       unrankedItemIds: ids('c'),
     }
-    expect(
-      isSnapshotConsistent(
-        {
-          tiers: [{ id: 'tier-s', itemIds: ids('a', 'b') }],
-          unrankedItemIds: ids('c'),
-        },
-        state
-      )
-    ).toBe(true)
-    expect(
-      isSnapshotConsistent(
-        {
-          tiers: [{ id: 'tier-s', itemIds: ids('a') }],
-          unrankedItemIds: ids('c'),
-        },
-        state
-      )
-    ).toBe(false)
-    expect(
-      isSnapshotConsistent(
-        {
-          tiers: [{ id: 'tier-s', itemIds: ids('a', 'b', 'ghost') }],
-          unrankedItemIds: ids('c'),
-        },
-        state
-      )
-    ).toBe(false)
+    const snap = {
+      tiers: [{ id: 'tier-s', itemIds: ids('a', 'b') }],
+      unrankedItemIds: ids('c'),
+    }
+    expect(isSnapshotConsistent(snap, state)).toBe(true)
+  })
+
+  it('returns false when snapshot is missing an item (orphan in state)', () =>
+  {
+    const state = {
+      tiers: [
+        makeTier({
+          id: 'tier-s',
+          name: 'S',
+          colorSpec: { kind: 'custom', hex: '#f00' },
+          itemIds: ids('a', 'b'),
+        }),
+      ],
+      unrankedItemIds: ids('c'),
+    }
+    // snapshot only has 'a' & 'c' — missing 'b'
+    const snap = {
+      tiers: [{ id: 'tier-s', itemIds: ids('a') }],
+      unrankedItemIds: ids('c'),
+    }
+    expect(isSnapshotConsistent(snap, state)).toBe(false)
+  })
+
+  it('returns false when snapshot contains a phantom item', () =>
+  {
+    const state = {
+      tiers: [
+        makeTier({
+          id: 'tier-s',
+          name: 'S',
+          colorSpec: { kind: 'custom', hex: '#f00' },
+          itemIds: ids('a'),
+        }),
+      ],
+      unrankedItemIds: [],
+    }
+    // snapshot has 'a' & 'ghost' — same count trick won't work, ghost is not in state
+    const snap = {
+      tiers: [{ id: 'tier-s', itemIds: ids('a', 'ghost') }],
+      unrankedItemIds: [],
+    }
+    expect(isSnapshotConsistent(snap, state)).toBe(false)
   })
 })
 
 describe('moveItemInSnapshot', () =>
 {
-  it('reorders within a tier, moves to unranked, & no-ops when source is invalid', () =>
+  it('reorders an item within the same tier', () =>
   {
     const snap = makeContainerSnapshot()
-
-    const same = moveItemInSnapshot(
+    // move item-1 from index 0 to index 2 in tier-s
+    const result = moveItemInSnapshot(
       snap,
       asItemId('item-1'),
       'tier-s',
       'tier-s',
       2
     )
-    expect(findTierById(same.tiers, 'tier-s').itemIds).toEqual([
-      'item-2',
-      'item-1',
-      'item-3',
-    ])
+    const tierS = findTierById(result.tiers, 'tier-s')
+    expect(tierS.itemIds).toEqual(['item-2', 'item-1', 'item-3'])
+  })
 
-    const cross = moveItemInSnapshot(
+  it('moves an item from a tier to the unranked pool', () =>
+  {
+    const snap = makeContainerSnapshot()
+    const result = moveItemInSnapshot(
       snap,
       asItemId('item-1'),
       'tier-s',
       'unranked',
       0
     )
-    expect(findTierById(cross.tiers, 'tier-s').itemIds).not.toContain('item-1')
-    expect(cross.unrankedItemIds[0]).toBe('item-1')
+    const tierS = findTierById(result.tiers, 'tier-s')
+    expect(tierS.itemIds).not.toContain('item-1')
+    expect(result.unrankedItemIds[0]).toBe('item-1')
+  })
 
-    const invalid = moveItemInSnapshot(
+  it('returns unchanged snapshot when source container is invalid', () =>
+  {
+    const snap = makeContainerSnapshot()
+    const result = moveItemInSnapshot(
       snap,
       asItemId('item-1'),
       'nonexistent',
       'tier-a',
       0
     )
-    expect(invalid).toBe(snap)
+    expect(result).toBe(snap)
   })
 })
 
@@ -130,24 +186,22 @@ describe('moveItemToIndexInSnapshot', () =>
 {
   it('moves an item to an exact index in a different container', () =>
   {
+    const snap = makeContainerSnapshot()
     const result = moveItemToIndexInSnapshot({
-      snapshot: makeContainerSnapshot(),
+      snapshot: snap,
       itemId: asItemId('item-6'),
       toContainerId: 'tier-a',
       toIndex: 1,
     })
-    expect(findTierById(result.tiers, 'tier-a').itemIds).toEqual([
-      'item-4',
-      'item-6',
-      'item-5',
-    ])
+    const tierA = findTierById(result.tiers, 'tier-a')
+    expect(tierA.itemIds).toEqual(['item-4', 'item-6', 'item-5'])
     expect(result.unrankedItemIds).not.toContain('item-6')
   })
 })
 
 describe('resolveStoreInsertionIndex', () =>
 {
-  it('decrements target for forward same-container moves but not for cross-container', () =>
+  it('decrements target index for same-container moves when target > source', () =>
   {
     expect(
       resolveStoreInsertionIndex({
@@ -157,6 +211,10 @@ describe('resolveStoreInsertionIndex', () =>
         targetItemsLength: 5,
       })
     ).toBe(2)
+  })
+
+  it('uses target index as-is for cross-container moves', () =>
+  {
     expect(
       resolveStoreInsertionIndex({
         sameContainer: false,

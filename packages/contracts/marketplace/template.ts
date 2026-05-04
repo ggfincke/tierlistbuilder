@@ -1,5 +1,5 @@
 // packages/contracts/marketplace/template.ts
-// public template marketplace contracts shared by Convex & frontend slices
+// public template marketplace contracts shared by frontend slices
 
 import type { TierPresetTier } from '../workspace/tierPreset'
 import type {

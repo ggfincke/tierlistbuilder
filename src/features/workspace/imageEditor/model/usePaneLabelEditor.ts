@@ -6,6 +6,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 import type {
   BoardLabelSettings,
+  GlobalLabelDefaults,
   ItemLabelOptions,
   LabelOverlayPlacement,
   LabelPlacement,
@@ -25,7 +26,7 @@ interface UsePaneLabelEditorInput
   item: TierItem
   boardAspectRatio: number
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
   globalTextStyleId: TextStyleId
   boardItemSize: ItemSize
   onLabelChange: (label: string) => void
@@ -57,7 +58,7 @@ export const usePaneLabelEditor = ({
   item,
   boardAspectRatio,
   boardLabels,
-  globalShowLabels,
+  globalLabelDefaults,
   globalTextStyleId,
   boardItemSize,
   onLabelChange,
@@ -69,9 +70,9 @@ export const usePaneLabelEditor = ({
       resolveLabelLayout({
         itemOptions: item.labelOptions,
         boardSettings: boardLabels,
-        globalShowLabels,
+        globalLabelDefaults,
       }),
-    [item.labelOptions, boardLabels, globalShowLabels]
+    [item.labelOptions, boardLabels, globalLabelDefaults]
   )
   const previewLabelText = item.label?.trim() ?? ''
   const showLivePreview = labelLayout.visible && previewLabelText.length > 0
@@ -243,6 +244,6 @@ export const usePaneLabelEditor = ({
     labelLayout,
     inheritedTextStyleLabel:
       LABEL_FONT_LABELS[boardLabels?.textStyleId ?? globalTextStyleId],
-    boardDefaultVisible: boardLabels?.show ?? globalShowLabels,
+    boardDefaultVisible: boardLabels?.show ?? globalLabelDefaults.showLabels,
   }
 }

@@ -1,6 +1,5 @@
 // packages/contracts/workspace/imageMath.ts
-// pure image-transform & auto-crop math, importable from both the browser
-// (src/) & the convex backend (where browser canvas APIs are unavailable)
+// pure image-transform & auto-crop math shared by browser-facing modules
 
 import type { ImageFit, ItemTransform } from './board'
 import {
@@ -137,6 +136,8 @@ export const itemTransformToCropCss = (
 // to absorb rounding & codec variance (e.g. 1000x1500 vs 1001x1500) without
 // letting obviously different ratios (4:3 vs 1:1) collapse into one bucket
 export const ASPECT_RATIO_TOLERANCE = 0.02
+export const BOARD_ITEM_ASPECT_RATIO_MAX = 4
+export const BOARD_ITEM_ASPECT_RATIO_MIN = 1 / BOARD_ITEM_ASPECT_RATIO_MAX
 
 export interface AspectRatioPreset
 {
@@ -246,6 +247,13 @@ export const findMatchingPreset = (
 ): AspectRatioPreset | undefined =>
   ASPECT_RATIO_PRESETS.find((preset) => ratiosMatch(preset.value, value, tol))
 
+export const normalizeBoardItemAspectRatio = (
+  value: unknown
+): number | undefined =>
+  isPositiveFiniteNumber(value)
+    ? clamp(value, BOARD_ITEM_ASPECT_RATIO_MIN, BOARD_ITEM_ASPECT_RATIO_MAX)
+    : undefined
+
 // auto-crop math: detect content bbox from raw RGBA pixel data, then translate
 // it into an ItemTransform that frames the bbox in the configured cell ratio
 
@@ -273,17 +281,15 @@ const ALPHA_SOFT_EDGE_MAX_FRACTION = 0.02
 const ALPHA_SOLID_AREA_MIN_RATIO = 0.5
 
 // fraction of total pixels w/ alpha < threshold required to switch from
-// color-based to alpha-based detection. images w/ a few stray transparent
-// pixels (jpeg-to-png conversions, lossy edges) shouldn't fool the picker
+// color-based to alpha-based detection. stray transparent pixels
+// (jpeg-to-png conversions, lossy edges) shouldn't fool the picker
 const ALPHA_PRESENCE_FRACTION = 0.005
 
-// sample size (in px on the analysis canvas) for each corner patch when
-// inferring the background color of an opaque image
+// sample size for each corner patch when inferring opaque-image background
 const CORNER_PATCH_SIZE = 5
 
-// squared-RGB Euclidean distance threshold for a pixel to count as content
-// vs background in color-based detection. tuned for the common case of a
-// near-uniform background w/ moderate jpeg compression noise
+// squared-RGB distance threshold for content vs background; tuned for
+// near-uniform backgrounds w/ moderate jpeg compression noise
 const COLOR_CONTENT_DISTANCE_SQ = 32 * 32
 
 // minimum bbox area (as a fraction of image area) for the result to be
@@ -327,7 +333,7 @@ interface PixelBBox
 export interface AutoCropScan
 {
   soft: PixelBBox
-  // populated only in alpha mode; null in corner-color mode (no solid pass)
+  // populated only in alpha mode; null in corner-color mode
   solid: PixelBBox | null
   width: number
   height: number
@@ -452,8 +458,8 @@ const scanCornerColor = (pixels: AutoCropPixelData): AutoCropScan | null =>
       height - CORNER_PATCH_SIZE
     ),
   ]
-  // pick the modal background by clustering the 4 corners; if 3+ agree,
-  // their average wins. otherwise fall back to the median of all 4
+  // pick modal background by clustering 4 corners; if 3+ agree, average wins.
+  // otherwise fall back to median of all 4
   const bg = pickBackgroundColor(corners)
   let minX = width
   let minY = height

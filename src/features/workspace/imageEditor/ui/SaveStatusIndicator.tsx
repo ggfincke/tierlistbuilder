@@ -39,7 +39,10 @@ export const SaveStatusIndicator = ({
         role="status"
         aria-live="polite"
       >
-        <Check aria-hidden="true" className="h-2.5 w-2.5 text-emerald-400" />
+        <Check
+          aria-hidden="true"
+          className="h-2.5 w-2.5 text-[var(--t-success)]"
+        />
         Saved
       </span>
     )

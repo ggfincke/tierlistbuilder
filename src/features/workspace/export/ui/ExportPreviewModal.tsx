@@ -8,8 +8,8 @@ import { Check, Copy, Download, Highlighter } from 'lucide-react'
 
 import type { ImageFormat } from '../model/runtime'
 import {
-  FORMAT_LABELS,
   IMAGE_FORMATS,
+  IMAGE_FORMAT_META,
 } from '~/features/workspace/export/lib/constants'
 import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -99,7 +99,7 @@ export const ExportPreviewModal = ({
                   : 'bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)] hover:bg-[var(--t-bg-hover)]'
               }`}
             >
-              {FORMAT_LABELS[fmt]}
+              {IMAGE_FORMAT_META[fmt].label}
             </button>
           ))}
         </div>
@@ -131,7 +131,7 @@ export const ExportPreviewModal = ({
             disabled={exporting || !previewDataUrl}
           >
             <Download className="h-3.5 w-3.5" />
-            Download {FORMAT_LABELS[format]}
+            Download {IMAGE_FORMAT_META[format].label}
           </SecondaryButton>
         </div>
       </div>

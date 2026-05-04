@@ -1,5 +1,5 @@
 // src/app/routes/AppRouter.tsx
-// react-router-dom v6 router — workspace, marketplace, embed, & 404 routes
+// react-router-dom v6 router — workspace, library, embed, & 404 routes
 
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
@@ -7,7 +7,6 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import {
   BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
-  TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
 import { AppChromeLayout } from './AppChromeLayout'
@@ -21,23 +20,6 @@ const EmbedRoute = lazy(() =>
   import('./EmbedRoute').then((m) => ({ default: m.EmbedRoute }))
 )
 
-// marketplace pages share a slice bundle that workspace users only fetch when
-// they navigate to marketplace-adjacent routes
-const MarketplaceLayout = lazy(() =>
-  import('~/features/marketplace/pages/MarketplaceLayout').then((m) => ({
-    default: m.MarketplaceLayout,
-  }))
-)
-const TemplatesGalleryPage = lazy(() =>
-  import('~/features/marketplace/pages/TemplatesGalleryPage').then((m) => ({
-    default: m.TemplatesGalleryPage,
-  }))
-)
-const TemplateDetailPage = lazy(() =>
-  import('~/features/marketplace/pages/TemplateDetailPage').then((m) => ({
-    default: m.TemplateDetailPage,
-  }))
-)
 const MyListsRoute = lazy(() =>
   import('./MyListsRoute').then((m) => ({ default: m.MyListsRoute }))
 )
@@ -69,20 +51,15 @@ export const AppRouter = () => (
           }
         />
         <Route
+          path={BOARDS_ROUTE_PATH}
           element={
-            <ErrorBoundary section="marketplace navigation">
+            <ErrorBoundary section="my lists">
               <Suspense fallback={<RouteFallback />}>
-                <MarketplaceLayout />
+                <MyListsRoute />
               </Suspense>
             </ErrorBoundary>
           }
-        >
-          <Route path={TEMPLATES_ROUTE_PATH}>
-            <Route index element={<TemplatesGalleryPage />} />
-            <Route path=":slug" element={<TemplateDetailPage />} />
-          </Route>
-          <Route path={BOARDS_ROUTE_PATH} element={<MyListsRoute />} />
-        </Route>
+        />
       </Route>
       <Route
         path={EMBED_ROUTE_PATH}

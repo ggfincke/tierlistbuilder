@@ -11,3 +11,6 @@ export const formatError = (
   if (err === null || err === undefined) return fallback
   return String(err)
 }
+
+export const isAbortError = (err: unknown): boolean =>
+  err instanceof DOMException && err.name === 'AbortError'

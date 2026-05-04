@@ -9,9 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **My Lists**: `/boards` library page w/ stats strip, status filter chips, sort options, grid + list views, density toggle, search, deep-link params, & signed-out CTA — replaces the placeholder coming-soon shell
+- **Convex Backend Foundation**: First-pass cloud backend — `convex/` schema, auth (Convex Auth w/ email+password), boards CRUD w/ cascade delete, marketplace template publish/clone/seed, media uploads w/ signed envelopes & three-variant pipeline, user preferences cloud sync, short-link share resolution, tier preset cloud sync, recently-deleted retention window, daily GC cron, & rate-limited mutations
+- **Auth UI**: Sign-in modal (email+password), account modal w/ profile, sessions, & danger zone, sign-in prompt store gating cloud-only actions
+- **Cloud Sync Plumbing**: Per-feature cloud merge/pull/flush runners w/ debounced scheduler, sidecar metadata, ownership filters, cross-tab sync lock, sync status store + visuals, conflict queue, recently-deleted modal, & first-login local→cloud bootstrap
+- **My Lists**: `/boards` library page wired to `getMyLibraryBoards` Convex query — projects counts, derived status (incl. `syncing` / `failed` clone-from-template states), visibility, source-template category, top-5 tier colorSpecs, per-tier counts, & top-18 cover-item labels
 - **Board Cards**: Cover artwork (initials mosaic over `--t-media-matte`, draft-pattern for empty boards), tier-color progress bar, status pill, visibility chip, hover CTA per status
-- **Library Contracts**: `LibraryBoardListItem` shape & `getMyLibraryBoards` Convex query — projects active/unranked counts, derived status (draft/in_progress/finished/published), visibility, source-template category, top-5 tier colorSpecs, per-tier item counts, & top-18 cover-item labels onto each board
+- **Sync Status Indicator**: Per-board badge & global indicator surfacing localOnly / cloudBacked / syncPausedForPlan + clone progress
+- **Marketplace (Backend)**: `marketplace/templates` Convex namespace — gallery query, paginated items, draft rail, publish from board, clone-to-board w/ media re-upload, seed script
+
+## [0.8.0] - 2026-05-03
+
+### Added
+
+- **My Lists Page**: New `/boards` route w/ card & list views, density toggle, search, filters, status pills, stats strip, & blank-list creator tile (#30)
+- **Top Nav**: App chrome layout w/ brand capsule, surface nav, account avatar/menu, & dedicated top-nav modal layer (#30)
+- **Image Renditions**: Three-tier preview/tile/source system w/ priority-aware ref selection — crisper retina renders & no thumb->source flash on load (#30)
+- **Tabbed Settings Modal**: Reworked layout w/ dedicated theme override hooks per board (#30)
+- **Per-Tier Label & Style Overrides**: Row-level label/style override actions w/ default label placement (#30)
+- **Render to Blob**: Skips the base64 round-trip for download/PDF/ZIP flows; `renderToDataUrl` reserved for inline-image use (#30)
+- **Marketplace Module**: Templates gallery, detail page, publish modal, share/use buttons, & supporting components — landed as code, not yet routed (#30)
+- **Platform Preferences**: Preferences modal, theme sync, persistent preferences store, & inbound share handler under `features/platform/` (#30)
+- **Design System Doc**: `docs/design-system.mdx` reference covering tokens, primitives, & patterns (#30)
+
+### Changed
+
+- **Image Editor**: Monolithic `ImageEditorModal` split into pane, rail, preview canvas, pane footer, draggable label overlay, label editor row, zoom slider, number stepper, & save-status components — w/ dedicated hooks for transform draft, modal actions, items, selection, auto-crop, & label editing (#30)
+- **Auto-Crop Controller**: `useAutoCropController` w/ abort handle replaces `useDeferredAspectRatioPicker`; new `useCollectAutoCropTransformsRunner` & shared abort hook (#30)
+- **Export Controller**: `imageFormat` lifted to controller, `IMAGE_FORMAT_META` consolidates label/ext/mimeType per format, `ExportStatus` gains `'render'` for hidden-session flows (#30)
+- **Shared Modules**: New `shared/board-data/`, `shared/catalog/`, `shared/routes/`, `shared/sharing/`, `shared/images/`, & `shared/ui/settings/` consolidate logic previously duplicated across workspace features (#30)
+- **Workspace Wiring**: Embed, sharing, shortcuts, stats, tier presets, annotation, & export route through the shared modules (#30)
+- **Custom Color Picker**: Extracted from `ColorPicker` into a standalone component (#30)
+- **Item Rendering**: `ItemContent` & snapshot warming prefer source ref over thumb when available (#30)
+- **Contracts**: Board contract expanded; marketplace & platform types added; new `imageMath`, `hex`, `math`, & `typeGuards` utilities (#30)
 
 ## [0.7.1] - 2026-04-26
 

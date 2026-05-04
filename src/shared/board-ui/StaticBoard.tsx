@@ -4,7 +4,10 @@
 import { memo, type CSSProperties } from 'react'
 import type { ReactNode } from 'react'
 
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardSnapshot,
+  LabelPlacementMode,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type {
   PaletteId,
   TextStyleId,
@@ -31,13 +34,19 @@ import {
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { TEXT_STYLES } from '~/shared/theme/textStyles'
+import { getWrappedItemsGridStyle } from '~/shared/board-ui/wrappedItemsGrid'
 
 export interface StaticBoardAppearance
 {
   itemSize: ItemSize
   showLabels: boolean
+  // fallback placement applied when neither item nor board pins one. embeds
+  // can pass 'overlay' to mirror the legacy default; export passes through
+  // the owner's preference
+  defaultLabelPlacementMode: LabelPlacementMode
   itemShape: ItemShape
   compactMode: boolean
+  maxItemsPerRow?: number | null
   labelWidth: LabelWidth
   paletteId: PaletteId
   textStyleId: TextStyleId
@@ -53,6 +62,7 @@ interface StaticBoardProps
   backgroundColor?: string
   className?: string
   children?: ReactNode
+  imageLoading?: 'eager' | 'lazy'
   'data-testid'?: string
 }
 
@@ -62,6 +72,7 @@ export const StaticBoard = memo(
     appearance,
     backgroundColor,
     className,
+    imageLoading,
     'data-testid': testId,
   }: StaticBoardProps) =>
   {
@@ -110,6 +121,11 @@ export const StaticBoard = memo(
                   compactMode={appearance.compactMode}
                   minHeightPx={slotHeight}
                   backgroundOverride={rowBg}
+                  style={getWrappedItemsGridStyle({
+                    compactMode: appearance.compactMode,
+                    maxItemsPerRow: appearance.maxItemsPerRow,
+                    slotWidth,
+                  })}
                 >
                   {tier.itemIds.map((itemId) =>
                   {
@@ -128,10 +144,15 @@ export const StaticBoard = memo(
                             itemLabel: item.label,
                             itemOptions: item.labelOptions,
                             boardSettings: data.labels,
-                            globalShowLabels: appearance.showLabels,
+                            globalLabelDefaults: {
+                              showLabels: appearance.showLabels,
+                              placementMode:
+                                appearance.defaultLabelPlacementMode,
+                            },
                           })}
                           fit={getEffectiveImageFit(item, boardDefaultFit)}
                           frameAspectRatio={boardAspectRatio}
+                          imageLoading={imageLoading}
                         />
                       </div>
                     )

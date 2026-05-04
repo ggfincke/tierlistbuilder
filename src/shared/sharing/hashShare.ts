@@ -1,20 +1,22 @@
 // src/shared/sharing/hashShare.ts
-// snapshot compression helpers shared by short-link encode/decode
+// hash-fragment snapshot compression helpers
 
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import {
-  MAX_INFLATED_SNAPSHOT_BYTES,
-  MAX_SNAPSHOT_COMPRESSED_BYTES,
-} from '@tierlistbuilder/contracts/platform/shortLink'
-import type { BoardSnapshotWire } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardSnapshot,
+  BoardSnapshotWire,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { parseBoardSnapshotJson } from '~/shared/board-data/boardJson'
-import { normalizeBasePath } from '~/shared/routes/pathname'
+import { EMBED_ROUTE_PATH, normalizeBasePath } from '~/shared/routes/pathname'
 import { base64ToBytes, bytesToBase64 } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { loadCompressionLib } from '~/shared/lib/lazyDependencies'
 
-// build an absolute URL for the app, appending the configured base path.
-// shared w/ the short-link URL builders
+const MAX_SNAPSHOT_COMPRESSED_BYTES = 256 * 1024
+const MAX_INFLATED_SNAPSHOT_BYTES = 16 * 1024 * 1024
+const STRIPPED_IMAGE_LABEL = 'Image'
+
+// build an absolute URL for the app, appending the configured base path
 export const buildAppUrl = (pathname = ''): string =>
   `${window.location.origin}${normalizeBasePath()}${pathname}`
 
@@ -31,18 +33,30 @@ const fromBase64Url = (value: string): Uint8Array =>
   return base64ToBytes(padded)
 }
 
+const hasRenderableTextField = (item: {
+  label?: string
+  backgroundColor?: string
+}): boolean => !!item.label?.trim() || !!item.backgroundColor?.trim()
+
+const getStrippedImageLabel = (item: { altText?: string }): string =>
+  item.altText?.trim() || STRIPPED_IMAGE_LABEL
+
 // drop image refs & deleted items from hash-fragment payloads
 export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
 {
   return {
     ...mapSnapshotItems(data, (item) =>
     {
+      const hadImage = hasAnyImageRef(item)
       const {
         imageRef: _imageRef,
+        tileImageRef: _tileImageRef,
         sourceImageRef: _sourceImageRef,
         ...rest
       } = item
-      return rest
+      if (hasRenderableTextField(rest)) return rest
+      if (!hadImage) return rest
+      return { ...rest, label: getStrippedImageLabel(item) }
     }),
     deletedItems: [],
   }
@@ -120,6 +134,16 @@ export const inflateSnapshotBytes = async (
 export const encodeBoardToShareFragment = async (
   data: BoardSnapshot
 ): Promise<string> => toBase64Url(await compressSnapshotBytes(data))
+
+export const getWorkspaceShareUrl = async (
+  data: BoardSnapshot
+): Promise<string> =>
+  `${buildAppUrl('/')}#share=${await encodeBoardToShareFragment(data)}`
+
+export const getEmbedShareUrl = async (data: BoardSnapshot): Promise<string> =>
+  `${buildAppUrl(EMBED_ROUTE_PATH)}#share=${await encodeBoardToShareFragment(
+    data
+  )}`
 
 export const decodeBoardFromShareFragment = async (
   fragment: string

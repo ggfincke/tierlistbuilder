@@ -2,9 +2,13 @@
 // more tab content for export prefs, storage, lists, & shortcuts
 
 import { useId, useState } from 'react'
-import { Github, Layers, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Github, Layers, Minus, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
+import {
+  EXPORT_ITEMS_PER_ROW_MAX,
+  EXPORT_ITEMS_PER_ROW_MIN,
+} from '@tierlistbuilder/contracts/platform/preferences'
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
   createBoardSession,
@@ -24,6 +28,7 @@ import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { ShortcutsList } from '~/features/workspace/shortcuts/ui/ShortcutsList'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { SettingRow } from '~/shared/ui/settings/SettingRow'
+import { TextInput } from '~/shared/ui/TextInput'
 import { Toggle } from '~/shared/ui/settings/Toggle'
 
 interface MoreTabProps
@@ -42,16 +47,20 @@ export const MoreTab = ({
   const boards = useWorkspaceBoardRegistryStore((state) => state.boards)
   const {
     exportBackgroundOverride,
+    exportItemsPerRow,
     themeId,
     confirmBeforeDelete,
     setExportBackgroundOverride,
+    setExportItemsPerRow,
     setConfirmBeforeDelete,
   } = usePreferencesStore(
     useShallow((state) => ({
       exportBackgroundOverride: state.exportBackgroundOverride,
+      exportItemsPerRow: state.exportItemsPerRow,
       themeId: state.themeId,
       confirmBeforeDelete: state.confirmBeforeDelete,
       setExportBackgroundOverride: state.setExportBackgroundOverride,
+      setExportItemsPerRow: state.setExportItemsPerRow,
       setConfirmBeforeDelete: state.setConfirmBeforeDelete,
     }))
   )
@@ -96,6 +105,47 @@ export const MoreTab = ({
                 }
                 aria-labelledby={labelId}
               />
+            </div>
+          )}
+        </SettingRow>
+        <SettingRow label="Items Per Row">
+          {(labelId) => (
+            <div className="flex items-center gap-1.5">
+              <SecondaryButton
+                size="sm"
+                variant="surface"
+                onClick={() => setExportItemsPerRow(exportItemsPerRow - 1)}
+                disabled={exportItemsPerRow <= EXPORT_ITEMS_PER_ROW_MIN}
+                aria-label="Decrease exported items per row"
+                title="Decrease exported items per row"
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </SecondaryButton>
+              <TextInput
+                className="w-16 text-center"
+                type="number"
+                min={EXPORT_ITEMS_PER_ROW_MIN}
+                max={EXPORT_ITEMS_PER_ROW_MAX}
+                step={1}
+                value={exportItemsPerRow}
+                onChange={(event) =>
+                {
+                  const next = event.currentTarget.valueAsNumber
+                  if (Number.isFinite(next)) setExportItemsPerRow(next)
+                }}
+                aria-labelledby={labelId}
+                title="Maximum items before an exported tier wraps"
+              />
+              <SecondaryButton
+                size="sm"
+                variant="surface"
+                onClick={() => setExportItemsPerRow(exportItemsPerRow + 1)}
+                disabled={exportItemsPerRow >= EXPORT_ITEMS_PER_ROW_MAX}
+                aria-label="Increase exported items per row"
+                title="Increase exported items per row"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </SecondaryButton>
             </div>
           )}
         </SettingRow>

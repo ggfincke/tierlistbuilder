@@ -1,10 +1,14 @@
 // src/features/workspace/imageEditor/ui/ImageEditorModal.tsx
 // store-aware modal orchestration for per-item image editing
 
-import { useCallback, useId, useRef, useState } from 'react'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import {
+  isEmptyItemLabelOptions,
+  type GlobalLabelDefaults,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   resolveEffectiveShowLabels,
   withBoardShowLabels,
@@ -87,6 +91,16 @@ const ImageEditorModalBody = () =>
     }))
   )
   const globalShowLabels = usePreferencesStore((s) => s.showLabels)
+  const globalLabelPlacementMode = usePreferencesStore(
+    (s) => s.defaultLabelPlacementMode
+  )
+  const globalLabelDefaults = useMemo<GlobalLabelDefaults>(
+    () => ({
+      showLabels: globalShowLabels,
+      placementMode: globalLabelPlacementMode,
+    }),
+    [globalShowLabels, globalLabelPlacementMode]
+  )
   const globalTextStyleId = usePreferencesStore((s) => s.textStyleId)
   const boardItemSize = usePreferencesStore((s) => s.itemSize)
   const effectiveShowLabels = resolveEffectiveShowLabels(
@@ -168,7 +182,7 @@ const ImageEditorModalBody = () =>
     items,
     allImageItems,
     boardLabels,
-    globalShowLabels,
+    globalLabelDefaults,
     setBoardAndItemsLabelOptions,
   })
 
@@ -270,7 +284,7 @@ const ImageEditorModalBody = () =>
           boardAspectRatio={boardAspectRatio}
           boardDefaultFit={boardDefaultFit}
           boardLabels={boardLabels}
-          globalShowLabels={globalShowLabels}
+          globalLabelDefaults={globalLabelDefaults}
           selectedId={selectedId}
           onSelect={setPickedId}
           isSkipped={isSkipped}
@@ -285,7 +299,7 @@ const ImageEditorModalBody = () =>
               boardDefaultFit={boardDefaultFit}
               trimSoftShadows={trimSoftShadows}
               boardLabels={boardLabels}
-              globalShowLabels={globalShowLabels}
+              globalLabelDefaults={globalLabelDefaults}
               globalTextStyleId={globalTextStyleId}
               boardItemSize={boardItemSize}
               onCommit={(t) => handleCommit(selectedItem.id, t)}
@@ -295,7 +309,9 @@ const ImageEditorModalBody = () =>
               }
               onApplyLabelToAll={() => applyLabel.request(selectedItem.id)}
               canApplyLabelToAll={allImageItems.length > 1}
-              labelAppliedToAll={allImageItems.every((it) => !it.labelOptions)}
+              labelAppliedToAll={allImageItems.every((it) =>
+                isEmptyItemLabelOptions(it.labelOptions)
+              )}
               applyLabelToAllTitle={
                 allImageItems.length > 1
                   ? `Use this item's label settings as the board default and clear per-tile overrides on ${allImageItems.length - 1} other ${
@@ -370,20 +386,22 @@ interface EmptyStateProps
   filter: ImageEditorFilter
 }
 
-const EmptyState = ({ totalCount, filter }: EmptyStateProps) =>
+const getEmptyStateMessage = (
+  totalCount: number,
+  filter: ImageEditorFilter
+): string =>
 {
-  const message =
-    totalCount === 0
-      ? 'This board has no image items to adjust yet.'
-      : filter === 'mismatched'
-        ? 'No items have aspect ratios that differ from the board.'
-        : filter === 'adjusted'
-          ? 'No items have manual adjustments yet.'
-          : 'No items match this filter.'
-
-  return (
-    <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-[var(--t-text-muted)]">
-      {message}
-    </div>
-  )
+  if (totalCount === 0) return 'This board has no image items to adjust yet.'
+  if (filter === 'mismatched')
+  {
+    return 'No items have aspect ratios that differ from the board.'
+  }
+  if (filter === 'adjusted') return 'No items have manual adjustments yet.'
+  return 'No items match this filter.'
 }
+
+const EmptyState = ({ totalCount, filter }: EmptyStateProps) => (
+  <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-[var(--t-text-muted)]">
+    {getEmptyStateMessage(totalCount, filter)}
+  </div>
+)

@@ -14,8 +14,7 @@ export const BLOB_PREPARE_CONCURRENCY = 3
 const IMAGE_STORAGE_UNAVAILABLE_MESSAGE =
   'Image storage is not available in this browser.'
 
-// build a normalized IndexedDB blob record — exported for the cloud image
-// fetcher which constructs records from download responses
+// build a normalized IndexedDB blob record for local image persistence
 export const createBlobRecord = (
   hash: string,
   blob: Blob,

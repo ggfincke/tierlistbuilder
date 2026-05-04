@@ -1,17 +1,14 @@
 // src/app/shells/WorkspaceModalLayer.tsx
-// workspace modal, conflict, & blocking-progress composition
+// workspace modal & blocking-progress composition
 
 import { lazy, useCallback } from 'react'
-import { useShallow } from 'zustand/react/shallow'
 
-import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 import type { ModalStack } from '~/app/shells/useModalStack'
 import type { WorkspaceModalPayloads } from './workspaceModals'
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
+import type { ExportStatus } from '~/features/workspace/export/model/useExportController'
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { ConflictResolverModal } from '~/features/workspace/boards/ui/ConflictResolverModal'
-import { useCloudPullProgressStore } from '~/features/platform/sync/state/useCloudPullProgressStore'
 import { AspectRatioIssueModal } from '~/features/workspace/settings/ui/AspectRatioIssueModal'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import {
@@ -66,11 +63,10 @@ interface ExportProgress
 interface WorkspaceModalLayerProps
 {
   modalStack: ModalStack<WorkspaceModalPayloads>
-  signedInUser: PublicUserMe | null
-  exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
+  exportStatus: ExportStatus
   exportAllProgress: ExportProgress | null
-  previewFormat: ImageFormat
-  onPreviewFormatChange: (format: ImageFormat) => void
+  imageFormat: ImageFormat
+  onImageFormatChange: (format: ImageFormat) => void
   onPreviewDownload: () => void
   onPreviewCopy: () => void
   onPreviewAnnotate: () => void
@@ -80,11 +76,10 @@ interface WorkspaceModalLayerProps
 
 export const WorkspaceModalLayer = ({
   modalStack,
-  signedInUser,
   exportStatus,
   exportAllProgress,
-  previewFormat,
-  onPreviewFormatChange,
+  imageFormat,
+  onImageFormatChange,
   onPreviewDownload,
   onPreviewCopy,
   onPreviewAnnotate,
@@ -93,10 +88,6 @@ export const WorkspaceModalLayer = ({
 }: WorkspaceModalLayerProps) =>
 {
   const { state: modalState, close: closeModal } = modalStack
-  const { current: cloudPullCurrent, total: cloudPullTotal } =
-    useCloudPullProgressStore(
-      useShallow((state) => ({ current: state.current, total: state.total }))
-    )
   const imageEditorOpen = useImageEditorStore((state) => state.isOpen)
 
   const handleCloseSettings = useCallback(
@@ -142,8 +133,8 @@ export const WorkspaceModalLayer = ({
             open
             onClose={handleClosePreview}
             previewDataUrl={preview.payload}
-            format={previewFormat}
-            onFormatChange={onPreviewFormatChange}
+            format={imageFormat}
+            onFormatChange={onImageFormatChange}
             onDownload={onPreviewDownload}
             onCopyToClipboard={onPreviewCopy}
             onAnnotate={onPreviewAnnotate}
@@ -188,14 +179,6 @@ export const WorkspaceModalLayer = ({
       <LazyModalSlot when={imageEditorOpen} section="image editor">
         {() => <ImageEditorModal />}
       </LazyModalSlot>
-      <ConflictResolverModal user={signedInUser} />
-      <ProgressOverlay
-        title="Loading your boards"
-        statusVerb="Downloading"
-        progressLabel="Cloud pull progress"
-        current={cloudPullCurrent}
-        total={cloudPullTotal}
-      />
     </>
   )
 }

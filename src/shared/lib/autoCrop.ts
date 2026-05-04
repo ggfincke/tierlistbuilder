@@ -9,7 +9,6 @@ import type {
   TierItemImageRef,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { ITEM_TRANSFORM_IDENTITY } from '@tierlistbuilder/contracts/workspace/board'
 import {
   AUTO_CROP_ANALYSIS_MAX_SIZE,
@@ -22,15 +21,15 @@ import {
   type AutoCropScan,
 } from '@tierlistbuilder/contracts/workspace/imageMath'
 
-import {
-  cacheFreshBlob,
-  ensureCloudImageCached,
-} from '~/shared/images/imageBlobCache'
+import { cacheFreshBlob } from '~/shared/images/imageBlobCache'
 import { getBlob, type BlobRecord } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from './asyncMapLimit'
+import { getPrimaryImageRef } from './imageRefs'
 import { logger } from './logger'
 
 const AUTO_CROP_BATCH_CONCURRENCY = 4
+
+export { bboxToItemTransform }
 
 const scanCache = new Map<string, AutoCropScan | null>()
 const scanCacheListeners = new Set<() => void>()
@@ -50,29 +49,19 @@ export const subscribeAutoCropCache = (listener: () => void): (() => void) =>
 
 export const getAutoCropCacheVersion = (): number => scanCacheVersion
 
-export const getAutoCropHash = (item: TierItem): string | undefined =>
-  item.sourceImageRef?.hash ?? item.imageRef?.hash
-
-const getAutoCropImageRef = (item: TierItem): TierItemImageRef | undefined =>
-  item.sourceImageRef ?? item.imageRef
+export const getAutoCropImageRef = (
+  item: TierItem
+): TierItemImageRef | undefined => getPrimaryImageRef(item, 'editor')
 
 export const loadAutoCropBlob = async (
   ref: TierItemImageRef | undefined,
-  signal?: AbortSignal,
-  variant: MediaVariantKind = 'tile'
+  signal?: AbortSignal
 ): Promise<BlobRecord | null> =>
 {
-  if (!ref) return null
+  if (!ref?.hash) return null
 
   signal?.throwIfAborted()
-  let record = await getBlob(ref.hash)
-  if (!record && ref.cloudMediaExternalId)
-  {
-    signal?.throwIfAborted()
-    await ensureCloudImageCached(ref.hash, ref.cloudMediaExternalId, variant)
-    signal?.throwIfAborted()
-    record = await getBlob(ref.hash)
-  }
+  const record = await getBlob(ref.hash)
   if (record)
   {
     cacheFreshBlob(ref.hash, record.bytes)
@@ -109,15 +98,27 @@ export const areCachedAutoCropsApplied = (
   trimSoftShadows: boolean
 ): boolean =>
 {
-  let hasDetectedCrop = false
+  let hasResolvedTarget = false
   for (const item of items)
   {
-    const hash = getAutoCropHash(item)
+    const hash = getAutoCropImageRef(item)?.hash
     if (!hash) continue
     const bbox = getCachedBBox(hash, trimSoftShadows)
     if (bbox === undefined) return false
-    if (bbox === null) continue
-    hasDetectedCrop = true
+    hasResolvedTarget = true
+    if (bbox === null)
+    {
+      if (
+        !isSameItemTransform(
+          item.transform ?? ITEM_TRANSFORM_IDENTITY,
+          ITEM_TRANSFORM_IDENTITY
+        )
+      )
+      {
+        return false
+      }
+      continue
+    }
     if (
       !isSameItemTransform(
         item.transform ?? ITEM_TRANSFORM_IDENTITY,
@@ -128,27 +129,36 @@ export const areCachedAutoCropsApplied = (
       return false
     }
   }
-  return hasDetectedCrop
+  return hasResolvedTarget
 }
 
-// detect content bbox; returns null when detection fails or only finds a tiny
-// false-positive region. cached by hash so toggling the trim-shadows option
-// or repeat calls skip the decode/scan
+export interface AutoCropDetectionResult
+{
+  bbox: AutoCropBBox | null
+  scanned: boolean
+}
+
+// detect content bbox; scanned=false only when decode/scan failed. cache scan
+// success by hash, including null bboxes, so retries skip decode work
 export const detectContentBBox = async (
   blob: Blob,
   hash: string | undefined,
   trimSoftShadows: boolean,
   signal?: AbortSignal
-): Promise<AutoCropBBox | null> =>
+): Promise<AutoCropDetectionResult> =>
 {
   signal?.throwIfAborted()
   if (hash && scanCache.has(hash))
   {
     const cached = scanCache.get(hash)
-    return cached ? pickAutoCropBBox(cached, trimSoftShadows) : null
+    return {
+      bbox: cached ? pickAutoCropBBox(cached, trimSoftShadows) : null,
+      scanned: true,
+    }
   }
 
   let scan: AutoCropScan | null = null
+  let cacheable = true
   try
   {
     scan = await runScan(blob)
@@ -156,16 +166,20 @@ export const detectContentBBox = async (
   catch (error)
   {
     logger.warn('autoCrop', 'detection failed', error)
+    cacheable = false
     scan = null
   }
   signal?.throwIfAborted()
 
-  if (hash)
+  if (hash && cacheable)
   {
     scanCache.set(hash, scan)
     emitScanCacheChange()
   }
-  return scan ? pickAutoCropBBox(scan, trimSoftShadows) : null
+  return {
+    bbox: scan ? pickAutoCropBBox(scan, trimSoftShadows) : null,
+    scanned: cacheable,
+  }
 }
 
 // exposed for unit tests that synthesize ImageData directly to verify
@@ -183,10 +197,10 @@ export const detectContentBBoxFromImageData = (
   return scan ? pickAutoCropBBox(scan, trimSoftShadows) : null
 }
 
-interface AutoCropTransformEntry
+export interface AutoCropTransformEntry
 {
   id: ItemId
-  transform: ItemTransform
+  transform: ItemTransform | null
 }
 
 interface CollectAutoCropTransformsParams
@@ -200,8 +214,8 @@ interface CollectAutoCropTransformsParams
 }
 
 // shared bulk auto-crop pipeline used by the issue modal & image editor:
-// decode-or-cache hit per target, scan, resolve transform, return only the
-// items that produced detected content. caller drives progress UI & commits
+// decode/cache per target, then return crop transforms or null resets for
+// images where scanning succeeded but no crop signal exists
 export const collectAutoCropTransforms = async ({
   targets,
   boardAspectRatio,
@@ -217,21 +231,38 @@ export const collectAutoCropTransforms = async ({
     {
       signal?.throwIfAborted()
       const ref = getAutoCropImageRef(item)!
-      const variant = item.sourceImageRef ? 'editor' : 'tile'
       const hash = ref.hash
+      if (!hash)
+      {
+        onProgress?.()
+        return null
+      }
       let bbox = getCachedBBox(hash, trimSoftShadows)
+      let scanned = bbox !== undefined
       if (bbox === undefined)
       {
-        const record = await loadAutoCropBlob(ref, signal, variant)
-        bbox = record
-          ? await detectContentBBox(record.bytes, hash, trimSoftShadows, signal)
-          : null
+        const record = await loadAutoCropBlob(ref, signal)
+        if (!record)
+        {
+          onProgress?.()
+          return null
+        }
+        const result = await detectContentBBox(
+          record.bytes,
+          hash,
+          trimSoftShadows,
+          signal
+        )
+        bbox = result.bbox
+        scanned = result.scanned
       }
       onProgress?.()
-      if (!bbox) return null
+      if (!bbox && !scanned) return null
       return {
         id: item.id,
-        transform: resolveAutoCropTransform(item, bbox, boardAspectRatio),
+        transform: bbox
+          ? resolveAutoCropTransform(item, bbox, boardAspectRatio)
+          : null,
       }
     }
   )

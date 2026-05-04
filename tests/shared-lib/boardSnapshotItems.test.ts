@@ -4,17 +4,17 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  collectSnapshotImageHashes,
+  collectSnapshotExportImageHashes,
   collectSnapshotLocalImageHashes,
   collectSnapshotRenderImageHashes,
-  collectSnapshotRenderImageRefs,
+  transformSnapshotItemsAsync,
 } from '~/shared/lib/boardSnapshotItems'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeItem } from '../fixtures'
 
 describe('board snapshot image hash collection', () =>
 {
-  it('keeps source image hashes local-only', () =>
+  it('collects export, render, & local image hashes by rendition role', () =>
   {
     const id = asItemId('item-image')
     const snapshot = makeBoardSnapshot({
@@ -22,55 +22,77 @@ describe('board snapshot image hash collection', () =>
         [id]: makeItem({
           id,
           imageRef: { hash: 'thumb-hash' },
+          tileImageRef: { hash: 'tile-hash' },
           sourceImageRef: { hash: 'source-hash' },
         }),
       },
     })
 
-    expect(collectSnapshotImageHashes(snapshot)).toEqual(['thumb-hash'])
+    expect(collectSnapshotExportImageHashes(snapshot)).toEqual([
+      'source-hash',
+      'tile-hash',
+      'thumb-hash',
+    ])
+    expect(collectSnapshotRenderImageHashes(snapshot)).toEqual([])
     expect(collectSnapshotLocalImageHashes(snapshot)).toEqual([
       'thumb-hash',
+      'tile-hash',
       'source-hash',
     ])
   })
 
-  it('collects source image refs only when transforms render from them', () =>
+  it('warms tile images first for visible board rendering', () =>
   {
-    const transformedId = asItemId('item-transformed')
-    const plainId = asItemId('item-plain')
+    const id = asItemId('item-image')
+    const sourceOnlyId = asItemId('item-source-only')
     const snapshot = makeBoardSnapshot({
-      tiers: [
-        makeTier({
-          itemIds: [transformedId, plainId],
-        }),
-      ],
       items: {
-        [transformedId]: makeItem({
-          id: transformedId,
-          imageRef: { hash: 'thumb-hash', cloudMediaExternalId: 'cloud-a' },
-          sourceImageRef: {
-            hash: 'source-hash',
-            cloudMediaExternalId: 'cloud-source',
-          },
-          transform: { rotation: 0, zoom: 1.2, offsetX: 0, offsetY: 0 },
+        [id]: makeItem({
+          id,
+          imageRef: { hash: 'thumb-hash' },
+          tileImageRef: { hash: 'tile-hash' },
+          sourceImageRef: { hash: 'source-hash' },
         }),
-        [plainId]: makeItem({
-          id: plainId,
-          imageRef: { hash: 'plain-hash', cloudMediaExternalId: 'cloud-b' },
-          sourceImageRef: { hash: 'unused-source-hash' },
+        [sourceOnlyId]: makeItem({
+          id: sourceOnlyId,
+          imageRef: { hash: 'fallback-thumb-hash' },
+          sourceImageRef: { hash: 'fallback-source-hash' },
         }),
       },
+      unrankedItemIds: [id, sourceOnlyId],
     })
 
     expect(collectSnapshotRenderImageHashes(snapshot)).toEqual([
+      'tile-hash',
       'thumb-hash',
-      'source-hash',
-      'plain-hash',
+      'fallback-source-hash',
+      'fallback-thumb-hash',
     ])
-    expect(collectSnapshotRenderImageRefs(snapshot)).toEqual([
-      { hash: 'thumb-hash', cloudMediaExternalId: 'cloud-a' },
-      { hash: 'source-hash', cloudMediaExternalId: 'cloud-source' },
-      { hash: 'plain-hash', cloudMediaExternalId: 'cloud-b' },
-    ])
+  })
+
+  it('maps live and deleted items while preserving each output order', async () =>
+  {
+    const firstId = asItemId('item-first')
+    const secondId = asItemId('item-second')
+    const deletedId = asItemId('item-deleted')
+    const snapshot = makeBoardSnapshot({
+      items: {
+        [firstId]: makeItem({ id: firstId, label: 'First' }),
+        [secondId]: makeItem({ id: secondId, label: 'Second' }),
+      },
+      deletedItems: [makeItem({ id: deletedId, label: 'Deleted' })],
+    })
+
+    const result = await transformSnapshotItemsAsync(
+      snapshot,
+      1,
+      async (item, id) => `${id ?? 'deleted'}:${item.label ?? ''}`
+    )
+
+    expect(result.items).toEqual({
+      [firstId]: 'item-first:First',
+      [secondId]: 'item-second:Second',
+    })
+    expect(result.deletedItems).toEqual(['deleted:Deleted'])
   })
 })

@@ -1,11 +1,13 @@
 // src/features/workspace/imageEditor/ui/ImageEditorRail.tsx
 // left rail for filtering, selecting, & previewing image-editor items
 
+import { memo } from 'react'
 import { Check, Crop, EyeOff, Pause } from 'lucide-react'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   BoardLabelSettings,
+  GlobalLabelDefaults,
   ImageFit,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -38,7 +40,7 @@ interface ImageEditorRailProps
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
   selectedId: ItemId | null
   onSelect: (id: ItemId) => void
   isSkipped: (id: ItemId) => boolean
@@ -52,7 +54,7 @@ export const ImageEditorRail = ({
   boardAspectRatio,
   boardDefaultFit,
   boardLabels,
-  globalShowLabels,
+  globalLabelDefaults,
   selectedId,
   onSelect,
   isSkipped,
@@ -85,7 +87,10 @@ export const ImageEditorRail = ({
         className="inline-flex items-center gap-1"
         title="Item ratio differs from the board - needs cropping or a new ratio"
       >
-        <Crop aria-hidden="true" className="h-2.5 w-2.5 text-amber-300" />
+        <Crop
+          aria-hidden="true"
+          className="h-2.5 w-2.5 text-[var(--t-warning)]"
+        />
         mismatched
       </span>
       <span
@@ -132,10 +137,10 @@ export const ImageEditorRail = ({
           boardAspectRatio={boardAspectRatio}
           boardDefaultFit={boardDefaultFit}
           boardLabels={boardLabels}
-          globalShowLabels={globalShowLabels}
+          globalLabelDefaults={globalLabelDefaults}
           selected={item.id === selectedId}
           skipped={isSkipped(item.id)}
-          onSelect={() => onSelect(item.id)}
+          onSelect={onSelect}
         />
       ))}
     </ul>
@@ -148,146 +153,155 @@ interface ImageEditorRailRowProps
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
   selected: boolean
   skipped: boolean
-  onSelect: () => void
+  onSelect: (id: ItemId) => void
 }
 
-const ImageEditorRailRow = ({
-  item,
-  boardAspectRatio,
-  boardDefaultFit,
-  boardLabels,
-  globalShowLabels,
-  selected,
-  skipped,
-  onSelect,
-}: ImageEditorRailRowProps) =>
-{
-  const mismatched = itemHasAspectMismatch(item, boardAspectRatio)
-  const adjusted = !!item.transform && !isIdentityTransform(item.transform)
-  const hasLabelOverride = !!item.labelOptions
-  const labelLayout = resolveLabelLayout({
-    itemOptions: item.labelOptions,
-    boardSettings: boardLabels,
-    globalShowLabels,
-  })
-  const labelHidden = !labelLayout.visible
-  const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
-  const thumbnailSize = boundedAspectSize(
+const ImageEditorRailRow = memo(
+  ({
+    item,
     boardAspectRatio,
-    RAIL_THUMBNAIL_BOUND
-  )
+    boardDefaultFit,
+    boardLabels,
+    globalLabelDefaults,
+    selected,
+    skipped,
+    onSelect,
+  }: ImageEditorRailRowProps) =>
+  {
+    const mismatched = itemHasAspectMismatch(item, boardAspectRatio)
+    const adjusted = !!item.transform && !isIdentityTransform(item.transform)
+    const hasLabelOverride = !!item.labelOptions
+    const labelLayout = resolveLabelLayout({
+      itemOptions: item.labelOptions,
+      boardSettings: boardLabels,
+      globalLabelDefaults,
+    })
+    const labelHidden = !labelLayout.visible
+    const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
+    const thumbnailSize = boundedAspectSize(
+      boardAspectRatio,
+      RAIL_THUMBNAIL_BOUND
+    )
 
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onSelect}
-        aria-current={selected ? 'true' : undefined}
-        className={`flex w-full items-center gap-2 border-l-2 px-3 py-2 text-left text-xs transition-colors ${
-          selected
-            ? 'border-[var(--t-accent)] bg-[var(--t-bg-active)] text-[var(--t-text)]'
-            : 'border-transparent text-[var(--t-text-secondary)] hover:bg-[var(--t-bg-surface)]'
-        }`}
-      >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center">
-          <div
-            className="relative overflow-hidden rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-sunken)]"
-            style={thumbnailSize}
-          >
-            <ItemContent
-              item={item}
-              fit={effectiveFit}
-              frameAspectRatio={boardAspectRatio}
-            />
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={() => onSelect(item.id)}
+          aria-current={selected ? 'true' : undefined}
+          className={`flex w-full items-center gap-2 border-l-2 px-3 py-2 text-left text-xs transition-colors ${
+            selected
+              ? 'border-[var(--t-accent)] bg-[var(--t-bg-active)] text-[var(--t-text)]'
+              : 'border-transparent text-[var(--t-text-secondary)] hover:bg-[var(--t-bg-surface)]'
+          }`}
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center">
+            <div
+              className="relative overflow-hidden rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-sunken)]"
+              style={thumbnailSize}
+            >
+              <ItemContent
+                item={item}
+                fit={effectiveFit}
+                frameAspectRatio={boardAspectRatio}
+                imageRendition="thumbnail"
+              />
+            </div>
           </div>
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-medium">
-            {item.label ?? 'Untitled'}
-          </span>
-          <span className="tabular-nums text-[var(--t-text-faint)]">
-            {item.aspectRatio ? formatAspectRatio(item.aspectRatio) : '-'}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <span
-            className="inline-flex h-3 w-3 items-center justify-center"
-            title={
-              mismatched
-                ? `Aspect ratio mismatch - item is ${
-                    item.aspectRatio ? formatAspectRatio(item.aspectRatio) : '?'
-                  } vs board ${formatAspectRatio(boardAspectRatio)}`
-                : undefined
-            }
-            aria-label={mismatched ? 'Aspect ratio mismatch' : undefined}
-            aria-hidden={mismatched ? undefined : 'true'}
-          >
-            {mismatched && (
-              <Crop aria-hidden="true" className="h-3 w-3 text-amber-300" />
-            )}
-          </span>
-          <span
-            className="inline-flex h-3 w-3 items-center justify-center"
-            title={
-              adjusted
-                ? 'Manually adjusted (rotate / zoom / pan)'
-                : skipped
-                  ? "Skipped - you deferred this item. Smart Next won't loop back here."
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-medium">
+              {item.label ?? 'Untitled'}
+            </span>
+            <span className="tabular-nums text-[var(--t-text-faint)]">
+              {item.aspectRatio ? formatAspectRatio(item.aspectRatio) : '-'}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <span
+              className="inline-flex h-3 w-3 items-center justify-center"
+              title={
+                mismatched
+                  ? `Aspect ratio mismatch - item is ${
+                      item.aspectRatio
+                        ? formatAspectRatio(item.aspectRatio)
+                        : '?'
+                    } vs board ${formatAspectRatio(boardAspectRatio)}`
                   : undefined
-            }
-            aria-label={
-              adjusted
-                ? 'Manually adjusted'
-                : skipped
-                  ? 'Skipped (deferred)'
-                  : undefined
-            }
-            aria-hidden={adjusted || skipped ? undefined : 'true'}
-          >
-            {adjusted ? (
-              <Check
-                aria-hidden="true"
-                className="h-3 w-3 text-[var(--t-accent)]"
-              />
-            ) : skipped ? (
-              <Pause
-                aria-hidden="true"
-                className="h-3 w-3 text-[var(--t-text-faint)]"
-              />
-            ) : null}
-          </span>
-          <span
-            className="inline-flex h-3 w-3 items-center justify-center"
-            title={
-              labelHidden
-                ? 'Caption is hidden for this item'
-                : hasLabelOverride
-                  ? 'Label has per-tile overrides'
-                  : undefined
-            }
-            aria-label={
-              labelHidden
-                ? 'Label hidden'
-                : hasLabelOverride
-                  ? 'Label has per-tile overrides'
-                  : undefined
-            }
-            aria-hidden={labelHidden || hasLabelOverride ? undefined : 'true'}
-          >
-            {labelHidden ? (
-              <EyeOff
-                aria-hidden="true"
-                className="h-3 w-3 text-[var(--t-text-faint)]"
-              />
-            ) : hasLabelOverride ? (
-              <span className="block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            ) : null}
-          </span>
-        </div>
-      </button>
-    </li>
-  )
-}
+              }
+              aria-label={mismatched ? 'Aspect ratio mismatch' : undefined}
+              aria-hidden={mismatched ? undefined : 'true'}
+            >
+              {mismatched && (
+                <Crop
+                  aria-hidden="true"
+                  className="h-3 w-3 text-[var(--t-warning)]"
+                />
+              )}
+            </span>
+            <span
+              className="inline-flex h-3 w-3 items-center justify-center"
+              title={
+                adjusted
+                  ? 'Manually adjusted (rotate / zoom / pan)'
+                  : skipped
+                    ? "Skipped - you deferred this item. Smart Next won't loop back here."
+                    : undefined
+              }
+              aria-label={
+                adjusted
+                  ? 'Manually adjusted'
+                  : skipped
+                    ? 'Skipped (deferred)'
+                    : undefined
+              }
+              aria-hidden={adjusted || skipped ? undefined : 'true'}
+            >
+              {adjusted ? (
+                <Check
+                  aria-hidden="true"
+                  className="h-3 w-3 text-[var(--t-accent)]"
+                />
+              ) : skipped ? (
+                <Pause
+                  aria-hidden="true"
+                  className="h-3 w-3 text-[var(--t-text-faint)]"
+                />
+              ) : null}
+            </span>
+            <span
+              className="inline-flex h-3 w-3 items-center justify-center"
+              title={
+                labelHidden
+                  ? 'Caption is hidden for this item'
+                  : hasLabelOverride
+                    ? 'Label has per-tile overrides'
+                    : undefined
+              }
+              aria-label={
+                labelHidden
+                  ? 'Label hidden'
+                  : hasLabelOverride
+                    ? 'Label has per-tile overrides'
+                    : undefined
+              }
+              aria-hidden={labelHidden || hasLabelOverride ? undefined : 'true'}
+            >
+              {labelHidden ? (
+                <EyeOff
+                  aria-hidden="true"
+                  className="h-3 w-3 text-[var(--t-text-faint)]"
+                />
+              ) : hasLabelOverride ? (
+                <span className="block h-1.5 w-1.5 rounded-full bg-[var(--t-success)]" />
+              ) : null}
+            </span>
+          </div>
+        </button>
+      </li>
+    )
+  }
+)
+ImageEditorRailRow.displayName = 'ImageEditorRailRow'

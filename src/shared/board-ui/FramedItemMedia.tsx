@@ -17,9 +17,8 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import { OBJECT_FIT_CLASS } from './constants'
 import {
+  buildManualCropImgStyle,
   isIdentityTransform,
-  itemTransformToCropCss,
-  resolveManualCropImageSize,
 } from '~/shared/lib/imageTransform'
 
 interface FramedItemMediaProps
@@ -52,15 +51,19 @@ const getElementAspectRatio = (element: HTMLElement): number | null =>
   return width > 0 && height > 0 ? width / height : null
 }
 
+// observed only when the caller asks for measured size — most items render
+// w/o a manual crop, so the observer would be pure overhead per tile
 const useMeasuredAspectRatio = (
   ref: RefObject<HTMLElement | null>,
-  fallback: number
+  fallback: number,
+  enabled: boolean
 ): number =>
 {
   const [measured, setMeasured] = useState<number | null>(null)
 
   useLayoutEffect(() =>
   {
+    if (!enabled) return
     const element = ref.current
     if (!element) return
 
@@ -81,7 +84,7 @@ const useMeasuredAspectRatio = (
     const observer = new ResizeObserver(update)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [ref])
+  }, [ref, enabled])
 
   return measured ?? fallback
 }
@@ -105,30 +108,21 @@ export const FramedItemMedia = ({
   const ref = frameRef ?? internalRef
   const transform =
     rawTransform && !isIdentityTransform(rawTransform) ? rawTransform : null
-  const measuredAspect = useMeasuredAspectRatio(ref, frameAspectRatio)
-
-  const cropSize = transform
-    ? resolveManualCropImageSize(
-        aspectRatio ?? undefined,
-        measuredAspect,
-        transform.rotation
-      )
-    : null
-  const cropCss = transform ? itemTransformToCropCss(transform) : null
+  const measuredAspect = useMeasuredAspectRatio(
+    ref,
+    frameAspectRatio,
+    transform !== null
+  )
 
   const imgClassName = transform
     ? 'absolute max-w-none select-none'
     : `h-full w-full ${OBJECT_FIT_CLASS[fit]}`
   const imgStyle: CSSProperties | undefined = transform
-    ? {
-        width: `${cropSize!.widthPercent}%`,
-        height: `${cropSize!.heightPercent}%`,
-        left: cropCss!.left,
-        top: cropCss!.top,
-        transform: cropCss!.transform,
-        transformOrigin: 'center center',
-        willChange: 'transform',
-      }
+    ? buildManualCropImgStyle(transform, {
+        intrinsicAspect: aspectRatio ?? undefined,
+        frameAspect: measuredAspect,
+        willChangeTransform: true,
+      })
     : undefined
 
   const baseClass = 'relative h-full w-full overflow-hidden'

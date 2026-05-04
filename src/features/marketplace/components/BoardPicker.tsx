@@ -1,24 +1,23 @@
 // src/features/marketplace/components/BoardPicker.tsx
-// radio-group board selector for the publish modal — only shows boards that
-// are already cloud-synced & non-empty since publishFromBoard rejects either
+// radio-group board selector for the publish modal
 
 import { Layers } from 'lucide-react'
 import { useId } from 'react'
 
 import type { PublishableBoard } from '~/features/workspace/boards/model/usePublishableBoards'
-import { formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
 
 interface BoardPickerProps
 {
   boards: readonly PublishableBoard[]
-  hasUnsyncedBoards: boolean
+  hasEmptyBoards: boolean
   selected: PublishableBoard | null
   onChange: (next: PublishableBoard) => void
 }
 
 export const BoardPicker = ({
   boards,
-  hasUnsyncedBoards,
+  hasEmptyBoards,
   selected,
   onChange,
 }: BoardPickerProps) =>
@@ -33,12 +32,11 @@ export const BoardPicker = ({
           No publishable boards yet.
         </p>
         <p className="mt-1">
-          Open a board with at least one item, wait for cloud sync, then come
-          back to publish it.
+          Open a board with at least one item, then come back to publish it.
         </p>
-        {hasUnsyncedBoards && (
+        {hasEmptyBoards && (
           <p className="mt-2 text-[var(--t-text-faint)]">
-            Some local boards are not synced — sign in & cloud sync first.
+            Some local boards are not ready to publish yet.
           </p>
         )}
       </div>
@@ -76,7 +74,7 @@ export const BoardPicker = ({
               <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--t-text-faint)]">
                 <span className="inline-flex items-center gap-1">
                   <Layers className="h-3 w-3" strokeWidth={1.8} />
-                  {board.itemCount} {board.itemCount === 1 ? 'item' : 'items'}
+                  {board.itemCount} {pluralize(board.itemCount, 'item')}
                 </span>
                 <span>·</span>
                 <span>created {formatRelativeTime(board.createdAt)}</span>
@@ -85,9 +83,9 @@ export const BoardPicker = ({
           </label>
         )
       })}
-      {hasUnsyncedBoards && (
+      {hasEmptyBoards && (
         <p className="px-1 pt-1 text-[10px] text-[var(--t-text-faint)]">
-          Some boards aren't shown — only cloud-synced boards can be published.
+          Some boards are hidden because they do not have any items yet.
         </p>
       )}
     </div>

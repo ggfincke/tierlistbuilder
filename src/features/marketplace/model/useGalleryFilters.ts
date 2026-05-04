@@ -1,8 +1,6 @@
 // src/features/marketplace/model/useGalleryFilters.ts
 // URL-canonical filter state for gallery search, category, tag, & sort
 
-import { useCallback } from 'react'
-
 import {
   MAX_TEMPLATE_TAG_LENGTH,
   TEMPLATE_LIST_SORTS,
@@ -16,7 +14,9 @@ import {
   createPatchedSearchParams,
   isStringMember,
   readSearchParam,
+  useFilterSetters,
   useUrlFilterParams,
+  writeDefaultedParam,
   writeOptionalParam,
   writeSearchParam,
 } from '~/shared/catalog/urlFilters'
@@ -69,13 +69,7 @@ const writeGalleryFilterParams = (
   writeSearchParam(params, 'q', filters.search)
   writeOptionalParam(params, 'cat', filters.category)
   writeOptionalParam(params, 'tag', normalizeTagFromUrl(filters.tag))
-
-  if (filters.sort === DEFAULT_SORT)
-  {
-    params.delete('sort')
-    return
-  }
-  params.set('sort', filters.sort)
+  writeDefaultedParam(params, 'sort', filters.sort, DEFAULT_SORT)
 }
 
 export const createGalleryFilterSearchParams = (
@@ -102,6 +96,14 @@ export interface GalleryFilters
   setSort: (next: TemplateListSort) => void
 }
 
+// search input replaces history; category/tag/sort push so back-button works
+const GALLERY_SETTER_OPTIONS = {
+  search: { replace: true },
+  category: undefined,
+  tag: undefined,
+  sort: undefined,
+} as const
+
 export const useGalleryFilters = (): GalleryFilters =>
 {
   const { filters, searchDebounced, commitFilters } = useUrlFilterParams({
@@ -110,25 +112,7 @@ export const useGalleryFilters = (): GalleryFilters =>
     create: createGalleryFilterSearchParams,
   })
 
-  const setSearch = useCallback(
-    (next: string) =>
-    {
-      commitFilters({ search: next }, { replace: true })
-    },
-    [commitFilters]
-  )
-  const setCategory = useCallback(
-    (next: TemplateCategory | null) => commitFilters({ category: next }),
-    [commitFilters]
-  )
-  const setTag = useCallback(
-    (next: string | null) => commitFilters({ tag: normalizeTagFromUrl(next) }),
-    [commitFilters]
-  )
-  const setSort = useCallback(
-    (next: TemplateListSort) => commitFilters({ sort: next }),
-    [commitFilters]
-  )
+  const setters = useFilterSetters(commitFilters, GALLERY_SETTER_OPTIONS)
 
   return {
     searchInput: filters.search,
@@ -136,9 +120,9 @@ export const useGalleryFilters = (): GalleryFilters =>
     category: filters.category,
     tag: filters.tag,
     sort: filters.sort,
-    setSearch,
-    setCategory,
-    setTag,
-    setSort,
+    setSearch: setters.search,
+    setCategory: setters.category,
+    setTag: setters.tag,
+    setSort: setters.sort,
   }
 }

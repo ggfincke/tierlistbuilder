@@ -20,9 +20,8 @@ interface TierPresetStore
   renamePreset: (presetId: PresetId, name: string) => void
 }
 
-// subscribeWithSelector is wrapped around persist so the cloud-sync layer
-// can subscribe to userPresets w/ a custom equalityFn (we diff prev/next
-// arrays structurally, not by reference)
+// subscribeWithSelector is wrapped around persist so callers can subscribe
+// to userPresets w/ structural equality instead of array-reference equality
 export const useTierPresetStore = create<TierPresetStore>()(
   subscribeWithSelector(
     persist(

@@ -1,5 +1,6 @@
 // tests/interaction/keyboardTabStop.test.ts
-// roving tab-stop selector w/ ref-stable cache
+// tab-stop selector fallback cache — verifies O(1) cache hits when the
+// tiers & unranked refs are unchanged
 
 import { describe, expect, it } from 'vitest'
 
@@ -9,56 +10,60 @@ import { brandItemIds as ids, makeTier } from '../fixtures'
 
 describe('selectKeyboardTabStopItemId', () =>
 {
-  it('returns focus first; falls back to first tier item, then unranked, then null', () =>
+  it('returns focus item ID when set', () =>
   {
-    expect(
-      selectKeyboardTabStopItemId({
-        keyboardFocusItemId: asItemId('focus-me'),
-        tiers: [makeTier({ id: 'tier-s', itemIds: ids('a', 'b') })],
-        unrankedItemIds: [],
-      })
-    ).toBe('focus-me')
-
-    expect(
-      selectKeyboardTabStopItemId({
-        keyboardFocusItemId: null,
-        tiers: [
-          makeTier({ id: 'tier-s', itemIds: ids('first') }),
-          makeTier({ id: 'tier-a', itemIds: ids('second') }),
-        ],
-        unrankedItemIds: [],
-      })
-    ).toBe('first')
-
-    expect(
-      selectKeyboardTabStopItemId({
-        keyboardFocusItemId: null,
-        tiers: [makeTier({ id: 'tier-s' })],
-        unrankedItemIds: ids('u1'),
-      })
-    ).toBe('u1')
-
-    expect(
-      selectKeyboardTabStopItemId({
-        keyboardFocusItemId: null,
-        tiers: [makeTier({ id: 'tier-s' })],
-        unrankedItemIds: [],
-      })
-    ).toBeNull()
+    const state = {
+      keyboardFocusItemId: asItemId('focus-me'),
+      tiers: [makeTier({ id: 'tier-s', name: 'S', itemIds: ids('a', 'b') })],
+      unrankedItemIds: [],
+    }
+    expect(selectKeyboardTabStopItemId(state)).toBe('focus-me')
   })
 
-  it('caches the fallback while refs are stable & invalidates on tier or unranked ref change', () =>
+  it('falls back to first tier item when focus is null', () =>
   {
-    const tiers1 = [makeTier({ id: 'tier-s', itemIds: ids('a') })]
-    const stable = {
+    const state = {
       keyboardFocusItemId: null,
-      tiers: tiers1,
+      tiers: [
+        makeTier({ id: 'tier-s', name: 'S', itemIds: ids('first') }),
+        makeTier({ id: 'tier-a', name: 'A', itemIds: ids('second') }),
+      ],
+      unrankedItemIds: [],
+    }
+    expect(selectKeyboardTabStopItemId(state)).toBe('first')
+  })
+
+  it('falls back to unranked when no tiers have items', () =>
+  {
+    const state = {
+      keyboardFocusItemId: null,
+      tiers: [makeTier({ id: 'tier-s', name: 'S' })],
       unrankedItemIds: ids('u1'),
     }
-    expect(selectKeyboardTabStopItemId(stable)).toBe('a')
-    expect(selectKeyboardTabStopItemId(stable)).toBe('a')
+    expect(selectKeyboardTabStopItemId(state)).toBe('u1')
+  })
 
-    const tiers2 = [makeTier({ id: 'tier-s', itemIds: ids('b') })]
+  it('returns null when no items exist anywhere', () =>
+  {
+    const state = {
+      keyboardFocusItemId: null,
+      tiers: [makeTier({ id: 'tier-s', name: 'S' })],
+      unrankedItemIds: [],
+    }
+    expect(selectKeyboardTabStopItemId(state)).toBeNull()
+  })
+
+  it('memoizes fallback by tiers+unranked refs (stable hits, invalidates on change)', () =>
+  {
+    const tiers = [
+      makeTier({ id: 'tier-s', name: 'S', itemIds: ids('a', 'b') }),
+    ]
+    const unrankedItemIds = ids('u1')
+    const state = { keyboardFocusItemId: null, tiers, unrankedItemIds }
+    expect(selectKeyboardTabStopItemId(state)).toBe('a')
+    expect(selectKeyboardTabStopItemId(state)).toBe('a')
+
+    const tiers2 = [makeTier({ id: 'tier-s', name: 'S', itemIds: ids('b') })]
     expect(
       selectKeyboardTabStopItemId({
         keyboardFocusItemId: null,
@@ -67,20 +72,12 @@ describe('selectKeyboardTabStopItemId', () =>
       })
     ).toBe('b')
 
-    const tiersEmpty = [makeTier({ id: 'tier-s' })]
-    const unranked2 = ids('u2')
+    const emptyTiers = [makeTier({ id: 'tier-s', name: 'S' })]
     expect(
       selectKeyboardTabStopItemId({
         keyboardFocusItemId: null,
-        tiers: tiersEmpty,
-        unrankedItemIds: ids('u1'),
-      })
-    ).toBe('u1')
-    expect(
-      selectKeyboardTabStopItemId({
-        keyboardFocusItemId: null,
-        tiers: tiersEmpty,
-        unrankedItemIds: unranked2,
+        tiers: emptyTiers,
+        unrankedItemIds: ids('u2'),
       })
     ).toBe('u2')
   })

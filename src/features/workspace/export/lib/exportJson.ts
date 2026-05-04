@@ -10,6 +10,12 @@ import { toFileBase } from '~/shared/lib/fileName'
 import { downloadBlob } from '~/shared/lib/downloadBlob'
 import { snapshotToWire } from '~/shared/board-data/boardWireMapper'
 
+export {
+  parseBoardJson,
+  parseBoardSnapshotJson,
+  parseBoardsJson,
+} from '~/shared/board-data/boardJson'
+
 interface TierListExport
 {
   version: number

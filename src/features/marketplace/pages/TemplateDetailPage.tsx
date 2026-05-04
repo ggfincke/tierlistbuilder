@@ -32,6 +32,7 @@ import {
   formatCount,
   formatRelativeTime,
   formatTimeToRank,
+  pluralize,
 } from '~/shared/catalog/formatters'
 import { Card } from '~/features/marketplace/components/Card'
 import { Cover } from '~/features/marketplace/components/Cover'
@@ -67,7 +68,7 @@ const ItemThumbnail = ({ item, frame, labelSettings }: ItemThumbnailProps) =>
     itemLabel: item.label ?? undefined,
     itemOptions: undefined,
     boardSettings: labelSettings ?? undefined,
-    globalShowLabels: false,
+    globalLabelDefaults: { showLabels: false, placementMode: 'overlay' },
   })
   return (
     <div
@@ -463,7 +464,7 @@ export const TemplateDetailPage = () =>
             </p>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-            {totalItems} {totalItems === 1 ? 'item' : 'items'}
+            {totalItems} {pluralize(totalItems, 'item')}
           </span>
         </div>
         {itemPageStatus === 'LoadingFirstPage' ? (

@@ -23,6 +23,7 @@ import {
   OverlayMenuSurface,
 } from '~/shared/overlay/OverlaySurface'
 import { OVERLAY_VIEWPORT_MARGIN_PX } from '~/shared/overlay/uiMeasurements'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -124,7 +125,7 @@ export const ItemContextMenu = ({
   if (!item) return null
 
   const targetCount = selectionIds.length || 1
-  const showEdit = targetCount === 1 && !!item.imageRef
+  const showEdit = targetCount === 1 && hasAnyImageRef(item)
   const removeLabel = targetCount > 1 ? `Remove ${targetCount} items` : 'Remove'
 
   return (

@@ -78,7 +78,12 @@ export const ITEM_TRANSFORM_LIMITS = {
 
 // caption placement modes — overlay sits inside the image frame;
 // captionAbove/captionBelow render a full-width strip outside the image
-export type LabelPlacementMode = 'overlay' | 'captionAbove' | 'captionBelow'
+export const LABEL_PLACEMENT_MODES = [
+  'overlay',
+  'captionAbove',
+  'captionBelow',
+] as const
+export type LabelPlacementMode = (typeof LABEL_PLACEMENT_MODES)[number]
 
 // caption sits inside the image frame; (x, y) is the *center* of the caption
 // block (translate(-50%, -50%) at render time). axes normalized to [0, 1]
@@ -112,6 +117,31 @@ export const LABEL_PLACEMENT_DEFAULT: LabelPlacement = {
   mode: 'overlay',
   x: 0.5,
   y: 0.95,
+}
+
+// frozen module-level placements so callers of placementFromMode return a
+// stable reference per mode — preserves downstream useMemo identity & avoids
+// per-item per-render allocations in the resolver hot path
+const PLACEMENT_CAPTION_ABOVE: LabelPlacement = { mode: 'captionAbove' }
+const PLACEMENT_CAPTION_BELOW: LabelPlacement = { mode: 'captionBelow' }
+
+const PLACEMENT_BY_MODE: Record<LabelPlacementMode, LabelPlacement> = {
+  overlay: LABEL_PLACEMENT_DEFAULT,
+  captionAbove: PLACEMENT_CAPTION_ABOVE,
+  captionBelow: PLACEMENT_CAPTION_BELOW,
+}
+
+// inflate a mode discriminant to a concrete LabelPlacement; overlay uses
+// the canonical bottom-center anchor since modes carry no x/y
+export const placementFromMode = (mode: LabelPlacementMode): LabelPlacement =>
+  PLACEMENT_BY_MODE[mode]
+
+// global label defaults bundled together — both fields always travel as a
+// pair through the resolver & per-board apply-to-all plans
+export interface GlobalLabelDefaults
+{
+  showLabels: boolean
+  placementMode: LabelPlacementMode
 }
 
 // snap presets surfaced in the editor — center-x w/ three canned y values
@@ -261,19 +291,22 @@ export const isEmptyItemLabelOptions = (
     options.textStyleId === undefined &&
     options.textColor === undefined)
 
-// content-addressable image pointer for bytes stored outside the snapshot
+// content-addressable image pointer for bytes stored outside the snapshot.
+// `cloudMediaExternalId` ties a hashed payload to its cloud media row so the
+// sync layer can re-resolve URLs without re-uploading the bytes
 export interface TierItemImageRef
 {
   hash: string
   cloudMediaExternalId?: string
 }
 
-// single item placed in a tier or the unranked pool. display images live
-// behind `imageRef`; optional source refs keep higher-quality local edit bytes
+// single item placed in a tier or the unranked pool. imageRef is the small
+// preview thumb; tile refs target board rendering; source refs keep editor bytes
 export interface TierItem
 {
   id: ItemId
   imageRef?: TierItemImageRef
+  tileImageRef?: TierItemImageRef
   sourceImageRef?: TierItemImageRef
   label?: string
   backgroundColor?: string
@@ -329,10 +362,11 @@ export interface BoardSnapshot
 }
 
 // payload for adding new items before IDs are assigned. image import writes
-// display + editor blobs to IndexedDB & passes the resulting refs here
+// preview, tile, & editor blobs to IndexedDB before passing refs here
 export interface NewTierItem
 {
   imageRef?: TierItemImageRef
+  tileImageRef?: TierItemImageRef
   sourceImageRef?: TierItemImageRef
   label?: string
   backgroundColor?: string
@@ -341,8 +375,8 @@ export interface NewTierItem
 }
 
 // wire-format TierItem used at JSON import/export & share-link encode boundaries.
-// carries a base64 `imageUrl` so exports are self-contained; the import path
-// decodes it into IndexedDB & produces a TierItem w/ `imageRef` instead
+// carries a base64 `imageUrl` so exports are self-contained; import persists
+// the bytes to IndexedDB before restoring local image refs
 export interface TierItemWire
 {
   id: ItemId
@@ -383,7 +417,8 @@ export interface BoardMeta
   createdAt: number
 }
 
-// cloud board list row returned by the Convex board listing queries
+// board list row projected for the My Lists library page; also returned by
+// the Convex board listing queries for cloud-backed boards
 export interface BoardListItem
 {
   externalId: string
@@ -401,9 +436,9 @@ export interface DeletedBoardListItem extends BoardListItem
   deletedAt: number
 }
 
-// derived completion status surfaced on the My Lists library page. these are
-// computed server-side from counts + denormalized publication state; the user
-// never sets these directly
+// derived completion status surfaced on the My Lists library page. `syncing`
+// & `failed` apply only to cloned-from-template boards while their copy job
+// is in flight; the rest derive from counts + denormalized publication state
 export const LIBRARY_BOARD_STATUSES = [
   'syncing',
   'failed',
@@ -419,6 +454,9 @@ export type LibraryBoardStatus = (typeof LIBRARY_BOARD_STATUSES)[number]
 export const LIBRARY_BOARD_VISIBILITIES = ['private', 'public'] as const
 export type LibraryBoardVisibility = (typeof LIBRARY_BOARD_VISIBILITIES)[number]
 
+// cloud-state of a board row — 'localOnly' lives only in the browser;
+// 'cloudBacked' has a Convex row; 'syncPausedForPlan' is over the user's
+// plan cap & writes are deferred until they upgrade or free a slot
 export const BOARD_CLOUD_STATES = [
   'localOnly',
   'cloudBacked',
@@ -426,6 +464,8 @@ export const BOARD_CLOUD_STATES = [
 ] as const
 export type BoardCloudState = (typeof BOARD_CLOUD_STATES)[number]
 
+// async clone-from-template lifecycle — 'ready' is the steady state;
+// 'clonePending' surfaces the syncing chip; 'cloneFailed' surfaces a retry
 export const BOARD_MATERIALIZATION_STATES = [
   'ready',
   'clonePending',
@@ -434,6 +474,8 @@ export const BOARD_MATERIALIZATION_STATES = [
 export type BoardMaterializationState =
   (typeof BOARD_MATERIALIZATION_STATES)[number]
 
+// reasons a board's cloud sync is paused. only 'planLimit' today, but the
+// server is allowed to introduce more without breaking older clients
 export const BOARD_PAUSED_REASONS = ['planLimit'] as const
 export type BoardPausedReason = (typeof BOARD_PAUSED_REASONS)[number]
 
@@ -488,8 +530,7 @@ export interface LibraryBoardTierBreakdown
   colorSpec: import('../lib/theme').TierColorSpec
 }
 
-// enriched board list row served by getMyLibraryBoards — adds counts, derived
-// status/visibility, source-template category, & cover-item labels
+// enriched board list row used by the My Lists library UI
 export interface LibraryBoardListItem extends BoardListItem
 {
   activeItemCount: number

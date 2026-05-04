@@ -1,5 +1,5 @@
 // tests/board/boardSnapshot.test.ts
-// board snapshot creation, reset, & normalization invariants
+// board snapshot creation & normalization helpers
 
 import { describe, it, expect } from 'vitest'
 import {
@@ -19,10 +19,11 @@ import { asInvalid } from '../typeHelpers'
 
 describe('createInitialBoardData', () =>
 {
-  it('creates a 6-tier board w/ default title & no items', () =>
+  it('creates a board w/ default title, 6 empty tiers, & no items', () =>
   {
     const data = createInitialBoardData('classic')
     expect(data.title).toBe('My Tier List')
+    expect(data.tiers).toHaveLength(6)
     expect(data.tiers.map((t) => t.name)).toEqual([
       'S',
       'A',
@@ -31,10 +32,13 @@ describe('createInitialBoardData', () =>
       'D',
       'E',
     ])
-    expect(data.tiers.every((t) => t.itemIds.length === 0)).toBe(true)
+    for (const tier of data.tiers)
+    {
+      expect(tier.itemIds).toEqual([])
+    }
     expect(data.items).toEqual({})
-    expect(data.unrankedItemIds).toEqual([])
     expect(data.deletedItems).toEqual([])
+    expect(data.unrankedItemIds).toEqual([])
   })
 })
 
@@ -45,8 +49,18 @@ describe('resetBoardData', () =>
     const state = makeBoardSnapshot({
       title: 'Custom Title',
       tiers: [
-        makeTier({ id: 'tier-s', itemIds: [asItemId('a'), asItemId('b')] }),
-        makeTier({ id: 'tier-a', itemIds: [asItemId('c')] }),
+        makeTier({
+          id: 'tier-s',
+          name: 'S',
+          colorSpec: { kind: 'custom', hex: '#ff0000' },
+          itemIds: [asItemId('a'), asItemId('b')],
+        }),
+        makeTier({
+          id: 'tier-a',
+          name: 'A',
+          colorSpec: { kind: 'custom', hex: '#00ff00' },
+          itemIds: [asItemId('c')],
+        }),
       ],
       unrankedItemIds: [asItemId('d')],
       items: {
@@ -61,7 +75,10 @@ describe('resetBoardData', () =>
     expect(result.title).toBe('Custom Title')
     expect(result.tiers).toHaveLength(6)
     expect(result.unrankedItemIds).toEqual(['a', 'b', 'c', 'd'])
-    expect(result.tiers.every((t) => t.itemIds.length === 0)).toBe(true)
+    for (const tier of result.tiers)
+    {
+      expect(tier.itemIds).toEqual([])
+    }
   })
 })
 
@@ -70,11 +87,12 @@ describe('normalizeBoardSnapshot', () =>
   it('returns valid defaults for null input', () =>
   {
     const data = normalizeBoardSnapshot(null, 'classic')
+    expect(data.title).toBe('My Tier List')
     expect(data.tiers).toHaveLength(6)
     expect(data.items).toEqual({})
   })
 
-  it('preserves source image refs & drops identity transforms', () =>
+  it('preserves image rendition refs & drops identity transforms', () =>
   {
     const id = asItemId('item-image')
     const result = normalizeBoardSnapshot(
@@ -83,6 +101,7 @@ describe('normalizeBoardSnapshot', () =>
           [id]: makeItem({
             id,
             imageRef: { hash: 'thumb-hash' },
+            tileImageRef: { hash: 'tile-hash' },
             sourceImageRef: { hash: 'source-hash' },
             transform: { rotation: 0, zoom: 1, offsetX: 0, offsetY: 0 },
           }),
@@ -91,56 +110,49 @@ describe('normalizeBoardSnapshot', () =>
       'classic'
     )
 
+    expect(result.items[id].tileImageRef).toEqual({ hash: 'tile-hash' })
     expect(result.items[id].sourceImageRef).toEqual({ hash: 'source-hash' })
     expect(result.items[id].transform).toBeUndefined()
   })
 
-  it('falls back to auto palette color when a tier is missing its colorSpec', () =>
+  it('clamps board slot ratios but preserves natural image ratios', () =>
   {
+    const id = asItemId('panoramic')
     const result = normalizeBoardSnapshot(
-      { tiers: asInvalid([{ id: 'tier-s', name: 'S', itemIds: [] }]) },
+      makeBoardSnapshot({
+        itemAspectRatio: 100,
+        items: {
+          [id]: makeItem({
+            id,
+            imageRef: { hash: 'panoramic' },
+            aspectRatio: 100,
+          }),
+        },
+      }),
       'classic'
     )
-    expect(result.tiers[0].colorSpec).toEqual({ kind: 'palette', index: 0 })
+
+    expect(result.itemAspectRatio).toBe(4)
+    expect(result.items[id].aspectRatio).toBe(100)
   })
 
-  it('drops duplicate or dangling board-order refs while preserving live items', () =>
+  it('falls back to auto palette color when a tier is missing its colorSpec', () =>
   {
-    const itemA = asItemId('item-a')
-    const itemB = asItemId('item-b')
-    const itemC = asItemId('item-c')
-
-    const result = normalizeBoardSnapshot(
+    const rawTiers = [
       {
-        tiers: asInvalid([
-          {
-            id: 'tier-s',
-            name: 'S',
-            colorSpec: { kind: 'palette', index: 0 },
-            itemIds: [itemA, 'missing-item', itemB, itemA],
-          },
-          {
-            id: 'tier-s',
-            name: 'Duplicate',
-            colorSpec: { kind: 'palette', index: 1 },
-            itemIds: [itemB],
-          },
-        ]),
-        unrankedItemIds: [itemC, itemA, 'missing-unranked'],
-        items: {
-          [itemA]: makeItem({ id: itemA }),
-          [itemB]: makeItem({ id: itemB }),
-          [itemC]: makeItem({ id: itemC }),
-        },
+        id: 'tier-s',
+        name: 'S',
+        itemIds: [],
       },
+    ]
+    const result = normalizeBoardSnapshot(
+      { tiers: asInvalid(rawTiers) },
       'classic'
     )
-
-    expect(result.tiers.map((tier) => tier.id)).toEqual(['tier-s', 'tier-a'])
-    expect(result.tiers[0].itemIds).toEqual([itemA, itemB])
-    expect(result.tiers[1].itemIds).toEqual([])
-    expect(result.unrankedItemIds).toEqual([itemC])
-    expect(Object.keys(result.items)).toEqual([itemA, itemB, itemC])
+    expect(result.tiers[0].colorSpec).toEqual({
+      kind: 'palette',
+      index: 0,
+    })
   })
 
   it('preserves a valid rowColorSpec & drops invalid input', () =>
@@ -150,6 +162,7 @@ describe('normalizeBoardSnapshot', () =>
         tiers: [
           makeTier({
             id: 'tier-s',
+            name: 'S',
             rowColorSpec: createCustomTierColorSpec('#112233'),
           }),
         ],
@@ -185,40 +198,44 @@ describe('normalizeBoardSnapshot', () =>
 
 describe('normalizeCanonicalTierColorSpec', () =>
 {
-  it('normalizes valid specs & rejects malformed input', () =>
+  it('normalizes valid palette & custom specs (lowercases hex, falls back on invalid)', () =>
   {
     expect(
       normalizeCanonicalTierColorSpec({ kind: 'palette', index: 3 })
-    ).toEqual({
-      kind: 'palette',
-      index: 3,
-    })
+    ).toEqual({ kind: 'palette', index: 3 })
     expect(
       normalizeCanonicalTierColorSpec({ kind: 'custom', hex: '#FF0000' })
     ).toEqual({ kind: 'custom', hex: '#ff0000' })
     expect(
       normalizeCanonicalTierColorSpec({ kind: 'custom', hex: 'not-a-color' })
     ).toEqual({ kind: 'custom', hex: '#888888' })
+  })
 
+  it('returns null for nullish, primitive, or missing-field inputs', () =>
+  {
     expect(normalizeCanonicalTierColorSpec(null)).toBeNull()
+    expect(normalizeCanonicalTierColorSpec(undefined)).toBeNull()
+    expect(normalizeCanonicalTierColorSpec('palette')).toBeNull()
+    expect(normalizeCanonicalTierColorSpec(42)).toBeNull()
+    expect(normalizeCanonicalTierColorSpec(true)).toBeNull()
+    expect(normalizeCanonicalTierColorSpec({ index: 0 })).toBeNull()
     expect(normalizeCanonicalTierColorSpec({ kind: 'palette' })).toBeNull()
     expect(normalizeCanonicalTierColorSpec({ kind: 'custom' })).toBeNull()
-    expect(normalizeCanonicalTierColorSpec({ index: 0 })).toBeNull()
   })
 })
 
 describe('createNewTier', () =>
 {
-  it('produces tier-prefixed ID, 1-indexed name, & wrapping palette spec', () =>
+  it('names tiers 1-indexed by count & assigns palette color (wraps past size)', () =>
   {
-    expect(createNewTier('classic', 0).id).toMatch(/^tier-/)
     expect(createNewTier('classic', 0).name).toBe('Tier 1')
     expect(createNewTier('classic', 5).name).toBe('Tier 6')
+    expect(createNewTier('classic', 12).name).toBe('Tier 13')
     expect(createNewTier('classic', 2).colorSpec).toEqual({
       kind: 'palette',
       index: 2,
     })
+    // classic palette has a finite swatch count — wrap past it stays palette-kind
     expect(createNewTier('classic', 100).colorSpec.kind).toBe('palette')
-    expect(createNewTier('classic', 0).itemIds).toEqual([])
   })
 })

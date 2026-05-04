@@ -5,6 +5,7 @@ import { useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
 import { useModalStack } from '~/app/shells/useModalStack'
 import { WorkspaceModalLayer } from '~/app/shells/WorkspaceModalLayer'
@@ -25,9 +26,6 @@ import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurr
 import { useBoardThemeOverrides } from '~/features/workspace/settings/model/useBoardThemeOverrides'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import { useCloudSync } from '~/features/platform/sync/orchestration/useCloudSync'
-import { CLOUD_SYNC_ENABLED } from '~/features/platform/sync/lib/cloudSyncConfig'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
@@ -64,11 +62,10 @@ export const WorkspaceShell = () =>
   useBoardThemeOverrides()
   useWarmActiveBoardImages(appReady)
 
-  const authSession = useAuthSession()
-  const signedInUser =
-    authSession.status === 'signed-in' ? authSession.user : null
-  const cloudEnabled = signedInUser !== null && CLOUD_SYNC_ENABLED
-  useCloudSync(signedInUser)
+  // BoardManager surfaces cloud-only affordances (sync badge, conflict resolver,
+  // recently-deleted) only while the user is signed in
+  const session = useAuthSession()
+  const cloudEnabled = session.status === 'signed-in'
 
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
   const modalStack = useModalStack<WorkspaceModalPayloads>()
@@ -138,9 +135,10 @@ export const WorkspaceShell = () =>
                 toolbar={
                   <BoardActionBar
                     toolbarPosition={toolbarPosition}
-                    cloudEnabled={cloudEnabled}
                     exportStatus={exportActions.exportStatus}
                     exportingAll={exportActions.exportAllProgress !== null}
+                    imageFormat={exportActions.imageFormat}
+                    onImageFormatChange={exportActions.setImageFormat}
                     onAddTier={handleAddTier}
                     onOpenSettings={handleOpenSettings}
                     onOpenStats={handleOpenStats}
@@ -161,16 +159,15 @@ export const WorkspaceShell = () =>
 
         <BoardManager
           toolbarPosition={toolbarPosition}
-          cloudEnabled={cloudEnabled}
           onSwitchBoard={transitionTo}
+          cloudEnabled={cloudEnabled}
         />
         <WorkspaceModalLayer
           modalStack={modalStack}
-          signedInUser={signedInUser}
           exportStatus={exportActions.exportStatus}
           exportAllProgress={exportActions.exportAllProgress}
-          previewFormat={exportActions.previewFormat}
-          onPreviewFormatChange={exportActions.setPreviewFormat}
+          imageFormat={exportActions.imageFormat}
+          onImageFormatChange={exportActions.setImageFormat}
           onPreviewDownload={exportActions.handlePreviewDownload}
           onPreviewCopy={exportActions.handlePreviewCopy}
           onPreviewAnnotate={exportActions.handlePreviewAnnotate}

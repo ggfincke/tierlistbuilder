@@ -3,6 +3,8 @@
 
 import type { CSSProperties, ReactNode } from 'react'
 
+import { joinClassNames } from '~/shared/lib/className'
+
 export type MediaLoading = 'eager' | 'lazy'
 export type MediaDecoding = 'async' | 'auto' | 'sync'
 
@@ -24,9 +26,6 @@ interface MediaMatteFrameProps
   children?: ReactNode
 }
 
-const joinClassName = (...parts: (string | undefined)[]): string =>
-  parts.filter(Boolean).join(' ')
-
 export const MediaMatteFrame = ({
   src,
   alt = '',
@@ -41,7 +40,7 @@ export const MediaMatteFrame = ({
   children,
 }: MediaMatteFrameProps) => (
   <div
-    className={joinClassName('bg-[var(--t-media-matte)]', className)}
+    className={joinClassNames('bg-[var(--t-media-matte)]', className)}
     style={style}
     aria-hidden={ariaHidden ? 'true' : undefined}
   >
@@ -54,7 +53,7 @@ export const MediaMatteFrame = ({
         loading={loading}
         decoding={decoding}
         draggable={false}
-        className={joinClassName('h-full w-full object-cover', imageClassName)}
+        className={joinClassNames('h-full w-full object-cover', imageClassName)}
       />
     )}
     {children}

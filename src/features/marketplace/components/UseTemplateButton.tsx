@@ -6,7 +6,6 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { useUseTemplate } from '~/features/marketplace/model/useUseTemplate'
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 
 interface UseTemplateButtonProps
 {
@@ -25,15 +24,13 @@ export const UseTemplateButton = ({
   className,
 }: UseTemplateButtonProps) =>
 {
-  const session = useAuthSession()
   const { run, isPending } = useUseTemplate()
-  const sessionLoading = session.status === 'loading'
 
   return (
     <PrimaryButton
       type="button"
       size={size}
-      disabled={isPending || sessionLoading}
+      disabled={isPending}
       onClick={() => run(slug, templateTitle)}
       className={className}
     >
