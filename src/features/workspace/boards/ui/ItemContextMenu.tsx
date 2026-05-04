@@ -13,6 +13,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
@@ -22,6 +23,7 @@ import {
   OverlayMenuSurface,
 } from '~/shared/overlay/OverlaySurface'
 import { OVERLAY_VIEWPORT_MARGIN_PX } from '~/shared/overlay/uiMeasurements'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -35,6 +37,8 @@ interface ItemContextMenuProps
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
+
+const SCROLL_LISTENER_OPTIONS = { capture: true, passive: true } as const
 
 export const ItemContextMenu = ({
   itemId,
@@ -109,14 +113,19 @@ export const ItemContextMenu = ({
   useEffect(() =>
   {
     const handleScroll = () => onClose()
-    window.addEventListener('scroll', handleScroll, true)
-    return () => window.removeEventListener('scroll', handleScroll, true)
+    window.addEventListener('scroll', handleScroll, SCROLL_LISTENER_OPTIONS)
+    return () =>
+      window.removeEventListener(
+        'scroll',
+        handleScroll,
+        SCROLL_LISTENER_OPTIONS
+      )
   }, [onClose])
 
   if (!item) return null
 
   const targetCount = selectionIds.length || 1
-  const showEdit = targetCount === 1 && !!item.imageRef
+  const showEdit = targetCount === 1 && hasAnyImageRef(item)
   const removeLabel = targetCount > 1 ? `Remove ${targetCount} items` : 'Remove'
 
   return (
@@ -138,6 +147,8 @@ export const ItemContextMenu = ({
       {showEdit && (
         <OverlayMenuItem
           role="menuitem"
+          onFocus={preloadImageEditorModal}
+          onPointerEnter={preloadImageEditorModal}
           onClick={() =>
           {
             useImageEditorStore.getState().open({ itemId, filter: 'all' })

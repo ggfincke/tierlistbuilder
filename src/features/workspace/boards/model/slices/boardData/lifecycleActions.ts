@@ -2,7 +2,7 @@
 // board data lifecycle actions for runtime errors, reset, & load
 
 import { createFreshRuntimeState } from '~/features/workspace/boards/model/runtime'
-import { resetBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { resetBoardData } from '~/shared/board-data/boardSnapshot'
 import type { ActiveBoardSliceCreator, BoardDataSlice } from '../types'
 
 type LifecycleActions = Pick<

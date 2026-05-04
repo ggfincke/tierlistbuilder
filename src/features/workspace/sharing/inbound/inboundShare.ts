@@ -6,7 +6,7 @@ import {
   clearShareFragment,
   decodeBoardFromShareFragment,
   getShareFragment,
-} from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/sharing/hashShare'
 
 export type InboundShareSource = 'fragment'
 

@@ -18,6 +18,15 @@ interface AlphaRect
   alpha: number
 }
 
+interface OpaqueRect
+{
+  left: number
+  top: number
+  right: number
+  bottom: number
+  color: [number, number, number]
+}
+
 const createAlphaImageData = (
   width: number,
   height: number,
@@ -36,6 +45,41 @@ const createAlphaImageData = (
         data[i + 1] = 255
         data[i + 2] = 255
         data[i + 3] = rect.alpha
+      }
+    }
+  }
+  return { data, width, height, colorSpace: 'srgb' } as ImageData
+}
+
+const createOpaqueImageData = (
+  width: number,
+  height: number,
+  baseColor: [number, number, number],
+  rects: readonly OpaqueRect[]
+): ImageData =>
+{
+  const data = new Uint8ClampedArray(width * height * 4)
+  for (let y = 0; y < height; y++)
+  {
+    for (let x = 0; x < width; x++)
+    {
+      const i = (y * width + x) << 2
+      data[i] = baseColor[0]
+      data[i + 1] = baseColor[1]
+      data[i + 2] = baseColor[2]
+      data[i + 3] = 255
+    }
+  }
+  for (const rect of rects)
+  {
+    for (let y = rect.top; y < rect.bottom; y++)
+    {
+      for (let x = rect.left; x < rect.right; x++)
+      {
+        const i = (y * width + x) << 2
+        data[i] = rect.color[0]
+        data[i + 1] = rect.color[1]
+        data[i + 2] = rect.color[2]
       }
     }
   }
@@ -203,6 +247,25 @@ describe('auto-crop bbox detection', () =>
       top: 0.1,
       right: 0.8,
       bottom: 0.96,
+    })
+  })
+
+  it('detects opaque poster art against a corner matte', () =>
+  {
+    const bbox = detectContentBBoxFromImageData(
+      createOpaqueImageData(
+        60,
+        90,
+        [12, 14, 18],
+        [{ left: 18, top: 20, right: 42, bottom: 70, color: [220, 170, 80] }]
+      )
+    )
+
+    expect(bbox).toEqual({
+      left: 0.3,
+      top: 2 / 9,
+      right: 0.7,
+      bottom: 7 / 9,
     })
   })
 })

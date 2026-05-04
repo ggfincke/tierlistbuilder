@@ -6,15 +6,18 @@ import { useCallback, useEffect, useState } from 'react'
 import { handleKeyboardBoardJumpKey } from '~/features/workspace/boards/interaction/keyboardDragController'
 import { ITEM_DATA_ATTR } from '~/features/workspace/boards/lib/dndIds'
 import { BULK_ACTION_BAR_SELECTOR } from '~/shared/board-ui/boardTestIds'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   selectIsDragging,
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { nextToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { announce } from '~/shared/a11y/announce'
-import { toast } from '~/shared/notifications/useToastStore'
 import { hasActiveModalLayer } from '~/shared/overlay/modalLayer'
+import {
+  isEditableShortcutTarget,
+  runUndoRedoShortcut,
+} from './undoRedoShortcut'
 
 interface UseGlobalShortcutsOptions
 {
@@ -23,9 +26,6 @@ interface UseGlobalShortcutsOptions
 
 export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
 {
-  const undo = useActiveBoardStore((state) => state.undo)
-  const redo = useActiveBoardStore((state) => state.redo)
-
   const [showShortcutsPanel, setShowShortcutsPanel] = useState(false)
 
   const closeShortcutsPanel = useCallback(
@@ -37,11 +37,8 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
   {
     const handler = (e: KeyboardEvent) =>
     {
-      // skip when focus is inside a text input or editable element
-      const el = document.activeElement as HTMLElement | null
-      if (!el) return
-      const tag = el.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable) return
+      const el = document.activeElement
+      if (!el || isEditableShortcutTarget(el)) return
       if (hasActiveModalLayer()) return
 
       const mod = e.ctrlKey || e.metaKey
@@ -51,27 +48,14 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
 
       // drop Ctrl/Cmd+Z/Y mid-drag — dnd-kit still holds its own active state,
       // & undoing out from under it leaves the overlay & refs stranded
-      const dragActive = selectIsDragging(useActiveBoardStore.getState())
-
-      // undo — Ctrl/Cmd+Z
-      if (mod && key === 'z' && !e.shiftKey)
+      if (
+        runUndoRedoShortcut(e, {
+          guard: () =>
+            selectIsDragging(useActiveBoardStore.getState()) ||
+            usePreferencesStore.getState().boardLocked,
+        })
+      )
       {
-        e.preventDefault()
-        const locked = useSettingsStore.getState().boardLocked
-        if (dragActive || locked) return
-        const result = undo()
-        if (result) toast(`Undid ${result.label.toLowerCase()}`)
-        return
-      }
-
-      // redo — Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
-      if (mod && ((key === 'z' && e.shiftKey) || key === 'y'))
-      {
-        e.preventDefault()
-        const locked = useSettingsStore.getState().boardLocked
-        if (dragActive || locked) return
-        const result = redo()
-        if (result) toast(`Redid ${result.label.toLowerCase()}`)
         return
       }
 
@@ -79,7 +63,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (mod && key === 's')
       {
         e.preventDefault()
-        const locked = useSettingsStore.getState().boardLocked
+        const locked = usePreferencesStore.getState().boardLocked
         if (!locked) onExport('png')
         return
       }
@@ -89,7 +73,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       {
         e.preventDefault()
         const { toolbarPosition, setToolbarPosition } =
-          useSettingsStore.getState()
+          usePreferencesStore.getState()
         const next = nextToolbarPosition(toolbarPosition)
         setToolbarPosition(next)
         announce(`Toolbar moved to ${next}`)
@@ -100,7 +84,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (mod && key === 'a')
       {
         e.preventDefault()
-        const locked = useSettingsStore.getState().boardLocked
+        const locked = usePreferencesStore.getState().boardLocked
         if (!locked) useActiveBoardStore.getState().selectAll()
         return
       }
@@ -136,7 +120,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       if (key === 'delete' || key === 'backspace')
       {
         const state = useActiveBoardStore.getState()
-        const locked = useSettingsStore.getState().boardLocked
+        const locked = usePreferencesStore.getState().boardLocked
         if (locked) return
 
         // bulk delete when items are selected
@@ -187,7 +171,7 @@ export const useGlobalShortcuts = ({ onExport }: UseGlobalShortcutsOptions) =>
       document.removeEventListener('keydown', handler)
       document.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [undo, redo, onExport])
+  }, [onExport])
 
   return {
     showShortcutsPanel,

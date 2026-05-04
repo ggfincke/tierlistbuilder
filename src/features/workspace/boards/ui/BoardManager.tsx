@@ -7,7 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import type { ToolbarPosition } from '@tierlistbuilder/contracts/workspace/settings'
+import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'
 import {
   createBoardSession,
   createBoardSessionFromPreset,

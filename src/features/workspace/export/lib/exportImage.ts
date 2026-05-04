@@ -1,45 +1,39 @@
 // src/features/workspace/export/lib/exportImage.ts
-// image export utilities — render the tier list to PNG, JPEG, or WebP for download & clipboard
-
-import { toBlob, toCanvas, toJpeg, toPng, toSvg } from 'html-to-image'
+// image export utilities — render the tier list to PNG, JPEG, WebP, or SVG
+// for download & clipboard
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance, ImageFormat } from '../model/runtime'
+import { dataUrlToBytes } from '~/shared/lib/binaryCodec'
+import { downloadBlob } from '~/shared/lib/downloadBlob'
 import { toFileBase } from '~/shared/lib/fileName'
-import { triggerDownload } from '~/shared/lib/downloadBlob'
-import { EXPORT_BACKGROUND_COLOR, EXPORT_PIXEL_RATIO } from './constants'
+import { loadHtmlToImageLib } from '~/shared/lib/lazyDependencies'
+import {
+  EXPORT_PIXEL_RATIO,
+  IMAGE_FORMAT_META,
+  IMAGE_QUALITY,
+} from './constants'
 import { withExportSession } from './exportBoardRender'
 
-// quality setting used for JPEG & WebP encoding
-export const IMAGE_QUALITY = 0.92
-
-// build export options for a given background color
-export const getBaseOptions = (bgColor: string) => ({
+// build the html-to-image options for a given background color
+const buildImageOptions = (backgroundColor: string) => ({
   pixelRatio: EXPORT_PIXEL_RATIO,
-  cacheBust: true,
-  backgroundColor: bgColor,
+  backgroundColor,
 })
 
-// file extensions keyed by format
-export const FORMAT_EXT: Record<ImageFormat, string> = {
-  png: 'png',
-  jpeg: 'jpeg',
-  webp: 'webp',
-  svg: 'svg',
-}
-
-// render an element to a data URL in the specified format
+// render an element to a data URL -- used by preview & annotate flows that
+// need an inline `src=` for an <img>. download/PDF/ZIP flows should use
+// `renderToBlob` instead so we never pay the base64 round-trip
 export const renderToDataUrl = async (
   element: HTMLElement,
   format: ImageFormat,
-  backgroundColor = EXPORT_BACKGROUND_COLOR
+  backgroundColor: string
 ): Promise<string> =>
 {
-  const opts = getBaseOptions(backgroundColor)
-  if (format === 'svg')
-  {
-    return toSvg(element, opts)
-  }
+  const opts = buildImageOptions(backgroundColor)
+  const { toCanvas, toJpeg, toPng, toSvg } = await loadHtmlToImageLib()
+
+  if (format === 'svg') return toSvg(element, opts)
   if (format === 'jpeg')
   {
     return toJpeg(element, { ...opts, quality: IMAGE_QUALITY })
@@ -52,15 +46,52 @@ export const renderToDataUrl = async (
   return toPng(element, opts)
 }
 
-// render the element to a 2x PNG data URL
-export const renderElementToPng = (
+// render an element directly to a Blob — used for downloads, PDF embedding,
+// & ZIP packaging. avoids the data-URL -> base64 round-trip in those flows
+export const renderToBlob = async (
   element: HTMLElement,
-  backgroundColor = EXPORT_BACKGROUND_COLOR
-): Promise<string> => toPng(element, getBaseOptions(backgroundColor))
-
-export interface CapturedBoardImage
+  format: ImageFormat,
+  backgroundColor: string
+): Promise<Blob> =>
 {
-  dataUrl: string
+  const opts = buildImageOptions(backgroundColor)
+  const lib = await loadHtmlToImageLib()
+
+  if (format === 'svg')
+  {
+    // toSvg returns a percent-encoded data URL; decode & wrap as a Blob.
+    // BlobPart cast mirrors imagePersistence.ts (TS strict-ArrayBuffer)
+    const dataUrl = await lib.toSvg(element, opts)
+    const bytes = dataUrlToBytes(dataUrl)
+    return new Blob([bytes as unknown as BlobPart], {
+      type: IMAGE_FORMAT_META.svg.mimeType,
+    })
+  }
+
+  if (format === 'png')
+  {
+    const blob = await lib.toBlob(element, opts)
+    if (!blob) throw new Error('Failed to render PNG image.')
+    return blob
+  }
+
+  // jpeg & webp: render to a canvas then encode via canvas.toBlob
+  const canvas = await lib.toCanvas(element, opts)
+  const mime = IMAGE_FORMAT_META[format].mimeType
+  return await new Promise<Blob>((resolve, reject) =>
+  {
+    canvas.toBlob(
+      (b) =>
+        b ? resolve(b) : reject(new Error(`Failed to render ${format} image.`)),
+      mime,
+      IMAGE_QUALITY
+    )
+  })
+}
+
+interface CapturedBoardImage
+{
+  blob: Blob
   // source element pixel dimensions scaled by the export pixel ratio; PDF
   // callers size pages against these, image callers can ignore them
   width: number
@@ -70,27 +101,23 @@ export interface CapturedBoardImage
 interface CaptureBoardOptions
 {
   appearance: ExportAppearance
-  backgroundColor?: string
+  backgroundColor: string
   format: ImageFormat
 }
 
-// capture a single board as a data URL inside an isolated export session.
-// for batch capture (all boards) use captureAllBoards in exportAll.ts which
-// keeps one session open across boards to avoid re-mounting the hidden host
-export const captureBoardAsDataUrl = async (
+// capture a single board to a Blob inside an isolated export session.
+// for batch capture (all boards) the loop in exportAll keeps one session
+// open across boards to avoid re-mounting the hidden host
+export const captureBoardAsBlob = async (
   data: BoardSnapshot,
-  {
-    appearance,
-    backgroundColor = EXPORT_BACKGROUND_COLOR,
-    format,
-  }: CaptureBoardOptions
+  { appearance, backgroundColor, format }: CaptureBoardOptions
 ): Promise<CapturedBoardImage> =>
   withExportSession({ appearance, backgroundColor }, async (session) =>
   {
     const element = await session.renderBoard(data)
-    const dataUrl = await renderToDataUrl(element, format, backgroundColor)
+    const blob = await renderToBlob(element, format, backgroundColor)
     return {
-      dataUrl,
+      blob,
       width: element.offsetWidth * EXPORT_PIXEL_RATIO,
       height: element.offsetHeight * EXPORT_PIXEL_RATIO,
     }
@@ -102,22 +129,22 @@ export const exportTierListAsImage = async (
   title: string,
   appearance: ExportAppearance,
   format: ImageFormat,
-  backgroundColor = EXPORT_BACKGROUND_COLOR
+  backgroundColor: string
 ): Promise<void> =>
 {
-  const { dataUrl } = await captureBoardAsDataUrl(data, {
+  const { blob } = await captureBoardAsBlob(data, {
     appearance,
     backgroundColor,
     format,
   })
-  triggerDownload(dataUrl, `${toFileBase(title)}.${FORMAT_EXT[format]}`)
+  downloadBlob(blob, `${toFileBase(title)}.${IMAGE_FORMAT_META[format].ext}`)
 }
 
 // render the board as PNG & copy it to the system clipboard
 export const copyBoardToClipboard = async (
   data: BoardSnapshot,
   appearance: ExportAppearance,
-  backgroundColor = EXPORT_BACKGROUND_COLOR
+  backgroundColor: string
 ): Promise<void> =>
 {
   if (!('ClipboardItem' in window))
@@ -125,15 +152,10 @@ export const copyBoardToClipboard = async (
     throw new Error('Clipboard image copy is not supported in this browser.')
   }
 
-  await withExportSession({ appearance, backgroundColor }, async (session) =>
-  {
-    const element = await session.renderBoard(data)
-    const blob = await toBlob(element, getBaseOptions(backgroundColor))
-    if (!blob)
-    {
-      throw new Error('Failed to render image for clipboard.')
-    }
-
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+  const { blob } = await captureBoardAsBlob(data, {
+    appearance,
+    backgroundColor,
+    format: 'png',
   })
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
 }

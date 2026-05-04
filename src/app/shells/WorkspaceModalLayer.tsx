@@ -6,11 +6,15 @@ import { lazy, useCallback } from 'react'
 import type { ModalStack } from '~/app/shells/useModalStack'
 import type { WorkspaceModalPayloads } from './workspaceModals'
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import type { ExportStatus } from '~/features/workspace/export/model/useExportController'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { AspectRatioIssueModal } from '~/features/workspace/settings/ui/AspectRatioIssueModal'
-import { ImageEditorModal } from '~/features/workspace/imageEditor/ui/ImageEditorModal'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import {
+  loadImageEditorModal,
+  preloadImageEditorModal,
+} from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { ProgressOverlay } from '~/shared/overlay/ProgressOverlay'
 
@@ -34,6 +38,11 @@ const ShareModal = lazy(() =>
     default: m.ShareModal,
   }))
 )
+const ImageEditorModal = lazy(() =>
+  loadImageEditorModal().then((m) => ({
+    default: m.ImageEditorModal,
+  }))
+)
 const BoardSettingsModal = lazy(() =>
   import('~/features/workspace/settings/ui/BoardSettingsModal').then((m) => ({
     default: m.BoardSettingsModal,
@@ -54,10 +63,10 @@ interface ExportProgress
 interface WorkspaceModalLayerProps
 {
   modalStack: ModalStack<WorkspaceModalPayloads>
-  exportStatus: ImageFormat | 'pdf' | 'clipboard' | null
+  exportStatus: ExportStatus
   exportAllProgress: ExportProgress | null
-  previewFormat: ImageFormat
-  onPreviewFormatChange: (format: ImageFormat) => void
+  imageFormat: ImageFormat
+  onImageFormatChange: (format: ImageFormat) => void
   onPreviewDownload: () => void
   onPreviewCopy: () => void
   onPreviewAnnotate: () => void
@@ -69,8 +78,8 @@ export const WorkspaceModalLayer = ({
   modalStack,
   exportStatus,
   exportAllProgress,
-  previewFormat,
-  onPreviewFormatChange,
+  imageFormat,
+  onImageFormatChange,
   onPreviewDownload,
   onPreviewCopy,
   onPreviewAnnotate,
@@ -79,6 +88,7 @@ export const WorkspaceModalLayer = ({
 }: WorkspaceModalLayerProps) =>
 {
   const { state: modalState, close: closeModal } = modalStack
+  const imageEditorOpen = useImageEditorStore((state) => state.isOpen)
 
   const handleCloseSettings = useCallback(
     () => closeModal('settings'),
@@ -86,6 +96,10 @@ export const WorkspaceModalLayer = ({
   )
   const handleOpenImageEditorMismatched = useCallback(
     () => useImageEditorStore.getState().open({ filter: 'mismatched' }),
+    []
+  )
+  const handleImageEditorIntent = useCallback(
+    () => preloadImageEditorModal(),
     []
   )
   const handleCloseStats = useCallback(() => closeModal('stats'), [closeModal])
@@ -119,8 +133,8 @@ export const WorkspaceModalLayer = ({
             open
             onClose={handleClosePreview}
             previewDataUrl={preview.payload}
-            format={previewFormat}
-            onFormatChange={onPreviewFormatChange}
+            format={imageFormat}
+            onFormatChange={onImageFormatChange}
             onDownload={onPreviewDownload}
             onCopyToClipboard={onPreviewCopy}
             onAnnotate={onPreviewAnnotate}
@@ -158,8 +172,13 @@ export const WorkspaceModalLayer = ({
       <LazyModalSlot when={showShortcutsPanel} section="shortcuts">
         {() => <ShortcutsPanel onClose={onCloseShortcutsPanel} />}
       </LazyModalSlot>
-      <AspectRatioIssueModal onAdjustEach={handleOpenImageEditorMismatched} />
-      <ImageEditorModal />
+      <AspectRatioIssueModal
+        onAdjustEach={handleOpenImageEditorMismatched}
+        onAdjustEachIntent={handleImageEditorIntent}
+      />
+      <LazyModalSlot when={imageEditorOpen} section="image editor">
+        {() => <ImageEditorModal />}
+      </LazyModalSlot>
     </>
   )
 }

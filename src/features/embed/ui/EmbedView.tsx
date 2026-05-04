@@ -5,8 +5,8 @@ import { useEffect, useState } from 'react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
-import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
-import { resolveInboundShare } from '~/features/workspace/sharing/inbound/inboundShare'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
+import { resolveInboundShare } from '~/features/platform/share/inboundShare'
 import {
   StaticBoard,
   type StaticBoardAppearance,
@@ -20,10 +20,14 @@ const EMBED_DEFAULT_PALETTE_ID: PaletteId = 'classic'
 const EMBED_APPEARANCE: StaticBoardAppearance = {
   itemSize: 'medium',
   showLabels: true,
+  // viewers don't get to pick — fall back to overlay so unconfigured boards
+  // render the same way they did before this preference existed
+  defaultLabelPlacementMode: 'overlay',
   itemShape: 'square',
   compactMode: false,
   labelWidth: 'default',
   paletteId: EMBED_DEFAULT_PALETTE_ID,
+  textStyleId: 'default',
   tierLabelBold: false,
   tierLabelItalic: false,
   tierLabelFontSize: 'medium',

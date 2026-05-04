@@ -8,7 +8,7 @@ import {
   selectIsDragging,
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { getTextColor } from '~/shared/lib/color'
@@ -34,7 +34,7 @@ export const BulkActionBar = () =>
       clearSelection: state.clearSelection,
     }))
   )
-  const reducedMotion = useSettingsStore((state) => state.reducedMotion)
+  const reducedMotion = usePreferencesStore((state) => state.reducedMotion)
   const paletteId = useCurrentPaletteId()
 
   if (selectedCount === 0 || isDragging) return null

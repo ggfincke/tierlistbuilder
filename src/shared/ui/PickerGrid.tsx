@@ -24,6 +24,9 @@ interface PickerGridProps<K extends string, M extends PickerItem<K>>
   containerClassName?: string
   buttonClassName?: string
   renderPreview: (item: M) => ReactNode
+  // when true, the grid renders but inputs ignore selection — used for
+  // override pickers in their "inherit user default" state
+  disabled?: boolean
 }
 
 const BASE_BUTTON =
@@ -48,6 +51,7 @@ export const PickerGrid = <K extends string, M extends PickerItem<K>>({
   containerClassName,
   buttonClassName = 'gap-1.5 p-2',
   renderPreview,
+  disabled = false,
 }: PickerGridProps<K, M>) =>
 {
   const itemKeys = useMemo(() => items.map((m) => m.id), [items])
@@ -70,8 +74,13 @@ export const PickerGrid = <K extends string, M extends PickerItem<K>>({
   return (
     <div
       {...groupProps}
-      className={joinClassNames(layoutClass, containerClassName)}
+      className={joinClassNames(
+        layoutClass,
+        containerClassName,
+        disabled ? 'pointer-events-none opacity-50' : undefined
+      )}
       style={layoutStyle}
+      aria-disabled={disabled || undefined}
     >
       {items.map((item, index) =>
       {
@@ -81,6 +90,7 @@ export const PickerGrid = <K extends string, M extends PickerItem<K>>({
           <button
             key={item.id}
             {...getItemProps(item.id, index)}
+            disabled={disabled}
             className={joinClassNames(
               BASE_BUTTON,
               buttonClassName,

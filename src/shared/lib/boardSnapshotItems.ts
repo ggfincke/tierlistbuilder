@@ -4,17 +4,15 @@
 import type {
   BoardSnapshot,
   TierItem,
+  TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import {
+  getImageRefsByRendition,
+  getPrimaryImageRef,
+} from '~/shared/lib/imageRefs'
 import { isPresent } from '~/shared/lib/typeGuards'
-import { isIdentityTransform } from './imageTransform'
-
-const itemHasRenderTransform = (item: TierItem): boolean =>
-{
-  const transform = item.transform
-  return !!transform && !isIdentityTransform(transform)
-}
 
 // visit every live & deleted snapshot item in stable order
 export const forEachSnapshotItem = (
@@ -34,7 +32,7 @@ export const forEachSnapshotItem = (
 }
 
 // collect derived values while traversing every snapshot item once
-export const collectSnapshotItems = <T>(
+const collectSnapshotItems = <T>(
   snapshot: BoardSnapshot,
   collect: (item: TierItem, id: ItemId | null) => T | null | undefined
 ): T[] =>
@@ -53,33 +51,43 @@ export const collectSnapshotItems = <T>(
   return results
 }
 
-// collect unique image hashes referenced anywhere on a snapshot
-export const collectSnapshotImageHashes = (
+// collect every editor-priority hash per item so wire export can fall back
+// when source bytes are missing but tile or preview bytes are still present
+export const collectSnapshotExportImageHashes = (
   snapshot: BoardSnapshot
 ): string[] => [
   ...new Set(
-    collectSnapshotItems(snapshot, (item) => item.imageRef?.hash ?? null)
+    collectSnapshotItems(snapshot, (item) =>
+      getImageRefsByRendition(item, 'editor').map((ref) => ref.hash)
+    ).flat()
   ),
 ]
 
-// collect hashes needed for visible board rendering, not unused edit sources
-export const collectSnapshotRenderImageHashes = (
+// hashes needed for visible board rendering. board priority's primary blob
+// (tile -> source -> preview) carries the visible quality; preview is warmed
+// alongside as a cheap fallback while the primary decodes
+export const collectSnapshotRenderImageRefs = (
   snapshot: BoardSnapshot
-): string[] =>
+): TierItemImageRef[] =>
 {
-  const hashes: Array<string | undefined> = []
+  const refs: TierItemImageRef[] = []
   const seen = new Set<ItemId>()
+  const seenHashes = new Set<string>()
+  const pushRef = (ref: TierItemImageRef | undefined): void =>
+  {
+    if (!ref || seenHashes.has(ref.hash)) return
+    seenHashes.add(ref.hash)
+    refs.push(ref)
+  }
   const visitId = (id: ItemId): void =>
   {
     if (seen.has(id)) return
     seen.add(id)
     const item = snapshot.items[id]
-    if (!item?.imageRef) return
-    hashes.push(item.imageRef.hash)
-    if (itemHasRenderTransform(item))
-    {
-      hashes.push(item.sourceImageRef?.hash)
-    }
+    if (!item) return
+    const primary = getPrimaryImageRef(item, 'board')
+    pushRef(primary)
+    if (primary && primary !== item.imageRef) pushRef(item.imageRef)
   }
 
   for (const tier of snapshot.tiers)
@@ -88,16 +96,21 @@ export const collectSnapshotRenderImageHashes = (
   }
   for (const id of snapshot.unrankedItemIds) visitId(id)
 
-  return [...new Set(hashes.filter(isPresent))]
+  return refs
 }
 
-// collect every local blob hash the snapshot needs to retain
+export const collectSnapshotRenderImageHashes = (
+  snapshot: BoardSnapshot
+): string[] => collectSnapshotRenderImageRefs(snapshot).map((ref) => ref.hash)
+
+// every local blob hash the snapshot needs to retain (drives IDB GC)
 export const collectSnapshotLocalImageHashes = (
   snapshot: BoardSnapshot
 ): string[] => [
   ...new Set(
     collectSnapshotItems(snapshot, (item) => [
       item.imageRef?.hash,
+      item.tileImageRef?.hash,
       item.sourceImageRef?.hash,
     ])
       .flat()
@@ -147,7 +160,7 @@ export const mapSnapshotItems = (
   }
 }
 
-export interface TransformedSnapshotItems<TOut>
+interface TransformedSnapshotItems<TOut>
 {
   items: Record<string, TOut>
   deletedItems: TOut[]

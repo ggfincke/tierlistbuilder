@@ -9,16 +9,18 @@ import { useShallow } from 'zustand/react/shallow'
 import { Check, GripVertical, PenLine, X } from 'lucide-react'
 
 import { useKeyboardDrag } from '~/features/workspace/boards/interaction/useKeyboardDrag'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   selectHasKeyboardSelection,
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
-import { getEffectiveImageFit } from '~/features/workspace/boards/lib/aspectRatio'
+import { getEffectiveImageFit } from '~/shared/board-ui/aspectRatio'
 import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
 import { SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { ItemContextMenu } from './ItemContextMenu'
 import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
@@ -56,6 +58,7 @@ export const TierItem = memo(
       toggleItemSelected,
       setKeyboardFocusItemId,
       setKeyboardMode,
+      boardLabels,
     } = useActiveBoardStore(
       useShallow((state) => ({
         item: state.items[itemId],
@@ -64,19 +67,26 @@ export const TierItem = memo(
         toggleItemSelected: state.toggleItemSelected,
         setKeyboardFocusItemId: state.setKeyboardFocusItemId,
         setKeyboardMode: state.setKeyboardMode,
+        boardLabels: state.labels,
       }))
     )
     const canDelete = containerId === UNRANKED_CONTAINER_ID
 
-    const { itemShape, showLabels, boardLocked, showAltTextButton } =
-      useSettingsStore(
-        useShallow((state) => ({
-          itemShape: state.itemShape,
-          showLabels: state.showLabels,
-          boardLocked: state.boardLocked,
-          showAltTextButton: state.showAltTextButton,
-        }))
-      )
+    const {
+      itemShape,
+      showLabels,
+      defaultLabelPlacementMode,
+      boardLocked,
+      showAltTextButton,
+    } = usePreferencesStore(
+      useShallow((state) => ({
+        itemShape: state.itemShape,
+        showLabels: state.showLabels,
+        defaultLabelPlacementMode: state.defaultLabelPlacementMode,
+        boardLocked: state.boardLocked,
+        showAltTextButton: state.showAltTextButton,
+      }))
+    )
 
     const effectiveFit = item
       ? getEffectiveImageFit(item, boardDefaultFit)
@@ -237,7 +247,7 @@ export const TierItem = memo(
       return null
     }
 
-    const hasImage = !!item.imageRef
+    const hasImage = hasAnyImageRef(item)
 
     return (
       <>
@@ -269,7 +279,15 @@ export const TierItem = memo(
         >
           <ItemContent
             item={item}
-            showLabel={showLabels && !!item.label}
+            label={resolveLabelDisplay({
+              itemLabel: item.label,
+              itemOptions: item.labelOptions,
+              boardSettings: boardLabels,
+              globalLabelDefaults: {
+                showLabels,
+                placementMode: defaultLabelPlacementMode,
+              },
+            })}
             fit={effectiveFit}
             frameAspectRatio={slotWidth / slotHeight}
           />

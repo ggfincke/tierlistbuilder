@@ -1,7 +1,7 @@
 // src/shared/overlay/progress.ts
 // progress normalization for blocking overlay UIs
 
-export interface ProgressOverlayState
+interface ProgressOverlayState
 {
   visible: boolean
   current: number

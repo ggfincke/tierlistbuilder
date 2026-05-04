@@ -8,8 +8,8 @@ import {
   saveBoardToStorage,
   type BoardLoadResult,
 } from '~/features/workspace/boards/data/local/boardStorage'
-import { normalizeBoardSnapshot } from '~/features/workspace/boards/model/boardSnapshot'
-import { extractBoardData } from '~/features/workspace/boards/model/boardSnapshot'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
+import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'

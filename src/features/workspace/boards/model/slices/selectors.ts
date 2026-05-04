@@ -1,7 +1,13 @@
 // src/features/workspace/boards/model/slices/selectors.ts
 // cross-slice selectors derived from the combined active-board store
 
-import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  isEmptyBoardLabelSettings,
+  isEmptyItemLabelOptions,
+  type BoardLabelSettings,
+  type Tier,
+  type TierItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import type { ActiveBoardRuntimeState } from '~/features/workspace/boards/model/runtime'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
@@ -19,6 +25,29 @@ export const selectCanUndo = (
 export const selectCanRedo = (
   state: Pick<ActiveBoardRuntimeState, 'future'>
 ): boolean => state.future.length > 0
+
+// count active items without subscribing consumers to the item map object
+export const selectActiveItemCount = (
+  state: Pick<ActiveBoardRuntimeState, 'items'>
+): number => Object.keys(state.items).length
+
+export const createSelectBoardItemById =
+  (itemId: ItemId) =>
+  (state: Pick<ActiveBoardRuntimeState, 'items'>): TierItem | undefined =>
+    state.items[itemId]
+
+export const filterItemIdsByLabel = (
+  items: Pick<ActiveBoardRuntimeState, 'items'>['items'],
+  itemIds: readonly ItemId[],
+  query: string
+): ItemId[] =>
+{
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return [...itemIds]
+  return itemIds.filter((id) =>
+    items[id]?.label?.toLowerCase().includes(normalizedQuery)
+  )
+}
 
 // true when the user is in keyboard-browse mode w/ at least one selected item
 export const selectHasKeyboardSelection = (
@@ -77,4 +106,88 @@ export const selectKeyboardTabStopItemId = (
   }
 
   return getFallbackTabStop(state.tiers, state.unrankedItemIds)
+}
+
+export interface LabelOverrideStatus
+{
+  // true when the board carries any non-empty label-settings override
+  boardOverridden: boolean
+  // ids of items w/ a non-empty per-tile label override
+  itemOverrideIds: readonly ItemId[]
+  // count of items w/ overrides; convenience for status text
+  itemOverrideCount: number
+  // true when either the board or any item carries an override
+  hasAny: boolean
+  // any layer (board.show or item.visible) explicitly forces a label visible.
+  // gates Caption Placement editing while global showLabels is off
+  hasVisibleOverride: boolean
+}
+
+// memoize selector output by (items, labels) pair so subscribers can shallow-
+// compare the result. recomputes on items-ref changes but reuses the prior
+// itemOverrideIds array w/ content-identical override sets
+let cachedOverrideItems: Readonly<Record<ItemId, TierItem>> | null = null
+let cachedOverrideLabels: BoardLabelSettings | undefined
+let cachedOverrideResult: LabelOverrideStatus | null = null
+
+const arraysEqual = (a: readonly ItemId[], b: readonly ItemId[]): boolean =>
+{
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1)
+  {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
+export const selectLabelOverrideStatus = (
+  state: Pick<ActiveBoardRuntimeState, 'items' | 'labels'>
+): LabelOverrideStatus =>
+{
+  if (
+    cachedOverrideResult &&
+    cachedOverrideItems === state.items &&
+    cachedOverrideLabels === state.labels
+  )
+  {
+    return cachedOverrideResult
+  }
+
+  const ids: ItemId[] = []
+  let itemForcesVisible = false
+  for (const id in state.items)
+  {
+    const item = state.items[id as ItemId]
+    if (!item || isEmptyItemLabelOptions(item.labelOptions)) continue
+    ids.push(id as ItemId)
+    if (item.labelOptions?.visible === true) itemForcesVisible = true
+  }
+
+  const boardOverridden = !isEmptyBoardLabelSettings(state.labels)
+  const hasVisibleOverride = state.labels?.show === true || itemForcesVisible
+  const itemOverrideIds =
+    cachedOverrideResult &&
+    arraysEqual(ids, cachedOverrideResult.itemOverrideIds)
+      ? cachedOverrideResult.itemOverrideIds
+      : ids
+  const itemOverrideCount = itemOverrideIds.length
+  const next: LabelOverrideStatus =
+    cachedOverrideResult &&
+    cachedOverrideResult.boardOverridden === boardOverridden &&
+    cachedOverrideResult.itemOverrideIds === itemOverrideIds &&
+    cachedOverrideResult.hasVisibleOverride === hasVisibleOverride
+      ? cachedOverrideResult
+      : {
+          boardOverridden,
+          itemOverrideIds,
+          itemOverrideCount,
+          hasAny: boardOverridden || itemOverrideCount > 0,
+          hasVisibleOverride,
+        }
+
+  cachedOverrideItems = state.items
+  cachedOverrideLabels = state.labels
+  cachedOverrideResult = next
+  return next
 }

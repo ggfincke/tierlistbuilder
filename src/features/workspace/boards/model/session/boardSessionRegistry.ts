@@ -4,11 +4,11 @@
 import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 
 export const getActivePaletteId = (): PaletteId =>
-  useSettingsStore.getState().paletteId
+  usePreferencesStore.getState().paletteId
 
 export const createBoardMeta = (id: BoardId, title: string): BoardMeta => ({
   id,

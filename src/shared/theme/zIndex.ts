@@ -17,5 +17,3 @@ export const Z = {
   // modals, toasts, modal-layer menus
   modal: 50,
 } as const
-
-export type ZTier = keyof typeof Z

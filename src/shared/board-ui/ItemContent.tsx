@@ -1,25 +1,28 @@
 // src/shared/board-ui/ItemContent.tsx
 // shared image-vs-text item rendering primitive
 
+import { type ReactNode } from 'react'
+
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import type {
   ImageFit,
   ItemTransform,
-  TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { getTextColor } from '../lib/color'
-import { OBJECT_FIT_CLASS } from './constants'
 import {
-  isIdentityTransform,
-  itemTransformToCropCss,
-  resolveManualCropImageSize,
-} from '~/shared/lib/imageTransform'
+  getRenderImageHashes,
+  hasAnyImageRef,
+  type ImageRendition,
+  type ItemImageBundle,
+} from '~/shared/lib/imageRefs'
+import { getTextColor } from '../lib/color'
+import { FramedItemMedia } from './FramedItemMedia'
+import { CaptionStrip, OverlayLabelBlock } from './labelBlocks'
+import type { ResolvedLabelDisplay } from './labelDisplay'
 
 interface ItemContentProps
 {
-  item: {
-    imageRef?: TierItemImageRef
-    sourceImageRef?: TierItemImageRef
+  item: ItemImageBundle & {
+    imageUrl?: string
     label?: string
     backgroundColor?: string
     altText?: string
@@ -27,76 +30,100 @@ interface ItemContentProps
     transform?: ItemTransform
   }
   variant?: 'default' | 'compact'
-  showLabel?: boolean
+  // null hides the label entirely; resolve via resolveLabelDisplay before passing
+  label?: ResolvedLabelDisplay | null
   frameAspectRatio?: number
   // effective image fit — resolved by the caller from per-item + board defaults.
   // ignored when `item.transform` is set (the manual transform wins)
   fit?: ImageFit
+  imageRendition?: ImageRendition
+  imageLoading?: 'eager' | 'lazy'
+}
+
+// wraps content in a flex column w/ a CaptionStrip above or below — used by
+// both the resolved-image & matte-while-loading branches so they stay
+// layout-identical
+const CaptionedFrame = ({
+  caption,
+  children,
+}: {
+  caption: ResolvedLabelDisplay
+  children: ReactNode
+}) =>
+{
+  const isAbove = caption.placement.mode === 'captionAbove'
+  return (
+    <div className="flex h-full w-full flex-col">
+      {isAbove && <CaptionStrip display={caption} />}
+      <div className="relative min-h-0 flex-1">{children}</div>
+      {!isAbove && <CaptionStrip display={caption} />}
+    </div>
+  )
 }
 
 export const ItemContent = ({
   item,
   variant = 'default',
-  showLabel = false,
+  label = null,
   frameAspectRatio = 1,
   fit = 'cover',
+  imageRendition = 'board',
+  imageLoading = 'lazy',
 }: ItemContentProps) =>
 {
   const bgColor = item.backgroundColor
-  const transform =
-    item.transform && !isIdentityTransform(item.transform)
-      ? item.transform
-      : undefined
-  const preferSource = !!transform && !!item.sourceImageRef
-  const sourceImageUrl = useImageUrl(
-    preferSource ? item.sourceImageRef?.hash : undefined
-  )
-  const displayImageUrl = useImageUrl(item.imageRef?.hash)
-  const imageUrl = sourceImageUrl ?? displayImageUrl
+  const transform = item.transform
+  const { primary, fallback } = getRenderImageHashes(item, imageRendition)
+  const cachedPrimaryUrl = useImageUrl(item.imageUrl ? undefined : primary)
+  const cachedFallbackUrl = useImageUrl(item.imageUrl ? undefined : fallback)
+  const imageUrl = item.imageUrl ?? cachedPrimaryUrl ?? cachedFallbackUrl
 
   if (imageUrl)
   {
-    const cropSize = transform
-      ? resolveManualCropImageSize(
-          item.aspectRatio,
-          frameAspectRatio,
-          transform.rotation
-        )
-      : null
-    const cropCss = transform ? itemTransformToCropCss(transform) : null
-    const imgClassName = transform
-      ? 'absolute max-w-none select-none'
-      : `h-full w-full ${OBJECT_FIT_CLASS[fit]}`
-    const imgStyle = transform
-      ? {
-          width: `${cropSize!.widthPercent}%`,
-          height: `${cropSize!.heightPercent}%`,
-          left: cropCss!.left,
-          top: cropCss!.top,
-          transform: cropCss!.transform,
-          transformOrigin: 'center center',
-          // suppress safari sub-pixel jitter on scaled images
-          willChange: 'transform' as const,
-        }
-      : undefined
-
-    return (
-      <>
-        <img
-          src={imageUrl}
-          alt={item.altText ?? item.label ?? 'Tier item'}
-          className={imgClassName}
-          style={imgStyle}
-          draggable={false}
-        />
-        {showLabel && item.label && (
-          <div className="absolute right-0 bottom-0 left-0 bg-black/60 px-1 py-0.5">
-            <span className="block truncate text-center text-[10px] text-white">
-              {item.label}
-            </span>
-          </div>
+    const alt = item.altText ?? item.label ?? 'Tier item'
+    const placementMode = label?.placement.mode
+    const isCaptioned =
+      label &&
+      (placementMode === 'captionAbove' || placementMode === 'captionBelow')
+    const imageArea = (
+      <FramedItemMedia
+        imageUrl={imageUrl}
+        alt={alt}
+        fit={fit}
+        transform={transform ?? null}
+        aspectRatio={item.aspectRatio ?? null}
+        frameAspectRatio={frameAspectRatio}
+        loading={imageLoading}
+      >
+        {!isCaptioned && label && label.placement.mode === 'overlay' && (
+          <OverlayLabelBlock display={label} />
         )}
-      </>
+      </FramedItemMedia>
+    )
+
+    return isCaptioned ? (
+      <CaptionedFrame caption={label}>{imageArea}</CaptionedFrame>
+    ) : (
+      imageArea
+    )
+  }
+
+  // image is expected (item carries a hash) but URL hasn't resolved yet.
+  // render a flat matte so the text fallback doesn't flash before warm-up
+  if (hasAnyImageRef(item))
+  {
+    const placementMode = label?.placement.mode
+    const isCaptioned =
+      label &&
+      (placementMode === 'captionAbove' || placementMode === 'captionBelow')
+    const matte = (
+      <div className="relative h-full w-full overflow-hidden bg-[var(--t-bg-surface)]" />
+    )
+
+    return isCaptioned ? (
+      <CaptionedFrame caption={label}>{matte}</CaptionedFrame>
+    ) : (
+      matte
     )
   }
 

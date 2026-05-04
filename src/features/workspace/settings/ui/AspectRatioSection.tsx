@@ -15,8 +15,9 @@ import {
   getEffectiveImageFit,
   groupMismatchedItems,
   type MismatchGroup,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import { formatCountedWord } from '~/shared/lib/pluralize'
@@ -24,9 +25,9 @@ import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { useBoardAspectRatioPicker } from '../model/useBoardAspectRatioPicker'
 import { AspectRatioChips, CustomRatioInput } from './AspectRatioPicker'
-import { SegmentedControl } from './SegmentedControl'
-import { SettingRow } from './SettingRow'
-import { Toggle } from './Toggle'
+import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
+import { SettingRow } from '~/shared/ui/settings/SettingRow'
+import { Toggle } from '~/shared/ui/settings/Toggle'
 
 const MAX_GROUP_THUMBNAILS = 3
 
@@ -97,6 +98,7 @@ export const AspectRatioSection = () =>
           selectedOption={selectedOption}
           onSelect={handleOption}
           autoRatio={autoRatio}
+          customRatioValue={boardAspectRatio}
           alignClassName="justify-end"
         />
       </SettingRow>
@@ -132,6 +134,8 @@ export const AspectRatioSection = () =>
               />
               <SecondaryButton
                 onClick={() => openEditor({ filter: 'mismatched' })}
+                onFocus={preloadImageEditorModal}
+                onPointerEnter={preloadImageEditorModal}
                 variant="surface"
                 size="sm"
               >
@@ -198,7 +202,7 @@ const dominantGroupFit = (
   return contain > cover ? 'contain' : 'cover'
 }
 
-export const MismatchRows = ({
+const MismatchRows = ({
   groups,
   boardDefaultFit,
   onSetGroupFit,
@@ -245,7 +249,11 @@ const MismatchGroupRow = ({
               className="relative h-8 w-8 overflow-hidden rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-sunken)]"
               title={item.label ?? 'Item'}
             >
-              <ItemContent item={item} fit="contain" />
+              <ItemContent
+                item={item}
+                fit="contain"
+                imageRendition="thumbnail"
+              />
             </div>
           ))}
           {remaining > 0 && (
@@ -308,7 +316,7 @@ const MismatchItemRow = ({
       }`}
     >
       <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded border border-[var(--t-border-secondary)] bg-[var(--t-bg-sunken)]">
-        <ItemContent item={item} fit="contain" />
+        <ItemContent item={item} fit="contain" imageRendition="thumbnail" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-xs font-medium text-[var(--t-text)]">
@@ -321,6 +329,8 @@ const MismatchItemRow = ({
       </div>
       <SecondaryButton
         onClick={() => onEdit(item.id)}
+        onFocus={preloadImageEditorModal}
+        onPointerEnter={preloadImageEditorModal}
         variant="surface"
         size="sm"
         aria-label={`Edit ${label}`}

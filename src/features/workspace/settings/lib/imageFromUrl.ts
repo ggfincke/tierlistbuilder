@@ -1,14 +1,11 @@
 // src/features/workspace/settings/lib/imageFromUrl.ts
-// fetch remote image, resize display + editor assets, & persist to blob store
+// fetch a remote image, prepare the three rendition blobs, & return TierItem fields
 
 import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
-import {
-  persistPreparedBlobRecords,
-  prepareBlobRecord,
-} from '~/shared/images/imagePersistence'
-import { MAX_EDITOR_SOURCE_SIZE, MAX_THUMBNAIL_SIZE } from './constants'
-import { deriveLabelFromFilename, drawImageToPngBlob } from './imageGeometry'
-import { loadImageElement } from './imageLoad'
+import { loadImageElement } from '~/shared/images/imageLoad'
+import { persistItemRenditions } from '~/shared/images/prepareItemRenditions'
+import { MAX_THUMBNAIL_SIZE } from '~/shared/images/renditions'
+import { deriveLabelFromFilename } from '~/shared/lib/fileName'
 
 // derive a display label from a URL by extracting the filename w/o extension
 const labelFromUrl = (url: string): string =>
@@ -25,10 +22,10 @@ const labelFromUrl = (url: string): string =>
   }
 }
 
-// fetch a remote image, persist display + editor refs, & return item fields
+// fetch a remote image, persist preview + tile + editor refs, & return fields
 export const fetchImageAsItemImage = async (
   url: string,
-  maxSize = MAX_THUMBNAIL_SIZE
+  previewMaxSize = MAX_THUMBNAIL_SIZE
 ): Promise<NewTierItem & { label: string }> =>
 {
   const img = await loadImageElement({
@@ -38,25 +35,15 @@ export const fetchImageAsItemImage = async (
       'Failed to load image. The server may block cross-origin requests.',
   })
 
-  const [displayBlob, sourceBlob] = await Promise.all([
-    drawImageToPngBlob(img, img.naturalWidth, img.naturalHeight, maxSize),
-    drawImageToPngBlob(
-      img,
-      img.naturalWidth,
-      img.naturalHeight,
-      MAX_EDITOR_SOURCE_SIZE
-    ),
-  ])
-  const [display, source] = await Promise.all([
-    prepareBlobRecord(displayBlob),
-    prepareBlobRecord(sourceBlob),
-  ])
-  await persistPreparedBlobRecords([display, source])
+  const refs = await persistItemRenditions(
+    img,
+    img.naturalWidth,
+    img.naturalHeight,
+    { previewMaxSize }
+  )
 
   return {
-    imageRef: display.imageRef,
-    sourceImageRef: source.imageRef,
+    ...refs,
     label: labelFromUrl(url),
-    aspectRatio: img.naturalWidth / img.naturalHeight,
   }
 }

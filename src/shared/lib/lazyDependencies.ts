@@ -2,12 +2,20 @@
 // memoized loaders for large optional runtime dependencies
 
 type CompressionModule = typeof import('pako')
+type HtmlToImageModule = typeof import('html-to-image')
 type PdfModule = typeof import('jspdf')
 type ZipConstructor = typeof import('jszip')
 
 let compressionPromise: Promise<CompressionModule> | null = null
+let htmlToImagePromise: Promise<HtmlToImageModule> | null = null
 let pdfPromise: Promise<PdfModule> | null = null
 let zipPromise: Promise<ZipConstructor> | null = null
+
+const preloadOptionalLib = <T>(loader: () => Promise<T>): void =>
+{
+  if (typeof window === 'undefined') return
+  void loader().catch(() => undefined)
+}
 
 export const loadCompressionLib = (): Promise<CompressionModule> =>
 {
@@ -29,6 +37,16 @@ export const loadPdfLib = (): Promise<PdfModule> =>
   return pdfPromise
 }
 
+export const loadHtmlToImageLib = (): Promise<HtmlToImageModule> =>
+{
+  htmlToImagePromise ??= import('html-to-image').catch((error) =>
+  {
+    htmlToImagePromise = null
+    throw error
+  })
+  return htmlToImagePromise
+}
+
 export const loadZipLib = (): Promise<ZipConstructor> =>
 {
   zipPromise ??= import('jszip')
@@ -40,3 +58,10 @@ export const loadZipLib = (): Promise<ZipConstructor> =>
     })
   return zipPromise
 }
+
+export const preloadHtmlToImageLib = (): void =>
+  preloadOptionalLib(loadHtmlToImageLib)
+
+export const preloadPdfLib = (): void => preloadOptionalLib(loadPdfLib)
+
+export const preloadZipLib = (): void => preloadOptionalLib(loadZipLib)

@@ -8,7 +8,7 @@ import {
   parseBoardSnapshotJson,
   parseBoardsJson,
 } from '~/features/workspace/export/lib/exportJson'
-import { stripImagesForShare } from '~/features/workspace/sharing/snapshot-compression/hashShare'
+import { stripImagesForShare } from '~/shared/sharing/hashShare'
 import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
@@ -250,6 +250,7 @@ describe('parseBoardJson', () =>
         'item-1': makeItem({
           id: asItemId('item-1'),
           imageRef: { hash: 'abc' },
+          tileImageRef: { hash: 'tile-abc' },
         }),
         'item-2': makeItem({ id: asItemId('item-2'), label: 'Second' }),
       },
@@ -259,77 +260,65 @@ describe('parseBoardJson', () =>
     expect(
       (shared.items['item-1'] as { imageRef?: unknown }).imageRef
     ).toBeUndefined()
+    expect(
+      (shared.items['item-1'] as { tileImageRef?: unknown }).tileImageRef
+    ).toBeUndefined()
     expect(shared.deletedItems).toHaveLength(0)
   })
 
-  it('aborts import when IDB is unavailable & the payload has inline bytes', async () =>
-  {
-    vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(false)
-
-    const payload = {
-      version: BOARD_DATA_VERSION,
-      data: {
-        title: 'Inline Import',
-        tiers: [
-          {
-            id: 'tier-s',
-            name: 'S',
-            colorSpec: { kind: 'palette', index: 0 },
-            itemIds: ['item-1'],
-          },
-        ],
-        items: {
-          'item-1': {
-            id: 'item-1',
-            imageUrl: 'data:image/png;base64,AAAA',
-          },
-        },
-        deletedItems: [],
-        unrankedItemIds: [],
+  it.each([
+    [
+      'IDB probe fails',
+      () => vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(false),
+      /Image storage is unavailable/i,
+    ],
+    [
+      'persisting inline bytes throws',
+      () =>
+      {
+        vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(true)
+        vi.spyOn(
+          imagePersistence,
+          'persistPreparedBlobRecords'
+        ).mockRejectedValue(new Error('persist failed'))
       },
-    }
-
-    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
-      /Image storage is unavailable/i
-    )
-  })
-
-  it('aborts import when persisting inline bytes fails', async () =>
-  {
-    vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(true)
-    vi.spyOn(imagePersistence, 'persistPreparedBlobRecords').mockRejectedValue(
-      new Error('persist failed')
-    )
-
-    const payload = {
-      version: BOARD_DATA_VERSION,
-      data: {
-        title: 'Inline Import',
-        tiers: [
-          {
-            id: 'tier-s',
-            name: 'S',
-            colorSpec: { kind: 'palette', index: 0 },
-            itemIds: ['item-1'],
+      /persist failed/,
+    ],
+  ])(
+    'aborts inline-image import when %s',
+    async (_label, setup, expectedError) =>
+    {
+      setup()
+      const payload = {
+        version: BOARD_DATA_VERSION,
+        data: {
+          title: 'Inline Import',
+          tiers: [
+            {
+              id: 'tier-s',
+              name: 'S',
+              colorSpec: { kind: 'palette', index: 0 },
+              itemIds: ['item-1'],
+            },
+          ],
+          items: {
+            'item-1': {
+              id: 'item-1',
+              imageUrl: 'data:image/png;base64,AAAA',
+            },
           },
-        ],
-        items: {
-          'item-1': {
-            id: 'item-1',
-            imageUrl: 'data:image/png;base64,AAAA',
-          },
+          deletedItems: [],
+          unrankedItemIds: [],
         },
-        deletedItems: [],
-        unrankedItemIds: [],
-      },
+      }
+
+      await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
+        expectedError
+      )
     }
+  )
 
-    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
-      /persist failed/
-    )
-  })
-
-  it('rejects local-only imageRef entries without inline image bytes', async () =>
+  it('rejects local-only image refs without inline image bytes', async () =>
   {
     const payload = {
       version: BOARD_DATA_VERSION,
@@ -355,7 +344,64 @@ describe('parseBoardJson', () =>
     }
 
     await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
-      'uses a local imageRef without inline imageUrl bytes'
+      'uses a local image ref without inline imageUrl bytes'
+    )
+  })
+
+  it('falls back to tile bytes when source bytes are missing on export', async () =>
+  {
+    const tileBlob = new Blob(['tile'], { type: 'image/webp' })
+    const previewBlob = new Blob(['preview'], { type: 'image/png' })
+    const board = makeValidBoard({
+      items: {
+        [asItemId('item-1')]: makeItem({
+          id: asItemId('item-1'),
+          imageRef: { hash: 'thumb-hash' },
+          tileImageRef: { hash: 'tile-hash' },
+          sourceImageRef: { hash: 'source-hash' },
+        }),
+        [asItemId('item-2')]: makeItem({
+          id: asItemId('item-2'),
+          label: 'Second',
+        }),
+      },
+    })
+    vi.spyOn(imageStore, 'getBlobsBatch').mockResolvedValue(
+      new Map([
+        ['source-hash', null],
+        [
+          'tile-hash',
+          {
+            hash: 'tile-hash',
+            mimeType: tileBlob.type,
+            byteSize: tileBlob.size,
+            createdAt: 0,
+            bytes: tileBlob,
+          },
+        ],
+        [
+          'thumb-hash',
+          {
+            hash: 'thumb-hash',
+            mimeType: previewBlob.type,
+            byteSize: previewBlob.size,
+            createdAt: 0,
+            bytes: previewBlob,
+          },
+        ],
+      ])
+    )
+    const downloadSpy = vi
+      .spyOn(downloadBlobModule, 'downloadBlob')
+      .mockImplementation(() => undefined)
+
+    await exportBoardAsJson(board, board.title)
+
+    const payload = JSON.parse(await downloadSpy.mock.calls[0][0].text()) as {
+      data: { items: Record<string, { imageUrl?: string }> }
+    }
+    expect(payload.data.items['item-1'].imageUrl).toBe(
+      'data:image/webp;base64,dGlsZQ=='
     )
   })
 

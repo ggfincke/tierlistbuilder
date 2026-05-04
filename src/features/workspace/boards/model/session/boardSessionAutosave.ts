@@ -4,7 +4,7 @@
 import {
   boardDataFieldsEqual,
   selectBoardDataFields,
-} from '~/features/workspace/boards/model/boardSnapshot'
+} from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
