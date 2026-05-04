@@ -9,16 +9,11 @@ interface SetupConnectivityOptions
   onOnline: () => void
 }
 
-const readNavigatorOnline = (): boolean =>
-{
-  if (typeof navigator === 'undefined')
-  {
-    return true
-  }
-  // navigator.onLine reflects the adapter, not real connectivity (captive
-  // portals still report online); flush failures are the authoritative signal
-  return navigator.onLine
-}
+// navigator.onLine reflects the adapter (captive portals report online); the
+// sync flush gate reads navigator directly because the store can lag real
+// state if 'offline' fires between StrictMode listener mounts
+export const readNavigatorOnline = (): boolean =>
+  typeof navigator === 'undefined' ? true : navigator.onLine
 
 export const setupConnectivity = (
   options: SetupConnectivityOptions

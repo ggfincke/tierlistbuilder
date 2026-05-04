@@ -72,7 +72,9 @@ export const prepareDataUrlRecord = async (
   }
 }
 
-// commit prepared records in one store transaction & warm the cache once
+// commit prepared records & warm the cache. putBlobs logs IDB failures
+// internally; the in-memory cache stays warm so the active session renders
+// even when persistence is down. hard-fail callers gate on probeImageStore
 export const persistPreparedBlobRecords = async (
   prepared: readonly PreparedBlobRecord[],
   warmCache = true
@@ -83,17 +85,7 @@ export const persistPreparedBlobRecords = async (
     return
   }
 
-  try
-  {
-    await putBlobs(prepared.map((entry) => entry.record))
-  }
-  catch (error)
-  {
-    if (error instanceof Error && error.message.includes('Image store'))
-    {
-      throw new Error(IMAGE_STORAGE_UNAVAILABLE_MESSAGE)
-    }
-  }
+  await putBlobs(prepared.map((entry) => entry.record))
 
   if (warmCache)
   {
