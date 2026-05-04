@@ -2038,16 +2038,19 @@ const usage = (): never =>
 {
   process.stderr.write(
     [
-      'usage: tsx scripts/seed-marketplace-templates.ts [author-email] [folder...]',
+      'usage: tsx scripts/seed-marketplace-templates.ts [--reset] [author-email] [folder...]',
       '',
+      '  --reset          wipe all templates, forked boards, and marketplace',
+      '                   stats before seeding. (preserves user accounts.)',
       `  [author-email]   email of the user to attribute seeded templates to.`,
       `                   defaults to ${DEFAULT_SEED_AUTHOR.email}; that account`,
       '                   is created/verified automatically for local seeding.',
       '  [folder]         optional list of /examples subfolders to seed; if',
       '                   omitted, every folder under examples/ is seeded.',
       '',
-      'environment:',
-      '  CONVEX_URL                       deployment URL (eg https://your-dev.convex.cloud)',
+      'environment (auto-loaded from .env.local via `tsx --env-file`):',
+      '  CONVEX_URL                       deployment URL. falls back to',
+      '                                   VITE_CONVEX_URL if unset.',
       '  CONVEX_SEED_ENABLED              must be "true" on the deployment env vars',
       '                                   (set via `npx convex env set CONVEX_SEED_ENABLED true`)',
       '  CONVEX_SEED_SECRET               must be set locally and on the deployment',
@@ -2448,27 +2451,44 @@ interface ParsedArgs
 {
   authorEmail: string
   folders: string[]
+  reset: boolean
 }
 
 const parseArgs = (rawArgs: string[]): ParsedArgs =>
 {
-  const [firstArg, ...rest] = rawArgs
-  if (firstArg?.startsWith('-'))
+  let reset = false
+  const positional: string[] = []
+  for (const arg of rawArgs)
   {
-    usage()
+    if (arg === '--reset')
+    {
+      reset = true
+      continue
+    }
+    if (arg === '-h' || arg === '--help')
+    {
+      usage()
+    }
+    if (arg.startsWith('-'))
+    {
+      process.stderr.write(`unknown flag: ${arg}\n`)
+      usage()
+    }
+    positional.push(arg)
   }
 
+  const [firstArg, ...rest] = positional
   if (!firstArg)
   {
-    return { authorEmail: DEFAULT_SEED_AUTHOR.email, folders: [] }
+    return { authorEmail: DEFAULT_SEED_AUTHOR.email, folders: [], reset }
   }
 
   if (firstArg.includes('@'))
   {
-    return { authorEmail: firstArg.trim().toLowerCase(), folders: rest }
+    return { authorEmail: firstArg.trim().toLowerCase(), folders: rest, reset }
   }
 
-  return { authorEmail: DEFAULT_SEED_AUTHOR.email, folders: rawArgs }
+  return { authorEmail: DEFAULT_SEED_AUTHOR.email, folders: positional, reset }
 }
 
 const isDefaultSeedAuthor = (email: string): boolean =>
@@ -2559,26 +2579,46 @@ const seedFolders = async (
 
 const main = async (): Promise<void> =>
 {
-  const { authorEmail, folders } = parseArgs(process.argv.slice(2))
+  const { authorEmail, folders, reset } = parseArgs(process.argv.slice(2))
 
-  const convexUrl = process.env.CONVEX_URL
+  // VITE_CONVEX_URL is the canonical deployment URL in .env.local; the seed
+  // script accepts it directly so users don't have to maintain a duplicate
+  const convexUrl = process.env.CONVEX_URL ?? process.env.VITE_CONVEX_URL
   const seedSecret = process.env.CONVEX_SEED_SECRET
   if (!convexUrl)
   {
     process.stderr.write(
-      'CONVEX_URL is not set. export it from your .env.local or run via `npx convex env`\n'
+      'CONVEX_URL / VITE_CONVEX_URL is not set. add it to .env.local or export it.\n'
     )
     process.exit(1)
   }
   if (!seedSecret)
   {
     process.stderr.write(
-      'CONVEX_SEED_SECRET is not set. Use the same value as the deployment env var.\n'
+      'CONVEX_SEED_SECRET is not set. add it to .env.local; must match the deployment value.\n'
     )
     process.exit(1)
   }
 
   const client = new ConvexHttpClient(convexUrl)
+
+  if (reset)
+  {
+    process.stdout.write('--reset: wiping templates, forked boards, & stats…\n')
+    const totals = await client.action(
+      api.marketplace.templates.seed.wipeSeededDataBatch,
+      { seedSecret }
+    )
+    process.stdout.write(
+      `  wiped ${totals.templatesDeleted} template(s), ` +
+        `${totals.itemsDeleted} item(s), ${totals.tagsDeleted} tag(s), ` +
+        `${totals.cardsDeleted} card(s), ${totals.statsDeleted} stat row(s); ` +
+        `${totals.boardsDeleted} forked board(s) with ` +
+        `${totals.boardItemsDeleted} item(s) & ${totals.boardTiersDeleted} tier(s); ` +
+        `marketplaceStats cleared=${totals.marketplaceStatsCleared}\n`
+    )
+  }
+
   await ensureDefaultSeedAuthor(client, authorEmail, seedSecret)
 
   // walk one level into examples/<category>/<folder>; the category dir layer

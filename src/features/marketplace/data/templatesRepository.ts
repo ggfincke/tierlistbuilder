@@ -22,7 +22,7 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { DEFAULT_TEMPLATE_ITEM_PAGE_SIZE } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
-import { convexClient } from '~/features/platform/sync/lib/convexClient'
+import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 
 export type TemplateItemsPageStatus =
   UsePaginatedQueryResult<MarketplaceTemplateItem>['status']
@@ -50,7 +50,7 @@ export interface ListTemplatesArgs
 export const getTemplatesGalleryImperative = (
   args: ListTemplatesArgs
 ): Promise<MarketplaceTemplateGalleryResult> =>
-  convexClient.query(
+  getConvexClient().query(
     api.marketplace.templates.queries.getTemplatesGallery,
     args
   )

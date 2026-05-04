@@ -1,18 +1,27 @@
 // src/features/platform/sync/lib/convexClient.ts
-// * convex client singleton — mounted into ConvexAuthProvider in main.tsx.
-// UI goes through data/cloud/ adapters or useAuthSession, not this directly
+// * lazy Convex client singleton mounted into ConvexAuthProvider in main.tsx.
+// imperative cloud adapters resolve it at call time
 
 import { ConvexReactClient } from 'convex/react'
 
-const deploymentUrl = import.meta.env.VITE_CONVEX_URL
+let convexClient: ConvexReactClient | null = null
 
-// we deliberately fail fast at module load if the env var is missing during
-// a cloud build — a silent fallback would mask deployment misconfiguration
-if (!deploymentUrl)
+const getDeploymentUrl = (): string =>
 {
-  throw new Error(
-    'VITE_CONVEX_URL is not set — run `npx convex dev` to provision a deployment'
-  )
+  const deploymentUrl = import.meta.env.VITE_CONVEX_URL
+
+  if (!deploymentUrl)
+  {
+    throw new Error(
+      'VITE_CONVEX_URL is not set — run `npx convex dev` to provision a deployment'
+    )
+  }
+
+  return deploymentUrl
 }
 
-export const convexClient = new ConvexReactClient(deploymentUrl)
+export const getConvexClient = (): ConvexReactClient =>
+{
+  convexClient ??= new ConvexReactClient(getDeploymentUrl())
+  return convexClient
+}

@@ -9,21 +9,21 @@ import type {
   OwnedShortLinkListItem,
   ShortLinkResolveResult,
 } from '@tierlistbuilder/contracts/platform/shortLink'
-import { convexClient } from '~/features/platform/sync/lib/convexClient'
+import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 
 // imperative resolve for the embed-route bootstrap & workspace inbound-share
 // path; both run before any React tree mounts so a hook isn't an option
 export const resolveShortLinkImperative = (args: {
   slug: string
 }): Promise<ShortLinkResolveResult> =>
-  convexClient.query(api.platform.shortLinks.queries.resolveSlug, args)
+  getConvexClient().query(api.platform.shortLinks.queries.resolveSlug, args)
 
 // generate a one-time _storage upload URL for the snapshot blob. signed-in only
 export const generateSnapshotUploadUrlImperative = (): Promise<{
   uploadUrl: string
   uploadToken: string
 }> =>
-  convexClient.mutation(
+  getConvexClient().mutation(
     api.platform.shortLinks.mutations.generateSnapshotUploadUrl,
     {}
   )
@@ -35,7 +35,7 @@ export const createSnapshotShortLinkImperative = (args: {
   uploadToken: string
   boardTitle: string
 }): Promise<{ slug: string; createdAt: number }> =>
-  convexClient.action(
+  getConvexClient().action(
     api.platform.shortLinks.mutations.createSnapshotShortLink,
     args
   )
@@ -56,7 +56,7 @@ export const useListMyShortLinks = (
 export const revokeShortLinkImperative = (args: {
   slug: string
 }): Promise<null> =>
-  convexClient.mutation(
+  getConvexClient().mutation(
     api.platform.shortLinks.mutations.revokeMyShortLink,
     args
   )

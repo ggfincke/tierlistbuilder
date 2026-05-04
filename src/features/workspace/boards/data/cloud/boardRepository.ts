@@ -9,7 +9,7 @@ import type {
   CloudBoardPayload,
   CloudBoardState,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import { convexClient } from '~/features/platform/sync/lib/convexClient'
+import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 
 // list the caller's soft-deleted boards. powers the "Recently deleted"
 // surface; reactive so a successful restore / permanent-delete on another
@@ -23,15 +23,15 @@ export const useListMyDeletedBoards = (
   )
 
 export const deleteBoardImperative = (args: { boardExternalId: string }) =>
-  convexClient.mutation(api.workspace.boards.mutations.deleteBoard, args)
+  getConvexClient().mutation(api.workspace.boards.mutations.deleteBoard, args)
 
 export const restoreBoardImperative = (args: { boardExternalId: string }) =>
-  convexClient.mutation(api.workspace.boards.mutations.restoreBoard, args)
+  getConvexClient().mutation(api.workspace.boards.mutations.restoreBoard, args)
 
 export const permanentlyDeleteBoardImperative = (args: {
   boardExternalId: string
 }) =>
-  convexClient.mutation(
+  getConvexClient().mutation(
     api.workspace.boards.mutations.permanentlyDeleteBoard,
     args
   )
@@ -42,18 +42,18 @@ export const upsertBoardStateImperative = (
     baseRevision: number | null
   }
 ) =>
-  convexClient.mutation(
+  getConvexClient().mutation(
     api.workspace.boards.upsertBoardState.upsertBoardState,
     args
   )
 
 export const listMyBoardsImperative = () =>
-  convexClient.query(api.workspace.boards.queries.getMyBoards, {})
+  getConvexClient().query(api.workspace.boards.queries.getMyBoards, {})
 
 export const getBoardStateByExternalIdImperative = (args: {
   boardExternalId: string
 }): Promise<CloudBoardState | null> =>
-  convexClient.query(
+  getConvexClient().query(
     api.workspace.boards.queries.getBoardStateByExternalId,
     args
   )
@@ -61,7 +61,7 @@ export const getBoardStateByExternalIdImperative = (args: {
 export const getBoardStatesByExternalIdsImperative = (args: {
   boardExternalIds: string[]
 }): Promise<Array<CloudBoardState | null>> =>
-  convexClient.query(
+  getConvexClient().query(
     api.workspace.boards.queries.getBoardStatesByExternalIds,
     args
   )

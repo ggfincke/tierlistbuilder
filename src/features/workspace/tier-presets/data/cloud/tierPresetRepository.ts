@@ -5,10 +5,13 @@
 import { api } from '@convex/_generated/api'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import { convexClient } from '~/features/platform/sync/lib/convexClient'
+import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 
 export const listMyTierPresetsImperative = (): Promise<TierPresetCloudRow[]> =>
-  convexClient.query(api.workspace.tierPresets.queries.getMyTierPresets, {})
+  getConvexClient().query(
+    api.workspace.tierPresets.queries.getMyTierPresets,
+    {}
+  )
 
 // idempotent on the server side: posting the same externalId twice patches
 // the existing row instead of erroring. lets the resume helper safely retry
@@ -18,7 +21,7 @@ export const createTierPresetImperative = (args: {
   name: string
   tiers: TierPresetTier[]
 }): Promise<{ updatedAt: number }> =>
-  convexClient.mutation(
+  getConvexClient().mutation(
     api.workspace.tierPresets.mutations.createTierPreset,
     args
   )
@@ -26,7 +29,7 @@ export const createTierPresetImperative = (args: {
 export const deleteTierPresetImperative = (args: {
   presetExternalId: string
 }): Promise<null> =>
-  convexClient.mutation(
+  getConvexClient().mutation(
     api.workspace.tierPresets.mutations.deleteTierPreset,
     args
   )
