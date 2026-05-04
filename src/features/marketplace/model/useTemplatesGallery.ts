@@ -33,38 +33,70 @@ interface TemplatesGalleryData
   refresh: () => Promise<void>
 }
 
+interface TemplatesGalleryOptions
+{
+  includeDrafts?: boolean
+  accessRefreshKey?: string
+}
+
+interface TemplatesGalleryQueryArgs
+{
+  accessRefreshKey: string
+  queryArgs: ListTemplatesArgs
+}
+
 const onGalleryError = (error: unknown): void =>
 {
   logger.warn('marketplace', 'getTemplatesGallery failed', error)
 }
 
+const getTemplatesGallerySnapshot = (
+  args: TemplatesGalleryQueryArgs
+): Promise<MarketplaceTemplateGalleryResult> =>
+  getTemplatesGalleryImperative(args.queryArgs)
+
 export const useTemplatesGallery = (
   filters: GalleryFilters,
-  includeDrafts = false
+  options: TemplatesGalleryOptions = {}
 ): TemplatesGalleryData =>
 {
+  const includeDrafts = options.includeDrafts ?? false
+  const accessRefreshKey =
+    options.accessRefreshKey ?? (includeDrafts ? 'signed-in' : 'signed-out')
   const isSearching = filters.searchDebounced.trim().length > 0
   const shouldLoadDrafts =
     includeDrafts && !isSearching && !filters.category && !filters.tag
 
-  const galleryArgs = useMemo<ListTemplatesArgs>(
+  const galleryArgs = useMemo<TemplatesGalleryQueryArgs>(
     () => ({
-      search: filters.searchDebounced || null,
-      sort: filters.sort,
-      limit: DEFAULT_TEMPLATE_LIST_LIMIT,
-      category: filters.category ?? null,
-      tag: filters.tag ?? null,
+      accessRefreshKey,
+      queryArgs: {
+        search: filters.searchDebounced || null,
+        sort: filters.sort,
+        limit: DEFAULT_TEMPLATE_LIST_LIMIT,
+        category: filters.category ?? null,
+        tag: filters.tag ?? null,
+      },
     }),
-    [filters.category, filters.searchDebounced, filters.sort, filters.tag]
+    [
+      accessRefreshKey,
+      filters.category,
+      filters.searchDebounced,
+      filters.sort,
+      filters.tag,
+    ]
   )
 
   const {
     data: snapshot,
     isRefreshing,
     refresh,
-  } = usePointInTimeQuery<ListTemplatesArgs, MarketplaceTemplateGalleryResult>({
+  } = usePointInTimeQuery<
+    TemplatesGalleryQueryArgs,
+    MarketplaceTemplateGalleryResult
+  >({
     args: galleryArgs,
-    query: getTemplatesGalleryImperative,
+    query: getTemplatesGallerySnapshot,
     onError: onGalleryError,
   })
 

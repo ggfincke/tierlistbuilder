@@ -667,11 +667,10 @@ const deleteAuthSessionCleanupStep = async (
   state: AuthSessionCleanupState
 ): Promise<CleanupStep<AuthSessionCleanupState>> =>
 {
-  let session = state.targetSessionId
+  const session = state.targetSessionId
     ? await ctx.db.get(state.targetSessionId)
     : null
-  let cursor = state.cursor
-  let hasMoreSessions = state.targetSessionId !== undefined
+  const cursor = state.cursor
 
   if (session && session.userId !== userId)
   {
@@ -712,9 +711,12 @@ const deleteAuthSessionCleanupStep = async (
     {
       return { isDone: true }
     }
-    session = page.page[0]
-    cursor = page.continueCursor
-    hasMoreSessions = !page.isDone
+    return {
+      isDone: false,
+      cursor: page.continueCursor,
+      targetSessionId: page.page[0]._id,
+      tokenCursor: null,
+    }
   }
 
   const tokenPage = await ctx.db
@@ -737,7 +739,7 @@ const deleteAuthSessionCleanupStep = async (
   }
 
   await ctx.db.delete(session._id)
-  return hasMoreSessions ? { isDone: false, cursor } : { isDone: true }
+  return { isDone: false, cursor }
 }
 
 const deleteAuthAccountCleanupStep = async (
@@ -746,11 +748,10 @@ const deleteAuthAccountCleanupStep = async (
   state: AuthAccountCleanupState
 ): Promise<CleanupStep<AuthAccountCleanupState>> =>
 {
-  let account = state.targetAccountId
+  const account = state.targetAccountId
     ? await ctx.db.get(state.targetAccountId)
     : null
-  let cursor = state.cursor
-  let hasMoreAccounts = state.targetAccountId !== undefined
+  const cursor = state.cursor
 
   if (account && account.userId !== userId)
   {
@@ -791,9 +792,12 @@ const deleteAuthAccountCleanupStep = async (
     {
       return { isDone: true }
     }
-    account = page.page[0]
-    cursor = page.continueCursor
-    hasMoreAccounts = !page.isDone
+    return {
+      isDone: false,
+      cursor: page.continueCursor,
+      targetAccountId: page.page[0]._id,
+      codeCursor: null,
+    }
   }
 
   const codePage = await ctx.db
@@ -813,5 +817,5 @@ const deleteAuthAccountCleanupStep = async (
   }
 
   await ctx.db.delete(account._id)
-  return hasMoreAccounts ? { isDone: false, cursor } : { isDone: true }
+  return { isDone: false, cursor }
 }

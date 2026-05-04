@@ -7,6 +7,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import {
   BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
+  TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
 import { AppChromeLayout } from './AppChromeLayout'
@@ -22,6 +23,24 @@ const EmbedRoute = lazy(() =>
 
 const MyListsRoute = lazy(() =>
   import('./MyListsRoute').then((m) => ({ default: m.MyListsRoute }))
+)
+
+const MarketplaceLayout = lazy(() =>
+  import('~/features/marketplace/pages/MarketplaceLayout').then((m) => ({
+    default: m.MarketplaceLayout,
+  }))
+)
+
+const TemplatesGalleryPage = lazy(() =>
+  import('~/features/marketplace/pages/TemplatesGalleryPage').then((m) => ({
+    default: m.TemplatesGalleryPage,
+  }))
+)
+
+const TemplateDetailPage = lazy(() =>
+  import('~/features/marketplace/pages/TemplateDetailPage').then((m) => ({
+    default: m.TemplateDetailPage,
+  }))
 )
 
 // matches the page-color shell each lazy chunk applies once mounted, so users
@@ -60,6 +79,19 @@ export const AppRouter = () => (
             </ErrorBoundary>
           }
         />
+        <Route
+          path={TEMPLATES_ROUTE_PATH}
+          element={
+            <ErrorBoundary section="templates">
+              <Suspense fallback={<RouteFallback />}>
+                <MarketplaceLayout />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        >
+          <Route index element={<TemplatesGalleryPage />} />
+          <Route path=":slug" element={<TemplateDetailPage />} />
+        </Route>
       </Route>
       <Route
         path={EMBED_ROUTE_PATH}

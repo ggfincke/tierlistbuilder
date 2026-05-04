@@ -9,7 +9,7 @@ import type {
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
-  getRenderImageHashes,
+  getRenderImageRefs,
   hasAnyImageRef,
   type ImageRendition,
   type ItemImageBundle,
@@ -73,9 +73,21 @@ export const ItemContent = ({
 {
   const bgColor = item.backgroundColor
   const transform = item.transform
-  const { primary, fallback } = getRenderImageHashes(item, imageRendition)
-  const cachedPrimaryUrl = useImageUrl(item.imageUrl ? undefined : primary)
-  const cachedFallbackUrl = useImageUrl(item.imageUrl ? undefined : fallback)
+  // skip the IDB lookup when the caller already has a direct URL (eg blob:
+  // upload preview) — the cached resolution would just return undefined
+  const refs = item.imageUrl
+    ? { primary: undefined, fallback: undefined }
+    : getRenderImageRefs(item, imageRendition)
+  const cachedPrimaryUrl = useImageUrl(
+    refs.primary?.ref.hash,
+    refs.primary?.ref.cloudMediaExternalId,
+    refs.primary?.variant
+  )
+  const cachedFallbackUrl = useImageUrl(
+    refs.fallback?.ref.hash,
+    refs.fallback?.ref.cloudMediaExternalId,
+    refs.fallback?.variant
+  )
   const imageUrl = item.imageUrl ?? cachedPrimaryUrl ?? cachedFallbackUrl
 
   if (imageUrl)

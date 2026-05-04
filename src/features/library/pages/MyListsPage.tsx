@@ -2,11 +2,9 @@
 // my-lists library landing — heading, stats strip, filter bar, grid or table
 
 import { Plus } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { useDeferredValue, useEffect, useMemo } from 'react'
 
 import type { LibraryBoardStatus } from '@tierlistbuilder/contracts/workspace/board'
-import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 
@@ -29,6 +27,7 @@ import { useBoardsLibrary } from '~/features/library/model/useBoardsLibrary'
 import { useCreateLibraryBoard } from '~/features/library/model/useCreateLibraryBoard'
 import { useLibraryFilters } from '~/features/library/model/useLibraryFilters'
 import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoard'
+import { Button } from '~/shared/ui/Button'
 
 // columns per density for the grid view. dense packs 4 across, default 3,
 // loose 2 — large covers feel hero-ish at 2-up
@@ -157,13 +156,17 @@ export const MyListsPage = () =>
             value={filters.searchInput}
             onChange={filters.setSearch}
           />
-          <Link
-            to={TEMPLATES_ROUTE_PATH}
-            className="focus-custom inline-flex items-center gap-1.5 rounded-full bg-[var(--t-text)] px-4 py-2 text-[12px] font-semibold text-[var(--t-bg-page)] transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          <Button
+            variant="primary"
+            size="md"
+            onClick={createBoard.create}
+            disabled={createBoard.isPending}
+            aria-busy={createBoard.isPending || undefined}
+            className="rounded-full px-4 py-2 text-[12px] font-semibold"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
-            New list
-          </Link>
+            {createBoard.isPending ? 'Creating...' : 'New list'}
+          </Button>
         </div>
       </div>
 
@@ -246,11 +249,14 @@ export const MyListsPage = () =>
             }
           />
         ) : showEmptyState ? (
-          totalLoadedBoards === 0 ? (
-            <LibraryEmptyState filtered={false} />
-          ) : (
-            <LibraryEmptyState filtered onClearFilter={handleClearFilter} />
-          )
+          <LibraryEmptyState
+            filtered={totalLoadedBoards !== 0}
+            onClearFilter={
+              totalLoadedBoards !== 0 ? handleClearFilter : undefined
+            }
+            onCreate={createBoard.create}
+            createPending={createBoard.isPending}
+          />
         ) : filters.view === 'list' ? (
           <BoardListTable
             boards={visibleBoards ?? []}

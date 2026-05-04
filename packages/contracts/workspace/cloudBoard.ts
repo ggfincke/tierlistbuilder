@@ -13,7 +13,6 @@ import type {
 // cloud board sync caps; server enforces these before writing row diffs.
 // clients/tests import the same contract so limit-edge behavior stays explicit
 export const MAX_CLOUD_BOARD_TIERS = 50
-export const MAX_LOCAL_BOARD_ITEMS = 2000
 export const MAX_STANDARD_CLOUD_BOARD_ITEMS = 200
 export const MAX_LARGE_CLOUD_BOARD_ITEMS = 2000
 
@@ -84,6 +83,7 @@ export interface CloudBoardStateTier extends CloudBoardTierWire
 export interface CloudBoardStateItem extends CloudBoardItemWire
 {
   deletedAt: number | null
+  previewMediaContentHash?: string
   mediaContentHash?: string
   sourceMediaContentHash?: string
 }

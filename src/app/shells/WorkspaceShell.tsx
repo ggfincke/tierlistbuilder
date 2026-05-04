@@ -15,6 +15,7 @@ import { BoardActionBar } from '~/features/workspace/boards/ui/BoardActionBar'
 import { BoardManager } from '~/features/workspace/boards/ui/BoardManager'
 import { BoardHeader } from '~/features/workspace/boards/ui/BoardHeader'
 import { BulkActionBar } from '~/features/workspace/boards/ui/BulkActionBar'
+import { ConflictResolverModal } from '~/features/workspace/boards/ui/ConflictResolverModal'
 import { TierList } from '~/features/workspace/boards/ui/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -162,6 +163,9 @@ export const WorkspaceShell = () =>
           onSwitchBoard={transitionTo}
           cloudEnabled={cloudEnabled}
         />
+        {session.status === 'signed-in' && (
+          <ConflictResolverModal user={session.user} />
+        )}
         <WorkspaceModalLayer
           modalStack={modalStack}
           exportStatus={exportActions.exportStatus}

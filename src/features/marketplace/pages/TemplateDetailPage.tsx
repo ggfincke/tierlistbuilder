@@ -428,6 +428,7 @@ export const TemplateDetailPage = () =>
             <UseTemplateButton
               slug={detail.slug}
               templateTitle={detail.title}
+              access={detail.access}
               size="md"
               className="h-10 flex-1 px-4 text-sm"
             />

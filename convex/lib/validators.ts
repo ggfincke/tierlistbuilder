@@ -417,6 +417,7 @@ const cloudBoardStateItemValidator = v.object({
   backgroundColor: v.optional(v.string()),
   altText: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
+  previewMediaContentHash: v.optional(v.string()),
   mediaContentHash: v.optional(v.string()),
   sourceMediaContentHash: v.optional(v.string()),
   order: v.number(),

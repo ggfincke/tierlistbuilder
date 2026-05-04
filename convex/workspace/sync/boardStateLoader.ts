@@ -11,6 +11,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
 type MediaInfo = {
   externalId: string
+  previewContentHash: string | null
   tileContentHash: string
   editorContentHash: string | null
 }
@@ -47,6 +48,7 @@ export const loadBoardCloudState = async (
   {
     mediaIdToInfo.set(id, {
       externalId: asset.externalId,
+      previewContentHash: asset.previewVariant?.contentHash ?? null,
       tileContentHash: asset.tileVariant.contentHash,
       editorContentHash: asset.editorVariant?.contentHash ?? null,
     })
@@ -120,6 +122,7 @@ export const loadBoardCloudState = async (
         backgroundColor: item.backgroundColor,
         altText: item.altText,
         mediaExternalId: mediaInfo?.externalId,
+        previewMediaContentHash: mediaInfo?.previewContentHash ?? undefined,
         mediaContentHash: mediaInfo?.tileContentHash,
         sourceMediaContentHash: mediaInfo?.editorContentHash ?? undefined,
         order: item.order,

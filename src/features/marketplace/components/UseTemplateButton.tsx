@@ -4,6 +4,8 @@
 
 import { ArrowRight, Loader2 } from 'lucide-react'
 
+import type { TemplateCardAccessState } from '@tierlistbuilder/contracts/marketplace/template'
+import { ACCESS_META } from '~/features/marketplace/model/accessMeta'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { useUseTemplate } from '~/features/marketplace/model/useUseTemplate'
 
@@ -11,6 +13,7 @@ interface UseTemplateButtonProps
 {
   slug: string
   templateTitle: string
+  access?: TemplateCardAccessState
   size?: 'sm' | 'md'
   // pass to make the button stretch in flex layouts (eg the detail-page CTA
   // cluster where it sits next to a fixed-width share button)
@@ -20,26 +23,31 @@ interface UseTemplateButtonProps
 export const UseTemplateButton = ({
   slug,
   templateTitle,
+  access = 'usable',
   size = 'md',
   className,
 }: UseTemplateButtonProps) =>
 {
   const { run, isPending } = useUseTemplate()
+  const meta = ACCESS_META[access]
+  const blocked = access !== 'usable'
+  const label = isPending && !blocked ? 'Forking…' : meta.ctaLabel
 
   return (
     <PrimaryButton
       type="button"
       size={size}
-      disabled={isPending}
+      disabled={isPending || blocked}
       onClick={() => run(slug, templateTitle)}
       className={className}
+      title={meta.ctaTooltip ?? undefined}
     >
       {isPending ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
       ) : (
         <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
       )}
-      {isPending ? 'Forking…' : 'Use this template'}
+      {label}
     </PrimaryButton>
   )
 }

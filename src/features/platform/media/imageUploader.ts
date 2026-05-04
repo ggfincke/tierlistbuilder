@@ -18,6 +18,7 @@ import {
   SUPPORTED_IMAGE_MIME_TYPES,
   type MediaVariantKind,
 } from '@tierlistbuilder/contracts/platform/media'
+import { getPrimaryImageRef } from '~/shared/lib/imageRefs'
 import {
   finalizeUploadVariantsImperative,
   generateUploadUrlsImperative,
@@ -50,15 +51,20 @@ export interface BoardImageUploadResult
 interface MediaUploadGroup
 {
   uploadKey: string
-  displayHash: string
+  previewHash: string | null
+  tileHash: string
   sourceHash: string | null
   itemIds: string[]
 }
 
 const makeMediaUploadKey = (
-  displayHash: string,
+  previewHash: string | null,
+  tileHash: string,
   sourceHash: string | null
-): string => `media:${displayHash}:${sourceHash ?? ''}`
+): string => `media:${previewHash ?? ''}:${tileHash}:${sourceHash ?? ''}`
+
+const groupVariantHashes = (group: MediaUploadGroup): string[] =>
+  [group.previewHash, group.tileHash, group.sourceHash].filter(isPresent)
 
 const seedExistingCloudMediaIds = (
   snapshot: BoardSnapshot,
@@ -67,34 +73,20 @@ const seedExistingCloudMediaIds = (
 {
   forEachSnapshotItem(snapshot, (item) =>
   {
-    const imageRef = item.imageRef
-    const sourceImageRef = item.sourceImageRef
-    const mediaExternalId =
-      sourceImageRef?.cloudMediaExternalId ?? imageRef?.cloudMediaExternalId
+    const mediaExternalId = getPrimaryImageRef(
+      item,
+      'board'
+    )?.cloudMediaExternalId
     if (mediaExternalId)
     {
       result.mediaExternalIdByItemId.set(item.id, mediaExternalId)
     }
-    if (imageRef?.cloudMediaExternalId)
+    for (const ref of [item.imageRef, item.tileImageRef, item.sourceImageRef])
     {
-      result.mediaExternalIdByHash.set(
-        imageRef.hash,
-        imageRef.cloudMediaExternalId
-      )
-      if (sourceImageRef?.hash)
+      if (ref?.cloudMediaExternalId)
       {
-        result.mediaExternalIdByHash.set(
-          sourceImageRef.hash,
-          sourceImageRef.cloudMediaExternalId ?? imageRef.cloudMediaExternalId
-        )
+        result.mediaExternalIdByHash.set(ref.hash, ref.cloudMediaExternalId)
       }
-    }
-    else if (sourceImageRef?.cloudMediaExternalId)
-    {
-      result.mediaExternalIdByHash.set(
-        sourceImageRef.hash,
-        sourceImageRef.cloudMediaExternalId
-      )
     }
   })
 }
@@ -106,10 +98,11 @@ const collectMediaUploadGroups = (
   const groups = new Map<string, MediaUploadGroup>()
   forEachSnapshotItem(snapshot, (item) =>
   {
-    const displayHash = item.imageRef?.hash
-    if (!displayHash) return
+    const previewHash = item.imageRef?.hash ?? null
+    const tileHash = getPrimaryImageRef(item, 'board')?.hash
+    if (!tileHash) return
     const sourceHash = item.sourceImageRef?.hash ?? null
-    const groupKey = makeMediaUploadKey(displayHash, sourceHash)
+    const groupKey = makeMediaUploadKey(previewHash, tileHash, sourceHash)
     const existing = groups.get(groupKey)
     if (existing)
     {
@@ -118,7 +111,8 @@ const collectMediaUploadGroups = (
     }
     groups.set(groupKey, {
       uploadKey: groupKey,
-      displayHash,
+      previewHash,
+      tileHash,
       sourceHash,
       itemIds: [item.id],
     })
@@ -139,32 +133,40 @@ const uploadMediaGroup = async (
   storedBlobRecords: ReadonlyMap<string, BlobRecord>
 ): Promise<{ hashes: string[]; externalId: string }> =>
 {
-  const displayRecord = storedBlobRecords.get(group.displayHash)
-  if (!displayRecord)
+  const lookupRecord = (hash: string): BlobRecord =>
   {
-    throw new PermanentSyncError(
-      'missing-local-image-blobs',
-      `missing local blob for ${group.displayHash}`
-    )
-  }
-
-  const variantInputs: VariantUploadInput[] = [
-    { kind: 'tile', hash: group.displayHash, record: displayRecord },
-  ]
-  if (group.sourceHash)
-  {
-    const sourceRecord = storedBlobRecords.get(group.sourceHash)
-    if (!sourceRecord)
+    const record = storedBlobRecords.get(hash)
+    if (!record)
     {
       throw new PermanentSyncError(
         'missing-local-image-blobs',
-        `missing local blob for ${group.sourceHash}`
+        `missing local blob for ${hash}`
       )
     }
+    return record
+  }
+
+  const variantInputs: VariantUploadInput[] = [
+    {
+      kind: 'tile',
+      hash: group.tileHash,
+      record: lookupRecord(group.tileHash),
+    },
+  ]
+  if (group.previewHash)
+  {
+    variantInputs.push({
+      kind: 'preview',
+      hash: group.previewHash,
+      record: lookupRecord(group.previewHash),
+    })
+  }
+  if (group.sourceHash)
+  {
     variantInputs.push({
       kind: 'editor',
       hash: group.sourceHash,
-      record: sourceRecord,
+      record: lookupRecord(group.sourceHash),
     })
   }
 
@@ -193,19 +195,31 @@ const uploadMediaGroup = async (
   )
 
   const { externalId } = await finalizeUploadVariantsImperative({ variants })
-  const hashes = [group.displayHash, group.sourceHash].filter(isPresent)
   await markUploaded(uploadIndexUserId, group.uploadKey, externalId)
-  return { hashes, externalId }
+  return { hashes: groupVariantHashes(group), externalId }
 }
 
+// returns externalId only when *every* known variant hash maps to the same
+// id — partial agreement forces a re-upload to keep the variant set coherent
 const getKnownGroupExternalId = (
   group: MediaUploadGroup,
   result: BoardImageUploadResult,
   externalIdByUploadKey: ReadonlyMap<string, string | null>
 ): string | undefined =>
-  externalIdByUploadKey.get(group.uploadKey) ??
-  result.mediaExternalIdByItemId.get(group.itemIds[0] ?? '') ??
-  undefined
+{
+  const exact = externalIdByUploadKey.get(group.uploadKey)
+  if (exact) return exact
+
+  const externalIds = groupVariantHashes(group).map((hash) =>
+    result.mediaExternalIdByHash.get(hash)
+  )
+  const first = externalIds[0]
+  if (!first || externalIds.some((externalId) => externalId !== first))
+  {
+    return undefined
+  }
+  return first
+}
 
 type UploadAttemptResult =
   | { kind: 'uploaded'; hashes: string[]; externalId: string }
@@ -253,13 +267,7 @@ export const uploadBoardImages = async (
     uploadGroups.push(group)
   }
 
-  const groupHashes = [
-    ...new Set(
-      uploadGroups.flatMap((group) =>
-        [group.displayHash, group.sourceHash].filter(isPresent)
-      )
-    ),
-  ]
+  const groupHashes = [...new Set(uploadGroups.flatMap(groupVariantHashes))]
   const storedBlobRecords = await getBlobsBatch(groupHashes)
 
   const missingBlobHashes = groupHashes.filter(
