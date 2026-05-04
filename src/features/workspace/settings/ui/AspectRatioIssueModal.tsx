@@ -2,7 +2,15 @@
 // first-encounter prompt for mixed aspect ratio items w/ inline ratio picker
 
 import { Check, ChevronRight, Crop, Loader2 } from 'lucide-react'
-import { useCallback, useId, useMemo, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -14,12 +22,16 @@ import type {
   ItemShape,
   ItemSize,
 } from '@tierlistbuilder/contracts/platform/preferences'
+import { ASPECT_RATIO_PRESETS } from '@tierlistbuilder/contracts/workspace/imageMath'
 import {
   formatAspectRatio,
   getEffectiveImageFit,
-  type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
-import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
+import {
+  ITEM_LONG_EDGE_PX,
+  itemSlotDimensions,
+  SHAPE_CLASS,
+} from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import {
   resolveEffectiveShowLabels,
@@ -159,11 +171,15 @@ const AspectRatioIssueModalBody = ({
     [cleanupTargets]
   )
 
-  // bulk fit previews until Done / Adjust each; default Cover strips stale
-  // transforms, while auto-crop remains explicit because detection is async
+  // stage bulk fit previews until Done / Adjust each
+  // prefer auto-crop when image bytes exist; cover is fallback
+  // strip stale transforms on Done when auto-crop can't run
   const [pendingBulkFit, setPendingBulkFit] = useState<ImageFit | null>(() =>
-    cleanupTargets.length > 0 ? 'cover' : null
-  )
+  {
+    if (cleanupTargets.length === 0) return null
+    if (autoCropTargets.length > 0) return null
+    return 'cover'
+  })
   const [dontAskAgain, setDontAskAgain] = useState(false)
   const autoCrop = useAutoCropController({
     boardAspectRatio,
@@ -176,6 +192,19 @@ const AspectRatioIssueModalBody = ({
     targets: autoCropTargets,
     trimSoftShadows,
   })
+
+  // auto-trigger auto-crop on open so the control shows the preferred default
+  // guard re-renders after run() flips intent or progress updates
+  // tear intent down when picking Cover/Contain or another ratio
+  const didAutoStartAutoCropRef = useRef(false)
+  useEffect(() =>
+  {
+    if (didAutoStartAutoCropRef.current) return
+    if (!autoCrop.available) return
+    if (autoCrop.honored || autoCrop.progress.running) return
+    didAutoStartAutoCropRef.current = true
+    autoCrop.run()
+  }, [autoCrop])
 
   const commitPendingFit = useCallback(() =>
   {
@@ -205,18 +234,9 @@ const AspectRatioIssueModalBody = ({
     [autoCrop]
   )
 
-  const handleRatioOption = useCallback(
-    (option: RatioOption) =>
-    {
-      if (autoCrop.intent || autoCrop.honored)
-      {
-        autoCrop.tearDownIntent('ratio')
-        setPendingBulkFit(cleanupTargets.length > 0 ? 'cover' : null)
-      }
-      handleOption(option)
-    },
-    [autoCrop, cleanupTargets.length, handleOption]
-  )
+  // ratio swaps don't tear down auto-crop intent — the controller re-runs on
+  // boardAspectRatio change, so "Auto-crop all" persists across swaps while
+  // explicit Cover/Contain picks already cleared intent via handleSelectFit
 
   const handleDone = useCallback(() =>
   {
@@ -233,10 +253,27 @@ const AspectRatioIssueModalBody = ({
 
   const ratioLabel = formatAspectRatio(boardAspectRatio)
 
-  // outer slot matches the larger dimension of the rendered tile so the
-  // preview tracks whatever sqrt-pinned width or height the slot resolves to
-  const previewInnerSize = itemSlotDimensions(itemSize, boardAspectRatio)
-  const slotBound = Math.max(previewInnerSize.width, previewInnerSize.height)
+  // capture worst-case ratio across preset chips & opening ratios
+  // keep the slot grid width stable while picker ratios change
+  // render inner thumbs at the live ratio
+  const [stableMaxAxisRatio] = useState(() =>
+  {
+    const candidates = [
+      ...ASPECT_RATIO_PRESETS.map((preset) => preset.value),
+      boardAspectRatio,
+      autoRatio,
+    ]
+    return candidates.reduce((max, ratio) =>
+    {
+      if (!Number.isFinite(ratio) || ratio <= 0) return max
+      return Math.max(max, ratio, 1 / ratio)
+    }, 1)
+  })
+
+  // edge·√r matches itemSlotDimensions: the longer side of the largest slot
+  const slotBound = Math.round(
+    ITEM_LONG_EDGE_PX[itemSize] * Math.sqrt(stableMaxAxisRatio)
+  )
   const slotCount = MAX_THUMBNAIL_PREVIEW + 1
   const stripWidth = slotBound * slotCount + 8 * (slotCount - 1)
   // floor at the old max-w-lg so small items don't collapse the modal
@@ -285,7 +322,7 @@ const AspectRatioIssueModalBody = ({
       <div className="mt-5">
         <AspectRatioTiles
           selectedOption={selectedOption}
-          onSelect={handleRatioOption}
+          onSelect={handleOption}
           customWidth={customWidth}
           customHeight={customHeight}
           onCustomWidthChange={setCustomWidth}

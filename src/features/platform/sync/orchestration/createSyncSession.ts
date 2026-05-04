@@ -6,7 +6,10 @@ import {
   type WorkspaceSyncSession,
 } from '~/features/workspace/sync/workspaceSyncSession'
 import { useSyncStatusStore } from '~/features/platform/sync/state/syncStatusStore'
-import { setupConnectivity } from '~/features/platform/sync/transport/connectivity'
+import {
+  readNavigatorOnline,
+  setupConnectivity,
+} from '~/features/platform/sync/transport/connectivity'
 
 export interface SyncSession
 {
@@ -38,10 +41,13 @@ export const createSyncSession = ({
     onOnline: triggerResume,
   })
 
+  // gate on navigator.onLine, not the store: setupConnectivity's listeners
+  // can lag the OS adapter through StrictMode tear-down/re-mount, leaving
+  // the store stuck at false & blocking every flush w/ a spurious offline
   workspace = createWorkspaceSyncSession({
     userId,
     shouldProceed,
-    isOnline: () => useSyncStatusStore.getState().online,
+    isOnline: readNavigatorOnline,
     setBoardStatus: (boardId, status) =>
     {
       useSyncStatusStore.getState().setBoardStatus(boardId, status)

@@ -1,10 +1,13 @@
 // src/shared/images/imageStore.ts
 // IndexedDB-backed image blob store keyed by content hash
 
+import { logger } from '~/shared/lib/logger'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 
 const DB_NAME = 'tierlistbuilder-images'
-const DB_VERSION = 4
+// bumped past 5 because main shipped a v5 schema (blobs+blobRefs only); this
+// branch still needs uploadIndex, so v6 forces a clean upgrade w/ all 3 stores
+const DB_VERSION = 6
 const BLOBS_STORE = 'blobs'
 const UPLOAD_INDEX_STORE = 'uploadIndex'
 const BLOB_REFS_STORE = 'blobRefs'
@@ -131,8 +134,9 @@ const openDatabaseSafe = async (): Promise<IDBDatabase | null> =>
   {
     return await openDatabase()
   }
-  catch
+  catch (error)
   {
+    logger.warn('image', `Failed to open ${DB_NAME} v${DB_VERSION}:`, error)
     return null
   }
 }
@@ -200,10 +204,23 @@ const runBlobRefWrite = (
   })
 }
 
+// returns true when IDB opened successfully, false when unavailable. callers
+// that need a hard fail (eg JSON import) gate on this so an upload that can't
+// persist surfaces immediately instead of silently living in memory only
 export const probeImageStore = async (): Promise<boolean> =>
 {
-  await openDatabaseSafe()
-  return true
+  return (await openDatabaseSafe()) !== null
+}
+
+const fillMemoryFallback = (
+  hashes: readonly string[],
+  results: Map<string, BlobRecord | null>
+): void =>
+{
+  for (const hash of hashes)
+  {
+    results.set(hash, memoryBlobs.get(hash) ?? null)
+  }
 }
 
 // write a single blob record
@@ -216,15 +233,15 @@ export const putBlob = async (record: BlobRecord): Promise<void> =>
     return
   }
 
-  const tx = db.transaction(BLOBS_STORE, 'readwrite')
-  tx.objectStore(BLOBS_STORE).put(record)
   try
   {
+    const tx = db.transaction(BLOBS_STORE, 'readwrite')
+    tx.objectStore(BLOBS_STORE).put(record)
     await awaitTransaction(tx)
   }
-  catch
+  catch (error)
   {
-    return
+    logger.warn('image', `IDB putBlob failed for ${record.hash}:`, error)
   }
 }
 
@@ -237,12 +254,19 @@ export const getBlob = async (hash: string): Promise<BlobRecord | null> =>
     return memoryBlobs.get(hash) ?? null
   }
 
-  const tx = db.transaction(BLOBS_STORE, 'readonly')
-  const result = (await awaitRequest(tx.objectStore(BLOBS_STORE).get(hash))) as
-    | BlobRecord
-    | undefined
-
-  return result ?? memoryBlobs.get(hash) ?? null
+  try
+  {
+    const tx = db.transaction(BLOBS_STORE, 'readonly')
+    const result = (await awaitRequest(
+      tx.objectStore(BLOBS_STORE).get(hash)
+    )) as BlobRecord | undefined
+    return result ?? memoryBlobs.get(hash) ?? null
+  }
+  catch (error)
+  {
+    logger.warn('image', `IDB getBlob failed for ${hash}:`, error)
+    return memoryBlobs.get(hash) ?? null
+  }
 }
 
 // write many blob records in one transaction
@@ -266,21 +290,23 @@ export const putBlobs = async (
     return
   }
 
-  const tx = db.transaction(BLOBS_STORE, 'readwrite')
-  const store = tx.objectStore(BLOBS_STORE)
-
-  for (const record of records)
-  {
-    store.put(record)
-  }
-
   try
   {
+    const tx = db.transaction(BLOBS_STORE, 'readwrite')
+    const store = tx.objectStore(BLOBS_STORE)
+    for (const record of records)
+    {
+      store.put(record)
+    }
     await awaitTransaction(tx)
   }
-  catch
+  catch (error)
   {
-    return
+    logger.warn(
+      'image',
+      `IDB putBlobs failed for ${records.length} record(s):`,
+      error
+    )
   }
 }
 
@@ -300,26 +326,36 @@ export const getBlobsBatch = async (
   const db = await openDatabaseSafe()
   if (!db)
   {
-    for (const hash of hashes)
-    {
-      results.set(hash, memoryBlobs.get(hash) ?? null)
-    }
+    fillMemoryFallback(hashes, results)
     return results
   }
 
-  const tx = db.transaction(BLOBS_STORE, 'readonly')
-  const store = tx.objectStore(BLOBS_STORE)
-
-  await mapAsyncLimit(hashes, IDB_READ_CONCURRENCY, async (hash) =>
+  try
   {
-    const record = (await awaitRequest(store.get(hash))) as
-      | BlobRecord
-      | undefined
-    results.set(hash, record ?? memoryBlobs.get(hash) ?? null)
-  })
+    const tx = db.transaction(BLOBS_STORE, 'readonly')
+    const store = tx.objectStore(BLOBS_STORE)
 
-  await awaitTransaction(tx)
-  return results
+    await mapAsyncLimit(hashes, IDB_READ_CONCURRENCY, async (hash) =>
+    {
+      const record = (await awaitRequest(store.get(hash))) as
+        | BlobRecord
+        | undefined
+      results.set(hash, record ?? memoryBlobs.get(hash) ?? null)
+    })
+
+    await awaitTransaction(tx)
+    return results
+  }
+  catch (error)
+  {
+    logger.warn(
+      'image',
+      `IDB getBlobsBatch failed for ${hashes.length} hash(es):`,
+      error
+    )
+    fillMemoryFallback(hashes, results)
+    return results
+  }
 }
 
 export const replaceBlobRefs = async (
@@ -385,9 +421,13 @@ export const replaceBlobRefs = async (
       }
       await putDone
     }
-    catch
+    catch (error)
     {
-      return
+      logger.warn(
+        'image',
+        `IDB replaceBlobRefs failed for scope ${scope}:`,
+        error
+      )
     }
   })
 
@@ -419,9 +459,13 @@ export const clearBlobRefs = async (scope: string): Promise<void> =>
       )
       await done
     }
-    catch
+    catch (error)
     {
-      return
+      logger.warn(
+        'image',
+        `IDB clearBlobRefs failed for scope ${scope}:`,
+        error
+      )
     }
   })
 
@@ -477,41 +521,49 @@ export const pruneUnreferencedBlobs = async (
     return { deleted: memoryStaleHashes.length }
   }
 
-  const refsTx = db.transaction(BLOB_REFS_STORE, 'readonly')
-  const refsDone = awaitTransaction(refsTx)
-  const refs = (await awaitRequest(
-    refsTx.objectStore(BLOB_REFS_STORE).getAll()
-  )) as BlobRefRecord[]
-  await refsDone
-
-  const blobTx = db.transaction(BLOBS_STORE, 'readonly')
-  const blobDone = awaitTransaction(blobTx)
-  const blobs = (await awaitRequest(
-    blobTx.objectStore(BLOBS_STORE).getAll()
-  )) as BlobRecord[]
-  await blobDone
-
-  const staleHashes = resolveUnreferencedBlobHashes(
-    blobs.map((blob) => ({ hash: blob.hash, createdAt: blob.createdAt })),
-    refs.map((ref) => ref.hash),
-    options.now,
-    options.graceMs
-  )
-
-  for (const hash of staleHashes)
+  try
   {
-    const tx = db.transaction([BLOBS_STORE, UPLOAD_INDEX_STORE], 'readwrite')
-    const done = awaitTransaction(tx)
-    tx.objectStore(BLOBS_STORE).delete(hash)
-    await awaitIndexDeletes(
-      tx.objectStore(UPLOAD_INDEX_STORE),
-      UPLOAD_INDEX_BY_HASH,
-      hash
-    )
-    await done
-  }
+    const refsTx = db.transaction(BLOB_REFS_STORE, 'readonly')
+    const refsDone = awaitTransaction(refsTx)
+    const refs = (await awaitRequest(
+      refsTx.objectStore(BLOB_REFS_STORE).getAll()
+    )) as BlobRefRecord[]
+    await refsDone
 
-  return { deleted: memoryStaleHashes.length + staleHashes.length }
+    const blobTx = db.transaction(BLOBS_STORE, 'readonly')
+    const blobDone = awaitTransaction(blobTx)
+    const blobs = (await awaitRequest(
+      blobTx.objectStore(BLOBS_STORE).getAll()
+    )) as BlobRecord[]
+    await blobDone
+
+    const staleHashes = resolveUnreferencedBlobHashes(
+      blobs.map((blob) => ({ hash: blob.hash, createdAt: blob.createdAt })),
+      refs.map((ref) => ref.hash),
+      options.now,
+      options.graceMs
+    )
+
+    for (const hash of staleHashes)
+    {
+      const tx = db.transaction([BLOBS_STORE, UPLOAD_INDEX_STORE], 'readwrite')
+      const done = awaitTransaction(tx)
+      tx.objectStore(BLOBS_STORE).delete(hash)
+      await awaitIndexDeletes(
+        tx.objectStore(UPLOAD_INDEX_STORE),
+        UPLOAD_INDEX_BY_HASH,
+        hash
+      )
+      await done
+    }
+
+    return { deleted: memoryStaleHashes.length + staleHashes.length }
+  }
+  catch (error)
+  {
+    logger.warn('image', 'IDB pruneUnreferencedBlobs failed:', error)
+    return { deleted: memoryStaleHashes.length }
+  }
 }
 
 // record that a hash has been uploaded to a cloud account
@@ -534,16 +586,15 @@ export const markUploaded = async (
     return
   }
 
-  const tx = db.transaction(UPLOAD_INDEX_STORE, 'readwrite')
-  tx.objectStore(UPLOAD_INDEX_STORE).put(record)
-
   try
   {
+    const tx = db.transaction(UPLOAD_INDEX_STORE, 'readwrite')
+    tx.objectStore(UPLOAD_INDEX_STORE).put(record)
     await awaitTransaction(tx)
   }
-  catch
+  catch (error)
   {
-    return
+    logger.warn('image', `IDB markUploaded failed for hash ${hash}:`, error)
   }
 }
 
@@ -560,8 +611,7 @@ export const getUploadStatusBatch = async (
     return results
   }
 
-  const db = await openDatabaseSafe()
-  if (!db)
+  const fillFromMemory = (): void =>
   {
     for (const hash of hashes)
     {
@@ -571,26 +621,45 @@ export const getUploadStatusBatch = async (
           ?.cloudMediaExternalId ?? null
       )
     }
+  }
+
+  const db = await openDatabaseSafe()
+  if (!db)
+  {
+    fillFromMemory()
     return results
   }
 
-  const tx = db.transaction(UPLOAD_INDEX_STORE, 'readonly')
-  const store = tx.objectStore(UPLOAD_INDEX_STORE)
-
-  await mapAsyncLimit(hashes, IDB_READ_CONCURRENCY, async (hash) =>
+  try
   {
-    const record = (await awaitRequest(store.get([userId, hash]))) as
-      | UploadIndexRecord
-      | undefined
-    results.set(
-      hash,
-      record?.cloudMediaExternalId ??
-        memoryUploadIndex.get(uploadIndexKey(userId, hash))
-          ?.cloudMediaExternalId ??
-        null
-    )
-  })
+    const tx = db.transaction(UPLOAD_INDEX_STORE, 'readonly')
+    const store = tx.objectStore(UPLOAD_INDEX_STORE)
 
-  await awaitTransaction(tx)
-  return results
+    await mapAsyncLimit(hashes, IDB_READ_CONCURRENCY, async (hash) =>
+    {
+      const record = (await awaitRequest(store.get([userId, hash]))) as
+        | UploadIndexRecord
+        | undefined
+      results.set(
+        hash,
+        record?.cloudMediaExternalId ??
+          memoryUploadIndex.get(uploadIndexKey(userId, hash))
+            ?.cloudMediaExternalId ??
+          null
+      )
+    })
+
+    await awaitTransaction(tx)
+    return results
+  }
+  catch (error)
+  {
+    logger.warn(
+      'image',
+      `IDB getUploadStatusBatch failed for ${hashes.length} hash(es):`,
+      error
+    )
+    fillFromMemory()
+    return results
+  }
 }
