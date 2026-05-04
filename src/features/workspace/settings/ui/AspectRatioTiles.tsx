@@ -5,9 +5,10 @@ import {
   CUSTOM_RATIO_OPTION,
   formatPreciseAspectRatio,
   NON_CUSTOM_RATIO_OPTIONS,
+  parseCustomAspectRatio,
   type RatioOption,
-} from '~/features/workspace/boards/lib/aspectRatio'
-import { isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
+} from '~/shared/board-ui/aspectRatio'
+import { fitRectInBox } from './aspectRatioPreviewRect'
 
 const RECT_BOX = 28
 
@@ -15,19 +16,8 @@ const GRID_STYLE = {
   gridTemplateColumns: 'repeat(auto-fit, minmax(3rem, 1fr))',
 }
 
-// scale a ratio-correct rect inside a square bounding box, floored so extreme
-// ratios still render a visible sliver instead of collapsing to zero
-const fitRectInBox = (ratio: number, maxSize: number) =>
-  ratio >= 1
-    ? { width: maxSize, height: Math.max(2, maxSize / ratio) }
-    : { width: Math.max(2, maxSize * ratio), height: maxSize }
-
 const parseCustomRatio = (width: string, height: string): number =>
-{
-  const w = Number(width)
-  const h = Number(height)
-  return isPositiveFiniteNumber(w) && isPositiveFiniteNumber(h) ? w / h : 1
-}
+  parseCustomAspectRatio(width, height) ?? 1
 
 const TILE_SHELL =
   'focus-custom flex flex-col items-center gap-1 rounded-md border p-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'

@@ -6,17 +6,22 @@ import type {
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import {
-  findMismatchedItems,
-  getBoardItemAspectRatio,
-  itemHasAspectMismatch,
-} from '~/features/workspace/boards/lib/aspectRatio'
+import { findMismatchedItems } from '~/shared/board-ui/aspectRatio'
 
 type PromptBoard = Pick<BoardSnapshot, 'items' | 'itemAspectRatio'>
 
-export interface AspectRatioPromptSnapshot
+interface AspectRatioPromptSnapshot
 {
   itemIds: readonly ItemId[]
+}
+
+export interface AspectRatioPromptResolution
+{
+  // currently mismatched items in the live board state
+  current: TierItem[]
+  // items the modal acts on: snapshot ids preserved (so cleanup persists even
+  // when the picked ratio resolves a mismatch) ∪ currently mismatched items
+  cleanup: TierItem[]
 }
 
 export const createAspectRatioPromptSnapshot = (
@@ -28,13 +33,23 @@ export const createAspectRatioPromptSnapshot = (
 export const resolveAspectRatioPromptItems = (
   snapshot: AspectRatioPromptSnapshot,
   board: PromptBoard
-): TierItem[] =>
+): AspectRatioPromptResolution =>
 {
-  const boardRatio = getBoardItemAspectRatio(board)
-  return snapshot.itemIds
-    .map((id) => board.items[id])
-    .filter(
-      (item): item is TierItem =>
-        !!item && itemHasAspectMismatch(item, boardRatio)
-    )
+  const current = findMismatchedItems(board)
+  const cleanup: TierItem[] = []
+  const seen = new Set<ItemId>()
+  for (const id of snapshot.itemIds)
+  {
+    const item = board.items[id]
+    if (!item || seen.has(id)) continue
+    seen.add(id)
+    cleanup.push(item)
+  }
+  for (const item of current)
+  {
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    cleanup.push(item)
+  }
+  return { current, cleanup }
 }

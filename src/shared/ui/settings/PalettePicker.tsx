@@ -1,0 +1,60 @@
+// src/shared/ui/settings/PalettePicker.tsx
+// controlled palette preview picker for defaults & per-board overrides
+
+import { PALETTE_META, PALETTES } from '~/shared/theme/palettes'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
+import { PickerGrid } from '~/shared/ui/PickerGrid'
+
+// preview swatch count — capped at 6 so palettes w/ larger hue counts
+// render a consistent card size across the grid
+const PREVIEW_SWATCH_COUNT = 6
+
+interface PalettePickerProps
+{
+  value: PaletteId
+  onChange: (paletteId: PaletteId) => void
+  disabled?: boolean
+  ariaLabelledby?: string
+}
+
+// module-scope memo of preview swatches per palette — avoids re-slicing
+// palette.colors on every grid render
+const PREVIEW_COLORS_BY_PALETTE: Record<PaletteId, readonly string[]> = (() =>
+{
+  const map: Record<string, readonly string[]> = {}
+  for (const meta of PALETTE_META)
+  {
+    map[meta.id] = PALETTES[meta.id].colors.slice(0, PREVIEW_SWATCH_COUNT)
+  }
+  return map as Record<PaletteId, readonly string[]>
+})()
+
+const renderPalettePreview = (meta: (typeof PALETTE_META)[number]) =>
+{
+  const colors = PREVIEW_COLORS_BY_PALETTE[meta.id]
+  return (
+    <div className="flex w-full overflow-hidden rounded">
+      {colors.map((color, i) => (
+        <span key={i} className="h-5 flex-1" style={{ background: color }} />
+      ))}
+    </div>
+  )
+}
+
+export const PalettePicker = ({
+  value,
+  onChange,
+  disabled = false,
+  ariaLabelledby,
+}: PalettePickerProps) => (
+  <PickerGrid<PaletteId, (typeof PALETTE_META)[number]>
+    items={PALETTE_META}
+    activeKey={value}
+    onSelect={onChange}
+    ariaLabel="Tier color palette"
+    ariaLabelledby={ariaLabelledby}
+    columns={4}
+    renderPreview={renderPalettePreview}
+    disabled={disabled}
+  />
+)

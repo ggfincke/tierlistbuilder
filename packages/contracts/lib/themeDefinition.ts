@@ -24,6 +24,7 @@ export interface ThemeDefinition
   destructive: string
   'destructive-hover': string
   success: string
+  warning: string
   overlay: string
   'export-bg': string
 }

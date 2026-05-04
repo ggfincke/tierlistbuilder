@@ -8,7 +8,7 @@ import {
   encodeBoardToShareFragment,
   inflateSnapshotBytes,
   stripImagesForShare,
-} from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/sharing/hashShare'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeBoardSnapshot, makeTier } from '../fixtures'
 
@@ -41,6 +41,7 @@ describe('snapshot codec', () =>
           id: asItemId('a'),
           label: 'x',
           imageRef: { hash: 'img-1' },
+          tileImageRef: { hash: 'tile-1' },
           sourceImageRef: { hash: 'source-1' },
         },
       },
@@ -51,6 +52,7 @@ describe('snapshot codec', () =>
     const item = stripped.items[asItemId('a')]
     expect(item).toBeDefined()
     expect(item).not.toHaveProperty('imageRef')
+    expect(item).not.toHaveProperty('tileImageRef')
     expect(item).not.toHaveProperty('sourceImageRef')
     expect(stripped.deletedItems).toEqual([])
   })
@@ -70,6 +72,7 @@ describe('snapshot codec', () =>
         [altImageId]: {
           id: altImageId,
           imageRef: { hash: 'img-2' },
+          tileImageRef: { hash: 'tile-2' },
           sourceImageRef: { hash: 'source-2' },
           altText: 'Cover art',
         },
@@ -85,6 +88,7 @@ describe('snapshot codec', () =>
     expect(plainImage?.label).toBe('Image')
     expect(plainImage).not.toHaveProperty('imageRef')
     expect(altImage?.label).toBe('Cover art')
+    expect(altImage).not.toHaveProperty('tileImageRef')
     expect(altImage).not.toHaveProperty('sourceImageRef')
     expect(decoded.tiers[0].itemIds).toEqual([plainImageId, altImageId])
   })

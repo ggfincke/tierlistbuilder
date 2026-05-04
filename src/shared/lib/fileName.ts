@@ -12,3 +12,13 @@ export const toFileBase = (title: string): string =>
 
   return slug || 'tier-list'
 }
+
+// derive a display label from a filename — strip extension, convert separators
+export const deriveLabelFromFilename = (filename: string): string =>
+{
+  const label = filename
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+  return label || 'Image'
+}

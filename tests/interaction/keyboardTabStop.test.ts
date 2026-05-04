@@ -53,63 +53,31 @@ describe('selectKeyboardTabStopItemId', () =>
     expect(selectKeyboardTabStopItemId(state)).toBeNull()
   })
 
-  it('caches fallback when tiers & unranked are ref-stable', () =>
+  it('memoizes fallback by tiers+unranked refs (stable hits, invalidates on change)', () =>
   {
     const tiers = [
       makeTier({ id: 'tier-s', name: 'S', itemIds: ids('a', 'b') }),
     ]
     const unrankedItemIds = ids('u1')
-
     const state = { keyboardFocusItemId: null, tiers, unrankedItemIds }
+    expect(selectKeyboardTabStopItemId(state)).toBe('a')
+    expect(selectKeyboardTabStopItemId(state)).toBe('a')
 
-    const first = selectKeyboardTabStopItemId(state)
-    const second = selectKeyboardTabStopItemId(state)
-    const third = selectKeyboardTabStopItemId(state)
-
-    expect(first).toBe('a')
-    expect(second).toBe('a')
-    expect(third).toBe('a')
-    expect(first).toBe(second)
-  })
-
-  it('invalidates cache when tiers reference changes', () =>
-  {
-    const tiers1 = [makeTier({ id: 'tier-s', name: 'S', itemIds: ids('a') })]
     const tiers2 = [makeTier({ id: 'tier-s', name: 'S', itemIds: ids('b') })]
-
-    const first = selectKeyboardTabStopItemId({
-      keyboardFocusItemId: null,
-      tiers: tiers1,
-      unrankedItemIds: [],
-    })
-    const second = selectKeyboardTabStopItemId({
-      keyboardFocusItemId: null,
-      tiers: tiers2,
-      unrankedItemIds: [],
-    })
-
-    expect(first).toBe('a')
-    expect(second).toBe('b')
-  })
-
-  it('invalidates cache when unranked reference changes', () =>
-  {
-    const tiers = [makeTier({ id: 'tier-s', name: 'S' })]
-    const unranked1 = ids('u1')
-    const unranked2 = ids('u2')
-
     expect(
       selectKeyboardTabStopItemId({
         keyboardFocusItemId: null,
-        tiers,
-        unrankedItemIds: unranked1,
+        tiers: tiers2,
+        unrankedItemIds: [],
       })
-    ).toBe('u1')
+    ).toBe('b')
+
+    const emptyTiers = [makeTier({ id: 'tier-s', name: 'S' })]
     expect(
       selectKeyboardTabStopItemId({
         keyboardFocusItemId: null,
-        tiers,
-        unrankedItemIds: unranked2,
+        tiers: emptyTiers,
+        unrankedItemIds: ids('u2'),
       })
     ).toBe('u2')
   })

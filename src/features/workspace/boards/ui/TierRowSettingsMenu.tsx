@@ -1,16 +1,13 @@
 // src/features/workspace/boards/ui/TierRowSettingsMenu.tsx
 // gear button & popup settings menu for a tier row
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
-import { Settings as SettingsIcon, X as ClearIcon } from 'lucide-react'
+import { Settings as SettingsIcon } from 'lucide-react'
 
 import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
-import type {
-  PaletteId,
-  TierColorSpec,
-} from '@tierlistbuilder/contracts/lib/theme'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import { computeSettingsMenuStyle } from '~/shared/overlay/popupPosition'
@@ -22,14 +19,6 @@ import {
 } from '~/shared/overlay/OverlaySurface'
 
 import { TextInput } from '~/shared/ui/TextInput'
-import {
-  createCustomTierColorSpec,
-  createPaletteTierColorSpec,
-  getPaletteColors,
-  resolveTierColorSpec,
-} from '~/shared/theme/tierColors'
-import { normalizeHexColor } from '~/shared/lib/color'
-import { getColorName } from '~/shared/lib/colorName'
 
 const NAME_EDITOR_ID = 'name'
 const DESCRIPTION_EDITOR_ID = 'description'
@@ -60,7 +49,6 @@ export const TierRowSettingsMenu = ({
     addTierAt,
     setTierDescription,
     sortTierItemsByName,
-    recolorTierRow,
   } = useActiveBoardStore(
     useShallow((state) => ({
       renameTier: state.renameTier,
@@ -69,45 +57,8 @@ export const TierRowSettingsMenu = ({
       addTierAt: state.addTierAt,
       setTierDescription: state.setTierDescription,
       sortTierItemsByName: state.sortTierItemsByName,
-      recolorTierRow: state.recolorTierRow,
     }))
   )
-
-  const paletteColors = useMemo(() => getPaletteColors(paletteId), [paletteId])
-  const rowColor = tier.rowColorSpec
-    ? resolveTierColorSpec(paletteId, tier.rowColorSpec)
-    : null
-  const [hexError, setHexError] = useState(false)
-
-  const applyRowColor = (colorSpec: TierColorSpec | null) =>
-  {
-    setHexError(false)
-    recolorTierRow(tier.id, colorSpec)
-  }
-
-  const applyHexValue = (value: string) =>
-  {
-    const trimmed = value.trim()
-    if (trimmed === '')
-    {
-      setHexError(false)
-      applyRowColor(null)
-      return
-    }
-    const normalized = normalizeHexColor(trimmed)
-    if (!normalized)
-    {
-      setHexError(true)
-      return
-    }
-    setHexError(false)
-    applyRowColor(createCustomTierColorSpec(normalized))
-  }
-
-  const currentPaletteIndex =
-    tier.rowColorSpec && tier.rowColorSpec.kind === 'palette'
-      ? tier.rowColorSpec.index
-      : -1
 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const gearButtonRef = useRef<HTMLButtonElement>(null)
@@ -214,72 +165,6 @@ export const TierRowSettingsMenu = ({
               })}
               size="xs"
             />
-
-            <div className="mb-2 rounded-lg border border-[var(--t-border)] p-1.5">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--t-text-faint)]">
-                  Row Background
-                </span>
-                {rowColor && (
-                  <button
-                    type="button"
-                    onClick={() => applyRowColor(null)}
-                    aria-label="Clear row background"
-                    className="focus-custom flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-[var(--t-text-faint)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-                  >
-                    <ClearIcon className="h-2.5 w-2.5" strokeWidth={2} />
-                    None
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {paletteColors.map((color, swatchIndex) =>
-                {
-                  const isSelected = swatchIndex === currentPaletteIndex
-                  return (
-                    <button
-                      key={`${swatchIndex}-${color}`}
-                      type="button"
-                      className={`focus-custom h-4 w-4 rounded-full transition hover:scale-110 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--t-bg-overlay)] ${
-                        isSelected
-                          ? 'ring-2 ring-[var(--t-accent)] ring-offset-1 ring-offset-[var(--t-bg-overlay)]'
-                          : ''
-                      }`}
-                      style={{ backgroundColor: color }}
-                      onClick={() =>
-                        applyRowColor(createPaletteTierColorSpec(swatchIndex))
-                      }
-                      aria-label={`Row background ${getColorName(color)}`}
-                      aria-pressed={isSelected}
-                    />
-                  )
-                })}
-              </div>
-              <TextInput
-                key={`${tier.id}-${rowColor ?? 'none'}`}
-                defaultValue={rowColor ?? ''}
-                onChange={() => setHexError(false)}
-                onBlur={(e) => applyHexValue(e.currentTarget.value)}
-                onKeyDown={(e) =>
-                {
-                  if (e.key === 'Enter')
-                  {
-                    e.preventDefault()
-                    applyHexValue(e.currentTarget.value)
-                  }
-                }}
-                placeholder="#aabbcc"
-                aria-label="Custom row background hex"
-                aria-invalid={hexError || undefined}
-                className={`mt-1.5 w-full rounded-lg px-2 focus:border-[var(--t-accent-hover)] ${
-                  hexError
-                    ? 'border-[var(--t-destructive)]'
-                    : 'border-[var(--t-border)]'
-                }`}
-                size="xs"
-                spellCheck={false}
-              />
-            </div>
 
             <OverlayMenuItem
               className="text-sm text-[var(--t-destructive-hover)]"

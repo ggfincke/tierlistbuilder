@@ -6,13 +6,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { triggerDownload } from '~/shared/lib/downloadBlob'
 import { toFileBase } from '~/shared/lib/fileName'
 
-export interface StrokePoint
+interface StrokePoint
 {
   x: number
   y: number
 }
 
-export interface Stroke
+interface Stroke
 {
   points: StrokePoint[]
   color: string
@@ -34,7 +34,7 @@ export interface TextStyle
   fontFamily: AnnotationFontFamily
 }
 
-export interface TextAnnotation
+interface TextAnnotation
 {
   x: number
   y: number

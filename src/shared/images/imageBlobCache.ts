@@ -47,7 +47,10 @@ const touchCachedHashes = (hashes: Iterable<string>): void =>
   }
 }
 
-const pruneCache = (protectedHashes: ReadonlySet<string>): void =>
+// `hardKeep` (caller's currently-warming hashes) are pinned. subscribed hashes
+// are soft-protected — preferred but still evictable; eviction publishes so
+// a subscriber re-warms on its next render
+const pruneCache = (hardKeep: ReadonlySet<string>): void =>
 {
   if (cache.size <= MAX_CACHED_IMAGE_URLS)
   {
@@ -55,8 +58,14 @@ const pruneCache = (protectedHashes: ReadonlySet<string>): void =>
   }
 
   const removable = [...cache.entries()]
-    .filter(([hash]) => !protectedHashes.has(hash))
-    .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt)
+    .filter(([hash]) => !hardKeep.has(hash))
+    .sort((a, b) =>
+    {
+      const aSubscribed = listeners.has(a[0]) ? 1 : 0
+      const bSubscribed = listeners.has(b[0]) ? 1 : 0
+      if (aSubscribed !== bSubscribed) return aSubscribed - bSubscribed
+      return a[1].lastAccessedAt - b[1].lastAccessedAt
+    })
 
   const changed: string[] = []
 
@@ -72,18 +81,6 @@ const pruneCache = (protectedHashes: ReadonlySet<string>): void =>
   {
     publish(changed)
   }
-}
-
-const protectedHashes = (keepHashes: Iterable<string>): Set<string> =>
-{
-  const protectedSet = new Set(keepHashes)
-
-  for (const hash of listeners.keys())
-  {
-    protectedSet.add(hash)
-  }
-
-  return protectedSet
 }
 
 export const subscribeCachedImageUrl = (
@@ -160,7 +157,7 @@ export const cacheFreshBlobs = (
     publish(changed)
   }
 
-  pruneCache(protectedHashes(changed))
+  pruneCache(changed)
 }
 
 export const cacheFreshBlob = (hash: string, blob: Blob): void =>
@@ -199,7 +196,8 @@ if (typeof window !== 'undefined')
 }
 
 export const warmImageHashes = async (
-  hashes: Iterable<string | null | undefined>
+  hashes: Iterable<string | null | undefined>,
+  signal?: AbortSignal
 ): Promise<void> =>
 {
   const referenced = new Set<string>()
@@ -221,11 +219,13 @@ export const warmImageHashes = async (
 
   if (missing.length === 0)
   {
-    pruneCache(protectedHashes(referenced))
+    pruneCache(referenced)
     return
   }
 
+  signal?.throwIfAborted()
   const records = await getBlobsBatch(missing)
+  signal?.throwIfAborted()
   const changed = new Set<string>()
   const now = Date.now()
 
@@ -256,10 +256,21 @@ export const warmImageHashes = async (
     publish(changed)
   }
 
-  pruneCache(protectedHashes(referenced))
+  pruneCache(referenced)
 }
 
-export const warmFromBoard = async (snapshot: BoardSnapshot): Promise<void> =>
+interface WarmFromBoardOptions
 {
-  await warmImageHashes(collectSnapshotRenderImageHashes(snapshot))
+  signal?: AbortSignal
+}
+
+export const warmFromBoard = async (
+  snapshot: BoardSnapshot,
+  options: WarmFromBoardOptions = {}
+): Promise<void> =>
+{
+  await warmImageHashes(
+    collectSnapshotRenderImageHashes(snapshot),
+    options.signal
+  )
 }

@@ -8,9 +8,9 @@ import type { Tier } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierId } from '@tierlistbuilder/contracts/lib/ids'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { getBoardItemAspectRatio } from '~/features/workspace/boards/lib/aspectRatio'
+import { getBoardItemAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import {
   BoardLabelCellFrame,
@@ -51,7 +51,7 @@ export const TierLabel = memo(({ tier, colorOverride }: TierLabelProps) =>
     tierLabelItalic,
     tierLabelFontSize,
     boardLocked,
-  } = useSettingsStore(
+  } = usePreferencesStore(
     useShallow((state) => ({
       itemSize: state.itemSize,
       labelWidth: state.labelWidth,

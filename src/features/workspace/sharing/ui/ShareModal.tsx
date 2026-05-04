@@ -16,7 +16,7 @@ import { TextInput } from '~/shared/ui/TextInput'
 import {
   buildAppUrl,
   encodeBoardToShareFragment,
-} from '~/features/workspace/sharing/snapshot-compression/hashShare'
+} from '~/shared/sharing/hashShare'
 import { EMBED_ROUTE_PATH } from '~/app/routes/pathname'
 
 interface ShareModalProps

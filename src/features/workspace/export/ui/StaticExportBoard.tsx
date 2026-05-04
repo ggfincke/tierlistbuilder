@@ -23,6 +23,7 @@ export const StaticExportBoard = ({
     appearance={appearance}
     backgroundColor={backgroundColor}
     className="min-w-[860px]"
+    imageLoading="eager"
     data-testid={EXPORT_BOARD_ROOT_TEST_ID}
   />
 )

@@ -4,12 +4,12 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { hasAspectRatioIssues } from '~/features/workspace/boards/lib/aspectRatio'
 import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
 import {
   AspectRatioPromptContext,
   type AspectRatioPromptController,
 } from './aspectRatioPromptContext'
+import { shouldOpenAspectRatioPromptAfterImport } from './aspectRatioPromptImport'
 
 export const AspectRatioPromptProvider = ({
   children,
@@ -27,14 +27,10 @@ export const AspectRatioPromptProvider = ({
     (newItems: NewTierItem[]) =>
     {
       if (newItems.length === 0) return
-      const prevHadIssues = hasAspectRatioIssues(useActiveBoardStore.getState())
+      const prevState = useActiveBoardStore.getState()
       addItems(newItems)
       const nextState = useActiveBoardStore.getState()
-      if (
-        !prevHadIssues &&
-        !nextState.aspectRatioPromptDismissed &&
-        hasAspectRatioIssues(nextState)
-      )
+      if (shouldOpenAspectRatioPromptAfterImport(prevState, nextState))
       {
         setIsOpen(true)
       }

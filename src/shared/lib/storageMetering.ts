@@ -44,7 +44,7 @@ export const getStorageUsageBytes = (): number =>
 }
 
 // check whether storage usage is above a warning threshold (0-1)
-export const getStorageUsageRatio = (): number =>
+const getStorageUsageRatio = (): number =>
 {
   const used = getStorageUsageBytes()
   return used / STORAGE_QUOTA_BYTES

@@ -5,13 +5,13 @@ import { useDroppable } from '@dnd-kit/core'
 import { Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { useSettingsStore } from '~/features/workspace/settings/model/useSettingsStore'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 
 export const TrashZone = () =>
 {
-  const boardLocked = useSettingsStore((state) => state.boardLocked)
+  const boardLocked = usePreferencesStore((state) => state.boardLocked)
   const { activeItemId, keyboardMode } = useActiveBoardStore(
     useShallow((state) => ({
       activeItemId: state.activeItemId,

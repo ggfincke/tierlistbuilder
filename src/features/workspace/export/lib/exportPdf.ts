@@ -1,21 +1,22 @@
 // src/features/workspace/export/lib/exportPdf.ts
-// PDF export utility — renders the tier list element to a downloadable PDF
+// PDF export utility — renders the tier list to PNG bytes & embeds them in
+// a pixel-perfect PDF for download
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { ExportAppearance } from '../model/runtime'
 import { toFileBase } from '~/shared/lib/fileName'
 import { loadPdfLib } from '~/shared/lib/lazyDependencies'
-import { captureBoardAsDataUrl } from './exportImage'
+import { captureBoardAsBlob } from './exportImage'
 
-// capture the element as a PNG then embed it in a pixel-perfect PDF & download
+// capture the board as a PNG, embed the bytes in a single-page PDF, & download
 export const exportTierListAsPdf = async (
   data: BoardSnapshot,
   title: string,
   appearance: ExportAppearance,
-  backgroundColor?: string
+  backgroundColor: string
 ): Promise<void> =>
 {
-  const { dataUrl, width, height } = await captureBoardAsDataUrl(data, {
+  const { blob, width, height } = await captureBoardAsBlob(data, {
     appearance,
     backgroundColor,
     format: 'png',
@@ -32,6 +33,7 @@ export const exportTierListAsPdf = async (
     format: [width, height],
   })
 
-  pdf.addImage(dataUrl, 'PNG', 0, 0, width, height)
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  pdf.addImage(bytes, 'PNG', 0, 0, width, height)
   pdf.save(`${toFileBase(title)}.pdf`)
 }

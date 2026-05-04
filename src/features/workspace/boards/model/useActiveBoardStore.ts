@@ -19,7 +19,6 @@ export {
   selectIsDragging,
   selectKeyboardTabStopItemId,
 } from './slices/selectors'
-export type { ActiveBoardStore } from './slices/types'
 
 export const useActiveBoardStore = create<ActiveBoardStore>()(
   subscribeWithSelector((...args) => ({

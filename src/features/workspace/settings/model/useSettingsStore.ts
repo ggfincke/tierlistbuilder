@@ -12,6 +12,7 @@ import type {
   TierLabelFontSize,
   ToolbarPosition,
 } from '@tierlistbuilder/contracts/workspace/settings'
+import type { LabelPlacementMode } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   PaletteId,
   TextStyleId,
@@ -27,6 +28,7 @@ import {
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   itemSize: 'medium',
   showLabels: false,
+  defaultLabelPlacementMode: 'overlay',
   itemShape: 'square',
   compactMode: false,
   exportBackgroundOverride: null,
@@ -65,6 +67,7 @@ interface SettingsStore extends AppSettings, HighContrastTransitionState
 {
   setItemSize: (size: ItemSize) => void
   setShowLabels: (show: boolean) => void
+  setDefaultLabelPlacementMode: (mode: LabelPlacementMode) => void
   setItemShape: (shape: ItemShape) => void
   setCompactMode: (compact: boolean) => void
   setExportBackgroundOverride: (color: string | null) => void
@@ -113,6 +116,11 @@ export const useSettingsStore = create<SettingsStore>()(
 
         setItemSize: createSettingSetter(set, get, 'itemSize'),
         setShowLabels: createSettingSetter(set, get, 'showLabels'),
+        setDefaultLabelPlacementMode: createSettingSetter(
+          set,
+          get,
+          'defaultLabelPlacementMode'
+        ),
         setItemShape: createSettingSetter(set, get, 'itemShape'),
         setCompactMode: createSettingSetter(set, get, 'compactMode'),
         setExportBackgroundOverride: createSettingSetter(

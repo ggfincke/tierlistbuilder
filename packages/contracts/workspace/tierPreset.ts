@@ -5,7 +5,7 @@ import type { PresetId } from '../lib/ids'
 import type { TierColorSpec } from '../lib/theme'
 
 // hard cap for user-supplied preset names — same shape as MAX_BOARD_TITLE_LENGTH
-export const MAX_TIER_PRESET_NAME_LENGTH = 80
+const MAX_TIER_PRESET_NAME_LENGTH = 80
 
 // fallback name used when a preset is created or renamed w/ an empty string
 export const PRESET_NAME_FALLBACK = 'Untitled preset'

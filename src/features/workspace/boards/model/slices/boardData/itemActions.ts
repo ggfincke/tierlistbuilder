@@ -12,7 +12,7 @@ import {
 import {
   computeAutoBoardAspectRatio,
   getBoardAspectRatioMode,
-} from '~/features/workspace/boards/lib/aspectRatio'
+} from '~/shared/board-ui/aspectRatio'
 import { generateItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { MAX_DELETED_ITEMS } from '../helpers'
 import { withUndo } from '../undoSlice'
@@ -51,6 +51,7 @@ export const createItemActions = (
         nextItems[id] = {
           id,
           imageRef: newItem.imageRef,
+          tileImageRef: newItem.tileImageRef,
           sourceImageRef: newItem.sourceImageRef,
           label: newItem.label,
           backgroundColor: newItem.backgroundColor,

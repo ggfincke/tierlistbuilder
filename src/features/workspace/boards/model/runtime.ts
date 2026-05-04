@@ -2,13 +2,10 @@
 // runtime-only active-board state — drag preview snapshots, keyboard mode, store runtime state
 
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
-import type {
-  BoardSnapshot,
-  TierItem,
-} from '@tierlistbuilder/contracts/workspace/board'
+import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 
 // lightweight ordering snapshot used during drag preview
-export interface ContainerSnapshotTier
+interface ContainerSnapshotTier
 {
   id: TierId
   itemIds: ItemId[]
@@ -91,7 +88,7 @@ export const createFreshRuntimeState = (): RuntimeOnlyState => ({
 
 // subset reset used by undo/redo — keeps in-flight UI state aligned w/ the
 // restored snapshot without clobbering past/future/itemsManuallyMoved
-export type UndoRestoreRuntimePatch = Pick<
+type UndoRestoreRuntimePatch = Pick<
   RuntimeOnlyState,
   | 'activeItemId'
   | 'dragPreview'
@@ -111,5 +108,3 @@ export const createUndoRestoreRuntimePatch = (): UndoRestoreRuntimePatch => ({
   selection: EMPTY_SELECTION,
   lastClickedItemId: null,
 })
-
-export type ItemRecord = Record<ItemId, TierItem>

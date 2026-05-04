@@ -7,12 +7,12 @@ import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtim
 import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { findContainer } from './dragSnapshot'
 
-export type DragEndActiveState =
+type DragEndActiveState =
   | { kind: 'idle' }
   | { kind: 'item'; itemId: ItemId }
   | { kind: 'tier'; tierId: string }
 
-export type DragEndDecision =
+type DragEndDecision =
   | { kind: 'item-cancel'; itemId: ItemId }
   | { kind: 'item-commit'; itemId: ItemId; resyncContainerId: string | null }
   | { kind: 'item-trash'; itemId: ItemId }
