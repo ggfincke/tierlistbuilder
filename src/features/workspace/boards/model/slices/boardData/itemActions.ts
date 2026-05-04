@@ -51,6 +51,7 @@ export const createItemActions = (
         nextItems[id] = {
           id,
           imageRef: newItem.imageRef,
+          tileImageRef: newItem.tileImageRef,
           sourceImageRef: newItem.sourceImageRef,
           label: newItem.label,
           backgroundColor: newItem.backgroundColor,

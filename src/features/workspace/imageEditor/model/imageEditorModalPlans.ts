@@ -2,21 +2,22 @@
 // pure adjustment counts & label apply-to-all plans for the image editor
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type {
-  BoardLabelSettings,
-  ItemLabelOptions,
-  ItemTransform,
-  TierItem,
+import {
+  isEmptyItemLabelOptions,
+  type BoardLabelSettings,
+  type GlobalLabelDefaults,
+  type ItemTransform,
+  type TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { resolveLabelLayout } from '~/shared/board-ui/labelDisplay'
+import {
+  collectLabelOptionClearEntries,
+  type LabelOptionsClearEntry,
+} from '~/shared/board-ui/labelOverrides'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
 
-export interface LabelOptionsClearEntry
-{
-  id: ItemId
-  options: ItemLabelOptions | null
-}
+export type { LabelOptionsClearEntry } from '~/shared/board-ui/labelOverrides'
 
 interface ApplyLabelToAllPlan
 {
@@ -41,17 +42,17 @@ export const countAdjustedImageEditorItems = (
 export const buildBoardLabelSettingsFromSource = ({
   source,
   boardLabels,
-  globalShowLabels,
+  globalLabelDefaults,
 }: {
   source: TierItem
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
 }): BoardLabelSettings =>
 {
   const layout = resolveLabelLayout({
     itemOptions: source.labelOptions,
     boardSettings: boardLabels,
-    globalShowLabels,
+    globalLabelDefaults,
   })
   return {
     show: layout.visible,
@@ -62,13 +63,6 @@ export const buildBoardLabelSettingsFromSource = ({
     ...(layout.textColor !== 'auto' ? { textColor: layout.textColor } : {}),
   }
 }
-
-export const collectLabelOptionClearEntries = (
-  allImageItems: readonly TierItem[]
-): LabelOptionsClearEntry[] =>
-  allImageItems
-    .filter((item) => !!item.labelOptions)
-    .map((item) => ({ id: item.id, options: null }))
 
 export const countLabelOverridesAffected = (
   sourceId: ItemId,
@@ -81,7 +75,7 @@ export const countLabelOverridesAffected = (
   for (const item of allImageItems)
   {
     if (item.id === sourceId) continue
-    if (item.labelOptions) count += 1
+    if (!isEmptyItemLabelOptions(item.labelOptions)) count += 1
   }
   return count
 }
@@ -91,13 +85,13 @@ export const createApplyLabelToAllPlan = ({
   items,
   allImageItems,
   boardLabels,
-  globalShowLabels,
+  globalLabelDefaults,
 }: {
   sourceId: ItemId
   items: Readonly<Record<ItemId, TierItem>>
   allImageItems: readonly TierItem[]
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
 }): ApplyLabelToAllPlan | null =>
 {
   const source = items[sourceId]
@@ -106,7 +100,7 @@ export const createApplyLabelToAllPlan = ({
     settings: buildBoardLabelSettingsFromSource({
       source,
       boardLabels,
-      globalShowLabels,
+      globalLabelDefaults,
     }),
     clearEntries: collectLabelOptionClearEntries(allImageItems),
   }

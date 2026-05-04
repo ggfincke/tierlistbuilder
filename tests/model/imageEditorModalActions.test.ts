@@ -7,12 +7,17 @@ import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import {
   buildBoardLabelSettingsFromSource,
-  collectLabelOptionClearEntries,
   countAdjustedImageEditorItems,
   countLabelOverridesAffected,
   createApplyLabelToAllPlan,
 } from '~/features/workspace/imageEditor/model/imageEditorModalPlans'
+import { collectLabelOptionClearEntries } from '~/shared/board-ui/labelOverrides'
 import { makeItem } from '../fixtures'
+
+const defaultGlobalLabels = {
+  showLabels: true,
+  placementMode: 'overlay',
+} as const
 
 const adjustedTransform: ItemTransform = {
   rotation: 0,
@@ -69,7 +74,7 @@ describe('image editor modal actions', () =>
       buildBoardLabelSettingsFromSource({
         source,
         boardLabels: { show: true, fontSizePx: 11 },
-        globalShowLabels: true,
+        globalLabelDefaults: defaultGlobalLabels,
       })
     ).toEqual({
       show: false,
@@ -87,7 +92,7 @@ describe('image editor modal actions', () =>
       buildBoardLabelSettingsFromSource({
         source: auto,
         boardLabels: { textColor: 'purple' },
-        globalShowLabels: false,
+        globalLabelDefaults: { showLabels: false, placementMode: 'overlay' },
       })
     ).not.toHaveProperty('textColor')
   })
@@ -120,7 +125,7 @@ describe('image editor modal actions', () =>
         items,
         allImageItems: [source, other, plain],
         boardLabels: { scrim: 'dark', fontSizePx: 12 },
-        globalShowLabels: true,
+        globalLabelDefaults: defaultGlobalLabels,
       })
     ).toEqual({
       settings: {

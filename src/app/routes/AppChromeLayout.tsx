@@ -1,5 +1,5 @@
 // src/app/routes/AppChromeLayout.tsx
-// persistent route chrome for workspace & marketplace surfaces
+// persistent route chrome for workspace & library surfaces
 
 import { useCallback, type MouseEvent } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'

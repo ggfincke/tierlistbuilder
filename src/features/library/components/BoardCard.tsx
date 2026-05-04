@@ -1,6 +1,7 @@
 // src/features/library/components/BoardCard.tsx
 // grid-card repeat unit — cover artwork, title, tier breakdown bar, meta strip
 
+import { memo } from 'react'
 import { ArrowRight, Pin } from 'lucide-react'
 
 import type {
@@ -9,10 +10,10 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 
 import { LIBRARY_STATUS_META } from '~/features/library/lib/statusMeta'
-import { formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
 import { Cover } from './Cover'
+import { StatusPill } from './StatusPill'
 import { TierBar } from './TierBar'
-import { VisibilityChip } from './VisibilityChip'
 
 interface BoardCardProps
 {
@@ -55,7 +56,9 @@ const DENSITY_CFG: Record<
   },
 }
 
-export const BoardCard = ({
+// memo so a single card flipping isPending doesn't re-render every sibling.
+// onOpen is referentially stable via useOpenLibraryBoard
+const BoardCardImpl = ({
   board,
   density,
   onOpen,
@@ -127,11 +130,10 @@ export const BoardCard = ({
 
         {cfg.showSubtitle && (
           <p className="line-clamp-1 text-[11px] text-[var(--t-text-muted)]">
-            {board.activeItemCount}{' '}
-            {board.activeItemCount === 1 ? 'item' : 'items'}
+            {board.activeItemCount} {pluralize(board.activeItemCount, 'item')}
             {' · '}
             {board.tierColors.length}{' '}
-            {board.tierColors.length === 1 ? 'tier' : 'tiers'}
+            {pluralize(board.tierColors.length, 'tier')}
           </p>
         )}
 
@@ -140,7 +142,7 @@ export const BoardCard = ({
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-1 text-[11px] text-[var(--t-text-muted)]">
-          <VisibilityChip visibility={board.visibility} />
+          <StatusPill status={board.status} />
           <span className="text-[var(--t-text-faint)]">
             {formatRelativeTime(board.updatedAt)}
           </span>
@@ -149,3 +151,5 @@ export const BoardCard = ({
     </button>
   )
 }
+
+export const BoardCard = memo(BoardCardImpl)

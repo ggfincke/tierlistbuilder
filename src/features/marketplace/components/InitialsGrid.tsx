@@ -4,6 +4,7 @@
 
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
 
+import { externalIdToCode, labelToCode } from '~/shared/board-ui/initialsCode'
 import type { MosaicDensity } from './Mosaic'
 
 interface InitialsGridProps
@@ -29,37 +30,6 @@ const DENSITY_CONFIG: Record<
   default: { cols: 5, rows: 3, gap: 5, fontPx: 13, padY: 18 },
   large: { cols: 5, rows: 3, gap: 6, fontPx: 15, padY: 22 },
   hero: { cols: 5, rows: 3, gap: 8, fontPx: 22, padY: 28 },
-}
-
-const NON_WORD = /[^A-Za-z0-9]+/g
-const VOWELS = /[aeiou]/gi
-
-// derive a 2-3 char code from a label. words -> first letters (up to 3),
-// single word -> consonants (drop vowels) up to 3 chars, else first 3
-const labelToCode = (label: string): string =>
-{
-  const cleaned = label.replace(NON_WORD, ' ').trim()
-  if (!cleaned) return ''
-  const words = cleaned.split(/\s+/)
-  if (words.length >= 2)
-  {
-    return words
-      .slice(0, 3)
-      .map((w) => w[0]?.toUpperCase() ?? '')
-      .join('')
-  }
-  const single = words[0]
-  const compact = single.replace(VOWELS, '')
-  const source = compact.length >= 2 ? compact : single
-  return source.slice(0, 3).toUpperCase()
-}
-
-// stable fallback when a label is missing — use the first 2 alphanumerics of
-// the externalId so the same item always renders the same code
-const externalIdToCode = (externalId: string): string =>
-{
-  const cleaned = externalId.replace(NON_WORD, '')
-  return cleaned.slice(0, 2).toUpperCase() || '··'
 }
 
 const resolveCode = (

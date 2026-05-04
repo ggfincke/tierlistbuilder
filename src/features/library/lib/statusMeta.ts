@@ -21,15 +21,15 @@ export const LIBRARY_STATUS_META: Record<
 > = {
   syncing: {
     label: 'Syncing',
-    textColor: '#93c5fd',
-    dotColor: '#60a5fa',
-    hoverAction: 'View progress',
+    textColor: '#7dd3fc',
+    dotColor: '#0ea5e9',
+    hoverAction: 'Syncing',
   },
   failed: {
     label: 'Failed',
-    textColor: 'var(--t-destructive-hover)',
+    textColor: '#fca5a5',
     dotColor: '#ef4444',
-    hoverAction: 'Review',
+    hoverAction: 'Retry',
   },
   draft: {
     label: 'Draft',

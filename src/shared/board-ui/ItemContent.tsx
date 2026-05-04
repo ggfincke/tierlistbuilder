@@ -7,8 +7,13 @@ import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import type {
   ImageFit,
   ItemTransform,
-  TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  getRenderImageHashes,
+  hasAnyImageRef,
+  type ImageRendition,
+  type ItemImageBundle,
+} from '~/shared/lib/imageRefs'
 import { getTextColor } from '../lib/color'
 import { FramedItemMedia } from './FramedItemMedia'
 import { CaptionStrip, OverlayLabelBlock } from './labelBlocks'
@@ -16,11 +21,8 @@ import type { ResolvedLabelDisplay } from './labelDisplay'
 
 interface ItemContentProps
 {
-  item: {
-    imageRef?: TierItemImageRef
-    sourceImageRef?: TierItemImageRef
+  item: ItemImageBundle & {
     imageUrl?: string
-    sourceImageUrl?: string
     label?: string
     backgroundColor?: string
     altText?: string
@@ -34,6 +36,8 @@ interface ItemContentProps
   // effective image fit — resolved by the caller from per-item + board defaults.
   // ignored when `item.transform` is set (the manual transform wins)
   fit?: ImageFit
+  imageRendition?: ImageRendition
+  imageLoading?: 'eager' | 'lazy'
 }
 
 // wraps content in a flex column w/ a CaptionStrip above or below — used by
@@ -63,37 +67,16 @@ export const ItemContent = ({
   label = null,
   frameAspectRatio = 1,
   fit = 'cover',
+  imageRendition = 'board',
+  imageLoading = 'lazy',
 }: ItemContentProps) =>
 {
   const bgColor = item.backgroundColor
   const transform = item.transform
-  const preferSource =
-    !!transform && (!!item.sourceImageRef || !!item.sourceImageUrl)
-
-  // single useImageUrl subscription per render — the source variant takes
-  // priority when a manual transform is active so the editor sees uncropped
-  // pixels; otherwise the display tile variant is used
-  const useSourceVariant = preferSource && !item.sourceImageUrl
-  const useDisplayVariant = !useSourceVariant && !item.imageUrl
-  const subscriberRef = useSourceVariant
-    ? item.sourceImageRef
-    : useDisplayVariant
-      ? item.imageRef
-      : undefined
-  const subscriberVariant: 'editor' | 'tile' = useSourceVariant
-    ? 'editor'
-    : 'tile'
-  const cachedImageUrl = useImageUrl(
-    subscriberRef?.hash,
-    subscriberRef?.cloudMediaExternalId,
-    subscriberVariant
-  )
-  const sourceImageUrl = preferSource
-    ? (item.sourceImageUrl ?? (useSourceVariant ? cachedImageUrl : null))
-    : null
-  const displayImageUrl =
-    item.imageUrl ?? (useDisplayVariant ? cachedImageUrl : null)
-  const imageUrl = sourceImageUrl ?? displayImageUrl
+  const { primary, fallback } = getRenderImageHashes(item, imageRendition)
+  const cachedPrimaryUrl = useImageUrl(item.imageUrl ? undefined : primary)
+  const cachedFallbackUrl = useImageUrl(item.imageUrl ? undefined : fallback)
+  const imageUrl = item.imageUrl ?? cachedPrimaryUrl ?? cachedFallbackUrl
 
   if (imageUrl)
   {
@@ -110,6 +93,7 @@ export const ItemContent = ({
         transform={transform ?? null}
         aspectRatio={item.aspectRatio ?? null}
         frameAspectRatio={frameAspectRatio}
+        loading={imageLoading}
       >
         {!isCaptioned && label && label.placement.mode === 'overlay' && (
           <OverlayLabelBlock display={label} />
@@ -124,10 +108,9 @@ export const ItemContent = ({
     )
   }
 
-  // image is expected (item carries a hash) but URL hasn't resolved yet —
-  // cloud fetch in flight on first load, or IDB warm catching up. render a
-  // flat matte so we don't flash the text fallback before the image lands
-  if (item.imageRef?.hash || item.sourceImageRef?.hash)
+  // image is expected (item carries a hash) but URL hasn't resolved yet.
+  // render a flat matte so the text fallback doesn't flash before warm-up
+  if (hasAnyImageRef(item))
   {
     const placementMode = label?.placement.mode
     const isCaptioned =

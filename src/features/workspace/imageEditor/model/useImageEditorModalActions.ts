@@ -6,6 +6,7 @@ import { useCallback, useEffect } from 'react'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   BoardLabelSettings,
+  GlobalLabelDefaults,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { getImageEditorNavShortcut } from '~/features/workspace/shortcuts/model/imageEditorShortcuts'
@@ -48,7 +49,7 @@ interface UseApplyLabelToAllInput
   items: Readonly<Record<ItemId, TierItem>>
   allImageItems: readonly TierItem[]
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
   setBoardAndItemsLabelOptions: (
     settings: BoardLabelSettings | null,
     entries: readonly LabelOptionsClearEntry[]
@@ -153,7 +154,7 @@ export const useImageEditorApplyLabelToAll = ({
   items,
   allImageItems,
   boardLabels,
-  globalShowLabels,
+  globalLabelDefaults,
   setBoardAndItemsLabelOptions,
 }: UseApplyLabelToAllInput): ApplyLabelToAllConfirmation =>
 {
@@ -167,7 +168,7 @@ export const useImageEditorApplyLabelToAll = ({
         items,
         allImageItems,
         boardLabels,
-        globalShowLabels,
+        globalLabelDefaults,
       })
       if (!plan) return
       setBoardAndItemsLabelOptions(plan.settings, plan.clearEntries)
@@ -175,7 +176,7 @@ export const useImageEditorApplyLabelToAll = ({
     [
       allImageItems,
       boardLabels,
-      globalShowLabels,
+      globalLabelDefaults,
       items,
       setBoardAndItemsLabelOptions,
     ]

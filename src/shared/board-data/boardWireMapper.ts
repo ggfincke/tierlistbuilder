@@ -2,36 +2,24 @@
 // BoardSnapshot <-> JSON wire shape for export, import, & share helpers
 
 import type {
-  BoardLabelSettings,
   BoardSnapshot,
   BoardSnapshotWire,
-  ItemLabelOptions,
-  ItemRotation,
-  ItemTransform,
-  LabelPlacement,
-  LabelScrim,
-  LabelTextColor,
   TierItem,
   TierItemImageRef,
   TierItemWire,
-} from '@tierlistbuilder/contracts/workspace/board'
-import {
-  ITEM_TRANSFORM_IDENTITY,
-  ITEM_TRANSFORM_LIMITS,
-  LABEL_SCRIMS,
-  LABEL_TEXT_COLORS,
-  normalizeLabelFontSizePx,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
 } from '@tierlistbuilder/contracts/lib/theme'
 import { isHexColor } from '@tierlistbuilder/contracts/lib/hexColor'
+import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
 import {
-  collectSnapshotImageHashes,
+  collectSnapshotExportImageHashes,
   transformSnapshotItemsAsync,
 } from '~/shared/lib/boardSnapshotItems'
+import { getImageRefsByRendition } from '~/shared/lib/imageRefs'
 import {
   BLOB_PREPARE_CONCURRENCY,
   persistPreparedBlobRecords,
@@ -42,20 +30,21 @@ import { getBlobsBatch, probeImageStore } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { decodeImageAspectRatioFromSrc } from '~/shared/images/imageLoad'
 import { isRecord } from '~/shared/lib/typeGuards'
+import {
+  ASPECT_RATIO_MODES,
+  IMAGE_FITS,
+  normalizeBoardLabelSettings,
+  normalizeEnum,
+  normalizeItemLabelOptions,
+  normalizeItemTransform,
+  normalizePositiveFinite,
+} from '~/shared/board-data/boardNormalizers'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
 
 const isTierItemImageRef = (value: unknown): value is TierItemImageRef =>
 {
-  if (!isRecord(value) || typeof value.hash !== 'string')
-  {
-    return false
-  }
-
-  return (
-    value.cloudMediaExternalId === undefined ||
-    typeof value.cloudMediaExternalId === 'string'
-  )
+  return isRecord(value) && typeof value.hash === 'string'
 }
 
 const isTierItemWire = (value: unknown): value is TierItemWire =>
@@ -115,99 +104,30 @@ const itemToWire = async (
   dataUrlsByHash: Map<string, Promise<string>>
 ): Promise<TierItemWire> =>
 {
-  const { imageRef, sourceImageRef: _sourceImageRef, ...rest } = item
+  const {
+    imageRef: _imageRef,
+    tileImageRef: _tileImageRef,
+    sourceImageRef: _sourceImageRef,
+    ...rest
+  } = item
 
-  if (!imageRef)
+  // editor priority maximizes export fidelity: source -> tile -> preview
+  const exportImageRefs = getImageRefsByRendition(item, 'editor')
+  if (exportImageRefs.length === 0) return rest
+
+  for (const ref of exportImageRefs)
   {
-    return rest
-  }
-
-  const inlineImageUrl = await getBlobDataUrl(
-    imageRef.hash,
-    blobsByHash,
-    dataUrlsByHash
-  )
-
-  if (!inlineImageUrl)
-  {
-    throw new Error(
-      `Missing image bytes for item "${item.id}". Wait for images to finish loading, then try exporting again.`
+    const inlineImageUrl = await getBlobDataUrl(
+      ref.hash,
+      blobsByHash,
+      dataUrlsByHash
     )
+    if (inlineImageUrl) return { ...rest, imageUrl: inlineImageUrl }
   }
 
-  return { ...rest, imageUrl: inlineImageUrl }
-}
-
-// validate untrusted placement payloads from the wire (import / share-link).
-// unknown modes & out-of-range coordinates collapse to undefined so corrupt
-// snapshots fall back to the renderer's default placement
-const normalizeLabelPlacementWire = (
-  raw: unknown
-): LabelPlacement | undefined =>
-{
-  if (typeof raw !== 'object' || raw === null) return undefined
-  const obj = raw as Record<string, unknown>
-  const mode = obj.mode
-  if (mode === 'overlay')
-  {
-    const x = clampFiniteWire(obj.x, 0, 1)
-    const y = clampFiniteWire(obj.y, 0, 1)
-    if (x === null || y === null) return undefined
-    return { mode: 'overlay', x, y }
-  }
-  if (mode === 'captionAbove') return { mode: 'captionAbove' }
-  if (mode === 'captionBelow') return { mode: 'captionBelow' }
-  return undefined
-}
-
-// strip unknown fields & coerce primitive shapes; returns undefined when
-// every field is missing so the field doesn't get serialized as `{}`
-const normalizeItemLabelOptionsWire = (
-  raw: unknown
-): ItemLabelOptions | undefined =>
-{
-  if (typeof raw !== 'object' || raw === null) return undefined
-  const obj = raw as Record<string, unknown>
-  const result: ItemLabelOptions = {}
-  if (typeof obj.visible === 'boolean') result.visible = obj.visible
-  const placement = normalizeLabelPlacementWire(obj.placement)
-  if (placement) result.placement = placement
-  const scrim = normalizeEnumWire<LabelScrim>(obj.scrim, LABEL_SCRIMS)
-  if (scrim) result.scrim = scrim
-  const fontSizePx = normalizeLabelFontSizePx(obj.fontSizePx)
-  if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
-  const textStyleId = normalizeEnumWire(obj.textStyleId, TEXT_STYLE_IDS)
-  if (textStyleId) result.textStyleId = textStyleId
-  const textColor = normalizeEnumWire<LabelTextColor>(
-    obj.textColor,
-    LABEL_TEXT_COLORS
+  throw new Error(
+    `Missing image bytes for item "${item.id}". Wait for images to finish loading, then try exporting again.`
   )
-  if (textColor) result.textColor = textColor
-  return Object.keys(result).length > 0 ? result : undefined
-}
-
-const normalizeBoardLabelSettingsWire = (
-  raw: unknown
-): BoardLabelSettings | undefined =>
-{
-  if (typeof raw !== 'object' || raw === null) return undefined
-  const obj = raw as Record<string, unknown>
-  const result: BoardLabelSettings = {}
-  if (typeof obj.show === 'boolean') result.show = obj.show
-  const placement = normalizeLabelPlacementWire(obj.placement)
-  if (placement) result.placement = placement
-  const scrim = normalizeEnumWire<LabelScrim>(obj.scrim, LABEL_SCRIMS)
-  if (scrim) result.scrim = scrim
-  const fontSizePx = normalizeLabelFontSizePx(obj.fontSizePx)
-  if (fontSizePx !== undefined) result.fontSizePx = fontSizePx
-  const textStyleId = normalizeEnumWire(obj.textStyleId, TEXT_STYLE_IDS)
-  if (textStyleId) result.textStyleId = textStyleId
-  const textColor = normalizeEnumWire<LabelTextColor>(
-    obj.textColor,
-    LABEL_TEXT_COLORS
-  )
-  if (textColor && textColor !== 'auto') result.textColor = textColor
-  return Object.keys(result).length > 0 ? result : undefined
 }
 
 // convert a snapshot to wire shape using a preloaded hash -> Blob map
@@ -242,12 +162,13 @@ export const snapshotToWireWithBlobs = async (
   }
 }
 
-// convert one snapshot to wire shape by loading any referenced blobs first
+// convert one snapshot to wire shape by loading export candidate blobs first.
+// itemToWire prefers source bytes, then falls back to tile or preview bytes
 export const snapshotToWire = async (
   snapshot: BoardSnapshot
 ): Promise<BoardSnapshotWire> =>
 {
-  const hashes = collectSnapshotImageHashes(snapshot)
+  const hashes = collectSnapshotExportImageHashes(snapshot)
   const records = await getBlobsBatch(hashes)
   const blobsByHash = new Map<string, Blob | null>()
 
@@ -324,81 +245,6 @@ const prepareInlineWireImages = async (
   return byId
 }
 
-const ASPECT_RATIO_MODES = ['auto', 'manual'] as const
-const IMAGE_FITS = ['cover', 'contain'] as const
-const ROTATION_VALUES: readonly ItemRotation[] = [0, 90, 180, 270]
-
-const normalizePositiveFiniteWire = (value: unknown): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? value
-    : undefined
-
-const normalizeEnumWire = <T extends string>(
-  value: unknown,
-  allowed: readonly T[]
-): T | undefined => (allowed.includes(value as T) ? (value as T) : undefined)
-
-const clampFiniteWire = (
-  value: unknown,
-  min: number,
-  max: number
-): number | null =>
-{
-  if (typeof value !== 'number' || !Number.isFinite(value)) return null
-  if (value < min) return min
-  if (value > max) return max
-  return value
-}
-
-// duplicated alongside boardSnapshot's normalizer because share-link/import
-// rides this wire path before the snapshot normalizer ever runs. keeping both
-// in sync is enforced by ITEM_TRANSFORM_LIMITS being a single source of truth
-const normalizeItemTransformWire = (
-  raw: unknown
-): ItemTransform | undefined =>
-{
-  if (typeof raw !== 'object' || raw === null) return undefined
-  const obj = raw as Record<string, unknown>
-  const rotation = obj.rotation
-  if (
-    typeof rotation !== 'number' ||
-    !ROTATION_VALUES.includes(rotation as ItemRotation)
-  )
-  {
-    return undefined
-  }
-  const zoom = clampFiniteWire(
-    obj.zoom,
-    ITEM_TRANSFORM_LIMITS.zoomMin,
-    ITEM_TRANSFORM_LIMITS.zoomMax
-  )
-  if (zoom === null) return undefined
-  const offsetX = clampFiniteWire(
-    obj.offsetX,
-    ITEM_TRANSFORM_LIMITS.offsetMin,
-    ITEM_TRANSFORM_LIMITS.offsetMax
-  )
-  if (offsetX === null) return undefined
-  const offsetY = clampFiniteWire(
-    obj.offsetY,
-    ITEM_TRANSFORM_LIMITS.offsetMin,
-    ITEM_TRANSFORM_LIMITS.offsetMax
-  )
-  if (offsetY === null) return undefined
-  const normalized = {
-    rotation: rotation as ItemRotation,
-    zoom,
-    offsetX,
-    offsetY,
-  }
-  return normalized.rotation === ITEM_TRANSFORM_IDENTITY.rotation &&
-    normalized.zoom === ITEM_TRANSFORM_IDENTITY.zoom &&
-    normalized.offsetX === ITEM_TRANSFORM_IDENTITY.offsetX &&
-    normalized.offsetY === ITEM_TRANSFORM_IDENTITY.offsetY
-    ? undefined
-    : normalized
-}
-
 const wireItemToSnapshotItem = (
   item: TierItemWire,
   prepared: PreparedWireImage | undefined
@@ -408,10 +254,10 @@ const wireItemToSnapshotItem = (
   // prefer the wire's captured aspect ratio; fall back to the ratio decoded
   // during persist so items without an explicit wire field still render right
   const aspectRatio =
-    normalizePositiveFiniteWire(item.aspectRatio) ?? prepared?.aspectRatio
-  const imageFit = normalizeEnumWire(item.imageFit, IMAGE_FITS)
-  const transform = normalizeItemTransformWire(item.transform)
-  const labelOptions = normalizeItemLabelOptionsWire(item.labelOptions)
+    normalizePositiveFinite(item.aspectRatio) ?? prepared?.aspectRatio
+  const imageFit = normalizeEnum(item.imageFit, IMAGE_FITS)
+  const transform = normalizeItemTransform(item.transform)
+  const labelOptions = normalizeItemLabelOptions(item.labelOptions)
   const base: TierItem = {
     id,
     label,
@@ -425,6 +271,9 @@ const wireItemToSnapshotItem = (
 
   if (prepared)
   {
+    // the inline blob (whichever rendition the exporter picked) always restores
+    // as `imageRef`; tile/source refs stay absent so the editor & auto-crop
+    // priority chains rebuild the higher-quality renditions on next edit
     return { ...base, imageRef: prepared.record.imageRef }
   }
 
@@ -489,37 +338,32 @@ export const wireToSnapshot = async (
       : [],
     items,
     deletedItems,
-    itemAspectRatio: normalizePositiveFiniteWire(wire.itemAspectRatio),
-    itemAspectRatioMode: normalizeEnumWire(
+    itemAspectRatio: normalizeBoardItemAspectRatio(wire.itemAspectRatio),
+    itemAspectRatioMode: normalizeEnum(
       wire.itemAspectRatioMode,
       ASPECT_RATIO_MODES
     ),
     aspectRatioPromptDismissed:
       wire.aspectRatioPromptDismissed === true ? true : undefined,
-    defaultItemImageFit: normalizeEnumWire(
-      wire.defaultItemImageFit,
-      IMAGE_FITS
-    ),
-    paletteId: normalizeEnumWire(wire.paletteId, PALETTE_IDS),
-    textStyleId: normalizeEnumWire(wire.textStyleId, TEXT_STYLE_IDS),
+    defaultItemImageFit: normalizeEnum(wire.defaultItemImageFit, IMAGE_FITS),
+    paletteId: normalizeEnum(wire.paletteId, PALETTE_IDS),
+    textStyleId: normalizeEnum(wire.textStyleId, TEXT_STYLE_IDS),
     pageBackground: isHexColor(wire.pageBackground)
       ? wire.pageBackground
       : undefined,
-    labels: normalizeBoardLabelSettingsWire(wire.labels),
+    labels: normalizeBoardLabelSettings(wire.labels),
   }
 }
 
 export const itemUsesLocalImageRef = (value: unknown): boolean =>
 {
-  if (!isRecord(value))
-  {
-    return false
-  }
+  if (!isRecord(value)) return false
 
-  if (!isTierItemImageRef(value.imageRef))
-  {
-    return false
-  }
+  const hasLocalRef =
+    isTierItemImageRef(value.imageRef) ||
+    isTierItemImageRef(value.tileImageRef) ||
+    isTierItemImageRef(value.sourceImageRef)
+  if (!hasLocalRef) return false
 
   return typeof value.imageUrl !== 'string' || value.imageUrl.length === 0
 }

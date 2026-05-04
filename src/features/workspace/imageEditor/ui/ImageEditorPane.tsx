@@ -16,6 +16,7 @@ import { Crop } from 'lucide-react'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 import type {
   BoardLabelSettings,
+  GlobalLabelDefaults,
   ImageFit,
   ItemLabelOptions,
   ItemTransform,
@@ -29,9 +30,10 @@ import {
 } from '~/shared/board-ui/aspectRatio'
 import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
+import { getImageRefsByRendition } from '~/shared/lib/imageRefs'
 import {
+  buildManualCropImgStyle,
   clampItemTransform,
-  itemTransformToCropCss,
   resolveManualCropImageSize,
 } from '~/shared/lib/imageTransform'
 import {
@@ -69,7 +71,7 @@ interface ImageEditorPaneProps
   boardDefaultFit: ImageFit | undefined
   trimSoftShadows: boolean
   boardLabels: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
   globalTextStyleId: TextStyleId
   boardItemSize: ItemSize
   onCommit: (transform: ItemTransform | null) => void
@@ -101,7 +103,7 @@ export const ImageEditorPane = forwardRef<
     boardDefaultFit,
     trimSoftShadows,
     boardLabels,
-    globalShowLabels,
+    globalLabelDefaults,
     globalTextStyleId,
     boardItemSize,
     onCommit,
@@ -126,16 +128,13 @@ export const ImageEditorPane = forwardRef<
 )
 {
   const imageSectionId = useId()
-  const sourceUrl = useImageUrl(
-    item.sourceImageRef?.hash,
-    item.sourceImageRef?.cloudMediaExternalId,
-    'editor'
-  )
-  const displayUrl = useImageUrl(
-    item.imageRef?.hash,
-    item.imageRef?.cloudMediaExternalId
-  )
-  const url = sourceUrl ?? displayUrl
+  // editor priority is source -> tile -> preview; subscribe to all three so
+  // the canvas paints the next-best rendition while higher-quality bytes warm
+  const editorRefs = getImageRefsByRendition(item, 'editor')
+  const primaryUrl = useImageUrl(editorRefs[0]?.hash)
+  const secondaryUrl = useImageUrl(editorRefs[1]?.hash)
+  const tertiaryUrl = useImageUrl(editorRefs[2]?.hash)
+  const url = primaryUrl ?? secondaryUrl ?? tertiaryUrl
   const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const {
@@ -162,7 +161,7 @@ export const ImageEditorPane = forwardRef<
     item,
     boardAspectRatio,
     boardLabels,
-    globalShowLabels,
+    globalLabelDefaults,
     globalTextStyleId,
     boardItemSize,
     onLabelChange,
@@ -200,7 +199,6 @@ export const ImageEditorPane = forwardRef<
   })
   const { status: autoCropStatus, autoCrop } = useImageEditorAutoCropItem({
     item,
-    sourceUrl,
     trimSoftShadows,
     frameAspectRatio,
     working,
@@ -445,28 +443,16 @@ export const ImageEditorPane = forwardRef<
 
   const useManualCrop =
     hasChanges || effectiveFit === 'cover' || !!item.aspectRatio
-  const cropSize = useManualCrop
-    ? resolveManualCropImageSize(
-        item.aspectRatio,
-        frameAspectRatio,
-        working.rotation
-      )
-    : null
-  const cropCss = useManualCrop ? itemTransformToCropCss(working) : null
   const imgClass = useManualCrop
     ? 'absolute max-w-none select-none'
     : `h-full w-full ${OBJECT_FIT_CLASS[effectiveFit]}`
   const imgStyle = useManualCrop
-    ? {
-        width: `${cropSize!.widthPercent}%`,
-        height: `${cropSize!.heightPercent}%`,
-        left: cropCss!.left,
-        top: cropCss!.top,
-        transform: cropCss!.transform,
-        transformOrigin: 'center center' as const,
-        pointerEvents: 'none' as const,
-        willChange: 'transform' as const,
-      }
+    ? buildManualCropImgStyle(working, {
+        intrinsicAspect: item.aspectRatio,
+        frameAspect: frameAspectRatio,
+        willChangeTransform: true,
+        pointerEventsNone: true,
+      })
     : { pointerEvents: 'none' as const }
   const ratioLabel = item.aspectRatio
     ? formatAspectRatio(item.aspectRatio)
@@ -474,10 +460,10 @@ export const ImageEditorPane = forwardRef<
   const mismatched = itemHasAspectMismatch(item, boardAspectRatio)
   const boardRatioLabel = formatAspectRatio(boardAspectRatio)
   const ratioBadgeClass = mismatched
-    ? 'border-amber-300/50 bg-amber-300/10 text-amber-200'
+    ? 'border-[var(--t-warning)]/50 bg-[var(--t-warning)]/10 text-[var(--t-warning)]'
     : 'border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] text-[var(--t-text-muted)]'
   const ratioBadgeActionableClass = mismatched
-    ? 'cursor-pointer hover:border-amber-200 hover:bg-amber-300/20 active:bg-amber-300/30'
+    ? 'cursor-pointer hover:border-[var(--t-warning)] hover:bg-[var(--t-warning)]/20 active:bg-[var(--t-warning)]/30'
     : 'cursor-pointer hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-active)]'
   const ratioChipActionable =
     mismatched && (autoCropStatus === 'ready' || autoCropStatus === 'pending')
@@ -577,27 +563,33 @@ export const ImageEditorPane = forwardRef<
         onExpandedChange={onCaptionExpandedChange}
       />
       <ImageEditorPaneFooter
-        imageSectionId={imageSectionId}
-        imageExpanded={imageExpanded}
-        onImageExpandedChange={onImageExpandedChange}
-        rotate={rotate}
-        displayZoom={displayZoom}
-        displayZoomMin={displayZoomMin}
-        displaySliderZoomMax={displaySliderZoomMax}
-        onZoomLiveChange={setZoomLive}
-        centerOffsets={centerOffsets}
-        working={working}
-        autoCrop={autoCrop}
-        autoCropStatus={autoCropStatus}
-        reset={reset}
-        hasChanges={hasChanges}
-        isDirty={isDirty}
-        canPrev={canPrev}
-        canNext={canNext}
-        canSkip={canSkip}
-        onPrev={onPrev}
-        onNext={onNext}
-        onSkip={onSkip}
+        expansion={{
+          imageSectionId,
+          imageExpanded,
+          onImageExpandedChange,
+        }}
+        transform={{
+          rotate,
+          displayZoom,
+          displayZoomMin,
+          displaySliderZoomMax,
+          onZoomLiveChange: setZoomLive,
+          centerOffsets,
+          working,
+          autoCrop,
+          autoCropStatus,
+          reset,
+          hasChanges,
+          isDirty,
+        }}
+        navigation={{
+          canPrev,
+          canNext,
+          canSkip,
+          onPrev,
+          onNext,
+          onSkip,
+        }}
       />
     </div>
   )

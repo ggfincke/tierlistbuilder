@@ -3,7 +3,7 @@
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 
-import { resolveTierColor } from '~/features/library/lib/resolveTierColor'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 
 interface TierBarProps
 {
@@ -63,9 +63,9 @@ export const TierBar = ({
               key={tier.tierIndex}
               style={{
                 width: `${widthPct}%`,
-                backgroundColor: resolveTierColor(
-                  tier.colorSpec,
-                  board.paletteId
+                backgroundColor: resolveTierColorSpec(
+                  board.paletteId,
+                  tier.colorSpec
                 ),
               }}
               title={`Tier ${tier.tierIndex + 1}: ${tier.itemCount}`}

@@ -1,6 +1,6 @@
 // src/features/workspace/imageEditor/model/useImageEditorStore.ts
 // transient open/filter/selection state for the per-item image editor; kept
-// out of the active board store so opening doesn't trip undo or sync diffing
+// out of the active board store so opening does not create undo entries
 
 import { create } from 'zustand'
 

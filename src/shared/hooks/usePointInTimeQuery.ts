@@ -29,10 +29,14 @@ export const usePointInTimeQuery = <TArgs, TData>({
   const requestIdRef = useRef(0)
   const queryRef = useRef(query)
   const onErrorRef = useRef(onError)
-  // sync ref-write during render — refs aren't reactive, so this is the
-  // canonical "always read latest" pattern (no extra effect needed)
-  queryRef.current = query
-  onErrorRef.current = onError
+  // sync the latest query/onError into refs after commit so concurrent renders
+  // don't see torn state mid-render (refs aren't reactive — this is the
+  // "always read latest" pattern, just without the render-time mutation)
+  useEffect(() =>
+  {
+    queryRef.current = query
+    onErrorRef.current = onError
+  })
 
   const refresh = useCallback(async (): Promise<void> =>
   {

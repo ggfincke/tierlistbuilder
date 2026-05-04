@@ -1,25 +1,32 @@
 // src/features/workspace/export/lib/constants.ts
-// export-specific constants — file-name helpers, format labels, & render settings
+// export-specific constants — image-format meta & render settings
 
 import type { ImageFormat } from '../model/runtime'
-import { THEMES } from '~/shared/theme/tokens'
-
-// background color applied during PNG & PDF export (mirrors classic theme)
-export const EXPORT_BACKGROUND_COLOR = THEMES.classic['export-bg']
 
 // device pixel ratio used by html-to-image renders (raster sharpness)
 export const EXPORT_PIXEL_RATIO = 2
 
+// quality setting for JPEG & WebP encoding (0-1)
+export const IMAGE_QUALITY = 0.92
+
+interface ImageFormatMeta
+{
+  label: string
+  ext: string
+  mimeType: string
+}
+
+export const IMAGE_FORMAT_META: Record<ImageFormat, ImageFormatMeta> = {
+  png: { label: 'PNG', ext: 'png', mimeType: 'image/png' },
+  jpeg: { label: 'JPEG', ext: 'jpeg', mimeType: 'image/jpeg' },
+  webp: { label: 'WebP', ext: 'webp', mimeType: 'image/webp' },
+  svg: { label: 'SVG', ext: 'svg', mimeType: 'image/svg+xml' },
+}
+
+// stable render order used by every UI format picker
 export const IMAGE_FORMATS: readonly ImageFormat[] = [
   'png',
   'jpeg',
   'webp',
   'svg',
 ]
-
-export const FORMAT_LABELS: Record<ImageFormat, string> = {
-  png: 'PNG',
-  jpeg: 'JPEG',
-  webp: 'WebP',
-  svg: 'SVG',
-}

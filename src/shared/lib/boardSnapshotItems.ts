@@ -10,6 +10,10 @@ import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media
 import { asItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isPresent } from '~/shared/lib/typeGuards'
+import {
+  getImageRefsByRendition,
+  getPrimaryImageRef,
+} from '~/shared/lib/imageRefs'
 import { isIdentityTransform } from './imageTransform'
 
 const itemHasRenderTransform = (item: TierItem): boolean =>
@@ -64,7 +68,9 @@ export const collectSnapshotImageHashes = (
   ),
 ]
 
-// collect hashes needed for visible board rendering, not unused edit sources
+// hashes needed for visible board rendering. board priority's primary blob
+// (tile -> source -> preview) carries the visible quality; preview is warmed
+// alongside as a cheap fallback while the primary decodes
 export const collectSnapshotRenderImageRefs = (
   snapshot: BoardSnapshot
 ): TierItemImageRef[] =>
@@ -83,12 +89,10 @@ export const collectSnapshotRenderImageRefs = (
     if (seen.has(id)) return
     seen.add(id)
     const item = snapshot.items[id]
-    if (!item?.imageRef) return
-    pushRef(item.imageRef)
-    if (itemHasRenderTransform(item))
-    {
-      pushRef(item.sourceImageRef)
-    }
+    if (!item) return
+    const primary = getPrimaryImageRef(item, 'board')
+    pushRef(primary)
+    if (primary && primary !== item.imageRef) pushRef(item.imageRef)
   }
 
   for (const tier of snapshot.tiers)
@@ -150,13 +154,28 @@ export const collectSnapshotRenderImageHashes = (
   snapshot: BoardSnapshot
 ): string[] => collectSnapshotRenderImageRefs(snapshot).map((ref) => ref.hash)
 
-// collect every local blob hash the snapshot needs to retain
+// collect every editor-priority hash per item so wire export can fall back
+// when source bytes are missing but tile or preview bytes are still present
+export const collectSnapshotExportImageHashes = (
+  snapshot: BoardSnapshot
+): string[] =>
+  Array.from(
+    new Set(
+      collectSnapshotItems(snapshot, (item) =>
+        getImageRefsByRendition(item, 'editor').map((ref) => ref.hash)
+      ).flat()
+    )
+  )
+
+// collect every local blob hash the snapshot needs to retain — covers all
+// three renditions (preview / tile / source) so IDB GC keeps each variant
 export const collectSnapshotLocalImageHashes = (
   snapshot: BoardSnapshot
 ): string[] => [
   ...new Set(
     collectSnapshotItems(snapshot, (item) => [
       item.imageRef?.hash,
+      item.tileImageRef?.hash,
       item.sourceImageRef?.hash,
     ])
       .flat()

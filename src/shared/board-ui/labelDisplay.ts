@@ -3,6 +3,7 @@
 
 import type {
   BoardLabelSettings,
+  GlobalLabelDefaults,
   ItemLabelOptions,
   LabelPlacement,
   LabelScrim,
@@ -10,8 +11,8 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   LABEL_FONT_SIZE_PX_DEFAULT,
-  LABEL_PLACEMENT_DEFAULT,
   normalizeLabelFontSizePx,
+  placementFromMode,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TextStyleId } from '@tierlistbuilder/contracts/lib/theme'
 
@@ -51,8 +52,15 @@ interface ResolveInput
   itemLabel: string | undefined
   itemOptions: ItemLabelOptions | undefined
   boardSettings: BoardLabelSettings | undefined
-  globalShowLabels: boolean
+  globalLabelDefaults: GlobalLabelDefaults
 }
+
+const resolvePlacement = (
+  itemPlacement: LabelPlacement | undefined,
+  boardPlacement: LabelPlacement | undefined,
+  globalMode: GlobalLabelDefaults['placementMode']
+): LabelPlacement =>
+  itemPlacement ?? boardPlacement ?? placementFromMode(globalMode)
 
 // returns null when the label should not render — either text is empty or
 // every override layer resolves to invisible
@@ -66,14 +74,15 @@ export const resolveLabelDisplay = (
   const visible =
     input.itemOptions?.visible ??
     input.boardSettings?.show ??
-    input.globalShowLabels
+    input.globalLabelDefaults.showLabels
   if (!visible) return null
 
   return {
-    placement:
-      input.itemOptions?.placement ??
-      input.boardSettings?.placement ??
-      LABEL_PLACEMENT_DEFAULT,
+    placement: resolvePlacement(
+      input.itemOptions?.placement,
+      input.boardSettings?.placement,
+      input.globalLabelDefaults.placementMode
+    ),
     scrim:
       input.itemOptions?.scrim ?? input.boardSettings?.scrim ?? DEFAULT_SCRIM,
     fontSizePx: resolveFontSizePx(
@@ -98,11 +107,12 @@ export const resolveLabelLayout = (
   visible:
     input.itemOptions?.visible ??
     input.boardSettings?.show ??
-    input.globalShowLabels,
-  placement:
-    input.itemOptions?.placement ??
-    input.boardSettings?.placement ??
-    LABEL_PLACEMENT_DEFAULT,
+    input.globalLabelDefaults.showLabels,
+  placement: resolvePlacement(
+    input.itemOptions?.placement,
+    input.boardSettings?.placement,
+    input.globalLabelDefaults.placementMode
+  ),
   scrim:
     input.itemOptions?.scrim ?? input.boardSettings?.scrim ?? DEFAULT_SCRIM,
   fontSizePx: resolveFontSizePx(

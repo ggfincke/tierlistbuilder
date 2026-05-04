@@ -11,14 +11,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import {
-  lazy,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { lazy, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
@@ -26,8 +19,6 @@ import {
   type TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 
 import {
   Card,
@@ -41,7 +32,6 @@ import { Rail } from '~/features/marketplace/components/Rail'
 import { RailHeader } from '~/features/marketplace/components/RailHeader'
 import { SearchInput } from '~/features/marketplace/components/SearchInput'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
 import { useGalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
 import { useOpenTemplateDraft } from '~/features/marketplace/model/useOpenTemplateDraft'
 import { useTemplatesGallery } from '~/features/marketplace/model/useTemplatesGallery'
@@ -69,6 +59,27 @@ const HERO_SECONDARY_LABELS = [
   'curated',
 ] as const satisfies readonly CardFeaturedLabel[]
 
+interface EmptyHintFilters
+{
+  tag: string | null
+  searchDebounced: string
+  category: TemplateCategory | null
+}
+
+const getEmptyGalleryHint = (filters: EmptyHintFilters): string =>
+{
+  if (filters.tag)
+  {
+    return 'Try removing the tag or picking a different category.'
+  }
+  if (filters.searchDebounced)
+  {
+    return 'Try clearing the search or picking a different category.'
+  }
+  if (filters.category) return 'Try a different category.'
+  return 'Check back soon — the gallery is still filling out.'
+}
+
 const GridSkeleton = () => (
   <>
     {Array.from({ length: 7 }).map((_, i) => (
@@ -89,9 +100,8 @@ const GridSkeleton = () => (
 
 export const TemplatesGalleryPage = () =>
 {
-  const session = useAuthSession()
   const filters = useGalleryFilters()
-  const isSignedIn = session.status === 'signed-in'
+  const isSignedIn = false
   const gallery = useTemplatesGallery(filters, isSignedIn)
   const draftAction = useOpenTemplateDraft()
   const [publishOpen, setPublishOpen] = useState(false)
@@ -157,11 +167,6 @@ export const TemplatesGalleryPage = () =>
 
   const handleCreateTileClick = () =>
   {
-    if (!isSignedIn)
-    {
-      promptSignIn()
-      return
-    }
     setPublishOpen(true)
   }
 
@@ -215,15 +220,7 @@ export const TemplatesGalleryPage = () =>
     filters.setSearch(next)
   }
 
-  const greeting = useMemo(() =>
-  {
-    if (session.status === 'signed-in')
-    {
-      const name = getDisplayName(session.user, '', { email: 'local' })
-      return name ? `Welcome back, ${name}.` : 'Welcome back.'
-    }
-    return 'Browse community templates.'
-  }, [session])
+  const greeting = 'Browse community templates.'
 
   return (
     <>
@@ -237,9 +234,8 @@ export const TemplatesGalleryPage = () =>
               {greeting}
             </h1>
             <p className="mt-3 max-w-xl text-[14px] text-[var(--t-text-muted)]">
-              {isSignedIn
-                ? 'Pick up a draft, or fork a community template into a new ranking.'
-                : 'Pre-built item sets you can fork into a new ranking with one click.'}
+              Pre-built item sets you can fork into a new ranking with one
+              click.
             </p>
           </div>
           <div className="lg:pb-2">
@@ -402,7 +398,7 @@ export const TemplatesGalleryPage = () =>
           {!filtersActive && (
             <CreateTile
               onClick={handleCreateTileClick}
-              onIntent={isSignedIn ? preloadPublishModal : undefined}
+              onIntent={preloadPublishModal}
               size="default"
             />
           )}
@@ -426,13 +422,7 @@ export const TemplatesGalleryPage = () =>
               No templates match your filters.
             </p>
             <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-              {filters.tag
-                ? 'Try removing the tag or picking a different category.'
-                : filters.searchDebounced
-                  ? 'Try clearing the search or picking a different category.'
-                  : filters.category
-                    ? 'Try a different category.'
-                    : 'Check back soon — the gallery is still filling out.'}
+              {getEmptyGalleryHint(filters)}
             </p>
           </div>
         )}

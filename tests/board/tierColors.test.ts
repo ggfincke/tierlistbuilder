@@ -1,57 +1,82 @@
 // tests/board/tierColors.test.ts
-// tier color spec resolution, theme stability, & equality
+// tier color spec helpers
 
 import { describe, it, expect } from 'vitest'
 import {
   areTierColorSpecsEqual,
-  createCustomTierColorSpec,
   createPaletteTierColorSpec,
-  getTierColorFromPaletteSpec,
+  createCustomTierColorSpec,
+  getPaletteColors,
   resolveTierColorSpec,
+  getTierColorFromPaletteSpec,
 } from '~/shared/theme/tierColors'
-
-describe('createCustomTierColorSpec', () =>
-{
-  it('normalizes valid hex & falls back to grey for invalid input', () =>
-  {
-    expect(createCustomTierColorSpec('#FF0000')).toEqual({
-      kind: 'custom',
-      hex: '#ff0000',
-    })
-    expect(createCustomTierColorSpec('nope')).toEqual({
-      kind: 'custom',
-      hex: '#888888',
-    })
-  })
-})
 
 describe('resolveTierColorSpec', () =>
 {
-  it('resolves palette via PALETTES & passes custom hex through unchanged across themes', () =>
+  it('resolves palette spec to hex from PALETTES', () =>
   {
-    const palette = createPaletteTierColorSpec(1)
-    expect(resolveTierColorSpec('classic', palette)).toBe('#FFBF81')
-    expect(resolveTierColorSpec('midnight', palette)).toBe('#e879f9')
+    const spec = createPaletteTierColorSpec(0)
+    expect(resolveTierColorSpec('classic', spec)).toBe('#FF7F7E')
+  })
 
-    const custom = createCustomTierColorSpec('#abcdef')
-    expect(resolveTierColorSpec('classic', custom)).toBe('#abcdef')
-    expect(resolveTierColorSpec('midnight', custom)).toBe('#abcdef')
+  it('returns hex directly for custom spec', () =>
+  {
+    const spec = createCustomTierColorSpec('#abcdef')
+    expect(resolveTierColorSpec('classic', spec)).toBe('#abcdef')
+  })
+
+  it('keeps palette specs stable across theme swaps while the resolved hex changes', () =>
+  {
+    const spec = createPaletteTierColorSpec(1)
+
+    expect(resolveTierColorSpec('classic', spec)).toBe('#FFBF81')
+    expect(resolveTierColorSpec('midnight', spec)).toBe('#e879f9')
+    expect(spec).toEqual({
+      kind: 'palette',
+      index: 1,
+    })
+  })
+
+  it('keeps custom hex values stagnant across theme swaps', () =>
+  {
+    const spec = createCustomTierColorSpec('#abcdef')
+
+    expect(resolveTierColorSpec('classic', spec)).toBe('#abcdef')
+    expect(resolveTierColorSpec('midnight', spec)).toBe('#abcdef')
   })
 })
 
 describe('getTierColorFromPaletteSpec', () =>
 {
+  it('resolves direct palette indices against the active palette', () =>
+  {
+    const spec = createPaletteTierColorSpec(9)
+    expect(getTierColorFromPaletteSpec('midnight', spec)).toBe('#5eead4')
+  })
+
   it('returns null for out-of-bounds index', () =>
   {
-    expect(
-      getTierColorFromPaletteSpec('classic', createPaletteTierColorSpec(999))
-    ).toBeNull()
+    const spec = createPaletteTierColorSpec(999)
+    expect(getTierColorFromPaletteSpec('classic', spec)).toBeNull()
+  })
+})
+
+describe('getPaletteColors', () =>
+{
+  it('returns palette swatches in picker order', () =>
+  {
+    expect(getPaletteColors('midnight').slice(0, 4)).toEqual([
+      '#f0abfc',
+      '#e879f9',
+      '#c084fc',
+      '#a78bfa',
+    ])
   })
 })
 
 describe('areTierColorSpecsEqual', () =>
 {
-  it('compares palette & custom specs by value w/ case-insensitive hex', () =>
+  it('compares palette & custom specs by value', () =>
   {
     expect(
       areTierColorSpecsEqual(

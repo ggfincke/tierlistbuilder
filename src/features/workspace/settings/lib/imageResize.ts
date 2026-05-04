@@ -1,15 +1,19 @@
 // src/features/workspace/settings/lib/imageResize.ts
-// image resize & upload utilities for display thumbs + editor source blobs
+// upload pipeline: hand each File off to the rendition prepare helper, persist
+// every resulting blob in one batch, & emit NewTierItem rows for the board
 
 import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
 import {
   BLOB_PREPARE_CONCURRENCY,
   persistPreparedBlobRecords,
-  prepareBlobRecord,
 } from '~/shared/images/imagePersistence'
+import {
+  buildItemRenditionRecords,
+  collectRenditionRecords,
+  toItemImageRefs,
+} from '~/shared/images/prepareItemRenditions'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
-import { MAX_EDITOR_SOURCE_SIZE, MAX_THUMBNAIL_SIZE } from './constants'
-import { deriveLabelFromFilename, drawImageToPngBlob } from './imageGeometry'
+import { deriveLabelFromFilename } from '~/shared/lib/fileName'
 
 // processed upload result w/ partial-failure accounting
 interface ProcessImageFilesResult
@@ -18,62 +22,44 @@ interface ProcessImageFilesResult
   failedCount: number
 }
 
-// intermediate blobs + label + source aspect ratio captured during resize
-interface PreparedImage
-{
-  displayBlob: Blob
-  sourceBlob: Blob
-  label: string
-  aspectRatio: number
-}
-
 // filter, resize, persist, & collect image files
 export const processImageFiles = async (
   files: File[]
 ): Promise<ProcessImageFilesResult> =>
 {
   const images = files.filter((f) => f.type.startsWith('image/'))
-  const resized = await Promise.all(
-    images.map(async (imageFile) =>
+  const prepared = await mapAsyncLimit(
+    images,
+    BLOB_PREPARE_CONCURRENCY,
+    async (imageFile) =>
     {
       try
       {
-        const { displayBlob, sourceBlob, naturalWidth, naturalHeight } =
-          await resizeImageFileToBlobs(imageFile)
+        const records = await buildFileRenditionRecords(imageFile)
         return {
-          displayBlob,
-          sourceBlob,
+          records,
           label: deriveLabelFromFilename(imageFile.name),
-          aspectRatio: naturalWidth / naturalHeight,
-        } satisfies PreparedImage
+        }
       }
       catch
       {
         return null
       }
-    })
+    }
   )
 
-  const preparedItems = resized.filter(
-    (item): item is PreparedImage => item !== null
+  const successes = prepared.filter(
+    (entry): entry is NonNullable<typeof entry> => entry !== null
   )
-  const preparedSources = await mapAsyncLimit(
-    preparedItems,
-    BLOB_PREPARE_CONCURRENCY,
-    async (item) => ({
-      item,
-      display: await prepareBlobRecord(item.displayBlob),
-      source: await prepareBlobRecord(item.sourceBlob),
-    })
-  )
+
   await persistPreparedBlobRecords(
-    preparedSources.flatMap((entry) => [entry.display, entry.source])
+    successes.flatMap(({ records }) => collectRenditionRecords(records))
   )
-  const items = preparedSources.map(({ item, display, source }) => ({
-    imageRef: display.imageRef,
-    sourceImageRef: source.imageRef,
-    label: item.label,
-    aspectRatio: item.aspectRatio,
+
+  const items = successes.map(({ records, label }) => ({
+    ...toItemImageRefs(records),
+    label,
+    aspectRatio: records.aspectRatio,
   })) satisfies Array<NewTierItem & { label: string }>
 
   return {
@@ -82,40 +68,18 @@ export const processImageFiles = async (
   }
 }
 
-interface ResizedBlob
-{
-  displayBlob: Blob
-  sourceBlob: Blob
-  // source image dimensions before downscaling, used to derive aspect ratio
-  naturalWidth: number
-  naturalHeight: number
-}
-
-// resize a File into display & editor PNG blobs while preserving source ratio
-const resizeImageFileToBlobs = async (file: File): Promise<ResizedBlob> =>
+// decode the file once via createImageBitmap, run progressive downscale, &
+// release the bitmap as soon as the rendition canvases are built
+const buildFileRenditionRecords = async (file: File) =>
 {
   const imageBitmap = await createImageBitmap(file)
-  const naturalWidth = imageBitmap.width
-  const naturalHeight = imageBitmap.height
-
   try
   {
-    const [displayBlob, sourceBlob] = await Promise.all([
-      drawImageToPngBlob(
-        imageBitmap,
-        naturalWidth,
-        naturalHeight,
-        MAX_THUMBNAIL_SIZE
-      ),
-      drawImageToPngBlob(
-        imageBitmap,
-        naturalWidth,
-        naturalHeight,
-        MAX_EDITOR_SOURCE_SIZE
-      ),
-    ])
-
-    return { displayBlob, sourceBlob, naturalWidth, naturalHeight }
+    return await buildItemRenditionRecords(
+      imageBitmap,
+      imageBitmap.width,
+      imageBitmap.height
+    )
   }
   finally
   {

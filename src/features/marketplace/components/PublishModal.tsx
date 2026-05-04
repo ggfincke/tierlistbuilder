@@ -3,7 +3,7 @@
 // fields, optional cover image, & rate-limit-aware submit
 
 import { Loader2 } from 'lucide-react'
-import { useId, useMemo, useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 
 import {
   MAX_TEMPLATE_CREDIT_LINE_LENGTH,
@@ -57,7 +57,7 @@ const PublishForm = ({ onClose, onPublished }: PublishFormProps) =>
   const visibilityFieldId = useId()
   const creditFieldId = useId()
 
-  const { boards, hasUnsyncedBoards } = usePublishableBoards()
+  const { boards, hasEmptyBoards } = usePublishableBoards()
   const { run, isPending, error } = usePublishTemplate()
 
   const [boardOverride, setBoardOverride] = useState<PublishableBoard | null>(
@@ -77,13 +77,13 @@ const PublishForm = ({ onClose, onPublished }: PublishFormProps) =>
   const board = boardOverride ?? boards[0] ?? null
   const title = titleOverride ?? (board ? board.title : '')
 
+  // when a different board is picked, drop any title override so the new
+  // board's title becomes the default. only clears the override if it was
+  // user-set; the default-derived case is a no-op since title flows from board
   const handleBoardChange = (next: PublishableBoard) =>
   {
     setBoardOverride(next)
-    if (titleOverride === null)
-    {
-      setTitleOverride(null)
-    }
+    setTitleOverride(null)
   }
 
   const trimmedTitle = title.trim()
@@ -93,25 +93,14 @@ const PublishForm = ({ onClose, onPublished }: PublishFormProps) =>
   const creditTooLong =
     creditLine.trim().length > MAX_TEMPLATE_CREDIT_LINE_LENGTH
 
-  const canSubmit = useMemo(
-    () =>
-      !isPending &&
-      !!board &&
-      trimmedTitle.length > 0 &&
-      !titleTooLong &&
-      !descriptionTooLong &&
-      !creditTooLong &&
-      !coverError,
-    [
-      board,
-      trimmedTitle,
-      titleTooLong,
-      descriptionTooLong,
-      creditTooLong,
-      coverError,
-      isPending,
-    ]
-  )
+  const canSubmit =
+    !isPending &&
+    !!board &&
+    trimmedTitle.length > 0 &&
+    !titleTooLong &&
+    !descriptionTooLong &&
+    !creditTooLong &&
+    !coverError
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) =>
   {
@@ -145,7 +134,7 @@ const PublishForm = ({ onClose, onPublished }: PublishFormProps) =>
         </h3>
         <BoardPicker
           boards={boards}
-          hasUnsyncedBoards={hasUnsyncedBoards}
+          hasEmptyBoards={hasEmptyBoards}
           selected={board}
           onChange={handleBoardChange}
         />

@@ -50,13 +50,15 @@ export const ActiveDragOverlayItem = memo(
 const DragOverlayItem = memo(
   ({ item, groupCount = 0 }: DragOverlayItemProps) =>
   {
-    const { itemSize, itemShape, showLabels } = usePreferencesStore(
-      useShallow((state) => ({
-        itemSize: state.itemSize,
-        itemShape: state.itemShape,
-        showLabels: state.showLabels,
-      }))
-    )
+    const { itemSize, itemShape, showLabels, defaultLabelPlacementMode } =
+      usePreferencesStore(
+        useShallow((state) => ({
+          itemSize: state.itemSize,
+          itemShape: state.itemShape,
+          showLabels: state.showLabels,
+          defaultLabelPlacementMode: state.defaultLabelPlacementMode,
+        }))
+      )
     const boardAspectRatio = useActiveBoardStore((state) =>
       getBoardItemAspectRatio(state)
     )
@@ -109,7 +111,10 @@ const DragOverlayItem = memo(
               itemLabel: item.label,
               itemOptions: item.labelOptions,
               boardSettings: boardLabels,
-              globalShowLabels: showLabels,
+              globalLabelDefaults: {
+                showLabels,
+                placementMode: defaultLabelPlacementMode,
+              },
             })}
             fit={effectiveFit}
             frameAspectRatio={boardAspectRatio}

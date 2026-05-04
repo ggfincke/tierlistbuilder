@@ -26,6 +26,7 @@ import {
   sortLibraryBoards,
 } from '~/features/library/lib/sortAndFilter'
 import { useBoardsLibrary } from '~/features/library/model/useBoardsLibrary'
+import { useCreateLibraryBoard } from '~/features/library/model/useCreateLibraryBoard'
 import { useLibraryFilters } from '~/features/library/model/useLibraryFilters'
 import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoard'
 
@@ -50,6 +51,7 @@ export const MyListsPage = () =>
 
   const filters = useLibraryFilters()
   const openBoard = useOpenLibraryBoard()
+  const createBoard = useCreateLibraryBoard()
   const deferredSearch = useDeferredValue(filters.searchDebounced)
   const deferredFilter = useDeferredValue(filters.filter)
   const deferredSort = useDeferredValue(filters.sort)
@@ -169,7 +171,7 @@ export const MyListsPage = () =>
           flash zero before populating */}
       {rows && (
         <div className="mt-8">
-          <StatsStrip boards={rows} />
+          <StatsStrip counts={counts} totalBoards={rows.length} />
         </div>
       )}
 
@@ -257,7 +259,12 @@ export const MyListsPage = () =>
           />
         ) : (
           <div className="grid gap-5" style={gridStyle}>
-            {!filtersActive && <NewListTile />}
+            {!filtersActive && (
+              <NewListTile
+                onCreate={createBoard.create}
+                isPending={createBoard.isPending}
+              />
+            )}
             {(visibleBoards ?? []).map((board) => (
               <div key={board.externalId} className="h-full min-w-0">
                 <BoardCard

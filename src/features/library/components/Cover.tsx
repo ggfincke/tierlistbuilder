@@ -4,6 +4,8 @@
 
 import type { LibraryBoardCoverItem } from '@tierlistbuilder/contracts/workspace/board'
 
+import { externalIdToCode } from '~/shared/board-ui/initialsCode'
+
 type CoverDensity = 'dense' | 'default' | 'loose'
 
 interface CoverProps
@@ -24,13 +26,6 @@ const GRID_CONFIG: Record<
   dense: { cols: 6, rows: 4, gap: 2, padPx: 4 },
   default: { cols: 5, rows: 3, gap: 3, padPx: 6 },
   loose: { cols: 4, rows: 2, gap: 4, padPx: 8 },
-}
-
-// stable 1-2 char fallback when label is missing
-const externalIdToCode = (externalId: string): string =>
-{
-  const cleaned = externalId.replace(/[^A-Za-z0-9]+/g, '')
-  return cleaned.slice(0, 2).toUpperCase() || '··'
 }
 
 const resolveTileText = (item: LibraryBoardCoverItem): string =>

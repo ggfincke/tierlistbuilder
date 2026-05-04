@@ -10,7 +10,7 @@ import {
   Sparkles,
   TrendingUp,
 } from 'lucide-react'
-import type { ComponentType, SVGProps } from 'react'
+import { memo, type ComponentType, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 
 import type { MarketplaceTemplateSummary } from '@tierlistbuilder/contracts/marketplace/template'
@@ -19,6 +19,7 @@ import {
   formatCount,
   formatRelativeTime,
   formatTimeToRank,
+  pluralize,
 } from '~/shared/catalog/formatters'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
@@ -88,7 +89,7 @@ const SIZE_CONFIG: Record<
   },
 }
 
-export const Card = ({
+const CardImpl = ({
   template,
   size = 'default',
   coverStyle,
@@ -130,7 +131,7 @@ export const Card = ({
             </span>
           ) : null}
           <span className="ml-auto rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur">
-            {template.itemCount} {template.itemCount === 1 ? 'item' : 'items'}
+            {template.itemCount} {pluralize(template.itemCount, 'item')}
           </span>
         </div>
 
@@ -215,3 +216,5 @@ export const Card = ({
     </Link>
   )
 }
+
+export const Card = memo(CardImpl)

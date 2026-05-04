@@ -63,9 +63,8 @@ export const tierPresetEqual = (a: TierPreset, b: TierPreset): boolean =>
   return tierPresetTiersEqual(a.tiers, b.tiers)
 }
 
-// content-equality for the full userPresets array; used as the subscriber
-// equalityFn on useTierPresetStore so cloud-sync skips the diff work when
-// the array ref changes but nothing actually differs
+// content-equality for the full userPresets array; useful for subscribers
+// that only care when preset content actually changes
 export const userPresetsEqual = (
   a: readonly TierPreset[],
   b: readonly TierPreset[]

@@ -1,8 +1,6 @@
 // src/features/library/model/useLibraryFilters.ts
 // URL-canonical filter, sort, view, density, & search state for My Lists
 
-import { useCallback } from 'react'
-
 import {
   LIBRARY_BOARD_DENSITIES,
   LIBRARY_BOARD_FILTERS,
@@ -17,6 +15,7 @@ import {
   createPatchedSearchParams,
   isStringMember,
   readSearchParam,
+  useFilterSetters,
   useUrlFilterParams,
   writeDefaultedParam,
   writeSearchParam,
@@ -40,6 +39,9 @@ interface LibraryFilterParams
   density: LibraryBoardDensity
 }
 
+// URL filter parsing accepts any LIBRARY_BOARD_FILTERS member, including
+// statuses that don't have a visible chip (published, syncing, failed) — a
+// user can still land on /boards?status=published from a deep link
 const isFilter = (value: string | null): value is LibraryBoardFilter =>
   isStringMember(value, LIBRARY_BOARD_FILTERS)
 
@@ -132,6 +134,15 @@ interface LibraryFilters
   setDensity: (next: LibraryBoardDensity) => void
 }
 
+// search updates replace history so each keystroke doesn't push a back entry
+const LIBRARY_SETTER_OPTIONS = {
+  search: { replace: true },
+  filter: undefined,
+  sort: undefined,
+  view: undefined,
+  density: undefined,
+} as const
+
 export const useLibraryFilters = (): LibraryFilters =>
 {
   const { filters, searchDebounced, commitFilters } = useUrlFilterParams({
@@ -140,29 +151,7 @@ export const useLibraryFilters = (): LibraryFilters =>
     create: createLibraryFilterSearchParams,
   })
 
-  const setSearch = useCallback(
-    (next: string) =>
-    {
-      commitFilters({ search: next }, { replace: true })
-    },
-    [commitFilters]
-  )
-  const setFilter = useCallback(
-    (next: LibraryBoardFilter) => commitFilters({ filter: next }),
-    [commitFilters]
-  )
-  const setSort = useCallback(
-    (next: LibraryBoardSort) => commitFilters({ sort: next }),
-    [commitFilters]
-  )
-  const setView = useCallback(
-    (next: LibraryBoardView) => commitFilters({ view: next }),
-    [commitFilters]
-  )
-  const setDensity = useCallback(
-    (next: LibraryBoardDensity) => commitFilters({ density: next }),
-    [commitFilters]
-  )
+  const setters = useFilterSetters(commitFilters, LIBRARY_SETTER_OPTIONS)
 
   return {
     searchInput: filters.search,
@@ -171,10 +160,10 @@ export const useLibraryFilters = (): LibraryFilters =>
     sort: filters.sort,
     view: filters.view,
     density: filters.density,
-    setSearch,
-    setFilter,
-    setSort,
-    setView,
-    setDensity,
+    setSearch: setters.search,
+    setFilter: setters.filter,
+    setSort: setters.sort,
+    setView: setters.view,
+    setDensity: setters.density,
   }
 }
