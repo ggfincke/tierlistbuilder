@@ -1,16 +1,23 @@
 // src/app/shells/AppTopNav.tsx
-// fixed global app chrome for brand, surface nav, preferences, & modals
+// fixed global app chrome for brand, surface nav, account, & modals
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
+import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { BrandCapsule } from './topNav/BrandCapsule'
 import { SurfaceNav } from './topNav/SurfaceNav'
 import { TopNavAccountControl } from './topNav/TopNavAccountControl'
-import { TopNavModalLayer } from './topNav/TopNavModalLayer'
+import {
+  TopNavModalLayer,
+  type TopNavModalKey,
+} from './topNav/TopNavModalLayer'
 
 export const AppTopNav = () =>
 {
-  const [preferencesOpen, setPreferencesOpen] = useState(false)
+  const signInOpen = useSignInPromptStore((state) => state.open)
+  const closeSignIn = useSignInPromptStore((state) => state.hide)
+  const [openModal, setOpenModal] = useState<TopNavModalKey | null>(null)
+  const closeModal = useCallback(() => setOpenModal(null), [])
 
   return (
     <>
@@ -21,14 +28,14 @@ export const AppTopNav = () =>
         <BrandCapsule />
 
         <SurfaceNav>
-          <TopNavAccountControl
-            onOpenPreferences={() => setPreferencesOpen(true)}
-          />
+          <TopNavAccountControl onOpenModal={setOpenModal} />
         </SurfaceNav>
       </header>
       <TopNavModalLayer
-        preferencesOpen={preferencesOpen}
-        onClosePreferences={() => setPreferencesOpen(false)}
+        open={openModal}
+        signInOpen={signInOpen}
+        onClose={closeModal}
+        onCloseSignIn={closeSignIn}
       />
     </>
   )

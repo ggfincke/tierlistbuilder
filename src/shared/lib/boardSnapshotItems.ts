@@ -12,7 +12,7 @@ import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { isPresent } from '~/shared/lib/typeGuards'
 import {
   getImageRefsByRendition,
-  getPrimaryImageRef,
+  getRenderImageRefs,
 } from '~/shared/lib/imageRefs'
 import { isIdentityTransform } from './imageTransform'
 
@@ -59,52 +59,7 @@ const collectSnapshotItems = <T>(
   return results
 }
 
-// collect unique image hashes referenced anywhere on a snapshot
-export const collectSnapshotImageHashes = (
-  snapshot: BoardSnapshot
-): string[] => [
-  ...new Set(
-    collectSnapshotItems(snapshot, (item) => item.imageRef?.hash ?? null)
-  ),
-]
-
-// hashes needed for visible board rendering. board priority's primary blob
-// (tile -> source -> preview) carries the visible quality; preview is warmed
-// alongside as a cheap fallback while the primary decodes
-export const collectSnapshotRenderImageRefs = (
-  snapshot: BoardSnapshot
-): TierItemImageRef[] =>
-{
-  const refs: TierItemImageRef[] = []
-  const seen = new Set<ItemId>()
-  const seenHashes = new Set<string>()
-  const pushRef = (ref: TierItemImageRef | undefined): void =>
-  {
-    if (!ref || seenHashes.has(ref.hash)) return
-    seenHashes.add(ref.hash)
-    refs.push(ref)
-  }
-  const visitId = (id: ItemId): void =>
-  {
-    if (seen.has(id)) return
-    seen.add(id)
-    const item = snapshot.items[id]
-    if (!item) return
-    const primary = getPrimaryImageRef(item, 'board')
-    pushRef(primary)
-    if (primary && primary !== item.imageRef) pushRef(item.imageRef)
-  }
-
-  for (const tier of snapshot.tiers)
-  {
-    for (const id of tier.itemIds) visitId(id)
-  }
-  for (const id of snapshot.unrankedItemIds) visitId(id)
-
-  return refs
-}
-
-export interface SnapshotRenderImageRef
+interface SnapshotRenderImageRef
 {
   ref: TierItemImageRef
   variant: MediaVariantKind
@@ -133,9 +88,11 @@ export const collectSnapshotRenderImageVariantRefs = (
     if (seen.has(id)) return
     seen.add(id)
     const item = snapshot.items[id]
-    if (!item?.imageRef) return
-    pushRef(item.imageRef, 'tile')
-    if (itemHasRenderTransform(item))
+    if (!item) return
+    const { primary, fallback } = getRenderImageRefs(item, 'board')
+    pushRef(primary?.ref, primary?.variant ?? 'tile')
+    pushRef(fallback?.ref, fallback?.variant ?? 'preview')
+    if (itemHasRenderTransform(item) && item.sourceImageRef)
     {
       pushRef(item.sourceImageRef, 'editor')
     }
@@ -149,10 +106,6 @@ export const collectSnapshotRenderImageVariantRefs = (
 
   return refs
 }
-
-export const collectSnapshotRenderImageHashes = (
-  snapshot: BoardSnapshot
-): string[] => collectSnapshotRenderImageRefs(snapshot).map((ref) => ref.hash)
 
 // collect every editor-priority hash per item so wire export can fall back
 // when source bytes are missing but tile or preview bytes are still present

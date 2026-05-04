@@ -10,6 +10,7 @@ import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
 import { Cover } from './Cover'
 import { StatusPill } from './StatusPill'
 import { TierBar } from './TierBar'
+import { VisibilityChip } from './VisibilityChip'
 
 interface BoardListRowProps
 {
@@ -80,8 +81,9 @@ const BoardListRow = memo(({ board, onOpen, isPending }: BoardListRowProps) =>
       <div className="min-w-0 pr-4">
         <TierBar board={board} height={5} showCount />
       </div>
-      <div>
+      <div className="flex flex-col items-start gap-1">
         <StatusPill status={board.status} />
+        <VisibilityChip visibility={board.visibility} />
       </div>
       <div className="text-right text-[11px] tabular-nums text-[var(--t-text-faint)]">
         {formatRelativeTime(board.updatedAt)}

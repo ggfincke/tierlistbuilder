@@ -35,6 +35,8 @@ import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useGalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
 import { useOpenTemplateDraft } from '~/features/marketplace/model/useOpenTemplateDraft'
 import { useTemplatesGallery } from '~/features/marketplace/model/useTemplatesGallery'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
 import { formatCount } from '~/shared/catalog/formatters'
 import {
   loadPublishModal,
@@ -101,8 +103,17 @@ const GridSkeleton = () => (
 export const TemplatesGalleryPage = () =>
 {
   const filters = useGalleryFilters()
-  const isSignedIn = false
-  const gallery = useTemplatesGallery(filters, isSignedIn)
+  const session = useAuthSession()
+  const showSignIn = useSignInPromptStore((state) => state.show)
+  const isSignedIn = session.status === 'signed-in'
+  const galleryAccessRefreshKey =
+    session.status === 'signed-in'
+      ? `${session.user._id}:${session.user.plan}`
+      : session.status
+  const gallery = useTemplatesGallery(filters, {
+    includeDrafts: isSignedIn,
+    accessRefreshKey: galleryAccessRefreshKey,
+  })
   const draftAction = useOpenTemplateDraft()
   const [publishOpen, setPublishOpen] = useState(false)
 
@@ -167,6 +178,11 @@ export const TemplatesGalleryPage = () =>
 
   const handleCreateTileClick = () =>
   {
+    if (!isSignedIn)
+    {
+      showSignIn()
+      return
+    }
     setPublishOpen(true)
   }
 

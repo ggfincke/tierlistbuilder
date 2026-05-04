@@ -3,13 +3,17 @@
 // w/ getMe into a 'loading' | 'signed-out' | 'signed-in' discriminated shape
 
 import { useConvexAuth, useQuery } from 'convex/react'
+import { useMemo } from 'react'
 import { api } from '@convex/_generated/api'
 import type { PublicUserMe } from '@tierlistbuilder/contracts/platform/user'
 
-type AuthSession =
+export type AuthSession =
   | { status: 'loading' }
   | { status: 'signed-out' }
   | { status: 'signed-in'; user: PublicUserMe }
+
+const LOADING_SESSION: AuthSession = { status: 'loading' }
+const SIGNED_OUT_SESSION: AuthSession = { status: 'signed-out' }
 
 export const useAuthSession = (): AuthSession =>
 {
@@ -23,29 +27,15 @@ export const useAuthSession = (): AuthSession =>
     isLoading || !isAuthenticated ? 'skip' : {}
   )
 
-  if (isLoading)
+  return useMemo<AuthSession>(() =>
   {
-    return { status: 'loading' }
-  }
-
-  if (!isAuthenticated)
-  {
-    return { status: 'signed-out' }
-  }
-
-  // authenticated but the getMe query hasn't returned yet — still loading
-  if (me === undefined)
-  {
-    return { status: 'loading' }
-  }
-
-  // authenticated but no users row exists — should not happen once the auth
-  // lib's afterUserCreatedOrUpdated callback runs, but we treat it the same
-  // as signed-out so the UI stays sensible
-  if (me === null)
-  {
-    return { status: 'signed-out' }
-  }
-
-  return { status: 'signed-in', user: me }
+    if (isLoading) return LOADING_SESSION
+    if (!isAuthenticated) return SIGNED_OUT_SESSION
+    // authenticated but getMe hasn't resolved (undefined) — still loading.
+    // authenticated but no users row exists (null) — treat as signed-out
+    // until the afterUserCreatedOrUpdated callback fills it in
+    if (me === undefined) return LOADING_SESSION
+    if (me === null) return SIGNED_OUT_SESSION
+    return { status: 'signed-in', user: me }
+  }, [isLoading, isAuthenticated, me])
 }

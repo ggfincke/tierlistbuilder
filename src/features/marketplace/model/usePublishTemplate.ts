@@ -22,9 +22,6 @@ interface PublishTemplateInput extends Omit<
 >
 {
   coverFile: File | null
-  // pass true when the user explicitly cleared a previously-set cover so the
-  // server-side first-item-media fallback gets bypassed in favor of null
-  clearCover: boolean
 }
 
 interface PublishTemplateAction
@@ -56,15 +53,11 @@ export const usePublishTemplate = (): PublishTemplateAction =>
       setError(null)
       try
       {
-        let coverMediaExternalId: string | null = null
+        let coverMediaExternalId: string | undefined
         if (input.coverFile)
         {
           const { externalId } = await uploadCoverImage(input.coverFile)
           coverMediaExternalId = externalId
-        }
-        else if (input.clearCover)
-        {
-          coverMediaExternalId = null
         }
 
         const result = await publishMutation({

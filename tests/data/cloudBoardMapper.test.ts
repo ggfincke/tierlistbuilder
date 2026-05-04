@@ -142,7 +142,7 @@ describe('snapshotToCloudPayload', () =>
 
 describe('serverStateToSnapshot', () =>
 {
-  it('restores image refs (display + source) & board style overrides from cloud state', () =>
+  it('restores image refs (preview + tile + source) & board style overrides from cloud state', () =>
   {
     const itemId = asItemId('item-1')
     const snapshot = serverStateToSnapshot({
@@ -154,7 +154,8 @@ describe('serverStateToSnapshot', () =>
           externalId: itemId,
           tierId: null,
           mediaExternalId: 'media-1',
-          mediaContentHash: 'display-hash',
+          previewMediaContentHash: 'preview-hash',
+          mediaContentHash: 'tile-hash',
           sourceMediaContentHash: 'source-hash',
           order: 0,
           deletedAt: null,
@@ -166,7 +167,11 @@ describe('serverStateToSnapshot', () =>
     })
 
     expect(snapshot.items[itemId].imageRef).toEqual({
-      hash: 'display-hash',
+      hash: 'preview-hash',
+      cloudMediaExternalId: 'media-1',
+    })
+    expect(snapshot.items[itemId].tileImageRef).toEqual({
+      hash: 'tile-hash',
       cloudMediaExternalId: 'media-1',
     })
     expect(snapshot.items[itemId].sourceImageRef).toEqual({

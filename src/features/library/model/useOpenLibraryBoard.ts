@@ -5,8 +5,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
-import { asBoardId } from '@tierlistbuilder/contracts/lib/ids'
-import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
+import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
 
@@ -36,7 +35,7 @@ export const useOpenLibraryBoard = (): OpenLibraryBoardAction =>
       {
         try
         {
-          await switchBoardSession(asBoardId(board.externalId))
+          await activateCloudBoardAsActive(board.externalId)
           toast(`Opened "${board.title}"`, 'success')
           navigate('/')
         }

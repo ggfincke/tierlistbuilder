@@ -7,13 +7,17 @@ import {
   Clock,
   Eye,
   Layers,
+  Lock,
   Sparkles,
   TrendingUp,
 } from 'lucide-react'
 import { memo, type ComponentType, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 
-import type { MarketplaceTemplateSummary } from '@tierlistbuilder/contracts/marketplace/template'
+import type {
+  MarketplaceTemplateSummary,
+  TemplateCardAccessState,
+} from '@tierlistbuilder/contracts/marketplace/template'
 
 import {
   formatCount,
@@ -21,6 +25,7 @@ import {
   formatTimeToRank,
   pluralize,
 } from '~/shared/catalog/formatters'
+import { ACCESS_META } from '~/features/marketplace/model/accessMeta'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { Cover, type CoverStyle } from './Cover'
@@ -36,7 +41,7 @@ export type CardFeaturedLabel = 'editorsPick' | 'trending' | 'curated'
 
 interface CardProps
 {
-  template: MarketplaceTemplateSummary
+  template: MarketplaceTemplateSummary & { access?: TemplateCardAccessState }
   size?: CardSize
   // override cover treatment for stylistic variants (eg trending/curated rails
   // pass 'initials' so labels render instead of an image mosaic)
@@ -101,6 +106,9 @@ const CardImpl = ({
   const detailPath = `${TEMPLATES_ROUTE_PATH}/${template.slug}`
   const labelMeta = featuredLabel ? FEATURED_LABEL_META[featuredLabel] : null
   const showGenericFeatured = !labelMeta && template.featuredRank !== null
+  const accessLabel = template.access
+    ? ACCESS_META[template.access].chipLabel
+    : null
   const LabelIcon = labelMeta?.icon
 
   return (
@@ -142,6 +150,12 @@ const CardImpl = ({
           >
             {CATEGORY_META[template.category].label}
           </span>
+          {accessLabel && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase backdrop-blur">
+              <Lock className="h-3 w-3" strokeWidth={2} />
+              {accessLabel}
+            </span>
+          )}
         </div>
       </div>
 

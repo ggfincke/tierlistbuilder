@@ -1,9 +1,15 @@
 // src/app/shells/topNav/TopNavModalLayer.tsx
-// lazy preferences modal slot for global chrome
+// lazy account, auth, & preferences modal slots for global chrome
 
 import { lazy } from 'react'
 
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
+
+const AccountModal = lazy(() =>
+  import('~/features/platform/auth/ui/AccountModal').then((module) => ({
+    default: module.AccountModal,
+  }))
+)
 
 const PreferencesModal = lazy(() =>
   import('~/features/platform/preferences/ui/PreferencesModal').then(
@@ -13,19 +19,37 @@ const PreferencesModal = lazy(() =>
   )
 )
 
+const SignInModal = lazy(() =>
+  import('~/features/platform/auth/ui/SignInModal').then((module) => ({
+    default: module.SignInModal,
+  }))
+)
+
+export type TopNavModalKey = 'account' | 'preferences'
+
 interface TopNavModalLayerProps
 {
-  preferencesOpen: boolean
-  onClosePreferences: () => void
+  open: TopNavModalKey | null
+  signInOpen: boolean
+  onClose: () => void
+  onCloseSignIn: () => void
 }
 
 export const TopNavModalLayer = ({
-  preferencesOpen,
-  onClosePreferences,
+  open,
+  signInOpen,
+  onClose,
+  onCloseSignIn,
 }: TopNavModalLayerProps) => (
   <>
-    <LazyModalSlot when={preferencesOpen} section="preferences">
-      {() => <PreferencesModal open onClose={onClosePreferences} />}
+    <LazyModalSlot when={signInOpen} section="sign in">
+      {() => <SignInModal open onClose={onCloseSignIn} />}
+    </LazyModalSlot>
+    <LazyModalSlot when={open === 'account'} section="account">
+      {() => <AccountModal open onClose={onClose} />}
+    </LazyModalSlot>
+    <LazyModalSlot when={open === 'preferences'} section="preferences">
+      {() => <PreferencesModal open onClose={onClose} />}
     </LazyModalSlot>
   </>
 )

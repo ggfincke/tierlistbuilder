@@ -19,6 +19,7 @@ import type {
   CloudBoardTierWire,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type { BoardImageUploadResult } from '~/features/platform/media/imageUploader'
+import { getRenditionEntries, type RenditionKey } from '~/shared/lib/imageRefs'
 
 const DELETED_ITEM_ORDER = -1
 
@@ -31,7 +32,7 @@ const resolveImageRefMediaExternalId = (
   ref: TierItemImageRef | undefined,
   uploadResult: BoardImageUploadResult,
   item: TierItem,
-  fieldName: 'imageRef' | 'sourceImageRef'
+  fieldName: RenditionKey
 ): string | null | undefined =>
 {
   if (!ref)
@@ -68,25 +69,21 @@ const resolveItemMediaExternalIds = (
     return { mediaExternalId: itemExternalId }
   }
 
-  const sourceExternalId = resolveImageRefMediaExternalId(
-    item.sourceImageRef,
-    uploadResult,
-    item,
-    'sourceImageRef'
-  )
-  if (sourceExternalId)
+  for (const [fieldName, ref] of getRenditionEntries(item, 'board'))
   {
-    return { mediaExternalId: sourceExternalId }
-  }
-
-  return {
-    mediaExternalId: resolveImageRefMediaExternalId(
-      item.imageRef,
+    const externalId = resolveImageRefMediaExternalId(
+      ref,
       uploadResult,
       item,
-      'imageRef'
-    ),
+      fieldName
+    )
+    if (externalId)
+    {
+      return { mediaExternalId: externalId }
+    }
   }
+
+  return { mediaExternalId: null }
 }
 
 const toCloudItemWire = (
@@ -175,6 +172,17 @@ export const snapshotToCloudPayload = (
   }
 }
 
+const toCloudImageRef = (
+  hash: string | undefined,
+  mediaExternalId: string | undefined
+): TierItemImageRef | undefined =>
+  hash && mediaExternalId
+    ? {
+        hash,
+        cloudMediaExternalId: mediaExternalId,
+      }
+    : undefined
+
 // convert cloud server state to a local BoardSnapshot. images are wired
 // from the server's contentHash + externalId — the lazy fetcher hydrates
 // blobs into IDB on first render
@@ -195,20 +203,12 @@ export const serverStateToSnapshot = (
     const mediaExternalId = item.mediaExternalId ?? undefined
     items[asItemId(item.externalId)] = {
       id: asItemId(item.externalId),
-      imageRef:
-        item.mediaContentHash && mediaExternalId
-          ? {
-              hash: item.mediaContentHash,
-              cloudMediaExternalId: mediaExternalId,
-            }
-          : undefined,
-      sourceImageRef:
-        item.sourceMediaContentHash && mediaExternalId
-          ? {
-              hash: item.sourceMediaContentHash,
-              cloudMediaExternalId: mediaExternalId,
-            }
-          : undefined,
+      imageRef: toCloudImageRef(item.previewMediaContentHash, mediaExternalId),
+      tileImageRef: toCloudImageRef(item.mediaContentHash, mediaExternalId),
+      sourceImageRef: toCloudImageRef(
+        item.sourceMediaContentHash,
+        mediaExternalId
+      ),
       label: item.label,
       backgroundColor: item.backgroundColor,
       altText: item.altText,

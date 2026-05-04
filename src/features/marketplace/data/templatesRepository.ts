@@ -114,7 +114,7 @@ export interface PublishFromBoardArgs
   category: TemplateCategory
   tags: string[]
   visibility: TemplateVisibility
-  coverMediaExternalId: string | null
+  coverMediaExternalId?: string | null
   creditLine: string | null
 }
 

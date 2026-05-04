@@ -116,7 +116,6 @@ const PublishForm = ({ onClose, onPublished }: PublishFormProps) =>
       visibility,
       creditLine: creditLine.trim() ? creditLine.trim() : null,
       coverFile,
-      clearCover: coverFile === null,
     })
 
     if (result)

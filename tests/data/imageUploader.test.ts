@@ -34,13 +34,19 @@ vi.mock('~/shared/images/imageStore', () => ({
 
 const makeImageBoard = (
   imageRef: NonNullable<BoardSnapshot['items'][string]['imageRef']>,
+  tileImageRef?: NonNullable<BoardSnapshot['items'][string]['tileImageRef']>,
   sourceImageRef?: NonNullable<BoardSnapshot['items'][string]['sourceImageRef']>
 ): BoardSnapshot =>
 {
   const itemId = asItemId('item-1')
   return makeBoardSnapshot({
     items: {
-      [itemId]: makeItem({ id: itemId, imageRef, sourceImageRef }),
+      [itemId]: makeItem({
+        id: itemId,
+        imageRef,
+        tileImageRef,
+        sourceImageRef,
+      }),
     },
   })
 }
@@ -88,7 +94,10 @@ describe('uploadBoardImages', () =>
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
     vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
       envelopeUserId,
-      urls: [{ uploadUrl: 'https://uploads.example.test', uploadToken }],
+      urls: [
+        { uploadUrl: 'https://uploads.example.test/tile', uploadToken },
+        { uploadUrl: 'https://uploads.example.test/preview', uploadToken },
+      ],
     })
     vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
       'storage-1' as unknown as never
@@ -101,9 +110,9 @@ describe('uploadBoardImages', () =>
       makeImageBoard({ hash: record.hash }),
       'local-user-1'
     )
-    expect(generateUploadUrlsImperative).toHaveBeenCalledWith(1)
+    expect(generateUploadUrlsImperative).toHaveBeenCalledWith(2)
     expect(uploadEnvelopedBlob).toHaveBeenCalledWith({
-      uploadUrl: 'https://uploads.example.test',
+      uploadUrl: 'https://uploads.example.test/tile',
       uploadToken,
       envelopeUserId,
       blob: expect.any(Blob),
@@ -111,20 +120,23 @@ describe('uploadBoardImages', () =>
     expect(result.mediaExternalIdByHash.get(record.hash)).toBe('media-1')
     expect(markUploaded).toHaveBeenCalledWith(
       'local-user-1',
-      'media:hash-1:',
+      'media:hash-1:hash-1:',
       'media-1'
     )
   })
 
-  it('uploads source refs as editor variants under the display media asset', async () =>
+  it('uploads preview, tile, & source refs under one media asset', async () =>
   {
+    const previewToken = 'a'.repeat(64)
     const tileToken = 'b'.repeat(64)
     const editorToken = 'c'.repeat(64)
-    const display = makeLocalBlobRecord('display-hash')
+    const preview = makeLocalBlobRecord('preview-hash')
+    const tile = makeLocalBlobRecord('tile-hash')
     const source = makeLocalBlobRecord('source-hash')
     vi.mocked(getBlobsBatch).mockResolvedValue(
       new Map([
-        [display.hash, display],
+        [preview.hash, preview],
+        [tile.hash, tile],
         [source.hash, source],
       ])
     )
@@ -134,6 +146,10 @@ describe('uploadBoardImages', () =>
         {
           uploadUrl: 'https://uploads.example.test/tile',
           uploadToken: tileToken,
+        },
+        {
+          uploadUrl: 'https://uploads.example.test/preview',
+          uploadToken: previewToken,
         },
         {
           uploadUrl: 'https://uploads.example.test/editor',
@@ -149,16 +165,21 @@ describe('uploadBoardImages', () =>
     })
 
     const both = await uploadBoardImages(
-      makeImageBoard({ hash: display.hash }, { hash: source.hash }),
+      makeImageBoard(
+        { hash: preview.hash },
+        { hash: tile.hash },
+        { hash: source.hash }
+      ),
       'user-1'
     )
-    expect(generateUploadUrlsImperative).toHaveBeenCalledWith(2)
-    expect(both.mediaExternalIdByHash.get(display.hash)).toBe('media-1')
+    expect(generateUploadUrlsImperative).toHaveBeenCalledWith(3)
+    expect(both.mediaExternalIdByHash.get(preview.hash)).toBe('media-1')
+    expect(both.mediaExternalIdByHash.get(tile.hash)).toBe('media-1')
     expect(both.mediaExternalIdByHash.get(source.hash)).toBe('media-1')
     expect(both.mediaExternalIdByItemId.get('item-1')).toBe('media-1')
     expect(markUploaded).toHaveBeenCalledWith(
       'user-1',
-      'media:display-hash:source-hash',
+      'media:preview-hash:tile-hash:source-hash',
       'media-1'
     )
     expect(finalizeUploadVariantsImperative).toHaveBeenCalledWith({
@@ -169,6 +190,11 @@ describe('uploadBoardImages', () =>
           uploadToken: tileToken,
         },
         {
+          kind: 'preview',
+          storageId: 'storage-1',
+          uploadToken: previewToken,
+        },
+        {
           kind: 'editor',
           storageId: 'storage-1',
           uploadToken: editorToken,
@@ -177,17 +203,10 @@ describe('uploadBoardImages', () =>
     })
 
     vi.clearAllMocks()
-    vi.mocked(getBlobsBatch).mockResolvedValue(
-      new Map([[display.hash, display]])
-    )
+    vi.mocked(getBlobsBatch).mockResolvedValue(new Map())
     vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
       envelopeUserId: 'server-user-1',
-      urls: [
-        {
-          uploadUrl: 'https://uploads.example.test/tile',
-          uploadToken: tileToken,
-        },
-      ],
+      urls: [],
     })
     vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
       externalId: 'media-display',
@@ -195,12 +214,16 @@ describe('uploadBoardImages', () =>
 
     const reusedSource = await uploadBoardImages(
       makeImageBoard(
-        { hash: display.hash, cloudMediaExternalId: 'media-display' },
+        { hash: preview.hash, cloudMediaExternalId: 'media-display' },
+        { hash: tile.hash, cloudMediaExternalId: 'media-display' },
         { hash: 'cloud-source', cloudMediaExternalId: 'media-display' }
       ),
       'user-1'
     )
-    expect(reusedSource.mediaExternalIdByHash.get(display.hash)).toBe(
+    expect(reusedSource.mediaExternalIdByHash.get(preview.hash)).toBe(
+      'media-display'
+    )
+    expect(reusedSource.mediaExternalIdByHash.get(tile.hash)).toBe(
       'media-display'
     )
     expect(reusedSource.mediaExternalIdByHash.get('cloud-source')).toBe(
@@ -211,12 +234,14 @@ describe('uploadBoardImages', () =>
 
   it('keeps editor assets distinct when multiple items share a display hash', async () =>
   {
-    const display = makeLocalBlobRecord('display-same')
+    const preview = makeLocalBlobRecord('preview-same')
+    const tile = makeLocalBlobRecord('tile-same')
     const sourceA = makeLocalBlobRecord('source-a')
     const sourceB = makeLocalBlobRecord('source-b')
     vi.mocked(getBlobsBatch).mockResolvedValue(
       new Map([
-        [display.hash, display],
+        [preview.hash, preview],
+        [tile.hash, tile],
         [sourceA.hash, sourceA],
         [sourceB.hash, sourceB],
       ])
@@ -226,6 +251,10 @@ describe('uploadBoardImages', () =>
       urls: [
         { uploadUrl: 'https://uploads.example.test/tile', uploadToken: 'tile' },
         {
+          uploadUrl: 'https://uploads.example.test/preview',
+          uploadToken: 'preview',
+        },
+        {
           uploadUrl: 'https://uploads.example.test/editor',
           uploadToken: 'editor',
         },
@@ -233,8 +262,10 @@ describe('uploadBoardImages', () =>
     })
     vi.mocked(uploadEnvelopedBlob)
       .mockResolvedValueOnce('storage-tile-a' as unknown as never)
+      .mockResolvedValueOnce('storage-preview-a' as unknown as never)
       .mockResolvedValueOnce('storage-source-a' as unknown as never)
       .mockResolvedValueOnce('storage-tile-b' as unknown as never)
+      .mockResolvedValueOnce('storage-preview-b' as unknown as never)
       .mockResolvedValueOnce('storage-source-b' as unknown as never)
     vi.mocked(finalizeUploadVariantsImperative)
       .mockResolvedValueOnce({ externalId: 'media-a' })
@@ -248,12 +279,14 @@ describe('uploadBoardImages', () =>
         items: {
           [itemA]: makeItem({
             id: itemA,
-            imageRef: { hash: display.hash },
+            imageRef: { hash: preview.hash },
+            tileImageRef: { hash: tile.hash },
             sourceImageRef: { hash: sourceA.hash },
           }),
           [itemB]: makeItem({
             id: itemB,
-            imageRef: { hash: display.hash },
+            imageRef: { hash: preview.hash },
+            tileImageRef: { hash: tile.hash },
             sourceImageRef: { hash: sourceB.hash },
           }),
         },
@@ -266,12 +299,12 @@ describe('uploadBoardImages', () =>
     expect(result.mediaExternalIdByItemId.get(itemB)).toBe('media-b')
     expect(markUploaded).toHaveBeenCalledWith(
       'user-1',
-      'media:display-same:source-a',
+      'media:preview-same:tile-same:source-a',
       'media-a'
     )
     expect(markUploaded).toHaveBeenCalledWith(
       'user-1',
-      'media:display-same:source-b',
+      'media:preview-same:tile-same:source-b',
       'media-b'
     )
   })

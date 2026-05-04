@@ -14,6 +14,7 @@ import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
 import { Cover } from './Cover'
 import { StatusPill } from './StatusPill'
 import { TierBar } from './TierBar'
+import { VisibilityChip } from './VisibilityChip'
 
 interface BoardCardProps
 {
@@ -142,7 +143,10 @@ const BoardCardImpl = ({
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-1 text-[11px] text-[var(--t-text-muted)]">
-          <StatusPill status={board.status} />
+          <div className="flex min-w-0 items-center gap-1.5">
+            <StatusPill status={board.status} />
+            <VisibilityChip visibility={board.visibility} />
+          </div>
           <span className="text-[var(--t-text-faint)]">
             {formatRelativeTime(board.updatedAt)}
           </span>
