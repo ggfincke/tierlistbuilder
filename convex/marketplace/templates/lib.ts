@@ -84,6 +84,12 @@ type TemplateStatsCounters = Pick<
   Doc<'templateStats'>,
   'useCount' | 'viewCount'
 >
+type TemplateCardMetrics = TemplateStatsCounters & {
+  weeklyUseCount: number
+  weeklyViewCount: number
+  trendingScore: number
+  trendingComputedAt: number | null
+}
 
 type TemplatePatch = Partial<Omit<Doc<'templates'>, '_id' | '_creationTime'>>
 
@@ -103,6 +109,74 @@ const MAX_SEARCH_QUERY_LENGTH = 120
 const MAX_SLUG_ATTEMPTS = 8
 const MAX_DRAFT_COVER_ITEMS = 4
 export const MARKETPLACE_STATS_KEY = 'templates'
+export const TEMPLATE_TRENDING_WINDOW_DAYS = 7
+export const TEMPLATE_TRENDING_DAY_MS = 24 * 60 * 60 * 1000
+const TEMPLATE_TRENDING_NEWNESS_DAYS = 14
+const TEMPLATE_TRENDING_USE_WEIGHT = 100
+const TEMPLATE_TRENDING_VIEW_WEIGHT = 5
+const TEMPLATE_TRENDING_RECENCY_WEIGHT = 2
+
+export const getTemplateMetricDayStart = (now: number): number =>
+  Math.floor(now / TEMPLATE_TRENDING_DAY_MS) * TEMPLATE_TRENDING_DAY_MS
+
+const getTemplateCardMetrics = (
+  card: Pick<
+    Doc<'templateCards'>,
+    | 'useCount'
+    | 'viewCount'
+    | 'weeklyUseCount'
+    | 'weeklyViewCount'
+    | 'trendingScore'
+    | 'trendingComputedAt'
+  >
+): TemplateCardMetrics => ({
+  useCount: card.useCount,
+  viewCount: card.viewCount,
+  weeklyUseCount: card.weeklyUseCount ?? 0,
+  weeklyViewCount: card.weeklyViewCount ?? 0,
+  trendingScore: card.trendingScore ?? 0,
+  trendingComputedAt: card.trendingComputedAt ?? null,
+})
+
+const getInitialTemplateCardMetrics = (
+  stats: TemplateStatsCounters
+): TemplateCardMetrics => ({
+  ...stats,
+  weeklyUseCount: 0,
+  weeklyViewCount: 0,
+  trendingScore: 0,
+  trendingComputedAt: null,
+})
+
+export const calculateTemplateTrendingScore = (params: {
+  weeklyUseCount: number
+  weeklyViewCount: number
+  createdAt: number
+  now: number
+}): number =>
+{
+  const ageMs = Math.max(0, params.now - params.createdAt)
+  const activeDays = Math.max(
+    1,
+    Math.min(
+      TEMPLATE_TRENDING_WINDOW_DAYS,
+      Math.ceil(ageMs / TEMPLATE_TRENDING_DAY_MS)
+    )
+  )
+  const useRate = params.weeklyUseCount / activeDays
+  const viewRate = params.weeklyViewCount / activeDays
+  const newness =
+    Math.max(
+      0,
+      TEMPLATE_TRENDING_NEWNESS_DAYS - ageMs / TEMPLATE_TRENDING_DAY_MS
+    ) / TEMPLATE_TRENDING_NEWNESS_DAYS
+
+  return (
+    useRate * TEMPLATE_TRENDING_USE_WEIGHT +
+    viewRate * TEMPLATE_TRENDING_VIEW_WEIGHT +
+    newness * TEMPLATE_TRENDING_RECENCY_WEIGHT
+  )
+}
 
 export const createTemplateProjectionCache = (): TemplateProjectionCache => ({
   authors: new Map(),
@@ -567,12 +641,50 @@ export const deleteTemplateStats = async (
   await ctx.db.delete(stats._id)
 }
 
+const incrementTemplateMetricDay = async (
+  ctx: MutationCtx,
+  template: Pick<Doc<'templates'>, '_id' | 'category'>,
+  now: number,
+  metric: 'useCount' | 'viewCount'
+): Promise<void> =>
+{
+  const dayStartAt = getTemplateMetricDayStart(now)
+  const existing = await ctx.db
+    .query('templateMetricDays')
+    .withIndex('byTemplateDay', (q) =>
+      q.eq('templateId', template._id).eq('dayStartAt', dayStartAt)
+    )
+    .unique()
+
+  if (existing)
+  {
+    await ctx.db.patch(existing._id, {
+      category: template.category,
+      [metric]: existing[metric] + 1,
+      updatedAt: now,
+    })
+    return
+  }
+
+  await ctx.db.insert('templateMetricDays', {
+    templateId: template._id,
+    category: template.category,
+    dayStartAt,
+    useCount: metric === 'useCount' ? 1 : 0,
+    viewCount: metric === 'viewCount' ? 1 : 0,
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
 export const incrementTemplateUseStats = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
   now: number
 ): Promise<TemplateStatsCounters> =>
 {
+  const template = await ctx.db.get(templateId)
+  if (!template) return failState(`template missing: ${templateId}`)
   const [stats, card] = await Promise.all([
     requireTemplateStats(ctx, templateId),
     requireTemplateCardByTemplateId(ctx, templateId),
@@ -590,6 +702,35 @@ export const incrementTemplateUseStats = async (
       useCount: next.useCount,
       viewCount: next.viewCount,
     }),
+    incrementTemplateMetricDay(ctx, template, now, 'useCount'),
+  ])
+  return next
+}
+
+export const incrementTemplateViewStats = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>,
+  now: number
+): Promise<TemplateStatsCounters> =>
+{
+  const [stats, card] = await Promise.all([
+    requireTemplateStats(ctx, template._id),
+    requireTemplateCardByTemplateId(ctx, template._id),
+  ])
+  const next = {
+    useCount: stats.useCount,
+    viewCount: stats.viewCount + 1,
+  }
+  await Promise.all([
+    ctx.db.patch(stats._id, {
+      ...next,
+      updatedAt: now,
+    }),
+    ctx.db.patch(card._id, {
+      useCount: next.useCount,
+      viewCount: next.viewCount,
+    }),
+    incrementTemplateMetricDay(ctx, template, now, 'viewCount'),
   ])
   return next
 }
@@ -953,7 +1094,7 @@ const toTemplateCardAuthorFields = async (
 const buildTemplateCardFields = async (
   ctx: DbCtx,
   template: TemplateCardSource,
-  stats: TemplateStatsCounters
+  metrics: TemplateCardMetrics
 ): Promise<Omit<Doc<'templateCards'>, '_id' | '_creationTime'>> =>
 {
   const author = await toTemplateCardAuthorFields(ctx, template.authorId)
@@ -980,8 +1121,12 @@ const buildTemplateCardFields = async (
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
     featuredRank: template.featuredRank,
-    useCount: stats.useCount,
-    viewCount: stats.viewCount,
+    useCount: metrics.useCount,
+    viewCount: metrics.viewCount,
+    weeklyUseCount: metrics.weeklyUseCount,
+    weeklyViewCount: metrics.weeklyViewCount,
+    trendingScore: metrics.trendingScore,
+    trendingComputedAt: metrics.trendingComputedAt,
     creditLine: template.creditLine,
     searchText: buildSearchText({
       title: template.title,
@@ -1026,7 +1171,11 @@ export const writeTemplateCard = async (
   stats: TemplateStatsCounters
 ): Promise<void> =>
 {
-  const fields = await buildTemplateCardFields(ctx, template, stats)
+  const fields = await buildTemplateCardFields(
+    ctx,
+    template,
+    getInitialTemplateCardMetrics(stats)
+  )
   const existing = await findTemplateCardByTemplateId(ctx, template._id)
   if (existing)
   {
@@ -1045,10 +1194,12 @@ export const writeTemplateCardPreservingCounters = async (
 ): Promise<void> =>
 {
   const card = await findTemplateCardByTemplateId(ctx, template._id)
-  const stats: TemplateStatsCounters = card
-    ? { useCount: card.useCount, viewCount: card.viewCount }
-    : await requireTemplateStats(ctx, template._id)
-  const fields = await buildTemplateCardFields(ctx, template, stats)
+  const metrics = card
+    ? getTemplateCardMetrics(card)
+    : getInitialTemplateCardMetrics(
+        await requireTemplateStats(ctx, template._id)
+      )
+  const fields = await buildTemplateCardFields(ctx, template, metrics)
   if (card)
   {
     await ctx.db.patch(card._id, fields)
@@ -1202,6 +1353,10 @@ export const toTemplateCardSummary = async (
     itemCount: card.itemCount,
     useCount: card.useCount,
     viewCount: card.viewCount,
+    weeklyUseCount: card.weeklyUseCount ?? 0,
+    weeklyViewCount: card.weeklyViewCount ?? 0,
+    trendingScore: card.trendingScore ?? 0,
+    trendingComputedAt: card.trendingComputedAt ?? null,
     featuredRank: card.featuredRank,
     creditLine: card.creditLine,
     createdAt: card.createdAt,
@@ -1216,7 +1371,7 @@ export const toTemplateBase = async (
   cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateBase> =>
 {
-  const [author, coverMedia, stats] = await Promise.all([
+  const [author, coverMedia, stats, card] = await Promise.all([
     toTemplateAuthor(ctx, template.authorId, cache),
     toTemplateMediaRefWithFallback(
       ctx,
@@ -1225,7 +1380,11 @@ export const toTemplateBase = async (
       cache
     ),
     requireTemplateStats(ctx, template._id, cache),
+    findTemplateCardByTemplateId(ctx, template._id),
   ])
+  const metrics = card
+    ? getTemplateCardMetrics(card)
+    : getInitialTemplateCardMetrics(stats)
 
   return {
     slug: template.slug,
@@ -1241,6 +1400,10 @@ export const toTemplateBase = async (
     itemCount: template.itemCount,
     useCount: stats.useCount,
     viewCount: stats.viewCount,
+    weeklyUseCount: metrics.weeklyUseCount,
+    weeklyViewCount: metrics.weeklyViewCount,
+    trendingScore: metrics.trendingScore,
+    trendingComputedAt: metrics.trendingComputedAt,
     featuredRank: template.featuredRank,
     creditLine: template.creditLine,
     createdAt: template.createdAt,

@@ -52,6 +52,7 @@ const PublishModal = lazy(() =>
 
 const SORT_LABELS: Record<TemplateListSort, string> = {
   featured: 'Featured',
+  trending: 'Trending',
   popular: 'Most popular',
   recent: 'Recently added',
 }

@@ -17,7 +17,11 @@ import {
   adjustPublicTemplateCount,
   buildBoardItemInsertFromTemplateItem,
   buildTemplateStateFields,
+  calculateTemplateTrendingScore,
   deleteTemplateParentForCascade,
+  getTemplateMetricDayStart,
+  TEMPLATE_TRENDING_DAY_MS,
+  TEMPLATE_TRENDING_WINDOW_DAYS,
   incrementTemplateUseStats,
   isActiveTemplateJob,
   isPublishedTemplateRow,
@@ -534,5 +538,74 @@ export const syncTemplateCardsForAuthor = internalMutation({
       )
     }
     return null
+  },
+})
+
+const recomputeTemplateTrendingForCard = async (
+  ctx: MutationCtx,
+  card: Doc<'templateCards'>,
+  now: number
+): Promise<void> =>
+{
+  const windowStart =
+    getTemplateMetricDayStart(now) -
+    (TEMPLATE_TRENDING_WINDOW_DAYS - 1) * TEMPLATE_TRENDING_DAY_MS
+  const metricRows = await ctx.db
+    .query('templateMetricDays')
+    .withIndex('byTemplateDay', (q) =>
+      q.eq('templateId', card.templateId).gt('dayStartAt', windowStart - 1)
+    )
+    .take(TEMPLATE_TRENDING_WINDOW_DAYS)
+  const weeklyUseCount = metricRows.reduce((sum, row) => sum + row.useCount, 0)
+  const weeklyViewCount = metricRows.reduce(
+    (sum, row) => sum + row.viewCount,
+    0
+  )
+  const trendingScore = calculateTemplateTrendingScore({
+    weeklyUseCount,
+    weeklyViewCount,
+    createdAt: card.createdAt,
+    now,
+  })
+
+  await ctx.db.patch(card._id, {
+    weeklyUseCount,
+    weeklyViewCount,
+    trendingScore,
+    trendingComputedAt: now,
+  })
+}
+
+export const recomputeTemplateTrendingScores = internalMutation({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    now: v.optional(v.number()),
+  },
+  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ processed: number; isDone: boolean }> =>
+  {
+    const now = args.now ?? Date.now()
+    const page = await ctx.db.query('templateCards').paginate({
+      numItems: BATCH_LIMITS.templateTrendingRecompute,
+      cursor: args.cursor,
+    })
+
+    await Promise.all(
+      page.page.map((card) => recomputeTemplateTrendingForCard(ctx, card, now))
+    )
+
+    if (!page.isDone)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal.recomputeTemplateTrendingScores,
+        { cursor: page.continueCursor, now }
+      )
+    }
+
+    return { processed: page.page.length, isDone: page.isDone }
   },
 })

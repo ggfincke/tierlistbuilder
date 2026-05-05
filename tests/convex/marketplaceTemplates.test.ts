@@ -13,6 +13,7 @@ import {
   isTemplateSlug,
   type MarketplaceTemplateCount,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import { isRankingSlug } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type {
   BoardLabelSettings,
@@ -995,6 +996,69 @@ describe('marketplace template Convex functions', () =>
     })
   })
 
+  it('tracks rolling template metrics for trending and owner management reads', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    const consumerId = await seedUser(t, 'Consumer', 'consumer@example.com')
+    await seedSourceBoard(t, authorId)
+
+    const { slug } = await asUser(t, authorId).mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Trending Template',
+        category: 'gaming',
+        tags: ['trend'],
+        visibility: 'public',
+      }
+    )
+
+    await t.mutation(api.marketplace.templates.mutations.recordTemplateView, {
+      slug,
+    })
+    await t.mutation(api.marketplace.templates.mutations.recordTemplateView, {
+      slug,
+    })
+    await asUser(t, consumerId).mutation(
+      api.marketplace.templates.mutations.useTemplate,
+      { slug }
+    )
+    await t.mutation(
+      internal.marketplace.templates.internal.recomputeTemplateTrendingScores,
+      { cursor: null }
+    )
+
+    const gallery = await t.query(
+      api.marketplace.templates.queries.getTemplatesGallery,
+      { sort: 'trending' }
+    )
+    expect(gallery.trending[0]).toMatchObject({
+      slug,
+      weeklyUseCount: 1,
+      weeklyViewCount: 2,
+      useCount: 1,
+      viewCount: 2,
+    })
+    expect(gallery.trending[0].trendingScore).toBeGreaterThan(0)
+    expect(gallery.results[0]).toMatchObject({ slug })
+
+    const owned = await asUser(t, authorId).query(
+      api.marketplace.templates.queries.getMyTemplateManagementList,
+      {}
+    )
+    expect(owned.items).toEqual([
+      expect.objectContaining({
+        slug,
+        isPubliclyListable: true,
+        weeklyUseCount: 1,
+        weeklyViewCount: 2,
+        useCount: 1,
+        viewCount: 2,
+      }),
+    ])
+  })
+
   it('clones a template w/ user preset & propagates layout settings + transforms', async () =>
   {
     const t = makeTest()
@@ -1169,5 +1233,115 @@ describe('marketplace template Convex functions', () =>
       {}
     )
     expect(drafts.drafts).toEqual([])
+  })
+
+  it('publishes completed template rankings and remixes them into ranked boards', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    const rankerId = await seedUser(t, 'Ranker', 'ranker@example.com')
+    const remixerId = await seedUser(t, 'Remixer', 'remixer@example.com')
+    await seedSourceBoard(t, authorId)
+
+    const { slug: templateSlug } = await asUser(t, authorId).mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Ranking Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+      }
+    )
+    const ranker = asUser(t, rankerId)
+    const { boardExternalId } = await ranker.mutation(
+      api.marketplace.templates.mutations.useTemplate,
+      { slug: templateSlug, title: 'Finished Ranking' }
+    )
+    const draft = await ranker.query(
+      api.workspace.boards.queries.getBoardStateByExternalId,
+      { boardExternalId }
+    )
+    const sortedItems = draft!.items.slice().sort((a, b) => a.order - b.order)
+    await ranker.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId,
+        baseRevision: draft!.revision,
+        title: draft!.title,
+        tiers: draft!.tiers.map((tier) =>
+          toWireTier(
+            tier,
+            tier.externalId === draft!.tiers[0].externalId
+              ? sortedItems.map((i) => i.externalId)
+              : []
+          )
+        ),
+        items: sortedItems.map((item, order) =>
+          toWireItem(item, draft!.tiers[0].externalId, order)
+        ),
+        deletedItemIds: [],
+      }
+    )
+
+    const published = await ranker.mutation(
+      api.marketplace.rankings.mutations.publishRankingFromBoard,
+      {
+        boardExternalId,
+        title: 'Published Ranking',
+        visibility: 'public',
+      }
+    )
+    expect(isRankingSlug(published.slug)).toBe(true)
+
+    const detail = await t.query(
+      api.marketplace.rankings.queries.getRankingBySlug,
+      { slug: published.slug }
+    )
+    expect(detail).toMatchObject({
+      slug: published.slug,
+      title: 'Published Ranking',
+      template: { slug: templateSlug, title: 'Ranking Template' },
+      itemCount: 2,
+      tierCount: 1,
+    })
+    expect(detail?.items.every((item) => item.tierExternalId !== null)).toBe(
+      true
+    )
+
+    await t.mutation(api.marketplace.rankings.mutations.recordRankingView, {
+      slug: published.slug,
+    })
+    const remixed = await asUser(t, remixerId).mutation(
+      api.marketplace.rankings.mutations.remixRanking,
+      { slug: published.slug, title: 'Remixed Ranking' }
+    )
+    const board = await asUser(t, remixerId).query(
+      api.workspace.boards.queries.getBoardStateByExternalId,
+      { boardExternalId: remixed.boardExternalId }
+    )
+    expect(board).toMatchObject({ title: 'Remixed Ranking' })
+    expect(board?.items).toHaveLength(2)
+    expect(board?.items.every((item) => item.tierId !== null)).toBe(true)
+    const libraryRows = await asUser(t, remixerId).query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(libraryRows[0]).toMatchObject({
+      externalId: remixed.boardExternalId,
+      category: 'gaming',
+    })
+
+    const rankings = await t.query(
+      api.marketplace.rankings.queries.getRankingsForTemplate,
+      { templateSlug }
+    )
+    expect(rankings.items).toEqual([
+      expect.objectContaining({
+        slug: published.slug,
+        remixCount: 1,
+        viewCount: 1,
+      }),
+    ])
   })
 })
