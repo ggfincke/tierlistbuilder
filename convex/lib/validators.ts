@@ -225,6 +225,7 @@ export const appPreferencesValidator = v.object({
   itemSize: itemSizeValidator,
   showLabels: v.boolean(),
   defaultLabelPlacementMode: labelPlacementModeValidator,
+  defaultLabelFontSizePx: v.number(),
   itemShape: itemShapeValidator,
   compactMode: v.boolean(),
   exportBackgroundOverride: v.union(v.string(), v.null()),

@@ -48,6 +48,11 @@ const BoardSettingsModal = lazy(() =>
     default: m.BoardSettingsModal,
   }))
 )
+const PublishRankingModal = lazy(() =>
+  import('~/features/marketplace/components/PublishRankingModal').then((m) => ({
+    default: m.PublishRankingModal,
+  }))
+)
 const ShortcutsPanel = lazy(() =>
   import('~/features/workspace/shortcuts/ui/ShortcutsPanel').then((m) => ({
     default: m.ShortcutsPanel,
@@ -104,6 +109,10 @@ export const WorkspaceModalLayer = ({
   )
   const handleCloseStats = useCallback(() => closeModal('stats'), [closeModal])
   const handleCloseShare = useCallback(() => closeModal('share'), [closeModal])
+  const handleClosePublishRanking = useCallback(
+    () => closeModal('publishRanking'),
+    [closeModal]
+  )
   const handleCloseAnnotation = useCallback(
     () => closeModal('annotation'),
     [closeModal]
@@ -157,6 +166,16 @@ export const WorkspaceModalLayer = ({
             open
             onClose={handleCloseShare}
             getSnapshot={() => extractBoardData(useActiveBoardStore.getState())}
+          />
+        )}
+      </LazyModalSlot>
+      <LazyModalSlot when={modalState.publishRanking} section="publish ranking">
+        {(publishRanking) => (
+          <PublishRankingModal
+            open
+            onClose={handleClosePublishRanking}
+            boardExternalId={publishRanking.payload.boardExternalId}
+            defaultTitle={publishRanking.payload.defaultTitle}
           />
         )}
       </LazyModalSlot>

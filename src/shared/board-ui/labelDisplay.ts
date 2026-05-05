@@ -36,15 +36,16 @@ const clampFontSizePx = (value: number | undefined): number | undefined =>
 
 const resolveFontSizePx = (
   itemFont: number | undefined,
-  boardFont: number | undefined
+  boardFont: number | undefined,
+  globalFont: number
 ): number =>
 {
-  // explicit pixel size wins, layered like everything else (item > board)
+  // explicit pixel size wins, layered like everything else (item > board > global)
   const itemPx = clampFontSizePx(itemFont)
   if (itemPx !== undefined) return itemPx
   const boardPx = clampFontSizePx(boardFont)
   if (boardPx !== undefined) return boardPx
-  return LABEL_FONT_SIZE_PX_DEFAULT
+  return clampFontSizePx(globalFont) ?? LABEL_FONT_SIZE_PX_DEFAULT
 }
 
 interface ResolveInput
@@ -87,7 +88,8 @@ export const resolveLabelDisplay = (
       input.itemOptions?.scrim ?? input.boardSettings?.scrim ?? DEFAULT_SCRIM,
     fontSizePx: resolveFontSizePx(
       input.itemOptions?.fontSizePx,
-      input.boardSettings?.fontSizePx
+      input.boardSettings?.fontSizePx,
+      input.globalLabelDefaults.fontSizePx
     ),
     textStyleId:
       input.itemOptions?.textStyleId ?? input.boardSettings?.textStyleId,
@@ -117,7 +119,8 @@ export const resolveLabelLayout = (
     input.itemOptions?.scrim ?? input.boardSettings?.scrim ?? DEFAULT_SCRIM,
   fontSizePx: resolveFontSizePx(
     input.itemOptions?.fontSizePx,
-    input.boardSettings?.fontSizePx
+    input.boardSettings?.fontSizePx,
+    input.globalLabelDefaults.fontSizePx
   ),
   textStyleId:
     input.itemOptions?.textStyleId ?? input.boardSettings?.textStyleId,

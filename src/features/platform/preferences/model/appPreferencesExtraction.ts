@@ -7,6 +7,7 @@ const APP_PREFERENCES_KEYS = [
   'itemSize',
   'showLabels',
   'defaultLabelPlacementMode',
+  'defaultLabelFontSizePx',
   'itemShape',
   'compactMode',
   'exportBackgroundOverride',

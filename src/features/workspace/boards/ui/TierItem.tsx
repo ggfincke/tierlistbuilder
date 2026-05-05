@@ -76,6 +76,7 @@ export const TierItem = memo(
       itemShape,
       showLabels,
       defaultLabelPlacementMode,
+      defaultLabelFontSizePx,
       boardLocked,
       showAltTextButton,
     } = usePreferencesStore(
@@ -83,6 +84,7 @@ export const TierItem = memo(
         itemShape: state.itemShape,
         showLabels: state.showLabels,
         defaultLabelPlacementMode: state.defaultLabelPlacementMode,
+        defaultLabelFontSizePx: state.defaultLabelFontSizePx,
         boardLocked: state.boardLocked,
         showAltTextButton: state.showAltTextButton,
       }))
@@ -286,6 +288,7 @@ export const TierItem = memo(
               globalLabelDefaults: {
                 showLabels,
                 placementMode: defaultLabelPlacementMode,
+                fontSizePx: defaultLabelFontSizePx,
               },
             })}
             fit={effectiveFit}

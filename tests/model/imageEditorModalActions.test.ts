@@ -4,7 +4,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  LABEL_FONT_SIZE_PX_DEFAULT,
+  type ItemTransform,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   buildBoardLabelSettingsFromSource,
   countAdjustedImageEditorItems,
@@ -17,6 +20,7 @@ import { makeItem } from '../fixtures'
 const defaultGlobalLabels = {
   showLabels: true,
   placementMode: 'overlay',
+  fontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
 } as const
 
 const adjustedTransform: ItemTransform = {
@@ -92,7 +96,11 @@ describe('image editor modal actions', () =>
       buildBoardLabelSettingsFromSource({
         source: auto,
         boardLabels: { textColor: 'purple' },
-        globalLabelDefaults: { showLabels: false, placementMode: 'overlay' },
+        globalLabelDefaults: {
+          showLabels: false,
+          placementMode: 'overlay',
+          fontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
+        },
       })
     ).not.toHaveProperty('textColor')
   })

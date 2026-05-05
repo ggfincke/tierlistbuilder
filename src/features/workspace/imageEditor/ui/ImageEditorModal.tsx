@@ -94,12 +94,16 @@ const ImageEditorModalBody = () =>
   const globalLabelPlacementMode = usePreferencesStore(
     (s) => s.defaultLabelPlacementMode
   )
+  const globalLabelFontSizePx = usePreferencesStore(
+    (s) => s.defaultLabelFontSizePx
+  )
   const globalLabelDefaults = useMemo<GlobalLabelDefaults>(
     () => ({
       showLabels: globalShowLabels,
       placementMode: globalLabelPlacementMode,
+      fontSizePx: globalLabelFontSizePx,
     }),
-    [globalShowLabels, globalLabelPlacementMode]
+    [globalShowLabels, globalLabelPlacementMode, globalLabelFontSizePx]
   )
   const globalTextStyleId = usePreferencesStore((s) => s.textStyleId)
   const boardItemSize = usePreferencesStore((s) => s.itemSize)

@@ -308,6 +308,15 @@ export const TemplatesGalleryPage = () =>
         <>
           <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
             <RailHeader
+              title="Trending this week"
+              subtitle="Hottest forks in the last 7 days"
+              icon={Flame}
+            />
+            <Rail items={gallery.trending} size="small" />
+          </section>
+
+          <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
+            <RailHeader
               title="Most popular"
               subtitle="All-time forks"
               icon={TrendingUp}

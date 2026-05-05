@@ -19,6 +19,7 @@ import { ConflictResolverModal } from '~/features/workspace/boards/ui/ConflictRe
 import { TierList } from '~/features/workspace/boards/ui/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useWarmActiveBoardImages } from '~/features/workspace/boards/model/useWarmActiveBoardImages'
 import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
@@ -95,6 +96,22 @@ export const WorkspaceShell = () =>
   )
   const handleOpenStats = useCallback(() => openModal('stats'), [openModal])
   const handleOpenShare = useCallback(() => openModal('share'), [openModal])
+  const activeBoardId = useWorkspaceBoardRegistryStore(
+    (state) => state.activeBoardId
+  )
+  const activeBoardTitle = useActiveBoardStore((state) => state.title)
+  const handleOpenPublishRanking = useCallback(() =>
+  {
+    if (!activeBoardId) return
+    openModal('publishRanking', {
+      boardExternalId: activeBoardId,
+      defaultTitle: activeBoardTitle,
+    })
+  }, [activeBoardId, activeBoardTitle, openModal])
+  // gate the menu entry on signed-in + an active board; the mutation enforces
+  // template-backed + completed-ranking server-side
+  const handlePublishRanking =
+    cloudEnabled && activeBoardId ? handleOpenPublishRanking : null
   if (!appReady)
   {
     return (
@@ -149,6 +166,7 @@ export const WorkspaceShell = () =>
                     onAnnotateExport={exportActions.handleAnnotateExport}
                     onPreviewExport={exportActions.handlePreviewExport}
                     onShare={handleOpenShare}
+                    onPublishRanking={handlePublishRanking}
                     onReset={handleResetBoard}
                   />
                 }

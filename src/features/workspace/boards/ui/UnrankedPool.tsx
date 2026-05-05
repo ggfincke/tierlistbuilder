@@ -3,10 +3,12 @@
 
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
-import { Search, X } from 'lucide-react'
+import { Library, Search, X } from 'lucide-react'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useImageImport } from '~/features/workspace/settings/model/useImageImport'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
@@ -222,6 +224,21 @@ export const UnrankedPool = () =>
           )}
         </div>
       </SortableContext>
+
+      {itemCount === 0 && !boardLocked && !isSearching && (
+        <div className="mt-2 flex flex-col items-center gap-1.5 rounded-md border border-dashed border-[var(--t-border-secondary)] bg-[rgb(var(--t-overlay)/0.02)] px-3 py-3 text-center">
+          <p className="text-xs text-[var(--t-text-muted)]">
+            Don't have items yet? Start from a community template.
+          </p>
+          <Link
+            to={TEMPLATES_ROUTE_PATH}
+            className="focus-custom inline-flex items-center gap-1.5 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          >
+            <Library className="h-3 w-3" strokeWidth={1.8} />
+            Browse templates
+          </Link>
+        </div>
+      )}
     </>
   )
 

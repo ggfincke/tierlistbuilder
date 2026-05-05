@@ -72,6 +72,7 @@ interface BoardActionBarProps
   onAnnotateExport: () => void
   onPreviewExport: () => void
   onShare: () => void
+  onPublishRanking: (() => void) | null
   onReset: () => void
 }
 
@@ -91,6 +92,7 @@ export const BoardActionBar = ({
   onAnnotateExport,
   onPreviewExport,
   onShare,
+  onPublishRanking,
   onReset,
 }: BoardActionBarProps) =>
 {
@@ -321,6 +323,7 @@ export const BoardActionBar = ({
             onAnnotateExport={onAnnotateExport}
             onPreviewExport={onPreviewExport}
             onShare={onShare}
+            onPublishRanking={onPublishRanking}
           />
 
           <ActionButton

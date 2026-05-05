@@ -3,10 +3,17 @@
 
 import type { SettingsTab } from '~/features/workspace/settings/ui/BoardSettingsModal'
 
+export interface PublishRankingPayload
+{
+  boardExternalId: string
+  defaultTitle: string
+}
+
 export type WorkspaceModalPayloads = {
   settings: SettingsTab
   stats: undefined
   share: undefined
   annotation: string
   preview: string
+  publishRanking: PublishRankingPayload
 }

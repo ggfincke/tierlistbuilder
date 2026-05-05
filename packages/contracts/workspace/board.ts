@@ -136,12 +136,14 @@ const PLACEMENT_BY_MODE: Record<LabelPlacementMode, LabelPlacement> = {
 export const placementFromMode = (mode: LabelPlacementMode): LabelPlacement =>
   PLACEMENT_BY_MODE[mode]
 
-// global label defaults bundled together — both fields always travel as a
-// pair through the resolver & per-board apply-to-all plans
+// global label defaults bundled together — fields always travel as a pair
+// through the resolver & per-board apply-to-all plans. fontSizePx is the
+// final fallback when neither item nor board sets one
 export interface GlobalLabelDefaults
 {
   showLabels: boolean
   placementMode: LabelPlacementMode
+  fontSizePx: number
 }
 
 // snap presets surfaced in the editor — center-x w/ three canned y values
