@@ -28,6 +28,11 @@ import {
 } from '~/features/workspace/boards/model/usePublishableBoards'
 import { BoardPicker } from './BoardPicker'
 import { CoverImageInput } from './CoverImageInput'
+import {
+  createInitialPublishBoardSelection,
+  resolveSelectedPublishBoard,
+  type PublishBoardSelection,
+} from './publishBoardSelection'
 import { TagsInput } from './TagsInput'
 
 export interface PublishModalEditInitialValues
@@ -49,6 +54,9 @@ interface PublishModalProps
   // when present, the modal switches to edit mode against this slug; the form
   // is prefilled from initialValues & calls updateMyTemplateMeta on submit
   edit?: PublishModalEditInitialValues
+  // pre-select this board id in the picker (publish mode only). lets workspace
+  // entry points default to the active board instead of the most-recent one
+  initialBoardExternalId?: string | null
 }
 
 const VISIBILITY_LABELS: Record<TemplateVisibility, string> = {
@@ -61,11 +69,17 @@ interface PublishFormProps
   onClose: () => void
   onPublished?: () => void
   edit?: PublishModalEditInitialValues
+  initialBoardExternalId?: string | null
 }
 
 // holds all form state; mounted only while the modal is open so reopening
 // the modal restarts w/ a clean draft
-const PublishForm = ({ onClose, onPublished, edit }: PublishFormProps) =>
+const PublishForm = ({
+  onClose,
+  onPublished,
+  edit,
+  initialBoardExternalId,
+}: PublishFormProps) =>
 {
   const titleFieldId = useId()
   const descFieldId = useId()
@@ -78,8 +92,10 @@ const PublishForm = ({ onClose, onPublished, edit }: PublishFormProps) =>
   const publishAction = usePublishTemplate()
   const updateAction = useUpdateTemplate()
 
-  const [boardOverride, setBoardOverride] = useState<PublishableBoard | null>(
-    null
+  // preserve an unmatched workspace source as "no board" so publish never
+  // silently selects a different local board
+  const [boardSelection, setBoardSelection] = useState<PublishBoardSelection>(
+    () => createInitialPublishBoardSelection({ isEdit, initialBoardExternalId })
   )
   const [titleOverride, setTitleOverride] = useState<string | null>(
     edit?.title ?? null
@@ -98,7 +114,9 @@ const PublishForm = ({ onClose, onPublished, edit }: PublishFormProps) =>
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverError, setCoverError] = useState<string | null>(null)
 
-  const board = boardOverride ?? boards[0] ?? null
+  const board = isEdit
+    ? null
+    : resolveSelectedPublishBoard(boards, boardSelection)
   const title = titleOverride ?? (board ? board.title : '')
 
   const isPending = isEdit ? updateAction.isPending : publishAction.isPending
@@ -109,7 +127,10 @@ const PublishForm = ({ onClose, onPublished, edit }: PublishFormProps) =>
   // user-set; the default-derived case is a no-op since title flows from board
   const handleBoardChange = (next: PublishableBoard) =>
   {
-    setBoardOverride(next)
+    setBoardSelection({
+      kind: 'explicit',
+      boardExternalId: next.boardExternalId,
+    })
     setTitleOverride(null)
   }
 
@@ -391,6 +412,7 @@ export const PublishModal = ({
   onClose,
   onPublished,
   edit,
+  initialBoardExternalId,
 }: PublishModalProps) =>
 {
   const titleId = useId()
@@ -412,7 +434,12 @@ export const PublishModal = ({
           : 'Strip the rankings & share your item set so others can fork it into their own tier list.'}
       </p>
 
-      <PublishForm onClose={onClose} onPublished={onPublished} edit={edit} />
+      <PublishForm
+        onClose={onClose}
+        onPublished={onPublished}
+        edit={edit}
+        initialBoardExternalId={initialBoardExternalId}
+      />
     </BaseModal>
   )
 }

@@ -15,6 +15,8 @@ import {
   loadImageEditorModal,
   preloadImageEditorModal,
 } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
+import { loadPublishModal } from '~/features/marketplace/components/loadPublishModal'
+import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { ProgressOverlay } from '~/shared/overlay/ProgressOverlay'
 
@@ -53,9 +55,17 @@ const PublishRankingModal = lazy(() =>
     default: m.PublishRankingModal,
   }))
 )
+const PublishTemplateModal = lazy(() =>
+  loadPublishModal().then((m) => ({ default: m.PublishModal }))
+)
 const ShortcutsPanel = lazy(() =>
   import('~/features/workspace/shortcuts/ui/ShortcutsPanel').then((m) => ({
     default: m.ShortcutsPanel,
+  }))
+)
+const ItemPreviewModal = lazy(() =>
+  import('~/features/workspace/preview/ui/ItemPreviewModal').then((m) => ({
+    default: m.ItemPreviewModal,
   }))
 )
 
@@ -94,6 +104,9 @@ export const WorkspaceModalLayer = ({
 {
   const { state: modalState, close: closeModal } = modalStack
   const imageEditorOpen = useImageEditorStore((state) => state.isOpen)
+  const itemPreviewOpen = useItemPreviewStore((state) => state.isOpen)
+  const itemPreviewItemId = useItemPreviewStore((state) => state.itemId)
+  const closeItemPreview = useItemPreviewStore((state) => state.close)
 
   const handleCloseSettings = useCallback(
     () => closeModal('settings'),
@@ -111,6 +124,10 @@ export const WorkspaceModalLayer = ({
   const handleCloseShare = useCallback(() => closeModal('share'), [closeModal])
   const handleClosePublishRanking = useCallback(
     () => closeModal('publishRanking'),
+    [closeModal]
+  )
+  const handleClosePublishTemplate = useCallback(
+    () => closeModal('publishTemplate'),
     [closeModal]
   )
   const handleCloseAnnotation = useCallback(
@@ -179,6 +196,20 @@ export const WorkspaceModalLayer = ({
           />
         )}
       </LazyModalSlot>
+      <LazyModalSlot
+        when={modalState.publishTemplate}
+        section="publish template"
+      >
+        {(publishTemplate) => (
+          <PublishTemplateModal
+            open
+            onClose={handleClosePublishTemplate}
+            initialBoardExternalId={
+              publishTemplate.payload.initialBoardExternalId
+            }
+          />
+        )}
+      </LazyModalSlot>
       {exportAllProgress && (
         <ProgressOverlay
           title="Exporting Boards"
@@ -197,6 +228,14 @@ export const WorkspaceModalLayer = ({
       />
       <LazyModalSlot when={imageEditorOpen} section="image editor">
         {() => <ImageEditorModal />}
+      </LazyModalSlot>
+      <LazyModalSlot
+        when={itemPreviewOpen && itemPreviewItemId ? itemPreviewItemId : null}
+        section="item preview"
+      >
+        {(itemId) => (
+          <ItemPreviewModal itemId={itemId} onClose={closeItemPreview} />
+        )}
       </LazyModalSlot>
     </>
   )

@@ -108,10 +108,19 @@ export const WorkspaceShell = () =>
       defaultTitle: activeBoardTitle,
     })
   }, [activeBoardId, activeBoardTitle, openModal])
+  const handleOpenPublishTemplate = useCallback(() =>
+  {
+    openModal('publishTemplate', {
+      initialBoardExternalId: activeBoardId ?? null,
+    })
+  }, [activeBoardId, openModal])
   // gate the menu entry on signed-in + an active board; the mutation enforces
   // template-backed + completed-ranking server-side
   const handlePublishRanking =
     cloudEnabled && activeBoardId ? handleOpenPublishRanking : null
+  // template publish needs sign-in too; PublishModal itself handles the empty
+  // boards list (BoardPicker shows a placeholder + the submit guard catches it)
+  const handlePublishTemplate = cloudEnabled ? handleOpenPublishTemplate : null
   if (!appReady)
   {
     return (
@@ -167,6 +176,7 @@ export const WorkspaceShell = () =>
                     onPreviewExport={exportActions.handlePreviewExport}
                     onShare={handleOpenShare}
                     onPublishRanking={handlePublishRanking}
+                    onPublishTemplate={handlePublishTemplate}
                     onReset={handleResetBoard}
                   />
                 }

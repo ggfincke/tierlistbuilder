@@ -12,7 +12,6 @@ import {
   FileDown,
   FileUp,
   Layers,
-  Send,
   Share2,
   SquareArrowUp,
 } from 'lucide-react'
@@ -75,7 +74,6 @@ interface ExportMenuProps
   onAnnotateExport: () => void
   onPreviewExport: () => void
   onShare: () => void
-  onPublishRanking: (() => void) | null
 }
 
 const preloadImageExport = () => preloadHtmlToImageLib()
@@ -144,7 +142,6 @@ export const ExportMenu = ({
   onAnnotateExport,
   onPreviewExport,
   onShare,
-  onPublishRanking,
 }: ExportMenuProps) =>
 {
   const boardCount = useWorkspaceBoardRegistryStore(
@@ -413,19 +410,6 @@ export const ExportMenu = ({
               <Share2 className="h-3.5 w-3.5 shrink-0" />
               Share Link
             </OverlayMenuItem>
-
-            {onPublishRanking && (
-              <OverlayMenuItem
-                onClick={() =>
-                {
-                  closeAllMenus()
-                  onPublishRanking()
-                }}
-              >
-                <Send className="h-3.5 w-3.5 shrink-0" />
-                Publish Ranking
-              </OverlayMenuItem>
-            )}
 
             <OverlayDivider />
 
