@@ -261,6 +261,7 @@ const cascadePhaseValidator = v.union(
   v.literal('authAccounts'),
   v.literal('boards'),
   v.literal('templates'),
+  v.literal('rankings'),
   v.literal('tierPresets'),
   v.literal('shortLinks'),
   v.literal('mediaAssets'),
@@ -272,7 +273,8 @@ const NEXT_PHASE: Record<CascadePhase, CascadePhase | null> = {
   authSessions: 'authAccounts',
   authAccounts: 'boards',
   boards: 'templates',
-  templates: 'tierPresets',
+  templates: 'rankings',
+  rankings: 'tierPresets',
   tierPresets: 'shortLinks',
   shortLinks: 'mediaAssets',
   mediaAssets: 'userPreferences',
@@ -339,6 +341,7 @@ const CASCADE_PHASE_HANDLERS: Record<CascadePhase, CascadePhaseHandler> = {
   authAccounts: async (ctx, args) => await handleAuthAccountsPhase(ctx, args),
   boards: async (ctx, args) => await handleBoardsPhase(ctx, args),
   templates: async (ctx, args) => await handleTemplatesPhase(ctx, args),
+  rankings: async (ctx, args) => await handleRankingsPhase(ctx, args),
   tierPresets: async (ctx, args) => await handleTierPresetsPhase(ctx, args),
   shortLinks: async (ctx, args) => await handleShortLinksPhase(ctx, args),
   mediaAssets: async (ctx, args) => await handleMediaAssetsPhase(ctx, args),
@@ -455,6 +458,26 @@ const handleTemplatesPhase: CascadePhaseHandler = async (ctx, args) =>
     )
   )
   return await advanceCascade(ctx, args.userId, page, 'templates')
+}
+
+const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
+{
+  const page = await ctx.db
+    .query('publishedRankings')
+    .withIndex('byOwnerUpdatedAt', (q) => q.eq('ownerId', args.userId))
+    .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
+
+  await Promise.all(
+    page.page.flatMap((ranking) => [
+      ctx.db.delete(ranking._id),
+      ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.rankings.internal.cascadeDeleteRanking,
+        { rankingId: ranking._id }
+      ),
+    ])
+  )
+  return await advanceCascade(ctx, args.userId, page, 'rankings')
 }
 
 const handleTierPresetsPhase: CascadePhaseHandler = async (ctx, args) =>

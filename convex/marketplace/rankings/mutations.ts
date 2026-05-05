@@ -16,9 +16,13 @@ import {
   type MarketplaceRankingPublishResult,
   type MarketplaceRankingRemixResult,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
+import {
+  assertCanUseTemplate,
+  assertRankingFitsSingleTransaction,
+} from '../../lib/entitlements'
 import { requireCurrentUserId } from '../../lib/auth'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
-import { selectMediaVariantSummary } from '../../lib/mediaVariants'
+import { loadMediaVariantStorageId } from '../../lib/mediaVariants'
 import { loadBoundedBoardRows } from '../../workspace/sync/loadBoundedBoardRows'
 import { buildFreshBoardCloudFields } from '../../workspace/boards/cloudFields'
 import {
@@ -46,17 +50,6 @@ import {
   incrementTemplateUseStats,
   isPublishedTemplateRow,
 } from '../templates/lib'
-
-const loadTileStorageId = async (
-  ctx: MutationCtx,
-  mediaAssetId: Id<'mediaAssets'> | null
-): Promise<Id<'_storage'> | null> =>
-{
-  if (!mediaAssetId) return null
-  const asset = await ctx.db.get(mediaAssetId)
-  if (!asset) return null
-  return selectMediaVariantSummary(asset, 'tile')?.storageId ?? null
-}
 
 const requireTemplate = async (
   ctx: MutationCtx,
@@ -211,6 +204,7 @@ export const publishRankingFromBoard = mutation({
         message: 'source template must still be published',
       })
     }
+    assertRankingFitsSingleTransaction(board.activeItemCount, 'publish')
 
     const { serverTiers, serverItems } = await loadBoundedBoardRows(
       ctx,
@@ -315,10 +309,20 @@ export const remixRanking = mutation({
       })
     }
     const template = await requireTemplate(ctx, ranking.sourceTemplateId)
+    await assertCanUseTemplate(ctx, userId, template)
+    assertRankingFitsSingleTransaction(ranking.itemCount, 'remix')
+
     const [rankingTiers, rankingItems] = await Promise.all([
       loadRankingTiers(ctx, ranking._id),
       loadRankingItems(ctx, ranking._id),
     ])
+    if (rankingItems.length !== ranking.itemCount)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'ranking item count does not match the snapshot',
+      })
+    }
 
     const now = Date.now()
     const boardExternalId = generateBoardId()
@@ -411,7 +415,7 @@ export const remixRanking = mutation({
           tierKey: tier.externalId,
           externalId,
           label: item.label,
-          storageId: await loadTileStorageId(ctx, item.mediaAssetId),
+          storageId: await loadMediaVariantStorageId(ctx, item.mediaAssetId),
           order: item.order,
           deletedAt: null,
         }

@@ -516,7 +516,8 @@ export default defineSchema({
     transform: v.union(itemTransformValidator, v.null()),
   })
     .index('byRanking', ['rankingId', 'order'])
-    .index('byTemplateItem', ['templateItemId']),
+    .index('byTemplateItem', ['templateItemId'])
+    .index('byMedia', ['mediaAssetId']),
 
   // short URL indirection for shareable snapshot blobs. slug -> compressed
   // BoardSnapshot bytes in _storage

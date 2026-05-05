@@ -5,13 +5,17 @@ import { internalMutation, type MutationCtx } from '../../_generated/server'
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { BATCH_LIMITS } from '../../lib/limits'
+import {
+  CASCADE_DELETE_PAGE_SIZE,
+  deleteCascadePageAndSchedule,
+} from '../../lib/cascadeDelete'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { LIBRARY_BOARD_COVER_ITEM_LIMIT } from '@tierlistbuilder/contracts/workspace/board'
 import {
   getLargeTemplateFeatureState,
   getPlanEntitlements,
 } from '../../lib/entitlements'
-import { selectMediaVariantSummary } from '../../lib/mediaVariants'
+import { loadMediaVariantStorageId } from '../../lib/mediaVariants'
 import { buildBoardLibrarySummary } from '../../workspace/boards/librarySummary'
 import {
   adjustPublicTemplateCount,
@@ -93,17 +97,6 @@ const allMediaAssetsHaveReadyTileVariants = async (
   const uniqueIds = [...new Set(mediaAssetIds.filter((id) => id !== null))]
   const assets = await Promise.all(uniqueIds.map((id) => ctx.db.get(id)))
   return assets.every((asset) => !!asset?.tileVariant)
-}
-
-const loadTileStorageId = async (
-  ctx: MutationCtx,
-  mediaAssetId: Id<'mediaAssets'> | null
-): Promise<Id<'_storage'> | null> =>
-{
-  if (!mediaAssetId) return null
-  const asset = await ctx.db.get(mediaAssetId)
-  if (!asset) return null
-  return selectMediaVariantSummary(asset, 'tile')?.storageId ?? null
 }
 
 const assertLargeJobCanContinue = async (
@@ -292,7 +285,7 @@ const buildCloneBoardSummary = async (
       tierKey: null,
       externalId: item.externalId,
       label: item.label,
-      storageId: await loadTileStorageId(ctx, item.mediaAssetId),
+      storageId: await loadMediaVariantStorageId(ctx, item.mediaAssetId),
       order: item.order,
       deletedAt: item.deletedAt,
     }))
@@ -451,57 +444,49 @@ export const cascadeDeleteTemplate = internalMutation({
         .query('templateItems')
         .withIndex('byTemplate', (q) => q.eq('templateId', args.templateId))
         .paginate({
-          numItems: BATCH_LIMITS.cascadeDelete,
+          numItems: CASCADE_DELETE_PAGE_SIZE,
           cursor: args.cursor ?? null,
         })
 
-      await Promise.all(page.page.map((item) => ctx.db.delete(item._id)))
-
-      if (!page.isDone)
-      {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.marketplace.templates.internal.cascadeDeleteTemplate,
-          {
-            templateId: args.templateId,
-            cursor: page.continueCursor,
-            phase: 'items',
-          }
-        )
-        return null
-      }
-
-      await ctx.scheduler.runAfter(
-        0,
-        internal.marketplace.templates.internal.cascadeDeleteTemplate,
-        { templateId: args.templateId, cursor: null, phase: 'tags' }
-      )
-      return null
+      const scheduled = await deleteCascadePageAndSchedule({
+        ctx,
+        page,
+        schedule: async (nextArgs) =>
+          await ctx.scheduler.runAfter(
+            0,
+            internal.marketplace.templates.internal.cascadeDeleteTemplate,
+            nextArgs
+          ),
+        parentKey: 'templateId',
+        parentId: args.templateId,
+        phase: 'items',
+        nextPhase: 'tags',
+      })
+      if (scheduled) return null
     }
 
     const tagPage = await ctx.db
       .query('templateTags')
       .withIndex('byTemplate', (q) => q.eq('templateId', args.templateId))
       .paginate({
-        numItems: BATCH_LIMITS.cascadeDelete,
+        numItems: CASCADE_DELETE_PAGE_SIZE,
         cursor: args.cursor ?? null,
       })
 
-    await Promise.all(tagPage.page.map((row) => ctx.db.delete(row._id)))
-
-    if (!tagPage.isDone)
-    {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.marketplace.templates.internal.cascadeDeleteTemplate,
-        {
-          templateId: args.templateId,
-          cursor: tagPage.continueCursor,
-          phase: 'tags',
-        }
-      )
-      return null
-    }
+    const scheduled = await deleteCascadePageAndSchedule({
+      ctx,
+      page: tagPage,
+      schedule: async (nextArgs) =>
+        await ctx.scheduler.runAfter(
+          0,
+          internal.marketplace.templates.internal.cascadeDeleteTemplate,
+          nextArgs
+        ),
+      parentKey: 'templateId',
+      parentId: args.templateId,
+      phase: 'tags',
+    })
+    if (scheduled) return null
 
     return null
   },

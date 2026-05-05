@@ -10,7 +10,10 @@ import {
   generateTierId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
-import { selectMediaVariantSummary } from '../../lib/mediaVariants'
+import {
+  loadMediaVariantStorageId,
+  selectMediaVariantSummary,
+} from '../../lib/mediaVariants'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
   TemplateCardAccessState,
@@ -905,17 +908,6 @@ const toTemplateMediaRefWithFallback = async (
     if (ref) return ref
   }
   return null
-}
-
-const loadMediaVariantStorageId = async (
-  ctx: DbCtx,
-  mediaAssetId: Id<'mediaAssets'>,
-  kind: MediaVariantKind = 'tile'
-): Promise<Id<'_storage'> | null> =>
-{
-  const asset = await ctx.db.get(mediaAssetId)
-  if (!asset) return null
-  return selectMediaVariantSummary(asset, kind)?.storageId ?? null
 }
 
 // load denormalized cover items in template order. publish stores only

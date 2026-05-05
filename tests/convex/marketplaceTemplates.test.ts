@@ -28,8 +28,12 @@ import type {
   CloudBoardTierWire,
 } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import schema from '../../convex/schema'
-import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
-import { modules, seedPublishedTemplate } from './convexTestHelpers'
+import {
+  modules,
+  seedCloudBoard,
+  seedPublishedRanking,
+  seedPublishedTemplate,
+} from './convexTestHelpers'
 
 const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
 {
@@ -140,31 +144,17 @@ const seedSourceBoard = async (
       contentHash: 'hash-source',
       createdAt: now,
     })
-    const boardId = await ctx.db.insert('boards', {
+    const boardId = await seedCloudBoard(ctx, {
       externalId: 'board-source',
       ownerId,
       title: 'Source Board',
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      revision: 1,
-      ...(options.itemAspectRatio !== undefined
-        ? { itemAspectRatio: options.itemAspectRatio }
-        : {}),
-      ...(options.itemAspectRatioMode !== undefined
-        ? { itemAspectRatioMode: options.itemAspectRatioMode }
-        : {}),
-      ...(options.defaultItemImageFit !== undefined
-        ? { defaultItemImageFit: options.defaultItemImageFit }
-        : {}),
-      ...(options.labels !== undefined ? { labels: options.labels } : {}),
-      sourceTemplateId: null,
-      sourceTemplateCategory: null,
-      sourceTemplateSizeClass: null,
-      ...buildFreshBoardCloudFields(now),
+      now,
+      itemAspectRatio: options.itemAspectRatio,
+      itemAspectRatioMode: options.itemAspectRatioMode,
+      defaultItemImageFit: options.defaultItemImageFit,
+      labels: options.labels,
       activeItemCount: 2,
       unrankedItemCount: 1,
-      templateProgressState: 'none',
       librarySummary: {
         coverItems: [
           {
@@ -255,26 +245,13 @@ const seedLargeSourceBoard = async (
   await t.run(async (ctx) =>
   {
     const now = Date.now()
-    const boardId = await ctx.db.insert('boards', {
+    const boardId = await seedCloudBoard(ctx, {
       externalId,
       ownerId,
       title: 'Large Source Board',
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      revision: 1,
-      sourceTemplateId: null,
-      sourceTemplateCategory: null,
-      sourceTemplateSizeClass: null,
-      ...buildFreshBoardCloudFields(now),
+      now,
       activeItemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
       unrankedItemCount: MAX_STANDARD_CLOUD_BOARD_ITEMS + 1,
-      templateProgressState: 'none',
-      librarySummary: {
-        coverItems: [],
-        tierColors: [{ kind: 'palette', index: 0 }],
-        tierBreakdown: [],
-      },
     })
 
     for (let i = 0; i < MAX_STANDARD_CLOUD_BOARD_ITEMS + 1; i++)
@@ -321,6 +298,173 @@ const seedLargeTemplate = async (
       })
     }
     return 'LargeTpl01'
+  })
+
+const seedLargeCompletedRankingBoard = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  ownerId: Id<'users'>
+): Promise<string> =>
+  await t.run(async (ctx) =>
+  {
+    const now = Date.now()
+    const itemCount = MAX_STANDARD_CLOUD_BOARD_ITEMS + 1
+    const templateId = await seedPublishedTemplate(ctx, {
+      slug: 'LargeRankT',
+      authorId: ownerId,
+      title: 'Large Ranking Template',
+      sizeClass: 'large',
+      itemCount,
+    })
+    const boardExternalId = 'large-ranking-board'
+    await seedCloudBoard(ctx, {
+      externalId: boardExternalId,
+      ownerId,
+      title: 'Large Finished Ranking',
+      sourceTemplateId: templateId,
+      sourceTemplateCategory: 'gaming',
+      sourceTemplateSizeClass: 'large',
+      now,
+      activeItemCount: itemCount,
+      unrankedItemCount: 0,
+      templateProgressState: 'complete',
+    })
+    return boardExternalId
+  })
+
+const seedLargePublishedRanking = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  ownerId: Id<'users'>
+): Promise<string> =>
+  await t.run(async (ctx) =>
+  {
+    const now = Date.now()
+    const itemCount = MAX_STANDARD_CLOUD_BOARD_ITEMS + 1
+    const templateId = await seedPublishedTemplate(ctx, {
+      slug: 'LargeRemixT',
+      authorId: ownerId,
+      title: 'Large Remix Template',
+      sizeClass: 'large',
+      itemCount,
+    })
+    const boardId = await seedCloudBoard(ctx, {
+      externalId: 'large-remix-source',
+      ownerId,
+      title: 'Large Remix Source',
+      sourceTemplateId: templateId,
+      sourceTemplateCategory: 'gaming',
+      sourceTemplateSizeClass: 'large',
+      now,
+      activeItemCount: itemCount,
+      unrankedItemCount: 0,
+      templateProgressState: 'complete',
+    })
+    await seedPublishedRanking(ctx, {
+      slug: 'LargeRank1',
+      ownerId,
+      sourceTemplateId: templateId,
+      sourceBoardId: boardId,
+      sourceTemplateSlug: 'LargeRemixT',
+      sourceTemplateTitle: 'Large Remix Template',
+      title: 'Large Published Ranking',
+      itemCount,
+      now,
+    })
+    return 'LargeRank1'
+  })
+
+const seedRankingMediaSnapshot = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  ownerId: Id<'users'>
+): Promise<Id<'mediaAssets'>> =>
+  await t.run(async (ctx) =>
+  {
+    const now = Date.now() - 2 * 60 * 60 * 1000
+    const storageId = await ctx.storage.store(
+      new Blob([new Uint8Array([4, 5, 6])], { type: 'image/png' })
+    )
+    const mediaAssetId = await ctx.db.insert('mediaAssets', {
+      ownerId,
+      externalId: 'ranking-media',
+      dedupeHash: 'ranking-media-hash',
+      tileVariant: {
+        storageId,
+        width: 64,
+        height: 64,
+        byteSize: 3,
+        mimeType: 'image/png',
+        contentHash: 'ranking-media-hash',
+      },
+      createdAt: now,
+    })
+    await ctx.db.insert('mediaVariants', {
+      mediaAssetId,
+      kind: 'tile',
+      storageId,
+      width: 64,
+      height: 64,
+      byteSize: 3,
+      mimeType: 'image/png',
+      contentHash: 'ranking-media-hash',
+      createdAt: now,
+    })
+    const templateId = await seedPublishedTemplate(ctx, {
+      slug: 'MediaRankT',
+      authorId: ownerId,
+      title: 'Media Ranking Template',
+      sizeClass: 'standard',
+      itemCount: 1,
+    })
+    const templateItemId = await ctx.db.insert('templateItems', {
+      templateId,
+      externalId: 'media-template-item',
+      label: 'Media Template Item',
+      backgroundColor: null,
+      altText: null,
+      mediaAssetId: null,
+      order: 0,
+      aspectRatio: null,
+      imageFit: null,
+      transform: null,
+    })
+    const boardId = await seedCloudBoard(ctx, {
+      externalId: 'media-ranking-board',
+      ownerId,
+      title: 'Media Ranking Board',
+      sourceTemplateId: templateId,
+      sourceTemplateCategory: 'gaming',
+      sourceTemplateSizeClass: 'standard',
+      now,
+      activeItemCount: 1,
+      unrankedItemCount: 0,
+      templateProgressState: 'complete',
+    })
+    const rankingId = await seedPublishedRanking(ctx, {
+      slug: 'MediaRank1',
+      ownerId,
+      sourceTemplateId: templateId,
+      sourceBoardId: boardId,
+      sourceTemplateSlug: 'MediaRankT',
+      sourceTemplateTitle: 'Media Ranking Template',
+      title: 'Media Ranking',
+      itemCount: 1,
+      now,
+    })
+    await ctx.db.insert('publishedRankingItems', {
+      rankingId,
+      templateItemId,
+      templateItemExternalId: 'media-template-item',
+      externalId: 'media-ranking-item',
+      tierExternalId: 'media-tier',
+      label: 'Media Ranking Item',
+      backgroundColor: null,
+      altText: null,
+      mediaAssetId,
+      order: 0,
+      aspectRatio: null,
+      imageFit: null,
+      transform: null,
+    })
+    return mediaAssetId
   })
 
 const expectConvexCode = async (
@@ -806,6 +950,70 @@ describe('marketplace template Convex functions', () =>
         vi.useRealTimers()
       }
     })
+  })
+
+  it('rejects large ranking publish and remix until ranking jobs exist', async () =>
+  {
+    const t = makeTest()
+    const plusUserId = await seedUser(
+      t,
+      'Plus Ranker',
+      'plus-ranker@example.com',
+      'plus'
+    )
+    const freeUserId = await seedUser(
+      t,
+      'Free Remixer',
+      'free-remixer@example.com'
+    )
+    const boardExternalId = await seedLargeCompletedRankingBoard(t, plusUserId)
+
+    await expectConvexCode(
+      asUser(t, plusUserId).mutation(
+        api.marketplace.rankings.mutations.publishRankingFromBoard,
+        {
+          boardExternalId,
+          title: 'Large Ranking',
+          visibility: 'public',
+        }
+      ),
+      CONVEX_ERROR_CODES.cloudItemLimitExceeded
+    )
+
+    const rankingSlug = await seedLargePublishedRanking(t, plusUserId)
+    await expectConvexCode(
+      asUser(t, freeUserId).mutation(
+        api.marketplace.rankings.mutations.remixRanking,
+        { slug: rankingSlug }
+      ),
+      CONVEX_ERROR_CODES.largeTemplateRequiresPlus
+    )
+    await withLargeTemplateJobsEnabled(async () =>
+    {
+      await expectConvexCode(
+        asUser(t, plusUserId).mutation(
+          api.marketplace.rankings.mutations.remixRanking,
+          { slug: rankingSlug }
+        ),
+        CONVEX_ERROR_CODES.cloudItemLimitExceeded
+      )
+    })
+  })
+
+  it('keeps ranking snapshot media reachable during orphan GC', async () =>
+  {
+    const t = makeTest()
+    const userId = await seedUser(t, 'Media Ranker', 'media-ranker@example.com')
+    const mediaAssetId = await seedRankingMediaSnapshot(t, userId)
+
+    const result = await t.mutation(
+      internal.platform.media.internal.gcOrphanedMediaAssets,
+      { cursor: null }
+    )
+    const remaining = await t.run(async (ctx) => await ctx.db.get(mediaAssetId))
+
+    expect(result.deleted).toBe(0)
+    expect(remaining).not.toBeNull()
   })
 
   it('keeps large job failures and cancelation out of public listings', async () =>
