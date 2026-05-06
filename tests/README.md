@@ -12,6 +12,7 @@ We focus on critical pure-function and local persistence behavior:
 - **Board Data**: snapshot normalization, board operations, tier colors, presets, local board sessions, and localStorage envelopes
 - **Import / Export / Sharing**: JSON parsing, multi-board envelopes, hash-share compression, and image byte preservation for JSON export
 - **Images**: content-addressed image store, blob cache lifecycle, and manual crop/transform math
+- **Convex Marketplace**: template publish/use, owner management, trending metrics, ranking publish/remix, and cascade cleanup
 - **Shared UI Primitives**: roving selection, nested menus, popup geometry, toolbar placement, and progress normalization
 
 We intentionally do not test every configuration combination, React component rendering, broad DOM-dependent utilities, export rasterization, or routine Zustand wiring.
@@ -36,6 +37,7 @@ tests/
 ├── typeHelpers.ts                   — asInvalid<T> for intentionally malformed inputs
 ├── setup.ts                         — global vitest setup
 ├── board/                           — board snapshot, ops, tier colors, presets
+├── convex/                          — Convex backend flows for marketplace, media, sync, auth, and cascades
 ├── data/                            — board storage, export JSON, image cache/store
 ├── dnd/                             — drag snapshot, DOM capture, pointer, keyboard, layout
 ├── interaction/                     — tab stops, selection navigation, selection state

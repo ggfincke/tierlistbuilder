@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **My Lists**: `/boards` library page wired to `getMyLibraryBoards` Convex query — projects counts, derived status (incl. `syncing` / `failed` clone-from-template states), visibility, source-template category, top-5 tier colorSpecs, per-tier counts, & top-18 cover-item labels
 - **Board Cards**: Cover artwork (initials mosaic over `--t-media-matte`, draft-pattern for empty boards), tier-color progress bar, status pill, visibility chip, hover CTA per status
 - **Sync Status Indicator**: Per-board badge & global indicator surfacing localOnly / cloudBacked / syncPausedForPlan + clone progress
-- **Marketplace (Backend)**: `marketplace/templates` Convex namespace — gallery query, paginated items, draft rail, publish from board, clone-to-board w/ media re-upload, seed script
+- **Marketplace (Backend)**: `marketplace/{templates,rankings}` Convex namespaces — gallery query, paginated items, draft rail, publish from board, clone-to-board w/ media re-upload, ranking publish/remix, rolling trending metrics, owner management reads, and seed script
+- **Marketplace (Frontend)**: Routed `/templates` and `/rankings/:slug` surfaces w/ gallery rails, template detail community rankings, ranking publish gating, ranking detail, remix CTA, account template management, and workspace gallery entry points
 
 ## [0.8.0] - 2026-05-03
 
