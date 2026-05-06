@@ -206,6 +206,22 @@ export const TierItem = memo(
       {
         if (boardLocked) return
 
+        // second-of-double click: open the preview directly (don't rely on
+        // dblclick — it can be skipped when the wrapper re-renders between
+        // clicks) & skip toggling selection a second time
+        if (e.detail > 1)
+        {
+          pointerStartRef.current = null
+          pointerFocusRef.current = false
+          if (item && hasAnyImageRef(item))
+          {
+            e.preventDefault()
+            e.stopPropagation()
+            useItemPreviewStore.getState().open(itemId)
+          }
+          return
+        }
+
         // long-press already opened the preview; swallow the trailing click so
         // it doesn't toggle selection on top
         if (longPressFiredRef.current)
@@ -244,6 +260,7 @@ export const TierItem = memo(
       [
         boardLocked,
         hasKeyboardSelection,
+        item,
         itemId,
         isSelected,
         setKeyboardFocusItemId,
