@@ -15,6 +15,19 @@ export const RANKING_PUBLICATION_STATES = ['published', 'unpublished'] as const
 export type RankingPublicationState =
   (typeof RANKING_PUBLICATION_STATES)[number]
 
+export const RANKING_PUBLISH_BLOCK_REASONS = [
+  'sign_in_required',
+  'not_found',
+  'board_deleted',
+  'syncing',
+  'not_template_backed',
+  'incomplete',
+  'source_template_unpublished',
+] as const
+
+export type RankingPublishBlockReason =
+  (typeof RANKING_PUBLISH_BLOCK_REASONS)[number]
+
 export const MAX_RANKING_TITLE_LENGTH = 80
 export const MAX_RANKING_DESCRIPTION_LENGTH = 500
 export const DEFAULT_RANKING_LIST_LIMIT = 24
@@ -113,4 +126,14 @@ export interface MarketplaceRankingPublishResult
 export interface MarketplaceRankingRemixResult
 {
   boardExternalId: string
+}
+
+export interface MarketplaceRankingPublishAvailability
+{
+  canPublish: boolean
+  reason: RankingPublishBlockReason | null
+  message: string | null
+  activeItemCount: number
+  unrankedItemCount: number
+  sourceTemplateTitle: string | null
 }

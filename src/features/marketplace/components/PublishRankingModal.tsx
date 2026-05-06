@@ -18,6 +18,7 @@ import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
 
 import { usePublishRanking } from '~/features/marketplace/model/usePublishRanking'
+import { useRankingPublishAvailability } from '~/features/marketplace/model/useRankingPublishAvailability'
 
 interface PublishRankingModalProps
 {
@@ -50,6 +51,7 @@ const PublishRankingForm = ({
   const visibilityFieldId = useId()
 
   const { run, isPending, error } = usePublishRanking()
+  const availability = useRankingPublishAvailability(boardExternalId)
   const [title, setTitle] = useState(defaultTitle)
   const [description, setDescription] = useState('')
   const [visibility, setVisibility] = useState<RankingVisibility>('public')
@@ -58,9 +60,12 @@ const PublishRankingForm = ({
   const titleTooLong = trimmedTitle.length > MAX_RANKING_TITLE_LENGTH
   const descriptionTooLong =
     description.trim().length > MAX_RANKING_DESCRIPTION_LENGTH
+  const availabilityMessage =
+    availability && !availability.canPublish ? availability.message : null
 
   const canSubmit =
     !isPending &&
+    availability?.canPublish === true &&
     trimmedTitle.length > 0 &&
     !titleTooLong &&
     !descriptionTooLong
@@ -160,6 +165,12 @@ const PublishRankingForm = ({
           ))}
         </select>
       </div>
+
+      {availabilityMessage && (
+        <p role="status" className="text-xs text-[var(--t-text-muted)]">
+          {availabilityMessage}
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="text-xs text-[var(--t-destructive-hover)]">

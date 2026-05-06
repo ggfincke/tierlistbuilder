@@ -6,15 +6,19 @@ import { query } from '../../_generated/server'
 import type {
   MarketplaceRankingDetail,
   MarketplaceRankingListResult,
+  MarketplaceRankingPublishAvailability,
+  RankingPublishBlockReason,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { isRankingSlug } from '@tierlistbuilder/contracts/marketplace/ranking'
 import {
   marketplaceRankingDetailValidator,
   marketplaceRankingListResultValidator,
+  marketplaceRankingPublishAvailabilityValidator,
 } from '../../lib/validators'
 import { getCurrentUserId } from '../../lib/auth'
+import { findOwnedBoardByExternalIdIncludingDeleted } from '../../lib/permissions'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
-import { findTemplateBySlug } from '../templates/lib'
+import { findTemplateBySlug, isPublishedTemplateRow } from '../templates/lib'
 import {
   findRankingBySlug,
   isPublicRankingRow,
@@ -23,6 +27,38 @@ import {
   toRankingDetail,
   toRankingSummary,
 } from './lib'
+
+const RANKING_PUBLISH_BLOCK_MESSAGES: Record<
+  RankingPublishBlockReason,
+  string
+> = {
+  sign_in_required: 'Sign in to publish a ranking.',
+  not_found: 'Board not found.',
+  board_deleted: 'Restore this board before publishing a ranking.',
+  syncing: 'Wait for this board to finish syncing before publishing a ranking.',
+  not_template_backed:
+    'Publish this board as a template instead. Rankings are for boards made from marketplace templates.',
+  incomplete:
+    'Rank every item from the source template before publishing a ranking.',
+  source_template_unpublished: 'The source template is no longer published.',
+}
+
+const unavailableRankingPublish = (
+  reason: RankingPublishBlockReason,
+  counts: Pick<
+    MarketplaceRankingPublishAvailability,
+    'activeItemCount' | 'unrankedItemCount' | 'sourceTemplateTitle'
+  > = {
+    activeItemCount: 0,
+    unrankedItemCount: 0,
+    sourceTemplateTitle: null,
+  }
+): MarketplaceRankingPublishAvailability => ({
+  canPublish: false,
+  reason,
+  message: RANKING_PUBLISH_BLOCK_MESSAGES[reason],
+  ...counts,
+})
 
 export const getRankingBySlug = query({
   args: { slug: v.string() },
@@ -92,6 +128,74 @@ export const getMyRankings = query({
       .take(normalizeRankingLimit(args.limit))
     return {
       items: await Promise.all(rows.map((row) => toRankingSummary(ctx, row))),
+    }
+  },
+})
+
+export const getBoardRankingPublishAvailability = query({
+  args: { boardExternalId: v.string() },
+  returns: marketplaceRankingPublishAvailabilityValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<MarketplaceRankingPublishAvailability> =>
+  {
+    const userId = await getCurrentUserId(ctx)
+    if (!userId)
+    {
+      return unavailableRankingPublish('sign_in_required')
+    }
+
+    const board = await findOwnedBoardByExternalIdIncludingDeleted(
+      ctx,
+      args.boardExternalId,
+      userId
+    )
+    if (!board)
+    {
+      return unavailableRankingPublish('not_found')
+    }
+
+    const counts = {
+      activeItemCount: board.activeItemCount,
+      unrankedItemCount: board.unrankedItemCount,
+      sourceTemplateTitle: null,
+    }
+    if (board.deletedAt !== null)
+    {
+      return unavailableRankingPublish('board_deleted', counts)
+    }
+    if (board.materializationState !== 'ready')
+    {
+      return unavailableRankingPublish('syncing', counts)
+    }
+    if (board.sourceTemplateId === null)
+    {
+      return unavailableRankingPublish('not_template_backed', counts)
+    }
+
+    const template = await ctx.db.get(board.sourceTemplateId)
+    const templateCounts = {
+      ...counts,
+      sourceTemplateTitle: template?.title ?? null,
+    }
+    if (!template || !isPublishedTemplateRow(template))
+    {
+      return unavailableRankingPublish(
+        'source_template_unpublished',
+        templateCounts
+      )
+    }
+    if (board.activeItemCount === 0 || board.unrankedItemCount > 0)
+    {
+      return unavailableRankingPublish('incomplete', templateCounts)
+    }
+
+    return {
+      canPublish: true,
+      reason: null,
+      message: null,
+      ...templateCounts,
     }
   },
 })
