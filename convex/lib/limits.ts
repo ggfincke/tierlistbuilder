@@ -26,4 +26,6 @@ export const BATCH_LIMITS = {
   cascadeDelete: 256,
   // large template publish/clone jobs copy rows in bounded transactions
   templateCopyJob: 100,
+  // trending recompute reads card rows plus 7 metric rows per template
+  templateTrendingRecompute: 64,
 } as const

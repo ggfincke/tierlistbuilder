@@ -61,7 +61,12 @@ export const isFinishedTemplateJobStatus = (
   status: TemplateJobStatus
 ): boolean => FINISHED_TEMPLATE_JOB_STATUS_SET.has(status)
 
-export const TEMPLATE_LIST_SORTS = ['featured', 'popular', 'recent'] as const
+export const TEMPLATE_LIST_SORTS = [
+  'featured',
+  'trending',
+  'popular',
+  'recent',
+] as const
 
 export type TemplateListSort = (typeof TEMPLATE_LIST_SORTS)[number]
 
@@ -160,6 +165,10 @@ export interface MarketplaceTemplateBase
   itemCount: number
   useCount: number
   viewCount: number
+  weeklyUseCount: number
+  weeklyViewCount: number
+  trendingScore: number
+  trendingComputedAt: number | null
   featuredRank: number | null
   creditLine: string | null
   createdAt: number
@@ -192,10 +201,21 @@ export interface MarketplaceTemplateCount
 export interface MarketplaceTemplateGalleryResult
 {
   featured: MarketplaceTemplateGalleryCard[]
+  trending: MarketplaceTemplateGalleryCard[]
   popular: MarketplaceTemplateGalleryCard[]
   recent: MarketplaceTemplateGalleryCard[]
   results: MarketplaceTemplateGalleryCard[]
   templateCount: MarketplaceTemplateCount
+}
+
+export interface MarketplaceTemplateManagementItem extends MarketplaceTemplateSummary
+{
+  isPubliclyListable: boolean
+}
+
+export interface MarketplaceTemplateManagementListResult
+{
+  items: MarketplaceTemplateManagementItem[]
 }
 
 export interface MarketplaceTemplateDraftTemplate

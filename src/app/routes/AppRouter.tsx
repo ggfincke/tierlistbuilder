@@ -7,6 +7,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import {
   BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
+  RANKINGS_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
@@ -40,6 +41,12 @@ const TemplatesGalleryPage = lazy(() =>
 const TemplateDetailPage = lazy(() =>
   import('~/features/marketplace/pages/TemplateDetailPage').then((m) => ({
     default: m.TemplateDetailPage,
+  }))
+)
+
+const RankingDetailPage = lazy(() =>
+  import('~/features/marketplace/pages/RankingDetailPage').then((m) => ({
+    default: m.RankingDetailPage,
   }))
 )
 
@@ -91,6 +98,18 @@ export const AppRouter = () => (
         >
           <Route index element={<TemplatesGalleryPage />} />
           <Route path=":slug" element={<TemplateDetailPage />} />
+        </Route>
+        <Route
+          path={RANKINGS_ROUTE_PATH}
+          element={
+            <ErrorBoundary section="rankings">
+              <Suspense fallback={<RouteFallback />}>
+                <MarketplaceLayout />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        >
+          <Route path=":slug" element={<RankingDetailPage />} />
         </Route>
       </Route>
       <Route

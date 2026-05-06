@@ -285,32 +285,41 @@ export const finalizeVerifiedMediaAssets = internalMutation({
   },
 })
 
-// is a media asset still referenced by any board item, template item, or
-// template cover? shared between nightly orphan GC & the per-asset cascade
-// path so adding a fourth reference table changes one place
+// is a media asset still referenced by any board/template/ranking row?
+// shared between nightly orphan GC & the per-asset cascade path so new
+// reference tables change one place
 export const hasMediaAssetReferences = async (
   ctx: MutationCtx,
   mediaAssetId: Id<'mediaAssets'>
 ): Promise<boolean> =>
 {
-  const [boardRefs, templateItemRefs, templateCoverRefs] = await Promise.all([
-    ctx.db
-      .query('boardItems')
-      .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
-      .take(1),
-    ctx.db
-      .query('templateItems')
-      .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
-      .take(1),
-    ctx.db
-      .query('templates')
-      .withIndex('byCoverMedia', (q) => q.eq('coverMediaAssetId', mediaAssetId))
-      .take(1),
-  ])
+  const [boardRefs, templateItemRefs, templateCoverRefs, rankingItemRefs] =
+    await Promise.all([
+      ctx.db
+        .query('boardItems')
+        .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
+        .take(1),
+      ctx.db
+        .query('templateItems')
+        .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
+        .take(1),
+      ctx.db
+        .query('templates')
+        .withIndex('byCoverMedia', (q) =>
+          q.eq('coverMediaAssetId', mediaAssetId)
+        )
+        .take(1),
+      ctx.db
+        .query('publishedRankingItems')
+        .withIndex('byMedia', (q) => q.eq('mediaAssetId', mediaAssetId))
+        .take(1),
+    ])
+
   return (
     boardRefs.length > 0 ||
     templateItemRefs.length > 0 ||
-    templateCoverRefs.length > 0
+    templateCoverRefs.length > 0 ||
+    rankingItemRefs.length > 0
   )
 }
 
@@ -332,7 +341,7 @@ export const deleteMediaAssetWithVariants = async (
   await ctx.db.delete(mediaAssetId)
 }
 
-// reap mediaAssets rows w/ no surviving board/template references. paginates
+// reap mediaAssets rows w/ no surviving board/template/ranking references. paginates
 // to stay inside the transaction row-read budget; self-schedules continuations
 export const gcOrphanedMediaAssets = internalMutation({
   args: {

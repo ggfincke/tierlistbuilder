@@ -52,6 +52,7 @@ const PublishModal = lazy(() =>
 
 const SORT_LABELS: Record<TemplateListSort, string> = {
   featured: 'Featured',
+  trending: 'Trending',
   popular: 'Most popular',
   recent: 'Recently added',
 }
@@ -305,6 +306,15 @@ export const TemplatesGalleryPage = () =>
 
       {showRails && (
         <>
+          <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
+            <RailHeader
+              title="Trending this week"
+              subtitle="Hottest forks in the last 7 days"
+              icon={Flame}
+            />
+            <Rail items={gallery.trending} size="small" />
+          </section>
+
           <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
             <RailHeader
               title="Most popular"

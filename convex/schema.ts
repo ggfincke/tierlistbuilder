@@ -21,6 +21,8 @@ import {
   templateCategoryValidator,
   templateJobStatusValidator,
   templatePublicationStateValidator,
+  rankingPublicationStateValidator,
+  rankingVisibilityValidator,
   templateSizeClassValidator,
   templateVisibilityValidator,
   textStyleIdValidator,
@@ -298,6 +300,10 @@ export default defineSchema({
     featuredRank: v.union(v.number(), v.null()),
     useCount: v.number(),
     viewCount: v.number(),
+    weeklyUseCount: v.optional(v.number()),
+    weeklyViewCount: v.optional(v.number()),
+    trendingScore: v.optional(v.number()),
+    trendingComputedAt: v.optional(v.union(v.number(), v.null())),
     creditLine: v.union(v.string(), v.null()),
     searchText: v.string(),
     createdAt: v.number(),
@@ -308,6 +314,10 @@ export default defineSchema({
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
     .index('byIsPubliclyListableUpdatedAt', ['isPubliclyListable', 'updatedAt'])
     .index('byIsPubliclyListableUseCount', ['isPubliclyListable', 'useCount'])
+    .index('byIsPubliclyListableTrendingScore', [
+      'isPubliclyListable',
+      'trendingScore',
+    ])
     .index('byIsPubliclyListableFeaturedRank', [
       'isPubliclyListable',
       'featuredRank',
@@ -321,6 +331,11 @@ export default defineSchema({
       'category',
       'isPubliclyListable',
       'useCount',
+    ])
+    .index('byCategoryIsPubliclyListableTrendingScore', [
+      'category',
+      'isPubliclyListable',
+      'trendingScore',
     ])
     .index('byCategoryIsPubliclyListableFeaturedRank', [
       'category',
@@ -338,6 +353,18 @@ export default defineSchema({
     viewCount: v.number(),
     updatedAt: v.number(),
   }).index('byTemplateId', ['templateId']),
+
+  templateMetricDays: defineTable({
+    templateId: v.id('templates'),
+    category: templateCategoryValidator,
+    dayStartAt: v.number(),
+    useCount: v.number(),
+    viewCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('byTemplateDay', ['templateId', 'dayStartAt'])
+    .index('byDayTemplate', ['dayStartAt', 'templateId']),
 
   marketplaceStats: defineTable({
     key: v.string(),
@@ -433,6 +460,63 @@ export default defineSchema({
   })
     .index('byTemplate', ['templateId', 'order'])
     .index('byTemplateAndExternalId', ['templateId', 'externalId'])
+    .index('byMedia', ['mediaAssetId']),
+
+  publishedRankings: defineTable({
+    slug: v.string(),
+    ownerId: v.id('users'),
+    sourceTemplateId: v.id('templates'),
+    sourceBoardId: v.id('boards'),
+    sourceTemplateSlug: v.string(),
+    sourceTemplateTitle: v.string(),
+    sourceTemplateCategory: templateCategoryValidator,
+    title: v.string(),
+    description: v.union(v.string(), v.null()),
+    visibility: rankingVisibilityValidator,
+    publicationState: rankingPublicationStateValidator,
+    isPubliclyListable: v.boolean(),
+    itemCount: v.number(),
+    tierCount: v.number(),
+    remixCount: v.number(),
+    viewCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('bySlug', ['slug'])
+    .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
+    .index('bySourceTemplatePublicUpdatedAt', [
+      'sourceTemplateId',
+      'isPubliclyListable',
+      'updatedAt',
+    ]),
+
+  publishedRankingTiers: defineTable({
+    rankingId: v.id('publishedRankings'),
+    externalId: v.string(),
+    name: v.string(),
+    description: v.union(v.string(), v.null()),
+    colorSpec: tierColorSpecValidator,
+    rowColorSpec: v.union(tierColorSpecValidator, v.null()),
+    order: v.number(),
+  }).index('byRanking', ['rankingId', 'order']),
+
+  publishedRankingItems: defineTable({
+    rankingId: v.id('publishedRankings'),
+    templateItemId: v.id('templateItems'),
+    templateItemExternalId: v.string(),
+    externalId: v.string(),
+    tierExternalId: v.union(v.string(), v.null()),
+    label: v.union(v.string(), v.null()),
+    backgroundColor: v.union(v.string(), v.null()),
+    altText: v.union(v.string(), v.null()),
+    mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    order: v.number(),
+    aspectRatio: v.union(v.number(), v.null()),
+    imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+    transform: v.union(itemTransformValidator, v.null()),
+  })
+    .index('byRanking', ['rankingId', 'order'])
+    .index('byTemplateItem', ['templateItemId'])
     .index('byMedia', ['mediaAssetId']),
 
   // short URL indirection for shareable snapshot blobs. slug -> compressed

@@ -8,12 +8,13 @@ import {
   useState,
   type CSSProperties,
 } from 'react'
-import { ArrowRight, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { ArrowRight, ChevronRight, Eye, Pencil, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
+import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
@@ -126,6 +127,7 @@ export const ItemContextMenu = ({
 
   const targetCount = selectionIds.length || 1
   const showEdit = targetCount === 1 && hasAnyImageRef(item)
+  const showPreview = targetCount === 1 && hasAnyImageRef(item)
   const removeLabel = targetCount > 1 ? `Remove ${targetCount} items` : 'Remove'
 
   return (
@@ -144,6 +146,20 @@ export const ItemContextMenu = ({
         e.stopPropagation()
       }}
     >
+      {showPreview && (
+        <OverlayMenuItem
+          role="menuitem"
+          onClick={() =>
+          {
+            useItemPreviewStore.getState().open(itemId)
+            onClose()
+          }}
+        >
+          <Eye className="h-3.5 w-3.5 shrink-0" />
+          Preview image
+        </OverlayMenuItem>
+      )}
+
       {showEdit && (
         <OverlayMenuItem
           role="menuitem"

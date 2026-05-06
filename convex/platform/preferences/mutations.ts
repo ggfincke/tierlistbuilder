@@ -3,10 +3,16 @@
 // concurrent-edit conflicts collapse to whichever debounced flush lands last
 
 import { v } from 'convex/values'
+import {
+  isValidLabelFontSizePx,
+  LABEL_FONT_SIZE_PX_MAX,
+  LABEL_FONT_SIZE_PX_MIN,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { mutation } from '../../_generated/server'
 import { requireCurrentUserId } from '../../lib/auth'
 import { appPreferencesValidator } from '../../lib/validators'
 import { validateHexColor } from '../../lib/hexColor'
+import { failInput } from '../../lib/text'
 
 // upsert the authenticated caller's AppPreferences — replaces any existing row.
 // returns the wall-clock updatedAt the row landed at so the client can stamp
@@ -33,6 +39,12 @@ export const upsertMyPreferences = mutation({
       validateHexColor(
         args.preferences.boardBackgroundOverride,
         'boardBackgroundOverride'
+      )
+    }
+    if (!isValidLabelFontSizePx(args.preferences.defaultLabelFontSizePx))
+    {
+      failInput(
+        `invalid defaultLabelFontSizePx: must be within [${LABEL_FONT_SIZE_PX_MIN}, ${LABEL_FONT_SIZE_PX_MAX}]`
       )
     }
 

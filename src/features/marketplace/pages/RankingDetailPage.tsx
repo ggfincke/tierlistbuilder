@@ -1,0 +1,432 @@
+// src/features/marketplace/pages/RankingDetailPage.tsx
+// public ranking detail — read-only tier rows, source-template breadcrumb,
+// & a Remix CTA that clones the snapshot into a fresh local board
+
+import { ArrowLeft, Eye, Loader2, Sparkles, TrendingUp } from 'lucide-react'
+import { useEffect, useMemo, type ComponentType, type SVGProps } from 'react'
+import { Link, useParams } from 'react-router-dom'
+
+import {
+  isRankingSlug,
+  type MarketplaceRankingDetail,
+  type MarketplaceRankingItem,
+  type MarketplaceRankingTier,
+} from '@tierlistbuilder/contracts/marketplace/ranking'
+import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
+import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { resolveTierColorSpec } from '~/shared/theme/tierColors'
+import { getTextColor } from '~/shared/lib/color'
+import { useRankingBySlug } from '~/features/marketplace/model/useRankingDetail'
+import { useRecordRankingView } from '~/features/marketplace/model/useRecordRankingView'
+import { useRemixRanking } from '~/features/marketplace/model/useRemixRanking'
+import { CATEGORY_META } from '~/features/marketplace/model/categories'
+import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
+import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import {
+  RANKINGS_ROUTE_PATH,
+  TEMPLATES_ROUTE_PATH,
+} from '~/shared/routes/pathname'
+
+// neutral palette for ranking surfaces; viewers don't carry workspace prefs
+const RANKING_PALETTE_ID = 'classic' as const
+const ITEM_FRAME_RATIO_FALLBACK = 1
+const TILE_LONG_EDGE_PX = 96
+
+interface ItemTileProps
+{
+  item: MarketplaceRankingItem
+  frameAspectRatio: number
+}
+
+const ItemTile = ({ item, frameAspectRatio }: ItemTileProps) =>
+{
+  const labelDisplay = resolveLabelDisplay({
+    itemLabel: item.label ?? undefined,
+    itemOptions: undefined,
+    boardSettings: undefined,
+    globalLabelDefaults: {
+      showLabels: false,
+      placementMode: 'overlay',
+      fontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
+    },
+  })
+  return (
+    <div
+      className="relative overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+      style={{
+        width: TILE_LONG_EDGE_PX,
+        height: Math.round(TILE_LONG_EDGE_PX / frameAspectRatio),
+      }}
+    >
+      <ItemContent
+        item={{
+          imageUrl: item.media?.url,
+          label: item.label ?? undefined,
+          backgroundColor: item.backgroundColor ?? undefined,
+          altText: item.altText ?? undefined,
+          aspectRatio: item.aspectRatio ?? undefined,
+          transform: item.transform ?? undefined,
+        }}
+        label={labelDisplay}
+        fit={item.imageFit ?? 'cover'}
+        frameAspectRatio={frameAspectRatio}
+      />
+    </div>
+  )
+}
+
+interface TierRowProps
+{
+  tier: MarketplaceRankingTier
+  items: MarketplaceRankingItem[]
+  frameAspectRatio: number
+  isFirst: boolean
+}
+
+const TierRow = ({ tier, items, frameAspectRatio, isFirst }: TierRowProps) =>
+{
+  const tierColor = resolveTierColorSpec(RANKING_PALETTE_ID, tier.colorSpec)
+  const rowBg = tier.rowColorSpec
+    ? resolveTierColorSpec(RANKING_PALETTE_ID, tier.rowColorSpec)
+    : null
+  return (
+    <div
+      className="flex"
+      style={rowBg ? { backgroundColor: rowBg } : undefined}
+    >
+      <div
+        className={`flex min-w-0 flex-1 border-b border-l border-[var(--t-border)] ${
+          isFirst ? 'border-t' : ''
+        }`}
+      >
+        <div
+          className="flex shrink-0 items-center justify-center px-3 py-3 text-center text-base font-semibold"
+          style={{
+            width: 118,
+            backgroundColor: tierColor,
+            color: getTextColor(tierColor),
+          }}
+        >
+          <div className="flex flex-col items-center">
+            <span className="block max-w-full break-words [overflow-wrap:anywhere]">
+              {tier.name}
+            </span>
+            {tier.description && (
+              <span className="mt-0.5 text-[10px] font-normal opacity-75">
+                {tier.description}
+              </span>
+            )}
+          </div>
+        </div>
+        <div
+          className="flex flex-1 flex-wrap content-start gap-px bg-[var(--t-bg-surface)] p-0"
+          style={{
+            minHeight: Math.round(TILE_LONG_EDGE_PX / frameAspectRatio),
+            ...(rowBg ? { backgroundColor: rowBg } : {}),
+          }}
+        >
+          {items.map((item) => (
+            <ItemTile
+              key={item.externalId}
+              item={item}
+              frameAspectRatio={frameAspectRatio}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface StatTileProps
+{
+  label: string
+  value: string
+  icon: ComponentType<SVGProps<SVGSVGElement>>
+}
+
+const StatTile = ({ label, value, icon: Icon }: StatTileProps) => (
+  <div className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2.5">
+    <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
+      <Icon className="h-3 w-3" strokeWidth={1.8} />
+      {label}
+    </span>
+    <p className="mt-1 text-lg font-semibold text-[var(--t-text)]">{value}</p>
+  </div>
+)
+
+const NotFound = () => (
+  <section className="relative z-10 mx-auto flex min-h-[60vh] w-full max-w-[1240px] items-center justify-center px-5 pt-20 text-center sm:px-8 sm:pt-24">
+    <div className="max-w-md">
+      <h1 className="text-2xl font-semibold text-[var(--t-text)]">
+        Ranking not found
+      </h1>
+      <p className="mt-2 text-sm text-[var(--t-text-muted)]">
+        It may have been unpublished or the link might be wrong.
+      </p>
+      <Link
+        to={TEMPLATES_ROUTE_PATH}
+        className="focus-custom mt-5 inline-flex items-center gap-1.5 rounded-md bg-[var(--t-accent)] px-4 py-2 text-sm font-semibold text-[var(--t-accent-foreground)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+        Browse templates
+      </Link>
+    </div>
+  </section>
+)
+
+const DetailSkeleton = () => (
+  <section
+    aria-hidden="true"
+    className="relative z-10 mx-auto w-full max-w-[1240px] animate-pulse px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
+  >
+    <div className="h-3 w-48 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+    <div className="mt-5 h-9 w-2/3 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
+    <div className="mt-2 h-3 w-1/3 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+    <div className="mt-6 grid grid-cols-3 gap-2">
+      <div className="h-16 rounded-lg bg-[rgb(var(--t-overlay)/0.05)]" />
+      <div className="h-16 rounded-lg bg-[rgb(var(--t-overlay)/0.05)]" />
+      <div className="h-16 rounded-lg bg-[rgb(var(--t-overlay)/0.05)]" />
+    </div>
+    <div className="mt-8 space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="h-24 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+      ))}
+    </div>
+  </section>
+)
+
+interface RankingBoardProps
+{
+  detail: MarketplaceRankingDetail
+}
+
+const RankingBoard = ({ detail }: RankingBoardProps) =>
+{
+  const itemsByTier = useMemo(() =>
+  {
+    const buckets = new Map<string, MarketplaceRankingItem[]>()
+    for (const item of detail.items)
+    {
+      const key = item.tierExternalId ?? '__unranked'
+      const bucket = buckets.get(key) ?? []
+      bucket.push(item)
+      buckets.set(key, bucket)
+    }
+    for (const bucket of buckets.values())
+    {
+      bucket.sort((a, b) => a.order - b.order)
+    }
+    return buckets
+  }, [detail.items])
+
+  const sortedTiers = useMemo(
+    () => [...detail.tiers].sort((a, b) => a.order - b.order),
+    [detail.tiers]
+  )
+
+  // ranking items can carry per-item aspect ratio; pick the most common one
+  // for the frame so tier rows render w/ a consistent slot size
+  const frameAspectRatio = useMemo(() =>
+  {
+    const ratios = detail.items
+      .map((item) => item.aspectRatio)
+      .filter(
+        (ratio): ratio is number => typeof ratio === 'number' && ratio > 0
+      )
+    if (ratios.length === 0) return ITEM_FRAME_RATIO_FALLBACK
+    const counts = new Map<number, number>()
+    for (const ratio of ratios)
+    {
+      counts.set(ratio, (counts.get(ratio) ?? 0) + 1)
+    }
+    let best = ratios[0]
+    let bestCount = 0
+    for (const [ratio, count] of counts)
+    {
+      if (count > bestCount)
+      {
+        best = ratio
+        bestCount = count
+      }
+    }
+    return best
+  }, [detail.items])
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)]">
+      {sortedTiers.map((tier, index) => (
+        <TierRow
+          key={tier.externalId}
+          tier={tier}
+          items={itemsByTier.get(tier.externalId) ?? []}
+          frameAspectRatio={frameAspectRatio}
+          isFirst={index === 0}
+        />
+      ))}
+    </div>
+  )
+}
+
+export const RankingDetailPage = () =>
+{
+  const { slug } = useParams<{ slug: string }>()
+  const validSlug = slug && isRankingSlug(slug) ? slug : null
+  const detail = useRankingBySlug(validSlug)
+  useRecordRankingView(detail ? detail.slug : null)
+  const remix = useRemixRanking()
+
+  useEffect(() =>
+  {
+    if (!detail) return
+    const previous = document.title
+    document.title = `${detail.title} · TierListBuilder`
+    return () =>
+    {
+      document.title = previous
+    }
+  }, [detail])
+
+  if (validSlug === null) return <NotFound />
+  if (detail === undefined) return <DetailSkeleton />
+  if (detail === null) return <NotFound />
+
+  const categoryLabel = CATEGORY_META[detail.template.category].label
+  const handleRemix = () =>
+  {
+    void remix.run(detail.slug, detail.title)
+  }
+
+  return (
+    <article className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
+      <nav
+        aria-label="Breadcrumb"
+        className="flex items-center gap-1.5 text-xs text-[var(--t-text-muted)]"
+      >
+        <Link
+          to={TEMPLATES_ROUTE_PATH}
+          className="focus-custom rounded transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+        >
+          Templates
+        </Link>
+        <span aria-hidden="true" className="opacity-40">
+          /
+        </span>
+        <Link
+          to={`${TEMPLATES_ROUTE_PATH}/${detail.template.slug}`}
+          className="focus-custom truncate rounded transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+        >
+          {detail.template.title}
+        </Link>
+        <span aria-hidden="true" className="opacity-40">
+          /
+        </span>
+        <span className="truncate text-[var(--t-text-secondary)]">
+          {detail.title}
+        </span>
+      </nav>
+
+      <header className="mt-5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
+            {categoryLabel}
+          </span>
+          <span className="rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
+            Ranking
+          </span>
+        </div>
+
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--t-text)] sm:text-4xl">
+          {detail.title}
+        </h1>
+
+        {detail.description && (
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--t-text-muted)]">
+            {detail.description}
+          </p>
+        )}
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[var(--t-text-muted)]">
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-sm font-semibold text-[var(--t-text)]"
+            >
+              {detail.author.displayName
+                .replace(/^@/, '')
+                .slice(0, 1)
+                .toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-[var(--t-text)]">
+                {detail.author.displayName}
+              </p>
+              <p className="text-xs text-[var(--t-text-faint)]">
+                Updated {formatRelativeTime(detail.updatedAt)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-md">
+          <StatTile
+            label="Remixes"
+            value={formatCount(detail.remixCount)}
+            icon={Sparkles}
+          />
+          <StatTile
+            label="Views"
+            value={formatCount(detail.viewCount)}
+            icon={Eye}
+          />
+          <StatTile
+            label="Tiers"
+            value={String(detail.tierCount)}
+            icon={TrendingUp}
+          />
+        </div>
+
+        <div className="mt-5 flex items-stretch gap-2">
+          <PrimaryButton
+            type="button"
+            size="md"
+            disabled={remix.isPending}
+            onClick={handleRemix}
+            className="h-10 px-4"
+          >
+            {remix.isPending ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                Remixing…
+              </>
+            ) : (
+              'Remix this ranking'
+            )}
+          </PrimaryButton>
+          <Link
+            to={`${TEMPLATES_ROUTE_PATH}/${detail.template.slug}`}
+            className="focus-custom inline-flex h-10 items-center gap-1.5 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 text-sm font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+          >
+            View source template
+          </Link>
+        </div>
+      </header>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold tracking-tight text-[var(--t-text)]">
+          The ranking
+        </h2>
+        <p className="mt-1 text-xs text-[var(--t-text-muted)]">
+          Read-only view. Hit Remix to make it your own.
+        </p>
+        <div className="mt-4">
+          <RankingBoard detail={detail} />
+        </div>
+      </section>
+    </article>
+  )
+}
+
+// keep route paths colocated w/ the page to mirror the templates folder
+export { RANKINGS_ROUTE_PATH }

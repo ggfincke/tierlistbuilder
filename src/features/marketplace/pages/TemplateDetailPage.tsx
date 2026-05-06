@@ -9,6 +9,7 @@ import {
   Layers,
   Loader2,
   Sparkles,
+  TrendingUp,
   Type,
 } from 'lucide-react'
 import { useEffect, type ComponentType, type SVGProps } from 'react'
@@ -20,6 +21,7 @@ import {
   type MarketplaceTemplateItem,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import {
@@ -27,6 +29,8 @@ import {
   useTemplateBySlug,
   useTemplateItems,
 } from '~/features/marketplace/model/useTemplateDetail'
+import { useRecordTemplateView } from '~/features/marketplace/model/useRecordTemplateView'
+import { useRankingsForTemplate } from '~/features/marketplace/model/useRankingDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import {
   formatCount,
@@ -39,10 +43,14 @@ import { Cover } from '~/features/marketplace/components/Cover'
 import { RailHeader } from '~/features/marketplace/components/RailHeader'
 import { ShareTemplateButton } from '~/features/marketplace/components/ShareTemplateButton'
 import { UseTemplateButton } from '~/features/marketplace/components/UseTemplateButton'
-import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import {
+  RANKINGS_ROUTE_PATH,
+  TEMPLATES_ROUTE_PATH,
+} from '~/shared/routes/pathname'
 
 const ITEM_SLOT_HEIGHT = 96
 const RELATED_LIMIT = 4
+const RANKINGS_RAIL_LIMIT = 6
 // fallback when a template predates the itemAspectRatio field; preserves the
 // historical 1:1 thumbnail layout for older rows
 const FALLBACK_FRAME_RATIO = 1
@@ -68,7 +76,11 @@ const ItemThumbnail = ({ item, frame, labelSettings }: ItemThumbnailProps) =>
     itemLabel: item.label ?? undefined,
     itemOptions: undefined,
     boardSettings: labelSettings ?? undefined,
-    globalLabelDefaults: { showLabels: false, placementMode: 'overlay' },
+    globalLabelDefaults: {
+      showLabels: false,
+      placementMode: 'overlay',
+      fontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
+    },
   })
   return (
     <div
@@ -253,6 +265,67 @@ const DetailSkeleton = () => (
   </section>
 )
 
+const CommunityRankingsRail = ({ templateSlug }: { templateSlug: string }) =>
+{
+  const result = useRankingsForTemplate({
+    templateSlug,
+    limit: RANKINGS_RAIL_LIMIT,
+  })
+
+  if (result === undefined)
+  {
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            aria-hidden="true"
+            className="h-20 animate-pulse rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+          />
+        ))}
+      </div>
+    )
+  }
+
+  if (result.items.length === 0)
+  {
+    return (
+      <p className="rounded-md border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-4 py-6 text-center text-sm text-[var(--t-text-muted)]">
+        No community rankings yet. Fork this template & be the first to publish.
+      </p>
+    )
+  }
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {result.items.map((ranking) => (
+        <Link
+          key={ranking.slug}
+          to={`${RANKINGS_ROUTE_PATH}/${ranking.slug}`}
+          className="focus-custom flex flex-col gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2.5 transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+        >
+          <span className="truncate text-sm font-semibold text-[var(--t-text)]">
+            {ranking.title}
+          </span>
+          <span className="truncate text-xs text-[var(--t-text-muted)]">
+            by {ranking.author.displayName}
+          </span>
+          <span className="mt-1 inline-flex items-center gap-3 text-[11px] text-[var(--t-text-faint)]">
+            <span className="inline-flex items-center gap-1">
+              <Sparkles className="h-3 w-3" strokeWidth={1.8} />
+              {ranking.remixCount}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Eye className="h-3 w-3" strokeWidth={1.8} />
+              {ranking.viewCount}
+            </span>
+          </span>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 const RelatedTemplatesRail = ({
   slug,
   categoryLabel,
@@ -298,6 +371,8 @@ export const TemplateDetailPage = () =>
   const validSlug = slug && isTemplateSlug(slug) ? slug : null
   const detail = useTemplateBySlug(validSlug)
   const itemPage = useTemplateItems(validSlug)
+  // only record once we have a valid published row; null/undefined skip
+  useRecordTemplateView(detail ? detail.slug : null)
 
   useEffect(() =>
   {
@@ -518,6 +593,15 @@ export const TemplateDetailPage = () =>
           )}
         </section>
       )}
+
+      <section className="mt-12">
+        <RailHeader
+          title="Community rankings"
+          subtitle="Public rankings made from this template"
+          icon={TrendingUp}
+        />
+        <CommunityRankingsRail templateSlug={detail.slug} />
+      </section>
 
       <section className="mt-12">
         <RailHeader

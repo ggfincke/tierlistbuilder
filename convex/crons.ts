@@ -87,4 +87,11 @@ crons.cron(
   { cursor: null }
 )
 
+crons.interval(
+  'recompute template trending scores',
+  { hours: 1 },
+  internal.marketplace.templates.internal.recomputeTemplateTrendingScores,
+  { cursor: null }
+)
+
 export default crons

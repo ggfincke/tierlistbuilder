@@ -23,6 +23,7 @@ import { logger } from '~/shared/lib/logger'
 interface TemplatesGalleryData
 {
   featured: readonly MarketplaceTemplateGalleryCard[] | undefined
+  trending: readonly MarketplaceTemplateGalleryCard[] | undefined
   popular: readonly MarketplaceTemplateGalleryCard[] | undefined
   recent: readonly MarketplaceTemplateGalleryCard[] | undefined
   drafts: readonly MarketplaceTemplateDraft[] | undefined
@@ -107,6 +108,7 @@ export const useTemplatesGallery = (
 
   return {
     featured: snapshot?.featured,
+    trending: snapshot?.trending,
     popular: snapshot?.popular,
     recent: snapshot?.recent,
     drafts: drafts?.drafts,

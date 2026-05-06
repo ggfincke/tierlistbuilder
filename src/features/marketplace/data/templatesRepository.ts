@@ -14,6 +14,7 @@ import type {
   MarketplaceTemplateGalleryResult,
   MarketplaceTemplateItem,
   MarketplaceTemplateListResult,
+  MarketplaceTemplateManagementListResult,
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
   TemplateListSort,
@@ -136,3 +137,49 @@ export const useUseTemplateMutation = () =>
   useMutation(api.marketplace.templates.mutations.useTemplate) as unknown as (
     args: UseTemplateMutationArgs
   ) => Promise<MarketplaceTemplateUseResult>
+
+// imperative form — fire-&-forget once per detail-page session window. the
+// repo layer keeps the dedup-storage concern out of the page component
+export const recordTemplateViewImperative = (slug: string): Promise<null> =>
+  getConvexClient().mutation(
+    api.marketplace.templates.mutations.recordTemplateView,
+    { slug }
+  )
+
+// owned-template management list. reactive so unpublish/republish toggles
+// reflect immediately in the AccountModal section
+export const useMyTemplateManagementList = (
+  enabled: boolean,
+  limit?: number
+): MarketplaceTemplateManagementListResult | undefined =>
+  useQuery(
+    api.marketplace.templates.queries.getMyTemplateManagementList,
+    enabled ? (limit === undefined ? {} : { limit }) : 'skip'
+  )
+
+export const useUnpublishMyTemplateMutation = () =>
+  useMutation(
+    api.marketplace.templates.mutations.unpublishMyTemplate
+  ) as unknown as (args: { slug: string }) => Promise<null>
+
+export const useRepublishMyTemplateMutation = () =>
+  useMutation(
+    api.marketplace.templates.mutations.republishMyTemplate
+  ) as unknown as (args: { slug: string }) => Promise<null>
+
+export interface UpdateMyTemplateMetaArgs
+{
+  slug: string
+  title?: string
+  description?: string | null
+  category?: TemplateCategory
+  tags?: string[]
+  visibility?: TemplateVisibility
+  coverMediaExternalId?: string | null
+  creditLine?: string | null
+}
+
+export const useUpdateMyTemplateMetaMutation = () =>
+  useMutation(
+    api.marketplace.templates.mutations.updateMyTemplateMeta
+  ) as unknown as (args: UpdateMyTemplateMetaArgs) => Promise<null>

@@ -13,6 +13,7 @@ import type {
   MarketplaceTemplateItemsResult,
   MarketplaceTemplateCloneJobProgress,
   MarketplaceTemplateListResult,
+  MarketplaceTemplateManagementListResult,
   MarketplaceTemplatePublishJobProgress,
   TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
@@ -32,6 +33,7 @@ import {
   marketplaceTemplateDraftListResultValidator,
   marketplaceTemplateItemsResultValidator,
   marketplaceTemplateListResultValidator,
+  marketplaceTemplateManagementListResultValidator,
   marketplaceTemplatePublishJobProgressValidator,
   templateCategoryValidator,
   templateListSortValidator,
@@ -167,6 +169,28 @@ const takePublicRows = async (
     return await ctx.db
       .query('templateCards')
       .withIndex('byIsPubliclyListableUseCount', (q) =>
+        q.eq('isPubliclyListable', true)
+      )
+      .order('desc')
+      .take(options.limit)
+  }
+
+  if (options.sort === 'trending')
+  {
+    if (options.category)
+    {
+      return await ctx.db
+        .query('templateCards')
+        .withIndex('byCategoryIsPubliclyListableTrendingScore', (q) =>
+          q.eq('category', options.category!).eq('isPubliclyListable', true)
+        )
+        .order('desc')
+        .take(options.limit)
+    }
+
+    return await ctx.db
+      .query('templateCards')
+      .withIndex('byIsPubliclyListableTrendingScore', (q) =>
         q.eq('isPubliclyListable', true)
       )
       .order('desc')
@@ -382,6 +406,7 @@ export const getTemplatesGallery = query({
 
     const [
       featuredRows,
+      trendingRows,
       popularRows,
       recentRows,
       resultsRows,
@@ -392,6 +417,11 @@ export const getTemplatesGallery = query({
         category: null,
         sort: 'featured',
         limit: FEATURED_LIMIT,
+      }),
+      takePublicRows(ctx, {
+        category: null,
+        sort: 'trending',
+        limit: RAIL_LIMIT,
       }),
       takePublicRows(ctx, {
         category: null,
@@ -409,8 +439,9 @@ export const getTemplatesGallery = query({
     ])
 
     const cache = createTemplateProjectionCache()
-    const [featured, popular, recent, results] = await Promise.all([
+    const [featured, trending, popular, recent, results] = await Promise.all([
       toTemplateGalleryCards(ctx, featuredRows, viewerPlan, cache),
+      toTemplateGalleryCards(ctx, trendingRows, viewerPlan, cache),
       toTemplateGalleryCards(ctx, popularRows, viewerPlan, cache),
       toTemplateGalleryCards(ctx, recentRows, viewerPlan, cache),
       toTemplateGalleryCards(ctx, resultsRows, viewerPlan, cache),
@@ -418,6 +449,7 @@ export const getTemplatesGallery = query({
 
     return {
       featured,
+      trending,
       popular,
       recent,
       results,
@@ -595,6 +627,38 @@ export const getMyTemplates = query({
     return {
       items: await Promise.all(
         rows.map((row) => toTemplateCardSummary(ctx, row, cache))
+      ),
+    }
+  },
+})
+
+export const getMyTemplateManagementList = query({
+  args: { limit: v.optional(v.number()) },
+  returns: marketplaceTemplateManagementListResultValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<MarketplaceTemplateManagementListResult> =>
+  {
+    const userId = await getCurrentUserId(ctx)
+    if (!userId)
+    {
+      return { items: [] }
+    }
+
+    const rows = await ctx.db
+      .query('templateCards')
+      .withIndex('byAuthorUpdatedAt', (q) => q.eq('authorId', userId))
+      .order('desc')
+      .take(normalizeListLimit(args.limit))
+
+    const cache = createTemplateProjectionCache()
+    return {
+      items: await Promise.all(
+        rows.map(async (row) => ({
+          ...(await toTemplateCardSummary(ctx, row, cache)),
+          isPubliclyListable: row.isPubliclyListable,
+        }))
       ),
     }
   },

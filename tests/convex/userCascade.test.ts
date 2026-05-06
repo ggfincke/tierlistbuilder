@@ -8,7 +8,12 @@ import { api, internal } from '@convex/_generated/api'
 import type { Id } from '@convex/_generated/dataModel'
 import { classifyItemCount } from '../../convex/lib/entitlements'
 import schema from '../../convex/schema'
-import { modules, seedPublishedTemplate } from './convexTestHelpers'
+import {
+  modules,
+  seedCloudBoard,
+  seedPublishedRanking,
+  seedPublishedTemplate,
+} from './convexTestHelpers'
 
 const TEMPLATE_SLUG = 'Cascade001'
 
@@ -154,6 +159,72 @@ const seedTemplate = async (
     return templateId
   })
 
+const seedRanking = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  ownerId: Id<'users'>,
+  templateId: Id<'templates'>,
+  itemCount: number
+): Promise<Id<'publishedRankings'>> =>
+  await t.run(async (ctx) =>
+  {
+    const now = Date.now()
+    const boardId = await seedCloudBoard(ctx, {
+      externalId: 'ranking-source-board',
+      ownerId,
+      title: 'Ranking Source',
+      sourceTemplateId: templateId,
+      sourceTemplateCategory: 'gaming',
+      sourceTemplateSizeClass: classifyItemCount(itemCount),
+      now,
+      activeItemCount: itemCount,
+      unrankedItemCount: 0,
+      templateProgressState: 'complete',
+    })
+    const rankingId = await seedPublishedRanking(ctx, {
+      slug: 'CascadeR1',
+      ownerId,
+      sourceTemplateId: templateId,
+      sourceBoardId: boardId,
+      sourceTemplateSlug: TEMPLATE_SLUG,
+      sourceTemplateTitle: 'Cascade Template',
+      title: 'Cascade Ranking',
+      itemCount,
+      now,
+    })
+    await ctx.db.insert('publishedRankingTiers', {
+      rankingId,
+      externalId: 'ranking-tier-1',
+      name: 'Great',
+      description: null,
+      colorSpec: { kind: 'palette', index: 0 },
+      rowColorSpec: null,
+      order: 0,
+    })
+    const templateItems = await ctx.db
+      .query('templateItems')
+      .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
+      .take(itemCount)
+    for (let i = 0; i < itemCount; i++)
+    {
+      await ctx.db.insert('publishedRankingItems', {
+        rankingId,
+        templateItemId: templateItems[i]._id,
+        templateItemExternalId: templateItems[i].externalId,
+        externalId: `ranking-item-${i}`,
+        tierExternalId: 'ranking-tier-1',
+        label: `Ranking Item ${i}`,
+        backgroundColor: null,
+        altText: null,
+        mediaAssetId: null,
+        order: i,
+        aspectRatio: null,
+        imageFit: null,
+        transform: null,
+      })
+    }
+    return rankingId
+  })
+
 describe('user cascade cleanup', () =>
 {
   it('cascadeDeleteTemplate hides parent immediately & finishes children via scheduled work', async () =>
@@ -213,7 +284,7 @@ describe('user cascade cleanup', () =>
     }
   })
 
-  it('cascadeDeleteUserData removes account templates before user deletion', async () =>
+  it('cascadeDeleteUserData removes account templates and rankings before user deletion', async () =>
   {
     vi.useFakeTimers()
     try
@@ -221,6 +292,7 @@ describe('user cascade cleanup', () =>
       const t = makeTest()
       const userId = await seedUser(t)
       const templateId = await seedTemplate(t, userId, 260)
+      const rankingId = await seedRanking(t, userId, templateId, 260)
 
       await t.mutation(internal.users.cascadeDeleteUserData, {
         userId,
@@ -241,11 +313,26 @@ describe('user cascade cleanup', () =>
           .query('templateItems')
           .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
           .collect(),
+        rankings: await ctx.db
+          .query('publishedRankings')
+          .withIndex('byOwnerUpdatedAt', (q) => q.eq('ownerId', userId))
+          .collect(),
+        rankingTiers: await ctx.db
+          .query('publishedRankingTiers')
+          .withIndex('byRanking', (q) => q.eq('rankingId', rankingId))
+          .collect(),
+        rankingItems: await ctx.db
+          .query('publishedRankingItems')
+          .withIndex('byRanking', (q) => q.eq('rankingId', rankingId))
+          .collect(),
       }))
       expect(remaining.user).toBeNull()
       expect(remaining.template).toBeNull()
       expect(remaining.stats).toBeNull()
       expect(remaining.items).toHaveLength(0)
+      expect(remaining.rankings).toHaveLength(0)
+      expect(remaining.rankingTiers).toHaveLength(0)
+      expect(remaining.rankingItems).toHaveLength(0)
     }
     finally
     {

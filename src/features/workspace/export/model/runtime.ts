@@ -23,6 +23,7 @@ export interface ExportAppearance
   itemSize: ItemSize
   showLabels: boolean
   defaultLabelPlacementMode: LabelPlacementMode
+  defaultLabelFontSizePx: number
   itemShape: ItemShape
   compactMode: boolean
   maxItemsPerRow: number

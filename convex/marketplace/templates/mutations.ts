@@ -55,6 +55,7 @@ import {
   DEFAULT_TEMPLATE_TIERS,
   findTemplateBySlug,
   incrementTemplateUseStats,
+  incrementTemplateViewStats,
   insertBoardItemsFromTemplate,
   insertBoardTiers,
   isFinishedTemplateJob,
@@ -799,6 +800,27 @@ export const republishMyTemplate = mutation({
       updatedAt: now,
     })
 
+    return null
+  },
+})
+
+export const recordTemplateView = mutation({
+  args: { slug: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    if (!isTemplateSlug(args.slug))
+    {
+      return null
+    }
+
+    const template = await findTemplateBySlug(ctx, args.slug)
+    if (!template || !isPublishedTemplateRow(template))
+    {
+      return null
+    }
+
+    await incrementTemplateViewStats(ctx, template, Date.now())
     return null
   },
 })
