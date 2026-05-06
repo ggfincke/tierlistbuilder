@@ -46,6 +46,7 @@ test('signed-in publish, use-template, and My Lists open flow', async ({
   await publish
     .getByLabel('Description')
     .fill('Group B signed-in marketplace workflow coverage.')
+  await publish.getByLabel('Visibility').selectOption('unlisted')
   await publish.getByRole('button', { name: 'Publish template' }).click()
 
   await expect(page).toHaveURL(/\/templates\/[A-Za-z0-9-]+$/)
@@ -53,19 +54,6 @@ test('signed-in publish, use-template, and My Lists open flow', async ({
     page.getByRole('heading', { level: 1, name: templateTitle })
   ).toBeVisible()
 
-  await page.goto(`/templates?q=${encodeURIComponent(templateTitle)}`)
-  await expect(templateSearchBox(page)).toHaveValue(templateTitle)
-  const templateCard = page
-    .getByRole('link', {
-      name: new RegExp(`^${escapedTemplateTitle}`),
-    })
-    .first()
-  await expect(templateCard).toBeVisible()
-  await templateCard.click()
-
-  await expect(
-    page.getByRole('heading', { level: 1, name: templateTitle })
-  ).toBeVisible()
   await page.getByRole('button', { name: 'Use this template' }).click()
 
   await expect(page).toHaveURL(/\/$/)

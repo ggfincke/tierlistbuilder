@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import { resolveInboundShare } from '~/features/platform/share/inboundShare'
@@ -23,6 +24,7 @@ const EMBED_APPEARANCE: StaticBoardAppearance = {
   // viewers don't get to pick — fall back to overlay so unconfigured boards
   // render the same way they did before this preference existed
   defaultLabelPlacementMode: 'overlay',
+  defaultLabelFontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
   itemShape: 'square',
   compactMode: false,
   labelWidth: 'default',

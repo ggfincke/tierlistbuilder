@@ -55,6 +55,9 @@ export interface AppPreferences
   // fallback placement applied when a board (or item) has no explicit
   // placement override — matches the LabelPlacement.mode discriminant
   defaultLabelPlacementMode: LabelPlacementMode
+  // fallback caption font size in CSS px when neither item nor board pins
+  // one — clamped to LABEL_FONT_SIZE_PX_MIN..MAX in board contracts
+  defaultLabelFontSizePx: number
   itemShape: ItemShape
   compactMode: boolean
   exportBackgroundOverride: string | null

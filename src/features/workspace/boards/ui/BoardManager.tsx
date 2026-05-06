@@ -6,12 +6,16 @@ import {
   Copy,
   History,
   Layers,
+  Library,
   Link as LinkIcon,
   Pencil,
   Plus,
   Trash2,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
+
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
@@ -257,6 +261,14 @@ export const BoardManager = ({
               <Plus className="h-3.5 w-3.5" />
               New List
             </button>
+            <Link
+              to={TEMPLATES_ROUTE_PATH}
+              onClick={() => setOpen(false)}
+              className="focus-custom mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm text-[var(--t-text-muted)] transition hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]"
+            >
+              <Library className="h-3.5 w-3.5" />
+              Browse templates
+            </Link>
           </div>
 
           {cloudEnabled && (

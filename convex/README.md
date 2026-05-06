@@ -91,6 +91,7 @@ convex/
     shortLinks/       # share-link slug resolution, listing, mutations, TTL sweeper
   marketplace/
     templates/        # public template publishing, gallery reads, clone-to-board
+    rankings/         # published ranking snapshots and remix-to-board
   workspace/
     boards/           # boards CRUD + cascade delete + upsertBoardState
     sync/             # local/cloud board merge, reconciliation, bounded row loader

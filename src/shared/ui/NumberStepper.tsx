@@ -1,5 +1,5 @@
-// src/features/workspace/imageEditor/ui/NumberStepper.tsx
-// compact numeric input w/ +/- buttons for image-editor controls
+// src/shared/ui/NumberStepper.tsx
+// compact numeric input w/ flush +/- buttons in a single connected control
 
 import { useCallback, useState } from 'react'
 
@@ -12,7 +12,7 @@ interface NumberStepperProps
   min: number
   max: number
   step: number
-  suffix: string
+  suffix?: string
   inputLabel: string
   decreaseLabel: string
   increaseLabel: string
@@ -69,7 +69,7 @@ export const NumberStepper = ({
 
   return (
     <div
-      className={`inline-flex items-stretch overflow-hidden rounded border bg-[var(--t-bg-surface)] focus-within:border-[var(--t-border-hover)] focus-within:ring-2 focus-within:ring-[var(--t-accent)] ${
+      className={`inline-flex items-stretch overflow-hidden rounded-md border bg-[var(--t-bg-surface)] transition focus-within:border-[var(--t-border-hover)] focus-within:ring-2 focus-within:ring-[var(--t-accent)] ${
         active
           ? 'border-[var(--t-border-hover)]'
           : 'border-[var(--t-border-secondary)]'
@@ -81,10 +81,14 @@ export const NumberStepper = ({
         disabled={value <= min}
         aria-label={decreaseLabel}
         title={decreaseTitle}
-        className="focus-custom flex w-6 items-center justify-center text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+        className="focus-custom flex w-7 items-center justify-center text-base text-[var(--t-text-muted)] enabled:hover:bg-[var(--t-bg-active)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
       >
-        -
+        −
       </button>
+      <span
+        aria-hidden="true"
+        className="w-px bg-[var(--t-border-secondary)]"
+      />
       <label className="flex h-7 items-center px-1 text-[var(--t-text-muted)]">
         <input
           id={id}
@@ -107,21 +111,29 @@ export const NumberStepper = ({
               e.currentTarget.blur()
             }
           }}
-          className="w-9 bg-transparent text-right tabular-nums text-[var(--t-text)] outline-none [appearance:textfield]"
+          className={`bg-transparent text-center tabular-nums text-[var(--t-text)] outline-none [appearance:textfield] ${
+            suffix ? 'w-9 text-right' : 'w-10'
+          }`}
           aria-label={inputLabel}
           spellCheck={false}
         />
-        <span aria-hidden="true" className="pl-0.5 text-[0.65rem]">
-          {suffix}
-        </span>
+        {suffix && (
+          <span aria-hidden="true" className="pl-0.5 text-[0.65rem]">
+            {suffix}
+          </span>
+        )}
       </label>
+      <span
+        aria-hidden="true"
+        className="w-px bg-[var(--t-border-secondary)]"
+      />
       <button
         type="button"
         onClick={() => nudge(step)}
         disabled={value >= max}
         aria-label={increaseLabel}
         title={increaseTitle}
-        className="focus-custom flex w-6 items-center justify-center text-[var(--t-text-muted)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+        className="focus-custom flex w-7 items-center justify-center text-base text-[var(--t-text-muted)] enabled:hover:bg-[var(--t-bg-active)] enabled:hover:text-[var(--t-text)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
       >
         +
       </button>

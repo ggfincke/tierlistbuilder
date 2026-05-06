@@ -4,6 +4,7 @@
 import type { Id, Doc } from '@convex/_generated/dataModel'
 import type { MutationCtx } from '@convex/_generated/server'
 import { buildSearchText } from '@convex/marketplace/templates/lib'
+import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
 
 export const modules = import.meta.glob('../../convex/**/*.*s')
 
@@ -20,9 +21,56 @@ interface SeedPublishedTemplateArgs
   now?: number
 }
 
+interface SeedCloudBoardArgs
+{
+  ownerId: Id<'users'>
+  externalId: string
+  title: string
+  now?: number
+  sourceTemplateId?: Id<'templates'> | null
+  sourceTemplateCategory?: Doc<'boards'>['sourceTemplateCategory']
+  sourceTemplateSizeClass?: Doc<'boards'>['sourceTemplateSizeClass']
+  activeItemCount?: number
+  unrankedItemCount?: number
+  templateProgressState?: Doc<'boards'>['templateProgressState']
+  librarySummary?: Doc<'boards'>['librarySummary']
+  revision?: number
+  itemAspectRatio?: number
+  itemAspectRatioMode?: Doc<'boards'>['itemAspectRatioMode']
+  defaultItemImageFit?: Doc<'boards'>['defaultItemImageFit']
+  labels?: Doc<'boards'>['labels']
+}
+
+interface SeedPublishedRankingArgs
+{
+  ownerId: Id<'users'>
+  slug: string
+  sourceTemplateId: Id<'templates'>
+  sourceBoardId: Id<'boards'>
+  sourceTemplateSlug: string
+  sourceTemplateTitle: string
+  title: string
+  itemCount: number
+  now?: number
+  sourceTemplateCategory?: Doc<'publishedRankings'>['sourceTemplateCategory']
+  description?: string | null
+  visibility?: Doc<'publishedRankings'>['visibility']
+  publicationState?: Doc<'publishedRankings'>['publicationState']
+  isPubliclyListable?: boolean
+  tierCount?: number
+  remixCount?: number
+  viewCount?: number
+}
+
 const defaultSuggestedTiers = (): Doc<'templates'>['suggestedTiers'] => [
   { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
 ]
+
+const defaultBoardLibrarySummary = (): Doc<'boards'>['librarySummary'] => ({
+  coverItems: [],
+  tierColors: [{ kind: 'palette', index: 0 }],
+  tierBreakdown: [],
+})
 
 export const seedPublishedTemplate = async (
   ctx: MutationCtx,
@@ -99,4 +147,67 @@ export const seedPublishedTemplate = async (
     updatedAt: now,
   })
   return templateId
+}
+
+export const seedCloudBoard = async (
+  ctx: MutationCtx,
+  args: SeedCloudBoardArgs
+): Promise<Id<'boards'>> =>
+{
+  const now = args.now ?? Date.now()
+  return await ctx.db.insert('boards', {
+    externalId: args.externalId,
+    ownerId: args.ownerId,
+    title: args.title,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+    revision: args.revision ?? 1,
+    ...(args.itemAspectRatio !== undefined
+      ? { itemAspectRatio: args.itemAspectRatio }
+      : {}),
+    ...(args.itemAspectRatioMode !== undefined
+      ? { itemAspectRatioMode: args.itemAspectRatioMode }
+      : {}),
+    ...(args.defaultItemImageFit !== undefined
+      ? { defaultItemImageFit: args.defaultItemImageFit }
+      : {}),
+    ...(args.labels !== undefined ? { labels: args.labels } : {}),
+    sourceTemplateId: args.sourceTemplateId ?? null,
+    sourceTemplateCategory: args.sourceTemplateCategory ?? null,
+    sourceTemplateSizeClass: args.sourceTemplateSizeClass ?? null,
+    ...buildFreshBoardCloudFields(now),
+    activeItemCount: args.activeItemCount ?? 0,
+    unrankedItemCount: args.unrankedItemCount ?? 0,
+    templateProgressState: args.templateProgressState ?? 'none',
+    librarySummary: args.librarySummary ?? defaultBoardLibrarySummary(),
+  })
+}
+
+export const seedPublishedRanking = async (
+  ctx: MutationCtx,
+  args: SeedPublishedRankingArgs
+): Promise<Id<'publishedRankings'>> =>
+{
+  const now = args.now ?? Date.now()
+  return await ctx.db.insert('publishedRankings', {
+    slug: args.slug,
+    ownerId: args.ownerId,
+    sourceTemplateId: args.sourceTemplateId,
+    sourceBoardId: args.sourceBoardId,
+    sourceTemplateSlug: args.sourceTemplateSlug,
+    sourceTemplateTitle: args.sourceTemplateTitle,
+    sourceTemplateCategory: args.sourceTemplateCategory ?? 'gaming',
+    title: args.title,
+    description: args.description ?? null,
+    visibility: args.visibility ?? 'public',
+    publicationState: args.publicationState ?? 'published',
+    isPubliclyListable: args.isPubliclyListable ?? true,
+    itemCount: args.itemCount,
+    tierCount: args.tierCount ?? 1,
+    remixCount: args.remixCount ?? 0,
+    viewCount: args.viewCount ?? 0,
+    createdAt: now,
+    updatedAt: now,
+  })
 }

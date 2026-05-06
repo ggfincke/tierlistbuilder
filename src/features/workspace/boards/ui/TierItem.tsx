@@ -1,7 +1,7 @@
 // src/features/workspace/boards/ui/TierItem.tsx
 // sortable item tile — displays image or text, handles drag & delete
 
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -9,6 +9,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { Check, GripVertical, PenLine, X } from 'lucide-react'
 
 import { useKeyboardDrag } from '~/features/workspace/boards/interaction/useKeyboardDrag'
+import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   selectHasKeyboardSelection,
@@ -76,6 +77,7 @@ export const TierItem = memo(
       itemShape,
       showLabels,
       defaultLabelPlacementMode,
+      defaultLabelFontSizePx,
       boardLocked,
       showAltTextButton,
     } = usePreferencesStore(
@@ -83,6 +85,7 @@ export const TierItem = memo(
         itemShape: state.itemShape,
         showLabels: state.showLabels,
         defaultLabelPlacementMode: state.defaultLabelPlacementMode,
+        defaultLabelFontSizePx: state.defaultLabelFontSizePx,
         boardLocked: state.boardLocked,
         showAltTextButton: state.showAltTextButton,
       }))
@@ -139,17 +142,95 @@ export const TierItem = memo(
     // activator wired via {...listeners}
     const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
     const pointerFocusRef = useRef(false)
+    // touch long-press -> preview. iOS Safari swallows contextmenu on plain
+    // divs (system text-select menu wins) so the right-click path doesn't
+    // cover touch on its own
+    const longPressTimerRef = useRef<number | null>(null)
+    const longPressFiredRef = useRef(false)
 
-    const handlePointerDownCapture = useCallback((e: React.PointerEvent) =>
+    const clearLongPress = useCallback(() =>
     {
-      pointerStartRef.current = { x: e.clientX, y: e.clientY }
-      pointerFocusRef.current = true
+      if (longPressTimerRef.current !== null)
+      {
+        window.clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
     }, [])
+
+    useEffect(() =>
+    {
+      if (isDragging) clearLongPress()
+    }, [clearLongPress, isDragging])
+
+    useEffect(() => clearLongPress, [clearLongPress])
+
+    const handlePointerDownCapture = useCallback(
+      (e: React.PointerEvent) =>
+      {
+        pointerStartRef.current = { x: e.clientX, y: e.clientY }
+        pointerFocusRef.current = true
+        longPressFiredRef.current = false
+        clearLongPress()
+        if (e.pointerType !== 'touch') return
+        longPressTimerRef.current = window.setTimeout(() =>
+        {
+          longPressTimerRef.current = null
+          const current = useActiveBoardStore.getState().items[itemId]
+          if (!current || !hasAnyImageRef(current)) return
+          longPressFiredRef.current = true
+          useItemPreviewStore.getState().open(itemId)
+        }, 550)
+      },
+      [clearLongPress, itemId]
+    )
+
+    const handlePointerMoveCapture = useCallback(
+      (e: React.PointerEvent) =>
+      {
+        if (longPressTimerRef.current === null) return
+        if (!pointerStartRef.current) return
+        const dx = Math.abs(e.clientX - pointerStartRef.current.x)
+        const dy = Math.abs(e.clientY - pointerStartRef.current.y)
+        if (dx > 8 || dy > 8) clearLongPress()
+      },
+      [clearLongPress]
+    )
+
+    const handlePointerEndCapture = useCallback(() =>
+    {
+      clearLongPress()
+    }, [clearLongPress])
 
     const handleClick = useCallback(
       (e: React.MouseEvent) =>
       {
         if (boardLocked) return
+
+        // second-of-double click: open the preview directly (don't rely on
+        // dblclick — it can be skipped when the wrapper re-renders between
+        // clicks) & skip toggling selection a second time
+        if (e.detail > 1)
+        {
+          pointerStartRef.current = null
+          pointerFocusRef.current = false
+          if (item && hasAnyImageRef(item))
+          {
+            e.preventDefault()
+            e.stopPropagation()
+            useItemPreviewStore.getState().open(itemId)
+          }
+          return
+        }
+
+        // long-press already opened the preview; swallow the trailing click so
+        // it doesn't toggle selection on top
+        if (longPressFiredRef.current)
+        {
+          longPressFiredRef.current = false
+          pointerStartRef.current = null
+          pointerFocusRef.current = false
+          return
+        }
 
         // ignore if the pointer moved (was a drag, not a click)
         if (pointerStartRef.current)
@@ -179,12 +260,25 @@ export const TierItem = memo(
       [
         boardLocked,
         hasKeyboardSelection,
+        item,
         itemId,
         isSelected,
         setKeyboardFocusItemId,
         setKeyboardMode,
         toggleItemSelected,
       ]
+    )
+
+    const handleDoubleClick = useCallback(
+      (e: React.MouseEvent) =>
+      {
+        if (!item) return
+        if (!hasAnyImageRef(item)) return
+        e.preventDefault()
+        e.stopPropagation()
+        useItemPreviewStore.getState().open(itemId)
+      },
+      [item, itemId]
     )
 
     const handleContextMenu = useCallback(
@@ -274,7 +368,11 @@ export const TierItem = memo(
           onFocus={handleItemFocus}
           onKeyDown={onKeyDown}
           onPointerDownCapture={handlePointerDownCapture}
+          onPointerMoveCapture={handlePointerMoveCapture}
+          onPointerUpCapture={handlePointerEndCapture}
+          onPointerCancelCapture={handlePointerEndCapture}
           onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           onContextMenu={handleContextMenu}
         >
           <ItemContent
@@ -286,6 +384,7 @@ export const TierItem = memo(
               globalLabelDefaults: {
                 showLabels,
                 placementMode: defaultLabelPlacementMode,
+                fontSizePx: defaultLabelFontSizePx,
               },
             })}
             fit={effectiveFit}

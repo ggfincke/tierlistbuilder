@@ -9,6 +9,8 @@ import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
+import { AccountTemplatesSection } from '~/features/marketplace/components/AccountTemplatesSection'
+import { AccountRankingsSection } from '~/features/marketplace/components/AccountRankingsSection'
 import { AccountDangerZone } from './AccountDangerZone'
 import { AccountProfileSection } from './AccountProfileSection'
 import { AccountSessionsSection } from './AccountSessionsSection'
@@ -29,7 +31,7 @@ export const AccountModal = ({ open, onClose }: AccountModalProps) =>
       open={open}
       onClose={onClose}
       labelledBy={titleId}
-      panelClassName="flex h-[min(36rem,calc(100vh-4rem))] w-full max-w-2xl flex-col p-4"
+      panelClassName="flex h-[min(40rem,calc(100vh-4rem))] w-full max-w-3xl flex-col p-4"
     >
       <div className="mb-4 flex items-center justify-between">
         <ModalHeader titleId={titleId}>Account</ModalHeader>
@@ -70,6 +72,14 @@ const SignedInAccountSections = ({
   <>
     <SettingsSection title="Profile">
       <AccountProfileSection user={user} />
+    </SettingsSection>
+
+    <SettingsSection title="Your templates">
+      <AccountTemplatesSection />
+    </SettingsSection>
+
+    <SettingsSection title="Your rankings">
+      <AccountRankingsSection />
     </SettingsSection>
 
     <SettingsSection title="Sessions">

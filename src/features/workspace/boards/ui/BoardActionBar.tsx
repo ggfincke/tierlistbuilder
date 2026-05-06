@@ -11,10 +11,12 @@ import {
   Plus,
   Redo2,
   RotateCcw,
+  Send,
   Settings as SettingsIcon,
   Shuffle,
   Undo2,
   Unlock,
+  UploadCloud,
 } from 'lucide-react'
 
 import type { ImageFormat } from '~/features/workspace/export/model/runtime'
@@ -44,7 +46,9 @@ import {
 import { ActionButton } from '~/shared/ui/ActionButton'
 import { ExportMenu } from '~/features/workspace/export/ui/ExportMenu'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
+import { preloadPublishModal } from '~/features/marketplace/components/loadPublishModal'
 import {
+  OverlayDivider,
   OverlayMenuItem,
   OverlayMenuSurface,
 } from '~/shared/overlay/OverlaySurface'
@@ -55,6 +59,12 @@ type ShuffleMenuId = 'root' | 'shuffleAll'
 
 const SHUFFLE_MENU_DEFINITIONS: readonly NestedMenuDefinition<ShuffleMenuId>[] =
   [{ id: 'root' }, { id: 'shuffleAll', parentId: 'root' }]
+
+type SaveMenuId = 'root'
+
+const SAVE_MENU_DEFINITIONS: readonly NestedMenuDefinition<SaveMenuId>[] = [
+  { id: 'root' },
+]
 
 interface BoardActionBarProps
 {
@@ -72,6 +82,8 @@ interface BoardActionBarProps
   onAnnotateExport: () => void
   onPreviewExport: () => void
   onShare: () => void
+  onPublishRanking: (() => void) | null
+  onPublishTemplate: (() => void) | null
   onReset: () => void
 }
 
@@ -91,6 +103,8 @@ export const BoardActionBar = ({
   onAnnotateExport,
   onPreviewExport,
   onShare,
+  onPublishRanking,
+  onPublishTemplate,
   onReset,
 }: BoardActionBarProps) =>
 {
@@ -129,9 +143,12 @@ export const BoardActionBar = ({
   const [confirmShuffleAll, setConfirmShuffleAll] = useState(false)
   const shuffleButtonRef = useRef<HTMLButtonElement | null>(null)
   const shuffleMenuRef = useRef<HTMLDivElement | null>(null)
+  const saveButtonRef = useRef<HTMLButtonElement | null>(null)
+  const saveMenuRef = useRef<HTMLDivElement | null>(null)
   const [showSavePreset, setShowSavePreset] = useState(false)
   const shuffleDialogId = useId()
   const shuffleAllGroupId = useId()
+  const saveDialogId = useId()
   const disabledMenuIds = useMemo(
     () => (boardLocked ? (['root', 'shuffleAll'] as const) : ([] as const)),
     [boardLocked]
@@ -141,14 +158,26 @@ export const BoardActionBar = ({
     definitions: SHUFFLE_MENU_DEFINITIONS,
     disabledIds: disabledMenuIds,
   })
+  const {
+    closeAllMenus: closeSaveMenu,
+    isOpen: isSaveOpen,
+    toggleMenu: toggleSaveMenu,
+  } = useNestedMenus({ definitions: SAVE_MENU_DEFINITIONS })
   const showShuffleMenu = isOpen('root')
   const showShuffleAllMenu = isOpen('shuffleAll')
+  const showSaveMenu = isSaveOpen('root')
 
   useDismissibleLayer({
     open: showShuffleMenu,
     triggerRef: shuffleButtonRef,
     layerRef: shuffleMenuRef,
     onDismiss: closeAllMenus,
+  })
+  useDismissibleLayer({
+    open: showSaveMenu,
+    triggerRef: saveButtonRef,
+    layerRef: saveMenuRef,
+    onDismiss: closeSaveMenu,
   })
 
   // pending shuffle mode for the confirmation dialog
@@ -331,13 +360,71 @@ export const BoardActionBar = ({
             <BarChart3 className="h-5 w-5" strokeWidth={1.8} />
           </ActionButton>
 
-          <ActionButton
-            label="Save as preset"
-            title="Save Preset"
-            onClick={() => setShowSavePreset(true)}
-          >
-            <BookmarkPlus className="h-5 w-5" strokeWidth={1.8} />
-          </ActionButton>
+          <div className="relative">
+            <ActionButton
+              ref={saveButtonRef}
+              label="Save or publish"
+              title="Save"
+              onClick={() => toggleSaveMenu('root')}
+              onFocus={onPublishTemplate ? preloadPublishModal : undefined}
+              onPointerEnter={
+                onPublishTemplate ? preloadPublishModal : undefined
+              }
+              hasPopup="dialog"
+              expanded={showSaveMenu}
+              controlsId={saveDialogId}
+              active={showSaveMenu}
+              withDropdownIndicator
+            >
+              <BookmarkPlus className="h-5 w-5" strokeWidth={1.8} />
+            </ActionButton>
+
+            {showSaveMenu && (
+              <OverlayMenuSurface
+                id={saveDialogId}
+                ref={saveMenuRef}
+                role="dialog"
+                aria-label="Save or publish options"
+                className={`${menuPos.primary} flex flex-col ${menuPos.animationClass} text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
+              >
+                {onPublishRanking && (
+                  <OverlayMenuItem
+                    onClick={() =>
+                    {
+                      closeSaveMenu()
+                      onPublishRanking()
+                    }}
+                  >
+                    <Send className="h-3.5 w-3.5 shrink-0" />
+                    Publish Ranking
+                  </OverlayMenuItem>
+                )}
+                {onPublishTemplate && (
+                  <OverlayMenuItem
+                    onClick={() =>
+                    {
+                      closeSaveMenu()
+                      onPublishTemplate()
+                    }}
+                  >
+                    <UploadCloud className="h-3.5 w-3.5 shrink-0" />
+                    Publish as Template
+                  </OverlayMenuItem>
+                )}
+                {(onPublishRanking || onPublishTemplate) && <OverlayDivider />}
+                <OverlayMenuItem
+                  onClick={() =>
+                  {
+                    closeSaveMenu()
+                    setShowSavePreset(true)
+                  }}
+                >
+                  <BookmarkPlus className="h-3.5 w-3.5 shrink-0" />
+                  Save as Preset
+                </OverlayMenuItem>
+              </OverlayMenuSurface>
+            )}
+          </div>
 
           <ActionButton
             label={boardLocked ? 'Unlock board' : 'Lock board'}

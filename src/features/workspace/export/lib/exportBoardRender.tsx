@@ -37,6 +37,7 @@ export const getExportAppearance = (
   itemSize: preferences.itemSize,
   showLabels: preferences.showLabels,
   defaultLabelPlacementMode: preferences.defaultLabelPlacementMode,
+  defaultLabelFontSizePx: preferences.defaultLabelFontSizePx,
   itemShape: preferences.itemShape,
   compactMode: preferences.compactMode,
   maxItemsPerRow: normalizeExportItemsPerRow(preferences.exportItemsPerRow),

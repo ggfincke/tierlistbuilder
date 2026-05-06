@@ -56,6 +56,8 @@ import {
   type MarketplaceTemplateItemsResult,
   type MarketplaceTemplateCloneJobProgress,
   type MarketplaceTemplateListResult,
+  type MarketplaceTemplateManagementItem,
+  type MarketplaceTemplateManagementListResult,
   type MarketplaceTemplatePublishJobProgress,
   type MarketplaceTemplatePublishResult,
   type MarketplaceTemplateSummary,
@@ -68,6 +70,19 @@ import {
   type TemplateSizeClass,
   type TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  RANKING_PUBLICATION_STATES,
+  RANKING_VISIBILITIES,
+  type MarketplaceRankingDetail,
+  type MarketplaceRankingItem,
+  type MarketplaceRankingListResult,
+  type MarketplaceRankingPublishResult,
+  type MarketplaceRankingRemixResult,
+  type MarketplaceRankingSummary,
+  type MarketplaceRankingTier,
+  type RankingPublicationState,
+  type RankingVisibility,
+} from '@tierlistbuilder/contracts/marketplace/ranking'
 import {
   BOARD_PAUSED_REASONS,
   BOARD_CLOUD_STATES,
@@ -155,6 +170,10 @@ export const templatePublicationStateValidator = literalUnion(
   TEMPLATE_PUBLICATION_STATES
 )
 export const templateJobStatusValidator = literalUnion(TEMPLATE_JOB_STATUSES)
+export const rankingVisibilityValidator = literalUnion(RANKING_VISIBILITIES)
+export const rankingPublicationStateValidator = literalUnion(
+  RANKING_PUBLICATION_STATES
+)
 export const templateCardAccessStateValidator = literalUnion(
   TEMPLATE_CARD_ACCESS_STATES
 )
@@ -206,6 +225,7 @@ export const appPreferencesValidator = v.object({
   itemSize: itemSizeValidator,
   showLabels: v.boolean(),
   defaultLabelPlacementMode: labelPlacementModeValidator,
+  defaultLabelFontSizePx: v.number(),
   itemShape: itemShapeValidator,
   compactMode: v.boolean(),
   exportBackgroundOverride: v.union(v.string(), v.null()),
@@ -266,6 +286,15 @@ export type _TemplatePublicationStateExact = _Assert<
 >
 export type _TemplateJobStatusExact = _Assert<
   _Exact<TemplateJobStatus, Infer<typeof templateJobStatusValidator>>
+>
+export type _RankingVisibilityExact = _Assert<
+  _Exact<RankingVisibility, Infer<typeof rankingVisibilityValidator>>
+>
+export type _RankingPublicationStateExact = _Assert<
+  _Exact<
+    RankingPublicationState,
+    Infer<typeof rankingPublicationStateValidator>
+  >
 >
 export type _BoardCloudStateExact = _Assert<
   _Exact<BoardCloudState, Infer<typeof boardCloudStateValidator>>
@@ -519,6 +548,10 @@ const marketplaceTemplateBaseFields = {
   itemCount: v.number(),
   useCount: v.number(),
   viewCount: v.number(),
+  weeklyUseCount: v.number(),
+  weeklyViewCount: v.number(),
+  trendingScore: v.number(),
+  trendingComputedAt: v.union(v.number(), v.null()),
   featuredRank: v.union(v.number(), v.null()),
   creditLine: v.union(v.string(), v.null()),
   createdAt: v.number(),
@@ -552,10 +585,20 @@ export const marketplaceTemplateCountValidator = v.object({
 
 export const marketplaceTemplateGalleryResultValidator = v.object({
   featured: v.array(marketplaceTemplateGalleryCardValidator),
+  trending: v.array(marketplaceTemplateGalleryCardValidator),
   popular: v.array(marketplaceTemplateGalleryCardValidator),
   recent: v.array(marketplaceTemplateGalleryCardValidator),
   results: v.array(marketplaceTemplateGalleryCardValidator),
   templateCount: marketplaceTemplateCountValidator,
+})
+
+export const marketplaceTemplateManagementItemValidator = v.object({
+  ...marketplaceTemplateSummaryFields,
+  isPubliclyListable: v.boolean(),
+})
+
+export const marketplaceTemplateManagementListResultValidator = v.object({
+  items: v.array(marketplaceTemplateManagementItemValidator),
 })
 
 export const marketplaceTemplateDraftTemplateValidator = v.object({
@@ -605,6 +648,73 @@ export const marketplaceTemplateDraftValidator = v.object({
 
 export const marketplaceTemplateDraftListResultValidator = v.object({
   drafts: v.array(marketplaceTemplateDraftValidator),
+})
+
+export const marketplaceRankingTemplateRefValidator = v.object({
+  slug: v.string(),
+  title: v.string(),
+  category: templateCategoryValidator,
+})
+
+const marketplaceRankingSummaryFields = {
+  slug: v.string(),
+  title: v.string(),
+  description: v.union(v.string(), v.null()),
+  visibility: rankingVisibilityValidator,
+  publicationState: rankingPublicationStateValidator,
+  author: templateAuthorValidator,
+  template: marketplaceRankingTemplateRefValidator,
+  itemCount: v.number(),
+  tierCount: v.number(),
+  remixCount: v.number(),
+  viewCount: v.number(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+}
+
+export const marketplaceRankingSummaryValidator = v.object(
+  marketplaceRankingSummaryFields
+)
+
+export const marketplaceRankingTierValidator = v.object({
+  externalId: v.string(),
+  name: v.string(),
+  description: v.union(v.string(), v.null()),
+  colorSpec: tierColorSpecValidator,
+  rowColorSpec: v.union(tierColorSpecValidator, v.null()),
+  order: v.number(),
+})
+
+export const marketplaceRankingItemValidator = v.object({
+  externalId: v.string(),
+  templateItemExternalId: v.string(),
+  tierExternalId: v.union(v.string(), v.null()),
+  label: v.union(v.string(), v.null()),
+  backgroundColor: v.union(v.string(), v.null()),
+  altText: v.union(v.string(), v.null()),
+  media: v.union(templateMediaRefValidator, v.null()),
+  order: v.number(),
+  aspectRatio: v.union(v.number(), v.null()),
+  imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+  transform: v.union(itemTransformValidator, v.null()),
+})
+
+export const marketplaceRankingDetailValidator = v.object({
+  ...marketplaceRankingSummaryFields,
+  tiers: v.array(marketplaceRankingTierValidator),
+  items: v.array(marketplaceRankingItemValidator),
+})
+
+export const marketplaceRankingListResultValidator = v.object({
+  items: v.array(marketplaceRankingSummaryValidator),
+})
+
+export const marketplaceRankingPublishResultValidator = v.object({
+  slug: v.string(),
+})
+
+export const marketplaceRankingRemixResultValidator = v.object({
+  boardExternalId: v.string(),
 })
 
 const marketplaceTemplateJobProgressFields = {
@@ -842,6 +952,36 @@ export type _MarketplaceTemplateGalleryResultNoExtra = _Assert<
     : false
 >
 
+export type _MarketplaceTemplateManagementItemCovers = _Assert<
+  MarketplaceTemplateManagementItem extends Infer<
+    typeof marketplaceTemplateManagementItemValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateManagementItemNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateManagementItemValidator
+  > extends MarketplaceTemplateManagementItem
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateManagementListResultCovers = _Assert<
+  MarketplaceTemplateManagementListResult extends Infer<
+    typeof marketplaceTemplateManagementListResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateManagementListResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateManagementListResultValidator
+  > extends MarketplaceTemplateManagementListResult
+    ? true
+    : false
+>
+
 export type _MarketplaceTemplateItemCovers = _Assert<
   MarketplaceTemplateItem extends Infer<typeof marketplaceTemplateItemValidator>
     ? true
@@ -999,6 +1139,103 @@ export type _MarketplaceTemplateUseResultNoExtra = _Assert<
   Infer<
     typeof marketplaceTemplateUseResultValidator
   > extends MarketplaceTemplateUseResult
+    ? true
+    : false
+>
+
+export type _MarketplaceRankingSummaryCovers = _Assert<
+  MarketplaceRankingSummary extends Infer<
+    typeof marketplaceRankingSummaryValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceRankingSummaryNoExtra = _Assert<
+  Infer<
+    typeof marketplaceRankingSummaryValidator
+  > extends MarketplaceRankingSummary
+    ? true
+    : false
+>
+
+export type _MarketplaceRankingTierCovers = _Assert<
+  MarketplaceRankingTier extends Infer<typeof marketplaceRankingTierValidator>
+    ? true
+    : false
+>
+export type _MarketplaceRankingTierNoExtra = _Assert<
+  Infer<typeof marketplaceRankingTierValidator> extends MarketplaceRankingTier
+    ? true
+    : false
+>
+
+export type _MarketplaceRankingItemCovers = _Assert<
+  MarketplaceRankingItem extends Infer<typeof marketplaceRankingItemValidator>
+    ? true
+    : false
+>
+export type _MarketplaceRankingItemNoExtra = _Assert<
+  Infer<typeof marketplaceRankingItemValidator> extends MarketplaceRankingItem
+    ? true
+    : false
+>
+
+export type _MarketplaceRankingDetailCovers = _Assert<
+  MarketplaceRankingDetail extends Infer<
+    typeof marketplaceRankingDetailValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceRankingDetailNoExtra = _Assert<
+  Infer<
+    typeof marketplaceRankingDetailValidator
+  > extends MarketplaceRankingDetail
+    ? true
+    : false
+>
+
+export type _MarketplaceRankingListResultCovers = _Assert<
+  MarketplaceRankingListResult extends Infer<
+    typeof marketplaceRankingListResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceRankingListResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceRankingListResultValidator
+  > extends MarketplaceRankingListResult
+    ? true
+    : false
+>
+
+export type _MarketplaceRankingPublishResultCovers = _Assert<
+  MarketplaceRankingPublishResult extends Infer<
+    typeof marketplaceRankingPublishResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceRankingPublishResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceRankingPublishResultValidator
+  > extends MarketplaceRankingPublishResult
+    ? true
+    : false
+>
+
+export type _MarketplaceRankingRemixResultCovers = _Assert<
+  MarketplaceRankingRemixResult extends Infer<
+    typeof marketplaceRankingRemixResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceRankingRemixResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceRankingRemixResultValidator
+  > extends MarketplaceRankingRemixResult
     ? true
     : false
 >

@@ -158,3 +158,18 @@ export const assertCanUseTemplate = async (
     featureState,
   })
 }
+
+export const assertRankingFitsSingleTransaction = (
+  itemCount: number,
+  operation: 'publish' | 'remix'
+): void =>
+{
+  if (itemCount <= MAX_STANDARD_CLOUD_BOARD_ITEMS) return
+
+  throw new ConvexError({
+    code: CONVEX_ERROR_CODES.cloudItemLimitExceeded,
+    message: `ranking ${operation} supports up to ${MAX_STANDARD_CLOUD_BOARD_ITEMS} items until large-ranking jobs are available`,
+    maxItems: MAX_STANDARD_CLOUD_BOARD_ITEMS,
+    itemCount,
+  })
+}

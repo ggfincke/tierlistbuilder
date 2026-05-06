@@ -8,6 +8,7 @@ import {
   EXPORT_ITEMS_PER_ROW_DEFAULT,
   normalizeExportItemsPerRow,
 } from '@tierlistbuilder/contracts/platform/preferences'
+import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type {
   AppPreferences,
   ItemShape,
@@ -33,6 +34,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   itemSize: 'medium',
   showLabels: false,
   defaultLabelPlacementMode: 'overlay',
+  defaultLabelFontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
   itemShape: 'square',
   compactMode: false,
   exportBackgroundOverride: null,
@@ -73,6 +75,7 @@ interface PreferencesStore extends AppPreferences, HighContrastTransitionState
   setItemSize: (size: ItemSize) => void
   setShowLabels: (show: boolean) => void
   setDefaultLabelPlacementMode: (mode: LabelPlacementMode) => void
+  setDefaultLabelFontSizePx: (px: number) => void
   setItemShape: (shape: ItemShape) => void
   setCompactMode: (compact: boolean) => void
   setExportBackgroundOverride: (color: string | null) => void
@@ -126,6 +129,11 @@ export const usePreferencesStore = create<PreferencesStore>()(
           set,
           get,
           'defaultLabelPlacementMode'
+        ),
+        setDefaultLabelFontSizePx: createPreferenceSetter(
+          set,
+          get,
+          'defaultLabelFontSizePx'
         ),
         setItemShape: createPreferenceSetter(set, get, 'itemShape'),
         setCompactMode: createPreferenceSetter(set, get, 'compactMode'),
