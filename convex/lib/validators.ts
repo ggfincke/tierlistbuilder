@@ -87,6 +87,18 @@ import {
   type RankingVisibility,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import {
+  TEMPLATE_RANKING_AGGREGATE_ITEM_SORTS,
+  TEMPLATE_RANKING_AGGREGATE_STATES,
+  type MarketplaceTemplateRankingAggregate,
+  type MarketplaceTemplateRankingAggregateBucket,
+  type MarketplaceTemplateRankingAggregateDistributionCell,
+  type MarketplaceTemplateRankingAggregateItem,
+  type MarketplaceTemplateRankingAggregateItemsResult,
+  type MarketplaceTemplateRankingAggregateTemplateRef,
+  type TemplateRankingAggregateItemSort,
+  type TemplateRankingAggregateState,
+} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import {
   BOARD_PAUSED_REASONS,
   BOARD_CLOUD_STATES,
   BOARD_MATERIALIZATION_STATES,
@@ -179,6 +191,22 @@ export const rankingPublicationStateValidator = literalUnion(
 )
 export const rankingPublishBlockReasonValidator = literalUnion(
   RANKING_PUBLISH_BLOCK_REASONS
+)
+export const templateRankingAggregateStateValidator = literalUnion(
+  TEMPLATE_RANKING_AGGREGATE_STATES
+)
+export const templateRankingAggregateItemSortValidator = literalUnion(
+  TEMPLATE_RANKING_AGGREGATE_ITEM_SORTS
+)
+
+export const templateRankingAggregateJobStatusValidator = v.union(
+  v.literal('queued'),
+  v.literal('running')
+)
+
+export const templateRankingAggregateJobPhaseValidator = v.union(
+  v.literal('seedItems'),
+  v.literal('scanRankings')
 )
 export const templateCardAccessStateValidator = literalUnion(
   TEMPLATE_CARD_ACCESS_STATES
@@ -306,6 +334,18 @@ export type _RankingPublishBlockReasonExact = _Assert<
   _Exact<
     RankingPublishBlockReason,
     Infer<typeof rankingPublishBlockReasonValidator>
+  >
+>
+export type _TemplateRankingAggregateStateExact = _Assert<
+  _Exact<
+    TemplateRankingAggregateState,
+    Infer<typeof templateRankingAggregateStateValidator>
+  >
+>
+export type _TemplateRankingAggregateItemSortExact = _Assert<
+  _Exact<
+    TemplateRankingAggregateItemSort,
+    Infer<typeof templateRankingAggregateItemSortValidator>
   >
 >
 export type _BoardCloudStateExact = _Assert<
@@ -737,6 +777,65 @@ export const marketplaceRankingPublishResultValidator = v.object({
 export const marketplaceRankingRemixResultValidator = v.object({
   boardExternalId: v.string(),
 })
+
+export const marketplaceTemplateRankingAggregateTemplateRefValidator = v.object(
+  {
+    slug: v.string(),
+    title: v.string(),
+    category: templateCategoryValidator,
+    itemCount: v.number(),
+  }
+)
+
+export const marketplaceTemplateRankingAggregateBucketValidator = v.object({
+  index: v.number(),
+  label: v.string(),
+  colorSpec: v.union(tierColorSpecValidator, v.null()),
+})
+
+export const marketplaceTemplateRankingAggregateValidator = v.object({
+  template: marketplaceTemplateRankingAggregateTemplateRefValidator,
+  state: templateRankingAggregateStateValidator,
+  activeGeneration: v.union(v.number(), v.null()),
+  bucketCount: v.number(),
+  rankingCount: v.number(),
+  itemCount: v.number(),
+  computedAt: v.union(v.number(), v.null()),
+  staleAt: v.union(v.number(), v.null()),
+  buckets: v.array(marketplaceTemplateRankingAggregateBucketValidator),
+})
+
+export const marketplaceTemplateRankingAggregateDistributionCellValidator =
+  v.object({
+    bucketIndex: v.number(),
+    count: v.number(),
+    share: v.number(),
+  })
+
+export const marketplaceTemplateRankingAggregateItemValidator = v.object({
+  externalId: v.string(),
+  templateItemExternalId: v.string(),
+  label: v.union(v.string(), v.null()),
+  backgroundColor: v.union(v.string(), v.null()),
+  altText: v.union(v.string(), v.null()),
+  media: v.union(templateMediaRefValidator, v.null()),
+  order: v.number(),
+  aspectRatio: v.union(v.number(), v.null()),
+  imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+  transform: v.union(itemTransformValidator, v.null()),
+  sampleCount: v.number(),
+  averageBucket: v.union(v.number(), v.null()),
+  topBucketIndex: v.union(v.number(), v.null()),
+  topBucketShare: v.number(),
+  consensusScore: v.number(),
+  controversyScore: v.number(),
+  distribution: v.array(
+    marketplaceTemplateRankingAggregateDistributionCellValidator
+  ),
+})
+
+export const marketplaceTemplateRankingAggregateItemsResultValidator =
+  paginationResultValidator(marketplaceTemplateRankingAggregateItemValidator)
 
 const marketplaceTemplateJobProgressFields = {
   jobId: v.string(),
@@ -1272,6 +1371,98 @@ export type _MarketplaceRankingRemixResultNoExtra = _Assert<
   Infer<
     typeof marketplaceRankingRemixResultValidator
   > extends MarketplaceRankingRemixResult
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateRankingAggregateTemplateRefCovers = _Assert<
+  MarketplaceTemplateRankingAggregateTemplateRef extends Infer<
+    typeof marketplaceTemplateRankingAggregateTemplateRefValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateRankingAggregateTemplateRefNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateRankingAggregateTemplateRefValidator
+  > extends MarketplaceTemplateRankingAggregateTemplateRef
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateRankingAggregateBucketCovers = _Assert<
+  MarketplaceTemplateRankingAggregateBucket extends Infer<
+    typeof marketplaceTemplateRankingAggregateBucketValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateRankingAggregateBucketNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateRankingAggregateBucketValidator
+  > extends MarketplaceTemplateRankingAggregateBucket
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateRankingAggregateCovers = _Assert<
+  MarketplaceTemplateRankingAggregate extends Infer<
+    typeof marketplaceTemplateRankingAggregateValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateRankingAggregateNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateRankingAggregateValidator
+  > extends MarketplaceTemplateRankingAggregate
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateRankingAggregateDistributionCellCovers =
+  _Assert<
+    MarketplaceTemplateRankingAggregateDistributionCell extends Infer<
+      typeof marketplaceTemplateRankingAggregateDistributionCellValidator
+    >
+      ? true
+      : false
+  >
+export type _MarketplaceTemplateRankingAggregateDistributionCellNoExtra =
+  _Assert<
+    Infer<
+      typeof marketplaceTemplateRankingAggregateDistributionCellValidator
+    > extends MarketplaceTemplateRankingAggregateDistributionCell
+      ? true
+      : false
+  >
+
+export type _MarketplaceTemplateRankingAggregateItemCovers = _Assert<
+  MarketplaceTemplateRankingAggregateItem extends Infer<
+    typeof marketplaceTemplateRankingAggregateItemValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateRankingAggregateItemNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateRankingAggregateItemValidator
+  > extends MarketplaceTemplateRankingAggregateItem
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateRankingAggregateItemsResultCovers = _Assert<
+  MarketplaceTemplateRankingAggregateItemsResult extends Infer<
+    typeof marketplaceTemplateRankingAggregateItemsResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateRankingAggregateItemsResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateRankingAggregateItemsResultValidator
+  > extends MarketplaceTemplateRankingAggregateItemsResult
     ? true
     : false
 >

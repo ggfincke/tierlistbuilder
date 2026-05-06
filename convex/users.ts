@@ -35,6 +35,7 @@ import {
   isPublicTemplateRow,
   type PublicCategoryDelta,
 } from './marketplace/templates/lib'
+import { queueTemplateRankingAggregateRecompute } from './marketplace/rankings/aggregate'
 import {
   deleteMediaAssetWithVariants,
   hasMediaAssetReferences,
@@ -466,6 +467,20 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
     .query('publishedRankings')
     .withIndex('byOwnerUpdatedAt', (q) => q.eq('ownerId', args.userId))
     .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
+
+  const now = Date.now()
+  const affectedTemplateIds = [
+    ...new Set(
+      page.page
+        .filter((ranking) => ranking.isPubliclyListable)
+        .map((ranking) => ranking.sourceTemplateId)
+    ),
+  ]
+  await Promise.all(
+    affectedTemplateIds.map((templateId) =>
+      queueTemplateRankingAggregateRecompute(ctx, templateId, now)
+    )
+  )
 
   await Promise.all(
     page.page.flatMap((ranking) => [

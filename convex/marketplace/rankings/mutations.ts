@@ -50,6 +50,7 @@ import {
   incrementTemplateUseStats,
   isPublishedTemplateRow,
 } from '../templates/lib'
+import { queueTemplateRankingAggregateRecompute } from './aggregate'
 
 const requireTemplate = async (
   ctx: MutationCtx,
@@ -279,6 +280,10 @@ export const publishRankingFromBoard = mutation({
           })
       ),
     ])
+    if (args.visibility === 'public')
+    {
+      await queueTemplateRankingAggregateRecompute(ctx, template._id, now)
+    }
 
     return { slug }
   },

@@ -20,6 +20,9 @@ import {
   templateCardMediaValidator,
   templateCategoryValidator,
   templateJobStatusValidator,
+  templateRankingAggregateJobPhaseValidator,
+  templateRankingAggregateJobStatusValidator,
+  templateRankingAggregateStateValidator,
   templatePublicationStateValidator,
   rankingPublicationStateValidator,
   rankingVisibilityValidator,
@@ -484,10 +487,27 @@ export default defineSchema({
   })
     .index('bySlug', ['slug'])
     .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
+    .index('bySourceTemplateOwnerPublicUpdatedAt', [
+      'sourceTemplateId',
+      'ownerId',
+      'isPubliclyListable',
+      'updatedAt',
+    ])
+    .index('bySourceTemplateOwnerPublicCreatedAt', [
+      'sourceTemplateId',
+      'ownerId',
+      'isPubliclyListable',
+      'createdAt',
+    ])
     .index('bySourceTemplatePublicUpdatedAt', [
       'sourceTemplateId',
       'isPubliclyListable',
       'updatedAt',
+    ])
+    .index('bySourceTemplatePublicCreatedAt', [
+      'sourceTemplateId',
+      'isPubliclyListable',
+      'createdAt',
     ]),
 
   publishedRankingTiers: defineTable({
@@ -518,6 +538,104 @@ export default defineSchema({
     .index('byRanking', ['rankingId', 'order'])
     .index('byTemplateItem', ['templateItemId'])
     .index('byMedia', ['mediaAssetId']),
+
+  templateRankingAggregates: defineTable({
+    templateId: v.id('templates'),
+    state: templateRankingAggregateStateValidator,
+    activeGeneration: v.union(v.number(), v.null()),
+    bucketCount: v.number(),
+    rankingCount: v.number(),
+    itemCount: v.number(),
+    computedAt: v.union(v.number(), v.null()),
+    staleAt: v.union(v.number(), v.null()),
+    updatedAt: v.number(),
+  })
+    .index('byTemplateId', ['templateId'])
+    .index('byStateAndUpdatedAt', ['state', 'updatedAt']),
+
+  templateRankingAggregateItems: defineTable({
+    templateId: v.id('templates'),
+    generation: v.number(),
+    templateItemId: v.id('templateItems'),
+    templateItemExternalId: v.string(),
+    order: v.number(),
+    sampleCount: v.number(),
+    bucketWeightSum: v.number(),
+    bucketSquareSum: v.number(),
+    averageBucket: v.union(v.number(), v.null()),
+    topBucketIndex: v.union(v.number(), v.null()),
+    topBucketShare: v.number(),
+    consensusScore: v.number(),
+    controversyScore: v.number(),
+    averageTopSort: v.number(),
+    averageBottomSort: v.number(),
+    consensusSort: v.number(),
+    controversySort: v.number(),
+    distribution: v.array(
+      v.object({
+        bucketIndex: v.number(),
+        count: v.number(),
+      })
+    ),
+    computedAt: v.number(),
+  })
+    .index('byTemplateIdAndOrder', ['templateId', 'order'])
+    .index('byTemplateIdAndGenerationAndOrder', [
+      'templateId',
+      'generation',
+      'order',
+    ])
+    .index('byTemplateIdAndGenerationAndTemplateItemId', [
+      'templateId',
+      'generation',
+      'templateItemId',
+    ])
+    .index('byTemplateIdAndGenerationAndAverageTopSortAndOrder', [
+      'templateId',
+      'generation',
+      'averageTopSort',
+      'order',
+    ])
+    .index('byTemplateIdAndGenerationAndAverageBottomSortAndOrder', [
+      'templateId',
+      'generation',
+      'averageBottomSort',
+      'order',
+    ])
+    .index('byTemplateIdAndGenerationAndConsensusSortAndOrder', [
+      'templateId',
+      'generation',
+      'consensusSort',
+      'order',
+    ])
+    .index('byTemplateIdAndGenerationAndControversySortAndOrder', [
+      'templateId',
+      'generation',
+      'controversySort',
+      'order',
+    ]),
+
+  templateRankingAggregateJobs: defineTable({
+    templateId: v.id('templates'),
+    status: templateRankingAggregateJobStatusValidator,
+    phase: templateRankingAggregateJobPhaseValidator,
+    generation: v.number(),
+    bucketCount: v.number(),
+    itemCount: v.number(),
+    rankingCount: v.number(),
+    publicRankingCount: v.number(),
+    templateCursor: v.union(v.string(), v.null()),
+    rankingCursor: v.union(v.string(), v.null()),
+    rankingScanDone: v.boolean(),
+    activeRankingId: v.union(v.id('publishedRankings'), v.null()),
+    activeRankingItemCursor: v.union(v.string(), v.null()),
+    restartRequestedAt: v.union(v.number(), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('byTemplateId', ['templateId'])
+    .index('byTemplateIdAndStatus', ['templateId', 'status'])
+    .index('byStatusAndUpdatedAt', ['status', 'updatedAt']),
 
   // short URL indirection for shareable snapshot blobs. slug -> compressed
   // BoardSnapshot bytes in _storage

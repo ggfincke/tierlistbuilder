@@ -23,6 +23,8 @@
     "audit:drag": "node scripts/drag-audit.mjs",
     "seed:marketplace": "tsx --env-file-if-exists=.env.local scripts/seed-marketplace-templates.ts",
     "seed:marketplace:reset": "tsx --env-file-if-exists=.env.local scripts/seed-marketplace-templates.ts --reset",
+    "seed:rankings": "tsx --env-file-if-exists=.env.local scripts/seed-community-rankings.ts",
+    "seed:rankings:reset": "tsx --env-file-if-exists=.env.local scripts/seed-community-rankings.ts --reset",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

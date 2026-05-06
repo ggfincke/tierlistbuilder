@@ -237,6 +237,148 @@ const seedTierPreset = async (
     return 'preset-consumer'
   })
 
+interface AggregateRankingTierSeed
+{
+  externalId: string
+  name: string
+  order: number
+}
+
+interface AggregateRankingItemSeed
+{
+  templateItemId: Id<'templateItems'>
+  templateItemExternalId: string
+  tierExternalId: string
+  externalId: string
+  label: string
+  order: number
+}
+
+interface AggregateRankingSeed
+{
+  ownerId: Id<'users'>
+  templateId: Id<'templates'>
+  templateSlug: string
+  templateTitle: string
+  slug: string
+  title: string
+  now: number
+  visibility?: 'public' | 'unlisted'
+  publicationState?: 'published' | 'unpublished'
+  isPubliclyListable?: boolean
+  tiers: AggregateRankingTierSeed[]
+  items: AggregateRankingItemSeed[]
+}
+
+const seedAggregateRanking = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  args: AggregateRankingSeed
+): Promise<Id<'publishedRankings'>> =>
+  await t.run(async (ctx) =>
+  {
+    const boardId = await seedCloudBoard(ctx, {
+      externalId: `${args.slug}-board`,
+      ownerId: args.ownerId,
+      title: args.title,
+      sourceTemplateId: args.templateId,
+      sourceTemplateCategory: 'gaming',
+      sourceTemplateSizeClass: 'standard',
+      activeItemCount: args.items.length,
+      unrankedItemCount: 0,
+      templateProgressState: 'complete',
+      now: args.now,
+    })
+    const rankingId = await seedPublishedRanking(ctx, {
+      ownerId: args.ownerId,
+      slug: args.slug,
+      sourceTemplateId: args.templateId,
+      sourceBoardId: boardId,
+      sourceTemplateSlug: args.templateSlug,
+      sourceTemplateTitle: args.templateTitle,
+      title: args.title,
+      itemCount: args.items.length,
+      now: args.now,
+      visibility: args.visibility,
+      publicationState: args.publicationState,
+      isPubliclyListable: args.isPubliclyListable,
+      tierCount: args.tiers.length,
+    })
+    await Promise.all(
+      args.tiers.map((tier) =>
+        ctx.db.insert('publishedRankingTiers', {
+          rankingId,
+          externalId: tier.externalId,
+          name: tier.name,
+          description: null,
+          colorSpec: { kind: 'palette', index: tier.order },
+          rowColorSpec: null,
+          order: tier.order,
+        })
+      )
+    )
+    await Promise.all(
+      args.items.map((item) =>
+        ctx.db.insert('publishedRankingItems', {
+          rankingId,
+          templateItemId: item.templateItemId,
+          templateItemExternalId: item.templateItemExternalId,
+          externalId: item.externalId,
+          tierExternalId: item.tierExternalId,
+          label: item.label,
+          backgroundColor: null,
+          altText: null,
+          mediaAssetId: null,
+          order: item.order,
+          aspectRatio: null,
+          imageFit: null,
+          transform: null,
+        })
+      )
+    )
+    return rankingId
+  })
+
+const seedAggregateTemplate = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  authorId: Id<'users'>
+) =>
+  await t.run(async (ctx) =>
+  {
+    const templateId = await seedPublishedTemplate(ctx, {
+      slug: 'AggTpl0001',
+      authorId,
+      title: 'Aggregate Template',
+      sizeClass: 'standard',
+      itemCount: 3,
+    })
+    await ctx.db.patch(templateId, {
+      suggestedTiers: [
+        { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+        { name: 'A', colorSpec: { kind: 'palette', index: 1 } },
+        { name: 'B', colorSpec: { kind: 'palette', index: 2 } },
+      ],
+    })
+    const items: Id<'templateItems'>[] = []
+    for (let i = 0; i < 3; i++)
+    {
+      items.push(
+        await ctx.db.insert('templateItems', {
+          templateId,
+          externalId: `aggregate-item-${i}`,
+          label: `Aggregate Item ${i}`,
+          backgroundColor: null,
+          altText: null,
+          mediaAssetId: null,
+          order: i,
+          aspectRatio: null,
+          imageFit: null,
+          transform: null,
+        })
+      )
+    }
+    return { templateId, itemIds: items }
+  })
+
 const seedLargeSourceBoard = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
   ownerId: Id<'users'>,
@@ -1584,5 +1726,361 @@ describe('marketplace template Convex functions', () =>
         viewCount: 1,
       }),
     ])
+  })
+
+  it('recomputes template ranking aggregates from latest public rankings per user', async () =>
+  {
+    vi.useFakeTimers()
+    try
+    {
+      const t = makeTest()
+      const authorId = await seedUser(
+        t,
+        'Template Author',
+        'author@example.com'
+      )
+      const rankerAId = await seedUser(t, 'Ranker A', 'ranker-a@example.com')
+      const rankerBId = await seedUser(t, 'Ranker B', 'ranker-b@example.com')
+      const rankerCId = await seedUser(t, 'Ranker C', 'ranker-c@example.com')
+      const rankerDId = await seedUser(t, 'Ranker D', 'ranker-d@example.com')
+      const rankerEId = await seedUser(t, 'Ranker E', 'ranker-e@example.com')
+      const rankerFId = await seedUser(t, 'Ranker F', 'ranker-f@example.com')
+      const { templateId, itemIds } = await seedAggregateTemplate(t, authorId)
+      const otherTemplateId = await t.run(
+        async (ctx) =>
+          await seedPublishedTemplate(ctx, {
+            slug: 'OtherAgg01',
+            authorId,
+            title: 'Other Aggregate Template',
+            sizeClass: 'standard',
+            itemCount: 1,
+          })
+      )
+      const otherItemId = await t.run(
+        async (ctx) =>
+          await ctx.db.insert('templateItems', {
+            templateId: otherTemplateId,
+            externalId: 'other-item',
+            label: 'Other Item',
+            backgroundColor: null,
+            altText: null,
+            mediaAssetId: null,
+            order: 0,
+            aspectRatio: null,
+            imageFit: null,
+            transform: null,
+          })
+      )
+      const tiers = [
+        { externalId: 'tier-top', name: 'Top', order: 0 },
+        { externalId: 'tier-mid', name: 'Middle', order: 1 },
+        { externalId: 'tier-low', name: 'Low', order: 2 },
+      ]
+      const wideTiers = Array.from({ length: 7 }, (_, index) => ({
+        externalId: `wide-tier-${index}`,
+        name: `Wide ${index}`,
+        order: index,
+      }))
+      const item = (index: number, tierExternalId: string) => ({
+        templateItemId: itemIds[index],
+        templateItemExternalId: `aggregate-item-${index}`,
+        tierExternalId,
+        externalId: `ranking-item-${index}`,
+        label: `Aggregate Item ${index}`,
+        order: index,
+      })
+
+      await seedAggregateRanking(t, {
+        ownerId: rankerAId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank001',
+        title: 'Older Ranker A Ranking',
+        now: 1_000,
+        tiers,
+        items: [item(0, 'tier-low'), item(1, 'tier-mid'), item(2, 'tier-top')],
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerAId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank002',
+        title: 'Latest Ranker A Ranking',
+        now: 2_000,
+        tiers,
+        items: [item(0, 'tier-top'), item(1, 'tier-top'), item(2, 'tier-mid')],
+      })
+      vi.setSystemTime(5_000)
+      await t.mutation(api.marketplace.rankings.mutations.recordRankingView, {
+        slug: 'AggRank001',
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerBId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank003',
+        title: 'Ranker B Ranking',
+        now: 1_500,
+        tiers: [
+          { externalId: 'love', name: 'Love', order: 0 },
+          { externalId: 'fine', name: 'Fine', order: 1 },
+          { externalId: 'nope', name: 'Nope', order: 2 },
+        ],
+        items: [item(0, 'fine'), item(1, 'nope'), item(2, 'nope')],
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerCId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank004',
+        title: 'Unlisted Ranking',
+        now: 3_000,
+        visibility: 'unlisted',
+        isPubliclyListable: false,
+        tiers,
+        items: [item(0, 'tier-low'), item(1, 'tier-low'), item(2, 'tier-low')],
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerDId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank005',
+        title: 'Unpublished Ranking',
+        now: 3_500,
+        publicationState: 'unpublished',
+        isPubliclyListable: true,
+        tiers,
+        items: [item(0, 'tier-low'), item(1, 'tier-low'), item(2, 'tier-low')],
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerEId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank006',
+        title: 'Partially Corrupt Ranking',
+        now: 4_000,
+        tiers,
+        items: [
+          item(0, 'tier-top'),
+          item(1, 'missing-tier'),
+          {
+            templateItemId: otherItemId,
+            templateItemExternalId: 'other-item',
+            tierExternalId: 'tier-low',
+            externalId: 'ranking-item-other',
+            label: 'Other Item',
+            order: 2,
+          },
+        ],
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerFId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'AggRank007',
+        title: 'Ranker F Wide-Tier Ranking',
+        now: 4_500,
+        tiers: wideTiers,
+        items: [
+          item(0, 'wide-tier-0'),
+          item(1, 'wide-tier-6'),
+          item(2, 'wide-tier-6'),
+        ],
+      })
+
+      await t.mutation(
+        internal.marketplace.rankings.aggregateInternal
+          .scheduleTemplateRankingAggregateRecomputes,
+        { cursor: null }
+      )
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+      const aggregate = await t.query(
+        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        { templateSlug: 'AggTpl0001' }
+      )
+      expect(aggregate).toMatchObject({
+        state: 'ready',
+        bucketCount: 3,
+        rankingCount: 4,
+        itemCount: 3,
+        buckets: [
+          expect.objectContaining({ index: 0, label: 'S' }),
+          expect.objectContaining({ index: 1, label: 'A' }),
+          expect.objectContaining({ index: 2, label: 'B' }),
+        ],
+      })
+      const activeGeneration = aggregate?.activeGeneration
+      expect(activeGeneration).toEqual(expect.any(Number))
+      if (typeof activeGeneration !== 'number')
+      {
+        throw new Error('Expected aggregate generation')
+      }
+
+      const items = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug: 'AggTpl0001',
+          generation: activeGeneration,
+          sort: 'templateOrder',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(items.page.map((row) => row.sampleCount)).toEqual([4, 3, 3])
+      expect(
+        items.page.map((row) => row.distribution.map((d) => d.count))
+      ).toEqual([
+        [3, 1, 0],
+        [1, 0, 2],
+        [0, 1, 2],
+      ])
+      expect(items.page[0]).toMatchObject({
+        averageBucket: 1 / 4,
+        topBucketIndex: 0,
+        consensusScore: 3 / 4,
+      })
+
+      const byConsensus = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug: 'AggTpl0001',
+          generation: activeGeneration,
+          sort: 'consensus',
+          paginationOpts: { cursor: null, numItems: 1 },
+        }
+      )
+      expect(byConsensus.page[0]).toMatchObject({
+        templateItemExternalId: 'aggregate-item-0',
+        consensusScore: 3 / 4,
+      })
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
+  })
+
+  it('recomputes stale template ranking aggregates after ranking deletion', async () =>
+  {
+    vi.useFakeTimers()
+    try
+    {
+      const t = makeTest()
+      const authorId = await seedUser(
+        t,
+        'Template Author',
+        'author@example.com'
+      )
+      const rankerAId = await seedUser(t, 'Ranker A', 'ranker-a@example.com')
+      const rankerBId = await seedUser(t, 'Ranker B', 'ranker-b@example.com')
+      const { templateId, itemIds } = await seedAggregateTemplate(t, authorId)
+      const tiers = [
+        { externalId: 'tier-top', name: 'Top', order: 0 },
+        { externalId: 'tier-low', name: 'Low', order: 1 },
+      ]
+      const item = (index: number, tierExternalId: string) => ({
+        templateItemId: itemIds[index],
+        templateItemExternalId: `aggregate-item-${index}`,
+        tierExternalId,
+        externalId: `stale-ranking-item-${index}`,
+        label: `Aggregate Item ${index}`,
+        order: index,
+      })
+
+      await seedAggregateRanking(t, {
+        ownerId: rankerAId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'StaleRnk01',
+        title: 'Ranker A Ranking',
+        now: 1_000,
+        tiers,
+        items: [item(0, 'tier-top'), item(1, 'tier-low'), item(2, 'tier-low')],
+      })
+      await seedAggregateRanking(t, {
+        ownerId: rankerBId,
+        templateId,
+        templateSlug: 'AggTpl0001',
+        templateTitle: 'Aggregate Template',
+        slug: 'StaleRnk02',
+        title: 'Ranker B Ranking',
+        now: 2_000,
+        tiers,
+        items: [item(0, 'tier-low'), item(1, 'tier-top'), item(2, 'tier-low')],
+      })
+
+      await t.mutation(
+        internal.marketplace.rankings.aggregateInternal
+          .scheduleTemplateRankingAggregateRecomputes,
+        { cursor: null }
+      )
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+      const initialAggregate = await t.query(
+        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        { templateSlug: 'AggTpl0001' }
+      )
+      expect(initialAggregate).toMatchObject({
+        state: 'ready',
+        rankingCount: 2,
+      })
+      const initialGeneration = initialAggregate?.activeGeneration
+      expect(initialGeneration).toEqual(expect.any(Number))
+      if (typeof initialGeneration !== 'number')
+      {
+        throw new Error('Expected initial aggregate generation')
+      }
+
+      await t.mutation(internal.users.cascadeDeleteUserData, {
+        userId: rankerAId,
+        phase: 'rankings',
+        cursor: null,
+      })
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+      const aggregate = await t.query(
+        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        { templateSlug: 'AggTpl0001' }
+      )
+      expect(aggregate).toMatchObject({ state: 'ready', rankingCount: 1 })
+      const activeGeneration = aggregate?.activeGeneration
+      expect(activeGeneration).toEqual(expect.any(Number))
+      expect(activeGeneration).not.toBe(initialGeneration)
+      if (typeof activeGeneration !== 'number')
+      {
+        throw new Error('Expected recomputed aggregate generation')
+      }
+      const stalePage = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug: 'AggTpl0001',
+          generation: initialGeneration,
+          sort: 'consensus',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(stalePage).toMatchObject({ page: [], isDone: true })
+      const rows = await t.run(
+        async (ctx) =>
+          await ctx.db
+            .query('templateRankingAggregateItems')
+            .withIndex('byTemplateIdAndOrder', (q) =>
+              q.eq('templateId', templateId)
+            )
+            .collect()
+      )
+      expect(new Set(rows.map((row) => row.generation)).size).toBe(1)
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
   })
 })

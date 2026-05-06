@@ -94,4 +94,12 @@ crons.interval(
   { cursor: null }
 )
 
+crons.interval(
+  'schedule template ranking aggregate recomputes',
+  { hours: 2 },
+  internal.marketplace.rankings.aggregateInternal
+    .scheduleTemplateRankingAggregateRecomputes,
+  { cursor: null }
+)
+
 export default crons
