@@ -1,18 +1,13 @@
 // src/features/marketplace/data/templatesRepository.ts
 // Convex query/mutation adapters for the public template marketplace
 
-import {
-  useMutation,
-  usePaginatedQuery,
-  useQuery,
-  type UsePaginatedQueryResult,
-} from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateDraftListResult,
   MarketplaceTemplateGalleryResult,
-  MarketplaceTemplateItem,
+  MarketplaceTemplateBookmarkState,
   MarketplaceTemplateListResult,
   MarketplaceTemplateManagementListResult,
   MarketplaceTemplatePublishResult,
@@ -21,19 +16,8 @@ import type {
   TemplateUseTierSelection,
   TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { DEFAULT_TEMPLATE_ITEM_PAGE_SIZE } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
-
-export type TemplateItemsPageStatus =
-  UsePaginatedQueryResult<MarketplaceTemplateItem>['status']
-
-export interface TemplateItemsPage
-{
-  items: MarketplaceTemplateItem[]
-  status: TemplateItemsPageStatus
-  loadMore: (count?: number) => void
-}
 
 export interface ListTemplatesArgs
 {
@@ -65,23 +49,6 @@ export const useTemplateBySlug = (
     typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
   )
 
-export const useTemplateItems = (
-  slug: string | null | undefined
-): TemplateItemsPage =>
-{
-  const page = usePaginatedQuery(
-    api.marketplace.templates.queries.listTemplateItems,
-    typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip',
-    { initialNumItems: DEFAULT_TEMPLATE_ITEM_PAGE_SIZE }
-  ) as UsePaginatedQueryResult<MarketplaceTemplateItem>
-
-  return {
-    items: page.results,
-    status: page.status,
-    loadMore: (count = DEFAULT_TEMPLATE_ITEM_PAGE_SIZE) => page.loadMore(count),
-  }
-}
-
 interface RelatedTemplatesArgs
 {
   slug: string
@@ -97,6 +64,20 @@ export const useRelatedTemplates = (
     api.marketplace.templates.queries.getRelatedTemplates,
     args === 'skip' ? 'skip' : args
   )
+
+export const useTemplateBookmarkState = (
+  templateSlug: string | null | undefined,
+  enabled = true
+): MarketplaceTemplateBookmarkState | undefined =>
+  useQuery(
+    api.marketplace.templates.bookmarks.getTemplateBookmarkState,
+    enabled && typeof templateSlug === 'string' && templateSlug.length > 0
+      ? { templateSlug }
+      : 'skip'
+  )
+
+export const useToggleTemplateBookmarkMutation = () =>
+  useMutation(api.marketplace.templates.bookmarks.toggleTemplateBookmark)
 
 export const useMyTemplateDrafts = (
   enabled: boolean,
