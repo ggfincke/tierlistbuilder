@@ -5,6 +5,7 @@ import type { TierColorSpec } from '../lib/theme'
 import type { ImageFit, ItemTransform } from '../workspace/board'
 import type { TemplateCategory } from './category'
 import type { TemplateMediaRef } from './template'
+import type { PaginationResult } from '../lib/pagination'
 
 export const TEMPLATE_RANKING_AGGREGATE_STATES = [
   'computing',
@@ -86,11 +87,5 @@ export interface MarketplaceTemplateRankingAggregateItem
   distribution: MarketplaceTemplateRankingAggregateDistributionCell[]
 }
 
-export interface MarketplaceTemplateRankingAggregateItemsResult
-{
-  page: MarketplaceTemplateRankingAggregateItem[]
-  continueCursor: string
-  isDone: boolean
-  splitCursor?: string | null
-  pageStatus?: 'SplitRecommended' | 'SplitRequired' | null
-}
+export type MarketplaceTemplateRankingAggregateItemsResult =
+  PaginationResult<MarketplaceTemplateRankingAggregateItem>
