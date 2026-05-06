@@ -13,7 +13,7 @@ import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
 
-export interface UpdateTemplateInput extends Omit<
+interface UpdateTemplateInput extends Omit<
   UpdateMyTemplateMetaArgs,
   'coverMediaExternalId'
 >
