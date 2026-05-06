@@ -28,6 +28,7 @@ import { getPrimaryImageRef } from './imageRefs'
 import { logger } from './logger'
 
 const AUTO_CROP_BATCH_CONCURRENCY = 4
+const AUTO_CROP_DECODE_TIMEOUT_MS = 5_000
 
 export { bboxToItemTransform }
 
@@ -271,9 +272,31 @@ export const collectAutoCropTransforms = async ({
   )
 }
 
+const decodeImageBitmap = async (blob: Blob): Promise<ImageBitmap> =>
+{
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  try
+  {
+    return await Promise.race([
+      createImageBitmap(blob),
+      new Promise<ImageBitmap>((_, reject) =>
+      {
+        timeoutId = setTimeout(
+          () => reject(new Error('auto-crop decode timed out')),
+          AUTO_CROP_DECODE_TIMEOUT_MS
+        )
+      }),
+    ])
+  }
+  finally
+  {
+    if (timeoutId !== null) clearTimeout(timeoutId)
+  }
+}
+
 const runScan = async (blob: Blob): Promise<AutoCropScan | null> =>
 {
-  const bitmap = await createImageBitmap(blob)
+  const bitmap = await decodeImageBitmap(blob)
   try
   {
     const { width: targetW, height: targetH } = getAutoCropAnalysisDimensions(

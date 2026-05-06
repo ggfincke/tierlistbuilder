@@ -385,7 +385,6 @@ const AspectRatioIssueModalBody = ({
               onFocus={onAdjustEachIntent}
               onPointerEnter={onAdjustEachIntent}
               variant="outline"
-              disabled={autoCrop.progress.running}
             >
               <span className="inline-flex items-center gap-1">
                 Adjust each item
