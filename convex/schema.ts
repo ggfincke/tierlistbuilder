@@ -637,6 +637,16 @@ export default defineSchema({
     .index('byTemplateIdAndStatus', ['templateId', 'status'])
     .index('byStatusAndUpdatedAt', ['status', 'updatedAt']),
 
+  userTemplateBookmarks: defineTable({
+    userId: v.id('users'),
+    templateId: v.id('templates'),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('byUserTemplate', ['userId', 'templateId'])
+    .index('byUserCreatedAt', ['userId', 'createdAt'])
+    .index('byTemplateUser', ['templateId', 'userId']),
+
   // short URL indirection for shareable snapshot blobs. slug -> compressed
   // BoardSnapshot bytes in _storage
   shortLinks: defineTable({

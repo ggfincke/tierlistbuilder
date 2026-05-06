@@ -7,6 +7,7 @@ import type {
   ImageFit,
   ItemTransform,
 } from '../workspace/board'
+import type { PaginationResult } from '../lib/pagination'
 import type { TemplateCategory } from './category'
 
 export const TEMPLATE_VISIBILITIES = ['public', 'unlisted'] as const
@@ -249,14 +250,26 @@ export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
   labels: BoardLabelSettings | null
 }
 
-export interface MarketplaceTemplateItemsResult
+export type MarketplaceTemplateItemsResult =
+  PaginationResult<MarketplaceTemplateItem>
+
+export interface MarketplaceTemplateBookmarkState
 {
-  page: MarketplaceTemplateItem[]
-  continueCursor: string
-  isDone: boolean
-  splitCursor?: string | null
-  pageStatus?: 'SplitRecommended' | 'SplitRequired' | null
+  saved: boolean
+  savedAt: number | null
 }
+
+export type MarketplaceTemplateBookmarkToggleResult =
+  MarketplaceTemplateBookmarkState
+
+export interface MarketplaceTemplateBookmarkListItem
+{
+  template: MarketplaceTemplateSummary
+  savedAt: number
+}
+
+export type MarketplaceTemplateBookmarkListResult =
+  PaginationResult<MarketplaceTemplateBookmarkListItem>
 
 export interface MarketplaceTemplateListResult
 {

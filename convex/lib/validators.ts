@@ -52,6 +52,9 @@ import {
   type MarketplaceTemplateDraftTemplate,
   type MarketplaceTemplateGalleryCard,
   type MarketplaceTemplateGalleryResult,
+  type MarketplaceTemplateBookmarkListItem,
+  type MarketplaceTemplateBookmarkListResult,
+  type MarketplaceTemplateBookmarkState,
   type MarketplaceTemplateItem,
   type MarketplaceTemplateItemsResult,
   type MarketplaceTemplateCloneJobProgress,
@@ -683,6 +686,19 @@ export const marketplaceTemplateDetailValidator = v.object({
 export const marketplaceTemplateItemsResultValidator =
   paginationResultValidator(marketplaceTemplateItemValidator)
 
+export const marketplaceTemplateBookmarkStateValidator = v.object({
+  saved: v.boolean(),
+  savedAt: v.union(v.number(), v.null()),
+})
+
+export const marketplaceTemplateBookmarkListItemValidator = v.object({
+  template: marketplaceTemplateSummaryValidator,
+  savedAt: v.number(),
+})
+
+export const marketplaceTemplateBookmarkListResultValidator =
+  paginationResultValidator(marketplaceTemplateBookmarkListItemValidator)
+
 export const marketplaceTemplateListResultValidator = v.object({
   items: v.array(marketplaceTemplateSummaryValidator),
 })
@@ -1139,6 +1155,51 @@ export type _MarketplaceTemplateItemsResultNoExtra = _Assert<
   Infer<
     typeof marketplaceTemplateItemsResultValidator
   > extends MarketplaceTemplateItemsResult
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateBookmarkStateCovers = _Assert<
+  MarketplaceTemplateBookmarkState extends Infer<
+    typeof marketplaceTemplateBookmarkStateValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateBookmarkStateNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateBookmarkStateValidator
+  > extends MarketplaceTemplateBookmarkState
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateBookmarkListItemCovers = _Assert<
+  MarketplaceTemplateBookmarkListItem extends Infer<
+    typeof marketplaceTemplateBookmarkListItemValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateBookmarkListItemNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateBookmarkListItemValidator
+  > extends MarketplaceTemplateBookmarkListItem
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateBookmarkListResultCovers = _Assert<
+  MarketplaceTemplateBookmarkListResult extends Infer<
+    typeof marketplaceTemplateBookmarkListResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateBookmarkListResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateBookmarkListResultValidator
+  > extends MarketplaceTemplateBookmarkListResult
     ? true
     : false
 >

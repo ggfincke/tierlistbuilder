@@ -40,6 +40,7 @@ import {
 const cascadePhaseValidator = v.union(
   v.literal('items'),
   v.literal('tags'),
+  v.literal('bookmarks'),
   v.literal('aggregateItems')
 )
 type CascadePhase = Infer<typeof cascadePhaseValidator>
@@ -492,6 +493,33 @@ export const cascadeDeleteTemplate = internalMutation({
         parentKey: 'templateId',
         parentId: args.templateId,
         phase: 'tags',
+        nextPhase: 'bookmarks',
+      })
+      if (scheduled) return null
+    }
+
+    if (phase === 'bookmarks')
+    {
+      const bookmarkPage = await ctx.db
+        .query('userTemplateBookmarks')
+        .withIndex('byTemplateUser', (q) => q.eq('templateId', args.templateId))
+        .paginate({
+          numItems: CASCADE_DELETE_PAGE_SIZE,
+          cursor: args.cursor ?? null,
+        })
+
+      const scheduled = await deleteCascadePageAndSchedule({
+        ctx,
+        page: bookmarkPage,
+        schedule: async (nextArgs) =>
+          await ctx.scheduler.runAfter(
+            0,
+            internal.marketplace.templates.internal.cascadeDeleteTemplate,
+            nextArgs
+          ),
+        parentKey: 'templateId',
+        parentId: args.templateId,
+        phase: 'bookmarks',
         nextPhase: 'aggregateItems',
       })
       if (scheduled) return null
