@@ -11,6 +11,7 @@ import { useModalStack } from '~/app/shells/useModalStack'
 import { WorkspaceModalLayer } from '~/app/shells/WorkspaceModalLayer'
 import { useWorkspaceExportActions } from '~/app/shells/useWorkspaceExportActions'
 import type { WorkspaceModalPayloads } from '~/app/shells/workspaceModals'
+import { useRankingPublishAvailability } from '~/features/marketplace/model/useRankingPublishAvailability'
 import { BoardActionBar } from '~/features/workspace/boards/ui/BoardActionBar'
 import { BoardManager } from '~/features/workspace/boards/ui/BoardManager'
 import { BoardHeader } from '~/features/workspace/boards/ui/BoardHeader'
@@ -100,6 +101,10 @@ export const WorkspaceShell = () =>
     (state) => state.activeBoardId
   )
   const activeBoardTitle = useActiveBoardStore((state) => state.title)
+  const rankingPublishAvailability = useRankingPublishAvailability(
+    activeBoardId,
+    cloudEnabled && activeBoardId !== null
+  )
   const handleOpenPublishRanking = useCallback(() =>
   {
     if (!activeBoardId) return
@@ -114,10 +119,11 @@ export const WorkspaceShell = () =>
       initialBoardExternalId: activeBoardId ?? null,
     })
   }, [activeBoardId, openModal])
-  // gate the menu entry on signed-in + an active board; the mutation enforces
-  // template-backed + completed-ranking server-side
+  // mirror the mutation gate before surfacing the ranking publish entry
   const handlePublishRanking =
-    cloudEnabled && activeBoardId ? handleOpenPublishRanking : null
+    cloudEnabled && activeBoardId && rankingPublishAvailability?.canPublish
+      ? handleOpenPublishRanking
+      : null
   // template publish needs sign-in too; PublishModal itself handles the empty
   // boards list (BoardPicker shows a placeholder + the submit guard catches it)
   const handlePublishTemplate = cloudEnabled ? handleOpenPublishTemplate : null

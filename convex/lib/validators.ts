@@ -72,7 +72,9 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/template'
 import {
   RANKING_PUBLICATION_STATES,
+  RANKING_PUBLISH_BLOCK_REASONS,
   RANKING_VISIBILITIES,
+  type MarketplaceRankingPublishAvailability,
   type MarketplaceRankingDetail,
   type MarketplaceRankingItem,
   type MarketplaceRankingListResult,
@@ -80,6 +82,7 @@ import {
   type MarketplaceRankingRemixResult,
   type MarketplaceRankingSummary,
   type MarketplaceRankingTier,
+  type RankingPublishBlockReason,
   type RankingPublicationState,
   type RankingVisibility,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
@@ -173,6 +176,9 @@ export const templateJobStatusValidator = literalUnion(TEMPLATE_JOB_STATUSES)
 export const rankingVisibilityValidator = literalUnion(RANKING_VISIBILITIES)
 export const rankingPublicationStateValidator = literalUnion(
   RANKING_PUBLICATION_STATES
+)
+export const rankingPublishBlockReasonValidator = literalUnion(
+  RANKING_PUBLISH_BLOCK_REASONS
 )
 export const templateCardAccessStateValidator = literalUnion(
   TEMPLATE_CARD_ACCESS_STATES
@@ -294,6 +300,12 @@ export type _RankingPublicationStateExact = _Assert<
   _Exact<
     RankingPublicationState,
     Infer<typeof rankingPublicationStateValidator>
+  >
+>
+export type _RankingPublishBlockReasonExact = _Assert<
+  _Exact<
+    RankingPublishBlockReason,
+    Infer<typeof rankingPublishBlockReasonValidator>
   >
 >
 export type _BoardCloudStateExact = _Assert<
@@ -707,6 +719,15 @@ export const marketplaceRankingDetailValidator = v.object({
 
 export const marketplaceRankingListResultValidator = v.object({
   items: v.array(marketplaceRankingSummaryValidator),
+})
+
+export const marketplaceRankingPublishAvailabilityValidator = v.object({
+  canPublish: v.boolean(),
+  reason: v.union(rankingPublishBlockReasonValidator, v.null()),
+  message: v.union(v.string(), v.null()),
+  activeItemCount: v.number(),
+  unrankedItemCount: v.number(),
+  sourceTemplateTitle: v.union(v.string(), v.null()),
 })
 
 export const marketplaceRankingPublishResultValidator = v.object({
@@ -1206,6 +1227,21 @@ export type _MarketplaceRankingListResultNoExtra = _Assert<
   Infer<
     typeof marketplaceRankingListResultValidator
   > extends MarketplaceRankingListResult
+    ? true
+    : false
+>
+
+export type _MarketplaceRankingPublishAvailabilityCovers = _Assert<
+  MarketplaceRankingPublishAvailability extends Infer<
+    typeof marketplaceRankingPublishAvailabilityValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceRankingPublishAvailabilityNoExtra = _Assert<
+  Infer<
+    typeof marketplaceRankingPublishAvailabilityValidator
+  > extends MarketplaceRankingPublishAvailability
     ? true
     : false
 >

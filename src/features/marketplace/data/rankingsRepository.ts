@@ -6,6 +6,7 @@ import { api } from '@convex/_generated/api'
 import type {
   MarketplaceRankingDetail,
   MarketplaceRankingListResult,
+  MarketplaceRankingPublishAvailability,
   MarketplaceRankingPublishResult,
   MarketplaceRankingRemixResult,
   RankingVisibility,
@@ -43,6 +44,15 @@ export const useMyRankings = (
   useQuery(
     api.marketplace.rankings.queries.getMyRankings,
     enabled ? (limit === undefined ? {} : { limit }) : 'skip'
+  )
+
+export const useRankingPublishAvailability = (
+  boardExternalId: string | null | undefined,
+  enabled = true
+): MarketplaceRankingPublishAvailability | undefined =>
+  useQuery(
+    api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+    enabled && boardExternalId ? { boardExternalId } : 'skip'
   )
 
 export interface PublishRankingFromBoardArgs

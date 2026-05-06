@@ -1461,6 +1461,15 @@ describe('marketplace template Convex functions', () =>
         visibility: 'public',
       }
     )
+    expect(
+      await asUser(t, authorId).query(
+        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        { boardExternalId: 'board-source' }
+      )
+    ).toMatchObject({
+      canPublish: false,
+      reason: 'not_template_backed',
+    })
     const ranker = asUser(t, rankerId)
     const { boardExternalId } = await ranker.mutation(
       api.marketplace.templates.mutations.useTemplate,
@@ -1471,6 +1480,18 @@ describe('marketplace template Convex functions', () =>
       { boardExternalId }
     )
     const sortedItems = draft!.items.slice().sort((a, b) => a.order - b.order)
+    expect(
+      await ranker.query(
+        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        { boardExternalId }
+      )
+    ).toMatchObject({
+      canPublish: false,
+      reason: 'incomplete',
+      activeItemCount: 2,
+      unrankedItemCount: 2,
+      sourceTemplateTitle: 'Ranking Template',
+    })
     await ranker.mutation(
       api.workspace.boards.upsertBoardState.upsertBoardState,
       {
@@ -1491,6 +1512,18 @@ describe('marketplace template Convex functions', () =>
         deletedItemIds: [],
       }
     )
+    expect(
+      await ranker.query(
+        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        { boardExternalId }
+      )
+    ).toMatchObject({
+      canPublish: true,
+      reason: null,
+      activeItemCount: 2,
+      unrankedItemCount: 0,
+      sourceTemplateTitle: 'Ranking Template',
+    })
 
     const published = await ranker.mutation(
       api.marketplace.rankings.mutations.publishRankingFromBoard,
