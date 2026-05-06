@@ -11,6 +11,7 @@ export const MAX_SYNC_TIERS = MAX_CLOUD_BOARD_TIERS
 export const MAX_SYNC_ITEMS = MAX_LARGE_CLOUD_BOARD_ITEMS
 export const BOARD_TIER_TAKE_LIMIT = MAX_SYNC_TIERS * 2
 export const BOARD_ITEM_TAKE_LIMIT = MAX_SYNC_ITEMS * 2
+export const MAX_AGGREGATE_SEARCH_LENGTH = 80
 
 // per-op batch sizes for scheduled / crons workloads
 export const BATCH_LIMITS = {

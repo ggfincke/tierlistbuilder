@@ -24,6 +24,7 @@ import {
   templateRankingAggregateJobStatusValidator,
   templateRankingAggregateStateValidator,
   templatePublicationStateValidator,
+  rankingFeaturedBadgeValidator,
   rankingPublicationStateValidator,
   rankingVisibilityValidator,
   templateSizeClassValidator,
@@ -482,15 +483,19 @@ export default defineSchema({
     tierCount: v.number(),
     remixCount: v.number(),
     viewCount: v.number(),
+    topScore: v.number(),
+    isFeatured: v.boolean(),
+    featuredRank: v.union(v.number(), v.null()),
+    featuredBadge: v.union(rankingFeaturedBadgeValidator, v.null()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('bySlug', ['slug'])
     .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
-    .index('bySourceTemplateOwnerPublicUpdatedAt', [
+    .index('bySourceTemplateOwnerPublicationStateUpdatedAt', [
       'sourceTemplateId',
       'ownerId',
-      'isPubliclyListable',
+      'publicationState',
       'updatedAt',
     ])
     .index('bySourceTemplateOwnerPublicCreatedAt', [
@@ -503,6 +508,18 @@ export default defineSchema({
       'sourceTemplateId',
       'isPubliclyListable',
       'updatedAt',
+    ])
+    .index('bySourceTemplatePublicTopScoreAndUpdatedAt', [
+      'sourceTemplateId',
+      'isPubliclyListable',
+      'topScore',
+      'updatedAt',
+    ])
+    .index('bySourceTemplatePublicFeaturedRank', [
+      'sourceTemplateId',
+      'isPubliclyListable',
+      'isFeatured',
+      'featuredRank',
     ])
     .index('bySourceTemplatePublicCreatedAt', [
       'sourceTemplateId',
@@ -548,6 +565,7 @@ export default defineSchema({
     itemCount: v.number(),
     computedAt: v.union(v.number(), v.null()),
     staleAt: v.union(v.number(), v.null()),
+    bucketSpread: v.array(v.number()),
     updatedAt: v.number(),
   })
     .index('byTemplateId', ['templateId'])
@@ -558,7 +576,14 @@ export default defineSchema({
     generation: v.number(),
     templateItemId: v.id('templateItems'),
     templateItemExternalId: v.string(),
+    label: v.union(v.string(), v.null()),
+    backgroundColor: v.union(v.string(), v.null()),
+    altText: v.union(v.string(), v.null()),
+    mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
+    aspectRatio: v.union(v.number(), v.null()),
+    imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+    transform: v.union(itemTransformValidator, v.null()),
     sampleCount: v.number(),
     bucketWeightSum: v.number(),
     bucketSquareSum: v.number(),
@@ -571,6 +596,10 @@ export default defineSchema({
     averageBottomSort: v.number(),
     consensusSort: v.number(),
     controversySort: v.number(),
+    isTopBucket: v.boolean(),
+    isBottomBucket: v.boolean(),
+    isControversial: v.boolean(),
+    searchText: v.string(),
     distribution: v.array(
       v.object({
         bucketIndex: v.number(),
@@ -613,7 +642,119 @@ export default defineSchema({
       'generation',
       'controversySort',
       'order',
-    ]),
+    ])
+    .index('byTemplateGenerationTopOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'order',
+    ])
+    .index('byTemplateGenerationTopAverageTopOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'averageTopSort',
+      'order',
+    ])
+    .index('byTemplateGenerationTopAverageBottomOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'averageBottomSort',
+      'order',
+    ])
+    .index('byTemplateGenerationTopConsensusOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'consensusSort',
+      'order',
+    ])
+    .index('byTemplateGenerationTopControversyOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'controversySort',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomAverageTopOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'averageTopSort',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomAverageBottomOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'averageBottomSort',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomConsensusOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'consensusSort',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomControversyOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'controversySort',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialAverageTopOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'averageTopSort',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialAverageBottomOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'averageBottomSort',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialConsensusOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'consensusSort',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialControversyOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'controversySort',
+      'order',
+    ])
+    .searchIndex('searchByTemplateGeneration', {
+      searchField: 'searchText',
+      filterFields: [
+        'templateId',
+        'generation',
+        'isTopBucket',
+        'isBottomBucket',
+        'isControversial',
+      ],
+    }),
 
   templateRankingAggregateJobs: defineTable({
     templateId: v.id('templates'),
@@ -629,6 +770,7 @@ export default defineSchema({
     rankingScanDone: v.boolean(),
     activeRankingId: v.union(v.id('publishedRankings'), v.null()),
     activeRankingItemCursor: v.union(v.string(), v.null()),
+    bucketSpread: v.array(v.number()),
     restartRequestedAt: v.union(v.number(), v.null()),
     createdAt: v.number(),
     updatedAt: v.number(),

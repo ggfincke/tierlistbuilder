@@ -74,22 +74,28 @@ import {
   type TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import {
+  RANKING_FEATURED_BADGES,
+  RANKING_LIST_SORTS,
   RANKING_PUBLICATION_STATES,
   RANKING_PUBLISH_BLOCK_REASONS,
   RANKING_VISIBILITIES,
+  type MarketplaceMyRankingForTemplateResult,
   type MarketplaceRankingPublishAvailability,
   type MarketplaceRankingDetail,
   type MarketplaceRankingItem,
   type MarketplaceRankingListResult,
+  type MarketplaceRankingPaginatedResult,
   type MarketplaceRankingPublishResult,
   type MarketplaceRankingRemixResult,
   type MarketplaceRankingSummary,
   type MarketplaceRankingTier,
+  type RankingListSort,
   type RankingPublishBlockReason,
   type RankingPublicationState,
   type RankingVisibility,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import {
+  TEMPLATE_RANKING_AGGREGATE_ITEM_BANDS,
   TEMPLATE_RANKING_AGGREGATE_ITEM_SORTS,
   TEMPLATE_RANKING_AGGREGATE_STATES,
   type MarketplaceTemplateRankingAggregate,
@@ -98,6 +104,7 @@ import {
   type MarketplaceTemplateRankingAggregateItem,
   type MarketplaceTemplateRankingAggregateItemsResult,
   type MarketplaceTemplateRankingAggregateTemplateRef,
+  type TemplateRankingAggregateItemBand,
   type TemplateRankingAggregateItemSort,
   type TemplateRankingAggregateState,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
@@ -183,6 +190,7 @@ export const userPlanValidator = literalUnion(USER_PLANS)
 export const templateCategoryValidator = literalUnion(TEMPLATE_CATEGORIES)
 export const templateListSortValidator = literalUnion(TEMPLATE_LIST_SORTS)
 export const templateVisibilityValidator = literalUnion(TEMPLATE_VISIBILITIES)
+export const rankingListSortValidator = literalUnion(RANKING_LIST_SORTS)
 export const templateSizeClassValidator = literalUnion(TEMPLATE_SIZE_CLASSES)
 export const templatePublicationStateValidator = literalUnion(
   TEMPLATE_PUBLICATION_STATES
@@ -195,11 +203,17 @@ export const rankingPublicationStateValidator = literalUnion(
 export const rankingPublishBlockReasonValidator = literalUnion(
   RANKING_PUBLISH_BLOCK_REASONS
 )
+export const rankingFeaturedBadgeValidator = literalUnion(
+  RANKING_FEATURED_BADGES
+)
 export const templateRankingAggregateStateValidator = literalUnion(
   TEMPLATE_RANKING_AGGREGATE_STATES
 )
 export const templateRankingAggregateItemSortValidator = literalUnion(
   TEMPLATE_RANKING_AGGREGATE_ITEM_SORTS
+)
+export const templateRankingAggregateItemBandValidator = literalUnion(
+  TEMPLATE_RANKING_AGGREGATE_ITEM_BANDS
 )
 
 export const templateRankingAggregateJobStatusValidator = v.union(
@@ -327,6 +341,9 @@ export type _TemplateJobStatusExact = _Assert<
 export type _RankingVisibilityExact = _Assert<
   _Exact<RankingVisibility, Infer<typeof rankingVisibilityValidator>>
 >
+export type _RankingListSortExact = _Assert<
+  _Exact<RankingListSort, Infer<typeof rankingListSortValidator>>
+>
 export type _RankingPublicationStateExact = _Assert<
   _Exact<
     RankingPublicationState,
@@ -349,6 +366,12 @@ export type _TemplateRankingAggregateItemSortExact = _Assert<
   _Exact<
     TemplateRankingAggregateItemSort,
     Infer<typeof templateRankingAggregateItemSortValidator>
+  >
+>
+export type _TemplateRankingAggregateItemBandExact = _Assert<
+  _Exact<
+    TemplateRankingAggregateItemBand,
+    Infer<typeof templateRankingAggregateItemBandValidator>
   >
 >
 export type _BoardCloudStateExact = _Assert<
@@ -736,6 +759,8 @@ const marketplaceRankingSummaryFields = {
   tierCount: v.number(),
   remixCount: v.number(),
   viewCount: v.number(),
+  featuredRank: v.union(v.number(), v.null()),
+  featuredBadge: v.union(rankingFeaturedBadgeValidator, v.null()),
   createdAt: v.number(),
   updatedAt: v.number(),
 }
@@ -775,6 +800,14 @@ export const marketplaceRankingDetailValidator = v.object({
 
 export const marketplaceRankingListResultValidator = v.object({
   items: v.array(marketplaceRankingSummaryValidator),
+})
+
+export const marketplaceRankingPaginatedResultValidator =
+  paginationResultValidator(marketplaceRankingSummaryValidator)
+
+export const marketplaceMyRankingForTemplateResultValidator = v.object({
+  ranking: v.union(marketplaceRankingSummaryValidator, v.null()),
+  placements: v.record(v.string(), v.number()),
 })
 
 export const marketplaceRankingPublishAvailabilityValidator = v.object({
@@ -819,6 +852,7 @@ export const marketplaceTemplateRankingAggregateValidator = v.object({
   computedAt: v.union(v.number(), v.null()),
   staleAt: v.union(v.number(), v.null()),
   buckets: v.array(marketplaceTemplateRankingAggregateBucketValidator),
+  bucketSpread: v.array(v.number()),
 })
 
 export const marketplaceTemplateRankingAggregateDistributionCellValidator =
@@ -845,6 +879,9 @@ export const marketplaceTemplateRankingAggregateItemValidator = v.object({
   topBucketShare: v.number(),
   consensusScore: v.number(),
   controversyScore: v.number(),
+  isTopBucket: v.boolean(),
+  isBottomBucket: v.boolean(),
+  isControversial: v.boolean(),
   distribution: v.array(
     marketplaceTemplateRankingAggregateDistributionCellValidator
   ),
@@ -1387,6 +1424,36 @@ export type _MarketplaceRankingListResultNoExtra = _Assert<
   Infer<
     typeof marketplaceRankingListResultValidator
   > extends MarketplaceRankingListResult
+    ? true
+    : false
+>
+
+export type _MarketplaceRankingPaginatedResultCovers = _Assert<
+  MarketplaceRankingPaginatedResult extends Infer<
+    typeof marketplaceRankingPaginatedResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceRankingPaginatedResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceRankingPaginatedResultValidator
+  > extends MarketplaceRankingPaginatedResult
+    ? true
+    : false
+>
+
+export type _MarketplaceMyRankingForTemplateResultCovers = _Assert<
+  MarketplaceMyRankingForTemplateResult extends Infer<
+    typeof marketplaceMyRankingForTemplateResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceMyRankingForTemplateResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceMyRankingForTemplateResultValidator
+  > extends MarketplaceMyRankingForTemplateResult
     ? true
     : false
 >

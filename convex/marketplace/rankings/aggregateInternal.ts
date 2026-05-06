@@ -14,8 +14,18 @@ import {
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
 } from './aggregate'
+import { makeEmptyBucketSpread } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
 type AggregateJob = Doc<'templateRankingAggregateJobs'>
+
+interface BucketSpreadDelta
+{
+  previous: number | null
+  next: number | null
+}
+
+const aggregateItemSearchText = (item: Doc<'templateItems'>): string =>
+  [item.label, item.externalId].filter(Boolean).join(' ').toLowerCase()
 
 const scheduleJob = async (
   ctx: MutationCtx,
@@ -83,7 +93,14 @@ const seedAggregateItemRows = async (
         generation: job.generation,
         templateItemId: item._id,
         templateItemExternalId: item.externalId,
+        label: item.label,
+        backgroundColor: item.backgroundColor,
+        altText: item.altText,
+        mediaAssetId: item.mediaAssetId,
         order: item.order,
+        aspectRatio: item.aspectRatio,
+        imageFit: item.imageFit,
+        transform: item.transform,
         sampleCount: 0,
         bucketWeightSum: 0,
         bucketSquareSum: 0,
@@ -96,6 +113,10 @@ const seedAggregateItemRows = async (
         averageBottomSort: job.bucketCount + 1,
         consensusSort: job.bucketCount + 1,
         controversySort: job.bucketCount + 1,
+        isTopBucket: false,
+        isBottomBucket: false,
+        isControversial: false,
+        searchText: aggregateItemSearchText(item),
         distribution: makeEmptyDistribution(job.bucketCount),
         computedAt: now,
       })
@@ -120,6 +141,7 @@ const seedAggregateItemRows = async (
     phase: 'scanRankings',
     itemCount,
     templateCursor: null,
+    bucketSpread: makeEmptyBucketSpread(job.bucketCount),
     updatedAt: now,
   })
   await scheduleJob(ctx, job._id)
@@ -154,13 +176,29 @@ const loadTierBucketMap = async (
   return tierBucketMap(tiers, bucketCount)
 }
 
+const applyBucketSpreadDelta = (
+  spread: number[],
+  delta: BucketSpreadDelta | null
+): void =>
+{
+  if (!delta || delta.previous === delta.next) return
+  if (delta.previous !== null)
+  {
+    spread[delta.previous] = Math.max(0, (spread[delta.previous] ?? 0) - 1)
+  }
+  if (delta.next !== null)
+  {
+    spread[delta.next] = (spread[delta.next] ?? 0) + 1
+  }
+}
+
 const incrementAggregateItem = async (
   ctx: MutationCtx,
   job: AggregateJob,
   item: Doc<'publishedRankingItems'>,
   bucketIndex: number,
   now: number
-): Promise<void> =>
+): Promise<BucketSpreadDelta | null> =>
 {
   const row = await ctx.db
     .query('templateRankingAggregateItems')
@@ -171,7 +209,7 @@ const incrementAggregateItem = async (
         .eq('templateItemId', item.templateItemId)
     )
     .unique()
-  if (!row) return
+  if (!row) return null
 
   const distribution = row.distribution.map((cell) =>
     cell.bucketIndex === bucketIndex ? { ...cell, count: cell.count + 1 } : cell
@@ -195,6 +233,10 @@ const incrementAggregateItem = async (
     ...metrics,
     computedAt: now,
   })
+  return {
+    previous: row.topBucketIndex,
+    next: metrics.topBucketIndex,
+  }
 }
 
 const processActiveRanking = async (
@@ -227,23 +269,26 @@ const processActiveRanking = async (
       cursor: job.activeRankingItemCursor,
     })
 
-  await Promise.all(
+  const bucketSpread = [...job.bucketSpread]
+  const deltas = await Promise.all(
     page.page.map(async (item) =>
     {
       const tierExternalId = item.tierExternalId
-      if (tierExternalId === null) return
+      if (tierExternalId === null) return null
 
       const bucketIndex = buckets.get(tierExternalId)
-      if (bucketIndex === undefined) return
+      if (bucketIndex === undefined) return null
 
-      await incrementAggregateItem(ctx, job, item, bucketIndex, now)
+      return await incrementAggregateItem(ctx, job, item, bucketIndex, now)
     })
   )
+  deltas.forEach((delta) => applyBucketSpreadDelta(bucketSpread, delta))
 
   if (!page.isDone)
   {
     await ctx.db.patch(job._id, {
       activeRankingItemCursor: page.continueCursor,
+      bucketSpread,
       updatedAt: now,
     })
     await scheduleJob(ctx, job._id)
@@ -255,11 +300,12 @@ const processActiveRanking = async (
     rankingCount,
     activeRankingId: null,
     activeRankingItemCursor: null,
+    bucketSpread,
     updatedAt: now,
   })
   if (job.rankingScanDone)
   {
-    await finishJob(ctx, { ...job, rankingCount }, now)
+    await finishJob(ctx, { ...job, rankingCount, bucketSpread }, now)
     return null
   }
 
@@ -317,6 +363,7 @@ async function finishJob(
 {
   const aggregate = await findTemplateRankingAggregate(ctx, job.templateId)
   const previousGeneration = aggregate?.activeGeneration ?? null
+  const bucketSpread = job.bucketSpread
   if (aggregate)
   {
     await ctx.db.patch(aggregate._id, {
@@ -327,6 +374,7 @@ async function finishJob(
       itemCount: job.itemCount,
       computedAt: now,
       staleAt: null,
+      bucketSpread,
       updatedAt: now,
     })
   }
@@ -341,6 +389,7 @@ async function finishJob(
       itemCount: job.itemCount,
       computedAt: now,
       staleAt: null,
+      bucketSpread,
       updatedAt: now,
     })
   }

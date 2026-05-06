@@ -22,14 +22,41 @@ export const TEMPLATE_RANKING_AGGREGATE_ITEM_SORTS = [
   'averageTop',
   'averageBottom',
   'consensus',
+  'consensusTop',
   'controversy',
 ] as const
 
 export type TemplateRankingAggregateItemSort =
   (typeof TEMPLATE_RANKING_AGGREGATE_ITEM_SORTS)[number]
 
-export const DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE = 50
+export const TEMPLATE_RANKING_AGGREGATE_ITEM_BANDS = [
+  'all',
+  'top',
+  'bottom',
+  'controversial',
+] as const
+
+export type TemplateRankingAggregateItemBand =
+  (typeof TEMPLATE_RANKING_AGGREGATE_ITEM_BANDS)[number]
+
+export const DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE = 100
 export const MAX_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE = 100
+export const TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX = 1
+export const TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN = 4
+export const TEMPLATE_RANKING_AGGREGATE_CONTROVERSY_MIN = 0.55
+
+export const makeEmptyBucketSpread = (bucketCount: number): number[] =>
+  Array.from({ length: Math.max(0, bucketCount) }, () => 0)
+
+export const isTemplateRankingAggregateReady = (
+  aggregate:
+    | Pick<MarketplaceTemplateRankingAggregate, 'state'>
+    | null
+    | undefined
+): aggregate is MarketplaceTemplateRankingAggregate =>
+  aggregate !== null &&
+  aggregate !== undefined &&
+  (aggregate.state === 'ready' || aggregate.state === 'stale')
 
 export interface MarketplaceTemplateRankingAggregateTemplateRef
 {
@@ -57,6 +84,7 @@ export interface MarketplaceTemplateRankingAggregate
   computedAt: number | null
   staleAt: number | null
   buckets: MarketplaceTemplateRankingAggregateBucket[]
+  bucketSpread: number[]
 }
 
 export interface MarketplaceTemplateRankingAggregateDistributionCell
@@ -84,6 +112,9 @@ export interface MarketplaceTemplateRankingAggregateItem
   topBucketShare: number
   consensusScore: number
   controversyScore: number
+  isTopBucket: boolean
+  isBottomBucket: boolean
+  isControversial: boolean
   distribution: MarketplaceTemplateRankingAggregateDistributionCell[]
 }
 

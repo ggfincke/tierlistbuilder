@@ -11,6 +11,10 @@ import {
 } from '../../_generated/server'
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
+import {
+  RANKING_FEATURED_BADGES,
+  type RankingFeaturedBadge,
+} from '@tierlistbuilder/contracts/marketplace/ranking'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
@@ -35,11 +39,13 @@ import {
   allocateRankingSlug,
   normalizeRankingDescription,
   normalizeRankingTitle,
+  rankingTopScore,
 } from './lib'
 
 const SEED_SECRET_ENV = 'CONVEX_SEED_SECRET'
 const SEED_EMAIL_DOMAIN = 'tierlistbuilder.local'
 const DEFAULT_SAMPLE_USER_COUNT = 16
+const SEED_WRITE_PAUSE_MS = 500
 const MAX_TARGET_SEARCH_CARDS = 200
 const MAX_SEED_ROW_ITEMS = 300
 const MAX_SEED_ROW_TIERS = 64
@@ -53,6 +59,13 @@ const targetKeyValidator = v.union(
 )
 
 type TargetKey = 'ssbu' | 'zelda' | 'mcu'
+
+interface FeaturedSeedProfile
+{
+  profileIndex: number
+  featuredRank: number
+  featuredBadge: RankingFeaturedBadge
+}
 
 interface SeedTargetDefinition
 {
@@ -135,6 +148,19 @@ const SEED_TARGETS: readonly SeedTargetDefinition[] = [
       'no way home',
     ],
     dropTerms: ['dark world', 'quantumania', 'eternals', 'incredible hulk'],
+  },
+]
+
+const FEATURED_PROFILE_BADGES: readonly FeaturedSeedProfile[] = [
+  {
+    profileIndex: 0,
+    featuredRank: 0,
+    featuredBadge: RANKING_FEATURED_BADGES[0],
+  },
+  {
+    profileIndex: 1,
+    featuredRank: 1,
+    featuredBadge: RANKING_FEATURED_BADGES[1],
   },
 ]
 
@@ -386,6 +412,15 @@ interface RankedSeedItem
   tierIndex: number
   orderInTier: number
   globalOrder: number
+}
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms))
+
+const pauseSeedWrites = async (): Promise<void> =>
+{
+  if (SEED_WRITE_PAUSE_MS <= 0) return
+  await sleep(SEED_WRITE_PAUSE_MS)
 }
 
 const requireSeedAuthorized = (seedSecret: string): void =>
@@ -770,7 +805,7 @@ const deleteSeedPair = async (
   const board = await findSeedBoard(ctx, user._id, boardExternalId)
   const rankingRows = await ctx.db
     .query('publishedRankings')
-    .withIndex('bySourceTemplateOwnerPublicUpdatedAt', (q) =>
+    .withIndex('bySourceTemplateOwnerPublicCreatedAt', (q) =>
       q
         .eq('sourceTemplateId', templateId)
         .eq('ownerId', user._id)
@@ -1073,6 +1108,9 @@ export const seedSampleRankingImpl = internalMutation({
     })
 
     const rankingSlug = await allocateRankingSlug(ctx)
+    const viewCount = Math.floor(
+      unitHash(`views:${profile.key}:${target.key}`) * 24
+    )
     const rankingId = await ctx.db.insert('publishedRankings', {
       slug: rankingSlug,
       ownerId: user._id,
@@ -1091,9 +1129,11 @@ export const seedSampleRankingImpl = internalMutation({
       itemCount: rankedItems.length,
       tierCount: tierEntries.length,
       remixCount: 0,
-      viewCount: Math.floor(
-        unitHash(`views:${profile.key}:${target.key}`) * 24
-      ),
+      viewCount,
+      topScore: rankingTopScore({ viewCount, remixCount: 0 }),
+      isFeatured: false,
+      featuredRank: null,
+      featuredBadge: null,
       createdAt,
       updatedAt: createdAt,
     })
@@ -1195,6 +1235,7 @@ export const seedSampleCommunityRankings = action({
             }
           )
           rankingsDeleted += resetResult.rankingsDeleted
+          await pauseSeedWrites()
         }
       }
     }
@@ -1215,6 +1256,7 @@ export const seedSampleCommunityRankings = action({
 
     for (const target of targets)
     {
+      const seededSlugsByProfile = new Map<number, string>()
       for (let profileIndex = 0; profileIndex < userCount; profileIndex++)
       {
         const seeded: SeedRankingResult = await ctx.runMutation(
@@ -1225,6 +1267,7 @@ export const seedSampleCommunityRankings = action({
             profileIndex,
           }
         )
+        seededSlugsByProfile.set(profileIndex, seeded.rankingSlug)
         rankingsDeleted += seeded.rankingsDeleted
         const result = targetResults.get(target.key)
         if (result)
@@ -1232,6 +1275,20 @@ export const seedSampleCommunityRankings = action({
           result.rankingsSeeded += 1
           result.rankingsDeleted += seeded.rankingsDeleted
         }
+        await pauseSeedWrites()
+      }
+      for (const featured of FEATURED_PROFILE_BADGES)
+      {
+        const slug = seededSlugsByProfile.get(featured.profileIndex)
+        if (!slug) continue
+        await ctx.runMutation(
+          internal.marketplace.rankings.mutations.markRankingFeaturedImpl,
+          {
+            slug,
+            featuredRank: featured.featuredRank,
+            featuredBadge: featured.featuredBadge,
+          }
+        )
       }
     }
 

@@ -1726,6 +1726,87 @@ describe('marketplace template Convex functions', () =>
         viewCount: 1,
       }),
     ])
+
+    const myRanking = await ranker.query(
+      api.marketplace.rankings.queries.getMyRankingForTemplate,
+      { templateSlug }
+    )
+    expect(myRanking.ranking).toMatchObject({ slug: published.slug })
+    expect(Object.keys(myRanking.placements).sort()).toEqual(
+      detail!.items.map((item) => item.templateItemExternalId).sort()
+    )
+    expect(new Set(Object.values(myRanking.placements))).toEqual(new Set([0]))
+
+    await t.run(async (ctx) =>
+    {
+      const template = await ctx.db
+        .query('templates')
+        .withIndex('bySlug', (q) => q.eq('slug', templateSlug))
+        .unique()
+      if (!template) throw new Error('Expected template')
+      const sourceBoardId = await seedCloudBoard(ctx, {
+        externalId: 'top-ranking-board',
+        ownerId: remixerId,
+        title: 'Top Ranking Board',
+        sourceTemplateId: template._id,
+        sourceTemplateCategory: template.category,
+        sourceTemplateSizeClass: template.sizeClass,
+      })
+      await seedPublishedRanking(ctx, {
+        ownerId: remixerId,
+        slug: 'TopRank001',
+        sourceTemplateId: template._id,
+        sourceBoardId,
+        sourceTemplateSlug: templateSlug,
+        sourceTemplateTitle: template.title,
+        title: 'High Traffic Ranking',
+        itemCount: 2,
+        tierCount: 1,
+        viewCount: 20,
+        now: 1,
+      })
+    })
+
+    const topRankings = await t.query(
+      api.marketplace.rankings.queries.listRankingsForTemplate,
+      {
+        templateSlug,
+        sort: 'top',
+        paginationOpts: { cursor: null, numItems: 1 },
+      }
+    )
+    expect(topRankings.page).toEqual([
+      expect.objectContaining({ slug: 'TopRank001', viewCount: 20 }),
+    ])
+    expect(topRankings.isDone).toBe(false)
+
+    expect(
+      await ranker.query(
+        api.marketplace.templates.bookmarks.getTemplateBookmarkState,
+        { templateSlug }
+      )
+    ).toEqual({ saved: false, savedAt: null })
+    const saved = await ranker.mutation(
+      api.marketplace.templates.bookmarks.toggleTemplateBookmark,
+      { templateSlug, saved: true }
+    )
+    expect(saved).toMatchObject({ saved: true, savedAt: expect.any(Number) })
+    const bookmarkList = await ranker.query(
+      api.marketplace.templates.bookmarks.listMyTemplateBookmarks,
+      { paginationOpts: { cursor: null, numItems: 10 } }
+    )
+    expect(bookmarkList.page).toEqual([
+      expect.objectContaining({
+        template: expect.objectContaining({ slug: templateSlug }),
+        savedAt: saved.savedAt,
+      }),
+    ])
+    expect(
+      await ranker.mutation(
+        api.marketplace.templates.bookmarks.toggleTemplateBookmark,
+        { templateSlug, saved: false }
+      )
+    ).toEqual({ saved: false, savedAt: null })
   })
 
   it('recomputes template ranking aggregates from latest public rankings per user', async () =>
@@ -1916,6 +1997,7 @@ describe('marketplace template Convex functions', () =>
           expect.objectContaining({ index: 1, label: 'A' }),
           expect.objectContaining({ index: 2, label: 'B' }),
         ],
+        bucketSpread: [1, 0, 2],
       })
       const activeGeneration = aggregate?.activeGeneration
       expect(activeGeneration).toEqual(expect.any(Number))
@@ -1960,6 +2042,40 @@ describe('marketplace template Convex functions', () =>
         templateItemExternalId: 'aggregate-item-0',
         consensusScore: 3 / 4,
       })
+      const byTopConsensus = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug: 'AggTpl0001',
+          generation: activeGeneration,
+          sort: 'consensusTop',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(
+        byTopConsensus.page.map((row) => row.templateItemExternalId)
+      ).toEqual(['aggregate-item-0'])
+      const bottom = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug: 'AggTpl0001',
+          generation: activeGeneration,
+          band: 'bottom',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(bottom.page).toEqual([])
+      const searched = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug: 'AggTpl0001',
+          generation: activeGeneration,
+          search: 'Aggregate Item 1',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(searched.page.map((row) => row.templateItemExternalId)).toContain(
+        'aggregate-item-1'
+      )
     }
     finally
     {

@@ -8,6 +8,10 @@ import { MAX_SYNC_TIERS } from '../../lib/limits'
 import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
   MAX_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
+  TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN,
+  TEMPLATE_RANKING_AGGREGATE_CONTROVERSY_MIN,
+  TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX,
+  makeEmptyBucketSpread,
   type MarketplaceTemplateRankingAggregate,
   type MarketplaceTemplateRankingAggregateBucket,
   type MarketplaceTemplateRankingAggregateItem,
@@ -108,6 +112,8 @@ export const toTemplateRankingAggregate = (
   computedAt: aggregate.computedAt,
   staleAt: aggregate.staleAt,
   buckets: toBuckets(template, aggregate.bucketCount),
+  bucketSpread:
+    aggregate.bucketSpread ?? makeEmptyBucketSpread(aggregate.bucketCount),
 })
 
 export const findTemplateRankingAggregate = async (
@@ -175,6 +181,7 @@ export const queueTemplateRankingAggregateRecompute = async (
       itemCount: template.itemCount,
       computedAt: null,
       staleAt: now,
+      bucketSpread: makeEmptyBucketSpread(bucketCount),
       updatedAt: now,
     })
   }
@@ -203,6 +210,7 @@ export const queueTemplateRankingAggregateRecompute = async (
     rankingScanDone: false,
     activeRankingId: null,
     activeRankingItemCursor: null,
+    bucketSpread: makeEmptyBucketSpread(bucketCount),
     restartRequestedAt: null,
     createdAt: now,
     updatedAt: now,
@@ -243,34 +251,49 @@ export const toTemplateRankingAggregateItem = async (
   ctx: DbCtx,
   row: Doc<'templateRankingAggregateItems'>,
   cache: ReturnType<typeof createTemplateProjectionCache>
-): Promise<MarketplaceTemplateRankingAggregateItem | null> =>
+): Promise<MarketplaceTemplateRankingAggregateItem> =>
 {
-  const item = await ctx.db.get(row.templateItemId)
-  if (!item) return null
-
   return {
-    externalId: item.externalId,
+    externalId: row.templateItemExternalId,
     templateItemExternalId: row.templateItemExternalId,
-    label: item.label,
-    backgroundColor: item.backgroundColor,
-    altText: item.altText,
-    media: await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache),
-    order: item.order,
-    aspectRatio: item.aspectRatio,
-    imageFit: item.imageFit,
-    transform: item.transform,
+    label: row.label,
+    backgroundColor: row.backgroundColor,
+    altText: row.altText,
+    media: await toTemplateMediaRef(ctx, row.mediaAssetId, 'tile', cache),
+    order: row.order,
+    aspectRatio: row.aspectRatio,
+    imageFit: row.imageFit,
+    transform: row.transform,
     sampleCount: row.sampleCount,
     averageBucket: row.averageBucket,
     topBucketIndex: row.topBucketIndex,
     topBucketShare: row.topBucketShare,
     consensusScore: row.consensusScore,
     controversyScore: row.controversyScore,
+    isTopBucket: row.isTopBucket,
+    isBottomBucket: row.isBottomBucket,
+    isControversial: row.isControversial,
     distribution: toDistribution(row),
   }
 }
 
 const clampScore = (value: number): number =>
   Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0))
+
+export const isTopAggregateBucket = (bucketIndex: number | null): boolean =>
+  bucketIndex !== null &&
+  bucketIndex <= TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX
+
+export const isBottomAggregateBucket = (bucketIndex: number | null): boolean =>
+  bucketIndex !== null &&
+  bucketIndex >= TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN
+
+export const isControversialAggregateItem = (
+  sampleCount: number,
+  controversyScore: number
+): boolean =>
+  sampleCount > 0 &&
+  controversyScore > TEMPLATE_RANKING_AGGREGATE_CONTROVERSY_MIN
 
 export const buildAggregateItemMetrics = (params: {
   distribution: Doc<'templateRankingAggregateItems'>['distribution']
@@ -292,6 +315,9 @@ export const buildAggregateItemMetrics = (params: {
       averageBottomSort: UNSAMPLED_SORT_OFFSET,
       consensusSort: UNSAMPLED_SORT_OFFSET,
       controversySort: UNSAMPLED_SORT_OFFSET,
+      isTopBucket: false,
+      isBottomBucket: false,
+      isControversial: false,
     }
   }
 
@@ -309,6 +335,12 @@ export const buildAggregateItemMetrics = (params: {
     params.bucketCount <= 1 ? 0 : (params.bucketCount - 1) ** 2 / 4
   const controversyScore =
     maxVariance > 0 ? clampScore(variance / maxVariance) : 0
+  const isTopBucket = isTopAggregateBucket(top.bucketIndex)
+  const isBottomBucket = isBottomAggregateBucket(top.bucketIndex)
+  const isControversial = isControversialAggregateItem(
+    params.sampleCount,
+    controversyScore
+  )
 
   return {
     averageBucket,
@@ -320,5 +352,8 @@ export const buildAggregateItemMetrics = (params: {
     averageBottomSort: -averageBucket,
     consensusSort: -topBucketShare,
     controversySort: -controversyScore,
+    isTopBucket,
+    isBottomBucket,
+    isControversial,
   }
 }

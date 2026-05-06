@@ -5,6 +5,7 @@ import type { Id, Doc } from '@convex/_generated/dataModel'
 import type { MutationCtx } from '@convex/_generated/server'
 import { buildSearchText } from '@convex/marketplace/templates/lib'
 import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
+import { RANKING_TOP_SCORE_REMIX_WEIGHT } from '@tierlistbuilder/contracts/marketplace/ranking'
 
 export const modules = import.meta.glob('../../convex/**/*.*s')
 
@@ -60,6 +61,9 @@ interface SeedPublishedRankingArgs
   tierCount?: number
   remixCount?: number
   viewCount?: number
+  isFeatured?: boolean
+  featuredRank?: number
+  featuredBadge?: Doc<'publishedRankings'>['featuredBadge']
 }
 
 const defaultSuggestedTiers = (): Doc<'templates'>['suggestedTiers'] => [
@@ -207,6 +211,12 @@ export const seedPublishedRanking = async (
     tierCount: args.tierCount ?? 1,
     remixCount: args.remixCount ?? 0,
     viewCount: args.viewCount ?? 0,
+    topScore:
+      (args.viewCount ?? 0) +
+      (args.remixCount ?? 0) * RANKING_TOP_SCORE_REMIX_WEIGHT,
+    isFeatured: args.isFeatured ?? false,
+    featuredRank: args.featuredRank ?? null,
+    featuredBadge: args.featuredBadge ?? null,
     createdAt: now,
     updatedAt: now,
   })

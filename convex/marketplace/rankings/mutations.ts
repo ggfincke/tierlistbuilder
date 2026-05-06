@@ -2,7 +2,11 @@
 // publish completed template rankings & remix ranking snapshots into boards
 
 import { ConvexError, v } from 'convex/values'
-import { mutation, type MutationCtx } from '../../_generated/server'
+import {
+  internalMutation,
+  mutation,
+  type MutationCtx,
+} from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
   generateBoardId,
@@ -35,6 +39,7 @@ import { resolveTemplateProgressState } from '../../lib/templateProgress'
 import {
   marketplaceRankingPublishResultValidator,
   marketplaceRankingRemixResultValidator,
+  rankingFeaturedBadgeValidator,
   rankingVisibilityValidator,
 } from '../../lib/validators'
 import {
@@ -45,6 +50,7 @@ import {
   loadRankingTiers,
   normalizeRankingDescription,
   normalizeRankingTitle,
+  rankingTopScore,
 } from './lib'
 import {
   incrementTemplateUseStats,
@@ -245,6 +251,10 @@ export const publishRankingFromBoard = mutation({
       tierCount: serverTiers.length,
       remixCount: 0,
       viewCount: 0,
+      topScore: 0,
+      isFeatured: false,
+      featuredRank: null,
+      featuredBadge: null,
       createdAt: now,
       updatedAt: now,
     })
@@ -436,6 +446,10 @@ export const remixRanking = mutation({
       }),
       ctx.db.patch(ranking._id, {
         remixCount: ranking.remixCount + 1,
+        topScore: rankingTopScore({
+          viewCount: ranking.viewCount,
+          remixCount: ranking.remixCount + 1,
+        }),
         updatedAt: now,
       }),
       incrementTemplateUseStats(ctx, template._id, now),
@@ -462,6 +476,67 @@ export const recordRankingView = mutation({
 
     await ctx.db.patch(ranking._id, {
       viewCount: ranking.viewCount + 1,
+      topScore: rankingTopScore({
+        viewCount: ranking.viewCount + 1,
+        remixCount: ranking.remixCount,
+      }),
+    })
+    return null
+  },
+})
+
+// curation hooks — pre-1.0 we drive these from the Convex dashboard or the
+// seed action below. promote/demote a published ranking into the rail's
+// Featured tab. featuredRank is small-first; ties broken by updatedAt
+export const markRankingFeaturedImpl = internalMutation({
+  args: {
+    slug: v.string(),
+    featuredRank: v.number(),
+    featuredBadge: rankingFeaturedBadgeValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    if (!isRankingSlug(args.slug))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: 'ranking not found',
+      })
+    }
+    const ranking = await findRankingBySlug(ctx, args.slug)
+    if (!ranking || !isPublishedRankingRow(ranking))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: 'ranking not found',
+      })
+    }
+    await ctx.db.patch(ranking._id, {
+      isFeatured: true,
+      featuredRank: args.featuredRank,
+      featuredBadge: args.featuredBadge,
+      updatedAt: Date.now(),
+    })
+    return null
+  },
+})
+
+export const unmarkRankingFeaturedImpl = internalMutation({
+  args: { slug: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    if (!isRankingSlug(args.slug))
+    {
+      return null
+    }
+    const ranking = await findRankingBySlug(ctx, args.slug)
+    if (!ranking) return null
+    await ctx.db.patch(ranking._id, {
+      isFeatured: false,
+      featuredRank: null,
+      featuredBadge: null,
       updatedAt: Date.now(),
     })
     return null
