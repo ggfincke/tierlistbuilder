@@ -84,7 +84,7 @@ src/
 │       ├── orchestration/           # createSyncSession, firstLoginSyncLifecycle, useCloudSync, auth epoch
 │       ├── state/                   # syncStatusStore, syncStatusVisuals, useBoardSyncStatus
 │       └── transport/               # connectivity detection
-├── features/marketplace/            # template gallery, publish, use-template flows
+├── features/marketplace/            # templates, ranking publish/detail/remix, gallery flows
 ├── features/library/                # signed-in My Lists surface
 ├── features/embed/ui                # read-only EmbedView primitives
 └── shared/
@@ -113,7 +113,7 @@ src/
 
 packages/contracts/                  # @tierlistbuilder/contracts — cross-runtime wire types
 ├── lib/                             # ids, theme, themeDefinition
-├── marketplace/                     # public template marketplace contracts + category taxonomy
+├── marketplace/                     # public template/ranking marketplace contracts + category taxonomy
 ├── workspace/                       # board, boardEnvelope, boardSync, cloudBoard, cloudPreset, tierPreset
 └── platform/                        # errors, media, preferences, shortLink, uploadEnvelope, user
 ```
@@ -344,6 +344,7 @@ Anything that crosses a process boundary — localStorage, JSON exports, share l
 - `lib/theme.ts`, `lib/themeDefinition.ts` — `ThemeId`, `PaletteId`, `TextStyleId`.
 - `marketplace/category.ts` — template category taxonomy shared by contracts, Convex validators, and UI filters.
 - `marketplace/template.ts` — public template summary/detail/draft/use contracts.
+- `marketplace/ranking.ts` — public ranking summary/detail/publish/remix contracts.
 - `platform/preferences.ts` — `AppPreferences`, `ItemSize`, `ItemShape`, `LabelWidth`, `TierLabelFontSize`, `ToolbarPosition`.
 - `workspace/board.ts` — `BoardSnapshot`, `Tier`, `TierItem`, `TierColorSpec` (+ palette/custom variants), `NewTierItem`, `BoardMeta`, `BoardSnapshotWire`.
 - `workspace/tierPreset.ts` — `TierPreset`, `TierPresetTier`.
@@ -362,7 +363,7 @@ Types that only live in memory stay in the frontend tree, collocated w/ the stor
 
 ## Backend
 
-The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{media,preferences,shortLinks}`, and `marketplace/templates`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
+The Convex backend lives in `convex/` and is namespaced into `workspace/{boards,sync,tierPresets}`, `platform/{media,preferences,shortLinks}`, and `marketplace/{templates,rankings}`. Schema, auth wiring (`@convex-dev/auth`), rate-limiter registration (`@convex-dev/rate-limiter`), scheduled GC (`crons.ts`), and shared handler helpers (`convex/lib/*`) all live alongside. See **[`convex/README.md`](../convex/README.md)** for first-time setup, env vars, function-namespace conventions, and schema-versioning policy.
 
 Key boundary: **UI components never call Convex directly**. Every query & mutation flows through a per-feature adapter, platform repository, or auth hook. This keeps wire types, error surfaces, and retry policy out of the UI layer.
 
@@ -375,8 +376,10 @@ Schema (`convex/schema.ts`) defines the app-owned tables alongside `@convex-dev/
 - `mediaAssets` — uploaded image metadata, content-hash deduplicated, indexed by owner + hash.
 - `tierPresets` — reusable tier structures owned by a user.
 - `shortLinks` — share-link slug indirection backed by compressed snapshot blobs in `_storage`, TTL-swept via cron.
-- `templates` / `templateItems` / `templateTags` — public/unlisted marketplace templates, denormalized cover rows, tag rows, category counters, and fork tracking.
+- `templates` / `templateItems` / `templateTags` — public/unlisted marketplace templates, item snapshots, tag rows, and fork tracking.
+- `templateCards` / `templateStats` / `templateMetricDays` — denormalized gallery cards, all-time counts, and rolling daily metrics for trending sort/rails.
 - `marketplaceStats` — singleton marketplace aggregate counters used by gallery category chips.
+- `publishedRankings` / `publishedRankingTiers` / `publishedRankingItems` — immutable ranking snapshots published from completed template-backed boards and used by ranking detail/remix flows.
 
 Marketplace seed actions are public only for script access, but they fail closed unless `CONVEX_SEED_ENABLED=true` and the caller passes the deployment's `CONVEX_SEED_SECRET` value.
 
