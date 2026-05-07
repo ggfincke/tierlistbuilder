@@ -49,6 +49,7 @@ import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT,
   findTemplateRankingAggregate,
   normalizeTemplateRankingAggregateItemPageSize,
+  resolveTemplateRankingAggregateBucketLabels,
   resolveTemplateRankingAggregateBucketCount,
   toTemplateRankingAggregate,
   toTemplateRankingAggregateItem,
@@ -585,9 +586,18 @@ export const getMyRankingForTemplate = query({
       toRankingSummary(ctx, ranking, cache),
     ])
 
+    const bucketLabels = resolveTemplateRankingAggregateBucketLabels(
+      template,
+      bucketCount
+    )
     return {
       ranking: summary,
-      placements: buildRankingBucketPlacements(tiers, items, bucketCount),
+      placements: buildRankingBucketPlacements(
+        tiers,
+        items,
+        bucketCount,
+        bucketLabels
+      ),
     }
   },
 })

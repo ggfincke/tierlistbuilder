@@ -183,8 +183,59 @@ export interface MarketplaceMyRankingForTemplateResult
   placements: Record<string, number>
 }
 
+const normalizeBucketLabel = (value: string): string =>
+  value.trim().toLowerCase().replace(/\s+/g, ' ')
+
+const normalizeBucketFamily = (value: string): string =>
+  normalizeBucketLabel(value)
+    .replace(/\s*[+-]+$/, '')
+    .trim()
+
+const targetBucketIndexByLabel = (
+  labels: readonly string[] | undefined
+): Map<string, number> =>
+{
+  const map = new Map<string, number>()
+  labels?.forEach((label, index) =>
+  {
+    const normalized = normalizeBucketLabel(label)
+    const family = normalizeBucketFamily(label)
+    if (normalized && !map.has(normalized)) map.set(normalized, index)
+    if (family && normalized === family && !map.has(family))
+    {
+      map.set(family, index)
+    }
+  })
+  return map
+}
+
+export const buildRankingTierBucketMap = <
+  Tier extends { externalId: string; order: number; name?: string | null },
+>(
+  tiers: readonly Tier[],
+  bucketCount: number,
+  targetBucketLabels?: readonly string[]
+): Map<string, number> =>
+{
+  const map = new Map<string, number>()
+  if (bucketCount <= 0) return map
+  const labelMap = targetBucketIndexByLabel(targetBucketLabels)
+  tiers
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .forEach((tier, index) =>
+    {
+      const fallback = Math.min(index, bucketCount - 1)
+      const label = tier.name ?? ''
+      const exact = labelMap.get(normalizeBucketLabel(label))
+      const family = labelMap.get(normalizeBucketFamily(label))
+      map.set(tier.externalId, exact ?? family ?? fallback)
+    })
+  return map
+}
+
 export const buildRankingBucketPlacements = <
-  Tier extends { externalId: string; order: number },
+  Tier extends { externalId: string; order: number; name?: string | null },
   Item extends {
     templateItemExternalId: string
     tierExternalId: string | null
@@ -192,18 +243,16 @@ export const buildRankingBucketPlacements = <
 >(
   tiers: readonly Tier[],
   items: readonly Item[],
-  bucketCount: number
+  bucketCount: number,
+  targetBucketLabels?: readonly string[]
 ): Record<string, number> =>
 {
   if (bucketCount <= 0) return {}
-  const bucketByTier = new Map<string, number>()
-  tiers
-    .slice()
-    .sort((a, b) => a.order - b.order)
-    .forEach((tier, index) =>
-      bucketByTier.set(tier.externalId, Math.min(index, bucketCount - 1))
-    )
-
+  const bucketByTier = buildRankingTierBucketMap(
+    tiers,
+    bucketCount,
+    targetBucketLabels
+  )
   const placements: Record<string, number> = {}
   for (const item of items)
   {

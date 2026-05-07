@@ -90,7 +90,7 @@ interface SeedProfile
 
 interface CuratedTierGroup
 {
-  tierIndex: number
+  tierName: string
   labels: readonly string[]
 }
 
@@ -103,9 +103,11 @@ interface CuratedOfficialRanking
   rankingDescription: string
   featuredRank: number
   featuredBadge: RankingFeaturedBadge
+  tiers: readonly TierPresetTier[]
   tierGroups: readonly CuratedTierGroup[]
-  // sub-fighters (Squirtle/Ivysaur/Charizard, individual Pyra/Mythra) inherit
-  // the tier of their parent label; let the data omit them per ranking
+  // child labels skipped because the source ranks the composite parent (e.g.
+  // "Pokemon Trainer", not the splits). Parent is asserted present in
+  // tierGroups so a rename surfaces immediately.
   parentLabelByLabel?: Readonly<Record<string, string>>
 }
 
@@ -365,8 +367,8 @@ const SAMPLE_PROFILES: readonly SeedProfile[] = [
   },
 ]
 
-// SSBU sub-fighters present in the template but absent from competitive tier
-// lists; they ride along w/ their parent's tier
+// SSBU sub-fighters present in the template but absent from competitive lists.
+// source rankings use composite parents, so children are skipped here.
 const SSBU_CHILD_LABEL_PARENTS: Readonly<Record<string, string>> = {
   Squirtle: 'Pokemon Trainer',
   Ivysaur: 'Pokemon Trainer',
@@ -375,9 +377,38 @@ const SSBU_CHILD_LABEL_PARENTS: Readonly<Record<string, string>> = {
   Mythra: 'Pyra And Mythra',
 }
 
-// human-curated official tier lists — applied after algorithmic seeding so
-// SSBU detail surfaces the published UR/LumiRank consensus instead of random
-// samples; sub-tiers fold into the 6-tier preset, preserving sequence within
+const LUMIRANK_3RD_SSBU_TIERS: readonly TierPresetTier[] = [
+  { name: 'S+', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'S-', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'A+', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'A', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'A-', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'B+', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'B-', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'C+', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'C-', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'D', colorSpec: { kind: 'palette', index: 7 } },
+  { name: 'E', colorSpec: { kind: 'palette', index: 10 } },
+]
+
+const ULTRANK_4TH_SSBU_TIERS: readonly TierPresetTier[] = [
+  { name: 'S+', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'S-', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'A+', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'A', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'A-', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'B+', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'B-', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'C+', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'C-', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'D+', colorSpec: { kind: 'palette', index: 7 } },
+  { name: 'D-', colorSpec: { kind: 'palette', index: 7 } },
+  { name: 'E', colorSpec: { kind: 'palette', index: 10 } },
+]
+
+// official lists carry their own row presets, because sub-tier availability
+// differs between publications.
 const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
   {
     targetKey: 'ssbu',
@@ -388,21 +419,17 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
       "LumiRank's 3rd Official Smash Bros. Ultimate tier list, compiled from the global competitive panel.",
     featuredRank: 0,
     featuredBadge: 'official',
+    tiers: LUMIRANK_3RD_SSBU_TIERS,
     parentLabelByLabel: SSBU_CHILD_LABEL_PARENTS,
     tierGroups: [
+      { tierName: 'S+', labels: ['Steve', 'Sonic', 'Snake'] },
       {
-        tierIndex: 0,
+        tierName: 'S',
+        labels: ['Mr Game And Watch', 'Rob', 'Pyra And Mythra', 'Kazuya'],
+      },
+      {
+        tierName: 'S-',
         labels: [
-          // S+
-          'Steve',
-          'Sonic',
-          'Snake',
-          // S
-          'Mr Game And Watch',
-          'Rob',
-          'Pyra And Mythra',
-          'Kazuya',
-          // S-
           'Diddy Kong',
           'Min Min',
           'Fox',
@@ -414,9 +441,8 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
         ],
       },
       {
-        tierIndex: 1,
+        tierName: 'A+',
         labels: [
-          // A+
           'Roy',
           'Olimar',
           'Cloud',
@@ -426,14 +452,15 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
           'Dark Samus',
           'Palutena',
           'Mario',
-          // A
-          'Corrin',
-          'Wario',
-          'Sora',
-          'Falco',
-          'Wolf',
-          'Hero',
-          // A-
+        ],
+      },
+      {
+        tierName: 'A',
+        labels: ['Corrin', 'Wario', 'Sora', 'Falco', 'Wolf', 'Hero'],
+      },
+      {
+        tierName: 'A-',
+        labels: [
           'Ryu',
           'Shulk',
           'Mii Brawler',
@@ -447,16 +474,19 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
         ],
       },
       {
-        tierIndex: 2,
+        tierName: 'B+',
         labels: [
-          // B+
           'Link',
           'Pit',
           'Dark Pit',
           'Captain Falcon',
           'Ken',
           'Rosalina And Luma',
-          // B-
+        ],
+      },
+      {
+        tierName: 'B-',
+        labels: [
           'Ness',
           'Sheik',
           'Meta Knight',
@@ -470,9 +500,8 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
         ],
       },
       {
-        tierIndex: 3,
+        tierName: 'C+',
         labels: [
-          // C+
           'Lucario',
           'Banjo And Kazooie',
           'Wii Fit Trainer',
@@ -480,7 +509,11 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
           'Lucas',
           'Mii Swordfighter',
           'Incineroar',
-          // C-
+        ],
+      },
+      {
+        tierName: 'C-',
+        labels: [
           'Young Link',
           'Ridley',
           'Bowser',
@@ -495,7 +528,7 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
         ],
       },
       {
-        tierIndex: 4,
+        tierName: 'D',
         labels: [
           'Mii Gunner',
           'Zelda',
@@ -509,10 +542,7 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
           'Dr Mario',
         ],
       },
-      {
-        tierIndex: 5,
-        labels: ['Little Mac', 'Ganondorf'],
-      },
+      { tierName: 'E', labels: ['Little Mac', 'Ganondorf'] },
     ],
   },
   {
@@ -524,12 +554,12 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
       "UltRank's 4th Official Smash Bros. Ultimate tier list, drawn from international top-player consensus.",
     featuredRank: 1,
     featuredBadge: 'official',
+    tiers: ULTRANK_4TH_SSBU_TIERS,
     parentLabelByLabel: SSBU_CHILD_LABEL_PARENTS,
     tierGroups: [
       {
-        tierIndex: 0,
+        tierName: 'S+',
         labels: [
-          // S+
           'Steve',
           'Sonic',
           'Snake',
@@ -537,7 +567,11 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
           'Rob',
           'Min Min',
           'Kazuya',
-          // S-
+        ],
+      },
+      {
+        tierName: 'S-',
+        labels: [
           'Diddy Kong',
           'Pyra And Mythra',
           'Luigi',
@@ -549,16 +583,19 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
         ],
       },
       {
-        tierIndex: 1,
+        tierName: 'A+',
         labels: [
-          // A+
           'Samus',
           'Dark Samus',
           'Palutena',
           'Pikachu',
           'Olimar',
           'Wario',
-          // A
+        ],
+      },
+      {
+        tierName: 'A',
+        labels: [
           'Roy',
           'Hero',
           'Bayonetta',
@@ -569,18 +606,15 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
           'Sora',
           'Cloud',
           'Ryu',
-          // A-
-          'Corrin',
-          'Falco',
-          'Shulk',
-          'Captain Falcon',
-          'Greninja',
         ],
       },
       {
-        tierIndex: 2,
+        tierName: 'A-',
+        labels: ['Corrin', 'Falco', 'Shulk', 'Captain Falcon', 'Greninja'],
+      },
+      {
+        tierName: 'B+',
         labels: [
-          // B+
           'Terry',
           'Pokemon Trainer',
           'Lucina',
@@ -594,7 +628,11 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
           'Rosalina And Luma',
           'Ice Climbers',
           'Donkey Kong',
-          // B-
+        ],
+      },
+      {
+        tierName: 'B-',
+        labels: [
           'Pichu',
           'Inkling',
           'Ness',
@@ -606,16 +644,19 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
         ],
       },
       {
-        tierIndex: 3,
+        tierName: 'C+',
         labels: [
-          // C+
           'Isabelle',
           'Mii Swordfighter',
           'Lucas',
           'Wii Fit Trainer',
           'Robin',
           'Ridley',
-          // C-
+        ],
+      },
+      {
+        tierName: 'C-',
+        labels: [
           'Banjo And Kazooie',
           'Bowser Jr',
           'Lucario',
@@ -628,14 +669,10 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
           'Piranha Plant',
         ],
       },
+      { tierName: 'D+', labels: ['Mii Gunner', 'Mewtwo', 'Zelda'] },
       {
-        tierIndex: 4,
+        tierName: 'D-',
         labels: [
-          // D+
-          'Mii Gunner',
-          'Mewtwo',
-          'Zelda',
-          // D-
           'Chrom',
           'Dr Mario',
           'Ike',
@@ -645,7 +682,7 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
         ],
       },
       {
-        tierIndex: 5,
+        tierName: 'E',
         labels: ['Simon', 'Richter', 'Little Mac', 'Ganondorf'],
       },
     ],
@@ -953,6 +990,40 @@ const rankTemplateItems = (
   return ranked
 }
 
+const curatedTierIndexByName = (
+  curated: CuratedOfficialRanking
+): Map<string, number> =>
+{
+  const map = new Map<string, number>()
+  curated.tiers.forEach((tier, index) =>
+  {
+    const name = tier.name.trim()
+    if (!name || map.has(name))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `curated tier list ${curated.authorKey}: duplicate or blank tier '${tier.name}'`,
+      })
+    }
+    map.set(name, index)
+  })
+  return map
+}
+
+const requireCuratedTierIndex = (
+  curated: CuratedOfficialRanking,
+  tiersByName: ReadonlyMap<string, number>,
+  tierName: string
+): number =>
+{
+  const tierIndex = tiersByName.get(tierName)
+  if (tierIndex !== undefined) return tierIndex
+  throw new ConvexError({
+    code: CONVEX_ERROR_CODES.invalidState,
+    message: `curated tier list ${curated.authorKey}: unknown tier '${tierName}'`,
+  })
+}
+
 const mapItemsToCuratedTiers = (
   curated: CuratedOfficialRanking,
   items: readonly Doc<'templateItems'>[]
@@ -964,41 +1035,38 @@ const mapItemsToCuratedTiers = (
     if (item.label) itemByLabel.set(item.label, item)
   }
 
-  // tier index per primary label
+  const tiersByName = curatedTierIndexByName(curated)
   const tierIndexByLabel = new Map<string, number>()
-  for (const group of curated.tierGroups)
-  {
-    for (const label of group.labels)
-    {
-      tierIndexByLabel.set(label, group.tierIndex)
-    }
-  }
-
-  // ordered label sequences per tier — preserves authoring order, then appends
-  // inherited child labels at the end of their resolved tier
   const labelsByTier = new Map<number, string[]>()
   for (const group of curated.tierGroups)
   {
-    const list = labelsByTier.get(group.tierIndex) ?? []
+    const tierIndex = requireCuratedTierIndex(
+      curated,
+      tiersByName,
+      group.tierName
+    )
+    for (const label of group.labels)
+    {
+      tierIndexByLabel.set(label, tierIndex)
+    }
+    const list = labelsByTier.get(tierIndex) ?? []
     list.push(...group.labels)
-    labelsByTier.set(group.tierIndex, list)
+    labelsByTier.set(tierIndex, list)
   }
+  // composite parent slot, so the splits stay out of the board entirely
+  const skippedChildLabels = new Set<string>()
   if (curated.parentLabelByLabel)
   {
     for (const [child, parent] of Object.entries(curated.parentLabelByLabel))
     {
-      const tierIndex = tierIndexByLabel.get(parent)
-      if (tierIndex === undefined)
+      if (!tierIndexByLabel.has(parent))
       {
         throw new ConvexError({
           code: CONVEX_ERROR_CODES.invalidState,
           message: `curated tier list ${curated.authorKey}: parent label '${parent}' missing for child '${child}'`,
         })
       }
-      tierIndexByLabel.set(child, tierIndex)
-      const list = labelsByTier.get(tierIndex) ?? []
-      list.push(child)
-      labelsByTier.set(tierIndex, list)
+      skippedChildLabels.add(child)
     }
   }
 
@@ -1013,17 +1081,16 @@ const mapItemsToCuratedTiers = (
       })
     }
   }
-  // every template item must be placed somewhere
+  // every template item must be placed or explicitly skipped via parent map
   for (const item of items)
   {
     const label = item.label ?? ''
-    if (!tierIndexByLabel.has(label))
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `curated tier list ${curated.authorKey}: template item '${label || item.externalId}' is not placed`,
-      })
-    }
+    if (tierIndexByLabel.has(label)) continue
+    if (skippedChildLabels.has(label)) continue
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: `curated tier list ${curated.authorKey}: template item '${label || item.externalId}' is not placed`,
+    })
   }
 
   const ranked: RankedSeedItem[] = []
@@ -1694,9 +1761,8 @@ export const seedSampleRankingImpl = internalMutation({
   },
 })
 
-const curatedRankingAt = (
-  index: number
-): CuratedOfficialRanking | undefined => CURATED_OFFICIAL_RANKINGS[index]
+const curatedRankingAt = (index: number): CuratedOfficialRanking | undefined =>
+  CURATED_OFFICIAL_RANKINGS[index]
 
 const requireCuratedRankingAt = (index: number): CuratedOfficialRanking =>
 {
@@ -1720,7 +1786,8 @@ const curatedAuthorExternalId = (curated: CuratedOfficialRanking): string =>
 const curatedBoardExternalId = (
   curated: CuratedOfficialRanking,
   target: SeedTargetDefinition
-): string => authorBoardExternalId(curatedAuthorKeyNs(curated.authorKey), target)
+): string =>
+  authorBoardExternalId(curatedAuthorKeyNs(curated.authorKey), target)
 
 const curatedRankingTitle = (curated: CuratedOfficialRanking): string =>
   `${curated.authorDisplayName}'s ${curated.rankingTitle}`
@@ -1814,15 +1881,8 @@ export const seedCuratedOfficialRankingImpl = internalMutation({
       MAX_SEED_ROW_ITEMS
     )
 
-    const tiers = resolveTemplateTiers(template)
-    assertSeedRowsWithinLimit('template tiers', tiers, MAX_SEED_ROW_TIERS)
-    if (tiers.length <= curated.tierGroups.reduce((m, g) => Math.max(m, g.tierIndex), 0))
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `curated tier list ${curated.authorKey} expects more tiers than the template defines`,
-      })
-    }
+    const tiers = curated.tiers
+    assertSeedRowsWithinLimit('curated tiers', tiers, MAX_SEED_ROW_TIERS)
 
     const rankedItems = mapItemsToCuratedTiers(curated, templateItems)
     // curated rankings sit just before the algorithmic seed feed in time so

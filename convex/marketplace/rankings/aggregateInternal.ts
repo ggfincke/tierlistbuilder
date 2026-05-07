@@ -13,7 +13,9 @@ import {
   findTemplateRankingAggregate,
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
+  resolveTemplateRankingAggregateBucketLabels,
 } from './aggregate'
+import { buildRankingTierBucketMap } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { makeEmptyBucketSpread } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
 type AggregateJob = Doc<'templateRankingAggregateJobs'>
@@ -150,30 +152,23 @@ const seedAggregateItemRows = async (
 
 const tierBucketMap = (
   tiers: readonly Doc<'publishedRankingTiers'>[],
-  bucketCount: number
+  bucketCount: number,
+  targetBucketLabels: readonly string[] | undefined
 ): Map<string, number> =>
-{
-  const map = new Map<string, number>()
-  tiers
-    .slice()
-    .sort((a, b) => a.order - b.order)
-    .forEach((tier, index) =>
-      map.set(tier.externalId, Math.min(index, bucketCount - 1))
-    )
-  return map
-}
+  buildRankingTierBucketMap(tiers, bucketCount, targetBucketLabels)
 
 const loadTierBucketMap = async (
   ctx: MutationCtx,
   rankingId: Id<'publishedRankings'>,
-  bucketCount: number
+  bucketCount: number,
+  targetBucketLabels: readonly string[] | undefined
 ): Promise<Map<string, number>> =>
 {
   const tiers = await ctx.db
     .query('publishedRankingTiers')
     .withIndex('byRanking', (q) => q.eq('rankingId', rankingId))
     .take(MAX_SYNC_TIERS)
-  return tierBucketMap(tiers, bucketCount)
+  return tierBucketMap(tiers, bucketCount, targetBucketLabels)
 }
 
 const applyBucketSpreadDelta = (
@@ -260,7 +255,16 @@ const processActiveRanking = async (
     return null
   }
 
-  const buckets = await loadTierBucketMap(ctx, ranking._id, job.bucketCount)
+  const template = await ctx.db.get(job.templateId)
+  const targetBucketLabels = template
+    ? resolveTemplateRankingAggregateBucketLabels(template, job.bucketCount)
+    : undefined
+  const buckets = await loadTierBucketMap(
+    ctx,
+    ranking._id,
+    job.bucketCount,
+    targetBucketLabels
+  )
   const page = await ctx.db
     .query('publishedRankingItems')
     .withIndex('byRanking', (q) => q.eq('rankingId', ranking._id))

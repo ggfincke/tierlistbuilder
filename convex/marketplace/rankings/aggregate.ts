@@ -74,15 +74,32 @@ const bucketColor = (
 ): MarketplaceTemplateRankingAggregateBucket['colorSpec'] =>
   tiers[index]?.colorSpec ?? null
 
-const toBuckets = (
+const templateRankingAggregateBucketTiers = (
   template: Pick<Doc<'templates'>, 'suggestedTiers'>,
   bucketCount: number
-): MarketplaceTemplateRankingAggregateBucket[] =>
+): readonly TierPresetTier[] =>
 {
   const tiers =
     template.suggestedTiers.length > 0
       ? template.suggestedTiers
       : DEFAULT_TEMPLATE_TIERS
+  return tiers.slice(0, bucketCount)
+}
+
+export const resolveTemplateRankingAggregateBucketLabels = (
+  template: Pick<Doc<'templates'>, 'suggestedTiers'>,
+  bucketCount: number
+): string[] =>
+  templateRankingAggregateBucketTiers(template, bucketCount).map((tier) =>
+    tier.name.trim()
+  )
+
+const toBuckets = (
+  template: Pick<Doc<'templates'>, 'suggestedTiers'>,
+  bucketCount: number
+): MarketplaceTemplateRankingAggregateBucket[] =>
+{
+  const tiers = templateRankingAggregateBucketTiers(template, bucketCount)
   return Array.from({ length: bucketCount }, (_, index) => ({
     index,
     label: bucketLabel(tiers, index),
