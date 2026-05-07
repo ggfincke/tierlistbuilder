@@ -88,6 +88,27 @@ interface SeedProfile
   dropTerms?: Partial<Record<TargetKey, readonly string[]>>
 }
 
+interface CuratedTierGroup
+{
+  tierIndex: number
+  labels: readonly string[]
+}
+
+interface CuratedOfficialRanking
+{
+  targetKey: TargetKey
+  authorKey: string
+  authorDisplayName: string
+  rankingTitle: string
+  rankingDescription: string
+  featuredRank: number
+  featuredBadge: RankingFeaturedBadge
+  tierGroups: readonly CuratedTierGroup[]
+  // sub-fighters (Squirtle/Ivysaur/Charizard, individual Pyra/Mythra) inherit
+  // the tier of their parent label; let the data omit them per ranking
+  parentLabelByLabel?: Readonly<Record<string, string>>
+}
+
 const SEED_TARGETS: readonly SeedTargetDefinition[] = [
   {
     key: 'ssbu',
@@ -344,6 +365,293 @@ const SAMPLE_PROFILES: readonly SeedProfile[] = [
   },
 ]
 
+// SSBU sub-fighters present in the template but absent from competitive tier
+// lists; they ride along w/ their parent's tier
+const SSBU_CHILD_LABEL_PARENTS: Readonly<Record<string, string>> = {
+  Squirtle: 'Pokemon Trainer',
+  Ivysaur: 'Pokemon Trainer',
+  Charizard: 'Pokemon Trainer',
+  Pyra: 'Pyra And Mythra',
+  Mythra: 'Pyra And Mythra',
+}
+
+// human-curated official tier lists — applied after algorithmic seeding so
+// SSBU detail surfaces the published UR/LumiRank consensus instead of random
+// samples; sub-tiers fold into the 6-tier preset, preserving sequence within
+const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
+  {
+    targetKey: 'ssbu',
+    authorKey: 'lumirank-3rd',
+    authorDisplayName: 'LumiRank',
+    rankingTitle: '3rd Official Tier List',
+    rankingDescription:
+      "LumiRank's 3rd Official Smash Bros. Ultimate tier list, compiled from the global competitive panel.",
+    featuredRank: 0,
+    featuredBadge: 'official',
+    parentLabelByLabel: SSBU_CHILD_LABEL_PARENTS,
+    tierGroups: [
+      {
+        tierIndex: 0,
+        labels: [
+          // S+
+          'Steve',
+          'Sonic',
+          'Snake',
+          // S
+          'Mr Game And Watch',
+          'Rob',
+          'Pyra And Mythra',
+          'Kazuya',
+          // S-
+          'Diddy Kong',
+          'Min Min',
+          'Fox',
+          'Peach',
+          'Daisy',
+          'Joker',
+          'Yoshi',
+          'Pikachu',
+        ],
+      },
+      {
+        tierIndex: 1,
+        labels: [
+          // A+
+          'Roy',
+          'Olimar',
+          'Cloud',
+          'Luigi',
+          'Bayonetta',
+          'Samus',
+          'Dark Samus',
+          'Palutena',
+          'Mario',
+          // A
+          'Corrin',
+          'Wario',
+          'Sora',
+          'Falco',
+          'Wolf',
+          'Hero',
+          // A-
+          'Ryu',
+          'Shulk',
+          'Mii Brawler',
+          'Terry',
+          'Zero Suit Samus',
+          'Greninja',
+          'Pac Man',
+          'Pokemon Trainer',
+          'Toon Link',
+          'Lucina',
+        ],
+      },
+      {
+        tierIndex: 2,
+        labels: [
+          // B+
+          'Link',
+          'Pit',
+          'Dark Pit',
+          'Captain Falcon',
+          'Ken',
+          'Rosalina And Luma',
+          // B-
+          'Ness',
+          'Sheik',
+          'Meta Knight',
+          'Mega Man',
+          'Inkling',
+          'Sephiroth',
+          'Byleth',
+          'Ice Climbers',
+          'Pichu',
+          'Donkey Kong',
+        ],
+      },
+      {
+        tierIndex: 3,
+        labels: [
+          // C+
+          'Lucario',
+          'Banjo And Kazooie',
+          'Wii Fit Trainer',
+          'Marth',
+          'Lucas',
+          'Mii Swordfighter',
+          'Incineroar',
+          // C-
+          'Young Link',
+          'Ridley',
+          'Bowser',
+          'Duck Hunt',
+          'Kirby',
+          'Isabelle',
+          'Robin',
+          'Bowser Jr',
+          'Mewtwo',
+          'Jigglypuff',
+          'Chrom',
+        ],
+      },
+      {
+        tierIndex: 4,
+        labels: [
+          'Mii Gunner',
+          'Zelda',
+          'Ike',
+          'Piranha Plant',
+          'Villager',
+          'King Dedede',
+          'King K Rool',
+          'Simon',
+          'Richter',
+          'Dr Mario',
+        ],
+      },
+      {
+        tierIndex: 5,
+        labels: ['Little Mac', 'Ganondorf'],
+      },
+    ],
+  },
+  {
+    targetKey: 'ssbu',
+    authorKey: 'ultrank-4th',
+    authorDisplayName: 'UltRank',
+    rankingTitle: '4th Official Tier List',
+    rankingDescription:
+      "UltRank's 4th Official Smash Bros. Ultimate tier list, drawn from international top-player consensus.",
+    featuredRank: 1,
+    featuredBadge: 'official',
+    parentLabelByLabel: SSBU_CHILD_LABEL_PARENTS,
+    tierGroups: [
+      {
+        tierIndex: 0,
+        labels: [
+          // S+
+          'Steve',
+          'Sonic',
+          'Snake',
+          'Mr Game And Watch',
+          'Rob',
+          'Min Min',
+          'Kazuya',
+          // S-
+          'Diddy Kong',
+          'Pyra And Mythra',
+          'Luigi',
+          'Peach',
+          'Daisy',
+          'Yoshi',
+          'Fox',
+          'Joker',
+        ],
+      },
+      {
+        tierIndex: 1,
+        labels: [
+          // A+
+          'Samus',
+          'Dark Samus',
+          'Palutena',
+          'Pikachu',
+          'Olimar',
+          'Wario',
+          // A
+          'Roy',
+          'Hero',
+          'Bayonetta',
+          'Mario',
+          'Wolf',
+          'Mii Brawler',
+          'Mega Man',
+          'Sora',
+          'Cloud',
+          'Ryu',
+          // A-
+          'Corrin',
+          'Falco',
+          'Shulk',
+          'Captain Falcon',
+          'Greninja',
+        ],
+      },
+      {
+        tierIndex: 2,
+        labels: [
+          // B+
+          'Terry',
+          'Pokemon Trainer',
+          'Lucina',
+          'Ken',
+          'Zero Suit Samus',
+          'Pac Man',
+          'Toon Link',
+          'Link',
+          'Pit',
+          'Dark Pit',
+          'Rosalina And Luma',
+          'Ice Climbers',
+          'Donkey Kong',
+          // B-
+          'Pichu',
+          'Inkling',
+          'Ness',
+          'Sheik',
+          'Byleth',
+          'Meta Knight',
+          'Sephiroth',
+          'Duck Hunt',
+        ],
+      },
+      {
+        tierIndex: 3,
+        labels: [
+          // C+
+          'Isabelle',
+          'Mii Swordfighter',
+          'Lucas',
+          'Wii Fit Trainer',
+          'Robin',
+          'Ridley',
+          // C-
+          'Banjo And Kazooie',
+          'Bowser Jr',
+          'Lucario',
+          'Jigglypuff',
+          'Marth',
+          'Young Link',
+          'Bowser',
+          'Incineroar',
+          'Kirby',
+          'Piranha Plant',
+        ],
+      },
+      {
+        tierIndex: 4,
+        labels: [
+          // D+
+          'Mii Gunner',
+          'Mewtwo',
+          'Zelda',
+          // D-
+          'Chrom',
+          'Dr Mario',
+          'Ike',
+          'King K Rool',
+          'King Dedede',
+          'Villager',
+        ],
+      },
+      {
+        tierIndex: 5,
+        labels: ['Simon', 'Richter', 'Little Mac', 'Ganondorf'],
+      },
+    ],
+  },
+]
+
 const seedTargetResultValidator = v.object({
   key: targetKeyValidator,
   title: v.string(),
@@ -486,29 +794,44 @@ const sampleProfileAt = (profileIndex: number): SeedProfile =>
   return SAMPLE_PROFILES[profileIndex]
 }
 
+const authorUserEmail = (authorKey: string): string =>
+  `seed+rankings-${authorKey}@${SEED_EMAIL_DOMAIN}`
+
+const authorUserExternalId = (authorKey: string): string =>
+  `user-seed-rankings-${authorKey}`
+
+const authorBoardExternalId = (
+  authorKey: string,
+  target: SeedTargetDefinition
+): string => `board-seed-rankings-${target.key}-${authorKey}`
+
+const authorTierExternalId = (
+  authorKey: string,
+  target: SeedTargetDefinition,
+  tierIndex: number
+): string => `tier-seed-rankings-${target.key}-${authorKey}-${tierIndex}`
+
+const authorItemExternalId = (
+  authorKey: string,
+  target: SeedTargetDefinition,
+  item: Doc<'templateItems'>
+): string =>
+  `seed-rankings-${target.key}-${authorKey}-${item.order.toString().padStart(3, '0')}`
+
+// curated authors live in their own externalId namespace so they never collide
+// w/ algorithmic sample profiles
+const curatedAuthorKeyNs = (authorKey: string): string => `curated-${authorKey}`
+
 const seedUserEmail = (profile: SeedProfile): string =>
-  `seed+rankings-${profile.key}@${SEED_EMAIL_DOMAIN}`
+  authorUserEmail(profile.key)
 
 const seedUserExternalId = (profile: SeedProfile): string =>
-  `user-seed-rankings-${profile.key}`
+  authorUserExternalId(profile.key)
 
 const seedBoardExternalId = (
   profile: SeedProfile,
   target: SeedTargetDefinition
-): string => `board-seed-rankings-${target.key}-${profile.key}`
-
-const seedTierExternalId = (
-  profile: SeedProfile,
-  target: SeedTargetDefinition,
-  tierIndex: number
-): string => `tier-seed-rankings-${target.key}-${profile.key}-${tierIndex}`
-
-const seedItemExternalId = (
-  profile: SeedProfile,
-  target: SeedTargetDefinition,
-  item: Doc<'templateItems'>
-): string =>
-  `seed-rankings-${target.key}-${profile.key}-${item.order.toString().padStart(3, '0')}`
+): string => authorBoardExternalId(profile.key, target)
 
 const seedRankingTitle = (
   profile: SeedProfile,
@@ -630,6 +953,100 @@ const rankTemplateItems = (
   return ranked
 }
 
+const mapItemsToCuratedTiers = (
+  curated: CuratedOfficialRanking,
+  items: readonly Doc<'templateItems'>[]
+): RankedSeedItem[] =>
+{
+  const itemByLabel = new Map<string, Doc<'templateItems'>>()
+  for (const item of items)
+  {
+    if (item.label) itemByLabel.set(item.label, item)
+  }
+
+  // tier index per primary label
+  const tierIndexByLabel = new Map<string, number>()
+  for (const group of curated.tierGroups)
+  {
+    for (const label of group.labels)
+    {
+      tierIndexByLabel.set(label, group.tierIndex)
+    }
+  }
+
+  // ordered label sequences per tier — preserves authoring order, then appends
+  // inherited child labels at the end of their resolved tier
+  const labelsByTier = new Map<number, string[]>()
+  for (const group of curated.tierGroups)
+  {
+    const list = labelsByTier.get(group.tierIndex) ?? []
+    list.push(...group.labels)
+    labelsByTier.set(group.tierIndex, list)
+  }
+  if (curated.parentLabelByLabel)
+  {
+    for (const [child, parent] of Object.entries(curated.parentLabelByLabel))
+    {
+      const tierIndex = tierIndexByLabel.get(parent)
+      if (tierIndex === undefined)
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidState,
+          message: `curated tier list ${curated.authorKey}: parent label '${parent}' missing for child '${child}'`,
+        })
+      }
+      tierIndexByLabel.set(child, tierIndex)
+      const list = labelsByTier.get(tierIndex) ?? []
+      list.push(child)
+      labelsByTier.set(tierIndex, list)
+    }
+  }
+
+  // every curated label must reference a real template item
+  for (const label of tierIndexByLabel.keys())
+  {
+    if (!itemByLabel.has(label))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `curated tier list ${curated.authorKey}: no template item with label '${label}'`,
+      })
+    }
+  }
+  // every template item must be placed somewhere
+  for (const item of items)
+  {
+    const label = item.label ?? ''
+    if (!tierIndexByLabel.has(label))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `curated tier list ${curated.authorKey}: template item '${label || item.externalId}' is not placed`,
+      })
+    }
+  }
+
+  const ranked: RankedSeedItem[] = []
+  const tierIndices = [...labelsByTier.keys()].sort((a, b) => a - b)
+  for (const tierIndex of tierIndices)
+  {
+    const labels = labelsByTier.get(tierIndex) ?? []
+    let orderInTier = 0
+    for (const label of labels)
+    {
+      const item = itemByLabel.get(label)
+      if (!item) continue
+      ranked.push({
+        item,
+        tierIndex,
+        orderInTier: orderInTier++,
+        globalOrder: ranked.length,
+      })
+    }
+  }
+  return ranked
+}
+
 const assertSeedRowsWithinLimit = <T>(
   label: string,
   rows: readonly T[],
@@ -647,9 +1064,15 @@ const findSeedUser = async (
   ctx: MutationCtx,
   profile: SeedProfile
 ): Promise<Doc<'users'> | null> =>
+  await findUserByEmail(ctx, seedUserEmail(profile))
+
+const findUserByEmail = async (
+  ctx: MutationCtx,
+  email: string
+): Promise<Doc<'users'> | null> =>
   await ctx.db
     .query('users')
-    .withIndex('email', (q) => q.eq('email', seedUserEmail(profile)))
+    .withIndex('email', (q) => q.eq('email', email))
     .unique()
 
 const ensureSeedUser = async (
@@ -657,16 +1080,31 @@ const ensureSeedUser = async (
   profile: SeedProfile,
   now: number
 ): Promise<Doc<'users'>> =>
-{
-  const email = seedUserEmail(profile)
-  const existing = await findSeedUser(ctx, profile)
-  const fields = {
-    name: profile.displayName,
-    displayName: profile.displayName,
-    email,
+  await upsertSeedUser(ctx, {
+    email: seedUserEmail(profile),
     externalId: seedUserExternalId(profile),
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
+    displayName: profile.displayName,
+    now,
+  })
+
+const upsertSeedUser = async (
+  ctx: MutationCtx,
+  args: {
+    email: string
+    externalId: string
+    displayName: string
+    now: number
+  }
+): Promise<Doc<'users'>> =>
+{
+  const existing = await findUserByEmail(ctx, args.email)
+  const fields = {
+    name: args.displayName,
+    displayName: args.displayName,
+    email: args.email,
+    externalId: args.externalId,
+    createdAt: existing?.createdAt ?? args.now,
+    updatedAt: args.now,
     plan: 'free' as const,
   }
 
@@ -681,7 +1119,7 @@ const ensureSeedUser = async (
     {
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.notFound,
-        message: `seed user missing after update: ${email}`,
+        message: `seed user missing after update: ${args.email}`,
       })
     }
     return updated
@@ -693,7 +1131,7 @@ const ensureSeedUser = async (
   {
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.notFound,
-      message: `seed user missing after insert: ${email}`,
+      message: `seed user missing after insert: ${args.email}`,
     })
   }
   return inserted
@@ -799,16 +1237,30 @@ const deleteSeedPair = async (
   profile: SeedProfile,
   target: SeedTargetDefinition
 ): Promise<SeedResetResult> =>
+  await deleteAuthorSeedPair(ctx, {
+    user,
+    templateId,
+    boardExternalId: seedBoardExternalId(profile, target),
+    rankingTitle: seedRankingTitle(profile, target),
+  })
+
+const deleteAuthorSeedPair = async (
+  ctx: MutationCtx,
+  args: {
+    user: Doc<'users'>
+    templateId: Id<'templates'>
+    boardExternalId: string
+    rankingTitle: string
+  }
+): Promise<SeedResetResult> =>
 {
-  const boardExternalId = seedBoardExternalId(profile, target)
-  const rankingTitle = seedRankingTitle(profile, target)
-  const board = await findSeedBoard(ctx, user._id, boardExternalId)
+  const board = await findSeedBoard(ctx, args.user._id, args.boardExternalId)
   const rankingRows = await ctx.db
     .query('publishedRankings')
     .withIndex('bySourceTemplateOwnerPublicCreatedAt', (q) =>
       q
-        .eq('sourceTemplateId', templateId)
-        .eq('ownerId', user._id)
+        .eq('sourceTemplateId', args.templateId)
+        .eq('ownerId', args.user._id)
         .eq('isPubliclyListable', true)
     )
     .take(MAX_SEED_OWNER_RANKINGS)
@@ -817,7 +1269,7 @@ const deleteSeedPair = async (
   for (const ranking of rankingRows)
   {
     if (
-      ranking.title === rankingTitle ||
+      ranking.title === args.rankingTitle ||
       ranking.sourceBoardId === board?._id
     )
     {
@@ -830,11 +1282,215 @@ const deleteSeedPair = async (
     await deleteRankingWithChildren(ctx, ranking)
   }
   if (board) await deleteBoardWithChildren(ctx, board)
-  if (board) await adjustTemplateUseCount(ctx, templateId, -1, Date.now())
+  if (board) await adjustTemplateUseCount(ctx, args.templateId, -1, Date.now())
 
   return {
     rankingsDeleted: rankings.size,
     boardsDeleted: board ? 1 : 0,
+  }
+}
+
+interface InsertSeedRankingArgs
+{
+  user: Doc<'users'>
+  template: Doc<'templates'>
+  target: SeedTargetDefinition
+  authorKey: string
+  rankedItems: readonly RankedSeedItem[]
+  tiers: readonly TierPresetTier[]
+  rankingTitle: string
+  rankingDescription: string
+  createdAt: number
+  useCountAdjustedAt: number
+  viewCountSeedKey: string
+}
+
+interface InsertSeedRankingResult
+{
+  rankingSlug: string
+  itemsRanked: number
+  boardExternalId: string
+}
+
+const insertSeedRanking = async (
+  ctx: MutationCtx,
+  args: InsertSeedRankingArgs
+): Promise<InsertSeedRankingResult> =>
+{
+  const {
+    user,
+    template,
+    target,
+    authorKey,
+    rankedItems,
+    tiers,
+    rankingTitle,
+    rankingDescription,
+    createdAt,
+    viewCountSeedKey,
+  } = args
+
+  const boardExternalId = authorBoardExternalId(authorKey, target)
+  const boardId = await ctx.db.insert('boards', {
+    externalId: boardExternalId,
+    ownerId: user._id,
+    title: normalizeBoardTitle(rankingTitle),
+    createdAt,
+    updatedAt: createdAt,
+    deletedAt: null,
+    revision: 1,
+    sourceTemplateId: template._id,
+    sourceTemplateCategory: template.category,
+    sourceTemplateSizeClass: template.sizeClass,
+    ...buildFreshBoardCloudFields(createdAt),
+    itemAspectRatio: template.itemAspectRatio ?? undefined,
+    itemAspectRatioMode: template.itemAspectRatioMode ?? undefined,
+    defaultItemImageFit: template.defaultItemImageFit ?? undefined,
+    labels: template.labels ?? undefined,
+    activeItemCount: rankedItems.length,
+    unrankedItemCount: 0,
+    templateProgressState: resolveTemplateProgressState(template._id, {
+      activeItemCount: rankedItems.length,
+      unrankedItemCount: 0,
+    }),
+    librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+  })
+
+  const tierEntries = await Promise.all(
+    tiers.map(async (tier, order) =>
+    {
+      const externalId = authorTierExternalId(authorKey, target, order)
+      const boardTierId = await ctx.db.insert('boardTiers', {
+        boardId,
+        externalId,
+        name: tier.name,
+        description: tier.description,
+        colorSpec: tier.colorSpec,
+        rowColorSpec: tier.rowColorSpec,
+        order,
+      })
+      return {
+        boardTierId,
+        externalId,
+        order,
+        colorSpec: tier.colorSpec,
+        rowColorSpec: tier.rowColorSpec,
+        name: tier.name,
+        description: tier.description ?? null,
+      }
+    })
+  )
+
+  const summaryTiers: BoardLibrarySummaryTier[] = tierEntries.map((tier) => ({
+    key: tier.externalId,
+    order: tier.order,
+    colorSpec: tier.colorSpec,
+  }))
+  const summaryItems: BoardLibrarySummaryItem[] = await Promise.all(
+    rankedItems.map(async (ranked) =>
+    {
+      const tier = tierEntries[ranked.tierIndex]
+      const externalId = authorItemExternalId(authorKey, target, ranked.item)
+      await ctx.db.insert('boardItems', {
+        boardId,
+        tierId: tier.boardTierId,
+        externalId,
+        label: ranked.item.label ?? undefined,
+        backgroundColor: ranked.item.backgroundColor ?? undefined,
+        altText: ranked.item.altText ?? undefined,
+        mediaAssetId: ranked.item.mediaAssetId,
+        order: ranked.orderInTier,
+        deletedAt: null,
+        aspectRatio: ranked.item.aspectRatio ?? undefined,
+        imageFit: ranked.item.imageFit ?? undefined,
+        transform: ranked.item.transform ?? undefined,
+        templateItemId: ranked.item._id,
+      })
+      return {
+        tierKey: tier.externalId,
+        externalId,
+        label: ranked.item.label,
+        storageId: await loadMediaVariantStorageId(
+          ctx,
+          ranked.item.mediaAssetId
+        ),
+        order: ranked.orderInTier,
+        deletedAt: null,
+      }
+    })
+  )
+  await ctx.db.patch(boardId, {
+    librarySummary: buildBoardLibrarySummary({
+      tiers: summaryTiers,
+      items: summaryItems,
+    }),
+  })
+
+  const rankingSlug = await allocateRankingSlug(ctx)
+  const viewCount = Math.floor(unitHash(viewCountSeedKey) * 24)
+  const rankingId = await ctx.db.insert('publishedRankings', {
+    slug: rankingSlug,
+    ownerId: user._id,
+    sourceTemplateId: template._id,
+    sourceBoardId: boardId,
+    sourceTemplateSlug: template.slug,
+    sourceTemplateTitle: template.title,
+    sourceTemplateCategory: template.category,
+    title: normalizeRankingTitle(rankingTitle),
+    description: normalizeRankingDescription(rankingDescription),
+    visibility: 'public',
+    publicationState: 'published',
+    isPubliclyListable: true,
+    itemCount: rankedItems.length,
+    tierCount: tierEntries.length,
+    remixCount: 0,
+    viewCount,
+    topScore: rankingTopScore({ viewCount, remixCount: 0 }),
+    isFeatured: false,
+    featuredRank: null,
+    featuredBadge: null,
+    createdAt,
+    updatedAt: createdAt,
+  })
+
+  await Promise.all([
+    ...tierEntries.map((tier) =>
+      ctx.db.insert('publishedRankingTiers', {
+        rankingId,
+        externalId: tier.externalId,
+        name: tier.name,
+        description: tier.description,
+        colorSpec: tier.colorSpec,
+        rowColorSpec: tier.rowColorSpec ?? null,
+        order: tier.order,
+      })
+    ),
+    ...rankedItems.map((ranked) =>
+    {
+      const tier = tierEntries[ranked.tierIndex]
+      return ctx.db.insert('publishedRankingItems', {
+        rankingId,
+        templateItemId: ranked.item._id,
+        templateItemExternalId: ranked.item.externalId,
+        externalId: authorItemExternalId(authorKey, target, ranked.item),
+        tierExternalId: tier.externalId,
+        label: ranked.item.label,
+        backgroundColor: ranked.item.backgroundColor,
+        altText: ranked.item.altText,
+        mediaAssetId: ranked.item.mediaAssetId,
+        order: ranked.globalOrder,
+        aspectRatio: ranked.item.aspectRatio,
+        imageFit: ranked.item.imageFit,
+        transform: ranked.item.transform,
+      })
+    }),
+  ])
+  await adjustTemplateUseCount(ctx, template._id, 1, args.useCountAdjustedAt)
+
+  return {
+    rankingSlug,
+    itemsRanked: rankedItems.length,
+    boardExternalId,
   }
 }
 
@@ -1008,177 +1664,193 @@ export const seedSampleRankingImpl = internalMutation({
     const tiers = resolveTemplateTiers(template)
     assertSeedRowsWithinLimit('template tiers', tiers, MAX_SEED_ROW_TIERS)
     const rankedItems = rankTemplateItems(target, profile, templateItems, tiers)
-    const boardExternalId = seedBoardExternalId(profile, target)
     const createdAt =
       now - (args.profileIndex * SEED_TARGETS.length + 1) * HOUR_MS
     const title = seedRankingTitle(profile, target)
-    const boardId = await ctx.db.insert('boards', {
-      externalId: boardExternalId,
-      ownerId: user._id,
-      title: normalizeBoardTitle(title),
+    const inserted = await insertSeedRanking(ctx, {
+      user,
+      template,
+      target,
+      authorKey: profile.key,
+      rankedItems,
+      tiers,
+      rankingTitle: title,
+      rankingDescription:
+        'Seeded sample ranking for community feature testing.',
       createdAt,
-      updatedAt: createdAt,
-      deletedAt: null,
-      revision: 1,
-      sourceTemplateId: template._id,
-      sourceTemplateCategory: template.category,
-      sourceTemplateSizeClass: template.sizeClass,
-      ...buildFreshBoardCloudFields(createdAt),
-      itemAspectRatio: template.itemAspectRatio ?? undefined,
-      itemAspectRatioMode: template.itemAspectRatioMode ?? undefined,
-      defaultItemImageFit: template.defaultItemImageFit ?? undefined,
-      labels: template.labels ?? undefined,
-      activeItemCount: rankedItems.length,
-      unrankedItemCount: 0,
-      templateProgressState: resolveTemplateProgressState(template._id, {
-        activeItemCount: rankedItems.length,
-        unrankedItemCount: 0,
-      }),
-      librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+      useCountAdjustedAt: now,
+      viewCountSeedKey: `views:${profile.key}:${target.key}`,
     })
-
-    const tierEntries = await Promise.all(
-      tiers.map(async (tier, order) =>
-      {
-        const externalId = seedTierExternalId(profile, target, order)
-        const boardTierId = await ctx.db.insert('boardTiers', {
-          boardId,
-          externalId,
-          name: tier.name,
-          description: tier.description,
-          colorSpec: tier.colorSpec,
-          rowColorSpec: tier.rowColorSpec,
-          order,
-        })
-        return {
-          boardTierId,
-          externalId,
-          order,
-          colorSpec: tier.colorSpec,
-          rowColorSpec: tier.rowColorSpec,
-          name: tier.name,
-          description: tier.description ?? null,
-        }
-      })
-    )
-
-    const summaryTiers: BoardLibrarySummaryTier[] = tierEntries.map((tier) => ({
-      key: tier.externalId,
-      order: tier.order,
-      colorSpec: tier.colorSpec,
-    }))
-    const summaryItems: BoardLibrarySummaryItem[] = await Promise.all(
-      rankedItems.map(async (ranked) =>
-      {
-        const tier = tierEntries[ranked.tierIndex]
-        const externalId = seedItemExternalId(profile, target, ranked.item)
-        await ctx.db.insert('boardItems', {
-          boardId,
-          tierId: tier.boardTierId,
-          externalId,
-          label: ranked.item.label ?? undefined,
-          backgroundColor: ranked.item.backgroundColor ?? undefined,
-          altText: ranked.item.altText ?? undefined,
-          mediaAssetId: ranked.item.mediaAssetId,
-          order: ranked.orderInTier,
-          deletedAt: null,
-          aspectRatio: ranked.item.aspectRatio ?? undefined,
-          imageFit: ranked.item.imageFit ?? undefined,
-          transform: ranked.item.transform ?? undefined,
-          templateItemId: ranked.item._id,
-        })
-        return {
-          tierKey: tier.externalId,
-          externalId,
-          label: ranked.item.label,
-          storageId: await loadMediaVariantStorageId(
-            ctx,
-            ranked.item.mediaAssetId
-          ),
-          order: ranked.orderInTier,
-          deletedAt: null,
-        }
-      })
-    )
-    await ctx.db.patch(boardId, {
-      librarySummary: buildBoardLibrarySummary({
-        tiers: summaryTiers,
-        items: summaryItems,
-      }),
-    })
-
-    const rankingSlug = await allocateRankingSlug(ctx)
-    const viewCount = Math.floor(
-      unitHash(`views:${profile.key}:${target.key}`) * 24
-    )
-    const rankingId = await ctx.db.insert('publishedRankings', {
-      slug: rankingSlug,
-      ownerId: user._id,
-      sourceTemplateId: template._id,
-      sourceBoardId: boardId,
-      sourceTemplateSlug: template.slug,
-      sourceTemplateTitle: template.title,
-      sourceTemplateCategory: template.category,
-      title: normalizeRankingTitle(title),
-      description: normalizeRankingDescription(
-        'Seeded sample ranking for community feature testing.'
-      ),
-      visibility: 'public',
-      publicationState: 'published',
-      isPubliclyListable: true,
-      itemCount: rankedItems.length,
-      tierCount: tierEntries.length,
-      remixCount: 0,
-      viewCount,
-      topScore: rankingTopScore({ viewCount, remixCount: 0 }),
-      isFeatured: false,
-      featuredRank: null,
-      featuredBadge: null,
-      createdAt,
-      updatedAt: createdAt,
-    })
-
-    await Promise.all([
-      ...tierEntries.map((tier) =>
-        ctx.db.insert('publishedRankingTiers', {
-          rankingId,
-          externalId: tier.externalId,
-          name: tier.name,
-          description: tier.description,
-          colorSpec: tier.colorSpec,
-          rowColorSpec: tier.rowColorSpec ?? null,
-          order: tier.order,
-        })
-      ),
-      ...rankedItems.map((ranked) =>
-      {
-        const tier = tierEntries[ranked.tierIndex]
-        return ctx.db.insert('publishedRankingItems', {
-          rankingId,
-          templateItemId: ranked.item._id,
-          templateItemExternalId: ranked.item.externalId,
-          externalId: seedItemExternalId(profile, target, ranked.item),
-          tierExternalId: tier.externalId,
-          label: ranked.item.label,
-          backgroundColor: ranked.item.backgroundColor,
-          altText: ranked.item.altText,
-          mediaAssetId: ranked.item.mediaAssetId,
-          order: ranked.globalOrder,
-          aspectRatio: ranked.item.aspectRatio,
-          imageFit: ranked.item.imageFit,
-          transform: ranked.item.transform,
-        })
-      }),
-    ])
-    await adjustTemplateUseCount(ctx, template._id, 1, now)
 
     return {
       targetKey: target.key,
       templateSlug: template.slug,
       userEmail: seedUserEmail(profile),
-      rankingSlug,
-      boardExternalId,
-      itemsRanked: rankedItems.length,
+      rankingSlug: inserted.rankingSlug,
+      boardExternalId: inserted.boardExternalId,
+      itemsRanked: inserted.itemsRanked,
+      rankingsDeleted: deleted.rankingsDeleted,
+    }
+  },
+})
+
+const curatedRankingAt = (
+  index: number
+): CuratedOfficialRanking | undefined => CURATED_OFFICIAL_RANKINGS[index]
+
+const requireCuratedRankingAt = (index: number): CuratedOfficialRanking =>
+{
+  const curated = curatedRankingAt(index)
+  if (!curated)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `curatedIndex out of range: ${index}`,
+    })
+  }
+  return curated
+}
+
+const curatedAuthorEmail = (curated: CuratedOfficialRanking): string =>
+  authorUserEmail(curatedAuthorKeyNs(curated.authorKey))
+
+const curatedAuthorExternalId = (curated: CuratedOfficialRanking): string =>
+  authorUserExternalId(curatedAuthorKeyNs(curated.authorKey))
+
+const curatedBoardExternalId = (
+  curated: CuratedOfficialRanking,
+  target: SeedTargetDefinition
+): string => authorBoardExternalId(curatedAuthorKeyNs(curated.authorKey), target)
+
+const curatedRankingTitle = (curated: CuratedOfficialRanking): string =>
+  `${curated.authorDisplayName}'s ${curated.rankingTitle}`
+
+const ensureCuratedAuthor = async (
+  ctx: MutationCtx,
+  curated: CuratedOfficialRanking,
+  now: number
+): Promise<Doc<'users'>> =>
+  await upsertSeedUser(ctx, {
+    email: curatedAuthorEmail(curated),
+    externalId: curatedAuthorExternalId(curated),
+    displayName: curated.authorDisplayName,
+    now,
+  })
+
+export const resetCuratedOfficialRankingImpl = internalMutation({
+  args: {
+    curatedIndex: v.number(),
+    templateId: v.id('templates'),
+  },
+  returns: v.object({
+    rankingsDeleted: v.number(),
+    boardsDeleted: v.number(),
+  }),
+  handler: async (ctx, args): Promise<SeedResetResult> =>
+  {
+    const curated = requireCuratedRankingAt(args.curatedIndex)
+    const target = targetDefinitionByKey(curated.targetKey)
+    const user = await findUserByEmail(ctx, curatedAuthorEmail(curated))
+    if (!user) return { rankingsDeleted: 0, boardsDeleted: 0 }
+
+    return await deleteAuthorSeedPair(ctx, {
+      user,
+      templateId: args.templateId,
+      boardExternalId: curatedBoardExternalId(curated, target),
+      rankingTitle: curatedRankingTitle(curated),
+    })
+  },
+})
+
+export const seedCuratedOfficialRankingImpl = internalMutation({
+  args: {
+    curatedIndex: v.number(),
+    templateId: v.id('templates'),
+  },
+  returns: v.object({
+    targetKey: targetKeyValidator,
+    templateSlug: v.string(),
+    userEmail: v.string(),
+    rankingSlug: v.string(),
+    boardExternalId: v.string(),
+    itemsRanked: v.number(),
+    rankingsDeleted: v.number(),
+  }),
+  handler: async (ctx, args): Promise<SeedRankingResult> =>
+  {
+    const curated = requireCuratedRankingAt(args.curatedIndex)
+    const target = targetDefinitionByKey(curated.targetKey)
+    const template = await ctx.db.get(args.templateId)
+    if (!template || !isPublishedTemplateRow(template))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `seed template missing or unpublished: ${target.title}`,
+      })
+    }
+
+    const now = Date.now()
+    const user = await ensureCuratedAuthor(ctx, curated, now)
+    const deleted = await deleteAuthorSeedPair(ctx, {
+      user,
+      templateId: template._id,
+      boardExternalId: curatedBoardExternalId(curated, target),
+      rankingTitle: curatedRankingTitle(curated),
+    })
+
+    const templateItems = (await loadTemplateItems(ctx, template._id)).sort(
+      (a, b) => a.order - b.order
+    )
+    if (templateItems.length === 0)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `seed template has no items: ${target.title}`,
+      })
+    }
+    assertSeedRowsWithinLimit(
+      'template items',
+      templateItems,
+      MAX_SEED_ROW_ITEMS
+    )
+
+    const tiers = resolveTemplateTiers(template)
+    assertSeedRowsWithinLimit('template tiers', tiers, MAX_SEED_ROW_TIERS)
+    if (tiers.length <= curated.tierGroups.reduce((m, g) => Math.max(m, g.tierIndex), 0))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `curated tier list ${curated.authorKey} expects more tiers than the template defines`,
+      })
+    }
+
+    const rankedItems = mapItemsToCuratedTiers(curated, templateItems)
+    // curated rankings sit just before the algorithmic seed feed in time so
+    // they show up newest in 'recent' sorts w/o colliding w/ the profileIndex
+    // ladder
+    const createdAt = now - (curated.featuredRank + 1) * (HOUR_MS / 4)
+    const rankingTitle = curatedRankingTitle(curated)
+    const inserted = await insertSeedRanking(ctx, {
+      user,
+      template,
+      target,
+      authorKey: curatedAuthorKeyNs(curated.authorKey),
+      rankedItems,
+      tiers,
+      rankingTitle,
+      rankingDescription: curated.rankingDescription,
+      createdAt,
+      useCountAdjustedAt: now,
+      viewCountSeedKey: `views:curated:${curated.authorKey}:${target.key}`,
+    })
+
+    return {
+      targetKey: target.key,
+      templateSlug: template.slug,
+      userEmail: curatedAuthorEmail(curated),
+      rankingSlug: inserted.rankingSlug,
+      boardExternalId: inserted.boardExternalId,
+      itemsRanked: inserted.itemsRanked,
       rankingsDeleted: deleted.rankingsDeleted,
     }
   },
@@ -1238,6 +1910,25 @@ export const seedSampleCommunityRankings = action({
           await pauseSeedWrites()
         }
       }
+      for (
+        let curatedIndex = 0;
+        curatedIndex < CURATED_OFFICIAL_RANKINGS.length;
+        curatedIndex++
+      )
+      {
+        const curated = CURATED_OFFICIAL_RANKINGS[curatedIndex]
+        const target = targets.find((t) => t.key === curated.targetKey)
+        if (!target) continue
+        const resetResult: SeedResetResult = await ctx.runMutation(
+          internal.marketplace.rankings.seed.resetCuratedOfficialRankingImpl,
+          {
+            curatedIndex,
+            templateId: target.templateId,
+          }
+        )
+        rankingsDeleted += resetResult.rankingsDeleted
+        await pauseSeedWrites()
+      }
     }
 
     const targetResults = new Map<TargetKey, SeedTargetResult>(
@@ -1252,6 +1943,10 @@ export const seedSampleCommunityRankings = action({
           rankingsDeleted: 0,
         },
       ])
+    )
+
+    const targetsWithCuratedOfficials = new Set<TargetKey>(
+      CURATED_OFFICIAL_RANKINGS.map((curated) => curated.targetKey)
     )
 
     for (const target of targets)
@@ -1277,6 +1972,9 @@ export const seedSampleCommunityRankings = action({
         }
         await pauseSeedWrites()
       }
+      // skip the algorithmic featured-profile badges for targets whose
+      // official slot is owned by a curated tier list (e.g. SSBU)
+      if (targetsWithCuratedOfficials.has(target.key)) continue
       for (const featured of FEATURED_PROFILE_BADGES)
       {
         const slug = seededSlugsByProfile.get(featured.profileIndex)
@@ -1292,6 +1990,42 @@ export const seedSampleCommunityRankings = action({
       }
     }
 
+    let curatedSeeded = 0
+    for (
+      let curatedIndex = 0;
+      curatedIndex < CURATED_OFFICIAL_RANKINGS.length;
+      curatedIndex++
+    )
+    {
+      const curated = CURATED_OFFICIAL_RANKINGS[curatedIndex]
+      const target = targets.find((t) => t.key === curated.targetKey)
+      if (!target) continue
+      const seeded: SeedRankingResult = await ctx.runMutation(
+        internal.marketplace.rankings.seed.seedCuratedOfficialRankingImpl,
+        {
+          curatedIndex,
+          templateId: target.templateId,
+        }
+      )
+      rankingsDeleted += seeded.rankingsDeleted
+      curatedSeeded += 1
+      const result = targetResults.get(curated.targetKey)
+      if (result)
+      {
+        result.rankingsSeeded += 1
+        result.rankingsDeleted += seeded.rankingsDeleted
+      }
+      await ctx.runMutation(
+        internal.marketplace.rankings.mutations.markRankingFeaturedImpl,
+        {
+          slug: seeded.rankingSlug,
+          featuredRank: curated.featuredRank,
+          featuredBadge: curated.featuredBadge,
+        }
+      )
+      await pauseSeedWrites()
+    }
+
     const aggregatesQueued: number = await ctx.runMutation(
       internal.marketplace.rankings.seed.queueSeedAggregateRecomputeImpl,
       { templateIds: targets.map((target) => target.templateId) }
@@ -1300,7 +2034,7 @@ export const seedSampleCommunityRankings = action({
 
     return {
       usersSeeded: userCount,
-      rankingsSeeded: userCount * targets.length,
+      rankingsSeeded: userCount * targets.length + curatedSeeded,
       rankingsDeleted,
       aggregatesQueued,
       targets: targetsOut,
