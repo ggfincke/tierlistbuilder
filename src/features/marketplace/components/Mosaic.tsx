@@ -26,6 +26,9 @@ interface MosaicProps
   // board-wide fit fallback when an item has no per-item override; null
   // matches publisher-omitted -> 'cover'
   defaultImageFit?: ImageFit | null
+  // template-wide slot ratio (w/h) so preview cells render at the same shape
+  // as the actual board items; null falls back to 1:1
+  templateAspectRatio?: number | null
   loading?: MediaLoading
   decoding?: MediaDecoding
 }
@@ -86,6 +89,7 @@ export const Mosaic = ({
   items,
   density,
   defaultImageFit,
+  templateAspectRatio,
   loading = 'lazy',
   decoding = 'async',
 }: MosaicProps) =>
@@ -99,29 +103,42 @@ export const Mosaic = ({
   )
   const slotCount = cols * rows
   const emptyCount = slotCount - tiles.length
+  const cellAspect =
+    templateAspectRatio && templateAspectRatio > 0 ? templateAspectRatio : 1
 
   return (
     <MediaMatteFrame className="absolute inset-0">
-      <div
-        className="grid h-full w-full"
-        style={{
-          gridTemplateColumns: `repeat(${cols}, 1fr)`,
-          gridTemplateRows: `repeat(${rows}, 1fr)`,
-          gap: `${gap}px`,
-        }}
-      >
-        {tiles.map((item, i) => (
-          <CoverTile
-            key={`${item.media.externalId}-${i}`}
-            item={item}
-            defaultImageFit={defaultImageFit}
-            loading={loading}
-            decoding={decoding}
-          />
-        ))}
-        {Array.from({ length: emptyCount }).map((_, i) => (
-          <div key={`empty-${i}`} className="bg-[var(--t-media-matte)]" />
-        ))}
+      <div className="flex h-full w-full items-center justify-center overflow-hidden">
+        <div
+          className="grid w-full"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+            gridAutoRows: 'auto',
+            gap: `${gap}px`,
+          }}
+        >
+          {tiles.map((item, i) => (
+            <CoverTile
+              key={`${item.media.externalId}-${i}`}
+              item={item}
+              defaultImageFit={defaultImageFit}
+              cellAspectRatio={
+                item.aspectRatio && item.aspectRatio > 0
+                  ? item.aspectRatio
+                  : cellAspect
+              }
+              loading={loading}
+              decoding={decoding}
+            />
+          ))}
+          {Array.from({ length: emptyCount }).map((_, i) => (
+            <div
+              key={`empty-${i}`}
+              className="bg-[var(--t-media-matte)]"
+              style={{ aspectRatio: cellAspect }}
+            />
+          ))}
+        </div>
       </div>
     </MediaMatteFrame>
   )
@@ -131,6 +148,7 @@ interface CoverTileProps
 {
   item: TemplateCoverItem
   defaultImageFit: ImageFit | null | undefined
+  cellAspectRatio: number
   loading: MediaLoading
   decoding: MediaDecoding
 }
@@ -138,6 +156,7 @@ interface CoverTileProps
 const CoverTile = ({
   item,
   defaultImageFit,
+  cellAspectRatio,
   loading,
   decoding,
 }: CoverTileProps) =>
@@ -145,7 +164,10 @@ const CoverTile = ({
   const transform: ItemTransform | null = item.transform
   const fit = resolveFit(item.imageFit, defaultImageFit)
   return (
-    <div className="overflow-hidden bg-[var(--t-media-matte)]">
+    <div
+      className="overflow-hidden bg-[var(--t-media-matte)]"
+      style={{ aspectRatio: cellAspectRatio }}
+    >
       <FramedItemMedia
         imageUrl={item.media.url}
         alt={item.label ?? ''}

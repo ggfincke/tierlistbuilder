@@ -10,6 +10,7 @@ import type {
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
 import {
   AggregateItemThumb,
@@ -42,6 +43,7 @@ export const ItemPopover = ({
   labelSettings,
 }: ItemPopoverProps) =>
 {
+  const paletteId = usePreferencesStore((state) => state.paletteId)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() =>
@@ -145,7 +147,7 @@ export const ItemPopover = ({
             </p>
             <p
               className="mt-0.5 text-sm font-bold"
-              style={{ color: resolveBucketColor(topBucket) }}
+              style={{ color: resolveBucketColor(topBucket, paletteId) }}
             >
               {topBucket?.label ?? '—'}
             </p>
@@ -161,7 +163,7 @@ export const ItemPopover = ({
               className="mt-0.5 text-sm font-bold"
               style={{
                 color: avgBucket
-                  ? resolveBucketColor(avgBucket)
+                  ? resolveBucketColor(avgBucket, paletteId)
                   : 'var(--t-text)',
               }}
             >
@@ -187,7 +189,9 @@ export const ItemPopover = ({
           {row.sampleCount > 0 && topBucket ? (
             <>
               Most often placed in{' '}
-              <strong style={{ color: resolveBucketColor(topBucket) }}>
+              <strong
+                style={{ color: resolveBucketColor(topBucket, paletteId) }}
+              >
                 {topBucket.label}
               </strong>{' '}
               tier ({formatPercent(row.topBucketShare)} of rankings).

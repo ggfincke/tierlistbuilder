@@ -9,6 +9,7 @@ import type {
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
 import {
   AggregateItemThumb,
@@ -47,6 +48,7 @@ export const ConsensusRanked = ({
   onOpenItem,
 }: ConsensusRankedProps) =>
 {
+  const paletteId = usePreferencesStore((state) => state.paletteId)
   const sorted = useMemo(() => sortByAverage(rows), [rows])
   return (
     <ol className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -78,7 +80,7 @@ export const ConsensusRanked = ({
                 <span
                   className="shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold"
                   style={{
-                    background: resolveBucketColor(bucket),
+                    background: resolveBucketColor(bucket, paletteId),
                     color: 'rgba(0,0,0,0.78)',
                   }}
                 >

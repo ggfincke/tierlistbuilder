@@ -8,6 +8,8 @@ import type {
   MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
 import { formatPercent, resolveBucketColor } from './utils'
 
@@ -36,7 +38,8 @@ const PAD = 36
 
 const computePoints = (
   rows: readonly MarketplaceTemplateRankingAggregateItem[],
-  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
+  buckets: readonly MarketplaceTemplateRankingAggregateBucket[],
+  paletteId: PaletteId
 ): ScatterPoint[] =>
 {
   const lastBucket = Math.max(1, buckets.length - 1)
@@ -51,7 +54,13 @@ const computePoints = (
     const agreement = row.topBucketShare
     const y = VIEWBOX_H - PAD - agreement * (VIEWBOX_H - 2 * PAD)
     const bucket = buckets[row.topBucketIndex]
-    points.push({ row, x, y, color: resolveBucketColor(bucket), agreement })
+    points.push({
+      row,
+      x,
+      y,
+      color: resolveBucketColor(bucket, paletteId),
+      agreement,
+    })
   }
   return points
 }
@@ -62,7 +71,11 @@ export const ConsensusScatter = ({
   onOpenItem,
 }: ConsensusScatterProps) =>
 {
-  const points = useMemo(() => computePoints(rows, buckets), [rows, buckets])
+  const paletteId = usePreferencesStore((state) => state.paletteId)
+  const points = useMemo(
+    () => computePoints(rows, buckets, paletteId),
+    [rows, buckets, paletteId]
+  )
   const lastBucket = Math.max(1, buckets.length - 1)
   const yLines = [0.25, 0.5, 0.75, 1]
 
@@ -106,7 +119,7 @@ export const ConsensusScatter = ({
                   x={x}
                   y={VIEWBOX_H - PAD + 18}
                   textAnchor="middle"
-                  fill={resolveBucketColor(bucket)}
+                  fill={resolveBucketColor(bucket, paletteId)}
                   fontSize={13}
                   fontWeight={700}
                   fontFamily="ui-monospace, monospace"

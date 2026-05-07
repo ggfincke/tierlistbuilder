@@ -9,6 +9,7 @@ import type {
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { Fragment } from 'react'
 
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import {
   AggregateItemThumb,
   type AggregateItemFrame,
@@ -51,6 +52,7 @@ export const ConsensusHeatmap = ({
   onOpenItem,
 }: ConsensusHeatmapProps) =>
 {
+  const paletteId = usePreferencesStore((state) => state.paletteId)
   const colCount = buckets.length
   const gridTemplateColumns = `minmax(160px,1.2fr) repeat(${colCount},minmax(36px,1fr)) 56px`
   return (
@@ -71,7 +73,7 @@ export const ConsensusHeatmap = ({
             key={bucket.index}
             role="columnheader"
             className="bg-[var(--t-bg-sunken)] px-1 py-2 text-center font-mono text-[11px] font-semibold"
-            style={{ color: resolveBucketColor(bucket) }}
+            style={{ color: resolveBucketColor(bucket, paletteId) }}
           >
             {bucket.label}
           </div>
@@ -113,7 +115,7 @@ export const ConsensusHeatmap = ({
               {buckets.map((bucket) =>
               {
                 const share = byBucket.get(bucket.index) ?? 0
-                const color = resolveBucketColor(bucket)
+                const color = resolveBucketColor(bucket, paletteId)
                 return (
                   <div
                     key={bucket.index}

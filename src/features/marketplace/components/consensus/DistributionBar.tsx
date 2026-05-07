@@ -5,6 +5,7 @@ import type {
   MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
 import { formatPercent, resolveBucketColor } from './utils'
 
@@ -23,6 +24,7 @@ export const DistributionBar = ({
   height = 10,
 }: DistributionBarProps) =>
 {
+  const paletteId = usePreferencesStore((state) => state.paletteId)
   if (sampleCount === 0)
   {
     return (
@@ -52,7 +54,7 @@ export const DistributionBar = ({
             className="block h-full"
             style={{
               width: `${cell.share * 100}%`,
-              backgroundColor: resolveBucketColor(bucket),
+              backgroundColor: resolveBucketColor(bucket, paletteId),
             }}
           />
         )
@@ -73,6 +75,7 @@ export const MiniDistributionBar = ({
   sampleCount: number
 }) =>
 {
+  const paletteId = usePreferencesStore((state) => state.paletteId)
   if (sampleCount === 0) return null
   return (
     <div
@@ -89,7 +92,10 @@ export const MiniDistributionBar = ({
             className="block h-full"
             style={{
               width: `${cell.share * 100}%`,
-              backgroundColor: resolveBucketColor(buckets[cell.bucketIndex]),
+              backgroundColor: resolveBucketColor(
+                buckets[cell.bucketIndex],
+                paletteId
+              ),
             }}
           />
         )

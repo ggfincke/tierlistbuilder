@@ -262,7 +262,7 @@ export const ConsensusRankingsRail = ({
       : null
 
   return (
-    <div className="flex flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:min-h-0">
+    <div className="flex min-h-0 flex-col rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] lg:flex-1">
       <RailHeader
         rankingCount={rankingCount}
         activeRanking={activeRanking}

@@ -4,6 +4,7 @@
 import { useMemo } from 'react'
 
 import type { MarketplaceTemplateRankingAggregate } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
 import { isAggregateReady, resolveBucketColor } from './utils'
 
@@ -24,6 +25,7 @@ export const useHeroSpread = ({
   aggregate,
 }: UseHeroSpreadArgs): readonly HeroSpreadEntry[] | null =>
 {
+  const paletteId = usePreferencesStore((state) => state.paletteId)
   return useMemo<readonly HeroSpreadEntry[] | null>(() =>
   {
     if (!isAggregateReady(aggregate)) return null
@@ -32,8 +34,8 @@ export const useHeroSpread = ({
     return aggregate.buckets.map((bucket) => ({
       index: bucket.index,
       label: bucket.label,
-      color: resolveBucketColor(bucket),
+      color: resolveBucketColor(bucket, paletteId),
       count: counts[bucket.index] ?? 0,
     }))
-  }, [aggregate])
+  }, [aggregate, paletteId])
 }

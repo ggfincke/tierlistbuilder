@@ -1,14 +1,24 @@
 // src/features/marketplace/components/consensus/ConsensusTierRows.tsx
-// default consensus viz — items grouped into modal-tier rows. each item is
-// a clickable thumb w/ a hover-revealed mini distribution bar
+// modal-tier-grouped viz built on shared board primitives, w/ hover distribution overlay
 
 import { useMemo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import type {
   MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import {
+  BoardItemsGrid,
+  BoardLabelCellFrame,
+  BoardRowContent,
+  BoardRowSurface,
+  TierDescriptionSubtitle,
+} from '~/shared/board-ui/BoardPrimitives'
+import { itemSlotDimensions } from '~/shared/board-ui/constants'
 
 import {
   AggregateItemThumb,
@@ -16,6 +26,9 @@ import {
 } from './AggregateItemThumb'
 import { MiniDistributionBar } from './DistributionBar'
 import { formatPercent, resolveBucketColor } from './utils'
+
+// pin marketplace tile size — large crowds the section, small reads dense
+const CONSENSUS_ITEM_SIZE = 'medium' as const
 
 interface ConsensusTierRowsProps
 {
@@ -27,7 +40,6 @@ interface ConsensusTierRowsProps
     row: MarketplaceTemplateRankingAggregateItem,
     target: Element
   ) => void
-  thumbSize?: number
   // optional viewer-placement overlay: maps templateItemExternalId -> bucket
   // index. items where the viewer's pick differs from the modal bucket get
   // a small accent badge in the viewer's tier color
@@ -65,7 +77,8 @@ interface TierItemButtonProps
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
   labelSettings: BoardLabelSettings | null
-  size: number
+  thumbWidth: number
+  paletteId: PaletteId
   onOpen: (
     row: MarketplaceTemplateRankingAggregateItem,
     target: Element
@@ -78,7 +91,8 @@ const TierItemButton = ({
   buckets,
   frame,
   labelSettings,
-  size,
+  thumbWidth,
+  paletteId,
   onOpen,
   yourBucket,
 }: TierItemButtonProps) =>
@@ -104,7 +118,7 @@ const TierItemButton = ({
         row={row}
         frame={frame}
         labelSettings={labelSettings}
-        size={size}
+        size={thumbWidth}
       />
       <MiniDistributionBar
         buckets={buckets}
@@ -123,9 +137,9 @@ const TierItemButton = ({
         <span
           aria-label={`You placed this in ${yourBucket.label}`}
           title={`You placed this in ${yourBucket.label}`}
-          className="absolute -bottom-1 -left-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 font-mono text-[9px] font-bold ring-2 ring-[var(--t-bg-sunken)]"
+          className="absolute -bottom-1 -left-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 font-mono text-[9px] font-bold ring-2 ring-[var(--t-bg-surface)]"
           style={{
-            background: resolveBucketColor(yourBucket),
+            background: resolveBucketColor(yourBucket, paletteId),
             color: 'rgba(0,0,0,0.78)',
           }}
         >
@@ -145,10 +159,32 @@ export const ConsensusTierRows = ({
   frame,
   labelSettings,
   onOpenItem,
-  thumbSize = 56,
   yourPlacements,
 }: ConsensusTierRowsProps) =>
 {
+  const {
+    paletteId,
+    labelWidth,
+    tierLabelBold,
+    tierLabelItalic,
+    tierLabelFontSize,
+    compactMode,
+  } = usePreferencesStore(
+    useShallow((state) => ({
+      paletteId: state.paletteId,
+      labelWidth: state.labelWidth,
+      tierLabelBold: state.tierLabelBold,
+      tierLabelItalic: state.tierLabelItalic,
+      tierLabelFontSize: state.tierLabelFontSize,
+      compactMode: state.compactMode,
+    }))
+  )
+
+  const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
+    CONSENSUS_ITEM_SIZE,
+    frame.aspectRatio
+  )
+
   const groups = useMemo(
     () => groupRowsByModalBucket(rows, buckets),
     [rows, buckets]
@@ -165,47 +201,60 @@ export const ConsensusTierRows = ({
     return buckets[yourIdx] ?? null
   }
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]">
+    <div
+      role="group"
+      aria-label="Community consensus board"
+      className="overflow-hidden rounded-md"
+    >
       {groups.map((group, index) => (
-        <div
-          key={group.bucket.index}
-          className={`flex min-h-[80px] items-stretch ${
-            index > 0 ? 'border-t border-[var(--t-border)]' : ''
-          }`}
-        >
-          <div
-            className="flex w-16 shrink-0 flex-col items-center justify-center text-2xl font-bold"
-            style={{
-              background: resolveBucketColor(group.bucket),
-              color: 'rgba(0,0,0,0.78)',
-              textShadow: '0 1px 0 rgba(255,255,255,0.18)',
-            }}
-            aria-label={`Tier ${group.bucket.label}`}
-          >
-            <span>{group.bucket.label}</span>
-            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-black/55">
-              {group.items.length}
-            </span>
-          </div>
-          <div className="flex flex-1 flex-wrap items-center gap-1.5 bg-[var(--t-bg-sunken)] p-2">
-            {group.items.length === 0 ? (
-              <span className="px-2 text-xs text-[var(--t-text-faint)]">—</span>
-            ) : (
-              group.items.map((row) => (
-                <TierItemButton
-                  key={row.externalId}
-                  row={row}
-                  buckets={buckets}
-                  frame={frame}
-                  labelSettings={labelSettings}
-                  size={thumbSize}
-                  onOpen={onOpenItem}
-                  yourBucket={resolveYourBucket(row)}
+        <BoardRowSurface key={group.bucket.index}>
+          <BoardRowContent index={index}>
+            <BoardLabelCellFrame
+              color={resolveBucketColor(group.bucket, paletteId)}
+              itemSize={CONSENSUS_ITEM_SIZE}
+              labelWidth={labelWidth}
+              tierLabelBold={tierLabelBold}
+              tierLabelItalic={tierLabelItalic}
+              tierLabelFontSize={tierLabelFontSize}
+              itemAspectRatio={frame.aspectRatio}
+            >
+              <div className="flex h-full w-full flex-col items-center justify-center text-center leading-tight">
+                <span className="block max-w-full break-words [overflow-wrap:anywhere]">
+                  {group.bucket.label}
+                </span>
+                <TierDescriptionSubtitle
+                  description={`${group.items.length} ${group.items.length === 1 ? 'item' : 'items'}`}
                 />
-              ))
-            )}
-          </div>
-        </div>
+              </div>
+            </BoardLabelCellFrame>
+
+            <BoardItemsGrid
+              compactMode={compactMode}
+              minHeightPx={slotHeight}
+              data-bucket-index={group.bucket.index}
+            >
+              {group.items.length === 0 ? (
+                <span className="px-3 py-2 text-xs text-[var(--t-text-faint)]">
+                  —
+                </span>
+              ) : (
+                group.items.map((row) => (
+                  <TierItemButton
+                    key={row.externalId}
+                    row={row}
+                    buckets={buckets}
+                    frame={frame}
+                    labelSettings={labelSettings}
+                    thumbWidth={slotWidth}
+                    paletteId={paletteId}
+                    onOpen={onOpenItem}
+                    yourBucket={resolveYourBucket(row)}
+                  />
+                ))
+              )}
+            </BoardItemsGrid>
+          </BoardRowContent>
+        </BoardRowSurface>
       ))}
     </div>
   )

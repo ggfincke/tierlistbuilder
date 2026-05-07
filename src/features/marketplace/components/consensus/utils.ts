@@ -16,7 +16,6 @@ import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
 import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
 import { FALLBACK_COLOR, resolveTierColorSpec } from '~/shared/theme/tierColors'
 
-const VIEWER_PALETTE_ID: PaletteId = 'classic'
 const FALLBACK_FRAME_RATIO = 1
 
 export const SORT_LABELS: Record<TemplateRankingAggregateItemSort, string> = {
@@ -70,10 +69,11 @@ export const formatPercent = (share: number): string =>
 }
 
 export const resolveBucketColor = (
-  bucket: MarketplaceTemplateRankingAggregateBucket | undefined
+  bucket: MarketplaceTemplateRankingAggregateBucket | undefined,
+  paletteId: PaletteId
 ): string =>
   bucket?.colorSpec
-    ? resolveTierColorSpec(VIEWER_PALETTE_ID, bucket.colorSpec)
+    ? resolveTierColorSpec(paletteId, bucket.colorSpec)
     : FALLBACK_COLOR
 
 export const bucketLabel = (

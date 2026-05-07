@@ -10,11 +10,13 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { useTemplateRankingAggregateItems } from '~/features/marketplace/model/useRankingDetail'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
 import {
   AggregateItemThumb,
   type AggregateItemFrame,
 } from './AggregateItemThumb'
+import { RailCard } from './RailCard'
 import { formatPercent, resolveBucketColor } from './utils'
 
 const RAIL_LIMIT = 3
@@ -28,29 +30,6 @@ interface HeroRailCardsProps
   frame: AggregateItemFrame
   labelSettings: BoardLabelSettings | null
 }
-
-interface RailCardProps
-{
-  eyebrow: ReactNode
-  meta?: ReactNode
-  children: ReactNode
-}
-
-const RailCard = ({ eyebrow, meta, children }: RailCardProps) => (
-  <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
-    <div className="flex items-center justify-between gap-2">
-      <p className="flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-        {eyebrow}
-      </p>
-      {meta && (
-        <span className="font-mono text-[10px] text-[var(--t-text-faint)]">
-          {meta}
-        </span>
-      )}
-    </div>
-    <div className="mt-2.5">{children}</div>
-  </div>
-)
 
 interface RailRowProps
 {
@@ -123,6 +102,7 @@ export const HeroRailCards = ({
   labelSettings,
 }: HeroRailCardsProps) =>
 {
+  const paletteId = usePreferencesStore((state) => state.paletteId)
   const enabled =
     aggregate.activeGeneration !== null &&
     (aggregate.state === 'ready' || aggregate.state === 'stale')
@@ -251,7 +231,7 @@ export const HeroRailCards = ({
                           aria-hidden="true"
                           className="shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold"
                           style={{
-                            background: resolveBucketColor(top),
+                            background: resolveBucketColor(top, paletteId),
                             color: 'rgba(0,0,0,0.78)',
                           }}
                         >

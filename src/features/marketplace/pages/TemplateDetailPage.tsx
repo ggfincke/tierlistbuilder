@@ -25,6 +25,7 @@ import {
   templateFrame,
 } from '~/features/marketplace/components/consensus/utils'
 import { RailHeader } from '~/features/marketplace/components/RailHeader'
+import { RecommendedPresetCard } from '~/features/marketplace/components/RecommendedPresetCard'
 import { TemplateHero } from '~/features/marketplace/components/TemplateHero'
 
 const RELATED_LIMIT = 4
@@ -69,7 +70,7 @@ const DetailSkeleton = () => (
   >
     <div className="h-3 w-48 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
     <div className="mt-5 grid gap-6 lg:grid-cols-[1.25fr_0.95fr_320px]">
-      <div className="h-72 rounded-2xl bg-[rgb(var(--t-overlay)/0.06)] sm:h-80 lg:h-[26rem]" />
+      <div className="h-72 rounded-2xl bg-[rgb(var(--t-overlay)/0.06)] sm:h-80 lg:h-[30rem]" />
       <div className="space-y-4">
         <div className="h-3 w-32 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
         <div className="h-9 w-3/4 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
@@ -77,7 +78,8 @@ const DetailSkeleton = () => (
         <div className="h-11 rounded-md bg-[rgb(var(--t-overlay)/0.06)]" />
       </div>
       <div className="hidden flex-col gap-3 lg:flex">
-        <div className="h-32 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
+        <div className="h-24 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
+        <div className="h-36 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
         <div className="h-32 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
       </div>
     </div>
@@ -122,48 +124,23 @@ const RelatedTemplatesRail = ({
   )
 }
 
-interface CreditAndTiersProps
+interface CreditNoteProps
 {
   template: MarketplaceTemplateDetail
 }
 
-const CreditAndTiers = ({ template }: CreditAndTiersProps) =>
+const CreditNote = ({ template }: CreditNoteProps) =>
 {
-  const tiers = template.suggestedTiers
   const credit = template.creditLine
-  if (tiers.length === 0 && !credit) return null
+  if (!credit) return null
   return (
-    <section className="mt-8 grid gap-4 lg:grid-cols-[1fr_1fr]">
-      {tiers.length > 0 ? (
-        <div className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4">
-          <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-            Recommended tiers
-          </h3>
-          <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-            Suggested by the author. You can edit them after forking.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {tiers.map((tier, index) => (
-              <span
-                key={`${tier.name}-${index}`}
-                className="rounded-md border border-[var(--t-border)] bg-[var(--t-bg-page)] px-2.5 py-1 text-xs font-semibold text-[var(--t-text)]"
-              >
-                {tier.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <span aria-hidden="true" />
-      )}
-      {credit && (
-        <p className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4 text-xs leading-relaxed text-[var(--t-text-muted)]">
-          <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-            Credit
-          </span>
-          <span className="mt-1.5 block">{credit}</span>
-        </p>
-      )}
+    <section className="mt-8">
+      <p className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4 text-xs leading-relaxed text-[var(--t-text-muted)]">
+        <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
+          Credit
+        </span>
+        <span className="mt-1.5 block">{credit}</span>
+      </p>
     </section>
   )
 }
@@ -200,6 +177,8 @@ export const TemplateDetailPage = () =>
   const hasConsensus = isAggregateReady(aggregate)
   const rankingCount = aggregate?.rankingCount ?? 0
   const frame = templateFrame(detail)
+  const showRail =
+    detail.suggestedTiers.length > 0 || (hasConsensus && aggregate)
 
   return (
     <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
@@ -232,13 +211,18 @@ export const TemplateDetailPage = () =>
           rankingCount={rankingCount}
           spreadCounts={spreadCounts ?? undefined}
           rightRail={
-            hasConsensus && aggregate ? (
-              <HeroRailCards
-                templateSlug={detail.slug}
-                aggregate={aggregate}
-                frame={frame}
-                labelSettings={detail.labels}
-              />
+            showRail ? (
+              <>
+                <RecommendedPresetCard tiers={detail.suggestedTiers} />
+                {hasConsensus && aggregate && (
+                  <HeroRailCards
+                    templateSlug={detail.slug}
+                    aggregate={aggregate}
+                    frame={frame}
+                    labelSettings={detail.labels}
+                  />
+                )}
+              </>
             ) : null
           }
         />
@@ -248,7 +232,7 @@ export const TemplateDetailPage = () =>
         <CommunityConsensusSection template={detail} aggregate={aggregate} />
       </section>
 
-      <CreditAndTiers template={detail} />
+      <CreditNote template={detail} />
 
       <section className="mt-12">
         <RailHeader

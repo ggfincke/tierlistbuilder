@@ -387,12 +387,15 @@ export const CommunityConsensusSection = ({
     pageSize: RAIL_PAGE_SIZE,
   })
 
-  // spotlight uses the first featured ranking — only meaningful when the
-  // user is on the Featured tab, so we read straight from the rail's items
-  const spotlightRanking =
-    railTab === 'featured' && railResult.items.length > 0
-      ? railResult.items[0]
-      : null
+  // spotlight is the top featured ranking, pinned above the rail tabs
+  // regardless of which tab is active so the headline pick is always visible
+  const featuredHead = usePaginatedRankingsForTemplate({
+    templateSlug: itemsEnabled ? template.slug : null,
+    sort: 'featured',
+    enabled: itemsEnabled,
+    pageSize: 1,
+  })
+  const spotlightRanking = featuredHead.items[0] ?? null
 
   const compare = useCompareRanking({
     slug: activeSlug,
@@ -630,12 +633,16 @@ export const CommunityConsensusSection = ({
         activeRanking={activeRankingMeta}
         onResetActive={() => setActiveSlug(null)}
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <div className="min-w-0">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_auto] lg:items-start">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           {renderToolbar(aggregate)}
+        </div>
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
           {renderBody(aggregate)}
         </div>
-        <aside className="flex flex-col gap-3">{renderRail()}</aside>
+        <aside className="flex flex-col gap-3 lg:col-start-2 lg:row-start-2 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)]">
+          {renderRail()}
+        </aside>
       </div>
     </>
   )

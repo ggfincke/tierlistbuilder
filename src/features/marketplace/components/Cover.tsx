@@ -22,6 +22,7 @@ interface CoverProps
   template: Pick<MarketplaceTemplateSummary, 'coverMedia' | 'title'> & {
     coverItems?: readonly TemplateCoverItem[]
     defaultItemImageFit?: MarketplaceTemplateSummary['defaultItemImageFit']
+    itemAspectRatio?: MarketplaceTemplateSummary['itemAspectRatio']
   }
   density: MosaicDensity
   style?: CoverStyle
@@ -89,6 +90,7 @@ export const Cover = ({
       items={items}
       density={density}
       defaultImageFit={template.defaultItemImageFit ?? null}
+      templateAspectRatio={template.itemAspectRatio ?? null}
       loading={loading}
       decoding={decoding}
     />

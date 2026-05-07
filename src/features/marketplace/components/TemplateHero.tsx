@@ -165,7 +165,7 @@ const handlePrint = (): void =>
   if (typeof window !== 'undefined') window.print()
 }
 
-const COVER_HEIGHT = 'h-72 sm:h-80 lg:h-[26rem]'
+const COVER_HEIGHT = 'h-72 sm:h-80 lg:h-[30rem]'
 
 export const TemplateHero = ({
   template,
