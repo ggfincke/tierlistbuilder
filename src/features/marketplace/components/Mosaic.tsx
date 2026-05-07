@@ -33,14 +33,11 @@ interface MosaicProps
   decoding?: MediaDecoding
 }
 
-const DENSITY_CONFIG: Record<
-  MosaicDensity,
-  { cols: number; rows: number; gap: number }
-> = {
-  small: { cols: 4, rows: 2, gap: 1 },
-  default: { cols: 4, rows: 3, gap: 1 },
-  large: { cols: 5, rows: 3, gap: 2 },
-  hero: { cols: 6, rows: 4, gap: 2 },
+const DENSITY_CONFIG: Record<MosaicDensity, { cols: number; rows: number }> = {
+  small: { cols: 4, rows: 2 },
+  default: { cols: 4, rows: 3 },
+  large: { cols: 5, rows: 3 },
+  hero: { cols: 6, rows: 4 },
 }
 
 // pick a (cols, rows) inside the base bounds that fits itemCount w/ the
@@ -94,7 +91,7 @@ export const Mosaic = ({
   decoding = 'async',
 }: MosaicProps) =>
 {
-  const { cols: baseCols, rows: baseRows, gap } = DENSITY_CONFIG[density]
+  const { cols: baseCols, rows: baseRows } = DENSITY_CONFIG[density]
   const baseSlotCount = baseCols * baseRows
   const tiles = items.slice(0, baseSlotCount)
   const { cols, rows } = useMemo(
@@ -106,39 +103,39 @@ export const Mosaic = ({
   const cellAspect =
     templateAspectRatio && templateAspectRatio > 0 ? templateAspectRatio : 1
 
+  // cells size from container width (full-bleed cover); when the resulting
+  // grid is taller than the container, overflow clips at the bottom so the
+  // top row is always intact. when shorter, a matte band sits below it.
   return (
-    <MediaMatteFrame className="absolute inset-0">
-      <div className="flex h-full w-full items-center justify-center overflow-hidden">
-        <div
-          className="grid w-full"
-          style={{
-            gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            gridAutoRows: 'auto',
-            gap: `${gap}px`,
-          }}
-        >
-          {tiles.map((item, i) => (
-            <CoverTile
-              key={`${item.media.externalId}-${i}`}
-              item={item}
-              defaultImageFit={defaultImageFit}
-              cellAspectRatio={
-                item.aspectRatio && item.aspectRatio > 0
-                  ? item.aspectRatio
-                  : cellAspect
-              }
-              loading={loading}
-              decoding={decoding}
-            />
-          ))}
-          {Array.from({ length: emptyCount }).map((_, i) => (
-            <div
-              key={`empty-${i}`}
-              className="bg-[var(--t-media-matte)]"
-              style={{ aspectRatio: cellAspect }}
-            />
-          ))}
-        </div>
+    <MediaMatteFrame className="absolute inset-0 overflow-hidden">
+      <div
+        className="grid w-full"
+        style={{
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridAutoRows: 'auto',
+        }}
+      >
+        {tiles.map((item, i) => (
+          <CoverTile
+            key={`${item.media.externalId}-${i}`}
+            item={item}
+            cellAspectRatio={
+              item.aspectRatio && item.aspectRatio > 0
+                ? item.aspectRatio
+                : cellAspect
+            }
+            defaultImageFit={defaultImageFit}
+            loading={loading}
+            decoding={decoding}
+          />
+        ))}
+        {Array.from({ length: emptyCount }).map((_, i) => (
+          <div
+            key={`empty-${i}`}
+            className="bg-[var(--t-media-matte)]"
+            style={{ aspectRatio: cellAspect }}
+          />
+        ))}
       </div>
     </MediaMatteFrame>
   )
@@ -165,7 +162,7 @@ const CoverTile = ({
   const fit = resolveFit(item.imageFit, defaultImageFit)
   return (
     <div
-      className="overflow-hidden bg-[var(--t-media-matte)]"
+      className="relative overflow-hidden bg-[var(--t-media-matte)]"
       style={{ aspectRatio: cellAspectRatio }}
     >
       <FramedItemMedia

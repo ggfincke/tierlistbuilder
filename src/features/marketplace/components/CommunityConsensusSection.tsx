@@ -1,18 +1,14 @@
 // src/features/marketplace/components/CommunityConsensusSection.tsx
-// toolbar + viz + rail. when a ranking is picked from the rail, rows are
-// re-projected from aggregate modal -> that author's exact placements
+// toolbar + viz + rail w/ exact row buckets for selected rankings
 
 import { Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import type {
   MarketplaceTemplateRankingAggregate,
+  MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
   TemplateRankingAggregateItemSort,
-} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import {
-  TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN,
-  TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import {
   RANKING_FEATURED_BADGE_LABELS,
@@ -45,6 +41,10 @@ import {
 import { ConsensusScatter } from './consensus/ConsensusScatter'
 import { ConsensusTierRows } from './consensus/ConsensusTierRows'
 import { ConsensusToolbar } from './consensus/ConsensusToolbar'
+import {
+  buildRowsForActiveRanking,
+  filterAndSortActiveRankingRows,
+} from './consensus/activeRankingRows'
 import { ItemPopover } from './consensus/ItemPopover'
 import { usePopover } from './consensus/usePopover'
 import {
@@ -224,7 +224,7 @@ interface VizSwitchProps
 {
   mode: ConsensusVizMode
   rows: readonly MarketplaceTemplateRankingAggregateItem[]
-  aggregate: MarketplaceTemplateRankingAggregate
+  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   template: MarketplaceTemplateDetail
   onOpenItem: ReturnType<typeof usePopover>['open']
   showControversy: boolean
@@ -234,7 +234,7 @@ interface VizSwitchProps
 const VizSwitch = ({
   mode,
   rows,
-  aggregate,
+  buckets,
   template,
   onOpenItem,
   showControversy,
@@ -248,7 +248,7 @@ const VizSwitch = ({
       return (
         <ConsensusTierRows
           rows={rows}
-          buckets={aggregate.buckets}
+          buckets={buckets}
           frame={frame}
           labelSettings={template.labels}
           onOpenItem={onOpenItem}
@@ -259,7 +259,7 @@ const VizSwitch = ({
       return (
         <ConsensusBars
           rows={rows}
-          buckets={aggregate.buckets}
+          buckets={buckets}
           frame={frame}
           labelSettings={template.labels}
           showControversy={showControversy}
@@ -270,7 +270,7 @@ const VizSwitch = ({
       return (
         <ConsensusHeatmap
           rows={rows}
-          buckets={aggregate.buckets}
+          buckets={buckets}
           frame={frame}
           labelSettings={template.labels}
           onOpenItem={onOpenItem}
@@ -280,7 +280,7 @@ const VizSwitch = ({
       return (
         <ConsensusScatter
           rows={rows}
-          buckets={aggregate.buckets}
+          buckets={buckets}
           onOpenItem={onOpenItem}
         />
       )
@@ -288,7 +288,7 @@ const VizSwitch = ({
       return (
         <ConsensusRanked
           rows={rows}
-          buckets={aggregate.buckets}
+          buckets={buckets}
           frame={frame}
           labelSettings={template.labels}
           onOpenItem={onOpenItem}
@@ -297,57 +297,6 @@ const VizSwitch = ({
     default:
       return null
   }
-}
-
-const buildRowsForActiveRanking = (
-  rows: readonly MarketplaceTemplateRankingAggregateItem[],
-  placements: Record<string, number>,
-  bucketCount: number
-): MarketplaceTemplateRankingAggregateItem[] =>
-{
-  const emptyDistribution = Array.from({ length: bucketCount }, (_, i) => ({
-    bucketIndex: i,
-    count: 0,
-    share: 0,
-  }))
-  return rows.map((row) =>
-  {
-    const idx = placements[row.templateItemExternalId]
-    if (idx === undefined)
-    {
-      // active author left this item unranked -> exclude from tier groups by
-      // nulling topBucketIndex; tier-rows already skips null
-      return {
-        ...row,
-        sampleCount: 0,
-        topBucketIndex: null,
-        topBucketShare: 0,
-        consensusScore: 0,
-        controversyScore: 0,
-        isTopBucket: false,
-        isBottomBucket: false,
-        isControversial: false,
-        averageBucket: null,
-        distribution: emptyDistribution,
-      }
-    }
-    const distribution = emptyDistribution.map((cell) =>
-      cell.bucketIndex === idx ? { bucketIndex: idx, count: 1, share: 1 } : cell
-    )
-    return {
-      ...row,
-      sampleCount: 1,
-      topBucketIndex: idx,
-      topBucketShare: 1,
-      consensusScore: 1,
-      controversyScore: 0,
-      isTopBucket: idx <= TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX,
-      isBottomBucket: idx >= TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN,
-      isControversial: false,
-      averageBucket: idx,
-      distribution,
-    }
-  })
 }
 
 export const CommunityConsensusSection = ({
@@ -364,13 +313,14 @@ export const CommunityConsensusSection = ({
   const [railTab, setRailTab] = useState<ConsensusRailTab>('recent')
 
   const itemsEnabled = isAggregateReady(aggregate)
+  const isActiveRanking = activeSlug !== null
   const itemsPage = useTemplateRankingAggregateItems({
     templateSlug: template.slug,
     generation: aggregate?.activeGeneration,
     sort,
     band,
     search: searchQuery.trim() || null,
-    enabled: itemsEnabled,
+    enabled: itemsEnabled && !isActiveRanking,
   })
 
   const myRanking = useMyRankingForTemplate(template.slug, itemsEnabled)
@@ -399,26 +349,49 @@ export const CommunityConsensusSection = ({
 
   const compare = useCompareRanking({
     slug: activeSlug,
-    bucketCount: aggregate?.buckets.length,
   })
+  const activeBucketCount = compare.buckets?.length
 
   const popover = usePopover()
 
-  const projectedRows = useMemo<
+  const activeRows = useMemo<
+    MarketplaceTemplateRankingAggregateItem[] | null
+  >(() =>
+  {
+    if (!compare.detail || !compare.placements) return null
+    if (typeof activeBucketCount !== 'number') return null
+    return buildRowsForActiveRanking(
+      compare.detail.items,
+      compare.placements,
+      activeBucketCount
+    )
+  }, [activeBucketCount, compare.detail, compare.placements])
+
+  const filteredRows = useMemo<
     MarketplaceTemplateRankingAggregateItem[]
   >(() =>
   {
-    if (!compare.placements) return itemsPage.items
-    return buildRowsForActiveRanking(
-      itemsPage.items,
-      compare.placements,
-      aggregate?.buckets.length ?? 0
-    )
-  }, [itemsPage.items, compare.placements, aggregate?.buckets.length])
+    if (!isActiveRanking) return itemsPage.items
+    if (!activeRows || typeof activeBucketCount !== 'number') return []
+    return filterAndSortActiveRankingRows(activeRows, {
+      band,
+      bucketCount: activeBucketCount,
+      search: searchQuery,
+      sort,
+    })
+  }, [
+    activeBucketCount,
+    activeRows,
+    band,
+    isActiveRanking,
+    itemsPage.items,
+    searchQuery,
+    sort,
+  ])
+  const sourceRowCount = isActiveRanking
+    ? (activeRows?.length ?? 0)
+    : itemsPage.items.length
 
-  const filteredRows = projectedRows
-
-  const isActiveRanking = activeSlug !== null
   // a non-empty placement map means we can render the overlay + the
   // headline copy that explains it. suppressed while an individual ranking
   // is active because the badges would compare your-vs-them, not your-vs-modal
@@ -445,6 +418,7 @@ export const CommunityConsensusSection = ({
     const frame = templateFrame(template)
 
     if (
+      !isActiveRanking &&
       itemsPage.status === 'LoadingFirstPage' &&
       itemsPage.items.length === 0
     )
@@ -459,7 +433,17 @@ export const CommunityConsensusSection = ({
       return <SectionSkeleton />
     }
 
-    if (filteredRows.length === 0 && itemsPage.items.length === 0)
+    if (isActiveRanking && compare.detail === null)
+    {
+      return (
+        <StateCard
+          title="Ranking unavailable"
+          body="It may have been unpublished. Pick another ranking or return to the community average."
+        />
+      )
+    }
+
+    if (filteredRows.length === 0 && sourceRowCount === 0)
     {
       return (
         <StateCard
@@ -480,10 +464,14 @@ export const CommunityConsensusSection = ({
     }
 
     const animationKey = `${activeSlug ?? 'agg'}:${vizMode}:${sort}:${band}`
+    const displayBuckets =
+      isActiveRanking && compare.buckets
+        ? compare.buckets
+        : aggregateData.buckets
     return (
       <div className="space-y-3">
         {(vizMode === 'bars' || vizMode === 'ranked') && (
-          <BucketLegend buckets={aggregateData.buckets} />
+          <BucketLegend buckets={displayBuckets} />
         )}
         <div
           key={animationKey}
@@ -494,21 +482,23 @@ export const CommunityConsensusSection = ({
           <VizSwitch
             mode={vizMode}
             rows={filteredRows}
-            aggregate={aggregateData}
+            buckets={displayBuckets}
             template={template}
             onOpenItem={popover.open}
             showControversy={sort === 'controversy' && !isActiveRanking}
             yourPlacements={overlayActive ? yourPlacements : null}
           />
         </div>
-        <LoadMoreButton
-          status={itemsPage.status}
-          onLoadMore={() => itemsPage.loadMore()}
-        />
+        {!isActiveRanking && (
+          <LoadMoreButton
+            status={itemsPage.status}
+            onLoadMore={() => itemsPage.loadMore()}
+          />
+        )}
         {popover.state && (
           <ItemPopover
             row={popover.state.row}
-            buckets={aggregateData.buckets}
+            buckets={displayBuckets}
             anchorRect={popover.state.anchorRect}
             onClose={popover.close}
             frame={frame}
@@ -532,7 +522,7 @@ export const CommunityConsensusSection = ({
         onSortChange={setSort}
         vizMode={vizMode}
         onVizModeChange={setVizMode}
-        totalCount={aggregateData.itemCount}
+        totalCount={isActiveRanking ? sourceRowCount : aggregateData.itemCount}
         filteredCount={filteredRows.length}
       />
     </div>

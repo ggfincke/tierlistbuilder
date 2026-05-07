@@ -111,7 +111,7 @@ const TierItemButton = ({
     <button
       type="button"
       onClick={(event) => onOpen(row, event.currentTarget)}
-      className="focus-custom group relative inline-flex shrink-0 cursor-pointer rounded-md transition hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+      className="focus-custom group relative inline-flex shrink-0 cursor-pointer transition hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
       title={titleParts.join(' — ')}
     >
       <AggregateItemThumb
@@ -119,6 +119,7 @@ const TierItemButton = ({
         frame={frame}
         labelSettings={labelSettings}
         size={thumbWidth}
+        bare
       />
       <MiniDistributionBar
         buckets={buckets}
@@ -146,7 +147,7 @@ const TierItemButton = ({
           {yourBucket.label}
         </span>
       )}
-      <span className="pointer-events-none absolute inset-x-0 -bottom-px truncate rounded-b-md bg-black/65 px-1 py-0.5 text-center text-[9px] font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+      <span className="pointer-events-none absolute inset-x-0 -bottom-px truncate bg-black/65 px-1 py-0.5 text-center text-[9px] font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
         {row.label?.trim() || row.templateItemExternalId}
       </span>
     </button>

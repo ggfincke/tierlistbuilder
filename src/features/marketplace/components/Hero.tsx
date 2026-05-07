@@ -32,7 +32,8 @@ export const Hero = ({ template, coverStyle = 'auto' }: HeroProps) => (
         loading="eager"
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/95 via-black/75 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-black/95" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-2/5 h-1/5 bg-gradient-to-t from-black/95 to-transparent" />
 
       <div className="absolute inset-x-0 bottom-0 flex flex-col gap-4 p-6 text-white sm:p-8">
         <div className="flex flex-wrap items-center gap-2">

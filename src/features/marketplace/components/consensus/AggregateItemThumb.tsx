@@ -23,6 +23,9 @@ interface AggregateItemThumbProps
   frame: AggregateItemFrame
   labelSettings: BoardLabelSettings | null
   size: number
+  // tier-row context drops the card chrome (border/bg/rounded) so items sit
+  // flush on the tier color, matching the editor board surface
+  bare?: boolean
 }
 
 // keep the slot styling shared so a 36px thumb in the rail matches a 56px
@@ -32,6 +35,7 @@ export const AggregateItemThumb = ({
   frame,
   labelSettings,
   size,
+  bare = false,
 }: AggregateItemThumbProps) =>
 {
   const labelDisplay = resolveLabelDisplay({
@@ -44,9 +48,12 @@ export const AggregateItemThumb = ({
       fontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
     },
   })
+  const chromeClass = bare
+    ? 'relative shrink-0 overflow-hidden'
+    : 'relative shrink-0 overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg-page)]'
   return (
     <div
-      className="relative shrink-0 overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg-page)]"
+      className={chromeClass}
       style={{
         width: size,
         height: size / frame.aspectRatio,

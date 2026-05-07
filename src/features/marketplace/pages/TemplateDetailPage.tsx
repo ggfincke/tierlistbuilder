@@ -177,8 +177,8 @@ export const TemplateDetailPage = () =>
   const hasConsensus = isAggregateReady(aggregate)
   const rankingCount = aggregate?.rankingCount ?? 0
   const frame = templateFrame(detail)
-  const showRail =
-    detail.suggestedTiers.length > 0 || (hasConsensus && aggregate)
+  const hasPreset = detail.suggestedTiers.length > 0
+  const showRail = hasPreset || (hasConsensus && aggregate !== null)
 
   return (
     <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
@@ -213,14 +213,20 @@ export const TemplateDetailPage = () =>
           rightRail={
             showRail ? (
               <>
-                <RecommendedPresetCard tiers={detail.suggestedTiers} />
+                {hasPreset && (
+                  <RecommendedPresetCard tiers={detail.suggestedTiers} />
+                )}
                 {hasConsensus && aggregate && (
-                  <HeroRailCards
-                    templateSlug={detail.slug}
-                    aggregate={aggregate}
-                    frame={frame}
-                    labelSettings={detail.labels}
-                  />
+                  <div
+                    className={`flex flex-col gap-3 ${hasPreset ? 'lg:mt-auto' : ''}`}
+                  >
+                    <HeroRailCards
+                      templateSlug={detail.slug}
+                      aggregate={aggregate}
+                      frame={frame}
+                      labelSettings={detail.labels}
+                    />
+                  </div>
                 )}
               </>
             ) : null
@@ -229,7 +235,11 @@ export const TemplateDetailPage = () =>
       </div>
 
       <section className="mt-12">
-        <CommunityConsensusSection template={detail} aggregate={aggregate} />
+        <CommunityConsensusSection
+          key={detail.slug}
+          template={detail}
+          aggregate={aggregate}
+        />
       </section>
 
       <CreditNote template={detail} />

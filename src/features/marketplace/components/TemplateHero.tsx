@@ -201,39 +201,41 @@ export const TemplateHero = ({
       }
     >
       <div
-        className={`relative overflow-hidden rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg-sunken)] ${COVER_HEIGHT}`}
+        className={`relative flex flex-col overflow-hidden rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg-sunken)] ${COVER_HEIGHT}`}
       >
-        <Cover
-          template={{
-            ...template,
-            coverItems: template.coverItems,
-          }}
-          density="hero"
-        />
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <Cover
+            template={{
+              ...template,
+              coverItems: template.coverItems,
+            }}
+            density="hero"
+          />
 
-        {showSpreadChip && spreadCounts && (
-          <div
-            className="absolute right-3 top-3 flex items-end gap-[3px] rounded-md border border-white/10 bg-black/45 px-2 py-1.5 backdrop-blur"
-            aria-label="Tier spread across the community"
-          >
-            {spreadCounts.map((entry) => (
-              <span
-                key={entry.index}
-                className="block w-1.5 rounded-sm"
-                style={{
-                  height: `${4 + (entry.count / spreadMax) * 22}px`,
-                  background: entry.color,
-                }}
-                title={`${entry.label}: ${entry.count} ${entry.count === 1 ? 'item' : 'items'}`}
-              />
-            ))}
-            <span className="ml-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/85">
-              spread
-            </span>
-          </div>
-        )}
+          {showSpreadChip && spreadCounts && (
+            <div
+              className="absolute right-3 top-3 flex items-end gap-[3px] rounded-md border border-white/10 bg-black/45 px-2 py-1.5 backdrop-blur"
+              aria-label="Tier spread across the community"
+            >
+              {spreadCounts.map((entry) => (
+                <span
+                  key={entry.index}
+                  className="block w-1.5 rounded-sm"
+                  style={{
+                    height: `${4 + (entry.count / spreadMax) * 22}px`,
+                    background: entry.color,
+                  }}
+                  title={`${entry.label}: ${entry.count} ${entry.count === 1 ? 'item' : 'items'}`}
+                />
+              ))}
+              <span className="ml-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/85">
+                spread
+              </span>
+            </div>
+          )}
+        </div>
 
-        <div className="absolute inset-x-0 bottom-0 grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 bg-black/55 px-1 py-1.5 text-white backdrop-blur">
+        <div className="grid shrink-0 grid-cols-3 divide-x divide-white/10 border-t border-white/10 bg-black/70 px-1 py-1.5 text-white">
           <div className="px-3">
             <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/60">
               Items
@@ -287,25 +289,25 @@ export const TemplateHero = ({
           </p>
         )}
 
-        <div className="mt-5 flex items-center gap-2.5">
-          <span
-            aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-sm font-semibold text-[var(--t-text)]"
-          >
-            {authorInitial}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-[var(--t-text)]">
-              {template.author.displayName}
-            </p>
-            <p className="text-xs text-[var(--t-text-faint)]">
-              Updated {formatRelativeTime(template.updatedAt)}
-            </p>
-          </div>
-        </div>
-
         <div className="mt-auto pt-6">
-          <div className="flex items-stretch gap-2">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-sm font-semibold text-[var(--t-text)]"
+            >
+              {authorInitial}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-[var(--t-text)]">
+                {template.author.displayName}
+              </p>
+              <p className="text-xs text-[var(--t-text-faint)]">
+                Updated {formatRelativeTime(template.updatedAt)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-stretch gap-2">
             <UseTemplateButton
               slug={template.slug}
               templateTitle={template.title}

@@ -56,12 +56,24 @@ export const ItemPopover = ({
     {
       if (e.key === 'Escape') onClose()
     }
+    // popover is fixed-positioned but its anchor scrolls w/ the page; close
+    // on any scroll so the panel doesn't detach from the item it points at
+    const onScroll = (e: Event): void =>
+    {
+      if (ref.current && ref.current.contains(e.target as Node)) return
+      onClose()
+    }
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
+    document.addEventListener('scroll', onScroll, {
+      capture: true,
+      passive: true,
+    })
     return () =>
     {
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
+      document.removeEventListener('scroll', onScroll, { capture: true })
     }
   }, [onClose])
 
