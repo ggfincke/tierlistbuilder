@@ -26,6 +26,7 @@ import { ASPECT_RATIO_PRESETS } from '@tierlistbuilder/contracts/workspace/image
 import {
   formatAspectRatio,
   getEffectiveImageFit,
+  type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
 import {
   ITEM_LONG_EDGE_PX,
@@ -193,9 +194,9 @@ const AspectRatioIssueModalBody = ({
     trimSoftShadows,
   })
 
-  // auto-trigger auto-crop on open so the control shows the preferred default
-  // guard re-renders after run() flips intent or progress updates
-  // tear intent down when picking Cover/Contain or another ratio
+  // Run prompt-open auto-crop as a one-shot default, not user intent.
+  // Do not call run(); it reintroduces 2:3 -> 1:1 bulk crop regressions.
+  // Change only w/ explicit product clarification on ratio-chip behavior.
   const didAutoStartAutoCropRef = useRef(false)
   useEffect(() =>
   {
@@ -203,7 +204,7 @@ const AspectRatioIssueModalBody = ({
     if (!autoCrop.available) return
     if (autoCrop.honored || autoCrop.progress.running) return
     didAutoStartAutoCropRef.current = true
-    autoCrop.run()
+    autoCrop.runAutoDefault()
   }, [autoCrop])
 
   const commitPendingFit = useCallback(() =>
@@ -234,9 +235,21 @@ const AspectRatioIssueModalBody = ({
     [autoCrop]
   )
 
-  // ratio swaps don't tear down auto-crop intent — the controller re-runs on
-  // boardAspectRatio change, so "Auto-crop all" persists across swaps while
-  // explicit Cover/Contain picks already cleared intent via handleSelectFit
+  const handleRatioOption = useCallback(
+    (option: RatioOption) =>
+    {
+      // Cancel auto-crop before board ratio changes.
+      // Expanded mismatch sets must not inherit stale crop intent.
+      // Change only w/ explicit clarification on modal ratio flow.
+      if (autoCrop.intent || autoCrop.honored || autoCrop.progress.running)
+      {
+        autoCrop.tearDownIntent('ratio')
+        setPendingBulkFit(cleanupTargets.length > 0 ? 'cover' : null)
+      }
+      handleOption(option)
+    },
+    [autoCrop, cleanupTargets.length, handleOption]
+  )
 
   const handleDone = useCallback(() =>
   {
@@ -322,7 +335,7 @@ const AspectRatioIssueModalBody = ({
       <div className="mt-5">
         <AspectRatioTiles
           selectedOption={selectedOption}
-          onSelect={handleOption}
+          onSelect={handleRatioOption}
           customWidth={customWidth}
           customHeight={customHeight}
           onCustomWidthChange={setCustomWidth}
@@ -385,6 +398,7 @@ const AspectRatioIssueModalBody = ({
               onFocus={onAdjustEachIntent}
               onPointerEnter={onAdjustEachIntent}
               variant="outline"
+              disabled={autoCrop.progress.running}
             >
               <span className="inline-flex items-center gap-1">
                 Adjust each item
@@ -565,7 +579,8 @@ const BulkFitSegmentedControl = ({
   // pendingBulkFit (Cover/Contain) wins over the auto-crop honored state so
   // the user's most recent intent is what the highlight reflects
   const value: BulkFitMode | null =
-    pendingBulkFit ?? (autoCropIntent || autoCropHonored ? 'auto-crop' : null)
+    pendingBulkFit ??
+    (autoCropIntent || autoCropHonored || autoCropRunning ? 'auto-crop' : null)
 
   const handleChange = useCallback(
     (next: BulkFitMode) =>
