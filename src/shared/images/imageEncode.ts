@@ -8,6 +8,12 @@ interface ImageBlobEncodeOptions
   quality?: number
 }
 
+const isCanvasElement = (
+  source: CanvasImageSource
+): source is HTMLCanvasElement =>
+  typeof HTMLCanvasElement !== 'undefined' &&
+  source instanceof HTMLCanvasElement
+
 // compute output dimensions that fit within maxSize while preserving aspect ratio
 export const getResizedDimensions = (
   width: number,
@@ -49,6 +55,16 @@ export const drawImageToCanvas = (
     sourceHeight,
     maxSize
   )
+
+  if (
+    isCanvasElement(source) &&
+    source.width === width &&
+    source.height === height
+  )
+  {
+    return source
+  }
+
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height

@@ -11,6 +11,8 @@ interface UseSessionDedupedActionOptions<TValue extends string>
   onError?: (error: unknown) => void
 }
 
+const MAX_RECORDED_VALUES = 256
+
 const readRecordedValues = (storageKey: string): Set<string> =>
 {
   if (typeof window === 'undefined') return new Set()
@@ -37,7 +39,12 @@ const writeRecordedValues = (storageKey: string, values: Set<string>): void =>
 
   try
   {
-    window.sessionStorage.setItem(storageKey, JSON.stringify([...values]))
+    const entries = [...values]
+    const trimmed =
+      entries.length > MAX_RECORDED_VALUES
+        ? entries.slice(entries.length - MAX_RECORDED_VALUES)
+        : entries
+    window.sessionStorage.setItem(storageKey, JSON.stringify(trimmed))
   }
   catch
   {

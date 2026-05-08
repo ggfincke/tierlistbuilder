@@ -5,7 +5,7 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
 import { parseBoardSnapshotJson } from '~/shared/board-data/boardJson'
 import { EMBED_ROUTE_PATH, normalizeBasePath } from '~/shared/routes/pathname'
-import { base64ToBytes, bytesToBase64 } from '~/shared/lib/binaryCodec'
+import { base64UrlToBytes, bytesToBase64Url } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import {
@@ -18,19 +18,6 @@ const STRIPPED_IMAGE_LABEL = 'Image'
 // build an absolute URL for the app, appending the configured base path
 export const buildAppUrl = (pathname = ''): string =>
   `${window.location.origin}${normalizeBasePath()}${pathname}`
-
-const toBase64Url = (bytes: Uint8Array): string =>
-  bytesToBase64(bytes)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-
-const fromBase64Url = (value: string): Uint8Array =>
-{
-  const base64 = value.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-  return base64ToBytes(padded)
-}
 
 const hasRenderableTextField = (item: {
   label?: string
@@ -87,7 +74,7 @@ export const inflateSnapshotBytes = async (
 
 export const encodeBoardToShareFragment = async (
   data: BoardSnapshot
-): Promise<string> => toBase64Url(await compressSnapshotBytes(data))
+): Promise<string> => bytesToBase64Url(await compressSnapshotBytes(data))
 
 export const getWorkspaceShareUrl = async (
   data: BoardSnapshot
@@ -103,7 +90,7 @@ export const decodeBoardFromShareFragment = async (
   fragment: string
 ): Promise<BoardSnapshot> =>
 {
-  const compressed = fromBase64Url(fragment)
+  const compressed = base64UrlToBytes(fragment)
   if (compressed.length > MAX_SNAPSHOT_COMPRESSED_BYTES)
   {
     throw new Error(

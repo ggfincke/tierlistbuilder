@@ -29,6 +29,7 @@ import { logger } from './logger'
 
 const AUTO_CROP_BATCH_CONCURRENCY = 4
 const AUTO_CROP_DECODE_TIMEOUT_MS = 5_000
+const MAX_SCAN_CACHE_ENTRIES = 512
 
 export { bboxToItemTransform }
 
@@ -40,6 +41,28 @@ const emitScanCacheChange = (): void =>
 {
   scanCacheVersion += 1
   for (const listener of scanCacheListeners) listener()
+}
+
+const rememberScan = (hash: string, scan: AutoCropScan | null): void =>
+{
+  scanCache.delete(hash)
+  scanCache.set(hash, scan)
+
+  while (scanCache.size > MAX_SCAN_CACHE_ENTRIES)
+  {
+    const oldestHash = scanCache.keys().next().value
+    if (!oldestHash) break
+    scanCache.delete(oldestHash)
+  }
+}
+
+const readCachedScan = (hash: string): AutoCropScan | null | undefined =>
+{
+  if (!scanCache.has(hash)) return undefined
+  const scan = scanCache.get(hash) ?? null
+  scanCache.delete(hash)
+  scanCache.set(hash, scan)
+  return scan
 }
 
 export const subscribeAutoCropCache = (listener: () => void): (() => void) =>
@@ -76,8 +99,8 @@ export const getCachedBBox = (
 ): AutoCropBBox | null | undefined =>
 {
   if (!hash) return undefined
-  if (!scanCache.has(hash)) return undefined
-  const scan = scanCache.get(hash)
+  const scan = readCachedScan(hash)
+  if (scan === undefined) return undefined
   return scan ? pickAutoCropBBox(scan, trimSoftShadows) : null
 }
 
@@ -157,11 +180,11 @@ export const detectContentBBox = async (
 ): Promise<AutoCropDetectionResult> =>
 {
   signal?.throwIfAborted()
-  if (hash && scanCache.has(hash))
+  const cachedScan = hash ? readCachedScan(hash) : undefined
+  if (cachedScan !== undefined)
   {
-    const cached = scanCache.get(hash)
     return {
-      bbox: cached ? pickAutoCropBBox(cached, trimSoftShadows) : null,
+      bbox: cachedScan ? pickAutoCropBBox(cachedScan, trimSoftShadows) : null,
       scanned: true,
     }
   }
@@ -182,7 +205,7 @@ export const detectContentBBox = async (
 
   if (hash && cacheable)
   {
-    scanCache.set(hash, scan)
+    rememberScan(hash, scan)
     emitScanCacheChange()
   }
   return {
