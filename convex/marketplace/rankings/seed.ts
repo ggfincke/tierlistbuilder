@@ -417,7 +417,7 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
     rankingTitle: '3rd Official Tier List',
     rankingDescription:
       "LumiRank's 3rd Official Smash Bros. Ultimate tier list, compiled from the global competitive panel.",
-    featuredRank: 0,
+    featuredRank: 1,
     featuredBadge: 'official',
     tiers: LUMIRANK_3RD_SSBU_TIERS,
     parentLabelByLabel: SSBU_CHILD_LABEL_PARENTS,
@@ -552,7 +552,7 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
     rankingTitle: '4th Official Tier List',
     rankingDescription:
       "UltRank's 4th Official Smash Bros. Ultimate tier list, drawn from international top-player consensus.",
-    featuredRank: 1,
+    featuredRank: 0,
     featuredBadge: 'official',
     tiers: ULTRANK_4TH_SSBU_TIERS,
     parentLabelByLabel: SSBU_CHILD_LABEL_PARENTS,

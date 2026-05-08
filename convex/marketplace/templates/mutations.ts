@@ -110,12 +110,12 @@ const resolveCoverMediaId = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
   coverMediaExternalId: string | null | undefined,
-  fallbackMediaAssetId: Id<'mediaAssets'> | null
+  currentMediaAssetId: Id<'mediaAssets'> | null
 ): Promise<Id<'mediaAssets'> | null> =>
 {
   if (coverMediaExternalId === undefined)
   {
-    return fallbackMediaAssetId
+    return currentMediaAssetId
   }
   if (coverMediaExternalId === null)
   {
@@ -230,7 +230,6 @@ const loadLargePublishCoverState = async (
   ctx: MutationCtx,
   boardId: Id<'boards'>
 ): Promise<{
-  fallbackCoverMediaId: Id<'mediaAssets'> | null
   coverItems: Doc<'templates'>['coverItems']
 }> =>
 {
@@ -248,7 +247,6 @@ const loadLargePublishCoverState = async (
     .slice(0, MAX_TEMPLATE_COVER_ITEMS)
 
   return {
-    fallbackCoverMediaId: mediaBacked[0]?.mediaAssetId ?? null,
     coverItems: mediaBacked.map((item) => ({
       mediaAssetId: item.mediaAssetId,
       label: item.label ?? null,
@@ -294,7 +292,7 @@ const queueLargeTemplatePublish = async (
     ctx,
     userId,
     args.coverMediaExternalId,
-    coverState.fallbackCoverMediaId
+    null
   )
 
   const now = Date.now()
@@ -496,9 +494,6 @@ export const publishFromBoard = mutation({
     }
     await assertCanPublishTemplate(ctx, userId, activeItems.length)
 
-    const fallbackCoverMediaId =
-      activeItems.find((item) => item.mediaAssetId !== null)?.mediaAssetId ??
-      null
     const mediaBackedItems = activeItems
       .filter(
         (item): item is typeof item & { mediaAssetId: Id<'mediaAssets'> } =>
@@ -517,7 +512,7 @@ export const publishFromBoard = mutation({
       ctx,
       userId,
       args.coverMediaExternalId,
-      fallbackCoverMediaId
+      null
     )
     const suggestedTiers = tiersFromBoardRows(serverTiers)
     validateTemplateTiers(suggestedTiers)

@@ -52,6 +52,11 @@ const seedItemValidator = v.object({
   transform: v.union(itemTransformValidator, v.null()),
 })
 
+const seedCoverImageValidator = v.object({
+  tileBase64: v.string(),
+  previewBase64: v.string(),
+})
+
 interface SeedInputItem
 {
   label: string | null
@@ -59,6 +64,12 @@ interface SeedInputItem
   previewBase64: string
   aspectRatio: number | null
   transform: ItemTransform | null
+}
+
+interface SeedInputCoverImage
+{
+  tileBase64: string
+  previewBase64: string
 }
 
 interface SeedStoredItem
@@ -177,6 +188,7 @@ export const insertSeedTemplate = internalMutation({
     description: v.union(v.string(), v.null()),
     category: templateCategoryValidator,
     tags: v.array(v.string()),
+    coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     suggestedTiers: tierPresetTiersValidator,
     // template-level slot ratio chosen by the script (snap to nearest preset
     // of the per-item majority). null when no items had usable dimensions —
@@ -225,9 +237,6 @@ export const insertSeedTemplate = internalMutation({
         transform: item.transform,
       }))
 
-    // leave coverMediaAssetId null so the gallery renders the item-image
-    // grid (Mosaic). a publisher who later wants a single banner can patch
-    // it via the publish/edit flow
     const now = Date.now()
     const slug = await allocateTemplateSlug(ctx)
     const templateState = buildTemplateStateFields(args.items.length, 'public')
@@ -239,7 +248,7 @@ export const insertSeedTemplate = internalMutation({
       category: args.category,
       tags: args.tags,
       visibility: 'public',
-      coverMediaAssetId: null,
+      coverMediaAssetId: args.coverMediaAssetId,
       coverItems,
       suggestedTiers: args.suggestedTiers,
       sourceBoardId: null,
@@ -340,6 +349,22 @@ const prepareSeedImageUpload = async (
   }
 }
 
+const prepareSeedCoverImageUpload = async (
+  ctx: ActionCtx,
+  ownerId: Id<'users'>,
+  cover: SeedInputCoverImage
+): Promise<SeedImageUpload['asset']> =>
+{
+  const variants = await Promise.all([
+    prepareSeedVariant(ctx, 'tile', cover.tileBase64),
+    prepareSeedVariant(ctx, 'preview', cover.previewBase64),
+  ])
+  return {
+    userId: ownerId,
+    variants,
+  }
+}
+
 const storeSeedImages = async (
   ctx: ActionCtx,
   ownerId: Id<'users'>,
@@ -360,6 +385,24 @@ const storeSeedImages = async (
     aspectRatio: item.aspectRatio,
     transform: item.transform,
   }))
+}
+
+const storeSeedCoverImage = async (
+  ctx: ActionCtx,
+  ownerId: Id<'users'>,
+  cover: SeedInputCoverImage | undefined
+): Promise<Id<'mediaAssets'> | null> =>
+{
+  if (!cover) return null
+  const asset = await prepareSeedCoverImageUpload(ctx, ownerId, cover)
+  const finalized: { mediaAssetId: Id<'mediaAssets'> }[] =
+    await ctx.runMutation(
+      internal.platform.media.internal.finalizeVerifiedMediaAssets,
+      { assets: [asset] }
+    )
+  const first = finalized[0]
+  if (!first) throw new Error('cover image finalization returned no asset')
+  return first.mediaAssetId
 }
 
 interface SeedAuthor
@@ -776,43 +819,6 @@ export const recomputeTemplateCards = action({
   },
 })
 
-// dev-only — strip the implicit single-image cover off seeded templates so
-// the gallery falls back to the item-grid Mosaic. detects seeded rows by the
-// `seed-` externalId prefix on their first templateItem
-export const clearSeededTemplateCovers = internalMutation({
-  args: {},
-  returns: v.object({ cleared: v.number(), scanned: v.number() }),
-  handler: async (ctx): Promise<{ cleared: number; scanned: number }> =>
-  {
-    const templates = await ctx.db.query('templates').collect()
-    const candidates = templates.filter(
-      (template) => template.coverMediaAssetId !== null
-    )
-    const firstItemEntries = await Promise.all(
-      candidates.map(async (template) =>
-      {
-        const firstItem = await ctx.db
-          .query('templateItems')
-          .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-          .first()
-        return [template, firstItem] as const
-      })
-    )
-    const toClear = firstItemEntries.filter(
-      ([, firstItem]) => firstItem?.externalId.startsWith('seed-') === true
-    )
-    await Promise.all(
-      toClear.map(async ([template]) =>
-      {
-        await patchTemplateAndSyncCard(ctx, template, {
-          coverMediaAssetId: null,
-        })
-      })
-    )
-    return { cleared: toClear.length, scanned: templates.length }
-  },
-})
-
 // dev-only — paginated batch wipe of templates + their children, forked
 // boards + their children, & marketplaceStats. mutations stay under the
 // 4096-read txn cap; the action loops phases. skips identity/auth tables
@@ -1077,19 +1083,6 @@ export const unpublishSeededTemplate = action({
   },
 })
 
-export const clearSeededCovers = action({
-  args: { seedSecret: v.string() },
-  returns: v.object({ cleared: v.number(), scanned: v.number() }),
-  handler: async (ctx, args): Promise<{ cleared: number; scanned: number }> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.clearSeededTemplateCovers,
-      {}
-    )
-  },
-})
-
 // append items to a previously-seeded template. used by the seed script when
 // a folder's payload exceeds the action body limit & must be chunked. startOrder
 // lets chunk appends run in parallel while preserving final item order
@@ -1220,6 +1213,7 @@ export const seedTemplateFromBlobs = action({
     itemAspectRatio: v.union(v.number(), v.null()),
     // optional pre-baked board label settings — forks inherit when present
     labels: v.optional(v.union(boardLabelSettingsValidator, v.null())),
+    cover: v.optional(seedCoverImageValidator),
     items: v.array(seedItemValidator),
   },
   returns: v.object({
@@ -1245,6 +1239,11 @@ export const seedTemplateFromBlobs = action({
     }
 
     const stored = await storeSeedImages(ctx, author._id, args.items)
+    const coverMediaAssetId = await storeSeedCoverImage(
+      ctx,
+      author._id,
+      args.cover
+    )
 
     const result: SeedInsertResult = await ctx.runMutation(
       internal.marketplace.templates.seed.insertSeedTemplate,
@@ -1254,6 +1253,7 @@ export const seedTemplateFromBlobs = action({
         description: args.description,
         category: args.category,
         tags: args.tags,
+        coverMediaAssetId,
         suggestedTiers: args.suggestedTiers ?? [...DEFAULT_TEMPLATE_TIERS],
         itemAspectRatio: args.itemAspectRatio,
         labels: args.labels ?? null,

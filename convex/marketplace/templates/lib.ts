@@ -1007,7 +1007,8 @@ const toAuthorDisplayName = (
 
 const toTemplateCardMedia = async (
   ctx: DbCtx,
-  mediaAssetId: Id<'mediaAssets'> | null
+  mediaAssetId: Id<'mediaAssets'> | null,
+  kinds: readonly MediaVariantKind[] = ['tile']
 ): Promise<TemplateCardMedia | null> =>
 {
   if (!mediaAssetId) return null
@@ -1016,7 +1017,9 @@ const toTemplateCardMedia = async (
   {
     return failState(`dangling template media reference: ${mediaAssetId}`)
   }
-  const variant = selectMediaVariantSummary(asset, 'tile')
+  const variant = kinds
+    .map((kind) => selectMediaVariantSummary(asset, kind))
+    .find((candidate) => candidate !== undefined)
   if (!variant) return null
   return {
     externalId: asset.externalId,
@@ -1091,7 +1094,7 @@ const buildTemplateCardFields = async (
 {
   const author = await toTemplateCardAuthorFields(ctx, template.authorId)
   const [coverMedia, coverItems] = await Promise.all([
-    toTemplateCardMedia(ctx, template.coverMediaAssetId),
+    toTemplateCardMedia(ctx, template.coverMediaAssetId, ['preview', 'tile']),
     toTemplateCardCoverItems(ctx, template),
   ])
   return {

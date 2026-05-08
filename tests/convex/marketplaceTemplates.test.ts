@@ -665,7 +665,7 @@ describe('marketplace template Convex functions', () =>
   {
     const t = makeTest()
     const authorId = await seedUser(t, 'Template Author', 'author@example.com')
-    await seedSourceBoard(t, authorId)
+    const { mediaExternalId } = await seedSourceBoard(t, authorId)
     const caller = asUser(t, authorId)
 
     const publicTemplate = await caller.mutation(
@@ -686,6 +686,7 @@ describe('marketplace template Convex functions', () =>
         category: 'movies',
         tags: [],
         visibility: 'unlisted',
+        coverMediaExternalId: mediaExternalId,
       }
     )
 
@@ -713,12 +714,7 @@ describe('marketplace template Convex functions', () =>
     expect(publicCard).toMatchObject({
       title: 'Public Template',
       isPubliclyListable: true,
-      coverMedia: {
-        externalId: 'media-source',
-        width: 64,
-        height: 64,
-        contentHash: 'hash-source',
-      },
+      coverMedia: null,
       coverItems: [
         {
           label: 'Image item',
