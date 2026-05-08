@@ -26,7 +26,7 @@ interface UseCoverFramingPickerInput
   initialFraming?: TemplateCoverFraming | null
 }
 
-export interface CoverFramingPicker
+interface CoverFramingPicker
 {
   activeSurface: CoverSurface
   setActiveSurface: (s: CoverSurface) => void

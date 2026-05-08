@@ -11,7 +11,13 @@ import type {
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
-import { formatPercent, resolveBucketColor } from './utils'
+import {
+  bucketLabel,
+  formatPercent,
+  getAggregateItemLabel,
+  getTopBucket,
+  resolveBucketColor,
+} from './utils'
 
 interface ConsensusScatterProps
 {
@@ -53,7 +59,7 @@ const computePoints = (
     const x = PAD + fracX * (VIEWBOX_W - 2 * PAD)
     const agreement = row.topBucketShare
     const y = VIEWBOX_H - PAD - agreement * (VIEWBOX_H - 2 * PAD)
-    const bucket = buckets[row.topBucketIndex]
+    const bucket = getTopBucket(row, buckets)
     points.push({
       row,
       x,
@@ -157,16 +163,12 @@ export const ConsensusScatter = ({
           })}
           {points.map((point) =>
           {
-            const label =
-              point.row.label?.trim() || point.row.templateItemExternalId
-            const avgIdx =
+            const label = getAggregateItemLabel(point.row)
+            const averageBucketIndex =
               point.row.averageBucket !== null
                 ? Math.round(point.row.averageBucket)
                 : null
-            const avgLabel =
-              avgIdx !== null
-                ? (buckets[avgIdx]?.label ?? `Tier ${avgIdx + 1}`)
-                : '—'
+            const avgLabel = bucketLabel(buckets, averageBucketIndex)
             return (
               <g key={point.row.externalId}>
                 <circle

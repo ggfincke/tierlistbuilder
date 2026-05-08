@@ -2,7 +2,7 @@
 // click-anchored popover w/ stats tiles. fixed-positioned + flips above the
 // anchor when the viewport runs out of room below
 
-import { useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { X } from 'lucide-react'
 
 import type {
@@ -11,6 +11,8 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { useAnchoredPopup } from '~/shared/overlay/anchoredPopup'
+import { OverlayPanelSurface } from '~/shared/overlay/OverlaySurface'
 
 import {
   AggregateItemThumb,
@@ -18,7 +20,14 @@ import {
 } from './AggregateItemThumb'
 import { DistributionBar } from './DistributionBar'
 import type { PopoverAnchorRect } from './usePopover'
-import { formatPercent, resolveBucketColor } from './utils'
+import {
+  formatPercent,
+  getAggregateItemLabel,
+  getAverageBucket,
+  getControversyLabel,
+  getTopBucket,
+  resolveBucketColor,
+} from './utils'
 
 interface ItemPopoverProps
 {
@@ -46,73 +55,44 @@ export const ItemPopover = ({
   const paletteId = usePreferencesStore((state) => state.paletteId)
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() =>
+  const computePosition = useCallback(() =>
   {
-    const onDoc = (e: MouseEvent): void =>
-    {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    const vpW = window.innerWidth
+    const vpH = window.innerHeight
+    const placeBelow = anchorRect.bottom + GAP + PANEL_H < vpH
+    const top = placeBelow
+      ? anchorRect.bottom + GAP
+      : anchorRect.top - GAP - PANEL_H
+    const desiredLeft = anchorRect.left + anchorRect.width / 2 - PANEL_W / 2
+    const left = Math.max(8, Math.min(desiredLeft, vpW - PANEL_W - 8))
+    return {
+      top,
+      left,
+      width: PANEL_W,
+      animation: 'scaleIn 140ms cubic-bezier(0.2, 0, 0, 1) both',
     }
-    const onKey = (e: KeyboardEvent): void =>
-    {
-      if (e.key === 'Escape') onClose()
-    }
-    // popover is fixed-positioned but its anchor scrolls w/ the page; close
-    // on any scroll so the panel doesn't detach from the item it points at
-    const onScroll = (e: Event): void =>
-    {
-      if (ref.current && ref.current.contains(e.target as Node)) return
-      onClose()
-    }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('scroll', onScroll, {
-      capture: true,
-      passive: true,
-    })
-    return () =>
-    {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('scroll', onScroll, { capture: true })
-    }
-  }, [onClose])
+  }, [anchorRect])
 
-  const vpW = window.innerWidth
-  const vpH = window.innerHeight
-  const placeBelow = anchorRect.bottom + GAP + PANEL_H < vpH
-  const top = placeBelow
-    ? anchorRect.bottom + GAP
-    : anchorRect.top - GAP - PANEL_H
-  const desiredLeft = anchorRect.left + anchorRect.width / 2 - PANEL_W / 2
-  const left = Math.max(8, Math.min(desiredLeft, vpW - PANEL_W - 8))
+  const { style } = useAnchoredPopup({
+    open: true,
+    popupRef: ref,
+    onClose,
+    positionUpdateMode: 'close',
+    computePosition,
+  })
 
-  const topBucket =
-    row.topBucketIndex !== null ? buckets[row.topBucketIndex] : undefined
-  const avgIdx =
-    row.averageBucket !== null ? Math.round(row.averageBucket) : null
-  const avgBucket = avgIdx !== null ? buckets[avgIdx] : undefined
-
-  const controversyLabel =
-    row.sampleCount === 0
-      ? 'No data'
-      : row.controversyScore < 0.3
-        ? 'Strong consensus'
-        : row.controversyScore < 0.55
-          ? 'Mixed'
-          : 'Highly divisive'
+  const topBucket = getTopBucket(row, buckets)
+  const avgBucket = getAverageBucket(row, buckets)
+  const itemLabel = getAggregateItemLabel(row)
+  const controversyLabel = getControversyLabel(row)
 
   return (
-    <div
+    <OverlayPanelSurface
       ref={ref}
       role="dialog"
-      aria-label={`${row.label ?? row.templateItemExternalId} community stats`}
-      className="fixed z-50 rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] shadow-2xl"
-      style={{
-        top,
-        left,
-        width: PANEL_W,
-        animation: 'scaleIn 140ms cubic-bezier(0.2, 0, 0, 1) both',
-      }}
+      aria-label={`${itemLabel} community stats`}
+      className="fixed z-50"
+      style={style}
     >
       <div className="flex items-center gap-2.5 border-b border-[var(--t-border)] px-3 py-2.5">
         <AggregateItemThumb
@@ -123,7 +103,7 @@ export const ItemPopover = ({
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold text-[var(--t-text)]">
-            {row.label?.trim() || row.templateItemExternalId}
+            {itemLabel}
           </p>
           <p className="truncate text-[11px] text-[var(--t-text-muted)]">
             {row.sampleCount} {row.sampleCount === 1 ? 'ranking' : 'rankings'}
@@ -213,6 +193,6 @@ export const ItemPopover = ({
           )}
         </div>
       </div>
-    </div>
+    </OverlayPanelSurface>
   )
 }

@@ -13,18 +13,38 @@ import {
   findTemplateRankingAggregate,
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
-  resolveTemplateRankingAggregateBucketLabels,
 } from './aggregate'
 import { buildRankingTierBucketMap } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { makeEmptyBucketSpread } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
 type AggregateJob = Doc<'templateRankingAggregateJobs'>
+type AggregateScheduleState = 'stale' | 'computing'
+type AggregateRetryStatus = 'queued' | 'running'
 
 interface BucketSpreadDelta
 {
   previous: number | null
   next: number | null
 }
+
+interface TierBucketMapEntry
+{
+  tierExternalId: string
+  bucketIndex: number
+}
+
+const AGGREGATE_JOB_MAX_RETRIES = 3
+const AGGREGATE_JOB_RETRY_AFTER_MS = 30 * 60 * 1000
+
+const aggregateScheduleStateValidator = v.union(
+  v.literal('stale'),
+  v.literal('computing')
+)
+
+const aggregateRetryStatusValidator = v.union(
+  v.literal('queued'),
+  v.literal('running')
+)
 
 const aggregateItemSearchText = (item: Doc<'templateItems'>): string =>
   [item.label, item.externalId].filter(Boolean).join(' ').toLowerCase()
@@ -171,6 +191,21 @@ const loadTierBucketMap = async (
   return tierBucketMap(tiers, bucketCount, targetBucketLabels)
 }
 
+const serializeTierBucketMap = (
+  buckets: ReadonlyMap<string, number>
+): TierBucketMapEntry[] =>
+  [...buckets].map(([tierExternalId, bucketIndex]) => ({
+    tierExternalId,
+    bucketIndex,
+  }))
+
+const deserializeTierBucketMap = (
+  entries: readonly TierBucketMapEntry[] | null
+): Map<string, number> | null =>
+  entries
+    ? new Map(entries.map((entry) => [entry.tierExternalId, entry.bucketIndex]))
+    : null
+
 const applyBucketSpreadDelta = (
   spread: number[],
   delta: BucketSpreadDelta | null
@@ -244,10 +279,15 @@ const processActiveRanking = async (
   if (rankingId === null) return null
 
   const ranking = await ctx.db.get(rankingId)
-  if (!ranking || !(await isLatestPublicRankingForOwner(ctx, ranking)))
+  if (
+    !ranking ||
+    ranking.sourceTemplateId !== job.templateId ||
+    !isPublicRankingRow(ranking)
+  )
   {
     await ctx.db.patch(job._id, {
       activeRankingId: null,
+      activeRankingTierBucketMap: null,
       activeRankingItemCursor: null,
       updatedAt: now,
     })
@@ -255,16 +295,18 @@ const processActiveRanking = async (
     return null
   }
 
-  const template = await ctx.db.get(job.templateId)
-  const targetBucketLabels = template
-    ? resolveTemplateRankingAggregateBucketLabels(template, job.bucketCount)
-    : undefined
-  const buckets = await loadTierBucketMap(
-    ctx,
-    ranking._id,
-    job.bucketCount,
-    targetBucketLabels
-  )
+  const buckets = deserializeTierBucketMap(job.activeRankingTierBucketMap)
+  if (buckets === null)
+  {
+    await ctx.db.patch(job._id, {
+      activeRankingId: null,
+      activeRankingTierBucketMap: null,
+      activeRankingItemCursor: null,
+      updatedAt: now,
+    })
+    await scheduleJob(ctx, job._id)
+    return null
+  }
   const page = await ctx.db
     .query('publishedRankingItems')
     .withIndex('byRanking', (q) => q.eq('rankingId', ranking._id))
@@ -303,6 +345,7 @@ const processActiveRanking = async (
   await ctx.db.patch(job._id, {
     rankingCount,
     activeRankingId: null,
+    activeRankingTierBucketMap: null,
     activeRankingItemCursor: null,
     bucketSpread,
     updatedAt: now,
@@ -347,11 +390,22 @@ const selectNextRanking = async (
   }
 
   const isLatest = await isLatestPublicRankingForOwner(ctx, ranking)
+  const activeRankingTierBucketMap = isLatest
+    ? serializeTierBucketMap(
+        await loadTierBucketMap(
+          ctx,
+          ranking._id,
+          job.bucketCount,
+          job.targetBucketLabels
+        )
+      )
+    : null
   await ctx.db.patch(job._id, {
     rankingCursor: page.continueCursor,
     rankingScanDone: page.isDone,
     publicRankingCount: job.publicRankingCount + 1,
     activeRankingId: isLatest ? ranking._id : null,
+    activeRankingTierBucketMap,
     activeRankingItemCursor: null,
     updatedAt: now,
   })
@@ -412,6 +466,54 @@ async function finishJob(
   }
 }
 
+const markAggregateJobFailed = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number,
+  lastError: string
+): Promise<void> =>
+{
+  await ctx.db.patch(job._id, {
+    status: 'failed',
+    lastError,
+    failedAt: now,
+    updatedAt: now,
+  })
+
+  const aggregate = await findTemplateRankingAggregate(ctx, job.templateId)
+  if (aggregate?.activeGeneration === null)
+  {
+    await ctx.db.patch(aggregate._id, {
+      state: 'failed',
+      staleAt: now,
+      updatedAt: now,
+    })
+  }
+}
+
+const retryOrFailStaleAggregateJob = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<'retry' | 'failed'> =>
+{
+  if (job.retryCount >= AGGREGATE_JOB_MAX_RETRIES)
+  {
+    await markAggregateJobFailed(ctx, job, now, 'stale_job_timeout')
+    return 'failed'
+  }
+
+  await ctx.db.patch(job._id, {
+    status: 'queued',
+    retryCount: job.retryCount + 1,
+    lastError: 'stale_job_timeout',
+    failedAt: null,
+    updatedAt: now,
+  })
+  await scheduleJob(ctx, job._id)
+  return 'retry'
+}
+
 export const processTemplateRankingAggregateJob = internalMutation({
   args: { jobId: v.id('templateRankingAggregateJobs') },
   returns: v.null(),
@@ -440,6 +542,21 @@ export const processTemplateRankingAggregateJob = internalMutation({
     return await selectNextRanking(ctx, job, now)
   },
 })
+
+export const queueTemplateRankingAggregateRecomputeForTemplate =
+  internalMutation({
+    args: { templateId: v.id('templates') },
+    returns: v.null(),
+    handler: async (ctx, args): Promise<null> =>
+    {
+      await queueTemplateRankingAggregateRecompute(
+        ctx,
+        args.templateId,
+        Date.now()
+      )
+      return null
+    },
+  })
 
 export const deleteTemplateRankingAggregateGeneration = internalMutation({
   args: {
@@ -478,19 +595,77 @@ export const deleteTemplateRankingAggregateGeneration = internalMutation({
   },
 })
 
-export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
-  args: { cursor: v.union(v.string(), v.null()) },
+export const retryStaleTemplateRankingAggregateJobs = internalMutation({
+  args: {
+    status: v.optional(aggregateRetryStatusValidator),
+    cursor: v.union(v.string(), v.null()),
+  },
   returns: v.object({ scheduled: v.number(), isDone: v.boolean() }),
   handler: async (
     ctx,
     args
   ): Promise<{ scheduled: number; isDone: boolean }> =>
   {
+    const status: AggregateRetryStatus = args.status ?? 'queued'
+    const now = Date.now()
+    const cutoff = now - AGGREGATE_JOB_RETRY_AFTER_MS
     const page = await ctx.db
-      .query('templateCards')
-      .withIndex('byIsPubliclyListableUpdatedAt', (q) =>
-        q.eq('isPubliclyListable', true)
+      .query('templateRankingAggregateJobs')
+      .withIndex('byStatusAndUpdatedAt', (q) =>
+        q.eq('status', status).lt('updatedAt', cutoff)
       )
+      .paginate({
+        numItems: BATCH_LIMITS.templateRankingAggregateSchedule,
+        cursor: args.cursor,
+      })
+
+    let scheduled = 0
+    await Promise.all(
+      page.page.map(async (job) =>
+      {
+        const result = await retryOrFailStaleAggregateJob(ctx, job, now)
+        if (result === 'retry') scheduled++
+      })
+    )
+
+    if (!page.isDone)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.rankings.aggregateInternal
+          .retryStaleTemplateRankingAggregateJobs,
+        { status, cursor: page.continueCursor }
+      )
+    }
+    else if (status === 'queued')
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.rankings.aggregateInternal
+          .retryStaleTemplateRankingAggregateJobs,
+        { status: 'running', cursor: null }
+      )
+    }
+
+    return { scheduled, isDone: page.isDone && status === 'running' }
+  },
+})
+
+export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
+  args: {
+    state: v.optional(aggregateScheduleStateValidator),
+    cursor: v.union(v.string(), v.null()),
+  },
+  returns: v.object({ scheduled: v.number(), isDone: v.boolean() }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ scheduled: number; isDone: boolean }> =>
+  {
+    const state: AggregateScheduleState = args.state ?? 'stale'
+    const page = await ctx.db
+      .query('templateRankingAggregates')
+      .withIndex('byStateAndUpdatedAt', (q) => q.eq('state', state))
       .paginate({
         numItems: BATCH_LIMITS.templateRankingAggregateSchedule,
         cursor: args.cursor,
@@ -498,18 +673,19 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
 
     const now = Date.now()
     let scheduled = 0
-    for (const card of page.page)
+    for (const aggregate of page.page)
     {
-      const aggregate = await findTemplateRankingAggregate(ctx, card.templateId)
-      if (
-        !aggregate ||
-        aggregate.state === 'stale' ||
-        aggregate.activeGeneration === null
-      )
+      const template = await ctx.db.get(aggregate.templateId)
+      if (!template?.isPubliclyListable)
       {
-        await queueTemplateRankingAggregateRecompute(ctx, card.templateId, now)
-        scheduled++
+        continue
       }
+      await queueTemplateRankingAggregateRecompute(
+        ctx,
+        aggregate.templateId,
+        now
+      )
+      scheduled++
     }
 
     if (!page.isDone)
@@ -518,11 +694,20 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
         0,
         internal.marketplace.rankings.aggregateInternal
           .scheduleTemplateRankingAggregateRecomputes,
-        { cursor: page.continueCursor }
+        { state, cursor: page.continueCursor }
+      )
+    }
+    else if (state === 'stale')
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.rankings.aggregateInternal
+          .scheduleTemplateRankingAggregateRecomputes,
+        { state: 'computing', cursor: null }
       )
     }
 
-    return { scheduled, isDone: page.isDone }
+    return { scheduled, isDone: page.isDone && state === 'computing' }
   },
 })
 

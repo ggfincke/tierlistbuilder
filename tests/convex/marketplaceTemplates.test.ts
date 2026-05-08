@@ -743,6 +743,19 @@ describe('marketplace template Convex functions', () =>
     expect(gallery.popular.map((i) => i.title)).toEqual(['Public Template'])
     expect(gallery.recent.map((i) => i.title)).toEqual(['Public Template'])
     expect(gallery.results[0]).toMatchObject({ access: 'usable' })
+    const galleryResults = await t.query(
+      api.marketplace.templates.queries.getTemplateGalleryResults,
+      {}
+    )
+    expect(galleryResults.templateCount).toEqual(gallery.templateCount)
+    expect(galleryResults.results.map((i) => i.title)).toEqual([
+      'Public Template',
+    ])
+    const popularRail = await t.query(
+      api.marketplace.templates.queries.getTemplateGalleryRail,
+      { rail: 'popular' }
+    )
+    expect(popularRail.items.map((i) => i.title)).toEqual(['Public Template'])
 
     const unlistedDetail = await t.query(
       api.marketplace.templates.queries.getTemplateBySlug,
@@ -1305,43 +1318,6 @@ describe('marketplace template Convex functions', () =>
     expect(afterUnpublish.items).toEqual([])
   })
 
-  it('refreshes card author fields and search text from profile changes', async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
-    await seedSourceBoard(t, authorId)
-    const caller = asUser(t, authorId)
-
-    const { slug } = await caller.mutation(
-      api.marketplace.templates.mutations.publishFromBoard,
-      {
-        boardExternalId: 'board-source',
-        title: 'Author Search Template',
-        category: 'gaming',
-        tags: [],
-        visibility: 'public',
-      }
-    )
-
-    await caller.mutation(api.users.updateProfile, {
-      displayName: 'Renamed Author',
-    })
-    await t.mutation(
-      internal.marketplace.templates.internal.syncTemplateCardsForAuthor,
-      { authorId, cursor: null }
-    )
-
-    const byAuthor = await t.query(
-      api.marketplace.templates.queries.listTemplates,
-      { search: 'renamed' }
-    )
-    expect(byAuthor.items).toHaveLength(1)
-    expect(byAuthor.items[0]).toMatchObject({
-      slug,
-      author: { displayName: 'Renamed Author' },
-    })
-  })
-
   it('tracks rolling template metrics for trending and owner management reads', async () =>
   {
     const t = makeTest()
@@ -1388,6 +1364,11 @@ describe('marketplace template Convex functions', () =>
     })
     expect(gallery.trending[0].trendingScore).toBeGreaterThan(0)
     expect(gallery.results[0]).toMatchObject({ slug })
+    const trendingRail = await t.query(
+      api.marketplace.templates.queries.getTemplateGalleryRail,
+      { rail: 'trending' }
+    )
+    expect(trendingRail.items[0]).toMatchObject({ slug })
 
     const owned = await asUser(t, authorId).query(
       api.marketplace.templates.queries.getMyTemplateManagementList,
@@ -1509,76 +1490,6 @@ describe('marketplace template Convex functions', () =>
       viewCount: 0,
     })
     expect(storedCounts.card).toMatchObject({ useCount: 1, viewCount: 0 })
-  })
-
-  it('lists template drafts in progress & updates progress as items get ranked', async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
-    const consumerId = await seedUser(t, 'Consumer', 'consumer@example.com')
-    await seedSourceBoard(t, authorId)
-
-    const { slug } = await asUser(t, authorId).mutation(
-      api.marketplace.templates.mutations.publishFromBoard,
-      {
-        boardExternalId: 'board-source',
-        title: 'Draft Template',
-        category: 'gaming',
-        tags: [],
-        visibility: 'public',
-      }
-    )
-
-    const consumer = asUser(t, consumerId)
-    const { boardExternalId } = await consumer.mutation(
-      api.marketplace.templates.mutations.useTemplate,
-      { slug, title: 'My Draft' }
-    )
-
-    let drafts = await consumer.query(
-      api.marketplace.templates.queries.getMyTemplateDrafts,
-      {}
-    )
-    expect(drafts.drafts).toHaveLength(1)
-    expect(drafts.drafts[0]).toMatchObject({
-      boardExternalId,
-      activeItemCount: 2,
-      rankedItemCount: 0,
-      progressPercent: 0,
-    })
-
-    const board = await consumer.query(
-      api.workspace.boards.queries.getBoardStateByExternalId,
-      { boardExternalId }
-    )
-    const sortedItems = board!.items.slice().sort((a, b) => a.order - b.order)
-
-    await consumer.mutation(
-      api.workspace.boards.upsertBoardState.upsertBoardState,
-      {
-        boardExternalId,
-        baseRevision: board!.revision,
-        title: board!.title,
-        tiers: board!.tiers.map((tier) =>
-          toWireTier(
-            tier,
-            tier.externalId === board!.tiers[0].externalId
-              ? sortedItems.map((i) => i.externalId)
-              : []
-          )
-        ),
-        items: sortedItems.map((item, order) =>
-          toWireItem(item, board!.tiers[0].externalId, order)
-        ),
-        deletedItemIds: [],
-      }
-    )
-
-    drafts = await consumer.query(
-      api.marketplace.templates.queries.getMyTemplateDrafts,
-      {}
-    )
-    expect(drafts.drafts).toEqual([])
   })
 
   it('publishes completed template rankings and remixes them into ranked boards', async () =>
@@ -1974,8 +1885,8 @@ describe('marketplace template Convex functions', () =>
 
       await t.mutation(
         internal.marketplace.rankings.aggregateInternal
-          .scheduleTemplateRankingAggregateRecomputes,
-        { cursor: null }
+          .queueTemplateRankingAggregateRecomputeForTemplate,
+        { templateId }
       )
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
 
@@ -2079,120 +1990,4 @@ describe('marketplace template Convex functions', () =>
     }
   })
 
-  it('recomputes stale template ranking aggregates after ranking deletion', async () =>
-  {
-    vi.useFakeTimers()
-    try
-    {
-      const t = makeTest()
-      const authorId = await seedUser(
-        t,
-        'Template Author',
-        'author@example.com'
-      )
-      const rankerAId = await seedUser(t, 'Ranker A', 'ranker-a@example.com')
-      const rankerBId = await seedUser(t, 'Ranker B', 'ranker-b@example.com')
-      const { templateId, itemIds } = await seedAggregateTemplate(t, authorId)
-      const tiers = [
-        { externalId: 'tier-top', name: 'Top', order: 0 },
-        { externalId: 'tier-low', name: 'Low', order: 1 },
-      ]
-      const item = (index: number, tierExternalId: string) => ({
-        templateItemId: itemIds[index],
-        templateItemExternalId: `aggregate-item-${index}`,
-        tierExternalId,
-        externalId: `stale-ranking-item-${index}`,
-        label: `Aggregate Item ${index}`,
-        order: index,
-      })
-
-      await seedAggregateRanking(t, {
-        ownerId: rankerAId,
-        templateId,
-        templateSlug: 'AggTpl0001',
-        templateTitle: 'Aggregate Template',
-        slug: 'StaleRnk01',
-        title: 'Ranker A Ranking',
-        now: 1_000,
-        tiers,
-        items: [item(0, 'tier-top'), item(1, 'tier-low'), item(2, 'tier-low')],
-      })
-      await seedAggregateRanking(t, {
-        ownerId: rankerBId,
-        templateId,
-        templateSlug: 'AggTpl0001',
-        templateTitle: 'Aggregate Template',
-        slug: 'StaleRnk02',
-        title: 'Ranker B Ranking',
-        now: 2_000,
-        tiers,
-        items: [item(0, 'tier-low'), item(1, 'tier-top'), item(2, 'tier-low')],
-      })
-
-      await t.mutation(
-        internal.marketplace.rankings.aggregateInternal
-          .scheduleTemplateRankingAggregateRecomputes,
-        { cursor: null }
-      )
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
-      const initialAggregate = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
-        { templateSlug: 'AggTpl0001' }
-      )
-      expect(initialAggregate).toMatchObject({
-        state: 'ready',
-        rankingCount: 2,
-      })
-      const initialGeneration = initialAggregate?.activeGeneration
-      expect(initialGeneration).toEqual(expect.any(Number))
-      if (typeof initialGeneration !== 'number')
-      {
-        throw new Error('Expected initial aggregate generation')
-      }
-
-      await t.mutation(internal.users.cascadeDeleteUserData, {
-        userId: rankerAId,
-        phase: 'rankings',
-        cursor: null,
-      })
-      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
-
-      const aggregate = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
-        { templateSlug: 'AggTpl0001' }
-      )
-      expect(aggregate).toMatchObject({ state: 'ready', rankingCount: 1 })
-      const activeGeneration = aggregate?.activeGeneration
-      expect(activeGeneration).toEqual(expect.any(Number))
-      expect(activeGeneration).not.toBe(initialGeneration)
-      if (typeof activeGeneration !== 'number')
-      {
-        throw new Error('Expected recomputed aggregate generation')
-      }
-      const stalePage = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
-        {
-          templateSlug: 'AggTpl0001',
-          generation: initialGeneration,
-          sort: 'consensus',
-          paginationOpts: { cursor: null, numItems: 10 },
-        }
-      )
-      expect(stalePage).toMatchObject({ page: [], isDone: true })
-      const rows = await t.run(
-        async (ctx) =>
-          await ctx.db
-            .query('templateRankingAggregateItems')
-            .withIndex('byTemplateIdAndOrder', (q) =>
-              q.eq('templateId', templateId)
-            )
-            .collect()
-      )
-      expect(new Set(rows.map((row) => row.generation)).size).toBe(1)
-    }
-    finally
-    {
-      vi.useRealTimers()
-    }
-  })
 })

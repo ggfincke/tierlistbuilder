@@ -176,6 +176,10 @@ export const queueTemplateRankingAggregateRecompute = async (
 
   const aggregate = await findTemplateRankingAggregate(ctx, templateId)
   const bucketCount = resolveTemplateRankingAggregateBucketCount(template)
+  const targetBucketLabels = resolveTemplateRankingAggregateBucketLabels(
+    template,
+    bucketCount
+  )
   const state = aggregate?.activeGeneration === null ? 'computing' : 'stale'
   if (aggregate)
   {
@@ -219,6 +223,7 @@ export const queueTemplateRankingAggregateRecompute = async (
     phase: 'seedItems',
     generation: nextAggregateGeneration(now, aggregate),
     bucketCount,
+    targetBucketLabels,
     itemCount: 0,
     rankingCount: 0,
     publicRankingCount: 0,
@@ -226,9 +231,13 @@ export const queueTemplateRankingAggregateRecompute = async (
     rankingCursor: null,
     rankingScanDone: false,
     activeRankingId: null,
+    activeRankingTierBucketMap: null,
     activeRankingItemCursor: null,
     bucketSpread: makeEmptyBucketSpread(bucketCount),
     restartRequestedAt: null,
+    retryCount: 0,
+    lastError: null,
+    failedAt: null,
     createdAt: now,
     updatedAt: now,
   })

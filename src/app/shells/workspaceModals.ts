@@ -3,13 +3,13 @@
 
 import type { SettingsTab } from '~/features/workspace/settings/ui/BoardSettingsModal'
 
-export interface PublishRankingPayload
+interface PublishRankingPayload
 {
   boardExternalId: string
   defaultTitle: string
 }
 
-export interface PublishTemplatePayload
+interface PublishTemplatePayload
 {
   // active board id when invoked from the workspace; null lets the modal pick
   // its own default from the publishable-boards list

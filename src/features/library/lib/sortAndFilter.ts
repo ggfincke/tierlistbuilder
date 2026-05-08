@@ -24,9 +24,9 @@ export const VISIBLE_LIBRARY_BOARD_FILTERS = LIBRARY_BOARD_FILTERS.filter(
 export const filterLibraryBoards = (
   rows: readonly LibraryBoardListItem[],
   filter: LibraryBoardFilter
-): LibraryBoardListItem[] =>
+): readonly LibraryBoardListItem[] =>
 {
-  if (filter === 'all') return rows.slice()
+  if (filter === 'all') return rows
   return rows.filter((row) => row.status === filter)
 }
 

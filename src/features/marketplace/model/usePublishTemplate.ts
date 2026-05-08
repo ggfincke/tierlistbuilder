@@ -2,7 +2,7 @@
 // orchestrates the publish-from-board flow — optional cover upload, server
 // publish mutation, success toast, & redirect to the new template page
 
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
@@ -15,6 +15,7 @@ import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
+import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface PublishTemplateInput extends Omit<
   PublishFromBoardArgs,
@@ -36,8 +37,57 @@ export const usePublishTemplate = (): PublishTemplateAction =>
   const session = useAuthSession()
   const publishMutation = usePublishFromBoardMutation()
   const navigate = useNavigate()
-  const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+
+  const publish = useCallback(
+    async (input: PublishTemplateInput): Promise<{ slug: string }> =>
+    {
+      let coverMediaExternalId: string | undefined
+      if (input.coverFile)
+      {
+        const { externalId } = await uploadCoverImage(input.coverFile)
+        coverMediaExternalId = externalId
+      }
+
+      const result = await publishMutation({
+        boardExternalId: input.boardExternalId,
+        title: input.title,
+        description: input.description,
+        category: input.category,
+        tags: input.tags,
+        visibility: input.visibility,
+        creditLine: input.creditLine,
+        coverMediaExternalId,
+        coverFraming: coverMediaExternalId ? input.coverFraming : null,
+      })
+
+      if (result.status === 'jobQueued')
+      {
+        toast(`Publishing "${input.title}"`, 'success')
+        return { slug: result.slug }
+      }
+
+      toast(`Published "${input.title}"`, 'success')
+      navigate(`${TEMPLATES_ROUTE_PATH}/${result.slug}`)
+      return { slug: result.slug }
+    },
+    [navigate, publishMutation]
+  )
+
+  const onError = useCallback((caught: unknown) =>
+  {
+    logger.error('marketplace', 'publishFromBoard failed', caught)
+    toast(formatMarketplaceError(caught), 'error')
+  }, [])
+
+  const {
+    run: runPublish,
+    isPending,
+    error,
+    setError,
+  } = useAsyncAction<[PublishTemplateInput], { slug: string }>(publish, {
+    onError,
+    getErrorMessage: formatMarketplaceError,
+  })
 
   const run = useCallback(
     async (input: PublishTemplateInput) =>
@@ -47,55 +97,9 @@ export const usePublishTemplate = (): PublishTemplateAction =>
         setError('Sign in to publish a template.')
         return null
       }
-      if (isPending) return null
-
-      setIsPending(true)
-      setError(null)
-      try
-      {
-        let coverMediaExternalId: string | undefined
-        if (input.coverFile)
-        {
-          const { externalId } = await uploadCoverImage(input.coverFile)
-          coverMediaExternalId = externalId
-        }
-
-        const result = await publishMutation({
-          boardExternalId: input.boardExternalId,
-          title: input.title,
-          description: input.description,
-          category: input.category,
-          tags: input.tags,
-          visibility: input.visibility,
-          creditLine: input.creditLine,
-          coverMediaExternalId,
-          coverFraming: coverMediaExternalId ? input.coverFraming : null,
-        })
-
-        if (result.status === 'jobQueued')
-        {
-          toast(`Publishing "${input.title}"`, 'success')
-          return { slug: result.slug }
-        }
-
-        toast(`Published "${input.title}"`, 'success')
-        navigate(`${TEMPLATES_ROUTE_PATH}/${result.slug}`)
-        return { slug: result.slug }
-      }
-      catch (caught)
-      {
-        logger.error('marketplace', 'publishFromBoard failed', caught)
-        const message = formatMarketplaceError(caught)
-        setError(message)
-        toast(message, 'error')
-        return null
-      }
-      finally
-      {
-        setIsPending(false)
-      }
+      return await runPublish(input)
     },
-    [isPending, navigate, publishMutation, session]
+    [runPublish, session.status, setError]
   )
 
   return { run, isPending, error }

@@ -27,7 +27,7 @@ import {
 import { titleizeFromFilename } from './text'
 import type { PreparedFolder, PreparedItem, ProbedItem } from './types'
 
-export interface PayloadItem
+interface PayloadItem
 {
   label: string
   tileBase64: string
@@ -36,7 +36,7 @@ export interface PayloadItem
   transform: ItemTransform | null
 }
 
-export interface PayloadCoverImage
+interface PayloadCoverImage
 {
   tileBase64: string
   previewBase64: string

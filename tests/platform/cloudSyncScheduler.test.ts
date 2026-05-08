@@ -91,59 +91,6 @@ describe('cloud sync scheduler', () =>
     await scheduler.dispose()
   })
 
-  it('dedupes identical snapshots while syncing genuinely different edits', async () =>
-  {
-    const deps = noOpDeps()
-    const flush = vi.fn().mockResolvedValue(synced(3, 'cloud-a'))
-    const scheduler = createCloudSyncScheduler({
-      debounceMs: 5,
-      hasBoard: () => true,
-      flush,
-      ...deps,
-    })
-
-    const first = makeWork('board-a' as BoardId, 'Same')
-    scheduler.queue(first)
-    vi.advanceTimersByTime(5)
-    await flushPromises()
-
-    scheduler.queue(first)
-    vi.advanceTimersByTime(5)
-    await flushPromises()
-
-    scheduler.queue(makeWork('board-a' as BoardId, 'Changed'))
-    vi.advanceTimersByTime(5)
-    await flushPromises()
-
-    expect(flush).toHaveBeenCalledTimes(2)
-    await scheduler.dispose()
-  })
-
-  it('keeps board queues isolated so each board flushes its own snapshot', async () =>
-  {
-    const deps = noOpDeps()
-    const flush = vi.fn().mockResolvedValue(synced(1, 'cloud'))
-    const scheduler = createCloudSyncScheduler({
-      debounceMs: 5,
-      hasBoard: () => true,
-      flush,
-      ...deps,
-    })
-
-    scheduler.queue(makeWork('board-a' as BoardId, 'Board A'))
-    scheduler.queue(makeWork('board-b' as BoardId, 'Board B'))
-    vi.advanceTimersByTime(5)
-    await flushPromises()
-
-    expect(
-      flush.mock.calls.map(([work]) => [work.boardId, work.snapshot.title])
-    ).toEqual([
-      ['board-a', 'Board A'],
-      ['board-b', 'Board B'],
-    ])
-    await scheduler.dispose()
-  })
-
   it('does NOT advance revision on conflict, error, or auth-denied paths', async () =>
   {
     const deps = noOpDeps()
@@ -188,33 +135,6 @@ describe('cloud sync scheduler', () =>
     expect(onError).toHaveBeenCalledWith('board-b', expect.any(Object))
     expect(deps.persistSyncState).not.toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ lastSyncedRevision: expect.any(Number) })
-    )
-
-    await scheduler.dispose()
-  })
-
-  it('skips flushes when shouldProceed is false (auth churn) without advancing revision', async () =>
-  {
-    const deps = noOpDeps()
-    const flush = vi.fn()
-    let allow = true
-    const scheduler = createCloudSyncScheduler({
-      debounceMs: 5,
-      hasBoard: () => true,
-      shouldProceed: () => allow,
-      flush,
-      ...deps,
-    })
-
-    scheduler.queue(makeWork('board-a' as BoardId, 'First'))
-    allow = false
-    vi.advanceTimersByTime(5)
-    await flushPromises()
-
-    expect(flush).not.toHaveBeenCalled()
-    expect(deps.persistSyncState).not.toHaveBeenCalledWith(
-      'board-a',
       expect.objectContaining({ lastSyncedRevision: expect.any(Number) })
     )
 

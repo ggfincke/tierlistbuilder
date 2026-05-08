@@ -11,6 +11,7 @@ import type {
 import {
   areCachedAutoCropsApplied,
   getAutoCropImageRef,
+  isCachedAutoCropApplied,
 } from '~/shared/lib/autoCrop'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
 import { useCollectAutoCropTransformsRunner } from '~/shared/lib/useCollectAutoCropTransformsRunner'
@@ -82,8 +83,8 @@ export const useImageEditorAutoCropAll = ({
         ...item,
         transform: pendingEdit.transform ?? undefined,
       }
-      return areCachedAutoCropsApplied(
-        [pendingItem],
+      return isCachedAutoCropApplied(
+        pendingItem,
         boardAspectRatio,
         trimSoftShadows
       )
@@ -102,11 +103,7 @@ export const useImageEditorAutoCropAll = ({
             (it) =>
               !!it.transform &&
               !isIdentityTransform(it.transform) &&
-              !areCachedAutoCropsApplied(
-                [it],
-                boardAspectRatio,
-                trimSoftShadows
-              )
+              !isCachedAutoCropApplied(it, boardAspectRatio, trimSoftShadows)
           )
       const pendingTarget = getPendingManualTarget(pendingEdit)
       if (

@@ -53,7 +53,7 @@ export const filterImageEditorItems = (
   items: readonly TierItem[],
   filter: ImageEditorFilter,
   boardAspectRatio: number
-): TierItem[] =>
+): readonly TierItem[] =>
 {
   if (filter === 'mismatched')
   {
@@ -65,7 +65,7 @@ export const filterImageEditorItems = (
       (it) => !!it.transform && !isIdentityTransform(it.transform)
     )
   }
-  return [...items]
+  return items
 }
 
 export const applyPendingImageEditorEdit = (

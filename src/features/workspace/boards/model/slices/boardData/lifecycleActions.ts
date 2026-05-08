@@ -8,6 +8,7 @@ import {
   EMPTY_BOARD_SYNC_STATE,
   extractBoardSyncState,
 } from '~/features/workspace/boards/model/sync'
+import { countActiveItems } from '../helpers'
 import { createBoardSyncStatePatch } from '../syncStateOps'
 import type { ActiveBoardSliceCreator, BoardDataSlice } from '../types'
 
@@ -39,16 +40,22 @@ export const createLifecycleActions = (
     ),
 
   resetBoard: (paletteId) =>
-    set((state) => ({
-      ...resetBoardData(state, paletteId),
-      ...createFreshRuntimeState(),
-      ...extractBoardSyncState(state),
-    })),
+    set((state) =>
+    {
+      const data = resetBoardData(state, paletteId)
+      return {
+        ...data,
+        ...createFreshRuntimeState(),
+        activeItemCount: countActiveItems(data.items),
+        ...extractBoardSyncState(state),
+      }
+    }),
 
   loadBoard: (data, syncState: BoardSyncState = EMPTY_BOARD_SYNC_STATE) =>
     set(() => ({
       ...data,
       ...createFreshRuntimeState(),
+      activeItemCount: countActiveItems(data.items),
       ...syncState,
     })),
 })

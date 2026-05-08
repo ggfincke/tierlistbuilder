@@ -15,7 +15,7 @@ interface AspectRatioPromptSnapshot
   itemIds: readonly ItemId[]
 }
 
-export interface AspectRatioPromptResolution
+interface AspectRatioPromptResolution
 {
   // currently mismatched items in the live board state
   current: TierItem[]

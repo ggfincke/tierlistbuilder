@@ -1,7 +1,7 @@
 // src/features/workspace/imageEditor/ui/ImageEditorRail.tsx
 // left rail for filtering, selecting, & previewing image-editor items
 
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { Check, Crop, EyeOff, Pause } from 'lucide-react'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -46,6 +46,17 @@ interface ImageEditorRailProps
   isSkipped: (id: ItemId) => boolean
 }
 
+interface RailLabelStatus
+{
+  labelHidden: boolean
+  hasLabelOverride: boolean
+}
+
+const DEFAULT_LABEL_STATUS: RailLabelStatus = {
+  labelHidden: false,
+  hasLabelOverride: false,
+}
+
 export const ImageEditorRail = ({
   filter,
   onFilterChange,
@@ -58,102 +69,127 @@ export const ImageEditorRail = ({
   selectedId,
   onSelect,
   isSkipped,
-}: ImageEditorRailProps) => (
-  <aside className="flex min-h-0 w-64 shrink-0 flex-col border-r border-[var(--t-border-secondary)] bg-[var(--t-bg-page)]">
-    <div
-      role="tablist"
-      aria-label="Filter items"
-      className="flex gap-1 border-b border-[var(--t-border-secondary)] p-2"
-    >
-      {FILTER_OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          role="tab"
-          aria-selected={filter === opt.value}
-          onClick={() => onFilterChange(opt.value)}
-          className={`focus-custom flex-1 rounded px-2 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${
-            filter === opt.value
-              ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
-              : 'text-[var(--t-text-muted)] hover:bg-[var(--t-bg-surface)]'
-          }`}
+}: ImageEditorRailProps) =>
+{
+  const thumbnailSize = useMemo(
+    () => boundedAspectSize(boardAspectRatio, RAIL_THUMBNAIL_BOUND),
+    [boardAspectRatio]
+  )
+  const labelStatusById = useMemo(() =>
+  {
+    const statuses = new Map<ItemId, RailLabelStatus>()
+    for (const item of items)
+    {
+      const labelLayout = resolveLabelLayout({
+        itemOptions: item.labelOptions,
+        boardSettings: boardLabels,
+        globalLabelDefaults,
+      })
+      statuses.set(item.id, {
+        labelHidden: !labelLayout.visible,
+        hasLabelOverride: !!item.labelOptions,
+      })
+    }
+    return statuses
+  }, [boardLabels, globalLabelDefaults, items])
+
+  return (
+    <aside className="flex min-h-0 w-64 shrink-0 flex-col border-r border-[var(--t-border-secondary)] bg-[var(--t-bg-page)]">
+      <div
+        role="tablist"
+        aria-label="Filter items"
+        className="flex gap-1 border-b border-[var(--t-border-secondary)] p-2"
+      >
+        {FILTER_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            role="tab"
+            aria-selected={filter === opt.value}
+            onClick={() => onFilterChange(opt.value)}
+            className={`focus-custom flex-1 rounded px-2 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${
+              filter === opt.value
+                ? 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]'
+                : 'text-[var(--t-text-muted)] hover:bg-[var(--t-bg-surface)]'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--t-border-secondary)] px-3 py-1.5 text-[0.65rem] text-[var(--t-text-faint)]">
+        <span
+          className="inline-flex items-center gap-1"
+          title="Item ratio differs from the board - needs cropping or a new ratio"
         >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--t-border-secondary)] px-3 py-1.5 text-[0.65rem] text-[var(--t-text-faint)]">
-      <span
-        className="inline-flex items-center gap-1"
-        title="Item ratio differs from the board - needs cropping or a new ratio"
-      >
-        <Crop
-          aria-hidden="true"
-          className="h-2.5 w-2.5 text-[var(--t-warning)]"
-        />
-        mismatched
-      </span>
-      <span
-        className="inline-flex items-center gap-1"
-        title="You've manually rotated, zoomed, panned, or auto-cropped this item"
-      >
-        <Check
-          aria-hidden="true"
-          className="h-2.5 w-2.5 text-[var(--t-accent)]"
-        />
-        adjusted
-      </span>
-      <span
-        className="inline-flex items-center gap-1"
-        title="Caption is hidden for this item - either inherited or per-tile override"
-      >
-        <EyeOff
-          aria-hidden="true"
-          className="h-2.5 w-2.5 text-[var(--t-text-faint)]"
-        />
-        label hidden
-      </span>
-      <span
-        className="inline-flex items-center gap-1"
-        title="You skipped this item - Smart Next won't loop back to it. Click the row to revisit."
-      >
-        <Pause
-          aria-hidden="true"
-          className="h-2.5 w-2.5 text-[var(--t-text-faint)]"
-        />
-        skipped
-      </span>
-    </div>
-    <ul className="flex-1 overflow-y-auto">
-      {items.length === 0 && (
-        <li className="px-3 py-4 text-xs text-[var(--t-text-faint)]">
-          {totalCount === 0 ? 'No image items.' : 'No items in this view.'}
-        </li>
-      )}
-      {items.map((item) => (
-        <ImageEditorRailRow
-          key={item.id}
-          item={item}
-          boardAspectRatio={boardAspectRatio}
-          boardDefaultFit={boardDefaultFit}
-          boardLabels={boardLabels}
-          globalLabelDefaults={globalLabelDefaults}
-          selected={item.id === selectedId}
-          skipped={isSkipped(item.id)}
-          onSelect={onSelect}
-        />
-      ))}
-    </ul>
-  </aside>
-)
+          <Crop
+            aria-hidden="true"
+            className="h-2.5 w-2.5 text-[var(--t-warning)]"
+          />
+          mismatched
+        </span>
+        <span
+          className="inline-flex items-center gap-1"
+          title="You've manually rotated, zoomed, panned, or auto-cropped this item"
+        >
+          <Check
+            aria-hidden="true"
+            className="h-2.5 w-2.5 text-[var(--t-accent)]"
+          />
+          adjusted
+        </span>
+        <span
+          className="inline-flex items-center gap-1"
+          title="Caption is hidden for this item - either inherited or per-tile override"
+        >
+          <EyeOff
+            aria-hidden="true"
+            className="h-2.5 w-2.5 text-[var(--t-text-faint)]"
+          />
+          label hidden
+        </span>
+        <span
+          className="inline-flex items-center gap-1"
+          title="You skipped this item - Smart Next won't loop back to it. Click the row to revisit."
+        >
+          <Pause
+            aria-hidden="true"
+            className="h-2.5 w-2.5 text-[var(--t-text-faint)]"
+          />
+          skipped
+        </span>
+      </div>
+      <ul className="flex-1 overflow-y-auto">
+        {items.length === 0 && (
+          <li className="px-3 py-4 text-xs text-[var(--t-text-faint)]">
+            {totalCount === 0 ? 'No image items.' : 'No items in this view.'}
+          </li>
+        )}
+        {items.map((item) => (
+          <ImageEditorRailRow
+            key={item.id}
+            item={item}
+            boardAspectRatio={boardAspectRatio}
+            boardDefaultFit={boardDefaultFit}
+            thumbnailSize={thumbnailSize}
+            labelStatus={labelStatusById.get(item.id) ?? DEFAULT_LABEL_STATUS}
+            selected={item.id === selectedId}
+            skipped={isSkipped(item.id)}
+            onSelect={onSelect}
+          />
+        ))}
+      </ul>
+    </aside>
+  )
+}
 
 interface ImageEditorRailRowProps
 {
   item: TierItem
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
-  boardLabels: BoardLabelSettings | undefined
-  globalLabelDefaults: GlobalLabelDefaults
+  thumbnailSize: { width: number; height: number }
+  labelStatus: RailLabelStatus
   selected: boolean
   skipped: boolean
   onSelect: (id: ItemId) => void
@@ -164,8 +200,8 @@ const ImageEditorRailRow = memo(
     item,
     boardAspectRatio,
     boardDefaultFit,
-    boardLabels,
-    globalLabelDefaults,
+    thumbnailSize,
+    labelStatus,
     selected,
     skipped,
     onSelect,
@@ -173,18 +209,8 @@ const ImageEditorRailRow = memo(
   {
     const mismatched = itemHasAspectMismatch(item, boardAspectRatio)
     const adjusted = !!item.transform && !isIdentityTransform(item.transform)
-    const hasLabelOverride = !!item.labelOptions
-    const labelLayout = resolveLabelLayout({
-      itemOptions: item.labelOptions,
-      boardSettings: boardLabels,
-      globalLabelDefaults,
-    })
-    const labelHidden = !labelLayout.visible
+    const { hasLabelOverride, labelHidden } = labelStatus
     const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
-    const thumbnailSize = boundedAspectSize(
-      boardAspectRatio,
-      RAIL_THUMBNAIL_BOUND
-    )
 
     return (
       <li>

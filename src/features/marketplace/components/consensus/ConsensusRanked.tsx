@@ -15,7 +15,12 @@ import {
   AggregateItemThumb,
   type AggregateItemFrame,
 } from './AggregateItemThumb'
-import { formatPercent, resolveBucketColor } from './utils'
+import {
+  formatPercent,
+  getAggregateItemLabel,
+  getTopBucket,
+  resolveBucketColor,
+} from './utils'
 
 interface ConsensusRankedProps
 {
@@ -54,9 +59,8 @@ export const ConsensusRanked = ({
     <ol className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
       {sorted.map((row, index) =>
       {
-        const bucket =
-          row.topBucketIndex !== null ? buckets[row.topBucketIndex] : undefined
-        const label = row.label?.trim() || row.templateItemExternalId
+        const bucket = getTopBucket(row, buckets)
+        const label = getAggregateItemLabel(row)
         return (
           <li key={row.externalId}>
             <button

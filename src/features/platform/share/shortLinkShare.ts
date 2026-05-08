@@ -1,23 +1,13 @@
 // src/features/platform/share/shortLinkShare.ts
-// snapshot-share short link helpers. encoder uploads to Convex & mints a slug;
-// decoder resolves & inflates via the shared snapshot codec
+// snapshot-share short link helpers. decoder resolves & inflates via the
+// shared snapshot codec
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
-import { getUploadEnvelopeHeader } from '@tierlistbuilder/contracts/platform/uploadEnvelope'
 import { isShortLinkSlug } from '@tierlistbuilder/contracts/lib/ids'
-import type { Id } from '@convex/_generated/dataModel'
-import { EMBED_ROUTE_PATH } from '~/shared/routes/pathname'
 import { buildAppUrl, inflateSnapshotBytes } from '~/shared/sharing/hashShare'
-import {
-  assertShortLinkSnapshotSize,
-  compressShortLinkSnapshotBytes,
-} from '~/shared/sharing/shortLinkCodec'
-import {
-  createSnapshotShortLinkImperative,
-  generateSnapshotUploadUrlImperative,
-  resolveShortLinkImperative,
-} from '~/features/platform/share/shortLinkRepository'
+import { assertShortLinkSnapshotSize } from '~/shared/sharing/shortLinkCodec'
+import { resolveShortLinkImperative } from '~/features/platform/share/shortLinkRepository'
 import { isNonEmptyString } from '~/shared/lib/typeGuards'
 
 const SHORT_LINK_QUERY_PARAM = 's'
@@ -26,11 +16,6 @@ const SHORT_LINK_QUERY_PARAM = 's'
 // route, useAppBootstrap detects the slug & resolves the snapshot
 export const getShareUrlFromSlug = (slug: string): string =>
   `${buildAppUrl()}?${SHORT_LINK_QUERY_PARAM}=${encodeURIComponent(slug)}`
-
-// build an embed iframe URL — same slug as the workspace URL but routes
-// into the read-only embed shell
-const getEmbedUrlFromSlug = (slug: string): string =>
-  `${buildAppUrl(EMBED_ROUTE_PATH)}?${SHORT_LINK_QUERY_PARAM}=${encodeURIComponent(slug)}`
 
 // extract a short-link slug from the current URL's query string
 export const getShortLinkSlugFromUrl = (): string | null =>
@@ -55,81 +40,6 @@ export const clearShortLinkSlugFromUrl = (): void =>
     window.location.hash
   }`
   window.history.replaceState(null, '', next)
-}
-
-export interface ShortLinkCreateResult
-{
-  slug: string
-  shareUrl: string
-  embedUrl: string
-  createdAt: number
-}
-
-// orchestrate the full create-link flow: compress -> upload bytes -> mint
-// slug. signal cancels in-flight requests on supersede; userId binds the
-// envelope so intercepted (storageId, token) pairs can't cross-account finalize
-export const createBoardShortLink = async (
-  data: BoardSnapshot,
-  userId: string,
-  signal?: AbortSignal
-): Promise<ShortLinkCreateResult> =>
-{
-  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
-  const compressed = await compressShortLinkSnapshotBytes(data)
-  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
-
-  const { uploadUrl, uploadToken } = await generateSnapshotUploadUrlImperative()
-  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
-
-  const envelopeHeader = Uint8Array.from(
-    getUploadEnvelopeHeader('snapshot', userId, uploadToken)
-  )
-
-  // wrap in Blob so the fetch body satisfies TS's BodyInit — lib.dom narrows BlobPart
-  // to Uint8Array<ArrayBuffer> but pako returns Uint8Array<ArrayBufferLike>.
-  // cast at the boundary is zero-copy at runtime
-  const uploadResponse = await fetch(uploadUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream' },
-    body: new Blob([envelopeHeader, compressed as BlobPart], {
-      type: 'application/octet-stream',
-    }),
-    signal,
-  })
-
-  if (!uploadResponse.ok)
-  {
-    throw new Error(
-      `snapshot upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`
-    )
-  }
-
-  const uploadJson = (await uploadResponse.json()) as {
-    storageId: Id<'_storage'>
-  }
-  if (!uploadJson?.storageId)
-  {
-    throw new Error('snapshot upload returned no storageId')
-  }
-
-  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
-
-  // forward the snapshot's title so the row carries a denormalized label
-  // for the signed-in "Recent shares" listing. server normalizes via
-  // normalizeBoardTitle (trim + cap), matching the boards table contract
-  const { slug, createdAt } = await createSnapshotShortLinkImperative({
-    snapshotStorageId: uploadJson.storageId,
-    uploadToken,
-    boardTitle: data.title,
-  })
-  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
-
-  return {
-    slug,
-    shareUrl: getShareUrlFromSlug(slug),
-    embedUrl: getEmbedUrlFromSlug(slug),
-    createdAt,
-  }
 }
 
 // resolve a slug to its decoded BoardSnapshot. throws when the slug is

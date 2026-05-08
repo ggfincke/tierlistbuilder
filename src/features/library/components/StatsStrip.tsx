@@ -15,13 +15,10 @@ interface StatColProps
   label: string
   value: number | string
   subtitle?: string
-  isFirst?: boolean
 }
 
-const StatCol = ({ label, value, subtitle, isFirst }: StatColProps) => (
-  <div
-    className={`flex flex-col gap-1 px-5 py-3.5 ${isFirst ? '' : 'border-l border-[var(--t-border)]'}`}
-  >
+const StatCol = ({ label, value, subtitle }: StatColProps) => (
+  <div className="flex flex-col gap-1 px-5 py-3.5">
     <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
       {label}
     </div>
@@ -36,11 +33,10 @@ const StatCol = ({ label, value, subtitle, isFirst }: StatColProps) => (
 
 export const StatsStrip = ({ counts, totalBoards }: StatsStripProps) => (
   <div
-    className="grid overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-sunken)]"
+    className="grid divide-x divide-[var(--t-border)] overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-sunken)]"
     style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}
   >
     <StatCol
-      isFirst
       label="Lists"
       value={totalBoards}
       subtitle={`${counts.draft} ${pluralize(counts.draft, 'draft')} · ${counts.in_progress} active`}

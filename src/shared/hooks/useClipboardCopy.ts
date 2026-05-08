@@ -3,8 +3,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// default duration of the transient "copied" feedback state
-export const COPIED_FEEDBACK_MS = 2000
+import { copyTextToClipboard } from '~/shared/lib/clipboard'
+
+const COPIED_FEEDBACK_MS = 2000
 
 export const useClipboardCopy = (timeoutMs = COPIED_FEEDBACK_MS) =>
 {
@@ -27,21 +28,51 @@ export const useClipboardCopy = (timeoutMs = COPIED_FEEDBACK_MS) =>
   const copy = useCallback(
     async (text: string): Promise<boolean> =>
     {
-      try
-      {
-        await navigator.clipboard.writeText(text)
-        setCopied(true)
-        clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => setCopied(false), timeoutMs)
-        return true
-      }
-      catch
-      {
-        return false
-      }
+      const ok = await copyTextToClipboard(text)
+      if (!ok) return false
+
+      setCopied(true)
+      clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setCopied(false), timeoutMs)
+      return true
     },
     [timeoutMs]
   )
 
   return { copied, copy }
+}
+
+export const useKeyedClipboardCopy = <TKey extends string>(
+  timeoutMs = COPIED_FEEDBACK_MS
+) =>
+{
+  const [copiedKey, setCopiedKey] = useState<TKey | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  useEffect(
+    () => () =>
+    {
+      if (timerRef.current)
+      {
+        clearTimeout(timerRef.current)
+      }
+    },
+    []
+  )
+
+  const copyKey = useCallback(
+    async (key: TKey, text: string): Promise<boolean> =>
+    {
+      const ok = await copyTextToClipboard(text)
+      if (!ok) return false
+
+      setCopiedKey(key)
+      clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setCopiedKey(null), timeoutMs)
+      return true
+    },
+    [timeoutMs]
+  )
+
+  return { copiedKey, copyKey }
 }

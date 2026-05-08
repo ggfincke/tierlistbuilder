@@ -3,7 +3,7 @@
 
 import { DEFAULT_SEED_AUTHOR } from './constants'
 
-export interface ParsedTemplateSeedArgs
+interface ParsedTemplateSeedArgs
 {
   authorEmail: string
   folders: string[]

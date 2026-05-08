@@ -48,7 +48,7 @@ export const useMeasuredElementSize = <T extends HTMLElement>(
     const observer = new ResizeObserver(update)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [ref, fallbackWidth, fallbackHeight])
+  }, [ref])
 
   return size
 }

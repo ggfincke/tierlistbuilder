@@ -30,3 +30,7 @@ export const ACCESS_META: Record<TemplateCardAccessState, AccessMeta> = {
     ctaTooltip: 'Large template forking is not available yet.',
   },
 }
+
+export const isTemplateAccessBlocked = (
+  access: TemplateCardAccessState
+): boolean => access !== 'usable'

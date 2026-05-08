@@ -97,14 +97,14 @@ export const gcExpiredShortLinks = internalMutation({
         cursor: args.cursor,
       })
 
-    let deleted = 0
-    for (const row of page.page)
-    {
-      const storageId = row.snapshotStorageId
-      await ctx.db.delete(row._id)
-      await deleteStorageSilently(ctx, storageId)
-      deleted++
-    }
+    await Promise.all(
+      page.page.map(async (row) =>
+      {
+        const storageId = row.snapshotStorageId
+        await ctx.db.delete(row._id)
+        await deleteStorageSilently(ctx, storageId)
+      })
+    )
 
     if (!page.isDone)
     {
@@ -115,6 +115,6 @@ export const gcExpiredShortLinks = internalMutation({
       )
     }
 
-    return { deleted }
+    return { deleted: page.page.length }
   },
 })

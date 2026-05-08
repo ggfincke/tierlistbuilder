@@ -28,8 +28,8 @@ export const selectCanRedo = (
 
 // count active items without subscribing consumers to the item map object
 export const selectActiveItemCount = (
-  state: Pick<ActiveBoardRuntimeState, 'items'>
-): number => Object.keys(state.items).length
+  state: Pick<ActiveBoardRuntimeState, 'activeItemCount'>
+): number => state.activeItemCount
 
 export const createSelectBoardItemById =
   (itemId: ItemId) =>
@@ -108,7 +108,7 @@ export const selectKeyboardTabStopItemId = (
   return getFallbackTabStop(state.tiers, state.unrankedItemIds)
 }
 
-export interface LabelOverrideStatus
+interface LabelOverrideStatus
 {
   // true when the board carries any non-empty label-settings override
   boardOverridden: boolean

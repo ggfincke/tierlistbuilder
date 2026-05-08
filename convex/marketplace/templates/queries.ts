@@ -9,12 +9,15 @@ import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateDraftListResult,
   MarketplaceTemplateGalleryCard,
+  MarketplaceTemplateGalleryRailResult,
   MarketplaceTemplateGalleryResult,
+  MarketplaceTemplateGalleryResultsResult,
   MarketplaceTemplateItemsResult,
   MarketplaceTemplateCloneJobProgress,
   MarketplaceTemplateListResult,
   MarketplaceTemplateManagementListResult,
   MarketplaceTemplatePublishJobProgress,
+  TemplateGalleryRail,
   TemplateListSort,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { UserPlan } from '@tierlistbuilder/contracts/platform/user'
@@ -28,6 +31,8 @@ import {
 import { getCurrentUser, getCurrentUserId } from '../../lib/auth'
 import {
   marketplaceTemplateGalleryResultValidator,
+  marketplaceTemplateGalleryRailResultValidator,
+  marketplaceTemplateGalleryResultsResultValidator,
   marketplaceTemplateCloneJobProgressValidator,
   marketplaceTemplateDetailValidator,
   marketplaceTemplateDraftListResultValidator,
@@ -36,6 +41,7 @@ import {
   marketplaceTemplateManagementListResultValidator,
   marketplaceTemplatePublishJobProgressValidator,
   templateCategoryValidator,
+  templateGalleryRailValidator,
   templateListSortValidator,
 } from '../../lib/validators'
 import {
@@ -61,6 +67,19 @@ const listSortArg = v.optional(templateListSortValidator)
 
 const FEATURED_LIMIT = 6
 const RAIL_LIMIT = 12
+
+const TEMPLATE_GALLERY_RAIL_SORT: Record<
+  TemplateGalleryRail,
+  TemplateListSort
+> = {
+  featured: 'featured',
+  trending: 'trending',
+  popular: 'popular',
+  recent: 'recent',
+}
+
+const defaultGalleryRailLimit = (rail: TemplateGalleryRail): number =>
+  rail === 'featured' ? FEATURED_LIMIT : RAIL_LIMIT
 
 const normalizeTemplateItemPageSize = (raw: number): number =>
 {
@@ -453,6 +472,84 @@ export const getTemplatesGallery = query({
       popular,
       recent,
       results,
+      templateCount: {
+        count: stats.count,
+        countByCategory: stats.countByCategory,
+      },
+    }
+  },
+})
+
+export const getTemplateGalleryRail = query({
+  args: {
+    rail: templateGalleryRailValidator,
+    limit: v.optional(v.number()),
+  },
+  returns: marketplaceTemplateGalleryRailResultValidator,
+  handler: async (ctx, args): Promise<MarketplaceTemplateGalleryRailResult> =>
+  {
+    const [rows, viewerPlan] = await Promise.all([
+      takePublicRows(ctx, {
+        category: null,
+        sort: TEMPLATE_GALLERY_RAIL_SORT[args.rail],
+        limit:
+          args.limit === undefined
+            ? defaultGalleryRailLimit(args.rail)
+            : normalizeListLimit(args.limit),
+      }),
+      readViewerPlan(ctx),
+    ])
+
+    return {
+      items: await toTemplateGalleryCards(
+        ctx,
+        rows,
+        viewerPlan,
+        createTemplateProjectionCache()
+      ),
+    }
+  },
+})
+
+export const getTemplateGalleryResults = query({
+  args: {
+    search: v.optional(v.union(v.string(), v.null())),
+    category: listCategoryArg,
+    tag: v.optional(v.union(v.string(), v.null())),
+    sort: listSortArg,
+    limit: v.optional(v.number()),
+  },
+  returns: marketplaceTemplateGalleryResultsResultValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<MarketplaceTemplateGalleryResultsResult> =>
+  {
+    const limit = normalizeListLimit(args.limit)
+    const category = args.category ?? null
+    const search = normalizeSearchQuery(args.search)
+    const tag = normalizeTagArg(args.tag)
+    const sort = args.sort ?? 'recent'
+
+    const resultsPromise = search
+      ? searchPublicRows(ctx, { search, category, tag, limit })
+      : tag
+        ? takePublicRowsByTag(ctx, { tag, category, limit })
+        : takePublicRows(ctx, { category, sort, limit })
+
+    const [resultsRows, stats, viewerPlan] = await Promise.all([
+      resultsPromise,
+      readPublicTemplateStats(ctx),
+      readViewerPlan(ctx),
+    ])
+
+    return {
+      results: await toTemplateGalleryCards(
+        ctx,
+        resultsRows,
+        viewerPlan,
+        createTemplateProjectionCache()
+      ),
       templateCount: {
         count: stats.count,
         countByCategory: stats.countByCategory,

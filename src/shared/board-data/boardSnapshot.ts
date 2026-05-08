@@ -258,9 +258,13 @@ export const selectBoardDataFields = (
   labels: state.labels,
 })
 
+export const selectBoardDataSource = <T extends BoardSnapshotSource>(
+  state: T
+): T => state
+
 export const boardDataFieldsEqual = (
-  a: BoardDataSelection,
-  b: BoardDataSelection
+  a: BoardSnapshotSource,
+  b: BoardSnapshotSource
 ): boolean =>
 {
   for (const key of BOARD_DATA_SELECTION_KEYS)

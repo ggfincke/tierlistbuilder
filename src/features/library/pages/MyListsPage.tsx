@@ -2,9 +2,9 @@
 // my-lists library landing — heading, stats strip, filter bar, grid or table
 
 import { Plus } from 'lucide-react'
-import { useDeferredValue, useEffect, useMemo } from 'react'
+import { useCallback, useDeferredValue, useMemo } from 'react'
 
-import type { LibraryBoardStatus } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 
@@ -17,7 +17,7 @@ import { LibrarySignedOutState } from '~/features/library/components/LibrarySign
 import { LibrarySkeleton } from '~/features/library/components/LibrarySkeleton'
 import { NewListTile } from '~/features/library/components/NewListTile'
 import { StatsStrip } from '~/features/library/components/StatsStrip'
-import { LIBRARY_STATUS_META } from '~/features/library/lib/statusMeta'
+import { getLibraryFilterStatusLabel } from '~/features/library/lib/statusMeta'
 import {
   countLibraryStatuses,
   filterLibraryBoards,
@@ -28,15 +28,12 @@ import { useCreateLibraryBoard } from '~/features/library/model/useCreateLibrary
 import { useLibraryFilters } from '~/features/library/model/useLibraryFilters'
 import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoard'
 import { Button } from '~/shared/ui/Button'
+import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { foldForSearch } from '~/shared/lib/text'
 
 // columns per density for the grid view. dense packs 4 across, default 3,
 // loose 2 — large covers feel hero-ish at 2-up
 const COLUMNS_BY_DENSITY = { dense: 4, default: 3, loose: 2 } as const
-
-// fold case + diacritics so "Pokemon" matches "Pokémon". no fuzzy ranking yet;
-// the v1 list tops out at 200 boards so substring match is sufficient
-const foldForSearch = (raw: string): string =>
-  raw.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export const MyListsPage = () =>
 {
@@ -49,11 +46,13 @@ export const MyListsPage = () =>
   const { rows, isLoading } = useBoardsLibrary(isSignedIn)
 
   const filters = useLibraryFilters()
-  const openBoard = useOpenLibraryBoard()
+  const { open: openLibraryBoard, pendingBoardExternalId } =
+    useOpenLibraryBoard()
   const createBoard = useCreateLibraryBoard()
   const deferredSearch = useDeferredValue(filters.searchDebounced)
   const deferredFilter = useDeferredValue(filters.filter)
   const deferredSort = useDeferredValue(filters.sort)
+  useDocumentTitle('My lists · TierListBuilder')
 
   const counts = useMemo(() => countLibraryStatuses(rows ?? []), [rows])
 
@@ -96,16 +95,10 @@ export const MyListsPage = () =>
     [filters.density]
   )
 
-  // document title for tab clarity & deep-link share previews
-  useEffect(() =>
-  {
-    const previous = document.title
-    document.title = 'My lists · TierListBuilder'
-    return () =>
-    {
-      document.title = previous
-    }
-  }, [])
+  const handleOpenBoard = useCallback(
+    (board: LibraryBoardListItem) => openLibraryBoard(board),
+    [openLibraryBoard]
+  )
 
   // signed-out — bail to the marketing-style surface
   if (!isAuthLoading && !isSignedIn)
@@ -128,6 +121,7 @@ export const MyListsPage = () =>
   const totalVisible = visibleBoards?.length ?? 0
   const showEmptyState = !isLoading && rows !== null && totalVisible === 0
   const showSkeleton = isLoading || rows === null
+  const deferredFilterLabel = getLibraryFilterStatusLabel(deferredFilter)
 
   const handleClearFilter = () =>
   {
@@ -207,13 +201,11 @@ export const MyListsPage = () =>
               {filtersActive && (
                 <>
                   {' · filtered'}
-                  {deferredFilter !== 'all' && (
+                  {deferredFilterLabel && (
                     <>
                       {' by '}
                       <span className="text-[var(--t-text-secondary)]">
-                        {LIBRARY_STATUS_META[
-                          deferredFilter as LibraryBoardStatus
-                        ].label.toLowerCase()}
+                        {deferredFilterLabel.toLowerCase()}
                       </span>
                     </>
                   )}
@@ -250,7 +242,7 @@ export const MyListsPage = () =>
           />
         ) : showEmptyState ? (
           <LibraryEmptyState
-            filtered={totalLoadedBoards !== 0}
+            mode={totalLoadedBoards !== 0 ? 'filtered' : 'first-time'}
             onClearFilter={
               totalLoadedBoards !== 0 ? handleClearFilter : undefined
             }
@@ -260,8 +252,8 @@ export const MyListsPage = () =>
         ) : filters.view === 'list' ? (
           <BoardListTable
             boards={visibleBoards ?? []}
-            onOpenBoard={(board) => void openBoard.open(board)}
-            pendingBoardExternalId={openBoard.pendingBoardExternalId}
+            onOpenBoard={handleOpenBoard}
+            pendingBoardExternalId={pendingBoardExternalId}
           />
         ) : (
           <div className="grid gap-5" style={gridStyle}>
@@ -276,10 +268,8 @@ export const MyListsPage = () =>
                 <BoardCard
                   board={board}
                   density={filters.density}
-                  onOpen={(b) => void openBoard.open(b)}
-                  isPending={
-                    openBoard.pendingBoardExternalId === board.externalId
-                  }
+                  onOpen={handleOpenBoard}
+                  isPending={pendingBoardExternalId === board.externalId}
                 />
               </div>
             ))}

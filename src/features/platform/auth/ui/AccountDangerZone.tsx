@@ -7,6 +7,7 @@ import { Trash2 } from 'lucide-react'
 
 import { api } from '@convex/_generated/api'
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
+import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -44,10 +45,7 @@ export const AccountDangerZone = ({ onClose }: AccountDangerZoneProps) =>
     }
     catch (error)
     {
-      toast(
-        error instanceof Error ? error.message : 'Failed to delete account',
-        'error'
-      )
+      toast(formatError(error, 'Failed to delete account'), 'error')
       setPending(false)
     }
   }

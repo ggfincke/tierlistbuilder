@@ -7,6 +7,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -29,8 +30,8 @@ import {
   itemHasAspectMismatch,
 } from '~/shared/board-ui/aspectRatio'
 import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
-import { useImageUrl } from '~/shared/hooks/useImageUrl'
-import { getImageRefsByRendition } from '~/shared/lib/imageRefs'
+import { useImageUrlChain } from '~/shared/hooks/useImageUrl'
+import { getImageRenditionRefs } from '~/shared/lib/imageRefs'
 import {
   buildManualCropImgStyle,
   clampItemTransform,
@@ -93,6 +94,8 @@ interface ImageEditorPaneProps
   canSkip: boolean
 }
 
+const STATIC_IMG_STYLE = { pointerEvents: 'none' as const }
+
 export const ImageEditorPane = forwardRef<
   ImageEditorPaneHandle,
   ImageEditorPaneProps
@@ -128,13 +131,20 @@ export const ImageEditorPane = forwardRef<
 )
 {
   const imageSectionId = useId()
-  // editor priority is source -> tile -> preview; subscribe to all three so
-  // the canvas paints the next-best rendition while higher-quality bytes warm
-  const editorRefs = getImageRefsByRendition(item, 'editor')
-  const primaryUrl = useImageUrl(editorRefs[0]?.hash)
-  const secondaryUrl = useImageUrl(editorRefs[1]?.hash)
-  const tertiaryUrl = useImageUrl(editorRefs[2]?.hash)
-  const url = primaryUrl ?? secondaryUrl ?? tertiaryUrl
+  const { imageRef: previewImageRef, sourceImageRef, tileImageRef } = item
+  const editorImageSources = useMemo(
+    () =>
+      getImageRenditionRefs(
+        { imageRef: previewImageRef, sourceImageRef, tileImageRef },
+        'editor'
+      ).map(({ ref, variant }) => ({
+        hash: ref.hash,
+        cloudMediaExternalId: ref.cloudMediaExternalId,
+        variant,
+      })),
+    [previewImageRef, sourceImageRef, tileImageRef]
+  )
+  const url = useImageUrlChain(editorImageSources)
   const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const {
@@ -446,14 +456,18 @@ export const ImageEditorPane = forwardRef<
   const imgClass = useManualCrop
     ? 'absolute max-w-none select-none'
     : `h-full w-full ${OBJECT_FIT_CLASS[effectiveFit]}`
-  const imgStyle = useManualCrop
-    ? buildManualCropImgStyle(working, {
-        intrinsicAspect: item.aspectRatio,
-        frameAspect: frameAspectRatio,
-        willChangeTransform: true,
-        pointerEventsNone: true,
-      })
-    : { pointerEvents: 'none' as const }
+  const imgStyle = useMemo(
+    () =>
+      useManualCrop
+        ? buildManualCropImgStyle(working, {
+            intrinsicAspect: item.aspectRatio,
+            frameAspect: frameAspectRatio,
+            willChangeTransform: true,
+            pointerEventsNone: true,
+          })
+        : STATIC_IMG_STYLE,
+    [useManualCrop, working, item.aspectRatio, frameAspectRatio]
+  )
   const ratioLabel = item.aspectRatio
     ? formatAspectRatio(item.aspectRatio)
     : '-'

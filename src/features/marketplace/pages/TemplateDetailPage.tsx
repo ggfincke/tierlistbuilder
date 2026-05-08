@@ -1,90 +1,67 @@
 // src/features/marketplace/pages/TemplateDetailPage.tsx
 // breadcrumb -> hero -> consensus (w/ inline rail) -> credit -> related
 
-import { ArrowLeft, Layers } from 'lucide-react'
-import { useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Layers } from 'lucide-react'
+import { useParams } from 'react-router-dom'
 
 import {
   isTemplateSlug,
   type MarketplaceTemplateDetail,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
 import { useRelatedTemplates } from '~/features/marketplace/model/useTemplateDetail'
 import { useTemplateRankingAggregate } from '~/features/marketplace/model/useRankingDetail'
 import { useRecordTemplateView } from '~/features/marketplace/model/useRecordTemplateView'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
-import { Card } from '~/features/marketplace/components/Card'
-import { CommunityConsensusSection } from '~/features/marketplace/components/CommunityConsensusSection'
+import { Card } from '~/features/marketplace/components/cards/Card'
+import { CommunityConsensusSection } from '~/features/marketplace/components/discovery/CommunityConsensusSection'
 import { HeroRailCards } from '~/features/marketplace/components/consensus/HeroRailCards'
 import { useHeroSpread } from '~/features/marketplace/components/consensus/useHeroSpread'
-import {
-  isAggregateReady,
-  templateFrame,
-} from '~/features/marketplace/components/consensus/utils'
-import { RailHeader } from '~/features/marketplace/components/RailHeader'
-import { RecommendedPresetCard } from '~/features/marketplace/components/RecommendedPresetCard'
-import { TemplateHero } from '~/features/marketplace/components/TemplateHero'
+import { templateFrame } from '~/features/marketplace/components/consensus/utils'
+import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
+import { RecommendedPresetCard } from '~/features/marketplace/components/cards/RecommendedPresetCard'
+import { TemplateHero } from '~/features/marketplace/components/template/TemplateHero'
+import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
+import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 
 const RELATED_LIMIT = 4
 
-const RelatedSkeletonCard = () => (
-  <div
-    aria-hidden="true"
-    className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
-  >
-    <div className="h-40 bg-[rgb(var(--t-overlay)/0.06)]" />
-    <div className="space-y-2 px-3 py-3">
-      <div className="h-3 w-3/4 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
-      <div className="h-2 w-1/2 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-    </div>
-  </div>
-)
-
 const NotFound = () => (
-  <section className="relative z-10 mx-auto flex min-h-[60vh] w-full max-w-[1320px] items-center justify-center px-5 pt-20 text-center sm:px-8 sm:pt-24">
-    <div className="max-w-md">
-      <h1 className="text-2xl font-semibold text-[var(--t-text)]">
-        Template not found
-      </h1>
-      <p className="mt-2 text-sm text-[var(--t-text-muted)]">
-        It may have been unpublished or the link might be wrong.
-      </p>
-      <Link
-        to={TEMPLATES_ROUTE_PATH}
-        className="focus-custom mt-5 inline-flex items-center gap-1.5 rounded-md bg-[var(--t-accent)] px-4 py-2 text-sm font-semibold text-[var(--t-accent-foreground)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to gallery
-      </Link>
-    </div>
-  </section>
+  <MarketplaceNotFound
+    title="Template not found"
+    body="It may have been unpublished or the link might be wrong."
+    actionLabel="Back to gallery"
+    to={TEMPLATES_ROUTE_PATH}
+  />
 )
 
 const DetailSkeleton = () => (
   <section
     aria-hidden="true"
-    className="relative z-10 mx-auto w-full max-w-[1320px] animate-pulse px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
+    className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
   >
-    <div className="h-3 w-48 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+    <SkeletonText className="w-48" tone="soft" />
     <div className="mt-5 grid gap-6 lg:grid-cols-[1.25fr_0.95fr_320px]">
-      <div className="h-72 rounded-2xl bg-[rgb(var(--t-overlay)/0.06)] sm:h-80 lg:h-[30rem]" />
+      <SkeletonBlock className="h-72 rounded-2xl sm:h-80 lg:h-[30rem]" />
       <div className="space-y-4">
-        <div className="h-3 w-32 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-        <div className="h-9 w-3/4 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
-        <div className="h-3 w-2/3 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-        <div className="h-11 rounded-md bg-[rgb(var(--t-overlay)/0.06)]" />
+        <SkeletonText className="w-32" tone="soft" />
+        <SkeletonBlock className="h-9 w-3/4 rounded" tone="strong" />
+        <SkeletonText className="w-2/3" tone="soft" />
+        <SkeletonBlock className="h-11 rounded-md" />
       </div>
       <div className="hidden flex-col gap-3 lg:flex">
-        <div className="h-24 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
-        <div className="h-36 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
-        <div className="h-32 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
+        <SkeletonBlock className="h-24 rounded-xl" tone="soft" />
+        <SkeletonBlock className="h-36 rounded-xl" tone="soft" />
+        <SkeletonBlock className="h-32 rounded-xl" tone="soft" />
       </div>
     </div>
-    <div className="mt-12 h-9 rounded-md bg-[rgb(var(--t-overlay)/0.05)]" />
-    <div className="mt-3 h-64 rounded-xl bg-[rgb(var(--t-overlay)/0.04)]" />
+    <SkeletonBlock className="mt-12 h-9 rounded-md" tone="soft" />
+    <SkeletonBlock className="mt-3 h-64 rounded-xl" tone="soft" />
   </section>
 )
 
@@ -102,7 +79,7 @@ const RelatedTemplatesRail = ({
     return (
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: RELATED_LIMIT }).map((_, index) => (
-          <RelatedSkeletonCard key={index} />
+          <SkeletonCard key={index} />
         ))}
       </div>
     )
@@ -152,22 +129,12 @@ export const TemplateDetailPage = () =>
   const detail = useTemplateBySlug(validSlug)
   // only record once we have a valid published row; null/undefined skip
   useRecordTemplateView(detail ? detail.slug : null)
+  useDocumentTitle(detail ? `${detail.title} · TierListBuilder` : null)
 
   const aggregate = useTemplateRankingAggregate(detail ? detail.slug : null)
   const spreadCounts = useHeroSpread({
     aggregate,
   })
-
-  useEffect(() =>
-  {
-    if (!detail) return
-    const previous = document.title
-    document.title = `${detail.title} · TierListBuilder`
-    return () =>
-    {
-      document.title = previous
-    }
-  }, [detail])
 
   if (validSlug === null) return <NotFound />
   if (detail === undefined) return <DetailSkeleton />
@@ -182,27 +149,13 @@ export const TemplateDetailPage = () =>
 
   return (
     <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
-      <nav
-        aria-label="Breadcrumb"
-        className="flex items-center gap-1.5 text-xs text-[var(--t-text-muted)]"
-      >
-        <Link
-          to={TEMPLATES_ROUTE_PATH}
-          className="focus-custom rounded transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          Templates
-        </Link>
-        <span aria-hidden="true" className="opacity-40">
-          /
-        </span>
-        <span>{categoryLabel}</span>
-        <span aria-hidden="true" className="opacity-40">
-          /
-        </span>
-        <span className="truncate text-[var(--t-text-secondary)]">
-          {detail.title}
-        </span>
-      </nav>
+      <MarketplaceBreadcrumb
+        items={[
+          { label: 'Templates', to: TEMPLATES_ROUTE_PATH },
+          { label: categoryLabel },
+          { label: detail.title },
+        ]}
+      />
 
       <div className="mt-5">
         <TemplateHero

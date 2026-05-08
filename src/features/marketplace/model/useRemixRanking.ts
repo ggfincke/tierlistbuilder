@@ -2,7 +2,7 @@
 // orchestrates the "Remix ranking" flow — auth gate -> server snapshot copy
 // -> pull cloned board into local registry -> set active -> navigate to /
 
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
@@ -12,6 +12,7 @@ import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStor
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
+import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface RemixRankingAction
 {
@@ -24,7 +25,30 @@ export const useRemixRanking = (): RemixRankingAction =>
   const session = useAuthSession()
   const navigate = useNavigate()
   const remix = useRemixRankingMutation()
-  const [isPending, setIsPending] = useState(false)
+
+  const remixRanking = useCallback(
+    async (slug: string, rankingTitle: string): Promise<void> =>
+    {
+      const result = await remix({ slug })
+      await importCloudBoardAsActive(result.boardExternalId)
+      toast(`Remixed "${rankingTitle}" into a new board`, 'success')
+      navigate('/')
+    },
+    [navigate, remix]
+  )
+
+  const onError = useCallback((error: unknown) =>
+  {
+    logger.error('marketplace', 'remixRanking failed', error)
+    toast(formatMarketplaceError(error), 'error')
+  }, [])
+
+  const { run: runRemix, isPending } = useAsyncAction<[string, string], void>(
+    remixRanking,
+    {
+      onError,
+    }
+  )
 
   const run = useCallback(
     async (slug: string, rankingTitle: string) =>
@@ -34,27 +58,9 @@ export const useRemixRanking = (): RemixRankingAction =>
         promptSignIn()
         return
       }
-      if (isPending) return
-
-      setIsPending(true)
-      try
-      {
-        const result = await remix({ slug })
-        await importCloudBoardAsActive(result.boardExternalId)
-        toast(`Remixed "${rankingTitle}" into a new board`, 'success')
-        navigate('/')
-      }
-      catch (error)
-      {
-        logger.error('marketplace', 'remixRanking failed', error)
-        toast(formatMarketplaceError(error), 'error')
-      }
-      finally
-      {
-        setIsPending(false)
-      }
+      await runRemix(slug, rankingTitle)
     },
-    [isPending, navigate, remix, session.status]
+    [runRemix, session.status]
   )
 
   return { run, isPending }

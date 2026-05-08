@@ -41,6 +41,7 @@ import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPr
 import {
   TEMPLATE_PUBLICATION_STATES,
   TEMPLATE_JOB_STATUSES,
+  TEMPLATE_GALLERY_RAILS,
   TEMPLATE_SIZE_CLASSES,
   TEMPLATE_CARD_ACCESS_STATES,
   TEMPLATE_LIST_SORTS,
@@ -51,7 +52,9 @@ import {
   type MarketplaceTemplateDraftListResult,
   type MarketplaceTemplateDraftTemplate,
   type MarketplaceTemplateGalleryCard,
+  type MarketplaceTemplateGalleryRailResult,
   type MarketplaceTemplateGalleryResult,
+  type MarketplaceTemplateGalleryResultsResult,
   type MarketplaceTemplateBookmarkListItem,
   type MarketplaceTemplateBookmarkListResult,
   type MarketplaceTemplateBookmarkState,
@@ -67,6 +70,7 @@ import {
   type MarketplaceTemplateUseResult,
   type TemplateCoverItem,
   type TemplateJobStatus,
+  type TemplateGalleryRail,
   type TemplateListSort,
   type TemplateMediaRef,
   type TemplatePublicationState,
@@ -196,6 +200,7 @@ export const templatePublicationStateValidator = literalUnion(
   TEMPLATE_PUBLICATION_STATES
 )
 export const templateJobStatusValidator = literalUnion(TEMPLATE_JOB_STATUSES)
+export const templateGalleryRailValidator = literalUnion(TEMPLATE_GALLERY_RAILS)
 export const rankingVisibilityValidator = literalUnion(RANKING_VISIBILITIES)
 export const rankingPublicationStateValidator = literalUnion(
   RANKING_PUBLICATION_STATES
@@ -218,7 +223,8 @@ export const templateRankingAggregateItemBandValidator = literalUnion(
 
 export const templateRankingAggregateJobStatusValidator = v.union(
   v.literal('queued'),
-  v.literal('running')
+  v.literal('running'),
+  v.literal('failed')
 )
 
 export const templateRankingAggregateJobPhaseValidator = v.union(
@@ -354,6 +360,9 @@ export type _TemplatePublicationStateExact = _Assert<
 >
 export type _TemplateJobStatusExact = _Assert<
   _Exact<TemplateJobStatus, Infer<typeof templateJobStatusValidator>>
+>
+export type _TemplateGalleryRailExact = _Assert<
+  _Exact<TemplateGalleryRail, Infer<typeof templateGalleryRailValidator>>
 >
 export type _RankingVisibilityExact = _Assert<
   _Exact<RankingVisibility, Infer<typeof rankingVisibilityValidator>>
@@ -684,6 +693,15 @@ export const marketplaceTemplateGalleryResultValidator = v.object({
   trending: v.array(marketplaceTemplateGalleryCardValidator),
   popular: v.array(marketplaceTemplateGalleryCardValidator),
   recent: v.array(marketplaceTemplateGalleryCardValidator),
+  results: v.array(marketplaceTemplateGalleryCardValidator),
+  templateCount: marketplaceTemplateCountValidator,
+})
+
+export const marketplaceTemplateGalleryRailResultValidator = v.object({
+  items: v.array(marketplaceTemplateGalleryCardValidator),
+})
+
+export const marketplaceTemplateGalleryResultsResultValidator = v.object({
   results: v.array(marketplaceTemplateGalleryCardValidator),
   templateCount: marketplaceTemplateCountValidator,
 })
@@ -1140,6 +1158,36 @@ export type _MarketplaceTemplateGalleryResultNoExtra = _Assert<
   Infer<
     typeof marketplaceTemplateGalleryResultValidator
   > extends MarketplaceTemplateGalleryResult
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateGalleryRailResultCovers = _Assert<
+  MarketplaceTemplateGalleryRailResult extends Infer<
+    typeof marketplaceTemplateGalleryRailResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateGalleryRailResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateGalleryRailResultValidator
+  > extends MarketplaceTemplateGalleryRailResult
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateGalleryResultsResultCovers = _Assert<
+  MarketplaceTemplateGalleryResultsResult extends Infer<
+    typeof marketplaceTemplateGalleryResultsResultValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateGalleryResultsResultNoExtra = _Assert<
+  Infer<
+    typeof marketplaceTemplateGalleryResultsResultValidator
+  > extends MarketplaceTemplateGalleryResultsResult
     ? true
     : false
 >

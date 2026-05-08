@@ -14,7 +14,12 @@ import {
   AggregateItemThumb,
   type AggregateItemFrame,
 } from './AggregateItemThumb'
-import { formatPercent, resolveBucketColor } from './utils'
+import {
+  distributionShareByBucket,
+  formatPercent,
+  getAggregateItemLabel,
+  resolveBucketColor,
+} from './utils'
 
 interface ConsensusHeatmapProps
 {
@@ -87,14 +92,8 @@ export const ConsensusHeatmap = ({
 
         {rows.map((row) =>
         {
-          const label = row.label?.trim() || row.templateItemExternalId
-          // build a per-row map so we can render exactly one cell per bucket
-          // even if the server omits zero-share entries from `distribution`
-          const byBucket = new Map<number, number>()
-          for (const cell of row.distribution)
-          {
-            byBucket.set(cell.bucketIndex, cell.share)
-          }
+          const label = getAggregateItemLabel(row)
+          const byBucket = distributionShareByBucket(row)
           return (
             <Fragment key={row.externalId}>
               <button

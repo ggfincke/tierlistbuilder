@@ -6,13 +6,15 @@ import { api } from '@convex/_generated/api'
 import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateDraftListResult,
-  MarketplaceTemplateGalleryResult,
+  MarketplaceTemplateGalleryRailResult,
+  MarketplaceTemplateGalleryResultsResult,
   MarketplaceTemplateBookmarkState,
   MarketplaceTemplateListResult,
   MarketplaceTemplateManagementListResult,
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
   TemplateCoverFraming,
+  TemplateGalleryRail,
   TemplateListSort,
   TemplateUseTierSelection,
   TemplateVisibility,
@@ -31,13 +33,19 @@ export interface ListTemplatesArgs
   limit?: number
 }
 
-// point-in-time public gallery snapshot. the caller decides when to refresh;
-// drafts & owner-specific state stay on reactive queries.
-export const getTemplatesGalleryImperative = (
-  args: ListTemplatesArgs
-): Promise<MarketplaceTemplateGalleryResult> =>
+export const getTemplateGalleryRailImperative = (
+  rail: TemplateGalleryRail
+): Promise<MarketplaceTemplateGalleryRailResult> =>
   getConvexClient().query(
-    api.marketplace.templates.queries.getTemplatesGallery,
+    api.marketplace.templates.queries.getTemplateGalleryRail,
+    { rail }
+  )
+
+export const getTemplateGalleryResultsImperative = (
+  args: ListTemplatesArgs
+): Promise<MarketplaceTemplateGalleryResultsResult> =>
+  getConvexClient().query(
+    api.marketplace.templates.queries.getTemplateGalleryResults,
     args
   )
 

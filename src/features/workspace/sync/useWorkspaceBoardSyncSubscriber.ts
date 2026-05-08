@@ -9,6 +9,7 @@ import {
   boardDataFieldsEqual,
   extractBoardData,
   selectBoardDataFields,
+  selectBoardDataSource,
 } from '~/shared/board-data/boardSnapshot'
 import { extractBoardSyncState } from '~/features/workspace/boards/model/sync'
 import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
@@ -59,7 +60,7 @@ export const useWorkspaceBoardSyncSubscriber = ({
       useWorkspaceBoardRegistryStore.getState().activeBoardId
 
     const unsubscribe = useActiveBoardStore.subscribe(
-      selectBoardDataFields,
+      selectBoardDataSource,
       () =>
       {
         if (!shouldProceed() || isMergePendingRef.current()) return

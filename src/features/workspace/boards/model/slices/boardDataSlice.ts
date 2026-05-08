@@ -18,6 +18,7 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
 ) => ({
   ...createInitialBoardData('classic'),
   itemsManuallyMoved: false,
+  activeItemCount: 0,
   runtimeError: null,
   ...EMPTY_BOARD_SYNC_STATE,
   ...createLifecycleActions(set),

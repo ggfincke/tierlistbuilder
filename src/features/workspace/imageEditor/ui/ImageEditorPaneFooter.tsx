@@ -16,7 +16,7 @@ import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AutoCropButton } from './AutoCropButton'
 import { ZoomSlider } from './ZoomSlider'
 
-export interface PaneFooterTransformProps
+interface PaneFooterTransformProps
 {
   rotate: (delta: 90 | -90) => void
   displayZoom: number
@@ -32,7 +32,7 @@ export interface PaneFooterTransformProps
   isDirty: boolean
 }
 
-export interface PaneFooterNavProps
+interface PaneFooterNavProps
 {
   canPrev: boolean
   canNext: boolean
@@ -42,7 +42,7 @@ export interface PaneFooterNavProps
   onSkip: () => void
 }
 
-export interface PaneFooterExpansionProps
+interface PaneFooterExpansionProps
 {
   imageSectionId: string
   imageExpanded: boolean

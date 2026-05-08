@@ -20,7 +20,7 @@ import { ColorInput } from '~/shared/ui/ColorInput'
 import {
   STORAGE_NEAR_FULL_MESSAGE,
   STORAGE_QUOTA_BYTES,
-} from '~/shared/lib/storageMetering'
+} from '~/features/workspace/boards/model/storageMetering'
 import { GITHUB_REPO_URL } from '~/shared/lib/urls'
 import { THEMES } from '~/shared/theme/tokens'
 import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'

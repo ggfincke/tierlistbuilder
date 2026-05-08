@@ -61,29 +61,31 @@ const ImageEditorModalBody = () =>
       close: s.close,
     }))
   )
+  const { items, tiers, unrankedItemIds } = useActiveBoardStore(
+    useShallow((s) => ({
+      items: s.items,
+      tiers: s.tiers,
+      unrankedItemIds: s.unrankedItemIds,
+    }))
+  )
+  const boardAspectRatio = useActiveBoardStore(getBoardItemAspectRatio)
+  const { boardDefaultFit, boardLabels } = useActiveBoardStore(
+    useShallow((s) => ({
+      boardDefaultFit: s.defaultItemImageFit,
+      boardLabels: s.labels,
+    }))
+  )
   const {
-    items,
-    tiers,
-    unrankedItemIds,
-    boardAspectRatio,
     setItemTransform,
     setItemsTransform,
-    boardDefaultFit,
-    boardLabels,
     setBoardLabelSettings,
     setItemLabelOptions,
     setBoardAndItemsLabelOptions,
     setItemLabel,
   } = useActiveBoardStore(
     useShallow((s) => ({
-      items: s.items,
-      tiers: s.tiers,
-      unrankedItemIds: s.unrankedItemIds,
-      boardAspectRatio: getBoardItemAspectRatio(s),
       setItemTransform: s.setItemTransform,
       setItemsTransform: s.setItemsTransform,
-      boardDefaultFit: s.defaultItemImageFit,
-      boardLabels: s.labels,
       setBoardLabelSettings: s.setBoardLabelSettings,
       setItemLabelOptions: s.setItemLabelOptions,
       setBoardAndItemsLabelOptions: s.setBoardAndItemsLabelOptions,
@@ -189,6 +191,7 @@ const ImageEditorModalBody = () =>
     globalLabelDefaults,
     setBoardAndItemsLabelOptions,
   })
+  const requestApplyLabelToAll = applyLabel.request
 
   const {
     selectedIndex,
@@ -215,6 +218,47 @@ const ImageEditorModalBody = () =>
     },
     [clearSkipped, setItemTransform]
   )
+  const handleSelectedCommit = useCallback(
+    (transform: Parameters<typeof setItemTransform>[1]) =>
+    {
+      if (!selectedId) return
+      handleCommit(selectedId, transform)
+    },
+    [handleCommit, selectedId]
+  )
+  const handleSelectedLabelChange = useCallback(
+    (label: string) =>
+    {
+      if (!selectedId) return
+      setItemLabel(selectedId, label)
+    },
+    [selectedId, setItemLabel]
+  )
+  const handleSelectedLabelOptionsChange = useCallback(
+    (options: Parameters<typeof setItemLabelOptions>[1]) =>
+    {
+      if (!selectedId) return
+      setItemLabelOptions(selectedId, options)
+    },
+    [selectedId, setItemLabelOptions]
+  )
+  const handleApplySelectedLabelToAll = useCallback(() =>
+  {
+    if (!selectedId) return
+    requestApplyLabelToAll(selectedId)
+  }, [requestApplyLabelToAll, selectedId])
+  const labelAppliedToAll = useMemo(
+    () => allImageItems.every((it) => isEmptyItemLabelOptions(it.labelOptions)),
+    [allImageItems]
+  )
+  const applyLabelToAllTitle = useMemo(() =>
+  {
+    if (allImageItems.length <= 1) return 'No other image items on the board'
+    const otherCount = allImageItems.length - 1
+    return `Use this item's label settings as the board default and clear per-tile overrides on ${otherCount} other ${
+      otherCount === 1 ? 'item' : 'items'
+    }`
+  }, [allImageItems.length])
 
   useImageEditorModalKeyboardShortcuts({
     flushActivePaneEdit,
@@ -306,23 +350,13 @@ const ImageEditorModalBody = () =>
               globalLabelDefaults={globalLabelDefaults}
               globalTextStyleId={globalTextStyleId}
               boardItemSize={boardItemSize}
-              onCommit={(t) => handleCommit(selectedItem.id, t)}
-              onLabelChange={(label) => setItemLabel(selectedItem.id, label)}
-              onLabelOptionsChange={(opts) =>
-                setItemLabelOptions(selectedItem.id, opts)
-              }
-              onApplyLabelToAll={() => applyLabel.request(selectedItem.id)}
+              onCommit={handleSelectedCommit}
+              onLabelChange={handleSelectedLabelChange}
+              onLabelOptionsChange={handleSelectedLabelOptionsChange}
+              onApplyLabelToAll={handleApplySelectedLabelToAll}
               canApplyLabelToAll={allImageItems.length > 1}
-              labelAppliedToAll={allImageItems.every((it) =>
-                isEmptyItemLabelOptions(it.labelOptions)
-              )}
-              applyLabelToAllTitle={
-                allImageItems.length > 1
-                  ? `Use this item's label settings as the board default and clear per-tile overrides on ${allImageItems.length - 1} other ${
-                      allImageItems.length === 2 ? 'item' : 'items'
-                    }`
-                  : 'No other image items on the board'
-              }
+              labelAppliedToAll={labelAppliedToAll}
+              applyLabelToAllTitle={applyLabelToAllTitle}
               captionExpanded={captionExpanded}
               onCaptionExpandedChange={setCaptionExpanded}
               imageExpanded={imageExpanded}

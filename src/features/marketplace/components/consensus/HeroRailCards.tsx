@@ -11,13 +11,19 @@ import type {
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { useTemplateRankingAggregateItems } from '~/features/marketplace/model/useRankingDetail'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 
 import {
   AggregateItemThumb,
   type AggregateItemFrame,
 } from './AggregateItemThumb'
 import { RailCard } from './RailCard'
-import { formatPercent, resolveBucketColor } from './utils'
+import {
+  formatPercent,
+  getAggregateItemLabel,
+  getTopBucket,
+  resolveBucketColor,
+} from './utils'
 
 const RAIL_LIMIT = 3
 const DIVISIVE_PAGE_SIZE = 8
@@ -58,7 +64,7 @@ const RailRow = ({
     />
     <div className="min-w-0 flex-1">
       <p className="truncate text-[13px] font-medium text-[var(--t-text)]">
-        {row.label?.trim() || row.templateItemExternalId}
+        {getAggregateItemLabel(row)}
       </p>
       <p className="truncate text-[11px] text-[var(--t-text-muted)]">
         {detail}
@@ -66,10 +72,7 @@ const RailRow = ({
     </div>
     {badge}
     <span className="sr-only">
-      Tier{' '}
-      {row.topBucketIndex !== null
-        ? aggregate.buckets[row.topBucketIndex]?.label
-        : 'unknown'}
+      Tier {getTopBucket(row, aggregate.buckets)?.label ?? 'unknown'}
     </span>
   </li>
 )
@@ -79,10 +82,10 @@ const SkeletonRow = () => (
     aria-hidden="true"
     className="flex items-center gap-2.5 rounded-md py-0.5"
   >
-    <div className="h-9 w-9 animate-pulse rounded-md bg-[rgb(var(--t-overlay)/0.06)]" />
+    <SkeletonBlock className="h-9 w-9 rounded-md" />
     <div className="flex-1 space-y-1.5">
-      <div className="h-3 w-2/3 animate-pulse rounded bg-[rgb(var(--t-overlay)/0.06)]" />
-      <div className="h-2 w-1/2 animate-pulse rounded bg-[rgb(var(--t-overlay)/0.04)]" />
+      <SkeletonText className="w-2/3" />
+      <SkeletonBlock className="h-2 w-1/2 rounded" tone="soft" />
     </div>
   </li>
 )
@@ -159,10 +162,7 @@ export const HeroRailCards = ({
             <ul className="space-y-2.5">
               {divisive.map((row) =>
                 {
-                const top =
-                  row.topBucketIndex !== null
-                    ? aggregate.buckets[row.topBucketIndex]
-                    : undefined
+                const top = getTopBucket(row, aggregate.buckets)
                 return (
                   <RailRow
                     key={row.externalId}
@@ -209,10 +209,7 @@ export const HeroRailCards = ({
             <ul className="space-y-2.5">
               {strongest.map((row) =>
                 {
-                const top =
-                  row.topBucketIndex !== null
-                    ? aggregate.buckets[row.topBucketIndex]
-                    : undefined
+                const top = getTopBucket(row, aggregate.buckets)
                 return (
                   <RailRow
                     key={row.externalId}

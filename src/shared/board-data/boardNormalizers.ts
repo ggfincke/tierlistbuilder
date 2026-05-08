@@ -27,7 +27,7 @@ export const ASPECT_RATIO_MODES: readonly ItemAspectRatioMode[] = [
   'manual',
 ]
 export const IMAGE_FITS: readonly ImageFit[] = ['cover', 'contain']
-export const ROTATION_VALUES: readonly ItemRotation[] = [0, 90, 180, 270]
+const ROTATION_VALUES: readonly ItemRotation[] = [0, 90, 180, 270]
 
 export const normalizePositiveFinite = (value: unknown): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) && value > 0
@@ -39,7 +39,7 @@ export const normalizeEnum = <T extends string>(
   allowed: readonly T[]
 ): T | undefined => (allowed.includes(value as T) ? (value as T) : undefined)
 
-export const clampFiniteNumber = (
+const clampFiniteNumber = (
   value: unknown,
   min: number,
   max: number
@@ -53,9 +53,7 @@ export const clampFiniteNumber = (
 
 // validate untrusted placement payloads. unknown modes & out-of-range
 // coordinates collapse to undefined so the renderer falls back to defaults
-export const normalizeLabelPlacement = (
-  raw: unknown
-): LabelPlacement | undefined =>
+const normalizeLabelPlacement = (raw: unknown): LabelPlacement | undefined =>
 {
   if (!isRecord(raw)) return undefined
   const mode = raw.mode

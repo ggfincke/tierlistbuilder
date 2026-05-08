@@ -54,12 +54,6 @@ export const RANKING_FEATURED_BADGE_LABELS: Record<
   creator: 'Creator',
 }
 
-export const isRankingFeaturedBadge = (
-  value: unknown
-): value is RankingFeaturedBadge =>
-  typeof value === 'string' &&
-  (RANKING_FEATURED_BADGES as readonly string[]).includes(value)
-
 export const MAX_RANKING_TITLE_LENGTH = 80
 export const MAX_RANKING_DESCRIPTION_LENGTH = 500
 export const DEFAULT_RANKING_LIST_LIMIT = 24
@@ -91,7 +85,7 @@ export const generateRankingSlug = (): string =>
   return out
 }
 
-export interface MarketplaceRankingTemplateRef
+interface MarketplaceRankingTemplateRef
 {
   slug: string
   title: string

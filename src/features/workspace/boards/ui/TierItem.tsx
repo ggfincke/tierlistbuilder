@@ -27,7 +27,10 @@ import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
 import { ItemOverlayButton } from '~/shared/board-ui/ItemOverlayButton'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardLabelSettings,
+  ImageFit,
+} from '@tierlistbuilder/contracts/workspace/board'
 
 interface TierItemProps
 {
@@ -40,6 +43,7 @@ interface TierItemProps
   slotHeight: number
   // board-wide image fit default — per-item override still wins
   boardDefaultFit: ImageFit | undefined
+  boardLabels: BoardLabelSettings | undefined
 }
 
 export const TierItem = memo(
@@ -50,25 +54,13 @@ export const TierItem = memo(
     slotWidth,
     slotHeight,
     boardDefaultFit,
+    boardLabels,
   }: TierItemProps) =>
   {
-    const {
-      item,
-      isSelected,
-      hasKeyboardSelection,
-      toggleItemSelected,
-      setKeyboardFocusItemId,
-      setKeyboardMode,
-      boardLabels,
-    } = useActiveBoardStore(
+    const { item, isSelected } = useActiveBoardStore(
       useShallow((state) => ({
         item: state.items[itemId],
         isSelected: state.selection.set.has(itemId),
-        hasKeyboardSelection: selectHasKeyboardSelection(state),
-        toggleItemSelected: state.toggleItemSelected,
-        setKeyboardFocusItemId: state.setKeyboardFocusItemId,
-        setKeyboardMode: state.setKeyboardMode,
-        boardLabels: state.labels,
       }))
     )
     const canDelete = containerId === UNRANKED_CONTAINER_ID
@@ -245,28 +237,23 @@ export const TierItem = memo(
 
         const modKey = e.ctrlKey || e.metaKey
 
-        if (!e.shiftKey && !modKey && hasKeyboardSelection && isSelected)
+        const state = useActiveBoardStore.getState()
+        const selectedNow = state.selection.set.has(itemId)
+        const hasKeyboardSelection = selectHasKeyboardSelection(state)
+
+        if (!e.shiftKey && !modKey && hasKeyboardSelection && selectedNow)
         {
-          toggleItemSelected(itemId, false, true)
+          state.toggleItemSelected(itemId, false, true)
         }
         else
         {
-          toggleItemSelected(itemId, e.shiftKey, modKey)
+          state.toggleItemSelected(itemId, e.shiftKey, modKey)
         }
 
-        setKeyboardFocusItemId(itemId)
-        setKeyboardMode('browse')
+        state.setKeyboardFocusItemId(itemId)
+        state.setKeyboardMode('browse')
       },
-      [
-        boardLocked,
-        hasKeyboardSelection,
-        item,
-        itemId,
-        isSelected,
-        setKeyboardFocusItemId,
-        setKeyboardMode,
-        toggleItemSelected,
-      ]
+      [boardLocked, item, itemId]
     )
 
     const handleDoubleClick = useCallback(
@@ -290,20 +277,16 @@ export const TierItem = memo(
         // pin the right-clicked item as the sole selection so bulk move/remove
         // act on what the user clicked; if it's already in a multi-selection,
         // leave the selection alone & operate on the whole group
-        if (!isSelected) toggleItemSelected(itemId, false, false)
-        setKeyboardFocusItemId(itemId)
-        setKeyboardMode('browse')
+        const state = useActiveBoardStore.getState()
+        if (!state.selection.set.has(itemId))
+        {
+          state.toggleItemSelected(itemId, false, false)
+        }
+        state.setKeyboardFocusItemId(itemId)
+        state.setKeyboardMode('browse')
         setContextMenuPos({ x: e.clientX, y: e.clientY })
       },
-      [
-        boardLocked,
-        item,
-        isSelected,
-        itemId,
-        setKeyboardFocusItemId,
-        setKeyboardMode,
-        toggleItemSelected,
-      ]
+      [boardLocked, item, itemId]
     )
 
     const handleItemFocus = useCallback(() =>

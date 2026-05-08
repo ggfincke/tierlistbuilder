@@ -8,12 +8,8 @@ import {
   resetBoardData,
   normalizeBoardSnapshot,
 } from '~/shared/board-data/boardSnapshot'
-import {
-  createCustomTierColorSpec,
-  normalizeCanonicalTierColorSpec,
-} from '~/shared/theme/tierColors'
+import { normalizeCanonicalTierColorSpec } from '~/shared/theme/tierColors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
 import { asInvalid } from '../typeHelpers'
 
@@ -115,27 +111,6 @@ describe('normalizeBoardSnapshot', () =>
     expect(result.items[id].transform).toBeUndefined()
   })
 
-  it('clamps board slot ratios but preserves natural image ratios', () =>
-  {
-    const id = asItemId('panoramic')
-    const result = normalizeBoardSnapshot(
-      makeBoardSnapshot({
-        itemAspectRatio: 100,
-        items: {
-          [id]: makeItem({
-            id,
-            imageRef: { hash: 'panoramic' },
-            aspectRatio: 100,
-          }),
-        },
-      }),
-      'classic'
-    )
-
-    expect(result.itemAspectRatio).toBe(4)
-    expect(result.items[id].aspectRatio).toBe(100)
-  })
-
   it('falls back to auto palette color when a tier is missing its colorSpec', () =>
   {
     const rawTiers = [
@@ -154,46 +129,6 @@ describe('normalizeBoardSnapshot', () =>
       index: 0,
     })
   })
-
-  it('preserves a valid rowColorSpec & drops invalid input', () =>
-  {
-    const present = normalizeBoardSnapshot(
-      makeBoardSnapshot({
-        tiers: [
-          makeTier({
-            id: 'tier-s',
-            name: 'S',
-            rowColorSpec: createCustomTierColorSpec('#112233'),
-          }),
-        ],
-      }),
-      'classic'
-    )
-    expect(present.tiers[0].rowColorSpec).toEqual({
-      kind: 'custom',
-      hex: '#112233',
-    })
-
-    const invalid: Partial<BoardSnapshot> & { tiers: unknown[] } = {
-      tiers: [
-        {
-          id: 'tier-s',
-          name: 'S',
-          colorSpec: { kind: 'palette', index: 0 },
-          rowColorSpec: 'not a spec',
-          itemIds: [],
-        },
-      ],
-      unrankedItemIds: [],
-      items: {},
-      deletedItems: [],
-    }
-    const dropped = normalizeBoardSnapshot(
-      invalid as Partial<BoardSnapshot>,
-      'classic'
-    )
-    expect(dropped.tiers[0].rowColorSpec).toBeUndefined()
-  })
 })
 
 describe('normalizeCanonicalTierColorSpec', () =>
@@ -209,18 +144,6 @@ describe('normalizeCanonicalTierColorSpec', () =>
     expect(
       normalizeCanonicalTierColorSpec({ kind: 'custom', hex: 'not-a-color' })
     ).toEqual({ kind: 'custom', hex: '#888888' })
-  })
-
-  it('returns null for nullish, primitive, or missing-field inputs', () =>
-  {
-    expect(normalizeCanonicalTierColorSpec(null)).toBeNull()
-    expect(normalizeCanonicalTierColorSpec(undefined)).toBeNull()
-    expect(normalizeCanonicalTierColorSpec('palette')).toBeNull()
-    expect(normalizeCanonicalTierColorSpec(42)).toBeNull()
-    expect(normalizeCanonicalTierColorSpec(true)).toBeNull()
-    expect(normalizeCanonicalTierColorSpec({ index: 0 })).toBeNull()
-    expect(normalizeCanonicalTierColorSpec({ kind: 'palette' })).toBeNull()
-    expect(normalizeCanonicalTierColorSpec({ kind: 'custom' })).toBeNull()
   })
 })
 

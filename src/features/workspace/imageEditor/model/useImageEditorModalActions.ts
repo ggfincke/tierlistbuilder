@@ -14,7 +14,7 @@ import { runUndoRedoShortcut } from '~/features/workspace/shortcuts/model/undoRe
 import {
   useConfirmationGate,
   type ConfirmationGate,
-} from '~/shared/hooks/useConfirmationGate'
+} from '~/features/workspace/imageEditor/model/useConfirmationGate'
 import { isInteractiveArrowTarget } from '../lib/imageEditorGeometry'
 import {
   countAdjustedImageEditorItems,
