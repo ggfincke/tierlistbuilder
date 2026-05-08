@@ -83,36 +83,6 @@ export const getMyBoards = query({
   },
 })
 
-// resolve one owned board by its stable externalId
-export const getBoardByExternalId = query({
-  args: { externalId: v.string() },
-  returns: v.union(boardListItemValidator, v.null()),
-  handler: async (ctx, args): Promise<BoardListItem | null> =>
-  {
-    const userId = await getCurrentUserId(ctx)
-    if (!userId)
-    {
-      return null
-    }
-
-    const board = await findOwnedActiveBoardByExternalId(
-      ctx,
-      args.externalId,
-      userId
-    )
-    if (!board)
-    {
-      return null
-    }
-    if (board.materializationState !== 'ready')
-    {
-      return null
-    }
-
-    return toBoardListItem(board)
-  },
-})
-
 // fetch the full server-side state for an owned board — used by the cloud-pull path
 // on first sign-in & conflict resolution. returns the same shape as upsertBoardState's conflict response
 export const getBoardStateByExternalId = query({

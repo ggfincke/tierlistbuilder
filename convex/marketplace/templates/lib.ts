@@ -69,6 +69,7 @@ type TemplateCardSource = Pick<
   | 'tags'
   | 'visibility'
   | 'coverMediaAssetId'
+  | 'coverFraming'
   | 'coverItems'
   | 'sizeClass'
   | 'publicationState'
@@ -1112,6 +1113,7 @@ const buildTemplateCardFields = async (
     authorId: template.authorId,
     ...author,
     coverMedia,
+    coverFraming: template.coverFraming ?? null,
     coverItems,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
@@ -1342,6 +1344,7 @@ export const toTemplateCardSummary = async (
     publicationState: card.publicationState,
     author,
     coverMedia,
+    coverFraming: card.coverFraming ?? null,
     coverItems,
     itemAspectRatio: card.itemAspectRatio,
     defaultItemImageFit: card.defaultItemImageFit,
@@ -1392,6 +1395,7 @@ export const toTemplateBase = async (
     publicationState: template.publicationState,
     author,
     coverMedia,
+    coverFraming: template.coverFraming ?? null,
     itemCount: template.itemCount,
     useCount: stats.useCount,
     viewCount: stats.viewCount,
@@ -1474,6 +1478,7 @@ export const toTemplateDraft = async (
     title: template.title,
     category: template.category,
     coverMedia,
+    coverFraming: template.coverFraming ?? null,
     coverItems: coverMedia
       ? []
       : await loadCoverItems(ctx, template, {
@@ -1516,7 +1521,7 @@ export const syncTemplateTagRows = async (
     Doc<'templates'>,
     '_id' | 'tags' | 'category' | 'isPubliclyListable' | 'updatedAt'
   >
-): Promise<void> =>
+): Promise<{ deleted: number; inserted: number }> =>
 {
   const existing = await ctx.db
     .query('templateTags')
@@ -1534,6 +1539,7 @@ export const syncTemplateTagRows = async (
       })
     )
   )
+  return { deleted: existing.length, inserted: template.tags.length }
 }
 
 // patch denormalized fields on every tag row of a template w/o touching the

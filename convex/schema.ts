@@ -19,6 +19,7 @@ import {
   templateCardCoverItemValidator,
   templateCardMediaValidator,
   templateCategoryValidator,
+  templateCoverFramingValidator,
   templateJobStatusValidator,
   templateRankingAggregateJobPhaseValidator,
   templateRankingAggregateJobStatusValidator,
@@ -230,6 +231,10 @@ export default defineSchema({
     tags: v.array(v.string()),
     visibility: templateVisibilityValidator,
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    // per-surface framings of the cover image. absent on rows w/o a cover or
+    // when the author hasn't framed yet — runtime falls back to full-image
+    // object-cover into the surface container
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     coverItems: v.array(
       v.object({
         mediaAssetId: v.id('mediaAssets'),
@@ -291,6 +296,9 @@ export default defineSchema({
     authorImageUrl: v.union(v.string(), v.null()),
     authorAvatarStorageId: v.union(v.id('_storage'), v.null()),
     coverMedia: v.union(templateCardMediaValidator, v.null()),
+    // mirror of templates.coverFraming so gallery cards can apply per-surface
+    // crops without a parent-table read
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     coverItems: v.array(templateCardCoverItemValidator),
     // mirror of templates.itemAspectRatio so gallery cards can frame cover
     // tiles identically to the detail item grid w/o a parent-table read
@@ -366,9 +374,7 @@ export default defineSchema({
     viewCount: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  })
-    .index('byTemplateDay', ['templateId', 'dayStartAt'])
-    .index('byDayTemplate', ['dayStartAt', 'templateId']),
+  }).index('byTemplateDay', ['templateId', 'dayStartAt']),
 
   marketplaceStats: defineTable({
     key: v.string(),
@@ -420,7 +426,6 @@ export default defineSchema({
     canceledAt: v.union(v.number(), v.null()),
   })
     .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
-    .index('byTargetTemplate', ['targetTemplateId'])
     .index('bySourceBoardStatus', ['sourceBoardId', 'status']),
 
   templateCloneJobs: defineTable({
@@ -440,13 +445,11 @@ export default defineSchema({
     canceledAt: v.union(v.number(), v.null()),
   })
     .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
-    .index('byTargetBoard', ['targetBoardId'])
     .index('byOwnerSourceTemplateStatus', [
       'ownerId',
       'sourceTemplateId',
       'status',
-    ])
-    .index('bySourceTemplateStatus', ['sourceTemplateId', 'status']),
+    ]),
 
   // immutable-ish template item rows. rankings clone these into boardItems
   // as unranked entries, preserving templateItemId for future aggregation
@@ -553,7 +556,6 @@ export default defineSchema({
     transform: v.union(itemTransformValidator, v.null()),
   })
     .index('byRanking', ['rankingId', 'order'])
-    .index('byTemplateItem', ['templateItemId'])
     .index('byMedia', ['mediaAssetId']),
 
   templateRankingAggregates: defineTable({
@@ -567,9 +569,7 @@ export default defineSchema({
     staleAt: v.union(v.number(), v.null()),
     bucketSpread: v.array(v.number()),
     updatedAt: v.number(),
-  })
-    .index('byTemplateId', ['templateId'])
-    .index('byStateAndUpdatedAt', ['state', 'updatedAt']),
+  }).index('byTemplateId', ['templateId']),
 
   templateRankingAggregateItems: defineTable({
     templateId: v.id('templates'),
@@ -776,8 +776,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('byTemplateId', ['templateId'])
-    .index('byTemplateIdAndStatus', ['templateId', 'status'])
-    .index('byStatusAndUpdatedAt', ['status', 'updatedAt']),
+    .index('byTemplateIdAndStatus', ['templateId', 'status']),
 
   userTemplateBookmarks: defineTable({
     userId: v.id('users'),

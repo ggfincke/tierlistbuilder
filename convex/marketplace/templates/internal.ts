@@ -605,11 +605,13 @@ const recomputeTemplateTrendingForCard = async (
       q.eq('templateId', card.templateId).gt('dayStartAt', windowStart - 1)
     )
     .take(TEMPLATE_TRENDING_WINDOW_DAYS)
-  const weeklyUseCount = metricRows.reduce((sum, row) => sum + row.useCount, 0)
-  const weeklyViewCount = metricRows.reduce(
-    (sum, row) => sum + row.viewCount,
-    0
-  )
+  let weeklyUseCount = 0
+  let weeklyViewCount = 0
+  for (const row of metricRows)
+  {
+    weeklyUseCount += row.useCount
+    weeklyViewCount += row.viewCount
+  }
   const trendingScore = calculateTemplateTrendingScore({
     weeklyUseCount,
     weeklyViewCount,
@@ -637,10 +639,15 @@ export const recomputeTemplateTrendingScores = internalMutation({
   ): Promise<{ processed: number; isDone: boolean }> =>
   {
     const now = args.now ?? Date.now()
-    const page = await ctx.db.query('templateCards').paginate({
-      numItems: BATCH_LIMITS.templateTrendingRecompute,
-      cursor: args.cursor,
-    })
+    const page = await ctx.db
+      .query('templateCards')
+      .withIndex('byIsPubliclyListableUpdatedAt', (q) =>
+        q.eq('isPubliclyListable', true)
+      )
+      .paginate({
+        numItems: BATCH_LIMITS.templateTrendingRecompute,
+        cursor: args.cursor,
+      })
 
     await Promise.all(
       page.page.map((card) => recomputeTemplateTrendingForCard(ctx, card, now))

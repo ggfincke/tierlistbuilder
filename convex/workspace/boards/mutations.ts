@@ -1,90 +1,12 @@
 // convex/workspace/boards/mutations.ts
-// board mutations — create, rename, & soft-delete owned boards
+// board mutations: delete, restore, & permanently remove owned boards
 
 import { ConvexError, v } from 'convex/values'
 import { mutation } from '../../_generated/server'
-import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { internal } from '../../_generated/api'
-import { generateBoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { requireCurrentUserId } from '../../lib/auth'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
-import { resolveTemplateProgressState } from '../../lib/templateProgress'
-import { EMPTY_BOARD_LIBRARY_SUMMARY } from './librarySummary'
-import { buildFreshBoardCloudFields } from './cloudFields'
-
-// create a new empty board for the authenticated caller
-export const createBoard = mutation({
-  args: { title: v.string() },
-  returns: v.object({ externalId: v.string() }),
-  handler: async (ctx, args): Promise<{ externalId: string }> =>
-  {
-    const userId = await requireCurrentUserId(ctx)
-    const now = Date.now()
-    const externalId = generateBoardId()
-
-    await ctx.db.insert('boards', {
-      externalId,
-      ownerId: userId,
-      title: normalizeBoardTitle(args.title),
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      revision: 0,
-      sourceTemplateId: null,
-      sourceTemplateCategory: null,
-      sourceTemplateSizeClass: null,
-      ...buildFreshBoardCloudFields(now),
-      activeItemCount: 0,
-      unrankedItemCount: 0,
-      templateProgressState: resolveTemplateProgressState(null, {
-        activeItemCount: 0,
-        unrankedItemCount: 0,
-      }),
-      librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-    })
-
-    return { externalId }
-  },
-})
-
-// rename an existing owned board
-export const updateBoardMeta = mutation({
-  args: {
-    boardExternalId: v.string(),
-    title: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> =>
-  {
-    const userId = await requireCurrentUserId(ctx)
-    const board = await requireBoardOwnershipByExternalId(
-      ctx,
-      args.boardExternalId,
-      userId
-    )
-
-    if (board.deletedAt !== null)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.boardDeleted,
-        message: 'cannot update a deleted board',
-      })
-    }
-
-    if (args.title === undefined)
-    {
-      return null
-    }
-
-    await ctx.db.patch(board._id, {
-      title: normalizeBoardTitle(args.title),
-      updatedAt: Date.now(),
-    })
-
-    return null
-  },
-})
 
 // soft-delete an owned board. idempotent: a second call on an already-deleted
 // row no-ops instead of refreshing the deletedAt stamp, so the retention

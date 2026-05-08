@@ -262,6 +262,23 @@ export const templateCardMediaValidator = v.object({
   ...mediaVariantSummaryValidator.fields,
 })
 
+// source-image rect for a cover surface, normalized to source dimensions.
+// values may sit outside [0, 1] when the user zooms below cover-fit (the
+// renderer letterboxes the overflow w/ --t-media-matte)
+export const coverFrameValidator = v.object({
+  x: v.number(),
+  y: v.number(),
+  width: v.number(),
+  height: v.number(),
+})
+
+// per-surface framings stored on the template & denormalized onto the card
+export const templateCoverFramingValidator = v.object({
+  browseHero: v.union(coverFrameValidator, v.null()),
+  detailHero: v.union(coverFrameValidator, v.null()),
+  card: v.union(coverFrameValidator, v.null()),
+})
+
 export const templateCardCoverItemValidator = v.object({
   media: templateCardMediaValidator,
   label: v.union(v.string(), v.null()),
@@ -623,6 +640,7 @@ const marketplaceTemplateBaseFields = {
   publicationState: templatePublicationStateValidator,
   author: templateAuthorValidator,
   coverMedia: v.union(templateMediaRefValidator, v.null()),
+  coverFraming: v.union(templateCoverFramingValidator, v.null()),
   itemCount: v.number(),
   useCount: v.number(),
   viewCount: v.number(),
@@ -684,6 +702,7 @@ export const marketplaceTemplateDraftTemplateValidator = v.object({
   title: v.string(),
   category: templateCategoryValidator,
   coverMedia: v.union(templateMediaRefValidator, v.null()),
+  coverFraming: v.union(templateCoverFramingValidator, v.null()),
   coverItems: v.array(templateCoverItemValidator),
 })
 

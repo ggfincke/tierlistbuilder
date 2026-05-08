@@ -1,10 +1,12 @@
 // convex/lib/imageValidation.ts
 // image sniffing helpers — detect the real uploaded image type & dimensions
 
+import { ConvexError } from 'convex/values'
 import {
   MAX_IMAGE_DIMENSION,
   type SupportedImageMimeType,
 } from '@tierlistbuilder/contracts/platform/media'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
 export interface ParsedImageMetadata
 {
@@ -55,9 +57,10 @@ const assertDimensions = (width: number, height: number) =>
     height > MAX_IMAGE_DIMENSION
   )
   {
-    throw new Error(
-      `image dimensions out of range: ${width}x${height} exceeds ${MAX_IMAGE_DIMENSION}`
-    )
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.payloadTooLarge,
+      message: `image dimensions out of range: ${width}x${height} exceeds ${MAX_IMAGE_DIMENSION}`,
+    })
   }
 
   return { width, height }
@@ -234,7 +237,10 @@ export const parseUploadedImageMetadata = (
 
   if (!parsed)
   {
-    throw new Error('unsupported or malformed image payload')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'unsupported or malformed image payload',
+    })
   }
 
   return parsed

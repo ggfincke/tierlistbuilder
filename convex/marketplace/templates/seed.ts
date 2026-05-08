@@ -647,46 +647,42 @@ export const recomputeMarketplaceStats = action({
   },
 })
 
-// dev-only — rebuild templateTags rows from current template tags. run after
-// introducing the normalized tag table so tag filtering picks up rows that
-// pre-date the helper hookup
+const RECOMPUTE_BATCH = 100
+
+// dev-only dashboard action support: rebuild normalized templateTags rows.
 export const recomputeTemplateTagsImpl = internalMutation({
-  args: {},
+  args: { cursor: v.union(v.string(), v.null()) },
   returns: v.object({
+    cursor: v.string(),
+    isDone: v.boolean(),
     templatesScanned: v.number(),
     tagsInserted: v.number(),
     tagsDeleted: v.number(),
   }),
   handler: async (
-    ctx
+    ctx,
+    args
   ): Promise<{
+    cursor: string
+    isDone: boolean
     templatesScanned: number
     tagsInserted: number
     tagsDeleted: number
   }> =>
   {
-    const templates = await ctx.db.query('templates').collect()
+    const page = await ctx.db.query('templates').paginate({
+      numItems: RECOMPUTE_BATCH,
+      cursor: args.cursor,
+    })
     const results = await Promise.all(
-      templates.map(async (template) =>
-      {
-        const existing = await ctx.db
-          .query('templateTags')
-          .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-          .collect()
-        await syncTemplateTagRows(ctx, template)
-        return {
-          tagsDeleted: existing.length,
-          tagsInserted: template.tags.length,
-        }
-      })
+      page.page.map((template) => syncTemplateTagRows(ctx, template))
     )
     return {
-      templatesScanned: templates.length,
-      tagsInserted: results.reduce(
-        (sum, result) => sum + result.tagsInserted,
-        0
-      ),
-      tagsDeleted: results.reduce((sum, result) => sum + result.tagsDeleted, 0),
+      cursor: page.continueCursor,
+      isDone: page.isDone,
+      templatesScanned: page.page.length,
+      tagsInserted: results.reduce((sum, result) => sum + result.inserted, 0),
+      tagsDeleted: results.reduce((sum, result) => sum + result.deleted, 0),
     }
   },
 })
@@ -708,18 +704,35 @@ export const recomputeTemplateTags = action({
   }> =>
   {
     requireSeedAuthorized(args.seedSecret)
-    return await ctx.runMutation(
-      internal.marketplace.templates.seed.recomputeTemplateTagsImpl,
-      {}
-    )
+    let cursor: string | null = null
+    let templatesScanned = 0
+    let tagsInserted = 0
+    let tagsDeleted = 0
+    while (true)
+    {
+      const result: {
+        cursor: string
+        isDone: boolean
+        templatesScanned: number
+        tagsInserted: number
+        tagsDeleted: number
+      } = await ctx.runMutation(
+        internal.marketplace.templates.seed.recomputeTemplateTagsImpl,
+        { cursor }
+      )
+      templatesScanned += result.templatesScanned
+      tagsInserted += result.tagsInserted
+      tagsDeleted += result.tagsDeleted
+      if (result.isDone) break
+      cursor = result.cursor
+    }
+    return { templatesScanned, tagsInserted, tagsDeleted }
   },
 })
 
 // dev-only — rebuild templateCards rows for every template; delete stale
 // rows whose template was removed. paginated through two phases so a large
 // dev dataset doesn't trip the 4096-read mutation cap.
-const RECOMPUTE_BATCH = 100
-
 const recomputePhaseValidator = v.union(
   v.literal('cleanStaleCards'),
   v.literal('syncCards')
