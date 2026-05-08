@@ -1,39 +1,49 @@
 // src/features/marketplace/components/CoverImageInput.tsx
-// optional cover-image picker for the publish modal — file input + preview;
-// no file -> server defaults to a mosaic of items
+// optional cover-image picker for the publish modal — gates picks through
+// CoverImageEditor & emits {file, framing} once the author applies
 
-import { ImagePlus, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { Crop, ImagePlus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   MAX_IMAGE_BYTE_SIZE,
   SUPPORTED_IMAGE_MIME_TYPES,
 } from '@tierlistbuilder/contracts/platform/media'
+import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/marketplace/template'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
+
+import { CoverImageEditor } from './CoverImageEditor'
+
+export interface CoverImageInputValue
+{
+  file: File
+  framing: TemplateCoverFraming
+}
 
 interface CoverImageInputProps
 {
-  file: File | null
-  onChange: (next: File | null) => void
+  value: CoverImageInputValue | null
+  onChange: (next: CoverImageInputValue | null) => void
   onValidationError: (message: string | null) => void
 }
 
 const MIME_ACCEPT = SUPPORTED_IMAGE_MIME_TYPES.join(',')
 
 export const CoverImageInput = ({
-  file,
+  value,
   onChange,
   onValidationError,
 }: CoverImageInputProps) =>
 {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+
+  const previewFile = value?.file ?? null
   const previewUrl = useMemo(
-    () => (file ? URL.createObjectURL(file) : null),
-    [file]
+    () => (previewFile ? URL.createObjectURL(previewFile) : null),
+    [previewFile]
   )
 
-  // revoke the blob URL when the file changes or the component unmounts so
-  // we never leak object URLs across rerenders
   useEffect(
     () => () =>
     {
@@ -42,32 +52,73 @@ export const CoverImageInput = ({
     [previewUrl]
   )
 
-  const validateAndSet = (next: File | null) =>
-  {
-    if (!next)
+  const validateAndStage = useCallback(
+    (next: File | null) =>
     {
-      onChange(null)
+      if (!next)
+      {
+        onValidationError(null)
+        return
+      }
+      if (
+        !(SUPPORTED_IMAGE_MIME_TYPES as readonly string[]).includes(next.type)
+      )
+      {
+        onValidationError(
+          `Unsupported image type. Allowed: ${SUPPORTED_IMAGE_MIME_TYPES.join(', ')}`
+        )
+        return
+      }
+      if (next.size > MAX_IMAGE_BYTE_SIZE)
+      {
+        onValidationError(
+          `Image is too large (max ${Math.round(MAX_IMAGE_BYTE_SIZE / 1024 / 1024)}MB).`
+        )
+        return
+      }
       onValidationError(null)
-      return
-    }
-    if (
-      !(SUPPORTED_IMAGE_MIME_TYPES as readonly string[]).includes(next.type)
-    )
+      setPendingFile(next)
+    },
+    [onValidationError]
+  )
+
+  const handlePickerChange = (next: File | null) =>
+  {
+    validateAndStage(next)
+    if (inputRef.current)
     {
-      onValidationError(
-        `Unsupported image type. Allowed: ${SUPPORTED_IMAGE_MIME_TYPES.join(', ')}`
-      )
-      return
+      // reset so re-picking the same file after a cancel still fires onChange
+      inputRef.current.value = ''
     }
-    if (next.size > MAX_IMAGE_BYTE_SIZE)
-    {
-      onValidationError(
-        `Image is too large (max ${Math.round(MAX_IMAGE_BYTE_SIZE / 1024 / 1024)}MB).`
-      )
-      return
-    }
+  }
+
+  const handleEditorApply = (
+    framing: TemplateCoverFraming,
+    file: File | undefined
+  ) =>
+  {
+    const committed = file ?? pendingFile
+    setPendingFile(null)
+    if (!committed) return
+    onChange({ file: committed, framing })
+  }
+
+  const handleEditorCancel = () =>
+  {
+    setPendingFile(null)
+  }
+
+  const handleEditCrop = () =>
+  {
+    if (!value) return
+    setPendingFile(value.file)
+  }
+
+  const handleRemove = () =>
+  {
+    setPendingFile(null)
     onValidationError(null)
-    onChange(next)
+    onChange(null)
   }
 
   return (
@@ -77,9 +128,9 @@ export const CoverImageInput = ({
         type="file"
         accept={MIME_ACCEPT}
         className="hidden"
-        onChange={(e) => validateAndSet(e.target.files?.[0] ?? null)}
+        onChange={(e) => handlePickerChange(e.target.files?.[0] ?? null)}
       />
-      {previewUrl ? (
+      {previewUrl && value ? (
         <div className="relative overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)]">
           <img
             src={previewUrl}
@@ -89,17 +140,23 @@ export const CoverImageInput = ({
           />
           <div className="flex items-center justify-between gap-2 px-3 py-2">
             <span className="truncate text-xs text-[var(--t-text-muted)]">
-              {file?.name}
+              {value.file.name}
             </span>
-            <SecondaryButton
-              type="button"
-              size="sm"
-              tone="destructive"
-              onClick={() => validateAndSet(null)}
-            >
-              <Trash2 className="h-3 w-3" strokeWidth={1.8} />
-              Remove
-            </SecondaryButton>
+            <div className="flex items-center gap-1.5">
+              <SecondaryButton type="button" size="sm" onClick={handleEditCrop}>
+                <Crop className="h-3 w-3" strokeWidth={1.8} />
+                Edit framing
+              </SecondaryButton>
+              <SecondaryButton
+                type="button"
+                size="sm"
+                tone="destructive"
+                onClick={handleRemove}
+              >
+                <Trash2 className="h-3 w-3" strokeWidth={1.8} />
+                Remove
+              </SecondaryButton>
+            </div>
           </div>
         </div>
       ) : (
@@ -114,6 +171,16 @@ export const CoverImageInput = ({
             Optional — defaults to a mosaic of your items
           </span>
         </button>
+      )}
+
+      {pendingFile && (
+        <CoverImageEditor
+          open
+          source={{ kind: 'file', file: pendingFile }}
+          initialFraming={value?.framing ?? null}
+          onCancel={handleEditorCancel}
+          onApply={handleEditorApply}
+        />
       )}
     </div>
   )

@@ -4,6 +4,7 @@
 
 import { useCallback, useState } from 'react'
 
+import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/marketplace/template'
 import { uploadCoverImage } from '~/features/marketplace/data/coverImageUpload'
 import {
   useUpdateMyTemplateMetaMutation,
@@ -15,11 +16,14 @@ import { logger } from '~/shared/lib/logger'
 
 interface UpdateTemplateInput extends Omit<
   UpdateMyTemplateMetaArgs,
-  'coverMediaExternalId'
+  'coverMediaExternalId' | 'coverFraming'
 >
 {
   coverFile: File | null
   removeCover: boolean
+  // undefined keeps the existing framing untouched on the server. pass null to
+  // clear (cover removal already nulls it server-side); pass a value to set
+  coverFraming?: TemplateCoverFraming | null
 }
 
 interface UpdateTemplateAction
@@ -63,6 +67,7 @@ export const useUpdateTemplate = (): UpdateTemplateAction =>
           visibility: input.visibility,
           creditLine: input.creditLine,
           coverMediaExternalId,
+          coverFraming: input.coverFraming,
         })
 
         toast(`Saved "${input.title ?? input.slug}"`, 'success')

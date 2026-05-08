@@ -16,7 +16,16 @@ import {
 } from '~/features/platform/media/uploadsRepository'
 
 const COVER_TILE_MAX_SIZE = 120
-const COVER_PREVIEW_MAX_SIZE = 1280
+// preview is the master image that runtime CSS-crops per-surface from. higher
+// than the legacy 1280 cap so tight per-surface crops still have enough pixels
+// to fill detail-hero & browse-hero containers on retina displays
+const COVER_PREVIEW_MAX_SIZE = 2560
+const COVER_PREVIEW_MIN_SIZE = 1024
+const COVER_PREVIEW_RETRY_SCALE = 0.8
+const COVER_PREVIEW_QUALITY_STEPS = [0.86, 0.76, 0.66] as const
+const COVER_PREVIEW_MIME_TYPES = ['image/webp', 'image/jpeg'] as const
+
+type CanvasImageMimeType = 'image/png' | 'image/webp' | 'image/jpeg'
 
 interface UploadedCoverImage
 {
@@ -58,20 +67,28 @@ const getResizedDimensions = (
   }
 }
 
-const canvasToPngBlob = async (canvas: HTMLCanvasElement): Promise<Blob> =>
+const canvasToBlob = async (
+  canvas: HTMLCanvasElement,
+  mimeType: CanvasImageMimeType,
+  quality?: number
+): Promise<Blob> =>
   new Promise((resolve, reject) =>
   {
-    canvas.toBlob((blob) =>
-    {
-      if (blob) resolve(blob)
-      else reject(new Error('Failed to encode resized image.'))
-    }, 'image/png')
+    canvas.toBlob(
+      (blob) =>
+      {
+        if (blob) resolve(blob)
+        else reject(new Error('Failed to encode resized image.'))
+      },
+      mimeType,
+      quality
+    )
   })
 
-const resizeImageToPngBlob = async (
+const drawResizedImage = (
   source: ImageBitmap,
   maxSize: number
-): Promise<Blob> =>
+): HTMLCanvasElement =>
 {
   const { width, height } = getResizedDimensions(
     source.width,
@@ -89,7 +106,58 @@ const resizeImageToPngBlob = async (
   context.imageSmoothingEnabled = true
   context.imageSmoothingQuality = 'high'
   context.drawImage(source, 0, 0, width, height)
-  return await canvasToPngBlob(canvas)
+  return canvas
+}
+
+const resizeImageToPngBlob = async (
+  source: ImageBitmap,
+  maxSize: number
+): Promise<Blob> =>
+  await canvasToBlob(drawResizedImage(source, maxSize), 'image/png')
+
+const encodePreviewCanvas = async (
+  canvas: HTMLCanvasElement
+): Promise<Blob> =>
+{
+  let latestBlob: Blob | null = null
+  for (const mimeType of COVER_PREVIEW_MIME_TYPES)
+  {
+    for (const quality of COVER_PREVIEW_QUALITY_STEPS)
+    {
+      const blob = await canvasToBlob(canvas, mimeType, quality)
+      if (blob.type !== mimeType)
+      {
+        latestBlob = blob
+        break
+      }
+      latestBlob = blob
+      if (blob.size <= MAX_IMAGE_BYTE_SIZE) return blob
+    }
+  }
+  if (latestBlob) return latestBlob
+  return await canvasToBlob(
+    canvas,
+    'image/jpeg',
+    COVER_PREVIEW_QUALITY_STEPS[0]
+  )
+}
+
+const resizeImageToPreviewBlob = async (source: ImageBitmap): Promise<Blob> =>
+{
+  let maxSize = COVER_PREVIEW_MAX_SIZE
+  while (true)
+  {
+    const blob = await encodePreviewCanvas(drawResizedImage(source, maxSize))
+    if (blob.size <= MAX_IMAGE_BYTE_SIZE) return blob
+    if (maxSize <= COVER_PREVIEW_MIN_SIZE)
+    {
+      throw new Error('Encoded cover preview exceeds the image size limit.')
+    }
+    maxSize = Math.max(
+      COVER_PREVIEW_MIN_SIZE,
+      Math.floor(maxSize * COVER_PREVIEW_RETRY_SCALE)
+    )
+  }
 }
 
 const prepareCoverVariants = async (
@@ -101,7 +169,7 @@ const prepareCoverVariants = async (
   {
     const [tileBlob, previewBlob] = await Promise.all([
       resizeImageToPngBlob(bitmap, COVER_TILE_MAX_SIZE),
-      resizeImageToPngBlob(bitmap, COVER_PREVIEW_MAX_SIZE),
+      resizeImageToPreviewBlob(bitmap),
     ])
     return [
       { kind: 'tile', blob: tileBlob },

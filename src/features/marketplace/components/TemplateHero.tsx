@@ -210,7 +210,7 @@ export const TemplateHero = ({
               coverItems: template.coverItems,
             }}
             density="hero"
-            wideHeroScale={2.4}
+            surface="detailHero"
           />
 
           {showSpreadChip && spreadCounts && (

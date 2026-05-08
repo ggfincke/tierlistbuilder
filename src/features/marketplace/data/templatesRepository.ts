@@ -12,6 +12,7 @@ import type {
   MarketplaceTemplateManagementListResult,
   MarketplaceTemplatePublishResult,
   MarketplaceTemplateUseResult,
+  TemplateCoverFraming,
   TemplateListSort,
   TemplateUseTierSelection,
   TemplateVisibility,
@@ -97,6 +98,7 @@ export interface PublishFromBoardArgs
   tags: string[]
   visibility: TemplateVisibility
   coverMediaExternalId?: string | null
+  coverFraming?: TemplateCoverFraming | null
   creditLine: string | null
 }
 
@@ -157,6 +159,7 @@ export interface UpdateMyTemplateMetaArgs
   tags?: string[]
   visibility?: TemplateVisibility
   coverMediaExternalId?: string | null
+  coverFraming?: TemplateCoverFraming | null
   creditLine?: string | null
 }
 
