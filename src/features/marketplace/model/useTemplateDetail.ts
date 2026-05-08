@@ -4,8 +4,9 @@
 
 export {
   useTemplateBySlug,
-  useTemplateItems,
   useRelatedTemplates,
+  useTemplateBookmarkState,
+  useToggleTemplateBookmarkMutation,
   useMyTemplateManagementList,
   useUnpublishMyTemplateMutation,
   useRepublishMyTemplateMutation,

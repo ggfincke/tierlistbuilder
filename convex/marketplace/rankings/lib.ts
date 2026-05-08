@@ -10,6 +10,7 @@ import {
   MAX_RANKING_DESCRIPTION_LENGTH,
   MAX_RANKING_LIST_LIMIT,
   MAX_RANKING_TITLE_LENGTH,
+  RANKING_TOP_SCORE_REMIX_WEIGHT,
   generateRankingSlug,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type {
@@ -53,6 +54,11 @@ export const normalizeRankingLimit = (raw: number | undefined): number =>
   if (!Number.isFinite(raw)) return DEFAULT_RANKING_LIST_LIMIT
   return Math.max(1, Math.min(MAX_RANKING_LIST_LIMIT, Math.floor(raw)))
 }
+
+export const rankingTopScore = (
+  ranking: Pick<Doc<'publishedRankings'>, 'viewCount' | 'remixCount'>
+): number =>
+  ranking.viewCount + ranking.remixCount * RANKING_TOP_SCORE_REMIX_WEIGHT
 
 export const allocateRankingSlug = async (ctx: DbCtx): Promise<string> =>
 {
@@ -121,18 +127,15 @@ export const requireOwnedRanking = async (
 
 export const toRankingSummary = async (
   ctx: DbCtx,
-  ranking: Doc<'publishedRankings'>
+  ranking: Doc<'publishedRankings'>,
+  cache = createTemplateProjectionCache()
 ): Promise<MarketplaceRankingSummary> => ({
   slug: ranking.slug,
   title: ranking.title,
   description: ranking.description,
   visibility: ranking.visibility,
   publicationState: ranking.publicationState,
-  author: await toTemplateAuthor(
-    ctx,
-    ranking.ownerId,
-    createTemplateProjectionCache()
-  ),
+  author: await toTemplateAuthor(ctx, ranking.ownerId, cache),
   template: {
     slug: ranking.sourceTemplateSlug,
     title: ranking.sourceTemplateTitle,
@@ -142,6 +145,12 @@ export const toRankingSummary = async (
   tierCount: ranking.tierCount,
   remixCount: ranking.remixCount,
   viewCount: ranking.viewCount,
+  featuredRank:
+    ranking.isFeatured && typeof ranking.featuredRank === 'number'
+      ? ranking.featuredRank
+      : null,
+  featuredBadge:
+    ranking.isFeatured && ranking.featuredBadge ? ranking.featuredBadge : null,
   createdAt: ranking.createdAt,
   updatedAt: ranking.updatedAt,
 })
@@ -187,7 +196,8 @@ const toRankingTier = (
 
 const toRankingItem = async (
   ctx: DbCtx,
-  item: Doc<'publishedRankingItems'>
+  item: Doc<'publishedRankingItems'>,
+  cache = createTemplateProjectionCache()
 ): Promise<MarketplaceRankingItem> => ({
   externalId: item.externalId,
   templateItemExternalId: item.templateItemExternalId,
@@ -196,12 +206,7 @@ const toRankingItem = async (
   backgroundColor: item.backgroundColor,
   altText: item.altText,
   media: item.mediaAssetId
-    ? await toTemplateMediaRef(
-        ctx,
-        item.mediaAssetId,
-        'tile',
-        createTemplateProjectionCache()
-      )
+    ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)
     : null,
   order: item.order,
   aspectRatio: item.aspectRatio,
@@ -214,8 +219,9 @@ export const toRankingDetail = async (
   ranking: Doc<'publishedRankings'>
 ): Promise<MarketplaceRankingDetail> =>
 {
+  const cache = createTemplateProjectionCache()
   const [summary, tiers, items] = await Promise.all([
-    toRankingSummary(ctx, ranking),
+    toRankingSummary(ctx, ranking, cache),
     loadRankingTiers(ctx, ranking._id),
     loadRankingItems(ctx, ranking._id),
   ])
@@ -223,6 +229,8 @@ export const toRankingDetail = async (
   return {
     ...summary,
     tiers: tiers.map(toRankingTier),
-    items: await Promise.all(items.map((item) => toRankingItem(ctx, item))),
+    items: await Promise.all(
+      items.map((item) => toRankingItem(ctx, item, cache))
+    ),
   }
 }

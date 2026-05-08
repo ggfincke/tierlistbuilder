@@ -7,22 +7,20 @@ import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { generateBoardId } from '@tierlistbuilder/contracts/lib/ids'
-import {
-  normalizeBoardTitle,
-  type ImageFit,
-  type ItemTransform,
-} from '@tierlistbuilder/contracts/workspace/board'
-import type {
-  MarketplaceTemplatePublishResult,
-  MarketplaceTemplateUseResult,
-  TemplateUseTierSelection,
-} from '@tierlistbuilder/contracts/marketplace/template'
+import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import {
   ACTIVE_TEMPLATE_JOB_STATUSES,
+  COVER_SURFACES,
   MAX_TEMPLATE_COVER_ITEMS,
   isTemplateSlug,
+  isValidCoverFrame,
+  type CoverFrame,
+  type MarketplaceTemplatePublishResult,
+  type MarketplaceTemplateUseResult,
+  type TemplateCoverFraming,
+  type TemplateUseTierSelection,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { requireCurrentUserId } from '../../lib/auth'
@@ -43,6 +41,7 @@ import {
   marketplaceTemplatePublishResultValidator,
   marketplaceTemplateUseResultValidator,
   templateCategoryValidator,
+  templateCoverFramingValidator,
   templateVisibilityValidator,
   tierPresetTiersValidator,
 } from '../../lib/validators'
@@ -92,13 +91,6 @@ const templateTierSelectionValidator = v.union(
 
 type TemplateTierSelection = TemplateUseTierSelection
 
-const itemTransformOrNull = (
-  transform: ItemTransform | undefined
-): ItemTransform | null => transform ?? null
-
-const imageFitOrNull = (imageFit: ImageFit | undefined): ImageFit | null =>
-  imageFit ?? null
-
 const stringArraysEqual = (
   left: readonly string[],
   right: readonly string[]
@@ -106,16 +98,64 @@ const stringArraysEqual = (
   left.length === right.length &&
   left.every((value, index) => value === right[index])
 
+const coverFramesEqual = (
+  a: CoverFrame | null,
+  b: CoverFrame | null
+): boolean =>
+{
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+  )
+}
+
+const coverFramingsEqual = (
+  a: TemplateCoverFraming | null | undefined,
+  b: TemplateCoverFraming | null | undefined
+): boolean =>
+{
+  const left = a ?? null
+  const right = b ?? null
+  if (left === right) return true
+  if (!left || !right) return false
+  return COVER_SURFACES.every((surface) =>
+    coverFramesEqual(left[surface], right[surface])
+  )
+}
+
+const resolveCoverFraming = (
+  next: TemplateCoverFraming | null | undefined,
+  current: TemplateCoverFraming | null | undefined,
+  coverMediaAssetId: Id<'mediaAssets'> | null
+): TemplateCoverFraming | null =>
+{
+  if (coverMediaAssetId === null) return null
+  const resolved = next === undefined ? (current ?? null) : next
+  if (!resolved) return null
+  for (const surface of COVER_SURFACES)
+  {
+    const frame = resolved[surface]
+    if (frame && !isValidCoverFrame(frame))
+    {
+      failInput(
+        'invalid coverFraming: frames must have finite, positive extents'
+      )
+    }
+  }
+  return resolved
+}
+
 const resolveCoverMediaId = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
   coverMediaExternalId: string | null | undefined,
-  fallbackMediaAssetId: Id<'mediaAssets'> | null
+  currentMediaAssetId: Id<'mediaAssets'> | null
 ): Promise<Id<'mediaAssets'> | null> =>
 {
   if (coverMediaExternalId === undefined)
   {
-    return fallbackMediaAssetId
+    return currentMediaAssetId
   }
   if (coverMediaExternalId === null)
   {
@@ -136,6 +176,25 @@ const resolveCoverMediaId = async (
   }
   return asset._id
 }
+
+type MediaBackedBoardItem = Doc<'boardItems'> & {
+  mediaAssetId: Id<'mediaAssets'>
+}
+
+const isMediaBackedBoardItem = (
+  item: Doc<'boardItems'>
+): item is MediaBackedBoardItem => item.mediaAssetId !== null
+
+const toTemplateCoverItem = (
+  item: MediaBackedBoardItem
+): Doc<'templates'>['coverItems'][number] => ({
+  mediaAssetId: item.mediaAssetId,
+  label: item.label ?? null,
+  backgroundColor: item.backgroundColor ?? null,
+  aspectRatio: item.aspectRatio ?? null,
+  imageFit: item.imageFit ?? null,
+  transform: item.transform ?? null,
+})
 
 const resolveTemplateTiers = async (
   ctx: MutationCtx,
@@ -230,7 +289,6 @@ const loadLargePublishCoverState = async (
   ctx: MutationCtx,
   boardId: Id<'boards'>
 ): Promise<{
-  fallbackCoverMediaId: Id<'mediaAssets'> | null
   coverItems: Doc<'templates'>['coverItems']
 }> =>
 {
@@ -240,23 +298,12 @@ const loadLargePublishCoverState = async (
       q.eq('boardId', boardId).eq('deletedAt', null)
     )
     .take(MAX_STANDARD_CLOUD_BOARD_ITEMS)
-  const mediaBacked = items
-    .filter(
-      (item): item is typeof item & { mediaAssetId: Id<'mediaAssets'> } =>
-        item.mediaAssetId !== null
-    )
-    .slice(0, MAX_TEMPLATE_COVER_ITEMS)
 
   return {
-    fallbackCoverMediaId: mediaBacked[0]?.mediaAssetId ?? null,
-    coverItems: mediaBacked.map((item) => ({
-      mediaAssetId: item.mediaAssetId,
-      label: item.label ?? null,
-      backgroundColor: item.backgroundColor ?? null,
-      aspectRatio: item.aspectRatio ?? null,
-      imageFit: item.imageFit ?? null,
-      transform: item.transform ?? null,
-    })),
+    coverItems: items
+      .filter(isMediaBackedBoardItem)
+      .slice(0, MAX_TEMPLATE_COVER_ITEMS)
+      .map(toTemplateCoverItem),
   }
 }
 
@@ -269,6 +316,7 @@ const queueLargeTemplatePublish = async (
     tags: string[]
     visibility: Doc<'templates'>['visibility']
     coverMediaExternalId: string | null | undefined
+    coverFraming: TemplateCoverFraming | null | undefined
     creditLine: string | null
   },
   userId: Id<'users'>,
@@ -294,7 +342,12 @@ const queueLargeTemplatePublish = async (
     ctx,
     userId,
     args.coverMediaExternalId,
-    coverState.fallbackCoverMediaId
+    null
+  )
+  const coverFraming = resolveCoverFraming(
+    args.coverFraming,
+    null,
+    coverMediaAssetId
   )
 
   const now = Date.now()
@@ -313,6 +366,7 @@ const queueLargeTemplatePublish = async (
     tags: args.tags,
     visibility: args.visibility,
     coverMediaAssetId,
+    coverFraming,
     coverItems: coverState.coverItems,
     suggestedTiers,
     sourceBoardId: board._id,
@@ -434,6 +488,7 @@ export const publishFromBoard = mutation({
     tags: v.array(v.string()),
     visibility: templateVisibilityValidator,
     coverMediaExternalId: v.optional(v.union(v.string(), v.null())),
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     creditLine: v.optional(v.union(v.string(), v.null())),
   },
   returns: marketplaceTemplatePublishResultValidator,
@@ -475,6 +530,7 @@ export const publishFromBoard = mutation({
           tags,
           visibility: args.visibility,
           coverMediaExternalId: args.coverMediaExternalId,
+          coverFraming: args.coverFraming,
           creditLine,
         },
         userId,
@@ -496,28 +552,20 @@ export const publishFromBoard = mutation({
     }
     await assertCanPublishTemplate(ctx, userId, activeItems.length)
 
-    const fallbackCoverMediaId =
-      activeItems.find((item) => item.mediaAssetId !== null)?.mediaAssetId ??
-      null
-    const mediaBackedItems = activeItems
-      .filter(
-        (item): item is typeof item & { mediaAssetId: Id<'mediaAssets'> } =>
-          item.mediaAssetId !== null
-      )
+    const coverItems = activeItems
+      .filter(isMediaBackedBoardItem)
       .slice(0, MAX_TEMPLATE_COVER_ITEMS)
-    const coverItems = mediaBackedItems.map((item) => ({
-      mediaAssetId: item.mediaAssetId,
-      label: item.label ?? null,
-      backgroundColor: item.backgroundColor ?? null,
-      aspectRatio: item.aspectRatio ?? null,
-      imageFit: item.imageFit ?? null,
-      transform: item.transform ?? null,
-    }))
+      .map(toTemplateCoverItem)
     const coverMediaAssetId = await resolveCoverMediaId(
       ctx,
       userId,
       args.coverMediaExternalId,
-      fallbackCoverMediaId
+      null
+    )
+    const coverFraming = resolveCoverFraming(
+      args.coverFraming,
+      null,
+      coverMediaAssetId
     )
     const suggestedTiers = tiersFromBoardRows(serverTiers)
     validateTemplateTiers(suggestedTiers)
@@ -537,6 +585,7 @@ export const publishFromBoard = mutation({
       tags,
       visibility: args.visibility,
       coverMediaAssetId,
+      coverFraming,
       coverItems,
       suggestedTiers,
       sourceBoardId: board._id,
@@ -565,8 +614,8 @@ export const publishFromBoard = mutation({
           mediaAssetId: item.mediaAssetId,
           order,
           aspectRatio: item.aspectRatio ?? null,
-          imageFit: imageFitOrNull(item.imageFit),
-          transform: itemTransformOrNull(item.transform),
+          imageFit: item.imageFit ?? null,
+          transform: item.transform ?? null,
         })
       )
     )
@@ -600,6 +649,7 @@ export const updateMyTemplateMeta = mutation({
     tags: v.optional(v.array(v.string())),
     visibility: v.optional(templateVisibilityValidator),
     coverMediaExternalId: v.optional(v.union(v.string(), v.null())),
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     creditLine: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
@@ -643,8 +693,17 @@ export const updateMyTemplateMeta = mutation({
       args.coverMediaExternalId,
       template.coverMediaAssetId
     )
+    const nextCoverFraming = resolveCoverFraming(
+      args.coverFraming,
+      template.coverFraming,
+      coverMediaAssetId
+    )
 
     const tagsChanged = !stringArraysEqual(template.tags, tags)
+    const framingChanged = !coverFramingsEqual(
+      template.coverFraming,
+      nextCoverFraming
+    )
     const nextPublic = nextTemplateState.isPubliclyListable
     const templateChanged =
       title !== template.title ||
@@ -656,6 +715,7 @@ export const updateMyTemplateMeta = mutation({
       nextTemplateState.publicationState !== template.publicationState ||
       nextPublic !== previousPublic ||
       coverMediaAssetId !== template.coverMediaAssetId ||
+      framingChanged ||
       creditLine !== template.creditLine
     if (!templateChanged) return null
 
@@ -668,6 +728,7 @@ export const updateMyTemplateMeta = mutation({
       visibility: nextVisibility,
       ...nextTemplateState,
       coverMediaAssetId,
+      coverFraming: nextCoverFraming,
       creditLine,
       updatedAt: now,
     }

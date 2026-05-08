@@ -294,6 +294,11 @@ const decodeImageBitmap = async (blob: Blob): Promise<ImageBitmap> =>
   }
 }
 
+// exposed so callers w/o a TierItem hash (cover image editor) can reuse the
+// same decode+canvas+scan pipeline w/o duplicating the ImageBitmap timeout
+export const scanBlobForAutoCrop = (blob: Blob): Promise<AutoCropScan | null> =>
+  runScan(blob)
+
 const runScan = async (blob: Blob): Promise<AutoCropScan | null> =>
 {
   const bitmap = await decodeImageBitmap(blob)

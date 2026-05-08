@@ -1,5 +1,5 @@
 // convex/workspace/tierPresets/mutations.ts
-// tier preset mutations — create, update, delete owned presets. callers supply
+// tier preset mutations: create & delete owned presets. callers supply
 // a pre-generated externalId so local PresetId & cloud externalId stay in sync
 
 import { ConvexError, v } from 'convex/values'
@@ -10,18 +10,16 @@ import {
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
-import {
-  findOwnedTierPresetByExternalId,
-  requireTierPresetOwnershipByExternalId,
-} from '../../lib/permissions'
+import { findOwnedTierPresetByExternalId } from '../../lib/permissions'
 import { tierPresetTiersValidator } from '../../lib/validators'
+import { isUserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 
 // canonical preset externalId guard — must start w/ 'preset-' (client factory
 // generatePresetId). blocks a malicious client from shadowing a 'builtin-*'
 // or some other prefix family
 const validatePresetExternalId = (externalId: string): void =>
 {
-  if (!externalId.startsWith('preset-'))
+  if (!isUserPresetId(externalId))
   {
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.invalidInput,
@@ -72,46 +70,6 @@ export const createTierPreset = mutation({
     })
 
     return { updatedAt: now }
-  },
-})
-
-// update an existing preset's name &/or tier structure. partial — fields
-// the caller omits stay at their current value
-export const updateTierPreset = mutation({
-  args: {
-    presetExternalId: v.string(),
-    name: v.optional(v.string()),
-    tiers: v.optional(tierPresetTiersValidator),
-  },
-  returns: v.object({ updatedAt: v.number() }),
-  handler: async (ctx, args): Promise<{ updatedAt: number }> =>
-  {
-    const userId = await requireCurrentUserId(ctx)
-    validatePresetExternalId(args.presetExternalId)
-    const preset = await requireTierPresetOwnershipByExternalId(
-      ctx,
-      args.presetExternalId,
-      userId
-    )
-
-    const patch: {
-      name?: string
-      tiers?: typeof preset.tiers
-      updatedAt: number
-    } = {
-      updatedAt: Date.now(),
-    }
-    if (args.name !== undefined)
-    {
-      patch.name = normalizeTierPresetName(args.name) || PRESET_NAME_FALLBACK
-    }
-    if (args.tiers !== undefined)
-    {
-      patch.tiers = args.tiers
-    }
-
-    await ctx.db.patch(preset._id, patch)
-    return { updatedAt: patch.updatedAt }
   },
 })
 

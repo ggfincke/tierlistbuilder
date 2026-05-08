@@ -13,7 +13,7 @@ import { RANKINGS_ROUTE_PATH } from '~/shared/routes/pathname'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
 
-export interface PublishRankingInput
+interface PublishRankingInput
 {
   boardExternalId: string
   title: string

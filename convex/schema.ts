@@ -19,8 +19,13 @@ import {
   templateCardCoverItemValidator,
   templateCardMediaValidator,
   templateCategoryValidator,
+  templateCoverFramingValidator,
   templateJobStatusValidator,
+  templateRankingAggregateJobPhaseValidator,
+  templateRankingAggregateJobStatusValidator,
+  templateRankingAggregateStateValidator,
   templatePublicationStateValidator,
+  rankingFeaturedBadgeValidator,
   rankingPublicationStateValidator,
   rankingVisibilityValidator,
   templateSizeClassValidator,
@@ -226,6 +231,10 @@ export default defineSchema({
     tags: v.array(v.string()),
     visibility: templateVisibilityValidator,
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    // per-surface framings of the cover image. absent on rows w/o a cover or
+    // when the author hasn't framed yet — runtime falls back to full-image
+    // object-cover into the surface container
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     coverItems: v.array(
       v.object({
         mediaAssetId: v.id('mediaAssets'),
@@ -287,6 +296,9 @@ export default defineSchema({
     authorImageUrl: v.union(v.string(), v.null()),
     authorAvatarStorageId: v.union(v.id('_storage'), v.null()),
     coverMedia: v.union(templateCardMediaValidator, v.null()),
+    // mirror of templates.coverFraming so gallery cards can apply per-surface
+    // crops without a parent-table read
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     coverItems: v.array(templateCardCoverItemValidator),
     // mirror of templates.itemAspectRatio so gallery cards can frame cover
     // tiles identically to the detail item grid w/o a parent-table read
@@ -362,9 +374,7 @@ export default defineSchema({
     viewCount: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  })
-    .index('byTemplateDay', ['templateId', 'dayStartAt'])
-    .index('byDayTemplate', ['dayStartAt', 'templateId']),
+  }).index('byTemplateDay', ['templateId', 'dayStartAt']),
 
   marketplaceStats: defineTable({
     key: v.string(),
@@ -416,7 +426,6 @@ export default defineSchema({
     canceledAt: v.union(v.number(), v.null()),
   })
     .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
-    .index('byTargetTemplate', ['targetTemplateId'])
     .index('bySourceBoardStatus', ['sourceBoardId', 'status']),
 
   templateCloneJobs: defineTable({
@@ -436,13 +445,11 @@ export default defineSchema({
     canceledAt: v.union(v.number(), v.null()),
   })
     .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
-    .index('byTargetBoard', ['targetBoardId'])
     .index('byOwnerSourceTemplateStatus', [
       'ownerId',
       'sourceTemplateId',
       'status',
-    ])
-    .index('bySourceTemplateStatus', ['sourceTemplateId', 'status']),
+    ]),
 
   // immutable-ish template item rows. rankings clone these into boardItems
   // as unranked entries, preserving templateItemId for future aggregation
@@ -479,15 +486,48 @@ export default defineSchema({
     tierCount: v.number(),
     remixCount: v.number(),
     viewCount: v.number(),
+    topScore: v.number(),
+    isFeatured: v.boolean(),
+    featuredRank: v.union(v.number(), v.null()),
+    featuredBadge: v.union(rankingFeaturedBadgeValidator, v.null()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('bySlug', ['slug'])
     .index('byOwnerUpdatedAt', ['ownerId', 'updatedAt'])
+    .index('bySourceTemplateOwnerPublicationStateUpdatedAt', [
+      'sourceTemplateId',
+      'ownerId',
+      'publicationState',
+      'updatedAt',
+    ])
+    .index('bySourceTemplateOwnerPublicCreatedAt', [
+      'sourceTemplateId',
+      'ownerId',
+      'isPubliclyListable',
+      'createdAt',
+    ])
     .index('bySourceTemplatePublicUpdatedAt', [
       'sourceTemplateId',
       'isPubliclyListable',
       'updatedAt',
+    ])
+    .index('bySourceTemplatePublicTopScoreAndUpdatedAt', [
+      'sourceTemplateId',
+      'isPubliclyListable',
+      'topScore',
+      'updatedAt',
+    ])
+    .index('bySourceTemplatePublicFeaturedRank', [
+      'sourceTemplateId',
+      'isPubliclyListable',
+      'isFeatured',
+      'featuredRank',
+    ])
+    .index('bySourceTemplatePublicCreatedAt', [
+      'sourceTemplateId',
+      'isPubliclyListable',
+      'createdAt',
     ]),
 
   publishedRankingTiers: defineTable({
@@ -516,8 +556,237 @@ export default defineSchema({
     transform: v.union(itemTransformValidator, v.null()),
   })
     .index('byRanking', ['rankingId', 'order'])
-    .index('byTemplateItem', ['templateItemId'])
     .index('byMedia', ['mediaAssetId']),
+
+  templateRankingAggregates: defineTable({
+    templateId: v.id('templates'),
+    state: templateRankingAggregateStateValidator,
+    activeGeneration: v.union(v.number(), v.null()),
+    bucketCount: v.number(),
+    rankingCount: v.number(),
+    itemCount: v.number(),
+    computedAt: v.union(v.number(), v.null()),
+    staleAt: v.union(v.number(), v.null()),
+    bucketSpread: v.array(v.number()),
+    updatedAt: v.number(),
+  }).index('byTemplateId', ['templateId']),
+
+  templateRankingAggregateItems: defineTable({
+    templateId: v.id('templates'),
+    generation: v.number(),
+    templateItemId: v.id('templateItems'),
+    templateItemExternalId: v.string(),
+    label: v.union(v.string(), v.null()),
+    backgroundColor: v.union(v.string(), v.null()),
+    altText: v.union(v.string(), v.null()),
+    mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    order: v.number(),
+    aspectRatio: v.union(v.number(), v.null()),
+    imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+    transform: v.union(itemTransformValidator, v.null()),
+    sampleCount: v.number(),
+    bucketWeightSum: v.number(),
+    bucketSquareSum: v.number(),
+    averageBucket: v.union(v.number(), v.null()),
+    topBucketIndex: v.union(v.number(), v.null()),
+    topBucketShare: v.number(),
+    consensusScore: v.number(),
+    controversyScore: v.number(),
+    averageTopSort: v.number(),
+    averageBottomSort: v.number(),
+    consensusSort: v.number(),
+    controversySort: v.number(),
+    isTopBucket: v.boolean(),
+    isBottomBucket: v.boolean(),
+    isControversial: v.boolean(),
+    searchText: v.string(),
+    distribution: v.array(
+      v.object({
+        bucketIndex: v.number(),
+        count: v.number(),
+      })
+    ),
+    computedAt: v.number(),
+  })
+    .index('byTemplateIdAndOrder', ['templateId', 'order'])
+    .index('byTemplateIdAndGenerationAndOrder', [
+      'templateId',
+      'generation',
+      'order',
+    ])
+    .index('byTemplateIdAndGenerationAndTemplateItemId', [
+      'templateId',
+      'generation',
+      'templateItemId',
+    ])
+    .index('byTemplateIdAndGenerationAndAverageTopSortAndOrder', [
+      'templateId',
+      'generation',
+      'averageTopSort',
+      'order',
+    ])
+    .index('byTemplateIdAndGenerationAndAverageBottomSortAndOrder', [
+      'templateId',
+      'generation',
+      'averageBottomSort',
+      'order',
+    ])
+    .index('byTemplateIdAndGenerationAndConsensusSortAndOrder', [
+      'templateId',
+      'generation',
+      'consensusSort',
+      'order',
+    ])
+    .index('byTemplateIdAndGenerationAndControversySortAndOrder', [
+      'templateId',
+      'generation',
+      'controversySort',
+      'order',
+    ])
+    .index('byTemplateGenerationTopOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'order',
+    ])
+    .index('byTemplateGenerationTopAverageTopOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'averageTopSort',
+      'order',
+    ])
+    .index('byTemplateGenerationTopAverageBottomOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'averageBottomSort',
+      'order',
+    ])
+    .index('byTemplateGenerationTopConsensusOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'consensusSort',
+      'order',
+    ])
+    .index('byTemplateGenerationTopControversyOrder', [
+      'templateId',
+      'generation',
+      'isTopBucket',
+      'controversySort',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomAverageTopOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'averageTopSort',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomAverageBottomOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'averageBottomSort',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomConsensusOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'consensusSort',
+      'order',
+    ])
+    .index('byTemplateGenerationBottomControversyOrder', [
+      'templateId',
+      'generation',
+      'isBottomBucket',
+      'controversySort',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialAverageTopOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'averageTopSort',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialAverageBottomOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'averageBottomSort',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialConsensusOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'consensusSort',
+      'order',
+    ])
+    .index('byTemplateGenerationControversialControversyOrder', [
+      'templateId',
+      'generation',
+      'isControversial',
+      'controversySort',
+      'order',
+    ])
+    .searchIndex('searchByTemplateGeneration', {
+      searchField: 'searchText',
+      filterFields: [
+        'templateId',
+        'generation',
+        'isTopBucket',
+        'isBottomBucket',
+        'isControversial',
+      ],
+    }),
+
+  templateRankingAggregateJobs: defineTable({
+    templateId: v.id('templates'),
+    status: templateRankingAggregateJobStatusValidator,
+    phase: templateRankingAggregateJobPhaseValidator,
+    generation: v.number(),
+    bucketCount: v.number(),
+    itemCount: v.number(),
+    rankingCount: v.number(),
+    publicRankingCount: v.number(),
+    templateCursor: v.union(v.string(), v.null()),
+    rankingCursor: v.union(v.string(), v.null()),
+    rankingScanDone: v.boolean(),
+    activeRankingId: v.union(v.id('publishedRankings'), v.null()),
+    activeRankingItemCursor: v.union(v.string(), v.null()),
+    bucketSpread: v.array(v.number()),
+    restartRequestedAt: v.union(v.number(), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('byTemplateId', ['templateId'])
+    .index('byTemplateIdAndStatus', ['templateId', 'status']),
+
+  userTemplateBookmarks: defineTable({
+    userId: v.id('users'),
+    templateId: v.id('templates'),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('byUserTemplate', ['userId', 'templateId'])
+    .index('byUserCreatedAt', ['userId', 'createdAt'])
+    .index('byTemplateUser', ['templateId', 'userId']),
 
   // short URL indirection for shareable snapshot blobs. slug -> compressed
   // BoardSnapshot bytes in _storage

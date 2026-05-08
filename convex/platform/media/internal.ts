@@ -1,12 +1,13 @@
 // convex/platform/media/internal.ts
 // internal media functions: finalize verified variants & reap unreachable assets
 
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { internal } from '../../_generated/api'
 import { BATCH_LIMITS } from '../../lib/limits'
 import { generateMediaAssetExternalId } from '@tierlistbuilder/contracts/lib/ids'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { deleteStorageSilently } from '../../lib/storage'
 import {
   MAX_MEDIA_VARIANTS_PER_ASSET,
@@ -93,9 +94,10 @@ const normalizeVerifiedVariants = (
 {
   if (variants.length < 1 || variants.length > MAX_MEDIA_VARIANTS_PER_ASSET)
   {
-    throw new Error(
-      `media asset finalization requires 1..${MAX_MEDIA_VARIANTS_PER_ASSET} variants`
-    )
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `media asset finalization requires 1..${MAX_MEDIA_VARIANTS_PER_ASSET} variants`,
+    })
   }
 
   const byKind = new Map<MediaVariantKind, VerifiedVariantArgs>()
@@ -103,7 +105,10 @@ const normalizeVerifiedVariants = (
   {
     if (byKind.has(variant.kind))
     {
-      throw new Error(`duplicate media variant kind: ${variant.kind}`)
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `duplicate media variant kind: ${variant.kind}`,
+      })
     }
     byKind.set(variant.kind, variant)
   }
@@ -111,7 +116,10 @@ const normalizeVerifiedVariants = (
   const tile = byKind.get('tile')
   if (!tile)
   {
-    throw new Error('media asset finalization requires a tile variant')
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'media asset finalization requires a tile variant',
+    })
   }
 
   const normalizedVariants = [...byKind.values()]

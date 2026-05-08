@@ -1,7 +1,7 @@
 // src/features/workspace/settings/model/useAutoCropController.ts
-// auto-crop intent, cancellation, & stale-transform cleanup for ratio prompt
+// auto-crop preview, cancellation, & stale-transform cleanup for ratio prompt
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
@@ -10,7 +10,6 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   areCachedAutoCropsApplied,
-  getAutoCropImageRef,
   type AutoCropTransformEntry,
 } from '~/shared/lib/autoCrop'
 import {
@@ -22,22 +21,11 @@ import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
 
 const DEBUG_TARGET_ID_LIMIT = 20
 
-type AutoCropRunSource = 'manual' | 'intent'
+// `auto` is prompt-open preview only; it must not set manual selection.
+// Manual selection belongs only to a user pressing Auto-crop all.
+// Do not re-add target reruns w/o explicit clarification.
+type AutoCropRunSource = 'auto' | 'manual'
 export type AutoCropClearReason = 'fit' | 'ratio'
-
-interface AutoCropRunSignatureItem
-{
-  id: ItemId
-  hash: string
-  aspectRatio: number | null
-}
-
-interface AutoCropRunSignature
-{
-  boardAspectRatio: number
-  trimSoftShadows: boolean
-  targets: AutoCropRunSignatureItem[]
-}
 
 interface UseAutoCropControllerInput
 {
@@ -54,52 +42,17 @@ interface UseAutoCropControllerInput
 
 interface AutoCropController
 {
+  applied: boolean
   available: boolean
-  honored: boolean
-  intent: boolean
   progress: AutoCropProgress
   run: () => void
-  tearDownIntent: (reason: AutoCropClearReason) => void
+  runAutoDefault: () => void
+  selected: boolean
+  clearPreview: (reason: AutoCropClearReason) => void
 }
 
 const sampleItemIds = (items: readonly TierItem[]): ItemId[] =>
   items.slice(0, DEBUG_TARGET_ID_LIMIT).map((item) => item.id)
-
-const createRunSignature = (
-  targets: readonly TierItem[],
-  boardAspectRatio: number,
-  trimSoftShadows: boolean
-): AutoCropRunSignature => ({
-  boardAspectRatio,
-  trimSoftShadows,
-  targets: targets.map((item) => ({
-    id: item.id,
-    hash: getAutoCropImageRef(item)?.hash ?? '',
-    aspectRatio: item.aspectRatio ?? null,
-  })),
-})
-
-const runSignatureMatches = (
-  signature: AutoCropRunSignature | null,
-  targets: readonly TierItem[],
-  boardAspectRatio: number,
-  trimSoftShadows: boolean
-): boolean =>
-{
-  if (!signature) return false
-  if (signature.boardAspectRatio !== boardAspectRatio) return false
-  if (signature.trimSoftShadows !== trimSoftShadows) return false
-  if (signature.targets.length !== targets.length) return false
-  for (let i = 0; i < targets.length; i++)
-  {
-    const item = targets[i]
-    const signed = signature.targets[i]
-    if (signed.id !== item.id) return false
-    if (signed.hash !== (getAutoCropImageRef(item)?.hash ?? '')) return false
-    if (signed.aspectRatio !== (item.aspectRatio ?? null)) return false
-  }
-  return true
-}
 
 export const useAutoCropController = ({
   boardAspectRatio,
@@ -113,10 +66,10 @@ export const useAutoCropController = ({
   trimSoftShadows,
 }: UseAutoCropControllerInput): AutoCropController =>
 {
-  const [autoCropIntent, setAutoCropIntent] = useState(false)
+  const [manualAutoCropSelected, setManualAutoCropSelected] = useState(false)
+  const [autoCropTouchedPreview, setAutoCropTouchedPreview] = useState(false)
   useAutoCropCacheVersion()
   const autoCropTouchedIdsRef = useRef<Set<ItemId>>(new Set())
-  const lastRunRef = useRef<AutoCropRunSignature | null>(null)
   const {
     abort: abortAutoCrop,
     progress: autoCropProgress,
@@ -126,18 +79,13 @@ export const useAutoCropController = ({
   const autoCropAllApplied =
     !autoCropProgress.running &&
     areCachedAutoCropsApplied(targets, boardAspectRatio, trimSoftShadows)
-  const autoCropHonored = pendingBulkFit === null && autoCropAllApplied
-
-  const lastRunMatches = useCallback(
-    () =>
-      runSignatureMatches(
-        lastRunRef.current,
-        targets,
-        boardAspectRatio,
-        trimSoftShadows
-      ),
-    [boardAspectRatio, targets, trimSoftShadows]
-  )
+  const autoCropApplied = pendingBulkFit === null && autoCropAllApplied
+  const autoCropSelected =
+    pendingBulkFit === null &&
+    (manualAutoCropSelected ||
+      autoCropProgress.running ||
+      autoCropTouchedPreview ||
+      autoCropApplied)
 
   const clearAutoCropTransforms = useCallback(
     (reason: AutoCropClearReason) =>
@@ -149,6 +97,7 @@ export const useAutoCropController = ({
         transform: null,
       }))
       autoCropTouchedIdsRef.current.clear()
+      setAutoCropTouchedPreview(false)
       if (resetEntries.length === 0) return
       logger.info('autoCrop', 'issue modal auto-crop cleared', {
         reason,
@@ -162,12 +111,11 @@ export const useAutoCropController = ({
     [setItemsTransform, targets]
   )
 
-  const tearDownIntent = useCallback(
+  const clearPreview = useCallback(
     (reason: AutoCropClearReason) =>
     {
-      setAutoCropIntent(false)
+      setManualAutoCropSelected(false)
       abortAutoCrop()
-      lastRunRef.current = null
       clearAutoCropTransforms(reason)
     },
     [abortAutoCrop, clearAutoCropTransforms]
@@ -177,13 +125,8 @@ export const useAutoCropController = ({
     async (source: AutoCropRunSource) =>
     {
       if (targets.length === 0 || autoCropProgress.running) return
-      if (source === 'manual') setAutoCropIntent(true)
+      if (source === 'manual') setManualAutoCropSelected(true)
       setPendingBulkFit(null)
-      lastRunRef.current = createRunSignature(
-        targets,
-        boardAspectRatio,
-        trimSoftShadows
-      )
       logger.info('autoCrop', 'issue modal auto-crop started', {
         source,
         boardAspectRatio,
@@ -222,6 +165,7 @@ export const useAutoCropController = ({
       if (entries.length > 0)
       {
         for (const entry of entries) autoCropTouchedIdsRef.current.add(entry.id)
+        setAutoCropTouchedPreview(true)
         setItemsTransform(entries)
       }
     },
@@ -239,55 +183,34 @@ export const useAutoCropController = ({
     ]
   )
 
-  useEffect(() =>
-  {
-    if (!autoCropIntent || autoCropHonored) return
-    if (autoCropProgress.running)
-    {
-      if (!lastRunMatches()) abortAutoCrop()
-      return
-    }
-    if (targets.length === 0 || lastRunMatches()) return
-    let cancelled = false
-    queueMicrotask(() =>
-    {
-      if (!cancelled) void runAutoCropAll('intent')
-    })
-    return () =>
-    {
-      cancelled = true
-    }
-  }, [
-    abortAutoCrop,
-    autoCropHonored,
-    autoCropIntent,
-    autoCropProgress.running,
-    lastRunMatches,
-    runAutoCropAll,
-    targets.length,
-  ])
-
   const run = useCallback(() =>
   {
     void runAutoCropAll('manual')
   }, [runAutoCropAll])
 
+  const runAutoDefault = useCallback(() =>
+  {
+    void runAutoCropAll('auto')
+  }, [runAutoCropAll])
+
   return useMemo(
     () => ({
+      applied: autoCropApplied,
       available: targets.length > 0,
-      honored: autoCropHonored,
-      intent: autoCropIntent,
       progress: autoCropProgress,
       run,
-      tearDownIntent,
+      runAutoDefault,
+      selected: autoCropSelected,
+      clearPreview,
     }),
     [
-      autoCropHonored,
-      autoCropIntent,
+      autoCropApplied,
+      autoCropSelected,
       autoCropProgress,
+      clearPreview,
       run,
+      runAutoDefault,
       targets.length,
-      tearDownIntent,
     ]
   )
 }

@@ -122,6 +122,7 @@ const CardImpl = ({
           template={template}
           density={cfg.density}
           style={coverStyle}
+          surface="card"
           loading={imageLoading}
         />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />

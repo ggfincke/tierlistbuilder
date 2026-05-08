@@ -9,6 +9,7 @@ import {
   CASCADE_DELETE_PAGE_SIZE,
   deleteCascadePageAndSchedule,
 } from '../../lib/cascadeDelete'
+import { deleteTemplateRankingAggregateParentRows } from '../rankings/aggregate'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { LIBRARY_BOARD_COVER_ITEM_LIMIT } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -36,7 +37,12 @@ import {
   writeTemplateCardPreservingCounters,
 } from './lib'
 
-const cascadePhaseValidator = v.union(v.literal('items'), v.literal('tags'))
+const cascadePhaseValidator = v.union(
+  v.literal('items'),
+  v.literal('tags'),
+  v.literal('bookmarks'),
+  v.literal('aggregateItems')
+)
 type CascadePhase = Infer<typeof cascadePhaseValidator>
 
 type TemplateCloneJob = Doc<'templateCloneJobs'>
@@ -465,9 +471,65 @@ export const cascadeDeleteTemplate = internalMutation({
       if (scheduled) return null
     }
 
-    const tagPage = await ctx.db
-      .query('templateTags')
-      .withIndex('byTemplate', (q) => q.eq('templateId', args.templateId))
+    if (phase === 'tags')
+    {
+      const tagPage = await ctx.db
+        .query('templateTags')
+        .withIndex('byTemplate', (q) => q.eq('templateId', args.templateId))
+        .paginate({
+          numItems: CASCADE_DELETE_PAGE_SIZE,
+          cursor: args.cursor ?? null,
+        })
+
+      const scheduled = await deleteCascadePageAndSchedule({
+        ctx,
+        page: tagPage,
+        schedule: async (nextArgs) =>
+          await ctx.scheduler.runAfter(
+            0,
+            internal.marketplace.templates.internal.cascadeDeleteTemplate,
+            nextArgs
+          ),
+        parentKey: 'templateId',
+        parentId: args.templateId,
+        phase: 'tags',
+        nextPhase: 'bookmarks',
+      })
+      if (scheduled) return null
+    }
+
+    if (phase === 'bookmarks')
+    {
+      const bookmarkPage = await ctx.db
+        .query('userTemplateBookmarks')
+        .withIndex('byTemplateUser', (q) => q.eq('templateId', args.templateId))
+        .paginate({
+          numItems: CASCADE_DELETE_PAGE_SIZE,
+          cursor: args.cursor ?? null,
+        })
+
+      const scheduled = await deleteCascadePageAndSchedule({
+        ctx,
+        page: bookmarkPage,
+        schedule: async (nextArgs) =>
+          await ctx.scheduler.runAfter(
+            0,
+            internal.marketplace.templates.internal.cascadeDeleteTemplate,
+            nextArgs
+          ),
+        parentKey: 'templateId',
+        parentId: args.templateId,
+        phase: 'bookmarks',
+        nextPhase: 'aggregateItems',
+      })
+      if (scheduled) return null
+    }
+
+    const aggregatePage = await ctx.db
+      .query('templateRankingAggregateItems')
+      .withIndex('byTemplateIdAndOrder', (q) =>
+        q.eq('templateId', args.templateId)
+      )
       .paginate({
         numItems: CASCADE_DELETE_PAGE_SIZE,
         cursor: args.cursor ?? null,
@@ -475,7 +537,7 @@ export const cascadeDeleteTemplate = internalMutation({
 
     const scheduled = await deleteCascadePageAndSchedule({
       ctx,
-      page: tagPage,
+      page: aggregatePage,
       schedule: async (nextArgs) =>
         await ctx.scheduler.runAfter(
           0,
@@ -484,9 +546,11 @@ export const cascadeDeleteTemplate = internalMutation({
         ),
       parentKey: 'templateId',
       parentId: args.templateId,
-      phase: 'tags',
+      phase: 'aggregateItems',
     })
     if (scheduled) return null
+
+    await deleteTemplateRankingAggregateParentRows(ctx, args.templateId)
 
     return null
   },
@@ -541,11 +605,13 @@ const recomputeTemplateTrendingForCard = async (
       q.eq('templateId', card.templateId).gt('dayStartAt', windowStart - 1)
     )
     .take(TEMPLATE_TRENDING_WINDOW_DAYS)
-  const weeklyUseCount = metricRows.reduce((sum, row) => sum + row.useCount, 0)
-  const weeklyViewCount = metricRows.reduce(
-    (sum, row) => sum + row.viewCount,
-    0
-  )
+  let weeklyUseCount = 0
+  let weeklyViewCount = 0
+  for (const row of metricRows)
+  {
+    weeklyUseCount += row.useCount
+    weeklyViewCount += row.viewCount
+  }
   const trendingScore = calculateTemplateTrendingScore({
     weeklyUseCount,
     weeklyViewCount,
@@ -573,10 +639,15 @@ export const recomputeTemplateTrendingScores = internalMutation({
   ): Promise<{ processed: number; isDone: boolean }> =>
   {
     const now = args.now ?? Date.now()
-    const page = await ctx.db.query('templateCards').paginate({
-      numItems: BATCH_LIMITS.templateTrendingRecompute,
-      cursor: args.cursor,
-    })
+    const page = await ctx.db
+      .query('templateCards')
+      .withIndex('byIsPubliclyListableUpdatedAt', (q) =>
+        q.eq('isPubliclyListable', true)
+      )
+      .paginate({
+        numItems: BATCH_LIMITS.templateTrendingRecompute,
+        cursor: args.cursor,
+      })
 
     await Promise.all(
       page.page.map((card) => recomputeTemplateTrendingForCard(ctx, card, now))

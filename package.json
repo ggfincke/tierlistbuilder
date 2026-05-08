@@ -23,6 +23,8 @@
     "audit:drag": "node scripts/drag-audit.mjs",
     "seed:marketplace": "tsx --env-file-if-exists=.env.local scripts/seed-marketplace-templates.ts",
     "seed:marketplace:reset": "tsx --env-file-if-exists=.env.local scripts/seed-marketplace-templates.ts --reset",
+    "seed:rankings": "tsx --env-file-if-exists=.env.local scripts/seed-community-rankings.ts",
+    "seed:rankings:reset": "tsx --env-file-if-exists=.env.local scripts/seed-community-rankings.ts --reset",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -52,6 +54,7 @@
     "pako": "^2.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-easy-crop": "^5.5.7",
     "react-router-dom": "^6.30.3",
     "tailwindcss": "^4.2.1",
     "zustand": "^5.0.11"

@@ -69,6 +69,7 @@ export const usePublishTemplate = (): PublishTemplateAction =>
           visibility: input.visibility,
           creditLine: input.creditLine,
           coverMediaExternalId,
+          coverFraming: coverMediaExternalId ? input.coverFraming : null,
         })
 
         if (result.status === 'jobQueued')
