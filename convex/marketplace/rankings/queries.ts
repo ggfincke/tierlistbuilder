@@ -45,7 +45,10 @@ import {
   findTemplateBySlug,
   isPublishedTemplateRow,
 } from '../templates/lib'
-import { resolvePrimaryTemplateCriterion } from '../templates/criteria'
+import {
+  resolvePrimaryTemplateCriterion,
+  resolveTemplateCriterionForHistoricalRead,
+} from '../templates/criteria'
 import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT,
   findTemplateRankingAggregate,
@@ -79,6 +82,9 @@ const RANKING_PUBLISH_BLOCK_MESSAGES: Record<
   incomplete:
     'Rank every item from the source template before publishing a ranking.',
   source_template_unpublished: 'The source template is no longer published.',
+  criterion_not_found: 'Ranking criterion not found.',
+  criterion_not_publishable:
+    'This ranking criterion is not available for new rankings.',
 }
 
 const unavailableRankingPublish = (
@@ -124,6 +130,47 @@ const aggregateSortArg = v.optional(templateRankingAggregateItemSortValidator)
 const aggregateBandArg = v.optional(templateRankingAggregateItemBandValidator)
 const rankingSortArg = v.optional(rankingListSortValidator)
 const SEARCH_CURSOR_PREFIX = 'offset:'
+
+const resolveHistoricalCriterionExternalId = (
+  template: Doc<'templates'>,
+  criterionExternalId: string | undefined
+): string | null | undefined =>
+{
+  if (criterionExternalId === undefined) return undefined
+  return (
+    resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
+      ?.externalId ?? null
+  )
+}
+
+const resolveMyRankingCriterionExternalId = (
+  template: Doc<'templates'>,
+  criterionExternalId: string | undefined
+): string | null =>
+{
+  if (criterionExternalId === undefined)
+  {
+    return resolvePrimaryTemplateCriterion(template).externalId
+  }
+  return (
+    resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
+      ?.externalId ?? null
+  )
+}
+
+const criterionPublishBlockReason = (
+  template: Doc<'templates'>,
+  criterionExternalId: string | undefined
+): RankingPublishBlockReason | null =>
+{
+  const criterion =
+    criterionExternalId === undefined
+      ? resolvePrimaryTemplateCriterion(template)
+      : resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
+  if (!criterion) return 'criterion_not_found'
+  if (criterion.status !== 'active') return 'criterion_not_publishable'
+  return null
+}
 
 const normalizeAggregateSearch = (
   raw: string | null | undefined
@@ -323,6 +370,7 @@ const takeRankingsForTemplatePage = async (
   ctx: QueryCtx,
   options: {
     templateId: Id<'templates'>
+    criterionExternalId?: string
     sort: RankingListSort
     cursor: string | null
     numItems: number
@@ -330,8 +378,24 @@ const takeRankingsForTemplatePage = async (
 ) =>
 {
   const pageSize = normalizeRankingLimit(options.numItems)
+  const criterionExternalId = options.criterionExternalId
   if (options.sort === 'featured')
   {
+    if (criterionExternalId !== undefined)
+    {
+      return await ctx.db
+        .query('publishedRankings')
+        .withIndex('bySourceTemplateCriterionPublicFeaturedRank', (q) =>
+          q
+            .eq('sourceTemplateId', options.templateId)
+            .eq('sourceCriterionExternalId', criterionExternalId)
+            .eq('isPubliclyListable', true)
+            .eq('isFeatured', true)
+        )
+        .order('asc')
+        .paginate({ cursor: options.cursor, numItems: pageSize })
+    }
+
     return await ctx.db
       .query('publishedRankings')
       .withIndex('bySourceTemplatePublicFeaturedRank', (q) =>
@@ -345,11 +409,39 @@ const takeRankingsForTemplatePage = async (
   }
   if (options.sort === 'top')
   {
+    if (criterionExternalId !== undefined)
+    {
+      return await ctx.db
+        .query('publishedRankings')
+        .withIndex('bySourceTemplateCriterionPublicTopScoreAndUpdatedAt', (q) =>
+          q
+            .eq('sourceTemplateId', options.templateId)
+            .eq('sourceCriterionExternalId', criterionExternalId)
+            .eq('isPubliclyListable', true)
+        )
+        .order('desc')
+        .paginate({ cursor: options.cursor, numItems: pageSize })
+    }
+
     return await ctx.db
       .query('publishedRankings')
       .withIndex('bySourceTemplatePublicTopScoreAndUpdatedAt', (q) =>
         q
           .eq('sourceTemplateId', options.templateId)
+          .eq('isPubliclyListable', true)
+      )
+      .order('desc')
+      .paginate({ cursor: options.cursor, numItems: pageSize })
+  }
+
+  if (criterionExternalId !== undefined)
+  {
+    return await ctx.db
+      .query('publishedRankings')
+      .withIndex('bySourceTemplateCriterionPublicUpdatedAt', (q) =>
+        q
+          .eq('sourceTemplateId', options.templateId)
+          .eq('sourceCriterionExternalId', criterionExternalId)
           .eq('isPubliclyListable', true)
       )
       .order('desc')
@@ -412,6 +504,7 @@ export const getRankingsForTemplate = query({
     templateSlug: v.string(),
     limit: v.optional(v.number()),
     sort: rankingSortArg,
+    criterionExternalId: v.optional(v.string()),
   },
   returns: marketplaceRankingListResultValidator,
   handler: async (ctx, args): Promise<MarketplaceRankingListResult> =>
@@ -425,9 +518,18 @@ export const getRankingsForTemplate = query({
     {
       return { items: [] }
     }
+    const criterionExternalId = resolveHistoricalCriterionExternalId(
+      template,
+      args.criterionExternalId
+    )
+    if (criterionExternalId === null)
+    {
+      return { items: [] }
+    }
 
     const page = await takeRankingsForTemplatePage(ctx, {
       templateId: template._id,
+      ...(criterionExternalId !== undefined ? { criterionExternalId } : {}),
       sort: args.sort ?? 'recent',
       cursor: null,
       numItems: normalizeRankingLimit(args.limit),
@@ -447,6 +549,7 @@ export const listRankingsForTemplate = query({
     templateSlug: v.string(),
     paginationOpts: paginationOptsValidator,
     sort: rankingSortArg,
+    criterionExternalId: v.optional(v.string()),
   },
   returns: marketplaceRankingPaginatedResultValidator,
   handler: async (ctx, args): Promise<MarketplaceRankingPaginatedResult> =>
@@ -460,9 +563,18 @@ export const listRankingsForTemplate = query({
     {
       return emptyRankingPaginatedResult(args.paginationOpts.cursor)
     }
+    const criterionExternalId = resolveHistoricalCriterionExternalId(
+      template,
+      args.criterionExternalId
+    )
+    if (criterionExternalId === null)
+    {
+      return emptyRankingPaginatedResult(args.paginationOpts.cursor)
+    }
 
     const result = await takeRankingsForTemplatePage(ctx, {
       templateId: template._id,
+      ...(criterionExternalId !== undefined ? { criterionExternalId } : {}),
       sort: args.sort ?? 'recent',
       cursor: args.paginationOpts.cursor,
       numItems: args.paginationOpts.numItems,
@@ -570,7 +682,10 @@ export const listTemplateRankingAggregateItems = query({
 })
 
 export const getMyRankingForTemplate = query({
-  args: { templateSlug: v.string() },
+  args: {
+    templateSlug: v.string(),
+    criterionExternalId: v.optional(v.string()),
+  },
   returns: marketplaceMyRankingForTemplateResultValidator,
   handler: async (
     ctx,
@@ -589,11 +704,18 @@ export const getMyRankingForTemplate = query({
       return emptyMyRankingForTemplateResult()
     }
 
-    const criterion = resolvePrimaryTemplateCriterion(template)
+    const criterionExternalId = resolveMyRankingCriterionExternalId(
+      template,
+      args.criterionExternalId
+    )
+    if (criterionExternalId === null)
+    {
+      return emptyMyRankingForTemplateResult()
+    }
     const ranking = await latestOwnedRankingForTemplate(
       ctx,
       template._id,
-      criterion.externalId,
+      criterionExternalId,
       userId
     )
     if (!ranking)
@@ -651,7 +773,10 @@ export const getMyRankings = query({
 })
 
 export const getBoardRankingPublishAvailability = query({
-  args: { boardExternalId: v.string() },
+  args: {
+    boardExternalId: v.string(),
+    criterionExternalId: v.optional(v.string()),
+  },
   returns: marketplaceRankingPublishAvailabilityValidator,
   handler: async (
     ctx,
@@ -703,6 +828,14 @@ export const getBoardRankingPublishAvailability = query({
         'source_template_unpublished',
         templateCounts
       )
+    }
+    const criterionBlockReason = criterionPublishBlockReason(
+      template,
+      args.criterionExternalId
+    )
+    if (criterionBlockReason)
+    {
+      return unavailableRankingPublish(criterionBlockReason, templateCounts)
     }
     if (board.activeItemCount === 0 || board.unrankedItemCount > 0)
     {

@@ -25,6 +25,8 @@ export const RANKING_PUBLISH_BLOCK_REASONS = [
   'not_template_backed',
   'incomplete',
   'source_template_unpublished',
+  'criterion_not_found',
+  'criterion_not_publishable',
 ] as const
 
 export type RankingPublishBlockReason =
