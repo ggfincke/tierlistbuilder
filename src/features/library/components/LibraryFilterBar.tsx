@@ -16,6 +16,7 @@ import {
   VISIBLE_LIBRARY_BOARD_FILTERS,
   type LibraryStatusCounts,
 } from '~/features/library/lib/sortAndFilter'
+import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 import { DensityToggle } from './DensityToggle'
 
 interface LibraryFilterBarProps
@@ -69,6 +70,11 @@ export const LibraryFilterBar = ({
   counts,
 }: LibraryFilterBarProps) =>
 {
+  const handleSortChange = createTypedSelectChangeHandler(
+    LIBRARY_BOARD_SORTS,
+    onSortChange
+  )
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div
@@ -104,7 +110,7 @@ export const LibraryFilterBar = ({
           <span className="sr-only">Sort lists by</span>
           <select
             value={sort}
-            onChange={(e) => onSortChange(e.target.value as LibraryBoardSort)}
+            onChange={handleSortChange}
             className="focus-custom bg-transparent text-[12px] font-medium text-[var(--t-text)] outline-none"
           >
             {LIBRARY_BOARD_SORTS.map((id) => (

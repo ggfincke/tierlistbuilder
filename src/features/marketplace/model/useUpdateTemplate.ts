@@ -2,7 +2,7 @@
 // orchestrates the template-edit flow — optional cover replacement, server
 // metadata patch, success toast, & callback so callers can refresh
 
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 
 import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/marketplace/template'
 import { uploadCoverImage } from '~/features/marketplace/data/coverImageUpload'
@@ -13,6 +13,7 @@ import {
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
+import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface UpdateTemplateInput extends Omit<
   UpdateMyTemplateMetaArgs,
@@ -36,58 +37,52 @@ interface UpdateTemplateAction
 export const useUpdateTemplate = (): UpdateTemplateAction =>
 {
   const updateMutation = useUpdateMyTemplateMetaMutation()
-  const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  const run = useCallback(
-    async (input: UpdateTemplateInput) =>
+  const update = useCallback(
+    async (input: UpdateTemplateInput): Promise<{ slug: string }> =>
     {
-      if (isPending) return null
-      setIsPending(true)
-      setError(null)
-      try
+      let coverMediaExternalId: string | null | undefined
+      if (input.coverFile)
       {
-        let coverMediaExternalId: string | null | undefined
-        if (input.coverFile)
-        {
-          const uploaded = await uploadCoverImage(input.coverFile)
-          coverMediaExternalId = uploaded.externalId
-        }
-        else if (input.removeCover)
-        {
-          coverMediaExternalId = null
-        }
+        const uploaded = await uploadCoverImage(input.coverFile)
+        coverMediaExternalId = uploaded.externalId
+      }
+      else if (input.removeCover)
+      {
+        coverMediaExternalId = null
+      }
 
-        await updateMutation({
-          slug: input.slug,
-          title: input.title,
-          description: input.description,
-          category: input.category,
-          tags: input.tags,
-          visibility: input.visibility,
-          creditLine: input.creditLine,
-          coverMediaExternalId,
-          coverFraming: input.coverFraming,
-        })
+      await updateMutation({
+        slug: input.slug,
+        title: input.title,
+        description: input.description,
+        category: input.category,
+        tags: input.tags,
+        visibility: input.visibility,
+        creditLine: input.creditLine,
+        coverMediaExternalId,
+        coverFraming: input.coverFraming,
+      })
 
-        toast(`Saved "${input.title ?? input.slug}"`, 'success')
-        return { slug: input.slug }
-      }
-      catch (caught)
-      {
-        logger.error('marketplace', 'updateMyTemplateMeta failed', caught)
-        const message = formatMarketplaceError(caught)
-        setError(message)
-        toast(message, 'error')
-        return null
-      }
-      finally
-      {
-        setIsPending(false)
-      }
+      toast(`Saved "${input.title ?? input.slug}"`, 'success')
+      return { slug: input.slug }
     },
-    [isPending, updateMutation]
+    [updateMutation]
   )
+
+  const onError = useCallback((caught: unknown) =>
+  {
+    logger.error('marketplace', 'updateMyTemplateMeta failed', caught)
+    toast(formatMarketplaceError(caught), 'error')
+  }, [])
+
+  const { run, isPending, error } = useAsyncAction<
+    [UpdateTemplateInput],
+    { slug: string }
+  >(update, {
+    onError,
+    getErrorMessage: formatMarketplaceError,
+  })
 
   return { run, isPending, error }
 }

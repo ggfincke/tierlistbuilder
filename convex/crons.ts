@@ -102,4 +102,12 @@ crons.interval(
   { cursor: null }
 )
 
+crons.interval(
+  'retry stale template ranking aggregate jobs',
+  { hours: 1 },
+  internal.marketplace.rankings.aggregateInternal
+    .retryStaleTemplateRankingAggregateJobs,
+  { cursor: null }
+)
+
 export default crons

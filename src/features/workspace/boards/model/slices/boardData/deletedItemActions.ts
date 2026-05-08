@@ -29,6 +29,7 @@ export const createDeletedItemActions = (
         items: { ...state.items, [item.id]: item },
         unrankedItemIds: [...state.unrankedItemIds, item.id],
         deletedItems: state.deletedItems.filter((entry) => entry.id !== itemId),
+        activeItemCount: state.activeItemCount + 1,
       }
     }),
 

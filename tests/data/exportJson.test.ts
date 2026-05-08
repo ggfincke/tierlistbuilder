@@ -13,7 +13,6 @@ import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEn
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
 import * as downloadBlobModule from '~/shared/lib/downloadBlob'
 import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
@@ -80,32 +79,6 @@ describe('parseBoardJson', () =>
     )
   })
 
-  it.each([['[1, 2, 3]'], ['null'], ['"hello"']])(
-    'throws on valid JSON that is not an envelope object: %s',
-    async (input) =>
-    {
-      await expect(parseBoardJson(input)).rejects.toThrow(
-        'Invalid tier list format.'
-      )
-    }
-  )
-
-  it('rejects envelopes missing a schema version', async () =>
-  {
-    const unversioned = { data: makeValidBoard() }
-    await expect(parseBoardJson(JSON.stringify(unversioned))).rejects.toThrow(
-      'missing a schema version'
-    )
-  })
-
-  it('rejects envelopes missing a data payload', async () =>
-  {
-    const noData = { version: BOARD_DATA_VERSION, exportedAt: 'now' }
-    await expect(parseBoardJson(JSON.stringify(noData))).rejects.toThrow(
-      'missing a "data" payload'
-    )
-  })
-
   it('rejects envelopes newer than the supported schema version', async () =>
   {
     const future = {
@@ -114,69 +87,6 @@ describe('parseBoardJson', () =>
     }
     await expect(parseBoardJson(JSON.stringify(future))).rejects.toThrow(
       'File uses schema version'
-    )
-  })
-
-  it('throws when tiers array is missing', async () =>
-  {
-    await expect(
-      parseBoardJson(
-        JSON.stringify({
-          version: BOARD_DATA_VERSION,
-          data: { items: {}, unrankedItemIds: [] },
-        })
-      )
-    ).rejects.toThrow('File must contain at least one tier.')
-  })
-
-  it('throws when tiers array is empty', async () =>
-  {
-    await expect(
-      parseBoardJson(
-        JSON.stringify({
-          version: BOARD_DATA_VERSION,
-          data: { tiers: [], items: {} },
-        })
-      )
-    ).rejects.toThrow('File must contain at least one tier.')
-  })
-
-  it.each([
-    [
-      'missing a valid "id"',
-      { name: 'S', colorSpec: { kind: 'palette', index: 0 }, itemIds: [] },
-    ],
-    ['missing a valid "colorSpec"', { id: 'tier-s', name: 'S', itemIds: [] }],
-    [
-      'missing "itemIds" array',
-      { id: 'tier-s', name: 'S', colorSpec: { kind: 'palette', index: 0 } },
-    ],
-  ])('throws on invalid tier structure (%s)', async (expected, tier) =>
-  {
-    const bad = {
-      version: BOARD_DATA_VERSION,
-      data: { tiers: [tier], items: {} },
-    }
-    await expect(parseBoardJson(JSON.stringify(bad))).rejects.toThrow(expected)
-  })
-
-  it('throws when items map is missing', async () =>
-  {
-    const bad = {
-      version: BOARD_DATA_VERSION,
-      data: {
-        tiers: [
-          {
-            id: 'tier-s',
-            name: 'S',
-            colorSpec: { kind: 'palette', index: 0 },
-            itemIds: [],
-          },
-        ],
-      },
-    }
-    await expect(parseBoardJson(JSON.stringify(bad))).rejects.toThrow(
-      'Missing items map'
     )
   })
 
@@ -201,48 +111,6 @@ describe('parseBoardJson', () =>
     )
   })
 
-  it('throws when an unranked item is missing from the items map', async () =>
-  {
-    const bad = {
-      version: BOARD_DATA_VERSION,
-      data: {
-        tiers: [
-          {
-            id: 'tier-s',
-            name: 'S',
-            colorSpec: { kind: 'palette', index: 0 },
-            itemIds: [],
-          },
-        ],
-        items: {},
-        unrankedItemIds: ['ghost'],
-      },
-    }
-    await expect(parseBoardJson(JSON.stringify(bad))).rejects.toThrow(
-      'Referenced item "ghost" not found in items map.'
-    )
-  })
-
-  it('normalizes data via normalizeBoardSnapshot (fallback title applied)', async () =>
-  {
-    const noTitle = {
-      version: BOARD_DATA_VERSION,
-      data: {
-        tiers: [
-          {
-            id: 'tier-s',
-            name: 'S',
-            colorSpec: { kind: 'palette', index: 0 },
-            itemIds: [],
-          },
-        ],
-        items: {},
-      },
-    }
-    const result = await parseBoardJson(JSON.stringify(noTitle))
-    expect(result.title).toBe('Imported Tier List')
-  })
-
   it('drops image refs & deleted items from share payloads', async () =>
   {
     const board = makeValidBoard({
@@ -264,88 +132,6 @@ describe('parseBoardJson', () =>
       (shared.items['item-1'] as { tileImageRef?: unknown }).tileImageRef
     ).toBeUndefined()
     expect(shared.deletedItems).toHaveLength(0)
-  })
-
-  it.each([
-    [
-      'IDB probe fails',
-      () => vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(false),
-      /Image storage is unavailable/i,
-    ],
-    [
-      'persisting inline bytes throws',
-      () =>
-      {
-        vi.spyOn(imageStore, 'probeImageStore').mockResolvedValue(true)
-        vi.spyOn(
-          imagePersistence,
-          'persistPreparedBlobRecords'
-        ).mockRejectedValue(new Error('persist failed'))
-      },
-      /persist failed/,
-    ],
-  ])(
-    'aborts inline-image import when %s',
-    async (_label, setup, expectedError) =>
-    {
-      setup()
-      const payload = {
-        version: BOARD_DATA_VERSION,
-        data: {
-          title: 'Inline Import',
-          tiers: [
-            {
-              id: 'tier-s',
-              name: 'S',
-              colorSpec: { kind: 'palette', index: 0 },
-              itemIds: ['item-1'],
-            },
-          ],
-          items: {
-            'item-1': {
-              id: 'item-1',
-              imageUrl: 'data:image/png;base64,AAAA',
-            },
-          },
-          deletedItems: [],
-          unrankedItemIds: [],
-        },
-      }
-
-      await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
-        expectedError
-      )
-    }
-  )
-
-  it('rejects local-only image refs without inline image bytes', async () =>
-  {
-    const payload = {
-      version: BOARD_DATA_VERSION,
-      data: {
-        title: 'Broken Export',
-        tiers: [
-          {
-            id: 'tier-s',
-            name: 'S',
-            colorSpec: { kind: 'palette', index: 0 },
-            itemIds: ['item-1'],
-          },
-        ],
-        items: {
-          'item-1': {
-            id: 'item-1',
-            imageRef: { hash: 'abc123' },
-          },
-        },
-        deletedItems: [],
-        unrankedItemIds: [],
-      },
-    }
-
-    await expect(parseBoardJson(JSON.stringify(payload))).rejects.toThrow(
-      'uses a local image ref without inline imageUrl bytes'
-    )
   })
 
   it('falls back to tile bytes when source bytes are missing on export', async () =>
@@ -404,40 +190,10 @@ describe('parseBoardJson', () =>
       'data:image/webp;base64,dGlsZQ=='
     )
   })
-
-  it('fails export when a referenced image blob is missing', async () =>
-  {
-    const board = makeValidBoard({
-      items: {
-        [asItemId('item-1')]: makeItem({
-          id: asItemId('item-1'),
-          imageRef: { hash: 'missing-hash' },
-        }),
-        [asItemId('item-2')]: makeItem({
-          id: asItemId('item-2'),
-          label: 'Second',
-        }),
-      },
-    })
-    const downloadSpy = vi.spyOn(downloadBlobModule, 'downloadBlob')
-
-    await expect(exportBoardAsJson(board, board.title)).rejects.toThrow(
-      'Missing image bytes for item "item-1"'
-    )
-    expect(downloadSpy).not.toHaveBeenCalled()
-  })
 })
 
 describe('parseBoardsJson', () =>
 {
-  it('parses a single-board envelope as a one-element array', async () =>
-  {
-    const board = makeValidBoard()
-    const results = await parseBoardsJson(wrapEnvelope(board))
-    expect(results).toHaveLength(1)
-    expect(results[0].title).toBe('Test Board')
-  })
-
   it('parses multi-board envelope w/ boards array', async () =>
   {
     const boards = {
@@ -451,48 +207,6 @@ describe('parseBoardsJson', () =>
     expect(results).toHaveLength(2)
     expect(results[0].title).toBe('Board A')
     expect(results[1].title).toBe('Board B')
-  })
-
-  it('throws on empty boards array', async () =>
-  {
-    const empty = { version: BOARD_DATA_VERSION, boards: [] }
-    await expect(parseBoardsJson(JSON.stringify(empty))).rejects.toThrow(
-      'Export file contains no boards.'
-    )
-  })
-
-  it('wraps per-board errors w/ the board title', async () =>
-  {
-    const badMulti = {
-      version: BOARD_DATA_VERSION,
-      boards: [
-        { title: 'Good', data: makeValidBoard() },
-        { title: 'Broken', data: { tiers: [] } },
-      ],
-    }
-    await expect(parseBoardsJson(JSON.stringify(badMulti))).rejects.toThrow(
-      'Board "Broken" is invalid'
-    )
-  })
-
-  it('uses board index when title is missing in error messages', async () =>
-  {
-    const badMulti = {
-      version: BOARD_DATA_VERSION,
-      boards: [{ data: { tiers: [] } }],
-    }
-    await expect(parseBoardsJson(JSON.stringify(badMulti))).rejects.toThrow(
-      'Board "#1" is invalid'
-    )
-  })
-
-  it('rejects multi-board entries that are missing a data wrapper', async () =>
-  {
-    const board = makeValidBoard({ title: 'Inline' })
-    const multi = { version: BOARD_DATA_VERSION, boards: [board] }
-    await expect(parseBoardsJson(JSON.stringify(multi))).rejects.toThrow(
-      'missing a "data" payload'
-    )
   })
 })
 

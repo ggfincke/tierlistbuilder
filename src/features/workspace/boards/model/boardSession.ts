@@ -22,7 +22,6 @@ export {
   persistBoardStateForSync,
   persistBoardSyncState,
   persistBoardSyncStateToStorageOnly,
-  saveActiveBoardSnapshot,
 } from './session/boardSessionPersistence'
 export {
   setBoardDeletedListener,

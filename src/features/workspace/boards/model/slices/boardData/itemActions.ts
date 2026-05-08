@@ -76,6 +76,7 @@ export const createItemActions = (
         ...withUndo(state, {}, label),
         items: nextItems,
         unrankedItemIds: nextUnranked,
+        activeItemCount: state.activeItemCount + newItems.length,
         itemAspectRatio: nextAspectRatio,
       }
     })
@@ -94,6 +95,7 @@ export const createItemActions = (
           [id]: { id, label, backgroundColor },
         },
         unrankedItemIds: [...state.unrankedItemIds, id],
+        activeItemCount: state.activeItemCount + 1,
       }
     }),
 
@@ -175,6 +177,7 @@ export const createItemActions = (
         deletedItems: nextDeleted,
         tiers: state.tiers.map((tier) => ({ ...tier, itemIds: [] })),
         unrankedItemIds: [],
+        activeItemCount: state.activeItemCount - clearedItems.length,
       }
     }),
 

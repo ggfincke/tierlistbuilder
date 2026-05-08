@@ -20,7 +20,7 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import { isSameItemTransform } from '~/shared/lib/imageTransform'
 import {
-  createFitBaselineTransform,
+  createFitBaselineTransformForAspectRatio,
   getDisplayZoomBounds,
   getSavedTransform,
   seedTransform,
@@ -57,9 +57,15 @@ export const useImageEditorTransformDraft = ({
   onCommit,
 }: UseImageEditorTransformDraftInput) =>
 {
+  const itemAspectRatio = item.aspectRatio
   const fitBaseline = useMemo(
-    () => createFitBaselineTransform(item, frameAspectRatio, effectiveFit),
-    [item, frameAspectRatio, effectiveFit]
+    () =>
+      createFitBaselineTransformForAspectRatio(
+        itemAspectRatio,
+        frameAspectRatio,
+        effectiveFit
+      ),
+    [itemAspectRatio, frameAspectRatio, effectiveFit]
   )
   const savedTransform = getSavedTransform(item)
   const hasSavedTransform = !!savedTransform
@@ -215,9 +221,13 @@ export const useImageEditorTransformDraft = ({
 
   const getFitBaselineZoom = useCallback(
     (rotation: ItemRotation) =>
-      createFitBaselineTransform(item, frameAspectRatio, effectiveFit, rotation)
-        .zoom,
-    [item, frameAspectRatio, effectiveFit]
+      createFitBaselineTransformForAspectRatio(
+        itemAspectRatio,
+        frameAspectRatio,
+        effectiveFit,
+        rotation
+      ).zoom,
+    [itemAspectRatio, frameAspectRatio, effectiveFit]
   )
 
   const rotate = useCallback(

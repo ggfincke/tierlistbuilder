@@ -25,7 +25,7 @@ const DEBUG_TARGET_ID_LIMIT = 20
 // Manual selection belongs only to a user pressing Auto-crop all.
 // Do not re-add target reruns w/o explicit clarification.
 type AutoCropRunSource = 'auto' | 'manual'
-export type AutoCropClearReason = 'fit' | 'ratio'
+type AutoCropClearReason = 'fit' | 'ratio'
 
 interface UseAutoCropControllerInput
 {

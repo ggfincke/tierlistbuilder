@@ -18,7 +18,7 @@ import {
 import {
   STORAGE_FULL_MESSAGE,
   STORAGE_SAVE_FAILED_MESSAGE,
-} from '~/shared/lib/storageMetering'
+} from '~/features/workspace/boards/data/local/storageMetering'
 import { collectSnapshotLocalImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
 import { isRecord } from '~/shared/lib/typeGuards'

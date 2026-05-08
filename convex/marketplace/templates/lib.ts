@@ -1009,11 +1009,12 @@ const toAuthorDisplayName = (
 const toTemplateCardMedia = async (
   ctx: DbCtx,
   mediaAssetId: Id<'mediaAssets'> | null,
-  kinds: readonly MediaVariantKind[] = ['tile']
+  kinds: readonly MediaVariantKind[] = ['tile'],
+  cache?: TemplateProjectionCache
 ): Promise<TemplateCardMedia | null> =>
 {
   if (!mediaAssetId) return null
-  const asset = await ctx.db.get(mediaAssetId)
+  const asset = await loadAsset(ctx, mediaAssetId, cache)
   if (!asset)
   {
     return failState(`dangling template media reference: ${mediaAssetId}`)
@@ -1035,14 +1036,20 @@ const toTemplateCardMedia = async (
 
 const toTemplateCardCoverItems = async (
   ctx: DbCtx,
-  template: Pick<TemplateCardSource, 'coverItems'>
+  template: Pick<TemplateCardSource, 'coverItems'>,
+  cache?: TemplateProjectionCache
 ): Promise<Doc<'templateCards'>['coverItems']> =>
 {
   const rows = template.coverItems.slice(0, MAX_TEMPLATE_COVER_ITEMS)
   const items = await Promise.all(
     rows.map(async (item) =>
     {
-      const media = await toTemplateCardMedia(ctx, item.mediaAssetId)
+      const media = await toTemplateCardMedia(
+        ctx,
+        item.mediaAssetId,
+        ['tile'],
+        cache
+      )
       return media
         ? {
             media,
@@ -1094,9 +1101,15 @@ const buildTemplateCardFields = async (
 ): Promise<Omit<Doc<'templateCards'>, '_id' | '_creationTime'>> =>
 {
   const author = await toTemplateCardAuthorFields(ctx, template.authorId)
+  const cache = createTemplateProjectionCache()
   const [coverMedia, coverItems] = await Promise.all([
-    toTemplateCardMedia(ctx, template.coverMediaAssetId, ['preview', 'tile']),
-    toTemplateCardCoverItems(ctx, template),
+    toTemplateCardMedia(
+      ctx,
+      template.coverMediaAssetId,
+      ['preview', 'tile'],
+      cache
+    ),
+    toTemplateCardCoverItems(ctx, template, cache),
   ])
   return {
     templateId: template._id,

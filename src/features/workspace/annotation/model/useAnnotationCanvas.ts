@@ -1,7 +1,7 @@
 // src/features/workspace/annotation/model/useAnnotationCanvas.ts
 // canvas state management for screenshot annotation — strokes, text, & compositing
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import { triggerDownload } from '~/shared/lib/downloadBlob'
 import { toFileBase } from '~/shared/lib/fileName'
@@ -204,13 +204,15 @@ export const useAnnotationCanvas = (
     for (const item of items) drawAnnotationItem(ctx, item)
   }, [])
 
-  // keep the canvas in sync w/ history. driving redraw from an effect avoids
-  // running side-effects inside setState updaters (which StrictMode would
-  // double-invoke, causing double-draws of pending transitions)
-  useEffect(() =>
+  const drawItem = useCallback((item: AnnotationItem) =>
   {
-    redraw(history)
-  }, [history, redraw])
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    drawAnnotationItem(ctx, item)
+  }, [])
 
   // pen tool handlers
   const handlePointerDown = useCallback(
@@ -331,9 +333,10 @@ export const useAnnotationCanvas = (
           fontFamily: pendingText.fontFamily,
         },
       }
+      drawItem(newItem)
       setHistory((prev) => [...prev, newItem])
     },
-    [pendingText]
+    [drawItem, pendingText]
   )
 
   // cancel inline text without committing
@@ -346,15 +349,19 @@ export const useAnnotationCanvas = (
   const undo = useCallback(() =>
   {
     setPendingText(null)
-    setHistory((prev) => prev.slice(0, -1))
-  }, [])
+    if (history.length === 0) return
+    const nextHistory = history.slice(0, -1)
+    setHistory(nextHistory)
+    redraw(nextHistory)
+  }, [history, redraw])
 
-  // clear all annotations — the history-effect handles the canvas clear
   const clearAll = useCallback(() =>
   {
     setPendingText(null)
+    if (history.length === 0) return
     setHistory([])
-  }, [])
+    redraw([])
+  }, [history.length, redraw])
 
   // composite background + annotations & trigger download
   const compositeAndDownload = useCallback(async () =>

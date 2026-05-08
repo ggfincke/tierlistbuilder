@@ -18,5 +18,10 @@ export const useItemPreviewStore = create<ItemPreviewState>((set) => ({
   isOpen: false,
   itemId: null,
   open: (itemId) => set({ isOpen: true, itemId }),
-  close: () => set({ isOpen: false, itemId: null }),
+  close: () =>
+    set((state) =>
+      state.isOpen || state.itemId !== null
+        ? { isOpen: false, itemId: null }
+        : state
+    ),
 }))

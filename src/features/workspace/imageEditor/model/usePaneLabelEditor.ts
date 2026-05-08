@@ -159,7 +159,14 @@ export const usePaneLabelEditor = ({
     {
       const nextDraft: LabelOverlayPlacement = { mode: 'overlay', x, y }
       placementDraftRef.current = { itemId: item.id, draft: nextDraft }
-      setPlacementDraftState({ itemId: item.id, draft: nextDraft })
+      setPlacementDraftState((prev) =>
+        prev.itemId === item.id &&
+        prev.draft?.mode === 'overlay' &&
+        prev.draft.x === x &&
+        prev.draft.y === y
+          ? prev
+          : { itemId: item.id, draft: nextDraft }
+      )
       setLabelDragSnapState((prev) =>
         prev.itemId === item.id &&
         prev.snap.x === snap.x &&

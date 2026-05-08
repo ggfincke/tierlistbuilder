@@ -2,7 +2,10 @@
 // short-link snapshot codec image policy & size guard
 
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
+import {
+  MAX_INFLATED_SNAPSHOT_BYTES,
+  MAX_SNAPSHOT_COMPRESSED_BYTES,
+} from '@tierlistbuilder/contracts/platform/shortLink'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   assertShortLinkSnapshotSize,
@@ -73,5 +76,43 @@ describe('short-link snapshot codec', () =>
     expect(() =>
       assertShortLinkSnapshotSize(MAX_SNAPSHOT_COMPRESSED_BYTES + 1)
     ).toThrow('share snapshot exceeds')
+  })
+
+  it('rejects oversized inline image candidates before data-url encoding', async () =>
+  {
+    const tinyBlob = new Blob(['x'], { type: 'image/png' })
+    vi.spyOn(imageStore, 'getBlobsBatch').mockResolvedValue(
+      new Map([
+        [
+          'img-huge',
+          {
+            hash: 'img-huge',
+            mimeType: tinyBlob.type,
+            byteSize: MAX_INFLATED_SNAPSHOT_BYTES,
+            createdAt: 1,
+            bytes: tinyBlob,
+          },
+        ],
+      ])
+    )
+
+    const board = makeBoardSnapshot({
+      tiers: [
+        makeTier({
+          id: 'tier-s',
+          itemIds: [asItemId('item-1')],
+        }),
+      ],
+      items: {
+        [asItemId('item-1')]: makeItem({
+          id: asItemId('item-1'),
+          imageRef: { hash: 'img-huge' },
+        }),
+      },
+    })
+
+    await expect(compressShortLinkSnapshotBytes(board)).rejects.toThrow(
+      'preflight cap'
+    )
   })
 })

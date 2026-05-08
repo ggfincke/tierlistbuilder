@@ -27,9 +27,18 @@ export const createLocalSidecar = <T>(
   options: LocalSidecarOptions<T>
 ): LocalSidecar<T> =>
 {
-  const load = (): T =>
+  let hasCachedValue = false
+  let cachedValue: T = options.emptyValue()
+
+  const setCachedValue = (value: T): T =>
   {
-    const raw = readBrowserStorageItem(options.storageKey)
+    cachedValue = value
+    hasCachedValue = true
+    return value
+  }
+
+  const parseStoredValue = (raw: string | null): T =>
+  {
     if (!raw) return options.emptyValue()
     try
     {
@@ -41,17 +50,42 @@ export const createLocalSidecar = <T>(
     }
   }
 
+  if (typeof window !== 'undefined')
+  {
+    window.addEventListener('storage', (event) =>
+    {
+      if (event.key === options.storageKey)
+      {
+        hasCachedValue = false
+      }
+    })
+  }
+
+  const load = (): T =>
+  {
+    if (hasCachedValue) return cachedValue
+    const raw = readBrowserStorageItem(options.storageKey)
+    return setCachedValue(parseStoredValue(raw))
+  }
+
   const save = (value: T): void =>
   {
     if (options.isEmpty(value))
     {
       deleteBrowserStorageItem(options.storageKey)
+      setCachedValue(options.emptyValue())
       return
     }
-    writeBrowserStorageItem(options.storageKey, JSON.stringify(value))
+    const serialized = JSON.stringify(value)
+    writeBrowserStorageItem(options.storageKey, serialized)
+    setCachedValue(options.normalize(JSON.parse(serialized)))
   }
 
-  const clear = (): void => deleteBrowserStorageItem(options.storageKey)
+  const clear = (): void =>
+  {
+    deleteBrowserStorageItem(options.storageKey)
+    setCachedValue(options.emptyValue())
+  }
 
   return { load, save, clear }
 }

@@ -25,7 +25,12 @@ import {
   type AggregateItemFrame,
 } from './AggregateItemThumb'
 import { MiniDistributionBar } from './DistributionBar'
-import { formatPercent, resolveBucketColor } from './utils'
+import {
+  formatPercent,
+  getAggregateItemLabel,
+  getTopBucket,
+  resolveBucketColor,
+} from './utils'
 
 // pin marketplace tile size — large crowds the section, small reads dense
 const CONSENSUS_ITEM_SIZE = 'medium' as const
@@ -97,8 +102,8 @@ const TierItemButton = ({
   yourBucket,
 }: TierItemButtonProps) =>
 {
-  const top = row.topBucketIndex !== null ? buckets[row.topBucketIndex] : null
-  const titleParts = [row.label?.trim() || row.templateItemExternalId]
+  const top = getTopBucket(row, buckets)
+  const titleParts = [getAggregateItemLabel(row)]
   if (top && row.sampleCount > 0)
   {
     titleParts.push(`${formatPercent(row.topBucketShare)} ${top.label}`)
@@ -148,7 +153,7 @@ const TierItemButton = ({
         </span>
       )}
       <span className="pointer-events-none absolute inset-x-0 -bottom-px truncate bg-black/65 px-1 py-0.5 text-center text-[9px] font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-        {row.label?.trim() || row.templateItemExternalId}
+        {getAggregateItemLabel(row)}
       </span>
     </button>
   )

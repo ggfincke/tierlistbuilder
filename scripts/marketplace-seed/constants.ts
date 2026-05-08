@@ -14,7 +14,7 @@ import type { FolderMeta } from './types'
 
 const moduleDir = dirname(fileURLToPath(import.meta.url))
 
-export const REPO_ROOT = resolve(moduleDir, '../..')
+const REPO_ROOT = resolve(moduleDir, '../..')
 export const EXAMPLES_DIR = join(REPO_ROOT, 'examples')
 export const SEED_ASSETS_DIR = join(moduleDir, 'assets')
 

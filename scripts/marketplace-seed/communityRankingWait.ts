@@ -9,7 +9,7 @@ import { sleep } from './env'
 const DEFAULT_WAIT_TIMEOUT_MS = 45_000
 const WAIT_INTERVAL_MS = 750
 
-export interface CommunityRankingSeedTargetResult
+interface CommunityRankingSeedTargetResult
 {
   key: 'ssbu' | 'zelda' | 'mcu'
   title: string

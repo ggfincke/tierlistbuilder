@@ -19,6 +19,9 @@ const UPLOAD_INDEX_BY_HASH = 'byHash'
 // on a large board load & stall the main thread
 const IDB_READ_CONCURRENCY = 8
 const LOCAL_IMAGE_GC_GRACE_MS = 7 * 24 * 60 * 60 * 1000
+const MAX_MEMORY_BLOBS = 512
+const MAX_MEMORY_UPLOAD_INDEX = 2_048
+const MAX_MEMORY_BLOB_REFS = 4_096
 
 // persisted blob metadata & bytes
 export interface BlobRecord
@@ -54,6 +57,53 @@ const memoryBlobRefs = new Map<string, BlobRefRecord>()
 
 const uploadIndexKey = (userId: string, hash: string): string =>
   `${userId}|${hash}`
+
+const touchMemoryBlob = (record: BlobRecord): void =>
+{
+  memoryBlobs.delete(record.hash)
+  memoryBlobs.set(record.hash, record)
+}
+
+const touchMemoryUploadIndex = (record: UploadIndexRecord): void =>
+{
+  const key = uploadIndexKey(record.userId, record.hash)
+  memoryUploadIndex.delete(key)
+  memoryUploadIndex.set(key, record)
+}
+
+const pruneOldestMapEntries = <TKey, TValue>(
+  map: Map<TKey, TValue>,
+  maxSize: number,
+  isProtected: (key: TKey, value: TValue) => boolean = () => false
+): void =>
+{
+  if (map.size <= maxSize) return
+
+  for (const [key, value] of map)
+  {
+    if (map.size <= maxSize) return
+    if (isProtected(key, value)) continue
+    map.delete(key)
+  }
+}
+
+const pruneMemoryCaches = (
+  protectedBlobHashes: ReadonlySet<string> = new Set()
+): void =>
+{
+  pruneOldestMapEntries(memoryUploadIndex, MAX_MEMORY_UPLOAD_INDEX)
+  pruneOldestMapEntries(memoryBlobRefs, MAX_MEMORY_BLOB_REFS)
+
+  const referencedBlobHashes = new Set(protectedBlobHashes)
+  for (const ref of memoryBlobRefs.values())
+  {
+    referencedBlobHashes.add(ref.hash)
+  }
+
+  pruneOldestMapEntries(memoryBlobs, MAX_MEMORY_BLOBS, (hash) =>
+    referencedBlobHashes.has(hash)
+  )
+}
 
 const openDatabase = (): Promise<IDBDatabase> =>
 {
@@ -183,6 +233,35 @@ const awaitIndexDeletes = (
       reject(request.error ?? new Error('IndexedDB cursor failed.'))
   })
 
+const replaceIndexRecords = (
+  store: IDBObjectStore,
+  indexName: string,
+  query: IDBValidKey | IDBKeyRange,
+  records: readonly unknown[]
+): Promise<void> =>
+  new Promise((resolve, reject) =>
+  {
+    const request = store.index(indexName).openCursor(query)
+    request.onsuccess = () =>
+    {
+      const cursor = request.result
+      if (cursor)
+      {
+        cursor.delete()
+        cursor.continue()
+        return
+      }
+
+      for (const record of records)
+      {
+        store.put(record)
+      }
+      resolve()
+    }
+    request.onerror = () =>
+      reject(request.error ?? new Error('IndexedDB cursor failed.'))
+  })
+
 const makeBlobRefId = (scope: string, hash: string): string =>
   `${scope}|${hash}`
 
@@ -219,14 +298,17 @@ const fillMemoryFallback = (
 {
   for (const hash of hashes)
   {
-    results.set(hash, memoryBlobs.get(hash) ?? null)
+    const record = memoryBlobs.get(hash) ?? null
+    if (record) touchMemoryBlob(record)
+    results.set(hash, record)
   }
 }
 
 // write a single blob record
 export const putBlob = async (record: BlobRecord): Promise<void> =>
 {
-  memoryBlobs.set(record.hash, record)
+  touchMemoryBlob(record)
+  pruneMemoryCaches(new Set([record.hash]))
   const db = await openDatabaseSafe()
   if (!db)
   {
@@ -251,7 +333,9 @@ export const getBlob = async (hash: string): Promise<BlobRecord | null> =>
   const db = await openDatabaseSafe()
   if (!db)
   {
-    return memoryBlobs.get(hash) ?? null
+    const record = memoryBlobs.get(hash) ?? null
+    if (record) touchMemoryBlob(record)
+    return record
   }
 
   try
@@ -260,12 +344,16 @@ export const getBlob = async (hash: string): Promise<BlobRecord | null> =>
     const result = (await awaitRequest(
       tx.objectStore(BLOBS_STORE).get(hash)
     )) as BlobRecord | undefined
-    return result ?? memoryBlobs.get(hash) ?? null
+    const fallbackRecord = memoryBlobs.get(hash) ?? null
+    if (!result && fallbackRecord) touchMemoryBlob(fallbackRecord)
+    return result ?? fallbackRecord
   }
   catch (error)
   {
     logger.warn('image', `IDB getBlob failed for ${hash}:`, error)
-    return memoryBlobs.get(hash) ?? null
+    const record = memoryBlobs.get(hash) ?? null
+    if (record) touchMemoryBlob(record)
+    return record
   }
 }
 
@@ -281,8 +369,9 @@ export const putBlobs = async (
 
   for (const record of records)
   {
-    memoryBlobs.set(record.hash, record)
+    touchMemoryBlob(record)
   }
+  pruneMemoryCaches(new Set(records.map((record) => record.hash)))
 
   const db = await openDatabaseSafe()
   if (!db)
@@ -340,7 +429,9 @@ export const getBlobsBatch = async (
       const record = (await awaitRequest(store.get(hash))) as
         | BlobRecord
         | undefined
-      results.set(hash, record ?? memoryBlobs.get(hash) ?? null)
+      const fallbackRecord = memoryBlobs.get(hash) ?? null
+      if (!record && fallbackRecord) touchMemoryBlob(fallbackRecord)
+      results.set(hash, record ?? fallbackRecord)
     })
 
     await awaitTransaction(tx)
@@ -374,16 +465,22 @@ export const replaceBlobRefs = async (
 
     const uniqueHashes = [...new Set(hashes)]
     const now = Date.now()
-    for (const hash of uniqueHashes)
+    const nextRefs = uniqueHashes.map(
+      (hash) =>
+        ({
+          id: makeBlobRefId(scope, hash),
+          scope,
+          hash,
+          updatedAt: now,
+        }) satisfies BlobRefRecord
+    )
+
+    for (const ref of nextRefs)
     {
-      const ref = {
-        id: makeBlobRefId(scope, hash),
-        scope,
-        hash,
-        updatedAt: now,
-      } satisfies BlobRefRecord
+      memoryBlobRefs.delete(ref.id)
       memoryBlobRefs.set(ref.id, ref)
     }
+    pruneMemoryCaches(new Set(uniqueHashes))
 
     const db = await openDatabaseSafe()
     if (!db)
@@ -393,33 +490,15 @@ export const replaceBlobRefs = async (
 
     try
     {
-      const deleteTx = db.transaction(BLOB_REFS_STORE, 'readwrite')
-      const deleteDone = awaitTransaction(deleteTx)
-      await awaitIndexDeletes(
-        deleteTx.objectStore(BLOB_REFS_STORE),
+      const tx = db.transaction(BLOB_REFS_STORE, 'readwrite')
+      const done = awaitTransaction(tx)
+      await replaceIndexRecords(
+        tx.objectStore(BLOB_REFS_STORE),
         BLOB_REFS_BY_SCOPE,
-        scope
+        scope,
+        nextRefs
       )
-      await deleteDone
-
-      if (uniqueHashes.length === 0)
-      {
-        return
-      }
-
-      const putTx = db.transaction(BLOB_REFS_STORE, 'readwrite')
-      const putDone = awaitTransaction(putTx)
-      const store = putTx.objectStore(BLOB_REFS_STORE)
-      for (const hash of uniqueHashes)
-      {
-        store.put({
-          id: makeBlobRefId(scope, hash),
-          scope,
-          hash,
-          updatedAt: now,
-        } satisfies BlobRefRecord)
-      }
-      await putDone
+      await done
     }
     catch (error)
     {
@@ -544,16 +623,22 @@ export const pruneUnreferencedBlobs = async (
       options.graceMs
     )
 
-    for (const hash of staleHashes)
+    if (staleHashes.length > 0)
     {
       const tx = db.transaction([BLOBS_STORE, UPLOAD_INDEX_STORE], 'readwrite')
       const done = awaitTransaction(tx)
-      tx.objectStore(BLOBS_STORE).delete(hash)
-      await awaitIndexDeletes(
-        tx.objectStore(UPLOAD_INDEX_STORE),
-        UPLOAD_INDEX_BY_HASH,
-        hash
+
+      const blobsStore = tx.objectStore(BLOBS_STORE)
+      const uploadIndexStore = tx.objectStore(UPLOAD_INDEX_STORE)
+      const uploadIndexDeletes = staleHashes.map((hash) =>
+        awaitIndexDeletes(uploadIndexStore, UPLOAD_INDEX_BY_HASH, hash)
       )
+      for (const hash of staleHashes)
+      {
+        blobsStore.delete(hash)
+      }
+
+      await Promise.all(uploadIndexDeletes)
       await done
     }
 
@@ -578,7 +663,8 @@ export const markUploaded = async (
     hash,
     cloudMediaExternalId,
   } satisfies UploadIndexRecord
-  memoryUploadIndex.set(uploadIndexKey(userId, hash), record)
+  touchMemoryUploadIndex(record)
+  pruneMemoryCaches()
 
   const db = await openDatabaseSafe()
   if (!db)
@@ -615,11 +701,9 @@ export const getUploadStatusBatch = async (
   {
     for (const hash of hashes)
     {
-      results.set(
-        hash,
-        memoryUploadIndex.get(uploadIndexKey(userId, hash))
-          ?.cloudMediaExternalId ?? null
-      )
+      const record = memoryUploadIndex.get(uploadIndexKey(userId, hash))
+      if (record) touchMemoryUploadIndex(record)
+      results.set(hash, record?.cloudMediaExternalId ?? null)
     }
   }
 
@@ -640,11 +724,12 @@ export const getUploadStatusBatch = async (
       const record = (await awaitRequest(store.get([userId, hash]))) as
         | UploadIndexRecord
         | undefined
+      const fallbackRecord = memoryUploadIndex.get(uploadIndexKey(userId, hash))
+      if (!record && fallbackRecord) touchMemoryUploadIndex(fallbackRecord)
       results.set(
         hash,
         record?.cloudMediaExternalId ??
-          memoryUploadIndex.get(uploadIndexKey(userId, hash))
-            ?.cloudMediaExternalId ??
+          fallbackRecord?.cloudMediaExternalId ??
           null
       )
     })

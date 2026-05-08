@@ -2,11 +2,10 @@
 // shared formatters/helpers for the consensus surfaces (toolbar, viz, popover)
 
 import type {
-  MarketplaceTemplateRankingAggregate,
   MarketplaceTemplateRankingAggregateBucket,
+  MarketplaceTemplateRankingAggregateItem,
   TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import { isTemplateRankingAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
 import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
@@ -29,11 +28,6 @@ export type ConsensusVizMode =
   | 'heatmap'
   | 'scatter'
   | 'ranked'
-
-export const isAggregateReady = (
-  aggregate: MarketplaceTemplateRankingAggregate | null | undefined
-): aggregate is MarketplaceTemplateRankingAggregate =>
-  isTemplateRankingAggregateReady(aggregate)
 
 export const templateFrame = (
   template: Pick<
@@ -68,6 +62,59 @@ export const bucketLabel = (
 {
   if (index === null) return '—'
   return buckets[index]?.label ?? `Tier ${index + 1}`
+}
+
+export const getAggregateItemLabel = (
+  row: Pick<
+    MarketplaceTemplateRankingAggregateItem,
+    'label' | 'templateItemExternalId'
+  >
+): string => row.label?.trim() || row.templateItemExternalId
+
+const getBucketAtIndex = (
+  buckets: readonly MarketplaceTemplateRankingAggregateBucket[],
+  index: number | null
+): MarketplaceTemplateRankingAggregateBucket | undefined =>
+  index === null ? undefined : buckets[index]
+
+export const getTopBucket = (
+  row: Pick<MarketplaceTemplateRankingAggregateItem, 'topBucketIndex'>,
+  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
+): MarketplaceTemplateRankingAggregateBucket | undefined =>
+  getBucketAtIndex(buckets, row.topBucketIndex)
+
+export const getAverageBucket = (
+  row: Pick<MarketplaceTemplateRankingAggregateItem, 'averageBucket'>,
+  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
+): MarketplaceTemplateRankingAggregateBucket | undefined =>
+  getBucketAtIndex(
+    buckets,
+    row.averageBucket === null ? null : Math.round(row.averageBucket)
+  )
+
+export const getControversyLabel = (
+  row: Pick<
+    MarketplaceTemplateRankingAggregateItem,
+    'sampleCount' | 'controversyScore'
+  >
+): string =>
+{
+  if (row.sampleCount === 0) return 'No data'
+  if (row.controversyScore < 0.3) return 'Strong consensus'
+  if (row.controversyScore < 0.55) return 'Mixed'
+  return 'Highly divisive'
+}
+
+export const distributionShareByBucket = (
+  row: Pick<MarketplaceTemplateRankingAggregateItem, 'distribution'>
+): Map<number, number> =>
+{
+  const byBucket = new Map<number, number>()
+  for (const cell of row.distribution)
+  {
+    byBucket.set(cell.bucketIndex, cell.share)
+  }
+  return byBucket
 }
 
 export const avatarColor = (slug: string): string =>

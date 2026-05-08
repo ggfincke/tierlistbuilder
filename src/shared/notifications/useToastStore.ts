@@ -45,30 +45,39 @@ export const useToastStore = create<ToastStore>((set) => ({
     const id = generateToastId()
     set((state) =>
     {
+      const shouldTrim = state.toasts.length >= MAX_VISIBLE_TOASTS
       // drop the oldest dismissal timer if we're trimming the queue
-      const overflow = state.toasts.slice(
-        0,
-        Math.max(0, state.toasts.length - (MAX_VISIBLE_TOASTS - 1))
-      )
-      for (const stale of overflow)
+      if (shouldTrim)
       {
-        clearDismissalTimer(stale.id)
+        const overflow = state.toasts.slice(
+          0,
+          state.toasts.length - (MAX_VISIBLE_TOASTS - 1)
+        )
+        for (const stale of overflow)
+        {
+          clearDismissalTimer(stale.id)
+        }
       }
 
+      const visibleToasts = shouldTrim
+        ? state.toasts.slice(-(MAX_VISIBLE_TOASTS - 1))
+        : state.toasts
+
       return {
-        toasts: [
-          ...state.toasts.slice(-(MAX_VISIBLE_TOASTS - 1)),
-          { id, message, type },
-        ],
+        toasts: [...visibleToasts, { id, message, type }],
       }
     })
 
     const handle = window.setTimeout(() =>
     {
       dismissalTimers.delete(id)
-      set((state) => ({
-        toasts: state.toasts.filter((t) => t.id !== id),
-      }))
+      set((state) =>
+      {
+        const nextToasts = state.toasts.filter((t) => t.id !== id)
+        return nextToasts.length === state.toasts.length
+          ? state
+          : { toasts: nextToasts }
+      })
     }, TOAST_DURATION_MS)
 
     dismissalTimers.set(id, handle)
@@ -76,9 +85,13 @@ export const useToastStore = create<ToastStore>((set) => ({
   removeToast: (id) =>
   {
     clearDismissalTimer(id)
-    set((state) => ({
-      toasts: state.toasts.filter((t) => t.id !== id),
-    }))
+    set((state) =>
+    {
+      const nextToasts = state.toasts.filter((t) => t.id !== id)
+      return nextToasts.length === state.toasts.length
+        ? state
+        : { toasts: nextToasts }
+    })
   },
 }))
 

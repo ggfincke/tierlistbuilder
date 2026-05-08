@@ -2,7 +2,7 @@
 // orchestrates the publish-ranking-from-board flow — server publish mutation,
 // success toast, & redirect to the new ranking page
 
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import type { RankingVisibility } from '@tierlistbuilder/contracts/marketplace/ranking'
@@ -12,6 +12,7 @@ import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { RANKINGS_ROUTE_PATH } from '~/shared/routes/pathname'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
+import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface PublishRankingInput
 {
@@ -33,8 +34,38 @@ export const usePublishRanking = (): PublishRankingAction =>
   const session = useAuthSession()
   const publishMutation = usePublishRankingFromBoardMutation()
   const navigate = useNavigate()
-  const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+
+  const publish = useCallback(
+    async (input: PublishRankingInput): Promise<{ slug: string }> =>
+    {
+      const result = await publishMutation({
+        boardExternalId: input.boardExternalId,
+        title: input.title,
+        description: input.description,
+        visibility: input.visibility,
+      })
+      toast(`Published "${input.title}"`, 'success')
+      navigate(`${RANKINGS_ROUTE_PATH}/${result.slug}`)
+      return { slug: result.slug }
+    },
+    [navigate, publishMutation]
+  )
+
+  const onError = useCallback((caught: unknown) =>
+  {
+    logger.error('marketplace', 'publishRankingFromBoard failed', caught)
+    toast(formatMarketplaceError(caught), 'error')
+  }, [])
+
+  const {
+    run: runPublish,
+    isPending,
+    error,
+    setError,
+  } = useAsyncAction<[PublishRankingInput], { slug: string }>(publish, {
+    onError,
+    getErrorMessage: formatMarketplaceError,
+  })
 
   const run = useCallback(
     async (input: PublishRankingInput) =>
@@ -44,36 +75,9 @@ export const usePublishRanking = (): PublishRankingAction =>
         setError('Sign in to publish a ranking.')
         return null
       }
-      if (isPending) return null
-
-      setIsPending(true)
-      setError(null)
-      try
-      {
-        const result = await publishMutation({
-          boardExternalId: input.boardExternalId,
-          title: input.title,
-          description: input.description,
-          visibility: input.visibility,
-        })
-        toast(`Published "${input.title}"`, 'success')
-        navigate(`${RANKINGS_ROUTE_PATH}/${result.slug}`)
-        return { slug: result.slug }
-      }
-      catch (caught)
-      {
-        logger.error('marketplace', 'publishRankingFromBoard failed', caught)
-        const message = formatMarketplaceError(caught)
-        setError(message)
-        toast(message, 'error')
-        return null
-      }
-      finally
-      {
-        setIsPending(false)
-      }
+      return await runPublish(input)
     },
-    [isPending, navigate, publishMutation, session]
+    [runPublish, session.status, setError]
   )
 
   return { run, isPending, error }

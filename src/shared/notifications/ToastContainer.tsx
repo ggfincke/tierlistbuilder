@@ -2,7 +2,6 @@
 // fixed-position toast stack — renders auto-dismissing notification toasts
 
 import { X } from 'lucide-react'
-import { useShallow } from 'zustand/react/shallow'
 
 import { useToastStore, type Toast } from './useToastStore'
 
@@ -14,6 +13,11 @@ const TYPE_CLASSES: Record<Toast['type'], string> = {
     'border-[color-mix(in_srgb,var(--t-destructive)_50%,transparent)] bg-[color-mix(in_srgb,var(--t-destructive)_10%,var(--t-bg-overlay))]',
 }
 
+const dismissToast = (id: string): void =>
+{
+  useToastStore.getState().removeToast(id)
+}
+
 interface ToastContainerProps
 {
   reducedMotion?: boolean
@@ -23,12 +27,7 @@ export const ToastContainer = ({
   reducedMotion = false,
 }: ToastContainerProps = {}) =>
 {
-  const { toasts, removeToast } = useToastStore(
-    useShallow((s) => ({
-      toasts: s.toasts,
-      removeToast: s.removeToast,
-    }))
-  )
+  const toasts = useToastStore((s) => s.toasts)
 
   if (toasts.length === 0) return null
 
@@ -46,7 +45,7 @@ export const ToastContainer = ({
           <span className="text-sm text-[var(--t-text)]">{t.message}</span>
           <button
             type="button"
-            onClick={() => removeToast(t.id)}
+            onClick={() => dismissToast(t.id)}
             className="rounded p-0.5 text-[var(--t-text-faint)] transition-colors hover:text-[var(--t-text)]"
             aria-label="Dismiss"
           >

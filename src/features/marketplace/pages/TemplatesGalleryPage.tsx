@@ -11,7 +11,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import { lazy, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, useLayoutEffect, useRef, useState } from 'react'
 
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
@@ -23,14 +23,14 @@ import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/ca
 import {
   Card,
   type CardFeaturedLabel,
-} from '~/features/marketplace/components/Card'
-import { CategoryChips } from '~/features/marketplace/components/CategoryChips'
-import { CreateTile } from '~/features/marketplace/components/CreateTile'
-import { DraftRail } from '~/features/marketplace/components/DraftRail'
-import { Hero } from '~/features/marketplace/components/Hero'
-import { Rail } from '~/features/marketplace/components/Rail'
-import { RailHeader } from '~/features/marketplace/components/RailHeader'
-import { SearchInput } from '~/features/marketplace/components/SearchInput'
+} from '~/features/marketplace/components/cards/Card'
+import { CategoryChips } from '~/features/marketplace/components/discovery/CategoryChips'
+import { CreateTile } from '~/features/marketplace/components/cards/CreateTile'
+import { DraftRail } from '~/features/marketplace/components/discovery/DraftRail'
+import { Hero } from '~/features/marketplace/components/discovery/Hero'
+import { Rail } from '~/features/marketplace/components/discovery/Rail'
+import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
+import { SearchInput } from '~/features/marketplace/components/discovery/SearchInput'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useGalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
 import { useOpenTemplateDraft } from '~/features/marketplace/model/useOpenTemplateDraft'
@@ -41,8 +41,11 @@ import { formatCount } from '~/shared/catalog/formatters'
 import {
   loadPublishModal,
   preloadPublishModal,
-} from '~/features/marketplace/components/loadPublishModal'
+} from '~/features/marketplace/components/publish/loadPublishModal'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
+import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { SkeletonCard } from '~/shared/ui/Skeleton'
+import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 const PublishModal = lazy(() =>
   loadPublishModal().then((m) => ({
@@ -69,6 +72,27 @@ interface EmptyHintFilters
   category: TemplateCategory | null
 }
 
+interface BrowseHeadingFilters
+{
+  searchDebounced: string
+  tag: string | null
+  category: TemplateCategory | null
+}
+
+const getBrowseHeading = (filters: BrowseHeadingFilters): string =>
+{
+  const parts = [
+    filters.searchDebounced ? `Results for "${filters.searchDebounced}"` : null,
+    filters.tag ? `#${filters.tag}` : null,
+    filters.category ? CATEGORY_META[filters.category].label : null,
+  ].filter((part): part is string => part !== null)
+
+  return parts.length === 0 ? 'Browse everything' : parts.join(' · ')
+}
+
+const formatTemplateResultsCount = (count: number, atLimit: boolean): string =>
+  `${count}${atLimit ? '+' : ''} ${count === 1 ? 'template' : 'templates'}`
+
 const getEmptyGalleryHint = (filters: EmptyHintFilters): string =>
 {
   if (filters.tag)
@@ -86,17 +110,7 @@ const getEmptyGalleryHint = (filters: EmptyHintFilters): string =>
 const GridSkeleton = () => (
   <>
     {Array.from({ length: 7 }).map((_, i) => (
-      <div
-        key={i}
-        aria-hidden="true"
-        className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
-      >
-        <div className="h-40 bg-[rgb(var(--t-overlay)/0.06)]" />
-        <div className="space-y-2 px-3 py-3">
-          <div className="h-3 w-3/4 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
-          <div className="h-2 w-1/2 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-        </div>
-      </div>
+      <SkeletonCard key={i} />
     ))}
   </>
 )
@@ -117,18 +131,11 @@ export const TemplatesGalleryPage = () =>
   })
   const draftAction = useOpenTemplateDraft()
   const [publishOpen, setPublishOpen] = useState(false)
-
-  // keep the document title meaningful for the gallery so deep links / share
-  // previews carry the marketplace context
-  useEffect(() =>
-  {
-    const previous = document.title
-    document.title = 'Templates · TierListBuilder'
-    return () =>
-    {
-      document.title = previous
-    }
-  }, [])
+  useDocumentTitle('Templates · TierListBuilder')
+  const handleSortChange = createTypedSelectChangeHandler(
+    TEMPLATE_LIST_SORTS,
+    filters.setSort
+  )
 
   const heroFeatured = gallery.featured?.[0] ?? null
   const heroSecondary = HERO_SECONDARY_LABELS.flatMap((label, index) =>
@@ -150,27 +157,14 @@ export const TemplatesGalleryPage = () =>
   // tag has narrowed the dataset, so suppress them in those modes & let chips
   // render labels alone
   const showChipCounts = !filters.searchDebounced && !filters.tag
-  const browseHeadingParts: string[] = []
-  if (filters.searchDebounced)
-  {
-    browseHeadingParts.push(`Results for "${filters.searchDebounced}"`)
-  }
-  if (filters.tag) browseHeadingParts.push(`#${filters.tag}`)
-  if (filters.category)
-  {
-    browseHeadingParts.push(CATEGORY_META[filters.category].label)
-  }
-  const browseHeading =
-    browseHeadingParts.length === 0
-      ? 'Browse everything'
-      : browseHeadingParts.join(' · ')
+  const browseHeading = getBrowseHeading(filters)
   // results.length tops out at the page limit. show a "+" suffix so a full
   // page reads as "potentially more" rather than the exact total
   const resultsAtLimit =
     gallery.results !== undefined &&
     gallery.results.length === DEFAULT_TEMPLATE_LIST_LIMIT
   const browseSubhead = gallery.results
-    ? `${gallery.results.length}${resultsAtLimit ? '+' : ''} ${gallery.results.length === 1 ? 'template' : 'templates'}`
+    ? formatTemplateResultsCount(gallery.results.length, resultsAtLimit)
     : 'Loading…'
   const templateCountLabel =
     gallery.templateCount === undefined
@@ -383,9 +377,7 @@ export const TemplatesGalleryPage = () =>
                 // in the displayed value instead of leaving the user's prior
                 // selection visible against an order the query no longer honors
                 value={filters.tag !== null ? 'recent' : filters.sort}
-                onChange={(e) =>
-                  filters.setSort(e.target.value as TemplateListSort)
-                }
+                onChange={handleSortChange}
                 disabled={filters.tag !== null}
                 className="focus-custom bg-transparent text-xs font-medium text-[var(--t-text)] outline-none disabled:cursor-not-allowed"
               >

@@ -22,6 +22,7 @@ import { logger } from '~/shared/lib/logger'
 // extents on each side. mirrors the workspace auto-crop default so cover
 // framings sit consistently w/ board-item auto-crop output
 const COVER_PADDING_FRACTION = 0.02
+const MAX_COVER_SCAN_CACHE_ENTRIES = 128
 
 interface ScanCoverInput
 {
@@ -33,6 +34,28 @@ interface ScanCoverInput
 // in-memory cache keyed by a stable identity (file fingerprint or URL).
 // dedupes re-scans across "Auto-fit" clicks within the same editor session
 const scanCache = new Map<string, AutoCropScan | null>()
+
+const rememberScan = (key: string, scan: AutoCropScan | null): void =>
+{
+  scanCache.delete(key)
+  scanCache.set(key, scan)
+
+  while (scanCache.size > MAX_COVER_SCAN_CACHE_ENTRIES)
+  {
+    const oldestKey = scanCache.keys().next().value
+    if (!oldestKey) break
+    scanCache.delete(oldestKey)
+  }
+}
+
+const readCachedScan = (key: string): AutoCropScan | null | undefined =>
+{
+  if (!scanCache.has(key)) return undefined
+  const scan = scanCache.get(key) ?? null
+  scanCache.delete(key)
+  scanCache.set(key, scan)
+  return scan
+}
 
 const cacheKey = (source: ScanCoverInput['source']): string =>
 {
@@ -67,27 +90,29 @@ export const scanCoverImage = async ({
 }: ScanCoverInput): Promise<AutoCropBBox | null> =>
 {
   const key = cacheKey(source)
-  if (!scanCache.has(key))
+  let scan = readCachedScan(key)
+  if (scan === undefined)
   {
     const blob = await getBlob(source)
     if (!blob)
     {
-      scanCache.set(key, null)
+      scan = null
     }
     else
     {
       try
       {
-        scanCache.set(key, await scanBlobForAutoCrop(blob))
+        scan = await scanBlobForAutoCrop(blob)
       }
       catch (error)
       {
         logger.warn('marketplace', 'cover image scan failed', error)
-        scanCache.set(key, null)
+        scan = null
       }
     }
+    rememberScan(key, scan)
   }
-  const scan = scanCache.get(key) ?? null
+
   return scan ? pickAutoCropBBox(scan, trimSoftShadows) : null
 }
 
@@ -103,7 +128,7 @@ interface BBoxToCoverFrameInput
 // expand the bbox to the surface's locked aspect (grow short axis), center on
 // bbox center. frame may sit outside [0, 1] -> letterboxed at render time
 // (matte from coverFramingPlacement). caller decides any further clamping
-export const bboxToCoverFrame = ({
+const bboxToCoverFrame = ({
   bbox,
   surfaceAspect,
   sourceWidth,

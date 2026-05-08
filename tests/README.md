@@ -13,6 +13,8 @@ We focus on critical pure-function and local persistence behavior:
 - **Import / Export / Sharing**: JSON parsing, multi-board envelopes, hash-share compression, and image byte preservation for JSON export
 - **Images**: content-addressed image store, blob cache lifecycle, and manual crop/transform math
 - **Convex Marketplace**: template publish/use, owner management, trending metrics, ranking publish/remix, and cascade cleanup
+- **Cloud Sync & Merge**: cloud board mapper, scheduler retry/dedupe/rate-limit, first-login push semantics, & per-feature first-login merge invariants (boards, preferences, tier presets)
+- **Contracts**: upload envelope wrap/unwrap binding kind+userId+token (tamper defense)
 - **Shared UI Primitives**: roving selection, nested menus, popup geometry, toolbar placement, and progress normalization
 
 We intentionally do not test every configuration combination, React component rendering, broad DOM-dependent utilities, export rasterization, or routine Zustand wiring.
@@ -37,15 +39,17 @@ tests/
 ├── typeHelpers.ts                   — asInvalid<T> for intentionally malformed inputs
 ├── setup.ts                         — global vitest setup
 ├── board/                           — board snapshot, ops, tier colors, presets
+├── contracts/                       — wire-format guardrails (upload envelope tamper defense)
 ├── convex/                          — Convex backend flows for marketplace, media, sync, auth, and cascades
-├── data/                            — board storage, export JSON, image cache/store
-├── dnd/                             — drag snapshot, DOM capture, pointer, keyboard, layout
+├── data/                            — board storage, export JSON, image cache/store, cloud mapper, image uploader
+├── dnd/                             — drag snapshot, drag-end decisions, pointer, keyboard, layout
 ├── interaction/                     — tab stops, selection navigation, selection state
-├── model/                           — local board session behavior
+├── model/                           — local board session & image editor transform math
 ├── overlay/                         — nested menus, popup/progress/toolbar helpers
+├── platform/                        — cloud sync scheduler, first-login board push, per-feature merge invariants (preferences, tier presets, boards)
 ├── settings/                        — aspect-ratio prompt snapshots & mismatch grouping
-├── sharing/                         — hash-fragment snapshot codec
-└── shared-lib/                      — color, IDs, image transforms, memory storage, async helpers
+├── sharing/                         — hash-fragment & short-link snapshot codecs
+└── shared-lib/                      — color, image transforms, snapshot item collection, auto-crop math
 ```
 
 ## Fixtures
@@ -54,8 +58,6 @@ Shared test data defined in `fixtures.ts`:
 
 | Export                              | Description                                           |
 | ----------------------------------- | ----------------------------------------------------- |
-| `TIER_IDS`                          | Stable tier ID constants                              |
-| `ITEM_IDS`                          | Stable item ID constants                              |
 | `makeContainerSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items     |
 | `makeBoardSnapshot(overrides?)`     | Builds an empty `BoardSnapshot` for focused overrides |
 | `makeTier(overrides?)`              | Builds a `Tier` w/ palette colorSpec defaults         |

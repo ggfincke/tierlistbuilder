@@ -22,6 +22,7 @@ import {
   profileDraftsEqual,
   type ProfileDraft,
 } from '~/features/platform/auth/model/accountProfileDraft'
+import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
@@ -85,10 +86,7 @@ export const AccountProfileSection = ({ user }: AccountProfileSectionProps) =>
     }
     catch (error)
     {
-      toast(
-        error instanceof Error ? error.message : 'Failed to update profile',
-        'error'
-      )
+      toast(formatError(error, 'Failed to update profile'), 'error')
     }
     finally
     {

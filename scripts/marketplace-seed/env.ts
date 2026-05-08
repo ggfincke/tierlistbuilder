@@ -1,7 +1,7 @@
 // scripts/marketplace-seed/env.ts
 // environment & timing helpers for marketplace seed CLIs
 
-export interface SeedEnvironment
+interface SeedEnvironment
 {
   convexUrl: string
   seedSecret: string

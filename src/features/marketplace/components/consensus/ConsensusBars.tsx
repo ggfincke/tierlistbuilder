@@ -15,7 +15,13 @@ import {
   type AggregateItemFrame,
 } from './AggregateItemThumb'
 import { DistributionBar } from './DistributionBar'
-import { bucketLabel, formatPercent, resolveBucketColor } from './utils'
+import {
+  bucketLabel,
+  formatPercent,
+  getAggregateItemLabel,
+  getTopBucket,
+  resolveBucketColor,
+} from './utils'
 
 interface ConsensusBarsProps
 {
@@ -44,8 +50,7 @@ export const ConsensusBars = ({
     <ul className="space-y-2">
       {rows.map((row) =>
       {
-        const top =
-          row.topBucketIndex !== null ? buckets[row.topBucketIndex] : undefined
+        const top = getTopBucket(row, buckets)
         const headline =
           row.sampleCount > 0
             ? `${bucketLabel(buckets, row.topBucketIndex)} · ${formatPercent(
@@ -68,7 +73,7 @@ export const ConsensusBars = ({
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="truncate text-sm font-medium text-[var(--t-text)]">
-                    {row.label?.trim() || row.templateItemExternalId}
+                    {getAggregateItemLabel(row)}
                   </span>
                   <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
                     {formatCount(row.sampleCount)}{' '}

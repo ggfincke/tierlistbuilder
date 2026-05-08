@@ -30,6 +30,12 @@ export const useImageEditorStore = create<ImageEditorState>((set) => ({
       filter: opts?.filter ?? 'all',
       initialItemId: opts?.itemId ?? null,
     }),
-  close: () => set({ isOpen: false, initialItemId: null }),
-  setFilter: (filter) => set({ filter }),
+  close: () =>
+    set((state) =>
+      state.isOpen || state.initialItemId !== null
+        ? { isOpen: false, initialItemId: null }
+        : state
+    ),
+  setFilter: (filter) =>
+    set((state) => (state.filter === filter ? state : { filter })),
 }))

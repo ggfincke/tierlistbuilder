@@ -30,7 +30,7 @@ import { useBoardThemeOverrides } from '~/features/workspace/settings/model/useB
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
-import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
+import { useAboveBreakpoint } from '~/app/shells/useAboveBreakpoint'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
@@ -38,15 +38,7 @@ export const WorkspaceShell = () =>
 {
   const appReady = useAppBootstrap()
   const paletteId = useCurrentPaletteId()
-  const { runtimeError, clearRuntimeError, addTier, resetBoard } =
-    useActiveBoardStore(
-      useShallow((state) => ({
-        runtimeError: state.runtimeError,
-        clearRuntimeError: state.clearRuntimeError,
-        addTier: state.addTier,
-        resetBoard: state.resetBoard,
-      }))
-    )
+  const runtimeError = useActiveBoardStore((state) => state.runtimeError)
   const { toolbarPosition: rawToolbarPosition, reducedMotion } =
     usePreferencesStore(
       useShallow((state) => ({
@@ -84,12 +76,16 @@ export const WorkspaceShell = () =>
   })
 
   const handleAddTier = useCallback(
-    () => addTier(paletteId),
-    [addTier, paletteId]
+    () => useActiveBoardStore.getState().addTier(paletteId),
+    [paletteId]
   )
   const handleResetBoard = useCallback(
-    () => resetBoard(paletteId),
-    [paletteId, resetBoard]
+    () => useActiveBoardStore.getState().resetBoard(paletteId),
+    [paletteId]
+  )
+  const handleClearRuntimeError = useCallback(
+    () => useActiveBoardStore.getState().clearRuntimeError(),
+    []
   )
   const handleOpenSettings = useCallback(
     () => openModal('settings', 'items'),
@@ -121,12 +117,16 @@ export const WorkspaceShell = () =>
   }, [activeBoardId, openModal])
   // mirror the mutation gate before surfacing the ranking publish entry
   const handlePublishRanking =
-    cloudEnabled && activeBoardId && rankingPublishAvailability?.canPublish
+    cloudEnabled &&
+    activeBoardId !== null &&
+    rankingPublishAvailability?.canPublish
       ? handleOpenPublishRanking
-      : null
+      : undefined
   // template publish needs sign-in too; PublishModal itself handles the empty
   // boards list (BoardPicker shows a placeholder + the submit guard catches it)
-  const handlePublishTemplate = cloudEnabled ? handleOpenPublishTemplate : null
+  const handlePublishTemplate = cloudEnabled
+    ? handleOpenPublishTemplate
+    : undefined
   if (!appReady)
   {
     return (
@@ -155,7 +155,7 @@ export const WorkspaceShell = () =>
               <button
                 type="button"
                 className="rounded border border-[color-mix(in_srgb,var(--t-destructive-hover)_60%,transparent)] px-2 py-0.5 text-xs text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]"
-                onClick={clearRuntimeError}
+                onClick={handleClearRuntimeError}
               >
                 Dismiss
               </button>
@@ -168,21 +168,25 @@ export const WorkspaceShell = () =>
                 toolbar={
                   <BoardActionBar
                     toolbarPosition={toolbarPosition}
-                    exportStatus={exportActions.exportStatus}
-                    exportingAll={exportActions.exportAllProgress !== null}
-                    imageFormat={exportActions.imageFormat}
-                    onImageFormatChange={exportActions.setImageFormat}
                     onAddTier={handleAddTier}
                     onOpenSettings={handleOpenSettings}
                     onOpenStats={handleOpenStats}
-                    onExport={exportActions.runExport}
-                    onCopyToClipboard={exportActions.runCopyToClipboard}
-                    onExportAll={exportActions.runExportAll}
-                    onAnnotateExport={exportActions.handleAnnotateExport}
-                    onPreviewExport={exportActions.handlePreviewExport}
                     onShare={handleOpenShare}
-                    onPublishRanking={handlePublishRanking}
-                    onPublishTemplate={handlePublishTemplate}
+                    exportControls={{
+                      status: exportActions.exportStatus,
+                      exportingAll: exportActions.exportAllProgress !== null,
+                      imageFormat: exportActions.imageFormat,
+                      onImageFormatChange: exportActions.setImageFormat,
+                      onExport: exportActions.runExport,
+                      onCopyToClipboard: exportActions.runCopyToClipboard,
+                      onExportAll: exportActions.runExportAll,
+                      onAnnotateExport: exportActions.handleAnnotateExport,
+                      onPreviewExport: exportActions.handlePreviewExport,
+                    }}
+                    publish={{
+                      ranking: handlePublishRanking,
+                      template: handlePublishTemplate,
+                    }}
                     onReset={handleResetBoard}
                   />
                 }

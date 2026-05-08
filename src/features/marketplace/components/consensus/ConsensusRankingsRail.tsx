@@ -14,6 +14,7 @@ import {
 import type { MarketplaceRankingSummary } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { RANKING_FEATURED_BADGE_LABELS } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
+import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { avatarColor } from './utils'
 
 export type ConsensusRailTab = 'featured' | 'recent' | 'top' | 'all'
@@ -233,10 +234,10 @@ const RankingsListSkeleton = () => (
         key={index}
         className="flex items-center gap-2.5 border-b border-[var(--t-border)] px-3 py-2 last:border-b-0"
       >
-        <div className="h-7 w-7 animate-pulse rounded-full bg-[rgb(var(--t-overlay)/0.06)]" />
+        <SkeletonBlock className="h-7 w-7 rounded-full" />
         <div className="flex-1 space-y-1.5">
-          <div className="h-3 w-3/4 animate-pulse rounded bg-[rgb(var(--t-overlay)/0.06)]" />
-          <div className="h-2 w-1/2 animate-pulse rounded bg-[rgb(var(--t-overlay)/0.04)]" />
+          <SkeletonText className="w-3/4" />
+          <SkeletonBlock className="h-2 w-1/2 rounded" tone="soft" />
         </div>
       </li>
     ))}

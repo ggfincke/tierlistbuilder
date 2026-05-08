@@ -43,7 +43,7 @@ export const ACTIVE_TEMPLATE_JOB_STATUSES = [
   'running',
 ] as const satisfies readonly TemplateJobStatus[]
 
-export const FINISHED_TEMPLATE_JOB_STATUSES = [
+const FINISHED_TEMPLATE_JOB_STATUSES = [
   'succeeded',
   'canceled',
 ] as const satisfies readonly TemplateJobStatus[]
@@ -257,6 +257,26 @@ export interface MarketplaceTemplateGalleryResult
   templateCount: MarketplaceTemplateCount
 }
 
+export const TEMPLATE_GALLERY_RAILS = [
+  'featured',
+  'trending',
+  'popular',
+  'recent',
+] as const
+
+export type TemplateGalleryRail = (typeof TEMPLATE_GALLERY_RAILS)[number]
+
+export interface MarketplaceTemplateGalleryRailResult
+{
+  items: MarketplaceTemplateGalleryCard[]
+}
+
+export interface MarketplaceTemplateGalleryResultsResult
+{
+  results: MarketplaceTemplateGalleryCard[]
+  templateCount: MarketplaceTemplateCount
+}
+
 export interface MarketplaceTemplateManagementItem extends MarketplaceTemplateSummary
 {
   isPubliclyListable: boolean
@@ -342,7 +362,7 @@ export interface MarketplaceTemplateDraftListResult
   drafts: MarketplaceTemplateDraft[]
 }
 
-export interface MarketplaceTemplateJobProgress
+interface MarketplaceTemplateJobProgress
 {
   jobId: string
   status: TemplateJobStatus

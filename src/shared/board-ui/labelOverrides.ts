@@ -23,13 +23,3 @@ export const collectLabelOptionClearEntries = (
   items
     .filter((item) => !isEmptyItemLabelOptions(item.labelOptions))
     .map((item) => ({ id: item.id, options: null }))
-
-export const countItemLabelOverrides = (items: readonly TierItem[]): number =>
-{
-  let count = 0
-  for (const item of items)
-  {
-    if (!isEmptyItemLabelOptions(item.labelOptions)) count += 1
-  }
-  return count
-}

@@ -569,7 +569,9 @@ export default defineSchema({
     staleAt: v.union(v.number(), v.null()),
     bucketSpread: v.array(v.number()),
     updatedAt: v.number(),
-  }).index('byTemplateId', ['templateId']),
+  })
+    .index('byTemplateId', ['templateId'])
+    .index('byStateAndUpdatedAt', ['state', 'updatedAt']),
 
   templateRankingAggregateItems: defineTable({
     templateId: v.id('templates'),
@@ -762,6 +764,7 @@ export default defineSchema({
     phase: templateRankingAggregateJobPhaseValidator,
     generation: v.number(),
     bucketCount: v.number(),
+    targetBucketLabels: v.array(v.string()),
     itemCount: v.number(),
     rankingCount: v.number(),
     publicRankingCount: v.number(),
@@ -769,14 +772,27 @@ export default defineSchema({
     rankingCursor: v.union(v.string(), v.null()),
     rankingScanDone: v.boolean(),
     activeRankingId: v.union(v.id('publishedRankings'), v.null()),
+    activeRankingTierBucketMap: v.union(
+      v.array(
+        v.object({
+          tierExternalId: v.string(),
+          bucketIndex: v.number(),
+        })
+      ),
+      v.null()
+    ),
     activeRankingItemCursor: v.union(v.string(), v.null()),
     bucketSpread: v.array(v.number()),
     restartRequestedAt: v.union(v.number(), v.null()),
+    retryCount: v.number(),
+    lastError: v.union(v.string(), v.null()),
+    failedAt: v.union(v.number(), v.null()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('byTemplateId', ['templateId'])
-    .index('byTemplateIdAndStatus', ['templateId', 'status']),
+    .index('byTemplateIdAndStatus', ['templateId', 'status'])
+    .index('byStatusAndUpdatedAt', ['status', 'updatedAt']),
 
   userTemplateBookmarks: defineTable({
     userId: v.id('users'),

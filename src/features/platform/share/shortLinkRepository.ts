@@ -4,7 +4,6 @@
 
 import { useQuery } from 'convex/react'
 import { api } from '@convex/_generated/api'
-import type { Id } from '@convex/_generated/dataModel'
 import type {
   OwnedShortLinkListItem,
   ShortLinkResolveResult,
@@ -17,28 +16,6 @@ export const resolveShortLinkImperative = (args: {
   slug: string
 }): Promise<ShortLinkResolveResult> =>
   getConvexClient().query(api.platform.shortLinks.queries.resolveSlug, args)
-
-// generate a one-time _storage upload URL for the snapshot blob. signed-in only
-export const generateSnapshotUploadUrlImperative = (): Promise<{
-  uploadUrl: string
-  uploadToken: string
-}> =>
-  getConvexClient().mutation(
-    api.platform.shortLinks.mutations.generateSnapshotUploadUrl,
-    {}
-  )
-
-// link an uploaded snapshot blob to a fresh slug. signed-in only; boardTitle
-// is denormalized for the listing UI
-export const createSnapshotShortLinkImperative = (args: {
-  snapshotStorageId: Id<'_storage'>
-  uploadToken: string
-  boardTitle: string
-}): Promise<{ slug: string; createdAt: number }> =>
-  getConvexClient().action(
-    api.platform.shortLinks.mutations.createSnapshotShortLink,
-    args
-  )
 
 // reactive listing for the "Recent shares" modal. unauthenticated callers
 // see []. the query filters out expired-but-not-yet-reaped rows so the

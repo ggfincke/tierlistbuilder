@@ -15,7 +15,6 @@
     "allowJs": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@tierlistbuilder/contracts/*": ["../packages/contracts/*"]
     }

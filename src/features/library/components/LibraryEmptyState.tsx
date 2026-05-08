@@ -7,15 +7,14 @@ import { Button } from '~/shared/ui/Button'
 
 interface LibraryEmptyStateProps
 {
-  // distinguishes filter-driven empty from first-time empty (copy + CTA differ)
-  filtered: boolean
+  mode: 'filtered' | 'first-time'
   onClearFilter?: () => void
   onCreate?: () => void
   createPending?: boolean
 }
 
 export const LibraryEmptyState = ({
-  filtered,
+  mode,
   onClearFilter,
   onCreate,
   createPending = false,
@@ -25,15 +24,15 @@ export const LibraryEmptyState = ({
       <Layers className="h-6 w-6" strokeWidth={1.6} aria-hidden />
     </div>
     <h3 className="text-[15px] font-semibold text-[var(--t-text)]">
-      {filtered ? 'No lists match this filter' : 'No lists here yet'}
+      {mode === 'filtered' ? 'No lists match this filter' : 'No lists here yet'}
     </h3>
     <p className="max-w-sm text-[12px] text-[var(--t-text-muted)]">
-      {filtered
+      {mode === 'filtered'
         ? 'Try clearing the filter, or start a blank list.'
         : 'Start from a blank pool — your saved rankings will land here.'}
     </p>
     <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-      {filtered && onClearFilter && (
+      {mode === 'filtered' && onClearFilter && (
         <button
           type="button"
           onClick={onClearFilter}
