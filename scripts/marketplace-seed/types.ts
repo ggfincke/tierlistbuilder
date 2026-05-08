@@ -14,6 +14,8 @@ export interface FolderMeta
   category: string
   description: string | null
   tags: string[]
+  // path under scripts/marketplace-seed/assets for a dedicated cover image
+  coverImage?: string
   labels?: true | BoardLabelSettings
   itemLabels?: Record<string, string>
   suggestedTiers?: readonly TierPresetTier[]

@@ -127,6 +127,7 @@ export const GAMING_TEMPLATE_META = {
     category: 'gaming',
     description: 'All 87 fighters in Super Smash Bros. Ultimate, base + DLC.',
     tags: ['nintendo', 'fighting', 'smash bros'],
+    coverImage: 'covers/ssbu-fighters.jpg',
     suggestedTiers: SSBU_CLASSIC_PRESET,
   },
   'street-fighter-6': {

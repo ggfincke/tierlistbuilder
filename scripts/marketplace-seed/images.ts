@@ -4,7 +4,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import sharp from 'sharp'
+import sharp, { type ResizeOptions } from 'sharp'
 
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -14,8 +14,11 @@ import {
 import { mapAsyncLimit } from '../../src/shared/lib/asyncMapLimit'
 import { probeImage, resolveSeedAutoCropTransform } from '../lib/autoCropDetect'
 import {
+  MAX_CONVEX_STRING_BASE64_BYTES,
   MAX_CHUNK_BASE64_BYTES,
   MIXED_TEMPLATE_ITEM_ASPECT_RATIO,
+  SEED_COVER_PREVIEW_WIDTH,
+  SEED_COVER_TILE_WIDTH,
   SEED_ITEM_IO_CONCURRENCY,
   SEED_PREVIEW_MAX_SIZE,
   SEED_TILE_MAX_SIZE,
@@ -31,6 +34,74 @@ export interface PayloadItem
   previewBase64: string
   aspectRatio: number
   transform: ItemTransform | null
+}
+
+export interface PayloadCoverImage
+{
+  tileBase64: string
+  previewBase64: string
+}
+
+const JPEG_MIN_QUALITY = 62
+const JPEG_QUALITY_STEP = 4
+const JPEG_RESIZE_SCALE = 0.85
+const JPEG_MIN_WIDTH = 320
+
+interface BoundedJpegBase64Options
+{
+  resize: ResizeOptions & { width: number }
+  quality: number
+  flattenBackground?: { r: number; g: number; b: number }
+}
+
+const assertSeedBase64FitsConvex = (base64: string, label: string): void =>
+{
+  if (base64.length <= MAX_CONVEX_STRING_BASE64_BYTES) return
+  throw new Error(
+    `${label} base64 payload is ${base64.length} bytes; limit is ${MAX_CONVEX_STRING_BASE64_BYTES}`
+  )
+}
+
+const toBoundedJpegBase64 = async (
+  source: sharp.Sharp,
+  { resize, quality, flattenBackground }: BoundedJpegBase64Options
+): Promise<string> =>
+{
+  let width = resize.width
+  let height =
+    typeof resize.height === 'number' && resize.height > 0
+      ? resize.height
+      : undefined
+
+  while (width >= JPEG_MIN_WIDTH)
+  {
+    for (
+      let nextQuality = quality;
+      nextQuality >= JPEG_MIN_QUALITY;
+      nextQuality -= JPEG_QUALITY_STEP
+    )
+    {
+      const pipeline = source.clone().resize({ ...resize, width, height })
+      if (flattenBackground)
+      {
+        pipeline.flatten({ background: flattenBackground })
+      }
+      const base64 = (
+        await pipeline.jpeg({ quality: nextQuality, mozjpeg: true }).toBuffer()
+      ).toString('base64')
+      if (base64.length <= MAX_CONVEX_STRING_BASE64_BYTES)
+      {
+        return base64
+      }
+    }
+
+    width = Math.floor(width * JPEG_RESIZE_SCALE)
+    height = height ? Math.floor(height * JPEG_RESIZE_SCALE) : undefined
+  }
+
+  throw new Error(
+    `could not fit jpeg seed payload under ${MAX_CONVEX_STRING_BASE64_BYTES} bytes`
+  )
 }
 
 export const probeFolder = async (
@@ -150,7 +221,7 @@ export const toPayloadItems = async (
   {
     const sourceBytes = await readFile(item.filePath)
     const pipeline = sharp(sourceBytes).rotate()
-    const [tile, preview] = await Promise.all([
+    const [tile, previewBase64] = await Promise.all([
       pipeline
         .clone()
         .resize({
@@ -161,23 +232,55 @@ export const toPayloadItems = async (
         })
         .png()
         .toBuffer(),
-      pipeline
-        .clone()
-        .resize({
+      toBoundedJpegBase64(pipeline, {
+        resize: {
           width: SEED_PREVIEW_MAX_SIZE,
           height: SEED_PREVIEW_MAX_SIZE,
           fit: 'inside',
           withoutEnlargement: true,
-        })
-        .flatten({ background: { r: 255, g: 255, b: 255 } })
-        .jpeg({ quality: 85, mozjpeg: true })
-        .toBuffer(),
+        },
+        flattenBackground: { r: 255, g: 255, b: 255 },
+        quality: 85,
+      }),
     ])
+    const tileBase64 = tile.toString('base64')
+    assertSeedBase64FitsConvex(tileBase64, `${item.filePath} tile`)
     return {
       label: item.label,
-      tileBase64: tile.toString('base64'),
-      previewBase64: preview.toString('base64'),
+      tileBase64,
+      previewBase64,
       aspectRatio: item.aspectRatio,
       transform: item.transform,
     }
   })
+
+export const toPayloadCoverImage = async (
+  filePath: string
+): Promise<PayloadCoverImage> =>
+{
+  const sourceBytes = await readFile(filePath)
+  const pipeline = sharp(sourceBytes).rotate()
+  const [tile, previewBase64] = await Promise.all([
+    pipeline
+      .clone()
+      .resize({
+        width: SEED_COVER_TILE_WIDTH,
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toBuffer(),
+    toBoundedJpegBase64(pipeline, {
+      resize: {
+        width: SEED_COVER_PREVIEW_WIDTH,
+        withoutEnlargement: true,
+      },
+      quality: 86,
+    }),
+  ])
+  const tileBase64 = tile.toString('base64')
+  assertSeedBase64FitsConvex(tileBase64, `${filePath} cover tile`)
+  return {
+    tileBase64,
+    previewBase64,
+  }
+}

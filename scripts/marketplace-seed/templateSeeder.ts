@@ -13,6 +13,7 @@ import {
   EXAMPLES_DIR,
   FEATURED_RANKS,
   LABEL_DEFAULT_STYLE,
+  SEED_ASSETS_DIR,
   SEED_CHUNK_UPLOAD_CONCURRENCY,
   SEED_FOLDER_CONCURRENCY,
 } from './constants'
@@ -20,6 +21,7 @@ import {
   chunkItemsBySize,
   prepareFolder,
   probeFolder,
+  toPayloadCoverImage,
   toPayloadItems,
 } from './images'
 import { TEMPLATE_META } from './catalog/manifest'
@@ -88,6 +90,9 @@ export const seedFolder = async (
   const { templateRatio, ratioSource, items } = prepareFolder(probes)
   const labels: BoardLabelSettings | null =
     meta.labels === true ? LABEL_DEFAULT_STYLE : (meta.labels ?? null)
+  const coverPayload = meta.coverImage
+    ? await toPayloadCoverImage(join(SEED_ASSETS_DIR, meta.coverImage))
+    : undefined
 
   const chunks = chunkItemsBySize(items)
   const cropped = items.filter((item) => item.transform !== null).length
@@ -98,7 +103,7 @@ export const seedFolder = async (
         ? 'mixed -> square'
         : 'consistent'
   process.stdout.write(
-    `  . ${folderName}: ${items.length} items in ${chunks.length} chunk(s) @ ratio ${templateRatio.toFixed(3)} (${ratioSourceLabel}), ${cropped} cropped${labels ? ', labels on' : ''}, uploading...\n`
+    `  . ${folderName}: ${items.length} items in ${chunks.length} chunk(s) @ ratio ${templateRatio.toFixed(3)} (${ratioSourceLabel}), ${cropped} cropped${labels ? ', labels on' : ''}${coverPayload ? ', cover' : ''}, uploading...\n`
   )
 
   const [firstChunk, ...remainingChunks] = chunks
@@ -114,6 +119,7 @@ export const seedFolder = async (
       itemAspectRatio: templateRatio,
       labels,
       items: firstChunkPayload,
+      ...(coverPayload ? { cover: coverPayload } : {}),
       ...(meta.suggestedTiers
         ? { suggestedTiers: [...meta.suggestedTiers] }
         : {}),

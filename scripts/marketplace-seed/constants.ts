@@ -16,6 +16,7 @@ const moduleDir = dirname(fileURLToPath(import.meta.url))
 
 export const REPO_ROOT = resolve(moduleDir, '../..')
 export const EXAMPLES_DIR = join(REPO_ROOT, 'examples')
+export const SEED_ASSETS_DIR = join(moduleDir, 'assets')
 
 export const SEED_FOLDER_CONCURRENCY = 2
 export const SEED_ITEM_IO_CONCURRENCY = 8
@@ -25,6 +26,11 @@ export const SEED_ACTION_RETRY_BASE_MS = 750
 export const MIXED_TEMPLATE_ITEM_ASPECT_RATIO = 1
 export const SEED_TILE_MAX_SIZE = 120
 export const SEED_PREVIEW_MAX_SIZE = 1280
+export const SEED_COVER_TILE_WIDTH = 640
+// 4096 keeps the source banner at full res (smash bros source is 4096 wide)
+// so DPR-3 displays stay sharp; the encoder lowers quality/size to fit Convex
+export const SEED_COVER_PREVIEW_WIDTH = 4096
+export const MAX_CONVEX_STRING_BASE64_BYTES = 850_000
 export const MAX_CHUNK_BASE64_BYTES = 2 * 1024 * 1024
 export const SUPPORTED_EXTENSIONS = new Set([
   '.png',
