@@ -17,6 +17,7 @@ import {
   DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
   DEFAULT_TEMPLATE_CRITERION_NAME,
   DEFAULT_TEMPLATE_CRITERION_PROMPT,
+  type MarketplaceTemplateCriterion,
 } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { isRankingSlug } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
@@ -45,6 +46,28 @@ const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
   const t = convexTest({ schema, modules, transactionLimits: true })
   rateLimiter.register(t)
   return t
+}
+
+const SEED_SECRET = 'test-seed-secret'
+
+const withSeedActionsEnabled = async <T>(run: () => Promise<T>): Promise<T> =>
+{
+  const previousEnabled = process.env.CONVEX_SEED_ENABLED
+  const previousSecret = process.env.CONVEX_SEED_SECRET
+  process.env.CONVEX_SEED_ENABLED = 'true'
+  process.env.CONVEX_SEED_SECRET = SEED_SECRET
+  try
+  {
+    return await run()
+  }
+  finally
+  {
+    if (previousEnabled === undefined) delete process.env.CONVEX_SEED_ENABLED
+    else process.env.CONVEX_SEED_ENABLED = previousEnabled
+
+    if (previousSecret === undefined) delete process.env.CONVEX_SEED_SECRET
+    else process.env.CONVEX_SEED_SECRET = previousSecret
+  }
 }
 
 const seedUser = async (
@@ -860,6 +883,114 @@ describe('marketplace template Convex functions', () =>
       )[0]
     ).toMatchObject({
       visibility: 'private',
+    })
+  })
+
+  it('normalizes trusted criteria patches and preserves them through metadata changes', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Curator', 'curator@example.com')
+    const slug = 'Curated001'
+    await t.run(
+      async (ctx) =>
+        await seedPublishedTemplate(ctx, {
+          authorId,
+          slug,
+          title: 'Curated Template',
+          itemCount: 2,
+          sizeClass: 'standard',
+        })
+    )
+
+    const criteria: MarketplaceTemplateCriterion[] = [
+      {
+        externalId: ' Competitive ',
+        name: ' Competitive ',
+        shortName: ' Comp ',
+        prompt: ' Rank by competitive viability. ',
+        axisTop: ' Strongest ',
+        axisBottom: ' Weakest ',
+        order: 0,
+        isPrimary: true,
+        status: 'active',
+      },
+      {
+        externalId: 'favorites',
+        name: 'Favorites',
+        shortName: 'Favs',
+        prompt: 'Rank by personal preference.',
+        axisTop: 'Favorite',
+        axisBottom: 'Least favorite',
+        order: 1,
+        isPrimary: false,
+        status: 'active',
+      },
+    ]
+    const expectedCriteria: MarketplaceTemplateCriterion[] = [
+      {
+        externalId: 'competitive',
+        name: 'Competitive',
+        shortName: 'Comp',
+        prompt: 'Rank by competitive viability.',
+        axisTop: 'Strongest',
+        axisBottom: 'Weakest',
+        order: 0,
+        isPrimary: true,
+        status: 'active',
+      },
+      criteria[1],
+    ]
+
+    const result = await withSeedActionsEnabled(() =>
+      t.action(api.marketplace.templates.seed.setTemplateCriteria, {
+        seedSecret: SEED_SECRET,
+        slug,
+        criteria,
+      })
+    )
+    expect(result).toEqual({
+      slug,
+      criteria: expectedCriteria,
+    })
+
+    await expect(
+      withSeedActionsEnabled(() =>
+        t.action(api.marketplace.templates.seed.setTemplateCriteria, {
+          seedSecret: SEED_SECRET,
+          slug,
+          criteria: [
+            expectedCriteria[0],
+            {
+              ...expectedCriteria[1],
+              externalId: 'Competitive',
+              isPrimary: false,
+            },
+          ],
+        })
+      )
+    ).rejects.toThrow(/duplicate template criterion externalId/)
+
+    const caller = asUser(t, authorId)
+    await caller.mutation(
+      api.marketplace.templates.mutations.updateMyTemplateMeta,
+      { slug, title: 'Curated Template Updated' }
+    )
+    await caller.mutation(
+      api.marketplace.templates.mutations.unpublishMyTemplate,
+      { slug }
+    )
+    await caller.mutation(
+      api.marketplace.templates.mutations.republishMyTemplate,
+      { slug }
+    )
+
+    const detail = await t.query(
+      api.marketplace.templates.queries.getTemplateBySlug,
+      { slug }
+    )
+    expect(detail).toMatchObject({
+      title: 'Curated Template Updated',
+      criteria: expectedCriteria,
     })
   })
 

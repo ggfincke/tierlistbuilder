@@ -488,6 +488,40 @@ export const setTemplateFeaturedRank = internalMutation({
   },
 })
 
+export const setTemplateCriteriaImpl = internalMutation({
+  args: {
+    slug: v.string(),
+    criteria: templateCriteriaValidator,
+  },
+  returns: v.object({
+    slug: v.string(),
+    criteria: templateCriteriaValidator,
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ slug: string; criteria: Doc<'templates'>['criteria'] }> =>
+  {
+    const template = await ctx.db
+      .query('templates')
+      .withIndex('bySlug', (q) => q.eq('slug', args.slug))
+      .unique()
+    if (!template)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `template not found by slug: ${args.slug}`,
+      })
+    }
+
+    const nextTemplate = await patchTemplateAndSyncCard(ctx, template, {
+      criteria: args.criteria,
+      updatedAt: Date.now(),
+    })
+    return { slug: args.slug, criteria: nextTemplate.criteria }
+  },
+})
+
 // dev-only: reset homepage curation before assigning a new trio
 export const clearAllFeaturedRanksImpl = internalMutation({
   args: {},
@@ -541,6 +575,31 @@ export const promoteFeatured = action({
       internal.marketplace.templates.seed.setTemplateFeaturedRank,
       { slug: args.slug, featuredRank: args.featuredRank }
     )
+  },
+})
+
+export const setTemplateCriteria = action({
+  args: {
+    seedSecret: v.string(),
+    slug: v.string(),
+    criteria: templateCriteriaValidator,
+  },
+  returns: v.object({
+    slug: v.string(),
+    criteria: templateCriteriaValidator,
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ slug: string; criteria: Doc<'templates'>['criteria'] }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    const result: { slug: string; criteria: Doc<'templates'>['criteria'] } =
+      await ctx.runMutation(
+        internal.marketplace.templates.seed.setTemplateCriteriaImpl,
+        { slug: args.slug, criteria: args.criteria }
+      )
+    return result
   },
 })
 

@@ -55,7 +55,7 @@ import {
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput, normalizeNullableText } from '../../lib/text'
 import type { BoardLibrarySummaryItem } from '../../workspace/boards/librarySummary'
-import { resolveTemplateCriteria } from './criteria'
+import { resolveTemplateCriteria, validateTemplateCriteria } from './criteria'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -97,6 +97,14 @@ type TemplateCardMetrics = TemplateStatsCounters & {
 }
 
 type TemplatePatch = Partial<Omit<Doc<'templates'>, '_id' | '_creationTime'>>
+
+const normalizeTemplatePatchForWrite = (
+  patch: TemplatePatch
+): TemplatePatch =>
+{
+  if (patch.criteria === undefined) return patch
+  return { ...patch, criteria: validateTemplateCriteria(patch.criteria) }
+}
 
 interface TemplateProjectionCache
 {
@@ -1225,8 +1233,9 @@ export const patchTemplateAndSyncCard = async (
   patch: TemplatePatch
 ): Promise<Doc<'templates'>> =>
 {
-  await ctx.db.patch(template._id, patch)
-  const nextTemplate = { ...template, ...patch }
+  const normalizedPatch = normalizeTemplatePatchForWrite(patch)
+  await ctx.db.patch(template._id, normalizedPatch)
+  const nextTemplate = { ...template, ...normalizedPatch }
   await writeTemplateCardPreservingCounters(ctx, nextTemplate)
   return nextTemplate
 }
