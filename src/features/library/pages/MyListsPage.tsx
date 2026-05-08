@@ -4,7 +4,6 @@
 import { Plus } from 'lucide-react'
 import { useDeferredValue, useMemo } from 'react'
 
-import type { LibraryBoardStatus } from '@tierlistbuilder/contracts/workspace/board'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 
@@ -17,7 +16,7 @@ import { LibrarySignedOutState } from '~/features/library/components/LibrarySign
 import { LibrarySkeleton } from '~/features/library/components/LibrarySkeleton'
 import { NewListTile } from '~/features/library/components/NewListTile'
 import { StatsStrip } from '~/features/library/components/StatsStrip'
-import { LIBRARY_STATUS_META } from '~/features/library/lib/statusMeta'
+import { getLibraryFilterStatusLabel } from '~/features/library/lib/statusMeta'
 import {
   countLibraryStatuses,
   filterLibraryBoards,
@@ -115,6 +114,7 @@ export const MyListsPage = () =>
   const totalVisible = visibleBoards?.length ?? 0
   const showEmptyState = !isLoading && rows !== null && totalVisible === 0
   const showSkeleton = isLoading || rows === null
+  const deferredFilterLabel = getLibraryFilterStatusLabel(deferredFilter)
 
   const handleClearFilter = () =>
   {
@@ -194,13 +194,11 @@ export const MyListsPage = () =>
               {filtersActive && (
                 <>
                   {' · filtered'}
-                  {deferredFilter !== 'all' && (
+                  {deferredFilterLabel && (
                     <>
                       {' by '}
                       <span className="text-[var(--t-text-secondary)]">
-                        {LIBRARY_STATUS_META[
-                          deferredFilter as LibraryBoardStatus
-                        ].label.toLowerCase()}
+                        {deferredFilterLabel.toLowerCase()}
                       </span>
                     </>
                   )}
@@ -237,7 +235,7 @@ export const MyListsPage = () =>
           />
         ) : showEmptyState ? (
           <LibraryEmptyState
-            filtered={totalLoadedBoards !== 0}
+            mode={totalLoadedBoards !== 0 ? 'filtered' : 'first-time'}
             onClearFilter={
               totalLoadedBoards !== 0 ? handleClearFilter : undefined
             }

@@ -52,6 +52,15 @@ import { usePopover } from '../consensus/usePopover'
 import { templateFrame, type ConsensusVizMode } from '../consensus/utils'
 
 const RAIL_PAGE_SIZE = DEFAULT_RANKING_LIST_LIMIT
+const RAIL_SORT_BY_TAB: Record<
+  ConsensusRailTab,
+  'featured' | 'top' | 'recent'
+> = {
+  all: 'recent',
+  featured: 'featured',
+  top: 'top',
+  recent: 'recent',
+}
 
 interface CommunityConsensusSectionProps
 {
@@ -320,8 +329,7 @@ export const CommunityConsensusSection = ({
 
   // rail data — server sort by featured / top / recent; All tab reuses recent
   // sort & surfaces the loadMore button to scroll past the first page
-  const railSort =
-    railTab === 'featured' ? 'featured' : railTab === 'top' ? 'top' : 'recent'
+  const railSort = RAIL_SORT_BY_TAB[railTab]
   const railResult = usePaginatedRankingsForTemplate({
     templateSlug: itemsEnabled ? template.slug : null,
     sort: railSort,

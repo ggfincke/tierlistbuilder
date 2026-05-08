@@ -18,7 +18,12 @@ import {
   type AggregateItemFrame,
 } from './AggregateItemThumb'
 import { RailCard } from './RailCard'
-import { formatPercent, resolveBucketColor } from './utils'
+import {
+  formatPercent,
+  getAggregateItemLabel,
+  getTopBucket,
+  resolveBucketColor,
+} from './utils'
 
 const RAIL_LIMIT = 3
 const DIVISIVE_PAGE_SIZE = 8
@@ -59,7 +64,7 @@ const RailRow = ({
     />
     <div className="min-w-0 flex-1">
       <p className="truncate text-[13px] font-medium text-[var(--t-text)]">
-        {row.label?.trim() || row.templateItemExternalId}
+        {getAggregateItemLabel(row)}
       </p>
       <p className="truncate text-[11px] text-[var(--t-text-muted)]">
         {detail}
@@ -67,10 +72,7 @@ const RailRow = ({
     </div>
     {badge}
     <span className="sr-only">
-      Tier{' '}
-      {row.topBucketIndex !== null
-        ? aggregate.buckets[row.topBucketIndex]?.label
-        : 'unknown'}
+      Tier {getTopBucket(row, aggregate.buckets)?.label ?? 'unknown'}
     </span>
   </li>
 )
@@ -160,10 +162,7 @@ export const HeroRailCards = ({
             <ul className="space-y-2.5">
               {divisive.map((row) =>
                 {
-                const top =
-                  row.topBucketIndex !== null
-                    ? aggregate.buckets[row.topBucketIndex]
-                    : undefined
+                const top = getTopBucket(row, aggregate.buckets)
                 return (
                   <RailRow
                     key={row.externalId}
@@ -210,10 +209,7 @@ export const HeroRailCards = ({
             <ul className="space-y-2.5">
               {strongest.map((row) =>
                 {
-                const top =
-                  row.topBucketIndex !== null
-                    ? aggregate.buckets[row.topBucketIndex]
-                    : undefined
+                const top = getTopBucket(row, aggregate.buckets)
                 return (
                   <RailRow
                     key={row.externalId}

@@ -2,7 +2,10 @@
 // presentation metadata for LibraryBoardStatus values — hardcoded semantic
 // hues; label text is the primary signal & color is decorative
 
-import type { LibraryBoardStatus } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  LibraryBoardFilter,
+  LibraryBoardStatus,
+} from '@tierlistbuilder/contracts/workspace/board'
 
 interface LibraryStatusMeta
 {
@@ -56,3 +59,8 @@ export const LIBRARY_STATUS_META: Record<
     hoverAction: 'Open',
   },
 }
+
+export const getLibraryFilterStatusLabel = (
+  filter: LibraryBoardFilter
+): string | null =>
+  filter === 'all' ? null : LIBRARY_STATUS_META[filter].label

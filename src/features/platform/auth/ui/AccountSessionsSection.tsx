@@ -7,6 +7,7 @@ import { LogOut } from 'lucide-react'
 
 import { api } from '@convex/_generated/api'
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
+import { formatError } from '~/shared/lib/errors'
 import { toast } from '~/shared/notifications/useToastStore'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
@@ -36,12 +37,7 @@ export const AccountSessionsSection = ({
     }
     catch (error)
     {
-      toast(
-        error instanceof Error
-          ? error.message
-          : 'Failed to sign out everywhere',
-        'error'
-      )
+      toast(formatError(error, 'Failed to sign out everywhere'), 'error')
       setPending(false)
     }
   }

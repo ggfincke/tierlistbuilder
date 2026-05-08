@@ -72,6 +72,27 @@ interface EmptyHintFilters
   category: TemplateCategory | null
 }
 
+interface BrowseHeadingFilters
+{
+  searchDebounced: string
+  tag: string | null
+  category: TemplateCategory | null
+}
+
+const getBrowseHeading = (filters: BrowseHeadingFilters): string =>
+{
+  const parts = [
+    filters.searchDebounced ? `Results for "${filters.searchDebounced}"` : null,
+    filters.tag ? `#${filters.tag}` : null,
+    filters.category ? CATEGORY_META[filters.category].label : null,
+  ].filter((part): part is string => part !== null)
+
+  return parts.length === 0 ? 'Browse everything' : parts.join(' · ')
+}
+
+const formatTemplateResultsCount = (count: number, atLimit: boolean): string =>
+  `${count}${atLimit ? '+' : ''} ${count === 1 ? 'template' : 'templates'}`
+
 const getEmptyGalleryHint = (filters: EmptyHintFilters): string =>
 {
   if (filters.tag)
@@ -136,27 +157,14 @@ export const TemplatesGalleryPage = () =>
   // tag has narrowed the dataset, so suppress them in those modes & let chips
   // render labels alone
   const showChipCounts = !filters.searchDebounced && !filters.tag
-  const browseHeadingParts: string[] = []
-  if (filters.searchDebounced)
-  {
-    browseHeadingParts.push(`Results for "${filters.searchDebounced}"`)
-  }
-  if (filters.tag) browseHeadingParts.push(`#${filters.tag}`)
-  if (filters.category)
-  {
-    browseHeadingParts.push(CATEGORY_META[filters.category].label)
-  }
-  const browseHeading =
-    browseHeadingParts.length === 0
-      ? 'Browse everything'
-      : browseHeadingParts.join(' · ')
+  const browseHeading = getBrowseHeading(filters)
   // results.length tops out at the page limit. show a "+" suffix so a full
   // page reads as "potentially more" rather than the exact total
   const resultsAtLimit =
     gallery.results !== undefined &&
     gallery.results.length === DEFAULT_TEMPLATE_LIST_LIMIT
   const browseSubhead = gallery.results
-    ? `${gallery.results.length}${resultsAtLimit ? '+' : ''} ${gallery.results.length === 1 ? 'template' : 'templates'}`
+    ? formatTemplateResultsCount(gallery.results.length, resultsAtLimit)
     : 'Loading…'
   const templateCountLabel =
     gallery.templateCount === undefined

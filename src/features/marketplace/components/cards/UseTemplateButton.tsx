@@ -5,7 +5,10 @@
 import { ArrowRight, Loader2 } from 'lucide-react'
 
 import type { TemplateCardAccessState } from '@tierlistbuilder/contracts/marketplace/template'
-import { ACCESS_META } from '~/features/marketplace/model/accessMeta'
+import {
+  ACCESS_META,
+  isTemplateAccessBlocked,
+} from '~/features/marketplace/model/accessMeta'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { useUseTemplate } from '~/features/marketplace/model/useUseTemplate'
 
@@ -30,7 +33,7 @@ export const UseTemplateButton = ({
 {
   const { run, isPending } = useUseTemplate()
   const meta = ACCESS_META[access]
-  const blocked = access !== 'usable'
+  const blocked = isTemplateAccessBlocked(access)
   const label = isPending && !blocked ? 'Forking…' : meta.ctaLabel
 
   return (

@@ -10,6 +10,7 @@ import {
   drawImageToCanvas,
   drawImageToPngBlob,
 } from '~/shared/images/imageEncode'
+import { formatError } from '~/shared/lib/errors'
 import { validateImageFile } from '~/features/platform/media/imageFileValidation'
 import {
   finalizeUploadVariantsImperative,
@@ -156,9 +157,7 @@ export const uploadCoverImage = async (
   {
     if (error instanceof CoverUploadError) throw error
     throw new CoverUploadError(
-      error instanceof Error
-        ? error.message
-        : 'Failed to finalize cover upload.'
+      formatError(error, 'Failed to finalize cover upload.')
     )
   }
 }

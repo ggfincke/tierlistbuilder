@@ -26,6 +26,7 @@ import {
 import { computeFramedPlacement } from '~/features/marketplace/model/coverFramingPlacement'
 import { useCoverFramingPicker } from '~/features/marketplace/model/useCoverFramingPicker'
 import { applyAxisSnap } from '~/shared/lib/axisSnap'
+import { formatError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
@@ -319,9 +320,7 @@ const CoverImageEditorBody = ({
     catch (error)
     {
       logger.warn('marketplace', 'cover auto-fit failed', error)
-      setAutoFitError(
-        error instanceof Error ? error.message : 'Auto-fit failed.'
-      )
+      setAutoFitError(formatError(error, 'Auto-fit failed.'))
     }
     finally
     {
@@ -343,9 +342,7 @@ const CoverImageEditorBody = ({
     {
       logger.warn('marketplace', 'cover framing apply failed', error)
       setApplyError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to apply framing. Please try again.'
+        formatError(error, 'Failed to apply framing. Please try again.')
       )
       setApplying(false)
     }

@@ -20,7 +20,14 @@ import {
 } from './AggregateItemThumb'
 import { DistributionBar } from './DistributionBar'
 import type { PopoverAnchorRect } from './usePopover'
-import { formatPercent, resolveBucketColor } from './utils'
+import {
+  formatPercent,
+  getAggregateItemLabel,
+  getAverageBucket,
+  getControversyLabel,
+  getTopBucket,
+  resolveBucketColor,
+} from './utils'
 
 interface ItemPopoverProps
 {
@@ -74,26 +81,16 @@ export const ItemPopover = ({
     computePosition,
   })
 
-  const topBucket =
-    row.topBucketIndex !== null ? buckets[row.topBucketIndex] : undefined
-  const avgIdx =
-    row.averageBucket !== null ? Math.round(row.averageBucket) : null
-  const avgBucket = avgIdx !== null ? buckets[avgIdx] : undefined
-
-  const controversyLabel =
-    row.sampleCount === 0
-      ? 'No data'
-      : row.controversyScore < 0.3
-        ? 'Strong consensus'
-        : row.controversyScore < 0.55
-          ? 'Mixed'
-          : 'Highly divisive'
+  const topBucket = getTopBucket(row, buckets)
+  const avgBucket = getAverageBucket(row, buckets)
+  const itemLabel = getAggregateItemLabel(row)
+  const controversyLabel = getControversyLabel(row)
 
   return (
     <OverlayPanelSurface
       ref={ref}
       role="dialog"
-      aria-label={`${row.label ?? row.templateItemExternalId} community stats`}
+      aria-label={`${itemLabel} community stats`}
       className="fixed z-50"
       style={style}
     >
@@ -106,7 +103,7 @@ export const ItemPopover = ({
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold text-[var(--t-text)]">
-            {row.label?.trim() || row.templateItemExternalId}
+            {itemLabel}
           </p>
           <p className="truncate text-[11px] text-[var(--t-text-muted)]">
             {row.sampleCount} {row.sampleCount === 1 ? 'ranking' : 'rankings'}
