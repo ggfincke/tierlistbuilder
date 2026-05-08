@@ -48,21 +48,28 @@ export const loadImageElement = ({
     img.src = src
   })
 
-// decode a src string & resolve to its natural w/h ratio, or null when the
-// image can't be decoded within the timeout
-export const decodeImageAspectRatioFromSrc = async (
-  src: string,
-  timeoutMs = DEFAULT_LOAD_TIMEOUT_MS
+export const decodeImageAspectRatioFromBlob = async (
+  blob: Blob
 ): Promise<number | null> =>
 {
   try
   {
-    const img = await loadImageElement({ src, timeoutMs })
-    if (img.naturalWidth > 0 && img.naturalHeight > 0)
+    if (typeof createImageBitmap !== 'function')
     {
-      return img.naturalWidth / img.naturalHeight
+      return null
     }
-    return null
+
+    const bitmap = await createImageBitmap(blob)
+    try
+    {
+      return bitmap.width > 0 && bitmap.height > 0
+        ? bitmap.width / bitmap.height
+        : null
+    }
+    finally
+    {
+      bitmap.close()
+    }
   }
   catch
   {

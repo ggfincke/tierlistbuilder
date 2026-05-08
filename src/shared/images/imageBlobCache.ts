@@ -38,6 +38,7 @@ let flushScheduled = false
 // Convex query is capped at MAX_BATCH_LOOKUP_SIZE (50) server-side; match the
 // chunk size on the client so oversize warm-ups split into multiple calls
 const MAX_BATCH_SIZE = 50
+const MAX_FAILED_CLOUD_REQUESTS = 512
 
 export const registerCloudImageFetcher = (fn: CloudImageBatchFetcher): void =>
 {
@@ -148,6 +149,13 @@ export const markCloudRequestsFailed = (
     if (pendingRequests.has(request.hash)) continue
     failedCloudRequests.set(request.hash, request)
   }
+
+  while (failedCloudRequests.size > MAX_FAILED_CLOUD_REQUESTS)
+  {
+    const oldestHash = failedCloudRequests.keys().next().value
+    if (!oldestHash) break
+    failedCloudRequests.delete(oldestHash)
+  }
 }
 
 // requeue previously-failed cloud requests. fired on `online` events so
@@ -213,13 +221,14 @@ const touchCachedHashes = (hashes: Iterable<string>): void =>
     if (entry)
     {
       entry.lastAccessedAt = now
+      cache.delete(hash)
+      cache.set(hash, entry)
     }
   }
 }
 
-// LRU eviction by lastAccessedAt; caller passes just-touched hashes so the
-// working set is preserved. mounted subscribers are also protected because
-// local-only images cannot rehydrate through useImageUrl after pruning
+// LRU eviction follows Map insertion order; touch moves entries to the back.
+// mounted subscribers are protected because local-only images cannot rehydrate
 const pruneCache = (protectedHashes: ReadonlySet<string>): void =>
 {
   if (cache.size <= MAX_CACHED_IMAGE_URLS)
@@ -227,15 +236,12 @@ const pruneCache = (protectedHashes: ReadonlySet<string>): void =>
     return
   }
 
-  const removable = [...cache.entries()]
-    .filter(([hash]) => !protectedHashes.has(hash) && !listeners.has(hash))
-    .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt)
-
   const changed: string[] = []
 
-  while (cache.size > MAX_CACHED_IMAGE_URLS && removable.length > 0)
+  for (const [hash, entry] of cache)
   {
-    const [hash, entry] = removable.shift()!
+    if (cache.size <= MAX_CACHED_IMAGE_URLS) break
+    if (protectedHashes.has(hash) || listeners.has(hash)) continue
     URL.revokeObjectURL(entry.url)
     cache.delete(hash)
     changed.push(hash)
@@ -311,6 +317,8 @@ export const cacheFreshBlobs = (
     if (existing)
     {
       existing.lastAccessedAt = now
+      cache.delete(hash)
+      cache.set(hash, existing)
       continue
     }
 
