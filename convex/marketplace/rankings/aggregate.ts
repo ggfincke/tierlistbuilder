@@ -24,7 +24,7 @@ import {
   toTemplateMediaRef,
 } from '../templates/lib'
 import {
-  resolvePrimaryTemplateCriterion,
+  resolveTemplateCriteria,
   resolveTemplateCriterionForHistoricalRead,
   type TemplateCriteriaSource,
 } from '../templates/criteria'
@@ -120,29 +120,34 @@ export const toTemplateRankingAggregate = (
     Pick<Doc<'templates'>, 'suggestedTiers'> &
     TemplateCriteriaSource,
   aggregate: Doc<'templateRankingAggregates'>
-): MarketplaceTemplateRankingAggregate => ({
-  template: {
-    slug: template.slug,
-    title: template.title,
-    category: template.category,
-    itemCount: template.itemCount,
-  },
-  criterion:
-    resolveTemplateCriterionForHistoricalRead(
-      template,
-      aggregate.criterionExternalId
-    ) ?? resolvePrimaryTemplateCriterion(template),
-  state: aggregate.state,
-  activeGeneration: aggregate.activeGeneration,
-  bucketCount: aggregate.bucketCount,
-  rankingCount: aggregate.rankingCount,
-  itemCount: aggregate.itemCount,
-  computedAt: aggregate.computedAt,
-  staleAt: aggregate.staleAt,
-  buckets: toBuckets(template, aggregate.bucketCount),
-  bucketSpread:
-    aggregate.bucketSpread ?? makeEmptyBucketSpread(aggregate.bucketCount),
-})
+): MarketplaceTemplateRankingAggregate | null =>
+{
+  const criterion = resolveTemplateCriterionForHistoricalRead(
+    template,
+    aggregate.criterionExternalId
+  )
+  if (!criterion) return null
+
+  return {
+    template: {
+      slug: template.slug,
+      title: template.title,
+      category: template.category,
+      itemCount: template.itemCount,
+    },
+    criterion,
+    state: aggregate.state,
+    activeGeneration: aggregate.activeGeneration,
+    bucketCount: aggregate.bucketCount,
+    rankingCount: aggregate.rankingCount,
+    itemCount: aggregate.itemCount,
+    computedAt: aggregate.computedAt,
+    staleAt: aggregate.staleAt,
+    buckets: toBuckets(template, aggregate.bucketCount),
+    bucketSpread:
+      aggregate.bucketSpread ?? makeEmptyBucketSpread(aggregate.bucketCount),
+  }
+}
 
 export const findTemplateRankingAggregate = async (
   ctx: DbCtx,
@@ -188,19 +193,23 @@ const nextAggregateGeneration = (
 export const queueTemplateRankingAggregateRecompute = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
-  now: number,
-  criterionExternalId?: string
+  criterionExternalId: string,
+  now: number
 ): Promise<void> =>
 {
   const template = await ctx.db.get(templateId)
   if (!template) return
 
-  const laneCriterionExternalId =
-    criterionExternalId ?? resolvePrimaryTemplateCriterion(template).externalId
+  const criterion = resolveTemplateCriterionForHistoricalRead(
+    template,
+    criterionExternalId
+  )
+  if (!criterion) return
+
   const aggregate = await findTemplateRankingAggregate(
     ctx,
     templateId,
-    laneCriterionExternalId
+    criterion.externalId
   )
   const bucketCount = resolveTemplateRankingAggregateBucketCount(template)
   const targetBucketLabels = resolveTemplateRankingAggregateBucketLabels(
@@ -222,7 +231,7 @@ export const queueTemplateRankingAggregateRecompute = async (
   {
     await ctx.db.insert('templateRankingAggregates', {
       templateId,
-      criterionExternalId: laneCriterionExternalId,
+      criterionExternalId: criterion.externalId,
       state: 'computing',
       activeGeneration: null,
       bucketCount,
@@ -238,7 +247,7 @@ export const queueTemplateRankingAggregateRecompute = async (
   const activeJob = await findActiveAggregateJob(
     ctx,
     templateId,
-    laneCriterionExternalId
+    criterion.externalId
   )
   if (activeJob)
   {
@@ -251,7 +260,7 @@ export const queueTemplateRankingAggregateRecompute = async (
 
   const jobId = await ctx.db.insert('templateRankingAggregateJobs', {
     templateId,
-    criterionExternalId: laneCriterionExternalId,
+    criterionExternalId: criterion.externalId,
     status: 'queued',
     phase: 'seedItems',
     generation: nextAggregateGeneration(now, aggregate),
@@ -282,22 +291,65 @@ export const queueTemplateRankingAggregateRecompute = async (
   )
 }
 
+export const queueTemplateRankingAggregateRecomputesForActiveCriteria = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>,
+  now: number
+): Promise<number> =>
+{
+  const template = await ctx.db.get(templateId)
+  if (!template) return 0
+
+  let queued = 0
+  for (const criterion of resolveTemplateCriteria(template))
+  {
+    if (criterion.status !== 'active') continue
+    await queueTemplateRankingAggregateRecompute(
+      ctx,
+      templateId,
+      criterion.externalId,
+      now
+    )
+    queued++
+  }
+  return queued
+}
+
 export const deleteTemplateRankingAggregateParentRows = async (
   ctx: MutationCtx,
-  templateId: Id<'templates'>
+  templateId: Id<'templates'>,
+  criterionExternalId?: string
 ): Promise<void> =>
 {
-  const aggregates = ctx.db
-    .query('templateRankingAggregates')
-    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+  const aggregates =
+    criterionExternalId === undefined
+      ? ctx.db
+          .query('templateRankingAggregates')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+      : ctx.db
+          .query('templateRankingAggregates')
+          .withIndex('byTemplateIdAndCriterion', (q) =>
+            q
+              .eq('templateId', templateId)
+              .eq('criterionExternalId', criterionExternalId)
+          )
   for await (const aggregate of aggregates)
   {
     await ctx.db.delete(aggregate._id)
   }
 
-  const jobs = ctx.db
-    .query('templateRankingAggregateJobs')
-    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+  const jobs =
+    criterionExternalId === undefined
+      ? ctx.db
+          .query('templateRankingAggregateJobs')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+      : ctx.db
+          .query('templateRankingAggregateJobs')
+          .withIndex('byTemplateIdAndCriterion', (q) =>
+            q
+              .eq('templateId', templateId)
+              .eq('criterionExternalId', criterionExternalId)
+          )
   for await (const job of jobs)
   {
     await ctx.db.delete(job._id)

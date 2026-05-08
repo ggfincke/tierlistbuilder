@@ -13,6 +13,7 @@ import {
   findTemplateRankingAggregate,
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
+  queueTemplateRankingAggregateRecomputesForActiveCriteria,
 } from './aggregate'
 import { buildRankingTierBucketMap } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { makeEmptyBucketSpread } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
@@ -483,8 +484,8 @@ async function finishJob(
     await queueTemplateRankingAggregateRecompute(
       ctx,
       job.templateId,
-      now,
-      job.criterionExternalId
+      job.criterionExternalId,
+      now
     )
   }
 }
@@ -576,9 +577,28 @@ export const queueTemplateRankingAggregateRecomputeForTemplate =
     returns: v.null(),
     handler: async (ctx, args): Promise<null> =>
     {
+      await queueTemplateRankingAggregateRecomputesForActiveCriteria(
+        ctx,
+        args.templateId,
+        Date.now()
+      )
+      return null
+    },
+  })
+
+export const queueTemplateRankingAggregateRecomputeForCriterion =
+  internalMutation({
+    args: {
+      templateId: v.id('templates'),
+      criterionExternalId: v.string(),
+    },
+    returns: v.null(),
+    handler: async (ctx, args): Promise<null> =>
+    {
       await queueTemplateRankingAggregateRecompute(
         ctx,
         args.templateId,
+        args.criterionExternalId,
         Date.now()
       )
       return null
@@ -715,8 +735,8 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
       await queueTemplateRankingAggregateRecompute(
         ctx,
         aggregate.templateId,
-        now,
-        aggregate.criterionExternalId
+        aggregate.criterionExternalId,
+        now
       )
       scheduled++
     }
@@ -747,25 +767,44 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
 export const deleteTemplateRankingAggregateRows = internalMutation({
   args: {
     templateId: v.id('templates'),
+    criterionExternalId: v.optional(v.string()),
     cursor: v.union(v.string(), v.null()),
   },
   returns: v.object({ isDone: v.boolean() }),
   handler: async (ctx, args): Promise<{ isDone: boolean }> =>
   {
-    const page = await ctx.db
-      .query('templateRankingAggregateItems')
-      .withIndex('byTemplateIdAndOrder', (q) =>
-        q.eq('templateId', args.templateId)
-      )
-      .paginate({
-        numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
-        cursor: args.cursor,
-      })
+    const criterionExternalId = args.criterionExternalId
+    const page =
+      criterionExternalId === undefined
+        ? await ctx.db
+            .query('templateRankingAggregateItems')
+            .withIndex('byTemplateIdAndOrder', (q) =>
+              q.eq('templateId', args.templateId)
+            )
+            .paginate({
+              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+              cursor: args.cursor,
+            })
+        : await ctx.db
+            .query('templateRankingAggregateItems')
+            .withIndex('byTemplateIdAndCriterionAndOrder', (q) =>
+              q
+                .eq('templateId', args.templateId)
+                .eq('criterionExternalId', criterionExternalId)
+            )
+            .paginate({
+              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+              cursor: args.cursor,
+            })
 
     await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
     if (page.isDone)
     {
-      await deleteTemplateRankingAggregateParentRows(ctx, args.templateId)
+      await deleteTemplateRankingAggregateParentRows(
+        ctx,
+        args.templateId,
+        criterionExternalId
+      )
     }
     return { isDone: page.isDone }
   },

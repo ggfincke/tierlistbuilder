@@ -487,8 +487,8 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
         queueTemplateRankingAggregateRecompute(
           ctx,
           templateId,
-          now,
-          criterionExternalId
+          criterionExternalId,
+          now
         )
       )
     )

@@ -172,6 +172,19 @@ const criterionPublishBlockReason = (
   return null
 }
 
+const resolveAggregateCriterionExternalId = (
+  template: Doc<'templates'>,
+  criterionExternalId: string | undefined
+): string | null =>
+{
+  const criterion =
+    criterionExternalId === undefined
+      ? resolvePrimaryTemplateCriterion(template)
+      : resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
+  if (!criterion || criterion.status !== 'active') return null
+  return criterion.externalId
+}
+
 const normalizeAggregateSearch = (
   raw: string | null | undefined
 ): string | null =>
@@ -590,7 +603,10 @@ export const listRankingsForTemplate = query({
 })
 
 export const getTemplateRankingAggregate = query({
-  args: { templateSlug: v.string() },
+  args: {
+    templateSlug: v.string(),
+    criterionExternalId: v.optional(v.string()),
+  },
   returns: v.union(marketplaceTemplateRankingAggregateValidator, v.null()),
   handler: async (
     ctx,
@@ -608,11 +624,19 @@ export const getTemplateRankingAggregate = query({
       return null
     }
 
-    const criterion = resolvePrimaryTemplateCriterion(template)
+    const criterionExternalId = resolveAggregateCriterionExternalId(
+      template,
+      args.criterionExternalId
+    )
+    if (criterionExternalId === null)
+    {
+      return null
+    }
+
     const aggregate = await findTemplateRankingAggregate(
       ctx,
       template._id,
-      criterion.externalId
+      criterionExternalId
     )
     if (!aggregate)
     {
@@ -625,6 +649,7 @@ export const getTemplateRankingAggregate = query({
 export const listTemplateRankingAggregateItems = query({
   args: {
     templateSlug: v.string(),
+    criterionExternalId: v.optional(v.string()),
     generation: v.number(),
     paginationOpts: paginationOptsValidator,
     sort: aggregateSortArg,
@@ -648,11 +673,19 @@ export const listTemplateRankingAggregateItems = query({
       return emptyAggregateItemsResult(args.paginationOpts.cursor)
     }
 
-    const criterion = resolvePrimaryTemplateCriterion(template)
+    const criterionExternalId = resolveAggregateCriterionExternalId(
+      template,
+      args.criterionExternalId
+    )
+    if (criterionExternalId === null)
+    {
+      return emptyAggregateItemsResult(args.paginationOpts.cursor)
+    }
+
     const aggregate = await findTemplateRankingAggregate(
       ctx,
       template._id,
-      criterion.externalId
+      criterionExternalId
     )
     if (!aggregate || aggregate.activeGeneration !== args.generation)
     {
@@ -661,7 +694,7 @@ export const listTemplateRankingAggregateItems = query({
 
     const result = await takeAggregateItemsPage(ctx, {
       templateId: template._id,
-      criterionExternalId: criterion.externalId,
+      criterionExternalId,
       generation: args.generation,
       sort: args.sort ?? DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT,
       band: args.band ?? 'all',

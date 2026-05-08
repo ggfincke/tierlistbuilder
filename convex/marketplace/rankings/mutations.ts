@@ -381,8 +381,8 @@ export const publishRankingFromBoard = mutation({
       await queueTemplateRankingAggregateRecompute(
         ctx,
         template._id,
-        now,
-        criterion.externalId
+        criterion.externalId,
+        now
       )
     }
 

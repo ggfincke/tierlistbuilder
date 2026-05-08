@@ -38,7 +38,7 @@ import {
   resolveActiveTemplateCriterion,
   toTemplateCriterionSnapshot,
 } from '../templates/criteria'
-import { queueTemplateRankingAggregateRecompute } from './aggregate'
+import { queueTemplateRankingAggregateRecomputesForActiveCriteria } from './aggregate'
 import {
   allocateRankingSlug,
   normalizeRankingDescription,
@@ -1934,11 +1934,16 @@ export const queueSeedAggregateRecomputeImpl = internalMutation({
   {
     const uniqueTemplateIds = [...new Set(args.templateIds)]
     const now = Date.now()
+    let queued = 0
     for (const templateId of uniqueTemplateIds)
     {
-      await queueTemplateRankingAggregateRecompute(ctx, templateId, now)
+      queued += await queueTemplateRankingAggregateRecomputesForActiveCriteria(
+        ctx,
+        templateId,
+        now
+      )
     }
-    return uniqueTemplateIds.length
+    return queued
   },
 })
 
