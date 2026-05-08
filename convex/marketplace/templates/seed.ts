@@ -401,7 +401,13 @@ const storeSeedCoverImage = async (
       { assets: [asset] }
     )
   const first = finalized[0]
-  if (!first) throw new Error('cover image finalization returned no asset')
+  if (!first)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'cover image finalization returned no asset',
+    })
+  }
   return first.mediaAssetId
 }
 
