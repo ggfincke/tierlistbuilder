@@ -2,7 +2,33 @@
 // gaming example metadata for marketplace template seeds
 
 import { SSBU_CLASSIC_PRESET } from '../constants'
+import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import type { FolderMeta } from '../types'
+
+const SSBU_CRITERIA = [
+  {
+    externalId: 'competitive',
+    name: 'Competitive',
+    shortName: 'Comp',
+    prompt: 'Rank fighters by competitive viability.',
+    axisTop: 'Strongest',
+    axisBottom: 'Weakest',
+    order: 0,
+    isPrimary: true,
+    status: 'active',
+  },
+  {
+    externalId: 'favorites',
+    name: 'Favorites',
+    shortName: 'Favs',
+    prompt: 'Rank fighters by personal preference.',
+    axisTop: 'Favorite',
+    axisBottom: 'Least favorite',
+    order: 1,
+    isPrimary: false,
+    status: 'active',
+  },
+] satisfies readonly MarketplaceTemplateCriterion[]
 
 export const GAMING_TEMPLATE_META = {
   'game-consoles': {
@@ -129,6 +155,7 @@ export const GAMING_TEMPLATE_META = {
     tags: ['nintendo', 'fighting', 'smash bros'],
     coverImage: 'covers/ssbu-fighters.jpg',
     suggestedTiers: SSBU_CLASSIC_PRESET,
+    criteria: SSBU_CRITERIA,
   },
   'street-fighter-6': {
     title: 'Street Fighter 6 roster',

@@ -34,6 +34,10 @@ import {
   isPublishedTemplateRow,
   loadTemplateItems,
 } from '../templates/lib'
+import {
+  resolveActiveTemplateCriterion,
+  toTemplateCriterionSnapshot,
+} from '../templates/criteria'
 import { queueTemplateRankingAggregateRecompute } from './aggregate'
 import {
   allocateRankingSlug,
@@ -1495,6 +1499,8 @@ const insertSeedRanking = async (
 
   const rankingSlug = await allocateRankingSlug(ctx)
   const viewCount = Math.floor(unitHash(viewCountSeedKey) * 24)
+  const criterion = resolveActiveTemplateCriterion(template)
+  const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
   const rankingId = await ctx.db.insert('publishedRankings', {
     slug: rankingSlug,
     ownerId: user._id,
@@ -1503,6 +1509,9 @@ const insertSeedRanking = async (
     sourceTemplateSlug: template.slug,
     sourceTemplateTitle: template.title,
     sourceTemplateCategory: template.category,
+    sourceCriterionExternalId: criterionSnapshot.externalId,
+    sourceCriterionNameSnapshot: criterionSnapshot.name,
+    sourceCriterionPromptSnapshot: criterionSnapshot.prompt,
     title: normalizeRankingTitle(rankingTitle),
     description: normalizeRankingDescription(rankingDescription),
     visibility: 'public',

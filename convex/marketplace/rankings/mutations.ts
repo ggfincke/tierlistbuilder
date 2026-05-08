@@ -56,6 +56,10 @@ import {
   incrementTemplateUseStats,
   isPublishedTemplateRow,
 } from '../templates/lib'
+import {
+  resolveActiveTemplateCriterion,
+  toTemplateCriterionSnapshot,
+} from '../templates/criteria'
 import { queueTemplateRankingAggregateRecompute } from './aggregate'
 
 const requireTemplate = async (
@@ -260,6 +264,8 @@ export const publishRankingFromBoard = mutation({
     const slug = await allocateRankingSlug(ctx)
     const title = normalizeRankingTitle(args.title ?? board.title)
     const description = normalizeRankingDescription(args.description)
+    const criterion = resolveActiveTemplateCriterion(template)
+    const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
     const rankingId = await ctx.db.insert('publishedRankings', {
       slug,
       ownerId: userId,
@@ -268,6 +274,9 @@ export const publishRankingFromBoard = mutation({
       sourceTemplateSlug: template.slug,
       sourceTemplateTitle: template.title,
       sourceTemplateCategory: template.category,
+      sourceCriterionExternalId: criterionSnapshot.externalId,
+      sourceCriterionNameSnapshot: criterionSnapshot.name,
+      sourceCriterionPromptSnapshot: criterionSnapshot.prompt,
       title,
       description,
       visibility: args.visibility,

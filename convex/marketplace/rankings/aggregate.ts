@@ -25,6 +25,7 @@ import {
 } from '../templates/lib'
 import {
   resolvePrimaryTemplateCriterion,
+  resolveTemplateCriterionForHistoricalRead,
   type TemplateCriteriaSource,
 } from '../templates/criteria'
 
@@ -126,7 +127,11 @@ export const toTemplateRankingAggregate = (
     category: template.category,
     itemCount: template.itemCount,
   },
-  criterion: resolvePrimaryTemplateCriterion(template),
+  criterion:
+    resolveTemplateCriterionForHistoricalRead(
+      template,
+      aggregate.criterionExternalId
+    ) ?? resolvePrimaryTemplateCriterion(template),
   state: aggregate.state,
   activeGeneration: aggregate.activeGeneration,
   bucketCount: aggregate.bucketCount,
@@ -141,24 +146,33 @@ export const toTemplateRankingAggregate = (
 
 export const findTemplateRankingAggregate = async (
   ctx: DbCtx,
-  templateId: Id<'templates'>
+  templateId: Id<'templates'>,
+  criterionExternalId: string
 ): Promise<Doc<'templateRankingAggregates'> | null> =>
   await ctx.db
     .query('templateRankingAggregates')
-    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+    .withIndex('byTemplateIdAndCriterion', (q) =>
+      q
+        .eq('templateId', templateId)
+        .eq('criterionExternalId', criterionExternalId)
+    )
     .unique()
 
 const findActiveAggregateJob = async (
   ctx: MutationCtx,
-  templateId: Id<'templates'>
+  templateId: Id<'templates'>,
+  criterionExternalId: string
 ): Promise<Doc<'templateRankingAggregateJobs'> | null> =>
 {
   for (const status of ACTIVE_JOB_STATUSES)
   {
     const job = await ctx.db
       .query('templateRankingAggregateJobs')
-      .withIndex('byTemplateIdAndStatus', (q) =>
-        q.eq('templateId', templateId).eq('status', status)
+      .withIndex('byTemplateIdAndCriterionAndStatus', (q) =>
+        q
+          .eq('templateId', templateId)
+          .eq('criterionExternalId', criterionExternalId)
+          .eq('status', status)
       )
       .take(1)
     if (job[0]) return job[0]
@@ -174,13 +188,20 @@ const nextAggregateGeneration = (
 export const queueTemplateRankingAggregateRecompute = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
-  now: number
+  now: number,
+  criterionExternalId?: string
 ): Promise<void> =>
 {
   const template = await ctx.db.get(templateId)
   if (!template) return
 
-  const aggregate = await findTemplateRankingAggregate(ctx, templateId)
+  const laneCriterionExternalId =
+    criterionExternalId ?? resolvePrimaryTemplateCriterion(template).externalId
+  const aggregate = await findTemplateRankingAggregate(
+    ctx,
+    templateId,
+    laneCriterionExternalId
+  )
   const bucketCount = resolveTemplateRankingAggregateBucketCount(template)
   const targetBucketLabels = resolveTemplateRankingAggregateBucketLabels(
     template,
@@ -201,6 +222,7 @@ export const queueTemplateRankingAggregateRecompute = async (
   {
     await ctx.db.insert('templateRankingAggregates', {
       templateId,
+      criterionExternalId: laneCriterionExternalId,
       state: 'computing',
       activeGeneration: null,
       bucketCount,
@@ -213,7 +235,11 @@ export const queueTemplateRankingAggregateRecompute = async (
     })
   }
 
-  const activeJob = await findActiveAggregateJob(ctx, templateId)
+  const activeJob = await findActiveAggregateJob(
+    ctx,
+    templateId,
+    laneCriterionExternalId
+  )
   if (activeJob)
   {
     await ctx.db.patch(activeJob._id, {
@@ -225,6 +251,7 @@ export const queueTemplateRankingAggregateRecompute = async (
 
   const jobId = await ctx.db.insert('templateRankingAggregateJobs', {
     templateId,
+    criterionExternalId: laneCriterionExternalId,
     status: 'queued',
     phase: 'seedItems',
     generation: nextAggregateGeneration(now, aggregate),
@@ -260,15 +287,21 @@ export const deleteTemplateRankingAggregateParentRows = async (
   templateId: Id<'templates'>
 ): Promise<void> =>
 {
-  const aggregate = await findTemplateRankingAggregate(ctx, templateId)
-  const jobs = await ctx.db
+  const aggregates = ctx.db
+    .query('templateRankingAggregates')
+    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+  for await (const aggregate of aggregates)
+  {
+    await ctx.db.delete(aggregate._id)
+  }
+
+  const jobs = ctx.db
     .query('templateRankingAggregateJobs')
     .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-    .take(16)
-  await Promise.all([
-    ...(aggregate ? [ctx.db.delete(aggregate._id)] : []),
-    ...jobs.map((job) => ctx.db.delete(job._id)),
-  ])
+  for await (const job of jobs)
+  {
+    await ctx.db.delete(job._id)
+  }
 }
 
 const toDistribution = (

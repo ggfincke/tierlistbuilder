@@ -472,16 +472,25 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
     .paginate({ numItems: CASCADE_PAGE_SIZE, cursor: args.cursor })
 
   const now = Date.now()
-  const affectedTemplateIds = [
-    ...new Set(
-      page.page
-        .filter((ranking) => ranking.isPubliclyListable)
-        .map((ranking) => ranking.sourceTemplateId)
-    ),
-  ]
+  const affectedLanes = new Map<Id<'templates'>, Set<string>>()
+  for (const ranking of page.page)
+  {
+    if (!ranking.isPubliclyListable) continue
+    const lanes =
+      affectedLanes.get(ranking.sourceTemplateId) ?? new Set<string>()
+    lanes.add(ranking.sourceCriterionExternalId)
+    affectedLanes.set(ranking.sourceTemplateId, lanes)
+  }
   await Promise.all(
-    affectedTemplateIds.map((templateId) =>
-      queueTemplateRankingAggregateRecompute(ctx, templateId, now)
+    [...affectedLanes.entries()].flatMap(([templateId, criterionIds]) =>
+      [...criterionIds].map((criterionExternalId) =>
+        queueTemplateRankingAggregateRecompute(
+          ctx,
+          templateId,
+          now,
+          criterionExternalId
+        )
+      )
     )
   )
 

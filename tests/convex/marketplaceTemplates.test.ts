@@ -13,6 +13,11 @@ import {
   isTemplateSlug,
   type MarketplaceTemplateCount,
 } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+  DEFAULT_TEMPLATE_CRITERION_NAME,
+  DEFAULT_TEMPLATE_CRITERION_PROMPT,
+} from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { isRankingSlug } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type {
@@ -1584,6 +1589,20 @@ describe('marketplace template Convex functions', () =>
     )
     expect(isRankingSlug(published.slug)).toBe(true)
 
+    const templateDetail = await t.query(
+      api.marketplace.templates.queries.getTemplateBySlug,
+      { slug: templateSlug }
+    )
+    expect(templateDetail?.criteria).toEqual([
+      expect.objectContaining({
+        externalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+        name: DEFAULT_TEMPLATE_CRITERION_NAME,
+        prompt: DEFAULT_TEMPLATE_CRITERION_PROMPT,
+        isPrimary: true,
+        status: 'active',
+      }),
+    ])
+
     const detail = await t.query(
       api.marketplace.rankings.queries.getRankingBySlug,
       { slug: published.slug }
@@ -1592,6 +1611,11 @@ describe('marketplace template Convex functions', () =>
       slug: published.slug,
       title: 'Published Ranking',
       template: { slug: templateSlug, title: 'Ranking Template' },
+      criterion: {
+        externalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+        name: DEFAULT_TEMPLATE_CRITERION_NAME,
+        prompt: DEFAULT_TEMPLATE_CRITERION_PROMPT,
+      },
       itemCount: 2,
       tierCount: 1,
     })
@@ -1629,6 +1653,9 @@ describe('marketplace template Convex functions', () =>
     expect(rankings.items).toEqual([
       expect.objectContaining({
         slug: published.slug,
+        criterion: expect.objectContaining({
+          externalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+        }),
         remixCount: 1,
         viewCount: 1,
       }),
@@ -1638,7 +1665,14 @@ describe('marketplace template Convex functions', () =>
       api.marketplace.rankings.queries.getMyRankingForTemplate,
       { templateSlug }
     )
-    expect(myRanking.ranking).toMatchObject({ slug: published.slug })
+    expect(myRanking.ranking).toMatchObject({
+      slug: published.slug,
+      criterion: {
+        externalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+        name: DEFAULT_TEMPLATE_CRITERION_NAME,
+        prompt: DEFAULT_TEMPLATE_CRITERION_PROMPT,
+      },
+    })
     expect(Object.keys(myRanking.placements).sort()).toEqual(
       detail!.items.map((item) => item.templateItemExternalId).sort()
     )
@@ -1895,6 +1929,11 @@ describe('marketplace template Convex functions', () =>
         { templateSlug: 'AggTpl0001' }
       )
       expect(aggregate).toMatchObject({
+        criterion: {
+          externalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+          name: DEFAULT_TEMPLATE_CRITERION_NAME,
+          prompt: DEFAULT_TEMPLATE_CRITERION_PROMPT,
+        },
         state: 'ready',
         bucketCount: 3,
         rankingCount: 4,

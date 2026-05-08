@@ -5,6 +5,7 @@ import type {
   BoardLabelSettings,
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import type { AutoCropBBox } from '@tierlistbuilder/contracts/workspace/imageMath'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 
@@ -19,6 +20,7 @@ export interface FolderMeta
   labels?: true | BoardLabelSettings
   itemLabels?: Record<string, string>
   suggestedTiers?: readonly TierPresetTier[]
+  criteria?: readonly MarketplaceTemplateCriterion[]
 }
 
 export interface ProbedItem

@@ -123,6 +123,7 @@ const seedFolder = async (
       ...(meta.suggestedTiers
         ? { suggestedTiers: [...meta.suggestedTiers] }
         : {}),
+      ...(meta.criteria ? { criteria: [...meta.criteria] } : {}),
     })
   )
 

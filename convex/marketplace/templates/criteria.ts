@@ -46,6 +46,9 @@ export const buildDefaultTemplateCriterion =
     status: 'active',
   })
 
+export const buildDefaultTemplateCriteria =
+  (): MarketplaceTemplateCriterion[] => [buildDefaultTemplateCriterion()]
+
 export const normalizeTemplateCriterionExternalId = (raw: string): string =>
   raw.trim().toLowerCase()
 
@@ -176,7 +179,7 @@ export const resolveTemplateCriteria = (
 ): MarketplaceTemplateCriterion[] =>
   validateTemplateCriteria(
     source.criteria === undefined || source.criteria === null
-      ? [buildDefaultTemplateCriterion()]
+      ? buildDefaultTemplateCriteria()
       : source.criteria
   )
 

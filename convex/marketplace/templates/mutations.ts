@@ -76,6 +76,7 @@ import {
   validateTemplateTiers,
   writeTemplateCard,
 } from './lib'
+import { buildDefaultTemplateCriteria } from './criteria'
 import {
   buildBoardLibrarySummary,
   EMPTY_BOARD_LIBRARY_SUMMARY,
@@ -369,6 +370,7 @@ const queueLargeTemplatePublish = async (
     coverFraming,
     coverItems: coverState.coverItems,
     suggestedTiers,
+    criteria: buildDefaultTemplateCriteria(),
     sourceBoardId: board._id,
     ...templateState,
     itemCount: board.activeItemCount,
@@ -588,6 +590,7 @@ export const publishFromBoard = mutation({
       coverFraming,
       coverItems,
       suggestedTiers,
+      criteria: buildDefaultTemplateCriteria(),
       sourceBoardId: board._id,
       ...templateState,
       itemCount: activeItems.length,

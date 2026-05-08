@@ -65,6 +65,7 @@ const scheduleJob = async (
 const scheduleGenerationCleanup = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
+  criterionExternalId: string,
   generation: number
 ): Promise<void> =>
 {
@@ -72,7 +73,7 @@ const scheduleGenerationCleanup = async (
     0,
     internal.marketplace.rankings.aggregateInternal
       .deleteTemplateRankingAggregateGeneration,
-    { templateId, generation, cursor: null }
+    { templateId, criterionExternalId, generation, cursor: null }
   )
 }
 
@@ -83,9 +84,10 @@ const isLatestPublicRankingForOwner = async (
 {
   const latest = await ctx.db
     .query('publishedRankings')
-    .withIndex('bySourceTemplateOwnerPublicCreatedAt', (q) =>
+    .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
       q
         .eq('sourceTemplateId', ranking.sourceTemplateId)
+        .eq('sourceCriterionExternalId', ranking.sourceCriterionExternalId)
         .eq('ownerId', ranking.ownerId)
         .eq('isPubliclyListable', true)
     )
@@ -112,6 +114,7 @@ const seedAggregateItemRows = async (
     page.page.map((item) =>
       ctx.db.insert('templateRankingAggregateItems', {
         templateId: job.templateId,
+        criterionExternalId: job.criterionExternalId,
         generation: job.generation,
         templateItemId: item._id,
         templateItemExternalId: item.externalId,
@@ -232,9 +235,10 @@ const incrementAggregateItem = async (
 {
   const row = await ctx.db
     .query('templateRankingAggregateItems')
-    .withIndex('byTemplateIdAndGenerationAndTemplateItemId', (q) =>
+    .withIndex('byTemplateIdAndCriterionAndGenerationAndTemplateItemId', (q) =>
       q
         .eq('templateId', job.templateId)
+        .eq('criterionExternalId', job.criterionExternalId)
         .eq('generation', job.generation)
         .eq('templateItemId', item.templateItemId)
     )
@@ -282,6 +286,7 @@ const processActiveRanking = async (
   if (
     !ranking ||
     ranking.sourceTemplateId !== job.templateId ||
+    ranking.sourceCriterionExternalId !== job.criterionExternalId ||
     !isPublicRankingRow(ranking)
   )
   {
@@ -374,8 +379,11 @@ const selectNextRanking = async (
 
   const page = await ctx.db
     .query('publishedRankings')
-    .withIndex('bySourceTemplatePublicCreatedAt', (q) =>
-      q.eq('sourceTemplateId', job.templateId).eq('isPubliclyListable', true)
+    .withIndex('bySourceTemplateCriterionPublicCreatedAt', (q) =>
+      q
+        .eq('sourceTemplateId', job.templateId)
+        .eq('sourceCriterionExternalId', job.criterionExternalId)
+        .eq('isPubliclyListable', true)
     )
     .order('desc')
     .paginate({
@@ -419,7 +427,11 @@ async function finishJob(
   now: number
 ): Promise<void>
 {
-  const aggregate = await findTemplateRankingAggregate(ctx, job.templateId)
+  const aggregate = await findTemplateRankingAggregate(
+    ctx,
+    job.templateId,
+    job.criterionExternalId
+  )
   const previousGeneration = aggregate?.activeGeneration ?? null
   const bucketSpread = job.bucketSpread
   if (aggregate)
@@ -440,6 +452,7 @@ async function finishJob(
   {
     await ctx.db.insert('templateRankingAggregates', {
       templateId: job.templateId,
+      criterionExternalId: job.criterionExternalId,
       state: job.rankingCount > 0 ? 'ready' : 'empty',
       activeGeneration: job.generation,
       bucketCount: job.bucketCount,
@@ -455,14 +468,24 @@ async function finishJob(
   await ctx.db.delete(job._id)
   if (previousGeneration !== null && previousGeneration !== job.generation)
   {
-    await scheduleGenerationCleanup(ctx, job.templateId, previousGeneration)
+    await scheduleGenerationCleanup(
+      ctx,
+      job.templateId,
+      job.criterionExternalId,
+      previousGeneration
+    )
   }
   if (
     job.restartRequestedAt !== null &&
     job.restartRequestedAt > job.createdAt
   )
   {
-    await queueTemplateRankingAggregateRecompute(ctx, job.templateId, now)
+    await queueTemplateRankingAggregateRecompute(
+      ctx,
+      job.templateId,
+      now,
+      job.criterionExternalId
+    )
   }
 }
 
@@ -480,7 +503,11 @@ const markAggregateJobFailed = async (
     updatedAt: now,
   })
 
-  const aggregate = await findTemplateRankingAggregate(ctx, job.templateId)
+  const aggregate = await findTemplateRankingAggregate(
+    ctx,
+    job.templateId,
+    job.criterionExternalId
+  )
   if (aggregate?.activeGeneration === null)
   {
     await ctx.db.patch(aggregate._id, {
@@ -561,6 +588,7 @@ export const queueTemplateRankingAggregateRecomputeForTemplate =
 export const deleteTemplateRankingAggregateGeneration = internalMutation({
   args: {
     templateId: v.id('templates'),
+    criterionExternalId: v.string(),
     generation: v.number(),
     cursor: v.union(v.string(), v.null()),
   },
@@ -569,8 +597,11 @@ export const deleteTemplateRankingAggregateGeneration = internalMutation({
   {
     const page = await ctx.db
       .query('templateRankingAggregateItems')
-      .withIndex('byTemplateIdAndGenerationAndOrder', (q) =>
-        q.eq('templateId', args.templateId).eq('generation', args.generation)
+      .withIndex('byTemplateIdAndCriterionAndGenerationAndOrder', (q) =>
+        q
+          .eq('templateId', args.templateId)
+          .eq('criterionExternalId', args.criterionExternalId)
+          .eq('generation', args.generation)
       )
       .paginate({
         numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
@@ -586,6 +617,7 @@ export const deleteTemplateRankingAggregateGeneration = internalMutation({
           .deleteTemplateRankingAggregateGeneration,
         {
           templateId: args.templateId,
+          criterionExternalId: args.criterionExternalId,
           generation: args.generation,
           cursor: page.continueCursor,
         }
@@ -683,7 +715,8 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
       await queueTemplateRankingAggregateRecompute(
         ctx,
         aggregate.templateId,
-        now
+        now,
+        aggregate.criterionExternalId
       )
       scheduled++
     }

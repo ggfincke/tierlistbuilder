@@ -19,6 +19,7 @@ import {
   boardLabelSettingsValidator,
   itemTransformValidator,
   templateCategoryValidator,
+  templateCriteriaValidator,
   tierPresetTiersValidator,
 } from '../../lib/validators'
 import { base64ToBytes } from '../../lib/base64'
@@ -40,6 +41,10 @@ import {
   syncTemplateTagRows,
   writeTemplateCard,
 } from './lib'
+import {
+  buildDefaultTemplateCriteria,
+  validateTemplateCriteria,
+} from './criteria'
 
 // per-item payload sent by scripts/seed-marketplace-templates.ts. aspectRatio
 // & transform are pre-computed in the script (sharp + shared scan) so the
@@ -190,6 +195,7 @@ export const insertSeedTemplate = internalMutation({
     tags: v.array(v.string()),
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     suggestedTiers: tierPresetTiersValidator,
+    criteria: v.optional(templateCriteriaValidator),
     // template-level slot ratio chosen by the script (snap to nearest preset
     // of the per-item majority). null when no items had usable dimensions —
     // forks then fall back to the board default (1, square)
@@ -240,6 +246,9 @@ export const insertSeedTemplate = internalMutation({
     const now = Date.now()
     const slug = await allocateTemplateSlug(ctx)
     const templateState = buildTemplateStateFields(args.items.length, 'public')
+    const criteria = validateTemplateCriteria(
+      args.criteria ?? buildDefaultTemplateCriteria()
+    )
     const templateFields = {
       slug,
       authorId: args.authorId,
@@ -251,6 +260,7 @@ export const insertSeedTemplate = internalMutation({
       coverMediaAssetId: args.coverMediaAssetId,
       coverItems,
       suggestedTiers: args.suggestedTiers,
+      criteria,
       sourceBoardId: null,
       ...templateState,
       itemCount: args.items.length,
@@ -1227,6 +1237,7 @@ export const seedTemplateFromBlobs = action({
     category: templateCategoryValidator,
     tags: v.array(v.string()),
     suggestedTiers: v.optional(tierPresetTiersValidator),
+    criteria: v.optional(templateCriteriaValidator),
     // template slot ratio chosen by the script (already snapped to a preset).
     // null only when no items had usable dimensions
     itemAspectRatio: v.union(v.number(), v.null()),
@@ -1274,6 +1285,7 @@ export const seedTemplateFromBlobs = action({
         tags: args.tags,
         coverMediaAssetId,
         suggestedTiers: args.suggestedTiers ?? [...DEFAULT_TEMPLATE_TIERS],
+        ...(args.criteria ? { criteria: args.criteria } : {}),
         itemAspectRatio: args.itemAspectRatio,
         labels: args.labels ?? null,
         items: stored,

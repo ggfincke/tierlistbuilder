@@ -45,6 +45,7 @@ import {
   findTemplateBySlug,
   isPublishedTemplateRow,
 } from '../templates/lib'
+import { resolvePrimaryTemplateCriterion } from '../templates/criteria'
 import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT,
   findTemplateRankingAggregate,
@@ -172,6 +173,7 @@ const sortAggregateRows = (
 interface AggregateItemsPageOptions
 {
   templateId: Id<'templates'>
+  criterionExternalId: string
   generation: number
   sort: TemplateRankingAggregateItemSort
   band: TemplateRankingAggregateItemBand
@@ -191,11 +193,12 @@ const takeSearchAggregateItemsPage = async (
 
   const rows = await ctx.db
     .query('templateRankingAggregateItems')
-    .withSearchIndex('searchByTemplateGeneration', (q) =>
+    .withSearchIndex('searchByTemplateCriterionGeneration', (q) =>
     {
       const base = q
         .search('searchText', search)
         .eq('templateId', options.templateId)
+        .eq('criterionExternalId', options.criterionExternalId)
         .eq('generation', options.generation)
       if (options.band === 'top')
       {
@@ -230,36 +233,40 @@ const takeSearchAggregateItemsPage = async (
 
 const aggregateItemsIndexByBand = {
   all: {
-    averageTop: 'byTemplateIdAndGenerationAndAverageTopSortAndOrder',
-    averageBottom: 'byTemplateIdAndGenerationAndAverageBottomSortAndOrder',
-    consensus: 'byTemplateIdAndGenerationAndConsensusSortAndOrder',
-    consensusTop: 'byTemplateGenerationTopConsensusOrder',
-    controversy: 'byTemplateIdAndGenerationAndControversySortAndOrder',
-    templateOrder: 'byTemplateIdAndGenerationAndOrder',
+    averageTop:
+      'byTemplateIdAndCriterionAndGenerationAndAverageTopSortAndOrder',
+    averageBottom:
+      'byTemplateIdAndCriterionAndGenerationAndAverageBottomSortAndOrder',
+    consensus: 'byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder',
+    consensusTop: 'byTemplateCriterionGenerationTopConsensusOrder',
+    controversy:
+      'byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder',
+    templateOrder: 'byTemplateIdAndCriterionAndGenerationAndOrder',
   },
   top: {
-    averageTop: 'byTemplateGenerationTopAverageTopOrder',
-    averageBottom: 'byTemplateGenerationTopAverageBottomOrder',
-    consensus: 'byTemplateGenerationTopConsensusOrder',
-    consensusTop: 'byTemplateGenerationTopConsensusOrder',
-    controversy: 'byTemplateGenerationTopControversyOrder',
-    templateOrder: 'byTemplateGenerationTopOrder',
+    averageTop: 'byTemplateCriterionGenerationTopAverageTopOrder',
+    averageBottom: 'byTemplateCriterionGenerationTopAverageBottomOrder',
+    consensus: 'byTemplateCriterionGenerationTopConsensusOrder',
+    consensusTop: 'byTemplateCriterionGenerationTopConsensusOrder',
+    controversy: 'byTemplateCriterionGenerationTopControversyOrder',
+    templateOrder: 'byTemplateCriterionGenerationTopOrder',
   },
   bottom: {
-    averageTop: 'byTemplateGenerationBottomAverageTopOrder',
-    averageBottom: 'byTemplateGenerationBottomAverageBottomOrder',
-    consensus: 'byTemplateGenerationBottomConsensusOrder',
-    consensusTop: 'byTemplateGenerationBottomConsensusOrder',
-    controversy: 'byTemplateGenerationBottomControversyOrder',
-    templateOrder: 'byTemplateGenerationBottomOrder',
+    averageTop: 'byTemplateCriterionGenerationBottomAverageTopOrder',
+    averageBottom: 'byTemplateCriterionGenerationBottomAverageBottomOrder',
+    consensus: 'byTemplateCriterionGenerationBottomConsensusOrder',
+    consensusTop: 'byTemplateCriterionGenerationBottomConsensusOrder',
+    controversy: 'byTemplateCriterionGenerationBottomControversyOrder',
+    templateOrder: 'byTemplateCriterionGenerationBottomOrder',
   },
   controversial: {
-    averageTop: 'byTemplateGenerationControversialAverageTopOrder',
-    averageBottom: 'byTemplateGenerationControversialAverageBottomOrder',
-    consensus: 'byTemplateGenerationControversialConsensusOrder',
-    consensusTop: 'byTemplateGenerationControversialConsensusOrder',
-    controversy: 'byTemplateGenerationControversialControversyOrder',
-    templateOrder: 'byTemplateGenerationControversialOrder',
+    averageTop: 'byTemplateCriterionGenerationControversialAverageTopOrder',
+    averageBottom:
+      'byTemplateCriterionGenerationControversialAverageBottomOrder',
+    consensus: 'byTemplateCriterionGenerationControversialConsensusOrder',
+    consensusTop: 'byTemplateCriterionGenerationControversialConsensusOrder',
+    controversy: 'byTemplateCriterionGenerationControversialControversyOrder',
+    templateOrder: 'byTemplateCriterionGenerationControversialOrder',
   },
 } as const satisfies Record<
   TemplateRankingAggregateItemBand,
@@ -286,6 +293,7 @@ const takeIndexedAggregateItemsPage = async (
     {
       const base = q
         .eq('templateId', options.templateId)
+        .eq('criterionExternalId', options.criterionExternalId)
         .eq('generation', options.generation)
       if (indexBand === 'top') return base.eq('isTopBucket', true)
       if (indexBand === 'bottom') return base.eq('isBottomBucket', true)
@@ -362,14 +370,16 @@ const takeRankingsForTemplatePage = async (
 const latestOwnedRankingForTemplate = async (
   ctx: QueryCtx,
   templateId: Id<'templates'>,
+  criterionExternalId: string,
   userId: Id<'users'>
 ) =>
 {
   const rows = await ctx.db
     .query('publishedRankings')
-    .withIndex('bySourceTemplateOwnerPublicationStateUpdatedAt', (q) =>
+    .withIndex('bySourceTemplateCriterionOwnerPublicationStateUpdatedAt', (q) =>
       q
         .eq('sourceTemplateId', templateId)
+        .eq('sourceCriterionExternalId', criterionExternalId)
         .eq('ownerId', userId)
         .eq('publicationState', 'published')
     )
@@ -487,7 +497,12 @@ export const getTemplateRankingAggregate = query({
       return null
     }
 
-    const aggregate = await findTemplateRankingAggregate(ctx, template._id)
+    const criterion = resolvePrimaryTemplateCriterion(template)
+    const aggregate = await findTemplateRankingAggregate(
+      ctx,
+      template._id,
+      criterion.externalId
+    )
     if (!aggregate)
     {
       return null
@@ -522,7 +537,12 @@ export const listTemplateRankingAggregateItems = query({
       return emptyAggregateItemsResult(args.paginationOpts.cursor)
     }
 
-    const aggregate = await findTemplateRankingAggregate(ctx, template._id)
+    const criterion = resolvePrimaryTemplateCriterion(template)
+    const aggregate = await findTemplateRankingAggregate(
+      ctx,
+      template._id,
+      criterion.externalId
+    )
     if (!aggregate || aggregate.activeGeneration !== args.generation)
     {
       return emptyAggregateItemsResult(args.paginationOpts.cursor)
@@ -530,6 +550,7 @@ export const listTemplateRankingAggregateItems = query({
 
     const result = await takeAggregateItemsPage(ctx, {
       templateId: template._id,
+      criterionExternalId: criterion.externalId,
       generation: args.generation,
       sort: args.sort ?? DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT,
       band: args.band ?? 'all',
@@ -568,9 +589,11 @@ export const getMyRankingForTemplate = query({
       return emptyMyRankingForTemplateResult()
     }
 
+    const criterion = resolvePrimaryTemplateCriterion(template)
     const ranking = await latestOwnedRankingForTemplate(
       ctx,
       template._id,
+      criterion.externalId,
       userId
     )
     if (!ranking)
