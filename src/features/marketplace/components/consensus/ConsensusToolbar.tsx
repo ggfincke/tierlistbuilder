@@ -1,6 +1,6 @@
 // src/features/marketplace/components/consensus/ConsensusToolbar.tsx
-// single-row toolbar [search][band chips][sort][viz icons]. search, band, &
-// sort drive server queries; viz toggles in-section
+// single-row toolbar [search][sort][viz icons]. search & sort drive server
+// queries; viz toggles in-section
 
 import {
   Activity,
@@ -20,20 +20,12 @@ import {
   type TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
-import {
-  BAND_FILTERS,
-  BAND_LABELS,
-  SORT_LABELS,
-  type ConsensusBandFilter,
-  type ConsensusVizMode,
-} from './utils'
+import { SORT_LABELS, type ConsensusVizMode } from './utils'
 
 interface ConsensusToolbarProps
 {
   query: string
   onQueryChange: (next: string) => void
-  band: ConsensusBandFilter
-  onBandChange: (next: ConsensusBandFilter) => void
   sort: TemplateRankingAggregateItemSort
   onSortChange: (next: TemplateRankingAggregateItemSort) => void
   vizMode: ConsensusVizMode
@@ -60,8 +52,6 @@ const VIZ_CONFIG: VizConfig[] = [
 export const ConsensusToolbar = ({
   query,
   onQueryChange,
-  band,
-  onBandChange,
   sort,
   onSortChange,
   vizMode,
@@ -74,7 +64,7 @@ export const ConsensusToolbar = ({
   {
     onSortChange(event.target.value as TemplateRankingAggregateItemSort)
   }
-  const isFiltered = query.trim().length > 0 || band !== 'all'
+  const isFiltered = query.trim().length > 0
 
   return (
     <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-2">
@@ -103,32 +93,6 @@ export const ConsensusToolbar = ({
             </button>
           )}
         </label>
-
-        <div
-          role="group"
-          aria-label="Band filter"
-          className="flex h-9 items-center rounded-md border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-0.5"
-        >
-          {BAND_FILTERS.map((value) =>
-          {
-            const active = band === value
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onBandChange(value)}
-                aria-pressed={active}
-                className={`focus-custom inline-flex h-7 items-center rounded px-2.5 text-[12px] font-medium transition focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${
-                  active
-                    ? 'bg-[var(--t-bg-active)] text-[var(--t-text)] shadow-sm'
-                    : 'text-[var(--t-text-muted)] hover:text-[var(--t-text)]'
-                }`}
-              >
-                {BAND_LABELS[value]}
-              </button>
-            )
-          })}
-        </div>
 
         <label className="flex h-9 items-center gap-1.5 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-sunken)] pl-2.5 pr-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]">
           <SortAsc className="h-3 w-3" strokeWidth={2} />
@@ -190,26 +154,12 @@ export const ConsensusToolbar = ({
               <X className="h-2.5 w-2.5" strokeWidth={2.5} />
             </button>
           )}
-          {band !== 'all' && (
-            <button
-              type="button"
-              onClick={() => onBandChange('all')}
-              className="focus-custom inline-flex items-center gap-1 rounded-full border border-[var(--t-border)] px-2 py-0.5 text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)]"
-            >
-              {BAND_LABELS[band]}
-              <X className="h-2.5 w-2.5" strokeWidth={2.5} />
-            </button>
-          )}
           <button
             type="button"
-            onClick={() =>
-            {
-              onQueryChange('')
-              onBandChange('all')
-            }}
+            onClick={() => onQueryChange('')}
             className="focus-custom ml-auto text-[var(--t-accent)] transition hover:text-[var(--t-accent-hover)]"
           >
-            Clear all
+            Clear search
           </button>
         </div>
       )}

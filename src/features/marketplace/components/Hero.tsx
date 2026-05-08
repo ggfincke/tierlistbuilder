@@ -30,6 +30,7 @@ export const Hero = ({ template, coverStyle = 'auto' }: HeroProps) => (
         density="hero"
         style={coverStyle}
         loading="eager"
+        wideHeroFocusY={0.4}
       />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/55 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-black/95" />

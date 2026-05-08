@@ -50,7 +50,6 @@ import { usePopover } from './consensus/usePopover'
 import {
   isAggregateReady,
   templateFrame,
-  type ConsensusBandFilter,
   type ConsensusVizMode,
 } from './consensus/utils'
 
@@ -307,7 +306,6 @@ export const CommunityConsensusSection = ({
   const [sort, setSort] =
     useState<TemplateRankingAggregateItemSort>('templateOrder')
   const [vizMode, setVizMode] = useState<ConsensusVizMode>('tiers')
-  const [band, setBand] = useState<ConsensusBandFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSlug, setActiveSlug] = useState<string | null>(null)
   const [railTab, setRailTab] = useState<ConsensusRailTab>('recent')
@@ -318,7 +316,6 @@ export const CommunityConsensusSection = ({
     templateSlug: template.slug,
     generation: aggregate?.activeGeneration,
     sort,
-    band,
     search: searchQuery.trim() || null,
     enabled: itemsEnabled && !isActiveRanking,
   })
@@ -374,7 +371,6 @@ export const CommunityConsensusSection = ({
     if (!isActiveRanking) return itemsPage.items
     if (!activeRows || typeof activeBucketCount !== 'number') return []
     return filterAndSortActiveRankingRows(activeRows, {
-      band,
       bucketCount: activeBucketCount,
       search: searchQuery,
       sort,
@@ -382,7 +378,6 @@ export const CommunityConsensusSection = ({
   }, [
     activeBucketCount,
     activeRows,
-    band,
     isActiveRanking,
     itemsPage.items,
     searchQuery,
@@ -457,13 +452,13 @@ export const CommunityConsensusSection = ({
     {
       return (
         <StateCard
-          title="Nothing matches those filters"
-          body="Try clearing the search or band filter to see all items."
+          title="Nothing matches this view"
+          body="Try clearing the search or changing the sort."
         />
       )
     }
 
-    const animationKey = `${activeSlug ?? 'agg'}:${vizMode}:${sort}:${band}`
+    const animationKey = `${activeSlug ?? 'agg'}:${vizMode}:${sort}`
     const displayBuckets =
       isActiveRanking && compare.buckets
         ? compare.buckets
@@ -516,8 +511,6 @@ export const CommunityConsensusSection = ({
       <ConsensusToolbar
         query={searchQuery}
         onQueryChange={setSearchQuery}
-        band={band}
-        onBandChange={setBand}
         sort={sort}
         onSortChange={setSort}
         vizMode={vizMode}

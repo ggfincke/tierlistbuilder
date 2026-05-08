@@ -32,7 +32,7 @@ export const ConsensusFeaturedSpotlight = ({
       type="button"
       onClick={onSelect}
       aria-pressed={active}
-      className="focus-custom relative overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-left transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+      className="focus-custom relative shrink-0 overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-left transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
       style={{
         backgroundImage: `linear-gradient(135deg, color-mix(in srgb, ${swatch} 18%, transparent), transparent 60%)`,
       }}
@@ -46,14 +46,21 @@ export const ConsensusFeaturedSpotlight = ({
           <Crown className="h-4 w-4" strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-warning,#facc15)]">
-            {badgeLabel} ranking
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-warning,#facc15)]">
+              {badgeLabel} ranking
+            </p>
+            {active && (
+              <span className="shrink-0 rounded-sm bg-[var(--t-accent)] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--t-accent-foreground)]">
+                Active
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 truncate text-[13px] font-semibold text-[var(--t-text)]">
             {ranking.title}
           </p>
           {ranking.description && (
-            <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-[var(--t-text-muted)]">
+            <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-[var(--t-text-muted)]">
               {ranking.description}
             </p>
           )}
@@ -68,11 +75,6 @@ export const ConsensusFeaturedSpotlight = ({
             </span>
           </p>
         </div>
-        {active && (
-          <span className="shrink-0 rounded-sm bg-[var(--t-accent)] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--t-accent-foreground)]">
-            Active
-          </span>
-        )}
       </div>
     </button>
   )

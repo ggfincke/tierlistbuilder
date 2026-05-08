@@ -6,13 +6,11 @@ import {
   TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN,
   TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX,
   type MarketplaceTemplateRankingAggregateItem,
-  type TemplateRankingAggregateItemBand,
   type TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
 interface ActiveRankingFilterOptions
 {
-  band: TemplateRankingAggregateItemBand
   bucketCount: number
   search: string
   sort: TemplateRankingAggregateItemSort
@@ -83,20 +81,12 @@ export const buildRowsForActiveRanking = (
       }
     })
 
-const effectiveBand = (
-  band: TemplateRankingAggregateItemBand,
-  sort: TemplateRankingAggregateItemSort
-): TemplateRankingAggregateItemBand =>
-  band === 'all' && sort === 'consensusTop' ? 'top' : band
-
-const matchesBand = (
+const matchesSortFilter = (
   row: MarketplaceTemplateRankingAggregateItem,
-  band: TemplateRankingAggregateItemBand
+  sort: TemplateRankingAggregateItemSort
 ): boolean =>
 {
-  if (band === 'top') return row.isTopBucket
-  if (band === 'bottom') return row.isBottomBucket
-  if (band === 'controversial') return row.isControversial
+  if (sort === 'consensusTop') return row.isTopBucket
   return true
 }
 
@@ -134,9 +124,10 @@ export const filterAndSortActiveRankingRows = (
 ): MarketplaceTemplateRankingAggregateItem[] =>
 {
   const query = options.search.trim().toLowerCase()
-  const band = effectiveBand(options.band, options.sort)
   return rows
-    .filter((row) => matchesBand(row, band) && matchesSearch(row, query))
+    .filter(
+      (row) => matchesSortFilter(row, options.sort) && matchesSearch(row, query)
+    )
     .slice()
     .sort(
       (a, b) =>

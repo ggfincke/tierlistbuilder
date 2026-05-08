@@ -19,6 +19,7 @@ interface UpdateTemplateInput extends Omit<
 >
 {
   coverFile: File | null
+  removeCover: boolean
 }
 
 interface UpdateTemplateAction
@@ -42,11 +43,15 @@ export const useUpdateTemplate = (): UpdateTemplateAction =>
       setError(null)
       try
       {
-        let coverMediaExternalId: string | undefined
+        let coverMediaExternalId: string | null | undefined
         if (input.coverFile)
         {
           const uploaded = await uploadCoverImage(input.coverFile)
           coverMediaExternalId = uploaded.externalId
+        }
+        else if (input.removeCover)
+        {
+          coverMediaExternalId = null
         }
 
         await updateMutation({

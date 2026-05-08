@@ -2,7 +2,7 @@
 // modal that drives publish-from-board OR edit-existing flows — board picker,
 // metadata fields, optional cover image, & rate-limit-aware submit
 
-import { Loader2 } from 'lucide-react'
+import { LayoutGrid, Loader2 } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
 
 import {
@@ -44,6 +44,7 @@ export interface PublishModalEditInitialValues
   tags: string[]
   visibility: TemplateVisibility
   creditLine: string
+  hasCoverMedia: boolean
 }
 
 interface PublishModalProps
@@ -112,6 +113,7 @@ const PublishForm = ({
   )
   const [creditLine, setCreditLine] = useState(edit?.creditLine ?? '')
   const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [removeCover, setRemoveCover] = useState(false)
   const [coverError, setCoverError] = useState<string | null>(null)
 
   const board = isEdit
@@ -132,6 +134,12 @@ const PublishForm = ({
       boardExternalId: next.boardExternalId,
     })
     setTitleOverride(null)
+  }
+
+  const handleCoverFileChange = (next: File | null) =>
+  {
+    setCoverFile(next)
+    if (next) setRemoveCover(false)
   }
 
   const trimmedTitle = title.trim()
@@ -166,6 +174,7 @@ const PublishForm = ({
         visibility,
         creditLine: creditLine.trim() ? creditLine.trim() : null,
         coverFile,
+        removeCover,
       })
       if (result)
       {
@@ -364,15 +373,41 @@ const PublishForm = ({
         </h3>
         {isEdit && (
           <p className="text-[11px] text-[var(--t-text-faint)]">
-            Pick a new image to replace the current cover. Leave empty to keep
-            it as is.
+            {edit.hasCoverMedia
+              ? 'Pick a new image to replace the current cover. Leave empty to keep it as is.'
+              : 'Pick a new image to replace the item mosaic. Leave empty to keep the mosaic.'}
           </p>
         )}
         <CoverImageInput
           file={coverFile}
-          onChange={setCoverFile}
+          onChange={handleCoverFileChange}
           onValidationError={setCoverError}
         />
+        {isEdit && edit.hasCoverMedia && !coverFile && (
+          <div className="flex flex-wrap items-center gap-2">
+            <SecondaryButton
+              type="button"
+              size="sm"
+              disabled={isPending}
+              onClick={() =>
+                setRemoveCover((current) =>
+                {
+                  const next = !current
+                  if (next) setCoverError(null)
+                  return next
+                })
+              }
+            >
+              <LayoutGrid className="h-3 w-3" strokeWidth={1.8} />
+              {removeCover ? 'Keep current cover' : 'Use item mosaic'}
+            </SecondaryButton>
+            {removeCover && (
+              <span className="text-[11px] text-[var(--t-text-muted)]">
+                Current cover will be removed.
+              </span>
+            )}
+          </div>
+        )}
         {coverError && (
           <p role="alert" className="text-xs text-[var(--t-destructive-hover)]">
             {coverError}

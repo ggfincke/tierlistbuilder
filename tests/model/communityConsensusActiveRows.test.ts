@@ -34,7 +34,7 @@ const rowIds = (
 
 describe('active ranking consensus rows', () =>
 {
-  it('projects selected-author placements before applying band, search, & consensusTop filters', () =>
+  it('projects selected-author placements before applying search & consensusTop filters', () =>
   {
     const rows = buildRowsForActiveRanking(
       [
@@ -91,27 +91,6 @@ describe('active ranking consensus rows', () =>
     expect(
       rowIds(
         filterAndSortActiveRankingRows(rows, {
-          band: 'top',
-          bucketCount: 6,
-          search: '',
-          sort: 'templateOrder',
-        })
-      )
-    ).toEqual(['author-top'])
-    expect(
-      rowIds(
-        filterAndSortActiveRankingRows(rows, {
-          band: 'bottom',
-          bucketCount: 6,
-          search: '',
-          sort: 'templateOrder',
-        })
-      )
-    ).toEqual(['author-bottom'])
-    expect(
-      rowIds(
-        filterAndSortActiveRankingRows(rows, {
-          band: 'all',
           bucketCount: 6,
           search: '',
           sort: 'consensusTop',
@@ -121,22 +100,11 @@ describe('active ranking consensus rows', () =>
     expect(
       rowIds(
         filterAndSortActiveRankingRows(rows, {
-          band: 'bottom',
           bucketCount: 6,
           search: 'zed',
           sort: 'templateOrder',
         })
       )
     ).toEqual(['author-bottom'])
-    expect(
-      rowIds(
-        filterAndSortActiveRankingRows(rows, {
-          band: 'controversial',
-          bucketCount: 6,
-          search: '',
-          sort: 'templateOrder',
-        })
-      )
-    ).toEqual([])
   })
 })

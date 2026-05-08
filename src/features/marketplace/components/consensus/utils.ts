@@ -4,13 +4,9 @@
 import type {
   MarketplaceTemplateRankingAggregate,
   MarketplaceTemplateRankingAggregateBucket,
-  TemplateRankingAggregateItemBand,
   TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import {
-  TEMPLATE_RANKING_AGGREGATE_ITEM_BANDS,
-  isTemplateRankingAggregateReady,
-} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import { isTemplateRankingAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
 import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
@@ -25,17 +21,6 @@ export const SORT_LABELS: Record<TemplateRankingAggregateItemSort, string> = {
   consensus: 'Most agreed',
   consensusTop: 'Most agreed S/A',
   controversy: 'Most divisive',
-}
-
-export const BAND_FILTERS = TEMPLATE_RANKING_AGGREGATE_ITEM_BANDS
-
-export type ConsensusBandFilter = TemplateRankingAggregateItemBand
-
-export const BAND_LABELS: Record<ConsensusBandFilter, string> = {
-  all: 'All',
-  top: 'S / A',
-  bottom: 'D / F',
-  controversial: 'Divisive',
 }
 
 export type ConsensusVizMode =

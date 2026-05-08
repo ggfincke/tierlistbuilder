@@ -1,8 +1,14 @@
 // src/features/marketplace/components/Mosaic.tsx
-// tile-grid cover renderer — packs items into a grid over the media matte;
-// tiles render through FramedItemMedia for parity w/ the detail item grid
+// tile-grid cover renderer — cells use the template's slot aspect, the grid
+// centers in the matte, & oversized lists are downsampled to the cap
 
-import { useMemo } from 'react'
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react'
 
 import type {
   ImageFit,
@@ -16,6 +22,7 @@ import {
   type MediaDecoding,
   type MediaLoading,
 } from './MediaMatteFrame'
+import { computeGridDims } from './mosaicGrid'
 
 export type MosaicDensity = 'small' | 'default' | 'large' | 'hero'
 
@@ -23,58 +30,67 @@ interface MosaicProps
 {
   items: readonly TemplateCoverItem[]
   density: MosaicDensity
-  // board-wide fit fallback when an item has no per-item override; null
-  // matches publisher-omitted -> 'cover'
   defaultImageFit?: ImageFit | null
-  // template-wide slot ratio (w/h) so preview cells render at the same shape
-  // as the actual board items; null falls back to 1:1
   templateAspectRatio?: number | null
   loading?: MediaLoading
   decoding?: MediaDecoding
 }
 
-const DENSITY_CONFIG: Record<MosaicDensity, { cols: number; rows: number }> = {
-  small: { cols: 4, rows: 2 },
-  default: { cols: 4, rows: 3 },
-  large: { cols: 5, rows: 3 },
-  hero: { cols: 6, rows: 4 },
+// per-density item caps. small allows 6x2/5x2 fits on wide h-32 rails (3x3
+// gets too narrow vs the cover aspect); default/large open to 3+ rows so big
+// rosters read as a content wall vs a marquee; hero scales for huge templates
+const MAX_SLOTS: Record<MosaicDensity, number> = {
+  small: 12,
+  default: 18,
+  large: 24,
+  hero: 80,
 }
 
-// pick a (cols, rows) inside the base bounds that fits itemCount w/ the
-// fewest empty cells. ties broken by closest aspect ratio to the base grid
-// so partial fills still feel like the same composition
-const computeGridDims = (
-  itemCount: number,
-  baseCols: number,
-  baseRows: number
-): { cols: number; rows: number } =>
+const useElementAspect = (
+  ref: RefObject<HTMLElement | null>,
+  fallback: number
+): number =>
 {
-  if (itemCount <= 0) return { cols: baseCols, rows: baseRows }
-  const baseSlots = baseCols * baseRows
-  if (itemCount >= baseSlots) return { cols: baseCols, rows: baseRows }
+  const [aspect, setAspect] = useState(fallback)
 
-  const baseRatio = baseCols / baseRows
-  let bestCols = baseCols
-  let bestRows = baseRows
-  let bestScore = Number.POSITIVE_INFINITY
-  for (let c = 1; c <= baseCols; c++)
+  useLayoutEffect(() =>
   {
-    for (let r = 1; r <= baseRows; r++)
+    const element = ref.current
+    if (!element) return
+
+    const update = () =>
     {
-      const slots = c * r
-      if (slots < itemCount) continue
-      const empty = slots - itemCount
-      const ratioDiff = Math.abs(c / r - baseRatio)
-      const score = empty * 100 + ratioDiff
-      if (score < bestScore)
-      {
-        bestScore = score
-        bestCols = c
-        bestRows = r
-      }
+      const rect = element.getBoundingClientRect()
+      if (rect.width <= 0 || rect.height <= 0) return
+      const next = rect.width / rect.height
+      setAspect((prev) => (Math.abs(prev - next) < 0.001 ? prev : next))
     }
+
+    update()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [ref])
+
+  return aspect
+}
+
+// pick `count` items at evenly-spaced indices, preserving original order.
+// gives a representative cross-section of the list without shuffling, so
+// the cover reflects the template's natural ordering
+const sampleItems = <T,>(items: readonly T[], count: number): readonly T[] =>
+{
+  if (items.length <= count) return items
+  if (count <= 0) return []
+  if (count === 1) return [items[0]]
+  const step = (items.length - 1) / (count - 1)
+  const out: T[] = new Array(count)
+  for (let i = 0; i < count; i++)
+  {
+    out[i] = items[Math.round(i * step)]
   }
-  return { cols: bestCols, rows: bestRows }
+  return out
 }
 
 const resolveFit = (
@@ -91,51 +107,52 @@ export const Mosaic = ({
   decoding = 'async',
 }: MosaicProps) =>
 {
-  const { cols: baseCols, rows: baseRows } = DENSITY_CONFIG[density]
-  const baseSlotCount = baseCols * baseRows
-  const tiles = items.slice(0, baseSlotCount)
-  const { cols, rows } = useMemo(
-    () => computeGridDims(tiles.length, baseCols, baseRows),
-    [tiles.length, baseCols, baseRows]
-  )
-  const slotCount = cols * rows
-  const emptyCount = slotCount - tiles.length
+  const frameRef = useRef<HTMLDivElement>(null)
   const cellAspect =
     templateAspectRatio && templateAspectRatio > 0 ? templateAspectRatio : 1
+  const coverAspect = useElementAspect(frameRef, 1)
+  const maxSlots = MAX_SLOTS[density]
 
-  // cells size from container width (full-bleed cover); when the resulting
-  // grid is taller than the container, overflow clips at the bottom so the
-  // top row is always intact. when shorter, a matte band sits below it.
+  const { cols, rows } = useMemo(
+    () => computeGridDims(items.length, maxSlots, coverAspect, cellAspect),
+    [items.length, maxSlots, coverAspect, cellAspect]
+  )
+
+  const slotCount = cols * rows
+  const tiles = useMemo(() => sampleItems(items, slotCount), [items, slotCount])
+
+  // grid is bound by the wider-relative axis (width when gridAspect >
+  // coverAspect, else height). aspect-ratio derives the other axis so cells
+  // resolve to cellAspect, & the flex wrapper centers any leftover matte
+  const gridAspect = (cols * cellAspect) / rows
+  const widthBound = gridAspect > coverAspect
+
   return (
     <MediaMatteFrame className="absolute inset-0 overflow-hidden">
       <div
-        className="grid w-full"
-        style={{
-          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          gridAutoRows: 'auto',
-        }}
+        ref={frameRef}
+        className="flex h-full w-full items-center justify-center p-3"
       >
-        {tiles.map((item, i) => (
-          <CoverTile
-            key={`${item.media.externalId}-${i}`}
-            item={item}
-            cellAspectRatio={
-              item.aspectRatio && item.aspectRatio > 0
-                ? item.aspectRatio
-                : cellAspect
-            }
-            defaultImageFit={defaultImageFit}
-            loading={loading}
-            decoding={decoding}
-          />
-        ))}
-        {Array.from({ length: emptyCount }).map((_, i) => (
-          <div
-            key={`empty-${i}`}
-            className="bg-[var(--t-media-matte)]"
-            style={{ aspectRatio: cellAspect }}
-          />
-        ))}
+        <div
+          className="grid"
+          style={{
+            aspectRatio: `${cols * cellAspect} / ${rows}`,
+            width: widthBound ? '100%' : 'auto',
+            height: widthBound ? 'auto' : '100%',
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+          }}
+        >
+          {tiles.map((item, i) => (
+            <CoverTile
+              key={`${item.media.externalId}-${i}`}
+              item={item}
+              defaultImageFit={defaultImageFit}
+              loading={loading}
+              decoding={decoding}
+            />
+          ))}
+        </div>
       </div>
     </MediaMatteFrame>
   )
@@ -145,7 +162,6 @@ interface CoverTileProps
 {
   item: TemplateCoverItem
   defaultImageFit: ImageFit | null | undefined
-  cellAspectRatio: number
   loading: MediaLoading
   decoding: MediaDecoding
 }
@@ -153,7 +169,6 @@ interface CoverTileProps
 const CoverTile = ({
   item,
   defaultImageFit,
-  cellAspectRatio,
   loading,
   decoding,
 }: CoverTileProps) =>
@@ -161,10 +176,7 @@ const CoverTile = ({
   const transform: ItemTransform | null = item.transform
   const fit = resolveFit(item.imageFit, defaultImageFit)
   return (
-    <div
-      className="relative overflow-hidden bg-[var(--t-media-matte)]"
-      style={{ aspectRatio: cellAspectRatio }}
-    >
+    <div className="relative h-full w-full overflow-hidden bg-[var(--t-media-matte)]">
       <FramedItemMedia
         imageUrl={item.media.url}
         alt={item.label ?? ''}
