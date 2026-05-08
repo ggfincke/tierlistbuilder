@@ -69,45 +69,48 @@ const SAVE_MENU_DEFINITIONS: readonly NestedMenuDefinition<SaveMenuId>[] = [
 interface BoardActionBarProps
 {
   toolbarPosition: ToolbarPosition
-  exportStatus: ExportStatus
-  exportingAll: boolean
-  imageFormat: ImageFormat
-  onImageFormatChange: (format: ImageFormat) => void
   onAddTier: () => void
   onOpenSettings: () => void
   onOpenStats: () => void
+  onShare: () => void
+  exportControls: BoardActionBarExportControls
+  publish?: BoardActionBarPublishControls
+  onReset: () => void
+}
+
+interface BoardActionBarExportControls
+{
+  status: ExportStatus
+  exportingAll: boolean
+  imageFormat: ImageFormat
+  onImageFormatChange: (format: ImageFormat) => void
   onExport: (format: ImageFormat | 'pdf') => Promise<void>
   onCopyToClipboard: () => Promise<void>
   onExportAll: (format: 'json' | 'pdf' | ImageFormat) => Promise<void>
   onAnnotateExport: () => void
   onPreviewExport: () => void
-  onShare: () => void
-  onPublishRanking: (() => void) | null
-  onPublishTemplate: (() => void) | null
-  onReset: () => void
+}
+
+interface BoardActionBarPublishControls
+{
+  ranking?: () => void
+  template?: () => void
 }
 
 // primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
   toolbarPosition,
-  exportStatus,
-  exportingAll,
-  imageFormat,
-  onImageFormatChange,
   onAddTier,
   onOpenSettings,
   onOpenStats,
-  onExport,
-  onCopyToClipboard,
-  onExportAll,
-  onAnnotateExport,
-  onPreviewExport,
   onShare,
-  onPublishRanking,
-  onPublishTemplate,
+  exportControls,
+  publish,
   onReset,
 }: BoardActionBarProps) =>
 {
+  const publishRanking = publish?.ranking
+  const publishTemplate = publish?.template
   const isVertical = isVerticalPosition(toolbarPosition)
   const menuPos = getMenuPositionClasses(toolbarPosition)
   const { reducedMotion, boardLocked, setBoardLocked } = usePreferencesStore(
@@ -340,15 +343,15 @@ export const BoardActionBar = ({
 
           <ExportMenu
             menuPos={menuPos}
-            exportStatus={exportStatus}
-            exportingAll={exportingAll}
-            imageFormat={imageFormat}
-            onImageFormatChange={onImageFormatChange}
-            onExport={onExport}
-            onCopyToClipboard={onCopyToClipboard}
-            onExportAll={onExportAll}
-            onAnnotateExport={onAnnotateExport}
-            onPreviewExport={onPreviewExport}
+            exportStatus={exportControls.status}
+            exportingAll={exportControls.exportingAll}
+            imageFormat={exportControls.imageFormat}
+            onImageFormatChange={exportControls.onImageFormatChange}
+            onExport={exportControls.onExport}
+            onCopyToClipboard={exportControls.onCopyToClipboard}
+            onExportAll={exportControls.onExportAll}
+            onAnnotateExport={exportControls.onAnnotateExport}
+            onPreviewExport={exportControls.onPreviewExport}
             onShare={onShare}
           />
 
@@ -366,10 +369,8 @@ export const BoardActionBar = ({
               label="Save or publish"
               title="Save"
               onClick={() => toggleSaveMenu('root')}
-              onFocus={onPublishTemplate ? preloadPublishModal : undefined}
-              onPointerEnter={
-                onPublishTemplate ? preloadPublishModal : undefined
-              }
+              onFocus={publishTemplate ? preloadPublishModal : undefined}
+              onPointerEnter={publishTemplate ? preloadPublishModal : undefined}
               hasPopup="dialog"
               expanded={showSaveMenu}
               controlsId={saveDialogId}
@@ -387,31 +388,31 @@ export const BoardActionBar = ({
                 aria-label="Save or publish options"
                 className={`${menuPos.primary} flex flex-col ${menuPos.animationClass} text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
               >
-                {onPublishRanking && (
+                {publishRanking && (
                   <OverlayMenuItem
                     onClick={() =>
                     {
                       closeSaveMenu()
-                      onPublishRanking()
+                      publishRanking()
                     }}
                   >
                     <Send className="h-3.5 w-3.5 shrink-0" />
                     Publish Ranking
                   </OverlayMenuItem>
                 )}
-                {onPublishTemplate && (
+                {publishTemplate && (
                   <OverlayMenuItem
                     onClick={() =>
                     {
                       closeSaveMenu()
-                      onPublishTemplate()
+                      publishTemplate()
                     }}
                   >
                     <UploadCloud className="h-3.5 w-3.5 shrink-0" />
                     Publish as Template
                   </OverlayMenuItem>
                 )}
-                {(onPublishRanking || onPublishTemplate) && <OverlayDivider />}
+                {(publishRanking || publishTemplate) && <OverlayDivider />}
                 <OverlayMenuItem
                   onClick={() =>
                   {

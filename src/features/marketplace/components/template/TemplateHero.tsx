@@ -23,7 +23,10 @@ import {
   useTemplateBookmarkState,
   useToggleTemplateBookmarkMutation,
 } from '~/features/marketplace/model/useTemplateDetail'
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import {
+  type AuthSession,
+  useAuthSession,
+} from '~/features/platform/auth/model/useAuthSession'
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
 import { logger } from '~/shared/lib/logger'
 import {
@@ -106,6 +109,21 @@ const SecondaryIconButton = ({
   </button>
 )
 
+const BOOKMARK_TITLE_BY_STATE = {
+  signedOut: 'Sign in to save templates',
+  saved: 'Remove saved template',
+  unsaved: 'Save to library',
+} as const
+
+const getBookmarkButtonTitle = (
+  session: AuthSession,
+  saved: boolean
+): string =>
+{
+  if (session.status !== 'signed-in') return BOOKMARK_TITLE_BY_STATE.signedOut
+  return saved ? BOOKMARK_TITLE_BY_STATE.saved : BOOKMARK_TITLE_BY_STATE.unsaved
+}
+
 const BookmarkButton = ({ slug }: { slug: string }) =>
 {
   const session = useAuthSession()
@@ -117,15 +135,7 @@ const BookmarkButton = ({ slug }: { slug: string }) =>
   const [pending, setPending] = useState(false)
   const saved = bookmark?.saved === true
   const Icon = saved ? BookmarkCheck : Bookmark
-  let title = 'Save to library'
-  if (session.status !== 'signed-in')
-  {
-    title = 'Sign in to save templates'
-  }
-  else if (saved)
-  {
-    title = 'Remove saved template'
-  }
+  const title = getBookmarkButtonTitle(session, saved)
 
   const handleClick = async (): Promise<void> =>
   {
@@ -168,6 +178,25 @@ const handlePrint = (): void =>
 
 const COVER_HEIGHT = 'h-72 sm:h-80 lg:h-[30rem]'
 
+interface HeroStat
+{
+  label: string
+  value: string | number
+}
+
+const HeroStatStrip = ({ stats }: { stats: readonly HeroStat[] }) => (
+  <div className="grid shrink-0 grid-cols-3 divide-x divide-white/10 border-t border-white/10 bg-black/70 px-1 py-1.5 text-white">
+    {stats.map((stat) => (
+      <div key={stat.label} className="px-3">
+        <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/60">
+          {stat.label}
+        </p>
+        <p className="text-base font-semibold leading-tight">{stat.value}</p>
+      </div>
+    ))}
+  </div>
+)
+
 export const TemplateHero = ({
   template,
   hasConsensus,
@@ -178,6 +207,11 @@ export const TemplateHero = ({
 {
   const categoryLabel = CATEGORY_META[template.category].label
   const hasBakedLabels = template.labels?.show === true
+  const coverStats: readonly HeroStat[] = [
+    { label: 'Items', value: template.itemCount },
+    { label: 'Forks', value: formatCount(template.useCount) },
+    { label: 'Rankings', value: formatCount(rankingCount) },
+  ]
 
   // chip-aligned spread max so each bucket's bar is visually comparable
   const spreadMax = useMemo(
@@ -233,32 +267,7 @@ export const TemplateHero = ({
           )}
         </div>
 
-        <div className="grid shrink-0 grid-cols-3 divide-x divide-white/10 border-t border-white/10 bg-black/70 px-1 py-1.5 text-white">
-          <div className="px-3">
-            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/60">
-              Items
-            </p>
-            <p className="text-base font-semibold leading-tight">
-              {template.itemCount}
-            </p>
-          </div>
-          <div className="px-3">
-            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/60">
-              Forks
-            </p>
-            <p className="text-base font-semibold leading-tight">
-              {formatCount(template.useCount)}
-            </p>
-          </div>
-          <div className="px-3">
-            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/60">
-              Rankings
-            </p>
-            <p className="text-base font-semibold leading-tight">
-              {formatCount(rankingCount)}
-            </p>
-          </div>
-        </div>
+        <HeroStatStrip stats={coverStats} />
       </div>
 
       <div className="flex min-w-0 flex-col">

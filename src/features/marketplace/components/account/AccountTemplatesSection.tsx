@@ -80,10 +80,42 @@ interface RowProps
   onTogglePublish: () => void
 }
 
+type TemplatePublishAction = 'unpublish' | 'republish'
+
+type TemplatePublishState =
+  | { kind: 'idle' }
+  | { kind: 'confirm-unpublish'; slug: string; title: string }
+  | { kind: 'pending'; slug: string; action: TemplatePublishAction }
+
+interface TemplatePublishActionMeta
+{
+  successToast: string
+  errorContext: string
+}
+
+const TEMPLATE_PUBLISH_ACTION_META: Record<
+  TemplatePublishAction,
+  TemplatePublishActionMeta
+> = {
+  unpublish: {
+    successToast: 'Template unpublished',
+    errorContext: 'unpublishMyTemplate failed',
+  },
+  republish: {
+    successToast: 'Template republished',
+    errorContext: 'republishMyTemplate failed',
+  },
+}
+
+const IDLE_TEMPLATE_PUBLISH_STATE: TemplatePublishState = { kind: 'idle' }
+
+const isTemplateUnpublished = (
+  template: MarketplaceTemplateManagementItem
+): boolean =>
+  template.publicationState === 'unpublished' || !template.isPubliclyListable
+
 const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
 {
-  const isUnpublished =
-    template.publicationState === 'unpublished' || !template.isPubliclyListable
   const categoryLabel = CATEGORY_META[template.category].label
   return (
     <div className="flex flex-col gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3 sm:flex-row sm:items-center sm:gap-4">
@@ -142,7 +174,7 @@ const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
           className="focus-custom inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--t-border)] px-2.5 text-xs font-medium text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
         >
           {busy && <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />}
-          {isUnpublished ? 'Republish' : 'Unpublish'}
+          {isTemplateUnpublished(template) ? 'Republish' : 'Unpublish'}
         </button>
       </div>
     </div>
@@ -174,49 +206,33 @@ export const AccountTemplatesSection = () =>
   const list = useMyTemplateManagementList(true)
   const unpublish = useUnpublishMyTemplateMutation()
   const republish = useRepublishMyTemplateMutation()
-  const [busySlug, setBusySlug] = useState<string | null>(null)
   const [editTarget, setEditTarget] =
     useState<PublishModalEditInitialValues | null>(null)
-  const [confirmUnpublishSlug, setConfirmUnpublishSlug] = useState<{
+  const [publishState, setPublishState] = useState<TemplatePublishState>(
+    IDLE_TEMPLATE_PUBLISH_STATE
+  )
+
+  const runPublishAction = async (
+    action: TemplatePublishAction,
     slug: string
-    title: string
-  } | null>(null)
-
-  const runUnpublish = async (slug: string) =>
+  ) =>
   {
-    setBusySlug(slug)
+    const meta = TEMPLATE_PUBLISH_ACTION_META[action]
+    const mutation = action === 'unpublish' ? unpublish : republish
+    setPublishState({ kind: 'pending', slug, action })
     try
     {
-      await unpublish({ slug })
-      toast('Template unpublished', 'success')
+      await mutation({ slug })
+      toast(meta.successToast, 'success')
     }
     catch (caught)
     {
-      logger.error('marketplace', 'unpublishMyTemplate failed', caught)
+      logger.error('marketplace', meta.errorContext, caught)
       toast(formatMarketplaceError(caught), 'error')
     }
     finally
     {
-      setBusySlug(null)
-    }
-  }
-
-  const runRepublish = async (slug: string) =>
-  {
-    setBusySlug(slug)
-    try
-    {
-      await republish({ slug })
-      toast('Template republished', 'success')
-    }
-    catch (caught)
-    {
-      logger.error('marketplace', 'republishMyTemplate failed', caught)
-      toast(formatMarketplaceError(caught), 'error')
-    }
-    finally
-    {
-      setBusySlug(null)
+      setPublishState(IDLE_TEMPLATE_PUBLISH_STATE)
     }
   }
 
@@ -245,24 +261,25 @@ export const AccountTemplatesSection = () =>
       <div className="space-y-2">
         {list.items.map((template) =>
         {
-          const isUnpublished =
-            template.publicationState === 'unpublished' ||
-            !template.isPubliclyListable
+          const isBusy =
+            publishState.kind === 'pending' &&
+            publishState.slug === template.slug
           return (
             <TemplateRow
               key={template.slug}
               template={template}
-              busy={busySlug === template.slug}
+              busy={isBusy}
               onEdit={() => setEditTarget(toEditInitialValues(template))}
               onTogglePublish={() =>
               {
-                if (isUnpublished)
+                if (isTemplateUnpublished(template))
                 {
-                  void runRepublish(template.slug)
+                  void runPublishAction('republish', template.slug)
                 }
                 else
                 {
-                  setConfirmUnpublishSlug({
+                  setPublishState({
+                    kind: 'confirm-unpublish',
                     slug: template.slug,
                     title: template.title,
                   })
@@ -286,17 +303,16 @@ export const AccountTemplatesSection = () =>
       </LazyModalSlot>
 
       <ConfirmDialog
-        open={confirmUnpublishSlug !== null}
+        open={publishState.kind === 'confirm-unpublish'}
         title="Unpublish template?"
-        description={`"${confirmUnpublishSlug?.title ?? ''}" will be hidden from the gallery. You can republish it any time.`}
+        description={`"${publishState.kind === 'confirm-unpublish' ? publishState.title : ''}" will be hidden from the gallery. You can republish it any time.`}
         confirmText="Unpublish"
-        onCancel={() => setConfirmUnpublishSlug(null)}
+        onCancel={() => setPublishState(IDLE_TEMPLATE_PUBLISH_STATE)}
         onConfirm={() =>
         {
-          if (confirmUnpublishSlug)
+          if (publishState.kind === 'confirm-unpublish')
           {
-            void runUnpublish(confirmUnpublishSlug.slug)
-            setConfirmUnpublishSlug(null)
+            void runPublishAction('unpublish', publishState.slug)
           }
         }}
       />

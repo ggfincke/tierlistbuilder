@@ -121,12 +121,16 @@ export const WorkspaceShell = () =>
   }, [activeBoardId, openModal])
   // mirror the mutation gate before surfacing the ranking publish entry
   const handlePublishRanking =
-    cloudEnabled && activeBoardId && rankingPublishAvailability?.canPublish
+    cloudEnabled &&
+    activeBoardId !== null &&
+    rankingPublishAvailability?.canPublish
       ? handleOpenPublishRanking
-      : null
+      : undefined
   // template publish needs sign-in too; PublishModal itself handles the empty
   // boards list (BoardPicker shows a placeholder + the submit guard catches it)
-  const handlePublishTemplate = cloudEnabled ? handleOpenPublishTemplate : null
+  const handlePublishTemplate = cloudEnabled
+    ? handleOpenPublishTemplate
+    : undefined
   if (!appReady)
   {
     return (
@@ -168,21 +172,25 @@ export const WorkspaceShell = () =>
                 toolbar={
                   <BoardActionBar
                     toolbarPosition={toolbarPosition}
-                    exportStatus={exportActions.exportStatus}
-                    exportingAll={exportActions.exportAllProgress !== null}
-                    imageFormat={exportActions.imageFormat}
-                    onImageFormatChange={exportActions.setImageFormat}
                     onAddTier={handleAddTier}
                     onOpenSettings={handleOpenSettings}
                     onOpenStats={handleOpenStats}
-                    onExport={exportActions.runExport}
-                    onCopyToClipboard={exportActions.runCopyToClipboard}
-                    onExportAll={exportActions.runExportAll}
-                    onAnnotateExport={exportActions.handleAnnotateExport}
-                    onPreviewExport={exportActions.handlePreviewExport}
                     onShare={handleOpenShare}
-                    onPublishRanking={handlePublishRanking}
-                    onPublishTemplate={handlePublishTemplate}
+                    exportControls={{
+                      status: exportActions.exportStatus,
+                      exportingAll: exportActions.exportAllProgress !== null,
+                      imageFormat: exportActions.imageFormat,
+                      onImageFormatChange: exportActions.setImageFormat,
+                      onExport: exportActions.runExport,
+                      onCopyToClipboard: exportActions.runCopyToClipboard,
+                      onExportAll: exportActions.runExportAll,
+                      onAnnotateExport: exportActions.handleAnnotateExport,
+                      onPreviewExport: exportActions.handlePreviewExport,
+                    }}
+                    publish={{
+                      ranking: handlePublishRanking,
+                      template: handlePublishTemplate,
+                    }}
                     onReset={handleResetBoard}
                   />
                 }
