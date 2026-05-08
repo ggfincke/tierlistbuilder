@@ -11,6 +11,7 @@ import { Cover } from './Cover'
 import { StatusPill } from './StatusPill'
 import { TierBar } from './TierBar'
 import { VisibilityChip } from './VisibilityChip'
+import { BOARD_LIST_GRID_TEMPLATE } from './boardListGrid'
 
 interface BoardListRowProps
 {
@@ -18,10 +19,6 @@ interface BoardListRowProps
   onOpen?: (board: LibraryBoardListItem) => void
   isPending?: boolean
 }
-
-// shared grid template — keeps header columns aligned w/ row columns
-const COLUMN_TEMPLATE =
-  'minmax(56px, 56px) minmax(0, 2.6fr) minmax(120px, 1.6fr) 110px 90px'
 
 const BoardListRow = memo(({ board, onOpen, isPending }: BoardListRowProps) =>
 {
@@ -42,7 +39,7 @@ const BoardListRow = memo(({ board, onOpen, isPending }: BoardListRowProps) =>
       aria-busy={isPending || undefined}
       className="focus-custom grid w-full items-center gap-4 px-4 py-3 text-left transition hover:bg-[rgb(var(--t-overlay)/0.025)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-progress disabled:opacity-70"
       style={{
-        gridTemplateColumns: COLUMN_TEMPLATE,
+        gridTemplateColumns: BOARD_LIST_GRID_TEMPLATE,
         borderBottom: '1px solid var(--t-border)',
       }}
     >
@@ -109,7 +106,7 @@ export const BoardListTable = ({
     <div
       className="grid items-center gap-4 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--t-text-faint)]"
       style={{
-        gridTemplateColumns: COLUMN_TEMPLATE,
+        gridTemplateColumns: BOARD_LIST_GRID_TEMPLATE,
         borderBottom: '1px solid var(--t-border)',
         background: 'var(--t-bg-page)',
       }}

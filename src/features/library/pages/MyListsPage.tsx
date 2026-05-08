@@ -2,8 +2,9 @@
 // my-lists library landing — heading, stats strip, filter bar, grid or table
 
 import { Plus } from 'lucide-react'
-import { useDeferredValue, useMemo } from 'react'
+import { useCallback, useDeferredValue, useMemo } from 'react'
 
+import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 
@@ -45,7 +46,8 @@ export const MyListsPage = () =>
   const { rows, isLoading } = useBoardsLibrary(isSignedIn)
 
   const filters = useLibraryFilters()
-  const openBoard = useOpenLibraryBoard()
+  const { open: openLibraryBoard, pendingBoardExternalId } =
+    useOpenLibraryBoard()
   const createBoard = useCreateLibraryBoard()
   const deferredSearch = useDeferredValue(filters.searchDebounced)
   const deferredFilter = useDeferredValue(filters.filter)
@@ -91,6 +93,11 @@ export const MyListsPage = () =>
       gridTemplateColumns: `repeat(${COLUMNS_BY_DENSITY[filters.density]}, minmax(0, 1fr))`,
     }),
     [filters.density]
+  )
+
+  const handleOpenBoard = useCallback(
+    (board: LibraryBoardListItem) => openLibraryBoard(board),
+    [openLibraryBoard]
   )
 
   // signed-out — bail to the marketing-style surface
@@ -245,8 +252,8 @@ export const MyListsPage = () =>
         ) : filters.view === 'list' ? (
           <BoardListTable
             boards={visibleBoards ?? []}
-            onOpenBoard={(board) => void openBoard.open(board)}
-            pendingBoardExternalId={openBoard.pendingBoardExternalId}
+            onOpenBoard={handleOpenBoard}
+            pendingBoardExternalId={pendingBoardExternalId}
           />
         ) : (
           <div className="grid gap-5" style={gridStyle}>
@@ -261,10 +268,8 @@ export const MyListsPage = () =>
                 <BoardCard
                   board={board}
                   density={filters.density}
-                  onOpen={(b) => void openBoard.open(b)}
-                  isPending={
-                    openBoard.pendingBoardExternalId === board.externalId
-                  }
+                  onOpen={handleOpenBoard}
+                  isPending={pendingBoardExternalId === board.externalId}
                 />
               </div>
             ))}

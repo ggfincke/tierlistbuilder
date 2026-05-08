@@ -3,6 +3,7 @@
 
 import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/board'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
+import { BOARD_LIST_GRID_TEMPLATE } from './boardListGrid'
 
 interface LibrarySkeletonProps
 {
@@ -40,8 +41,7 @@ const ListSkeletonRow = () => (
     aria-hidden="true"
     className="grid items-center gap-4 px-4 py-3"
     style={{
-      gridTemplateColumns:
-        'minmax(56px, 56px) minmax(0, 2.6fr) minmax(120px, 1.6fr) 110px 96px 90px',
+      gridTemplateColumns: BOARD_LIST_GRID_TEMPLATE,
       borderBottom: '1px solid var(--t-border)',
     }}
   >
@@ -52,7 +52,6 @@ const ListSkeletonRow = () => (
     </div>
     <SkeletonBlock className="h-1.5 rounded-full" />
     <SkeletonBlock className="h-4 w-20 rounded-full" tone="soft" />
-    <SkeletonText className="w-14" tone="soft" />
     <SkeletonBlock className="h-2 w-12 justify-self-end rounded" tone="soft" />
   </div>
 )
@@ -62,8 +61,7 @@ const ListSkeletonHeader = () => (
     aria-hidden="true"
     className="grid items-center gap-4 px-4 py-2.5"
     style={{
-      gridTemplateColumns:
-        'minmax(56px, 56px) minmax(0, 2.6fr) minmax(120px, 1.6fr) 110px 96px 90px',
+      gridTemplateColumns: BOARD_LIST_GRID_TEMPLATE,
       borderBottom: '1px solid var(--t-border)',
       background: 'var(--t-bg-page)',
     }}
@@ -72,7 +70,6 @@ const ListSkeletonHeader = () => (
     <SkeletonBlock className="h-2 w-12 rounded" />
     <SkeletonBlock className="h-2 w-16 rounded" />
     <SkeletonBlock className="h-2 w-12 rounded" />
-    <SkeletonBlock className="h-2 w-14 rounded" />
     <SkeletonBlock className="h-2 w-10 justify-self-end rounded" />
   </div>
 )
