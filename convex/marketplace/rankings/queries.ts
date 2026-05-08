@@ -280,10 +280,9 @@ const takeSearchAggregateItemsPage = async (
 
 const aggregateItemsIndexByBand = {
   all: {
-    averageTop:
-      'byTemplateIdAndCriterionAndGenerationAndAverageTopSortAndOrder',
+    averageTop: 'byTemplateIdAndCriterionAndGenerationAndAvgTopSortAndOrder',
     averageBottom:
-      'byTemplateIdAndCriterionAndGenerationAndAverageBottomSortAndOrder',
+      'byTemplateIdAndCriterionAndGenerationAndAvgBottomSortAndOrder',
     consensus: 'byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder',
     consensusTop: 'byTemplateCriterionGenerationTopConsensusOrder',
     controversy:

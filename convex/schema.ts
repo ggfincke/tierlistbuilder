@@ -694,35 +694,32 @@ export default defineSchema({
       'generation',
       'templateItemId',
     ])
-    .index('byTemplateIdAndGenerationAndAverageTopSortAndOrder', [
+    .index('byTemplateIdAndGenerationAndAvgTopSortAndOrder', [
       'templateId',
       'generation',
       'averageTopSort',
       'order',
     ])
-    .index('byTemplateIdAndCriterionAndGenerationAndAverageTopSortAndOrder', [
+    .index('byTemplateIdAndCriterionAndGenerationAndAvgTopSortAndOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'averageTopSort',
       'order',
     ])
-    .index('byTemplateIdAndGenerationAndAverageBottomSortAndOrder', [
+    .index('byTemplateIdAndGenerationAndAvgBottomSortAndOrder', [
       'templateId',
       'generation',
       'averageBottomSort',
       'order',
     ])
-    .index(
-      'byTemplateIdAndCriterionAndGenerationAndAverageBottomSortAndOrder',
-      [
-        'templateId',
-        'criterionExternalId',
-        'generation',
-        'averageBottomSort',
-        'order',
-      ]
-    )
+    .index('byTemplateIdAndCriterionAndGenerationAndAvgBottomSortAndOrder', [
+      'templateId',
+      'criterionExternalId',
+      'generation',
+      'averageBottomSort',
+      'order',
+    ])
     .index('byTemplateIdAndGenerationAndConsensusSortAndOrder', [
       'templateId',
       'generation',
