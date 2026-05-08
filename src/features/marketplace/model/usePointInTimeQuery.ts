@@ -9,6 +9,7 @@ interface UsePointInTimeQueryOptions<TArgs, TData>
   args: TArgs
   query: (args: TArgs) => Promise<TData>
   onError?: (error: unknown) => void
+  enabled?: boolean
 }
 
 interface PointInTimeQueryResult<TData>
@@ -22,6 +23,7 @@ export const usePointInTimeQuery = <TArgs, TData>({
   args,
   query,
   onError,
+  enabled = true,
 }: UsePointInTimeQueryOptions<TArgs, TData>): PointInTimeQueryResult<TData> =>
 {
   const [data, setData] = useState<TData>()
@@ -40,6 +42,7 @@ export const usePointInTimeQuery = <TArgs, TData>({
 
   const refresh = useCallback(async (): Promise<void> =>
   {
+    if (!enabled) return
     const requestId = ++requestIdRef.current
     setIsRefreshing(true)
 
@@ -61,12 +64,20 @@ export const usePointInTimeQuery = <TArgs, TData>({
         setIsRefreshing(false)
       }
     }
-  }, [args])
+  }, [args, enabled])
 
   useEffect(() =>
   {
+    if (!enabled) return
     void refresh()
-  }, [refresh])
+  }, [enabled, refresh])
+
+  useEffect(() =>
+  {
+    if (enabled) return
+    requestIdRef.current += 1
+    setIsRefreshing(false)
+  }, [enabled])
 
   // bump request id on unmount so any in-flight resolve fails the guard &
   // skips setData/setError; setState-after-unmount is silently ignored in

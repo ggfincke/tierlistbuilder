@@ -743,6 +743,19 @@ describe('marketplace template Convex functions', () =>
     expect(gallery.popular.map((i) => i.title)).toEqual(['Public Template'])
     expect(gallery.recent.map((i) => i.title)).toEqual(['Public Template'])
     expect(gallery.results[0]).toMatchObject({ access: 'usable' })
+    const galleryResults = await t.query(
+      api.marketplace.templates.queries.getTemplateGalleryResults,
+      {}
+    )
+    expect(galleryResults.templateCount).toEqual(gallery.templateCount)
+    expect(galleryResults.results.map((i) => i.title)).toEqual([
+      'Public Template',
+    ])
+    const popularRail = await t.query(
+      api.marketplace.templates.queries.getTemplateGalleryRail,
+      { rail: 'popular' }
+    )
+    expect(popularRail.items.map((i) => i.title)).toEqual(['Public Template'])
 
     const unlistedDetail = await t.query(
       api.marketplace.templates.queries.getTemplateBySlug,
@@ -1388,6 +1401,11 @@ describe('marketplace template Convex functions', () =>
     })
     expect(gallery.trending[0].trendingScore).toBeGreaterThan(0)
     expect(gallery.results[0]).toMatchObject({ slug })
+    const trendingRail = await t.query(
+      api.marketplace.templates.queries.getTemplateGalleryRail,
+      { rail: 'trending' }
+    )
+    expect(trendingRail.items[0]).toMatchObject({ slug })
 
     const owned = await asUser(t, authorId).query(
       api.marketplace.templates.queries.getMyTemplateManagementList,
