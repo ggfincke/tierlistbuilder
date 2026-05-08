@@ -64,6 +64,8 @@ interface SeedPublishedRankingArgs
   visibility?: Doc<'publishedRankings'>['visibility']
   publicationState?: Doc<'publishedRankings'>['publicationState']
   isPubliclyListable?: boolean
+  supersededAt?: number | null
+  supersededByRankingId?: Id<'publishedRankings'> | null
   tierCount?: number
   remixCount?: number
   viewCount?: number
@@ -219,6 +221,8 @@ export const seedPublishedRanking = async (
     visibility: args.visibility ?? 'public',
     publicationState: args.publicationState ?? 'published',
     isPubliclyListable: args.isPubliclyListable ?? true,
+    supersededAt: args.supersededAt ?? null,
+    supersededByRankingId: args.supersededByRankingId ?? null,
     itemCount: args.itemCount,
     tierCount: args.tierCount ?? 1,
     remixCount: args.remixCount ?? 0,

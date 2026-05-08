@@ -45,6 +45,7 @@ import {
 import {
   allocateRankingSlug,
   findRankingBySlug,
+  isPublicRankingRow,
   isPublishedRankingRow,
   loadRankingItems,
   loadRankingTiers,
@@ -216,12 +217,49 @@ const buildOrderedRankingItems = async (
   return rows
 }
 
+const supersedePublicRankingsInLane = async (
+  ctx: MutationCtx,
+  ownerId: Id<'users'>,
+  templateId: Id<'templates'>,
+  criterionExternalId: string,
+  replacementRankingId: Id<'publishedRankings'>,
+  now: number
+): Promise<void> =>
+{
+  const rows = await ctx.db
+    .query('publishedRankings')
+    .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
+      q
+        .eq('sourceTemplateId', templateId)
+        .eq('sourceCriterionExternalId', criterionExternalId)
+        .eq('ownerId', ownerId)
+        .eq('isPubliclyListable', true)
+    )
+    .collect()
+  await Promise.all(
+    rows
+      .filter(
+        (ranking) =>
+          ranking._id !== replacementRankingId && isPublicRankingRow(ranking)
+      )
+      .map((ranking) =>
+        ctx.db.patch(ranking._id, {
+          isPubliclyListable: false,
+          supersededAt: now,
+          supersededByRankingId: replacementRankingId,
+          updatedAt: now,
+        })
+      )
+  )
+}
+
 export const publishRankingFromBoard = mutation({
   args: {
     boardExternalId: v.string(),
     title: v.optional(v.string()),
     description: v.optional(v.union(v.string(), v.null())),
     visibility: rankingVisibilityValidator,
+    criterionExternalId: v.optional(v.string()),
   },
   returns: marketplaceRankingPublishResultValidator,
   handler: async (ctx, args): Promise<MarketplaceRankingPublishResult> =>
@@ -264,7 +302,10 @@ export const publishRankingFromBoard = mutation({
     const slug = await allocateRankingSlug(ctx)
     const title = normalizeRankingTitle(args.title ?? board.title)
     const description = normalizeRankingDescription(args.description)
-    const criterion = resolveActiveTemplateCriterion(template)
+    const criterion = resolveActiveTemplateCriterion(
+      template,
+      args.criterionExternalId
+    )
     const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
     const rankingId = await ctx.db.insert('publishedRankings', {
       slug,
@@ -282,6 +323,8 @@ export const publishRankingFromBoard = mutation({
       visibility: args.visibility,
       publicationState: 'published',
       isPubliclyListable: args.visibility === 'public',
+      supersededAt: null,
+      supersededByRankingId: null,
       itemCount: rankingItems.length,
       tierCount: serverTiers.length,
       remixCount: 0,
@@ -327,7 +370,20 @@ export const publishRankingFromBoard = mutation({
     ])
     if (args.visibility === 'public')
     {
-      await queueTemplateRankingAggregateRecompute(ctx, template._id, now)
+      await supersedePublicRankingsInLane(
+        ctx,
+        userId,
+        template._id,
+        criterion.externalId,
+        rankingId,
+        now
+      )
+      await queueTemplateRankingAggregateRecompute(
+        ctx,
+        template._id,
+        now,
+        criterion.externalId
+      )
     }
 
     return { slug }

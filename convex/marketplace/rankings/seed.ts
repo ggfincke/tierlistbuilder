@@ -1517,6 +1517,8 @@ const insertSeedRanking = async (
     visibility: 'public',
     publicationState: 'published',
     isPubliclyListable: true,
+    supersededAt: null,
+    supersededByRankingId: null,
     itemCount: rankedItems.length,
     tierCount: tierEntries.length,
     remixCount: 0,

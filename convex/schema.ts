@@ -487,6 +487,8 @@ export default defineSchema({
     visibility: rankingVisibilityValidator,
     publicationState: rankingPublicationStateValidator,
     isPubliclyListable: v.boolean(),
+    supersededAt: v.union(v.number(), v.null()),
+    supersededByRankingId: v.union(v.id('publishedRankings'), v.null()),
     itemCount: v.number(),
     tierCount: v.number(),
     remixCount: v.number(),
