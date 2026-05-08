@@ -36,8 +36,8 @@ export const normalizeRotation = (raw: number): ItemRotation =>
   return wrapped
 }
 
-export const createFitBaselineTransform = (
-  item: TierItem,
+export const createFitBaselineTransformForAspectRatio = (
+  imageAspectRatio: number | undefined,
   boardAspectRatio: number,
   fit: ImageFit,
   rotation: ItemRotation = 0
@@ -46,12 +46,25 @@ export const createFitBaselineTransform = (
     ...ITEM_TRANSFORM_IDENTITY,
     rotation,
     zoom: resolveManualCropFitZoom(
-      item.aspectRatio,
+      imageAspectRatio,
       boardAspectRatio,
       rotation,
       fit
     ),
   })
+
+const createFitBaselineTransform = (
+  item: TierItem,
+  boardAspectRatio: number,
+  fit: ImageFit,
+  rotation: ItemRotation = 0
+): ItemTransform =>
+  createFitBaselineTransformForAspectRatio(
+    item.aspectRatio,
+    boardAspectRatio,
+    fit,
+    rotation
+  )
 
 export const getSavedTransform = (item: TierItem): ItemTransform | undefined =>
   item.transform && !isIdentityTransform(item.transform)

@@ -349,6 +349,7 @@ export const useAnnotationCanvas = (
   const undo = useCallback(() =>
   {
     setPendingText(null)
+    if (history.length === 0) return
     const nextHistory = history.slice(0, -1)
     setHistory(nextHistory)
     redraw(nextHistory)
@@ -357,9 +358,10 @@ export const useAnnotationCanvas = (
   const clearAll = useCallback(() =>
   {
     setPendingText(null)
+    if (history.length === 0) return
     setHistory([])
     redraw([])
-  }, [redraw])
+  }, [history.length, redraw])
 
   // composite background + annotations & trigger download
   const compositeAndDownload = useCallback(async () =>

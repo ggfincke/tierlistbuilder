@@ -67,6 +67,9 @@ describe('image editor items', () =>
         (item) => item.id
       )
     ).toEqual([adjusted.id])
+
+    const allItems = [square, wide, adjusted]
+    expect(filterImageEditorItems(allItems, 'all', 1)).toBe(allItems)
   })
 
   it('overlays a pending pane transform without mutating other items', () =>

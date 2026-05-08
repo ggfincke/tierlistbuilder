@@ -1,12 +1,13 @@
 // src/features/workspace/preview/ui/ItemPreviewModal.tsx
 // fullscreen-ish lightbox for inspecting an item's source image at large size
 
-import { useId } from 'react'
+import { useId, useMemo } from 'react'
 import { X } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useImageUrl } from '~/shared/hooks/useImageUrl'
-import { getRenderImageRefs, hasAnyImageRef } from '~/shared/lib/imageRefs'
+import { useImageUrlChain } from '~/shared/hooks/useImageUrl'
+import { getImageRenditionRefs, hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -22,25 +23,37 @@ export const ItemPreviewModal = ({
   onClose,
 }: ItemPreviewModalProps) =>
 {
-  const item = useActiveBoardStore((state) => state.items[itemId])
+  const item = useActiveBoardStore(
+    useShallow((state) =>
+    {
+      const current = state.items[itemId]
+      if (!current) return null
+      return {
+        label: current.label,
+        altText: current.altText,
+        imageRef: current.imageRef,
+        tileImageRef: current.tileImageRef,
+        sourceImageRef: current.sourceImageRef,
+      }
+    })
+  )
   const titleId = useId()
-
-  // resolve highest-quality variant; fall back to tile/preview if source not
-  // cached yet (cloud fetch kicked off inside useImageUrl)
-  const refs = item
-    ? getRenderImageRefs(item, 'editor')
-    : { primary: undefined, fallback: undefined }
-  const primaryUrl = useImageUrl(
-    refs.primary?.ref.hash,
-    refs.primary?.ref.cloudMediaExternalId,
-    refs.primary?.variant
+  const previewImageRef = item?.imageRef
+  const sourceImageRef = item?.sourceImageRef
+  const tileImageRef = item?.tileImageRef
+  const imageSources = useMemo(
+    () =>
+      getImageRenditionRefs(
+        { imageRef: previewImageRef, sourceImageRef, tileImageRef },
+        'editor'
+      ).map(({ ref, variant }) => ({
+        hash: ref.hash,
+        cloudMediaExternalId: ref.cloudMediaExternalId,
+        variant,
+      })),
+    [previewImageRef, sourceImageRef, tileImageRef]
   )
-  const fallbackUrl = useImageUrl(
-    refs.fallback?.ref.hash,
-    refs.fallback?.ref.cloudMediaExternalId,
-    refs.fallback?.variant
-  )
-  const imageUrl = primaryUrl ?? fallbackUrl
+  const imageUrl = useImageUrlChain(imageSources)
 
   // item may have been deleted while preview was open — bail rather than
   // render a stale shell

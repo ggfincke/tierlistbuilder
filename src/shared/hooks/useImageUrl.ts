@@ -9,6 +9,20 @@ import {
 } from '~/shared/images/imageBlobCache'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 
+interface ImageUrlSource
+{
+  hash: string | undefined
+  cloudMediaExternalId?: string
+  variant?: MediaVariantKind
+}
+
+interface StableImageUrlSource
+{
+  hash: string
+  cloudMediaExternalId: string
+  variant: MediaVariantKind
+}
+
 export const useImageUrl = (
   hash: string | undefined,
   cloudMediaExternalId?: string,
@@ -32,20 +46,28 @@ export const useImageUrl = (
   return url
 }
 
-export const useFirstCachedImageUrl = (
-  hashes: readonly (string | undefined)[]
+export const useImageUrlChain = (
+  sources: readonly ImageUrlSource[]
 ): string | null =>
 {
-  const hashKey = hashes.filter(Boolean).join('\u001f')
-  const stableHashes = useMemo(
-    () => (hashKey ? hashKey.split('\u001f') : []),
-    [hashKey]
+  const stableSources = useMemo<StableImageUrlSource[]>(
+    () =>
+      sources
+        .filter((source): source is ImageUrlSource & { hash: string } =>
+          Boolean(source.hash)
+        )
+        .map((source) => ({
+          hash: source.hash,
+          cloudMediaExternalId: source.cloudMediaExternalId ?? '',
+          variant: source.variant ?? 'tile',
+        })),
+    [sources]
   )
   const subscribe = useCallback(
     (listener: () => void) =>
     {
-      const unsubscribers = stableHashes.map((hash) =>
-        subscribeCachedImageUrl(hash, listener)
+      const unsubscribers = stableSources.map((source) =>
+        subscribeCachedImageUrl(source.hash, listener)
       )
       return () =>
       {
@@ -55,17 +77,37 @@ export const useFirstCachedImageUrl = (
         }
       }
     },
-    [stableHashes]
+    [stableSources]
   )
   const getSnapshot = useCallback(() =>
   {
-    for (const hash of stableHashes)
+    for (const source of stableSources)
     {
-      const url = getCachedImageUrl(hash)
+      const url = getCachedImageUrl(source.hash)
       if (url) return url
     }
     return null
-  }, [stableHashes])
+  }, [stableSources])
 
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const url = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+
+  useEffect(() =>
+  {
+    const primary = stableSources[0]
+    if (!primary || getCachedImageUrl(primary.hash)) return
+
+    const sourceToRequest =
+      primary.cloudMediaExternalId || url
+        ? primary
+        : stableSources.find((source) => source.cloudMediaExternalId)
+    if (!sourceToRequest?.cloudMediaExternalId) return
+
+    requestCloudImage(
+      sourceToRequest.hash,
+      sourceToRequest.cloudMediaExternalId,
+      sourceToRequest.variant
+    )
+  }, [stableSources, url])
+
+  return url
 }

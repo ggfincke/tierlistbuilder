@@ -93,6 +93,29 @@ export const resolveAutoCropTransform = (
     rotation,
   })
 
+export const isCachedAutoCropApplied = (
+  item: TierItem,
+  boardAspectRatio: number,
+  trimSoftShadows: boolean
+): boolean | undefined =>
+{
+  const hash = getAutoCropImageRef(item)?.hash
+  if (!hash) return undefined
+  const bbox = getCachedBBox(hash, trimSoftShadows)
+  if (bbox === undefined) return undefined
+  if (bbox === null)
+  {
+    return isSameItemTransform(
+      item.transform ?? ITEM_TRANSFORM_IDENTITY,
+      ITEM_TRANSFORM_IDENTITY
+    )
+  }
+  return isSameItemTransform(
+    item.transform ?? ITEM_TRANSFORM_IDENTITY,
+    resolveAutoCropTransform(item, bbox, boardAspectRatio)
+  )
+}
+
 export const areCachedAutoCropsApplied = (
   items: readonly TierItem[],
   boardAspectRatio: number,
@@ -102,33 +125,18 @@ export const areCachedAutoCropsApplied = (
   let hasResolvedTarget = false
   for (const item of items)
   {
-    const hash = getAutoCropImageRef(item)?.hash
-    if (!hash) continue
-    const bbox = getCachedBBox(hash, trimSoftShadows)
-    if (bbox === undefined) return false
-    hasResolvedTarget = true
-    if (bbox === null)
-    {
-      if (
-        !isSameItemTransform(
-          item.transform ?? ITEM_TRANSFORM_IDENTITY,
-          ITEM_TRANSFORM_IDENTITY
-        )
-      )
-      {
-        return false
-      }
-      continue
-    }
-    if (
-      !isSameItemTransform(
-        item.transform ?? ITEM_TRANSFORM_IDENTITY,
-        resolveAutoCropTransform(item, bbox, boardAspectRatio)
-      )
+    const applied = isCachedAutoCropApplied(
+      item,
+      boardAspectRatio,
+      trimSoftShadows
     )
+    if (applied === undefined)
     {
+      if (!getAutoCropImageRef(item)?.hash) continue
       return false
     }
+    hasResolvedTarget = true
+    if (!applied) return false
   }
   return hasResolvedTarget
 }

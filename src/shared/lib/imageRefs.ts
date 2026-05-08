@@ -57,7 +57,7 @@ export const getImageRefsByRendition = (
 ): TierItemImageRef[] =>
   getImageRenditionRefs(item, rendition).map(({ ref }) => ref)
 
-const getImageRenditionRefs = (
+export const getImageRenditionRefs = (
   item: ItemImageBundle,
   rendition: ImageRendition
 ): ImageRenditionRef[] =>
