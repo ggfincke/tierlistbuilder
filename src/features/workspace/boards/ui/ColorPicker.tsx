@@ -6,7 +6,7 @@ import { Pipette } from 'lucide-react'
 
 import { createPaletteTierColorSpec } from '~/shared/theme/tierColors'
 import type { TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
-import { getColorName } from '~/shared/lib/colorName'
+import { getColorName } from '~/features/workspace/boards/lib/colorName'
 
 interface ColorPickerProps
 {

@@ -85,6 +85,7 @@ src/
 │       ├── state/                   # syncStatusStore, syncStatusVisuals, useBoardSyncStatus
 │       └── transport/               # connectivity detection
 ├── features/marketplace/            # templates, ranking publish/detail/remix, gallery flows
+│   └── components/                  # account, cards, consensus, cover, discovery, layout, publish, template
 ├── features/library/                # signed-in My Lists surface
 ├── features/embed/ui                # read-only EmbedView primitives
 └── shared/
@@ -92,13 +93,13 @@ src/
     ├── board-data/                  # default board, snapshot normalizer, JSON/wire parsers
     ├── board-ui/                    # BoardPrimitives, ItemContent, ItemOverlayButton, StaticBoard, boardTestIds, constants
     ├── catalog/                     # compact count/date/estimate formatters + URL filter helpers
-    ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl, useViewportWidth
+    ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl
     ├── images/                      # imageStore, imageBlobCache, imagePersistence, imageLoad
     ├── layout/                      # toolbarPosition (cross-feature menu chrome math)
-    ├── lib/                         # color, colorName, math, fileName, className, pluralize, downloadBlob,
-    │                                # browserStorage, storageMetering, logger, urls, typeGuards,
+    ├── lib/                         # color, math, fileName, className, pluralize, downloadBlob,
+    │                                # browserStorage, logger, urls, typeGuards,
     │                                # asyncMapLimit, binaryCodec, boardSnapshotItems, errors,
-    │                                # localSidecar, scheduleIdle, sha256, sync/ (debouncedSyncRunner,
+    │                                # localSidecar, sha256, sync/ (debouncedSyncRunner,
     │                                # ownedSyncMeta, backoff, proceedGuard)
     ├── notifications/               # ToastContainer, useToastStore
     ├── overlay/                     # BaseModal, ConfirmDialog, progress, focus/inert dialog wiring,
@@ -106,7 +107,7 @@ src/
     ├── routes/                      # base-path-aware route constants/path builders
     ├── selection/                   # useRovingSelection, selectionNavigation, selectionState
     ├── sharing/                     # hash-fragment compression & short-link snapshot codecs
-    ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors, zIndex
+    ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors
     └── ui/                          # ActionButton, Button, buttonBase, PrimaryButton, SecondaryButton,
                                      # ColorInput, ErrorBoundary, PickerGrid, SettingsSection,
                                      # settings controls, TextArea, TextInput, UploadDropzone
@@ -137,10 +138,10 @@ Persistence is split across features instead of living in a single monolithic `s
 - `features/workspace/boards/model/boardSession.ts` — model facade for session bootstrap, autosave subscription, CRUD, registry coordination, event listeners, and persistence wrappers
 - `features/workspace/boards/model/session/*` — board-session internals split by autosave, bootstrap, CRUD, events, persistence, registry, and storage warning reporting
 - `features/workspace/boards/data/local/boardStorage.ts` — per-board localStorage I/O, versioned envelopes, typed `ok`/`missing`/`corrupted` load outcomes, quota error messaging
+- `features/workspace/boards/data/local/storageMetering.ts` — quota estimation, near-full warnings
 - `features/platform/preferences/data/local/preferencesStorage.ts` — preference storage key & schema version
 - `features/workspace/tier-presets/data/local/tierPresetStorage.ts` — preset storage key & schema version
 - `shared/lib/browserStorage.ts` — generic localStorage wrapper, Zustand persist adapter
-- `shared/lib/storageMetering.ts` — quota estimation, near-full warnings
 - `shared/lib/sync/ownedSyncMeta.ts` — shared owner-scoped pending/synced timestamp helpers for preference and preset sidecars
 
 Pre-1.0 storage changes are allowed to be breaking. Incompatible localStorage or
@@ -298,7 +299,6 @@ See **[`docs/design-system.mdx`](design-system.mdx)** for the runtime token cont
 - `textStyles.ts` — font-family & weight tokens
 - `runtime.ts` — `applyThemeTokens` / `applyTextStyleTokens` DOM writers
 - `tierColors.ts` — `TierColorSpec` resolution against the active palette
-- `zIndex.ts` — centralized `Z` stacking layers for overlays, drag preview, offscreen export host
 
 The `useThemeSync` hook (`features/platform/preferences/model/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `usePreferencesStore` to `:root`. `WorkspaceShell` layers board text-style overrides through `useBoardThemeOverrides()`. `EmbedShell` calls `useLockedTheme('classic', 'default')` so embed iframes render a stable theme regardless of the host's preference. Non-system fonts are loaded dynamically from Google Fonts.
 

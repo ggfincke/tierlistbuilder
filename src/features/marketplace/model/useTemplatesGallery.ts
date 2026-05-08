@@ -17,7 +17,7 @@ import {
   type ListTemplatesArgs,
 } from '~/features/marketplace/data/templatesRepository'
 import type { GalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
-import { usePointInTimeQuery } from '~/shared/hooks/usePointInTimeQuery'
+import { usePointInTimeQuery } from '~/features/marketplace/model/usePointInTimeQuery'
 import { logger } from '~/shared/lib/logger'
 
 interface TemplatesGalleryData

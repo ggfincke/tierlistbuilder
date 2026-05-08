@@ -24,15 +24,13 @@ graph TD
     C --> E["Feature UI"]
     D --> E
     A --> E
-    F["Z ladder (shared/theme/zIndex.ts)"] --> D
-    F --> E
 ```
 
 Three rules keep this stack honest:
 
 1. **Tokens, never hex.** App chrome reads `var(--t-*)` / `var(--ts-*)`. Hardcoded colors are reserved for tier palettes, user-chosen item backgrounds, and the always-dark overlay exceptions called out below.
 2. **Primitives, never raw `<button>` / `<input>` / portal.** If a primitive exists for the role, use it; if it doesn't, build one in `shared/ui/` or `shared/overlay/` rather than inlining chrome.
-3. **One Z rung at a time.** Stacking goes through `Z` in `shared/theme/zIndex.ts` — eight rungs total. Don't invent `z-[27]`.
+3. **One stacking rung at a time.** Use the existing Tailwind `z-*` rungs already established for dropdowns, overlays, and modals. Don't invent arbitrary values like `z-[27]`.
 
 ---
 
@@ -84,25 +82,6 @@ Defined in `src/shared/theme/textStyles.ts`. Five text styles ship: `default`, `
 | `--ts-letter-spacing` | Global letter-spacing adjustment |
 
 `useThemeSync` (`features/platform/preferences/model/useThemeSync.ts`) syncs the active style to `:root`. Non-system fonts are loaded dynamically from Google Fonts by `applyTextStyle()` — keep new styles offline-capable by listing system fallbacks first.
-
-### Z-index ladder
-
-```typescript title="src/shared/theme/zIndex.ts"
-export const Z = {
-  offscreen: -1, // export hosts that mount but don't render
-  base: 0,
-  dropdown: 10, // item focus rings, inline canvas text input, drag-raised items
-  popup: 20, // selected/active item elevation
-  submenu: 30, // primary submenu layer for toolbar popups
-  overlay: 40, // floating panels (board manager, bulk action bar)
-  modal: 50, // modals, toasts, modal-layer menus
-} as const
-```
-
-> [!IMPORTANT]
-> Adding a new rung is a design decision, not an escape hatch. If you find yourself wanting `submenu + 5`, the right move is usually a different rung or an anchored popup at the same rung — not a new value.
-
----
 
 ## Buttons
 
@@ -306,7 +285,6 @@ Updates to this doc happen in the same PR as the primitive change, alongside any
 | Text styles        | `src/shared/theme/textStyles.ts`                                                                                      |
 | Theme runtime      | `src/shared/theme/runtime.ts`                                                                                         |
 | Tier color helpers | `src/shared/theme/tierColors.ts`                                                                                      |
-| Z ladder           | `src/shared/theme/zIndex.ts`                                                                                          |
 | Button primitive   | `src/shared/ui/Button.tsx`, `buttonBase.ts`                                                                           |
 | Form inputs        | `src/shared/ui/TextInput.tsx`, `TextArea.tsx`, `ColorInput.tsx`, `UploadDropzone.tsx`                                 |
 | Settings controls  | `src/shared/ui/settings/`, `SettingsSection.tsx`, `TabbedSettingsModal.tsx`, `PickerGrid.tsx`                         |

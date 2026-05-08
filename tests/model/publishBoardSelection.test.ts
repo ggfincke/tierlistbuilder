@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createInitialPublishBoardSelection,
   resolveSelectedPublishBoard,
-} from '~/features/marketplace/components/publishBoardSelection'
+} from '~/features/marketplace/components/publish/publishBoardSelection'
 import type { PublishableBoard } from '~/features/workspace/boards/model/usePublishableBoards'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 

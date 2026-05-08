@@ -15,7 +15,7 @@ import {
   loadImageEditorModal,
   preloadImageEditorModal,
 } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
-import { loadPublishModal } from '~/features/marketplace/components/loadPublishModal'
+import { loadPublishModal } from '~/features/marketplace/components/publish/loadPublishModal'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { ProgressOverlay } from '~/shared/overlay/ProgressOverlay'
@@ -51,9 +51,11 @@ const BoardSettingsModal = lazy(() =>
   }))
 )
 const PublishRankingModal = lazy(() =>
-  import('~/features/marketplace/components/PublishRankingModal').then((m) => ({
-    default: m.PublishRankingModal,
-  }))
+  import('~/features/marketplace/components/publish/PublishRankingModal').then(
+    (m) => ({
+      default: m.PublishRankingModal,
+    })
+  )
 )
 const PublishTemplateModal = lazy(() =>
   loadPublishModal().then((m) => ({ default: m.PublishModal }))

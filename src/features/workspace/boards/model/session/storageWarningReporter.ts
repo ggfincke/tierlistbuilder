@@ -4,7 +4,7 @@
 import {
   STORAGE_NEAR_FULL_MESSAGE,
   isStorageNearFull,
-} from '~/shared/lib/storageMetering'
+} from '~/features/workspace/boards/data/local/storageMetering'
 import { toast } from '~/shared/notifications/useToastStore'
 
 let storageWarningLastMs = 0

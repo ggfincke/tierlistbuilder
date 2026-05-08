@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { computeGridDims } from '../../src/features/marketplace/components/mosaicGrid'
+import { computeGridDims } from '../../src/features/marketplace/components/discovery/mosaicGrid'
 
 describe('computeGridDims', () =>
 {

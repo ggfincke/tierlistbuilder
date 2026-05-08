@@ -18,16 +18,16 @@ import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
-import { Card } from '~/features/marketplace/components/Card'
-import { CommunityConsensusSection } from '~/features/marketplace/components/CommunityConsensusSection'
+import { Card } from '~/features/marketplace/components/cards/Card'
+import { CommunityConsensusSection } from '~/features/marketplace/components/discovery/CommunityConsensusSection'
 import { HeroRailCards } from '~/features/marketplace/components/consensus/HeroRailCards'
 import { useHeroSpread } from '~/features/marketplace/components/consensus/useHeroSpread'
 import { templateFrame } from '~/features/marketplace/components/consensus/utils'
-import { RailHeader } from '~/features/marketplace/components/RailHeader'
-import { RecommendedPresetCard } from '~/features/marketplace/components/RecommendedPresetCard'
-import { TemplateHero } from '~/features/marketplace/components/TemplateHero'
-import { MarketplaceNotFound } from '~/features/marketplace/components/MarketplaceNotFound'
-import { MarketplaceBreadcrumb } from '~/features/marketplace/components/MarketplaceBreadcrumb'
+import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
+import { RecommendedPresetCard } from '~/features/marketplace/components/cards/RecommendedPresetCard'
+import { TemplateHero } from '~/features/marketplace/components/template/TemplateHero'
+import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
+import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 
 const RELATED_LIMIT = 4
 

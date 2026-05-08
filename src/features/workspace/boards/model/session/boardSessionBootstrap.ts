@@ -25,13 +25,26 @@ import {
 import { collectSnapshotLocalImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
 import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
-import { scheduleIdle } from '~/shared/lib/scheduleIdle'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
   loadedBoardStateFromResult,
   loadBoardState,
 } from './boardSessionPersistence'
 import { createBoardMeta } from './boardSessionRegistry'
+
+const scheduleIdle = (callback: () => void, timeout = 2_000): void =>
+{
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.requestIdleCallback === 'function'
+  )
+  {
+    window.requestIdleCallback(callback, { timeout })
+    return
+  }
+
+  setTimeout(callback, 0)
+}
 
 const pruneOrphanedRegistryEntriesAsync = (
   skipBoardId: BoardId | null

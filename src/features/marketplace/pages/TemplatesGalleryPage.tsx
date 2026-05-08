@@ -23,14 +23,14 @@ import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/ca
 import {
   Card,
   type CardFeaturedLabel,
-} from '~/features/marketplace/components/Card'
-import { CategoryChips } from '~/features/marketplace/components/CategoryChips'
-import { CreateTile } from '~/features/marketplace/components/CreateTile'
-import { DraftRail } from '~/features/marketplace/components/DraftRail'
-import { Hero } from '~/features/marketplace/components/Hero'
-import { Rail } from '~/features/marketplace/components/Rail'
-import { RailHeader } from '~/features/marketplace/components/RailHeader'
-import { SearchInput } from '~/features/marketplace/components/SearchInput'
+} from '~/features/marketplace/components/cards/Card'
+import { CategoryChips } from '~/features/marketplace/components/discovery/CategoryChips'
+import { CreateTile } from '~/features/marketplace/components/cards/CreateTile'
+import { DraftRail } from '~/features/marketplace/components/discovery/DraftRail'
+import { Hero } from '~/features/marketplace/components/discovery/Hero'
+import { Rail } from '~/features/marketplace/components/discovery/Rail'
+import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
+import { SearchInput } from '~/features/marketplace/components/discovery/SearchInput'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useGalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
 import { useOpenTemplateDraft } from '~/features/marketplace/model/useOpenTemplateDraft'
@@ -41,7 +41,7 @@ import { formatCount } from '~/shared/catalog/formatters'
 import {
   loadPublishModal,
   preloadPublishModal,
-} from '~/features/marketplace/components/loadPublishModal'
+} from '~/features/marketplace/components/publish/loadPublishModal'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { SkeletonCard } from '~/shared/ui/Skeleton'

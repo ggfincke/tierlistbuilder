@@ -46,7 +46,7 @@ import {
 import { ActionButton } from '~/shared/ui/ActionButton'
 import { ExportMenu } from '~/features/workspace/export/ui/ExportMenu'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
-import { preloadPublishModal } from '~/features/marketplace/components/loadPublishModal'
+import { preloadPublishModal } from '~/features/marketplace/components/publish/loadPublishModal'
 import {
   OverlayDivider,
   OverlayMenuItem,

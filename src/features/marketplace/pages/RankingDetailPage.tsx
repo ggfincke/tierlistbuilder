@@ -30,8 +30,8 @@ import {
   RANKINGS_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
 } from '~/shared/routes/pathname'
-import { MarketplaceNotFound } from '~/features/marketplace/components/MarketplaceNotFound'
-import { MarketplaceBreadcrumb } from '~/features/marketplace/components/MarketplaceBreadcrumb'
+import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
+import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 
 // neutral palette for ranking surfaces; viewers don't carry workspace prefs
 const RANKING_PALETTE_ID = 'classic' as const

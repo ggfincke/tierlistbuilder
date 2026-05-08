@@ -30,7 +30,7 @@ import { useBoardThemeOverrides } from '~/features/workspace/settings/model/useB
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useGlobalShortcuts } from '~/features/workspace/shortcuts/model/useGlobalShortcuts'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
-import { useAboveBreakpoint } from '~/shared/hooks/useViewportWidth'
+import { useAboveBreakpoint } from '~/app/shells/useAboveBreakpoint'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
