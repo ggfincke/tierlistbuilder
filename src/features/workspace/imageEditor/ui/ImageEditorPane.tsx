@@ -7,6 +7,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -29,7 +30,7 @@ import {
   itemHasAspectMismatch,
 } from '~/shared/board-ui/aspectRatio'
 import { OBJECT_FIT_CLASS } from '~/shared/board-ui/constants'
-import { useImageUrl } from '~/shared/hooks/useImageUrl'
+import { useFirstCachedImageUrl } from '~/shared/hooks/useImageUrl'
 import { getImageRefsByRendition } from '~/shared/lib/imageRefs'
 import {
   buildManualCropImgStyle,
@@ -128,13 +129,11 @@ export const ImageEditorPane = forwardRef<
 )
 {
   const imageSectionId = useId()
-  // editor priority is source -> tile -> preview; subscribe to all three so
-  // the canvas paints the next-best rendition while higher-quality bytes warm
-  const editorRefs = getImageRefsByRendition(item, 'editor')
-  const primaryUrl = useImageUrl(editorRefs[0]?.hash)
-  const secondaryUrl = useImageUrl(editorRefs[1]?.hash)
-  const tertiaryUrl = useImageUrl(editorRefs[2]?.hash)
-  const url = primaryUrl ?? secondaryUrl ?? tertiaryUrl
+  const editorHashes = useMemo(
+    () => getImageRefsByRendition(item, 'editor').map((ref) => ref.hash),
+    [item]
+  )
+  const url = useFirstCachedImageUrl(editorHashes)
   const effectiveFit = getEffectiveImageFit(item, boardDefaultFit)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const {
