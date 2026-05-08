@@ -90,6 +90,21 @@ const requireTemplateItem = async (
   return item
 }
 
+const loadTemplateItemsById = async (
+  ctx: MutationCtx,
+  itemIds: readonly Id<'templateItems'>[]
+): Promise<Map<Id<'templateItems'>, Doc<'templateItems'>>> =>
+{
+  const uniqueIds = [...new Set(itemIds)]
+  const entries = await Promise.all(
+    uniqueIds.map(
+      async (itemId) =>
+        [itemId, await requireTemplateItem(ctx, itemId)] as const
+    )
+  )
+  return new Map(entries)
+}
+
 const requireCompletedTemplateBoard = (
   board: Doc<'boards'>
 ): Id<'templates'> =>
@@ -135,6 +150,7 @@ const buildOrderedRankingItems = async (
   const tiersById = new Map(tiers.map((tier) => [tier._id, tier]))
   const activeItems = items.filter((item) => item.deletedAt === null)
   const itemsByTier = new Map<Id<'boardTiers'>, Doc<'boardItems'>[]>()
+  const templateItemIds: Id<'templateItems'>[] = []
   for (const item of activeItems)
   {
     const templateItemId = item.templateItemId
@@ -145,6 +161,7 @@ const buildOrderedRankingItems = async (
         message: 'ranking items must be tiered template items',
       })
     }
+    templateItemIds.push(templateItemId)
     const tier = tiersById.get(item.tierId)
     if (!tier)
     {
@@ -158,6 +175,7 @@ const buildOrderedRankingItems = async (
     itemsByTier.set(item.tierId, bucket)
   }
 
+  const templateItemsById = await loadTemplateItemsById(ctx, templateItemIds)
   const sortedTiers = [...tiers].sort((a, b) => a.order - b.order)
   const rows: OrderedRankingItem[] = []
   for (const tier of sortedTiers)
@@ -175,10 +193,18 @@ const buildOrderedRankingItems = async (
           message: 'ranking item references a missing template item',
         })
       }
+      const templateItem = templateItemsById.get(templateItemId)
+      if (!templateItem)
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.invalidState,
+          message: 'source template item missing',
+        })
+      }
       rows.push({
         boardItem: item,
         tierExternalId: tier.externalId,
-        templateItem: await requireTemplateItem(ctx, templateItemId),
+        templateItem,
         order: rows.length,
       })
     }

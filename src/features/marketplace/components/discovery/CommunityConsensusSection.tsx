@@ -596,6 +596,23 @@ export const CommunityConsensusSection = ({
       </>
     )
   }
+  if (aggregate.state === 'failed')
+  {
+    return (
+      <>
+        <SectionHeader
+          aggregate={aggregate}
+          showYourPlacementsCopy={false}
+          activeRanking={null}
+          onResetActive={() => setActiveSlug(null)}
+        />
+        <StateCard
+          title="Community consensus is unavailable"
+          body="The current consensus pass could not finish. New rankings will trigger another pass."
+        />
+      </>
+    )
+  }
   if (aggregate.state === 'computing')
   {
     return (

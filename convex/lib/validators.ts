@@ -218,7 +218,8 @@ export const templateRankingAggregateItemBandValidator = literalUnion(
 
 export const templateRankingAggregateJobStatusValidator = v.union(
   v.literal('queued'),
-  v.literal('running')
+  v.literal('running'),
+  v.literal('failed')
 )
 
 export const templateRankingAggregateJobPhaseValidator = v.union(

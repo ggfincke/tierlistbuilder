@@ -12,6 +12,7 @@ export const TEMPLATE_RANKING_AGGREGATE_STATES = [
   'ready',
   'stale',
   'empty',
+  'failed',
 ] as const
 
 export type TemplateRankingAggregateState =

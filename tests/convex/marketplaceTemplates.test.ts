@@ -1974,8 +1974,8 @@ describe('marketplace template Convex functions', () =>
 
       await t.mutation(
         internal.marketplace.rankings.aggregateInternal
-          .scheduleTemplateRankingAggregateRecomputes,
-        { cursor: null }
+          .queueTemplateRankingAggregateRecomputeForTemplate,
+        { templateId }
       )
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
 
@@ -2079,6 +2079,102 @@ describe('marketplace template Convex functions', () =>
     }
   })
 
+  it('retries stale template ranking aggregate jobs before marking them failed', async () =>
+  {
+    vi.useFakeTimers()
+    try
+    {
+      vi.setSystemTime(60 * 60 * 1000)
+      const t = makeTest()
+      const authorId = await seedUser(
+        t,
+        'Template Author',
+        'author@example.com'
+      )
+      const { templateId } = await seedAggregateTemplate(t, authorId)
+      const { aggregateId, jobId } = await t.run(async (ctx) =>
+      {
+        const aggregateId = await ctx.db.insert('templateRankingAggregates', {
+          templateId,
+          state: 'computing',
+          activeGeneration: null,
+          bucketCount: 3,
+          rankingCount: 0,
+          itemCount: 3,
+          computedAt: null,
+          staleAt: 0,
+          bucketSpread: [0, 0, 0],
+          updatedAt: 0,
+        })
+        const jobId = await ctx.db.insert('templateRankingAggregateJobs', {
+          templateId,
+          status: 'running',
+          phase: 'seedItems',
+          generation: 1,
+          bucketCount: 3,
+          targetBucketLabels: ['S', 'A', 'B'],
+          itemCount: 0,
+          rankingCount: 0,
+          publicRankingCount: 0,
+          templateCursor: null,
+          rankingCursor: null,
+          rankingScanDone: false,
+          activeRankingId: null,
+          activeRankingItemCursor: null,
+          bucketSpread: [0, 0, 0],
+          restartRequestedAt: null,
+          retryCount: 0,
+          lastError: null,
+          failedAt: null,
+          createdAt: 0,
+          updatedAt: 0,
+        })
+        return { aggregateId, jobId }
+      })
+
+      await t.mutation(
+        internal.marketplace.rankings.aggregateInternal
+          .retryStaleTemplateRankingAggregateJobs,
+        { status: 'running', cursor: null }
+      )
+      const retried = await t.run(async (ctx) => await ctx.db.get(jobId))
+      expect(retried).toMatchObject({
+        status: 'queued',
+        retryCount: 1,
+        lastError: 'stale_job_timeout',
+        failedAt: null,
+      })
+
+      await t.run(
+        async (ctx) =>
+          await ctx.db.patch(jobId, {
+            status: 'running',
+            retryCount: 3,
+            updatedAt: 0,
+          })
+      )
+      await t.mutation(
+        internal.marketplace.rankings.aggregateInternal
+          .retryStaleTemplateRankingAggregateJobs,
+        { status: 'running', cursor: null }
+      )
+      const failed = await t.run(async (ctx) => await ctx.db.get(jobId))
+      const aggregate = await t.run(
+        async (ctx) => await ctx.db.get(aggregateId)
+      )
+      expect(failed).toMatchObject({
+        status: 'failed',
+        lastError: 'stale_job_timeout',
+        failedAt: 60 * 60 * 1000,
+      })
+      expect(aggregate).toMatchObject({ state: 'failed' })
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
+  })
+
   it('recomputes stale template ranking aggregates after ranking deletion', async () =>
   {
     vi.useFakeTimers()
@@ -2131,8 +2227,8 @@ describe('marketplace template Convex functions', () =>
 
       await t.mutation(
         internal.marketplace.rankings.aggregateInternal
-          .scheduleTemplateRankingAggregateRecomputes,
-        { cursor: null }
+          .queueTemplateRankingAggregateRecomputeForTemplate,
+        { templateId }
       )
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
       const initialAggregate = await t.query(

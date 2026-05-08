@@ -65,6 +65,12 @@ interface NormalizedVariants
   dedupeHash: string
 }
 
+interface NormalizedVerifiedMediaAsset extends NormalizedVariants
+{
+  userId: Id<'users'>
+  key: string
+}
+
 const VARIANT_FIELD_BY_KIND: Record<
   MediaVariantKind,
   'tileVariant' | 'previewVariant' | 'editorVariant'
@@ -130,6 +136,34 @@ const normalizeVerifiedVariants = (
   return { variants: normalizedVariants, dedupeHash }
 }
 
+const normalizeVerifiedMediaAsset = (
+  args: VerifiedMediaAssetArgs
+): NormalizedVerifiedMediaAsset =>
+{
+  const normalized = normalizeVerifiedVariants(args.variants)
+  return {
+    userId: args.userId,
+    ...normalized,
+    key: `${args.userId}:${normalized.dedupeHash}`,
+  }
+}
+
+const runInChunks = async <T, R>(
+  items: readonly T[],
+  chunkSize: number,
+  task: (item: T) => Promise<R>
+): Promise<R[]> =>
+{
+  const results: R[] = []
+  for (let i = 0; i < items.length; i += chunkSize)
+  {
+    results.push(
+      ...(await Promise.all(items.slice(i, i + chunkSize).map(task)))
+    )
+  }
+  return results
+}
+
 const deleteVariantStorageIds = async (
   ctx: MutationCtx,
   variants: readonly VerifiedVariantArgs[]
@@ -179,84 +213,89 @@ const insertMissingVariants = async (
 ): Promise<void> =>
 {
   const now = Date.now()
-  for (const variant of variants)
-  {
-    const existing = await ctx.db
-      .query('mediaVariants')
-      .withIndex('byMediaAssetAndKind', (q) =>
-        q.eq('mediaAssetId', mediaAssetId).eq('kind', variant.kind)
-      )
-      .unique()
-
-    if (existing)
+  const inserted = await Promise.all(
+    variants.map(async (variant) =>
     {
-      await deleteStorageSilently(ctx, variant.storageId)
-      continue
-    }
+      const existing = await ctx.db
+        .query('mediaVariants')
+        .withIndex('byMediaAssetAndKind', (q) =>
+          q.eq('mediaAssetId', mediaAssetId).eq('kind', variant.kind)
+        )
+        .unique()
 
-    await ctx.db.insert('mediaVariants', {
+      if (existing)
+      {
+        await deleteStorageSilently(ctx, variant.storageId)
+        return null
+      }
+
+      await ctx.db.insert('mediaVariants', {
+        mediaAssetId,
+        kind: variant.kind,
+        storageId: variant.storageId,
+        width: variant.width,
+        height: variant.height,
+        byteSize: variant.byteSize,
+        mimeType: variant.mimeType,
+        contentHash: variant.contentHash,
+        createdAt: now,
+      })
+      return [
+        VARIANT_FIELD_BY_KIND[variant.kind],
+        toMediaVariantSummary(variant),
+      ] as const
+    })
+  )
+
+  const patchEntries = inserted.filter(
+    (entry): entry is NonNullable<typeof entry> => entry !== null
+  )
+  if (patchEntries.length > 0)
+  {
+    await ctx.db.patch(
       mediaAssetId,
-      kind: variant.kind,
-      storageId: variant.storageId,
-      width: variant.width,
-      height: variant.height,
-      byteSize: variant.byteSize,
-      mimeType: variant.mimeType,
-      contentHash: variant.contentHash,
-      createdAt: now,
-    })
-    await ctx.db.patch(mediaAssetId, {
-      [VARIANT_FIELD_BY_KIND[variant.kind]]: toMediaVariantSummary(variant),
-    })
+      Object.fromEntries(patchEntries) as Partial<
+        Pick<
+          Doc<'mediaAssets'>,
+          'tileVariant' | 'previewVariant' | 'editorVariant'
+        >
+      >
+    )
   }
 }
 
-const finalizeVerifiedMediaAssetImpl = async (
+const finalizeNormalizedVerifiedMediaAsset = async (
   ctx: MutationCtx,
-  args: VerifiedMediaAssetArgs,
-  finalizedByHash: Map<string, FinalizedUpload>
+  asset: NormalizedVerifiedMediaAsset
 ): Promise<FinalizedUpload> =>
 {
-  const { variants, dedupeHash } = normalizeVerifiedVariants(args.variants)
-  const key = `${args.userId}:${dedupeHash}`
-  const finalized = finalizedByHash.get(key)
-  if (finalized)
-  {
-    await deleteVariantStorageIds(ctx, variants)
-    return finalized
-  }
-
   const existing = await ctx.db
     .query('mediaAssets')
     .withIndex('byOwnerAndDedupeHash', (q) =>
-      q.eq('ownerId', args.userId).eq('dedupeHash', dedupeHash)
+      q.eq('ownerId', asset.userId).eq('dedupeHash', asset.dedupeHash)
     )
     .unique()
 
   if (existing)
   {
-    await insertMissingVariants(ctx, existing._id, variants)
-    const result = {
+    await insertMissingVariants(ctx, existing._id, asset.variants)
+    return {
       externalId: existing.externalId,
       mediaAssetId: existing._id,
     }
-    finalizedByHash.set(key, result)
-    return result
   }
 
   const externalId = generateMediaAssetExternalId()
   const mediaAssetId = await ctx.db.insert('mediaAssets', {
-    ownerId: args.userId,
+    ownerId: asset.userId,
     externalId,
-    dedupeHash,
-    ...buildVariantSummariesForInsert(variants),
+    dedupeHash: asset.dedupeHash,
+    ...buildVariantSummariesForInsert(asset.variants),
     createdAt: Date.now(),
   })
-  await insertMissingVariants(ctx, mediaAssetId, variants)
+  await insertMissingVariants(ctx, mediaAssetId, asset.variants)
 
-  const result = { externalId, mediaAssetId }
-  finalizedByHash.set(key, result)
-  return result
+  return { externalId, mediaAssetId }
 }
 
 export const finalizeVerifiedMediaAsset = internalMutation({
@@ -266,7 +305,10 @@ export const finalizeVerifiedMediaAsset = internalMutation({
     mediaAssetId: v.id('mediaAssets'),
   }),
   handler: async (ctx, args): Promise<FinalizedUpload> =>
-    await finalizeVerifiedMediaAssetImpl(ctx, args, new Map()),
+    await finalizeNormalizedVerifiedMediaAsset(
+      ctx,
+      normalizeVerifiedMediaAsset(args)
+    ),
 })
 
 export const finalizeVerifiedMediaAssets = internalMutation({
@@ -281,15 +323,24 @@ export const finalizeVerifiedMediaAssets = internalMutation({
   ),
   handler: async (ctx, args): Promise<FinalizedUpload[]> =>
   {
-    const finalizedByHash = new Map<string, FinalizedUpload>()
-    const results: FinalizedUpload[] = []
-    for (const asset of args.assets)
-    {
-      results.push(
-        await finalizeVerifiedMediaAssetImpl(ctx, asset, finalizedByHash)
-      )
-    }
-    return results
+    const pendingByHash = new Map<string, Promise<FinalizedUpload>>()
+    return await Promise.all(
+      args.assets.map(async (assetArgs) =>
+      {
+        const asset = normalizeVerifiedMediaAsset(assetArgs)
+        const pending = pendingByHash.get(asset.key)
+        if (pending)
+        {
+          const result = await pending
+          await deleteVariantStorageIds(ctx, asset.variants)
+          return result
+        }
+
+        const next = finalizeNormalizedVerifiedMediaAsset(ctx, asset)
+        pendingByHash.set(asset.key, next)
+        return await next
+      })
+    )
   },
 })
 
@@ -341,11 +392,13 @@ export const deleteMediaAssetWithVariants = async (
     .withIndex('byMediaAssetAndKind', (q) => q.eq('mediaAssetId', mediaAssetId))
     .take(MAX_VARIANT_ROWS_PER_ASSET)
 
-  for (const variant of variants)
-  {
-    await ctx.db.delete(variant._id)
-    await deleteStorageSilently(ctx, variant.storageId)
-  }
+  await Promise.all(
+    variants.map(async (variant) =>
+    {
+      await ctx.db.delete(variant._id)
+      await deleteStorageSilently(ctx, variant.storageId)
+    })
+  )
   await ctx.db.delete(mediaAssetId)
 }
 
@@ -372,27 +425,17 @@ export const gcOrphanedMediaAssets = internalMutation({
       eligible.push(asset)
     }
 
-    const orphaned: Doc<'mediaAssets'>[] = []
-    for (let i = 0; i < eligible.length; i += REFERENCE_CHECK_CONCURRENCY)
-    {
-      const chunk = eligible.slice(i, i + REFERENCE_CHECK_CONCURRENCY)
-      const isOrphaned = await Promise.all(
-        chunk.map(
-          async (asset) => !(await hasMediaAssetReferences(ctx, asset._id))
-        )
+    const orphaned = (
+      await runInChunks(eligible, REFERENCE_CHECK_CONCURRENCY, async (asset) =>
+        (await hasMediaAssetReferences(ctx, asset._id)) ? null : asset
       )
-      for (let j = 0; j < chunk.length; j++)
-      {
-        if (isOrphaned[j]) orphaned.push(chunk[j])
-      }
-    }
+    ).filter((asset): asset is Doc<'mediaAssets'> => asset !== null)
 
-    let deleted = 0
-    for (const asset of orphaned)
+    await runInChunks(orphaned, REFERENCE_CHECK_CONCURRENCY, async (asset) =>
     {
       await deleteMediaAssetWithVariants(ctx, asset._id)
-      deleted++
-    }
+      return null
+    })
 
     if (!page.isDone)
     {
@@ -403,7 +446,7 @@ export const gcOrphanedMediaAssets = internalMutation({
       )
     }
 
-    return { deleted }
+    return { deleted: orphaned.length }
   },
 })
 
@@ -451,27 +494,21 @@ export const gcOrphanedStorage = internalMutation({
     })
 
     const eligible = page.page.filter((blob) => blob._creationTime <= cutoff)
-    const orphaned: Id<'_storage'>[] = []
-
-    for (let i = 0; i < eligible.length; i += REFERENCE_CHECK_CONCURRENCY)
-    {
-      const chunk = eligible.slice(i, i + REFERENCE_CHECK_CONCURRENCY)
-      const flags = await Promise.all(
-        chunk.map(async (blob) => !(await hasStorageReference(ctx, blob._id)))
+    const orphaned = (
+      await runInChunks(eligible, REFERENCE_CHECK_CONCURRENCY, async (blob) =>
+        (await hasStorageReference(ctx, blob._id)) ? null : blob._id
       )
+    ).filter((storageId): storageId is Id<'_storage'> => storageId !== null)
 
-      for (let j = 0; j < chunk.length; j++)
+    await runInChunks(
+      orphaned,
+      REFERENCE_CHECK_CONCURRENCY,
+      async (storageId) =>
       {
-        if (flags[j]) orphaned.push(chunk[j]._id)
+        await deleteStorageSilently(ctx, storageId)
+        return null
       }
-    }
-
-    let deleted = 0
-    for (const storageId of orphaned)
-    {
-      await deleteStorageSilently(ctx, storageId)
-      deleted++
-    }
+    )
 
     if (!page.isDone)
     {
@@ -482,6 +519,6 @@ export const gcOrphanedStorage = internalMutation({
       )
     }
 
-    return { deleted }
+    return { deleted: orphaned.length }
   },
 })
