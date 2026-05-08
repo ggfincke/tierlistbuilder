@@ -54,8 +54,6 @@ Shared test data defined in `fixtures.ts`:
 
 | Export                              | Description                                           |
 | ----------------------------------- | ----------------------------------------------------- |
-| `TIER_IDS`                          | Stable tier ID constants                              |
-| `ITEM_IDS`                          | Stable item ID constants                              |
 | `makeContainerSnapshot(overrides?)` | Builds a `ContainerSnapshot` w/ 3 tiers & 8 items     |
 | `makeBoardSnapshot(overrides?)`     | Builds an empty `BoardSnapshot` for focused overrides |
 | `makeTier(overrides?)`              | Builds a `Tier` w/ palette colorSpec defaults         |

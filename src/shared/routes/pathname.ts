@@ -33,12 +33,3 @@ const getTemplatesPath = (): string =>
 
 export const getTemplateDetailPath = (slug: string): string =>
   `${getTemplatesPath()}/${slug}`
-
-const getRankingsPath = (): string =>
-{
-  const basePath = normalizeBasePath()
-  return `${basePath}${RANKINGS_ROUTE_PATH}`
-}
-
-export const getRankingDetailPath = (slug: string): string =>
-  `${getRankingsPath()}/${slug}`

@@ -128,7 +128,7 @@ interface BBoxToCoverFrameInput
 // expand the bbox to the surface's locked aspect (grow short axis), center on
 // bbox center. frame may sit outside [0, 1] -> letterboxed at render time
 // (matte from coverFramingPlacement). caller decides any further clamping
-export const bboxToCoverFrame = ({
+const bboxToCoverFrame = ({
   bbox,
   surfaceAspect,
   sourceWidth,

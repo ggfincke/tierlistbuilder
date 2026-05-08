@@ -5,16 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const repositoryMocks = vi.hoisted(() => ({
   resolveShortLinkImperative: vi.fn(),
-  generateSnapshotUploadUrlImperative: vi.fn(),
-  createSnapshotShortLinkImperative: vi.fn(),
 }))
 
 vi.mock('~/features/platform/share/shortLinkRepository', () => ({
   resolveShortLinkImperative: repositoryMocks.resolveShortLinkImperative,
-  generateSnapshotUploadUrlImperative:
-    repositoryMocks.generateSnapshotUploadUrlImperative,
-  createSnapshotShortLinkImperative:
-    repositoryMocks.createSnapshotShortLinkImperative,
 }))
 
 import { decodeBoardFromShortLink } from '~/features/platform/share/shortLinkShare'

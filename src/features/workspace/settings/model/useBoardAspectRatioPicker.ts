@@ -17,7 +17,7 @@ import {
 } from '~/shared/board-ui/aspectRatio'
 import type { ItemAspectRatioMode } from '@tierlistbuilder/contracts/workspace/board'
 
-export interface BoardAspectRatioPicker
+interface BoardAspectRatioPicker
 {
   boardAspectRatio: number
   mode: ItemAspectRatioMode

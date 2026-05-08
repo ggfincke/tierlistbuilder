@@ -164,7 +164,7 @@ export const areCachedAutoCropsApplied = (
   return hasResolvedTarget
 }
 
-export interface AutoCropDetectionResult
+interface AutoCropDetectionResult
 {
   bbox: AutoCropBBox | null
   scanned: boolean

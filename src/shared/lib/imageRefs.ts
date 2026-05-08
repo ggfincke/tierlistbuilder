@@ -26,7 +26,7 @@ interface ImageRenditionRef
 // editor = canvas / auto-crop / export (source-first)
 export type ImageRendition = 'board' | 'thumbnail' | 'editor'
 
-export const PRIORITY_ORDER: Record<ImageRendition, readonly RenditionKey[]> = {
+const PRIORITY_ORDER: Record<ImageRendition, readonly RenditionKey[]> = {
   board: ['tileImageRef', 'sourceImageRef', 'imageRef'],
   thumbnail: ['imageRef', 'tileImageRef', 'sourceImageRef'],
   editor: ['sourceImageRef', 'tileImageRef', 'imageRef'],

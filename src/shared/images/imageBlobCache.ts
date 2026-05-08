@@ -123,7 +123,7 @@ export const requestCloudImage = (
   }
 }
 
-export const ensureCloudImageCached = async (
+const ensureCloudImageCached = async (
   hash: string,
   cloudMediaExternalId: string,
   variant: MediaVariantKind = 'tile'

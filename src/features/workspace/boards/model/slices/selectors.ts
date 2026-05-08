@@ -108,7 +108,7 @@ export const selectKeyboardTabStopItemId = (
   return getFallbackTabStop(state.tiers, state.unrankedItemIds)
 }
 
-export interface LabelOverrideStatus
+interface LabelOverrideStatus
 {
   // true when the board carries any non-empty label-settings override
   boardOverridden: boolean

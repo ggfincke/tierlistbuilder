@@ -4,7 +4,7 @@
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
 import { parseBoardSnapshotJson } from '~/shared/board-data/boardJson'
-import { EMBED_ROUTE_PATH, normalizeBasePath } from '~/shared/routes/pathname'
+import { normalizeBasePath } from '~/shared/routes/pathname'
 import { base64UrlToBytes, bytesToBase64Url } from '~/shared/lib/binaryCodec'
 import { mapSnapshotItems } from '~/shared/lib/boardSnapshotItems'
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
@@ -75,16 +75,6 @@ export const inflateSnapshotBytes = async (
 export const encodeBoardToShareFragment = async (
   data: BoardSnapshot
 ): Promise<string> => bytesToBase64Url(await compressSnapshotBytes(data))
-
-export const getWorkspaceShareUrl = async (
-  data: BoardSnapshot
-): Promise<string> =>
-  `${buildAppUrl('/')}#share=${await encodeBoardToShareFragment(data)}`
-
-export const getEmbedShareUrl = async (data: BoardSnapshot): Promise<string> =>
-  `${buildAppUrl(EMBED_ROUTE_PATH)}#share=${await encodeBoardToShareFragment(
-    data
-  )}`
 
 export const decodeBoardFromShareFragment = async (
   fragment: string

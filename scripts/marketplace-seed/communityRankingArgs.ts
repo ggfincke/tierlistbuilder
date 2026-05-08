@@ -1,7 +1,7 @@
 // scripts/marketplace-seed/communityRankingArgs.ts
 // argument parsing for community ranking seeding
 
-export interface ParsedCommunityRankingSeedArgs
+interface ParsedCommunityRankingSeedArgs
 {
   reset: boolean
   wait: boolean

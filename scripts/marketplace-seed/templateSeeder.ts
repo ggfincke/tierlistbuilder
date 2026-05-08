@@ -69,7 +69,7 @@ const appendChunkJobs = (
   return uploadJobs
 }
 
-export const seedFolder = async (
+const seedFolder = async (
   client: ConvexHttpClient,
   target: SeedTarget,
   authorEmail: string,

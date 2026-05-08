@@ -43,7 +43,7 @@ export const ACTIVE_TEMPLATE_JOB_STATUSES = [
   'running',
 ] as const satisfies readonly TemplateJobStatus[]
 
-export const FINISHED_TEMPLATE_JOB_STATUSES = [
+const FINISHED_TEMPLATE_JOB_STATUSES = [
   'succeeded',
   'canceled',
 ] as const satisfies readonly TemplateJobStatus[]
@@ -362,7 +362,7 @@ export interface MarketplaceTemplateDraftListResult
   drafts: MarketplaceTemplateDraft[]
 }
 
-export interface MarketplaceTemplateJobProgress
+interface MarketplaceTemplateJobProgress
 {
   jobId: string
   status: TemplateJobStatus

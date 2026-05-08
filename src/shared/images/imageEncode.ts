@@ -15,7 +15,7 @@ const isCanvasElement = (
   source instanceof HTMLCanvasElement
 
 // compute output dimensions that fit within maxSize while preserving aspect ratio
-export const getResizedDimensions = (
+const getResizedDimensions = (
   width: number,
   height: number,
   maxSize: number
@@ -107,7 +107,7 @@ export const canvasToBlob = async (
   })
 
 // draw a source image into an encoded blob capped at maxSize on the long edge
-export const drawImageToBlob = async (
+const drawImageToBlob = async (
   source: CanvasImageSource,
   sourceWidth: number,
   sourceHeight: number,
