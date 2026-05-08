@@ -55,6 +55,7 @@ import {
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput, normalizeNullableText } from '../../lib/text'
 import type { BoardLibrarySummaryItem } from '../../workspace/boards/librarySummary'
+import { resolveTemplateCriteria } from './criteria'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -1443,6 +1444,7 @@ export const toTemplateDetail = async (
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
     access: getTemplateAccessState(template, viewerPlan),
+    criteria: resolveTemplateCriteria(template),
     suggestedTiers: template.suggestedTiers,
     labels: template.labels ?? null,
   }

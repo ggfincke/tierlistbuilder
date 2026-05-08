@@ -9,6 +9,7 @@ import type {
 } from '../workspace/board'
 import type { PaginationResult } from '../lib/pagination'
 import type { TemplateCategory } from './category'
+import type { MarketplaceTemplateCriterion } from './templateCriterion'
 
 export const TEMPLATE_VISIBILITIES = ['public', 'unlisted'] as const
 
@@ -313,6 +314,7 @@ export interface MarketplaceTemplateItem
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
 {
   access: TemplateCardAccessState
+  criteria: MarketplaceTemplateCriterion[]
   suggestedTiers: TierPresetTier[]
   // pre-baked board label settings; null falls back to the forking user's
   // global showLabels + built-in defaults

@@ -6,6 +6,7 @@ import type { ImageFit, ItemTransform } from '../workspace/board'
 import type { TemplateCategory } from './category'
 import type { TemplateMediaRef } from './template'
 import type { PaginationResult } from '../lib/pagination'
+import type { MarketplaceTemplateCriterion } from './templateCriterion'
 
 export const TEMPLATE_RANKING_AGGREGATE_STATES = [
   'computing',
@@ -77,6 +78,7 @@ export interface MarketplaceTemplateRankingAggregateBucket
 export interface MarketplaceTemplateRankingAggregate
 {
   template: MarketplaceTemplateRankingAggregateTemplateRef
+  criterion: MarketplaceTemplateCriterion
   state: TemplateRankingAggregateState
   activeGeneration: number | null
   bucketCount: number

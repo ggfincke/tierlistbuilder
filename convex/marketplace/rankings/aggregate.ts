@@ -23,6 +23,10 @@ import {
   createTemplateProjectionCache,
   toTemplateMediaRef,
 } from '../templates/lib'
+import {
+  resolvePrimaryTemplateCriterion,
+  type TemplateCriteriaSource,
+} from '../templates/criteria'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -112,7 +116,8 @@ export const toTemplateRankingAggregate = (
     Doc<'templates'>,
     'slug' | 'title' | 'category' | 'itemCount'
   > &
-    Pick<Doc<'templates'>, 'suggestedTiers'>,
+    Pick<Doc<'templates'>, 'suggestedTiers'> &
+    TemplateCriteriaSource,
   aggregate: Doc<'templateRankingAggregates'>
 ): MarketplaceTemplateRankingAggregate => ({
   template: {
@@ -121,6 +126,7 @@ export const toTemplateRankingAggregate = (
     category: template.category,
     itemCount: template.itemCount,
   },
+  criterion: resolvePrimaryTemplateCriterion(template),
   state: aggregate.state,
   activeGeneration: aggregate.activeGeneration,
   bucketCount: aggregate.bucketCount,

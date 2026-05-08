@@ -6,6 +6,7 @@ import type { ImageFit, ItemTransform } from '../workspace/board'
 import type { TemplateAuthor, TemplateMediaRef } from './template'
 import type { TemplateCategory } from './category'
 import type { PaginationResult } from '../lib/pagination'
+import type { MarketplaceTemplateCriterionSnapshot } from './templateCriterion'
 
 export const RANKING_VISIBILITIES = ['public', 'unlisted'] as const
 
@@ -101,6 +102,7 @@ export interface MarketplaceRankingSummary
   publicationState: RankingPublicationState
   author: TemplateAuthor
   template: MarketplaceRankingTemplateRef
+  criterion: MarketplaceTemplateCriterionSnapshot
   itemCount: number
   tierCount: number
   remixCount: number

@@ -27,6 +27,7 @@ import {
   toTemplateAuthor,
   toTemplateMediaRef,
 } from '../templates/lib'
+import { buildDefaultTemplateCriterionSnapshot } from '../templates/criteria'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -141,6 +142,7 @@ export const toRankingSummary = async (
     title: ranking.sourceTemplateTitle,
     category: ranking.sourceTemplateCategory,
   },
+  criterion: buildDefaultTemplateCriterionSnapshot(),
   itemCount: ranking.itemCount,
   tierCount: ranking.tierCount,
   remixCount: ranking.remixCount,
