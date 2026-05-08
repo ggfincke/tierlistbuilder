@@ -3,7 +3,7 @@
 
 import {
   boardDataFieldsEqual,
-  selectBoardDataFields,
+  selectBoardDataSource,
 } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 
@@ -56,7 +56,7 @@ export const registerBoardAutosaveController = (
   }
 
   const unsubscribe = useActiveBoardStore.subscribe(
-    selectBoardDataFields,
+    selectBoardDataSource,
     () =>
     {
       if (consumeAutosaveSuppression())
