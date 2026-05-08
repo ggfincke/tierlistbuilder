@@ -7,6 +7,7 @@ import {
   subscribeCachedImageUrl,
   requestCloudImage,
 } from '~/shared/images/imageBlobCache'
+import { collectMissingCloudImageChainRequests } from '~/shared/images/imageUrlChainRequests'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 
 interface ImageUrlSource
@@ -93,20 +94,18 @@ export const useImageUrlChain = (
 
   useEffect(() =>
   {
-    const primary = stableSources[0]
-    if (!primary || getCachedImageUrl(primary.hash)) return
-
-    const sourceToRequest =
-      primary.cloudMediaExternalId || url
-        ? primary
-        : stableSources.find((source) => source.cloudMediaExternalId)
-    if (!sourceToRequest?.cloudMediaExternalId) return
-
-    requestCloudImage(
-      sourceToRequest.hash,
-      sourceToRequest.cloudMediaExternalId,
-      sourceToRequest.variant
+    const requests = collectMissingCloudImageChainRequests(
+      stableSources,
+      getCachedImageUrl
     )
+    for (const request of requests)
+    {
+      requestCloudImage(
+        request.hash,
+        request.cloudMediaExternalId,
+        request.variant
+      )
+    }
   }, [stableSources, url])
 
   return url

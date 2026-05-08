@@ -114,9 +114,7 @@ const TierRow = ({ tier, items, frameAspectRatio, isFirst }: TierRowProps) =>
           }}
         >
           <div className="flex flex-col items-center">
-            <span className="block max-w-full break-words [overflow-wrap:anywhere]">
-              {tier.name}
-            </span>
+            <span className="block max-w-full wrap-anywhere">{tier.name}</span>
             {tier.description && (
               <span className="mt-0.5 text-[10px] font-normal opacity-75">
                 {tier.description}
