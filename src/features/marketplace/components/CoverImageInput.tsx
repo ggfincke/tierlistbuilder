@@ -5,11 +5,9 @@
 import { Crop, ImagePlus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import {
-  MAX_IMAGE_BYTE_SIZE,
-  SUPPORTED_IMAGE_MIME_TYPES,
-} from '@tierlistbuilder/contracts/platform/media'
+import { SUPPORTED_IMAGE_MIME_TYPES } from '@tierlistbuilder/contracts/platform/media'
 import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/marketplace/template'
+import { validateImageFile } from '~/features/platform/media/imageFileValidation'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
 import { CoverImageEditor } from './CoverImageEditor'
@@ -60,20 +58,10 @@ export const CoverImageInput = ({
         onValidationError(null)
         return
       }
-      if (
-        !(SUPPORTED_IMAGE_MIME_TYPES as readonly string[]).includes(next.type)
-      )
+      const validation = validateImageFile(next)
+      if (!validation.ok)
       {
-        onValidationError(
-          `Unsupported image type. Allowed: ${SUPPORTED_IMAGE_MIME_TYPES.join(', ')}`
-        )
-        return
-      }
-      if (next.size > MAX_IMAGE_BYTE_SIZE)
-      {
-        onValidationError(
-          `Image is too large (max ${Math.round(MAX_IMAGE_BYTE_SIZE / 1024 / 1024)}MB).`
-        )
+        onValidationError(validation.message)
         return
       }
       onValidationError(null)

@@ -5,7 +5,7 @@
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import { Check, Copy, RefreshCw, Trash2 } from 'lucide-react'
 
 import {
@@ -14,7 +14,7 @@ import {
 } from '~/features/platform/share/shortLinkRepository'
 import { getShareUrlFromSlug } from '~/features/platform/share/shortLinkShare'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { COPIED_FEEDBACK_MS } from '~/shared/hooks/useClipboardCopy'
+import { useKeyedClipboardCopy } from '~/shared/hooks/useClipboardCopy'
 import { toast } from '~/shared/notifications/useToastStore'
 import { formatAbsoluteDate } from '~/shared/lib/dateFormatting'
 import { logger } from '~/shared/lib/logger'
@@ -45,23 +45,7 @@ export const RecentSharesModal = ({
   // whether its revoke button should render the spinner
   const [revokingSlugs, setRevokingSlugs] = useState<Set<string>>(new Set())
   const [confirmRevoke, setConfirmRevoke] = useState<PendingRevoke | null>(null)
-  // last-copied slug + clear timer drive the transient "Copied" feedback.
-  // single ref across all rows is fine since copy actions are one-at-a-time
-  const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
-  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  )
-
-  useEffect(
-    () => () =>
-    {
-      if (copyTimerRef.current)
-      {
-        clearTimeout(copyTimerRef.current)
-      }
-    },
-    []
-  )
+  const { copiedKey: copiedSlug, copyKey } = useKeyedClipboardCopy()
 
   const updateRevoking = (slug: string, action: 'add' | 'delete'): void =>
   {
@@ -80,19 +64,10 @@ export const RecentSharesModal = ({
   const handleCopy = async (slug: string): Promise<void> =>
   {
     const url = getShareUrlFromSlug(slug)
-    try
+    const ok = await copyKey(slug, url)
+    if (!ok)
     {
-      await navigator.clipboard.writeText(url)
-      setCopiedSlug(slug)
-      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
-      copyTimerRef.current = setTimeout(
-        () => setCopiedSlug(null),
-        COPIED_FEEDBACK_MS
-      )
-    }
-    catch (error)
-    {
-      logger.warn('share', 'Copy share link failed:', error)
+      logger.warn('share', 'Copy share link failed')
       toast('Failed to copy link.', 'error')
     }
   }

@@ -13,6 +13,7 @@ import { useMyRankings } from '~/features/marketplace/model/useRankingDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
 import { RANKINGS_ROUTE_PATH } from '~/shared/routes/pathname'
+import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
 const VisibilityBadge = ({ visibility }: { visibility: RankingVisibility }) =>
 {
@@ -73,9 +74,9 @@ const RankingRow = ({ ranking }: { ranking: MarketplaceRankingSummary }) =>
 }
 
 const SkeletonRow = () => (
-  <div
-    aria-hidden="true"
-    className="h-[68px] animate-pulse rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+  <SkeletonBlock
+    className="h-[68px] rounded-md border border-[var(--t-border)]"
+    tone="soft"
   />
 )
 

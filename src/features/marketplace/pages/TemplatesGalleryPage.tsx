@@ -11,7 +11,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
-import { lazy, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, useLayoutEffect, useRef, useState } from 'react'
 
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
@@ -43,6 +43,9 @@ import {
   preloadPublishModal,
 } from '~/features/marketplace/components/loadPublishModal'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
+import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { SkeletonCard } from '~/shared/ui/Skeleton'
+import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 const PublishModal = lazy(() =>
   loadPublishModal().then((m) => ({
@@ -86,17 +89,7 @@ const getEmptyGalleryHint = (filters: EmptyHintFilters): string =>
 const GridSkeleton = () => (
   <>
     {Array.from({ length: 7 }).map((_, i) => (
-      <div
-        key={i}
-        aria-hidden="true"
-        className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
-      >
-        <div className="h-40 bg-[rgb(var(--t-overlay)/0.06)]" />
-        <div className="space-y-2 px-3 py-3">
-          <div className="h-3 w-3/4 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
-          <div className="h-2 w-1/2 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-        </div>
-      </div>
+      <SkeletonCard key={i} />
     ))}
   </>
 )
@@ -117,18 +110,11 @@ export const TemplatesGalleryPage = () =>
   })
   const draftAction = useOpenTemplateDraft()
   const [publishOpen, setPublishOpen] = useState(false)
-
-  // keep the document title meaningful for the gallery so deep links / share
-  // previews carry the marketplace context
-  useEffect(() =>
-  {
-    const previous = document.title
-    document.title = 'Templates · TierListBuilder'
-    return () =>
-    {
-      document.title = previous
-    }
-  }, [])
+  useDocumentTitle('Templates · TierListBuilder')
+  const handleSortChange = createTypedSelectChangeHandler(
+    TEMPLATE_LIST_SORTS,
+    filters.setSort
+  )
 
   const heroFeatured = gallery.featured?.[0] ?? null
   const heroSecondary = HERO_SECONDARY_LABELS.flatMap((label, index) =>
@@ -383,9 +369,7 @@ export const TemplatesGalleryPage = () =>
                 // in the displayed value instead of leaving the user's prior
                 // selection visible against an order the query no longer honors
                 value={filters.tag !== null ? 'recent' : filters.sort}
-                onChange={(e) =>
-                  filters.setSort(e.target.value as TemplateListSort)
-                }
+                onChange={handleSortChange}
                 disabled={filters.tag !== null}
                 className="focus-custom bg-transparent text-xs font-medium text-[var(--t-text)] outline-none disabled:cursor-not-allowed"
               >

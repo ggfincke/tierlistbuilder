@@ -7,6 +7,7 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 import type { MarketplaceTemplateDraft } from '@tierlistbuilder/contracts/marketplace/template'
 
 import { formatRelativeTime } from '~/shared/catalog/formatters'
+import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { MediaMatteFrame } from './MediaMatteFrame'
 
 interface DraftRailProps
@@ -32,15 +33,15 @@ const statusLabel = (progress: number): string =>
 const SkeletonCard = () => (
   <div
     aria-hidden="true"
-    className="animate-pulse overflow-hidden rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+    className="overflow-hidden rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
     style={{ width: CARD_WIDTH, flex: '0 0 auto' }}
   >
     <div className="flex">
-      <div className="h-[120px] w-[120px] bg-[rgb(var(--t-overlay)/0.06)]" />
+      <SkeletonBlock className="h-[120px] w-[120px]" />
       <div className="flex-1 space-y-2 p-4">
-        <div className="h-3 w-1/3 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-        <div className="h-4 w-3/4 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
-        <div className="h-2 w-full rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+        <SkeletonText className="w-1/3" tone="soft" />
+        <SkeletonBlock className="h-4 w-3/4 rounded" tone="strong" />
+        <SkeletonBlock className="h-2 w-full rounded" tone="soft" />
       </div>
     </div>
   </div>

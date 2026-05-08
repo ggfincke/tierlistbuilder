@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import type { MarketplaceTemplateSummary } from '@tierlistbuilder/contracts/marketplace/template'
 
+import { SkeletonCard as SharedSkeletonCard } from '~/shared/ui/Skeleton'
 import { Card, type CardSize } from './Card'
 
 interface RailProps
@@ -21,24 +22,11 @@ const CARD_WIDTH: Record<CardSize, number> = {
   large: 320,
 }
 
-const SkeletonCard = ({ size }: { size: CardSize }) => (
-  <div
-    aria-hidden="true"
-    className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
-    style={{ width: CARD_WIDTH[size], flex: '0 0 auto' }}
-  >
-    <div
-      className="bg-[rgb(var(--t-overlay)/0.06)]"
-      style={{
-        height: size === 'small' ? 128 : size === 'default' ? 160 : 224,
-      }}
-    />
-    <div className="space-y-2 px-3 py-3">
-      <div className="h-3 w-3/4 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
-      <div className="h-2 w-1/2 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-    </div>
-  </div>
-)
+const SKELETON_COVER_CLASS: Record<CardSize, string> = {
+  small: 'h-32',
+  default: 'h-40',
+  large: 'h-56',
+}
 
 export const Rail = ({ items, size = 'small' }: RailProps) =>
 {
@@ -87,7 +75,11 @@ export const Rail = ({ items, size = 'small' }: RailProps) =>
               </div>
             ))
           : Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} size={size} />
+              <SharedSkeletonCard
+                key={i}
+                coverClassName={SKELETON_COVER_CLASS[size]}
+                style={{ width: CARD_WIDTH[size], flex: '0 0 auto' }}
+              />
             ))}
       </div>
       <button

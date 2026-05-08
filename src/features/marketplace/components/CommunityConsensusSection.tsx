@@ -10,6 +10,7 @@ import type {
   MarketplaceTemplateRankingAggregateItem,
   TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import {
   RANKING_FEATURED_BADGE_LABELS,
   DEFAULT_RANKING_LIST_LIMIT,
@@ -28,6 +29,7 @@ import {
   pluralize,
   formatRelativeTime,
 } from '~/shared/catalog/formatters'
+import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
 import { BucketLegend } from './consensus/BucketLegend'
 import { ConsensusBars } from './consensus/ConsensusBars'
@@ -47,11 +49,7 @@ import {
 } from './consensus/activeRankingRows'
 import { ItemPopover } from './consensus/ItemPopover'
 import { usePopover } from './consensus/usePopover'
-import {
-  isAggregateReady,
-  templateFrame,
-  type ConsensusVizMode,
-} from './consensus/utils'
+import { templateFrame, type ConsensusVizMode } from './consensus/utils'
 
 const RAIL_PAGE_SIZE = DEFAULT_RANKING_LIST_LIMIT
 
@@ -77,12 +75,9 @@ const ComputingCard = () => (
 
 const SectionSkeleton = () => (
   <div aria-hidden="true" className="space-y-3">
-    <div className="h-9 w-full animate-pulse rounded-md bg-[rgb(var(--t-overlay)/0.04)]" />
+    <SkeletonBlock className="h-9 w-full rounded-md" tone="soft" />
     {Array.from({ length: 4 }).map((_, index) => (
-      <div
-        key={index}
-        className="h-16 animate-pulse rounded-md bg-[rgb(var(--t-overlay)/0.04)]"
-      />
+      <SkeletonBlock key={index} className="h-16 rounded-md" tone="soft" />
     ))}
   </div>
 )

@@ -9,6 +9,7 @@ import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cl
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
+import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface OpenTemplateDraftAction
 {
@@ -23,11 +24,9 @@ export const useOpenTemplateDraft = (): OpenTemplateDraftAction =>
     string | null
   >(null)
 
-  const open = useCallback(
-    async (draft: MarketplaceTemplateDraft) =>
+  const openDraft = useCallback(
+    async (draft: MarketplaceTemplateDraft): Promise<void> =>
     {
-      if (pendingBoardExternalId) return
-
       setPendingBoardExternalId(draft.boardExternalId)
       try
       {
@@ -35,23 +34,39 @@ export const useOpenTemplateDraft = (): OpenTemplateDraftAction =>
         toast(`Opened "${draft.boardTitle}"`, 'success')
         navigate('/')
       }
-      catch (error)
-      {
-        logger.error('marketplace', 'open template draft failed', error)
-        toast(
-          formatMarketplaceError(
-            error,
-            'Could not open that board. Please try again.'
-          ),
-          'error'
-        )
-      }
       finally
       {
         setPendingBoardExternalId(null)
       }
     },
-    [navigate, pendingBoardExternalId]
+    [navigate]
+  )
+
+  const onError = useCallback((error: unknown) =>
+  {
+    logger.error('marketplace', 'open template draft failed', error)
+    toast(
+      formatMarketplaceError(
+        error,
+        'Could not open that board. Please try again.'
+      ),
+      'error'
+    )
+  }, [])
+
+  const { run: runOpen } = useAsyncAction<[MarketplaceTemplateDraft], void>(
+    openDraft,
+    {
+      onError,
+    }
+  )
+
+  const open = useCallback(
+    async (draft: MarketplaceTemplateDraft) =>
+    {
+      await runOpen(draft)
+    },
+    [runOpen]
   )
 
   return { open, pendingBoardExternalId }

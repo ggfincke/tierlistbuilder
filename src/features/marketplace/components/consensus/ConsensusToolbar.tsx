@@ -13,12 +13,12 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import type { ChangeEvent } from 'react'
 
 import {
   TEMPLATE_RANKING_AGGREGATE_ITEM_SORTS,
   type TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 import { SORT_LABELS, type ConsensusVizMode } from './utils'
 
@@ -60,10 +60,10 @@ export const ConsensusToolbar = ({
   filteredCount,
 }: ConsensusToolbarProps) =>
 {
-  const handleSortChange = (event: ChangeEvent<HTMLSelectElement>): void =>
-  {
-    onSortChange(event.target.value as TemplateRankingAggregateItemSort)
-  }
+  const handleSortChange = createTypedSelectChangeHandler(
+    TEMPLATE_RANKING_AGGREGATE_ITEM_SORTS,
+    onSortChange
+  )
   const isFiltered = query.trim().length > 0
 
   return (

@@ -2,11 +2,9 @@
 // shared formatters/helpers for the consensus surfaces (toolbar, viz, popover)
 
 import type {
-  MarketplaceTemplateRankingAggregate,
   MarketplaceTemplateRankingAggregateBucket,
   TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import { isTemplateRankingAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
 import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
@@ -29,11 +27,6 @@ export type ConsensusVizMode =
   | 'heatmap'
   | 'scatter'
   | 'ranked'
-
-export const isAggregateReady = (
-  aggregate: MarketplaceTemplateRankingAggregate | null | undefined
-): aggregate is MarketplaceTemplateRankingAggregate =>
-  isTemplateRankingAggregateReady(aggregate)
 
 export const templateFrame = (
   template: Pick<

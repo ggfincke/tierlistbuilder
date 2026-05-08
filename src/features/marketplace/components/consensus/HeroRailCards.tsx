@@ -11,6 +11,7 @@ import type {
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { useTemplateRankingAggregateItems } from '~/features/marketplace/model/useRankingDetail'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 
 import {
   AggregateItemThumb,
@@ -79,10 +80,10 @@ const SkeletonRow = () => (
     aria-hidden="true"
     className="flex items-center gap-2.5 rounded-md py-0.5"
   >
-    <div className="h-9 w-9 animate-pulse rounded-md bg-[rgb(var(--t-overlay)/0.06)]" />
+    <SkeletonBlock className="h-9 w-9 rounded-md" />
     <div className="flex-1 space-y-1.5">
-      <div className="h-3 w-2/3 animate-pulse rounded bg-[rgb(var(--t-overlay)/0.06)]" />
-      <div className="h-2 w-1/2 animate-pulse rounded bg-[rgb(var(--t-overlay)/0.04)]" />
+      <SkeletonText className="w-2/3" />
+      <SkeletonBlock className="h-2 w-1/2 rounded" tone="soft" />
     </div>
   </li>
 )

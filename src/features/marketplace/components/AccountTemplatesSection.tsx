@@ -22,6 +22,7 @@ import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { SkeletonBlock } from '~/shared/ui/Skeleton'
 import {
   loadPublishModal,
   preloadPublishModal,
@@ -149,9 +150,9 @@ const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
 }
 
 const SkeletonRow = () => (
-  <div
-    aria-hidden="true"
-    className="h-[72px] animate-pulse rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+  <SkeletonBlock
+    className="h-[72px] rounded-md border border-[var(--t-border)]"
+    tone="soft"
   />
 )
 

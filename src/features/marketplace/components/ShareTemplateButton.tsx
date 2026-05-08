@@ -3,10 +3,11 @@
 // mobile, falls back to clipboard copy w/ a confirming toast
 
 import { Check, Share2 } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback } from 'react'
 
 import { getTemplateDetailPath } from '~/shared/routes/pathname'
 import { isAbortError } from '~/shared/lib/errors'
+import { useClipboardCopy } from '~/shared/hooks/useClipboardCopy'
 import { toast } from '~/shared/notifications/useToastStore'
 
 interface ShareTemplateButtonProps
@@ -27,41 +28,6 @@ const buildShareUrl = (slug: string): string =>
   return new URL(path, window.location.origin).toString()
 }
 
-const copyToClipboard = async (value: string): Promise<boolean> =>
-{
-  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText)
-  {
-    try
-    {
-      await navigator.clipboard.writeText(value)
-      return true
-    }
-    catch
-    {
-      // permission denied / insecure context — fall through to legacy copy
-    }
-  }
-  if (typeof document === 'undefined') return false
-  const textarea = document.createElement('textarea')
-  textarea.value = value
-  textarea.setAttribute('readonly', '')
-  textarea.style.position = 'fixed'
-  textarea.style.opacity = '0'
-  document.body.appendChild(textarea)
-  textarea.select()
-  let ok = false
-  try
-  {
-    ok = document.execCommand('copy')
-  }
-  catch
-  {
-    ok = false
-  }
-  document.body.removeChild(textarea)
-  return ok
-}
-
 const COPIED_FEEDBACK_MS = 1_400
 
 export const ShareTemplateButton = ({
@@ -71,22 +37,7 @@ export const ShareTemplateButton = ({
   ariaLabel,
 }: ShareTemplateButtonProps) =>
 {
-  const [copied, setCopied] = useState(false)
-  const resetTimerRef = useRef<number | null>(null)
-
-  // ensure the temporary "copied" badge tears down even if the user navigates
-  // away before the timer would otherwise fire
-  useEffect(
-    () => () =>
-    {
-      if (resetTimerRef.current !== null)
-      {
-        window.clearTimeout(resetTimerRef.current)
-        resetTimerRef.current = null
-      }
-    },
-    []
-  )
+  const { copied, copy } = useClipboardCopy(COPIED_FEEDBACK_MS)
 
   const handleClick = useCallback(async () =>
   {
@@ -110,26 +61,16 @@ export const ShareTemplateButton = ({
       }
     }
 
-    const ok = await copyToClipboard(shareUrl)
+    const ok = await copy(shareUrl)
     if (ok)
     {
-      setCopied(true)
-      if (resetTimerRef.current !== null)
-      {
-        window.clearTimeout(resetTimerRef.current)
-      }
-      resetTimerRef.current = window.setTimeout(() =>
-      {
-        setCopied(false)
-        resetTimerRef.current = null
-      }, COPIED_FEEDBACK_MS)
       toast('Link copied to clipboard', 'success')
     }
     else
     {
       toast('Could not copy link', 'error')
     }
-  }, [slug, templateTitle])
+  }, [copy, slug, templateTitle])
 
   return (
     <button

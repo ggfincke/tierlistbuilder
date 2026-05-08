@@ -4,9 +4,10 @@
 import { useMemo } from 'react'
 
 import type { MarketplaceTemplateRankingAggregate } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
-import { isAggregateReady, resolveBucketColor } from './utils'
+import { resolveBucketColor } from './utils'
 
 interface HeroSpreadEntry
 {

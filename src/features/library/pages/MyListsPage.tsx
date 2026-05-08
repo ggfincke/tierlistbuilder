@@ -2,7 +2,7 @@
 // my-lists library landing — heading, stats strip, filter bar, grid or table
 
 import { Plus } from 'lucide-react'
-import { useDeferredValue, useEffect, useMemo } from 'react'
+import { useDeferredValue, useMemo } from 'react'
 
 import type { LibraryBoardStatus } from '@tierlistbuilder/contracts/workspace/board'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
@@ -28,15 +28,12 @@ import { useCreateLibraryBoard } from '~/features/library/model/useCreateLibrary
 import { useLibraryFilters } from '~/features/library/model/useLibraryFilters'
 import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoard'
 import { Button } from '~/shared/ui/Button'
+import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { foldForSearch } from '~/shared/lib/text'
 
 // columns per density for the grid view. dense packs 4 across, default 3,
 // loose 2 — large covers feel hero-ish at 2-up
 const COLUMNS_BY_DENSITY = { dense: 4, default: 3, loose: 2 } as const
-
-// fold case + diacritics so "Pokemon" matches "Pokémon". no fuzzy ranking yet;
-// the v1 list tops out at 200 boards so substring match is sufficient
-const foldForSearch = (raw: string): string =>
-  raw.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export const MyListsPage = () =>
 {
@@ -54,6 +51,7 @@ export const MyListsPage = () =>
   const deferredSearch = useDeferredValue(filters.searchDebounced)
   const deferredFilter = useDeferredValue(filters.filter)
   const deferredSort = useDeferredValue(filters.sort)
+  useDocumentTitle('My lists · TierListBuilder')
 
   const counts = useMemo(() => countLibraryStatuses(rows ?? []), [rows])
 
@@ -95,17 +93,6 @@ export const MyListsPage = () =>
     }),
     [filters.density]
   )
-
-  // document title for tab clarity & deep-link share previews
-  useEffect(() =>
-  {
-    const previous = document.title
-    document.title = 'My lists · TierListBuilder'
-    return () =>
-    {
-      document.title = previous
-    }
-  }, [])
 
   // signed-out — bail to the marketing-style surface
   if (!isAuthLoading && !isSignedIn)

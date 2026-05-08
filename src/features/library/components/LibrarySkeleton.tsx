@@ -2,6 +2,7 @@
 // loading-state placeholders for the page's content section
 
 import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/board'
+import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 
 interface LibrarySkeletonProps
 {
@@ -19,18 +20,16 @@ const COVER_HEIGHT_BY_DENSITY: Record<LibraryBoardDensity, string> = {
 const GridSkeletonCard = ({ density }: { density: LibraryBoardDensity }) => (
   <div
     aria-hidden="true"
-    className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+    className="flex flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
   >
-    <div
-      className={`${COVER_HEIGHT_BY_DENSITY[density]} bg-[rgb(var(--t-overlay)/0.06)]`}
-    />
+    <SkeletonBlock className={COVER_HEIGHT_BY_DENSITY[density]} />
     <div className="space-y-2 px-3 py-3">
-      <div className="h-3 w-3/4 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
-      <div className="h-2 w-1/2 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-      <div className="h-1 rounded bg-[rgb(var(--t-overlay)/0.06)]" />
+      <SkeletonText className="w-3/4" tone="strong" />
+      <SkeletonBlock className="h-2 w-1/2 rounded" tone="soft" />
+      <SkeletonBlock className="h-1 rounded" />
       <div className="flex justify-between gap-2 pt-1">
-        <div className="h-2 w-16 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-        <div className="h-2 w-10 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+        <SkeletonBlock className="h-2 w-16 rounded" tone="soft" />
+        <SkeletonBlock className="h-2 w-10 rounded" tone="soft" />
       </div>
     </div>
   </div>
@@ -39,22 +38,22 @@ const GridSkeletonCard = ({ density }: { density: LibraryBoardDensity }) => (
 const ListSkeletonRow = () => (
   <div
     aria-hidden="true"
-    className="grid animate-pulse items-center gap-4 px-4 py-3"
+    className="grid items-center gap-4 px-4 py-3"
     style={{
       gridTemplateColumns:
         'minmax(56px, 56px) minmax(0, 2.6fr) minmax(120px, 1.6fr) 110px 96px 90px',
       borderBottom: '1px solid var(--t-border)',
     }}
   >
-    <div className="h-10 w-14 rounded-md bg-[rgb(var(--t-overlay)/0.06)]" />
+    <SkeletonBlock className="h-10 w-14 rounded-md" />
     <div className="space-y-2">
-      <div className="h-3 w-2/3 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
-      <div className="h-2 w-1/2 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+      <SkeletonText className="w-2/3" tone="strong" />
+      <SkeletonBlock className="h-2 w-1/2 rounded" tone="soft" />
     </div>
-    <div className="h-1.5 rounded-full bg-[rgb(var(--t-overlay)/0.06)]" />
-    <div className="h-4 w-20 rounded-full bg-[rgb(var(--t-overlay)/0.05)]" />
-    <div className="h-3 w-14 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-    <div className="h-2 w-12 justify-self-end rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+    <SkeletonBlock className="h-1.5 rounded-full" />
+    <SkeletonBlock className="h-4 w-20 rounded-full" tone="soft" />
+    <SkeletonText className="w-14" tone="soft" />
+    <SkeletonBlock className="h-2 w-12 justify-self-end rounded" tone="soft" />
   </div>
 )
 
@@ -70,11 +69,11 @@ const ListSkeletonHeader = () => (
     }}
   >
     <div />
-    <div className="h-2 w-12 rounded bg-[rgb(var(--t-overlay)/0.06)]" />
-    <div className="h-2 w-16 rounded bg-[rgb(var(--t-overlay)/0.06)]" />
-    <div className="h-2 w-12 rounded bg-[rgb(var(--t-overlay)/0.06)]" />
-    <div className="h-2 w-14 rounded bg-[rgb(var(--t-overlay)/0.06)]" />
-    <div className="h-2 w-10 justify-self-end rounded bg-[rgb(var(--t-overlay)/0.06)]" />
+    <SkeletonBlock className="h-2 w-12 rounded" />
+    <SkeletonBlock className="h-2 w-16 rounded" />
+    <SkeletonBlock className="h-2 w-12 rounded" />
+    <SkeletonBlock className="h-2 w-14 rounded" />
+    <SkeletonBlock className="h-2 w-10 justify-self-end rounded" />
   </div>
 )
 

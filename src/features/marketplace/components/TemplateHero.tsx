@@ -32,6 +32,7 @@ import {
   pluralize,
 } from '~/shared/catalog/formatters'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { InitialAvatar } from '~/shared/ui/InitialAvatar'
 
 import { Cover } from './Cover'
 import { ShareTemplateButton } from './ShareTemplateButton'
@@ -177,10 +178,6 @@ export const TemplateHero = ({
 {
   const categoryLabel = CATEGORY_META[template.category].label
   const hasBakedLabels = template.labels?.show === true
-  const authorInitial = template.author.displayName
-    .replace(/^@/, '')
-    .slice(0, 1)
-    .toUpperCase()
 
   // chip-aligned spread max so each bucket's bar is visually comparable
   const spreadMax = useMemo(
@@ -292,12 +289,11 @@ export const TemplateHero = ({
 
         <div className="mt-auto pt-6">
           <div className="flex items-center gap-2.5">
-            <span
-              aria-hidden="true"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-sm font-semibold text-[var(--t-text)]"
-            >
-              {authorInitial}
-            </span>
+            <InitialAvatar
+              name={template.author.displayName}
+              size="sm"
+              className="h-9 w-9"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[var(--t-text)]">
                 {template.author.displayName}

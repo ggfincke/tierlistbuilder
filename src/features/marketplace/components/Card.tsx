@@ -28,6 +28,7 @@ import {
 import { ACCESS_META } from '~/features/marketplace/model/accessMeta'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { InitialAvatar } from '~/shared/ui/InitialAvatar'
 import { Cover, type CoverStyle } from './Cover'
 import type { MediaLoading } from './MediaMatteFrame'
 import type { MosaicDensity } from './Mosaic'
@@ -173,15 +174,7 @@ const CardImpl = ({
           <div
             className={`flex items-center gap-1.5 ${cfg.metaClass} text-[var(--t-text-muted)]`}
           >
-            <span
-              aria-hidden="true"
-              className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-[9px] font-semibold text-[var(--t-text)]"
-            >
-              {template.author.displayName
-                .replace(/^@/, '')
-                .slice(0, 1)
-                .toUpperCase()}
-            </span>
+            <InitialAvatar name={template.author.displayName} size="xs" />
             <span className="truncate">{template.author.displayName}</span>
           </div>
         )}

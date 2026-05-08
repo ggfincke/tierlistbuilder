@@ -2,8 +2,8 @@
 // public ranking detail — read-only tier rows, source-template breadcrumb,
 // & a Remix CTA that clones the snapshot into a fresh local board
 
-import { ArrowLeft, Eye, Loader2, Sparkles, TrendingUp } from 'lucide-react'
-import { useEffect, useMemo, type ComponentType, type SVGProps } from 'react'
+import { Eye, Loader2, Sparkles, TrendingUp } from 'lucide-react'
+import { useMemo, type ComponentType, type SVGProps } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import {
@@ -23,10 +23,15 @@ import { useRemixRanking } from '~/features/marketplace/model/useRemixRanking'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
+import { InitialAvatar } from '~/shared/ui/InitialAvatar'
+import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
+import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import {
   RANKINGS_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
 } from '~/shared/routes/pathname'
+import { MarketplaceNotFound } from '~/features/marketplace/components/MarketplaceNotFound'
+import { MarketplaceBreadcrumb } from '~/features/marketplace/components/MarketplaceBreadcrumb'
 
 // neutral palette for ranking surfaces; viewers don't carry workspace prefs
 const RANKING_PALETTE_ID = 'classic' as const
@@ -157,41 +162,31 @@ const StatTile = ({ label, value, icon: Icon }: StatTileProps) => (
 )
 
 const NotFound = () => (
-  <section className="relative z-10 mx-auto flex min-h-[60vh] w-full max-w-[1240px] items-center justify-center px-5 pt-20 text-center sm:px-8 sm:pt-24">
-    <div className="max-w-md">
-      <h1 className="text-2xl font-semibold text-[var(--t-text)]">
-        Ranking not found
-      </h1>
-      <p className="mt-2 text-sm text-[var(--t-text-muted)]">
-        It may have been unpublished or the link might be wrong.
-      </p>
-      <Link
-        to={TEMPLATES_ROUTE_PATH}
-        className="focus-custom mt-5 inline-flex items-center gap-1.5 rounded-md bg-[var(--t-accent)] px-4 py-2 text-sm font-semibold text-[var(--t-accent-foreground)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Browse templates
-      </Link>
-    </div>
-  </section>
+  <MarketplaceNotFound
+    title="Ranking not found"
+    body="It may have been unpublished or the link might be wrong."
+    actionLabel="Browse templates"
+    to={TEMPLATES_ROUTE_PATH}
+    maxWidthClassName="max-w-[1240px]"
+  />
 )
 
 const DetailSkeleton = () => (
   <section
     aria-hidden="true"
-    className="relative z-10 mx-auto w-full max-w-[1240px] animate-pulse px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
+    className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
   >
-    <div className="h-3 w-48 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-    <div className="mt-5 h-9 w-2/3 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
-    <div className="mt-2 h-3 w-1/3 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+    <SkeletonText className="w-48" tone="soft" />
+    <SkeletonBlock className="mt-5 h-9 w-2/3 rounded" tone="strong" />
+    <SkeletonText className="mt-2 w-1/3" tone="soft" />
     <div className="mt-6 grid grid-cols-3 gap-2">
-      <div className="h-16 rounded-lg bg-[rgb(var(--t-overlay)/0.05)]" />
-      <div className="h-16 rounded-lg bg-[rgb(var(--t-overlay)/0.05)]" />
-      <div className="h-16 rounded-lg bg-[rgb(var(--t-overlay)/0.05)]" />
+      <SkeletonBlock className="h-16 rounded-lg" tone="soft" />
+      <SkeletonBlock className="h-16 rounded-lg" tone="soft" />
+      <SkeletonBlock className="h-16 rounded-lg" tone="soft" />
     </div>
     <div className="mt-8 space-y-2">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="h-24 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
+        <SkeletonBlock key={i} className="h-24 rounded" tone="soft" />
       ))}
     </div>
   </section>
@@ -275,18 +270,8 @@ export const RankingDetailPage = () =>
   const validSlug = slug && isRankingSlug(slug) ? slug : null
   const detail = useRankingBySlug(validSlug)
   useRecordRankingView(detail ? detail.slug : null)
+  useDocumentTitle(detail ? `${detail.title} · TierListBuilder` : null)
   const remix = useRemixRanking()
-
-  useEffect(() =>
-  {
-    if (!detail) return
-    const previous = document.title
-    document.title = `${detail.title} · TierListBuilder`
-    return () =>
-    {
-      document.title = previous
-    }
-  }, [detail])
 
   if (validSlug === null) return <NotFound />
   if (detail === undefined) return <DetailSkeleton />
@@ -300,32 +285,16 @@ export const RankingDetailPage = () =>
 
   return (
     <article className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
-      <nav
-        aria-label="Breadcrumb"
-        className="flex items-center gap-1.5 text-xs text-[var(--t-text-muted)]"
-      >
-        <Link
-          to={TEMPLATES_ROUTE_PATH}
-          className="focus-custom rounded transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          Templates
-        </Link>
-        <span aria-hidden="true" className="opacity-40">
-          /
-        </span>
-        <Link
-          to={`${TEMPLATES_ROUTE_PATH}/${detail.template.slug}`}
-          className="focus-custom truncate rounded transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          {detail.template.title}
-        </Link>
-        <span aria-hidden="true" className="opacity-40">
-          /
-        </span>
-        <span className="truncate text-[var(--t-text-secondary)]">
-          {detail.title}
-        </span>
-      </nav>
+      <MarketplaceBreadcrumb
+        items={[
+          { label: 'Templates', to: TEMPLATES_ROUTE_PATH },
+          {
+            label: detail.template.title,
+            to: `${TEMPLATES_ROUTE_PATH}/${detail.template.slug}`,
+          },
+          { label: detail.title },
+        ]}
+      />
 
       <header className="mt-5">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -349,15 +318,7 @@ export const RankingDetailPage = () =>
 
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[var(--t-text-muted)]">
           <div className="flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-sm font-semibold text-[var(--t-text)]"
-            >
-              {detail.author.displayName
-                .replace(/^@/, '')
-                .slice(0, 1)
-                .toUpperCase()}
-            </span>
+            <InitialAvatar name={detail.author.displayName} size="sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[var(--t-text)]">
                 {detail.author.displayName}

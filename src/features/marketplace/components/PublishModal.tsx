@@ -12,12 +12,16 @@ import {
   TEMPLATE_VISIBILITIES,
   type TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
+import {
+  TEMPLATE_CATEGORIES,
+  type TemplateCategory,
+} from '@tierlistbuilder/contracts/marketplace/category'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
+import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 import { CATEGORY_LIST } from '~/features/marketplace/model/categories'
 import { usePublishTemplate } from '~/features/marketplace/model/usePublishTemplate'
@@ -117,6 +121,14 @@ const PublishForm = ({
   )
   const [removeCover, setRemoveCover] = useState(false)
   const [coverError, setCoverError] = useState<string | null>(null)
+  const handleCategoryChange = createTypedSelectChangeHandler(
+    TEMPLATE_CATEGORIES,
+    setCategory
+  )
+  const handleVisibilityChange = createTypedSelectChangeHandler(
+    TEMPLATE_VISIBILITIES,
+    setVisibility
+  )
 
   const board = isEdit
     ? null
@@ -302,9 +314,7 @@ const PublishForm = ({
               <select
                 id={categoryFieldId}
                 value={category}
-                onChange={(e) =>
-                  setCategory(e.target.value as TemplateCategory)
-                }
+                onChange={handleCategoryChange}
                 disabled={isPending}
                 className="focus-custom mt-1 w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] focus:border-[var(--t-border-hover)]"
               >
@@ -325,9 +335,7 @@ const PublishForm = ({
               <select
                 id={visibilityFieldId}
                 value={visibility}
-                onChange={(e) =>
-                  setVisibility(e.target.value as TemplateVisibility)
-                }
+                onChange={handleVisibilityChange}
                 disabled={isPending}
                 className="focus-custom mt-1 w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] focus:border-[var(--t-border-hover)]"
               >

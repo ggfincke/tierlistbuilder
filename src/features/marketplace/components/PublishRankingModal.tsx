@@ -16,6 +16,7 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
+import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 import { usePublishRanking } from '~/features/marketplace/model/usePublishRanking'
 import { useRankingPublishAvailability } from '~/features/marketplace/model/useRankingPublishAvailability'
@@ -55,6 +56,10 @@ const PublishRankingForm = ({
   const [title, setTitle] = useState(defaultTitle)
   const [description, setDescription] = useState('')
   const [visibility, setVisibility] = useState<RankingVisibility>('public')
+  const handleVisibilityChange = createTypedSelectChangeHandler(
+    RANKING_VISIBILITIES,
+    setVisibility
+  )
 
   const trimmedTitle = title.trim()
   const titleTooLong = trimmedTitle.length > MAX_RANKING_TITLE_LENGTH
@@ -154,7 +159,7 @@ const PublishRankingForm = ({
         <select
           id={visibilityFieldId}
           value={visibility}
-          onChange={(e) => setVisibility(e.target.value as RankingVisibility)}
+          onChange={handleVisibilityChange}
           disabled={isPending}
           className="focus-custom mt-1 w-full rounded-md border border-[var(--t-border-secondary)] bg-[var(--t-bg-surface)] px-3 py-2 text-sm text-[var(--t-text)] focus:border-[var(--t-border-hover)]"
         >
