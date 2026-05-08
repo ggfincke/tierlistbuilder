@@ -38,15 +38,7 @@ export const WorkspaceShell = () =>
 {
   const appReady = useAppBootstrap()
   const paletteId = useCurrentPaletteId()
-  const { runtimeError, clearRuntimeError, addTier, resetBoard } =
-    useActiveBoardStore(
-      useShallow((state) => ({
-        runtimeError: state.runtimeError,
-        clearRuntimeError: state.clearRuntimeError,
-        addTier: state.addTier,
-        resetBoard: state.resetBoard,
-      }))
-    )
+  const runtimeError = useActiveBoardStore((state) => state.runtimeError)
   const { toolbarPosition: rawToolbarPosition, reducedMotion } =
     usePreferencesStore(
       useShallow((state) => ({
@@ -84,12 +76,16 @@ export const WorkspaceShell = () =>
   })
 
   const handleAddTier = useCallback(
-    () => addTier(paletteId),
-    [addTier, paletteId]
+    () => useActiveBoardStore.getState().addTier(paletteId),
+    [paletteId]
   )
   const handleResetBoard = useCallback(
-    () => resetBoard(paletteId),
-    [paletteId, resetBoard]
+    () => useActiveBoardStore.getState().resetBoard(paletteId),
+    [paletteId]
+  )
+  const handleClearRuntimeError = useCallback(
+    () => useActiveBoardStore.getState().clearRuntimeError(),
+    []
   )
   const handleOpenSettings = useCallback(
     () => openModal('settings', 'items'),
@@ -159,7 +155,7 @@ export const WorkspaceShell = () =>
               <button
                 type="button"
                 className="rounded border border-[color-mix(in_srgb,var(--t-destructive-hover)_60%,transparent)] px-2 py-0.5 text-xs text-[color-mix(in_srgb,var(--t-destructive)_30%,var(--t-text))]"
-                onClick={clearRuntimeError}
+                onClick={handleClearRuntimeError}
               >
                 Dismiss
               </button>

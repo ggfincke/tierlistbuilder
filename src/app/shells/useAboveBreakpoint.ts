@@ -1,9 +1,10 @@
 // src/app/shells/useAboveBreakpoint.ts
 // reactive breakpoint check backed by a memoized MediaQueryList per breakpoint
 
-import { useSyncExternalStore } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 
 const mediaQueryCache = new Map<number, MediaQueryList>()
+const mediaQuerySubscriberCounts = new Map<number, number>()
 
 const getMediaQueryList = (breakpoint: number): MediaQueryList | null =>
 {
@@ -35,8 +36,23 @@ const subscribeToBreakpoint = (
   }
 
   mediaQuery.addEventListener('change', onStoreChange)
+  mediaQuerySubscriberCounts.set(
+    breakpoint,
+    (mediaQuerySubscriberCounts.get(breakpoint) ?? 0) + 1
+  )
 
-  return () => mediaQuery.removeEventListener('change', onStoreChange)
+  return () =>
+  {
+    mediaQuery.removeEventListener('change', onStoreChange)
+    const nextCount = (mediaQuerySubscriberCounts.get(breakpoint) ?? 1) - 1
+    if (nextCount > 0)
+    {
+      mediaQuerySubscriberCounts.set(breakpoint, nextCount)
+      return
+    }
+    mediaQuerySubscriberCounts.delete(breakpoint)
+    mediaQueryCache.delete(breakpoint)
+  }
 }
 
 const getBreakpointSnapshot = (breakpoint: number): boolean =>
@@ -44,8 +60,16 @@ const getBreakpointSnapshot = (breakpoint: number): boolean =>
 
 // returns true when viewport width >= the given breakpoint (default 640 = Tailwind sm)
 export const useAboveBreakpoint = (breakpoint = 640): boolean =>
-  useSyncExternalStore(
-    (onStoreChange) => subscribeToBreakpoint(breakpoint, onStoreChange),
-    () => getBreakpointSnapshot(breakpoint),
-    () => true
+{
+  const subscribe = useCallback(
+    (onStoreChange: () => void) =>
+      subscribeToBreakpoint(breakpoint, onStoreChange),
+    [breakpoint]
   )
+  const getSnapshot = useCallback(
+    () => getBreakpointSnapshot(breakpoint),
+    [breakpoint]
+  )
+
+  return useSyncExternalStore(subscribe, getSnapshot, () => true)
+}
