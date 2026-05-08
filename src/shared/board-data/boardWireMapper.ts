@@ -17,6 +17,7 @@ import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/worksp
 import { blobToDataUrl } from '~/shared/lib/binaryCodec'
 import {
   collectSnapshotExportImageHashes,
+  forEachSnapshotItem,
   transformSnapshotItemsAsync,
 } from '~/shared/lib/boardSnapshotItems'
 import { getImageRefsByRendition } from '~/shared/lib/imageRefs'
@@ -41,6 +42,11 @@ import {
 } from '~/shared/board-data/boardNormalizers'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
+
+interface SnapshotToWireOptions
+{
+  maxInlineImageBytes?: number
+}
 
 const isTierItemImageRef = (value: unknown): value is TierItemImageRef =>
 {
@@ -130,6 +136,34 @@ const itemToWire = async (
   )
 }
 
+const assertInlineImageByteBudget = (
+  snapshot: BoardSnapshot,
+  records: ReadonlyMap<string, { byteSize: number; bytes: Blob } | null>,
+  maxInlineImageBytes: number | undefined
+): void =>
+{
+  if (maxInlineImageBytes === undefined) return
+
+  let totalBytes = 0
+  forEachSnapshotItem(snapshot, (item) =>
+  {
+    for (const ref of getImageRefsByRendition(item, 'editor'))
+    {
+      const record = records.get(ref.hash)
+      if (!record?.bytes) continue
+      totalBytes += record.byteSize
+      break
+    }
+  })
+
+  if (totalBytes > maxInlineImageBytes)
+  {
+    throw new Error(
+      `share snapshot image bytes exceed the ${maxInlineImageBytes}-byte preflight cap`
+    )
+  }
+}
+
 // convert a snapshot to wire shape using a preloaded hash -> Blob map
 export const snapshotToWireWithBlobs = async (
   snapshot: BoardSnapshot,
@@ -165,11 +199,13 @@ export const snapshotToWireWithBlobs = async (
 // convert one snapshot to wire shape by loading export candidate blobs first.
 // itemToWire prefers source bytes, then falls back to tile or preview bytes
 export const snapshotToWire = async (
-  snapshot: BoardSnapshot
+  snapshot: BoardSnapshot,
+  options: SnapshotToWireOptions = {}
 ): Promise<BoardSnapshotWire> =>
 {
   const hashes = collectSnapshotExportImageHashes(snapshot)
   const records = await getBlobsBatch(hashes)
+  assertInlineImageByteBudget(snapshot, records, options.maxInlineImageBytes)
   const blobsByHash = new Map<string, Blob | null>()
 
   for (const hash of hashes)
