@@ -44,6 +44,7 @@ const resetStores = (): void =>
     selection: { ids: [], set: new Set() },
     lastClickedItemId: null,
     itemsManuallyMoved: false,
+    activeItemCount: 0,
     runtimeError: null,
     lastSyncedRevision: null,
     cloudBoardExternalId: null,

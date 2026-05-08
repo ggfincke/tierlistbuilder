@@ -39,6 +39,7 @@ const seedActiveBoard = (): void =>
       [ITEM_BETA]: makeItem({ id: ITEM_BETA, label: 'Beta' }),
       [ITEM_GAMMA]: makeItem({ id: ITEM_GAMMA, label: 'Gamma' }),
     },
+    activeItemCount: 3,
   })
 }
 

@@ -34,6 +34,7 @@ import type {
 export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
 {
   itemsManuallyMoved: boolean
+  activeItemCount: number
   runtimeError: string | null
   setSyncState: (state: BoardSyncStatePatch) => void
   setRuntimeError: (message: string) => void

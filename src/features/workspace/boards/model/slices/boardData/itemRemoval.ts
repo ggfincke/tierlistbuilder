@@ -47,6 +47,7 @@ export const buildRemoveItemsPatch = (
         unrankedItemIds,
         items,
         deletedItems,
+        activeItemCount: state.activeItemCount - uniqueIds.length,
       },
       label
     ),

@@ -28,8 +28,8 @@ export const selectCanRedo = (
 
 // count active items without subscribing consumers to the item map object
 export const selectActiveItemCount = (
-  state: Pick<ActiveBoardRuntimeState, 'items'>
-): number => Object.keys(state.items).length
+  state: Pick<ActiveBoardRuntimeState, 'activeItemCount'>
+): number => state.activeItemCount
 
 export const createSelectBoardItemById =
   (itemId: ItemId) =>
