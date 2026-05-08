@@ -772,6 +772,15 @@ export default defineSchema({
     rankingCursor: v.union(v.string(), v.null()),
     rankingScanDone: v.boolean(),
     activeRankingId: v.union(v.id('publishedRankings'), v.null()),
+    activeRankingTierBucketMap: v.union(
+      v.array(
+        v.object({
+          tierExternalId: v.string(),
+          bucketIndex: v.number(),
+        })
+      ),
+      v.null()
+    ),
     activeRankingItemCursor: v.union(v.string(), v.null()),
     bucketSpread: v.array(v.number()),
     restartRequestedAt: v.union(v.number(), v.null()),

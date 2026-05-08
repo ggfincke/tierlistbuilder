@@ -231,6 +231,7 @@ export const queueTemplateRankingAggregateRecompute = async (
     rankingCursor: null,
     rankingScanDone: false,
     activeRankingId: null,
+    activeRankingTierBucketMap: null,
     activeRankingItemCursor: null,
     bucketSpread: makeEmptyBucketSpread(bucketCount),
     restartRequestedAt: null,

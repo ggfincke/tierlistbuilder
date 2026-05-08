@@ -27,6 +27,12 @@ interface BucketSpreadDelta
   next: number | null
 }
 
+interface TierBucketMapEntry
+{
+  tierExternalId: string
+  bucketIndex: number
+}
+
 const AGGREGATE_JOB_MAX_RETRIES = 3
 const AGGREGATE_JOB_RETRY_AFTER_MS = 30 * 60 * 1000
 
@@ -185,6 +191,21 @@ const loadTierBucketMap = async (
   return tierBucketMap(tiers, bucketCount, targetBucketLabels)
 }
 
+const serializeTierBucketMap = (
+  buckets: ReadonlyMap<string, number>
+): TierBucketMapEntry[] =>
+  [...buckets].map(([tierExternalId, bucketIndex]) => ({
+    tierExternalId,
+    bucketIndex,
+  }))
+
+const deserializeTierBucketMap = (
+  entries: readonly TierBucketMapEntry[] | null
+): Map<string, number> | null =>
+  entries
+    ? new Map(entries.map((entry) => [entry.tierExternalId, entry.bucketIndex]))
+    : null
+
 const applyBucketSpreadDelta = (
   spread: number[],
   delta: BucketSpreadDelta | null
@@ -266,6 +287,7 @@ const processActiveRanking = async (
   {
     await ctx.db.patch(job._id, {
       activeRankingId: null,
+      activeRankingTierBucketMap: null,
       activeRankingItemCursor: null,
       updatedAt: now,
     })
@@ -273,12 +295,18 @@ const processActiveRanking = async (
     return null
   }
 
-  const buckets = await loadTierBucketMap(
-    ctx,
-    ranking._id,
-    job.bucketCount,
-    job.targetBucketLabels
-  )
+  const buckets = deserializeTierBucketMap(job.activeRankingTierBucketMap)
+  if (buckets === null)
+  {
+    await ctx.db.patch(job._id, {
+      activeRankingId: null,
+      activeRankingTierBucketMap: null,
+      activeRankingItemCursor: null,
+      updatedAt: now,
+    })
+    await scheduleJob(ctx, job._id)
+    return null
+  }
   const page = await ctx.db
     .query('publishedRankingItems')
     .withIndex('byRanking', (q) => q.eq('rankingId', ranking._id))
@@ -317,6 +345,7 @@ const processActiveRanking = async (
   await ctx.db.patch(job._id, {
     rankingCount,
     activeRankingId: null,
+    activeRankingTierBucketMap: null,
     activeRankingItemCursor: null,
     bucketSpread,
     updatedAt: now,
@@ -361,11 +390,22 @@ const selectNextRanking = async (
   }
 
   const isLatest = await isLatestPublicRankingForOwner(ctx, ranking)
+  const activeRankingTierBucketMap = isLatest
+    ? serializeTierBucketMap(
+        await loadTierBucketMap(
+          ctx,
+          ranking._id,
+          job.bucketCount,
+          job.targetBucketLabels
+        )
+      )
+    : null
   await ctx.db.patch(job._id, {
     rankingCursor: page.continueCursor,
     rankingScanDone: page.isDone,
     publicRankingCount: job.publicRankingCount + 1,
     activeRankingId: isLatest ? ranking._id : null,
+    activeRankingTierBucketMap,
     activeRankingItemCursor: null,
     updatedAt: now,
   })

@@ -2138,6 +2138,7 @@ describe('marketplace template Convex functions', () =>
           rankingCursor: null,
           rankingScanDone: false,
           activeRankingId: null,
+          activeRankingTierBucketMap: null,
           activeRankingItemCursor: null,
           bucketSpread: [0, 0, 0],
           restartRequestedAt: null,
