@@ -89,8 +89,16 @@ crons.cron(
 
 crons.interval(
   'recompute template trending scores',
-  { hours: 1 },
+  { hours: 4 },
   internal.marketplace.templates.internal.recomputeTemplateTrendingScores,
+  { cursor: null }
+)
+
+crons.interval(
+  'schedule template ranking aggregate recomputes',
+  { hours: 2 },
+  internal.marketplace.rankings.aggregateInternal
+    .scheduleTemplateRankingAggregateRecomputes,
   { cursor: null }
 )
 

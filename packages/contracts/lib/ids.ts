@@ -16,6 +16,8 @@ type BuiltinPresetId = `builtin-${string}`
 // valid preset ID for either a built-in or user-saved preset
 export type PresetId = UserPresetId | BuiltinPresetId
 
+type MediaAssetExternalId = `media-${string}`
+
 // item IDs are branded strings — runtime representation is a plain string but
 // the type is nominal so the compiler rejects raw strings where ItemId is expected.
 // use asItemId() at trust boundaries (JSON parse, storage load) to cast
@@ -39,10 +41,20 @@ export const asTierId = (value: string): TierId => value as TierId
 export const asUserPresetId = (value: string): UserPresetId =>
   value as UserPresetId
 
+// narrow an unknown value to the board-ID brand.
+export const isBoardId = (value: unknown): value is BoardId =>
+  typeof value === 'string' && value.startsWith('board-')
+
 // narrow a string to the tier-ID brand. used when rehydrating from storage
 // or accepting plain-string tier references
 export const isTierId = (value: string): value is TierId =>
   value.startsWith('tier-')
+
+// narrow an unknown value to the media external-ID brand.
+export const isMediaAssetExternalId = (
+  value: unknown
+): value is MediaAssetExternalId =>
+  typeof value === 'string' && value.startsWith('media-')
 
 // narrow an unknown (or string) to the user-preset ID brand. user presets
 // always carry a 'preset-' prefix; built-ins use 'builtin-' & are client-only
@@ -66,7 +78,7 @@ export const generatePresetId = (): UserPresetId =>
 export const generateItemId = (): ItemId => asItemId(crypto.randomUUID())
 
 // fresh media externalId — prefixed for stable public lookup & signed URLs
-export const generateMediaAssetExternalId = (): string =>
+export const generateMediaAssetExternalId = (): MediaAssetExternalId =>
   `media-${crypto.randomUUID()}`
 
 // fresh user externalId — prefixed for clarity across logs & admin UI

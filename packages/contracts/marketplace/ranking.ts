@@ -5,6 +5,7 @@ import type { TierColorSpec } from '../lib/theme'
 import type { ImageFit, ItemTransform } from '../workspace/board'
 import type { TemplateAuthor, TemplateMediaRef } from './template'
 import type { TemplateCategory } from './category'
+import type { PaginationResult } from '../lib/pagination'
 
 export const RANKING_VISIBILITIES = ['public', 'unlisted'] as const
 
@@ -28,10 +29,42 @@ export const RANKING_PUBLISH_BLOCK_REASONS = [
 export type RankingPublishBlockReason =
   (typeof RANKING_PUBLISH_BLOCK_REASONS)[number]
 
+export const RANKING_LIST_SORTS = ['recent', 'top', 'featured'] as const
+
+export type RankingListSort = (typeof RANKING_LIST_SORTS)[number]
+
+// editorial badge applied to featured rankings — displayed alongside the
+// crown chip on the rail. add new badges here as the curation set grows
+export const RANKING_FEATURED_BADGES = [
+  'official',
+  'editorial',
+  'tournament',
+  'creator',
+] as const
+
+export type RankingFeaturedBadge = (typeof RANKING_FEATURED_BADGES)[number]
+
+export const RANKING_FEATURED_BADGE_LABELS: Record<
+  RankingFeaturedBadge,
+  string
+> = {
+  official: 'Official',
+  editorial: 'Editorial',
+  tournament: 'Tournament',
+  creator: 'Creator',
+}
+
+export const isRankingFeaturedBadge = (
+  value: unknown
+): value is RankingFeaturedBadge =>
+  typeof value === 'string' &&
+  (RANKING_FEATURED_BADGES as readonly string[]).includes(value)
+
 export const MAX_RANKING_TITLE_LENGTH = 80
 export const MAX_RANKING_DESCRIPTION_LENGTH = 500
 export const DEFAULT_RANKING_LIST_LIMIT = 24
 export const MAX_RANKING_LIST_LIMIT = 48
+export const RANKING_TOP_SCORE_REMIX_WEIGHT = 5
 const RANKING_SLUG_LENGTH = 10
 
 const RANKING_SLUG_PATTERN = new RegExp(`^[0-9A-Za-z]{${RANKING_SLUG_LENGTH}}$`)
@@ -78,6 +111,9 @@ export interface MarketplaceRankingSummary
   tierCount: number
   remixCount: number
   viewCount: number
+  // featured curation — null for ordinary rankings; lower rank surfaces first
+  featuredRank: number | null
+  featuredBadge: RankingFeaturedBadge | null
   createdAt: number
   updatedAt: number
 }
@@ -118,6 +154,9 @@ export interface MarketplaceRankingListResult
   items: MarketplaceRankingSummary[]
 }
 
+export type MarketplaceRankingPaginatedResult =
+  PaginationResult<MarketplaceRankingSummary>
+
 export interface MarketplaceRankingPublishResult
 {
   slug: string
@@ -136,4 +175,91 @@ export interface MarketplaceRankingPublishAvailability
   activeItemCount: number
   unrankedItemCount: number
   sourceTemplateTitle: string | null
+}
+
+export interface MarketplaceMyRankingForTemplateResult
+{
+  ranking: MarketplaceRankingSummary | null
+  placements: Record<string, number>
+}
+
+const normalizeBucketLabel = (value: string): string =>
+  value.trim().toLowerCase().replace(/\s+/g, ' ')
+
+const normalizeBucketFamily = (value: string): string =>
+  normalizeBucketLabel(value)
+    .replace(/\s*[+-]+$/, '')
+    .trim()
+
+const targetBucketIndexByLabel = (
+  labels: readonly string[] | undefined
+): Map<string, number> =>
+{
+  const map = new Map<string, number>()
+  labels?.forEach((label, index) =>
+  {
+    const normalized = normalizeBucketLabel(label)
+    const family = normalizeBucketFamily(label)
+    if (normalized && !map.has(normalized)) map.set(normalized, index)
+    if (family && normalized === family && !map.has(family))
+    {
+      map.set(family, index)
+    }
+  })
+  return map
+}
+
+export const buildRankingTierBucketMap = <
+  Tier extends { externalId: string; order: number; name?: string | null },
+>(
+  tiers: readonly Tier[],
+  bucketCount: number,
+  targetBucketLabels?: readonly string[]
+): Map<string, number> =>
+{
+  const map = new Map<string, number>()
+  if (bucketCount <= 0) return map
+  const labelMap = targetBucketIndexByLabel(targetBucketLabels)
+  tiers
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .forEach((tier, index) =>
+    {
+      const fallback = Math.min(index, bucketCount - 1)
+      const label = tier.name ?? ''
+      const exact = labelMap.get(normalizeBucketLabel(label))
+      const family = labelMap.get(normalizeBucketFamily(label))
+      map.set(tier.externalId, exact ?? family ?? fallback)
+    })
+  return map
+}
+
+export const buildRankingBucketPlacements = <
+  Tier extends { externalId: string; order: number; name?: string | null },
+  Item extends {
+    templateItemExternalId: string
+    tierExternalId: string | null
+  },
+>(
+  tiers: readonly Tier[],
+  items: readonly Item[],
+  bucketCount: number,
+  targetBucketLabels?: readonly string[]
+): Record<string, number> =>
+{
+  if (bucketCount <= 0) return {}
+  const bucketByTier = buildRankingTierBucketMap(
+    tiers,
+    bucketCount,
+    targetBucketLabels
+  )
+  const placements: Record<string, number> = {}
+  for (const item of items)
+  {
+    if (item.tierExternalId === null) continue
+    const bucketIndex = bucketByTier.get(item.tierExternalId)
+    if (bucketIndex === undefined) continue
+    placements[item.templateItemExternalId] = bucketIndex
+  }
+  return placements
 }

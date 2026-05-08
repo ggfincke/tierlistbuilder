@@ -32,6 +32,11 @@ import type {
   BoardLabelSettings,
   LabelPlacement,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  isBoardId,
+  isMediaAssetExternalId,
+  isTierId,
+} from '@tierlistbuilder/contracts/lib/ids'
 import { diffTiers, diffItems } from '../sync/boardReconciler'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 import { MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
@@ -165,7 +170,7 @@ type UpsertResult =
 
 const validateInputs = (args: UpsertArgs): void =>
 {
-  if (!args.boardExternalId.startsWith('board-'))
+  if (!isBoardId(args.boardExternalId))
   {
     failInput('invalid boardExternalId: must start with "board-"')
   }
@@ -189,7 +194,7 @@ const validateInputs = (args: UpsertArgs): void =>
   // (Convex caps strings at 1MB but a run of ~999KB labels still adds up)
   for (const tier of args.tiers)
   {
-    if (!tier.externalId.startsWith('tier-'))
+    if (!isTierId(tier.externalId))
     {
       failInput('invalid tierExternalId: must start with "tier-"')
     }
@@ -239,7 +244,7 @@ const validateInputs = (args: UpsertArgs): void =>
     {
       validateHexColor(item.backgroundColor, 'item.backgroundColor')
     }
-    if (item.mediaExternalId && !item.mediaExternalId.startsWith('media-'))
+    if (item.mediaExternalId && !isMediaAssetExternalId(item.mediaExternalId))
     {
       failInput('invalid mediaExternalId: must start with "media-"')
     }

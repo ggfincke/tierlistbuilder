@@ -1,16 +1,32 @@
 // src/features/marketplace/data/rankingsRepository.ts
 // Convex query/mutation adapters for the public ranking marketplace
 
-import { useMutation, useQuery } from 'convex/react'
+import {
+  useMutation,
+  usePaginatedQuery,
+  useQuery,
+  type UsePaginatedQueryResult,
+} from 'convex/react'
 import { api } from '@convex/_generated/api'
+import { DEFAULT_RANKING_LIST_LIMIT } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type {
+  MarketplaceMyRankingForTemplateResult,
   MarketplaceRankingDetail,
   MarketplaceRankingListResult,
   MarketplaceRankingPublishAvailability,
   MarketplaceRankingPublishResult,
   MarketplaceRankingRemixResult,
+  MarketplaceRankingSummary,
+  RankingListSort,
   RankingVisibility,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
+import type {
+  MarketplaceTemplateRankingAggregate,
+  MarketplaceTemplateRankingAggregateItem,
+  TemplateRankingAggregateItemBand,
+  TemplateRankingAggregateItemSort,
+} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import { DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 
 // reactive ranking detail. read-only viewers don't need a snapshot since the
@@ -23,18 +39,129 @@ export const useRankingBySlug = (
     typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
   )
 
-interface RankingsForTemplateArgs
+type RankingsForTemplatePageStatus =
+  UsePaginatedQueryResult<MarketplaceRankingSummary>['status']
+
+interface RankingsForTemplatePage
 {
-  templateSlug: string
-  limit?: number
+  items: MarketplaceRankingSummary[]
+  status: RankingsForTemplatePageStatus
+  loadMore: (count?: number) => void
 }
 
-export const useRankingsForTemplate = (
-  args: RankingsForTemplateArgs | 'skip'
-): MarketplaceRankingListResult | undefined =>
+interface PaginatedRankingsForTemplateArgs
+{
+  templateSlug: string | null | undefined
+  sort?: RankingListSort
+  enabled?: boolean
+  pageSize?: number
+}
+
+export const usePaginatedRankingsForTemplate = ({
+  templateSlug,
+  sort = 'recent',
+  enabled = true,
+  pageSize = DEFAULT_RANKING_LIST_LIMIT,
+}: PaginatedRankingsForTemplateArgs): RankingsForTemplatePage =>
+{
+  const args =
+    enabled && typeof templateSlug === 'string' && templateSlug.length > 0
+      ? { templateSlug, sort }
+      : 'skip'
+  const page = usePaginatedQuery(
+    api.marketplace.rankings.queries.listRankingsForTemplate,
+    args,
+    { initialNumItems: pageSize }
+  ) as UsePaginatedQueryResult<MarketplaceRankingSummary>
+  return {
+    items: page.results,
+    status: page.status,
+    loadMore: (count = pageSize) => page.loadMore(count),
+  }
+}
+
+// reactive aggregate metadata — null while no row exists yet (pre-cron, or
+// no public rankings); items load through the paginated hook below
+export const useTemplateRankingAggregate = (
+  templateSlug: string | null | undefined,
+  enabled = true
+): MarketplaceTemplateRankingAggregate | null | undefined =>
   useQuery(
-    api.marketplace.rankings.queries.getRankingsForTemplate,
-    args === 'skip' ? 'skip' : args
+    api.marketplace.rankings.queries.getTemplateRankingAggregate,
+    enabled && typeof templateSlug === 'string' && templateSlug.length > 0
+      ? { templateSlug }
+      : 'skip'
+  )
+
+export type TemplateRankingAggregateItemsPageStatus =
+  UsePaginatedQueryResult<MarketplaceTemplateRankingAggregateItem>['status']
+
+interface TemplateRankingAggregateItemsPage
+{
+  items: MarketplaceTemplateRankingAggregateItem[]
+  status: TemplateRankingAggregateItemsPageStatus
+  loadMore: (count?: number) => void
+}
+
+interface TemplateRankingAggregateItemsArgs
+{
+  templateSlug: string | null | undefined
+  generation: number | null | undefined
+  sort?: TemplateRankingAggregateItemSort
+  band?: TemplateRankingAggregateItemBand
+  search?: string | null
+  enabled?: boolean
+  // override page size for surfaces that only need a few rows (eg the hero rail
+  // cards that show top-3-by-controversy). defaults to 100
+  pageSize?: number
+}
+
+// changing `sort` or `generation` re-keys the query & restarts pagination
+// pass enabled=false to skip while the aggregate has no active generation
+export const useTemplateRankingAggregateItems = ({
+  templateSlug,
+  generation,
+  sort,
+  band,
+  search,
+  enabled = true,
+  pageSize = DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
+}: TemplateRankingAggregateItemsArgs): TemplateRankingAggregateItemsPage =>
+{
+  const args =
+    enabled &&
+    typeof templateSlug === 'string' &&
+    templateSlug.length > 0 &&
+    typeof generation === 'number'
+      ? {
+          templateSlug,
+          generation,
+          ...(sort ? { sort } : {}),
+          ...(band ? { band } : {}),
+          ...(search ? { search } : {}),
+        }
+      : 'skip'
+  const page = usePaginatedQuery(
+    api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+    args,
+    { initialNumItems: pageSize }
+  ) as UsePaginatedQueryResult<MarketplaceTemplateRankingAggregateItem>
+  return {
+    items: page.results,
+    status: page.status,
+    loadMore: (count = pageSize) => page.loadMore(count),
+  }
+}
+
+export const useMyRankingForTemplate = (
+  templateSlug: string | null | undefined,
+  enabled = true
+): MarketplaceMyRankingForTemplateResult | undefined =>
+  useQuery(
+    api.marketplace.rankings.queries.getMyRankingForTemplate,
+    enabled && typeof templateSlug === 'string' && templateSlug.length > 0
+      ? { templateSlug }
+      : 'skip'
   )
 
 export const useMyRankings = (
@@ -55,7 +182,7 @@ export const useRankingPublishAvailability = (
     enabled && boardExternalId ? { boardExternalId } : 'skip'
   )
 
-export interface PublishRankingFromBoardArgs
+interface PublishRankingFromBoardArgs
 {
   boardExternalId: string
   title?: string
@@ -70,7 +197,7 @@ export const usePublishRankingFromBoardMutation = () =>
     args: PublishRankingFromBoardArgs
   ) => Promise<MarketplaceRankingPublishResult>
 
-export interface RemixRankingArgs
+interface RemixRankingArgs
 {
   slug: string
   title?: string

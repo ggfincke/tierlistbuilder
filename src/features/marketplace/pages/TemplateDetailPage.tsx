@@ -1,205 +1,34 @@
 // src/features/marketplace/pages/TemplateDetailPage.tsx
-// detail page — breadcrumb + hero (cover left / meta right), items grid,
-// recommended tiers, & a related-templates rail under the same category
+// breadcrumb -> hero -> consensus (w/ inline rail) -> credit -> related
 
-import {
-  ArrowLeft,
-  Clock,
-  Eye,
-  Layers,
-  Loader2,
-  Sparkles,
-  TrendingUp,
-  Type,
-} from 'lucide-react'
-import { useEffect, type ComponentType, type SVGProps } from 'react'
+import { ArrowLeft, Layers } from 'lucide-react'
+import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import {
   isTemplateSlug,
   type MarketplaceTemplateDetail,
-  type MarketplaceTemplateItem,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
-import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
-import { ItemContent } from '~/shared/board-ui/ItemContent'
-import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
-import {
-  useRelatedTemplates,
-  useTemplateBySlug,
-  useTemplateItems,
-} from '~/features/marketplace/model/useTemplateDetail'
-import { useRecordTemplateView } from '~/features/marketplace/model/useRecordTemplateView'
-import { useRankingsForTemplate } from '~/features/marketplace/model/useRankingDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import {
-  formatCount,
-  formatRelativeTime,
-  formatTimeToRank,
-  pluralize,
-} from '~/shared/catalog/formatters'
+import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
+import { useRelatedTemplates } from '~/features/marketplace/model/useTemplateDetail'
+import { useTemplateRankingAggregate } from '~/features/marketplace/model/useRankingDetail'
+import { useRecordTemplateView } from '~/features/marketplace/model/useRecordTemplateView'
+import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+
 import { Card } from '~/features/marketplace/components/Card'
-import { Cover } from '~/features/marketplace/components/Cover'
-import { RailHeader } from '~/features/marketplace/components/RailHeader'
-import { ShareTemplateButton } from '~/features/marketplace/components/ShareTemplateButton'
-import { UseTemplateButton } from '~/features/marketplace/components/UseTemplateButton'
+import { CommunityConsensusSection } from '~/features/marketplace/components/CommunityConsensusSection'
+import { HeroRailCards } from '~/features/marketplace/components/consensus/HeroRailCards'
+import { useHeroSpread } from '~/features/marketplace/components/consensus/useHeroSpread'
 import {
-  RANKINGS_ROUTE_PATH,
-  TEMPLATES_ROUTE_PATH,
-} from '~/shared/routes/pathname'
+  isAggregateReady,
+  templateFrame,
+} from '~/features/marketplace/components/consensus/utils'
+import { RailHeader } from '~/features/marketplace/components/RailHeader'
+import { RecommendedPresetCard } from '~/features/marketplace/components/RecommendedPresetCard'
+import { TemplateHero } from '~/features/marketplace/components/TemplateHero'
 
-const ITEM_SLOT_HEIGHT = 96
 const RELATED_LIMIT = 4
-const RANKINGS_RAIL_LIMIT = 6
-// fallback when a template predates the itemAspectRatio field; preserves the
-// historical 1:1 thumbnail layout for older rows
-const FALLBACK_FRAME_RATIO = 1
-
-interface FrameSpec
-{
-  aspectRatio: number
-  defaultFit: 'cover' | 'contain'
-}
-
-interface ItemThumbnailProps
-{
-  item: MarketplaceTemplateItem
-  frame: FrameSpec
-  labelSettings: BoardLabelSettings | null
-}
-
-const ItemThumbnail = ({ item, frame, labelSettings }: ItemThumbnailProps) =>
-{
-  // only honor the publisher's baked-in board settings here — viewers aren't
-  // signed in & we don't want global prefs to override the preview intent
-  const labelDisplay = resolveLabelDisplay({
-    itemLabel: item.label ?? undefined,
-    itemOptions: undefined,
-    boardSettings: labelSettings ?? undefined,
-    globalLabelDefaults: {
-      showLabels: false,
-      placementMode: 'overlay',
-      fontSizePx: LABEL_FONT_SIZE_PX_DEFAULT,
-    },
-  })
-  return (
-    <div
-      className="relative w-full overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
-      style={{
-        aspectRatio: frame.aspectRatio,
-        minHeight: ITEM_SLOT_HEIGHT,
-      }}
-    >
-      <ItemContent
-        item={{
-          imageUrl: item.media?.url,
-          label: item.label ?? undefined,
-          backgroundColor: item.backgroundColor ?? undefined,
-          altText: item.altText ?? undefined,
-          aspectRatio: item.aspectRatio ?? undefined,
-          transform: item.transform ?? undefined,
-        }}
-        label={labelDisplay}
-        fit={item.imageFit ?? frame.defaultFit}
-        frameAspectRatio={frame.aspectRatio}
-      />
-    </div>
-  )
-}
-
-interface ItemsGridProps
-{
-  items: readonly MarketplaceTemplateItem[]
-  frame: FrameSpec
-  labelSettings: BoardLabelSettings | null
-}
-
-const ItemsGrid = ({ items, frame, labelSettings }: ItemsGridProps) =>
-{
-  if (items.length === 0)
-  {
-    return (
-      <p className="rounded-md border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-4 py-6 text-center text-sm text-[var(--t-text-muted)]">
-        This template doesn't have any items.
-      </p>
-    )
-  }
-  return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-      {items.map((item) => (
-        <ItemThumbnail
-          key={item.externalId}
-          item={item}
-          frame={frame}
-          labelSettings={labelSettings}
-        />
-      ))}
-    </div>
-  )
-}
-
-const ItemsGridSkeleton = () => (
-  <div
-    aria-hidden="true"
-    className="grid animate-pulse grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
-  >
-    {Array.from({ length: 24 }).map((_, i) => (
-      <div
-        key={i}
-        className="aspect-square rounded-md bg-[rgb(var(--t-overlay)/0.06)]"
-      />
-    ))}
-  </div>
-)
-
-interface StatTileProps
-{
-  label: string
-  value: string
-  icon: ComponentType<SVGProps<SVGSVGElement>>
-}
-
-const StatTile = ({ label, value, icon: Icon }: StatTileProps) => (
-  <div className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2.5">
-    <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-      <Icon className="h-3 w-3" strokeWidth={1.8} />
-      {label}
-    </span>
-    <p className="mt-1 text-lg font-semibold text-[var(--t-text)]">{value}</p>
-  </div>
-)
-
-const TiersPreview = ({
-  tiers,
-}: {
-  tiers: MarketplaceTemplateDetail['suggestedTiers']
-}) =>
-{
-  if (tiers.length === 0)
-  {
-    return null
-  }
-  return (
-    <div className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4">
-      <h3 className="text-[10px] font-mono font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-        Recommended tiers
-      </h3>
-      <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-        Suggested by the author. You can edit them after forking.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {tiers.map((tier, i) => (
-          <span
-            key={`${tier.name}-${i}`}
-            className="rounded-md border border-[var(--t-border)] bg-[var(--t-bg-page)] px-2.5 py-1 text-xs font-semibold text-[var(--t-text)]"
-          >
-            {tier.name}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 const RelatedSkeletonCard = () => (
   <div
@@ -215,7 +44,7 @@ const RelatedSkeletonCard = () => (
 )
 
 const NotFound = () => (
-  <section className="relative z-10 mx-auto flex min-h-[60vh] w-full max-w-[1240px] items-center justify-center px-5 pt-20 text-center sm:px-8 sm:pt-24">
+  <section className="relative z-10 mx-auto flex min-h-[60vh] w-full max-w-[1320px] items-center justify-center px-5 pt-20 text-center sm:px-8 sm:pt-24">
     <div className="max-w-md">
       <h1 className="text-2xl font-semibold text-[var(--t-text)]">
         Template not found
@@ -237,94 +66,27 @@ const NotFound = () => (
 const DetailSkeleton = () => (
   <section
     aria-hidden="true"
-    className="relative z-10 mx-auto w-full max-w-[1240px] animate-pulse px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
+    className="relative z-10 mx-auto w-full max-w-[1320px] animate-pulse px-5 pt-20 pb-20 sm:px-8 sm:pt-24"
   >
     <div className="h-3 w-48 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-    <div className="mt-5 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-      <div className="h-72 rounded-2xl bg-[rgb(var(--t-overlay)/0.06)] sm:h-80 lg:h-[26rem]" />
+    <div className="mt-5 grid gap-6 lg:grid-cols-[1.25fr_0.95fr_320px]">
+      <div className="h-72 rounded-2xl bg-[rgb(var(--t-overlay)/0.06)] sm:h-80 lg:h-[30rem]" />
       <div className="space-y-4">
         <div className="h-3 w-32 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
         <div className="h-9 w-3/4 rounded bg-[rgb(var(--t-overlay)/0.08)]" />
         <div className="h-3 w-2/3 rounded bg-[rgb(var(--t-overlay)/0.05)]" />
-        <div className="grid grid-cols-3 gap-2 pt-2">
-          <div className="h-16 rounded-lg bg-[rgb(var(--t-overlay)/0.05)]" />
-          <div className="h-16 rounded-lg bg-[rgb(var(--t-overlay)/0.05)]" />
-          <div className="h-16 rounded-lg bg-[rgb(var(--t-overlay)/0.05)]" />
-        </div>
-        <div className="h-10 rounded-md bg-[rgb(var(--t-overlay)/0.06)]" />
+        <div className="h-11 rounded-md bg-[rgb(var(--t-overlay)/0.06)]" />
+      </div>
+      <div className="hidden flex-col gap-3 lg:flex">
+        <div className="h-24 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
+        <div className="h-36 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
+        <div className="h-32 rounded-xl bg-[rgb(var(--t-overlay)/0.05)]" />
       </div>
     </div>
-    <div className="mt-12 grid gap-2 sm:grid-cols-4 lg:grid-cols-6">
-      {Array.from({ length: 12 }).map((_, i) => (
-        <div
-          key={i}
-          className="aspect-square rounded-md bg-[rgb(var(--t-overlay)/0.06)]"
-        />
-      ))}
-    </div>
+    <div className="mt-12 h-9 rounded-md bg-[rgb(var(--t-overlay)/0.05)]" />
+    <div className="mt-3 h-64 rounded-xl bg-[rgb(var(--t-overlay)/0.04)]" />
   </section>
 )
-
-const CommunityRankingsRail = ({ templateSlug }: { templateSlug: string }) =>
-{
-  const result = useRankingsForTemplate({
-    templateSlug,
-    limit: RANKINGS_RAIL_LIMIT,
-  })
-
-  if (result === undefined)
-  {
-    return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            aria-hidden="true"
-            className="h-20 animate-pulse rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
-          />
-        ))}
-      </div>
-    )
-  }
-
-  if (result.items.length === 0)
-  {
-    return (
-      <p className="rounded-md border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-4 py-6 text-center text-sm text-[var(--t-text-muted)]">
-        No community rankings yet. Fork this template & be the first to publish.
-      </p>
-    )
-  }
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {result.items.map((ranking) => (
-        <Link
-          key={ranking.slug}
-          to={`${RANKINGS_ROUTE_PATH}/${ranking.slug}`}
-          className="focus-custom flex flex-col gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-2.5 transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          <span className="truncate text-sm font-semibold text-[var(--t-text)]">
-            {ranking.title}
-          </span>
-          <span className="truncate text-xs text-[var(--t-text-muted)]">
-            by {ranking.author.displayName}
-          </span>
-          <span className="mt-1 inline-flex items-center gap-3 text-[11px] text-[var(--t-text-faint)]">
-            <span className="inline-flex items-center gap-1">
-              <Sparkles className="h-3 w-3" strokeWidth={1.8} />
-              {ranking.remixCount}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Eye className="h-3 w-3" strokeWidth={1.8} />
-              {ranking.viewCount}
-            </span>
-          </span>
-        </Link>
-      ))}
-    </div>
-  )
-}
 
 const RelatedTemplatesRail = ({
   slug,
@@ -335,18 +97,16 @@ const RelatedTemplatesRail = ({
 }) =>
 {
   const result = useRelatedTemplates({ slug, limit: RELATED_LIMIT })
-
   if (result === undefined)
   {
     return (
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: RELATED_LIMIT }).map((_, i) => (
-          <RelatedSkeletonCard key={i} />
+        {Array.from({ length: RELATED_LIMIT }).map((_, index) => (
+          <RelatedSkeletonCard key={index} />
         ))}
       </div>
     )
   }
-
   if (result.items.length === 0)
   {
     return (
@@ -355,7 +115,6 @@ const RelatedTemplatesRail = ({
       </p>
     )
   }
-
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
       {result.items.map((tpl) => (
@@ -365,14 +124,39 @@ const RelatedTemplatesRail = ({
   )
 }
 
+interface CreditNoteProps
+{
+  template: MarketplaceTemplateDetail
+}
+
+const CreditNote = ({ template }: CreditNoteProps) =>
+{
+  const credit = template.creditLine
+  if (!credit) return null
+  return (
+    <section className="mt-8">
+      <p className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4 text-xs leading-relaxed text-[var(--t-text-muted)]">
+        <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
+          Credit
+        </span>
+        <span className="mt-1.5 block">{credit}</span>
+      </p>
+    </section>
+  )
+}
+
 export const TemplateDetailPage = () =>
 {
   const { slug } = useParams<{ slug: string }>()
   const validSlug = slug && isTemplateSlug(slug) ? slug : null
   const detail = useTemplateBySlug(validSlug)
-  const itemPage = useTemplateItems(validSlug)
   // only record once we have a valid published row; null/undefined skip
   useRecordTemplateView(detail ? detail.slug : null)
+
+  const aggregate = useTemplateRankingAggregate(detail ? detail.slug : null)
+  const spreadCounts = useHeroSpread({
+    aggregate,
+  })
 
   useEffect(() =>
   {
@@ -389,13 +173,15 @@ export const TemplateDetailPage = () =>
   if (detail === undefined) return <DetailSkeleton />
   if (detail === null) return <NotFound />
 
-  const totalItems = detail.itemCount
   const categoryLabel = CATEGORY_META[detail.category].label
-  const hasBakedLabels = detail.labels?.show === true
-  const itemPageStatus = itemPage.status
+  const hasConsensus = isAggregateReady(aggregate)
+  const rankingCount = aggregate?.rankingCount ?? 0
+  const frame = templateFrame(detail)
+  const hasPreset = detail.suggestedTiers.length > 0
+  const showRail = hasPreset || (hasConsensus && aggregate !== null)
 
   return (
-    <article className="relative z-10 mx-auto w-full max-w-[1240px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
+    <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
       <nav
         aria-label="Breadcrumb"
         className="flex items-center gap-1.5 text-xs text-[var(--t-text-muted)]"
@@ -418,190 +204,45 @@ export const TemplateDetailPage = () =>
         </span>
       </nav>
 
-      <header className="mt-5 grid gap-6 lg:grid-cols-[1.1fr_1fr] lg:items-stretch">
-        <div className="relative h-72 overflow-hidden rounded-2xl border border-[var(--t-border)] sm:h-80 lg:h-[26rem]">
-          <Cover
-            template={{
-              ...detail,
-              coverItems: detail.coverItems,
-            }}
-            density="hero"
-          />
-        </div>
-
-        <div className="flex min-w-0 flex-col">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
-              {categoryLabel}
-            </span>
-            {detail.featuredRank !== null && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
-                <Sparkles className="h-3 w-3" strokeWidth={1.8} />
-                Editor's pick
-              </span>
-            )}
-            {hasBakedLabels && (
-              <span
-                className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]"
-                title="Each item ships with a caption — forking carries them over"
-              >
-                <Type className="h-3 w-3" strokeWidth={1.8} />
-                Labeled
-              </span>
-            )}
-          </div>
-
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--t-text)] sm:text-4xl">
-            {detail.title}
-          </h1>
-
-          {detail.description && (
-            <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--t-text-muted)]">
-              {detail.description}
-            </p>
-          )}
-
-          <div className="mt-5 flex items-center gap-2.5">
-            <span
-              aria-hidden="true"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--t-bg-active)] text-sm font-semibold text-[var(--t-text)]"
-            >
-              {detail.author.displayName
-                .replace(/^@/, '')
-                .slice(0, 1)
-                .toUpperCase()}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-[var(--t-text)]">
-                {detail.author.displayName}
-              </p>
-              <p className="text-xs text-[var(--t-text-faint)]">
-                Updated {formatRelativeTime(detail.updatedAt)}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-3 gap-2">
-            <StatTile
-              label="Forks"
-              value={formatCount(detail.useCount)}
-              icon={Layers}
-            />
-            <StatTile
-              label="Views"
-              value={formatCount(detail.viewCount)}
-              icon={Eye}
-            />
-            <StatTile
-              label="Time"
-              value={formatTimeToRank(totalItems)}
-              icon={Clock}
-            />
-          </div>
-
-          <div className="mt-5 flex items-stretch gap-2">
-            <UseTemplateButton
-              slug={detail.slug}
-              templateTitle={detail.title}
-              access={detail.access}
-              size="md"
-              className="h-10 flex-1 px-4 text-sm"
-            />
-            <ShareTemplateButton
-              slug={detail.slug}
-              templateTitle={detail.title}
-            />
-          </div>
-
-          {detail.tags.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {detail.tags.map((t) => (
-                <Link
-                  key={t}
-                  to={`${TEMPLATES_ROUTE_PATH}?tag=${encodeURIComponent(t)}`}
-                  className="focus-custom rounded-md border border-[var(--t-border)] px-2 py-0.5 text-[11px] text-[var(--t-text-muted)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-                >
-                  #{t}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </header>
-
-      <section className="mt-12">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight text-[var(--t-text)]">
-              Items in this template
-            </h2>
-            <p className="mt-0.5 text-xs text-[var(--t-text-muted)]">
-              Unranked. You'll sort them into tiers when you fork.
-            </p>
-          </div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-            {totalItems} {pluralize(totalItems, 'item')}
-          </span>
-        </div>
-        {itemPageStatus === 'LoadingFirstPage' ? (
-          <ItemsGridSkeleton />
-        ) : (
-          <>
-            <ItemsGrid
-              items={itemPage.items}
-              frame={{
-                aspectRatio: detail.itemAspectRatio ?? FALLBACK_FRAME_RATIO,
-                defaultFit: detail.defaultItemImageFit ?? 'cover',
-              }}
-              labelSettings={detail.labels}
-            />
-            {itemPageStatus === 'CanLoadMore' ||
-            itemPageStatus === 'LoadingMore' ? (
-              <div className="mt-5 flex justify-center">
-                <button
-                  type="button"
-                  disabled={itemPageStatus !== 'CanLoadMore'}
-                  onClick={() => itemPage.loadMore()}
-                  className="focus-custom inline-flex h-10 items-center gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 text-sm font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-                >
-                  {itemPageStatus === 'LoadingMore' && (
-                    <Loader2
-                      className="h-3.5 w-3.5 animate-spin"
-                      strokeWidth={2}
+      <div className="mt-5">
+        <TemplateHero
+          template={detail}
+          hasConsensus={hasConsensus}
+          rankingCount={rankingCount}
+          spreadCounts={spreadCounts ?? undefined}
+          rightRail={
+            showRail ? (
+              <>
+                {hasPreset && (
+                  <RecommendedPresetCard tiers={detail.suggestedTiers} />
+                )}
+                {hasConsensus && aggregate && (
+                  <div
+                    className={`flex flex-col gap-3 ${hasPreset ? 'lg:mt-auto' : ''}`}
+                  >
+                    <HeroRailCards
+                      templateSlug={detail.slug}
+                      aggregate={aggregate}
+                      frame={frame}
+                      labelSettings={detail.labels}
                     />
-                  )}
-                  {itemPageStatus === 'LoadingMore'
-                    ? 'Loading items...'
-                    : 'Load more items'}
-                </button>
-              </div>
-            ) : null}
-          </>
-        )}
-      </section>
-
-      {(detail.suggestedTiers.length > 0 || detail.creditLine) && (
-        <section className="mt-8 grid gap-4 lg:grid-cols-[1fr_1fr]">
-          <TiersPreview tiers={detail.suggestedTiers} />
-          {detail.creditLine && (
-            <p className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4 text-xs leading-relaxed text-[var(--t-text-muted)]">
-              <span className="block text-[10px] font-mono font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-                Credit
-              </span>
-              <span className="mt-1.5 block">{detail.creditLine}</span>
-            </p>
-          )}
-        </section>
-      )}
+                  </div>
+                )}
+              </>
+            ) : null
+          }
+        />
+      </div>
 
       <section className="mt-12">
-        <RailHeader
-          title="Community rankings"
-          subtitle="Public rankings made from this template"
-          icon={TrendingUp}
+        <CommunityConsensusSection
+          key={detail.slug}
+          template={detail}
+          aggregate={aggregate}
         />
-        <CommunityRankingsRail templateSlug={detail.slug} />
       </section>
+
+      <CreditNote template={detail} />
 
       <section className="mt-12">
         <RailHeader

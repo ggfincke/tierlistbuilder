@@ -165,6 +165,7 @@ const toEditInitialValues = (
   tags: [...template.tags],
   visibility: template.visibility,
   creditLine: template.creditLine ?? '',
+  hasCoverMedia: template.coverMedia !== null,
 })
 
 export const AccountTemplatesSection = () =>

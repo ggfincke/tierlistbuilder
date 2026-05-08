@@ -2,27 +2,64 @@
 // public ranking detail/list reads plus signed-in owner listing
 
 import { v } from 'convex/values'
-import { query } from '../../_generated/server'
+import { paginationOptsValidator } from 'convex/server'
+import { query, type QueryCtx } from '../../_generated/server'
+import type { Doc, Id } from '../../_generated/dataModel'
 import type {
+  MarketplaceMyRankingForTemplateResult,
   MarketplaceRankingDetail,
   MarketplaceRankingListResult,
+  MarketplaceRankingPaginatedResult,
   MarketplaceRankingPublishAvailability,
+  RankingListSort,
   RankingPublishBlockReason,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
-import { isRankingSlug } from '@tierlistbuilder/contracts/marketplace/ranking'
+import type {
+  MarketplaceTemplateRankingAggregate,
+  MarketplaceTemplateRankingAggregateItemsResult,
+  TemplateRankingAggregateItemBand,
+  TemplateRankingAggregateItemSort,
+} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import {
+  buildRankingBucketPlacements,
+  isRankingSlug,
+} from '@tierlistbuilder/contracts/marketplace/ranking'
+import {
+  marketplaceMyRankingForTemplateResultValidator,
   marketplaceRankingDetailValidator,
   marketplaceRankingListResultValidator,
+  marketplaceRankingPaginatedResultValidator,
   marketplaceRankingPublishAvailabilityValidator,
+  marketplaceTemplateRankingAggregateItemsResultValidator,
+  marketplaceTemplateRankingAggregateValidator,
+  rankingListSortValidator,
+  templateRankingAggregateItemBandValidator,
+  templateRankingAggregateItemSortValidator,
 } from '../../lib/validators'
 import { getCurrentUserId } from '../../lib/auth'
+import { MAX_AGGREGATE_SEARCH_LENGTH, MAX_SYNC_ITEMS } from '../../lib/limits'
 import { findOwnedBoardByExternalIdIncludingDeleted } from '../../lib/permissions'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
-import { findTemplateBySlug, isPublishedTemplateRow } from '../templates/lib'
+import {
+  createTemplateProjectionCache,
+  findTemplateBySlug,
+  isPublishedTemplateRow,
+} from '../templates/lib'
+import {
+  DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT,
+  findTemplateRankingAggregate,
+  normalizeTemplateRankingAggregateItemPageSize,
+  resolveTemplateRankingAggregateBucketLabels,
+  resolveTemplateRankingAggregateBucketCount,
+  toTemplateRankingAggregate,
+  toTemplateRankingAggregateItem,
+} from './aggregate'
 import {
   findRankingBySlug,
   isPublicRankingRow,
   isPublishedRankingRow,
+  loadRankingItems,
+  loadRankingTiers,
   normalizeRankingLimit,
   toRankingDetail,
   toRankingSummary,
@@ -60,6 +97,287 @@ const unavailableRankingPublish = (
   ...counts,
 })
 
+const emptyAggregateItemsResult = (
+  cursor: string | null
+): MarketplaceTemplateRankingAggregateItemsResult => ({
+  page: [],
+  isDone: true,
+  continueCursor: cursor ?? '',
+})
+
+const emptyRankingPaginatedResult = (
+  cursor: string | null
+): MarketplaceRankingPaginatedResult => ({
+  page: [],
+  isDone: true,
+  continueCursor: cursor ?? '',
+})
+
+const emptyMyRankingForTemplateResult =
+  (): MarketplaceMyRankingForTemplateResult => ({
+    ranking: null,
+    placements: {},
+  })
+
+const aggregateSortArg = v.optional(templateRankingAggregateItemSortValidator)
+const aggregateBandArg = v.optional(templateRankingAggregateItemBandValidator)
+const rankingSortArg = v.optional(rankingListSortValidator)
+const SEARCH_CURSOR_PREFIX = 'offset:'
+
+const normalizeAggregateSearch = (
+  raw: string | null | undefined
+): string | null =>
+{
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim().slice(0, MAX_AGGREGATE_SEARCH_LENGTH)
+  return trimmed.length > 0 ? trimmed : null
+}
+
+const parseSearchCursorOffset = (cursor: string | null): number =>
+{
+  if (!cursor?.startsWith(SEARCH_CURSOR_PREFIX)) return 0
+  const parsed = Number(cursor.slice(SEARCH_CURSOR_PREFIX.length))
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0
+}
+
+const searchCursorForOffset = (offset: number): string =>
+  `${SEARCH_CURSOR_PREFIX}${offset}`
+
+type AggregateItemRow = Doc<'templateRankingAggregateItems'>
+
+const aggregateSortValue = (
+  row: AggregateItemRow,
+  sort: TemplateRankingAggregateItemSort
+): number =>
+{
+  if (sort === 'averageTop') return row.averageTopSort
+  if (sort === 'averageBottom') return row.averageBottomSort
+  if (sort === 'consensus' || sort === 'consensusTop') return row.consensusSort
+  if (sort === 'controversy') return row.controversySort
+  return row.order
+}
+
+const sortAggregateRows = (
+  rows: AggregateItemRow[],
+  sort: TemplateRankingAggregateItemSort
+): AggregateItemRow[] =>
+  rows
+    .slice()
+    .sort(
+      (a, b) =>
+        aggregateSortValue(a, sort) - aggregateSortValue(b, sort) ||
+        a.order - b.order
+    )
+
+interface AggregateItemsPageOptions
+{
+  templateId: Id<'templates'>
+  generation: number
+  sort: TemplateRankingAggregateItemSort
+  band: TemplateRankingAggregateItemBand
+  search: string | null
+  cursor: string | null
+  numItems: number
+}
+
+const takeSearchAggregateItemsPage = async (
+  ctx: QueryCtx,
+  options: AggregateItemsPageOptions,
+  pageSize: number
+) =>
+{
+  const search = options.search
+  if (!search) return null
+
+  const rows = await ctx.db
+    .query('templateRankingAggregateItems')
+    .withSearchIndex('searchByTemplateGeneration', (q) =>
+    {
+      const base = q
+        .search('searchText', search)
+        .eq('templateId', options.templateId)
+        .eq('generation', options.generation)
+      if (options.band === 'top')
+      {
+        return base.eq('isTopBucket', true)
+      }
+      if (options.band === 'bottom')
+      {
+        return base.eq('isBottomBucket', true)
+      }
+      if (options.band === 'controversial')
+      {
+        return base.eq('isControversial', true)
+      }
+      if (options.sort === 'consensusTop')
+      {
+        return base.eq('isTopBucket', true)
+      }
+      return base
+    })
+    .take(MAX_SYNC_ITEMS)
+  const sorted = sortAggregateRows(rows, options.sort)
+  const offset = parseSearchCursorOffset(options.cursor)
+  const nextOffset = offset + pageSize
+  const page = sorted.slice(offset, nextOffset)
+  const isDone = nextOffset >= sorted.length
+  return {
+    page,
+    isDone,
+    continueCursor: isDone ? '' : searchCursorForOffset(nextOffset),
+  }
+}
+
+const aggregateItemsIndexByBand = {
+  all: {
+    averageTop: 'byTemplateIdAndGenerationAndAverageTopSortAndOrder',
+    averageBottom: 'byTemplateIdAndGenerationAndAverageBottomSortAndOrder',
+    consensus: 'byTemplateIdAndGenerationAndConsensusSortAndOrder',
+    consensusTop: 'byTemplateGenerationTopConsensusOrder',
+    controversy: 'byTemplateIdAndGenerationAndControversySortAndOrder',
+    templateOrder: 'byTemplateIdAndGenerationAndOrder',
+  },
+  top: {
+    averageTop: 'byTemplateGenerationTopAverageTopOrder',
+    averageBottom: 'byTemplateGenerationTopAverageBottomOrder',
+    consensus: 'byTemplateGenerationTopConsensusOrder',
+    consensusTop: 'byTemplateGenerationTopConsensusOrder',
+    controversy: 'byTemplateGenerationTopControversyOrder',
+    templateOrder: 'byTemplateGenerationTopOrder',
+  },
+  bottom: {
+    averageTop: 'byTemplateGenerationBottomAverageTopOrder',
+    averageBottom: 'byTemplateGenerationBottomAverageBottomOrder',
+    consensus: 'byTemplateGenerationBottomConsensusOrder',
+    consensusTop: 'byTemplateGenerationBottomConsensusOrder',
+    controversy: 'byTemplateGenerationBottomControversyOrder',
+    templateOrder: 'byTemplateGenerationBottomOrder',
+  },
+  controversial: {
+    averageTop: 'byTemplateGenerationControversialAverageTopOrder',
+    averageBottom: 'byTemplateGenerationControversialAverageBottomOrder',
+    consensus: 'byTemplateGenerationControversialConsensusOrder',
+    consensusTop: 'byTemplateGenerationControversialConsensusOrder',
+    controversy: 'byTemplateGenerationControversialControversyOrder',
+    templateOrder: 'byTemplateGenerationControversialOrder',
+  },
+} as const satisfies Record<
+  TemplateRankingAggregateItemBand,
+  Record<TemplateRankingAggregateItemSort, string>
+>
+
+const resolveAggregateItemsIndexBand = (
+  band: TemplateRankingAggregateItemBand,
+  sort: TemplateRankingAggregateItemSort
+): TemplateRankingAggregateItemBand =>
+  band === 'all' && sort === 'consensusTop' ? 'top' : band
+
+const takeIndexedAggregateItemsPage = async (
+  ctx: QueryCtx,
+  options: AggregateItemsPageOptions,
+  pageSize: number
+) =>
+{
+  const indexBand = resolveAggregateItemsIndexBand(options.band, options.sort)
+  const indexName = aggregateItemsIndexByBand[indexBand][options.sort]
+  return await ctx.db
+    .query('templateRankingAggregateItems')
+    .withIndex(indexName, (q) =>
+    {
+      const base = q
+        .eq('templateId', options.templateId)
+        .eq('generation', options.generation)
+      if (indexBand === 'top') return base.eq('isTopBucket', true)
+      if (indexBand === 'bottom') return base.eq('isBottomBucket', true)
+      if (indexBand === 'controversial')
+      {
+        return base.eq('isControversial', true)
+      }
+      return base
+    })
+    .paginate({ cursor: options.cursor, numItems: pageSize })
+}
+
+const takeAggregateItemsPage = async (
+  ctx: QueryCtx,
+  options: AggregateItemsPageOptions
+) =>
+{
+  const pageSize = normalizeTemplateRankingAggregateItemPageSize(
+    options.numItems
+  )
+  const searchPage = await takeSearchAggregateItemsPage(ctx, options, pageSize)
+  if (searchPage) return searchPage
+  return await takeIndexedAggregateItemsPage(ctx, options, pageSize)
+}
+
+const takeRankingsForTemplatePage = async (
+  ctx: QueryCtx,
+  options: {
+    templateId: Id<'templates'>
+    sort: RankingListSort
+    cursor: string | null
+    numItems: number
+  }
+) =>
+{
+  const pageSize = normalizeRankingLimit(options.numItems)
+  if (options.sort === 'featured')
+  {
+    return await ctx.db
+      .query('publishedRankings')
+      .withIndex('bySourceTemplatePublicFeaturedRank', (q) =>
+        q
+          .eq('sourceTemplateId', options.templateId)
+          .eq('isPubliclyListable', true)
+          .eq('isFeatured', true)
+      )
+      .order('asc')
+      .paginate({ cursor: options.cursor, numItems: pageSize })
+  }
+  if (options.sort === 'top')
+  {
+    return await ctx.db
+      .query('publishedRankings')
+      .withIndex('bySourceTemplatePublicTopScoreAndUpdatedAt', (q) =>
+        q
+          .eq('sourceTemplateId', options.templateId)
+          .eq('isPubliclyListable', true)
+      )
+      .order('desc')
+      .paginate({ cursor: options.cursor, numItems: pageSize })
+  }
+
+  return await ctx.db
+    .query('publishedRankings')
+    .withIndex('bySourceTemplatePublicUpdatedAt', (q) =>
+      q
+        .eq('sourceTemplateId', options.templateId)
+        .eq('isPubliclyListable', true)
+    )
+    .order('desc')
+    .paginate({ cursor: options.cursor, numItems: pageSize })
+}
+
+const latestOwnedRankingForTemplate = async (
+  ctx: QueryCtx,
+  templateId: Id<'templates'>,
+  userId: Id<'users'>
+) =>
+{
+  const rows = await ctx.db
+    .query('publishedRankings')
+    .withIndex('bySourceTemplateOwnerPublicationStateUpdatedAt', (q) =>
+      q
+        .eq('sourceTemplateId', templateId)
+        .eq('ownerId', userId)
+        .eq('publicationState', 'published')
+    )
+    .order('desc')
+    .take(1)
+  return rows[0] ?? null
+}
+
 export const getRankingBySlug = query({
   args: { slug: v.string() },
   returns: v.union(marketplaceRankingDetailValidator, v.null()),
@@ -80,7 +398,11 @@ export const getRankingBySlug = query({
 })
 
 export const getRankingsForTemplate = query({
-  args: { templateSlug: v.string(), limit: v.optional(v.number()) },
+  args: {
+    templateSlug: v.string(),
+    limit: v.optional(v.number()),
+    sort: rankingSortArg,
+  },
   returns: marketplaceRankingListResultValidator,
   handler: async (ctx, args): Promise<MarketplaceRankingListResult> =>
   {
@@ -94,17 +416,187 @@ export const getRankingsForTemplate = query({
       return { items: [] }
     }
 
-    const rows = await ctx.db
-      .query('publishedRankings')
-      .withIndex('bySourceTemplatePublicUpdatedAt', (q) =>
-        q.eq('sourceTemplateId', template._id).eq('isPubliclyListable', true)
-      )
-      .order('desc')
-      .take(normalizeRankingLimit(args.limit))
-    const publicRows = rows.filter(isPublicRankingRow)
+    const page = await takeRankingsForTemplatePage(ctx, {
+      templateId: template._id,
+      sort: args.sort ?? 'recent',
+      cursor: null,
+      numItems: normalizeRankingLimit(args.limit),
+    })
+    const publicRows = page.page.filter(isPublicRankingRow)
+    const cache = createTemplateProjectionCache()
     return {
       items: await Promise.all(
-        publicRows.map((row) => toRankingSummary(ctx, row))
+        publicRows.map((row) => toRankingSummary(ctx, row, cache))
+      ),
+    }
+  },
+})
+
+export const listRankingsForTemplate = query({
+  args: {
+    templateSlug: v.string(),
+    paginationOpts: paginationOptsValidator,
+    sort: rankingSortArg,
+  },
+  returns: marketplaceRankingPaginatedResultValidator,
+  handler: async (ctx, args): Promise<MarketplaceRankingPaginatedResult> =>
+  {
+    if (!isTemplateSlug(args.templateSlug))
+    {
+      return emptyRankingPaginatedResult(args.paginationOpts.cursor)
+    }
+    const template = await findTemplateBySlug(ctx, args.templateSlug)
+    if (!template)
+    {
+      return emptyRankingPaginatedResult(args.paginationOpts.cursor)
+    }
+
+    const result = await takeRankingsForTemplatePage(ctx, {
+      templateId: template._id,
+      sort: args.sort ?? 'recent',
+      cursor: args.paginationOpts.cursor,
+      numItems: args.paginationOpts.numItems,
+    })
+    const page = result.page.filter(isPublicRankingRow)
+    const cache = createTemplateProjectionCache()
+    return {
+      ...result,
+      page: await Promise.all(
+        page.map((row) => toRankingSummary(ctx, row, cache))
+      ),
+    }
+  },
+})
+
+export const getTemplateRankingAggregate = query({
+  args: { templateSlug: v.string() },
+  returns: v.union(marketplaceTemplateRankingAggregateValidator, v.null()),
+  handler: async (
+    ctx,
+    args
+  ): Promise<MarketplaceTemplateRankingAggregate | null> =>
+  {
+    if (!isTemplateSlug(args.templateSlug))
+    {
+      return null
+    }
+
+    const template = await findTemplateBySlug(ctx, args.templateSlug)
+    if (!template || !isPublishedTemplateRow(template))
+    {
+      return null
+    }
+
+    const aggregate = await findTemplateRankingAggregate(ctx, template._id)
+    if (!aggregate)
+    {
+      return null
+    }
+    return toTemplateRankingAggregate(template, aggregate)
+  },
+})
+
+export const listTemplateRankingAggregateItems = query({
+  args: {
+    templateSlug: v.string(),
+    generation: v.number(),
+    paginationOpts: paginationOptsValidator,
+    sort: aggregateSortArg,
+    band: aggregateBandArg,
+    search: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: marketplaceTemplateRankingAggregateItemsResultValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<MarketplaceTemplateRankingAggregateItemsResult> =>
+  {
+    if (!isTemplateSlug(args.templateSlug))
+    {
+      return emptyAggregateItemsResult(args.paginationOpts.cursor)
+    }
+
+    const template = await findTemplateBySlug(ctx, args.templateSlug)
+    if (!template || !isPublishedTemplateRow(template))
+    {
+      return emptyAggregateItemsResult(args.paginationOpts.cursor)
+    }
+
+    const aggregate = await findTemplateRankingAggregate(ctx, template._id)
+    if (!aggregate || aggregate.activeGeneration !== args.generation)
+    {
+      return emptyAggregateItemsResult(args.paginationOpts.cursor)
+    }
+
+    const result = await takeAggregateItemsPage(ctx, {
+      templateId: template._id,
+      generation: args.generation,
+      sort: args.sort ?? DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT,
+      band: args.band ?? 'all',
+      search: normalizeAggregateSearch(args.search),
+      cursor: args.paginationOpts.cursor,
+      numItems: args.paginationOpts.numItems,
+    })
+    const cache = createTemplateProjectionCache()
+    const page = await Promise.all(
+      result.page.map((row) => toTemplateRankingAggregateItem(ctx, row, cache))
+    )
+    return {
+      ...result,
+      page,
+    }
+  },
+})
+
+export const getMyRankingForTemplate = query({
+  args: { templateSlug: v.string() },
+  returns: marketplaceMyRankingForTemplateResultValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<MarketplaceMyRankingForTemplateResult> =>
+  {
+    const userId = await getCurrentUserId(ctx)
+    if (!userId || !isTemplateSlug(args.templateSlug))
+    {
+      return emptyMyRankingForTemplateResult()
+    }
+
+    const template = await findTemplateBySlug(ctx, args.templateSlug)
+    if (!template)
+    {
+      return emptyMyRankingForTemplateResult()
+    }
+
+    const ranking = await latestOwnedRankingForTemplate(
+      ctx,
+      template._id,
+      userId
+    )
+    if (!ranking)
+    {
+      return emptyMyRankingForTemplateResult()
+    }
+
+    const bucketCount = resolveTemplateRankingAggregateBucketCount(template)
+    const cache = createTemplateProjectionCache()
+    const [tiers, items, summary] = await Promise.all([
+      loadRankingTiers(ctx, ranking._id),
+      loadRankingItems(ctx, ranking._id),
+      toRankingSummary(ctx, ranking, cache),
+    ])
+
+    const bucketLabels = resolveTemplateRankingAggregateBucketLabels(
+      template,
+      bucketCount
+    )
+    return {
+      ranking: summary,
+      placements: buildRankingBucketPlacements(
+        tiers,
+        items,
+        bucketCount,
+        bucketLabels
       ),
     }
   },
@@ -126,8 +618,11 @@ export const getMyRankings = query({
       .withIndex('byOwnerUpdatedAt', (q) => q.eq('ownerId', userId))
       .order('desc')
       .take(normalizeRankingLimit(args.limit))
+    const cache = createTemplateProjectionCache()
     return {
-      items: await Promise.all(rows.map((row) => toRankingSummary(ctx, row))),
+      items: await Promise.all(
+        rows.map((row) => toRankingSummary(ctx, row, cache))
+      ),
     }
   },
 })

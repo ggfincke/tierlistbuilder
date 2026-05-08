@@ -4,6 +4,10 @@
 
 export {
   useRankingBySlug,
-  useRankingsForTemplate,
+  usePaginatedRankingsForTemplate,
   useMyRankings,
+  useMyRankingForTemplate,
+  useTemplateRankingAggregate,
+  useTemplateRankingAggregateItems,
 } from '~/features/marketplace/data/rankingsRepository'
+export type { TemplateRankingAggregateItemsPageStatus } from '~/features/marketplace/data/rankingsRepository'

@@ -4,6 +4,7 @@
 
 import { useCallback, useState } from 'react'
 
+import type { TemplateCoverFraming } from '@tierlistbuilder/contracts/marketplace/template'
 import { uploadCoverImage } from '~/features/marketplace/data/coverImageUpload'
 import {
   useUpdateMyTemplateMetaMutation,
@@ -13,12 +14,16 @@ import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { toast } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
 
-export interface UpdateTemplateInput extends Omit<
+interface UpdateTemplateInput extends Omit<
   UpdateMyTemplateMetaArgs,
-  'coverMediaExternalId'
+  'coverMediaExternalId' | 'coverFraming'
 >
 {
   coverFile: File | null
+  removeCover: boolean
+  // undefined keeps the existing framing untouched on the server. pass null to
+  // clear (cover removal already nulls it server-side); pass a value to set
+  coverFraming?: TemplateCoverFraming | null
 }
 
 interface UpdateTemplateAction
@@ -42,11 +47,15 @@ export const useUpdateTemplate = (): UpdateTemplateAction =>
       setError(null)
       try
       {
-        let coverMediaExternalId: string | undefined
+        let coverMediaExternalId: string | null | undefined
         if (input.coverFile)
         {
           const uploaded = await uploadCoverImage(input.coverFile)
           coverMediaExternalId = uploaded.externalId
+        }
+        else if (input.removeCover)
+        {
+          coverMediaExternalId = null
         }
 
         await updateMutation({
@@ -58,6 +67,7 @@ export const useUpdateTemplate = (): UpdateTemplateAction =>
           visibility: input.visibility,
           creditLine: input.creditLine,
           coverMediaExternalId,
+          coverFraming: input.coverFraming,
         })
 
         toast(`Saved "${input.title ?? input.slug}"`, 'success')

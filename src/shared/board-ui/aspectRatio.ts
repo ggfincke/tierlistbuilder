@@ -29,7 +29,7 @@ export interface RatioOption
   value?: number
 }
 
-const AUTO_RATIO_OPTION: RatioOption = { kind: 'auto', label: 'Auto' }
+export const AUTO_RATIO_OPTION: RatioOption = { kind: 'auto', label: 'Auto' }
 export const CUSTOM_RATIO_OPTION: RatioOption = {
   kind: 'custom',
   label: 'Custom',
