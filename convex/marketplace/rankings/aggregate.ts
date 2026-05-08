@@ -9,7 +9,6 @@ import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
   MAX_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
   TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN,
-  TEMPLATE_RANKING_AGGREGATE_CONTROVERSY_MIN,
   TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX,
   makeEmptyBucketSpread,
   type MarketplaceTemplateRankingAggregate,
@@ -387,6 +386,8 @@ export const toTemplateRankingAggregateItem = async (
     topBucketShare: row.topBucketShare,
     consensusScore: row.consensusScore,
     controversyScore: row.controversyScore,
+    controversyPercentile: row.controversyPercentile,
+    agreementPercentile: row.agreementPercentile,
     isTopBucket: row.isTopBucket,
     isBottomBucket: row.isBottomBucket,
     isControversial: row.isControversial,
@@ -405,13 +406,6 @@ export const isBottomAggregateBucket = (bucketIndex: number | null): boolean =>
   bucketIndex !== null &&
   bucketIndex >= TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN
 
-export const isControversialAggregateItem = (
-  sampleCount: number,
-  controversyScore: number
-): boolean =>
-  sampleCount > 0 &&
-  controversyScore > TEMPLATE_RANKING_AGGREGATE_CONTROVERSY_MIN
-
 export const buildAggregateItemMetrics = (params: {
   distribution: Doc<'templateRankingAggregateItems'>['distribution']
   sampleCount: number
@@ -428,6 +422,8 @@ export const buildAggregateItemMetrics = (params: {
       topBucketShare: 0,
       consensusScore: 0,
       controversyScore: 0,
+      controversyPercentile: 0,
+      agreementPercentile: 0,
       averageTopSort: UNSAMPLED_SORT_OFFSET,
       averageBottomSort: UNSAMPLED_SORT_OFFSET,
       consensusSort: UNSAMPLED_SORT_OFFSET,
@@ -454,10 +450,6 @@ export const buildAggregateItemMetrics = (params: {
     maxVariance > 0 ? clampScore(variance / maxVariance) : 0
   const isTopBucket = isTopAggregateBucket(top.bucketIndex)
   const isBottomBucket = isBottomAggregateBucket(top.bucketIndex)
-  const isControversial = isControversialAggregateItem(
-    params.sampleCount,
-    controversyScore
-  )
 
   return {
     averageBucket,
@@ -465,12 +457,14 @@ export const buildAggregateItemMetrics = (params: {
     topBucketShare,
     consensusScore: topBucketShare,
     controversyScore,
+    controversyPercentile: 0,
+    agreementPercentile: 0,
     averageTopSort: averageBucket,
     averageBottomSort: -averageBucket,
     consensusSort: -topBucketShare,
     controversySort: -controversyScore,
     isTopBucket,
     isBottomBucket,
-    isControversial,
+    isControversial: false,
   }
 }

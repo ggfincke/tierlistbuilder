@@ -5,7 +5,7 @@ import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
-import { BATCH_LIMITS, MAX_SYNC_TIERS } from '../../lib/limits'
+import { BATCH_LIMITS, MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
 import { isPublicRankingRow } from './lib'
 import {
   buildAggregateItemMetrics,
@@ -16,7 +16,11 @@ import {
   queueTemplateRankingAggregateRecomputesForActiveCriteria,
 } from './aggregate'
 import { buildRankingTierBucketMap } from '@tierlistbuilder/contracts/marketplace/ranking'
-import { makeEmptyBucketSpread } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import {
+  CONTROVERSY_PERCENTILE_MIN,
+  MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
+  makeEmptyBucketSpread,
+} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
 type AggregateJob = Doc<'templateRankingAggregateJobs'>
 type AggregateScheduleState = 'stale' | 'computing'
@@ -135,6 +139,8 @@ const seedAggregateItemRows = async (
         topBucketShare: 0,
         consensusScore: 0,
         controversyScore: 0,
+        controversyPercentile: 0,
+        agreementPercentile: 0,
         averageTopSort: job.bucketCount + 1,
         averageBottomSort: job.bucketCount + 1,
         consensusSort: job.bucketCount + 1,
@@ -224,6 +230,151 @@ const applyBucketSpreadDelta = (
   {
     spread[delta.next] = (spread[delta.next] ?? 0) + 1
   }
+}
+
+const clampPercentile = (value: number): number =>
+  Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0))
+
+const buildPercentiles = (
+  rows: readonly Doc<'templateRankingAggregateItems'>[],
+  score: (row: Doc<'templateRankingAggregateItems'>) => number
+): Map<Id<'templateRankingAggregateItems'>, number> =>
+{
+  const sampled = rows.filter((row) => row.sampleCount > 0)
+  if (sampled.length <= 1)
+  {
+    return new Map(sampled.map((row) => [row._id, 0]))
+  }
+
+  const sorted = sampled
+    .slice()
+    .sort((a, b) => score(a) - score(b) || a.order - b.order)
+  const percentiles = new Map<Id<'templateRankingAggregateItems'>, number>()
+  let lowerCount = 0
+  for (let index = 0; index < sorted.length; )
+  {
+    const value = score(sorted[index])
+    let nextIndex = index + 1
+    while (nextIndex < sorted.length && score(sorted[nextIndex]) === value)
+    {
+      nextIndex++
+    }
+
+    const equalCount = nextIndex - index
+    const percentile = clampPercentile(
+      (lowerCount + (equalCount - 1) / 2) / (sampled.length - 1)
+    )
+    for (let groupIndex = index; groupIndex < nextIndex; groupIndex++)
+    {
+      percentiles.set(sorted[groupIndex]._id, percentile)
+    }
+    lowerCount += equalCount
+    index = nextIndex
+  }
+  return percentiles
+}
+
+const finiteScore = (value: number): number =>
+  Number.isFinite(value) ? value : 0
+
+const loadRelativeMetricRows = async (
+  ctx: MutationCtx,
+  job: AggregateJob
+): Promise<Doc<'templateRankingAggregateItems'>[]> =>
+{
+  const rows = await ctx.db
+    .query('templateRankingAggregateItems')
+    .withIndex('byTemplateIdAndCriterionAndGenerationAndOrder', (q) =>
+      q
+        .eq('templateId', job.templateId)
+        .eq('criterionExternalId', job.criterionExternalId)
+        .eq('generation', job.generation)
+    )
+    .take(MAX_SYNC_ITEMS + 1)
+  if (rows.length > MAX_SYNC_ITEMS)
+  {
+    throw new Error('aggregate item rows exceed sync item limit')
+  }
+  return rows
+}
+
+const finalizeRelativeMetrics = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<null> =>
+{
+  const rows = await loadRelativeMetricRows(ctx, job)
+  const controversyPercentiles = buildPercentiles(rows, (row) =>
+    finiteScore(row.controversyScore)
+  )
+  const agreementPercentiles = buildPercentiles(rows, (row) =>
+    finiteScore(row.consensusScore)
+  )
+  const canBadge = job.rankingCount >= MIN_RANKINGS_FOR_CONTROVERSY_BADGES
+  const page = await ctx.db
+    .query('templateRankingAggregateItems')
+    .withIndex('byTemplateIdAndCriterionAndGenerationAndOrder', (q) =>
+      q
+        .eq('templateId', job.templateId)
+        .eq('criterionExternalId', job.criterionExternalId)
+        .eq('generation', job.generation)
+    )
+    .paginate({
+      numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+      cursor: job.templateCursor,
+    })
+
+  await Promise.all(
+    page.page.map((row) =>
+    {
+      const controversyPercentile = controversyPercentiles.get(row._id) ?? 0
+      return ctx.db.patch(row._id, {
+        controversyPercentile,
+        agreementPercentile: agreementPercentiles.get(row._id) ?? 0,
+        isControversial:
+          canBadge &&
+          row.sampleCount > 0 &&
+          row.controversyScore > 0 &&
+          controversyPercentile >= CONTROVERSY_PERCENTILE_MIN,
+        computedAt: now,
+      })
+    })
+  )
+
+  if (!page.isDone)
+  {
+    await ctx.db.patch(job._id, {
+      templateCursor: page.continueCursor,
+      updatedAt: now,
+    })
+    await scheduleJob(ctx, job._id)
+    return null
+  }
+
+  await finishJob(ctx, { ...job, templateCursor: null }, now)
+  return null
+}
+
+const startRelativeMetricsFinalization = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<null> =>
+{
+  if (job.rankingCount === 0)
+  {
+    await finishJob(ctx, job, now)
+    return null
+  }
+
+  await ctx.db.patch(job._id, {
+    phase: 'finalizeRelativeMetrics',
+    templateCursor: null,
+    updatedAt: now,
+  })
+  await scheduleJob(ctx, job._id)
+  return null
 }
 
 const incrementAggregateItem = async (
@@ -358,8 +509,11 @@ const processActiveRanking = async (
   })
   if (job.rankingScanDone)
   {
-    await finishJob(ctx, { ...job, rankingCount, bucketSpread }, now)
-    return null
+    return await startRelativeMetricsFinalization(
+      ctx,
+      { ...job, rankingCount, bucketSpread },
+      now
+    )
   }
 
   await scheduleJob(ctx, job._id)
@@ -374,8 +528,7 @@ const selectNextRanking = async (
 {
   if (job.rankingScanDone)
   {
-    await finishJob(ctx, job, now)
-    return null
+    return await startRelativeMetricsFinalization(ctx, job, now)
   }
 
   const page = await ctx.db
@@ -394,8 +547,7 @@ const selectNextRanking = async (
   const ranking = page.page[0]
   if (!ranking)
   {
-    await finishJob(ctx, job, now)
-    return null
+    return await startRelativeMetricsFinalization(ctx, job, now)
   }
 
   const isLatest = await isLatestPublicRankingForOwner(ctx, ranking)
@@ -562,6 +714,10 @@ export const processTemplateRankingAggregateJob = internalMutation({
     if (job.phase === 'seedItems')
     {
       return await seedAggregateItemRows(ctx, job, now)
+    }
+    if (job.phase === 'finalizeRelativeMetrics')
+    {
+      return await finalizeRelativeMetrics(ctx, job, now)
     }
     if (job.activeRankingId !== null)
     {

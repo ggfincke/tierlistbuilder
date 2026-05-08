@@ -238,7 +238,8 @@ export const templateRankingAggregateJobStatusValidator = v.union(
 
 export const templateRankingAggregateJobPhaseValidator = v.union(
   v.literal('seedItems'),
-  v.literal('scanRankings')
+  v.literal('scanRankings'),
+  v.literal('finalizeRelativeMetrics')
 )
 export const templateCardAccessStateValidator = literalUnion(
   TEMPLATE_CARD_ACCESS_STATES
@@ -954,6 +955,8 @@ export const marketplaceTemplateRankingAggregateItemValidator = v.object({
   topBucketShare: v.number(),
   consensusScore: v.number(),
   controversyScore: v.number(),
+  controversyPercentile: v.number(),
+  agreementPercentile: v.number(),
   isTopBucket: v.boolean(),
   isBottomBucket: v.boolean(),
   isControversial: v.boolean(),

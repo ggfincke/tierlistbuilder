@@ -21,6 +21,10 @@ import {
   type MarketplaceTemplateCriterionSnapshot,
 } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { isRankingSlug } from '@tierlistbuilder/contracts/marketplace/ranking'
+import {
+  CONTROVERSY_PERCENTILE_MIN,
+  MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
+} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import type {
   BoardLabelSettings,
@@ -2593,6 +2597,286 @@ describe('marketplace template Convex functions', () =>
         }
       )
       expect(crossedItems.page).toEqual([])
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
+  })
+
+  it('finalizes relative controversy metrics per criterion lane', async () =>
+  {
+    vi.useFakeTimers()
+    try
+    {
+      const t = makeTest()
+      const authorId = await seedUser(
+        t,
+        'Relative Metrics Author',
+        'relative-metrics-author@example.com'
+      )
+      const rankerIds: Id<'users'>[] = []
+      for (
+        let index = 0;
+        index < MIN_RANKINGS_FOR_CONTROVERSY_BADGES;
+        index++
+      )
+      {
+        rankerIds.push(
+          await seedUser(
+            t,
+            `Relative Metrics Ranker ${index}`,
+            `relative-metrics-${index}@example.com`
+          )
+        )
+      }
+      const criteria: MarketplaceTemplateCriterion[] = [
+        ...MULTI_CRITERION_TEST_CRITERIA.slice(0, 2),
+        {
+          externalId: 'consistency',
+          name: 'Consistency',
+          shortName: 'Cons',
+          prompt: 'Rank by stable consensus.',
+          axisTop: 'Most consistent',
+          axisBottom: 'Least consistent',
+          order: 2,
+          isPrimary: false,
+          status: 'active',
+        },
+      ]
+      const {
+        templateId,
+        itemIds,
+        slug: templateSlug,
+      } = await seedAggregateTemplate(t, authorId, { criteria })
+      const tiers = [
+        { externalId: 'tier-top', name: 'Top', order: 0 },
+        { externalId: 'tier-mid', name: 'Middle', order: 1 },
+        { externalId: 'tier-low', name: 'Low', order: 2 },
+      ]
+      const itemsForBuckets = (
+        slug: string,
+        bucketIndexes: readonly number[]
+      ) =>
+        bucketIndexes.map((bucketIndex, index) => ({
+          templateItemId: itemIds[index],
+          templateItemExternalId: `aggregate-item-${index}`,
+          tierExternalId: tiers[bucketIndex].externalId,
+          externalId: `${slug}-item-${index}`,
+          label: `Aggregate Item ${index}`,
+          order: index,
+        }))
+
+      for (let index = 0; index < rankerIds.length; index++)
+      {
+        await seedAggregateRanking(t, {
+          ownerId: rankerIds[index],
+          templateId,
+          templateSlug,
+          templateTitle: 'Aggregate Template',
+          slug: `RelComp${String(index).padStart(3, '0')}`,
+          title: `Competitive Relative ${index}`,
+          now: 1_000 + index,
+          criterion: testCriterionSnapshot('competitive'),
+          tiers,
+          items: itemsForBuckets(`comp-${index}`, [
+            index < 5 ? 0 : 2,
+            index < 6 ? 0 : 1,
+            2,
+          ]),
+        })
+        await seedAggregateRanking(t, {
+          ownerId: rankerIds[index],
+          templateId,
+          templateSlug,
+          templateTitle: 'Aggregate Template',
+          slug: `RelCons${String(index).padStart(3, '0')}`,
+          title: `Consistency Relative ${index}`,
+          now: 2_000 + index,
+          criterion: {
+            externalId: 'consistency',
+            name: 'Consistency',
+            prompt: 'Rank by stable consensus.',
+          },
+          tiers,
+          items: itemsForBuckets(`cons-${index}`, [0, 1, 2]),
+        })
+      }
+      for (let index = 0; index < 3; index++)
+      {
+        await seedAggregateRanking(t, {
+          ownerId: rankerIds[index],
+          templateId,
+          templateSlug,
+          templateTitle: 'Aggregate Template',
+          slug: `RelFav${String(index).padStart(3, '0')}`,
+          title: `Favorites Relative ${index}`,
+          now: 3_000 + index,
+          criterion: testCriterionSnapshot('favorites'),
+          tiers,
+          items: itemsForBuckets(`fav-${index}`, [index === 0 ? 0 : 2, 0, 1]),
+        })
+      }
+
+      for (const criterionExternalId of [
+        'competitive',
+        'favorites',
+        'consistency',
+      ])
+      {
+        vi.setSystemTime(10_000)
+        await t.mutation(
+          internal.marketplace.rankings.aggregateInternal
+            .queueTemplateRankingAggregateRecomputeForCriterion,
+          { templateId, criterionExternalId }
+        )
+        await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+      }
+
+      const competitive = await t.query(
+        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        { templateSlug, criterionExternalId: 'competitive' }
+      )
+      expect(competitive).toMatchObject({
+        criterion: { externalId: 'competitive' },
+        state: 'ready',
+        rankingCount: MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
+      })
+      const competitiveGeneration = competitive?.activeGeneration
+      expect(competitiveGeneration).toEqual(expect.any(Number))
+      if (typeof competitiveGeneration !== 'number')
+      {
+        throw new Error('Expected competitive aggregate generation')
+      }
+
+      const competitiveItems = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'competitive',
+          generation: competitiveGeneration,
+          sort: 'templateOrder',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      const [splitItem, mixedItem, agreedItem] = competitiveItems.page
+      expect(splitItem).toMatchObject({
+        templateItemExternalId: 'aggregate-item-0',
+        isControversial: true,
+        controversyScore: 1,
+        controversyPercentile: 1,
+        agreementPercentile: 0,
+      })
+      expect(splitItem.controversyPercentile).toBeGreaterThanOrEqual(
+        CONTROVERSY_PERCENTILE_MIN
+      )
+      expect(mixedItem).toMatchObject({
+        templateItemExternalId: 'aggregate-item-1',
+        isControversial: false,
+      })
+      expect(mixedItem.controversyPercentile).toBeCloseTo(0.5)
+      expect(agreedItem).toMatchObject({
+        templateItemExternalId: 'aggregate-item-2',
+        isControversial: false,
+        controversyScore: 0,
+        agreementPercentile: 1,
+      })
+
+      const competitiveControversial = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'competitive',
+          generation: competitiveGeneration,
+          band: 'controversial',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(
+        competitiveControversial.page.map((row) => row.templateItemExternalId)
+      ).toEqual(['aggregate-item-0'])
+
+      const favorites = await t.query(
+        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        { templateSlug, criterionExternalId: 'favorites' }
+      )
+      expect(favorites).toMatchObject({
+        criterion: { externalId: 'favorites' },
+        state: 'ready',
+        rankingCount: 3,
+      })
+      expect(favorites?.rankingCount).toBeLessThan(
+        MIN_RANKINGS_FOR_CONTROVERSY_BADGES
+      )
+      const favoritesGeneration = favorites?.activeGeneration
+      expect(favoritesGeneration).toEqual(expect.any(Number))
+      if (typeof favoritesGeneration !== 'number')
+      {
+        throw new Error('Expected favorites aggregate generation')
+      }
+      const favoritesItems = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'favorites',
+          generation: favoritesGeneration,
+          sort: 'templateOrder',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(favoritesItems.page[0].controversyScore).toBeGreaterThan(0)
+      expect(favoritesItems.page[0]).toMatchObject({
+        isControversial: false,
+        controversyPercentile: 1,
+      })
+      const favoritesControversial = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'favorites',
+          generation: favoritesGeneration,
+          band: 'controversial',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(favoritesControversial.page).toEqual([])
+
+      const consistency = await t.query(
+        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        { templateSlug, criterionExternalId: 'consistency' }
+      )
+      expect(consistency).toMatchObject({
+        criterion: { externalId: 'consistency' },
+        state: 'ready',
+        rankingCount: MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
+      })
+      const consistencyGeneration = consistency?.activeGeneration
+      expect(consistencyGeneration).toEqual(expect.any(Number))
+      if (typeof consistencyGeneration !== 'number')
+      {
+        throw new Error('Expected consistency aggregate generation')
+      }
+      const consistencyItems = await t.query(
+        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        {
+          templateSlug,
+          criterionExternalId: 'consistency',
+          generation: consistencyGeneration,
+          sort: 'templateOrder',
+          paginationOpts: { cursor: null, numItems: 10 },
+        }
+      )
+      expect(consistencyItems.page.map((row) => row.controversyScore)).toEqual([
+        0, 0, 0,
+      ])
+      expect(
+        Math.max(
+          ...consistencyItems.page.map((row) => row.controversyPercentile)
+        )
+      ).toBeLessThan(CONTROVERSY_PERCENTILE_MIN)
+      expect(consistencyItems.page.some((row) => row.isControversial)).toBe(
+        false
+      )
     }
     finally
     {

@@ -650,6 +650,8 @@ export default defineSchema({
     topBucketShare: v.number(),
     consensusScore: v.number(),
     controversyScore: v.number(),
+    controversyPercentile: v.number(),
+    agreementPercentile: v.number(),
     averageTopSort: v.number(),
     averageBottomSort: v.number(),
     consensusSort: v.number(),
@@ -672,21 +674,11 @@ export default defineSchema({
       'criterionExternalId',
       'order',
     ])
-    .index('byTemplateIdAndGenerationAndOrder', [
-      'templateId',
-      'generation',
-      'order',
-    ])
     .index('byTemplateIdAndCriterionAndGenerationAndOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'order',
-    ])
-    .index('byTemplateIdAndGenerationAndTemplateItemId', [
-      'templateId',
-      'generation',
-      'templateItemId',
     ])
     .index('byTemplateIdAndCriterionAndGenerationAndTemplateItemId', [
       'templateId',
@@ -694,23 +686,11 @@ export default defineSchema({
       'generation',
       'templateItemId',
     ])
-    .index('byTemplateIdAndGenerationAndAvgTopSortAndOrder', [
-      'templateId',
-      'generation',
-      'averageTopSort',
-      'order',
-    ])
     .index('byTemplateIdAndCriterionAndGenerationAndAvgTopSortAndOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'averageTopSort',
-      'order',
-    ])
-    .index('byTemplateIdAndGenerationAndAvgBottomSortAndOrder', [
-      'templateId',
-      'generation',
-      'averageBottomSort',
       'order',
     ])
     .index('byTemplateIdAndCriterionAndGenerationAndAvgBottomSortAndOrder', [
@@ -720,23 +700,11 @@ export default defineSchema({
       'averageBottomSort',
       'order',
     ])
-    .index('byTemplateIdAndGenerationAndConsensusSortAndOrder', [
-      'templateId',
-      'generation',
-      'consensusSort',
-      'order',
-    ])
     .index('byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'consensusSort',
-      'order',
-    ])
-    .index('byTemplateIdAndGenerationAndControversySortAndOrder', [
-      'templateId',
-      'generation',
-      'controversySort',
       'order',
     ])
     .index('byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder', [
@@ -746,24 +714,11 @@ export default defineSchema({
       'controversySort',
       'order',
     ])
-    .index('byTemplateGenerationTopOrder', [
-      'templateId',
-      'generation',
-      'isTopBucket',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationTopOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'isTopBucket',
-      'order',
-    ])
-    .index('byTemplateGenerationTopAverageTopOrder', [
-      'templateId',
-      'generation',
-      'isTopBucket',
-      'averageTopSort',
       'order',
     ])
     .index('byTemplateCriterionGenerationTopAverageTopOrder', [
@@ -774,26 +729,12 @@ export default defineSchema({
       'averageTopSort',
       'order',
     ])
-    .index('byTemplateGenerationTopAverageBottomOrder', [
-      'templateId',
-      'generation',
-      'isTopBucket',
-      'averageBottomSort',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationTopAverageBottomOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'isTopBucket',
       'averageBottomSort',
-      'order',
-    ])
-    .index('byTemplateGenerationTopConsensusOrder', [
-      'templateId',
-      'generation',
-      'isTopBucket',
-      'consensusSort',
       'order',
     ])
     .index('byTemplateCriterionGenerationTopConsensusOrder', [
@@ -804,13 +745,6 @@ export default defineSchema({
       'consensusSort',
       'order',
     ])
-    .index('byTemplateGenerationTopControversyOrder', [
-      'templateId',
-      'generation',
-      'isTopBucket',
-      'controversySort',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationTopControversyOrder', [
       'templateId',
       'criterionExternalId',
@@ -819,24 +753,11 @@ export default defineSchema({
       'controversySort',
       'order',
     ])
-    .index('byTemplateGenerationBottomOrder', [
-      'templateId',
-      'generation',
-      'isBottomBucket',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationBottomOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'isBottomBucket',
-      'order',
-    ])
-    .index('byTemplateGenerationBottomAverageTopOrder', [
-      'templateId',
-      'generation',
-      'isBottomBucket',
-      'averageTopSort',
       'order',
     ])
     .index('byTemplateCriterionGenerationBottomAverageTopOrder', [
@@ -847,26 +768,12 @@ export default defineSchema({
       'averageTopSort',
       'order',
     ])
-    .index('byTemplateGenerationBottomAverageBottomOrder', [
-      'templateId',
-      'generation',
-      'isBottomBucket',
-      'averageBottomSort',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationBottomAverageBottomOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'isBottomBucket',
       'averageBottomSort',
-      'order',
-    ])
-    .index('byTemplateGenerationBottomConsensusOrder', [
-      'templateId',
-      'generation',
-      'isBottomBucket',
-      'consensusSort',
       'order',
     ])
     .index('byTemplateCriterionGenerationBottomConsensusOrder', [
@@ -877,13 +784,6 @@ export default defineSchema({
       'consensusSort',
       'order',
     ])
-    .index('byTemplateGenerationBottomControversyOrder', [
-      'templateId',
-      'generation',
-      'isBottomBucket',
-      'controversySort',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationBottomControversyOrder', [
       'templateId',
       'criterionExternalId',
@@ -892,24 +792,11 @@ export default defineSchema({
       'controversySort',
       'order',
     ])
-    .index('byTemplateGenerationControversialOrder', [
-      'templateId',
-      'generation',
-      'isControversial',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationControversialOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'isControversial',
-      'order',
-    ])
-    .index('byTemplateGenerationControversialAverageTopOrder', [
-      'templateId',
-      'generation',
-      'isControversial',
-      'averageTopSort',
       'order',
     ])
     .index('byTemplateCriterionGenerationControversialAverageTopOrder', [
@@ -920,26 +807,12 @@ export default defineSchema({
       'averageTopSort',
       'order',
     ])
-    .index('byTemplateGenerationControversialAverageBottomOrder', [
-      'templateId',
-      'generation',
-      'isControversial',
-      'averageBottomSort',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationControversialAverageBottomOrder', [
       'templateId',
       'criterionExternalId',
       'generation',
       'isControversial',
       'averageBottomSort',
-      'order',
-    ])
-    .index('byTemplateGenerationControversialConsensusOrder', [
-      'templateId',
-      'generation',
-      'isControversial',
-      'consensusSort',
       'order',
     ])
     .index('byTemplateCriterionGenerationControversialConsensusOrder', [
@@ -950,13 +823,6 @@ export default defineSchema({
       'consensusSort',
       'order',
     ])
-    .index('byTemplateGenerationControversialControversyOrder', [
-      'templateId',
-      'generation',
-      'isControversial',
-      'controversySort',
-      'order',
-    ])
     .index('byTemplateCriterionGenerationControversialControversyOrder', [
       'templateId',
       'criterionExternalId',
@@ -965,16 +831,6 @@ export default defineSchema({
       'controversySort',
       'order',
     ])
-    .searchIndex('searchByTemplateGeneration', {
-      searchField: 'searchText',
-      filterFields: [
-        'templateId',
-        'generation',
-        'isTopBucket',
-        'isBottomBucket',
-        'isControversial',
-      ],
-    })
     .searchIndex('searchByTemplateCriterionGeneration', {
       searchField: 'searchText',
       filterFields: [
@@ -1022,7 +878,6 @@ export default defineSchema({
   })
     .index('byTemplateId', ['templateId'])
     .index('byTemplateIdAndCriterion', ['templateId', 'criterionExternalId'])
-    .index('byTemplateIdAndStatus', ['templateId', 'status'])
     .index('byTemplateIdAndCriterionAndStatus', [
       'templateId',
       'criterionExternalId',
