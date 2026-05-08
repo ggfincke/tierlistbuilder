@@ -1,5 +1,5 @@
 // src/features/workspace/settings/model/useAutoCropController.ts
-// auto-crop intent, cancellation, & stale-transform cleanup for ratio prompt
+// auto-crop preview, cancellation, & stale-transform cleanup for ratio prompt
 
 import { useCallback, useMemo, useRef, useState } from 'react'
 
@@ -21,8 +21,8 @@ import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
 
 const DEBUG_TARGET_ID_LIMIT = 20
 
-// `auto` is prompt-open preview only; it must not set persistent intent.
-// Persistent intent belongs only to a user pressing Auto-crop all.
+// `auto` is prompt-open preview only; it must not set manual selection.
+// Manual selection belongs only to a user pressing Auto-crop all.
 // Do not re-add target reruns w/o explicit clarification.
 type AutoCropRunSource = 'auto' | 'manual'
 export type AutoCropClearReason = 'fit' | 'ratio'
@@ -42,13 +42,13 @@ interface UseAutoCropControllerInput
 
 interface AutoCropController
 {
+  applied: boolean
   available: boolean
-  honored: boolean
-  intent: boolean
   progress: AutoCropProgress
   run: () => void
   runAutoDefault: () => void
-  tearDownIntent: (reason: AutoCropClearReason) => void
+  selected: boolean
+  clearPreview: (reason: AutoCropClearReason) => void
 }
 
 const sampleItemIds = (items: readonly TierItem[]): ItemId[] =>
@@ -66,7 +66,8 @@ export const useAutoCropController = ({
   trimSoftShadows,
 }: UseAutoCropControllerInput): AutoCropController =>
 {
-  const [autoCropIntent, setAutoCropIntent] = useState(false)
+  const [manualAutoCropSelected, setManualAutoCropSelected] = useState(false)
+  const [autoCropTouchedPreview, setAutoCropTouchedPreview] = useState(false)
   useAutoCropCacheVersion()
   const autoCropTouchedIdsRef = useRef<Set<ItemId>>(new Set())
   const {
@@ -78,7 +79,13 @@ export const useAutoCropController = ({
   const autoCropAllApplied =
     !autoCropProgress.running &&
     areCachedAutoCropsApplied(targets, boardAspectRatio, trimSoftShadows)
-  const autoCropHonored = pendingBulkFit === null && autoCropAllApplied
+  const autoCropApplied = pendingBulkFit === null && autoCropAllApplied
+  const autoCropSelected =
+    pendingBulkFit === null &&
+    (manualAutoCropSelected ||
+      autoCropProgress.running ||
+      autoCropTouchedPreview ||
+      autoCropApplied)
 
   const clearAutoCropTransforms = useCallback(
     (reason: AutoCropClearReason) =>
@@ -90,6 +97,7 @@ export const useAutoCropController = ({
         transform: null,
       }))
       autoCropTouchedIdsRef.current.clear()
+      setAutoCropTouchedPreview(false)
       if (resetEntries.length === 0) return
       logger.info('autoCrop', 'issue modal auto-crop cleared', {
         reason,
@@ -103,10 +111,10 @@ export const useAutoCropController = ({
     [setItemsTransform, targets]
   )
 
-  const tearDownIntent = useCallback(
+  const clearPreview = useCallback(
     (reason: AutoCropClearReason) =>
     {
-      setAutoCropIntent(false)
+      setManualAutoCropSelected(false)
       abortAutoCrop()
       clearAutoCropTransforms(reason)
     },
@@ -117,7 +125,7 @@ export const useAutoCropController = ({
     async (source: AutoCropRunSource) =>
     {
       if (targets.length === 0 || autoCropProgress.running) return
-      if (source === 'manual') setAutoCropIntent(true)
+      if (source === 'manual') setManualAutoCropSelected(true)
       setPendingBulkFit(null)
       logger.info('autoCrop', 'issue modal auto-crop started', {
         source,
@@ -157,6 +165,7 @@ export const useAutoCropController = ({
       if (entries.length > 0)
       {
         for (const entry of entries) autoCropTouchedIdsRef.current.add(entry.id)
+        setAutoCropTouchedPreview(true)
         setItemsTransform(entries)
       }
     },
@@ -186,22 +195,22 @@ export const useAutoCropController = ({
 
   return useMemo(
     () => ({
+      applied: autoCropApplied,
       available: targets.length > 0,
-      honored: autoCropHonored,
-      intent: autoCropIntent,
       progress: autoCropProgress,
       run,
       runAutoDefault,
-      tearDownIntent,
+      selected: autoCropSelected,
+      clearPreview,
     }),
     [
-      autoCropHonored,
-      autoCropIntent,
+      autoCropApplied,
+      autoCropSelected,
       autoCropProgress,
+      clearPreview,
       run,
       runAutoDefault,
       targets.length,
-      tearDownIntent,
     ]
   )
 }

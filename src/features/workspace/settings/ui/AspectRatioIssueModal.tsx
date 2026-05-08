@@ -202,7 +202,7 @@ const AspectRatioIssueModalBody = ({
   {
     if (didAutoStartAutoCropRef.current) return
     if (!autoCrop.available) return
-    if (autoCrop.honored || autoCrop.progress.running) return
+    if (autoCrop.applied || autoCrop.progress.running) return
     didAutoStartAutoCropRef.current = true
     autoCrop.runAutoDefault()
   }, [autoCrop])
@@ -229,7 +229,7 @@ const AspectRatioIssueModalBody = ({
   const handleSelectFit = useCallback(
     (fit: ImageFit) =>
     {
-      autoCrop.tearDownIntent('fit')
+      autoCrop.clearPreview('fit')
       setPendingBulkFit(fit)
     },
     [autoCrop]
@@ -239,11 +239,11 @@ const AspectRatioIssueModalBody = ({
     (option: RatioOption) =>
     {
       // Cancel auto-crop before board ratio changes.
-      // Expanded mismatch sets must not inherit stale crop intent.
+      // Expanded mismatch sets must not inherit stale auto-crop previews.
       // Change only w/ explicit clarification on modal ratio flow.
-      if (autoCrop.intent || autoCrop.honored || autoCrop.progress.running)
+      if (autoCrop.selected)
       {
-        autoCrop.tearDownIntent('ratio')
+        autoCrop.clearPreview('ratio')
         setPendingBulkFit(cleanupTargets.length > 0 ? 'cover' : null)
       }
       handleOption(option)
@@ -351,10 +351,10 @@ const AspectRatioIssueModalBody = ({
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <BulkFitSegmentedControl
             pendingBulkFit={pendingBulkFit}
-            autoCropHonored={autoCrop.honored}
+            autoCropApplied={autoCrop.applied}
             autoCropRunning={autoCrop.progress.running}
             autoCropAvailable={autoCrop.available}
-            autoCropIntent={autoCrop.intent}
+            autoCropSelected={autoCrop.selected}
             onSelectFit={handleSelectFit}
             onSelectAutoCrop={autoCrop.run}
           />
@@ -499,15 +499,15 @@ type BulkFitMode = ImageFit | 'auto-crop'
 interface AutoCropSegmentState
 {
   autoCropAvailable: boolean
-  autoCropHonored: boolean
+  autoCropApplied: boolean
   autoCropRunning: boolean
 }
 
 interface BulkFitSegmentedControlProps
 {
   pendingBulkFit: ImageFit | null
-  autoCropHonored: boolean
-  autoCropIntent: boolean
+  autoCropApplied: boolean
+  autoCropSelected: boolean
   autoCropRunning: boolean
   autoCropAvailable: boolean
   onSelectFit: (fit: ImageFit) => void
@@ -532,7 +532,7 @@ const renderAutoCropLabel = (icon: ReactNode, text: string): ReactNode => (
 )
 
 const getAutoCropLabel = ({
-  autoCropHonored,
+  autoCropApplied,
   autoCropRunning,
 }: AutoCropSegmentState): ReactNode =>
 {
@@ -543,7 +543,7 @@ const getAutoCropLabel = ({
       'Auto-crop all'
     )
   }
-  if (autoCropHonored)
+  if (autoCropApplied)
   {
     return renderAutoCropLabel(
       <Check className="h-3 w-3" />,
@@ -555,10 +555,10 @@ const getAutoCropLabel = ({
 
 const getAutoCropTitle = ({
   autoCropAvailable,
-  autoCropHonored,
+  autoCropApplied,
 }: AutoCropSegmentState): string =>
 {
-  if (autoCropHonored) return 'Auto-crop is applied'
+  if (autoCropApplied) return 'Auto-crop is applied'
   if (!autoCropAvailable) return 'No image bytes available to auto-crop'
   return 'Frame detected content for mismatched items'
 }
@@ -568,19 +568,18 @@ const getAutoCropTitle = ({
 // setItemsImageFit). Auto-crop runs immediately since detection is async
 const BulkFitSegmentedControl = ({
   pendingBulkFit,
-  autoCropHonored,
-  autoCropIntent,
+  autoCropApplied,
+  autoCropSelected,
   autoCropRunning,
   autoCropAvailable,
   onSelectFit,
   onSelectAutoCrop,
 }: BulkFitSegmentedControlProps) =>
 {
-  // pendingBulkFit (Cover/Contain) wins over the auto-crop honored state so
+  // pendingBulkFit (Cover/Contain) wins over the auto-crop selected state so
   // the user's most recent intent is what the highlight reflects
   const value: BulkFitMode | null =
-    pendingBulkFit ??
-    (autoCropIntent || autoCropHonored || autoCropRunning ? 'auto-crop' : null)
+    pendingBulkFit ?? (autoCropSelected ? 'auto-crop' : null)
 
   const handleChange = useCallback(
     (next: BulkFitMode) =>
@@ -593,7 +592,7 @@ const BulkFitSegmentedControl = ({
 
   const autoCropState = {
     autoCropAvailable,
-    autoCropHonored,
+    autoCropApplied,
     autoCropRunning,
   }
   const autoCropLabel = getAutoCropLabel(autoCropState)
@@ -609,10 +608,10 @@ const BulkFitSegmentedControl = ({
         {
           value: 'auto-crop',
           label: autoCropLabel,
-          // honored state stays selected but unclickable so re-pressing
+          // applied state stays selected but unclickable so re-pressing
           // doesn't re-run detection on already-cropped items
-          disabled: !autoCropAvailable || autoCropRunning || autoCropHonored,
-          ariaLabel: autoCropHonored
+          disabled: !autoCropAvailable || autoCropRunning || autoCropApplied,
+          ariaLabel: autoCropApplied
             ? 'Auto-crop applied to mismatched items'
             : 'Auto-crop all mismatched items',
           title: getAutoCropTitle(autoCropState),
