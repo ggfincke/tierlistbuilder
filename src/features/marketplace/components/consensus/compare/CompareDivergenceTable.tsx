@@ -49,44 +49,30 @@ const SORT_LABELS: Record<DivergenceSort, string> = {
   mostSamples: 'Most samples',
 }
 
-const sortRows = (
-  rows: readonly CompareJoinedRow[],
+const compareRows = (
   sort: DivergenceSort
-): CompareJoinedRow[] =>
+): ((a: CompareJoinedRow, b: CompareJoinedRow) => number) =>
 {
-  const out = [...rows]
   switch (sort)
   {
     case 'absDelta':
-      out.sort((a, b) => b.absDelta - a.absDelta)
-      break
+      return (a, b) => b.absDelta - a.absDelta
     case 'leftFirst':
       // most negative delta first (right index lower than left = higher in
       // left lane)
-      out.sort((a, b) => a.delta - b.delta)
-      break
+      return (a, b) => a.delta - b.delta
     case 'rightFirst':
-      out.sort((a, b) => b.delta - a.delta)
-      break
+      return (a, b) => b.delta - a.delta
     case 'mostSamples':
-      out.sort(
-        (a, b) =>
-          b.left.sampleCount +
-          b.right.sampleCount -
-          (a.left.sampleCount + a.right.sampleCount)
-      )
-      break
-    default:
-      break
+      return (a, b) =>
+        b.left.sampleCount +
+        b.right.sampleCount -
+        (a.left.sampleCount + a.right.sampleCount)
   }
-  return out
 }
 
-const matchesSearch = (row: CompareJoinedRow, query: string): boolean =>
+const matchesSearch = (row: CompareJoinedRow, needle: string): boolean =>
 {
-  if (!query) return true
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
   const label = getAggregateItemLabel(row.left).toLowerCase()
   return label.includes(needle)
 }
@@ -159,14 +145,15 @@ export const CompareDivergenceTable = ({
   const [query, setQuery] = useState('')
   const [showAll, setShowAll] = useState(false)
 
-  const filtered = useMemo(
-    () =>
-      sortRows(
-        rows.filter((row) => matchesSearch(row, query)),
-        sort
-      ),
-    [query, rows, sort]
-  )
+  const filtered = useMemo(() =>
+  {
+    const needle = query.trim().toLowerCase()
+    const candidates = needle
+      ? rows.filter((row) => matchesSearch(row, needle))
+      : [...rows]
+    candidates.sort(compareRows(sort))
+    return candidates
+  }, [query, rows, sort])
   const visibleRows = showAll ? filtered : filtered.slice(0, initialLimit)
   const hiddenCount = Math.max(0, filtered.length - visibleRows.length)
 

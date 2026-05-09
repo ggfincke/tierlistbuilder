@@ -137,35 +137,19 @@ const aggregateBandArg = v.optional(templateRankingAggregateItemBandValidator)
 const rankingSortArg = v.optional(rankingListSortValidator)
 const SEARCH_CURSOR_PREFIX = 'offset:'
 
-type CriterionRequestResolution =
-  | { kind: 'unspecified' }
-  | { kind: 'found'; criterion: MarketplaceTemplateCriterion }
-  | { kind: 'missing' }
-
-const resolveCriterionRequest = (
+const resolveRequestedOrPrimaryCriterion = (
   template: Doc<'templates'>,
   criterionExternalId: string | undefined
-): CriterionRequestResolution =>
-{
-  if (criterionExternalId === undefined) return { kind: 'unspecified' }
-  const criterion = resolveTemplateCriterionForHistoricalRead(
-    template,
-    criterionExternalId
-  )
-  return criterion ? { kind: 'found', criterion } : { kind: 'missing' }
-}
-
-const resolveDefaultedCriterion = (
-  template: Doc<'templates'>,
-  resolution: CriterionRequestResolution
 ): MarketplaceTemplateCriterion | null =>
 {
-  if (resolution.kind === 'missing') return null
-  if (resolution.kind === 'unspecified')
+  if (criterionExternalId === undefined)
   {
     return resolvePrimaryTemplateCriterion(template)
   }
-  return resolution.criterion
+  return resolveTemplateCriterionForHistoricalRead(
+    template,
+    criterionExternalId
+  )
 }
 
 const resolveHistoricalCriterionExternalId = (
@@ -173,10 +157,11 @@ const resolveHistoricalCriterionExternalId = (
   criterionExternalId: string | undefined
 ): string | null | undefined =>
 {
-  const resolution = resolveCriterionRequest(template, criterionExternalId)
-  if (resolution.kind === 'unspecified') return undefined
-  if (resolution.kind === 'missing') return null
-  return resolution.criterion.externalId
+  if (criterionExternalId === undefined) return undefined
+  return (
+    resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
+      ?.externalId ?? null
+  )
 }
 
 const resolveMyRankingCriterionExternalId = (
@@ -184,9 +169,9 @@ const resolveMyRankingCriterionExternalId = (
   criterionExternalId: string | undefined
 ): string | null =>
 {
-  const criterion = resolveDefaultedCriterion(
+  const criterion = resolveRequestedOrPrimaryCriterion(
     template,
-    resolveCriterionRequest(template, criterionExternalId)
+    criterionExternalId
   )
   return criterion?.externalId ?? null
 }
@@ -196,9 +181,9 @@ const criterionPublishBlockReason = (
   criterionExternalId: string | undefined
 ): RankingPublishBlockReason | null =>
 {
-  const criterion = resolveDefaultedCriterion(
+  const criterion = resolveRequestedOrPrimaryCriterion(
     template,
-    resolveCriterionRequest(template, criterionExternalId)
+    criterionExternalId
   )
   if (!criterion) return 'criterion_not_found'
   if (criterion.status !== 'active') return 'criterion_not_publishable'
@@ -210,9 +195,9 @@ const resolveAggregateCriterionExternalId = (
   criterionExternalId: string | undefined
 ): string | null =>
 {
-  const criterion = resolveDefaultedCriterion(
+  const criterion = resolveRequestedOrPrimaryCriterion(
     template,
-    resolveCriterionRequest(template, criterionExternalId)
+    criterionExternalId
   )
   if (!criterion || criterion.status !== 'active') return null
   return criterion.externalId

@@ -1869,17 +1869,16 @@ const resolveTierQuotas = (itemCount: number, tierCount: number): number[] =>
   return quotas
 }
 
-const rankTemplateItems = (
-  target: SeedTargetDefinition,
-  profile: SeedProfile,
+const rankTemplateItemsWithScore = (
   items: readonly Doc<'templateItems'>[],
-  tiers: readonly TierPresetTier[]
+  tiers: readonly TierPresetTier[],
+  scoreItem: (item: Doc<'templateItems'>) => number
 ): RankedSeedItem[] =>
 {
   const scored = items
     .map((item) => ({
       item,
-      score: scoreTemplateItem(target, profile, item),
+      score: scoreItem(item),
     }))
     .sort((a, b) => b.score - a.score || a.item.order - b.item.order)
   const quotas = resolveTierQuotas(items.length, tiers.length)
@@ -1904,6 +1903,16 @@ const rankTemplateItems = (
 
   return ranked
 }
+
+const rankTemplateItems = (
+  target: SeedTargetDefinition,
+  profile: SeedProfile,
+  items: readonly Doc<'templateItems'>[],
+  tiers: readonly TierPresetTier[]
+): RankedSeedItem[] =>
+  rankTemplateItemsWithScore(items, tiers, (item) =>
+    scoreTemplateItem(target, profile, item)
+  )
 
 // favorites scoring uses lane crowd + per-profile favorite picks instead
 // of competitive signal; chaos/contrarian scale by the lane multipliers
@@ -1942,34 +1951,9 @@ const rankTemplateItemsForLane = (
   items: readonly Doc<'templateItems'>[],
   tiers: readonly TierPresetTier[]
 ): RankedSeedItem[] =>
-{
-  const scored = items
-    .map((item) => ({
-      item,
-      score: scoreFavoriteItem(lane, profile, item),
-    }))
-    .sort((a, b) => b.score - a.score || a.item.order - b.item.order)
-  const quotas = resolveTierQuotas(items.length, tiers.length)
-  const ranked: RankedSeedItem[] = []
-  let cursor = 0
-
-  for (let tierIndex = 0; tierIndex < quotas.length; tierIndex++)
-  {
-    for (let orderInTier = 0; orderInTier < quotas[tierIndex]; orderInTier++)
-    {
-      const entry = scored[cursor]
-      if (!entry) break
-      ranked.push({
-        item: entry.item,
-        tierIndex,
-        orderInTier,
-        globalOrder: ranked.length,
-      })
-      cursor += 1
-    }
-  }
-  return ranked
-}
+  rankTemplateItemsWithScore(items, tiers, (item) =>
+    scoreFavoriteItem(lane, profile, item)
+  )
 
 const curatedTierIndexByName = (
   curated: CuratedOfficialRanking
@@ -2586,6 +2570,25 @@ const resolveTemplateTiers = (
     ? template.suggestedTiers
     : DEFAULT_TEMPLATE_TIERS
 
+const loadSeedTemplateItems = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>,
+  target: SeedTargetDefinition
+): Promise<Doc<'templateItems'>[]> =>
+{
+  // byTemplate index is [templateId, order] so rows arrive ordered by `order`
+  const templateItems = await loadTemplateItems(ctx, template._id)
+  if (templateItems.length === 0)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: `seed template has no items: ${target.title}`,
+    })
+  }
+  assertSeedRowsWithinLimit('template items', templateItems, MAX_SEED_ROW_ITEMS)
+  return templateItems
+}
+
 const findPublishedTargetTemplateForCard = async (
   ctx: QueryCtx,
   card: Doc<'templateCards'> | undefined,
@@ -2746,21 +2749,7 @@ export const seedSampleRankingImpl = internalMutation({
       profile,
       target
     )
-    const templateItems = (await loadTemplateItems(ctx, template._id)).sort(
-      (a, b) => a.order - b.order
-    )
-    if (templateItems.length === 0)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `seed template has no items: ${target.title}`,
-      })
-    }
-    assertSeedRowsWithinLimit(
-      'template items',
-      templateItems,
-      MAX_SEED_ROW_ITEMS
-    )
+    const templateItems = await loadSeedTemplateItems(ctx, template, target)
 
     const tiers = resolveTemplateTiers(template)
     assertSeedRowsWithinLimit('template tiers', tiers, MAX_SEED_ROW_TIERS)
@@ -2862,21 +2851,7 @@ export const seedExtraLaneSampleRankingImpl = internalMutation({
       target,
       lane
     )
-    const templateItems = (await loadTemplateItems(ctx, template._id)).sort(
-      (a, b) => a.order - b.order
-    )
-    if (templateItems.length === 0)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `seed template has no items: ${target.title}`,
-      })
-    }
-    assertSeedRowsWithinLimit(
-      'template items',
-      templateItems,
-      MAX_SEED_ROW_ITEMS
-    )
+    const templateItems = await loadSeedTemplateItems(ctx, template, target)
 
     const tiers = resolveTemplateTiers(template)
     assertSeedRowsWithinLimit('template tiers', tiers, MAX_SEED_ROW_TIERS)
@@ -3042,21 +3017,7 @@ export const seedCuratedOfficialRankingImpl = internalMutation({
       rankingTitle: curatedRankingTitle(curated),
     })
 
-    const templateItems = (await loadTemplateItems(ctx, template._id)).sort(
-      (a, b) => a.order - b.order
-    )
-    if (templateItems.length === 0)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `seed template has no items: ${target.title}`,
-      })
-    }
-    assertSeedRowsWithinLimit(
-      'template items',
-      templateItems,
-      MAX_SEED_ROW_ITEMS
-    )
+    const templateItems = await loadSeedTemplateItems(ctx, template, target)
 
     const tiers = curated.tiers
     assertSeedRowsWithinLimit('curated tiers', tiers, MAX_SEED_ROW_TIERS)
@@ -3134,6 +3095,9 @@ export const seedSampleCommunityRankings = action({
       internal.marketplace.rankings.seed.resolveSeedTargetsImpl,
       {}
     )
+    const resolvedTargetByKey = new Map(
+      targets.map((target) => [target.key, target])
+    )
     let rankingsDeleted = 0
 
     if (args.reset)
@@ -3162,7 +3126,7 @@ export const seedSampleCommunityRankings = action({
       // from a prior run collide on byOwnerAndExternalId at re-insert
       for (const lane of SEED_EXTRA_LANES)
       {
-        const target = targets.find((t) => t.key === lane.targetKey)
+        const target = resolvedTargetByKey.get(lane.targetKey)
         if (!target) continue
         for (
           let profileIndex = 0;
@@ -3189,7 +3153,7 @@ export const seedSampleCommunityRankings = action({
       )
       {
         const curated = ALL_CURATED_RANKINGS[curatedIndex]
-        const target = targets.find((t) => t.key === curated.targetKey)
+        const target = resolvedTargetByKey.get(curated.targetKey)
         if (!target) continue
         const resetResult: SeedResetResult = await ctx.runMutation(
           internal.marketplace.rankings.seed.resetCuratedOfficialRankingImpl,
@@ -3237,6 +3201,16 @@ export const seedSampleCommunityRankings = action({
           'default',
       ])
     )
+    const recordTargetSeededRanking = (
+      targetKey: TargetKey,
+      deletedCount: number
+    ): void =>
+    {
+      const result = targetResults.get(targetKey)
+      if (!result) return
+      result.rankingsSeeded += 1
+      result.rankingsDeleted += deletedCount
+    }
     const incrementLaneSample = (
       targetKey: TargetKey,
       criterionExternalId: string
@@ -3290,12 +3264,7 @@ export const seedSampleCommunityRankings = action({
         )
         seededSlugsByProfile.set(profileIndex, seeded.rankingSlug)
         rankingsDeleted += seeded.rankingsDeleted
-        const result = targetResults.get(target.key)
-        if (result)
-        {
-          result.rankingsSeeded += 1
-          result.rankingsDeleted += seeded.rankingsDeleted
-        }
+        recordTargetSeededRanking(target.key, seeded.rankingsDeleted)
         incrementLaneSample(target.key, primaryCriterion)
         await pauseSeedWrites()
       }
@@ -3322,7 +3291,7 @@ export const seedSampleCommunityRankings = action({
     let extraLaneSeeded = 0
     for (const lane of SEED_EXTRA_LANES)
     {
-      const target = targets.find((t) => t.key === lane.targetKey)
+      const target = resolvedTargetByKey.get(lane.targetKey)
       if (!target) continue
       for (let profileIndex = 0; profileIndex < userCount; profileIndex++)
       {
@@ -3336,12 +3305,7 @@ export const seedSampleCommunityRankings = action({
         )
         rankingsDeleted += seeded.rankingsDeleted
         extraLaneSeeded += 1
-        const result = targetResults.get(target.key)
-        if (result)
-        {
-          result.rankingsSeeded += 1
-          result.rankingsDeleted += seeded.rankingsDeleted
-        }
+        recordTargetSeededRanking(target.key, seeded.rankingsDeleted)
         incrementLaneSample(target.key, lane.criterionExternalId)
         await pauseSeedWrites()
       }
@@ -3355,7 +3319,7 @@ export const seedSampleCommunityRankings = action({
     )
     {
       const curated = ALL_CURATED_RANKINGS[curatedIndex]
-      const target = targets.find((t) => t.key === curated.targetKey)
+      const target = resolvedTargetByKey.get(curated.targetKey)
       if (!target) continue
       const seeded: SeedRankingResult = await ctx.runMutation(
         internal.marketplace.rankings.seed.seedCuratedOfficialRankingImpl,
@@ -3366,12 +3330,7 @@ export const seedSampleCommunityRankings = action({
       )
       rankingsDeleted += seeded.rankingsDeleted
       curatedSeeded += 1
-      const result = targetResults.get(curated.targetKey)
-      if (result)
-      {
-        result.rankingsSeeded += 1
-        result.rankingsDeleted += seeded.rankingsDeleted
-      }
+      recordTargetSeededRanking(curated.targetKey, seeded.rankingsDeleted)
       // resolve curated criterion the same way insertSeedRanking does so
       // breakdowns line up w/ what landed in the DB even when the curated
       // entry omits criterionExternalId (= primary criterion for that lane)

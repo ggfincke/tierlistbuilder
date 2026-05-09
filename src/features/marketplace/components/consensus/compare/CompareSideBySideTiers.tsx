@@ -4,10 +4,7 @@
 
 import { useMemo } from 'react'
 
-import type {
-  MarketplaceTemplateRankingAggregateBucket,
-  MarketplaceTemplateRankingAggregateItem,
-} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import {
   AggregateItemThumb,
@@ -226,7 +223,3 @@ export const CompareSideBySideTiers = ({
     </div>
   )
 }
-
-// re-export so unit tests / future callers can use the same item shape
-// without depending on aggregate-internal types
-export type { MarketplaceTemplateRankingAggregateItem }

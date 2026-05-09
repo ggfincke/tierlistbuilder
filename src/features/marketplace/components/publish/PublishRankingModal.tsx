@@ -187,8 +187,9 @@ const PublishRankingForm = ({
     () => availability?.sourceTemplateCriteria ?? [],
     [availability?.sourceTemplateCriteria]
   )
-  const userPublishedCriteriaSet = new Set(
-    availability?.userPublishedCriterionExternalIds ?? []
+  const userPublishedCriteriaSet = useMemo(
+    () => new Set(availability?.userPublishedCriterionExternalIds ?? []),
+    [availability?.userPublishedCriterionExternalIds]
   )
   const [title, setTitle] = useState(defaultTitle)
   const [description, setDescription] = useState('')
@@ -212,9 +213,10 @@ const PublishRankingForm = ({
     userPublishedCriteriaSet.has(selectedCriterion.externalId)
 
   const trimmedTitle = title.trim()
+  const trimmedDescription = description.trim()
   const titleTooLong = trimmedTitle.length > MAX_RANKING_TITLE_LENGTH
   const descriptionTooLong =
-    description.trim().length > MAX_RANKING_DESCRIPTION_LENGTH
+    trimmedDescription.length > MAX_RANKING_DESCRIPTION_LENGTH
   const availabilityMessage =
     availability && !availability.canPublish ? availability.message : null
 
@@ -236,7 +238,7 @@ const PublishRankingForm = ({
     const result = await run({
       boardExternalId,
       title: trimmedTitle,
-      description: description.trim() ? description.trim() : null,
+      description: trimmedDescription ? trimmedDescription : null,
       visibility,
       ...(criterionExternalId
         ? { criterionExternalId: criterionExternalId }
@@ -300,7 +302,7 @@ const PublishRankingForm = ({
               descriptionTooLong ? 'text-[var(--t-destructive-hover)]' : ''
             }
           >
-            {description.trim().length}/{MAX_RANKING_DESCRIPTION_LENGTH}
+            {trimmedDescription.length}/{MAX_RANKING_DESCRIPTION_LENGTH}
           </span>
         </div>
       </div>

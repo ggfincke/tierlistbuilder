@@ -1471,19 +1471,25 @@ const loadRankingCountByCriterion = async (
   criteria: readonly { externalId: string }[]
 ): Promise<Record<string, number>> =>
 {
+  // pre-fill so every visible criterion has a count entry even when its
+  // aggregate row hasn't materialized yet (lane has 0 published rankings)
+  const known = new Set(criteria.map((c) => c.externalId))
+  const result: Record<string, number> = {}
+  for (const externalId of known)
+  {
+    result[externalId] = 0
+  }
+
   const rows = await ctx.db
     .query('templateRankingAggregates')
     .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
     .collect()
-  const byCriterion = new Map<string, number>()
   for (const row of rows)
   {
-    byCriterion.set(row.criterionExternalId, row.rankingCount)
-  }
-  const result: Record<string, number> = {}
-  for (const criterion of criteria)
-  {
-    result[criterion.externalId] = byCriterion.get(criterion.externalId) ?? 0
+    if (known.has(row.criterionExternalId))
+    {
+      result[row.criterionExternalId] = row.rankingCount
+    }
   }
   return result
 }

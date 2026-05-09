@@ -4,42 +4,19 @@
 // multi-criterion templates show Comp vs Favs counts separately
 
 import { ConvexHttpClient } from 'convex/browser'
+import type { FunctionReturnType } from 'convex/server'
 
 import { api } from '../convex/_generated/api.js'
 import { parseCommunityRankingSeedArgs } from './marketplace-seed/communityRankingArgs'
 import { waitForCommunityRankingAggregates } from './marketplace-seed/communityRankingWait'
 import { readSeedEnvironment } from './marketplace-seed/env'
 
-interface SeedLaneBreakdown
-{
-  criterionExternalId: string
-  criterionName: string
-  sampleSeeded: number
-  curatedSeeded: number
-  curatedAuthors: string[]
-}
-
-interface SeedTargetResult
-{
-  key: 'ssbu' | 'zelda' | 'mcu'
-  title: string
-  slug: string
-  itemCount: number
-  rankingsSeeded: number
-  rankingsDeleted: number
-  laneBreakdown: SeedLaneBreakdown[]
-}
-
-interface SeedCuratedRankingResult
-{
-  targetKey: 'ssbu' | 'zelda' | 'mcu'
-  targetTitle: string
-  criterionExternalId: string
-  authorKey: string
-  authorDisplayName: string
-  rankingTitle: string
-  rankingSlug: string
-}
+type SeedResult = FunctionReturnType<
+  typeof api.marketplace.rankings.seed.seedSampleCommunityRankings
+>
+type SeedTargetResult = SeedResult['targets'][number]
+type SeedLaneBreakdown = SeedTargetResult['laneBreakdown'][number]
+type SeedCuratedRankingResult = SeedResult['curatedRankings'][number]
 
 const writeln = (line: string): void =>
 {
@@ -166,7 +143,7 @@ const main = async (): Promise<void> =>
   // per-target / per-lane block — matches the marketplace seeder's
   // indented per-folder output but slices by criterion lane so users see
   // exactly how many rankings landed in Comp vs Favs for each template
-  for (const target of result.targets as SeedTargetResult[])
+  for (const target of result.targets)
   {
     writeln(formatTargetSummary(target))
     for (const lane of target.laneBreakdown)
@@ -175,17 +152,12 @@ const main = async (): Promise<void> =>
     }
   }
 
-  printCuratedSection(
-    result.curatedRankings as readonly SeedCuratedRankingResult[]
-  )
+  printCuratedSection(result.curatedRankings)
 
   if (wait)
   {
     writeln('waiting for consensus aggregates...')
-    await waitForCommunityRankingAggregates(
-      client,
-      result.targets as SeedTargetResult[]
-    )
+    await waitForCommunityRankingAggregates(client, result.targets)
   }
 }
 

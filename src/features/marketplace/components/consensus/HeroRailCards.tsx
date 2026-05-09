@@ -37,6 +37,11 @@ interface HeroRailCardsProps
   labelSettings: BoardLabelSettings | null
 }
 
+interface HeroRailCardsLoadingProps
+{
+  rankingCount: number
+}
+
 interface RailRowProps
 {
   row: MarketplaceTemplateRankingAggregateItem
@@ -96,6 +101,38 @@ const SkeletonList = () => (
       <SkeletonRow key={index} />
     ))}
   </ul>
+)
+
+export const HeroRailCardsLoading = ({
+  rankingCount,
+}: HeroRailCardsLoadingProps) => (
+  <>
+    <RailCard
+      eyebrow={
+        <>
+          <Flame
+            className="h-3 w-3 text-[var(--t-destructive)]"
+            strokeWidth={2}
+          />
+          Most divisive
+        </>
+      }
+      meta={rankingCount > 0 ? `n = ${rankingCount}` : undefined}
+    >
+      <SkeletonList />
+    </RailCard>
+
+    <RailCard
+      eyebrow={
+        <>
+          <Crown className="h-3 w-3 text-[var(--t-success)]" strokeWidth={2} />
+          Strongest consensus
+        </>
+      }
+    >
+      <SkeletonList />
+    </RailCard>
+  </>
 )
 
 export const HeroRailCards = ({

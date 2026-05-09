@@ -2,7 +2,6 @@
 // four-card KPI strip summarizing two criterion lanes — gauge, fraction,
 // histogram, split-bar — each w/ a distinct visual language
 
-import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { formatCount } from '~/shared/catalog/formatters'
 
 import { correlationCopy, type CompareInsights } from './laneUtils'
@@ -10,7 +9,6 @@ import { correlationCopy, type CompareInsights } from './laneUtils'
 interface CompareInsightStripProps
 {
   insights: CompareInsights
-  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   leftRankingCount: number
   rightRankingCount: number
   leftShortName: string
@@ -365,9 +363,6 @@ const InsightSplit = ({
 
 export const CompareInsightStrip = ({
   insights,
-  // buckets unused after the histogram refactor but kept on the prop list
-  // so callers remain stable when a future KPI does need bucket metadata
-  buckets: _buckets,
   leftRankingCount,
   rightRankingCount,
   leftShortName,

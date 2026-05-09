@@ -650,11 +650,8 @@ export default defineSchema({
     topBucketShare: v.number(),
     consensusScore: v.number(),
     controversyScore: v.number(),
-    // optional only to tolerate aggregate-item rows seeded before the
-    // relative-controversy migration; the recompute job always overwrites
-    // these on its next pass so newly seeded rows are immediately filled
-    controversyPercentile: v.optional(v.number()),
-    agreementPercentile: v.optional(v.number()),
+    controversyPercentile: v.number(),
+    agreementPercentile: v.number(),
     averageTopSort: v.number(),
     averageBottomSort: v.number(),
     consensusSort: v.number(),

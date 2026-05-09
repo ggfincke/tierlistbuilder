@@ -3,32 +3,18 @@
 // "aggregate ready" line per (target, criterion) lane
 
 import type { ConvexHttpClient } from 'convex/browser'
+import type { FunctionReturnType } from 'convex/server'
 
 import { api } from '../../convex/_generated/api.js'
 import { sleep } from './env'
 
+type SeedResult = FunctionReturnType<
+  typeof api.marketplace.rankings.seed.seedSampleCommunityRankings
+>
+type SeedTargetResult = SeedResult['targets'][number]
+
 const DEFAULT_WAIT_TIMEOUT_MS = 60_000
 const WAIT_INTERVAL_MS = 750
-
-interface CommunityRankingSeedLaneBreakdown
-{
-  criterionExternalId: string
-  criterionName: string
-  sampleSeeded: number
-  curatedSeeded: number
-  curatedAuthors: string[]
-}
-
-interface CommunityRankingSeedTargetResult
-{
-  key: 'ssbu' | 'zelda' | 'mcu'
-  title: string
-  slug: string
-  itemCount: number
-  rankingsSeeded: number
-  rankingsDeleted: number
-  laneBreakdown: CommunityRankingSeedLaneBreakdown[]
-}
 
 interface PendingLane
 {
@@ -40,7 +26,7 @@ interface PendingLane
 }
 
 const buildPendingLanes = (
-  targets: readonly CommunityRankingSeedTargetResult[]
+  targets: readonly SeedTargetResult[]
 ): PendingLane[] =>
 {
   const pending: PendingLane[] = []
@@ -67,7 +53,7 @@ const laneKey = (slug: string, criterionExternalId: string): string =>
 
 export const waitForCommunityRankingAggregates = async (
   client: ConvexHttpClient,
-  targets: readonly CommunityRankingSeedTargetResult[]
+  targets: readonly SeedTargetResult[]
 ): Promise<void> =>
 {
   const lanes = buildPendingLanes(targets)

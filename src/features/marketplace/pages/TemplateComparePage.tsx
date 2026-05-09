@@ -2,7 +2,7 @@
 // criterion vs criterion compare surface; lanes deep-link via ?left=&right=
 // & the page joins both lanes' aggregate items by templateItemId
 
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
@@ -22,6 +22,7 @@ import {
   useTemplateRankingAggregateItems,
   type TemplateRankingAggregateItemsPageStatus,
 } from '~/features/marketplace/model/useRankingDetail'
+import { selectBusiestOtherCriterion } from '~/features/marketplace/model/criterionSelection'
 import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
@@ -30,6 +31,7 @@ import { SkeletonBlock } from '~/shared/ui/Skeleton'
 import { templateFrame } from '~/features/marketplace/components/consensus/utils'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
+import { LoadingBlock } from '~/features/marketplace/components/consensus/LoadingBlock'
 import { CompareDivergenceTable } from '~/features/marketplace/components/consensus/compare/CompareDivergenceTable'
 import { CompareInsightStrip } from '~/features/marketplace/components/consensus/compare/CompareInsightStrip'
 import { CompareLaneHeader } from '~/features/marketplace/components/consensus/compare/CompareLaneHeader'
@@ -82,12 +84,8 @@ const resolveSelection = (
   let right = findActive(activeCriteria, rightParam)
   if (!right || right.externalId === left.externalId)
   {
-    const others = sorted.filter((c) => c.externalId !== left.externalId)
     const counts = template.rankingCountByCriterion ?? {}
-    const ranked = [...others].sort(
-      (a, b) => (counts[b.externalId] ?? 0) - (counts[a.externalId] ?? 0)
-    )
-    right = ranked[0] ?? others[0] ?? null
+    right = selectBusiestOtherCriterion(sorted, left.externalId, counts)
   }
   if (!right) return null
   return {
@@ -172,24 +170,23 @@ const StateBlock = ({ title, body }: { title: string; body: string }) => (
   </div>
 )
 
-const LoadingBlock = ({ message }: { message: string }) => (
-  <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-5 py-8 text-sm text-[var(--t-text-muted)]">
-    <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-    {message}
-  </div>
-)
-
 interface CompareBodyProps
 {
   detail: MarketplaceTemplateDetail
   selection: ResolvedSelection
+  activeCriteria: readonly MarketplaceTemplateCriterion[]
   onSwap: (next: { left?: string; right?: string }) => void
 }
 
 // inner component so the heavy data hooks only mount once we have a
 // resolved selection; pulling this apart from the orchestration shell
 // keeps the parent's URL-state code uncluttered
-const CompareBody = ({ detail, selection, onSwap }: CompareBodyProps) =>
+const CompareBody = ({
+  detail,
+  selection,
+  activeCriteria,
+  onSwap,
+}: CompareBodyProps) =>
 {
   const { left: leftCriterion, right: rightCriterion } = selection
 
@@ -250,10 +247,6 @@ const CompareBody = ({ detail, selection, onSwap }: CompareBodyProps) =>
   const leftRankingCount = leftAggregate?.rankingCount ?? 0
   const rightRankingCount = rightAggregate?.rankingCount ?? 0
 
-  // filter active criteria here too (not just upstream) so the lane swap
-  // dropdown can never offer a hidden/deprecated lane on a deep link
-  const activeCriteria = detail.criteria.filter((c) => c.status === 'active')
-
   return (
     <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
       <MarketplaceBreadcrumb
@@ -313,7 +306,6 @@ const CompareBody = ({ detail, selection, onSwap }: CompareBodyProps) =>
       <section className="mt-6">
         <CompareInsightStrip
           insights={insights}
-          buckets={buckets}
           leftRankingCount={leftRankingCount}
           rightRankingCount={rightRankingCount}
           leftShortName={leftShortName}
@@ -327,7 +319,10 @@ const CompareBody = ({ detail, selection, onSwap }: CompareBodyProps) =>
         </section>
       ) : !itemsReady ? (
         <section className="mt-6">
-          <LoadingBlock message="Loading items for both lanes…" />
+          <LoadingBlock
+            message="Loading items for both lanes…"
+            className="rounded-xl"
+          />
         </section>
       ) : joinedRows.length === 0 ? (
         <section className="mt-6">
@@ -432,7 +427,7 @@ const renderLaneState = (
   // exactly where the gap is
   if (left === undefined || right === undefined)
   {
-    return <LoadingBlock message="Loading lane data…" />
+    return <LoadingBlock message="Loading lane data…" className="rounded-xl" />
   }
   if (left === null || left.state === 'empty')
   {
@@ -461,7 +456,12 @@ const renderLaneState = (
       />
     )
   }
-  return <LoadingBlock message="Computing consensus from public rankings…" />
+  return (
+    <LoadingBlock
+      message="Computing consensus from public rankings…"
+      className="rounded-xl"
+    />
+  )
 }
 
 export const TemplateComparePage = () =>
@@ -525,6 +525,11 @@ export const TemplateComparePage = () =>
   }
 
   return (
-    <CompareBody detail={detail} selection={selection} onSwap={handleSwap} />
+    <CompareBody
+      detail={detail}
+      selection={selection}
+      activeCriteria={activeCriteria}
+      onSwap={handleSwap}
+    />
   )
 }

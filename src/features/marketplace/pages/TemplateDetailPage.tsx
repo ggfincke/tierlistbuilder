@@ -2,13 +2,17 @@
 // breadcrumb -> hero -> consensus (w/ inline rail) -> credit -> related
 
 import { Layers } from 'lucide-react'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import {
   isTemplateSlug,
   type MarketplaceTemplateDetail,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import {
+  isTemplateRankingAggregateReady as isAggregateReady,
+  type MarketplaceTemplateRankingAggregate,
+} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useSelectedCriterion } from '~/features/marketplace/model/useSelectedCriterion'
 import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
@@ -21,7 +25,10 @@ import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
 import { Card } from '~/features/marketplace/components/cards/Card'
 import { CommunityConsensusSection } from '~/features/marketplace/components/discovery/CommunityConsensusSection'
-import { HeroRailCards } from '~/features/marketplace/components/consensus/HeroRailCards'
+import {
+  HeroRailCards,
+  HeroRailCardsLoading,
+} from '~/features/marketplace/components/consensus/HeroRailCards'
 import { useHeroSpread } from '~/features/marketplace/components/consensus/useHeroSpread'
 import { templateFrame } from '~/features/marketplace/components/consensus/utils'
 import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
@@ -144,6 +151,54 @@ interface TemplateDetailContentProps
   detail: MarketplaceTemplateDetail
 }
 
+const useCachedHeroAggregate = (
+  cacheKey: string,
+  readyAggregate: MarketplaceTemplateRankingAggregate | null,
+  useFallback: boolean
+): MarketplaceTemplateRankingAggregate | null =>
+{
+  const [cache, setCache] = useState<
+    ReadonlyMap<string, MarketplaceTemplateRankingAggregate>
+  >(() => new Map())
+
+  const cachedAggregate = cache.get(cacheKey) ?? null
+  if (
+    readyAggregate !== null &&
+    !isSameHeroAggregate(cachedAggregate, readyAggregate)
+  )
+  {
+    setCache((prev) =>
+    {
+      if (isSameHeroAggregate(prev.get(cacheKey) ?? null, readyAggregate))
+      {
+        return prev
+      }
+      const next = new Map(prev)
+      next.set(cacheKey, readyAggregate)
+      return next
+    })
+  }
+
+  return readyAggregate ?? (useFallback ? cachedAggregate : null)
+}
+
+const isSameHeroAggregate = (
+  previous: MarketplaceTemplateRankingAggregate | null,
+  next: MarketplaceTemplateRankingAggregate
+): boolean =>
+{
+  if (previous === null) return false
+  return (
+    previous.criterion.externalId === next.criterion.externalId &&
+    previous.state === next.state &&
+    previous.activeGeneration === next.activeGeneration &&
+    previous.rankingCount === next.rankingCount &&
+    previous.itemCount === next.itemCount &&
+    previous.computedAt === next.computedAt &&
+    previous.staleAt === next.staleAt
+  )
+}
+
 // inner component so the criterion-aware hooks below only mount once we
 // have a resolved template — `useSelectedCriterion` needs the criteria
 // list at call time, & we don't want to pass an empty placeholder
@@ -156,17 +211,43 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
     detail.slug,
     criterion.externalId
   )
-  const spreadCounts = useHeroSpread({ aggregate })
+  const rankingCount =
+    aggregate?.rankingCount ??
+    detail.rankingCountByCriterion?.[criterion.externalId] ??
+    0
+  const readyAggregate = isAggregateReady(aggregate) ? aggregate : null
+  const heroAggregate = useCachedHeroAggregate(
+    `${detail.slug}:${criterion.externalId}`,
+    readyAggregate,
+    aggregate === undefined
+  )
+  const heroAggregateLoading =
+    aggregate === undefined && heroAggregate === null && rankingCount > 0
+  const spreadCounts = useHeroSpread({ aggregate: heroAggregate })
 
   const categoryLabel = CATEGORY_META[detail.category].label
-  const hasConsensus = isAggregateReady(aggregate)
+  const hasConsensus = readyAggregate !== null || rankingCount > 0
   // hero counts now reflect the active lane so users see the same number
   // they'd see in the consensus header instead of an aggregated count
   // that may not match what the chart below is showing
-  const rankingCount = aggregate?.rankingCount ?? 0
   const frame = templateFrame(detail)
   const hasPreset = detail.suggestedTiers.length > 0
-  const showRail = hasPreset || (hasConsensus && aggregate !== null)
+  const showRail = hasPreset || heroAggregate !== null || heroAggregateLoading
+  const heroConsensusRail =
+    heroAggregate !== null || heroAggregateLoading ? (
+      <div className={`flex flex-col gap-3 ${hasPreset ? 'lg:mt-auto' : ''}`}>
+        {heroAggregate !== null ? (
+          <HeroRailCards
+            templateSlug={detail.slug}
+            aggregate={heroAggregate}
+            frame={frame}
+            labelSettings={detail.labels}
+          />
+        ) : (
+          <HeroRailCardsLoading rankingCount={rankingCount} />
+        )}
+      </div>
+    ) : null
 
   return (
     <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
@@ -190,18 +271,7 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
                 {hasPreset && (
                   <RecommendedPresetCard tiers={detail.suggestedTiers} />
                 )}
-                {hasConsensus && aggregate && (
-                  <div
-                    className={`flex flex-col gap-3 ${hasPreset ? 'lg:mt-auto' : ''}`}
-                  >
-                    <HeroRailCards
-                      templateSlug={detail.slug}
-                      aggregate={aggregate}
-                      frame={frame}
-                      labelSettings={detail.labels}
-                    />
-                  </div>
-                )}
+                {heroConsensusRail}
               </>
             ) : null
           }
