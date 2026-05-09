@@ -32,6 +32,10 @@ const PRESETS: Record<string, CriterionVisual> = {
   fun: { icon: Flame, accent: '#FF7F7E' },
   annoying: { icon: Flame, accent: '#7EBFFF' },
   newcomer: { icon: User, accent: '#C1FF80' },
+  dungeons: { icon: Compass, accent: '#7EBFFF' },
+  story: { icon: Bookmark, accent: '#A1A1FF' },
+  rewatch: { icon: Heart, accent: '#FF7F7E' },
+  impact: { icon: Trophy, accent: '#FFDF80' },
 }
 
 const FALLBACKS: readonly CriterionVisual[] = [

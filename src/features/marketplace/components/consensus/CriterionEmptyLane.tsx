@@ -59,6 +59,7 @@ export const CriterionEmptyLane = ({
           <UseTemplateButton
             slug={templateSlug}
             templateTitle={templateTitle}
+            preferredCriterionExternalId={criterion.externalId}
             size="md"
           />
         </div>

@@ -6,6 +6,11 @@ import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
+import {
+  findActiveCriterion,
+  findFirstActiveCriterion,
+  findPrimaryCriterion,
+} from './criterionSelection'
 
 interface SelectedCriterionResult
 {
@@ -23,31 +28,6 @@ interface SelectedCriterionResult
 
 const PARAM_KEY = 'criterion'
 
-const findActive = (
-  criteria: readonly MarketplaceTemplateCriterion[],
-  externalId: string
-): MarketplaceTemplateCriterion | null =>
-{
-  const match = criteria.find((c) => c.externalId === externalId)
-  if (!match) return null
-  return match.status === 'active' ? match : null
-}
-
-const findPrimary = (
-  criteria: readonly MarketplaceTemplateCriterion[]
-): MarketplaceTemplateCriterion | null =>
-  criteria.find((c) => c.isPrimary && c.status === 'active') ?? null
-
-const findFirstActive = (
-  criteria: readonly MarketplaceTemplateCriterion[]
-): MarketplaceTemplateCriterion | null =>
-{
-  const sorted = [...criteria]
-    .filter((c) => c.status === 'active')
-    .sort((a, b) => a.order - b.order)
-  return sorted[0] ?? null
-}
-
 // resolve the active criterion from URL + template metadata. returns null
 // only when no active criterion exists; treat null as "consensus surface
 // unavailable for this template" (the backend normally prevents this)
@@ -58,12 +38,12 @@ export const resolveSelectedCriterion = (
 {
   if (requestedExternalId)
   {
-    const requested = findActive(criteria, requestedExternalId)
+    const requested = findActiveCriterion(criteria, requestedExternalId)
     if (requested) return requested
   }
-  const primary = findPrimary(criteria)
+  const primary = findPrimaryCriterion(criteria)
   if (primary) return primary
-  return findFirstActive(criteria)
+  return findFirstActiveCriterion(criteria)
 }
 
 // chips need ≥2 active criteria to be useful; templates w/ only the
@@ -101,7 +81,7 @@ export const useSelectedCriterion = (
   )
 
   const primaryExternalId = useMemo(
-    () => findPrimary(criteria)?.externalId ?? null,
+    () => findPrimaryCriterion(criteria)?.externalId ?? null,
     [criteria]
   )
 

@@ -145,6 +145,18 @@ export const toTemplateRankingAggregate = (
     buckets: toBuckets(template, aggregate.bucketCount),
     bucketSpread:
       aggregate.bucketSpread ?? makeEmptyBucketSpread(aggregate.bucketCount),
+    mostAgreed: aggregate.mostAgreedItemExternalId
+      ? {
+          templateItemExternalId: aggregate.mostAgreedItemExternalId,
+          label: aggregate.mostAgreedItemLabel,
+        }
+      : null,
+    mostDivisive: aggregate.mostDivisiveItemExternalId
+      ? {
+          templateItemExternalId: aggregate.mostDivisiveItemExternalId,
+          label: aggregate.mostDivisiveItemLabel,
+        }
+      : null,
   }
 }
 
@@ -239,6 +251,10 @@ export const queueTemplateRankingAggregateRecompute = async (
       computedAt: null,
       staleAt: now,
       bucketSpread: makeEmptyBucketSpread(bucketCount),
+      mostAgreedItemExternalId: null,
+      mostAgreedItemLabel: null,
+      mostDivisiveItemExternalId: null,
+      mostDivisiveItemLabel: null,
       updatedAt: now,
     })
   }

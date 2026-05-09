@@ -104,6 +104,8 @@ export default defineSchema({
     sourceTemplateId: v.union(v.id('templates'), v.null()),
     sourceTemplateCategory: v.union(templateCategoryValidator, v.null()),
     sourceTemplateSizeClass: v.union(templateSizeClassValidator, v.null()),
+    // fork source criterion; publish modal uses it as the default lane
+    preferredCriterionExternalId: v.optional(v.string()),
     livePublicTemplateId: v.union(v.id('templates'), v.null()),
     cloudState: boardCloudStateValidator,
     materializationState: boardMaterializationStateValidator,
@@ -622,9 +624,13 @@ export default defineSchema({
     computedAt: v.union(v.number(), v.null()),
     staleAt: v.union(v.number(), v.null()),
     bucketSpread: v.array(v.number()),
+    mostAgreedItemExternalId: v.union(v.string(), v.null()),
+    mostAgreedItemLabel: v.union(v.string(), v.null()),
+    mostDivisiveItemExternalId: v.union(v.string(), v.null()),
+    mostDivisiveItemLabel: v.union(v.string(), v.null()),
     updatedAt: v.number(),
   })
-    .index('byTemplateId', ['templateId'])
+    .index('byTemplateId', ['templateId'])=
     .index('byTemplateIdAndCriterion', ['templateId', 'criterionExternalId'])
     .index('byStateAndUpdatedAt', ['state', 'updatedAt']),
 

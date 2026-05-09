@@ -27,6 +27,7 @@ import {
 } from '../../workspace/boards/librarySummary'
 import { loadMediaVariantStorageId } from '../../lib/mediaVariants'
 import { resolveTemplateProgressState } from '../../lib/templateProgress'
+import { literalUnion } from '../../lib/validators'
 import {
   DEFAULT_TEMPLATE_TIERS,
   findTemplateCardByTemplateId,
@@ -57,13 +58,10 @@ const MAX_SEED_ROW_TIERS = 64
 const MAX_SEED_OWNER_RANKINGS = 120
 const HOUR_MS = 60 * 60 * 1000
 
-const targetKeyValidator = v.union(
-  v.literal('ssbu'),
-  v.literal('zelda'),
-  v.literal('mcu')
-)
+const TARGET_KEYS = ['ssbu', 'zelda', 'mcu'] as const
+const targetKeyValidator = literalUnion(TARGET_KEYS)
 
-type TargetKey = 'ssbu' | 'zelda' | 'mcu'
+type TargetKey = (typeof TARGET_KEYS)[number]
 
 interface FeaturedSeedProfile
 {
@@ -698,10 +696,20 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
   },
 ]
 
-// favorites lane shape & config — per-criterion seed inputs that drive the
-// non-primary (e.g. SSBU 'favorites') sample-ranking flow without leaking
-// into the existing competitive lane's scoring
-type SeedExtraLaneKey = 'ssbu-favorites' | 'zelda-favorites' | 'mcu-favorites'
+const SEED_EXTRA_LANE_KEYS = [
+  'ssbu-favorites',
+  'ssbu-fun',
+  'ssbu-annoying',
+  'ssbu-newcomer',
+  'zelda-favorites',
+  'zelda-dungeons',
+  'zelda-story',
+  'mcu-favorites',
+  'mcu-rewatch',
+  'mcu-impact',
+] as const
+
+type SeedExtraLaneKey = (typeof SEED_EXTRA_LANE_KEYS)[number]
 
 interface SeedExtraLaneDefinition
 {
@@ -709,29 +717,17 @@ interface SeedExtraLaneDefinition
   laneKey: SeedExtraLaneKey
   targetKey: TargetKey
   criterionExternalId: string
-  // appended to board / tier / item externalIds so favorites & competitive
-  // rows from the same author don't collide on byOwnerAndExternalId
+  // appended to row externalIds so lanes from the same author do not collide
   laneSlug: string
-  // ranking title template applied per profile — "{name}'s favorite mains"
+  // ranking title template applied per profile
   rankingTitleSuffix: string
   rankingDescription: string
-  // crowd-favorite terms — boost characters most players gravitate to
-  // regardless of viability (Mario, Pikachu, Cloud, Sora, Sephiroth, etc.)
+  // lane-level terms shared by every sample profile
   boostTerms: readonly string[]
-  // drop terms — characters typically NOT picked as a personal favorite
-  // (mii fighters, clones, dr mario)
   dropTerms: readonly string[]
-  // per-profile favorite picks; replaces the competitive boostTerms for
-  // this lane so favorites read as personal preference instead of tournament
-  // viability. profile keys w/o entries fall through to the lane's crowd
   profileBoostOverrides: Readonly<Record<string, readonly string[]>>
   profileDropOverrides?: Readonly<Record<string, readonly string[]>>
-  // multiplier applied on top of profile.chaos so favorites read more
-  // personal/scattered than the competitive lane
   chaosMultiplier: number
-  // optional shrink applied on top of profile.contrarian (favorites are
-  // less anti-crowd than tournament picks; people don't pretend to dislike
-  // characters they actually love)
   contrarianMultiplier: number
 }
 
@@ -797,11 +793,169 @@ const SSBU_FAVORITES_LANE: SeedExtraLaneDefinition = {
     'olive-ray': ['jigglypuff', 'pichu', 'pokemon trainer', 'incineroar'],
     'pax-stone': ['donkey kong', 'diddy kong', 'yoshi', 'bowser jr'],
   },
-  // every profile drops the mii fighters because favorites are personality-
-  // driven; nobody picks generic placeholder fighters as their main
-  profileDropOverrides: {},
   chaosMultiplier: 1.55,
   contrarianMultiplier: 0.45,
+}
+
+const SSBU_FUN_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'ssbu-fun',
+  targetKey: 'ssbu',
+  criterionExternalId: 'fun',
+  laneSlug: 'fun',
+  rankingTitleSuffix: 'most fun Smash fighters',
+  rankingDescription:
+    'Smash fun-factor ranking based on expressive kits, hype moments, and couch-play chaos.',
+  boostTerms: [
+    'captain falcon',
+    'donkey kong',
+    'bowser',
+    'king k rool',
+    'ganondorf',
+    'kirby',
+    'jigglypuff',
+    'incineroar',
+    'hero',
+    'joker',
+    'sora',
+    'sephiroth',
+    'snake',
+    'kazuya',
+    'terry',
+    'banjo and kazooie',
+    'pyra and mythra',
+  ],
+  dropTerms: ['olimar', 'min min', 'mii gunner', 'wii fit trainer'],
+  profileBoostOverrides: {
+    'ava-byte': ['samus', 'zero suit samus', 'fox', 'falco'],
+    'ben-combo': ['ryu', 'ken', 'terry', 'kazuya', 'captain falcon'],
+    'cora-quest': ['kirby', 'yoshi', 'pikachu', 'jigglypuff'],
+    'diego-frame': ['wario', 'snake', 'ness', 'mr game and watch'],
+    'elise-circuit': ['link', 'young link', 'toon link', 'zelda'],
+    'finn-nova': ['banjo and kazooie', 'duck hunt', 'rob', 'hero'],
+    'gia-pilot': ['fox', 'falco', 'wolf', 'captain falcon'],
+    'hugo-bloom': ['peach', 'daisy', 'rosalina and luma', 'isabelle'],
+    'iris-lane': ['marth', 'lucina', 'ike', 'roy'],
+    'jae-tempo': ['sonic', 'mega man', 'pac man', 'little mac'],
+    'kira-vale': ['sora', 'joker', 'sephiroth', 'cloud'],
+    'leo-sparks': ['bowser', 'king k rool', 'ridley', 'ganondorf'],
+    'mina-orbit': ['villager', 'isabelle', 'steve', 'piranha plant'],
+    'nico-slate': ['cloud', 'sephiroth', 'hero', 'shulk'],
+    'olive-ray': ['jigglypuff', 'pichu', 'incineroar', 'pokemon trainer'],
+    'pax-stone': ['donkey kong', 'diddy kong', 'yoshi', 'bowser jr'],
+  },
+  chaosMultiplier: 1.7,
+  contrarianMultiplier: 0.6,
+}
+
+const SSBU_ANNOYING_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'ssbu-annoying',
+  targetKey: 'ssbu',
+  criterionExternalId: 'annoying',
+  laneSlug: 'annoying',
+  rankingTitleSuffix: 'most annoying Smash matchups',
+  rankingDescription:
+    'Smash salt ranking: zoning, camping, matchup checks, and "please stop doing that" energy.',
+  boostTerms: [
+    'sonic',
+    'steve',
+    'min min',
+    'mr game and watch',
+    'rob',
+    'pac man',
+    'snake',
+    'duck hunt',
+    'olimar',
+    'young link',
+    'toon link',
+    'samus',
+    'dark samus',
+    'pikachu',
+    'pichu',
+    'bayonetta',
+    'kazuya',
+    'ness',
+  ],
+  dropTerms: ['mario', 'donkey kong', 'captain falcon', 'ganondorf', 'kirby'],
+  profileBoostOverrides: {
+    'ava-byte': ['sonic', 'pikachu', 'pichu', 'zero suit samus'],
+    'ben-combo': ['min min', 'steve', 'kazuya', 'bayonetta'],
+    'cora-quest': ['snake', 'rob', 'mr game and watch'],
+    'diego-frame': ['ness', 'young link', 'toon link', 'duck hunt'],
+    'elise-circuit': ['samus', 'dark samus', 'zelda', 'sheik'],
+    'finn-nova': ['duck hunt', 'rob', 'olimar', 'mr game and watch'],
+    'gia-pilot': ['fox', 'falco', 'wolf', 'pikachu'],
+    'hugo-bloom': ['peach', 'daisy', 'rosalina and luma', 'isabelle'],
+    'iris-lane': ['lucina', 'marth', 'chrom', 'byleth'],
+    'jae-tempo': ['sonic', 'mega man', 'pac man', 'min min'],
+    'kira-vale': ['sora', 'joker', 'sephiroth', 'steve'],
+    'leo-sparks': ['bowser', 'king k rool', 'incineroar'],
+    'mina-orbit': ['villager', 'isabelle', 'steve'],
+    'nico-slate': ['cloud', 'shulk', 'sephiroth'],
+    'olive-ray': ['jigglypuff', 'pichu', 'pokemon trainer'],
+    'pax-stone': ['yoshi', 'diddy kong', 'duck hunt'],
+  },
+  chaosMultiplier: 1.35,
+  contrarianMultiplier: 0.8,
+}
+
+const SSBU_NEWCOMER_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'ssbu-newcomer',
+  targetKey: 'ssbu',
+  criterionExternalId: 'newcomer',
+  laneSlug: 'newcomer',
+  rankingTitleSuffix: 'best Smash fighters for newcomers',
+  rankingDescription:
+    'New-player Smash ranking focused on clear game plans, forgiving inputs, and fast learning curves.',
+  boostTerms: [
+    'mario',
+    'kirby',
+    'yoshi',
+    'lucina',
+    'cloud',
+    'bowser',
+    'donkey kong',
+    'pit',
+    'dark pit',
+    'ike',
+    'ganondorf',
+    'little mac',
+    'king k rool',
+    'samus',
+    'link',
+  ],
+  dropTerms: [
+    'ice climbers',
+    'rosalina and luma',
+    'olimar',
+    'pokemon trainer',
+    'shulk',
+    'steve',
+    'kazuya',
+    'ryu',
+    'ken',
+    'terry',
+    'min min',
+  ],
+  profileBoostOverrides: {
+    'ava-byte': ['samus', 'dark samus', 'link', 'pit'],
+    'ben-combo': ['captain falcon', 'little mac', 'ike'],
+    'cora-quest': ['kirby', 'yoshi', 'pikachu'],
+    'diego-frame': ['mario', 'luigi', 'bowser'],
+    'elise-circuit': ['link', 'toon link', 'lucina'],
+    'finn-nova': ['banjo and kazooie', 'rob', 'king dedede'],
+    'gia-pilot': ['fox', 'wolf', 'captain falcon'],
+    'hugo-bloom': ['peach', 'daisy', 'isabelle'],
+    'iris-lane': ['marth', 'lucina', 'ike', 'roy'],
+    'jae-tempo': ['sonic', 'mega man', 'pac man'],
+    'kira-vale': ['cloud', 'sora', 'sephiroth'],
+    'leo-sparks': ['bowser', 'king k rool', 'ganondorf'],
+    'mina-orbit': ['villager', 'isabelle', 'mii brawler'],
+    'nico-slate': ['cloud', 'ike', 'hero'],
+    'olive-ray': ['jigglypuff', 'kirby', 'pichu'],
+    'pax-stone': ['donkey kong', 'yoshi', 'bowser jr'],
+  },
+  chaosMultiplier: 0.9,
+  contrarianMultiplier: 0.25,
 }
 
 const ZELDA_FAVORITES_LANE: SeedExtraLaneDefinition = {
@@ -855,6 +1009,105 @@ const ZELDA_FAVORITES_LANE: SeedExtraLaneDefinition = {
   contrarianMultiplier: 0.5,
 }
 
+const ZELDA_DUNGEONS_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'zelda-dungeons',
+  targetKey: 'zelda',
+  criterionExternalId: 'dungeons',
+  laneSlug: 'dungeons',
+  rankingTitleSuffix: 'best Zelda dungeon lineups',
+  rankingDescription:
+    'Zelda dungeon ranking based on temples, puzzle spaces, boss buildup, and item-gated progression.',
+  boostTerms: [
+    'ocarina of time',
+    'majoras mask',
+    'twilight princess',
+    'skyward sword',
+    'a link to the past',
+    'links awakening',
+    'oracle of seasons and ages',
+    'the minish cap',
+    'a link between worlds',
+    'the wind waker',
+  ],
+  dropTerms: [
+    'breath of the wild',
+    'tears of the kingdom',
+    'phantom hourglass',
+    'spirit tracks',
+    'tri force heroes',
+    'four swords adventures',
+  ],
+  profileBoostOverrides: {
+    'ava-byte': ['a link between worlds', 'the minish cap'],
+    'ben-combo': ['ocarina of time', 'twilight princess'],
+    'cora-quest': ['ocarina of time', 'a link to the past'],
+    'diego-frame': ['majoras mask', 'twilight princess'],
+    'elise-circuit': ['a link to the past', 'a link between worlds'],
+    'finn-nova': ['skyward sword', 'the minish cap'],
+    'gia-pilot': ['tears of the kingdom', 'skyward sword'],
+    'hugo-bloom': ['oracle of seasons and ages', 'the minish cap'],
+    'iris-lane': ['twilight princess', 'majoras mask'],
+    'jae-tempo': ['zelda ii the adventure of link', 'the legend of zelda'],
+    'kira-vale': ['ocarina of time', 'a link to the past'],
+    'leo-sparks': ['links awakening', 'the minish cap'],
+    'mina-orbit': ['skyward sword', 'the wind waker'],
+    'nico-slate': ['tears of the kingdom', 'breath of the wild'],
+    'olive-ray': ['four swords adventures', 'tri force heroes'],
+    'pax-stone': ['twilight princess', 'majoras mask'],
+  },
+  chaosMultiplier: 1.15,
+  contrarianMultiplier: 0.45,
+}
+
+const ZELDA_STORY_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'zelda-story',
+  targetKey: 'zelda',
+  criterionExternalId: 'story',
+  laneSlug: 'story',
+  rankingTitleSuffix: 'best Zelda stories',
+  rankingDescription:
+    'Zelda story ranking based on atmosphere, characters, themes, and worldbuilding.',
+  boostTerms: [
+    'majoras mask',
+    'twilight princess',
+    'the wind waker',
+    'skyward sword',
+    'breath of the wild',
+    'tears of the kingdom',
+    'links awakening',
+    'ocarina of time',
+    'echoes of wisdom',
+    'spirit tracks',
+  ],
+  dropTerms: [
+    'tri force heroes',
+    'four swords adventures',
+    'oracle of seasons and ages',
+    'the legend of zelda',
+    'zelda ii the adventure of link',
+  ],
+  profileBoostOverrides: {
+    'ava-byte': ['breath of the wild', 'tears of the kingdom'],
+    'ben-combo': ['majoras mask', 'twilight princess'],
+    'cora-quest': ['ocarina of time', 'the wind waker'],
+    'diego-frame': ['majoras mask', 'links awakening'],
+    'elise-circuit': ['skyward sword', 'a link between worlds'],
+    'finn-nova': ['skyward sword', 'echoes of wisdom'],
+    'gia-pilot': ['breath of the wild', 'tears of the kingdom'],
+    'hugo-bloom': ['the minish cap', 'spirit tracks'],
+    'iris-lane': ['twilight princess', 'majoras mask'],
+    'jae-tempo': ['zelda ii the adventure of link', 'echoes of wisdom'],
+    'kira-vale': ['ocarina of time', 'links awakening'],
+    'leo-sparks': ['links awakening', 'the wind waker'],
+    'mina-orbit': ['skyward sword', 'the wind waker'],
+    'nico-slate': ['tears of the kingdom', 'breath of the wild'],
+    'olive-ray': ['phantom hourglass', 'spirit tracks'],
+    'pax-stone': ['twilight princess', 'majoras mask'],
+  },
+  chaosMultiplier: 1.25,
+  contrarianMultiplier: 0.55,
+}
+
 const MCU_FAVORITES_LANE: SeedExtraLaneDefinition = {
   laneKey: 'mcu-favorites',
   targetKey: 'mcu',
@@ -862,7 +1115,7 @@ const MCU_FAVORITES_LANE: SeedExtraLaneDefinition = {
   laneSlug: 'favorites',
   rankingTitleSuffix: 'favorite MCU films',
   rankingDescription:
-    'Pure rewatch-value ranking — which MCU films you actually love revisiting, not just which ones reviewed well.',
+    'Personal-preference MCU ranking: favorite characters, favorite worlds, and the movies each fan connects with most.',
   boostTerms: [
     'iron man',
     'the avengers',
@@ -913,17 +1166,132 @@ const MCU_FAVORITES_LANE: SeedExtraLaneDefinition = {
   contrarianMultiplier: 0.5,
 }
 
+const MCU_REWATCH_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'mcu-rewatch',
+  targetKey: 'mcu',
+  criterionExternalId: 'rewatch',
+  laneSlug: 'rewatch',
+  rankingTitleSuffix: 'most rewatchable MCU films',
+  rankingDescription:
+    'MCU rewatch ranking: pacing, comfort-watch energy, set pieces, and how often it lands back in rotation.',
+  boostTerms: [
+    'iron man',
+    'the avengers',
+    'winter soldier',
+    'civil war',
+    'ragnarok',
+    'guardians',
+    'no way home',
+    'infinity war',
+    'endgame',
+    'spider man homecoming',
+    'deadpool',
+    'shang chi',
+  ],
+  dropTerms: [
+    'dark world',
+    'incredible hulk',
+    'eternals',
+    'quantumania',
+    'the marvels',
+    'brave new world',
+    'fantastic four first steps',
+  ],
+  profileBoostOverrides: {
+    'ava-byte': ['black widow', 'captain marvel', 'the marvels'],
+    'ben-combo': ['winter soldier', 'civil war', 'shang chi'],
+    'cora-quest': ['endgame', 'infinity war', 'the avengers'],
+    'diego-frame': ['doctor strange', 'multiverse of madness', 'thunderbolts'],
+    'elise-circuit': ['black panther', 'shang chi', 'wakanda forever'],
+    'finn-nova': ['thor ragnarok', 'thor', 'ant man'],
+    'gia-pilot': ['captain marvel', 'black widow', 'shang chi'],
+    'hugo-bloom': ['guardians of the galaxy', 'ant man and the wasp'],
+    'iris-lane': ['black panther', 'wakanda forever'],
+    'jae-tempo': ['iron man 3', 'multiverse of madness', 'thunderbolts'],
+    'kira-vale': ['no way home', 'spider man far from home'],
+    'leo-sparks': ['thor', 'thor ragnarok', 'love and thunder'],
+    'mina-orbit': ['eternals', 'first avenger', 'ant man'],
+    'nico-slate': ['infinity war', 'endgame', 'avengers age of ultron'],
+    'olive-ray': ['quantumania', 'captain marvel', 'eternals'],
+    'pax-stone': ['ragnarok', 'guardians of the galaxy vol 3'],
+  },
+  chaosMultiplier: 1.25,
+  contrarianMultiplier: 0.45,
+}
+
+const MCU_IMPACT_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'mcu-impact',
+  targetKey: 'mcu',
+  criterionExternalId: 'impact',
+  laneSlug: 'impact',
+  rankingTitleSuffix: 'most important MCU films',
+  rankingDescription:
+    'MCU impact ranking based on event status, franchise influence, audience conversation, and pop-culture footprint.',
+  boostTerms: [
+    'iron man',
+    'the avengers',
+    'winter soldier',
+    'guardians',
+    'civil war',
+    'black panther',
+    'infinity war',
+    'endgame',
+    'captain marvel',
+    'no way home',
+    'deadpool',
+    'fantastic four first steps',
+  ],
+  dropTerms: [
+    'dark world',
+    'incredible hulk',
+    'ant man and the wasp',
+    'black widow',
+    'quantumania',
+    'the marvels',
+  ],
+  profileBoostOverrides: {
+    'ava-byte': ['captain marvel', 'black panther', 'the marvels'],
+    'ben-combo': ['winter soldier', 'civil war', 'shang chi'],
+    'cora-quest': ['iron man', 'the avengers', 'endgame'],
+    'diego-frame': ['doctor strange', 'multiverse of madness', 'thunderbolts'],
+    'elise-circuit': ['black panther', 'shang chi', 'wakanda forever'],
+    'finn-nova': ['thor ragnarok', 'guardians of the galaxy'],
+    'gia-pilot': ['captain marvel', 'black widow', 'shang chi'],
+    'hugo-bloom': ['guardians of the galaxy', 'ant man'],
+    'iris-lane': ['black panther', 'wakanda forever'],
+    'jae-tempo': ['iron man', 'doctor strange', 'multiverse of madness'],
+    'kira-vale': ['no way home', 'spider man homecoming', 'deadpool'],
+    'leo-sparks': ['thor', 'thor ragnarok', 'hulk'],
+    'mina-orbit': ['eternals', 'captain america', 'ant man'],
+    'nico-slate': ['infinity war', 'endgame', 'the avengers'],
+    'olive-ray': ['captain marvel', 'black panther', 'quantumania'],
+    'pax-stone': ['ragnarok', 'guardians of the galaxy vol 3'],
+  },
+  chaosMultiplier: 1.05,
+  contrarianMultiplier: 0.3,
+}
+
 const SEED_EXTRA_LANES: readonly SeedExtraLaneDefinition[] = [
   SSBU_FAVORITES_LANE,
+  SSBU_FUN_LANE,
+  SSBU_ANNOYING_LANE,
+  SSBU_NEWCOMER_LANE,
   ZELDA_FAVORITES_LANE,
+  ZELDA_DUNGEONS_LANE,
+  ZELDA_STORY_LANE,
   MCU_FAVORITES_LANE,
+  MCU_REWATCH_LANE,
+  MCU_IMPACT_LANE,
 ]
+
+const SEED_EXTRA_LANE_BY_KEY = new Map<
+  SeedExtraLaneKey,
+  SeedExtraLaneDefinition
+>(SEED_EXTRA_LANES.map((lane) => [lane.laneKey, lane] as const))
 
 const extraLaneByKey = (laneKey: SeedExtraLaneKey): SeedExtraLaneDefinition =>
 {
-  const lane = SEED_EXTRA_LANES.find(
-    (candidate) => candidate.laneKey === laneKey
-  )
+  const lane = SEED_EXTRA_LANE_BY_KEY.get(laneKey)
   if (!lane)
   {
     throw new ConvexError({
@@ -934,11 +1302,7 @@ const extraLaneByKey = (laneKey: SeedExtraLaneKey): SeedExtraLaneDefinition =>
   return lane
 }
 
-const extraLaneKeyValidator = v.union(
-  v.literal('ssbu-favorites'),
-  v.literal('zelda-favorites'),
-  v.literal('mcu-favorites')
-)
+const extraLaneKeyValidator = literalUnion(SEED_EXTRA_LANE_KEYS)
 
 // curated favorites rankings — community personalities w/ editorial
 // 'creator' badges, distinct from the competitive lane's official lists
@@ -1713,8 +2077,8 @@ const authorUserExternalId = (authorKey: string): string =>
   `user-seed-rankings-${authorKey}`
 
 // laneSlug appended after target.key so an author can own independent
-// rows per criterion lane (favorites vs competitive) w/o colliding on
-// boards.byOwnerAndExternalId; omitted slug = legacy competitive format
+// rows per criterion lane w/o colliding on boards.byOwnerAndExternalId;
+// omitted slug = legacy primary format
 const laneSegment = (laneSlug: string | undefined): string =>
   laneSlug && laneSlug.length > 0 ? `-${laneSlug}` : ''
 
@@ -1761,9 +2125,7 @@ const seedRankingTitle = (
   target: SeedTargetDefinition
 ): string => `${profile.displayName}'s ${target.rankingTitle}`
 
-// lane-scoped board id + ranking title — symmetric to the competitive
-// helpers but scoped to a non-primary criterion. the title uses the lane
-// suffix so favorites cards read "{name}'s favorite Smash mains"
+// lane-scoped board id + ranking title, symmetric to the primary helpers
 const laneSeedBoardExternalId = (
   profile: SeedProfile,
   target: SeedTargetDefinition,
@@ -1914,10 +2276,9 @@ const rankTemplateItems = (
     scoreTemplateItem(target, profile, item)
   )
 
-// favorites scoring uses lane crowd + per-profile favorite picks instead
-// of competitive signal; chaos/contrarian scale by the lane multipliers
-// so personal lanes feel less anchored to a single "correct" answer
-const scoreFavoriteItem = (
+// criterion-lane scoring uses lane terms instead of competitive signal;
+// chaos/contrarian scale by lane so each question has its own spread
+const scoreCriterionLaneItem = (
   lane: SeedExtraLaneDefinition,
   profile: SeedProfile,
   item: Doc<'templateItems'>
@@ -1952,7 +2313,7 @@ const rankTemplateItemsForLane = (
   tiers: readonly TierPresetTier[]
 ): RankedSeedItem[] =>
   rankTemplateItemsWithScore(items, tiers, (item) =>
-    scoreFavoriteItem(lane, profile, item)
+    scoreCriterionLaneItem(lane, profile, item)
   )
 
 const curatedTierIndexByName = (
@@ -2861,8 +3222,7 @@ export const seedExtraLaneSampleRankingImpl = internalMutation({
       templateItems,
       tiers
     )
-    // favorites lane uses a half-hour offset on top of the competitive
-    // ladder so the two lanes don't collide on createdAt sorts
+    // extra lanes sit between primary-lane rows in recent sorts
     const createdAt =
       now -
       (args.profileIndex * SEED_TARGETS.length + 1) * HOUR_MS -
@@ -2896,8 +3256,7 @@ export const seedExtraLaneSampleRankingImpl = internalMutation({
   },
 })
 
-// flat list of every curated ranking (competitive + favorites for every
-// target); indexed by position so the seed mutations reach them by id
+// flat list of every curated ranking, indexed by position for seed mutations
 const ALL_CURATED_RANKINGS: readonly CuratedOfficialRanking[] = [
   ...CURATED_OFFICIAL_RANKINGS,
   ...CURATED_FAVORITES_RANKINGS,
@@ -2927,7 +3286,7 @@ const curatedAuthorExternalId = (curated: CuratedOfficialRanking): string =>
 
 // curated lane slug — defaults to undefined (legacy primary externalId
 // format). non-primary curated lists use the criterion externalId so
-// storage stays self-describing across competitive + favorites lanes
+// storage stays self-describing across primary + non-primary lanes
 const curatedLaneSlug = (curated: CuratedOfficialRanking): string | undefined =>
   curated.criterionExternalId
 
@@ -3122,8 +3481,7 @@ export const seedSampleCommunityRankings = action({
           await pauseSeedWrites()
         }
       }
-      // reset every favorites lane row first; otherwise leftover boards
-      // from a prior run collide on byOwnerAndExternalId at re-insert
+      // reset every non-primary lane row before re-insert
       for (const lane of SEED_EXTRA_LANES)
       {
         const target = resolvedTargetByKey.get(lane.targetKey)
@@ -3169,16 +3527,27 @@ export const seedSampleCommunityRankings = action({
 
     // pre-build per-target lane breakdowns so the seed loops below can
     // tick stable per-criterion counters as sample + curated rankings land
+    const laneBreakdownByTarget = new Map<
+      TargetKey,
+      Map<string, SeedLaneBreakdown>
+    >()
     const buildLaneBreakdown = (
       target: SeedTargetResolution
     ): SeedLaneBreakdown[] =>
-      target.criteria.map((criterion) => ({
+    {
+      const breakdown = target.criteria.map((criterion) => ({
         criterionExternalId: criterion.externalId,
         criterionName: criterion.name,
         sampleSeeded: 0,
         curatedSeeded: 0,
         curatedAuthors: [],
       }))
+      laneBreakdownByTarget.set(
+        target.key,
+        new Map(breakdown.map((entry) => [entry.criterionExternalId, entry]))
+      )
+      return breakdown
+    }
     const targetResults = new Map<TargetKey, SeedTargetResult>(
       targets.map((target) => [
         target.key,
@@ -3216,11 +3585,9 @@ export const seedSampleCommunityRankings = action({
       criterionExternalId: string
     ): void =>
     {
-      const result = targetResults.get(targetKey)
-      if (!result) return
-      const lane = result.laneBreakdown.find(
-        (entry) => entry.criterionExternalId === criterionExternalId
-      )
+      const lane = laneBreakdownByTarget
+        .get(targetKey)
+        ?.get(criterionExternalId)
       if (lane) lane.sampleSeeded += 1
     }
     const incrementLaneCurated = (
@@ -3229,11 +3596,9 @@ export const seedSampleCommunityRankings = action({
       authorDisplayName: string
     ): void =>
     {
-      const result = targetResults.get(targetKey)
-      if (!result) return
-      const lane = result.laneBreakdown.find(
-        (entry) => entry.criterionExternalId === criterionExternalId
-      )
+      const lane = laneBreakdownByTarget
+        .get(targetKey)
+        ?.get(criterionExternalId)
       if (!lane) return
       lane.curatedSeeded += 1
       lane.curatedAuthors.push(authorDisplayName)
@@ -3286,8 +3651,7 @@ export const seedSampleCommunityRankings = action({
       }
     }
 
-    // favorites algorithmic seed pass — runs alongside competitive so each
-    // template w/ multiple criteria has at least one ranking per lane
+    // non-primary criterion seed pass runs alongside the primary lane
     let extraLaneSeeded = 0
     for (const lane of SEED_EXTRA_LANES)
     {

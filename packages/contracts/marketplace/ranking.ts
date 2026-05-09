@@ -183,6 +183,10 @@ export interface MarketplaceRankingPublishAvailability
   // criterion external ids the signed-in user already has a public-listable
   // ranking for on the source template — empty when signed out or unresolved
   userPublishedCriterionExternalIds: string[]
+  // criterion the user was viewing when they forked — surfaces as the
+  // publish-modal default. null when the board wasn't forked from a lane
+  // or the saved preference no longer matches an active criterion
+  preferredCriterionExternalId: string | null
 }
 
 export interface MarketplaceMyRankingForTemplateResult

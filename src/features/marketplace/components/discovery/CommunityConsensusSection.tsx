@@ -2,7 +2,7 @@
 // toolbar + viz + rail scoped to a single criterion lane; chip selector
 // renders above the section when the template has multiple criteria
 
-import { ArrowLeftRight, Loader2 } from 'lucide-react'
+import { ArrowLeftRight, Loader2, Plus } from 'lucide-react'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -22,17 +22,14 @@ import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marke
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { useCompareRanking } from '~/features/marketplace/model/useCompareRanking'
 import { selectBusiestOtherCriterion } from '~/features/marketplace/model/criterionSelection'
+import { useUseTemplate } from '~/features/marketplace/model/useUseTemplate'
 import {
   useMyRankingForTemplate,
   usePaginatedRankingsForTemplate,
   useTemplateRankingAggregateItems,
   type TemplateRankingAggregateItemsPageStatus,
 } from '~/features/marketplace/model/useRankingDetail'
-import {
-  formatCount,
-  pluralize,
-  formatRelativeTime,
-} from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/catalog/formatters'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
@@ -50,6 +47,7 @@ import { ConsensusTierRows } from '../consensus/ConsensusTierRows'
 import { ConsensusToolbar } from '../consensus/ConsensusToolbar'
 import { CriterionChips } from '../consensus/CriterionChips'
 import { CriterionEmptyLane } from '../consensus/CriterionEmptyLane'
+import { LaneStatsCard } from '../consensus/LaneStatsCard'
 import { LoadingBlock } from '../consensus/LoadingBlock'
 import {
   buildRowsForActiveRanking,
@@ -70,6 +68,9 @@ const RAIL_SORT_BY_TAB: Record<
   recent: 'recent',
 }
 
+const ACTION_PILL_CLASS =
+  'focus-custom flex h-full flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-dashed border-[var(--t-border)] bg-transparent px-3 py-2 text-[12px] font-medium text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
+
 interface CommunityConsensusSectionProps
 {
   template: MarketplaceTemplateDetail
@@ -89,6 +90,52 @@ const StateCard = ({ title, body }: { title: string; body: string }) => (
     <p className="mt-1 text-xs text-[var(--t-text-muted)]">{body}</p>
   </div>
 )
+
+interface ConsensusActionButtonsProps
+{
+  compareHref: string | null
+  templateSlug: string
+  templateTitle: string
+  criterionExternalId: string
+}
+
+const ConsensusActionButtons = ({
+  compareHref,
+  templateSlug,
+  templateTitle,
+  criterionExternalId,
+}: ConsensusActionButtonsProps) =>
+{
+  const { run: runUseTemplate, isPending: isUseTemplatePending } =
+    useUseTemplate()
+  return (
+    <div className="flex h-full w-full gap-2">
+      {compareHref && (
+        <Link to={compareHref} className={ACTION_PILL_CLASS}>
+          <ArrowLeftRight className="h-3 w-3" strokeWidth={2.2} />
+          Compare
+        </Link>
+      )}
+      <button
+        type="button"
+        onClick={() =>
+          runUseTemplate(templateSlug, templateTitle, {
+            preferredCriterionExternalId: criterionExternalId,
+          })
+        }
+        disabled={isUseTemplatePending}
+        className={`${ACTION_PILL_CLASS} disabled:cursor-not-allowed disabled:opacity-60`}
+      >
+        {isUseTemplatePending ? (
+          <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} />
+        ) : (
+          <Plus className="h-3 w-3" strokeWidth={2.4} />
+        )}
+        {isUseTemplatePending ? 'Forking…' : 'New ranking'}
+      </button>
+    </div>
+  )
+}
 
 const SectionSkeleton = () => (
   <div aria-hidden="true" className="space-y-3">
@@ -159,10 +206,6 @@ interface SectionHeaderProps
   // consensus" rather than the generic "Community consensus") so users
   // never confuse aggregate datasets across lanes
   multiCriterion: boolean
-  // optional right-aligned slot for actions like the "Compare criteria"
-  // button — rendered inside the same flex row as the heading so it
-  // never wraps onto its own line on wide screens
-  trailing?: ReactNode
 }
 
 const SectionHeader = ({
@@ -173,7 +216,6 @@ const SectionHeader = ({
   onResetActive,
   selectedCriterion,
   multiCriterion,
-  trailing,
 }: SectionHeaderProps) =>
 {
   const showStale = aggregate?.state === 'stale'
@@ -216,22 +258,12 @@ const SectionHeader = ({
   const heading = multiCriterion
     ? `${selectedCriterion.name} consensus`
     : 'Community consensus'
-  const subtitleParts: string[] = []
   const rankingCount = aggregate?.rankingCount ?? fallbackRankingCount
-  if (rankingCount > 0)
-  {
-    subtitleParts.push(
-      `Modal tier across ${formatCount(rankingCount)} ${pluralize(rankingCount, 'ranking')}`
-    )
-    if (aggregate?.computedAt)
-    {
-      subtitleParts.push(`Updated ${formatRelativeTime(aggregate.computedAt)}`)
-    }
-  }
-  else
-  {
-    subtitleParts.push('Rankings will appear here once builders publish them')
-  }
+  const emptyHint =
+    rankingCount === 0
+      ? 'Rankings will appear here once builders publish them'
+      : null
+  const description = multiCriterion ? selectedCriterion.prompt : null
   return (
     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
@@ -248,29 +280,25 @@ const SectionHeader = ({
             </span>
           )}
         </div>
-        {multiCriterion && (
+        {description && (
           <p className="mt-1 text-xs text-[var(--t-text-secondary)]">
-            {selectedCriterion.prompt}
+            {description}
           </p>
         )}
-        <p
-          className={`text-xs text-[var(--t-text-muted)] ${
-            multiCriterion ? 'mt-0.5' : 'mt-1'
-          }`}
-        >
-          {subtitleParts.join(' · ')}
-          {showYourPlacementsCopy && (
-            <>
-              {' · '}
-              <strong className="font-semibold text-[var(--t-accent)]">
-                Your placements
-              </strong>{' '}
-              shown as accent badges where they differ.
-            </>
-          )}
-        </p>
+        {(emptyHint || showYourPlacementsCopy) && (
+          <p className="mt-1 text-xs text-[var(--t-text-muted)]">
+            {emptyHint}
+            {showYourPlacementsCopy && (
+              <>
+                <strong className="font-semibold text-[var(--t-accent)]">
+                  Your placements
+                </strong>{' '}
+                shown as accent badges where they differ.
+              </>
+            )}
+          </p>
+        )}
       </div>
-      {trailing && <div className="shrink-0">{trailing}</div>}
     </div>
   )
 }
@@ -650,19 +678,29 @@ export const CommunityConsensusSection = ({
     aggregate?.rankingCount ?? rankingCountByCriterion[criterionExternalId] ?? 0
   const knownItemCount = aggregate?.itemCount ?? template.itemCount
 
-  const renderToolbar = (totalCount: number): React.ReactNode => (
-    <div className="mb-3">
-      <ConsensusToolbar
-        query={searchQuery}
-        onQueryChange={setSearchQuery}
-        sort={sort}
-        onSortChange={setSort}
-        vizMode={vizMode}
-        onVizModeChange={setVizMode}
-        totalCount={isActiveRanking ? sourceRowCount : totalCount}
-        filteredCount={renderFrame?.rows.length ?? filteredRows.length}
-      />
-    </div>
+  const renderToolbar = (totalCount: number): ReactNode => (
+    <ConsensusToolbar
+      query={searchQuery}
+      onQueryChange={setSearchQuery}
+      sort={sort}
+      onSortChange={setSort}
+      vizMode={vizMode}
+      onVizModeChange={setVizMode}
+      totalCount={isActiveRanking ? sourceRowCount : totalCount}
+      filteredCount={renderFrame?.rows.length ?? filteredRows.length}
+    />
+  )
+
+  const renderLaneStats = (
+    aggregateForStats: MarketplaceTemplateRankingAggregate | null | undefined,
+    fallbackCount: number
+  ): ReactNode => (
+    <LaneStatsCard
+      rankingCount={aggregateForStats?.rankingCount ?? fallbackCount}
+      mostAgreed={aggregateForStats?.mostAgreed ?? null}
+      mostDivisive={aggregateForStats?.mostDivisive ?? null}
+      computedAt={aggregateForStats?.computedAt ?? null}
+    />
   )
 
   const renderRail = (rankingCount: number): ReactNode =>
@@ -677,6 +715,10 @@ export const CommunityConsensusSection = ({
       railResult.status === 'LoadingMore' ? 'Loading…' : 'Load more rankings'
     return (
       <>
+        {renderLaneStats(
+          renderFrame?.aggregate ?? aggregate ?? null,
+          rankingCount
+        )}
         {spotlightRanking && (
           <ConsensusFeaturedSpotlight
             ranking={spotlightRanking}
@@ -706,36 +748,41 @@ export const CommunityConsensusSection = ({
     )
   }
 
-  // cold lane load — no spotlight, no items, rail in loading state. used
-  // when aggregate hasn't resolved & we have nothing in the frame cache
+  // render the rail skeleton before the first lane frame is available
   const renderRailLoading = (rankingCount: number): ReactNode => (
-    <ConsensusRankingsRail
-      rankingCount={rankingCount}
-      rankings={[]}
-      isLoading
-      activeSlug={activeSlug}
-      onSelect={setActiveSlug}
-      tab={railTab}
-      onTabChange={setRailTab}
-      loadMoreEligible={false}
-      loadMoreLabel="Loading…"
-      onLoadMore={() => railResult.loadMore()}
-    />
+    <>
+      {renderLaneStats(renderFrame?.aggregate ?? null, rankingCount)}
+      <ConsensusRankingsRail
+        rankingCount={rankingCount}
+        rankings={[]}
+        isLoading
+        activeSlug={activeSlug}
+        onSelect={setActiveSlug}
+        tab={railTab}
+        onTabChange={setRailTab}
+        loadMoreEligible={false}
+        loadMoreLabel="Loading…"
+        onLoadMore={() => railResult.loadMore()}
+      />
+    </>
   )
 
   const renderConsensusShell = ({
     body,
     totalCount,
     rail,
+    actions,
   }: {
     body: ReactNode
     totalCount: number
     rail: ReactNode
+    actions: ReactNode
   }): ReactNode => (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_auto] lg:items-start">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_auto] lg:items-stretch">
       <div className="min-w-0 lg:col-start-1 lg:row-start-1">
         {renderToolbar(totalCount)}
       </div>
+      <div className="lg:col-start-2 lg:row-start-1">{actions}</div>
       <div className="min-w-0 lg:col-start-1 lg:row-start-2">{body}</div>
       <aside className="flex flex-col gap-3 lg:col-start-2 lg:row-start-2 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)]">
         {rail}
@@ -743,9 +790,7 @@ export const CommunityConsensusSection = ({
     </div>
   )
 
-  // pre-compute lane navigation so chips render uniformly across every
-  // aggregate state (loading / empty / computing / failed / ready) — the
-  // user can always pivot to a busier lane even when this one has no data
+  // keep compare defaults available across every aggregate state
   const compareDefaultRight = useMemo(() =>
   {
     if (!visibleCriteria) return null
@@ -760,25 +805,23 @@ export const CommunityConsensusSection = ({
     multiCriterion && compareDefaultRight
       ? `${TEMPLATES_ROUTE_PATH}/${template.slug}/compare?left=${encodeURIComponent(criterionExternalId)}&right=${encodeURIComponent(compareDefaultRight.externalId)}`
       : null
+  const renderConsensusActions = (): ReactNode => (
+    <ConsensusActionButtons
+      compareHref={compareHref}
+      templateSlug={template.slug}
+      templateTitle={template.title}
+      criterionExternalId={criterionExternalId}
+    />
+  )
 
   const chipsBlock = visibleCriteria ? (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <CriterionChips
-        criteria={visibleCriteria}
-        activeExternalId={criterionExternalId}
-        onChange={onCriterionChange}
-        counts={rankingCountByCriterion}
-      />
-      {compareHref && (
-        <Link
-          to={compareHref}
-          className="focus-custom inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-[var(--t-border)] bg-transparent px-3 text-[12px] font-medium text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          <ArrowLeftRight className="h-3 w-3" strokeWidth={2.2} />
-          Compare
-        </Link>
-      )}
-    </div>
+    <CriterionChips
+      criteria={visibleCriteria}
+      activeExternalId={criterionExternalId}
+      onChange={onCriterionChange}
+      counts={rankingCountByCriterion}
+      className="mb-4"
+    />
   ) : null
 
   // body region picks the right subview for each aggregate state; the
@@ -805,6 +848,7 @@ export const CommunityConsensusSection = ({
         rail: renderFrame
           ? renderRail(rankingCount)
           : renderRailLoading(rankingCount),
+        actions: renderConsensusActions(),
       })
     }
     if (aggregate === null || aggregate.state === 'empty')
@@ -852,17 +896,12 @@ export const CommunityConsensusSection = ({
       body: renderBody(),
       totalCount: aggregate.itemCount,
       rail: renderRail(aggregate.rankingCount),
+      actions: renderConsensusActions(),
     })
   }
 
   const showYourPlacementsCopy =
-    aggregate !== undefined &&
-    aggregate !== null &&
-    aggregate.state !== 'empty' &&
-    aggregate.state !== 'failed' &&
-    aggregate.state !== 'computing' &&
-    overlayActive &&
-    vizMode === 'tiers'
+    isAggregateReady(aggregate) && overlayActive && vizMode === 'tiers'
 
   // mid-pin-swap, keep whatever meta the cached frame had so the header
   // doesn't blip through "Community consensus" between pins

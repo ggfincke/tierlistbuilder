@@ -47,6 +47,7 @@ import {
   isPublishedTemplateRow,
 } from '../templates/lib'
 import {
+  findActiveTemplateCriterion,
   resolvePrimaryTemplateCriterion,
   resolveTemplateCriteria,
   resolveTemplateCriterionForHistoricalRead,
@@ -100,7 +101,8 @@ const unavailableRankingPublish = (
     sourceTemplateTitle: null,
   },
   userPublishedCriterionExternalIds: string[] = [],
-  sourceTemplateCriteria: MarketplaceTemplateCriterion[] = []
+  sourceTemplateCriteria: MarketplaceTemplateCriterion[] = [],
+  preferredCriterionExternalId: string | null = null
 ): MarketplaceRankingPublishAvailability => ({
   canPublish: false,
   reason,
@@ -108,6 +110,7 @@ const unavailableRankingPublish = (
   ...counts,
   sourceTemplateCriteria,
   userPublishedCriterionExternalIds,
+  preferredCriterionExternalId,
 })
 
 const emptyAggregateItemsResult = (
@@ -856,12 +859,13 @@ export const getBoardRankingPublishAvailability = query({
     }
     const userPublishedCriterionExternalIds =
       await loadUserPublishedCriterionExternalIds(ctx, template._id, userId)
-    // include only active criteria — the picker is for new rankings, so
-    // hidden/deprecated lanes shouldn't appear as options. resolveTemplate-
-    // Criteria already validates the array shape & enforces ordering
+    // publish picker only offers active lanes for new rankings
     const sourceTemplateCriteria = resolveTemplateCriteria(template).filter(
       (c) => c.status === 'active'
     )
+    const preferredCriterionExternalId =
+      findActiveTemplateCriterion(template, board.preferredCriterionExternalId)
+        ?.externalId ?? null
     const criterionBlockReason = criterionPublishBlockReason(
       template,
       args.criterionExternalId
@@ -872,7 +876,8 @@ export const getBoardRankingPublishAvailability = query({
         criterionBlockReason,
         templateCounts,
         userPublishedCriterionExternalIds,
-        sourceTemplateCriteria
+        sourceTemplateCriteria,
+        preferredCriterionExternalId
       )
     }
     if (board.activeItemCount === 0 || board.unrankedItemCount > 0)
@@ -881,7 +886,8 @@ export const getBoardRankingPublishAvailability = query({
         'incomplete',
         templateCounts,
         userPublishedCriterionExternalIds,
-        sourceTemplateCriteria
+        sourceTemplateCriteria,
+        preferredCriterionExternalId
       )
     }
 
@@ -892,6 +898,7 @@ export const getBoardRankingPublishAvailability = query({
       ...templateCounts,
       sourceTemplateCriteria,
       userPublishedCriterionExternalIds,
+      preferredCriterionExternalId,
     }
   },
 })

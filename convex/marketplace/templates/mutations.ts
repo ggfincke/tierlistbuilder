@@ -76,7 +76,10 @@ import {
   validateTemplateTiers,
   writeTemplateCard,
 } from './lib'
-import { buildDefaultTemplateCriteria } from './criteria'
+import {
+  buildDefaultTemplateCriteria,
+  findActiveTemplateCriterion,
+} from './criteria'
 import {
   buildBoardLibrarySummary,
   EMPTY_BOARD_LIBRARY_SUMMARY,
@@ -412,7 +415,8 @@ const queueLargeTemplateClone = async (
   userId: Id<'users'>,
   template: Doc<'templates'>,
   title: string,
-  tiers: readonly TierPresetTier[]
+  tiers: readonly TierPresetTier[],
+  preferredCriterionExternalId: string | undefined
 ): Promise<MarketplaceTemplateUseResult> =>
 {
   const existingJob = await findActiveCloneJobForTemplate(
@@ -441,6 +445,7 @@ const queueLargeTemplateClone = async (
     sourceTemplateId: template._id,
     sourceTemplateCategory: template.category,
     sourceTemplateSizeClass: template.sizeClass,
+    preferredCriterionExternalId,
     ...buildFreshBoardCloudFields(now),
     materializationState: 'clonePending',
     itemAspectRatio: template.itemAspectRatio ?? undefined,
@@ -894,6 +899,7 @@ export const useTemplate = mutation({
     slug: v.string(),
     title: v.optional(v.string()),
     tierSelection: v.optional(templateTierSelectionValidator),
+    preferredCriterionExternalId: v.optional(v.string()),
   },
   returns: marketplaceTemplateUseResultValidator,
   handler: async (ctx, args): Promise<MarketplaceTemplateUseResult> =>
@@ -926,6 +932,10 @@ export const useTemplate = mutation({
     const boardTitle = normalizeBoardTitle(
       args.title ?? templateTitleToBoardTitle(template.title)
     )
+    const preferredCriterionExternalId = findActiveTemplateCriterion(
+      template,
+      args.preferredCriterionExternalId
+    )?.externalId
     if (template.itemCount > MAX_STANDARD_CLOUD_BOARD_ITEMS)
     {
       return await queueLargeTemplateClone(
@@ -933,7 +943,8 @@ export const useTemplate = mutation({
         userId,
         template,
         boardTitle,
-        tiers
+        tiers,
+        preferredCriterionExternalId
       )
     }
 
@@ -966,6 +977,7 @@ export const useTemplate = mutation({
       sourceTemplateId: template._id,
       sourceTemplateCategory: template.category,
       sourceTemplateSizeClass: template.sizeClass,
+      preferredCriterionExternalId,
       ...buildFreshBoardCloudFields(now),
       // propagate the template's design-time ratio so per-item transforms
       // (computed in seed against this same ratio) frame correctly. unset

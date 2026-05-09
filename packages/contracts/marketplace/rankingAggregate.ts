@@ -77,6 +77,12 @@ export interface MarketplaceTemplateRankingAggregateBucket
   colorSpec: TierColorSpec | null
 }
 
+export interface MarketplaceTemplateRankingAggregateHighlight
+{
+  templateItemExternalId: string
+  label: string | null
+}
+
 export interface MarketplaceTemplateRankingAggregate
 {
   template: MarketplaceTemplateRankingAggregateTemplateRef
@@ -90,6 +96,8 @@ export interface MarketplaceTemplateRankingAggregate
   staleAt: number | null
   buckets: MarketplaceTemplateRankingAggregateBucket[]
   bucketSpread: number[]
+  mostAgreed: MarketplaceTemplateRankingAggregateHighlight | null
+  mostDivisive: MarketplaceTemplateRankingAggregateHighlight | null
 }
 
 export interface MarketplaceTemplateRankingAggregateDistributionCell

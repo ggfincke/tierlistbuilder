@@ -21,6 +21,7 @@ import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 import { usePublishRanking } from '~/features/marketplace/model/usePublishRanking'
 import { useRankingPublishAvailability } from '~/features/marketplace/model/useRankingPublishAvailability'
+import { pickInitialCriterionExternalId } from '~/features/marketplace/model/criterionSelection'
 
 interface PublishRankingModalProps
 {
@@ -40,16 +41,6 @@ interface PublishRankingFormProps
   onClose: () => void
   boardExternalId: string
   defaultTitle: string
-}
-
-const pickInitialCriterionExternalId = (
-  criteria: readonly MarketplaceTemplateCriterion[]
-): string | null =>
-{
-  if (criteria.length === 0) return null
-  const primary = criteria.find((c) => c.isPrimary && c.status === 'active')
-  if (primary) return primary.externalId
-  return criteria[0]?.externalId ?? null
 }
 
 interface CriterionPickerProps
@@ -199,9 +190,9 @@ const PublishRankingForm = ({
     setVisibility
   )
 
-  const fallbackCriterionExternalId = useMemo(
-    () => pickInitialCriterionExternalId(sourceCriteria),
-    [sourceCriteria]
+  const fallbackCriterionExternalId = pickInitialCriterionExternalId(
+    sourceCriteria,
+    availability?.preferredCriterionExternalId
   )
   const criterionExternalId =
     explicitCriterionExternalId ?? fallbackCriterionExternalId

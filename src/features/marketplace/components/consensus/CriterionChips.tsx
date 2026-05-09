@@ -20,6 +20,7 @@ interface CriterionChipsProps
   // dense variant fits inline w/ a toolbar row; default sits comfortably
   // above its own line of breathing room
   dense?: boolean
+  className?: string
 }
 
 interface ChipProps
@@ -83,6 +84,7 @@ export const CriterionChips = ({
   onChange,
   counts,
   dense = false,
+  className,
 }: CriterionChipsProps) =>
 {
   if (criteria.length === 0) return null
@@ -90,7 +92,7 @@ export const CriterionChips = ({
     <div
       role="tablist"
       aria-label="Ranking criteria"
-      className="-mx-1 flex flex-wrap items-center gap-1.5 overflow-x-auto px-1"
+      className={`-mx-1 flex flex-wrap items-center gap-1.5 overflow-x-auto px-1 ${className ?? ''}`}
     >
       {criteria.map((criterion) => (
         <Chip

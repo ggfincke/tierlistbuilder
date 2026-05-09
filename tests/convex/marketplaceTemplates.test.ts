@@ -2530,6 +2530,14 @@ describe('marketplace template Convex functions', () =>
         criterion: { externalId: 'competitive' },
         state: 'ready',
         rankingCount: MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
+        mostAgreed: {
+          templateItemExternalId: 'aggregate-item-2',
+          label: 'Aggregate Item 2',
+        },
+        mostDivisive: {
+          templateItemExternalId: 'aggregate-item-0',
+          label: 'Aggregate Item 0',
+        },
       })
       const competitiveGeneration = competitive?.activeGeneration
       expect(competitiveGeneration).toEqual(expect.any(Number))
@@ -2590,6 +2598,8 @@ describe('marketplace template Convex functions', () =>
         criterion: { externalId: 'favorites' },
         state: 'ready',
         rankingCount: 3,
+        mostAgreed: null,
+        mostDivisive: null,
       })
       const favoritesGeneration = favorites?.activeGeneration
       expect(favoritesGeneration).toEqual(expect.any(Number))

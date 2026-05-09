@@ -169,7 +169,7 @@ export const tierPresetTierValidator = v.object({
 export const tierPresetTiersValidator = v.array(tierPresetTierValidator)
 
 // build a validator from a readonly tuple sourced in contracts.
-const literalUnion = <T extends readonly [string, ...string[]]>(
+export const literalUnion = <T extends readonly [string, ...string[]]>(
   values: T
 ): Validator<T[number]> =>
 {
@@ -895,6 +895,7 @@ export const marketplaceRankingPublishAvailabilityValidator = v.object({
   sourceTemplateTitle: v.union(v.string(), v.null()),
   sourceTemplateCriteria: templateCriteriaValidator,
   userPublishedCriterionExternalIds: v.array(v.string()),
+  preferredCriterionExternalId: v.union(v.string(), v.null()),
 })
 
 export const marketplaceRankingPublishResultValidator = v.object({
@@ -920,6 +921,11 @@ export const marketplaceTemplateRankingAggregateBucketValidator = v.object({
   colorSpec: v.union(tierColorSpecValidator, v.null()),
 })
 
+const marketplaceTemplateRankingAggregateHighlightValidator = v.object({
+  templateItemExternalId: v.string(),
+  label: v.union(v.string(), v.null()),
+})
+
 export const marketplaceTemplateRankingAggregateValidator = v.object({
   template: marketplaceTemplateRankingAggregateTemplateRefValidator,
   criterion: templateCriterionValidator,
@@ -932,6 +938,14 @@ export const marketplaceTemplateRankingAggregateValidator = v.object({
   staleAt: v.union(v.number(), v.null()),
   buckets: v.array(marketplaceTemplateRankingAggregateBucketValidator),
   bucketSpread: v.array(v.number()),
+  mostAgreed: v.union(
+    marketplaceTemplateRankingAggregateHighlightValidator,
+    v.null()
+  ),
+  mostDivisive: v.union(
+    marketplaceTemplateRankingAggregateHighlightValidator,
+    v.null()
+  ),
 })
 
 export const marketplaceTemplateRankingAggregateDistributionCellValidator =

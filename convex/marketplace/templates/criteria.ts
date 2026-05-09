@@ -189,6 +189,20 @@ export const resolvePrimaryTemplateCriterion = (
   resolveTemplateCriteria(source).find((criterion) => criterion.isPrimary) ??
   buildDefaultTemplateCriterion()
 
+export const findActiveTemplateCriterion = (
+  source: TemplateCriteriaSource,
+  externalId: string | null | undefined
+): MarketplaceTemplateCriterion | null =>
+{
+  if (!externalId) return null
+  return (
+    resolveTemplateCriteria(source).find(
+      (criterion) =>
+        criterion.externalId === externalId && criterion.status === 'active'
+    ) ?? null
+  )
+}
+
 export const resolveActiveTemplateCriterion = (
   source: TemplateCriteriaSource,
   externalId?: string

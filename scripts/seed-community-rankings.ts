@@ -53,7 +53,7 @@ const printPlan = (reset: boolean, userCount: number | undefined): void =>
       ? '(default sample-profile count)'
       : `(${userCount} sample profile(s) per lane)`
   writeln(
-    `seed plan: ${reset ? 'reset + ' : ''}seed competitive + favorites lanes ${userPart}`
+    `seed plan: ${reset ? 'reset + ' : ''}seed all configured criteria lanes ${userPart}`
   )
 }
 

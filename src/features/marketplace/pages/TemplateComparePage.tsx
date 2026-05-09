@@ -22,7 +22,11 @@ import {
   useTemplateRankingAggregateItems,
   type TemplateRankingAggregateItemsPageStatus,
 } from '~/features/marketplace/model/useRankingDetail'
-import { selectBusiestOtherCriterion } from '~/features/marketplace/model/criterionSelection'
+import {
+  findActiveCriterion,
+  findPrimaryCriterion,
+  selectBusiestOtherCriterion,
+} from '~/features/marketplace/model/criterionSelection'
 import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
@@ -54,17 +58,6 @@ interface ResolvedSelection
 const LEFT_PARAM = 'left'
 const RIGHT_PARAM = 'right'
 
-const findActive = (
-  criteria: readonly MarketplaceTemplateCriterion[],
-  externalId: string | null
-): MarketplaceTemplateCriterion | null =>
-{
-  if (!externalId) return null
-  const match = criteria.find((c) => c.externalId === externalId)
-  if (!match || match.status !== 'active') return null
-  return match
-}
-
 // resolves left/right from URL: missing left -> primary; missing right ->
 // busiest other lane; collision -> swap right to the next active lane
 const resolveSelection = (
@@ -76,12 +69,12 @@ const resolveSelection = (
 {
   if (activeCriteria.length < 2) return null
   const sorted = [...activeCriteria].sort((a, b) => a.order - b.order)
-  const primary = sorted.find((c) => c.isPrimary) ?? sorted[0]
-  const left = findActive(activeCriteria, leftParam) ?? primary
+  const primary = findPrimaryCriterion(activeCriteria) ?? sorted[0]!
+  const left = findActiveCriterion(activeCriteria, leftParam) ?? primary
   // pick the right side from the URL first; if missing/invalid/equal to
   // left, default to the busiest *other* criterion (most rankings) &
   // fall back to the next-by-order if no rankings exist anywhere yet
-  let right = findActive(activeCriteria, rightParam)
+  let right = findActiveCriterion(activeCriteria, rightParam)
   if (!right || right.externalId === left.externalId)
   {
     const counts = template.rankingCountByCriterion ?? {}
