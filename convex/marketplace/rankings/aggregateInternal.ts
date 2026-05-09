@@ -38,6 +38,14 @@ interface TierBucketMapEntry
   bucketIndex: number
 }
 
+interface RelativeMetricPatch
+{
+  aggregateItemId: Id<'templateRankingAggregateItems'>
+  controversyPercentile: number
+  agreementPercentile: number
+  isControversial: boolean
+}
+
 const AGGREGATE_JOB_MAX_RETRIES = 3
 const AGGREGATE_JOB_RETRY_AFTER_MS = 30 * 60 * 1000
 
@@ -298,61 +306,104 @@ const loadRelativeMetricRows = async (
   return rows
 }
 
-const finalizeRelativeMetrics = async (
-  ctx: MutationCtx,
-  job: AggregateJob,
-  now: number
-): Promise<null> =>
+const buildRelativeMetricPatches = (
+  rows: readonly Doc<'templateRankingAggregateItems'>[],
+  rankingCount: number
+): RelativeMetricPatch[] =>
 {
-  const rows = await loadRelativeMetricRows(ctx, job)
   const controversyPercentiles = buildPercentiles(rows, (row) =>
     finiteScore(row.controversyScore)
   )
   const agreementPercentiles = buildPercentiles(rows, (row) =>
     finiteScore(row.consensusScore)
   )
-  const canBadge = job.rankingCount >= MIN_RANKINGS_FOR_CONTROVERSY_BADGES
-  const page = await ctx.db
-    .query('templateRankingAggregateItems')
-    .withIndex('byTemplateIdAndCriterionAndGenerationAndOrder', (q) =>
-      q
-        .eq('templateId', job.templateId)
-        .eq('criterionExternalId', job.criterionExternalId)
-        .eq('generation', job.generation)
-    )
-    .paginate({
-      numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
-      cursor: job.templateCursor,
-    })
+  const canBadge = rankingCount >= MIN_RANKINGS_FOR_CONTROVERSY_BADGES
+  return rows.map((row) =>
+  {
+    const controversyPercentile = controversyPercentiles.get(row._id) ?? 0
+    return {
+      aggregateItemId: row._id,
+      controversyPercentile,
+      agreementPercentile: agreementPercentiles.get(row._id) ?? 0,
+      isControversial:
+        canBadge &&
+        row.sampleCount > 0 &&
+        row.controversyScore > 0 &&
+        controversyPercentile >= CONTROVERSY_PERCENTILE_MIN,
+    }
+  })
+}
+
+const prepareRelativeMetrics = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<null> =>
+{
+  const rows = await loadRelativeMetricRows(ctx, job)
+  await ctx.db.patch(job._id, {
+    relativeMetricPatches: buildRelativeMetricPatches(rows, job.rankingCount),
+    relativeMetricCursor: 0,
+    templateCursor: null,
+    updatedAt: now,
+  })
+  await scheduleJob(ctx, job._id)
+  return null
+}
+
+const normalizeRelativeMetricCursor = (
+  cursor: number | undefined,
+  patchCount: number
+): number =>
+  typeof cursor === 'number' && Number.isSafeInteger(cursor) && cursor > 0
+    ? Math.min(cursor, patchCount)
+    : 0
+
+const finalizeRelativeMetrics = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<null> =>
+{
+  const patches = job.relativeMetricPatches
+  if (!patches) return await prepareRelativeMetrics(ctx, job, now)
+
+  const cursor = normalizeRelativeMetricCursor(
+    job.relativeMetricCursor,
+    patches.length
+  )
+  const nextCursor = Math.min(
+    cursor + BATCH_LIMITS.templateRankingAggregateCleanup,
+    patches.length
+  )
+  const page = patches.slice(cursor, nextCursor)
 
   await Promise.all(
-    page.page.map((row) =>
-    {
-      const controversyPercentile = controversyPercentiles.get(row._id) ?? 0
-      return ctx.db.patch(row._id, {
-        controversyPercentile,
-        agreementPercentile: agreementPercentiles.get(row._id) ?? 0,
-        isControversial:
-          canBadge &&
-          row.sampleCount > 0 &&
-          row.controversyScore > 0 &&
-          controversyPercentile >= CONTROVERSY_PERCENTILE_MIN,
+    page.map((patch) =>
+      ctx.db.patch(patch.aggregateItemId, {
+        controversyPercentile: patch.controversyPercentile,
+        agreementPercentile: patch.agreementPercentile,
+        isControversial: patch.isControversial,
         computedAt: now,
       })
-    })
+    )
   )
 
-  if (!page.isDone)
+  if (nextCursor < patches.length)
   {
     await ctx.db.patch(job._id, {
-      templateCursor: page.continueCursor,
+      relativeMetricCursor: nextCursor,
       updatedAt: now,
     })
     await scheduleJob(ctx, job._id)
     return null
   }
 
-  await finishJob(ctx, { ...job, templateCursor: null }, now)
+  await finishJob(
+    ctx,
+    { ...job, relativeMetricCursor: nextCursor, templateCursor: null },
+    now
+  )
   return null
 }
 

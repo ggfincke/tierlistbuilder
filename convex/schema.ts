@@ -868,6 +868,17 @@ export default defineSchema({
       v.null()
     ),
     activeRankingItemCursor: v.union(v.string(), v.null()),
+    relativeMetricPatches: v.optional(
+      v.array(
+        v.object({
+          aggregateItemId: v.id('templateRankingAggregateItems'),
+          controversyPercentile: v.number(),
+          agreementPercentile: v.number(),
+          isControversial: v.boolean(),
+        })
+      )
+    ),
+    relativeMetricCursor: v.optional(v.number()),
     bucketSpread: v.array(v.number()),
     restartRequestedAt: v.union(v.number(), v.null()),
     retryCount: v.number(),

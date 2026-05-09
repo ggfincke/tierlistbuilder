@@ -20,6 +20,7 @@ import type {
   TemplateRankingAggregateItemBand,
   TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import {
   buildRankingBucketPlacements,
   isRankingSlug,
@@ -131,16 +132,46 @@ const aggregateBandArg = v.optional(templateRankingAggregateItemBandValidator)
 const rankingSortArg = v.optional(rankingListSortValidator)
 const SEARCH_CURSOR_PREFIX = 'offset:'
 
+type CriterionRequestResolution =
+  | { kind: 'unspecified' }
+  | { kind: 'found'; criterion: MarketplaceTemplateCriterion }
+  | { kind: 'missing' }
+
+const resolveCriterionRequest = (
+  template: Doc<'templates'>,
+  criterionExternalId: string | undefined
+): CriterionRequestResolution =>
+{
+  if (criterionExternalId === undefined) return { kind: 'unspecified' }
+  const criterion = resolveTemplateCriterionForHistoricalRead(
+    template,
+    criterionExternalId
+  )
+  return criterion ? { kind: 'found', criterion } : { kind: 'missing' }
+}
+
+const resolveDefaultedCriterion = (
+  template: Doc<'templates'>,
+  resolution: CriterionRequestResolution
+): MarketplaceTemplateCriterion | null =>
+{
+  if (resolution.kind === 'missing') return null
+  if (resolution.kind === 'unspecified')
+  {
+    return resolvePrimaryTemplateCriterion(template)
+  }
+  return resolution.criterion
+}
+
 const resolveHistoricalCriterionExternalId = (
   template: Doc<'templates'>,
   criterionExternalId: string | undefined
 ): string | null | undefined =>
 {
-  if (criterionExternalId === undefined) return undefined
-  return (
-    resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
-      ?.externalId ?? null
-  )
+  const resolution = resolveCriterionRequest(template, criterionExternalId)
+  if (resolution.kind === 'unspecified') return undefined
+  if (resolution.kind === 'missing') return null
+  return resolution.criterion.externalId
 }
 
 const resolveMyRankingCriterionExternalId = (
@@ -148,14 +179,11 @@ const resolveMyRankingCriterionExternalId = (
   criterionExternalId: string | undefined
 ): string | null =>
 {
-  if (criterionExternalId === undefined)
-  {
-    return resolvePrimaryTemplateCriterion(template).externalId
-  }
-  return (
-    resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
-      ?.externalId ?? null
+  const criterion = resolveDefaultedCriterion(
+    template,
+    resolveCriterionRequest(template, criterionExternalId)
   )
+  return criterion?.externalId ?? null
 }
 
 const criterionPublishBlockReason = (
@@ -163,10 +191,10 @@ const criterionPublishBlockReason = (
   criterionExternalId: string | undefined
 ): RankingPublishBlockReason | null =>
 {
-  const criterion =
-    criterionExternalId === undefined
-      ? resolvePrimaryTemplateCriterion(template)
-      : resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
+  const criterion = resolveDefaultedCriterion(
+    template,
+    resolveCriterionRequest(template, criterionExternalId)
+  )
   if (!criterion) return 'criterion_not_found'
   if (criterion.status !== 'active') return 'criterion_not_publishable'
   return null
@@ -177,10 +205,10 @@ const resolveAggregateCriterionExternalId = (
   criterionExternalId: string | undefined
 ): string | null =>
 {
-  const criterion =
-    criterionExternalId === undefined
-      ? resolvePrimaryTemplateCriterion(template)
-      : resolveTemplateCriterionForHistoricalRead(template, criterionExternalId)
+  const criterion = resolveDefaultedCriterion(
+    template,
+    resolveCriterionRequest(template, criterionExternalId)
+  )
   if (!criterion || criterion.status !== 'active') return null
   return criterion.externalId
 }
@@ -378,6 +406,31 @@ const takeAggregateItemsPage = async (
   return await takeIndexedAggregateItemsPage(ctx, options, pageSize)
 }
 
+const rankingPageIndexBySort = {
+  featured: {
+    template: 'bySourceTemplatePublicFeaturedRank',
+    criterion: 'bySourceTemplateCriterionPublicFeaturedRank',
+    order: 'asc',
+  },
+  top: {
+    template: 'bySourceTemplatePublicTopScoreAndUpdatedAt',
+    criterion: 'bySourceTemplateCriterionPublicTopScoreAndUpdatedAt',
+    order: 'desc',
+  },
+  recent: {
+    template: 'bySourceTemplatePublicUpdatedAt',
+    criterion: 'bySourceTemplateCriterionPublicUpdatedAt',
+    order: 'desc',
+  },
+} as const satisfies Record<
+  RankingListSort,
+  {
+    template: string
+    criterion: string
+    order: 'asc' | 'desc'
+  }
+>
+
 const takeRankingsForTemplatePage = async (
   ctx: QueryCtx,
   options: {
@@ -391,83 +444,33 @@ const takeRankingsForTemplatePage = async (
 {
   const pageSize = normalizeRankingLimit(options.numItems)
   const criterionExternalId = options.criterionExternalId
-  if (options.sort === 'featured')
-  {
-    if (criterionExternalId !== undefined)
-    {
-      return await ctx.db
-        .query('publishedRankings')
-        .withIndex('bySourceTemplateCriterionPublicFeaturedRank', (q) =>
-          q
-            .eq('sourceTemplateId', options.templateId)
-            .eq('sourceCriterionExternalId', criterionExternalId)
-            .eq('isPubliclyListable', true)
-            .eq('isFeatured', true)
-        )
-        .order('asc')
-        .paginate({ cursor: options.cursor, numItems: pageSize })
-    }
-
-    return await ctx.db
-      .query('publishedRankings')
-      .withIndex('bySourceTemplatePublicFeaturedRank', (q) =>
-        q
-          .eq('sourceTemplateId', options.templateId)
-          .eq('isPubliclyListable', true)
-          .eq('isFeatured', true)
-      )
-      .order('asc')
-      .paginate({ cursor: options.cursor, numItems: pageSize })
-  }
-  if (options.sort === 'top')
-  {
-    if (criterionExternalId !== undefined)
-    {
-      return await ctx.db
-        .query('publishedRankings')
-        .withIndex('bySourceTemplateCriterionPublicTopScoreAndUpdatedAt', (q) =>
-          q
-            .eq('sourceTemplateId', options.templateId)
-            .eq('sourceCriterionExternalId', criterionExternalId)
-            .eq('isPubliclyListable', true)
-        )
-        .order('desc')
-        .paginate({ cursor: options.cursor, numItems: pageSize })
-    }
-
-    return await ctx.db
-      .query('publishedRankings')
-      .withIndex('bySourceTemplatePublicTopScoreAndUpdatedAt', (q) =>
-        q
-          .eq('sourceTemplateId', options.templateId)
-          .eq('isPubliclyListable', true)
-      )
-      .order('desc')
-      .paginate({ cursor: options.cursor, numItems: pageSize })
-  }
-
+  const indexConfig = rankingPageIndexBySort[options.sort]
   if (criterionExternalId !== undefined)
   {
     return await ctx.db
       .query('publishedRankings')
-      .withIndex('bySourceTemplateCriterionPublicUpdatedAt', (q) =>
-        q
+      .withIndex(indexConfig.criterion, (q) =>
+      {
+        const base = q
           .eq('sourceTemplateId', options.templateId)
           .eq('sourceCriterionExternalId', criterionExternalId)
           .eq('isPubliclyListable', true)
-      )
-      .order('desc')
+        return options.sort === 'featured' ? base.eq('isFeatured', true) : base
+      })
+      .order(indexConfig.order)
       .paginate({ cursor: options.cursor, numItems: pageSize })
   }
 
   return await ctx.db
     .query('publishedRankings')
-    .withIndex('bySourceTemplatePublicUpdatedAt', (q) =>
-      q
+    .withIndex(indexConfig.template, (q) =>
+    {
+      const base = q
         .eq('sourceTemplateId', options.templateId)
         .eq('isPubliclyListable', true)
-    )
-    .order('desc')
+      return options.sort === 'featured' ? base.eq('isFeatured', true) : base
+    })
+    .order(indexConfig.order)
     .paginate({ cursor: options.cursor, numItems: pageSize })
 }
 

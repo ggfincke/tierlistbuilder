@@ -422,15 +422,12 @@ export const buildAggregateItemMetrics = (params: {
       topBucketShare: 0,
       consensusScore: 0,
       controversyScore: 0,
-      controversyPercentile: 0,
-      agreementPercentile: 0,
       averageTopSort: UNSAMPLED_SORT_OFFSET,
       averageBottomSort: UNSAMPLED_SORT_OFFSET,
       consensusSort: UNSAMPLED_SORT_OFFSET,
       controversySort: UNSAMPLED_SORT_OFFSET,
       isTopBucket: false,
       isBottomBucket: false,
-      isControversial: false,
     }
   }
 
@@ -457,14 +454,11 @@ export const buildAggregateItemMetrics = (params: {
     topBucketShare,
     consensusScore: topBucketShare,
     controversyScore,
-    controversyPercentile: 0,
-    agreementPercentile: 0,
     averageTopSort: averageBucket,
     averageBottomSort: -averageBucket,
     consensusSort: -topBucketShare,
     controversySort: -controversyScore,
     isTopBucket,
     isBottomBucket,
-    isControversial: false,
   }
 }
