@@ -6,7 +6,10 @@ import type { ImageFit, ItemTransform } from '../workspace/board'
 import type { TemplateAuthor, TemplateMediaRef } from './template'
 import type { TemplateCategory } from './category'
 import type { PaginationResult } from '../lib/pagination'
-import type { MarketplaceTemplateCriterionSnapshot } from './templateCriterion'
+import type {
+  MarketplaceTemplateCriterion,
+  MarketplaceTemplateCriterionSnapshot,
+} from './templateCriterion'
 
 export const RANKING_VISIBILITIES = ['public', 'unlisted'] as const
 
@@ -173,6 +176,13 @@ export interface MarketplaceRankingPublishAvailability
   activeItemCount: number
   unrankedItemCount: number
   sourceTemplateTitle: string | null
+  // active criteria on the source template the user can publish into. empty
+  // when the source template is unresolvable; lets the publish modal render
+  // the criterion picker without an additional template detail roundtrip
+  sourceTemplateCriteria: MarketplaceTemplateCriterion[]
+  // criterion external ids the signed-in user already has a public-listable
+  // ranking for on the source template — empty when signed out or unresolved
+  userPublishedCriterionExternalIds: string[]
 }
 
 export interface MarketplaceMyRankingForTemplateResult

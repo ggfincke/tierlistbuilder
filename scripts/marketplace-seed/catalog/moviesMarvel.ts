@@ -1,7 +1,36 @@
 // scripts/marketplace-seed/catalog/moviesMarvel.ts
 // Marvel metadata for marketplace template seeds
 
+import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import type { FolderMeta } from '../types'
+
+// primary criterion id stays 'default' so previously seeded MCU rankings
+// (created when this template had only the implicit default criterion)
+// keep a valid criterion reference after favorites is added
+const MCU_CRITERIA = [
+  {
+    externalId: 'default',
+    name: 'Overall',
+    shortName: 'Overall',
+    prompt: 'Rank MCU films on overall quality.',
+    axisTop: 'Best',
+    axisBottom: 'Worst',
+    order: 0,
+    isPrimary: true,
+    status: 'active',
+  },
+  {
+    externalId: 'favorites',
+    name: 'Favorites',
+    shortName: 'Favs',
+    prompt: 'Rank MCU films by rewatch value + personal preference.',
+    axisTop: 'Always rewatching',
+    axisBottom: 'Skip',
+    order: 1,
+    isPrimary: false,
+    status: 'active',
+  },
+] satisfies readonly MarketplaceTemplateCriterion[]
 
 export const MOVIES_MARVEL_TEMPLATE_META = {
   'mcu-posters': {
@@ -10,6 +39,7 @@ export const MOVIES_MARVEL_TEMPLATE_META = {
     description:
       'Every theatrical Marvel Cinematic Universe release, by poster art.',
     tags: ['marvel', 'mcu', 'films'],
+    criteria: MCU_CRITERIA,
   },
   'mcu-shows': {
     title: 'MCU streaming series',

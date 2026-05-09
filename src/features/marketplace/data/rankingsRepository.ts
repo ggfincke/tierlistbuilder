@@ -53,6 +53,9 @@ interface PaginatedRankingsForTemplateArgs
 {
   templateSlug: string | null | undefined
   sort?: RankingListSort
+  // when omitted, the backend lists rankings across every criterion; pass
+  // an external id to scope the rail to a single lane
+  criterionExternalId?: string | null
   enabled?: boolean
   pageSize?: number
 }
@@ -60,13 +63,18 @@ interface PaginatedRankingsForTemplateArgs
 export const usePaginatedRankingsForTemplate = ({
   templateSlug,
   sort = 'recent',
+  criterionExternalId,
   enabled = true,
   pageSize = DEFAULT_RANKING_LIST_LIMIT,
 }: PaginatedRankingsForTemplateArgs): RankingsForTemplatePage =>
 {
   const args =
     enabled && typeof templateSlug === 'string' && templateSlug.length > 0
-      ? { templateSlug, sort }
+      ? {
+          templateSlug,
+          sort,
+          ...(criterionExternalId ? { criterionExternalId } : {}),
+        }
       : 'skip'
   const page = usePaginatedQuery(
     api.marketplace.rankings.queries.listRankingsForTemplate,
@@ -81,15 +89,20 @@ export const usePaginatedRankingsForTemplate = ({
 }
 
 // reactive aggregate metadata — null while no row exists yet (pre-cron, or
-// no public rankings); items load through the paginated hook below
+// no public rankings); items load through the paginated hook below; pass
+// criterionExternalId to scope a non-primary lane (omit = primary)
 export const useTemplateRankingAggregate = (
   templateSlug: string | null | undefined,
+  criterionExternalId?: string | null,
   enabled = true
 ): MarketplaceTemplateRankingAggregate | null | undefined =>
   useQuery(
     api.marketplace.rankings.queries.getTemplateRankingAggregate,
     enabled && typeof templateSlug === 'string' && templateSlug.length > 0
-      ? { templateSlug }
+      ? {
+          templateSlug,
+          ...(criterionExternalId ? { criterionExternalId } : {}),
+        }
       : 'skip'
   )
 
@@ -106,6 +119,9 @@ interface TemplateRankingAggregateItemsPage
 interface TemplateRankingAggregateItemsArgs
 {
   templateSlug: string | null | undefined
+  // criterion lane — must match the lane whose generation is being read.
+  // omit to default to the active primary criterion (& its generation)
+  criterionExternalId?: string | null
   generation: number | null | undefined
   sort?: TemplateRankingAggregateItemSort
   band?: TemplateRankingAggregateItemBand
@@ -120,6 +136,7 @@ interface TemplateRankingAggregateItemsArgs
 // pass enabled=false to skip while the aggregate has no active generation
 export const useTemplateRankingAggregateItems = ({
   templateSlug,
+  criterionExternalId,
   generation,
   sort,
   band,
@@ -136,6 +153,7 @@ export const useTemplateRankingAggregateItems = ({
       ? {
           templateSlug,
           generation,
+          ...(criterionExternalId ? { criterionExternalId } : {}),
           ...(sort ? { sort } : {}),
           ...(band ? { band } : {}),
           ...(search ? { search } : {}),
@@ -155,12 +173,16 @@ export const useTemplateRankingAggregateItems = ({
 
 export const useMyRankingForTemplate = (
   templateSlug: string | null | undefined,
+  criterionExternalId?: string | null,
   enabled = true
 ): MarketplaceMyRankingForTemplateResult | undefined =>
   useQuery(
     api.marketplace.rankings.queries.getMyRankingForTemplate,
     enabled && typeof templateSlug === 'string' && templateSlug.length > 0
-      ? { templateSlug }
+      ? {
+          templateSlug,
+          ...(criterionExternalId ? { criterionExternalId } : {}),
+        }
       : 'skip'
   )
 
@@ -173,13 +195,21 @@ export const useMyRankings = (
     enabled ? (limit === undefined ? {} : { limit }) : 'skip'
   )
 
+// reactive publish gate; pass criterionExternalId to surface lane-scoped
+// block reasons (`criterion_not_found` / `criterion_not_publishable`)
 export const useRankingPublishAvailability = (
   boardExternalId: string | null | undefined,
+  criterionExternalId?: string | null,
   enabled = true
 ): MarketplaceRankingPublishAvailability | undefined =>
   useQuery(
     api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
-    enabled && boardExternalId ? { boardExternalId } : 'skip'
+    enabled && boardExternalId
+      ? {
+          boardExternalId,
+          ...(criterionExternalId ? { criterionExternalId } : {}),
+        }
+      : 'skip'
   )
 
 interface PublishRankingFromBoardArgs
@@ -188,6 +218,9 @@ interface PublishRankingFromBoardArgs
   title?: string
   description?: string | null
   visibility: RankingVisibility
+  // criterion lane this ranking answers; omit to default to the template's
+  // active primary criterion server-side
+  criterionExternalId?: string
 }
 
 export const usePublishRankingFromBoardMutation = () =>

@@ -48,6 +48,7 @@ import {
 } from '../templates/lib'
 import {
   resolvePrimaryTemplateCriterion,
+  resolveTemplateCriteria,
   resolveTemplateCriterionForHistoricalRead,
 } from '../templates/criteria'
 import {
@@ -97,12 +98,16 @@ const unavailableRankingPublish = (
     activeItemCount: 0,
     unrankedItemCount: 0,
     sourceTemplateTitle: null,
-  }
+  },
+  userPublishedCriterionExternalIds: string[] = [],
+  sourceTemplateCriteria: MarketplaceTemplateCriterion[] = []
 ): MarketplaceRankingPublishAvailability => ({
   canPublish: false,
   reason,
   message: RANKING_PUBLISH_BLOCK_MESSAGES[reason],
   ...counts,
+  sourceTemplateCriteria,
+  userPublishedCriterionExternalIds,
 })
 
 const emptyAggregateItemsResult = (
@@ -864,17 +869,35 @@ export const getBoardRankingPublishAvailability = query({
         templateCounts
       )
     }
+    const userPublishedCriterionExternalIds =
+      await loadUserPublishedCriterionExternalIds(ctx, template._id, userId)
+    // include only active criteria — the picker is for new rankings, so
+    // hidden/deprecated lanes shouldn't appear as options. resolveTemplate-
+    // Criteria already validates the array shape & enforces ordering
+    const sourceTemplateCriteria = resolveTemplateCriteria(template).filter(
+      (c) => c.status === 'active'
+    )
     const criterionBlockReason = criterionPublishBlockReason(
       template,
       args.criterionExternalId
     )
     if (criterionBlockReason)
     {
-      return unavailableRankingPublish(criterionBlockReason, templateCounts)
+      return unavailableRankingPublish(
+        criterionBlockReason,
+        templateCounts,
+        userPublishedCriterionExternalIds,
+        sourceTemplateCriteria
+      )
     }
     if (board.activeItemCount === 0 || board.unrankedItemCount > 0)
     {
-      return unavailableRankingPublish('incomplete', templateCounts)
+      return unavailableRankingPublish(
+        'incomplete',
+        templateCounts,
+        userPublishedCriterionExternalIds,
+        sourceTemplateCriteria
+      )
     }
 
     return {
@@ -882,6 +905,37 @@ export const getBoardRankingPublishAvailability = query({
       reason: null,
       message: null,
       ...templateCounts,
+      sourceTemplateCriteria,
+      userPublishedCriterionExternalIds,
     }
   },
 })
+
+// criterion ids the signed-in user already has a public-listable ranking
+// for on this template — uniqued, in stable insertion order. used by the
+// publish modal to show an "updates yours" pill on each lane chip.
+const loadUserPublishedCriterionExternalIds = async (
+  ctx: QueryCtx,
+  templateId: Id<'templates'>,
+  userId: Id<'users'>
+): Promise<string[]> =>
+{
+  const rows = await ctx.db
+    .query('publishedRankings')
+    .withIndex('bySourceTemplateOwnerPublicCreatedAt', (q) =>
+      q
+        .eq('sourceTemplateId', templateId)
+        .eq('ownerId', userId)
+        .eq('isPubliclyListable', true)
+    )
+    .collect()
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const row of rows)
+  {
+    if (seen.has(row.sourceCriterionExternalId)) continue
+    seen.add(row.sourceCriterionExternalId)
+    out.push(row.sourceCriterionExternalId)
+  }
+  return out
+}

@@ -30,6 +30,33 @@ const SSBU_CRITERIA = [
   },
 ] satisfies readonly MarketplaceTemplateCriterion[]
 
+// primary criterion externalId stays 'default' so previously seeded Zelda
+// rankings (DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID) keep a valid lane ref
+const ZELDA_CRITERIA = [
+  {
+    externalId: 'default',
+    name: 'Overall',
+    shortName: 'Overall',
+    prompt: 'Rank Zelda games on overall quality + impact.',
+    axisTop: 'Best',
+    axisBottom: 'Worst',
+    order: 0,
+    isPrimary: true,
+    status: 'active',
+  },
+  {
+    externalId: 'favorites',
+    name: 'Favorites',
+    shortName: 'Favs',
+    prompt: 'Rank Zelda games by personal love + replay value.',
+    axisTop: 'All-time favorite',
+    axisBottom: 'Skip',
+    order: 1,
+    isPrimary: false,
+    status: 'active',
+  },
+] satisfies readonly MarketplaceTemplateCriterion[]
+
 export const GAMING_TEMPLATE_META = {
   'game-consoles': {
     title: 'Game consoles',
@@ -168,6 +195,7 @@ export const GAMING_TEMPLATE_META = {
     category: 'gaming',
     description: 'Every mainline Zelda title, by box art.',
     tags: ['zelda', 'nintendo', 'rpg'],
+    criteria: ZELDA_CRITERIA,
   },
   'nintendo-franchises': {
     title: 'Nintendo franchises',

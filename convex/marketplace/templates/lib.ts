@@ -1440,11 +1440,13 @@ export const toTemplateDetail = async (
   cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateDetail> =>
 {
-  const [base, coverItems] = await Promise.all([
+  const criteria = resolveTemplateCriteria(template)
+  const [base, coverItems, rankingCountByCriterion] = await Promise.all([
     toTemplateBase(ctx, template, ['preview', 'editor', 'tile'], cache),
     template.coverMediaAssetId
       ? []
       : loadCoverItems(ctx, template, { cache, kind: 'tile' }),
+    loadRankingCountByCriterion(ctx, template._id, criteria),
   ])
 
   return {
@@ -1453,10 +1455,37 @@ export const toTemplateDetail = async (
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
     access: getTemplateAccessState(template, viewerPlan),
-    criteria: resolveTemplateCriteria(template),
+    criteria,
+    rankingCountByCriterion,
     suggestedTiers: template.suggestedTiers,
     labels: template.labels ?? null,
   }
+}
+
+// reads the per-criterion aggregate parent rows once & returns a compact
+// id->rankingCount map so the detail response can label chips & badges
+// without callers having to N+1 the aggregate query themselves
+const loadRankingCountByCriterion = async (
+  ctx: DbCtx,
+  templateId: Id<'templates'>,
+  criteria: readonly { externalId: string }[]
+): Promise<Record<string, number>> =>
+{
+  const rows = await ctx.db
+    .query('templateRankingAggregates')
+    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+    .collect()
+  const byCriterion = new Map<string, number>()
+  for (const row of rows)
+  {
+    byCriterion.set(row.criterionExternalId, row.rankingCount)
+  }
+  const result: Record<string, number> = {}
+  for (const criterion of criteria)
+  {
+    result[criterion.externalId] = byCriterion.get(criterion.externalId) ?? 0
+  }
+  return result
 }
 
 export const toTemplateItem = async (

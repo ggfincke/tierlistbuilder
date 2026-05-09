@@ -5,5 +5,11 @@ import { useRankingPublishAvailability as useRankingPublishAvailabilityQuery } f
 
 export const useRankingPublishAvailability = (
   boardExternalId: string | null | undefined,
+  criterionExternalId?: string | null,
   enabled = true
-) => useRankingPublishAvailabilityQuery(boardExternalId, enabled)
+) =>
+  useRankingPublishAvailabilityQuery(
+    boardExternalId,
+    criterionExternalId,
+    enabled
+  )

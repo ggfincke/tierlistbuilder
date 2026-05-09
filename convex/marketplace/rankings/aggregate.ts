@@ -386,8 +386,10 @@ export const toTemplateRankingAggregateItem = async (
     topBucketShare: row.topBucketShare,
     consensusScore: row.consensusScore,
     controversyScore: row.controversyScore,
-    controversyPercentile: row.controversyPercentile,
-    agreementPercentile: row.agreementPercentile,
+    // legacy rows (seeded before the relative-metric migration) may be
+    // missing these — fall back to 0 so the public contract stays strict
+    controversyPercentile: row.controversyPercentile ?? 0,
+    agreementPercentile: row.agreementPercentile ?? 0,
     isTopBucket: row.isTopBucket,
     isBottomBucket: row.isBottomBucket,
     isControversial: row.isControversial,

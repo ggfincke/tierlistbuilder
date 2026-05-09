@@ -11,6 +11,7 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { useMyRankings } from '~/features/marketplace/model/useRankingDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
+import { CriterionBadge } from '~/features/marketplace/components/consensus/CriterionBadge'
 import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
 import { RANKINGS_ROUTE_PATH } from '~/shared/routes/pathname'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
@@ -43,6 +44,7 @@ const RankingRow = ({ ranking }: { ranking: MarketplaceRankingSummary }) =>
             {ranking.title}
           </span>
           <VisibilityBadge visibility={ranking.visibility} />
+          <CriterionBadge criterion={ranking.criterion} />
         </div>
         <p className="mt-0.5 text-[11px] text-[var(--t-text-faint)]">
           {categoryLabel} · From {ranking.template.title} · Updated{' '}

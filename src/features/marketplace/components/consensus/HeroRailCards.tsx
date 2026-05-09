@@ -111,8 +111,11 @@ export const HeroRailCards = ({
     (aggregate.state === 'ready' || aggregate.state === 'stale')
   const generation = aggregate.activeGeneration
 
+  const criterionExternalId = aggregate.criterion.externalId
+
   const divisivePage = useTemplateRankingAggregateItems({
     templateSlug,
+    criterionExternalId,
     generation,
     sort: 'controversy',
     enabled,
@@ -121,6 +124,7 @@ export const HeroRailCards = ({
 
   const consensusPage = useTemplateRankingAggregateItems({
     templateSlug,
+    criterionExternalId,
     generation,
     sort: 'consensusTop',
     enabled,

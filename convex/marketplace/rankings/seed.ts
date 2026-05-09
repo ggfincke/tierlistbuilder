@@ -36,6 +36,7 @@ import {
 } from '../templates/lib'
 import {
   resolveActiveTemplateCriterion,
+  resolveTemplateCriteria,
   toTemplateCriterionSnapshot,
 } from '../templates/criteria'
 import { queueTemplateRankingAggregateRecomputesForActiveCriteria } from './aggregate'
@@ -113,6 +114,10 @@ interface CuratedOfficialRanking
   // "Pokemon Trainer", not the splits). Parent is asserted present in
   // tierGroups so a rename surfaces immediately.
   parentLabelByLabel?: Readonly<Record<string, string>>
+  // optional non-primary criterion lane this curated list belongs in. when
+  // omitted the seed flow defaults to the template's active primary criterion
+  // (preserves the original competitive-only behavior)
+  criterionExternalId?: string
 }
 
 const SEED_TARGETS: readonly SeedTargetDefinition[] = [
@@ -693,6 +698,818 @@ const CURATED_OFFICIAL_RANKINGS: readonly CuratedOfficialRanking[] = [
   },
 ]
 
+// favorites lane shape & config — per-criterion seed inputs that drive the
+// non-primary (e.g. SSBU 'favorites') sample-ranking flow without leaking
+// into the existing competitive lane's scoring
+type SeedExtraLaneKey = 'ssbu-favorites' | 'zelda-favorites' | 'mcu-favorites'
+
+interface SeedExtraLaneDefinition
+{
+  // unique key used by mutation args + result aggregation
+  laneKey: SeedExtraLaneKey
+  targetKey: TargetKey
+  criterionExternalId: string
+  // appended to board / tier / item externalIds so favorites & competitive
+  // rows from the same author don't collide on byOwnerAndExternalId
+  laneSlug: string
+  // ranking title template applied per profile — "{name}'s favorite mains"
+  rankingTitleSuffix: string
+  rankingDescription: string
+  // crowd-favorite terms — boost characters most players gravitate to
+  // regardless of viability (Mario, Pikachu, Cloud, Sora, Sephiroth, etc.)
+  boostTerms: readonly string[]
+  // drop terms — characters typically NOT picked as a personal favorite
+  // (mii fighters, clones, dr mario)
+  dropTerms: readonly string[]
+  // per-profile favorite picks; replaces the competitive boostTerms for
+  // this lane so favorites read as personal preference instead of tournament
+  // viability. profile keys w/o entries fall through to the lane's crowd
+  profileBoostOverrides: Readonly<Record<string, readonly string[]>>
+  profileDropOverrides?: Readonly<Record<string, readonly string[]>>
+  // multiplier applied on top of profile.chaos so favorites read more
+  // personal/scattered than the competitive lane
+  chaosMultiplier: number
+  // optional shrink applied on top of profile.contrarian (favorites are
+  // less anti-crowd than tournament picks; people don't pretend to dislike
+  // characters they actually love)
+  contrarianMultiplier: number
+}
+
+const SSBU_FAVORITES_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'ssbu-favorites',
+  targetKey: 'ssbu',
+  criterionExternalId: 'favorites',
+  laneSlug: 'favorites',
+  rankingTitleSuffix: 'favorite Smash mains',
+  rankingDescription:
+    'Personal-preference Smash ranking — viability ignored, vibes only.',
+  boostTerms: [
+    'mario',
+    'link',
+    'pikachu',
+    'sonic',
+    'kirby',
+    'cloud',
+    'sora',
+    'joker',
+    'sephiroth',
+    'snake',
+    'pokemon trainer',
+    'yoshi',
+    'fox',
+    'samus',
+    'mega man',
+    'banjo',
+    'pyra and mythra',
+  ],
+  // miis + clones bias toward "not a favorite" because most players who
+  // love a kit pick the original; dr mario's the canonical clone example
+  dropTerms: [
+    'mii brawler',
+    'mii gunner',
+    'mii swordfighter',
+    'dr mario',
+    'dark pit',
+  ],
+  // per-profile "loved mains" — each profile reads like a real friend-group
+  // pick (princess stan, fire emblem diehard, heavies-only, etc.)
+  profileBoostOverrides: {
+    'ava-byte': ['samus', 'zero suit samus', 'palutena', 'lucas'],
+    'ben-combo': ['ryu', 'ken', 'terry', 'kazuya', 'little mac'],
+    'cora-quest': ['kirby', 'yoshi', 'pikachu', 'jigglypuff'],
+    'diego-frame': ['wario', 'snake', 'ness', 'ridley', 'mr game and watch'],
+    'elise-circuit': ['link', 'zelda', 'young link', 'toon link', 'sheik'],
+    'finn-nova': [
+      'banjo and kazooie',
+      'duck hunt',
+      'rob',
+      'mr game and watch',
+      'piranha plant',
+    ],
+    'gia-pilot': ['fox', 'falco', 'wolf', 'captain falcon'],
+    'hugo-bloom': ['peach', 'daisy', 'rosalina and luma', 'isabelle'],
+    'iris-lane': ['marth', 'lucina', 'ike', 'roy', 'chrom', 'corrin'],
+    'jae-tempo': ['sonic', 'mega man', 'pac man', 'banjo and kazooie'],
+    'kira-vale': ['sora', 'joker', 'sephiroth', 'cloud', 'hero'],
+    'leo-sparks': ['bowser', 'king k rool', 'ridley', 'ganondorf', 'bowser jr'],
+    'mina-orbit': ['villager', 'isabelle', 'steve', 'pyra and mythra'],
+    'nico-slate': ['cloud', 'sephiroth', 'hero', 'shulk'],
+    'olive-ray': ['jigglypuff', 'pichu', 'pokemon trainer', 'incineroar'],
+    'pax-stone': ['donkey kong', 'diddy kong', 'yoshi', 'bowser jr'],
+  },
+  // every profile drops the mii fighters because favorites are personality-
+  // driven; nobody picks generic placeholder fighters as their main
+  profileDropOverrides: {},
+  chaosMultiplier: 1.55,
+  contrarianMultiplier: 0.45,
+}
+
+const ZELDA_FAVORITES_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'zelda-favorites',
+  targetKey: 'zelda',
+  criterionExternalId: 'favorites',
+  laneSlug: 'favorites',
+  rankingTitleSuffix: 'favorite Zelda games',
+  rankingDescription:
+    'Personal nostalgia + replayability ranking for the mainline Zelda series — vibes over scores.',
+  // crowd-favorite Zelda titles spanning the standard 'top 5' lists
+  boostTerms: [
+    'ocarina',
+    'breath',
+    'tears',
+    'majora',
+    'wind waker',
+    'a link to the past',
+    'twilight princess',
+    'links awakening',
+    'a link between worlds',
+    'skyward sword',
+  ],
+  // notoriously divisive titles that show up at the bottom of most lists
+  dropTerms: [
+    'zelda ii',
+    'tri force heroes',
+    'four swords adventures',
+    'phantom hourglass',
+    'spirit tracks',
+  ],
+  profileBoostOverrides: {
+    'ava-byte': ['breath of the wild', 'tears of the kingdom'],
+    'ben-combo': ['ocarina of time', 'majoras mask'],
+    'cora-quest': ['ocarina of time', 'wind waker', 'breath of the wild'],
+    'diego-frame': ['majoras mask', 'twilight princess'],
+    'elise-circuit': ['a link to the past', 'a link between worlds'],
+    'finn-nova': ['skyward sword', 'the minish cap', 'echoes of wisdom'],
+    'gia-pilot': ['breath of the wild', 'tears of the kingdom'],
+    'hugo-bloom': ['oracle of seasons and ages', 'the minish cap'],
+    'iris-lane': ['twilight princess', 'majoras mask'],
+    'jae-tempo': ['zelda ii the adventure of link', 'echoes of wisdom'],
+    'kira-vale': ['ocarina of time', 'a link to the past'],
+    'leo-sparks': ['links awakening', 'the minish cap'],
+    'mina-orbit': ['skyward sword', 'wind waker'],
+    'nico-slate': ['tears of the kingdom', 'breath of the wild'],
+    'olive-ray': ['four swords adventures', 'tri force heroes'],
+    'pax-stone': ['twilight princess', 'majoras mask'],
+  },
+  chaosMultiplier: 1.45,
+  contrarianMultiplier: 0.5,
+}
+
+const MCU_FAVORITES_LANE: SeedExtraLaneDefinition = {
+  laneKey: 'mcu-favorites',
+  targetKey: 'mcu',
+  criterionExternalId: 'favorites',
+  laneSlug: 'favorites',
+  rankingTitleSuffix: 'favorite MCU films',
+  rankingDescription:
+    'Pure rewatch-value ranking — which MCU films you actually love revisiting, not just which ones reviewed well.',
+  boostTerms: [
+    'iron man',
+    'the avengers',
+    'winter soldier',
+    'civil war',
+    'infinity war',
+    'endgame',
+    'guardians',
+    'black panther',
+    'ragnarok',
+    'no way home',
+    'spider man homecoming',
+    'deadpool',
+  ],
+  // generally bottom-of-list MCU entries — even fans skip these on rewatch
+  dropTerms: [
+    'dark world',
+    'incredible hulk',
+    'eternals',
+    'quantumania',
+    'the marvels',
+    'love and thunder',
+    'brave new world',
+  ],
+  profileBoostOverrides: {
+    'ava-byte': ['black widow', 'captain marvel', 'the marvels'],
+    'ben-combo': ['winter soldier', 'civil war', 'shang chi'],
+    'cora-quest': ['endgame', 'infinity war', 'the avengers'],
+    'diego-frame': [
+      'doctor strange multiverse of madness',
+      'eternals',
+      'thunderbolts',
+    ],
+    'elise-circuit': ['black panther', 'shang chi', 'wakanda forever'],
+    'finn-nova': ['thor ragnarok', 'thor the dark world', 'ant man'],
+    'gia-pilot': ['captain marvel', 'black widow', 'the marvels'],
+    'hugo-bloom': ['guardians of the galaxy', 'ant man and the wasp'],
+    'iris-lane': ['black panther', 'wakanda forever'],
+    'jae-tempo': ['iron man 3', 'multiverse of madness', 'thunderbolts'],
+    'kira-vale': ['no way home', 'spider man far from home', 'doctor strange'],
+    'leo-sparks': ['thor', 'thor ragnarok', 'love and thunder'],
+    'mina-orbit': ['eternals', 'first avenger', 'ant man'],
+    'nico-slate': ['infinity war', 'endgame', 'avengers age of ultron'],
+    'olive-ray': ['quantumania', 'captain marvel', 'eternals'],
+    'pax-stone': ['ragnarok', 'guardians of the galaxy vol 3'],
+  },
+  chaosMultiplier: 1.5,
+  contrarianMultiplier: 0.5,
+}
+
+const SEED_EXTRA_LANES: readonly SeedExtraLaneDefinition[] = [
+  SSBU_FAVORITES_LANE,
+  ZELDA_FAVORITES_LANE,
+  MCU_FAVORITES_LANE,
+]
+
+const extraLaneByKey = (laneKey: SeedExtraLaneKey): SeedExtraLaneDefinition =>
+{
+  const lane = SEED_EXTRA_LANES.find(
+    (candidate) => candidate.laneKey === laneKey
+  )
+  if (!lane)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `unknown extra seed lane: ${laneKey}`,
+    })
+  }
+  return lane
+}
+
+const extraLaneKeyValidator = v.union(
+  v.literal('ssbu-favorites'),
+  v.literal('zelda-favorites'),
+  v.literal('mcu-favorites')
+)
+
+// curated favorites rankings — community personalities w/ editorial
+// 'creator' badges, distinct from the competitive lane's official lists
+const MAXIMILIAN_FAVORITES_TIERS: readonly TierPresetTier[] = [
+  { name: 'Mains', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'Pocket', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'Solid', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'Casual', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'Sometimes', colorSpec: { kind: 'palette', index: 7 } },
+  { name: 'Rarely', colorSpec: { kind: 'palette', index: 10 } },
+]
+
+const HUNGRYBOX_FAVORITES_TIERS: readonly TierPresetTier[] = [
+  { name: 'Goated', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'Beloved', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'Respect', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'Fine', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'Mid', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'Skip', colorSpec: { kind: 'palette', index: 10 } },
+]
+
+const ZELDA_PERSONAL_FAVORITES_TIERS: readonly TierPresetTier[] = [
+  { name: 'GOAT', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'Replay yearly', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'Loved it', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'Solid', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'Curiosity', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'Pass', colorSpec: { kind: 'palette', index: 10 } },
+]
+
+const ZELDA_NOSTALGIA_FAVORITES_TIERS: readonly TierPresetTier[] = [
+  { name: 'Childhood', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'Bedside', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'Background', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'Curio', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'Skipped', colorSpec: { kind: 'palette', index: 10 } },
+]
+
+const MCU_REWATCH_FAVORITES_TIERS: readonly TierPresetTier[] = [
+  { name: 'Always on', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'Comfort watch', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'Solid pick', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'Fine', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'Background', colorSpec: { kind: 'palette', index: 7 } },
+  { name: 'Skip', colorSpec: { kind: 'palette', index: 10 } },
+]
+
+const MCU_PHASE_FAVORITES_TIERS: readonly TierPresetTier[] = [
+  { name: 'Phase 3 peak', colorSpec: { kind: 'palette', index: 0 } },
+  { name: 'Loved', colorSpec: { kind: 'palette', index: 1 } },
+  { name: 'Liked', colorSpec: { kind: 'palette', index: 3 } },
+  { name: 'Mid', colorSpec: { kind: 'palette', index: 5 } },
+  { name: 'Forgot it existed', colorSpec: { kind: 'palette', index: 10 } },
+]
+
+const CURATED_FAVORITES_RANKINGS: readonly CuratedOfficialRanking[] = [
+  {
+    targetKey: 'ssbu',
+    criterionExternalId: 'favorites',
+    authorKey: 'maxdood-favs',
+    authorDisplayName: 'Maximilian Dood',
+    rankingTitle: 'All-Time Favorites',
+    rankingDescription:
+      "Max's all-time favorite Smash fighters — built around his fighting-game roots, hype factor, & character love over win-rate.",
+    featuredRank: 0,
+    featuredBadge: 'creator',
+    tiers: MAXIMILIAN_FAVORITES_TIERS,
+    parentLabelByLabel: SSBU_CHILD_LABEL_PARENTS,
+    tierGroups: [
+      {
+        tierName: 'Mains',
+        labels: ['Ryu', 'Ken', 'Terry', 'Kazuya', 'Sephiroth', 'Cloud'],
+      },
+      {
+        tierName: 'Pocket',
+        labels: [
+          'Sora',
+          'Joker',
+          'Hero',
+          'Mega Man',
+          'Pac Man',
+          'Snake',
+          'Sonic',
+          'Captain Falcon',
+          'Little Mac',
+          'Bayonetta',
+        ],
+      },
+      {
+        tierName: 'Solid',
+        labels: [
+          'Mario',
+          'Luigi',
+          'Link',
+          'Young Link',
+          'Toon Link',
+          'Yoshi',
+          'Donkey Kong',
+          'Diddy Kong',
+          'Fox',
+          'Falco',
+          'Wolf',
+          'Samus',
+          'Dark Samus',
+          'Bowser',
+          'Ganondorf',
+          'King K Rool',
+          'Ridley',
+          'Wario',
+          'Shulk',
+          'Pokemon Trainer',
+          'Greninja',
+          'Inkling',
+          'Steve',
+          'Pyra And Mythra',
+          'Min Min',
+          'Banjo And Kazooie',
+          'Mr Game And Watch',
+          'Rob',
+          'Roy',
+          'Marth',
+          'Ike',
+          'Lucina',
+        ],
+      },
+      {
+        tierName: 'Casual',
+        labels: [
+          'Peach',
+          'Daisy',
+          'Zelda',
+          'Sheik',
+          'Palutena',
+          'Pit',
+          'Dark Pit',
+          'Pikachu',
+          'Pichu',
+          'Lucario',
+          'Mewtwo',
+          'Jigglypuff',
+          'Incineroar',
+          'Kirby',
+          'Meta Knight',
+          'King Dedede',
+          'Olimar',
+          'Rosalina And Luma',
+          'Robin',
+          'Corrin',
+          'Byleth',
+          'Chrom',
+          'Bowser Jr',
+          'Simon',
+          'Richter',
+        ],
+      },
+      {
+        tierName: 'Sometimes',
+        labels: [
+          'Ness',
+          'Lucas',
+          'Villager',
+          'Isabelle',
+          'Wii Fit Trainer',
+          'Duck Hunt',
+          'Ice Climbers',
+          'Zero Suit Samus',
+          'Mii Brawler',
+          'Mii Swordfighter',
+          'Mii Gunner',
+        ],
+      },
+      {
+        tierName: 'Rarely',
+        labels: ['Dr Mario', 'Piranha Plant'],
+      },
+    ],
+  },
+  {
+    targetKey: 'ssbu',
+    criterionExternalId: 'favorites',
+    authorKey: 'hbox-favs',
+    authorDisplayName: 'Hungrybox',
+    rankingTitle: 'Smash 64 Throwbacks',
+    rankingDescription:
+      "Hbox's nostalgia-first favorites — every fighter graded by how much love they had on the Smash 64 + Melee couch.",
+    featuredRank: 1,
+    featuredBadge: 'creator',
+    tiers: HUNGRYBOX_FAVORITES_TIERS,
+    parentLabelByLabel: SSBU_CHILD_LABEL_PARENTS,
+    tierGroups: [
+      {
+        tierName: 'Goated',
+        labels: ['Jigglypuff', 'Pikachu', 'Fox', 'Falco', 'Captain Falcon'],
+      },
+      {
+        tierName: 'Beloved',
+        labels: [
+          'Mario',
+          'Luigi',
+          'Link',
+          'Young Link',
+          'Yoshi',
+          'Kirby',
+          'Samus',
+          'Donkey Kong',
+          'Ness',
+          'Sheik',
+          'Zelda',
+          'Marth',
+          'Roy',
+          'Mewtwo',
+          'Mr Game And Watch',
+          'Pichu',
+        ],
+      },
+      {
+        tierName: 'Respect',
+        labels: [
+          'Peach',
+          'Daisy',
+          'Bowser',
+          'Ice Climbers',
+          'Diddy Kong',
+          'Wolf',
+          'Snake',
+          'Sonic',
+          'Mega Man',
+          'Pac Man',
+          'Lucas',
+          'Lucina',
+          'Ike',
+          'Pokemon Trainer',
+          'Greninja',
+          'Olimar',
+          'Toon Link',
+          'King K Rool',
+          'Ridley',
+          'Cloud',
+          'Sephiroth',
+          'Hero',
+          'Joker',
+          'Sora',
+          'Banjo And Kazooie',
+          'Steve',
+          'Pyra And Mythra',
+          'Min Min',
+          'Kazuya',
+          'Terry',
+          'Ryu',
+          'Ken',
+          'Bayonetta',
+          'Shulk',
+          'Inkling',
+          'Pit',
+        ],
+      },
+      {
+        tierName: 'Fine',
+        labels: [
+          'Wario',
+          'Lucario',
+          'Robin',
+          'Corrin',
+          'Byleth',
+          'Chrom',
+          'Rosalina And Luma',
+          'Palutena',
+          'Dark Samus',
+          'Zero Suit Samus',
+          'Dark Pit',
+          'King Dedede',
+          'Meta Knight',
+          'Ganondorf',
+          'Bowser Jr',
+          'Villager',
+          'Isabelle',
+          'Wii Fit Trainer',
+          'Mii Brawler',
+        ],
+      },
+      {
+        tierName: 'Mid',
+        labels: [
+          'Incineroar',
+          'Rob',
+          'Duck Hunt',
+          'Simon',
+          'Richter',
+          'Little Mac',
+          'Piranha Plant',
+          'Mii Swordfighter',
+          'Mii Gunner',
+        ],
+      },
+      {
+        tierName: 'Skip',
+        labels: ['Dr Mario'],
+      },
+    ],
+  },
+  {
+    targetKey: 'zelda',
+    criterionExternalId: 'favorites',
+    authorKey: 'zeltik-favs',
+    authorDisplayName: 'Zeltik',
+    rankingTitle: 'Personal Favorites',
+    rankingDescription:
+      'Zeltik’s personal-best ranking of every mainline Zelda — based on impact, narrative, and how often he replays them.',
+    featuredRank: 0,
+    featuredBadge: 'creator',
+    tiers: ZELDA_PERSONAL_FAVORITES_TIERS,
+    tierGroups: [
+      { tierName: 'GOAT', labels: ['Majoras Mask'] },
+      {
+        tierName: 'Replay yearly',
+        labels: ['Ocarina Of Time', 'The Wind Waker'],
+      },
+      {
+        tierName: 'Loved it',
+        labels: [
+          'Twilight Princess',
+          'Skyward Sword',
+          'Breath Of The Wild',
+          'Tears Of The Kingdom',
+          'A Link To The Past',
+          'Links Awakening',
+          'A Link Between Worlds',
+          'The Minish Cap',
+        ],
+      },
+      {
+        tierName: 'Solid',
+        labels: [
+          'The Legend Of Zelda',
+          'Oracle Of Seasons And Ages',
+          'Echoes Of Wisdom',
+        ],
+      },
+      {
+        tierName: 'Curiosity',
+        labels: [
+          'Zelda Ii The Adventure Of Link',
+          'Phantom Hourglass',
+          'Spirit Tracks',
+        ],
+      },
+      {
+        tierName: 'Pass',
+        labels: ['Four Swords Adventures', 'Tri Force Heroes'],
+      },
+    ],
+  },
+  {
+    targetKey: 'zelda',
+    criterionExternalId: 'favorites',
+    authorKey: 'monstermaze-favs',
+    authorDisplayName: 'Monster Maze',
+    rankingTitle: 'Nostalgia Favorites',
+    rankingDescription:
+      'Monster Maze’s nostalgia-ranked Zelda list — the games that mattered most to him as a kid sit at the top, regardless of polish.',
+    featuredRank: 1,
+    featuredBadge: 'creator',
+    tiers: ZELDA_NOSTALGIA_FAVORITES_TIERS,
+    tierGroups: [
+      {
+        tierName: 'Childhood',
+        labels: ['Ocarina Of Time', 'Majoras Mask', 'A Link To The Past'],
+      },
+      {
+        tierName: 'Bedside',
+        labels: [
+          'Links Awakening',
+          'The Minish Cap',
+          'The Wind Waker',
+          'Twilight Princess',
+        ],
+      },
+      {
+        tierName: 'Background',
+        labels: [
+          'The Legend Of Zelda',
+          'Oracle Of Seasons And Ages',
+          'Skyward Sword',
+          'A Link Between Worlds',
+          'Phantom Hourglass',
+          'Spirit Tracks',
+          'Breath Of The Wild',
+          'Tears Of The Kingdom',
+        ],
+      },
+      {
+        tierName: 'Curio',
+        labels: [
+          'Zelda Ii The Adventure Of Link',
+          'Four Swords Adventures',
+          'Echoes Of Wisdom',
+        ],
+      },
+      { tierName: 'Skipped', labels: ['Tri Force Heroes'] },
+    ],
+  },
+  {
+    targetKey: 'mcu',
+    criterionExternalId: 'favorites',
+    authorKey: 'screenjunkies-favs',
+    authorDisplayName: 'ScreenJunkies',
+    rankingTitle: 'Rewatch Favorites',
+    rankingDescription:
+      'ScreenJunkies’ rewatch-tier MCU favorites — purely about which films land in the rotation, not which ones the critics scored higher.',
+    featuredRank: 0,
+    featuredBadge: 'creator',
+    tiers: MCU_REWATCH_FAVORITES_TIERS,
+    tierGroups: [
+      {
+        tierName: 'Always on',
+        labels: [
+          'Avengers Endgame',
+          'Avengers Infinity War',
+          'Spider Man No Way Home',
+        ],
+      },
+      {
+        tierName: 'Comfort watch',
+        labels: [
+          'Iron Man',
+          'The Avengers',
+          'Captain America The Winter Soldier',
+          'Thor Ragnarok',
+          'Guardians Of The Galaxy',
+          'Black Panther',
+          'Captain America Civil War',
+          'Spider Man Homecoming',
+          'Deadpool And Wolverine',
+        ],
+      },
+      {
+        tierName: 'Solid pick',
+        labels: [
+          'Doctor Strange',
+          'Guardians Of The Galaxy Vol 2',
+          'Avengers Age Of Ultron',
+          'Captain America The First Avenger',
+          'Thor',
+          'Iron Man 3',
+          'Ant Man',
+          'Spider Man Far From Home',
+          'Shang Chi',
+          'Guardians Of The Galaxy Vol 3',
+          'Doctor Strange Multiverse Of Madness',
+          'Thunderbolts',
+        ],
+      },
+      {
+        tierName: 'Fine',
+        labels: [
+          'Iron Man 2',
+          'Black Widow',
+          'Captain Marvel',
+          'Ant Man And The Wasp',
+          'Black Panther Wakanda Forever',
+        ],
+      },
+      {
+        tierName: 'Background',
+        labels: [
+          'The Incredible Hulk',
+          'Thor The Dark World',
+          'Eternals',
+          'Thor Love And Thunder',
+        ],
+      },
+      {
+        tierName: 'Skip',
+        labels: [
+          'Ant Man And The Wasp Quantumania',
+          'The Marvels',
+          'Captain America Brave New World',
+          'The Fantastic Four First Steps',
+        ],
+      },
+    ],
+  },
+  {
+    targetKey: 'mcu',
+    criterionExternalId: 'favorites',
+    authorKey: 'mcudirect-favs',
+    authorDisplayName: 'MCU Direct',
+    rankingTitle: 'Phase Favorites',
+    rankingDescription:
+      'MCU Direct’s favorites-by-phase ranking — Phase 3 sits at the top, the multiverse saga gets a more honest read.',
+    featuredRank: 1,
+    featuredBadge: 'creator',
+    tiers: MCU_PHASE_FAVORITES_TIERS,
+    tierGroups: [
+      {
+        tierName: 'Phase 3 peak',
+        labels: [
+          'Avengers Endgame',
+          'Avengers Infinity War',
+          'Captain America Civil War',
+          'Thor Ragnarok',
+          'Black Panther',
+          'Spider Man Homecoming',
+        ],
+      },
+      {
+        tierName: 'Loved',
+        labels: [
+          'Iron Man',
+          'The Avengers',
+          'Captain America The Winter Soldier',
+          'Guardians Of The Galaxy',
+          'Doctor Strange',
+          'Spider Man No Way Home',
+          'Deadpool And Wolverine',
+        ],
+      },
+      {
+        tierName: 'Liked',
+        labels: [
+          'Thor',
+          'Iron Man 3',
+          'Captain America The First Avenger',
+          'Avengers Age Of Ultron',
+          'Guardians Of The Galaxy Vol 2',
+          'Ant Man',
+          'Spider Man Far From Home',
+          'Shang Chi',
+          'Black Panther Wakanda Forever',
+          'Guardians Of The Galaxy Vol 3',
+          'Doctor Strange Multiverse Of Madness',
+          'Thunderbolts',
+        ],
+      },
+      {
+        tierName: 'Mid',
+        labels: [
+          'Iron Man 2',
+          'Black Widow',
+          'Captain Marvel',
+          'Ant Man And The Wasp',
+          'Eternals',
+          'Thor Love And Thunder',
+        ],
+      },
+      {
+        tierName: 'Forgot it existed',
+        labels: [
+          'The Incredible Hulk',
+          'Thor The Dark World',
+          'Ant Man And The Wasp Quantumania',
+          'The Marvels',
+          'Captain America Brave New World',
+          'The Fantastic Four First Steps',
+        ],
+      },
+    ],
+  },
+]
+
+// per-lane breakdown — the CLI uses this to print marketplace-style logs
+// showing how many sample + curated rankings landed in each criterion lane
+// for each target template
+const seedLaneBreakdownValidator = v.object({
+  criterionExternalId: v.string(),
+  criterionName: v.string(),
+  sampleSeeded: v.number(),
+  curatedSeeded: v.number(),
+  curatedAuthors: v.array(v.string()),
+})
+
 const seedTargetResultValidator = v.object({
   key: targetKeyValidator,
   title: v.string(),
@@ -700,15 +1517,41 @@ const seedTargetResultValidator = v.object({
   itemCount: v.number(),
   rankingsSeeded: v.number(),
   rankingsDeleted: v.number(),
+  laneBreakdown: v.array(seedLaneBreakdownValidator),
+})
+
+// flat list of every curated ranking that landed during the seed run; the
+// CLI uses this to call out which editorial tier lists were inserted
+// (LumiRank, Maximilian Dood, Zeltik, etc.)
+const seedCuratedRankingResultValidator = v.object({
+  targetKey: targetKeyValidator,
+  targetTitle: v.string(),
+  criterionExternalId: v.string(),
+  authorKey: v.string(),
+  authorDisplayName: v.string(),
+  rankingTitle: v.string(),
+  rankingSlug: v.string(),
 })
 
 const seedCommunityRankingsResultValidator = v.object({
   usersSeeded: v.number(),
+  // breaks the `rankingsSeeded` total apart so the CLI can show how many
+  // came from algorithmic profiles vs curated tier lists in each lane
+  sampleRankingsSeeded: v.number(),
+  curatedRankingsSeeded: v.number(),
   rankingsSeeded: v.number(),
   rankingsDeleted: v.number(),
   aggregatesQueued: v.number(),
   targets: v.array(seedTargetResultValidator),
+  curatedRankings: v.array(seedCuratedRankingResultValidator),
 })
+
+interface SeedTargetResolutionCriterion
+{
+  externalId: string
+  name: string
+  isPrimary: boolean
+}
 
 interface SeedTargetResolution
 {
@@ -717,6 +1560,10 @@ interface SeedTargetResolution
   slug: string
   templateId: Id<'templates'>
   itemCount: number
+  // active criteria on the source template — surfaced here so the seed
+  // action can build per-lane breakdowns for the CLI without a second
+  // round-trip per template
+  criteria: SeedTargetResolutionCriterion[]
 }
 
 interface SeedRankingResult
@@ -736,6 +1583,15 @@ interface SeedResetResult
   boardsDeleted: number
 }
 
+interface SeedLaneBreakdown
+{
+  criterionExternalId: string
+  criterionName: string
+  sampleSeeded: number
+  curatedSeeded: number
+  curatedAuthors: string[]
+}
+
 interface SeedTargetResult
 {
   key: TargetKey
@@ -744,15 +1600,30 @@ interface SeedTargetResult
   itemCount: number
   rankingsSeeded: number
   rankingsDeleted: number
+  laneBreakdown: SeedLaneBreakdown[]
+}
+
+interface SeedCuratedRankingResult
+{
+  targetKey: TargetKey
+  targetTitle: string
+  criterionExternalId: string
+  authorKey: string
+  authorDisplayName: string
+  rankingTitle: string
+  rankingSlug: string
 }
 
 interface SeedCommunityRankingsResult
 {
   usersSeeded: number
+  sampleRankingsSeeded: number
+  curatedRankingsSeeded: number
   rankingsSeeded: number
   rankingsDeleted: number
   aggregatesQueued: number
   targets: SeedTargetResult[]
+  curatedRankings: SeedCuratedRankingResult[]
 }
 
 interface RankedSeedItem
@@ -841,23 +1712,34 @@ const authorUserEmail = (authorKey: string): string =>
 const authorUserExternalId = (authorKey: string): string =>
   `user-seed-rankings-${authorKey}`
 
+// laneSlug appended after target.key so an author can own independent
+// rows per criterion lane (favorites vs competitive) w/o colliding on
+// boards.byOwnerAndExternalId; omitted slug = legacy competitive format
+const laneSegment = (laneSlug: string | undefined): string =>
+  laneSlug && laneSlug.length > 0 ? `-${laneSlug}` : ''
+
 const authorBoardExternalId = (
   authorKey: string,
-  target: SeedTargetDefinition
-): string => `board-seed-rankings-${target.key}-${authorKey}`
+  target: SeedTargetDefinition,
+  laneSlug?: string
+): string =>
+  `board-seed-rankings-${target.key}${laneSegment(laneSlug)}-${authorKey}`
 
 const authorTierExternalId = (
   authorKey: string,
   target: SeedTargetDefinition,
-  tierIndex: number
-): string => `tier-seed-rankings-${target.key}-${authorKey}-${tierIndex}`
+  tierIndex: number,
+  laneSlug?: string
+): string =>
+  `tier-seed-rankings-${target.key}${laneSegment(laneSlug)}-${authorKey}-${tierIndex}`
 
 const authorItemExternalId = (
   authorKey: string,
   target: SeedTargetDefinition,
-  item: Doc<'templateItems'>
+  item: Doc<'templateItems'>,
+  laneSlug?: string
 ): string =>
-  `seed-rankings-${target.key}-${authorKey}-${item.order.toString().padStart(3, '0')}`
+  `seed-rankings-${target.key}${laneSegment(laneSlug)}-${authorKey}-${item.order.toString().padStart(3, '0')}`
 
 // curated authors live in their own externalId namespace so they never collide
 // w/ algorithmic sample profiles
@@ -878,6 +1760,35 @@ const seedRankingTitle = (
   profile: SeedProfile,
   target: SeedTargetDefinition
 ): string => `${profile.displayName}'s ${target.rankingTitle}`
+
+// lane-scoped board id + ranking title — symmetric to the competitive
+// helpers but scoped to a non-primary criterion. the title uses the lane
+// suffix so favorites cards read "{name}'s favorite Smash mains"
+const laneSeedBoardExternalId = (
+  profile: SeedProfile,
+  target: SeedTargetDefinition,
+  lane: SeedExtraLaneDefinition
+): string => authorBoardExternalId(profile.key, target, lane.laneSlug)
+
+const laneSeedRankingTitle = (
+  profile: SeedProfile,
+  lane: SeedExtraLaneDefinition
+): string => `${profile.displayName}'s ${lane.rankingTitleSuffix}`
+
+const deleteLaneSeedPair = async (
+  ctx: MutationCtx,
+  user: Doc<'users'>,
+  templateId: Id<'templates'>,
+  profile: SeedProfile,
+  target: SeedTargetDefinition,
+  lane: SeedExtraLaneDefinition
+): Promise<SeedResetResult> =>
+  await deleteAuthorSeedPair(ctx, {
+    user,
+    templateId,
+    boardExternalId: laneSeedBoardExternalId(profile, target, lane),
+    rankingTitle: laneSeedRankingTitle(profile, lane),
+  })
 
 const stableHash = (value: string): number =>
 {
@@ -991,6 +1902,72 @@ const rankTemplateItems = (
     }
   }
 
+  return ranked
+}
+
+// favorites scoring uses lane crowd + per-profile favorite picks instead
+// of competitive signal; chaos/contrarian scale by the lane multipliers
+// so personal lanes feel less anchored to a single "correct" answer
+const scoreFavoriteItem = (
+  lane: SeedExtraLaneDefinition,
+  profile: SeedProfile,
+  item: Doc<'templateItems'>
+): number =>
+{
+  const label = (item.label ?? item.externalId).toLowerCase()
+  const crowd = unitHash(`crowd-fav:${lane.laneKey}:${label}`)
+  const personal = unitHash(
+    `personal-fav:${profile.key}:${lane.laneKey}:${label}`
+  )
+  const chaos = Math.min(1, profile.chaos * lane.chaosMultiplier)
+  const contrarian = Math.min(1, profile.contrarian * lane.contrarianMultiplier)
+  const baseCrowd = crowd * (1 - contrarian)
+  const baseContrarian = (1 - crowd) * contrarian
+  let score = (baseCrowd + baseContrarian) * (1 - chaos)
+  score += personal * chaos
+  score += termMatches(label, lane.boostTerms) * 0.18
+  score -= termMatches(label, lane.dropTerms) * 0.28
+  // per-profile favorite mains weigh much heavier than the lane crowd —
+  // these are the picks that define each profile's personality
+  score +=
+    termMatches(label, lane.profileBoostOverrides[profile.key] ?? []) * 0.55
+  score -=
+    termMatches(label, lane.profileDropOverrides?.[profile.key] ?? []) * 0.3
+  return score
+}
+
+const rankTemplateItemsForLane = (
+  lane: SeedExtraLaneDefinition,
+  profile: SeedProfile,
+  items: readonly Doc<'templateItems'>[],
+  tiers: readonly TierPresetTier[]
+): RankedSeedItem[] =>
+{
+  const scored = items
+    .map((item) => ({
+      item,
+      score: scoreFavoriteItem(lane, profile, item),
+    }))
+    .sort((a, b) => b.score - a.score || a.item.order - b.item.order)
+  const quotas = resolveTierQuotas(items.length, tiers.length)
+  const ranked: RankedSeedItem[] = []
+  let cursor = 0
+
+  for (let tierIndex = 0; tierIndex < quotas.length; tierIndex++)
+  {
+    for (let orderInTier = 0; orderInTier < quotas[tierIndex]; orderInTier++)
+    {
+      const entry = scored[cursor]
+      if (!entry) break
+      ranked.push({
+        item: entry.item,
+        tierIndex,
+        orderInTier,
+        globalOrder: ranked.length,
+      })
+      cursor += 1
+    }
+  }
   return ranked
 }
 
@@ -1374,6 +2351,14 @@ interface InsertSeedRankingArgs
   createdAt: number
   useCountAdjustedAt: number
   viewCountSeedKey: string
+  // criterion external id this ranking answers; omit to default to the
+  // template's active primary criterion (preserves the legacy competitive-
+  // only seed flow)
+  criterionExternalId?: string
+  // when present, board / tier / item externalIds get this segment appended
+  // so non-primary lanes don't collide w/ the primary lane's seed rows for
+  // the same author
+  laneSlug?: string
 }
 
 interface InsertSeedRankingResult
@@ -1399,9 +2384,11 @@ const insertSeedRanking = async (
     rankingDescription,
     createdAt,
     viewCountSeedKey,
+    criterionExternalId,
+    laneSlug,
   } = args
 
-  const boardExternalId = authorBoardExternalId(authorKey, target)
+  const boardExternalId = authorBoardExternalId(authorKey, target, laneSlug)
   const boardId = await ctx.db.insert('boards', {
     externalId: boardExternalId,
     ownerId: user._id,
@@ -1430,7 +2417,12 @@ const insertSeedRanking = async (
   const tierEntries = await Promise.all(
     tiers.map(async (tier, order) =>
     {
-      const externalId = authorTierExternalId(authorKey, target, order)
+      const externalId = authorTierExternalId(
+        authorKey,
+        target,
+        order,
+        laneSlug
+      )
       const boardTierId = await ctx.db.insert('boardTiers', {
         boardId,
         externalId,
@@ -1461,7 +2453,12 @@ const insertSeedRanking = async (
     rankedItems.map(async (ranked) =>
     {
       const tier = tierEntries[ranked.tierIndex]
-      const externalId = authorItemExternalId(authorKey, target, ranked.item)
+      const externalId = authorItemExternalId(
+        authorKey,
+        target,
+        ranked.item,
+        laneSlug
+      )
       await ctx.db.insert('boardItems', {
         boardId,
         tierId: tier.boardTierId,
@@ -1499,7 +2496,12 @@ const insertSeedRanking = async (
 
   const rankingSlug = await allocateRankingSlug(ctx)
   const viewCount = Math.floor(unitHash(viewCountSeedKey) * 24)
-  const criterion = resolveActiveTemplateCriterion(template)
+  // resolveActiveTemplateCriterion enforces status==='active' so we don't
+  // accidentally seed into a hidden/deprecated lane via stale config
+  const criterion = resolveActiveTemplateCriterion(
+    template,
+    criterionExternalId
+  )
   const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
   const rankingId = await ctx.db.insert('publishedRankings', {
     slug: rankingSlug,
@@ -1550,7 +2552,12 @@ const insertSeedRanking = async (
         rankingId,
         templateItemId: ranked.item._id,
         templateItemExternalId: ranked.item.externalId,
-        externalId: authorItemExternalId(authorKey, target, ranked.item),
+        externalId: authorItemExternalId(
+          authorKey,
+          target,
+          ranked.item,
+          laneSlug
+        ),
         tierExternalId: tier.externalId,
         label: ranked.item.label,
         backgroundColor: ranked.item.backgroundColor,
@@ -1642,6 +2649,13 @@ export const resolveSeedTargetsImpl = internalQuery({
       slug: v.string(),
       templateId: v.id('templates'),
       itemCount: v.number(),
+      criteria: v.array(
+        v.object({
+          externalId: v.string(),
+          name: v.string(),
+          isPrimary: v.boolean(),
+        })
+      ),
     })
   ),
   handler: async (ctx): Promise<SeedTargetResolution[]> =>
@@ -1649,12 +2663,21 @@ export const resolveSeedTargetsImpl = internalQuery({
       SEED_TARGETS.map(async (target) =>
       {
         const template = await resolveTargetTemplate(ctx, target)
+        const criteria = resolveTemplateCriteria(template)
+          .filter((c) => c.status === 'active')
+          .sort((a, b) => a.order - b.order)
+          .map((c) => ({
+            externalId: c.externalId,
+            name: c.name,
+            isPrimary: c.isPrimary,
+          }))
         return {
           key: target.key,
           title: template.title,
           slug: template.slug,
           templateId: template._id,
           itemCount: template.itemCount,
+          criteria,
         }
       })
     ),
@@ -1772,8 +2795,141 @@ export const seedSampleRankingImpl = internalMutation({
   },
 })
 
+export const resetExtraLaneSeedPairImpl = internalMutation({
+  args: {
+    laneKey: extraLaneKeyValidator,
+    templateId: v.id('templates'),
+    profileIndex: v.number(),
+  },
+  returns: v.object({
+    rankingsDeleted: v.number(),
+    boardsDeleted: v.number(),
+  }),
+  handler: async (ctx, args): Promise<SeedResetResult> =>
+  {
+    const lane = extraLaneByKey(args.laneKey)
+    const target = targetDefinitionByKey(lane.targetKey)
+    const profile = sampleProfileAt(args.profileIndex)
+    const user = await findSeedUser(ctx, profile)
+    if (!user) return { rankingsDeleted: 0, boardsDeleted: 0 }
+    return await deleteLaneSeedPair(
+      ctx,
+      user,
+      args.templateId,
+      profile,
+      target,
+      lane
+    )
+  },
+})
+
+export const seedExtraLaneSampleRankingImpl = internalMutation({
+  args: {
+    laneKey: extraLaneKeyValidator,
+    templateId: v.id('templates'),
+    profileIndex: v.number(),
+  },
+  returns: v.object({
+    targetKey: targetKeyValidator,
+    templateSlug: v.string(),
+    userEmail: v.string(),
+    rankingSlug: v.string(),
+    boardExternalId: v.string(),
+    itemsRanked: v.number(),
+    rankingsDeleted: v.number(),
+  }),
+  handler: async (ctx, args): Promise<SeedRankingResult> =>
+  {
+    const lane = extraLaneByKey(args.laneKey)
+    const target = targetDefinitionByKey(lane.targetKey)
+    const profile = sampleProfileAt(args.profileIndex)
+    const template = await ctx.db.get(args.templateId)
+    if (!template || !isPublishedTemplateRow(template))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `seed template missing or unpublished: ${target.title}`,
+      })
+    }
+
+    const now = Date.now()
+    const user = await ensureSeedUser(ctx, profile, now)
+    const deleted = await deleteLaneSeedPair(
+      ctx,
+      user,
+      template._id,
+      profile,
+      target,
+      lane
+    )
+    const templateItems = (await loadTemplateItems(ctx, template._id)).sort(
+      (a, b) => a.order - b.order
+    )
+    if (templateItems.length === 0)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `seed template has no items: ${target.title}`,
+      })
+    }
+    assertSeedRowsWithinLimit(
+      'template items',
+      templateItems,
+      MAX_SEED_ROW_ITEMS
+    )
+
+    const tiers = resolveTemplateTiers(template)
+    assertSeedRowsWithinLimit('template tiers', tiers, MAX_SEED_ROW_TIERS)
+    const rankedItems = rankTemplateItemsForLane(
+      lane,
+      profile,
+      templateItems,
+      tiers
+    )
+    // favorites lane uses a half-hour offset on top of the competitive
+    // ladder so the two lanes don't collide on createdAt sorts
+    const createdAt =
+      now -
+      (args.profileIndex * SEED_TARGETS.length + 1) * HOUR_MS -
+      HOUR_MS / 2
+    const title = laneSeedRankingTitle(profile, lane)
+    const inserted = await insertSeedRanking(ctx, {
+      user,
+      template,
+      target,
+      authorKey: profile.key,
+      rankedItems,
+      tiers,
+      rankingTitle: title,
+      rankingDescription: lane.rankingDescription,
+      createdAt,
+      useCountAdjustedAt: now,
+      viewCountSeedKey: `views:${profile.key}:${lane.laneKey}`,
+      criterionExternalId: lane.criterionExternalId,
+      laneSlug: lane.laneSlug,
+    })
+
+    return {
+      targetKey: target.key,
+      templateSlug: template.slug,
+      userEmail: seedUserEmail(profile),
+      rankingSlug: inserted.rankingSlug,
+      boardExternalId: inserted.boardExternalId,
+      itemsRanked: inserted.itemsRanked,
+      rankingsDeleted: deleted.rankingsDeleted,
+    }
+  },
+})
+
+// flat list of every curated ranking (competitive + favorites for every
+// target); indexed by position so the seed mutations reach them by id
+const ALL_CURATED_RANKINGS: readonly CuratedOfficialRanking[] = [
+  ...CURATED_OFFICIAL_RANKINGS,
+  ...CURATED_FAVORITES_RANKINGS,
+]
+
 const curatedRankingAt = (index: number): CuratedOfficialRanking | undefined =>
-  CURATED_OFFICIAL_RANKINGS[index]
+  ALL_CURATED_RANKINGS[index]
 
 const requireCuratedRankingAt = (index: number): CuratedOfficialRanking =>
 {
@@ -1794,11 +2950,21 @@ const curatedAuthorEmail = (curated: CuratedOfficialRanking): string =>
 const curatedAuthorExternalId = (curated: CuratedOfficialRanking): string =>
   authorUserExternalId(curatedAuthorKeyNs(curated.authorKey))
 
+// curated lane slug — defaults to undefined (legacy primary externalId
+// format). non-primary curated lists use the criterion externalId so
+// storage stays self-describing across competitive + favorites lanes
+const curatedLaneSlug = (curated: CuratedOfficialRanking): string | undefined =>
+  curated.criterionExternalId
+
 const curatedBoardExternalId = (
   curated: CuratedOfficialRanking,
   target: SeedTargetDefinition
 ): string =>
-  authorBoardExternalId(curatedAuthorKeyNs(curated.authorKey), target)
+  authorBoardExternalId(
+    curatedAuthorKeyNs(curated.authorKey),
+    target,
+    curatedLaneSlug(curated)
+  )
 
 const curatedRankingTitle = (curated: CuratedOfficialRanking): string =>
   `${curated.authorDisplayName}'s ${curated.rankingTitle}`
@@ -1912,6 +3078,12 @@ export const seedCuratedOfficialRankingImpl = internalMutation({
       rankingDescription: curated.rankingDescription,
       createdAt,
       useCountAdjustedAt: now,
+      ...(curated.criterionExternalId
+        ? { criterionExternalId: curated.criterionExternalId }
+        : {}),
+      ...(curatedLaneSlug(curated)
+        ? { laneSlug: curatedLaneSlug(curated) as string }
+        : {}),
       viewCountSeedKey: `views:curated:${curated.authorKey}:${target.key}`,
     })
 
@@ -1986,13 +3158,37 @@ export const seedSampleCommunityRankings = action({
           await pauseSeedWrites()
         }
       }
+      // reset every favorites lane row first; otherwise leftover boards
+      // from a prior run collide on byOwnerAndExternalId at re-insert
+      for (const lane of SEED_EXTRA_LANES)
+      {
+        const target = targets.find((t) => t.key === lane.targetKey)
+        if (!target) continue
+        for (
+          let profileIndex = 0;
+          profileIndex < SAMPLE_PROFILES.length;
+          profileIndex++
+        )
+        {
+          const resetResult: SeedResetResult = await ctx.runMutation(
+            internal.marketplace.rankings.seed.resetExtraLaneSeedPairImpl,
+            {
+              laneKey: lane.laneKey,
+              templateId: target.templateId,
+              profileIndex,
+            }
+          )
+          rankingsDeleted += resetResult.rankingsDeleted
+          await pauseSeedWrites()
+        }
+      }
       for (
         let curatedIndex = 0;
-        curatedIndex < CURATED_OFFICIAL_RANKINGS.length;
+        curatedIndex < ALL_CURATED_RANKINGS.length;
         curatedIndex++
       )
       {
-        const curated = CURATED_OFFICIAL_RANKINGS[curatedIndex]
+        const curated = ALL_CURATED_RANKINGS[curatedIndex]
         const target = targets.find((t) => t.key === curated.targetKey)
         if (!target) continue
         const resetResult: SeedResetResult = await ctx.runMutation(
@@ -2007,6 +3203,18 @@ export const seedSampleCommunityRankings = action({
       }
     }
 
+    // pre-build per-target lane breakdowns so the seed loops below can
+    // tick stable per-criterion counters as sample + curated rankings land
+    const buildLaneBreakdown = (
+      target: SeedTargetResolution
+    ): SeedLaneBreakdown[] =>
+      target.criteria.map((criterion) => ({
+        criterionExternalId: criterion.externalId,
+        criterionName: criterion.name,
+        sampleSeeded: 0,
+        curatedSeeded: 0,
+        curatedAuthors: [],
+      }))
     const targetResults = new Map<TargetKey, SeedTargetResult>(
       targets.map((target) => [
         target.key,
@@ -2017,10 +3225,50 @@ export const seedSampleCommunityRankings = action({
           itemCount: target.itemCount,
           rankingsSeeded: 0,
           rankingsDeleted: 0,
+          laneBreakdown: buildLaneBreakdown(target),
         },
       ])
     )
+    const primaryCriterionByTarget = new Map<TargetKey, string>(
+      targets.map((target) => [
+        target.key,
+        target.criteria.find((c) => c.isPrimary)?.externalId ??
+          target.criteria[0]?.externalId ??
+          'default',
+      ])
+    )
+    const incrementLaneSample = (
+      targetKey: TargetKey,
+      criterionExternalId: string
+    ): void =>
+    {
+      const result = targetResults.get(targetKey)
+      if (!result) return
+      const lane = result.laneBreakdown.find(
+        (entry) => entry.criterionExternalId === criterionExternalId
+      )
+      if (lane) lane.sampleSeeded += 1
+    }
+    const incrementLaneCurated = (
+      targetKey: TargetKey,
+      criterionExternalId: string,
+      authorDisplayName: string
+    ): void =>
+    {
+      const result = targetResults.get(targetKey)
+      if (!result) return
+      const lane = result.laneBreakdown.find(
+        (entry) => entry.criterionExternalId === criterionExternalId
+      )
+      if (!lane) return
+      lane.curatedSeeded += 1
+      lane.curatedAuthors.push(authorDisplayName)
+    }
+    const curatedRankingResults: SeedCuratedRankingResult[] = []
 
+    // featured-badge skip set: any target whose curated lane includes a
+    // primary-criterion list owns the algorithmic featured slots so we
+    // don't double-feature the official list + a sample profile
     const targetsWithCuratedOfficials = new Set<TargetKey>(
       CURATED_OFFICIAL_RANKINGS.map((curated) => curated.targetKey)
     )
@@ -2028,6 +3276,8 @@ export const seedSampleCommunityRankings = action({
     for (const target of targets)
     {
       const seededSlugsByProfile = new Map<number, string>()
+      const primaryCriterion =
+        primaryCriterionByTarget.get(target.key) ?? 'default'
       for (let profileIndex = 0; profileIndex < userCount; profileIndex++)
       {
         const seeded: SeedRankingResult = await ctx.runMutation(
@@ -2046,6 +3296,7 @@ export const seedSampleCommunityRankings = action({
           result.rankingsSeeded += 1
           result.rankingsDeleted += seeded.rankingsDeleted
         }
+        incrementLaneSample(target.key, primaryCriterion)
         await pauseSeedWrites()
       }
       // skip the algorithmic featured-profile badges for targets whose
@@ -2066,14 +3317,44 @@ export const seedSampleCommunityRankings = action({
       }
     }
 
+    // favorites algorithmic seed pass — runs alongside competitive so each
+    // template w/ multiple criteria has at least one ranking per lane
+    let extraLaneSeeded = 0
+    for (const lane of SEED_EXTRA_LANES)
+    {
+      const target = targets.find((t) => t.key === lane.targetKey)
+      if (!target) continue
+      for (let profileIndex = 0; profileIndex < userCount; profileIndex++)
+      {
+        const seeded: SeedRankingResult = await ctx.runMutation(
+          internal.marketplace.rankings.seed.seedExtraLaneSampleRankingImpl,
+          {
+            laneKey: lane.laneKey,
+            templateId: target.templateId,
+            profileIndex,
+          }
+        )
+        rankingsDeleted += seeded.rankingsDeleted
+        extraLaneSeeded += 1
+        const result = targetResults.get(target.key)
+        if (result)
+        {
+          result.rankingsSeeded += 1
+          result.rankingsDeleted += seeded.rankingsDeleted
+        }
+        incrementLaneSample(target.key, lane.criterionExternalId)
+        await pauseSeedWrites()
+      }
+    }
+
     let curatedSeeded = 0
     for (
       let curatedIndex = 0;
-      curatedIndex < CURATED_OFFICIAL_RANKINGS.length;
+      curatedIndex < ALL_CURATED_RANKINGS.length;
       curatedIndex++
     )
     {
-      const curated = CURATED_OFFICIAL_RANKINGS[curatedIndex]
+      const curated = ALL_CURATED_RANKINGS[curatedIndex]
       const target = targets.find((t) => t.key === curated.targetKey)
       if (!target) continue
       const seeded: SeedRankingResult = await ctx.runMutation(
@@ -2091,6 +3372,27 @@ export const seedSampleCommunityRankings = action({
         result.rankingsSeeded += 1
         result.rankingsDeleted += seeded.rankingsDeleted
       }
+      // resolve curated criterion the same way insertSeedRanking does so
+      // breakdowns line up w/ what landed in the DB even when the curated
+      // entry omits criterionExternalId (= primary criterion for that lane)
+      const curatedCriterionExternalId =
+        curated.criterionExternalId ??
+        primaryCriterionByTarget.get(curated.targetKey) ??
+        'default'
+      incrementLaneCurated(
+        curated.targetKey,
+        curatedCriterionExternalId,
+        curated.authorDisplayName
+      )
+      curatedRankingResults.push({
+        targetKey: curated.targetKey,
+        targetTitle: target.title,
+        criterionExternalId: curatedCriterionExternalId,
+        authorKey: curated.authorKey,
+        authorDisplayName: curated.authorDisplayName,
+        rankingTitle: curated.rankingTitle,
+        rankingSlug: seeded.rankingSlug,
+      })
       await ctx.runMutation(
         internal.marketplace.rankings.mutations.markRankingFeaturedImpl,
         {
@@ -2107,13 +3409,17 @@ export const seedSampleCommunityRankings = action({
       { templateIds: targets.map((target) => target.templateId) }
     )
     const targetsOut = targets.map((target) => targetResults.get(target.key)!)
+    const sampleRankingsSeeded = userCount * targets.length + extraLaneSeeded
 
     return {
       usersSeeded: userCount,
-      rankingsSeeded: userCount * targets.length + curatedSeeded,
+      sampleRankingsSeeded,
+      curatedRankingsSeeded: curatedSeeded,
+      rankingsSeeded: sampleRankingsSeeded + curatedSeeded,
       rankingsDeleted,
       aggregatesQueued,
       targets: targetsOut,
+      curatedRankings: curatedRankingResults,
     }
   },
 })

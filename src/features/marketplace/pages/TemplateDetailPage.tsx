@@ -10,6 +10,7 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
+import { useSelectedCriterion } from '~/features/marketplace/model/useSelectedCriterion'
 import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
 import { useRelatedTemplates } from '~/features/marketplace/model/useTemplateDetail'
 import { useTemplateRankingAggregate } from '~/features/marketplace/model/useRankingDetail'
@@ -131,17 +132,37 @@ export const TemplateDetailPage = () =>
   useRecordTemplateView(detail ? detail.slug : null)
   useDocumentTitle(detail ? `${detail.title} · TierListBuilder` : null)
 
-  const aggregate = useTemplateRankingAggregate(detail ? detail.slug : null)
-  const spreadCounts = useHeroSpread({
-    aggregate,
-  })
-
   if (validSlug === null) return <NotFound />
   if (detail === undefined) return <DetailSkeleton />
   if (detail === null) return <NotFound />
 
+  return <TemplateDetailContent detail={detail} />
+}
+
+interface TemplateDetailContentProps
+{
+  detail: MarketplaceTemplateDetail
+}
+
+// inner component so the criterion-aware hooks below only mount once we
+// have a resolved template — `useSelectedCriterion` needs the criteria
+// list at call time, & we don't want to pass an empty placeholder
+const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
+{
+  const { criterion, visibleCriteria, setCriterion } = useSelectedCriterion(
+    detail.criteria
+  )
+  const aggregate = useTemplateRankingAggregate(
+    detail.slug,
+    criterion.externalId
+  )
+  const spreadCounts = useHeroSpread({ aggregate })
+
   const categoryLabel = CATEGORY_META[detail.category].label
   const hasConsensus = isAggregateReady(aggregate)
+  // hero counts now reflect the active lane so users see the same number
+  // they'd see in the consensus header instead of an aggregated count
+  // that may not match what the chart below is showing
   const rankingCount = aggregate?.rankingCount ?? 0
   const frame = templateFrame(detail)
   const hasPreset = detail.suggestedTiers.length > 0
@@ -192,6 +213,9 @@ export const TemplateDetailPage = () =>
           key={detail.slug}
           template={detail}
           aggregate={aggregate}
+          selectedCriterion={criterion}
+          visibleCriteria={visibleCriteria}
+          onCriterionChange={setCriterion}
         />
       </section>
 

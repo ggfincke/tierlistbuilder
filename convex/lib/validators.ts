@@ -776,6 +776,7 @@ export const marketplaceTemplateDetailValidator = v.object({
   ...marketplaceTemplateSummaryFields,
   access: templateCardAccessStateValidator,
   criteria: templateCriteriaValidator,
+  rankingCountByCriterion: v.record(v.string(), v.number()),
   suggestedTiers: tierPresetTiersValidator,
   labels: v.union(boardLabelSettingsValidator, v.null()),
 })
@@ -892,6 +893,8 @@ export const marketplaceRankingPublishAvailabilityValidator = v.object({
   activeItemCount: v.number(),
   unrankedItemCount: v.number(),
   sourceTemplateTitle: v.union(v.string(), v.null()),
+  sourceTemplateCriteria: templateCriteriaValidator,
+  userPublishedCriterionExternalIds: v.array(v.string()),
 })
 
 export const marketplaceRankingPublishResultValidator = v.object({
