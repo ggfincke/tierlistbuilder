@@ -21,8 +21,8 @@ import { sha256Hex } from '../../lib/sha256'
 import { deleteStorageSilently } from '../../lib/storage'
 import { loadOwnedSeedMediaVariantLookup } from './mediaLookup'
 import type {
-  SeedCleanupResult,
   SeedFinalizedMediaRow,
+  SeedStorageCleanupCounts,
   SeedUploadedMediaAssetArg,
   SeedUploadedVariantArg,
   VerifiedSeedVariant,
@@ -211,7 +211,7 @@ const validateSeedUploadedAsset = async (
 export const cleanupStorageIds = async (
   ctx: ActionCtx,
   storageIds: readonly Id<'_storage'>[]
-): Promise<SeedCleanupResult> =>
+): Promise<SeedStorageCleanupCounts> =>
 {
   const cleanedStorageIds: string[] = []
   const missingStorageIds: string[] = []

@@ -4,7 +4,7 @@
 import { convexTest } from 'convex-test'
 import rateLimiter from '@convex-dev/rate-limiter/test'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { api } from '@convex/_generated/api'
+import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import schema from '../../convex/schema'
@@ -42,6 +42,21 @@ const enableSeedApi = (): void =>
   process.env.CONVEX_SEED_ENABLED = 'true'
   process.env.CONVEX_SEED_SECRET = SEED_SECRET
 }
+
+const seedHttpPost = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  path: string,
+  body: Record<string, unknown>,
+  secret = SEED_SECRET
+): Promise<Response> =>
+  await t.fetch(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify(body),
+  })
 
 const criteria: MarketplaceTemplateCriterion[] = [
   {
@@ -192,52 +207,52 @@ describe('seed run precheck API', () =>
   it('gates beginSeedRun and makes run registration idempotent', async () =>
   {
     const t = makeTest()
-    await expect(
-      t.mutation(api.marketplace.seedRuns.beginSeedRun, {
-        seedSecret: SEED_SECRET,
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'run-1',
-        templateCount: 2,
-        itemCount: 5,
-        imageVariantCount: 10,
-      })
-    ).rejects.toThrow(/seeding is disabled/)
-
-    enableSeedApi()
-    await expect(
-      t.mutation(api.marketplace.seedRuns.beginSeedRun, {
-        seedSecret: SEED_SECRET,
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'bad-run',
-        templateCount: -1,
-        itemCount: 5,
-        imageVariantCount: 10,
-      })
-    ).rejects.toThrow(/templateCount must be a nonnegative integer/)
-
-    const first = await t.mutation(api.marketplace.seedRuns.beginSeedRun, {
-      seedSecret: SEED_SECRET,
+    const runArgs = {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-1',
       templateCount: 2,
       itemCount: 5,
       imageVariantCount: 10,
+    }
+    const disabled = await seedHttpPost(t, '/api/seed/begin', runArgs)
+    await expect(disabled.json()).resolves.toMatchObject({
+      status: 'error',
+      errorMessage: expect.stringContaining('seeding is disabled'),
     })
-    const second = await t.mutation(api.marketplace.seedRuns.beginSeedRun, {
-      seedSecret: SEED_SECRET,
-      datasetKey: DATASET,
-      releaseId: RELEASE,
-      runId: 'run-1',
+
+    enableSeedApi()
+    const wrongSecret = await seedHttpPost(
+      t,
+      '/api/seed/begin',
+      runArgs,
+      'wrong-secret'
+    )
+    await expect(wrongSecret.json()).resolves.toMatchObject({
+      status: 'error',
+      errorMessage: expect.stringContaining('seeding is locked'),
+    })
+
+    await expect(
+      t.mutation(internal.marketplace.seedRuns.beginSeedRun, {
+        ...runArgs,
+        runId: 'bad-run',
+        templateCount: -1,
+      })
+    ).rejects.toThrow(/templateCount must be a nonnegative integer/)
+
+    const firstResponse = await seedHttpPost(t, '/api/seed/begin', runArgs)
+    const secondResponse = await seedHttpPost(t, '/api/seed/begin', {
+      ...runArgs,
       templateCount: 99,
       itemCount: 99,
       imageVariantCount: 99,
     })
+    const first = await firstResponse.json()
+    const second = await secondResponse.json()
 
-    expect(first.run.status).toBe('building')
-    expect(second.run).toEqual(first.run)
+    expect(first.value.run.status).toBe('building')
+    expect(second.value.run).toEqual(first.value.run)
   })
 
   it('resolves active release, external IDs, criteria, and absent rows', async () =>
@@ -261,23 +276,28 @@ describe('seed run precheck API', () =>
     await seedRunRow(t, '2026-04-old-release', 'active', 'active-run')
 
     enableSeedApi()
-    const state = await t.query(api.marketplace.seedRuns.resolveSeedState, {
-      seedSecret: SEED_SECRET,
-      datasetKey: DATASET,
-      releaseId: RELEASE,
-      authorEmail: AUTHOR_EMAIL,
-      templateExternalIds: ['gaming:ssbu-fighters'],
-      itemExternalIds: [
-        { templateExternalId: 'gaming:ssbu-fighters', itemExternalId: 'mario' },
-      ],
-      criterionExternalIds: [
-        {
-          templateExternalId: 'gaming:ssbu-fighters',
-          criterionExternalId: 'competitive',
-        },
-      ],
-      variantHashes: [],
-    })
+    const state = await t.query(
+      internal.marketplace.seedRuns.resolveSeedState,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        authorEmail: AUTHOR_EMAIL,
+        templateExternalIds: ['gaming:ssbu-fighters'],
+        itemExternalIds: [
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            itemExternalId: 'mario',
+          },
+        ],
+        criterionExternalIds: [
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            criterionExternalId: 'competitive',
+          },
+        ],
+        variantHashes: [],
+      }
+    )
 
     expect(state.activeReleaseId).toBe('2026-04-old-release')
     expect(state.templates).toMatchObject([
@@ -310,13 +330,9 @@ describe('seed run precheck API', () =>
     const authorVariant = await seedMediaVariant(t, authorId, 'hash-present')
     await seedMediaVariant(t, otherId, 'hash-present')
 
-    enableSeedApi()
     const result = await t.query(
-      api.marketplace.seedRuns.resolveSeedMediaByHashes,
+      internal.marketplace.seedRuns.resolveSeedMediaByHashes,
       {
-        seedSecret: SEED_SECRET,
-        datasetKey: DATASET,
-        releaseId: RELEASE,
         authorEmail: AUTHOR_EMAIL,
         variantHashes: ['hash-present', 'hash-present', 'hash-missing'],
       }
@@ -332,30 +348,11 @@ describe('seed run precheck API', () =>
     ])
   })
 
-  it('generates upload URLs behind the seed gate', async () =>
+  it('generates upload URLs and validates batch bounds', async () =>
   {
     const t = makeTest()
     await expect(
-      t.mutation(api.marketplace.seedRuns.generateSeedUploadUrls, {
-        seedSecret: SEED_SECRET,
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'run-uploads',
-        variants: [
-          {
-            contentHash: 'hash-a',
-            kind: 'tile',
-            mimeType: 'image/png',
-            byteSize: 24,
-          },
-        ],
-      })
-    ).rejects.toThrow(/seeding is disabled/)
-
-    enableSeedApi()
-    await expect(
-      t.mutation(api.marketplace.seedRuns.generateSeedUploadUrls, {
-        seedSecret: SEED_SECRET,
+      t.mutation(internal.marketplace.seedRuns.generateSeedUploadUrls, {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-uploads',
@@ -364,9 +361,8 @@ describe('seed run precheck API', () =>
     ).rejects.toThrow(/variants must include 1..128 entries/)
 
     const result = await t.mutation(
-      api.marketplace.seedRuns.generateSeedUploadUrls,
+      internal.marketplace.seedRuns.generateSeedUploadUrls,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-uploads',
@@ -401,7 +397,6 @@ describe('seed run precheck API', () =>
 
     enableSeedApi()
     const templateInput = {
-      seedSecret: SEED_SECRET,
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-apply',
@@ -425,22 +420,22 @@ describe('seed run precheck API', () =>
       ],
     }
     const createdTemplates = await t.mutation(
-      api.marketplace.seedRuns.upsertSeedTemplates,
+      internal.marketplace.seedRuns.upsertSeedTemplates,
       templateInput
     )
     const unchangedTemplates = await t.mutation(
-      api.marketplace.seedRuns.upsertSeedTemplates,
+      internal.marketplace.seedRuns.upsertSeedTemplates,
       templateInput
     )
     const updatedTemplates = await t.mutation(
-      api.marketplace.seedRuns.upsertSeedTemplates,
+      internal.marketplace.seedRuns.upsertSeedTemplates,
       {
         ...templateInput,
         templates: [{ ...templateInput.templates[0], title: 'SSBU fighters' }],
       }
     )
     await expect(
-      t.mutation(api.marketplace.seedRuns.upsertSeedTemplates, {
+      t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
         ...templateInput,
         templates: [templateInput.templates[0], templateInput.templates[0]],
       })
@@ -455,9 +450,8 @@ describe('seed run precheck API', () =>
     expect(updatedTemplates.updated).toEqual(['gaming:ssbu-fighters'])
 
     const criteriaResult = await t.mutation(
-      api.marketplace.seedRuns.upsertSeedCriteria,
+      internal.marketplace.seedRuns.upsertSeedCriteria,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
@@ -507,9 +501,8 @@ describe('seed run precheck API', () =>
     ])
 
     const firstItems = await t.mutation(
-      api.marketplace.seedRuns.upsertSeedItems,
+      internal.marketplace.seedRuns.upsertSeedItems,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
@@ -536,9 +529,8 @@ describe('seed run precheck API', () =>
       }
     )
     const sameItems = await t.mutation(
-      api.marketplace.seedRuns.upsertSeedItems,
+      internal.marketplace.seedRuns.upsertSeedItems,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
@@ -565,8 +557,7 @@ describe('seed run precheck API', () =>
       }
     )
     await expect(
-      t.mutation(api.marketplace.seedRuns.upsertSeedItems, {
-        seedSecret: SEED_SECRET,
+      t.mutation(internal.marketplace.seedRuns.upsertSeedItems, {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
@@ -593,9 +584,8 @@ describe('seed run precheck API', () =>
       })
     ).rejects.toThrow(/duplicate seed item key/)
     const changedItems = await t.mutation(
-      api.marketplace.seedRuns.upsertSeedItems,
+      internal.marketplace.seedRuns.upsertSeedItems,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
@@ -672,13 +662,21 @@ describe('seed run precheck API', () =>
       oldRelease
     )
     await seedRunRow(t, oldRelease, 'active', 'old-active-run')
+    const staleRelease = '2026-03-stale-release'
+    const staleTemplateId = await seedTemplateWithItem(
+      t,
+      authorId,
+      'gaming:stale-template',
+      ['stale-item'],
+      staleRelease
+    )
+    await seedRunRow(t, staleRelease, 'active', 'stale-active-run')
     await seedMediaVariant(t, authorId, 'hash-cover')
     await seedMediaVariant(t, authorId, 'hash-mario')
     await seedMediaVariant(t, authorId, 'hash-link')
 
     enableSeedApi()
-    await t.mutation(api.marketplace.seedRuns.beginSeedRun, {
-      seedSecret: SEED_SECRET,
+    await t.mutation(internal.marketplace.seedRuns.beginSeedRun, {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
@@ -686,8 +684,7 @@ describe('seed run precheck API', () =>
       itemCount: 2,
       imageVariantCount: 6,
     })
-    await t.mutation(api.marketplace.seedRuns.upsertSeedTemplates, {
-      seedSecret: SEED_SECRET,
+    await t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
@@ -710,8 +707,7 @@ describe('seed run precheck API', () =>
         },
       ],
     })
-    await t.mutation(api.marketplace.seedRuns.upsertSeedCriteria, {
-      seedSecret: SEED_SECRET,
+    await t.mutation(internal.marketplace.seedRuns.upsertSeedCriteria, {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
@@ -730,8 +726,7 @@ describe('seed run precheck API', () =>
         },
       ],
     })
-    await t.mutation(api.marketplace.seedRuns.upsertSeedItems, {
-      seedSecret: SEED_SECRET,
+    await t.mutation(internal.marketplace.seedRuns.upsertSeedItems, {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
@@ -758,9 +753,8 @@ describe('seed run precheck API', () =>
     })
 
     const verified = await t.mutation(
-      api.marketplace.seedRuns.verifySeedRelease,
+      internal.marketplace.seedRuns.verifySeedRelease,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-activation',
@@ -777,8 +771,7 @@ describe('seed run precheck API', () =>
     )
     expect(verified).toEqual({ verified: true, diagnostics: [] })
     await expect(
-      t.mutation(api.marketplace.seedRuns.activateSeedRelease, {
-        seedSecret: SEED_SECRET,
+      t.mutation(internal.marketplace.seedRuns.activateSeedRelease, {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-activation',
@@ -788,9 +781,8 @@ describe('seed run precheck API', () =>
     ).rejects.toThrow(/active seed release changed/)
 
     const activated = await t.mutation(
-      api.marketplace.seedRuns.activateSeedRelease,
+      internal.marketplace.seedRuns.activateSeedRelease,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-activation',
@@ -810,6 +802,7 @@ describe('seed run precheck API', () =>
         )
         .unique()
       const old = await ctx.db.get(oldTemplateId)
+      const stale = await ctx.db.get(staleTemplateId)
       const run = await ctx.db
         .query('seedRuns')
         .withIndex('byRunId', (q) => q.eq('runId', 'run-activation'))
@@ -818,7 +811,7 @@ describe('seed run precheck API', () =>
         .query('marketplaceStats')
         .withIndex('byKey', (q) => q.eq('key', 'templates'))
         .unique()
-      return { old, run, stats, target }
+      return { old, run, stale, stats, target }
     })
     expect(activated).toEqual({
       activeReleaseId: RELEASE,
@@ -834,8 +827,168 @@ describe('seed run precheck API', () =>
       isPubliclyListable: false,
       seedReleaseStatus: 'rolled_back',
     })
+    expect(activatedRows.stale).toMatchObject({
+      publicationState: 'unpublished',
+      isPubliclyListable: false,
+      seedReleaseStatus: 'rolled_back',
+    })
     expect(activatedRows.run?.status).toBe('active')
     expect(activatedRows.stats?.publicTemplateCount).toBe(1)
+
+    await t.mutation(internal.marketplace.seedRuns.upsertSeedItems, {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-activation',
+      items: [
+        {
+          templateExternalId: 'gaming:ssbu-fighters',
+          itemExternalId: 'mario',
+          order: 0,
+          label: 'Super Mario',
+          mediaContentHash: 'hash-mario',
+          aspectRatio: 1,
+          transform: null,
+        },
+        {
+          templateExternalId: 'gaming:ssbu-fighters',
+          itemExternalId: 'link',
+          order: 1,
+          label: 'Link',
+          mediaContentHash: 'hash-link',
+          aspectRatio: 1,
+          transform: null,
+        },
+      ],
+    })
+    await t.mutation(internal.marketplace.seedRuns.upsertSeedCriteria, {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-activation',
+      criteria: [
+        {
+          templateExternalId: 'gaming:ssbu-fighters',
+          criterionExternalId: 'competitive',
+          name: 'Competitive',
+          shortName: 'Comp',
+          prompt: 'Rank active release edits.',
+          axisTop: 'Strongest',
+          axisBottom: 'Weakest',
+          order: 0,
+          isPrimary: true,
+          status: 'active',
+        },
+      ],
+    })
+    const activeAfterReupsert = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('templates')
+          .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+            q
+              .eq('seedDatasetKey', DATASET)
+              .eq('seedReleaseId', RELEASE)
+              .eq('seedExternalId', 'gaming:ssbu-fighters')
+          )
+          .unique()
+    )
+    expect(activeAfterReupsert).toMatchObject({
+      publicationState: 'published',
+      isPubliclyListable: true,
+      seedReleaseStatus: 'active',
+      itemCount: 2,
+    })
+    await t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-activation',
+      authorEmail: AUTHOR_EMAIL,
+      templates: [
+        {
+          externalId: 'gaming:ssbu-fighters',
+          title: 'SSBU fighters',
+          category: 'movies',
+          description: 'Playable fighters.',
+          tags: ['nintendo'],
+          visibility: 'public',
+          coverMediaContentHash: 'hash-cover',
+          coverFraming: null,
+          suggestedTiers: [
+            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+          ],
+          itemAspectRatio: 1,
+          itemCount: 2,
+        },
+        {
+          externalId: 'gaming:new-active-template',
+          title: 'New active template',
+          category: 'gaming',
+          description: 'Added after activation.',
+          tags: ['new'],
+          visibility: 'public',
+          coverMediaContentHash: null,
+          coverFraming: null,
+          suggestedTiers: [
+            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+          ],
+          itemAspectRatio: 1,
+          itemCount: 1,
+        },
+      ],
+    })
+    const activeTemplateStats = await t.run(async (ctx) =>
+    {
+      const stats = await ctx.db
+        .query('marketplaceStats')
+        .withIndex('byKey', (q) => q.eq('key', 'templates'))
+        .unique()
+      const newTemplate = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:new-active-template')
+        )
+        .unique()
+      return { newTemplate, stats }
+    })
+    expect(activeTemplateStats.newTemplate).toMatchObject({
+      publicationState: 'published',
+      isPubliclyListable: true,
+      seedReleaseStatus: 'active',
+    })
+    expect(activeTemplateStats.stats?.publicTemplateCount).toBe(2)
+    expect(activeTemplateStats.stats?.publicTemplateCountByCategory).toEqual({
+      gaming: 1,
+      movies: 1,
+    })
+
+    const failedActiveVerify = await t.mutation(
+      internal.marketplace.seedRuns.verifySeedRelease,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-activation',
+        expectedTotals: {
+          templateCount: 1,
+          itemCount: 99,
+          criterionCount: 1,
+          sourceImageCount: 3,
+          variantCount: 6,
+          estimatedUploadBytes: 0,
+          estimatedStorageBytes: 0,
+        },
+      }
+    )
+    const activeRunAfterFailedVerify = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('seedRuns')
+          .withIndex('byRunId', (q) => q.eq('runId', 'run-activation'))
+          .unique()
+    )
+    expect(failedActiveVerify.verified).toBe(false)
+    expect(activeRunAfterFailedVerify?.status).toBe('active')
 
     const buildingRelease = '2026-06-building-release'
     await seedTemplateWithItem(
@@ -847,8 +1000,7 @@ describe('seed run precheck API', () =>
     )
     await seedRunRow(t, buildingRelease, 'building', 'building-run')
     await expect(
-      t.mutation(api.marketplace.seedRuns.rollbackSeedRelease, {
-        seedSecret: SEED_SECRET,
+      t.mutation(internal.marketplace.seedRuns.rollbackSeedRelease, {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-activation',
@@ -858,9 +1010,8 @@ describe('seed run precheck API', () =>
     ).rejects.toThrow(/no restorable seed run/)
 
     const rolledBack = await t.mutation(
-      api.marketplace.seedRuns.rollbackSeedRelease,
+      internal.marketplace.seedRuns.rollbackSeedRelease,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-activation',
@@ -902,14 +1053,14 @@ describe('seed run precheck API', () =>
   {
     const t = makeTest()
     await seedUser(t, AUTHOR_EMAIL)
+    await seedRunRow(t, RELEASE, 'building', 'run-finalize')
     const bytes = buildPngHeader(32, 16)
     const contentHash = await sha256Hex(bytes)
     const storageId = await storeImageBytes(t, bytes)
 
     enableSeedApi()
     await expect(
-      t.action(api.marketplace.seedRuns.finalizeSeedUploadedMedia, {
-        seedSecret: SEED_SECRET,
+      t.action(internal.marketplace.seedRuns.finalizeSeedUploadedMedia, {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-finalize',
@@ -919,9 +1070,8 @@ describe('seed run precheck API', () =>
     ).rejects.toThrow(/assets must include 1..64 entries/)
 
     const first = await t.action(
-      api.marketplace.seedRuns.finalizeSeedUploadedMedia,
+      internal.marketplace.seedRuns.finalizeSeedUploadedMedia,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-finalize',
@@ -951,9 +1101,8 @@ describe('seed run precheck API', () =>
 
     const duplicateStorageId = await storeImageBytes(t, bytes)
     const second = await t.action(
-      api.marketplace.seedRuns.finalizeSeedUploadedMedia,
+      internal.marketplace.seedRuns.finalizeSeedUploadedMedia,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-finalize',
@@ -983,9 +1132,8 @@ describe('seed run precheck API', () =>
 
     const badStorageId = await storeImageBytes(t, bytes)
     const rejected = await t.action(
-      api.marketplace.seedRuns.finalizeSeedUploadedMedia,
+      internal.marketplace.seedRuns.finalizeSeedUploadedMedia,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-finalize',
@@ -1020,9 +1168,8 @@ describe('seed run precheck API', () =>
 
     const badMetadataStorageId = await storeImageBytes(t, bytes)
     const metadataRejected = await t.action(
-      api.marketplace.seedRuns.finalizeSeedUploadedMedia,
+      internal.marketplace.seedRuns.finalizeSeedUploadedMedia,
       {
-        seedSecret: SEED_SECRET,
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-finalize',
@@ -1057,10 +1204,19 @@ describe('seed run precheck API', () =>
     await expectStorageMissing(t, badMetadataStorageId)
 
     const abandonedStorageId = await storeImageBytes(t, bytes)
-    const cleanup = await t.action(
-      api.marketplace.seedRuns.cleanupAbandonedSeedRun,
+    await t.mutation(
+      internal.marketplace.seedPipeline.storageUploads
+        .registerSeedUploadedStorageIds,
       {
-        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-finalize',
+        storageIds: [abandonedStorageId],
+      }
+    )
+    const cleanup = await t.action(
+      internal.marketplace.seedPipeline.storageUploads.cleanupAbandonedSeedRun,
+      {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-finalize',
@@ -1068,7 +1224,8 @@ describe('seed run precheck API', () =>
       }
     )
     expect(cleanup.cleanedStorageIds).toEqual([abandonedStorageId])
-    expect(cleanup.missingStorageIds).toEqual([badStorageId])
+    expect(cleanup.missingStorageIds).toEqual([])
+    expect(cleanup.skippedStorageIds).toEqual([badStorageId])
     await expectStorageMissing(t, abandonedStorageId)
   })
 })

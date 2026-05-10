@@ -65,12 +65,7 @@ export interface SeedRunIdentity extends SeedReleaseIdentity
   runId: string
 }
 
-export interface SeedSecretInput
-{
-  seedSecret: string
-}
-
-export type SeedRunRequest = SeedRunIdentity & SeedSecretInput
+export type SeedRunRequest = SeedRunIdentity
 
 export interface SeedManifestItemInput
 {
@@ -242,9 +237,7 @@ export interface SeedExternalIds
   variantHashes: readonly string[]
 }
 
-export type SeedResolveStateInput = SeedReleaseIdentity &
-  SeedSecretInput &
-  SeedExternalIds
+export type SeedResolveStateInput = SeedReleaseIdentity & SeedExternalIds
 
 export interface SeedResolvedTemplate
 {
@@ -266,6 +259,9 @@ export interface SeedResolvedItem
   order: number
   label: string | null
   mediaAssetId: string | null
+  mediaContentHash: string | null
+  aspectRatio: number | null
+  transform: ItemTransform | null
 }
 
 export interface SeedResolvedCriterion
@@ -309,8 +305,7 @@ export interface SeedResolveStateOutput
 }
 
 export interface SeedResolveMediaByHashesInput
-  extends SeedReleaseIdentity, SeedSecretInput
-  {
+{
   authorEmail: string
   variantHashes: readonly string[]
 }
@@ -343,6 +338,16 @@ export interface SeedUploadUrl
 export interface SeedGenerateUploadUrlsOutput
 {
   urls: readonly SeedUploadUrl[]
+}
+
+export interface SeedRegisterUploadedStorageIdsInput extends SeedRunRequest
+{
+  storageIds: readonly string[]
+}
+
+export interface SeedRegisterUploadedStorageIdsOutput
+{
+  registeredStorageIds: readonly string[]
 }
 
 export interface SeedUploadedVariant
@@ -400,6 +405,7 @@ export interface SeedCleanupOutput
 {
   cleanedStorageIds: readonly string[]
   missingStorageIds: readonly string[]
+  skippedStorageIds: readonly string[]
 }
 
 export interface SeedUpsertTemplatesInput extends SeedRunRequest

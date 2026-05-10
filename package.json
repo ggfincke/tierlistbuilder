@@ -30,6 +30,7 @@
     "seed:marketplace:apply": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline apply data/seeds/marketplace-core.json",
     "seed:marketplace:verify": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline verify data/seeds/marketplace-core.json",
     "seed:marketplace:cleanup": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline cleanup data/seeds/marketplace-core.json",
+    "db:reset": "python3 scripts/dev_reset.py",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

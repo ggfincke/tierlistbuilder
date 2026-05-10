@@ -62,6 +62,9 @@ export const seedResolvedItemValidator = v.object({
   order: v.number(),
   label: v.union(v.string(), v.null()),
   mediaAssetId: v.union(v.string(), v.null()),
+  mediaContentHash: v.union(v.string(), v.null()),
+  aspectRatio: v.union(v.number(), v.null()),
+  transform: v.union(itemTransformValidator, v.null()),
 })
 
 export const seedResolvedCriterionValidator = v.object({
@@ -167,6 +170,11 @@ export const seedRejectedUploadValidator = v.object({
 export const seedCleanupOutputValidator = v.object({
   cleanedStorageIds: v.array(v.string()),
   missingStorageIds: v.array(v.string()),
+  skippedStorageIds: v.array(v.string()),
+})
+
+export const seedRegisterUploadsOutputValidator = v.object({
+  registeredStorageIds: v.array(v.string()),
 })
 
 export const seedCompiledTotalsValidator = v.object({
@@ -215,7 +223,6 @@ export const seedRemovalCandidateValidator = v.object({
 })
 
 export const resolveStateArgsValidator = {
-  seedSecret: v.string(),
   datasetKey: v.string(),
   releaseId: v.string(),
   authorEmail: v.string(),

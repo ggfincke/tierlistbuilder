@@ -155,6 +155,7 @@ def write_cleanup_report(
     requested: list[str],
     cleaned: list[str],
     missing: list[str],
+    skipped: list[str],
     dry_run: bool,
 ) -> Path:
     lines = _report_header(
@@ -165,6 +166,7 @@ def write_cleanup_report(
             f"- Storage IDs requested: {len(requested)}",
             f"- Storage IDs cleaned: {len(cleaned)}",
             f"- Storage IDs missing: {len(missing)}",
+            f"- Storage IDs skipped: {len(skipped)}",
         ],
     )
     return _write_report(context, "cleanup.md", lines)

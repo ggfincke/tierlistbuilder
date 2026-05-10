@@ -99,17 +99,40 @@ export const resolveItems = async (
     )
   )
   const byTemplate = new Map(itemMaps)
+  const mediaAssetIds = Array.from(
+    new Set(
+      itemMaps.flatMap(([, items]) =>
+        Array.from(items.values())
+          .map((item) => item.mediaAssetId)
+          .filter((id): id is Id<'mediaAssets'> => id !== null)
+      )
+    )
+  )
+  const mediaAssets = await Promise.all(
+    mediaAssetIds.map((id) => ctx.db.get(id))
+  )
+  const mediaById = new Map(
+    mediaAssets
+      .filter((asset): asset is Doc<'mediaAssets'> => asset !== null)
+      .map((asset) => [asset._id as string, asset])
+  )
   const resolved: SeedResolvedItem[] = []
   for (const key of keys)
   {
     const item = byTemplate.get(key.templateExternalId)?.get(key.itemExternalId)
     if (!item) continue
+    const media = item.mediaAssetId
+      ? mediaById.get(item.mediaAssetId as string)
+      : null
     resolved.push({
       templateExternalId: key.templateExternalId,
       itemExternalId: key.itemExternalId,
       order: item.order,
       label: item.label,
       mediaAssetId: item.mediaAssetId as string | null,
+      mediaContentHash: media?.tileVariant.contentHash ?? null,
+      aspectRatio: item.aspectRatio,
+      transform: item.transform ?? null,
     })
   }
   return resolved
@@ -178,19 +201,25 @@ export const resolveMediaForAuthor = async (
   return resolved
 }
 
-export const resolveActiveReleaseId = async (
+export const resolveActiveSeedRuns = async (
   ctx: QueryCtx | MutationCtx,
   datasetKey: string
-): Promise<string | null> =>
-{
-  const activeRuns = await ctx.db
+): Promise<Doc<'seedRuns'>[]> =>
+  await ctx.db
     .query('seedRuns')
     .withIndex('byDatasetStatus', (q) =>
       q.eq('datasetKey', datasetKey).eq('status', 'active')
     )
     .order('desc')
-    .take(1)
-  return activeRuns[0]?.releaseId ?? null
+    .take(SEED_LIMITS.activeRunsPerDataset)
+
+export const resolveActiveReleaseIds = async (
+  ctx: QueryCtx | MutationCtx,
+  datasetKey: string
+): Promise<string[]> =>
+{
+  const activeRuns = await resolveActiveSeedRuns(ctx, datasetKey)
+  return Array.from(new Set(activeRuns.map((run) => run.releaseId)))
 }
 
 export const resolveAbsentFromManifest = async (

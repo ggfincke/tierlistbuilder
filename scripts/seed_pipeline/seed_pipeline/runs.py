@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -27,8 +27,13 @@ from .reports import (
 SEED_BEGIN_FUNCTION = "marketplace/seedRuns:beginSeedRun"
 SEED_STATE_FUNCTION = "marketplace/seedRuns:resolveSeedState"
 SEED_UPLOAD_URLS_FUNCTION = "marketplace/seedRuns:generateSeedUploadUrls"
+SEED_REGISTER_UPLOADS_FUNCTION = (
+    "marketplace/seedPipeline/storageUploads:registerSeedUploadedStorageIds"
+)
 SEED_FINALIZE_MEDIA_FUNCTION = "marketplace/seedRuns:finalizeSeedUploadedMedia"
-SEED_CLEANUP_FUNCTION = "marketplace/seedRuns:cleanupAbandonedSeedRun"
+SEED_CLEANUP_FUNCTION = (
+    "marketplace/seedPipeline/storageUploads:cleanupAbandonedSeedRun"
+)
 SEED_UPSERT_TEMPLATES_FUNCTION = "marketplace/seedRuns:upsertSeedTemplates"
 SEED_UPSERT_ITEMS_FUNCTION = "marketplace/seedRuns:upsertSeedItems"
 SEED_UPSERT_CRITERIA_FUNCTION = "marketplace/seedRuns:upsertSeedCriteria"
@@ -85,7 +90,6 @@ class SeedRunContext:
     compiled_path: Path
     compiled: JsonObject
     client: ConvexSeedClient
-    seed_secret: str
     checkpoint_path: Path
     checkpoint: JsonObject
 
@@ -110,7 +114,11 @@ def upload_seed_manifest(
     uploaded_assets = _upload_assets(context, assets)
     finalized, rejected = _finalize_uploaded_assets(context, uploaded_assets)
     _write_checkpoint(context)
-    return write_upload_report(context, assets, finalized, rejected)
+    report_path = write_upload_report(context, assets, finalized, rejected)
+    if rejected:
+        msg = f"seed upload rejected {len(rejected)} variant(s); report: {report_path}"
+        raise RuntimeError(msg)
+    return report_path
 
 
 def apply_seed_manifest(
@@ -219,7 +227,10 @@ def cleanup_seed_manifest(
     storage_ids = list(context.checkpoint.get("uploadedStorageIds") or [])
     cleaned: list[str] = []
     missing: list[str] = []
+    skipped: list[str] = []
     if not options.dry_run:
+        if storage_ids:
+            _register_uploaded_storage_ids(context, storage_ids)
         for chunk in _chunks(storage_ids, CLEANUP_STORAGE_BATCH_SIZE):
             result = context.client.action(
                 SEED_CLEANUP_FUNCTION,
@@ -227,11 +238,13 @@ def cleanup_seed_manifest(
             )
             cleaned.extend(result.get("cleanedStorageIds", []))
             missing.extend(result.get("missingStorageIds", []))
+            skipped.extend(result.get("skippedStorageIds", []))
+        terminal = {*cleaned, *missing, *skipped}
         context.checkpoint["uploadedStorageIds"] = [
-            item for item in storage_ids if item not in {*cleaned, *missing}
+            item for item in storage_ids if item not in terminal
         ]
         _write_checkpoint(context)
-    return write_cleanup_report(context, storage_ids, cleaned, missing, options.dry_run)
+    return write_cleanup_report(context, storage_ids, cleaned, missing, skipped, options.dry_run)
 
 
 def run_seed_manifest(
@@ -254,7 +267,11 @@ def run_seed_manifest(
     _assert_upload_budget(assets, options.max_upload_bytes)
     if assets:
         uploaded_assets = _upload_assets(context, assets)
-        _finalize_uploaded_assets(context, uploaded_assets)
+        finalized, rejected = _finalize_uploaded_assets(context, uploaded_assets)
+        if rejected:
+            report_path = write_upload_report(context, assets, finalized, rejected)
+            msg = f"seed upload rejected {len(rejected)} variant(s); report: {report_path}"
+            raise RuntimeError(msg)
     _upsert_templates(context)
     _upsert_criteria(context)
     _upsert_items(context)
@@ -373,7 +390,6 @@ def _load_context(
         compiled_path=compiled_path,
         compiled=compiled,
         client=ConvexSeedClient(settings),
-        seed_secret=settings.seed_secret,
         checkpoint_path=checkpoint_path,
         checkpoint=checkpoint,
     )
@@ -399,7 +415,7 @@ def _resolve_state(context: SeedRunContext, options: SeedRunOptions) -> JsonObje
         return read_json(options.state_json)
     return context.client.query(
         SEED_STATE_FUNCTION,
-        build_state_request(context.compiled, context.seed_secret),
+        build_state_request(context.compiled),
     )
 
 
@@ -428,10 +444,6 @@ def _upload_assets(
             for variant in _asset_variants(asset["asset"])
         ]
         upload_rows = _generate_upload_urls(context, variants)
-        # parallelize per-variant POST: storage uploads are RTT-bound so a small
-        # thread pool turns minutes of sequential waits into seconds of parallel
-        # ones. checkpoint flush is hoisted out of the inner loop so we don't
-        # rewrite the JSON file once per variant
         def upload_one(args: tuple[JsonObject, JsonObject]) -> str:
             variant, upload_row = args
             return context.client.upload_file(
@@ -440,14 +452,34 @@ def _upload_assets(
                 variant["mimeType"],
             )
 
+        errors: list[Exception] = []
+        storage_ids: list[str] = []
         with ThreadPoolExecutor(max_workers=UPLOAD_WORKERS) as pool:
-            storage_ids = list(
-                pool.map(upload_one, list(zip(variants, upload_rows, strict=True)))
-            )
-        for variant, storage_id in zip(variants, storage_ids, strict=True):
-            variant["storageId"] = storage_id
+            future_to_variant = {
+                pool.submit(upload_one, pair): pair[0]
+                for pair in zip(variants, upload_rows, strict=True)
+            }
+            for future in as_completed(future_to_variant):
+                variant = future_to_variant[future]
+                try:
+                    storage_id = future.result()
+                except Exception as error:
+                    errors.append(error)
+                    continue
+                variant["storageId"] = storage_id
+                storage_ids.append(storage_id)
+        for storage_id in storage_ids:
             context.checkpoint.setdefault("uploadedStorageIds", []).append(storage_id)
         _write_checkpoint(context)
+        if storage_ids:
+            _register_uploaded_storage_ids(context, storage_ids)
+        if errors:
+            details = "; ".join(f"{type(error).__name__}: {error}" for error in errors)
+            msg = (
+                f"{len(errors)} seed upload(s) failed; "
+                f"uploaded IDs were checkpointed. errors: {details}"
+            )
+            raise RuntimeError(msg) from errors[0]
         uploaded.extend(asset_chunk)
     return uploaded
 
@@ -474,6 +506,16 @@ def _generate_upload_urls(
         )
         upload_rows.extend(result["urls"])
     return upload_rows
+
+
+def _register_uploaded_storage_ids(
+    context: SeedRunContext, storage_ids: list[str]
+) -> None:
+    for chunk in _chunks(storage_ids, CLEANUP_STORAGE_BATCH_SIZE):
+        context.client.mutation(
+            SEED_REGISTER_UPLOADS_FUNCTION,
+            {**_run_request(context), "storageIds": chunk},
+        )
 
 
 def _finalize_uploaded_assets(
@@ -673,7 +715,6 @@ def _zoomed_cover_frame(
 
 def _run_request(context: SeedRunContext) -> JsonObject:
     return {
-        "seedSecret": context.seed_secret,
         "datasetKey": context.compiled["datasetKey"],
         "releaseId": context.compiled["releaseId"],
         "runId": context.checkpoint["runId"],

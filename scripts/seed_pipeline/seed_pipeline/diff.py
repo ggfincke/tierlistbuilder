@@ -33,7 +33,7 @@ def write_diff_report_for_manifest(
         settings = read_seed_settings(repo_root, env_name, convex_url, seed_secret)
         state = ConvexSeedClient(settings).query(
             SEED_STATE_FUNCTION,
-            build_state_request(compiled, settings.seed_secret),
+            build_state_request(compiled),
         )
     diff = build_seed_diff(compiled, state)
     report_path = compiled_path.parent / "reports" / "diff.md"
@@ -44,11 +44,10 @@ def write_diff_report_for_manifest(
     return report_path
 
 
-def build_state_request(compiled: JsonObject, seed_secret: str) -> JsonObject:
+def build_state_request(compiled: JsonObject) -> JsonObject:
     templates = as_list(compiled.get("templates"))
     # request only identities & variant hashes needed for read-side precheck
     return {
-        "seedSecret": seed_secret,
         "datasetKey": compiled["datasetKey"],
         "releaseId": compiled["releaseId"],
         "authorEmail": compiled["authorEmail"],
@@ -204,9 +203,18 @@ def _diff_items(compiled: JsonObject, state: JsonObject) -> JsonObject:
             if current is None:
                 create.append(entry)
                 continue
+            item_for_diff = {
+                **item,
+                "mediaContentHash": _asset_tile_hash(item.get("asset")),
+            }
+            reasons = _changed_fields(
+                item_for_diff,
+                current,
+                ["label", "aspectRatio", "transform", "mediaContentHash"],
+            )
             changed = False
-            if current.get("label") != item.get("label"):
-                update.append({**entry, "reasons": ["label"]})
+            if reasons:
+                update.append({**entry, "reasons": reasons})
                 changed = True
             if current.get("order") != item.get("order"):
                 reorder.append({**entry, "from": current.get("order"), "to": item.get("order")})
@@ -304,6 +312,18 @@ def _compiled_assets(compiled: JsonObject) -> Iterable[JsonObject]:
         for item in as_list(template.get("items")):
             if isinstance(item, dict) and isinstance(item.get("asset"), dict):
                 yield item["asset"]
+
+
+def _asset_tile_hash(asset: object) -> str | None:
+    if not isinstance(asset, dict):
+        return None
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return None
+    tile = variants.get("tile")
+    if not isinstance(tile, dict):
+        return None
+    return str(tile["contentHash"])
 
 
 def _append_diff_section(lines: list[str], title: str, entries: list[object]) -> None:

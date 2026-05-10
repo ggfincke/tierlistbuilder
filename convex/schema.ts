@@ -422,6 +422,22 @@ export default defineSchema({
     .index('byDatasetRelease', ['datasetKey', 'releaseId'])
     .index('byDatasetStatus', ['datasetKey', 'status']),
 
+  seedRunStorageUploads: defineTable({
+    runId: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    storageId: v.id('_storage'),
+    status: v.union(
+      v.literal('uploaded'),
+      v.literal('resolved'),
+      v.literal('cleaned')
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('byRun', ['datasetKey', 'releaseId', 'runId'])
+    .index('byStorageId', ['storageId']),
+
   // helper table for tag filtering. one row per (template, tag); denormalized
   // listability mirrors the parent so public tag queries avoid a join
   templateTags: defineTable({

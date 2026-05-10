@@ -1,9 +1,13 @@
 // convex/marketplace/seedRuns.ts
-// public Convex API for the Python seed pipeline. private logic lives under
-// ./seedPipeline/ (validators, resolvers, media, templates, diagnostics, ...)
+// internal Convex API for Python seed HTTP endpoints. private logic lives
+// under ./seedPipeline/ (validators, resolvers, media, templates, diagnostics)
 
 import { ConvexError, v } from 'convex/values'
-import { action, internalQuery, mutation, query } from '../_generated/server'
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+} from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
 import { internal } from '../_generated/api'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
@@ -29,6 +33,7 @@ import {
 import { valuesEqual } from '../lib/equality'
 import { SEED_LIMITS, SEED_UPLOAD_URL_TTL_MS } from '../lib/limits'
 import {
+  adjustPublicTemplateCount,
   allocateTemplateSlug,
   createTemplateStats,
   patchTemplateAndSyncCard,
@@ -39,18 +44,16 @@ import {
   buildDefaultTemplateCriteria,
   validateTemplateCriteria,
 } from './templates/criteria'
-import { requireSeedAuthorized } from './seedAuth'
 import { activateSeedReleaseInternal } from './seedPipeline/activation'
 import { buildSeedReleaseDiagnostics } from './seedPipeline/diagnostics'
 import {
   buildSeedMediaAssetIdCache,
-  cleanupStorageIds,
   finalizeSeedMediaAsset,
   resolveSeedMediaAssetIdFromCache,
 } from './seedPipeline/media'
 import {
   keySetByTemplate,
-  resolveActiveReleaseId,
+  resolveActiveReleaseIds,
   resolveCriteria,
   resolveItems,
   resolveMediaForAuthor,
@@ -71,6 +74,7 @@ import {
 } from './seedPipeline/runs'
 import {
   groupByTemplateExternalId,
+  buildSeedTemplateLifecycleFields,
   loadSeedTemplateLookupForRelease,
   normalizeSeedTemplateUpsert,
   patchSeedTemplateItemSummary,
@@ -79,7 +83,6 @@ import {
   toSeedItemKey,
 } from './seedPipeline/templates'
 import type {
-  SeedCleanupResult,
   SeedCriterionUpsertArg,
   SeedFinalizedMediaRow,
   SeedItemUpsertArg,
@@ -90,7 +93,6 @@ import type {
 import {
   resolveStateArgsValidator,
   resolveStateOutputValidator,
-  seedCleanupOutputValidator,
   seedCompiledTotalsValidator,
   seedCriterionUpsertOutputValidator,
   seedCriterionUpsertValidator,
@@ -107,6 +109,30 @@ import {
   seedUploadVariantRequestValidator,
   seedUploadedMediaAssetValidator,
 } from './seedPipeline/validators'
+
+const pushPublicTemplateTransition = (
+  deltas: { category: Doc<'templates'>['category']; delta: number }[],
+  previous: Pick<Doc<'templates'>, 'category' | 'isPubliclyListable'> | null,
+  next: Pick<Doc<'templates'>, 'category' | 'isPubliclyListable'>
+): void =>
+{
+  if (
+    previous?.isPubliclyListable &&
+    next.isPubliclyListable &&
+    previous.category === next.category
+  )
+  {
+    return
+  }
+  if (previous?.isPubliclyListable)
+  {
+    deltas.push({ category: previous.category, delta: -1 })
+  }
+  if (next.isPubliclyListable)
+  {
+    deltas.push({ category: next.category, delta: 1 })
+  }
+}
 
 export const findSeedAuthorIdByEmail = internalQuery({
   args: { email: v.string() },
@@ -136,9 +162,8 @@ export const findSeedMediaByOwnerAndDedupeHash = internalQuery({
   },
 })
 
-export const beginSeedRun = mutation({
+export const beginSeedRun = internalMutation({
   args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -149,7 +174,6 @@ export const beginSeedRun = mutation({
   returns: v.object({ run: seedRunSummaryValidator }),
   handler: async (ctx, args): Promise<SeedBeginRunOutput> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
@@ -200,9 +224,8 @@ export const beginSeedRun = mutation({
   },
 })
 
-export const generateSeedUploadUrls = mutation({
+export const generateSeedUploadUrls = internalMutation({
   args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -211,7 +234,6 @@ export const generateSeedUploadUrls = mutation({
   returns: v.object({ urls: v.array(seedUploadUrlValidator) }),
   handler: async (ctx, args): Promise<{ urls: SeedUploadUrlRow[] }> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
@@ -245,9 +267,8 @@ export const generateSeedUploadUrls = mutation({
   },
 })
 
-export const finalizeSeedUploadedMedia = action({
+export const finalizeSeedUploadedMedia = internalAction({
   args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -266,7 +287,6 @@ export const finalizeSeedUploadedMedia = action({
     rejected: SeedRejectedUpload[]
   }> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
@@ -297,38 +317,24 @@ export const finalizeSeedUploadedMedia = action({
       if (result.finalized) finalized.push(result.finalized)
       rejected.push(...result.rejected)
     }
+    await ctx.runMutation(
+      internal.marketplace.seedPipeline.storageUploads
+        .markSeedUploadedStorageIdsResolved,
+      {
+        datasetKey: args.datasetKey,
+        releaseId: args.releaseId,
+        runId: args.runId,
+        storageIds: args.assets.flatMap((asset) =>
+          asset.variants.map((variant) => variant.storageId)
+        ),
+      }
+    )
     return { finalized, rejected }
   },
 })
 
-export const cleanupAbandonedSeedRun = action({
+export const upsertSeedTemplates = internalMutation({
   args: {
-    seedSecret: v.string(),
-    datasetKey: v.string(),
-    releaseId: v.string(),
-    runId: v.string(),
-    storageIds: v.array(v.id('_storage')),
-  },
-  returns: seedCleanupOutputValidator,
-  handler: async (ctx, args): Promise<SeedCleanupResult> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
-    assertCountRange(
-      'storageIds',
-      args.storageIds.length,
-      0,
-      SEED_LIMITS.storageIdsPerCleanup
-    )
-    return await cleanupStorageIds(ctx, args.storageIds)
-  },
-})
-
-export const upsertSeedTemplates = mutation({
-  args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -341,7 +347,6 @@ export const upsertSeedTemplates = mutation({
     args
   ): Promise<{ created: string[]; updated: string[]; unchanged: string[] }> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
@@ -368,6 +373,10 @@ export const upsertSeedTemplates = mutation({
     const created: string[] = []
     const updated: string[] = []
     const unchanged: string[] = []
+    const publicTemplateDeltas: {
+      category: Doc<'templates'>['category']
+      delta: number
+    }[] = []
     // batch all cover-media & existing-template lookups up-front so per-template
     // work skips repeated index probes & stays under the per-mutation read cap
     const coverHashes = (args.templates as SeedTemplateUpsertArg[])
@@ -384,15 +393,21 @@ export const upsertSeedTemplates = mutation({
         args.datasetKey,
         args.releaseId
       )
+    const activeReleaseIdsForDataset = await resolveActiveReleaseIds(
+      ctx,
+      args.datasetKey
+    )
+    const releaseIsActive = activeReleaseIdsForDataset.includes(args.releaseId)
     for (const template of args.templates as SeedTemplateUpsertArg[])
     {
+      const existing = existingByExternalId.get(template.externalId) ?? null
       const patch = normalizeSeedTemplateUpsert(
         args.datasetKey,
         args.releaseId,
         template,
-        mediaAssetCache
+        mediaAssetCache,
+        releaseIsActive || existing?.seedReleaseStatus === 'active'
       )
-      const existing = existingByExternalId.get(template.externalId) ?? null
       const now = Date.now()
       if (!existing)
       {
@@ -423,7 +438,7 @@ export const upsertSeedTemplates = mutation({
           seedDatasetKey: args.datasetKey,
           seedExternalId: template.externalId,
           seedReleaseId: args.releaseId,
-          seedReleaseStatus: 'applied_hidden',
+          seedReleaseStatus: patch.seedReleaseStatus,
           createdAt: now,
           updatedAt: now,
         } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
@@ -441,6 +456,7 @@ export const upsertSeedTemplates = mutation({
         }
         await syncTemplateTagRows(ctx, row)
         await writeTemplateCard(ctx, row, stats)
+        pushPublicTemplateTransition(publicTemplateDeltas, null, row)
         created.push(template.externalId)
         continue
       }
@@ -455,15 +471,16 @@ export const upsertSeedTemplates = mutation({
         updatedAt: now,
       })
       await syncTemplateTagRows(ctx, nextTemplate)
+      pushPublicTemplateTransition(publicTemplateDeltas, existing, nextTemplate)
       updated.push(template.externalId)
     }
+    await adjustPublicTemplateCount(ctx, publicTemplateDeltas)
     return { created, updated, unchanged }
   },
 })
 
-export const upsertSeedItems = mutation({
+export const upsertSeedItems = internalMutation({
   args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -481,7 +498,6 @@ export const upsertSeedItems = mutation({
     absentFromRelease: SeedTemplateItemKey[]
   }> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
@@ -615,9 +631,8 @@ export const upsertSeedItems = mutation({
   },
 })
 
-export const upsertSeedCriteria = mutation({
+export const upsertSeedCriteria = internalMutation({
   args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -634,7 +649,6 @@ export const upsertSeedCriteria = mutation({
     deactivated: SeedTemplateCriterionKey[]
   }> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
@@ -729,7 +743,11 @@ export const upsertSeedCriteria = mutation({
       }
       await patchTemplateAndSyncCard(ctx, template, {
         criteria: normalized,
-        seedReleaseStatus: 'applied_hidden',
+        ...buildSeedTemplateLifecycleFields(
+          template.itemCount,
+          template.visibility,
+          template.seedReleaseStatus === 'active'
+        ),
         updatedAt: Date.now(),
       })
     }
@@ -737,9 +755,8 @@ export const upsertSeedCriteria = mutation({
   },
 })
 
-export const verifySeedRelease = mutation({
+export const verifySeedRelease = internalMutation({
   args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -751,7 +768,6 @@ export const verifySeedRelease = mutation({
   }),
   handler: async (ctx, args) =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
@@ -769,28 +785,26 @@ export const verifySeedRelease = mutation({
       args.expectedTotals
     )
     const verified = !hasErrorDiagnostics(diagnostics)
-    if (verified)
+    // a re-verify of an already-active release shouldn't demote its run record
+    // back to 'verified' or 'failed' — those would mis-report the release as
+    // not-yet-active. only transition pre-activation runs
+    if (run.status !== 'active')
     {
-      if (run.status !== 'active')
-      {
-        await setSeedRunStatus(ctx, run, 'verified')
-      }
-      return { verified, diagnostics }
+      await setSeedRunStatus(
+        ctx,
+        run,
+        verified ? 'verified' : 'failed',
+        verified
+          ? null
+          : `seed verification failed: ${diagnostics.length} diagnostics`
+      )
     }
-
-    await setSeedRunStatus(
-      ctx,
-      run,
-      'failed',
-      `seed verification failed: ${diagnostics.length} diagnostics`
-    )
     return { verified, diagnostics }
   },
 })
 
-export const activateSeedRelease = mutation({
+export const activateSeedRelease = internalMutation({
   args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -803,7 +817,6 @@ export const activateSeedRelease = mutation({
   }),
   handler: async (ctx, args): Promise<SeedActivateReleaseOutput> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
@@ -823,9 +836,8 @@ export const activateSeedRelease = mutation({
   },
 })
 
-export const rollbackSeedRelease = mutation({
+export const rollbackSeedRelease = internalMutation({
   args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -838,7 +850,6 @@ export const rollbackSeedRelease = mutation({
   }),
   handler: async (ctx, args): Promise<SeedRollbackReleaseOutput> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
@@ -857,8 +868,11 @@ export const rollbackSeedRelease = mutation({
       args.releaseId,
       args.runId
     )
-    const currentActive = await resolveActiveReleaseId(ctx, args.datasetKey)
-    if (currentActive === args.targetReleaseId)
+    const activeReleaseIds = await resolveActiveReleaseIds(ctx, args.datasetKey)
+    if (
+      activeReleaseIds.includes(args.targetReleaseId) &&
+      !activeReleaseIds.includes(args.releaseId)
+    )
     {
       await setSeedRunStatus(ctx, run, 'rolled_back')
       return {
@@ -866,7 +880,7 @@ export const rollbackSeedRelease = mutation({
         rolledBackReleaseId: args.releaseId,
       }
     }
-    if (currentActive !== args.releaseId)
+    if (!activeReleaseIds.includes(args.releaseId))
     {
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.invalidState,
@@ -905,18 +919,14 @@ export const rollbackSeedRelease = mutation({
   },
 })
 
-export const resolveSeedMediaByHashes = query({
+export const resolveSeedMediaByHashes = internalQuery({
   args: {
-    seedSecret: v.string(),
-    datasetKey: v.string(),
-    releaseId: v.string(),
     authorEmail: v.string(),
     variantHashes: v.array(v.string()),
   },
   returns: v.object({ media: v.array(seedResolvedMediaValidator) }),
   handler: async (ctx, args): Promise<{ media: SeedResolvedMedia[] }> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertBatchSize('variantHashes', args.variantHashes.length)
     const authorId = await findSeedAuthorId(ctx, args.authorEmail)
     return {
@@ -925,12 +935,11 @@ export const resolveSeedMediaByHashes = query({
   },
 })
 
-export const resolveSeedState = query({
+export const resolveSeedState = internalQuery({
   args: resolveStateArgsValidator,
   returns: resolveStateOutputValidator,
   handler: async (ctx, args): Promise<SeedResolveStateResult> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     assertBatchSize('templateExternalIds', args.templateExternalIds.length)
     assertBatchSize('itemExternalIds', args.itemExternalIds.length)
     assertBatchSize('criterionExternalIds', args.criterionExternalIds.length)
@@ -951,11 +960,11 @@ export const resolveSeedState = query({
       args.criterionExternalIds,
       (key) => key.criterionExternalId
     )
-    const [items, media, activeReleaseId, absentFromManifest] =
+    const [items, media, activeReleaseIds, absentFromManifest] =
       await Promise.all([
         resolveItems(ctx, templates, args.itemExternalIds),
         resolveMediaForAuthor(ctx, authorId, args.variantHashes),
-        resolveActiveReleaseId(ctx, args.datasetKey),
+        resolveActiveReleaseIds(ctx, args.datasetKey),
         resolveAbsentFromManifest(
           ctx,
           args.datasetKey,
@@ -967,7 +976,7 @@ export const resolveSeedState = query({
       ])
 
     return {
-      activeReleaseId,
+      activeReleaseId: activeReleaseIds[0] ?? null,
       templates: [...templates.values()].map(toResolvedTemplate),
       items,
       criteria: resolveCriteria(templates, args.criterionExternalIds),
@@ -977,9 +986,8 @@ export const resolveSeedState = query({
   },
 })
 
-export const getSeedRunStatus = query({
+export const getSeedRunStatus = internalQuery({
   args: {
-    seedSecret: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
@@ -987,7 +995,6 @@ export const getSeedRunStatus = query({
   returns: v.object({ run: v.union(seedRunSummaryValidator, v.null()) }),
   handler: async (ctx, args): Promise<{ run: SeedRunSummary | null }> =>
   {
-    requireSeedAuthorized(args.seedSecret)
     const run = await ctx.db
       .query('seedRuns')
       .withIndex('byRunId', (q) => q.eq('runId', args.runId))

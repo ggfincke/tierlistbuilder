@@ -80,9 +80,17 @@ export type SeedUploadUrlRow = {
   expiresAt: number
 }
 
-export type SeedCleanupResult = {
+export type SeedStorageCleanupCounts = {
   cleanedStorageIds: string[]
   missingStorageIds: string[]
+}
+
+export type SeedCleanupResult = SeedStorageCleanupCounts & {
+  skippedStorageIds: string[]
+}
+
+export type SeedRegisterUploadsResult = {
+  registeredStorageIds: string[]
 }
 
 export type SeedFinalizedMediaRow = {

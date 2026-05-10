@@ -17,7 +17,7 @@ class SeedDiffTests(unittest.TestCase):
         )
 
     def test_state_request_extracts_ids_and_hashes(self) -> None:
-        request = build_state_request(self.compiled, "secret")
+        request = build_state_request(self.compiled)
         self.assertEqual(request["authorEmail"], "tterrag456@gmail.com")
         self.assertEqual(
             request["templateExternalIds"],
@@ -43,6 +43,50 @@ class SeedDiffTests(unittest.TestCase):
         self.assertEqual(len(diff["items"]["create"]), 2)
         self.assertEqual(len(diff["criteria"]["create"]), 3)
         self.assertEqual(len(diff["media"]["missing"]), 6)
+
+    def test_item_diff_compares_compiled_asset_tile_hash(self) -> None:
+        template = self.compiled["templates"][0]
+        item = template["items"][0]
+        tile_hash = item["asset"]["variants"]["tile"]["contentHash"]
+        server_item = {
+            "templateExternalId": template["externalId"],
+            "itemExternalId": item["externalId"],
+            "order": item["order"],
+            "label": item["label"],
+            "mediaContentHash": tile_hash,
+            "aspectRatio": item["aspectRatio"],
+            "transform": item["transform"],
+        }
+        state = {
+            "activeReleaseId": None,
+            "templates": [],
+            "items": [server_item],
+            "criteria": [],
+            "media": [],
+            "absentFromManifest": [],
+        }
+        diff = build_seed_diff(self.compiled, state)
+        self.assertIn(
+            {
+                "templateExternalId": template["externalId"],
+                "itemExternalId": item["externalId"],
+            },
+            diff["items"]["unchanged"],
+        )
+        self.assertEqual(diff["items"]["update"], [])
+
+        state["items"] = [{**server_item, "mediaContentHash": None}]
+        diff = build_seed_diff(self.compiled, state)
+        self.assertEqual(
+            diff["items"]["update"],
+            [
+                {
+                    "templateExternalId": template["externalId"],
+                    "itemExternalId": item["externalId"],
+                    "reasons": ["mediaContentHash"],
+                }
+            ],
+        )
 
 
 if __name__ == "__main__":

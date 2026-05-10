@@ -6,6 +6,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
 export const SEED_ENABLED_ENV = 'CONVEX_SEED_ENABLED'
 export const SEED_SECRET_ENV = 'CONVEX_SEED_SECRET'
+export const SEED_AUTH_HEADER = 'authorization'
 
 export const requireSeedAuthorized = (seedSecret: string): void =>
 {
@@ -25,4 +26,12 @@ export const requireSeedAuthorized = (seedSecret: string): void =>
       message: `seeding is locked - pass the deployment ${SEED_SECRET_ENV} value`,
     })
   }
+}
+
+export const requireSeedRequestAuthorized = (request: Request): void =>
+{
+  const authorization = request.headers.get(SEED_AUTH_HEADER) ?? ''
+  const [scheme, token] = authorization.trim().split(/\s+/, 2)
+  const isBearer = scheme?.toLowerCase() === 'bearer' && Boolean(token)
+  requireSeedAuthorized(isBearer ? token : '')
 }

@@ -53,6 +53,10 @@ export const SEED_LIMITS = {
   templateUpsertsPerCall: 128,
   itemUpsertsPerCall: 2048,
   criterionUpsertsPerCall: 512,
+  // bound the byDatasetStatus scan in resolveActiveSeedRuns. one row per
+  // (dataset, releaseId, runId) for runs in status='active'; in steady state
+  // there's at most one but multi-active windows during rollout are possible
+  activeRunsPerDataset: 32,
 } as const
 
 export const SEED_UPLOAD_URL_TTL_MS = 60 * 60 * 1000

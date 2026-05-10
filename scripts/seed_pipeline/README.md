@@ -44,9 +44,12 @@ python -m seed_pipeline diff data/seeds/marketplace-core.json --env local
 python -m seed_pipeline preflight data/seeds/marketplace-core.json --env local
 ```
 
-Use `--convex-url` and `--seed-secret` to target a deployment explicitly. When
-omitted, the pipeline reads the target from local environment files and process
-environment.
+Use `--convex-url` and `--seed-secret` to target a deployment explicitly. The
+URL may be either the Convex client URL or site URL; seed HTTP actions post to
+the site host (`:3211` locally, `*.convex.site` in cloud). The secret is sent as
+an HTTP bearer authorization header to `/api/seed/*`, not in the Convex function
+body. When omitted, the pipeline reads the target from local environment files
+and process environment.
 
 ## Write Commands
 
@@ -91,3 +94,6 @@ Production writes require `--yes`. Activation and rollback require
 `--confirm-activation` in every environment. The local checkpoint lives at
 `.seed-cache/<datasetKey>/<releaseId>/run.json`; cleanup uses that checkpoint to
 remove abandoned upload storage IDs and requires `--yes` unless it is a dry run.
+Successfully uploaded storage IDs are registered server-side before finalize, so
+an interrupted upload can be retried or cleaned without losing already uploaded
+blob IDs from the local checkpoint.

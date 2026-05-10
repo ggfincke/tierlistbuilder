@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
+import type * as dev_reset from "../dev/reset.js";
 import type * as http from "../http.js";
 import type * as lib_assertions from "../lib/assertions.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -42,6 +43,7 @@ import type * as marketplace_seedPipeline_media from "../marketplace/seedPipelin
 import type * as marketplace_seedPipeline_mediaLookup from "../marketplace/seedPipeline/mediaLookup.js";
 import type * as marketplace_seedPipeline_resolvers from "../marketplace/seedPipeline/resolvers.js";
 import type * as marketplace_seedPipeline_runs from "../marketplace/seedPipeline/runs.js";
+import type * as marketplace_seedPipeline_storageUploads from "../marketplace/seedPipeline/storageUploads.js";
 import type * as marketplace_seedPipeline_templates from "../marketplace/seedPipeline/templates.js";
 import type * as marketplace_seedPipeline_types from "../marketplace/seedPipeline/types.js";
 import type * as marketplace_seedPipeline_validators from "../marketplace/seedPipeline/validators.js";
@@ -84,6 +86,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
+  "dev/reset": typeof dev_reset;
   http: typeof http;
   "lib/assertions": typeof lib_assertions;
   "lib/auth": typeof lib_auth;
@@ -116,6 +119,7 @@ declare const fullApi: ApiFromModules<{
   "marketplace/seedPipeline/mediaLookup": typeof marketplace_seedPipeline_mediaLookup;
   "marketplace/seedPipeline/resolvers": typeof marketplace_seedPipeline_resolvers;
   "marketplace/seedPipeline/runs": typeof marketplace_seedPipeline_runs;
+  "marketplace/seedPipeline/storageUploads": typeof marketplace_seedPipeline_storageUploads;
   "marketplace/seedPipeline/templates": typeof marketplace_seedPipeline_templates;
   "marketplace/seedPipeline/types": typeof marketplace_seedPipeline_types;
   "marketplace/seedPipeline/validators": typeof marketplace_seedPipeline_validators;

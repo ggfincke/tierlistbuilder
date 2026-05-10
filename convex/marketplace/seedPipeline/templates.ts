@@ -21,11 +21,12 @@ import { SEED_LIMITS } from '../../lib/limits'
 import {
   adjustPublicTemplateCount,
   buildTemplateStateFields,
-  markTemplateNotPublic,
+  isPublicTemplateRow,
   normalizeDescription,
   normalizeTags,
   normalizeTemplateTitle,
   patchTemplateAndSyncCard,
+  patchTemplateTagRows,
   syncTemplateTagRows,
   validateTemplateTiers,
 } from '../templates/lib'
@@ -121,17 +122,37 @@ export const patchSeedTemplateItemSummary = async (
   await patchTemplateAndSyncCard(ctx, template, {
     itemCount,
     coverItems,
-    ...buildTemplateStateFields(itemCount, template.visibility, 'unpublished'),
-    seedReleaseStatus: 'applied_hidden',
+    ...buildSeedTemplateLifecycleFields(
+      itemCount,
+      template.visibility,
+      template.seedReleaseStatus === 'active'
+    ),
     updatedAt: now,
   })
 }
+
+export const buildSeedTemplateLifecycleFields = (
+  itemCount: number,
+  visibility: Doc<'templates'>['visibility'],
+  isActiveRelease: boolean
+): Pick<
+  Doc<'templates'>,
+  'isPubliclyListable' | 'publicationState' | 'seedReleaseStatus' | 'sizeClass'
+> => ({
+  ...buildTemplateStateFields(
+    itemCount,
+    visibility,
+    isActiveRelease ? 'published' : 'unpublished'
+  ),
+  seedReleaseStatus: isActiveRelease ? 'active' : 'applied_hidden',
+})
 
 export const normalizeSeedTemplateUpsert = (
   datasetKey: string,
   releaseId: string,
   template: SeedTemplateUpsertArg,
-  mediaAssetCache: ReadonlyMap<string, Id<'mediaAssets'>>
+  mediaAssetCache: ReadonlyMap<string, Id<'mediaAssets'>>,
+  isActiveRelease: boolean
 ): SeedTemplateApplyPatch =>
 {
   assertNonemptyString('templateExternalId', template.externalId)
@@ -158,15 +179,14 @@ export const normalizeSeedTemplateUpsert = (
     itemAspectRatioMode: 'manual',
     defaultItemImageFit: 'cover',
     itemCount: template.itemCount,
-    ...buildTemplateStateFields(
+    ...buildSeedTemplateLifecycleFields(
       template.itemCount,
       template.visibility,
-      'unpublished'
+      isActiveRelease
     ),
     seedDatasetKey: datasetKey,
     seedExternalId: template.externalId,
     seedReleaseId: releaseId,
-    seedReleaseStatus: 'applied_hidden',
   }
 }
 
@@ -236,24 +256,26 @@ export const publishSeedReleaseTemplates = async (
 {
   assertSeedTemplateReadLimit(templates, templates[0]?.seedReleaseId)
   const deltas: { category: Doc<'templates'>['category']; delta: number }[] = []
-  for (const template of templates)
-  {
-    const state = buildTemplateStateFields(
-      template.itemCount,
-      template.visibility,
-      'published'
-    )
-    if (!template.isPubliclyListable && state.isPubliclyListable)
+  await Promise.all(
+    templates.map(async (template) =>
     {
-      deltas.push({ category: template.category, delta: 1 })
-    }
-    const next = await patchTemplateAndSyncCard(ctx, template, {
-      ...state,
-      seedReleaseStatus: 'active',
-      updatedAt: now,
+      const state = buildTemplateStateFields(
+        template.itemCount,
+        template.visibility,
+        'published'
+      )
+      if (!template.isPubliclyListable && state.isPubliclyListable)
+      {
+        deltas.push({ category: template.category, delta: 1 })
+      }
+      const next = await patchTemplateAndSyncCard(ctx, template, {
+        ...state,
+        seedReleaseStatus: 'active',
+        updatedAt: now,
+      })
+      await syncTemplateTagRows(ctx, next)
     })
-    await syncTemplateTagRows(ctx, next)
-  }
+  )
   await adjustPublicTemplateCount(ctx, deltas)
 }
 
@@ -264,18 +286,26 @@ export const rollBackSeedReleaseTemplates = async (
 ): Promise<void> =>
 {
   assertSeedTemplateReadLimit(templates, templates[0]?.seedReleaseId)
-  for (const template of templates)
-  {
-    const next = await markTemplateNotPublic(
-      ctx,
-      template,
-      now,
-      'unpublished',
-      { clearSourceBoard: false }
-    )
-    await patchTemplateAndSyncCard(ctx, next, {
-      seedReleaseStatus: 'rolled_back',
-      updatedAt: now,
+  // adjustPublicTemplateCount writes a shared marketplaceStats row — aggregate
+  // deltas across all templates before issuing the single patch so concurrent
+  // per-template branches don't race on it
+  const deltas = templates
+    .filter(isPublicTemplateRow)
+    .map((template) => ({ category: template.category, delta: -1 }))
+  await Promise.all(
+    templates.map(async (template) =>
+    {
+      await patchTemplateAndSyncCard(ctx, template, {
+        publicationState: 'unpublished',
+        isPubliclyListable: false,
+        seedReleaseStatus: 'rolled_back',
+        updatedAt: now,
+      })
+      await patchTemplateTagRows(ctx, template._id, {
+        isPubliclyListable: false,
+        updatedAt: now,
+      })
     })
-  }
+  )
+  await adjustPublicTemplateCount(ctx, deltas)
 }
