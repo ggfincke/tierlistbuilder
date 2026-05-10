@@ -36,7 +36,7 @@ const PARAM_KEY = 'criterion'
 // resolve the active criterion from URL + template metadata. returns null
 // only when no active criterion exists; treat null as "consensus surface
 // unavailable for this template" (the backend normally prevents this)
-export const resolveSelectedCriterion = (
+const resolveSelectedCriterion = (
   criteria: readonly MarketplaceTemplateCriterion[],
   requestedExternalId: string | null
 ): MarketplaceTemplateCriterion | null =>

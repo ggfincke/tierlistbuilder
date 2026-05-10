@@ -259,10 +259,11 @@ const AspectRatioIssueModalBody = ({
 
   const handleAdjustEach = useCallback(() =>
   {
+    if (autoCrop.progress.running) autoCrop.clearPreview('adjust')
     commitPendingFit()
     close()
     onAdjustEach?.()
-  }, [commitPendingFit, close, onAdjustEach])
+  }, [autoCrop, commitPendingFit, close, onAdjustEach])
 
   const ratioLabel = formatAspectRatio(boardAspectRatio)
 
@@ -398,7 +399,6 @@ const AspectRatioIssueModalBody = ({
               onFocus={onAdjustEachIntent}
               onPointerEnter={onAdjustEachIntent}
               variant="outline"
-              disabled={autoCrop.progress.running}
             >
               <span className="inline-flex items-center gap-1">
                 Adjust each item

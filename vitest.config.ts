@@ -10,6 +10,8 @@ export default defineConfig({
   },
   test: {
     alias: moduleAliases,
+    fileParallelism: false,
+    pool: 'threads',
     exclude: [
       'node_modules',
       'dist',

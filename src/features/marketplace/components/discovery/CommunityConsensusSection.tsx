@@ -856,10 +856,8 @@ export const CommunityConsensusSection = ({
     activeSlug && compare.detail
       ? { slug: activeSlug, title: compare.detail.title }
       : null
-  // the consensus is remixable once the lane has rankings & a generation.
-  // while the live aggregate is in flight (criterion swap), fall back to
-  // the template's known per-lane count so the action label doesn't flip
-  // through "New ranking" between the old and new aggregate
+  // keep remix CTA stable while the lane aggregate swaps criteria
+  // fall back to known per-lane count until the new generation loads
   const consensusRemixable =
     aggregate === undefined
       ? knownRankingCount > 0

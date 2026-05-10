@@ -3,7 +3,7 @@
 
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 
-export interface ImageUrlChainSource
+interface ImageUrlChainSource
 {
   hash: string
   cloudMediaExternalId: string
