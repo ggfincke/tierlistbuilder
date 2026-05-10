@@ -11,10 +11,11 @@ import {
   type AggregateItemFrame,
 } from '../AggregateItemThumb'
 import { DistributionBar } from '../DistributionBar'
-import { formatPercent, getAggregateItemLabel } from '../utils'
-import { resolveBucketColor } from '../utils'
+import { formatPercent, getAggregateItemLabel, resolveBucketColor } from '../utils'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { pluralizeWord } from '~/shared/lib/pluralize'
 
+import { CompareCard } from './CompareCard'
 import { safeBucketLabel, type CompareJoinedRow } from './laneUtils'
 
 interface CompareNarrativeCardsProps
@@ -93,10 +94,7 @@ const NarrativeCard = ({
   frame,
   labelSettings,
 }: NarrativeCardProps) => (
-  <div
-    className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4"
-    style={{ boxShadow: `inset 3px 0 0 0 ${accent}` }}
-  >
+  <CompareCard>
     <div className="flex items-center gap-1.5">
       <Icon className="h-3 w-3" strokeWidth={2} style={{ color: accent }} />
       <p
@@ -122,7 +120,7 @@ const NarrativeCard = ({
         </p>
       </div>
     </div>
-  </div>
+  </CompareCard>
 )
 
 const NarrativeFallback = ({
@@ -136,10 +134,7 @@ const NarrativeFallback = ({
   icon: typeof Sparkles
   body: string
 }) => (
-  <div
-    className="rounded-xl border border-dashed border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4"
-    style={{ boxShadow: `inset 3px 0 0 0 ${accent}` }}
-  >
+  <div className="rounded-xl border border-dashed border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4">
     <div className="flex items-center gap-1.5">
       <Icon className="h-3 w-3" strokeWidth={2} style={{ color: accent }} />
       <p
@@ -231,9 +226,10 @@ export const CompareNarrativeCards = ({
             )} in ${leftShortName}, ${safeBucketLabel(
               buckets,
               mostDivergent.right.topBucketIndex
-            )} in ${rightShortName}. Δ${mostDivergent.absDelta} ${
-              mostDivergent.absDelta === 1 ? 'tier' : 'tiers'
-            }.`}
+            )} in ${rightShortName}. Δ${mostDivergent.absDelta} ${pluralizeWord(
+              mostDivergent.absDelta,
+              'tier'
+            )}.`}
             frame={frame}
             labelSettings={labelSettings}
           />

@@ -9,6 +9,8 @@ import type { MarketplaceTemplateRankingAggregate } from '@tierlistbuilder/contr
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { formatCount } from '~/shared/catalog/formatters'
 
+import { LEFT_LANE_TONE, RIGHT_LANE_TONE } from './laneUtils'
+
 export type CompareLaneSide = 'left' | 'right'
 
 interface CompareLaneHeaderProps
@@ -27,26 +29,11 @@ interface CompareLaneHeaderProps
 }
 
 // stable per-side accent: left == --t-accent, right == --t-success.
-// avoids inventing per-criterion palettes (criteria don't carry colors in
-// the contract) while still letting users tell the lanes apart at a glance
-const SIDE_TONE: Record<
-  CompareLaneSide,
-  { borderClass: string; pillClass: string; label: string; iconBg: string }
-> = {
-  left: {
-    borderClass: 'border-l-2 border-l-[var(--t-accent)]',
-    pillClass:
-      'border-[var(--t-accent)] bg-[rgb(var(--t-overlay)/0.04)] text-[var(--t-accent)]',
-    label: 'Lane A',
-    iconBg: 'bg-[rgb(var(--t-overlay)/0.04)] text-[var(--t-accent)]',
-  },
-  right: {
-    borderClass: 'border-l-2 border-l-[var(--t-success)]',
-    pillClass:
-      'border-[var(--t-success)] bg-[rgb(var(--t-overlay)/0.04)] text-[var(--t-success)]',
-    label: 'Lane B',
-    iconBg: 'bg-[rgb(var(--t-overlay)/0.04)] text-[var(--t-success)]',
-  },
+// applied only to the inline label & tag glyph so the card chrome stays
+// neutral; lane identity reads from the chip + icon, not the card edge
+const SIDE_TONE: Record<CompareLaneSide, { color: string; label: string }> = {
+  left: { color: LEFT_LANE_TONE, label: 'Lane A' },
+  right: { color: RIGHT_LANE_TONE, label: 'Lane B' },
 }
 
 const Stat = ({ label, value }: { label: string; value: string }) => (
@@ -94,19 +81,19 @@ export const CompareLaneHeader = ({
               : '—'
 
   return (
-    <div
-      className={`rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3 ${tone.borderClass}`}
-    >
+    <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
       <div className="flex flex-wrap items-center gap-2.5">
         <span
           aria-hidden="true"
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--t-border)] ${tone.iconBg}`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.04)]"
+          style={{ color: tone.color }}
         >
           <Tag className="h-4 w-4" strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1">
           <p
-            className={`inline-flex rounded-full border px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] ${tone.pillClass}`}
+            className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: tone.color }}
           >
             {tone.label}
           </p>

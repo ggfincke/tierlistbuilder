@@ -21,6 +21,7 @@ import { TextInput } from '~/shared/ui/TextInput'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
 import {
+  compareDeltaDirectionTone,
   compareDirectionCopy,
   type CompareJoinedRow,
   safeBucketLabel,
@@ -110,16 +111,13 @@ interface DeltaCellProps
 
 const DeltaCell = ({ delta, absDelta }: DeltaCellProps) =>
 {
-  const tone =
-    absDelta >= 2
-      ? 'var(--t-destructive)'
-      : absDelta === 1
-        ? 'var(--t-accent)'
-        : 'var(--t-text-faint)'
+  const tone = compareDeltaDirectionTone(delta)
+  // weight conveys magnitude now that hue conveys direction
+  const fontWeight = absDelta >= 2 ? 700 : absDelta === 1 ? 600 : 500
   return (
     <span
       className="flex items-center justify-end gap-0.5 text-right font-mono text-[12px] tabular-nums"
-      style={{ color: tone }}
+      style={{ color: tone, fontWeight }}
     >
       {delta < 0 ? (
         <ArrowLeft className="h-3 w-3" strokeWidth={2.4} />
@@ -220,12 +218,7 @@ export const CompareDivergenceTable = ({
             leftShortName,
             rightShortName
           )
-          const tone =
-            row.absDelta >= 2
-              ? 'var(--t-destructive)'
-              : row.absDelta === 1
-                ? 'var(--t-accent)'
-                : 'var(--t-text-faint)'
+          const tone = compareDeltaDirectionTone(row.delta)
           return (
             <div
               key={row.templateItemExternalId}

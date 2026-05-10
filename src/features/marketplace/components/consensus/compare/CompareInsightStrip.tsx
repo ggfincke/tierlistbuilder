@@ -3,8 +3,15 @@
 // histogram, split-bar — each w/ a distinct visual language
 
 import { formatCount } from '~/shared/catalog/formatters'
+import { pluralizeWord } from '~/shared/lib/pluralize'
 
-import { correlationCopy, type CompareInsights } from './laneUtils'
+import { CompareCard } from './CompareCard'
+import {
+  correlationCopy,
+  LEFT_LANE_TONE,
+  RIGHT_LANE_TONE,
+  type CompareInsights,
+} from './laneUtils'
 
 interface CompareInsightStripProps
 {
@@ -66,7 +73,7 @@ const InsightGauge = ({ correlation }: GaugeProps) =>
         : arc(valueAngle, zero)
   const needle = polar(cx, cy, r, valueAngle)
   return (
-    <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
+    <CompareCard>
       <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
         Lane correlation
       </p>
@@ -137,7 +144,7 @@ const InsightGauge = ({ correlation }: GaugeProps) =>
       <p className="mt-1.5 text-[11px] text-[var(--t-text-muted)]">
         {correlationCopy(correlation)}
       </p>
-    </div>
+    </CompareCard>
   )
 }
 
@@ -160,7 +167,7 @@ const InsightFraction = ({
   const segCount = Math.min(Math.max(denominator, 1), 24)
   const filled = Math.round((numerator / Math.max(denominator, 1)) * segCount)
   return (
-    <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
+    <CompareCard>
       <div className="flex items-center justify-between">
         <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
           Moved 2+ tiers
@@ -169,17 +176,17 @@ const InsightFraction = ({
           {(pct * 100).toFixed(0)}%
         </span>
       </div>
-      <div className="mt-2 flex items-baseline gap-1.5">
+      <div className="mt-2.5 flex items-baseline gap-1.5">
         <span
-          className="text-[32px] font-semibold leading-none tabular-nums tracking-tight"
+          className="text-[28px] font-semibold leading-none tabular-nums tracking-tight"
           style={{ color: tone }}
         >
           {numerator}
         </span>
-        <span className="font-mono text-[14px] font-light text-[var(--t-text-faint)]">
+        <span className="font-mono text-[13px] font-light text-[var(--t-text-faint)]">
           /
         </span>
-        <span className="text-[14px] font-medium leading-none tabular-nums text-[var(--t-text-muted)]">
+        <span className="text-[13px] font-medium leading-none tabular-nums text-[var(--t-text-muted)]">
           {denominator}
         </span>
       </div>
@@ -197,7 +204,7 @@ const InsightFraction = ({
       <p className="mt-1.5 text-[11px] text-[var(--t-text-muted)]">
         Items that swing hard between lanes
       </p>
-    </div>
+    </CompareCard>
   )
 }
 
@@ -216,7 +223,7 @@ const InsightHistogram = ({
     Math.max(0, Math.round(avgDelta))
   )
   return (
-    <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
+    <CompareCard>
       <div className="flex items-center justify-between">
         <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
           Avg tier shift
@@ -245,7 +252,7 @@ const InsightHistogram = ({
             <div
               key={i}
               className="group relative flex flex-1 flex-col justify-end"
-              title={`Δ${i} · ${count} item${count === 1 ? '' : 's'}`}
+              title={`Δ${i} · ${count} ${pluralizeWord(count, 'item')}`}
             >
               <div
                 className="w-full rounded-[2px]"
@@ -274,7 +281,7 @@ const InsightHistogram = ({
           </span>
         ))}
       </div>
-    </div>
+    </CompareCard>
   )
 }
 
@@ -294,13 +301,8 @@ const InsightSplit = ({
   const total = leftRankingCount + rightRankingCount
   const leftShare = total === 0 ? 0.5 : leftRankingCount / total
   const rightShare = 1 - leftShare
-  // skip inventing a per-criterion palette: every compare surface uses the
-  // same left=accent / right=success token mapping so the lane identities
-  // stay legible across pages without contract changes
-  const leftTone = 'var(--t-accent)'
-  const rightTone = 'var(--t-success)'
   return (
-    <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
+    <CompareCard>
       <div className="flex items-center justify-between">
         <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
           Total samples
@@ -318,13 +320,13 @@ const InsightSplit = ({
       >
         <div
           className="flex items-center justify-end pr-1 font-mono text-[9px] font-semibold tabular-nums text-[var(--t-bg-page)]"
-          style={{ width: `${leftShare * 100}%`, background: leftTone }}
+          style={{ width: `${leftShare * 100}%`, background: LEFT_LANE_TONE }}
         >
           {leftShare > 0.18 ? `${Math.round(leftShare * 100)}%` : ''}
         </div>
         <div
           className="flex items-center justify-end pr-1 font-mono text-[9px] font-semibold tabular-nums text-[var(--t-bg-page)]"
-          style={{ width: `${rightShare * 100}%`, background: rightTone }}
+          style={{ width: `${rightShare * 100}%`, background: RIGHT_LANE_TONE }}
         >
           {rightShare > 0.18 ? `${Math.round(rightShare * 100)}%` : ''}
         </div>
@@ -334,7 +336,7 @@ const InsightSplit = ({
           <span
             aria-hidden="true"
             className="h-2 w-2 shrink-0 rounded-sm"
-            style={{ background: leftTone }}
+            style={{ background: LEFT_LANE_TONE }}
           />
           <span className="truncate text-[var(--t-text-secondary)]">
             {leftShortName}
@@ -347,7 +349,7 @@ const InsightSplit = ({
           <span
             aria-hidden="true"
             className="h-2 w-2 shrink-0 rounded-sm"
-            style={{ background: rightTone }}
+            style={{ background: RIGHT_LANE_TONE }}
           />
           <span className="truncate text-[var(--t-text-secondary)]">
             {rightShortName}
@@ -357,7 +359,7 @@ const InsightSplit = ({
           </span>
         </div>
       </div>
-    </div>
+    </CompareCard>
   )
 }
 

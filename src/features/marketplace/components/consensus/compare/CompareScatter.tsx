@@ -8,7 +8,12 @@ import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder
 import { resolveBucketColor } from '../utils'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
-import type { CompareJoinedRow } from './laneUtils'
+import {
+  compareDeltaDirectionTone,
+  LEFT_LANE_TONE,
+  RIGHT_LANE_TONE,
+  type CompareJoinedRow,
+} from './laneUtils'
 import { getAggregateItemLabel } from '../utils'
 
 interface CompareScatterProps
@@ -59,11 +64,21 @@ export const CompareScatter = ({
             label: getAggregateItemLabel(row.left),
             x,
             y,
+            delta: row.delta,
             absDelta: row.absDelta,
             color: resolveBucketColor(colorBucket, paletteId),
+            imageUrl: row.left.media?.url ?? row.right.media?.url ?? null,
+            altText: row.left.altText ?? row.right.altText ?? null,
           }
         }),
     [bucketCount, buckets, paletteId, rows]
+  )
+
+  // draw least-divergent first so high-Δ thumbs win the z-fight in dense
+  // clusters — the items most worth identifying stay visible
+  const drawOrder = useMemo(
+    () => [...points].sort((a, b) => a.absDelta - b.absDelta),
+    [points]
   )
 
   // annotate the four most divergent points so users can recognize the
@@ -172,39 +187,77 @@ export const CompareScatter = ({
           >
             {rightShortName.toUpperCase()} →
           </text>
-          {points.map((point) => (
-            <circle
-              key={point.externalId}
-              cx={point.x}
-              cy={point.y}
-              r={point.absDelta >= 2 ? 6 : 4.5}
-              fill={point.color}
-              opacity={0.85}
-              stroke={
-                point.absDelta >= 2
-                  ? 'var(--t-destructive)'
-                  : point.absDelta === 1
-                    ? 'var(--t-accent)'
-                    : 'rgba(0,0,0,0.45)'
-              }
-              strokeWidth={point.absDelta >= 1 ? 1.5 : 1}
-            >
-              <title>{point.label}</title>
-            </circle>
-          ))}
+          <defs>
+            <clipPath id="scatter-thumb-clip" clipPathUnits="objectBoundingBox">
+              <circle cx="0.5" cy="0.5" r="0.5" />
+            </clipPath>
+          </defs>
+          {drawOrder.map((point) =>
+          {
+            const r = point.absDelta >= 2 ? 11 : point.absDelta === 1 ? 9 : 8
+            const stroke =
+              point.absDelta === 0
+                ? 'rgba(0,0,0,0.55)'
+                : compareDeltaDirectionTone(point.delta)
+            const strokeWidth =
+              point.absDelta >= 2 ? 2.25 : point.absDelta === 1 ? 1.75 : 1.25
+            return (
+              <g key={point.externalId}>
+                {point.imageUrl ? (
+                  <>
+                    {/* solid backer so transparent thumbs read against the
+                        sunken chart bg */}
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={r}
+                      fill={point.color}
+                      opacity={0.55}
+                    />
+                    <image
+                      href={point.imageUrl}
+                      x={point.x - r}
+                      y={point.y - r}
+                      width={r * 2}
+                      height={r * 2}
+                      preserveAspectRatio="xMidYMid slice"
+                      clipPath="url(#scatter-thumb-clip)"
+                    />
+                  </>
+                ) : (
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={r}
+                    fill={point.color}
+                    opacity={0.85}
+                  />
+                )}
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={r}
+                  fill="none"
+                  stroke={stroke}
+                  strokeWidth={strokeWidth}
+                />
+                <title>{point.label}</title>
+              </g>
+            )
+          })}
           {annotated.map((point) => (
             <g key={`ann-${point.externalId}`}>
               <line
                 x1={point.x}
                 y1={point.y}
-                x2={point.x + 14}
-                y2={point.y - 14}
+                x2={point.x + 18}
+                y2={point.y - 18}
                 stroke="rgb(var(--t-overlay) / 0.4)"
                 strokeWidth="1"
               />
               <rect
-                x={point.x + 12}
-                y={point.y - 26}
+                x={point.x + 16}
+                y={point.y - 30}
                 rx="3"
                 ry="3"
                 width={Math.max(28, point.label.length * 5.4 + 8)}
@@ -213,8 +266,8 @@ export const CompareScatter = ({
                 stroke="rgb(var(--t-overlay) / 0.12)"
               />
               <text
-                x={point.x + 16}
-                y={point.y - 16}
+                x={point.x + 20}
+                y={point.y - 20}
                 fill="white"
                 fontSize="10"
                 fontFamily="ui-sans-serif, system-ui"
@@ -225,7 +278,15 @@ export const CompareScatter = ({
           ))}
         </svg>
       </div>
-      <p className="mt-2 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]">
+      <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]">
+        <span className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 rounded-full"
+            style={{ boxShadow: `0 0 0 2px ${LEFT_LANE_TONE}` }}
+          />
+          Higher in {leftShortName}
+        </span>
         <span className="flex items-center gap-1.5">
           <span
             aria-hidden="true"
@@ -236,16 +297,13 @@ export const CompareScatter = ({
         <span className="flex items-center gap-1.5">
           <span
             aria-hidden="true"
-            className="h-2 w-2 rounded-full ring-2 ring-[var(--t-accent)]"
+            className="h-2 w-2 rounded-full"
+            style={{ boxShadow: `0 0 0 2px ${RIGHT_LANE_TONE}` }}
           />
-          1 tier off
+          Higher in {rightShortName}
         </span>
-        <span className="flex items-center gap-1.5">
-          <span
-            aria-hidden="true"
-            className="h-2 w-2 rounded-full ring-2 ring-[var(--t-destructive)]"
-          />
-          2+ tiers off
+        <span className="ml-auto text-[9px] normal-case tracking-normal text-[var(--t-text-faint)]">
+          larger dot = bigger gap
         </span>
       </p>
     </div>

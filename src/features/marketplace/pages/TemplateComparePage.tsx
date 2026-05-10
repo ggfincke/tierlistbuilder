@@ -2,7 +2,7 @@
 // criterion vs criterion compare surface; lanes deep-link via ?left=&right=
 // & the page joins both lanes' aggregate items by templateItemId
 
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ArrowLeftRight } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
@@ -29,6 +29,7 @@ import {
 } from '~/features/marketplace/model/criterionSelection'
 import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
@@ -163,6 +164,45 @@ const StateBlock = ({ title, body }: { title: string; body: string }) => (
   </div>
 )
 
+// twin variants share the swap action — desktop floats over the lane-card
+// gutter as a circular icon, mobile drops below the stacked headers as a
+// labeled chip. one component keeps the onClick & a11y attrs in one place
+const SwapLanesButton = ({
+  variant,
+  onClick,
+}: {
+  variant: 'desktop' | 'mobile'
+  onClick: () => void
+}) =>
+{
+  const sharedClass =
+    'focus-custom items-center justify-center border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
+  if (variant === 'desktop')
+  {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Swap lanes"
+        title="Swap lanes"
+        className={`${sharedClass} absolute left-1/2 top-1/2 hidden h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--t-bg-page)] shadow-md lg:flex`}
+      >
+        <ArrowLeftRight className="h-4 w-4" strokeWidth={2.2} />
+      </button>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${sharedClass} mt-3 inline-flex gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium lg:hidden`}
+    >
+      <ArrowLeftRight className="h-3 w-3" strokeWidth={2.2} />
+      Swap lanes
+    </button>
+  )
+}
+
 interface CompareBodyProps
 {
   detail: MarketplaceTemplateDetail
@@ -240,6 +280,12 @@ const CompareBody = ({
   const leftRankingCount = leftAggregate?.rankingCount ?? 0
   const rightRankingCount = rightAggregate?.rankingCount ?? 0
 
+  const swapLanes = () =>
+    onSwap({
+      left: rightCriterion.externalId,
+      right: leftCriterion.externalId,
+    })
+
   return (
     <article className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pt-20 pb-20 sm:px-8 sm:pt-24">
       <MarketplaceBreadcrumb
@@ -262,10 +308,9 @@ const CompareBody = ({
             {leftCriterion.name} vs {rightCriterion.name}
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-[var(--t-text-muted)]">
-            Same {detail.itemCount} {detail.itemCount === 1 ? 'item' : 'items'},
-            two community questions. The most interesting story is the items
-            that fight for top tier in one lane and live in the basement in the
-            other.
+            Same {formatCountedWord(detail.itemCount, 'item')}, two community
+            questions. The most interesting story is the items that fight for
+            top tier in one lane and live in the basement in the other.
           </p>
         </div>
         <Link
@@ -277,23 +322,27 @@ const CompareBody = ({
         </Link>
       </header>
 
-      <section className="mt-6 grid gap-3 lg:grid-cols-2">
-        <CompareLaneHeader
-          side="left"
-          criterion={leftCriterion}
-          selectableCriteria={activeCriteria}
-          otherSideExternalId={rightCriterion.externalId}
-          onSelect={(externalId) => onSwap({ left: externalId })}
-          aggregate={leftAggregate}
-        />
-        <CompareLaneHeader
-          side="right"
-          criterion={rightCriterion}
-          selectableCriteria={activeCriteria}
-          otherSideExternalId={leftCriterion.externalId}
-          onSelect={(externalId) => onSwap({ right: externalId })}
-          aggregate={rightAggregate}
-        />
+      <section className="mt-6">
+        <div className="relative grid gap-3 lg:grid-cols-2">
+          <CompareLaneHeader
+            side="left"
+            criterion={leftCriterion}
+            selectableCriteria={activeCriteria}
+            otherSideExternalId={rightCriterion.externalId}
+            onSelect={(externalId) => onSwap({ left: externalId })}
+            aggregate={leftAggregate}
+          />
+          <CompareLaneHeader
+            side="right"
+            criterion={rightCriterion}
+            selectableCriteria={activeCriteria}
+            otherSideExternalId={leftCriterion.externalId}
+            onSelect={(externalId) => onSwap({ right: externalId })}
+            aggregate={rightAggregate}
+          />
+          <SwapLanesButton variant="desktop" onClick={swapLanes} />
+        </div>
+        <SwapLanesButton variant="mobile" onClick={swapLanes} />
       </section>
 
       <section className="mt-6">
@@ -362,15 +411,8 @@ const CompareBody = ({
                 Both rosters, ranked
               </h2>
               <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-                Items outlined in{' '}
-                <span className="font-medium text-[var(--t-accent)]">
-                  accent
-                </span>{' '}
-                shifted one tier; outlined in{' '}
-                <span className="font-medium text-[var(--t-destructive)]">
-                  red
-                </span>{' '}
-                shifted two or more.
+                Each lane laid out as its own tier list. Compare tiers across
+                the two for a quick read on where the rankings diverge.
               </p>
             </div>
             <CompareSideBySideTiers

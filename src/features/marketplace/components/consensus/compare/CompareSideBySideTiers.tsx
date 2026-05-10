@@ -1,21 +1,36 @@
 // src/features/marketplace/components/consensus/compare/CompareSideBySideTiers.tsx
-// 4-col tier grid (label · left items · label · right items); item rings
-// colored by Δ tier vs the other lane so mismatches stand out
+// side-by-side tier viz built on shared board primitives — one tier band
+// spans both lanes; the divergence table below carries the Δ-tier signal
 
 import { useMemo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
+import type { ItemSize } from '@tierlistbuilder/contracts/platform/preferences'
+import {
+  BoardItemsGrid,
+  BoardLabelCellFrame,
+  BoardRowContent,
+  BoardRowSurface,
+  TierDescriptionSubtitle,
+} from '~/shared/board-ui/BoardPrimitives'
+import { itemSlotDimensions, LABEL_WIDTH_PX } from '~/shared/board-ui/constants'
+import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { formatCountedWord } from '~/shared/lib/pluralize'
+
 import {
   AggregateItemThumb,
   type AggregateItemFrame,
 } from '../AggregateItemThumb'
-import { resolveBucketColor } from '../utils'
-import { getAggregateItemLabel } from '../utils'
-import { getTextColor } from '~/shared/lib/color'
-import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { getAggregateItemLabel, resolveBucketColor } from '../utils'
 
-import { compareDeltaTone, type CompareJoinedRow } from './laneUtils'
+import { type CompareLaneSide } from './CompareLaneHeader'
+import { type CompareJoinedRow } from './laneUtils'
+
+// match the single-lane consensus tier rows so compare reads as the same
+// surface composed twice rather than its own visual language
+const COMPARE_ITEM_SIZE: ItemSize = 'medium'
 
 interface CompareSideBySideTiersProps
 {
@@ -25,23 +40,13 @@ interface CompareSideBySideTiersProps
   labelSettings: BoardLabelSettings | null
   leftShortName: string
   rightShortName: string
-  itemSize?: number
-}
-
-const TONE_TO_RING_CLASS: Record<
-  ReturnType<typeof compareDeltaTone>,
-  string
-> = {
-  none: '',
-  accent: 'ring-2 ring-[var(--t-accent)]',
-  destructive: 'ring-2 ring-[var(--t-destructive)]',
+  itemSize?: ItemSize
 }
 
 interface TierGroup
 {
   bucket: MarketplaceTemplateRankingAggregateBucket
-  leftItems: CompareJoinedRow[]
-  rightItems: CompareJoinedRow[]
+  lanes: Record<CompareLaneSide, CompareJoinedRow[]>
 }
 
 const emptyGroupsFromBuckets = (
@@ -49,18 +54,22 @@ const emptyGroupsFromBuckets = (
 ): TierGroup[] =>
   buckets.map((bucket) => ({
     bucket,
-    leftItems: [],
-    rightItems: [],
+    lanes: { left: [], right: [] },
   }))
+
+const OTHER_SIDE: Record<CompareLaneSide, CompareLaneSide> = {
+  left: 'right',
+  right: 'left',
+}
 
 interface CompareThumbProps
 {
   joined: CompareJoinedRow
-  side: 'left' | 'right'
+  side: CompareLaneSide
   buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   frame: AggregateItemFrame
   labelSettings: BoardLabelSettings | null
-  size: number
+  thumbWidth: number
 }
 
 const CompareThumb = ({
@@ -69,19 +78,17 @@ const CompareThumb = ({
   buckets,
   frame,
   labelSettings,
-  size,
+  thumbWidth,
 }: CompareThumbProps) =>
 {
-  const tone = compareDeltaTone(joined.absDelta)
-  const ringClass = TONE_TO_RING_CLASS[tone]
-  const row = side === 'left' ? joined.left : joined.right
-  const otherRow = side === 'left' ? joined.right : joined.left
+  const row = joined[side]
+  const otherRow = joined[OTHER_SIDE[side]]
   const label = getAggregateItemLabel(row)
   const otherIndex = otherRow.topBucketIndex
   const otherLabel = otherIndex !== null ? buckets[otherIndex]?.label : null
   return (
     <div
-      className={`group relative shrink-0 rounded-md transition ${ringClass}`}
+      className="group relative shrink-0"
       title={`${label} · ${
         joined.absDelta === 0
           ? 'Same tier in both lanes'
@@ -92,9 +99,10 @@ const CompareThumb = ({
         row={row}
         frame={frame}
         labelSettings={labelSettings}
-        size={size}
+        size={thumbWidth}
+        bare
       />
-      <span className="pointer-events-none absolute inset-x-0 -bottom-px truncate rounded-b-md bg-black/65 px-1 py-0.5 text-center text-[8px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+      <span className="pointer-events-none absolute inset-x-0 -bottom-px truncate bg-black/65 px-1 py-0.5 text-center text-[9px] font-medium text-white opacity-0 transition group-hover:opacity-100">
         {label}
       </span>
     </div>
@@ -108,10 +116,32 @@ export const CompareSideBySideTiers = ({
   labelSettings,
   leftShortName,
   rightShortName,
-  itemSize = 42,
+  itemSize = COMPARE_ITEM_SIZE,
 }: CompareSideBySideTiersProps) =>
 {
-  const paletteId = usePreferencesStore((state) => state.paletteId)
+  const {
+    paletteId,
+    labelWidth,
+    tierLabelBold,
+    tierLabelItalic,
+    tierLabelFontSize,
+    compactMode,
+  } = usePreferencesStore(
+    useShallow((state) => ({
+      paletteId: state.paletteId,
+      labelWidth: state.labelWidth,
+      tierLabelBold: state.tierLabelBold,
+      tierLabelItalic: state.tierLabelItalic,
+      tierLabelFontSize: state.tierLabelFontSize,
+      compactMode: state.compactMode,
+    }))
+  )
+
+  const { width: slotWidth, height: slotHeight } = itemSlotDimensions(
+    itemSize,
+    frame.aspectRatio
+  )
+
   // group joined rows by each side's top bucket index — we walk the same
   // joined list twice rather than building two index maps because the
   // joined entries already carry both sides' top buckets
@@ -124,100 +154,113 @@ export const CompareSideBySideTiers = ({
       const ri = row.right.topBucketIndex
       if (li !== null && groupList[li])
       {
-        groupList[li].leftItems.push(row)
+        groupList[li].lanes.left.push(row)
       }
       if (ri !== null && groupList[ri])
       {
-        groupList[ri].rightItems.push(row)
+        groupList[ri].lanes.right.push(row)
       }
     }
     // sort each cell so the most-confident items come first; mirrors the
     // ordering used in the existing tier-row viz
     for (const group of groupList)
     {
-      group.leftItems.sort(
+      group.lanes.left.sort(
         (a, b) => b.left.topBucketShare - a.left.topBucketShare
       )
-      group.rightItems.sort(
+      group.lanes.right.sort(
         (a, b) => b.right.topBucketShare - a.right.topBucketShare
       )
     }
     return groupList
   }, [buckets, rows])
 
+  const labelCellWidth = LABEL_WIDTH_PX[labelWidth]
+  const lanes: ReadonlyArray<{ side: CompareLaneSide; name: string }> = [
+    { side: 'left', name: leftShortName },
+    { side: 'right', name: rightShortName },
+  ]
+
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]">
-      <div
-        className="grid grid-cols-[44px_1fr_44px_1fr] items-center bg-[var(--t-bg-sunken)]/60 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-faint)]"
-        aria-hidden="true"
-      >
-        <span aria-hidden="true" />
-        <span className="pl-2">{leftShortName}</span>
-        <span aria-hidden="true" />
-        <span className="pl-2">{rightShortName}</span>
-      </div>
-      {groups.map((group, i) =>
-      {
-        const color = resolveBucketColor(group.bucket, paletteId)
-        const labelColor = getTextColor(color)
-        return (
+    <div
+      role="group"
+      aria-label="Side-by-side ranking comparison"
+      className="overflow-hidden rounded-md"
+    >
+      <div className="flex bg-[var(--t-bg-sunken)]" aria-hidden="true">
+        {lanes.map(({ side, name }) => (
           <div
-            key={group.bucket.index}
-            className={`grid grid-cols-[44px_1fr_44px_1fr] items-stretch ${
-              i > 0 ? 'border-t border-[var(--t-border)]' : ''
-            }`}
+            key={side}
+            className="flex min-w-0 flex-1 border-l border-[var(--t-border)]"
           >
             <div
-              className="flex items-center justify-center text-base font-bold"
-              style={{ background: color, color: labelColor }}
-            >
-              {group.bucket.label}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 bg-[var(--t-bg-sunken)] p-2">
-              {group.leftItems.length === 0 ? (
-                <span className="px-2 text-xs text-[var(--t-text-faint)]">
-                  —
-                </span>
-              ) : (
-                group.leftItems.map((row) => (
-                  <CompareThumb
-                    key={`L-${row.templateItemExternalId}`}
-                    joined={row}
-                    side="left"
-                    buckets={buckets}
-                    frame={frame}
-                    labelSettings={labelSettings}
-                    size={itemSize}
-                  />
-                ))
-              )}
-            </div>
-            <div
-              className="flex items-center justify-center text-base font-bold"
-              style={{ background: color, color: labelColor }}
-            >
-              {group.bucket.label}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 bg-[var(--t-bg-sunken)] p-2">
-              {group.rightItems.length === 0 ? (
-                <span className="px-2 text-xs text-[var(--t-text-faint)]">
-                  —
-                </span>
-              ) : (
-                group.rightItems.map((row) => (
-                  <CompareThumb
-                    key={`R-${row.templateItemExternalId}`}
-                    joined={row}
-                    side="right"
-                    buckets={buckets}
-                    frame={frame}
-                    labelSettings={labelSettings}
-                    size={itemSize}
-                  />
-                ))
-              )}
+              style={{ width: labelCellWidth }}
+              className="shrink-0 border-r border-[var(--t-border)]"
+            />
+            <div className="flex flex-1 items-center px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
+              {name}
             </div>
           </div>
+        ))}
+      </div>
+
+      {groups.map((group, index) =>
+      {
+        const color = resolveBucketColor(group.bucket, paletteId)
+        return (
+          <BoardRowSurface key={group.bucket.index}>
+            {lanes.map(({ side }) =>
+            {
+              const items = group.lanes[side]
+              return (
+                <BoardRowContent key={side} index={index}>
+                  <BoardLabelCellFrame
+                    color={color}
+                    itemSize={itemSize}
+                    labelWidth={labelWidth}
+                    tierLabelBold={tierLabelBold}
+                    tierLabelItalic={tierLabelItalic}
+                    tierLabelFontSize={tierLabelFontSize}
+                    itemAspectRatio={frame.aspectRatio}
+                  >
+                    <div className="flex flex-col items-center">
+                      <span className="block max-w-full break-words [overflow-wrap:anywhere]">
+                        {group.bucket.label}
+                      </span>
+                      <TierDescriptionSubtitle
+                        description={formatCountedWord(items.length, 'item')}
+                      />
+                    </div>
+                  </BoardLabelCellFrame>
+
+                  <BoardItemsGrid
+                    compactMode={compactMode}
+                    minHeightPx={slotHeight}
+                    data-bucket-index={group.bucket.index}
+                    data-side={side}
+                  >
+                    {items.length === 0 ? (
+                      <span className="px-3 py-2 text-xs text-[var(--t-text-faint)]">
+                        —
+                      </span>
+                    ) : (
+                      items.map((row) => (
+                        <CompareThumb
+                          key={`${side}-${row.templateItemExternalId}`}
+                          joined={row}
+                          side={side}
+                          buckets={buckets}
+                          frame={frame}
+                          labelSettings={labelSettings}
+                          thumbWidth={slotWidth}
+                        />
+                      ))
+                    )}
+                  </BoardItemsGrid>
+                </BoardRowContent>
+              )
+            })}
+          </BoardRowSurface>
         )
       })}
     </div>

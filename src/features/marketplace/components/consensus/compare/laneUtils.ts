@@ -201,16 +201,20 @@ export const compareDirectionCopy = (
   return `Higher in ${leftShortName}`
 }
 
-// shorthand for the per-row outline color: identical = no ring, ±1 tier =
-// accent ring, ≥2 = destructive ring. shared so the side-by-side tier rows
-// & narrative thumbnails match
-export const compareDeltaTone = (
-  absDelta: number
-): 'none' | 'accent' | 'destructive' =>
+// per-lane tones — single source of truth for compare-surface direction
+// cues across the compare surface read as the same lane identity. when
+// communicating "this item is higher in lane X", color w/ these
+export const LEFT_LANE_TONE = 'var(--t-accent)'
+export const RIGHT_LANE_TONE = 'var(--t-success)'
+
+// returns the lane tone the delta favors. magnitude should be encoded
+// separately (font weight, dot size, etc.) so hue stays a clean
+// direction signal & doesn't double as a "bigger Δ = bad" alarm
+export const compareDeltaDirectionTone = (delta: number): string =>
 {
-  if (absDelta === 0) return 'none'
-  if (absDelta === 1) return 'accent'
-  return 'destructive'
+  if (delta < 0) return LEFT_LANE_TONE
+  if (delta > 0) return RIGHT_LANE_TONE
+  return 'var(--t-text-faint)'
 }
 
 // utility: ensure a 2D bucket flow matrix [leftIndex][rightIndex] = count
