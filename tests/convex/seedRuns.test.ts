@@ -872,6 +872,26 @@ describe('seed run precheck API', () =>
     expect(activatedRows.run?.status).toBe('active')
     expect(activatedRows.stats?.publicTemplateCount).toBe(1)
 
+    const buildingRelease = '2026-06-building-release'
+    await seedTemplateWithItem(
+      t,
+      authorId,
+      'gaming:future-template',
+      ['future-item'],
+      buildingRelease
+    )
+    await seedRunRow(t, buildingRelease, 'building', 'building-run')
+    await expect(
+      t.mutation(api.marketplace.seedRuns.rollbackSeedRelease, {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-activation',
+        targetReleaseId: buildingRelease,
+        confirm: true,
+      })
+    ).rejects.toThrow(/no restorable seed run/)
+
     const rolledBack = await t.mutation(
       api.marketplace.seedRuns.rollbackSeedRelease,
       {

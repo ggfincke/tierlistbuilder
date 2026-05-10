@@ -349,6 +349,8 @@ def _load_context(
     )
     checkpoint_path = compiled_path.parent / "run.json"
     checkpoint = _load_checkpoint(checkpoint_path)
+    if not _checkpoint_matches(checkpoint, compiled, options.env_name):
+        checkpoint = {}
     # reuse runId by default so interrupted commands resume the same server row
     checkpoint.setdefault("datasetKey", compiled["datasetKey"])
     checkpoint.setdefault("releaseId", compiled["releaseId"])
@@ -422,7 +424,7 @@ def _upload_assets(
             )
             variant["storageId"] = storage_id
             context.checkpoint.setdefault("uploadedStorageIds", []).append(storage_id)
-        _write_checkpoint(context)
+            _write_checkpoint(context)
         uploaded.extend(asset_chunk)
     return uploaded
 
@@ -832,6 +834,20 @@ def _load_checkpoint(path: Path) -> JsonObject:
     if not path.is_file():
         return {}
     return read_json(path)
+
+
+def _checkpoint_matches(
+    checkpoint: JsonObject,
+    compiled: JsonObject,
+    env_name: str,
+) -> bool:
+    if not checkpoint:
+        return True
+    return (
+        checkpoint.get("datasetKey") == compiled["datasetKey"]
+        and checkpoint.get("releaseId") == compiled["releaseId"]
+        and checkpoint.get("env") == env_name
+    )
 
 
 def _write_checkpoint(context: SeedRunContext) -> None:

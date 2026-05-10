@@ -7,6 +7,7 @@ import unittest
 
 from seed_pipeline.manifest import find_repo_root, read_json
 from seed_pipeline.runs import (
+    _checkpoint_matches,
     build_criterion_upserts,
     build_item_upserts,
     build_template_upserts,
@@ -47,6 +48,16 @@ class SeedRunPayloadTests(unittest.TestCase):
         )
         self.assertEqual(len(criteria), 3)
         self.assertEqual(criteria[0]["criterionExternalId"], "competitive")
+
+    def test_checkpoint_scope_includes_environment(self) -> None:
+        checkpoint = {
+            "datasetKey": self.compiled["datasetKey"],
+            "releaseId": self.compiled["releaseId"],
+            "env": "local",
+        }
+
+        self.assertTrue(_checkpoint_matches(checkpoint, self.compiled, "local"))
+        self.assertFalse(_checkpoint_matches(checkpoint, self.compiled, "prod"))
 
 
 if __name__ == "__main__":

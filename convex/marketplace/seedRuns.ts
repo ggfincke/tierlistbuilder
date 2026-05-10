@@ -2377,7 +2377,11 @@ export const rollbackSeedRelease = mutation({
       args.datasetKey,
       args.targetReleaseId
     )
-    if (!targetRun || targetRun.status === 'failed')
+    const restorableTargetStatuses = new Set<Doc<'seedRuns'>['status']>([
+      'active',
+      'rolled_back',
+    ])
+    if (!targetRun || !restorableTargetStatuses.has(targetRun.status))
     {
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.invalidState,
