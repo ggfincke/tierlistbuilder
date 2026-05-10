@@ -7,7 +7,8 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from .assets import compile_asset
+from .assets import SourceAsset, compile_asset, inspect_source
+from .crop import RatioDecision, resolve_item_transform, resolve_ratio_decision
 from .manifest import JsonObject, read_json, repo_relative, write_json
 from .reports import write_preflight_report
 from .settings import (
@@ -106,6 +107,13 @@ def _compile_template(
     template: JsonObject, repo_root: Path, variants_dir: Path
 ) -> JsonObject:
     folder = repo_root / template["folder"]
+    # probe every item first so one ratio decision covers the whole template
+    item_sources = [
+        inspect_source(folder / item["image"], repo_root) for item in template["items"]
+    ]
+    ratio_decision = resolve_ratio_decision(
+        source.aspect_ratio for source in item_sources
+    )
     compiled = {
         "externalId": template["externalId"],
         "folder": template["folder"],
@@ -115,26 +123,50 @@ def _compile_template(
         "tags": template["tags"],
         "visibility": template["visibility"],
         "labelPolicy": template["labelPolicy"],
+        "itemAspectRatio": ratio_decision.item_aspect_ratio,
+        "ratioSource": ratio_decision.ratio_source,
         "criteria": template["criteria"],
         "items": [],
     }
     if "coverImage" in template:
+        # cover media follows the same variant pipeline but does not affect item ratio
         compiled["coverImage"] = compile_asset(
             repo_root / template["coverImage"], repo_root, variants_dir
         )
     if "coverZoom" in template:
         compiled["coverZoom"] = template["coverZoom"]
     for order, item in enumerate(template["items"]):
+        source = item_sources[order]
         compiled["items"].append(
-            {
-                "externalId": item["externalId"],
-                "order": order,
-                "image": item["image"],
-                "label": item["label"],
-                "asset": compile_asset(folder / item["image"], repo_root, variants_dir),
-            }
+            _compile_item(item, order, source, repo_root, variants_dir, ratio_decision)
         )
     return compiled
+
+
+def _compile_item(
+    item: JsonObject,
+    order: int,
+    source: SourceAsset,
+    repo_root: Path,
+    variants_dir: Path,
+    ratio_decision: RatioDecision,
+) -> JsonObject:
+    transform = resolve_item_transform(
+        source.aspect_ratio,
+        source.content_bbox,
+        ratio_decision.item_aspect_ratio,
+        ratio_decision.ratio_source,
+    )
+    # transform is null when natural rendering already matches the template ratio
+    return {
+        "externalId": item["externalId"],
+        "order": order,
+        "image": item["image"],
+        "label": item["label"],
+        "aspectRatio": source.aspect_ratio,
+        "transform": transform,
+        "asset": compile_asset(source.path, repo_root, variants_dir, source),
+    }
 
 
 def _assert_compiled_schema(compiled: JsonObject, repo_root: Path) -> None:

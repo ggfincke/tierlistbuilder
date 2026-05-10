@@ -48,6 +48,7 @@ class ManifestValidationError(Exception):
 
 def validate_source_manifest(manifest_path: Path, repo_root: Path) -> ValidationResult:
     if not manifest_path.is_file():
+        # return a diagnostic instead of throwing so CLI output stays uniform
         error = _error("missingManifest", "$", str(manifest_path))
         return ValidationResult(manifest={}, warnings=(), errors=(error,))
     manifest = read_json(manifest_path)
@@ -140,6 +141,7 @@ def _check_criteria(
         if criterion.get("isPrimary") is True:
             primary_count += 1
     if primary_count != 1:
+        # each template needs one canonical ranking lane for cards/detail views
         diagnostics.append(
             _error("invalidPrimaryCriterionCount", f"{template_path}.criteria", str(primary_count))
         )
@@ -161,6 +163,7 @@ def _check_items(
         if external_id in seen:
             diagnostics.append(_error("duplicateItemExternalId", path, external_id))
         seen.add(external_id)
+        # production manifests should carry curated labels, not filename fallback
         if label_policy == "explicit-required" and not _as_str(item.get("label")).strip():
             diagnostics.append(_error("missingExplicitLabel", path, external_id))
         image = _as_str(item.get("image"))

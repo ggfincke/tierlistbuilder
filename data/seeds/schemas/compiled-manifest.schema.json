@@ -173,6 +173,8 @@
         "tags",
         "visibility",
         "labelPolicy",
+        "itemAspectRatio",
+        "ratioSource",
         "criteria",
         "items"
       ],
@@ -210,6 +212,13 @@
         },
         "labelPolicy": {
           "$ref": "#/$defs/labelPolicy"
+        },
+        "itemAspectRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "ratioSource": {
+          "enum": ["consistent", "mixed-dominant", "mixed-square"]
         },
         "coverImage": {
           "$ref": "#/$defs/compiledAsset"
@@ -291,7 +300,15 @@
     "item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["externalId", "order", "image", "label", "asset"],
+      "required": [
+        "externalId",
+        "order",
+        "image",
+        "label",
+        "aspectRatio",
+        "transform",
+        "asset"
+      ],
       "properties": {
         "externalId": {
           "$ref": "#/$defs/entryExternalId"
@@ -308,6 +325,20 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 120
+        },
+        "aspectRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "transform": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/itemTransform"
+            }
+          ]
         },
         "asset": {
           "$ref": "#/$defs/compiledAsset"
@@ -389,21 +420,39 @@
     "crop": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["x", "y", "width", "height"],
+      "required": ["left", "top", "right", "bottom"],
       "properties": {
-        "x": {
+        "left": {
           "type": "number"
         },
-        "y": {
+        "top": {
           "type": "number"
         },
-        "width": {
+        "right": {
+          "type": "number"
+        },
+        "bottom": {
+          "type": "number"
+        }
+      }
+    },
+    "itemTransform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rotation", "zoom", "offsetX", "offsetY"],
+      "properties": {
+        "rotation": {
+          "enum": [0, 90, 180, 270]
+        },
+        "zoom": {
           "type": "number",
           "exclusiveMinimum": 0
         },
-        "height": {
-          "type": "number",
-          "exclusiveMinimum": 0
+        "offsetX": {
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
         }
       }
     },

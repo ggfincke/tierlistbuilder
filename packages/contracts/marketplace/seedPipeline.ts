@@ -8,6 +8,7 @@ import type {
   MediaVariantKind,
   SupportedImageMimeType,
 } from '../platform/media'
+import type { ItemTransform } from '../workspace/board'
 import type { TierPresetTier } from '../workspace/tierPreset'
 
 export const SEED_MANIFEST_SCHEMA_VERSION = 1
@@ -36,6 +37,14 @@ export type SeedReleaseStatus = (typeof SEED_RELEASE_STATUSES)[number]
 export const SEED_REMOVAL_ACTIONS = ['absentFromRelease', 'hardDelete'] as const
 
 export type SeedRemovalAction = (typeof SEED_REMOVAL_ACTIONS)[number]
+
+export const SEED_RATIO_SOURCES = [
+  'consistent',
+  'mixed-dominant',
+  'mixed-square',
+] as const
+
+export type SeedRatioSource = (typeof SEED_RATIO_SOURCES)[number]
 
 export interface SeedReleaseIdentity
 {
@@ -102,10 +111,10 @@ export interface SeedVariantDescriptor
 
 export interface SeedCropDescriptor
 {
-  x: number
-  y: number
-  width: number
-  height: number
+  left: number
+  top: number
+  right: number
+  bottom: number
 }
 
 export interface SeedCompiledAsset
@@ -131,6 +140,8 @@ export interface SeedCompiledItem
   order: number
   image: string
   label: string
+  aspectRatio: number
+  transform: ItemTransform | null
   asset: SeedCompiledAsset
 }
 
@@ -144,6 +155,8 @@ export interface SeedCompiledTemplate
   tags: string[]
   visibility: TemplateVisibility
   labelPolicy: SeedLabelPolicy
+  itemAspectRatio: number
+  ratioSource: SeedRatioSource
   coverImage?: SeedCompiledAsset
   coverZoom?: number
   criteria: readonly MarketplaceTemplateCriterion[]

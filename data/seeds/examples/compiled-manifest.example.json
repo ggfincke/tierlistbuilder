@@ -24,6 +24,8 @@
       "tags": ["nintendo", "fighting", "smash bros"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "itemAspectRatio": 1,
+      "ratioSource": "consistent",
       "coverImage": {
         "sourcePath": "/workspace/scripts/marketplace-seed/assets/covers/ssbu-fighters.jpg",
         "sourcePathRelative": "scripts/marketplace-seed/assets/covers/ssbu-fighters.jpg",
@@ -88,6 +90,8 @@
           "order": 0,
           "image": "01-mario.png",
           "label": "Mario",
+          "aspectRatio": 1,
+          "transform": null,
           "asset": {
             "sourcePath": "/workspace/examples/gaming/ssbu-fighters/01-mario.png",
             "sourcePathRelative": "examples/gaming/ssbu-fighters/01-mario.png",
@@ -133,6 +137,8 @@
       "tags": ["zelda", "nintendo", "rpg"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "itemAspectRatio": 1,
+      "ratioSource": "consistent",
       "criteria": [
         {
           "externalId": "default",
@@ -152,6 +158,8 @@
           "order": 0,
           "image": "01-the-legend-of-zelda.png",
           "label": "The Legend of Zelda",
+          "aspectRatio": 1,
+          "transform": null,
           "asset": {
             "sourcePath": "/workspace/examples/gaming/zelda-games/01-the-legend-of-zelda.png",
             "sourcePathRelative": "examples/gaming/zelda-games/01-the-legend-of-zelda.png",
