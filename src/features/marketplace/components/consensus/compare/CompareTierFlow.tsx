@@ -5,10 +5,12 @@
 import { useMemo } from 'react'
 
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import { resolveBucketColor } from '../utils'
+import { bucketLabel, resolveBucketColor } from '../utils'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 import { buildBucketFlowMatrix, type CompareJoinedRow } from './laneUtils'
+import { CompareCard, COMPARE_EYEBROW_CLASS } from './CompareCard'
 
 interface CompareTierFlowProps
 {
@@ -135,12 +137,10 @@ export const CompareTierFlow = ({
   }, [bucketCount, leftStacks, leftTotals, matrix, rightStacks, rightTotals])
 
   return (
-    <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
+    <CompareCard padding="sm">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-            Tier flow
-          </p>
+          <p className={COMPARE_EYEBROW_CLASS}>Tier flow</p>
           <p className="text-[13px] font-semibold text-[var(--t-text)]">
             {leftShortName} → {rightShortName}
           </p>
@@ -198,11 +198,10 @@ export const CompareTierFlow = ({
                 fill={baseFill}
                 opacity={opacity}
               >
-                <title>{`${flow.count} item${
-                  flow.count === 1 ? '' : 's'
-                }: ${buckets[flow.i]?.label ?? `Tier ${flow.i + 1}`} → ${
-                  buckets[flow.j]?.label ?? `Tier ${flow.j + 1}`
-                }`}</title>
+                <title>{`${formatCountedWord(flow.count, 'item')}: ${bucketLabel(
+                  buckets,
+                  flow.i
+                )} → ${bucketLabel(buckets, flow.j)}`}</title>
               </path>
             )
           })}
@@ -227,7 +226,7 @@ export const CompareTierFlow = ({
                   fontWeight="700"
                   fontFamily="ui-monospace, monospace"
                 >
-                  {buckets[i]?.label ?? ''}
+                  {bucketLabel(buckets, i)}
                 </text>
                 <text
                   x={LEFT_X - 6}
@@ -263,7 +262,7 @@ export const CompareTierFlow = ({
                   fontWeight="700"
                   fontFamily="ui-monospace, monospace"
                 >
-                  {buckets[i]?.label ?? ''}
+                  {bucketLabel(buckets, i)}
                 </text>
                 <text
                   x={RIGHT_X + BAR_W + 6}
@@ -283,6 +282,6 @@ export const CompareTierFlow = ({
       <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]">
         Ribbons colored by source tier · hover for counts
       </p>
-    </div>
+    </CompareCard>
   )
 }

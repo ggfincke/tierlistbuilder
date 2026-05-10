@@ -4,13 +4,16 @@
 
 import { ArrowRight, ChevronRight, Sparkles } from 'lucide-react'
 
+import type { TemplateCardAccessState } from '@tierlistbuilder/contracts/marketplace/template'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 import { UseTemplateButton } from '../cards/UseTemplateButton'
 
 interface CriterionEmptyLaneProps
 {
   templateSlug: string
   templateTitle: string
+  access: TemplateCardAccessState
   // the lane we're showing as empty; copy speaks in this criterion's voice
   // so the user gets a meaningful "be the first to answer X" pitch
   criterion: MarketplaceTemplateCriterion
@@ -26,6 +29,7 @@ interface CriterionEmptyLaneProps
 export const CriterionEmptyLane = ({
   templateSlug,
   templateTitle,
+  access,
   criterion,
   otherCriteria,
   rankingCountByCriterion,
@@ -59,6 +63,7 @@ export const CriterionEmptyLane = ({
           <UseTemplateButton
             slug={templateSlug}
             templateTitle={templateTitle}
+            access={access}
             preferredCriterionExternalId={criterion.externalId}
             size="md"
           />
@@ -90,7 +95,7 @@ export const CriterionEmptyLane = ({
                         {otherShortName}
                       </span>
                       <span className="block truncate text-[10px] text-[var(--t-text-muted)]">
-                        {count} {count === 1 ? 'ranking' : 'rankings'}
+                        {formatCountedWord(count, 'ranking')}
                       </span>
                     </span>
                     <ChevronRight

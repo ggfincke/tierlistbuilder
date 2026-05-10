@@ -2,11 +2,7 @@
 // shared math + joining helpers for the criterion compare surface — keeps
 // the viz components focused on layout instead of re-deriving stats
 
-import type {
-  MarketplaceTemplateRankingAggregate,
-  MarketplaceTemplateRankingAggregateBucket,
-  MarketplaceTemplateRankingAggregateItem,
-} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import type { MarketplaceTemplateRankingAggregateItem } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
 // each row is the left + right aggregate item for the same templateItemId,
 // pre-paired so downstream viz can iterate without index gymnastics
@@ -56,7 +52,7 @@ export const joinLanesByTemplateItem = (
       })
       continue
     }
-    const delta = right.topBucketIndex - left.topBucketIndex
+    const delta = left.topBucketIndex - right.topBucketIndex
     out.push({
       templateItemExternalId: left.templateItemExternalId,
       left,
@@ -167,13 +163,6 @@ export const computeCompareInsights = (
   }
 }
 
-// safe bucket count for compare viz; both lanes share the template's
-// bucketCount today, but defending against drift here keeps positional-
-// consensus changes from tearing through every viz component
-export const safeBucketCount = (
-  aggregate: MarketplaceTemplateRankingAggregate | null | undefined
-): number => aggregate?.bucketCount ?? 0
-
 // short copy describing a Pearson value in plain English. shared between
 // the gauge insight card & the lane header so the two surfaces don't
 // drift out of sync
@@ -235,15 +224,4 @@ export const buildBucketFlowMatrix = (
     matrix[row.left.topBucketIndex][row.right.topBucketIndex] += 1
   }
   return matrix
-}
-
-// formats a bucket label safely for the compare surface (where buckets may
-// be undefined briefly while pagination spins up)
-export const safeBucketLabel = (
-  buckets: readonly MarketplaceTemplateRankingAggregateBucket[],
-  index: number | null
-): string =>
-{
-  if (index === null) return '—'
-  return buckets[index]?.label ?? `Tier ${index + 1}`
 }

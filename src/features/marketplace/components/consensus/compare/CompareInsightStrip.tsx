@@ -5,7 +5,7 @@
 import { formatCount } from '~/shared/catalog/formatters'
 import { pluralizeWord } from '~/shared/lib/pluralize'
 
-import { CompareCard } from './CompareCard'
+import { CompareCard, COMPARE_EYEBROW_CLASS } from './CompareCard'
 import {
   correlationCopy,
   LEFT_LANE_TONE,
@@ -22,7 +22,6 @@ interface CompareInsightStripProps
   rightShortName: string
 }
 
-// === Style A: gauge for Pearson correlation ===
 const polar = (cx: number, cy: number, r: number, deg: number) =>
 {
   const rad = (deg * Math.PI) / 180
@@ -74,9 +73,7 @@ const InsightGauge = ({ correlation }: GaugeProps) =>
   const needle = polar(cx, cy, r, valueAngle)
   return (
     <CompareCard>
-      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-        Lane correlation
-      </p>
+      <p className={COMPARE_EYEBROW_CLASS}>Lane correlation</p>
       <div className="relative mt-2 flex items-center justify-center">
         <svg
           viewBox="0 0 100 64"
@@ -148,7 +145,6 @@ const InsightGauge = ({ correlation }: GaugeProps) =>
   )
 }
 
-// === Style B: stacked-segment fraction ===
 const InsightFraction = ({
   numerator,
   denominator,
@@ -169,9 +165,7 @@ const InsightFraction = ({
   return (
     <CompareCard>
       <div className="flex items-center justify-between">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-          Moved 2+ tiers
-        </p>
+        <p className={COMPARE_EYEBROW_CLASS}>Moved 2+ tiers</p>
         <span className="rounded-md bg-[var(--t-bg-sunken)] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-[var(--t-text-secondary)]">
           {(pct * 100).toFixed(0)}%
         </span>
@@ -208,7 +202,6 @@ const InsightFraction = ({
   )
 }
 
-// === Style C: average Δ + histogram sparkline ===
 const InsightHistogram = ({
   avgDelta,
   histogram,
@@ -225,9 +218,7 @@ const InsightHistogram = ({
   return (
     <CompareCard>
       <div className="flex items-center justify-between">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-          Avg tier shift
-        </p>
+        <p className={COMPARE_EYEBROW_CLASS}>Avg tier shift</p>
         <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]">
           Δ-distribution
         </span>
@@ -285,7 +276,6 @@ const InsightHistogram = ({
   )
 }
 
-// === Style D: split bar of total samples by lane ===
 const InsightSplit = ({
   leftRankingCount,
   rightRankingCount,
@@ -304,9 +294,7 @@ const InsightSplit = ({
   return (
     <CompareCard>
       <div className="flex items-center justify-between">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-          Total samples
-        </p>
+        <p className={COMPARE_EYEBROW_CLASS}>Total samples</p>
         <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]">
           2 lanes
         </span>

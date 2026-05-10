@@ -4,6 +4,7 @@
 
 import { Flame, Sparkles } from 'lucide-react'
 
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -12,6 +13,7 @@ import {
 } from '../AggregateItemThumb'
 import { DistributionBar } from '../DistributionBar'
 import {
+  bucketLabel,
   formatPercent,
   getAggregateItemLabel,
   resolveBucketColor,
@@ -20,7 +22,11 @@ import { usePreferencesStore } from '~/features/platform/preferences/model/usePr
 import { pluralizeWord } from '~/shared/lib/pluralize'
 
 import { CompareCard } from './CompareCard'
-import { safeBucketLabel, type CompareJoinedRow } from './laneUtils'
+import {
+  LEFT_LANE_TONE,
+  RIGHT_LANE_TONE,
+  type CompareJoinedRow,
+} from './laneUtils'
 
 interface CompareNarrativeCardsProps
 {
@@ -52,26 +58,32 @@ interface MiniDistProps
   // intentionally narrowed to the aggregate item subset DistributionBar
   // & the tier-color helpers actually consume
   row: CompareJoinedRow['left']
+  paletteId: PaletteId
 }
 
-const MiniDist = ({ side, laneShortName, buckets, row }: MiniDistProps) =>
+const MiniDist = ({
+  side,
+  laneShortName,
+  buckets,
+  row,
+  paletteId,
+}: MiniDistProps) =>
 {
-  const paletteId = usePreferencesStore((state) => state.paletteId)
   const topBucket =
     row.topBucketIndex !== null ? buckets[row.topBucketIndex] : undefined
   const topColor = resolveBucketColor(topBucket, paletteId)
+  const laneTone = side === 'left' ? LEFT_LANE_TONE : RIGHT_LANE_TONE
   return (
     <div className="rounded-md border border-[var(--t-border)] bg-[var(--t-bg-sunken)] p-2">
       <p className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
         <span
           aria-hidden="true"
-          className={`inline-block h-1.5 w-1.5 rounded-full ${
-            side === 'left' ? 'bg-[var(--t-accent)]' : 'bg-[var(--t-success)]'
-          }`}
+          className="inline-block h-1.5 w-1.5 rounded-full"
+          style={{ background: laneTone }}
         />
         {laneShortName}
         <span className="ml-auto font-semibold" style={{ color: topColor }}>
-          {safeBucketLabel(buckets, row.topBucketIndex)}
+          {bucketLabel(buckets, row.topBucketIndex)}
         </span>
         <span className="text-[var(--t-text-secondary)]">
           {formatPercent(row.topBucketShare)}
@@ -88,6 +100,9 @@ const MiniDist = ({ side, laneShortName, buckets, row }: MiniDistProps) =>
     </div>
   )
 }
+
+const STABLE_TONE = 'var(--t-success)'
+const DIVERGENT_TONE = 'var(--t-destructive)'
 
 const NarrativeCard = ({
   eyebrow,
@@ -138,7 +153,7 @@ const NarrativeFallback = ({
   icon: typeof Sparkles
   body: string
 }) => (
-  <div className="rounded-xl border border-dashed border-[var(--t-border)] bg-[var(--t-bg-surface)] p-4">
+  <CompareCard className="border-dashed">
     <div className="flex items-center gap-1.5">
       <Icon className="h-3 w-3" strokeWidth={2} style={{ color: accent }} />
       <p
@@ -149,7 +164,7 @@ const NarrativeFallback = ({
       </p>
     </div>
     <p className="mt-2 text-[12px] text-[var(--t-text-muted)]">{body}</p>
-  </div>
+  </CompareCard>
 )
 
 export const CompareNarrativeCards = ({
@@ -162,8 +177,7 @@ export const CompareNarrativeCards = ({
   rightShortName,
 }: CompareNarrativeCardsProps) =>
 {
-  const STABLE_TONE = 'var(--t-success)'
-  const DIVERGENT_TONE = 'var(--t-destructive)'
+  const paletteId = usePreferencesStore((state) => state.paletteId)
   return (
     <div className="grid gap-3 lg:grid-cols-2">
       {mostStable ? (
@@ -175,16 +189,16 @@ export const CompareNarrativeCards = ({
             row={mostStable}
             line={
               mostStable.left.topBucketIndex === mostStable.right.topBucketIndex
-                ? `Both lanes land in tier ${safeBucketLabel(
+                ? `Both lanes land in tier ${bucketLabel(
                     buckets,
                     mostStable.left.topBucketIndex
                   )} · ${formatPercent(
                     mostStable.left.topBucketShare
                   )} / ${formatPercent(mostStable.right.topBucketShare)} agreement.`
-                : `${safeBucketLabel(
+                : `${bucketLabel(
                     buckets,
                     mostStable.left.topBucketIndex
-                  )} / ${safeBucketLabel(
+                  )} / ${bucketLabel(
                     buckets,
                     mostStable.right.topBucketIndex
                   )} top — strong agreement on both sides (${formatPercent(
@@ -200,12 +214,14 @@ export const CompareNarrativeCards = ({
               laneShortName={leftShortName}
               buckets={buckets}
               row={mostStable.left}
+              paletteId={paletteId}
             />
             <MiniDist
               side="right"
               laneShortName={rightShortName}
               buckets={buckets}
               row={mostStable.right}
+              paletteId={paletteId}
             />
           </div>
         </div>
@@ -224,10 +240,10 @@ export const CompareNarrativeCards = ({
             accent={DIVERGENT_TONE}
             icon={Flame}
             row={mostDivergent}
-            line={`${safeBucketLabel(
+            line={`${bucketLabel(
               buckets,
               mostDivergent.left.topBucketIndex
-            )} in ${leftShortName}, ${safeBucketLabel(
+            )} in ${leftShortName}, ${bucketLabel(
               buckets,
               mostDivergent.right.topBucketIndex
             )} in ${rightShortName}. Δ${mostDivergent.absDelta} ${pluralizeWord(
@@ -243,12 +259,14 @@ export const CompareNarrativeCards = ({
               laneShortName={leftShortName}
               buckets={buckets}
               row={mostDivergent.left}
+              paletteId={paletteId}
             />
             <MiniDist
               side="right"
               laneShortName={rightShortName}
               buckets={buckets}
               row={mostDivergent.right}
+              paletteId={paletteId}
             />
           </div>
         </div>

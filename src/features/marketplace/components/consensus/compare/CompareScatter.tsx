@@ -14,6 +14,7 @@ import {
   RIGHT_LANE_TONE,
   type CompareJoinedRow,
 } from './laneUtils'
+import { CompareCard, COMPARE_EYEBROW_CLASS } from './CompareCard'
 import { getAggregateItemLabel } from '../utils'
 
 interface CompareScatterProps
@@ -41,6 +42,7 @@ export const CompareScatter = ({
 {
   const paletteId = usePreferencesStore((state) => state.paletteId)
   const bucketCount = buckets.length
+  const bucketDenom = Math.max(1, bucketCount - 1)
 
   // pre-project every row into pixel coords; rows w/o averageBucket on
   // either side drop out so empty lanes don't pile up at (0, 0)
@@ -55,9 +57,8 @@ export const CompareScatter = ({
         {
           const xValue = row.left.averageBucket as number
           const yValue = row.right.averageBucket as number
-          const denom = Math.max(1, bucketCount - 1)
-          const x = PADDING + (xValue / denom) * (CHART_W - 2 * PADDING)
-          const y = PADDING + (yValue / denom) * (CHART_H - 2 * PADDING)
+          const x = PADDING + (xValue / bucketDenom) * (CHART_W - 2 * PADDING)
+          const y = PADDING + (yValue / bucketDenom) * (CHART_H - 2 * PADDING)
           // color the dot by the average of both lanes' buckets so the
           // visual identity reads as "where the item lands overall"
           const avgIndex = Math.round((xValue + yValue) / 2)
@@ -75,7 +76,7 @@ export const CompareScatter = ({
             altText: row.left.altText ?? row.right.altText ?? null,
           }
         }),
-    [bucketCount, buckets, paletteId, rows]
+    [bucketCount, bucketDenom, buckets, paletteId, rows]
   )
 
   // draw least-divergent first so high-Δ thumbs win the z-fight in dense
@@ -116,12 +117,10 @@ export const CompareScatter = ({
   )
 
   return (
-    <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
+    <CompareCard padding="sm">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
-            Lane vs lane
-          </p>
+          <p className={COMPARE_EYEBROW_CLASS}>Lane vs lane</p>
           <p className="text-[13px] font-semibold text-[var(--t-text)]">
             Average tier per item
           </p>
@@ -146,9 +145,8 @@ export const CompareScatter = ({
           />
           {buckets.map((bucket, i) =>
           {
-            const denom = Math.max(1, bucketCount - 1)
-            const x = PADDING + (i / denom) * (CHART_W - 2 * PADDING)
-            const y = PADDING + (i / denom) * (CHART_H - 2 * PADDING)
+            const x = PADDING + (i / bucketDenom) * (CHART_W - 2 * PADDING)
+            const y = PADDING + (i / bucketDenom) * (CHART_H - 2 * PADDING)
             const color = resolveBucketColor(bucket, paletteId)
             return (
               <g key={i}>
@@ -396,6 +394,6 @@ export const CompareScatter = ({
           larger dot = bigger gap
         </span>
       </p>
-    </div>
+    </CompareCard>
   )
 }

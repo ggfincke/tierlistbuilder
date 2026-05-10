@@ -24,6 +24,10 @@ import { useCompareRanking } from '~/features/marketplace/model/useCompareRankin
 import { selectBusiestOtherCriterion } from '~/features/marketplace/model/criterionSelection'
 import { useUseTemplate } from '~/features/marketplace/model/useUseTemplate'
 import {
+  ACCESS_META,
+  isTemplateAccessBlocked,
+} from '~/features/marketplace/model/accessMeta'
+import {
   useMyRankingForTemplate,
   usePaginatedRankingsForTemplate,
   useTemplateRankingAggregateItems,
@@ -97,6 +101,7 @@ interface ConsensusActionButtonsProps
   templateSlug: string
   templateTitle: string
   criterionExternalId: string
+  access: MarketplaceTemplateDetail['access']
 }
 
 const ConsensusActionButtons = ({
@@ -104,10 +109,18 @@ const ConsensusActionButtons = ({
   templateSlug,
   templateTitle,
   criterionExternalId,
+  access,
 }: ConsensusActionButtonsProps) =>
 {
   const { run: runUseTemplate, isPending: isUseTemplatePending } =
     useUseTemplate()
+  const accessMeta = ACCESS_META[access]
+  const accessBlocked = isTemplateAccessBlocked(access)
+  const label = accessBlocked
+    ? accessMeta.ctaLabel
+    : isUseTemplatePending
+      ? 'Forking…'
+      : 'New ranking'
   return (
     <div className="flex h-full w-full gap-2">
       {compareHref && (
@@ -123,15 +136,16 @@ const ConsensusActionButtons = ({
             preferredCriterionExternalId: criterionExternalId,
           })
         }
-        disabled={isUseTemplatePending}
+        disabled={isUseTemplatePending || accessBlocked}
+        title={accessMeta.ctaTooltip ?? undefined}
         className={`${ACTION_PILL_CLASS} disabled:cursor-not-allowed disabled:opacity-60`}
       >
-        {isUseTemplatePending ? (
+        {isUseTemplatePending && !accessBlocked ? (
           <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} />
         ) : (
           <Plus className="h-3 w-3" strokeWidth={2.4} />
         )}
-        {isUseTemplatePending ? 'Forking…' : 'New ranking'}
+        {label}
       </button>
     </div>
   )
@@ -193,6 +207,8 @@ interface ViewFrame
   // "Community consensus" between pin1 -> pin2 swaps
   activeRankingMeta: ActiveRankingMeta | null
 }
+
+const VIEW_FRAME_CACHE = new Map<string, ViewFrame>()
 
 interface SectionHeaderProps
 {
@@ -555,27 +571,18 @@ export const CommunityConsensusSection = ({
     yourPlacements,
   ])
 
-  // scoped by criterion so a lane swap (which invalidates the aggregate)
-  // never shows the wrong lane's tiers behind a load. gated render-time
-  // setState w/ functional updater stores info from the previous render
-  const [frameCache, setFrameCache] = useState<Map<string, ViewFrame>>(
-    () => new Map()
-  )
+  // scoped by template + criterion so a lane swap never shows wrong tiers
+  // behind a load. this is a render fallback, not render-driving state
+  const frameCacheKey = `${template.slug}:${criterionExternalId}`
   if (
     currentFrame !== null &&
-    frameCache.get(criterionExternalId) !== currentFrame
+    VIEW_FRAME_CACHE.get(frameCacheKey) !== currentFrame
   )
   {
-    setFrameCache((prev) =>
-    {
-      if (prev.get(criterionExternalId) === currentFrame) return prev
-      const next = new Map(prev)
-      next.set(criterionExternalId, currentFrame)
-      return next
-    })
+    VIEW_FRAME_CACHE.set(frameCacheKey, currentFrame)
   }
 
-  const cachedFrame = frameCache.get(criterionExternalId) ?? null
+  const cachedFrame = VIEW_FRAME_CACHE.get(frameCacheKey) ?? null
   const showPinStaleFrame = isPinLoading && cachedFrame !== null
   const showLaneStaleFrame =
     aggregate === undefined && !isActiveRanking && cachedFrame !== null
@@ -811,6 +818,7 @@ export const CommunityConsensusSection = ({
       templateSlug={template.slug}
       templateTitle={template.title}
       criterionExternalId={criterionExternalId}
+      access={template.access}
     />
   )
 
@@ -861,6 +869,7 @@ export const CommunityConsensusSection = ({
           <CriterionEmptyLane
             templateSlug={template.slug}
             templateTitle={template.title}
+            access={template.access}
             criterion={selectedCriterion}
             otherCriteria={visibleCriteria.filter(
               (c) => c.externalId !== criterionExternalId

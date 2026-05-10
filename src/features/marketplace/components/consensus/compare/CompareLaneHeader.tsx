@@ -10,6 +10,7 @@ import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/ma
 import { formatCount } from '~/shared/catalog/formatters'
 
 import { LEFT_LANE_TONE, RIGHT_LANE_TONE } from './laneUtils'
+import { CompareCard } from './CompareCard'
 
 export type CompareLaneSide = 'left' | 'right'
 
@@ -34,6 +35,17 @@ interface CompareLaneHeaderProps
 const SIDE_TONE: Record<CompareLaneSide, { color: string; label: string }> = {
   left: { color: LEFT_LANE_TONE, label: 'Lane A' },
   right: { color: RIGHT_LANE_TONE, label: 'Lane B' },
+}
+
+const AGGREGATE_STATE_LABELS: Record<
+  NonNullable<MarketplaceTemplateRankingAggregate['state']>,
+  string
+> = {
+  computing: 'Computing',
+  stale: 'Recomputing',
+  failed: 'Failed',
+  empty: 'Empty',
+  ready: 'Ready',
 }
 
 const Stat = ({ label, value }: { label: string; value: string }) => (
@@ -67,21 +79,12 @@ export const CompareLaneHeader = ({
   // viz blocks we're about to render
   const itemCount = aggregate?.itemCount ?? 0
   const aggregateState = aggregate?.state ?? null
-  const stateLabel =
-    aggregateState === 'computing'
-      ? 'Computing'
-      : aggregateState === 'stale'
-        ? 'Recomputing'
-        : aggregateState === 'failed'
-          ? 'Failed'
-          : aggregateState === 'empty'
-            ? 'Empty'
-            : aggregateState === 'ready'
-              ? 'Ready'
-              : '—'
+  const stateLabel = aggregateState
+    ? AGGREGATE_STATE_LABELS[aggregateState]
+    : '—'
 
   return (
-    <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] p-3">
+    <CompareCard padding="sm">
       <div className="flex flex-wrap items-center gap-2.5">
         <span
           aria-hidden="true"
@@ -134,6 +137,6 @@ export const CompareLaneHeader = ({
         <Stat label="Items" value={String(itemCount)} />
         <Stat label="State" value={stateLabel} />
       </div>
-    </div>
+    </CompareCard>
   )
 }

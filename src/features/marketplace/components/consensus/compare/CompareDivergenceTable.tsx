@@ -5,6 +5,7 @@
 import { ArrowLeft, ArrowRight, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -13,18 +14,19 @@ import {
 } from '../AggregateItemThumb'
 import { DistributionBar } from '../DistributionBar'
 import {
+  bucketLabel,
   formatPercent,
   getAggregateItemLabel,
   resolveBucketColor,
 } from '../utils'
 import { TextInput } from '~/shared/ui/TextInput'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 import {
   compareDeltaDirectionTone,
   compareDirectionCopy,
   type CompareJoinedRow,
-  safeBucketLabel,
 } from './laneUtils'
 
 type DivergenceSort = 'absDelta' | 'leftFirst' | 'rightFirst' | 'mostSamples'
@@ -59,8 +61,7 @@ const compareRows = (
     case 'absDelta':
       return (a, b) => b.absDelta - a.absDelta
     case 'leftFirst':
-      // most negative delta first (right index lower than left = higher in
-      // left lane)
+      // most negative delta first (left index lower than right = higher left)
       return (a, b) => a.delta - b.delta
     case 'rightFirst':
       return (a, b) => b.delta - a.delta
@@ -80,28 +81,49 @@ const matchesSearch = (row: CompareJoinedRow, needle: string): boolean =>
 
 interface BucketCellProps
 {
-  bucket: MarketplaceTemplateRankingAggregateBucket | undefined
+  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
   share: number
-  fallbackIndex: number | null
+  index: number | null
+  paletteId: PaletteId
 }
 
-const BucketCell = ({ bucket, share, fallbackIndex }: BucketCellProps) =>
+const BucketCell = ({ buckets, share, index, paletteId }: BucketCellProps) =>
 {
-  const paletteId = usePreferencesStore((state) => state.paletteId)
+  const bucket = index !== null ? buckets[index] : undefined
   const color = resolveBucketColor(bucket, paletteId)
   return (
     <span
       className="inline-flex items-baseline gap-1 font-mono text-[12px] font-bold"
       style={{ color }}
     >
-      {bucket?.label ??
-        (fallbackIndex !== null ? `Tier ${fallbackIndex + 1}` : '—')}
+      {bucketLabel(buckets, index)}
       <span className="text-[10px] font-normal text-[var(--t-text-muted)]">
         {formatPercent(share)}
       </span>
     </span>
   )
 }
+
+interface DistributionCellProps
+{
+  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
+  row: CompareJoinedRow['left']
+}
+
+const DistributionCell = ({ buckets, row }: DistributionCellProps) => (
+  <div>
+    <DistributionBar
+      buckets={buckets}
+      distribution={row.distribution}
+      sampleCount={row.sampleCount}
+      height={6}
+    />
+    <p className="mt-1 hidden font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--t-text-faint)] sm:block">
+      {formatCountedWord(row.sampleCount, 'sample')} ·{' '}
+      {bucketLabel(buckets, row.topBucketIndex)}
+    </p>
+  </div>
+)
 
 interface DeltaCellProps
 {
@@ -142,6 +164,7 @@ export const CompareDivergenceTable = ({
   const [sort, setSort] = useState<DivergenceSort>('absDelta')
   const [query, setQuery] = useState('')
   const [showAll, setShowAll] = useState(false)
+  const paletteId = usePreferencesStore((state) => state.paletteId)
 
   const filtered = useMemo(() =>
   {
@@ -205,14 +228,6 @@ export const CompareDivergenceTable = ({
       ) : (
         visibleRows.map((row) =>
           {
-          const leftBucket =
-            row.left.topBucketIndex !== null
-              ? buckets[row.left.topBucketIndex]
-              : undefined
-          const rightBucket =
-            row.right.topBucketIndex !== null
-              ? buckets[row.right.topBucketIndex]
-              : undefined
           const lean = compareDirectionCopy(
             row.delta,
             leftShortName,
@@ -240,48 +255,26 @@ export const CompareDivergenceTable = ({
                     {row.delta !== 0 && row.absDelta > 0 && (
                       <>
                         {' · Δ'}
-                        {row.absDelta} {row.absDelta === 1 ? 'tier' : 'tiers'}
+                        {formatCountedWord(row.absDelta, 'tier')}
                       </>
                     )}
                   </p>
                 </div>
               </div>
               <BucketCell
-                bucket={leftBucket}
+                buckets={buckets}
                 share={row.left.topBucketShare}
-                fallbackIndex={row.left.topBucketIndex}
+                index={row.left.topBucketIndex}
+                paletteId={paletteId}
               />
-              <div>
-                <DistributionBar
-                  buckets={buckets}
-                  distribution={row.left.distribution}
-                  sampleCount={row.left.sampleCount}
-                  height={6}
-                />
-                <p className="mt-1 hidden font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--t-text-faint)] sm:block">
-                  {row.left.sampleCount}{' '}
-                  {row.left.sampleCount === 1 ? 'sample' : 'samples'} ·{' '}
-                  {safeBucketLabel(buckets, row.left.topBucketIndex)}
-                </p>
-              </div>
+              <DistributionCell buckets={buckets} row={row.left} />
               <BucketCell
-                bucket={rightBucket}
+                buckets={buckets}
                 share={row.right.topBucketShare}
-                fallbackIndex={row.right.topBucketIndex}
+                index={row.right.topBucketIndex}
+                paletteId={paletteId}
               />
-              <div>
-                <DistributionBar
-                  buckets={buckets}
-                  distribution={row.right.distribution}
-                  sampleCount={row.right.sampleCount}
-                  height={6}
-                />
-                <p className="mt-1 hidden font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--t-text-faint)] sm:block">
-                  {row.right.sampleCount}{' '}
-                  {row.right.sampleCount === 1 ? 'sample' : 'samples'} ·{' '}
-                  {safeBucketLabel(buckets, row.right.topBucketIndex)}
-                </p>
-              </div>
+              <DistributionCell buckets={buckets} row={row.right} />
               <DeltaCell delta={row.delta} absDelta={row.absDelta} />
             </div>
           )
