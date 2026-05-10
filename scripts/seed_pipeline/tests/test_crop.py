@@ -9,6 +9,7 @@ from seed_pipeline.crop import (
     CropBBox,
     bbox_to_item_transform,
     pick_auto_crop_bbox,
+    ratios_match,
     resolve_ratio_decision,
     scan_auto_crop_pixels,
 )
@@ -45,6 +46,9 @@ class CropParityTests(unittest.TestCase):
         self.assertAlmostEqual(dominant.item_aspect_ratio, 2 / 3)
         self.assertEqual(square.ratio_source, "mixed-square")
         self.assertEqual(square.item_aspect_ratio, 1)
+
+    def test_ratio_matching_rejects_bool_inputs(self) -> None:
+        self.assertFalse(ratios_match(True, 1))
 
 
 def _paint_alpha_rect(

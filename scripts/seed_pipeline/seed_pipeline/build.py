@@ -59,6 +59,7 @@ def _compile(
     repo_root: Path,
     variants_dir: Path,
 ) -> JsonObject:
+    # accumulate upload totals from compiled assets, not source manifest guesses
     templates = []
     source_image_count = 0
     variant_count = 0
@@ -151,6 +152,7 @@ def _compile_item(
     variants_dir: Path,
     ratio_decision: RatioDecision,
 ) -> JsonObject:
+    # transforms are derived after the template ratio is fixed
     transform = resolve_item_transform(
         source.aspect_ratio,
         source.content_bbox,

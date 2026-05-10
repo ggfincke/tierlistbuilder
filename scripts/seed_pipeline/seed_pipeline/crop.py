@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from statistics import median
 from typing import Iterable
@@ -77,6 +78,7 @@ class RatioDecision:
 
 
 def ratios_match(a: float, b: float, tolerance: float = ASPECT_RATIO_TOLERANCE) -> bool:
+    # reject bools/NaN/inf before ratio math; Python bool is an int subclass
     if not _is_positive_finite(a) or not _is_positive_finite(b):
         return False
     return abs(a - b) / max(a, b) <= tolerance
@@ -134,6 +136,7 @@ def detect_content_bbox(image: Image.Image) -> CropBBox | None:
 def get_auto_crop_analysis_dimensions(
     width: int, height: int, max_size: int = AUTO_CROP_ANALYSIS_MAX_SIZE
 ) -> tuple[int, int]:
+    # downscale only for analysis; output variants still start from source pixels
     if width <= max_size and height <= max_size:
         return width, height
     if width >= height:
@@ -359,6 +362,7 @@ def _trim_soft_shadow_bbox(
 
 
 def _normalize_bbox(bbox: PixelBBox, width: int, height: int) -> CropBBox:
+    # max edges are inclusive in pixel space but exclusive in normalized space
     return CropBBox(
         left=bbox.min_x / width,
         top=bbox.min_y / height,
@@ -401,4 +405,9 @@ def _clamp(value: float, minimum: float, maximum: float) -> float:
 
 
 def _is_positive_finite(value: float) -> bool:
-    return isinstance(value, (float, int)) and value > 0 and value != float("inf")
+    return (
+        isinstance(value, (float, int))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value > 0
+    )

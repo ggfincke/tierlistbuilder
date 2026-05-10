@@ -50,6 +50,7 @@ def compile_asset(
 ) -> JsonObject:
     # caller can pass a probed SourceAsset to avoid decoding item images twice
     source = source or inspect_source(source_path, repo_root)
+    # build both ingest variants now so upload/apply phases stay metadata-driven
     tile = build_variant(source.path, source.sha256, "tile", variants_dir)
     preview = build_variant(source.path, source.sha256, "preview", variants_dir)
     return {
@@ -166,6 +167,7 @@ def _assert_variant_policy(
 def _write_variant(source_path: Path, output_path: Path, kind: str) -> None:
     try:
         with Image.open(source_path) as image:
+            # branch by contract kind, not file extension, so cache names stay stable
             if kind == "tile":
                 _write_tile(image, output_path)
             else:

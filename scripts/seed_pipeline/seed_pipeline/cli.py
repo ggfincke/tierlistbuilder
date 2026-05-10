@@ -18,6 +18,7 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = find_repo_root()
     manifest_path = (repo_root / args.manifest).resolve()
     try:
+        # keep command dispatch thin so phases can add workflows w/o parser churn
         if args.command == "validate":
             return _validate(manifest_path, repo_root, args.fail_on_warning)
         if args.command in {"build", "preflight"}:
@@ -35,6 +36,7 @@ def main(argv: list[str] | None = None) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m seed_pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    # Phase 1/2 commands never touch Convex or upload media
     for command in ("validate", "build", "preflight"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("manifest", type=Path)
