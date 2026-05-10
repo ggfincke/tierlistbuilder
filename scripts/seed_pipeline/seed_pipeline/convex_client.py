@@ -29,8 +29,32 @@ class ConvexSeedClient:
         self.settings = settings
 
     def query(self, function_path: str, args: JsonObject) -> JsonObject:
-        # keep public client surface tiny until write workflows land
         return self._call("query", function_path, args)
+
+    def mutation(self, function_path: str, args: JsonObject) -> JsonObject:
+        return self._call("mutation", function_path, args)
+
+    def action(self, function_path: str, args: JsonObject) -> JsonObject:
+        return self._call("action", function_path, args)
+
+    def upload_file(self, upload_url: str, path: Path, mime_type: str) -> str:
+        # upload URLs are single-use, so read bytes immediately before POST
+        request = Request(
+            upload_url,
+            data=path.read_bytes(),
+            headers={"Content-Type": mime_type},
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=120) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except HTTPError as error:
+            detail = error.read().decode("utf-8")
+            raise ConvexClientError(detail) from error
+        storage_id = payload.get("storageId")
+        if not isinstance(storage_id, str):
+            raise ConvexClientError("Convex upload did not return storageId")
+        return storage_id
 
     def _call(self, kind: str, function_path: str, args: JsonObject) -> JsonObject:
         # Convex HTTP API expects args wrapped as encoded JSON
@@ -51,7 +75,7 @@ class ConvexSeedClient:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=30) as response:
+            with urlopen(request, timeout=120) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except HTTPError as error:
             # surface server validation errors w/o losing Convex detail

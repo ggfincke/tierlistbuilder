@@ -156,6 +156,30 @@ const seedMediaVariant = async (
     return variant
   })
 
+const seedRunRow = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  releaseId: string,
+  status: Doc<'seedRuns'>['status'],
+  runId = `${releaseId}-run`
+): Promise<Id<'seedRuns'>> =>
+  await t.run(
+    async (ctx) =>
+      await ctx.db.insert('seedRuns', {
+        runId,
+        datasetKey: DATASET,
+        releaseId,
+        status,
+        startedAt: 10,
+        finishedAt: status === 'building' ? null : 11,
+        startedBy: 'test',
+        templateCount: 1,
+        itemCount: 2,
+        imageVariantCount: 4,
+        uploadedBytes: 0,
+        error: null,
+      })
+  )
+
 const buildPngHeader = (width: number, height: number): Uint8Array =>
 {
   const bytes = new Uint8Array(24)
@@ -269,23 +293,7 @@ describe('seed run precheck API', () =>
       ['old'],
       RELEASE
     )
-    await t.run(
-      async (ctx) =>
-        await ctx.db.insert('seedRuns', {
-          runId: 'active-run',
-          datasetKey: DATASET,
-          releaseId: '2026-04-old-release',
-          status: 'active',
-          startedAt: 10,
-          finishedAt: 11,
-          startedBy: 'test',
-          templateCount: 2,
-          itemCount: 3,
-          imageVariantCount: 6,
-          uploadedBytes: 0,
-          error: null,
-        })
-    )
+    await seedRunRow(t, '2026-04-old-release', 'active', 'active-run')
 
     enableSeedApi()
     const state = await t.query(api.marketplace.seedRuns.resolveSeedState, {
@@ -684,6 +692,225 @@ describe('seed run precheck API', () =>
       { externalId: 'mario', label: 'Super Mario', order: 1 },
     ])
     expect(rows.target?.coverItems).toHaveLength(1)
+  })
+
+  it('verifies, activates, and rolls back seed releases', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, AUTHOR_EMAIL)
+    const oldRelease = '2026-04-old-release'
+    const oldTemplateId = await seedTemplateWithItem(
+      t,
+      authorId,
+      'gaming:ssbu-fighters',
+      ['old-release-item'],
+      oldRelease
+    )
+    await seedRunRow(t, oldRelease, 'active', 'old-active-run')
+    await seedMediaVariant(t, authorId, 'hash-cover')
+    await seedMediaVariant(t, authorId, 'hash-mario')
+    await seedMediaVariant(t, authorId, 'hash-link')
+
+    enableSeedApi()
+    await t.mutation(api.marketplace.seedRuns.beginSeedRun, {
+      seedSecret: SEED_SECRET,
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-activation',
+      templateCount: 1,
+      itemCount: 2,
+      imageVariantCount: 6,
+    })
+    await t.mutation(api.marketplace.seedRuns.upsertSeedTemplates, {
+      seedSecret: SEED_SECRET,
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-activation',
+      authorEmail: AUTHOR_EMAIL,
+      templates: [
+        {
+          externalId: 'gaming:ssbu-fighters',
+          title: 'SSBU fighters',
+          category: 'gaming',
+          description: 'Playable fighters.',
+          tags: ['nintendo'],
+          visibility: 'public',
+          coverMediaContentHash: 'hash-cover',
+          coverFraming: null,
+          suggestedTiers: [
+            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+          ],
+          itemAspectRatio: 1,
+          itemCount: 2,
+        },
+      ],
+    })
+    await t.mutation(api.marketplace.seedRuns.upsertSeedCriteria, {
+      seedSecret: SEED_SECRET,
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-activation',
+      criteria: [
+        {
+          templateExternalId: 'gaming:ssbu-fighters',
+          criterionExternalId: 'competitive',
+          name: 'Competitive',
+          shortName: 'Comp',
+          prompt: 'Rank by competitive viability.',
+          axisTop: 'Strongest',
+          axisBottom: 'Weakest',
+          order: 0,
+          isPrimary: true,
+          status: 'active',
+        },
+      ],
+    })
+    await t.mutation(api.marketplace.seedRuns.upsertSeedItems, {
+      seedSecret: SEED_SECRET,
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-activation',
+      items: [
+        {
+          templateExternalId: 'gaming:ssbu-fighters',
+          itemExternalId: 'mario',
+          order: 0,
+          label: 'Mario',
+          mediaContentHash: 'hash-mario',
+          aspectRatio: 1,
+          transform: null,
+        },
+        {
+          templateExternalId: 'gaming:ssbu-fighters',
+          itemExternalId: 'link',
+          order: 1,
+          label: 'Link',
+          mediaContentHash: 'hash-link',
+          aspectRatio: 1,
+          transform: null,
+        },
+      ],
+    })
+
+    const verified = await t.mutation(
+      api.marketplace.seedRuns.verifySeedRelease,
+      {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-activation',
+        expectedTotals: {
+          templateCount: 1,
+          itemCount: 2,
+          criterionCount: 1,
+          sourceImageCount: 3,
+          variantCount: 6,
+          estimatedUploadBytes: 0,
+          estimatedStorageBytes: 0,
+        },
+      }
+    )
+    expect(verified).toEqual({ verified: true, diagnostics: [] })
+    await expect(
+      t.mutation(api.marketplace.seedRuns.activateSeedRelease, {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-activation',
+        previousReleaseId: null,
+        confirm: true,
+      })
+    ).rejects.toThrow(/active seed release changed/)
+
+    const activated = await t.mutation(
+      api.marketplace.seedRuns.activateSeedRelease,
+      {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-activation',
+        previousReleaseId: oldRelease,
+        confirm: true,
+      }
+    )
+    const activatedRows = await t.run(async (ctx) =>
+    {
+      const target = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      const old = await ctx.db.get(oldTemplateId)
+      const run = await ctx.db
+        .query('seedRuns')
+        .withIndex('byRunId', (q) => q.eq('runId', 'run-activation'))
+        .unique()
+      const stats = await ctx.db
+        .query('marketplaceStats')
+        .withIndex('byKey', (q) => q.eq('key', 'templates'))
+        .unique()
+      return { old, run, stats, target }
+    })
+    expect(activated).toEqual({
+      activeReleaseId: RELEASE,
+      previousReleaseId: oldRelease,
+    })
+    expect(activatedRows.target).toMatchObject({
+      publicationState: 'published',
+      isPubliclyListable: true,
+      seedReleaseStatus: 'active',
+    })
+    expect(activatedRows.old).toMatchObject({
+      publicationState: 'unpublished',
+      isPubliclyListable: false,
+      seedReleaseStatus: 'rolled_back',
+    })
+    expect(activatedRows.run?.status).toBe('active')
+    expect(activatedRows.stats?.publicTemplateCount).toBe(1)
+
+    const rolledBack = await t.mutation(
+      api.marketplace.seedRuns.rollbackSeedRelease,
+      {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-activation',
+        targetReleaseId: oldRelease,
+        confirm: true,
+      }
+    )
+    const rolledBackRows = await t.run(async (ctx) =>
+    {
+      const target = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      const old = await ctx.db.get(oldTemplateId)
+      return { old, target }
+    })
+    expect(rolledBack).toEqual({
+      activeReleaseId: oldRelease,
+      rolledBackReleaseId: RELEASE,
+    })
+    expect(rolledBackRows.old).toMatchObject({
+      publicationState: 'published',
+      isPubliclyListable: true,
+      seedReleaseStatus: 'active',
+    })
+    expect(rolledBackRows.target).toMatchObject({
+      publicationState: 'unpublished',
+      isPubliclyListable: false,
+      seedReleaseStatus: 'rolled_back',
+    })
   })
 
   it('finalizes, reuses, rejects, and cleans seed uploads', async () =>

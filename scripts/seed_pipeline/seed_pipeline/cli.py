@@ -10,6 +10,16 @@ from pathlib import Path
 from .build import build_compiled_manifest
 from .diff import write_diff_report_for_manifest
 from .manifest import find_repo_root
+from .runs import (
+    SeedRunOptions,
+    activate_seed_manifest,
+    apply_seed_manifest,
+    cleanup_seed_manifest,
+    rollback_seed_manifest,
+    run_seed_manifest,
+    upload_seed_manifest,
+    verify_seed_manifest,
+)
 from .validate import ManifestValidationError, validate_source_manifest
 
 
@@ -26,6 +36,46 @@ def main(argv: list[str] | None = None) -> int:
             return _build(manifest_path, repo_root, args.fail_on_warning)
         if args.command in {"diff", "preflight"}:
             return _diff(manifest_path, repo_root, args)
+        if args.command == "upload":
+            return _write_command(
+                "seed upload report", upload_seed_manifest, manifest_path, repo_root, args
+            )
+        if args.command == "apply":
+            return _write_command(
+                "seed apply report", apply_seed_manifest, manifest_path, repo_root, args
+            )
+        if args.command == "verify":
+            return _write_command(
+                "seed verify report", verify_seed_manifest, manifest_path, repo_root, args
+            )
+        if args.command == "cleanup":
+            return _write_command(
+                "seed cleanup report",
+                cleanup_seed_manifest,
+                manifest_path,
+                repo_root,
+                args,
+            )
+        if args.command == "activate":
+            return _write_command(
+                "seed activation report",
+                activate_seed_manifest,
+                manifest_path,
+                repo_root,
+                args,
+            )
+        if args.command == "rollback":
+            return _write_command(
+                "seed rollback report",
+                rollback_seed_manifest,
+                manifest_path,
+                repo_root,
+                args,
+            )
+        if args.command == "run":
+            return _write_command(
+                "seed run report", run_seed_manifest, manifest_path, repo_root, args
+            )
     except ManifestValidationError as error:
         _print_diagnostics(error.errors)
         return 1
@@ -53,11 +103,15 @@ def _parser() -> argparse.ArgumentParser:
         command_parser.add_argument("--seed-secret")
         command_parser.add_argument("--state-json", type=Path)
         command_parser.add_argument("--fail-on-warning", action="store_true")
-    # reserve Phase 3+ command names now, but keep them non-writing
-    for command in ("upload", "apply", "verify", "cleanup", "run"):
+
+    for command in ("upload", "apply", "verify", "cleanup", "activate", "run"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("manifest", type=Path)
-        command_parser.set_defaults(command=command)
+        _add_seed_run_args(command_parser)
+    rollback_parser = subparsers.add_parser("rollback")
+    rollback_parser.add_argument("manifest", type=Path)
+    _add_seed_run_args(rollback_parser)
+    rollback_parser.add_argument("--target-release-id", required=True)
     return parser
 
 
@@ -88,6 +142,51 @@ def _diff(manifest_path: Path, repo_root: Path, args: object) -> int:
     )
     print(f"wrote seed diff report: {report_path}")
     return 0
+
+
+def _write_command(
+    label: str,
+    command: object,
+    manifest_path: Path,
+    repo_root: Path,
+    args: object,
+) -> int:
+    options = _seed_run_options(args)
+    report_path = command(manifest_path, repo_root, options)
+    print(f"wrote {label}: {report_path}")
+    return 0
+
+
+def _add_seed_run_args(parser: argparse.ArgumentParser) -> None:
+    # server-write commands share run identity, safety, & checkpoint settings
+    parser.add_argument("--env", default="local")
+    parser.add_argument("--convex-url")
+    parser.add_argument("--seed-secret")
+    parser.add_argument("--run-id")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--yes", action="store_true")
+    parser.add_argument("--fail-on-warning", action="store_true")
+    parser.add_argument("--state-json", type=Path)
+    parser.add_argument("--max-upload-bytes", type=int)
+    parser.add_argument("--confirm-activation", action="store_true")
+    parser.add_argument("--previous-release-id")
+
+
+def _seed_run_options(args: object) -> SeedRunOptions:
+    return SeedRunOptions(
+        env_name=getattr(args, "env"),
+        convex_url=getattr(args, "convex_url"),
+        seed_secret=getattr(args, "seed_secret"),
+        run_id=getattr(args, "run_id"),
+        dry_run=getattr(args, "dry_run"),
+        yes=getattr(args, "yes"),
+        fail_on_warning=getattr(args, "fail_on_warning"),
+        max_upload_bytes=getattr(args, "max_upload_bytes"),
+        confirm_activation=getattr(args, "confirm_activation"),
+        previous_release_id=getattr(args, "previous_release_id"),
+        target_release_id=getattr(args, "target_release_id", None),
+        state_json=getattr(args, "state_json"),
+    )
 
 
 def _print_diagnostics(diagnostics: tuple[object, ...]) -> None:

@@ -28,6 +28,8 @@ import type {
   SeedResolvedItem,
   SeedResolvedMedia,
   SeedReleaseStatus,
+  SeedActivateReleaseOutput,
+  SeedRollbackReleaseOutput,
   SeedRunSummary,
   SeedTemplateCriterionKey,
   SeedTemplateItemKey,
@@ -50,8 +52,10 @@ import {
 } from '../lib/validators'
 import {
   allocateTemplateSlug,
+  adjustPublicTemplateCount,
   buildTemplateStateFields,
   createTemplateStats,
+  markTemplateNotPublic,
   normalizeDescription,
   normalizeTags,
   normalizeTemplateTitle,
@@ -172,6 +176,13 @@ type SeedTemplateApplyPatch = Pick<
   | 'seedReleaseId'
   | 'seedReleaseStatus'
 >
+
+type SeedDiagnosticRow = {
+  code: string
+  message: string
+  path: string
+  severity: 'warning' | 'error'
+}
 
 const MAX_SEED_STATE_IDS = 8192
 const MAX_SEED_TEMPLATES_PER_DIFF = 2048
@@ -341,6 +352,23 @@ const seedRejectedUploadValidator = v.object({
 const seedCleanupOutputValidator = v.object({
   cleanedStorageIds: v.array(v.string()),
   missingStorageIds: v.array(v.string()),
+})
+
+const seedCompiledTotalsValidator = v.object({
+  templateCount: v.number(),
+  itemCount: v.number(),
+  criterionCount: v.number(),
+  sourceImageCount: v.number(),
+  variantCount: v.number(),
+  estimatedUploadBytes: v.number(),
+  estimatedStorageBytes: v.number(),
+})
+
+const seedDiagnosticValidator = v.object({
+  code: v.string(),
+  message: v.string(),
+  path: v.string(),
+  severity: v.union(v.literal('warning'), v.literal('error')),
 })
 
 const seedTemplateUpsertOutputValidator = v.object({
@@ -694,7 +722,7 @@ const resolveMediaForAuthor = async (
 }
 
 const resolveActiveReleaseId = async (
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   datasetKey: string
 ): Promise<string | null> =>
 {
@@ -1211,6 +1239,391 @@ const templatePatchChanged = (
     ([key, value]) =>
       !valuesEqual(template[key as keyof Doc<'templates'>], value)
   )
+
+const loadSeedRun = async (
+  ctx: QueryCtx | MutationCtx,
+  datasetKey: string,
+  releaseId: string,
+  runId: string
+): Promise<Doc<'seedRuns'> | null> =>
+  await ctx.db
+    .query('seedRuns')
+    .withIndex('byDatasetReleaseRun', (q) =>
+      q
+        .eq('datasetKey', datasetKey)
+        .eq('releaseId', releaseId)
+        .eq('runId', runId)
+    )
+    .unique()
+
+const loadSeedRunOrThrow = async (
+  ctx: QueryCtx | MutationCtx,
+  datasetKey: string,
+  releaseId: string,
+  runId: string
+): Promise<Doc<'seedRuns'>> =>
+{
+  const run = await loadSeedRun(ctx, datasetKey, releaseId, runId)
+  if (!run)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.notFound,
+      message: `seed run not found: ${runId}`,
+    })
+  }
+  return run
+}
+
+const loadLatestSeedRunForRelease = async (
+  ctx: MutationCtx,
+  datasetKey: string,
+  releaseId: string
+): Promise<Doc<'seedRuns'> | null> =>
+{
+  const runs = await ctx.db
+    .query('seedRuns')
+    .withIndex('byDatasetReleaseStartedAt', (q) =>
+      q.eq('datasetKey', datasetKey).eq('releaseId', releaseId)
+    )
+    .order('desc')
+    .take(1)
+  return runs[0] ?? null
+}
+
+const loadSeedTemplatesForRelease = async (
+  ctx: QueryCtx | MutationCtx,
+  datasetKey: string,
+  releaseId: string
+): Promise<Doc<'templates'>[]> =>
+  await ctx.db
+    .query('templates')
+    .withIndex('bySeedDatasetAndReleaseId', (q) =>
+      q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
+    )
+    .take(MAX_SEED_TEMPLATES_PER_DIFF + 1)
+
+const assertSeedTemplateReadLimit = (
+  templates: readonly Doc<'templates'>[],
+  releaseId: string | null | undefined
+): void =>
+{
+  if (templates.length <= MAX_SEED_TEMPLATES_PER_DIFF) return
+  throw new ConvexError({
+    code: CONVEX_ERROR_CODES.invalidState,
+    message: `seed release exceeds template read limit: ${releaseId ?? 'unknown'}`,
+  })
+}
+
+const buildSeedReleaseDiagnostics = async (
+  ctx: MutationCtx,
+  datasetKey: string,
+  releaseId: string,
+  expectedTotals: {
+    templateCount: number
+    itemCount: number
+    criterionCount: number
+  }
+): Promise<SeedDiagnosticRow[]> =>
+{
+  const diagnostics: SeedDiagnosticRow[] = []
+  const templates = await loadSeedTemplatesForRelease(
+    ctx,
+    datasetKey,
+    releaseId
+  )
+  if (templates.length > MAX_SEED_TEMPLATES_PER_DIFF)
+  {
+    diagnostics.push({
+      code: 'templateLimitExceeded',
+      message: 'release has more templates than seed verification can inspect',
+      path: '$.templates',
+      severity: 'error',
+    })
+    return diagnostics
+  }
+
+  const validTemplateStatuses = new Set<SeedReleaseStatus>([
+    'applied_hidden',
+    'verified',
+    'active',
+  ])
+  let itemCount = 0
+  let criterionCount = 0
+  for (const template of templates)
+  {
+    const templatePath = `$.templates[${template.seedExternalId ?? template._id}]`
+    if (
+      !template.seedReleaseStatus ||
+      !validTemplateStatuses.has(template.seedReleaseStatus)
+    )
+    {
+      diagnostics.push({
+        code: 'invalidTemplateReleaseStatus',
+        message: `template has invalid seed release status: ${template.seedExternalId}`,
+        path: `${templatePath}.seedReleaseStatus`,
+        severity: 'error',
+      })
+    }
+    if (template.coverMediaAssetId !== null)
+    {
+      const coverMedia = await ctx.db.get(template.coverMediaAssetId)
+      if (!coverMedia)
+      {
+        diagnostics.push({
+          code: 'missingCoverMedia',
+          message: `template cover media is missing: ${template.seedExternalId}`,
+          path: `${templatePath}.coverMediaAssetId`,
+          severity: 'error',
+        })
+      }
+    }
+    const items = await ctx.db
+      .query('templateItems')
+      .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+      .take(MAX_SEED_ITEMS_PER_TEMPLATE + 1)
+    if (items.length > MAX_SEED_ITEMS_PER_TEMPLATE)
+    {
+      diagnostics.push({
+        code: 'itemLimitExceeded',
+        message: `template item count exceeds seed verification limit: ${template.seedExternalId}`,
+        path: `${templatePath}.items`,
+        severity: 'error',
+      })
+      continue
+    }
+    itemCount += items.length
+    criterionCount += template.criteria.length
+    if (template.itemCount !== items.length)
+    {
+      diagnostics.push({
+        code: 'templateItemCountMismatch',
+        message: `template itemCount=${template.itemCount} but has ${items.length} item rows`,
+        path: `${templatePath}.itemCount`,
+        severity: 'error',
+      })
+    }
+    for (const item of items)
+    {
+      if (item.mediaAssetId === null)
+      {
+        diagnostics.push({
+          code: 'missingItemMedia',
+          message: `template item has no media: ${item.externalId}`,
+          path: `${templatePath}.items[${item.externalId}].mediaAssetId`,
+          severity: 'error',
+        })
+        continue
+      }
+      const media = await ctx.db.get(item.mediaAssetId)
+      if (!media)
+      {
+        diagnostics.push({
+          code: 'missingItemMediaAsset',
+          message: `template item media asset is missing: ${item.externalId}`,
+          path: `${templatePath}.items[${item.externalId}].mediaAssetId`,
+          severity: 'error',
+        })
+      }
+    }
+  }
+
+  const actual = {
+    templateCount: templates.length,
+    itemCount,
+    criterionCount,
+  }
+  for (const key of Object.keys(actual) as (keyof typeof actual)[])
+  {
+    if (actual[key] === expectedTotals[key]) continue
+    diagnostics.push({
+      code: `${key}Mismatch`,
+      message: `${key} expected ${expectedTotals[key]} but found ${actual[key]}`,
+      path: `$.totals.${key}`,
+      severity: 'error',
+    })
+  }
+  return diagnostics
+}
+
+const assertSeedCompiledTotals = (totals: Record<string, number>): void =>
+{
+  for (const [key, value] of Object.entries(totals))
+  {
+    assertNonnegativeInteger(`expectedTotals.${key}`, value)
+  }
+}
+
+const hasErrorDiagnostics = (
+  diagnostics: readonly SeedDiagnosticRow[]
+): boolean => diagnostics.some((diagnostic) => diagnostic.severity === 'error')
+
+const setSeedRunStatus = async (
+  ctx: MutationCtx,
+  run: Doc<'seedRuns'>,
+  status: Doc<'seedRuns'>['status'],
+  error: string | null = null,
+  now = Date.now()
+): Promise<void> =>
+{
+  const terminalStatuses = new Set<Doc<'seedRuns'>['status']>([
+    'active',
+    'verified',
+    'failed',
+    'rolled_back',
+  ])
+  await ctx.db.patch(run._id, {
+    status,
+    error,
+    finishedAt: terminalStatuses.has(status) ? now : run.finishedAt,
+  })
+}
+
+const publishSeedReleaseTemplates = async (
+  ctx: MutationCtx,
+  templates: readonly Doc<'templates'>[],
+  now: number
+): Promise<void> =>
+{
+  assertSeedTemplateReadLimit(templates, templates[0]?.seedReleaseId)
+  const deltas: { category: Doc<'templates'>['category']; delta: number }[] = []
+  for (const template of templates)
+  {
+    const state = buildTemplateStateFields(
+      template.itemCount,
+      template.visibility,
+      'published'
+    )
+    if (!template.isPubliclyListable && state.isPubliclyListable)
+    {
+      deltas.push({ category: template.category, delta: 1 })
+    }
+    const next = await patchTemplateAndSyncCard(ctx, template, {
+      ...state,
+      seedReleaseStatus: 'active',
+      updatedAt: now,
+    })
+    await syncTemplateTagRows(ctx, next)
+  }
+  await adjustPublicTemplateCount(ctx, deltas)
+}
+
+const rollBackSeedReleaseTemplates = async (
+  ctx: MutationCtx,
+  templates: readonly Doc<'templates'>[],
+  now: number
+): Promise<void> =>
+{
+  assertSeedTemplateReadLimit(templates, templates[0]?.seedReleaseId)
+  for (const template of templates)
+  {
+    const next = await markTemplateNotPublic(
+      ctx,
+      template,
+      now,
+      'unpublished',
+      { clearSourceBoard: false }
+    )
+    await patchTemplateAndSyncCard(ctx, next, {
+      seedReleaseStatus: 'rolled_back',
+      updatedAt: now,
+    })
+  }
+}
+
+const activateSeedReleaseInternal = async (
+  ctx: MutationCtx,
+  params: {
+    datasetKey: string
+    releaseId: string
+    run: Doc<'seedRuns'>
+    previousReleaseId: string | null
+    requireVerified: boolean
+  }
+): Promise<{ activeReleaseId: string; previousReleaseId: string | null }> =>
+{
+  if (
+    params.requireVerified &&
+    params.run.status !== 'verified' &&
+    params.run.status !== 'active'
+  )
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'seed release must be verified before activation',
+    })
+  }
+  const currentActive = await resolveActiveReleaseId(ctx, params.datasetKey)
+  if (currentActive === params.releaseId)
+  {
+    const targetTemplates = await loadSeedTemplatesForRelease(
+      ctx,
+      params.datasetKey,
+      params.releaseId
+    )
+    if (targetTemplates.length === 0)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `seed release has no templates: ${params.releaseId}`,
+      })
+    }
+    const now = Date.now()
+    await publishSeedReleaseTemplates(ctx, targetTemplates, now)
+    await setSeedRunStatus(ctx, params.run, 'active', null, now)
+    return {
+      activeReleaseId: params.releaseId,
+      previousReleaseId: currentActive,
+    }
+  }
+  if (currentActive !== params.previousReleaseId)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'active seed release changed since preflight',
+    })
+  }
+  const targetTemplates = await loadSeedTemplatesForRelease(
+    ctx,
+    params.datasetKey,
+    params.releaseId
+  )
+  if (targetTemplates.length === 0)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.notFound,
+      message: `seed release has no templates: ${params.releaseId}`,
+    })
+  }
+
+  const now = Date.now()
+  if (currentActive && currentActive !== params.releaseId)
+  {
+    const previousTemplates = await loadSeedTemplatesForRelease(
+      ctx,
+      params.datasetKey,
+      currentActive
+    )
+    await rollBackSeedReleaseTemplates(ctx, previousTemplates, now)
+    const activeRuns = await ctx.db
+      .query('seedRuns')
+      .withIndex('byDatasetStatusStartedAt', (q) =>
+        q.eq('datasetKey', params.datasetKey).eq('status', 'active')
+      )
+      .take(MAX_SEED_TEMPLATES_PER_DIFF)
+    await Promise.all(
+      activeRuns
+        .filter((run) => run.releaseId !== params.releaseId)
+        .map((run) => setSeedRunStatus(ctx, run, 'rolled_back', null, now))
+    )
+  }
+
+  await publishSeedReleaseTemplates(ctx, targetTemplates, now)
+  await setSeedRunStatus(ctx, params.run, 'active', null, now)
+  return {
+    activeReleaseId: params.releaseId,
+    previousReleaseId: currentActive,
+  }
+}
 
 export const beginSeedRun = mutation({
   args: {
@@ -1798,17 +2211,9 @@ export const upsertSeedCriteria = mutation({
       for (const existing of template.criteria)
       {
         if (seen.has(existing.externalId)) continue
-        if (existing.status !== 'hidden' || existing.isPrimary)
-        {
-          deactivated.push({
-            templateExternalId,
-            criterionExternalId: existing.externalId,
-          })
-        }
-        nextCriteria.push({
-          ...existing,
-          isPrimary: false,
-          status: 'hidden',
+        deactivated.push({
+          templateExternalId,
+          criterionExternalId: existing.externalId,
         })
       }
 
@@ -1824,6 +2229,173 @@ export const upsertSeedCriteria = mutation({
       })
     }
     return { created, updated, unchanged, deactivated }
+  },
+})
+
+export const verifySeedRelease = mutation({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    expectedTotals: seedCompiledTotalsValidator,
+  },
+  returns: v.object({
+    verified: v.boolean(),
+    diagnostics: v.array(seedDiagnosticValidator),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ verified: boolean; diagnostics: SeedDiagnosticRow[] }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertSeedCompiledTotals(args.expectedTotals)
+    const run = await loadSeedRunOrThrow(
+      ctx,
+      args.datasetKey,
+      args.releaseId,
+      args.runId
+    )
+    const diagnostics = await buildSeedReleaseDiagnostics(
+      ctx,
+      args.datasetKey,
+      args.releaseId,
+      args.expectedTotals
+    )
+    const verified = !hasErrorDiagnostics(diagnostics)
+    if (verified)
+    {
+      if (run.status !== 'active')
+      {
+        await setSeedRunStatus(ctx, run, 'verified')
+      }
+      return { verified, diagnostics }
+    }
+
+    await setSeedRunStatus(
+      ctx,
+      run,
+      'failed',
+      `seed verification failed: ${diagnostics.length} diagnostics`
+    )
+    return { verified, diagnostics }
+  },
+})
+
+export const activateSeedRelease = mutation({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    previousReleaseId: v.union(v.string(), v.null()),
+    confirm: v.literal(true),
+  },
+  returns: v.object({
+    activeReleaseId: v.string(),
+    previousReleaseId: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args): Promise<SeedActivateReleaseOutput> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    const run = await loadSeedRunOrThrow(
+      ctx,
+      args.datasetKey,
+      args.releaseId,
+      args.runId
+    )
+    return await activateSeedReleaseInternal(ctx, {
+      datasetKey: args.datasetKey,
+      releaseId: args.releaseId,
+      run,
+      previousReleaseId: args.previousReleaseId,
+      requireVerified: true,
+    })
+  },
+})
+
+export const rollbackSeedRelease = mutation({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    targetReleaseId: v.string(),
+    confirm: v.literal(true),
+  },
+  returns: v.object({
+    activeReleaseId: v.string(),
+    rolledBackReleaseId: v.string(),
+  }),
+  handler: async (ctx, args): Promise<SeedRollbackReleaseOutput> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertNonemptyString('targetReleaseId', args.targetReleaseId)
+    if (args.releaseId === args.targetReleaseId)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: 'rollback target must differ from releaseId',
+      })
+    }
+
+    const run = await loadSeedRunOrThrow(
+      ctx,
+      args.datasetKey,
+      args.releaseId,
+      args.runId
+    )
+    const currentActive = await resolveActiveReleaseId(ctx, args.datasetKey)
+    if (currentActive === args.targetReleaseId)
+    {
+      await setSeedRunStatus(ctx, run, 'rolled_back')
+      return {
+        activeReleaseId: args.targetReleaseId,
+        rolledBackReleaseId: args.releaseId,
+      }
+    }
+    if (currentActive !== args.releaseId)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'rollback release is not the current active release',
+      })
+    }
+
+    const targetRun = await loadLatestSeedRunForRelease(
+      ctx,
+      args.datasetKey,
+      args.targetReleaseId
+    )
+    if (!targetRun || targetRun.status === 'failed')
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `rollback target has no restorable seed run: ${args.targetReleaseId}`,
+      })
+    }
+    const activated = await activateSeedReleaseInternal(ctx, {
+      datasetKey: args.datasetKey,
+      releaseId: args.targetReleaseId,
+      run: targetRun,
+      previousReleaseId: args.releaseId,
+      requireVerified: false,
+    })
+    await setSeedRunStatus(ctx, run, 'rolled_back')
+    return {
+      activeReleaseId: activated.activeReleaseId,
+      rolledBackReleaseId: args.releaseId,
+    }
   },
 })
 

@@ -422,6 +422,11 @@ export default defineSchema({
   })
     .index('byRunId', ['runId'])
     .index('byDatasetReleaseRun', ['datasetKey', 'releaseId', 'runId'])
+    .index('byDatasetReleaseStartedAt', [
+      'datasetKey',
+      'releaseId',
+      'startedAt',
+    ])
     .index('byDatasetStatusStartedAt', ['datasetKey', 'status', 'startedAt']),
 
   // helper table for tag filtering. one row per (template, tag); denormalized
