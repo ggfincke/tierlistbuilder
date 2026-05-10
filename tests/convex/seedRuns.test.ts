@@ -179,6 +179,18 @@ describe('seed run precheck API', () =>
     ).rejects.toThrow(/seeding is disabled/)
 
     enableSeedApi()
+    await expect(
+      t.mutation(api.marketplace.seedRuns.beginSeedRun, {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'bad-run',
+        templateCount: -1,
+        itemCount: 5,
+        imageVariantCount: 10,
+      })
+    ).rejects.toThrow(/templateCount must be a nonnegative integer/)
+
     const first = await t.mutation(api.marketplace.seedRuns.beginSeedRun, {
       seedSecret: SEED_SECRET,
       datasetKey: DATASET,

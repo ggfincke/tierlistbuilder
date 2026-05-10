@@ -167,6 +167,28 @@ const assertBatchSize = (name: string, count: number): void =>
   }
 }
 
+const assertNonemptyString = (name: string, value: string): void =>
+{
+  if (value.trim().length === 0)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `${name} must be nonempty`,
+    })
+  }
+}
+
+const assertNonnegativeInteger = (name: string, value: number): void =>
+{
+  if (!Number.isInteger(value) || value < 0)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `${name} must be a nonnegative integer`,
+    })
+  }
+}
+
 const summarizeRun = (run: Doc<'seedRuns'>): SeedRunSummary => ({
   runId: run.runId,
   datasetKey: run.datasetKey,
@@ -446,6 +468,12 @@ export const beginSeedRun = mutation({
   handler: async (ctx, args): Promise<SeedBeginRunOutput> =>
   {
     requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertNonnegativeInteger('templateCount', args.templateCount)
+    assertNonnegativeInteger('itemCount', args.itemCount)
+    assertNonnegativeInteger('imageVariantCount', args.imageVariantCount)
     const existing = await ctx.db
       .query('seedRuns')
       .withIndex('byRunId', (q) => q.eq('runId', args.runId))
