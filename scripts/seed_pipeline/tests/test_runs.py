@@ -126,7 +126,6 @@ class SeedRunPayloadTests(unittest.TestCase):
                     {"mediaDedupeHash": dedupe_hash}
                     for dedupe_hash in _compiled_asset_dedupe_hashes(self.compiled)
                 ],
-                "absentFromManifest": [],
             }
             clients: list[FakeSeedClient] = []
 
@@ -199,6 +198,8 @@ class FakeSeedClient:
     def __init__(self, state: dict[str, object]) -> None:
         self.state = state
         self.mutations: list[tuple[str, dict[str, object]]] = []
+        self.actions: list[tuple[str, dict[str, object]]] = []
+        self.settings = FakeSeedSettings()
 
     def query(self, _function_path: str, _args: dict[str, object]) -> dict[str, object]:
         return self.state
@@ -209,7 +210,17 @@ class FakeSeedClient:
         self.mutations.append((function_path, args))
         if function_path == "marketplace/seedRuns:beginSeedRun":
             return {"run": {"runId": args["runId"], "status": "building"}}
-        if function_path == "marketplace/seedRuns:verifySeedRelease":
+        if function_path == "marketplace/seedRuns:verifySeedReleaseChunk":
+            template_external_ids = args["templateExternalIds"]
+            return {
+                "diagnostics": [],
+                "totals": {
+                    "templateCount": len(template_external_ids),
+                    "itemCount": 0,
+                    "criterionCount": 0,
+                },
+            }
+        if function_path == "marketplace/seedRuns:completeSeedReleaseVerification":
             return {"verified": True, "diagnostics": []}
         if function_path == "marketplace/seedRuns:activateSeedRelease":
             return {
@@ -217,6 +228,14 @@ class FakeSeedClient:
                 "previousReleaseId": args["previousReleaseId"],
             }
         return {"created": [], "updated": [], "unchanged": []}
+
+    def action(self, function_path: str, args: dict[str, object]) -> dict[str, object]:
+        self.actions.append((function_path, args))
+        return {"created": False}
+
+
+class FakeSeedSettings:
+    author_password = "test-author-password"
 
 
 def _compiled_asset_dedupe_hashes(compiled: dict[str, object]) -> set[str]:

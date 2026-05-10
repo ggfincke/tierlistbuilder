@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from seed_pipeline.assets import build_variant, inspect_source
+from seed_pipeline.assets import _source_mime_type, build_variant, inspect_source
 from seed_pipeline.settings import (
     PREVIEW_MAX_BYTES,
     PREVIEW_MAX_SIZE,
@@ -34,6 +34,22 @@ class AssetBuildTests(unittest.TestCase):
             second_mtime = Path(second["path"]).stat().st_mtime_ns
         self.assertEqual(first["path"], second["path"])
         self.assertEqual(first_mtime, second_mtime)
+
+    def test_build_variant_regenerates_corrupt_cache_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = _write_source_image(root)
+            source = inspect_source(source_path, root)
+            variants_dir = root / ".seed-cache" / "variants"
+            first = build_variant(source.path, source.sha256, "tile", variants_dir)
+            output_path = Path(first["path"])
+            output_path.write_bytes(b"")
+
+            second = build_variant(source.path, source.sha256, "tile", variants_dir)
+            regenerated_size = Path(second["path"]).stat().st_size
+
+        self.assertEqual(first["path"], second["path"])
+        self.assertGreater(regenerated_size, 0)
 
     def test_variant_spec_version_changes_output_path(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -66,6 +82,9 @@ class AssetBuildTests(unittest.TestCase):
         self.assertLessEqual(preview["byteSize"], PREVIEW_MAX_BYTES)
         self.assertLessEqual(preview["width"], PREVIEW_MAX_SIZE)
         self.assertLessEqual(preview["height"], PREVIEW_MAX_SIZE)
+
+    def test_mpo_sources_are_treated_as_jpeg(self) -> None:
+        self.assertEqual(_source_mime_type("MPO"), "image/jpeg")
 
 
 def _write_source_image(root: Path, size: tuple[int, int] = (64, 64)) -> Path:

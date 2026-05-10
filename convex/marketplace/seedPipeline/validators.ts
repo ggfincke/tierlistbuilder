@@ -216,13 +216,6 @@ export const seedCriterionUpsertOutputValidator = v.object({
   deactivated: v.array(seedTemplateCriterionKeyValidator),
 })
 
-export const seedRemovalCandidateValidator = v.object({
-  templateExternalId: v.string(),
-  itemExternalId: v.optional(v.string()),
-  criterionExternalId: v.optional(v.string()),
-  action: v.literal('absentFromRelease'),
-})
-
 export const resolveStateArgsValidator = {
   datasetKey: v.string(),
   releaseId: v.string(),
@@ -239,5 +232,4 @@ export const resolveStateOutputValidator = v.object({
   items: v.array(seedResolvedItemValidator),
   criteria: v.array(seedResolvedCriterionValidator),
   media: v.array(seedResolvedMediaValidator),
-  absentFromManifest: v.array(seedRemovalCandidateValidator),
 })

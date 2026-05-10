@@ -229,6 +229,55 @@ const seedMediaAssetWithTileAndPreview = async (
     return { mediaAssetId, dedupeHash }
   })
 
+const runChunkedSeedVerification = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  args: {
+    datasetKey: string
+    releaseId: string
+    runId: string
+    templateExternalIds: readonly string[]
+    expectedTotals: {
+      templateCount: number
+      itemCount: number
+      criterionCount: number
+      sourceImageCount: number
+      variantCount: number
+      estimatedUploadBytes: number
+      estimatedStorageBytes: number
+    }
+  }
+): Promise<{
+  verified: boolean
+  diagnostics: Array<{
+    code: string
+    message: string
+    path: string
+    severity: 'warning' | 'error'
+  }>
+}> =>
+{
+  const chunk = await t.mutation(
+    internal.marketplace.seedRuns.verifySeedReleaseChunk,
+    {
+      datasetKey: args.datasetKey,
+      releaseId: args.releaseId,
+      runId: args.runId,
+      templateExternalIds: [...args.templateExternalIds],
+    }
+  )
+  return await t.mutation(
+    internal.marketplace.seedRuns.completeSeedReleaseVerification,
+    {
+      datasetKey: args.datasetKey,
+      releaseId: args.releaseId,
+      runId: args.runId,
+      expectedTotals: args.expectedTotals,
+      actualTotals: chunk.totals,
+      diagnostics: chunk.diagnostics,
+    }
+  )
+}
+
 const seedRunRow = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
   releaseId: string,
@@ -352,7 +401,7 @@ describe('seed run precheck API', () =>
     expect(second.value.run).toEqual(first.value.run)
   })
 
-  it('resolves active release, external IDs, criteria, and absent rows', async () =>
+  it('resolves active release, external IDs, and criteria for the manifest scope', async () =>
   {
     const t = makeTest()
     const authorId = await seedUser(t, AUTHOR_EMAIL)
@@ -360,14 +409,7 @@ describe('seed run precheck API', () =>
       t,
       authorId,
       'gaming:ssbu-fighters',
-      ['mario', 'absent-item'],
-      RELEASE
-    )
-    await seedTemplateWithItem(
-      t,
-      authorId,
-      'gaming:old-template',
-      ['old'],
+      ['mario'],
       RELEASE
     )
     await seedRunRow(t, '2026-04-old-release', 'active', 'active-run')
@@ -404,19 +446,6 @@ describe('seed run precheck API', () =>
     expect(state.criteria).toMatchObject([
       { criterionExternalId: 'competitive', name: 'Competitive' },
     ])
-    expect(state.absentFromManifest).toEqual(
-      expect.arrayContaining([
-        {
-          templateExternalId: 'gaming:ssbu-fighters',
-          itemExternalId: 'absent-item',
-          action: 'absentFromRelease',
-        },
-        {
-          templateExternalId: 'gaming:old-template',
-          action: 'absentFromRelease',
-        },
-      ])
-    )
   })
 
   it('resolves media hashes only for the seed author', async () =>
@@ -952,23 +981,21 @@ describe('seed run precheck API', () =>
       ],
     })
 
-    const verified = await t.mutation(
-      internal.marketplace.seedRuns.verifySeedRelease,
-      {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'run-activation',
-        expectedTotals: {
-          templateCount: 1,
-          itemCount: 2,
-          criterionCount: 1,
-          sourceImageCount: 3,
-          variantCount: 6,
-          estimatedUploadBytes: 0,
-          estimatedStorageBytes: 0,
-        },
-      }
-    )
+    const verified = await runChunkedSeedVerification(t, {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-activation',
+      templateExternalIds: ['gaming:ssbu-fighters'],
+      expectedTotals: {
+        templateCount: 1,
+        itemCount: 2,
+        criterionCount: 1,
+        sourceImageCount: 3,
+        variantCount: 6,
+        estimatedUploadBytes: 0,
+        estimatedStorageBytes: 0,
+      },
+    })
     expect(verified).toEqual({ verified: true, diagnostics: [] })
     await expect(
       t.mutation(internal.marketplace.seedRuns.activateSeedRelease, {
@@ -1162,23 +1189,21 @@ describe('seed run precheck API', () =>
       movies: 1,
     })
 
-    const failedActiveVerify = await t.mutation(
-      internal.marketplace.seedRuns.verifySeedRelease,
-      {
-        datasetKey: DATASET,
-        releaseId: RELEASE,
-        runId: 'run-activation',
-        expectedTotals: {
-          templateCount: 1,
-          itemCount: 99,
-          criterionCount: 1,
-          sourceImageCount: 3,
-          variantCount: 6,
-          estimatedUploadBytes: 0,
-          estimatedStorageBytes: 0,
-        },
-      }
-    )
+    const failedActiveVerify = await runChunkedSeedVerification(t, {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-activation',
+      templateExternalIds: ['gaming:ssbu-fighters'],
+      expectedTotals: {
+        templateCount: 1,
+        itemCount: 99,
+        criterionCount: 1,
+        sourceImageCount: 3,
+        variantCount: 6,
+        estimatedUploadBytes: 0,
+        estimatedStorageBytes: 0,
+      },
+    })
     const activeRunAfterFailedVerify = await t.run(
       async (ctx) =>
         await ctx.db

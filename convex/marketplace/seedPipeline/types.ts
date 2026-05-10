@@ -16,13 +16,6 @@ import type {
   SeedTemplateUpsert,
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 
-export type SeedRemovalCandidate = {
-  templateExternalId: string
-  itemExternalId?: string
-  criterionExternalId?: string
-  action: 'absentFromRelease'
-}
-
 export type SeedResolvedTemplateRow = {
   externalId: string
   releaseId: string | null
@@ -41,7 +34,6 @@ export type SeedResolveStateResult = {
   items: SeedResolvedItem[]
   criteria: SeedResolvedCriterion[]
   media: SeedResolvedMedia[]
-  absentFromManifest: SeedRemovalCandidate[]
 }
 
 export type SeedUploadVariantKind = Extract<

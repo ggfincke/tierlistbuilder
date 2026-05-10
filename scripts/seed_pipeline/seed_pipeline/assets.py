@@ -81,7 +81,7 @@ def inspect_source(source_path: Path, repo_root: Path) -> SourceAsset:
         msg = f"source image exceeds byte limit: {resolved}"
         raise ValueError(msg)
     with Image.open(resolved) as image:
-        mime_type = Image.MIME.get(image.format or "")
+        mime_type = _source_mime_type(image.format)
         if mime_type is None:
             msg = f"unsupported image format: {resolved}"
             raise ValueError(msg)
@@ -103,6 +103,12 @@ def inspect_source(source_path: Path, repo_root: Path) -> SourceAsset:
     )
 
 
+def _source_mime_type(format_name: str | None) -> str | None:
+    if format_name == "MPO":
+        return "image/jpeg"
+    return Image.MIME.get(format_name or "")
+
+
 def build_variant(
     source_path: Path,
     source_sha256: str,
@@ -116,12 +122,17 @@ def build_variant(
     # fingerprint includes spec/settings so future policy changes miss old cache files
     cache_fingerprint = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
     output_path = variants_dir / f"{source_sha256}-{cache_fingerprint}-{kind}.{suffix}"
-    # reuse cache file when exact source + spec + kind + settings already exist
+    # reuse cache file when exact source + spec + kind + settings already exist.
+    # interrupted runs can leave a zero-byte or partial file, so verify before
+    # trusting a hit and regenerate once if Pillow cannot reopen it.
     if not output_path.is_file():
         _write_variant(source_path, output_path, kind)
-    with Image.open(output_path) as image:
-        width, height = image.size
-        mime_type = Image.MIME.get(image.format or "")
+    try:
+        width, height, mime_type = _inspect_variant(output_path)
+    except OSError:
+        output_path.unlink(missing_ok=True)
+        _write_variant(source_path, output_path, kind)
+        width, height, mime_type = _inspect_variant(output_path)
     byte_size = output_path.stat().st_size
     _assert_variant_policy(kind, byte_size, width, height, output_path)
     return {
@@ -134,6 +145,13 @@ def build_variant(
         "height": height,
         "cacheKey": cache_key,
     }
+
+
+def _inspect_variant(path: Path) -> tuple[int, int, str | None]:
+    with Image.open(path) as image:
+        width, height = image.size
+        mime_type = Image.MIME.get(image.format or "")
+    return width, height, mime_type
 
 
 def sha256_file(path: Path) -> str:

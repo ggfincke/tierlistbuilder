@@ -9,7 +9,7 @@ import {
   internalQuery,
 } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
-import { internal } from '../_generated/api'
+import { api, internal } from '../_generated/api'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { MAX_IMAGE_BYTE_SIZE } from '@tierlistbuilder/contracts/platform/media'
 import type {
@@ -45,20 +45,21 @@ import {
   validateTemplateCriteria,
 } from './templates/criteria'
 import { activateSeedReleaseInternal } from './seedPipeline/activation'
-import { buildSeedReleaseDiagnostics } from './seedPipeline/diagnostics'
+import {
+  appendExpectedTotalsDiagnostics,
+  buildSeedReleaseDiagnosticsForTemplates,
+} from './seedPipeline/diagnostics'
 import {
   buildSeedMediaAssetIdByDedupeHashCache,
   finalizeSeedMediaAsset,
   resolveSeedMediaAssetIdByDedupeHash,
 } from './seedPipeline/media'
 import {
-  keySetByTemplate,
   resolveActiveReleaseIds,
   resolveCriteria,
   resolveItems,
   resolveMediaForAuthor,
   resolveTemplates,
-  resolveAbsentFromManifest,
   toResolvedTemplate,
 } from './seedPipeline/resolvers'
 import {
@@ -110,6 +111,12 @@ import {
   seedUploadedMediaAssetValidator,
 } from './seedPipeline/validators'
 
+const seedReleaseDiagnosticTotalsValidator = v.object({
+  templateCount: v.number(),
+  itemCount: v.number(),
+  criterionCount: v.number(),
+})
+
 const pushPublicTemplateTransition = (
   deltas: { category: Doc<'templates'>['category']; delta: number }[],
   previous: Pick<Doc<'templates'>, 'category' | 'isPubliclyListable'> | null,
@@ -139,6 +146,30 @@ export const findSeedAuthorIdByEmail = internalQuery({
   returns: v.union(v.id('users'), v.null()),
   handler: async (ctx, args): Promise<Id<'users'> | null> =>
     await findSeedAuthorId(ctx, args.email),
+})
+
+export const ensureSeedAuthor = internalAction({
+  args: { email: v.string(), password: v.string() },
+  returns: v.object({ created: v.boolean() }),
+  handler: async (ctx, args): Promise<{ created: boolean }> =>
+  {
+    assertNonemptyString('email', args.email)
+    assertNonemptyString('password', args.password)
+    const existing = await ctx.runQuery(
+      internal.marketplace.templates.seed.getSeedUserStatusImpl,
+      { email: args.email }
+    )
+    if (existing.accountExists) return { created: false }
+    await ctx.runAction(api.auth.signIn, {
+      provider: 'password',
+      params: {
+        email: args.email,
+        password: args.password,
+        flow: 'signUp',
+      },
+    })
+    return { created: true }
+  },
 })
 
 export const findSeedMediaByOwnerAndDedupeHash = internalQuery({
@@ -758,12 +789,41 @@ export const upsertSeedCriteria = internalMutation({
   },
 })
 
-export const verifySeedRelease = internalMutation({
+export const verifySeedReleaseChunk = internalMutation({
+  args: {
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    templateExternalIds: v.array(v.string()),
+  },
+  returns: v.object({
+    diagnostics: v.array(seedDiagnosticValidator),
+    totals: seedReleaseDiagnosticTotalsValidator,
+  }),
+  handler: async (ctx, args) =>
+  {
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertBatchSize('templateExternalIds', args.templateExternalIds.length)
+    await loadSeedRunOrThrow(ctx, args.datasetKey, args.releaseId, args.runId)
+    return await buildSeedReleaseDiagnosticsForTemplates(
+      ctx,
+      args.datasetKey,
+      args.releaseId,
+      args.templateExternalIds
+    )
+  },
+})
+
+export const completeSeedReleaseVerification = internalMutation({
   args: {
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
     expectedTotals: seedCompiledTotalsValidator,
+    actualTotals: seedReleaseDiagnosticTotalsValidator,
+    diagnostics: v.array(seedDiagnosticValidator),
   },
   returns: v.object({
     verified: v.boolean(),
@@ -781,10 +841,10 @@ export const verifySeedRelease = internalMutation({
       args.releaseId,
       args.runId
     )
-    const diagnostics = await buildSeedReleaseDiagnostics(
-      ctx,
-      args.datasetKey,
-      args.releaseId,
+    const diagnostics = [...args.diagnostics]
+    appendExpectedTotalsDiagnostics(
+      diagnostics,
+      args.actualTotals,
       args.expectedTotals
     )
     const verified = !hasErrorDiagnostics(diagnostics)
@@ -955,28 +1015,11 @@ export const resolveSeedState = internalQuery({
       args.templateExternalIds
     )
     const authorId = await findSeedAuthorId(ctx, args.authorEmail)
-    const itemMap = keySetByTemplate(
-      args.itemExternalIds,
-      (key) => key.itemExternalId
-    )
-    const criterionMap = keySetByTemplate(
-      args.criterionExternalIds,
-      (key) => key.criterionExternalId
-    )
-    const [items, media, activeReleaseIds, absentFromManifest] =
-      await Promise.all([
-        resolveItems(ctx, templates, args.itemExternalIds),
-        resolveMediaForAuthor(ctx, authorId, args.variantHashes),
-        resolveActiveReleaseIds(ctx, args.datasetKey),
-        resolveAbsentFromManifest(
-          ctx,
-          args.datasetKey,
-          args.releaseId,
-          new Set(args.templateExternalIds),
-          itemMap,
-          criterionMap
-        ),
-      ])
+    const [items, media, activeReleaseIds] = await Promise.all([
+      resolveItems(ctx, templates, args.itemExternalIds),
+      resolveMediaForAuthor(ctx, authorId, args.variantHashes),
+      resolveActiveReleaseIds(ctx, args.datasetKey),
+    ])
 
     return {
       activeReleaseId: activeReleaseIds[0] ?? null,
@@ -984,7 +1027,6 @@ export const resolveSeedState = internalQuery({
       items,
       criteria: resolveCriteria(templates, args.criterionExternalIds),
       media,
-      absentFromManifest,
     }
   },
 })

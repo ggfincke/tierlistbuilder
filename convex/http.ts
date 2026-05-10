@@ -127,6 +127,7 @@ const seedRuns = internal.marketplace.seedRuns
 const storageUploads = internal.marketplace.seedPipeline.storageUploads
 
 const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
+  ['/api/seed/ensure-author', 'action', seedRuns.ensureSeedAuthor],
   ['/api/seed/begin', 'mutation', seedRuns.beginSeedRun],
   ['/api/seed/state', 'query', seedRuns.resolveSeedState],
   ['/api/seed/media-by-hashes', 'query', seedRuns.resolveSeedMediaByHashes],
@@ -141,7 +142,12 @@ const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
   ['/api/seed/upsert-templates', 'mutation', seedRuns.upsertSeedTemplates],
   ['/api/seed/sync-template-items', 'mutation', seedRuns.syncSeedTemplateItems],
   ['/api/seed/upsert-criteria', 'mutation', seedRuns.upsertSeedCriteria],
-  ['/api/seed/verify', 'mutation', seedRuns.verifySeedRelease],
+  ['/api/seed/verify-chunk', 'mutation', seedRuns.verifySeedReleaseChunk],
+  [
+    '/api/seed/complete-verification',
+    'mutation',
+    seedRuns.completeSeedReleaseVerification,
+  ],
   ['/api/seed/activate', 'mutation', seedRuns.activateSeedRelease],
   ['/api/seed/rollback', 'mutation', seedRuns.rollbackSeedRelease],
   ['/api/seed/status', 'query', seedRuns.getSeedRunStatus],

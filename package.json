@@ -21,7 +21,7 @@
     "bundle:report": "node scripts/report-bundle-size.mjs",
     "measure:sync-payload": "tsx scripts/measure-board-sync-payload.ts",
     "audit:drag": "node scripts/drag-audit.mjs",
-    "seed:marketplace": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline run data/seeds/marketplace-core.json",
+    "seed:marketplace": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline run data/seeds/marketplace-core.json --confirm-activation",
     "seed:marketplace:validate": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline validate data/seeds/marketplace-core.json",
     "seed:marketplace:build": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline build data/seeds/marketplace-core.json",
     "seed:marketplace:diff": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline diff data/seeds/marketplace-core.json",

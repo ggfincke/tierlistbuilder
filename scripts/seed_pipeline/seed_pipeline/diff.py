@@ -8,10 +8,21 @@ from typing import Iterable
 
 from .build import build_compiled_manifest_with_data
 from .convex_client import ConvexSeedClient, read_seed_settings
-from .manifest import JsonObject, as_list, read_json
+from .manifest import (
+    JsonObject,
+    as_list,
+    chunk_templates_by_items,
+    chunks,
+    compiled_templates,
+    read_json,
+)
+from .progress import ProgressLogger
 
 
 SEED_STATE_FUNCTION = "marketplace/seedRuns:resolveSeedState"
+SEED_MEDIA_BY_HASHES_FUNCTION = "marketplace/seedRuns:resolveSeedMediaByHashes"
+SEED_STATE_VARIANT_HASH_BATCH_SIZE = 1000
+SEED_STATE_ITEM_BATCH_SIZE = 1500
 
 
 def write_diff_report_for_manifest(
@@ -23,58 +34,172 @@ def write_diff_report_for_manifest(
     seed_secret: str | None = None,
     state_json: Path | None = None,
 ) -> Path:
+    progress = ProgressLogger("diff")
     compiled_path, compiled = build_compiled_manifest_with_data(
-        manifest_path, repo_root, fail_on_warning=fail_on_warning
+        manifest_path,
+        repo_root,
+        fail_on_warning=fail_on_warning,
+        progress=progress,
     )
     if state_json is not None:
         # fixture state keeps diff coverage network-free & deterministic
+        progress.log(f"loading fixture state: {state_json}")
         state = read_json(state_json)
     else:
+        progress.log(f"reading seed state from {env_name}")
         settings = read_seed_settings(repo_root, env_name, convex_url, seed_secret)
-        state = ConvexSeedClient(settings).query(
-            SEED_STATE_FUNCTION,
-            build_state_request(compiled),
-        )
+        state = resolve_seed_state(ConvexSeedClient(settings), compiled, progress)
+    progress.log("building diff report")
     diff = build_seed_diff(compiled, state)
     report_path = compiled_path.parent / "reports" / "diff.md"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(
         render_diff_report(compiled, state, diff, env_name), encoding="utf-8"
     )
+    progress.log(f"diff report written: {report_path}")
     return report_path
 
 
-def build_state_request(compiled: JsonObject) -> JsonObject:
-    templates = as_list(compiled.get("templates"))
-    # request only identities & variant hashes needed for read-side precheck
+def resolve_seed_state(
+    client: ConvexSeedClient,
+    compiled: JsonObject,
+    progress: ProgressLogger | None = None,
+) -> JsonObject:
+    state = client.query(
+        SEED_STATE_FUNCTION,
+        build_state_headline_request(compiled),
+    )
+    state["items"] = _resolve_seed_items(client, compiled, progress)
+    state["media"] = _resolve_seed_media(client, compiled, progress)
+    return state
+
+
+def _resolve_seed_items(
+    client: ConvexSeedClient,
+    compiled: JsonObject,
+    progress: ProgressLogger | None,
+) -> list[JsonObject]:
+    template_chunks = chunk_templates_by_items(
+        compiled_templates(compiled), SEED_STATE_ITEM_BATCH_SIZE
+    )
+    if progress is not None and template_chunks:
+        total_items = sum(
+            len(as_list(template.get("items")))
+            for chunk in template_chunks
+            for template in chunk
+        )
+        progress.log(
+            f"reading item state in {len(template_chunks)} batch(es): "
+            f"{total_items} item ids"
+        )
+    items: list[JsonObject] = []
+    for index, chunk in enumerate(template_chunks, start=1):
+        if progress is not None:
+            chunk_items = sum(
+                len(as_list(template.get("items"))) for template in chunk
+            )
+            progress.count(
+                "item state batches",
+                index,
+                len(template_chunks),
+                suffix=f"{chunk_items} item ids",
+            )
+        response = client.query(
+            SEED_STATE_FUNCTION,
+            build_state_items_request(
+                compiled, [template["externalId"] for template in chunk]
+            ),
+        )
+        items.extend(
+            item for item in as_list(response.get("items")) if isinstance(item, dict)
+        )
+    return items
+
+
+def _resolve_seed_media(
+    client: ConvexSeedClient,
+    compiled: JsonObject,
+    progress: ProgressLogger | None,
+) -> list[JsonObject]:
+    variant_hashes = sorted(_compiled_variant_hashes(compiled))
+    if not variant_hashes:
+        return []
+    media: list[JsonObject] = []
+    hash_chunks = list(chunks(variant_hashes, SEED_STATE_VARIANT_HASH_BATCH_SIZE))
+    if progress is not None:
+        progress.log(
+            f"reading media state in {len(hash_chunks)} batch(es): "
+            f"{len(variant_hashes)} variant hashes"
+        )
+    for index, chunk in enumerate(hash_chunks, start=1):
+        if progress is not None:
+            progress.count(
+                "media state batches",
+                index,
+                len(hash_chunks),
+                suffix=f"{len(chunk)} hashes",
+            )
+        response = client.query(
+            SEED_MEDIA_BY_HASHES_FUNCTION,
+            {"authorEmail": compiled["authorEmail"], "variantHashes": chunk},
+        )
+        media.extend(
+            item for item in as_list(response.get("media")) if isinstance(item, dict)
+        )
+    return media
+
+
+def build_state_headline_request(compiled: JsonObject) -> JsonObject:
+    # fetch templates + criteria identities. items and media come from chunked
+    # follow-up calls so each request stays under Convex's per-function budget.
     return {
         "datasetKey": compiled["datasetKey"],
         "releaseId": compiled["releaseId"],
         "authorEmail": compiled["authorEmail"],
         "templateExternalIds": [
-            template["externalId"] for template in templates if isinstance(template, dict)
+            template["externalId"] for template in compiled_templates(compiled)
+        ],
+        "itemExternalIds": [],
+        "criterionExternalIds": [
+            {
+                "templateExternalId": template["externalId"],
+                "criterionExternalId": criterion["externalId"],
+            }
+            for template in compiled_templates(compiled)
+            for criterion in as_list(template.get("criteria"))
+            if isinstance(criterion, dict)
+        ],
+        "variantHashes": [],
+    }
+
+
+def build_state_items_request(
+    compiled: JsonObject, template_external_ids: list[str]
+) -> JsonObject:
+    selected_ids = set(template_external_ids)
+    selected_templates = [
+        template
+        for template in compiled_templates(compiled)
+        if template["externalId"] in selected_ids
+    ]
+    return {
+        "datasetKey": compiled["datasetKey"],
+        "releaseId": compiled["releaseId"],
+        "authorEmail": compiled["authorEmail"],
+        "templateExternalIds": [
+            template["externalId"] for template in selected_templates
         ],
         "itemExternalIds": [
             {
                 "templateExternalId": template["externalId"],
                 "itemExternalId": item["externalId"],
             }
-            for template in templates
-            if isinstance(template, dict)
+            for template in selected_templates
             for item in as_list(template.get("items"))
             if isinstance(item, dict)
         ],
-        "criterionExternalIds": [
-            {
-                "templateExternalId": template["externalId"],
-                "criterionExternalId": criterion["externalId"],
-            }
-            for template in templates
-            if isinstance(template, dict)
-            for criterion in as_list(template.get("criteria"))
-            if isinstance(criterion, dict)
-        ],
-        "variantHashes": sorted(_compiled_variant_hashes(compiled)),
+        "criterionExternalIds": [],
+        "variantHashes": [],
     }
 
 
@@ -85,7 +210,6 @@ def build_seed_diff(compiled: JsonObject, state: JsonObject) -> JsonObject:
         "items": _diff_items(compiled, state),
         "criteria": _diff_criteria(compiled, state),
         "media": _diff_media(compiled, state),
-        "absentFromManifest": as_list(state.get("absentFromManifest")),
         "activation": {
             "activeReleaseId": state.get("activeReleaseId"),
             "targetReleaseId": compiled["releaseId"],
@@ -129,7 +253,6 @@ def render_diff_report(
     _append_diff_section(lines, "Criteria Unchanged", diff["criteria"]["unchanged"])
     _append_diff_section(lines, "Media Assets Present", media["present"])
     _append_diff_section(lines, "Media Assets Needing Upload", media["missing"])
-    _append_absent_section(lines, diff["absentFromManifest"])
     lines.extend(
         [
             "## Activation Impact",
@@ -313,9 +436,7 @@ def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:
 
 def _compiled_assets(compiled: JsonObject) -> Iterable[JsonObject]:
     # covers & item images share media dedupe/finalization behavior
-    for template in as_list(compiled.get("templates")):
-        if not isinstance(template, dict):
-            continue
+    for template in compiled_templates(compiled):
         cover = template.get("coverImage")
         if isinstance(cover, dict):
             yield cover
@@ -361,23 +482,6 @@ def _append_diff_section(lines: list[str], title: str, entries: list[object]) ->
         return
     for entry in entries:
         lines.append(f"- `{_format_entry(entry)}`")
-    lines.append("")
-
-
-def _append_absent_section(lines: list[str], entries: list[object]) -> None:
-    lines.extend(["## Absent From Manifest", ""])
-    if not entries:
-        lines.extend(["- None", ""])
-        return
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        label = entry["templateExternalId"]
-        if entry.get("itemExternalId"):
-            label = f"{label} / item {entry['itemExternalId']}"
-        if entry.get("criterionExternalId"):
-            label = f"{label} / criterion {entry['criterionExternalId']}"
-        lines.append(f"- `{label}` -> {entry['action']}")
     lines.append("")
 
 
