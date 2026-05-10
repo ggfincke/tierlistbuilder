@@ -77,7 +77,8 @@ const seedTemplateWithItem = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
   authorId: Id<'users'>,
   externalId: string,
-  itemExternalIds: readonly string[]
+  itemExternalIds: readonly string[],
+  releaseId = '2026-04-old-release'
 ): Promise<Id<'templates'>> =>
   await t.run(async (ctx) =>
   {
@@ -92,7 +93,7 @@ const seedTemplateWithItem = async (
     await ctx.db.patch(templateId, {
       seedDatasetKey: DATASET,
       seedExternalId: externalId,
-      seedReleaseId: '2026-04-old-release',
+      seedReleaseId: releaseId,
       seedReleaseStatus: 'active',
       itemAspectRatio: 1,
     })
@@ -254,11 +255,20 @@ describe('seed run precheck API', () =>
   {
     const t = makeTest()
     const authorId = await seedUser(t, AUTHOR_EMAIL)
-    await seedTemplateWithItem(t, authorId, 'gaming:ssbu-fighters', [
-      'mario',
-      'absent-item',
-    ])
-    await seedTemplateWithItem(t, authorId, 'gaming:old-template', ['old'])
+    await seedTemplateWithItem(
+      t,
+      authorId,
+      'gaming:ssbu-fighters',
+      ['mario', 'absent-item'],
+      RELEASE
+    )
+    await seedTemplateWithItem(
+      t,
+      authorId,
+      'gaming:old-template',
+      ['old'],
+      RELEASE
+    )
     await t.run(
       async (ctx) =>
         await ctx.db.insert('seedRuns', {
@@ -298,7 +308,7 @@ describe('seed run precheck API', () =>
 
     expect(state.activeReleaseId).toBe('2026-04-old-release')
     expect(state.templates).toMatchObject([
-      { externalId: 'gaming:ssbu-fighters', releaseId: '2026-04-old-release' },
+      { externalId: 'gaming:ssbu-fighters', releaseId: RELEASE },
     ])
     expect(state.items).toMatchObject([{ itemExternalId: 'mario', order: 0 }])
     expect(state.criteria).toMatchObject([
@@ -400,6 +410,246 @@ describe('seed run precheck API', () =>
     expect(result.urls).toHaveLength(1)
     expect(result.urls[0].contentHash).toBe('hash-a')
     expect(result.urls[0].uploadUrl).toMatch(/^https?:\/\//)
+  })
+
+  it('upserts release-scoped templates, criteria, and items idempotently', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, AUTHOR_EMAIL)
+    const oldTemplateId = await seedTemplateWithItem(
+      t,
+      authorId,
+      'gaming:ssbu-fighters',
+      ['old-release-item']
+    )
+    await seedMediaVariant(t, authorId, 'hash-cover')
+    await seedMediaVariant(t, authorId, 'hash-mario')
+    await seedMediaVariant(t, authorId, 'hash-link')
+
+    enableSeedApi()
+    const templateInput = {
+      seedSecret: SEED_SECRET,
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-apply',
+      authorEmail: AUTHOR_EMAIL,
+      templates: [
+        {
+          externalId: 'gaming:ssbu-fighters',
+          title: 'SSBU roster',
+          category: 'gaming' as const,
+          description: 'Playable fighters.',
+          tags: ['Nintendo', 'smash'],
+          visibility: 'public' as const,
+          coverMediaContentHash: 'hash-cover',
+          coverFraming: null,
+          suggestedTiers: [
+            { name: 'S', colorSpec: { kind: 'palette' as const, index: 0 } },
+          ],
+          itemAspectRatio: 1,
+          itemCount: 2,
+        },
+      ],
+    }
+    const createdTemplates = await t.mutation(
+      api.marketplace.seedRuns.upsertSeedTemplates,
+      templateInput
+    )
+    const unchangedTemplates = await t.mutation(
+      api.marketplace.seedRuns.upsertSeedTemplates,
+      templateInput
+    )
+    const updatedTemplates = await t.mutation(
+      api.marketplace.seedRuns.upsertSeedTemplates,
+      {
+        ...templateInput,
+        templates: [{ ...templateInput.templates[0], title: 'SSBU fighters' }],
+      }
+    )
+
+    expect(createdTemplates).toMatchObject({
+      created: ['gaming:ssbu-fighters'],
+      updated: [],
+      unchanged: [],
+    })
+    expect(unchangedTemplates.unchanged).toEqual(['gaming:ssbu-fighters'])
+    expect(updatedTemplates.updated).toEqual(['gaming:ssbu-fighters'])
+
+    const criteriaResult = await t.mutation(
+      api.marketplace.seedRuns.upsertSeedCriteria,
+      {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-apply',
+        criteria: [
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            criterionExternalId: 'competitive',
+            name: 'Competitive',
+            shortName: 'Comp',
+            prompt: 'Rank by competitive viability.',
+            axisTop: 'Strongest',
+            axisBottom: 'Weakest',
+            order: 0,
+            isPrimary: true,
+            status: 'active' as const,
+          },
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            criterionExternalId: 'favorites',
+            name: 'Favorites',
+            shortName: 'Favs',
+            prompt: 'Rank by preference.',
+            axisTop: 'Favorite',
+            axisBottom: 'Least favorite',
+            order: 1,
+            isPrimary: false,
+            status: 'active' as const,
+          },
+        ],
+      }
+    )
+    expect(criteriaResult.created).toEqual([
+      {
+        templateExternalId: 'gaming:ssbu-fighters',
+        criterionExternalId: 'competitive',
+      },
+      {
+        templateExternalId: 'gaming:ssbu-fighters',
+        criterionExternalId: 'favorites',
+      },
+    ])
+    expect(criteriaResult.deactivated).toEqual([
+      {
+        templateExternalId: 'gaming:ssbu-fighters',
+        criterionExternalId: 'default',
+      },
+    ])
+
+    const firstItems = await t.mutation(
+      api.marketplace.seedRuns.upsertSeedItems,
+      {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-apply',
+        items: [
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            itemExternalId: 'mario',
+            order: 0,
+            label: 'Mario',
+            mediaContentHash: 'hash-mario',
+            aspectRatio: 1,
+            transform: null,
+          },
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            itemExternalId: 'link',
+            order: 1,
+            label: 'Link',
+            mediaContentHash: 'hash-link',
+            aspectRatio: 1,
+            transform: null,
+          },
+        ],
+      }
+    )
+    const sameItems = await t.mutation(
+      api.marketplace.seedRuns.upsertSeedItems,
+      {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-apply',
+        items: [
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            itemExternalId: 'mario',
+            order: 0,
+            label: 'Mario',
+            mediaContentHash: 'hash-mario',
+            aspectRatio: 1,
+            transform: null,
+          },
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            itemExternalId: 'link',
+            order: 1,
+            label: 'Link',
+            mediaContentHash: 'hash-link',
+            aspectRatio: 1,
+            transform: null,
+          },
+        ],
+      }
+    )
+    const changedItems = await t.mutation(
+      api.marketplace.seedRuns.upsertSeedItems,
+      {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-apply',
+        items: [
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            itemExternalId: 'mario',
+            order: 1,
+            label: 'Super Mario',
+            mediaContentHash: 'hash-mario',
+            aspectRatio: 1,
+            transform: null,
+          },
+        ],
+      }
+    )
+
+    expect(firstItems.created).toHaveLength(2)
+    expect(sameItems.unchanged).toHaveLength(2)
+    expect(changedItems.moved).toEqual([
+      { templateExternalId: 'gaming:ssbu-fighters', itemExternalId: 'mario' },
+    ])
+    expect(changedItems.updated).toEqual([
+      { templateExternalId: 'gaming:ssbu-fighters', itemExternalId: 'mario' },
+    ])
+    expect(changedItems.absentFromRelease).toEqual([
+      { templateExternalId: 'gaming:ssbu-fighters', itemExternalId: 'link' },
+    ])
+
+    const rows = await t.run(async (ctx) =>
+    {
+      const target = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      const old = await ctx.db.get(oldTemplateId)
+      const targetItems = target
+        ? await ctx.db
+            .query('templateItems')
+            .withIndex('byTemplate', (q) => q.eq('templateId', target._id))
+            .collect()
+        : []
+      return { old, target, targetItems }
+    })
+    expect(rows.old?.seedReleaseId).toBe('2026-04-old-release')
+    expect(rows.target).toMatchObject({
+      seedReleaseId: RELEASE,
+      title: 'SSBU fighters',
+      publicationState: 'unpublished',
+      isPubliclyListable: false,
+      itemCount: 1,
+    })
+    expect(rows.targetItems).toMatchObject([
+      { externalId: 'mario', label: 'Super Mario', order: 1 },
+    ])
+    expect(rows.target?.coverItems).toHaveLength(1)
   })
 
   it('finalizes, reuses, rejects, and cleans seed uploads', async () =>

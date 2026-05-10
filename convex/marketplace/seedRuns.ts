@@ -21,24 +21,50 @@ import {
 } from '@tierlistbuilder/contracts/platform/media'
 import type {
   SeedBeginRunOutput,
+  SeedCriterionUpsert,
+  SeedItemUpsert,
   SeedRejectedUpload,
   SeedResolvedCriterion,
   SeedResolvedItem,
   SeedResolvedMedia,
   SeedReleaseStatus,
   SeedRunSummary,
+  SeedTemplateCriterionKey,
+  SeedTemplateItemKey,
+  SeedTemplateUpsert,
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
+import { MAX_TEMPLATE_COVER_ITEMS } from '@tierlistbuilder/contracts/marketplace/template'
 import { parseUploadedImageMetadata } from '../lib/imageValidation'
 import { sha256Hex } from '../lib/sha256'
 import { deleteStorageSilently } from '../lib/storage'
 import {
   imageMimeTypeValidator,
+  itemTransformValidator,
   mediaVariantKindValidator,
   seedReleaseStatusValidator,
   templateCategoryValidator,
+  templateCoverFramingValidator,
   templateCriterionStatusValidator,
+  tierPresetTiersValidator,
   templateVisibilityValidator,
 } from '../lib/validators'
+import {
+  allocateTemplateSlug,
+  buildTemplateStateFields,
+  createTemplateStats,
+  DEFAULT_TEMPLATE_TIERS,
+  normalizeDescription,
+  normalizeTags,
+  normalizeTemplateTitle,
+  patchTemplateAndSyncCard,
+  syncTemplateTagRows,
+  validateTemplateTiers,
+  writeTemplateCard,
+} from './templates/lib'
+import {
+  buildDefaultTemplateCriteria,
+  validateTemplateCriteria,
+} from './templates/criteria'
 import { requireSeedAuthorized } from './seedAuth'
 
 type SeedRemovalCandidate = {
@@ -115,6 +141,39 @@ type SeedFinalizedMediaRow = {
   reused: boolean
 }
 
+type SeedTemplateUpsertArg = SeedTemplateUpsert & {
+  suggestedTiers: Doc<'templates'>['suggestedTiers']
+}
+
+type SeedItemUpsertArg = SeedItemUpsert & {
+  transform: Doc<'templateItems'>['transform']
+}
+
+type SeedCriterionUpsertArg = SeedCriterionUpsert
+
+type SeedTemplateApplyPatch = Pick<
+  Doc<'templates'>,
+  | 'title'
+  | 'description'
+  | 'category'
+  | 'tags'
+  | 'visibility'
+  | 'coverMediaAssetId'
+  | 'coverFraming'
+  | 'suggestedTiers'
+  | 'itemAspectRatio'
+  | 'itemAspectRatioMode'
+  | 'defaultItemImageFit'
+  | 'itemCount'
+  | 'sizeClass'
+  | 'publicationState'
+  | 'isPubliclyListable'
+  | 'seedDatasetKey'
+  | 'seedExternalId'
+  | 'seedReleaseId'
+  | 'seedReleaseStatus'
+>
+
 const MAX_SEED_STATE_IDS = 8192
 const MAX_SEED_TEMPLATES_PER_DIFF = 2048
 const MAX_SEED_ITEMS_PER_TEMPLATE = 4096
@@ -122,6 +181,9 @@ const MAX_MEDIA_VARIANTS_PER_HASH = 64
 const MAX_SEED_UPLOAD_URLS_PER_CALL = 128
 const MAX_SEED_MEDIA_ASSETS_PER_FINALIZE = 64
 const MAX_SEED_STORAGE_IDS_PER_CLEANUP = 256
+const MAX_SEED_TEMPLATE_UPSERTS_PER_CALL = 128
+const MAX_SEED_ITEM_UPSERTS_PER_CALL = 2048
+const MAX_SEED_CRITERION_UPSERTS_PER_CALL = 512
 const SEED_UPLOAD_URL_TTL_MS = 60 * 60 * 1000
 
 const seedUploadVariantKindValidator = v.union(
@@ -225,6 +287,43 @@ const seedUploadedMediaAssetValidator = v.object({
   variants: v.array(seedUploadedVariantValidator),
 })
 
+const seedTemplateUpsertValidator = v.object({
+  externalId: v.string(),
+  title: v.string(),
+  category: templateCategoryValidator,
+  description: v.union(v.string(), v.null()),
+  tags: v.array(v.string()),
+  visibility: templateVisibilityValidator,
+  coverMediaContentHash: v.union(v.string(), v.null()),
+  coverFraming: v.union(templateCoverFramingValidator, v.null()),
+  suggestedTiers: tierPresetTiersValidator,
+  itemAspectRatio: v.number(),
+  itemCount: v.number(),
+})
+
+const seedItemUpsertValidator = v.object({
+  templateExternalId: v.string(),
+  itemExternalId: v.string(),
+  order: v.number(),
+  label: v.union(v.string(), v.null()),
+  mediaContentHash: v.string(),
+  aspectRatio: v.union(v.number(), v.null()),
+  transform: v.union(itemTransformValidator, v.null()),
+})
+
+const seedCriterionUpsertValidator = v.object({
+  templateExternalId: v.string(),
+  criterionExternalId: v.string(),
+  name: v.string(),
+  shortName: v.union(v.string(), v.null()),
+  prompt: v.string(),
+  axisTop: v.union(v.string(), v.null()),
+  axisBottom: v.union(v.string(), v.null()),
+  order: v.number(),
+  isPrimary: v.boolean(),
+  status: templateCriterionStatusValidator,
+})
+
 const seedFinalizedMediaValidator = v.object({
   assetKey: v.string(),
   contentHashes: v.array(v.string()),
@@ -243,6 +342,27 @@ const seedRejectedUploadValidator = v.object({
 const seedCleanupOutputValidator = v.object({
   cleanedStorageIds: v.array(v.string()),
   missingStorageIds: v.array(v.string()),
+})
+
+const seedTemplateUpsertOutputValidator = v.object({
+  created: v.array(v.string()),
+  updated: v.array(v.string()),
+  unchanged: v.array(v.string()),
+})
+
+const seedItemUpsertOutputValidator = v.object({
+  created: v.array(seedTemplateItemKeyValidator),
+  updated: v.array(seedTemplateItemKeyValidator),
+  moved: v.array(seedTemplateItemKeyValidator),
+  unchanged: v.array(seedTemplateItemKeyValidator),
+  absentFromRelease: v.array(seedTemplateItemKeyValidator),
+})
+
+const seedCriterionUpsertOutputValidator = v.object({
+  created: v.array(seedTemplateCriterionKeyValidator),
+  updated: v.array(seedTemplateCriterionKeyValidator),
+  unchanged: v.array(seedTemplateCriterionKeyValidator),
+  deactivated: v.array(seedTemplateCriterionKeyValidator),
 })
 
 const seedRemovalCandidateValidator = v.object({
@@ -332,6 +452,17 @@ const assertPositiveInteger = (name: string, value: number): void =>
   }
 }
 
+const assertPositiveFinite = (name: string, value: number): void =>
+{
+  if (!Number.isFinite(value) || value <= 0)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `${name} must be a positive finite number`,
+    })
+  }
+}
+
 const summarizeRun = (run: Doc<'seedRuns'>): SeedRunSummary => ({
   runId: run.runId,
   datasetKey: run.datasetKey,
@@ -356,7 +487,7 @@ const currentSeedActor = async (
 }
 
 const findSeedAuthorId = async (
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   authorEmail: string
 ): Promise<Id<'users'> | null> =>
 {
@@ -396,14 +527,18 @@ export const findSeedMediaByOwnerAndDedupeHash = internalQuery({
 })
 
 const loadSeedTemplate = async (
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   datasetKey: string,
+  releaseId: string,
   externalId: string
 ): Promise<Doc<'templates'> | null> =>
   await ctx.db
     .query('templates')
-    .withIndex('bySeedDatasetAndExternalId', (q) =>
-      q.eq('seedDatasetKey', datasetKey).eq('seedExternalId', externalId)
+    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+      q
+        .eq('seedDatasetKey', datasetKey)
+        .eq('seedReleaseId', releaseId)
+        .eq('seedExternalId', externalId)
     )
     .unique()
 
@@ -425,13 +560,19 @@ const toResolvedTemplate = (
 const resolveTemplates = async (
   ctx: QueryCtx,
   datasetKey: string,
+  releaseId: string,
   externalIds: readonly string[]
 ): Promise<Map<string, Doc<'templates'>>> =>
 {
   const entries = await Promise.all(
     externalIds.map(async (externalId) =>
     {
-      const template = await loadSeedTemplate(ctx, datasetKey, externalId)
+      const template = await loadSeedTemplate(
+        ctx,
+        datasetKey,
+        releaseId,
+        externalId
+      )
       return template ? ([externalId, template] as const) : null
     })
   )
@@ -554,6 +695,7 @@ const resolveActiveReleaseId = async (
 const resolveAbsentFromManifest = async (
   ctx: QueryCtx,
   datasetKey: string,
+  releaseId: string,
   templateIds: ReadonlySet<string>,
   itemKeys: ReadonlyMap<string, ReadonlySet<string>>,
   criterionKeys: ReadonlyMap<string, ReadonlySet<string>>
@@ -561,8 +703,8 @@ const resolveAbsentFromManifest = async (
 {
   const templates = await ctx.db
     .query('templates')
-    .withIndex('bySeedDatasetAndExternalId', (q) =>
-      q.eq('seedDatasetKey', datasetKey)
+    .withIndex('bySeedDatasetAndReleaseId', (q) =>
+      q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
     )
     .take(MAX_SEED_TEMPLATES_PER_DIFF)
 
@@ -883,6 +1025,180 @@ const finalizeSeedMediaAsset = async (
   }
 }
 
+const valuesEqual = (left: unknown, right: unknown): boolean =>
+  JSON.stringify(left) === JSON.stringify(right)
+
+const toSeedItemKey = (item: {
+  templateExternalId: string
+  itemExternalId: string
+}): SeedTemplateItemKey => ({
+  templateExternalId: item.templateExternalId,
+  itemExternalId: item.itemExternalId,
+})
+
+const toSeedCriterionKey = (criterion: {
+  templateExternalId: string
+  criterionExternalId: string
+}): SeedTemplateCriterionKey => ({
+  templateExternalId: criterion.templateExternalId,
+  criterionExternalId: criterion.criterionExternalId,
+})
+
+const groupByTemplateExternalId = <T extends { templateExternalId: string }>(
+  rows: readonly T[]
+): Map<string, T[]> =>
+{
+  const groups = new Map<string, T[]>()
+  for (const row of rows)
+  {
+    const group = groups.get(row.templateExternalId) ?? []
+    group.push(row)
+    groups.set(row.templateExternalId, group)
+  }
+  return groups
+}
+
+const loadSeedMediaAssetIdByContentHash = async (
+  ctx: MutationCtx,
+  ownerId: Id<'users'>,
+  contentHash: string
+): Promise<Id<'mediaAssets'>> =>
+{
+  assertNonemptyString('mediaContentHash', contentHash)
+  const variants = await ctx.db
+    .query('mediaVariants')
+    .withIndex('byContentHash', (q) => q.eq('contentHash', contentHash))
+    .take(MAX_MEDIA_VARIANTS_PER_HASH)
+  for (const variant of variants)
+  {
+    const media = await ctx.db.get(variant.mediaAssetId)
+    if (media?.ownerId === ownerId) return media._id
+  }
+  throw new ConvexError({
+    code: CONVEX_ERROR_CODES.notFound,
+    message: `seed media not found by content hash: ${contentHash}`,
+  })
+}
+
+const buildSeedTemplateCoverItems = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>
+): Promise<Doc<'templates'>['coverItems']> =>
+{
+  const items = await ctx.db
+    .query('templateItems')
+    .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
+    .take(MAX_TEMPLATE_COVER_ITEMS)
+  return items
+    .filter(
+      (item): item is typeof item & { mediaAssetId: Id<'mediaAssets'> } =>
+        item.mediaAssetId !== null
+    )
+    .map((item) => ({
+      mediaAssetId: item.mediaAssetId,
+      label: item.label,
+      backgroundColor: item.backgroundColor,
+      aspectRatio: item.aspectRatio,
+      imageFit: item.imageFit,
+      transform: item.transform,
+    }))
+}
+
+const countSeedTemplateItems = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>
+): Promise<number> =>
+{
+  const items = await ctx.db
+    .query('templateItems')
+    .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
+    .take(MAX_SEED_ITEMS_PER_TEMPLATE + 1)
+  if (items.length > MAX_SEED_ITEMS_PER_TEMPLATE)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: 'seed template item count exceeds apply limit',
+    })
+  }
+  return items.length
+}
+
+const patchSeedTemplateItemSummary = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>
+): Promise<void> =>
+{
+  const now = Date.now()
+  const [itemCount, coverItems] = await Promise.all([
+    countSeedTemplateItems(ctx, template._id),
+    buildSeedTemplateCoverItems(ctx, template._id),
+  ])
+  await patchTemplateAndSyncCard(ctx, template, {
+    itemCount,
+    coverItems,
+    ...buildTemplateStateFields(itemCount, template.visibility, 'unpublished'),
+    seedReleaseStatus: 'applied_hidden',
+    updatedAt: now,
+  })
+}
+
+const normalizeSeedTemplateUpsert = async (
+  ctx: MutationCtx,
+  authorId: Id<'users'>,
+  datasetKey: string,
+  releaseId: string,
+  template: SeedTemplateUpsertArg
+): Promise<SeedTemplateApplyPatch> =>
+{
+  assertNonemptyString('templateExternalId', template.externalId)
+  assertPositiveFinite('itemAspectRatio', template.itemAspectRatio)
+  assertPositiveInteger('itemCount', template.itemCount)
+  assertCountRange('suggestedTiers', template.suggestedTiers.length, 1, 16)
+  validateTemplateTiers(template.suggestedTiers)
+  const coverMediaAssetId = template.coverMediaContentHash
+    ? await loadSeedMediaAssetIdByContentHash(
+        ctx,
+        authorId,
+        template.coverMediaContentHash
+      )
+    : null
+  return {
+    title: normalizeTemplateTitle(template.title),
+    description: normalizeDescription(template.description),
+    category: template.category,
+    tags: normalizeTags(template.tags),
+    visibility: template.visibility,
+    coverMediaAssetId,
+    coverFraming: template.coverFraming,
+    suggestedTiers:
+      template.suggestedTiers.length > 0
+        ? template.suggestedTiers
+        : [...DEFAULT_TEMPLATE_TIERS],
+    itemAspectRatio: template.itemAspectRatio,
+    itemAspectRatioMode: 'manual',
+    defaultItemImageFit: 'cover',
+    itemCount: template.itemCount,
+    ...buildTemplateStateFields(
+      template.itemCount,
+      template.visibility,
+      'unpublished'
+    ),
+    seedDatasetKey: datasetKey,
+    seedExternalId: template.externalId,
+    seedReleaseId: releaseId,
+    seedReleaseStatus: 'applied_hidden',
+  }
+}
+
+const templatePatchChanged = (
+  template: Doc<'templates'>,
+  patch: Partial<Doc<'templates'>>
+): boolean =>
+  Object.entries(patch).some(
+    ([key, value]) =>
+      !valuesEqual(template[key as keyof Doc<'templates'>], value)
+  )
+
 export const beginSeedRun = mutation({
   args: {
     seedSecret: v.string(),
@@ -1101,6 +1417,386 @@ export const cleanupAbandonedSeedRun = action({
   },
 })
 
+export const upsertSeedTemplates = mutation({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    authorEmail: v.string(),
+    templates: v.array(seedTemplateUpsertValidator),
+  },
+  returns: seedTemplateUpsertOutputValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ created: string[]; updated: string[]; unchanged: string[] }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertNonemptyString('authorEmail', args.authorEmail)
+    assertCountRange(
+      'templates',
+      args.templates.length,
+      1,
+      MAX_SEED_TEMPLATE_UPSERTS_PER_CALL
+    )
+    const authorId = await findSeedAuthorId(ctx, args.authorEmail)
+    if (!authorId)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `seed author user not found: ${args.authorEmail}`,
+      })
+    }
+
+    const created: string[] = []
+    const updated: string[] = []
+    const unchanged: string[] = []
+    for (const template of args.templates as SeedTemplateUpsertArg[])
+    {
+      const patch = await normalizeSeedTemplateUpsert(
+        ctx,
+        authorId,
+        args.datasetKey,
+        args.releaseId,
+        template
+      )
+      const existing = await loadSeedTemplate(
+        ctx,
+        args.datasetKey,
+        args.releaseId,
+        template.externalId
+      )
+      const now = Date.now()
+      if (!existing)
+      {
+        const slug = await allocateTemplateSlug(ctx)
+        const templateFields = {
+          slug,
+          authorId,
+          title: patch.title,
+          description: patch.description,
+          category: patch.category,
+          tags: patch.tags,
+          visibility: patch.visibility,
+          coverMediaAssetId: patch.coverMediaAssetId,
+          coverFraming: patch.coverFraming,
+          coverItems: [],
+          suggestedTiers: patch.suggestedTiers ?? [...DEFAULT_TEMPLATE_TIERS],
+          criteria: buildDefaultTemplateCriteria(),
+          sourceBoardId: null,
+          sizeClass: patch.sizeClass,
+          publicationState: patch.publicationState,
+          isPubliclyListable: patch.isPubliclyListable,
+          itemCount: patch.itemCount,
+          featuredRank: null,
+          creditLine: null,
+          itemAspectRatio: patch.itemAspectRatio,
+          itemAspectRatioMode: patch.itemAspectRatioMode,
+          defaultItemImageFit: patch.defaultItemImageFit,
+          seedDatasetKey: args.datasetKey,
+          seedExternalId: template.externalId,
+          seedReleaseId: args.releaseId,
+          seedReleaseStatus: 'applied_hidden',
+          createdAt: now,
+          updatedAt: now,
+        } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
+        const templateId = await ctx.db.insert('templates', templateFields)
+        const [stats, row] = await Promise.all([
+          createTemplateStats(ctx, templateId, now),
+          ctx.db.get(templateId),
+        ])
+        if (!row)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: 'seed template insert did not return a readable row',
+          })
+        }
+        await syncTemplateTagRows(ctx, row)
+        await writeTemplateCard(ctx, row, stats)
+        created.push(template.externalId)
+        continue
+      }
+
+      if (!templatePatchChanged(existing, patch))
+      {
+        unchanged.push(template.externalId)
+        continue
+      }
+      const nextTemplate = await patchTemplateAndSyncCard(ctx, existing, {
+        ...patch,
+        updatedAt: now,
+      })
+      await syncTemplateTagRows(ctx, nextTemplate)
+      updated.push(template.externalId)
+    }
+    return { created, updated, unchanged }
+  },
+})
+
+export const upsertSeedItems = mutation({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    items: v.array(seedItemUpsertValidator),
+  },
+  returns: seedItemUpsertOutputValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    created: SeedTemplateItemKey[]
+    updated: SeedTemplateItemKey[]
+    moved: SeedTemplateItemKey[]
+    unchanged: SeedTemplateItemKey[]
+    absentFromRelease: SeedTemplateItemKey[]
+  }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertCountRange(
+      'items',
+      args.items.length,
+      1,
+      MAX_SEED_ITEM_UPSERTS_PER_CALL
+    )
+
+    const created: SeedTemplateItemKey[] = []
+    const updated: SeedTemplateItemKey[] = []
+    const moved: SeedTemplateItemKey[] = []
+    const unchanged: SeedTemplateItemKey[] = []
+    const absentFromRelease: SeedTemplateItemKey[] = []
+    for (const [templateExternalId, items] of groupByTemplateExternalId(
+      args.items as SeedItemUpsertArg[]
+    ))
+    {
+      const template = await loadSeedTemplate(
+        ctx,
+        args.datasetKey,
+        args.releaseId,
+        templateExternalId
+      )
+      if (!template)
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.notFound,
+          message: `seed template not found: ${templateExternalId}`,
+        })
+      }
+      const seen = new Set<string>()
+      for (const item of items)
+      {
+        assertNonemptyString('itemExternalId', item.itemExternalId)
+        assertNonnegativeInteger('order', item.order)
+        if (item.aspectRatio !== null)
+        {
+          assertPositiveFinite('aspectRatio', item.aspectRatio)
+        }
+        seen.add(item.itemExternalId)
+        const key = toSeedItemKey(item)
+        const mediaAssetId = await loadSeedMediaAssetIdByContentHash(
+          ctx,
+          template.authorId,
+          item.mediaContentHash
+        )
+        const existing = await ctx.db
+          .query('templateItems')
+          .withIndex('byTemplateAndExternalId', (q) =>
+            q
+              .eq('templateId', template._id)
+              .eq('externalId', item.itemExternalId)
+          )
+          .unique()
+        const fields = {
+          label: item.label,
+          backgroundColor: null,
+          altText: item.label,
+          mediaAssetId,
+          order: item.order,
+          aspectRatio: item.aspectRatio,
+          imageFit: null,
+          transform: item.transform,
+        }
+        if (!existing)
+        {
+          await ctx.db.insert('templateItems', {
+            templateId: template._id,
+            externalId: item.itemExternalId,
+            ...fields,
+          })
+          created.push(key)
+          continue
+        }
+        const orderChanged = existing.order !== item.order
+        const contentChanged =
+          existing.label !== fields.label ||
+          existing.altText !== fields.altText ||
+          existing.mediaAssetId !== fields.mediaAssetId ||
+          existing.aspectRatio !== fields.aspectRatio ||
+          existing.imageFit !== fields.imageFit ||
+          !valuesEqual(existing.transform, fields.transform)
+        if (!orderChanged && !contentChanged)
+        {
+          unchanged.push(key)
+          continue
+        }
+        await ctx.db.patch(existing._id, fields)
+        if (orderChanged) moved.push(key)
+        if (contentChanged) updated.push(key)
+      }
+
+      const existingItems = await ctx.db
+        .query('templateItems')
+        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+        .take(MAX_SEED_ITEMS_PER_TEMPLATE)
+      await Promise.all(
+        existingItems
+          .filter((item) => !seen.has(item.externalId))
+          .map(async (item) =>
+          {
+            await ctx.db.delete(item._id)
+            absentFromRelease.push({
+              templateExternalId,
+              itemExternalId: item.externalId,
+            })
+          })
+      )
+      await patchSeedTemplateItemSummary(ctx, template)
+    }
+    return { created, updated, moved, unchanged, absentFromRelease }
+  },
+})
+
+export const upsertSeedCriteria = mutation({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    criteria: v.array(seedCriterionUpsertValidator),
+  },
+  returns: seedCriterionUpsertOutputValidator,
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    created: SeedTemplateCriterionKey[]
+    updated: SeedTemplateCriterionKey[]
+    unchanged: SeedTemplateCriterionKey[]
+    deactivated: SeedTemplateCriterionKey[]
+  }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertCountRange(
+      'criteria',
+      args.criteria.length,
+      1,
+      MAX_SEED_CRITERION_UPSERTS_PER_CALL
+    )
+
+    const created: SeedTemplateCriterionKey[] = []
+    const updated: SeedTemplateCriterionKey[] = []
+    const unchanged: SeedTemplateCriterionKey[] = []
+    const deactivated: SeedTemplateCriterionKey[] = []
+    for (const [templateExternalId, criteria] of groupByTemplateExternalId(
+      args.criteria as SeedCriterionUpsertArg[]
+    ))
+    {
+      const template = await loadSeedTemplate(
+        ctx,
+        args.datasetKey,
+        args.releaseId,
+        templateExternalId
+      )
+      if (!template)
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.notFound,
+          message: `seed template not found: ${templateExternalId}`,
+        })
+      }
+      const existingByExternalId = new Map(
+        template.criteria.map((criterion) => [criterion.externalId, criterion])
+      )
+      const seen = new Set<string>()
+      const nextCriteria = criteria.map((criterion) =>
+      {
+        assertNonemptyString(
+          'criterionExternalId',
+          criterion.criterionExternalId
+        )
+        seen.add(criterion.criterionExternalId)
+        const key = toSeedCriterionKey(criterion)
+        const next = {
+          externalId: criterion.criterionExternalId,
+          name: criterion.name,
+          shortName: criterion.shortName,
+          prompt: criterion.prompt,
+          axisTop: criterion.axisTop,
+          axisBottom: criterion.axisBottom,
+          order: criterion.order,
+          isPrimary: criterion.isPrimary,
+          status: criterion.status,
+        }
+        const existing = existingByExternalId.get(criterion.criterionExternalId)
+        if (!existing)
+        {
+          created.push(key)
+        }
+        else if (valuesEqual(existing, next))
+        {
+          unchanged.push(key)
+        }
+        else
+        {
+          updated.push(key)
+        }
+        return next
+      })
+
+      for (const existing of template.criteria)
+      {
+        if (seen.has(existing.externalId)) continue
+        if (existing.status !== 'hidden' || existing.isPrimary)
+        {
+          deactivated.push({
+            templateExternalId,
+            criterionExternalId: existing.externalId,
+          })
+        }
+        nextCriteria.push({
+          ...existing,
+          isPrimary: false,
+          status: 'hidden',
+        })
+      }
+
+      const normalized = validateTemplateCriteria(nextCriteria)
+      if (valuesEqual(template.criteria, normalized))
+      {
+        continue
+      }
+      await patchTemplateAndSyncCard(ctx, template, {
+        criteria: normalized,
+        seedReleaseStatus: 'applied_hidden',
+        updatedAt: Date.now(),
+      })
+    }
+    return { created, updated, unchanged, deactivated }
+  },
+})
+
 export const resolveSeedMediaByHashes = query({
   args: {
     seedSecret: v.string(),
@@ -1135,6 +1831,7 @@ export const resolveSeedState = query({
     const templates = await resolveTemplates(
       ctx,
       args.datasetKey,
+      args.releaseId,
       args.templateExternalIds
     )
     const authorId = await findSeedAuthorId(ctx, args.authorEmail)
@@ -1154,6 +1851,7 @@ export const resolveSeedState = query({
         resolveAbsentFromManifest(
           ctx,
           args.datasetKey,
+          args.releaseId,
           new Set(args.templateExternalIds),
           itemMap,
           criterionMap

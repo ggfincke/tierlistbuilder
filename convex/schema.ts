@@ -287,7 +287,11 @@ export default defineSchema({
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
     .index('byCoverMedia', ['coverMediaAssetId'])
-    .index('bySeedDatasetAndExternalId', ['seedDatasetKey', 'seedExternalId'])
+    .index('bySeedDatasetReleaseAndExternalId', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedExternalId',
+    ])
     .index('bySeedDatasetAndReleaseId', ['seedDatasetKey', 'seedReleaseId']),
 
   // compact public/owner card read model for marketplace list screens.

@@ -138,6 +138,8 @@ def _compile_template(
         )
     if "coverZoom" in template:
         compiled["coverZoom"] = template["coverZoom"]
+    if "suggestedTiers" in template:
+        compiled["suggestedTiers"] = template["suggestedTiers"]
     for order, item in enumerate(template["items"]):
         source = item_sources[order]
         compiled["items"].append(

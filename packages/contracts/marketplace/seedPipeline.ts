@@ -2,7 +2,7 @@
 // marketplace seed pipeline contracts shared by Python, Convex, & reports
 
 import type { TemplateCategory } from './category'
-import type { TemplateVisibility } from './template'
+import type { TemplateCoverFraming, TemplateVisibility } from './template'
 import type { MarketplaceTemplateCriterion } from './templateCriterion'
 import type {
   MediaVariantKind,
@@ -159,6 +159,7 @@ export interface SeedCompiledTemplate
   ratioSource: SeedRatioSource
   coverImage?: SeedCompiledAsset
   coverZoom?: number
+  suggestedTiers?: readonly TierPresetTier[]
   criteria: readonly MarketplaceTemplateCriterion[]
   items: readonly SeedCompiledItem[]
 }
@@ -404,6 +405,7 @@ export interface SeedCleanupOutput
 
 export interface SeedUpsertTemplatesInput extends SeedRunRequest
 {
+  authorEmail: string
   templates: readonly SeedTemplateUpsert[]
 }
 
@@ -416,7 +418,10 @@ export interface SeedTemplateUpsert
   tags: readonly string[]
   visibility: TemplateVisibility
   coverMediaContentHash: string | null
-  coverZoom?: number
+  coverFraming: TemplateCoverFraming | null
+  suggestedTiers: readonly TierPresetTier[]
+  itemAspectRatio: number
+  itemCount: number
 }
 
 export interface SeedTemplateUpsertOutput
@@ -442,6 +447,8 @@ export interface SeedItemUpsert extends SeedTemplateItemKey
   order: number
   label: string | null
   mediaContentHash: string
+  aspectRatio: number | null
+  transform: ItemTransform | null
 }
 
 export interface SeedItemUpsertOutput
