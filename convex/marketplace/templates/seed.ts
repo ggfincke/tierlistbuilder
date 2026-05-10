@@ -19,6 +19,8 @@ import {
   boardLabelSettingsValidator,
   itemTransformValidator,
   templateCategoryValidator,
+  templateCoverFramingValidator,
+  templateCriteriaValidator,
   tierPresetTiersValidator,
 } from '../../lib/validators'
 import { base64ToBytes } from '../../lib/base64'
@@ -40,6 +42,10 @@ import {
   syncTemplateTagRows,
   writeTemplateCard,
 } from './lib'
+import {
+  buildDefaultTemplateCriteria,
+  validateTemplateCriteria,
+} from './criteria'
 
 // per-item payload sent by scripts/seed-marketplace-templates.ts. aspectRatio
 // & transform are pre-computed in the script (sharp + shared scan) so the
@@ -189,7 +195,9 @@ export const insertSeedTemplate = internalMutation({
     category: templateCategoryValidator,
     tags: v.array(v.string()),
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     suggestedTiers: tierPresetTiersValidator,
+    criteria: v.optional(templateCriteriaValidator),
     // template-level slot ratio chosen by the script (snap to nearest preset
     // of the per-item majority). null when no items had usable dimensions —
     // forks then fall back to the board default (1, square)
@@ -240,6 +248,9 @@ export const insertSeedTemplate = internalMutation({
     const now = Date.now()
     const slug = await allocateTemplateSlug(ctx)
     const templateState = buildTemplateStateFields(args.items.length, 'public')
+    const criteria = validateTemplateCriteria(
+      args.criteria ?? buildDefaultTemplateCriteria()
+    )
     const templateFields = {
       slug,
       authorId: args.authorId,
@@ -249,8 +260,10 @@ export const insertSeedTemplate = internalMutation({
       tags: args.tags,
       visibility: 'public',
       coverMediaAssetId: args.coverMediaAssetId,
+      coverFraming: args.coverFraming ?? null,
       coverItems,
       suggestedTiers: args.suggestedTiers,
+      criteria,
       sourceBoardId: null,
       ...templateState,
       itemCount: args.items.length,
@@ -478,6 +491,40 @@ export const setTemplateFeaturedRank = internalMutation({
   },
 })
 
+export const setTemplateCriteriaImpl = internalMutation({
+  args: {
+    slug: v.string(),
+    criteria: templateCriteriaValidator,
+  },
+  returns: v.object({
+    slug: v.string(),
+    criteria: templateCriteriaValidator,
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ slug: string; criteria: Doc<'templates'>['criteria'] }> =>
+  {
+    const template = await ctx.db
+      .query('templates')
+      .withIndex('bySlug', (q) => q.eq('slug', args.slug))
+      .unique()
+    if (!template)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `template not found by slug: ${args.slug}`,
+      })
+    }
+
+    const nextTemplate = await patchTemplateAndSyncCard(ctx, template, {
+      criteria: args.criteria,
+      updatedAt: Date.now(),
+    })
+    return { slug: args.slug, criteria: nextTemplate.criteria }
+  },
+})
+
 // dev-only: reset homepage curation before assigning a new trio
 export const clearAllFeaturedRanksImpl = internalMutation({
   args: {},
@@ -531,6 +578,31 @@ export const promoteFeatured = action({
       internal.marketplace.templates.seed.setTemplateFeaturedRank,
       { slug: args.slug, featuredRank: args.featuredRank }
     )
+  },
+})
+
+export const setTemplateCriteria = action({
+  args: {
+    seedSecret: v.string(),
+    slug: v.string(),
+    criteria: templateCriteriaValidator,
+  },
+  returns: v.object({
+    slug: v.string(),
+    criteria: templateCriteriaValidator,
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ slug: string; criteria: Doc<'templates'>['criteria'] }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    const result: { slug: string; criteria: Doc<'templates'>['criteria'] } =
+      await ctx.runMutation(
+        internal.marketplace.templates.seed.setTemplateCriteriaImpl,
+        { slug: args.slug, criteria: args.criteria }
+      )
+    return result
   },
 })
 
@@ -838,11 +910,11 @@ export const recomputeTemplateCards = action({
   },
 })
 
-// dev-only — paginated batch wipe of templates + their children, forked
-// boards + their children, & marketplaceStats. mutations stay under the
-// 4096-read txn cap; the action loops phases. skips identity/auth tables
-const WIPE_BATCH_TEMPLATES = 50
-const WIPE_BATCH_BOARDS = 50
+// dev-only — paginated batch wipe of seeded marketplace data. keep batches
+// below the 4096-read txn cap; action loops phases & skips identity/auth
+// tables
+const WIPE_BATCH_TEMPLATES = 20
+const WIPE_BATCH_BOARDS = 20
 
 const wipePhaseValidator = v.union(
   v.literal('templates'),
@@ -1227,12 +1299,14 @@ export const seedTemplateFromBlobs = action({
     category: templateCategoryValidator,
     tags: v.array(v.string()),
     suggestedTiers: v.optional(tierPresetTiersValidator),
+    criteria: v.optional(templateCriteriaValidator),
     // template slot ratio chosen by the script (already snapped to a preset).
     // null only when no items had usable dimensions
     itemAspectRatio: v.union(v.number(), v.null()),
     // optional pre-baked board label settings — forks inherit when present
     labels: v.optional(v.union(boardLabelSettingsValidator, v.null())),
     cover: v.optional(seedCoverImageValidator),
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     items: v.array(seedItemValidator),
   },
   returns: v.object({
@@ -1273,7 +1347,11 @@ export const seedTemplateFromBlobs = action({
         category: args.category,
         tags: args.tags,
         coverMediaAssetId,
+        ...(args.coverFraming !== undefined
+          ? { coverFraming: args.coverFraming }
+          : {}),
         suggestedTiers: args.suggestedTiers ?? [...DEFAULT_TEMPLATE_TIERS],
+        ...(args.criteria ? { criteria: args.criteria } : {}),
         itemAspectRatio: args.itemAspectRatio,
         labels: args.labels ?? null,
         items: stored,

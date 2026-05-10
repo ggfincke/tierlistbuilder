@@ -30,6 +30,7 @@ import {
   RANKINGS_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
 } from '~/shared/routes/pathname'
+import { CriterionBadge } from '~/features/marketplace/components/consensus/CriterionBadge'
 import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 
@@ -302,6 +303,7 @@ export const RankingDetailPage = () =>
           <span className="rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
             Ranking
           </span>
+          <CriterionBadge criterion={detail.criterion} />
         </div>
 
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--t-text)] sm:text-4xl">

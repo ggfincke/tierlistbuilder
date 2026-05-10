@@ -1,7 +1,7 @@
 // src/features/marketplace/pages/MarketplaceLayout.tsx
 // marketplace route shell: theme sync, footer, toast container, & live region
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom'
 
 import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
@@ -16,13 +16,17 @@ export const MarketplaceLayout = () =>
 
   const reducedMotion = usePreferencesStore((state) => state.reducedMotion)
 
-  // SPA route changes don't reset window scroll. send pushes/replaces back to
-  // the top, but leave back/forward (POP) & in-page anchor jumps alone so
-  // browser history feels native
   const { pathname, hash } = useLocation()
   const navType = useNavigationType()
+  const previousPathnameRef = useRef(pathname)
+
+  // Scroll path pushes/replaces to top; leave POP, anchors, & search changes alone
   useEffect(() =>
   {
+    const pathnameChanged = previousPathnameRef.current !== pathname
+    previousPathnameRef.current = pathname
+
+    if (!pathnameChanged) return
     if (navType === 'POP') return
     if (hash) return
     window.scrollTo(0, 0)

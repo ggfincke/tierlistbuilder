@@ -9,6 +9,7 @@ import type {
 } from '../workspace/board'
 import type { PaginationResult } from '../lib/pagination'
 import type { TemplateCategory } from './category'
+import type { MarketplaceTemplateCriterion } from './templateCriterion'
 
 export const TEMPLATE_VISIBILITIES = ['public', 'unlisted'] as const
 
@@ -313,6 +314,10 @@ export interface MarketplaceTemplateItem
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
 {
   access: TemplateCardAccessState
+  criteria: MarketplaceTemplateCriterion[]
+  // public-listable ranking count per criterion external id; criteria w/o
+  // an aggregate row yet appear as 0. only includes entries from `criteria`
+  rankingCountByCriterion: Record<string, number>
   suggestedTiers: TierPresetTier[]
   // pre-baked board label settings; null falls back to the forking user's
   // global showLabels + built-in defaults

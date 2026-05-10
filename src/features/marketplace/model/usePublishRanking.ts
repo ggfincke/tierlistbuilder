@@ -20,6 +20,9 @@ interface PublishRankingInput
   title: string
   description: string | null
   visibility: RankingVisibility
+  // criterion lane this ranking answers; omit to publish into the template's
+  // active primary criterion server-side
+  criterionExternalId?: string
 }
 
 interface PublishRankingAction
@@ -43,6 +46,9 @@ export const usePublishRanking = (): PublishRankingAction =>
         title: input.title,
         description: input.description,
         visibility: input.visibility,
+        ...(input.criterionExternalId
+          ? { criterionExternalId: input.criterionExternalId }
+          : {}),
       })
       toast(`Published "${input.title}"`, 'success')
       navigate(`${RANKINGS_ROUTE_PATH}/${result.slug}`)

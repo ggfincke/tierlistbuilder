@@ -45,7 +45,7 @@ export const buildProfileDraft = (user: PublicUserMe): ProfileDraft => ({
   pronouns: user.pronouns ?? '',
 })
 
-export const normalizeProfileDraftField = <K extends keyof ProfileDraft>(
+const normalizeProfileDraftField = <K extends keyof ProfileDraft>(
   field: K,
   value: ProfileDraft[K]
 ): ProfileDraft[K] => PROFILE_FIELD_NORMALIZERS[field](value) as ProfileDraft[K]

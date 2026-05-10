@@ -3,9 +3,14 @@
 
 import type { Id, Doc } from '@convex/_generated/dataModel'
 import type { MutationCtx } from '@convex/_generated/server'
+import {
+  buildDefaultTemplateCriteria,
+  buildDefaultTemplateCriterionSnapshot,
+} from '@convex/marketplace/templates/criteria'
 import { buildSearchText } from '@convex/marketplace/templates/lib'
 import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
 import { RANKING_TOP_SCORE_REMIX_WEIGHT } from '@tierlistbuilder/contracts/marketplace/ranking'
+import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 
 export const modules = import.meta.glob('../../convex/**/*.*s')
 
@@ -19,6 +24,7 @@ interface SeedPublishedTemplateArgs
   category?: Doc<'templates'>['category']
   tags?: string[]
   sourceBoardId?: Id<'boards'> | null
+  criteria?: Doc<'templates'>['criteria']
   now?: number
 }
 
@@ -58,12 +64,15 @@ interface SeedPublishedRankingArgs
   visibility?: Doc<'publishedRankings'>['visibility']
   publicationState?: Doc<'publishedRankings'>['publicationState']
   isPubliclyListable?: boolean
+  supersededAt?: number | null
+  supersededByRankingId?: Id<'publishedRankings'> | null
   tierCount?: number
   remixCount?: number
   viewCount?: number
   isFeatured?: boolean
   featuredRank?: number
   featuredBadge?: Doc<'publishedRankings'>['featuredBadge']
+  criterion?: MarketplaceTemplateCriterionSnapshot
 }
 
 const defaultSuggestedTiers = (): Doc<'templates'>['suggestedTiers'] => [
@@ -99,6 +108,7 @@ export const seedPublishedTemplate = async (
     coverMediaAssetId: null,
     coverItems: [],
     suggestedTiers: defaultSuggestedTiers(),
+    criteria: args.criteria ?? buildDefaultTemplateCriteria(),
     sourceBoardId: args.sourceBoardId ?? null,
     sizeClass: args.sizeClass,
     publicationState: 'published',
@@ -194,6 +204,7 @@ export const seedPublishedRanking = async (
 ): Promise<Id<'publishedRankings'>> =>
 {
   const now = args.now ?? Date.now()
+  const criterion = args.criterion ?? buildDefaultTemplateCriterionSnapshot()
   return await ctx.db.insert('publishedRankings', {
     slug: args.slug,
     ownerId: args.ownerId,
@@ -202,11 +213,16 @@ export const seedPublishedRanking = async (
     sourceTemplateSlug: args.sourceTemplateSlug,
     sourceTemplateTitle: args.sourceTemplateTitle,
     sourceTemplateCategory: args.sourceTemplateCategory ?? 'gaming',
+    sourceCriterionExternalId: criterion.externalId,
+    sourceCriterionNameSnapshot: criterion.name,
+    sourceCriterionPromptSnapshot: criterion.prompt,
     title: args.title,
     description: args.description ?? null,
     visibility: args.visibility ?? 'public',
     publicationState: args.publicationState ?? 'published',
     isPubliclyListable: args.isPubliclyListable ?? true,
+    supersededAt: args.supersededAt ?? null,
+    supersededByRankingId: args.supersededByRankingId ?? null,
     itemCount: args.itemCount,
     tierCount: args.tierCount ?? 1,
     remixCount: args.remixCount ?? 0,

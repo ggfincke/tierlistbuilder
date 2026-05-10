@@ -55,6 +55,7 @@ import {
 import { validateHexColor } from '../../lib/hexColor'
 import { failInput, normalizeNullableText } from '../../lib/text'
 import type { BoardLibrarySummaryItem } from '../../workspace/boards/librarySummary'
+import { resolveTemplateCriteria, validateTemplateCriteria } from './criteria'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -96,6 +97,14 @@ type TemplateCardMetrics = TemplateStatsCounters & {
 }
 
 type TemplatePatch = Partial<Omit<Doc<'templates'>, '_id' | '_creationTime'>>
+
+const normalizeTemplatePatchForWrite = (
+  patch: TemplatePatch
+): TemplatePatch =>
+{
+  if (patch.criteria === undefined) return patch
+  return { ...patch, criteria: validateTemplateCriteria(patch.criteria) }
+}
 
 interface TemplateProjectionCache
 {
@@ -1224,8 +1233,9 @@ export const patchTemplateAndSyncCard = async (
   patch: TemplatePatch
 ): Promise<Doc<'templates'>> =>
 {
-  await ctx.db.patch(template._id, patch)
-  const nextTemplate = { ...template, ...patch }
+  const normalizedPatch = normalizeTemplatePatchForWrite(patch)
+  await ctx.db.patch(template._id, normalizedPatch)
+  const nextTemplate = { ...template, ...normalizedPatch }
   await writeTemplateCardPreservingCounters(ctx, nextTemplate)
   return nextTemplate
 }
@@ -1430,11 +1440,13 @@ export const toTemplateDetail = async (
   cache?: TemplateProjectionCache
 ): Promise<MarketplaceTemplateDetail> =>
 {
-  const [base, coverItems] = await Promise.all([
+  const criteria = resolveTemplateCriteria(template)
+  const [base, coverItems, rankingCountByCriterion] = await Promise.all([
     toTemplateBase(ctx, template, ['preview', 'editor', 'tile'], cache),
     template.coverMediaAssetId
       ? []
       : loadCoverItems(ctx, template, { cache, kind: 'tile' }),
+    loadRankingCountByCriterion(ctx, template._id, criteria),
   ])
 
   return {
@@ -1443,9 +1455,46 @@ export const toTemplateDetail = async (
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
     access: getTemplateAccessState(template, viewerPlan),
+    criteria,
+    rankingCountByCriterion,
     suggestedTiers: template.suggestedTiers,
     labels: template.labels ?? null,
   }
+}
+
+// read one aggregate parent row per known criterion; templates cap criteria at
+// eight, so this stays bounded & avoids scanning stale aggregate rows
+const loadRankingCountByCriterion = async (
+  ctx: DbCtx,
+  templateId: Id<'templates'>,
+  criteria: readonly { externalId: string }[]
+): Promise<Record<string, number>> =>
+{
+  // pre-fill so every visible criterion has a count entry even when its
+  // aggregate row hasn't materialized yet (lane has 0 published rankings)
+  const known = new Set(criteria.map((c) => c.externalId))
+  const result: Record<string, number> = {}
+  for (const externalId of known)
+  {
+    result[externalId] = 0
+  }
+
+  await Promise.all(
+    [...known].map(async (externalId) =>
+    {
+      const row = await ctx.db
+        .query('templateRankingAggregates')
+        .withIndex('byTemplateIdAndCriterion', (q) =>
+          q.eq('templateId', templateId).eq('criterionExternalId', externalId)
+        )
+        .unique()
+      if (row)
+      {
+        result[externalId] = row.rankingCount
+      }
+    })
+  )
+  return result
 }
 
 export const toTemplateItem = async (

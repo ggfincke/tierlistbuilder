@@ -43,6 +43,16 @@ export const TierBar = ({
     )
   }
 
+  const ranked = Math.max(0, Math.min(board.rankedItemCount, total))
+  // sum may diverge from `ranked` when the cached breakdown is capped (see
+  // LIBRARY_BOARD_TIER_LIMIT) or stale — scale segments against the breakdown
+  // sum so colored fill always lands at exactly ranked/total of the track.
+  const breakdownSum = board.tierBreakdown.reduce(
+    (acc, tier) => acc + Math.max(0, tier.itemCount),
+    0
+  )
+  const rankedPct = (ranked / total) * 100
+
   return (
     <div className="flex items-center gap-2">
       <div
@@ -51,31 +61,32 @@ export const TierBar = ({
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={total}
-        aria-valuenow={board.rankedItemCount}
-        aria-label={`Ranked ${board.rankedItemCount} of ${total} items`}
+        aria-valuenow={ranked}
+        aria-label={`Ranked ${ranked} of ${total} items`}
       >
-        {board.tierBreakdown.map((tier) =>
-        {
-          if (tier.itemCount <= 0) return null
-          const widthPct = (tier.itemCount / total) * 100
-          return (
-            <div
-              key={tier.tierIndex}
-              style={{
-                width: `${widthPct}%`,
-                backgroundColor: resolveTierColorSpec(
-                  board.paletteId,
-                  tier.colorSpec
-                ),
-              }}
-              title={`Tier ${tier.tierIndex + 1}: ${tier.itemCount}`}
-            />
-          )
-        })}
+        {breakdownSum > 0 &&
+          board.tierBreakdown.map((tier) =>
+          {
+            if (tier.itemCount <= 0) return null
+            const widthPct = (tier.itemCount / breakdownSum) * rankedPct
+            return (
+              <div
+                key={tier.tierIndex}
+                style={{
+                  width: `${widthPct}%`,
+                  backgroundColor: resolveTierColorSpec(
+                    board.paletteId,
+                    tier.colorSpec
+                  ),
+                }}
+                title={`Tier ${tier.tierIndex + 1}: ${tier.itemCount}`}
+              />
+            )
+          })}
       </div>
       {showCount && (
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] tabular-nums text-[rgb(var(--t-overlay)/0.5)]">
-          {board.rankedItemCount} / {total}
+          {ranked} / {total}
         </span>
       )}
     </div>

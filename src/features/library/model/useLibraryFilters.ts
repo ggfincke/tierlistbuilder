@@ -54,7 +54,7 @@ const isView = (value: string | null): value is LibraryBoardView =>
 const isDensity = (value: string | null): value is LibraryBoardDensity =>
   isStringMember(value, LIBRARY_BOARD_DENSITIES)
 
-export const parseLibraryFilterParams = (
+const parseLibraryFilterParams = (
   params: URLSearchParams
 ): LibraryFilterParams =>
 {
@@ -108,7 +108,7 @@ const writeLibraryFilterParams = (
   )
 }
 
-export const createLibraryFilterSearchParams = (
+const createLibraryFilterSearchParams = (
   current: URLSearchParams,
   patch: Partial<LibraryFilterParams>
 ): URLSearchParams =>

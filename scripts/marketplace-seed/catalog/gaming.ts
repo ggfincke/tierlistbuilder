@@ -2,7 +2,115 @@
 // gaming example metadata for marketplace template seeds
 
 import { SSBU_CLASSIC_PRESET } from '../constants'
+import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import type { FolderMeta } from '../types'
+
+const SSBU_CRITERIA = [
+  {
+    externalId: 'competitive',
+    name: 'Competitive',
+    shortName: 'Comp',
+    prompt: 'Rank fighters by competitive viability.',
+    axisTop: 'Strongest',
+    axisBottom: 'Weakest',
+    order: 0,
+    isPrimary: true,
+    status: 'active',
+  },
+  {
+    externalId: 'favorites',
+    name: 'Favorites',
+    shortName: 'Favs',
+    prompt: 'Rank fighters by personal preference.',
+    axisTop: 'Favorite',
+    axisBottom: 'Least favorite',
+    order: 1,
+    isPrimary: false,
+    status: 'active',
+  },
+  {
+    externalId: 'fun',
+    name: 'Fun',
+    shortName: 'Fun',
+    prompt: 'Rank fighters by how fun they are to play.',
+    axisTop: 'Most fun',
+    axisBottom: 'Least fun',
+    order: 2,
+    isPrimary: false,
+    status: 'active',
+  },
+  {
+    externalId: 'annoying',
+    name: 'Annoying',
+    shortName: 'Annoying',
+    prompt: 'Rank fighters by how annoying they are to fight.',
+    axisTop: 'Most annoying',
+    axisBottom: 'Least annoying',
+    order: 3,
+    isPrimary: false,
+    status: 'active',
+  },
+  {
+    externalId: 'newcomer',
+    name: 'Newcomer friendly',
+    shortName: 'Newcomer',
+    prompt: 'Rank fighters by how approachable they are for new players.',
+    axisTop: 'Easiest to learn',
+    axisBottom: 'Hardest to learn',
+    order: 4,
+    isPrimary: false,
+    status: 'active',
+  },
+] satisfies readonly MarketplaceTemplateCriterion[]
+
+// primary criterion externalId stays 'default' so previously seeded Zelda
+// rankings (DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID) keep a valid lane ref
+const ZELDA_CRITERIA = [
+  {
+    externalId: 'default',
+    name: 'Overall',
+    shortName: 'Overall',
+    prompt: 'Rank Zelda games on overall quality + impact.',
+    axisTop: 'Best',
+    axisBottom: 'Worst',
+    order: 0,
+    isPrimary: true,
+    status: 'active',
+  },
+  {
+    externalId: 'favorites',
+    name: 'Favorites',
+    shortName: 'Favs',
+    prompt: 'Rank Zelda games by personal love + replay value.',
+    axisTop: 'All-time favorite',
+    axisBottom: 'Skip',
+    order: 1,
+    isPrimary: false,
+    status: 'active',
+  },
+  {
+    externalId: 'dungeons',
+    name: 'Dungeons',
+    shortName: 'Dungeons',
+    prompt: 'Rank Zelda games by dungeon design and puzzle spaces.',
+    axisTop: 'Best dungeons',
+    axisBottom: 'Weakest dungeons',
+    order: 2,
+    isPrimary: false,
+    status: 'active',
+  },
+  {
+    externalId: 'story',
+    name: 'Story',
+    shortName: 'Story',
+    prompt: 'Rank Zelda games by story, atmosphere, and worldbuilding.',
+    axisTop: 'Most memorable',
+    axisBottom: 'Least memorable',
+    order: 3,
+    isPrimary: false,
+    status: 'active',
+  },
+] satisfies readonly MarketplaceTemplateCriterion[]
 
 export const GAMING_TEMPLATE_META = {
   'game-consoles': {
@@ -128,7 +236,11 @@ export const GAMING_TEMPLATE_META = {
     description: 'All 87 fighters in Super Smash Bros. Ultimate, base + DLC.',
     tags: ['nintendo', 'fighting', 'smash bros'],
     coverImage: 'covers/ssbu-fighters.jpg',
+    // banner art is panoramic (~5.4:1); zoom out a notch so character heads
+    // aren't clipped, but stay tight enough that the matte stays a thin band
+    coverZoom: 1.5,
     suggestedTiers: SSBU_CLASSIC_PRESET,
+    criteria: SSBU_CRITERIA,
   },
   'street-fighter-6': {
     title: 'Street Fighter 6 roster',
@@ -141,6 +253,8 @@ export const GAMING_TEMPLATE_META = {
     category: 'gaming',
     description: 'Every mainline Zelda title, by box art.',
     tags: ['zelda', 'nintendo', 'rpg'],
+    coverImage: 'covers/zelda-games.jpg',
+    criteria: ZELDA_CRITERIA,
   },
   'nintendo-franchises': {
     title: 'Nintendo franchises',

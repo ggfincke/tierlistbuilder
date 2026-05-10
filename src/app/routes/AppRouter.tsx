@@ -44,6 +44,12 @@ const TemplateDetailPage = lazy(() =>
   }))
 )
 
+const TemplateComparePage = lazy(() =>
+  import('~/features/marketplace/pages/TemplateComparePage').then((m) => ({
+    default: m.TemplateComparePage,
+  }))
+)
+
 const RankingDetailPage = lazy(() =>
   import('~/features/marketplace/pages/RankingDetailPage').then((m) => ({
     default: m.RankingDetailPage,
@@ -98,6 +104,7 @@ export const AppRouter = () => (
         >
           <Route index element={<TemplatesGalleryPage />} />
           <Route path=":slug" element={<TemplateDetailPage />} />
+          <Route path=":slug/compare" element={<TemplateComparePage />} />
         </Route>
         <Route
           path={RANKINGS_ROUTE_PATH}

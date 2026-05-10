@@ -20,6 +20,7 @@ import {
   templateCardMediaValidator,
   templateCategoryValidator,
   templateCoverFramingValidator,
+  templateCriteriaValidator,
   templateJobStatusValidator,
   templateRankingAggregateJobPhaseValidator,
   templateRankingAggregateJobStatusValidator,
@@ -103,6 +104,8 @@ export default defineSchema({
     sourceTemplateId: v.union(v.id('templates'), v.null()),
     sourceTemplateCategory: v.union(templateCategoryValidator, v.null()),
     sourceTemplateSizeClass: v.union(templateSizeClassValidator, v.null()),
+    // fork source criterion; publish modal uses it as the default lane
+    preferredCriterionExternalId: v.optional(v.string()),
     livePublicTemplateId: v.union(v.id('templates'), v.null()),
     cloudState: boardCloudStateValidator,
     materializationState: boardMaterializationStateValidator,
@@ -246,6 +249,7 @@ export default defineSchema({
       })
     ),
     suggestedTiers: tierPresetTiersValidator,
+    criteria: templateCriteriaValidator,
     sourceBoardId: v.union(v.id('boards'), v.null()),
     sizeClass: templateSizeClassValidator,
     publicationState: templatePublicationStateValidator,
@@ -477,11 +481,16 @@ export default defineSchema({
     sourceTemplateSlug: v.string(),
     sourceTemplateTitle: v.string(),
     sourceTemplateCategory: templateCategoryValidator,
+    sourceCriterionExternalId: v.string(),
+    sourceCriterionNameSnapshot: v.string(),
+    sourceCriterionPromptSnapshot: v.string(),
     title: v.string(),
     description: v.union(v.string(), v.null()),
     visibility: rankingVisibilityValidator,
     publicationState: rankingPublicationStateValidator,
     isPubliclyListable: v.boolean(),
+    supersededAt: v.union(v.number(), v.null()),
+    supersededByRankingId: v.union(v.id('publishedRankings'), v.null()),
     itemCount: v.number(),
     tierCount: v.number(),
     remixCount: v.number(),
@@ -501,8 +510,22 @@ export default defineSchema({
       'publicationState',
       'updatedAt',
     ])
+    .index('bySourceTemplateCriterionOwnerPublicationStateUpdatedAt', [
+      'sourceTemplateId',
+      'sourceCriterionExternalId',
+      'ownerId',
+      'publicationState',
+      'updatedAt',
+    ])
     .index('bySourceTemplateOwnerPublicCreatedAt', [
       'sourceTemplateId',
+      'ownerId',
+      'isPubliclyListable',
+      'createdAt',
+    ])
+    .index('bySourceTemplateCriterionOwnerPublicCreatedAt', [
+      'sourceTemplateId',
+      'sourceCriterionExternalId',
       'ownerId',
       'isPubliclyListable',
       'createdAt',
@@ -512,8 +535,21 @@ export default defineSchema({
       'isPubliclyListable',
       'updatedAt',
     ])
+    .index('bySourceTemplateCriterionPublicUpdatedAt', [
+      'sourceTemplateId',
+      'sourceCriterionExternalId',
+      'isPubliclyListable',
+      'updatedAt',
+    ])
     .index('bySourceTemplatePublicTopScoreAndUpdatedAt', [
       'sourceTemplateId',
+      'isPubliclyListable',
+      'topScore',
+      'updatedAt',
+    ])
+    .index('bySourceTemplateCriterionPublicTopScoreAndUpdatedAt', [
+      'sourceTemplateId',
+      'sourceCriterionExternalId',
       'isPubliclyListable',
       'topScore',
       'updatedAt',
@@ -524,9 +560,28 @@ export default defineSchema({
       'isFeatured',
       'featuredRank',
     ])
+    .index('bySourceTemplateCriterionPublicFeaturedRank', [
+      'sourceTemplateId',
+      'sourceCriterionExternalId',
+      'isPubliclyListable',
+      'isFeatured',
+      'featuredRank',
+    ])
     .index('bySourceTemplatePublicCreatedAt', [
       'sourceTemplateId',
       'isPubliclyListable',
+      'createdAt',
+    ])
+    .index('bySourceTemplateCriterionPublicCreatedAt', [
+      'sourceTemplateId',
+      'sourceCriterionExternalId',
+      'isPubliclyListable',
+      'createdAt',
+    ])
+    .index('byOwnerSourceTemplateCriterionCreatedAt', [
+      'ownerId',
+      'sourceTemplateId',
+      'sourceCriterionExternalId',
       'createdAt',
     ]),
 
@@ -560,6 +615,7 @@ export default defineSchema({
 
   templateRankingAggregates: defineTable({
     templateId: v.id('templates'),
+    criterionExternalId: v.string(),
     state: templateRankingAggregateStateValidator,
     activeGeneration: v.union(v.number(), v.null()),
     bucketCount: v.number(),
@@ -568,13 +624,19 @@ export default defineSchema({
     computedAt: v.union(v.number(), v.null()),
     staleAt: v.union(v.number(), v.null()),
     bucketSpread: v.array(v.number()),
+    mostAgreedItemExternalId: v.union(v.string(), v.null()),
+    mostAgreedItemLabel: v.union(v.string(), v.null()),
+    mostDivisiveItemExternalId: v.union(v.string(), v.null()),
+    mostDivisiveItemLabel: v.union(v.string(), v.null()),
     updatedAt: v.number(),
   })
     .index('byTemplateId', ['templateId'])
+    .index('byTemplateIdAndCriterion', ['templateId', 'criterionExternalId'])
     .index('byStateAndUpdatedAt', ['state', 'updatedAt']),
 
   templateRankingAggregateItems: defineTable({
     templateId: v.id('templates'),
+    criterionExternalId: v.string(),
     generation: v.number(),
     templateItemId: v.id('templateItems'),
     templateItemExternalId: v.string(),
@@ -594,6 +656,8 @@ export default defineSchema({
     topBucketShare: v.number(),
     consensusScore: v.number(),
     controversyScore: v.number(),
+    controversyPercentile: v.number(),
+    agreementPercentile: v.number(),
     averageTopSort: v.number(),
     averageBottomSort: v.number(),
     consensusSort: v.number(),
@@ -611,146 +675,173 @@ export default defineSchema({
     computedAt: v.number(),
   })
     .index('byTemplateIdAndOrder', ['templateId', 'order'])
-    .index('byTemplateIdAndGenerationAndOrder', [
+    .index('byTemplateIdAndCriterionAndOrder', [
       'templateId',
+      'criterionExternalId',
+      'order',
+    ])
+    .index('byTemplateIdAndCriterionAndGenerationAndOrder', [
+      'templateId',
+      'criterionExternalId',
       'generation',
       'order',
     ])
-    .index('byTemplateIdAndGenerationAndTemplateItemId', [
+    .index('byTemplateIdAndCriterionAndGenerationAndTemplateItemId', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'templateItemId',
     ])
-    .index('byTemplateIdAndGenerationAndAverageTopSortAndOrder', [
+    .index('byTemplateIdAndCriterionAndGenerationAndAvgTopSortAndOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'averageTopSort',
       'order',
     ])
-    .index('byTemplateIdAndGenerationAndAverageBottomSortAndOrder', [
+    .index('byTemplateIdAndCriterionAndGenerationAndAvgBottomSortAndOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'averageBottomSort',
       'order',
     ])
-    .index('byTemplateIdAndGenerationAndConsensusSortAndOrder', [
+    .index('byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'consensusSort',
       'order',
     ])
-    .index('byTemplateIdAndGenerationAndControversySortAndOrder', [
+    .index('byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'controversySort',
       'order',
     ])
-    .index('byTemplateGenerationTopOrder', [
+    .index('byTemplateCriterionGenerationTopOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isTopBucket',
       'order',
     ])
-    .index('byTemplateGenerationTopAverageTopOrder', [
+    .index('byTemplateCriterionGenerationTopAverageTopOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isTopBucket',
       'averageTopSort',
       'order',
     ])
-    .index('byTemplateGenerationTopAverageBottomOrder', [
+    .index('byTemplateCriterionGenerationTopAverageBottomOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isTopBucket',
       'averageBottomSort',
       'order',
     ])
-    .index('byTemplateGenerationTopConsensusOrder', [
+    .index('byTemplateCriterionGenerationTopConsensusOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isTopBucket',
       'consensusSort',
       'order',
     ])
-    .index('byTemplateGenerationTopControversyOrder', [
+    .index('byTemplateCriterionGenerationTopControversyOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isTopBucket',
       'controversySort',
       'order',
     ])
-    .index('byTemplateGenerationBottomOrder', [
+    .index('byTemplateCriterionGenerationBottomOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isBottomBucket',
       'order',
     ])
-    .index('byTemplateGenerationBottomAverageTopOrder', [
+    .index('byTemplateCriterionGenerationBottomAverageTopOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isBottomBucket',
       'averageTopSort',
       'order',
     ])
-    .index('byTemplateGenerationBottomAverageBottomOrder', [
+    .index('byTemplateCriterionGenerationBottomAverageBottomOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isBottomBucket',
       'averageBottomSort',
       'order',
     ])
-    .index('byTemplateGenerationBottomConsensusOrder', [
+    .index('byTemplateCriterionGenerationBottomConsensusOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isBottomBucket',
       'consensusSort',
       'order',
     ])
-    .index('byTemplateGenerationBottomControversyOrder', [
+    .index('byTemplateCriterionGenerationBottomControversyOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isBottomBucket',
       'controversySort',
       'order',
     ])
-    .index('byTemplateGenerationControversialOrder', [
+    .index('byTemplateCriterionGenerationControversialOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isControversial',
       'order',
     ])
-    .index('byTemplateGenerationControversialAverageTopOrder', [
+    .index('byTemplateCriterionGenerationControversialAverageTopOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isControversial',
       'averageTopSort',
       'order',
     ])
-    .index('byTemplateGenerationControversialAverageBottomOrder', [
+    .index('byTemplateCriterionGenerationControversialAverageBottomOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isControversial',
       'averageBottomSort',
       'order',
     ])
-    .index('byTemplateGenerationControversialConsensusOrder', [
+    .index('byTemplateCriterionGenerationControversialConsensusOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isControversial',
       'consensusSort',
       'order',
     ])
-    .index('byTemplateGenerationControversialControversyOrder', [
+    .index('byTemplateCriterionGenerationControversialControversyOrder', [
       'templateId',
+      'criterionExternalId',
       'generation',
       'isControversial',
       'controversySort',
       'order',
     ])
-    .searchIndex('searchByTemplateGeneration', {
+    .searchIndex('searchByTemplateCriterionGeneration', {
       searchField: 'searchText',
       filterFields: [
         'templateId',
+        'criterionExternalId',
         'generation',
         'isTopBucket',
         'isBottomBucket',
@@ -760,6 +851,7 @@ export default defineSchema({
 
   templateRankingAggregateJobs: defineTable({
     templateId: v.id('templates'),
+    criterionExternalId: v.string(),
     status: templateRankingAggregateJobStatusValidator,
     phase: templateRankingAggregateJobPhaseValidator,
     generation: v.number(),
@@ -782,6 +874,17 @@ export default defineSchema({
       v.null()
     ),
     activeRankingItemCursor: v.union(v.string(), v.null()),
+    relativeMetricPatches: v.optional(
+      v.array(
+        v.object({
+          aggregateItemId: v.id('templateRankingAggregateItems'),
+          controversyPercentile: v.number(),
+          agreementPercentile: v.number(),
+          isControversial: v.boolean(),
+        })
+      )
+    ),
+    relativeMetricCursor: v.optional(v.number()),
     bucketSpread: v.array(v.number()),
     restartRequestedAt: v.union(v.number(), v.null()),
     retryCount: v.number(),
@@ -791,7 +894,12 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('byTemplateId', ['templateId'])
-    .index('byTemplateIdAndStatus', ['templateId', 'status'])
+    .index('byTemplateIdAndCriterion', ['templateId', 'criterionExternalId'])
+    .index('byTemplateIdAndCriterionAndStatus', [
+      'templateId',
+      'criterionExternalId',
+      'status',
+    ])
     .index('byStatusAndUpdatedAt', ['status', 'updatedAt']),
 
   userTemplateBookmarks: defineTable({

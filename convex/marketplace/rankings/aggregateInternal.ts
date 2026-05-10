@@ -5,7 +5,7 @@ import { v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
-import { BATCH_LIMITS, MAX_SYNC_TIERS } from '../../lib/limits'
+import { BATCH_LIMITS, MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
 import { isPublicRankingRow } from './lib'
 import {
   buildAggregateItemMetrics,
@@ -13,9 +13,16 @@ import {
   findTemplateRankingAggregate,
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
+  queueTemplateRankingAggregateRecomputesForActiveCriteria,
 } from './aggregate'
 import { buildRankingTierBucketMap } from '@tierlistbuilder/contracts/marketplace/ranking'
-import { makeEmptyBucketSpread } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
+import {
+  CONTROVERSY_PERCENTILE_MIN,
+  MIN_RANKINGS_FOR_CONSENSUS_BOARD,
+  MIN_RANKINGS_FOR_CONTROVERSY_BADGES,
+  makeEmptyBucketSpread,
+  type MarketplaceTemplateRankingAggregateHighlight,
+} from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
 type AggregateJob = Doc<'templateRankingAggregateJobs'>
 type AggregateScheduleState = 'stale' | 'computing'
@@ -31,6 +38,14 @@ interface TierBucketMapEntry
 {
   tierExternalId: string
   bucketIndex: number
+}
+
+interface RelativeMetricPatch
+{
+  aggregateItemId: Id<'templateRankingAggregateItems'>
+  controversyPercentile: number
+  agreementPercentile: number
+  isControversial: boolean
 }
 
 const AGGREGATE_JOB_MAX_RETRIES = 3
@@ -62,9 +77,25 @@ const scheduleJob = async (
   )
 }
 
+const clearActiveRankingAndReschedule = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<void> =>
+{
+  await ctx.db.patch(job._id, {
+    activeRankingId: null,
+    activeRankingTierBucketMap: null,
+    activeRankingItemCursor: null,
+    updatedAt: now,
+  })
+  await scheduleJob(ctx, job._id)
+}
+
 const scheduleGenerationCleanup = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
+  criterionExternalId: string,
   generation: number
 ): Promise<void> =>
 {
@@ -72,7 +103,7 @@ const scheduleGenerationCleanup = async (
     0,
     internal.marketplace.rankings.aggregateInternal
       .deleteTemplateRankingAggregateGeneration,
-    { templateId, generation, cursor: null }
+    { templateId, criterionExternalId, generation, cursor: null }
   )
 }
 
@@ -83,9 +114,10 @@ const isLatestPublicRankingForOwner = async (
 {
   const latest = await ctx.db
     .query('publishedRankings')
-    .withIndex('bySourceTemplateOwnerPublicCreatedAt', (q) =>
+    .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
       q
         .eq('sourceTemplateId', ranking.sourceTemplateId)
+        .eq('sourceCriterionExternalId', ranking.sourceCriterionExternalId)
         .eq('ownerId', ranking.ownerId)
         .eq('isPubliclyListable', true)
     )
@@ -112,6 +144,7 @@ const seedAggregateItemRows = async (
     page.page.map((item) =>
       ctx.db.insert('templateRankingAggregateItems', {
         templateId: job.templateId,
+        criterionExternalId: job.criterionExternalId,
         generation: job.generation,
         templateItemId: item._id,
         templateItemExternalId: item.externalId,
@@ -131,6 +164,8 @@ const seedAggregateItemRows = async (
         topBucketShare: 0,
         consensusScore: 0,
         controversyScore: 0,
+        controversyPercentile: 0,
+        agreementPercentile: 0,
         averageTopSort: job.bucketCount + 1,
         averageBottomSort: job.bucketCount + 1,
         consensusSort: job.bucketCount + 1,
@@ -222,6 +257,268 @@ const applyBucketSpreadDelta = (
   }
 }
 
+const clampPercentile = (value: number): number =>
+  Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0))
+
+const buildPercentiles = (
+  rows: readonly Doc<'templateRankingAggregateItems'>[],
+  score: (row: Doc<'templateRankingAggregateItems'>) => number
+): Map<Id<'templateRankingAggregateItems'>, number> =>
+{
+  const sampled = rows
+    .filter((row) => row.sampleCount > 0)
+    .map((row) => ({ row, score: score(row) }))
+  if (sampled.length <= 1)
+  {
+    return new Map(sampled.map(({ row }) => [row._id, 0]))
+  }
+
+  const sorted = sampled
+    .slice()
+    .sort((a, b) => a.score - b.score || a.row.order - b.row.order)
+  const percentiles = new Map<Id<'templateRankingAggregateItems'>, number>()
+  let lowerCount = 0
+  for (let index = 0; index < sorted.length; )
+  {
+    const value = sorted[index].score
+    let nextIndex = index + 1
+    while (nextIndex < sorted.length && sorted[nextIndex].score === value)
+    {
+      nextIndex++
+    }
+
+    const equalCount = nextIndex - index
+    const percentile = clampPercentile(
+      (lowerCount + (equalCount - 1) / 2) / (sampled.length - 1)
+    )
+    for (let groupIndex = index; groupIndex < nextIndex; groupIndex++)
+    {
+      percentiles.set(sorted[groupIndex].row._id, percentile)
+    }
+    lowerCount += equalCount
+    index = nextIndex
+  }
+  return percentiles
+}
+
+const finiteScore = (value: number): number =>
+  Number.isFinite(value) ? value : 0
+
+interface AggregateHighlights
+{
+  mostAgreed: MarketplaceTemplateRankingAggregateHighlight | null
+  mostDivisive: MarketplaceTemplateRankingAggregateHighlight | null
+}
+
+const EMPTY_AGGREGATE_HIGHLIGHTS: AggregateHighlights = {
+  mostAgreed: null,
+  mostDivisive: null,
+}
+
+const toAggregateHighlight = (
+  row: Doc<'templateRankingAggregateItems'>
+): MarketplaceTemplateRankingAggregateHighlight => ({
+  templateItemExternalId: row.templateItemExternalId,
+  label: row.label,
+})
+
+const loadMostAgreedHighlight = async (
+  ctx: MutationCtx,
+  job: AggregateJob
+): Promise<MarketplaceTemplateRankingAggregateHighlight | null> =>
+{
+  const rows = await ctx.db
+    .query('templateRankingAggregateItems')
+    .withIndex(
+      'byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder',
+      (q) =>
+        q
+          .eq('templateId', job.templateId)
+          .eq('criterionExternalId', job.criterionExternalId)
+          .eq('generation', job.generation)
+    )
+    .take(1)
+  return rows[0] ? toAggregateHighlight(rows[0]) : null
+}
+
+const loadMostDivisiveHighlight = async (
+  ctx: MutationCtx,
+  job: AggregateJob
+): Promise<MarketplaceTemplateRankingAggregateHighlight | null> =>
+{
+  const rows = await ctx.db
+    .query('templateRankingAggregateItems')
+    .withIndex(
+      'byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder',
+      (q) =>
+        q
+          .eq('templateId', job.templateId)
+          .eq('criterionExternalId', job.criterionExternalId)
+          .eq('generation', job.generation)
+    )
+    .take(1)
+  return rows[0] ? toAggregateHighlight(rows[0]) : null
+}
+
+const loadAggregateHighlights = async (
+  ctx: MutationCtx,
+  job: AggregateJob
+): Promise<AggregateHighlights> =>
+{
+  const [mostAgreed, mostDivisive] = await Promise.all([
+    job.rankingCount >= MIN_RANKINGS_FOR_CONSENSUS_BOARD
+      ? loadMostAgreedHighlight(ctx, job)
+      : Promise.resolve(null),
+    job.rankingCount >= MIN_RANKINGS_FOR_CONTROVERSY_BADGES
+      ? loadMostDivisiveHighlight(ctx, job)
+      : Promise.resolve(null),
+  ])
+  return { mostAgreed, mostDivisive }
+}
+
+const loadRelativeMetricRows = async (
+  ctx: MutationCtx,
+  job: AggregateJob
+): Promise<Doc<'templateRankingAggregateItems'>[]> =>
+{
+  const rows = await ctx.db
+    .query('templateRankingAggregateItems')
+    .withIndex('byTemplateIdAndCriterionAndGenerationAndOrder', (q) =>
+      q
+        .eq('templateId', job.templateId)
+        .eq('criterionExternalId', job.criterionExternalId)
+        .eq('generation', job.generation)
+    )
+    .take(MAX_SYNC_ITEMS + 1)
+  if (rows.length > MAX_SYNC_ITEMS)
+  {
+    throw new Error('aggregate item rows exceed sync item limit')
+  }
+  return rows
+}
+
+const buildRelativeMetricPatches = (
+  rows: readonly Doc<'templateRankingAggregateItems'>[],
+  rankingCount: number
+): RelativeMetricPatch[] =>
+{
+  const controversyPercentiles = buildPercentiles(rows, (row) =>
+    finiteScore(row.controversyScore)
+  )
+  const agreementPercentiles = buildPercentiles(rows, (row) =>
+    finiteScore(row.consensusScore)
+  )
+  const canBadge = rankingCount >= MIN_RANKINGS_FOR_CONTROVERSY_BADGES
+  return rows.map((row) =>
+  {
+    const controversyPercentile = controversyPercentiles.get(row._id) ?? 0
+    return {
+      aggregateItemId: row._id,
+      controversyPercentile,
+      agreementPercentile: agreementPercentiles.get(row._id) ?? 0,
+      isControversial:
+        canBadge &&
+        row.sampleCount > 0 &&
+        row.controversyScore > 0 &&
+        controversyPercentile >= CONTROVERSY_PERCENTILE_MIN,
+    }
+  })
+}
+
+const prepareRelativeMetrics = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<null> =>
+{
+  const rows = await loadRelativeMetricRows(ctx, job)
+  await ctx.db.patch(job._id, {
+    relativeMetricPatches: buildRelativeMetricPatches(rows, job.rankingCount),
+    relativeMetricCursor: 0,
+    templateCursor: null,
+    updatedAt: now,
+  })
+  await scheduleJob(ctx, job._id)
+  return null
+}
+
+const normalizeRelativeMetricCursor = (
+  cursor: number | undefined,
+  patchCount: number
+): number =>
+  typeof cursor === 'number' && Number.isSafeInteger(cursor) && cursor > 0
+    ? Math.min(cursor, patchCount)
+    : 0
+
+const finalizeRelativeMetrics = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<null> =>
+{
+  const patches = job.relativeMetricPatches
+  if (!patches) return await prepareRelativeMetrics(ctx, job, now)
+
+  const cursor = normalizeRelativeMetricCursor(
+    job.relativeMetricCursor,
+    patches.length
+  )
+  const nextCursor = Math.min(
+    cursor + BATCH_LIMITS.templateRankingAggregateCleanup,
+    patches.length
+  )
+  const page = patches.slice(cursor, nextCursor)
+
+  await Promise.all(
+    page.map((patch) =>
+      ctx.db.patch(patch.aggregateItemId, {
+        controversyPercentile: patch.controversyPercentile,
+        agreementPercentile: patch.agreementPercentile,
+        isControversial: patch.isControversial,
+        computedAt: now,
+      })
+    )
+  )
+
+  if (nextCursor < patches.length)
+  {
+    await ctx.db.patch(job._id, {
+      relativeMetricCursor: nextCursor,
+      updatedAt: now,
+    })
+    await scheduleJob(ctx, job._id)
+    return null
+  }
+
+  await finishJob(
+    ctx,
+    { ...job, relativeMetricCursor: nextCursor, templateCursor: null },
+    now
+  )
+  return null
+}
+
+const startRelativeMetricsFinalization = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<null> =>
+{
+  if (job.rankingCount === 0)
+  {
+    await finishJob(ctx, job, now)
+    return null
+  }
+
+  await ctx.db.patch(job._id, {
+    phase: 'finalizeRelativeMetrics',
+    templateCursor: null,
+    updatedAt: now,
+  })
+  await scheduleJob(ctx, job._id)
+  return null
+}
+
 const incrementAggregateItem = async (
   ctx: MutationCtx,
   job: AggregateJob,
@@ -232,9 +529,10 @@ const incrementAggregateItem = async (
 {
   const row = await ctx.db
     .query('templateRankingAggregateItems')
-    .withIndex('byTemplateIdAndGenerationAndTemplateItemId', (q) =>
+    .withIndex('byTemplateIdAndCriterionAndGenerationAndTemplateItemId', (q) =>
       q
         .eq('templateId', job.templateId)
+        .eq('criterionExternalId', job.criterionExternalId)
         .eq('generation', job.generation)
         .eq('templateItemId', item.templateItemId)
     )
@@ -282,29 +580,18 @@ const processActiveRanking = async (
   if (
     !ranking ||
     ranking.sourceTemplateId !== job.templateId ||
+    ranking.sourceCriterionExternalId !== job.criterionExternalId ||
     !isPublicRankingRow(ranking)
   )
   {
-    await ctx.db.patch(job._id, {
-      activeRankingId: null,
-      activeRankingTierBucketMap: null,
-      activeRankingItemCursor: null,
-      updatedAt: now,
-    })
-    await scheduleJob(ctx, job._id)
+    await clearActiveRankingAndReschedule(ctx, job, now)
     return null
   }
 
   const buckets = deserializeTierBucketMap(job.activeRankingTierBucketMap)
   if (buckets === null)
   {
-    await ctx.db.patch(job._id, {
-      activeRankingId: null,
-      activeRankingTierBucketMap: null,
-      activeRankingItemCursor: null,
-      updatedAt: now,
-    })
-    await scheduleJob(ctx, job._id)
+    await clearActiveRankingAndReschedule(ctx, job, now)
     return null
   }
   const page = await ctx.db
@@ -352,8 +639,11 @@ const processActiveRanking = async (
   })
   if (job.rankingScanDone)
   {
-    await finishJob(ctx, { ...job, rankingCount, bucketSpread }, now)
-    return null
+    return await startRelativeMetricsFinalization(
+      ctx,
+      { ...job, rankingCount, bucketSpread },
+      now
+    )
   }
 
   await scheduleJob(ctx, job._id)
@@ -368,14 +658,16 @@ const selectNextRanking = async (
 {
   if (job.rankingScanDone)
   {
-    await finishJob(ctx, job, now)
-    return null
+    return await startRelativeMetricsFinalization(ctx, job, now)
   }
 
   const page = await ctx.db
     .query('publishedRankings')
-    .withIndex('bySourceTemplatePublicCreatedAt', (q) =>
-      q.eq('sourceTemplateId', job.templateId).eq('isPubliclyListable', true)
+    .withIndex('bySourceTemplateCriterionPublicCreatedAt', (q) =>
+      q
+        .eq('sourceTemplateId', job.templateId)
+        .eq('sourceCriterionExternalId', job.criterionExternalId)
+        .eq('isPubliclyListable', true)
     )
     .order('desc')
     .paginate({
@@ -385,8 +677,7 @@ const selectNextRanking = async (
   const ranking = page.page[0]
   if (!ranking)
   {
-    await finishJob(ctx, job, now)
-    return null
+    return await startRelativeMetricsFinalization(ctx, job, now)
   }
 
   const isLatest = await isLatestPublicRankingForOwner(ctx, ranking)
@@ -419,9 +710,25 @@ async function finishJob(
   now: number
 ): Promise<void>
 {
-  const aggregate = await findTemplateRankingAggregate(ctx, job.templateId)
+  const aggregate = await findTemplateRankingAggregate(
+    ctx,
+    job.templateId,
+    job.criterionExternalId
+  )
   const previousGeneration = aggregate?.activeGeneration ?? null
   const bucketSpread = job.bucketSpread
+  const highlights =
+    job.rankingCount > 0
+      ? await loadAggregateHighlights(ctx, job)
+      : EMPTY_AGGREGATE_HIGHLIGHTS
+  const highlightFields = {
+    mostAgreedItemExternalId:
+      highlights.mostAgreed?.templateItemExternalId ?? null,
+    mostAgreedItemLabel: highlights.mostAgreed?.label ?? null,
+    mostDivisiveItemExternalId:
+      highlights.mostDivisive?.templateItemExternalId ?? null,
+    mostDivisiveItemLabel: highlights.mostDivisive?.label ?? null,
+  }
   if (aggregate)
   {
     await ctx.db.patch(aggregate._id, {
@@ -433,6 +740,7 @@ async function finishJob(
       computedAt: now,
       staleAt: null,
       bucketSpread,
+      ...highlightFields,
       updatedAt: now,
     })
   }
@@ -440,6 +748,7 @@ async function finishJob(
   {
     await ctx.db.insert('templateRankingAggregates', {
       templateId: job.templateId,
+      criterionExternalId: job.criterionExternalId,
       state: job.rankingCount > 0 ? 'ready' : 'empty',
       activeGeneration: job.generation,
       bucketCount: job.bucketCount,
@@ -448,6 +757,7 @@ async function finishJob(
       computedAt: now,
       staleAt: null,
       bucketSpread,
+      ...highlightFields,
       updatedAt: now,
     })
   }
@@ -455,14 +765,24 @@ async function finishJob(
   await ctx.db.delete(job._id)
   if (previousGeneration !== null && previousGeneration !== job.generation)
   {
-    await scheduleGenerationCleanup(ctx, job.templateId, previousGeneration)
+    await scheduleGenerationCleanup(
+      ctx,
+      job.templateId,
+      job.criterionExternalId,
+      previousGeneration
+    )
   }
   if (
     job.restartRequestedAt !== null &&
     job.restartRequestedAt > job.createdAt
   )
   {
-    await queueTemplateRankingAggregateRecompute(ctx, job.templateId, now)
+    await queueTemplateRankingAggregateRecompute(
+      ctx,
+      job.templateId,
+      job.criterionExternalId,
+      now
+    )
   }
 }
 
@@ -480,7 +800,11 @@ const markAggregateJobFailed = async (
     updatedAt: now,
   })
 
-  const aggregate = await findTemplateRankingAggregate(ctx, job.templateId)
+  const aggregate = await findTemplateRankingAggregate(
+    ctx,
+    job.templateId,
+    job.criterionExternalId
+  )
   if (aggregate?.activeGeneration === null)
   {
     await ctx.db.patch(aggregate._id, {
@@ -535,6 +859,10 @@ export const processTemplateRankingAggregateJob = internalMutation({
     {
       return await seedAggregateItemRows(ctx, job, now)
     }
+    if (job.phase === 'finalizeRelativeMetrics')
+    {
+      return await finalizeRelativeMetrics(ctx, job, now)
+    }
     if (job.activeRankingId !== null)
     {
       return await processActiveRanking(ctx, job, now)
@@ -549,9 +877,28 @@ export const queueTemplateRankingAggregateRecomputeForTemplate =
     returns: v.null(),
     handler: async (ctx, args): Promise<null> =>
     {
+      await queueTemplateRankingAggregateRecomputesForActiveCriteria(
+        ctx,
+        args.templateId,
+        Date.now()
+      )
+      return null
+    },
+  })
+
+export const queueTemplateRankingAggregateRecomputeForCriterion =
+  internalMutation({
+    args: {
+      templateId: v.id('templates'),
+      criterionExternalId: v.string(),
+    },
+    returns: v.null(),
+    handler: async (ctx, args): Promise<null> =>
+    {
       await queueTemplateRankingAggregateRecompute(
         ctx,
         args.templateId,
+        args.criterionExternalId,
         Date.now()
       )
       return null
@@ -561,6 +908,7 @@ export const queueTemplateRankingAggregateRecomputeForTemplate =
 export const deleteTemplateRankingAggregateGeneration = internalMutation({
   args: {
     templateId: v.id('templates'),
+    criterionExternalId: v.string(),
     generation: v.number(),
     cursor: v.union(v.string(), v.null()),
   },
@@ -569,8 +917,11 @@ export const deleteTemplateRankingAggregateGeneration = internalMutation({
   {
     const page = await ctx.db
       .query('templateRankingAggregateItems')
-      .withIndex('byTemplateIdAndGenerationAndOrder', (q) =>
-        q.eq('templateId', args.templateId).eq('generation', args.generation)
+      .withIndex('byTemplateIdAndCriterionAndGenerationAndOrder', (q) =>
+        q
+          .eq('templateId', args.templateId)
+          .eq('criterionExternalId', args.criterionExternalId)
+          .eq('generation', args.generation)
       )
       .paginate({
         numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
@@ -586,6 +937,7 @@ export const deleteTemplateRankingAggregateGeneration = internalMutation({
           .deleteTemplateRankingAggregateGeneration,
         {
           templateId: args.templateId,
+          criterionExternalId: args.criterionExternalId,
           generation: args.generation,
           cursor: page.continueCursor,
         }
@@ -672,21 +1024,27 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
       })
 
     const now = Date.now()
-    let scheduled = 0
-    for (const aggregate of page.page)
-    {
-      const template = await ctx.db.get(aggregate.templateId)
-      if (!template?.isPubliclyListable)
+    const scheduledResults = await Promise.all(
+      page.page.map(async (aggregate) =>
       {
-        continue
-      }
-      await queueTemplateRankingAggregateRecompute(
-        ctx,
-        aggregate.templateId,
-        now
-      )
-      scheduled++
-    }
+        const template = await ctx.db.get(aggregate.templateId)
+        if (!template?.isPubliclyListable)
+        {
+          return 0
+        }
+        await queueTemplateRankingAggregateRecompute(
+          ctx,
+          aggregate.templateId,
+          aggregate.criterionExternalId,
+          now
+        )
+        return 1
+      })
+    )
+    const scheduled = scheduledResults.reduce<number>(
+      (total, count) => total + count,
+      0
+    )
 
     if (!page.isDone)
     {
@@ -714,25 +1072,44 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
 export const deleteTemplateRankingAggregateRows = internalMutation({
   args: {
     templateId: v.id('templates'),
+    criterionExternalId: v.optional(v.string()),
     cursor: v.union(v.string(), v.null()),
   },
   returns: v.object({ isDone: v.boolean() }),
   handler: async (ctx, args): Promise<{ isDone: boolean }> =>
   {
-    const page = await ctx.db
-      .query('templateRankingAggregateItems')
-      .withIndex('byTemplateIdAndOrder', (q) =>
-        q.eq('templateId', args.templateId)
-      )
-      .paginate({
-        numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
-        cursor: args.cursor,
-      })
+    const criterionExternalId = args.criterionExternalId
+    const page =
+      criterionExternalId === undefined
+        ? await ctx.db
+            .query('templateRankingAggregateItems')
+            .withIndex('byTemplateIdAndOrder', (q) =>
+              q.eq('templateId', args.templateId)
+            )
+            .paginate({
+              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+              cursor: args.cursor,
+            })
+        : await ctx.db
+            .query('templateRankingAggregateItems')
+            .withIndex('byTemplateIdAndCriterionAndOrder', (q) =>
+              q
+                .eq('templateId', args.templateId)
+                .eq('criterionExternalId', criterionExternalId)
+            )
+            .paginate({
+              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+              cursor: args.cursor,
+            })
 
     await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
     if (page.isDone)
     {
-      await deleteTemplateRankingAggregateParentRows(ctx, args.templateId)
+      await deleteTemplateRankingAggregateParentRows(
+        ctx,
+        args.templateId,
+        criterionExternalId
+      )
     }
     return { isDone: page.isDone }
   },

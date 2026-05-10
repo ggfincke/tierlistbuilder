@@ -6,6 +6,7 @@ import type { ImageFit, ItemTransform } from '../workspace/board'
 import type { TemplateCategory } from './category'
 import type { TemplateMediaRef } from './template'
 import type { PaginationResult } from '../lib/pagination'
+import type { MarketplaceTemplateCriterion } from './templateCriterion'
 
 export const TEMPLATE_RANKING_AGGREGATE_STATES = [
   'computing',
@@ -44,7 +45,9 @@ export const DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE = 100
 export const MAX_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE = 100
 export const TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX = 1
 export const TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN = 4
-export const TEMPLATE_RANKING_AGGREGATE_CONTROVERSY_MIN = 0.55
+export const MIN_RANKINGS_FOR_CONSENSUS_BOARD = 5
+export const MIN_RANKINGS_FOR_CONTROVERSY_BADGES = 10
+export const CONTROVERSY_PERCENTILE_MIN = 0.9
 
 export const makeEmptyBucketSpread = (bucketCount: number): number[] =>
   Array.from({ length: Math.max(0, bucketCount) }, () => 0)
@@ -74,9 +77,16 @@ export interface MarketplaceTemplateRankingAggregateBucket
   colorSpec: TierColorSpec | null
 }
 
+export interface MarketplaceTemplateRankingAggregateHighlight
+{
+  templateItemExternalId: string
+  label: string | null
+}
+
 export interface MarketplaceTemplateRankingAggregate
 {
   template: MarketplaceTemplateRankingAggregateTemplateRef
+  criterion: MarketplaceTemplateCriterion
   state: TemplateRankingAggregateState
   activeGeneration: number | null
   bucketCount: number
@@ -86,6 +96,8 @@ export interface MarketplaceTemplateRankingAggregate
   staleAt: number | null
   buckets: MarketplaceTemplateRankingAggregateBucket[]
   bucketSpread: number[]
+  mostAgreed: MarketplaceTemplateRankingAggregateHighlight | null
+  mostDivisive: MarketplaceTemplateRankingAggregateHighlight | null
 }
 
 export interface MarketplaceTemplateRankingAggregateDistributionCell
@@ -113,6 +125,8 @@ export interface MarketplaceTemplateRankingAggregateItem
   topBucketShare: number
   consensusScore: number
   controversyScore: number
+  controversyPercentile: number
+  agreementPercentile: number
   isTopBucket: boolean
   isBottomBucket: boolean
   isControversial: boolean

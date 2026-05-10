@@ -5,6 +5,7 @@ import type {
   BoardLabelSettings,
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import type { AutoCropBBox } from '@tierlistbuilder/contracts/workspace/imageMath'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 
@@ -16,9 +17,13 @@ export interface FolderMeta
   tags: string[]
   // path under scripts/marketplace-seed/assets for a dedicated cover image
   coverImage?: string
+  // zoom-out factor on the cover image. 1 (default) = object-cover; > 1
+  // progressively letterboxes (z=2 shrinks source to ~half on constrained axis)
+  coverZoom?: number
   labels?: true | BoardLabelSettings
   itemLabels?: Record<string, string>
   suggestedTiers?: readonly TierPresetTier[]
+  criteria?: readonly MarketplaceTemplateCriterion[]
 }
 
 export interface ProbedItem

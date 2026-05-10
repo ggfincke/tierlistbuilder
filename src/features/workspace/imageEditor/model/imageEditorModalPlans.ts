@@ -39,7 +39,7 @@ export const countAdjustedImageEditorItems = (
   return count
 }
 
-export const buildBoardLabelSettingsFromSource = ({
+const buildBoardLabelSettingsFromSource = ({
   source,
   boardLabels,
   globalLabelDefaults,

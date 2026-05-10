@@ -19,6 +19,7 @@ import {
   TierDescriptionSubtitle,
 } from '~/shared/board-ui/BoardPrimitives'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 import {
   AggregateItemThumb,
@@ -224,12 +225,12 @@ export const ConsensusTierRows = ({
               tierLabelFontSize={tierLabelFontSize}
               itemAspectRatio={frame.aspectRatio}
             >
-              <div className="flex h-full w-full flex-col items-center justify-center text-center leading-tight">
+              <div className="flex flex-col items-center">
                 <span className="block max-w-full break-words [overflow-wrap:anywhere]">
                   {group.bucket.label}
                 </span>
                 <TierDescriptionSubtitle
-                  description={`${group.items.length} ${group.items.length === 1 ? 'item' : 'items'}`}
+                  description={formatCountedWord(group.items.length, 'item')}
                 />
               </div>
             </BoardLabelCellFrame>

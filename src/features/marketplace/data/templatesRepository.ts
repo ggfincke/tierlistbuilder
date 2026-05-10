@@ -122,6 +122,10 @@ interface UseTemplateMutationArgs
   slug: string
   title?: string
   tierSelection?: TemplateUseTierSelection
+  // criterion the user was viewing when they forked — surfaced as the
+  // publish-modal default. server discards it if it doesn't match an
+  // active criterion on the source template
+  preferredCriterionExternalId?: string
 }
 
 export const useUseTemplateMutation = () =>

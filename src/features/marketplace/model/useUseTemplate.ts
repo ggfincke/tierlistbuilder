@@ -15,9 +15,20 @@ import { logger } from '~/shared/lib/logger'
 import { BOARDS_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
+interface UseTemplateOptions
+{
+  // criterion the user was looking at when they forked. server validates &
+  // discards if it doesn't match an active lane on the source template
+  preferredCriterionExternalId?: string
+}
+
 interface UseTemplateAction
 {
-  run: (slug: string, templateTitle: string) => Promise<void>
+  run: (
+    slug: string,
+    templateTitle: string,
+    options?: UseTemplateOptions
+  ) => Promise<void>
   isPending: boolean
 }
 
@@ -28,9 +39,18 @@ export const useUseTemplate = (): UseTemplateAction =>
   const cloneTemplate = useUseTemplateMutation()
 
   const useTemplate = useCallback(
-    async (slug: string, templateTitle: string): Promise<void> =>
+    async (
+      slug: string,
+      templateTitle: string,
+      options?: UseTemplateOptions
+    ): Promise<void> =>
     {
-      const result = await cloneTemplate({ slug })
+      const preferredCriterionExternalId = options?.preferredCriterionExternalId
+      const result = await cloneTemplate(
+        preferredCriterionExternalId
+          ? { slug, preferredCriterionExternalId }
+          : { slug }
+      )
       if (result.status === 'jobQueued')
       {
         toast(`Forking "${templateTitle}"`, 'success')
@@ -52,21 +72,25 @@ export const useUseTemplate = (): UseTemplateAction =>
   }, [])
 
   const { run: runUseTemplate, isPending } = useAsyncAction<
-    [string, string],
+    [string, string, UseTemplateOptions | undefined],
     void
   >(useTemplate, {
     onError,
   })
 
   const run = useCallback(
-    async (slug: string, templateTitle: string) =>
+    async (
+      slug: string,
+      templateTitle: string,
+      options?: UseTemplateOptions
+    ) =>
     {
       if (session.status !== 'signed-in')
       {
         promptSignIn()
         return
       }
-      await runUseTemplate(slug, templateTitle)
+      await runUseTemplate(slug, templateTitle, options)
     },
     [runUseTemplate, session.status]
   )

@@ -99,6 +99,7 @@ export const WorkspaceShell = () =>
   const activeBoardTitle = useActiveBoardStore((state) => state.title)
   const rankingPublishAvailability = useRankingPublishAvailability(
     activeBoardId,
+    undefined,
     cloudEnabled && activeBoardId !== null
   )
   const handleOpenPublishRanking = useCallback(() =>

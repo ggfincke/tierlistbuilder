@@ -24,7 +24,7 @@ interface UseImageEditorItemsInput extends ImageEditorItemsInput
   boardAspectRatio: number
 }
 
-export const collectImageEditorItems = ({
+const collectImageEditorItems = ({
   items,
   tiers,
   unrankedItemIds,
@@ -49,7 +49,7 @@ export const collectImageEditorItems = ({
   return result
 }
 
-export const filterImageEditorItems = (
+const filterImageEditorItems = (
   items: readonly TierItem[],
   filter: ImageEditorFilter,
   boardAspectRatio: number
@@ -68,7 +68,7 @@ export const filterImageEditorItems = (
   return items
 }
 
-export const applyPendingImageEditorEdit = (
+const applyPendingImageEditorEdit = (
   items: readonly TierItem[],
   pendingEdit: PendingImageEditorPaneEdit | null
 ): readonly TierItem[] =>

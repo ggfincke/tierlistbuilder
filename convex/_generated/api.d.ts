@@ -36,6 +36,7 @@ import type * as marketplace_rankings_mutations from "../marketplace/rankings/mu
 import type * as marketplace_rankings_queries from "../marketplace/rankings/queries.js";
 import type * as marketplace_rankings_seed from "../marketplace/rankings/seed.js";
 import type * as marketplace_templates_bookmarks from "../marketplace/templates/bookmarks.js";
+import type * as marketplace_templates_criteria from "../marketplace/templates/criteria.js";
 import type * as marketplace_templates_internal from "../marketplace/templates/internal.js";
 import type * as marketplace_templates_lib from "../marketplace/templates/lib.js";
 import type * as marketplace_templates_mutations from "../marketplace/templates/mutations.js";
@@ -98,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   "marketplace/rankings/queries": typeof marketplace_rankings_queries;
   "marketplace/rankings/seed": typeof marketplace_rankings_seed;
   "marketplace/templates/bookmarks": typeof marketplace_templates_bookmarks;
+  "marketplace/templates/criteria": typeof marketplace_templates_criteria;
   "marketplace/templates/internal": typeof marketplace_templates_internal;
   "marketplace/templates/lib": typeof marketplace_templates_lib;
   "marketplace/templates/mutations": typeof marketplace_templates_mutations;

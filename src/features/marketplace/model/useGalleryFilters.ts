@@ -46,7 +46,7 @@ const normalizeTagFromUrl = (value: string | null): string | null =>
   return tag
 }
 
-export const parseGalleryFilterParams = (
+const parseGalleryFilterParams = (
   params: URLSearchParams
 ): GalleryFilterParams =>
 {
@@ -72,7 +72,7 @@ const writeGalleryFilterParams = (
   writeDefaultedParam(params, 'sort', filters.sort, DEFAULT_SORT)
 }
 
-export const createGalleryFilterSearchParams = (
+const createGalleryFilterSearchParams = (
   current: URLSearchParams,
   patch: Partial<GalleryFilterParams>
 ): URLSearchParams =>

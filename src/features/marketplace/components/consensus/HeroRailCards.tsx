@@ -37,6 +37,11 @@ interface HeroRailCardsProps
   labelSettings: BoardLabelSettings | null
 }
 
+interface HeroRailCardsLoadingProps
+{
+  rankingCount: number
+}
+
 interface RailRowProps
 {
   row: MarketplaceTemplateRankingAggregateItem
@@ -98,6 +103,38 @@ const SkeletonList = () => (
   </ul>
 )
 
+export const HeroRailCardsLoading = ({
+  rankingCount,
+}: HeroRailCardsLoadingProps) => (
+  <>
+    <RailCard
+      eyebrow={
+        <>
+          <Flame
+            className="h-3 w-3 text-[var(--t-destructive)]"
+            strokeWidth={2}
+          />
+          Most divisive
+        </>
+      }
+      meta={rankingCount > 0 ? `n = ${rankingCount}` : undefined}
+    >
+      <SkeletonList />
+    </RailCard>
+
+    <RailCard
+      eyebrow={
+        <>
+          <Crown className="h-3 w-3 text-[var(--t-success)]" strokeWidth={2} />
+          Strongest consensus
+        </>
+      }
+    >
+      <SkeletonList />
+    </RailCard>
+  </>
+)
+
 export const HeroRailCards = ({
   templateSlug,
   aggregate,
@@ -111,8 +148,11 @@ export const HeroRailCards = ({
     (aggregate.state === 'ready' || aggregate.state === 'stale')
   const generation = aggregate.activeGeneration
 
+  const criterionExternalId = aggregate.criterion.externalId
+
   const divisivePage = useTemplateRankingAggregateItems({
     templateSlug,
+    criterionExternalId,
     generation,
     sort: 'controversy',
     enabled,
@@ -121,6 +161,7 @@ export const HeroRailCards = ({
 
   const consensusPage = useTemplateRankingAggregateItems({
     templateSlug,
+    criterionExternalId,
     generation,
     sort: 'consensusTop',
     enabled,

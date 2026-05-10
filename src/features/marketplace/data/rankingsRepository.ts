@@ -7,6 +7,7 @@ import {
   useQuery,
   type UsePaginatedQueryResult,
 } from 'convex/react'
+import { useCallback, useMemo } from 'react'
 import { api } from '@convex/_generated/api'
 import { DEFAULT_RANKING_LIST_LIMIT } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type {
@@ -53,6 +54,9 @@ interface PaginatedRankingsForTemplateArgs
 {
   templateSlug: string | null | undefined
   sort?: RankingListSort
+  // when omitted, the backend lists rankings across every criterion; pass
+  // an external id to scope the rail to a single lane
+  criterionExternalId?: string | null
   enabled?: boolean
   pageSize?: number
 }
@@ -60,36 +64,53 @@ interface PaginatedRankingsForTemplateArgs
 export const usePaginatedRankingsForTemplate = ({
   templateSlug,
   sort = 'recent',
+  criterionExternalId,
   enabled = true,
   pageSize = DEFAULT_RANKING_LIST_LIMIT,
 }: PaginatedRankingsForTemplateArgs): RankingsForTemplatePage =>
 {
-  const args =
-    enabled && typeof templateSlug === 'string' && templateSlug.length > 0
-      ? { templateSlug, sort }
-      : 'skip'
+  const args = useMemo(
+    () =>
+      enabled && typeof templateSlug === 'string' && templateSlug.length > 0
+        ? {
+            templateSlug,
+            sort,
+            ...(criterionExternalId ? { criterionExternalId } : {}),
+          }
+        : 'skip',
+    [criterionExternalId, enabled, sort, templateSlug]
+  )
   const page = usePaginatedQuery(
     api.marketplace.rankings.queries.listRankingsForTemplate,
     args,
     { initialNumItems: pageSize }
   ) as UsePaginatedQueryResult<MarketplaceRankingSummary>
-  return {
-    items: page.results,
-    status: page.status,
-    loadMore: (count = pageSize) => page.loadMore(count),
-  }
+  const { results, status, loadMore: pageLoadMore } = page
+  const loadMore = useCallback(
+    (count = pageSize) => pageLoadMore(count),
+    [pageLoadMore, pageSize]
+  )
+  return useMemo(
+    () => ({ items: results, status, loadMore }),
+    [loadMore, results, status]
+  )
 }
 
 // reactive aggregate metadata — null while no row exists yet (pre-cron, or
-// no public rankings); items load through the paginated hook below
+// no public rankings); items load through the paginated hook below; pass
+// criterionExternalId to scope a non-primary lane (omit = primary)
 export const useTemplateRankingAggregate = (
   templateSlug: string | null | undefined,
+  criterionExternalId?: string | null,
   enabled = true
 ): MarketplaceTemplateRankingAggregate | null | undefined =>
   useQuery(
     api.marketplace.rankings.queries.getTemplateRankingAggregate,
     enabled && typeof templateSlug === 'string' && templateSlug.length > 0
-      ? { templateSlug }
+      ? {
+          templateSlug,
+          ...(criterionExternalId ? { criterionExternalId } : {}),
+        }
       : 'skip'
   )
 
@@ -106,6 +127,9 @@ interface TemplateRankingAggregateItemsPage
 interface TemplateRankingAggregateItemsArgs
 {
   templateSlug: string | null | undefined
+  // criterion lane — must match the lane whose generation is being read.
+  // omit to default to the active primary criterion (& its generation)
+  criterionExternalId?: string | null
   generation: number | null | undefined
   sort?: TemplateRankingAggregateItemSort
   band?: TemplateRankingAggregateItemBand
@@ -120,6 +144,7 @@ interface TemplateRankingAggregateItemsArgs
 // pass enabled=false to skip while the aggregate has no active generation
 export const useTemplateRankingAggregateItems = ({
   templateSlug,
+  criterionExternalId,
   generation,
   sort,
   band,
@@ -128,39 +153,51 @@ export const useTemplateRankingAggregateItems = ({
   pageSize = DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
 }: TemplateRankingAggregateItemsArgs): TemplateRankingAggregateItemsPage =>
 {
-  const args =
-    enabled &&
-    typeof templateSlug === 'string' &&
-    templateSlug.length > 0 &&
-    typeof generation === 'number'
-      ? {
-          templateSlug,
-          generation,
-          ...(sort ? { sort } : {}),
-          ...(band ? { band } : {}),
-          ...(search ? { search } : {}),
-        }
-      : 'skip'
+  const args = useMemo(
+    () =>
+      enabled &&
+      typeof templateSlug === 'string' &&
+      templateSlug.length > 0 &&
+      typeof generation === 'number'
+        ? {
+            templateSlug,
+            generation,
+            ...(criterionExternalId ? { criterionExternalId } : {}),
+            ...(sort ? { sort } : {}),
+            ...(band ? { band } : {}),
+            ...(search ? { search } : {}),
+          }
+        : 'skip',
+    [band, criterionExternalId, enabled, generation, search, sort, templateSlug]
+  )
   const page = usePaginatedQuery(
     api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
     args,
     { initialNumItems: pageSize }
   ) as UsePaginatedQueryResult<MarketplaceTemplateRankingAggregateItem>
-  return {
-    items: page.results,
-    status: page.status,
-    loadMore: (count = pageSize) => page.loadMore(count),
-  }
+  const { results, status, loadMore: pageLoadMore } = page
+  const loadMore = useCallback(
+    (count = pageSize) => pageLoadMore(count),
+    [pageLoadMore, pageSize]
+  )
+  return useMemo(
+    () => ({ items: results, status, loadMore }),
+    [loadMore, results, status]
+  )
 }
 
 export const useMyRankingForTemplate = (
   templateSlug: string | null | undefined,
+  criterionExternalId?: string | null,
   enabled = true
 ): MarketplaceMyRankingForTemplateResult | undefined =>
   useQuery(
     api.marketplace.rankings.queries.getMyRankingForTemplate,
     enabled && typeof templateSlug === 'string' && templateSlug.length > 0
-      ? { templateSlug }
+      ? {
+          templateSlug,
+          ...(criterionExternalId ? { criterionExternalId } : {}),
+        }
       : 'skip'
   )
 
@@ -173,13 +210,21 @@ export const useMyRankings = (
     enabled ? (limit === undefined ? {} : { limit }) : 'skip'
   )
 
+// reactive publish gate; pass criterionExternalId to surface lane-scoped
+// block reasons (`criterion_not_found` / `criterion_not_publishable`)
 export const useRankingPublishAvailability = (
   boardExternalId: string | null | undefined,
+  criterionExternalId?: string | null,
   enabled = true
 ): MarketplaceRankingPublishAvailability | undefined =>
   useQuery(
     api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
-    enabled && boardExternalId ? { boardExternalId } : 'skip'
+    enabled && boardExternalId
+      ? {
+          boardExternalId,
+          ...(criterionExternalId ? { criterionExternalId } : {}),
+        }
+      : 'skip'
   )
 
 interface PublishRankingFromBoardArgs
@@ -188,6 +233,9 @@ interface PublishRankingFromBoardArgs
   title?: string
   description?: string | null
   visibility: RankingVisibility
+  // criterion lane this ranking answers; omit to default to the template's
+  // active primary criterion server-side
+  criterionExternalId?: string
 }
 
 export const usePublishRankingFromBoardMutation = () =>
@@ -206,6 +254,20 @@ interface RemixRankingArgs
 export const useRemixRankingMutation = () =>
   useMutation(api.marketplace.rankings.mutations.remixRanking) as unknown as (
     args: RemixRankingArgs
+  ) => Promise<MarketplaceRankingRemixResult>
+
+interface RemixTemplateConsensusArgs
+{
+  templateSlug: string
+  criterionExternalId?: string
+  title?: string
+}
+
+export const useRemixTemplateConsensusMutation = () =>
+  useMutation(
+    api.marketplace.rankings.mutations.remixTemplateConsensus
+  ) as unknown as (
+    args: RemixTemplateConsensusArgs
   ) => Promise<MarketplaceRankingRemixResult>
 
 // imperative form — fire-&-forget once per ranking-detail session window

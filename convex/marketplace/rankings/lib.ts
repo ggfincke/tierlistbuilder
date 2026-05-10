@@ -141,6 +141,11 @@ export const toRankingSummary = async (
     title: ranking.sourceTemplateTitle,
     category: ranking.sourceTemplateCategory,
   },
+  criterion: {
+    externalId: ranking.sourceCriterionExternalId,
+    name: ranking.sourceCriterionNameSnapshot,
+    prompt: ranking.sourceCriterionPromptSnapshot,
+  },
   itemCount: ranking.itemCount,
   tierCount: ranking.tierCount,
   remixCount: ranking.remixCount,

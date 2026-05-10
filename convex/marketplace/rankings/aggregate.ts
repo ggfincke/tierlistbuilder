@@ -9,7 +9,6 @@ import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
   MAX_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
   TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN,
-  TEMPLATE_RANKING_AGGREGATE_CONTROVERSY_MIN,
   TEMPLATE_RANKING_AGGREGATE_TOP_BUCKET_MAX,
   makeEmptyBucketSpread,
   type MarketplaceTemplateRankingAggregate,
@@ -23,6 +22,11 @@ import {
   createTemplateProjectionCache,
   toTemplateMediaRef,
 } from '../templates/lib'
+import {
+  resolveTemplateCriteria,
+  resolveTemplateCriterionForHistoricalRead,
+  type TemplateCriteriaSource,
+} from '../templates/criteria'
 
 type DbCtx = QueryCtx | MutationCtx
 
@@ -112,50 +116,86 @@ export const toTemplateRankingAggregate = (
     Doc<'templates'>,
     'slug' | 'title' | 'category' | 'itemCount'
   > &
-    Pick<Doc<'templates'>, 'suggestedTiers'>,
+    Pick<Doc<'templates'>, 'suggestedTiers'> &
+    TemplateCriteriaSource,
   aggregate: Doc<'templateRankingAggregates'>
-): MarketplaceTemplateRankingAggregate => ({
-  template: {
-    slug: template.slug,
-    title: template.title,
-    category: template.category,
-    itemCount: template.itemCount,
-  },
-  state: aggregate.state,
-  activeGeneration: aggregate.activeGeneration,
-  bucketCount: aggregate.bucketCount,
-  rankingCount: aggregate.rankingCount,
-  itemCount: aggregate.itemCount,
-  computedAt: aggregate.computedAt,
-  staleAt: aggregate.staleAt,
-  buckets: toBuckets(template, aggregate.bucketCount),
-  bucketSpread:
-    aggregate.bucketSpread ?? makeEmptyBucketSpread(aggregate.bucketCount),
-})
+): MarketplaceTemplateRankingAggregate | null =>
+{
+  const criterion = resolveTemplateCriterionForHistoricalRead(
+    template,
+    aggregate.criterionExternalId
+  )
+  if (!criterion) return null
+
+  return {
+    template: {
+      slug: template.slug,
+      title: template.title,
+      category: template.category,
+      itemCount: template.itemCount,
+    },
+    criterion,
+    state: aggregate.state,
+    activeGeneration: aggregate.activeGeneration,
+    bucketCount: aggregate.bucketCount,
+    rankingCount: aggregate.rankingCount,
+    itemCount: aggregate.itemCount,
+    computedAt: aggregate.computedAt,
+    staleAt: aggregate.staleAt,
+    buckets: toBuckets(template, aggregate.bucketCount),
+    bucketSpread:
+      aggregate.bucketSpread ?? makeEmptyBucketSpread(aggregate.bucketCount),
+    mostAgreed: aggregate.mostAgreedItemExternalId
+      ? {
+          templateItemExternalId: aggregate.mostAgreedItemExternalId,
+          label: aggregate.mostAgreedItemLabel,
+        }
+      : null,
+    mostDivisive: aggregate.mostDivisiveItemExternalId
+      ? {
+          templateItemExternalId: aggregate.mostDivisiveItemExternalId,
+          label: aggregate.mostDivisiveItemLabel,
+        }
+      : null,
+  }
+}
 
 export const findTemplateRankingAggregate = async (
   ctx: DbCtx,
-  templateId: Id<'templates'>
+  templateId: Id<'templates'>,
+  criterionExternalId: string
 ): Promise<Doc<'templateRankingAggregates'> | null> =>
   await ctx.db
     .query('templateRankingAggregates')
-    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+    .withIndex('byTemplateIdAndCriterion', (q) =>
+      q
+        .eq('templateId', templateId)
+        .eq('criterionExternalId', criterionExternalId)
+    )
     .unique()
 
 const findActiveAggregateJob = async (
   ctx: MutationCtx,
-  templateId: Id<'templates'>
+  templateId: Id<'templates'>,
+  criterionExternalId: string
 ): Promise<Doc<'templateRankingAggregateJobs'> | null> =>
 {
-  for (const status of ACTIVE_JOB_STATUSES)
+  const matches = await Promise.all(
+    ACTIVE_JOB_STATUSES.map((status) =>
+      ctx.db
+        .query('templateRankingAggregateJobs')
+        .withIndex('byTemplateIdAndCriterionAndStatus', (q) =>
+          q
+            .eq('templateId', templateId)
+            .eq('criterionExternalId', criterionExternalId)
+            .eq('status', status)
+        )
+        .take(1)
+    )
+  )
+  for (const match of matches)
   {
-    const job = await ctx.db
-      .query('templateRankingAggregateJobs')
-      .withIndex('byTemplateIdAndStatus', (q) =>
-        q.eq('templateId', templateId).eq('status', status)
-      )
-      .take(1)
-    if (job[0]) return job[0]
+    if (match[0]) return match[0]
   }
   return null
 }
@@ -168,13 +208,24 @@ const nextAggregateGeneration = (
 export const queueTemplateRankingAggregateRecompute = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
+  criterionExternalId: string,
   now: number
 ): Promise<void> =>
 {
   const template = await ctx.db.get(templateId)
   if (!template) return
 
-  const aggregate = await findTemplateRankingAggregate(ctx, templateId)
+  const criterion = resolveTemplateCriterionForHistoricalRead(
+    template,
+    criterionExternalId
+  )
+  if (!criterion) return
+
+  const aggregate = await findTemplateRankingAggregate(
+    ctx,
+    templateId,
+    criterion.externalId
+  )
   const bucketCount = resolveTemplateRankingAggregateBucketCount(template)
   const targetBucketLabels = resolveTemplateRankingAggregateBucketLabels(
     template,
@@ -195,6 +246,7 @@ export const queueTemplateRankingAggregateRecompute = async (
   {
     await ctx.db.insert('templateRankingAggregates', {
       templateId,
+      criterionExternalId: criterion.externalId,
       state: 'computing',
       activeGeneration: null,
       bucketCount,
@@ -203,11 +255,19 @@ export const queueTemplateRankingAggregateRecompute = async (
       computedAt: null,
       staleAt: now,
       bucketSpread: makeEmptyBucketSpread(bucketCount),
+      mostAgreedItemExternalId: null,
+      mostAgreedItemLabel: null,
+      mostDivisiveItemExternalId: null,
+      mostDivisiveItemLabel: null,
       updatedAt: now,
     })
   }
 
-  const activeJob = await findActiveAggregateJob(ctx, templateId)
+  const activeJob = await findActiveAggregateJob(
+    ctx,
+    templateId,
+    criterion.externalId
+  )
   if (activeJob)
   {
     await ctx.db.patch(activeJob._id, {
@@ -219,6 +279,7 @@ export const queueTemplateRankingAggregateRecompute = async (
 
   const jobId = await ctx.db.insert('templateRankingAggregateJobs', {
     templateId,
+    criterionExternalId: criterion.externalId,
     status: 'queued',
     phase: 'seedItems',
     generation: nextAggregateGeneration(now, aggregate),
@@ -249,20 +310,83 @@ export const queueTemplateRankingAggregateRecompute = async (
   )
 }
 
+export const queueTemplateRankingAggregateRecomputesForActiveCriteria = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>,
+  now: number
+): Promise<number> =>
+{
+  const template = await ctx.db.get(templateId)
+  if (!template) return 0
+
+  const activeCriteria = resolveTemplateCriteria(template).filter(
+    (criterion) => criterion.status === 'active'
+  )
+  await Promise.all(
+    activeCriteria.map((criterion) =>
+      queueTemplateRankingAggregateRecompute(
+        ctx,
+        templateId,
+        criterion.externalId,
+        now
+      )
+    )
+  )
+  return activeCriteria.length
+}
+
 export const deleteTemplateRankingAggregateParentRows = async (
   ctx: MutationCtx,
-  templateId: Id<'templates'>
+  templateId: Id<'templates'>,
+  criterionExternalId?: string
 ): Promise<void> =>
 {
-  const aggregate = await findTemplateRankingAggregate(ctx, templateId)
-  const jobs = await ctx.db
-    .query('templateRankingAggregateJobs')
-    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-    .take(16)
-  await Promise.all([
-    ...(aggregate ? [ctx.db.delete(aggregate._id)] : []),
-    ...jobs.map((job) => ctx.db.delete(job._id)),
-  ])
+  const deleteBatch: Promise<void>[] = []
+  const queueDelete = async (
+    id: Id<'templateRankingAggregates'> | Id<'templateRankingAggregateJobs'>
+  ) =>
+  {
+    deleteBatch.push(ctx.db.delete(id))
+    if (deleteBatch.length >= 16)
+    {
+      await Promise.all(deleteBatch)
+      deleteBatch.length = 0
+    }
+  }
+  const aggregates =
+    criterionExternalId === undefined
+      ? ctx.db
+          .query('templateRankingAggregates')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+      : ctx.db
+          .query('templateRankingAggregates')
+          .withIndex('byTemplateIdAndCriterion', (q) =>
+            q
+              .eq('templateId', templateId)
+              .eq('criterionExternalId', criterionExternalId)
+          )
+  for await (const aggregate of aggregates)
+  {
+    await queueDelete(aggregate._id)
+  }
+
+  const jobs =
+    criterionExternalId === undefined
+      ? ctx.db
+          .query('templateRankingAggregateJobs')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+      : ctx.db
+          .query('templateRankingAggregateJobs')
+          .withIndex('byTemplateIdAndCriterion', (q) =>
+            q
+              .eq('templateId', templateId)
+              .eq('criterionExternalId', criterionExternalId)
+          )
+  for await (const job of jobs)
+  {
+    await queueDelete(job._id)
+  }
+  await Promise.all(deleteBatch)
 }
 
 const toDistribution = (
@@ -296,6 +420,8 @@ export const toTemplateRankingAggregateItem = async (
     topBucketShare: row.topBucketShare,
     consensusScore: row.consensusScore,
     controversyScore: row.controversyScore,
+    controversyPercentile: row.controversyPercentile,
+    agreementPercentile: row.agreementPercentile,
     isTopBucket: row.isTopBucket,
     isBottomBucket: row.isBottomBucket,
     isControversial: row.isControversial,
@@ -313,13 +439,6 @@ export const isTopAggregateBucket = (bucketIndex: number | null): boolean =>
 export const isBottomAggregateBucket = (bucketIndex: number | null): boolean =>
   bucketIndex !== null &&
   bucketIndex >= TEMPLATE_RANKING_AGGREGATE_BOTTOM_BUCKET_MIN
-
-export const isControversialAggregateItem = (
-  sampleCount: number,
-  controversyScore: number
-): boolean =>
-  sampleCount > 0 &&
-  controversyScore > TEMPLATE_RANKING_AGGREGATE_CONTROVERSY_MIN
 
 export const buildAggregateItemMetrics = (params: {
   distribution: Doc<'templateRankingAggregateItems'>['distribution']
@@ -343,7 +462,6 @@ export const buildAggregateItemMetrics = (params: {
       controversySort: UNSAMPLED_SORT_OFFSET,
       isTopBucket: false,
       isBottomBucket: false,
-      isControversial: false,
     }
   }
 
@@ -363,10 +481,6 @@ export const buildAggregateItemMetrics = (params: {
     maxVariance > 0 ? clampScore(variance / maxVariance) : 0
   const isTopBucket = isTopAggregateBucket(top.bucketIndex)
   const isBottomBucket = isBottomAggregateBucket(top.bucketIndex)
-  const isControversial = isControversialAggregateItem(
-    params.sampleCount,
-    controversyScore
-  )
 
   return {
     averageBucket,
@@ -380,6 +494,5 @@ export const buildAggregateItemMetrics = (params: {
     controversySort: -controversyScore,
     isTopBucket,
     isBottomBucket,
-    isControversial,
   }
 }

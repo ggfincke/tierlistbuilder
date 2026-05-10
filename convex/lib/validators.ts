@@ -78,6 +78,12 @@ import {
   type TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import {
+  TEMPLATE_CRITERION_STATUSES,
+  type MarketplaceTemplateCriterion,
+  type MarketplaceTemplateCriterionSnapshot,
+  type TemplateCriterionStatus,
+} from '@tierlistbuilder/contracts/marketplace/templateCriterion'
+import {
   RANKING_FEATURED_BADGES,
   RANKING_LIST_SORTS,
   RANKING_PUBLICATION_STATES,
@@ -163,7 +169,7 @@ export const tierPresetTierValidator = v.object({
 export const tierPresetTiersValidator = v.array(tierPresetTierValidator)
 
 // build a validator from a readonly tuple sourced in contracts.
-const literalUnion = <T extends readonly [string, ...string[]]>(
+export const literalUnion = <T extends readonly [string, ...string[]]>(
   values: T
 ): Validator<T[number]> =>
 {
@@ -201,6 +207,9 @@ export const templatePublicationStateValidator = literalUnion(
 )
 export const templateJobStatusValidator = literalUnion(TEMPLATE_JOB_STATUSES)
 export const templateGalleryRailValidator = literalUnion(TEMPLATE_GALLERY_RAILS)
+export const templateCriterionStatusValidator = literalUnion(
+  TEMPLATE_CRITERION_STATUSES
+)
 export const rankingVisibilityValidator = literalUnion(RANKING_VISIBILITIES)
 export const rankingPublicationStateValidator = literalUnion(
   RANKING_PUBLICATION_STATES
@@ -229,7 +238,8 @@ export const templateRankingAggregateJobStatusValidator = v.union(
 
 export const templateRankingAggregateJobPhaseValidator = v.union(
   v.literal('seedItems'),
-  v.literal('scanRankings')
+  v.literal('scanRankings'),
+  v.literal('finalizeRelativeMetrics')
 )
 export const templateCardAccessStateValidator = literalUnion(
   TEMPLATE_CARD_ACCESS_STATES
@@ -363,6 +373,12 @@ export type _TemplateJobStatusExact = _Assert<
 >
 export type _TemplateGalleryRailExact = _Assert<
   _Exact<TemplateGalleryRail, Infer<typeof templateGalleryRailValidator>>
+>
+export type _TemplateCriterionStatusExact = _Assert<
+  _Exact<
+    TemplateCriterionStatus,
+    Infer<typeof templateCriterionStatusValidator>
+  >
 >
 export type _RankingVisibilityExact = _Assert<
   _Exact<RankingVisibility, Infer<typeof rankingVisibilityValidator>>
@@ -638,6 +654,26 @@ export const templateCoverItemValidator = v.object({
   transform: v.union(itemTransformValidator, v.null()),
 })
 
+export const templateCriterionValidator = v.object({
+  externalId: v.string(),
+  name: v.string(),
+  shortName: v.union(v.string(), v.null()),
+  prompt: v.string(),
+  axisTop: v.union(v.string(), v.null()),
+  axisBottom: v.union(v.string(), v.null()),
+  order: v.number(),
+  isPrimary: v.boolean(),
+  status: templateCriterionStatusValidator,
+})
+
+export const templateCriterionSnapshotValidator = v.object({
+  externalId: v.string(),
+  name: v.string(),
+  prompt: v.string(),
+})
+
+export const templateCriteriaValidator = v.array(templateCriterionValidator)
+
 const marketplaceTemplateBaseFields = {
   slug: v.string(),
   title: v.string(),
@@ -739,6 +775,8 @@ export const marketplaceTemplateItemValidator = v.object({
 export const marketplaceTemplateDetailValidator = v.object({
   ...marketplaceTemplateSummaryFields,
   access: templateCardAccessStateValidator,
+  criteria: templateCriteriaValidator,
+  rankingCountByCriterion: v.record(v.string(), v.number()),
   suggestedTiers: tierPresetTiersValidator,
   labels: v.union(boardLabelSettingsValidator, v.null()),
 })
@@ -792,6 +830,7 @@ const marketplaceRankingSummaryFields = {
   publicationState: rankingPublicationStateValidator,
   author: templateAuthorValidator,
   template: marketplaceRankingTemplateRefValidator,
+  criterion: templateCriterionSnapshotValidator,
   itemCount: v.number(),
   tierCount: v.number(),
   remixCount: v.number(),
@@ -854,6 +893,9 @@ export const marketplaceRankingPublishAvailabilityValidator = v.object({
   activeItemCount: v.number(),
   unrankedItemCount: v.number(),
   sourceTemplateTitle: v.union(v.string(), v.null()),
+  sourceTemplateCriteria: templateCriteriaValidator,
+  userPublishedCriterionExternalIds: v.array(v.string()),
+  preferredCriterionExternalId: v.union(v.string(), v.null()),
 })
 
 export const marketplaceRankingPublishResultValidator = v.object({
@@ -879,8 +921,14 @@ export const marketplaceTemplateRankingAggregateBucketValidator = v.object({
   colorSpec: v.union(tierColorSpecValidator, v.null()),
 })
 
+const marketplaceTemplateRankingAggregateHighlightValidator = v.object({
+  templateItemExternalId: v.string(),
+  label: v.union(v.string(), v.null()),
+})
+
 export const marketplaceTemplateRankingAggregateValidator = v.object({
   template: marketplaceTemplateRankingAggregateTemplateRefValidator,
+  criterion: templateCriterionValidator,
   state: templateRankingAggregateStateValidator,
   activeGeneration: v.union(v.number(), v.null()),
   bucketCount: v.number(),
@@ -890,6 +938,14 @@ export const marketplaceTemplateRankingAggregateValidator = v.object({
   staleAt: v.union(v.number(), v.null()),
   buckets: v.array(marketplaceTemplateRankingAggregateBucketValidator),
   bucketSpread: v.array(v.number()),
+  mostAgreed: v.union(
+    marketplaceTemplateRankingAggregateHighlightValidator,
+    v.null()
+  ),
+  mostDivisive: v.union(
+    marketplaceTemplateRankingAggregateHighlightValidator,
+    v.null()
+  ),
 })
 
 export const marketplaceTemplateRankingAggregateDistributionCellValidator =
@@ -916,6 +972,8 @@ export const marketplaceTemplateRankingAggregateItemValidator = v.object({
   topBucketShare: v.number(),
   consensusScore: v.number(),
   controversyScore: v.number(),
+  controversyPercentile: v.number(),
+  agreementPercentile: v.number(),
   isTopBucket: v.boolean(),
   isBottomBucket: v.boolean(),
   isControversial: v.boolean(),
@@ -1098,6 +1156,32 @@ export type _TemplateCoverItemCovers = _Assert<
 >
 export type _TemplateCoverItemNoExtra = _Assert<
   Infer<typeof templateCoverItemValidator> extends TemplateCoverItem
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateCriterionCovers = _Assert<
+  MarketplaceTemplateCriterion extends Infer<typeof templateCriterionValidator>
+    ? true
+    : false
+>
+export type _MarketplaceTemplateCriterionNoExtra = _Assert<
+  Infer<typeof templateCriterionValidator> extends MarketplaceTemplateCriterion
+    ? true
+    : false
+>
+
+export type _MarketplaceTemplateCriterionSnapshotCovers = _Assert<
+  MarketplaceTemplateCriterionSnapshot extends Infer<
+    typeof templateCriterionSnapshotValidator
+  >
+    ? true
+    : false
+>
+export type _MarketplaceTemplateCriterionSnapshotNoExtra = _Assert<
+  Infer<
+    typeof templateCriterionSnapshotValidator
+  > extends MarketplaceTemplateCriterionSnapshot
     ? true
     : false
 >

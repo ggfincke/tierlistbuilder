@@ -6,6 +6,10 @@ import type { ImageFit, ItemTransform } from '../workspace/board'
 import type { TemplateAuthor, TemplateMediaRef } from './template'
 import type { TemplateCategory } from './category'
 import type { PaginationResult } from '../lib/pagination'
+import type {
+  MarketplaceTemplateCriterion,
+  MarketplaceTemplateCriterionSnapshot,
+} from './templateCriterion'
 
 export const RANKING_VISIBILITIES = ['public', 'unlisted'] as const
 
@@ -24,6 +28,8 @@ export const RANKING_PUBLISH_BLOCK_REASONS = [
   'not_template_backed',
   'incomplete',
   'source_template_unpublished',
+  'criterion_not_found',
+  'criterion_not_publishable',
 ] as const
 
 export type RankingPublishBlockReason =
@@ -101,6 +107,7 @@ export interface MarketplaceRankingSummary
   publicationState: RankingPublicationState
   author: TemplateAuthor
   template: MarketplaceRankingTemplateRef
+  criterion: MarketplaceTemplateCriterionSnapshot
   itemCount: number
   tierCount: number
   remixCount: number
@@ -169,6 +176,17 @@ export interface MarketplaceRankingPublishAvailability
   activeItemCount: number
   unrankedItemCount: number
   sourceTemplateTitle: string | null
+  // active criteria on the source template the user can publish into. empty
+  // when the source template is unresolvable; lets the publish modal render
+  // the criterion picker without an additional template detail roundtrip
+  sourceTemplateCriteria: MarketplaceTemplateCriterion[]
+  // criterion external ids the signed-in user already has a public-listable
+  // ranking for on the source template — empty when signed out or unresolved
+  userPublishedCriterionExternalIds: string[]
+  // criterion the user was viewing when they forked — surfaces as the
+  // publish-modal default. null when the board wasn't forked from a lane
+  // or the saved preference no longer matches an active criterion
+  preferredCriterionExternalId: string | null
 }
 
 export interface MarketplaceMyRankingForTemplateResult

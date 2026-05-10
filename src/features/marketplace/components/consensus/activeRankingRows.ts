@@ -70,6 +70,8 @@ export const buildRowsForActiveRanking = (
         topBucketShare: isRanked ? 1 : 0,
         consensusScore: isRanked ? 1 : 0,
         controversyScore: 0,
+        controversyPercentile: 0,
+        agreementPercentile: isRanked ? 1 : 0,
         isTopBucket:
           bucketIndex !== null &&
           bucketIndex <= activeTopBucketMax(bucketCount),
