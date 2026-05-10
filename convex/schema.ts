@@ -29,6 +29,8 @@ import {
   rankingFeaturedBadgeValidator,
   rankingPublicationStateValidator,
   rankingVisibilityValidator,
+  seedRunStatusValidator,
+  seedTemplateReleaseStatusValidator,
   templateSizeClassValidator,
   templateVisibilityValidator,
   textStyleIdValidator,
@@ -207,7 +209,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('byMediaAssetAndKind', ['mediaAssetId', 'kind'])
-    .index('byStorageId', ['storageId']),
+    .index('byStorageId', ['storageId'])
+    .index('byContentHash', ['contentHash']),
 
   // reusable tier structure owned by a user — independent of boards
   tierPresets: defineTable({
@@ -273,12 +276,23 @@ export default defineSchema({
     // pre-baked label rendering defaults — forked boards inherit these so the
     // publisher's caption styling shows up without each user toggling labels
     labels: v.optional(boardLabelSettingsValidator),
+    // seed identity fields let Python diff/upsert by stable external IDs
+    // while user-published templates continue to omit them
+    seedDatasetKey: v.optional(v.string()),
+    seedExternalId: v.optional(v.string()),
+    seedReleaseId: v.optional(v.string()),
+    seedReleaseStatus: v.optional(seedTemplateReleaseStatusValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
-    .index('byCoverMedia', ['coverMediaAssetId']),
+    .index('byCoverMedia', ['coverMediaAssetId'])
+    .index('bySeedDatasetReleaseAndExternalId', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedExternalId',
+    ]),
 
   // compact public/owner card read model for marketplace list screens.
   // media fields store refs only; queries resolve signed URLs per request
@@ -389,6 +403,40 @@ export default defineSchema({
     publicTemplateCountByCategory: v.optional(v.record(v.string(), v.number())),
     updatedAt: v.number(),
   }).index('byKey', ['key']),
+
+  // durable visibility for Python seed attempts. reports stay local, but this
+  // row lets server precheck/cleanup see the current release/run state
+  seedRuns: defineTable({
+    runId: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    status: seedRunStatusValidator,
+    finishedAt: v.union(v.number(), v.null()),
+    startedBy: v.string(),
+    templateCount: v.number(),
+    itemCount: v.number(),
+    imageVariantCount: v.number(),
+    error: v.union(v.string(), v.null()),
+  })
+    .index('byRunId', ['runId'])
+    .index('byDatasetRelease', ['datasetKey', 'releaseId'])
+    .index('byDatasetStatus', ['datasetKey', 'status']),
+
+  seedRunStorageUploads: defineTable({
+    runId: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    storageId: v.id('_storage'),
+    status: v.union(
+      v.literal('uploaded'),
+      v.literal('resolved'),
+      v.literal('cleaned')
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('byRun', ['datasetKey', 'releaseId', 'runId'])
+    .index('byStorageId', ['storageId']),
 
   // helper table for tag filtering. one row per (template, tag); denormalized
   // listability mirrors the parent so public tag queries avoid a join

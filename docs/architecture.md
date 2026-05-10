@@ -381,7 +381,17 @@ Schema (`convex/schema.ts`) defines the app-owned tables alongside `@convex-dev/
 - `marketplaceStats` — singleton marketplace aggregate counters used by gallery category chips.
 - `publishedRankings` / `publishedRankingTiers` / `publishedRankingItems` — immutable ranking snapshots published from completed template-backed boards and used by ranking detail/remix flows.
 
-Marketplace seed actions are public only for script access, but they fail closed unless `CONVEX_SEED_ENABLED=true` and the caller passes the deployment's `CONVEX_SEED_SECRET` value.
+Marketplace seed ingest runs through dedicated HTTP endpoints under
+`/api/seed/*`. They fail closed unless `CONVEX_SEED_ENABLED=true` and the
+caller sends the deployment's `CONVEX_SEED_SECRET` as a bearer authorization
+header.
+
+`npm run db:reset -- --yes` (`scripts/dev_reset.py` → `/api/dev/reset` →
+`convex/dev/reset.ts`) wipes every user table and `_storage` blob for fast
+dev iteration. Schema is preserved. Server-side it requires
+`CONVEX_DEV_RESET_ALLOWED=true` plus a typed confirm token derived from the
+deployment URL; the client refuses to call it when `CONVEX_DEPLOYMENT` starts
+with `prod:`.
 
 Account deletion and sign-out-everywhere cleanup schedule one paginated auth
 cleanup step per Convex mutation, then continue through internal scheduled

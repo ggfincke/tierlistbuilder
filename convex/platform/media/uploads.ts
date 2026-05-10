@@ -15,6 +15,7 @@ import { internal } from '../../_generated/api'
 import { parseUploadedImageMetadata } from '../../lib/imageValidation'
 import { generateUploadToken } from '../../lib/uploadToken'
 import { mediaVariantKindValidator } from '../../lib/validators'
+import { assertValidVariantRequest } from '../../lib/mediaVariants'
 import {
   UPLOAD_ENVELOPE_MAX_HEADER_BYTES,
   unwrapUploadEnvelope,
@@ -88,36 +89,10 @@ const validateVariantRequest = async (
   variants: readonly UploadVariantArg[]
 ): Promise<void> =>
 {
-  if (variants.length < 1 || variants.length > MAX_MEDIA_VARIANTS_PER_ASSET)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: `variants must include 1..${MAX_MEDIA_VARIANTS_PER_ASSET} entries`,
-    })
-  }
-
-  const seen = new Set<MediaVariantKind>()
-  for (const variant of variants)
-  {
-    if (seen.has(variant.kind))
-    {
-      await cleanupRejectedVariants(ctx, variants)
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: `duplicate media variant kind: ${variant.kind}`,
-      })
-    }
-    seen.add(variant.kind)
-  }
-
-  if (!seen.has('tile'))
+  await assertValidVariantRequest(variants, async () =>
   {
     await cleanupRejectedVariants(ctx, variants)
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: 'media asset finalization requires a tile variant',
-    })
-  }
+  })
 }
 
 // issue N one-time upload URLs in a single rate-limited call. callers should
