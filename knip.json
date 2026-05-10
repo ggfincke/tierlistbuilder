@@ -1,10 +1,12 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "includeEntryExports": true,
+  "ignoreBinaries": ["python3"],
   "ignoreDependencies": ["tailwindcss"],
   "ignoreIssues": {
     "convex/auth.ts": ["exports"],
-    "convex/_generated/**": ["exports", "types", "files"]
+    "convex/_generated/**": ["exports", "types", "files"],
+    "packages/contracts/marketplace/seedPipeline.ts": ["exports", "types"]
   },
   "workspaces": {
     ".": {

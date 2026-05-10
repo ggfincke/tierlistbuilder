@@ -15,7 +15,10 @@ import {
   type MediaVariantKind,
   type SupportedImageMimeType,
 } from '@tierlistbuilder/contracts/platform/media'
-import type { MediaVariantSummary } from '../../lib/mediaVariants'
+import {
+  computeVariantDedupeHash,
+  type MediaVariantSummary,
+} from '../../lib/mediaVariants'
 import {
   imageMimeTypeValidator,
   mediaVariantKindValidator,
@@ -129,11 +132,10 @@ const normalizeVerifiedVariants = (
   }
 
   const normalizedVariants = [...byKind.values()]
-  const dedupeHash = normalizedVariants
-    .map((variant) => `${variant.kind}:${variant.contentHash}`)
-    .sort()
-    .join('|')
-  return { variants: normalizedVariants, dedupeHash }
+  return {
+    variants: normalizedVariants,
+    dedupeHash: computeVariantDedupeHash(normalizedVariants),
+  }
 }
 
 const normalizeVerifiedMediaAsset = (

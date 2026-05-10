@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "datasetKey": "marketplace-core",
+  "releaseId": "2026-05-templates-v1",
+  "authorEmail": "tterrag456@gmail.com",
+  "templates": [
+    {
+      "externalId": "gaming:ssbu-fighters",
+      "folder": "examples/gaming/ssbu-fighters",
+      "title": "Super Smash Bros. Ultimate roster sample",
+      "category": "gaming",
+      "description": "Small contract fixture sampled from the Super Smash Bros. Ultimate roster.",
+      "tags": ["nintendo", "fighting", "smash bros"],
+      "visibility": "public",
+      "labelPolicy": "explicit-required",
+      "coverImage": "data/seeds/assets/covers/ssbu-fighters.jpg",
+      "coverZoom": 1.5,
+      "suggestedTiers": [
+        {
+          "name": "S",
+          "colorSpec": {
+            "kind": "palette",
+            "index": 0
+          }
+        },
+        {
+          "name": "A",
+          "colorSpec": {
+            "kind": "palette",
+            "index": 1
+          }
+        },
+        {
+          "name": "B",
+          "colorSpec": {
+            "kind": "palette",
+            "index": 3
+          }
+        },
+        {
+          "name": "C",
+          "colorSpec": {
+            "kind": "palette",
+            "index": 5
+          }
+        },
+        {
+          "name": "D",
+          "colorSpec": {
+            "kind": "palette",
+            "index": 7
+          }
+        },
+        {
+          "name": "E",
+          "colorSpec": {
+            "kind": "palette",
+            "index": 10
+          }
+        }
+      ],
+      "criteria": [
+        {
+          "externalId": "competitive",
+          "name": "Competitive",
+          "shortName": "Comp",
+          "prompt": "Rank fighters by competitive viability.",
+          "axisTop": "Strongest",
+          "axisBottom": "Weakest",
+          "order": 0,
+          "isPrimary": true,
+          "status": "active"
+        },
+        {
+          "externalId": "favorites",
+          "name": "Favorites",
+          "shortName": "Favs",
+          "prompt": "Rank fighters by personal preference.",
+          "axisTop": "Favorite",
+          "axisBottom": "Least favorite",
+          "order": 1,
+          "isPrimary": false,
+          "status": "active"
+        }
+      ],
+      "items": [
+        {
+          "externalId": "mario",
+          "image": "01-mario.png",
+          "label": "Mario"
+        }
+      ]
+    },
+    {
+      "externalId": "gaming:zelda-games",
+      "folder": "examples/gaming/zelda-games",
+      "title": "Legend of Zelda mainline",
+      "category": "gaming",
+      "description": "Every mainline Zelda title, by box art.",
+      "tags": ["zelda", "nintendo", "rpg"],
+      "visibility": "public",
+      "labelPolicy": "explicit-required",
+      "criteria": [
+        {
+          "externalId": "default",
+          "name": "Overall",
+          "shortName": "Overall",
+          "prompt": "Rank Zelda games on overall quality + impact.",
+          "axisTop": "Best",
+          "axisBottom": "Worst",
+          "order": 0,
+          "isPrimary": true,
+          "status": "active"
+        }
+      ],
+      "items": [
+        {
+          "externalId": "the-legend-of-zelda",
+          "image": "01-the-legend-of-zelda.png",
+          "label": "The Legend of Zelda"
+        }
+      ]
+    }
+  ]
+}

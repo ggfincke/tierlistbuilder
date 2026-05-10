@@ -3,16 +3,103 @@
 
 import type { Id, Doc } from '@convex/_generated/dataModel'
 import type { MutationCtx } from '@convex/_generated/server'
+import type { convexTest } from 'convex-test'
+import type schema from '../../convex/schema'
 import {
   buildDefaultTemplateCriteria,
   buildDefaultTemplateCriterionSnapshot,
 } from '@convex/marketplace/templates/criteria'
+import {
+  SEED_ENABLED_ENV,
+  SEED_SECRET_ENV,
+} from '../../convex/marketplace/seedAuth'
 import { buildSearchText } from '@convex/marketplace/templates/lib'
 import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
 import { RANKING_TOP_SCORE_REMIX_WEIGHT } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 
 export const modules = import.meta.glob('../../convex/**/*.*s')
+
+type ConvexTestHandle = ReturnType<typeof convexTest<typeof schema>>
+
+export const seedUser = async (
+  t: ConvexTestHandle,
+  email: string = `user-${Math.random().toString(36).slice(2)}@example.com`,
+  patch: Partial<Doc<'users'>> = {}
+): Promise<Id<'users'>> =>
+  await t.run(async (ctx) =>
+  {
+    const now = Date.now()
+    return await ctx.db.insert('users', {
+      name: email,
+      displayName: email,
+      email,
+      createdAt: now,
+      updatedAt: now,
+      plan: 'free',
+      ...patch,
+    })
+  })
+
+export const buildPngHeader = (width: number, height: number): Uint8Array =>
+{
+  const bytes = new Uint8Array(24)
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
+  bytes.set([0x00, 0x00, 0x00, 0x0d], 8)
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12)
+  bytes[16] = (width >>> 24) & 0xff
+  bytes[17] = (width >>> 16) & 0xff
+  bytes[18] = (width >>> 8) & 0xff
+  bytes[19] = width & 0xff
+  bytes[20] = (height >>> 24) & 0xff
+  bytes[21] = (height >>> 16) & 0xff
+  bytes[22] = (height >>> 8) & 0xff
+  bytes[23] = height & 0xff
+  return bytes
+}
+
+export interface SeedEnvSnapshot
+{
+  enabled: string | undefined
+  secret: string | undefined
+}
+
+export const captureSeedEnv = (): SeedEnvSnapshot => ({
+  enabled: process.env[SEED_ENABLED_ENV],
+  secret: process.env[SEED_SECRET_ENV],
+})
+
+export const restoreSeedEnv = (snapshot: SeedEnvSnapshot): void =>
+{
+  if (snapshot.enabled === undefined) delete process.env[SEED_ENABLED_ENV]
+  else process.env[SEED_ENABLED_ENV] = snapshot.enabled
+
+  if (snapshot.secret === undefined) delete process.env[SEED_SECRET_ENV]
+  else process.env[SEED_SECRET_ENV] = snapshot.secret
+}
+
+export const enableSeedApi = (secret: string): void =>
+{
+  process.env[SEED_ENABLED_ENV] = 'true'
+  process.env[SEED_SECRET_ENV] = secret
+}
+
+export const withSeedEnv = async <T>(
+  secret: string,
+  run: () => Promise<T>
+): Promise<T> =>
+{
+  const snapshot = captureSeedEnv()
+  enableSeedApi(secret)
+  try
+  {
+    return await run()
+  }
+  finally
+  {
+    restoreSeedEnv(snapshot)
+  }
+}
 
 interface SeedPublishedTemplateArgs
 {
