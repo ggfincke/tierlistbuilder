@@ -27,6 +27,7 @@ def write_preflight_report(
         "",
         f"- Dataset: `{compiled_manifest['datasetKey']}`",
         f"- Release: `{compiled_manifest['releaseId']}`",
+        f"- Author: `{compiled_manifest['authorEmail']}`",
         f"- Templates: {totals['templateCount']}",
         f"- Items: {totals['itemCount']}",
         f"- Criteria: {totals['criterionCount']}",

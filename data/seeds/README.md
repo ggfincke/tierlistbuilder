@@ -21,6 +21,7 @@ from the source manifest and is disposable, but the compiled fixture in
 - `releaseId` identifies one immutable content release for that dataset.
 - `runId` identifies one execution attempt and is never part of template or
   item identity.
+- `authorEmail` identifies the seed owner used for server-side media dedupe.
 - Template `externalId` is stable across releases and must not include display
   names that are expected to change.
 - Item `externalId` is stable within its template across releases.

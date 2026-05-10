@@ -187,6 +187,7 @@ export interface SeedCompiledManifest
   schemaVersion: typeof SEED_MANIFEST_SCHEMA_VERSION
   datasetKey: string
   releaseId: string
+  authorEmail: string
   sourceManifestPath: string
   generatedAt: string
   variantSpecVersion: string
@@ -226,6 +227,7 @@ export interface SeedBeginRunOutput
 
 export interface SeedExternalIds
 {
+  authorEmail: string
   templateExternalIds: readonly string[]
   itemExternalIds: readonly SeedTemplateItemKey[]
   criterionExternalIds: readonly SeedTemplateCriterionKey[]
@@ -242,8 +244,12 @@ export interface SeedResolvedTemplate
   templateId: string
   releaseId: string | null
   title: string
+  description: string | null
+  category: TemplateCategory
+  tags: readonly string[]
   visibility: TemplateVisibility
   status: SeedReleaseStatus | null
+  itemAspectRatio: number | null
 }
 
 export interface SeedResolvedItem
@@ -261,7 +267,13 @@ export interface SeedResolvedCriterion
   templateExternalId: string
   criterionExternalId: string
   criterionId: string
+  name: string
+  shortName: string | null
+  prompt: string
+  axisTop: string | null
+  axisBottom: string | null
   order: number
+  isPrimary: boolean
   status: MarketplaceTemplateCriterion['status']
 }
 
@@ -277,6 +289,7 @@ export interface SeedReleaseRemovalCandidate
 {
   templateExternalId: string
   itemExternalId?: string
+  criterionExternalId?: string
   action: Extract<SeedRemovalAction, 'absentFromRelease'>
 }
 
@@ -293,6 +306,7 @@ export interface SeedResolveStateOutput
 export interface SeedResolveMediaByHashesInput
   extends SeedReleaseIdentity, SeedSecretInput
   {
+  authorEmail: string
   variantHashes: readonly string[]
 }
 

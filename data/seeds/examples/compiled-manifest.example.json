@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "datasetKey": "marketplace-core",
   "releaseId": "2026-05-templates-v1",
+  "authorEmail": "tterrag456@gmail.com",
   "sourceManifestPath": "data/seeds/examples/marketplace-core.source.example.json",
   "generatedAt": "2026-05-10T00:00:00.000Z",
   "variantSpecVersion": "seed-variants-v1",

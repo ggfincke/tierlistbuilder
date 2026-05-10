@@ -46,6 +46,7 @@ import {
   buildDefaultTemplateCriteria,
   validateTemplateCriteria,
 } from './criteria'
+import { requireSeedAuthorized } from '../seedAuth'
 
 // per-item payload sent by scripts/seed-marketplace-templates.ts. aspectRatio
 // & transform are pre-computed in the script (sharp + shared scan) so the
@@ -109,8 +110,6 @@ interface SeedUserStatus
 {
   accountExists: boolean
 }
-
-const SEED_SECRET_ENV = 'CONVEX_SEED_SECRET'
 
 export const findUserByEmail = internalQuery({
   args: { email: v.string() },
@@ -433,27 +432,6 @@ interface SeedAuthor
 interface SeedInsertResult
 {
   slug: string
-}
-
-const requireSeedAuthorized = (seedSecret: string): void =>
-{
-  if (process.env.CONVEX_SEED_ENABLED !== 'true')
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.forbidden,
-      message:
-        'seeding is disabled — set CONVEX_SEED_ENABLED=true on this deployment to allow it',
-    })
-  }
-
-  const expectedSecret = process.env.CONVEX_SEED_SECRET
-  if (!expectedSecret || seedSecret !== expectedSecret)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.forbidden,
-      message: `seeding is locked — pass the deployment ${SEED_SECRET_ENV} value`,
-    })
-  }
 }
 
 // dev-only — set the featuredRank on a single template by slug. rank=null

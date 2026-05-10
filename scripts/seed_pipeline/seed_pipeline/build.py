@@ -86,6 +86,7 @@ def _compile(
         "schemaVersion": manifest["schemaVersion"],
         "datasetKey": manifest["datasetKey"],
         "releaseId": manifest["releaseId"],
+        "authorEmail": manifest["authorEmail"],
         "sourceManifestPath": repo_relative(manifest_path, repo_root),
         "generatedAt": DETERMINISTIC_GENERATED_AT,
         "variantSpecVersion": VARIANT_SPEC_VERSION,

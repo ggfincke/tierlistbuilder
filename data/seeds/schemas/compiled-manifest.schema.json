@@ -8,6 +8,7 @@
     "schemaVersion",
     "datasetKey",
     "releaseId",
+    "authorEmail",
     "sourceManifestPath",
     "generatedAt",
     "variantSpecVersion",
@@ -25,6 +26,12 @@
     },
     "releaseId": {
       "$ref": "#/$defs/releaseId"
+    },
+    "authorEmail": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 254,
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
     },
     "sourceManifestPath": {
       "type": "string",
