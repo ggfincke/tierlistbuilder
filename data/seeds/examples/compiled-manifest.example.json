@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "datasetKey": "marketplace-core",
+  "releaseId": "2026-05-templates-v1",
+  "sourceManifestPath": "data/seeds/examples/marketplace-core.source.example.json",
+  "generatedAt": "2026-05-10T00:00:00.000Z",
+  "variantSpecVersion": "seed-variants-v1",
+  "totals": {
+    "templateCount": 2,
+    "itemCount": 2,
+    "criterionCount": 3,
+    "sourceImageCount": 3,
+    "variantCount": 6,
+    "estimatedUploadBytes": 282000,
+    "estimatedStorageBytes": 282000
+  },
+  "templates": [
+    {
+      "externalId": "gaming:ssbu-fighters",
+      "folder": "examples/gaming/ssbu-fighters",
+      "title": "Super Smash Bros. Ultimate roster sample",
+      "category": "gaming",
+      "description": "All 87 fighters in Super Smash Bros. Ultimate, base + DLC.",
+      "tags": ["nintendo", "fighting", "smash bros"],
+      "visibility": "public",
+      "labelPolicy": "explicit-required",
+      "coverImage": {
+        "sourcePath": "/workspace/scripts/marketplace-seed/assets/covers/ssbu-fighters.jpg",
+        "sourcePathRelative": "scripts/marketplace-seed/assets/covers/ssbu-fighters.jpg",
+        "sourceSha256": "c1b3f27a96e7339cc3dddb595ef20bf12091f7eb044c89791c2ce04bca74fce8",
+        "sourceMimeType": "image/jpeg",
+        "sourceByteSize": 185000,
+        "sourceWidth": 4096,
+        "sourceHeight": 760,
+        "sourceAspectRatio": 5.389473684210526,
+        "crop": null,
+        "variants": {
+          "tile": {
+            "kind": "tile",
+            "path": ".seed-cache/marketplace-core/2026-05-templates-v1/variants/c1b3f27a-tile.webp",
+            "contentHash": "af31124c8dc2a5dd902a3eeff374d99bad3f31a2b0104d8fd6392e26f6de9c97",
+            "mimeType": "image/webp",
+            "byteSize": 32000,
+            "width": 640,
+            "height": 119,
+            "cacheKey": "c1b3f27a96e7339cc3dddb595ef20bf12091f7eb044c89791c2ce04bca74fce8:seed-variants-v1:tile"
+          },
+          "preview": {
+            "kind": "preview",
+            "path": ".seed-cache/marketplace-core/2026-05-templates-v1/variants/c1b3f27a-preview.jpg",
+            "contentHash": "d092f6c3bd6af29d72d622671a3e06a4d3f2af2093f6887ae2324ea225fb144c",
+            "mimeType": "image/jpeg",
+            "byteSize": 120000,
+            "width": 1280,
+            "height": 238,
+            "cacheKey": "c1b3f27a96e7339cc3dddb595ef20bf12091f7eb044c89791c2ce04bca74fce8:seed-variants-v1:preview"
+          }
+        }
+      },
+      "coverZoom": 1.5,
+      "criteria": [
+        {
+          "externalId": "competitive",
+          "name": "Competitive",
+          "shortName": "Comp",
+          "prompt": "Rank fighters by competitive viability.",
+          "axisTop": "Strongest",
+          "axisBottom": "Weakest",
+          "order": 0,
+          "isPrimary": true,
+          "status": "active"
+        },
+        {
+          "externalId": "favorites",
+          "name": "Favorites",
+          "shortName": "Favs",
+          "prompt": "Rank fighters by personal preference.",
+          "axisTop": "Favorite",
+          "axisBottom": "Least favorite",
+          "order": 1,
+          "isPrimary": false,
+          "status": "active"
+        }
+      ],
+      "items": [
+        {
+          "externalId": "mario",
+          "order": 0,
+          "image": "01-mario.png",
+          "label": "Mario",
+          "asset": {
+            "sourcePath": "/workspace/examples/gaming/ssbu-fighters/01-mario.png",
+            "sourcePathRelative": "examples/gaming/ssbu-fighters/01-mario.png",
+            "sourceSha256": "6d2b8f492a3b4e4a85d1c8cc8e3b761dbb52eae5d6c841b907916537ad4c31d4",
+            "sourceMimeType": "image/png",
+            "sourceByteSize": 48000,
+            "sourceWidth": 512,
+            "sourceHeight": 512,
+            "sourceAspectRatio": 1,
+            "crop": null,
+            "variants": {
+              "tile": {
+                "kind": "tile",
+                "path": ".seed-cache/marketplace-core/2026-05-templates-v1/variants/6d2b8f49-tile.webp",
+                "contentHash": "8a09e277946d89a70875c62745971e1a20357026b81117db86fef1d713cc458d",
+                "mimeType": "image/webp",
+                "byteSize": 16000,
+                "width": 120,
+                "height": 120,
+                "cacheKey": "6d2b8f492a3b4e4a85d1c8cc8e3b761dbb52eae5d6c841b907916537ad4c31d4:seed-variants-v1:tile"
+              },
+              "preview": {
+                "kind": "preview",
+                "path": ".seed-cache/marketplace-core/2026-05-templates-v1/variants/6d2b8f49-preview.jpg",
+                "contentHash": "e66b43ee16f4dd395e926040a553f26f6de263827159837b90175831b542952f",
+                "mimeType": "image/jpeg",
+                "byteSize": 44000,
+                "width": 512,
+                "height": 512,
+                "cacheKey": "6d2b8f492a3b4e4a85d1c8cc8e3b761dbb52eae5d6c841b907916537ad4c31d4:seed-variants-v1:preview"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "externalId": "gaming:zelda-games",
+      "folder": "examples/gaming/zelda-games",
+      "title": "Legend of Zelda mainline",
+      "category": "gaming",
+      "description": "Every mainline Zelda title, by box art.",
+      "tags": ["zelda", "nintendo", "rpg"],
+      "visibility": "public",
+      "labelPolicy": "explicit-required",
+      "criteria": [
+        {
+          "externalId": "default",
+          "name": "Overall",
+          "shortName": "Overall",
+          "prompt": "Rank Zelda games on overall quality + impact.",
+          "axisTop": "Best",
+          "axisBottom": "Worst",
+          "order": 0,
+          "isPrimary": true,
+          "status": "active"
+        }
+      ],
+      "items": [
+        {
+          "externalId": "the-legend-of-zelda",
+          "order": 0,
+          "image": "01-the-legend-of-zelda.png",
+          "label": "The Legend of Zelda",
+          "asset": {
+            "sourcePath": "/workspace/examples/gaming/zelda-games/01-the-legend-of-zelda.png",
+            "sourcePathRelative": "examples/gaming/zelda-games/01-the-legend-of-zelda.png",
+            "sourceSha256": "ca847d59b1c01aab18f8d9a744c1d39a1974e904e67be85f56c21cfab6c7f5a1",
+            "sourceMimeType": "image/png",
+            "sourceByteSize": 59000,
+            "sourceWidth": 512,
+            "sourceHeight": 512,
+            "sourceAspectRatio": 1,
+            "crop": null,
+            "variants": {
+              "tile": {
+                "kind": "tile",
+                "path": ".seed-cache/marketplace-core/2026-05-templates-v1/variants/ca847d59-tile.webp",
+                "contentHash": "843e38d58b70d552c1f9f0d37f8ee55d84e7b311725bc2bd6613ca781f0fc923",
+                "mimeType": "image/webp",
+                "byteSize": 18000,
+                "width": 120,
+                "height": 120,
+                "cacheKey": "ca847d59b1c01aab18f8d9a744c1d39a1974e904e67be85f56c21cfab6c7f5a1:seed-variants-v1:tile"
+              },
+              "preview": {
+                "kind": "preview",
+                "path": ".seed-cache/marketplace-core/2026-05-templates-v1/variants/ca847d59-preview.jpg",
+                "contentHash": "9173a43579f2ff1c912e5b504b3b56d64dc8e35566c59ee15f3dfcd1c5c34e9b",
+                "mimeType": "image/jpeg",
+                "byteSize": 52000,
+                "width": 512,
+                "height": 512,
+                "cacheKey": "ca847d59b1c01aab18f8d9a744c1d39a1974e904e67be85f56c21cfab6c7f5a1:seed-variants-v1:preview"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

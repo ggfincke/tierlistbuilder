@@ -77,3 +77,6 @@ dev-dist
 
 # Local scratch / throwaway artifacts
 .tmp/
+
+# Python seed pipeline cache
+.seed-cache/
