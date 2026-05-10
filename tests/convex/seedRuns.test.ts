@@ -514,7 +514,11 @@ describe('seed run precheck API', () =>
     )
     expect(rejected.finalized).toEqual([])
     expect(rejected.rejected).toMatchObject([
-      { contentHash: 'not-the-real-hash', cleaned: true },
+      {
+        assetKey: 'bad-asset',
+        contentHash: 'not-the-real-hash',
+        cleaned: true,
+      },
     ])
     await expectStorageMissing(t, badStorageId)
 
@@ -547,7 +551,12 @@ describe('seed run precheck API', () =>
     )
     expect(metadataRejected.finalized).toEqual([])
     expect(metadataRejected.rejected).toMatchObject([
-      { contentHash, reason: expect.stringContaining('width'), cleaned: true },
+      {
+        assetKey: 'bad-metadata',
+        contentHash,
+        reason: expect.stringContaining('width'),
+        cleaned: true,
+      },
     ])
     await expectStorageMissing(t, badMetadataStorageId)
 

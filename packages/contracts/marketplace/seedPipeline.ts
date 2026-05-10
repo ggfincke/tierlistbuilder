@@ -379,6 +379,7 @@ export interface SeedFinalizedMedia
 
 export interface SeedRejectedUpload
 {
+  assetKey: string
   contentHash: string
   storageId: string
   reason: string

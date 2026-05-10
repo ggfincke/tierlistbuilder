@@ -233,6 +233,7 @@ const seedFinalizedMediaValidator = v.object({
 })
 
 const seedRejectedUploadValidator = v.object({
+  assetKey: v.string(),
   contentHash: v.string(),
   storageId: v.string(),
   reason: v.string(),
@@ -626,12 +627,14 @@ const keySetByTemplate = <T extends { templateExternalId: string }>(
 
 const rejectUploadedVariant = async (
   ctx: ActionCtx,
+  assetKey: string,
   variant: SeedUploadedVariantArg,
   reason: string
 ): Promise<SeedRejectedUpload> =>
 {
   await deleteStorageSilently(ctx, variant.storageId)
   return {
+    assetKey,
     contentHash: variant.contentHash,
     storageId: variant.storageId as string,
     reason,
@@ -641,6 +644,7 @@ const rejectUploadedVariant = async (
 
 const loadVerifiedSeedVariant = async (
   ctx: ActionCtx,
+  assetKey: string,
   variant: SeedUploadedVariantArg
 ): Promise<
   | { kind: 'verified'; variant: VerifiedSeedVariant }
@@ -655,6 +659,7 @@ const loadVerifiedSeedVariant = async (
     return {
       kind: 'rejected',
       rejected: {
+        assetKey,
         contentHash: variant.contentHash,
         storageId: variant.storageId as string,
         reason: 'uploaded storage object not found',
@@ -668,6 +673,7 @@ const loadVerifiedSeedVariant = async (
       kind: 'rejected',
       rejected: await rejectUploadedVariant(
         ctx,
+        assetKey,
         variant,
         `uploaded image blob too large: ${metadata.size} > ${MAX_IMAGE_BYTE_SIZE}`
       ),
@@ -680,6 +686,7 @@ const loadVerifiedSeedVariant = async (
     return {
       kind: 'rejected',
       rejected: {
+        assetKey,
         contentHash: variant.contentHash,
         storageId: variant.storageId as string,
         reason: 'uploaded image blob not found',
@@ -702,6 +709,7 @@ const loadVerifiedSeedVariant = async (
       kind: 'rejected',
       rejected: await rejectUploadedVariant(
         ctx,
+        assetKey,
         variant,
         error instanceof Error ? error.message : 'invalid uploaded image'
       ),
@@ -719,6 +727,7 @@ const loadVerifiedSeedVariant = async (
       kind: 'rejected',
       rejected: await rejectUploadedVariant(
         ctx,
+        assetKey,
         variant,
         `uploaded variant mismatch: ${failures.join(', ')}`
       ),
@@ -822,7 +831,7 @@ const finalizeSeedMediaAsset = async (
   const rejected: SeedRejectedUpload[] = []
   for (const upload of asset.variants)
   {
-    const result = await loadVerifiedSeedVariant(ctx, upload)
+    const result = await loadVerifiedSeedVariant(ctx, asset.assetKey, upload)
     if (result.kind === 'rejected') rejected.push(result.rejected)
     else verified.push(result.variant)
   }
