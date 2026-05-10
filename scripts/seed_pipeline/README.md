@@ -9,6 +9,15 @@ PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline preflight data/seeds/ma
 PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline run data/seeds/marketplace-core.json --env local
 ```
 
+The npm wrappers in `package.json` use the same `PYTHONPATH` setup:
+
+```bash
+npm run seed:marketplace:validate
+npm run seed:marketplace:build
+npm run seed:marketplace:preflight
+npm run seed:marketplace
+```
+
 The package can also be installed for development:
 
 ```bash
@@ -22,21 +31,63 @@ python -m seed_pipeline validate data/seeds/marketplace-core.json
 .seed-cache/<datasetKey>/<releaseId>/
 ```
 
-Convex read/write commands are intentionally not implemented until the seed
-ingest API is available and `CONVEX_SEED_ENABLED=true` with
-`CONVEX_SEED_SECRET` set for the target deployment.
+That cache is disposable and ignored by Git. The source manifest under
+`data/seeds/` is the canonical artifact.
 
-Write commands:
+## Read Commands
+
+`diff` and `preflight` call Convex read APIs unless `--state-json` points at a
+fixture response:
+
+```bash
+python -m seed_pipeline diff data/seeds/marketplace-core.json --env local
+python -m seed_pipeline preflight data/seeds/marketplace-core.json --env local
+```
+
+Use `--convex-url` and `--seed-secret` to target a deployment explicitly. When
+omitted, the pipeline reads the target from local environment files and process
+environment.
+
+## Write Commands
+
+Convex write commands require `CONVEX_SEED_ENABLED=true` and the matching
+`CONVEX_SEED_SECRET` for the target deployment:
 
 ```bash
 python -m seed_pipeline upload data/seeds/marketplace-core.json --env local
 python -m seed_pipeline apply data/seeds/marketplace-core.json --env local
 python -m seed_pipeline verify data/seeds/marketplace-core.json --env local
+python -m seed_pipeline activate data/seeds/marketplace-core.json --env local --confirm-activation
 python -m seed_pipeline run data/seeds/marketplace-core.json --env local --confirm-activation
 python -m seed_pipeline rollback data/seeds/marketplace-core.json --env local --target-release-id <release-id> --confirm-activation
 ```
 
+`--dry-run` performs local validation/build plus the server read precheck and
+then stops before writes. Upload size can be capped with `--max-upload-bytes`.
+
+## Environments
+
+Local:
+
+```bash
+python -m seed_pipeline run data/seeds/marketplace-core.json --env local --confirm-activation
+```
+
+Staging:
+
+```bash
+python -m seed_pipeline preflight data/seeds/marketplace-core.json --env staging --convex-url <url> --seed-secret <secret>
+python -m seed_pipeline run data/seeds/marketplace-core.json --env staging --convex-url <url> --seed-secret <secret> --confirm-activation
+```
+
+Production:
+
+```bash
+python -m seed_pipeline preflight data/seeds/marketplace-core.json --env prod --convex-url <url> --seed-secret <secret>
+python -m seed_pipeline run data/seeds/marketplace-core.json --env prod --convex-url <url> --seed-secret <secret> --yes --confirm-activation
+```
+
 Production writes require `--yes`. Activation and rollback require
-`--confirm-activation` even outside production. The local checkpoint lives at
+`--confirm-activation` in every environment. The local checkpoint lives at
 `.seed-cache/<datasetKey>/<releaseId>/run.json`; cleanup uses that checkpoint to
-remove abandoned upload storage IDs.
+remove abandoned upload storage IDs and requires `--yes` unless it is a dry run.

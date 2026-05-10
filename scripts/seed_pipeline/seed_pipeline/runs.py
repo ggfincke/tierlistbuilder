@@ -515,7 +515,9 @@ def _upsert_templates(context: SeedRunContext) -> list[JsonObject]:
 
 def _upsert_items(context: SeedRunContext) -> list[JsonObject]:
     results: list[JsonObject] = []
-    for chunk in _chunks(build_item_upserts(context.compiled), ITEM_BATCH_SIZE):
+    for chunk in _child_upsert_batches(
+        build_item_upserts(context.compiled), ITEM_BATCH_SIZE, "items"
+    ):
         results.append(
             context.client.mutation(
                 SEED_UPSERT_ITEMS_FUNCTION,
@@ -527,7 +529,9 @@ def _upsert_items(context: SeedRunContext) -> list[JsonObject]:
 
 def _upsert_criteria(context: SeedRunContext) -> list[JsonObject]:
     results: list[JsonObject] = []
-    for chunk in _chunks(build_criterion_upserts(context.compiled), CRITERION_BATCH_SIZE):
+    for chunk in _child_upsert_batches(
+        build_criterion_upserts(context.compiled), CRITERION_BATCH_SIZE, "criteria"
+    ):
         results.append(
             context.client.mutation(
                 SEED_UPSERT_CRITERIA_FUNCTION,
@@ -535,6 +539,26 @@ def _upsert_criteria(context: SeedRunContext) -> list[JsonObject]:
             )
         )
     return results
+
+
+def _child_upsert_batches(
+    rows: list[JsonObject], limit: int, label: str
+) -> list[list[JsonObject]]:
+    groups: dict[str, list[JsonObject]] = {}
+    for row in rows:
+        # server upserts prune missing children per template, so never split one template
+        template_external_id = str(row["templateExternalId"])
+        groups.setdefault(template_external_id, []).append(row)
+    batches = []
+    for template_external_id, group in groups.items():
+        if len(group) > limit:
+            msg = (
+                f"{template_external_id} has {len(group)} seed {label}, "
+                f"exceeding per-call limit {limit}"
+            )
+            raise RuntimeError(msg)
+        batches.append(group)
+    return batches
 
 
 def _assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[JsonObject]:

@@ -7,6 +7,7 @@ import unittest
 
 from seed_pipeline.manifest import find_repo_root, read_json
 from seed_pipeline.runs import (
+    _child_upsert_batches,
     _checkpoint_matches,
     build_criterion_upserts,
     build_item_upserts,
@@ -58,6 +59,30 @@ class SeedRunPayloadTests(unittest.TestCase):
 
         self.assertTrue(_checkpoint_matches(checkpoint, self.compiled, "local"))
         self.assertFalse(_checkpoint_matches(checkpoint, self.compiled, "prod"))
+
+    def test_child_upsert_batches_keep_each_template_complete(self) -> None:
+        rows = [
+            {"templateExternalId": "template-a", "itemExternalId": "a-1"},
+            {"templateExternalId": "template-b", "itemExternalId": "b-1"},
+            {"templateExternalId": "template-a", "itemExternalId": "a-2"},
+        ]
+
+        batches = _child_upsert_batches(rows, 2, "items")
+
+        self.assertEqual(
+            [[item["itemExternalId"] for item in batch] for batch in batches],
+            [["a-1", "a-2"], ["b-1"]],
+        )
+
+    def test_child_upsert_batches_reject_oversized_template(self) -> None:
+        rows = [
+            {"templateExternalId": "template-a", "itemExternalId": "a-1"},
+            {"templateExternalId": "template-a", "itemExternalId": "a-2"},
+            {"templateExternalId": "template-a", "itemExternalId": "a-3"},
+        ]
+
+        with self.assertRaisesRegex(RuntimeError, "exceeding per-call limit"):
+            _child_upsert_batches(rows, 2, "items")
 
 
 if __name__ == "__main__":
