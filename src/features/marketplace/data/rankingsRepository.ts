@@ -256,6 +256,20 @@ export const useRemixRankingMutation = () =>
     args: RemixRankingArgs
   ) => Promise<MarketplaceRankingRemixResult>
 
+interface RemixTemplateConsensusArgs
+{
+  templateSlug: string
+  criterionExternalId?: string
+  title?: string
+}
+
+export const useRemixTemplateConsensusMutation = () =>
+  useMutation(
+    api.marketplace.rankings.mutations.remixTemplateConsensus
+  ) as unknown as (
+    args: RemixTemplateConsensusArgs
+  ) => Promise<MarketplaceRankingRemixResult>
+
 // imperative form — fire-&-forget once per ranking-detail session window
 export const recordRankingViewImperative = (slug: string): Promise<null> =>
   getConvexClient().mutation(

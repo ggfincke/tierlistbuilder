@@ -70,7 +70,7 @@ export const BoardHeader = () =>
               {...getInputProps({
                 maxLength: 60,
                 className:
-                  '!px-0 !py-0 !text-3xl border-none text-center font-semibold tracking-tight focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:!text-[2.15rem]',
+                  '!px-0 !py-0 !text-3xl border-none text-center font-semibold tracking-tight focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:!text-[2.15rem] min-w-[10ch] [field-sizing:content]',
               })}
             />
           </>

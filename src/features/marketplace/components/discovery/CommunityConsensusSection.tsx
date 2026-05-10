@@ -22,6 +22,8 @@ import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marke
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { useCompareRanking } from '~/features/marketplace/model/useCompareRanking'
 import { selectBusiestOtherCriterion } from '~/features/marketplace/model/criterionSelection'
+import { useRemixConsensus } from '~/features/marketplace/model/useRemixConsensus'
+import { useRemixRanking } from '~/features/marketplace/model/useRemixRanking'
 import { useUseTemplate } from '~/features/marketplace/model/useUseTemplate'
 import {
   ACCESS_META,
@@ -102,6 +104,16 @@ interface ConsensusActionButtonsProps
   templateTitle: string
   criterionExternalId: string
   access: MarketplaceTemplateDetail['access']
+  // pinned rail rankings remix their snapshot instead of the bare template
+  activeRanking: { slug: string; title: string } | null
+  // true when the community lane has a generated aggregate to clone
+  consensusRemixable: boolean
+}
+
+interface ConsensusPrimaryAction
+{
+  idleLabel: string
+  run: () => void
 }
 
 const ConsensusActionButtons = ({
@@ -110,17 +122,49 @@ const ConsensusActionButtons = ({
   templateTitle,
   criterionExternalId,
   access,
+  activeRanking,
+  consensusRemixable,
 }: ConsensusActionButtonsProps) =>
 {
   const { run: runUseTemplate, isPending: isUseTemplatePending } =
     useUseTemplate()
+  const { run: runRemixRanking, isPending: isRemixRankingPending } =
+    useRemixRanking()
+  const { run: runRemixConsensus, isPending: isRemixConsensusPending } =
+    useRemixConsensus()
   const accessMeta = ACCESS_META[access]
   const accessBlocked = isTemplateAccessBlocked(access)
+  const isRemixPending = isRemixRankingPending || isRemixConsensusPending
+  const isPending = isUseTemplatePending || isRemixPending
+  const primaryAction: ConsensusPrimaryAction = activeRanking
+    ? {
+        idleLabel: 'Remix this ranking',
+        run: () => runRemixRanking(activeRanking.slug, activeRanking.title),
+      }
+    : consensusRemixable
+      ? {
+          idleLabel: 'Remix this ranking',
+          run: () =>
+            runRemixConsensus({
+              templateSlug,
+              templateTitle,
+              criterionExternalId,
+            }),
+        }
+      : {
+          idleLabel: 'New ranking',
+          run: () =>
+            runUseTemplate(templateSlug, templateTitle, {
+              preferredCriterionExternalId: criterionExternalId,
+            }),
+        }
   const label = accessBlocked
     ? accessMeta.ctaLabel
-    : isUseTemplatePending
-      ? 'Forking…'
-      : 'New ranking'
+    : isRemixPending
+      ? 'Remixing…'
+      : isUseTemplatePending
+        ? 'Forking…'
+        : primaryAction.idleLabel
   return (
     <div className="flex h-full w-full gap-2">
       {compareHref && (
@@ -131,16 +175,12 @@ const ConsensusActionButtons = ({
       )}
       <button
         type="button"
-        onClick={() =>
-          runUseTemplate(templateSlug, templateTitle, {
-            preferredCriterionExternalId: criterionExternalId,
-          })
-        }
-        disabled={isUseTemplatePending || accessBlocked}
+        onClick={primaryAction.run}
+        disabled={isPending || accessBlocked}
         title={accessMeta.ctaTooltip ?? undefined}
         className={`${ACTION_PILL_CLASS} disabled:cursor-not-allowed disabled:opacity-60`}
       >
-        {isUseTemplatePending && !accessBlocked ? (
+        {isPending && !accessBlocked ? (
           <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.2} />
         ) : (
           <Plus className="h-3 w-3" strokeWidth={2.4} />
@@ -812,6 +852,20 @@ export const CommunityConsensusSection = ({
     multiCriterion && compareDefaultRight
       ? `${TEMPLATES_ROUTE_PATH}/${template.slug}/compare?left=${encodeURIComponent(criterionExternalId)}&right=${encodeURIComponent(compareDefaultRight.externalId)}`
       : null
+  const activeRankingForActions =
+    activeSlug && compare.detail
+      ? { slug: activeSlug, title: compare.detail.title }
+      : null
+  // the consensus is remixable once the lane has rankings & a generation.
+  // while the live aggregate is in flight (criterion swap), fall back to
+  // the template's known per-lane count so the action label doesn't flip
+  // through "New ranking" between the old and new aggregate
+  const consensusRemixable =
+    aggregate === undefined
+      ? knownRankingCount > 0
+      : !!aggregate &&
+        aggregate.rankingCount > 0 &&
+        aggregate.activeGeneration !== null
   const renderConsensusActions = (): ReactNode => (
     <ConsensusActionButtons
       compareHref={compareHref}
@@ -819,6 +873,8 @@ export const CommunityConsensusSection = ({
       templateTitle={template.title}
       criterionExternalId={criterionExternalId}
       access={template.access}
+      activeRanking={activeRankingForActions}
+      consensusRemixable={consensusRemixable}
     />
   )
 
