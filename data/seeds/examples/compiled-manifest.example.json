@@ -28,8 +28,8 @@
       "itemAspectRatio": 1,
       "ratioSource": "consistent",
       "coverImage": {
-        "sourcePath": "/workspace/scripts/marketplace-seed/assets/covers/ssbu-fighters.jpg",
-        "sourcePathRelative": "scripts/marketplace-seed/assets/covers/ssbu-fighters.jpg",
+        "sourcePath": "/workspace/data/seeds/assets/covers/ssbu-fighters.jpg",
+        "sourcePathRelative": "data/seeds/assets/covers/ssbu-fighters.jpg",
         "sourceSha256": "c1b3f27a96e7339cc3dddb595ef20bf12091f7eb044c89791c2ce04bca74fce8",
         "sourceMimeType": "image/jpeg",
         "sourceByteSize": 185000,

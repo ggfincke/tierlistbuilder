@@ -13,7 +13,7 @@
       "tags": ["nintendo", "fighting", "smash bros"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
-      "coverImage": "scripts/marketplace-seed/assets/covers/ssbu-fighters.jpg",
+      "coverImage": "data/seeds/assets/covers/ssbu-fighters.jpg",
       "coverZoom": 1.5,
       "suggestedTiers": [
         {

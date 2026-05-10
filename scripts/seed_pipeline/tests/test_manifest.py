@@ -110,7 +110,7 @@ def _write_repo_fixture(root: Path) -> None:
     image_dir.mkdir(parents=True)
     Image.new("RGBA", (32, 32), (255, 0, 0, 255)).save(image_dir / "01-mario.png")
     Image.new("RGBA", (32, 32), (0, 255, 0, 255)).save(image_dir / "02-luigi.png")
-    cover_dir = root / "scripts" / "marketplace-seed" / "assets" / "covers"
+    cover_dir = root / "data" / "seeds" / "assets" / "covers"
     cover_dir.mkdir(parents=True)
     Image.new("RGB", (64, 32), (0, 0, 255)).save(cover_dir / "ssbu-fighters.jpg")
 
@@ -131,7 +131,7 @@ def _source_manifest() -> dict[str, object]:
                 "tags": ["nintendo"],
                 "visibility": "public",
                 "labelPolicy": "explicit-required",
-                "coverImage": "scripts/marketplace-seed/assets/covers/ssbu-fighters.jpg",
+                "coverImage": "data/seeds/assets/covers/ssbu-fighters.jpg",
                 "criteria": [
                     {
                         "externalId": "competitive",

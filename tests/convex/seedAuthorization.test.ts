@@ -60,15 +60,9 @@ describe('marketplace seed authorization', () =>
 
     process.env.CONVEX_SEED_SECRET = SEED_SECRET
     await expect(
-      t.action(api.marketplace.templates.seed.seedTemplateFromBlobs, {
+      t.action(api.marketplace.templates.seed.getSeedUserStatus, {
         seedSecret: 'wrong-secret',
-        authorEmail: 'seed@example.com',
-        title: 'Seed Template',
-        description: null,
-        category: 'movies',
-        tags: [],
-        itemAspectRatio: null,
-        items: [],
+        email: 'seed@example.com',
       })
     ).rejects.toThrow(/seeding is locked/)
 
