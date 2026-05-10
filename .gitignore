@@ -78,5 +78,14 @@ dev-dist
 # Local scratch / throwaway artifacts
 .tmp/
 
+# Python cache / test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+*.egg-info/
+
 # Python seed pipeline cache
 .seed-cache/
