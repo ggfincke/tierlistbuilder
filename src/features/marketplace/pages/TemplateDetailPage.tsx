@@ -2,7 +2,6 @@
 // breadcrumb -> hero -> consensus (w/ inline rail) -> credit -> related
 
 import { Layers } from 'lucide-react'
-import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import {
@@ -38,6 +37,10 @@ import { MarketplaceNotFound } from '~/features/marketplace/components/layout/Ma
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 
 const RELATED_LIMIT = 4
+const HERO_AGGREGATE_CACHE = new Map<
+  string,
+  MarketplaceTemplateRankingAggregate
+>()
 
 const NotFound = () => (
   <MarketplaceNotFound
@@ -157,26 +160,13 @@ const useCachedHeroAggregate = (
   useFallback: boolean
 ): MarketplaceTemplateRankingAggregate | null =>
 {
-  const [cache, setCache] = useState<
-    ReadonlyMap<string, MarketplaceTemplateRankingAggregate>
-  >(() => new Map())
-
-  const cachedAggregate = cache.get(cacheKey) ?? null
+  const cachedAggregate = HERO_AGGREGATE_CACHE.get(cacheKey) ?? null
   if (
     readyAggregate !== null &&
     !isSameHeroAggregate(cachedAggregate, readyAggregate)
   )
   {
-    setCache((prev) =>
-    {
-      if (isSameHeroAggregate(prev.get(cacheKey) ?? null, readyAggregate))
-      {
-        return prev
-      }
-      const next = new Map(prev)
-      next.set(cacheKey, readyAggregate)
-      return next
-    })
+    HERO_AGGREGATE_CACHE.set(cacheKey, readyAggregate)
   }
 
   return readyAggregate ?? (useFallback ? cachedAggregate : null)

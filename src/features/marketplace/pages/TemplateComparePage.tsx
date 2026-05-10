@@ -14,6 +14,7 @@ import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/ma
 import {
   isTemplateRankingAggregateReady as isAggregateReady,
   type MarketplaceTemplateRankingAggregate,
+  type MarketplaceTemplateRankingAggregateBucket,
   type MarketplaceTemplateRankingAggregateItem,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 
@@ -58,6 +59,7 @@ interface ResolvedSelection
 
 const LEFT_PARAM = 'left'
 const RIGHT_PARAM = 'right'
+const EMPTY_BUCKETS: MarketplaceTemplateRankingAggregateBucket[] = []
 
 // resolves left/right from URL: missing left -> primary; missing right ->
 // busiest other lane; collision -> swap right to the next active lane
@@ -114,17 +116,18 @@ const useFullyLoadedAggregateItems = (
     enabled,
     pageSize: 100,
   })
+  const { status, loadMore } = result
   // template order is stable & the page-size cap is 100, so we keep
   // requesting the next page until the cursor exhausts. effects that
   // ignore returned promises read fine w/ this loadMore signature
   useEffect(() =>
   {
     if (!enabled) return
-    if (result.status === 'CanLoadMore')
+    if (status === 'CanLoadMore')
     {
-      result.loadMore(100)
+      loadMore(100)
     }
-  }, [enabled, result])
+  }, [enabled, loadMore, status])
   return result
 }
 
@@ -254,8 +257,8 @@ const CompareBody = ({
   const aggregatesReady = leftReady && rightReady
   const itemsReady =
     aggregatesReady &&
-    leftItems.status !== 'LoadingFirstPage' &&
-    rightItems.status !== 'LoadingFirstPage'
+    leftItems.status === 'Exhausted' &&
+    rightItems.status === 'Exhausted'
 
   const joinedRows = useMemo(
     () => joinLanesByTemplateItem(leftItems.items, rightItems.items),
@@ -265,7 +268,8 @@ const CompareBody = ({
   // both aggregates project the same template buckets for now; we still
   // prefer the left lane's so we have a stable source of truth even if a
   // future per-criterion preset override lands
-  const buckets = leftAggregate?.buckets ?? rightAggregate?.buckets ?? []
+  const buckets =
+    leftAggregate?.buckets ?? rightAggregate?.buckets ?? EMPTY_BUCKETS
 
   const insights = useMemo(
     () => computeCompareInsights(joinedRows, buckets.length),
@@ -345,16 +349,6 @@ const CompareBody = ({
         <SwapLanesButton variant="mobile" onClick={swapLanes} />
       </section>
 
-      <section className="mt-6">
-        <CompareInsightStrip
-          insights={insights}
-          leftRankingCount={leftRankingCount}
-          rightRankingCount={rightRankingCount}
-          leftShortName={leftShortName}
-          rightShortName={rightShortName}
-        />
-      </section>
-
       {!aggregatesReady ? (
         <section className="mt-6">
           {renderLaneState(leftAggregate, rightAggregate)}
@@ -375,6 +369,16 @@ const CompareBody = ({
         </section>
       ) : (
         <>
+          <section className="mt-6">
+            <CompareInsightStrip
+              insights={insights}
+              leftRankingCount={leftRankingCount}
+              rightRankingCount={rightRankingCount}
+              leftShortName={leftShortName}
+              rightShortName={rightShortName}
+            />
+          </section>
+
           <section className="mt-6 grid gap-3 lg:grid-cols-[1.05fr_0.95fr]">
             <CompareScatter
               rows={joinedRows}

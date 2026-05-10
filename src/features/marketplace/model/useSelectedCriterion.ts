@@ -5,7 +5,12 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
+import {
+  DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+  DEFAULT_TEMPLATE_CRITERION_NAME,
+  DEFAULT_TEMPLATE_CRITERION_PROMPT,
+  type MarketplaceTemplateCriterion,
+} from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import {
   findActiveCriterion,
   findFirstActiveCriterion,
@@ -115,10 +120,10 @@ export const useSelectedCriterion = (
 // see this in practice should treat it as a validation failure upstream —
 // the server-side schema rejects empty criteria arrays
 const buildEmptyFallback = (): MarketplaceTemplateCriterion => ({
-  externalId: 'default',
-  name: 'Overall',
+  externalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+  name: DEFAULT_TEMPLATE_CRITERION_NAME,
   shortName: null,
-  prompt: '',
+  prompt: DEFAULT_TEMPLATE_CRITERION_PROMPT,
   axisTop: null,
   axisBottom: null,
   order: 0,

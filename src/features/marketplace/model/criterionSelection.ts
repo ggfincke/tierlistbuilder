@@ -27,10 +27,16 @@ export const findFirstActiveCriterion = (
   criteria: readonly MarketplaceTemplateCriterion[]
 ): MarketplaceTemplateCriterion | null =>
 {
-  const sorted = [...criteria]
-    .filter((criterion) => criterion.status === 'active')
-    .sort((a, b) => a.order - b.order)
-  return sorted[0] ?? null
+  let first: MarketplaceTemplateCriterion | null = null
+  for (const criterion of criteria)
+  {
+    if (criterion.status !== 'active') continue
+    if (!first || criterion.order < first.order)
+    {
+      first = criterion
+    }
+  }
+  return first
 }
 
 export const pickInitialCriterionExternalId = (
@@ -50,16 +56,23 @@ export const selectBusiestOtherCriterion = (
   counts: Record<string, number> = {}
 ): MarketplaceTemplateCriterion | null =>
 {
-  const others = criteria
-    .filter(
-      (criterion) =>
-        criterion.status === 'active' &&
-        criterion.externalId !== excludedExternalId
+  let best: MarketplaceTemplateCriterion | null = null
+  let bestCount = -Infinity
+  for (const criterion of criteria)
+  {
+    if (criterion.status !== 'active') continue
+    if (criterion.externalId === excludedExternalId) continue
+
+    const count = counts[criterion.externalId] ?? 0
+    if (
+      !best ||
+      count > bestCount ||
+      (count === bestCount && criterion.order < best.order)
     )
-    .sort(
-      (a, b) =>
-        (counts[b.externalId] ?? 0) - (counts[a.externalId] ?? 0) ||
-        a.order - b.order
-    )
-  return others[0] ?? null
+    {
+      best = criterion
+      bestCount = count
+    }
+  }
+  return best
 }

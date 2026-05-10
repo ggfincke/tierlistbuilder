@@ -7,6 +7,7 @@ import {
   useQuery,
   type UsePaginatedQueryResult,
 } from 'convex/react'
+import { useCallback, useMemo } from 'react'
 import { api } from '@convex/_generated/api'
 import { DEFAULT_RANKING_LIST_LIMIT } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type {
@@ -68,24 +69,31 @@ export const usePaginatedRankingsForTemplate = ({
   pageSize = DEFAULT_RANKING_LIST_LIMIT,
 }: PaginatedRankingsForTemplateArgs): RankingsForTemplatePage =>
 {
-  const args =
-    enabled && typeof templateSlug === 'string' && templateSlug.length > 0
-      ? {
-          templateSlug,
-          sort,
-          ...(criterionExternalId ? { criterionExternalId } : {}),
-        }
-      : 'skip'
+  const args = useMemo(
+    () =>
+      enabled && typeof templateSlug === 'string' && templateSlug.length > 0
+        ? {
+            templateSlug,
+            sort,
+            ...(criterionExternalId ? { criterionExternalId } : {}),
+          }
+        : 'skip',
+    [criterionExternalId, enabled, sort, templateSlug]
+  )
   const page = usePaginatedQuery(
     api.marketplace.rankings.queries.listRankingsForTemplate,
     args,
     { initialNumItems: pageSize }
   ) as UsePaginatedQueryResult<MarketplaceRankingSummary>
-  return {
-    items: page.results,
-    status: page.status,
-    loadMore: (count = pageSize) => page.loadMore(count),
-  }
+  const { results, status, loadMore: pageLoadMore } = page
+  const loadMore = useCallback(
+    (count = pageSize) => pageLoadMore(count),
+    [pageLoadMore, pageSize]
+  )
+  return useMemo(
+    () => ({ items: results, status, loadMore }),
+    [loadMore, results, status]
+  )
 }
 
 // reactive aggregate metadata — null while no row exists yet (pre-cron, or
@@ -145,30 +153,37 @@ export const useTemplateRankingAggregateItems = ({
   pageSize = DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
 }: TemplateRankingAggregateItemsArgs): TemplateRankingAggregateItemsPage =>
 {
-  const args =
-    enabled &&
-    typeof templateSlug === 'string' &&
-    templateSlug.length > 0 &&
-    typeof generation === 'number'
-      ? {
-          templateSlug,
-          generation,
-          ...(criterionExternalId ? { criterionExternalId } : {}),
-          ...(sort ? { sort } : {}),
-          ...(band ? { band } : {}),
-          ...(search ? { search } : {}),
-        }
-      : 'skip'
+  const args = useMemo(
+    () =>
+      enabled &&
+      typeof templateSlug === 'string' &&
+      templateSlug.length > 0 &&
+      typeof generation === 'number'
+        ? {
+            templateSlug,
+            generation,
+            ...(criterionExternalId ? { criterionExternalId } : {}),
+            ...(sort ? { sort } : {}),
+            ...(band ? { band } : {}),
+            ...(search ? { search } : {}),
+          }
+        : 'skip',
+    [band, criterionExternalId, enabled, generation, search, sort, templateSlug]
+  )
   const page = usePaginatedQuery(
     api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
     args,
     { initialNumItems: pageSize }
   ) as UsePaginatedQueryResult<MarketplaceTemplateRankingAggregateItem>
-  return {
-    items: page.results,
-    status: page.status,
-    loadMore: (count = pageSize) => page.loadMore(count),
-  }
+  const { results, status, loadMore: pageLoadMore } = page
+  const loadMore = useCallback(
+    (count = pageSize) => pageLoadMore(count),
+    [pageLoadMore, pageSize]
+  )
+  return useMemo(
+    () => ({ items: results, status, loadMore }),
+    [loadMore, results, status]
+  )
 }
 
 export const useMyRankingForTemplate = (
