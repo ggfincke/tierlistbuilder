@@ -52,7 +52,6 @@ import {
   allocateTemplateSlug,
   buildTemplateStateFields,
   createTemplateStats,
-  DEFAULT_TEMPLATE_TIERS,
   normalizeDescription,
   normalizeTags,
   normalizeTemplateTitle,
@@ -460,6 +459,23 @@ const assertPositiveFinite = (name: string, value: number): void =>
       code: CONVEX_ERROR_CODES.invalidInput,
       message: `${name} must be a positive finite number`,
     })
+  }
+}
+
+const assertUniqueValues = (name: string, values: readonly string[]): void =>
+{
+  const seen = new Set<string>()
+  for (const value of values)
+  {
+    assertNonemptyString(name, value)
+    if (seen.has(value))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `duplicate ${name}: ${value}`,
+      })
+    }
+    seen.add(value)
   }
 }
 
@@ -1170,10 +1186,7 @@ const normalizeSeedTemplateUpsert = async (
     visibility: template.visibility,
     coverMediaAssetId,
     coverFraming: template.coverFraming,
-    suggestedTiers:
-      template.suggestedTiers.length > 0
-        ? template.suggestedTiers
-        : [...DEFAULT_TEMPLATE_TIERS],
+    suggestedTiers: template.suggestedTiers,
     itemAspectRatio: template.itemAspectRatio,
     itemAspectRatioMode: 'manual',
     defaultItemImageFit: 'cover',
@@ -1443,6 +1456,10 @@ export const upsertSeedTemplates = mutation({
       1,
       MAX_SEED_TEMPLATE_UPSERTS_PER_CALL
     )
+    assertUniqueValues(
+      'seed template externalId',
+      args.templates.map((template) => template.externalId)
+    )
     const authorId = await findSeedAuthorId(ctx, args.authorEmail)
     if (!authorId)
     {
@@ -1485,7 +1502,7 @@ export const upsertSeedTemplates = mutation({
           coverMediaAssetId: patch.coverMediaAssetId,
           coverFraming: patch.coverFraming,
           coverItems: [],
-          suggestedTiers: patch.suggestedTiers ?? [...DEFAULT_TEMPLATE_TIERS],
+          suggestedTiers: patch.suggestedTiers,
           criteria: buildDefaultTemplateCriteria(),
           sourceBoardId: null,
           sizeClass: patch.sizeClass,
@@ -1567,6 +1584,12 @@ export const upsertSeedItems = mutation({
       args.items.length,
       1,
       MAX_SEED_ITEM_UPSERTS_PER_CALL
+    )
+    assertUniqueValues(
+      'seed item key',
+      args.items.map(
+        (item) => `${item.templateExternalId}/${item.itemExternalId}`
+      )
     )
 
     const created: SeedTemplateItemKey[] = []
@@ -1703,6 +1726,13 @@ export const upsertSeedCriteria = mutation({
       args.criteria.length,
       1,
       MAX_SEED_CRITERION_UPSERTS_PER_CALL
+    )
+    assertUniqueValues(
+      'seed criterion key',
+      args.criteria.map(
+        (criterion) =>
+          `${criterion.templateExternalId}/${criterion.criterionExternalId}`
+      )
     )
 
     const created: SeedTemplateCriterionKey[] = []

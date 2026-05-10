@@ -466,6 +466,12 @@ describe('seed run precheck API', () =>
         templates: [{ ...templateInput.templates[0], title: 'SSBU fighters' }],
       }
     )
+    await expect(
+      t.mutation(api.marketplace.seedRuns.upsertSeedTemplates, {
+        ...templateInput,
+        templates: [templateInput.templates[0], templateInput.templates[0]],
+      })
+    ).rejects.toThrow(/duplicate seed template externalId/)
 
     expect(createdTemplates).toMatchObject({
       created: ['gaming:ssbu-fighters'],
@@ -585,6 +591,34 @@ describe('seed run precheck API', () =>
         ],
       }
     )
+    await expect(
+      t.mutation(api.marketplace.seedRuns.upsertSeedItems, {
+        seedSecret: SEED_SECRET,
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-apply',
+        items: [
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            itemExternalId: 'mario',
+            order: 0,
+            label: 'Mario',
+            mediaContentHash: 'hash-mario',
+            aspectRatio: 1,
+            transform: null,
+          },
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            itemExternalId: 'mario',
+            order: 1,
+            label: 'Mario duplicate',
+            mediaContentHash: 'hash-mario',
+            aspectRatio: 1,
+            transform: null,
+          },
+        ],
+      })
+    ).rejects.toThrow(/duplicate seed item key/)
     const changedItems = await t.mutation(
       api.marketplace.seedRuns.upsertSeedItems,
       {
