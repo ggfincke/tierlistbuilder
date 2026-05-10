@@ -131,6 +131,7 @@ export const resolveItems = async (
       label: item.label,
       mediaAssetId: item.mediaAssetId as string | null,
       mediaContentHash: media?.tileVariant.contentHash ?? null,
+      mediaDedupeHash: media?.dedupeHash ?? null,
       aspectRatio: item.aspectRatio,
       transform: item.transform ?? null,
     })
@@ -193,6 +194,7 @@ export const resolveMediaForAuthor = async (
       resolved.push({
         contentHash,
         mediaAssetId: asset._id as string,
+        mediaDedupeHash: asset.dedupeHash,
         variantKind: variant.kind,
         byteSize: variant.byteSize,
       })

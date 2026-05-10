@@ -113,8 +113,8 @@ def render_diff_report(
         f"- Active release: `{active_release}`",
         f"- Templates: {totals['templateCount']}",
         f"- Items: {totals['itemCount']}",
-        f"- Variants present: {len(media['present'])}",
-        f"- Variants needing upload: {len(media['missing'])}",
+        f"- Media assets present: {len(media['present'])}",
+        f"- Media assets needing upload: {len(media['missing'])}",
         "",
     ]
     _append_diff_section(lines, "Templates To Create", diff["templates"]["create"])
@@ -127,8 +127,8 @@ def render_diff_report(
     _append_diff_section(lines, "Criteria To Create", diff["criteria"]["create"])
     _append_diff_section(lines, "Criteria To Update", diff["criteria"]["update"])
     _append_diff_section(lines, "Criteria Unchanged", diff["criteria"]["unchanged"])
-    _append_diff_section(lines, "Media Present", media["present"])
-    _append_diff_section(lines, "Media Needing Upload", media["missing"])
+    _append_diff_section(lines, "Media Assets Present", media["present"])
+    _append_diff_section(lines, "Media Assets Needing Upload", media["missing"])
     _append_absent_section(lines, diff["absentFromManifest"])
     lines.extend(
         [
@@ -206,11 +206,12 @@ def _diff_items(compiled: JsonObject, state: JsonObject) -> JsonObject:
             item_for_diff = {
                 **item,
                 "mediaContentHash": _asset_tile_hash(item.get("asset")),
+                "mediaDedupeHash": _asset_dedupe_hash(item.get("asset")),
             }
             reasons = _changed_fields(
                 item_for_diff,
                 current,
-                ["label", "aspectRatio", "transform", "mediaContentHash"],
+                ["label", "aspectRatio", "transform", "mediaDedupeHash"],
             )
             changed = False
             if reasons:
@@ -278,15 +279,24 @@ def _diff_criteria(compiled: JsonObject, state: JsonObject) -> JsonObject:
 
 def _diff_media(compiled: JsonObject, state: JsonObject) -> JsonObject:
     present = {
-        media["contentHash"]
+        media["mediaDedupeHash"]
         for media in as_list(state.get("media"))
-        if isinstance(media, dict)
+        if isinstance(media, dict) and isinstance(media.get("mediaDedupeHash"), str)
     }
-    hashes = sorted(_compiled_variant_hashes(compiled))
+    hashes = sorted(_compiled_asset_dedupe_hashes(compiled))
     return {
-        "present": [content_hash for content_hash in hashes if content_hash in present],
-        "missing": [content_hash for content_hash in hashes if content_hash not in present],
+        "present": [dedupe_hash for dedupe_hash in hashes if dedupe_hash in present],
+        "missing": [dedupe_hash for dedupe_hash in hashes if dedupe_hash not in present],
     }
+
+
+def _compiled_asset_dedupe_hashes(compiled: JsonObject) -> set[str]:
+    hashes: set[str] = set()
+    for asset in _compiled_assets(compiled):
+        dedupe_hash = _asset_dedupe_hash(asset)
+        if dedupe_hash is not None:
+            hashes.add(dedupe_hash)
+    return hashes
 
 
 def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:
@@ -324,6 +334,24 @@ def _asset_tile_hash(asset: object) -> str | None:
     if not isinstance(tile, dict):
         return None
     return str(tile["contentHash"])
+
+
+def _asset_dedupe_hash(asset: object) -> str | None:
+    if not isinstance(asset, dict):
+        return None
+    dedupe_hash = asset.get("dedupeHash")
+    if isinstance(dedupe_hash, str):
+        return dedupe_hash
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return None
+    return "|".join(
+        sorted(
+            f"{variant['kind']}:{variant['contentHash']}"
+            for variant in variants.values()
+            if isinstance(variant, dict)
+        )
+    )
 
 
 def _append_diff_section(lines: list[str], title: str, entries: list[object]) -> None:

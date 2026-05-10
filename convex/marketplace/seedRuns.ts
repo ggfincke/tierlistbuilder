@@ -47,9 +47,9 @@ import {
 import { activateSeedReleaseInternal } from './seedPipeline/activation'
 import { buildSeedReleaseDiagnostics } from './seedPipeline/diagnostics'
 import {
-  buildSeedMediaAssetIdCache,
+  buildSeedMediaAssetIdByDedupeHashCache,
   finalizeSeedMediaAsset,
-  resolveSeedMediaAssetIdFromCache,
+  resolveSeedMediaAssetIdByDedupeHash,
 } from './seedPipeline/media'
 import {
   keySetByTemplate,
@@ -379,13 +379,13 @@ export const upsertSeedTemplates = internalMutation({
     }[] = []
     // batch all cover-media & existing-template lookups up-front so per-template
     // work skips repeated index probes & stays under the per-mutation read cap
-    const coverHashes = (args.templates as SeedTemplateUpsertArg[])
-      .map((template) => template.coverMediaContentHash)
+    const coverDedupeHashes = (args.templates as SeedTemplateUpsertArg[])
+      .map((template) => template.coverMediaDedupeHash)
       .filter((hash): hash is string => hash !== null)
-    const mediaAssetCache = await buildSeedMediaAssetIdCache(
+    const mediaAssetCache = await buildSeedMediaAssetIdByDedupeHashCache(
       ctx,
       authorId,
-      coverHashes
+      coverDedupeHashes
     )
     const { byExternalId: existingByExternalId } =
       await loadSeedTemplateLookupForRelease(
@@ -526,15 +526,15 @@ export const upsertSeedItems = internalMutation({
         args.datasetKey,
         args.releaseId
       )
-    // pre-resolve every content hash this batch will reference. ownerId is
-    // shared across a release so a single cache covers all groups
+    // pre-resolve every media asset this batch references by full dedupe identity
+    // so tile-hash collisions never attach stale preview variants
     const firstTemplate = releaseTemplates[0]
     const itemMediaCache = firstTemplate
-      ? await buildSeedMediaAssetIdCache(
+      ? await buildSeedMediaAssetIdByDedupeHashCache(
           ctx,
           firstTemplate.authorId,
           (args.items as SeedItemUpsertArg[]).map(
-            (item) => item.mediaContentHash
+            (item) => item.mediaDedupeHash
           )
         )
       : new Map<string, Id<'mediaAssets'>>()
@@ -559,9 +559,9 @@ export const upsertSeedItems = internalMutation({
         }
         seen.add(item.itemExternalId)
         const key = toSeedItemKey(item)
-        const mediaAssetId = resolveSeedMediaAssetIdFromCache(
+        const mediaAssetId = resolveSeedMediaAssetIdByDedupeHash(
           itemMediaCache,
-          item.mediaContentHash
+          item.mediaDedupeHash
         )
         const existing = await ctx.db
           .query('templateItems')

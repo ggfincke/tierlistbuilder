@@ -31,7 +31,7 @@ import {
   validateTemplateTiers,
 } from '../templates/lib'
 import { valuesEqual } from '../../lib/equality'
-import { resolveSeedMediaAssetIdFromCache } from './media'
+import { resolveSeedMediaAssetIdByDedupeHash } from './media'
 import type { SeedTemplateApplyPatch, SeedTemplateUpsertArg } from './types'
 
 export const toSeedItemKey = (item: {
@@ -160,10 +160,10 @@ export const normalizeSeedTemplateUpsert = (
   assertPositiveInteger('itemCount', template.itemCount)
   assertCountRange('suggestedTiers', template.suggestedTiers.length, 1, 16)
   validateTemplateTiers(template.suggestedTiers)
-  const coverMediaAssetId = template.coverMediaContentHash
-    ? resolveSeedMediaAssetIdFromCache(
+  const coverMediaAssetId = template.coverMediaDedupeHash
+    ? resolveSeedMediaAssetIdByDedupeHash(
         mediaAssetCache,
-        template.coverMediaContentHash
+        template.coverMediaDedupeHash
       )
     : null
   return {

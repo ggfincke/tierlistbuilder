@@ -6,9 +6,11 @@ import rateLimiter from '@convex-dev/rate-limiter/test'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
+import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import schema from '../../convex/schema'
 import { sha256Hex } from '../../convex/lib/sha256'
+import { computeVariantDedupeHash } from '../../convex/lib/mediaVariants'
 import {
   buildPngHeader,
   captureSeedEnv,
@@ -128,7 +130,7 @@ const seedMediaVariant = async (
     const mediaAssetId = await ctx.db.insert('mediaAssets', {
       ownerId,
       externalId: `media-${contentHash}`,
-      dedupeHash: `tile:${contentHash}`,
+      dedupeHash: computeVariantDedupeHash([{ kind: 'tile', contentHash }]),
       tileVariant: {
         storageId,
         width: 32,
@@ -153,6 +155,78 @@ const seedMediaVariant = async (
     const variant = await ctx.db.get(variantId)
     if (!variant) throw new Error('media variant missing')
     return variant
+  })
+
+const seedMediaAssetWithTileAndPreview = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  ownerId: Id<'users'>,
+  externalId: string,
+  tileHash: string,
+  previewHash: string
+): Promise<{ mediaAssetId: Id<'mediaAssets'>; dedupeHash: string }> =>
+  await t.run(async (ctx) =>
+  {
+    const [tileStorageId, previewStorageId] = await Promise.all([
+      ctx.storage.store(
+        new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
+      ),
+      ctx.storage.store(
+        new Blob([new Uint8Array([4, 5, 6])], { type: 'image/jpeg' })
+      ),
+    ])
+    const variants = [
+      { kind: 'tile' as const, contentHash: tileHash },
+      { kind: 'preview' as const, contentHash: previewHash },
+    ]
+    const dedupeHash = computeVariantDedupeHash(variants)
+    const now = Date.now()
+    const mediaAssetId = await ctx.db.insert('mediaAssets', {
+      ownerId,
+      externalId,
+      dedupeHash,
+      tileVariant: {
+        storageId: tileStorageId,
+        width: 32,
+        height: 32,
+        byteSize: 3,
+        mimeType: 'image/png',
+        contentHash: tileHash,
+      },
+      previewVariant: {
+        storageId: previewStorageId,
+        width: 64,
+        height: 64,
+        byteSize: 3,
+        mimeType: 'image/jpeg',
+        contentHash: previewHash,
+      },
+      createdAt: now,
+    })
+    await Promise.all([
+      ctx.db.insert('mediaVariants', {
+        mediaAssetId,
+        kind: 'tile',
+        storageId: tileStorageId,
+        width: 32,
+        height: 32,
+        byteSize: 3,
+        mimeType: 'image/png',
+        contentHash: tileHash,
+        createdAt: now,
+      }),
+      ctx.db.insert('mediaVariants', {
+        mediaAssetId,
+        kind: 'preview',
+        storageId: previewStorageId,
+        width: 64,
+        height: 64,
+        byteSize: 3,
+        mimeType: 'image/jpeg',
+        contentHash: previewHash,
+        createdAt: now,
+      }),
+    ])
+    return { mediaAssetId, dedupeHash }
   })
 
 const seedRunRow = async (
@@ -216,8 +290,10 @@ describe('seed run precheck API', () =>
       imageVariantCount: 10,
     }
     const disabled = await seedHttpPost(t, '/api/seed/begin', runArgs)
+    expect(disabled.status).toBe(403)
     await expect(disabled.json()).resolves.toMatchObject({
       status: 'error',
+      errorCode: CONVEX_ERROR_CODES.forbidden,
       errorMessage: expect.stringContaining('seeding is disabled'),
     })
 
@@ -228,9 +304,30 @@ describe('seed run precheck API', () =>
       runArgs,
       'wrong-secret'
     )
+    expect(wrongSecret.status).toBe(403)
     await expect(wrongSecret.json()).resolves.toMatchObject({
       status: 'error',
+      errorCode: CONVEX_ERROR_CODES.forbidden,
       errorMessage: expect.stringContaining('seeding is locked'),
+    })
+    const tooLarge = await seedHttpPost(t, '/api/seed/upload-urls', {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-too-large',
+      variants: [
+        {
+          contentHash: 'hash-too-large',
+          kind: 'tile',
+          mimeType: 'image/png',
+          byteSize: Number.MAX_SAFE_INTEGER,
+        },
+      ],
+    })
+    expect(tooLarge.status).toBe(413)
+    await expect(tooLarge.json()).resolves.toMatchObject({
+      status: 'error',
+      errorCode: CONVEX_ERROR_CODES.payloadTooLarge,
+      errorMessage: expect.stringContaining('too large'),
     })
 
     await expect(
@@ -342,6 +439,7 @@ describe('seed run precheck API', () =>
       {
         contentHash: 'hash-present',
         mediaAssetId: authorVariant.mediaAssetId,
+        mediaDedupeHash: 'tile:hash-present',
         variantKind: 'tile',
         byteSize: 3,
       },
@@ -409,7 +507,7 @@ describe('seed run precheck API', () =>
           description: 'Playable fighters.',
           tags: ['Nintendo', 'smash'],
           visibility: 'public' as const,
-          coverMediaContentHash: 'hash-cover',
+          coverMediaDedupeHash: 'tile:hash-cover',
           coverFraming: null,
           suggestedTiers: [
             { name: 'S', colorSpec: { kind: 'palette' as const, index: 0 } },
@@ -512,7 +610,7 @@ describe('seed run precheck API', () =>
             itemExternalId: 'mario',
             order: 0,
             label: 'Mario',
-            mediaContentHash: 'hash-mario',
+            mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
           },
@@ -521,7 +619,7 @@ describe('seed run precheck API', () =>
             itemExternalId: 'link',
             order: 1,
             label: 'Link',
-            mediaContentHash: 'hash-link',
+            mediaDedupeHash: 'tile:hash-link',
             aspectRatio: 1,
             transform: null,
           },
@@ -540,7 +638,7 @@ describe('seed run precheck API', () =>
             itemExternalId: 'mario',
             order: 0,
             label: 'Mario',
-            mediaContentHash: 'hash-mario',
+            mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
           },
@@ -549,7 +647,7 @@ describe('seed run precheck API', () =>
             itemExternalId: 'link',
             order: 1,
             label: 'Link',
-            mediaContentHash: 'hash-link',
+            mediaDedupeHash: 'tile:hash-link',
             aspectRatio: 1,
             transform: null,
           },
@@ -567,7 +665,7 @@ describe('seed run precheck API', () =>
             itemExternalId: 'mario',
             order: 0,
             label: 'Mario',
-            mediaContentHash: 'hash-mario',
+            mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
           },
@@ -576,7 +674,7 @@ describe('seed run precheck API', () =>
             itemExternalId: 'mario',
             order: 1,
             label: 'Mario duplicate',
-            mediaContentHash: 'hash-mario',
+            mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
           },
@@ -595,7 +693,7 @@ describe('seed run precheck API', () =>
             itemExternalId: 'mario',
             order: 1,
             label: 'Super Mario',
-            mediaContentHash: 'hash-mario',
+            mediaDedupeHash: 'tile:hash-mario',
             aspectRatio: 1,
             transform: null,
           },
@@ -649,6 +747,88 @@ describe('seed run precheck API', () =>
     expect(rows.target?.coverItems).toHaveLength(1)
   })
 
+  it('resolves seed item media by full dedupe identity', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, AUTHOR_EMAIL)
+    const stale = await seedMediaAssetWithTileAndPreview(
+      t,
+      authorId,
+      'stale-shared-tile',
+      'shared-tile',
+      'old-preview'
+    )
+    const current = await seedMediaAssetWithTileAndPreview(
+      t,
+      authorId,
+      'current-shared-tile',
+      'shared-tile',
+      'new-preview'
+    )
+
+    await t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-dedupe-media',
+      authorEmail: AUTHOR_EMAIL,
+      templates: [
+        {
+          externalId: 'gaming:ssbu-fighters',
+          title: 'SSBU fighters',
+          category: 'gaming',
+          description: 'Playable fighters.',
+          tags: ['nintendo'],
+          visibility: 'public',
+          coverMediaDedupeHash: null,
+          coverFraming: null,
+          suggestedTiers: [
+            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+          ],
+          itemAspectRatio: 1,
+          itemCount: 1,
+        },
+      ],
+    })
+    await t.mutation(internal.marketplace.seedRuns.upsertSeedItems, {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-dedupe-media',
+      items: [
+        {
+          templateExternalId: 'gaming:ssbu-fighters',
+          itemExternalId: 'mario',
+          order: 0,
+          label: 'Mario',
+          mediaDedupeHash: current.dedupeHash,
+          aspectRatio: 1,
+          transform: null,
+        },
+      ],
+    })
+
+    const row = await t.run(async (ctx) =>
+    {
+      const template = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      if (!template) return null
+      return await ctx.db
+        .query('templateItems')
+        .withIndex('byTemplateAndExternalId', (q) =>
+          q.eq('templateId', template._id).eq('externalId', 'mario')
+        )
+        .unique()
+    })
+    expect(row?.mediaAssetId).toBe(current.mediaAssetId)
+    expect(row?.mediaAssetId).not.toBe(stale.mediaAssetId)
+  })
+
   it('verifies, activates, and rolls back seed releases', async () =>
   {
     const t = makeTest()
@@ -697,7 +877,7 @@ describe('seed run precheck API', () =>
           description: 'Playable fighters.',
           tags: ['nintendo'],
           visibility: 'public',
-          coverMediaContentHash: 'hash-cover',
+          coverMediaDedupeHash: 'tile:hash-cover',
           coverFraming: null,
           suggestedTiers: [
             { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
@@ -736,7 +916,7 @@ describe('seed run precheck API', () =>
           itemExternalId: 'mario',
           order: 0,
           label: 'Mario',
-          mediaContentHash: 'hash-mario',
+          mediaDedupeHash: 'tile:hash-mario',
           aspectRatio: 1,
           transform: null,
         },
@@ -745,7 +925,7 @@ describe('seed run precheck API', () =>
           itemExternalId: 'link',
           order: 1,
           label: 'Link',
-          mediaContentHash: 'hash-link',
+          mediaDedupeHash: 'tile:hash-link',
           aspectRatio: 1,
           transform: null,
         },
@@ -845,7 +1025,7 @@ describe('seed run precheck API', () =>
           itemExternalId: 'mario',
           order: 0,
           label: 'Super Mario',
-          mediaContentHash: 'hash-mario',
+          mediaDedupeHash: 'tile:hash-mario',
           aspectRatio: 1,
           transform: null,
         },
@@ -854,7 +1034,7 @@ describe('seed run precheck API', () =>
           itemExternalId: 'link',
           order: 1,
           label: 'Link',
-          mediaContentHash: 'hash-link',
+          mediaDedupeHash: 'tile:hash-link',
           aspectRatio: 1,
           transform: null,
         },
@@ -910,7 +1090,7 @@ describe('seed run precheck API', () =>
           description: 'Playable fighters.',
           tags: ['nintendo'],
           visibility: 'public',
-          coverMediaContentHash: 'hash-cover',
+          coverMediaDedupeHash: 'tile:hash-cover',
           coverFraming: null,
           suggestedTiers: [
             { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
@@ -925,7 +1105,7 @@ describe('seed run precheck API', () =>
           description: 'Added after activation.',
           tags: ['new'],
           visibility: 'public',
-          coverMediaContentHash: null,
+          coverMediaDedupeHash: null,
           coverFraming: null,
           suggestedTiers: [
             { name: 'S', colorSpec: { kind: 'palette', index: 0 } },

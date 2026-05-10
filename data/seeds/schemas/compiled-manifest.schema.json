@@ -392,7 +392,7 @@
           "minLength": 1
         },
         "label": {
-          "type": "string",
+          "type": ["string", "null"],
           "minLength": 1,
           "maxLength": 120
         },
@@ -428,6 +428,7 @@
         "sourceHeight",
         "sourceAspectRatio",
         "crop",
+        "dedupeHash",
         "variants"
       ],
       "properties": {
@@ -470,6 +471,10 @@
               "$ref": "#/$defs/crop"
             }
           ]
+        },
+        "dedupeHash": {
+          "type": "string",
+          "minLength": 1
         },
         "variants": {
           "type": "object",

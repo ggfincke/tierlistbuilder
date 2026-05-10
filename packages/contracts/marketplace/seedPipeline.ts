@@ -131,6 +131,7 @@ export interface SeedCompiledAsset
   sourceHeight: number
   sourceAspectRatio: number
   crop: SeedCropDescriptor | null
+  dedupeHash: string
   variants: {
     tile: SeedVariantDescriptor
     preview: SeedVariantDescriptor
@@ -142,7 +143,7 @@ export interface SeedCompiledItem
   externalId: string
   order: number
   image: string
-  label: string
+  label: string | null
   aspectRatio: number
   transform: ItemTransform | null
   asset: SeedCompiledAsset
@@ -260,6 +261,7 @@ export interface SeedResolvedItem
   label: string | null
   mediaAssetId: string | null
   mediaContentHash: string | null
+  mediaDedupeHash: string | null
   aspectRatio: number | null
   transform: ItemTransform | null
 }
@@ -282,6 +284,7 @@ export interface SeedResolvedMedia
 {
   contentHash: string
   mediaAssetId: string
+  mediaDedupeHash: string
   variantKind: MediaVariantKind
   byteSize: number
 }
@@ -422,7 +425,7 @@ export interface SeedTemplateUpsert
   description: string | null
   tags: readonly string[]
   visibility: TemplateVisibility
-  coverMediaContentHash: string | null
+  coverMediaDedupeHash: string | null
   coverFraming: TemplateCoverFraming | null
   suggestedTiers: readonly TierPresetTier[]
   itemAspectRatio: number
@@ -451,7 +454,7 @@ export interface SeedItemUpsert extends SeedTemplateItemKey
 {
   order: number
   label: string | null
-  mediaContentHash: string
+  mediaDedupeHash: string
   aspectRatio: number | null
   transform: ItemTransform | null
 }

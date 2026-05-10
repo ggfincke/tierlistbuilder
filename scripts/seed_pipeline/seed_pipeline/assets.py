@@ -7,7 +7,7 @@ import hashlib
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Iterable, Literal
 
 from PIL import Image
 
@@ -57,6 +57,7 @@ def compile_asset(
     # build both ingest variants now so upload/apply phases stay metadata-driven
     tile = build_variant(source.path, source.sha256, "tile", variants_dir)
     preview = build_variant(source.path, source.sha256, "preview", variants_dir)
+    variants = {"tile": tile, "preview": preview}
     return {
         "sourcePath": str(source.path.resolve()),
         "sourcePathRelative": source.repo_relative_path,
@@ -67,10 +68,8 @@ def compile_asset(
         "sourceHeight": source.height,
         "sourceAspectRatio": source.aspect_ratio,
         "crop": source.content_bbox.to_json() if source.content_bbox else None,
-        "variants": {
-            "tile": tile,
-            "preview": preview,
-        },
+        "dedupeHash": compute_variant_dedupe_hash(variants.values()),
+        "variants": variants,
     }
 
 
@@ -144,6 +143,12 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: file.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def compute_variant_dedupe_hash(variants: Iterable[JsonObject]) -> str:
+    return "|".join(
+        sorted(f"{variant['kind']}:{variant['contentHash']}" for variant in variants)
+    )
 
 
 def _cache_key(source_sha256: str, kind: VariantKind, variant_spec_version: str) -> str:

@@ -63,6 +63,7 @@ export const seedResolvedItemValidator = v.object({
   label: v.union(v.string(), v.null()),
   mediaAssetId: v.union(v.string(), v.null()),
   mediaContentHash: v.union(v.string(), v.null()),
+  mediaDedupeHash: v.union(v.string(), v.null()),
   aspectRatio: v.union(v.number(), v.null()),
   transform: v.union(itemTransformValidator, v.null()),
 })
@@ -83,6 +84,7 @@ export const seedResolvedCriterionValidator = v.object({
 export const seedResolvedMediaValidator = v.object({
   contentHash: v.string(),
   mediaAssetId: v.string(),
+  mediaDedupeHash: v.string(),
   variantKind: mediaVariantKindValidator,
   byteSize: v.number(),
 })
@@ -122,7 +124,7 @@ export const seedTemplateUpsertValidator = v.object({
   description: v.union(v.string(), v.null()),
   tags: v.array(v.string()),
   visibility: templateVisibilityValidator,
-  coverMediaContentHash: v.union(v.string(), v.null()),
+  coverMediaDedupeHash: v.union(v.string(), v.null()),
   coverFraming: v.union(templateCoverFramingValidator, v.null()),
   suggestedTiers: tierPresetTiersValidator,
   itemAspectRatio: v.number(),
@@ -134,7 +136,7 @@ export const seedItemUpsertValidator = v.object({
   itemExternalId: v.string(),
   order: v.number(),
   label: v.union(v.string(), v.null()),
-  mediaContentHash: v.string(),
+  mediaDedupeHash: v.string(),
   aspectRatio: v.union(v.number(), v.null()),
   transform: v.union(itemTransformValidator, v.null()),
 })

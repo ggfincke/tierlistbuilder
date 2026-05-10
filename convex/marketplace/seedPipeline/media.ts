@@ -19,7 +19,6 @@ import {
 import { parseUploadedImageMetadata } from '../../lib/imageValidation'
 import { sha256Hex } from '../../lib/sha256'
 import { deleteStorageSilently } from '../../lib/storage'
-import { loadOwnedSeedMediaVariantLookup } from './mediaLookup'
 import type {
   SeedFinalizedMediaRow,
   SeedStorageCleanupCounts,
@@ -28,46 +27,41 @@ import type {
   VerifiedSeedVariant,
 } from './types'
 
-export const buildSeedMediaAssetIdCache = async (
+export const buildSeedMediaAssetIdByDedupeHashCache = async (
   ctx: MutationCtx,
   ownerId: Id<'users'>,
-  contentHashes: readonly string[]
+  dedupeHashes: readonly string[]
 ): Promise<Map<string, Id<'mediaAssets'>>> =>
 {
-  const unique = Array.from(new Set(contentHashes.filter((h) => h.length > 0)))
+  const unique = Array.from(new Set(dedupeHashes.filter((h) => h.length > 0)))
   if (unique.length === 0) return new Map()
-  const { variantSets, assetById } = await loadOwnedSeedMediaVariantLookup(
-    ctx,
-    ownerId,
-    unique
-  )
   const result = new Map<string, Id<'mediaAssets'>>()
-  for (const [contentHash, variants] of variantSets)
-  {
-    for (const variant of variants)
+  await Promise.all(
+    unique.map(async (dedupeHash) =>
     {
-      const asset = assetById.get(variant.mediaAssetId as string)
-      if (asset)
-      {
-        result.set(contentHash, asset._id)
-        break
-      }
-    }
-  }
+      const asset = await ctx.db
+        .query('mediaAssets')
+        .withIndex('byOwnerAndDedupeHash', (q) =>
+          q.eq('ownerId', ownerId).eq('dedupeHash', dedupeHash)
+        )
+        .unique()
+      if (asset) result.set(dedupeHash, asset._id)
+    })
+  )
   return result
 }
 
-export const resolveSeedMediaAssetIdFromCache = (
+export const resolveSeedMediaAssetIdByDedupeHash = (
   cache: ReadonlyMap<string, Id<'mediaAssets'>>,
-  contentHash: string
+  dedupeHash: string
 ): Id<'mediaAssets'> =>
 {
-  assertNonemptyString('mediaContentHash', contentHash)
-  const mediaAssetId = cache.get(contentHash)
+  assertNonemptyString('mediaDedupeHash', dedupeHash)
+  const mediaAssetId = cache.get(dedupeHash)
   if (mediaAssetId) return mediaAssetId
   throw new ConvexError({
     code: CONVEX_ERROR_CODES.notFound,
-    message: `seed media not found by content hash: ${contentHash}`,
+    message: `seed media not found by dedupe hash: ${dedupeHash}`,
   })
 }
 

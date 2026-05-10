@@ -77,7 +77,30 @@ class ManifestValidationTests(unittest.TestCase):
         self.assertEqual(first["totals"]["templateCount"], 1)
         self.assertEqual(first["totals"]["itemCount"], 1)
         self.assertEqual(first["templates"][0]["items"][0]["label"], "Mario")
+        self.assertIn("preview:", first["templates"][0]["items"][0]["asset"]["dedupeHash"])
         self.assertTrue(report_exists)
+
+    def test_build_honors_non_explicit_label_policies(self) -> None:
+        cases = {
+            "explicit-or-filename-fallback": "Mario",
+            "filename-derived": "Mario",
+            "hidden": None,
+        }
+        for policy, expected_label in cases.items():
+            with self.subTest(policy=policy):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    _write_repo_fixture(root)
+                    manifest_path = root / "data" / "seeds" / "marketplace-core.json"
+                    manifest = _source_manifest()
+                    template = manifest["templates"][0]
+                    template["labelPolicy"] = policy
+                    del template["items"][0]["label"]
+                    _write_json(manifest_path, manifest)
+                    compiled_path = build_compiled_manifest(manifest_path, root)
+                    compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
+                item = compiled["templates"][0]["items"][0]
+                self.assertEqual(item["label"], expected_label)
 
     def test_variant_paths_include_cache_fingerprint(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

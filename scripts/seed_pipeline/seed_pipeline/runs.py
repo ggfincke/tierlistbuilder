@@ -263,6 +263,7 @@ def run_seed_manifest(
     _begin_seed_run(context)
     # persist the activation guard before long upload/apply work starts
     context.checkpoint["previousActiveReleaseId"] = state.get("activeReleaseId")
+    _write_checkpoint(context)
     assets = _assets_requiring_upload(context.compiled, state)
     _assert_upload_budget(assets, options.max_upload_bytes)
     if assets:
@@ -300,7 +301,6 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
     upserts: list[JsonObject] = []
     for template in _templates(compiled):
         cover = template.get("coverImage")
-        # Convex resolves media by tile hash; preview/editor variants follow asset ID
         upserts.append(
             {
                 "externalId": template["externalId"],
@@ -309,7 +309,7 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
                 "description": template.get("description"),
                 "tags": template.get("tags", []),
                 "visibility": template["visibility"],
-                "coverMediaContentHash": _asset_tile_hash(cover),
+                "coverMediaDedupeHash": _asset_dedupe_hash(cover),
                 "coverFraming": _cover_framing(template),
                 "suggestedTiers": template.get("suggestedTiers")
                 or DEFAULT_SUGGESTED_TIERS,
@@ -333,7 +333,7 @@ def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
                     "itemExternalId": item["externalId"],
                     "order": item["order"],
                     "label": item.get("label"),
-                    "mediaContentHash": _asset_tile_hash(item["asset"]),
+                    "mediaDedupeHash": _asset_dedupe_hash(item["asset"]),
                     "aspectRatio": item.get("aspectRatio"),
                     "transform": item.get("transform"),
                 }
@@ -628,14 +628,13 @@ def _child_upsert_batches(
 
 def _assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[JsonObject]:
     present = {
-        str(media["contentHash"])
+        str(media["mediaDedupeHash"])
         for media in as_list(state.get("media"))
-        if isinstance(media, dict)
+        if isinstance(media, dict) and isinstance(media.get("mediaDedupeHash"), str)
     }
     needed: list[JsonObject] = []
     for entry in _compiled_asset_entries(compiled):
-        variants = list(_asset_variants(entry["asset"]))
-        if any(variant["contentHash"] not in present for variant in variants):
+        if _asset_dedupe_hash(entry["asset"]) not in present:
             needed.append(entry)
     return needed
 
@@ -797,6 +796,24 @@ def _asset_tile_hash(asset: object) -> str | None:
     if not isinstance(tile, dict):
         return None
     return str(tile["contentHash"])
+
+
+def _asset_dedupe_hash(asset: object) -> str | None:
+    if not isinstance(asset, dict):
+        return None
+    dedupe_hash = asset.get("dedupeHash")
+    if isinstance(dedupe_hash, str):
+        return dedupe_hash
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return None
+    return "|".join(
+        sorted(
+            f"{variant['kind']}:{variant['contentHash']}"
+            for variant in variants.values()
+            if isinstance(variant, dict)
+        )
+    )
 
 
 def _chunks(items: list[JsonObject] | list[str], size: int) -> Iterable[list]:

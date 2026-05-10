@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import json
 import os
+from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from seed_pipeline.convex_client import (
     ConvexClientError,
@@ -72,6 +74,7 @@ class ConvexSeedClientTests(unittest.TestCase):
             return FakeResponse(
                 {
                     "status": "error",
+                    "errorCode": "forbidden",
                     "errorMessage": "bad secret super-secret",
                 }
             )
@@ -88,11 +91,47 @@ class ConvexSeedClientTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 ConvexClientError,
                 "bad secret \\[redacted-seed-secret\\]",
-            ):
+            ) as raised:
                 client.query(
                     "marketplace/seedRuns:resolveSeedState",
                     {"datasetKey": "marketplace-core"},
                 )
+        self.assertEqual(raised.exception.error_code, "forbidden")
+
+    def test_structured_http_errors_preserve_code_and_status(self) -> None:
+        def fake_urlopen(_request: object, timeout: int) -> FakeResponse:
+            payload = {
+                "status": "error",
+                "errorCode": "invalid_state",
+                "errorMessage": "active seed release changed",
+            }
+            raise HTTPError(
+                "https://example.convex.site/api/seed/activate",
+                409,
+                "Conflict",
+                hdrs=None,
+                fp=BytesIO(json.dumps(payload).encode("utf-8")),
+            )
+
+        client = ConvexSeedClient(
+            ConvexSeedSettings(
+                site_url="https://example.convex.site",
+                seed_secret="super-secret",
+                env_name="test",
+            )
+        )
+
+        with patch("seed_pipeline.convex_client.urlopen", fake_urlopen):
+            with self.assertRaisesRegex(
+                ConvexClientError,
+                "active seed release changed",
+            ) as raised:
+                client.mutation(
+                    "marketplace/seedRuns:activateSeedRelease",
+                    {"datasetKey": "marketplace-core"},
+                )
+        self.assertEqual(raised.exception.error_code, "invalid_state")
+        self.assertEqual(raised.exception.http_status, 409)
 
     def test_settings_resolve_site_url_from_convex_client_url(self) -> None:
         cases = {

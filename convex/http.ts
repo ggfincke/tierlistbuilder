@@ -7,6 +7,10 @@ import { auth } from './auth'
 import { httpAction, type ActionCtx } from './_generated/server'
 import { internal } from './_generated/api'
 import { requireSeedRequestAuthorized } from './marketplace/seedAuth'
+import {
+  CONVEX_ERROR_CODES,
+  type ConvexErrorCode,
+} from '@tierlistbuilder/contracts/platform/errors'
 
 const http = httpRouter()
 
@@ -31,8 +35,43 @@ const readSeedJsonBody = async (
   return body as Record<string, unknown>
 }
 
-const toSeedErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : 'seed request failed'
+type SeedErrorDetails = {
+  code: ConvexErrorCode | null
+  message: string
+}
+
+const SEED_ERROR_HTTP_STATUS: Partial<Record<ConvexErrorCode, number>> = {
+  [CONVEX_ERROR_CODES.forbidden]: 403,
+  [CONVEX_ERROR_CODES.unauthenticated]: 401,
+  [CONVEX_ERROR_CODES.notFound]: 404,
+  [CONVEX_ERROR_CODES.invalidState]: 409,
+  [CONVEX_ERROR_CODES.payloadTooLarge]: 413,
+  [CONVEX_ERROR_CODES.rateLimited]: 429,
+  [CONVEX_ERROR_CODES.invalidInput]: 400,
+}
+
+const isConvexErrorCode = (value: unknown): value is ConvexErrorCode =>
+  Object.values(CONVEX_ERROR_CODES).includes(value as ConvexErrorCode)
+
+const toSeedErrorDetails = (error: unknown): SeedErrorDetails =>
+{
+  const fallback =
+    error instanceof Error ? error.message : 'seed request failed'
+  if (!error || typeof error !== 'object' || !('data' in error))
+    return { code: null, message: fallback }
+  const data = (error as { data?: unknown }).data
+  if (!data || typeof data !== 'object')
+    return { code: null, message: fallback }
+  const rawCode = (data as { code?: unknown }).code
+  const rawMessage = (data as { message?: unknown }).message
+  return {
+    code: isConvexErrorCode(rawCode) ? rawCode : null,
+    message: typeof rawMessage === 'string' ? rawMessage : fallback,
+  }
+}
+
+const seedErrorStatus = (code: ConvexErrorCode | null): number =>
+  code ? (SEED_ERROR_HTTP_STATUS[code] ?? 400) : 400
 
 type SeedRouteKind = 'query' | 'mutation' | 'action'
 type SeedRouteRef =
@@ -75,9 +114,11 @@ const seedHttpAction = (kind: SeedRouteKind, ref: SeedRouteRef) =>
     }
     catch (error)
     {
-      return seedJsonResponse(400, {
+      const details = toSeedErrorDetails(error)
+      return seedJsonResponse(seedErrorStatus(details.code), {
         status: 'error',
-        errorMessage: toSeedErrorMessage(error),
+        errorCode: details.code,
+        errorMessage: details.message,
       })
     }
   })

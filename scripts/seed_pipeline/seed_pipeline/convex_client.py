@@ -63,7 +63,15 @@ class ConvexSeedSettings:
 
 
 class ConvexClientError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        error_code: str | None = None,
+        http_status: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.http_status = http_status
 
 
 class ConvexSeedClient:
@@ -116,8 +124,7 @@ class ConvexSeedClient:
             if isinstance(value, dict):
                 return value
             raise ConvexClientError("Convex returned a non-object response")
-        message = payload.get("errorMessage") or payload
-        raise ConvexClientError(self._scrub_secret(str(message)))
+        raise self._error_from_payload(payload)
 
     def _request_json(self, request_factory: Callable[[], Request]) -> JsonObject:
         last_error: Exception | None = None
@@ -129,8 +136,8 @@ class ConvexSeedClient:
                         return payload
                     raise ConvexClientError("Convex returned a non-object payload")
             except HTTPError as error:
-                detail = self._scrub_secret(error.read().decode("utf-8"))
-                last_error = ConvexClientError(detail)
+                detail = error.read().decode("utf-8")
+                last_error = self._error_from_http_detail(detail, error.code)
                 if error.code not in RETRYABLE_HTTP_STATUS or attempt == HTTP_ATTEMPTS - 1:
                     raise last_error from error
             except (TimeoutError, URLError) as error:
@@ -142,6 +149,28 @@ class ConvexSeedClient:
 
     def _scrub_secret(self, message: str) -> str:
         return message.replace(self.settings.seed_secret, "[redacted-seed-secret]")
+
+    def _error_from_http_detail(
+        self, detail: str, http_status: int
+    ) -> ConvexClientError:
+        try:
+            payload = json.loads(detail)
+        except json.JSONDecodeError:
+            return ConvexClientError(self._scrub_secret(detail), http_status=http_status)
+        if isinstance(payload, dict):
+            return self._error_from_payload(payload, http_status=http_status)
+        return ConvexClientError(self._scrub_secret(detail), http_status=http_status)
+
+    def _error_from_payload(
+        self, payload: JsonObject, http_status: int | None = None
+    ) -> ConvexClientError:
+        message = payload.get("errorMessage") or payload
+        error_code = payload.get("errorCode")
+        return ConvexClientError(
+            self._scrub_secret(str(message)),
+            error_code=error_code if isinstance(error_code, str) else None,
+            http_status=http_status,
+        )
 
 
 def read_seed_settings(

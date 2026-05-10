@@ -37,6 +37,7 @@
         "sourceHeight": 760,
         "sourceAspectRatio": 5.389473684210526,
         "crop": null,
+        "dedupeHash": "preview:d092f6c3bd6af29d72d622671a3e06a4d3f2af2093f6887ae2324ea225fb144c|tile:af31124c8dc2a5dd902a3eeff374d99bad3f31a2b0104d8fd6392e26f6de9c97",
         "variants": {
           "tile": {
             "kind": "tile",
@@ -147,6 +148,7 @@
             "sourceHeight": 512,
             "sourceAspectRatio": 1,
             "crop": null,
+            "dedupeHash": "preview:e66b43ee16f4dd395e926040a553f26f6de263827159837b90175831b542952f|tile:8a09e277946d89a70875c62745971e1a20357026b81117db86fef1d713cc458d",
             "variants": {
               "tile": {
                 "kind": "tile",
@@ -215,6 +217,7 @@
             "sourceHeight": 512,
             "sourceAspectRatio": 1,
             "crop": null,
+            "dedupeHash": "preview:9173a43579f2ff1c912e5b504b3b56d64dc8e35566c59ee15f3dfcd1c5c34e9b|tile:843e38d58b70d552c1f9f0d37f8ee55d84e7b311725bc2bd6613ca781f0fc923",
             "variants": {
               "tile": {
                 "kind": "tile",

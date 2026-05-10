@@ -42,18 +42,43 @@ class SeedDiffTests(unittest.TestCase):
         self.assertEqual(len(diff["templates"]["create"]), 2)
         self.assertEqual(len(diff["items"]["create"]), 2)
         self.assertEqual(len(diff["criteria"]["create"]), 3)
-        self.assertEqual(len(diff["media"]["missing"]), 6)
+        self.assertEqual(len(diff["media"]["missing"]), 3)
 
-    def test_item_diff_compares_compiled_asset_tile_hash(self) -> None:
+    def test_media_diff_requires_full_asset_identity(self) -> None:
+        asset = self.compiled["templates"][0]["items"][0]["asset"]
+        variants = asset["variants"]
+        state = {
+            "activeReleaseId": None,
+            "templates": [],
+            "items": [],
+            "criteria": [],
+            "media": [
+                {
+                    "contentHash": variants["tile"]["contentHash"],
+                    "mediaDedupeHash": "tile-only",
+                },
+                {
+                    "contentHash": variants["preview"]["contentHash"],
+                    "mediaDedupeHash": "preview-only",
+                },
+            ],
+            "absentFromManifest": [],
+        }
+
+        diff = build_seed_diff(self.compiled, state)
+
+        self.assertIn(asset["dedupeHash"], diff["media"]["missing"])
+
+    def test_item_diff_compares_compiled_asset_dedupe_hash(self) -> None:
         template = self.compiled["templates"][0]
         item = template["items"][0]
-        tile_hash = item["asset"]["variants"]["tile"]["contentHash"]
+        dedupe_hash = item["asset"]["dedupeHash"]
         server_item = {
             "templateExternalId": template["externalId"],
             "itemExternalId": item["externalId"],
             "order": item["order"],
             "label": item["label"],
-            "mediaContentHash": tile_hash,
+            "mediaDedupeHash": dedupe_hash,
             "aspectRatio": item["aspectRatio"],
             "transform": item["transform"],
         }
@@ -75,7 +100,7 @@ class SeedDiffTests(unittest.TestCase):
         )
         self.assertEqual(diff["items"]["update"], [])
 
-        state["items"] = [{**server_item, "mediaContentHash": None}]
+        state["items"] = [{**server_item, "mediaDedupeHash": None}]
         diff = build_seed_diff(self.compiled, state)
         self.assertEqual(
             diff["items"]["update"],
@@ -83,7 +108,7 @@ class SeedDiffTests(unittest.TestCase):
                 {
                     "templateExternalId": template["externalId"],
                     "itemExternalId": item["externalId"],
-                    "reasons": ["mediaContentHash"],
+                    "reasons": ["mediaDedupeHash"],
                 }
             ],
         )

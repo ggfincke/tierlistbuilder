@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -153,7 +154,15 @@ def _compile_template(
     for order, item in enumerate(template["items"]):
         source = item_sources[order]
         compiled["items"].append(
-            _compile_item(item, order, source, repo_root, variants_dir, ratio_decision)
+            _compile_item(
+                item,
+                order,
+                source,
+                template["labelPolicy"],
+                repo_root,
+                variants_dir,
+                ratio_decision,
+            )
         )
     return compiled
 
@@ -162,6 +171,7 @@ def _compile_item(
     item: JsonObject,
     order: int,
     source: SourceAsset,
+    label_policy: str,
     repo_root: Path,
     variants_dir: Path,
     ratio_decision: RatioDecision,
@@ -178,11 +188,31 @@ def _compile_item(
         "externalId": item["externalId"],
         "order": order,
         "image": item["image"],
-        "label": item["label"],
+        "label": _resolve_item_label(item, source, label_policy),
         "aspectRatio": source.aspect_ratio,
         "transform": transform,
         "asset": compile_asset(source.path, repo_root, variants_dir, source),
     }
+
+
+def _resolve_item_label(
+    item: JsonObject, source: SourceAsset, label_policy: str
+) -> str | None:
+    explicit = item.get("label")
+    if isinstance(explicit, str) and explicit.strip():
+        if label_policy in {"explicit-required", "explicit-or-filename-fallback"}:
+            return explicit
+    if label_policy in {"explicit-or-filename-fallback", "filename-derived"}:
+        return _label_from_filename(source.path)
+    if label_policy == "hidden":
+        return None
+    return explicit if isinstance(explicit, str) else None
+
+
+def _label_from_filename(path: Path) -> str:
+    stem = re.sub(r"^[0-9]+[-_\s]+", "", path.stem)
+    words = [word for word in re.split(r"[-_\s]+", stem) if word]
+    return " ".join(word[:1].upper() + word[1:] for word in words)
 
 
 def _assert_compiled_schema(compiled: JsonObject, repo_root: Path) -> None:
