@@ -20,7 +20,7 @@
       "folder": "examples/gaming/ssbu-fighters",
       "title": "Super Smash Bros. Ultimate roster sample",
       "category": "gaming",
-      "description": "All 87 fighters in Super Smash Bros. Ultimate, base + DLC.",
+      "description": "Small contract fixture sampled from the Super Smash Bros. Ultimate roster.",
       "tags": ["nintendo", "fighting", "smash bros"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
