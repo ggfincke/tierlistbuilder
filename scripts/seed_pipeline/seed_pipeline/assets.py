@@ -80,8 +80,9 @@ def build_variant(
 ) -> JsonObject:
     variants_dir.mkdir(parents=True, exist_ok=True)
     suffix = "webp" if kind == "tile" else "jpg"
-    output_path = variants_dir / f"{source_sha256}-{kind}.{suffix}"
     cache_key = _cache_key(source_sha256, kind)
+    cache_fingerprint = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
+    output_path = variants_dir / f"{source_sha256}-{cache_fingerprint}-{kind}.{suffix}"
     # reuse content-addressed output; Phase 2 will add stricter cache metadata
     if not output_path.is_file():
         _write_variant(source_path, output_path, kind)

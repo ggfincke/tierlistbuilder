@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
@@ -52,6 +53,15 @@ class ManifestValidationTests(unittest.TestCase):
         self.assertIn("missingImageFile", codes)
         self.assertIn("missingExplicitLabel", codes)
 
+    def test_validate_reports_missing_manifest_as_diagnostic(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_repo_fixture(root)
+            missing_path = root / "data" / "seeds" / "missing.json"
+            result = validate_source_manifest(missing_path, root)
+        self.assertFalse(result.ok)
+        self.assertEqual(result.errors[0].code, "missingManifest")
+
     def test_build_writes_deterministic_compiled_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -68,6 +78,21 @@ class ManifestValidationTests(unittest.TestCase):
         self.assertEqual(first["totals"]["itemCount"], 1)
         self.assertEqual(first["templates"][0]["items"][0]["label"], "Mario")
         self.assertTrue(report_exists)
+
+    def test_variant_paths_include_cache_fingerprint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_repo_fixture(root)
+            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
+            _write_json(manifest_path, _source_manifest())
+            compiled_path = build_compiled_manifest(manifest_path, root)
+            compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
+        variants = compiled["templates"][0]["items"][0]["asset"]["variants"]
+        fingerprint = hashlib.sha256(
+            variants["tile"]["cacheKey"].encode("utf-8")
+        ).hexdigest()[:16]
+        self.assertIn(fingerprint, variants["tile"]["path"])
+        self.assertNotEqual(variants["tile"]["path"], variants["preview"]["path"])
 
     def test_find_repo_root_finds_current_workspace(self) -> None:
         root = find_repo_root(Path.cwd())

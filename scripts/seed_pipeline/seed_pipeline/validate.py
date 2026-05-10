@@ -47,6 +47,9 @@ class ManifestValidationError(Exception):
 
 
 def validate_source_manifest(manifest_path: Path, repo_root: Path) -> ValidationResult:
+    if not manifest_path.is_file():
+        error = _error("missingManifest", "$", str(manifest_path))
+        return ValidationResult(manifest={}, warnings=(), errors=(error,))
     manifest = read_json(manifest_path)
     schema = read_json(repo_root / SOURCE_SCHEMA_RELATIVE_PATH)
     diagnostics: list[ValidationDiagnostic] = []
@@ -110,8 +113,6 @@ def _semantic_diagnostics(
             )
         _check_criteria(template, template_path, diagnostics)
         _check_items(template, folder, template_path, diagnostics)
-    if not manifest_path.is_file():
-        diagnostics.append(_error("missingManifest", "$", str(manifest_path)))
     return diagnostics
 
 
