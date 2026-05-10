@@ -24,10 +24,12 @@ def find_repo_root(start: Path | None = None) -> Path:
 
 
 def repo_relative(path: Path, repo_root: Path) -> str:
+    # store manifest paths relative to repo root so cache artifacts move cleanly
     return path.resolve().relative_to(repo_root.resolve()).as_posix()
 
 
 def read_json(path: Path) -> JsonObject:
+    # seed contracts are object-shaped; arrays/scalars are always caller mistakes
     with path.open("r", encoding="utf-8") as file:
         value = json.load(file)
     if not isinstance(value, dict):
@@ -37,6 +39,7 @@ def read_json(path: Path) -> JsonObject:
 
 
 def write_json(path: Path, value: JsonObject) -> None:
+    # write deterministic, reviewable JSON for compiled manifests & fixtures
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as file:
         json.dump(value, file, indent=2, sort_keys=False)

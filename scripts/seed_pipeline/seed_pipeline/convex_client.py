@@ -29,9 +29,11 @@ class ConvexSeedClient:
         self.settings = settings
 
     def query(self, function_path: str, args: JsonObject) -> JsonObject:
+        # keep public client surface tiny until write workflows land
         return self._call("query", function_path, args)
 
     def _call(self, kind: str, function_path: str, args: JsonObject) -> JsonObject:
+        # Convex HTTP API expects args wrapped as encoded JSON
         body = json.dumps(
             {
                 "path": function_path,
@@ -52,6 +54,7 @@ class ConvexSeedClient:
             with urlopen(request, timeout=30) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except HTTPError as error:
+            # surface server validation errors w/o losing Convex detail
             detail = error.read().decode("utf-8")
             raise ConvexClientError(detail) from error
         if payload.get("status") == "success":
@@ -69,6 +72,7 @@ def read_seed_settings(
     convex_url: str | None = None,
     seed_secret: str | None = None,
 ) -> ConvexSeedSettings:
+    # resolve explicit CLI args first, then shell env, then repo-local dotenv
     env = _load_dotenv(repo_root / ".env.local")
     resolved_url = (
         convex_url
@@ -97,6 +101,7 @@ def _load_dotenv(path: Path) -> dict[str, str]:
     if not path.is_file():
         return {}
     values: dict[str, str] = {}
+    # parse the tiny subset of dotenv syntax used by local Convex settings
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:

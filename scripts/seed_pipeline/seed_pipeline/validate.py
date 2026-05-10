@@ -13,6 +13,7 @@ from .manifest import JsonObject, read_json
 from .settings import SOURCE_SCHEMA_RELATIVE_PATH, SUPPORTED_SOURCE_SUFFIXES
 
 
+# diagnostics stay serializable so CLI output, tests, & future reports share shape
 @dataclass(frozen=True)
 class ValidationDiagnostic:
     code: str
@@ -91,6 +92,7 @@ def _semantic_diagnostics(
     diagnostics: list[ValidationDiagnostic] = []
     templates = _as_list(manifest.get("templates"))
     seen_templates: set[str] = set()
+    # validate cross-field rules after schema checks have stabilized key paths
     for template_index, template in enumerate(templates):
         template_path = f"$.templates[{template_index}]"
         if not isinstance(template, dict):
@@ -112,6 +114,7 @@ def _semantic_diagnostics(
                 f"{template_path}.coverImage",
                 diagnostics,
             )
+        # criteria/items each own template-scoped identity rules
         _check_criteria(template, template_path, diagnostics)
         _check_items(template, folder, template_path, diagnostics)
     return diagnostics
@@ -130,6 +133,7 @@ def _check_criteria(
         if not isinstance(criterion, dict):
             continue
         external_id = _as_str(criterion.get("externalId"))
+        # criterion external IDs scope to the template, matching Convex upserts
         if external_id in seen:
             diagnostics.append(_error("duplicateCriterionExternalId", path, external_id))
         seen.add(external_id)
@@ -160,6 +164,7 @@ def _check_items(
         if not isinstance(item, dict):
             continue
         external_id = _as_str(item.get("externalId"))
+        # item external IDs scope to the template, not the full dataset
         if external_id in seen:
             diagnostics.append(_error("duplicateItemExternalId", path, external_id))
         seen.add(external_id)
@@ -176,6 +181,7 @@ def _check_source_image(
     # validate extension separately so missing files still get useful format errors
     if path.suffix.lower() not in SUPPORTED_SOURCE_SUFFIXES:
         diagnostics.append(_error("unsupportedImageFormat", pointer, path.name))
+    # leave image decode, dimensions, & crop checks to the build step
     if not path.is_file():
         diagnostics.append(_error("missingImageFile", pointer, str(path)))
 

@@ -28,6 +28,7 @@ def write_diff_report_for_manifest(
     )
     compiled = read_json(compiled_path)
     if state_json is not None:
+        # fixture state keeps diff coverage network-free & deterministic
         state = read_json(state_json)
     else:
         settings = read_seed_settings(repo_root, env_name, convex_url, seed_secret)
@@ -46,6 +47,7 @@ def write_diff_report_for_manifest(
 
 def build_state_request(compiled: JsonObject, seed_secret: str) -> JsonObject:
     templates = _as_list(compiled.get("templates"))
+    # request only identities & variant hashes needed for read-side precheck
     return {
         "seedSecret": seed_secret,
         "datasetKey": compiled["datasetKey"],
@@ -79,6 +81,7 @@ def build_state_request(compiled: JsonObject, seed_secret: str) -> JsonObject:
 
 
 def build_seed_diff(compiled: JsonObject, state: JsonObject) -> JsonObject:
+    # split by apply surface so reports map cleanly to later ingest phases
     return {
         "templates": _diff_templates(compiled, state),
         "items": _diff_items(compiled, state),
@@ -143,6 +146,7 @@ def render_diff_report(
 
 
 def _diff_templates(compiled: JsonObject, state: JsonObject) -> JsonObject:
+    # compare template fields that become public marketplace metadata
     existing = {
         template["externalId"]: template
         for template in _as_list(state.get("templates"))
@@ -175,6 +179,7 @@ def _diff_templates(compiled: JsonObject, state: JsonObject) -> JsonObject:
 
 
 def _diff_items(compiled: JsonObject, state: JsonObject) -> JsonObject:
+    # split reorder from content updates so apply can stay targeted
     existing = {
         _pair_key(item["templateExternalId"], item["itemExternalId"]): item
         for item in _as_list(state.get("items"))
@@ -218,6 +223,7 @@ def _diff_items(compiled: JsonObject, state: JsonObject) -> JsonObject:
 
 
 def _diff_criteria(compiled: JsonObject, state: JsonObject) -> JsonObject:
+    # criteria diffs drive ranking-question upserts, separate from item media
     existing = {
         _pair_key(item["templateExternalId"], item["criterionExternalId"]): item
         for item in _as_list(state.get("criteria"))
@@ -289,6 +295,7 @@ def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:
 
 
 def _compiled_assets(compiled: JsonObject) -> Iterable[JsonObject]:
+    # covers & item images share media dedupe/finalization behavior
     for template in _as_list(compiled.get("templates")):
         if not isinstance(template, dict):
             continue

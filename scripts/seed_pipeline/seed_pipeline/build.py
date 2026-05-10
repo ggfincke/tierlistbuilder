@@ -39,7 +39,7 @@ def build_compiled_manifest(
     )
     variants_dir = cache_root / "variants"
     reports_dir = cache_root / "reports"
-    # compile is local-only until the Convex ingest API exists
+    # compile all data locally before any upload/apply command can mutate Convex
     compiled = _compile(manifest, manifest_path, repo_root, variants_dir)
     _assert_compiled_schema(compiled, repo_root)
     compiled_path = cache_root / "compiled-manifest.json"
@@ -113,6 +113,7 @@ def _compile_template(
     item_sources = [
         inspect_source(folder / item["image"], repo_root) for item in template["items"]
     ]
+    # use source pixels, not configured intent, to select the template display ratio
     ratio_decision = resolve_ratio_decision(
         source.aspect_ratio for source in item_sources
     )
@@ -175,6 +176,7 @@ def _compile_item(
 def _assert_compiled_schema(compiled: JsonObject, repo_root: Path) -> None:
     schema = read_json(repo_root / COMPILED_SCHEMA_RELATIVE_PATH)
     validator = Draft202012Validator(schema)
+    # validate generated output too; source schema alone cannot catch compiler drift
     errors = sorted(validator.iter_errors(compiled), key=lambda item: item.json_path)
     if errors:
         # fail fast so later phases can trust compiled manifests on disk
