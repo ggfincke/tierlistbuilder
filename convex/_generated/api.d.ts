@@ -11,9 +11,11 @@
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
+import type * as lib_assertions from "../lib/assertions.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_cascadeDelete from "../lib/cascadeDelete.js";
 import type * as lib_entitlements from "../lib/entitlements.js";
+import type * as lib_equality from "../lib/equality.js";
 import type * as lib_hexColor from "../lib/hexColor.js";
 import type * as lib_imageValidation from "../lib/imageValidation.js";
 import type * as lib_limits from "../lib/limits.js";
@@ -74,9 +76,11 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
   http: typeof http;
+  "lib/assertions": typeof lib_assertions;
   "lib/auth": typeof lib_auth;
   "lib/cascadeDelete": typeof lib_cascadeDelete;
   "lib/entitlements": typeof lib_entitlements;
+  "lib/equality": typeof lib_equality;
   "lib/hexColor": typeof lib_hexColor;
   "lib/imageValidation": typeof lib_imageValidation;
   "lib/limits": typeof lib_limits;

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import traceback
 from pathlib import Path
 
 from .build import build_compiled_manifest
@@ -29,7 +30,6 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = find_repo_root()
     manifest_path = (repo_root / args.manifest).resolve()
     try:
-        # keep command dispatch thin so phases can add workflows w/o parser churn
         if args.command == "validate":
             return _validate(manifest_path, repo_root, args.fail_on_warning)
         if args.command == "build":
@@ -80,7 +80,10 @@ def main(argv: list[str] | None = None) -> int:
         _print_diagnostics(error.errors)
         return 1
     except Exception as error:
+        # surface full trace so flaky deploys & checkpoint corruption are
+        # diagnosable from CI logs without a rerun
         print(f"seed pipeline failed: {error}", file=sys.stderr)
+        traceback.print_exc()
         return 1
     parser.error(f"unsupported command: {args.command}")
     return 2
@@ -89,12 +92,10 @@ def main(argv: list[str] | None = None) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m seed_pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    # Phase 1/2 commands never touch Convex or upload media
     for command in ("validate", "build"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("manifest", type=Path)
         command_parser.add_argument("--fail-on-warning", action="store_true")
-    # Phase 3 precheck commands call Convex reads but never write state
     for command in ("diff", "preflight"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("manifest", type=Path)

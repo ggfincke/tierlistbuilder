@@ -25,6 +25,16 @@ def build_compiled_manifest(
     repo_root: Path,
     fail_on_warning: bool = False,
 ) -> Path:
+    return build_compiled_manifest_with_data(
+        manifest_path, repo_root, fail_on_warning
+    )[0]
+
+
+def build_compiled_manifest_with_data(
+    manifest_path: Path,
+    repo_root: Path,
+    fail_on_warning: bool = False,
+) -> tuple[Path, JsonObject]:
     validation = validate_source_manifest(manifest_path, repo_root)
     if validation.errors:
         raise ManifestValidationError(validation.errors)
@@ -50,7 +60,7 @@ def build_compiled_manifest(
         warning_count=len(validation.warnings),
         error_count=len(validation.errors),
     )
-    return compiled_path
+    return compiled_path, compiled
 
 
 def _compile(

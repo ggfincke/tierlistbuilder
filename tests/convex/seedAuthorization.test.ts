@@ -6,7 +6,7 @@ import rateLimiter from '@convex-dev/rate-limiter/test'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { api } from '@convex/_generated/api'
 import schema from '../../convex/schema'
-import { modules } from './convexTestHelpers'
+import { captureSeedEnv, modules, restoreSeedEnv } from './convexTestHelpers'
 
 const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
 {
@@ -16,18 +16,11 @@ const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
 }
 
 const SEED_SECRET = 'test-seed-secret'
-const originalEnv = {
-  enabled: process.env.CONVEX_SEED_ENABLED,
-  secret: process.env.CONVEX_SEED_SECRET,
-}
+const originalEnv = captureSeedEnv()
 
 const restoreEnv = (): void =>
 {
-  if (originalEnv.enabled === undefined) delete process.env.CONVEX_SEED_ENABLED
-  else process.env.CONVEX_SEED_ENABLED = originalEnv.enabled
-
-  if (originalEnv.secret === undefined) delete process.env.CONVEX_SEED_SECRET
-  else process.env.CONVEX_SEED_SECRET = originalEnv.secret
+  restoreSeedEnv(originalEnv)
 }
 
 describe('marketplace seed authorization', () =>

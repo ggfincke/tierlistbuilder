@@ -29,7 +29,8 @@ import {
   rankingFeaturedBadgeValidator,
   rankingPublicationStateValidator,
   rankingVisibilityValidator,
-  seedReleaseStatusValidator,
+  seedRunStatusValidator,
+  seedTemplateReleaseStatusValidator,
   templateSizeClassValidator,
   templateVisibilityValidator,
   textStyleIdValidator,
@@ -280,7 +281,7 @@ export default defineSchema({
     seedDatasetKey: v.optional(v.string()),
     seedExternalId: v.optional(v.string()),
     seedReleaseId: v.optional(v.string()),
-    seedReleaseStatus: v.optional(seedReleaseStatusValidator),
+    seedReleaseStatus: v.optional(seedTemplateReleaseStatusValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -291,8 +292,7 @@ export default defineSchema({
       'seedDatasetKey',
       'seedReleaseId',
       'seedExternalId',
-    ])
-    .index('bySeedDatasetAndReleaseId', ['seedDatasetKey', 'seedReleaseId']),
+    ]),
 
   // compact public/owner card read model for marketplace list screens.
   // media fields store refs only; queries resolve signed URLs per request
@@ -410,24 +410,17 @@ export default defineSchema({
     runId: v.string(),
     datasetKey: v.string(),
     releaseId: v.string(),
-    status: seedReleaseStatusValidator,
-    startedAt: v.number(),
+    status: seedRunStatusValidator,
     finishedAt: v.union(v.number(), v.null()),
     startedBy: v.string(),
     templateCount: v.number(),
     itemCount: v.number(),
     imageVariantCount: v.number(),
-    uploadedBytes: v.number(),
     error: v.union(v.string(), v.null()),
   })
     .index('byRunId', ['runId'])
-    .index('byDatasetReleaseRun', ['datasetKey', 'releaseId', 'runId'])
-    .index('byDatasetReleaseStartedAt', [
-      'datasetKey',
-      'releaseId',
-      'startedAt',
-    ])
-    .index('byDatasetStatusStartedAt', ['datasetKey', 'status', 'startedAt']),
+    .index('byDatasetRelease', ['datasetKey', 'releaseId'])
+    .index('byDatasetStatus', ['datasetKey', 'status']),
 
   // helper table for tag filtering. one row per (template, tag); denormalized
   // listability mirrors the parent so public tag queries avoid a join

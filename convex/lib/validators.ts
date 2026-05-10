@@ -118,7 +118,10 @@ import {
   type TemplateRankingAggregateItemSort,
   type TemplateRankingAggregateState,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import { SEED_RELEASE_STATUSES } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
+import {
+  SEED_RUN_STATUSES,
+  SEED_TEMPLATE_RELEASE_STATUSES,
+} from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import {
   BOARD_PAUSED_REASONS,
   BOARD_CLOUD_STATES,
@@ -230,7 +233,10 @@ export const templateRankingAggregateItemSortValidator = literalUnion(
 export const templateRankingAggregateItemBandValidator = literalUnion(
   TEMPLATE_RANKING_AGGREGATE_ITEM_BANDS
 )
-export const seedReleaseStatusValidator = literalUnion(SEED_RELEASE_STATUSES)
+export const seedRunStatusValidator = literalUnion(SEED_RUN_STATUSES)
+export const seedTemplateReleaseStatusValidator = literalUnion(
+  SEED_TEMPLATE_RELEASE_STATUSES
+)
 
 export const templateRankingAggregateJobStatusValidator = v.union(
   v.literal('queued'),

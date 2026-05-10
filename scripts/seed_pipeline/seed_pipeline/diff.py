@@ -6,9 +6,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-from .build import build_compiled_manifest
+from .build import build_compiled_manifest_with_data
 from .convex_client import ConvexSeedClient, read_seed_settings
-from .manifest import JsonObject, read_json
+from .manifest import JsonObject, as_list, read_json
 
 
 SEED_STATE_FUNCTION = "marketplace/seedRuns:resolveSeedState"
@@ -23,10 +23,9 @@ def write_diff_report_for_manifest(
     seed_secret: str | None = None,
     state_json: Path | None = None,
 ) -> Path:
-    compiled_path = build_compiled_manifest(
+    compiled_path, compiled = build_compiled_manifest_with_data(
         manifest_path, repo_root, fail_on_warning=fail_on_warning
     )
-    compiled = read_json(compiled_path)
     if state_json is not None:
         # fixture state keeps diff coverage network-free & deterministic
         state = read_json(state_json)
@@ -46,7 +45,7 @@ def write_diff_report_for_manifest(
 
 
 def build_state_request(compiled: JsonObject, seed_secret: str) -> JsonObject:
-    templates = _as_list(compiled.get("templates"))
+    templates = as_list(compiled.get("templates"))
     # request only identities & variant hashes needed for read-side precheck
     return {
         "seedSecret": seed_secret,
@@ -63,7 +62,7 @@ def build_state_request(compiled: JsonObject, seed_secret: str) -> JsonObject:
             }
             for template in templates
             if isinstance(template, dict)
-            for item in _as_list(template.get("items"))
+            for item in as_list(template.get("items"))
             if isinstance(item, dict)
         ],
         "criterionExternalIds": [
@@ -73,7 +72,7 @@ def build_state_request(compiled: JsonObject, seed_secret: str) -> JsonObject:
             }
             for template in templates
             if isinstance(template, dict)
-            for criterion in _as_list(template.get("criteria"))
+            for criterion in as_list(template.get("criteria"))
             if isinstance(criterion, dict)
         ],
         "variantHashes": sorted(_compiled_variant_hashes(compiled)),
@@ -87,7 +86,7 @@ def build_seed_diff(compiled: JsonObject, state: JsonObject) -> JsonObject:
         "items": _diff_items(compiled, state),
         "criteria": _diff_criteria(compiled, state),
         "media": _diff_media(compiled, state),
-        "absentFromManifest": _as_list(state.get("absentFromManifest")),
+        "absentFromManifest": as_list(state.get("absentFromManifest")),
         "activation": {
             "activeReleaseId": state.get("activeReleaseId"),
             "targetReleaseId": compiled["releaseId"],
@@ -149,13 +148,13 @@ def _diff_templates(compiled: JsonObject, state: JsonObject) -> JsonObject:
     # compare template fields that become public marketplace metadata
     existing = {
         template["externalId"]: template
-        for template in _as_list(state.get("templates"))
+        for template in as_list(state.get("templates"))
         if isinstance(template, dict)
     }
     create: list[str] = []
     update: list[JsonObject] = []
     unchanged: list[str] = []
-    for template in _as_list(compiled.get("templates")):
+    for template in as_list(compiled.get("templates")):
         if not isinstance(template, dict):
             continue
         current = existing.get(template["externalId"])
@@ -182,18 +181,18 @@ def _diff_items(compiled: JsonObject, state: JsonObject) -> JsonObject:
     # split reorder from content updates so apply can stay targeted
     existing = {
         _pair_key(item["templateExternalId"], item["itemExternalId"]): item
-        for item in _as_list(state.get("items"))
+        for item in as_list(state.get("items"))
         if isinstance(item, dict)
     }
     create: list[JsonObject] = []
     update: list[JsonObject] = []
     reorder: list[JsonObject] = []
     unchanged: list[JsonObject] = []
-    for template in _as_list(compiled.get("templates")):
+    for template in as_list(compiled.get("templates")):
         if not isinstance(template, dict):
             continue
         template_external_id = template["externalId"]
-        for item in _as_list(template.get("items")):
+        for item in as_list(template.get("items")):
             if not isinstance(item, dict):
                 continue
             key = _pair_key(template_external_id, item["externalId"])
@@ -226,17 +225,17 @@ def _diff_criteria(compiled: JsonObject, state: JsonObject) -> JsonObject:
     # criteria diffs drive ranking-question upserts, separate from item media
     existing = {
         _pair_key(item["templateExternalId"], item["criterionExternalId"]): item
-        for item in _as_list(state.get("criteria"))
+        for item in as_list(state.get("criteria"))
         if isinstance(item, dict)
     }
     create: list[JsonObject] = []
     update: list[JsonObject] = []
     unchanged: list[JsonObject] = []
-    for template in _as_list(compiled.get("templates")):
+    for template in as_list(compiled.get("templates")):
         if not isinstance(template, dict):
             continue
         template_external_id = template["externalId"]
-        for criterion in _as_list(template.get("criteria")):
+        for criterion in as_list(template.get("criteria")):
             if not isinstance(criterion, dict):
                 continue
             key = _pair_key(template_external_id, criterion["externalId"])
@@ -272,7 +271,7 @@ def _diff_criteria(compiled: JsonObject, state: JsonObject) -> JsonObject:
 def _diff_media(compiled: JsonObject, state: JsonObject) -> JsonObject:
     present = {
         media["contentHash"]
-        for media in _as_list(state.get("media"))
+        for media in as_list(state.get("media"))
         if isinstance(media, dict)
     }
     hashes = sorted(_compiled_variant_hashes(compiled))
@@ -296,13 +295,13 @@ def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:
 
 def _compiled_assets(compiled: JsonObject) -> Iterable[JsonObject]:
     # covers & item images share media dedupe/finalization behavior
-    for template in _as_list(compiled.get("templates")):
+    for template in as_list(compiled.get("templates")):
         if not isinstance(template, dict):
             continue
         cover = template.get("coverImage")
         if isinstance(cover, dict):
             yield cover
-        for item in _as_list(template.get("items")):
+        for item in as_list(template.get("items")):
             if isinstance(item, dict) and isinstance(item.get("asset"), dict):
                 yield item["asset"]
 
@@ -356,9 +355,3 @@ def _format_entry(entry: object) -> str:
 
 def _pair_key(template_external_id: str, child_external_id: str) -> str:
     return f"{template_external_id}\0{child_external_id}"
-
-
-def _as_list(value: object) -> list[object]:
-    if isinstance(value, list):
-        return value
-    return []

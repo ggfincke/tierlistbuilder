@@ -7,6 +7,7 @@ import hashlib
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from PIL import Image
 
@@ -23,6 +24,9 @@ from .settings import (
     TILE_WEBP_QUALITY,
     VARIANT_SPEC_VERSION,
 )
+
+# mirror Extract<MediaVariantKind, 'tile' | 'preview'> in seed contract
+VariantKind = Literal["tile", "preview"]
 
 
 # source metadata feeds both compiled manifest output & crop decisions
@@ -103,7 +107,7 @@ def inspect_source(source_path: Path, repo_root: Path) -> SourceAsset:
 def build_variant(
     source_path: Path,
     source_sha256: str,
-    kind: str,
+    kind: VariantKind,
     variants_dir: Path,
     variant_spec_version: str = VARIANT_SPEC_VERSION,
 ) -> JsonObject:
@@ -142,7 +146,7 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _cache_key(source_sha256: str, kind: str, variant_spec_version: str) -> str:
+def _cache_key(source_sha256: str, kind: VariantKind, variant_spec_version: str) -> str:
     if kind == "tile":
         settings = f"{TILE_MAX_SIZE}:webp-q{TILE_WEBP_QUALITY}"
     else:
@@ -151,7 +155,7 @@ def _cache_key(source_sha256: str, kind: str, variant_spec_version: str) -> str:
 
 
 def _assert_variant_policy(
-    kind: str, byte_size: int, width: int, height: int, path: Path
+    kind: VariantKind, byte_size: int, width: int, height: int, path: Path
 ) -> None:
     # fail during build, before Python can upload an oversize variant
     max_bytes = TILE_MAX_BYTES if kind == "tile" else PREVIEW_MAX_BYTES
@@ -164,7 +168,8 @@ def _assert_variant_policy(
         raise ValueError(msg)
 
 
-def _write_variant(source_path: Path, output_path: Path, kind: str) -> None:
+def _write_variant(source_path: Path, output_path: Path, kind: VariantKind) -> None:
+    success = False
     try:
         with Image.open(source_path) as image:
             # branch by contract kind, not file extension, so cache names stay stable
@@ -172,11 +177,12 @@ def _write_variant(source_path: Path, output_path: Path, kind: str) -> None:
                 _write_tile(image, output_path)
             else:
                 _write_preview(image, output_path)
-    except Exception:
-        # remove partial files so the next retry cannot treat them as cache hits
-        if output_path.exists():
-            output_path.unlink()
-        raise
+        success = True
+    finally:
+        # try/finally also catches Ctrl-C (BaseException), so partial files
+        # cannot survive into the next run as a poisoned cache hit
+        if not success:
+            output_path.unlink(missing_ok=True)
 
 
 def _write_tile(image: Image.Image, output_path: Path) -> None:

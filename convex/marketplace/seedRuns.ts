@@ -27,7 +27,7 @@ import type {
   SeedResolvedCriterion,
   SeedResolvedItem,
   SeedResolvedMedia,
-  SeedReleaseStatus,
+  SeedTemplateReleaseStatus,
   SeedActivateReleaseOutput,
   SeedRollbackReleaseOutput,
   SeedRunSummary,
@@ -36,6 +36,20 @@ import type {
   SeedTemplateUpsert,
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import { MAX_TEMPLATE_COVER_ITEMS } from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  assertCountRange,
+  assertNonemptyString,
+  assertNonnegativeInteger,
+  assertPositiveFinite,
+  assertPositiveInteger,
+  assertUniqueValues,
+} from '../lib/assertions'
+import { valuesEqual } from '../lib/equality'
+import { SEED_LIMITS, SEED_UPLOAD_URL_TTL_MS } from '../lib/limits'
+import {
+  assertValidVariantRequest,
+  computeVariantDedupeHash,
+} from '../lib/mediaVariants'
 import { parseUploadedImageMetadata } from '../lib/imageValidation'
 import { sha256Hex } from '../lib/sha256'
 import { deleteStorageSilently } from '../lib/storage'
@@ -43,7 +57,8 @@ import {
   imageMimeTypeValidator,
   itemTransformValidator,
   mediaVariantKindValidator,
-  seedReleaseStatusValidator,
+  seedRunStatusValidator,
+  seedTemplateReleaseStatusValidator,
   templateCategoryValidator,
   templateCoverFramingValidator,
   templateCriterionStatusValidator,
@@ -79,14 +94,13 @@ type SeedRemovalCandidate = {
 
 type SeedResolvedTemplateRow = {
   externalId: string
-  templateId: string
   releaseId: string | null
   title: string
   description: string | null
   category: Doc<'templates'>['category']
   tags: string[]
   visibility: Doc<'templates'>['visibility']
-  status: SeedReleaseStatus | null
+  status: SeedTemplateReleaseStatus | null
   itemAspectRatio: number | null
 }
 
@@ -184,17 +198,16 @@ type SeedDiagnosticRow = {
   severity: 'warning' | 'error'
 }
 
-const MAX_SEED_STATE_IDS = 8192
-const MAX_SEED_TEMPLATES_PER_DIFF = 2048
-const MAX_SEED_ITEMS_PER_TEMPLATE = 4096
-const MAX_MEDIA_VARIANTS_PER_HASH = 64
-const MAX_SEED_UPLOAD_URLS_PER_CALL = 128
-const MAX_SEED_MEDIA_ASSETS_PER_FINALIZE = 64
-const MAX_SEED_STORAGE_IDS_PER_CLEANUP = 256
-const MAX_SEED_TEMPLATE_UPSERTS_PER_CALL = 128
-const MAX_SEED_ITEM_UPSERTS_PER_CALL = 2048
-const MAX_SEED_CRITERION_UPSERTS_PER_CALL = 512
-const SEED_UPLOAD_URL_TTL_MS = 60 * 60 * 1000
+const MAX_SEED_STATE_IDS = SEED_LIMITS.stateIds
+const MAX_SEED_TEMPLATES_PER_DIFF = SEED_LIMITS.templatesPerDiff
+const MAX_SEED_ITEMS_PER_TEMPLATE = SEED_LIMITS.itemsPerTemplate
+const MAX_MEDIA_VARIANTS_PER_HASH = SEED_LIMITS.mediaVariantsPerHash
+const MAX_SEED_UPLOAD_URLS_PER_CALL = SEED_LIMITS.uploadUrlsPerCall
+const MAX_SEED_MEDIA_ASSETS_PER_FINALIZE = SEED_LIMITS.mediaAssetsPerFinalize
+const MAX_SEED_STORAGE_IDS_PER_CLEANUP = SEED_LIMITS.storageIdsPerCleanup
+const MAX_SEED_TEMPLATE_UPSERTS_PER_CALL = SEED_LIMITS.templateUpsertsPerCall
+const MAX_SEED_ITEM_UPSERTS_PER_CALL = SEED_LIMITS.itemUpsertsPerCall
+const MAX_SEED_CRITERION_UPSERTS_PER_CALL = SEED_LIMITS.criterionUpsertsPerCall
 
 const seedUploadVariantKindValidator = v.union(
   v.literal('tile'),
@@ -205,14 +218,13 @@ const seedRunSummaryValidator = v.object({
   runId: v.string(),
   datasetKey: v.string(),
   releaseId: v.string(),
-  status: seedReleaseStatusValidator,
+  status: seedRunStatusValidator,
   startedAt: v.number(),
   finishedAt: v.union(v.number(), v.null()),
   startedBy: v.string(),
   templateCount: v.number(),
   itemCount: v.number(),
   imageVariantCount: v.number(),
-  uploadedBytes: v.number(),
   error: v.union(v.string(), v.null()),
 })
 
@@ -228,21 +240,19 @@ const seedTemplateCriterionKeyValidator = v.object({
 
 const seedResolvedTemplateValidator = v.object({
   externalId: v.string(),
-  templateId: v.string(),
   releaseId: v.union(v.string(), v.null()),
   title: v.string(),
   description: v.union(v.string(), v.null()),
   category: templateCategoryValidator,
   tags: v.array(v.string()),
   visibility: templateVisibilityValidator,
-  status: v.union(seedReleaseStatusValidator, v.null()),
+  status: v.union(seedTemplateReleaseStatusValidator, v.null()),
   itemAspectRatio: v.union(v.number(), v.null()),
 })
 
 const seedResolvedItemValidator = v.object({
   templateExternalId: v.string(),
   itemExternalId: v.string(),
-  itemId: v.string(),
   order: v.number(),
   label: v.union(v.string(), v.null()),
   mediaAssetId: v.union(v.string(), v.null()),
@@ -251,7 +261,6 @@ const seedResolvedItemValidator = v.object({
 const seedResolvedCriterionValidator = v.object({
   templateExternalId: v.string(),
   criterionExternalId: v.string(),
-  criterionId: v.string(),
   name: v.string(),
   shortName: v.union(v.string(), v.null()),
   prompt: v.string(),
@@ -430,95 +439,17 @@ const assertBatchSize = (name: string, count: number): void =>
   }
 }
 
-const assertCountRange = (
-  name: string,
-  count: number,
-  min: number,
-  max: number
-): void =>
-{
-  if (count < min || count > max)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: `${name} must include ${min}..${max} entries`,
-    })
-  }
-}
-
-const assertNonemptyString = (name: string, value: string): void =>
-{
-  if (value.trim().length === 0)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: `${name} must be nonempty`,
-    })
-  }
-}
-
-const assertNonnegativeInteger = (name: string, value: number): void =>
-{
-  if (!Number.isInteger(value) || value < 0)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: `${name} must be a nonnegative integer`,
-    })
-  }
-}
-
-const assertPositiveInteger = (name: string, value: number): void =>
-{
-  if (!Number.isInteger(value) || value < 1)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: `${name} must be a positive integer`,
-    })
-  }
-}
-
-const assertPositiveFinite = (name: string, value: number): void =>
-{
-  if (!Number.isFinite(value) || value <= 0)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: `${name} must be a positive finite number`,
-    })
-  }
-}
-
-const assertUniqueValues = (name: string, values: readonly string[]): void =>
-{
-  const seen = new Set<string>()
-  for (const value of values)
-  {
-    assertNonemptyString(name, value)
-    if (seen.has(value))
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: `duplicate ${name}: ${value}`,
-      })
-    }
-    seen.add(value)
-  }
-}
-
 const summarizeRun = (run: Doc<'seedRuns'>): SeedRunSummary => ({
   runId: run.runId,
   datasetKey: run.datasetKey,
   releaseId: run.releaseId,
   status: run.status,
-  startedAt: run.startedAt,
+  startedAt: run._creationTime,
   finishedAt: run.finishedAt,
   startedBy: run.startedBy,
   templateCount: run.templateCount,
   itemCount: run.itemCount,
   imageVariantCount: run.imageVariantCount,
-  uploadedBytes: run.uploadedBytes,
   error: run.error,
 })
 
@@ -570,27 +501,10 @@ export const findSeedMediaByOwnerAndDedupeHash = internalQuery({
   },
 })
 
-const loadSeedTemplate = async (
-  ctx: QueryCtx | MutationCtx,
-  datasetKey: string,
-  releaseId: string,
-  externalId: string
-): Promise<Doc<'templates'> | null> =>
-  await ctx.db
-    .query('templates')
-    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-      q
-        .eq('seedDatasetKey', datasetKey)
-        .eq('seedReleaseId', releaseId)
-        .eq('seedExternalId', externalId)
-    )
-    .unique()
-
 const toResolvedTemplate = (
   template: Doc<'templates'>
 ): SeedResolvedTemplateRow => ({
   externalId: template.seedExternalId ?? '',
-  templateId: template._id as string,
   releaseId: template.seedReleaseId ?? null,
   title: template.title,
   description: template.description,
@@ -608,23 +522,24 @@ const resolveTemplates = async (
   externalIds: readonly string[]
 ): Promise<Map<string, Doc<'templates'>>> =>
 {
-  const entries = await Promise.all(
-    externalIds.map(async (externalId) =>
-    {
-      const template = await loadSeedTemplate(
-        ctx,
-        datasetKey,
-        releaseId,
-        externalId
-      )
-      return template ? ([externalId, template] as const) : null
-    })
-  )
-  return new Map(
-    entries.filter(
-      (entry): entry is NonNullable<typeof entry> => entry !== null
+  if (externalIds.length === 0) return new Map()
+  // single index scan + in-memory filter beats N unique() lookups.
+  // bySeedDatasetReleaseAndExternalId is prefix-scanned on (dataset, release)
+  const requested = new Set(externalIds)
+  const all = await ctx.db
+    .query('templates')
+    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+      q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
     )
-  )
+    .take(MAX_SEED_TEMPLATES_PER_DIFF + 1)
+  assertSeedTemplateReadLimit(all, releaseId)
+  const map = new Map<string, Doc<'templates'>>()
+  for (const template of all)
+  {
+    const externalId = template.seedExternalId
+    if (externalId && requested.has(externalId)) map.set(externalId, template)
+  }
+  return map
 }
 
 const resolveItems = async (
@@ -633,29 +548,58 @@ const resolveItems = async (
   keys: readonly { templateExternalId: string; itemExternalId: string }[]
 ): Promise<SeedResolvedItem[]> =>
 {
-  const rows = await Promise.all(
-    keys.map(async (key) =>
-    {
-      const template = templates.get(key.templateExternalId)
-      if (!template) return null
-      const item = await ctx.db
-        .query('templateItems')
-        .withIndex('byTemplateAndExternalId', (q) =>
-          q.eq('templateId', template._id).eq('externalId', key.itemExternalId)
-        )
-        .unique()
-      if (!item) return null
-      return {
-        templateExternalId: key.templateExternalId,
-        itemExternalId: key.itemExternalId,
-        itemId: item._id as string,
-        order: item.order,
-        label: item.label,
-        mediaAssetId: item.mediaAssetId as string | null,
+  if (keys.length === 0) return []
+  // group requested keys by template so we can fetch each template's items in
+  // a single byTemplate scan, then resolve via an in-memory map. avoids N
+  // separate byTemplateAndExternalId.unique() calls for large diffs
+  const wantedByTemplate = new Map<string, Set<string>>()
+  for (const key of keys)
+  {
+    if (!templates.has(key.templateExternalId)) continue
+    const set =
+      wantedByTemplate.get(key.templateExternalId) ?? new Set<string>()
+    set.add(key.itemExternalId)
+    wantedByTemplate.set(key.templateExternalId, set)
+  }
+  const itemMaps = await Promise.all(
+    Array.from(
+      wantedByTemplate.entries(),
+      async ([templateExternalId, set]) =>
+      {
+        const template = templates.get(templateExternalId)
+        if (!template)
+          return [
+            templateExternalId,
+            new Map<string, Doc<'templateItems'>>(),
+          ] as const
+        const rows = await ctx.db
+          .query('templateItems')
+          .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+          .take(MAX_SEED_ITEMS_PER_TEMPLATE)
+        const filtered = new Map<string, Doc<'templateItems'>>()
+        for (const item of rows)
+        {
+          if (set.has(item.externalId)) filtered.set(item.externalId, item)
+        }
+        return [templateExternalId, filtered] as const
       }
-    })
+    )
   )
-  return rows.filter((row): row is SeedResolvedItem => row !== null)
+  const byTemplate = new Map(itemMaps)
+  const resolved: SeedResolvedItem[] = []
+  for (const key of keys)
+  {
+    const item = byTemplate.get(key.templateExternalId)?.get(key.itemExternalId)
+    if (!item) continue
+    resolved.push({
+      templateExternalId: key.templateExternalId,
+      itemExternalId: key.itemExternalId,
+      order: item.order,
+      label: item.label,
+      mediaAssetId: item.mediaAssetId as string | null,
+    })
+  }
+  return resolved
 }
 
 const resolveCriteria = (
@@ -674,7 +618,6 @@ const resolveCriteria = (
     resolved.push({
       templateExternalId: key.templateExternalId,
       criterionExternalId: key.criterionExternalId,
-      criterionId: `${template._id}:${criterion.externalId}`,
       name: criterion.name,
       shortName: criterion.shortName ?? null,
       prompt: criterion.prompt,
@@ -694,25 +637,53 @@ const resolveMediaForAuthor = async (
   variantHashes: readonly string[]
 ): Promise<SeedResolvedMedia[]> =>
 {
-  if (!authorId) return []
+  if (!authorId || variantHashes.length === 0) return []
+  // fan out hash lookups in parallel so the query latency tracks the slowest
+  // single index probe rather than the sum of all probes
+  const variantSets = await Promise.all(
+    variantHashes.map(
+      async (contentHash) =>
+        [
+          contentHash,
+          await ctx.db
+            .query('mediaVariants')
+            .withIndex('byContentHash', (q) => q.eq('contentHash', contentHash))
+            .take(MAX_MEDIA_VARIANTS_PER_HASH),
+        ] as const
+    )
+  )
+  // dedupe asset lookups across hashes — common when tile + preview share the
+  // same hash via parallel file uploads
+  const assetIds = Array.from(
+    new Set(
+      variantSets.flatMap(([, variants]) =>
+        variants.map((variant) => variant.mediaAssetId as string)
+      )
+    )
+  ) as Id<'mediaAssets'>[]
+  const assets = await Promise.all(assetIds.map((id) => ctx.db.get(id)))
+  const assetById = new Map<string, Doc<'mediaAssets'>>()
+  for (const asset of assets)
+  {
+    if (asset && asset.ownerId === authorId)
+    {
+      assetById.set(asset._id as string, asset)
+    }
+  }
   const seen = new Set<string>()
   const resolved: SeedResolvedMedia[] = []
-  for (const contentHash of variantHashes)
+  for (const [contentHash, variants] of variantSets)
   {
-    const variants = await ctx.db
-      .query('mediaVariants')
-      .withIndex('byContentHash', (q) => q.eq('contentHash', contentHash))
-      .take(MAX_MEDIA_VARIANTS_PER_HASH)
     for (const variant of variants)
     {
-      const media = await ctx.db.get(variant.mediaAssetId)
-      if (!media || media.ownerId !== authorId) continue
-      const key = `${contentHash}:${media._id}:${variant.kind}`
+      const asset = assetById.get(variant.mediaAssetId as string)
+      if (!asset) continue
+      const key = `${contentHash}:${asset._id}:${variant.kind}`
       if (seen.has(key)) continue
       seen.add(key)
       resolved.push({
         contentHash,
-        mediaAssetId: media._id as string,
+        mediaAssetId: asset._id as string,
         variantKind: variant.kind,
         byteSize: variant.byteSize,
       })
@@ -728,7 +699,7 @@ const resolveActiveReleaseId = async (
 {
   const activeRuns = await ctx.db
     .query('seedRuns')
-    .withIndex('byDatasetStatusStartedAt', (q) =>
+    .withIndex('byDatasetStatus', (q) =>
       q.eq('datasetKey', datasetKey).eq('status', 'active')
     )
     .order('desc')
@@ -747,7 +718,7 @@ const resolveAbsentFromManifest = async (
 {
   const templates = await ctx.db
     .query('templates')
-    .withIndex('bySeedDatasetAndReleaseId', (q) =>
+    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
       q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
     )
     .take(MAX_SEED_TEMPLATES_PER_DIFF)
@@ -934,47 +905,19 @@ const loadVerifiedSeedVariant = async (
   }
 }
 
-const normalizeSeedVerifiedVariants = (
-  variants: readonly VerifiedSeedVariant[]
-): string =>
-  variants
-    .map((variant) => `${variant.kind}:${variant.contentHash}`)
-    .sort()
-    .join('|')
-
-const validateSeedUploadedAsset = (asset: SeedUploadedMediaAssetArg): void =>
+const validateSeedUploadedAsset = async (
+  asset: SeedUploadedMediaAssetArg
+): Promise<void> =>
 {
   assertNonemptyString('assetKey', asset.assetKey)
-  if (asset.variants.length < 1 || asset.variants.length > 2)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: 'seed media asset must include 1..2 variants',
-    })
-  }
-  const kinds = new Set<SeedUploadVariantKind>()
   for (const variant of asset.variants)
   {
-    if (kinds.has(variant.kind))
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: `duplicate seed media variant kind: ${variant.kind}`,
-      })
-    }
-    kinds.add(variant.kind)
     assertNonemptyString('contentHash', variant.contentHash)
     assertPositiveInteger('expectedByteSize', variant.expectedByteSize)
     assertPositiveInteger('expectedWidth', variant.expectedWidth)
     assertPositiveInteger('expectedHeight', variant.expectedHeight)
   }
-  if (!kinds.has('tile'))
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: 'seed media asset finalization requires a tile variant',
-    })
-  }
+  await assertValidVariantRequest(asset.variants)
 }
 
 const cleanupStorageIds = async (
@@ -984,13 +927,13 @@ const cleanupStorageIds = async (
 {
   const cleanedStorageIds: string[] = []
   const missingStorageIds: string[] = []
+  // sequential: convex-test runtime serializes storage mutations from a single
+  // action, so parallel deletes drop on the floor for parallel test storeges
   for (const storageId of storageIds)
   {
     const metadata = await ctx.runQuery(
       internal.lib.storage.getStorageMetadata,
-      {
-        storageId,
-      }
+      { storageId }
     )
     if (!metadata)
     {
@@ -1012,12 +955,16 @@ const finalizeSeedMediaAsset = async (
   rejected: SeedRejectedUpload[]
 }> =>
 {
-  validateSeedUploadedAsset(asset)
+  await validateSeedUploadedAsset(asset)
   const verified: VerifiedSeedVariant[] = []
   const rejected: SeedRejectedUpload[] = []
-  for (const upload of asset.variants)
+  const results = await Promise.all(
+    asset.variants.map((upload) =>
+      loadVerifiedSeedVariant(ctx, asset.assetKey, upload)
+    )
+  )
+  for (const result of results)
   {
-    const result = await loadVerifiedSeedVariant(ctx, asset.assetKey, upload)
     if (result.kind === 'rejected') rejected.push(result.rejected)
     else verified.push(result.variant)
   }
@@ -1031,7 +978,7 @@ const finalizeSeedMediaAsset = async (
     return { finalized: null, rejected }
   }
 
-  const dedupeHash = normalizeSeedVerifiedVariants(verified)
+  const dedupeHash = computeVariantDedupeHash(verified)
   const existing: { mediaAssetId: Id<'mediaAssets'> } | null =
     await ctx.runQuery(
       internal.marketplace.seedRuns.findSeedMediaByOwnerAndDedupeHash,
@@ -1069,9 +1016,6 @@ const finalizeSeedMediaAsset = async (
   }
 }
 
-const valuesEqual = (left: unknown, right: unknown): boolean =>
-  JSON.stringify(left) === JSON.stringify(right)
-
 const toSeedItemKey = (item: {
   templateExternalId: string
   itemExternalId: string
@@ -1102,22 +1046,71 @@ const groupByTemplateExternalId = <T extends { templateExternalId: string }>(
   return groups
 }
 
-const loadSeedMediaAssetIdByContentHash = async (
+// resolve many content hashes -> mediaAssetId in one batched parallel pass
+// for an upsert call. callers should look up via the map instead of issuing
+// one byContentHash + N db.get() calls per row, which blows the read budget
+const buildSeedMediaAssetIdCache = async (
   ctx: MutationCtx,
   ownerId: Id<'users'>,
+  contentHashes: readonly string[]
+): Promise<Map<string, Id<'mediaAssets'>>> =>
+{
+  const unique = Array.from(new Set(contentHashes.filter((h) => h.length > 0)))
+  if (unique.length === 0) return new Map()
+  // fan out hash -> variants probes; dedupe asset IDs across hashes before
+  // fetching mediaAssets so we issue at most N_unique_assets db.get() calls
+  const variantSets = await Promise.all(
+    unique.map(
+      async (contentHash) =>
+        [
+          contentHash,
+          await ctx.db
+            .query('mediaVariants')
+            .withIndex('byContentHash', (q) => q.eq('contentHash', contentHash))
+            .take(MAX_MEDIA_VARIANTS_PER_HASH),
+        ] as const
+    )
+  )
+  const assetIds = Array.from(
+    new Set(
+      variantSets.flatMap(([, variants]) =>
+        variants.map((variant) => variant.mediaAssetId as string)
+      )
+    )
+  ) as Id<'mediaAssets'>[]
+  const assets = await Promise.all(assetIds.map((id) => ctx.db.get(id)))
+  const ownedById = new Map<string, Id<'mediaAssets'>>()
+  for (const asset of assets)
+  {
+    if (asset && asset.ownerId === ownerId)
+    {
+      ownedById.set(asset._id as string, asset._id)
+    }
+  }
+  const result = new Map<string, Id<'mediaAssets'>>()
+  for (const [contentHash, variants] of variantSets)
+  {
+    for (const variant of variants)
+    {
+      const owned = ownedById.get(variant.mediaAssetId as string)
+      if (owned)
+      {
+        result.set(contentHash, owned)
+        break
+      }
+    }
+  }
+  return result
+}
+
+const resolveSeedMediaAssetIdFromCache = (
+  cache: ReadonlyMap<string, Id<'mediaAssets'>>,
   contentHash: string
-): Promise<Id<'mediaAssets'>> =>
+): Id<'mediaAssets'> =>
 {
   assertNonemptyString('mediaContentHash', contentHash)
-  const variants = await ctx.db
-    .query('mediaVariants')
-    .withIndex('byContentHash', (q) => q.eq('contentHash', contentHash))
-    .take(MAX_MEDIA_VARIANTS_PER_HASH)
-  for (const variant of variants)
-  {
-    const media = await ctx.db.get(variant.mediaAssetId)
-    if (media?.ownerId === ownerId) return media._id
-  }
+  const mediaAssetId = cache.get(contentHash)
+  if (mediaAssetId) return mediaAssetId
   throw new ConvexError({
     code: CONVEX_ERROR_CODES.notFound,
     message: `seed media not found by content hash: ${contentHash}`,
@@ -1186,13 +1179,12 @@ const patchSeedTemplateItemSummary = async (
   })
 }
 
-const normalizeSeedTemplateUpsert = async (
-  ctx: MutationCtx,
-  authorId: Id<'users'>,
+const normalizeSeedTemplateUpsert = (
   datasetKey: string,
   releaseId: string,
-  template: SeedTemplateUpsertArg
-): Promise<SeedTemplateApplyPatch> =>
+  template: SeedTemplateUpsertArg,
+  mediaAssetCache: ReadonlyMap<string, Id<'mediaAssets'>>
+): SeedTemplateApplyPatch =>
 {
   assertNonemptyString('templateExternalId', template.externalId)
   assertPositiveFinite('itemAspectRatio', template.itemAspectRatio)
@@ -1200,9 +1192,8 @@ const normalizeSeedTemplateUpsert = async (
   assertCountRange('suggestedTiers', template.suggestedTiers.length, 1, 16)
   validateTemplateTiers(template.suggestedTiers)
   const coverMediaAssetId = template.coverMediaContentHash
-    ? await loadSeedMediaAssetIdByContentHash(
-        ctx,
-        authorId,
+    ? resolveSeedMediaAssetIdFromCache(
+        mediaAssetCache,
         template.coverMediaContentHash
       )
     : null
@@ -1246,15 +1237,17 @@ const loadSeedRun = async (
   releaseId: string,
   runId: string
 ): Promise<Doc<'seedRuns'> | null> =>
-  await ctx.db
+{
+  const run = await ctx.db
     .query('seedRuns')
-    .withIndex('byDatasetReleaseRun', (q) =>
-      q
-        .eq('datasetKey', datasetKey)
-        .eq('releaseId', releaseId)
-        .eq('runId', runId)
-    )
+    .withIndex('byRunId', (q) => q.eq('runId', runId))
     .unique()
+  if (!run || run.datasetKey !== datasetKey || run.releaseId !== releaseId)
+  {
+    return null
+  }
+  return run
+}
 
 const loadSeedRunOrThrow = async (
   ctx: QueryCtx | MutationCtx,
@@ -1282,7 +1275,7 @@ const loadLatestSeedRunForRelease = async (
 {
   const runs = await ctx.db
     .query('seedRuns')
-    .withIndex('byDatasetReleaseStartedAt', (q) =>
+    .withIndex('byDatasetRelease', (q) =>
       q.eq('datasetKey', datasetKey).eq('releaseId', releaseId)
     )
     .order('desc')
@@ -1297,7 +1290,7 @@ const loadSeedTemplatesForRelease = async (
 ): Promise<Doc<'templates'>[]> =>
   await ctx.db
     .query('templates')
-    .withIndex('bySeedDatasetAndReleaseId', (q) =>
+    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
       q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
     )
     .take(MAX_SEED_TEMPLATES_PER_DIFF + 1)
@@ -1312,6 +1305,31 @@ const assertSeedTemplateReadLimit = (
     code: CONVEX_ERROR_CODES.invalidState,
     message: `seed release exceeds template read limit: ${releaseId ?? 'unknown'}`,
   })
+}
+
+const loadSeedTemplateLookupForRelease = async (
+  ctx: QueryCtx | MutationCtx,
+  datasetKey: string,
+  releaseId: string
+): Promise<{
+  templates: Doc<'templates'>[]
+  byExternalId: Map<string, Doc<'templates'>>
+}> =>
+{
+  const templates = await loadSeedTemplatesForRelease(
+    ctx,
+    datasetKey,
+    releaseId
+  )
+  assertSeedTemplateReadLimit(templates, releaseId)
+  return {
+    templates,
+    byExternalId: new Map(
+      templates
+        .filter((row) => row.seedExternalId !== undefined)
+        .map((row) => [row.seedExternalId as string, row])
+    ),
+  }
 }
 
 const buildSeedReleaseDiagnostics = async (
@@ -1342,14 +1360,42 @@ const buildSeedReleaseDiagnostics = async (
     return diagnostics
   }
 
-  const validTemplateStatuses = new Set<SeedReleaseStatus>([
+  const validTemplateStatuses = new Set<SeedTemplateReleaseStatus>([
     'applied_hidden',
     'verified',
     'active',
   ])
+  // fan out per-template reads (cover + items + each item's media) so verify
+  // completes in O(slowest template); releases over the read budget already
+  // short-circuit above via templateLimitExceeded
+  const perTemplate = await Promise.all(
+    templates.map(async (template) =>
+    {
+      const [coverMedia, items] = await Promise.all([
+        template.coverMediaAssetId
+          ? ctx.db.get(template.coverMediaAssetId)
+          : Promise.resolve(null),
+        ctx.db
+          .query('templateItems')
+          .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+          .take(MAX_SEED_ITEMS_PER_TEMPLATE + 1),
+      ])
+      const itemMedia =
+        items.length > MAX_SEED_ITEMS_PER_TEMPLATE
+          ? null
+          : await Promise.all(
+              items.map((item) =>
+                item.mediaAssetId
+                  ? ctx.db.get(item.mediaAssetId)
+                  : Promise.resolve(null)
+              )
+            )
+      return { template, coverMedia, items, itemMedia }
+    })
+  )
   let itemCount = 0
   let criterionCount = 0
-  for (const template of templates)
+  for (const { template, coverMedia, items, itemMedia } of perTemplate)
   {
     const templatePath = `$.templates[${template.seedExternalId ?? template._id}]`
     if (
@@ -1364,23 +1410,15 @@ const buildSeedReleaseDiagnostics = async (
         severity: 'error',
       })
     }
-    if (template.coverMediaAssetId !== null)
+    if (template.coverMediaAssetId !== null && !coverMedia)
     {
-      const coverMedia = await ctx.db.get(template.coverMediaAssetId)
-      if (!coverMedia)
-      {
-        diagnostics.push({
-          code: 'missingCoverMedia',
-          message: `template cover media is missing: ${template.seedExternalId}`,
-          path: `${templatePath}.coverMediaAssetId`,
-          severity: 'error',
-        })
-      }
+      diagnostics.push({
+        code: 'missingCoverMedia',
+        message: `template cover media is missing: ${template.seedExternalId}`,
+        path: `${templatePath}.coverMediaAssetId`,
+        severity: 'error',
+      })
     }
-    const items = await ctx.db
-      .query('templateItems')
-      .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-      .take(MAX_SEED_ITEMS_PER_TEMPLATE + 1)
     if (items.length > MAX_SEED_ITEMS_PER_TEMPLATE)
     {
       diagnostics.push({
@@ -1402,27 +1440,30 @@ const buildSeedReleaseDiagnostics = async (
         severity: 'error',
       })
     }
-    for (const item of items)
+    if (itemMedia)
     {
-      if (item.mediaAssetId === null)
+      for (let index = 0; index < items.length; index += 1)
       {
-        diagnostics.push({
-          code: 'missingItemMedia',
-          message: `template item has no media: ${item.externalId}`,
-          path: `${templatePath}.items[${item.externalId}].mediaAssetId`,
-          severity: 'error',
-        })
-        continue
-      }
-      const media = await ctx.db.get(item.mediaAssetId)
-      if (!media)
-      {
-        diagnostics.push({
-          code: 'missingItemMediaAsset',
-          message: `template item media asset is missing: ${item.externalId}`,
-          path: `${templatePath}.items[${item.externalId}].mediaAssetId`,
-          severity: 'error',
-        })
+        const item = items[index]
+        if (item.mediaAssetId === null)
+        {
+          diagnostics.push({
+            code: 'missingItemMedia',
+            message: `template item has no media: ${item.externalId}`,
+            path: `${templatePath}.items[${item.externalId}].mediaAssetId`,
+            severity: 'error',
+          })
+          continue
+        }
+        if (!itemMedia[index])
+        {
+          diagnostics.push({
+            code: 'missingItemMediaAsset',
+            message: `template item media asset is missing: ${item.externalId}`,
+            path: `${templatePath}.items[${item.externalId}].mediaAssetId`,
+            severity: 'error',
+          })
+        }
       }
     }
   }
@@ -1471,11 +1512,16 @@ const setSeedRunStatus = async (
     'failed',
     'rolled_back',
   ])
-  await ctx.db.patch(run._id, {
-    status,
-    error,
-    finishedAt: terminalStatuses.has(status) ? now : run.finishedAt,
-  })
+  const finishedAt = terminalStatuses.has(status) ? now : run.finishedAt
+  if (
+    run.status === status &&
+    run.error === error &&
+    run.finishedAt === finishedAt
+  )
+  {
+    return
+  }
+  await ctx.db.patch(run._id, { status, error, finishedAt })
 }
 
 const publishSeedReleaseTemplates = async (
@@ -1606,7 +1652,7 @@ const activateSeedReleaseInternal = async (
     await rollBackSeedReleaseTemplates(ctx, previousTemplates, now)
     const activeRuns = await ctx.db
       .query('seedRuns')
-      .withIndex('byDatasetStatusStartedAt', (q) =>
+      .withIndex('byDatasetStatus', (q) =>
         q.eq('datasetKey', params.datasetKey).eq('status', 'active')
       )
       .take(MAX_SEED_TEMPLATES_PER_DIFF)
@@ -1664,20 +1710,17 @@ export const beginSeedRun = mutation({
       return { run: summarizeRun(existing) }
     }
 
-    const now = Date.now()
     const startedBy = await currentSeedActor(ctx)
     const runId = await ctx.db.insert('seedRuns', {
       runId: args.runId,
       datasetKey: args.datasetKey,
       releaseId: args.releaseId,
       status: 'building',
-      startedAt: now,
       finishedAt: null,
       startedBy,
       templateCount: args.templateCount,
       itemCount: args.itemCount,
       imageVariantCount: args.imageVariantCount,
-      uploadedBytes: 0,
       error: null,
     })
     const run = await ctx.db.get(runId)
@@ -1793,31 +1836,6 @@ export const finalizeSeedUploadedMedia = action({
   },
 })
 
-export const cleanupRejectedSeedUploads = action({
-  args: {
-    seedSecret: v.string(),
-    datasetKey: v.string(),
-    releaseId: v.string(),
-    runId: v.string(),
-    storageIds: v.array(v.id('_storage')),
-  },
-  returns: seedCleanupOutputValidator,
-  handler: async (ctx, args): Promise<SeedCleanupResult> =>
-  {
-    requireSeedAuthorized(args.seedSecret)
-    assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
-    assertNonemptyString('runId', args.runId)
-    assertCountRange(
-      'storageIds',
-      args.storageIds.length,
-      0,
-      MAX_SEED_STORAGE_IDS_PER_CLEANUP
-    )
-    return await cleanupStorageIds(ctx, args.storageIds)
-  },
-})
-
 export const cleanupAbandonedSeedRun = action({
   args: {
     seedSecret: v.string(),
@@ -1885,21 +1903,31 @@ export const upsertSeedTemplates = mutation({
     const created: string[] = []
     const updated: string[] = []
     const unchanged: string[] = []
+    // batch all cover-media & existing-template lookups up-front so per-template
+    // work skips repeated index probes & stays under the per-mutation read cap
+    const coverHashes = (args.templates as SeedTemplateUpsertArg[])
+      .map((template) => template.coverMediaContentHash)
+      .filter((hash): hash is string => hash !== null)
+    const mediaAssetCache = await buildSeedMediaAssetIdCache(
+      ctx,
+      authorId,
+      coverHashes
+    )
+    const { byExternalId: existingByExternalId } =
+      await loadSeedTemplateLookupForRelease(
+        ctx,
+        args.datasetKey,
+        args.releaseId
+      )
     for (const template of args.templates as SeedTemplateUpsertArg[])
     {
-      const patch = await normalizeSeedTemplateUpsert(
-        ctx,
-        authorId,
+      const patch = normalizeSeedTemplateUpsert(
         args.datasetKey,
         args.releaseId,
-        template
+        template,
+        mediaAssetCache
       )
-      const existing = await loadSeedTemplate(
-        ctx,
-        args.datasetKey,
-        args.releaseId,
-        template.externalId
-      )
+      const existing = existingByExternalId.get(template.externalId) ?? null
       const now = Date.now()
       if (!existing)
       {
@@ -2010,16 +2038,28 @@ export const upsertSeedItems = mutation({
     const moved: SeedTemplateItemKey[] = []
     const unchanged: SeedTemplateItemKey[] = []
     const absentFromRelease: SeedTemplateItemKey[] = []
-    for (const [templateExternalId, items] of groupByTemplateExternalId(
-      args.items as SeedItemUpsertArg[]
-    ))
-    {
-      const template = await loadSeedTemplate(
+    const grouped = groupByTemplateExternalId(args.items as SeedItemUpsertArg[])
+    const { templates: releaseTemplates, byExternalId: templatesByExternalId } =
+      await loadSeedTemplateLookupForRelease(
         ctx,
         args.datasetKey,
-        args.releaseId,
-        templateExternalId
+        args.releaseId
       )
+    // pre-resolve every content hash this batch will reference. ownerId is
+    // shared across a release so a single cache covers all groups
+    const firstTemplate = releaseTemplates[0]
+    const itemMediaCache = firstTemplate
+      ? await buildSeedMediaAssetIdCache(
+          ctx,
+          firstTemplate.authorId,
+          (args.items as SeedItemUpsertArg[]).map(
+            (item) => item.mediaContentHash
+          )
+        )
+      : new Map<string, Id<'mediaAssets'>>()
+    for (const [templateExternalId, items] of grouped)
+    {
+      const template = templatesByExternalId.get(templateExternalId)
       if (!template)
       {
         throw new ConvexError({
@@ -2038,9 +2078,8 @@ export const upsertSeedItems = mutation({
         }
         seen.add(item.itemExternalId)
         const key = toSeedItemKey(item)
-        const mediaAssetId = await loadSeedMediaAssetIdByContentHash(
-          ctx,
-          template.authorId,
+        const mediaAssetId = resolveSeedMediaAssetIdFromCache(
+          itemMediaCache,
           item.mediaContentHash
         )
         const existing = await ctx.db
@@ -2152,16 +2191,17 @@ export const upsertSeedCriteria = mutation({
     const updated: SeedTemplateCriterionKey[] = []
     const unchanged: SeedTemplateCriterionKey[] = []
     const deactivated: SeedTemplateCriterionKey[] = []
+    const { byExternalId: templatesByExternalId } =
+      await loadSeedTemplateLookupForRelease(
+        ctx,
+        args.datasetKey,
+        args.releaseId
+      )
     for (const [templateExternalId, criteria] of groupByTemplateExternalId(
       args.criteria as SeedCriterionUpsertArg[]
     ))
     {
-      const template = await loadSeedTemplate(
-        ctx,
-        args.datasetKey,
-        args.releaseId,
-        templateExternalId
-      )
+      const template = templatesByExternalId.get(templateExternalId)
       if (!template)
       {
         throw new ConvexError({

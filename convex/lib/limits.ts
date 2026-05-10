@@ -38,3 +38,21 @@ export const BATCH_LIMITS = {
   // cleanup old aggregate generations after a new one becomes active
   templateRankingAggregateCleanup: 256,
 } as const
+
+// per-op limits for the marketplace seed pipeline. mirror these on the Python
+// side (scripts/seed_pipeline/seed_pipeline/runs.py) — they MUST match or
+// upserts will fail at the validator boundary
+export const SEED_LIMITS = {
+  stateIds: 8192,
+  templatesPerDiff: 2048,
+  itemsPerTemplate: 4096,
+  mediaVariantsPerHash: 64,
+  uploadUrlsPerCall: 128,
+  mediaAssetsPerFinalize: 64,
+  storageIdsPerCleanup: 256,
+  templateUpsertsPerCall: 128,
+  itemUpsertsPerCall: 2048,
+  criterionUpsertsPerCall: 512,
+} as const
+
+export const SEED_UPLOAD_URL_TTL_MS = 60 * 60 * 1000

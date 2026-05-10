@@ -11,6 +11,14 @@ from typing import Any
 JsonObject = dict[str, Any]
 
 
+def as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def as_str(value: Any) -> str:
+    return value if isinstance(value, str) else ""
+
+
 def find_repo_root(start: Path | None = None) -> Path:
     current = (start or Path.cwd()).resolve()
     for candidate in (current, *current.parents):

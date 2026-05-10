@@ -433,8 +433,7 @@
       "properties": {
         "sourcePath": {
           "type": "string",
-          "minLength": 1,
-          "pattern": "^/"
+          "minLength": 1
         },
         "sourcePathRelative": {
           "type": "string",

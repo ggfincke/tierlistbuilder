@@ -22,17 +22,25 @@ export const SEED_LABEL_POLICIES = [
 
 export type SeedLabelPolicy = (typeof SEED_LABEL_POLICIES)[number]
 
-export const SEED_RELEASE_STATUSES = [
+export const SEED_RUN_STATUSES = [
   'building',
-  'uploaded',
-  'applied_hidden',
   'verified',
   'active',
   'failed',
   'rolled_back',
 ] as const
 
-export type SeedReleaseStatus = (typeof SEED_RELEASE_STATUSES)[number]
+export type SeedRunStatus = (typeof SEED_RUN_STATUSES)[number]
+
+export const SEED_TEMPLATE_RELEASE_STATUSES = [
+  'applied_hidden',
+  'verified',
+  'active',
+  'rolled_back',
+] as const
+
+export type SeedTemplateReleaseStatus =
+  (typeof SEED_TEMPLATE_RELEASE_STATUSES)[number]
 
 export const SEED_REMOVAL_ACTIONS = ['absentFromRelease', 'hardDelete'] as const
 
@@ -203,14 +211,13 @@ export interface SeedRunSummary
   runId: string
   datasetKey: string
   releaseId: string
-  status: SeedReleaseStatus
+  status: SeedRunStatus
   startedAt: number
   finishedAt: number | null
   startedBy: string
   templateCount: number
   itemCount: number
   imageVariantCount: number
-  uploadedBytes: number
   error: string | null
 }
 
@@ -242,14 +249,13 @@ export type SeedResolveStateInput = SeedReleaseIdentity &
 export interface SeedResolvedTemplate
 {
   externalId: string
-  templateId: string
   releaseId: string | null
   title: string
   description: string | null
   category: TemplateCategory
   tags: readonly string[]
   visibility: TemplateVisibility
-  status: SeedReleaseStatus | null
+  status: SeedTemplateReleaseStatus | null
   itemAspectRatio: number | null
 }
 
@@ -257,7 +263,6 @@ export interface SeedResolvedItem
 {
   templateExternalId: string
   itemExternalId: string
-  itemId: string
   order: number
   label: string | null
   mediaAssetId: string | null
@@ -267,7 +272,6 @@ export interface SeedResolvedCriterion
 {
   templateExternalId: string
   criterionExternalId: string
-  criterionId: string
   name: string
   shortName: string | null
   prompt: string
@@ -385,11 +389,6 @@ export interface SeedRejectedUpload
   storageId: string
   reason: string
   cleaned: boolean
-}
-
-export interface SeedCleanupRejectedUploadsInput extends SeedRunRequest
-{
-  storageIds: readonly string[]
 }
 
 export interface SeedCleanupAbandonedRunInput extends SeedRunRequest

@@ -42,6 +42,7 @@ import {
   seedCloudBoard,
   seedPublishedRanking,
   seedPublishedTemplate,
+  withSeedEnv,
 } from './convexTestHelpers'
 
 const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
@@ -54,24 +55,7 @@ const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
 const SEED_SECRET = 'test-seed-secret'
 
 const withSeedActionsEnabled = async <T>(run: () => Promise<T>): Promise<T> =>
-{
-  const previousEnabled = process.env.CONVEX_SEED_ENABLED
-  const previousSecret = process.env.CONVEX_SEED_SECRET
-  process.env.CONVEX_SEED_ENABLED = 'true'
-  process.env.CONVEX_SEED_SECRET = SEED_SECRET
-  try
-  {
-    return await run()
-  }
-  finally
-  {
-    if (previousEnabled === undefined) delete process.env.CONVEX_SEED_ENABLED
-    else process.env.CONVEX_SEED_ENABLED = previousEnabled
-
-    if (previousSecret === undefined) delete process.env.CONVEX_SEED_SECRET
-    else process.env.CONVEX_SEED_SECRET = previousSecret
-  }
-}
+  await withSeedEnv(SEED_SECRET, run)
 
 const MULTI_CRITERION_TEST_CRITERIA: MarketplaceTemplateCriterion[] = [
   {

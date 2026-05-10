@@ -6,12 +6,15 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from statistics import median
-from typing import Iterable
+from typing import Iterable, Literal
 
 from PIL import Image
 
 from .manifest import JsonObject
 from .settings import MIXED_TEMPLATE_ITEM_ASPECT_RATIO
+
+# mirror SEED_RATIO_SOURCES in packages/contracts/marketplace/seedPipeline.ts
+RatioSource = Literal["consistent", "mixed-dominant", "mixed-square"]
 
 # keep these constants aligned w/ packages/contracts/workspace/imageMath.ts
 ASPECT_RATIO_TOLERANCE = 0.02
@@ -74,7 +77,7 @@ class CropScan:
 @dataclass(frozen=True)
 class RatioDecision:
     item_aspect_ratio: float
-    ratio_source: str
+    ratio_source: RatioSource
 
 
 def ratios_match(a: float, b: float, tolerance: float = ASPECT_RATIO_TOLERANCE) -> bool:
@@ -88,6 +91,7 @@ def ratios_match(a: float, b: float, tolerance: float = ASPECT_RATIO_TOLERANCE) 
 def resolve_ratio_decision(aspect_ratios: Iterable[float]) -> RatioDecision:
     buckets = _bucket_ratios(list(aspect_ratios))
     dominant = buckets[0] if buckets else None
+    ratio_source: RatioSource
     if len(buckets) <= 1:
         ratio_source = "consistent"
     elif dominant and dominant["count"] > sum(bucket["count"] for bucket in buckets) / 2:
@@ -109,7 +113,7 @@ def resolve_item_transform(
     image_aspect_ratio: float,
     content_bbox: CropBBox | None,
     board_aspect_ratio: float,
-    ratio_source: str,
+    ratio_source: RatioSource,
 ) -> JsonObject | None:
     # consistent folders render at natural ratio, so no per-item transform is needed
     if ratio_source == "consistent" or content_bbox is None:
@@ -329,11 +333,11 @@ def _sample_corner(data: bytes, width: int, x0: int, y0: int) -> tuple[float, fl
 def _pick_background_color(samples: list[tuple[float, float, float]]) -> tuple[float, float, float]:
     best: list[tuple[float, float, float]] = []
     # 3+ matching corners beat median; split corners use median fallback
-    for seed in samples:
+    for anchor in samples:
         cluster = [
             sample
             for sample in samples
-            if _squared_distance(sample, seed) <= COLOR_CONTENT_DISTANCE_SQ
+            if _squared_distance(sample, anchor) <= COLOR_CONTENT_DISTANCE_SQ
         ]
         if len(cluster) > len(best):
             best = cluster

@@ -9,7 +9,14 @@ import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import schema from '../../convex/schema'
 import { sha256Hex } from '../../convex/lib/sha256'
-import { modules, seedPublishedTemplate } from './convexTestHelpers'
+import {
+  buildPngHeader,
+  captureSeedEnv,
+  modules,
+  restoreSeedEnv,
+  seedPublishedTemplate,
+  seedUser,
+} from './convexTestHelpers'
 
 const SEED_SECRET = 'test-seed-secret'
 const DATASET = 'marketplace-core'
@@ -23,18 +30,11 @@ const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
   return t
 }
 
-const originalEnv = {
-  enabled: process.env.CONVEX_SEED_ENABLED,
-  secret: process.env.CONVEX_SEED_SECRET,
-}
+const originalEnv = captureSeedEnv()
 
 const restoreEnv = (): void =>
 {
-  if (originalEnv.enabled === undefined) delete process.env.CONVEX_SEED_ENABLED
-  else process.env.CONVEX_SEED_ENABLED = originalEnv.enabled
-
-  if (originalEnv.secret === undefined) delete process.env.CONVEX_SEED_SECRET
-  else process.env.CONVEX_SEED_SECRET = originalEnv.secret
+  restoreSeedEnv(originalEnv)
 }
 
 const enableSeedApi = (): void =>
@@ -56,22 +56,6 @@ const criteria: MarketplaceTemplateCriterion[] = [
     status: 'active',
   },
 ]
-
-const seedUser = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
-  email: string
-): Promise<Id<'users'>> =>
-  await t.run(
-    async (ctx) =>
-      await ctx.db.insert('users', {
-        name: email,
-        displayName: email,
-        email,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        plan: 'free',
-      })
-  )
 
 const seedTemplateWithItem = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
@@ -169,33 +153,14 @@ const seedRunRow = async (
         datasetKey: DATASET,
         releaseId,
         status,
-        startedAt: 10,
         finishedAt: status === 'building' ? null : 11,
         startedBy: 'test',
         templateCount: 1,
         itemCount: 2,
         imageVariantCount: 4,
-        uploadedBytes: 0,
         error: null,
       })
   )
-
-const buildPngHeader = (width: number, height: number): Uint8Array =>
-{
-  const bytes = new Uint8Array(24)
-  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
-  bytes.set([0x00, 0x00, 0x00, 0x0d], 8)
-  bytes.set([0x49, 0x48, 0x44, 0x52], 12)
-  bytes[16] = (width >>> 24) & 0xff
-  bytes[17] = (width >>> 16) & 0xff
-  bytes[18] = (width >>> 8) & 0xff
-  bytes[19] = width & 0xff
-  bytes[20] = (height >>> 24) & 0xff
-  bytes[21] = (height >>> 16) & 0xff
-  bytes[22] = (height >>> 8) & 0xff
-  bytes[23] = height & 0xff
-  return bytes
-}
 
 const storeImageBytes = async (
   t: ReturnType<typeof convexTest<typeof schema>>,

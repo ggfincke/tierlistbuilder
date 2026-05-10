@@ -4,14 +4,15 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from .build import build_compiled_manifest
+from .build import build_compiled_manifest_with_data
 from .convex_client import ConvexSeedClient, read_seed_settings
 from .diff import build_seed_diff, build_state_request, render_diff_report
-from .manifest import JsonObject, read_json, write_json
+from .manifest import JsonObject, as_list, read_json, write_json
 
 
 SEED_BEGIN_FUNCTION = "marketplace/seedRuns:beginSeedRun"
@@ -32,6 +33,10 @@ CRITERION_BATCH_SIZE = 512
 UPLOAD_URL_BATCH_SIZE = 128
 FINALIZE_ASSET_BATCH_SIZE = 64
 CLEANUP_STORAGE_BATCH_SIZE = 256
+# bound per-asset upload concurrency. each variant POST is one HTTP request
+# from a single Convex storage URL; small pool keeps RTT-bound uploads parallel
+# without overwhelming the deployment
+UPLOAD_WORKERS = 8
 
 # mirror Convex defaults when a manifest omits curated template tiers
 DEFAULT_SUGGESTED_TIERS = [
@@ -96,7 +101,6 @@ def upload_seed_manifest(
     uploaded_assets = _upload_assets(context, assets)
     finalized, rejected = _finalize_uploaded_assets(context, uploaded_assets)
     _write_checkpoint(context)
-    _write_diff_report(context, state, diff, options.env_name)
     return _write_upload_report(context, assets, finalized, rejected)
 
 
@@ -284,7 +288,7 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
                 "suggestedTiers": template.get("suggestedTiers")
                 or DEFAULT_SUGGESTED_TIERS,
                 "itemAspectRatio": template["itemAspectRatio"],
-                "itemCount": len(_as_list(template.get("items"))),
+                "itemCount": len(as_list(template.get("items"))),
             }
         )
     return upserts
@@ -293,7 +297,7 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
 def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
     upserts: list[JsonObject] = []
     for template in _templates(compiled):
-        for item in _as_list(template.get("items")):
+        for item in as_list(template.get("items")):
             if not isinstance(item, dict):
                 continue
             # item identity is stable external ID; order is just mutable placement
@@ -314,7 +318,7 @@ def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
 def build_criterion_upserts(compiled: JsonObject) -> list[JsonObject]:
     upserts: list[JsonObject] = []
     for template in _templates(compiled):
-        for criterion in _as_list(template.get("criteria")):
+        for criterion in as_list(template.get("criteria")):
             if not isinstance(criterion, dict):
                 continue
             # criteria are embedded on templates, but apply still treats them as IDs
@@ -340,10 +344,9 @@ def _load_context(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> SeedRunContext:
-    compiled_path = build_compiled_manifest(
+    compiled_path, compiled = build_compiled_manifest_with_data(
         manifest_path, repo_root, fail_on_warning=options.fail_on_warning
     )
-    compiled = read_json(compiled_path)
     settings = read_seed_settings(
         repo_root, options.env_name, options.convex_url, options.seed_secret
     )
@@ -416,15 +419,26 @@ def _upload_assets(
             for variant in _asset_variants(asset["asset"])
         ]
         upload_rows = _generate_upload_urls(context, variants)
-        for variant, upload_row in zip(variants, upload_rows, strict=True):
-            storage_id = context.client.upload_file(
+        # parallelize per-variant POST: storage uploads are RTT-bound so a small
+        # thread pool turns minutes of sequential waits into seconds of parallel
+        # ones. checkpoint flush is hoisted out of the inner loop so we don't
+        # rewrite the JSON file once per variant
+        def upload_one(args: tuple[JsonObject, JsonObject]) -> str:
+            variant, upload_row = args
+            return context.client.upload_file(
                 upload_row["uploadUrl"],
                 Path(variant["path"]),
                 variant["mimeType"],
             )
+
+        with ThreadPoolExecutor(max_workers=UPLOAD_WORKERS) as pool:
+            storage_ids = list(
+                pool.map(upload_one, list(zip(variants, upload_rows, strict=True)))
+            )
+        for variant, storage_id in zip(variants, storage_ids, strict=True):
             variant["storageId"] = storage_id
             context.checkpoint.setdefault("uploadedStorageIds", []).append(storage_id)
-            _write_checkpoint(context)
+        _write_checkpoint(context)
         uploaded.extend(asset_chunk)
     return uploaded
 
@@ -564,7 +578,7 @@ def _child_upsert_batches(
 def _assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[JsonObject]:
     present = {
         str(media["contentHash"])
-        for media in _as_list(state.get("media"))
+        for media in as_list(state.get("media"))
         if isinstance(media, dict)
     }
     needed: list[JsonObject] = []
@@ -583,7 +597,7 @@ def _compiled_asset_entries(compiled: JsonObject) -> Iterable[JsonObject]:
                 "assetKey": f"{template['externalId']}:cover",
                 "asset": cover,
             }
-        for item in _as_list(template.get("items")):
+        for item in as_list(template.get("items")):
             if isinstance(item, dict) and isinstance(item.get("asset"), dict):
                 yield {
                     "assetKey": f"{template['externalId']}:{item['externalId']}",
@@ -693,6 +707,27 @@ def _write_diff_report(
     return report_path
 
 
+def _report_header(
+    context: SeedRunContext,
+    title: str,
+    dry_run: bool | None = None,
+    extra: list[str] | None = None,
+) -> list[str]:
+    lines = [
+        f"# {title}",
+        "",
+        f"- Dataset: `{context.compiled['datasetKey']}`",
+        f"- Release: `{context.compiled['releaseId']}`",
+        f"- Run: `{context.checkpoint['runId']}`",
+    ]
+    if dry_run is not None:
+        lines.append(f"- Dry run: `{str(dry_run).lower()}`")
+    if extra:
+        lines.extend(extra)
+    lines.append("")
+    return lines
+
+
 def _write_upload_report(
     context: SeedRunContext,
     requested: list[JsonObject],
@@ -700,18 +735,16 @@ def _write_upload_report(
     rejected: list[JsonObject],
     dry_run: bool = False,
 ) -> Path:
-    lines = [
-        "# Seed Upload Report",
-        "",
-        f"- Dataset: `{context.compiled['datasetKey']}`",
-        f"- Release: `{context.compiled['releaseId']}`",
-        f"- Run: `{context.checkpoint['runId']}`",
-        f"- Dry run: `{str(dry_run).lower()}`",
-        f"- Assets requiring upload: {len(requested)}",
-        f"- Assets finalized: {len(finalized)}",
-        f"- Uploads rejected: {len(rejected)}",
-        "",
-    ]
+    lines = _report_header(
+        context,
+        "Seed Upload Report",
+        dry_run=dry_run,
+        extra=[
+            f"- Assets requiring upload: {len(requested)}",
+            f"- Assets finalized: {len(finalized)}",
+            f"- Uploads rejected: {len(rejected)}",
+        ],
+    )
     _append_report_rows(lines, "Finalized Media", finalized, "assetKey")
     _append_report_rows(lines, "Rejected Uploads", rejected, "assetKey")
     return _write_report(context, "upload.md", lines)
@@ -724,15 +757,7 @@ def _write_apply_report(
     item_results: list[JsonObject],
     dry_run: bool = False,
 ) -> Path:
-    lines = [
-        "# Seed Apply Report",
-        "",
-        f"- Dataset: `{context.compiled['datasetKey']}`",
-        f"- Release: `{context.compiled['releaseId']}`",
-        f"- Run: `{context.checkpoint['runId']}`",
-        f"- Dry run: `{str(dry_run).lower()}`",
-        "",
-    ]
+    lines = _report_header(context, "Seed Apply Report", dry_run=dry_run)
     _append_result_summary(lines, "Templates", template_results)
     _append_result_summary(lines, "Criteria", criterion_results)
     _append_result_summary(lines, "Items", item_results)
@@ -744,16 +769,12 @@ def _write_verify_report(
     result: JsonObject,
     dry_run: bool = False,
 ) -> Path:
-    lines = [
-        "# Seed Verify Report",
-        "",
-        f"- Dataset: `{context.compiled['datasetKey']}`",
-        f"- Release: `{context.compiled['releaseId']}`",
-        f"- Run: `{context.checkpoint['runId']}`",
-        f"- Dry run: `{str(dry_run).lower()}`",
-        f"- Verified: `{str(result.get('verified')).lower()}`",
-        "",
-    ]
+    lines = _report_header(
+        context,
+        "Seed Verify Report",
+        dry_run=dry_run,
+        extra=[f"- Verified: `{str(result.get('verified')).lower()}`"],
+    )
     _append_report_rows(lines, "Diagnostics", result.get("diagnostics", []), "code")
     return _write_report(context, "verify.md", lines)
 
@@ -763,20 +784,17 @@ def _write_activation_report(
     result: JsonObject,
     rollback: bool = False,
 ) -> Path:
+    transition = (
+        f"- Rolled back release: `{result['rolledBackReleaseId']}`"
+        if rollback
+        else f"- Previous release: `{result['previousReleaseId']}`"
+    )
     title = "Seed Rollback Report" if rollback else "Seed Activation Report"
-    lines = [
-        f"# {title}",
-        "",
-        f"- Dataset: `{context.compiled['datasetKey']}`",
-        f"- Release: `{context.compiled['releaseId']}`",
-        f"- Run: `{context.checkpoint['runId']}`",
-        f"- Active release: `{result['activeReleaseId']}`",
-        "",
-    ]
-    if rollback:
-        lines.insert(5, f"- Rolled back release: `{result['rolledBackReleaseId']}`")
-    else:
-        lines.insert(5, f"- Previous release: `{result['previousReleaseId']}`")
+    lines = _report_header(
+        context,
+        title,
+        extra=[transition, f"- Active release: `{result['activeReleaseId']}`"],
+    )
     return _write_report(context, "activation.md", lines)
 
 
@@ -787,32 +805,22 @@ def _write_cleanup_report(
     missing: list[str],
     dry_run: bool,
 ) -> Path:
-    lines = [
-        "# Seed Cleanup Report",
-        "",
-        f"- Dataset: `{context.compiled['datasetKey']}`",
-        f"- Release: `{context.compiled['releaseId']}`",
-        f"- Run: `{context.checkpoint['runId']}`",
-        f"- Dry run: `{str(dry_run).lower()}`",
-        f"- Storage IDs requested: {len(requested)}",
-        f"- Storage IDs cleaned: {len(cleaned)}",
-        f"- Storage IDs missing: {len(missing)}",
-        "",
-    ]
+    lines = _report_header(
+        context,
+        "Seed Cleanup Report",
+        dry_run=dry_run,
+        extra=[
+            f"- Storage IDs requested: {len(requested)}",
+            f"- Storage IDs cleaned: {len(cleaned)}",
+            f"- Storage IDs missing: {len(missing)}",
+        ],
+    )
     return _write_report(context, "cleanup.md", lines)
 
 
 def _write_run_report(context: SeedRunContext, steps: list[str]) -> Path:
-    lines = [
-        "# Seed Run Report",
-        "",
-        f"- Dataset: `{context.compiled['datasetKey']}`",
-        f"- Release: `{context.compiled['releaseId']}`",
-        f"- Run: `{context.checkpoint['runId']}`",
-        "",
-        "## Steps",
-        "",
-    ]
+    lines = _report_header(context, "Seed Run Report")
+    lines.extend(["## Steps", ""])
     lines.extend(f"- {step}" for step in steps)
     lines.append("")
     return _write_report(context, "run.md", lines)
@@ -827,7 +835,7 @@ def _append_result_summary(
         return
     keys = sorted({key for result in results for key in result.keys()})
     for key in keys:
-        count = sum(len(_as_list(result.get(key))) for result in results)
+        count = sum(len(as_list(result.get(key))) for result in results)
         lines.append(f"- {key}: {count}")
     lines.append("")
 
@@ -836,7 +844,7 @@ def _append_report_rows(
     lines: list[str], title: str, rows: object, label_key: str
 ) -> None:
     lines.extend([f"## {title}", ""])
-    row_list = _as_list(rows)
+    row_list = as_list(rows)
     if not row_list:
         lines.extend(["- None", ""])
         return
@@ -884,7 +892,7 @@ def _new_run_id(compiled: JsonObject) -> str:
 
 
 def _templates(compiled: JsonObject) -> Iterable[JsonObject]:
-    for template in _as_list(compiled.get("templates")):
+    for template in as_list(compiled.get("templates")):
         if isinstance(template, dict):
             yield template
 
@@ -914,9 +922,3 @@ def _asset_tile_hash(asset: object) -> str | None:
 def _chunks(items: list[JsonObject] | list[str], size: int) -> Iterable[list]:
     for index in range(0, len(items), size):
         yield items[index : index + size]
-
-
-def _as_list(value: object) -> list:
-    if isinstance(value, list):
-        return value
-    return []

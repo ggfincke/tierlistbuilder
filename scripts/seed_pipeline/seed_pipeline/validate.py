@@ -9,7 +9,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from .manifest import JsonObject, read_json
+from .manifest import JsonObject, as_list, as_str, read_json
 from .settings import SOURCE_SCHEMA_RELATIVE_PATH, SUPPORTED_SOURCE_SUFFIXES
 
 
@@ -90,20 +90,20 @@ def _semantic_diagnostics(
     manifest: JsonObject, manifest_path: Path, repo_root: Path
 ) -> list[ValidationDiagnostic]:
     diagnostics: list[ValidationDiagnostic] = []
-    templates = _as_list(manifest.get("templates"))
+    templates = as_list(manifest.get("templates"))
     seen_templates: set[str] = set()
     # validate cross-field rules after schema checks have stabilized key paths
     for template_index, template in enumerate(templates):
         template_path = f"$.templates[{template_index}]"
         if not isinstance(template, dict):
             continue
-        external_id = _as_str(template.get("externalId"))
+        external_id = as_str(template.get("externalId"))
         if external_id in seen_templates:
             diagnostics.append(
                 _error("duplicateTemplateExternalId", template_path, external_id)
             )
         seen_templates.add(external_id)
-        folder = repo_root / _as_str(template.get("folder"))
+        folder = repo_root / as_str(template.get("folder"))
         if not folder.is_dir():
             diagnostics.append(_error("missingTemplateFolder", template_path, str(folder)))
             continue
@@ -128,11 +128,11 @@ def _check_criteria(
     seen: set[str] = set()
     primary_count = 0
     orders: set[int] = set()
-    for index, criterion in enumerate(_as_list(template.get("criteria"))):
+    for index, criterion in enumerate(as_list(template.get("criteria"))):
         path = f"{template_path}.criteria[{index}]"
         if not isinstance(criterion, dict):
             continue
-        external_id = _as_str(criterion.get("externalId"))
+        external_id = as_str(criterion.get("externalId"))
         # criterion external IDs scope to the template, matching Convex upserts
         if external_id in seen:
             diagnostics.append(_error("duplicateCriterionExternalId", path, external_id))
@@ -159,19 +159,19 @@ def _check_items(
 ) -> None:
     seen: set[str] = set()
     label_policy = template.get("labelPolicy")
-    for index, item in enumerate(_as_list(template.get("items"))):
+    for index, item in enumerate(as_list(template.get("items"))):
         path = f"{template_path}.items[{index}]"
         if not isinstance(item, dict):
             continue
-        external_id = _as_str(item.get("externalId"))
+        external_id = as_str(item.get("externalId"))
         # item external IDs scope to the template, not the full dataset
         if external_id in seen:
             diagnostics.append(_error("duplicateItemExternalId", path, external_id))
         seen.add(external_id)
         # production manifests should carry curated labels, not filename fallback
-        if label_policy == "explicit-required" and not _as_str(item.get("label")).strip():
+        if label_policy == "explicit-required" and not as_str(item.get("label")).strip():
             diagnostics.append(_error("missingExplicitLabel", path, external_id))
-        image = _as_str(item.get("image"))
+        image = as_str(item.get("image"))
         _check_source_image(folder / image, f"{path}.image", diagnostics)
 
 
@@ -184,14 +184,6 @@ def _check_source_image(
     # leave image decode, dimensions, & crop checks to the build step
     if not path.is_file():
         diagnostics.append(_error("missingImageFile", pointer, str(path)))
-
-
-def _as_list(value: Any) -> list[Any]:
-    return value if isinstance(value, list) else []
-
-
-def _as_str(value: Any) -> str:
-    return value if isinstance(value, str) else ""
 
 
 def _error(code: str, path: str, message: str) -> ValidationDiagnostic:
