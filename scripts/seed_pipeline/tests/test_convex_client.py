@@ -133,6 +133,36 @@ class ConvexSeedClientTests(unittest.TestCase):
         self.assertEqual(raised.exception.error_code, "invalid_state")
         self.assertEqual(raised.exception.http_status, 409)
 
+    def test_request_timeout_is_not_retried(self) -> None:
+        attempts = 0
+
+        def fake_urlopen(_request: object, timeout: int) -> FakeResponse:
+            nonlocal attempts
+            attempts += 1
+            raise HTTPError(
+                "https://example.convex.site/api/seed/begin",
+                408,
+                "Request Timeout",
+                hdrs=None,
+                fp=BytesIO(b"timed out"),
+            )
+
+        client = ConvexSeedClient(
+            ConvexSeedSettings(
+                site_url="https://example.convex.site",
+                seed_secret="super-secret",
+                env_name="test",
+            )
+        )
+
+        with patch("seed_pipeline.convex_client.urlopen", fake_urlopen):
+            with self.assertRaisesRegex(ConvexClientError, "timed out"):
+                client.mutation(
+                    "marketplace/seedRuns:beginSeedRun",
+                    {"datasetKey": "marketplace-core"},
+                )
+        self.assertEqual(attempts, 1)
+
     def test_settings_resolve_site_url_from_convex_client_url(self) -> None:
         cases = {
             "http://127.0.0.1:3210": "http://127.0.0.1:3211",

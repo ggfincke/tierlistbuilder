@@ -15,9 +15,8 @@ from urllib.request import Request, urlopen
 
 from .manifest import JsonObject
 
-# 409 is OCC conflict, not a transient failure — Convex already retries OCC
-# internally, so a client-side retry just re-hits the same conflict
-RETRYABLE_HTTP_STATUS = {408, 429, 500, 502, 503, 504}
+# 409 is OCC conflict, not a transient failure; 408 is ambiguous for writes.
+RETRYABLE_HTTP_STATUS = {429, 500, 502, 503, 504}
 HTTP_ATTEMPTS = 4
 HTTP_RETRY_BASE_SECONDS = 0.5
 
@@ -38,7 +37,10 @@ SEED_HTTP_ROUTES = {
         "marketplace/seedPipeline/storageUploads:registerSeedUploadedStorageIds",
     ): "/api/seed/register-uploads",
     ("mutation", "marketplace/seedRuns:upsertSeedTemplates"): "/api/seed/upsert-templates",
-    ("mutation", "marketplace/seedRuns:upsertSeedItems"): "/api/seed/upsert-items",
+    (
+        "mutation",
+        "marketplace/seedRuns:syncSeedTemplateItems",
+    ): "/api/seed/sync-template-items",
     ("mutation", "marketplace/seedRuns:upsertSeedCriteria"): "/api/seed/upsert-criteria",
     ("mutation", "marketplace/seedRuns:verifySeedRelease"): "/api/seed/verify",
     ("mutation", "marketplace/seedRuns:activateSeedRelease"): "/api/seed/activate",

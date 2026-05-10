@@ -132,7 +132,6 @@ export const seedTemplateUpsertValidator = v.object({
 })
 
 export const seedItemUpsertValidator = v.object({
-  templateExternalId: v.string(),
   itemExternalId: v.string(),
   order: v.number(),
   label: v.union(v.string(), v.null()),
@@ -202,12 +201,12 @@ export const seedTemplateUpsertOutputValidator = v.object({
   unchanged: v.array(v.string()),
 })
 
-export const seedItemUpsertOutputValidator = v.object({
+export const seedSyncTemplateItemsOutputValidator = v.object({
   created: v.array(seedTemplateItemKeyValidator),
   updated: v.array(seedTemplateItemKeyValidator),
   moved: v.array(seedTemplateItemKeyValidator),
   unchanged: v.array(seedTemplateItemKeyValidator),
-  absentFromRelease: v.array(seedTemplateItemKeyValidator),
+  deleted: v.array(seedTemplateItemKeyValidator),
 })
 
 export const seedCriterionUpsertOutputValidator = v.object({

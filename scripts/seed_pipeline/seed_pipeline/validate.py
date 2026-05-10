@@ -103,7 +103,10 @@ def _semantic_diagnostics(
                 _error("duplicateTemplateExternalId", template_path, external_id)
             )
         seen_templates.add(external_id)
-        folder = repo_root / as_str(template.get("folder"))
+        folder = _repo_local_path(repo_root / as_str(template.get("folder")), repo_root)
+        if folder is None:
+            diagnostics.append(_error("pathEscapesRepo", template_path, external_id))
+            continue
         if not folder.is_dir():
             diagnostics.append(_error("missingTemplateFolder", template_path, str(folder)))
             continue
@@ -113,10 +116,11 @@ def _semantic_diagnostics(
                 repo_root / cover_image,
                 f"{template_path}.coverImage",
                 diagnostics,
+                repo_root,
             )
         # criteria/items each own template-scoped identity rules
         _check_criteria(template, template_path, diagnostics)
-        _check_items(template, folder, template_path, diagnostics)
+        _check_items(template, folder, repo_root, template_path, diagnostics)
     return diagnostics
 
 
@@ -154,6 +158,7 @@ def _check_criteria(
 def _check_items(
     template: dict[str, Any],
     folder: Path,
+    repo_root: Path,
     template_path: str,
     diagnostics: list[ValidationDiagnostic],
 ) -> None:
@@ -172,18 +177,32 @@ def _check_items(
         if label_policy == "explicit-required" and not as_str(item.get("label")).strip():
             diagnostics.append(_error("missingExplicitLabel", path, external_id))
         image = as_str(item.get("image"))
-        _check_source_image(folder / image, f"{path}.image", diagnostics)
+        _check_source_image(folder / image, f"{path}.image", diagnostics, repo_root)
 
 
 def _check_source_image(
-    path: Path, pointer: str, diagnostics: list[ValidationDiagnostic]
+    path: Path, pointer: str, diagnostics: list[ValidationDiagnostic], repo_root: Path
 ) -> None:
+    resolved = _repo_local_path(path, repo_root)
+    if resolved is None:
+        diagnostics.append(_error("pathEscapesRepo", pointer, str(path)))
+        return
+    path = resolved
     # validate extension separately so missing files still get useful format errors
     if path.suffix.lower() not in SUPPORTED_SOURCE_SUFFIXES:
         diagnostics.append(_error("unsupportedImageFormat", pointer, path.name))
     # leave image decode, dimensions, & crop checks to the build step
     if not path.is_file():
         diagnostics.append(_error("missingImageFile", pointer, str(path)))
+
+
+def _repo_local_path(path: Path, repo_root: Path) -> Path | None:
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(repo_root.resolve())
+    except ValueError:
+        return None
+    return resolved
 
 
 def _error(code: str, path: str, message: str) -> ValidationDiagnostic:

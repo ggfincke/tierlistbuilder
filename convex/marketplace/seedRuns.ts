@@ -98,8 +98,8 @@ import {
   seedCriterionUpsertValidator,
   seedDiagnosticValidator,
   seedFinalizedMediaValidator,
-  seedItemUpsertOutputValidator,
   seedItemUpsertValidator,
+  seedSyncTemplateItemsOutputValidator,
   seedRejectedUploadValidator,
   seedResolvedMediaValidator,
   seedRunSummaryValidator,
@@ -479,14 +479,15 @@ export const upsertSeedTemplates = internalMutation({
   },
 })
 
-export const upsertSeedItems = internalMutation({
+export const syncSeedTemplateItems = internalMutation({
   args: {
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
+    templateExternalId: v.string(),
     items: v.array(seedItemUpsertValidator),
   },
-  returns: seedItemUpsertOutputValidator,
+  returns: seedSyncTemplateItemsOutputValidator,
   handler: async (
     ctx,
     args
@@ -495,12 +496,13 @@ export const upsertSeedItems = internalMutation({
     updated: SeedTemplateItemKey[]
     moved: SeedTemplateItemKey[]
     unchanged: SeedTemplateItemKey[]
-    absentFromRelease: SeedTemplateItemKey[]
+    deleted: SeedTemplateItemKey[]
   }> =>
   {
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
+    assertNonemptyString('templateExternalId', args.templateExternalId)
     assertCountRange(
       'items',
       args.items.length,
@@ -509,125 +511,126 @@ export const upsertSeedItems = internalMutation({
     )
     assertUniqueValues(
       'seed item key',
-      args.items.map(
-        (item) => `${item.templateExternalId}/${item.itemExternalId}`
-      )
+      args.items.map((item) => item.itemExternalId)
     )
 
     const created: SeedTemplateItemKey[] = []
     const updated: SeedTemplateItemKey[] = []
     const moved: SeedTemplateItemKey[] = []
     const unchanged: SeedTemplateItemKey[] = []
-    const absentFromRelease: SeedTemplateItemKey[] = []
-    const grouped = groupByTemplateExternalId(args.items as SeedItemUpsertArg[])
-    const { templates: releaseTemplates, byExternalId: templatesByExternalId } =
+    const deleted: SeedTemplateItemKey[] = []
+    const { byExternalId: templatesByExternalId } =
       await loadSeedTemplateLookupForRelease(
         ctx,
         args.datasetKey,
         args.releaseId
       )
-    // pre-resolve every media asset this batch references by full dedupe identity
-    // so tile-hash collisions never attach stale preview variants
-    const firstTemplate = releaseTemplates[0]
-    const itemMediaCache = firstTemplate
-      ? await buildSeedMediaAssetIdByDedupeHashCache(
-          ctx,
-          firstTemplate.authorId,
-          (args.items as SeedItemUpsertArg[]).map(
-            (item) => item.mediaDedupeHash
-          )
-        )
-      : new Map<string, Id<'mediaAssets'>>()
-    for (const [templateExternalId, items] of grouped)
+    const template = templatesByExternalId.get(args.templateExternalId)
+    if (!template)
     {
-      const template = templatesByExternalId.get(templateExternalId)
-      if (!template)
-      {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.notFound,
-          message: `seed template not found: ${templateExternalId}`,
-        })
-      }
-      const seen = new Set<string>()
-      for (const item of items)
-      {
-        assertNonemptyString('itemExternalId', item.itemExternalId)
-        assertNonnegativeInteger('order', item.order)
-        if (item.aspectRatio !== null)
-        {
-          assertPositiveFinite('aspectRatio', item.aspectRatio)
-        }
-        seen.add(item.itemExternalId)
-        const key = toSeedItemKey(item)
-        const mediaAssetId = resolveSeedMediaAssetIdByDedupeHash(
-          itemMediaCache,
-          item.mediaDedupeHash
-        )
-        const existing = await ctx.db
-          .query('templateItems')
-          .withIndex('byTemplateAndExternalId', (q) =>
-            q
-              .eq('templateId', template._id)
-              .eq('externalId', item.itemExternalId)
-          )
-          .unique()
-        const fields = {
-          label: item.label,
-          backgroundColor: null,
-          altText: item.label,
-          mediaAssetId,
-          order: item.order,
-          aspectRatio: item.aspectRatio,
-          imageFit: null,
-          transform: item.transform,
-        }
-        if (!existing)
-        {
-          await ctx.db.insert('templateItems', {
-            templateId: template._id,
-            externalId: item.itemExternalId,
-            ...fields,
-          })
-          created.push(key)
-          continue
-        }
-        const orderChanged = existing.order !== item.order
-        const contentChanged =
-          existing.label !== fields.label ||
-          existing.altText !== fields.altText ||
-          existing.mediaAssetId !== fields.mediaAssetId ||
-          existing.aspectRatio !== fields.aspectRatio ||
-          existing.imageFit !== fields.imageFit ||
-          !valuesEqual(existing.transform, fields.transform)
-        if (!orderChanged && !contentChanged)
-        {
-          unchanged.push(key)
-          continue
-        }
-        await ctx.db.patch(existing._id, fields)
-        if (orderChanged) moved.push(key)
-        if (contentChanged) updated.push(key)
-      }
-
-      const existingItems = await ctx.db
-        .query('templateItems')
-        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-        .take(SEED_LIMITS.itemsPerTemplate)
-      await Promise.all(
-        existingItems
-          .filter((item) => !seen.has(item.externalId))
-          .map(async (item) =>
-          {
-            await ctx.db.delete(item._id)
-            absentFromRelease.push({
-              templateExternalId,
-              itemExternalId: item.externalId,
-            })
-          })
-      )
-      await patchSeedTemplateItemSummary(ctx, template)
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `seed template not found: ${args.templateExternalId}`,
+      })
     }
-    return { created, updated, moved, unchanged, absentFromRelease }
+    if (args.items.length !== template.itemCount)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `seed template item sync for ${args.templateExternalId} expected ${template.itemCount} items, received ${args.items.length}`,
+      })
+    }
+
+    const itemMediaCache = await buildSeedMediaAssetIdByDedupeHashCache(
+      ctx,
+      template.authorId,
+      (args.items as SeedItemUpsertArg[]).map((item) => item.mediaDedupeHash)
+    )
+    const existingItems = await ctx.db
+      .query('templateItems')
+      .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+      .take(SEED_LIMITS.itemsPerTemplate + 1)
+    if (existingItems.length > SEED_LIMITS.itemsPerTemplate)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'seed template item count exceeds apply limit',
+      })
+    }
+    const existingByExternalId = new Map(
+      existingItems.map((item) => [item.externalId, item])
+    )
+    const seen = new Set<string>()
+    for (const item of args.items as SeedItemUpsertArg[])
+    {
+      assertNonemptyString('itemExternalId', item.itemExternalId)
+      assertNonnegativeInteger('order', item.order)
+      if (item.aspectRatio !== null)
+      {
+        assertPositiveFinite('aspectRatio', item.aspectRatio)
+      }
+      seen.add(item.itemExternalId)
+      const key = toSeedItemKey({
+        templateExternalId: args.templateExternalId,
+        itemExternalId: item.itemExternalId,
+      })
+      const mediaAssetId = resolveSeedMediaAssetIdByDedupeHash(
+        itemMediaCache,
+        item.mediaDedupeHash
+      )
+      const existing = existingByExternalId.get(item.itemExternalId) ?? null
+      const fields = {
+        label: item.label,
+        backgroundColor: null,
+        altText: item.label,
+        mediaAssetId,
+        order: item.order,
+        aspectRatio: item.aspectRatio,
+        imageFit: null,
+        transform: item.transform,
+      }
+      if (!existing)
+      {
+        await ctx.db.insert('templateItems', {
+          templateId: template._id,
+          externalId: item.itemExternalId,
+          ...fields,
+        })
+        created.push(key)
+        continue
+      }
+      const orderChanged = existing.order !== item.order
+      const contentChanged =
+        existing.label !== fields.label ||
+        existing.altText !== fields.altText ||
+        existing.mediaAssetId !== fields.mediaAssetId ||
+        existing.aspectRatio !== fields.aspectRatio ||
+        existing.imageFit !== fields.imageFit ||
+        !valuesEqual(existing.transform, fields.transform)
+      if (!orderChanged && !contentChanged)
+      {
+        unchanged.push(key)
+        continue
+      }
+      await ctx.db.patch(existing._id, fields)
+      if (orderChanged) moved.push(key)
+      if (contentChanged) updated.push(key)
+    }
+
+    const rowsToDelete = existingItems.filter(
+      (item) => !seen.has(item.externalId)
+    )
+    await Promise.all(rowsToDelete.map((item) => ctx.db.delete(item._id)))
+    deleted.push(
+      ...rowsToDelete.map((item) =>
+        toSeedItemKey({
+          templateExternalId: args.templateExternalId,
+          itemExternalId: item.externalId,
+        })
+      )
+    )
+    await patchSeedTemplateItemSummary(ctx, template)
+    return { created, updated, moved, unchanged, deleted }
   },
 })
 

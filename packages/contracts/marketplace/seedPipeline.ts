@@ -439,8 +439,9 @@ export interface SeedTemplateUpsertOutput
   unchanged: readonly string[]
 }
 
-export interface SeedUpsertItemsInput extends SeedRunRequest
+export interface SeedSyncTemplateItemsInput extends SeedRunRequest
 {
+  templateExternalId: string
   items: readonly SeedItemUpsert[]
 }
 
@@ -450,8 +451,9 @@ export interface SeedTemplateItemKey
   itemExternalId: string
 }
 
-export interface SeedItemUpsert extends SeedTemplateItemKey
+export interface SeedItemUpsert
 {
+  itemExternalId: string
   order: number
   label: string | null
   mediaDedupeHash: string
@@ -459,13 +461,13 @@ export interface SeedItemUpsert extends SeedTemplateItemKey
   transform: ItemTransform | null
 }
 
-export interface SeedItemUpsertOutput
+export interface SeedSyncTemplateItemsOutput
 {
   created: readonly SeedTemplateItemKey[]
   updated: readonly SeedTemplateItemKey[]
   moved: readonly SeedTemplateItemKey[]
   unchanged: readonly SeedTemplateItemKey[]
-  absentFromRelease: readonly SeedTemplateItemKey[]
+  deleted: readonly SeedTemplateItemKey[]
 }
 
 export interface SeedUpsertCriteriaInput extends SeedRunRequest

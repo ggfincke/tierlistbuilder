@@ -11,10 +11,18 @@ from unittest.mock import patch
 
 from seed_pipeline.manifest import find_repo_root, read_json
 from seed_pipeline.runs import (
+    CLEANUP_STORAGE_BATCH_SIZE,
+    CRITERION_BATCH_SIZE,
+    FINALIZE_ASSET_BATCH_SIZE,
+    ITEM_BATCH_SIZE,
     SeedRunOptions,
+    TEMPLATE_BATCH_SIZE,
+    UPLOAD_URL_BATCH_SIZE,
     _assets_requiring_upload,
     _child_upsert_batches,
     _checkpoint_matches,
+    _is_production_env,
+    _new_run_id,
     build_criterion_upserts,
     build_item_upserts,
     build_template_upserts,
@@ -150,8 +158,41 @@ class SeedRunPayloadTests(unittest.TestCase):
             for function_path, args in client.mutations
             if function_path == "marketplace/seedRuns:activateSeedRelease"
         ][0]
+        sync_args = [
+            args
+            for client in clients
+            for function_path, args in client.mutations
+            if function_path == "marketplace/seedRuns:syncSeedTemplateItems"
+        ][0]
         self.assertEqual(checkpoint["previousActiveReleaseId"], "old-release")
         self.assertEqual(activate_args["previousReleaseId"], "old-release")
+        self.assertEqual(sync_args["templateExternalId"], "gaming:ssbu-fighters")
+        self.assertNotIn("templateExternalId", sync_args["items"][0])
+
+    def test_run_ids_include_entropy_after_timestamp(self) -> None:
+        first = _new_run_id(self.compiled)
+        second = _new_run_id(self.compiled)
+
+        self.assertRegex(first, r"2026-05-templates-v1-\d{8}T\d{6}Z-[0-9a-f]{8}")
+        self.assertNotEqual(first, second)
+
+    def test_production_environment_detection_catches_regional_names(self) -> None:
+        self.assertTrue(_is_production_env("prod"))
+        self.assertTrue(_is_production_env("production-eu"))
+        self.assertTrue(_is_production_env("prod:happy-animal-123"))
+        self.assertFalse(_is_production_env("local"))
+        self.assertFalse(_is_production_env("preprod"))
+
+    def test_python_batch_limits_match_convex_seed_limits(self) -> None:
+        repo_root = find_repo_root()
+        limits = _read_seed_limits(repo_root / "convex" / "lib" / "limits.ts")
+
+        self.assertEqual(TEMPLATE_BATCH_SIZE, limits["templateUpsertsPerCall"])
+        self.assertEqual(ITEM_BATCH_SIZE, limits["itemUpsertsPerCall"])
+        self.assertEqual(CRITERION_BATCH_SIZE, limits["criterionUpsertsPerCall"])
+        self.assertEqual(UPLOAD_URL_BATCH_SIZE, limits["uploadUrlsPerCall"])
+        self.assertEqual(FINALIZE_ASSET_BATCH_SIZE, limits["mediaAssetsPerFinalize"])
+        self.assertEqual(CLEANUP_STORAGE_BATCH_SIZE, limits["storageIdsPerCleanup"])
 
 
 class FakeSeedClient:
@@ -196,6 +237,22 @@ def _collect_asset_dedupe_hash(asset: dict[str, object], hashes: set[str]) -> No
     dedupe_hash = asset.get("dedupeHash")
     if isinstance(dedupe_hash, str):
         hashes.add(dedupe_hash)
+
+
+def _read_seed_limits(path: Path) -> dict[str, int]:
+    source = path.read_text(encoding="utf-8")
+    _, body = source.split("export const SEED_LIMITS = {", 1)
+    body, _ = body.split("} as const", 1)
+    limits: dict[str, int] = {}
+    for line in body.splitlines():
+        stripped = line.strip().rstrip(",")
+        if ":" not in stripped:
+            continue
+        key, value = stripped.split(":", 1)
+        value = value.strip()
+        if value.isdigit():
+            limits[key.strip()] = int(value)
+    return limits
 
 
 if __name__ == "__main__":

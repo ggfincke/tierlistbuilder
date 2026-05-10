@@ -51,7 +51,7 @@ export const SEED_LIMITS = {
   mediaAssetsPerFinalize: 64,
   storageIdsPerCleanup: 256,
   templateUpsertsPerCall: 128,
-  itemUpsertsPerCall: 2048,
+  itemUpsertsPerCall: 4096,
   criterionUpsertsPerCall: 512,
   // bound the byDatasetStatus scan in resolveActiveSeedRuns. one row per
   // (dataset, releaseId, runId) for runs in status='active'; in steady state

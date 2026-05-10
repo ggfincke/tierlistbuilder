@@ -8,6 +8,20 @@ export const SEED_ENABLED_ENV = 'CONVEX_SEED_ENABLED'
 export const SEED_SECRET_ENV = 'CONVEX_SEED_SECRET'
 export const SEED_AUTH_HEADER = 'authorization'
 
+const secretMatches = (actual: string, expected: string): boolean =>
+{
+  const encoder = new TextEncoder()
+  const actualBytes = encoder.encode(actual)
+  const expectedBytes = encoder.encode(expected)
+  const length = Math.max(actualBytes.length, expectedBytes.length)
+  let diff = actualBytes.length ^ expectedBytes.length
+  for (let index = 0; index < length; index += 1)
+  {
+    diff |= (actualBytes[index] ?? 0) ^ (expectedBytes[index] ?? 0)
+  }
+  return diff === 0
+}
+
 export const requireSeedAuthorized = (seedSecret: string): void =>
 {
   if (process.env[SEED_ENABLED_ENV] !== 'true')
@@ -19,7 +33,7 @@ export const requireSeedAuthorized = (seedSecret: string): void =>
   }
 
   const expectedSecret = process.env[SEED_SECRET_ENV]
-  if (!expectedSecret || seedSecret !== expectedSecret)
+  if (!expectedSecret || !secretMatches(seedSecret, expectedSecret))
   {
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.forbidden,

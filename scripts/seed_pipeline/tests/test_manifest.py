@@ -62,6 +62,25 @@ class ManifestValidationTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.errors[0].code, "missingManifest")
 
+    def test_validate_rejects_symlinked_images_outside_repo(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repo"
+            outside = Path(directory) / "outside"
+            _write_repo_fixture(root)
+            outside.mkdir()
+            Image.new("RGBA", (32, 32), (255, 255, 0, 255)).save(
+                outside / "escape.png"
+            )
+            link = root / "examples" / "gaming" / "ssbu-fighters" / "escape.png"
+            link.symlink_to(outside / "escape.png")
+            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
+            manifest = _source_manifest()
+            manifest["templates"][0]["items"][0]["image"] = "escape.png"
+            _write_json(manifest_path, manifest)
+            result = validate_source_manifest(manifest_path, root)
+        self.assertFalse(result.ok)
+        self.assertIn("pathEscapesRepo", {error.code for error in result.errors})
+
     def test_build_writes_deterministic_compiled_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

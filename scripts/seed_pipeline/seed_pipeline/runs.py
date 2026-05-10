@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,14 +36,14 @@ SEED_CLEANUP_FUNCTION = (
     "marketplace/seedPipeline/storageUploads:cleanupAbandonedSeedRun"
 )
 SEED_UPSERT_TEMPLATES_FUNCTION = "marketplace/seedRuns:upsertSeedTemplates"
-SEED_UPSERT_ITEMS_FUNCTION = "marketplace/seedRuns:upsertSeedItems"
+SEED_SYNC_TEMPLATE_ITEMS_FUNCTION = "marketplace/seedRuns:syncSeedTemplateItems"
 SEED_UPSERT_CRITERIA_FUNCTION = "marketplace/seedRuns:upsertSeedCriteria"
 SEED_VERIFY_FUNCTION = "marketplace/seedRuns:verifySeedRelease"
 SEED_ACTIVATE_FUNCTION = "marketplace/seedRuns:activateSeedRelease"
 SEED_ROLLBACK_FUNCTION = "marketplace/seedRuns:rollbackSeedRelease"
 
 TEMPLATE_BATCH_SIZE = 128
-ITEM_BATCH_SIZE = 2048
+ITEM_BATCH_SIZE = 4096
 CRITERION_BATCH_SIZE = 512
 UPLOAD_URL_BATCH_SIZE = 128
 FINALIZE_ASSET_BATCH_SIZE = 64
@@ -583,10 +584,19 @@ def _upsert_items(context: SeedRunContext) -> list[JsonObject]:
     for chunk in _child_upsert_batches(
         build_item_upserts(context.compiled), ITEM_BATCH_SIZE, "items"
     ):
+        template_external_id = str(chunk[0]["templateExternalId"])
+        items = [
+            {key: value for key, value in item.items() if key != "templateExternalId"}
+            for item in chunk
+        ]
         results.append(
             context.client.mutation(
-                SEED_UPSERT_ITEMS_FUNCTION,
-                {**_run_request(context), "items": chunk},
+                SEED_SYNC_TEMPLATE_ITEMS_FUNCTION,
+                {
+                    **_run_request(context),
+                    "templateExternalId": template_external_id,
+                    "items": items,
+                },
             )
         )
     return results
@@ -611,7 +621,7 @@ def _child_upsert_batches(
 ) -> list[list[JsonObject]]:
     groups: dict[str, list[JsonObject]] = {}
     for row in rows:
-        # server upserts prune missing children per template, so never split one template
+        # server sync prunes missing children per template, so never split a template
         template_external_id = str(row["templateExternalId"])
         groups.setdefault(template_external_id, []).append(row)
     batches = []
@@ -723,9 +733,16 @@ def _run_request(context: SeedRunContext) -> JsonObject:
 def _assert_write_allowed(options: SeedRunOptions, command: str) -> None:
     if options.dry_run:
         return
-    if options.env_name.lower() in {"prod", "production"} and not options.yes:
+    if _is_production_env(options.env_name) and not options.yes:
         msg = f"{command} against production requires --yes"
         raise RuntimeError(msg)
+
+
+def _is_production_env(env_name: str) -> bool:
+    normalized = env_name.strip().lower()
+    return normalized in {"prod", "production"} or normalized.startswith(
+        ("prod-", "prod_", "prod:", "production-", "production_", "production:")
+    )
 
 
 def _assert_upload_budget(
@@ -767,7 +784,7 @@ def _write_checkpoint(context: SeedRunContext) -> None:
 
 def _new_run_id(compiled: JsonObject) -> str:
     timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    return f"{compiled['releaseId']}-{timestamp}"
+    return f"{compiled['releaseId']}-{timestamp}-{uuid.uuid4().hex[:8]}"
 
 
 def _templates(compiled: JsonObject) -> Iterable[JsonObject]:

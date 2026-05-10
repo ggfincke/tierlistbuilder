@@ -599,14 +599,14 @@ describe('seed run precheck API', () =>
     ])
 
     const firstItems = await t.mutation(
-      internal.marketplace.seedRuns.upsertSeedItems,
+      internal.marketplace.seedRuns.syncSeedTemplateItems,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
+        templateExternalId: 'gaming:ssbu-fighters',
         items: [
           {
-            templateExternalId: 'gaming:ssbu-fighters',
             itemExternalId: 'mario',
             order: 0,
             label: 'Mario',
@@ -615,7 +615,6 @@ describe('seed run precheck API', () =>
             transform: null,
           },
           {
-            templateExternalId: 'gaming:ssbu-fighters',
             itemExternalId: 'link',
             order: 1,
             label: 'Link',
@@ -627,14 +626,14 @@ describe('seed run precheck API', () =>
       }
     )
     const sameItems = await t.mutation(
-      internal.marketplace.seedRuns.upsertSeedItems,
+      internal.marketplace.seedRuns.syncSeedTemplateItems,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
+        templateExternalId: 'gaming:ssbu-fighters',
         items: [
           {
-            templateExternalId: 'gaming:ssbu-fighters',
             itemExternalId: 'mario',
             order: 0,
             label: 'Mario',
@@ -643,7 +642,6 @@ describe('seed run precheck API', () =>
             transform: null,
           },
           {
-            templateExternalId: 'gaming:ssbu-fighters',
             itemExternalId: 'link',
             order: 1,
             label: 'Link',
@@ -655,13 +653,13 @@ describe('seed run precheck API', () =>
       }
     )
     await expect(
-      t.mutation(internal.marketplace.seedRuns.upsertSeedItems, {
+      t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
+        templateExternalId: 'gaming:ssbu-fighters',
         items: [
           {
-            templateExternalId: 'gaming:ssbu-fighters',
             itemExternalId: 'mario',
             order: 0,
             label: 'Mario',
@@ -670,7 +668,6 @@ describe('seed run precheck API', () =>
             transform: null,
           },
           {
-            templateExternalId: 'gaming:ssbu-fighters',
             itemExternalId: 'mario',
             order: 1,
             label: 'Mario duplicate',
@@ -681,15 +678,39 @@ describe('seed run precheck API', () =>
         ],
       })
     ).rejects.toThrow(/duplicate seed item key/)
+    await expect(
+      t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-apply',
+        templateExternalId: 'gaming:ssbu-fighters',
+        items: [
+          {
+            itemExternalId: 'mario',
+            order: 1,
+            label: 'Super Mario',
+            mediaDedupeHash: 'tile:hash-mario',
+            aspectRatio: 1,
+            transform: null,
+          },
+        ],
+      })
+    ).rejects.toThrow(/expected 2 items, received 1/)
+    await t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
+      ...templateInput,
+      templates: [
+        { ...templateInput.templates[0], title: 'SSBU fighters', itemCount: 1 },
+      ],
+    })
     const changedItems = await t.mutation(
-      internal.marketplace.seedRuns.upsertSeedItems,
+      internal.marketplace.seedRuns.syncSeedTemplateItems,
       {
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
+        templateExternalId: 'gaming:ssbu-fighters',
         items: [
           {
-            templateExternalId: 'gaming:ssbu-fighters',
             itemExternalId: 'mario',
             order: 1,
             label: 'Super Mario',
@@ -709,7 +730,7 @@ describe('seed run precheck API', () =>
     expect(changedItems.updated).toEqual([
       { templateExternalId: 'gaming:ssbu-fighters', itemExternalId: 'mario' },
     ])
-    expect(changedItems.absentFromRelease).toEqual([
+    expect(changedItems.deleted).toEqual([
       { templateExternalId: 'gaming:ssbu-fighters', itemExternalId: 'link' },
     ])
 
@@ -789,13 +810,13 @@ describe('seed run precheck API', () =>
         },
       ],
     })
-    await t.mutation(internal.marketplace.seedRuns.upsertSeedItems, {
+    await t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-dedupe-media',
+      templateExternalId: 'gaming:ssbu-fighters',
       items: [
         {
-          templateExternalId: 'gaming:ssbu-fighters',
           itemExternalId: 'mario',
           order: 0,
           label: 'Mario',
@@ -906,13 +927,13 @@ describe('seed run precheck API', () =>
         },
       ],
     })
-    await t.mutation(internal.marketplace.seedRuns.upsertSeedItems, {
+    await t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
+      templateExternalId: 'gaming:ssbu-fighters',
       items: [
         {
-          templateExternalId: 'gaming:ssbu-fighters',
           itemExternalId: 'mario',
           order: 0,
           label: 'Mario',
@@ -921,7 +942,6 @@ describe('seed run precheck API', () =>
           transform: null,
         },
         {
-          templateExternalId: 'gaming:ssbu-fighters',
           itemExternalId: 'link',
           order: 1,
           label: 'Link',
@@ -1015,13 +1035,13 @@ describe('seed run precheck API', () =>
     expect(activatedRows.run?.status).toBe('active')
     expect(activatedRows.stats?.publicTemplateCount).toBe(1)
 
-    await t.mutation(internal.marketplace.seedRuns.upsertSeedItems, {
+    await t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
+      templateExternalId: 'gaming:ssbu-fighters',
       items: [
         {
-          templateExternalId: 'gaming:ssbu-fighters',
           itemExternalId: 'mario',
           order: 0,
           label: 'Super Mario',
@@ -1030,7 +1050,6 @@ describe('seed run precheck API', () =>
           transform: null,
         },
         {
-          templateExternalId: 'gaming:ssbu-fighters',
           itemExternalId: 'link',
           order: 1,
           label: 'Link',

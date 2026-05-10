@@ -240,13 +240,9 @@ export const finalizeSeedMediaAsset = async (
   await validateSeedUploadedAsset(asset)
   const verified: VerifiedSeedVariant[] = []
   const rejected: SeedRejectedUpload[] = []
-  const results = await Promise.all(
-    asset.variants.map((upload) =>
-      loadVerifiedSeedVariant(ctx, asset.assetKey, upload)
-    )
-  )
-  for (const result of results)
+  for (const upload of asset.variants)
   {
+    const result = await loadVerifiedSeedVariant(ctx, asset.assetKey, upload)
     if (result.kind === 'rejected') rejected.push(result.rejected)
     else verified.push(result.variant)
   }
