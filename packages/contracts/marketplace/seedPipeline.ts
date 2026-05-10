@@ -353,6 +353,13 @@ export interface SeedUploadedVariant
 
 export interface SeedFinalizeUploadedMediaInput extends SeedRunRequest
 {
+  authorEmail: string
+  assets: readonly SeedUploadedMediaAsset[]
+}
+
+export interface SeedUploadedMediaAsset
+{
+  assetKey: string
   variants: readonly SeedUploadedVariant[]
 }
 
@@ -364,7 +371,8 @@ export interface SeedFinalizeUploadedMediaOutput
 
 export interface SeedFinalizedMedia
 {
-  contentHash: string
+  assetKey: string
+  contentHashes: readonly string[]
   mediaAssetId: string
   reused: boolean
 }
@@ -382,7 +390,10 @@ export interface SeedCleanupRejectedUploadsInput extends SeedRunRequest
   storageIds: readonly string[]
 }
 
-export type SeedCleanupAbandonedRunInput = SeedRunRequest
+export interface SeedCleanupAbandonedRunInput extends SeedRunRequest
+{
+  storageIds: readonly string[]
+}
 
 export interface SeedCleanupOutput
 {

@@ -3,22 +3,36 @@
 
 import { ConvexError, v } from 'convex/values'
 import {
+  action,
+  internalQuery,
   mutation,
   query,
+  type ActionCtx,
   type MutationCtx,
   type QueryCtx,
 } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
+import { internal } from '../_generated/api'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import {
+  MAX_IMAGE_BYTE_SIZE,
+  type MediaVariantKind,
+  type SupportedImageMimeType,
+} from '@tierlistbuilder/contracts/platform/media'
 import type {
   SeedBeginRunOutput,
+  SeedRejectedUpload,
   SeedResolvedCriterion,
   SeedResolvedItem,
   SeedResolvedMedia,
   SeedReleaseStatus,
   SeedRunSummary,
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
+import { parseUploadedImageMetadata } from '../lib/imageValidation'
+import { sha256Hex } from '../lib/sha256'
+import { deleteStorageSilently } from '../lib/storage'
 import {
+  imageMimeTypeValidator,
   mediaVariantKindValidator,
   seedReleaseStatusValidator,
   templateCategoryValidator,
@@ -56,10 +70,64 @@ type SeedResolveStateResult = {
   absentFromManifest: SeedRemovalCandidate[]
 }
 
+type SeedUploadVariantKind = Extract<MediaVariantKind, 'tile' | 'preview'>
+
+type SeedUploadedVariantArg = {
+  contentHash: string
+  storageId: Id<'_storage'>
+  kind: SeedUploadVariantKind
+  expectedMimeType: SupportedImageMimeType
+  expectedByteSize: number
+  expectedWidth: number
+  expectedHeight: number
+}
+
+type SeedUploadedMediaAssetArg = {
+  assetKey: string
+  variants: SeedUploadedVariantArg[]
+}
+
+type VerifiedSeedVariant = {
+  kind: SeedUploadVariantKind
+  storageId: Id<'_storage'>
+  contentHash: string
+  mimeType: SupportedImageMimeType
+  width: number
+  height: number
+  byteSize: number
+}
+
+type SeedUploadUrlRow = {
+  contentHash: string
+  uploadUrl: string
+  expiresAt: number
+}
+
+type SeedCleanupResult = {
+  cleanedStorageIds: string[]
+  missingStorageIds: string[]
+}
+
+type SeedFinalizedMediaRow = {
+  assetKey: string
+  contentHashes: string[]
+  mediaAssetId: string
+  reused: boolean
+}
+
 const MAX_SEED_STATE_IDS = 8192
 const MAX_SEED_TEMPLATES_PER_DIFF = 2048
 const MAX_SEED_ITEMS_PER_TEMPLATE = 4096
 const MAX_MEDIA_VARIANTS_PER_HASH = 64
+const MAX_SEED_UPLOAD_URLS_PER_CALL = 128
+const MAX_SEED_MEDIA_ASSETS_PER_FINALIZE = 64
+const MAX_SEED_STORAGE_IDS_PER_CLEANUP = 256
+const SEED_UPLOAD_URL_TTL_MS = 60 * 60 * 1000
+
+const seedUploadVariantKindValidator = v.union(
+  v.literal('tile'),
+  v.literal('preview')
+)
 
 const seedRunSummaryValidator = v.object({
   runId: v.string(),
@@ -129,6 +197,53 @@ const seedResolvedMediaValidator = v.object({
   byteSize: v.number(),
 })
 
+const seedUploadVariantRequestValidator = v.object({
+  contentHash: v.string(),
+  kind: seedUploadVariantKindValidator,
+  mimeType: imageMimeTypeValidator,
+  byteSize: v.number(),
+})
+
+const seedUploadUrlValidator = v.object({
+  contentHash: v.string(),
+  uploadUrl: v.string(),
+  expiresAt: v.number(),
+})
+
+const seedUploadedVariantValidator = v.object({
+  contentHash: v.string(),
+  storageId: v.id('_storage'),
+  kind: seedUploadVariantKindValidator,
+  expectedMimeType: imageMimeTypeValidator,
+  expectedByteSize: v.number(),
+  expectedWidth: v.number(),
+  expectedHeight: v.number(),
+})
+
+const seedUploadedMediaAssetValidator = v.object({
+  assetKey: v.string(),
+  variants: v.array(seedUploadedVariantValidator),
+})
+
+const seedFinalizedMediaValidator = v.object({
+  assetKey: v.string(),
+  contentHashes: v.array(v.string()),
+  mediaAssetId: v.string(),
+  reused: v.boolean(),
+})
+
+const seedRejectedUploadValidator = v.object({
+  contentHash: v.string(),
+  storageId: v.string(),
+  reason: v.string(),
+  cleaned: v.boolean(),
+})
+
+const seedCleanupOutputValidator = v.object({
+  cleanedStorageIds: v.array(v.string()),
+  missingStorageIds: v.array(v.string()),
+})
+
 const seedRemovalCandidateValidator = v.object({
   templateExternalId: v.string(),
   itemExternalId: v.optional(v.string()),
@@ -167,6 +282,22 @@ const assertBatchSize = (name: string, count: number): void =>
   }
 }
 
+const assertCountRange = (
+  name: string,
+  count: number,
+  min: number,
+  max: number
+): void =>
+{
+  if (count < min || count > max)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `${name} must include ${min}..${max} entries`,
+    })
+  }
+}
+
 const assertNonemptyString = (name: string, value: string): void =>
 {
   if (value.trim().length === 0)
@@ -185,6 +316,17 @@ const assertNonnegativeInteger = (name: string, value: number): void =>
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.invalidInput,
       message: `${name} must be a nonnegative integer`,
+    })
+  }
+}
+
+const assertPositiveInteger = (name: string, value: number): void =>
+{
+  if (!Number.isInteger(value) || value < 1)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: `${name} must be a positive integer`,
     })
   }
 }
@@ -223,6 +365,34 @@ const findSeedAuthorId = async (
     .unique()
   return user?._id ?? null
 }
+
+export const findSeedAuthorIdByEmail = internalQuery({
+  args: { email: v.string() },
+  returns: v.union(v.id('users'), v.null()),
+  handler: async (ctx, args): Promise<Id<'users'> | null> =>
+    await findSeedAuthorId(ctx, args.email),
+})
+
+export const findSeedMediaByOwnerAndDedupeHash = internalQuery({
+  args: {
+    ownerId: v.id('users'),
+    dedupeHash: v.string(),
+  },
+  returns: v.union(v.object({ mediaAssetId: v.id('mediaAssets') }), v.null()),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ mediaAssetId: Id<'mediaAssets'> } | null> =>
+  {
+    const media = await ctx.db
+      .query('mediaAssets')
+      .withIndex('byOwnerAndDedupeHash', (q) =>
+        q.eq('ownerId', args.ownerId).eq('dedupeHash', args.dedupeHash)
+      )
+      .unique()
+    return media ? { mediaAssetId: media._id } : null
+  },
+})
 
 const loadSeedTemplate = async (
   ctx: QueryCtx,
@@ -454,6 +624,256 @@ const keySetByTemplate = <T extends { templateExternalId: string }>(
   return map
 }
 
+const rejectUploadedVariant = async (
+  ctx: ActionCtx,
+  variant: SeedUploadedVariantArg,
+  reason: string
+): Promise<SeedRejectedUpload> =>
+{
+  await deleteStorageSilently(ctx, variant.storageId)
+  return {
+    contentHash: variant.contentHash,
+    storageId: variant.storageId as string,
+    reason,
+    cleaned: true,
+  }
+}
+
+const loadVerifiedSeedVariant = async (
+  ctx: ActionCtx,
+  variant: SeedUploadedVariantArg
+): Promise<
+  | { kind: 'verified'; variant: VerifiedSeedVariant }
+  | { kind: 'rejected'; rejected: SeedRejectedUpload }
+> =>
+{
+  const metadata = await ctx.runQuery(internal.lib.storage.getStorageMetadata, {
+    storageId: variant.storageId,
+  })
+  if (!metadata)
+  {
+    return {
+      kind: 'rejected',
+      rejected: {
+        contentHash: variant.contentHash,
+        storageId: variant.storageId as string,
+        reason: 'uploaded storage object not found',
+        cleaned: false,
+      },
+    }
+  }
+  if (metadata.size > MAX_IMAGE_BYTE_SIZE)
+  {
+    return {
+      kind: 'rejected',
+      rejected: await rejectUploadedVariant(
+        ctx,
+        variant,
+        `uploaded image blob too large: ${metadata.size} > ${MAX_IMAGE_BYTE_SIZE}`
+      ),
+    }
+  }
+
+  const blob = await ctx.storage.get(variant.storageId)
+  if (!blob)
+  {
+    return {
+      kind: 'rejected',
+      rejected: {
+        contentHash: variant.contentHash,
+        storageId: variant.storageId as string,
+        reason: 'uploaded image blob not found',
+        cleaned: false,
+      },
+    }
+  }
+
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let parsed: ReturnType<typeof parseUploadedImageMetadata>
+  let actualHash: string
+  try
+  {
+    parsed = parseUploadedImageMetadata(bytes)
+    actualHash = await sha256Hex(bytes as BufferSource)
+  }
+  catch (error)
+  {
+    return {
+      kind: 'rejected',
+      rejected: await rejectUploadedVariant(
+        ctx,
+        variant,
+        error instanceof Error ? error.message : 'invalid uploaded image'
+      ),
+    }
+  }
+  const failures: string[] = []
+  if (actualHash !== variant.contentHash) failures.push('contentHash')
+  if (parsed.mimeType !== variant.expectedMimeType) failures.push('mimeType')
+  if (bytes.byteLength !== variant.expectedByteSize) failures.push('byteSize')
+  if (parsed.width !== variant.expectedWidth) failures.push('width')
+  if (parsed.height !== variant.expectedHeight) failures.push('height')
+  if (failures.length > 0)
+  {
+    return {
+      kind: 'rejected',
+      rejected: await rejectUploadedVariant(
+        ctx,
+        variant,
+        `uploaded variant mismatch: ${failures.join(', ')}`
+      ),
+    }
+  }
+
+  return {
+    kind: 'verified',
+    variant: {
+      kind: variant.kind,
+      storageId: variant.storageId,
+      contentHash: actualHash,
+      mimeType: parsed.mimeType,
+      width: parsed.width,
+      height: parsed.height,
+      byteSize: bytes.byteLength,
+    },
+  }
+}
+
+const normalizeSeedVerifiedVariants = (
+  variants: readonly VerifiedSeedVariant[]
+): string =>
+  variants
+    .map((variant) => `${variant.kind}:${variant.contentHash}`)
+    .sort()
+    .join('|')
+
+const validateSeedUploadedAsset = (asset: SeedUploadedMediaAssetArg): void =>
+{
+  assertNonemptyString('assetKey', asset.assetKey)
+  if (asset.variants.length < 1 || asset.variants.length > 2)
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'seed media asset must include 1..2 variants',
+    })
+  }
+  const kinds = new Set<SeedUploadVariantKind>()
+  for (const variant of asset.variants)
+  {
+    if (kinds.has(variant.kind))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `duplicate seed media variant kind: ${variant.kind}`,
+      })
+    }
+    kinds.add(variant.kind)
+    assertNonemptyString('contentHash', variant.contentHash)
+    assertPositiveInteger('expectedByteSize', variant.expectedByteSize)
+    assertPositiveInteger('expectedWidth', variant.expectedWidth)
+    assertPositiveInteger('expectedHeight', variant.expectedHeight)
+  }
+  if (!kinds.has('tile'))
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidInput,
+      message: 'seed media asset finalization requires a tile variant',
+    })
+  }
+}
+
+const cleanupStorageIds = async (
+  ctx: ActionCtx,
+  storageIds: readonly Id<'_storage'>[]
+): Promise<SeedCleanupResult> =>
+{
+  const cleanedStorageIds: string[] = []
+  const missingStorageIds: string[] = []
+  for (const storageId of storageIds)
+  {
+    const metadata = await ctx.runQuery(
+      internal.lib.storage.getStorageMetadata,
+      {
+        storageId,
+      }
+    )
+    if (!metadata)
+    {
+      missingStorageIds.push(storageId as string)
+      continue
+    }
+    await deleteStorageSilently(ctx, storageId)
+    cleanedStorageIds.push(storageId as string)
+  }
+  return { cleanedStorageIds, missingStorageIds }
+}
+
+const finalizeSeedMediaAsset = async (
+  ctx: ActionCtx,
+  authorId: Id<'users'>,
+  asset: SeedUploadedMediaAssetArg
+): Promise<{
+  finalized: SeedFinalizedMediaRow | null
+  rejected: SeedRejectedUpload[]
+}> =>
+{
+  validateSeedUploadedAsset(asset)
+  const verified: VerifiedSeedVariant[] = []
+  const rejected: SeedRejectedUpload[] = []
+  for (const upload of asset.variants)
+  {
+    const result = await loadVerifiedSeedVariant(ctx, upload)
+    if (result.kind === 'rejected') rejected.push(result.rejected)
+    else verified.push(result.variant)
+  }
+
+  if (rejected.length > 0)
+  {
+    await cleanupStorageIds(
+      ctx,
+      verified.map((variant) => variant.storageId)
+    )
+    return { finalized: null, rejected }
+  }
+
+  const dedupeHash = normalizeSeedVerifiedVariants(verified)
+  const existing: { mediaAssetId: Id<'mediaAssets'> } | null =
+    await ctx.runQuery(
+      internal.marketplace.seedRuns.findSeedMediaByOwnerAndDedupeHash,
+      {
+        ownerId: authorId,
+        dedupeHash,
+      }
+    )
+  try
+  {
+    const finalized = await ctx.runMutation(
+      internal.platform.media.internal.finalizeVerifiedMediaAsset,
+      {
+        userId: authorId,
+        variants: verified,
+      }
+    )
+    return {
+      finalized: {
+        assetKey: asset.assetKey,
+        contentHashes: verified.map((variant) => variant.contentHash),
+        mediaAssetId: finalized.mediaAssetId as string,
+        reused: existing?.mediaAssetId === finalized.mediaAssetId,
+      },
+      rejected: [],
+    }
+  }
+  catch (error)
+  {
+    await cleanupStorageIds(
+      ctx,
+      verified.map((variant) => variant.storageId)
+    )
+    throw error
+  }
+}
+
 export const beginSeedRun = mutation({
   args: {
     seedSecret: v.string(),
@@ -518,6 +938,157 @@ export const beginSeedRun = mutation({
       })
     }
     return { run: summarizeRun(run) }
+  },
+})
+
+export const generateSeedUploadUrls = mutation({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    variants: v.array(seedUploadVariantRequestValidator),
+  },
+  returns: v.object({ urls: v.array(seedUploadUrlValidator) }),
+  handler: async (ctx, args): Promise<{ urls: SeedUploadUrlRow[] }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertCountRange(
+      'variants',
+      args.variants.length,
+      1,
+      MAX_SEED_UPLOAD_URLS_PER_CALL
+    )
+    const expiresAt = Date.now() + SEED_UPLOAD_URL_TTL_MS
+    const urls = await Promise.all(
+      args.variants.map(async (variant) =>
+      {
+        assertNonemptyString('contentHash', variant.contentHash)
+        assertPositiveInteger('byteSize', variant.byteSize)
+        if (variant.byteSize > MAX_IMAGE_BYTE_SIZE)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.payloadTooLarge,
+            message: `seed upload variant too large: ${variant.byteSize} > ${MAX_IMAGE_BYTE_SIZE}`,
+          })
+        }
+        return {
+          contentHash: variant.contentHash,
+          uploadUrl: await ctx.storage.generateUploadUrl(),
+          expiresAt,
+        }
+      })
+    )
+    return { urls }
+  },
+})
+
+export const finalizeSeedUploadedMedia = action({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    authorEmail: v.string(),
+    assets: v.array(seedUploadedMediaAssetValidator),
+  },
+  returns: v.object({
+    finalized: v.array(seedFinalizedMediaValidator),
+    rejected: v.array(seedRejectedUploadValidator),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    finalized: SeedFinalizedMediaRow[]
+    rejected: SeedRejectedUpload[]
+  }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertNonemptyString('authorEmail', args.authorEmail)
+    assertCountRange(
+      'assets',
+      args.assets.length,
+      1,
+      MAX_SEED_MEDIA_ASSETS_PER_FINALIZE
+    )
+    const authorId: Id<'users'> | null = await ctx.runQuery(
+      internal.marketplace.seedRuns.findSeedAuthorIdByEmail,
+      { email: args.authorEmail }
+    )
+    if (!authorId)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.notFound,
+        message: `seed author user not found: ${args.authorEmail}`,
+      })
+    }
+
+    const finalized: SeedFinalizedMediaRow[] = []
+    const rejected: SeedRejectedUpload[] = []
+    for (const asset of args.assets)
+    {
+      const result = await finalizeSeedMediaAsset(ctx, authorId, asset)
+      if (result.finalized) finalized.push(result.finalized)
+      rejected.push(...result.rejected)
+    }
+    return { finalized, rejected }
+  },
+})
+
+export const cleanupRejectedSeedUploads = action({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    storageIds: v.array(v.id('_storage')),
+  },
+  returns: seedCleanupOutputValidator,
+  handler: async (ctx, args): Promise<SeedCleanupResult> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertCountRange(
+      'storageIds',
+      args.storageIds.length,
+      0,
+      MAX_SEED_STORAGE_IDS_PER_CLEANUP
+    )
+    return await cleanupStorageIds(ctx, args.storageIds)
+  },
+})
+
+export const cleanupAbandonedSeedRun = action({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    storageIds: v.array(v.id('_storage')),
+  },
+  returns: seedCleanupOutputValidator,
+  handler: async (ctx, args): Promise<SeedCleanupResult> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertCountRange(
+      'storageIds',
+      args.storageIds.length,
+      0,
+      MAX_SEED_STORAGE_IDS_PER_CLEANUP
+    )
+    return await cleanupStorageIds(ctx, args.storageIds)
   },
 })
 
