@@ -226,7 +226,13 @@ const supersedePublicRankingsInLane = async (
   now: number
 ): Promise<void> =>
 {
-  const rows = await ctx.db
+  const patchBatch: Promise<void>[] = []
+  const flushPatchBatch = async () =>
+  {
+    await Promise.all(patchBatch)
+    patchBatch.length = 0
+  }
+  const rows = ctx.db
     .query('publishedRankings')
     .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
       q
@@ -235,22 +241,24 @@ const supersedePublicRankingsInLane = async (
         .eq('ownerId', ownerId)
         .eq('isPubliclyListable', true)
     )
-    .collect()
-  await Promise.all(
-    rows
-      .filter(
-        (ranking) =>
-          ranking._id !== replacementRankingId && isPublicRankingRow(ranking)
-      )
-      .map((ranking) =>
-        ctx.db.patch(ranking._id, {
-          isPubliclyListable: false,
-          supersededAt: now,
-          supersededByRankingId: replacementRankingId,
-          updatedAt: now,
-        })
-      )
-  )
+  for await (const ranking of rows)
+  {
+    if (ranking._id === replacementRankingId) continue
+    if (!isPublicRankingRow(ranking)) continue
+    patchBatch.push(
+      ctx.db.patch(ranking._id, {
+        isPubliclyListable: false,
+        supersededAt: now,
+        supersededByRankingId: replacementRankingId,
+        updatedAt: now,
+      })
+    )
+    if (patchBatch.length >= 16)
+    {
+      await flushPatchBatch()
+    }
+  }
+  await flushPatchBatch()
 }
 
 export const publishRankingFromBoard = mutation({
@@ -443,6 +451,7 @@ export const remixRanking = mutation({
       sourceTemplateId: template._id,
       sourceTemplateCategory: template.category,
       sourceTemplateSizeClass: template.sizeClass,
+      preferredCriterionExternalId: ranking.sourceCriterionExternalId,
       ...buildFreshBoardCloudFields(now),
       itemAspectRatio: template.itemAspectRatio ?? undefined,
       itemAspectRatioMode: template.itemAspectRatioMode ?? undefined,

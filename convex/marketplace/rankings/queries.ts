@@ -857,12 +857,17 @@ export const getBoardRankingPublishAvailability = query({
         templateCounts
       )
     }
-    const userPublishedCriterionExternalIds =
-      await loadUserPublishedCriterionExternalIds(ctx, template._id, userId)
     // publish picker only offers active lanes for new rankings
     const sourceTemplateCriteria = resolveTemplateCriteria(template).filter(
       (c) => c.status === 'active'
     )
+    const userPublishedCriterionExternalIds =
+      await loadUserPublishedCriterionExternalIds(
+        ctx,
+        template._id,
+        userId,
+        sourceTemplateCriteria
+      )
     const preferredCriterionExternalId =
       findActiveTemplateCriterion(template, board.preferredCriterionExternalId)
         ?.externalId ?? null
@@ -903,31 +908,30 @@ export const getBoardRankingPublishAvailability = query({
   },
 })
 
-// criterion ids the signed-in user already has a public-listable ranking
-// for on this template — uniqued, in stable insertion order. used by the
-// publish modal to show an "updates yours" pill on each lane chip.
+// criterion ids the signed-in user already has a public-listable ranking for
+// on this template. bounded to active criteria shown in the publish picker
 const loadUserPublishedCriterionExternalIds = async (
   ctx: QueryCtx,
   templateId: Id<'templates'>,
-  userId: Id<'users'>
+  userId: Id<'users'>,
+  criteria: readonly MarketplaceTemplateCriterion[]
 ): Promise<string[]> =>
 {
-  const rows = await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySourceTemplateOwnerPublicCreatedAt', (q) =>
-      q
-        .eq('sourceTemplateId', templateId)
-        .eq('ownerId', userId)
-        .eq('isPubliclyListable', true)
+  const rows = await Promise.all(
+    criteria.map((criterion) =>
+      ctx.db
+        .query('publishedRankings')
+        .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
+          q
+            .eq('sourceTemplateId', templateId)
+            .eq('sourceCriterionExternalId', criterion.externalId)
+            .eq('ownerId', userId)
+            .eq('isPubliclyListable', true)
+        )
+        .take(1)
     )
-    .collect()
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const row of rows)
-  {
-    if (seen.has(row.sourceCriterionExternalId)) continue
-    seen.add(row.sourceCriterionExternalId)
-    out.push(row.sourceCriterionExternalId)
-  }
-  return out
+  )
+  return criteria
+    .filter((_, index) => rows[index].length > 0)
+    .map((criterion) => criterion.externalId)
 }

@@ -180,18 +180,22 @@ const findActiveAggregateJob = async (
   criterionExternalId: string
 ): Promise<Doc<'templateRankingAggregateJobs'> | null> =>
 {
-  for (const status of ACTIVE_JOB_STATUSES)
+  const matches = await Promise.all(
+    ACTIVE_JOB_STATUSES.map((status) =>
+      ctx.db
+        .query('templateRankingAggregateJobs')
+        .withIndex('byTemplateIdAndCriterionAndStatus', (q) =>
+          q
+            .eq('templateId', templateId)
+            .eq('criterionExternalId', criterionExternalId)
+            .eq('status', status)
+        )
+        .take(1)
+    )
+  )
+  for (const match of matches)
   {
-    const job = await ctx.db
-      .query('templateRankingAggregateJobs')
-      .withIndex('byTemplateIdAndCriterionAndStatus', (q) =>
-        q
-          .eq('templateId', templateId)
-          .eq('criterionExternalId', criterionExternalId)
-          .eq('status', status)
-      )
-      .take(1)
-    if (job[0]) return job[0]
+    if (match[0]) return match[0]
   }
   return null
 }
@@ -315,19 +319,20 @@ export const queueTemplateRankingAggregateRecomputesForActiveCriteria = async (
   const template = await ctx.db.get(templateId)
   if (!template) return 0
 
-  let queued = 0
-  for (const criterion of resolveTemplateCriteria(template))
-  {
-    if (criterion.status !== 'active') continue
-    await queueTemplateRankingAggregateRecompute(
-      ctx,
-      templateId,
-      criterion.externalId,
-      now
+  const activeCriteria = resolveTemplateCriteria(template).filter(
+    (criterion) => criterion.status === 'active'
+  )
+  await Promise.all(
+    activeCriteria.map((criterion) =>
+      queueTemplateRankingAggregateRecompute(
+        ctx,
+        templateId,
+        criterion.externalId,
+        now
+      )
     )
-    queued++
-  }
-  return queued
+  )
+  return activeCriteria.length
 }
 
 export const deleteTemplateRankingAggregateParentRows = async (
@@ -336,6 +341,18 @@ export const deleteTemplateRankingAggregateParentRows = async (
   criterionExternalId?: string
 ): Promise<void> =>
 {
+  const deleteBatch: Promise<void>[] = []
+  const queueDelete = async (
+    id: Id<'templateRankingAggregates'> | Id<'templateRankingAggregateJobs'>
+  ) =>
+  {
+    deleteBatch.push(ctx.db.delete(id))
+    if (deleteBatch.length >= 16)
+    {
+      await Promise.all(deleteBatch)
+      deleteBatch.length = 0
+    }
+  }
   const aggregates =
     criterionExternalId === undefined
       ? ctx.db
@@ -350,7 +367,7 @@ export const deleteTemplateRankingAggregateParentRows = async (
           )
   for await (const aggregate of aggregates)
   {
-    await ctx.db.delete(aggregate._id)
+    await queueDelete(aggregate._id)
   }
 
   const jobs =
@@ -367,8 +384,9 @@ export const deleteTemplateRankingAggregateParentRows = async (
           )
   for await (const job of jobs)
   {
-    await ctx.db.delete(job._id)
+    await queueDelete(job._id)
   }
+  await Promise.all(deleteBatch)
 }
 
 const toDistribution = (

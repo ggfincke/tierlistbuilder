@@ -77,6 +77,21 @@ const scheduleJob = async (
   )
 }
 
+const clearActiveRankingAndReschedule = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  now: number
+): Promise<void> =>
+{
+  await ctx.db.patch(job._id, {
+    activeRankingId: null,
+    activeRankingTierBucketMap: null,
+    activeRankingItemCursor: null,
+    updatedAt: now,
+  })
+  await scheduleJob(ctx, job._id)
+}
+
 const scheduleGenerationCleanup = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
@@ -250,22 +265,24 @@ const buildPercentiles = (
   score: (row: Doc<'templateRankingAggregateItems'>) => number
 ): Map<Id<'templateRankingAggregateItems'>, number> =>
 {
-  const sampled = rows.filter((row) => row.sampleCount > 0)
+  const sampled = rows
+    .filter((row) => row.sampleCount > 0)
+    .map((row) => ({ row, score: score(row) }))
   if (sampled.length <= 1)
   {
-    return new Map(sampled.map((row) => [row._id, 0]))
+    return new Map(sampled.map(({ row }) => [row._id, 0]))
   }
 
   const sorted = sampled
     .slice()
-    .sort((a, b) => score(a) - score(b) || a.order - b.order)
+    .sort((a, b) => a.score - b.score || a.row.order - b.row.order)
   const percentiles = new Map<Id<'templateRankingAggregateItems'>, number>()
   let lowerCount = 0
   for (let index = 0; index < sorted.length; )
   {
-    const value = score(sorted[index])
+    const value = sorted[index].score
     let nextIndex = index + 1
-    while (nextIndex < sorted.length && score(sorted[nextIndex]) === value)
+    while (nextIndex < sorted.length && sorted[nextIndex].score === value)
     {
       nextIndex++
     }
@@ -276,7 +293,7 @@ const buildPercentiles = (
     )
     for (let groupIndex = index; groupIndex < nextIndex; groupIndex++)
     {
-      percentiles.set(sorted[groupIndex]._id, percentile)
+      percentiles.set(sorted[groupIndex].row._id, percentile)
     }
     lowerCount += equalCount
     index = nextIndex
@@ -567,26 +584,14 @@ const processActiveRanking = async (
     !isPublicRankingRow(ranking)
   )
   {
-    await ctx.db.patch(job._id, {
-      activeRankingId: null,
-      activeRankingTierBucketMap: null,
-      activeRankingItemCursor: null,
-      updatedAt: now,
-    })
-    await scheduleJob(ctx, job._id)
+    await clearActiveRankingAndReschedule(ctx, job, now)
     return null
   }
 
   const buckets = deserializeTierBucketMap(job.activeRankingTierBucketMap)
   if (buckets === null)
   {
-    await ctx.db.patch(job._id, {
-      activeRankingId: null,
-      activeRankingTierBucketMap: null,
-      activeRankingItemCursor: null,
-      updatedAt: now,
-    })
-    await scheduleJob(ctx, job._id)
+    await clearActiveRankingAndReschedule(ctx, job, now)
     return null
   }
   const page = await ctx.db
@@ -1019,22 +1024,27 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
       })
 
     const now = Date.now()
-    let scheduled = 0
-    for (const aggregate of page.page)
-    {
-      const template = await ctx.db.get(aggregate.templateId)
-      if (!template?.isPubliclyListable)
+    const scheduledResults = await Promise.all(
+      page.page.map(async (aggregate) =>
       {
-        continue
-      }
-      await queueTemplateRankingAggregateRecompute(
-        ctx,
-        aggregate.templateId,
-        aggregate.criterionExternalId,
-        now
-      )
-      scheduled++
-    }
+        const template = await ctx.db.get(aggregate.templateId)
+        if (!template?.isPubliclyListable)
+        {
+          return 0
+        }
+        await queueTemplateRankingAggregateRecompute(
+          ctx,
+          aggregate.templateId,
+          aggregate.criterionExternalId,
+          now
+        )
+        return 1
+      })
+    )
+    const scheduled = scheduledResults.reduce<number>(
+      (total, count) => total + count,
+      0
+    )
 
     if (!page.isDone)
     {

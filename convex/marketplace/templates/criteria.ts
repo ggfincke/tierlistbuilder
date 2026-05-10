@@ -177,11 +177,9 @@ export const validateTemplateCriteria = (
 export const resolveTemplateCriteria = (
   source: TemplateCriteriaSource
 ): MarketplaceTemplateCriterion[] =>
-  validateTemplateCriteria(
-    source.criteria === undefined || source.criteria === null
-      ? buildDefaultTemplateCriteria()
-      : source.criteria
-  )
+  source.criteria === undefined || source.criteria === null
+    ? buildDefaultTemplateCriteria()
+    : (source.criteria as MarketplaceTemplateCriterion[])
 
 export const resolvePrimaryTemplateCriterion = (
   source: TemplateCriteriaSource
@@ -224,9 +222,15 @@ export const resolveActiveTemplateCriterion = (
   )
   if (primary) return primary
 
-  const active = criteria
-    .filter((criterion) => criterion.status === 'active')
-    .sort((a, b) => a.order - b.order)[0]
+  let active: MarketplaceTemplateCriterion | null = null
+  for (const criterion of criteria)
+  {
+    if (criterion.status !== 'active') continue
+    if (!active || criterion.order < active.order)
+    {
+      active = criterion
+    }
+  }
   if (active) return active
   return failInput('template has no active criteria')
 }

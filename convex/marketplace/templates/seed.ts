@@ -19,6 +19,7 @@ import {
   boardLabelSettingsValidator,
   itemTransformValidator,
   templateCategoryValidator,
+  templateCoverFramingValidator,
   templateCriteriaValidator,
   tierPresetTiersValidator,
 } from '../../lib/validators'
@@ -194,6 +195,7 @@ export const insertSeedTemplate = internalMutation({
     category: templateCategoryValidator,
     tags: v.array(v.string()),
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     suggestedTiers: tierPresetTiersValidator,
     criteria: v.optional(templateCriteriaValidator),
     // template-level slot ratio chosen by the script (snap to nearest preset
@@ -258,6 +260,7 @@ export const insertSeedTemplate = internalMutation({
       tags: args.tags,
       visibility: 'public',
       coverMediaAssetId: args.coverMediaAssetId,
+      coverFraming: args.coverFraming ?? null,
       coverItems,
       suggestedTiers: args.suggestedTiers,
       criteria,
@@ -907,11 +910,11 @@ export const recomputeTemplateCards = action({
   },
 })
 
-// dev-only — paginated batch wipe of templates + their children, forked
-// boards + their children, & marketplaceStats. mutations stay under the
-// 4096-read txn cap; the action loops phases. skips identity/auth tables
-const WIPE_BATCH_TEMPLATES = 50
-const WIPE_BATCH_BOARDS = 50
+// dev-only — paginated batch wipe of seeded marketplace data. keep batches
+// below the 4096-read txn cap; action loops phases & skips identity/auth
+// tables
+const WIPE_BATCH_TEMPLATES = 20
+const WIPE_BATCH_BOARDS = 20
 
 const wipePhaseValidator = v.union(
   v.literal('templates'),
@@ -1303,6 +1306,7 @@ export const seedTemplateFromBlobs = action({
     // optional pre-baked board label settings — forks inherit when present
     labels: v.optional(v.union(boardLabelSettingsValidator, v.null())),
     cover: v.optional(seedCoverImageValidator),
+    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
     items: v.array(seedItemValidator),
   },
   returns: v.object({
@@ -1343,6 +1347,9 @@ export const seedTemplateFromBlobs = action({
         category: args.category,
         tags: args.tags,
         coverMediaAssetId,
+        ...(args.coverFraming !== undefined
+          ? { coverFraming: args.coverFraming }
+          : {}),
         suggestedTiers: args.suggestedTiers ?? [...DEFAULT_TEMPLATE_TIERS],
         ...(args.criteria ? { criteria: args.criteria } : {}),
         itemAspectRatio: args.itemAspectRatio,

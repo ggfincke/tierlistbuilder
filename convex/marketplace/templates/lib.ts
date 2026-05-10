@@ -1462,9 +1462,8 @@ export const toTemplateDetail = async (
   }
 }
 
-// reads the per-criterion aggregate parent rows once & returns a compact
-// id->rankingCount map so the detail response can label chips & badges
-// without callers having to N+1 the aggregate query themselves
+// read one aggregate parent row per known criterion; templates cap criteria at
+// eight, so this stays bounded & avoids scanning stale aggregate rows
 const loadRankingCountByCriterion = async (
   ctx: DbCtx,
   templateId: Id<'templates'>,
@@ -1480,17 +1479,21 @@ const loadRankingCountByCriterion = async (
     result[externalId] = 0
   }
 
-  const rows = await ctx.db
-    .query('templateRankingAggregates')
-    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-    .collect()
-  for (const row of rows)
-  {
-    if (known.has(row.criterionExternalId))
+  await Promise.all(
+    [...known].map(async (externalId) =>
     {
-      result[row.criterionExternalId] = row.rankingCount
-    }
-  }
+      const row = await ctx.db
+        .query('templateRankingAggregates')
+        .withIndex('byTemplateIdAndCriterion', (q) =>
+          q.eq('templateId', templateId).eq('criterionExternalId', externalId)
+        )
+        .unique()
+      if (row)
+      {
+        result[externalId] = row.rankingCount
+      }
+    })
+  )
   return result
 }
 
