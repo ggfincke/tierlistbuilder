@@ -318,7 +318,7 @@ describe('seed run precheck API', () =>
         datasetKey: DATASET,
         releaseId: RELEASE,
         authorEmail: AUTHOR_EMAIL,
-        variantHashes: ['hash-present', 'hash-missing'],
+        variantHashes: ['hash-present', 'hash-present', 'hash-missing'],
       }
     )
 

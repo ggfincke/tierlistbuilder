@@ -11,8 +11,17 @@ from typing import Iterable
 
 from .build import build_compiled_manifest_with_data
 from .convex_client import ConvexSeedClient, read_seed_settings
-from .diff import build_seed_diff, build_state_request, render_diff_report
+from .diff import build_seed_diff, build_state_request
 from .manifest import JsonObject, as_list, read_json, write_json
+from .reports import (
+    write_activation_report,
+    write_apply_report,
+    write_cleanup_report,
+    write_diff_report,
+    write_run_report,
+    write_upload_report,
+    write_verify_report,
+)
 
 
 SEED_BEGIN_FUNCTION = "marketplace/seedRuns:beginSeedRun"
@@ -89,19 +98,19 @@ def upload_seed_manifest(
     context = _load_context(manifest_path, repo_root, options)
     state = _resolve_state(context, options)
     diff = build_seed_diff(context.compiled, state)
-    _write_diff_report(context, state, diff, options.env_name)
+    write_diff_report(context, state, diff, options.env_name)
     # upload a whole asset when any variant is missing so media dedupe stays exact
     assets = _assets_requiring_upload(context.compiled, state)
     _assert_write_allowed(options, "upload")
     _assert_upload_budget(assets, options.max_upload_bytes)
     if options.dry_run:
-        return _write_upload_report(context, assets, [], [], dry_run=True)
+        return write_upload_report(context, assets, [], [], dry_run=True)
 
     _begin_seed_run(context)
     uploaded_assets = _upload_assets(context, assets)
     finalized, rejected = _finalize_uploaded_assets(context, uploaded_assets)
     _write_checkpoint(context)
-    return _write_upload_report(context, assets, finalized, rejected)
+    return write_upload_report(context, assets, finalized, rejected)
 
 
 def apply_seed_manifest(
@@ -112,14 +121,14 @@ def apply_seed_manifest(
     context = _load_context(manifest_path, repo_root, options)
     _assert_write_allowed(options, "apply")
     if options.dry_run:
-        return _write_apply_report(context, [], [], [], dry_run=True)
+        return write_apply_report(context, [], [], [], dry_run=True)
 
     _begin_seed_run(context)
     # write parent templates before children so item/criterion upserts resolve IDs
     template_results = _upsert_templates(context)
     criterion_results = _upsert_criteria(context)
     item_results = _upsert_items(context)
-    return _write_apply_report(
+    return write_apply_report(
         context, template_results, criterion_results, item_results
     )
 
@@ -132,7 +141,7 @@ def verify_seed_manifest(
     context = _load_context(manifest_path, repo_root, options)
     _assert_write_allowed(options, "verify")
     if options.dry_run:
-        return _write_verify_report(context, {"verified": False, "diagnostics": []}, True)
+        return write_verify_report(context, {"verified": False, "diagnostics": []}, True)
 
     # verification mutates run status, so register/resume the run first
     _begin_seed_run(context)
@@ -143,7 +152,7 @@ def verify_seed_manifest(
             "expectedTotals": context.compiled["totals"],
         },
     )
-    return _write_verify_report(context, result)
+    return write_verify_report(context, result)
 
 
 def activate_seed_manifest(
@@ -168,7 +177,7 @@ def activate_seed_manifest(
     )
     context.checkpoint["activeReleaseId"] = result["activeReleaseId"]
     _write_checkpoint(context)
-    return _write_activation_report(context, result)
+    return write_activation_report(context, result)
 
 
 def rollback_seed_manifest(
@@ -194,7 +203,7 @@ def rollback_seed_manifest(
     )
     context.checkpoint["activeReleaseId"] = result["activeReleaseId"]
     _write_checkpoint(context)
-    return _write_activation_report(context, result, rollback=True)
+    return write_activation_report(context, result, rollback=True)
 
 
 def cleanup_seed_manifest(
@@ -222,7 +231,7 @@ def cleanup_seed_manifest(
             item for item in storage_ids if item not in {*cleaned, *missing}
         ]
         _write_checkpoint(context)
-    return _write_cleanup_report(context, storage_ids, cleaned, missing, options.dry_run)
+    return write_cleanup_report(context, storage_ids, cleaned, missing, options.dry_run)
 
 
 def run_seed_manifest(
@@ -233,9 +242,9 @@ def run_seed_manifest(
     context = _load_context(manifest_path, repo_root, options)
     state = _resolve_state(context, options)
     diff = build_seed_diff(context.compiled, state)
-    _write_diff_report(context, state, diff, options.env_name)
+    write_diff_report(context, state, diff, options.env_name)
     if options.dry_run:
-        return _write_run_report(context, ["dry-run preflight complete"])
+        return write_run_report(context, ["dry-run preflight complete"])
 
     _assert_write_allowed(options, "run")
     _begin_seed_run(context)
@@ -257,17 +266,17 @@ def run_seed_manifest(
         },
     )
     if not verification.get("verified"):
-        _write_verify_report(context, verification)
+        write_verify_report(context, verification)
         msg = "seed verification failed; activation skipped"
         raise RuntimeError(msg)
-    _write_verify_report(context, verification)
+    write_verify_report(context, verification)
     steps = ["upload complete", "apply complete", "verification complete"]
     if options.confirm_activation:
         activation_path = activate_seed_manifest(manifest_path, repo_root, options)
         steps.append(f"activation report: {activation_path}")
     else:
         steps.append("activation skipped; pass --confirm-activation to publish")
-    return _write_run_report(context, steps)
+    return write_run_report(context, steps)
 
 
 def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
@@ -690,176 +699,6 @@ def _assert_upload_budget(
     if total > max_upload_bytes:
         msg = f"upload requires {total} bytes, exceeding --max-upload-bytes={max_upload_bytes}"
         raise RuntimeError(msg)
-
-
-def _write_diff_report(
-    context: SeedRunContext,
-    state: JsonObject,
-    diff: JsonObject,
-    env_name: str,
-) -> Path:
-    report_path = context.compiled_path.parent / "reports" / "diff.md"
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(
-        render_diff_report(context.compiled, state, diff, env_name),
-        encoding="utf-8",
-    )
-    return report_path
-
-
-def _report_header(
-    context: SeedRunContext,
-    title: str,
-    dry_run: bool | None = None,
-    extra: list[str] | None = None,
-) -> list[str]:
-    lines = [
-        f"# {title}",
-        "",
-        f"- Dataset: `{context.compiled['datasetKey']}`",
-        f"- Release: `{context.compiled['releaseId']}`",
-        f"- Run: `{context.checkpoint['runId']}`",
-    ]
-    if dry_run is not None:
-        lines.append(f"- Dry run: `{str(dry_run).lower()}`")
-    if extra:
-        lines.extend(extra)
-    lines.append("")
-    return lines
-
-
-def _write_upload_report(
-    context: SeedRunContext,
-    requested: list[JsonObject],
-    finalized: list[JsonObject],
-    rejected: list[JsonObject],
-    dry_run: bool = False,
-) -> Path:
-    lines = _report_header(
-        context,
-        "Seed Upload Report",
-        dry_run=dry_run,
-        extra=[
-            f"- Assets requiring upload: {len(requested)}",
-            f"- Assets finalized: {len(finalized)}",
-            f"- Uploads rejected: {len(rejected)}",
-        ],
-    )
-    _append_report_rows(lines, "Finalized Media", finalized, "assetKey")
-    _append_report_rows(lines, "Rejected Uploads", rejected, "assetKey")
-    return _write_report(context, "upload.md", lines)
-
-
-def _write_apply_report(
-    context: SeedRunContext,
-    template_results: list[JsonObject],
-    criterion_results: list[JsonObject],
-    item_results: list[JsonObject],
-    dry_run: bool = False,
-) -> Path:
-    lines = _report_header(context, "Seed Apply Report", dry_run=dry_run)
-    _append_result_summary(lines, "Templates", template_results)
-    _append_result_summary(lines, "Criteria", criterion_results)
-    _append_result_summary(lines, "Items", item_results)
-    return _write_report(context, "apply.md", lines)
-
-
-def _write_verify_report(
-    context: SeedRunContext,
-    result: JsonObject,
-    dry_run: bool = False,
-) -> Path:
-    lines = _report_header(
-        context,
-        "Seed Verify Report",
-        dry_run=dry_run,
-        extra=[f"- Verified: `{str(result.get('verified')).lower()}`"],
-    )
-    _append_report_rows(lines, "Diagnostics", result.get("diagnostics", []), "code")
-    return _write_report(context, "verify.md", lines)
-
-
-def _write_activation_report(
-    context: SeedRunContext,
-    result: JsonObject,
-    rollback: bool = False,
-) -> Path:
-    transition = (
-        f"- Rolled back release: `{result['rolledBackReleaseId']}`"
-        if rollback
-        else f"- Previous release: `{result['previousReleaseId']}`"
-    )
-    title = "Seed Rollback Report" if rollback else "Seed Activation Report"
-    lines = _report_header(
-        context,
-        title,
-        extra=[transition, f"- Active release: `{result['activeReleaseId']}`"],
-    )
-    return _write_report(context, "activation.md", lines)
-
-
-def _write_cleanup_report(
-    context: SeedRunContext,
-    requested: list[str],
-    cleaned: list[str],
-    missing: list[str],
-    dry_run: bool,
-) -> Path:
-    lines = _report_header(
-        context,
-        "Seed Cleanup Report",
-        dry_run=dry_run,
-        extra=[
-            f"- Storage IDs requested: {len(requested)}",
-            f"- Storage IDs cleaned: {len(cleaned)}",
-            f"- Storage IDs missing: {len(missing)}",
-        ],
-    )
-    return _write_report(context, "cleanup.md", lines)
-
-
-def _write_run_report(context: SeedRunContext, steps: list[str]) -> Path:
-    lines = _report_header(context, "Seed Run Report")
-    lines.extend(["## Steps", ""])
-    lines.extend(f"- {step}" for step in steps)
-    lines.append("")
-    return _write_report(context, "run.md", lines)
-
-
-def _append_result_summary(
-    lines: list[str], title: str, results: list[JsonObject]
-) -> None:
-    lines.extend([f"## {title}", ""])
-    if not results:
-        lines.extend(["- None", ""])
-        return
-    keys = sorted({key for result in results for key in result.keys()})
-    for key in keys:
-        count = sum(len(as_list(result.get(key))) for result in results)
-        lines.append(f"- {key}: {count}")
-    lines.append("")
-
-
-def _append_report_rows(
-    lines: list[str], title: str, rows: object, label_key: str
-) -> None:
-    lines.extend([f"## {title}", ""])
-    row_list = as_list(rows)
-    if not row_list:
-        lines.extend(["- None", ""])
-        return
-    for row in row_list:
-        if isinstance(row, dict):
-            label = row.get(label_key) or row
-            lines.append(f"- `{label}`")
-    lines.append("")
-
-
-def _write_report(context: SeedRunContext, name: str, lines: list[str]) -> Path:
-    report_path = context.compiled_path.parent / "reports" / name
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text("\n".join(lines), encoding="utf-8")
-    return report_path
 
 
 def _load_checkpoint(path: Path) -> JsonObject:
