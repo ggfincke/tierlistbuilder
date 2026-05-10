@@ -61,6 +61,7 @@ export const MOVIES_MARVEL_TEMPLATE_META = {
     description:
       'Every theatrical Marvel Cinematic Universe release, by poster art.',
     tags: ['marvel', 'mcu', 'films'],
+    coverImage: 'covers/mcu-posters.jpg',
     criteria: MCU_CRITERIA,
   },
   'mcu-shows': {

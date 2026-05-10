@@ -8,6 +8,12 @@ import sharp, { type ResizeOptions } from 'sharp'
 
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  COVER_SURFACES,
+  SURFACE_ASPECT_RATIOS,
+  type CoverFrame,
+  type TemplateCoverFraming,
+} from '@tierlistbuilder/contracts/marketplace/template'
+import {
   bucketValuesByAspectRatio,
   ratiosMatch,
 } from '@tierlistbuilder/contracts/workspace/imageMath'
@@ -40,6 +46,8 @@ interface PayloadCoverImage
 {
   tileBase64: string
   previewBase64: string
+  sourceWidth: number
+  sourceHeight: number
 }
 
 const JPEG_MIN_QUALITY = 62
@@ -260,7 +268,8 @@ export const toPayloadCoverImage = async (
 {
   const sourceBytes = await readFile(filePath)
   const pipeline = sharp(sourceBytes).rotate()
-  const [tile, previewBase64] = await Promise.all([
+  const [{ width, height }, tile, previewBase64] = await Promise.all([
+    pipeline.clone().metadata(),
     pipeline
       .clone()
       .resize({
@@ -279,8 +288,63 @@ export const toPayloadCoverImage = async (
   ])
   const tileBase64 = tile.toString('base64')
   assertSeedBase64FitsConvex(tileBase64, `${filePath} cover tile`)
+  if (!width || !height)
+  {
+    throw new Error(`could not read cover dimensions for ${filePath}`)
+  }
   return {
     tileBase64,
     previewBase64,
+    sourceWidth: width,
+    sourceHeight: height,
   }
+}
+
+// per-surface CoverFrame = centered surface-aspect crop inside [0, 1] scaled
+// by `zoom`. z=1 -> cover (no matte); z>1 grows past [0, 1] -> matte letterbox
+const zoomedFrameForSurface = (
+  sourceWidth: number,
+  sourceHeight: number,
+  surfaceAspect: number,
+  zoom: number
+): CoverFrame =>
+{
+  const sourceAspect = sourceWidth / sourceHeight
+  let baseW: number
+  let baseH: number
+  if (surfaceAspect >= sourceAspect)
+  {
+    baseW = 1
+    baseH = sourceAspect / surfaceAspect
+  }
+  else
+  {
+    baseW = surfaceAspect / sourceAspect
+    baseH = 1
+  }
+  const w = baseW * zoom
+  const h = baseH * zoom
+  return { x: (1 - w) / 2, y: (1 - h) / 2, width: w, height: h }
+}
+
+// produces a TemplateCoverFraming that scales the source's cover-fit rect by
+// `zoom` for every surface. zoom=1 is a no-op vs. cover; values > 1 dial in
+// progressively more letterbox until full contain is reached
+export const computeZoomedCoverFraming = (
+  sourceWidth: number,
+  sourceHeight: number,
+  zoom: number
+): TemplateCoverFraming =>
+{
+  const out = {} as Record<(typeof COVER_SURFACES)[number], CoverFrame>
+  for (const surface of COVER_SURFACES)
+  {
+    out[surface] = zoomedFrameForSurface(
+      sourceWidth,
+      sourceHeight,
+      SURFACE_ASPECT_RATIOS[surface],
+      zoom
+    )
+  }
+  return out
 }

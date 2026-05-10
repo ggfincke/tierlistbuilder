@@ -19,6 +19,7 @@ import {
 } from './constants'
 import {
   chunkItemsBySize,
+  computeZoomedCoverFraming,
   prepareFolder,
   probeFolder,
   toPayloadCoverImage,
@@ -93,6 +94,15 @@ const seedFolder = async (
   const coverPayload = meta.coverImage
     ? await toPayloadCoverImage(join(SEED_ASSETS_DIR, meta.coverImage))
     : undefined
+  const coverZoom = meta.coverZoom ?? 1
+  const coverFraming =
+    coverPayload && coverZoom > 1
+      ? computeZoomedCoverFraming(
+          coverPayload.sourceWidth,
+          coverPayload.sourceHeight,
+          coverZoom
+        )
+      : undefined
 
   const chunks = chunkItemsBySize(items)
   const cropped = items.filter((item) => item.transform !== null).length
@@ -119,7 +129,15 @@ const seedFolder = async (
       itemAspectRatio: templateRatio,
       labels,
       items: firstChunkPayload,
-      ...(coverPayload ? { cover: coverPayload } : {}),
+      ...(coverPayload
+        ? {
+            cover: {
+              tileBase64: coverPayload.tileBase64,
+              previewBase64: coverPayload.previewBase64,
+            },
+          }
+        : {}),
+      ...(coverFraming ? { coverFraming } : {}),
       ...(meta.suggestedTiers
         ? { suggestedTiers: [...meta.suggestedTiers] }
         : {}),

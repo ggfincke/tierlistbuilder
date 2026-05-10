@@ -17,6 +17,9 @@ export interface FolderMeta
   tags: string[]
   // path under scripts/marketplace-seed/assets for a dedicated cover image
   coverImage?: string
+  // zoom-out factor on the cover image. 1 (default) = object-cover; > 1
+  // progressively letterboxes (z=2 shrinks source to ~half on constrained axis)
+  coverZoom?: number
   labels?: true | BoardLabelSettings
   itemLabels?: Record<string, string>
   suggestedTiers?: readonly TierPresetTier[]

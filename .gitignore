@@ -56,6 +56,9 @@ skills-lock.json
 # Generated screenshots (local dev only)
 /screenshots
 
+# Cover preview composites from scripts/preview-cover.ts (local dev only)
+/cover-previews
+
 # Playwright output
 /test-results
 /playwright-report

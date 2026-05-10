@@ -25,6 +25,7 @@
     "seed:marketplace:reset": "tsx --env-file-if-exists=.env.local scripts/seed-marketplace-templates.ts --reset",
     "seed:rankings": "tsx --env-file-if-exists=.env.local scripts/seed-community-rankings.ts",
     "seed:rankings:reset": "tsx --env-file-if-exists=.env.local scripts/seed-community-rankings.ts --reset",
+    "preview:cover": "tsx scripts/preview-cover.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

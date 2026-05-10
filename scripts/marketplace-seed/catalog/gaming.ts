@@ -236,6 +236,9 @@ export const GAMING_TEMPLATE_META = {
     description: 'All 87 fighters in Super Smash Bros. Ultimate, base + DLC.',
     tags: ['nintendo', 'fighting', 'smash bros'],
     coverImage: 'covers/ssbu-fighters.jpg',
+    // banner art is panoramic (~5.4:1); zoom out a notch so character heads
+    // aren't clipped, but stay tight enough that the matte stays a thin band
+    coverZoom: 1.5,
     suggestedTiers: SSBU_CLASSIC_PRESET,
     criteria: SSBU_CRITERIA,
   },
@@ -250,6 +253,7 @@ export const GAMING_TEMPLATE_META = {
     category: 'gaming',
     description: 'Every mainline Zelda title, by box art.',
     tags: ['zelda', 'nintendo', 'rpg'],
+    coverImage: 'covers/zelda-games.jpg',
     criteria: ZELDA_CRITERIA,
   },
   'nintendo-franchises': {
