@@ -630,7 +630,7 @@ export default defineSchema({
     mostDivisiveItemLabel: v.union(v.string(), v.null()),
     updatedAt: v.number(),
   })
-    .index('byTemplateId', ['templateId'])=
+    .index('byTemplateId', ['templateId'])
     .index('byTemplateIdAndCriterion', ['templateId', 'criterionExternalId'])
     .index('byStateAndUpdatedAt', ['state', 'updatedAt']),
 

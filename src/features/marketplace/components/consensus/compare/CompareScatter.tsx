@@ -2,7 +2,7 @@
 // item averageBucket scatter: left lane on x, right lane on y; diagonal
 // = agreement, off-diagonal = disagreement; top-4 outliers labeled
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { resolveBucketColor } from '../utils'
@@ -27,6 +27,10 @@ interface CompareScatterProps
 const CHART_W = 560
 const CHART_H = 380
 const PADDING = 38
+const HOVER_SCALE = 2.4
+
+const dotRadius = (absDelta: number): number =>
+  absDelta >= 2 ? 11 : absDelta === 1 ? 9 : 8
 
 export const CompareScatter = ({
   rows,
@@ -79,6 +83,29 @@ export const CompareScatter = ({
   const drawOrder = useMemo(
     () => [...points].sort((a, b) => a.absDelta - b.absDelta),
     [points]
+  )
+
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  // SVG has no z-index — lift the hovered dot to the end of the array so it
+  // renders above its neighbors. keyed by externalId so React shifts the DOM
+  // node instead of remounting it (which would cancel the scale transition)
+  const orderedDraw = useMemo(() =>
+  {
+    if (!hoveredId) return drawOrder
+    const idx = drawOrder.findIndex((p) => p.externalId === hoveredId)
+    if (idx === -1) return drawOrder
+    return [
+      ...drawOrder.slice(0, idx),
+      ...drawOrder.slice(idx + 1),
+      drawOrder[idx],
+    ]
+  }, [drawOrder, hoveredId])
+  const hoveredPoint = useMemo(
+    () =>
+      hoveredId
+        ? (points.find((p) => p.externalId === hoveredId) ?? null)
+        : null,
+    [hoveredId, points]
   )
 
   // annotate the four most divergent points so users can recognize the
@@ -192,9 +219,10 @@ export const CompareScatter = ({
               <circle cx="0.5" cy="0.5" r="0.5" />
             </clipPath>
           </defs>
-          {drawOrder.map((point) =>
+          {orderedDraw.map((point) =>
           {
-            const r = point.absDelta >= 2 ? 11 : point.absDelta === 1 ? 9 : 8
+            const isHovered = point.externalId === hoveredId
+            const r = dotRadius(point.absDelta)
             const stroke =
               point.absDelta === 0
                 ? 'rgba(0,0,0,0.55)'
@@ -202,7 +230,22 @@ export const CompareScatter = ({
             const strokeWidth =
               point.absDelta >= 2 ? 2.25 : point.absDelta === 1 ? 1.75 : 1.25
             return (
-              <g key={point.externalId}>
+              <g
+                key={point.externalId}
+                onMouseEnter={() => setHoveredId(point.externalId)}
+                onMouseLeave={() =>
+                  setHoveredId((prev) =>
+                    prev === point.externalId ? null : prev
+                  )
+                }
+                style={{
+                  cursor: 'pointer',
+                  transformBox: 'fill-box',
+                  transformOrigin: 'center',
+                  transform: isHovered ? `scale(${HOVER_SCALE})` : undefined,
+                  transition: 'transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+                }}
+              >
                 {point.imageUrl ? (
                   <>
                     {/* solid backer so transparent thumbs read against the
@@ -214,13 +257,17 @@ export const CompareScatter = ({
                       fill={point.color}
                       opacity={0.55}
                     />
+                    {/* top-anchored crop: tall portrait sprites have the
+                        recognizable bit (face/head) in the upper third, so
+                        biasing the slice up keeps faces inside the dot
+                        instead of clipping them off above */}
                     <image
                       href={point.imageUrl}
                       x={point.x - r}
                       y={point.y - r}
                       width={r * 2}
                       height={r * 2}
-                      preserveAspectRatio="xMidYMid slice"
+                      preserveAspectRatio="xMidYMin slice"
                       clipPath="url(#scatter-thumb-clip)"
                     />
                   </>
@@ -240,6 +287,7 @@ export const CompareScatter = ({
                   fill="none"
                   stroke={stroke}
                   strokeWidth={strokeWidth}
+                  vectorEffect="non-scaling-stroke"
                 />
                 <title>{point.label}</title>
               </g>
@@ -276,6 +324,48 @@ export const CompareScatter = ({
               </text>
             </g>
           ))}
+          {hoveredPoint &&
+            (() =>
+            {
+              // label sits outside the scaled <g> so it doesn't grow w/ the
+              // dot. flip above the dot when there's no room below; clamp
+              // horizontally so the tag never escapes the chart bounds
+              const scaledR = dotRadius(hoveredPoint.absDelta) * HOVER_SCALE
+              const labelW = Math.max(44, hoveredPoint.label.length * 6 + 14)
+              const labelH = 16
+              const placeBelow =
+                hoveredPoint.y + scaledR + labelH + 8 < CHART_H - PADDING / 2
+              const labelY = placeBelow
+                ? hoveredPoint.y + scaledR + 6
+                : hoveredPoint.y - scaledR - labelH - 6
+              const minX = labelW / 2 + 4
+              const maxX = CHART_W - labelW / 2 - 4
+              const labelX = Math.min(maxX, Math.max(minX, hoveredPoint.x))
+              return (
+                <g pointerEvents="none">
+                  <rect
+                    x={labelX - labelW / 2}
+                    y={labelY}
+                    width={labelW}
+                    height={labelH}
+                    rx="3"
+                    ry="3"
+                    fill="rgba(0,0,0,0.88)"
+                    stroke="rgb(var(--t-overlay) / 0.2)"
+                  />
+                  <text
+                    x={labelX}
+                    y={labelY + 11}
+                    textAnchor="middle"
+                    fill="white"
+                    fontSize="11"
+                    fontFamily="ui-sans-serif, system-ui"
+                  >
+                    {hoveredPoint.label}
+                  </text>
+                </g>
+              )
+            })()}
         </svg>
       </div>
       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]">

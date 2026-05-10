@@ -11,7 +11,11 @@ import {
   type AggregateItemFrame,
 } from '../AggregateItemThumb'
 import { DistributionBar } from '../DistributionBar'
-import { formatPercent, getAggregateItemLabel, resolveBucketColor } from '../utils'
+import {
+  formatPercent,
+  getAggregateItemLabel,
+  resolveBucketColor,
+} from '../utils'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { pluralizeWord } from '~/shared/lib/pluralize'
 
