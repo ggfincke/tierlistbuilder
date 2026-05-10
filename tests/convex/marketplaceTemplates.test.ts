@@ -1978,6 +1978,18 @@ describe('marketplace template Convex functions', () =>
         prompt: 'Rank by personal preference.',
       },
     })
+    const remixedFavorites = await ranker.mutation(
+      api.marketplace.rankings.mutations.remixRanking,
+      { slug: favorites.slug, title: 'Remixed Favorites Ranking' }
+    )
+    await expect(
+      ranker.query(
+        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        { boardExternalId: remixedFavorites.boardExternalId }
+      )
+    ).resolves.toMatchObject({
+      preferredCriterionExternalId: 'favorites',
+    })
 
     await t.run(async (ctx) =>
     {
