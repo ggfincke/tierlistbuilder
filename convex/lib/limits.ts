@@ -53,6 +53,9 @@ export const SEED_LIMITS = {
   templateUpsertsPerCall: 128,
   itemUpsertsPerCall: 4096,
   criterionUpsertsPerCall: 512,
+  rankingSeedRowsPerRelease: 4096,
+  rankingSeedItemsPerRanking: 4096,
+  rankingSeedTiersPerRanking: 64,
   // bound the byDatasetStatus scan in resolveActiveSeedRuns. one row per
   // (dataset, releaseId, runId) for runs in status='active'; in steady state
   // there's at most one but multi-active windows during rollout are possible

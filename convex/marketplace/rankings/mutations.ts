@@ -351,6 +351,16 @@ export const publishRankingFromBoard = mutation({
       isFeatured: false,
       featuredRank: null,
       featuredBadge: null,
+      seedDatasetKey: null,
+      seedReleaseId: null,
+      seedExternalId: null,
+      seedKind: null,
+      seedTemplateExternalId: null,
+      seedCriterionExternalId: null,
+      seedAuthorKey: null,
+      seedProfileKey: null,
+      seedCuratedExternalId: null,
+      seedReleaseStatus: null,
       createdAt: now,
       updatedAt: now,
     })
@@ -488,6 +498,11 @@ export const remixRanking = mutation({
         progressCounts
       ),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+      seedDatasetKey: null,
+      seedReleaseId: null,
+      seedExternalId: null,
+      seedKind: null,
+      seedReleaseStatus: null,
     })
 
     const tierMap = new Map<
@@ -749,6 +764,11 @@ export const remixTemplateConsensus = mutation({
         progressCounts
       ),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+      seedDatasetKey: null,
+      seedReleaseId: null,
+      seedExternalId: null,
+      seedKind: null,
+      seedReleaseStatus: null,
     })
 
     interface InsertedTier

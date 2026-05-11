@@ -42,6 +42,15 @@ export const SEED_TEMPLATE_RELEASE_STATUSES = [
 export type SeedTemplateReleaseStatus =
   (typeof SEED_TEMPLATE_RELEASE_STATUSES)[number]
 
+export const SEED_RANKING_RELEASE_STATUSES = [
+  'applied_hidden',
+  'active',
+  'rolled_back',
+] as const
+
+export type SeedRankingReleaseStatus =
+  (typeof SEED_RANKING_RELEASE_STATUSES)[number]
+
 export const SEED_REMOVAL_ACTIONS = ['absentFromRelease', 'hardDelete'] as const
 
 export type SeedRemovalAction = (typeof SEED_REMOVAL_ACTIONS)[number]

@@ -13,6 +13,7 @@ import {
   publishSeedReleaseTemplates,
   rollBackSeedReleaseTemplates,
 } from './templates'
+import { activateSeedRankingReleaseInternal } from '../rankings/seedLifecycle'
 
 export const activateSeedReleaseInternal = async (
   ctx: MutationCtx,
@@ -83,6 +84,11 @@ export const activateSeedReleaseInternal = async (
   )
 
   await publishSeedReleaseTemplates(ctx, targetTemplates, now)
+  await activateSeedRankingReleaseInternal(ctx, {
+    datasetKey: params.datasetKey,
+    releaseId: params.releaseId,
+    previousReleaseIds: activeReleaseIds,
+  })
   await setSeedRunStatus(ctx, params.run, 'active', null, now)
   const displacedReleaseId =
     activeReleaseIds.find((releaseId) => releaseId !== params.releaseId) ?? null

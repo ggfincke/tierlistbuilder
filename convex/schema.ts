@@ -29,6 +29,7 @@ import {
   rankingFeaturedBadgeValidator,
   rankingPublicationStateValidator,
   rankingVisibilityValidator,
+  seedRankingReleaseStatusValidator,
   seedRunStatusValidator,
   seedTemplateReleaseStatusValidator,
   templateSizeClassValidator,
@@ -130,6 +131,15 @@ export default defineSchema({
     // per-board label rendering defaults; absent -> inherit AppPreferences.showLabels
     // & built-in defaults
     labels: v.optional(boardLabelSettingsValidator),
+    seedDatasetKey: v.union(v.string(), v.null()),
+    seedReleaseId: v.union(v.string(), v.null()),
+    seedExternalId: v.union(v.string(), v.null()),
+    seedKind: v.union(
+      v.literal('ranking-sample'),
+      v.literal('ranking-curated'),
+      v.null()
+    ),
+    seedReleaseStatus: v.union(seedRankingReleaseStatusValidator, v.null()),
   })
     // ordered index powering getMyBoards & getMyDeletedBoards — eq on (ownerId,
     // deletedAt) + order('desc') yields the active or deleted set sorted by
@@ -143,7 +153,12 @@ export default defineSchema({
       'updatedAt',
     ])
     .index('byDeletedAt', ['deletedAt'])
-    .index('bySourceTemplate', ['sourceTemplateId']),
+    .index('bySourceTemplate', ['sourceTemplateId'])
+    .index('bySeedDatasetReleaseAndExternalId', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedExternalId',
+    ]),
 
   // tier row within a board — ordered via sparse fractional "order" numbers
   boardTiers: defineTable({
@@ -547,6 +562,16 @@ export default defineSchema({
     isFeatured: v.boolean(),
     featuredRank: v.union(v.number(), v.null()),
     featuredBadge: v.union(rankingFeaturedBadgeValidator, v.null()),
+    seedDatasetKey: v.union(v.string(), v.null()),
+    seedReleaseId: v.union(v.string(), v.null()),
+    seedExternalId: v.union(v.string(), v.null()),
+    seedKind: v.union(v.literal('sample'), v.literal('curated'), v.null()),
+    seedTemplateExternalId: v.union(v.string(), v.null()),
+    seedCriterionExternalId: v.union(v.string(), v.null()),
+    seedAuthorKey: v.union(v.string(), v.null()),
+    seedProfileKey: v.union(v.string(), v.null()),
+    seedCuratedExternalId: v.union(v.string(), v.null()),
+    seedReleaseStatus: v.union(seedRankingReleaseStatusValidator, v.null()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -631,6 +656,22 @@ export default defineSchema({
       'sourceTemplateId',
       'sourceCriterionExternalId',
       'createdAt',
+    ])
+    .index('bySeedDatasetReleaseAndExternalId', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedExternalId',
+    ])
+    .index('bySeedDatasetReleaseTemplateCriterion', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedTemplateExternalId',
+      'seedCriterionExternalId',
+    ])
+    .index('bySeedDatasetReleaseStatus', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedReleaseStatus',
     ]),
 
   publishedRankingTiers: defineTable({

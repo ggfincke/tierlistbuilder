@@ -459,6 +459,11 @@ const queueLargeTemplateClone = async (
       unrankedItemCount: template.itemCount,
     }),
     librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+    seedDatasetKey: null,
+    seedReleaseId: null,
+    seedExternalId: null,
+    seedKind: null,
+    seedReleaseStatus: null,
   })
   await insertBoardTiers(ctx, boardId, tiers)
 
@@ -992,6 +997,11 @@ export const useTemplate = mutation({
         progressCounts
       ),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+      seedDatasetKey: null,
+      seedReleaseId: null,
+      seedExternalId: null,
+      seedKind: null,
+      seedReleaseStatus: null,
     })
 
     await insertBoardTiers(ctx, boardId, tiers)

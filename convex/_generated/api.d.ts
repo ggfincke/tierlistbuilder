@@ -36,6 +36,9 @@ import type * as marketplace_rankings_internal from "../marketplace/rankings/int
 import type * as marketplace_rankings_lib from "../marketplace/rankings/lib.js";
 import type * as marketplace_rankings_mutations from "../marketplace/rankings/mutations.js";
 import type * as marketplace_rankings_queries from "../marketplace/rankings/queries.js";
+import type * as marketplace_rankings_seed from "../marketplace/rankings/seed.js";
+import type * as marketplace_rankings_seedLifecycle from "../marketplace/rankings/seedLifecycle.js";
+import type * as marketplace_rankings_seedValidators from "../marketplace/rankings/seedValidators.js";
 import type * as marketplace_seedAuth from "../marketplace/seedAuth.js";
 import type * as marketplace_seedPipeline_activation from "../marketplace/seedPipeline/activation.js";
 import type * as marketplace_seedPipeline_diagnostics from "../marketplace/seedPipeline/diagnostics.js";
@@ -112,6 +115,9 @@ declare const fullApi: ApiFromModules<{
   "marketplace/rankings/lib": typeof marketplace_rankings_lib;
   "marketplace/rankings/mutations": typeof marketplace_rankings_mutations;
   "marketplace/rankings/queries": typeof marketplace_rankings_queries;
+  "marketplace/rankings/seed": typeof marketplace_rankings_seed;
+  "marketplace/rankings/seedLifecycle": typeof marketplace_rankings_seedLifecycle;
+  "marketplace/rankings/seedValidators": typeof marketplace_rankings_seedValidators;
   "marketplace/seedAuth": typeof marketplace_seedAuth;
   "marketplace/seedPipeline/activation": typeof marketplace_seedPipeline_activation;
   "marketplace/seedPipeline/diagnostics": typeof marketplace_seedPipeline_diagnostics;

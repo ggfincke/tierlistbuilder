@@ -223,5 +223,3 @@ export const resolveActiveReleaseIds = async (
   const activeRuns = await resolveActiveSeedRuns(ctx, datasetKey)
   return Array.from(new Set(activeRuns.map((run) => run.releaseId)))
 }
-
-

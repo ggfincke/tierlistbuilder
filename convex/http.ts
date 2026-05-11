@@ -125,6 +125,8 @@ const seedHttpAction = (kind: SeedRouteKind, ref: SeedRouteRef) =>
 
 const seedRuns = internal.marketplace.seedRuns
 const storageUploads = internal.marketplace.seedPipeline.storageUploads
+const rankingSeeds = internal.marketplace.rankings.seed
+const rankingSeedLifecycle = internal.marketplace.rankings.seedLifecycle
 
 const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
   ['/api/seed/ensure-author', 'action', seedRuns.ensureSeedAuthor],
@@ -150,6 +152,19 @@ const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
   ],
   ['/api/seed/activate', 'mutation', seedRuns.activateSeedRelease],
   ['/api/seed/rollback', 'mutation', seedRuns.rollbackSeedRelease],
+  ['/api/seed/rankings/preflight', 'query', rankingSeeds.preflightSeedRankings],
+  ['/api/seed/rankings/apply', 'action', rankingSeeds.applySeedRankings],
+  ['/api/seed/rankings/verify', 'query', rankingSeeds.verifySeedRankings],
+  [
+    '/api/seed/rankings/activate',
+    'mutation',
+    rankingSeedLifecycle.activateSeedRankings,
+  ],
+  [
+    '/api/seed/rankings/rollback',
+    'mutation',
+    rankingSeedLifecycle.rollbackSeedRankings,
+  ],
   ['/api/seed/status', 'query', seedRuns.getSeedRunStatus],
   ['/api/dev/reset', 'action', internal.dev.reset.wipeDeployment],
 ] as const

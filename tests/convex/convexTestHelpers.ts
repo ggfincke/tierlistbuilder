@@ -282,6 +282,11 @@ export const seedCloudBoard = async (
     unrankedItemCount: args.unrankedItemCount ?? 0,
     templateProgressState: args.templateProgressState ?? 'none',
     librarySummary: args.librarySummary ?? defaultBoardLibrarySummary(),
+    seedDatasetKey: null,
+    seedReleaseId: null,
+    seedExternalId: null,
+    seedKind: null,
+    seedReleaseStatus: null,
   })
 }
 
@@ -320,6 +325,16 @@ export const seedPublishedRanking = async (
     isFeatured: args.isFeatured ?? false,
     featuredRank: args.featuredRank ?? null,
     featuredBadge: args.featuredBadge ?? null,
+    seedDatasetKey: null,
+    seedReleaseId: null,
+    seedExternalId: null,
+    seedKind: null,
+    seedTemplateExternalId: null,
+    seedCriterionExternalId: null,
+    seedAuthorKey: null,
+    seedProfileKey: null,
+    seedCuratedExternalId: null,
+    seedReleaseStatus: null,
     createdAt: now,
     updatedAt: now,
   })
