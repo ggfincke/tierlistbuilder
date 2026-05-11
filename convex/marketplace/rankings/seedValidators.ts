@@ -125,6 +125,15 @@ export const seedRankingApplyResultValidator = v.object({
   diagnostics: v.array(seedRankingDiagnosticValidator),
 })
 
+export const seedRankingAuthorEnsureResultValidator = v.object({
+  datasetKey: v.string(),
+  releaseId: v.string(),
+  authorsCreated: v.number(),
+  authorsReused: v.number(),
+  authorsPatched: v.number(),
+  diagnostics: v.array(seedRankingDiagnosticValidator),
+})
+
 export const seedRankingActivationResultValidator = v.object({
   datasetKey: v.string(),
   releaseId: v.string(),
@@ -149,6 +158,9 @@ export type SeedRankingLaneSummary = Infer<
 >
 export type SeedRankingApplyResult = Infer<
   typeof seedRankingApplyResultValidator
+>
+export type SeedRankingAuthorEnsureResult = Infer<
+  typeof seedRankingAuthorEnsureResultValidator
 >
 export type SeedRankingPreflightResult = Infer<
   typeof seedRankingPreflightResultValidator

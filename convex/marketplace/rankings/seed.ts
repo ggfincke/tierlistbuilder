@@ -6,6 +6,7 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  type ActionCtx,
   type MutationCtx,
   type QueryCtx,
 } from '../../_generated/server'
@@ -42,6 +43,7 @@ import {
 import {
   seedCuratedRankingValidator,
   seedRankingApplyResultValidator,
+  seedRankingAuthorEnsureResultValidator,
   seedRankingLaneValidator,
   seedRankingPreflightResultValidator,
   seedRankingProfileValidator,
@@ -49,6 +51,7 @@ import {
   seedRankingsManifestValidator,
   type SeedCuratedRanking,
   type SeedRankingApplyResult,
+  type SeedRankingAuthorEnsureResult,
   type SeedRankingDiagnostic,
   type SeedRankingLane,
   type SeedRankingLaneSummary,
@@ -443,6 +446,36 @@ const countPlannedCuratedRankings = (manifest: SeedRankingsManifest): number =>
     (sum, target) => sum + (target.curatedRankings?.length ?? 0),
     0
   )
+
+const ensureRankingSeedAuthors = async (
+  ctx: ActionCtx,
+  authorPassword: string,
+  rankingSeeds: SeedRankingsManifest
+): Promise<{
+  authorsCreated: number
+  authorsReused: number
+  authorsPatched: number
+}> =>
+{
+  let authorsCreated = 0
+  let authorsReused = 0
+  let authorsPatched = 0
+  for (const author of authorRequestsForManifest(rankingSeeds))
+  {
+    const ensured: { created: boolean } = await ctx.runAction(
+      internal.marketplace.seedRuns.ensureSeedAuthor,
+      { email: author.email, password: authorPassword }
+    )
+    if (ensured.created) authorsCreated += 1
+    else authorsReused += 1
+    const patched: { found: boolean } = await ctx.runMutation(
+      internal.marketplace.templates.seed.patchSeedUserProfileImpl,
+      { email: author.email, displayName: author.displayName }
+    )
+    if (patched.found) authorsPatched += 1
+  }
+  return { authorsCreated, authorsReused, authorsPatched }
+}
 
 const loadExistingSeedRankingCount = async (
   ctx: QueryCtx,
@@ -1475,6 +1508,7 @@ export const applySeedRankings = internalAction({
     runId: v.string(),
     authorPassword: v.string(),
     rankingSeeds: seedRankingsManifestValidator,
+    ensureAuthors: v.optional(v.boolean()),
   },
   returns: seedRankingApplyResultValidator,
   handler: async (ctx, args): Promise<SeedRankingApplyResult> =>
@@ -1497,23 +1531,14 @@ export const applySeedRankings = internalAction({
       })
     }
 
-    let authorsCreated = 0
-    let authorsReused = 0
-    let authorsPatched = 0
-    for (const author of authorRequestsForManifest(args.rankingSeeds))
-    {
-      const ensured: { created: boolean } = await ctx.runAction(
-        internal.marketplace.seedRuns.ensureSeedAuthor,
-        { email: author.email, password: args.authorPassword }
-      )
-      if (ensured.created) authorsCreated += 1
-      else authorsReused += 1
-      const patched: { found: boolean } = await ctx.runMutation(
-        internal.marketplace.templates.seed.patchSeedUserProfileImpl,
-        { email: author.email, displayName: author.displayName }
-      )
-      if (patched.found) authorsPatched += 1
-    }
+    const authorResult =
+      args.ensureAuthors === false
+        ? { authorsCreated: 0, authorsReused: 0, authorsPatched: 0 }
+        : await ensureRankingSeedAuthors(
+            ctx,
+            args.authorPassword,
+            args.rankingSeeds
+          )
 
     let boardsReplaced = 0
     let rankingsReplaced = 0
@@ -1584,9 +1609,9 @@ export const applySeedRankings = internalAction({
     return {
       datasetKey: args.datasetKey,
       releaseId: args.releaseId,
-      authorsCreated,
-      authorsReused,
-      authorsPatched,
+      authorsCreated: authorResult.authorsCreated,
+      authorsReused: authorResult.authorsReused,
+      authorsPatched: authorResult.authorsPatched,
       boardsReplaced,
       rankingsReplaced,
       sampleRankingsApplied,
@@ -1595,6 +1620,50 @@ export const applySeedRankings = internalAction({
       rankingTiersWritten,
       rankingItemsWritten,
       aggregateLanes: preflight.aggregateLanes,
+      diagnostics: preflight.diagnostics,
+    }
+  },
+})
+
+export const ensureSeedRankingAuthors = internalAction({
+  args: {
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    authorPassword: v.string(),
+    rankingSeeds: seedRankingsManifestValidator,
+  },
+  returns: seedRankingAuthorEnsureResultValidator,
+  handler: async (ctx, args): Promise<SeedRankingAuthorEnsureResult> =>
+  {
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    assertNonemptyString('runId', args.runId)
+    assertNonemptyString('authorPassword', args.authorPassword)
+    const preflight: SeedRankingPreflightResult = await ctx.runQuery(
+      internal.marketplace.rankings.seed.preflightSeedRankings,
+      {
+        datasetKey: args.datasetKey,
+        releaseId: args.releaseId,
+        rankingSeeds: args.rankingSeeds,
+      }
+    )
+    if (preflight.diagnostics.some((item) => item.severity === 'error'))
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `ranking seed preflight failed with ${preflight.diagnostics.length} diagnostic(s)`,
+      })
+    }
+    const result = await ensureRankingSeedAuthors(
+      ctx,
+      args.authorPassword,
+      args.rankingSeeds
+    )
+    return {
+      datasetKey: args.datasetKey,
+      releaseId: args.releaseId,
+      ...result,
       diagnostics: preflight.diagnostics,
     }
   },

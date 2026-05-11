@@ -71,6 +71,10 @@ SEED_HTTP_ROUTES = {
     ): "/api/seed/rankings/rollback",
     (
         "action",
+        "marketplace/rankings/seed:ensureSeedRankingAuthors",
+    ): "/api/seed/rankings/ensure-authors",
+    (
+        "action",
         "marketplace/seedRuns:ensureSeedAuthor",
     ): "/api/seed/ensure-author",
     (

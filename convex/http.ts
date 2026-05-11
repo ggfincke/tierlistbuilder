@@ -153,6 +153,11 @@ const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
   ['/api/seed/activate', 'mutation', seedRuns.activateSeedRelease],
   ['/api/seed/rollback', 'mutation', seedRuns.rollbackSeedRelease],
   ['/api/seed/rankings/preflight', 'query', rankingSeeds.preflightSeedRankings],
+  [
+    '/api/seed/rankings/ensure-authors',
+    'action',
+    rankingSeeds.ensureSeedRankingAuthors,
+  ],
   ['/api/seed/rankings/apply', 'action', rankingSeeds.applySeedRankings],
   ['/api/seed/rankings/verify', 'query', rankingSeeds.verifySeedRankings],
   [

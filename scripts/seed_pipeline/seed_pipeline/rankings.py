@@ -16,6 +16,9 @@ from .runs import (
 
 
 SEED_RANKINGS_PREFLIGHT_FUNCTION = "marketplace/rankings/seed:preflightSeedRankings"
+SEED_RANKINGS_ENSURE_AUTHORS_FUNCTION = (
+    "marketplace/rankings/seed:ensureSeedRankingAuthors"
+)
 SEED_RANKINGS_APPLY_FUNCTION = "marketplace/rankings/seed:applySeedRankings"
 SEED_RANKINGS_VERIFY_FUNCTION = "marketplace/rankings/seed:verifySeedRankings"
 SEED_RANKINGS_ACTIVATE_FUNCTION = "marketplace/rankings/seedLifecycle:activateSeedRankings"
@@ -49,7 +52,13 @@ def apply_rankings_manifest(
     if not author_password:
         msg = "CONVEX_SEED_AUTHOR_PASSWORD is not set"
         raise RuntimeError(msg)
-    result = _apply_ranking_targets(context, ranking_seeds, author_password)
+    author_result = _ensure_ranking_authors(context, ranking_seeds, author_password)
+    result = _apply_ranking_targets(
+        context,
+        ranking_seeds,
+        author_password,
+        author_result,
+    )
     return write_ranking_apply_report(context, result)
 
 
@@ -129,10 +138,13 @@ def run_rankings_manifest(
     if not author_password:
         msg = "CONVEX_SEED_AUTHOR_PASSWORD is not set"
         raise RuntimeError(msg)
+    ranking_seeds = _require_ranking_seeds(context.compiled)
+    author_result = _ensure_ranking_authors(context, ranking_seeds, author_password)
     apply_result = _apply_ranking_targets(
         context,
-        _require_ranking_seeds(context.compiled),
+        ranking_seeds,
         author_password,
+        author_result,
     )
     verify_result = _ranking_query(context, SEED_RANKINGS_VERIFY_FUNCTION)
     steps = [
@@ -182,6 +194,7 @@ def _apply_ranking_targets(
     context: object,
     ranking_seeds: JsonObject,
     author_password: str,
+    author_result: JsonObject,
 ) -> JsonObject:
     chunks = _ranking_seed_target_manifests(ranking_seeds)
     if not chunks:
@@ -204,10 +217,27 @@ def _apply_ranking_targets(
                 **_run_request(context),
                 "authorPassword": author_password,
                 "rankingSeeds": chunk,
+                "ensureAuthors": False,
             },
         )
         results.append(result)
-    return _merge_apply_results(context, results)
+    return _merge_apply_results(context, results, author_result)
+
+
+def _ensure_ranking_authors(
+    context: object,
+    ranking_seeds: JsonObject,
+    author_password: str,
+) -> JsonObject:
+    context.progress.log("ensuring ranking seed authors")
+    return context.client.action(
+        SEED_RANKINGS_ENSURE_AUTHORS_FUNCTION,
+        {
+            **_run_request(context),
+            "authorPassword": author_password,
+            "rankingSeeds": ranking_seeds,
+        },
+    )
 
 
 def _ranking_seed_target_manifests(ranking_seeds: JsonObject) -> list[JsonObject]:
@@ -234,13 +264,17 @@ def _ranking_seed_target_manifests(ranking_seeds: JsonObject) -> list[JsonObject
     return chunks
 
 
-def _merge_apply_results(context: object, results: list[JsonObject]) -> JsonObject:
+def _merge_apply_results(
+    context: object,
+    results: list[JsonObject],
+    author_result: JsonObject,
+) -> JsonObject:
     merged: JsonObject = {
         "datasetKey": context.compiled["datasetKey"],
         "releaseId": context.compiled["releaseId"],
-        "authorsCreated": 0,
-        "authorsReused": 0,
-        "authorsPatched": 0,
+        "authorsCreated": int(author_result.get("authorsCreated", 0)),
+        "authorsReused": int(author_result.get("authorsReused", 0)),
+        "authorsPatched": int(author_result.get("authorsPatched", 0)),
         "boardsReplaced": 0,
         "rankingsReplaced": 0,
         "sampleRankingsApplied": 0,
@@ -249,14 +283,11 @@ def _merge_apply_results(context: object, results: list[JsonObject]) -> JsonObje
         "rankingTiersWritten": 0,
         "rankingItemsWritten": 0,
         "aggregateLanes": [],
-        "diagnostics": [],
+        "diagnostics": list(as_list(author_result.get("diagnostics"))),
     }
     lane_totals: dict[tuple[str, str], JsonObject] = {}
     for result in results:
         for key in [
-            "authorsCreated",
-            "authorsReused",
-            "authorsPatched",
             "boardsReplaced",
             "rankingsReplaced",
             "sampleRankingsApplied",

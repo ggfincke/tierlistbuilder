@@ -164,6 +164,12 @@ class RankingSeedCompilationTests(unittest.TestCase):
         )
         self.assertEqual(
             SEED_HTTP_ROUTES[
+                ("action", "marketplace/rankings/seed:ensureSeedRankingAuthors")
+            ],
+            "/api/seed/rankings/ensure-authors",
+        )
+        self.assertEqual(
+            SEED_HTTP_ROUTES[
                 (
                     "mutation",
                     "marketplace/rankings/seedLifecycle:activateSeedRankings",
