@@ -269,6 +269,25 @@ def _merge_apply_results(
     results: list[JsonObject],
     author_result: JsonObject,
 ) -> JsonObject:
+    diagnostics: list[object] = []
+    seen_diagnostics: set[tuple[str, str, str, str]] = set()
+
+    def append_diagnostics(rows: object) -> None:
+        for item in as_list(rows):
+            if not isinstance(item, dict):
+                continue
+            key = (
+                str(item.get("severity")),
+                str(item.get("code")),
+                str(item.get("path")),
+                str(item.get("message")),
+            )
+            if key in seen_diagnostics:
+                continue
+            seen_diagnostics.add(key)
+            diagnostics.append(item)
+
+    append_diagnostics(author_result.get("diagnostics"))
     merged: JsonObject = {
         "datasetKey": context.compiled["datasetKey"],
         "releaseId": context.compiled["releaseId"],
@@ -283,7 +302,7 @@ def _merge_apply_results(
         "rankingTiersWritten": 0,
         "rankingItemsWritten": 0,
         "aggregateLanes": [],
-        "diagnostics": list(as_list(author_result.get("diagnostics"))),
+        "diagnostics": diagnostics,
     }
     lane_totals: dict[tuple[str, str], JsonObject] = {}
     for result in results:
@@ -297,7 +316,7 @@ def _merge_apply_results(
             "rankingItemsWritten",
         ]:
             merged[key] = int(merged[key]) + int(result.get(key, 0))
-        merged["diagnostics"].extend(as_list(result.get("diagnostics")))
+        append_diagnostics(result.get("diagnostics"))
         for lane in as_list(result.get("aggregateLanes")):
             if not isinstance(lane, dict):
                 continue
