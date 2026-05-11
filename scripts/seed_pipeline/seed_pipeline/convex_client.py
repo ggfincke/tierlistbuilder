@@ -54,6 +54,22 @@ SEED_HTTP_ROUTES = {
     ("mutation", "marketplace/seedRuns:activateSeedRelease"): "/api/seed/activate",
     ("mutation", "marketplace/seedRuns:rollbackSeedRelease"): "/api/seed/rollback",
     (
+        "query",
+        "marketplace/rankings/seed:preflightSeedRankings",
+    ): "/api/seed/rankings/preflight",
+    (
+        "query",
+        "marketplace/rankings/seed:verifySeedRankings",
+    ): "/api/seed/rankings/verify",
+    (
+        "mutation",
+        "marketplace/rankings/seedLifecycle:activateSeedRankings",
+    ): "/api/seed/rankings/activate",
+    (
+        "mutation",
+        "marketplace/rankings/seedLifecycle:rollbackSeedRankings",
+    ): "/api/seed/rankings/rollback",
+    (
         "action",
         "marketplace/seedRuns:ensureSeedAuthor",
     ): "/api/seed/ensure-author",
@@ -61,6 +77,10 @@ SEED_HTTP_ROUTES = {
         "action",
         "marketplace/seedRuns:finalizeSeedUploadedMedia",
     ): "/api/seed/finalize-media",
+    (
+        "action",
+        "marketplace/rankings/seed:applySeedRankings",
+    ): "/api/seed/rankings/apply",
     (
         "action",
         "marketplace/seedPipeline/storageUploads:cleanupAbandonedSeedRun",

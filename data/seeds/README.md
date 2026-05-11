@@ -26,6 +26,9 @@ from the source manifest and is disposable, but the compiled fixture in
   names that are expected to change.
 - Item `externalId` is stable within its template across releases.
 - Criterion `externalId` is stable within its template across releases.
+- Ranking seed `externalId` values are stable within the ranking seed manifest.
+  They identify synthetic sample rankings, curated editorial rankings, and the
+  hidden source boards that back published ranking rows.
 - Media identity is content-derived from source and generated variant hashes.
 
 Mutable presentation fields can change without identity churn: titles, labels,
@@ -72,3 +75,19 @@ require the seed secret, `--destroy-missing`, and explicit confirmation.
 The schemas are intentionally strict about shape. Cross-record checks that JSON
 Schema cannot express well, such as duplicate external IDs and exactly one
 primary criterion per template, belong in the Python validator.
+
+## Ranking Seeds
+
+`rankingSeeds` is optional in the source manifest. When present, it defines:
+
+- deterministic synthetic profiles used to generate sample rankings;
+- explicit template lanes for multi-criterion seed coverage;
+- curated authored rankings that should remain editorial data; and
+- `includeAllTemplates`, which expands generic primary-lane samples for every
+  compiled template not already listed explicitly.
+
+Ranking seeds require the matching template release to exist in Convex first.
+The ranking writer resolves templates, items, and criteria server-side, writes
+hidden ranking rows for the target release, verifies the expected row count, and
+then activation publishes the target release's seed rankings while rolling back
+previous active seed rankings.

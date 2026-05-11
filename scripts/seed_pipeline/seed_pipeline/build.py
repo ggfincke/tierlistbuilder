@@ -12,6 +12,7 @@ from .assets import SourceAsset, compile_asset, inspect_source
 from .crop import RatioDecision, resolve_item_transform, resolve_ratio_decision
 from .manifest import JsonObject, read_json, repo_relative, write_json
 from .progress import ProgressLogger, progress_interval
+from .ranking_config import compile_ranking_seeds
 from .reports import write_preflight_report
 from .settings import (
     CACHE_ROOT_RELATIVE_PATH,
@@ -124,7 +125,7 @@ def _compile(
             for asset in assets
             for variant in asset["variants"].values()
         )
-    return {
+    compiled = {
         "schemaVersion": manifest["schemaVersion"],
         "datasetKey": manifest["datasetKey"],
         "releaseId": manifest["releaseId"],
@@ -145,6 +146,10 @@ def _compile(
         "warnings": [],
         "errors": [],
     }
+    ranking_seeds = compile_ranking_seeds(manifest, templates)
+    if ranking_seeds is not None:
+        compiled["rankingSeeds"] = ranking_seeds
+    return compiled
 
 
 def _compile_template(
