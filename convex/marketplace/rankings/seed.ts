@@ -844,6 +844,18 @@ const insertSeedRanking = async (
   itemsWritten: number
 }> =>
 {
+  assertCountRange(
+    'ranking tiers',
+    args.tiers.length,
+    1,
+    SEED_LIMITS.rankingSeedTiersPerRanking
+  )
+  assertCountRange(
+    'ranking items',
+    args.rankedItems.length,
+    1,
+    SEED_LIMITS.rankingSeedItemsPerRanking
+  )
   const user = await requireSeedAuthor(ctx, args.authorEmail)
   const criterion = resolveActiveTemplateCriterion(
     args.template,
@@ -1467,6 +1479,8 @@ export const applySeedRankings = internalAction({
   returns: seedRankingApplyResultValidator,
   handler: async (ctx, args): Promise<SeedRankingApplyResult> =>
   {
+    assertNonemptyString('runId', args.runId)
+    assertNonemptyString('authorPassword', args.authorPassword)
     const preflight: SeedRankingPreflightResult = await ctx.runQuery(
       internal.marketplace.rankings.seed.preflightSeedRankings,
       {
