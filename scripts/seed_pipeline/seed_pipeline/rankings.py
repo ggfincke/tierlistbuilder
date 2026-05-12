@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
+
+from .convex_client import ConvexClientError
 from .manifest import JsonObject, as_list
 from .reports import _report_header, _write_report
 from .runs import (
@@ -20,9 +23,21 @@ SEED_RANKINGS_ENSURE_AUTHORS_FUNCTION = (
     "marketplace/rankings/seed:ensureSeedRankingAuthors"
 )
 SEED_RANKINGS_APPLY_FUNCTION = "marketplace/rankings/seed:applySeedRankings"
+SEED_RANKINGS_CLEANUP_STALE_FUNCTION = (
+    "marketplace/rankings/seed:cleanupStaleSeedRankings"
+)
 SEED_RANKINGS_VERIFY_FUNCTION = "marketplace/rankings/seed:verifySeedRankings"
 SEED_RANKINGS_ACTIVATE_FUNCTION = "marketplace/rankings/seedLifecycle:activateSeedRankings"
 SEED_RANKINGS_ROLLBACK_FUNCTION = "marketplace/rankings/seedLifecycle:rollbackSeedRankings"
+SEED_RANKINGS_QUEUE_AGGREGATES_FUNCTION = (
+    "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates"
+)
+MAX_RANKING_ACTIVATION_BATCHES = 200
+RANKING_ACTIVATION_BATCH_PAUSE_SECONDS = 0.75
+RANKING_ACTIVATION_THROTTLE_SECONDS = 2.0
+MAX_RANKING_APPLY_ATTEMPTS = 6
+RANKING_APPLY_THROTTLE_BASE_SECONDS = 3.0
+RANKING_APPLY_THROTTLE_MAX_SECONDS = 30.0
 
 
 def preflight_rankings_manifest(
@@ -82,13 +97,7 @@ def activate_rankings_manifest(
     if not options.confirm_activation:
         msg = "ranking activation requires --confirm-activation"
         raise RuntimeError(msg)
-    result = context.client.mutation(
-        SEED_RANKINGS_ACTIVATE_FUNCTION,
-        {
-            "datasetKey": context.compiled["datasetKey"],
-            "releaseId": context.compiled["releaseId"],
-        },
-    )
+    result = _activate_rankings_until_complete(context)
     return write_ranking_activation_report(context, result)
 
 
@@ -105,14 +114,7 @@ def rollback_rankings_manifest(
     if not options.target_release_id:
         msg = "ranking rollback requires --target-release-id"
         raise RuntimeError(msg)
-    result = context.client.mutation(
-        SEED_RANKINGS_ROLLBACK_FUNCTION,
-        {
-            "datasetKey": context.compiled["datasetKey"],
-            "releaseId": context.compiled["releaseId"],
-            "targetReleaseId": options.target_release_id,
-        },
-    )
+    result = _rollback_rankings_until_complete(context, options.target_release_id)
     return write_ranking_activation_report(context, result, rollback=True)
 
 
@@ -149,20 +151,17 @@ def run_rankings_manifest(
     verify_result = _ranking_query(context, SEED_RANKINGS_VERIFY_FUNCTION)
     steps = [
         "preflight complete",
-        f"apply complete: {apply_result['rankingsApplied']} rankings",
+        (
+            f"apply complete: {apply_result['rankingsApplied']} rankings "
+            f"({apply_result.get('rankingsUnchanged', 0)} unchanged)"
+        ),
     ]
     if _has_error_diagnostics(verify_result):
         steps.append("verification failed; activation skipped")
         return write_ranking_run_report(context, steps, verify_result)
     steps.append("verification complete")
     if options.confirm_activation:
-        activation = context.client.mutation(
-            SEED_RANKINGS_ACTIVATE_FUNCTION,
-            {
-                "datasetKey": context.compiled["datasetKey"],
-                "releaseId": context.compiled["releaseId"],
-            },
-        )
+        activation = _activate_rankings_until_complete(context)
         steps.append(
             f"activation complete: {activation['activatedRankings']} rankings"
         )
@@ -179,6 +178,93 @@ def _ranking_query(context: object, function_path: str) -> JsonObject:
             "releaseId": context.compiled["releaseId"],
             "rankingSeeds": _require_ranking_seeds(context.compiled),
         },
+    )
+
+
+def _activate_rankings_until_complete(context: object) -> JsonObject:
+    result = _run_ranking_lifecycle_until_complete(
+        context,
+        SEED_RANKINGS_ACTIVATE_FUNCTION,
+        {
+            "datasetKey": context.compiled["datasetKey"],
+            "releaseId": context.compiled["releaseId"],
+            "queueAggregates": False,
+        },
+    )
+    _queue_active_ranking_aggregates_if_changed(context, result)
+    return result
+
+
+def _rollback_rankings_until_complete(
+    context: object, target_release_id: str
+) -> JsonObject:
+    result = _run_ranking_lifecycle_until_complete(
+        context,
+        SEED_RANKINGS_ROLLBACK_FUNCTION,
+        {
+            "datasetKey": context.compiled["datasetKey"],
+            "releaseId": context.compiled["releaseId"],
+            "targetReleaseId": target_release_id,
+            "queueAggregates": False,
+        },
+    )
+    _queue_active_ranking_aggregates_if_changed(context, result)
+    return result
+
+
+def _run_ranking_lifecycle_until_complete(
+    context: object, function_path: str, args: JsonObject
+) -> JsonObject:
+    totals: JsonObject = {
+        "datasetKey": context.compiled["datasetKey"],
+        "releaseId": context.compiled["releaseId"],
+        "activatedRankings": 0,
+        "rolledBackRankings": 0,
+        "aggregateJobsQueued": 0,
+    }
+    for batch_number in range(1, MAX_RANKING_ACTIVATION_BATCHES + 1):
+        try:
+            result = context.client.mutation(function_path, args)
+        except ConvexClientError as error:
+            if not _is_convex_write_rate_error(error):
+                raise
+            context.progress.log("ranking activation throttled; retrying shortly")
+            time.sleep(RANKING_ACTIVATION_THROTTLE_SECONDS)
+            continue
+        changed = int(result.get("activatedRankings", 0)) + int(
+            result.get("rolledBackRankings", 0)
+        )
+        for key in ("activatedRankings", "rolledBackRankings", "aggregateJobsQueued"):
+            totals[key] = int(totals.get(key, 0)) + int(result.get(key, 0))
+        if changed == 0:
+            return totals
+        context.progress.log(
+            "ranking activation batches: "
+            f"{batch_number} ({totals['activatedRankings']} activated, "
+            f"{totals['rolledBackRankings']} rolled back)"
+        )
+        time.sleep(RANKING_ACTIVATION_BATCH_PAUSE_SECONDS)
+    msg = "ranking activation did not converge within batch limit"
+    raise RuntimeError(msg)
+
+
+def _queue_active_ranking_aggregates_if_changed(
+    context: object, result: JsonObject
+) -> None:
+    changed = int(result.get("activatedRankings", 0)) + int(
+        result.get("rolledBackRankings", 0)
+    )
+    if changed == 0:
+        return
+    queued = context.client.mutation(
+        SEED_RANKINGS_QUEUE_AGGREGATES_FUNCTION,
+        {
+            "datasetKey": context.compiled["datasetKey"],
+            "releaseId": result["releaseId"],
+        },
+    )
+    result["aggregateJobsQueued"] = int(result.get("aggregateJobsQueued", 0)) + int(
+        queued.get("aggregateJobsQueued", 0)
     )
 
 
@@ -211,8 +297,9 @@ def _apply_ranking_targets(
         context.progress.log(
             f"ranking target {index + 1}/{len(chunks)}: {template_external_id}"
         )
-        result = context.client.action(
-            SEED_RANKINGS_APPLY_FUNCTION,
+        result = _run_ranking_apply_action_with_retries(
+            context,
+            template_external_id,
             {
                 **_run_request(context),
                 "authorPassword": author_password,
@@ -221,7 +308,90 @@ def _apply_ranking_targets(
             },
         )
         results.append(result)
-    return _merge_apply_results(context, results, author_result)
+    merged = _merge_apply_results(context, results, author_result)
+    cleanup = _cleanup_stale_ranking_rows(context, ranking_seeds)
+    merged["rankingsReplaced"] = int(merged["rankingsReplaced"]) + int(
+        cleanup.get("rankingsDeleted", 0)
+    )
+    merged["boardsReplaced"] = int(merged["boardsReplaced"]) + int(
+        cleanup.get("boardsDeleted", 0)
+    )
+    return merged
+
+
+def _is_convex_write_rate_error(error: BaseException) -> bool:
+    message = str(error)
+    return (
+        "Too many writes per second" in message
+        or "bytes written per 1 second" in message
+    )
+
+
+def _ranking_apply_retry_delay(attempt: int) -> float:
+    return min(
+        RANKING_APPLY_THROTTLE_MAX_SECONDS,
+        RANKING_APPLY_THROTTLE_BASE_SECONDS * (2 ** max(0, attempt - 1)),
+    )
+
+
+def _run_ranking_apply_action_with_retries(
+    context: object, template_external_id: str, args: JsonObject
+) -> JsonObject:
+    for attempt in range(1, MAX_RANKING_APPLY_ATTEMPTS + 1):
+        try:
+            return context.client.action(SEED_RANKINGS_APPLY_FUNCTION, args)
+        except ConvexClientError as error:
+            if (
+                not _is_convex_write_rate_error(error)
+                or attempt >= MAX_RANKING_APPLY_ATTEMPTS
+            ):
+                raise
+            delay = _ranking_apply_retry_delay(attempt)
+            context.progress.log(
+                "ranking target "
+                f"{template_external_id} throttled by write-rate limit; "
+                f"retrying in {delay:.1f}s"
+            )
+            time.sleep(delay)
+    msg = "ranking apply retry loop exited unexpectedly"
+    raise RuntimeError(msg)
+
+
+def _cleanup_stale_ranking_rows(
+    context: object,
+    ranking_seeds: JsonObject,
+) -> JsonObject:
+    context.progress.log("cleaning stale ranking seed rows")
+    return _run_ranking_cleanup_action_with_retries(
+        context,
+        {
+            **_run_request(context),
+            "rankingSeeds": ranking_seeds,
+        },
+    )
+
+
+def _run_ranking_cleanup_action_with_retries(
+    context: object,
+    args: JsonObject,
+) -> JsonObject:
+    for attempt in range(1, MAX_RANKING_APPLY_ATTEMPTS + 1):
+        try:
+            return context.client.action(SEED_RANKINGS_CLEANUP_STALE_FUNCTION, args)
+        except ConvexClientError as error:
+            if (
+                not _is_convex_write_rate_error(error)
+                or attempt >= MAX_RANKING_APPLY_ATTEMPTS
+            ):
+                raise
+            delay = _ranking_apply_retry_delay(attempt)
+            context.progress.log(
+                "ranking stale cleanup throttled by write-rate limit; "
+                f"retrying in {delay:.1f}s"
+            )
+            time.sleep(delay)
+    msg = "ranking stale cleanup retry loop exited unexpectedly"
+    raise RuntimeError(msg)
 
 
 def _ensure_ranking_authors(
@@ -296,6 +466,7 @@ def _merge_apply_results(
         "authorsPatched": int(author_result.get("authorsPatched", 0)),
         "boardsReplaced": 0,
         "rankingsReplaced": 0,
+        "rankingsUnchanged": 0,
         "sampleRankingsApplied": 0,
         "curatedRankingsApplied": 0,
         "rankingsApplied": 0,
@@ -309,6 +480,7 @@ def _merge_apply_results(
         for key in [
             "boardsReplaced",
             "rankingsReplaced",
+            "rankingsUnchanged",
             "sampleRankingsApplied",
             "curatedRankingsApplied",
             "rankingsApplied",
@@ -381,6 +553,7 @@ def write_ranking_apply_report(
             f"- Curated rankings: {result.get('curatedRankingsApplied', 0)}",
             f"- Boards replaced: {result.get('boardsReplaced', 0)}",
             f"- Rankings replaced: {result.get('rankingsReplaced', 0)}",
+            f"- Rankings unchanged: {result.get('rankingsUnchanged', 0)}",
             f"- Ranking tiers written: {result.get('rankingTiersWritten', 0)}",
             f"- Ranking items written: {result.get('rankingItemsWritten', 0)}",
         ],

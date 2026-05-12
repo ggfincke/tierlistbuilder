@@ -188,6 +188,29 @@ export const loadRankingItems = async (
   return rows.sort((a, b) => a.order - b.order)
 }
 
+const loadTemplateItemsById = async (
+  ctx: DbCtx,
+  itemIds: readonly Id<'templateItems'>[]
+): Promise<Map<Id<'templateItems'>, Doc<'templateItems'>>> =>
+{
+  const uniqueIds = [...new Set(itemIds)]
+  const entries = await Promise.all(
+    uniqueIds.map(async (itemId) => [itemId, await ctx.db.get(itemId)] as const)
+  )
+  const itemsById = new Map<Id<'templateItems'>, Doc<'templateItems'>>()
+  for (const [itemId, item] of entries)
+  {
+    if (!item)
+    {
+      return failState(
+        `ranking item references missing template item ${itemId}`
+      )
+    }
+    itemsById.set(itemId, item)
+  }
+  return itemsById
+}
+
 const toRankingTier = (
   tier: Doc<'publishedRankingTiers'>
 ): MarketplaceRankingTier => ({
@@ -199,25 +222,68 @@ const toRankingTier = (
   order: tier.order,
 })
 
+export const toRankingBucketPlacementItems = async (
+  ctx: DbCtx,
+  items: readonly Doc<'publishedRankingItems'>[]
+): Promise<
+  { templateItemExternalId: string; tierExternalId: string | null }[]
+> =>
+{
+  const templateItemsById = await loadTemplateItemsById(
+    ctx,
+    items.map((item) => item.templateItemId)
+  )
+  return items.map((item) =>
+  {
+    const templateItem = templateItemsById.get(item.templateItemId)
+    if (!templateItem)
+    {
+      return failState('ranking item references missing template item')
+    }
+    return {
+      templateItemExternalId:
+        item.templateItemExternalId ?? templateItem.externalId,
+      tierExternalId: item.tierExternalId,
+    }
+  })
+}
+
 const toRankingItem = async (
   ctx: DbCtx,
   item: Doc<'publishedRankingItems'>,
+  templateItem: Doc<'templateItems'>,
   cache = createTemplateProjectionCache()
-): Promise<MarketplaceRankingItem> => ({
-  externalId: item.externalId,
-  templateItemExternalId: item.templateItemExternalId,
-  tierExternalId: item.tierExternalId,
-  label: item.label,
-  backgroundColor: item.backgroundColor,
-  altText: item.altText,
-  media: item.mediaAssetId
-    ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)
-    : null,
-  order: item.order,
-  aspectRatio: item.aspectRatio,
-  imageFit: item.imageFit,
-  transform: item.transform,
-})
+): Promise<MarketplaceRankingItem> =>
+{
+  const mediaAssetId =
+    item.mediaAssetId === undefined
+      ? templateItem.mediaAssetId
+      : item.mediaAssetId
+  return {
+    externalId: item.externalId ?? templateItem.externalId,
+    templateItemExternalId:
+      item.templateItemExternalId ?? templateItem.externalId,
+    tierExternalId: item.tierExternalId,
+    label: item.label === undefined ? templateItem.label : item.label,
+    backgroundColor:
+      item.backgroundColor === undefined
+        ? templateItem.backgroundColor
+        : item.backgroundColor,
+    altText: item.altText === undefined ? templateItem.altText : item.altText,
+    media: mediaAssetId
+      ? await toTemplateMediaRef(ctx, mediaAssetId, 'tile', cache)
+      : null,
+    order: item.order,
+    aspectRatio:
+      item.aspectRatio === undefined
+        ? templateItem.aspectRatio
+        : item.aspectRatio,
+    imageFit:
+      item.imageFit === undefined ? templateItem.imageFit : item.imageFit,
+    transform:
+      item.transform === undefined ? templateItem.transform : item.transform,
+  }
+}
 
 export const toRankingDetail = async (
   ctx: DbCtx,
@@ -230,12 +296,24 @@ export const toRankingDetail = async (
     loadRankingTiers(ctx, ranking._id),
     loadRankingItems(ctx, ranking._id),
   ])
+  const templateItemsById = await loadTemplateItemsById(
+    ctx,
+    items.map((item) => item.templateItemId)
+  )
 
   return {
     ...summary,
     tiers: tiers.map(toRankingTier),
     items: await Promise.all(
-      items.map((item) => toRankingItem(ctx, item, cache))
+      items.map((item) =>
+      {
+        const templateItem = templateItemsById.get(item.templateItemId)
+        if (!templateItem)
+        {
+          return failState('ranking item references missing template item')
+        }
+        return toRankingItem(ctx, item, templateItem, cache)
+      })
     ),
   }
 }

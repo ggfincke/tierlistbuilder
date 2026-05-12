@@ -159,11 +159,21 @@ const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
     rankingSeeds.ensureSeedRankingAuthors,
   ],
   ['/api/seed/rankings/apply', 'action', rankingSeeds.applySeedRankings],
+  [
+    '/api/seed/rankings/cleanup-stale',
+    'action',
+    rankingSeeds.cleanupStaleSeedRankings,
+  ],
   ['/api/seed/rankings/verify', 'query', rankingSeeds.verifySeedRankings],
   [
     '/api/seed/rankings/activate',
     'mutation',
     rankingSeedLifecycle.activateSeedRankings,
+  ],
+  [
+    '/api/seed/rankings/queue-aggregates',
+    'mutation',
+    rankingSeedLifecycle.queueActiveSeedRankingAggregates,
   ],
   [
     '/api/seed/rankings/rollback',

@@ -6,9 +6,12 @@ import { internalMutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { assertNonemptyString } from '../../lib/assertions'
-import { SEED_LIMITS } from '../../lib/limits'
+import { BATCH_LIMITS, SEED_LIMITS } from '../../lib/limits'
 import { resolveActiveReleaseIds } from '../seedPipeline/resolvers'
-import { queueTemplateRankingAggregateRecompute } from './aggregate'
+import {
+  queueTemplateRankingAggregateRecompute,
+  scheduleTemplateRankingAggregateJobAdmission,
+} from './aggregate'
 import {
   seedRankingActivationResultValidator,
   type SeedRankingActivationResult,
@@ -17,34 +20,6 @@ import {
 type SeedRankingReleaseStatus = NonNullable<
   Doc<'publishedRankings'>['seedReleaseStatus']
 >
-
-const assertSeedRankingReadLimit = (
-  rows: readonly Doc<'publishedRankings'>[],
-  releaseId: string
-): void =>
-{
-  if (rows.length <= SEED_LIMITS.rankingSeedRowsPerRelease) return
-  throw new ConvexError({
-    code: CONVEX_ERROR_CODES.invalidState,
-    message: `seed ranking release exceeds read limit: ${releaseId}`,
-  })
-}
-
-export const loadSeedRankingsForRelease = async (
-  ctx: MutationCtx,
-  datasetKey: string,
-  releaseId: string
-): Promise<Doc<'publishedRankings'>[]> =>
-{
-  const rows = await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-      q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
-    )
-    .take(SEED_LIMITS.rankingSeedRowsPerRelease + 1)
-  assertSeedRankingReadLimit(rows, releaseId)
-  return rows
-}
 
 const loadSeedRankingsForReleaseStatus = async (
   ctx: MutationCtx,
@@ -61,8 +36,55 @@ const loadSeedRankingsForReleaseStatus = async (
         .eq('seedReleaseId', releaseId)
         .eq('seedReleaseStatus', status)
     )
+    .take(BATCH_LIMITS.rankingSeedLifecycleTransition)
+  return rows
+}
+
+const loadSeedRankingsForAggregateQueue = async (
+  ctx: MutationCtx,
+  datasetKey: string,
+  releaseId: string
+): Promise<Doc<'publishedRankings'>[]> =>
+{
+  const rows = await ctx.db
+    .query('publishedRankings')
+    .withIndex('bySeedDatasetReleaseStatus', (q) =>
+      q
+        .eq('seedDatasetKey', datasetKey)
+        .eq('seedReleaseId', releaseId)
+        .eq('seedReleaseStatus', 'active')
+    )
     .take(SEED_LIMITS.rankingSeedRowsPerRelease + 1)
-  assertSeedRankingReadLimit(rows, releaseId)
+  if (rows.length <= SEED_LIMITS.rankingSeedRowsPerRelease) return rows
+  throw new ConvexError({
+    code: CONVEX_ERROR_CODES.invalidState,
+    message: `seed ranking release exceeds aggregate queue limit: ${releaseId}`,
+  })
+}
+
+const ACTIVATABLE_TARGET_STATUSES: readonly SeedRankingReleaseStatus[] = [
+  'applied_hidden',
+  'rolled_back',
+]
+
+const loadSeedRankingsForActivatableRelease = async (
+  ctx: MutationCtx,
+  datasetKey: string,
+  releaseId: string
+): Promise<Doc<'publishedRankings'>[]> =>
+{
+  const rows: Doc<'publishedRankings'>[] = []
+  for (const status of ACTIVATABLE_TARGET_STATUSES)
+  {
+    rows.push(
+      ...(await loadSeedRankingsForReleaseStatus(
+        ctx,
+        datasetKey,
+        releaseId,
+        status
+      ))
+    )
+  }
   return rows
 }
 
@@ -76,8 +98,6 @@ const patchSeedBoardStatuses = async (
   await Promise.all(
     Array.from(boardIds, async (boardId) =>
     {
-      const board = await ctx.db.get(boardId)
-      if (!board || board.seedDatasetKey === null) return
       await ctx.db.patch(boardId, {
         seedReleaseStatus: status,
         updatedAt: now,
@@ -105,8 +125,13 @@ const queueTouchedAggregates = async (
       ctx,
       ranking.sourceTemplateId,
       ranking.sourceCriterionExternalId,
-      now
+      now,
+      { scheduleAdmission: false }
     )
+  }
+  if (queued.size > 0)
+  {
+    await scheduleTemplateRankingAggregateJobAdmission(ctx)
   }
   return queued.size
 }
@@ -117,6 +142,7 @@ export const activateSeedRankingReleaseInternal = async (
     datasetKey: string
     releaseId: string
     previousReleaseIds: readonly string[]
+    queueAggregates?: boolean
   }
 ): Promise<SeedRankingActivationResult> =>
 {
@@ -136,7 +162,10 @@ export const activateSeedRankingReleaseInternal = async (
     for (const ranking of rows)
     {
       rolledBackRows.push(ranking)
-      rolledBackBoardIds.add(ranking.sourceBoardId)
+      if (ranking.sourceBoardId !== null)
+      {
+        rolledBackBoardIds.add(ranking.sourceBoardId)
+      }
       await ctx.db.patch(ranking._id, {
         publicationState: 'unpublished',
         isPubliclyListable: false,
@@ -148,13 +177,18 @@ export const activateSeedRankingReleaseInternal = async (
   }
   await patchSeedBoardStatuses(ctx, rolledBackBoardIds, 'rolled_back', now)
 
-  const targetRows = (
-    await loadSeedRankingsForRelease(ctx, params.datasetKey, params.releaseId)
-  ).filter((ranking) => ranking.seedReleaseStatus !== 'rolled_back')
+  const targetRows = await loadSeedRankingsForActivatableRelease(
+    ctx,
+    params.datasetKey,
+    params.releaseId
+  )
   const activatedBoardIds = new Set<Id<'boards'>>()
   for (const ranking of targetRows)
   {
-    activatedBoardIds.add(ranking.sourceBoardId)
+    if (ranking.sourceBoardId !== null)
+    {
+      activatedBoardIds.add(ranking.sourceBoardId)
+    }
     const hasFeaturedSlot =
       ranking.featuredRank !== null && ranking.featuredBadge !== null
     await ctx.db.patch(ranking._id, {
@@ -168,11 +202,14 @@ export const activateSeedRankingReleaseInternal = async (
   }
   await patchSeedBoardStatuses(ctx, activatedBoardIds, 'active', now)
 
-  const aggregateJobsQueued = await queueTouchedAggregates(
-    ctx,
-    [...rolledBackRows, ...targetRows],
-    now
-  )
+  const aggregateJobsQueued =
+    params.queueAggregates === false
+      ? 0
+      : await queueTouchedAggregates(
+          ctx,
+          [...rolledBackRows, ...targetRows],
+          now
+        )
 
   return {
     datasetKey: params.datasetKey,
@@ -187,6 +224,7 @@ export const activateSeedRankings = internalMutation({
   args: {
     datasetKey: v.string(),
     releaseId: v.string(),
+    queueAggregates: v.optional(v.boolean()),
   },
   returns: seedRankingActivationResultValidator,
   handler: async (ctx, args): Promise<SeedRankingActivationResult> =>
@@ -198,6 +236,7 @@ export const activateSeedRankings = internalMutation({
       datasetKey: args.datasetKey,
       releaseId: args.releaseId,
       previousReleaseIds: activeReleaseIds,
+      queueAggregates: args.queueAggregates,
     })
   },
 })
@@ -207,6 +246,7 @@ export const rollbackSeedRankings = internalMutation({
     datasetKey: v.string(),
     releaseId: v.string(),
     targetReleaseId: v.string(),
+    queueAggregates: v.optional(v.boolean()),
   },
   returns: seedRankingActivationResultValidator,
   handler: async (ctx, args): Promise<SeedRankingActivationResult> =>
@@ -225,6 +265,37 @@ export const rollbackSeedRankings = internalMutation({
       datasetKey: args.datasetKey,
       releaseId: args.targetReleaseId,
       previousReleaseIds: [args.releaseId],
+      queueAggregates: args.queueAggregates,
     })
+  },
+})
+
+export const queueActiveSeedRankingAggregates = internalMutation({
+  args: {
+    datasetKey: v.string(),
+    releaseId: v.string(),
+  },
+  returns: seedRankingActivationResultValidator,
+  handler: async (ctx, args): Promise<SeedRankingActivationResult> =>
+  {
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    const rows = await loadSeedRankingsForAggregateQueue(
+      ctx,
+      args.datasetKey,
+      args.releaseId
+    )
+    const aggregateJobsQueued = await queueTouchedAggregates(
+      ctx,
+      rows,
+      Date.now()
+    )
+    return {
+      datasetKey: args.datasetKey,
+      releaseId: args.releaseId,
+      activatedRankings: 0,
+      rolledBackRankings: 0,
+      aggregateJobsQueued,
+    }
   },
 })

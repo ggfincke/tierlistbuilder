@@ -462,6 +462,9 @@ export const remixRanking = mutation({
       })
     }
 
+    const templateItemsById = new Map(
+      templateItems.map((item) => [item._id, item])
+    )
     const placedTemplateItemIds = new Set(
       rankingItems.map((item) => item.templateItemId)
     )
@@ -539,6 +542,14 @@ export const remixRanking = mutation({
     const placedSummaryItems: BoardLibrarySummaryItem[] = await Promise.all(
       rankingItems.map(async (item) =>
       {
+        const templateItem = templateItemsById.get(item.templateItemId)
+        if (!templateItem)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: 'ranking item references a missing template item',
+          })
+        }
         const tier = item.tierExternalId
           ? tierMap.get(item.tierExternalId)
           : undefined
@@ -550,26 +561,47 @@ export const remixRanking = mutation({
           })
         }
         const externalId = generateItemId()
+        const mediaAssetId =
+          item.mediaAssetId === undefined
+            ? templateItem.mediaAssetId
+            : item.mediaAssetId
+        const label = item.label === undefined ? templateItem.label : item.label
+        const backgroundColor =
+          item.backgroundColor === undefined
+            ? templateItem.backgroundColor
+            : item.backgroundColor
+        const altText =
+          item.altText === undefined ? templateItem.altText : item.altText
+        const aspectRatio =
+          item.aspectRatio === undefined
+            ? templateItem.aspectRatio
+            : item.aspectRatio
+        const imageFit =
+          item.imageFit === undefined ? templateItem.imageFit : item.imageFit
+        const transform =
+          item.transform === undefined ? templateItem.transform : item.transform
         await ctx.db.insert('boardItems', {
           boardId,
           tierId: tier.boardTierId,
           externalId,
-          label: item.label ?? undefined,
-          backgroundColor: item.backgroundColor ?? undefined,
-          altText: item.altText ?? undefined,
-          mediaAssetId: item.mediaAssetId,
+          label: label ?? undefined,
+          backgroundColor: backgroundColor ?? undefined,
+          altText: altText ?? undefined,
+          mediaAssetId,
           order: item.order,
           deletedAt: null,
-          aspectRatio: item.aspectRatio ?? undefined,
-          imageFit: item.imageFit ?? undefined,
-          transform: item.transform ?? undefined,
+          aspectRatio: aspectRatio ?? undefined,
+          imageFit: imageFit ?? undefined,
+          transform: transform ?? undefined,
           templateItemId: item.templateItemId,
         })
         return {
           tierKey: tier.externalId,
           externalId,
-          label: item.label,
-          storageId: await loadMediaVariantStorageId(ctx, item.mediaAssetId),
+          label,
+          storageId: mediaAssetId
+            ? await loadMediaVariantStorageId(ctx, mediaAssetId)
+            : null,
           order: item.order,
           deletedAt: null,
         }

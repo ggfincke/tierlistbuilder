@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -81,6 +83,16 @@ SURFACE_ASPECT_RATIOS = {
     "detailHero": 4 / 3,
     "card": 16 / 10,
 }
+
+
+def _seed_content_hash(kind: str, payload: object) -> str:
+    serialized = json.dumps(
+        {"kind": kind, "payload": payload},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return "v1:" + hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:32]
 
 
 @dataclass(frozen=True)
@@ -285,6 +297,14 @@ def run_seed_manifest(
         return write_run_report(context, ["dry-run preflight complete"])
 
     _assert_write_allowed(options, "run")
+    if _active_release_matches_compiled_manifest(context.compiled, state, diff):
+        context.progress.log(
+            "active release already matches compiled manifest; skipping writes"
+        )
+        return write_run_report(
+            context,
+            ["active release already matches compiled manifest; no writes performed"],
+        )
     _ensure_seed_author(context)
     _begin_seed_run(context)
     # persist the activation guard before long upload/apply work starts
@@ -301,8 +321,8 @@ def run_seed_manifest(
             msg = f"seed upload rejected {len(rejected)} variant(s); report: {report_path}"
             raise RuntimeError(msg)
     _upsert_templates(context)
-    _upsert_criteria(context)
-    _upsert_items(context)
+    _upsert_criteria(context, diff)
+    _upsert_items(context, diff)
     verification = _verify_seed_release(context)
     if not verification.get("verified"):
         write_verify_report(context, verification)
@@ -322,20 +342,26 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
     upserts: list[JsonObject] = []
     for template in compiled_templates(compiled):
         cover = template.get("coverImage")
+        upsert = {
+            "externalId": template["externalId"],
+            "title": template["title"],
+            "category": template["category"],
+            "description": template.get("description"),
+            "tags": template.get("tags", []),
+            "visibility": template["visibility"],
+            "coverMediaDedupeHash": _asset_dedupe_hash(cover),
+            "coverFraming": _cover_framing(template),
+            "suggestedTiers": template.get("suggestedTiers")
+            or DEFAULT_SUGGESTED_TIERS,
+            "itemAspectRatio": template["itemAspectRatio"],
+            "itemCount": len(as_list(template.get("items"))),
+        }
         upserts.append(
             {
-                "externalId": template["externalId"],
-                "title": template["title"],
-                "category": template["category"],
-                "description": template.get("description"),
-                "tags": template.get("tags", []),
-                "visibility": template["visibility"],
-                "coverMediaDedupeHash": _asset_dedupe_hash(cover),
-                "coverFraming": _cover_framing(template),
-                "suggestedTiers": template.get("suggestedTiers")
-                or DEFAULT_SUGGESTED_TIERS,
-                "itemAspectRatio": template["itemAspectRatio"],
-                "itemCount": len(as_list(template.get("items"))),
+                **upsert,
+                "metadataContentHash": _seed_content_hash(
+                    "template-metadata", upsert
+                ),
             }
         )
     return upserts
@@ -365,11 +391,12 @@ def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
 def build_criterion_upserts(compiled: JsonObject) -> list[JsonObject]:
     upserts: list[JsonObject] = []
     for template in compiled_templates(compiled):
+        template_criteria: list[JsonObject] = []
         for criterion in as_list(template.get("criteria")):
             if not isinstance(criterion, dict):
                 continue
             # criteria are embedded on templates, but apply still treats them as IDs
-            upserts.append(
+            template_criteria.append(
                 {
                     "templateExternalId": template["externalId"],
                     "criterionExternalId": criterion["externalId"],
@@ -383,7 +410,137 @@ def build_criterion_upserts(compiled: JsonObject) -> list[JsonObject]:
                     "status": criterion["status"],
                 }
             )
+        criteria_content_hash = _criteria_content_hash(
+            str(template["externalId"]), template_criteria
+        )
+        upserts.extend(
+            {
+                **criterion,
+                "criteriaContentHash": criteria_content_hash,
+            }
+            for criterion in template_criteria
+        )
     return upserts
+
+
+def _items_content_hash(template_external_id: str, items: list[JsonObject]) -> str:
+    return _seed_content_hash(
+        "template-items",
+        {"templateExternalId": template_external_id, "items": items},
+    )
+
+
+def _criteria_content_hash(
+    template_external_id: str, criteria: list[JsonObject]
+) -> str:
+    return _seed_content_hash(
+        "template-criteria",
+        {"templateExternalId": template_external_id, "criteria": criteria},
+    )
+
+
+def _compiled_template_hashes(compiled: JsonObject) -> dict[str, JsonObject]:
+    hashes: dict[str, JsonObject] = {
+        str(template["externalId"]): {
+            "metadataContentHash": template["metadataContentHash"]
+        }
+        for template in build_template_upserts(compiled)
+    }
+    item_rows_by_template = _rows_by_template_external_id(build_item_upserts(compiled))
+    for template_external_id, rows in item_rows_by_template.items():
+        items = [
+            {key: value for key, value in row.items() if key != "templateExternalId"}
+            for row in rows
+        ]
+        hashes.setdefault(template_external_id, {})[
+            "itemsContentHash"
+        ] = _items_content_hash(template_external_id, items)
+    for template in compiled_templates(compiled):
+        template_external_id = str(template["externalId"])
+        hashes.setdefault(template_external_id, {}).setdefault(
+            "itemsContentHash", _items_content_hash(template_external_id, [])
+        )
+
+    criteria_rows_by_template = _rows_by_template_external_id(
+        build_criterion_upserts(compiled)
+    )
+    for template_external_id, rows in criteria_rows_by_template.items():
+        content_hash = rows[0].get("criteriaContentHash") if rows else None
+        hashes.setdefault(template_external_id, {})[
+            "criteriaContentHash"
+        ] = content_hash
+    for template in compiled_templates(compiled):
+        template_external_id = str(template["externalId"])
+        hashes.setdefault(template_external_id, {}).setdefault(
+            "criteriaContentHash", _criteria_content_hash(template_external_id, [])
+        )
+    return hashes
+
+
+def _rows_by_template_external_id(
+    rows: list[JsonObject],
+) -> dict[str, list[JsonObject]]:
+    grouped: dict[str, list[JsonObject]] = {}
+    for row in rows:
+        template_external_id = str(row["templateExternalId"])
+        grouped.setdefault(template_external_id, []).append(row)
+    return grouped
+
+
+def _active_release_matches_compiled_manifest(
+    compiled: JsonObject, state: JsonObject, diff: JsonObject
+) -> bool:
+    if state.get("activeReleaseId") != compiled["releaseId"]:
+        return False
+    if as_list(diff["media"].get("missing")):
+        return False
+    if (
+        as_list(diff["templates"].get("create"))
+        or as_list(diff["templates"].get("update"))
+        or as_list(diff["items"].get("create"))
+        or as_list(diff["items"].get("update"))
+        or as_list(diff["items"].get("reorder"))
+        or as_list(diff["criteria"].get("create"))
+        or as_list(diff["criteria"].get("update"))
+    ):
+        return False
+
+    state_templates = {
+        str(template["externalId"]): template
+        for template in as_list(state.get("templates"))
+        if isinstance(template, dict) and isinstance(template.get("externalId"), str)
+    }
+    for template_external_id, hashes in _compiled_template_hashes(compiled).items():
+        current = state_templates.get(template_external_id)
+        if current is None:
+            return False
+        if any(current.get(key) != value for key, value in hashes.items()):
+            return False
+    return True
+
+
+def _item_diff_template_external_ids(diff: JsonObject) -> set[str]:
+    return _diff_template_external_ids(
+        diff.get("items"),
+        ("create", "update", "reorder"),
+    )
+
+
+def _criteria_diff_template_external_ids(diff: JsonObject) -> set[str]:
+    return _diff_template_external_ids(diff.get("criteria"), ("create", "update"))
+
+
+def _diff_template_external_ids(section: object, keys: tuple[str, ...]) -> set[str]:
+    if not isinstance(section, dict):
+        return set()
+    template_external_ids: set[str] = set()
+    for key in keys:
+        for entry in as_list(section.get(key)):
+            if isinstance(entry, dict) and isinstance(
+                entry.get("templateExternalId"), str
+            ):
+                template_external_ids.add(str(entry["templateExternalId"]))
+    return template_external_ids
 
 
 def _load_context(
@@ -721,10 +878,15 @@ def _upsert_templates(context: SeedRunContext) -> list[JsonObject]:
     return results
 
 
-def _upsert_items(context: SeedRunContext) -> list[JsonObject]:
+def _upsert_items(
+    context: SeedRunContext, diff: JsonObject | None = None
+) -> list[JsonObject]:
     results: list[JsonObject] = []
     batches = _child_upsert_batches(
         build_item_upserts(context.compiled), ITEM_BATCH_SIZE, "items"
+    )
+    force_template_external_ids = (
+        _item_diff_template_external_ids(diff) if diff is not None else set()
     )
     for index, chunk in enumerate(batches, start=1):
         context.progress.count(
@@ -745,6 +907,11 @@ def _upsert_items(context: SeedRunContext) -> list[JsonObject]:
                 {
                     **_run_request(context),
                     "templateExternalId": template_external_id,
+                    "itemsContentHash": _items_content_hash(
+                        template_external_id, items
+                    ),
+                    "allowContentHashSkip": diff is not None
+                    and template_external_id not in force_template_external_ids,
                     "items": items,
                 },
             )
@@ -752,10 +919,20 @@ def _upsert_items(context: SeedRunContext) -> list[JsonObject]:
     return results
 
 
-def _upsert_criteria(context: SeedRunContext) -> list[JsonObject]:
+def _upsert_criteria(
+    context: SeedRunContext, diff: JsonObject | None = None
+) -> list[JsonObject]:
     results: list[JsonObject] = []
-    batches = _child_upsert_batches(
+    batches = _packed_child_upsert_batches(
         build_criterion_upserts(context.compiled), CRITERION_BATCH_SIZE, "criteria"
+    )
+    force_template_external_ids = (
+        sorted(_criteria_diff_template_external_ids(diff))
+        if diff is not None
+        else [
+            str(template["externalId"])
+            for template in compiled_templates(context.compiled)
+        ]
     )
     for index, chunk in enumerate(batches, start=1):
         context.progress.count(
@@ -768,10 +945,30 @@ def _upsert_criteria(context: SeedRunContext) -> list[JsonObject]:
         results.append(
             context.client.mutation(
                 SEED_UPSERT_CRITERIA_FUNCTION,
-                {**_run_request(context), "criteria": chunk},
+                {
+                    **_run_request(context),
+                    "forceTemplateExternalIds": force_template_external_ids,
+                    "criteria": chunk,
+                },
             )
         )
     return results
+
+
+def _packed_child_upsert_batches(
+    rows: list[JsonObject], limit: int, label: str
+) -> list[list[JsonObject]]:
+    groups = _child_upsert_batches(rows, limit, label)
+    batches: list[list[JsonObject]] = []
+    current: list[JsonObject] = []
+    for group in groups:
+        if current and len(current) + len(group) > limit:
+            batches.append(current)
+            current = []
+        current.extend(group)
+    if current:
+        batches.append(current)
+    return batches
 
 
 def _child_upsert_batches(
@@ -801,9 +998,16 @@ def _assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[Js
         if isinstance(media, dict) and isinstance(media.get("mediaDedupeHash"), str)
     }
     needed: list[JsonObject] = []
+    queued: set[str] = set()
     for entry in _compiled_asset_entries(compiled):
-        if _asset_dedupe_hash(entry["asset"]) not in present:
+        dedupe_hash = _asset_dedupe_hash(entry["asset"])
+        if dedupe_hash is None:
             needed.append(entry)
+            continue
+        if dedupe_hash in present or dedupe_hash in queued:
+            continue
+        queued.add(dedupe_hash)
+        needed.append(entry)
     return needed
 
 
@@ -983,6 +1187,3 @@ def _asset_dedupe_hash(asset: object) -> str | None:
             if isinstance(variant, dict)
         )
     )
-
-
-

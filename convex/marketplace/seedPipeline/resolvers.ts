@@ -26,6 +26,9 @@ export const toResolvedTemplate = (
   visibility: template.visibility,
   status: template.seedReleaseStatus ?? null,
   itemAspectRatio: template.itemAspectRatio ?? null,
+  metadataContentHash: template.seedMetadataContentHash ?? null,
+  itemsContentHash: template.seedItemsContentHash ?? null,
+  criteriaContentHash: template.seedCriteriaContentHash ?? null,
 })
 
 export const resolveTemplates = async (

@@ -318,10 +318,16 @@
             "tiers": [
               { "name": "S+", "colorSpec": { "kind": "palette", "index": 0 } },
               { "name": "S", "colorSpec": { "kind": "palette", "index": 0 } },
+              { "name": "S-", "colorSpec": { "kind": "palette", "index": 0 } },
+              { "name": "A+", "colorSpec": { "kind": "palette", "index": 1 } },
               { "name": "A", "colorSpec": { "kind": "palette", "index": 1 } },
-              { "name": "B", "colorSpec": { "kind": "palette", "index": 3 } },
-              { "name": "C", "colorSpec": { "kind": "palette", "index": 5 } },
-              { "name": "D", "colorSpec": { "kind": "palette", "index": 7 } }
+              { "name": "A-", "colorSpec": { "kind": "palette", "index": 1 } },
+              { "name": "B+", "colorSpec": { "kind": "palette", "index": 3 } },
+              { "name": "B-", "colorSpec": { "kind": "palette", "index": 3 } },
+              { "name": "C+", "colorSpec": { "kind": "palette", "index": 5 } },
+              { "name": "C-", "colorSpec": { "kind": "palette", "index": 5 } },
+              { "name": "D", "colorSpec": { "kind": "palette", "index": 7 } },
+              { "name": "E", "colorSpec": { "kind": "palette", "index": 10 } }
             ],
             "tierGroups": [
               { "tierName": "S+", "labels": ["Steve", "Sonic", "Snake"] },
@@ -331,15 +337,24 @@
                   "Mr Game And Watch",
                   "Rob",
                   "Pyra And Mythra",
-                  "Kazuya",
-                  "Diddy Kong",
-                  "Min Min",
-                  "Fox",
-                  "Joker"
+                  "Kazuya"
                 ]
               },
               {
-                "tierName": "A",
+                "tierName": "S-",
+                "labels": [
+                  "Diddy Kong",
+                  "Min Min",
+                  "Fox",
+                  "Peach",
+                  "Daisy",
+                  "Joker",
+                  "Yoshi",
+                  "Pikachu"
+                ]
+              },
+              {
+                "tierName": "A+",
                 "labels": [
                   "Roy",
                   "Olimar",
@@ -349,7 +364,12 @@
                   "Samus",
                   "Dark Samus",
                   "Palutena",
-                  "Mario",
+                  "Mario"
+                ]
+              },
+              {
+                "tierName": "A",
+                "labels": [
                   "Corrin",
                   "Wario",
                   "Sora",
@@ -359,7 +379,7 @@
                 ]
               },
               {
-                "tierName": "B",
+                "tierName": "A-",
                 "labels": [
                   "Ryu",
                   "Shulk",
@@ -370,7 +390,12 @@
                   "Pac Man",
                   "Pokemon Trainer",
                   "Toon Link",
-                  "Lucina",
+                  "Lucina"
+                ]
+              },
+              {
+                "tierName": "B+",
+                "labels": [
                   "Link",
                   "Pit",
                   "Dark Pit",
@@ -380,7 +405,7 @@
                 ]
               },
               {
-                "tierName": "C",
+                "tierName": "B-",
                 "labels": [
                   "Ness",
                   "Sheik",
@@ -391,7 +416,12 @@
                   "Byleth",
                   "Ice Climbers",
                   "Pichu",
-                  "Donkey Kong",
+                  "Donkey Kong"
+                ]
+              },
+              {
+                "tierName": "C+",
+                "labels": [
                   "Lucario",
                   "Banjo And Kazooie",
                   "Wii Fit Trainer",
@@ -402,7 +432,7 @@
                 ]
               },
               {
-                "tierName": "D",
+                "tierName": "C-",
                 "labels": [
                   "Young Link",
                   "Ridley",
@@ -414,7 +444,12 @@
                   "Bowser Jr",
                   "Mewtwo",
                   "Jigglypuff",
-                  "Chrom",
+                  "Chrom"
+                ]
+              },
+              {
+                "tierName": "D",
+                "labels": [
                   "Mii Gunner",
                   "Zelda",
                   "Ike",
@@ -424,7 +459,12 @@
                   "King K Rool",
                   "Simon",
                   "Richter",
-                  "Dr Mario",
+                  "Dr Mario"
+                ]
+              },
+              {
+                "tierName": "E",
+                "labels": [
                   "Little Mac",
                   "Ganondorf"
                 ]
@@ -453,9 +493,13 @@
               { "name": "S-", "colorSpec": { "kind": "palette", "index": 0 } },
               { "name": "A+", "colorSpec": { "kind": "palette", "index": 1 } },
               { "name": "A", "colorSpec": { "kind": "palette", "index": 1 } },
-              { "name": "B", "colorSpec": { "kind": "palette", "index": 3 } },
-              { "name": "C", "colorSpec": { "kind": "palette", "index": 5 } },
-              { "name": "D", "colorSpec": { "kind": "palette", "index": 7 } },
+              { "name": "A-", "colorSpec": { "kind": "palette", "index": 1 } },
+              { "name": "B+", "colorSpec": { "kind": "palette", "index": 3 } },
+              { "name": "B-", "colorSpec": { "kind": "palette", "index": 3 } },
+              { "name": "C+", "colorSpec": { "kind": "palette", "index": 5 } },
+              { "name": "C-", "colorSpec": { "kind": "palette", "index": 5 } },
+              { "name": "D+", "colorSpec": { "kind": "palette", "index": 7 } },
+              { "name": "D-", "colorSpec": { "kind": "palette", "index": 7 } },
               { "name": "E", "colorSpec": { "kind": "palette", "index": 10 } }
             ],
             "tierGroups": [
@@ -511,13 +555,18 @@
                 ]
               },
               {
-                "tierName": "B",
+                "tierName": "A-",
                 "labels": [
                   "Corrin",
                   "Falco",
                   "Shulk",
                   "Captain Falcon",
-                  "Greninja",
+                  "Greninja"
+                ]
+              },
+              {
+                "tierName": "B+",
+                "labels": [
                   "Terry",
                   "Pokemon Trainer",
                   "Lucina",
@@ -534,7 +583,7 @@
                 ]
               },
               {
-                "tierName": "C",
+                "tierName": "B-",
                 "labels": [
                   "Pichu",
                   "Inkling",
@@ -543,7 +592,12 @@
                   "Byleth",
                   "Meta Knight",
                   "Sephiroth",
-                  "Duck Hunt",
+                  "Duck Hunt"
+                ]
+              },
+              {
+                "tierName": "C+",
+                "labels": [
                   "Isabelle",
                   "Mii Swordfighter",
                   "Lucas",
@@ -553,7 +607,7 @@
                 ]
               },
               {
-                "tierName": "D",
+                "tierName": "C-",
                 "labels": [
                   "Banjo And Kazooie",
                   "Bowser Jr",
@@ -564,21 +618,31 @@
                   "Bowser",
                   "Incineroar",
                   "Kirby",
-                  "Piranha Plant",
+                  "Piranha Plant"
+                ]
+              },
+              {
+                "tierName": "D+",
+                "labels": [
                   "Mii Gunner",
                   "Mewtwo",
                   "Zelda"
                 ]
               },
               {
-                "tierName": "E",
+                "tierName": "D-",
                 "labels": [
                   "Chrom",
                   "Dr Mario",
                   "Ike",
                   "King K Rool",
                   "King Dedede",
-                  "Villager",
+                  "Villager"
+                ]
+              },
+              {
+                "tierName": "E",
+                "labels": [
                   "Simon",
                   "Richter",
                   "Little Mac",

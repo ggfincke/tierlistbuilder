@@ -116,6 +116,7 @@ export const seedRankingApplyResultValidator = v.object({
   authorsPatched: v.number(),
   boardsReplaced: v.number(),
   rankingsReplaced: v.number(),
+  rankingsUnchanged: v.number(),
   sampleRankingsApplied: v.number(),
   curatedRankingsApplied: v.number(),
   rankingsApplied: v.number(),

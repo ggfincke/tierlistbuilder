@@ -26,6 +26,9 @@ export type SeedResolvedTemplateRow = {
   visibility: Doc<'templates'>['visibility']
   status: SeedTemplateReleaseStatus | null
   itemAspectRatio: number | null
+  metadataContentHash: string | null
+  itemsContentHash: string | null
+  criteriaContentHash: string | null
 }
 
 export type SeedResolveStateResult = {
@@ -123,6 +126,7 @@ export type SeedTemplateApplyPatch = Pick<
   | 'seedExternalId'
   | 'seedReleaseId'
   | 'seedReleaseStatus'
+  | 'seedMetadataContentHash'
 >
 
 export type SeedDiagnosticRow = {

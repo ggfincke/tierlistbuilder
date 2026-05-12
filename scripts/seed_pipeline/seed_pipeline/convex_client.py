@@ -67,6 +67,10 @@ SEED_HTTP_ROUTES = {
     ): "/api/seed/rankings/activate",
     (
         "mutation",
+        "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates",
+    ): "/api/seed/rankings/queue-aggregates",
+    (
+        "mutation",
         "marketplace/rankings/seedLifecycle:rollbackSeedRankings",
     ): "/api/seed/rankings/rollback",
     (
@@ -85,6 +89,10 @@ SEED_HTTP_ROUTES = {
         "action",
         "marketplace/rankings/seed:applySeedRankings",
     ): "/api/seed/rankings/apply",
+    (
+        "action",
+        "marketplace/rankings/seed:cleanupStaleSeedRankings",
+    ): "/api/seed/rankings/cleanup-stale",
     (
         "action",
         "marketplace/seedPipeline/storageUploads:cleanupAbandonedSeedRun",

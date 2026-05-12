@@ -35,6 +35,7 @@
     "seed:rankings:apply": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline rankings:apply data/seeds/marketplace-core.json",
     "seed:rankings:verify": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline rankings:verify data/seeds/marketplace-core.json",
     "seed:rankings:activate": "PYTHONPATH=scripts/seed_pipeline python3 -m seed_pipeline rankings:activate data/seeds/marketplace-core.json --confirm-activation",
+    "seed:featured": "node scripts/promote-featured-trio.mjs",
     "db:reset": "python3 scripts/dev_reset.py",
     "test": "vitest run",
     "test:watch": "vitest",

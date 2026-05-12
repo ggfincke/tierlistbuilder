@@ -4,10 +4,20 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
-from seed_pipeline.convex_client import SEED_HTTP_ROUTES
+from seed_pipeline.convex_client import ConvexClientError, SEED_HTTP_ROUTES
 from seed_pipeline.ranking_config import compile_ranking_seeds
-from seed_pipeline.rankings import _ranking_seed_target_manifests
+from seed_pipeline.rankings import (
+    RANKING_ACTIVATION_BATCH_PAUSE_SECONDS,
+    RANKING_APPLY_THROTTLE_BASE_SECONDS,
+    SEED_RANKINGS_ACTIVATE_FUNCTION,
+    SEED_RANKINGS_APPLY_FUNCTION,
+    SEED_RANKINGS_CLEANUP_STALE_FUNCTION,
+    _apply_ranking_targets,
+    _ranking_seed_target_manifests,
+    _run_ranking_lifecycle_until_complete,
+)
 
 
 class RankingSeedCompilationTests(unittest.TestCase):
@@ -43,6 +53,33 @@ class RankingSeedCompilationTests(unittest.TestCase):
         self.assertEqual(generic["templateExternalId"], "gaming:zelda-games")
         self.assertEqual(generic["sampleProfileCount"], 16)
         self.assertEqual(generic["lanes"][0]["criterionExternalId"], "favorites")
+
+    def test_include_all_caps_generic_profile_count_for_large_templates(self) -> None:
+        manifest = _manifest({"includeAllTemplates": True, "targets": []})
+        templates = [
+            {
+                "externalId": "gaming:large-template",
+                "title": "Large Template",
+                "items": [
+                    {"externalId": f"item-{index}"} for index in range(1342)
+                ],
+                "criteria": [
+                    {
+                        "externalId": "favorites",
+                        "status": "active",
+                        "isPrimary": True,
+                    }
+                ],
+            }
+        ]
+
+        compiled = compile_ranking_seeds(manifest, templates)
+
+        self.assertIsNotNone(compiled)
+        assert compiled is not None
+        target = compiled["targets"][0]
+        self.assertEqual(target["templateExternalId"], "gaming:large-template")
+        self.assertEqual(target["sampleProfileCount"], 4)
 
     def test_curated_defaults_are_made_explicit(self) -> None:
         manifest = _manifest(
@@ -164,6 +201,12 @@ class RankingSeedCompilationTests(unittest.TestCase):
         )
         self.assertEqual(
             SEED_HTTP_ROUTES[
+                ("action", "marketplace/rankings/seed:cleanupStaleSeedRankings")
+            ],
+            "/api/seed/rankings/cleanup-stale",
+        )
+        self.assertEqual(
+            SEED_HTTP_ROUTES[
                 ("action", "marketplace/rankings/seed:ensureSeedRankingAuthors")
             ],
             "/api/seed/rankings/ensure-authors",
@@ -176,6 +219,122 @@ class RankingSeedCompilationTests(unittest.TestCase):
                 )
             ],
             "/api/seed/rankings/activate",
+        )
+        self.assertEqual(
+            SEED_HTTP_ROUTES[
+                (
+                    "mutation",
+                    "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates",
+                )
+            ],
+            "/api/seed/rankings/queue-aggregates",
+        )
+
+    @patch("seed_pipeline.rankings.time.sleep")
+    def test_activation_runner_keeps_batch_size_server_owned(
+        self, sleep: object
+    ) -> None:
+        context = _FakeRankingLifecycleContext(
+            [
+                {
+                    "releaseId": "release-a",
+                    "activatedRankings": 32,
+                    "rolledBackRankings": 0,
+                    "aggregateJobsQueued": 0,
+                },
+                {
+                    "releaseId": "release-a",
+                    "activatedRankings": 0,
+                    "rolledBackRankings": 0,
+                    "aggregateJobsQueued": 0,
+                },
+            ]
+        )
+        args = {
+            "datasetKey": "marketplace-core",
+            "releaseId": "release-a",
+            "queueAggregates": False,
+        }
+
+        result = _run_ranking_lifecycle_until_complete(
+            context,
+            SEED_RANKINGS_ACTIVATE_FUNCTION,
+            args,
+        )
+
+        self.assertEqual(result["activatedRankings"], 32)
+        self.assertEqual(len(context.client.mutations), 2)
+        first_call = context.client.mutations[0]
+        self.assertEqual(first_call[0], SEED_RANKINGS_ACTIVATE_FUNCTION)
+        self.assertEqual(first_call[1], args)
+        self.assertNotIn("batchSize", first_call[1])
+        self.assertNotIn("limit", first_call[1])
+        sleep.assert_called_once_with(RANKING_ACTIVATION_BATCH_PAUSE_SECONDS)
+
+    @patch("seed_pipeline.rankings.time.sleep")
+    def test_apply_retries_convex_write_rate_throttle(self, sleep: object) -> None:
+        ranking_seeds = _manifest(
+            {
+                "profiles": [
+                    {"key": "a", "displayName": "A", "chaos": 0, "contrarian": 0}
+                ],
+                "targets": [
+                    {
+                        "templateExternalId": "one",
+                        "sampleProfileCount": 1,
+                        "lanes": [],
+                    }
+                ],
+            }
+        )["rankingSeeds"]
+        context = _FakeRankingApplyContext(
+            [
+                ConvexClientError(
+                    "Too many writes per second. Your deployment is limited to "
+                    "4 MiB bytes written per 1 second."
+                ),
+                {
+                    "releaseId": "release-a",
+                    "boardsReplaced": 1,
+                    "rankingsReplaced": 1,
+                    "rankingsUnchanged": 0,
+                    "sampleRankingsApplied": 1,
+                    "curatedRankingsApplied": 0,
+                    "rankingsApplied": 1,
+                    "rankingTiersWritten": 5,
+                    "rankingItemsWritten": 10,
+                    "aggregateLanes": [],
+                    "diagnostics": [],
+                },
+                {
+                    "releaseId": "release-a",
+                    "rankingsDeleted": 2,
+                    "boardsDeleted": 2,
+                },
+            ]
+        )
+
+        result = _apply_ranking_targets(
+            context,
+            ranking_seeds,
+            "author-password",
+            {"authorsCreated": 0, "authorsReused": 1, "authorsPatched": 0},
+        )
+
+        self.assertEqual(result["rankingsApplied"], 1)
+        self.assertEqual(result["rankingsReplaced"], 3)
+        self.assertEqual(result["boardsReplaced"], 3)
+        self.assertEqual(len(context.client.actions), 3)
+        for function_path, payload in context.client.actions[:2]:
+            self.assertEqual(function_path, SEED_RANKINGS_APPLY_FUNCTION)
+            self.assertNotIn("batchSize", payload)
+            self.assertNotIn("limit", payload)
+        cleanup_function, cleanup_payload = context.client.actions[2]
+        self.assertEqual(cleanup_function, SEED_RANKINGS_CLEANUP_STALE_FUNCTION)
+        self.assertEqual(cleanup_payload["rankingSeeds"], ranking_seeds)
+        sleep.assert_called_once_with(RANKING_APPLY_THROTTLE_BASE_SECONDS)
+        self.assertTrue(
+            any("throttled by write-rate limit" in msg for msg in context.progress.messages)
         )
 
 
@@ -233,6 +392,67 @@ def _compiled_templates() -> list[dict[str, object]]:
             ],
         },
     ]
+
+
+class _FakeRankingLifecycleClient:
+    def __init__(self, responses: list[dict[str, object]]) -> None:
+        self.responses = list(responses)
+        self.mutations: list[tuple[str, dict[str, object]]] = []
+
+    def mutation(
+        self, function_path: str, args: dict[str, object]
+    ) -> dict[str, object]:
+        self.mutations.append((function_path, dict(args)))
+        if not self.responses:
+            raise AssertionError("unexpected mutation call")
+        return self.responses.pop(0)
+
+
+class _FakeRankingLifecycleProgress:
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+
+    def log(self, message: str) -> None:
+        self.messages.append(message)
+
+
+class _FakeRankingLifecycleContext:
+    def __init__(self, responses: list[dict[str, object]]) -> None:
+        self.compiled = {
+            "datasetKey": "marketplace-core",
+            "releaseId": "release-a",
+        }
+        self.client = _FakeRankingLifecycleClient(responses)
+        self.progress = _FakeRankingLifecycleProgress()
+
+
+class _FakeRankingApplyClient:
+    def __init__(self, responses: list[object]) -> None:
+        self.responses = list(responses)
+        self.actions: list[tuple[str, dict[str, object]]] = []
+
+    def action(
+        self, function_path: str, args: dict[str, object]
+    ) -> dict[str, object]:
+        self.actions.append((function_path, dict(args)))
+        if not self.responses:
+            raise AssertionError("unexpected action call")
+        response = self.responses.pop(0)
+        if isinstance(response, BaseException):
+            raise response
+        assert isinstance(response, dict)
+        return response
+
+
+class _FakeRankingApplyContext:
+    def __init__(self, responses: list[object]) -> None:
+        self.compiled = {
+            "datasetKey": "marketplace-core",
+            "releaseId": "release-a",
+        }
+        self.checkpoint = {"runId": "run-a"}
+        self.client = _FakeRankingApplyClient(responses)
+        self.progress = _FakeRankingLifecycleProgress()
 
 
 if __name__ == "__main__":

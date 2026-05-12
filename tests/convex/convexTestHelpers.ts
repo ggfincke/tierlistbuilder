@@ -140,7 +140,7 @@ interface SeedPublishedRankingArgs
   ownerId: Id<'users'>
   slug: string
   sourceTemplateId: Id<'templates'>
-  sourceBoardId: Id<'boards'>
+  sourceBoardId: Id<'boards'> | null
   sourceTemplateSlug: string
   sourceTemplateTitle: string
   title: string

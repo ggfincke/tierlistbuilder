@@ -7,6 +7,7 @@ from .manifest import JsonObject, as_list
 
 
 GENERIC_SAMPLE_DESCRIPTION = "Seeded sample ranking for community feature testing."
+GENERIC_SAMPLE_ITEM_BUDGET = 6000
 
 
 def compile_ranking_seeds(
@@ -116,7 +117,10 @@ def _generic_target_for_template(
     criterion = _primary_active_criterion(template)
     return {
         "templateExternalId": template["externalId"],
-        "sampleProfileCount": default_profile_count,
+        "sampleProfileCount": _generic_sample_profile_count(
+            template,
+            default_profile_count,
+        ),
         "countAsTemplateUse": False,
         "lanes": [
             {
@@ -134,6 +138,18 @@ def _generic_target_for_template(
         ],
         "curatedRankings": [],
     }
+
+
+def _generic_sample_profile_count(
+    template: JsonObject,
+    default_profile_count: int,
+) -> int:
+    items = template.get("items")
+    item_count = len(items) if isinstance(items, list) else 0
+    if item_count <= 0:
+        return default_profile_count
+    budgeted_count = GENERIC_SAMPLE_ITEM_BUDGET // item_count
+    return max(1, min(default_profile_count, budgeted_count))
 
 
 def _primary_active_criterion(template: JsonObject) -> JsonObject:

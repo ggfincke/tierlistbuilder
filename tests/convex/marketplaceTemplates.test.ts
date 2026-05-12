@@ -2177,6 +2177,78 @@ describe('marketplace template Convex functions', () =>
     expect(stored.jobs).toEqual(['competitive', 'favorites'])
   })
 
+  it('admits aggregate recompute jobs through bounded running slots', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(
+      t,
+      'Aggregate Admission Author',
+      'aggregate-admission-author@example.com'
+    )
+    const templates = []
+    for (let index = 0; index < 4; index++)
+    {
+      templates.push(
+        await seedAggregateTemplate(t, authorId, {
+          slug: `AggAdm${index}`,
+          criteria: MULTI_CRITERION_TEST_CRITERIA,
+        })
+      )
+    }
+
+    for (const template of templates)
+    {
+      await t.mutation(
+        internal.marketplace.rankings.aggregateInternal
+          .queueTemplateRankingAggregateRecomputeForCriterion,
+        {
+          templateId: template.templateId,
+          criterionExternalId: 'competitive',
+        }
+      )
+    }
+
+    const before = await t.run(async (ctx) =>
+    {
+      const jobs = await ctx.db.query('templateRankingAggregateJobs').collect()
+      await ctx.db.patch(jobs[0]._id, {
+        status: 'running',
+        admittedAt: null,
+      })
+      return jobs.map((job) => job.status).sort()
+    })
+    expect(before).toEqual(['queued', 'queued', 'queued', 'queued'])
+
+    const demotion = await t.mutation(
+      internal.marketplace.rankings.aggregateInternal
+        .admitQueuedTemplateRankingAggregateJobs,
+      {}
+    )
+    expect(demotion).toMatchObject({
+      admitted: 0,
+      running: 0,
+      queuedRemaining: 1,
+    })
+
+    const admission = await t.mutation(
+      internal.marketplace.rankings.aggregateInternal
+        .admitQueuedTemplateRankingAggregateJobs,
+      {}
+    )
+
+    const after = await t.run(async (ctx) =>
+    {
+      const jobs = await ctx.db.query('templateRankingAggregateJobs').collect()
+      return jobs.map((job) => job.status).sort()
+    })
+    expect(admission).toMatchObject({
+      admitted: 3,
+      running: 3,
+      queuedRemaining: 1,
+    })
+    expect(after).toEqual(['queued', 'running', 'running', 'running'])
+  })
+
   it('recomputes and reads template ranking aggregates by criterion', async () =>
   {
     vi.useFakeTimers()

@@ -260,6 +260,9 @@ export interface SeedResolvedTemplate
   visibility: TemplateVisibility
   status: SeedTemplateReleaseStatus | null
   itemAspectRatio: number | null
+  metadataContentHash: string | null
+  itemsContentHash: string | null
+  criteriaContentHash: string | null
 }
 
 export interface SeedResolvedItem
@@ -429,6 +432,7 @@ export interface SeedUpsertTemplatesInput extends SeedRunRequest
 export interface SeedTemplateUpsert
 {
   externalId: string
+  metadataContentHash: string
   title: string
   category: TemplateCategory
   description: string | null
@@ -451,6 +455,8 @@ export interface SeedTemplateUpsertOutput
 export interface SeedSyncTemplateItemsInput extends SeedRunRequest
 {
   templateExternalId: string
+  itemsContentHash: string
+  allowContentHashSkip?: boolean
   items: readonly SeedItemUpsert[]
 }
 
@@ -481,6 +487,7 @@ export interface SeedSyncTemplateItemsOutput
 
 export interface SeedUpsertCriteriaInput extends SeedRunRequest
 {
+  forceTemplateExternalIds?: readonly string[]
   criteria: readonly SeedCriterionUpsert[]
 }
 
@@ -491,7 +498,9 @@ export interface SeedTemplateCriterionKey
 }
 
 export type SeedCriterionUpsert = SeedTemplateCriterionKey &
-  Omit<MarketplaceTemplateCriterion, 'externalId'>
+  Omit<MarketplaceTemplateCriterion, 'externalId'> & {
+    criteriaContentHash: string
+  }
 
 export interface SeedCriterionUpsertOutput
 {

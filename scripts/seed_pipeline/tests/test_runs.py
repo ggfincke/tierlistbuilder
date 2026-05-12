@@ -23,6 +23,7 @@ from seed_pipeline.runs import (
     _checkpoint_matches,
     _is_production_env,
     _new_run_id,
+    _packed_child_upsert_batches,
     build_criterion_upserts,
     build_item_upserts,
     build_template_upserts,
@@ -50,6 +51,7 @@ class SeedRunPayloadTests(unittest.TestCase):
             templates[0]["coverMediaDedupeHash"],
             self.compiled["templates"][0]["coverImage"]["dedupeHash"],
         )
+        self.assertRegex(templates[0]["metadataContentHash"], r"^v1:[0-9a-f]{32}$")
         self.assertIsNotNone(templates[0]["coverFraming"])
         self.assertGreater(len(templates[1]["suggestedTiers"]), 0)
         self.assertIsNone(templates[1]["coverFraming"])
@@ -60,6 +62,7 @@ class SeedRunPayloadTests(unittest.TestCase):
         )
         self.assertEqual(len(criteria), 3)
         self.assertEqual(criteria[0]["criterionExternalId"], "competitive")
+        self.assertRegex(criteria[0]["criteriaContentHash"], r"^v1:[0-9a-f]{32}$")
 
     def test_checkpoint_scope_includes_environment(self) -> None:
         checkpoint = {
@@ -95,6 +98,24 @@ class SeedRunPayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "exceeding per-call limit"):
             _child_upsert_batches(rows, 2, "items")
 
+    def test_packed_child_upsert_batches_pack_complete_template_groups(self) -> None:
+        rows = [
+            {"templateExternalId": "template-a", "criterionExternalId": "a-1"},
+            {"templateExternalId": "template-b", "criterionExternalId": "b-1"},
+            {"templateExternalId": "template-b", "criterionExternalId": "b-2"},
+            {"templateExternalId": "template-c", "criterionExternalId": "c-1"},
+        ]
+
+        batches = _packed_child_upsert_batches(rows, 3, "criteria")
+
+        self.assertEqual(
+            [
+                [item["criterionExternalId"] for item in batch]
+                for batch in batches
+            ],
+            [["a-1", "b-1", "b-2"], ["c-1"]],
+        )
+
     def test_upload_selection_requires_full_media_identity(self) -> None:
         asset = self.compiled["templates"][0]["items"][0]["asset"]
         stale_state = {"media": [{"mediaDedupeHash": "tile-only"}]}
@@ -111,6 +132,26 @@ class SeedRunPayloadTests(unittest.TestCase):
             "gaming:ssbu-fighters:mario",
             {entry["assetKey"] for entry in current_needed},
         )
+
+    def test_upload_selection_deduplicates_missing_media_identity(self) -> None:
+        first_template = self.compiled["templates"][0]
+        first_item = first_template["items"][0]
+        first_template["items"].append(
+            {
+                **first_item,
+                "externalId": f"{first_item['externalId']}-copy",
+            }
+        )
+
+        needed = _assets_requiring_upload(self.compiled, {"media": []})
+
+        duplicate_hash = first_item["asset"]["dedupeHash"]
+        matching = [
+            entry
+            for entry in needed
+            if entry["asset"]["dedupeHash"] == duplicate_hash
+        ]
+        self.assertEqual(len(matching), 1)
 
     def test_run_persists_activation_guard_before_reloading_context(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -163,10 +204,50 @@ class SeedRunPayloadTests(unittest.TestCase):
             for function_path, args in client.mutations
             if function_path == "marketplace/seedRuns:syncSeedTemplateItems"
         ][0]
+        criteria_args = [
+            args
+            for client in clients
+            for function_path, args in client.mutations
+            if function_path == "marketplace/seedRuns:upsertSeedCriteria"
+        ][0]
         self.assertEqual(checkpoint["previousActiveReleaseId"], "old-release")
         self.assertEqual(activate_args["previousReleaseId"], "old-release")
         self.assertEqual(sync_args["templateExternalId"], "gaming:ssbu-fighters")
+        self.assertRegex(sync_args["itemsContentHash"], r"^v1:[0-9a-f]{32}$")
+        self.assertFalse(sync_args["allowContentHashSkip"])
+        self.assertIn(
+            "gaming:ssbu-fighters", criteria_args["forceTemplateExternalIds"]
+        )
         self.assertNotIn("templateExternalId", sync_args["items"][0])
+
+    def test_run_skips_writes_when_active_release_hashes_match(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            compiled_path = root / ".seed-cache" / "compiled-manifest.json"
+            compiled_path.parent.mkdir(parents=True)
+            clients: list[FakeSeedClient] = []
+
+            def make_client(_settings: object) -> "FakeSeedClient":
+                client = FakeSeedClient(_state_matching_compiled(self.compiled))
+                clients.append(client)
+                return client
+
+            with (
+                patch(
+                    "seed_pipeline.runs.build_compiled_manifest_with_data",
+                    return_value=(compiled_path, self.compiled),
+                ),
+                patch("seed_pipeline.runs.read_seed_settings", return_value=object()),
+                patch("seed_pipeline.runs.ConvexSeedClient", make_client),
+            ):
+                run_seed_manifest(
+                    Path("seed.json"),
+                    root,
+                    SeedRunOptions(env_name="local", confirm_activation=True),
+                )
+
+        self.assertEqual(clients[0].mutations, [])
+        self.assertEqual(clients[0].actions, [])
 
     def test_run_ids_include_entropy_after_timestamp(self) -> None:
         first = _new_run_id(self.compiled)
@@ -250,6 +331,111 @@ def _compiled_asset_dedupe_hashes(compiled: dict[str, object]) -> set[str]:
             if isinstance(item, dict) and isinstance(item.get("asset"), dict):
                 _collect_asset_dedupe_hash(item["asset"], hashes)
     return hashes
+
+
+def _state_matching_compiled(compiled: dict[str, object]) -> dict[str, object]:
+    templates = []
+    metadata_hashes = {
+        str(template["externalId"]): template["metadataContentHash"]
+        for template in build_template_upserts(compiled)
+    }
+    item_hashes: dict[str, str] = {}
+    for template in compiled["templates"]:
+        if not isinstance(template, dict):
+            continue
+        rows = [
+            {
+                "itemExternalId": item["externalId"],
+                "order": item["order"],
+                "label": item.get("label"),
+                "mediaDedupeHash": item["asset"]["dedupeHash"],
+                "aspectRatio": item.get("aspectRatio"),
+                "transform": item.get("transform"),
+            }
+            for item in template["items"]
+            if isinstance(item, dict)
+        ]
+        item_hashes[str(template["externalId"])] = _hash_for_test(
+            "template-items",
+            {"templateExternalId": template["externalId"], "items": rows},
+        )
+    criteria_hashes = {
+        str(row["templateExternalId"]): row["criteriaContentHash"]
+        for row in build_criterion_upserts(compiled)
+    }
+    for template in compiled["templates"]:
+        if not isinstance(template, dict):
+            continue
+        external_id = str(template["externalId"])
+        templates.append(
+            {
+                "externalId": external_id,
+                "releaseId": compiled["releaseId"],
+                "title": template["title"],
+                "description": template.get("description"),
+                "category": template["category"],
+                "tags": template.get("tags", []),
+                "visibility": template["visibility"],
+                "status": "active",
+                "itemAspectRatio": template["itemAspectRatio"],
+                "metadataContentHash": metadata_hashes[external_id],
+                "itemsContentHash": item_hashes[external_id],
+                "criteriaContentHash": criteria_hashes[external_id],
+            }
+        )
+    return {
+        "activeReleaseId": compiled["releaseId"],
+        "templates": templates,
+        "items": [
+            {
+                "templateExternalId": template["externalId"],
+                "itemExternalId": item["externalId"],
+                "order": item["order"],
+                "label": item.get("label"),
+                "mediaDedupeHash": item["asset"]["dedupeHash"],
+                "aspectRatio": item.get("aspectRatio"),
+                "transform": item.get("transform"),
+            }
+            for template in compiled["templates"]
+            if isinstance(template, dict)
+            for item in template["items"]
+            if isinstance(item, dict)
+        ],
+        "criteria": [
+            {
+                "templateExternalId": template["externalId"],
+                "criterionExternalId": criterion["externalId"],
+                "name": criterion["name"],
+                "shortName": criterion.get("shortName"),
+                "prompt": criterion["prompt"],
+                "axisTop": criterion.get("axisTop"),
+                "axisBottom": criterion.get("axisBottom"),
+                "order": criterion["order"],
+                "isPrimary": criterion["isPrimary"],
+                "status": criterion["status"],
+            }
+            for template in compiled["templates"]
+            if isinstance(template, dict)
+            for criterion in template["criteria"]
+            if isinstance(criterion, dict)
+        ],
+        "media": [
+            {"mediaDedupeHash": dedupe_hash}
+            for dedupe_hash in _compiled_asset_dedupe_hashes(compiled)
+        ],
+    }
+
+
+def _hash_for_test(kind: str, payload: object) -> str:
+    serialized = json.dumps(
+        {"kind": kind, "payload": payload},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    import hashlib
+
+    return "v1:" + hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:32]
 
 
 def _collect_asset_dedupe_hash(asset: dict[str, object], hashes: set[str]) -> None:

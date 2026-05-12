@@ -13,7 +13,6 @@ import {
   publishSeedReleaseTemplates,
   rollBackSeedReleaseTemplates,
 } from './templates'
-import { activateSeedRankingReleaseInternal } from '../rankings/seedLifecycle'
 
 export const activateSeedReleaseInternal = async (
   ctx: MutationCtx,
@@ -53,6 +52,17 @@ export const activateSeedReleaseInternal = async (
       message: 'active seed release changed since preflight',
     })
   }
+  if (
+    targetAlreadyActive &&
+    activeReleaseIds.every((releaseId) => releaseId === params.releaseId)
+  )
+  {
+    await setSeedRunStatus(ctx, params.run, 'active')
+    return {
+      activeReleaseId: params.releaseId,
+      previousReleaseId: params.previousReleaseId ?? params.releaseId,
+    }
+  }
   const targetTemplates = await loadSeedTemplatesForRelease(
     ctx,
     params.datasetKey,
@@ -84,11 +94,6 @@ export const activateSeedReleaseInternal = async (
   )
 
   await publishSeedReleaseTemplates(ctx, targetTemplates, now)
-  await activateSeedRankingReleaseInternal(ctx, {
-    datasetKey: params.datasetKey,
-    releaseId: params.releaseId,
-    previousReleaseIds: activeReleaseIds,
-  })
   await setSeedRunStatus(ctx, params.run, 'active', null, now)
   const displacedReleaseId =
     activeReleaseIds.find((releaseId) => releaseId !== params.releaseId) ?? null

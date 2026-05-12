@@ -74,6 +74,14 @@ const criteria: MarketplaceTemplateCriterion[] = [
   },
 ]
 
+const withCriteriaContentHash = <
+  T extends { templateExternalId: string; criterionExternalId: string },
+>(
+  rows: readonly T[],
+  criteriaContentHash: string
+): Array<T & { criteriaContentHash: string }> =>
+  rows.map((row) => ({ ...row, criteriaContentHash }))
+
 const seedTemplateWithItem = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
   authorId: Id<'users'>,
@@ -531,6 +539,7 @@ describe('seed run precheck API', () =>
       templates: [
         {
           externalId: 'gaming:ssbu-fighters',
+          metadataContentHash: 'meta-ssbu-v1',
           title: 'SSBU roster',
           category: 'gaming' as const,
           description: 'Playable fighters.',
@@ -558,7 +567,13 @@ describe('seed run precheck API', () =>
       internal.marketplace.seedRuns.upsertSeedTemplates,
       {
         ...templateInput,
-        templates: [{ ...templateInput.templates[0], title: 'SSBU fighters' }],
+        templates: [
+          {
+            ...templateInput.templates[0],
+            metadataContentHash: 'meta-ssbu-title-v2',
+            title: 'SSBU fighters',
+          },
+        ],
       }
     )
     await expect(
@@ -582,32 +597,35 @@ describe('seed run precheck API', () =>
         datasetKey: DATASET,
         releaseId: RELEASE,
         runId: 'run-apply',
-        criteria: [
-          {
-            templateExternalId: 'gaming:ssbu-fighters',
-            criterionExternalId: 'competitive',
-            name: 'Competitive',
-            shortName: 'Comp',
-            prompt: 'Rank by competitive viability.',
-            axisTop: 'Strongest',
-            axisBottom: 'Weakest',
-            order: 0,
-            isPrimary: true,
-            status: 'active' as const,
-          },
-          {
-            templateExternalId: 'gaming:ssbu-fighters',
-            criterionExternalId: 'favorites',
-            name: 'Favorites',
-            shortName: 'Favs',
-            prompt: 'Rank by preference.',
-            axisTop: 'Favorite',
-            axisBottom: 'Least favorite',
-            order: 1,
-            isPrimary: false,
-            status: 'active' as const,
-          },
-        ],
+        criteria: withCriteriaContentHash(
+          [
+            {
+              templateExternalId: 'gaming:ssbu-fighters',
+              criterionExternalId: 'competitive',
+              name: 'Competitive',
+              shortName: 'Comp',
+              prompt: 'Rank by competitive viability.',
+              axisTop: 'Strongest',
+              axisBottom: 'Weakest',
+              order: 0,
+              isPrimary: true,
+              status: 'active' as const,
+            },
+            {
+              templateExternalId: 'gaming:ssbu-fighters',
+              criterionExternalId: 'favorites',
+              name: 'Favorites',
+              shortName: 'Favs',
+              prompt: 'Rank by preference.',
+              axisTop: 'Favorite',
+              axisBottom: 'Least favorite',
+              order: 1,
+              isPrimary: false,
+              status: 'active' as const,
+            },
+          ],
+          'criteria-ssbu-v1'
+        ),
       }
     )
     expect(criteriaResult.created).toEqual([
@@ -634,6 +652,8 @@ describe('seed run precheck API', () =>
         releaseId: RELEASE,
         runId: 'run-apply',
         templateExternalId: 'gaming:ssbu-fighters',
+        itemsContentHash: 'items-ssbu-v1',
+        allowContentHashSkip: true,
         items: [
           {
             itemExternalId: 'mario',
@@ -654,6 +674,20 @@ describe('seed run precheck API', () =>
         ],
       }
     )
+    await t.run(async (ctx) =>
+    {
+      const template = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      if (!template) throw new Error('seed template missing')
+      await ctx.db.patch(template._id, { updatedAt: 12345 })
+    })
     const sameItems = await t.mutation(
       internal.marketplace.seedRuns.syncSeedTemplateItems,
       {
@@ -661,6 +695,70 @@ describe('seed run precheck API', () =>
         releaseId: RELEASE,
         runId: 'run-apply',
         templateExternalId: 'gaming:ssbu-fighters',
+        itemsContentHash: 'items-ssbu-v1',
+        allowContentHashSkip: true,
+        items: [
+          {
+            itemExternalId: 'mario',
+            order: 0,
+            label: 'Mario',
+            mediaDedupeHash: 'tile:hash-mario',
+            aspectRatio: 1,
+            transform: null,
+          },
+          {
+            itemExternalId: 'link',
+            order: 1,
+            label: 'Link',
+            mediaDedupeHash: 'tile:hash-link',
+            aspectRatio: 1,
+            transform: null,
+          },
+        ],
+      }
+    )
+    const unchangedItemSyncTemplate = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('templates')
+          .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+            q
+              .eq('seedDatasetKey', DATASET)
+              .eq('seedReleaseId', RELEASE)
+              .eq('seedExternalId', 'gaming:ssbu-fighters')
+          )
+          .unique()
+    )
+    await t.run(async (ctx) =>
+    {
+      const template = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      if (!template) throw new Error('seed template missing')
+      const item = await ctx.db
+        .query('templateItems')
+        .withIndex('byTemplateAndExternalId', (q) =>
+          q.eq('templateId', template._id).eq('externalId', 'mario')
+        )
+        .unique()
+      if (!item) throw new Error('seed item missing')
+      await ctx.db.patch(item._id, { label: 'Drifted Mario' })
+    })
+    const forcedItems = await t.mutation(
+      internal.marketplace.seedRuns.syncSeedTemplateItems,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-apply',
+        templateExternalId: 'gaming:ssbu-fighters',
+        itemsContentHash: 'items-ssbu-v1',
+        allowContentHashSkip: false,
         items: [
           {
             itemExternalId: 'mario',
@@ -687,6 +785,7 @@ describe('seed run precheck API', () =>
         releaseId: RELEASE,
         runId: 'run-apply',
         templateExternalId: 'gaming:ssbu-fighters',
+        itemsContentHash: 'items-duplicate',
         items: [
           {
             itemExternalId: 'mario',
@@ -713,6 +812,7 @@ describe('seed run precheck API', () =>
         releaseId: RELEASE,
         runId: 'run-apply',
         templateExternalId: 'gaming:ssbu-fighters',
+        itemsContentHash: 'items-wrong-count',
         items: [
           {
             itemExternalId: 'mario',
@@ -728,7 +828,12 @@ describe('seed run precheck API', () =>
     await t.mutation(internal.marketplace.seedRuns.upsertSeedTemplates, {
       ...templateInput,
       templates: [
-        { ...templateInput.templates[0], title: 'SSBU fighters', itemCount: 1 },
+        {
+          ...templateInput.templates[0],
+          metadataContentHash: 'meta-ssbu-one-item',
+          title: 'SSBU fighters',
+          itemCount: 1,
+        },
       ],
     })
     const changedItems = await t.mutation(
@@ -738,6 +843,7 @@ describe('seed run precheck API', () =>
         releaseId: RELEASE,
         runId: 'run-apply',
         templateExternalId: 'gaming:ssbu-fighters',
+        itemsContentHash: 'items-ssbu-v2',
         items: [
           {
             itemExternalId: 'mario',
@@ -753,6 +859,10 @@ describe('seed run precheck API', () =>
 
     expect(firstItems.created).toHaveLength(2)
     expect(sameItems.unchanged).toHaveLength(2)
+    expect(unchangedItemSyncTemplate?.updatedAt).toBe(12345)
+    expect(forcedItems.updated).toEqual([
+      { templateExternalId: 'gaming:ssbu-fighters', itemExternalId: 'mario' },
+    ])
     expect(changedItems.moved).toEqual([
       { templateExternalId: 'gaming:ssbu-fighters', itemExternalId: 'mario' },
     ])
@@ -824,6 +934,7 @@ describe('seed run precheck API', () =>
       templates: [
         {
           externalId: 'gaming:ssbu-fighters',
+          metadataContentHash: 'meta-dedupe-media',
           title: 'SSBU fighters',
           category: 'gaming',
           description: 'Playable fighters.',
@@ -844,6 +955,7 @@ describe('seed run precheck API', () =>
       releaseId: RELEASE,
       runId: 'run-dedupe-media',
       templateExternalId: 'gaming:ssbu-fighters',
+      itemsContentHash: 'items-dedupe-media',
       items: [
         {
           itemExternalId: 'mario',
@@ -922,6 +1034,7 @@ describe('seed run precheck API', () =>
       templates: [
         {
           externalId: 'gaming:ssbu-fighters',
+          metadataContentHash: 'meta-activation-v1',
           title: 'SSBU fighters',
           category: 'gaming',
           description: 'Playable fighters.',
@@ -941,26 +1054,30 @@ describe('seed run precheck API', () =>
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
-      criteria: [
-        {
-          templateExternalId: 'gaming:ssbu-fighters',
-          criterionExternalId: 'competitive',
-          name: 'Competitive',
-          shortName: 'Comp',
-          prompt: 'Rank by competitive viability.',
-          axisTop: 'Strongest',
-          axisBottom: 'Weakest',
-          order: 0,
-          isPrimary: true,
-          status: 'active',
-        },
-      ],
+      criteria: withCriteriaContentHash(
+        [
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            criterionExternalId: 'competitive',
+            name: 'Competitive',
+            shortName: 'Comp',
+            prompt: 'Rank by competitive viability.',
+            axisTop: 'Strongest',
+            axisBottom: 'Weakest',
+            order: 0,
+            isPrimary: true,
+            status: 'active' as const,
+          },
+        ],
+        'criteria-activation-v1'
+      ),
     })
     await t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
       templateExternalId: 'gaming:ssbu-fighters',
+      itemsContentHash: 'items-activation-v1',
       items: [
         {
           itemExternalId: 'mario',
@@ -1062,11 +1179,61 @@ describe('seed run precheck API', () =>
     expect(activatedRows.run?.status).toBe('active')
     expect(activatedRows.stats?.publicTemplateCount).toBe(1)
 
+    await seedRunRow(t, RELEASE, 'verified', 'run-activation-rerun')
+    await t.run(async (ctx) =>
+    {
+      const target = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      if (!target) throw new Error('active seed template missing')
+      await ctx.db.patch(target._id, { updatedAt: 22222 })
+    })
+    const reactivated = await t.mutation(
+      internal.marketplace.seedRuns.activateSeedRelease,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-activation-rerun',
+        previousReleaseId: RELEASE,
+        confirm: true,
+      }
+    )
+    const reactivatedRows = await t.run(async (ctx) =>
+    {
+      const target = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', 'gaming:ssbu-fighters')
+        )
+        .unique()
+      const run = await ctx.db
+        .query('seedRuns')
+        .withIndex('byRunId', (q) => q.eq('runId', 'run-activation-rerun'))
+        .unique()
+      return { run, target }
+    })
+    expect(reactivated).toEqual({
+      activeReleaseId: RELEASE,
+      previousReleaseId: RELEASE,
+    })
+    expect(reactivatedRows.run?.status).toBe('active')
+    expect(reactivatedRows.target?.updatedAt).toBe(22222)
+
     await t.mutation(internal.marketplace.seedRuns.syncSeedTemplateItems, {
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
       templateExternalId: 'gaming:ssbu-fighters',
+      itemsContentHash: 'items-activation-v2',
       items: [
         {
           itemExternalId: 'mario',
@@ -1090,20 +1257,23 @@ describe('seed run precheck API', () =>
       datasetKey: DATASET,
       releaseId: RELEASE,
       runId: 'run-activation',
-      criteria: [
-        {
-          templateExternalId: 'gaming:ssbu-fighters',
-          criterionExternalId: 'competitive',
-          name: 'Competitive',
-          shortName: 'Comp',
-          prompt: 'Rank active release edits.',
-          axisTop: 'Strongest',
-          axisBottom: 'Weakest',
-          order: 0,
-          isPrimary: true,
-          status: 'active',
-        },
-      ],
+      criteria: withCriteriaContentHash(
+        [
+          {
+            templateExternalId: 'gaming:ssbu-fighters',
+            criterionExternalId: 'competitive',
+            name: 'Competitive',
+            shortName: 'Comp',
+            prompt: 'Rank active release edits.',
+            axisTop: 'Strongest',
+            axisBottom: 'Weakest',
+            order: 0,
+            isPrimary: true,
+            status: 'active' as const,
+          },
+        ],
+        'criteria-activation-v2'
+      ),
     })
     const activeAfterReupsert = await t.run(
       async (ctx) =>
@@ -1131,6 +1301,7 @@ describe('seed run precheck API', () =>
       templates: [
         {
           externalId: 'gaming:ssbu-fighters',
+          metadataContentHash: 'meta-activation-v2',
           title: 'SSBU fighters',
           category: 'movies',
           description: 'Playable fighters.',
@@ -1146,6 +1317,7 @@ describe('seed run precheck API', () =>
         },
         {
           externalId: 'gaming:new-active-template',
+          metadataContentHash: 'meta-new-active-template',
           title: 'New active template',
           category: 'gaming',
           description: 'Added after activation.',

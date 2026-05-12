@@ -4,7 +4,7 @@
 import { convexTest } from 'convex-test'
 import rateLimiter from '@convex-dev/rate-limiter/test'
 import { describe, expect, it } from 'vitest'
-import { internal } from '@convex/_generated/api'
+import { api, internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { SeedRankingsManifest } from '@convex/marketplace/rankings/seedValidators'
 import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
@@ -130,6 +130,41 @@ describe('ranking seed pipeline', () =>
     )
   })
 
+  it('preflights curated symbolic tier names distinctly', async () =>
+  {
+    const t = makeTest()
+    await seedSeedTemplate(t, {
+      releaseId: RELEASE,
+      templateExternalId: 'test:symbolic-tiers',
+      labels: ['Steve', 'Sonic'],
+    })
+
+    const result = await t.query(
+      internal.marketplace.rankings.seed.preflightSeedRankings,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        rankingSeeds: rankingManifest({
+          templateExternalId: 'test:symbolic-tiers',
+          curatedLabels: ['Steve', 'Sonic'],
+          coverage: 'full-template',
+          curatedTiers: [
+            { name: 'S+', colorSpec: { kind: 'palette', index: 0 } },
+            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+          ],
+          curatedTierGroups: [
+            { tierName: 'S+', labels: ['Steve'] },
+            { tierName: 'S', labels: ['Sonic'] },
+          ],
+        }),
+      }
+    )
+
+    expect(
+      result.diagnostics.filter((item) => item.severity === 'error')
+    ).toEqual([])
+  })
+
   it('exposes the seed-gated HTTP preflight route', async () =>
   {
     const t = makeTest()
@@ -231,6 +266,217 @@ describe('ranking seed pipeline', () =>
     expect(rows.previousRanking?.isFeatured).toBe(false)
     expect(rows.previousRanking?.seedReleaseStatus).toBe('rolled_back')
     expect(rows.previousBoard?.seedReleaseStatus).toBe('rolled_back')
+
+    const idempotent = await t.mutation(
+      internal.marketplace.rankings.seedLifecycle.activateSeedRankings,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+      }
+    )
+    expect(idempotent.activatedRankings).toBe(0)
+    expect(idempotent.rolledBackRankings).toBe(0)
+    expect(idempotent.aggregateJobsQueued).toBe(0)
+
+    const rolledBack = await t.mutation(
+      internal.marketplace.rankings.seedLifecycle.rollbackSeedRankings,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        targetReleaseId: OLD_RELEASE,
+      }
+    )
+    expect(rolledBack.activatedRankings).toBe(1)
+    expect(rolledBack.rolledBackRankings).toBe(1)
+    const rollbackRows = await t.run(async (ctx) =>
+    {
+      const [currentRanking, previousRanking, currentBoard, previousBoard] =
+        await Promise.all([
+          ctx.db.get(currentSeed.rankingId),
+          ctx.db.get(previousSeed.rankingId),
+          ctx.db.get(currentSeed.boardId),
+          ctx.db.get(previousSeed.boardId),
+        ])
+      return { currentRanking, previousRanking, currentBoard, previousBoard }
+    })
+    expect(rollbackRows.currentRanking?.seedReleaseStatus).toBe('rolled_back')
+    expect(rollbackRows.currentBoard?.seedReleaseStatus).toBe('rolled_back')
+    expect(rollbackRows.previousRanking?.seedReleaseStatus).toBe('active')
+    expect(rollbackRows.previousBoard?.seedReleaseStatus).toBe('active')
+  })
+
+  it('skips unchanged sample rankings without resetting active seed rows', async () =>
+  {
+    const t = makeTest()
+    await seedSeedTemplate(t, {
+      releaseId: RELEASE,
+      templateExternalId: 'test:unchanged-sample',
+      labels: ['Mario', 'Luigi'],
+    })
+    await seedUser(t, 'seed+rankings-ava@tierlistbuilder.local')
+    const manifest = rankingManifest({
+      templateExternalId: 'test:unchanged-sample',
+      curatedLabels: ['Mario', 'Luigi'],
+      coverage: 'full-template',
+    })
+    const target = manifest.targets[0]
+    const lane = target.lanes[0]
+    const profile = manifest.profiles[0]
+    const args = {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      target,
+      lane,
+      profile,
+      sequence: 1,
+    }
+
+    const first = await t.mutation(
+      internal.marketplace.rankings.seed.upsertSampleSeedRankingImpl,
+      args
+    )
+    expect(first.rankingsDeleted).toBe(0)
+    expect(first.rankingsUnchanged).toBe(0)
+    expect(first.itemsWritten).toBe(2)
+
+    const activated = await t.mutation(
+      internal.marketplace.rankings.seedLifecycle.activateSeedRankings,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        queueAggregates: false,
+      }
+    )
+    expect(activated.activatedRankings).toBe(1)
+    const activeRows = await loadSampleSeedRows(t, {
+      templateExternalId: 'test:unchanged-sample',
+      criterionExternalId: 'competitive',
+      profileKey: 'ava',
+    })
+    expect(activeRows.ranking?.seedReleaseStatus).toBe('active')
+    expect(activeRows.ranking?.sourceBoardId).toBeNull()
+    expect(activeRows.board).toBeNull()
+    const storedItems = await t.run(async (ctx) =>
+    {
+      if (!activeRows.ranking) return []
+      return await ctx.db
+        .query('publishedRankingItems')
+        .withIndex('byRanking', (q) =>
+          q.eq('rankingId', activeRows.ranking!._id)
+        )
+        .collect()
+    })
+    expect(storedItems).toHaveLength(2)
+    expect(storedItems[0]?.externalId).toBeUndefined()
+    expect(storedItems[0]?.templateItemExternalId).toBeUndefined()
+    expect(storedItems[0]?.label).toBeUndefined()
+    expect(storedItems[0]?.mediaAssetId).toBeUndefined()
+    const detail = activeRows.ranking
+      ? await t.query(api.marketplace.rankings.queries.getRankingBySlug, {
+          slug: activeRows.ranking.slug,
+        })
+      : null
+    expect(detail?.items.map((item) => item.label).sort()).toEqual([
+      'Luigi',
+      'Mario',
+    ])
+    expect(
+      detail?.items.map((item) => item.templateItemExternalId).sort()
+    ).toEqual(['item-0', 'item-1'])
+
+    const second = await t.mutation(
+      internal.marketplace.rankings.seed.upsertSampleSeedRankingImpl,
+      args
+    )
+    expect(second.rankingsDeleted).toBe(0)
+    expect(second.boardsDeleted).toBe(0)
+    expect(second.rankingsUnchanged).toBe(1)
+    expect(second.tiersWritten).toBe(0)
+    expect(second.itemsWritten).toBe(0)
+
+    const unchangedRows = await loadSampleSeedRows(t, {
+      templateExternalId: 'test:unchanged-sample',
+      criterionExternalId: 'competitive',
+      profileKey: 'ava',
+    })
+    expect(unchangedRows.ranking?._id).toBe(activeRows.ranking?._id)
+    expect(unchangedRows.board).toBeNull()
+    expect(unchangedRows.ranking?.seedReleaseStatus).toBe('active')
+
+    const changed = await t.mutation(
+      internal.marketplace.rankings.seed.upsertSampleSeedRankingImpl,
+      {
+        ...args,
+        lane: {
+          ...lane,
+          titleSuffix: 'changed fixture ranking',
+        },
+      }
+    )
+    expect(changed.rankingsDeleted).toBe(1)
+    expect(changed.boardsDeleted).toBe(0)
+    expect(changed.rankingsUnchanged).toBe(0)
+    expect(changed.itemsWritten).toBe(2)
+    const changedRows = await loadSampleSeedRows(t, {
+      templateExternalId: 'test:unchanged-sample',
+      criterionExternalId: 'competitive',
+      profileKey: 'ava',
+    })
+    expect(changedRows.ranking?._id).not.toBe(activeRows.ranking?._id)
+    expect(changedRows.ranking?.sourceBoardId).toBeNull()
+    expect(changedRows.board).toBeNull()
+    expect(changedRows.ranking?.seedReleaseStatus).toBe('applied_hidden')
+  })
+
+  it('cleans current-release seed rankings omitted from the manifest', async () =>
+  {
+    const t = makeTest()
+    const current = await seedSeedTemplate(t, {
+      releaseId: RELEASE,
+      templateExternalId: 'test:stale-cleanup',
+      labels: ['Mario'],
+    })
+    const staleSeed = await seedRankingRow(t, {
+      templateId: current.templateId,
+      templateExternalId: 'test:stale-cleanup',
+      releaseId: RELEASE,
+      status: 'active',
+      stableKey: 'stale-cleanup',
+    })
+
+    const first = await t.mutation(
+      internal.marketplace.rankings.seed.deleteStaleSeedRankingRowsImpl,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        plannedSeedExternalIds: [],
+        cursor: null,
+      }
+    )
+    expect(first.rankingsDeleted).toBe(1)
+    expect(first.boardsDeleted).toBe(1)
+    expect(first.isDone).toBe(false)
+
+    const second = await t.mutation(
+      internal.marketplace.rankings.seed.deleteStaleSeedRankingRowsImpl,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        plannedSeedExternalIds: [],
+        cursor: first.cursor,
+      }
+    )
+    expect(second.isDone).toBe(true)
+    const rows = await t.run(async (ctx) =>
+    {
+      const [ranking, board] = await Promise.all([
+        ctx.db.get(staleSeed.rankingId),
+        ctx.db.get(staleSeed.boardId),
+      ])
+      return { ranking, board }
+    })
+    expect(rows.ranking).toBeNull()
+    expect(rows.board).toBeNull()
   })
 })
 
@@ -238,6 +484,8 @@ const rankingManifest = (args: {
   templateExternalId: string
   curatedLabels: string[]
   coverage: 'full-template' | 'partial-authoritative'
+  curatedTiers?: SeedRankingsManifest['targets'][number]['curatedRankings'][number]['tiers']
+  curatedTierGroups?: SeedRankingsManifest['targets'][number]['curatedRankings'][number]['tierGroups']
 }): SeedRankingsManifest => ({
   profileSet: 'fixture-v1',
   defaultProfileCount: 1,
@@ -283,8 +531,12 @@ const rankingManifest = (args: {
           featuredBadge: null,
           coverage: args.coverage,
           parentLabelByLabel: {},
-          tiers: [{ name: 'S', colorSpec: { kind: 'palette', index: 0 } }],
-          tierGroups: [{ tierName: 'S', labels: args.curatedLabels }],
+          tiers: args.curatedTiers ?? [
+            { name: 'S', colorSpec: { kind: 'palette', index: 0 } },
+          ],
+          tierGroups: args.curatedTierGroups ?? [
+            { tierName: 'S', labels: args.curatedLabels },
+          ],
         },
       ],
     },
@@ -424,4 +676,42 @@ const seedActiveRun = async (
       imageVariantCount: 0,
       error: null,
     })
+  })
+
+const loadSampleSeedRows = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  args: {
+    templateExternalId: string
+    criterionExternalId: string
+    profileKey: string
+  }
+): Promise<{
+  ranking: Doc<'publishedRankings'> | null
+  board: Doc<'boards'> | null
+}> =>
+  await t.run(async (ctx) =>
+  {
+    const rankingExternalId = `ranking:${args.templateExternalId}:${args.criterionExternalId}:sample:${args.profileKey}`
+    const boardExternalId = `board:${args.templateExternalId}:${args.criterionExternalId}:sample:${args.profileKey}`
+    const [ranking, board] = await Promise.all([
+      ctx.db
+        .query('publishedRankings')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', rankingExternalId)
+        )
+        .unique(),
+      ctx.db
+        .query('boards')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', DATASET)
+            .eq('seedReleaseId', RELEASE)
+            .eq('seedExternalId', boardExternalId)
+        )
+        .unique(),
+    ])
+    return { ranking, board }
   })

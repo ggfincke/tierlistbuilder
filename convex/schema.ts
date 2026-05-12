@@ -134,6 +134,7 @@ export default defineSchema({
     seedDatasetKey: v.union(v.string(), v.null()),
     seedReleaseId: v.union(v.string(), v.null()),
     seedExternalId: v.union(v.string(), v.null()),
+    seedContentHash: v.optional(v.string()),
     seedKind: v.union(
       v.literal('ranking-sample'),
       v.literal('ranking-curated'),
@@ -297,6 +298,9 @@ export default defineSchema({
     seedExternalId: v.optional(v.string()),
     seedReleaseId: v.optional(v.string()),
     seedReleaseStatus: v.optional(seedTemplateReleaseStatusValidator),
+    seedMetadataContentHash: v.optional(v.string()),
+    seedItemsContentHash: v.optional(v.string()),
+    seedCriteriaContentHash: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -540,7 +544,7 @@ export default defineSchema({
     slug: v.string(),
     ownerId: v.id('users'),
     sourceTemplateId: v.id('templates'),
-    sourceBoardId: v.id('boards'),
+    sourceBoardId: v.union(v.id('boards'), v.null()),
     sourceTemplateSlug: v.string(),
     sourceTemplateTitle: v.string(),
     sourceTemplateCategory: templateCategoryValidator,
@@ -572,6 +576,7 @@ export default defineSchema({
     seedProfileKey: v.union(v.string(), v.null()),
     seedCuratedExternalId: v.union(v.string(), v.null()),
     seedReleaseStatus: v.union(seedRankingReleaseStatusValidator, v.null()),
+    seedContentHash: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -687,17 +692,19 @@ export default defineSchema({
   publishedRankingItems: defineTable({
     rankingId: v.id('publishedRankings'),
     templateItemId: v.id('templateItems'),
-    templateItemExternalId: v.string(),
-    externalId: v.string(),
+    templateItemExternalId: v.optional(v.string()),
+    externalId: v.optional(v.string()),
     tierExternalId: v.union(v.string(), v.null()),
-    label: v.union(v.string(), v.null()),
-    backgroundColor: v.union(v.string(), v.null()),
-    altText: v.union(v.string(), v.null()),
-    mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    label: v.optional(v.union(v.string(), v.null())),
+    backgroundColor: v.optional(v.union(v.string(), v.null())),
+    altText: v.optional(v.union(v.string(), v.null())),
+    mediaAssetId: v.optional(v.union(v.id('mediaAssets'), v.null())),
     order: v.number(),
-    aspectRatio: v.union(v.number(), v.null()),
-    imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
-    transform: v.union(itemTransformValidator, v.null()),
+    aspectRatio: v.optional(v.union(v.number(), v.null())),
+    imageFit: v.optional(
+      v.union(v.literal('cover'), v.literal('contain'), v.null())
+    ),
+    transform: v.optional(v.union(itemTransformValidator, v.null())),
   })
     .index('byRanking', ['rankingId', 'order'])
     .index('byMedia', ['mediaAssetId']),
@@ -942,6 +949,7 @@ export default defineSchema({
     templateId: v.id('templates'),
     criterionExternalId: v.string(),
     status: templateRankingAggregateJobStatusValidator,
+    admittedAt: v.optional(v.union(v.number(), v.null())),
     phase: templateRankingAggregateJobPhaseValidator,
     generation: v.number(),
     bucketCount: v.number(),

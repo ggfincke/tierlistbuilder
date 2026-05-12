@@ -15,18 +15,8 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import type { RankingFeaturedBadge } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import { normalizeBoardTitle } from '@tierlistbuilder/contracts/workspace/board'
 import { assertCountRange, assertNonemptyString } from '../../lib/assertions'
 import { SEED_LIMITS } from '../../lib/limits'
-import { loadMediaVariantStorageId } from '../../lib/mediaVariants'
-import { resolveTemplateProgressState } from '../../lib/templateProgress'
-import { buildFreshBoardCloudFields } from '../../workspace/boards/cloudFields'
-import {
-  buildBoardLibrarySummary,
-  EMPTY_BOARD_LIBRARY_SUMMARY,
-  type BoardLibrarySummaryItem,
-  type BoardLibrarySummaryTier,
-} from '../../workspace/boards/librarySummary'
 import { loadSeedTemplateLookupForRelease } from '../seedPipeline/templates'
 import { resolveActiveTemplateCriterion } from '../templates/criteria'
 import {
@@ -65,6 +55,7 @@ const SEED_EMAIL_DOMAIN = 'tierlistbuilder.local'
 const SEED_AUTHOR_PREFIX = 'seed+rankings-'
 const SAMPLE_RANKING_DESCRIPTION =
   'Seeded sample ranking for community feature testing.'
+const STALE_RANKING_CLEANUP_PAGE_SIZE = 128
 
 interface RankedSeedItem
 {
@@ -86,6 +77,8 @@ interface ReplacementResult
   rankingSlug: string | null
   rankingsDeleted: number
   boardsDeleted: number
+  rankingsUnchanged: number
+  skipped: boolean
 }
 
 interface InsertSeedRankingArgs
@@ -163,13 +156,13 @@ const boardSeedExternalId = (
 ): string =>
   `board:${templateExternalId}:${criterionExternalId}:${kind}:${stableKey}`
 
+const companionBoardSeedExternalId = (rankingExternalId: string): string =>
+  rankingExternalId.startsWith('ranking:')
+    ? `board:${rankingExternalId.slice('ranking:'.length)}`
+    : rankingExternalId
+
 const tierSeedExternalId = (seedExternalId: string, order: number): string =>
   `${seedExternalId}:tier:${order.toString().padStart(2, '0')}`
-
-const itemSeedExternalId = (
-  seedExternalId: string,
-  item: Doc<'templateItems'>
-): string => `${seedExternalId}:item:${item.order.toString().padStart(4, '0')}`
 
 const stableHash = (value: string): number =>
 {
@@ -180,6 +173,32 @@ const stableHash = (value: string): number =>
     hash = Math.imul(hash, 16777619)
   }
   return hash >>> 0
+}
+
+const stableStringify = (value: unknown): string =>
+{
+  if (value === null || typeof value !== 'object')
+  {
+    return JSON.stringify(value) ?? 'undefined'
+  }
+  if (Array.isArray(value))
+  {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`
+  }
+  const record = value as Record<string, unknown>
+  const entries = Object.keys(record)
+    .filter((key) => record[key] !== undefined)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+  return `{${entries.join(',')}}`
+}
+
+const seedContentHash = (value: unknown): string =>
+{
+  const serialized = stableStringify(value)
+  const left = stableHash(`seed-a:${serialized}`).toString(16).padStart(8, '0')
+  const right = stableHash(`seed-b:${serialized}`).toString(16).padStart(8, '0')
+  return `v1:${left}${right}`
 }
 
 const unitHash = (value: string): number => stableHash(value) / 0xffffffff
@@ -194,6 +213,9 @@ const normalizeTextKey = (value: string): string =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ')
+
+const normalizeTierNameKey = (value: string): string =>
+  value.trim().toLowerCase().replace(/\s+/g, ' ')
 
 const termMatches = (label: string, terms: readonly string[]): number =>
 {
@@ -447,6 +469,44 @@ const countPlannedCuratedRankings = (manifest: SeedRankingsManifest): number =>
     0
   )
 
+const plannedRankingSeedExternalIds = (
+  manifest: SeedRankingsManifest
+): string[] =>
+{
+  const planned: string[] = []
+  for (const target of manifest.targets)
+  {
+    const profileCount = normalizeProfileCount(manifest, target)
+    const profiles = manifest.profiles.slice(0, profileCount)
+    for (const lane of target.lanes)
+    {
+      for (const profile of profiles)
+      {
+        planned.push(
+          rankingSeedExternalId(
+            target.templateExternalId,
+            lane.criterionExternalId,
+            'sample',
+            profile.key
+          )
+        )
+      }
+    }
+    for (const curated of target.curatedRankings ?? [])
+    {
+      planned.push(
+        rankingSeedExternalId(
+          target.templateExternalId,
+          curated.criterionExternalId,
+          'curated',
+          curated.externalId
+        )
+      )
+    }
+  }
+  return planned
+}
+
 const ensureRankingSeedAuthors = async (
   ctx: ActionCtx,
   authorPassword: string,
@@ -582,7 +642,7 @@ const mapItemsToCuratedTiers = (
   const tiersByName = new Map<string, number>()
   curated.tiers.forEach((tier, index) =>
   {
-    const key = normalizeTextKey(tier.name)
+    const key = normalizeTierNameKey(tier.name)
     if (!key || tiersByName.has(key))
     {
       throw new ConvexError({
@@ -598,7 +658,7 @@ const mapItemsToCuratedTiers = (
   const labelsByTier = new Map<number, string[]>()
   for (const group of curated.tierGroups)
   {
-    const tierIndex = tiersByName.get(normalizeTextKey(group.tierName))
+    const tierIndex = tiersByName.get(normalizeTierNameKey(group.tierName))
     if (tierIndex === undefined)
     {
       throw new ConvexError({
@@ -832,6 +892,99 @@ const deleteBoardWithChildren = async (
   ])
 }
 
+const buildSeedRankingContentHash = (
+  args: InsertSeedRankingArgs,
+  criterionSnapshot: {
+    externalId: string
+    name: string
+    prompt: string
+  },
+  normalized: {
+    rankingTitle: string
+    rankingDescription: string | null
+    viewCount: number
+  }
+): string =>
+  seedContentHash({
+    version: 2,
+    rankingItemShape: 'template-backed-compact',
+    ranking: {
+      seedExternalId: args.seedExternalId,
+      seedKind: args.seedKind,
+      seedTemplateExternalId: args.templateExternalId,
+      seedCriterionExternalId: criterionSnapshot.externalId,
+      seedAuthorKey: args.authorKey,
+      seedProfileKey: args.seedProfileKey,
+      seedCuratedExternalId: args.seedCuratedExternalId,
+      sourceTemplateId: args.template._id,
+      sourceTemplateSlug: args.template.slug,
+      sourceTemplateTitle: args.template.title,
+      sourceTemplateCategory: args.template.category,
+      criterion: criterionSnapshot,
+      title: normalized.rankingTitle,
+      description: normalized.rankingDescription,
+      itemCount: args.rankedItems.length,
+      tierCount: args.tiers.length,
+      viewCount: normalized.viewCount,
+      featuredRank: args.featuredRank,
+      featuredBadge: args.featuredBadge,
+    },
+    tiers: args.tiers.map((tier, order) => ({
+      externalId: tierSeedExternalId(args.seedExternalId, order),
+      order,
+      name: tier.name,
+      description: tier.description ?? null,
+      colorSpec: tier.colorSpec,
+      rowColorSpec: tier.rowColorSpec ?? null,
+    })),
+    rankedItems: args.rankedItems.map((ranked) => ({
+      templateItemId: ranked.item._id,
+      templateItemExternalId: ranked.item.externalId,
+      order: ranked.item.order,
+      tierIndex: ranked.tierIndex,
+      orderInTier: ranked.orderInTier,
+      globalOrder: ranked.globalOrder,
+    })),
+  })
+
+const seedRowsAreReusable = (
+  ranking: Doc<'publishedRankings'> | null,
+  contentHash: string
+): boolean =>
+  ranking !== null &&
+  ranking.seedContentHash === contentHash &&
+  ranking.seedReleaseStatus !== null &&
+  seedRankingLifecycleFieldsMatchStatus(ranking)
+
+const seedRankingLifecycleFieldsMatchStatus = (
+  ranking: Doc<'publishedRankings'>
+): boolean =>
+{
+  if (ranking.seedReleaseStatus === 'active')
+  {
+    const hasFeaturedSlot =
+      ranking.featuredRank !== null && ranking.featuredBadge !== null
+    return (
+      ranking.visibility === 'public' &&
+      ranking.publicationState === 'published' &&
+      ranking.isPubliclyListable &&
+      ranking.isFeatured === hasFeaturedSlot
+    )
+  }
+  if (
+    ranking.seedReleaseStatus === 'applied_hidden' ||
+    ranking.seedReleaseStatus === 'rolled_back'
+  )
+  {
+    return (
+      ranking.publicationState === 'unpublished' &&
+      !ranking.isPubliclyListable &&
+      !ranking.isFeatured
+    )
+  }
+  return false
+}
+
 const replaceExistingSeedRows = async (
   ctx: MutationCtx,
   params: {
@@ -839,6 +992,7 @@ const replaceExistingSeedRows = async (
     releaseId: string
     rankingSeedExternalId: string
     boardSeedExternalId: string
+    contentHash: string
   }
 ): Promise<ReplacementResult> =>
 {
@@ -857,14 +1011,106 @@ const replaceExistingSeedRows = async (
     ),
   ])
   const rankingSlug = ranking?.slug ?? null
+  if (seedRowsAreReusable(ranking, params.contentHash))
+  {
+    if (board) await deleteBoardWithChildren(ctx, board)
+    return {
+      rankingSlug,
+      rankingsDeleted: 0,
+      boardsDeleted: board ? 1 : 0,
+      rankingsUnchanged: 1,
+      skipped: true,
+    }
+  }
   if (ranking) await deleteRankingWithChildren(ctx, ranking)
   if (board) await deleteBoardWithChildren(ctx, board)
   return {
     rankingSlug,
     rankingsDeleted: ranking ? 1 : 0,
     boardsDeleted: board ? 1 : 0,
+    rankingsUnchanged: 0,
+    skipped: false,
   }
 }
+
+export const deleteStaleSeedRankingRowsImpl = internalMutation({
+  args: {
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    plannedSeedExternalIds: v.array(v.string()),
+    cursor: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: v.object({
+    rankingsDeleted: v.number(),
+    boardsDeleted: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) =>
+  {
+    assertNonemptyString('datasetKey', args.datasetKey)
+    assertNonemptyString('releaseId', args.releaseId)
+    const planned = new Set(args.plannedSeedExternalIds)
+    const page = await ctx.db
+      .query('publishedRankings')
+      .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+        q
+          .eq('seedDatasetKey', args.datasetKey)
+          .eq('seedReleaseId', args.releaseId)
+      )
+      .paginate({
+        numItems: STALE_RANKING_CLEANUP_PAGE_SIZE,
+        cursor: args.cursor ?? null,
+      })
+
+    for (const ranking of page.page)
+    {
+      const seedExternalId = ranking.seedExternalId
+      if (seedExternalId === null || planned.has(seedExternalId)) continue
+      const boardSeedId = companionBoardSeedExternalId(seedExternalId)
+      const sourceBoard =
+        ranking.sourceBoardId !== null
+          ? await ctx.db.get(ranking.sourceBoardId)
+          : null
+      const board =
+        sourceBoard ??
+        (await findExistingSeedBoard(
+          ctx,
+          args.datasetKey,
+          args.releaseId,
+          boardSeedId
+        ))
+      await deleteRankingWithChildren(ctx, ranking)
+      if (
+        board &&
+        board.seedDatasetKey === args.datasetKey &&
+        board.seedReleaseId === args.releaseId
+      )
+      {
+        await deleteBoardWithChildren(ctx, board)
+        return {
+          rankingsDeleted: 1,
+          boardsDeleted: 1,
+          cursor: args.cursor ?? null,
+          isDone: false,
+        }
+      }
+      return {
+        rankingsDeleted: 1,
+        boardsDeleted: 0,
+        cursor: args.cursor ?? null,
+        isDone: false,
+      }
+    }
+
+    return {
+      rankingsDeleted: 0,
+      boardsDeleted: 0,
+      cursor: page.isDone ? null : page.continueCursor,
+      isDone: page.isDone,
+    }
+  },
+})
 
 const insertSeedRanking = async (
   ctx: MutationCtx,
@@ -873,6 +1119,7 @@ const insertSeedRanking = async (
   rankingSlug: string
   rankingsDeleted: number
   boardsDeleted: number
+  rankingsUnchanged: number
   tiersWritten: number
   itemsWritten: number
 }> =>
@@ -899,129 +1146,64 @@ const insertSeedRanking = async (
     name: criterion.name,
     prompt: criterion.prompt,
   }
+  const rankingTitle = normalizeRankingTitle(args.title)
+  const rankingDescription = normalizeRankingDescription(args.description)
+  const viewCount = Math.floor(unitHash(args.viewCountSeedKey) * 24)
+  const contentHash = buildSeedRankingContentHash(args, criterionSnapshot, {
+    rankingTitle,
+    rankingDescription,
+    viewCount,
+  })
   const replacement = await replaceExistingSeedRows(ctx, {
     datasetKey: args.datasetKey,
     releaseId: args.releaseId,
     rankingSeedExternalId: args.seedExternalId,
     boardSeedExternalId: args.boardExternalId,
+    contentHash,
   })
+  if (replacement.skipped)
+  {
+    if (!replacement.rankingSlug)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `unchanged seed ranking missing slug: ${args.seedExternalId}`,
+      })
+    }
+    return {
+      rankingSlug: replacement.rankingSlug,
+      rankingsDeleted: 0,
+      boardsDeleted: replacement.boardsDeleted,
+      rankingsUnchanged: replacement.rankingsUnchanged,
+      tiersWritten: 0,
+      itemsWritten: 0,
+    }
+  }
   const now = Date.now()
-  const boardId = await ctx.db.insert('boards', {
-    externalId: args.boardExternalId,
-    ownerId: user._id,
-    title: normalizeBoardTitle(args.title),
-    createdAt: args.createdAt,
-    updatedAt: now,
-    deletedAt: null,
-    revision: 1,
-    sourceTemplateId: args.template._id,
-    sourceTemplateCategory: args.template.category,
-    sourceTemplateSizeClass: args.template.sizeClass,
-    preferredCriterionExternalId: criterion.externalId,
-    ...buildFreshBoardCloudFields(now),
-    itemAspectRatio: args.template.itemAspectRatio ?? undefined,
-    itemAspectRatioMode: args.template.itemAspectRatioMode ?? undefined,
-    defaultItemImageFit: args.template.defaultItemImageFit ?? undefined,
-    labels: args.template.labels ?? undefined,
-    activeItemCount: args.rankedItems.length,
-    unrankedItemCount: 0,
-    templateProgressState: resolveTemplateProgressState(args.template._id, {
-      activeItemCount: args.rankedItems.length,
-      unrankedItemCount: 0,
-    }),
-    librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
-    seedDatasetKey: args.datasetKey,
-    seedReleaseId: args.releaseId,
-    seedExternalId: args.boardExternalId,
-    seedKind: args.seedKind === 'sample' ? 'ranking-sample' : 'ranking-curated',
-    seedReleaseStatus: 'applied_hidden',
-  })
-
-  const tierEntries = await Promise.all(
-    args.tiers.map(async (tier, order) =>
-    {
-      const externalId = tierSeedExternalId(args.seedExternalId, order)
-      const boardTierId = await ctx.db.insert('boardTiers', {
-        boardId,
-        externalId,
-        name: tier.name,
-        description: tier.description,
-        colorSpec: tier.colorSpec,
-        rowColorSpec: tier.rowColorSpec,
-        order,
-      })
-      return {
-        boardTierId,
-        externalId,
-        order,
-        name: tier.name,
-        description: tier.description ?? null,
-        colorSpec: tier.colorSpec,
-        rowColorSpec: tier.rowColorSpec ?? null,
-      }
-    })
-  )
-  const summaryTiers: BoardLibrarySummaryTier[] = tierEntries.map((tier) => ({
-    key: tier.externalId,
-    order: tier.order,
+  const tierEntries = args.tiers.map((tier, order) => ({
+    externalId: tierSeedExternalId(args.seedExternalId, order),
+    order,
+    name: tier.name,
+    description: tier.description ?? null,
     colorSpec: tier.colorSpec,
+    rowColorSpec: tier.rowColorSpec ?? null,
   }))
-  const summaryItems: BoardLibrarySummaryItem[] = await Promise.all(
-    args.rankedItems.map(async (ranked) =>
-    {
-      const tier = tierEntries[ranked.tierIndex]
-      const externalId = itemSeedExternalId(args.seedExternalId, ranked.item)
-      await ctx.db.insert('boardItems', {
-        boardId,
-        tierId: tier.boardTierId,
-        externalId,
-        label: ranked.item.label ?? undefined,
-        backgroundColor: ranked.item.backgroundColor ?? undefined,
-        altText: ranked.item.altText ?? undefined,
-        mediaAssetId: ranked.item.mediaAssetId,
-        order: ranked.orderInTier,
-        deletedAt: null,
-        aspectRatio: ranked.item.aspectRatio ?? undefined,
-        imageFit: ranked.item.imageFit ?? undefined,
-        transform: ranked.item.transform ?? undefined,
-        templateItemId: ranked.item._id,
-      })
-      return {
-        tierKey: tier.externalId,
-        externalId,
-        label: ranked.item.label,
-        storageId: await loadMediaVariantStorageId(
-          ctx,
-          ranked.item.mediaAssetId
-        ),
-        order: ranked.orderInTier,
-        deletedAt: null,
-      }
-    })
-  )
-  await ctx.db.patch(boardId, {
-    librarySummary: buildBoardLibrarySummary({
-      tiers: summaryTiers,
-      items: summaryItems,
-    }),
-  })
 
   const rankingSlug =
     replacement.rankingSlug ?? (await allocateRankingSlug(ctx))
-  const viewCount = Math.floor(unitHash(args.viewCountSeedKey) * 24)
   const rankingId = await ctx.db.insert('publishedRankings', {
     slug: rankingSlug,
     ownerId: user._id,
     sourceTemplateId: args.template._id,
-    sourceBoardId: boardId,
+    sourceBoardId: null,
     sourceTemplateSlug: args.template.slug,
     sourceTemplateTitle: args.template.title,
     sourceTemplateCategory: args.template.category,
     sourceCriterionExternalId: criterionSnapshot.externalId,
     sourceCriterionNameSnapshot: criterionSnapshot.name,
     sourceCriterionPromptSnapshot: criterionSnapshot.prompt,
-    title: normalizeRankingTitle(args.title),
-    description: normalizeRankingDescription(args.description),
+    title: rankingTitle,
+    description: rankingDescription,
     visibility: 'public',
     publicationState: 'unpublished',
     isPubliclyListable: false,
@@ -1045,6 +1227,7 @@ const insertSeedRanking = async (
     seedProfileKey: args.seedProfileKey,
     seedCuratedExternalId: args.seedCuratedExternalId,
     seedReleaseStatus: 'applied_hidden',
+    seedContentHash: contentHash,
     createdAt: args.createdAt,
     updatedAt: now,
   })
@@ -1067,17 +1250,8 @@ const insertSeedRanking = async (
       return ctx.db.insert('publishedRankingItems', {
         rankingId,
         templateItemId: ranked.item._id,
-        templateItemExternalId: ranked.item.externalId,
-        externalId: itemSeedExternalId(args.seedExternalId, ranked.item),
         tierExternalId: tier.externalId,
-        label: ranked.item.label,
-        backgroundColor: ranked.item.backgroundColor,
-        altText: ranked.item.altText,
-        mediaAssetId: ranked.item.mediaAssetId,
         order: ranked.globalOrder,
-        aspectRatio: ranked.item.aspectRatio,
-        imageFit: ranked.item.imageFit,
-        transform: ranked.item.transform,
       })
     }),
   ])
@@ -1086,6 +1260,7 @@ const insertSeedRanking = async (
     rankingSlug,
     rankingsDeleted: replacement.rankingsDeleted,
     boardsDeleted: replacement.boardsDeleted,
+    rankingsUnchanged: replacement.rankingsUnchanged,
     tiersWritten: tierEntries.length,
     itemsWritten: args.rankedItems.length,
   }
@@ -1118,6 +1293,7 @@ export const upsertSampleSeedRankingImpl = internalMutation({
   returns: v.object({
     rankingsDeleted: v.number(),
     boardsDeleted: v.number(),
+    rankingsUnchanged: v.number(),
     tiersWritten: v.number(),
     itemsWritten: v.number(),
   }),
@@ -1182,6 +1358,7 @@ export const upsertSampleSeedRankingImpl = internalMutation({
     return {
       rankingsDeleted: inserted.rankingsDeleted,
       boardsDeleted: inserted.boardsDeleted,
+      rankingsUnchanged: inserted.rankingsUnchanged,
       tiersWritten: inserted.tiersWritten,
       itemsWritten: inserted.itemsWritten,
     }
@@ -1199,6 +1376,7 @@ export const upsertCuratedSeedRankingImpl = internalMutation({
   returns: v.object({
     rankingsDeleted: v.number(),
     boardsDeleted: v.number(),
+    rankingsUnchanged: v.number(),
     tiersWritten: v.number(),
     itemsWritten: v.number(),
   }),
@@ -1253,6 +1431,7 @@ export const upsertCuratedSeedRankingImpl = internalMutation({
     return {
       rankingsDeleted: inserted.rankingsDeleted,
       boardsDeleted: inserted.boardsDeleted,
+      rankingsUnchanged: inserted.rankingsUnchanged,
       tiersWritten: inserted.tiersWritten,
       itemsWritten: inserted.itemsWritten,
     }
@@ -1542,6 +1721,7 @@ export const applySeedRankings = internalAction({
 
     let boardsReplaced = 0
     let rankingsReplaced = 0
+    let rankingsUnchanged = 0
     let sampleRankingsApplied = 0
     let curatedRankingsApplied = 0
     let rankingTiersWritten = 0
@@ -1560,6 +1740,7 @@ export const applySeedRankings = internalAction({
           const result: {
             rankingsDeleted: number
             boardsDeleted: number
+            rankingsUnchanged: number
             tiersWritten: number
             itemsWritten: number
           } = await ctx.runMutation(
@@ -1575,6 +1756,7 @@ export const applySeedRankings = internalAction({
           )
           rankingsReplaced += result.rankingsDeleted
           boardsReplaced += result.boardsDeleted
+          rankingsUnchanged += result.rankingsUnchanged
           rankingTiersWritten += result.tiersWritten
           rankingItemsWritten += result.itemsWritten
           sampleRankingsApplied += 1
@@ -1586,6 +1768,7 @@ export const applySeedRankings = internalAction({
         const result: {
           rankingsDeleted: number
           boardsDeleted: number
+          rankingsUnchanged: number
           tiersWritten: number
           itemsWritten: number
         } = await ctx.runMutation(
@@ -1600,6 +1783,7 @@ export const applySeedRankings = internalAction({
         )
         rankingsReplaced += result.rankingsDeleted
         boardsReplaced += result.boardsDeleted
+        rankingsUnchanged += result.rankingsUnchanged
         rankingTiersWritten += result.tiersWritten
         rankingItemsWritten += result.itemsWritten
         curatedRankingsApplied += 1
@@ -1614,6 +1798,7 @@ export const applySeedRankings = internalAction({
       authorsPatched: authorResult.authorsPatched,
       boardsReplaced,
       rankingsReplaced,
+      rankingsUnchanged,
       sampleRankingsApplied,
       curatedRankingsApplied,
       rankingsApplied: sampleRankingsApplied + curatedRankingsApplied,
@@ -1621,6 +1806,58 @@ export const applySeedRankings = internalAction({
       rankingItemsWritten,
       aggregateLanes: preflight.aggregateLanes,
       diagnostics: preflight.diagnostics,
+    }
+  },
+})
+
+export const cleanupStaleSeedRankings = internalAction({
+  args: {
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    runId: v.string(),
+    rankingSeeds: seedRankingsManifestValidator,
+  },
+  returns: v.object({
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    rankingsDeleted: v.number(),
+    boardsDeleted: v.number(),
+  }),
+  handler: async (ctx, args) =>
+  {
+    assertNonemptyString('runId', args.runId)
+    const plannedSeedExternalIds = plannedRankingSeedExternalIds(
+      args.rankingSeeds
+    )
+    let rankingsDeleted = 0
+    let boardsDeleted = 0
+    let cursor: string | null = null
+    while (true)
+    {
+      const result: {
+        rankingsDeleted: number
+        boardsDeleted: number
+        cursor: string | null
+        isDone: boolean
+      } = await ctx.runMutation(
+        internal.marketplace.rankings.seed.deleteStaleSeedRankingRowsImpl,
+        {
+          datasetKey: args.datasetKey,
+          releaseId: args.releaseId,
+          plannedSeedExternalIds,
+          cursor,
+        }
+      )
+      rankingsDeleted += result.rankingsDeleted
+      boardsDeleted += result.boardsDeleted
+      if (result.isDone) break
+      cursor = result.cursor
+    }
+    return {
+      datasetKey: args.datasetKey,
+      releaseId: args.releaseId,
+      rankingsDeleted,
+      boardsDeleted,
     }
   },
 })
