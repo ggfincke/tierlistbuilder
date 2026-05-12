@@ -9,6 +9,7 @@ import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { SeedRankingsManifest } from '@convex/marketplace/rankings/seedValidators'
 import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import schema from '../../convex/schema'
+import { BATCH_LIMITS } from '../../convex/lib/limits'
 import {
   modules,
   seedCloudBoard,
@@ -282,7 +283,6 @@ describe('ranking seed pipeline', () =>
       internal.marketplace.rankings.seedLifecycle.rollbackSeedRankings,
       {
         datasetKey: DATASET,
-        releaseId: RELEASE,
         targetReleaseId: OLD_RELEASE,
       }
     )
@@ -303,6 +303,58 @@ describe('ranking seed pipeline', () =>
     expect(rollbackRows.currentBoard?.seedReleaseStatus).toBe('rolled_back')
     expect(rollbackRows.previousRanking?.seedReleaseStatus).toBe('active')
     expect(rollbackRows.previousBoard?.seedReleaseStatus).toBe('active')
+  })
+
+  it('rolls back active rows when the target release fills the old active scan window', async () =>
+  {
+    const t = makeTest()
+    const target = await seedSeedTemplate(t, {
+      releaseId: OLD_RELEASE,
+      templateExternalId: 'test:rollback-target-window',
+      labels: ['Mario'],
+    })
+    const current = await seedSeedTemplate(t, {
+      releaseId: RELEASE,
+      templateExternalId: 'test:rollback-current-window',
+      labels: ['Mario'],
+    })
+    const targetActiveCount =
+      BATCH_LIMITS.rankingSeedLifecycleTransition * 4 + 1
+    await seedRankingRowsWithoutBoards(t, {
+      templateId: target.templateId,
+      templateExternalId: 'test:rollback-target-window',
+      releaseId: OLD_RELEASE,
+      status: 'active',
+      stableKeyPrefix: 'rollback-target-window',
+      count: targetActiveCount,
+    })
+    const currentRows = await seedRankingRowsWithoutBoards(t, {
+      templateId: current.templateId,
+      templateExternalId: 'test:rollback-current-window',
+      releaseId: RELEASE,
+      status: 'active',
+      stableKeyPrefix: 'rollback-current-window',
+      count: 1,
+    })
+
+    const result = await t.mutation(
+      internal.marketplace.rankings.seedLifecycle.rollbackSeedRankings,
+      {
+        datasetKey: DATASET,
+        targetReleaseId: OLD_RELEASE,
+        queueAggregates: false,
+      }
+    )
+
+    expect(result.activatedRankings).toBe(0)
+    expect(result.rolledBackRankings).toBe(1)
+    const currentRanking = await t.run(
+      async (ctx) => await ctx.db.get(currentRows[0]!)
+    )
+    expect(currentRanking?.publicationState).toBe('unpublished')
+    expect(currentRanking?.isPubliclyListable).toBe(false)
+    expect(currentRanking?.isFeatured).toBe(false)
+    expect(currentRanking?.seedReleaseStatus).toBe('rolled_back')
   })
 
   it('skips unchanged sample rankings without resetting active seed rows', async () =>
@@ -441,7 +493,14 @@ describe('ranking seed pipeline', () =>
       templateExternalId: 'test:stale-cleanup',
       releaseId: RELEASE,
       status: 'active',
-      stableKey: 'stale-cleanup',
+      stableKey: 'stale-cleanup-a',
+    })
+    const secondStaleSeed = await seedRankingRow(t, {
+      templateId: current.templateId,
+      templateExternalId: 'test:stale-cleanup',
+      releaseId: RELEASE,
+      status: 'active',
+      stableKey: 'stale-cleanup-b',
     })
 
     const first = await t.mutation(
@@ -466,17 +525,23 @@ describe('ranking seed pipeline', () =>
         cursor: first.cursor,
       }
     )
+    expect(second.rankingsDeleted).toBe(1)
+    expect(second.boardsDeleted).toBe(1)
     expect(second.isDone).toBe(true)
     const rows = await t.run(async (ctx) =>
     {
-      const [ranking, board] = await Promise.all([
+      const [ranking, board, secondRanking, secondBoard] = await Promise.all([
         ctx.db.get(staleSeed.rankingId),
         ctx.db.get(staleSeed.boardId),
+        ctx.db.get(secondStaleSeed.rankingId),
+        ctx.db.get(secondStaleSeed.boardId),
       ])
-      return { ranking, board }
+      return { ranking, board, secondRanking, secondBoard }
     })
     expect(rows.ranking).toBeNull()
     expect(rows.board).toBeNull()
+    expect(rows.secondRanking).toBeNull()
+    expect(rows.secondBoard).toBeNull()
   })
 })
 
@@ -655,6 +720,62 @@ const seedRankingRow = async (
       seedReleaseStatus: args.status,
     })
     return { boardId, rankingId }
+  })
+}
+
+const seedRankingRowsWithoutBoards = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  args: {
+    templateId: Id<'templates'>
+    templateExternalId: string
+    releaseId: string
+    status: 'active' | 'applied_hidden'
+    stableKeyPrefix: string
+    count: number
+  }
+): Promise<Id<'publishedRankings'>[]> =>
+{
+  const ownerId = await seedUser(t)
+  return await t.run(async (ctx) =>
+  {
+    const now = Date.now()
+    const rankingIds: Id<'publishedRankings'>[] = []
+    for (let index = 0; index < args.count; index++)
+    {
+      const stableKey = `${args.stableKeyPrefix}-${index}`
+      const rankingId = await seedPublishedRanking(ctx, {
+        ownerId,
+        slug: `ranking-${stableKey}`,
+        sourceTemplateId: args.templateId,
+        sourceBoardId: null,
+        sourceTemplateSlug: args.templateExternalId.replace(/[^a-z0-9]+/g, '-'),
+        sourceTemplateTitle: args.templateExternalId,
+        title: `${stableKey} ranking`,
+        itemCount: 1,
+        now,
+        publicationState:
+          args.status === 'active' ? 'published' : 'unpublished',
+        isPubliclyListable: args.status === 'active',
+        isFeatured: args.status === 'active',
+        featuredRank: 0,
+        featuredBadge: 'creator',
+        criterion: criterionSnapshot(),
+      })
+      await ctx.db.patch(rankingId, {
+        seedDatasetKey: DATASET,
+        seedReleaseId: args.releaseId,
+        seedExternalId: `ranking:${stableKey}`,
+        seedKind: 'sample',
+        seedTemplateExternalId: args.templateExternalId,
+        seedCriterionExternalId: 'competitive',
+        seedAuthorKey: 'ava',
+        seedProfileKey: 'ava',
+        seedCuratedExternalId: null,
+        seedReleaseStatus: args.status,
+      })
+      rankingIds.push(rankingId)
+    }
+    return rankingIds
   })
 }
 

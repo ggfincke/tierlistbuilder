@@ -361,6 +361,13 @@ def _try_compile_cache_hit(
         compiled = read_json(compiled_path)
     except (OSError, json.JSONDecodeError):
         return None
+    # the upload phase reads each compiled variant by path. if a cleanup
+    # script or a user removed individual variant files but left the
+    # directory in place, treating this as a hit lets the build phase return
+    # success only for the upload phase to fail opening a missing path. walk
+    # the compiled tree & verify every variant file actually exists
+    if not _compiled_variants_present(compiled):
+        return None
     totals = compiled.get("totals")
     if isinstance(totals, dict):
         progress.log(
@@ -376,6 +383,41 @@ def _try_compile_cache_hit(
             f"compile cache hit: {repo_relative(compiled_path, repo_root)}"
         )
     return compiled_path, compiled
+
+
+def _compiled_variants_present(compiled: JsonObject) -> bool:
+    templates = compiled.get("templates")
+    if not isinstance(templates, list):
+        return False
+    for template in templates:
+        if not isinstance(template, dict):
+            return False
+        for item in template.get("items") or []:
+            if not isinstance(item, dict):
+                return False
+            if not _asset_variants_present(item.get("asset")):
+                return False
+        cover = template.get("coverImage")
+        if cover is not None and not _asset_variants_present(cover):
+            return False
+    return True
+
+
+def _asset_variants_present(asset: object) -> bool:
+    if not isinstance(asset, dict):
+        return False
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return False
+    for variant in variants.values():
+        if not isinstance(variant, dict):
+            return False
+        path_value = variant.get("path")
+        if not isinstance(path_value, str):
+            return False
+        if not Path(path_value).is_file():
+            return False
+    return True
 
 
 def _peek_manifest(manifest_path: Path) -> JsonObject | None:

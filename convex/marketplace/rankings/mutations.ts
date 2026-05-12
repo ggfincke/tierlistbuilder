@@ -54,6 +54,7 @@ import {
   normalizeRankingDescription,
   normalizeRankingTitle,
   rankingTopScore,
+  resolveCompactRankingItem,
 } from './lib'
 import {
   buildBoardItemInsertFromTemplateItem,
@@ -105,7 +106,7 @@ const requireTemplateItem = async (
   return item
 }
 
-const loadTemplateItemsById = async (
+const loadTemplateItemsByIds = async (
   ctx: MutationCtx,
   itemIds: readonly Id<'templateItems'>[]
 ): Promise<Map<Id<'templateItems'>, Doc<'templateItems'>>> =>
@@ -190,7 +191,7 @@ const buildOrderedRankingItems = async (
     itemsByTier.set(item.tierId, bucket)
   }
 
-  const templateItemsById = await loadTemplateItemsById(ctx, templateItemIds)
+  const templateItemsById = await loadTemplateItemsByIds(ctx, templateItemIds)
   const sortedTiers = [...tiers].sort((a, b) => a.order - b.order)
   const rows: OrderedRankingItem[] = []
   for (const tier of sortedTiers)
@@ -561,46 +562,28 @@ export const remixRanking = mutation({
           })
         }
         const externalId = generateItemId()
-        const mediaAssetId =
-          item.mediaAssetId === undefined
-            ? templateItem.mediaAssetId
-            : item.mediaAssetId
-        const label = item.label === undefined ? templateItem.label : item.label
-        const backgroundColor =
-          item.backgroundColor === undefined
-            ? templateItem.backgroundColor
-            : item.backgroundColor
-        const altText =
-          item.altText === undefined ? templateItem.altText : item.altText
-        const aspectRatio =
-          item.aspectRatio === undefined
-            ? templateItem.aspectRatio
-            : item.aspectRatio
-        const imageFit =
-          item.imageFit === undefined ? templateItem.imageFit : item.imageFit
-        const transform =
-          item.transform === undefined ? templateItem.transform : item.transform
+        const resolved = resolveCompactRankingItem(item, templateItem)
         await ctx.db.insert('boardItems', {
           boardId,
           tierId: tier.boardTierId,
           externalId,
-          label: label ?? undefined,
-          backgroundColor: backgroundColor ?? undefined,
-          altText: altText ?? undefined,
-          mediaAssetId,
+          label: resolved.label ?? undefined,
+          backgroundColor: resolved.backgroundColor ?? undefined,
+          altText: resolved.altText ?? undefined,
+          mediaAssetId: resolved.mediaAssetId,
           order: item.order,
           deletedAt: null,
-          aspectRatio: aspectRatio ?? undefined,
-          imageFit: imageFit ?? undefined,
-          transform: transform ?? undefined,
+          aspectRatio: resolved.aspectRatio ?? undefined,
+          imageFit: resolved.imageFit ?? undefined,
+          transform: resolved.transform ?? undefined,
           templateItemId: item.templateItemId,
         })
         return {
           tierKey: tier.externalId,
           externalId,
-          label,
-          storageId: mediaAssetId
-            ? await loadMediaVariantStorageId(ctx, mediaAssetId)
+          label: resolved.label,
+          storageId: resolved.mediaAssetId
+            ? await loadMediaVariantStorageId(ctx, resolved.mediaAssetId)
             : null,
           order: item.order,
           deletedAt: null,

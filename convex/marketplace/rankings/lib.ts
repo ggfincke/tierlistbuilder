@@ -19,7 +19,9 @@ import type {
   MarketplaceRankingSummary,
   MarketplaceRankingTier,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
+import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import { SEED_LIMITS } from '../../lib/limits'
 import { failInput, normalizeNullableText } from '../../lib/text'
 import {
   createTemplateProjectionCache,
@@ -188,28 +190,67 @@ export const loadRankingItems = async (
   return rows.sort((a, b) => a.order - b.order)
 }
 
-const loadTemplateItemsById = async (
+// load every templateItems row for a template via the byTemplate index.
+// rankings always derive from a single source template, so one indexed range
+// read replaces N individual ctx.db.get calls
+export const loadRankingTemplateItemsById = async (
   ctx: DbCtx,
-  itemIds: readonly Id<'templateItems'>[]
+  templateId: Id<'templates'>
 ): Promise<Map<Id<'templateItems'>, Doc<'templateItems'>>> =>
 {
-  const uniqueIds = [...new Set(itemIds)]
-  const entries = await Promise.all(
-    uniqueIds.map(async (itemId) => [itemId, await ctx.db.get(itemId)] as const)
-  )
-  const itemsById = new Map<Id<'templateItems'>, Doc<'templateItems'>>()
-  for (const [itemId, item] of entries)
+  const rows = await ctx.db
+    .query('templateItems')
+    .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
+    .take(SEED_LIMITS.itemsPerTemplate + 1)
+  if (rows.length > SEED_LIMITS.itemsPerTemplate)
   {
-    if (!item)
-    {
-      return failState(
-        `ranking item references missing template item ${itemId}`
-      )
-    }
-    itemsById.set(itemId, item)
+    return failState(
+      `template item count exceeds read limit for template ${templateId}`
+    )
   }
-  return itemsById
+  return new Map(rows.map((row) => [row._id, row]))
 }
+
+// merge a publishedRankingItems row w/ its (possibly missing) templateItem.
+// compact rows leave optional fields undefined; full-snapshot rows carry
+// every value inline. fall through to whatever the ranking row stores
+export interface ResolvedRankingItemFields
+{
+  externalId: string | null
+  templateItemExternalId: string | null
+  label: string | null
+  backgroundColor: string | null
+  altText: string | null
+  mediaAssetId: Id<'mediaAssets'> | null
+  aspectRatio: number | null
+  imageFit: 'cover' | 'contain' | null
+  transform: ItemTransform | null
+}
+
+const pickField = <T>(
+  rowValue: T | undefined,
+  fallback: T | undefined | null
+): T | null =>
+{
+  if (rowValue !== undefined) return rowValue
+  return fallback ?? null
+}
+
+export const resolveCompactRankingItem = (
+  item: Doc<'publishedRankingItems'>,
+  templateItem: Doc<'templateItems'> | undefined | null
+): ResolvedRankingItemFields => ({
+  externalId: item.externalId ?? templateItem?.externalId ?? null,
+  templateItemExternalId:
+    item.templateItemExternalId ?? templateItem?.externalId ?? null,
+  label: pickField(item.label, templateItem?.label),
+  backgroundColor: pickField(item.backgroundColor, templateItem?.backgroundColor),
+  altText: pickField(item.altText, templateItem?.altText),
+  mediaAssetId: pickField(item.mediaAssetId, templateItem?.mediaAssetId),
+  aspectRatio: pickField(item.aspectRatio, templateItem?.aspectRatio),
+  imageFit: pickField(item.imageFit, templateItem?.imageFit),
+  transform: pickField(item.transform, templateItem?.transform),
+})
 
 const toRankingTier = (
   tier: Doc<'publishedRankingTiers'>
@@ -224,64 +265,56 @@ const toRankingTier = (
 
 export const toRankingBucketPlacementItems = async (
   ctx: DbCtx,
+  ranking: Doc<'publishedRankings'>,
   items: readonly Doc<'publishedRankingItems'>[]
 ): Promise<
   { templateItemExternalId: string; tierExternalId: string | null }[]
 > =>
 {
-  const templateItemsById = await loadTemplateItemsById(
+  const templateItemsById = await loadRankingTemplateItemsById(
     ctx,
-    items.map((item) => item.templateItemId)
+    ranking.sourceTemplateId
   )
-  return items.map((item) =>
+  return items.flatMap((item) =>
   {
-    const templateItem = templateItemsById.get(item.templateItemId)
-    if (!templateItem)
-    {
-      return failState('ranking item references missing template item')
-    }
-    return {
-      templateItemExternalId:
-        item.templateItemExternalId ?? templateItem.externalId,
-      tierExternalId: item.tierExternalId,
-    }
+    const resolved = resolveCompactRankingItem(
+      item,
+      templateItemsById.get(item.templateItemId)
+    )
+    // placement lookups key off the template-item externalId; without one we
+    // cannot place the row in the consensus grid, so skip rather than fail
+    if (!resolved.templateItemExternalId) return []
+    return [
+      {
+        templateItemExternalId: resolved.templateItemExternalId,
+        tierExternalId: item.tierExternalId,
+      },
+    ]
   })
 }
 
 const toRankingItem = async (
   ctx: DbCtx,
   item: Doc<'publishedRankingItems'>,
-  templateItem: Doc<'templateItems'>,
+  templateItem: Doc<'templateItems'> | undefined | null,
   cache = createTemplateProjectionCache()
 ): Promise<MarketplaceRankingItem> =>
 {
-  const mediaAssetId =
-    item.mediaAssetId === undefined
-      ? templateItem.mediaAssetId
-      : item.mediaAssetId
+  const resolved = resolveCompactRankingItem(item, templateItem)
   return {
-    externalId: item.externalId ?? templateItem.externalId,
-    templateItemExternalId:
-      item.templateItemExternalId ?? templateItem.externalId,
+    externalId: resolved.externalId ?? '',
+    templateItemExternalId: resolved.templateItemExternalId ?? '',
     tierExternalId: item.tierExternalId,
-    label: item.label === undefined ? templateItem.label : item.label,
-    backgroundColor:
-      item.backgroundColor === undefined
-        ? templateItem.backgroundColor
-        : item.backgroundColor,
-    altText: item.altText === undefined ? templateItem.altText : item.altText,
-    media: mediaAssetId
-      ? await toTemplateMediaRef(ctx, mediaAssetId, 'tile', cache)
+    label: resolved.label,
+    backgroundColor: resolved.backgroundColor,
+    altText: resolved.altText,
+    media: resolved.mediaAssetId
+      ? await toTemplateMediaRef(ctx, resolved.mediaAssetId, 'tile', cache)
       : null,
     order: item.order,
-    aspectRatio:
-      item.aspectRatio === undefined
-        ? templateItem.aspectRatio
-        : item.aspectRatio,
-    imageFit:
-      item.imageFit === undefined ? templateItem.imageFit : item.imageFit,
-    transform:
-      item.transform === undefined ? templateItem.transform : item.transform,
+    aspectRatio: resolved.aspectRatio,
+    imageFit: resolved.imageFit,
+    transform: resolved.transform,
   }
 }
 
@@ -291,29 +324,20 @@ export const toRankingDetail = async (
 ): Promise<MarketplaceRankingDetail> =>
 {
   const cache = createTemplateProjectionCache()
-  const [summary, tiers, items] = await Promise.all([
+  const [summary, tiers, items, templateItemsById] = await Promise.all([
     toRankingSummary(ctx, ranking, cache),
     loadRankingTiers(ctx, ranking._id),
     loadRankingItems(ctx, ranking._id),
+    loadRankingTemplateItemsById(ctx, ranking.sourceTemplateId),
   ])
-  const templateItemsById = await loadTemplateItemsById(
-    ctx,
-    items.map((item) => item.templateItemId)
-  )
 
   return {
     ...summary,
     tiers: tiers.map(toRankingTier),
     items: await Promise.all(
       items.map((item) =>
-      {
-        const templateItem = templateItemsById.get(item.templateItemId)
-        if (!templateItem)
-        {
-          return failState('ranking item references missing template item')
-        }
-        return toRankingItem(ctx, item, templateItem, cache)
-      })
+        toRankingItem(ctx, item, templateItemsById.get(item.templateItemId), cache)
+      )
     ),
   }
 }

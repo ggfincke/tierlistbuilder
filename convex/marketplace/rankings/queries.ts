@@ -768,7 +768,7 @@ export const getMyRankingForTemplate = query({
       ranking: summary,
       placements: buildRankingBucketPlacements(
         tiers,
-        await toRankingBucketPlacementItems(ctx, items),
+        await toRankingBucketPlacementItems(ctx, ranking, items),
         bucketCount,
         bucketLabels
       ),

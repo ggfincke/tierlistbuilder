@@ -677,6 +677,14 @@ export default defineSchema({
       'seedDatasetKey',
       'seedReleaseId',
       'seedReleaseStatus',
+    ])
+    // status/release index for ranking activation to discover active rows
+    // outside the target release. seedRuns-based discovery does not work
+    // because template activation flips the seedRun status before rankings run
+    .index('bySeedDatasetStatusReleaseId', [
+      'seedDatasetKey',
+      'seedReleaseStatus',
+      'seedReleaseId',
     ]),
 
   publishedRankingTiers: defineTable({

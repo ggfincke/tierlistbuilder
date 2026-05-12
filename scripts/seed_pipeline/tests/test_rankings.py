@@ -260,6 +260,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
             context,
             SEED_RANKINGS_ACTIVATE_FUNCTION,
             args,
+            active_release_id="release-a",
         )
 
         self.assertEqual(result["activatedRankings"], 32)
@@ -322,8 +323,13 @@ class RankingSeedCompilationTests(unittest.TestCase):
         )
 
         self.assertEqual(result["rankingsApplied"], 1)
-        self.assertEqual(result["rankingsReplaced"], 3)
-        self.assertEqual(result["boardsReplaced"], 3)
+        # apply rewrites are reported separately from stale-cleanup deletions;
+        # conflating them used to skew the change-detection that drives
+        # aggregate requeueing
+        self.assertEqual(result["rankingsReplaced"], 1)
+        self.assertEqual(result["boardsReplaced"], 1)
+        self.assertEqual(result["rankingsCleaned"], 2)
+        self.assertEqual(result["boardsCleaned"], 2)
         self.assertEqual(len(context.client.actions), 3)
         for function_path, payload in context.client.actions[:2]:
             self.assertEqual(function_path, SEED_RANKINGS_APPLY_FUNCTION)

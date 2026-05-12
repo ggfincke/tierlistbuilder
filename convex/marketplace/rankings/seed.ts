@@ -13,12 +13,18 @@ import {
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import type { RankingFeaturedBadge } from '@tierlistbuilder/contracts/marketplace/ranking'
+import {
+  normalizeBucketLabel,
+  type RankingFeaturedBadge,
+} from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { assertCountRange, assertNonemptyString } from '../../lib/assertions'
 import { SEED_LIMITS } from '../../lib/limits'
 import { loadSeedTemplateLookupForRelease } from '../seedPipeline/templates'
-import { resolveActiveTemplateCriterion } from '../templates/criteria'
+import {
+  resolveActiveTemplateCriterion,
+  toTemplateCriterionSnapshot,
+} from '../templates/criteria'
 import {
   DEFAULT_TEMPLATE_TIERS,
   loadTemplateItems,
@@ -30,6 +36,10 @@ import {
   normalizeRankingTitle,
   rankingTopScore,
 } from './lib'
+import {
+  queueTemplateRankingAggregateRecompute,
+  scheduleTemplateRankingAggregateJobAdmission,
+} from './aggregate'
 import {
   seedCuratedRankingValidator,
   seedRankingApplyResultValidator,
@@ -55,7 +65,10 @@ const SEED_EMAIL_DOMAIN = 'tierlistbuilder.local'
 const SEED_AUTHOR_PREFIX = 'seed+rankings-'
 const SAMPLE_RANKING_DESCRIPTION =
   'Seeded sample ranking for community feature testing.'
-const STALE_RANKING_CLEANUP_PAGE_SIZE = 128
+// Scan a small page to skip planned rows, but delete at most one stale
+// ranking per mutation because each delete can cascade through ranking items,
+// tiers, & a companion board.
+const STALE_RANKING_CLEANUP_SCAN_PAGE_SIZE = 16
 
 interface RankedSeedItem
 {
@@ -156,10 +169,19 @@ const boardSeedExternalId = (
 ): string =>
   `board:${templateExternalId}:${criterionExternalId}:${kind}:${stableKey}`
 
+const RANKING_SEED_EXTERNAL_ID_PREFIX = 'ranking:'
+
 const companionBoardSeedExternalId = (rankingExternalId: string): string =>
-  rankingExternalId.startsWith('ranking:')
-    ? `board:${rankingExternalId.slice('ranking:'.length)}`
-    : rankingExternalId
+{
+  if (!rankingExternalId.startsWith(RANKING_SEED_EXTERNAL_ID_PREFIX))
+  {
+    throw new ConvexError({
+      code: CONVEX_ERROR_CODES.invalidState,
+      message: `expected ranking seed externalId prefix '${RANKING_SEED_EXTERNAL_ID_PREFIX}', got '${rankingExternalId}'`,
+    })
+  }
+  return `board:${rankingExternalId.slice(RANKING_SEED_EXTERNAL_ID_PREFIX.length)}`
+}
 
 const tierSeedExternalId = (seedExternalId: string, order: number): string =>
   `${seedExternalId}:tier:${order.toString().padStart(2, '0')}`
@@ -213,9 +235,6 @@ const normalizeTextKey = (value: string): string =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ')
-
-const normalizeTierNameKey = (value: string): string =>
-  value.trim().toLowerCase().replace(/\s+/g, ' ')
 
 const termMatches = (label: string, terms: readonly string[]): number =>
 {
@@ -537,43 +556,29 @@ const ensureRankingSeedAuthors = async (
   return { authorsCreated, authorsReused, authorsPatched }
 }
 
-const loadExistingSeedRankingCount = async (
+const countExistingSeedRankings = async (
   ctx: QueryCtx,
   datasetKey: string,
-  releaseId: string
+  releaseId: string,
+  activeOnly = false
 ): Promise<number> =>
 {
-  const rows = await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-      q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
-    )
-    .take(SEED_LIMITS.rankingSeedRowsPerRelease + 1)
-  if (rows.length > SEED_LIMITS.rankingSeedRowsPerRelease)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidState,
-      message: 'seed ranking release exceeds read limit',
-    })
-  }
-  return rows.length
-}
-
-const loadExistingActiveSeedRankingCount = async (
-  ctx: QueryCtx,
-  datasetKey: string,
-  releaseId: string
-): Promise<number> =>
-{
-  const rows = await ctx.db
-    .query('publishedRankings')
-    .withIndex('bySeedDatasetReleaseStatus', (q) =>
-      q
-        .eq('seedDatasetKey', datasetKey)
-        .eq('seedReleaseId', releaseId)
-        .eq('seedReleaseStatus', 'active')
-    )
-    .take(SEED_LIMITS.rankingSeedRowsPerRelease + 1)
+  const rows = activeOnly
+    ? await ctx.db
+        .query('publishedRankings')
+        .withIndex('bySeedDatasetReleaseStatus', (q) =>
+          q
+            .eq('seedDatasetKey', datasetKey)
+            .eq('seedReleaseId', releaseId)
+            .eq('seedReleaseStatus', 'active')
+        )
+        .take(SEED_LIMITS.rankingSeedRowsPerRelease + 1)
+    : await ctx.db
+        .query('publishedRankings')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
+        )
+        .take(SEED_LIMITS.rankingSeedRowsPerRelease + 1)
   if (rows.length > SEED_LIMITS.rankingSeedRowsPerRelease)
   {
     throw new ConvexError({
@@ -642,7 +647,7 @@ const mapItemsToCuratedTiers = (
   const tiersByName = new Map<string, number>()
   curated.tiers.forEach((tier, index) =>
   {
-    const key = normalizeTierNameKey(tier.name)
+    const key = normalizeBucketLabel(tier.name)
     if (!key || tiersByName.has(key))
     {
       throw new ConvexError({
@@ -658,7 +663,7 @@ const mapItemsToCuratedTiers = (
   const labelsByTier = new Map<number, string[]>()
   for (const group of curated.tierGroups)
   {
-    const tierIndex = tiersByName.get(normalizeTierNameKey(group.tierName))
+    const tierIndex = tiersByName.get(normalizeBucketLabel(group.tierName))
     if (tierIndex === undefined)
     {
       throw new ConvexError({
@@ -960,29 +965,40 @@ const seedRankingLifecycleFieldsMatchStatus = (
   ranking: Doc<'publishedRankings'>
 ): boolean =>
 {
-  if (ranking.seedReleaseStatus === 'active')
+  const status = ranking.seedReleaseStatus
+  if (status === null) return false
+  switch (status)
   {
-    const hasFeaturedSlot =
-      ranking.featuredRank !== null && ranking.featuredBadge !== null
-    return (
-      ranking.visibility === 'public' &&
-      ranking.publicationState === 'published' &&
-      ranking.isPubliclyListable &&
-      ranking.isFeatured === hasFeaturedSlot
-    )
+    case 'active':
+    {
+      const hasFeaturedSlot =
+        ranking.featuredRank !== null && ranking.featuredBadge !== null
+      return (
+        ranking.visibility === 'public' &&
+        ranking.publicationState === 'published' &&
+        ranking.isPubliclyListable &&
+        ranking.isFeatured === hasFeaturedSlot
+      )
+    }
+    case 'applied_hidden':
+    case 'rolled_back':
+      return (
+        ranking.publicationState === 'unpublished' &&
+        !ranking.isPubliclyListable &&
+        !ranking.isFeatured
+      )
+    default:
+    {
+      // exhaustiveness guard — new SeedRankingReleaseStatus values must add
+      // their own lifecycle contract here, or seedRowsAreReusable would
+      // silently re-delete every row of that status on each apply
+      const _exhaustive: never = status
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `unhandled seed ranking release status: ${String(_exhaustive)}`,
+      })
+    }
   }
-  if (
-    ranking.seedReleaseStatus === 'applied_hidden' ||
-    ranking.seedReleaseStatus === 'rolled_back'
-  )
-  {
-    return (
-      ranking.publicationState === 'unpublished' &&
-      !ranking.isPubliclyListable &&
-      !ranking.isFeatured
-    )
-  }
-  return false
 }
 
 const replaceExistingSeedRows = async (
@@ -1059,55 +1075,87 @@ export const deleteStaleSeedRankingRowsImpl = internalMutation({
           .eq('seedReleaseId', args.releaseId)
       )
       .paginate({
-        numItems: STALE_RANKING_CLEANUP_PAGE_SIZE,
+        numItems: STALE_RANKING_CLEANUP_SCAN_PAGE_SIZE,
         cursor: args.cursor ?? null,
       })
 
+    let rankingToDelete: Doc<'publishedRankings'> | null = null
+    let pageHasAdditionalStaleRanking = false
     for (const ranking of page.page)
     {
       const seedExternalId = ranking.seedExternalId
       if (seedExternalId === null || planned.has(seedExternalId)) continue
-      const boardSeedId = companionBoardSeedExternalId(seedExternalId)
-      const sourceBoard =
-        ranking.sourceBoardId !== null
-          ? await ctx.db.get(ranking.sourceBoardId)
-          : null
-      const board =
-        sourceBoard ??
-        (await findExistingSeedBoard(
-          ctx,
-          args.datasetKey,
-          args.releaseId,
-          boardSeedId
-        ))
-      await deleteRankingWithChildren(ctx, ranking)
-      if (
-        board &&
-        board.seedDatasetKey === args.datasetKey &&
-        board.seedReleaseId === args.releaseId
-      )
+      if (rankingToDelete === null)
       {
-        await deleteBoardWithChildren(ctx, board)
-        return {
-          rankingsDeleted: 1,
-          boardsDeleted: 1,
-          cursor: args.cursor ?? null,
-          isDone: false,
-        }
+        rankingToDelete = ranking
+        continue
       }
+      pageHasAdditionalStaleRanking = true
+      break
+    }
+
+    if (rankingToDelete === null)
+    {
       return {
-        rankingsDeleted: 1,
+        rankingsDeleted: 0,
         boardsDeleted: 0,
-        cursor: args.cursor ?? null,
-        isDone: false,
+        cursor: page.isDone ? null : page.continueCursor,
+        isDone: page.isDone,
       }
     }
 
+    const seedExternalId = rankingToDelete.seedExternalId
+    if (seedExternalId === null)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: 'stale seed ranking is missing seedExternalId',
+      })
+    }
+    const boardSeedId = companionBoardSeedExternalId(seedExternalId)
+    const sourceBoard =
+      rankingToDelete.sourceBoardId !== null
+        ? await ctx.db.get(rankingToDelete.sourceBoardId)
+        : null
+    const board =
+      sourceBoard ??
+      (await findExistingSeedBoard(
+        ctx,
+        args.datasetKey,
+        args.releaseId,
+        boardSeedId
+      ))
+    // Capture the lane before delete: if this was the last active ranking in
+    // the lane, the apply-time queue-active pass would never discover the lane
+    // & aggregate counts would stay stale forever.
+    await queueTemplateRankingAggregateRecompute(
+      ctx,
+      rankingToDelete.sourceTemplateId,
+      rankingToDelete.sourceCriterionExternalId,
+      Date.now(),
+      { scheduleAdmission: false }
+    )
+    await scheduleTemplateRankingAggregateJobAdmission(ctx)
+    await deleteRankingWithChildren(ctx, rankingToDelete)
+    let boardsDeleted = 0
+    if (
+      board &&
+      board.seedDatasetKey === args.datasetKey &&
+      board.seedReleaseId === args.releaseId
+    )
+    {
+      await deleteBoardWithChildren(ctx, board)
+      boardsDeleted = 1
+    }
+
     return {
-      rankingsDeleted: 0,
-      boardsDeleted: 0,
-      cursor: page.isDone ? null : page.continueCursor,
-      isDone: page.isDone,
+      rankingsDeleted: 1,
+      boardsDeleted,
+      cursor:
+        page.isDone && !pageHasAdditionalStaleRanking
+          ? null
+          : (args.cursor ?? null),
+      isDone: page.isDone && !pageHasAdditionalStaleRanking,
     }
   },
 })
@@ -1141,11 +1189,7 @@ const insertSeedRanking = async (
     args.template,
     args.criterionExternalId
   )
-  const criterionSnapshot = {
-    externalId: criterion.externalId,
-    name: criterion.name,
-    prompt: criterion.prompt,
-  }
+  const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
   const rankingTitle = normalizeRankingTitle(args.title)
   const rankingDescription = normalizeRankingDescription(args.description)
   const viewCount = Math.floor(unitHash(args.viewCountSeedKey) * 24)
@@ -1558,16 +1602,21 @@ const buildPreflight = async (
     }
 
     const featuredSlots = new Set<string>()
-    for (const [curatedIndex, curated] of (
-      target.curatedRankings ?? []
-    ).entries())
+    const curatedRankings = target.curatedRankings ?? []
+    // load template items once per target; mapItemsToCuratedTiers only walks
+    // them in-memory, so sharing the same array across every curated ranking
+    // on this template avoids one byTemplate scan per curated entry
+    const templateItemsForCurated =
+      curatedRankings.length > 0
+        ? await loadTemplateItems(ctx, template._id)
+        : []
+    for (const [curatedIndex, curated] of curatedRankings.entries())
     {
       const curatedPath = `${targetPath}.curatedRankings[${curatedIndex}]`
       try
       {
         resolveActiveTemplateCriterion(template, curated.criterionExternalId)
-        const items = await loadTemplateItems(ctx, template._id)
-        mapItemsToCuratedTiers(curated, items, curatedPath)
+        mapItemsToCuratedTiers(curated, templateItemsForCurated, curatedPath)
       }
       catch (error)
       {
@@ -1617,16 +1666,10 @@ const buildPreflight = async (
     }
   }
 
-  const existingSeedRankings = await loadExistingSeedRankingCount(
-    ctx,
-    args.datasetKey,
-    args.releaseId
-  )
-  const existingActiveSeedRankings = await loadExistingActiveSeedRankingCount(
-    ctx,
-    args.datasetKey,
-    args.releaseId
-  )
+  const [existingSeedRankings, existingActiveSeedRankings] = await Promise.all([
+    countExistingSeedRankings(ctx, args.datasetKey, args.releaseId),
+    countExistingSeedRankings(ctx, args.datasetKey, args.releaseId, true),
+  ])
   const sampleRankingsPlanned = countPlannedSampleRankings(args.rankingSeeds)
   const curatedRankingsPlanned = countPlannedCuratedRankings(args.rankingSeeds)
   if (
@@ -1702,11 +1745,17 @@ export const applySeedRankings = internalAction({
         rankingSeeds: args.rankingSeeds,
       }
     )
-    if (preflight.diagnostics.some((item) => item.severity === 'error'))
+    const preflightErrors = preflight.diagnostics.filter(
+      (item) => item.severity === 'error'
+    )
+    if (preflightErrors.length > 0)
     {
+      // surface the actual diagnostics in the error payload so the Python
+      // pipeline can pinpoint failures instead of inferring from a count
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.invalidInput,
-        message: `ranking seed preflight failed with ${preflight.diagnostics.length} diagnostic(s)`,
+        message: `ranking seed preflight failed with ${preflightErrors.length} error diagnostic(s)`,
+        diagnostics: preflight.diagnostics,
       })
     }
 
@@ -1885,11 +1934,17 @@ export const ensureSeedRankingAuthors = internalAction({
         rankingSeeds: args.rankingSeeds,
       }
     )
-    if (preflight.diagnostics.some((item) => item.severity === 'error'))
+    const preflightErrors = preflight.diagnostics.filter(
+      (item) => item.severity === 'error'
+    )
+    if (preflightErrors.length > 0)
     {
+      // surface the actual diagnostics in the error payload so the Python
+      // pipeline can pinpoint failures instead of inferring from a count
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.invalidInput,
-        message: `ranking seed preflight failed with ${preflight.diagnostics.length} diagnostic(s)`,
+        message: `ranking seed preflight failed with ${preflightErrors.length} error diagnostic(s)`,
+        diagnostics: preflight.diagnostics,
       })
     }
     const result = await ensureRankingSeedAuthors(

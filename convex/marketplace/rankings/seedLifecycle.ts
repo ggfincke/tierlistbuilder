@@ -7,7 +7,6 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { assertNonemptyString } from '../../lib/assertions'
 import { BATCH_LIMITS, SEED_LIMITS } from '../../lib/limits'
-import { resolveActiveReleaseIds } from '../seedPipeline/resolvers'
 import {
   queueTemplateRankingAggregateRecompute,
   scheduleTemplateRankingAggregateJobAdmission,
@@ -38,6 +37,42 @@ const loadSeedRankingsForReleaseStatus = async (
     )
     .take(BATCH_LIMITS.rankingSeedLifecycleTransition)
   return rows
+}
+
+// discover ranking rows currently marked active in any release other than
+// the target. independent of seedRuns state — template activation flips
+// seedRuns to rolled_back BEFORE ranking activation runs
+const loadActiveSeedRankingsExcept = async (
+  ctx: MutationCtx,
+  datasetKey: string,
+  exceptReleaseId: string
+): Promise<Doc<'publishedRankings'>[]> =>
+{
+  const batch = BATCH_LIMITS.rankingSeedLifecycleTransition
+  const beforeTarget = await ctx.db
+    .query('publishedRankings')
+    .withIndex('bySeedDatasetStatusReleaseId', (q) =>
+      q
+        .eq('seedDatasetKey', datasetKey)
+        .eq('seedReleaseStatus', 'active')
+        .gt('seedReleaseId', '')
+        .lt('seedReleaseId', exceptReleaseId)
+    )
+    .take(batch)
+  if (beforeTarget.length >= batch)
+  {
+    return beforeTarget
+  }
+  const afterTarget = await ctx.db
+    .query('publishedRankings')
+    .withIndex('bySeedDatasetStatusReleaseId', (q) =>
+      q
+        .eq('seedDatasetKey', datasetKey)
+        .eq('seedReleaseStatus', 'active')
+        .gt('seedReleaseId', exceptReleaseId)
+    )
+    .take(batch - beforeTarget.length)
+  return [...beforeTarget, ...afterTarget]
 }
 
 const loadSeedRankingsForAggregateQueue = async (
@@ -141,39 +176,30 @@ export const activateSeedRankingReleaseInternal = async (
   params: {
     datasetKey: string
     releaseId: string
-    previousReleaseIds: readonly string[]
     queueAggregates?: boolean
   }
 ): Promise<SeedRankingActivationResult> =>
 {
   const now = Date.now()
-  const rolledBackRows: Doc<'publishedRankings'>[] = []
+  const rolledBackRows = await loadActiveSeedRankingsExcept(
+    ctx,
+    params.datasetKey,
+    params.releaseId
+  )
   const rolledBackBoardIds = new Set<Id<'boards'>>()
-
-  for (const previousReleaseId of params.previousReleaseIds)
+  for (const ranking of rolledBackRows)
   {
-    if (previousReleaseId === params.releaseId) continue
-    const rows = await loadSeedRankingsForReleaseStatus(
-      ctx,
-      params.datasetKey,
-      previousReleaseId,
-      'active'
-    )
-    for (const ranking of rows)
+    if (ranking.sourceBoardId !== null)
     {
-      rolledBackRows.push(ranking)
-      if (ranking.sourceBoardId !== null)
-      {
-        rolledBackBoardIds.add(ranking.sourceBoardId)
-      }
-      await ctx.db.patch(ranking._id, {
-        publicationState: 'unpublished',
-        isPubliclyListable: false,
-        isFeatured: false,
-        seedReleaseStatus: 'rolled_back',
-        updatedAt: now,
-      })
+      rolledBackBoardIds.add(ranking.sourceBoardId)
     }
+    await ctx.db.patch(ranking._id, {
+      publicationState: 'unpublished',
+      isPubliclyListable: false,
+      isFeatured: false,
+      seedReleaseStatus: 'rolled_back',
+      updatedAt: now,
+    })
   }
   await patchSeedBoardStatuses(ctx, rolledBackBoardIds, 'rolled_back', now)
 
@@ -231,11 +257,9 @@ export const activateSeedRankings = internalMutation({
   {
     assertNonemptyString('datasetKey', args.datasetKey)
     assertNonemptyString('releaseId', args.releaseId)
-    const activeReleaseIds = await resolveActiveReleaseIds(ctx, args.datasetKey)
     return await activateSeedRankingReleaseInternal(ctx, {
       datasetKey: args.datasetKey,
       releaseId: args.releaseId,
-      previousReleaseIds: activeReleaseIds,
       queueAggregates: args.queueAggregates,
     })
   },
@@ -244,7 +268,6 @@ export const activateSeedRankings = internalMutation({
 export const rollbackSeedRankings = internalMutation({
   args: {
     datasetKey: v.string(),
-    releaseId: v.string(),
     targetReleaseId: v.string(),
     queueAggregates: v.optional(v.boolean()),
   },
@@ -252,19 +275,13 @@ export const rollbackSeedRankings = internalMutation({
   handler: async (ctx, args): Promise<SeedRankingActivationResult> =>
   {
     assertNonemptyString('datasetKey', args.datasetKey)
-    assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('targetReleaseId', args.targetReleaseId)
-    if (args.releaseId === args.targetReleaseId)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: 'ranking rollback target must differ from releaseId',
-      })
-    }
+    // rollback is just "make the target release the sole active one" — same
+    // contract as activate, but the caller has signaled intent that the
+    // current active is being intentionally replaced rather than promoted
     return await activateSeedRankingReleaseInternal(ctx, {
       datasetKey: args.datasetKey,
       releaseId: args.targetReleaseId,
-      previousReleaseIds: [args.releaseId],
       queueAggregates: args.queueAggregates,
     })
   },

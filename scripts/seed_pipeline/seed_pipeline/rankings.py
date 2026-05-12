@@ -39,6 +39,14 @@ MAX_RANKING_APPLY_ATTEMPTS = 6
 RANKING_APPLY_THROTTLE_BASE_SECONDS = 3.0
 RANKING_APPLY_THROTTLE_MAX_SECONDS = 30.0
 
+# substrings convex emits when per-deployment write-rate caps trip. these are
+# matched against ConvexClientError messages — if convex rewords either, this
+# orchestrator silently stops throttling, so keep both in one place
+CONVEX_WRITE_RATE_ERROR_MARKERS: tuple[str, ...] = (
+    "Too many writes per second",
+    "bytes written per 1 second",
+)
+
 
 def preflight_rankings_manifest(
     manifest_path: Path,
@@ -190,6 +198,7 @@ def _activate_rankings_until_complete(context: object) -> JsonObject:
             "releaseId": context.compiled["releaseId"],
             "queueAggregates": False,
         },
+        active_release_id=context.compiled["releaseId"],
     )
     _queue_active_ranking_aggregates_if_changed(context, result)
     return result
@@ -198,26 +207,33 @@ def _activate_rankings_until_complete(context: object) -> JsonObject:
 def _rollback_rankings_until_complete(
     context: object, target_release_id: str
 ) -> JsonObject:
+    # convex auto-discovers what to roll back from publishedRankings, so the
+    # only release id that matters is the one becoming active again
     result = _run_ranking_lifecycle_until_complete(
         context,
         SEED_RANKINGS_ROLLBACK_FUNCTION,
         {
             "datasetKey": context.compiled["datasetKey"],
-            "releaseId": context.compiled["releaseId"],
             "targetReleaseId": target_release_id,
-            "queueAggregates": False,
         },
+        active_release_id=target_release_id,
     )
     _queue_active_ranking_aggregates_if_changed(context, result)
     return result
 
 
 def _run_ranking_lifecycle_until_complete(
-    context: object, function_path: str, args: JsonObject
+    context: object,
+    function_path: str,
+    args: JsonObject,
+    active_release_id: str,
 ) -> JsonObject:
+    # active_release_id is the release that becomes active after the call —
+    # the compiled releaseId for activate, the targetReleaseId for rollback.
+    # downstream aggregate-queue calls scan THIS release's rows.
     totals: JsonObject = {
         "datasetKey": context.compiled["datasetKey"],
-        "releaseId": context.compiled["releaseId"],
+        "releaseId": active_release_id,
         "activatedRankings": 0,
         "rolledBackRankings": 0,
         "aggregateJobsQueued": 0,
@@ -297,34 +313,32 @@ def _apply_ranking_targets(
         context.progress.log(
             f"ranking target {index + 1}/{len(chunks)}: {template_external_id}"
         )
-        result = _run_ranking_apply_action_with_retries(
+        result = _run_ranking_action_with_retries(
             context,
-            template_external_id,
+            SEED_RANKINGS_APPLY_FUNCTION,
             {
                 **_run_request(context),
                 "authorPassword": author_password,
                 "rankingSeeds": chunk,
                 "ensureAuthors": False,
             },
+            f"ranking target {template_external_id}",
         )
         results.append(result)
     merged = _merge_apply_results(context, results, author_result)
     cleanup = _cleanup_stale_ranking_rows(context, ranking_seeds)
-    merged["rankingsReplaced"] = int(merged["rankingsReplaced"]) + int(
-        cleanup.get("rankingsDeleted", 0)
-    )
-    merged["boardsReplaced"] = int(merged["boardsReplaced"]) + int(
-        cleanup.get("boardsDeleted", 0)
-    )
+    # cleanup deletions are tracked separately from replacement rewrites —
+    # rankingsReplaced means "rewrote existing seed row with new content"; a
+    # cleanup deletion means "manifest no longer plans this row". conflating
+    # them would skew the change-detection that drives aggregate requeueing
+    merged["rankingsCleaned"] = int(cleanup.get("rankingsDeleted", 0))
+    merged["boardsCleaned"] = int(cleanup.get("boardsDeleted", 0))
     return merged
 
 
 def _is_convex_write_rate_error(error: BaseException) -> bool:
     message = str(error)
-    return (
-        "Too many writes per second" in message
-        or "bytes written per 1 second" in message
-    )
+    return any(marker in message for marker in CONVEX_WRITE_RATE_ERROR_MARKERS)
 
 
 def _ranking_apply_retry_delay(attempt: int) -> float:
@@ -334,12 +348,15 @@ def _ranking_apply_retry_delay(attempt: int) -> float:
     )
 
 
-def _run_ranking_apply_action_with_retries(
-    context: object, template_external_id: str, args: JsonObject
+def _run_ranking_action_with_retries(
+    context: object,
+    function_path: str,
+    args: JsonObject,
+    throttle_label: str,
 ) -> JsonObject:
     for attempt in range(1, MAX_RANKING_APPLY_ATTEMPTS + 1):
         try:
-            return context.client.action(SEED_RANKINGS_APPLY_FUNCTION, args)
+            return context.client.action(function_path, args)
         except ConvexClientError as error:
             if (
                 not _is_convex_write_rate_error(error)
@@ -348,12 +365,11 @@ def _run_ranking_apply_action_with_retries(
                 raise
             delay = _ranking_apply_retry_delay(attempt)
             context.progress.log(
-                "ranking target "
-                f"{template_external_id} throttled by write-rate limit; "
+                f"{throttle_label} throttled by write-rate limit; "
                 f"retrying in {delay:.1f}s"
             )
             time.sleep(delay)
-    msg = "ranking apply retry loop exited unexpectedly"
+    msg = f"{throttle_label} retry loop exited unexpectedly"
     raise RuntimeError(msg)
 
 
@@ -362,36 +378,15 @@ def _cleanup_stale_ranking_rows(
     ranking_seeds: JsonObject,
 ) -> JsonObject:
     context.progress.log("cleaning stale ranking seed rows")
-    return _run_ranking_cleanup_action_with_retries(
+    return _run_ranking_action_with_retries(
         context,
+        SEED_RANKINGS_CLEANUP_STALE_FUNCTION,
         {
             **_run_request(context),
             "rankingSeeds": ranking_seeds,
         },
+        "ranking stale cleanup",
     )
-
-
-def _run_ranking_cleanup_action_with_retries(
-    context: object,
-    args: JsonObject,
-) -> JsonObject:
-    for attempt in range(1, MAX_RANKING_APPLY_ATTEMPTS + 1):
-        try:
-            return context.client.action(SEED_RANKINGS_CLEANUP_STALE_FUNCTION, args)
-        except ConvexClientError as error:
-            if (
-                not _is_convex_write_rate_error(error)
-                or attempt >= MAX_RANKING_APPLY_ATTEMPTS
-            ):
-                raise
-            delay = _ranking_apply_retry_delay(attempt)
-            context.progress.log(
-                "ranking stale cleanup throttled by write-rate limit; "
-                f"retrying in {delay:.1f}s"
-            )
-            time.sleep(delay)
-    msg = "ranking stale cleanup retry loop exited unexpectedly"
-    raise RuntimeError(msg)
 
 
 def _ensure_ranking_authors(
@@ -467,6 +462,8 @@ def _merge_apply_results(
         "boardsReplaced": 0,
         "rankingsReplaced": 0,
         "rankingsUnchanged": 0,
+        "rankingsCleaned": 0,
+        "boardsCleaned": 0,
         "sampleRankingsApplied": 0,
         "curatedRankingsApplied": 0,
         "rankingsApplied": 0,
@@ -554,6 +551,8 @@ def write_ranking_apply_report(
             f"- Boards replaced: {result.get('boardsReplaced', 0)}",
             f"- Rankings replaced: {result.get('rankingsReplaced', 0)}",
             f"- Rankings unchanged: {result.get('rankingsUnchanged', 0)}",
+            f"- Rankings cleaned (stale): {result.get('rankingsCleaned', 0)}",
+            f"- Boards cleaned (stale): {result.get('boardsCleaned', 0)}",
             f"- Ranking tiers written: {result.get('rankingTiersWritten', 0)}",
             f"- Ranking items written: {result.get('rankingItemsWritten', 0)}",
         ],
