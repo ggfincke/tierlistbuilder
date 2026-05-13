@@ -986,6 +986,69 @@ describe('seed run precheck API', () =>
     expect(row?.mediaAssetId).not.toBe(stale.mediaAssetId)
   })
 
+  it('fails verification when the release still has stale template rows', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, AUTHOR_EMAIL)
+    await seedTemplateWithItem(
+      t,
+      authorId,
+      'gaming:planned-template',
+      ['planned-item'],
+      RELEASE
+    )
+    await seedTemplateWithItem(
+      t,
+      authorId,
+      'gaming:stale-template',
+      ['stale-item'],
+      RELEASE
+    )
+    await seedRunRow(t, RELEASE, 'building', 'run-stale-template')
+
+    const verified = await t.mutation(
+      internal.marketplace.seedRuns.completeSeedReleaseVerification,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        runId: 'run-stale-template',
+        expectedTotals: {
+          templateCount: 1,
+          itemCount: 1,
+          criterionCount: 1,
+          sourceImageCount: 0,
+          variantCount: 0,
+          estimatedUploadBytes: 0,
+          estimatedStorageBytes: 0,
+        },
+        actualTotals: {
+          templateCount: 1,
+          itemCount: 1,
+          criterionCount: 1,
+        },
+        diagnostics: [],
+      }
+    )
+    const run = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('seedRuns')
+          .withIndex('byRunId', (q) => q.eq('runId', 'run-stale-template'))
+          .unique()
+    )
+
+    expect(verified.verified).toBe(false)
+    expect(verified.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'releaseTemplateCountMismatch',
+          message: expect.stringContaining('2 templates'),
+        }),
+      ])
+    )
+    expect(run?.status).toBe('failed')
+  })
+
   it('verifies, activates, and rolls back seed releases', async () =>
   {
     const t = makeTest()

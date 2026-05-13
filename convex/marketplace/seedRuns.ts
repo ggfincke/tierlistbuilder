@@ -47,6 +47,7 @@ import {
 import { activateSeedReleaseInternal } from './seedPipeline/activation'
 import {
   appendExpectedTotalsDiagnostics,
+  appendReleaseTemplateScopeDiagnostics,
   buildSeedReleaseDiagnosticsForTemplates,
 } from './seedPipeline/diagnostics'
 import {
@@ -909,6 +910,13 @@ export const completeSeedReleaseVerification = internalMutation({
     appendExpectedTotalsDiagnostics(
       diagnostics,
       args.actualTotals,
+      args.expectedTotals
+    )
+    await appendReleaseTemplateScopeDiagnostics(
+      ctx,
+      diagnostics,
+      args.datasetKey,
+      args.releaseId,
       args.expectedTotals
     )
     const verified = !hasErrorDiagnostics(diagnostics)

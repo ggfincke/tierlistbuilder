@@ -102,9 +102,6 @@ export const seedRankingPreflightResultValidator = v.object({
   diagnostics: v.array(seedDiagnosticValidator),
 })
 
-// per-chunk apply: callers run preflight + ensureSeedRankingAuthors once
-// up-front, then issue one applySeedRankingChunk per target; the chunk
-// itself does no preflight/author work
 export const seedRankingApplyChunkResultValidator = v.object({
   datasetKey: v.string(),
   releaseId: v.string(),
@@ -113,7 +110,6 @@ export const seedRankingApplyChunkResultValidator = v.object({
   rankingsUnchanged: v.number(),
   sampleRankingsApplied: v.number(),
   curatedRankingsApplied: v.number(),
-  rankingsApplied: v.number(),
   rankingTiersWritten: v.number(),
   rankingItemsWritten: v.number(),
   aggregateLanes: v.array(seedRankingLaneSummaryValidator),

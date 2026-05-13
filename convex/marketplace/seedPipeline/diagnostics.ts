@@ -14,6 +14,25 @@ export type SeedReleaseDiagnosticTotals = {
   criterionCount: number
 }
 
+export const seedDiagnostic = (
+  severity: SeedDiagnosticRow['severity'],
+  code: string,
+  path: string,
+  message: string
+): SeedDiagnosticRow => ({ severity, code, path, message })
+
+export const seedErrorDiagnostic = (
+  code: string,
+  path: string,
+  message: string
+): SeedDiagnosticRow => seedDiagnostic('error', code, path, message)
+
+export const seedWarningDiagnostic = (
+  code: string,
+  path: string,
+  message: string
+): SeedDiagnosticRow => seedDiagnostic('warning', code, path, message)
+
 export const buildSeedReleaseDiagnosticsForTemplates = async (
   ctx: MutationCtx,
   datasetKey: string,
@@ -180,6 +199,39 @@ export const appendExpectedTotalsDiagnostics = (
       severity: 'error',
     })
   }
+}
+
+export const appendReleaseTemplateScopeDiagnostics = async (
+  ctx: MutationCtx,
+  diagnostics: SeedDiagnosticRow[],
+  datasetKey: string,
+  releaseId: string,
+  expectedTotals: { templateCount: number }
+): Promise<void> =>
+{
+  const templates = await ctx.db
+    .query('templates')
+    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+      q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
+    )
+    .take(SEED_LIMITS.templatesPerDiff + 1)
+  if (templates.length > SEED_LIMITS.templatesPerDiff)
+  {
+    diagnostics.push({
+      code: 'templateLimitExceeded',
+      message: 'release has more templates than seed verification can inspect',
+      path: '$.templates',
+      severity: 'error',
+    })
+    return
+  }
+  if (templates.length === expectedTotals.templateCount) return
+  diagnostics.push({
+    code: 'releaseTemplateCountMismatch',
+    message: `release has ${templates.length} templates but manifest expects ${expectedTotals.templateCount}`,
+    path: '$.templates',
+    severity: 'error',
+  })
 }
 
 const loadDiagnosticsTemplates = async (

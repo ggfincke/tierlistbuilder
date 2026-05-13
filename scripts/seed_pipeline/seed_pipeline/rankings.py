@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import Callable
 
 from .convex_client import ConvexClientError
 from .manifest import JsonObject, as_list
@@ -34,11 +36,13 @@ SEED_RANKINGS_QUEUE_AGGREGATES_FUNCTION = (
     "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates"
 )
 MAX_RANKING_ACTIVATION_BATCHES = 200
-RANKING_ACTIVATION_BATCH_PAUSE_SECONDS = 0.75
 RANKING_ACTIVATION_THROTTLE_SECONDS = 2.0
 MAX_RANKING_APPLY_ATTEMPTS = 6
 RANKING_APPLY_THROTTLE_BASE_SECONDS = 3.0
 RANKING_APPLY_THROTTLE_MAX_SECONDS = 30.0
+# bound concurrent target apply HTTP calls. ranking applies are server-heavy
+# (writes per target) so a small pool stays under per-deployment write caps
+RANKING_APPLY_WORKERS = 4
 
 # substrings convex emits when per-deployment write-rate caps trip. these are
 # matched against ConvexClientError messages — if convex rewords either, this
@@ -56,7 +60,7 @@ def preflight_rankings_manifest(
 ) -> Path:
     context = _load_context(manifest_path, repo_root, options, "rankings:preflight")
     result = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
-    return write_ranking_preflight_report(context, result)
+    return _write_ranking_summary_report(context, "preflight", result)
 
 
 def apply_rankings_manifest(
@@ -70,10 +74,10 @@ def apply_rankings_manifest(
     if options.dry_run:
         context.progress.log("dry run complete; no ranking writes performed")
         preflight = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
-        return write_ranking_apply_report(context, preflight, dry_run=True)
+        return _write_ranking_apply_report(context, preflight, dry_run=True)
     _begin_seed_run(context)
     result = _apply_rankings_with_authors(context, ranking_seeds)
-    return write_ranking_apply_report(context, result)
+    return _write_ranking_apply_report(context, result)
 
 
 def verify_rankings_manifest(
@@ -83,7 +87,7 @@ def verify_rankings_manifest(
 ) -> Path:
     context = _load_context(manifest_path, repo_root, options, "rankings:verify")
     result = _ranking_query(context, SEED_RANKINGS_VERIFY_FUNCTION)
-    return write_ranking_verify_report(context, result)
+    return _write_ranking_summary_report(context, "verify", result)
 
 
 def activate_rankings_manifest(
@@ -97,7 +101,7 @@ def activate_rankings_manifest(
         msg = "ranking activation requires --confirm-activation"
         raise RuntimeError(msg)
     result = _activate_rankings_until_complete(context)
-    return write_ranking_activation_report(context, result)
+    return _write_ranking_activation_report(context, result)
 
 
 def rollback_rankings_manifest(
@@ -114,7 +118,7 @@ def rollback_rankings_manifest(
         msg = "ranking rollback requires --target-release-id"
         raise RuntimeError(msg)
     result = _rollback_rankings_until_complete(context, options.target_release_id)
-    return write_ranking_activation_report(context, result, rollback=True)
+    return _write_ranking_activation_report(context, result, rollback=True)
 
 
 def run_rankings_manifest(
@@ -126,28 +130,29 @@ def run_rankings_manifest(
     _assert_write_allowed(options, "rankings run")
     preflight = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
     if _has_error_diagnostics(preflight):
-        return write_ranking_run_report(
+        return _write_ranking_run_report(
             context,
             ["preflight failed; apply skipped"],
             preflight,
         )
     if options.dry_run:
         context.progress.log("dry run complete; no ranking writes performed")
-        return write_ranking_run_report(context, ["dry-run preflight complete"], preflight)
+        return _write_ranking_run_report(context, ["dry-run preflight complete"], preflight)
     _begin_seed_run(context)
     ranking_seeds = _require_ranking_seeds(context.compiled)
     apply_result = _apply_rankings_with_authors(context, ranking_seeds)
     verify_result = _ranking_query(context, SEED_RANKINGS_VERIFY_FUNCTION)
+    rankings_applied = _rankings_applied(apply_result)
     steps = [
         "preflight complete",
         (
-            f"apply complete: {apply_result['rankingsApplied']} rankings "
+            f"apply complete: {rankings_applied} rankings "
             f"({apply_result.get('rankingsUnchanged', 0)} unchanged)"
         ),
     ]
     if _has_error_diagnostics(verify_result):
         steps.append("verification failed; activation skipped")
-        return write_ranking_run_report(context, steps, verify_result)
+        return _write_ranking_run_report(context, steps, verify_result)
     steps.append("verification complete")
     if options.confirm_activation:
         activation = _activate_rankings_until_complete(context)
@@ -156,7 +161,7 @@ def run_rankings_manifest(
         )
     else:
         steps.append("activation skipped; pass --confirm-activation to publish")
-    return write_ranking_run_report(context, steps, verify_result)
+    return _write_ranking_run_report(context, steps, verify_result)
 
 
 def _ranking_query(context: SeedRunContext, function_path: str) -> JsonObject:
@@ -240,7 +245,6 @@ def _run_ranking_lifecycle_until_complete(
             f"{batch_number} ({totals['activatedRankings']} activated, "
             f"{totals['rolledBackRankings']} rolled back)"
         )
-        time.sleep(RANKING_ACTIVATION_BATCH_PAUSE_SECONDS)
     msg = "ranking activation did not converge within batch limit"
     raise RuntimeError(msg)
 
@@ -273,6 +277,12 @@ def _require_ranking_seeds(compiled: JsonObject) -> JsonObject:
     return ranking_seeds
 
 
+def _rankings_applied(result: JsonObject) -> int:
+    return int(result.get("sampleRankingsApplied", 0)) + int(
+        result.get("curatedRankingsApplied", 0)
+    )
+
+
 def _apply_rankings_with_authors(
     context: SeedRunContext,
     ranking_seeds: JsonObject,
@@ -294,27 +304,34 @@ def _apply_ranking_targets(
     if not chunks:
         msg = "compiled rankingSeeds does not include targets"
         raise RuntimeError(msg)
-    results: list[JsonObject] = []
-    for index, chunk in enumerate(chunks):
+
+    def _label(chunk: JsonObject) -> str:
         target = as_list(chunk.get("targets"))[0]
-        template_external_id = (
-            target.get("templateExternalId")
+        return (
+            str(target.get("templateExternalId"))
             if isinstance(target, dict)
             else "unknown target"
         )
-        context.progress.log(
-            f"ranking target {index + 1}/{len(chunks)}: {template_external_id}"
-        )
-        result = _run_ranking_action_with_retries(
+
+    def _apply_one(chunk: JsonObject) -> JsonObject:
+        return _run_ranking_action_with_retries(
             context,
             SEED_RANKINGS_APPLY_FUNCTION,
             {
                 **_run_request(context),
                 "rankingSeeds": chunk,
             },
-            f"ranking target {template_external_id}",
+            f"ranking target {_label(chunk)}",
         )
-        results.append(result)
+
+    results = _run_in_parallel(
+        chunks,
+        _apply_one,
+        max_workers=min(RANKING_APPLY_WORKERS, len(chunks)),
+        on_complete=lambda index, total, chunk: context.progress.log(
+            f"ranking target {index + 1}/{total}: {_label(chunk)}"
+        ),
+    )
     merged = _merge_apply_results(context, results, author_result)
     cleanup = _cleanup_stale_ranking_rows(context, ranking_seeds)
     # cleanup deletions are tracked separately from replacement rewrites —
@@ -324,6 +341,34 @@ def _apply_ranking_targets(
     merged["rankingsCleaned"] = int(cleanup.get("rankingsDeleted", 0))
     merged["boardsCleaned"] = int(cleanup.get("boardsDeleted", 0))
     return merged
+
+
+def _run_in_parallel(
+    items: list[JsonObject],
+    worker: Callable[[JsonObject], JsonObject],
+    max_workers: int,
+    on_complete: Callable[[int, int, JsonObject], None] | None = None,
+) -> list[JsonObject]:
+    if max_workers <= 1 or len(items) <= 1:
+        results: list[JsonObject] = []
+        for index, item in enumerate(items):
+            results.append(worker(item))
+            if on_complete is not None:
+                on_complete(index, len(items), item)
+        return results
+    results = [None] * len(items)  # type: ignore[assignment]
+    completed = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_to_index = {
+            pool.submit(worker, item): index for index, item in enumerate(items)
+        }
+        for future in as_completed(future_to_index):
+            index = future_to_index[future]
+            results[index] = future.result()
+            if on_complete is not None:
+                on_complete(completed, len(items), items[index])
+            completed += 1
+    return results  # type: ignore[return-value]
 
 
 def _is_convex_write_rate_error(error: BaseException) -> bool:
@@ -419,24 +464,39 @@ def _ranking_seed_target_manifests(ranking_seeds: JsonObject) -> list[JsonObject
     return chunks
 
 
+# canonical diagnostic identity tuple matches the Convex SeedDiagnosticRow
+# shape ({severity, code, path, message}); same tuple is used both client-side
+# (here) and on the server to dedup across chunks
+_DIAGNOSTIC_KEY_FIELDS = ("severity", "code", "path", "message")
+# numeric fields aggregated across per-target apply responses
+_APPLY_RESULT_TOTAL_FIELDS = (
+    "boardsReplaced",
+    "rankingsReplaced",
+    "rankingsUnchanged",
+    "sampleRankingsApplied",
+    "curatedRankingsApplied",
+    "rankingTiersWritten",
+    "rankingItemsWritten",
+)
+
+
+def _diagnostic_key(item: JsonObject) -> tuple[str, ...]:
+    return tuple(str(item.get(field)) for field in _DIAGNOSTIC_KEY_FIELDS)
+
+
 def _merge_apply_results(
     context: SeedRunContext,
     results: list[JsonObject],
     author_result: JsonObject,
 ) -> JsonObject:
     diagnostics: list[object] = []
-    seen_diagnostics: set[tuple[str, str, str, str]] = set()
+    seen_diagnostics: set[tuple[str, ...]] = set()
 
     def append_diagnostics(rows: object) -> None:
         for item in as_list(rows):
             if not isinstance(item, dict):
                 continue
-            key = (
-                str(item.get("severity")),
-                str(item.get("code")),
-                str(item.get("path")),
-                str(item.get("message")),
-            )
+            key = _diagnostic_key(item)
             if key in seen_diagnostics:
                 continue
             seen_diagnostics.add(key)
@@ -449,31 +509,15 @@ def _merge_apply_results(
         "authorsCreated": int(author_result.get("authorsCreated", 0)),
         "authorsReused": int(author_result.get("authorsReused", 0)),
         "authorsPatched": int(author_result.get("authorsPatched", 0)),
-        "boardsReplaced": 0,
-        "rankingsReplaced": 0,
-        "rankingsUnchanged": 0,
         "rankingsCleaned": 0,
         "boardsCleaned": 0,
-        "sampleRankingsApplied": 0,
-        "curatedRankingsApplied": 0,
-        "rankingsApplied": 0,
-        "rankingTiersWritten": 0,
-        "rankingItemsWritten": 0,
         "aggregateLanes": [],
         "diagnostics": diagnostics,
+        **{field: 0 for field in _APPLY_RESULT_TOTAL_FIELDS},
     }
     lane_totals: dict[tuple[str, str], JsonObject] = {}
     for result in results:
-        for key in [
-            "boardsReplaced",
-            "rankingsReplaced",
-            "rankingsUnchanged",
-            "sampleRankingsApplied",
-            "curatedRankingsApplied",
-            "rankingsApplied",
-            "rankingTiersWritten",
-            "rankingItemsWritten",
-        ]:
+        for key in _APPLY_RESULT_TOTAL_FIELDS:
             merged[key] = int(merged[key]) + int(result.get(key, 0))
         append_diagnostics(result.get("diagnostics"))
         for lane in as_list(result.get("aggregateLanes")):
@@ -515,18 +559,52 @@ def _has_error_diagnostics(result: JsonObject) -> bool:
     )
 
 
-def write_ranking_preflight_report(context: SeedRunContext, result: JsonObject) -> Path:
-    lines = _ranking_report_header(context, "Ranking Seed Preflight Report", result)
+def _ranking_summary_extras(result: JsonObject) -> list[str]:
+    return [
+        f"- Targets: {result.get('targetCount', 0)}",
+        f"- Profiles: {result.get('profileCount', 0)}",
+        f"- Authors required: {result.get('authorCount', 0)}",
+        f"- Sample rankings planned: {result.get('sampleRankingsPlanned', 0)}",
+        f"- Curated rankings planned: {result.get('curatedRankingsPlanned', 0)}",
+        f"- Existing seed rankings: {result.get('existingSeedRankings', 0)}",
+        f"- Existing active seed rankings: {result.get('existingActiveSeedRankings', 0)}",
+    ]
+
+
+_RANKING_REPORT_TITLES = {
+    "preflight": "Ranking Seed Preflight Report",
+    "verify": "Ranking Seed Verify Report",
+    "run": "Ranking Seed Run Report",
+}
+
+_RANKING_REPORT_FILENAMES = {
+    "preflight": "ranking-preflight.md",
+    "verify": "ranking-verify.md",
+    "run": "ranking-run.md",
+    "apply": "ranking-apply.md",
+    "activation": "ranking-activation.md",
+}
+
+
+def _write_ranking_summary_report(
+    context: SeedRunContext,
+    kind: str,
+    result: JsonObject,
+) -> Path:
+    lines = _report_header(
+        context, _RANKING_REPORT_TITLES[kind], extra=_ranking_summary_extras(result)
+    )
     _append_ranking_lanes(lines, result.get("aggregateLanes", []))
     _append_diagnostics(lines, result.get("diagnostics", []))
-    return _write_report(context, "ranking-preflight.md", lines)
+    return _write_report(context, _RANKING_REPORT_FILENAMES[kind], lines)
 
 
-def write_ranking_apply_report(
+def _write_ranking_apply_report(
     context: SeedRunContext,
     result: JsonObject,
     dry_run: bool = False,
 ) -> Path:
+    rankings_applied = _rankings_applied(result)
     lines = _report_header(
         context,
         "Ranking Seed Apply Report",
@@ -535,7 +613,7 @@ def write_ranking_apply_report(
             f"- Authors created: {result.get('authorsCreated', 0)}",
             f"- Authors reused: {result.get('authorsReused', 0)}",
             f"- Authors patched: {result.get('authorsPatched', 0)}",
-            f"- Rankings applied: {result.get('rankingsApplied', 0)}",
+            f"- Rankings applied: {rankings_applied}",
             f"- Sample rankings: {result.get('sampleRankingsApplied', 0)}",
             f"- Curated rankings: {result.get('curatedRankingsApplied', 0)}",
             f"- Boards replaced: {result.get('boardsReplaced', 0)}",
@@ -549,17 +627,10 @@ def write_ranking_apply_report(
     )
     _append_ranking_lanes(lines, result.get("aggregateLanes", []))
     _append_diagnostics(lines, result.get("diagnostics", []))
-    return _write_report(context, "ranking-apply.md", lines)
+    return _write_report(context, _RANKING_REPORT_FILENAMES["apply"], lines)
 
 
-def write_ranking_verify_report(context: SeedRunContext, result: JsonObject) -> Path:
-    lines = _ranking_report_header(context, "Ranking Seed Verify Report", result)
-    _append_ranking_lanes(lines, result.get("aggregateLanes", []))
-    _append_diagnostics(lines, result.get("diagnostics", []))
-    return _write_report(context, "ranking-verify.md", lines)
-
-
-def write_ranking_activation_report(
+def _write_ranking_activation_report(
     context: SeedRunContext,
     result: JsonObject,
     rollback: bool = False,
@@ -574,41 +645,23 @@ def write_ranking_activation_report(
             f"- Aggregate jobs queued: {result.get('aggregateJobsQueued', 0)}",
         ],
     )
-    return _write_report(context, "ranking-activation.md", lines)
+    return _write_report(context, _RANKING_REPORT_FILENAMES["activation"], lines)
 
 
-def write_ranking_run_report(
+def _write_ranking_run_report(
     context: SeedRunContext,
     steps: list[str],
     result: JsonObject,
 ) -> Path:
-    lines = _ranking_report_header(context, "Ranking Seed Run Report", result)
+    lines = _report_header(
+        context, _RANKING_REPORT_TITLES["run"], extra=_ranking_summary_extras(result)
+    )
     lines.extend(["## Steps", ""])
     lines.extend(f"- {step}" for step in steps)
     lines.append("")
     _append_ranking_lanes(lines, result.get("aggregateLanes", []))
     _append_diagnostics(lines, result.get("diagnostics", []))
-    return _write_report(context, "ranking-run.md", lines)
-
-
-def _ranking_report_header(
-    context: SeedRunContext,
-    title: str,
-    result: JsonObject,
-) -> list[str]:
-    return _report_header(
-        context,
-        title,
-        extra=[
-            f"- Targets: {result.get('targetCount', 0)}",
-            f"- Profiles: {result.get('profileCount', 0)}",
-            f"- Authors required: {result.get('authorCount', 0)}",
-            f"- Sample rankings planned: {result.get('sampleRankingsPlanned', 0)}",
-            f"- Curated rankings planned: {result.get('curatedRankingsPlanned', 0)}",
-            f"- Existing seed rankings: {result.get('existingSeedRankings', 0)}",
-            f"- Existing active seed rankings: {result.get('existingActiveSeedRankings', 0)}",
-        ],
-    )
+    return _write_report(context, _RANKING_REPORT_FILENAMES["run"], lines)
 
 
 def _append_ranking_lanes(lines: list[str], lanes: object) -> None:

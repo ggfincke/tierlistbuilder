@@ -7,6 +7,10 @@ import { describe, expect, it } from 'vitest'
 import { api, internal } from '@convex/_generated/api'
 import type { Doc, Id } from '@convex/_generated/dataModel'
 import type { SeedRankingsManifest } from '@convex/marketplace/rankings/seedValidators'
+import {
+  formatBoardSeedId,
+  formatRankingSeedId,
+} from '@convex/marketplace/rankings/seedNaming'
 import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import schema from '../../convex/schema'
 import { BATCH_LIMITS } from '../../convex/lib/limits'
@@ -207,6 +211,72 @@ describe('ranking seed pipeline', () =>
     )
   })
 
+  it('verifies applied ranking seed identities, not just totals', async () =>
+  {
+    const t = makeTest()
+    const templateExternalId = 'test:verify-identities'
+    const current = await seedSeedTemplate(t, {
+      releaseId: RELEASE,
+      templateExternalId,
+      labels: ['Mario'],
+    })
+    const manifest = rankingManifest({
+      templateExternalId,
+      curatedLabels: ['Mario'],
+      coverage: 'full-template',
+    })
+    const plannedSample = await seedRankingRow(t, {
+      templateId: current.templateId,
+      templateExternalId,
+      releaseId: RELEASE,
+      status: 'applied_hidden',
+      stableKey: 'planned-sample',
+    })
+    await t.run(async (ctx) =>
+    {
+      await ctx.db.patch(plannedSample.rankingId, {
+        seedExternalId: formatRankingSeedId({
+          templateExternalId,
+          criterionExternalId: 'competitive',
+          kind: 'sample',
+          stableKey: 'ava',
+        }),
+      })
+    })
+    await seedRankingRow(t, {
+      templateId: current.templateId,
+      templateExternalId,
+      releaseId: RELEASE,
+      status: 'applied_hidden',
+      stableKey: 'stale-identity',
+    })
+
+    const result = await t.query(
+      internal.marketplace.rankings.seed.verifySeedRankings,
+      {
+        datasetKey: DATASET,
+        releaseId: RELEASE,
+        rankingSeeds: manifest,
+      }
+    )
+
+    expect(result.existingSeedRankings).toBe(2)
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'missingSeedRanking',
+          message: expect.stringContaining(
+            `${templateExternalId}:competitive:curated:fixture-curated`
+          ),
+        }),
+        expect.objectContaining({
+          code: 'staleSeedRanking',
+          message: expect.stringContaining('ranking:stale-identity'),
+        }),
+      ])
+    )
+  })
+
   it('activates hidden release rankings and rolls back previous active rankings', async () =>
   {
     const t = makeTest()
@@ -305,6 +375,60 @@ describe('ranking seed pipeline', () =>
     expect(rollbackRows.previousBoard?.seedReleaseStatus).toBe('active')
   })
 
+  it('rejects activation and rollback when the target release has no ranking rows', async () =>
+  {
+    const t = makeTest()
+    await seedSeedTemplate(t, {
+      releaseId: RELEASE,
+      templateExternalId: 'test:empty-target-release',
+      labels: ['Mario'],
+    })
+    const previous = await seedSeedTemplate(t, {
+      releaseId: OLD_RELEASE,
+      templateExternalId: 'test:active-before-empty-target',
+      labels: ['Mario'],
+    })
+    const previousSeed = await seedRankingRow(t, {
+      templateId: previous.templateId,
+      templateExternalId: 'test:active-before-empty-target',
+      releaseId: OLD_RELEASE,
+      status: 'active',
+      stableKey: 'active-before-empty-target',
+    })
+
+    await expect(
+      t.mutation(
+        internal.marketplace.rankings.seedLifecycle.activateSeedRankings,
+        {
+          datasetKey: DATASET,
+          releaseId: RELEASE,
+        }
+      )
+    ).rejects.toThrow(/no active or activatable rows/)
+    await expect(
+      t.mutation(
+        internal.marketplace.rankings.seedLifecycle.rollbackSeedRankings,
+        {
+          datasetKey: DATASET,
+          targetReleaseId: RELEASE,
+        }
+      )
+    ).rejects.toThrow(/no active or activatable rows/)
+
+    const previousRows = await t.run(async (ctx) =>
+    {
+      const [ranking, board] = await Promise.all([
+        ctx.db.get(previousSeed.rankingId),
+        ctx.db.get(previousSeed.boardId),
+      ])
+      return { ranking, board }
+    })
+    expect(previousRows.ranking?.publicationState).toBe('published')
+    expect(previousRows.ranking?.isPubliclyListable).toBe(true)
+    expect(previousRows.ranking?.seedReleaseStatus).toBe('active')
+    expect(previousRows.board?.seedReleaseStatus).toBe('active')
+  })
+
   it('rolls back active rows when the target release fills the old active scan window', async () =>
   {
     const t = makeTest()
@@ -374,19 +498,28 @@ describe('ranking seed pipeline', () =>
     const target = manifest.targets[0]
     const lane = target.lanes[0]
     const profile = manifest.profiles[0]
-    const args = {
-      datasetKey: DATASET,
-      releaseId: RELEASE,
-      target,
-      lane,
-      profile,
+    const sampleTask = {
+      kind: 'sample' as const,
+      criterionExternalId: lane.criterionExternalId,
+      profileKey: profile.key,
       sequence: 1,
     }
+    const callUpsert = async (
+      rankingSeeds: typeof manifest,
+      task: typeof sampleTask
+    ) =>
+      await t.mutation(
+        internal.marketplace.rankings.seed.upsertSeedRankingsForTemplateImpl,
+        {
+          datasetKey: DATASET,
+          releaseId: RELEASE,
+          rankingSeeds,
+          templateExternalId: target.templateExternalId,
+          tasks: [task],
+        }
+      )
 
-    const first = await t.mutation(
-      internal.marketplace.rankings.seed.upsertSampleSeedRankingImpl,
-      args
-    )
+    const first = await callUpsert(manifest, sampleTask)
     expect(first.rankingsDeleted).toBe(0)
     expect(first.rankingsUnchanged).toBe(0)
     expect(first.itemsWritten).toBe(2)
@@ -444,10 +577,7 @@ describe('ranking seed pipeline', () =>
       detail?.items.map((item) => item.templateItemExternalId).sort()
     ).toEqual(['item-0', 'item-1'])
 
-    const second = await t.mutation(
-      internal.marketplace.rankings.seed.upsertSampleSeedRankingImpl,
-      args
-    )
+    const second = await callUpsert(manifest, sampleTask)
     expect(second.rankingsDeleted).toBe(0)
     expect(second.boardsDeleted).toBe(0)
     expect(second.rankingsUnchanged).toBe(1)
@@ -463,16 +593,16 @@ describe('ranking seed pipeline', () =>
     expect(unchangedRows.board).toBeNull()
     expect(unchangedRows.ranking?.seedReleaseStatus).toBe('active')
 
-    const changed = await t.mutation(
-      internal.marketplace.rankings.seed.upsertSampleSeedRankingImpl,
-      {
-        ...args,
-        lane: {
-          ...lane,
-          titleSuffix: 'changed fixture ranking',
+    const changedManifest: typeof manifest = {
+      ...manifest,
+      targets: [
+        {
+          ...target,
+          lanes: [{ ...lane, titleSuffix: 'changed fixture ranking' }],
         },
-      }
-    )
+      ],
+    }
+    const changed = await callUpsert(changedManifest, sampleTask)
     expect(changed.rankingsDeleted).toBe(1)
     expect(changed.boardsDeleted).toBe(0)
     expect(changed.rankingsUnchanged).toBe(0)
@@ -820,8 +950,14 @@ const loadSampleSeedRows = async (
 }> =>
   await t.run(async (ctx) =>
   {
-    const rankingExternalId = `ranking:${args.templateExternalId}:${args.criterionExternalId}:sample:${args.profileKey}`
-    const boardExternalId = `board:${args.templateExternalId}:${args.criterionExternalId}:sample:${args.profileKey}`
+    const idParts = {
+      templateExternalId: args.templateExternalId,
+      criterionExternalId: args.criterionExternalId,
+      kind: 'sample' as const,
+      stableKey: args.profileKey,
+    }
+    const rankingExternalId = formatRankingSeedId(idParts)
+    const boardExternalId = formatBoardSeedId(idParts)
     const [ranking, board] = await Promise.all([
       ctx.db
         .query('publishedRankings')

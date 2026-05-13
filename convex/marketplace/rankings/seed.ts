@@ -13,24 +13,17 @@ import {
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import {
-  normalizeBucketLabel,
-  type RankingFeaturedBadge,
-} from '@tierlistbuilder/contracts/marketplace/ranking'
+import type { RankingFeaturedBadge } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { assertCountRange, assertNonemptyString } from '../../lib/assertions'
 import { SEED_LIMITS } from '../../lib/limits'
-import { sha256Hex } from '../../lib/sha256'
+import { seedContentHash } from '../../lib/seedContentHash'
 import { loadSeedTemplateLookupForRelease } from '../seedPipeline/templates'
 import {
   resolveActiveTemplateCriterion,
   toTemplateCriterionSnapshot,
 } from '../templates/criteria'
-import {
-  DEFAULT_TEMPLATE_TIERS,
-  loadTemplateItems,
-  validateTemplateTiers,
-} from '../templates/lib'
+import { loadTemplateItems } from '../templates/lib'
 import {
   allocateRankingSlug,
   compactRankingItemSnapshot,
@@ -44,49 +37,59 @@ import {
   scheduleTemplateRankingAggregateJobAdmission,
 } from './aggregate'
 import {
-  seedCuratedRankingValidator,
   seedRankingApplyChunkResultValidator,
   seedRankingAuthorEnsureResultValidator,
-  seedRankingLaneValidator,
   seedRankingPreflightResultValidator,
-  seedRankingProfileValidator,
-  seedRankingTargetValidator,
   seedRankingsManifestValidator,
   type SeedCuratedRanking,
   type SeedRankingApplyChunkResult,
   type SeedRankingAuthorEnsureResult,
   type SeedRankingLane,
-  type SeedRankingLaneSummary,
   type SeedRankingPreflightResult,
   type SeedRankingProfile,
   type SeedRankingTarget,
   type SeedRankingsManifest,
 } from './seedValidators'
 import type { SeedDiagnosticRow } from '../seedPipeline/types'
+import {
+  seedErrorDiagnostic,
+  seedWarningDiagnostic,
+} from '../seedPipeline/diagnostics'
+import {
+  companionBoardSeedId,
+  curatedAuthorEmail,
+  curatedSeedAuthorKey,
+  formatBoardSeedId,
+  formatRankingSeedId,
+  formatTierSeedId,
+  isSeedRankingAuthorEmail,
+  sampleAuthorEmail,
+  type SeedRankingKind,
+} from './seedNaming'
+import {
+  featuredForProfile,
+  rankTemplateItemsWithScore,
+  resolveTemplateTiers,
+  scoreLaneItem,
+  seedUnitHash,
+  type RankedSeedItem,
+} from './seedScoring'
+import { mapItemsToCuratedTiers } from './seedCuratedResolver'
+import {
+  deleteSeedBoardWithChildren,
+  deleteSeedRankingWithChildren,
+} from './seedCleanup'
+import { buildSeedRankingPlan, type SeedRankingPlan } from './seedPlan'
 
-const SEED_EMAIL_DOMAIN = 'tierlistbuilder.local'
-const SEED_AUTHOR_PREFIX = 'seed+rankings-'
 const SAMPLE_RANKING_DESCRIPTION =
   'Seeded sample ranking for community feature testing.'
 // Scan a small page to skip planned rows, but delete at most one stale
 // ranking per mutation because each delete can cascade through ranking items,
 // tiers, & a companion board.
 const STALE_RANKING_CLEANUP_SCAN_PAGE_SIZE = 16
-
-interface RankedSeedItem
-{
-  item: Doc<'templateItems'>
-  tierIndex: number
-  orderInTier: number
-  globalOrder: number
-}
-
-interface SeedAuthorRequest
-{
-  key: string
-  email: string
-  displayName: string
-}
+// bound on per-action mutation concurrency. distinct rankingId rows give low
+// OCC contention, but convex per-deployment write-rate caps still apply
+const SEED_RANKING_APPLY_CONCURRENCY = 4
 
 interface ReplacementResult
 {
@@ -130,420 +133,10 @@ interface InsertSeedRankingArgs
   viewCountSeedKey: string
 }
 
-const diagnostic = (
-  severity: SeedDiagnosticRow['severity'],
-  code: string,
-  path: string,
-  message: string
-): SeedDiagnosticRow => ({ severity, code, path, message })
-
-const errorDiagnostic = (
-  code: string,
-  path: string,
-  message: string
-): SeedDiagnosticRow => diagnostic('error', code, path, message)
-
-const warningDiagnostic = (
-  code: string,
-  path: string,
-  message: string
-): SeedDiagnosticRow => diagnostic('warning', code, path, message)
-
-const canonicalAuthorKey = (authorKey: string): string =>
-  authorKey.trim().toLowerCase()
-
-const sampleAuthorEmail = (profileKey: string): string =>
-  `${SEED_AUTHOR_PREFIX}${canonicalAuthorKey(profileKey)}@${SEED_EMAIL_DOMAIN}`
-
-const curatedSeedAuthorKey = (authorKey: string): string =>
-  `curated-${canonicalAuthorKey(authorKey)}`
-
-const curatedAuthorEmail = (curated: SeedCuratedRanking): string =>
-  sampleAuthorEmail(curatedSeedAuthorKey(curated.authorKey))
-
-const isSeedRankingEmail = (email: string): boolean =>
-  email.endsWith(`@${SEED_EMAIL_DOMAIN}`) &&
-  email.startsWith(SEED_AUTHOR_PREFIX)
-
-const rankingSeedExternalId = (
-  templateExternalId: string,
-  criterionExternalId: string,
-  kind: 'sample' | 'curated',
-  stableKey: string
-): string =>
-  `ranking:${templateExternalId}:${criterionExternalId}:${kind}:${stableKey}`
-
-const boardSeedExternalId = (
-  templateExternalId: string,
-  criterionExternalId: string,
-  kind: 'sample' | 'curated',
-  stableKey: string
-): string =>
-  `board:${templateExternalId}:${criterionExternalId}:${kind}:${stableKey}`
-
-const RANKING_SEED_EXTERNAL_ID_PREFIX = 'ranking:'
-
-const companionBoardSeedExternalId = (rankingExternalId: string): string =>
-{
-  if (!rankingExternalId.startsWith(RANKING_SEED_EXTERNAL_ID_PREFIX))
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidState,
-      message: `expected ranking seed externalId prefix '${RANKING_SEED_EXTERNAL_ID_PREFIX}', got '${rankingExternalId}'`,
-    })
-  }
-  return `board:${rankingExternalId.slice(RANKING_SEED_EXTERNAL_ID_PREFIX.length)}`
-}
-
-const tierSeedExternalId = (seedExternalId: string, order: number): string =>
-  `${seedExternalId}:tier:${order.toString().padStart(2, '0')}`
-
-const stableHash = (value: string): number =>
-{
-  let hash = 2166136261
-  for (let i = 0; i < value.length; i++)
-  {
-    hash ^= value.charCodeAt(i)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
-}
-
-const stableStringify = (value: unknown): string =>
-{
-  if (value === null || typeof value !== 'object')
-  {
-    return JSON.stringify(value) ?? 'undefined'
-  }
-  if (Array.isArray(value))
-  {
-    return `[${value.map((item) => stableStringify(item)).join(',')}]`
-  }
-  const record = value as Record<string, unknown>
-  const entries = Object.keys(record)
-    .filter((key) => record[key] !== undefined)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
-  return `{${entries.join(',')}}`
-}
-
-const seedContentHash = async (
-  kind: string,
-  payload: unknown
-): Promise<string> =>
-{
-  const serialized = stableStringify({ kind, payload })
-  const digest = await sha256Hex(new TextEncoder().encode(serialized))
-  return `v1:${digest.slice(0, 32)}`
-}
-
-const unitHash = (value: string): number => stableHash(value) / 0xffffffff
-
-const normalizeTextKey = (value: string): string =>
-  value
-    .toLowerCase()
-    .replace(/'/g, '')
-    .replace(/\./g, '')
-    .replace(/&/g, ' and ')
-    .replace(/\b(?:19|20)\d{2}\b/g, ' ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ')
-
-const termMatches = (label: string, terms: readonly string[]): number =>
-{
-  const normalized = normalizeTextKey(label)
-  return terms.reduce((sum, term) =>
-  {
-    const needle = normalizeTextKey(term)
-    return needle && normalized.includes(needle) ? sum + 1 : sum
-  }, 0)
-}
-
-const profileTargetTerms = (
-  profile: SeedRankingProfile,
-  field: 'boostTermsByTarget' | 'dropTermsByTarget',
-  templateExternalId: string
-): readonly string[] => profile[field]?.[templateExternalId] ?? []
-
-const laneProfileTerms = (
-  lane: SeedRankingLane,
-  field: 'profileBoostOverrides' | 'profileDropOverrides',
-  profileKey: string
-): readonly string[] => lane[field]?.[profileKey] ?? []
-
-const scoreLaneItem = (
-  templateExternalId: string,
-  lane: SeedRankingLane,
-  profile: SeedRankingProfile,
-  item: Doc<'templateItems'>
-): number =>
-{
-  const label = item.label ?? item.externalId
-  const crowd = unitHash(
-    `crowd:${templateExternalId}:${lane.criterionExternalId}:${label}`
-  )
-  const personal = unitHash(
-    `personal:${profile.key}:${templateExternalId}:${lane.criterionExternalId}:${label}`
-  )
-  const chaos = Math.min(1, profile.chaos * (lane.chaosMultiplier ?? 1))
-  const contrarian = Math.min(
-    1,
-    profile.contrarian * (lane.contrarianMultiplier ?? 1)
-  )
-  const baseCrowd = crowd * (1 - contrarian)
-  const baseContrarian = (1 - crowd) * contrarian
-  let score = (baseCrowd + baseContrarian) * (1 - chaos)
-  score += personal * chaos
-  score += termMatches(label, lane.boostTerms) * 0.18
-  score -= termMatches(label, lane.dropTerms) * 0.24
-  score +=
-    termMatches(
-      label,
-      profileTargetTerms(profile, 'boostTermsByTarget', templateExternalId)
-    ) * 0.25
-  score -=
-    termMatches(
-      label,
-      profileTargetTerms(profile, 'dropTermsByTarget', templateExternalId)
-    ) * 0.25
-  score +=
-    termMatches(
-      label,
-      laneProfileTerms(lane, 'profileBoostOverrides', profile.key)
-    ) * 0.5
-  score -=
-    termMatches(
-      label,
-      laneProfileTerms(lane, 'profileDropOverrides', profile.key)
-    ) * 0.3
-  return score
-}
-
-const tierWeights = (tierCount: number): number[] =>
-{
-  if (tierCount === 6) return [0.14, 0.19, 0.22, 0.2, 0.15, 0.1]
-  return Array.from({ length: tierCount }, () => 1 / tierCount)
-}
-
-const resolveTierQuotas = (itemCount: number, tierCount: number): number[] =>
-{
-  const weights = tierWeights(tierCount)
-  const minQuota = itemCount >= tierCount ? 1 : 0
-  const raw = weights.map((weight) => weight * itemCount)
-  const quotas = raw.map((quota) => Math.max(minQuota, Math.floor(quota)))
-  let sum = quotas.reduce((total, quota) => total + quota, 0)
-
-  for (let i = quotas.length - 1; sum > itemCount && i >= 0; i--)
-  {
-    while (sum > itemCount && quotas[i] > minQuota)
-    {
-      quotas[i] -= 1
-      sum -= 1
-    }
-  }
-
-  while (sum < itemCount)
-  {
-    let bestIndex = 0
-    let bestGap = -Infinity
-    for (let i = 0; i < quotas.length; i++)
-    {
-      const gap = raw[i] - quotas[i]
-      if (gap > bestGap)
-      {
-        bestGap = gap
-        bestIndex = i
-      }
-    }
-    quotas[bestIndex] += 1
-    sum += 1
-  }
-
-  return quotas
-}
-
-const rankTemplateItemsWithScore = (
-  items: readonly Doc<'templateItems'>[],
-  tiers: readonly TierPresetTier[],
-  scoreItem: (item: Doc<'templateItems'>) => number
-): RankedSeedItem[] =>
-{
-  const scored = items
-    .map((item) => ({ item, score: scoreItem(item) }))
-    .sort((a, b) => b.score - a.score || a.item.order - b.item.order)
-  const quotas = resolveTierQuotas(items.length, tiers.length)
-  const ranked: RankedSeedItem[] = []
-  let cursor = 0
-
-  for (let tierIndex = 0; tierIndex < quotas.length; tierIndex++)
-  {
-    for (let orderInTier = 0; orderInTier < quotas[tierIndex]; orderInTier++)
-    {
-      const entry = scored[cursor]
-      if (!entry) break
-      ranked.push({
-        item: entry.item,
-        tierIndex,
-        orderInTier,
-        globalOrder: ranked.length,
-      })
-      cursor += 1
-    }
-  }
-
-  return ranked
-}
-
-const resolveTemplateTiers = (
-  template: Doc<'templates'>
-): readonly TierPresetTier[] =>
-  template.suggestedTiers.length > 0
-    ? template.suggestedTiers
-    : DEFAULT_TEMPLATE_TIERS
-
-const authorRequestsForManifest = (
-  manifest: SeedRankingsManifest
-): SeedAuthorRequest[] =>
-{
-  const requests = new Map<string, SeedAuthorRequest>()
-  for (const profile of manifest.profiles)
-  {
-    const email = sampleAuthorEmail(profile.key)
-    requests.set(email, {
-      key: profile.key,
-      email,
-      displayName: profile.displayName,
-    })
-  }
-  for (const target of manifest.targets)
-  {
-    for (const curated of target.curatedRankings ?? [])
-    {
-      const key = curatedSeedAuthorKey(curated.authorKey)
-      const email = curatedAuthorEmail(curated)
-      requests.set(email, {
-        key,
-        email,
-        displayName: curated.authorDisplayName,
-      })
-    }
-  }
-  return [...requests.values()]
-}
-
-const normalizeProfileCount = (
-  manifest: SeedRankingsManifest,
-  target: SeedRankingTarget
-): number =>
-{
-  const raw = target.sampleProfileCount ?? manifest.defaultProfileCount
-  const count = Number.isFinite(raw) ? Math.floor(raw) : 0
-  return Math.max(0, Math.min(manifest.profiles.length, count))
-}
-
-const plannedLaneSummaries = (
-  manifest: SeedRankingsManifest
-): SeedRankingLaneSummary[] =>
-{
-  const byLane = new Map<string, SeedRankingLaneSummary>()
-  const ensure = (
-    templateExternalId: string,
-    criterionExternalId: string
-  ): SeedRankingLaneSummary =>
-  {
-    const key = `${templateExternalId}:${criterionExternalId}`
-    const existing = byLane.get(key)
-    if (existing) return existing
-    const created = {
-      templateExternalId,
-      criterionExternalId,
-      sampleRankings: 0,
-      curatedRankings: 0,
-    }
-    byLane.set(key, created)
-    return created
-  }
-  for (const target of manifest.targets)
-  {
-    const profileCount = normalizeProfileCount(manifest, target)
-    for (const lane of target.lanes)
-    {
-      ensure(
-        target.templateExternalId,
-        lane.criterionExternalId
-      ).sampleRankings += profileCount
-    }
-    for (const curated of target.curatedRankings ?? [])
-    {
-      ensure(
-        target.templateExternalId,
-        curated.criterionExternalId
-      ).curatedRankings += 1
-    }
-  }
-  return [...byLane.values()].sort(
-    (a, b) =>
-      a.templateExternalId.localeCompare(b.templateExternalId) ||
-      a.criterionExternalId.localeCompare(b.criterionExternalId)
-  )
-}
-
-const countPlannedSampleRankings = (manifest: SeedRankingsManifest): number =>
-  manifest.targets.reduce(
-    (sum, target) =>
-      sum + normalizeProfileCount(manifest, target) * target.lanes.length,
-    0
-  )
-
-const countPlannedCuratedRankings = (manifest: SeedRankingsManifest): number =>
-  manifest.targets.reduce(
-    (sum, target) => sum + (target.curatedRankings?.length ?? 0),
-    0
-  )
-
-const plannedRankingSeedExternalIds = (
-  manifest: SeedRankingsManifest
-): string[] =>
-{
-  const planned: string[] = []
-  for (const target of manifest.targets)
-  {
-    const profileCount = normalizeProfileCount(manifest, target)
-    const profiles = manifest.profiles.slice(0, profileCount)
-    for (const lane of target.lanes)
-    {
-      for (const profile of profiles)
-      {
-        planned.push(
-          rankingSeedExternalId(
-            target.templateExternalId,
-            lane.criterionExternalId,
-            'sample',
-            profile.key
-          )
-        )
-      }
-    }
-    for (const curated of target.curatedRankings ?? [])
-    {
-      planned.push(
-        rankingSeedExternalId(
-          target.templateExternalId,
-          curated.criterionExternalId,
-          'curated',
-          curated.externalId
-        )
-      )
-    }
-  }
-  return planned
-}
-
 const ensureRankingSeedAuthors = async (
   ctx: ActionCtx,
   authorPassword: string,
-  rankingSeeds: SeedRankingsManifest
+  plan: SeedRankingPlan
 ): Promise<{
   authorsCreated: number
   authorsReused: number
@@ -553,7 +146,7 @@ const ensureRankingSeedAuthors = async (
   let authorsCreated = 0
   let authorsReused = 0
   let authorsPatched = 0
-  for (const author of authorRequestsForManifest(rankingSeeds))
+  for (const author of plan.authors)
   {
     const ensured: { created: boolean } = await ctx.runAction(
       internal.marketplace.seedRuns.ensureSeedAuthor,
@@ -570,12 +163,12 @@ const ensureRankingSeedAuthors = async (
   return { authorsCreated, authorsReused, authorsPatched }
 }
 
-const countExistingSeedRankings = async (
+const loadExistingSeedRankings = async (
   ctx: QueryCtx,
   datasetKey: string,
   releaseId: string,
   activeOnly = false
-): Promise<number> =>
+): Promise<Doc<'publishedRankings'>[]> =>
 {
   const rows = activeOnly
     ? await ctx.db
@@ -600,159 +193,68 @@ const countExistingSeedRankings = async (
       message: 'seed ranking release exceeds read limit',
     })
   }
-  return rows.length
+  return rows
 }
 
-const buildItemLookupByLabel = (
-  items: readonly Doc<'templateItems'>[],
-  path: string
-): Map<string, Doc<'templateItems'>[]> =>
+const countStringValues = (values: readonly string[]): Map<string, number> =>
 {
-  const map = new Map<string, Doc<'templateItems'>[]>()
-  for (const item of items)
+  const counts = new Map<string, number>()
+  for (const value of values)
   {
-    const label = item.label ?? item.externalId
-    const key = normalizeTextKey(label)
-    const bucket = map.get(key) ?? []
-    bucket.push(item)
-    map.set(key, bucket)
+    counts.set(value, (counts.get(value) ?? 0) + 1)
   }
-  for (const [key, bucket] of map)
-  {
-    if (bucket.length > 1)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `${path}: duplicate normalized template label '${key}'`,
-      })
-    }
-  }
-  return map
+  return counts
 }
 
-const requireCuratedItemByLabel = (
-  curated: SeedCuratedRanking,
-  lookup: ReadonlyMap<string, readonly Doc<'templateItems'>[]>,
-  label: string
-): Doc<'templateItems'> =>
+const appendSeedRankingIdentityDiagnostics = (
+  diagnostics: SeedDiagnosticRow[],
+  plan: SeedRankingPlan,
+  existingRows: readonly Doc<'publishedRankings'>[]
+): void =>
 {
-  const matches = lookup.get(normalizeTextKey(label)) ?? []
-  if (matches.length === 1) return matches[0]
-  throw new ConvexError({
-    code: CONVEX_ERROR_CODES.invalidState,
-    message: `curated ranking ${curated.externalId}: no template item with label '${label}'`,
-  })
-}
-
-const mapItemsToCuratedTiers = (
-  curated: SeedCuratedRanking,
-  items: readonly Doc<'templateItems'>[],
-  path = curated.externalId
-): RankedSeedItem[] =>
-{
-  assertCountRange(
-    'curated tiers',
-    curated.tiers.length,
-    1,
-    SEED_LIMITS.rankingSeedTiersPerRanking
-  )
-  validateTemplateTiers(curated.tiers)
-
-  const tiersByName = new Map<string, number>()
-  curated.tiers.forEach((tier, index) =>
+  const plannedCounts = countStringValues(plan.plannedSeedExternalIds)
+  const actualIds: string[] = []
+  for (const ranking of existingRows)
   {
-    const key = normalizeBucketLabel(tier.name)
-    if (!key || tiersByName.has(key))
+    if (ranking.seedExternalId === null)
     {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `${path}: duplicate or blank curated tier '${tier.name}'`,
-      })
+      diagnostics.push(
+        seedErrorDiagnostic(
+          'missingSeedRankingExternalId',
+          `$.rankingSeeds.rows[${ranking._id}]`,
+          'stored seed ranking is missing seedExternalId'
+        )
+      )
+      continue
     }
-    tiersByName.set(key, index)
-  })
-
-  const itemLookup = buildItemLookupByLabel(items, path)
-  const tierIndexByItemId = new Map<Id<'templateItems'>, number>()
-  const labelsByTier = new Map<number, string[]>()
-  for (const group of curated.tierGroups)
-  {
-    const tierIndex = tiersByName.get(normalizeBucketLabel(group.tierName))
-    if (tierIndex === undefined)
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `${path}: unknown curated tier '${group.tierName}'`,
-      })
-    }
-    const list = labelsByTier.get(tierIndex) ?? []
-    for (const label of group.labels)
-    {
-      const item = requireCuratedItemByLabel(curated, itemLookup, label)
-      if (tierIndexByItemId.has(item._id))
-      {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.invalidState,
-          message: `${path}: template item '${label}' is placed more than once`,
-        })
-      }
-      tierIndexByItemId.set(item._id, tierIndex)
-      list.push(label)
-    }
-    labelsByTier.set(tierIndex, list)
+    actualIds.push(ranking.seedExternalId)
   }
 
-  const skippedItemIds = new Set<Id<'templateItems'>>()
-  for (const [childLabel, parentLabel] of Object.entries(
-    curated.parentLabelByLabel ?? {}
-  ))
+  const actualCounts = countStringValues(actualIds)
+  for (const [seedExternalId, plannedCount] of plannedCounts)
   {
-    const parent = requireCuratedItemByLabel(curated, itemLookup, parentLabel)
-    if (!tierIndexByItemId.has(parent._id))
-    {
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `${path}: parent label '${parentLabel}' missing for child '${childLabel}'`,
-      })
-    }
-    skippedItemIds.add(
-      requireCuratedItemByLabel(curated, itemLookup, childLabel)._id
+    const actualCount = actualCounts.get(seedExternalId) ?? 0
+    if (actualCount >= plannedCount) continue
+    diagnostics.push(
+      seedErrorDiagnostic(
+        'missingSeedRanking',
+        '$.rankingSeeds',
+        `missing planned seed ranking ${seedExternalId}: expected ${plannedCount}, found ${actualCount}`
+      )
     )
   }
-
-  if (curated.coverage === 'full-template')
+  for (const [seedExternalId, actualCount] of actualCounts)
   {
-    for (const item of items)
-    {
-      if (tierIndexByItemId.has(item._id) || skippedItemIds.has(item._id))
-      {
-        continue
-      }
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidState,
-        message: `${path}: template item '${item.label ?? item.externalId}' is not placed`,
-      })
-    }
+    const plannedCount = plannedCounts.get(seedExternalId) ?? 0
+    if (actualCount <= plannedCount) continue
+    diagnostics.push(
+      seedErrorDiagnostic(
+        'staleSeedRanking',
+        '$.rankingSeeds',
+        `unexpected stored seed ranking ${seedExternalId}: expected ${plannedCount}, found ${actualCount}`
+      )
+    )
   }
-
-  const ranked: RankedSeedItem[] = []
-  const tierIndices = [...labelsByTier.keys()].sort((a, b) => a - b)
-  for (const tierIndex of tierIndices)
-  {
-    const labels = labelsByTier.get(tierIndex) ?? []
-    let orderInTier = 0
-    for (const label of labels)
-    {
-      const item = requireCuratedItemByLabel(curated, itemLookup, label)
-      ranked.push({
-        item,
-        tierIndex,
-        orderInTier: orderInTier++,
-        globalOrder: ranked.length,
-      })
-    }
-  }
-  return ranked
 }
 
 const requireSeedTemplate = async (
@@ -786,7 +288,7 @@ const requireSeedAuthor = async (
   email: string
 ): Promise<Doc<'users'>> =>
 {
-  if (!isSeedRankingEmail(email))
+  if (!isSeedRankingAuthorEmail(email))
   {
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.invalidInput,
@@ -839,78 +341,6 @@ const findExistingSeedBoard = async (
     )
     .unique()
 
-const deleteRankingWithChildren = async (
-  ctx: MutationCtx,
-  ranking: Doc<'publishedRankings'>
-): Promise<void> =>
-{
-  const [items, tiers] = await Promise.all([
-    ctx.db
-      .query('publishedRankingItems')
-      .withIndex('byRanking', (q) => q.eq('rankingId', ranking._id))
-      .take(SEED_LIMITS.rankingSeedItemsPerRanking + 1),
-    ctx.db
-      .query('publishedRankingTiers')
-      .withIndex('byRanking', (q) => q.eq('rankingId', ranking._id))
-      .take(SEED_LIMITS.rankingSeedTiersPerRanking + 1),
-  ])
-  if (items.length > SEED_LIMITS.rankingSeedItemsPerRanking)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidState,
-      message: 'seed ranking item rows exceed cleanup limit',
-    })
-  }
-  if (tiers.length > SEED_LIMITS.rankingSeedTiersPerRanking)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidState,
-      message: 'seed ranking tier rows exceed cleanup limit',
-    })
-  }
-  await Promise.all([
-    ...items.map((item) => ctx.db.delete(item._id)),
-    ...tiers.map((tier) => ctx.db.delete(tier._id)),
-    ctx.db.delete(ranking._id),
-  ])
-}
-
-const deleteBoardWithChildren = async (
-  ctx: MutationCtx,
-  board: Doc<'boards'>
-): Promise<void> =>
-{
-  const [items, tiers] = await Promise.all([
-    ctx.db
-      .query('boardItems')
-      .withIndex('byBoardAndTier', (q) => q.eq('boardId', board._id))
-      .take(SEED_LIMITS.rankingSeedItemsPerRanking + 1),
-    ctx.db
-      .query('boardTiers')
-      .withIndex('byBoard', (q) => q.eq('boardId', board._id))
-      .take(SEED_LIMITS.rankingSeedTiersPerRanking + 1),
-  ])
-  if (items.length > SEED_LIMITS.rankingSeedItemsPerRanking)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidState,
-      message: 'seed board item rows exceed cleanup limit',
-    })
-  }
-  if (tiers.length > SEED_LIMITS.rankingSeedTiersPerRanking)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidState,
-      message: 'seed board tier rows exceed cleanup limit',
-    })
-  }
-  await Promise.all([
-    ...items.map((item) => ctx.db.delete(item._id)),
-    ...tiers.map((tier) => ctx.db.delete(tier._id)),
-    ctx.db.delete(board._id),
-  ])
-}
-
 const buildSeedRankingContentHash = (
   args: InsertSeedRankingArgs,
   criterionSnapshot: {
@@ -949,7 +379,7 @@ const buildSeedRankingContentHash = (
       featuredBadge: args.featuredBadge,
     },
     tiers: args.tiers.map((tier, order) => ({
-      externalId: tierSeedExternalId(args.seedExternalId, order),
+      externalId: formatTierSeedId(args.seedExternalId, order),
       order,
       name: tier.name,
       description: tier.description ?? null,
@@ -967,16 +397,7 @@ const buildSeedRankingContentHash = (
     })),
   })
 
-const seedRowsAreReusable = (
-  ranking: Doc<'publishedRankings'> | null,
-  contentHash: string
-): boolean =>
-  ranking !== null &&
-  ranking.seedContentHash === contentHash &&
-  ranking.seedReleaseStatus !== null &&
-  seedRankingLifecycleFieldsMatchStatus(ranking)
-
-const seedRankingLifecycleFieldsMatchStatus = (
+const lifecycleFieldsMatchStatus = (
   ranking: Doc<'publishedRankings'>
 ): boolean =>
 {
@@ -1016,6 +437,15 @@ const seedRankingLifecycleFieldsMatchStatus = (
   }
 }
 
+const seedRowsAreReusable = (
+  ranking: Doc<'publishedRankings'> | null,
+  contentHash: string
+): boolean =>
+  ranking !== null &&
+  ranking.seedContentHash === contentHash &&
+  ranking.seedReleaseStatus !== null &&
+  lifecycleFieldsMatchStatus(ranking)
+
 const replaceExistingSeedRows = async (
   ctx: MutationCtx,
   params: {
@@ -1044,7 +474,7 @@ const replaceExistingSeedRows = async (
   const rankingSlug = ranking?.slug ?? null
   if (seedRowsAreReusable(ranking, params.contentHash))
   {
-    if (board) await deleteBoardWithChildren(ctx, board)
+    if (board) await deleteSeedBoardWithChildren(ctx, board)
     return {
       rankingSlug,
       rankingsDeleted: 0,
@@ -1053,8 +483,8 @@ const replaceExistingSeedRows = async (
       skipped: true,
     }
   }
-  if (ranking) await deleteRankingWithChildren(ctx, ranking)
-  if (board) await deleteBoardWithChildren(ctx, board)
+  if (ranking) await deleteSeedRankingWithChildren(ctx, ranking)
+  if (board) await deleteSeedBoardWithChildren(ctx, board)
   return {
     rankingSlug,
     rankingsDeleted: ranking ? 1 : 0,
@@ -1127,7 +557,7 @@ export const deleteStaleSeedRankingRowsImpl = internalMutation({
         message: 'stale seed ranking is missing seedExternalId',
       })
     }
-    const boardSeedId = companionBoardSeedExternalId(seedExternalId)
+    const boardSeedId = companionBoardSeedId(seedExternalId)
     const sourceBoard =
       rankingToDelete.sourceBoardId !== null
         ? await ctx.db.get(rankingToDelete.sourceBoardId)
@@ -1151,7 +581,7 @@ export const deleteStaleSeedRankingRowsImpl = internalMutation({
       { scheduleAdmission: false }
     )
     await scheduleTemplateRankingAggregateJobAdmission(ctx)
-    await deleteRankingWithChildren(ctx, rankingToDelete)
+    await deleteSeedRankingWithChildren(ctx, rankingToDelete)
     let boardsDeleted = 0
     if (
       board &&
@@ -1159,7 +589,7 @@ export const deleteStaleSeedRankingRowsImpl = internalMutation({
       board.seedReleaseId === args.releaseId
     )
     {
-      await deleteBoardWithChildren(ctx, board)
+      await deleteSeedBoardWithChildren(ctx, board)
       boardsDeleted = 1
     }
 
@@ -1200,7 +630,7 @@ const insertSeedRanking = async (
   const criterionSnapshot = toTemplateCriterionSnapshot(criterion)
   const rankingTitle = normalizeRankingTitle(args.title)
   const rankingDescription = normalizeRankingDescription(args.description)
-  const viewCount = Math.floor(unitHash(args.viewCountSeedKey) * 24)
+  const viewCount = Math.floor(seedUnitHash(args.viewCountSeedKey) * 24)
   const contentHash = await buildSeedRankingContentHash(
     args,
     criterionSnapshot,
@@ -1236,7 +666,7 @@ const insertSeedRanking = async (
   }
   const now = Date.now()
   const tierEntries = args.tiers.map((tier, order) => ({
-    externalId: tierSeedExternalId(args.seedExternalId, order),
+    externalId: formatTierSeedId(args.seedExternalId, order),
     order,
     name: tier.name,
     description: tier.description ?? null,
@@ -1323,163 +753,320 @@ const insertSeedRanking = async (
   }
 }
 
-const featuredForProfile = (
-  lane: SeedRankingLane,
-  profileKey: string
-): { featuredRank: number; featuredBadge: RankingFeaturedBadge } | null =>
+interface ResolvedTaskInsertArgs
 {
-  const match = lane.featuredProfiles?.find(
-    (profile) => profile.profileKey === profileKey
+  authorKey: string
+  authorEmail: string
+  title: string
+  description: string
+  seedExternalId: string
+  boardExternalId: string
+  seedKind: NonNullable<Doc<'publishedRankings'>['seedKind']>
+  seedProfileKey: string | null
+  seedCuratedExternalId: string | null
+  rankedItems: RankedSeedItem[]
+  tiers: readonly TierPresetTier[]
+  featuredRank: number | null
+  featuredBadge: RankingFeaturedBadge | null
+  createdAtOffsetMs: number
+  viewCountSeedKey: string
+}
+
+const resolveSampleTaskArgs = (
+  target: SeedRankingTarget,
+  lane: SeedRankingLane,
+  profile: SeedRankingProfile,
+  template: Doc<'templates'>,
+  items: readonly Doc<'templateItems'>[]
+): ResolvedTaskInsertArgs =>
+{
+  const tiers = resolveTemplateTiers(template)
+  assertCountRange(
+    'template tiers',
+    tiers.length,
+    1,
+    SEED_LIMITS.rankingSeedTiersPerRanking
   )
-  if (!match) return null
+  const rankedItems = rankTemplateItemsWithScore(items, tiers, (item) =>
+    scoreLaneItem(target.templateExternalId, lane, profile, item)
+  )
+  const featured = featuredForProfile(lane, profile.key)
+  const seedExternalId = formatRankingSeedId({
+    templateExternalId: target.templateExternalId,
+    criterionExternalId: lane.criterionExternalId,
+    kind: 'sample',
+    stableKey: profile.key,
+  })
   return {
-    featuredRank: match.featuredRank,
-    featuredBadge: match.featuredBadge,
+    authorKey: profile.key,
+    authorEmail: sampleAuthorEmail(profile.key),
+    title: `${profile.displayName}'s ${lane.titleSuffix}`,
+    description: lane.description || SAMPLE_RANKING_DESCRIPTION,
+    seedExternalId,
+    boardExternalId: formatBoardSeedId({
+      templateExternalId: target.templateExternalId,
+      criterionExternalId: lane.criterionExternalId,
+      kind: 'sample',
+      stableKey: profile.key,
+    }),
+    seedKind: 'sample',
+    seedProfileKey: profile.key,
+    seedCuratedExternalId: null,
+    rankedItems,
+    tiers,
+    featuredRank: featured?.featuredRank ?? null,
+    featuredBadge: featured?.featuredBadge ?? null,
+    createdAtOffsetMs: 60 * 60 * 1000,
+    viewCountSeedKey: `views:${profile.key}:${target.templateExternalId}:${lane.criterionExternalId}`,
   }
 }
 
-export const upsertSampleSeedRankingImpl = internalMutation({
-  args: {
-    datasetKey: v.string(),
-    releaseId: v.string(),
-    target: seedRankingTargetValidator,
-    lane: seedRankingLaneValidator,
-    profile: seedRankingProfileValidator,
+const resolveCuratedTaskArgs = (
+  target: SeedRankingTarget,
+  curated: SeedCuratedRanking,
+  items: readonly Doc<'templateItems'>[]
+): ResolvedTaskInsertArgs =>
+{
+  const authorKey = curatedSeedAuthorKey(curated.authorKey)
+  const seedExternalId = formatRankingSeedId({
+    templateExternalId: target.templateExternalId,
+    criterionExternalId: curated.criterionExternalId,
+    kind: 'curated',
+    stableKey: curated.externalId,
+  })
+  return {
+    authorKey,
+    authorEmail: curatedAuthorEmail(curated.authorKey),
+    title: `${curated.authorDisplayName}'s ${curated.title}`,
+    description: curated.description,
+    seedExternalId,
+    boardExternalId: formatBoardSeedId({
+      templateExternalId: target.templateExternalId,
+      criterionExternalId: curated.criterionExternalId,
+      kind: 'curated',
+      stableKey: curated.externalId,
+    }),
+    seedKind: 'curated',
+    seedProfileKey: null,
+    seedCuratedExternalId: curated.externalId,
+    rankedItems: mapItemsToCuratedTiers(
+      curated,
+      items,
+      `${target.templateExternalId}/${curated.externalId}`
+    ),
+    tiers: curated.tiers,
+    featuredRank: curated.featuredRank,
+    featuredBadge: curated.featuredBadge,
+    createdAtOffsetMs: 15 * 60 * 1000,
+    viewCountSeedKey: `views:${authorKey}:${target.templateExternalId}:${curated.criterionExternalId}`,
+  }
+}
+
+const serializedApplyTaskValidator = v.union(
+  v.object({
+    kind: v.literal('sample'),
+    criterionExternalId: v.string(),
+    profileKey: v.string(),
     sequence: v.number(),
-  },
-  returns: v.object({
-    rankingsDeleted: v.number(),
-    boardsDeleted: v.number(),
-    rankingsUnchanged: v.number(),
-    tiersWritten: v.number(),
-    itemsWritten: v.number(),
   }),
-  handler: async (ctx, args) =>
+  v.object({
+    kind: v.literal('curated'),
+    curatedExternalId: v.string(),
+    sequence: v.number(),
+  })
+)
+
+type SerializedApplyTask =
+  | {
+      kind: 'sample'
+      criterionExternalId: string
+      profileKey: string
+      sequence: number
+    }
+  | {
+      kind: 'curated'
+      curatedExternalId: string
+      sequence: number
+    }
+
+interface SerializedTemplateTaskGroup
+{
+  templateExternalId: string
+  tasks: SerializedApplyTask[]
+}
+
+const serializeApplyTask = (
+  task: SeedRankingPlan['tasks'][number]
+): SerializedApplyTask =>
+  task.kind === 'sample'
+    ? {
+        kind: 'sample',
+        criterionExternalId: task.lane.criterionExternalId,
+        profileKey: task.profile.key,
+        sequence: task.sequence,
+      }
+    : {
+        kind: 'curated',
+        curatedExternalId: task.curated.externalId,
+        sequence: task.sequence,
+      }
+
+const groupTasksByTemplate = (
+  plan: SeedRankingPlan
+): SerializedTemplateTaskGroup[] =>
+{
+  const groups = new Map<string, SerializedApplyTask[]>()
+  for (const task of plan.tasks)
   {
-    const template = await requireSeedTemplate(
-      ctx,
-      args.datasetKey,
-      args.releaseId,
-      args.target.templateExternalId
-    )
-    const items = await loadTemplateItems(ctx, template._id)
-    const tiers = resolveTemplateTiers(template)
-    assertCountRange(
-      'template tiers',
-      tiers.length,
-      1,
-      SEED_LIMITS.rankingSeedTiersPerRanking
-    )
-    const rankedItems = rankTemplateItemsWithScore(items, tiers, (item) =>
-      scoreLaneItem(
-        args.target.templateExternalId,
-        args.lane,
-        args.profile,
-        item
-      )
-    )
-    const featured = featuredForProfile(args.lane, args.profile.key)
-    const seedExternalId = rankingSeedExternalId(
-      args.target.templateExternalId,
-      args.lane.criterionExternalId,
-      'sample',
-      args.profile.key
-    )
-    const inserted = await insertSeedRanking(ctx, {
-      datasetKey: args.datasetKey,
-      releaseId: args.releaseId,
-      templateExternalId: args.target.templateExternalId,
-      criterionExternalId: args.lane.criterionExternalId,
-      authorKey: args.profile.key,
-      authorEmail: sampleAuthorEmail(args.profile.key),
-      title: `${args.profile.displayName}'s ${args.lane.titleSuffix}`,
-      description: args.lane.description || SAMPLE_RANKING_DESCRIPTION,
-      seedExternalId,
-      boardExternalId: boardSeedExternalId(
-        args.target.templateExternalId,
-        args.lane.criterionExternalId,
-        'sample',
-        args.profile.key
-      ),
-      seedKind: 'sample',
-      seedProfileKey: args.profile.key,
-      seedCuratedExternalId: null,
-      rankedItems,
-      tiers,
-      template,
-      featuredRank: featured?.featuredRank ?? null,
-      featuredBadge: featured?.featuredBadge ?? null,
-      createdAt: Date.now() - Math.max(1, args.sequence) * 60 * 60 * 1000,
-      viewCountSeedKey: `views:${args.profile.key}:${args.target.templateExternalId}:${args.lane.criterionExternalId}`,
+    const templateExternalId = task.target.templateExternalId
+    const list = groups.get(templateExternalId) ?? []
+    list.push(serializeApplyTask(task))
+    groups.set(templateExternalId, list)
+  }
+  return [...groups.entries()].map(([templateExternalId, tasks]) => ({
+    templateExternalId,
+    tasks,
+  }))
+}
+
+// 16 per-template tasks leaves headroom under Convex's 4096-write cap even
+// for full item-count templates (replace-insert writes ~(items + tiers + 1)
+// rows & may also delete the same shape).
+const SEED_RANKING_TASKS_PER_MUTATION = 16
+
+const chunkTaskGroup = (
+  group: SerializedTemplateTaskGroup
+): SerializedTemplateTaskGroup[] =>
+{
+  if (group.tasks.length <= SEED_RANKING_TASKS_PER_MUTATION) return [group]
+  const chunks: SerializedTemplateTaskGroup[] = []
+  for (
+    let i = 0;
+    i < group.tasks.length;
+    i += SEED_RANKING_TASKS_PER_MUTATION
+  )
+  {
+    chunks.push({
+      templateExternalId: group.templateExternalId,
+      tasks: group.tasks.slice(i, i + SEED_RANKING_TASKS_PER_MUTATION),
     })
-    return inserted
-  },
+  }
+  return chunks
+}
+
+const seedTemplateTaskBatchResultValidator = v.object({
+  rankingsDeleted: v.number(),
+  boardsDeleted: v.number(),
+  rankingsUnchanged: v.number(),
+  tiersWritten: v.number(),
+  itemsWritten: v.number(),
+  sampleRankingsApplied: v.number(),
+  curatedRankingsApplied: v.number(),
 })
 
-export const upsertCuratedSeedRankingImpl = internalMutation({
+type SeedTemplateTaskBatchResult = {
+  rankingsDeleted: number
+  boardsDeleted: number
+  rankingsUnchanged: number
+  tiersWritten: number
+  itemsWritten: number
+  sampleRankingsApplied: number
+  curatedRankingsApplied: number
+}
+
+export const upsertSeedRankingsForTemplateImpl = internalMutation({
   args: {
     datasetKey: v.string(),
     releaseId: v.string(),
-    target: seedRankingTargetValidator,
-    curated: seedCuratedRankingValidator,
-    sequence: v.number(),
+    rankingSeeds: seedRankingsManifestValidator,
+    templateExternalId: v.string(),
+    tasks: v.array(serializedApplyTaskValidator),
   },
-  returns: v.object({
-    rankingsDeleted: v.number(),
-    boardsDeleted: v.number(),
-    rankingsUnchanged: v.number(),
-    tiersWritten: v.number(),
-    itemsWritten: v.number(),
-  }),
-  handler: async (ctx, args) =>
+  returns: seedTemplateTaskBatchResultValidator,
+  handler: async (ctx, args): Promise<SeedTemplateTaskBatchResult> =>
   {
+    const target = args.rankingSeeds.targets.find(
+      (entry) => entry.templateExternalId === args.templateExternalId
+    )
+    if (!target)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidState,
+        message: `apply batch references unknown target: ${args.templateExternalId}`,
+      })
+    }
     const template = await requireSeedTemplate(
       ctx,
       args.datasetKey,
       args.releaseId,
-      args.target.templateExternalId
+      args.templateExternalId
     )
     const items = await loadTemplateItems(ctx, template._id)
-    const rankedItems = mapItemsToCuratedTiers(
-      args.curated,
-      items,
-      `${args.target.templateExternalId}/${args.curated.externalId}`
-    )
-    const authorKey = curatedSeedAuthorKey(args.curated.authorKey)
-    const seedExternalId = rankingSeedExternalId(
-      args.target.templateExternalId,
-      args.curated.criterionExternalId,
-      'curated',
-      args.curated.externalId
-    )
-    const inserted = await insertSeedRanking(ctx, {
-      datasetKey: args.datasetKey,
-      releaseId: args.releaseId,
-      templateExternalId: args.target.templateExternalId,
-      criterionExternalId: args.curated.criterionExternalId,
-      authorKey,
-      authorEmail: curatedAuthorEmail(args.curated),
-      title: `${args.curated.authorDisplayName}'s ${args.curated.title}`,
-      description: args.curated.description,
-      seedExternalId,
-      boardExternalId: boardSeedExternalId(
-        args.target.templateExternalId,
-        args.curated.criterionExternalId,
-        'curated',
-        args.curated.externalId
-      ),
-      seedKind: 'curated',
-      seedProfileKey: null,
-      seedCuratedExternalId: args.curated.externalId,
-      rankedItems,
-      tiers: args.curated.tiers,
-      template,
-      featuredRank: args.curated.featuredRank,
-      featuredBadge: args.curated.featuredBadge,
-      createdAt: Date.now() - Math.max(1, args.sequence) * 15 * 60 * 1000,
-      viewCountSeedKey: `views:${authorKey}:${args.target.templateExternalId}:${args.curated.criterionExternalId}`,
-    })
-    return inserted
+    const totals: SeedTemplateTaskBatchResult = {
+      rankingsDeleted: 0,
+      boardsDeleted: 0,
+      rankingsUnchanged: 0,
+      tiersWritten: 0,
+      itemsWritten: 0,
+      sampleRankingsApplied: 0,
+      curatedRankingsApplied: 0,
+    }
+    for (const task of args.tasks)
+    {
+      let resolved: ResolvedTaskInsertArgs
+      let criterionExternalId: string
+      if (task.kind === 'sample')
+      {
+        const lane = target.lanes.find(
+          (entry) => entry.criterionExternalId === task.criterionExternalId
+        )
+        const profile = args.rankingSeeds.profiles.find(
+          (entry) => entry.key === task.profileKey
+        )
+        if (!lane || !profile)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: `apply task references unknown sample lane/profile: ${args.templateExternalId}:${task.criterionExternalId}:${task.profileKey}`,
+          })
+        }
+        resolved = resolveSampleTaskArgs(target, lane, profile, template, items)
+        criterionExternalId = lane.criterionExternalId
+        totals.sampleRankingsApplied += 1
+      }
+      else
+      {
+        const curated = (target.curatedRankings ?? []).find(
+          (entry) => entry.externalId === task.curatedExternalId
+        )
+        if (!curated)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: `apply task references unknown curated ranking: ${args.templateExternalId}:${task.curatedExternalId}`,
+          })
+        }
+        resolved = resolveCuratedTaskArgs(target, curated, items)
+        criterionExternalId = curated.criterionExternalId
+        totals.curatedRankingsApplied += 1
+      }
+      const inserted = await insertSeedRanking(ctx, {
+        datasetKey: args.datasetKey,
+        releaseId: args.releaseId,
+        templateExternalId: args.templateExternalId,
+        criterionExternalId,
+        template,
+        createdAt:
+          Date.now() - Math.max(1, task.sequence) * resolved.createdAtOffsetMs,
+        ...resolved,
+      })
+      totals.rankingsDeleted += inserted.rankingsDeleted
+      totals.boardsDeleted += inserted.boardsDeleted
+      totals.rankingsUnchanged += inserted.rankingsUnchanged
+      totals.tiersWritten += inserted.tiersWritten
+      totals.itemsWritten += inserted.itemsWritten
+    }
+    return totals
   },
 })
 
@@ -1502,7 +1089,7 @@ const buildPreflight = async (
     if (profileKeys.has(profile.key))
     {
       diagnostics.push(
-        errorDiagnostic(
+        seedErrorDiagnostic(
           'duplicateProfileKey',
           `$.rankingSeeds.profiles[${index}].key`,
           profile.key
@@ -1512,14 +1099,14 @@ const buildPreflight = async (
     profileKeys.add(profile.key)
   }
 
-  const authors = authorRequestsForManifest(args.rankingSeeds)
+  const plan = buildSeedRankingPlan(args.rankingSeeds)
   const authorEmails = new Set<string>()
-  for (const author of authors)
+  for (const author of plan.authors)
   {
-    if (!isSeedRankingEmail(author.email))
+    if (!isSeedRankingAuthorEmail(author.email))
     {
       diagnostics.push(
-        errorDiagnostic(
+        seedErrorDiagnostic(
           'invalidSeedAuthorEmail',
           '$.rankingSeeds',
           author.email
@@ -1529,7 +1116,7 @@ const buildPreflight = async (
     if (authorEmails.has(author.email))
     {
       diagnostics.push(
-        errorDiagnostic(
+        seedErrorDiagnostic(
           'duplicateSeedAuthorEmail',
           '$.rankingSeeds',
           author.email
@@ -1551,7 +1138,7 @@ const buildPreflight = async (
     if (seenTargets.has(target.templateExternalId))
     {
       diagnostics.push(
-        errorDiagnostic(
+        seedErrorDiagnostic(
           'duplicateRankingSeedTarget',
           `${targetPath}.templateExternalId`,
           target.templateExternalId
@@ -1563,7 +1150,7 @@ const buildPreflight = async (
     if (!template)
     {
       diagnostics.push(
-        errorDiagnostic(
+        seedErrorDiagnostic(
           'missingTemplate',
           `${targetPath}.templateExternalId`,
           target.templateExternalId
@@ -1578,7 +1165,7 @@ const buildPreflight = async (
       if (seenCriteria.has(lane.criterionExternalId))
       {
         diagnostics.push(
-          errorDiagnostic(
+          seedErrorDiagnostic(
             'duplicateRankingSeedLane',
             `${lanePath}.criterionExternalId`,
             lane.criterionExternalId
@@ -1593,7 +1180,7 @@ const buildPreflight = async (
       catch (error)
       {
         diagnostics.push(
-          errorDiagnostic(
+          seedErrorDiagnostic(
             'missingCriterion',
             `${lanePath}.criterionExternalId`,
             error instanceof Error ? error.message : lane.criterionExternalId
@@ -1604,9 +1191,6 @@ const buildPreflight = async (
 
     const featuredSlots = new Set<string>()
     const curatedRankings = target.curatedRankings ?? []
-    // load template items once per target; mapItemsToCuratedTiers only walks
-    // them in-memory, so sharing the same array across every curated ranking
-    // on this template avoids one byTemplate scan per curated entry
     const templateItemsForCurated =
       curatedRankings.length > 0
         ? await loadTemplateItems(ctx, template._id)
@@ -1622,7 +1206,7 @@ const buildPreflight = async (
       catch (error)
       {
         diagnostics.push(
-          errorDiagnostic(
+          seedErrorDiagnostic(
             'invalidCuratedRanking',
             curatedPath,
             error instanceof Error ? error.message : curated.externalId
@@ -1635,7 +1219,7 @@ const buildPreflight = async (
         if (featuredSlots.has(slot))
         {
           diagnostics.push(
-            errorDiagnostic(
+            seedErrorDiagnostic(
               'duplicateFeaturedRank',
               `${curatedPath}.featuredRank`,
               slot
@@ -1646,7 +1230,7 @@ const buildPreflight = async (
         if (curated.featuredBadge === null)
         {
           diagnostics.push(
-            errorDiagnostic(
+            seedErrorDiagnostic(
               'missingFeaturedBadge',
               `${curatedPath}.featuredBadge`,
               curated.externalId
@@ -1655,10 +1239,10 @@ const buildPreflight = async (
         }
       }
     }
-    if ((target.curatedRankings ?? []).length === 0)
+    if (curatedRankings.length === 0)
     {
       diagnostics.push(
-        warningDiagnostic(
+        seedWarningDiagnostic(
           'targetHasNoCuratedRankings',
           targetPath,
           target.templateExternalId
@@ -1667,23 +1251,33 @@ const buildPreflight = async (
     }
   }
 
-  const [existingSeedRankings, existingActiveSeedRankings] = await Promise.all([
-    countExistingSeedRankings(ctx, args.datasetKey, args.releaseId),
-    countExistingSeedRankings(ctx, args.datasetKey, args.releaseId, true),
-  ])
-  const sampleRankingsPlanned = countPlannedSampleRankings(args.rankingSeeds)
-  const curatedRankingsPlanned = countPlannedCuratedRankings(args.rankingSeeds)
+  const [existingSeedRankingRows, existingActiveSeedRankingRows] =
+    await Promise.all([
+      loadExistingSeedRankings(ctx, args.datasetKey, args.releaseId),
+      loadExistingSeedRankings(ctx, args.datasetKey, args.releaseId, true),
+    ])
+  const existingSeedRankings = existingSeedRankingRows.length
+  const existingActiveSeedRankings = existingActiveSeedRankingRows.length
   if (
     args.verifyAppliedRows &&
-    existingSeedRankings !== sampleRankingsPlanned + curatedRankingsPlanned
+    existingSeedRankings !==
+      plan.sampleRankingsPlanned + plan.curatedRankingsPlanned
   )
   {
     diagnostics.push(
-      errorDiagnostic(
+      seedErrorDiagnostic(
         'seedRankingCountMismatch',
         '$.rankingSeeds',
-        `expected ${sampleRankingsPlanned + curatedRankingsPlanned} seed rankings, found ${existingSeedRankings}`
+        `expected ${plan.sampleRankingsPlanned + plan.curatedRankingsPlanned} seed rankings, found ${existingSeedRankings}`
       )
+    )
+  }
+  if (args.verifyAppliedRows)
+  {
+    appendSeedRankingIdentityDiagnostics(
+      diagnostics,
+      plan,
+      existingSeedRankingRows
     )
   }
 
@@ -1691,13 +1285,13 @@ const buildPreflight = async (
     datasetKey: args.datasetKey,
     releaseId: args.releaseId,
     profileCount: args.rankingSeeds.profiles.length,
-    authorCount: authors.length,
+    authorCount: plan.authors.length,
     targetCount: args.rankingSeeds.targets.length,
-    sampleRankingsPlanned,
-    curatedRankingsPlanned,
+    sampleRankingsPlanned: plan.sampleRankingsPlanned,
+    curatedRankingsPlanned: plan.curatedRankingsPlanned,
     existingSeedRankings,
     existingActiveSeedRankings,
-    aggregateLanes: plannedLaneSummaries(args.rankingSeeds),
+    aggregateLanes: plan.laneSummaries,
     diagnostics,
   }
 }
@@ -1712,20 +1306,6 @@ export const preflightSeedRankings = internalQuery({
   handler: async (ctx, args): Promise<SeedRankingPreflightResult> =>
     await buildPreflight(ctx, { ...args, verifyAppliedRows: false }),
 })
-
-const loadSeedRankingPreflight = async (
-  ctx: ActionCtx,
-  args: {
-    datasetKey: string
-    releaseId: string
-    rankingSeeds: SeedRankingsManifest
-  }
-): Promise<SeedRankingPreflightResult> =>
-  await ctx.runQuery(internal.marketplace.rankings.seed.preflightSeedRankings, {
-    datasetKey: args.datasetKey,
-    releaseId: args.releaseId,
-    rankingSeeds: args.rankingSeeds,
-  })
 
 const throwIfRankingPreflightErrors = (
   diagnostics: readonly SeedDiagnosticRow[]
@@ -1750,84 +1330,23 @@ export const verifySeedRankings = internalQuery({
     await buildPreflight(ctx, { ...args, verifyAppliedRows: true }),
 })
 
-type SeedRankingApplyTask =
-  | {
-      kind: 'sample'
-      target: SeedRankingTarget
-      lane: SeedRankingLane
-      profile: SeedRankingProfile
-      sequence: number
-    }
-  | {
-      kind: 'curated'
-      target: SeedRankingTarget
-      curated: SeedCuratedRanking
-      sequence: number
-    }
-
-// bound on per-action mutation concurrency. Distinct rankingId rows give
-// low OCC contention, but convex per-deployment write-rate caps still apply
-const SEED_RANKING_APPLY_CONCURRENCY = 4
-
-const planSeedRankingApplyTasks = (
-  manifest: SeedRankingsManifest
-): SeedRankingApplyTask[] =>
-{
-  const tasks: SeedRankingApplyTask[] = []
-  let sequence = 0
-  for (const target of manifest.targets)
-  {
-    const profileCount = normalizeProfileCount(manifest, target)
-    const profiles = manifest.profiles.slice(0, profileCount)
-    for (const lane of target.lanes)
-    {
-      for (const profile of profiles)
-      {
-        sequence += 1
-        tasks.push({ kind: 'sample', target, lane, profile, sequence })
-      }
-    }
-    for (const curated of target.curatedRankings ?? [])
-    {
-      sequence += 1
-      tasks.push({ kind: 'curated', target, curated, sequence })
-    }
-  }
-  return tasks
-}
-
-const runSeedRankingApplyTask = async (
+const runSeedRankingTemplateBatch = async (
   ctx: ActionCtx,
   datasetKey: string,
   releaseId: string,
-  task: SeedRankingApplyTask
-): Promise<SeedRankingWriteResult> =>
-{
-  if (task.kind === 'sample')
-  {
-    return await ctx.runMutation(
-      internal.marketplace.rankings.seed.upsertSampleSeedRankingImpl,
-      {
-        datasetKey,
-        releaseId,
-        target: task.target,
-        lane: task.lane,
-        profile: task.profile,
-        sequence: task.sequence,
-      }
-    )
-  }
-  return await ctx.runMutation(
-    internal.marketplace.rankings.seed.upsertCuratedSeedRankingImpl,
+  manifest: SeedRankingsManifest,
+  group: SerializedTemplateTaskGroup
+): Promise<SeedTemplateTaskBatchResult> =>
+  await ctx.runMutation(
+    internal.marketplace.rankings.seed.upsertSeedRankingsForTemplateImpl,
     {
       datasetKey,
       releaseId,
-      target: task.target,
-      curated: task.curated,
-      sequence: task.sequence,
+      rankingSeeds: manifest,
+      templateExternalId: group.templateExternalId,
+      tasks: group.tasks,
     }
   )
-}
 
 export const applySeedRankingChunk = internalAction({
   args: {
@@ -1841,53 +1360,48 @@ export const applySeedRankingChunk = internalAction({
   {
     assertNonemptyString('runId', args.runId)
 
-    const tasks = planSeedRankingApplyTasks(args.rankingSeeds)
-    const results: SeedRankingWriteResult[] = new Array(tasks.length)
-    for (let i = 0; i < tasks.length; i += SEED_RANKING_APPLY_CONCURRENCY)
+    const plan = buildSeedRankingPlan(args.rankingSeeds)
+    const groups = groupTasksByTemplate(plan).flatMap(chunkTaskGroup)
+    const totals = {
+      boardsReplaced: 0,
+      rankingsReplaced: 0,
+      rankingsUnchanged: 0,
+      rankingTiersWritten: 0,
+      rankingItemsWritten: 0,
+      sampleRankingsApplied: 0,
+      curatedRankingsApplied: 0,
+    }
+    for (let i = 0; i < groups.length; i += SEED_RANKING_APPLY_CONCURRENCY)
     {
-      const slice = tasks.slice(i, i + SEED_RANKING_APPLY_CONCURRENCY)
+      const slice = groups.slice(i, i + SEED_RANKING_APPLY_CONCURRENCY)
       const sliceResults = await Promise.all(
-        slice.map((task) =>
-          runSeedRankingApplyTask(ctx, args.datasetKey, args.releaseId, task)
+        slice.map((group) =>
+          runSeedRankingTemplateBatch(
+            ctx,
+            args.datasetKey,
+            args.releaseId,
+            args.rankingSeeds,
+            group
+          )
         )
       )
-      for (let j = 0; j < sliceResults.length; j++)
+      for (const result of sliceResults)
       {
-        results[i + j] = sliceResults[j]
+        totals.boardsReplaced += result.boardsDeleted
+        totals.rankingsReplaced += result.rankingsDeleted
+        totals.rankingsUnchanged += result.rankingsUnchanged
+        totals.rankingTiersWritten += result.tiersWritten
+        totals.rankingItemsWritten += result.itemsWritten
+        totals.sampleRankingsApplied += result.sampleRankingsApplied
+        totals.curatedRankingsApplied += result.curatedRankingsApplied
       }
-    }
-
-    let boardsReplaced = 0
-    let rankingsReplaced = 0
-    let rankingsUnchanged = 0
-    let rankingTiersWritten = 0
-    let rankingItemsWritten = 0
-    let sampleRankingsApplied = 0
-    let curatedRankingsApplied = 0
-    for (let i = 0; i < tasks.length; i++)
-    {
-      const result = results[i]
-      boardsReplaced += result.boardsDeleted
-      rankingsReplaced += result.rankingsDeleted
-      rankingsUnchanged += result.rankingsUnchanged
-      rankingTiersWritten += result.tiersWritten
-      rankingItemsWritten += result.itemsWritten
-      if (tasks[i].kind === 'sample') sampleRankingsApplied += 1
-      else curatedRankingsApplied += 1
     }
 
     return {
       datasetKey: args.datasetKey,
       releaseId: args.releaseId,
-      boardsReplaced,
-      rankingsReplaced,
-      rankingsUnchanged,
-      sampleRankingsApplied,
-      curatedRankingsApplied,
-      rankingsApplied: sampleRankingsApplied + curatedRankingsApplied,
-      rankingTiersWritten,
-      rankingItemsWritten,
-      aggregateLanes: plannedLaneSummaries(args.rankingSeeds),
+      ...totals,
+      aggregateLanes: plan.laneSummaries,
     }
   },
 })
@@ -1908,9 +1422,9 @@ export const cleanupStaleSeedRankings = internalAction({
   handler: async (ctx, args) =>
   {
     assertNonemptyString('runId', args.runId)
-    const plannedSeedExternalIds = plannedRankingSeedExternalIds(
+    const plannedSeedExternalIds = buildSeedRankingPlan(
       args.rankingSeeds
-    )
+    ).plannedSeedExternalIds
     let rankingsDeleted = 0
     let boardsDeleted = 0
     let cursor: string | null = null
@@ -1959,12 +1473,20 @@ export const ensureSeedRankingAuthors = internalAction({
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
     assertNonemptyString('authorPassword', args.authorPassword)
-    const preflight = await loadSeedRankingPreflight(ctx, args)
+    const preflight: SeedRankingPreflightResult = await ctx.runQuery(
+      internal.marketplace.rankings.seed.preflightSeedRankings,
+      {
+        datasetKey: args.datasetKey,
+        releaseId: args.releaseId,
+        rankingSeeds: args.rankingSeeds,
+      }
+    )
     throwIfRankingPreflightErrors(preflight.diagnostics)
+    const plan = buildSeedRankingPlan(args.rankingSeeds)
     const result = await ensureRankingSeedAuthors(
       ctx,
       args.authorPassword,
-      args.rankingSeeds
+      plan
     )
     return {
       datasetKey: args.datasetKey,
@@ -1974,3 +1496,7 @@ export const ensureSeedRankingAuthors = internalAction({
     }
   },
 })
+
+// silence "imported but unused" warnings while we keep the kind type publicly
+// scoped to the apply-task contract
+export type { SeedRankingKind, Id }

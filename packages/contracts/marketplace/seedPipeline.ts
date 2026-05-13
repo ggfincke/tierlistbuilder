@@ -13,6 +13,12 @@ import type { TierPresetTier } from '../workspace/tierPreset'
 
 export const SEED_MANIFEST_SCHEMA_VERSION = 1
 
+// canonical seed content-hash format. Convex (TS) & Python MUST produce
+// byte-identical hashes for the same input: canonical JSON for {kind, payload};
+// sha256 utf-8 bytes; versioned truncated digest.
+export const SEED_CONTENT_HASH_VERSION = 'v1' as const
+export const SEED_CONTENT_HASH_HEX_LENGTH = 32
+
 export const SEED_LABEL_POLICIES = [
   'explicit-required',
   'explicit-or-filename-fallback',

@@ -9,7 +9,6 @@ from unittest.mock import patch
 from seed_pipeline.convex_client import ConvexClientError, SEED_HTTP_ROUTES
 from seed_pipeline.ranking_config import compile_ranking_seeds
 from seed_pipeline.rankings import (
-    RANKING_ACTIVATION_BATCH_PAUSE_SECONDS,
     RANKING_APPLY_THROTTLE_BASE_SECONDS,
     SEED_RANKINGS_ACTIVATE_FUNCTION,
     SEED_RANKINGS_APPLY_FUNCTION,
@@ -80,6 +79,32 @@ class RankingSeedCompilationTests(unittest.TestCase):
         target = compiled["targets"][0]
         self.assertEqual(target["templateExternalId"], "gaming:large-template")
         self.assertEqual(target["sampleProfileCount"], 4)
+
+    def test_explicit_target_uses_default_sample_count_when_omitted(self) -> None:
+        manifest = _manifest(
+            {
+                "targets": [
+                    {
+                        "templateExternalId": "gaming:ssbu-fighters",
+                        "lanes": [
+                            {
+                                "criterionExternalId": "competitive",
+                                "titleSuffix": "competitive fixture",
+                                "description": "Fixture lane.",
+                                "boostTerms": [],
+                                "dropTerms": [],
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+
+        compiled = compile_ranking_seeds(manifest, _compiled_templates())
+
+        self.assertIsNotNone(compiled)
+        assert compiled is not None
+        self.assertEqual(compiled["targets"][0]["sampleProfileCount"], 16)
 
     def test_curated_defaults_are_made_explicit(self) -> None:
         manifest = _manifest(
@@ -270,7 +295,9 @@ class RankingSeedCompilationTests(unittest.TestCase):
         self.assertEqual(first_call[1], args)
         self.assertNotIn("batchSize", first_call[1])
         self.assertNotIn("limit", first_call[1])
-        sleep.assert_called_once_with(RANKING_ACTIVATION_BATCH_PAUSE_SECONDS)
+        # no proactive between-batch sleep: only convex-write-rate throttling
+        # triggers the retry sleep, and no throttling was simulated here
+        sleep.assert_not_called()
 
     @patch("seed_pipeline.rankings.time.sleep")
     def test_apply_retries_convex_write_rate_throttle(self, sleep: object) -> None:
@@ -301,7 +328,6 @@ class RankingSeedCompilationTests(unittest.TestCase):
                     "rankingsUnchanged": 0,
                     "sampleRankingsApplied": 1,
                     "curatedRankingsApplied": 0,
-                    "rankingsApplied": 1,
                     "rankingTiersWritten": 5,
                     "rankingItemsWritten": 10,
                     "aggregateLanes": [],
@@ -321,7 +347,10 @@ class RankingSeedCompilationTests(unittest.TestCase):
             {"authorsCreated": 0, "authorsReused": 1, "authorsPatched": 0},
         )
 
-        self.assertEqual(result["rankingsApplied"], 1)
+        # rankings applied = sample + curated (derived, no longer stored)
+        self.assertEqual(
+            result["sampleRankingsApplied"] + result["curatedRankingsApplied"], 1
+        )
         # apply rewrites are reported separately from stale-cleanup deletions;
         # conflating them used to skew the change-detection that drives
         # aggregate requeueing

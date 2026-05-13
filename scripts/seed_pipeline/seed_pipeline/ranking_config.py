@@ -17,7 +17,11 @@ def compile_ranking_seeds(
     raw = manifest.get("rankingSeeds")
     if not isinstance(raw, dict):
         return None
-    targets = [_compile_target(target) for target in as_list(raw.get("targets"))]
+    default_profile_count = int(raw["defaultProfileCount"])
+    targets = [
+        _compile_target(target, default_profile_count)
+        for target in as_list(raw.get("targets"))
+    ]
     target_ids = {
         target["templateExternalId"]
         for target in targets
@@ -31,13 +35,13 @@ def compile_ranking_seeds(
                 continue
             target = _generic_target_for_template(
                 template,
-                int(raw["defaultProfileCount"]),
+                default_profile_count,
             )
             targets.append(target)
             target_ids.add(external_id)
     return {
         "profileSet": raw["profileSet"],
-        "defaultProfileCount": int(raw["defaultProfileCount"]),
+        "defaultProfileCount": default_profile_count,
         "includeAllTemplates": include_all,
         "profiles": [_compile_profile(profile) for profile in as_list(raw.get("profiles"))],
         "targets": targets,
@@ -57,12 +61,14 @@ def _compile_profile(profile: object) -> JsonObject:
     }
 
 
-def _compile_target(target: object) -> JsonObject:
+def _compile_target(target: object, default_profile_count: int) -> JsonObject:
     if not isinstance(target, dict):
         return {}
     return {
         "templateExternalId": target["templateExternalId"],
-        "sampleProfileCount": int(target.get("sampleProfileCount", 0)),
+        "sampleProfileCount": int(
+            target.get("sampleProfileCount", default_profile_count)
+        ),
         "countAsTemplateUse": bool(target.get("countAsTemplateUse", False)),
         "lanes": [_compile_lane(lane) for lane in as_list(target.get("lanes"))],
         "curatedRankings": [

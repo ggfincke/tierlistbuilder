@@ -8,9 +8,9 @@ import json
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 from .assets import asset_dedupe_hash, asset_variants
 from .build import build_compiled_manifest_with_data
@@ -86,6 +86,14 @@ SURFACE_ASPECT_RATIOS = {
 }
 
 
+# mirrors packages/contracts/marketplace/seedPipeline.ts. both sides serialize
+# {kind, payload} as canonical JSON (sorted keys, no whitespace) then take the
+# leading SEED_CONTENT_HASH_HEX_LENGTH hex chars of sha256, prefixed with the
+# version. drift between the two implementations silently breaks dedup.
+SEED_CONTENT_HASH_VERSION = "v1"
+SEED_CONTENT_HASH_HEX_LENGTH = 32
+
+
 def _seed_content_hash(kind: str, payload: object) -> str:
     serialized = json.dumps(
         {"kind": kind, "payload": payload},
@@ -93,7 +101,8 @@ def _seed_content_hash(kind: str, payload: object) -> str:
         separators=(",", ":"),
         ensure_ascii=False,
     )
-    return "v1:" + hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:32]
+    digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    return f"{SEED_CONTENT_HASH_VERSION}:{digest[:SEED_CONTENT_HASH_HEX_LENGTH]}"
 
 
 @dataclass(frozen=True)
@@ -120,6 +129,10 @@ class SeedRunContext:
     checkpoint_path: Path
     checkpoint: JsonObject
     progress: ProgressLogger
+    # memoization for compiled-payload builds; build_*_upserts each iterate
+    # every template/item/criterion, so caching avoids rebuilding them across
+    # the hash-skip check and the actual upsert phase in run_seed_manifest
+    payload_cache: dict[str, list[JsonObject]] = field(default_factory=dict)
 
 
 def upload_seed_manifest(
@@ -298,7 +311,7 @@ def run_seed_manifest(
         return write_run_report(context, ["dry-run preflight complete"])
 
     _assert_write_allowed(options, "run")
-    if _active_release_matches_compiled_manifest(context.compiled, state, diff):
+    if _active_release_matches_compiled_manifest(context, state, diff):
         context.progress.log(
             "active release already matches compiled manifest; skipping writes"
         )
@@ -337,6 +350,28 @@ def run_seed_manifest(
     else:
         steps.append("activation skipped; pass --confirm-activation to publish")
     return write_run_report(context, steps)
+
+
+def _cached_payload(
+    context: SeedRunContext, key: str, build: Callable[[JsonObject], list[JsonObject]]
+) -> list[JsonObject]:
+    cached = context.payload_cache.get(key)
+    if cached is None:
+        cached = build(context.compiled)
+        context.payload_cache[key] = cached
+    return cached
+
+
+def cached_template_upserts(context: SeedRunContext) -> list[JsonObject]:
+    return _cached_payload(context, "templates", build_template_upserts)
+
+
+def cached_item_upserts(context: SeedRunContext) -> list[JsonObject]:
+    return _cached_payload(context, "items", build_item_upserts)
+
+
+def cached_criterion_upserts(context: SeedRunContext) -> list[JsonObject]:
+    return _cached_payload(context, "criteria", build_criterion_upserts)
 
 
 def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
@@ -440,14 +475,16 @@ def _criteria_content_hash(
     )
 
 
-def _compiled_template_hashes(compiled: JsonObject) -> dict[str, JsonObject]:
+def _compiled_template_hashes(context: SeedRunContext) -> dict[str, JsonObject]:
     hashes: dict[str, JsonObject] = {
         str(template["externalId"]): {
             "metadataContentHash": template["metadataContentHash"]
         }
-        for template in build_template_upserts(compiled)
+        for template in cached_template_upserts(context)
     }
-    item_rows_by_template = _rows_by_template_external_id(build_item_upserts(compiled))
+    item_rows_by_template = _rows_by_template_external_id(
+        cached_item_upserts(context)
+    )
     for template_external_id, rows in item_rows_by_template.items():
         items = [
             {key: value for key, value in row.items() if key != "templateExternalId"}
@@ -456,23 +493,23 @@ def _compiled_template_hashes(compiled: JsonObject) -> dict[str, JsonObject]:
         hashes.setdefault(template_external_id, {})[
             "itemsContentHash"
         ] = _items_content_hash(template_external_id, items)
-    for template in compiled_templates(compiled):
-        template_external_id = str(template["externalId"])
-        hashes.setdefault(template_external_id, {}).setdefault(
-            "itemsContentHash", _items_content_hash(template_external_id, [])
-        )
-
     criteria_rows_by_template = _rows_by_template_external_id(
-        build_criterion_upserts(compiled)
+        cached_criterion_upserts(context)
     )
     for template_external_id, rows in criteria_rows_by_template.items():
         content_hash = rows[0].get("criteriaContentHash") if rows else None
         hashes.setdefault(template_external_id, {})[
             "criteriaContentHash"
         ] = content_hash
-    for template in compiled_templates(compiled):
+    # fill defaults for templates that have no items or no criteria so the
+    # equality check below sees the same shape on both sides
+    for template in compiled_templates(context.compiled):
         template_external_id = str(template["externalId"])
-        hashes.setdefault(template_external_id, {}).setdefault(
+        bucket = hashes.setdefault(template_external_id, {})
+        bucket.setdefault(
+            "itemsContentHash", _items_content_hash(template_external_id, [])
+        )
+        bucket.setdefault(
             "criteriaContentHash", _criteria_content_hash(template_external_id, [])
         )
     return hashes
@@ -489,9 +526,9 @@ def _rows_by_template_external_id(
 
 
 def _active_release_matches_compiled_manifest(
-    compiled: JsonObject, state: JsonObject, diff: JsonObject
+    context: SeedRunContext, state: JsonObject, diff: JsonObject
 ) -> bool:
-    if state.get("activeReleaseId") != compiled["releaseId"]:
+    if state.get("activeReleaseId") != context.compiled["releaseId"]:
         return False
     if as_list(diff["media"].get("missing")):
         return False
@@ -511,7 +548,7 @@ def _active_release_matches_compiled_manifest(
         for template in as_list(state.get("templates"))
         if isinstance(template, dict) and isinstance(template.get("externalId"), str)
     }
-    for template_external_id, hashes in _compiled_template_hashes(compiled).items():
+    for template_external_id, hashes in _compiled_template_hashes(context).items():
         current = state_templates.get(template_external_id)
         if current is None:
             return False
@@ -858,7 +895,7 @@ def _drop_finalized_storage_ids(
 
 def _upsert_templates(context: SeedRunContext) -> list[JsonObject]:
     results: list[JsonObject] = []
-    batches = list(chunks(build_template_upserts(context.compiled), TEMPLATE_BATCH_SIZE))
+    batches = list(chunks(cached_template_upserts(context), TEMPLATE_BATCH_SIZE))
     for index, chunk in enumerate(batches, start=1):
         context.progress.count(
             "template upsert batches",
@@ -884,7 +921,7 @@ def _upsert_items(
 ) -> list[JsonObject]:
     results: list[JsonObject] = []
     batches = _child_upsert_batches(
-        build_item_upserts(context.compiled), ITEM_BATCH_SIZE, "items"
+        cached_item_upserts(context), ITEM_BATCH_SIZE, "items"
     )
     force_template_external_ids = (
         _item_diff_template_external_ids(diff) if diff is not None else set()
@@ -925,7 +962,7 @@ def _upsert_criteria(
 ) -> list[JsonObject]:
     results: list[JsonObject] = []
     batches = _packed_child_upsert_batches(
-        build_criterion_upserts(context.compiled), CRITERION_BATCH_SIZE, "criteria"
+        cached_criterion_upserts(context), CRITERION_BATCH_SIZE, "criteria"
     )
     force_template_external_ids = (
         sorted(_criteria_diff_template_external_ids(diff))
