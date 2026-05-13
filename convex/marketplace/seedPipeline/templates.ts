@@ -111,7 +111,8 @@ export const countSeedTemplateItems = async (
 
 export const patchSeedTemplateItemSummary = async (
   ctx: MutationCtx,
-  template: Doc<'templates'>
+  template: Doc<'templates'>,
+  extraFields: Pick<Partial<Doc<'templates'>>, 'seedItemsContentHash'> = {}
 ): Promise<void> =>
 {
   const now = Date.now()
@@ -127,6 +128,7 @@ export const patchSeedTemplateItemSummary = async (
       template.visibility,
       template.seedReleaseStatus === 'active'
     ),
+    ...extraFields,
     updatedAt: now,
   })
 }
@@ -156,6 +158,7 @@ export const normalizeSeedTemplateUpsert = (
 ): SeedTemplateApplyPatch =>
 {
   assertNonemptyString('templateExternalId', template.externalId)
+  assertNonemptyString('metadataContentHash', template.metadataContentHash)
   assertPositiveFinite('itemAspectRatio', template.itemAspectRatio)
   assertPositiveInteger('itemCount', template.itemCount)
   assertCountRange('suggestedTiers', template.suggestedTiers.length, 1, 16)
@@ -187,6 +190,7 @@ export const normalizeSeedTemplateUpsert = (
     seedDatasetKey: datasetKey,
     seedExternalId: template.externalId,
     seedReleaseId: releaseId,
+    seedMetadataContentHash: template.metadataContentHash,
   }
 }
 

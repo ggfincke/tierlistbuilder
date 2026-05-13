@@ -16,6 +16,8 @@ npm run seed:marketplace:validate
 npm run seed:marketplace:build
 npm run seed:marketplace:preflight
 npm run seed:marketplace
+npm run seed:rankings:preflight
+npm run seed:rankings
 ```
 
 The package can also be installed for development:
@@ -97,3 +99,38 @@ remove abandoned upload storage IDs and requires `--yes` unless it is a dry run.
 Successfully uploaded storage IDs are registered server-side before finalize, so
 an interrupted upload can be retried or cleaned without losing already uploaded
 blob IDs from the local checkpoint.
+
+## Ranking Seeds
+
+Ranking seeds are release-aware but separate from image upload. Run the template
+pipeline first so Convex has hidden template, item, and criterion rows for the
+target `releaseId`; then run the ranking commands against the same manifest:
+
+```bash
+python -m seed_pipeline rankings:preflight data/seeds/marketplace-core.json --env local
+python -m seed_pipeline rankings:apply data/seeds/marketplace-core.json --env local
+python -m seed_pipeline rankings:verify data/seeds/marketplace-core.json --env local
+python -m seed_pipeline rankings:activate data/seeds/marketplace-core.json --env local --confirm-activation
+```
+
+The combined command performs preflight, apply, verify, and optional activation:
+
+```bash
+python -m seed_pipeline rankings:run data/seeds/marketplace-core.json --env local --confirm-activation
+```
+
+Npm wrappers are available for the common path:
+
+```bash
+npm run seed:rankings:preflight
+npm run seed:rankings:apply
+npm run seed:rankings:verify
+npm run seed:rankings:activate
+npm run seed:rankings
+```
+
+Ranking writes use Convex Auth-backed synthetic authors in the
+`seed+rankings-*@tierlistbuilder.local` namespace, write hidden source boards
+and published ranking rows, and activate them only after verification. Curated
+rankings are authored seed data; sample rankings are deterministic algorithmic
+placements from the manifest profiles and lane config.

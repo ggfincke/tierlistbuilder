@@ -2,6 +2,7 @@
 // breadcrumb -> hero -> consensus (w/ inline rail) -> credit -> related
 
 import { Layers } from 'lucide-react'
+import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 
 import {
@@ -32,7 +33,10 @@ import { useHeroSpread } from '~/features/marketplace/components/consensus/useHe
 import { templateFrame } from '~/features/marketplace/components/consensus/utils'
 import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
 import { RecommendedPresetCard } from '~/features/marketplace/components/cards/RecommendedPresetCard'
-import { TemplateHero } from '~/features/marketplace/components/template/TemplateHero'
+import {
+  RESERVED_RAIL,
+  TemplateHero,
+} from '~/features/marketplace/components/template/TemplateHero'
 import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 
@@ -58,7 +62,7 @@ const DetailSkeleton = () => (
   >
     <SkeletonText className="w-48" tone="soft" />
     <div className="mt-5 grid gap-6 lg:grid-cols-[1.25fr_0.95fr_320px]">
-      <SkeletonBlock className="h-72 rounded-2xl sm:h-80 lg:h-[30rem]" />
+      <SkeletonBlock className="h-72 rounded-2xl sm:h-80 lg:h-[32rem]" />
       <div className="space-y-4">
         <SkeletonText className="w-32" tone="soft" />
         <SkeletonBlock className="h-9 w-3/4 rounded" tone="strong" />
@@ -222,7 +226,21 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
   // that may not match what the chart below is showing
   const frame = templateFrame(detail)
   const hasPreset = detail.suggestedTiers.length > 0
+  // template-level "any lane has rankings" — used to keep the hero grid stable
+  // when the user clicks between lanes; otherwise the cover/meta widths shift
+  // every time the current lane happens to have no consensus content
+  const templateHasAnyRankings = useMemo(
+    () =>
+      Object.values(detail.rankingCountByCriterion ?? {}).some(
+        (count) => count > 0
+      ),
+    [detail.rankingCountByCriterion]
+  )
   const showRail = hasPreset || heroAggregate !== null || heroAggregateLoading
+  // when the current lane has no rail content but another lane on this
+  // template does, pass the RESERVED_RAIL sentinel so the hero keeps the
+  // 320px placeholder column & widths don't jump on lane switches
+  const reserveRailColumn = templateHasAnyRankings && !showRail
   const heroConsensusRail =
     heroAggregate !== null || heroAggregateLoading ? (
       <div className={`flex flex-col gap-3 ${hasPreset ? 'lg:mt-auto' : ''}`}>
@@ -263,6 +281,8 @@ const TemplateDetailContent = ({ detail }: TemplateDetailContentProps) =>
                 )}
                 {heroConsensusRail}
               </>
+            ) : reserveRailColumn ? (
+              RESERVED_RAIL
             ) : null
           }
         />

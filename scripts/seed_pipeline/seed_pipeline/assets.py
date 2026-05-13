@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Literal
@@ -14,6 +17,8 @@ from PIL import Image
 from .crop import CropBBox, detect_content_bbox
 from .manifest import JsonObject
 from .settings import (
+    INSPECT_CACHE_RELATIVE_PATH,
+    INSPECT_CACHE_SCHEMA_VERSION,
     MAX_SOURCE_IMAGE_BYTE_SIZE,
     MAX_SOURCE_IMAGE_DIMENSION,
     PREVIEW_JPEG_QUALITY,
@@ -22,6 +27,7 @@ from .settings import (
     TILE_MAX_BYTES,
     TILE_MAX_SIZE,
     TILE_WEBP_QUALITY,
+    VARIANT_META_SCHEMA_VERSION,
     VARIANT_SPEC_VERSION,
 )
 
@@ -55,9 +61,7 @@ def compile_asset(
     # caller can pass a probed SourceAsset to avoid decoding item images twice
     source = source or inspect_source(source_path, repo_root)
     # build both ingest variants now so upload/apply phases stay metadata-driven
-    tile = build_variant(source.path, source.sha256, "tile", variants_dir)
-    preview = build_variant(source.path, source.sha256, "preview", variants_dir)
-    variants = {"tile": tile, "preview": preview}
+    variants = _build_asset_variants(source, variants_dir)
     return {
         "sourcePath": str(source.path.resolve()),
         "sourcePathRelative": source.repo_relative_path,
@@ -75,13 +79,20 @@ def compile_asset(
 
 def inspect_source(source_path: Path, repo_root: Path) -> SourceAsset:
     resolved = source_path.resolve()
-    byte_size = resolved.stat().st_size
+    repo_resolved = repo_root.resolve()
+    stat = resolved.stat()
+    byte_size = stat.st_size
     # enforce local limits before spending CPU on crop detection
     if byte_size > MAX_SOURCE_IMAGE_BYTE_SIZE:
         msg = f"source image exceeds byte limit: {resolved}"
         raise ValueError(msg)
+    repo_relative_path = resolved.relative_to(repo_resolved).as_posix()
+    cache_path = _inspect_cache_path(repo_resolved, repo_relative_path)
+    cached = _load_inspect_cache(cache_path, resolved, stat.st_mtime_ns, byte_size)
+    if cached is not None:
+        return cached
     with Image.open(resolved) as image:
-        mime_type = Image.MIME.get(image.format or "")
+        mime_type = _source_mime_type(image.format)
         if mime_type is None:
             msg = f"unsupported image format: {resolved}"
             raise ValueError(msg)
@@ -91,9 +102,9 @@ def inspect_source(source_path: Path, repo_root: Path) -> SourceAsset:
             msg = f"source image exceeds dimension limit: {resolved}"
             raise ValueError(msg)
         content_bbox = detect_content_bbox(image)
-    return SourceAsset(
+    asset = SourceAsset(
         path=resolved,
-        repo_relative_path=resolved.relative_to(repo_root.resolve()).as_posix(),
+        repo_relative_path=repo_relative_path,
         sha256=sha256_file(resolved),
         mime_type=mime_type,
         byte_size=byte_size,
@@ -101,6 +112,14 @@ def inspect_source(source_path: Path, repo_root: Path) -> SourceAsset:
         height=height,
         content_bbox=content_bbox,
     )
+    _save_inspect_cache(cache_path, asset, stat.st_mtime_ns)
+    return asset
+
+
+def _source_mime_type(format_name: str | None) -> str | None:
+    if format_name == "MPO":
+        return "image/jpeg"
+    return Image.MIME.get(format_name or "")
 
 
 def build_variant(
@@ -109,31 +128,79 @@ def build_variant(
     kind: VariantKind,
     variants_dir: Path,
     variant_spec_version: str = VARIANT_SPEC_VERSION,
+    *,
+    source_image: "Image.Image | None" = None,
 ) -> JsonObject:
     variants_dir.mkdir(parents=True, exist_ok=True)
-    suffix = "webp" if kind == "tile" else "jpg"
     cache_key = _cache_key(source_sha256, kind, variant_spec_version)
-    # fingerprint includes spec/settings so future policy changes miss old cache files
-    cache_fingerprint = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
-    output_path = variants_dir / f"{source_sha256}-{cache_fingerprint}-{kind}.{suffix}"
-    # reuse cache file when exact source + spec + kind + settings already exist
+    output_path = _variant_output_path(
+        source_sha256, kind, variants_dir, variant_spec_version
+    )
+    meta_path = _variant_meta_path(output_path)
+    # reuse cache file when exact source + spec + kind + settings already exist.
+    # interrupted runs can leave a zero-byte or partial file, so verify before
+    # trusting a hit and regenerate once if Pillow cannot reopen it. the meta
+    # sidecar lets us skip the per-hit Pillow open + sha256 reread entirely.
+    if output_path.is_file():
+        cached_meta = _load_variant_meta(meta_path, output_path)
+        if cached_meta is not None:
+            _assert_variant_policy(
+                kind,
+                cached_meta["byteSize"],
+                cached_meta["width"],
+                cached_meta["height"],
+                output_path,
+            )
+            return {
+                "kind": kind,
+                "path": output_path.as_posix(),
+                "contentHash": cached_meta["contentHash"],
+                "mimeType": cached_meta["mimeType"],
+                "byteSize": cached_meta["byteSize"],
+                "width": cached_meta["width"],
+                "height": cached_meta["height"],
+                "cacheKey": cache_key,
+            }
     if not output_path.is_file():
-        _write_variant(source_path, output_path, kind)
-    with Image.open(output_path) as image:
-        width, height = image.size
-        mime_type = Image.MIME.get(image.format or "")
+        _write_variant(source_path, output_path, kind, source_image=source_image)
+        meta_path.unlink(missing_ok=True)
+    try:
+        width, height, mime_type = _inspect_variant(output_path)
+    except OSError:
+        output_path.unlink(missing_ok=True)
+        meta_path.unlink(missing_ok=True)
+        _write_variant(source_path, output_path, kind, source_image=source_image)
+        width, height, mime_type = _inspect_variant(output_path)
     byte_size = output_path.stat().st_size
     _assert_variant_policy(kind, byte_size, width, height, output_path)
+    content_hash = sha256_file(output_path)
+    _save_variant_meta(
+        meta_path,
+        {
+            "byteSize": byte_size,
+            "contentHash": content_hash,
+            "mimeType": mime_type,
+            "width": width,
+            "height": height,
+        },
+    )
     return {
         "kind": kind,
         "path": output_path.as_posix(),
-        "contentHash": sha256_file(output_path),
+        "contentHash": content_hash,
         "mimeType": mime_type,
         "byteSize": byte_size,
         "width": width,
         "height": height,
         "cacheKey": cache_key,
     }
+
+
+def _inspect_variant(path: Path) -> tuple[int, int, str | None]:
+    with Image.open(path) as image:
+        width, height = image.size
+        mime_type = Image.MIME.get(image.format or "")
+    return width, height, mime_type
 
 
 def sha256_file(path: Path) -> str:
@@ -149,6 +216,57 @@ def compute_variant_dedupe_hash(variants: Iterable[JsonObject]) -> str:
     return "|".join(
         sorted(f"{variant['kind']}:{variant['contentHash']}" for variant in variants)
     )
+
+
+def asset_variants(asset: object) -> Iterable[JsonObject]:
+    if not isinstance(asset, dict):
+        return
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return
+    for kind in ("tile", "preview"):
+        variant = variants.get(kind)
+        if isinstance(variant, dict):
+            yield variant
+
+
+def asset_tile_hash(asset: object) -> str | None:
+    if not isinstance(asset, dict):
+        return None
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return None
+    tile = variants.get("tile")
+    if not isinstance(tile, dict):
+        return None
+    return str(tile["contentHash"])
+
+
+def asset_dedupe_hash(asset: object) -> str | None:
+    if not isinstance(asset, dict):
+        return None
+    dedupe_hash = asset.get("dedupeHash")
+    if isinstance(dedupe_hash, str):
+        return dedupe_hash
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return None
+    return compute_variant_dedupe_hash(
+        variant for variant in variants.values() if isinstance(variant, dict)
+    )
+
+
+def _variant_output_path(
+    source_sha256: str,
+    kind: VariantKind,
+    variants_dir: Path,
+    variant_spec_version: str = VARIANT_SPEC_VERSION,
+) -> Path:
+    suffix = "webp" if kind == "tile" else "jpg"
+    cache_key = _cache_key(source_sha256, kind, variant_spec_version)
+    # fingerprint includes spec/settings so future policy changes miss old cache files
+    cache_fingerprint = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:16]
+    return variants_dir / f"{source_sha256}-{cache_fingerprint}-{kind}.{suffix}"
 
 
 def _cache_key(source_sha256: str, kind: VariantKind, variant_spec_version: str) -> str:
@@ -173,21 +291,67 @@ def _assert_variant_policy(
         raise ValueError(msg)
 
 
-def _write_variant(source_path: Path, output_path: Path, kind: VariantKind) -> None:
+def _write_variant(
+    source_path: Path,
+    output_path: Path,
+    kind: VariantKind,
+    source_image: "Image.Image | None" = None,
+) -> None:
     success = False
     try:
-        with Image.open(source_path) as image:
-            # branch by contract kind, not file extension, so cache names stay stable
-            if kind == "tile":
-                _write_tile(image, output_path)
-            else:
-                _write_preview(image, output_path)
+        # branch by contract kind, not file extension, so cache names stay stable.
+        # callers can pass a preopened source image to amortize decode across kinds
+        if source_image is not None:
+            _encode_variant(source_image, output_path, kind)
+        else:
+            with Image.open(source_path) as image:
+                _encode_variant(image, output_path, kind)
         success = True
     finally:
         # try/finally also catches Ctrl-C (BaseException), so partial files
         # cannot survive into the next run as a poisoned cache hit
         if not success:
             output_path.unlink(missing_ok=True)
+
+
+def _encode_variant(image: Image.Image, output_path: Path, kind: VariantKind) -> None:
+    if kind == "tile":
+        _write_tile(image, output_path)
+    else:
+        _write_preview(image, output_path)
+
+
+def _build_asset_variants(
+    source: SourceAsset, variants_dir: Path
+) -> dict[str, JsonObject]:
+    # opening the source image is the costly step (full pixel decode) so share one
+    # open across both kinds when both miss the cache. when both hit, skip it
+    # entirely; when one hits, the per-build Image.open is unavoidable anyway.
+    tile_path = _variant_output_path(source.sha256, "tile", variants_dir)
+    preview_path = _variant_output_path(source.sha256, "preview", variants_dir)
+    if not tile_path.is_file() or not preview_path.is_file():
+        with Image.open(source.path) as image:
+            # force decode now so the per-kind copies inside _write_tile/_write_preview
+            # share the work instead of triggering the lazy decode twice
+            image.load()
+            tile = build_variant(
+                source.path,
+                source.sha256,
+                "tile",
+                variants_dir,
+                source_image=image,
+            )
+            preview = build_variant(
+                source.path,
+                source.sha256,
+                "preview",
+                variants_dir,
+                source_image=image,
+            )
+    else:
+        tile = build_variant(source.path, source.sha256, "tile", variants_dir)
+        preview = build_variant(source.path, source.sha256, "preview", variants_dir)
+    return {"tile": tile, "preview": preview}
 
 
 def _write_tile(image: Image.Image, output_path: Path) -> None:
@@ -223,3 +387,137 @@ def reset_directory(path: Path) -> None:
     if path.exists():
         shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
+
+
+def _inspect_cache_path(repo_root: Path, repo_relative_path: str) -> Path:
+    # mirror the source path under the cache root so files are easy to inspect
+    return repo_root / INSPECT_CACHE_RELATIVE_PATH / f"{repo_relative_path}.json"
+
+
+def _load_inspect_cache(
+    cache_path: Path,
+    source_path: Path,
+    source_mtime_ns: int,
+    source_byte_size: int,
+) -> SourceAsset | None:
+    payload = _read_sidecar_json(cache_path)
+    if payload is None:
+        return None
+    if payload.get("schemaVersion") != INSPECT_CACHE_SCHEMA_VERSION:
+        return None
+    # mtime+size is the invalidation signal; either change forces a fresh inspect
+    if (
+        payload.get("sourceMtimeNs") != source_mtime_ns
+        or payload.get("sourceByteSize") != source_byte_size
+    ):
+        return None
+    try:
+        repo_relative_path = payload["sourceRelativePath"]
+        sha256 = payload["sha256"]
+        mime_type = payload["mimeType"]
+        width = int(payload["width"])
+        height = int(payload["height"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not isinstance(repo_relative_path, str) or not isinstance(sha256, str):
+        return None
+    if not isinstance(mime_type, str):
+        return None
+    content_bbox = (
+        CropBBox.from_json(payload["contentBbox"])
+        if payload.get("contentBbox") is not None
+        else None
+    )
+    return SourceAsset(
+        path=source_path,
+        repo_relative_path=repo_relative_path,
+        sha256=sha256,
+        mime_type=mime_type,
+        byte_size=source_byte_size,
+        width=width,
+        height=height,
+        content_bbox=content_bbox,
+    )
+
+
+def _save_inspect_cache(
+    cache_path: Path,
+    asset: SourceAsset,
+    source_mtime_ns: int,
+) -> None:
+    payload: JsonObject = {
+        "schemaVersion": INSPECT_CACHE_SCHEMA_VERSION,
+        "sourceRelativePath": asset.repo_relative_path,
+        "sourceMtimeNs": source_mtime_ns,
+        "sourceByteSize": asset.byte_size,
+        "sha256": asset.sha256,
+        "mimeType": asset.mime_type,
+        "width": asset.width,
+        "height": asset.height,
+        "contentBbox": asset.content_bbox.to_json() if asset.content_bbox else None,
+    }
+    _write_sidecar_json(cache_path, payload)
+
+
+def _variant_meta_path(output_path: Path) -> Path:
+    return output_path.with_name(f"{output_path.name}.meta.json")
+
+
+def _load_variant_meta(meta_path: Path, output_path: Path) -> JsonObject | None:
+    payload = _read_sidecar_json(meta_path)
+    if payload is None:
+        return None
+    if payload.get("schemaVersion") != VARIANT_META_SCHEMA_VERSION:
+        return None
+    try:
+        byte_size = int(payload["byteSize"])
+        width = int(payload["width"])
+        height = int(payload["height"])
+        content_hash = payload["contentHash"]
+        mime_type = payload["mimeType"]
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not isinstance(content_hash, str) or not isinstance(mime_type, str):
+        return None
+    # disk byte_size is the only cheap consistency check we can run without re-hash
+    try:
+        actual_size = output_path.stat().st_size
+    except OSError:
+        return None
+    if actual_size != byte_size:
+        return None
+    return {
+        "byteSize": byte_size,
+        "contentHash": content_hash,
+        "mimeType": mime_type,
+        "width": width,
+        "height": height,
+    }
+
+
+def _save_variant_meta(meta_path: Path, meta: JsonObject) -> None:
+    payload = {"schemaVersion": VARIANT_META_SCHEMA_VERSION, **meta}
+    _write_sidecar_json(meta_path, payload)
+
+
+def _read_sidecar_json(path: Path) -> JsonObject | None:
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            value = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _write_sidecar_json(path: Path, payload: JsonObject) -> None:
+    # write atomically so a crashed run can never poison the cache w/ partial JSON
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f"{path.name}.", dir=str(path.parent))
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            json.dump(payload, file)
+        os.replace(tmp_path, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise

@@ -119,6 +119,7 @@ import {
   type TemplateRankingAggregateState,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import {
+  SEED_RANKING_RELEASE_STATUSES,
   SEED_RUN_STATUSES,
   SEED_TEMPLATE_RELEASE_STATUSES,
 } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
@@ -236,6 +237,9 @@ export const templateRankingAggregateItemBandValidator = literalUnion(
 export const seedRunStatusValidator = literalUnion(SEED_RUN_STATUSES)
 export const seedTemplateReleaseStatusValidator = literalUnion(
   SEED_TEMPLATE_RELEASE_STATUSES
+)
+export const seedRankingReleaseStatusValidator = literalUnion(
+  SEED_RANKING_RELEASE_STATUSES
 )
 
 export const templateRankingAggregateJobStatusValidator = v.union(

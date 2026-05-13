@@ -889,8 +889,47 @@ export const CommunityConsensusSection = ({
   // body region picks the right subview for each aggregate state; the
   // chips + header stay stable across them so users don't see lane
   // navigation jumping in/out as data loads
+  const renderEmptyLane = (): ReactNode =>
+  {
+    if (multiCriterion && visibleCriteria)
+    {
+      return (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0">
+            <CriterionEmptyLane
+              templateSlug={template.slug}
+              templateTitle={template.title}
+              access={template.access}
+              criterion={selectedCriterion}
+              otherCriteria={visibleCriteria.filter(
+                (c) => c.externalId !== criterionExternalId
+              )}
+              rankingCountByCriterion={rankingCountByCriterion}
+              onSelectCriterion={onCriterionChange}
+            />
+          </div>
+          <aside aria-hidden="true" className="hidden lg:block" />
+        </div>
+      )
+    }
+    return (
+      <StateCard
+        title="No community consensus yet"
+        body="Once people publish rankings made from this template, the spread shows up here."
+      />
+    )
+  }
+
   const renderStateBody = (): React.ReactNode =>
   {
+    // when switching to a lane the template manifest already says is empty,
+    // skip the loading shell — otherwise the previous lane's toolbar + rail
+    // flicker in for one frame before the empty state resolves
+    const knownLaneCount = rankingCountByCriterion[criterionExternalId] ?? 0
+    if (aggregate === undefined && knownLaneCount === 0)
+    {
+      return renderEmptyLane()
+    }
     if (aggregate === undefined)
     {
       const laneLabel = selectedCriterion.shortName ?? selectedCriterion.name
@@ -915,30 +954,7 @@ export const CommunityConsensusSection = ({
     }
     if (aggregate === null || aggregate.state === 'empty')
     {
-      // empty states render the lane-aware "be the first" card on multi-
-      // criterion templates so users see a real lane, not a global emptiness
-      if (multiCriterion && visibleCriteria)
-      {
-        return (
-          <CriterionEmptyLane
-            templateSlug={template.slug}
-            templateTitle={template.title}
-            access={template.access}
-            criterion={selectedCriterion}
-            otherCriteria={visibleCriteria.filter(
-              (c) => c.externalId !== criterionExternalId
-            )}
-            rankingCountByCriterion={rankingCountByCriterion}
-            onSelectCriterion={onCriterionChange}
-          />
-        )
-      }
-      return (
-        <StateCard
-          title="No community consensus yet"
-          body="Once people publish rankings made from this template, the spread shows up here."
-        />
-      )
+      return renderEmptyLane()
     }
     if (aggregate.state === 'failed')
     {

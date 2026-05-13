@@ -121,7 +121,130 @@ def _semantic_diagnostics(
         # criteria/items each own template-scoped identity rules
         _check_criteria(template, template_path, diagnostics)
         _check_items(template, folder, repo_root, template_path, diagnostics)
+    _check_ranking_seeds(manifest, templates, diagnostics)
     return diagnostics
+
+
+def _check_ranking_seeds(
+    manifest: JsonObject,
+    templates: list[Any],
+    diagnostics: list[ValidationDiagnostic],
+) -> None:
+    ranking_seeds = manifest.get("rankingSeeds")
+    if not isinstance(ranking_seeds, dict):
+        return
+    profiles = as_list(ranking_seeds.get("profiles"))
+    profile_keys = _check_unique_dict_values(
+        profiles,
+        "$.rankingSeeds.profiles",
+        "key",
+        "duplicateRankingProfileKey",
+        diagnostics,
+    )
+    template_by_external_id = {
+        as_str(template.get("externalId")): template
+        for template in templates
+        if isinstance(template, dict)
+    }
+    targets = as_list(ranking_seeds.get("targets"))
+    _check_unique_dict_values(
+        targets,
+        "$.rankingSeeds.targets",
+        "templateExternalId",
+        "duplicateRankingTarget",
+        diagnostics,
+    )
+    curated_ids: set[str] = set()
+    for target_index, target in enumerate(targets):
+        target_path = f"$.rankingSeeds.targets[{target_index}]"
+        if not isinstance(target, dict):
+            continue
+        template_external_id = as_str(target.get("templateExternalId"))
+        template = template_by_external_id.get(template_external_id)
+        if template is None:
+            diagnostics.append(
+                _error("unknownRankingTargetTemplate", target_path, template_external_id)
+            )
+            continue
+        criteria = {
+            as_str(criterion.get("externalId"))
+            for criterion in as_list(template.get("criteria"))
+            if isinstance(criterion, dict)
+        }
+        lane_ids = _check_unique_dict_values(
+            as_list(target.get("lanes")),
+            f"{target_path}.lanes",
+            "criterionExternalId",
+            "duplicateRankingLaneCriterion",
+            diagnostics,
+        )
+        for lane_id in lane_ids:
+            if lane_id not in criteria:
+                diagnostics.append(
+                    _error("unknownRankingLaneCriterion", f"{target_path}.lanes", lane_id)
+                )
+        featured_slots: set[str] = set()
+        for curated_index, curated in enumerate(as_list(target.get("curatedRankings"))):
+            curated_path = f"{target_path}.curatedRankings[{curated_index}]"
+            if not isinstance(curated, dict):
+                continue
+            external_id = as_str(curated.get("externalId"))
+            if external_id in curated_ids:
+                diagnostics.append(
+                    _error("duplicateCuratedRankingExternalId", curated_path, external_id)
+                )
+            curated_ids.add(external_id)
+            criterion_id = as_str(curated.get("criterionExternalId"))
+            if criterion_id not in criteria:
+                diagnostics.append(
+                    _error(
+                        "unknownCuratedRankingCriterion",
+                        f"{curated_path}.criterionExternalId",
+                        criterion_id,
+                    )
+                )
+            featured_rank = curated.get("featuredRank")
+            if isinstance(featured_rank, int):
+                slot = f"{criterion_id}:{featured_rank}"
+                if slot in featured_slots:
+                    diagnostics.append(
+                        _error("duplicateCuratedFeaturedRank", curated_path, slot)
+                    )
+                featured_slots.add(slot)
+                if curated.get("featuredBadge") is None:
+                    diagnostics.append(
+                        _error("missingCuratedFeaturedBadge", curated_path, external_id)
+                    )
+        for lane_index, lane in enumerate(as_list(target.get("lanes"))):
+            lane_path = f"{target_path}.lanes[{lane_index}]"
+            if not isinstance(lane, dict):
+                continue
+            for featured in as_list(lane.get("featuredProfiles")):
+                if not isinstance(featured, dict):
+                    continue
+                profile_key = as_str(featured.get("profileKey"))
+                if profile_key not in profile_keys:
+                    diagnostics.append(
+                        _error("unknownFeaturedProfileKey", lane_path, profile_key)
+                    )
+
+
+def _check_unique_dict_values(
+    rows: list[Any],
+    path: str,
+    key: str,
+    code: str,
+    diagnostics: list[ValidationDiagnostic],
+) -> set[str]:
+    seen: set[str] = set()
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        value = as_str(row.get(key))
+        if value in seen:
+            diagnostics.append(_error(code, f"{path}[{index}].{key}", value))
+        seen.add(value)
+    return seen
 
 
 def _check_criteria(

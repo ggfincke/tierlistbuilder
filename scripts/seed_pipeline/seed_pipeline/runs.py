@@ -3,17 +3,29 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
+from .assets import asset_dedupe_hash, asset_variants
 from .build import build_compiled_manifest_with_data
 from .convex_client import ConvexSeedClient, read_seed_settings
-from .diff import build_seed_diff, build_state_request
-from .manifest import JsonObject, as_list, read_json, write_json
+from .diff import build_seed_diff, resolve_seed_state
+from .manifest import (
+    JsonObject,
+    as_list,
+    chunk_templates_by_items,
+    chunks,
+    compiled_templates,
+    read_json,
+    write_json,
+)
+from .progress import ProgressLogger, progress_interval
 from .reports import (
     write_activation_report,
     write_apply_report,
@@ -25,8 +37,8 @@ from .reports import (
 )
 
 
+SEED_ENSURE_AUTHOR_FUNCTION = "marketplace/seedRuns:ensureSeedAuthor"
 SEED_BEGIN_FUNCTION = "marketplace/seedRuns:beginSeedRun"
-SEED_STATE_FUNCTION = "marketplace/seedRuns:resolveSeedState"
 SEED_UPLOAD_URLS_FUNCTION = "marketplace/seedRuns:generateSeedUploadUrls"
 SEED_REGISTER_UPLOADS_FUNCTION = (
     "marketplace/seedPipeline/storageUploads:registerSeedUploadedStorageIds"
@@ -38,7 +50,10 @@ SEED_CLEANUP_FUNCTION = (
 SEED_UPSERT_TEMPLATES_FUNCTION = "marketplace/seedRuns:upsertSeedTemplates"
 SEED_SYNC_TEMPLATE_ITEMS_FUNCTION = "marketplace/seedRuns:syncSeedTemplateItems"
 SEED_UPSERT_CRITERIA_FUNCTION = "marketplace/seedRuns:upsertSeedCriteria"
-SEED_VERIFY_FUNCTION = "marketplace/seedRuns:verifySeedRelease"
+SEED_VERIFY_CHUNK_FUNCTION = "marketplace/seedRuns:verifySeedReleaseChunk"
+SEED_COMPLETE_VERIFICATION_FUNCTION = (
+    "marketplace/seedRuns:completeSeedReleaseVerification"
+)
 SEED_ACTIVATE_FUNCTION = "marketplace/seedRuns:activateSeedRelease"
 SEED_ROLLBACK_FUNCTION = "marketplace/seedRuns:rollbackSeedRelease"
 
@@ -48,6 +63,7 @@ CRITERION_BATCH_SIZE = 512
 UPLOAD_URL_BATCH_SIZE = 128
 FINALIZE_ASSET_BATCH_SIZE = 64
 CLEANUP_STORAGE_BATCH_SIZE = 256
+VERIFY_ITEM_READ_BATCH_SIZE = 1500
 # bound per-asset upload concurrency. each variant POST is one HTTP request
 # from a single Convex storage URL; small pool keeps RTT-bound uploads parallel
 # without overwhelming the deployment
@@ -68,6 +84,25 @@ SURFACE_ASPECT_RATIOS = {
     "detailHero": 4 / 3,
     "card": 16 / 10,
 }
+
+
+# mirrors packages/contracts/marketplace/seedPipeline.ts. both sides serialize
+# {kind, payload} as canonical JSON (sorted keys, no whitespace) then take the
+# leading SEED_CONTENT_HASH_HEX_LENGTH hex chars of sha256, prefixed with the
+# version. drift between the two implementations silently breaks dedup.
+SEED_CONTENT_HASH_VERSION = "v1"
+SEED_CONTENT_HASH_HEX_LENGTH = 32
+
+
+def _seed_content_hash(kind: str, payload: object) -> str:
+    serialized = json.dumps(
+        {"kind": kind, "payload": payload},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    return f"{SEED_CONTENT_HASH_VERSION}:{digest[:SEED_CONTENT_HASH_HEX_LENGTH]}"
 
 
 @dataclass(frozen=True)
@@ -93,6 +128,11 @@ class SeedRunContext:
     client: ConvexSeedClient
     checkpoint_path: Path
     checkpoint: JsonObject
+    progress: ProgressLogger
+    # memoization for compiled-payload builds; build_*_upserts each iterate
+    # every template/item/criterion, so caching avoids rebuilding them across
+    # the hash-skip check and the actual upsert phase in run_seed_manifest
+    payload_cache: dict[str, list[JsonObject]] = field(default_factory=dict)
 
 
 def upload_seed_manifest(
@@ -100,15 +140,17 @@ def upload_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options)
+    context = _load_context(manifest_path, repo_root, options, "upload")
     state = _resolve_state(context, options)
     diff = build_seed_diff(context.compiled, state)
     write_diff_report(context, state, diff, options.env_name)
     # upload a whole asset when any variant is missing so media dedupe stays exact
     assets = _assets_requiring_upload(context.compiled, state)
+    context.progress.log(f"{len(assets)} media assets require upload")
     _assert_write_allowed(options, "upload")
     _assert_upload_budget(assets, options.max_upload_bytes)
     if options.dry_run:
+        context.progress.log("dry run complete; no upload writes performed")
         return write_upload_report(context, assets, [], [], dry_run=True)
 
     _begin_seed_run(context)
@@ -127,9 +169,10 @@ def apply_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options)
+    context = _load_context(manifest_path, repo_root, options, "apply")
     _assert_write_allowed(options, "apply")
     if options.dry_run:
+        context.progress.log("dry run complete; no apply writes performed")
         return write_apply_report(context, [], [], [], dry_run=True)
 
     _begin_seed_run(context)
@@ -147,20 +190,15 @@ def verify_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options)
+    context = _load_context(manifest_path, repo_root, options, "verify")
     _assert_write_allowed(options, "verify")
     if options.dry_run:
+        context.progress.log("dry run complete; no verification writes performed")
         return write_verify_report(context, {"verified": False, "diagnostics": []}, True)
 
     # verification mutates run status, so register/resume the run first
     _begin_seed_run(context)
-    result = context.client.mutation(
-        SEED_VERIFY_FUNCTION,
-        {
-            **_run_request(context),
-            "expectedTotals": context.compiled["totals"],
-        },
-    )
+    result = _verify_seed_release(context)
     return write_verify_report(context, result)
 
 
@@ -169,13 +207,21 @@ def activate_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options)
+    context = _load_context(manifest_path, repo_root, options, "activate")
     _assert_write_allowed(options, "activate")
+    return _activate_seed_context(context, options)
+
+
+def _activate_seed_context(context: SeedRunContext, options: SeedRunOptions) -> Path:
     if not options.confirm_activation:
         msg = "activation requires --confirm-activation"
         raise RuntimeError(msg)
     # default to the active release captured during preflight/run resume
     previous_release_id = _resolve_previous_release_id(context, options)
+    context.progress.log(
+        f"activating release {context.compiled['releaseId']} "
+        f"(previous: {previous_release_id or 'none'})"
+    )
     result = context.client.mutation(
         SEED_ACTIVATE_FUNCTION,
         {
@@ -194,7 +240,7 @@ def rollback_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options)
+    context = _load_context(manifest_path, repo_root, options, "rollback")
     _assert_write_allowed(options, "rollback")
     if not options.confirm_activation:
         msg = "rollback requires --confirm-activation"
@@ -220,7 +266,7 @@ def cleanup_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options)
+    context = _load_context(manifest_path, repo_root, options, "cleanup")
     _assert_write_allowed(options, "cleanup")
     if not options.dry_run and not options.yes:
         msg = "cleanup requires --yes so abandoned storage removal is explicit"
@@ -231,8 +277,11 @@ def cleanup_seed_manifest(
     skipped: list[str] = []
     if not options.dry_run:
         if storage_ids:
+            context.progress.log(f"registering {len(storage_ids)} uploaded storage IDs")
             _register_uploaded_storage_ids(context, storage_ids)
-        for chunk in _chunks(storage_ids, CLEANUP_STORAGE_BATCH_SIZE):
+        batches = list(chunks(storage_ids, CLEANUP_STORAGE_BATCH_SIZE))
+        for index, chunk in enumerate(batches, start=1):
+            context.progress.count("cleanup batches", index, len(batches))
             result = context.client.action(
                 SEED_CLEANUP_FUNCTION,
                 {**_run_request(context), "storageIds": chunk},
@@ -253,19 +302,30 @@ def run_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options)
+    context = _load_context(manifest_path, repo_root, options, "run")
     state = _resolve_state(context, options)
     diff = build_seed_diff(context.compiled, state)
     write_diff_report(context, state, diff, options.env_name)
     if options.dry_run:
+        context.progress.log("dry run complete; no writes performed")
         return write_run_report(context, ["dry-run preflight complete"])
 
     _assert_write_allowed(options, "run")
+    if _active_release_matches_compiled_manifest(context, state, diff):
+        context.progress.log(
+            "active release already matches compiled manifest; skipping writes"
+        )
+        return write_run_report(
+            context,
+            ["active release already matches compiled manifest; no writes performed"],
+        )
+    _ensure_seed_author(context)
     _begin_seed_run(context)
     # persist the activation guard before long upload/apply work starts
     context.checkpoint["previousActiveReleaseId"] = state.get("activeReleaseId")
     _write_checkpoint(context)
     assets = _assets_requiring_upload(context.compiled, state)
+    context.progress.log(f"{len(assets)} media assets require upload")
     _assert_upload_budget(assets, options.max_upload_bytes)
     if assets:
         uploaded_assets = _upload_assets(context, assets)
@@ -275,15 +335,9 @@ def run_seed_manifest(
             msg = f"seed upload rejected {len(rejected)} variant(s); report: {report_path}"
             raise RuntimeError(msg)
     _upsert_templates(context)
-    _upsert_criteria(context)
-    _upsert_items(context)
-    verification = context.client.mutation(
-        SEED_VERIFY_FUNCTION,
-        {
-            **_run_request(context),
-            "expectedTotals": context.compiled["totals"],
-        },
-    )
+    _upsert_criteria(context, diff)
+    _upsert_items(context, diff)
+    verification = _verify_seed_release(context)
     if not verification.get("verified"):
         write_verify_report(context, verification)
         msg = "seed verification failed; activation skipped"
@@ -291,31 +345,59 @@ def run_seed_manifest(
     write_verify_report(context, verification)
     steps = ["upload complete", "apply complete", "verification complete"]
     if options.confirm_activation:
-        activation_path = activate_seed_manifest(manifest_path, repo_root, options)
+        activation_path = _activate_seed_context(context, options)
         steps.append(f"activation report: {activation_path}")
     else:
         steps.append("activation skipped; pass --confirm-activation to publish")
     return write_run_report(context, steps)
 
 
+def _cached_payload(
+    context: SeedRunContext, key: str, build: Callable[[JsonObject], list[JsonObject]]
+) -> list[JsonObject]:
+    cached = context.payload_cache.get(key)
+    if cached is None:
+        cached = build(context.compiled)
+        context.payload_cache[key] = cached
+    return cached
+
+
+def cached_template_upserts(context: SeedRunContext) -> list[JsonObject]:
+    return _cached_payload(context, "templates", build_template_upserts)
+
+
+def cached_item_upserts(context: SeedRunContext) -> list[JsonObject]:
+    return _cached_payload(context, "items", build_item_upserts)
+
+
+def cached_criterion_upserts(context: SeedRunContext) -> list[JsonObject]:
+    return _cached_payload(context, "criteria", build_criterion_upserts)
+
+
 def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
     upserts: list[JsonObject] = []
-    for template in _templates(compiled):
+    for template in compiled_templates(compiled):
         cover = template.get("coverImage")
+        upsert = {
+            "externalId": template["externalId"],
+            "title": template["title"],
+            "category": template["category"],
+            "description": template.get("description"),
+            "tags": template.get("tags", []),
+            "visibility": template["visibility"],
+            "coverMediaDedupeHash": asset_dedupe_hash(cover),
+            "coverFraming": _cover_framing(template),
+            "suggestedTiers": template.get("suggestedTiers")
+            or DEFAULT_SUGGESTED_TIERS,
+            "itemAspectRatio": template["itemAspectRatio"],
+            "itemCount": len(as_list(template.get("items"))),
+        }
         upserts.append(
             {
-                "externalId": template["externalId"],
-                "title": template["title"],
-                "category": template["category"],
-                "description": template.get("description"),
-                "tags": template.get("tags", []),
-                "visibility": template["visibility"],
-                "coverMediaDedupeHash": _asset_dedupe_hash(cover),
-                "coverFraming": _cover_framing(template),
-                "suggestedTiers": template.get("suggestedTiers")
-                or DEFAULT_SUGGESTED_TIERS,
-                "itemAspectRatio": template["itemAspectRatio"],
-                "itemCount": len(as_list(template.get("items"))),
+                **upsert,
+                "metadataContentHash": _seed_content_hash(
+                    "template-metadata", upsert
+                ),
             }
         )
     return upserts
@@ -323,7 +405,7 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
 
 def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
     upserts: list[JsonObject] = []
-    for template in _templates(compiled):
+    for template in compiled_templates(compiled):
         for item in as_list(template.get("items")):
             if not isinstance(item, dict):
                 continue
@@ -334,7 +416,7 @@ def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
                     "itemExternalId": item["externalId"],
                     "order": item["order"],
                     "label": item.get("label"),
-                    "mediaDedupeHash": _asset_dedupe_hash(item["asset"]),
+                    "mediaDedupeHash": asset_dedupe_hash(item["asset"]),
                     "aspectRatio": item.get("aspectRatio"),
                     "transform": item.get("transform"),
                 }
@@ -344,12 +426,13 @@ def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
 
 def build_criterion_upserts(compiled: JsonObject) -> list[JsonObject]:
     upserts: list[JsonObject] = []
-    for template in _templates(compiled):
+    for template in compiled_templates(compiled):
+        template_criteria: list[JsonObject] = []
         for criterion in as_list(template.get("criteria")):
             if not isinstance(criterion, dict):
                 continue
             # criteria are embedded on templates, but apply still treats them as IDs
-            upserts.append(
+            template_criteria.append(
                 {
                     "templateExternalId": template["externalId"],
                     "criterionExternalId": criterion["externalId"],
@@ -363,17 +446,163 @@ def build_criterion_upserts(compiled: JsonObject) -> list[JsonObject]:
                     "status": criterion["status"],
                 }
             )
+        criteria_content_hash = _criteria_content_hash(
+            str(template["externalId"]), template_criteria
+        )
+        upserts.extend(
+            {
+                **criterion,
+                "criteriaContentHash": criteria_content_hash,
+            }
+            for criterion in template_criteria
+        )
     return upserts
+
+
+def _items_content_hash(template_external_id: str, items: list[JsonObject]) -> str:
+    return _seed_content_hash(
+        "template-items",
+        {"templateExternalId": template_external_id, "items": items},
+    )
+
+
+def _criteria_content_hash(
+    template_external_id: str, criteria: list[JsonObject]
+) -> str:
+    return _seed_content_hash(
+        "template-criteria",
+        {"templateExternalId": template_external_id, "criteria": criteria},
+    )
+
+
+def _compiled_template_hashes(context: SeedRunContext) -> dict[str, JsonObject]:
+    hashes: dict[str, JsonObject] = {
+        str(template["externalId"]): {
+            "metadataContentHash": template["metadataContentHash"]
+        }
+        for template in cached_template_upserts(context)
+    }
+    item_rows_by_template = _rows_by_template_external_id(
+        cached_item_upserts(context)
+    )
+    for template_external_id, rows in item_rows_by_template.items():
+        items = [
+            {key: value for key, value in row.items() if key != "templateExternalId"}
+            for row in rows
+        ]
+        hashes.setdefault(template_external_id, {})[
+            "itemsContentHash"
+        ] = _items_content_hash(template_external_id, items)
+    criteria_rows_by_template = _rows_by_template_external_id(
+        cached_criterion_upserts(context)
+    )
+    for template_external_id, rows in criteria_rows_by_template.items():
+        content_hash = rows[0].get("criteriaContentHash") if rows else None
+        hashes.setdefault(template_external_id, {})[
+            "criteriaContentHash"
+        ] = content_hash
+    # fill defaults for templates that have no items or no criteria so the
+    # equality check below sees the same shape on both sides
+    for template in compiled_templates(context.compiled):
+        template_external_id = str(template["externalId"])
+        bucket = hashes.setdefault(template_external_id, {})
+        bucket.setdefault(
+            "itemsContentHash", _items_content_hash(template_external_id, [])
+        )
+        bucket.setdefault(
+            "criteriaContentHash", _criteria_content_hash(template_external_id, [])
+        )
+    return hashes
+
+
+def _rows_by_template_external_id(
+    rows: list[JsonObject],
+) -> dict[str, list[JsonObject]]:
+    grouped: dict[str, list[JsonObject]] = {}
+    for row in rows:
+        template_external_id = str(row["templateExternalId"])
+        grouped.setdefault(template_external_id, []).append(row)
+    return grouped
+
+
+def _active_release_matches_compiled_manifest(
+    context: SeedRunContext, state: JsonObject, diff: JsonObject
+) -> bool:
+    if state.get("activeReleaseId") != context.compiled["releaseId"]:
+        return False
+    if as_list(diff["media"].get("missing")):
+        return False
+    if (
+        as_list(diff["templates"].get("create"))
+        or as_list(diff["templates"].get("update"))
+        or as_list(diff["items"].get("create"))
+        or as_list(diff["items"].get("update"))
+        or as_list(diff["items"].get("reorder"))
+        or as_list(diff["criteria"].get("create"))
+        or as_list(diff["criteria"].get("update"))
+    ):
+        return False
+
+    state_templates = {
+        str(template["externalId"]): template
+        for template in as_list(state.get("templates"))
+        if isinstance(template, dict) and isinstance(template.get("externalId"), str)
+    }
+    for template_external_id, hashes in _compiled_template_hashes(context).items():
+        current = state_templates.get(template_external_id)
+        if current is None:
+            return False
+        if any(current.get(key) != value for key, value in hashes.items()):
+            return False
+    return True
+
+
+def _item_diff_template_external_ids(diff: JsonObject) -> set[str]:
+    return _diff_template_external_ids(
+        diff.get("items"),
+        ("create", "update", "reorder"),
+    )
+
+
+def _criteria_diff_template_external_ids(diff: JsonObject) -> set[str]:
+    return _diff_template_external_ids(diff.get("criteria"), ("create", "update"))
+
+
+def _diff_template_external_ids(section: object, keys: tuple[str, ...]) -> set[str]:
+    if not isinstance(section, dict):
+        return set()
+    template_external_ids: set[str] = set()
+    for key in keys:
+        for entry in as_list(section.get(key)):
+            if isinstance(entry, dict) and isinstance(
+                entry.get("templateExternalId"), str
+            ):
+                template_external_ids.add(str(entry["templateExternalId"]))
+    return template_external_ids
 
 
 def _load_context(
     manifest_path: Path,
     repo_root: Path,
     options: SeedRunOptions,
+    label: str,
 ) -> SeedRunContext:
+    progress = ProgressLogger(label)
     compiled_path, compiled = build_compiled_manifest_with_data(
-        manifest_path, repo_root, fail_on_warning=options.fail_on_warning
+        manifest_path,
+        repo_root,
+        fail_on_warning=options.fail_on_warning,
+        progress=progress,
     )
+    totals = compiled["totals"]
+    progress.log(
+        "compiled manifest ready: "
+        f"{totals['templateCount']} templates, "
+        f"{totals['itemCount']} items, "
+        f"{totals['sourceImageCount']} source images, "
+        f"{totals['variantCount']} variants"
+    )
+    progress.log(f"loading seed settings for {options.env_name}")
     settings = read_seed_settings(
         repo_root, options.env_name, options.convex_url, options.seed_secret
     )
@@ -385,7 +614,9 @@ def _load_context(
     checkpoint.setdefault("datasetKey", compiled["datasetKey"])
     checkpoint.setdefault("releaseId", compiled["releaseId"])
     checkpoint.setdefault("env", options.env_name)
-    checkpoint["runId"] = options.run_id or checkpoint.get("runId") or _new_run_id(compiled)
+    checkpoint["runId"] = (
+        options.run_id or checkpoint.get("runId") or _new_run_id(compiled)
+    )
     checkpoint.setdefault("uploadedStorageIds", [])
     return SeedRunContext(
         compiled_path=compiled_path,
@@ -393,11 +624,35 @@ def _load_context(
         client=ConvexSeedClient(settings),
         checkpoint_path=checkpoint_path,
         checkpoint=checkpoint,
+        progress=progress,
+    )
+
+
+def _ensure_seed_author(context: SeedRunContext) -> None:
+    author_password = context.client.settings.author_password
+    if not author_password:
+        msg = "CONVEX_SEED_AUTHOR_PASSWORD is not set"
+        raise RuntimeError(msg)
+    context.progress.log(
+        f"ensuring seed author exists: {context.compiled['authorEmail']}"
+    )
+    context.client.action(
+        SEED_ENSURE_AUTHOR_FUNCTION,
+        {
+            "email": context.compiled["authorEmail"],
+            "password": author_password,
+        },
     )
 
 
 def _begin_seed_run(context: SeedRunContext) -> None:
     totals = context.compiled["totals"]
+    context.progress.log(
+        "starting seed run: "
+        f"{totals['templateCount']} templates, "
+        f"{totals['itemCount']} items, "
+        f"{totals['variantCount']} image variants"
+    )
     result = context.client.mutation(
         SEED_BEGIN_FUNCTION,
         {
@@ -413,11 +668,10 @@ def _begin_seed_run(context: SeedRunContext) -> None:
 
 def _resolve_state(context: SeedRunContext, options: SeedRunOptions) -> JsonObject:
     if options.state_json is not None:
+        context.progress.log(f"loading fixture state: {options.state_json}")
         return read_json(options.state_json)
-    return context.client.query(
-        SEED_STATE_FUNCTION,
-        build_state_request(context.compiled),
-    )
+    context.progress.log(f"reading current seed state from {options.env_name}")
+    return resolve_seed_state(context.client, context.compiled, context.progress)
 
 
 def _resolve_previous_release_id(
@@ -432,19 +686,82 @@ def _resolve_previous_release_id(
     return None
 
 
+def _verify_seed_release(context: SeedRunContext) -> JsonObject:
+    context.progress.log("verifying release totals and seeded data")
+    template_chunks = chunk_templates_by_items(
+        compiled_templates(context.compiled), VERIFY_ITEM_READ_BATCH_SIZE
+    )
+    diagnostics: list[JsonObject] = []
+    actual_totals = {"templateCount": 0, "itemCount": 0, "criterionCount": 0}
+    for index, chunk in enumerate(template_chunks, start=1):
+        context.progress.count(
+            "verification template batches",
+            index,
+            len(template_chunks),
+            suffix=f"{len(chunk)} templates",
+        )
+        result = context.client.mutation(
+            SEED_VERIFY_CHUNK_FUNCTION,
+            {
+                **_run_request(context),
+                "templateExternalIds": [
+                    template["externalId"] for template in chunk
+                ],
+            },
+        )
+        diagnostics.extend(
+            item
+            for item in as_list(result.get("diagnostics"))
+            if isinstance(item, dict)
+        )
+        totals = result.get("totals")
+        if isinstance(totals, dict):
+            for key in actual_totals:
+                value = totals.get(key)
+                if isinstance(value, (int, float)):
+                    actual_totals[key] += int(value)
+    context.progress.log(
+        "verification totals: "
+        f"{actual_totals['templateCount']} templates, "
+        f"{actual_totals['itemCount']} items, "
+        f"{actual_totals['criterionCount']} criteria, "
+        f"{len(diagnostics)} diagnostics"
+    )
+    return context.client.mutation(
+        SEED_COMPLETE_VERIFICATION_FUNCTION,
+        {
+            **_run_request(context),
+            "expectedTotals": context.compiled["totals"],
+            "actualTotals": actual_totals,
+            "diagnostics": diagnostics,
+        },
+    )
+
+
 def _upload_assets(
     context: SeedRunContext,
     assets: list[JsonObject],
 ) -> list[JsonObject]:
     uploaded: list[JsonObject] = []
-    for asset_chunk in _chunks(assets, FINALIZE_ASSET_BATCH_SIZE):
+    asset_chunks = list(chunks(assets, FINALIZE_ASSET_BATCH_SIZE))
+    total_variants = sum(
+        1 for asset in assets for _variant in asset_variants(asset["asset"])
+    )
+    uploaded_variants = 0
+    variant_log_every = progress_interval(total_variants)
+    for asset_chunk_index, asset_chunk in enumerate(asset_chunks, start=1):
         # duplicate hashes still need distinct storage objects until finalize runs
         variants = [
             variant
             for asset in asset_chunk
-            for variant in _asset_variants(asset["asset"])
+            for variant in asset_variants(asset["asset"])
         ]
+        context.progress.log(
+            f"upload asset batch {asset_chunk_index}/{len(asset_chunks)}: "
+            f"{len(asset_chunk)} assets, {len(variants)} variants"
+        )
         upload_rows = _generate_upload_urls(context, variants)
+
         def upload_one(args: tuple[JsonObject, JsonObject]) -> str:
             variant, upload_row = args
             return context.client.upload_file(
@@ -469,6 +786,13 @@ def _upload_assets(
                     continue
                 variant["storageId"] = storage_id
                 storage_ids.append(storage_id)
+                uploaded_variants += 1
+                context.progress.count(
+                    "uploaded variants",
+                    uploaded_variants,
+                    total_variants,
+                    every=variant_log_every,
+                )
         for storage_id in storage_ids:
             context.checkpoint.setdefault("uploadedStorageIds", []).append(storage_id)
         _write_checkpoint(context)
@@ -489,7 +813,9 @@ def _generate_upload_urls(
     context: SeedRunContext, variants: list[JsonObject]
 ) -> list[JsonObject]:
     upload_rows: list[JsonObject] = []
-    for chunk in _chunks(variants, UPLOAD_URL_BATCH_SIZE):
+    batches = list(chunks(variants, UPLOAD_URL_BATCH_SIZE))
+    for index, chunk in enumerate(batches, start=1):
+        context.progress.count("upload URL batches", index, len(batches))
         result = context.client.mutation(
             SEED_UPLOAD_URLS_FUNCTION,
             {
@@ -512,7 +838,9 @@ def _generate_upload_urls(
 def _register_uploaded_storage_ids(
     context: SeedRunContext, storage_ids: list[str]
 ) -> None:
-    for chunk in _chunks(storage_ids, CLEANUP_STORAGE_BATCH_SIZE):
+    batches = list(chunks(storage_ids, CLEANUP_STORAGE_BATCH_SIZE))
+    for index, chunk in enumerate(batches, start=1):
+        context.progress.count("register upload batches", index, len(batches))
         context.client.mutation(
             SEED_REGISTER_UPLOADS_FUNCTION,
             {**_run_request(context), "storageIds": chunk},
@@ -525,7 +853,9 @@ def _finalize_uploaded_assets(
 ) -> tuple[list[JsonObject], list[JsonObject]]:
     finalized: list[JsonObject] = []
     rejected: list[JsonObject] = []
-    for chunk in _chunks(assets, FINALIZE_ASSET_BATCH_SIZE):
+    batches = list(chunks(assets, FINALIZE_ASSET_BATCH_SIZE))
+    for index, chunk in enumerate(batches, start=1):
+        context.progress.count("finalize asset batches", index, len(batches))
         # server reopens blobs, verifies metadata, then owns or deletes storage IDs
         result = context.client.action(
             SEED_FINALIZE_MEDIA_FUNCTION,
@@ -553,7 +883,7 @@ def _drop_finalized_storage_ids(
     completed = {
         variant["storageId"]
         for asset in assets
-        for variant in _asset_variants(asset["asset"])
+        for variant in asset_variants(asset["asset"])
         if variant.get("storageId")
     }
     pending = context.checkpoint.get("uploadedStorageIds") or []
@@ -565,7 +895,14 @@ def _drop_finalized_storage_ids(
 
 def _upsert_templates(context: SeedRunContext) -> list[JsonObject]:
     results: list[JsonObject] = []
-    for chunk in _chunks(build_template_upserts(context.compiled), TEMPLATE_BATCH_SIZE):
+    batches = list(chunks(cached_template_upserts(context), TEMPLATE_BATCH_SIZE))
+    for index, chunk in enumerate(batches, start=1):
+        context.progress.count(
+            "template upsert batches",
+            index,
+            len(batches),
+            suffix=f"({len(chunk)} templates)",
+        )
         results.append(
             context.client.mutation(
                 SEED_UPSERT_TEMPLATES_FUNCTION,
@@ -579,11 +916,24 @@ def _upsert_templates(context: SeedRunContext) -> list[JsonObject]:
     return results
 
 
-def _upsert_items(context: SeedRunContext) -> list[JsonObject]:
+def _upsert_items(
+    context: SeedRunContext, diff: JsonObject | None = None
+) -> list[JsonObject]:
     results: list[JsonObject] = []
-    for chunk in _child_upsert_batches(
-        build_item_upserts(context.compiled), ITEM_BATCH_SIZE, "items"
-    ):
+    batches = _child_upsert_batches(
+        cached_item_upserts(context), ITEM_BATCH_SIZE, "items"
+    )
+    force_template_external_ids = (
+        _item_diff_template_external_ids(diff) if diff is not None else set()
+    )
+    for index, chunk in enumerate(batches, start=1):
+        context.progress.count(
+            "item sync batches",
+            index,
+            len(batches),
+            every=progress_interval(len(batches)),
+            suffix=f"({chunk[0]['templateExternalId']}, {len(chunk)} items)",
+        )
         template_external_id = str(chunk[0]["templateExternalId"])
         items = [
             {key: value for key, value in item.items() if key != "templateExternalId"}
@@ -595,6 +945,11 @@ def _upsert_items(context: SeedRunContext) -> list[JsonObject]:
                 {
                     **_run_request(context),
                     "templateExternalId": template_external_id,
+                    "itemsContentHash": _items_content_hash(
+                        template_external_id, items
+                    ),
+                    "allowContentHashSkip": diff is not None
+                    and template_external_id not in force_template_external_ids,
                     "items": items,
                 },
             )
@@ -602,18 +957,56 @@ def _upsert_items(context: SeedRunContext) -> list[JsonObject]:
     return results
 
 
-def _upsert_criteria(context: SeedRunContext) -> list[JsonObject]:
+def _upsert_criteria(
+    context: SeedRunContext, diff: JsonObject | None = None
+) -> list[JsonObject]:
     results: list[JsonObject] = []
-    for chunk in _child_upsert_batches(
-        build_criterion_upserts(context.compiled), CRITERION_BATCH_SIZE, "criteria"
-    ):
+    batches = _packed_child_upsert_batches(
+        cached_criterion_upserts(context), CRITERION_BATCH_SIZE, "criteria"
+    )
+    force_template_external_ids = (
+        sorted(_criteria_diff_template_external_ids(diff))
+        if diff is not None
+        else [
+            str(template["externalId"])
+            for template in compiled_templates(context.compiled)
+        ]
+    )
+    for index, chunk in enumerate(batches, start=1):
+        context.progress.count(
+            "criterion upsert batches",
+            index,
+            len(batches),
+            every=progress_interval(len(batches)),
+            suffix=f"({len(chunk)} criteria)",
+        )
         results.append(
             context.client.mutation(
                 SEED_UPSERT_CRITERIA_FUNCTION,
-                {**_run_request(context), "criteria": chunk},
+                {
+                    **_run_request(context),
+                    "forceTemplateExternalIds": force_template_external_ids,
+                    "criteria": chunk,
+                },
             )
         )
     return results
+
+
+def _packed_child_upsert_batches(
+    rows: list[JsonObject], limit: int, label: str
+) -> list[list[JsonObject]]:
+    groups = _child_upsert_batches(rows, limit, label)
+    batches: list[list[JsonObject]] = []
+    current: list[JsonObject] = []
+    for group in groups:
+        if current and len(current) + len(group) > limit:
+            batches.append(current)
+            current = []
+        current.extend(group)
+    if current:
+        batches.append(current)
+    return batches
 
 
 def _child_upsert_batches(
@@ -643,14 +1036,21 @@ def _assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[Js
         if isinstance(media, dict) and isinstance(media.get("mediaDedupeHash"), str)
     }
     needed: list[JsonObject] = []
+    queued: set[str] = set()
     for entry in _compiled_asset_entries(compiled):
-        if _asset_dedupe_hash(entry["asset"]) not in present:
+        dedupe_hash = asset_dedupe_hash(entry["asset"])
+        if dedupe_hash is None:
             needed.append(entry)
+            continue
+        if dedupe_hash in present or dedupe_hash in queued:
+            continue
+        queued.add(dedupe_hash)
+        needed.append(entry)
     return needed
 
 
 def _compiled_asset_entries(compiled: JsonObject) -> Iterable[JsonObject]:
-    for template in _templates(compiled):
+    for template in compiled_templates(compiled):
         cover = template.get("coverImage")
         if isinstance(cover, dict):
             yield {
@@ -678,7 +1078,7 @@ def _finalize_asset_payload(entry: JsonObject) -> JsonObject:
                 "expectedWidth": variant["width"],
                 "expectedHeight": variant["height"],
             }
-            for variant in _asset_variants(entry["asset"])
+            for variant in asset_variants(entry["asset"])
         ],
     }
 
@@ -751,7 +1151,7 @@ def _assert_upload_budget(
     if max_upload_bytes is None:
         return
     total = sum(
-        variant["byteSize"] for asset in assets for variant in _asset_variants(asset["asset"])
+        variant["byteSize"] for asset in assets for variant in asset_variants(asset["asset"])
     )
     if total > max_upload_bytes:
         msg = f"upload requires {total} bytes, exceeding --max-upload-bytes={max_upload_bytes}"
@@ -785,54 +1185,3 @@ def _write_checkpoint(context: SeedRunContext) -> None:
 def _new_run_id(compiled: JsonObject) -> str:
     timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     return f"{compiled['releaseId']}-{timestamp}-{uuid.uuid4().hex[:8]}"
-
-
-def _templates(compiled: JsonObject) -> Iterable[JsonObject]:
-    for template in as_list(compiled.get("templates")):
-        if isinstance(template, dict):
-            yield template
-
-
-def _asset_variants(asset: JsonObject) -> Iterable[JsonObject]:
-    variants = asset.get("variants")
-    if not isinstance(variants, dict):
-        return
-    for kind in ("tile", "preview"):
-        variant = variants.get(kind)
-        if isinstance(variant, dict):
-            yield variant
-
-
-def _asset_tile_hash(asset: object) -> str | None:
-    if not isinstance(asset, dict):
-        return None
-    variants = asset.get("variants")
-    if not isinstance(variants, dict):
-        return None
-    tile = variants.get("tile")
-    if not isinstance(tile, dict):
-        return None
-    return str(tile["contentHash"])
-
-
-def _asset_dedupe_hash(asset: object) -> str | None:
-    if not isinstance(asset, dict):
-        return None
-    dedupe_hash = asset.get("dedupeHash")
-    if isinstance(dedupe_hash, str):
-        return dedupe_hash
-    variants = asset.get("variants")
-    if not isinstance(variants, dict):
-        return None
-    return "|".join(
-        sorted(
-            f"{variant['kind']}:{variant['contentHash']}"
-            for variant in variants.values()
-            if isinstance(variant, dict)
-        )
-    )
-
-
-def _chunks(items: list[JsonObject] | list[str], size: int) -> Iterable[list]:
-    for index in range(0, len(items), size):
-        yield items[index : index + size]

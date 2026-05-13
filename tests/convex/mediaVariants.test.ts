@@ -293,6 +293,11 @@ describe('media variants', () =>
           tierColors: [],
           tierBreakdown: [],
         },
+        seedDatasetKey: null,
+        seedReleaseId: null,
+        seedExternalId: null,
+        seedKind: null,
+        seedReleaseStatus: null,
       })
       const boardItemId = await ctx.db.insert('boardItems', {
         boardId,

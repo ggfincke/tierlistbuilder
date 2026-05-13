@@ -19,6 +19,7 @@ from .manifest import JsonObject
 RETRYABLE_HTTP_STATUS = {429, 500, 502, 503, 504}
 HTTP_ATTEMPTS = 4
 HTTP_RETRY_BASE_SECONDS = 0.5
+CONVEX_CLIENT_HEADER = "python-1.0.0"
 
 SEED_HTTP_ROUTES = {
     ("query", "marketplace/seedRuns:resolveSeedState"): "/api/seed/state",
@@ -42,13 +43,56 @@ SEED_HTTP_ROUTES = {
         "marketplace/seedRuns:syncSeedTemplateItems",
     ): "/api/seed/sync-template-items",
     ("mutation", "marketplace/seedRuns:upsertSeedCriteria"): "/api/seed/upsert-criteria",
-    ("mutation", "marketplace/seedRuns:verifySeedRelease"): "/api/seed/verify",
+    (
+        "mutation",
+        "marketplace/seedRuns:verifySeedReleaseChunk",
+    ): "/api/seed/verify-chunk",
+    (
+        "mutation",
+        "marketplace/seedRuns:completeSeedReleaseVerification",
+    ): "/api/seed/complete-verification",
     ("mutation", "marketplace/seedRuns:activateSeedRelease"): "/api/seed/activate",
     ("mutation", "marketplace/seedRuns:rollbackSeedRelease"): "/api/seed/rollback",
+    (
+        "query",
+        "marketplace/rankings/seed:preflightSeedRankings",
+    ): "/api/seed/rankings/preflight",
+    (
+        "query",
+        "marketplace/rankings/seed:verifySeedRankings",
+    ): "/api/seed/rankings/verify",
+    (
+        "mutation",
+        "marketplace/rankings/seedLifecycle:activateSeedRankings",
+    ): "/api/seed/rankings/activate",
+    (
+        "mutation",
+        "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates",
+    ): "/api/seed/rankings/queue-aggregates",
+    (
+        "mutation",
+        "marketplace/rankings/seedLifecycle:rollbackSeedRankings",
+    ): "/api/seed/rankings/rollback",
+    (
+        "action",
+        "marketplace/rankings/seed:ensureSeedRankingAuthors",
+    ): "/api/seed/rankings/ensure-authors",
+    (
+        "action",
+        "marketplace/seedRuns:ensureSeedAuthor",
+    ): "/api/seed/ensure-author",
     (
         "action",
         "marketplace/seedRuns:finalizeSeedUploadedMedia",
     ): "/api/seed/finalize-media",
+    (
+        "action",
+        "marketplace/rankings/seed:applySeedRankingChunk",
+    ): "/api/seed/rankings/apply",
+    (
+        "action",
+        "marketplace/rankings/seed:cleanupStaleSeedRankings",
+    ): "/api/seed/rankings/cleanup-stale",
     (
         "action",
         "marketplace/seedPipeline/storageUploads:cleanupAbandonedSeedRun",
@@ -62,6 +106,7 @@ class ConvexSeedSettings:
     site_url: str
     seed_secret: str
     env_name: str
+    author_password: str | None = None
 
 
 class ConvexClientError(RuntimeError):
@@ -116,7 +161,7 @@ class ConvexSeedClient:
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {self.settings.seed_secret}",
-                    "Convex-Client": "python-seed-pipeline",
+                    "Convex-Client": CONVEX_CLIENT_HEADER,
                 },
                 method="POST",
             )
@@ -199,15 +244,22 @@ def read_seed_settings(
         or os.environ.get("CONVEX_SEED_SECRET")
         or env.get("CONVEX_SEED_SECRET")
     )
+    resolved_author_password = (
+        os.environ.get("CONVEX_SEED_AUTHOR_PASSWORD")
+        or env.get("CONVEX_SEED_AUTHOR_PASSWORD")
+    )
     if not resolved_url:
         raise ConvexClientError(
             "CONVEX_SITE_URL / VITE_CONVEX_SITE_URL / CONVEX_URL / VITE_CONVEX_URL is not set"
         )
     if not resolved_secret:
         raise ConvexClientError("CONVEX_SEED_SECRET is not set")
+    if not resolved_author_password:
+        raise ConvexClientError("CONVEX_SEED_AUTHOR_PASSWORD is not set")
     return ConvexSeedSettings(
         site_url=normalize_convex_site_url(resolved_url),
         seed_secret=resolved_secret,
+        author_password=resolved_author_password,
         env_name=env_name,
     )
 

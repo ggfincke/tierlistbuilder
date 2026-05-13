@@ -21,6 +21,14 @@ from .runs import (
     upload_seed_manifest,
     verify_seed_manifest,
 )
+from .rankings import (
+    activate_rankings_manifest,
+    apply_rankings_manifest,
+    preflight_rankings_manifest,
+    rollback_rankings_manifest,
+    run_rankings_manifest,
+    verify_rankings_manifest,
+)
 from .validate import ManifestValidationError, validate_source_manifest
 
 
@@ -76,6 +84,54 @@ def main(argv: list[str] | None = None) -> int:
             return _write_command(
                 "seed run report", run_seed_manifest, manifest_path, repo_root, args
             )
+        if args.command == "rankings:preflight":
+            return _write_command(
+                "ranking seed preflight report",
+                preflight_rankings_manifest,
+                manifest_path,
+                repo_root,
+                args,
+            )
+        if args.command == "rankings:apply":
+            return _write_command(
+                "ranking seed apply report",
+                apply_rankings_manifest,
+                manifest_path,
+                repo_root,
+                args,
+            )
+        if args.command == "rankings:verify":
+            return _write_command(
+                "ranking seed verify report",
+                verify_rankings_manifest,
+                manifest_path,
+                repo_root,
+                args,
+            )
+        if args.command == "rankings:activate":
+            return _write_command(
+                "ranking seed activation report",
+                activate_rankings_manifest,
+                manifest_path,
+                repo_root,
+                args,
+            )
+        if args.command == "rankings:rollback":
+            return _write_command(
+                "ranking seed rollback report",
+                rollback_rankings_manifest,
+                manifest_path,
+                repo_root,
+                args,
+            )
+        if args.command == "rankings:run":
+            return _write_command(
+                "ranking seed run report",
+                run_rankings_manifest,
+                manifest_path,
+                repo_root,
+                args,
+            )
     except ManifestValidationError as error:
         _print_diagnostics(error.errors)
         return 1
@@ -113,6 +169,20 @@ def _parser() -> argparse.ArgumentParser:
     rollback_parser.add_argument("manifest", type=Path)
     _add_seed_run_args(rollback_parser)
     rollback_parser.add_argument("--target-release-id", required=True)
+    for command in (
+        "rankings:preflight",
+        "rankings:apply",
+        "rankings:verify",
+        "rankings:activate",
+        "rankings:run",
+    ):
+        command_parser = subparsers.add_parser(command)
+        command_parser.add_argument("manifest", type=Path)
+        _add_seed_run_args(command_parser)
+    ranking_rollback_parser = subparsers.add_parser("rankings:rollback")
+    ranking_rollback_parser.add_argument("manifest", type=Path)
+    _add_seed_run_args(ranking_rollback_parser)
+    ranking_rollback_parser.add_argument("--target-release-id", required=True)
     return parser
 
 

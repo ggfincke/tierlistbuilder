@@ -54,6 +54,9 @@ export const seedResolvedTemplateValidator = v.object({
   visibility: templateVisibilityValidator,
   status: v.union(seedTemplateReleaseStatusValidator, v.null()),
   itemAspectRatio: v.union(v.number(), v.null()),
+  metadataContentHash: v.union(v.string(), v.null()),
+  itemsContentHash: v.union(v.string(), v.null()),
+  criteriaContentHash: v.union(v.string(), v.null()),
 })
 
 export const seedResolvedItemValidator = v.object({
@@ -119,6 +122,7 @@ export const seedUploadedMediaAssetValidator = v.object({
 
 export const seedTemplateUpsertValidator = v.object({
   externalId: v.string(),
+  metadataContentHash: v.string(),
   title: v.string(),
   category: templateCategoryValidator,
   description: v.union(v.string(), v.null()),
@@ -143,6 +147,7 @@ export const seedItemUpsertValidator = v.object({
 export const seedCriterionUpsertValidator = v.object({
   templateExternalId: v.string(),
   criterionExternalId: v.string(),
+  criteriaContentHash: v.string(),
   name: v.string(),
   shortName: v.union(v.string(), v.null()),
   prompt: v.string(),
@@ -216,13 +221,6 @@ export const seedCriterionUpsertOutputValidator = v.object({
   deactivated: v.array(seedTemplateCriterionKeyValidator),
 })
 
-export const seedRemovalCandidateValidator = v.object({
-  templateExternalId: v.string(),
-  itemExternalId: v.optional(v.string()),
-  criterionExternalId: v.optional(v.string()),
-  action: v.literal('absentFromRelease'),
-})
-
 export const resolveStateArgsValidator = {
   datasetKey: v.string(),
   releaseId: v.string(),
@@ -239,5 +237,4 @@ export const resolveStateOutputValidator = v.object({
   items: v.array(seedResolvedItemValidator),
   criteria: v.array(seedResolvedCriterionValidator),
   media: v.array(seedResolvedMediaValidator),
-  absentFromManifest: v.array(seedRemovalCandidateValidator),
 })

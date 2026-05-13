@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 
 JsonObject = dict[str, Any]
@@ -17,6 +17,37 @@ def as_list(value: Any) -> list[Any]:
 
 def as_str(value: Any) -> str:
     return value if isinstance(value, str) else ""
+
+
+def compiled_templates(compiled: JsonObject) -> Iterable[JsonObject]:
+    for template in as_list(compiled.get("templates")):
+        if isinstance(template, dict):
+            yield template
+
+
+def chunks(items: list[Any], size: int) -> Iterable[list[Any]]:
+    for index in range(0, len(items), size):
+        yield items[index : index + size]
+
+
+def chunk_templates_by_items(
+    templates: Iterable[JsonObject], max_items: int
+) -> list[list[JsonObject]]:
+    # pack template groups so a single chunk's item count fits under server budget
+    batches: list[list[JsonObject]] = []
+    current: list[JsonObject] = []
+    current_items = 0
+    for template in templates:
+        item_count = len(as_list(template.get("items")))
+        if current and current_items + item_count > max_items:
+            batches.append(current)
+            current = []
+            current_items = 0
+        current.append(template)
+        current_items += item_count
+    if current:
+        batches.append(current)
+    return batches
 
 
 def find_repo_root(start: Path | None = None) -> Path:

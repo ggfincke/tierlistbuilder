@@ -9,11 +9,13 @@ import { BATCH_LIMITS, MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
 import { isPublicRankingRow } from './lib'
 import {
   buildAggregateItemMetrics,
+  clearTemplateRankingAggregateJobAdmission,
   deleteTemplateRankingAggregateParentRows,
   findTemplateRankingAggregate,
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
   queueTemplateRankingAggregateRecomputesForActiveCriteria,
+  scheduleTemplateRankingAggregateJobAdmission,
 } from './aggregate'
 import { buildRankingTierBucketMap } from '@tierlistbuilder/contracts/marketplace/ranking'
 import {
@@ -50,6 +52,12 @@ interface RelativeMetricPatch
 
 const AGGREGATE_JOB_MAX_RETRIES = 3
 const AGGREGATE_JOB_RETRY_AFTER_MS = 30 * 60 * 1000
+// Keep only a few aggregate lanes writing at once. Seeds can enqueue hundreds
+// of template/criterion lanes; per-job pacing alone still bursts past the
+// deployment-wide write-rate ceiling when every lane wakes together.
+const AGGREGATE_JOB_CONCURRENT_LIMIT = 3
+// Pace inner-loop self-reschedules for the small admitted worker pool.
+const AGGREGATE_JOB_RESCHEDULE_DELAY_MS = 400
 
 const aggregateScheduleStateValidator = v.union(
   v.literal('stale'),
@@ -70,7 +78,7 @@ const scheduleJob = async (
 ): Promise<void> =>
 {
   await ctx.scheduler.runAfter(
-    0,
+    AGGREGATE_JOB_RESCHEDULE_DELAY_MS,
     internal.marketplace.rankings.aggregateInternal
       .processTemplateRankingAggregateJob,
     { jobId }
@@ -729,40 +737,35 @@ async function finishJob(
       highlights.mostDivisive?.templateItemExternalId ?? null,
     mostDivisiveItemLabel: highlights.mostDivisive?.label ?? null,
   }
+  const aggregateState: Doc<'templateRankingAggregates'>['state'] =
+    job.rankingCount > 0 ? 'ready' : 'empty'
+  const aggregateFields = {
+    state: aggregateState,
+    activeGeneration: job.generation,
+    bucketCount: job.bucketCount,
+    rankingCount: job.rankingCount,
+    itemCount: job.itemCount,
+    computedAt: now,
+    staleAt: null,
+    bucketSpread,
+    ...highlightFields,
+    updatedAt: now,
+  }
   if (aggregate)
   {
-    await ctx.db.patch(aggregate._id, {
-      state: job.rankingCount > 0 ? 'ready' : 'empty',
-      activeGeneration: job.generation,
-      bucketCount: job.bucketCount,
-      rankingCount: job.rankingCount,
-      itemCount: job.itemCount,
-      computedAt: now,
-      staleAt: null,
-      bucketSpread,
-      ...highlightFields,
-      updatedAt: now,
-    })
+    await ctx.db.patch(aggregate._id, aggregateFields)
   }
   else
   {
     await ctx.db.insert('templateRankingAggregates', {
       templateId: job.templateId,
       criterionExternalId: job.criterionExternalId,
-      state: job.rankingCount > 0 ? 'ready' : 'empty',
-      activeGeneration: job.generation,
-      bucketCount: job.bucketCount,
-      rankingCount: job.rankingCount,
-      itemCount: job.itemCount,
-      computedAt: now,
-      staleAt: null,
-      bucketSpread,
-      ...highlightFields,
-      updatedAt: now,
+      ...aggregateFields,
     })
   }
 
   await ctx.db.delete(job._id)
+  await scheduleTemplateRankingAggregateJobAdmission(ctx)
   if (previousGeneration !== null && previousGeneration !== job.generation)
   {
     await scheduleGenerationCleanup(
@@ -795,6 +798,7 @@ const markAggregateJobFailed = async (
 {
   await ctx.db.patch(job._id, {
     status: 'failed',
+    admittedAt: null,
     lastError,
     failedAt: now,
     updatedAt: now,
@@ -813,6 +817,7 @@ const markAggregateJobFailed = async (
       updatedAt: now,
     })
   }
+  await scheduleTemplateRankingAggregateJobAdmission(ctx)
 }
 
 const retryOrFailStaleAggregateJob = async (
@@ -821,6 +826,16 @@ const retryOrFailStaleAggregateJob = async (
   now: number
 ): Promise<'retry' | 'failed'> =>
 {
+  if (job.status === 'queued')
+  {
+    await ctx.db.patch(job._id, {
+      admittedAt: null,
+      updatedAt: now,
+    })
+    await scheduleTemplateRankingAggregateJobAdmission(ctx)
+    return 'retry'
+  }
+
   if (job.retryCount >= AGGREGATE_JOB_MAX_RETRIES)
   {
     await markAggregateJobFailed(ctx, job, now, 'stale_job_timeout')
@@ -829,14 +844,109 @@ const retryOrFailStaleAggregateJob = async (
 
   await ctx.db.patch(job._id, {
     status: 'queued',
+    admittedAt: null,
     retryCount: job.retryCount + 1,
     lastError: 'stale_job_timeout',
     failedAt: null,
     updatedAt: now,
   })
-  await scheduleJob(ctx, job._id)
+  await scheduleTemplateRankingAggregateJobAdmission(ctx)
   return 'retry'
 }
+
+export const admitQueuedTemplateRankingAggregateJobs = internalMutation({
+  args: {},
+  returns: v.object({
+    admitted: v.number(),
+    running: v.number(),
+    queuedRemaining: v.number(),
+  }),
+  handler: async (
+    ctx
+  ): Promise<{
+    admitted: number
+    running: number
+    queuedRemaining: number
+  }> =>
+  {
+    const now = Date.now()
+    await clearTemplateRankingAggregateJobAdmission(ctx)
+    const running = await ctx.db
+      .query('templateRankingAggregateJobs')
+      .withIndex('byStatusAndUpdatedAt', (q) => q.eq('status', 'running'))
+      .take(AGGREGATE_JOB_CONCURRENT_LIMIT)
+    const leasedRunning = running.filter(
+      (job) => typeof job.admittedAt === 'number'
+    )
+    const unleasedRunning = running.filter(
+      (job) => typeof job.admittedAt !== 'number'
+    )
+    if (unleasedRunning.length > 0)
+    {
+      await Promise.all(
+        unleasedRunning.map((job) =>
+          ctx.db.patch(job._id, {
+            status: 'queued',
+            admittedAt: null,
+            updatedAt: now,
+          })
+        )
+      )
+      await scheduleTemplateRankingAggregateJobAdmission(ctx)
+      return {
+        admitted: 0,
+        running: leasedRunning.length,
+        queuedRemaining: unleasedRunning.length,
+      }
+    }
+
+    const slots = AGGREGATE_JOB_CONCURRENT_LIMIT - leasedRunning.length
+    if (slots <= 0)
+    {
+      const queued = await ctx.db
+        .query('templateRankingAggregateJobs')
+        .withIndex('byStatusAndUpdatedAt', (q) => q.eq('status', 'queued'))
+        .take(1)
+      if (queued.length > 0)
+      {
+        await scheduleTemplateRankingAggregateJobAdmission(ctx)
+      }
+      return {
+        admitted: 0,
+        running: leasedRunning.length,
+        queuedRemaining: queued.length,
+      }
+    }
+
+    const queued = await ctx.db
+      .query('templateRankingAggregateJobs')
+      .withIndex('byStatusAndUpdatedAt', (q) => q.eq('status', 'queued'))
+      .take(slots + 1)
+    const admitted = queued.slice(0, slots)
+    await Promise.all(
+      admitted.map((job) =>
+        ctx.db.patch(job._id, {
+          status: 'running',
+          admittedAt: now,
+          updatedAt: now,
+        })
+      )
+    )
+    await Promise.all(admitted.map((job) => scheduleJob(ctx, job._id)))
+
+    const queuedRemaining = Math.max(0, queued.length - admitted.length)
+    if (queuedRemaining > 0)
+    {
+      await scheduleTemplateRankingAggregateJobAdmission(ctx)
+    }
+
+    return {
+      admitted: admitted.length,
+      running: leasedRunning.length + admitted.length,
+      queuedRemaining,
+    }
+  },
+})
 
 export const processTemplateRankingAggregateJob = internalMutation({
   args: { jobId: v.id('templateRankingAggregateJobs') },
@@ -845,7 +955,22 @@ export const processTemplateRankingAggregateJob = internalMutation({
   {
     const job = await ctx.db.get(args.jobId)
     if (!job) return null
-    if (job.status !== 'queued' && job.status !== 'running') return null
+    if (job.status === 'queued')
+    {
+      await scheduleTemplateRankingAggregateJobAdmission(ctx)
+      return null
+    }
+    if (job.status !== 'running') return null
+    if (typeof job.admittedAt !== 'number')
+    {
+      await ctx.db.patch(job._id, {
+        status: 'queued',
+        admittedAt: null,
+        updatedAt: Date.now(),
+      })
+      await scheduleTemplateRankingAggregateJobAdmission(ctx)
+      return null
+    }
 
     const template = await ctx.db.get(job.templateId)
     if (!template)
@@ -932,7 +1057,7 @@ export const deleteTemplateRankingAggregateGeneration = internalMutation({
     if (!page.isDone)
     {
       await ctx.scheduler.runAfter(
-        0,
+        AGGREGATE_JOB_RESCHEDULE_DELAY_MS,
         internal.marketplace.rankings.aggregateInternal
           .deleteTemplateRankingAggregateGeneration,
         {
@@ -1036,7 +1161,8 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
           ctx,
           aggregate.templateId,
           aggregate.criterionExternalId,
-          now
+          now,
+          { scheduleAdmission: false }
         )
         return 1
       })
@@ -1045,6 +1171,10 @@ export const scheduleTemplateRankingAggregateRecomputes = internalMutation({
       (total, count) => total + count,
       0
     )
+    if (scheduled > 0)
+    {
+      await scheduleTemplateRankingAggregateJobAdmission(ctx)
+    }
 
     if (!page.isDone)
     {

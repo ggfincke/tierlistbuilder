@@ -3,27 +3,51 @@
 // item-media presence & flag mismatches against expected totals
 
 import type { MutationCtx } from '../../_generated/server'
+import type { Doc } from '../../_generated/dataModel'
 import type { SeedTemplateReleaseStatus } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import { SEED_LIMITS } from '../../lib/limits'
-import { loadSeedTemplatesForRelease } from './templates'
 import type { SeedDiagnosticRow } from './types'
 
-export const buildSeedReleaseDiagnostics = async (
+export type SeedReleaseDiagnosticTotals = {
+  templateCount: number
+  itemCount: number
+  criterionCount: number
+}
+
+export const seedDiagnostic = (
+  severity: SeedDiagnosticRow['severity'],
+  code: string,
+  path: string,
+  message: string
+): SeedDiagnosticRow => ({ severity, code, path, message })
+
+export const seedErrorDiagnostic = (
+  code: string,
+  path: string,
+  message: string
+): SeedDiagnosticRow => seedDiagnostic('error', code, path, message)
+
+export const seedWarningDiagnostic = (
+  code: string,
+  path: string,
+  message: string
+): SeedDiagnosticRow => seedDiagnostic('warning', code, path, message)
+
+export const buildSeedReleaseDiagnosticsForTemplates = async (
   ctx: MutationCtx,
   datasetKey: string,
   releaseId: string,
-  expectedTotals: {
-    templateCount: number
-    itemCount: number
-    criterionCount: number
-  }
-): Promise<SeedDiagnosticRow[]> =>
+  templateExternalIds: readonly string[]
+): Promise<{
+  diagnostics: SeedDiagnosticRow[]
+  totals: SeedReleaseDiagnosticTotals
+}> =>
 {
-  const diagnostics: SeedDiagnosticRow[] = []
-  const templates = await loadSeedTemplatesForRelease(
+  const { templates, diagnostics } = await loadDiagnosticsTemplates(
     ctx,
     datasetKey,
-    releaseId
+    releaseId,
+    templateExternalIds
   )
   if (templates.length > SEED_LIMITS.templatesPerDiff)
   {
@@ -33,7 +57,10 @@ export const buildSeedReleaseDiagnostics = async (
       path: '$.templates',
       severity: 'error',
     })
-    return diagnostics
+    return {
+      diagnostics,
+      totals: { templateCount: 0, itemCount: 0, criterionCount: 0 },
+    }
   }
 
   const validTemplateStatuses = new Set<SeedTemplateReleaseStatus>([
@@ -41,9 +68,9 @@ export const buildSeedReleaseDiagnostics = async (
     'verified',
     'active',
   ])
-  // fan out per-template reads (cover + items + each item's media) so verify
-  // completes in O(slowest template); releases over the read budget already
-  // short-circuit above via templateLimitExceeded
+  // Keep this function scoped to a bounded template set. The Python runner
+  // chunks large releases so per-item media validation stays under Convex's
+  // per-function read budget.
   const perTemplate = await Promise.all(
     templates.map(async (template) =>
     {
@@ -149,6 +176,19 @@ export const buildSeedReleaseDiagnostics = async (
     itemCount,
     criterionCount,
   }
+  return { diagnostics, totals: actual }
+}
+
+export const appendExpectedTotalsDiagnostics = (
+  diagnostics: SeedDiagnosticRow[],
+  actual: SeedReleaseDiagnosticTotals,
+  expectedTotals: {
+    templateCount: number
+    itemCount: number
+    criterionCount: number
+  }
+): void =>
+{
   for (const key of Object.keys(actual) as (keyof typeof actual)[])
   {
     if (actual[key] === expectedTotals[key]) continue
@@ -159,5 +199,82 @@ export const buildSeedReleaseDiagnostics = async (
       severity: 'error',
     })
   }
-  return diagnostics
+}
+
+export const appendReleaseTemplateScopeDiagnostics = async (
+  ctx: MutationCtx,
+  diagnostics: SeedDiagnosticRow[],
+  datasetKey: string,
+  releaseId: string,
+  expectedTotals: { templateCount: number }
+): Promise<void> =>
+{
+  const templates = await ctx.db
+    .query('templates')
+    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+      q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
+    )
+    .take(SEED_LIMITS.templatesPerDiff + 1)
+  if (templates.length > SEED_LIMITS.templatesPerDiff)
+  {
+    diagnostics.push({
+      code: 'templateLimitExceeded',
+      message: 'release has more templates than seed verification can inspect',
+      path: '$.templates',
+      severity: 'error',
+    })
+    return
+  }
+  if (templates.length === expectedTotals.templateCount) return
+  diagnostics.push({
+    code: 'releaseTemplateCountMismatch',
+    message: `release has ${templates.length} templates but manifest expects ${expectedTotals.templateCount}`,
+    path: '$.templates',
+    severity: 'error',
+  })
+}
+
+const loadDiagnosticsTemplates = async (
+  ctx: MutationCtx,
+  datasetKey: string,
+  releaseId: string,
+  templateExternalIds: readonly string[]
+): Promise<{
+  templates: Doc<'templates'>[]
+  diagnostics: SeedDiagnosticRow[]
+}> =>
+{
+  const diagnostics: SeedDiagnosticRow[] = []
+  const rows = await Promise.all(
+    templateExternalIds.map(
+      async (externalId) =>
+        await ctx.db
+          .query('templates')
+          .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+            q
+              .eq('seedDatasetKey', datasetKey)
+              .eq('seedReleaseId', releaseId)
+              .eq('seedExternalId', externalId)
+          )
+          .unique()
+    )
+  )
+  const templates: Doc<'templates'>[] = []
+  for (let index = 0; index < templateExternalIds.length; index += 1)
+  {
+    const row = rows[index]
+    if (row)
+    {
+      templates.push(row)
+      continue
+    }
+    const externalId = templateExternalIds[index]
+    diagnostics.push({
+      code: 'missingTemplate',
+      message: `seed template is missing: ${externalId}`,
+      path: `$.templates[${externalId}]`,
+      severity: 'error',
+    })
+  }
+  return { templates, diagnostics }
 }

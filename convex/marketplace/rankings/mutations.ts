@@ -54,6 +54,7 @@ import {
   normalizeRankingDescription,
   normalizeRankingTitle,
   rankingTopScore,
+  resolveCompactRankingItem,
 } from './lib'
 import {
   buildBoardItemInsertFromTemplateItem,
@@ -105,7 +106,7 @@ const requireTemplateItem = async (
   return item
 }
 
-const loadTemplateItemsById = async (
+const loadTemplateItemsByIds = async (
   ctx: MutationCtx,
   itemIds: readonly Id<'templateItems'>[]
 ): Promise<Map<Id<'templateItems'>, Doc<'templateItems'>>> =>
@@ -190,7 +191,7 @@ const buildOrderedRankingItems = async (
     itemsByTier.set(item.tierId, bucket)
   }
 
-  const templateItemsById = await loadTemplateItemsById(ctx, templateItemIds)
+  const templateItemsById = await loadTemplateItemsByIds(ctx, templateItemIds)
   const sortedTiers = [...tiers].sort((a, b) => a.order - b.order)
   const rows: OrderedRankingItem[] = []
   for (const tier of sortedTiers)
@@ -351,6 +352,16 @@ export const publishRankingFromBoard = mutation({
       isFeatured: false,
       featuredRank: null,
       featuredBadge: null,
+      seedDatasetKey: null,
+      seedReleaseId: null,
+      seedExternalId: null,
+      seedKind: null,
+      seedTemplateExternalId: null,
+      seedCriterionExternalId: null,
+      seedAuthorKey: null,
+      seedProfileKey: null,
+      seedCuratedExternalId: null,
+      seedReleaseStatus: null,
       createdAt: now,
       updatedAt: now,
     })
@@ -452,6 +463,9 @@ export const remixRanking = mutation({
       })
     }
 
+    const templateItemsById = new Map(
+      templateItems.map((item) => [item._id, item])
+    )
     const placedTemplateItemIds = new Set(
       rankingItems.map((item) => item.templateItemId)
     )
@@ -488,6 +502,11 @@ export const remixRanking = mutation({
         progressCounts
       ),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+      seedDatasetKey: null,
+      seedReleaseId: null,
+      seedExternalId: null,
+      seedKind: null,
+      seedReleaseStatus: null,
     })
 
     const tierMap = new Map<
@@ -524,6 +543,14 @@ export const remixRanking = mutation({
     const placedSummaryItems: BoardLibrarySummaryItem[] = await Promise.all(
       rankingItems.map(async (item) =>
       {
+        const templateItem = templateItemsById.get(item.templateItemId)
+        if (!templateItem)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: 'ranking item references a missing template item',
+          })
+        }
         const tier = item.tierExternalId
           ? tierMap.get(item.tierExternalId)
           : undefined
@@ -535,26 +562,29 @@ export const remixRanking = mutation({
           })
         }
         const externalId = generateItemId()
+        const resolved = resolveCompactRankingItem(item, templateItem)
         await ctx.db.insert('boardItems', {
           boardId,
           tierId: tier.boardTierId,
           externalId,
-          label: item.label ?? undefined,
-          backgroundColor: item.backgroundColor ?? undefined,
-          altText: item.altText ?? undefined,
-          mediaAssetId: item.mediaAssetId,
+          label: resolved.label ?? undefined,
+          backgroundColor: resolved.backgroundColor ?? undefined,
+          altText: resolved.altText ?? undefined,
+          mediaAssetId: resolved.mediaAssetId,
           order: item.order,
           deletedAt: null,
-          aspectRatio: item.aspectRatio ?? undefined,
-          imageFit: item.imageFit ?? undefined,
-          transform: item.transform ?? undefined,
+          aspectRatio: resolved.aspectRatio ?? undefined,
+          imageFit: resolved.imageFit ?? undefined,
+          transform: resolved.transform ?? undefined,
           templateItemId: item.templateItemId,
         })
         return {
           tierKey: tier.externalId,
           externalId,
-          label: item.label,
-          storageId: await loadMediaVariantStorageId(ctx, item.mediaAssetId),
+          label: resolved.label,
+          storageId: resolved.mediaAssetId
+            ? await loadMediaVariantStorageId(ctx, resolved.mediaAssetId)
+            : null,
           order: item.order,
           deletedAt: null,
         }
@@ -749,6 +779,11 @@ export const remixTemplateConsensus = mutation({
         progressCounts
       ),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+      seedDatasetKey: null,
+      seedReleaseId: null,
+      seedExternalId: null,
+      seedKind: null,
+      seedReleaseStatus: null,
     })
 
     interface InsertedTier
