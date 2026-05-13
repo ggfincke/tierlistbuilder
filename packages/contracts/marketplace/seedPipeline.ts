@@ -13,6 +13,12 @@ import type { TierPresetTier } from '../workspace/tierPreset'
 
 export const SEED_MANIFEST_SCHEMA_VERSION = 1
 
+// canonical seed content-hash format. Convex (TS) & Python MUST produce
+// byte-identical hashes for the same input: canonical JSON for {kind, payload};
+// sha256 utf-8 bytes; versioned truncated digest.
+export const SEED_CONTENT_HASH_VERSION = 'v1' as const
+export const SEED_CONTENT_HASH_HEX_LENGTH = 32
+
 export const SEED_LABEL_POLICIES = [
   'explicit-required',
   'explicit-or-filename-fallback',
@@ -41,6 +47,15 @@ export const SEED_TEMPLATE_RELEASE_STATUSES = [
 
 export type SeedTemplateReleaseStatus =
   (typeof SEED_TEMPLATE_RELEASE_STATUSES)[number]
+
+export const SEED_RANKING_RELEASE_STATUSES = [
+  'applied_hidden',
+  'active',
+  'rolled_back',
+] as const
+
+export type SeedRankingReleaseStatus =
+  (typeof SEED_RANKING_RELEASE_STATUSES)[number]
 
 export const SEED_REMOVAL_ACTIONS = ['absentFromRelease', 'hardDelete'] as const
 
@@ -251,6 +266,9 @@ export interface SeedResolvedTemplate
   visibility: TemplateVisibility
   status: SeedTemplateReleaseStatus | null
   itemAspectRatio: number | null
+  metadataContentHash: string | null
+  itemsContentHash: string | null
+  criteriaContentHash: string | null
 }
 
 export interface SeedResolvedItem
@@ -420,6 +438,7 @@ export interface SeedUpsertTemplatesInput extends SeedRunRequest
 export interface SeedTemplateUpsert
 {
   externalId: string
+  metadataContentHash: string
   title: string
   category: TemplateCategory
   description: string | null
@@ -442,6 +461,8 @@ export interface SeedTemplateUpsertOutput
 export interface SeedSyncTemplateItemsInput extends SeedRunRequest
 {
   templateExternalId: string
+  itemsContentHash: string
+  allowContentHashSkip?: boolean
   items: readonly SeedItemUpsert[]
 }
 
@@ -472,6 +493,7 @@ export interface SeedSyncTemplateItemsOutput
 
 export interface SeedUpsertCriteriaInput extends SeedRunRequest
 {
+  forceTemplateExternalIds?: readonly string[]
   criteria: readonly SeedCriterionUpsert[]
 }
 
@@ -482,7 +504,9 @@ export interface SeedTemplateCriterionKey
 }
 
 export type SeedCriterionUpsert = SeedTemplateCriterionKey &
-  Omit<MarketplaceTemplateCriterion, 'externalId'>
+  Omit<MarketplaceTemplateCriterion, 'externalId'> & {
+    criteriaContentHash: string
+  }
 
 export interface SeedCriterionUpsertOutput
 {

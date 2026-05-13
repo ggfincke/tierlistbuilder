@@ -12,7 +12,7 @@ import type {
 import { SEED_LIMITS } from '../../lib/limits'
 import { loadOwnedSeedMediaVariantLookup } from './mediaLookup'
 import { assertSeedTemplateReadLimit } from './templates'
-import type { SeedRemovalCandidate, SeedResolvedTemplateRow } from './types'
+import type { SeedResolvedTemplateRow } from './types'
 
 export const toResolvedTemplate = (
   template: Doc<'templates'>
@@ -26,6 +26,9 @@ export const toResolvedTemplate = (
   visibility: template.visibility,
   status: template.seedReleaseStatus ?? null,
   itemAspectRatio: template.itemAspectRatio ?? null,
+  metadataContentHash: template.seedMetadataContentHash ?? null,
+  itemsContentHash: template.seedItemsContentHash ?? null,
+  criteriaContentHash: template.seedCriteriaContentHash ?? null,
 })
 
 export const resolveTemplates = async (
@@ -222,79 +225,4 @@ export const resolveActiveReleaseIds = async (
 {
   const activeRuns = await resolveActiveSeedRuns(ctx, datasetKey)
   return Array.from(new Set(activeRuns.map((run) => run.releaseId)))
-}
-
-export const resolveAbsentFromManifest = async (
-  ctx: QueryCtx,
-  datasetKey: string,
-  releaseId: string,
-  templateIds: ReadonlySet<string>,
-  itemKeys: ReadonlyMap<string, ReadonlySet<string>>,
-  criterionKeys: ReadonlyMap<string, ReadonlySet<string>>
-): Promise<SeedRemovalCandidate[]> =>
-{
-  const templates = await ctx.db
-    .query('templates')
-    .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
-      q.eq('seedDatasetKey', datasetKey).eq('seedReleaseId', releaseId)
-    )
-    .take(SEED_LIMITS.templatesPerDiff)
-
-  const absent: SeedRemovalCandidate[] = []
-  for (const template of templates)
-  {
-    const templateExternalId = template.seedExternalId
-    if (!templateExternalId) continue
-    if (!templateIds.has(templateExternalId))
-    {
-      absent.push({
-        templateExternalId,
-        action: 'absentFromRelease',
-      })
-      continue
-    }
-
-    const manifestItems = itemKeys.get(templateExternalId) ?? new Set<string>()
-    const manifestCriteria =
-      criterionKeys.get(templateExternalId) ?? new Set<string>()
-    for (const criterion of template.criteria)
-    {
-      if (manifestCriteria.has(criterion.externalId)) continue
-      absent.push({
-        templateExternalId,
-        criterionExternalId: criterion.externalId,
-        action: 'absentFromRelease',
-      })
-    }
-
-    const items = await ctx.db
-      .query('templateItems')
-      .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-      .take(SEED_LIMITS.itemsPerTemplate)
-    for (const item of items)
-    {
-      if (manifestItems.has(item.externalId)) continue
-      absent.push({
-        templateExternalId,
-        itemExternalId: item.externalId,
-        action: 'absentFromRelease',
-      })
-    }
-  }
-  return absent
-}
-
-export const keySetByTemplate = <T extends { templateExternalId: string }>(
-  keys: readonly T[],
-  pick: (key: T) => string
-): Map<string, Set<string>> =>
-{
-  const map = new Map<string, Set<string>>()
-  for (const key of keys)
-  {
-    const items = map.get(key.templateExternalId) ?? new Set<string>()
-    items.add(pick(key))
-    map.set(key.templateExternalId, items)
-  }
-  return map
 }

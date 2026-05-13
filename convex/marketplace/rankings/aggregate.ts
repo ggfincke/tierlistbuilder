@@ -32,6 +32,72 @@ type DbCtx = QueryCtx | MutationCtx
 
 const ACTIVE_JOB_STATUSES = ['queued', 'running'] as const
 const UNSAMPLED_SORT_OFFSET = MAX_SYNC_TIERS + 1
+const AGGREGATE_JOB_ADMISSION_DELAY_MS = 250
+const AGGREGATE_JOB_ADMISSION_KEY = 'template-ranking-aggregate-jobs'
+const AGGREGATE_JOB_ADMISSION_STALE_MS = 2 * 60 * 1000
+
+const findTemplateRankingAggregateAdmission = async (
+  ctx: MutationCtx
+): Promise<Doc<'templateRankingAggregateAdmission'> | null> =>
+  await ctx.db
+    .query('templateRankingAggregateAdmission')
+    .withIndex('byKey', (q) => q.eq('key', AGGREGATE_JOB_ADMISSION_KEY))
+    .first()
+
+export const scheduleTemplateRankingAggregateJobAdmission = async (
+  ctx: MutationCtx,
+  delayMs = AGGREGATE_JOB_ADMISSION_DELAY_MS
+): Promise<void> =>
+{
+  const now = Date.now()
+  const scheduledAt = now + delayMs
+  const admission = await findTemplateRankingAggregateAdmission(ctx)
+  if (
+    admission &&
+    admission.scheduledAt + AGGREGATE_JOB_ADMISSION_STALE_MS > now
+  )
+  {
+    return
+  }
+  if (admission)
+  {
+    await ctx.db.patch(admission._id, { scheduledAt, updatedAt: now })
+  }
+  else
+  {
+    await ctx.db.insert('templateRankingAggregateAdmission', {
+      key: AGGREGATE_JOB_ADMISSION_KEY,
+      scheduledAt,
+      updatedAt: now,
+    })
+  }
+  await ctx.scheduler.runAfter(
+    delayMs,
+    internal.marketplace.rankings.aggregateInternal
+      .admitQueuedTemplateRankingAggregateJobs,
+    {}
+  )
+}
+
+// admission rows are a singleton-per-key in steady state, but a stale-window
+// race could leak extras. paginate so cleanup is truly unbounded
+const ADMISSION_CLEANUP_PAGE_SIZE = 64
+
+export const clearTemplateRankingAggregateJobAdmission = async (
+  ctx: MutationCtx
+): Promise<void> =>
+{
+  while (true)
+  {
+    const admissions = await ctx.db
+      .query('templateRankingAggregateAdmission')
+      .withIndex('byKey', (q) => q.eq('key', AGGREGATE_JOB_ADMISSION_KEY))
+      .take(ADMISSION_CLEANUP_PAGE_SIZE)
+    if (admissions.length === 0) return
+    await Promise.all(admissions.map((row) => ctx.db.delete(row._id)))
+    if (admissions.length < ADMISSION_CLEANUP_PAGE_SIZE) return
+  }
+}
 
 export const DEFAULT_TEMPLATE_RANKING_AGGREGATE_SORT =
   'templateOrder' satisfies TemplateRankingAggregateItemSort
@@ -209,7 +275,8 @@ export const queueTemplateRankingAggregateRecompute = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
   criterionExternalId: string,
-  now: number
+  now: number,
+  options: { scheduleAdmission?: boolean } = {}
 ): Promise<void> =>
 {
   const template = await ctx.db.get(templateId)
@@ -274,13 +341,18 @@ export const queueTemplateRankingAggregateRecompute = async (
       restartRequestedAt: now,
       updatedAt: now,
     })
+    if (activeJob.status === 'queued' && options.scheduleAdmission !== false)
+    {
+      await scheduleTemplateRankingAggregateJobAdmission(ctx)
+    }
     return
   }
 
-  const jobId = await ctx.db.insert('templateRankingAggregateJobs', {
+  await ctx.db.insert('templateRankingAggregateJobs', {
     templateId,
     criterionExternalId: criterion.externalId,
     status: 'queued',
+    admittedAt: null,
     phase: 'seedItems',
     generation: nextAggregateGeneration(now, aggregate),
     bucketCount,
@@ -302,12 +374,10 @@ export const queueTemplateRankingAggregateRecompute = async (
     createdAt: now,
     updatedAt: now,
   })
-  await ctx.scheduler.runAfter(
-    0,
-    internal.marketplace.rankings.aggregateInternal
-      .processTemplateRankingAggregateJob,
-    { jobId }
-  )
+  if (options.scheduleAdmission !== false)
+  {
+    await scheduleTemplateRankingAggregateJobAdmission(ctx)
+  }
 }
 
 export const queueTemplateRankingAggregateRecomputesForActiveCriteria = async (
@@ -328,10 +398,15 @@ export const queueTemplateRankingAggregateRecomputesForActiveCriteria = async (
         ctx,
         templateId,
         criterion.externalId,
-        now
+        now,
+        { scheduleAdmission: false }
       )
     )
   )
+  if (activeCriteria.length > 0)
+  {
+    await scheduleTemplateRankingAggregateJobAdmission(ctx)
+  }
   return activeCriteria.length
 }
 

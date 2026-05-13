@@ -268,6 +268,140 @@ export const clearAllFeaturedRanks = action({
   },
 })
 
+// dev-only: assign a curated trio (or N-tuple) of featured templates by seed
+// externalId. clears any pre-existing featuredRank in the same call so the
+// list shows EXACTLY the requested templates in the requested order
+export const setFeaturedTrioByExternalIdsImpl = internalMutation({
+  args: {
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    externalIds: v.array(v.string()),
+  },
+  returns: v.object({
+    cleared: v.number(),
+    promoted: v.array(
+      v.object({
+        externalId: v.string(),
+        slug: v.string(),
+        featuredRank: v.number(),
+      })
+    ),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    cleared: number
+    promoted: { externalId: string; slug: string; featuredRank: number }[]
+  }> =>
+  {
+    // resolve & validate every requested template up-front so a missing one
+    // aborts the call before any patches land. seed externalIds are scoped
+    // by (datasetKey, releaseId) — composite index keeps this an O(N) walk
+    const resolved: { externalId: string; template: Doc<'templates'> }[] = []
+    for (const externalId of args.externalIds)
+    {
+      const template = await ctx.db
+        .query('templates')
+        .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+          q
+            .eq('seedDatasetKey', args.datasetKey)
+            .eq('seedReleaseId', args.releaseId)
+            .eq('seedExternalId', externalId)
+        )
+        .unique()
+      if (!template)
+      {
+        throw new ConvexError({
+          code: CONVEX_ERROR_CODES.notFound,
+          message: `template not found by seed externalId: ${args.datasetKey}:${args.releaseId}:${externalId}`,
+        })
+      }
+      resolved.push({ externalId, template })
+    }
+
+    // clear all existing featured ranks first so the new trio is the entire
+    // featured set; otherwise stale rank=0 templates would still surface
+    const existingRanked: Id<'templates'>[] = []
+    const rankedRows = ctx.db
+      .query('templateCards')
+      .withIndex('byIsPubliclyListableFeaturedRank', (q) =>
+        q.eq('isPubliclyListable', true).gt('featuredRank', -1)
+      )
+    for await (const card of rankedRows)
+    {
+      existingRanked.push(card.templateId)
+    }
+    const requestedIds = new Set(resolved.map((entry) => entry.template._id))
+    const toClear = existingRanked.filter((id) => !requestedIds.has(id))
+    await Promise.all(
+      toClear.map(async (templateId) =>
+      {
+        await patchTemplateAndSyncCardById(ctx, templateId, {
+          featuredRank: null,
+        })
+      })
+    )
+
+    // promote in input order: first externalId gets rank 0 (top hero slot)
+    const promoted: {
+      externalId: string
+      slug: string
+      featuredRank: number
+    }[] = []
+    for (let index = 0; index < resolved.length; index++)
+    {
+      const entry = resolved[index]
+      await patchTemplateAndSyncCard(ctx, entry.template, {
+        featuredRank: index,
+      })
+      promoted.push({
+        externalId: entry.externalId,
+        slug: entry.template.slug,
+        featuredRank: index,
+      })
+    }
+    return { cleared: toClear.length, promoted }
+  },
+})
+
+export const setFeaturedTrioByExternalIds = action({
+  args: {
+    seedSecret: v.string(),
+    datasetKey: v.string(),
+    releaseId: v.string(),
+    externalIds: v.array(v.string()),
+  },
+  returns: v.object({
+    cleared: v.number(),
+    promoted: v.array(
+      v.object({
+        externalId: v.string(),
+        slug: v.string(),
+        featuredRank: v.number(),
+      })
+    ),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    cleared: number
+    promoted: { externalId: string; slug: string; featuredRank: number }[]
+  }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    return await ctx.runMutation(
+      internal.marketplace.templates.seed.setFeaturedTrioByExternalIdsImpl,
+      {
+        datasetKey: args.datasetKey,
+        releaseId: args.releaseId,
+        externalIds: args.externalIds,
+      }
+    )
+  },
+})
+
 export const getSeedUserStatus = action({
   args: { seedSecret: v.string(), email: v.string() },
   returns: v.object({ accountExists: v.boolean() }),

@@ -19,7 +19,9 @@ import type {
   MarketplaceRankingSummary,
   MarketplaceRankingTier,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
+import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_LARGE_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
+import { SEED_LIMITS } from '../../lib/limits'
 import { failInput, normalizeNullableText } from '../../lib/text'
 import {
   createTemplateProjectionCache,
@@ -188,6 +190,124 @@ export const loadRankingItems = async (
   return rows.sort((a, b) => a.order - b.order)
 }
 
+// load every templateItems row for a template via the byTemplate index.
+// rankings always derive from a single source template, so one indexed range
+// read replaces N individual ctx.db.get calls
+export const loadRankingTemplateItemsById = async (
+  ctx: DbCtx,
+  templateId: Id<'templates'>
+): Promise<Map<Id<'templateItems'>, Doc<'templateItems'>>> =>
+{
+  const rows = await ctx.db
+    .query('templateItems')
+    .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
+    .take(SEED_LIMITS.itemsPerTemplate + 1)
+  if (rows.length > SEED_LIMITS.itemsPerTemplate)
+  {
+    return failState(
+      `template item count exceeds read limit for template ${templateId}`
+    )
+  }
+  return new Map(rows.map((row) => [row._id, row]))
+}
+
+// single source of truth for the snapshot fields publishedRankingItems may
+// omit (compact rows). resolveCompactRankingItem, seed writers, & the
+// content-hash payload all derive from this list to stay in sync
+export const COMPACT_RANKING_ITEM_DATA_FIELDS = [
+  'label',
+  'backgroundColor',
+  'altText',
+  'mediaAssetId',
+  'aspectRatio',
+  'imageFit',
+  'transform',
+] as const
+
+export type CompactRankingItemDataField =
+  (typeof COMPACT_RANKING_ITEM_DATA_FIELDS)[number]
+
+const rankingItemNeedsTemplateItemFallback = (
+  item: Doc<'publishedRankingItems'>
+): boolean =>
+  item.templateItemExternalId === undefined ||
+  item.externalId === undefined ||
+  COMPACT_RANKING_ITEM_DATA_FIELDS.some((field) => item[field] === undefined)
+
+const loadRankingTemplateItemsByIdForFallback = async (
+  ctx: DbCtx,
+  ranking: Doc<'publishedRankings'>,
+  items: readonly Doc<'publishedRankingItems'>[]
+): Promise<Map<Id<'templateItems'>, Doc<'templateItems'>>> =>
+  items.some(rankingItemNeedsTemplateItemFallback)
+    ? await loadRankingTemplateItemsById(ctx, ranking.sourceTemplateId)
+    : new Map()
+
+export interface ResolvedRankingItemFields
+{
+  externalId: string | null
+  templateItemExternalId: string | null
+  label: string | null
+  backgroundColor: string | null
+  altText: string | null
+  mediaAssetId: Id<'mediaAssets'> | null
+  aspectRatio: number | null
+  imageFit: 'cover' | 'contain' | null
+  transform: ItemTransform | null
+}
+
+const pickField = <T>(
+  rowValue: T | undefined,
+  fallback: T | undefined | null
+): T | null =>
+{
+  if (rowValue !== undefined) return rowValue
+  return fallback ?? null
+}
+
+type CompactDataFieldsResolved = Pick<
+  ResolvedRankingItemFields,
+  CompactRankingItemDataField
+>
+
+const resolveCompactDataFields = (
+  item: Doc<'publishedRankingItems'>,
+  templateItem: Doc<'templateItems'> | undefined | null
+): CompactDataFieldsResolved =>
+  Object.fromEntries(
+    COMPACT_RANKING_ITEM_DATA_FIELDS.map((field) => [
+      field,
+      pickField(item[field], templateItem?.[field]),
+    ])
+  ) as CompactDataFieldsResolved
+
+export const resolveCompactRankingItem = (
+  item: Doc<'publishedRankingItems'>,
+  templateItem: Doc<'templateItems'> | undefined | null
+): ResolvedRankingItemFields => ({
+  externalId: item.externalId ?? templateItem?.externalId ?? null,
+  templateItemExternalId:
+    item.templateItemExternalId ?? templateItem?.externalId ?? null,
+  ...resolveCompactDataFields(item, templateItem),
+})
+
+export type CompactRankingItemSnapshot = Pick<
+  Doc<'templateItems'>,
+  CompactRankingItemDataField
+>
+
+// project the snapshot field set off a templateItem row; writers & the
+// content-hash payload share this single source. see COMPACT_RANKING_ITEM_DATA_FIELDS
+export const compactRankingItemSnapshot = (
+  templateItem: Doc<'templateItems'>
+): CompactRankingItemSnapshot =>
+  Object.fromEntries(
+    COMPACT_RANKING_ITEM_DATA_FIELDS.map((field) => [
+      field,
+      templateItem[field],
+    ])
+  ) as CompactRankingItemSnapshot
+
 const toRankingTier = (
   tier: Doc<'publishedRankingTiers'>
 ): MarketplaceRankingTier => ({
@@ -199,25 +319,61 @@ const toRankingTier = (
   order: tier.order,
 })
 
+export const toRankingBucketPlacementItems = async (
+  ctx: DbCtx,
+  ranking: Doc<'publishedRankings'>,
+  items: readonly Doc<'publishedRankingItems'>[]
+): Promise<
+  { templateItemExternalId: string; tierExternalId: string | null }[]
+> =>
+{
+  const templateItemsById = await loadRankingTemplateItemsByIdForFallback(
+    ctx,
+    ranking,
+    items
+  )
+  return items.flatMap((item) =>
+  {
+    const resolved = resolveCompactRankingItem(
+      item,
+      templateItemsById.get(item.templateItemId)
+    )
+    // placement lookups key off the template-item externalId; without one we
+    // cannot place the row in the consensus grid, so skip rather than fail
+    if (!resolved.templateItemExternalId) return []
+    return [
+      {
+        templateItemExternalId: resolved.templateItemExternalId,
+        tierExternalId: item.tierExternalId,
+      },
+    ]
+  })
+}
+
 const toRankingItem = async (
   ctx: DbCtx,
   item: Doc<'publishedRankingItems'>,
+  templateItem: Doc<'templateItems'> | undefined | null,
   cache = createTemplateProjectionCache()
-): Promise<MarketplaceRankingItem> => ({
-  externalId: item.externalId,
-  templateItemExternalId: item.templateItemExternalId,
-  tierExternalId: item.tierExternalId,
-  label: item.label,
-  backgroundColor: item.backgroundColor,
-  altText: item.altText,
-  media: item.mediaAssetId
-    ? await toTemplateMediaRef(ctx, item.mediaAssetId, 'tile', cache)
-    : null,
-  order: item.order,
-  aspectRatio: item.aspectRatio,
-  imageFit: item.imageFit,
-  transform: item.transform,
-})
+): Promise<MarketplaceRankingItem> =>
+{
+  const resolved = resolveCompactRankingItem(item, templateItem)
+  return {
+    externalId: resolved.externalId ?? '',
+    templateItemExternalId: resolved.templateItemExternalId ?? '',
+    tierExternalId: item.tierExternalId,
+    label: resolved.label,
+    backgroundColor: resolved.backgroundColor,
+    altText: resolved.altText,
+    media: resolved.mediaAssetId
+      ? await toTemplateMediaRef(ctx, resolved.mediaAssetId, 'tile', cache)
+      : null,
+    order: item.order,
+    aspectRatio: resolved.aspectRatio,
+    imageFit: resolved.imageFit,
+    transform: resolved.transform,
+  }
+}
 
 export const toRankingDetail = async (
   ctx: DbCtx,
@@ -225,17 +381,31 @@ export const toRankingDetail = async (
 ): Promise<MarketplaceRankingDetail> =>
 {
   const cache = createTemplateProjectionCache()
-  const [summary, tiers, items] = await Promise.all([
+  // speculatively load templateItems alongside everything else; full-snapshot
+  // rows never read this map, but the parallel scan is what makes the
+  // legacy-compact-row read no slower than the full-snapshot path
+  const [summary, tiers, items, templateItemsByIdEager] = await Promise.all([
     toRankingSummary(ctx, ranking, cache),
     loadRankingTiers(ctx, ranking._id),
     loadRankingItems(ctx, ranking._id),
+    loadRankingTemplateItemsById(ctx, ranking.sourceTemplateId),
   ])
+  const templateItemsById = items.some(rankingItemNeedsTemplateItemFallback)
+    ? templateItemsByIdEager
+    : new Map<Id<'templateItems'>, Doc<'templateItems'>>()
 
   return {
     ...summary,
     tiers: tiers.map(toRankingTier),
     items: await Promise.all(
-      items.map((item) => toRankingItem(ctx, item, cache))
+      items.map((item) =>
+        toRankingItem(
+          ctx,
+          item,
+          templateItemsById.get(item.templateItemId),
+          cache
+        )
+      )
     ),
   }
 }

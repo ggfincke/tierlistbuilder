@@ -346,6 +346,11 @@ const ensureBoard = async (
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(null, progressCounts),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
+      seedDatasetKey: null,
+      seedReleaseId: null,
+      seedExternalId: null,
+      seedKind: null,
+      seedReleaseStatus: null,
     })
     board = (await ctx.db.get(boardId))!
   }

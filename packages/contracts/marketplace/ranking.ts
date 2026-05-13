@@ -195,7 +195,7 @@ export interface MarketplaceMyRankingForTemplateResult
   placements: Record<string, number>
 }
 
-const normalizeBucketLabel = (value: string): string =>
+export const normalizeBucketLabel = (value: string): string =>
   value.trim().toLowerCase().replace(/\s+/g, ' ')
 
 const normalizeBucketFamily = (value: string): string =>

@@ -37,6 +37,8 @@ export const BATCH_LIMITS = {
   templateRankingAggregateRankingItems: 80,
   // cleanup old aggregate generations after a new one becomes active
   templateRankingAggregateCleanup: 256,
+  // ranking release transitions also touch source boards & aggregate lanes
+  rankingSeedLifecycleTransition: 32,
 } as const
 
 // per-op limits for the marketplace seed pipeline. mirror these on the Python
@@ -53,6 +55,9 @@ export const SEED_LIMITS = {
   templateUpsertsPerCall: 128,
   itemUpsertsPerCall: 4096,
   criterionUpsertsPerCall: 512,
+  rankingSeedRowsPerRelease: 4096,
+  rankingSeedItemsPerRanking: 4096,
+  rankingSeedTiersPerRanking: 64,
   // bound the byDatasetStatus scan in resolveActiveSeedRuns. one row per
   // (dataset, releaseId, runId) for runs in status='active'; in steady state
   // there's at most one but multi-active windows during rollout are possible

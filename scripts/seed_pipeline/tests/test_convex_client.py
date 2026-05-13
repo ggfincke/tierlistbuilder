@@ -13,6 +13,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 
 from seed_pipeline.convex_client import (
+    CONVEX_CLIENT_HEADER,
     ConvexClientError,
     ConvexSeedClient,
     ConvexSeedSettings,
@@ -35,6 +36,15 @@ class FakeResponse:
 
 
 class ConvexSeedClientTests(unittest.TestCase):
+    def test_settings_author_password_is_optional_for_reset_client(self) -> None:
+        settings = ConvexSeedSettings(
+            site_url="https://example.convex.site",
+            seed_secret="super-secret",
+            env_name="test",
+        )
+
+        self.assertIsNone(settings.author_password)
+
     def test_seed_secret_uses_auth_header_not_body(self) -> None:
         requests = []
 
@@ -47,6 +57,7 @@ class ConvexSeedClientTests(unittest.TestCase):
                 site_url="https://example.convex.site",
                 seed_secret="super-secret",
                 env_name="test",
+                author_password="test-author-password",
             )
         )
 
@@ -65,6 +76,7 @@ class ConvexSeedClientTests(unittest.TestCase):
             "https://example.convex.site/api/seed/state",
         )
         self.assertEqual(request.get_header("Authorization"), "Bearer super-secret")
+        self.assertEqual(request.get_header("Convex-client"), CONVEX_CLIENT_HEADER)
         body = request.data.decode("utf-8")
         self.assertIn("marketplace-core", body)
         self.assertNotIn("super-secret", body)
@@ -84,6 +96,7 @@ class ConvexSeedClientTests(unittest.TestCase):
                 site_url="https://example.convex.site",
                 seed_secret="super-secret",
                 env_name="test",
+                author_password="test-author-password",
             )
         )
 
@@ -118,6 +131,7 @@ class ConvexSeedClientTests(unittest.TestCase):
                 site_url="https://example.convex.site",
                 seed_secret="super-secret",
                 env_name="test",
+                author_password="test-author-password",
             )
         )
 
@@ -152,6 +166,7 @@ class ConvexSeedClientTests(unittest.TestCase):
                 site_url="https://example.convex.site",
                 seed_secret="super-secret",
                 env_name="test",
+                author_password="test-author-password",
             )
         )
 
@@ -177,6 +192,7 @@ class ConvexSeedClientTests(unittest.TestCase):
                             [
                                 f"VITE_CONVEX_URL={convex_url}",
                                 "CONVEX_SEED_SECRET=super-secret",
+                                "CONVEX_SEED_AUTHOR_PASSWORD=test-author-password",
                             ]
                         ),
                         encoding="utf-8",

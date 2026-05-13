@@ -56,6 +56,20 @@ class CropBBox:
             "bottom": self.bottom,
         }
 
+    @classmethod
+    def from_json(cls, value: object) -> "CropBBox | None":
+        if not isinstance(value, dict):
+            return None
+        try:
+            return cls(
+                left=float(value["left"]),
+                top=float(value["top"]),
+                right=float(value["right"]),
+                bottom=float(value["bottom"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+
 
 # integer bbox in resized analysis-canvas pixels
 @dataclass(frozen=True)

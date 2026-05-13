@@ -52,6 +52,17 @@ export const activateSeedReleaseInternal = async (
       message: 'active seed release changed since preflight',
     })
   }
+  if (
+    targetAlreadyActive &&
+    activeReleaseIds.every((releaseId) => releaseId === params.releaseId)
+  )
+  {
+    await setSeedRunStatus(ctx, params.run, 'active')
+    return {
+      activeReleaseId: params.releaseId,
+      previousReleaseId: params.previousReleaseId ?? params.releaseId,
+    }
+  }
   const targetTemplates = await loadSeedTemplatesForRelease(
     ctx,
     params.datasetKey,

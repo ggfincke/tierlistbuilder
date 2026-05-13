@@ -69,6 +69,7 @@ import {
   loadRankingTiers,
   normalizeRankingLimit,
   toRankingDetail,
+  toRankingBucketPlacementItems,
   toRankingSummary,
 } from './lib'
 
@@ -767,7 +768,7 @@ export const getMyRankingForTemplate = query({
       ranking: summary,
       placements: buildRankingBucketPlacements(
         tiers,
-        items,
+        await toRankingBucketPlacementItems(ctx, ranking, items),
         bucketCount,
         bucketLabels
       ),

@@ -29,6 +29,7 @@ import {
   rankingFeaturedBadgeValidator,
   rankingPublicationStateValidator,
   rankingVisibilityValidator,
+  seedRankingReleaseStatusValidator,
   seedRunStatusValidator,
   seedTemplateReleaseStatusValidator,
   templateSizeClassValidator,
@@ -130,6 +131,16 @@ export default defineSchema({
     // per-board label rendering defaults; absent -> inherit AppPreferences.showLabels
     // & built-in defaults
     labels: v.optional(boardLabelSettingsValidator),
+    seedDatasetKey: v.union(v.string(), v.null()),
+    seedReleaseId: v.union(v.string(), v.null()),
+    seedExternalId: v.union(v.string(), v.null()),
+    seedContentHash: v.optional(v.string()),
+    seedKind: v.union(
+      v.literal('ranking-sample'),
+      v.literal('ranking-curated'),
+      v.null()
+    ),
+    seedReleaseStatus: v.union(seedRankingReleaseStatusValidator, v.null()),
   })
     // ordered index powering getMyBoards & getMyDeletedBoards — eq on (ownerId,
     // deletedAt) + order('desc') yields the active or deleted set sorted by
@@ -143,7 +154,12 @@ export default defineSchema({
       'updatedAt',
     ])
     .index('byDeletedAt', ['deletedAt'])
-    .index('bySourceTemplate', ['sourceTemplateId']),
+    .index('bySourceTemplate', ['sourceTemplateId'])
+    .index('bySeedDatasetReleaseAndExternalId', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedExternalId',
+    ]),
 
   // tier row within a board — ordered via sparse fractional "order" numbers
   boardTiers: defineTable({
@@ -282,6 +298,9 @@ export default defineSchema({
     seedExternalId: v.optional(v.string()),
     seedReleaseId: v.optional(v.string()),
     seedReleaseStatus: v.optional(seedTemplateReleaseStatusValidator),
+    seedMetadataContentHash: v.optional(v.string()),
+    seedItemsContentHash: v.optional(v.string()),
+    seedCriteriaContentHash: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -525,7 +544,7 @@ export default defineSchema({
     slug: v.string(),
     ownerId: v.id('users'),
     sourceTemplateId: v.id('templates'),
-    sourceBoardId: v.id('boards'),
+    sourceBoardId: v.union(v.id('boards'), v.null()),
     sourceTemplateSlug: v.string(),
     sourceTemplateTitle: v.string(),
     sourceTemplateCategory: templateCategoryValidator,
@@ -547,6 +566,17 @@ export default defineSchema({
     isFeatured: v.boolean(),
     featuredRank: v.union(v.number(), v.null()),
     featuredBadge: v.union(rankingFeaturedBadgeValidator, v.null()),
+    seedDatasetKey: v.union(v.string(), v.null()),
+    seedReleaseId: v.union(v.string(), v.null()),
+    seedExternalId: v.union(v.string(), v.null()),
+    seedKind: v.union(v.literal('sample'), v.literal('curated'), v.null()),
+    seedTemplateExternalId: v.union(v.string(), v.null()),
+    seedCriterionExternalId: v.union(v.string(), v.null()),
+    seedAuthorKey: v.union(v.string(), v.null()),
+    seedProfileKey: v.union(v.string(), v.null()),
+    seedCuratedExternalId: v.union(v.string(), v.null()),
+    seedReleaseStatus: v.union(seedRankingReleaseStatusValidator, v.null()),
+    seedContentHash: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -631,6 +661,30 @@ export default defineSchema({
       'sourceTemplateId',
       'sourceCriterionExternalId',
       'createdAt',
+    ])
+    .index('bySeedDatasetReleaseAndExternalId', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedExternalId',
+    ])
+    .index('bySeedDatasetReleaseTemplateCriterion', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedTemplateExternalId',
+      'seedCriterionExternalId',
+    ])
+    .index('bySeedDatasetReleaseStatus', [
+      'seedDatasetKey',
+      'seedReleaseId',
+      'seedReleaseStatus',
+    ])
+    // status/release index for ranking activation to discover active rows
+    // outside the target release. seedRuns-based discovery does not work
+    // because template activation flips the seedRun status before rankings run
+    .index('bySeedDatasetStatusReleaseId', [
+      'seedDatasetKey',
+      'seedReleaseStatus',
+      'seedReleaseId',
     ]),
 
   publishedRankingTiers: defineTable({
@@ -646,17 +700,19 @@ export default defineSchema({
   publishedRankingItems: defineTable({
     rankingId: v.id('publishedRankings'),
     templateItemId: v.id('templateItems'),
-    templateItemExternalId: v.string(),
-    externalId: v.string(),
+    templateItemExternalId: v.optional(v.string()),
+    externalId: v.optional(v.string()),
     tierExternalId: v.union(v.string(), v.null()),
-    label: v.union(v.string(), v.null()),
-    backgroundColor: v.union(v.string(), v.null()),
-    altText: v.union(v.string(), v.null()),
-    mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
+    label: v.optional(v.union(v.string(), v.null())),
+    backgroundColor: v.optional(v.union(v.string(), v.null())),
+    altText: v.optional(v.union(v.string(), v.null())),
+    mediaAssetId: v.optional(v.union(v.id('mediaAssets'), v.null())),
     order: v.number(),
-    aspectRatio: v.union(v.number(), v.null()),
-    imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
-    transform: v.union(itemTransformValidator, v.null()),
+    aspectRatio: v.optional(v.union(v.number(), v.null())),
+    imageFit: v.optional(
+      v.union(v.literal('cover'), v.literal('contain'), v.null())
+    ),
+    transform: v.optional(v.union(itemTransformValidator, v.null())),
   })
     .index('byRanking', ['rankingId', 'order'])
     .index('byMedia', ['mediaAssetId']),
@@ -901,6 +957,7 @@ export default defineSchema({
     templateId: v.id('templates'),
     criterionExternalId: v.string(),
     status: templateRankingAggregateJobStatusValidator,
+    admittedAt: v.optional(v.union(v.number(), v.null())),
     phase: templateRankingAggregateJobPhaseValidator,
     generation: v.number(),
     bucketCount: v.number(),
@@ -949,6 +1006,12 @@ export default defineSchema({
       'status',
     ])
     .index('byStatusAndUpdatedAt', ['status', 'updatedAt']),
+
+  templateRankingAggregateAdmission: defineTable({
+    key: v.string(),
+    scheduledAt: v.number(),
+    updatedAt: v.number(),
+  }).index('byKey', ['key']),
 
   userTemplateBookmarks: defineTable({
     userId: v.id('users'),
