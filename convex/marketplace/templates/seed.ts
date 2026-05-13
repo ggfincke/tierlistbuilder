@@ -344,8 +344,11 @@ export const setFeaturedTrioByExternalIdsImpl = internalMutation({
     )
 
     // promote in input order: first externalId gets rank 0 (top hero slot)
-    const promoted: { externalId: string; slug: string; featuredRank: number }[] =
-      []
+    const promoted: {
+      externalId: string
+      slug: string
+      featuredRank: number
+    }[] = []
     for (let index = 0; index < resolved.length; index++)
     {
       const entry = resolved[index]

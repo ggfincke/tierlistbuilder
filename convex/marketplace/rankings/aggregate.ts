@@ -52,7 +52,10 @@ export const scheduleTemplateRankingAggregateJobAdmission = async (
   const now = Date.now()
   const scheduledAt = now + delayMs
   const admission = await findTemplateRankingAggregateAdmission(ctx)
-  if (admission && admission.scheduledAt + AGGREGATE_JOB_ADMISSION_STALE_MS > now)
+  if (
+    admission &&
+    admission.scheduledAt + AGGREGATE_JOB_ADMISSION_STALE_MS > now
+  )
   {
     return
   }

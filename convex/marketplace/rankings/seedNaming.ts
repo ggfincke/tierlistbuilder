@@ -31,8 +31,10 @@ export const formatRankingSeedId = (parts: RankingSeedIdParts): string =>
 export const formatBoardSeedId = (parts: RankingSeedIdParts): string =>
   `${BOARD_PREFIX}${formatBody(parts)}`
 
-export const formatTierSeedId = (rankingSeedId: string, order: number): string =>
-  `${rankingSeedId}:tier:${order.toString().padStart(2, '0')}`
+export const formatTierSeedId = (
+  rankingSeedId: string,
+  order: number
+): string => `${rankingSeedId}:tier:${order.toString().padStart(2, '0')}`
 
 export const companionBoardSeedId = (rankingSeedId: string): string =>
 {
@@ -59,4 +61,5 @@ export const curatedAuthorEmail = (rawAuthorKey: string): string =>
   sampleAuthorEmail(curatedSeedAuthorKey(rawAuthorKey))
 
 export const isSeedRankingAuthorEmail = (email: string): boolean =>
-  email.endsWith(`@${SEED_EMAIL_DOMAIN}`) && email.startsWith(SEED_AUTHOR_PREFIX)
+  email.endsWith(`@${SEED_EMAIL_DOMAIN}`) &&
+  email.startsWith(SEED_AUTHOR_PREFIX)

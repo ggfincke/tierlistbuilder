@@ -302,7 +302,10 @@ export const compactRankingItemSnapshot = (
   templateItem: Doc<'templateItems'>
 ): CompactRankingItemSnapshot =>
   Object.fromEntries(
-    COMPACT_RANKING_ITEM_DATA_FIELDS.map((field) => [field, templateItem[field]])
+    COMPACT_RANKING_ITEM_DATA_FIELDS.map((field) => [
+      field,
+      templateItem[field],
+    ])
   ) as CompactRankingItemSnapshot
 
 const toRankingTier = (

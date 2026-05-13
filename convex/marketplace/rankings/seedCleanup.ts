@@ -1,60 +1,30 @@
 // convex/marketplace/rankings/seedCleanup.ts
-// bounded cascade deletes for seed-owned rankings & their companion boards.
+// seed cascade deletes. parent row inline (frees seedExternalId/slug);
+// items/tiers via scheduled cascade so cost stays fixed in items count.
 
-// callers keep child counts within SEED_LIMITS so each cascade fits in a single
-// mutation; convex/lib/cascadeDelete.ts handles unbounded cleanup via the scheduler.
-
-import { ConvexError } from 'convex/values'
-import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
-import type { MutationCtx } from '../../_generated/server'
+import { v } from 'convex/values'
+import { internalMutation, type MutationCtx } from '../../_generated/server'
+import { internal } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
-import { SEED_LIMITS } from '../../lib/limits'
-
-const assertWithinSeedLimit = (
-  rows: readonly unknown[],
-  limit: number,
-  message: string
-): void =>
-{
-  if (rows.length > limit)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidState,
-      message,
-    })
-  }
-}
+import {
+  CASCADE_DELETE_PAGE_SIZE,
+  deleteCascadePageAndSchedule,
+} from '../../lib/cascadeDelete'
 
 export const deleteSeedRankingWithChildren = async (
   ctx: MutationCtx,
   ranking: Doc<'publishedRankings'>
 ): Promise<void> =>
 {
-  const [items, tiers] = await Promise.all([
-    ctx.db
-      .query('publishedRankingItems')
-      .withIndex('byRanking', (q) => q.eq('rankingId', ranking._id))
-      .take(SEED_LIMITS.rankingSeedItemsPerRanking + 1),
-    ctx.db
-      .query('publishedRankingTiers')
-      .withIndex('byRanking', (q) => q.eq('rankingId', ranking._id))
-      .take(SEED_LIMITS.rankingSeedTiersPerRanking + 1),
-  ])
-  assertWithinSeedLimit(
-    items,
-    SEED_LIMITS.rankingSeedItemsPerRanking,
-    'seed ranking item rows exceed cleanup limit'
+  // schedule children cleanup BEFORE deleting the parent so a crash between
+  // the two leaves the scheduler job intact (the job tolerates a missing
+  // ranking — it just walks the byRanking index).
+  await ctx.scheduler.runAfter(
+    0,
+    internal.marketplace.rankings.internal.cascadeDeleteRanking,
+    { rankingId: ranking._id }
   )
-  assertWithinSeedLimit(
-    tiers,
-    SEED_LIMITS.rankingSeedTiersPerRanking,
-    'seed ranking tier rows exceed cleanup limit'
-  )
-  await Promise.all([
-    ...items.map((item) => ctx.db.delete(item._id)),
-    ...tiers.map((tier) => ctx.db.delete(tier._id)),
-    ctx.db.delete(ranking._id),
-  ])
+  await ctx.db.delete(ranking._id)
 }
 
 export const deleteSeedBoardWithChildren = async (
@@ -62,29 +32,79 @@ export const deleteSeedBoardWithChildren = async (
   board: Doc<'boards'>
 ): Promise<void> =>
 {
-  const [items, tiers] = await Promise.all([
-    ctx.db
-      .query('boardItems')
-      .withIndex('byBoardAndTier', (q) => q.eq('boardId', board._id))
-      .take(SEED_LIMITS.rankingSeedItemsPerRanking + 1),
-    ctx.db
-      .query('boardTiers')
-      .withIndex('byBoard', (q) => q.eq('boardId', board._id))
-      .take(SEED_LIMITS.rankingSeedTiersPerRanking + 1),
-  ])
-  assertWithinSeedLimit(
-    items,
-    SEED_LIMITS.rankingSeedItemsPerRanking,
-    'seed board item rows exceed cleanup limit'
+  await ctx.scheduler.runAfter(
+    0,
+    internal.marketplace.rankings.seedCleanup.cascadeSeedBoardChildren,
+    { boardId: board._id }
   )
-  assertWithinSeedLimit(
-    tiers,
-    SEED_LIMITS.rankingSeedTiersPerRanking,
-    'seed board tier rows exceed cleanup limit'
-  )
-  await Promise.all([
-    ...items.map((item) => ctx.db.delete(item._id)),
-    ...tiers.map((tier) => ctx.db.delete(tier._id)),
-    ctx.db.delete(board._id),
-  ])
+  await ctx.db.delete(board._id)
 }
+
+// items + tiers cleanup for an already-deleted seed board row.
+// mirrors workspace/boards/internal.ts:cascadeDeleteBoard, minus the final
+// board-row delete (the seed pipeline already removed it inline).
+type CascadePhase = 'items' | 'tiers'
+
+export const cascadeSeedBoardChildren = internalMutation({
+  args: {
+    boardId: v.id('boards'),
+    cursor: v.optional(v.union(v.string(), v.null())),
+    phase: v.optional(v.union(v.literal('items'), v.literal('tiers'))),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    const phase: CascadePhase = args.phase ?? 'items'
+
+    if (phase === 'items')
+    {
+      const page = await ctx.db
+        .query('boardItems')
+        .withIndex('byBoardAndTier', (q) => q.eq('boardId', args.boardId))
+        .paginate({
+          numItems: CASCADE_DELETE_PAGE_SIZE,
+          cursor: args.cursor ?? null,
+        })
+
+      const scheduled = await deleteCascadePageAndSchedule({
+        ctx,
+        page,
+        schedule: async (nextArgs) =>
+          await ctx.scheduler.runAfter(
+            0,
+            internal.marketplace.rankings.seedCleanup.cascadeSeedBoardChildren,
+            nextArgs
+          ),
+        parentKey: 'boardId',
+        parentId: args.boardId,
+        phase: 'items',
+        nextPhase: 'tiers',
+      })
+      if (scheduled) return null
+    }
+
+    const tierPage = await ctx.db
+      .query('boardTiers')
+      .withIndex('byBoard', (q) => q.eq('boardId', args.boardId))
+      .paginate({
+        numItems: CASCADE_DELETE_PAGE_SIZE,
+        cursor: args.cursor ?? null,
+      })
+
+    await deleteCascadePageAndSchedule({
+      ctx,
+      page: tierPage,
+      schedule: async (nextArgs) =>
+        await ctx.scheduler.runAfter(
+          0,
+          internal.marketplace.rankings.seedCleanup.cascadeSeedBoardChildren,
+          nextArgs
+        ),
+      parentKey: 'boardId',
+      parentId: args.boardId,
+      phase: 'tiers',
+    })
+
+    return null
+  },
+})

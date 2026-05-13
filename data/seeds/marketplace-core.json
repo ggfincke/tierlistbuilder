@@ -369,14 +369,7 @@
               },
               {
                 "tierName": "A",
-                "labels": [
-                  "Corrin",
-                  "Wario",
-                  "Sora",
-                  "Falco",
-                  "Wolf",
-                  "Hero"
-                ]
+                "labels": ["Corrin", "Wario", "Sora", "Falco", "Wolf", "Hero"]
               },
               {
                 "tierName": "A-",
@@ -464,10 +457,7 @@
               },
               {
                 "tierName": "E",
-                "labels": [
-                  "Little Mac",
-                  "Ganondorf"
-                ]
+                "labels": ["Little Mac", "Ganondorf"]
               }
             ]
           },
@@ -623,11 +613,7 @@
               },
               {
                 "tierName": "D+",
-                "labels": [
-                  "Mii Gunner",
-                  "Mewtwo",
-                  "Zelda"
-                ]
+                "labels": ["Mii Gunner", "Mewtwo", "Zelda"]
               },
               {
                 "tierName": "D-",
@@ -642,12 +628,7 @@
               },
               {
                 "tierName": "E",
-                "labels": [
-                  "Simon",
-                  "Richter",
-                  "Little Mac",
-                  "Ganondorf"
-                ]
+                "labels": ["Simon", "Richter", "Little Mac", "Ganondorf"]
               }
             ]
           },

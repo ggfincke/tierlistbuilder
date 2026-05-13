@@ -6,13 +6,8 @@
 
 import type { Doc } from '../../_generated/dataModel'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import {
-  DEFAULT_TEMPLATE_TIERS,
-} from '../templates/lib'
-import type {
-  SeedRankingLane,
-  SeedRankingProfile,
-} from './seedValidators'
+import { DEFAULT_TEMPLATE_TIERS } from '../templates/lib'
+import type { SeedRankingLane, SeedRankingProfile } from './seedValidators'
 
 export interface RankedSeedItem
 {
@@ -209,14 +204,12 @@ export const resolveTemplateTiers = (
 export const featuredForProfile = (
   lane: SeedRankingLane,
   profileKey: string
-):
-  | {
-      featuredRank: number
-      featuredBadge: NonNullable<
-        SeedRankingLane['featuredProfiles']
-      >[number]['featuredBadge']
-    }
-  | null =>
+): {
+  featuredRank: number
+  featuredBadge: NonNullable<
+    SeedRankingLane['featuredProfiles']
+  >[number]['featuredBadge']
+} | null =>
 {
   const match = lane.featuredProfiles?.find(
     (profile) => profile.profileKey === profileKey

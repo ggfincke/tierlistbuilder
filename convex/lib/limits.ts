@@ -37,7 +37,7 @@ export const BATCH_LIMITS = {
   templateRankingAggregateRankingItems: 80,
   // cleanup old aggregate generations after a new one becomes active
   templateRankingAggregateCleanup: 256,
-  // ranking release transitions also touch source boards and aggregate lanes
+  // ranking release transitions also touch source boards & aggregate lanes
   rankingSeedLifecycleTransition: 32,
 } as const
 

@@ -929,9 +929,9 @@ const groupTasksByTemplate = (
   }))
 }
 
-// 16 per-template tasks leaves headroom under Convex's 4096-write cap even
-// for full item-count templates (replace-insert writes ~(items + tiers + 1)
-// rows & may also delete the same shape).
+// per-template tasks per mutation. deleteSeedRankingWithChildren schedules
+// child cleanup so each task is ~(items + tiers + 5) writes & ~5 reads; the
+// python pipeline's GENERIC_SAMPLE_ITEM_BUDGET bounds large templates.
 const SEED_RANKING_TASKS_PER_MUTATION = 16
 
 const chunkTaskGroup = (
