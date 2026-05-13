@@ -87,7 +87,7 @@ SEED_HTTP_ROUTES = {
     ): "/api/seed/finalize-media",
     (
         "action",
-        "marketplace/rankings/seed:applySeedRankings",
+        "marketplace/rankings/seed:applySeedRankingChunk",
     ): "/api/seed/rankings/apply",
     (
         "action",

@@ -419,10 +419,18 @@ describe('ranking seed pipeline', () =>
         .collect()
     })
     expect(storedItems).toHaveLength(2)
-    expect(storedItems[0]?.externalId).toBeUndefined()
-    expect(storedItems[0]?.templateItemExternalId).toBeUndefined()
-    expect(storedItems[0]?.label).toBeUndefined()
-    expect(storedItems[0]?.mediaAssetId).toBeUndefined()
+    expect(storedItems.map((item) => item.externalId).sort()).toEqual([
+      'item-0',
+      'item-1',
+    ])
+    expect(
+      storedItems.map((item) => item.templateItemExternalId).sort()
+    ).toEqual(['item-0', 'item-1'])
+    expect(storedItems.map((item) => item.label).sort()).toEqual([
+      'Luigi',
+      'Mario',
+    ])
+    expect(storedItems.every((item) => item.mediaAssetId === null)).toBe(true)
     const detail = activeRows.ranking
       ? await t.query(api.marketplace.rankings.queries.getRankingBySlug, {
           slug: activeRows.ranking.slug,

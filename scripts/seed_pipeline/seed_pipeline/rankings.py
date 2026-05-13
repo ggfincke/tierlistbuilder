@@ -10,6 +10,7 @@ from .convex_client import ConvexClientError
 from .manifest import JsonObject, as_list
 from .reports import _report_header, _write_report
 from .runs import (
+    SeedRunContext,
     SeedRunOptions,
     _assert_write_allowed,
     _begin_seed_run,
@@ -22,7 +23,7 @@ SEED_RANKINGS_PREFLIGHT_FUNCTION = "marketplace/rankings/seed:preflightSeedRanki
 SEED_RANKINGS_ENSURE_AUTHORS_FUNCTION = (
     "marketplace/rankings/seed:ensureSeedRankingAuthors"
 )
-SEED_RANKINGS_APPLY_FUNCTION = "marketplace/rankings/seed:applySeedRankings"
+SEED_RANKINGS_APPLY_FUNCTION = "marketplace/rankings/seed:applySeedRankingChunk"
 SEED_RANKINGS_CLEANUP_STALE_FUNCTION = (
     "marketplace/rankings/seed:cleanupStaleSeedRankings"
 )
@@ -71,17 +72,7 @@ def apply_rankings_manifest(
         preflight = _ranking_query(context, SEED_RANKINGS_PREFLIGHT_FUNCTION)
         return write_ranking_apply_report(context, preflight, dry_run=True)
     _begin_seed_run(context)
-    author_password = context.client.settings.author_password
-    if not author_password:
-        msg = "CONVEX_SEED_AUTHOR_PASSWORD is not set"
-        raise RuntimeError(msg)
-    author_result = _ensure_ranking_authors(context, ranking_seeds, author_password)
-    result = _apply_ranking_targets(
-        context,
-        ranking_seeds,
-        author_password,
-        author_result,
-    )
+    result = _apply_rankings_with_authors(context, ranking_seeds)
     return write_ranking_apply_report(context, result)
 
 
@@ -144,18 +135,8 @@ def run_rankings_manifest(
         context.progress.log("dry run complete; no ranking writes performed")
         return write_ranking_run_report(context, ["dry-run preflight complete"], preflight)
     _begin_seed_run(context)
-    author_password = context.client.settings.author_password
-    if not author_password:
-        msg = "CONVEX_SEED_AUTHOR_PASSWORD is not set"
-        raise RuntimeError(msg)
     ranking_seeds = _require_ranking_seeds(context.compiled)
-    author_result = _ensure_ranking_authors(context, ranking_seeds, author_password)
-    apply_result = _apply_ranking_targets(
-        context,
-        ranking_seeds,
-        author_password,
-        author_result,
-    )
+    apply_result = _apply_rankings_with_authors(context, ranking_seeds)
     verify_result = _ranking_query(context, SEED_RANKINGS_VERIFY_FUNCTION)
     steps = [
         "preflight complete",
@@ -178,7 +159,7 @@ def run_rankings_manifest(
     return write_ranking_run_report(context, steps, verify_result)
 
 
-def _ranking_query(context: object, function_path: str) -> JsonObject:
+def _ranking_query(context: SeedRunContext, function_path: str) -> JsonObject:
     return context.client.query(
         function_path,
         {
@@ -189,7 +170,7 @@ def _ranking_query(context: object, function_path: str) -> JsonObject:
     )
 
 
-def _activate_rankings_until_complete(context: object) -> JsonObject:
+def _activate_rankings_until_complete(context: SeedRunContext) -> JsonObject:
     result = _run_ranking_lifecycle_until_complete(
         context,
         SEED_RANKINGS_ACTIVATE_FUNCTION,
@@ -205,7 +186,7 @@ def _activate_rankings_until_complete(context: object) -> JsonObject:
 
 
 def _rollback_rankings_until_complete(
-    context: object, target_release_id: str
+    context: SeedRunContext, target_release_id: str
 ) -> JsonObject:
     # convex auto-discovers what to roll back from publishedRankings, so the
     # only release id that matters is the one becoming active again
@@ -223,7 +204,7 @@ def _rollback_rankings_until_complete(
 
 
 def _run_ranking_lifecycle_until_complete(
-    context: object,
+    context: SeedRunContext,
     function_path: str,
     args: JsonObject,
     active_release_id: str,
@@ -265,7 +246,7 @@ def _run_ranking_lifecycle_until_complete(
 
 
 def _queue_active_ranking_aggregates_if_changed(
-    context: object, result: JsonObject
+    context: SeedRunContext, result: JsonObject
 ) -> None:
     changed = int(result.get("activatedRankings", 0)) + int(
         result.get("rolledBackRankings", 0)
@@ -292,10 +273,21 @@ def _require_ranking_seeds(compiled: JsonObject) -> JsonObject:
     return ranking_seeds
 
 
-def _apply_ranking_targets(
-    context: object,
+def _apply_rankings_with_authors(
+    context: SeedRunContext,
     ranking_seeds: JsonObject,
-    author_password: str,
+) -> JsonObject:
+    author_password = context.client.settings.author_password
+    if not author_password:
+        msg = "CONVEX_SEED_AUTHOR_PASSWORD is not set"
+        raise RuntimeError(msg)
+    author_result = _ensure_ranking_authors(context, ranking_seeds, author_password)
+    return _apply_ranking_targets(context, ranking_seeds, author_result)
+
+
+def _apply_ranking_targets(
+    context: SeedRunContext,
+    ranking_seeds: JsonObject,
     author_result: JsonObject,
 ) -> JsonObject:
     chunks = _ranking_seed_target_manifests(ranking_seeds)
@@ -318,9 +310,7 @@ def _apply_ranking_targets(
             SEED_RANKINGS_APPLY_FUNCTION,
             {
                 **_run_request(context),
-                "authorPassword": author_password,
                 "rankingSeeds": chunk,
-                "ensureAuthors": False,
             },
             f"ranking target {template_external_id}",
         )
@@ -349,7 +339,7 @@ def _ranking_apply_retry_delay(attempt: int) -> float:
 
 
 def _run_ranking_action_with_retries(
-    context: object,
+    context: SeedRunContext,
     function_path: str,
     args: JsonObject,
     throttle_label: str,
@@ -374,7 +364,7 @@ def _run_ranking_action_with_retries(
 
 
 def _cleanup_stale_ranking_rows(
-    context: object,
+    context: SeedRunContext,
     ranking_seeds: JsonObject,
 ) -> JsonObject:
     context.progress.log("cleaning stale ranking seed rows")
@@ -390,7 +380,7 @@ def _cleanup_stale_ranking_rows(
 
 
 def _ensure_ranking_authors(
-    context: object,
+    context: SeedRunContext,
     ranking_seeds: JsonObject,
     author_password: str,
 ) -> JsonObject:
@@ -430,7 +420,7 @@ def _ranking_seed_target_manifests(ranking_seeds: JsonObject) -> list[JsonObject
 
 
 def _merge_apply_results(
-    context: object,
+    context: SeedRunContext,
     results: list[JsonObject],
     author_result: JsonObject,
 ) -> JsonObject:
@@ -525,7 +515,7 @@ def _has_error_diagnostics(result: JsonObject) -> bool:
     )
 
 
-def write_ranking_preflight_report(context: object, result: JsonObject) -> Path:
+def write_ranking_preflight_report(context: SeedRunContext, result: JsonObject) -> Path:
     lines = _ranking_report_header(context, "Ranking Seed Preflight Report", result)
     _append_ranking_lanes(lines, result.get("aggregateLanes", []))
     _append_diagnostics(lines, result.get("diagnostics", []))
@@ -533,7 +523,7 @@ def write_ranking_preflight_report(context: object, result: JsonObject) -> Path:
 
 
 def write_ranking_apply_report(
-    context: object,
+    context: SeedRunContext,
     result: JsonObject,
     dry_run: bool = False,
 ) -> Path:
@@ -562,7 +552,7 @@ def write_ranking_apply_report(
     return _write_report(context, "ranking-apply.md", lines)
 
 
-def write_ranking_verify_report(context: object, result: JsonObject) -> Path:
+def write_ranking_verify_report(context: SeedRunContext, result: JsonObject) -> Path:
     lines = _ranking_report_header(context, "Ranking Seed Verify Report", result)
     _append_ranking_lanes(lines, result.get("aggregateLanes", []))
     _append_diagnostics(lines, result.get("diagnostics", []))
@@ -570,7 +560,7 @@ def write_ranking_verify_report(context: object, result: JsonObject) -> Path:
 
 
 def write_ranking_activation_report(
-    context: object,
+    context: SeedRunContext,
     result: JsonObject,
     rollback: bool = False,
 ) -> Path:
@@ -588,7 +578,7 @@ def write_ranking_activation_report(
 
 
 def write_ranking_run_report(
-    context: object,
+    context: SeedRunContext,
     steps: list[str],
     result: JsonObject,
 ) -> Path:
@@ -602,7 +592,7 @@ def write_ranking_run_report(
 
 
 def _ranking_report_header(
-    context: object,
+    context: SeedRunContext,
     title: str,
     result: JsonObject,
 ) -> list[str]:

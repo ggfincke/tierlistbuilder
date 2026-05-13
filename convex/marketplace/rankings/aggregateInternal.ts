@@ -9,6 +9,7 @@ import { BATCH_LIMITS, MAX_SYNC_ITEMS, MAX_SYNC_TIERS } from '../../lib/limits'
 import { isPublicRankingRow } from './lib'
 import {
   buildAggregateItemMetrics,
+  clearTemplateRankingAggregateJobAdmission,
   deleteTemplateRankingAggregateParentRows,
   findTemplateRankingAggregate,
   makeEmptyDistribution,
@@ -736,36 +737,30 @@ async function finishJob(
       highlights.mostDivisive?.templateItemExternalId ?? null,
     mostDivisiveItemLabel: highlights.mostDivisive?.label ?? null,
   }
+  const aggregateState: Doc<'templateRankingAggregates'>['state'] =
+    job.rankingCount > 0 ? 'ready' : 'empty'
+  const aggregateFields = {
+    state: aggregateState,
+    activeGeneration: job.generation,
+    bucketCount: job.bucketCount,
+    rankingCount: job.rankingCount,
+    itemCount: job.itemCount,
+    computedAt: now,
+    staleAt: null,
+    bucketSpread,
+    ...highlightFields,
+    updatedAt: now,
+  }
   if (aggregate)
   {
-    await ctx.db.patch(aggregate._id, {
-      state: job.rankingCount > 0 ? 'ready' : 'empty',
-      activeGeneration: job.generation,
-      bucketCount: job.bucketCount,
-      rankingCount: job.rankingCount,
-      itemCount: job.itemCount,
-      computedAt: now,
-      staleAt: null,
-      bucketSpread,
-      ...highlightFields,
-      updatedAt: now,
-    })
+    await ctx.db.patch(aggregate._id, aggregateFields)
   }
   else
   {
     await ctx.db.insert('templateRankingAggregates', {
       templateId: job.templateId,
       criterionExternalId: job.criterionExternalId,
-      state: job.rankingCount > 0 ? 'ready' : 'empty',
-      activeGeneration: job.generation,
-      bucketCount: job.bucketCount,
-      rankingCount: job.rankingCount,
-      itemCount: job.itemCount,
-      computedAt: now,
-      staleAt: null,
-      bucketSpread,
-      ...highlightFields,
-      updatedAt: now,
+      ...aggregateFields,
     })
   }
 
@@ -875,6 +870,7 @@ export const admitQueuedTemplateRankingAggregateJobs = internalMutation({
   }> =>
   {
     const now = Date.now()
+    await clearTemplateRankingAggregateJobAdmission(ctx)
     const running = await ctx.db
       .query('templateRankingAggregateJobs')
       .withIndex('byStatusAndUpdatedAt', (q) => q.eq('status', 'running'))

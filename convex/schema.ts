@@ -1007,6 +1007,12 @@ export default defineSchema({
     ])
     .index('byStatusAndUpdatedAt', ['status', 'updatedAt']),
 
+  templateRankingAggregateAdmission: defineTable({
+    key: v.string(),
+    scheduledAt: v.number(),
+    updatedAt: v.number(),
+  }).index('byKey', ['key']),
+
   userTemplateBookmarks: defineTable({
     userId: v.id('users'),
     templateId: v.id('templates'),

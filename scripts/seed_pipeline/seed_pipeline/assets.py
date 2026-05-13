@@ -218,6 +218,44 @@ def compute_variant_dedupe_hash(variants: Iterable[JsonObject]) -> str:
     )
 
 
+def asset_variants(asset: object) -> Iterable[JsonObject]:
+    if not isinstance(asset, dict):
+        return
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return
+    for kind in ("tile", "preview"):
+        variant = variants.get(kind)
+        if isinstance(variant, dict):
+            yield variant
+
+
+def asset_tile_hash(asset: object) -> str | None:
+    if not isinstance(asset, dict):
+        return None
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return None
+    tile = variants.get("tile")
+    if not isinstance(tile, dict):
+        return None
+    return str(tile["contentHash"])
+
+
+def asset_dedupe_hash(asset: object) -> str | None:
+    if not isinstance(asset, dict):
+        return None
+    dedupe_hash = asset.get("dedupeHash")
+    if isinstance(dedupe_hash, str):
+        return dedupe_hash
+    variants = asset.get("variants")
+    if not isinstance(variants, dict):
+        return None
+    return compute_variant_dedupe_hash(
+        variant for variant in variants.values() if isinstance(variant, dict)
+    )
+
+
 def _variant_output_path(
     source_sha256: str,
     kind: VariantKind,

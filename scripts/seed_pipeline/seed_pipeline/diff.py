@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
+from .assets import asset_dedupe_hash, asset_tile_hash
 from .build import build_compiled_manifest_with_data
 from .convex_client import ConvexSeedClient, read_seed_settings
 from .manifest import (
@@ -328,8 +329,8 @@ def _diff_items(compiled: JsonObject, state: JsonObject) -> JsonObject:
                 continue
             item_for_diff = {
                 **item,
-                "mediaContentHash": _asset_tile_hash(item.get("asset")),
-                "mediaDedupeHash": _asset_dedupe_hash(item.get("asset")),
+                "mediaContentHash": asset_tile_hash(item.get("asset")),
+                "mediaDedupeHash": asset_dedupe_hash(item.get("asset")),
             }
             reasons = _changed_fields(
                 item_for_diff,
@@ -416,7 +417,7 @@ def _diff_media(compiled: JsonObject, state: JsonObject) -> JsonObject:
 def _compiled_asset_dedupe_hashes(compiled: JsonObject) -> set[str]:
     hashes: set[str] = set()
     for asset in _compiled_assets(compiled):
-        dedupe_hash = _asset_dedupe_hash(asset)
+        dedupe_hash = asset_dedupe_hash(asset)
         if dedupe_hash is not None:
             hashes.add(dedupe_hash)
     return hashes
@@ -443,36 +444,6 @@ def _compiled_assets(compiled: JsonObject) -> Iterable[JsonObject]:
         for item in as_list(template.get("items")):
             if isinstance(item, dict) and isinstance(item.get("asset"), dict):
                 yield item["asset"]
-
-
-def _asset_tile_hash(asset: object) -> str | None:
-    if not isinstance(asset, dict):
-        return None
-    variants = asset.get("variants")
-    if not isinstance(variants, dict):
-        return None
-    tile = variants.get("tile")
-    if not isinstance(tile, dict):
-        return None
-    return str(tile["contentHash"])
-
-
-def _asset_dedupe_hash(asset: object) -> str | None:
-    if not isinstance(asset, dict):
-        return None
-    dedupe_hash = asset.get("dedupeHash")
-    if isinstance(dedupe_hash, str):
-        return dedupe_hash
-    variants = asset.get("variants")
-    if not isinstance(variants, dict):
-        return None
-    return "|".join(
-        sorted(
-            f"{variant['kind']}:{variant['contentHash']}"
-            for variant in variants.values()
-            if isinstance(variant, dict)
-        )
-    )
 
 
 def _append_diff_section(lines: list[str], title: str, entries: list[object]) -> None:

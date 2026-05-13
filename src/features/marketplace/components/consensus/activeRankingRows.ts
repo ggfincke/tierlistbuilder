@@ -130,7 +130,6 @@ export const filterAndSortActiveRankingRows = (
     .filter(
       (row) => matchesSortFilter(row, options.sort) && matchesSearch(row, query)
     )
-    .slice()
     .sort(
       (a, b) =>
         activeSortValue(a, options.sort, options.bucketCount) -

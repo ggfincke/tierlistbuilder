@@ -195,7 +195,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
         self.assertEqual(chunks[1]["targets"][0]["templateExternalId"], "two")
         self.assertEqual(
             SEED_HTTP_ROUTES[
-                ("action", "marketplace/rankings/seed:applySeedRankings")
+                ("action", "marketplace/rankings/seed:applySeedRankingChunk")
             ],
             "/api/seed/rankings/apply",
         )
@@ -318,7 +318,6 @@ class RankingSeedCompilationTests(unittest.TestCase):
         result = _apply_ranking_targets(
             context,
             ranking_seeds,
-            "author-password",
             {"authorsCreated": 0, "authorsReused": 1, "authorsPatched": 0},
         )
 

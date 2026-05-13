@@ -7,6 +7,7 @@ import {
   seedRankingReleaseStatusValidator,
   tierPresetTierValidator,
 } from '../../lib/validators'
+import { seedDiagnosticValidator } from '../seedPipeline/validators'
 
 export const seedRankingTermOverridesValidator = v.record(
   v.string(),
@@ -80,13 +81,6 @@ export const seedRankingsManifestValidator = v.object({
   targets: v.array(seedRankingTargetValidator),
 })
 
-export const seedRankingDiagnosticValidator = v.object({
-  code: v.string(),
-  message: v.string(),
-  path: v.string(),
-  severity: v.union(v.literal('warning'), v.literal('error')),
-})
-
 export const seedRankingLaneSummaryValidator = v.object({
   templateExternalId: v.string(),
   criterionExternalId: v.string(),
@@ -105,15 +99,15 @@ export const seedRankingPreflightResultValidator = v.object({
   existingSeedRankings: v.number(),
   existingActiveSeedRankings: v.number(),
   aggregateLanes: v.array(seedRankingLaneSummaryValidator),
-  diagnostics: v.array(seedRankingDiagnosticValidator),
+  diagnostics: v.array(seedDiagnosticValidator),
 })
 
-export const seedRankingApplyResultValidator = v.object({
+// per-chunk apply: callers run preflight + ensureSeedRankingAuthors once
+// up-front, then issue one applySeedRankingChunk per target; the chunk
+// itself does no preflight/author work
+export const seedRankingApplyChunkResultValidator = v.object({
   datasetKey: v.string(),
   releaseId: v.string(),
-  authorsCreated: v.number(),
-  authorsReused: v.number(),
-  authorsPatched: v.number(),
   boardsReplaced: v.number(),
   rankingsReplaced: v.number(),
   rankingsUnchanged: v.number(),
@@ -123,7 +117,6 @@ export const seedRankingApplyResultValidator = v.object({
   rankingTiersWritten: v.number(),
   rankingItemsWritten: v.number(),
   aggregateLanes: v.array(seedRankingLaneSummaryValidator),
-  diagnostics: v.array(seedRankingDiagnosticValidator),
 })
 
 export const seedRankingAuthorEnsureResultValidator = v.object({
@@ -132,7 +125,7 @@ export const seedRankingAuthorEnsureResultValidator = v.object({
   authorsCreated: v.number(),
   authorsReused: v.number(),
   authorsPatched: v.number(),
-  diagnostics: v.array(seedRankingDiagnosticValidator),
+  diagnostics: v.array(seedDiagnosticValidator),
 })
 
 export const seedRankingActivationResultValidator = v.object({
@@ -153,12 +146,11 @@ export type SeedRankingProfile = Infer<typeof seedRankingProfileValidator>
 export type SeedRankingTarget = Infer<typeof seedRankingTargetValidator>
 export type SeedRankingLane = Infer<typeof seedRankingLaneValidator>
 export type SeedCuratedRanking = Infer<typeof seedCuratedRankingValidator>
-export type SeedRankingDiagnostic = Infer<typeof seedRankingDiagnosticValidator>
 export type SeedRankingLaneSummary = Infer<
   typeof seedRankingLaneSummaryValidator
 >
-export type SeedRankingApplyResult = Infer<
-  typeof seedRankingApplyResultValidator
+export type SeedRankingApplyChunkResult = Infer<
+  typeof seedRankingApplyChunkResultValidator
 >
 export type SeedRankingAuthorEnsureResult = Infer<
   typeof seedRankingAuthorEnsureResultValidator

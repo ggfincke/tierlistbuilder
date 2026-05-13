@@ -17,6 +17,7 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 const RESETTABLE_TABLES = [
   'shortLinks',
   'userTemplateBookmarks',
+  'templateRankingAggregateAdmission',
   'templateRankingAggregateJobs',
   'templateRankingAggregateItems',
   'templateRankingAggregates',

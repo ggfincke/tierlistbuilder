@@ -14,6 +14,7 @@ import { computeVariantDedupeHash } from '../../convex/lib/mediaVariants'
 import {
   buildPngHeader,
   captureSeedEnv,
+  enableSeedApi,
   modules,
   restoreSeedEnv,
   seedPublishedTemplate,
@@ -37,12 +38,6 @@ const originalEnv = captureSeedEnv()
 const restoreEnv = (): void =>
 {
   restoreSeedEnv(originalEnv)
-}
-
-const enableSeedApi = (): void =>
-{
-  process.env.CONVEX_SEED_ENABLED = 'true'
-  process.env.CONVEX_SEED_SECRET = SEED_SECRET
 }
 
 const seedHttpPost = async (
@@ -354,7 +349,7 @@ describe('seed run precheck API', () =>
       errorMessage: expect.stringContaining('seeding is disabled'),
     })
 
-    enableSeedApi()
+    enableSeedApi(SEED_SECRET)
     const wrongSecret = await seedHttpPost(
       t,
       '/api/seed/begin',
@@ -422,7 +417,7 @@ describe('seed run precheck API', () =>
     )
     await seedRunRow(t, '2026-04-old-release', 'active', 'active-run')
 
-    enableSeedApi()
+    enableSeedApi(SEED_SECRET)
     const state = await t.query(
       internal.marketplace.seedRuns.resolveSeedState,
       {
@@ -530,7 +525,7 @@ describe('seed run precheck API', () =>
     await seedMediaVariant(t, authorId, 'hash-mario')
     await seedMediaVariant(t, authorId, 'hash-link')
 
-    enableSeedApi()
+    enableSeedApi(SEED_SECRET)
     const templateInput = {
       datasetKey: DATASET,
       releaseId: RELEASE,
@@ -1017,7 +1012,7 @@ describe('seed run precheck API', () =>
     await seedMediaVariant(t, authorId, 'hash-mario')
     await seedMediaVariant(t, authorId, 'hash-link')
 
-    enableSeedApi()
+    enableSeedApi(SEED_SECRET)
     await t.mutation(internal.marketplace.seedRuns.beginSeedRun, {
       datasetKey: DATASET,
       releaseId: RELEASE,
@@ -1454,7 +1449,7 @@ describe('seed run precheck API', () =>
     const contentHash = await sha256Hex(bytes)
     const storageId = await storeImageBytes(t, bytes)
 
-    enableSeedApi()
+    enableSeedApi(SEED_SECRET)
     await expect(
       t.action(internal.marketplace.seedRuns.finalizeSeedUploadedMedia, {
         datasetKey: DATASET,

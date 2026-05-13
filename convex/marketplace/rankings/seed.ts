@@ -20,6 +20,7 @@ import {
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { assertCountRange, assertNonemptyString } from '../../lib/assertions'
 import { SEED_LIMITS } from '../../lib/limits'
+import { sha256Hex } from '../../lib/sha256'
 import { loadSeedTemplateLookupForRelease } from '../seedPipeline/templates'
 import {
   resolveActiveTemplateCriterion,
@@ -32,17 +33,19 @@ import {
 } from '../templates/lib'
 import {
   allocateRankingSlug,
+  compactRankingItemSnapshot,
   normalizeRankingDescription,
   normalizeRankingTitle,
   rankingTopScore,
 } from './lib'
+import { hasErrorDiagnostics } from '../seedPipeline/runs'
 import {
   queueTemplateRankingAggregateRecompute,
   scheduleTemplateRankingAggregateJobAdmission,
 } from './aggregate'
 import {
   seedCuratedRankingValidator,
-  seedRankingApplyResultValidator,
+  seedRankingApplyChunkResultValidator,
   seedRankingAuthorEnsureResultValidator,
   seedRankingLaneValidator,
   seedRankingPreflightResultValidator,
@@ -50,9 +53,8 @@ import {
   seedRankingTargetValidator,
   seedRankingsManifestValidator,
   type SeedCuratedRanking,
-  type SeedRankingApplyResult,
+  type SeedRankingApplyChunkResult,
   type SeedRankingAuthorEnsureResult,
-  type SeedRankingDiagnostic,
   type SeedRankingLane,
   type SeedRankingLaneSummary,
   type SeedRankingPreflightResult,
@@ -60,6 +62,7 @@ import {
   type SeedRankingTarget,
   type SeedRankingsManifest,
 } from './seedValidators'
+import type { SeedDiagnosticRow } from '../seedPipeline/types'
 
 const SEED_EMAIL_DOMAIN = 'tierlistbuilder.local'
 const SEED_AUTHOR_PREFIX = 'seed+rankings-'
@@ -94,6 +97,15 @@ interface ReplacementResult
   skipped: boolean
 }
 
+interface SeedRankingWriteResult
+{
+  rankingsDeleted: number
+  boardsDeleted: number
+  rankingsUnchanged: number
+  tiersWritten: number
+  itemsWritten: number
+}
+
 interface InsertSeedRankingArgs
 {
   datasetKey: string
@@ -119,23 +131,23 @@ interface InsertSeedRankingArgs
 }
 
 const diagnostic = (
-  severity: SeedRankingDiagnostic['severity'],
+  severity: SeedDiagnosticRow['severity'],
   code: string,
   path: string,
   message: string
-): SeedRankingDiagnostic => ({ severity, code, path, message })
+): SeedDiagnosticRow => ({ severity, code, path, message })
 
 const errorDiagnostic = (
   code: string,
   path: string,
   message: string
-): SeedRankingDiagnostic => diagnostic('error', code, path, message)
+): SeedDiagnosticRow => diagnostic('error', code, path, message)
 
 const warningDiagnostic = (
   code: string,
   path: string,
   message: string
-): SeedRankingDiagnostic => diagnostic('warning', code, path, message)
+): SeedDiagnosticRow => diagnostic('warning', code, path, message)
 
 const canonicalAuthorKey = (authorKey: string): string =>
   authorKey.trim().toLowerCase()
@@ -215,12 +227,14 @@ const stableStringify = (value: unknown): string =>
   return `{${entries.join(',')}}`
 }
 
-const seedContentHash = (value: unknown): string =>
+const seedContentHash = async (
+  kind: string,
+  payload: unknown
+): Promise<string> =>
 {
-  const serialized = stableStringify(value)
-  const left = stableHash(`seed-a:${serialized}`).toString(16).padStart(8, '0')
-  const right = stableHash(`seed-b:${serialized}`).toString(16).padStart(8, '0')
-  return `v1:${left}${right}`
+  const serialized = stableStringify({ kind, payload })
+  const digest = await sha256Hex(new TextEncoder().encode(serialized))
+  return `v1:${digest.slice(0, 32)}`
 }
 
 const unitHash = (value: string): number => stableHash(value) / 0xffffffff
@@ -909,10 +923,10 @@ const buildSeedRankingContentHash = (
     rankingDescription: string | null
     viewCount: number
   }
-): string =>
-  seedContentHash({
-    version: 2,
-    rankingItemShape: 'template-backed-compact',
+): Promise<string> =>
+  seedContentHash('ranking-snapshot', {
+    version: 3,
+    rankingItemShape: 'template-item-snapshot',
     ranking: {
       seedExternalId: args.seedExternalId,
       seedKind: args.seedKind,
@@ -945,6 +959,7 @@ const buildSeedRankingContentHash = (
     rankedItems: args.rankedItems.map((ranked) => ({
       templateItemId: ranked.item._id,
       templateItemExternalId: ranked.item.externalId,
+      ...compactRankingItemSnapshot(ranked.item),
       order: ranked.item.order,
       tierIndex: ranked.tierIndex,
       orderInTier: ranked.orderInTier,
@@ -1163,14 +1178,7 @@ export const deleteStaleSeedRankingRowsImpl = internalMutation({
 const insertSeedRanking = async (
   ctx: MutationCtx,
   args: InsertSeedRankingArgs
-): Promise<{
-  rankingSlug: string
-  rankingsDeleted: number
-  boardsDeleted: number
-  rankingsUnchanged: number
-  tiersWritten: number
-  itemsWritten: number
-}> =>
+): Promise<SeedRankingWriteResult> =>
 {
   assertCountRange(
     'ranking tiers',
@@ -1193,11 +1201,15 @@ const insertSeedRanking = async (
   const rankingTitle = normalizeRankingTitle(args.title)
   const rankingDescription = normalizeRankingDescription(args.description)
   const viewCount = Math.floor(unitHash(args.viewCountSeedKey) * 24)
-  const contentHash = buildSeedRankingContentHash(args, criterionSnapshot, {
-    rankingTitle,
-    rankingDescription,
-    viewCount,
-  })
+  const contentHash = await buildSeedRankingContentHash(
+    args,
+    criterionSnapshot,
+    {
+      rankingTitle,
+      rankingDescription,
+      viewCount,
+    }
+  )
   const replacement = await replaceExistingSeedRows(ctx, {
     datasetKey: args.datasetKey,
     releaseId: args.releaseId,
@@ -1215,7 +1227,6 @@ const insertSeedRanking = async (
       })
     }
     return {
-      rankingSlug: replacement.rankingSlug,
       rankingsDeleted: 0,
       boardsDeleted: replacement.boardsDeleted,
       rankingsUnchanged: replacement.rankingsUnchanged,
@@ -1294,14 +1305,16 @@ const insertSeedRanking = async (
       return ctx.db.insert('publishedRankingItems', {
         rankingId,
         templateItemId: ranked.item._id,
+        templateItemExternalId: ranked.item.externalId,
+        externalId: ranked.item.externalId,
         tierExternalId: tier.externalId,
+        ...compactRankingItemSnapshot(ranked.item),
         order: ranked.globalOrder,
       })
     }),
   ])
 
   return {
-    rankingSlug,
     rankingsDeleted: replacement.rankingsDeleted,
     boardsDeleted: replacement.boardsDeleted,
     rankingsUnchanged: replacement.rankingsUnchanged,
@@ -1399,13 +1412,7 @@ export const upsertSampleSeedRankingImpl = internalMutation({
       createdAt: Date.now() - Math.max(1, args.sequence) * 60 * 60 * 1000,
       viewCountSeedKey: `views:${args.profile.key}:${args.target.templateExternalId}:${args.lane.criterionExternalId}`,
     })
-    return {
-      rankingsDeleted: inserted.rankingsDeleted,
-      boardsDeleted: inserted.boardsDeleted,
-      rankingsUnchanged: inserted.rankingsUnchanged,
-      tiersWritten: inserted.tiersWritten,
-      itemsWritten: inserted.itemsWritten,
-    }
+    return inserted
   },
 })
 
@@ -1472,13 +1479,7 @@ export const upsertCuratedSeedRankingImpl = internalMutation({
       createdAt: Date.now() - Math.max(1, args.sequence) * 15 * 60 * 1000,
       viewCountSeedKey: `views:${authorKey}:${args.target.templateExternalId}:${args.curated.criterionExternalId}`,
     })
-    return {
-      rankingsDeleted: inserted.rankingsDeleted,
-      boardsDeleted: inserted.boardsDeleted,
-      rankingsUnchanged: inserted.rankingsUnchanged,
-      tiersWritten: inserted.tiersWritten,
-      itemsWritten: inserted.itemsWritten,
-    }
+    return inserted
   },
 })
 
@@ -1494,7 +1495,7 @@ const buildPreflight = async (
 {
   assertNonemptyString('datasetKey', args.datasetKey)
   assertNonemptyString('releaseId', args.releaseId)
-  const diagnostics: SeedRankingDiagnostic[] = []
+  const diagnostics: SeedDiagnosticRow[] = []
   const profileKeys = new Set<string>()
   for (const [index, profile] of args.rankingSeeds.profiles.entries())
   {
@@ -1712,6 +1713,32 @@ export const preflightSeedRankings = internalQuery({
     await buildPreflight(ctx, { ...args, verifyAppliedRows: false }),
 })
 
+const loadSeedRankingPreflight = async (
+  ctx: ActionCtx,
+  args: {
+    datasetKey: string
+    releaseId: string
+    rankingSeeds: SeedRankingsManifest
+  }
+): Promise<SeedRankingPreflightResult> =>
+  await ctx.runQuery(internal.marketplace.rankings.seed.preflightSeedRankings, {
+    datasetKey: args.datasetKey,
+    releaseId: args.releaseId,
+    rankingSeeds: args.rankingSeeds,
+  })
+
+const throwIfRankingPreflightErrors = (
+  diagnostics: readonly SeedDiagnosticRow[]
+): void =>
+{
+  if (!hasErrorDiagnostics(diagnostics)) return
+  throw new ConvexError({
+    code: CONVEX_ERROR_CODES.invalidInput,
+    message: 'ranking seed preflight failed',
+    diagnostics: [...diagnostics],
+  })
+}
+
 export const verifySeedRankings = internalQuery({
   args: {
     datasetKey: v.string(),
@@ -1723,128 +1750,135 @@ export const verifySeedRankings = internalQuery({
     await buildPreflight(ctx, { ...args, verifyAppliedRows: true }),
 })
 
-export const applySeedRankings = internalAction({
+type SeedRankingApplyTask =
+  | {
+      kind: 'sample'
+      target: SeedRankingTarget
+      lane: SeedRankingLane
+      profile: SeedRankingProfile
+      sequence: number
+    }
+  | {
+      kind: 'curated'
+      target: SeedRankingTarget
+      curated: SeedCuratedRanking
+      sequence: number
+    }
+
+// bound on per-action mutation concurrency. Distinct rankingId rows give
+// low OCC contention, but convex per-deployment write-rate caps still apply
+const SEED_RANKING_APPLY_CONCURRENCY = 4
+
+const planSeedRankingApplyTasks = (
+  manifest: SeedRankingsManifest
+): SeedRankingApplyTask[] =>
+{
+  const tasks: SeedRankingApplyTask[] = []
+  let sequence = 0
+  for (const target of manifest.targets)
+  {
+    const profileCount = normalizeProfileCount(manifest, target)
+    const profiles = manifest.profiles.slice(0, profileCount)
+    for (const lane of target.lanes)
+    {
+      for (const profile of profiles)
+      {
+        sequence += 1
+        tasks.push({ kind: 'sample', target, lane, profile, sequence })
+      }
+    }
+    for (const curated of target.curatedRankings ?? [])
+    {
+      sequence += 1
+      tasks.push({ kind: 'curated', target, curated, sequence })
+    }
+  }
+  return tasks
+}
+
+const runSeedRankingApplyTask = async (
+  ctx: ActionCtx,
+  datasetKey: string,
+  releaseId: string,
+  task: SeedRankingApplyTask
+): Promise<SeedRankingWriteResult> =>
+{
+  if (task.kind === 'sample')
+  {
+    return await ctx.runMutation(
+      internal.marketplace.rankings.seed.upsertSampleSeedRankingImpl,
+      {
+        datasetKey,
+        releaseId,
+        target: task.target,
+        lane: task.lane,
+        profile: task.profile,
+        sequence: task.sequence,
+      }
+    )
+  }
+  return await ctx.runMutation(
+    internal.marketplace.rankings.seed.upsertCuratedSeedRankingImpl,
+    {
+      datasetKey,
+      releaseId,
+      target: task.target,
+      curated: task.curated,
+      sequence: task.sequence,
+    }
+  )
+}
+
+export const applySeedRankingChunk = internalAction({
   args: {
     datasetKey: v.string(),
     releaseId: v.string(),
     runId: v.string(),
-    authorPassword: v.string(),
     rankingSeeds: seedRankingsManifestValidator,
-    ensureAuthors: v.optional(v.boolean()),
   },
-  returns: seedRankingApplyResultValidator,
-  handler: async (ctx, args): Promise<SeedRankingApplyResult> =>
+  returns: seedRankingApplyChunkResultValidator,
+  handler: async (ctx, args): Promise<SeedRankingApplyChunkResult> =>
   {
     assertNonemptyString('runId', args.runId)
-    assertNonemptyString('authorPassword', args.authorPassword)
-    const preflight: SeedRankingPreflightResult = await ctx.runQuery(
-      internal.marketplace.rankings.seed.preflightSeedRankings,
-      {
-        datasetKey: args.datasetKey,
-        releaseId: args.releaseId,
-        rankingSeeds: args.rankingSeeds,
-      }
-    )
-    const preflightErrors = preflight.diagnostics.filter(
-      (item) => item.severity === 'error'
-    )
-    if (preflightErrors.length > 0)
-    {
-      // surface the actual diagnostics in the error payload so the Python
-      // pipeline can pinpoint failures instead of inferring from a count
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: `ranking seed preflight failed with ${preflightErrors.length} error diagnostic(s)`,
-        diagnostics: preflight.diagnostics,
-      })
-    }
 
-    const authorResult =
-      args.ensureAuthors === false
-        ? { authorsCreated: 0, authorsReused: 0, authorsPatched: 0 }
-        : await ensureRankingSeedAuthors(
-            ctx,
-            args.authorPassword,
-            args.rankingSeeds
-          )
+    const tasks = planSeedRankingApplyTasks(args.rankingSeeds)
+    const results: SeedRankingWriteResult[] = new Array(tasks.length)
+    for (let i = 0; i < tasks.length; i += SEED_RANKING_APPLY_CONCURRENCY)
+    {
+      const slice = tasks.slice(i, i + SEED_RANKING_APPLY_CONCURRENCY)
+      const sliceResults = await Promise.all(
+        slice.map((task) =>
+          runSeedRankingApplyTask(ctx, args.datasetKey, args.releaseId, task)
+        )
+      )
+      for (let j = 0; j < sliceResults.length; j++)
+      {
+        results[i + j] = sliceResults[j]
+      }
+    }
 
     let boardsReplaced = 0
     let rankingsReplaced = 0
     let rankingsUnchanged = 0
-    let sampleRankingsApplied = 0
-    let curatedRankingsApplied = 0
     let rankingTiersWritten = 0
     let rankingItemsWritten = 0
-    let sequence = 0
-
-    for (const target of args.rankingSeeds.targets)
+    let sampleRankingsApplied = 0
+    let curatedRankingsApplied = 0
+    for (let i = 0; i < tasks.length; i++)
     {
-      const profileCount = normalizeProfileCount(args.rankingSeeds, target)
-      const profiles = args.rankingSeeds.profiles.slice(0, profileCount)
-      for (const lane of target.lanes)
-      {
-        for (const profile of profiles)
-        {
-          sequence += 1
-          const result: {
-            rankingsDeleted: number
-            boardsDeleted: number
-            rankingsUnchanged: number
-            tiersWritten: number
-            itemsWritten: number
-          } = await ctx.runMutation(
-            internal.marketplace.rankings.seed.upsertSampleSeedRankingImpl,
-            {
-              datasetKey: args.datasetKey,
-              releaseId: args.releaseId,
-              target,
-              lane,
-              profile,
-              sequence,
-            }
-          )
-          rankingsReplaced += result.rankingsDeleted
-          boardsReplaced += result.boardsDeleted
-          rankingsUnchanged += result.rankingsUnchanged
-          rankingTiersWritten += result.tiersWritten
-          rankingItemsWritten += result.itemsWritten
-          sampleRankingsApplied += 1
-        }
-      }
-      for (const curated of target.curatedRankings ?? [])
-      {
-        sequence += 1
-        const result: {
-          rankingsDeleted: number
-          boardsDeleted: number
-          rankingsUnchanged: number
-          tiersWritten: number
-          itemsWritten: number
-        } = await ctx.runMutation(
-          internal.marketplace.rankings.seed.upsertCuratedSeedRankingImpl,
-          {
-            datasetKey: args.datasetKey,
-            releaseId: args.releaseId,
-            target,
-            curated,
-            sequence,
-          }
-        )
-        rankingsReplaced += result.rankingsDeleted
-        boardsReplaced += result.boardsDeleted
-        rankingsUnchanged += result.rankingsUnchanged
-        rankingTiersWritten += result.tiersWritten
-        rankingItemsWritten += result.itemsWritten
-        curatedRankingsApplied += 1
-      }
+      const result = results[i]
+      boardsReplaced += result.boardsDeleted
+      rankingsReplaced += result.rankingsDeleted
+      rankingsUnchanged += result.rankingsUnchanged
+      rankingTiersWritten += result.tiersWritten
+      rankingItemsWritten += result.itemsWritten
+      if (tasks[i].kind === 'sample') sampleRankingsApplied += 1
+      else curatedRankingsApplied += 1
     }
 
     return {
       datasetKey: args.datasetKey,
       releaseId: args.releaseId,
-      authorsCreated: authorResult.authorsCreated,
-      authorsReused: authorResult.authorsReused,
-      authorsPatched: authorResult.authorsPatched,
       boardsReplaced,
       rankingsReplaced,
       rankingsUnchanged,
@@ -1853,8 +1887,7 @@ export const applySeedRankings = internalAction({
       rankingsApplied: sampleRankingsApplied + curatedRankingsApplied,
       rankingTiersWritten,
       rankingItemsWritten,
-      aggregateLanes: preflight.aggregateLanes,
-      diagnostics: preflight.diagnostics,
+      aggregateLanes: plannedLaneSummaries(args.rankingSeeds),
     }
   },
 })
@@ -1926,27 +1959,8 @@ export const ensureSeedRankingAuthors = internalAction({
     assertNonemptyString('releaseId', args.releaseId)
     assertNonemptyString('runId', args.runId)
     assertNonemptyString('authorPassword', args.authorPassword)
-    const preflight: SeedRankingPreflightResult = await ctx.runQuery(
-      internal.marketplace.rankings.seed.preflightSeedRankings,
-      {
-        datasetKey: args.datasetKey,
-        releaseId: args.releaseId,
-        rankingSeeds: args.rankingSeeds,
-      }
-    )
-    const preflightErrors = preflight.diagnostics.filter(
-      (item) => item.severity === 'error'
-    )
-    if (preflightErrors.length > 0)
-    {
-      // surface the actual diagnostics in the error payload so the Python
-      // pipeline can pinpoint failures instead of inferring from a count
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.invalidInput,
-        message: `ranking seed preflight failed with ${preflightErrors.length} error diagnostic(s)`,
-        diagnostics: preflight.diagnostics,
-      })
-    }
+    const preflight = await loadSeedRankingPreflight(ctx, args)
+    throwIfRankingPreflightErrors(preflight.diagnostics)
     const result = await ensureRankingSeedAuthors(
       ctx,
       args.authorPassword,

@@ -58,7 +58,7 @@ export const buildPngHeader = (width: number, height: number): Uint8Array =>
   return bytes
 }
 
-export interface SeedEnvSnapshot
+interface SeedEnvSnapshot
 {
   enabled: string | undefined
   secret: string | undefined

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from .assets import asset_dedupe_hash, asset_variants
 from .build import build_compiled_manifest_with_data
 from .convex_client import ConvexSeedClient, read_seed_settings
 from .diff import build_seed_diff, resolve_seed_state
@@ -349,7 +350,7 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
             "description": template.get("description"),
             "tags": template.get("tags", []),
             "visibility": template["visibility"],
-            "coverMediaDedupeHash": _asset_dedupe_hash(cover),
+            "coverMediaDedupeHash": asset_dedupe_hash(cover),
             "coverFraming": _cover_framing(template),
             "suggestedTiers": template.get("suggestedTiers")
             or DEFAULT_SUGGESTED_TIERS,
@@ -380,7 +381,7 @@ def build_item_upserts(compiled: JsonObject) -> list[JsonObject]:
                     "itemExternalId": item["externalId"],
                     "order": item["order"],
                     "label": item.get("label"),
-                    "mediaDedupeHash": _asset_dedupe_hash(item["asset"]),
+                    "mediaDedupeHash": asset_dedupe_hash(item["asset"]),
                     "aspectRatio": item.get("aspectRatio"),
                     "transform": item.get("transform"),
                 }
@@ -707,7 +708,7 @@ def _upload_assets(
     uploaded: list[JsonObject] = []
     asset_chunks = list(chunks(assets, FINALIZE_ASSET_BATCH_SIZE))
     total_variants = sum(
-        1 for asset in assets for _variant in _asset_variants(asset["asset"])
+        1 for asset in assets for _variant in asset_variants(asset["asset"])
     )
     uploaded_variants = 0
     variant_log_every = progress_interval(total_variants)
@@ -716,7 +717,7 @@ def _upload_assets(
         variants = [
             variant
             for asset in asset_chunk
-            for variant in _asset_variants(asset["asset"])
+            for variant in asset_variants(asset["asset"])
         ]
         context.progress.log(
             f"upload asset batch {asset_chunk_index}/{len(asset_chunks)}: "
@@ -845,7 +846,7 @@ def _drop_finalized_storage_ids(
     completed = {
         variant["storageId"]
         for asset in assets
-        for variant in _asset_variants(asset["asset"])
+        for variant in asset_variants(asset["asset"])
         if variant.get("storageId")
     }
     pending = context.checkpoint.get("uploadedStorageIds") or []
@@ -1000,7 +1001,7 @@ def _assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[Js
     needed: list[JsonObject] = []
     queued: set[str] = set()
     for entry in _compiled_asset_entries(compiled):
-        dedupe_hash = _asset_dedupe_hash(entry["asset"])
+        dedupe_hash = asset_dedupe_hash(entry["asset"])
         if dedupe_hash is None:
             needed.append(entry)
             continue
@@ -1040,7 +1041,7 @@ def _finalize_asset_payload(entry: JsonObject) -> JsonObject:
                 "expectedWidth": variant["width"],
                 "expectedHeight": variant["height"],
             }
-            for variant in _asset_variants(entry["asset"])
+            for variant in asset_variants(entry["asset"])
         ],
     }
 
@@ -1113,7 +1114,7 @@ def _assert_upload_budget(
     if max_upload_bytes is None:
         return
     total = sum(
-        variant["byteSize"] for asset in assets for variant in _asset_variants(asset["asset"])
+        variant["byteSize"] for asset in assets for variant in asset_variants(asset["asset"])
     )
     if total > max_upload_bytes:
         msg = f"upload requires {total} bytes, exceeding --max-upload-bytes={max_upload_bytes}"
@@ -1147,43 +1148,3 @@ def _write_checkpoint(context: SeedRunContext) -> None:
 def _new_run_id(compiled: JsonObject) -> str:
     timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     return f"{compiled['releaseId']}-{timestamp}-{uuid.uuid4().hex[:8]}"
-
-
-def _asset_variants(asset: JsonObject) -> Iterable[JsonObject]:
-    variants = asset.get("variants")
-    if not isinstance(variants, dict):
-        return
-    for kind in ("tile", "preview"):
-        variant = variants.get(kind)
-        if isinstance(variant, dict):
-            yield variant
-
-
-def _asset_tile_hash(asset: object) -> str | None:
-    if not isinstance(asset, dict):
-        return None
-    variants = asset.get("variants")
-    if not isinstance(variants, dict):
-        return None
-    tile = variants.get("tile")
-    if not isinstance(tile, dict):
-        return None
-    return str(tile["contentHash"])
-
-
-def _asset_dedupe_hash(asset: object) -> str | None:
-    if not isinstance(asset, dict):
-        return None
-    dedupe_hash = asset.get("dedupeHash")
-    if isinstance(dedupe_hash, str):
-        return dedupe_hash
-    variants = asset.get("variants")
-    if not isinstance(variants, dict):
-        return None
-    return "|".join(
-        sorted(
-            f"{variant['kind']}:{variant['contentHash']}"
-            for variant in variants.values()
-            if isinstance(variant, dict)
-        )
-    )

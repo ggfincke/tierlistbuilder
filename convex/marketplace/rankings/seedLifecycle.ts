@@ -5,6 +5,7 @@ import { ConvexError, v } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
+import type { SeedRankingReleaseStatus } from '@tierlistbuilder/contracts/marketplace/seedPipeline'
 import { assertNonemptyString } from '../../lib/assertions'
 import { BATCH_LIMITS, SEED_LIMITS } from '../../lib/limits'
 import {
@@ -15,10 +16,6 @@ import {
   seedRankingActivationResultValidator,
   type SeedRankingActivationResult,
 } from './seedValidators'
-
-type SeedRankingReleaseStatus = NonNullable<
-  Doc<'publishedRankings'>['seedReleaseStatus']
->
 
 const loadSeedRankingsForReleaseStatus = async (
   ctx: MutationCtx,
@@ -131,7 +128,7 @@ const patchSeedBoardStatuses = async (
 ): Promise<void> =>
 {
   await Promise.all(
-    Array.from(boardIds, async (boardId) =>
+    [...boardIds].map(async (boardId) =>
     {
       await ctx.db.patch(boardId, {
         seedReleaseStatus: status,

@@ -158,7 +158,7 @@ const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
     'action',
     rankingSeeds.ensureSeedRankingAuthors,
   ],
-  ['/api/seed/rankings/apply', 'action', rankingSeeds.applySeedRankings],
+  ['/api/seed/rankings/apply', 'action', rankingSeeds.applySeedRankingChunk],
   [
     '/api/seed/rankings/cleanup-stale',
     'action',

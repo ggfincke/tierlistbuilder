@@ -7,9 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "convex dev --local --start 'vite'",
+    "dev": "CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 convex dev --local --start 'vite'",
     "dev:app": "vite",
-    "dev:convex": "convex dev --local",
+    "dev:convex": "CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 convex dev --local",
     "dev:cloud": "convex dev --cloud --start 'vite'",
     "convex:auth:local": "node scripts/setup-local-convex-auth.mjs",
     "build": "tsc -b && vite build",

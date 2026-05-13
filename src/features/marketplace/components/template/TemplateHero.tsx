@@ -41,6 +41,11 @@ import { Cover } from '../cover/Cover'
 import { ShareTemplateButton } from './ShareTemplateButton'
 import { UseTemplateButton } from '../cards/UseTemplateButton'
 
+// sentinel: page passes this as `rightRail` to keep the 3-col grid stable
+// when the current lane has no rail content but other lanes do. The hero
+// then renders an empty placeholder aside instead of collapsing to 2 cols
+export const RESERVED_RAIL: unique symbol = Symbol('TemplateHero.RESERVED_RAIL')
+
 interface TemplateHeroProps
 {
   template: MarketplaceTemplateDetail
@@ -54,7 +59,7 @@ interface TemplateHeroProps
     color: string
     count: number
   }>
-  rightRail?: ReactNode
+  rightRail?: ReactNode | typeof RESERVED_RAIL
 }
 
 interface ChipProps
@@ -176,7 +181,7 @@ const handlePrint = (): void =>
   if (typeof window !== 'undefined') window.print()
 }
 
-const COVER_HEIGHT = 'h-72 sm:h-80 lg:h-[30rem]'
+const COVER_HEIGHT = 'h-72 sm:h-80 lg:h-[32rem]'
 
 interface HeroStat
 {
@@ -205,6 +210,8 @@ export const TemplateHero = ({
   rightRail,
 }: TemplateHeroProps) =>
 {
+  const hasRailContent = rightRail != null && rightRail !== RESERVED_RAIL
+  const useRailGrid = hasRailContent || rightRail === RESERVED_RAIL
   const categoryLabel = CATEGORY_META[template.category].label
   const hasBakedLabels = template.labels?.show === true
   const coverStats: readonly HeroStat[] = [
@@ -226,9 +233,9 @@ export const TemplateHero = ({
   return (
     <header
       className={
-        rightRail
-          ? 'grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)_320px] lg:items-stretch'
-          : 'grid gap-6 lg:grid-cols-[1.1fr_1fr] lg:items-stretch'
+        useRailGrid
+          ? 'grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)_320px] lg:grid-rows-[32rem] lg:items-stretch'
+          : 'grid gap-6 lg:grid-cols-[1.1fr_1fr] lg:grid-rows-[32rem] lg:items-stretch'
       }
     >
       <div
@@ -270,7 +277,7 @@ export const TemplateHero = ({
         <HeroStatStrip stats={coverStats} />
       </div>
 
-      <div className="flex min-w-0 flex-col">
+      <div className="flex min-w-0 flex-col lg:h-[32rem]">
         <div className="flex flex-wrap items-center gap-1.5">
           <Chip icon={Gamepad2}>{categoryLabel}</Chip>
           {template.featuredRank !== null && (
@@ -353,9 +360,13 @@ export const TemplateHero = ({
         </div>
       </div>
 
-      {rightRail && (
-        <aside className="flex min-w-0 flex-col gap-3">{rightRail}</aside>
-      )}
+      {hasRailContent ? (
+        <aside className="flex min-w-0 flex-col gap-3 lg:overflow-hidden">
+          {rightRail}
+        </aside>
+      ) : rightRail === RESERVED_RAIL ? (
+        <aside aria-hidden="true" className="hidden lg:block" />
+      ) : null}
     </header>
   )
 }
