@@ -3,12 +3,16 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  ShareFragmentDecodeError,
   compressSnapshotBytes,
   decodeBoardFromShareFragment,
   encodeBoardToShareFragment,
   inflateSnapshotBytes,
+  isShareFragmentDecodeError,
   stripImagesForShare,
 } from '~/shared/sharing/hashShare'
+import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
+import { bytesToBase64Url } from '~/shared/lib/binaryCodec'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeBoardSnapshot, makeTier } from '../fixtures'
 
@@ -97,6 +101,33 @@ describe('snapshot codec', () =>
   {
     const garbage = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
     await expect(inflateSnapshotBytes(garbage)).rejects.toThrow()
+  })
+
+  it('classifies empty, corrupt, and oversized share fragments', async () =>
+  {
+    await expect(decodeBoardFromShareFragment('')).rejects.toMatchObject({
+      kind: 'empty',
+    })
+
+    await expect(decodeBoardFromShareFragment('@@@')).rejects.toMatchObject({
+      kind: 'invalid',
+    })
+
+    const oversized = bytesToBase64Url(
+      new Uint8Array(MAX_SNAPSHOT_COMPRESSED_BYTES + 1)
+    )
+    await expect(decodeBoardFromShareFragment(oversized)).rejects.toMatchObject(
+      {
+        kind: 'too-large',
+      }
+    )
+  })
+
+  it('exposes a type guard for share-fragment decode errors', () =>
+  {
+    const error = new ShareFragmentDecodeError('invalid', 'bad share')
+    expect(isShareFragmentDecodeError(error)).toBe(true)
+    expect(isShareFragmentDecodeError(new Error('bad share'))).toBe(false)
   })
 
   it('round-trips compressSnapshotBytes -> inflateSnapshotBytes at the byte layer', async () =>

@@ -12,6 +12,7 @@ import {
 } from '~/features/workspace/boards/model/boardSession'
 import {
   clearInboundShareFromUrl,
+  getInboundShareRecoveryCopy,
   resolveInboundShare,
 } from '~/features/platform/share/inboundShare'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -30,10 +31,7 @@ const handleInboundShare = async (): Promise<void> =>
     }
     else if (result.kind === 'failed')
     {
-      toast(
-        'This share link is no longer available. It may have expired or been removed.',
-        'info'
-      )
+      toast(getInboundShareRecoveryCopy(result).toast, 'info')
     }
   }
   finally

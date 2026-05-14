@@ -56,6 +56,12 @@ const RankingDetailPage = lazy(() =>
   }))
 )
 
+const RankingsIndexPage = lazy(() =>
+  import('~/features/marketplace/pages/RankingsIndexPage').then((m) => ({
+    default: m.RankingsIndexPage,
+  }))
+)
+
 // matches the page-color shell each lazy chunk applies once mounted, so users
 // don't see a white flash while the JS arrives
 const RouteFallback = () => (
@@ -116,8 +122,10 @@ export const AppRouter = () => (
             </ErrorBoundary>
           }
         >
+          <Route index element={<RankingsIndexPage />} />
           <Route path=":slug" element={<RankingDetailPage />} />
         </Route>
+        <Route path="*" element={<NotFoundRoute />} />
       </Route>
       <Route
         path={EMBED_ROUTE_PATH}
@@ -129,7 +137,6 @@ export const AppRouter = () => (
           </ErrorBoundary>
         }
       />
-      <Route path="*" element={<NotFoundRoute />} />
     </Routes>
   </BrowserRouter>
 )

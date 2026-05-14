@@ -141,7 +141,7 @@ export const ItemContent = ({
 
   return (
     <div
-      className={`flex h-full w-full items-center justify-center ${
+      className={`flex h-full w-full items-center justify-center overflow-hidden ${
         bgColor ? '' : 'bg-[var(--t-bg-surface)] text-[var(--t-text)]'
       } ${variant === 'compact' ? 'p-0.5' : 'p-1'}`}
       style={
@@ -151,7 +151,7 @@ export const ItemContent = ({
       }
     >
       <span
-        className={`font-semibold break-words text-center [overflow-wrap:anywhere] ${
+        className={`max-h-full overflow-hidden break-words text-center font-semibold [overflow-wrap:anywhere] ${
           variant === 'compact' ? 'text-[10px] leading-tight' : 'text-xs'
         }`}
       >

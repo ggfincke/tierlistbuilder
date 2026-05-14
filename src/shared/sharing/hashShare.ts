@@ -15,6 +15,29 @@ import {
 
 const STRIPPED_IMAGE_LABEL = 'Image'
 
+type ShareFragmentDecodeErrorKind = 'empty' | 'too-large' | 'invalid'
+
+export class ShareFragmentDecodeError extends Error
+{
+  readonly kind: ShareFragmentDecodeErrorKind
+
+  constructor(
+    kind: ShareFragmentDecodeErrorKind,
+    message: string,
+    options?: ErrorOptions
+  )
+  {
+    super(message, options)
+    this.kind = kind
+    this.name = 'ShareFragmentDecodeError'
+  }
+}
+
+export const isShareFragmentDecodeError = (
+  error: unknown
+): error is ShareFragmentDecodeError =>
+  error instanceof ShareFragmentDecodeError
+
 // build an absolute URL for the app, appending the configured base path
 export const buildAppUrl = (pathname = ''): string =>
   `${window.location.origin}${normalizeBasePath()}${pathname}`
@@ -80,14 +103,56 @@ export const decodeBoardFromShareFragment = async (
   fragment: string
 ): Promise<BoardSnapshot> =>
 {
-  const compressed = base64UrlToBytes(fragment)
+  if (fragment.trim().length === 0)
+  {
+    throw new ShareFragmentDecodeError(
+      'empty',
+      'share fragment is missing a payload'
+    )
+  }
+
+  let compressed: Uint8Array
+  try
+  {
+    compressed = base64UrlToBytes(fragment)
+  }
+  catch (error)
+  {
+    throw new ShareFragmentDecodeError(
+      'invalid',
+      'share fragment is not valid base64url data',
+      { cause: error }
+    )
+  }
+
+  if (compressed.length === 0)
+  {
+    throw new ShareFragmentDecodeError(
+      'empty',
+      'share fragment decoded to an empty payload'
+    )
+  }
+
   if (compressed.length > MAX_SNAPSHOT_COMPRESSED_BYTES)
   {
-    throw new Error(
+    throw new ShareFragmentDecodeError(
+      'too-large',
       `share fragment exceeds the ${MAX_SNAPSHOT_COMPRESSED_BYTES}-byte compressed cap`
     )
   }
-  return inflateSnapshotBytes(compressed)
+
+  try
+  {
+    return await inflateSnapshotBytes(compressed)
+  }
+  catch (error)
+  {
+    throw new ShareFragmentDecodeError(
+      'invalid',
+      'share fragment payload is damaged or unsupported',
+      { cause: error }
+    )
+  }
 }
 
 export const getShareFragment = (): string | null =>
