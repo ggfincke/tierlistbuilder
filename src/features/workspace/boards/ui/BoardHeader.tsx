@@ -1,5 +1,6 @@
 // src/features/workspace/boards/ui/BoardHeader.tsx
-// page header — click-to-edit board title
+// click-to-edit board title + Scoreboard sync & publish chips beneath it.
+// Sync = "is this saved/synced?"; publish = Draft / WIP / Live per Bundle B.
 
 import { Lock } from 'lucide-react'
 import { useEffect, useId } from 'react'
@@ -11,6 +12,8 @@ import { usePreferencesStore } from '~/features/platform/preferences/model/usePr
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { DEFAULT_TITLE } from '~/shared/board-data/boardDefaults'
 import { TextInput } from '~/shared/ui/TextInput'
+import { BoardSyncBadge } from './BoardSyncBadge'
+import { BoardPublishChip } from './BoardPublishChip'
 
 const TITLE_EDITOR_ID = 'toolbar-title'
 
@@ -97,6 +100,17 @@ export const BoardHeader = () =>
           </>
         )}
       </h1>
+      {/* Editorial meta row — sync chip + publish chip stacked horizontally
+          beneath the title. Hidden while inline-editing the title so the
+          chips don't jitter alongside a [field-sizing:content] input. */}
+      {!editing && (
+        <div className="mt-2 flex items-center justify-center gap-2">
+          {activeBoardId && (
+            <BoardSyncBadge boardId={activeBoardId} boardTitle={displayTitle} />
+          )}
+          <BoardPublishChip />
+        </div>
+      )}
     </header>
   )
 }

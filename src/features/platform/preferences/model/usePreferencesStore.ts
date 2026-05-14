@@ -43,7 +43,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   labelWidth: 'default',
   hideRowControls: false,
   confirmBeforeDelete: false,
-  themeId: 'classic',
+  themeId: 'scoreboard',
   paletteId: 'classic',
   textStyleId: 'default',
   tierLabelBold: false,
@@ -186,20 +186,22 @@ export const usePreferencesStore = create<PreferencesStore>()(
         toggleHighContrast: (enabled) =>
           set((state) =>
           {
+            // High contrast toggles to/from the Volt theme — the Scoreboard
+            // system's loud-mode theme doubles as the high-contrast option.
             if (enabled)
             {
               return {
                 preHighContrastThemeId: state.themeId,
                 preHighContrastPaletteId: state.paletteId,
-                themeId: 'high-contrast' as const,
-                paletteId: THEME_PALETTE['high-contrast'],
+                themeId: 'volt' as const,
+                paletteId: THEME_PALETTE.volt,
               }
             }
             const restoreTheme =
               state.preHighContrastThemeId &&
-              state.preHighContrastThemeId !== 'high-contrast'
+              state.preHighContrastThemeId !== 'volt'
                 ? state.preHighContrastThemeId
-                : ('classic' as const)
+                : ('scoreboard' as const)
             const restorePalette =
               state.preHighContrastPaletteId ?? THEME_PALETTE[restoreTheme]
             return {
@@ -219,6 +221,12 @@ export const usePreferencesStore = create<PreferencesStore>()(
           preHighContrastPaletteId: _p,
           ...rest
         }) => rest,
+        // Pre-1.0 storage bumps intentionally reset persisted preferences
+        // instead of preserving retired schema values.
+        migrate: () =>
+        {
+          return { ...DEFAULT_APP_PREFERENCES }
+        },
       }
     )
   )

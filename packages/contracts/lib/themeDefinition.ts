@@ -21,6 +21,11 @@ export interface ThemeDefinition
   'text-dim': string
   accent: string
   'accent-hover': string
+  // secondary accent — Scoreboard chunky-shadow CTA signature
+  // (AMOLED collapses this to `accent` to keep OLED pixels dark)
+  'accent-2': string
+  // text/icon color on top of `accent`; pinned per theme (was computed)
+  'accent-foreground': string
   destructive: string
   'destructive-hover': string
   success: string

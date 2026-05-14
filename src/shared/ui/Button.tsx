@@ -43,13 +43,30 @@ const PRIMARY_SIZE: Record<ButtonSize, string> = {
   md: 'px-4 py-2 text-sm',
 }
 
+// Scoreboard signature — 2px offset accent-2 shadow; hover grows to 3px w/
+// -1/-1 translate; active snaps back. prefers-reduced-motion skips translate
+// via global override; shadow shift still telegraphs the press.
+const PRIMARY_CHUNKY_SHADOW =
+  'shadow-[2px_2px_0_var(--t-accent-2)] transition-[transform,box-shadow] duration-100 hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_var(--t-accent-2)] active:translate-x-0 active:translate-y-0 active:shadow-[1px_1px_0_var(--t-accent-2)]'
+
 const primaryToneClass = (tone: ButtonTone): string =>
 {
   if (tone === 'destructive')
   {
-    return 'bg-[var(--t-destructive)] text-[var(--t-destructive-foreground)] hover:bg-[var(--t-destructive-hover)]'
+    // destructive primary keeps the chunky-shadow rhythm but casts the offset
+    // shadow in its own destructive-hover color so it never reads as accent-2
+    return [
+      'bg-[var(--t-destructive)] text-[var(--t-destructive-foreground)]',
+      'shadow-[2px_2px_0_var(--t-destructive-hover)] transition-[transform,box-shadow] duration-100',
+      'hover:bg-[var(--t-destructive-hover)] hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_var(--t-destructive-hover)]',
+      'active:translate-x-0 active:translate-y-0 active:shadow-[1px_1px_0_var(--t-destructive-hover)]',
+    ].join(' ')
   }
-  return 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)] hover:bg-[var(--t-accent-hover)]'
+  return [
+    'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]',
+    PRIMARY_CHUNKY_SHADOW,
+    'hover:bg-[var(--t-accent-hover)]',
+  ].join(' ')
 }
 
 // -------- secondary ----------------------------------------------------------

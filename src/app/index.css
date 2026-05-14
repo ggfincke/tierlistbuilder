@@ -4,37 +4,45 @@
 {
   :root
   {
-    /* theme color tokens — Classic defaults (overridden by useThemeSync) */
-    --t-bg-page: #232323;
-    --t-bg-surface: #2b2b2b;
-    --t-bg-sunken: #272727;
-    --t-bg-overlay: #1e1e1e;
-    --t-bg-drag-over: #323232;
-    --t-bg-hover: #2a2a2a;
-    --t-bg-active: #3a3a3a;
-    --t-border: #444444;
-    --t-border-secondary: #555555;
-    --t-border-hover: #777777;
-    --t-text: #f1f5f9;
-    --t-text-secondary: #cccccc;
-    --t-text-muted: #aaaaaa;
-    --t-text-faint: #999999;
-    --t-text-dim: #666666;
-    --t-accent: #38bdf8;
-    --t-accent-hover: #0ea5e9;
-    --t-accent-foreground: #000000;
-    --t-destructive: #f43f5e;
-    --t-destructive-hover: #fb7185;
+    /* theme color tokens — Scoreboard defaults (overridden by useThemeSync) */
+    --t-bg-page: #050505;
+    --t-bg-surface: #0E0E0E;
+    --t-bg-sunken: #0A0A0A;
+    --t-bg-overlay: #050505;
+    --t-bg-drag-over: #1A1A1A;
+    --t-bg-hover: #161616;
+    --t-bg-active: #1F1F1F;
+    --t-border: rgba(245, 245, 240, 0.10);
+    --t-border-secondary: rgba(245, 245, 240, 0.22);
+    --t-border-hover: rgba(245, 245, 240, 0.36);
+    --t-text: #F5F5F0;
+    --t-text-secondary: #C8C8C0;
+    --t-text-muted: #7A7A72;
+    --t-text-faint: #5A5A52;
+    --t-text-dim: #4A4A45;
+    --t-accent: #5EEAD4;
+    --t-accent-hover: #4DD8C2;
+    --t-accent-2: #B3FF3A;
+    --t-accent-foreground: #050505;
+    --t-destructive: #FF7F7E;
+    --t-destructive-hover: #FF6B6A;
     --t-destructive-foreground: #ffffff;
     --t-overlay: 255 255 255;
-    --t-export-bg: #232323;
+    --t-export-bg: #050505;
     --t-media-matte: #0a0a0c;
 
-    /* typography tokens — Default style */
+    /* typography tokens — Default body style (user-selectable in preferences) */
     --ts-font-family: 'Inter', system-ui, -apple-system, sans-serif;
     --ts-weight-normal: 400;
     --ts-weight-heading: 600;
     --ts-letter-spacing: -0.011em;
+
+    /* always-on editorial families — eyebrows/labels (--ts-mono) and the
+       occasional Bungee accent in headlines (--ts-display). Loaded statically
+       in index.html so they survive any user text-style switch. */
+    --ts-mono:
+      'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace;
+    --ts-display: 'Bungee', 'Impact', system-ui, sans-serif;
 
     font-family: var(--ts-font-family);
     color: var(--t-text);
@@ -248,20 +256,35 @@
     }
   }
 
-  /* high-contrast mode — thicker borders & brighter focus rings */
-  [data-theme='high-contrast'] button,
-  [data-theme='high-contrast'] [role='switch'],
-  [data-theme='high-contrast'] input,
-  [data-theme='high-contrast'] textarea,
-  [data-theme='high-contrast'] select
+  /* Volt theme — thicker borders & brighter focus rings (replaces the legacy
+     high-contrast theme; Volt is now the high-contrast accessibility option) */
+  [data-theme='volt'] button,
+  [data-theme='volt'] [role='switch'],
+  [data-theme='volt'] input,
+  [data-theme='volt'] textarea,
+  [data-theme='volt'] select
   {
     border-width: 2px;
   }
 
-  [data-theme='high-contrast'] :focus-visible
+  [data-theme='volt'] :focus-visible
   {
     outline-width: 3px;
     outline-color: var(--t-accent);
+  }
+
+  /* Scoreboard "LIVE NOW" pulse — paired with the accent dot animation. */
+  @keyframes scoreboardPulse
+  {
+    0%,
+    100%
+    {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--t-accent) 55%, transparent);
+    }
+    50%
+    {
+      box-shadow: 0 0 0 5px transparent;
+    }
   }
 
   /* manual reduced-motion toggle via settings */

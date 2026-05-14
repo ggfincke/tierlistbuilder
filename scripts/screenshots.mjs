@@ -97,7 +97,7 @@ function buildPreferencesPayload(position)
       labelWidth: 'default',
       hideRowControls: false,
       confirmBeforeDelete: false,
-      themeId: 'classic',
+      themeId: 'scoreboard',
       paletteId: 'classic',
       textStyleId: 'default',
       tierLabelBold: false,

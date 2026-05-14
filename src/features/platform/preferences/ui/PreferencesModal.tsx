@@ -110,7 +110,9 @@ const AccessibilityPane = () =>
     )
   const highContrastDescriptionId = useId()
   const reduceMotionDescriptionId = useId()
-  const isHighContrast = themeId === 'high-contrast'
+  // Volt is the Scoreboard system's high-contrast theme — see toggleHighContrast
+  // in usePreferencesStore for the swap-&-restore logic.
+  const isHighContrast = themeId === 'volt'
 
   return (
     <SettingsSection title="Accessibility">
