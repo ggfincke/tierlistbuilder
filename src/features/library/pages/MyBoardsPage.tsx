@@ -1,12 +1,10 @@
-// src/features/library/pages/MyListsPage.tsx
-// my-lists library landing — heading, stats strip, filter bar, grid or table
+// src/features/library/pages/MyBoardsPage.tsx
+// my-boards library landing — editorial hero, filter rail, & board grid/table
 
-import { Plus } from 'lucide-react'
-import { useCallback, useDeferredValue, useMemo } from 'react'
+import { useDeferredValue, useMemo } from 'react'
 
-import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
+import type { LibraryBoardFilter } from '@tierlistbuilder/contracts/workspace/board'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import { getDisplayName } from '~/features/platform/auth/model/userIdentity'
 
 import { BoardCard } from '~/features/library/components/BoardCard'
 import { BoardListTable } from '~/features/library/components/BoardListTable'
@@ -16,18 +14,19 @@ import { LibrarySearchInput } from '~/features/library/components/LibrarySearchI
 import { LibrarySignedOutState } from '~/features/library/components/LibrarySignedOutState'
 import { LibrarySkeleton } from '~/features/library/components/LibrarySkeleton'
 import { NewListTile } from '~/features/library/components/NewListTile'
-import { StatsStrip } from '~/features/library/components/StatsStrip'
 import { getLibraryFilterStatusLabel } from '~/features/library/lib/statusMeta'
 import {
-  countLibraryStatuses,
+  countLibraryPublishStates,
   filterLibraryBoards,
   sortLibraryBoards,
 } from '~/features/library/lib/sortAndFilter'
 import { useBoardsLibrary } from '~/features/library/model/useBoardsLibrary'
 import { useCreateLibraryBoard } from '~/features/library/model/useCreateLibraryBoard'
 import { useLibraryFilters } from '~/features/library/model/useLibraryFilters'
+import { useLocalBoardsLibrary } from '~/features/library/model/useLocalBoardsLibrary'
 import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoard'
-import { Button } from '~/shared/ui/Button'
+import { useOpenLocalBoard } from '~/features/library/model/useOpenLocalBoard'
+import { LivePulse } from '~/shared/ui/LivePulse'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { foldForSearch } from '~/shared/lib/text'
 
@@ -35,26 +34,52 @@ import { foldForSearch } from '~/shared/lib/text'
 // loose 2 — large covers feel hero-ish at 2-up
 const COLUMNS_BY_DENSITY = { dense: 4, default: 3, loose: 2 } as const
 
-export const MyListsPage = () =>
+// contextual section title per active filter
+const SECTION_HEADING: Record<LibraryBoardFilter, string> = {
+  all: 'All boards',
+  draft: 'Drafts',
+  wip: 'In progress',
+  live: 'Live boards',
+}
+
+interface HeroStatProps
+{
+  label: string
+  value: number
+}
+
+const HeroStat = ({ label, value }: HeroStatProps) => (
+  <div className="flex items-baseline justify-between gap-2">
+    <dt className="text-[var(--t-text-faint)]">{label}</dt>
+    <dd className="tabular-nums text-[var(--t-text)]">{value}</dd>
+  </div>
+)
+
+export const MyBoardsPage = () =>
 {
   const session = useAuthSession()
   const isSignedIn = session.status === 'signed-in'
   const isAuthLoading = session.status === 'loading'
 
-  // boards subscription — paused while signed-out so the websocket isn't
-  // burning a query for an answer we already know is []
-  const { rows, isLoading } = useBoardsLibrary(isSignedIn)
+  // signed-in reads the cloud subscription; signed-out projects locally-
+  // persisted boards so they're visible instead of hidden behind an auth wall
+  const cloudLibrary = useBoardsLibrary(isSignedIn)
+  const localLibrary = useLocalBoardsLibrary(!isSignedIn && !isAuthLoading)
+  const { rows, isLoading } = isSignedIn ? cloudLibrary : localLibrary
 
   const filters = useLibraryFilters()
-  const { open: openLibraryBoard, pendingBoardExternalId } =
-    useOpenLibraryBoard()
+  const openCloudBoard = useOpenLibraryBoard()
+  const openLocalBoard = useOpenLocalBoard()
+  const { open: openBoard, pendingBoardExternalId } = isSignedIn
+    ? openCloudBoard
+    : openLocalBoard
   const createBoard = useCreateLibraryBoard()
   const deferredSearch = useDeferredValue(filters.searchDebounced)
   const deferredFilter = useDeferredValue(filters.filter)
   const deferredSort = useDeferredValue(filters.sort)
-  useDocumentTitle('My lists · TierListBuilder')
+  useDocumentTitle('My boards · TierListBuilder')
 
-  const counts = useMemo(() => countLibraryStatuses(rows ?? []), [rows])
+  const counts = useMemo(() => countLibraryPublishStates(rows ?? []), [rows])
 
   // precompute normalized titles once per row identity so the per-keystroke
   // filter doesn't re-fold every haystack across every render
@@ -95,22 +120,7 @@ export const MyListsPage = () =>
     [filters.density]
   )
 
-  const handleOpenBoard = useCallback(
-    (board: LibraryBoardListItem) => openLibraryBoard(board),
-    [openLibraryBoard]
-  )
-
-  // signed-out — bail to the marketing-style surface
-  if (!isAuthLoading && !isSignedIn)
-  {
-    return <LibrarySignedOutState />
-  }
-
-  const eyebrow =
-    session.status === 'signed-in'
-      ? `Your library · ${getDisplayName(session.user, '', { email: 'local' })}`
-      : 'Your library'
-
+  const showSignedOutBanner = !isAuthLoading && !isSignedIn
   const filtersActive =
     deferredFilter !== 'all' || deferredSearch.trim().length > 0
   const resultsPending =
@@ -130,50 +140,64 @@ export const MyListsPage = () =>
   }
 
   return (
-    <section className="relative z-10 mx-auto w-full max-w-[1280px] px-6 pt-20 pb-12 sm:px-10 sm:pt-24">
-      {/* page header */}
-      <div className="flex flex-wrap items-end justify-between gap-6">
-        <div className="max-w-2xl">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-            {eyebrow}
+    <section className="relative z-10 mx-auto w-full max-w-[1320px] px-6 pt-20 pb-24 sm:px-10 sm:pt-24">
+      {/* editorial hero — eyebrow + wordmark left, search + mono stats right */}
+      <div className="flex flex-wrap items-end justify-between gap-8 border-b border-[var(--t-border)] pb-6">
+        <div className="min-w-0 max-w-2xl">
+          <p
+            className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[var(--t-text-muted)]"
+            style={{ fontFamily: 'var(--ts-mono)' }}
+          >
+            <span>Your shelf</span>
+            <span aria-hidden>·</span>
+            <span>{totalLoadedBoards} on file</span>
+            {counts.live > 0 && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="inline-flex items-center gap-1.5 text-[var(--t-accent)]">
+                  <LivePulse size={6} srLabel="" />
+                  {counts.live} live
+                </span>
+              </>
+            )}
           </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-[var(--t-text)] sm:text-5xl">
-            My lists
+          <h1
+            className="mt-3 font-black leading-[0.96] tracking-[-0.04em] text-[var(--t-text)]"
+            style={{ fontSize: 'clamp(3rem, 6vw, 5rem)' }}
+          >
+            My <span className="text-[var(--t-accent)]">boards.</span>
           </h1>
-          <p className="mt-2 max-w-lg text-[14px] text-[var(--t-text-muted)]">
-            Drafts, rankings in flight, and finished lists you've kept or
-            shared.
+          <p className="mt-3 max-w-md text-[14px] leading-relaxed text-[var(--t-text-muted)]">
+            Drafts, rankings in flight, and finished boards — everything you've
+            made, organized like a record collection.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+
+        <div className="flex w-full flex-col gap-3 sm:w-[280px]">
           <LibrarySearchInput
             value={filters.searchInput}
             onChange={filters.setSearch}
           />
-          <Button
-            variant="primary"
-            size="md"
-            onClick={createBoard.create}
-            disabled={createBoard.isPending}
-            aria-busy={createBoard.isPending || undefined}
-            className="rounded-full px-4 py-2 text-[12px] font-semibold"
+          <dl
+            className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[10px] uppercase tracking-[0.16em]"
+            style={{ fontFamily: 'var(--ts-mono)' }}
           >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
-            {createBoard.isPending ? 'Creating...' : 'New list'}
-          </Button>
+            <HeroStat label="Filed" value={counts.all} />
+            <HeroStat label="WIP" value={counts.wip} />
+            <HeroStat label="Live" value={counts.live} />
+            <HeroStat label="Drafts" value={counts.draft} />
+          </dl>
         </div>
       </div>
 
-      {/* stats — only render once the rows have arrived so the numbers don't
-          flash zero before populating */}
-      {rows && (
-        <div className="mt-8">
-          <StatsStrip counts={counts} totalBoards={rows.length} />
+      {showSignedOutBanner && (
+        <div className="mt-5">
+          <LibrarySignedOutState />
         </div>
       )}
 
-      {/* filter / sort / view / density */}
-      <div className="mt-8">
+      {/* filter / sort / view / density rail */}
+      <div className="mt-7">
         <LibraryFilterBar
           filter={filters.filter}
           onFilterChange={filters.setFilter}
@@ -187,47 +211,28 @@ export const MyListsPage = () =>
         />
       </div>
 
-      {/* result count line */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[12px] text-[var(--t-text-muted)]">
-          {showSkeleton ? (
-            <span className="text-[var(--t-text-faint)]">Loading…</span>
-          ) : (
-            <>
-              <span className="tabular-nums text-[var(--t-text-secondary)]">
-                {totalVisible}
-              </span>{' '}
-              {totalVisible === 1 ? 'list' : 'lists'}
-              {filtersActive && (
-                <>
-                  {' · filtered'}
-                  {deferredFilterLabel && (
-                    <>
-                      {' by '}
-                      <span className="text-[var(--t-text-secondary)]">
-                        {deferredFilterLabel.toLowerCase()}
-                      </span>
-                    </>
-                  )}
-                  {deferredSearch.trim() && (
-                    <>
-                      {' · matching "'}
-                      <span className="text-[var(--t-text-secondary)]">
-                        {deferredSearch.trim()}
-                      </span>
-                      "
-                    </>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </p>
+      {/* section head — contextual title + mono result meta */}
+      <div className="mb-3.5 mt-9 flex items-end justify-between gap-3 border-b border-[var(--t-border)] pb-2">
+        <h2 className="text-[20px] font-extrabold tracking-[-0.02em] text-[var(--t-text)]">
+          {SECTION_HEADING[deferredFilter]}
+        </h2>
+        <span
+          className="shrink-0 text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-faint)]"
+          style={{ fontFamily: 'var(--ts-mono)' }}
+        >
+          {showSkeleton
+            ? 'Loading…'
+            : `${totalVisible} on view${
+                filtersActive && deferredFilterLabel
+                  ? ` · ${deferredFilterLabel.toLowerCase()}`
+                  : ''
+              }`}
+        </span>
       </div>
 
       {/* content */}
       <div
-        className={`mt-4 transition-opacity ${resultsPending ? 'opacity-70' : ''}`}
+        className={`transition-opacity ${resultsPending ? 'opacity-70' : ''}`}
         aria-busy={resultsPending || undefined}
       >
         {showSkeleton ? (
@@ -252,11 +257,11 @@ export const MyListsPage = () =>
         ) : filters.view === 'list' ? (
           <BoardListTable
             boards={visibleBoards ?? []}
-            onOpenBoard={handleOpenBoard}
+            onOpenBoard={openBoard}
             pendingBoardExternalId={pendingBoardExternalId}
           />
         ) : (
-          <div className="grid gap-5" style={gridStyle}>
+          <div className="grid gap-3.5" style={gridStyle}>
             {!filtersActive && (
               <NewListTile
                 onCreate={createBoard.create}
@@ -268,7 +273,7 @@ export const MyListsPage = () =>
                 <BoardCard
                   board={board}
                   density={filters.density}
-                  onOpen={handleOpenBoard}
+                  onOpen={openBoard}
                   isPending={pendingBoardExternalId === board.externalId}
                 />
               </div>

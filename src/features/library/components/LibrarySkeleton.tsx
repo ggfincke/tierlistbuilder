@@ -13,21 +13,20 @@ interface LibrarySkeletonProps
 }
 
 const COVER_HEIGHT_BY_DENSITY: Record<LibraryBoardDensity, string> = {
-  dense: 'h-32',
-  default: 'h-40',
-  loose: 'h-52',
+  dense: 'h-36',
+  default: 'h-44',
+  loose: 'h-56',
 }
 
 const GridSkeletonCard = ({ density }: { density: LibraryBoardDensity }) => (
   <div
     aria-hidden="true"
-    className="flex flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+    className="flex flex-col overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
   >
     <SkeletonBlock className={COVER_HEIGHT_BY_DENSITY[density]} />
     <div className="space-y-2 px-3 py-3">
+      <SkeletonBlock className="h-2 w-1/3 rounded" tone="soft" />
       <SkeletonText className="w-3/4" tone="strong" />
-      <SkeletonBlock className="h-2 w-1/2 rounded" tone="soft" />
-      <SkeletonBlock className="h-1 rounded" />
       <div className="flex justify-between gap-2 pt-1">
         <SkeletonBlock className="h-2 w-16 rounded" tone="soft" />
         <SkeletonBlock className="h-2 w-10 rounded" tone="soft" />
@@ -95,7 +94,7 @@ export const LibrarySkeleton = ({
   const cols = density === 'dense' ? 4 : density === 'loose' ? 2 : 3
   return (
     <div
-      className="grid gap-5"
+      className="grid gap-3.5"
       style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
     >
       {Array.from({ length: count }).map((_, i) => (

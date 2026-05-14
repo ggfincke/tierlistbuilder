@@ -1,40 +1,31 @@
 // src/features/library/components/LibrarySignedOutState.tsx
-// signed-out /boards state w/ auth & template entry CTAs
+// slim "these boards are local-only" banner above the signed-out My Boards
+// grid — boards still render; this surfaces the sign-in-to-sync path
 
-import { LogIn, Sparkles } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { CloudOff, LogIn } from 'lucide-react'
 
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
-import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 
 export const LibrarySignedOutState = () => (
-  <section className="mx-auto flex min-h-screen w-full max-w-[1200px] flex-col items-start justify-center gap-6 px-6 pt-32 pb-24 sm:px-10">
-    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-      Your library
-    </p>
-    <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-[var(--t-text)] sm:text-5xl">
-      A home for every ranking you've made.
-    </h1>
-    <p className="max-w-xl text-sm text-[var(--t-text-muted)]">
-      Drafts, in-progress rankings, and finished lists sync to your account once
-      you sign in.
-    </p>
-    <div className="flex flex-wrap items-center gap-3">
-      <button
-        type="button"
-        onClick={promptSignIn}
-        className="focus-custom inline-flex items-center gap-2 rounded-full bg-[var(--t-text)] px-4 py-2 text-sm font-semibold text-[var(--t-bg-page)] transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-      >
-        <LogIn className="h-3.5 w-3.5" strokeWidth={2} />
-        Sign in to see your lists
-      </button>
-      <Link
-        to={TEMPLATES_ROUTE_PATH}
-        className="focus-custom inline-flex items-center gap-2 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-4 py-2 text-sm font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-      >
-        <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
-        Browse templates
-      </Link>
+  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.03)] px-4 py-3">
+    <div className="flex items-center gap-2.5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--t-overlay)/0.06)] text-[var(--t-text-muted)]">
+        <CloudOff className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+      </span>
+      <p className="text-[12px] text-[var(--t-text-secondary)]">
+        These boards live on this device only.{' '}
+        <span className="text-[var(--t-text-muted)]">
+          Sign in to sync them across devices.
+        </span>
+      </p>
     </div>
-  </section>
+    <button
+      type="button"
+      onClick={promptSignIn}
+      className="focus-custom inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--t-accent)] px-3 py-1.5 text-[12px] font-semibold text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)] transition hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_var(--t-accent-2)] active:translate-x-0 active:translate-y-0 active:shadow-[1px_1px_0_var(--t-accent-2)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+    >
+      <LogIn className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+      Sign in to sync
+    </button>
+  </div>
 )

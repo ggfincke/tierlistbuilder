@@ -1268,7 +1268,8 @@ describe('marketplace template Convex functions', () =>
           )[0]
         ).toMatchObject({
           externalId: clone.boardExternalId,
-          status: 'syncing',
+          publishState: 'draft',
+          syncState: 'pending',
           sourceTemplateSizeClass: 'large',
         })
 
@@ -1459,9 +1460,11 @@ describe('marketplace template Convex functions', () =>
       {}
     )
     expect(before[0]).toMatchObject({
-      status: 'in_progress',
+      publishState: 'wip',
+      syncState: 'synced',
       visibility: 'private',
     })
+    expect(before[0]).not.toHaveProperty('status')
 
     const tagged = await caller.mutation(
       api.marketplace.templates.mutations.publishFromBoard,
@@ -1495,9 +1498,11 @@ describe('marketplace template Convex functions', () =>
       {}
     )
     expect(after[0]).toMatchObject({
-      status: 'published',
+      publishState: 'live',
+      syncState: 'synced',
       visibility: 'public',
     })
+    expect(after[0]).not.toHaveProperty('status')
 
     const afterReplacement = await t.query(
       api.marketplace.templates.queries.listTemplates,

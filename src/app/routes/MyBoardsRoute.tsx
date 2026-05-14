@@ -1,14 +1,14 @@
-// src/app/routes/MyListsRoute.tsx
+// src/app/routes/MyBoardsRoute.tsx
 // /boards route — wraps the local library page shell
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
 import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { MyListsPage } from '~/features/library/pages/MyListsPage'
+import { MyBoardsPage } from '~/features/library/pages/MyBoardsPage'
 import { LiveRegion } from '~/shared/a11y/LiveRegion'
 import { ToastContainer } from '~/shared/notifications/ToastContainer'
 
-export const MyListsRoute = () =>
+export const MyBoardsRoute = () =>
 {
   const appReady = useAppBootstrap()
   useThemeSync()
@@ -23,7 +23,7 @@ export const MyListsRoute = () =>
 
   return (
     <main className="relative min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]">
-      <MyListsPage />
+      <MyBoardsPage />
       <ToastContainer reducedMotion={reducedMotion} />
       <LiveRegion />
     </main>

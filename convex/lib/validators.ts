@@ -127,7 +127,8 @@ import {
   BOARD_PAUSED_REASONS,
   BOARD_CLOUD_STATES,
   BOARD_MATERIALIZATION_STATES,
-  LIBRARY_BOARD_STATUSES,
+  PUBLISH_STATES,
+  SYNC_STATES,
   LIBRARY_BOARD_VISIBILITIES,
   type BoardListItem,
   type BoardCloudState,
@@ -464,8 +465,9 @@ export const deletedBoardListItemValidator = v.object({
   deletedAt: v.number(),
 })
 
-// status & visibility unions — mirror the LIBRARY_BOARD_* tuples in contracts
-const libraryBoardStatusValidator = literalUnion(LIBRARY_BOARD_STATUSES)
+// publish/sync/visibility unions — mirror the contract tuples
+const publishStateValidator = literalUnion(PUBLISH_STATES)
+const syncStateValidator = literalUnion(SYNC_STATES)
 const libraryBoardVisibilityValidator = literalUnion(LIBRARY_BOARD_VISIBILITIES)
 export const boardCloudStateValidator = literalUnion(BOARD_CLOUD_STATES)
 export const boardMaterializationStateValidator = literalUnion(
@@ -509,7 +511,8 @@ export const libraryBoardListItemValidator = v.object({
   activeItemCount: v.number(),
   unrankedItemCount: v.number(),
   rankedItemCount: v.number(),
-  status: libraryBoardStatusValidator,
+  publishState: publishStateValidator,
+  syncState: syncStateValidator,
   visibility: libraryBoardVisibilityValidator,
   category: templateCategoryValidator,
   sourceTemplateSizeClass: v.union(templateSizeClassValidator, v.null()),

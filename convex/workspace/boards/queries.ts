@@ -5,7 +5,8 @@ import { ConvexError, v } from 'convex/values'
 import { query } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
-  deriveLibraryBoardStatus,
+  deriveLibraryPublishState,
+  deriveLibrarySyncState,
   type BoardListItem,
   type DeletedBoardListItem,
   type LibraryBoardCoverItem,
@@ -271,17 +272,19 @@ const projectLibraryRow = async (
 
   const category = board.sourceTemplateCategory ?? DEFAULT_LIBRARY_CATEGORY
   const hasPublishedTemplate = board.livePublicTemplateId !== null
-  const status = deriveLibraryBoardStatus({
-    activeItemCount: board.activeItemCount,
-    unrankedItemCount: board.unrankedItemCount,
-    hasPublishedTemplate,
-    materializationState: board.materializationState,
-  })
 
   const rankedItemCount = Math.max(
     0,
     board.activeItemCount - board.unrankedItemCount
   )
+
+  const publishState = deriveLibraryPublishState({
+    rankedItemCount,
+    hasPublishedTemplate,
+  })
+  const syncState = deriveLibrarySyncState({
+    materializationState: board.materializationState,
+  })
 
   return {
     externalId: board.externalId,
@@ -292,7 +295,8 @@ const projectLibraryRow = async (
     activeItemCount: board.activeItemCount,
     unrankedItemCount: board.unrankedItemCount,
     rankedItemCount,
-    status,
+    publishState,
+    syncState,
     visibility: hasPublishedTemplate ? 'public' : 'private',
     category,
     sourceTemplateSizeClass: board.sourceTemplateSizeClass,

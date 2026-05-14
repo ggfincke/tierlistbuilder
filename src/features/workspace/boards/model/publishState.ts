@@ -7,9 +7,17 @@
 // then the derivation stays content-only & Live is a passthrough input).
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type { PublishState } from '@tierlistbuilder/contracts/workspace/board'
 import type { ActiveBoardRuntimeState } from '~/features/workspace/boards/model/runtime'
+import {
+  PUBLISH_STATE_META,
+  type PublishStateMeta,
+} from '~/shared/board-ui/publishStateMeta'
 
-type PublishState = 'empty' | 'draft' | 'wip' | 'live'
+// the workspace layers an 'empty' case onto the contract's PublishState — a
+// board w/ zero items shows no chip at all, vs Draft which has items not yet
+// placed. getPublishStateVisual maps 'empty' -> null
+type WorkspacePublishState = PublishState | 'empty'
 
 interface DerivePublishStateInputs
 {
@@ -21,7 +29,9 @@ interface DerivePublishStateInputs
   publishedRankingId?: string | null
 }
 
-const derivePublishState = (inputs: DerivePublishStateInputs): PublishState =>
+const derivePublishState = (
+  inputs: DerivePublishStateInputs
+): WorkspacePublishState =>
 {
   if (inputs.publishedRankingId) return 'live'
   if (inputs.activeItemCount === 0) return 'empty'
@@ -33,44 +43,13 @@ const derivePublishState = (inputs: DerivePublishStateInputs): PublishState =>
 // hook once the marketplace cross-store is wired (PR 3).
 export const selectPublishState = (
   state: Pick<ActiveBoardRuntimeState, 'activeItemCount' | 'tiers'>
-): PublishState =>
+): WorkspacePublishState =>
   derivePublishState({
     activeItemCount: state.activeItemCount,
     tiers: state.tiers,
   })
 
-interface PublishStateVisual
-{
-  label: string
-  description: string
-  // tone hints for the chip — neutral for draft/empty, accent for wip,
-  // accent-pulsing for live. Concrete styling lives in BoardPublishChip.
-  tone: 'neutral' | 'accent' | 'live'
-}
-
-const PUBLISH_STATE_VISUALS: Record<
-  Exclude<PublishState, 'empty'>,
-  PublishStateVisual
-> = {
-  draft: {
-    label: 'Draft',
-    description: 'No items placed yet — drag items into tiers to start.',
-    tone: 'neutral',
-  },
-  wip: {
-    label: 'WIP',
-    description:
-      'Some items placed. Publish this board as a ranking when it is ready.',
-    tone: 'accent',
-  },
-  live: {
-    label: 'Live',
-    description: 'Published to the marketplace as a ranking.',
-    tone: 'live',
-  },
-}
-
 export const getPublishStateVisual = (
-  state: PublishState
-): PublishStateVisual | null =>
-  state === 'empty' ? null : PUBLISH_STATE_VISUALS[state]
+  state: WorkspacePublishState
+): PublishStateMeta | null =>
+  state === 'empty' ? null : PUBLISH_STATE_META[state]

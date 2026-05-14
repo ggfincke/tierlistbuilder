@@ -7,6 +7,10 @@ import {
   LIBRARY_BOARD_DENSITIES,
   type LibraryBoardDensity,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  IconToggleGroup,
+  type IconToggleOption,
+} from '~/shared/ui/IconToggleGroup'
 
 interface DensityToggleProps
 {
@@ -23,34 +27,17 @@ const META: Record<
   loose: { label: 'Loose layout', Icon: Maximize2 },
 }
 
+const OPTIONS: IconToggleOption<LibraryBoardDensity>[] =
+  LIBRARY_BOARD_DENSITIES.map((value) => ({
+    value,
+    ...META[value],
+  }))
+
 export const DensityToggle = ({ density, onChange }: DensityToggleProps) => (
-  <div
-    className="flex items-center gap-0.5 rounded-full border border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.04)] p-1"
-    role="radiogroup"
-    aria-label="Choose card density"
-  >
-    {LIBRARY_BOARD_DENSITIES.map((id) =>
-    {
-      const active = density === id
-      const { label, Icon } = META[id]
-      return (
-        <button
-          key={id}
-          type="button"
-          role="radio"
-          aria-checked={active}
-          aria-label={label}
-          title={label}
-          onClick={() => onChange(id)}
-          className={
-            active
-              ? 'focus-custom flex h-7 w-7 items-center justify-center rounded-full bg-[var(--t-text)] text-[var(--t-bg-page)] transition focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
-              : 'focus-custom flex h-7 w-7 items-center justify-center rounded-full text-[var(--t-text-muted)] transition hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
-          }
-        >
-          <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
-        </button>
-      )
-    })}
-  </div>
+  <IconToggleGroup
+    value={density}
+    options={OPTIONS}
+    onChange={onChange}
+    ariaLabel="Choose card density"
+  />
 )

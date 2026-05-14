@@ -1,5 +1,5 @@
 // src/features/library/components/BoardListTable.tsx
-// dense table-style list view for the My Lists page
+// dense table-style list view for the My Boards page
 
 import { memo } from 'react'
 import { Pin } from 'lucide-react'
@@ -8,7 +8,8 @@ import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/
 
 import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
 import { Cover } from './Cover'
-import { StatusPill } from './StatusPill'
+import { PublishChip } from './PublishChip'
+import { SyncChip } from './SyncChip'
 import { TierBar } from './TierBar'
 import { VisibilityChip } from './VisibilityChip'
 import { BOARD_LIST_GRID_TEMPLATE } from './boardListGrid'
@@ -22,7 +23,7 @@ interface BoardListRowProps
 
 const BoardListRow = memo(({ board, onOpen, isPending }: BoardListRowProps) =>
 {
-  const isDraft = board.status === 'draft'
+  const isDraft = board.publishState === 'draft'
 
   const handleClick = () =>
   {
@@ -48,7 +49,7 @@ const BoardListRow = memo(({ board, onOpen, isPending }: BoardListRowProps) =>
           items={board.coverItems}
           density="dense"
           isDraft={isDraft}
-          emptyLabel="Draft"
+          title={board.title}
         />
       </div>
       <div className="min-w-0">
@@ -64,23 +65,26 @@ const BoardListRow = memo(({ board, onOpen, isPending }: BoardListRowProps) =>
             {board.title}
           </h4>
         </div>
-        <p className="mt-0.5 truncate text-[11px] text-[var(--t-text-muted)]">
-          {board.activeItemCount} {pluralize(board.activeItemCount, 'item')}
-          {board.tierColors.length > 0 && (
-            <>
-              {' · '}
-              {board.tierColors.length}{' '}
-              {pluralize(board.tierColors.length, 'tier')}
-            </>
-          )}
-        </p>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--t-text-muted)]">
+          <span className="truncate">
+            {board.activeItemCount} {pluralize(board.activeItemCount, 'item')}
+            {board.tierColors.length > 0 && (
+              <>
+                {' · '}
+                {board.tierColors.length}{' '}
+                {pluralize(board.tierColors.length, 'tier')}
+              </>
+            )}
+          </span>
+          <VisibilityChip visibility={board.visibility} />
+        </div>
       </div>
       <div className="min-w-0 pr-4">
         <TierBar board={board} height={5} showCount />
       </div>
       <div className="flex flex-col items-start gap-1">
-        <StatusPill status={board.status} />
-        <VisibilityChip visibility={board.visibility} />
+        <PublishChip state={board.publishState} variant="inline" />
+        <SyncChip state={board.syncState} variant="inline" />
       </div>
       <div className="text-right text-[11px] tabular-nums text-[var(--t-text-faint)]">
         {formatRelativeTime(board.updatedAt)}
@@ -113,7 +117,7 @@ export const BoardListTable = ({
       role="row"
     >
       <div aria-hidden />
-      <div role="columnheader">List</div>
+      <div role="columnheader">Board</div>
       <div role="columnheader">Progress</div>
       <div role="columnheader">Status</div>
       <div role="columnheader" className="text-right">

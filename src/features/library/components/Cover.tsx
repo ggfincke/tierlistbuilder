@@ -1,6 +1,6 @@
 // src/features/library/components/Cover.tsx
-// cover artwork for board cards & list-row thumbs — draft pattern, initials
-// mosaic over media matte, or bare matte; fills `absolute inset-0` of parent
+// cover artwork for board cards & list-row thumbs — an initials/image mosaic
+// over the media matte, or a giant ghost-letter for draft/empty boards
 
 import type { LibraryBoardCoverItem } from '@tierlistbuilder/contracts/workspace/board'
 
@@ -13,10 +13,10 @@ interface CoverProps
   items: readonly LibraryBoardCoverItem[]
   density: CoverDensity
   // 'draft' independent of items.length so configured-but-empty boards still
-  // render the draft pattern instead of a bare matte
+  // render the ghost letter instead of a stale mosaic
   isDraft: boolean
-  // override for the draft caption; defaults to "Empty draft"
-  emptyLabel?: string
+  // board title — drives the ghost-letter initial on draft/empty covers
+  title: string
 }
 
 const GRID_CONFIG: Record<
@@ -35,37 +35,33 @@ const resolveTileText = (item: LibraryBoardCoverItem): string =>
   return externalIdToCode(item.externalId)
 }
 
-const DraftPattern = ({ caption }: { caption: string }) => (
+// first visible character of the title, uppercased — the editorial ghost
+// glyph for boards w/o cover art; falls back to a tilde when the title is blank
+const ghostInitial = (title: string): string =>
+{
+  const trimmed = title.trim()
+  return trimmed ? trimmed[0]!.toUpperCase() : '~'
+}
+
+const GhostLetterCover = ({ title }: { title: string }) => (
   <div
-    className="absolute inset-0 flex items-center justify-center bg-[var(--t-media-matte)]"
-    style={{
-      backgroundImage: `
-        linear-gradient(45deg, rgb(var(--t-overlay) / 0.04) 25%, transparent 25%),
-        linear-gradient(-45deg, rgb(var(--t-overlay) / 0.04) 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, rgb(var(--t-overlay) / 0.04) 75%),
-        linear-gradient(-45deg, transparent 75%, rgb(var(--t-overlay) / 0.04) 75%)
-      `,
-      backgroundSize: '14px 14px',
-      backgroundPosition: '0 0, 0 7px, 7px -7px, -7px 0',
-    }}
+    className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[var(--t-media-matte)]"
     aria-hidden="true"
   >
-    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[rgb(var(--t-overlay)/0.45)]">
-      {caption}
+    <span
+      className="select-none font-black leading-none text-[var(--t-text)] opacity-[0.12]"
+      style={{ fontSize: '8rem', letterSpacing: '-0.05em' }}
+    >
+      {ghostInitial(title)}
     </span>
   </div>
 )
 
-export const Cover = ({
-  items,
-  density,
-  isDraft,
-  emptyLabel = 'Empty draft',
-}: CoverProps) =>
+export const Cover = ({ items, density, isDraft, title }: CoverProps) =>
 {
   if (isDraft || items.length === 0)
   {
-    return <DraftPattern caption={emptyLabel} />
+    return <GhostLetterCover title={title} />
   }
 
   const cfg = GRID_CONFIG[density]

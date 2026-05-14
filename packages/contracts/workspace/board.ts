@@ -438,18 +438,23 @@ export interface DeletedBoardListItem extends BoardListItem
   deletedAt: number
 }
 
-// derived completion status surfaced on the My Lists library page. `syncing`
-// & `failed` apply only to cloned-from-template boards while their copy job
-// is in flight; the rest derive from counts + denormalized publication state
-export const LIBRARY_BOARD_STATUSES = [
-  'syncing',
+// content-derived publish state — Draft (items exist but none placed in a
+// tier), WIP (>=1 placed, not published), Live (published as a public
+// template/ranking). Never user-toggled; see deriveLibraryPublishState
+export const PUBLISH_STATES = ['draft', 'wip', 'live'] as const
+export type PublishState = (typeof PUBLISH_STATES)[number]
+
+// cloud sync state surfaced as the board's sync chip. 'localOnly' lives only
+// in the browser; 'synced' has a cloud row at rest; 'pending'/'failed' track
+// an in-flight or errored clone job; 'conflict' needs a user merge
+export const SYNC_STATES = [
+  'localOnly',
+  'synced',
+  'pending',
   'failed',
-  'draft',
-  'in_progress',
-  'finished',
-  'published',
+  'conflict',
 ] as const
-export type LibraryBoardStatus = (typeof LIBRARY_BOARD_STATUSES)[number]
+export type SyncState = (typeof SYNC_STATES)[number]
 
 // share-state — 'public' iff a live public template sourced from this board
 // exists; unlisted templates fold into 'private' here (not-discoverable)
@@ -481,9 +486,9 @@ export type BoardMaterializationState =
 export const BOARD_PAUSED_REASONS = ['planLimit'] as const
 export type BoardPausedReason = (typeof BOARD_PAUSED_REASONS)[number]
 
-// status filter chip values on the My Lists page. 'all' is a UI-only filter
-// state that doesn't appear on individual rows
-export const LIBRARY_BOARD_FILTERS = ['all', ...LIBRARY_BOARD_STATUSES] as const
+// publish-state filter chip values on the My Boards page. 'all' is a UI-only
+// filter state that doesn't appear on individual rows
+export const LIBRARY_BOARD_FILTERS = ['all', ...PUBLISH_STATES] as const
 export type LibraryBoardFilter = (typeof LIBRARY_BOARD_FILTERS)[number]
 
 // sort options on the My Lists page — 'updated' is the default; 'progress'
@@ -538,7 +543,8 @@ export interface LibraryBoardListItem extends BoardListItem
   activeItemCount: number
   unrankedItemCount: number
   rankedItemCount: number
-  status: LibraryBoardStatus
+  publishState: PublishState
+  syncState: SyncState
   visibility: LibraryBoardVisibility
   category: import('../marketplace/category').TemplateCategory
   sourceTemplateSizeClass:
@@ -552,19 +558,25 @@ export interface LibraryBoardListItem extends BoardListItem
   pinned: boolean
 }
 
-export const deriveLibraryBoardStatus = (params: {
-  activeItemCount: number
-  unrankedItemCount: number
+export const deriveLibraryPublishState = (params: {
+  rankedItemCount: number
   hasPublishedTemplate: boolean
-  materializationState?: BoardMaterializationState
-}): LibraryBoardStatus =>
+}): PublishState =>
 {
-  if (params.materializationState === 'clonePending') return 'syncing'
+  if (params.hasPublishedTemplate) return 'live'
+  return params.rankedItemCount > 0 ? 'wip' : 'draft'
+}
+
+// server-knowable sync state — maps the clone-from-template lifecycle onto the
+// sync chip. 'localOnly' & 'conflict' are client-only: set by the local-board
+// projection & the conflict queue respectively
+export const deriveLibrarySyncState = (params: {
+  materializationState?: BoardMaterializationState
+}): SyncState =>
+{
+  if (params.materializationState === 'clonePending') return 'pending'
   if (params.materializationState === 'cloneFailed') return 'failed'
-  if (params.hasPublishedTemplate) return 'published'
-  if (params.activeItemCount === 0) return 'draft'
-  if (params.unrankedItemCount > 0) return 'in_progress'
-  return 'finished'
+  return 'synced'
 }
 
 // progress as a ratio in [0, 1] — drafts (0 active items) report 0 so sort

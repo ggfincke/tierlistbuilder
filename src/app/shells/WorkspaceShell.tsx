@@ -187,6 +187,7 @@ export const WorkspaceShell = () =>
                     publish={{
                       ranking: handlePublishRanking,
                       template: handlePublishTemplate,
+                      signInRequired: !cloudEnabled,
                     }}
                     onReset={handleResetBoard}
                   />

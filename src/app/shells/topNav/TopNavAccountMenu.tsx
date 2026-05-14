@@ -2,9 +2,9 @@
 // avatar dropdown menu for auth, account, library, & preferences
 
 import {
+  Bookmark,
   LogIn,
   LogOut,
-  ListChecks,
   Settings,
   User,
   type LucideIcon,
@@ -60,8 +60,8 @@ export const TopNavAccountMenu = ({
         },
     {
       kind: 'link',
-      icon: ListChecks,
-      label: 'My lists',
+      icon: Bookmark,
+      label: 'My Boards',
       to: BOARDS_ROUTE_PATH,
     },
     {

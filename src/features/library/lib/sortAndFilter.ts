@@ -1,25 +1,16 @@
 // src/features/library/lib/sortAndFilter.ts
-// pure helpers for the My Lists status filter & sort options
+// pure helpers for the My Boards publish-state filter & sort options
 
 import {
-  LIBRARY_BOARD_FILTERS,
+  PUBLISH_STATES,
   computeLibraryBoardProgress,
   type LibraryBoardFilter,
   type LibraryBoardListItem,
   type LibraryBoardSort,
 } from '@tierlistbuilder/contracts/workspace/board'
 
-// transient cloud-clone states ('syncing'/'failed') are derived statuses, not
-// persistent rows the user filters by; hide their chips alongside 'published'
-const HIDDEN_FILTERS: ReadonlySet<LibraryBoardFilter> = new Set([
-  'published',
-  'syncing',
-  'failed',
-])
-
-export const VISIBLE_LIBRARY_BOARD_FILTERS = LIBRARY_BOARD_FILTERS.filter(
-  (filter) => !HIDDEN_FILTERS.has(filter)
-)
+// every publish state has a visible filter chip — the rail is All + these
+export const VISIBLE_LIBRARY_BOARD_FILTERS = PUBLISH_STATES
 
 export const filterLibraryBoards = (
   rows: readonly LibraryBoardListItem[],
@@ -27,7 +18,7 @@ export const filterLibraryBoards = (
 ): readonly LibraryBoardListItem[] =>
 {
   if (filter === 'all') return rows
-  return rows.filter((row) => row.status === filter)
+  return rows.filter((row) => row.publishState === filter)
 }
 
 // sort comparator factory — pinned-first is applied unconditionally before
@@ -65,33 +56,27 @@ export const sortLibraryBoards = (
   return out
 }
 
-export interface LibraryStatusCounts
+export interface LibraryPublishCounts
 {
   all: number
-  syncing: number
-  failed: number
   draft: number
-  in_progress: number
-  finished: number
-  published: number
+  wip: number
+  live: number
 }
 
-export const countLibraryStatuses = (
+export const countLibraryPublishStates = (
   rows: readonly LibraryBoardListItem[]
-): LibraryStatusCounts =>
+): LibraryPublishCounts =>
 {
-  const counts: LibraryStatusCounts = {
+  const counts: LibraryPublishCounts = {
     all: rows.length,
-    syncing: 0,
-    failed: 0,
     draft: 0,
-    in_progress: 0,
-    finished: 0,
-    published: 0,
+    wip: 0,
+    live: 0,
   }
   for (const row of rows)
   {
-    counts[row.status] += 1
+    counts[row.publishState] += 1
   }
   return counts
 }
