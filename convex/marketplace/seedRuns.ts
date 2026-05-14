@@ -3,6 +3,7 @@
 // under ./seedPipeline/ (validators, resolvers, media, templates, diagnostics)
 
 import { ConvexError, v } from 'convex/values'
+import { modifyAccountCredentials } from '@convex-dev/auth/server'
 import {
   internalAction,
   internalMutation,
@@ -160,7 +161,14 @@ export const ensureSeedAuthor = internalAction({
       internal.marketplace.templates.seed.getSeedUserStatusImpl,
       { email: args.email }
     )
-    if (existing.accountExists) return { created: false }
+    if (existing.accountExists)
+    {
+      await modifyAccountCredentials(ctx, {
+        provider: 'password',
+        account: { id: args.email, secret: args.password },
+      })
+      return { created: false }
+    }
     await ctx.runAction(api.auth.signIn, {
       provider: 'password',
       params: {

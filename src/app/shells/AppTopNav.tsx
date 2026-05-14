@@ -38,9 +38,8 @@ export const AppTopNav = () =>
             opacity: 0.7,
           }}
         />
-        <div className="flex items-center gap-3">
+        <div className="flex w-full items-center justify-between gap-3">
           <BrandPill />
-          <span aria-hidden className="flex-1" />
           <div className="pointer-events-auto flex items-center gap-2 sm:gap-3">
             <NewBoardAction />
             <SurfaceNav />

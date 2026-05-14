@@ -9,12 +9,14 @@ import {
 } from '~/features/workspace/boards/model/publishState'
 import { LivePulse } from '~/shared/ui/LivePulse'
 
+const FILLED_TONE_CLASS =
+  'border-[var(--t-accent)] bg-[var(--t-accent)] text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)]'
+
 const TONE_CLASS: Record<'neutral' | 'accent' | 'live', string> = {
   neutral:
     'border-[var(--t-border-secondary)] bg-transparent text-[var(--t-text-muted)]',
-  accent:
-    'border-[var(--t-accent)] bg-[var(--t-accent)] text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)]',
-  live: 'border-[var(--t-accent)] bg-[var(--t-accent)] text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)]',
+  accent: FILLED_TONE_CLASS,
+  live: FILLED_TONE_CLASS,
 }
 
 export const BoardPublishChip = () =>
@@ -33,7 +35,6 @@ export const BoardPublishChip = () =>
       style={{
         fontFamily: 'var(--ts-mono)',
         fontSize: '9px',
-        letterSpacing: '0.16em',
       }}
     >
       {visual.tone === 'live' && <LivePulse size={5} srLabel="Live" />}

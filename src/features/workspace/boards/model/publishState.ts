@@ -9,9 +9,9 @@
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type { ActiveBoardRuntimeState } from '~/features/workspace/boards/model/runtime'
 
-export type PublishState = 'empty' | 'draft' | 'wip' | 'live'
+type PublishState = 'empty' | 'draft' | 'wip' | 'live'
 
-export interface DerivePublishStateInputs
+interface DerivePublishStateInputs
 {
   activeItemCount: number
   tiers: ReadonlyArray<{ itemIds: readonly ItemId[] }>
@@ -21,15 +21,11 @@ export interface DerivePublishStateInputs
   publishedRankingId?: string | null
 }
 
-export const derivePublishState = (
-  inputs: DerivePublishStateInputs
-): PublishState =>
+const derivePublishState = (inputs: DerivePublishStateInputs): PublishState =>
 {
   if (inputs.publishedRankingId) return 'live'
   if (inputs.activeItemCount === 0) return 'empty'
-  const ranked = inputs.tiers.reduce((sum, tier) => sum + tier.itemIds.length, 0)
-  if (ranked === 0) return 'draft'
-  return 'wip'
+  return inputs.tiers.some((tier) => tier.itemIds.length > 0) ? 'wip' : 'draft'
 }
 
 // selector form for direct use against useActiveBoardStore. The publishedRankingId
@@ -52,30 +48,29 @@ interface PublishStateVisual
   tone: 'neutral' | 'accent' | 'live'
 }
 
-export const getPublishStateVisual = (
-  state: PublishState
-): PublishStateVisual | null =>
-{
-  if (state === 'empty') return null
-  if (state === 'draft')
-  {
-    return {
-      label: 'Draft',
-      description: 'No items placed yet — drag items into tiers to start.',
-      tone: 'neutral',
-    }
-  }
-  if (state === 'wip')
-  {
-    return {
-      label: 'WIP',
-      description: 'Some items placed. Publish this board as a ranking when it is ready.',
-      tone: 'accent',
-    }
-  }
-  return {
+const PUBLISH_STATE_VISUALS: Record<
+  Exclude<PublishState, 'empty'>,
+  PublishStateVisual
+> = {
+  draft: {
+    label: 'Draft',
+    description: 'No items placed yet — drag items into tiers to start.',
+    tone: 'neutral',
+  },
+  wip: {
+    label: 'WIP',
+    description:
+      'Some items placed. Publish this board as a ranking when it is ready.',
+    tone: 'accent',
+  },
+  live: {
     label: 'Live',
     description: 'Published to the marketplace as a ranking.',
     tone: 'live',
-  }
+  },
 }
+
+export const getPublishStateVisual = (
+  state: PublishState
+): PublishStateVisual | null =>
+  state === 'empty' ? null : PUBLISH_STATE_VISUALS[state]

@@ -59,7 +59,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     destructive: '#C7401A',
     'destructive-hover': '#B33617',
     success: '#4A6F31',
-    'warning': '#BC892B',
+    warning: '#BC892B',
     overlay: '0 0 0',
     'export-bg': '#F5F1E8',
   },
@@ -245,66 +245,39 @@ interface ThemeMeta
 {
   id: ThemeId
   label: string
-  tag: string
-  description: string
-  category: 'neutral' | 'mood' | 'accessibility'
 }
 
 export const THEME_META: ThemeMeta[] = [
   {
     id: 'scoreboard',
     label: 'Scoreboard',
-    tag: 'No. 01 · Default',
-    description: 'Pure black ink, cyan + lime kicker. Default everywhere.',
-    category: 'neutral',
   },
   {
     id: 'paper',
     label: 'Paper',
-    tag: 'No. 02 · The light one',
-    description: 'Ivory background, ink-black text, single terracotta accent.',
-    category: 'neutral',
   },
   {
     id: 'midnight',
     label: 'Midnight',
-    tag: 'No. 03 · After hours',
-    description: 'Deep indigo ink, lavender + magenta accent.',
-    category: 'mood',
   },
   {
     id: 'forest',
     label: 'Forest',
-    tag: 'No. 04 · Out for a walk',
-    description: 'Pine-needle dark, lime primary, butter-yellow kicker.',
-    category: 'mood',
   },
   {
     id: 'ember',
     label: 'Ember',
-    tag: 'No. 05 · Around the fire',
-    description: 'Warm-black ink, coral primary, butter-yellow kicker.',
-    category: 'mood',
   },
   {
     id: 'sakura',
     label: 'Sakura',
-    tag: 'No. 06 · Tokyo neon',
-    description: 'Plum background, hot magenta primary, butter kicker.',
-    category: 'mood',
   },
   {
     id: 'amoled',
     label: 'AMOLED',
-    tag: 'No. 07 · OLED-safe',
-    description: 'True #000 pixels. Single saturated cyan, no offset shadow.',
-    category: 'neutral',
   },
   {
     id: 'volt',
     label: 'Volt',
-    tag: 'No. 08 · Loud mode',
-    description: 'Electric yellow + hot magenta. Highest contrast, biggest swing.',
-    category: 'accessibility',
   },
 ]

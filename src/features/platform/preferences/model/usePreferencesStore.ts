@@ -30,6 +30,10 @@ import {
   PREFERENCES_STORAGE_VERSION,
 } from '../data/local/preferencesStorage'
 
+const DEFAULT_THEME_ID: ThemeId = 'scoreboard'
+export const HIGH_CONTRAST_THEME_ID: ThemeId = 'volt'
+const DEFAULT_PALETTE_ID: PaletteId = THEME_PALETTE[DEFAULT_THEME_ID]
+
 export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   itemSize: 'medium',
   showLabels: false,
@@ -43,8 +47,8 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   labelWidth: 'default',
   hideRowControls: false,
   confirmBeforeDelete: false,
-  themeId: 'scoreboard',
-  paletteId: 'classic',
+  themeId: DEFAULT_THEME_ID,
+  paletteId: DEFAULT_PALETTE_ID,
   textStyleId: 'default',
   tierLabelBold: false,
   tierLabelItalic: false,
@@ -193,15 +197,15 @@ export const usePreferencesStore = create<PreferencesStore>()(
               return {
                 preHighContrastThemeId: state.themeId,
                 preHighContrastPaletteId: state.paletteId,
-                themeId: 'volt' as const,
-                paletteId: THEME_PALETTE.volt,
+                themeId: HIGH_CONTRAST_THEME_ID,
+                paletteId: THEME_PALETTE[HIGH_CONTRAST_THEME_ID],
               }
             }
             const restoreTheme =
               state.preHighContrastThemeId &&
-              state.preHighContrastThemeId !== 'volt'
+              state.preHighContrastThemeId !== HIGH_CONTRAST_THEME_ID
                 ? state.preHighContrastThemeId
-                : ('scoreboard' as const)
+                : DEFAULT_THEME_ID
             const restorePalette =
               state.preHighContrastPaletteId ?? THEME_PALETTE[restoreTheme]
             return {

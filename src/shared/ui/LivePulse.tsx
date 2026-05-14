@@ -4,6 +4,8 @@
 
 import type { CSSProperties } from 'react'
 
+import { joinClassNames } from '~/shared/lib/className'
+
 interface LivePulseProps
 {
   // visually hidden text for screen readers — defaults to "Live"
@@ -28,12 +30,13 @@ export const LivePulse = ({
   return (
     <span
       role="status"
-      className={
-        'inline-flex shrink-0 items-center' +
-        (className ? ` ${className}` : '')
-      }
+      className={joinClassNames('inline-flex shrink-0 items-center', className)}
     >
-      <span aria-hidden className="inline-block rounded-full" style={dotStyle} />
+      <span
+        aria-hidden
+        className="inline-block rounded-full"
+        style={dotStyle}
+      />
       <span className="sr-only">{srLabel}</span>
     </span>
   )
