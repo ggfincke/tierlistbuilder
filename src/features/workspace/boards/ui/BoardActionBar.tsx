@@ -169,6 +169,19 @@ export const BoardActionBar = ({
   const showShuffleMenu = isOpen('root')
   const showShuffleAllMenu = isOpen('shuffleAll')
   const showSaveMenu = isSaveOpen('root')
+  const undoTitle = boardLocked
+    ? 'Unlock board to undo changes'
+    : canUndo
+      ? 'Undo last change'
+      : 'Nothing to undo'
+  const redoTitle = boardLocked
+    ? 'Unlock board to redo changes'
+    : canRedo
+      ? 'Redo last undone change'
+      : 'Nothing to redo'
+  const lockedActionTitle = boardLocked
+    ? 'Unlock board to use this action'
+    : undefined
 
   useDismissibleLayer({
     open: showShuffleMenu,
@@ -229,7 +242,7 @@ export const BoardActionBar = ({
         >
           <ActionButton
             label="Undo"
-            title="Undo"
+            title={undoTitle}
             onClick={() =>
             {
               const result = undo()
@@ -242,7 +255,7 @@ export const BoardActionBar = ({
 
           <ActionButton
             label="Redo"
-            title="Redo"
+            title={redoTitle}
             onClick={() =>
             {
               const result = redo()
@@ -255,7 +268,7 @@ export const BoardActionBar = ({
 
           <ActionButton
             label="Add tier"
-            title="Add Tier"
+            title={lockedActionTitle ?? 'Add a tier row'}
             onClick={onAddTier}
             disabled={boardLocked}
           >
@@ -266,7 +279,7 @@ export const BoardActionBar = ({
             <ActionButton
               ref={shuffleButtonRef}
               label="Shuffle items"
-              title="Shuffle"
+              title={lockedActionTitle ?? 'Shuffle items'}
               onClick={() => toggleMenu('root')}
               disabled={boardLocked}
               hasPopup="dialog"
@@ -326,7 +339,7 @@ export const BoardActionBar = ({
 
           <ActionButton
             label="Reset board"
-            title="Reset"
+            title={lockedActionTitle ?? 'Reset board'}
             onClick={() => setConfirmReset(true)}
             disabled={boardLocked}
           >
@@ -335,7 +348,7 @@ export const BoardActionBar = ({
 
           <ActionButton
             label="Open settings"
-            title="Settings"
+            title="Open settings"
             onClick={onOpenSettings}
           >
             <SettingsIcon className="h-5 w-5" strokeWidth={1.8} />
@@ -357,7 +370,7 @@ export const BoardActionBar = ({
 
           <ActionButton
             label="View statistics"
-            title="Statistics"
+            title="View board statistics"
             onClick={onOpenStats}
           >
             <BarChart3 className="h-5 w-5" strokeWidth={1.8} />
@@ -367,7 +380,7 @@ export const BoardActionBar = ({
             <ActionButton
               ref={saveButtonRef}
               label="Save or publish"
-              title="Save"
+              title="Save or publish options"
               onClick={() => toggleSaveMenu('root')}
               onFocus={publishTemplate ? preloadPublishModal : undefined}
               onPointerEnter={publishTemplate ? preloadPublishModal : undefined}
@@ -429,7 +442,7 @@ export const BoardActionBar = ({
 
           <ActionButton
             label={boardLocked ? 'Unlock board' : 'Lock board'}
-            title={boardLocked ? 'Unlock' : 'Lock'}
+            title={boardLocked ? 'Unlock board' : 'Lock board'}
             onClick={() => setBoardLocked(!boardLocked)}
           >
             {boardLocked ? (

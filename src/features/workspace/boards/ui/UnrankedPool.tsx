@@ -208,9 +208,22 @@ export const UnrankedPool = () =>
               onDrop={onDrop}
             />
           ) : visibleIds.length === 0 ? (
-            <p className="flex min-h-24 w-full items-center justify-center text-sm text-[var(--t-text-faint)]">
-              {isSearching ? 'No matching items' : 'No unranked items'}
-            </p>
+            <div className="flex min-h-24 w-full flex-col items-center justify-center gap-2 text-center text-sm text-[var(--t-text-faint)]">
+              <p>
+                {isSearching
+                  ? 'No unranked items match your search.'
+                  : 'No unranked items'}
+              </p>
+              {isSearching && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="focus-custom rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1 text-xs font-semibold text-[var(--t-text-muted)] transition hover:border-[var(--t-border-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                >
+                  Clear search
+                </button>
+              )}
+            </div>
           ) : (
             visibleIds.map((itemId) => (
               <TierItem

@@ -231,6 +231,14 @@ export const TemplatesGalleryPage = () =>
     filters.setSearch(next)
   }
 
+  const handleClearFilters = () =>
+  {
+    captureBrowseAnchor()
+    filters.setSearch('')
+    filters.setTag(null)
+    filters.setCategory(null)
+  }
+
   const greeting = 'Browse community templates.'
 
   return (
@@ -442,6 +450,16 @@ export const TemplatesGalleryPage = () =>
             <p className="mt-1 text-xs text-[var(--t-text-muted)]">
               {getEmptyGalleryHint(filters)}
             </p>
+            {filtersActive && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="focus-custom mt-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+              >
+                <X className="h-3 w-3" strokeWidth={1.8} />
+                Clear filters
+              </button>
+            )}
           </div>
         )}
       </section>

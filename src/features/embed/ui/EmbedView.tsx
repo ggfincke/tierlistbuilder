@@ -7,7 +7,10 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import { LABEL_FONT_SIZE_PX_DEFAULT } from '@tierlistbuilder/contracts/workspace/board'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
-import { resolveInboundShare } from '~/features/platform/share/inboundShare'
+import {
+  getInboundShareRecoveryCopy,
+  resolveInboundShare,
+} from '~/features/platform/share/inboundShare'
 import {
   StaticBoard,
   type StaticBoardAppearance,
@@ -35,58 +38,73 @@ const EMBED_APPEARANCE: StaticBoardAppearance = {
   tierLabelFontSize: 'medium',
 }
 
-// load embed data from the current short-link slug
-const loadEmbedData = async (
-  signal: AbortSignal
-): Promise<BoardSnapshot | null> =>
-{
-  const result = await resolveInboundShare({ signal })
-  return result.kind === 'resolved' ? result.data : null
-}
+type EmbedLoadState =
+  | { status: 'loading' }
+  | { status: 'ready'; data: BoardSnapshot }
+  | { status: 'message'; title: string; body: string }
 
 export const EmbedView = () =>
 {
-  const [data, setData] = useState<BoardSnapshot | null>(null)
-  const [error, setError] = useState(false)
+  const [state, setState] = useState<EmbedLoadState>({ status: 'loading' })
 
   useEffect(() =>
   {
     const controller = new AbortController()
 
-    void loadEmbedData(controller.signal)
+    void resolveInboundShare({ signal: controller.signal })
       .then((result) =>
       {
         if (controller.signal.aborted) return
-        if (result)
+        if (result.kind === 'resolved')
         {
-          setData(normalizeBoardSnapshot(result, EMBED_DEFAULT_PALETTE_ID))
+          setState({
+            status: 'ready',
+            data: normalizeBoardSnapshot(result.data, EMBED_DEFAULT_PALETTE_ID),
+          })
+          return
         }
-        else
-        {
-          setError(true)
-        }
+
+        const copy = getInboundShareRecoveryCopy(result)
+        setState({ status: 'message', title: copy.title, body: copy.body })
       })
       .catch(() =>
       {
         if (controller.signal.aborted) return
-        setError(true)
+        setState({
+          status: 'message',
+          title: 'Embed could not load',
+          body: 'The embedded board could not be loaded. Refresh the page or ask for a fresh embed URL.',
+        })
       })
 
     return () => controller.abort()
   }, [])
 
-  if (error)
+  if (state.status === 'message')
   {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--t-bg-page)] p-4">
-        <p className="text-sm text-[var(--t-text-muted)]">
-          Could not load embedded tier list.
-        </p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--t-bg-page)] p-4 text-center">
+        <div className="max-w-sm">
+          <h1 className="text-base font-semibold text-[var(--t-text)]">
+            {state.title}
+          </h1>
+          <p className="mt-2 text-sm text-[var(--t-text-muted)]">
+            {state.body}
+          </p>
+          <a
+            href={APP_PUBLIC_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)]"
+          >
+            Open TierListBuilder
+          </a>
+        </div>
       </div>
     )
   }
 
-  if (!data)
+  if (state.status === 'loading')
   {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--t-bg-page)]">
@@ -98,15 +116,15 @@ export const EmbedView = () =>
   return (
     <div className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text-secondary)]">
       <div className="mx-auto max-w-5xl">
-        {data.title && (
+        {state.data.title && (
           <div className="px-4 pt-3 pb-2">
             <h1 className="text-base font-semibold text-[var(--t-text)]">
-              {data.title}
+              {state.data.title}
             </h1>
           </div>
         )}
 
-        <StaticBoard data={data} appearance={EMBED_APPEARANCE} />
+        <StaticBoard data={state.data} appearance={EMBED_APPEARANCE} />
 
         <div className="px-4 py-2 text-right">
           <a

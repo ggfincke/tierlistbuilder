@@ -6,7 +6,6 @@ import {
   DragOverlay,
   MeasuringStrategy,
   type MeasuringConfiguration,
-  type SensorDescriptor,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
@@ -28,10 +27,6 @@ import { ActiveDragOverlayItem } from './DragOverlayItem'
 import { TierRow } from './TierRow'
 import { TrashZone } from './TrashZone'
 import { UnrankedPool } from './UnrankedPool'
-
-// stable empty sensor list — passed to DndContext when keyboard mode is active
-// to avoid re-creating dnd-kit's internal sensor coordinator per render
-const EMPTY_SENSORS: SensorDescriptor<object>[] = []
 
 // toolbar is rendered *after* content in DOM so it naturally paints on top
 // (dropdowns won't be clipped by the tier grid); flex-reverse restores visual order
@@ -68,10 +63,9 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
 {
   const isVertical = isVerticalPosition(toolbarPosition)
   const paletteId = useCurrentPaletteId()
-  const { boardLocked, exportBackgroundOverride, themeId, compactMode } =
+  const { exportBackgroundOverride, themeId, compactMode } =
     usePreferencesStore(
       useShallow((state) => ({
-        boardLocked: state.boardLocked,
         exportBackgroundOverride: state.exportBackgroundOverride,
         themeId: state.themeId,
         compactMode: state.compactMode,
@@ -161,8 +155,6 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
     onDragCancel,
   } = useDragAndDrop()
 
-  // disable all drag sensors when the board is locked
-  const activeSensors = boardLocked ? EMPTY_SENSORS : sensors
   const activeTierColor = activeTier
     ? resolveTierColorSpec(paletteId, activeTier.colorSpec)
     : null
@@ -172,7 +164,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
 
   return (
     <DndContext
-      sensors={activeSensors}
+      sensors={sensors}
       collisionDetection={collisionDetection}
       accessibility={DND_ACCESSIBILITY}
       measuring={DND_MEASURING}

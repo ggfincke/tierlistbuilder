@@ -113,6 +113,7 @@ export const SearchField = ({
         <button
           type="button"
           aria-label="Clear search"
+          title="Clear search"
           onClick={clear}
           className="focus-custom flex h-5 w-5 items-center justify-center rounded-full text-[var(--t-text-faint)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
         >

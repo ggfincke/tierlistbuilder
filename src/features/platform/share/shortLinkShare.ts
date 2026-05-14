@@ -12,18 +12,46 @@ import { isNonEmptyString } from '~/shared/lib/typeGuards'
 
 const SHORT_LINK_QUERY_PARAM = 's'
 
+type ShortLinkDecodeErrorKind =
+  | 'invalid-slug'
+  | 'not-found'
+  | 'fetch-failed'
+  | 'too-large'
+  | 'corrupt'
+
+export class ShortLinkDecodeError extends Error
+{
+  readonly kind: ShortLinkDecodeErrorKind
+
+  constructor(
+    kind: ShortLinkDecodeErrorKind,
+    message: string,
+    options?: ErrorOptions
+  )
+  {
+    super(message, options)
+    this.kind = kind
+    this.name = 'ShortLinkDecodeError'
+  }
+}
+
+export const isShortLinkDecodeError = (
+  error: unknown
+): error is ShortLinkDecodeError => error instanceof ShortLinkDecodeError
+
 // build a workspace inbound-share URL — recipient lands on the workspace
 // route, useAppBootstrap detects the slug & resolves the snapshot
 export const getShareUrlFromSlug = (slug: string): string =>
   `${buildAppUrl()}?${SHORT_LINK_QUERY_PARAM}=${encodeURIComponent(slug)}`
 
-// extract a short-link slug from the current URL's query string
-export const getShortLinkSlugFromUrl = (): string | null =>
+// extract the raw short-link query value. callers that need user-facing parse
+// errors use this before validation so `?s=broken` doesn't look like no share
+export const getRawShortLinkSlugFromUrl = (): string | null =>
 {
   if (typeof window === 'undefined') return null
   const params = new URLSearchParams(window.location.search)
   const slug = params.get(SHORT_LINK_QUERY_PARAM)
-  return isNonEmptyString(slug) && isShortLinkSlug(slug) ? slug : null
+  return isNonEmptyString(slug) ? slug : null
 }
 
 // scrub the short-link slug from the address bar w/o triggering navigation.
@@ -53,20 +81,24 @@ export const decodeBoardFromShortLink = async (
   if (signal?.aborted) throw signal.reason ?? new Error('aborted')
   if (!isShortLinkSlug(slug))
   {
-    throw new Error(`invalid short link slug: ${slug}`)
+    throw new ShortLinkDecodeError(
+      'invalid-slug',
+      `invalid short link slug: ${slug}`
+    )
   }
 
   const result = await resolveShortLinkImperative({ slug })
   if (signal?.aborted) throw signal.reason ?? new Error('aborted')
   if (result.kind === 'not-found')
   {
-    throw new Error(`short link not found: ${slug}`)
+    throw new ShortLinkDecodeError('not-found', `short link not found: ${slug}`)
   }
 
   const blobResponse = await fetch(result.snapshotUrl, { signal })
   if (!blobResponse.ok)
   {
-    throw new Error(
+    throw new ShortLinkDecodeError(
+      'fetch-failed',
       `snapshot fetch failed: ${blobResponse.status} ${blobResponse.statusText}`
     )
   }
@@ -82,7 +114,8 @@ export const decodeBoardFromShortLink = async (
       contentLength > MAX_SNAPSHOT_COMPRESSED_BYTES
     )
     {
-      throw new Error(
+      throw new ShortLinkDecodeError(
+        'too-large',
         `short link blob too large: ${contentLength} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`
       )
     }
@@ -95,10 +128,22 @@ export const decodeBoardFromShortLink = async (
   // when the header is present; this catches the header-less case
   if (buffer.byteLength > MAX_SNAPSHOT_COMPRESSED_BYTES)
   {
-    throw new Error(
+    throw new ShortLinkDecodeError(
+      'too-large',
       `short link blob too large: ${buffer.byteLength} > ${MAX_SNAPSHOT_COMPRESSED_BYTES}`
     )
   }
-  assertShortLinkSnapshotSize(buffer.byteLength)
-  return inflateSnapshotBytes(new Uint8Array(buffer))
+  try
+  {
+    assertShortLinkSnapshotSize(buffer.byteLength)
+    return await inflateSnapshotBytes(new Uint8Array(buffer))
+  }
+  catch (error)
+  {
+    throw new ShortLinkDecodeError(
+      'corrupt',
+      'short link snapshot is damaged or unsupported',
+      { cause: error }
+    )
+  }
 }

@@ -181,6 +181,11 @@ export const ExportMenu = ({
   const showImageMenu = isOpen('image')
   const showFormatMenu = isOpen('format')
   const showExportAllMenu = isOpen('exportAll')
+  const exportTitle = exportStatus
+    ? 'Export is already running'
+    : exportingAll
+      ? 'Bulk export is already running'
+      : 'Open export, share, and import options'
 
   const handleJsonExport = async (): Promise<void> =>
   {
@@ -234,7 +239,7 @@ export const ExportMenu = ({
         <ActionButton
           ref={buttonRef}
           label="Open export options"
-          title="Export"
+          title={exportTitle}
           onClick={() => toggleMenu('root')}
           disabled={isDisabled}
           hasPopup="dialog"

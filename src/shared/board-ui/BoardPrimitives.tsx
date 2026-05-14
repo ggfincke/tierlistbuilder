@@ -89,7 +89,7 @@ export const BoardItemsGrid = forwardRef(function BoardItemsGrid(
       ref={ref}
       {...props}
       className={joinClassNames(
-        'flex flex-1 flex-wrap content-start p-0',
+        'flex min-w-0 flex-1 flex-wrap content-start overflow-hidden p-0',
         backgroundOverride ? '' : 'bg-[var(--t-bg-surface)]',
         compactMode ? 'gap-0' : 'gap-px',
         className
