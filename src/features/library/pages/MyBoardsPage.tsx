@@ -27,6 +27,7 @@ import { useLocalBoardsLibrary } from '~/features/library/model/useLocalBoardsLi
 import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoard'
 import { useOpenLocalBoard } from '~/features/library/model/useOpenLocalBoard'
 import { LivePulse } from '~/shared/ui/LivePulse'
+import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { foldForSearch } from '~/shared/lib/text'
 
@@ -143,35 +144,29 @@ export const MyBoardsPage = () =>
     <section className="relative z-10 mx-auto w-full max-w-[1320px] px-6 pt-20 pb-24 sm:px-10 sm:pt-24">
       {/* editorial hero — eyebrow + wordmark left, search + mono stats right */}
       <div className="flex flex-wrap items-end justify-between gap-8 border-b border-[var(--t-border)] pb-6">
-        <div className="min-w-0 max-w-2xl">
-          <p
-            className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[var(--t-text-muted)]"
-            style={{ fontFamily: 'var(--ts-mono)' }}
-          >
-            <span>Your shelf</span>
-            <span aria-hidden>·</span>
-            <span>{totalLoadedBoards} on file</span>
-            {counts.live > 0 && (
-              <>
-                <span aria-hidden>·</span>
-                <span className="inline-flex items-center gap-1.5 text-[var(--t-accent)]">
-                  <LivePulse size={6} srLabel="" />
-                  {counts.live} live
-                </span>
-              </>
-            )}
-          </p>
-          <h1
-            className="mt-3 font-black leading-[0.96] tracking-[-0.04em] text-[var(--t-text)]"
-            style={{ fontSize: 'clamp(3rem, 6vw, 5rem)' }}
-          >
-            My <span className="text-[var(--t-accent)]">boards.</span>
-          </h1>
-          <p className="mt-3 max-w-md text-[14px] leading-relaxed text-[var(--t-text-muted)]">
-            Drafts, rankings in flight, and finished boards — everything you've
-            made, organized like a record collection.
-          </p>
-        </div>
+        <DisplayHeadline
+          eyebrow={
+            <span className="flex flex-wrap items-center gap-2">
+              <span>Your shelf</span>
+              <span aria-hidden>·</span>
+              <span>{totalLoadedBoards} on file</span>
+              {counts.live > 0 && (
+                <>
+                  <span aria-hidden>·</span>
+                  <span className="inline-flex items-center gap-1.5 text-[var(--t-accent)]">
+                    <LivePulse size={6} srLabel="" />
+                    {counts.live} live
+                  </span>
+                </>
+              )}
+            </span>
+          }
+          primary="My"
+          accent="boards"
+          subtitle="Drafts, rankings in flight, and finished boards — everything you've made, organized like a record collection."
+          size="display"
+          maxWidthClassName="max-w-2xl"
+        />
 
         <div className="flex w-full flex-col gap-3 sm:w-[280px]">
           <LibrarySearchInput
@@ -213,9 +208,11 @@ export const MyBoardsPage = () =>
 
       {/* section head — contextual title + mono result meta */}
       <div className="mb-3.5 mt-9 flex items-end justify-between gap-3 border-b border-[var(--t-border)] pb-2">
-        <h2 className="text-[20px] font-extrabold tracking-[-0.02em] text-[var(--t-text)]">
-          {SECTION_HEADING[deferredFilter]}
-        </h2>
+        <DisplayHeadline
+          primary={SECTION_HEADING[deferredFilter]}
+          size="section"
+          as="h2"
+        />
         <span
           className="shrink-0 text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-faint)]"
           style={{ fontFamily: 'var(--ts-mono)' }}

@@ -1,5 +1,6 @@
 // src/features/marketplace/components/discovery/RailHeader.tsx
-// section heading w/ optional icon for the gallery's horizontal rails
+// section heading w/ optional icon, mono shelf-stat (meta), & action link
+// (eg "See all -"). both right-side affordances optional
 
 import type { ComponentType, ReactNode, SVGProps } from 'react'
 
@@ -8,6 +9,10 @@ interface RailHeaderProps
   title: string
   subtitle?: string
   icon?: ComponentType<SVGProps<SVGSVGElement>>
+  // editorial shelf-stat — typically a mono count ("12 trending"). renders
+  // right-aligned & visually demoted so it reads as context, not action
+  meta?: ReactNode
+  // CTA-style affordance (eg "See all -"). renders next to meta when both set
   action?: ReactNode
 }
 
@@ -15,6 +20,7 @@ export const RailHeader = ({
   title,
   subtitle,
   icon: Icon,
+  meta,
   action,
 }: RailHeaderProps) => (
   <div className="mb-3 flex items-end justify-between gap-3">
@@ -38,6 +44,18 @@ export const RailHeader = ({
         )}
       </div>
     </div>
-    {action && <div className="text-xs">{action}</div>}
+    {(meta !== undefined && meta !== null) || action ? (
+      <div className="flex items-center gap-3 text-xs">
+        {meta !== undefined && meta !== null && (
+          <span
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--t-text-faint)] tabular-nums"
+            style={{ fontFamily: 'var(--ts-mono)' }}
+          >
+            {meta}
+          </span>
+        )}
+        {action && <div>{action}</div>}
+      </div>
+    ) : null}
   </div>
 )

@@ -1,17 +1,18 @@
 // src/features/marketplace/pages/TemplatesGalleryPage.tsx
-// gallery landing — eyebrow + heading + search, jump-back-in row, hero +
-// sidebar feature, rails, & a filterable browse grid
+// gallery landing — two-tone hero w/ CTA pair, search, hero tile + sidebar
+// featured row, rails, filterable browse grid, & closing CTA
 
 import {
   Flame,
   ListChecks,
   ListFilter,
+  Plus,
   Sparkles,
   Tag,
   TrendingUp,
   X,
 } from 'lucide-react'
-import { lazy, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
@@ -31,13 +32,16 @@ import { Hero } from '~/features/marketplace/components/discovery/Hero'
 import { Rail } from '~/features/marketplace/components/discovery/Rail'
 import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
 import { SearchInput } from '~/features/marketplace/components/discovery/SearchInput'
+import { Button } from '~/shared/ui/Button'
+import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useGalleryFilters } from '~/features/marketplace/model/useGalleryFilters'
 import { useOpenTemplateDraft } from '~/features/marketplace/model/useOpenTemplateDraft'
 import { useTemplatesGallery } from '~/features/marketplace/model/useTemplatesGallery'
+import { useStartBlankBoard } from '~/features/workspace/boards/model/useStartBlankBoard'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
-import { formatCount } from '~/shared/catalog/formatters'
+import { formatCount, pluralize } from '~/shared/catalog/formatters'
 import {
   loadPublishModal,
   preloadPublishModal,
@@ -60,10 +64,35 @@ const SORT_LABELS: Record<TemplateListSort, string> = {
   recent: 'Recently added',
 }
 
-const HERO_SECONDARY_LABELS = [
+// three peer featured tiles in editorial register. Hero takes the
+// editor's-pick slot; the two sidebar tiles render as elevated Cards. no rail
+// header — each tile's featuredLabel chip identifies its role
+const HERO_FEATURED_LABELS = [
+  'editorsPick',
   'trending',
   'curated',
 ] as const satisfies readonly CardFeaturedLabel[]
+
+const NewBoardCta = ({ onClick }: { onClick: () => void }) => (
+  <Button
+    variant="primary"
+    tone="accent"
+    size="md"
+    onClick={onClick}
+    aria-label="Create a new board"
+  >
+    <Plus className="h-3.5 w-3.5" strokeWidth={2.4} aria-hidden />
+    New board
+  </Button>
+)
+
+const railMeta = (
+  items: readonly unknown[] | undefined,
+  word: string
+): string | undefined =>
+  items !== undefined
+    ? `${formatCount(items.length)} ${pluralize(items.length, word)}`
+    : undefined
 
 interface EmptyHintFilters
 {
@@ -91,7 +120,7 @@ const getBrowseHeading = (filters: BrowseHeadingFilters): string =>
 }
 
 const formatTemplateResultsCount = (count: number, atLimit: boolean): string =>
-  `${count}${atLimit ? '+' : ''} ${count === 1 ? 'template' : 'templates'}`
+  `${count}${atLimit ? '+' : ''} ${pluralize(count, 'template')}`
 
 const getEmptyGalleryHint = (filters: EmptyHintFilters): string =>
 {
@@ -131,18 +160,33 @@ export const TemplatesGalleryPage = () =>
   })
   const draftAction = useOpenTemplateDraft()
   const [publishOpen, setPublishOpen] = useState(false)
+  const handleStartBlankBoard = useStartBlankBoard()
   useDocumentTitle('Templates · TierListBuilder')
   const handleSortChange = createTypedSelectChangeHandler(
     TEMPLATE_LIST_SORTS,
     filters.setSort
   )
 
-  const heroFeatured = gallery.featured?.[0] ?? null
-  const heroSecondary = HERO_SECONDARY_LABELS.flatMap((label, index) =>
+  // hero secondary CTA scrolls to the trending rail when it's rendered.
+  // rail is gated on filters & server-side availability; missing ref no-ops
+  const trendingSectionRef = useRef<HTMLElement | null>(null)
+  const handleScrollToTrending = () =>
   {
-    const template = gallery.featured?.[index + 1]
-    return template ? [{ template, label }] : []
-  })
+    trendingSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+  }
+
+  const heroFeatured = useMemo(
+    () =>
+      HERO_FEATURED_LABELS.flatMap((label, index) =>
+      {
+        const template = gallery.featured?.[index]
+        return template ? [{ template, label }] : []
+      }),
+    [gallery.featured]
+  )
 
   const filtersActive =
     !!filters.searchDebounced ||
@@ -239,30 +283,39 @@ export const TemplatesGalleryPage = () =>
     filters.setCategory(null)
   }
 
-  const greeting = 'Browse community templates.'
-
   return (
     <>
       <section className="relative z-10 mx-auto w-full max-w-[1200px] px-6 pt-20 sm:px-10 sm:pt-24">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] lg:items-end">
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--t-text-faint)]">
-              {templateCountLabel}
-            </span>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight text-[var(--t-text)] sm:text-5xl">
-              {greeting}
-            </h1>
-            <p className="mt-3 max-w-xl text-[14px] text-[var(--t-text-muted)]">
-              Pre-built item sets you can fork into a new ranking with one
-              click.
-            </p>
+        <DisplayHeadline
+          eyebrow={templateCountLabel}
+          accent="community templates"
+          subtitle={
+            <>
+              Pre-built item sets you can fork into a new ranking with{' '}
+              <strong className="font-bold text-[var(--t-text)]">
+                one click
+              </strong>
+              .
+            </>
+          }
+          size="display"
+          maxWidthClassName="max-w-none"
+        />
+        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-center">
+          <div className="flex flex-wrap items-center gap-3">
+            <NewBoardCta onClick={handleStartBlankBoard} />
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={handleScrollToTrending}
+            >
+              Browse trending
+            </Button>
           </div>
-          <div className="lg:pb-2">
-            <SearchInput
-              value={filters.searchInput}
-              onChange={handleSearchChange}
-            />
-          </div>
+          <SearchInput
+            value={filters.searchInput}
+            onChange={handleSearchChange}
+          />
         </div>
       </section>
 
@@ -281,39 +334,39 @@ export const TemplatesGalleryPage = () =>
         </section>
       )}
 
-      {showRails && heroFeatured && (
-        <section className="relative z-10 mx-auto mt-8 w-full max-w-[1600px] px-6 sm:px-10">
-          {heroSecondary.length > 0 ? (
-            <div className="grid gap-5 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <Hero template={heroFeatured} />
-              </div>
-              <div className="grid grid-rows-2 gap-5">
-                {heroSecondary.map(({ template, label }) => (
-                  <Card
-                    key={template.slug}
-                    template={template}
-                    size="default"
-                    featuredLabel={label}
-                    imageLoading="eager"
-                  />
-                ))}
-              </div>
+      {showRails && heroFeatured.length > 0 && (
+        <section className="relative z-10 mx-auto mt-12 w-full max-w-[1200px] px-6 sm:px-10">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <Hero template={heroFeatured[0].template} />
+            <div className="flex flex-col gap-5">
+              {heroFeatured.slice(1).map(({ template, label }) => (
+                <Card
+                  key={template.slug}
+                  template={template}
+                  size="small"
+                  featuredLabel={label}
+                  coverSurface="browseHero"
+                  imageLoading="eager"
+                  elevated
+                />
+              ))}
             </div>
-          ) : (
-            <Hero template={heroFeatured} />
-          )}
+          </div>
         </section>
       )}
 
       {showRails && (
         <>
           {gallery.showTrendingRail && (
-            <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
+            <section
+              ref={trendingSectionRef}
+              className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] scroll-mt-24 px-6 sm:px-10"
+            >
               <RailHeader
                 title="Trending this week"
                 subtitle="Hottest forks in the last 7 days"
                 icon={Flame}
+                meta={railMeta(gallery.trending, 'template')}
               />
               <Rail items={gallery.trending} size="small" />
             </section>
@@ -325,6 +378,7 @@ export const TemplatesGalleryPage = () =>
                 title="Most popular"
                 subtitle="All-time forks"
                 icon={TrendingUp}
+                meta={railMeta(gallery.popular, 'template')}
               />
               <Rail items={gallery.popular} size="small" />
             </section>
@@ -335,6 +389,7 @@ export const TemplatesGalleryPage = () =>
               title="New & recently updated"
               subtitle="Fresh from creators"
               icon={Sparkles}
+              meta={railMeta(gallery.recent, 'template')}
             />
             <Rail items={gallery.recent} size="small" />
           </section>
@@ -347,12 +402,14 @@ export const TemplatesGalleryPage = () =>
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-[-0.015em] text-[var(--t-text)]">
-              {browseHeading}
-            </h2>
-            <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-              {browseSubhead}
-            </p>
+            <DisplayHeadline
+              primary={browseHeading}
+              subtitle={browseSubhead}
+              subtitleClassName="text-xs text-[var(--t-text-muted)]"
+              size="section"
+              as="h2"
+              maxWidthClassName="max-w-2xl"
+            />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {filters.tag && (
@@ -466,6 +523,21 @@ export const TemplatesGalleryPage = () =>
             )}
           </div>
         )}
+      </section>
+
+      <section className="relative z-10 mx-auto mt-16 mb-16 w-full max-w-[1200px] px-6 sm:px-10">
+        <div className="rounded-2xl border border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.04)] px-8 py-12 sm:px-14 sm:py-16">
+          <DisplayHeadline
+            primary="Start a"
+            accent="New board"
+            subtitle="Pick a template above or start from blank — your ranking lives in your workspace until you're ready to publish."
+            size="display"
+            stacked
+          />
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <NewBoardCta onClick={handleStartBlankBoard} />
+          </div>
+        </div>
       </section>
 
       <LazyModalSlot when={publishOpen} section="publish template">

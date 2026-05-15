@@ -126,7 +126,10 @@ export const ImageEditorMetadataPanel = ({
       <div className="grid gap-4 sm:grid-cols-[1fr_240px]">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="flex items-center justify-between" htmlFor={altInputId}>
+            <label
+              className="flex items-center justify-between"
+              htmlFor={altInputId}
+            >
               <Eyebrow>Alt text</Eyebrow>
               <span className="font-mono text-[10px] tabular-nums text-[var(--t-text-faint)]">
                 {altDraft.length}/200
@@ -150,7 +153,10 @@ export const ImageEditorMetadataPanel = ({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="flex items-center justify-between" htmlFor={notesInputId}>
+            <label
+              className="flex items-center justify-between"
+              htmlFor={notesInputId}
+            >
               <Eyebrow>Notes</Eyebrow>
               <span className="font-mono text-[10px] tabular-nums text-[var(--t-text-faint)]">
                 {notesDraft.length}/2000

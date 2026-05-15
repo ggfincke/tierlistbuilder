@@ -25,6 +25,7 @@ import { getPrimaryImageRef } from '~/shared/lib/imageRefs'
 import {
   finalizeUploadVariantsImperative,
   generateUploadUrlsImperative,
+  getReusableMediaExternalIdsImperative,
   uploadEnvelopedBlob,
   type UploadedVariant,
 } from '~/features/platform/media/uploadsRepository'
@@ -49,6 +50,11 @@ export interface BoardImageUploadResult
 {
   mediaExternalIdByHash: Map<string, string>
   mediaExternalIdByItemId: Map<string, string>
+}
+
+interface UploadBoardImagesOptions
+{
+  boardExternalId?: string | null
 }
 
 interface MediaUploadGroup
@@ -76,13 +82,17 @@ const isReusableCloudMediaRef = (
 
 const seedExistingCloudMediaIds = (
   snapshot: BoardSnapshot,
-  result: BoardImageUploadResult
+  result: BoardImageUploadResult,
+  reusableExternalIds: ReadonlySet<string>
 ): void =>
 {
   forEachSnapshotItem(snapshot, (item) =>
   {
     const primaryRef = getPrimaryImageRef(item, 'board')
-    if (isReusableCloudMediaRef(primaryRef))
+    if (
+      isReusableCloudMediaRef(primaryRef) &&
+      reusableExternalIds.has(primaryRef.cloudMediaExternalId)
+    )
     {
       result.mediaExternalIdByItemId.set(
         item.id,
@@ -91,7 +101,10 @@ const seedExistingCloudMediaIds = (
     }
     for (const ref of [item.imageRef, item.tileImageRef, item.sourceImageRef])
     {
-      if (isReusableCloudMediaRef(ref))
+      if (
+        isReusableCloudMediaRef(ref) &&
+        reusableExternalIds.has(ref.cloudMediaExternalId)
+      )
       {
         result.mediaExternalIdByHash.set(ref.hash, ref.cloudMediaExternalId)
       }
@@ -212,11 +225,12 @@ const uploadMediaGroup = async (
 const getKnownGroupExternalId = (
   group: MediaUploadGroup,
   result: BoardImageUploadResult,
-  externalIdByUploadKey: ReadonlyMap<string, string | null>
+  externalIdByUploadKey: ReadonlyMap<string, string | null>,
+  reusableExternalIds: ReadonlySet<string>
 ): string | undefined =>
 {
   const exact = externalIdByUploadKey.get(group.uploadKey)
-  if (exact) return exact
+  if (exact && reusableExternalIds.has(exact)) return exact
 
   const externalIds = groupVariantHashes(group).map((hash) =>
     result.mediaExternalIdByHash.get(hash)
@@ -229,13 +243,65 @@ const getKnownGroupExternalId = (
   return first
 }
 
+const collectCandidateReusableMediaExternalIds = (
+  snapshot: BoardSnapshot,
+  externalIdByUploadKey: ReadonlyMap<string, string | null>
+): string[] =>
+{
+  const externalIds = new Set<string>()
+
+  for (const externalId of externalIdByUploadKey.values())
+  {
+    if (externalId) externalIds.add(externalId)
+  }
+
+  forEachSnapshotItem(snapshot, (item) =>
+  {
+    for (const ref of [item.imageRef, item.tileImageRef, item.sourceImageRef])
+    {
+      if (isReusableCloudMediaRef(ref))
+      {
+        externalIds.add(ref.cloudMediaExternalId)
+      }
+    }
+  })
+
+  return [...externalIds]
+}
+
+const resolveReusableMediaExternalIds = async (
+  snapshot: BoardSnapshot,
+  boardExternalId: string | null,
+  externalIdByUploadKey: ReadonlyMap<string, string | null>
+): Promise<Set<string>> =>
+{
+  const externalIds = collectCandidateReusableMediaExternalIds(
+    snapshot,
+    externalIdByUploadKey
+  )
+  if (externalIds.length === 0)
+  {
+    return new Set()
+  }
+
+  const reusable = await getReusableMediaExternalIdsImperative({
+    externalIds,
+    boardExternalId,
+  })
+
+  return new Set(
+    externalIds.filter((_externalId, index) => reusable[index] === true)
+  )
+}
+
 type UploadAttemptResult =
   | { kind: 'uploaded'; hashes: string[]; externalId: string }
   | { kind: 'failed'; reason: unknown }
 
 export const uploadBoardImages = async (
   snapshot: BoardSnapshot,
-  userId: string
+  userId: string,
+  options: UploadBoardImagesOptions = {}
 ): Promise<BoardImageUploadResult> =>
 {
   const hashes = collectSnapshotLocalImageHashes(snapshot)
@@ -244,8 +310,6 @@ export const uploadBoardImages = async (
     mediaExternalIdByHash: new Map<string, string>(),
     mediaExternalIdByItemId: new Map<string, string>(),
   }
-
-  seedExistingCloudMediaIds(snapshot, result)
 
   if (hashes.length === 0)
   {
@@ -257,13 +321,24 @@ export const uploadBoardImages = async (
     userId,
     groups.map((group) => group.uploadKey)
   )
+  const reusableExternalIds = await resolveReusableMediaExternalIds(
+    snapshot,
+    options.boardExternalId ?? null,
+    existingMap
+  )
+  seedExistingCloudMediaIds(snapshot, result, reusableExternalIds)
 
   // walk groups once: propagate already-known externalIds for exact variant
   // sets, then collect the groups that still need uploading
   const uploadGroups: MediaUploadGroup[] = []
   for (const group of groups)
   {
-    const externalId = getKnownGroupExternalId(group, result, existingMap)
+    const externalId = getKnownGroupExternalId(
+      group,
+      result,
+      existingMap,
+      reusableExternalIds
+    )
     if (externalId)
     {
       for (const itemId of group.itemIds)

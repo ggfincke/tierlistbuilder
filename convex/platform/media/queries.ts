@@ -5,12 +5,17 @@ import { ConvexError, v } from 'convex/values'
 import { query } from '../../_generated/server'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
-import { findMediaAssetByExternalId } from '../../lib/permissions'
+import {
+  findMediaAssetByExternalId,
+  findOwnedBoardByExternalIdIncludingDeleted,
+} from '../../lib/permissions'
 import { mediaVariantKindValidator } from '../../lib/validators'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { QueryCtx } from '../../_generated/server'
 import { selectMediaVariantSummary } from '../../lib/mediaVariants'
+import { BOARD_ITEM_TAKE_LIMIT } from '../../lib/limits'
+import { loadBoundedBoardRows } from '../../workspace/sync/loadBoundedBoardRows'
 
 // hard cap per batch — protects the query's document read budget. clients
 // chunk their pending batches to fit. 50 covers the common "warm a board"
@@ -40,6 +45,71 @@ const mediaAssetLookupValidator = v.object({
   externalId: v.string(),
   url: v.string(),
   mimeType: v.string(),
+})
+
+const loadReusableBoardMediaAssetIds = async (
+  ctx: QueryCtx,
+  userId: Id<'users'>,
+  boardExternalId: string | null
+): Promise<Set<Id<'mediaAssets'>>> =>
+{
+  if (!boardExternalId) return new Set()
+
+  const board = await findOwnedBoardByExternalIdIncludingDeleted(
+    ctx,
+    boardExternalId,
+    userId
+  )
+  if (!board) return new Set()
+
+  const { serverItems } = await loadBoundedBoardRows(ctx, board._id)
+  return new Set(
+    serverItems
+      .map((item) => item.mediaAssetId)
+      .filter((id): id is Id<'mediaAssets'> => id !== null)
+  )
+}
+
+export const getReusableMediaExternalIds = query({
+  args: {
+    externalIds: v.array(v.string()),
+    boardExternalId: v.union(v.string(), v.null()),
+  },
+  returns: v.array(v.boolean()),
+  handler: async (ctx, args): Promise<boolean[]> =>
+  {
+    if (args.externalIds.length === 0)
+    {
+      return []
+    }
+
+    if (args.externalIds.length > BOARD_ITEM_TAKE_LIMIT)
+    {
+      throw new ConvexError({
+        code: CONVEX_ERROR_CODES.invalidInput,
+        message: `media reuse check exceeds cap of ${BOARD_ITEM_TAKE_LIMIT}`,
+      })
+    }
+
+    const userId = await requireCurrentUserId(ctx)
+    const reusableBoardMediaAssetIds = await loadReusableBoardMediaAssetIds(
+      ctx,
+      userId,
+      args.boardExternalId
+    )
+
+    return await Promise.all(
+      args.externalIds.map(async (externalId) =>
+      {
+        const asset = await findMediaAssetByExternalId(ctx, externalId)
+        return (
+          !!asset &&
+          (asset.ownerId === userId ||
+            reusableBoardMediaAssetIds.has(asset._id))
+        )
+      })
+    )
+  },
 })
 
 // page size for the paginated reachability scans below — large enough that

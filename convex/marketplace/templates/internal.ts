@@ -709,7 +709,7 @@ export const backfillTemplateCardRankingCount = internalMutation({
 
 // one-time compatibility backfill for the useCount -> forkCount rename.
 // During the widened schema window, reads fall back to useCount; this rewrites
-// rows so validators and fork-count indexes see a real forkCount again.
+// rows so validators & fork-count indexes see a real forkCount again.
 export const backfillTemplateStatsForkCount = internalMutation({
   args: { cursor: v.union(v.string(), v.null()) },
   returns: v.object({ processed: v.number(), isDone: v.boolean() }),

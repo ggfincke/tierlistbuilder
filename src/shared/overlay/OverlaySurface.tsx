@@ -10,6 +10,10 @@ import {
 } from 'react'
 
 import { joinClassNames } from '~/shared/lib/className'
+import {
+  overlayMenuItemClass,
+  type OverlayMenuItemDensity,
+} from './menuItemClass'
 
 interface OverlaySurfaceProps extends HTMLAttributes<HTMLDivElement>
 {
@@ -67,21 +71,20 @@ OverlayFixedPopupSurface.displayName = 'OverlayFixedPopupSurface'
 interface OverlayMenuItemProps extends ButtonHTMLAttributes<HTMLButtonElement>
 {
   children: ReactNode
+  density?: OverlayMenuItemDensity
 }
 
 export const OverlayMenuItem = ({
   children,
   className,
+  density = 'default',
   type = 'button',
   ...props
 }: OverlayMenuItemProps) => (
   <button
     type={type}
     {...props}
-    className={joinClassNames(
-      'focus-custom flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[var(--t-text)] transition hover:bg-[rgb(var(--t-overlay)/0.06)] focus-visible:bg-[rgb(var(--t-overlay)/0.08)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)]',
-      className
-    )}
+    className={overlayMenuItemClass(density, className ?? undefined)}
   >
     {children}
   </button>

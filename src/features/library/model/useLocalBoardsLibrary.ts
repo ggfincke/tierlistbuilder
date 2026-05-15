@@ -11,7 +11,10 @@ import {
   type LibraryBoardListItem,
   type LibraryBoardTierBreakdown,
 } from '@tierlistbuilder/contracts/workspace/board'
-import type { PaletteId, TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
+import type {
+  PaletteId,
+  TierColorSpec,
+} from '@tierlistbuilder/contracts/lib/theme'
 import { loadBoardFromStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 

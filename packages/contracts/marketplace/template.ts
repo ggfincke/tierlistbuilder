@@ -149,10 +149,9 @@ export const COVER_SURFACES = ['browseHero', 'detailHero', 'card'] as const
 
 export type CoverSurface = (typeof COVER_SURFACES)[number]
 
-// canonical aspect ratios per surface — match the dominant rendering for each
-// spot (gallery hero ~16:9 after the homepage refresh, detail page hero ~4:3,
-// default card thumbnail ~16:10). live containers may drift; FramedCoverImage
-// covers via object-cover
+// canonical aspect ratios per surface — gallery hero ~16:9, detail hero ~4:3,
+// default card ~16:10. live containers may drift; FramedCoverImage covers
+// via object-cover
 export const SURFACE_ASPECT_RATIOS: Record<CoverSurface, number> = {
   browseHero: 16 / 9,
   detailHero: 4 / 3,

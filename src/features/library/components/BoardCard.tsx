@@ -72,6 +72,7 @@ const BoardCardImpl = ({
 {
   const cfg = DENSITY_CFG[density]
   const isDraft = board.publishState === 'draft'
+  const isLive = board.publishState === 'live'
   const publishMeta = PUBLISH_STATE_META[board.publishState]
   const syncMeta = LIBRARY_SYNC_META[board.syncState]
 
@@ -122,7 +123,9 @@ const BoardCardImpl = ({
         className={`flex flex-1 flex-col gap-1.5 ${cfg.bodyPadding} text-[var(--t-text)]`}
       >
         <div
-          className="flex items-center justify-between text-[10px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]"
+          className={`flex items-center justify-between text-[10px] uppercase tracking-[0.14em] ${
+            isLive ? 'text-[var(--t-accent)]' : 'text-[var(--t-text-faint)]'
+          }`}
           style={{ fontFamily: 'var(--ts-mono)' }}
         >
           <span>

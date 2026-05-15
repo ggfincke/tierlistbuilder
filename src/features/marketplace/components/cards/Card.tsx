@@ -2,11 +2,18 @@
 // repeat-unit template card used by the gallery grid & section rails — three
 // sizes share the same chrome but vary in art height & meta density
 
-import { ArrowRight, BadgeCheck, Lock, Sparkles, TrendingUp } from 'lucide-react'
+import {
+  ArrowRight,
+  BadgeCheck,
+  Lock,
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react'
 import { memo, type ComponentType, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 
 import type {
+  CoverSurface,
   MarketplaceTemplateSummary,
   TemplateCardAccessState,
 } from '@tierlistbuilder/contracts/marketplace/template'
@@ -39,6 +46,11 @@ interface CardProps
   // "Featured" pill w/ a slot-specific label & icon
   featuredLabel?: CardFeaturedLabel
   imageLoading?: MediaLoading
+  coverSurface?: CoverSurface
+  // editorial elevation — adds an accent border + soft accent glow & tints the
+  // category eyebrow. used by the gallery's 3-up featured row to lift the
+  // editor's-pick/trending/curated tiles a tier above the generic grid
+  elevated?: boolean
 }
 
 const FEATURED_LABEL_META: Record<
@@ -101,9 +113,7 @@ const CardStat = ({ icon: Icon, label, value }: CardStatProps) =>
   return (
     <span
       className={`inline-flex items-center gap-1 tabular-nums ${
-        value <= 0
-          ? 'text-[var(--t-text-dim)]'
-          : 'text-[var(--t-text-faint)]'
+        value <= 0 ? 'text-[var(--t-text-dim)]' : 'text-[var(--t-text-faint)]'
       }`}
       style={{ fontFamily: 'var(--ts-mono)' }}
       title={`${value} ${label}`}
@@ -114,12 +124,26 @@ const CardStat = ({ icon: Icon, label, value }: CardStatProps) =>
   )
 }
 
+// edit-time eyebrow + frame palettes — keyed off the editorial-elevated flag.
+// elevated cards carry an accent border + soft accent glow & tint the
+// category eyebrow accent so the 3-up featured row reads a tier above the grid
+const FRAME_BASE =
+  'group focus-custom relative flex h-full flex-col overflow-hidden rounded-lg border bg-[var(--t-bg-surface)] transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
+
+const FRAME_DEFAULT =
+  'border-[var(--t-border)] hover:border-[var(--t-border-hover)] hover:shadow-lg'
+
+const FRAME_ELEVATED =
+  'border-[var(--t-accent)] shadow-[0_0_28px_var(--t-accent-glow)] hover:shadow-[0_0_40px_var(--t-accent-glow)]'
+
 const CardImpl = ({
   template,
   size = 'default',
   coverStyle,
   featuredLabel,
   imageLoading,
+  coverSurface = 'card',
+  elevated = false,
 }: CardProps) =>
 {
   const cfg = SIZE_CONFIG[size]
@@ -133,11 +157,15 @@ const CardImpl = ({
   const hasOverlayChip = Boolean(
     labelMeta || showGenericFeatured || accessLabel
   )
+  const frameClasses = `${FRAME_BASE} ${
+    elevated ? FRAME_ELEVATED : FRAME_DEFAULT
+  }`
+  const tintCategory = elevated || labelMeta !== null
 
   return (
     <Link
       to={detailPath}
-      className="group focus-custom relative flex h-full flex-col overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] transition hover:-translate-y-0.5 hover:border-[var(--t-border-hover)] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+      className={frameClasses}
       aria-label={`${template.title} — by ${template.author.displayName}`}
     >
       <div className={`relative w-full overflow-hidden ${cfg.coverHeight}`}>
@@ -145,7 +173,7 @@ const CardImpl = ({
           template={template}
           density={cfg.density}
           style={coverStyle}
-          surface="card"
+          surface={coverSurface}
           loading={imageLoading}
         />
 
@@ -207,7 +235,11 @@ const CardImpl = ({
           className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]"
           style={{ fontFamily: 'var(--ts-mono)' }}
         >
-          <span className="min-w-0 truncate">
+          <span
+            className={`min-w-0 truncate ${
+              tintCategory ? 'text-[var(--t-accent)]' : ''
+            }`}
+          >
             {CATEGORY_META[template.category].label}
           </span>
           <span className="shrink-0">

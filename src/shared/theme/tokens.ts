@@ -27,6 +27,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#4DD8C2',
     'accent-2': '#B3FF3A',
     'accent-foreground': '#050505',
+    'accent-glow': 'color-mix(in srgb, #5EEAD4 28%, transparent)',
     destructive: '#FF7F7E',
     'destructive-hover': '#FF6B6A',
     success: '#B3FF3A',
@@ -56,6 +57,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#2D2820',
     'accent-2': '#D94F2E',
     'accent-foreground': '#FFFCF4',
+    'accent-glow': 'color-mix(in srgb, #1A1814 18%, transparent)',
     destructive: '#C7401A',
     'destructive-hover': '#B33617',
     success: '#4A6F31',
@@ -84,6 +86,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#A973E8',
     'accent-2': '#FF85E0',
     'accent-foreground': '#0B0A1E',
+    'accent-glow': 'color-mix(in srgb, #C084FC 28%, transparent)',
     destructive: '#FF7B8A',
     'destructive-hover': '#FF6577',
     success: '#5EEAD4',
@@ -113,6 +116,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#9DE82A',
     'accent-2': '#F5D04A',
     'accent-foreground': '#0A1410',
+    'accent-glow': 'color-mix(in srgb, #B3FF3A 24%, transparent)',
     destructive: '#F87171',
     'destructive-hover': '#EF4444',
     success: '#B3FF3A',
@@ -142,6 +146,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#ED6B45',
     'accent-2': '#FFD84A',
     'accent-foreground': '#14110E',
+    'accent-glow': 'color-mix(in srgb, #FF7F5A 28%, transparent)',
     destructive: '#EF4444',
     'destructive-hover': '#DC2626',
     success: '#B3FF3A',
@@ -171,6 +176,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#E25EA0',
     'accent-2': '#FFE25C',
     'accent-foreground': '#14081A',
+    'accent-glow': 'color-mix(in srgb, #F472B6 28%, transparent)',
     destructive: '#FF6B6B',
     'destructive-hover': '#ED5555',
     success: '#5EEAD4',
@@ -178,9 +184,9 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     overlay: '255 255 255',
     'export-bg': '#14081A',
   },
-  // No. 07 — AMOLED (OLED-safe). True #000 pixels. Single saturated cyan;
-  // accent-2 intentionally mirrors accent so primary CTAs use a 1px outline
-  // (see Button.tsx) instead of an offset shadow that would light up pixels.
+  // No. 07 — AMOLED. True #000 pixels w/ a saturated cyan accent + lime
+  // accent-2 pair so chunky shadows & the display-accent stamp render the
+  // editorial two-tone on AMOLED (pixel cost accepted for cross-theme parity)
   amoled: {
     'bg-page': '#000000',
     'bg-surface': '#050505',
@@ -199,8 +205,9 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'text-dim': '#383830',
     accent: '#5EEAD4',
     'accent-hover': '#4DD8C2',
-    'accent-2': '#5EEAD4',
+    'accent-2': '#B3FF3A',
     'accent-foreground': '#000000',
+    'accent-glow': 'color-mix(in srgb, #5EEAD4 18%, transparent)',
     destructive: '#FF7F7E',
     'destructive-hover': '#FF6B6A',
     success: '#B3FF3A',
@@ -231,6 +238,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     'accent-hover': '#EDD400',
     'accent-2': '#FF2EC4',
     'accent-foreground': '#0A0A14',
+    'accent-glow': 'color-mix(in srgb, #FFE600 22%, transparent)',
     destructive: '#FF6666',
     'destructive-hover': '#FF4444',
     success: '#00FF88',

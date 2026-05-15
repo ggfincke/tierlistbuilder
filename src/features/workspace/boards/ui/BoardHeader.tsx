@@ -131,7 +131,7 @@ export const BoardHeader = () =>
 
   return (
     <header className="px-3 pb-2 pt-3 text-center">
-      <h1 className="inline-flex items-center gap-2 text-3xl font-semibold tracking-tight text-[var(--t-text)] sm:text-[2.15rem]">
+      <h1 className="display-accent-shadow inline-flex items-center gap-2 text-3xl font-black leading-[1.08] tracking-[-0.025em] text-[var(--t-text)] sm:text-[2.15rem]">
         {editing ? (
           <>
             <label htmlFor={titleInputId} className="sr-only">
@@ -145,7 +145,7 @@ export const BoardHeader = () =>
               {...getInputProps({
                 maxLength: 60,
                 className:
-                  '!px-0 !py-0 !text-3xl border-none text-center font-semibold tracking-tight focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:!text-[2.15rem] min-w-[10ch] [field-sizing:content]',
+                  '!px-0 !py-0 !text-3xl border-none text-center font-black leading-[1.08] tracking-[-0.025em] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] sm:!text-[2.15rem] min-w-[10ch] [field-sizing:content]',
               })}
             />
           </>

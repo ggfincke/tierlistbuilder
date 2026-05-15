@@ -24,6 +24,7 @@
     --t-accent-hover: #4dd8c2;
     --t-accent-2: #b3ff3a;
     --t-accent-foreground: #050505;
+    --t-accent-glow: color-mix(in srgb, #5eead4 28%, transparent);
     --t-destructive: #ff7f7e;
     --t-destructive-hover: #ff6b6a;
     --t-destructive-foreground: #ffffff;
@@ -269,6 +270,93 @@
   {
     outline-width: 3px;
     outline-color: var(--t-accent);
+  }
+
+  /* editorial ambient layer — soft radial blobs pinned to the top corners
+     of the viewport. position: fixed keeps the gradients viewport-sized on
+     long-scroll pages instead of resampling across the full document height.
+     isolation + negative z-index drops them behind content within the wrapper */
+  .ambient-layer
+  {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .ambient-layer::before,
+  .ambient-layer::after
+  {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .ambient-layer::before
+  {
+    background: radial-gradient(
+      ellipse 720px 540px at 8% 6%,
+      color-mix(in srgb, var(--t-accent) 12%, transparent),
+      transparent 65%
+    );
+  }
+
+  .ambient-layer::after
+  {
+    background: radial-gradient(
+      ellipse 640px 480px at 92% 8%,
+      color-mix(in srgb, var(--t-accent-2) 9%, transparent),
+      transparent 65%
+    );
+  }
+
+  /* faint dot texture — 24px tile sized so the pattern reads as grain rather
+     than a grid. background-attachment: fixed pins the dots to the viewport
+     so the composited layer stays bounded on long pages */
+  .dot-grid-bg
+  {
+    background-image: radial-gradient(
+      circle,
+      rgb(var(--t-overlay) / 0.05) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+    background-position: 0 0;
+    background-attachment: fixed;
+  }
+
+  /* mockup-aligned display accent — Bungee block letters w/ lime fill &
+     mint shadow underneath. scales to 62% of parent so the accent reads
+     typographically subordinate to the primary even at all-caps. translateY
+     recovers the baseline when inline. borrowed from Applied Screens v2
+     (.mkt-hero h1 .bungee at line 377-387) */
+  .display-accent
+  {
+    font-family: 'Bungee', 'Inter', sans-serif;
+    text-transform: uppercase;
+    color: var(--t-accent-2);
+    font-size: 0.62em;
+    letter-spacing: -0.01em;
+    display: inline-block;
+    transform: translateY(-0.05em);
+    line-height: 1;
+  }
+
+  /* standalone variant — accent w/o a primary half. it IS the title, so
+     scale to the parent h1's full font-size & drop the baseline-recovery
+     translate (only needed when riding alongside a larger primary glyph) */
+  .display-accent--full
+  {
+    font-size: 1em;
+    transform: none;
+  }
+
+  /* mint stamp under the editorial accent — em units so the shadow depth
+     scales with the glyph's font-size, holding the proportion across every
+     headline size (inline 0.62em stamp and standalone 1em title alike) */
+  .display-accent-shadow
+  {
+    text-shadow: 0.08em 0.08em 0 var(--t-accent);
   }
 
   /* Scoreboard "LIVE NOW" pulse — paired with the accent dot animation. */

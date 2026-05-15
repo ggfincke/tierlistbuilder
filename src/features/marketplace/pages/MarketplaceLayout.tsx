@@ -33,7 +33,7 @@ export const MarketplaceLayout = () =>
   }, [pathname, hash, navType])
 
   return (
-    <main className="relative min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]">
+    <main className="ambient-layer dot-grid-bg relative min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]">
       <Outlet />
       <Footer />
 

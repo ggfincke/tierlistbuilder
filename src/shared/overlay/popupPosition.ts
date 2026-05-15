@@ -107,4 +107,3 @@ export function computeSettingsMenuStyle(
     right: width - rect.right,
   }
 }
-

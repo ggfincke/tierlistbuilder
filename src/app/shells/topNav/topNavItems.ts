@@ -4,7 +4,10 @@
 
 import { Bookmark, Layers, Sparkles, type LucideIcon } from 'lucide-react'
 
-import { BOARDS_ROUTE_PATH, TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import {
+  BOARDS_ROUTE_PATH,
+  TEMPLATES_ROUTE_PATH,
+} from '~/shared/routes/pathname'
 
 export interface TopNavItem
 {

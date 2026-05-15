@@ -21,9 +21,7 @@ import type {
   TemplateUseTierSelection,
   TemplateVisibility,
 } from '@tierlistbuilder/contracts/marketplace/template'
-import {
-  DEFAULT_TEMPLATE_ITEM_PAGE_SIZE,
-} from '@tierlistbuilder/contracts/marketplace/template'
+import { DEFAULT_TEMPLATE_ITEM_PAGE_SIZE } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
 
@@ -69,10 +67,9 @@ export const useTemplateBySlug = (
 export const getTemplateBySlugImperative = (
   slug: string
 ): Promise<MarketplaceTemplateDetail | null> =>
-  getConvexClient().query(
-    api.marketplace.templates.queries.getTemplateBySlug,
-    { slug }
-  )
+  getConvexClient().query(api.marketplace.templates.queries.getTemplateBySlug, {
+    slug,
+  })
 
 // paginated imperative fetch — used by the local-fork flow to collect every
 // template item without leaning on reactive pagination. caps the page size at
@@ -81,10 +78,10 @@ export const listTemplateItemsImperative = async (
   slug: string,
   paginationOpts: { cursor: string | null; numItems: number }
 ): Promise<MarketplaceTemplateItemsResult> =>
-  getConvexClient().query(
-    api.marketplace.templates.queries.listTemplateItems,
-    { slug, paginationOpts }
-  )
+  getConvexClient().query(api.marketplace.templates.queries.listTemplateItems, {
+    slug,
+    paginationOpts,
+  })
 
 // drain every template item page-by-page until exhausted. bounded by the
 // upstream query's per-page cap; safe for standard-size templates (≤200 items)

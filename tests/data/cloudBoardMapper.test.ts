@@ -32,7 +32,7 @@ const emptyUploadResult = (): BoardImageUploadResult => ({
 
 describe('snapshotToCloudPayload', () =>
 {
-  it('selects upload-result -> existing-cloud-id -> null for media refs', () =>
+  it('selects validated upload results -> null for media refs', () =>
   {
     const fresh = snapshotToCloudPayload(
       makeBoardWithItem({
@@ -46,14 +46,27 @@ describe('snapshotToCloudPayload', () =>
     )
     expect(fresh.items[0].mediaExternalId).toBe('media-new')
 
-    const fallback = snapshotToCloudPayload(
+    const reused = snapshotToCloudPayload(
       makeBoardWithItem({
         id: asItemId('item-1'),
         imageRef: { hash: 'hash-1', cloudMediaExternalId: 'media-existing' },
       }),
-      emptyUploadResult()
+      {
+        ...emptyUploadResult(),
+        mediaExternalIdByHash: new Map([['hash-1', 'media-existing']]),
+      }
     )
-    expect(fallback.items[0].mediaExternalId).toBe('media-existing')
+    expect(reused.items[0].mediaExternalId).toBe('media-existing')
+
+    expect(() =>
+      snapshotToCloudPayload(
+        makeBoardWithItem({
+          id: asItemId('item-1'),
+          imageRef: { hash: 'hash-1', cloudMediaExternalId: 'media-stale' },
+        }),
+        emptyUploadResult()
+      )
+    ).toThrow('Unable to sync image')
 
     const copied = snapshotToCloudPayload(
       makeBoardWithItem({

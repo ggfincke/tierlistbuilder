@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 
 export const RankingsIndexPage = () =>
 {
@@ -14,19 +15,15 @@ export const RankingsIndexPage = () =>
   return (
     <section className="relative z-10 mx-auto flex min-h-[70vh] w-full max-w-[1200px] items-center px-6 pt-20 pb-12 sm:px-10 sm:pt-24">
       <div className="max-w-2xl">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--t-text-faint)]">
-          Community rankings
-        </p>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight text-[var(--t-text)] sm:text-5xl">
-          Ranking browse is still being assembled.
-        </h1>
-        <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--t-text-muted)]">
-          Public rankings already live on each template detail page. Start from
-          a template to publish your own, or return to the workspace to keep
-          building locally.
-        </p>
+        <DisplayHeadline
+          eyebrow="Community rankings · Coming soon"
+          primary="Ranking browse is still"
+          accent="being assembled"
+          subtitle="Public rankings already live on each template detail page. Start from a template to publish your own, or return to the workspace to keep building locally."
+          size="display"
+        />
 
-        <div className="mt-7 flex flex-wrap items-center gap-3">
+        <div className="mt-8 flex flex-wrap items-center gap-3">
           <Link
             to={TEMPLATES_ROUTE_PATH}
             className="focus-custom inline-flex items-center gap-2 rounded-md bg-[var(--t-accent)] px-4 py-2 text-sm font-semibold text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)] transition-[transform,box-shadow] duration-100 hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_var(--t-accent-2)] active:translate-x-0 active:translate-y-0 active:shadow-[1px_1px_0_var(--t-accent-2)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"

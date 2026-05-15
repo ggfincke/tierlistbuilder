@@ -38,7 +38,9 @@ import {
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { InitialAvatar } from '~/shared/ui/InitialAvatar'
 
+import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { Cover } from '../cover/Cover'
+import { MetaPill } from '../MetaPill'
 import { ShareTemplateButton } from './ShareTemplateButton'
 import { UseTemplateButton } from '../cards/UseTemplateButton'
 
@@ -61,30 +63,6 @@ interface TemplateHeroProps
     count: number
   }>
   rightRail?: ReactNode | typeof RESERVED_RAIL
-}
-
-interface ChipProps
-{
-  icon: LucideIcon
-  children: ReactNode
-  tone?: 'default' | 'accent'
-}
-
-const Chip = ({ icon: Icon, children, tone = 'default' }: ChipProps) =>
-{
-  const isAccent = tone === 'accent'
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] ${
-        isAccent
-          ? 'border-[var(--t-accent)] bg-[rgb(var(--t-overlay)/0.06)] text-[var(--t-accent)]'
-          : 'border-[var(--t-border)] bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)]'
-      }`}
-    >
-      <Icon className="h-3 w-3" strokeWidth={1.8} />
-      {children}
-    </span>
-  )
 }
 
 interface SecondaryIconButtonProps
@@ -227,8 +205,7 @@ export const TemplateHero = ({
   // the strip echoes the same count the consensus header below it shows
   const coverStats: readonly HeroStat[] = TEMPLATE_STAT_META.map((stat) =>
   {
-    const raw =
-      stat.key === 'rankingCount' ? rankingCount : template[stat.key]
+    const raw = stat.key === 'rankingCount' ? rankingCount : template[stat.key]
     return { label: stat.label, value: formatCount(raw), muted: raw <= 0 }
   })
 
@@ -291,23 +268,28 @@ export const TemplateHero = ({
 
       <div className="flex min-w-0 flex-col lg:h-[32rem]">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Chip icon={Gamepad2}>{categoryLabel}</Chip>
+          <MetaPill icon={Gamepad2} tone="accent">
+            {categoryLabel}
+          </MetaPill>
           {template.featuredRank !== null && (
-            <Chip icon={Sparkles}>Editor’s pick</Chip>
+            <MetaPill icon={Sparkles}>Editor’s pick</MetaPill>
           )}
           {hasConsensus ? (
-            <Chip icon={TrendingUp}>
+            <MetaPill icon={TrendingUp}>
               {formatCount(rankingCount)} {pluralize(rankingCount, 'ranking')}
-            </Chip>
+            </MetaPill>
           ) : (
-            <Chip icon={Clock}>Awaiting rankings</Chip>
+            <MetaPill icon={Clock}>Awaiting rankings</MetaPill>
           )}
-          {hasBakedLabels && <Chip icon={Type}>Labeled</Chip>}
+          {hasBakedLabels && <MetaPill icon={Type}>Labeled</MetaPill>}
         </div>
 
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-[var(--t-text)] sm:text-4xl sm:leading-[1.1]">
-          {template.title}
-        </h1>
+        <DisplayHeadline
+          primary={template.title}
+          size="page"
+          maxWidthClassName="max-w-xl"
+          className="mt-3"
+        />
 
         {template.description && (
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--t-text-muted)]">

@@ -225,9 +225,12 @@ const ImageEditorModalBody = () =>
 
   // single-mode bypasses the rail-driven selection so text-only items (which
   // useImageEditorItems excludes by design) still resolve through to the pane
-  const singleModeItem = isSingleMode && initialItemId ? items[initialItemId] : undefined
+  const singleModeItem =
+    isSingleMode && initialItemId ? items[initialItemId] : undefined
   const selectedItem = isSingleMode ? singleModeItem : multiSelectedItem
-  const selectedId = isSingleMode ? (singleModeItem?.id ?? null) : multiSelectedId
+  const selectedId = isSingleMode
+    ? (singleModeItem?.id ?? null)
+    : multiSelectedId
 
   const handleCommit = useCallback(
     (id: ItemId, transform: Parameters<typeof setItemTransform>[1]) =>

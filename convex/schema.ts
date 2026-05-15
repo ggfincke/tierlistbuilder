@@ -363,7 +363,7 @@ export default defineSchema({
     ),
     featuredRank: v.union(v.number(), v.null()),
     // forkCount replaced legacy useCount; keep both optional during the
-    // backfill window so older marketplace rows can load and be rewritten.
+    // backfill window so older marketplace rows can load & be rewritten.
     forkCount: v.optional(v.number()),
     useCount: v.optional(v.number()),
     viewCount: v.number(),
@@ -421,7 +421,7 @@ export default defineSchema({
   templateStats: defineTable({
     templateId: v.id('templates'),
     // forkCount replaced legacy useCount; keep both optional during the
-    // backfill window so older marketplace rows can load and be rewritten.
+    // backfill window so older marketplace rows can load & be rewritten.
     forkCount: v.optional(v.number()),
     useCount: v.optional(v.number()),
     viewCount: v.number(),

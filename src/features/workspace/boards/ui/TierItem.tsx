@@ -320,7 +320,10 @@ export const TierItem = memo(
     const handleItemKeyDown = useCallback(
       (event: ReactKeyboardEvent) =>
       {
-        if (!boardLocked && (event.key === 'e' || event.key === 'E' || event.key === 'F2'))
+        if (
+          !boardLocked &&
+          (event.key === 'e' || event.key === 'E' || event.key === 'F2')
+        )
         {
           event.preventDefault()
           openItemEditor()

@@ -294,10 +294,8 @@ export const isEmptyItemLabelOptions = (
     options.textColor === undefined)
 
 // content-addressable image pointer for bytes stored outside the snapshot.
-// `cloudMediaExternalId` ties a hashed payload to its cloud media row so the
-// sync layer can re-resolve URLs without re-uploading the bytes. source-owned
-// refs are marketplace assets: render/fetch them, but upload a user-owned copy
-// before syncing the board.
+// `cloudMediaExternalId` ties hashed bytes to a cloud media row so URLs can
+// re-resolve. source-owned refs = marketplace assets; upload a copy pre-sync.
 export type CloudMediaOwnership = 'source'
 
 export interface TierItemImageRef

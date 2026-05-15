@@ -56,7 +56,10 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
       )}
     >
       {icon && (
-        <span aria-hidden className="inline-flex h-3 w-3 items-center justify-center">
+        <span
+          aria-hidden
+          className="inline-flex h-3 w-3 items-center justify-center"
+        >
           {icon}
         </span>
       )}

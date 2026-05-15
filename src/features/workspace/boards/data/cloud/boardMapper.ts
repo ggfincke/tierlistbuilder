@@ -46,11 +46,6 @@ const resolveImageRefMediaExternalId = (
     return uploadedExternalId
   }
 
-  if (ref.cloudMediaExternalId && ref.cloudMediaOwnership !== 'source')
-  {
-    return ref.cloudMediaExternalId
-  }
-
   // uploader is all-or-nothing; any unresolved media is a bug or stale cache —
   // block the sync loudly rather than silently drop a reference
   throw new Error(

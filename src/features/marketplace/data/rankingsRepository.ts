@@ -46,10 +46,9 @@ export const useRankingBySlug = (
 export const getRankingBySlugImperative = (
   slug: string
 ): Promise<MarketplaceRankingDetail | null> =>
-  getConvexClient().query(
-    api.marketplace.rankings.queries.getRankingBySlug,
-    { slug }
-  )
+  getConvexClient().query(api.marketplace.rankings.queries.getRankingBySlug, {
+    slug,
+  })
 
 type RankingsForTemplatePageStatus =
   UsePaginatedQueryResult<MarketplaceRankingSummary>['status']

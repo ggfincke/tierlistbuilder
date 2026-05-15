@@ -33,11 +33,7 @@ export const SyncChip = ({ state, variant = 'inline' }: SyncChipProps) =>
         title={meta.label}
         className={`inline-flex items-center justify-center rounded bg-black/55 p-1 backdrop-blur-sm ${TONE_TEXT[meta.tone]}`}
       >
-        <Icon
-          className={`h-3 w-3 ${spinClass}`}
-          strokeWidth={2}
-          aria-hidden
-        />
+        <Icon className={`h-3 w-3 ${spinClass}`} strokeWidth={2} aria-hidden />
         <span className="sr-only">{meta.label}</span>
       </span>
     )

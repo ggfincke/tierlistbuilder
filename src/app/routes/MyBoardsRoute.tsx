@@ -17,12 +17,12 @@ export const MyBoardsRoute = () =>
   if (!appReady)
   {
     return (
-      <main className="relative min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]" />
+      <main className="ambient-layer dot-grid-bg relative min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]" />
     )
   }
 
   return (
-    <main className="relative min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]">
+    <main className="ambient-layer dot-grid-bg relative min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]">
       <MyBoardsPage />
       <ToastContainer reducedMotion={reducedMotion} />
       <LiveRegion />
