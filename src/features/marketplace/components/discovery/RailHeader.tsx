@@ -28,7 +28,7 @@ export const RailHeader = ({
         </span>
       )}
       <div>
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--t-text)]">
+        <h2 className="text-lg font-bold tracking-[-0.015em] text-[var(--t-text)]">
           {title}
         </h2>
         {subtitle && (

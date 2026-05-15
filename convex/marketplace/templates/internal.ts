@@ -9,7 +9,10 @@ import {
   CASCADE_DELETE_PAGE_SIZE,
   deleteCascadePageAndSchedule,
 } from '../../lib/cascadeDelete'
-import { deleteTemplateRankingAggregateParentRows } from '../rankings/aggregate'
+import {
+  deleteTemplateRankingAggregateParentRows,
+  rollupTemplateRankingCount,
+} from '../rankings/aggregate'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { LIBRARY_BOARD_COVER_ITEM_LIMIT } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -659,6 +662,42 @@ export const recomputeTemplateTrendingScores = internalMutation({
         0,
         internal.marketplace.templates.internal.recomputeTemplateTrendingScores,
         { cursor: page.continueCursor, now }
+      )
+    }
+
+    return { processed: page.page.length, isDone: page.isDone }
+  },
+})
+
+// one-time backfill for templateCards.rankingCount, which landed after these
+// rows were last written. paginates every card & re-derives the count via the
+// same rollup the aggregate job uses. idempotent - safe to re-run after seeds
+export const backfillTemplateCardRankingCount = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ processed: number; isDone: boolean }> =>
+  {
+    const page = await ctx.db.query('templateCards').paginate({
+      numItems: BATCH_LIMITS.templateTrendingRecompute,
+      cursor: args.cursor,
+    })
+
+    await Promise.all(
+      page.page.map((card) =>
+        rollupTemplateRankingCount(ctx, card.templateId)
+      )
+    )
+
+    if (!page.isDone)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal
+          .backfillTemplateCardRankingCount,
+        { cursor: page.continueCursor }
       )
     }
 

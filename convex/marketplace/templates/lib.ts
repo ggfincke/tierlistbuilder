@@ -1374,6 +1374,7 @@ export const toTemplateCardSummary = async (
     itemCount: card.itemCount,
     useCount: card.useCount,
     viewCount: card.viewCount,
+    rankingCount: card.rankingCount ?? 0,
     weeklyUseCount: card.weeklyUseCount ?? 0,
     weeklyViewCount: card.weeklyViewCount ?? 0,
     trendingScore: card.trendingScore ?? 0,
@@ -1422,6 +1423,7 @@ export const toTemplateBase = async (
     itemCount: template.itemCount,
     useCount: stats.useCount,
     viewCount: stats.viewCount,
+    rankingCount: card?.rankingCount ?? 0,
     weeklyUseCount: metrics.weeklyUseCount,
     weeklyViewCount: metrics.weeklyViewCount,
     trendingScore: metrics.trendingScore,
@@ -1451,6 +1453,12 @@ export const toTemplateDetail = async (
 
   return {
     ...base,
+    // the detail total must equal its own per-criterion breakdown - derive it
+    // straight from rankingCountByCriterion rather than the card rollup
+    rankingCount: Object.values(rankingCountByCriterion).reduce(
+      (sum, count) => sum + count,
+      0
+    ),
     coverItems,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,

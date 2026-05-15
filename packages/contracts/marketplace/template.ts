@@ -215,6 +215,8 @@ export interface MarketplaceTemplateBase
   itemCount: number
   useCount: number
   viewCount: number
+  // total public published rankings across every criterion (denormalized)
+  rankingCount: number
   weeklyUseCount: number
   weeklyViewCount: number
   trendingScore: number

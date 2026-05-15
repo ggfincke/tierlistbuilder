@@ -1589,6 +1589,64 @@ describe('marketplace template Convex functions', () =>
     ])
   })
 
+  it('starts the template-card ranking-count backfill through seed maintenance', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(
+      t,
+      'Backfill Author',
+      'backfill-author@example.com'
+    )
+    const { templateId } = await seedAggregateTemplate(t, authorId)
+
+    await t.run(async (ctx) =>
+    {
+      await ctx.db.insert('templateRankingAggregates', {
+        templateId,
+        criterionExternalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+        state: 'ready',
+        activeGeneration: 1,
+        bucketCount: 3,
+        rankingCount: 5,
+        itemCount: 3,
+        computedAt: 1_000,
+        staleAt: null,
+        bucketSpread: [1, 2, 2],
+        mostAgreedItemExternalId: null,
+        mostAgreedItemLabel: null,
+        mostDivisiveItemExternalId: null,
+        mostDivisiveItemLabel: null,
+        updatedAt: 1_000,
+      })
+    })
+    const before = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('templateCards')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique()
+    )
+    expect(before?.rankingCount).toBeUndefined()
+
+    await expect(
+      withSeedActionsEnabled(() =>
+        t.action(
+          api.marketplace.templates.seed.startTemplateCardRankingCountBackfill,
+          { seedSecret: SEED_SECRET }
+        )
+      )
+    ).resolves.toEqual({ processed: 1, isDone: true })
+
+    const after = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('templateCards')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique()
+    )
+    expect(after?.rankingCount).toBe(5)
+  })
+
   it('clones a template w/ user preset & propagates layout settings + transforms', async () =>
   {
     const t = makeTest()

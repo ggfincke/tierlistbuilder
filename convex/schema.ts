@@ -349,6 +349,10 @@ export default defineSchema({
     featuredRank: v.union(v.number(), v.null()),
     useCount: v.number(),
     viewCount: v.number(),
+    // denormalized total of public published rankings across every criterion.
+    // maintained by rollupTemplateRankingCount off the aggregate job finish;
+    // absent on rows last written before the field landed -> read as `?? 0`
+    rankingCount: v.optional(v.number()),
     weeklyUseCount: v.optional(v.number()),
     weeklyViewCount: v.optional(v.number()),
     trendingScore: v.optional(v.number()),

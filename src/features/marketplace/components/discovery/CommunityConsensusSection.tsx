@@ -253,7 +253,6 @@ const VIEW_FRAME_CACHE = new Map<string, ViewFrame>()
 interface SectionHeaderProps
 {
   aggregate: MarketplaceTemplateRankingAggregate | null | undefined
-  fallbackRankingCount?: number
   showYourPlacementsCopy: boolean
   activeRanking: ActiveRankingMeta | null
   onResetActive: () => void
@@ -266,7 +265,6 @@ interface SectionHeaderProps
 
 const SectionHeader = ({
   aggregate,
-  fallbackRankingCount = 0,
   showYourPlacementsCopy,
   activeRanking,
   onResetActive,
@@ -314,11 +312,6 @@ const SectionHeader = ({
   const heading = multiCriterion
     ? `${selectedCriterion.name} consensus`
     : 'Community consensus'
-  const rankingCount = aggregate?.rankingCount ?? fallbackRankingCount
-  const emptyHint =
-    rankingCount === 0
-      ? 'Rankings will appear here once builders publish them'
-      : null
   const description = multiCriterion ? selectedCriterion.prompt : null
   return (
     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -341,17 +334,12 @@ const SectionHeader = ({
             {description}
           </p>
         )}
-        {(emptyHint || showYourPlacementsCopy) && (
+        {showYourPlacementsCopy && (
           <p className="mt-1 text-xs text-[var(--t-text-muted)]">
-            {emptyHint}
-            {showYourPlacementsCopy && (
-              <>
-                <strong className="font-semibold text-[var(--t-accent)]">
-                  Your placements
-                </strong>{' '}
-                shown as accent badges where they differ.
-              </>
-            )}
+            <strong className="font-semibold text-[var(--t-accent)]">
+              Your placements
+            </strong>{' '}
+            shown as accent badges where they differ.
           </p>
         )}
       </div>
@@ -995,7 +983,6 @@ export const CommunityConsensusSection = ({
       {chipsBlock}
       <SectionHeader
         aggregate={headerAggregate}
-        fallbackRankingCount={knownRankingCount}
         showYourPlacementsCopy={showYourPlacementsCopy}
         activeRanking={headerMeta}
         onResetActive={() => setActiveSlug(null)}

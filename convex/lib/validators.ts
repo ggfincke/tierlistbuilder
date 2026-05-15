@@ -704,6 +704,7 @@ const marketplaceTemplateBaseFields = {
   itemCount: v.number(),
   useCount: v.number(),
   viewCount: v.number(),
+  rankingCount: v.number(),
   weeklyUseCount: v.number(),
   weeklyViewCount: v.number(),
   trendingScore: v.number(),

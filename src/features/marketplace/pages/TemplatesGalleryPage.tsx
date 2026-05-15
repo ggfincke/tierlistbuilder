@@ -249,7 +249,7 @@ export const TemplatesGalleryPage = () =>
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--t-text-faint)]">
               {templateCountLabel}
             </span>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-[var(--t-text)] sm:text-5xl">
+            <h1 className="mt-4 text-4xl font-bold tracking-tight text-[var(--t-text)] sm:text-5xl">
               {greeting}
             </h1>
             <p className="mt-3 max-w-xl text-[14px] text-[var(--t-text-muted)]">
@@ -282,7 +282,7 @@ export const TemplatesGalleryPage = () =>
       )}
 
       {showRails && heroFeatured && (
-        <section className="relative z-10 mx-auto mt-8 w-full max-w-[1200px] px-6 sm:px-10">
+        <section className="relative z-10 mx-auto mt-8 w-full max-w-[1600px] px-6 sm:px-10">
           {heroSecondary.length > 0 ? (
             <div className="grid gap-5 lg:grid-cols-3">
               <div className="lg:col-span-2">
@@ -308,23 +308,27 @@ export const TemplatesGalleryPage = () =>
 
       {showRails && (
         <>
-          <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
-            <RailHeader
-              title="Trending this week"
-              subtitle="Hottest forks in the last 7 days"
-              icon={Flame}
-            />
-            <Rail items={gallery.trending} size="small" />
-          </section>
+          {gallery.showTrendingRail && (
+            <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
+              <RailHeader
+                title="Trending this week"
+                subtitle="Hottest forks in the last 7 days"
+                icon={Flame}
+              />
+              <Rail items={gallery.trending} size="small" />
+            </section>
+          )}
 
-          <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
-            <RailHeader
-              title="Most popular"
-              subtitle="All-time forks"
-              icon={TrendingUp}
-            />
-            <Rail items={gallery.popular} size="small" />
-          </section>
+          {gallery.showPopularRail && (
+            <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
+              <RailHeader
+                title="Most popular"
+                subtitle="All-time forks"
+                icon={TrendingUp}
+              />
+              <Rail items={gallery.popular} size="small" />
+            </section>
+          )}
 
           <section className="relative z-10 mx-auto mt-10 w-full max-w-[1200px] px-6 sm:px-10">
             <RailHeader
@@ -343,7 +347,7 @@ export const TemplatesGalleryPage = () =>
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight text-[var(--t-text)]">
+            <h2 className="text-2xl font-bold tracking-[-0.015em] text-[var(--t-text)]">
               {browseHeading}
             </h2>
             <p className="mt-1 text-xs text-[var(--t-text-muted)]">
@@ -356,7 +360,7 @@ export const TemplatesGalleryPage = () =>
                 type="button"
                 onClick={handleTagClear}
                 aria-label={`Remove tag filter "${filters.tag}"`}
-                className="focus-custom inline-flex items-center gap-1 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                className="focus-custom inline-flex items-center gap-1 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
               >
                 <Tag className="h-3 w-3" strokeWidth={1.8} />
                 <span className="font-medium text-[var(--t-text)]">
@@ -369,7 +373,7 @@ export const TemplatesGalleryPage = () =>
               </button>
             )}
             <label
-              className={`flex items-center gap-2 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs text-[var(--t-text-secondary)] ${
+              className={`flex items-center gap-2 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs text-[var(--t-text-secondary)] ${
                 filters.tag ? 'opacity-50' : ''
               }`}
               title={
@@ -397,7 +401,7 @@ export const TemplatesGalleryPage = () =>
               </select>
             </label>
             {filters.searchDebounced && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-3 py-1.5 text-xs text-[var(--t-text-secondary)]">
+              <span className="inline-flex items-center gap-1 rounded-md bg-[rgb(var(--t-overlay)/0.06)] px-3 py-1.5 text-xs text-[var(--t-text-secondary)]">
                 <Flame className="h-3 w-3" strokeWidth={1.8} />
                 Search
               </span>
@@ -454,7 +458,7 @@ export const TemplatesGalleryPage = () =>
               <button
                 type="button"
                 onClick={handleClearFilters}
-                className="focus-custom mt-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+                className="focus-custom mt-4 inline-flex items-center gap-1.5 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--t-text)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
               >
                 <X className="h-3 w-3" strokeWidth={1.8} />
                 Clear filters

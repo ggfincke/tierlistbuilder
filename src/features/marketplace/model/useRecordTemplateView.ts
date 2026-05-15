@@ -1,6 +1,6 @@
 // src/features/marketplace/model/useRecordTemplateView.ts
-// fire recordTemplateView once per browser session per slug, keyed in
-// sessionStorage so reloads in the same tab are deduped & a fresh tab counts
+// fire recordTemplateView at most once per UTC day per slug — sessionStorage
+// dedupes within a tab, a localStorage day gate dedupes across fresh tabs
 
 import { useCallback } from 'react'
 
@@ -9,6 +9,7 @@ import { useSessionDedupedAction } from '~/shared/hooks/useSessionDedupedAction'
 import { logger } from '~/shared/lib/logger'
 
 const TEMPLATE_VIEW_STORAGE_KEY = 'tlb:tpl-view'
+const TEMPLATE_VIEW_DAILY_STORAGE_KEY = 'tlb:tpl-view-day'
 
 export const useRecordTemplateView = (slug: string | null): void =>
 {
@@ -19,6 +20,7 @@ export const useRecordTemplateView = (slug: string | null): void =>
 
   useSessionDedupedAction({
     storageKey: TEMPLATE_VIEW_STORAGE_KEY,
+    dailyStorageKey: TEMPLATE_VIEW_DAILY_STORAGE_KEY,
     value: slug,
     action: recordTemplateViewImperative,
     onError,

@@ -19,6 +19,7 @@ import { Link } from 'react-router-dom'
 
 import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
+import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMeta'
 import {
   useTemplateBookmarkState,
   useToggleTemplateBookmarkMutation,
@@ -74,7 +75,7 @@ const Chip = ({ icon: Icon, children, tone = 'default' }: ChipProps) =>
   const isAccent = tone === 'accent'
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] ${
+      className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] ${
         isAccent
           ? 'border-[var(--t-accent)] bg-[rgb(var(--t-overlay)/0.06)] text-[var(--t-accent)]'
           : 'border-[var(--t-border)] bg-[var(--t-bg-surface)] text-[var(--t-text-secondary)]'
@@ -186,17 +187,25 @@ const COVER_HEIGHT = 'h-72 sm:h-80 lg:h-[32rem]'
 interface HeroStat
 {
   label: string
-  value: string | number
+  value: string
+  // a zero count dims rather than shouts a placeholder on a fresh template
+  muted: boolean
 }
 
 const HeroStatStrip = ({ stats }: { stats: readonly HeroStat[] }) => (
-  <div className="grid shrink-0 grid-cols-3 divide-x divide-white/10 border-t border-white/10 bg-black/70 px-1 py-1.5 text-white">
+  <div className="grid shrink-0 grid-cols-4 divide-x divide-white/10 border-t border-white/10 bg-black/70 px-1 py-1.5 text-white">
     {stats.map((stat) => (
-      <div key={stat.label} className="px-3">
+      <div key={stat.label} className="px-2.5">
         <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/60">
           {stat.label}
         </p>
-        <p className="text-base font-semibold leading-tight">{stat.value}</p>
+        <p
+          className={`font-mono text-base font-bold leading-tight tabular-nums ${
+            stat.muted ? 'text-white/40' : 'text-white'
+          }`}
+        >
+          {stat.value}
+        </p>
       </div>
     ))}
   </div>
@@ -214,11 +223,14 @@ export const TemplateHero = ({
   const useRailGrid = hasRailContent || rightRail === RESERVED_RAIL
   const categoryLabel = CATEGORY_META[template.category].label
   const hasBakedLabels = template.labels?.show === true
-  const coverStats: readonly HeroStat[] = [
-    { label: 'Items', value: template.itemCount },
-    { label: 'Forks', value: formatCount(template.useCount) },
-    { label: 'Rankings', value: formatCount(rankingCount) },
-  ]
+  // rankingCount comes from the active-lane prop, not the template total, so
+  // the strip echoes the same count the consensus header below it shows
+  const coverStats: readonly HeroStat[] = TEMPLATE_STAT_META.map((stat) =>
+  {
+    const raw =
+      stat.key === 'rankingCount' ? rankingCount : template[stat.key]
+    return { label: stat.label, value: formatCount(raw), muted: raw <= 0 }
+  })
 
   // chip-aligned spread max so each bucket's bar is visually comparable
   const spreadMax = useMemo(
@@ -239,7 +251,7 @@ export const TemplateHero = ({
       }
     >
       <div
-        className={`relative flex flex-col overflow-hidden rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg-sunken)] ${COVER_HEIGHT}`}
+        className={`relative flex flex-col overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-sunken)] ${COVER_HEIGHT}`}
       >
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <Cover
@@ -293,7 +305,7 @@ export const TemplateHero = ({
           {hasBakedLabels && <Chip icon={Type}>Labeled</Chip>}
         </div>
 
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--t-text)] sm:text-4xl sm:leading-[1.1]">
+        <h1 className="mt-3 text-3xl font-bold tracking-tight text-[var(--t-text)] sm:text-4xl sm:leading-[1.1]">
           {template.title}
         </h1>
 

@@ -2,15 +2,7 @@
 // repeat-unit template card used by the gallery grid & section rails — three
 // sizes share the same chrome but vary in art height & meta density
 
-import {
-  BadgeCheck,
-  Clock,
-  Eye,
-  Layers,
-  Lock,
-  Sparkles,
-  TrendingUp,
-} from 'lucide-react'
+import { ArrowRight, BadgeCheck, Lock, Sparkles, TrendingUp } from 'lucide-react'
 import { memo, type ComponentType, type SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -19,14 +11,10 @@ import type {
   TemplateCardAccessState,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import {
-  formatCount,
-  formatRelativeTime,
-  formatTimeToRank,
-  pluralize,
-} from '~/shared/catalog/formatters'
+import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
 import { ACCESS_META } from '~/features/marketplace/model/accessMeta'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
+import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMeta'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { InitialAvatar } from '~/shared/ui/InitialAvatar'
 import { Cover, type CoverStyle } from '../cover/Cover'
@@ -68,6 +56,7 @@ const SIZE_CONFIG: Record<
     coverHeight: string
     titleClass: string
     metaClass: string
+    statGap: string
     bodyPad: string
     density: MosaicDensity
   }
@@ -76,6 +65,7 @@ const SIZE_CONFIG: Record<
     coverHeight: 'h-32',
     titleClass: 'text-[13px]',
     metaClass: 'text-[10px]',
+    statGap: 'gap-2',
     bodyPad: 'px-3 py-2.5',
     density: 'small',
   },
@@ -83,6 +73,7 @@ const SIZE_CONFIG: Record<
     coverHeight: 'h-40',
     titleClass: 'text-sm',
     metaClass: 'text-[11px]',
+    statGap: 'gap-2.5',
     bodyPad: 'px-3.5 py-3',
     density: 'default',
   },
@@ -90,9 +81,37 @@ const SIZE_CONFIG: Record<
     coverHeight: 'h-56',
     titleClass: 'text-base',
     metaClass: 'text-xs',
+    statGap: 'gap-3',
     bodyPad: 'px-4 py-3.5',
     density: 'large',
   },
+}
+
+interface CardStatProps
+{
+  icon: ComponentType<SVGProps<SVGSVGElement>>
+  label: string
+  value: number
+}
+
+// one community stat — a zero value demotes to the dim token so a freshly
+// published template reads honest instead of shouting placeholder zeroes
+const CardStat = ({ icon: Icon, label, value }: CardStatProps) =>
+{
+  return (
+    <span
+      className={`inline-flex items-center gap-1 tabular-nums ${
+        value <= 0
+          ? 'text-[var(--t-text-dim)]'
+          : 'text-[var(--t-text-faint)]'
+      }`}
+      style={{ fontFamily: 'var(--ts-mono)' }}
+      title={`${value} ${label}`}
+    >
+      <Icon className="h-3 w-3" strokeWidth={1.8} aria-hidden />
+      {formatCount(value)}
+    </span>
+  )
 }
 
 const CardImpl = ({
@@ -111,11 +130,14 @@ const CardImpl = ({
     ? ACCESS_META[template.access].chipLabel
     : null
   const LabelIcon = labelMeta?.icon
+  const hasOverlayChip = Boolean(
+    labelMeta || showGenericFeatured || accessLabel
+  )
 
   return (
     <Link
       to={detailPath}
-      className="group focus-custom relative flex h-full flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] transition hover:-translate-y-0.5 hover:border-[var(--t-border-hover)] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+      className="group focus-custom relative flex h-full flex-col overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] transition hover:-translate-y-0.5 hover:border-[var(--t-border-hover)] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
       aria-label={`${template.title} — by ${template.author.displayName}`}
     >
       <div className={`relative w-full overflow-hidden ${cfg.coverHeight}`}>
@@ -126,46 +148,75 @@ const CardImpl = ({
           surface="card"
           loading={imageLoading}
         />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
 
-        <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
-          {labelMeta && LabelIcon ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase backdrop-blur">
-              <LabelIcon className="h-3 w-3" strokeWidth={2} />
-              {labelMeta.text}
-            </span>
-          ) : showGenericFeatured ? (
-            <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase backdrop-blur">
-              Featured
-            </span>
-          ) : null}
-          <span className="ml-auto rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur">
-            {template.itemCount} {pluralize(template.itemCount, 'item')}
-          </span>
-        </div>
+        {hasOverlayChip && (
+          <>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start gap-2">
+              {labelMeta && LabelIcon ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded bg-black/55 px-1.5 py-1 text-[9px] font-semibold tracking-[0.16em] text-white uppercase backdrop-blur-sm"
+                  style={{ fontFamily: 'var(--ts-mono)' }}
+                >
+                  <LabelIcon
+                    className="h-2.5 w-2.5"
+                    strokeWidth={2}
+                    aria-hidden
+                  />
+                  {labelMeta.text}
+                </span>
+              ) : showGenericFeatured ? (
+                <span
+                  className="rounded bg-black/55 px-1.5 py-1 text-[9px] font-semibold tracking-[0.16em] text-white uppercase backdrop-blur-sm"
+                  style={{ fontFamily: 'var(--ts-mono)' }}
+                >
+                  Featured
+                </span>
+              ) : null}
+              {accessLabel && (
+                <span
+                  className="ml-auto inline-flex items-center gap-1 rounded bg-black/55 px-1.5 py-1 text-[9px] font-semibold tracking-[0.16em] text-white uppercase backdrop-blur-sm"
+                  style={{ fontFamily: 'var(--ts-mono)' }}
+                >
+                  <Lock className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />
+                  {accessLabel}
+                </span>
+              )}
+            </div>
+          </>
+        )}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-2.5 pb-2">
-          <span
-            className="rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase backdrop-blur"
-            style={{ boxShadow: '0 0 0 1px rgb(255 255 255 / 0.06)' }}
-          >
-            {CATEGORY_META[template.category].label}
+        {/* hover CTA — the whole card links to detail; this names the move */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-2.5 opacity-0 transition group-hover:opacity-100"
+          style={{
+            background: 'linear-gradient(0deg, rgba(0,0,0,0.85), transparent)',
+          }}
+        >
+          <span className="inline-flex items-center gap-1 rounded-md bg-[var(--t-accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)]">
+            View
+            <ArrowRight className="h-3 w-3" strokeWidth={2.4} aria-hidden />
           </span>
-          {accessLabel && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase backdrop-blur">
-              <Lock className="h-3 w-3" strokeWidth={2} />
-              {accessLabel}
-            </span>
-          )}
         </div>
       </div>
 
       <div
-        className={`flex flex-1 flex-col gap-2 ${cfg.bodyPad} text-[var(--t-text)]`}
+        className={`flex flex-1 flex-col gap-1.5 ${cfg.bodyPad} text-[var(--t-text)]`}
       >
+        <div
+          className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--t-text-faint)]"
+          style={{ fontFamily: 'var(--ts-mono)' }}
+        >
+          <span className="min-w-0 truncate">
+            {CATEGORY_META[template.category].label}
+          </span>
+          <span className="shrink-0">
+            {formatRelativeTime(template.updatedAt)}
+          </span>
+        </div>
+
         <h3
-          className={`line-clamp-2 font-semibold leading-snug ${cfg.titleClass}`}
+          className={`line-clamp-2 font-bold leading-tight tracking-[-0.015em] ${cfg.titleClass}`}
         >
           {template.title}
         </h3>
@@ -180,32 +231,16 @@ const CardImpl = ({
         )}
 
         <div
-          className={`mt-auto flex items-center gap-3 ${cfg.metaClass} text-[var(--t-text-faint)]`}
+          className={`mt-auto flex items-center ${cfg.statGap} ${cfg.metaClass}`}
         >
-          <span
-            className="inline-flex items-center gap-1"
-            title={`${template.useCount} forks`}
-          >
-            <Layers className="h-3 w-3" strokeWidth={1.8} />
-            {formatCount(template.useCount)}
-          </span>
-          <span
-            className="inline-flex items-center gap-1"
-            title={`${template.viewCount} views`}
-          >
-            <Eye className="h-3 w-3" strokeWidth={1.8} />
-            {formatCount(template.viewCount)}
-          </span>
-          <span
-            className="inline-flex items-center gap-1"
-            title="Estimated time to rank"
-          >
-            <Clock className="h-3 w-3" strokeWidth={1.8} />
-            {formatTimeToRank(template.itemCount)}
-          </span>
-          <span className="ml-auto text-[var(--t-text-dim)]">
-            {formatRelativeTime(template.updatedAt)}
-          </span>
+          {TEMPLATE_STAT_META.map((stat) => (
+            <CardStat
+              key={stat.key}
+              icon={stat.icon}
+              label={stat.label}
+              value={template[stat.key]}
+            />
+          ))}
         </div>
 
         {size === 'large' && template.tags.length > 0 && (
@@ -214,6 +249,7 @@ const CardImpl = ({
               <span
                 key={t}
                 className="rounded bg-[rgb(var(--t-overlay)/0.06)] px-1.5 py-0.5 text-[10px] text-[var(--t-text-muted)]"
+                style={{ fontFamily: 'var(--ts-mono)' }}
               >
                 #{t}
               </span>
