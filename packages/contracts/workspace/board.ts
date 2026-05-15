@@ -313,6 +313,9 @@ export interface TierItem
   label?: string
   backgroundColor?: string
   altText?: string
+  // private per-item editor notes — "why I ranked this here" scratchpad.
+  // travels w/ cloud sync & JSON export, but never out to published rankings
+  notes?: string
   // natural image aspect ratio (w/h) captured at import; absent -> rendered
   // w/ the board default (1:1 when the board has no override)
   aspectRatio?: number
@@ -386,6 +389,7 @@ export interface TierItemWire
   label?: string
   backgroundColor?: string
   altText?: string
+  notes?: string
   aspectRatio?: number
   imageFit?: ImageFit
   transform?: ItemTransform

@@ -121,6 +121,7 @@ export const loadBoardCloudState = async (
         label: item.label,
         backgroundColor: item.backgroundColor,
         altText: item.altText,
+        notes: item.notes,
         mediaExternalId: mediaInfo?.externalId,
         previewMediaContentHash: mediaInfo?.previewContentHash ?? undefined,
         mediaContentHash: mediaInfo?.tileContentHash,

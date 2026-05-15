@@ -52,6 +52,8 @@ export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
   addItems: (newItems: NewTierItem[]) => void
   addTextItem: (label: string, backgroundColor: string) => void
   setItemAltText: (itemId: ItemId, altText: string) => void
+  setItemNotes: (itemId: ItemId, notes: string) => void
+  setItemBackgroundColor: (itemId: ItemId, color: string | null) => void
   removeItem: (itemId: ItemId) => void
   removeItems: (itemIds: readonly ItemId[]) => void
   restoreDeletedItem: (itemId: ItemId) => void

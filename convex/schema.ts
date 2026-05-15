@@ -180,6 +180,9 @@ export default defineSchema({
     label: v.optional(v.string()),
     backgroundColor: v.optional(v.string()),
     altText: v.optional(v.string()),
+    // private per-item editor notes; synced across devices, never read by
+    // marketplace publish mappers (publish cherry-picks fields explicitly)
+    notes: v.optional(v.string()),
     mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
     deletedAt: v.union(v.number(), v.null()),

@@ -2,20 +2,14 @@
 // cloud board diffing: media preservation, clear semantics, & label patching
 
 import { describe, expect, it } from 'vitest'
-import type { Id } from '@convex/_generated/dataModel'
-import type { ItemLabelOptions } from '@tierlistbuilder/contracts/workspace/board'
+import type { Doc, Id } from '@convex/_generated/dataModel'
 import { diffItems } from '../../convex/workspace/sync/boardReconciler'
 
 const MEDIA_ID = 'media-1' as Id<'mediaAssets'>
 
 const makeServerItem = (
-  overrides: Partial<{
-    mediaAssetId: Id<'mediaAssets'> | null
-    order: number
-    deletedAt: number | null
-    labelOptions: ItemLabelOptions
-  }> = {}
-) => ({
+  overrides: Partial<Doc<'boardItems'>> = {}
+): Doc<'boardItems'> => ({
   _id: 'row-1' as Id<'boardItems'>,
   _creationTime: 0,
   boardId: 'board-1' as Id<'boards'>,
@@ -71,9 +65,55 @@ describe('diffItems media semantics', () =>
           label: undefined,
           backgroundColor: undefined,
           altText: undefined,
+          notes: undefined,
+          aspectRatio: undefined,
+          imageFit: undefined,
+          transform: undefined,
+          labelOptions: undefined,
         },
       },
     ])
+  })
+
+  it('preserves pending item fields when soft-deleting a synced item', () =>
+  {
+    const diff = diffItems(
+      [
+        {
+          externalId: 'item-1',
+          tierId: null,
+          order: 0,
+          label: 'Edited label',
+          backgroundColor: '#111827',
+          altText: 'Edited alt text',
+          notes: 'Private note edited before delete',
+        },
+      ],
+      [
+        makeServerItem({
+          label: 'Old label',
+          backgroundColor: undefined,
+          altText: 'Old alt text',
+          notes: 'Old note',
+        }),
+      ],
+      new Map(),
+      new Map(),
+      new Set(['item-1'])
+    )
+
+    expect(diff.patch).toEqual([])
+    expect(diff.softDelete).toHaveLength(1)
+    expect(diff.softDelete[0]).toMatchObject({
+      id: 'row-1',
+      deletedAt: expect.any(Number),
+      fields: {
+        label: 'Edited label',
+        backgroundColor: '#111827',
+        altText: 'Edited alt text',
+        notes: 'Private note edited before delete',
+      },
+    })
   })
 
   it('patches display media changes & label-only edits', () =>

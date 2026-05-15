@@ -140,6 +140,7 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   if (typeof raw.backgroundColor === 'string')
     item.backgroundColor = raw.backgroundColor
   if (typeof raw.altText === 'string') item.altText = raw.altText
+  if (typeof raw.notes === 'string') item.notes = raw.notes
   if (aspectRatio !== undefined) item.aspectRatio = aspectRatio
   if (imageFit !== undefined) item.imageFit = imageFit
   if (transform !== undefined) item.transform = transform

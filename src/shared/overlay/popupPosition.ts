@@ -4,8 +4,6 @@
 import type { CSSProperties } from 'react'
 import {
   FIXED_POPUP_GAP_PX,
-  ITEM_EDIT_POPOVER_GAP_PX,
-  ITEM_EDIT_POPOVER_MIN_HEIGHT_PX,
   OVERLAY_VIEWPORT_MARGIN_PX,
   SETTINGS_MENU_HEIGHT_PX,
 } from './uiMeasurements'
@@ -15,8 +13,6 @@ interface ViewportSize
   width: number
   height: number
 }
-
-type AnchoredRect = Pick<DOMRect, 'bottom' | 'left' | 'right' | 'top'>
 
 const resolveViewport = (viewport?: ViewportSize): ViewportSize =>
   viewport ?? {
@@ -112,23 +108,3 @@ export function computeSettingsMenuStyle(
   }
 }
 
-// position the alt-text popover below the item, clamped to the viewport
-export function computeItemEditPopoverStyle(
-  anchorRect: AnchoredRect,
-  popupWidth: number,
-  popupHeight = ITEM_EDIT_POPOVER_MIN_HEIGHT_PX,
-  viewport?: ViewportSize
-): CSSProperties
-{
-  const { width, height } = resolveViewport(viewport)
-
-  return {
-    position: 'fixed',
-    top: clampPopupTop(
-      anchorRect.bottom + ITEM_EDIT_POPOVER_GAP_PX,
-      popupHeight,
-      height
-    ),
-    left: clampPopupLeft(anchorRect.left, popupWidth, width),
-  }
-}

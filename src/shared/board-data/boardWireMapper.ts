@@ -78,7 +78,12 @@ const isTierItemWire = (value: unknown): value is TierItemWire =>
     return false
   }
 
-  return value.altText === undefined || typeof value.altText === 'string'
+  if (value.altText !== undefined && typeof value.altText !== 'string')
+  {
+    return false
+  }
+
+  return value.notes === undefined || typeof value.notes === 'string'
 }
 
 const getBlobDataUrl = async (
@@ -283,7 +288,7 @@ const wireItemToSnapshotItem = (
   prepared: PreparedWireImage | undefined
 ): TierItem =>
 {
-  const { id, imageUrl, label, backgroundColor, altText } = item
+  const { id, imageUrl, label, backgroundColor, altText, notes } = item
   // prefer the wire's captured aspect ratio; fall back to the ratio decoded
   // during persist so items without an explicit wire field still render right
   const aspectRatio =
@@ -296,6 +301,7 @@ const wireItemToSnapshotItem = (
     label,
     backgroundColor,
     altText,
+    notes,
     aspectRatio,
     imageFit,
     ...(transform ? { transform } : {}),

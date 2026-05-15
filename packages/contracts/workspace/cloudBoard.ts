@@ -33,6 +33,9 @@ export interface CloudBoardItemWire
   label?: string
   backgroundColor?: string
   altText?: string
+  // private per-item editor notes; synced for cross-device parity, never
+  // surfaced on published rankings (publish mappers cherry-pick fields)
+  notes?: string
   mediaExternalId?: string | null
   order: number
   // natural image aspect ratio captured at import time

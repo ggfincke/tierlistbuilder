@@ -229,7 +229,7 @@ export const LayoutTab = () =>
         <SettingRow label="Compact Mode">
           <Toggle checked={compactMode} onChange={setCompactMode} />
         </SettingRow>
-        <SettingRow label="Alt Text Button">
+        <SettingRow label="Edit Button">
           <Toggle checked={showAltTextButton} onChange={setShowAltTextButton} />
         </SettingRow>
         <SettingRow label="Trim Shadows">

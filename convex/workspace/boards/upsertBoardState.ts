@@ -58,6 +58,7 @@ import { buildFreshBoardCloudFields } from './cloudFields'
 
 const MAX_LABEL_LEN = 200
 const MAX_ALT_LEN = 500
+const MAX_NOTES_LEN = 2000
 const MAX_TIER_NAME_LEN = 100
 const MAX_TIER_DESCRIPTION_LEN = 500
 const MAX_BACKGROUND_COLOR_LEN = 32
@@ -79,6 +80,7 @@ const wireItemValidator = v.object({
   label: v.optional(v.string()),
   backgroundColor: v.optional(v.string()),
   altText: v.optional(v.string()),
+  notes: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
   order: v.number(),
   aspectRatio: v.optional(v.number()),
@@ -233,6 +235,10 @@ const validateInputs = (args: UpsertArgs): void =>
     if ((item.altText?.length ?? 0) > MAX_ALT_LEN)
     {
       failInput(`item altText too long: exceeds ${MAX_ALT_LEN} chars`)
+    }
+    if ((item.notes?.length ?? 0) > MAX_NOTES_LEN)
+    {
+      failInput(`item notes too long: exceeds ${MAX_NOTES_LEN} chars`)
     }
     if ((item.backgroundColor?.length ?? 0) > MAX_BACKGROUND_COLOR_LEN)
     {
@@ -607,8 +613,8 @@ const applyBoardState = async (
   // parallel item writes across all three phases — softDelete/patch/insert are
   // independent rows
   await Promise.all([
-    ...itemDiff.softDelete.map(({ id, deletedAt }) =>
-      ctx.db.patch(id, { deletedAt })
+    ...itemDiff.softDelete.map(({ id, deletedAt, fields }) =>
+      ctx.db.patch(id, { ...fields, deletedAt })
     ),
     ...itemDiff.patch.map(({ id, fields }) => ctx.db.patch(id, fields)),
     ...itemDiff.insert.map((item) =>

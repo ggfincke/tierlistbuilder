@@ -39,6 +39,7 @@ export interface ItemDiff
     label?: string
     backgroundColor?: string
     altText?: string
+    notes?: string
     mediaAssetId: Id<'mediaAssets'> | null
     order: number
     deletedAt: number | null
@@ -56,6 +57,9 @@ export interface ItemDiff
   softDelete: Array<{
     id: Id<'boardItems'>
     deletedAt: number
+    fields?: Partial<
+      Omit<Doc<'boardItems'>, '_id' | '_creationTime' | 'boardId'>
+    >
   }>
 }
 
@@ -123,6 +127,43 @@ const resolveMediaField = (
       : null
 
   return { has, resolved }
+}
+
+const buildItemPatchFields = (
+  server: Doc<'boardItems'>,
+  wire: WireItem,
+  resolvedTierId: Id<'boardTiers'> | null,
+  media: ResolvedMediaField
+): ItemDiff['patch'][number]['fields'] =>
+{
+  const fields: ItemDiff['patch'][number]['fields'] = {}
+  if (server.tierId !== resolvedTierId) fields.tierId = resolvedTierId
+  if (server.order !== wire.order) fields.order = wire.order
+  if (server.label !== wire.label) fields.label = wire.label
+  if (server.backgroundColor !== wire.backgroundColor)
+  {
+    fields.backgroundColor = wire.backgroundColor
+  }
+  if (server.altText !== wire.altText) fields.altText = wire.altText
+  if (server.notes !== wire.notes) fields.notes = wire.notes
+  if (server.aspectRatio !== wire.aspectRatio)
+  {
+    fields.aspectRatio = wire.aspectRatio
+  }
+  if (server.imageFit !== wire.imageFit) fields.imageFit = wire.imageFit
+  if (!transformsEqual(server.transform, wire.transform))
+  {
+    fields.transform = wire.transform
+  }
+  if (!itemLabelOptionsEqual(server.labelOptions, wire.labelOptions))
+  {
+    fields.labelOptions = wire.labelOptions
+  }
+  if (media.has && server.mediaAssetId !== media.resolved)
+  {
+    fields.mediaAssetId = media.resolved
+  }
+  return fields
 }
 
 export const diffTiers = (
@@ -221,6 +262,7 @@ export const diffItems = (
         label: wire.label,
         backgroundColor: wire.backgroundColor,
         altText: wire.altText,
+        notes: wire.notes,
         mediaAssetId: media.resolved,
         order: wire.order,
         deletedAt: isDeleted ? now : null,
@@ -234,7 +276,12 @@ export const diffItems = (
 
     if (isDeleted && server.deletedAt === null)
     {
-      diff.softDelete.push({ id: server._id, deletedAt: now })
+      const fields = buildItemPatchFields(server, wire, resolvedTierId, media)
+      diff.softDelete.push({
+        id: server._id,
+        deletedAt: now,
+        ...(isNonEmptyObject(fields) ? { fields } : {}),
+      })
       continue
     }
 
@@ -249,6 +296,7 @@ export const diffItems = (
           label: wire.label,
           backgroundColor: wire.backgroundColor,
           altText: wire.altText,
+          notes: wire.notes,
           aspectRatio: wire.aspectRatio,
           imageFit: wire.imageFit,
           transform: wire.transform,
@@ -259,32 +307,7 @@ export const diffItems = (
       continue
     }
 
-    const fields: ItemDiff['patch'][number]['fields'] = {}
-    if (server.tierId !== resolvedTierId) fields.tierId = resolvedTierId
-    if (server.order !== wire.order) fields.order = wire.order
-    if (server.label !== wire.label) fields.label = wire.label
-    if (server.backgroundColor !== wire.backgroundColor)
-    {
-      fields.backgroundColor = wire.backgroundColor
-    }
-    if (server.altText !== wire.altText) fields.altText = wire.altText
-    if (server.aspectRatio !== wire.aspectRatio)
-    {
-      fields.aspectRatio = wire.aspectRatio
-    }
-    if (server.imageFit !== wire.imageFit) fields.imageFit = wire.imageFit
-    if (!transformsEqual(server.transform, wire.transform))
-    {
-      fields.transform = wire.transform
-    }
-    if (!itemLabelOptionsEqual(server.labelOptions, wire.labelOptions))
-    {
-      fields.labelOptions = wire.labelOptions
-    }
-    if (media.has && server.mediaAssetId !== media.resolved)
-    {
-      fields.mediaAssetId = media.resolved
-    }
+    const fields = buildItemPatchFields(server, wire, resolvedTierId, media)
 
     if (isNonEmptyObject(fields))
     {

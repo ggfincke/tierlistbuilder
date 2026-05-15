@@ -56,7 +56,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   boardLocked: false,
   reducedMotion: false,
   toolbarPosition: 'top',
-  showAltTextButton: false,
+  showAltTextButton: true,
   autoCropTrimSoftShadows: true,
 }
 

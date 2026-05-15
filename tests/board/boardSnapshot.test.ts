@@ -111,6 +111,34 @@ describe('normalizeBoardSnapshot', () =>
     expect(result.items[id].transform).toBeUndefined()
   })
 
+  it('preserves private notes for live and deleted items', () =>
+  {
+    const liveId = asItemId('item-live')
+    const deletedId = asItemId('item-deleted')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        items: {
+          [liveId]: makeItem({
+            id: liveId,
+            label: 'Live',
+            notes: 'Private live note',
+          }),
+        },
+        deletedItems: [
+          makeItem({
+            id: deletedId,
+            label: 'Deleted',
+            notes: 'Private deleted note',
+          }),
+        ],
+      }),
+      'classic'
+    )
+
+    expect(result.items[liveId].notes).toBe('Private live note')
+    expect(result.deletedItems[0].notes).toBe('Private deleted note')
+  })
+
   it('falls back to auto palette color when a tier is missing its colorSpec', () =>
   {
     const rawTiers = [
