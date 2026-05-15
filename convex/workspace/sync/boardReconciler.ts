@@ -47,6 +47,7 @@ export interface ItemDiff
     imageFit?: 'cover' | 'contain'
     transform?: ItemTransform
     labelOptions?: ItemLabelOptions
+    templateItemId?: Id<'templateItems'>
   }>
   patch: Array<{
     id: Id<'boardItems'>
@@ -133,7 +134,8 @@ const buildItemPatchFields = (
   server: Doc<'boardItems'>,
   wire: WireItem,
   resolvedTierId: Id<'boardTiers'> | null,
-  media: ResolvedMediaField
+  media: ResolvedMediaField,
+  resolvedTemplateItemId: Id<'templateItems'> | undefined
 ): ItemDiff['patch'][number]['fields'] =>
 {
   const fields: ItemDiff['patch'][number]['fields'] = {}
@@ -162,6 +164,13 @@ const buildItemPatchFields = (
   if (media.has && server.mediaAssetId !== media.resolved)
   {
     fields.mediaAssetId = media.resolved
+  }
+  if (
+    resolvedTemplateItemId !== undefined &&
+    server.templateItemId !== resolvedTemplateItemId
+  )
+  {
+    fields.templateItemId = resolvedTemplateItemId
   }
   return fields
 }
@@ -234,7 +243,11 @@ export const diffItems = (
   serverItems: Doc<'boardItems'>[],
   tierExternalIdToId: Map<string, Id<'boardTiers'>>,
   mediaExternalIdToId: Map<string, Id<'mediaAssets'>>,
-  deletedItemExternalIds: ReadonlySet<string>
+  deletedItemExternalIds: ReadonlySet<string>,
+  templateItemExternalIdToId: ReadonlyMap<
+    string,
+    Id<'templateItems'>
+  > = new Map()
 ): ItemDiff =>
 {
   const serverByExternalId = new Map(
@@ -253,6 +266,9 @@ export const diffItems = (
     const resolvedTierId = wire.tierId
       ? (tierExternalIdToId.get(wire.tierId) ?? null)
       : null
+    const resolvedTemplateItemId = wire.sourceTemplateItemExternalId
+      ? templateItemExternalIdToId.get(wire.sourceTemplateItemExternalId)
+      : undefined
 
     if (!server)
     {
@@ -270,13 +286,22 @@ export const diffItems = (
         imageFit: wire.imageFit,
         transform: wire.transform,
         labelOptions: wire.labelOptions,
+        ...(resolvedTemplateItemId
+          ? { templateItemId: resolvedTemplateItemId }
+          : {}),
       })
       continue
     }
 
     if (isDeleted && server.deletedAt === null)
     {
-      const fields = buildItemPatchFields(server, wire, resolvedTierId, media)
+      const fields = buildItemPatchFields(
+        server,
+        wire,
+        resolvedTierId,
+        media,
+        resolvedTemplateItemId
+      )
       diff.softDelete.push({
         id: server._id,
         deletedAt: now,
@@ -301,13 +326,22 @@ export const diffItems = (
           imageFit: wire.imageFit,
           transform: wire.transform,
           labelOptions: wire.labelOptions,
+          ...(resolvedTemplateItemId
+            ? { templateItemId: resolvedTemplateItemId }
+            : {}),
           ...(media.has ? { mediaAssetId: media.resolved } : {}),
         },
       })
       continue
     }
 
-    const fields = buildItemPatchFields(server, wire, resolvedTierId, media)
+    const fields = buildItemPatchFields(
+      server,
+      wire,
+      resolvedTierId,
+      media,
+      resolvedTemplateItemId
+    )
 
     if (isNonEmptyObject(fields))
     {

@@ -295,11 +295,16 @@ export const isEmptyItemLabelOptions = (
 
 // content-addressable image pointer for bytes stored outside the snapshot.
 // `cloudMediaExternalId` ties a hashed payload to its cloud media row so the
-// sync layer can re-resolve URLs without re-uploading the bytes
+// sync layer can re-resolve URLs without re-uploading the bytes. source-owned
+// refs are marketplace assets: render/fetch them, but upload a user-owned copy
+// before syncing the board.
+export type CloudMediaOwnership = 'source'
+
 export interface TierItemImageRef
 {
   hash: string
   cloudMediaExternalId?: string
+  cloudMediaOwnership?: CloudMediaOwnership
 }
 
 // single item placed in a tier or the unranked pool. imageRef is the small
@@ -326,6 +331,10 @@ export interface TierItem
   transform?: ItemTransform
   // per-tile label rendering override; absent -> inherit from board/global
   labelOptions?: ItemLabelOptions
+  // marketplace template item external id captured when a board is forked
+  // locally. first cloud sync resolves it to boardItems.templateItemId so the
+  // board can publish rankings against its source template.
+  sourceTemplateItemExternalId?: string
 }
 
 // a single tier row w/ ordered item references
@@ -364,6 +373,16 @@ export interface BoardSnapshot
   pageBackground?: string
   // per-board label rendering defaults; absent fields fall through to global
   labels?: BoardLabelSettings
+  // source-template/ranking identity captured at fork/remix time. travels w/
+  // cloud sync & JSON export so a re-imported board still knows where it came
+  // from. titles denormalize so the breadcrumb survives source deletion
+  sourceTemplateId?: string
+  sourceRankingId?: string
+  sourceTemplateTitle?: string
+  sourceRankingTitle?: string
+  // criterion/lane the user started from when forking a template or remixing a
+  // ranking. the server validates it against the source template on first sync.
+  preferredCriterionExternalId?: string
 }
 
 // payload for adding new items before IDs are assigned. image import writes
@@ -394,6 +413,7 @@ export interface TierItemWire
   imageFit?: ImageFit
   transform?: ItemTransform
   labelOptions?: ItemLabelOptions
+  sourceTemplateItemExternalId?: string
 }
 
 // wire-format variant of `BoardSnapshot` — same shape as in-memory but
@@ -413,6 +433,11 @@ export interface BoardSnapshotWire
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+  sourceTemplateId?: string
+  sourceRankingId?: string
+  sourceTemplateTitle?: string
+  sourceRankingTitle?: string
+  preferredCriterionExternalId?: string
 }
 
 // metadata entry for a single board in the multi-board registry

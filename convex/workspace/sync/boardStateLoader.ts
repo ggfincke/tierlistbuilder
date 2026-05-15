@@ -9,6 +9,29 @@ import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloud
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
+// client-facing source identity uses public slugs since signed-out users can
+// only ever know the slug. resolve typed table ids -> slugs at load time so
+// the wire stays slug-based both ways (push & pull)
+const loadSourceTemplateSlug = async (
+  ctx: QueryCtx,
+  templateId: Id<'templates'> | null
+): Promise<string | null> =>
+{
+  if (!templateId) return null
+  const template = await ctx.db.get(templateId)
+  return template?.slug ?? null
+}
+
+const loadSourceRankingSlug = async (
+  ctx: QueryCtx,
+  rankingId: Id<'publishedRankings'> | null
+): Promise<string | null> =>
+{
+  if (!rankingId) return null
+  const ranking = await ctx.db.get(rankingId)
+  return ranking?.slug ?? null
+}
+
 type MediaInfo = {
   externalId: string
   previewContentHash: string | null
@@ -87,6 +110,13 @@ export const loadBoardCloudState = async (
   const getMediaInfo = (id: Id<'mediaAssets'> | null): MediaInfo | undefined =>
     id ? mediaIdToInfo.get(id) : undefined
 
+  // resolve source-fork identity in parallel w/ the items mapping below — both
+  // wait on the same DB roundtrip latency, no need to serialize them
+  const [sourceTemplateSlug, sourceRankingSlug] = await Promise.all([
+    loadSourceTemplateSlug(ctx, board.sourceTemplateId),
+    loadSourceRankingSlug(ctx, board.sourceRankingId),
+  ])
+
   return {
     title: board.title,
     revision: board.revision ?? 0,
@@ -98,6 +128,14 @@ export const loadBoardCloudState = async (
     textStyleId: board.textStyleId,
     pageBackground: board.pageBackground,
     labels: board.labels,
+    // surface source-template/ranking identity as public slugs so the wire
+    // stays slug-based both ways. titles are denormalized on the board record
+    // so the breadcrumb survives even if the source template was unpublished
+    sourceTemplateId: sourceTemplateSlug,
+    sourceRankingId: sourceRankingSlug,
+    sourceTemplateTitle: board.sourceTemplateTitle,
+    sourceRankingTitle: board.sourceRankingTitle,
+    preferredCriterionExternalId: board.preferredCriterionExternalId ?? null,
     tiers: serverTiers
       .slice()
       .sort((a, b) => a.order - b.order)

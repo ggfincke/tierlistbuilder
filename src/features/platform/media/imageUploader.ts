@@ -1,7 +1,10 @@
 // src/features/platform/media/imageUploader.ts
 // upload local image variant blobs to Convex storage & record the mapping
 
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardSnapshot,
+  TierItemImageRef,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   collectSnapshotLocalImageHashes,
   forEachSnapshotItem,
@@ -66,6 +69,11 @@ const makeMediaUploadKey = (
 const groupVariantHashes = (group: MediaUploadGroup): string[] =>
   [group.previewHash, group.tileHash, group.sourceHash].filter(isPresent)
 
+const isReusableCloudMediaRef = (
+  ref: TierItemImageRef | undefined
+): ref is TierItemImageRef & { cloudMediaExternalId: string } =>
+  !!ref?.cloudMediaExternalId && ref.cloudMediaOwnership !== 'source'
+
 const seedExistingCloudMediaIds = (
   snapshot: BoardSnapshot,
   result: BoardImageUploadResult
@@ -73,17 +81,17 @@ const seedExistingCloudMediaIds = (
 {
   forEachSnapshotItem(snapshot, (item) =>
   {
-    const mediaExternalId = getPrimaryImageRef(
-      item,
-      'board'
-    )?.cloudMediaExternalId
-    if (mediaExternalId)
+    const primaryRef = getPrimaryImageRef(item, 'board')
+    if (isReusableCloudMediaRef(primaryRef))
     {
-      result.mediaExternalIdByItemId.set(item.id, mediaExternalId)
+      result.mediaExternalIdByItemId.set(
+        item.id,
+        primaryRef.cloudMediaExternalId
+      )
     }
     for (const ref of [item.imageRef, item.tileImageRef, item.sourceImageRef])
     {
-      if (ref?.cloudMediaExternalId)
+      if (isReusableCloudMediaRef(ref))
       {
         result.mediaExternalIdByHash.set(ref.hash, ref.cloudMediaExternalId)
       }

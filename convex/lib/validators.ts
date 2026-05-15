@@ -591,6 +591,7 @@ const cloudBoardStateItemValidator = v.object({
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
   transform: v.optional(itemTransformValidator),
   labelOptions: v.optional(itemLabelOptionsValidator),
+  sourceTemplateItemExternalId: v.optional(v.string()),
 })
 
 // full cloud board state payload — mirrors CloudBoardState
@@ -609,6 +610,14 @@ export const cloudBoardStateValidator = v.object({
   textStyleId: v.optional(textStyleIdValidator),
   pageBackground: v.optional(v.string()),
   labels: v.optional(boardLabelSettingsValidator),
+  // source-template/ranking metadata for boards created via fork or remix.
+  // null when the board was started from scratch; both can be set when a
+  // ranking remix populates both (the ranking's template + the ranking itself)
+  sourceTemplateId: v.optional(v.union(v.string(), v.null())),
+  sourceRankingId: v.optional(v.union(v.string(), v.null())),
+  sourceTemplateTitle: v.optional(v.union(v.string(), v.null())),
+  sourceRankingTitle: v.optional(v.union(v.string(), v.null())),
+  preferredCriterionExternalId: v.optional(v.union(v.string(), v.null())),
   tiers: v.array(cloudBoardStateTierValidator),
   items: v.array(cloudBoardStateItemValidator),
 })
@@ -703,10 +712,10 @@ const marketplaceTemplateBaseFields = {
   coverMedia: v.union(templateMediaRefValidator, v.null()),
   coverFraming: v.union(templateCoverFramingValidator, v.null()),
   itemCount: v.number(),
-  useCount: v.number(),
+  forkCount: v.number(),
   viewCount: v.number(),
   rankingCount: v.number(),
-  weeklyUseCount: v.number(),
+  weeklyForkCount: v.number(),
   weeklyViewCount: v.number(),
   trendingScore: v.number(),
   trendingComputedAt: v.union(v.number(), v.null()),

@@ -86,6 +86,43 @@ describe('uploadBoardImages', () =>
     ).rejects.toBeInstanceOf(PermanentSyncError)
   })
 
+  it('uploads a user-owned copy for source-owned marketplace media refs', async () =>
+  {
+    const record = makeLocalBlobRecord('marketplace-hash')
+    vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
+    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
+      envelopeUserId: 'server-user-1',
+      urls: [
+        { uploadUrl: 'https://uploads.example.test/tile', uploadToken: 'tile' },
+        {
+          uploadUrl: 'https://uploads.example.test/preview',
+          uploadToken: 'preview',
+        },
+      ],
+    })
+    vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
+      'storage-1' as unknown as never
+    )
+    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
+      externalId: 'media-user-copy',
+    })
+
+    const result = await uploadBoardImages(
+      makeImageBoard({
+        hash: record.hash,
+        cloudMediaExternalId: 'media-marketplace',
+        cloudMediaOwnership: 'source',
+      }),
+      'user-1'
+    )
+
+    expect(result.mediaExternalIdByHash.get(record.hash)).toBe(
+      'media-user-copy'
+    )
+    expect(result.mediaExternalIdByItemId.get('item-1')).toBe('media-user-copy')
+    expect(finalizeUploadVariantsImperative).toHaveBeenCalledTimes(1)
+  })
+
   it('uploads blobs via the envelope helper using a single batched URL request', async () =>
   {
     const uploadToken = 'a'.repeat(64)

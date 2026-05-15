@@ -25,7 +25,7 @@ export type CardSize = 'small' | 'default' | 'large'
 
 // homepage curation slot. drives the top-left badge text & icon — independent
 // of the row's stored featuredRank so an unranked template can still appear in
-// a "trending" position when a query orders by useCount instead
+// a "trending" position when a query orders by forkCount instead
 export type CardFeaturedLabel = 'editorsPick' | 'trending' | 'curated'
 
 interface CardProps

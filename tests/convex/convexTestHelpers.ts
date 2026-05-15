@@ -208,7 +208,7 @@ export const seedPublishedTemplate = async (
   })
   await ctx.db.insert('templateStats', {
     templateId,
-    useCount: 0,
+    forkCount: 0,
     viewCount: 0,
     updatedAt: now,
   })
@@ -234,7 +234,7 @@ export const seedPublishedTemplate = async (
     itemAspectRatio: null,
     defaultItemImageFit: null,
     featuredRank: null,
-    useCount: 0,
+    forkCount: 0,
     viewCount: 0,
     creditLine: null,
     searchText: buildSearchText({
@@ -277,6 +277,10 @@ export const seedCloudBoard = async (
     sourceTemplateId: args.sourceTemplateId ?? null,
     sourceTemplateCategory: args.sourceTemplateCategory ?? null,
     sourceTemplateSizeClass: args.sourceTemplateSizeClass ?? null,
+    sourceRankingId: null,
+    sourceTemplateTitle: null,
+    sourceRankingTitle: null,
+    forkCounted: args.sourceTemplateId ? true : false,
     ...buildFreshBoardCloudFields(now),
     activeItemCount: args.activeItemCount ?? 0,
     unrankedItemCount: args.unrankedItemCount ?? 0,

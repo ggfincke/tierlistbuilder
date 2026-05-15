@@ -9,7 +9,9 @@ PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline preflight data/seeds/ma
 PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline run data/seeds/marketplace-core.json --env local
 ```
 
-The npm wrappers in `package.json` use the same `PYTHONPATH` setup:
+The npm wrappers in `package.json` use `scripts/seed-pipeline.mjs`, which sets
+the same `PYTHONPATH` and prefers `.venv/bin/python` when the local venv exists.
+Set `SEED_PIPELINE_PYTHON=/path/to/python` to override the interpreter.
 
 ```bash
 npm run seed:marketplace:validate

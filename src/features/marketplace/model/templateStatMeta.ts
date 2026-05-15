@@ -9,7 +9,7 @@ import type { ComponentType, SVGProps } from 'react'
 // one resolves to a number, so a surface reads template[stat.key] directly
 export interface TemplateStatMeta
 {
-  key: 'itemCount' | 'rankingCount' | 'useCount' | 'viewCount'
+  key: 'itemCount' | 'rankingCount' | 'forkCount' | 'viewCount'
   label: string
   icon: ComponentType<SVGProps<SVGSVGElement>>
 }
@@ -19,6 +19,6 @@ export interface TemplateStatMeta
 export const TEMPLATE_STAT_META: readonly TemplateStatMeta[] = [
   { key: 'itemCount', label: 'items', icon: LayoutGrid },
   { key: 'rankingCount', label: 'rankings', icon: BarChart3 },
-  { key: 'useCount', label: 'forks', icon: GitFork },
+  { key: 'forkCount', label: 'forks', icon: GitFork },
   { key: 'viewCount', label: 'views', icon: Eye },
 ]

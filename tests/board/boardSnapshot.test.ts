@@ -96,19 +96,60 @@ describe('normalizeBoardSnapshot', () =>
         items: {
           [id]: makeItem({
             id,
-            imageRef: { hash: 'thumb-hash' },
-            tileImageRef: { hash: 'tile-hash' },
+            imageRef: {
+              hash: 'thumb-hash',
+              cloudMediaExternalId: 'media-thumb',
+              cloudMediaOwnership: 'source',
+            },
+            tileImageRef: {
+              hash: 'tile-hash',
+              cloudMediaExternalId: 'media-tile',
+            },
             sourceImageRef: { hash: 'source-hash' },
             transform: { rotation: 0, zoom: 1, offsetX: 0, offsetY: 0 },
+            sourceTemplateItemExternalId: 'template-item-1',
           }),
         },
       }),
       'classic'
     )
 
-    expect(result.items[id].tileImageRef).toEqual({ hash: 'tile-hash' })
+    expect(result.items[id].imageRef).toEqual({
+      hash: 'thumb-hash',
+      cloudMediaExternalId: 'media-thumb',
+      cloudMediaOwnership: 'source',
+    })
+    expect(result.items[id].tileImageRef).toEqual({
+      hash: 'tile-hash',
+      cloudMediaExternalId: 'media-tile',
+    })
     expect(result.items[id].sourceImageRef).toEqual({ hash: 'source-hash' })
+    expect(result.items[id].sourceTemplateItemExternalId).toBe(
+      'template-item-1'
+    )
     expect(result.items[id].transform).toBeUndefined()
+  })
+
+  it('preserves source board metadata through normalization', () =>
+  {
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        sourceTemplateId: 'Template123',
+        sourceRankingId: 'Ranking123',
+        sourceTemplateTitle: 'Template',
+        sourceRankingTitle: 'Ranking',
+        preferredCriterionExternalId: 'favorites',
+      }),
+      'classic'
+    )
+
+    expect(result).toMatchObject({
+      sourceTemplateId: 'Template123',
+      sourceRankingId: 'Ranking123',
+      sourceTemplateTitle: 'Template',
+      sourceRankingTitle: 'Ranking',
+      preferredCriterionExternalId: 'favorites',
+    })
   })
 
   it('preserves private notes for live and deleted items', () =>

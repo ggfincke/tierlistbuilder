@@ -46,7 +46,7 @@ const resolveImageRefMediaExternalId = (
     return uploadedExternalId
   }
 
-  if (ref.cloudMediaExternalId)
+  if (ref.cloudMediaExternalId && ref.cloudMediaOwnership !== 'source')
   {
     return ref.cloudMediaExternalId
   }
@@ -107,6 +107,7 @@ const toCloudItemWire = (
     imageFit: item.imageFit,
     transform: item.transform,
     labelOptions: item.labelOptions,
+    sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
   }
 }
 
@@ -170,6 +171,13 @@ export const snapshotToCloudPayload = (
     textStyleId: snapshot.textStyleId,
     pageBackground: snapshot.pageBackground,
     labels: snapshot.labels,
+    // source-fork identity travels on every push — server consults it only on
+    // first INSERT (subsequent syncs ignore the wire fields)
+    sourceTemplateId: snapshot.sourceTemplateId,
+    sourceRankingId: snapshot.sourceRankingId,
+    sourceTemplateTitle: snapshot.sourceTemplateTitle,
+    sourceRankingTitle: snapshot.sourceRankingTitle,
+    preferredCriterionExternalId: snapshot.preferredCriterionExternalId,
   }
 }
 
@@ -218,6 +226,7 @@ export const serverStateToSnapshot = (
       imageFit: item.imageFit,
       transform: item.transform,
       labelOptions: item.labelOptions,
+      sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
     }
   }
 
@@ -256,5 +265,13 @@ export const serverStateToSnapshot = (
     textStyleId: serverState.textStyleId,
     pageBackground: serverState.pageBackground,
     labels: serverState.labels,
+    // server-side board carries source identity; lift to the snapshot so the
+    // BoardHeader breadcrumb renders immediately on cloud-board activation
+    sourceTemplateId: serverState.sourceTemplateId ?? undefined,
+    sourceRankingId: serverState.sourceRankingId ?? undefined,
+    sourceTemplateTitle: serverState.sourceTemplateTitle ?? undefined,
+    sourceRankingTitle: serverState.sourceRankingTitle ?? undefined,
+    preferredCriterionExternalId:
+      serverState.preferredCriterionExternalId ?? undefined,
   }
 }

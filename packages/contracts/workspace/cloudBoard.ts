@@ -46,6 +46,9 @@ export interface CloudBoardItemWire
   transform?: ItemTransform
   // per-tile label rendering override; absent -> inherit board/global
   labelOptions?: ItemLabelOptions
+  // source template item external id carried by local forks until first sync
+  // resolves it to boardItems.templateItemId.
+  sourceTemplateItemExternalId?: string
 }
 
 // board-wide aspect-ratio config shared by payload & state so a synced board
@@ -69,9 +72,24 @@ interface CloudBoardStyleOverrideFields
   labels?: BoardLabelSettings
 }
 
+// source-fork identity carried on every sync push. server consults these only
+// on the INSERT path (first sync of a locally-created fork) — subsequent syncs
+// of the same board ignore them so the server stays the source of truth
+interface CloudBoardSourceFields
+{
+  sourceTemplateId?: string
+  sourceRankingId?: string
+  sourceTemplateTitle?: string
+  sourceRankingTitle?: string
+  preferredCriterionExternalId?: string
+}
+
 export interface CloudBoardPayload
-  extends CloudBoardAspectRatioFields, CloudBoardStyleOverrideFields
-  {
+  extends
+    CloudBoardAspectRatioFields,
+    CloudBoardStyleOverrideFields,
+    CloudBoardSourceFields
+    {
   title: string
   tiers: CloudBoardTierWire[]
   items: CloudBoardItemWire[]
@@ -96,6 +114,14 @@ export interface CloudBoardState
   {
   title: string
   revision: number
+  // source-template/ranking identity captured at fork/remix time — null on
+  // boards created from scratch. drives the workspace breadcrumb after a
+  // pull-down of cloud state mirrors what was saved locally on the originator
+  sourceTemplateId?: string | null
+  sourceRankingId?: string | null
+  sourceTemplateTitle?: string | null
+  sourceRankingTitle?: string | null
+  preferredCriterionExternalId?: string | null
   tiers: CloudBoardStateTier[]
   items: CloudBoardStateItem[]
 }

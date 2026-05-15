@@ -30,11 +30,12 @@ import {
   getTemplateMetricDayStart,
   TEMPLATE_TRENDING_DAY_MS,
   TEMPLATE_TRENDING_WINDOW_DAYS,
-  incrementTemplateUseStats,
+  incrementTemplateForkStats,
   isActiveTemplateJob,
   isPublishedTemplateRow,
   markTemplateNotPublic,
   patchTemplateAndSyncCard,
+  readLegacyForkCount,
   setSourceBoardLivePublicTemplate,
   syncTemplateTagRows,
   writeTemplateCardPreservingCounters,
@@ -414,10 +415,13 @@ export const processTemplateCloneJob = internalMutation({
       materializationState: 'ready',
       activeItemCount: job.itemCount,
       unrankedItemCount: job.itemCount,
+      // large clone has now materialized — tick the counter & flip the flag
+      // so a later sync doesn't double-count
+      forkCounted: true,
       librarySummary,
       updatedAt: now,
     })
-    await incrementTemplateUseStats(ctx, template._id, now)
+    await incrementTemplateForkStats(ctx, template._id, now)
     await ctx.db.patch(job._id, {
       status: 'succeeded',
       processedItemCount,
@@ -608,22 +612,22 @@ const recomputeTemplateTrendingForCard = async (
       q.eq('templateId', card.templateId).gt('dayStartAt', windowStart - 1)
     )
     .take(TEMPLATE_TRENDING_WINDOW_DAYS)
-  let weeklyUseCount = 0
+  let weeklyForkCount = 0
   let weeklyViewCount = 0
   for (const row of metricRows)
   {
-    weeklyUseCount += row.useCount
+    weeklyForkCount += row.forkCount
     weeklyViewCount += row.viewCount
   }
   const trendingScore = calculateTemplateTrendingScore({
-    weeklyUseCount,
+    weeklyForkCount,
     weeklyViewCount,
     createdAt: card.createdAt,
     now,
   })
 
   await ctx.db.patch(card._id, {
-    weeklyUseCount,
+    weeklyForkCount,
     weeklyViewCount,
     trendingScore,
     trendingComputedAt: now,
@@ -686,9 +690,7 @@ export const backfillTemplateCardRankingCount = internalMutation({
     })
 
     await Promise.all(
-      page.page.map((card) =>
-        rollupTemplateRankingCount(ctx, card.templateId)
-      )
+      page.page.map((card) => rollupTemplateRankingCount(ctx, card.templateId))
     )
 
     if (!page.isDone)
@@ -697,6 +699,95 @@ export const backfillTemplateCardRankingCount = internalMutation({
         0,
         internal.marketplace.templates.internal
           .backfillTemplateCardRankingCount,
+        { cursor: page.continueCursor }
+      )
+    }
+
+    return { processed: page.page.length, isDone: page.isDone }
+  },
+})
+
+// one-time compatibility backfill for the useCount -> forkCount rename.
+// During the widened schema window, reads fall back to useCount; this rewrites
+// rows so validators and fork-count indexes see a real forkCount again.
+export const backfillTemplateStatsForkCount = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ processed: number; isDone: boolean }> =>
+  {
+    const page = await ctx.db.query('templateStats').paginate({
+      numItems: BATCH_LIMITS.templateTrendingRecompute,
+      cursor: args.cursor,
+    })
+    const now = Date.now()
+
+    await Promise.all(
+      page.page.map((stats) =>
+      {
+        const nextForkCount = readLegacyForkCount(stats)
+        if (stats.forkCount === nextForkCount && stats.useCount === undefined)
+        {
+          return null
+        }
+        return ctx.db.patch(stats._id, {
+          forkCount: nextForkCount,
+          useCount: undefined,
+          updatedAt: now,
+        })
+      })
+    )
+
+    if (!page.isDone)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal.backfillTemplateStatsForkCount,
+        { cursor: page.continueCursor }
+      )
+    }
+
+    return { processed: page.page.length, isDone: page.isDone }
+  },
+})
+
+export const backfillTemplateCardForkCount = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ processed: number; isDone: boolean }> =>
+  {
+    const page = await ctx.db.query('templateCards').paginate({
+      numItems: BATCH_LIMITS.templateTrendingRecompute,
+      cursor: args.cursor,
+    })
+    const now = Date.now()
+
+    await Promise.all(
+      page.page.map((card) =>
+      {
+        const nextForkCount = readLegacyForkCount(card)
+        if (card.forkCount === nextForkCount && card.useCount === undefined)
+        {
+          return null
+        }
+        return ctx.db.patch(card._id, {
+          forkCount: nextForkCount,
+          useCount: undefined,
+          updatedAt: now,
+        })
+      })
+    )
+
+    if (!page.isDone)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal.backfillTemplateCardForkCount,
         { cursor: page.continueCursor }
       )
     }

@@ -113,7 +113,16 @@ const normalizeImageRef = (raw: unknown): TierItemImageRef | undefined =>
   if (!isRecord(raw)) return undefined
   const hash = raw.hash
   if (typeof hash !== 'string' || hash.length === 0) return undefined
-  return { hash }
+  return {
+    hash,
+    ...(typeof raw.cloudMediaExternalId === 'string' &&
+    raw.cloudMediaExternalId.length > 0
+      ? { cloudMediaExternalId: raw.cloudMediaExternalId }
+      : {}),
+    ...(raw.cloudMediaOwnership === 'source'
+      ? { cloudMediaOwnership: 'source' as const }
+      : {}),
+  }
 }
 
 // drop unknown fields & validate primitive shapes. items w/o a valid `id`
@@ -145,6 +154,13 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   if (imageFit !== undefined) item.imageFit = imageFit
   if (transform !== undefined) item.transform = transform
   if (labelOptions !== undefined) item.labelOptions = labelOptions
+  if (
+    typeof raw.sourceTemplateItemExternalId === 'string' &&
+    raw.sourceTemplateItemExternalId.length > 0
+  )
+  {
+    item.sourceTemplateItemExternalId = raw.sourceTemplateItemExternalId
+  }
   return item
 }
 
@@ -239,6 +255,11 @@ const BOARD_DATA_SELECTION_KEYS = [
   'textStyleId',
   'pageBackground',
   'labels',
+  'sourceTemplateId',
+  'sourceRankingId',
+  'sourceTemplateTitle',
+  'sourceRankingTitle',
+  'preferredCriterionExternalId',
 ] as const satisfies readonly (keyof BoardDataSelection)[]
 
 export const selectBoardDataFields = (
@@ -257,6 +278,11 @@ export const selectBoardDataFields = (
   textStyleId: state.textStyleId,
   pageBackground: state.pageBackground,
   labels: state.labels,
+  sourceTemplateId: state.sourceTemplateId,
+  sourceRankingId: state.sourceRankingId,
+  sourceTemplateTitle: state.sourceTemplateTitle,
+  sourceRankingTitle: state.sourceRankingTitle,
+  preferredCriterionExternalId: state.preferredCriterionExternalId,
 })
 
 export const selectBoardDataSource = <T extends BoardSnapshotSource>(
@@ -295,6 +321,11 @@ export const extractBoardData = (
   textStyleId: state.textStyleId,
   pageBackground: state.pageBackground,
   labels: state.labels,
+  sourceTemplateId: state.sourceTemplateId,
+  sourceRankingId: state.sourceRankingId,
+  sourceTemplateTitle: state.sourceTemplateTitle,
+  sourceRankingTitle: state.sourceRankingTitle,
+  preferredCriterionExternalId: state.preferredCriterionExternalId,
 })
 
 export const resetBoardData = (
@@ -353,5 +384,25 @@ export const normalizeBoardSnapshot = (
       ? value.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(value?.labels),
+    sourceTemplateId:
+      typeof value?.sourceTemplateId === 'string'
+        ? value.sourceTemplateId
+        : undefined,
+    sourceRankingId:
+      typeof value?.sourceRankingId === 'string'
+        ? value.sourceRankingId
+        : undefined,
+    sourceTemplateTitle:
+      typeof value?.sourceTemplateTitle === 'string'
+        ? value.sourceTemplateTitle
+        : undefined,
+    sourceRankingTitle:
+      typeof value?.sourceRankingTitle === 'string'
+        ? value.sourceRankingTitle
+        : undefined,
+    preferredCriterionExternalId:
+      typeof value?.preferredCriterionExternalId === 'string'
+        ? value.preferredCriterionExternalId
+        : undefined,
   }
 }

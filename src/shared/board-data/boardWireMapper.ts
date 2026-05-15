@@ -83,6 +83,14 @@ const isTierItemWire = (value: unknown): value is TierItemWire =>
     return false
   }
 
+  if (
+    value.sourceTemplateItemExternalId !== undefined &&
+    typeof value.sourceTemplateItemExternalId !== 'string'
+  )
+  {
+    return false
+  }
+
   return value.notes === undefined || typeof value.notes === 'string'
 }
 
@@ -198,6 +206,14 @@ export const snapshotToWireWithBlobs = async (
     textStyleId: snapshot.textStyleId,
     pageBackground: snapshot.pageBackground,
     labels: snapshot.labels,
+    // source-template/ranking identity round-trips through JSON export so a
+    // re-imported board still knows where it came from. titles are denormalized
+    // so the breadcrumb works for recipients who don't have the source loaded
+    sourceTemplateId: snapshot.sourceTemplateId,
+    sourceRankingId: snapshot.sourceRankingId,
+    sourceTemplateTitle: snapshot.sourceTemplateTitle,
+    sourceRankingTitle: snapshot.sourceRankingTitle,
+    preferredCriterionExternalId: snapshot.preferredCriterionExternalId,
   }
 }
 
@@ -288,7 +304,15 @@ const wireItemToSnapshotItem = (
   prepared: PreparedWireImage | undefined
 ): TierItem =>
 {
-  const { id, imageUrl, label, backgroundColor, altText, notes } = item
+  const {
+    id,
+    imageUrl,
+    label,
+    backgroundColor,
+    altText,
+    notes,
+    sourceTemplateItemExternalId,
+  } = item
   // prefer the wire's captured aspect ratio; fall back to the ratio decoded
   // during persist so items without an explicit wire field still render right
   const aspectRatio =
@@ -302,6 +326,7 @@ const wireItemToSnapshotItem = (
     backgroundColor,
     altText,
     notes,
+    sourceTemplateItemExternalId,
     aspectRatio,
     imageFit,
     ...(transform ? { transform } : {}),
@@ -391,6 +416,26 @@ export const wireToSnapshot = async (
       ? wire.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(wire.labels),
+    sourceTemplateId:
+      typeof wire.sourceTemplateId === 'string'
+        ? wire.sourceTemplateId
+        : undefined,
+    sourceRankingId:
+      typeof wire.sourceRankingId === 'string'
+        ? wire.sourceRankingId
+        : undefined,
+    sourceTemplateTitle:
+      typeof wire.sourceTemplateTitle === 'string'
+        ? wire.sourceTemplateTitle
+        : undefined,
+    sourceRankingTitle:
+      typeof wire.sourceRankingTitle === 'string'
+        ? wire.sourceRankingTitle
+        : undefined,
+    preferredCriterionExternalId:
+      typeof wire.preferredCriterionExternalId === 'string'
+        ? wire.preferredCriterionExternalId
+        : undefined,
   }
 }
 

@@ -30,10 +30,10 @@ const card = (
   itemAspectRatio: null,
   defaultItemImageFit: null,
   itemCount: 1,
-  useCount: 0,
+  forkCount: 0,
   viewCount: 0,
   rankingCount: 0,
-  weeklyUseCount: 0,
+  weeklyForkCount: 0,
   weeklyViewCount: 0,
   trendingScore: 0,
   trendingComputedAt: null,
@@ -53,13 +53,13 @@ describe('template gallery rail visibility', () =>
     expect(
       hasTrendingRailActivity([
         card({ weeklyViewCount: 1 }),
-        card({ weeklyUseCount: 1 }),
+        card({ weeklyForkCount: 1 }),
       ])
     ).toBe(false)
     expect(
       hasTrendingRailActivity([
         card({ weeklyViewCount: 1 }),
-        card({ weeklyUseCount: 1 }),
+        card({ weeklyForkCount: 1 }),
         card({ weeklyViewCount: 2 }),
       ])
     ).toBe(true)
@@ -68,7 +68,7 @@ describe('template gallery rail visibility', () =>
   it('keeps the popular rail tied to all-time forks', () =>
   {
     expect(hasPopularRailActivity(undefined)).toBe(true)
-    expect(hasPopularRailActivity([card({ useCount: 0 })])).toBe(false)
-    expect(hasPopularRailActivity([card({ useCount: 4 })])).toBe(true)
+    expect(hasPopularRailActivity([card({ forkCount: 0 })])).toBe(false)
+    expect(hasPopularRailActivity([card({ forkCount: 4 })])).toBe(true)
   })
 })

@@ -107,7 +107,7 @@ const hasRailActivity = (
   let active = 0
   for (const item of items)
   {
-    if (item.weeklyUseCount + item.weeklyViewCount > 0)
+    if (item.weeklyForkCount + item.weeklyViewCount > 0)
     {
       active += 1
       if (active >= RAIL_ACTIVITY_FLOOR) return true
@@ -124,7 +124,7 @@ export const hasPopularRailActivity = (
 {
   // still loading -> keep the rail mounted so the skeleton row shows
   if (items === undefined) return true
-  return items.some((item) => item.useCount > 0)
+  return items.some((item) => item.forkCount > 0)
 }
 
 export const useTemplatesGallery = (

@@ -29,12 +29,14 @@ export const useWorkspaceBoardSyncSubscriber = ({
 {
   const isMergePendingRef = useRef(isMergePending)
   const onEditRef = useRef(onEdit)
+  const shouldProceedRef = useRef(shouldProceed)
   const lastLoadedBoardIdRef = useRef(
     useWorkspaceBoardRegistryStore.getState().activeBoardId
   )
 
   useEffect(() =>
   {
+    shouldProceedRef.current = shouldProceed
     isMergePendingRef.current = isMergePending
     onEditRef.current = onEdit
   })
@@ -44,6 +46,20 @@ export const useWorkspaceBoardSyncSubscriber = ({
     setBoardLoadedListener((boardId) =>
     {
       lastLoadedBoardIdRef.current = boardId
+
+      const canProceed = shouldProceedRef.current
+      if (!canProceed || !canProceed() || isMergePendingRef.current()) return
+
+      const state = useActiveBoardStore.getState()
+      const syncState = extractBoardSyncState(state)
+      if (syncState.pendingSyncAt === null) return
+
+      onEditRef.current({
+        boardId,
+        snapshot: extractBoardData(state),
+        boardDataSelection: selectBoardDataFields(state),
+        syncState,
+      })
     })
 
     return () =>

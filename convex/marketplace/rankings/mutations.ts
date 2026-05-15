@@ -60,7 +60,7 @@ import {
   buildBoardItemInsertFromTemplateItem,
   DEFAULT_TEMPLATE_TIERS,
   findTemplateBySlug,
-  incrementTemplateUseStats,
+  incrementTemplateForkStats,
   isPublishedTemplateRow,
   loadTemplateItems,
   templateTitleToBoardTitle,
@@ -490,6 +490,12 @@ export const remixRanking = mutation({
       sourceTemplateId: template._id,
       sourceTemplateCategory: template.category,
       sourceTemplateSizeClass: template.sizeClass,
+      sourceRankingId: ranking._id,
+      sourceTemplateTitle: template.title,
+      sourceRankingTitle: ranking.title,
+      // remixRanking bumps both the template fork counter & the ranking
+      // remixCount inline below, so this is already "counted"
+      forkCounted: true,
       preferredCriterionExternalId: ranking.sourceCriterionExternalId,
       ...buildFreshBoardCloudFields(now),
       itemAspectRatio: template.itemAspectRatio ?? undefined,
@@ -628,7 +634,7 @@ export const remixRanking = mutation({
         }),
         updatedAt: now,
       }),
-      incrementTemplateUseStats(ctx, template._id, now),
+      incrementTemplateForkStats(ctx, template._id, now),
     ])
 
     return { boardExternalId }
@@ -767,6 +773,11 @@ export const remixTemplateConsensus = mutation({
       sourceTemplateId: template._id,
       sourceTemplateCategory: template.category,
       sourceTemplateSizeClass: template.sizeClass,
+      // consensus remix is sourced from the aggregate, not a single ranking
+      sourceRankingId: null,
+      sourceTemplateTitle: template.title,
+      sourceRankingTitle: null,
+      forkCounted: true,
       preferredCriterionExternalId: criterion.externalId,
       ...buildFreshBoardCloudFields(now),
       itemAspectRatio: template.itemAspectRatio ?? undefined,
@@ -857,7 +868,7 @@ export const remixTemplateConsensus = mutation({
         items: summaryItems,
       }),
     })
-    await incrementTemplateUseStats(ctx, template._id, now)
+    await incrementTemplateForkStats(ctx, template._id, now)
 
     return { boardExternalId }
   },

@@ -150,10 +150,11 @@ export const COVER_SURFACES = ['browseHero', 'detailHero', 'card'] as const
 export type CoverSurface = (typeof COVER_SURFACES)[number]
 
 // canonical aspect ratios per surface — match the dominant rendering for each
-// spot (gallery hero ~3:2, detail page hero ~4:3, default card thumbnail
-// ~16:10). live containers may drift; FramedCoverImage covers via object-cover
+// spot (gallery hero ~16:9 after the homepage refresh, detail page hero ~4:3,
+// default card thumbnail ~16:10). live containers may drift; FramedCoverImage
+// covers via object-cover
 export const SURFACE_ASPECT_RATIOS: Record<CoverSurface, number> = {
-  browseHero: 3 / 2,
+  browseHero: 16 / 9,
   detailHero: 4 / 3,
   card: 16 / 10,
 }
@@ -213,11 +214,11 @@ export interface MarketplaceTemplateBase
   // full-image object-cover into the surface container)
   coverFraming: TemplateCoverFraming | null
   itemCount: number
-  useCount: number
+  forkCount: number
   viewCount: number
   // total public published rankings across every criterion (denormalized)
   rankingCount: number
-  weeklyUseCount: number
+  weeklyForkCount: number
   weeklyViewCount: number
   trendingScore: number
   trendingComputedAt: number | null

@@ -53,7 +53,7 @@ import {
   createTemplateStats,
   DEFAULT_TEMPLATE_TIERS,
   findTemplateBySlug,
-  incrementTemplateUseStats,
+  incrementTemplateForkStats,
   incrementTemplateViewStats,
   insertBoardItemsFromTemplate,
   insertBoardTiers,
@@ -445,6 +445,12 @@ const queueLargeTemplateClone = async (
     sourceTemplateId: template._id,
     sourceTemplateCategory: template.category,
     sourceTemplateSizeClass: template.sizeClass,
+    sourceRankingId: null,
+    sourceTemplateTitle: template.title,
+    sourceRankingTitle: null,
+    // false during the clone job's queued/running phase — flipped to true the
+    // moment processTemplateCloneJob ticks the fork counter at job completion
+    forkCounted: false,
     preferredCriterionExternalId,
     ...buildFreshBoardCloudFields(now),
     materializationState: 'clonePending',
@@ -982,6 +988,12 @@ export const useTemplate = mutation({
       sourceTemplateId: template._id,
       sourceTemplateCategory: template.category,
       sourceTemplateSizeClass: template.sizeClass,
+      sourceRankingId: null,
+      sourceTemplateTitle: template.title,
+      sourceRankingTitle: null,
+      // counter ticks inline below via incrementTemplateForkStats so this is
+      // already "counted" the moment the board exists server-side
+      forkCounted: true,
       preferredCriterionExternalId,
       ...buildFreshBoardCloudFields(now),
       // propagate the template's design-time ratio so per-item transforms
@@ -1020,7 +1032,7 @@ export const useTemplate = mutation({
         items: summaryItems,
       }),
     })
-    await incrementTemplateUseStats(ctx, template._id, now)
+    await incrementTemplateForkStats(ctx, template._id, now)
 
     return { status: 'ready', boardExternalId }
   },

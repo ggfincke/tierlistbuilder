@@ -1480,7 +1480,7 @@
       "visibility": "public",
       "labelPolicy": "explicit-required",
       "coverImage": "data/seeds/assets/covers/ssbu-fighters.jpg",
-      "coverZoom": 1.5,
+      "coverZoom": 2,
       "suggestedTiers": [
         {
           "name": "S",
@@ -2050,6 +2050,7 @@
       "visibility": "public",
       "labelPolicy": "explicit-required",
       "coverImage": "data/seeds/assets/covers/zelda-games.jpg",
+      "coverZoom": 1.5,
       "criteria": [
         {
           "externalId": "default",
@@ -30203,6 +30204,8 @@
       "tags": ["mcu", "marvel", "movies", "tv"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "coverImage": "data/seeds/assets/covers/mcu-posters.jpg",
+      "coverZoom": 1.5,
       "criteria": [
         {
           "externalId": "default",

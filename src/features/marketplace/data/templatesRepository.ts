@@ -9,6 +9,8 @@ import type {
   MarketplaceTemplateGalleryRailResult,
   MarketplaceTemplateGalleryResultsResult,
   MarketplaceTemplateBookmarkState,
+  MarketplaceTemplateItem,
+  MarketplaceTemplateItemsResult,
   MarketplaceTemplateListResult,
   MarketplaceTemplateManagementListResult,
   MarketplaceTemplatePublishResult,
@@ -18,6 +20,9 @@ import type {
   TemplateListSort,
   TemplateUseTierSelection,
   TemplateVisibility,
+} from '@tierlistbuilder/contracts/marketplace/template'
+import {
+  DEFAULT_TEMPLATE_ITEM_PAGE_SIZE,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
 import { getConvexClient } from '~/features/platform/sync/lib/convexClient'
@@ -57,6 +62,51 @@ export const useTemplateBySlug = (
     api.marketplace.templates.queries.getTemplateBySlug,
     typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
   )
+
+// imperative variant for the local-fork path — fetches the full template
+// detail in a single round trip when the caller doesn't have a reactive
+// subscription handy (eg signed-out fork CTAs that don't keep detail live)
+export const getTemplateBySlugImperative = (
+  slug: string
+): Promise<MarketplaceTemplateDetail | null> =>
+  getConvexClient().query(
+    api.marketplace.templates.queries.getTemplateBySlug,
+    { slug }
+  )
+
+// paginated imperative fetch — used by the local-fork flow to collect every
+// template item without leaning on reactive pagination. caps the page size at
+// the contract-default to stay friendly w/ convex query limits
+export const listTemplateItemsImperative = async (
+  slug: string,
+  paginationOpts: { cursor: string | null; numItems: number }
+): Promise<MarketplaceTemplateItemsResult> =>
+  getConvexClient().query(
+    api.marketplace.templates.queries.listTemplateItems,
+    { slug, paginationOpts }
+  )
+
+// drain every template item page-by-page until exhausted. bounded by the
+// upstream query's per-page cap; safe for standard-size templates (≤200 items)
+// & large templates routed through the same path (caller decides cap)
+export const loadAllTemplateItemsImperative = async (
+  slug: string
+): Promise<MarketplaceTemplateItem[]> =>
+{
+  const items: MarketplaceTemplateItem[] = []
+  let cursor: string | null = null
+  while (true)
+  {
+    const result: MarketplaceTemplateItemsResult =
+      await listTemplateItemsImperative(slug, {
+        cursor,
+        numItems: DEFAULT_TEMPLATE_ITEM_PAGE_SIZE,
+      })
+    items.push(...result.page)
+    if (result.isDone) return items
+    cursor = result.continueCursor
+  }
+}
 
 interface RelatedTemplatesArgs
 {
