@@ -10,20 +10,22 @@ from pathlib import Path
 from unittest.mock import patch
 
 from seed_pipeline.manifest import find_repo_root, read_json
+from seed_pipeline.run_context import (
+    SeedRunOptions,
+    checkpoint_matches,
+    is_production_env,
+    new_run_id,
+)
 from seed_pipeline.runs import (
     CLEANUP_STORAGE_BATCH_SIZE,
     CRITERION_BATCH_SIZE,
     FINALIZE_ASSET_BATCH_SIZE,
     ITEM_BATCH_SIZE,
-    SeedRunOptions,
     TEMPLATE_BATCH_SIZE,
     UPLOAD_URL_BATCH_SIZE,
-    _assets_requiring_upload,
-    _child_upsert_batches,
-    _checkpoint_matches,
-    _is_production_env,
-    _new_run_id,
-    _packed_child_upsert_batches,
+    assets_requiring_upload,
+    child_upsert_batches,
+    packed_child_upsert_batches,
     build_criterion_upserts,
     build_item_upserts,
     build_template_upserts,
@@ -102,8 +104,8 @@ class SeedRunPayloadTests(unittest.TestCase):
             "env": "local",
         }
 
-        self.assertTrue(_checkpoint_matches(checkpoint, self.compiled, "local"))
-        self.assertFalse(_checkpoint_matches(checkpoint, self.compiled, "prod"))
+        self.assertTrue(checkpoint_matches(checkpoint, self.compiled, "local"))
+        self.assertFalse(checkpoint_matches(checkpoint, self.compiled, "prod"))
 
     def test_child_upsert_batches_keep_each_template_complete(self) -> None:
         rows = [
@@ -112,7 +114,7 @@ class SeedRunPayloadTests(unittest.TestCase):
             {"templateExternalId": "template-a", "itemExternalId": "a-2"},
         ]
 
-        batches = _child_upsert_batches(rows, 2, "items")
+        batches = child_upsert_batches(rows, 2, "items")
 
         self.assertEqual(
             [[item["itemExternalId"] for item in batch] for batch in batches],
@@ -127,7 +129,7 @@ class SeedRunPayloadTests(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(RuntimeError, "exceeding per-call limit"):
-            _child_upsert_batches(rows, 2, "items")
+            child_upsert_batches(rows, 2, "items")
 
     def test_packed_child_upsert_batches_pack_complete_template_groups(self) -> None:
         rows = [
@@ -137,7 +139,7 @@ class SeedRunPayloadTests(unittest.TestCase):
             {"templateExternalId": "template-c", "criterionExternalId": "c-1"},
         ]
 
-        batches = _packed_child_upsert_batches(rows, 3, "criteria")
+        batches = packed_child_upsert_batches(rows, 3, "criteria")
 
         self.assertEqual(
             [
@@ -152,8 +154,8 @@ class SeedRunPayloadTests(unittest.TestCase):
         stale_state = {"media": [{"mediaDedupeHash": "tile-only"}]}
         current_state = {"media": [{"mediaDedupeHash": asset["dedupeHash"]}]}
 
-        stale_needed = _assets_requiring_upload(self.compiled, stale_state)
-        current_needed = _assets_requiring_upload(self.compiled, current_state)
+        stale_needed = assets_requiring_upload(self.compiled, stale_state)
+        current_needed = assets_requiring_upload(self.compiled, current_state)
 
         self.assertIn(
             "gaming:ssbu-fighters:mario",
@@ -174,7 +176,7 @@ class SeedRunPayloadTests(unittest.TestCase):
             }
         )
 
-        needed = _assets_requiring_upload(self.compiled, {"media": []})
+        needed = assets_requiring_upload(self.compiled, {"media": []})
 
         duplicate_hash = first_item["asset"]["dedupeHash"]
         matching = [
@@ -208,11 +210,14 @@ class SeedRunPayloadTests(unittest.TestCase):
 
             with (
                 patch(
-                    "seed_pipeline.runs.build_compiled_manifest_with_data",
+                    "seed_pipeline.run_context.build_compiled_manifest_with_data",
                     return_value=(compiled_path, self.compiled),
                 ),
-                patch("seed_pipeline.runs.read_seed_settings", return_value=object()),
-                patch("seed_pipeline.runs.ConvexSeedClient", make_client),
+                patch(
+                    "seed_pipeline.run_context.read_seed_settings",
+                    return_value=object(),
+                ),
+                patch("seed_pipeline.run_context.ConvexSeedClient", make_client),
             ):
                 run_seed_manifest(
                     Path("seed.json"),
@@ -265,11 +270,14 @@ class SeedRunPayloadTests(unittest.TestCase):
 
             with (
                 patch(
-                    "seed_pipeline.runs.build_compiled_manifest_with_data",
+                    "seed_pipeline.run_context.build_compiled_manifest_with_data",
                     return_value=(compiled_path, self.compiled),
                 ),
-                patch("seed_pipeline.runs.read_seed_settings", return_value=object()),
-                patch("seed_pipeline.runs.ConvexSeedClient", make_client),
+                patch(
+                    "seed_pipeline.run_context.read_seed_settings",
+                    return_value=object(),
+                ),
+                patch("seed_pipeline.run_context.ConvexSeedClient", make_client),
             ):
                 run_seed_manifest(
                     Path("seed.json"),
@@ -281,18 +289,18 @@ class SeedRunPayloadTests(unittest.TestCase):
         self.assertEqual(clients[0].actions, [])
 
     def test_run_ids_include_entropy_after_timestamp(self) -> None:
-        first = _new_run_id(self.compiled)
-        second = _new_run_id(self.compiled)
+        first = new_run_id(self.compiled)
+        second = new_run_id(self.compiled)
 
         self.assertRegex(first, r"2026-05-templates-v1-\d{8}T\d{6}Z-[0-9a-f]{8}")
         self.assertNotEqual(first, second)
 
     def test_production_environment_detection_catches_regional_names(self) -> None:
-        self.assertTrue(_is_production_env("prod"))
-        self.assertTrue(_is_production_env("production-eu"))
-        self.assertTrue(_is_production_env("prod:happy-animal-123"))
-        self.assertFalse(_is_production_env("local"))
-        self.assertFalse(_is_production_env("preprod"))
+        self.assertTrue(is_production_env("prod"))
+        self.assertTrue(is_production_env("production-eu"))
+        self.assertTrue(is_production_env("prod:happy-animal-123"))
+        self.assertFalse(is_production_env("local"))
+        self.assertFalse(is_production_env("preprod"))
 
     def test_python_batch_limits_match_convex_seed_limits(self) -> None:
         repo_root = find_repo_root()

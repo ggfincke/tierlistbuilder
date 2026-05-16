@@ -16,6 +16,7 @@ import type { QueryCtx } from '../../_generated/server'
 import { selectMediaVariantSummary } from '../../lib/mediaVariants'
 import { BOARD_ITEM_TAKE_LIMIT } from '../../lib/limits'
 import { loadBoundedBoardRows } from '../../workspace/sync/loadBoundedBoardRows'
+import { memoizePromise } from '../../lib/cache'
 
 // hard cap per batch — protects the query's document read budget. clients
 // chunk their pending batches to fit. 50 covers the common "warm a board"
@@ -282,30 +283,18 @@ export const getMediaAssetsByExternalIds = query({
     const loadReadableAsset = (
       externalId: string
     ): Promise<Doc<'mediaAssets'> | null> =>
-    {
-      const cached = assetCache.get(externalId)
-      if (cached) return cached
-      const pending = (async () =>
+      memoizePromise(assetCache, externalId, async () =>
       {
         const asset = await findMediaAssetByExternalId(ctx, externalId)
         if (!asset) return null
         if (!(await canReadMediaAsset(ctx, asset, userId, budget))) return null
         return asset
-      })()
-      assetCache.set(externalId, pending)
-      return pending
-    }
+      })
 
     const loadStorageUrl = (
       storageId: Id<'_storage'>
     ): Promise<string | null> =>
-    {
-      const cached = urlCache.get(storageId)
-      if (cached) return cached
-      const pending = ctx.storage.getUrl(storageId)
-      urlCache.set(storageId, pending)
-      return pending
-    }
+      memoizePromise(urlCache, storageId, () => ctx.storage.getUrl(storageId))
 
     const load = async (
       request: MediaAssetLookupRequest

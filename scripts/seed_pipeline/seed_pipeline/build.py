@@ -11,8 +11,6 @@ from jsonschema import Draft202012Validator
 
 from .assets import (
     SourceAsset,
-    _read_sidecar_json,
-    _write_sidecar_json,
     compile_asset,
     inspect_source,
     sha256_file,
@@ -34,6 +32,7 @@ from .settings import (
     VARIANT_META_SCHEMA_VERSION,
     VARIANT_SPEC_VERSION,
 )
+from .sidecars import read_sidecar_json, write_sidecar_json
 from .validate import (
     ManifestValidationError,
     ValidationDiagnostic,
@@ -342,7 +341,7 @@ def _try_compile_cache_hit(
         or not variants_dir.is_dir()
     ):
         return None
-    cached_fingerprint = _read_sidecar_json(fingerprint_path)
+    cached_fingerprint = read_sidecar_json(fingerprint_path)
     if cached_fingerprint is None:
         return None
     if cached_fingerprint.get("schemaVersion") != COMPILE_FINGERPRINT_SCHEMA_VERSION:
@@ -539,4 +538,4 @@ def _write_compile_fingerprint(
 ) -> None:
     payload = _compute_compile_fingerprint(manifest_path, manifest, repo_root)
     payload["validationWarnings"] = [warning.to_json() for warning in warnings]
-    _write_sidecar_json(fingerprint_path, payload)
+    write_sidecar_json(fingerprint_path, payload)

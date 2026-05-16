@@ -11,8 +11,8 @@ from pathlib import Path
 from .build import build_compiled_manifest
 from .diff import write_diff_report_for_manifest
 from .manifest import find_repo_root
+from .run_context import SeedRunOptions
 from .runs import (
-    SeedRunOptions,
     activate_seed_manifest,
     apply_seed_manifest,
     cleanup_seed_manifest,

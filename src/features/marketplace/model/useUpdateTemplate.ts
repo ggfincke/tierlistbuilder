@@ -10,10 +10,8 @@ import {
   useUpdateMyTemplateMetaMutation,
   type UpdateMyTemplateMetaArgs,
 } from '~/features/marketplace/data/templatesRepository'
-import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
+import { useMarketplaceAsyncAction } from '~/features/marketplace/model/useMarketplaceAsyncAction'
 import { toast } from '~/shared/notifications/useToastStore'
-import { logger } from '~/shared/lib/logger'
-import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface UpdateTemplateInput extends Omit<
   UpdateMyTemplateMetaArgs,
@@ -70,19 +68,10 @@ export const useUpdateTemplate = (): UpdateTemplateAction =>
     [updateMutation]
   )
 
-  const onError = useCallback((caught: unknown) =>
-  {
-    logger.error('marketplace', 'updateMyTemplateMeta failed', caught)
-    toast(formatMarketplaceError(caught), 'error')
-  }, [])
-
-  const { run, isPending, error } = useAsyncAction<
+  const { run, isPending, error } = useMarketplaceAsyncAction<
     [UpdateTemplateInput],
     { slug: string }
-  >(update, {
-    onError,
-    getErrorMessage: formatMarketplaceError,
-  })
+  >('updateMyTemplateMeta failed', update)
 
   return { run, isPending, error }
 }

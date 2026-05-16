@@ -4,7 +4,7 @@
 
 import { Eye, Loader2, Sparkles, TrendingUp } from 'lucide-react'
 import { useMemo, type ComponentType, type SVGProps } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import {
   isRankingSlug,
@@ -20,6 +20,7 @@ import { getTextColor } from '~/shared/lib/color'
 import { useRankingBySlug } from '~/features/marketplace/model/useRankingDetail'
 import { useRecordRankingView } from '~/features/marketplace/model/useRecordRankingView'
 import { useRemixRanking } from '~/features/marketplace/model/useRemixRanking'
+import { useValidatedSlug } from '~/features/marketplace/model/useValidatedSlug'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
@@ -268,8 +269,7 @@ const RankingBoard = ({ detail }: RankingBoardProps) =>
 
 export const RankingDetailPage = () =>
 {
-  const { slug } = useParams<{ slug: string }>()
-  const validSlug = slug && isRankingSlug(slug) ? slug : null
+  const validSlug = useValidatedSlug(isRankingSlug)
   const detail = useRankingBySlug(validSlug)
   useRecordRankingView(detail ? detail.slug : null)
   useDocumentTitle(detail ? `${detail.title} · TierListBuilder` : null)

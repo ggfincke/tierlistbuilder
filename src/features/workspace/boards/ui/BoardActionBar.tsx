@@ -1,7 +1,7 @@
 // src/features/workspace/boards/ui/BoardActionBar.tsx
 // floating action bar — undo/redo, add tier, settings, export, & reset controls
 
-import { useCallback, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useId, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import {
   BarChart3,
@@ -35,10 +35,9 @@ import {
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
-  useNestedMenus,
+  useNestedDropdown,
   type NestedMenuDefinition,
 } from '~/shared/overlay/nestedMenus'
-import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
 
 import {
@@ -175,31 +174,38 @@ export const BoardActionBar = ({
   const addPreset = useTierPresetStore((state) => state.addPreset)
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmShuffleAll, setConfirmShuffleAll] = useState(false)
-  const shuffleButtonRef = useRef<HTMLButtonElement | null>(null)
-  const shuffleMenuRef = useRef<HTMLDivElement | null>(null)
-  const saveButtonRef = useRef<HTMLButtonElement | null>(null)
-  const saveMenuRef = useRef<HTMLDivElement | null>(null)
   const [showSavePreset, setShowSavePreset] = useState(false)
-  const shuffleDialogId = useId()
   const shuffleAllGroupId = useId()
-  const saveDialogId = useId()
   const disabledMenuIds = useMemo(
     () => (boardLocked ? (['root', 'shuffleAll'] as const) : ([] as const)),
     [boardLocked]
   )
   const { getRef: getOverflowRef } = useMenuOverflowFlipRefs<ShuffleMenuId>()
-  const { closeAllMenus, isOpen, toggleMenu } = useNestedMenus({
+  const {
+    buttonRef: shuffleButtonRef,
+    menuRef: shuffleMenuRef,
+    dialogId: shuffleDialogId,
+    closeAllMenus,
+    isOpen,
+    isRootOpen: showShuffleMenu,
+    toggleMenu,
+  } = useNestedDropdown({
+    rootId: 'root',
     definitions: SHUFFLE_MENU_DEFINITIONS,
     disabledIds: disabledMenuIds,
   })
   const {
+    buttonRef: saveButtonRef,
+    menuRef: saveMenuRef,
+    dialogId: saveDialogId,
     closeAllMenus: closeSaveMenu,
-    isOpen: isSaveOpen,
+    isRootOpen: showSaveMenu,
     toggleMenu: toggleSaveMenu,
-  } = useNestedMenus({ definitions: SAVE_MENU_DEFINITIONS })
-  const showShuffleMenu = isOpen('root')
+  } = useNestedDropdown({
+    rootId: 'root',
+    definitions: SAVE_MENU_DEFINITIONS,
+  })
   const showShuffleAllMenu = isOpen('shuffleAll')
-  const showSaveMenu = isSaveOpen('root')
   const undoTitle = boardLocked
     ? 'Unlock board to undo changes'
     : canUndo
@@ -213,19 +219,6 @@ export const BoardActionBar = ({
   const lockedActionTitle = boardLocked
     ? 'Unlock board to use this action'
     : undefined
-
-  useDismissibleLayer({
-    open: showShuffleMenu,
-    triggerRef: shuffleButtonRef,
-    layerRef: shuffleMenuRef,
-    onDismiss: closeAllMenus,
-  })
-  useDismissibleLayer({
-    open: showSaveMenu,
-    triggerRef: saveButtonRef,
-    layerRef: saveMenuRef,
-    onDismiss: closeSaveMenu,
-  })
 
   // pending shuffle mode for the confirmation dialog
   const [pendingShuffleMode, setPendingShuffleMode] = useState<

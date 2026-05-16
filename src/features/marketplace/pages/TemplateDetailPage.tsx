@@ -3,7 +3,6 @@
 
 import { Layers } from 'lucide-react'
 import { useMemo } from 'react'
-import { useParams } from 'react-router-dom'
 
 import {
   isTemplateSlug,
@@ -16,11 +15,13 @@ import {
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { useSelectedCriterion } from '~/features/marketplace/model/useSelectedCriterion'
 import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
+import { useValidatedSlug } from '~/features/marketplace/model/useValidatedSlug'
 import { useRelatedTemplates } from '~/features/marketplace/model/useTemplateDetail'
 import { useTemplateRankingAggregate } from '~/features/marketplace/model/useRankingDetail'
 import { useRecordTemplateView } from '~/features/marketplace/model/useRecordTemplateView'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
 import { Card } from '~/features/marketplace/components/cards/Card'
@@ -102,9 +103,11 @@ const RelatedTemplatesRail = ({
   if (result.items.length === 0)
   {
     return (
-      <p className="rounded-md border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-4 py-6 text-center text-sm text-[var(--t-text-muted)]">
-        Nothing else in {categoryLabel} yet — check back as the gallery grows.
-      </p>
+      <EmptyCard
+        radius="md"
+        padding="sm"
+        body={`Nothing else in ${categoryLabel} yet — check back as the gallery grows.`}
+      />
     )
   }
   return (
@@ -139,8 +142,7 @@ const CreditNote = ({ template }: CreditNoteProps) =>
 
 export const TemplateDetailPage = () =>
 {
-  const { slug } = useParams<{ slug: string }>()
-  const validSlug = slug && isTemplateSlug(slug) ? slug : null
+  const validSlug = useValidatedSlug(isTemplateSlug)
   const detail = useTemplateBySlug(validSlug)
   // only record once we have a valid published row; null/undefined skip
   useRecordTemplateView(detail ? detail.slug : null)

@@ -58,3 +58,16 @@ export const assertUniqueValues = (
     seen.add(value)
   }
 }
+
+export const assertExternalIdShape = (
+  name: string,
+  value: string,
+  predicate: (value: string) => boolean,
+  prefix: string
+): void =>
+{
+  if (!predicate(value))
+  {
+    failInput(`invalid ${name}: must start with "${prefix}"`)
+  }
+}

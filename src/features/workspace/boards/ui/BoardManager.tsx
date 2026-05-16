@@ -1,7 +1,7 @@
 // src/features/workspace/boards/ui/BoardManager.tsx
 // floating bottom-right panel for switching between multiple tier lists
 
-import { lazy, useCallback, useId, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 import {
   Copy,
   History,
@@ -36,17 +36,16 @@ import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { PresetPickerModal } from '~/features/workspace/tier-presets/ui/PresetPickerModal'
 import { TextInput } from '~/shared/ui/TextInput'
 import { BoardSyncBadge } from '~/features/workspace/boards/ui/BoardSyncBadge'
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 
-const RecentlyDeletedModal = lazy(() =>
-  import('~/features/workspace/boards/ui/RecentlyDeletedModal').then((m) => ({
-    default: m.RecentlyDeletedModal,
-  }))
+const RecentlyDeletedModal = lazyNamed(
+  () => import('~/features/workspace/boards/ui/RecentlyDeletedModal'),
+  'RecentlyDeletedModal'
 )
 
-const RecentSharesModal = lazy(() =>
-  import('~/features/workspace/sharing/ui/RecentSharesModal').then((m) => ({
-    default: m.RecentSharesModal,
-  }))
+const RecentSharesModal = lazyNamed(
+  () => import('~/features/workspace/sharing/ui/RecentSharesModal'),
+  'RecentSharesModal'
 )
 
 interface BoardManagerProps

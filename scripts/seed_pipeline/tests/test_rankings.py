@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from seed_pipeline.convex_client import ConvexClientError, SEED_HTTP_ROUTES
+from seed_pipeline.concurrency import run_in_parallel
 from seed_pipeline.ranking_config import compile_ranking_seeds
 from seed_pipeline.rankings import (
     RANKING_APPLY_THROTTLE_BASE_SECONDS,
@@ -15,7 +16,6 @@ from seed_pipeline.rankings import (
     SEED_RANKINGS_CLEANUP_STALE_FUNCTION,
     _apply_ranking_targets,
     _ranking_seed_target_manifests,
-    _run_in_parallel,
     _run_ranking_lifecycle_until_complete,
 )
 
@@ -376,7 +376,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
         callbacks: list[tuple[int, int, str]] = []
         items = [{"id": "a"}, {"id": "b"}, {"id": "c"}]
 
-        results = _run_in_parallel(
+        results = run_in_parallel(
             items,
             lambda item: {"id": item["id"], "done": True},
             max_workers=2,

@@ -1,9 +1,10 @@
 // src/app/routes/AppRouter.tsx
 // react-router-dom v6 router — workspace, library, embed, & 404 routes
 
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 import {
   BOARDS_ROUTE_PATH,
   EMBED_ROUTE_PATH,
@@ -18,48 +19,41 @@ import { WorkspaceRoute } from './WorkspaceRoute'
 
 // embed bundle ships shared/board-ui + EmbedView which workspace users never
 // hit — lazy load keeps it out of the primary chunk
-const EmbedRoute = lazy(() =>
-  import('./EmbedRoute').then((m) => ({ default: m.EmbedRoute }))
+const EmbedRoute = lazyNamed(() => import('./EmbedRoute'), 'EmbedRoute')
+
+const MyBoardsRoute = lazyNamed(
+  () => import('./MyBoardsRoute'),
+  'MyBoardsRoute'
 )
 
-const MyBoardsRoute = lazy(() =>
-  import('./MyBoardsRoute').then((m) => ({ default: m.MyBoardsRoute }))
+const MarketplaceLayout = lazyNamed(
+  () => import('~/features/marketplace/pages/MarketplaceLayout'),
+  'MarketplaceLayout'
 )
 
-const MarketplaceLayout = lazy(() =>
-  import('~/features/marketplace/pages/MarketplaceLayout').then((m) => ({
-    default: m.MarketplaceLayout,
-  }))
+const TemplatesGalleryPage = lazyNamed(
+  () => import('~/features/marketplace/pages/TemplatesGalleryPage'),
+  'TemplatesGalleryPage'
 )
 
-const TemplatesGalleryPage = lazy(() =>
-  import('~/features/marketplace/pages/TemplatesGalleryPage').then((m) => ({
-    default: m.TemplatesGalleryPage,
-  }))
+const TemplateDetailPage = lazyNamed(
+  () => import('~/features/marketplace/pages/TemplateDetailPage'),
+  'TemplateDetailPage'
 )
 
-const TemplateDetailPage = lazy(() =>
-  import('~/features/marketplace/pages/TemplateDetailPage').then((m) => ({
-    default: m.TemplateDetailPage,
-  }))
+const TemplateComparePage = lazyNamed(
+  () => import('~/features/marketplace/pages/TemplateComparePage'),
+  'TemplateComparePage'
 )
 
-const TemplateComparePage = lazy(() =>
-  import('~/features/marketplace/pages/TemplateComparePage').then((m) => ({
-    default: m.TemplateComparePage,
-  }))
+const RankingDetailPage = lazyNamed(
+  () => import('~/features/marketplace/pages/RankingDetailPage'),
+  'RankingDetailPage'
 )
 
-const RankingDetailPage = lazy(() =>
-  import('~/features/marketplace/pages/RankingDetailPage').then((m) => ({
-    default: m.RankingDetailPage,
-  }))
-)
-
-const RankingsIndexPage = lazy(() =>
-  import('~/features/marketplace/pages/RankingsIndexPage').then((m) => ({
-    default: m.RankingsIndexPage,
-  }))
+const RankingsIndexPage = lazyNamed(
+  () => import('~/features/marketplace/pages/RankingsIndexPage'),
+  'RankingsIndexPage'
 )
 
 // matches the page-color shell each lazy chunk applies once mounted, so users

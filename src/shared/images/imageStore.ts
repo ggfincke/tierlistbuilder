@@ -3,6 +3,7 @@
 
 import { logger } from '~/shared/lib/logger'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { pruneOldestMapEntries } from '~/shared/lib/lru'
 
 const DB_NAME = 'tierlistbuilder-images'
 // bumped past 5 because main shipped a v5 schema (blobs+blobRefs only); this
@@ -69,22 +70,6 @@ const touchMemoryUploadIndex = (record: UploadIndexRecord): void =>
   const key = uploadIndexKey(record.userId, record.hash)
   memoryUploadIndex.delete(key)
   memoryUploadIndex.set(key, record)
-}
-
-const pruneOldestMapEntries = <TKey, TValue>(
-  map: Map<TKey, TValue>,
-  maxSize: number,
-  isProtected: (key: TKey, value: TValue) => boolean = () => false
-): void =>
-{
-  if (map.size <= maxSize) return
-
-  for (const [key, value] of map)
-  {
-    if (map.size <= maxSize) return
-    if (isProtected(key, value)) continue
-    map.delete(key)
-  }
 }
 
 const pruneMemoryCaches = (

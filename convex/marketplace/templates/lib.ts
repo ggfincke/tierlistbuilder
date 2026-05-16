@@ -14,6 +14,7 @@ import {
   loadPreviewOrTileStorageId,
   selectMediaVariantSummary,
 } from '../../lib/mediaVariants'
+import { memoizePromise } from '../../lib/cache'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
   TemplateCardAccessState,
@@ -618,14 +619,12 @@ export const findTemplateStatsByTemplateId = async (
       .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
       .unique()
   }
-  const cached = cache.stats.get(templateId)
-  if (cached) return await cached
-  const pending = ctx.db
-    .query('templateStats')
-    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-    .unique()
-  cache.stats.set(templateId, pending)
-  return await pending
+  return await memoizePromise(cache.stats, templateId, () =>
+    ctx.db
+      .query('templateStats')
+      .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+      .unique()
+  )
 }
 
 export const requireTemplateStats = async (
@@ -879,11 +878,9 @@ const loadAsset = async (
 ): Promise<Doc<'mediaAssets'> | null> =>
 {
   if (!cache) return await ctx.db.get(mediaAssetId)
-  const cached = cache.assets.get(mediaAssetId)
-  if (cached) return await cached
-  const pending = ctx.db.get(mediaAssetId)
-  cache.assets.set(mediaAssetId, pending)
-  return await pending
+  return await memoizePromise(cache.assets, mediaAssetId, () =>
+    ctx.db.get(mediaAssetId)
+  )
 }
 
 const loadAssetUrl = async (
@@ -893,11 +890,9 @@ const loadAssetUrl = async (
 ): Promise<string | null> =>
 {
   if (!cache) return await ctx.storage.getUrl(storageId)
-  const cached = cache.urls.get(storageId)
-  if (cached) return await cached
-  const pending = ctx.storage.getUrl(storageId)
-  cache.urls.set(storageId, pending)
-  return await pending
+  return await memoizePromise(cache.urls, storageId, () =>
+    ctx.storage.getUrl(storageId)
+  )
 }
 
 const buildMediaRef = async (
@@ -1035,15 +1030,9 @@ export const toTemplateAuthor = async (
     return await loadTemplateAuthor(ctx, authorId)
   }
 
-  const existing = cache.authors.get(authorId)
-  if (existing)
-  {
-    return await existing
-  }
-
-  const pending = loadTemplateAuthor(ctx, authorId)
-  cache.authors.set(authorId, pending)
-  return await pending
+  return await memoizePromise(cache.authors, authorId, () =>
+    loadTemplateAuthor(ctx, authorId)
+  )
 }
 
 const toAuthorDisplayName = (

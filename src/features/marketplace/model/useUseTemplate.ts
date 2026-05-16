@@ -14,11 +14,9 @@ import {
 import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
 import { createLocalBoardFromTemplate } from '~/features/workspace/boards/model/localBoardFork'
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
-import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
+import { useMarketplaceAsyncAction } from '~/features/marketplace/model/useMarketplaceAsyncAction'
 import { toast, toastWithAction } from '~/shared/notifications/useToastStore'
-import { logger } from '~/shared/lib/logger'
 import { BOARDS_ROUTE_PATH } from '~/shared/routes/pathname'
-import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface UseTemplateOptions
 {
@@ -127,20 +125,12 @@ export const useUseTemplate = (): UseTemplateAction =>
     [cloneTemplate, navigate, session.status]
   )
 
-  const onError = useCallback((error: unknown) =>
-  {
-    logger.error('marketplace', 'useTemplate failed', error)
-    toast(formatMarketplaceError(error), 'error')
-  }, [])
-
-  const { run: runUseTemplate, isPending } = useAsyncAction<
+  const { run: runUseTemplate, isPending } = useMarketplaceAsyncAction<
     [string, string, UseTemplateOptions | undefined],
     void
-  >(useTemplate, {
-    onError,
-  })
+  >('useTemplate failed', useTemplate)
 
-  // tighten the run signature back to Promise<void> — useAsyncAction widens
+  // tighten the run signature back to Promise<void> — the action runner widens
   // to Promise<void | null> on error to give callers a discriminant, but
   // we only care about pending state here
   const run = useCallback(

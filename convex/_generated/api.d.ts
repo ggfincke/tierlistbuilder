@@ -14,6 +14,7 @@ import type * as dev_reset from "../dev/reset.js";
 import type * as http from "../http.js";
 import type * as lib_assertions from "../lib/assertions.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_cache from "../lib/cache.js";
 import type * as lib_cascadeDelete from "../lib/cascadeDelete.js";
 import type * as lib_entitlements from "../lib/entitlements.js";
 import type * as lib_equality from "../lib/equality.js";
@@ -99,6 +100,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/assertions": typeof lib_assertions;
   "lib/auth": typeof lib_auth;
+  "lib/cache": typeof lib_cache;
   "lib/cascadeDelete": typeof lib_cascadeDelete;
   "lib/entitlements": typeof lib_entitlements;
   "lib/equality": typeof lib_equality;

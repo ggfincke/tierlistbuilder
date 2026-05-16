@@ -5,17 +5,14 @@
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { uploadCoverImage } from '~/features/marketplace/data/coverImageUpload'
 import {
   usePublishFromBoardMutation,
   type PublishFromBoardArgs,
 } from '~/features/marketplace/data/templatesRepository'
-import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
+import { useSignedInMarketplaceAction } from '~/features/marketplace/model/useMarketplaceAsyncAction'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { toast } from '~/shared/notifications/useToastStore'
-import { logger } from '~/shared/lib/logger'
-import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface PublishTemplateInput extends Omit<
   PublishFromBoardArgs,
@@ -34,7 +31,6 @@ interface PublishTemplateAction
 
 export const usePublishTemplate = (): PublishTemplateAction =>
 {
-  const session = useAuthSession()
   const publishMutation = usePublishFromBoardMutation()
   const navigate = useNavigate()
 
@@ -73,34 +69,12 @@ export const usePublishTemplate = (): PublishTemplateAction =>
     [navigate, publishMutation]
   )
 
-  const onError = useCallback((caught: unknown) =>
-  {
-    logger.error('marketplace', 'publishFromBoard failed', caught)
-    toast(formatMarketplaceError(caught), 'error')
-  }, [])
-
-  const {
-    run: runPublish,
-    isPending,
-    error,
-    setError,
-  } = useAsyncAction<[PublishTemplateInput], { slug: string }>(publish, {
-    onError,
-    getErrorMessage: formatMarketplaceError,
+  const { run, isPending, error } = useSignedInMarketplaceAction<
+    [PublishTemplateInput],
+    { slug: string }
+  >('publishFromBoard failed', publish, {
+    signedOutError: 'Sign in to publish a template.',
   })
-
-  const run = useCallback(
-    async (input: PublishTemplateInput) =>
-    {
-      if (session.status !== 'signed-in')
-      {
-        setError('Sign in to publish a template.')
-        return null
-      }
-      return await runPublish(input)
-    },
-    [runPublish, session.status, setError]
-  )
 
   return { run, isPending, error }
 }

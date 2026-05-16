@@ -6,13 +6,10 @@ import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import type { RankingVisibility } from '@tierlistbuilder/contracts/marketplace/ranking'
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { usePublishRankingFromBoardMutation } from '~/features/marketplace/data/rankingsRepository'
-import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
+import { useSignedInMarketplaceAction } from '~/features/marketplace/model/useMarketplaceAsyncAction'
 import { RANKINGS_ROUTE_PATH } from '~/shared/routes/pathname'
 import { toast } from '~/shared/notifications/useToastStore'
-import { logger } from '~/shared/lib/logger'
-import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface PublishRankingInput
 {
@@ -34,7 +31,6 @@ interface PublishRankingAction
 
 export const usePublishRanking = (): PublishRankingAction =>
 {
-  const session = useAuthSession()
   const publishMutation = usePublishRankingFromBoardMutation()
   const navigate = useNavigate()
 
@@ -57,34 +53,12 @@ export const usePublishRanking = (): PublishRankingAction =>
     [navigate, publishMutation]
   )
 
-  const onError = useCallback((caught: unknown) =>
-  {
-    logger.error('marketplace', 'publishRankingFromBoard failed', caught)
-    toast(formatMarketplaceError(caught), 'error')
-  }, [])
-
-  const {
-    run: runPublish,
-    isPending,
-    error,
-    setError,
-  } = useAsyncAction<[PublishRankingInput], { slug: string }>(publish, {
-    onError,
-    getErrorMessage: formatMarketplaceError,
+  const { run, isPending, error } = useSignedInMarketplaceAction<
+    [PublishRankingInput],
+    { slug: string }
+  >('publishRankingFromBoard failed', publish, {
+    signedOutError: 'Sign in to publish a ranking.',
   })
-
-  const run = useCallback(
-    async (input: PublishRankingInput) =>
-    {
-      if (session.status !== 'signed-in')
-      {
-        setError('Sign in to publish a ranking.')
-        return null
-      }
-      return await runPublish(input)
-    },
-    [runPublish, session.status, setError]
-  )
 
   return { run, isPending, error }
 }

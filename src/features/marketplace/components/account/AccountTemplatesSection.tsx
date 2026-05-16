@@ -1,7 +1,7 @@
 // src/features/marketplace/components/account/AccountTemplatesSection.tsx
 // owned-template management list — stats, edit, unpublish/republish, view
 
-import { lazy, useState } from 'react'
+import { useState } from 'react'
 import { ExternalLink, Eye, Layers, Loader2, Pencil } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -23,18 +23,16 @@ import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 import {
   loadPublishModal,
   preloadPublishModal,
 } from '~/features/marketplace/components/publish/loadPublishModal'
 import type { PublishModalEditInitialValues } from '~/features/marketplace/components/publish/PublishModal'
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 
-const PublishModal = lazy(() =>
-  loadPublishModal().then((m) => ({
-    default: m.PublishModal,
-  }))
-)
+const PublishModal = lazyNamed(loadPublishModal, 'PublishModal')
 
 interface VisibilityBadgeProps
 {
@@ -250,10 +248,11 @@ export const AccountTemplatesSection = () =>
   if (list.items.length === 0)
   {
     return (
-      <p className="rounded-md border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-4 py-6 text-center text-sm text-[var(--t-text-muted)]">
-        You haven't published any templates yet. Use the publish button on the
-        gallery to share your first one.
-      </p>
+      <EmptyCard
+        radius="md"
+        padding="sm"
+        body="You haven't published any templates yet. Use the publish button on the gallery to share your first one."
+      />
     )
   }
 

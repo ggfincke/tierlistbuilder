@@ -37,6 +37,7 @@ import {
 } from '~/features/marketplace/model/useRankingDetail'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
 import { BucketLegend } from '../consensus/BucketLegend'
@@ -89,13 +90,6 @@ interface CommunityConsensusSectionProps
   visibleCriteria: readonly MarketplaceTemplateCriterion[] | null
   onCriterionChange: (externalId: string) => void
 }
-
-const StateCard = ({ title, body }: { title: string; body: string }) => (
-  <div className="rounded-lg border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-5 py-8 text-center">
-    <p className="text-sm font-semibold text-[var(--t-text)]">{title}</p>
-    <p className="mt-1 text-xs text-[var(--t-text-muted)]">{body}</p>
-  </div>
-)
 
 interface ConsensusActionButtonsProps
 {
@@ -624,7 +618,7 @@ export const CommunityConsensusSection = ({
     if (isPinFailed)
     {
       return (
-        <StateCard
+        <EmptyCard
           title="Ranking unavailable"
           body="It may have been unpublished. Pick another ranking or return to the community average."
         />
@@ -647,7 +641,7 @@ export const CommunityConsensusSection = ({
       if (filteredRows.length === 0 && sourceRowCount === 0)
       {
         return (
-          <StateCard
+          <EmptyCard
             title="No items in the consensus yet"
             body="The recompute job hasn’t projected items into this view. Check back in a bit."
           />
@@ -656,7 +650,7 @@ export const CommunityConsensusSection = ({
       if (filteredRows.length === 0)
       {
         return (
-          <StateCard
+          <EmptyCard
             title="Nothing matches this view"
             body="Try clearing the search or changing the sort."
           />
@@ -901,7 +895,7 @@ export const CommunityConsensusSection = ({
       )
     }
     return (
-      <StateCard
+      <EmptyCard
         title="No community consensus yet"
         body="Once people publish rankings made from this template, the spread shows up here."
       />
@@ -947,7 +941,7 @@ export const CommunityConsensusSection = ({
     if (aggregate.state === 'failed')
     {
       return (
-        <StateCard
+        <EmptyCard
           title="Community consensus is unavailable"
           body="The current consensus pass could not finish. New rankings will trigger another pass."
         />

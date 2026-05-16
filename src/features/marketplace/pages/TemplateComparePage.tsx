@@ -4,7 +4,7 @@
 
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import {
   isTemplateSlug,
@@ -29,9 +29,11 @@ import {
   selectBusiestOtherCriterion,
 } from '~/features/marketplace/model/criterionSelection'
 import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
+import { useValidatedSlug } from '~/features/marketplace/model/useValidatedSlug'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
 import { templateFrame } from '~/features/marketplace/components/consensus/utils'
@@ -159,13 +161,6 @@ const PageSkeleton = () => (
       ))}
     </div>
   </section>
-)
-
-const StateBlock = ({ title, body }: { title: string; body: string }) => (
-  <div className="rounded-xl border border-dashed border-[var(--t-border)] bg-[rgb(var(--t-overlay)/0.02)] px-5 py-10 text-center">
-    <p className="text-sm font-semibold text-[var(--t-text)]">{title}</p>
-    <p className="mt-1 text-xs text-[var(--t-text-muted)]">{body}</p>
-  </div>
 )
 
 // twin variants share the swap action — desktop floats over the lane-card
@@ -363,7 +358,9 @@ const CompareBody = ({
         </section>
       ) : joinedRows.length === 0 ? (
         <section className="mt-6">
-          <StateBlock
+          <EmptyCard
+            radius="xl"
+            padding="lg"
             title="Nothing to compare yet"
             body="One of these lanes hasn't aggregated any items in the same template generation. Recompute will pick this up automatically."
           />
@@ -472,7 +469,9 @@ const renderLaneState = (
   if (left === null || left.state === 'empty')
   {
     return (
-      <StateBlock
+      <EmptyCard
+        radius="xl"
+        padding="lg"
         title="Left lane has no consensus yet"
         body="Once people publish rankings into this lane, the compare surface will populate."
       />
@@ -481,7 +480,9 @@ const renderLaneState = (
   if (right === null || right.state === 'empty')
   {
     return (
-      <StateBlock
+      <EmptyCard
+        radius="xl"
+        padding="lg"
         title="Right lane has no consensus yet"
         body="Once people publish rankings into this lane, the compare surface will populate."
       />
@@ -490,7 +491,9 @@ const renderLaneState = (
   if (left.state === 'failed' || right.state === 'failed')
   {
     return (
-      <StateBlock
+      <EmptyCard
+        radius="xl"
+        padding="lg"
         title="One of these lanes failed to compute"
         body="The current consensus pass couldn't finish for one of the criteria. New rankings will trigger another pass."
       />
@@ -506,8 +509,7 @@ const renderLaneState = (
 
 export const TemplateComparePage = () =>
 {
-  const { slug } = useParams<{ slug: string }>()
-  const validSlug = slug && isTemplateSlug(slug) ? slug : null
+  const validSlug = useValidatedSlug(isTemplateSlug)
   const detail = useTemplateBySlug(validSlug)
   const [params, setParams] = useSearchParams()
 

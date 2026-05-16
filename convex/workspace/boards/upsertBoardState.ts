@@ -30,6 +30,8 @@ import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
 import { assertStringLength, failInput } from '../../lib/text'
+import { assertExternalIdShape } from '../../lib/assertions'
+import { memoizePromise } from '../../lib/cache'
 import {
   boardLabelSettingsValidator,
   itemLabelOptionsValidator,
@@ -200,10 +202,12 @@ type UpsertResult =
 
 const validateInputs = (args: UpsertArgs): void =>
 {
-  if (!isBoardId(args.boardExternalId))
-  {
-    failInput('invalid boardExternalId: must start with "board-"')
-  }
+  assertExternalIdShape(
+    'boardExternalId',
+    args.boardExternalId,
+    isBoardId,
+    'board-'
+  )
 
   if (args.tiers.length > MAX_SYNC_TIERS)
   {
@@ -224,10 +228,7 @@ const validateInputs = (args: UpsertArgs): void =>
   // (Convex caps strings at 1MB but a run of ~999KB labels still adds up)
   for (const tier of args.tiers)
   {
-    if (!isTierId(tier.externalId))
-    {
-      failInput('invalid tierExternalId: must start with "tier-"')
-    }
+    assertExternalIdShape('tierExternalId', tier.externalId, isTierId, 'tier-')
     assertStringLength(
       'tier name',
       tier.name,
@@ -286,9 +287,14 @@ const validateInputs = (args: UpsertArgs): void =>
     {
       validateHexColor(item.backgroundColor, 'item.backgroundColor')
     }
-    if (item.mediaExternalId && !isMediaAssetExternalId(item.mediaExternalId))
+    if (item.mediaExternalId)
     {
-      failInput('invalid mediaExternalId: must start with "media-"')
+      assertExternalIdShape(
+        'mediaExternalId',
+        item.mediaExternalId,
+        isMediaAssetExternalId,
+        'media-'
+      )
     }
     if (
       item.sourceTemplateItemExternalId !== undefined &&
@@ -550,13 +556,7 @@ const resolveMediaState = async (
   const cachedGet = (
     mediaAssetId: Id<'mediaAssets'>
   ): Promise<Doc<'mediaAssets'> | null> =>
-  {
-    const cached = assetCache.get(mediaAssetId)
-    if (cached) return cached
-    const pending = ctx.db.get(mediaAssetId)
-    assetCache.set(mediaAssetId, pending)
-    return pending
-  }
+    memoizePromise(assetCache, mediaAssetId, () => ctx.db.get(mediaAssetId))
 
   const mediaExternalIds = new Set<string>()
   const serverFallbackAssetIds = new Set<Id<'mediaAssets'>>()

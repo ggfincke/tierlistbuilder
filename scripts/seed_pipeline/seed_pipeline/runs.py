@@ -5,16 +5,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable
 
 from .assets import asset_dedupe_hash, asset_variants
-from .build import build_compiled_manifest_with_data
-from .convex_client import ConvexSeedClient, read_seed_settings
 from .diff import build_seed_diff, resolve_seed_state
 from .manifest import (
     JsonObject,
@@ -23,9 +18,17 @@ from .manifest import (
     chunks,
     compiled_templates,
     read_json,
-    write_json,
 )
-from .progress import ProgressLogger, progress_interval
+from .progress import progress_interval
+from .run_context import (
+    SeedRunContext,
+    SeedRunOptions,
+    assert_write_allowed,
+    begin_seed_run,
+    load_context,
+    run_request,
+    write_checkpoint,
+)
 from .reports import (
     write_activation_report,
     write_apply_report,
@@ -38,7 +41,6 @@ from .reports import (
 
 
 SEED_ENSURE_AUTHOR_FUNCTION = "marketplace/seedRuns:ensureSeedAuthor"
-SEED_BEGIN_FUNCTION = "marketplace/seedRuns:beginSeedRun"
 SEED_UPLOAD_URLS_FUNCTION = "marketplace/seedRuns:generateSeedUploadUrls"
 SEED_REGISTER_UPLOADS_FUNCTION = (
     "marketplace/seedPipeline/storageUploads:registerSeedUploadedStorageIds"
@@ -105,58 +107,28 @@ def _seed_content_hash(kind: str, payload: object) -> str:
     return f"{SEED_CONTENT_HASH_VERSION}:{digest[:SEED_CONTENT_HASH_HEX_LENGTH]}"
 
 
-@dataclass(frozen=True)
-class SeedRunOptions:
-    env_name: str
-    convex_url: str | None = None
-    seed_secret: str | None = None
-    run_id: str | None = None
-    dry_run: bool = False
-    yes: bool = False
-    fail_on_warning: bool = False
-    max_upload_bytes: int | None = None
-    confirm_activation: bool = False
-    previous_release_id: str | None = None
-    target_release_id: str | None = None
-    state_json: Path | None = None
-
-
-@dataclass(frozen=True)
-class SeedRunContext:
-    compiled_path: Path
-    compiled: JsonObject
-    client: ConvexSeedClient
-    checkpoint_path: Path
-    checkpoint: JsonObject
-    progress: ProgressLogger
-    # memoization for compiled-payload builds; build_*_upserts each iterate
-    # every template/item/criterion, so caching avoids rebuilding them across
-    # the hash-skip check and the actual upsert phase in run_seed_manifest
-    payload_cache: dict[str, list[JsonObject]] = field(default_factory=dict)
-
-
 def upload_seed_manifest(
     manifest_path: Path,
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "upload")
+    context = load_context(manifest_path, repo_root, options, "upload")
     state = _resolve_state(context, options)
     diff = build_seed_diff(context.compiled, state)
     write_diff_report(context, state, diff, options.env_name)
     # upload a whole asset when any variant is missing so media dedupe stays exact
-    assets = _assets_requiring_upload(context.compiled, state)
+    assets = assets_requiring_upload(context.compiled, state)
     context.progress.log(f"{len(assets)} media assets require upload")
-    _assert_write_allowed(options, "upload")
+    assert_write_allowed(options, "upload")
     _assert_upload_budget(assets, options.max_upload_bytes)
     if options.dry_run:
         context.progress.log("dry run complete; no upload writes performed")
         return write_upload_report(context, assets, [], [], dry_run=True)
 
-    _begin_seed_run(context)
+    begin_seed_run(context)
     uploaded_assets = _upload_assets(context, assets)
     finalized, rejected = _finalize_uploaded_assets(context, uploaded_assets)
-    _write_checkpoint(context)
+    write_checkpoint(context)
     report_path = write_upload_report(context, assets, finalized, rejected)
     if rejected:
         msg = f"seed upload rejected {len(rejected)} variant(s); report: {report_path}"
@@ -169,13 +141,13 @@ def apply_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "apply")
-    _assert_write_allowed(options, "apply")
+    context = load_context(manifest_path, repo_root, options, "apply")
+    assert_write_allowed(options, "apply")
     if options.dry_run:
         context.progress.log("dry run complete; no apply writes performed")
         return write_apply_report(context, [], [], [], dry_run=True)
 
-    _begin_seed_run(context)
+    begin_seed_run(context)
     # write parent templates before children so item/criterion upserts resolve IDs
     template_results = _upsert_templates(context)
     criterion_results = _upsert_criteria(context)
@@ -190,14 +162,14 @@ def verify_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "verify")
-    _assert_write_allowed(options, "verify")
+    context = load_context(manifest_path, repo_root, options, "verify")
+    assert_write_allowed(options, "verify")
     if options.dry_run:
         context.progress.log("dry run complete; no verification writes performed")
         return write_verify_report(context, {"verified": False, "diagnostics": []}, True)
 
     # verification mutates run status, so register/resume the run first
-    _begin_seed_run(context)
+    begin_seed_run(context)
     result = _verify_seed_release(context)
     return write_verify_report(context, result)
 
@@ -207,8 +179,8 @@ def activate_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "activate")
-    _assert_write_allowed(options, "activate")
+    context = load_context(manifest_path, repo_root, options, "activate")
+    assert_write_allowed(options, "activate")
     return _activate_seed_context(context, options)
 
 
@@ -225,13 +197,13 @@ def _activate_seed_context(context: SeedRunContext, options: SeedRunOptions) -> 
     result = context.client.mutation(
         SEED_ACTIVATE_FUNCTION,
         {
-            **_run_request(context),
+            **run_request(context),
             "previousReleaseId": previous_release_id,
             "confirm": True,
         },
     )
     context.checkpoint["activeReleaseId"] = result["activeReleaseId"]
-    _write_checkpoint(context)
+    write_checkpoint(context)
     return write_activation_report(context, result)
 
 
@@ -240,8 +212,8 @@ def rollback_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "rollback")
-    _assert_write_allowed(options, "rollback")
+    context = load_context(manifest_path, repo_root, options, "rollback")
+    assert_write_allowed(options, "rollback")
     if not options.confirm_activation:
         msg = "rollback requires --confirm-activation"
         raise RuntimeError(msg)
@@ -251,13 +223,13 @@ def rollback_seed_manifest(
     result = context.client.mutation(
         SEED_ROLLBACK_FUNCTION,
         {
-            **_run_request(context),
+            **run_request(context),
             "targetReleaseId": options.target_release_id,
             "confirm": True,
         },
     )
     context.checkpoint["activeReleaseId"] = result["activeReleaseId"]
-    _write_checkpoint(context)
+    write_checkpoint(context)
     return write_activation_report(context, result, rollback=True)
 
 
@@ -266,8 +238,8 @@ def cleanup_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "cleanup")
-    _assert_write_allowed(options, "cleanup")
+    context = load_context(manifest_path, repo_root, options, "cleanup")
+    assert_write_allowed(options, "cleanup")
     if not options.dry_run and not options.yes:
         msg = "cleanup requires --yes so abandoned storage removal is explicit"
         raise RuntimeError(msg)
@@ -284,7 +256,7 @@ def cleanup_seed_manifest(
             context.progress.count("cleanup batches", index, len(batches))
             result = context.client.action(
                 SEED_CLEANUP_FUNCTION,
-                {**_run_request(context), "storageIds": chunk},
+                {**run_request(context), "storageIds": chunk},
             )
             cleaned.extend(result.get("cleanedStorageIds", []))
             missing.extend(result.get("missingStorageIds", []))
@@ -293,7 +265,7 @@ def cleanup_seed_manifest(
         context.checkpoint["uploadedStorageIds"] = [
             item for item in storage_ids if item not in terminal
         ]
-        _write_checkpoint(context)
+        write_checkpoint(context)
     return write_cleanup_report(context, storage_ids, cleaned, missing, skipped, options.dry_run)
 
 
@@ -302,7 +274,7 @@ def run_seed_manifest(
     repo_root: Path,
     options: SeedRunOptions,
 ) -> Path:
-    context = _load_context(manifest_path, repo_root, options, "run")
+    context = load_context(manifest_path, repo_root, options, "run")
     state = _resolve_state(context, options)
     diff = build_seed_diff(context.compiled, state)
     write_diff_report(context, state, diff, options.env_name)
@@ -310,7 +282,7 @@ def run_seed_manifest(
         context.progress.log("dry run complete; no writes performed")
         return write_run_report(context, ["dry-run preflight complete"])
 
-    _assert_write_allowed(options, "run")
+    assert_write_allowed(options, "run")
     if _active_release_matches_compiled_manifest(context, state, diff):
         context.progress.log(
             "active release already matches compiled manifest; skipping writes"
@@ -320,11 +292,11 @@ def run_seed_manifest(
             ["active release already matches compiled manifest; no writes performed"],
         )
     _ensure_seed_author(context)
-    _begin_seed_run(context)
+    begin_seed_run(context)
     # persist the activation guard before long upload/apply work starts
     context.checkpoint["previousActiveReleaseId"] = state.get("activeReleaseId")
-    _write_checkpoint(context)
-    assets = _assets_requiring_upload(context.compiled, state)
+    write_checkpoint(context)
+    assets = assets_requiring_upload(context.compiled, state)
     context.progress.log(f"{len(assets)} media assets require upload")
     _assert_upload_budget(assets, options.max_upload_bytes)
     if assets:
@@ -583,53 +555,6 @@ def _diff_template_external_ids(section: object, keys: tuple[str, ...]) -> set[s
     return template_external_ids
 
 
-def _load_context(
-    manifest_path: Path,
-    repo_root: Path,
-    options: SeedRunOptions,
-    label: str,
-) -> SeedRunContext:
-    progress = ProgressLogger(label)
-    compiled_path, compiled = build_compiled_manifest_with_data(
-        manifest_path,
-        repo_root,
-        fail_on_warning=options.fail_on_warning,
-        progress=progress,
-    )
-    totals = compiled["totals"]
-    progress.log(
-        "compiled manifest ready: "
-        f"{totals['templateCount']} templates, "
-        f"{totals['itemCount']} items, "
-        f"{totals['sourceImageCount']} source images, "
-        f"{totals['variantCount']} variants"
-    )
-    progress.log(f"loading seed settings for {options.env_name}")
-    settings = read_seed_settings(
-        repo_root, options.env_name, options.convex_url, options.seed_secret
-    )
-    checkpoint_path = compiled_path.parent / "run.json"
-    checkpoint = _load_checkpoint(checkpoint_path)
-    if not _checkpoint_matches(checkpoint, compiled, options.env_name):
-        checkpoint = {}
-    # reuse runId by default so interrupted commands resume the same server row
-    checkpoint.setdefault("datasetKey", compiled["datasetKey"])
-    checkpoint.setdefault("releaseId", compiled["releaseId"])
-    checkpoint.setdefault("env", options.env_name)
-    checkpoint["runId"] = (
-        options.run_id or checkpoint.get("runId") or _new_run_id(compiled)
-    )
-    checkpoint.setdefault("uploadedStorageIds", [])
-    return SeedRunContext(
-        compiled_path=compiled_path,
-        compiled=compiled,
-        client=ConvexSeedClient(settings),
-        checkpoint_path=checkpoint_path,
-        checkpoint=checkpoint,
-        progress=progress,
-    )
-
-
 def _ensure_seed_author(context: SeedRunContext) -> None:
     author_password = context.client.settings.author_password
     if not author_password:
@@ -645,27 +570,6 @@ def _ensure_seed_author(context: SeedRunContext) -> None:
             "password": author_password,
         },
     )
-
-
-def _begin_seed_run(context: SeedRunContext) -> None:
-    totals = context.compiled["totals"]
-    context.progress.log(
-        "starting seed run: "
-        f"{totals['templateCount']} templates, "
-        f"{totals['itemCount']} items, "
-        f"{totals['variantCount']} image variants"
-    )
-    result = context.client.mutation(
-        SEED_BEGIN_FUNCTION,
-        {
-            **_run_request(context),
-            "templateCount": totals["templateCount"],
-            "itemCount": totals["itemCount"],
-            "imageVariantCount": totals["variantCount"],
-        },
-    )
-    context.checkpoint["run"] = result["run"]
-    _write_checkpoint(context)
 
 
 def _resolve_state(context: SeedRunContext, options: SeedRunOptions) -> JsonObject:
@@ -705,7 +609,7 @@ def _verify_seed_release(context: SeedRunContext) -> JsonObject:
         result = context.client.mutation(
             SEED_VERIFY_CHUNK_FUNCTION,
             {
-                **_run_request(context),
+                **run_request(context),
                 "templateExternalIds": [
                     template["externalId"] for template in chunk
                 ],
@@ -732,7 +636,7 @@ def _verify_seed_release(context: SeedRunContext) -> JsonObject:
     return context.client.mutation(
         SEED_COMPLETE_VERIFICATION_FUNCTION,
         {
-            **_run_request(context),
+            **run_request(context),
             "expectedTotals": context.compiled["totals"],
             "actualTotals": actual_totals,
             "diagnostics": diagnostics,
@@ -797,7 +701,7 @@ def _upload_assets(
                 )
         for storage_id in storage_ids:
             context.checkpoint.setdefault("uploadedStorageIds", []).append(storage_id)
-        _write_checkpoint(context)
+        write_checkpoint(context)
         if storage_ids:
             _register_uploaded_storage_ids(context, storage_ids)
         if errors:
@@ -821,7 +725,7 @@ def _generate_upload_urls(
         result = context.client.mutation(
             SEED_UPLOAD_URLS_FUNCTION,
             {
-                **_run_request(context),
+                **run_request(context),
                 "variants": [
                     {
                         "contentHash": variant["contentHash"],
@@ -845,7 +749,7 @@ def _register_uploaded_storage_ids(
         context.progress.count("register upload batches", index, len(batches))
         context.client.mutation(
             SEED_REGISTER_UPLOADS_FUNCTION,
-            {**_run_request(context), "storageIds": chunk},
+            {**run_request(context), "storageIds": chunk},
         )
 
 
@@ -862,7 +766,7 @@ def _finalize_uploaded_assets(
         result = context.client.action(
             SEED_FINALIZE_MEDIA_FUNCTION,
             {
-                **_run_request(context),
+                **run_request(context),
                 "authorEmail": context.compiled["authorEmail"],
                 "assets": [_finalize_asset_payload(asset) for asset in chunk],
             },
@@ -892,7 +796,7 @@ def _drop_finalized_storage_ids(
     context.checkpoint["uploadedStorageIds"] = [
         item for item in pending if item not in completed and item not in rejected_cleaned
     ]
-    _write_checkpoint(context)
+    write_checkpoint(context)
 
 
 def _upsert_templates(context: SeedRunContext) -> list[JsonObject]:
@@ -909,7 +813,7 @@ def _upsert_templates(context: SeedRunContext) -> list[JsonObject]:
             context.client.mutation(
                 SEED_UPSERT_TEMPLATES_FUNCTION,
                 {
-                    **_run_request(context),
+                    **run_request(context),
                     "authorEmail": context.compiled["authorEmail"],
                     "templates": chunk,
                 },
@@ -922,7 +826,7 @@ def _upsert_items(
     context: SeedRunContext, diff: JsonObject | None = None
 ) -> list[JsonObject]:
     results: list[JsonObject] = []
-    batches = _child_upsert_batches(
+    batches = child_upsert_batches(
         cached_item_upserts(context), ITEM_BATCH_SIZE, "items"
     )
     force_template_external_ids = (
@@ -945,7 +849,7 @@ def _upsert_items(
             context.client.mutation(
                 SEED_SYNC_TEMPLATE_ITEMS_FUNCTION,
                 {
-                    **_run_request(context),
+                    **run_request(context),
                     "templateExternalId": template_external_id,
                     "itemsContentHash": _items_content_hash(
                         template_external_id, items
@@ -963,7 +867,7 @@ def _upsert_criteria(
     context: SeedRunContext, diff: JsonObject | None = None
 ) -> list[JsonObject]:
     results: list[JsonObject] = []
-    batches = _packed_child_upsert_batches(
+    batches = packed_child_upsert_batches(
         cached_criterion_upserts(context), CRITERION_BATCH_SIZE, "criteria"
     )
     force_template_external_ids = (
@@ -986,7 +890,7 @@ def _upsert_criteria(
             context.client.mutation(
                 SEED_UPSERT_CRITERIA_FUNCTION,
                 {
-                    **_run_request(context),
+                    **run_request(context),
                     "forceTemplateExternalIds": force_template_external_ids,
                     "criteria": chunk,
                 },
@@ -995,10 +899,10 @@ def _upsert_criteria(
     return results
 
 
-def _packed_child_upsert_batches(
+def packed_child_upsert_batches(
     rows: list[JsonObject], limit: int, label: str
 ) -> list[list[JsonObject]]:
-    groups = _child_upsert_batches(rows, limit, label)
+    groups = child_upsert_batches(rows, limit, label)
     batches: list[list[JsonObject]] = []
     current: list[JsonObject] = []
     for group in groups:
@@ -1011,7 +915,7 @@ def _packed_child_upsert_batches(
     return batches
 
 
-def _child_upsert_batches(
+def child_upsert_batches(
     rows: list[JsonObject], limit: int, label: str
 ) -> list[list[JsonObject]]:
     groups: dict[str, list[JsonObject]] = {}
@@ -1031,7 +935,7 @@ def _child_upsert_batches(
     return batches
 
 
-def _assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[JsonObject]:
+def assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[JsonObject]:
     present = {
         str(media["mediaDedupeHash"])
         for media in as_list(state.get("media"))
@@ -1124,29 +1028,6 @@ def _zoomed_cover_frame(
     }
 
 
-def _run_request(context: SeedRunContext) -> JsonObject:
-    return {
-        "datasetKey": context.compiled["datasetKey"],
-        "releaseId": context.compiled["releaseId"],
-        "runId": context.checkpoint["runId"],
-    }
-
-
-def _assert_write_allowed(options: SeedRunOptions, command: str) -> None:
-    if options.dry_run:
-        return
-    if _is_production_env(options.env_name) and not options.yes:
-        msg = f"{command} against production requires --yes"
-        raise RuntimeError(msg)
-
-
-def _is_production_env(env_name: str) -> bool:
-    normalized = env_name.strip().lower()
-    return normalized in {"prod", "production"} or normalized.startswith(
-        ("prod-", "prod_", "prod:", "production-", "production_", "production:")
-    )
-
-
 def _assert_upload_budget(
     assets: list[JsonObject], max_upload_bytes: int | None
 ) -> None:
@@ -1158,32 +1039,3 @@ def _assert_upload_budget(
     if total > max_upload_bytes:
         msg = f"upload requires {total} bytes, exceeding --max-upload-bytes={max_upload_bytes}"
         raise RuntimeError(msg)
-
-
-def _load_checkpoint(path: Path) -> JsonObject:
-    if not path.is_file():
-        return {}
-    return read_json(path)
-
-
-def _checkpoint_matches(
-    checkpoint: JsonObject,
-    compiled: JsonObject,
-    env_name: str,
-) -> bool:
-    if not checkpoint:
-        return True
-    return (
-        checkpoint.get("datasetKey") == compiled["datasetKey"]
-        and checkpoint.get("releaseId") == compiled["releaseId"]
-        and checkpoint.get("env") == env_name
-    )
-
-
-def _write_checkpoint(context: SeedRunContext) -> None:
-    write_json(context.checkpoint_path, context.checkpoint)
-
-
-def _new_run_id(compiled: JsonObject) -> str:
-    timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    return f"{compiled['releaseId']}-{timestamp}-{uuid.uuid4().hex[:8]}"

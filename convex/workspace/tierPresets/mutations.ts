@@ -2,30 +2,29 @@
 // tier preset mutations: create & delete owned presets. callers supply
 // a pre-generated externalId so local PresetId & cloud externalId stay in sync
 
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 import { mutation } from '../../_generated/server'
 import {
   normalizeTierPresetName,
   PRESET_NAME_FALLBACK,
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
-import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { findOwnedTierPresetByExternalId } from '../../lib/permissions'
 import { tierPresetTiersValidator } from '../../lib/validators'
 import { isUserPresetId } from '@tierlistbuilder/contracts/lib/ids'
+import { assertExternalIdShape } from '../../lib/assertions'
 
 // canonical preset externalId guard — must start w/ 'preset-' (client factory
 // generatePresetId). blocks a malicious client from shadowing a 'builtin-*'
 // or some other prefix family
 const validatePresetExternalId = (externalId: string): void =>
 {
-  if (!isUserPresetId(externalId))
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.invalidInput,
-      message: 'invalid presetExternalId: must start with "preset-"',
-    })
-  }
+  assertExternalIdShape(
+    'presetExternalId',
+    externalId,
+    isUserPresetId,
+    'preset-'
+  )
 }
 
 // create a new preset; idempotent — if a row w/ this externalId already exists

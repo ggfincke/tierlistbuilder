@@ -2,7 +2,7 @@
 // opens a library board — routes to cloud activation when signed in, local
 // session switch when signed out; both paths share pending-state semantics
 
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
@@ -11,7 +11,7 @@ import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cl
 import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
-import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
+import { usePerKeyAsyncAction } from '~/shared/hooks/usePerKeyAsyncAction'
 
 interface OpenBoardAction
 {
@@ -22,15 +22,27 @@ interface OpenBoardAction
 export const useOpenBoard = (isSignedIn: boolean): OpenBoardAction =>
 {
   const navigate = useNavigate()
-  const [pendingBoardExternalId, setPendingBoardExternalId] = useState<
-    string | null
-  >(null)
 
-  const openBoard = useCallback(
-    async (board: LibraryBoardListItem): Promise<void> =>
+  const handleError = useCallback(
+    (error: unknown) =>
     {
-      setPendingBoardExternalId(board.externalId)
-      try
+      logger.error(
+        'library',
+        isSignedIn ? 'open library board failed' : 'open local board failed',
+        error
+      )
+      toast('Could not open that board. Please try again.', 'error')
+    },
+    [isSignedIn]
+  )
+  const { run: runOpen, pendingKey } = usePerKeyAsyncAction<string>({
+    onError: handleError,
+  })
+
+  const open = useCallback(
+    (board: LibraryBoardListItem) =>
+    {
+      void runOpen(board.externalId, async () =>
       {
         if (isSignedIn)
         {
@@ -43,40 +55,10 @@ export const useOpenBoard = (isSignedIn: boolean): OpenBoardAction =>
           await switchBoardSession(board.externalId as BoardId)
         }
         navigate('/')
-      }
-      finally
-      {
-        setPendingBoardExternalId(null)
-      }
+      })
     },
-    [isSignedIn, navigate]
+    [isSignedIn, navigate, runOpen]
   )
 
-  const onError = useCallback(
-    (error: unknown) =>
-    {
-      logger.error(
-        'library',
-        isSignedIn ? 'open library board failed' : 'open local board failed',
-        error
-      )
-      toast('Could not open that board. Please try again.', 'error')
-    },
-    [isSignedIn]
-  )
-
-  const { run: runOpen } = useAsyncAction<[LibraryBoardListItem], void>(
-    openBoard,
-    { onError }
-  )
-
-  const open = useCallback(
-    (board: LibraryBoardListItem) =>
-    {
-      void runOpen(board)
-    },
-    [runOpen]
-  )
-
-  return { open, pendingBoardExternalId }
+  return { open, pendingBoardExternalId: pendingKey }
 }

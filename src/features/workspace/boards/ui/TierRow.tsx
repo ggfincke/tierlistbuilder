@@ -2,7 +2,6 @@
 // tier row component — label, sortable item grid, & row controls
 
 import {
-  lazy,
   memo,
   Suspense,
   useCallback,
@@ -51,14 +50,11 @@ import { TierRowSettingsMenu } from './TierRowSettingsMenu'
 import { ColorPicker } from './ColorPicker'
 import { OverlayFixedPopupSurface } from '~/shared/overlay/OverlaySurface'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 
 const loadCustomColorPicker = () => import('./CustomColorPicker')
 
-const CustomColorPicker = lazy(() =>
-  loadCustomColorPicker().then((m) => ({
-    default: m.CustomColorPicker,
-  }))
-)
+const CustomColorPicker = lazyNamed(loadCustomColorPicker, 'CustomColorPicker')
 
 const CustomColorPickerFallback = () => (
   <div

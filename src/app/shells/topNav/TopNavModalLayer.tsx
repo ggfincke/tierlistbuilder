@@ -1,28 +1,22 @@
 // src/app/shells/topNav/TopNavModalLayer.tsx
 // lazy account, auth, & preferences modal slots for global chrome
 
-import { lazy } from 'react'
-
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 
-const AccountModal = lazy(() =>
-  import('~/features/platform/auth/ui/AccountModal').then((module) => ({
-    default: module.AccountModal,
-  }))
+const AccountModal = lazyNamed(
+  () => import('~/features/platform/auth/ui/AccountModal'),
+  'AccountModal'
 )
 
-const PreferencesModal = lazy(() =>
-  import('~/features/platform/preferences/ui/PreferencesModal').then(
-    (module) => ({
-      default: module.PreferencesModal,
-    })
-  )
+const PreferencesModal = lazyNamed(
+  () => import('~/features/platform/preferences/ui/PreferencesModal'),
+  'PreferencesModal'
 )
 
-const SignInModal = lazy(() =>
-  import('~/features/platform/auth/ui/SignInModal').then((module) => ({
-    default: module.SignInModal,
-  }))
+const SignInModal = lazyNamed(
+  () => import('~/features/platform/auth/ui/SignInModal'),
+  'SignInModal'
 )
 
 export type TopNavModalKey = 'account' | 'preferences'

@@ -4,14 +4,10 @@
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useRemixTemplateConsensusMutation } from '~/features/marketplace/data/rankingsRepository'
 import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
-import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
-import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
+import { useSignedInMarketplaceAction } from '~/features/marketplace/model/useMarketplaceAsyncAction'
 import { toast } from '~/shared/notifications/useToastStore'
-import { logger } from '~/shared/lib/logger'
-import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface RemixConsensusInput
 {
@@ -28,7 +24,6 @@ interface RemixConsensusAction
 
 export const useRemixConsensus = (): RemixConsensusAction =>
 {
-  const session = useAuthSession()
   const navigate = useNavigate()
   const remix = useRemixTemplateConsensusMutation()
 
@@ -49,30 +44,19 @@ export const useRemixConsensus = (): RemixConsensusAction =>
     [navigate, remix]
   )
 
-  const onError = useCallback((error: unknown) =>
-  {
-    logger.error('marketplace', 'remixConsensus failed', error)
-    toast(formatMarketplaceError(error), 'error')
-  }, [])
-
-  const { run: runRemix, isPending } = useAsyncAction<
+  const { run: runRemix, isPending } = useSignedInMarketplaceAction<
     [RemixConsensusInput],
     void
-  >(remixConsensus, {
-    onError,
+  >('remixConsensus failed', remixConsensus, {
+    promptOnSignedOut: true,
   })
 
   const run = useCallback(
     async (input: RemixConsensusInput) =>
     {
-      if (session.status !== 'signed-in')
-      {
-        promptSignIn()
-        return
-      }
       await runRemix(input)
     },
-    [runRemix, session.status]
+    [runRemix]
   )
 
   return { run, isPending }

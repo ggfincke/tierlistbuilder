@@ -26,10 +26,9 @@ import {
   preloadZipLib,
 } from '~/shared/lib/lazyDependencies'
 import {
-  useNestedMenus,
+  useNestedDropdown,
   type NestedMenuDefinition,
 } from '~/shared/overlay/nestedMenus'
-import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
 
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
@@ -150,11 +149,8 @@ export const ExportMenu = ({
   const title = useActiveBoardStore((state) => state.title)
   const setRuntimeError = useActiveBoardStore((state) => state.setRuntimeError)
 
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
   const jsonInputRef = useRef<HTMLInputElement | null>(null)
   const isDisabled = exportStatus !== null || exportingAll
-  const exportDialogId = useId()
   const imageOptionsGroupId = useId()
   const formatOptionsGroupId = useId()
   const exportAllOptionsGroupId = useId()
@@ -173,11 +169,20 @@ export const ExportMenu = ({
     return [] as const
   }, [boardCount, isDisabled])
   const { getRef: getOverflowRef } = useMenuOverflowFlipRefs<ExportMenuId>()
-  const { closeAllMenus, closeMenu, isOpen, toggleMenu } = useNestedMenus({
+  const {
+    buttonRef,
+    menuRef,
+    dialogId: exportDialogId,
+    closeAllMenus,
+    closeMenu,
+    isOpen,
+    isRootOpen: showMenu,
+    toggleMenu,
+  } = useNestedDropdown({
+    rootId: 'root',
     definitions: EXPORT_MENU_DEFINITIONS,
     disabledIds: disabledMenuIds,
   })
-  const showMenu = isOpen('root')
   const showImageMenu = isOpen('image')
   const showFormatMenu = isOpen('format')
   const showExportAllMenu = isOpen('exportAll')
@@ -225,13 +230,6 @@ export const ExportMenu = ({
     }
     closeAllMenus()
   }
-
-  useDismissibleLayer({
-    open: showMenu,
-    triggerRef: buttonRef,
-    layerRef: menuRef,
-    onDismiss: closeAllMenus,
-  })
 
   return (
     <>

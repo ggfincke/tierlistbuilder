@@ -32,6 +32,7 @@ import {
   createTemplateProjectionCache,
   toTemplateMediaRefWithFallback,
 } from '../../marketplace/templates/lib'
+import { memoizePromise } from '../../lib/cache'
 import { loadBoardCloudState } from '../sync/boardStateLoader'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 
@@ -240,13 +241,9 @@ export const getMyLibraryBoards = query({
     const loadStorageUrl = (
       storageId: Id<'_storage'>
     ): Promise<string | null> =>
-    {
-      const existing = storageUrlCache.get(storageId)
-      if (existing) return existing
-      const pending = ctx.storage.getUrl(storageId)
-      storageUrlCache.set(storageId, pending)
-      return pending
-    }
+      memoizePromise(storageUrlCache, storageId, () =>
+        ctx.storage.getUrl(storageId)
+      )
 
     const sourceTemplateCovers = await loadSourceTemplateCovers(ctx, boards)
 

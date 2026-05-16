@@ -1,7 +1,7 @@
 // src/app/shells/WorkspaceModalLayer.tsx
 // workspace modal & blocking-progress composition
 
-import { lazy, useCallback } from 'react'
+import { useCallback } from 'react'
 
 import type { ModalStack } from '~/app/shells/useModalStack'
 import type { WorkspaceModalPayloads } from './workspaceModals'
@@ -17,58 +17,43 @@ import {
 } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { loadPublishModal } from '~/features/marketplace/components/publish/loadPublishModal'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
+import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 import { ProgressOverlay } from '~/shared/overlay/ProgressOverlay'
 
-const AnnotationEditor = lazy(() =>
-  import('~/features/workspace/annotation/ui/AnnotationEditor').then((m) => ({
-    default: m.AnnotationEditor,
-  }))
+const AnnotationEditor = lazyNamed(
+  () => import('~/features/workspace/annotation/ui/AnnotationEditor'),
+  'AnnotationEditor'
 )
-const ExportPreviewModal = lazy(() =>
-  import('~/features/workspace/export/ui/ExportPreviewModal').then((m) => ({
-    default: m.ExportPreviewModal,
-  }))
+const ExportPreviewModal = lazyNamed(
+  () => import('~/features/workspace/export/ui/ExportPreviewModal'),
+  'ExportPreviewModal'
 )
-const StatsModal = lazy(() =>
-  import('~/features/workspace/stats/ui/StatsModal').then((m) => ({
-    default: m.StatsModal,
-  }))
+const StatsModal = lazyNamed(
+  () => import('~/features/workspace/stats/ui/StatsModal'),
+  'StatsModal'
 )
-const ShareModal = lazy(() =>
-  import('~/features/workspace/sharing/ui/ShareModal').then((m) => ({
-    default: m.ShareModal,
-  }))
+const ShareModal = lazyNamed(
+  () => import('~/features/workspace/sharing/ui/ShareModal'),
+  'ShareModal'
 )
-const ImageEditorModal = lazy(() =>
-  loadImageEditorModal().then((m) => ({
-    default: m.ImageEditorModal,
-  }))
+const ImageEditorModal = lazyNamed(loadImageEditorModal, 'ImageEditorModal')
+const BoardSettingsModal = lazyNamed(
+  () => import('~/features/workspace/settings/ui/BoardSettingsModal'),
+  'BoardSettingsModal'
 )
-const BoardSettingsModal = lazy(() =>
-  import('~/features/workspace/settings/ui/BoardSettingsModal').then((m) => ({
-    default: m.BoardSettingsModal,
-  }))
+const PublishRankingModal = lazyNamed(
+  () => import('~/features/marketplace/components/publish/PublishRankingModal'),
+  'PublishRankingModal'
 )
-const PublishRankingModal = lazy(() =>
-  import('~/features/marketplace/components/publish/PublishRankingModal').then(
-    (m) => ({
-      default: m.PublishRankingModal,
-    })
-  )
+const PublishTemplateModal = lazyNamed(loadPublishModal, 'PublishModal')
+const ShortcutsPanel = lazyNamed(
+  () => import('~/features/workspace/shortcuts/ui/ShortcutsPanel'),
+  'ShortcutsPanel'
 )
-const PublishTemplateModal = lazy(() =>
-  loadPublishModal().then((m) => ({ default: m.PublishModal }))
-)
-const ShortcutsPanel = lazy(() =>
-  import('~/features/workspace/shortcuts/ui/ShortcutsPanel').then((m) => ({
-    default: m.ShortcutsPanel,
-  }))
-)
-const ItemPreviewModal = lazy(() =>
-  import('~/features/workspace/preview/ui/ItemPreviewModal').then((m) => ({
-    default: m.ItemPreviewModal,
-  }))
+const ItemPreviewModal = lazyNamed(
+  () => import('~/features/workspace/preview/ui/ItemPreviewModal'),
+  'ItemPreviewModal'
 )
 
 interface ExportProgress

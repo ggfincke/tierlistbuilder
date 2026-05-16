@@ -15,7 +15,9 @@ from .settings import (
 )
 
 if TYPE_CHECKING:
-    from .runs import SeedRunContext
+    from .run_context import SeedRunContext
+
+from .report_layout import report_header, write_report
 
 
 def write_preflight_report(
@@ -87,7 +89,7 @@ def write_upload_report(
     rejected: list[JsonObject],
     dry_run: bool = False,
 ) -> Path:
-    lines = _report_header(
+    lines = report_header(
         context,
         "Seed Upload Report",
         dry_run=dry_run,
@@ -99,7 +101,7 @@ def write_upload_report(
     )
     _append_report_rows(lines, "Finalized Media", finalized, "assetKey")
     _append_report_rows(lines, "Rejected Uploads", rejected, "assetKey")
-    return _write_report(context, "upload.md", lines)
+    return write_report(context, "upload.md", lines)
 
 
 def write_apply_report(
@@ -109,11 +111,11 @@ def write_apply_report(
     item_results: list[JsonObject],
     dry_run: bool = False,
 ) -> Path:
-    lines = _report_header(context, "Seed Apply Report", dry_run=dry_run)
+    lines = report_header(context, "Seed Apply Report", dry_run=dry_run)
     _append_result_summary(lines, "Templates", template_results)
     _append_result_summary(lines, "Criteria", criterion_results)
     _append_result_summary(lines, "Items", item_results)
-    return _write_report(context, "apply.md", lines)
+    return write_report(context, "apply.md", lines)
 
 
 def write_verify_report(
@@ -121,14 +123,14 @@ def write_verify_report(
     result: JsonObject,
     dry_run: bool = False,
 ) -> Path:
-    lines = _report_header(
+    lines = report_header(
         context,
         "Seed Verify Report",
         dry_run=dry_run,
         extra=[f"- Verified: `{str(result.get('verified')).lower()}`"],
     )
     _append_report_rows(lines, "Diagnostics", result.get("diagnostics", []), "code")
-    return _write_report(context, "verify.md", lines)
+    return write_report(context, "verify.md", lines)
 
 
 def write_activation_report(
@@ -142,12 +144,12 @@ def write_activation_report(
         else f"- Previous release: `{result['previousReleaseId']}`"
     )
     title = "Seed Rollback Report" if rollback else "Seed Activation Report"
-    lines = _report_header(
+    lines = report_header(
         context,
         title,
         extra=[transition, f"- Active release: `{result['activeReleaseId']}`"],
     )
-    return _write_report(context, "activation.md", lines)
+    return write_report(context, "activation.md", lines)
 
 
 def write_cleanup_report(
@@ -158,7 +160,7 @@ def write_cleanup_report(
     skipped: list[str],
     dry_run: bool,
 ) -> Path:
-    lines = _report_header(
+    lines = report_header(
         context,
         "Seed Cleanup Report",
         dry_run=dry_run,
@@ -169,36 +171,15 @@ def write_cleanup_report(
             f"- Storage IDs skipped: {len(skipped)}",
         ],
     )
-    return _write_report(context, "cleanup.md", lines)
+    return write_report(context, "cleanup.md", lines)
 
 
 def write_run_report(context: SeedRunContext, steps: list[str]) -> Path:
-    lines = _report_header(context, "Seed Run Report")
+    lines = report_header(context, "Seed Run Report")
     lines.extend(["## Steps", ""])
     lines.extend(f"- {step}" for step in steps)
     lines.append("")
-    return _write_report(context, "run.md", lines)
-
-
-def _report_header(
-    context: SeedRunContext,
-    title: str,
-    dry_run: bool | None = None,
-    extra: list[str] | None = None,
-) -> list[str]:
-    lines = [
-        f"# {title}",
-        "",
-        f"- Dataset: `{context.compiled['datasetKey']}`",
-        f"- Release: `{context.compiled['releaseId']}`",
-        f"- Run: `{context.checkpoint['runId']}`",
-    ]
-    if dry_run is not None:
-        lines.append(f"- Dry run: `{str(dry_run).lower()}`")
-    if extra:
-        lines.extend(extra)
-    lines.append("")
-    return lines
+    return write_report(context, "run.md", lines)
 
 
 def _append_result_summary(
@@ -228,10 +209,3 @@ def _append_report_rows(
             label = row.get(label_key) or row
             lines.append(f"- `{label}`")
     lines.append("")
-
-
-def _write_report(context: SeedRunContext, name: str, lines: list[str]) -> Path:
-    report_path = context.compiled_path.parent / "reports" / name
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text("\n".join(lines), encoding="utf-8")
-    return report_path

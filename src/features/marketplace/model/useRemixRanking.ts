@@ -10,10 +10,8 @@ import { getRankingBySlugImperative } from '~/features/marketplace/data/rankings
 import { loadAllTemplateItemsImperative } from '~/features/marketplace/data/templatesRepository'
 import { createLocalBoardFromRanking } from '~/features/workspace/boards/model/localBoardFork'
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
-import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
+import { useMarketplaceAsyncAction } from '~/features/marketplace/model/useMarketplaceAsyncAction'
 import { toast, toastWithAction } from '~/shared/notifications/useToastStore'
-import { logger } from '~/shared/lib/logger'
-import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
 interface RemixRankingAction
 {
@@ -66,21 +64,13 @@ export const useRemixRanking = (): RemixRankingAction =>
     [navigate, session.status]
   )
 
-  const onError = useCallback((error: unknown) =>
-  {
-    logger.error('marketplace', 'remixRanking failed', error)
-    toast(formatMarketplaceError(error), 'error')
-  }, [])
+  const { run: runRemix, isPending } = useMarketplaceAsyncAction<
+    [string, string],
+    void
+  >('remixRanking failed', remixRanking)
 
-  const { run: runRemix, isPending } = useAsyncAction<[string, string], void>(
-    remixRanking,
-    {
-      onError,
-    }
-  )
-
-  // collapse useAsyncAction's Promise<void | null> back to Promise<void>; the
-  // null on error is captured by the action store, not relayed to callers
+  // collapse the action runner's Promise<void | null> back to Promise<void>;
+  // the null on error is captured by the action store, not relayed to callers
   const run = useCallback(
     async (slug: string, rankingTitle: string): Promise<void> =>
     {
