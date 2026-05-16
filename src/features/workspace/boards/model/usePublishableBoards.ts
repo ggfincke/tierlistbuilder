@@ -10,6 +10,7 @@ import {
 } from '~/features/workspace/boards/data/local/boardStorage'
 import { readBrowserStorageItem } from '~/shared/lib/browserStorage'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
+import type { BoardMeta } from '@tierlistbuilder/contracts/workspace/board'
 
 export interface PublishableBoard
 {
@@ -35,72 +36,97 @@ interface CachedEntry
 
 const entryCache = new Map<BoardId, CachedEntry>()
 
-export const usePublishableBoards = (): {
+interface PublishableBoardsResult
+{
   boards: readonly PublishableBoard[]
   hasEmptyBoards: boolean
-} =>
+}
+
+const pruneEntryCache = (registry: readonly BoardMeta[]): void =>
 {
-  const registry = useWorkspaceBoardRegistryStore((state) => state.boards)
-
-  return useMemo(() =>
+  const activeIds = new Set(registry.map((meta) => meta.id))
+  for (const cachedId of entryCache.keys())
   {
-    const boards: PublishableBoard[] = []
-    let hasEmptyBoards = false
+    if (!activeIds.has(cachedId)) entryCache.delete(cachedId)
+  }
+}
 
-    for (const meta of registry)
+export const projectPublishableBoards = (
+  registry: readonly BoardMeta[]
+): PublishableBoardsResult =>
+{
+  pruneEntryCache(registry)
+
+  const boards: PublishableBoard[] = []
+  let hasEmptyBoards = false
+
+  for (const meta of registry)
+  {
+    const envelope = readBrowserStorageItem(boardStorageKey(meta.id))
+    const cached = entryCache.get(meta.id)
+    if (
+      cached &&
+      cached.envelope === envelope &&
+      cached.title === meta.title &&
+      cached.createdAt === meta.createdAt
+    )
     {
-      const envelope = readBrowserStorageItem(boardStorageKey(meta.id))
-      const cached = entryCache.get(meta.id)
-      if (
-        cached &&
-        cached.envelope === envelope &&
-        cached.title === meta.title &&
-        cached.createdAt === meta.createdAt
-      )
-      {
-        if (cached.publishable) boards.push(cached.publishable)
-        else hasEmptyBoards = true
-        continue
-      }
+      if (cached.publishable) boards.push(cached.publishable)
+      else hasEmptyBoards = true
+      continue
+    }
 
-      const result = loadBoardFromStorage(meta.id)
-      if (result.status !== 'ok' || !result.data)
-      {
-        entryCache.delete(meta.id)
-        continue
-      }
+    const result = loadBoardFromStorage(meta.id)
+    if (result.status !== 'ok' || !result.data)
+    {
+      entryCache.delete(meta.id)
+      continue
+    }
 
-      const itemCount = countActiveItems(result.data.items)
-      if (itemCount === 0)
-      {
-        entryCache.set(meta.id, {
-          envelope,
-          title: meta.title,
-          createdAt: meta.createdAt,
-          publishable: null,
-        })
-        hasEmptyBoards = true
-        continue
-      }
-
-      const publishable: PublishableBoard = {
-        boardId: meta.id,
-        boardExternalId: meta.id,
-        title: result.data.title || meta.title,
-        itemCount,
-        createdAt: meta.createdAt,
-      }
+    const itemCount = countActiveItems(result.data.items)
+    if (itemCount === 0)
+    {
       entryCache.set(meta.id, {
         envelope,
         title: meta.title,
         createdAt: meta.createdAt,
-        publishable,
+        publishable: null,
       })
-      boards.push(publishable)
+      hasEmptyBoards = true
+      continue
     }
 
-    boards.sort((a, b) => b.createdAt - a.createdAt)
+    const publishable: PublishableBoard = {
+      boardId: meta.id,
+      boardExternalId: meta.id,
+      title: result.data.title || meta.title,
+      itemCount,
+      createdAt: meta.createdAt,
+    }
+    entryCache.set(meta.id, {
+      envelope,
+      title: meta.title,
+      createdAt: meta.createdAt,
+      publishable,
+    })
+    boards.push(publishable)
+  }
 
-    return { boards, hasEmptyBoards }
-  }, [registry])
+  boards.sort((a, b) => b.createdAt - a.createdAt)
+
+  return { boards, hasEmptyBoards }
+}
+
+export const usePublishableBoards = (): PublishableBoardsResult =>
+{
+  const registry = useWorkspaceBoardRegistryStore((state) => state.boards)
+
+  return useMemo(() => projectPublishableBoards(registry), [registry])
+}
+
+// test-only: drop module-level cache so cases starting from a fresh
+// registry don't reuse stale CachedEntry rows seeded by earlier tests
+export const __resetPublishableBoardsCacheForTests = (): void =>
+{
+  entryCache.clear()
 }

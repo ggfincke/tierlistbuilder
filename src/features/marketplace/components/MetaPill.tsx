@@ -7,8 +7,8 @@ import type { ReactNode } from 'react'
 
 import { joinClassNames } from '~/shared/lib/className'
 
-export type MetaPillTone = 'default' | 'accent'
-export type MetaPillShape = 'rounded' | 'pill'
+type MetaPillTone = 'default' | 'accent'
+type MetaPillShape = 'rounded' | 'pill'
 
 interface MetaPillProps
 {

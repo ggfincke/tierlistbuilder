@@ -7,7 +7,7 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { processImageFiles } from '~/features/workspace/settings/lib/imageResize'
 import { useAspectRatioPrompt } from '~/features/workspace/settings/model/useAspectRatioPrompt'
 import { formatError } from '~/shared/lib/errors'
-import { pluralizeWord } from '~/shared/lib/pluralize'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 interface UseImageImportReturn
 {
@@ -67,14 +67,14 @@ export const useImageImport = (): UseImageImportReturn =>
         if (failedCount > 0)
         {
           messages.push(
-            `Skipped ${failedCount} image ${pluralizeWord(failedCount, 'file')} that could not be processed.`
+            `Skipped ${formatCountedWord(failedCount, 'image file')} that could not be processed.`
           )
         }
 
         if (skippedCount > 0)
         {
           messages.push(
-            `Skipped ${skippedCount} non-image ${pluralizeWord(skippedCount, 'file')}.`
+            `Skipped ${formatCountedWord(skippedCount, 'non-image file')}.`
           )
         }
 

@@ -73,12 +73,11 @@ export const BoardCardMenu = ({
     setOpen((current) => !current)
   }
 
-  const closeAndRun =
-    (action: (board: LibraryBoardListItem) => void) => () =>
-    {
-      setOpen(false)
-      action(board)
-    }
+  const closeAndRun = (action: (board: LibraryBoardListItem) => void) => () =>
+  {
+    setOpen(false)
+    action(board)
+  }
 
   const hasNonDestructiveAction =
     onRequestRename !== undefined || onDuplicate !== undefined

@@ -74,7 +74,7 @@ export const getTemplateBySlugImperative = (
 // paginated imperative fetch — used by the local-fork flow to collect every
 // template item without leaning on reactive pagination. caps the page size at
 // the contract-default to stay friendly w/ convex query limits
-export const listTemplateItemsImperative = async (
+const listTemplateItemsImperative = async (
   slug: string,
   paginationOpts: { cursor: string | null; numItems: number }
 ): Promise<MarketplaceTemplateItemsResult> =>

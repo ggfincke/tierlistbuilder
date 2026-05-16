@@ -4,7 +4,8 @@
 import { Sparkles } from 'lucide-react'
 
 import type { MarketplaceTemplateRankingAggregateHighlight } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 
 import { RailCard } from './RailCard'
 import { getAggregateItemLabel } from './utils'

@@ -18,7 +18,8 @@ import type {
   TemplateCardAccessState,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { ACCESS_META } from '~/features/marketplace/model/accessMeta'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMeta'
@@ -221,7 +222,9 @@ const CardImpl = ({
             background: 'linear-gradient(0deg, rgba(0,0,0,0.85), transparent)',
           }}
         >
-          <span className={`inline-flex items-center gap-1 rounded-md bg-[var(--t-accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_ACCENT_STATIC}`}>
+          <span
+            className={`inline-flex items-center gap-1 rounded-md bg-[var(--t-accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_ACCENT_STATIC}`}
+          >
             View
             <ArrowRight className="h-3 w-3" strokeWidth={2.4} aria-hidden />
           </span>

@@ -70,7 +70,9 @@ export const Hero = ({ template, coverStyle = 'auto' }: HeroProps) => (
         </div>
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <span className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md bg-[var(--t-accent)] px-4 py-2 text-[13px] font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_TRANSITION} ${CHUNKY_SHADOW_ACCENT_GROUP}`}>
+          <span
+            className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md bg-[var(--t-accent)] px-4 py-2 text-[13px] font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_TRANSITION} ${CHUNKY_SHADOW_ACCENT_GROUP}`}
+          >
             View template
             <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
           </span>

@@ -30,11 +30,9 @@ import {
 } from '~/features/platform/auth/model/useAuthSession'
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
 import { logger } from '~/shared/lib/logger'
-import {
-  formatCount,
-  formatRelativeTime,
-  pluralize,
-} from '~/shared/catalog/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
+import { pluralizeWord } from '~/shared/lib/pluralize'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { InitialAvatar } from '~/shared/ui/InitialAvatar'
 
@@ -276,7 +274,8 @@ export const TemplateHero = ({
           )}
           {hasConsensus ? (
             <MetaPill icon={TrendingUp}>
-              {formatCount(rankingCount)} {pluralize(rankingCount, 'ranking')}
+              {formatCount(rankingCount)}{' '}
+              {pluralizeWord(rankingCount, 'ranking')}
             </MetaPill>
           ) : (
             <MetaPill icon={Clock}>Awaiting rankings</MetaPill>

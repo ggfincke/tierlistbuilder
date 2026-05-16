@@ -8,7 +8,8 @@ import type {
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/board'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { formatCount, pluralize } from '~/shared/catalog/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
+import { pluralizeWord } from '~/shared/lib/pluralize'
 
 import {
   AggregateItemThumb,
@@ -77,7 +78,7 @@ export const ConsensusBars = ({
                   </span>
                   <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-faint)]">
                     {formatCount(row.sampleCount)}{' '}
-                    {pluralize(row.sampleCount, 'rank')}
+                    {pluralizeWord(row.sampleCount, 'rank')}
                   </span>
                 </div>
                 <DistributionBar

@@ -41,7 +41,8 @@ import { useTemplatesGallery } from '~/features/marketplace/model/useTemplatesGa
 import { useStartBlankBoard } from '~/features/workspace/boards/model/useStartBlankBoard'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
-import { formatCount, pluralize } from '~/shared/catalog/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
+import { pluralizeWord } from '~/shared/lib/pluralize'
 import {
   loadPublishModal,
   preloadPublishModal,
@@ -91,7 +92,7 @@ const railMeta = (
   word: string
 ): string | undefined =>
   items !== undefined
-    ? `${formatCount(items.length)} ${pluralize(items.length, word)}`
+    ? `${formatCount(items.length)} ${pluralizeWord(items.length, word)}`
     : undefined
 
 interface EmptyHintFilters
@@ -120,7 +121,7 @@ const getBrowseHeading = (filters: BrowseHeadingFilters): string =>
 }
 
 const formatTemplateResultsCount = (count: number, atLimit: boolean): string =>
-  `${count}${atLimit ? '+' : ''} ${pluralize(count, 'template')}`
+  `${count}${atLimit ? '+' : ''} ${pluralizeWord(count, 'template')}`
 
 const getEmptyGalleryHint = (filters: EmptyHintFilters): string =>
 {

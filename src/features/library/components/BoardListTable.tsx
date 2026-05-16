@@ -6,7 +6,8 @@ import { Pin } from 'lucide-react'
 
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 
-import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 import { BoardCardMenu } from './BoardCardMenu'
 import { Cover } from './Cover'
 import { PublishChip } from './PublishChip'
@@ -84,12 +85,12 @@ const BoardListRow = memo(
             <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--t-text-muted)]">
               <span className="truncate">
                 {board.activeItemCount}{' '}
-                {pluralize(board.activeItemCount, 'item')}
+                {formatCountedWord(board.activeItemCount, 'item')}
                 {board.tierColors.length > 0 && (
                   <>
                     {' · '}
                     {board.tierColors.length}{' '}
-                    {pluralize(board.tierColors.length, 'tier')}
+                    {formatCountedWord(board.tierColors.length, 'tier')}
                   </>
                 )}
               </span>

@@ -25,6 +25,7 @@ import {
 } from '~/shared/overlay/OverlaySurface'
 import { OVERLAY_VIEWPORT_MARGIN_PX } from '~/shared/overlay/uiMeasurements'
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
+import { clamp } from '~/shared/lib/math'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -35,9 +36,6 @@ interface ItemContextMenuProps
   position: { x: number; y: number }
   onClose: () => void
 }
-
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max)
 
 const SCROLL_LISTENER_OPTIONS = { capture: true, passive: true } as const
 

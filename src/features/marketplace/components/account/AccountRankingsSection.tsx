@@ -12,7 +12,8 @@ import type {
 import { useMyRankings } from '~/features/marketplace/model/useRankingDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { CriterionBadge } from '~/features/marketplace/components/consensus/CriterionBadge'
-import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { RANKINGS_ROUTE_PATH } from '~/shared/routes/pathname'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 

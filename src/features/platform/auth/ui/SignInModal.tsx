@@ -7,12 +7,13 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState, type FormEvent } from 'react'
 
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
-import { mapAuthError } from '~/features/platform/auth/model/authErrors'
+import {
+  mapAuthError,
+  type AuthMode,
+} from '~/features/platform/auth/model/authErrors'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
-
-type AuthMode = 'sign-in' | 'sign-up'
 
 interface SignInModalProps
 {

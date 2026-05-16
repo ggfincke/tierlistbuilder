@@ -296,7 +296,7 @@ export const isEmptyItemLabelOptions = (
 // content-addressable image pointer for bytes stored outside the snapshot.
 // `cloudMediaExternalId` ties hashed bytes to a cloud media row so URLs can
 // re-resolve. source-owned refs = marketplace assets; upload a copy pre-sync.
-export type CloudMediaOwnership = 'source'
+type CloudMediaOwnership = 'source'
 
 export interface TierItemImageRef
 {

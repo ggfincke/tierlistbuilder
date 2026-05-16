@@ -8,7 +8,7 @@ import type {
   TemplateMediaRef,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { externalIdToCode } from '~/shared/board-ui/initialsCode'
+import { externalIdToCode } from '~/shared/lib/initials'
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import { FramedCoverImage } from '~/features/marketplace/components/cover/FramedCoverImage'
 

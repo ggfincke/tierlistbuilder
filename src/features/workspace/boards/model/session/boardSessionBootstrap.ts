@@ -24,7 +24,7 @@ import {
 } from '~/shared/images/imageStore'
 import { collectSnapshotLocalImageHashes } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
-import { pluralizeVerb, pluralizeWord } from '~/shared/lib/pluralize'
+import { formatCountedWord, pluralizeWord } from '~/shared/lib/pluralize'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
   loadedBoardStateFromResult,
@@ -87,7 +87,7 @@ const pruneOrphanedRegistryEntriesAsync = (
       null
     boardStore.replaceRegistry(healthy, nextActiveId)
     toast(
-      `${pruned} ${pluralizeWord(pruned, 'board')} had corrupted data and ${pluralizeVerb(pruned, 'was', 'were')} removed.`,
+      `${formatCountedWord(pruned, 'board')} had corrupted data and ${pluralizeWord(pruned, 'was', 'were')} removed.`,
       'error'
     )
   })

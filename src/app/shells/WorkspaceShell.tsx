@@ -22,7 +22,7 @@ import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTr
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useWarmActiveBoardImages } from '~/features/workspace/boards/model/useWarmActiveBoardImages'
-import { getResponsiveToolbarPosition } from '~/shared/layout/toolbarPosition'
+import { getResponsiveToolbarPosition } from '~/shared/overlay/toolbarPosition'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/AspectRatioPromptProvider'
 import { useCurrentPageBackground } from '~/features/workspace/settings/model/useCurrentPageBackground'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'

@@ -230,7 +230,10 @@ export const LayoutTab = () =>
           <Toggle checked={compactMode} onChange={setCompactMode} />
         </SettingRow>
         <SettingRow label="Edit Button">
-          <Toggle checked={showItemEditButton} onChange={setShowItemEditButton} />
+          <Toggle
+            checked={showItemEditButton}
+            onChange={setShowItemEditButton}
+          />
         </SettingRow>
         <SettingRow label="Trim Shadows">
           <Toggle

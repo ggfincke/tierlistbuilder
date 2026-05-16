@@ -3,7 +3,7 @@
 
 import type { PublishState } from '@tierlistbuilder/contracts/workspace/board'
 
-export type PublishStateTone = 'neutral' | 'accent' | 'live'
+type PublishStateTone = 'neutral' | 'accent' | 'live'
 
 export interface PublishStateMeta
 {

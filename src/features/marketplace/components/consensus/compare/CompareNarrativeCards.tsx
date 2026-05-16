@@ -19,7 +19,7 @@ import {
   resolveBucketColor,
 } from '../utils'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { pluralizeWord } from '~/shared/lib/pluralize'
+import { formatCountedWord } from '~/shared/lib/pluralize'
 
 import { CompareCard } from './CompareCard'
 import {
@@ -246,7 +246,7 @@ export const CompareNarrativeCards = ({
             )} in ${leftShortName}, ${bucketLabel(
               buckets,
               mostDivergent.right.topBucketIndex
-            )} in ${rightShortName}. Δ${mostDivergent.absDelta} ${pluralizeWord(
+            )} in ${rightShortName}. Δ${formatCountedWord(
               mostDivergent.absDelta,
               'tier'
             )}.`}

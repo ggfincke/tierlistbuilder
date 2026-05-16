@@ -255,17 +255,6 @@ export const usePublishRankingFromBoardMutation = () =>
     args: PublishRankingFromBoardArgs
   ) => Promise<MarketplaceRankingPublishResult>
 
-interface RemixRankingArgs
-{
-  slug: string
-  title?: string
-}
-
-export const useRemixRankingMutation = () =>
-  useMutation(api.marketplace.rankings.mutations.remixRanking) as unknown as (
-    args: RemixRankingArgs
-  ) => Promise<MarketplaceRankingRemixResult>
-
 interface RemixTemplateConsensusArgs
 {
   templateSlug: string

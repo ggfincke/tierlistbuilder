@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 
 import { joinClassNames } from '~/shared/lib/className'
 
-export type DisplayHeadlineSize = 'display' | 'page' | 'section'
+type DisplayHeadlineSize = 'display' | 'page' | 'section'
 
 interface DisplayHeadlineProps
 {

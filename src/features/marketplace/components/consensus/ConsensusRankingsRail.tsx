@@ -13,7 +13,8 @@ import {
 
 import type { MarketplaceRankingSummary } from '@tierlistbuilder/contracts/marketplace/ranking'
 import { RANKING_FEATURED_BADGE_LABELS } from '@tierlistbuilder/contracts/marketplace/ranking'
-import { formatCount, formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatCount } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
 import { avatarColor } from './utils'
 

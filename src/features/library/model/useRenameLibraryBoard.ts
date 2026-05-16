@@ -13,7 +13,7 @@ import { toast } from '~/shared/notifications/useToastStore'
 
 import { useLibraryBoardAction } from './useLibraryBoardAction'
 
-export interface RenameLibraryBoardTarget
+interface RenameLibraryBoardTarget
 {
   externalId: BoardId
   currentTitle: string

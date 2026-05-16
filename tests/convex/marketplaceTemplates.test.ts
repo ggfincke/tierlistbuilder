@@ -606,47 +606,6 @@ const seedLargeCompletedRankingBoard = async (
     return boardExternalId
   })
 
-const seedLargePublishedRanking = async (
-  t: ReturnType<typeof convexTest<typeof schema>>,
-  ownerId: Id<'users'>
-): Promise<string> =>
-  await t.run(async (ctx) =>
-  {
-    const now = Date.now()
-    const itemCount = MAX_STANDARD_CLOUD_BOARD_ITEMS + 1
-    const templateId = await seedPublishedTemplate(ctx, {
-      slug: 'LargeRemixT',
-      authorId: ownerId,
-      title: 'Large Remix Template',
-      sizeClass: 'large',
-      itemCount,
-    })
-    const boardId = await seedCloudBoard(ctx, {
-      externalId: 'large-remix-source',
-      ownerId,
-      title: 'Large Remix Source',
-      sourceTemplateId: templateId,
-      sourceTemplateCategory: 'gaming',
-      sourceTemplateSizeClass: 'large',
-      now,
-      activeItemCount: itemCount,
-      unrankedItemCount: 0,
-      templateProgressState: 'complete',
-    })
-    await seedPublishedRanking(ctx, {
-      slug: 'LargeRank1',
-      ownerId,
-      sourceTemplateId: templateId,
-      sourceBoardId: boardId,
-      sourceTemplateSlug: 'LargeRemixT',
-      sourceTemplateTitle: 'Large Remix Template',
-      title: 'Large Published Ranking',
-      itemCount,
-      now,
-    })
-    return 'LargeRank1'
-  })
-
 const seedRankingMediaSnapshot = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
   ownerId: Id<'users'>
@@ -1392,7 +1351,7 @@ describe('marketplace template Convex functions', () =>
     })
   })
 
-  it('rejects large ranking publish and remix until ranking jobs exist', async () =>
+  it('rejects large ranking publish until ranking jobs exist', async () =>
   {
     const t = makeTest()
     const plusUserId = await seedUser(
@@ -1400,11 +1359,6 @@ describe('marketplace template Convex functions', () =>
       'Plus Ranker',
       'plus-ranker@example.com',
       'plus'
-    )
-    const freeUserId = await seedUser(
-      t,
-      'Free Remixer',
-      'free-remixer@example.com'
     )
     const boardExternalId = await seedLargeCompletedRankingBoard(t, plusUserId)
 
@@ -1419,25 +1373,6 @@ describe('marketplace template Convex functions', () =>
       ),
       CONVEX_ERROR_CODES.cloudItemLimitExceeded
     )
-
-    const rankingSlug = await seedLargePublishedRanking(t, plusUserId)
-    await expectConvexCode(
-      asUser(t, freeUserId).mutation(
-        api.marketplace.rankings.mutations.remixRanking,
-        { slug: rankingSlug }
-      ),
-      CONVEX_ERROR_CODES.largeTemplateRequiresPlus
-    )
-    await withLargeTemplateJobsEnabled(async () =>
-    {
-      await expectConvexCode(
-        asUser(t, plusUserId).mutation(
-          api.marketplace.rankings.mutations.remixRanking,
-          { slug: rankingSlug }
-        ),
-        CONVEX_ERROR_CODES.cloudItemLimitExceeded
-      )
-    })
   })
 
   it('keeps ranking snapshot media reachable during orphan GC', async () =>
@@ -2217,12 +2152,11 @@ describe('marketplace template Convex functions', () =>
     expect(storedCounts.card).toMatchObject({ forkCount: 1, viewCount: 0 })
   })
 
-  it('publishes completed template rankings and remixes them into ranked boards', async () =>
+  it('publishes completed template rankings into queryable surfaces', async () =>
   {
     const t = makeTest()
     const authorId = await seedUser(t, 'Template Author', 'author@example.com')
     const rankerId = await seedUser(t, 'Ranker', 'ranker@example.com')
-    const remixerId = await seedUser(t, 'Remixer', 'remixer@example.com')
     await seedSourceBoard(t, authorId)
 
     const { slug: templateSlug } = await asUser(t, authorId).mutation(
@@ -2309,17 +2243,6 @@ describe('marketplace template Convex functions', () =>
     await t.mutation(api.marketplace.rankings.mutations.recordRankingView, {
       slug: published.slug,
     })
-    const remixed = await asUser(t, remixerId).mutation(
-      api.marketplace.rankings.mutations.remixRanking,
-      { slug: published.slug, title: 'Remixed Ranking' }
-    )
-    const board = await asUser(t, remixerId).query(
-      api.workspace.boards.queries.getBoardStateByExternalId,
-      { boardExternalId: remixed.boardExternalId }
-    )
-    expect(board).toMatchObject({ title: 'Remixed Ranking' })
-    expect(board?.items).toHaveLength(2)
-    expect(board?.items.every((item) => item.tierId !== null)).toBe(true)
 
     const rankings = await t.query(
       api.marketplace.rankings.queries.getRankingsForTemplate,
@@ -2331,7 +2254,7 @@ describe('marketplace template Convex functions', () =>
         criterion: expect.objectContaining({
           externalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
         }),
-        remixCount: 1,
+        remixCount: 0,
         viewCount: 1,
       }),
     ])
@@ -2592,18 +2515,6 @@ describe('marketplace template Convex functions', () =>
         name: 'Favorites',
         prompt: 'Rank by personal preference.',
       },
-    })
-    const remixedFavorites = await ranker.mutation(
-      api.marketplace.rankings.mutations.remixRanking,
-      { slug: favorites.slug, title: 'Remixed Favorites Ranking' }
-    )
-    await expect(
-      ranker.query(
-        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
-        { boardExternalId: remixedFavorites.boardExternalId }
-      )
-    ).resolves.toMatchObject({
-      preferredCriterionExternalId: 'favorites',
     })
 
     await t.run(async (ctx) =>

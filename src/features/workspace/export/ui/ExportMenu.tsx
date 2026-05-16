@@ -18,7 +18,7 @@ import {
 
 import type { ImageFormat } from '../model/runtime'
 import type { ExportStatus } from '../model/useExportController'
-import type { MenuPositionClasses } from '~/shared/layout/toolbarPosition'
+import type { MenuPositionClasses } from '~/shared/overlay/toolbarPosition'
 import { formatError } from '~/shared/lib/errors'
 import {
   preloadHtmlToImageLib,

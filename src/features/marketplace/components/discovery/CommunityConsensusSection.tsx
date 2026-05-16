@@ -35,7 +35,7 @@ import {
   useTemplateRankingAggregateItems,
   type TemplateRankingAggregateItemsPageStatus,
 } from '~/features/marketplace/model/useRankingDetail'
-import { formatRelativeTime } from '~/shared/catalog/formatters'
+import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
