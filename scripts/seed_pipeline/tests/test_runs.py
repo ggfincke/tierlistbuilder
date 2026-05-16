@@ -64,6 +64,37 @@ class SeedRunPayloadTests(unittest.TestCase):
         self.assertEqual(criteria[0]["criterionExternalId"], "competitive")
         self.assertRegex(criteria[0]["criteriaContentHash"], r"^v1:[0-9a-f]{32}$")
 
+    def test_template_upserts_forward_labels(self) -> None:
+        compiled = json.loads(json.dumps(self.compiled))
+        compiled["templates"][0]["labels"] = {"show": False}
+
+        templates = build_template_upserts(compiled)
+
+        self.assertEqual(templates[0]["labels"], {"show": False})
+
+    def test_template_metadata_hash_includes_labels(self) -> None:
+        labels_hidden = json.loads(json.dumps(self.compiled))
+        labels_visible = json.loads(json.dumps(self.compiled))
+        labels_hidden["templates"][0]["labels"] = {"show": False}
+        labels_visible["templates"][0]["labels"] = {"show": True}
+
+        hidden_template = build_template_upserts(labels_hidden)[0]
+        visible_template = build_template_upserts(labels_visible)[0]
+
+        self.assertNotEqual(
+            hidden_template["metadataContentHash"],
+            visible_template["metadataContentHash"],
+        )
+        hidden_payload = {
+            key: value
+            for key, value in hidden_template.items()
+            if key != "metadataContentHash"
+        }
+        self.assertEqual(
+            hidden_template["metadataContentHash"],
+            _hash_for_test("template-metadata", hidden_payload),
+        )
+
     def test_checkpoint_scope_includes_environment(self) -> None:
         checkpoint = {
             "datasetKey": self.compiled["datasetKey"],

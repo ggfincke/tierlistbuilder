@@ -11,7 +11,7 @@ import {
 } from '@tierlistbuilder/contracts/lib/ids'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import {
-  loadMediaVariantStorageId,
+  loadPreviewOrTileStorageId,
   selectMediaVariantSummary,
 } from '../../lib/mediaVariants'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
@@ -1744,7 +1744,7 @@ export const insertBoardItemsFromTemplate = async (
     templateItems.map(async (item) =>
     {
       const storageId = item.mediaAssetId
-        ? await loadMediaVariantStorageId(ctx, item.mediaAssetId)
+        ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
         : null
       const externalId = generateItemId()
 

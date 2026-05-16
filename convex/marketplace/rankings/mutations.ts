@@ -28,7 +28,7 @@ import {
 } from '../../lib/entitlements'
 import { requireCurrentUserId } from '../../lib/auth'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
-import { loadMediaVariantStorageId } from '../../lib/mediaVariants'
+import { loadPreviewOrTileStorageId } from '../../lib/mediaVariants'
 import { loadBoundedBoardRows } from '../../workspace/sync/loadBoundedBoardRows'
 import { buildFreshBoardCloudFields } from '../../workspace/boards/cloudFields'
 import {
@@ -589,7 +589,7 @@ export const remixRanking = mutation({
           externalId,
           label: resolved.label,
           storageId: resolved.mediaAssetId
-            ? await loadMediaVariantStorageId(ctx, resolved.mediaAssetId)
+            ? await loadPreviewOrTileStorageId(ctx, resolved.mediaAssetId)
             : null,
           order: item.order,
           deletedAt: null,
@@ -610,7 +610,7 @@ export const remixRanking = mutation({
           externalId: insert.externalId,
           label: item.label,
           storageId: item.mediaAssetId
-            ? await loadMediaVariantStorageId(ctx, item.mediaAssetId)
+            ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
             : null,
           order: item.order,
           deletedAt: null,
@@ -834,7 +834,7 @@ export const remixTemplateConsensus = mutation({
           tierIndex === null ? null : (insertedTiers[tierIndex] ?? null)
         const externalId = generateItemId()
         const storageId = item.mediaAssetId
-          ? await loadMediaVariantStorageId(ctx, item.mediaAssetId)
+          ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
           : null
         await ctx.db.insert('boardItems', {
           boardId,

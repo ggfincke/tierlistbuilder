@@ -19,7 +19,7 @@ import {
   getLargeTemplateFeatureState,
   getPlanEntitlements,
 } from '../../lib/entitlements'
-import { loadMediaVariantStorageId } from '../../lib/mediaVariants'
+import { loadPreviewOrTileStorageId } from '../../lib/mediaVariants'
 import { buildBoardLibrarySummary } from '../../workspace/boards/librarySummary'
 import {
   adjustPublicTemplateCount,
@@ -295,7 +295,7 @@ const buildCloneBoardSummary = async (
       tierKey: null,
       externalId: item.externalId,
       label: item.label,
-      storageId: await loadMediaVariantStorageId(ctx, item.mediaAssetId),
+      storageId: await loadPreviewOrTileStorageId(ctx, item.mediaAssetId),
       order: item.order,
       deletedAt: item.deletedAt,
     }))

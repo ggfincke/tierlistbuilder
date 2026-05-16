@@ -3,6 +3,7 @@
 
 import { v } from 'convex/values'
 import {
+  boardLabelSettingsValidator,
   imageMimeTypeValidator,
   itemTransformValidator,
   mediaVariantKindValidator,
@@ -133,6 +134,9 @@ export const seedTemplateUpsertValidator = v.object({
   suggestedTiers: tierPresetTiersValidator,
   itemAspectRatio: v.number(),
   itemCount: v.number(),
+  // optional per-template override for cloned-board label visibility. when
+  // unset, forked boards inherit the user's global showLabels preference
+  labels: v.optional(boardLabelSettingsValidator),
 })
 
 export const seedItemUpsertValidator = v.object({

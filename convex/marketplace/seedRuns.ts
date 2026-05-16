@@ -475,6 +475,7 @@ export const upsertSeedTemplates = internalMutation({
           itemAspectRatio: patch.itemAspectRatio,
           itemAspectRatioMode: patch.itemAspectRatioMode,
           defaultItemImageFit: patch.defaultItemImageFit,
+          labels: patch.labels,
           seedDatasetKey: args.datasetKey,
           seedExternalId: template.externalId,
           seedReleaseId: args.releaseId,

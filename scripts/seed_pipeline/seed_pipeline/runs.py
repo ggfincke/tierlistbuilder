@@ -392,6 +392,8 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
             "itemAspectRatio": template["itemAspectRatio"],
             "itemCount": len(as_list(template.get("items"))),
         }
+        if "labels" in template:
+            upsert["labels"] = template["labels"]
         upserts.append(
             {
                 **upsert,

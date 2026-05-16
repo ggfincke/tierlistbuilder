@@ -20,7 +20,13 @@ npm run seed:marketplace:preflight
 npm run seed:marketplace
 npm run seed:rankings:preflight
 npm run seed:rankings
+npm run seed:featured
+npm run seed:all
 ```
+
+`npm run seed:all` runs the marketplace, ranking, and featured-trio seed steps
+in sequence. There is no seed `--reset` flag; for a clean local/dev deployment,
+wipe data first with `npm run db:reset -- --yes`, then run the seed command.
 
 The package can also be installed for development:
 

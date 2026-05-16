@@ -125,16 +125,15 @@ const CardStat = ({ icon: Icon, label, value }: CardStatProps) =>
 }
 
 // edit-time eyebrow + frame palettes — keyed off the editorial-elevated flag.
-// elevated cards carry an accent border + soft accent glow & tint the
-// category eyebrow accent so the 3-up featured row reads a tier above the grid
+// elevated cards carry an accent border & tint the category eyebrow (no
+// halo — the TRENDING/CURATED corner pills already signal 'featured')
 const FRAME_BASE =
   'group focus-custom relative flex h-full flex-col overflow-hidden rounded-lg border bg-[var(--t-bg-surface)] transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
 
 const FRAME_DEFAULT =
   'border-[var(--t-border)] hover:border-[var(--t-border-hover)] hover:shadow-lg'
 
-const FRAME_ELEVATED =
-  'border-[var(--t-accent)] shadow-[0_0_28px_var(--t-accent-glow)] hover:shadow-[0_0_40px_var(--t-accent-glow)]'
+const FRAME_ELEVATED = 'border-[var(--t-accent)]'
 
 const CardImpl = ({
   template,

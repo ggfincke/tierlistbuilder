@@ -54,6 +54,7 @@ import {
   findOwnedBoardByExternalIdIncludingDeleted,
   findMediaAssetByExternalId,
 } from '../../lib/permissions'
+import { selectPreviewOrTileStorageId } from '../../lib/mediaVariants'
 import {
   countTemplateProgressItems,
   resolveTemplateProgressState,
@@ -586,7 +587,7 @@ const resolveMediaState = async (
       assetCache.set(asset._id, Promise.resolve(asset))
       return [
         extId,
-        { assetId: asset._id, storageId: asset.tileVariant.storageId },
+        { assetId: asset._id, storageId: selectPreviewOrTileStorageId(asset) },
       ] as const
     })
   )
@@ -606,7 +607,7 @@ const resolveMediaState = async (
     {
       serverStorageByItemExternalId.set(
         item.externalId,
-        asset.tileVariant.storageId
+        selectPreviewOrTileStorageId(asset)
       )
     }
   }
@@ -630,7 +631,8 @@ const resolveLibrarySummaryStorageId = (
   }
   // wire field present but null -> caller cleared the media reference
   if (!item.mediaExternalId) return null
-  // wire field present w/ id -> use the resolved reference's tile storage
+  // wire field present w/ id -> use the resolved reference's preview storage
+  // (falls back to tile for assets predating the preview pipeline)
   return mediaExternalIdToReference.get(item.mediaExternalId)?.storageId ?? null
 }
 

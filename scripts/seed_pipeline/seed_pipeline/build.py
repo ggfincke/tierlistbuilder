@@ -16,6 +16,7 @@ from .assets import (
     compile_asset,
     inspect_source,
     sha256_file,
+    variant_policy_fingerprint,
 )
 from .crop import RatioDecision, resolve_item_transform, resolve_ratio_decision
 from .manifest import JsonObject, read_json, repo_relative, write_json
@@ -229,6 +230,8 @@ def _compile_template(
         )
     if "coverZoom" in template:
         compiled["coverZoom"] = template["coverZoom"]
+    if "labels" in template:
+        compiled["labels"] = template["labels"]
     if "suggestedTiers" in template:
         compiled["suggestedTiers"] = template["suggestedTiers"]
     for order, item in enumerate(template["items"]):
@@ -486,6 +489,7 @@ def _compute_compile_fingerprint(
         "sourceSchemaSha": sha256_file(repo_root / SOURCE_SCHEMA_RELATIVE_PATH),
         "compiledSchemaSha": sha256_file(repo_root / COMPILED_SCHEMA_RELATIVE_PATH),
         "variantSpecVersion": VARIANT_SPEC_VERSION,
+        "variantPolicy": variant_policy_fingerprint(),
         "inspectCacheSchemaVersion": INSPECT_CACHE_SCHEMA_VERSION,
         "variantMetaSchemaVersion": VARIANT_META_SCHEMA_VERSION,
         "totalSources": len(source_entries),
