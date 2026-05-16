@@ -20,6 +20,12 @@ import {
   type ItemId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import {
+  COVER_SURFACES,
+  isValidCoverFrame,
+  type TemplateCoverFraming,
+  type TemplateMediaRef,
+} from '@tierlistbuilder/contracts/marketplace/template'
+import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
   type PaletteId,
@@ -188,6 +194,72 @@ const normalizeItemList = (raw: unknown): TierItem[] =>
   return result
 }
 
+const normalizeTemplateMediaRef = (
+  raw: unknown
+): TemplateMediaRef | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  if (
+    typeof raw.externalId !== 'string' ||
+    typeof raw.contentHash !== 'string' ||
+    typeof raw.url !== 'string' ||
+    typeof raw.width !== 'number' ||
+    typeof raw.height !== 'number' ||
+    typeof raw.mimeType !== 'string'
+  )
+  {
+    return undefined
+  }
+
+  return {
+    externalId: raw.externalId,
+    contentHash: raw.contentHash,
+    url: raw.url,
+    width: raw.width,
+    height: raw.height,
+    mimeType: raw.mimeType,
+  }
+}
+
+const normalizeTemplateCoverFraming = (
+  raw: unknown
+): TemplateCoverFraming | null | undefined =>
+{
+  if (raw === null) return null
+  if (!isRecord(raw)) return undefined
+
+  const framing: Partial<TemplateCoverFraming> = {}
+  for (const surface of COVER_SURFACES)
+  {
+    const frame = raw[surface]
+    if (frame === null)
+    {
+      framing[surface] = null
+      continue
+    }
+    if (!isRecord(frame)) return undefined
+    if (
+      typeof frame.x !== 'number' ||
+      typeof frame.y !== 'number' ||
+      typeof frame.width !== 'number' ||
+      typeof frame.height !== 'number'
+    )
+    {
+      return undefined
+    }
+    const normalized = {
+      x: frame.x,
+      y: frame.y,
+      width: frame.width,
+      height: frame.height,
+    }
+    if (!isValidCoverFrame(normalized)) return undefined
+    framing[surface] = normalized
+  }
+
+  return framing as TemplateCoverFraming
+}
+
 const normalizeTier = (
   tier: RawTier,
   index: number,
@@ -259,6 +331,8 @@ const BOARD_DATA_SELECTION_KEYS = [
   'sourceRankingId',
   'sourceTemplateTitle',
   'sourceRankingTitle',
+  'sourceTemplateCoverMedia',
+  'sourceTemplateCoverFraming',
   'preferredCriterionExternalId',
 ] as const satisfies readonly (keyof BoardDataSelection)[]
 
@@ -282,6 +356,8 @@ export const selectBoardDataFields = (
   sourceRankingId: state.sourceRankingId,
   sourceTemplateTitle: state.sourceTemplateTitle,
   sourceRankingTitle: state.sourceRankingTitle,
+  sourceTemplateCoverMedia: state.sourceTemplateCoverMedia,
+  sourceTemplateCoverFraming: state.sourceTemplateCoverFraming,
   preferredCriterionExternalId: state.preferredCriterionExternalId,
 })
 
@@ -325,6 +401,8 @@ export const extractBoardData = (
   sourceRankingId: state.sourceRankingId,
   sourceTemplateTitle: state.sourceTemplateTitle,
   sourceRankingTitle: state.sourceRankingTitle,
+  sourceTemplateCoverMedia: state.sourceTemplateCoverMedia,
+  sourceTemplateCoverFraming: state.sourceTemplateCoverFraming,
   preferredCriterionExternalId: state.preferredCriterionExternalId,
 })
 
@@ -400,6 +478,12 @@ export const normalizeBoardSnapshot = (
       typeof value?.sourceRankingTitle === 'string'
         ? value.sourceRankingTitle
         : undefined,
+    sourceTemplateCoverMedia: normalizeTemplateMediaRef(
+      value?.sourceTemplateCoverMedia
+    ),
+    sourceTemplateCoverFraming: normalizeTemplateCoverFraming(
+      value?.sourceTemplateCoverFraming
+    ),
     preferredCriterionExternalId:
       typeof value?.preferredCriterionExternalId === 'string'
         ? value.preferredCriterionExternalId

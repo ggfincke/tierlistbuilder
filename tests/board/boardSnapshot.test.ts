@@ -138,6 +138,19 @@ describe('normalizeBoardSnapshot', () =>
         sourceRankingId: 'Ranking123',
         sourceTemplateTitle: 'Template',
         sourceRankingTitle: 'Ranking',
+        sourceTemplateCoverMedia: {
+          externalId: 'cover',
+          contentHash: 'hash-cover',
+          url: 'https://cdn.test/cover.jpg',
+          width: 1920,
+          height: 1080,
+          mimeType: 'image/jpeg',
+        },
+        sourceTemplateCoverFraming: {
+          browseHero: null,
+          detailHero: null,
+          card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
+        },
         preferredCriterionExternalId: 'favorites',
       }),
       'classic'
@@ -148,6 +161,13 @@ describe('normalizeBoardSnapshot', () =>
       sourceRankingId: 'Ranking123',
       sourceTemplateTitle: 'Template',
       sourceRankingTitle: 'Ranking',
+      sourceTemplateCoverMedia: {
+        externalId: 'cover',
+        contentHash: 'hash-cover',
+      },
+      sourceTemplateCoverFraming: {
+        card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
+      },
       preferredCriterionExternalId: 'favorites',
     })
   })

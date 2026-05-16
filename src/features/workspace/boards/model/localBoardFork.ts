@@ -224,6 +224,10 @@ export const createLocalBoardFromTemplate = async (
     ...(template.labels !== null ? { labels: template.labels } : {}),
     sourceTemplateId: template.slug,
     sourceTemplateTitle: template.title,
+    ...(template.coverMedia
+      ? { sourceTemplateCoverMedia: template.coverMedia }
+      : {}),
+    sourceTemplateCoverFraming: template.coverFraming,
     ...(preferredCriterionExternalId ? { preferredCriterionExternalId } : {}),
   }
 

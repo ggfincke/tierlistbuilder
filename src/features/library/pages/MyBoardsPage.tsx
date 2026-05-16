@@ -20,12 +20,17 @@ import {
   filterLibraryBoards,
   sortLibraryBoards,
 } from '~/features/library/lib/sortAndFilter'
+import { RenameBoardModal } from '~/features/library/components/RenameBoardModal'
 import { useBoardsLibrary } from '~/features/library/model/useBoardsLibrary'
 import { useCreateLibraryBoard } from '~/features/library/model/useCreateLibraryBoard'
+import { useDeleteLibraryBoard } from '~/features/library/model/useDeleteLibraryBoard'
+import { useDuplicateLibraryBoard } from '~/features/library/model/useDuplicateLibraryBoard'
 import { useLibraryFilters } from '~/features/library/model/useLibraryFilters'
 import { useLocalBoardsLibrary } from '~/features/library/model/useLocalBoardsLibrary'
 import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoard'
 import { useOpenLocalBoard } from '~/features/library/model/useOpenLocalBoard'
+import { useRenameLibraryBoard } from '~/features/library/model/useRenameLibraryBoard'
+import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { LivePulse } from '~/shared/ui/LivePulse'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
@@ -75,6 +80,15 @@ export const MyBoardsPage = () =>
     ? openCloudBoard
     : openLocalBoard
   const createBoard = useCreateLibraryBoard()
+  const deleteBoard = useDeleteLibraryBoard()
+  const duplicateBoard = useDuplicateLibraryBoard()
+  const renameBoard = useRenameLibraryBoard()
+  // any in-flight library mutation lights up a card's pending UI so the user
+  // can't fire a second action against the same row while one is running
+  const pendingActionExternalId =
+    deleteBoard.pendingExternalId ??
+    duplicateBoard.pendingExternalId ??
+    renameBoard.pendingExternalId
   const deferredSearch = useDeferredValue(filters.searchDebounced)
   const deferredFilter = useDeferredValue(filters.filter)
   const deferredSort = useDeferredValue(filters.sort)
@@ -227,7 +241,6 @@ export const MyBoardsPage = () =>
         </span>
       </div>
 
-      {/* content */}
       <div
         className={`transition-opacity ${resultsPending ? 'opacity-70' : ''}`}
         aria-busy={resultsPending || undefined}
@@ -255,7 +268,11 @@ export const MyBoardsPage = () =>
           <BoardListTable
             boards={visibleBoards ?? []}
             onOpenBoard={openBoard}
+            onRequestDelete={deleteBoard.requestDelete}
+            onRequestRename={renameBoard.requestRename}
+            onDuplicate={duplicateBoard.duplicate}
             pendingBoardExternalId={pendingBoardExternalId}
+            pendingActionExternalId={pendingActionExternalId}
           />
         ) : (
           <div className="grid gap-3.5" style={gridStyle}>
@@ -271,13 +288,50 @@ export const MyBoardsPage = () =>
                   board={board}
                   density={filters.density}
                   onOpen={openBoard}
-                  isPending={pendingBoardExternalId === board.externalId}
+                  onRequestDelete={deleteBoard.requestDelete}
+                  onRequestRename={renameBoard.requestRename}
+                  onDuplicate={duplicateBoard.duplicate}
+                  isPending={
+                    pendingBoardExternalId === board.externalId ||
+                    pendingActionExternalId === board.externalId
+                  }
                 />
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {deleteBoard.confirmTarget && (
+        <ConfirmDialog
+          open
+          title="Delete board?"
+          description={
+            deleteBoard.confirmTarget.syncState === 'localOnly'
+              ? `"${deleteBoard.confirmTarget.title}" will be permanently deleted.`
+              : `"${deleteBoard.confirmTarget.title}" will be moved to Recently deleted. You can restore it for 30 days.`
+          }
+          confirmText="Delete"
+          onCancel={deleteBoard.cancelDelete}
+          onConfirm={() =>
+          {
+            void deleteBoard.confirmDelete()
+          }}
+        />
+      )}
+
+      <RenameBoardModal
+        // remount on target change so the input re-initializes to the new
+        // title without a useEffect chasing the prop
+        key={renameBoard.renameTarget?.externalId ?? 'closed'}
+        open={renameBoard.renameTarget !== null}
+        currentTitle={renameBoard.renameTarget?.currentTitle ?? ''}
+        onCancel={renameBoard.cancelRename}
+        onSubmit={(nextTitle) =>
+        {
+          void renameBoard.confirmRename(nextTitle)
+        }}
+      />
     </section>
   )
 }

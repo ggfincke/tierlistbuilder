@@ -38,7 +38,7 @@ const GridSkeletonCard = ({ density }: { density: LibraryBoardDensity }) => (
 const ListSkeletonRow = () => (
   <div
     aria-hidden="true"
-    className="grid items-center gap-4 px-4 py-3"
+    className="grid items-center gap-4 py-3 pl-4 pr-12"
     style={{
       gridTemplateColumns: BOARD_LIST_GRID_TEMPLATE,
       borderBottom: '1px solid var(--t-border)',
@@ -58,7 +58,7 @@ const ListSkeletonRow = () => (
 const ListSkeletonHeader = () => (
   <div
     aria-hidden="true"
-    className="grid items-center gap-4 px-4 py-2.5"
+    className="grid items-center gap-4 py-2.5 pl-4 pr-12"
     style={{
       gridTemplateColumns: BOARD_LIST_GRID_TEMPLATE,
       borderBottom: '1px solid var(--t-border)',

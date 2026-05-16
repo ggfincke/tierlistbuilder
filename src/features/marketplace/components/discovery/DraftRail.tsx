@@ -8,6 +8,7 @@ import type { MarketplaceTemplateDraft } from '@tierlistbuilder/contracts/market
 
 import { formatRelativeTime } from '~/shared/catalog/formatters'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
+import { Cover as MarketplaceCover } from '../cover/Cover'
 import { MediaMatteFrame } from '../cover/MediaMatteFrame'
 
 interface DraftRailProps
@@ -54,7 +55,7 @@ const ThumbnailStrip = ({ draft }: { draft: MarketplaceTemplateDraft }) =>
 
   if (coverMedia)
   {
-    return <MediaMatteFrame src={coverMedia.url} className="h-full w-full" />
+    return <MarketplaceCover template={draft.template} density="small" />
   }
 
   if (tiles.length === 0)

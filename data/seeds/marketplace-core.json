@@ -1481,7 +1481,7 @@
       "labelPolicy": "explicit-required",
       "labels": { "show": false },
       "coverImage": "data/seeds/assets/covers/ssbu-fighters.jpg",
-      "coverZoom": 1.8,
+      "coverZoom": 2.2,
       "suggestedTiers": [
         {
           "name": "S",

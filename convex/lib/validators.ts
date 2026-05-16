@@ -291,6 +291,15 @@ export const templateCardMediaValidator = v.object({
   ...mediaVariantSummaryValidator.fields,
 })
 
+export const templateMediaRefValidator = v.object({
+  externalId: v.string(),
+  contentHash: v.string(),
+  url: v.string(),
+  width: v.number(),
+  height: v.number(),
+  mimeType: v.string(),
+})
+
 // source-image rect for a cover surface, normalized to source dimensions.
 // values may sit outside [0, 1] when the user zooms below cover-fit (the
 // renderer letterboxes the overflow w/ --t-media-matte)
@@ -480,6 +489,9 @@ const libraryBoardCoverItemValidator = v.object({
   label: v.union(v.string(), v.null()),
   externalId: v.string(),
   mediaUrl: v.union(v.string(), v.null()),
+  mediaHash: v.optional(v.string()),
+  mediaCloudExternalId: v.optional(v.string()),
+  mediaVariant: v.optional(mediaVariantKindValidator),
 })
 
 // per-tier breakdown row — mirrors LibraryBoardTierBreakdown
@@ -516,6 +528,8 @@ export const libraryBoardListItemValidator = v.object({
   visibility: libraryBoardVisibilityValidator,
   category: templateCategoryValidator,
   sourceTemplateSizeClass: v.union(templateSizeClassValidator, v.null()),
+  sourceTemplateCoverMedia: v.union(templateMediaRefValidator, v.null()),
+  sourceTemplateCoverFraming: v.union(templateCoverFramingValidator, v.null()),
   coverItems: v.array(libraryBoardCoverItemValidator),
   paletteId: paletteIdValidator,
   tierColors: v.array(tierColorSpecValidator),
@@ -659,15 +673,6 @@ export const templateAuthorValidator = v.object({
   id: v.string(),
   displayName: v.string(),
   avatarUrl: v.union(v.string(), v.null()),
-})
-
-export const templateMediaRefValidator = v.object({
-  externalId: v.string(),
-  contentHash: v.string(),
-  url: v.string(),
-  width: v.number(),
-  height: v.number(),
-  mimeType: v.string(),
 })
 
 export const templateCoverItemValidator = v.object({

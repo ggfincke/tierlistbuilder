@@ -932,7 +932,7 @@ export const toTemplateMediaRef = async (
   return await buildMediaRef(ctx, asset, kind, cache)
 }
 
-const toTemplateMediaRefWithFallback = async (
+export const toTemplateMediaRefWithFallback = async (
   ctx: DbCtx,
   mediaAssetId: Id<'mediaAssets'> | null,
   kinds: readonly MediaVariantKind[],
@@ -1573,10 +1573,10 @@ export const toTemplateDraft = async (
     activeItemCount === 0
       ? 100
       : Math.round((rankedItemCount / activeItemCount) * 100)
-  const coverMedia = await toTemplateMediaRef(
+  const coverMedia = await toTemplateMediaRefWithFallback(
     ctx,
     template.coverMediaAssetId,
-    'tile',
+    ['preview', 'tile'],
     cache
   )
   const draftTemplate: MarketplaceTemplateDraftTemplate = {

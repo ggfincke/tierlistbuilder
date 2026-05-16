@@ -307,6 +307,40 @@ const seedSourceBoard = async (
     return { mediaExternalId: 'media-source' }
   })
 
+const addMediaPreviewVariant = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  externalId: string,
+  contentHash = 'hash-source-preview'
+): Promise<void> =>
+  await t.run(async (ctx) =>
+  {
+    const mediaAsset = await ctx.db
+      .query('mediaAssets')
+      .withIndex('byExternalId', (q) => q.eq('externalId', externalId))
+      .unique()
+    if (!mediaAsset) throw new Error(`missing media asset: ${externalId}`)
+
+    const storageId = await ctx.storage.store(
+      new Blob([new Uint8Array([4, 5, 6])], { type: 'image/png' })
+    )
+    const now = Date.now()
+    const previewVariant = {
+      storageId,
+      width: 1024,
+      height: 576,
+      byteSize: 3,
+      mimeType: 'image/png',
+      contentHash,
+    }
+    await ctx.db.patch(mediaAsset._id, { previewVariant })
+    await ctx.db.insert('mediaVariants', {
+      mediaAssetId: mediaAsset._id,
+      kind: 'preview',
+      ...previewVariant,
+      createdAt: now,
+    })
+  })
+
 const seedTierPreset = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
   ownerId: Id<'users'>
@@ -968,6 +1002,62 @@ describe('marketplace template Convex functions', () =>
     expect(await readPublicTemplateCount(t)).toEqual({
       count: 0,
       countByCategory: {},
+    })
+  })
+
+  it('uses preview cover media for template draft thumbnails', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    const consumerId = await seedUser(t, 'Template User', 'user@example.com')
+    const { mediaExternalId } = await seedSourceBoard(t, authorId)
+    await addMediaPreviewVariant(t, mediaExternalId)
+
+    const { slug } = await asUser(t, authorId).mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Preview Cover Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+        coverMediaExternalId: mediaExternalId,
+      }
+    )
+
+    await asUser(t, consumerId).mutation(
+      api.marketplace.templates.mutations.useTemplate,
+      {
+        slug,
+        title: 'My Draft',
+      }
+    )
+
+    const drafts = await asUser(t, consumerId).query(
+      api.marketplace.templates.queries.getMyTemplateDrafts,
+      {}
+    )
+
+    expect(drafts.drafts[0]?.template.coverMedia).toMatchObject({
+      externalId: mediaExternalId,
+      contentHash: 'hash-source-preview',
+      width: 1024,
+      height: 576,
+    })
+
+    const libraryRows = await asUser(t, consumerId).query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(libraryRows[0]).toMatchObject({
+      title: 'My Draft',
+      sourceTemplateCoverMedia: {
+        externalId: mediaExternalId,
+        contentHash: 'hash-source-preview',
+        width: 1024,
+        height: 576,
+      },
+      sourceTemplateCoverFraming: null,
     })
   })
 

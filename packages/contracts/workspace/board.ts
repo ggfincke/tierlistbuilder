@@ -378,6 +378,12 @@ export interface BoardSnapshot
   sourceRankingId?: string
   sourceTemplateTitle?: string
   sourceRankingTitle?: string
+  // local-only source template cover metadata for pre-sync fork cards. cloud
+  // library rows rehydrate this from the source template instead.
+  sourceTemplateCoverMedia?: import('../marketplace/template').TemplateMediaRef
+  sourceTemplateCoverFraming?:
+    | import('../marketplace/template').TemplateCoverFraming
+    | null
   // criterion/lane the user started from when forking a template or remixing a
   // ranking. the server validates it against the source template on first sync.
   preferredCriterionExternalId?: string
@@ -553,6 +559,11 @@ export interface LibraryBoardCoverItem
   label: string | null
   externalId: string
   mediaUrl: string | null
+  // local rows can carry hash-backed media instead of a ready storage URL.
+  // Cover tiles resolve this through the same lazy image cache used by boards.
+  mediaHash?: string
+  mediaCloudExternalId?: string
+  mediaVariant?: import('../platform/media').MediaVariantKind
 }
 
 // per-tier breakdown entry. tierIndex is the row's position (0 = top tier);
@@ -576,6 +587,12 @@ export interface LibraryBoardListItem extends BoardListItem
   category: import('../marketplace/category').TemplateCategory
   sourceTemplateSizeClass:
     | import('../marketplace/template').TemplateSizeClass
+    | null
+  sourceTemplateCoverMedia:
+    | import('../marketplace/template').TemplateMediaRef
+    | null
+  sourceTemplateCoverFraming:
+    | import('../marketplace/template').TemplateCoverFraming
     | null
   coverItems: LibraryBoardCoverItem[]
   paletteId: import('../lib/theme').PaletteId

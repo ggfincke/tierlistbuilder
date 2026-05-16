@@ -5,20 +5,33 @@
 import { useMemo } from 'react'
 
 import {
+  LIBRARY_BOARD_COVER_ITEM_LIMIT,
   LIBRARY_BOARD_TIER_LIMIT,
   deriveLibraryPublishState,
+  type BoardSnapshot,
   type BoardMeta,
+  type LibraryBoardCoverItem,
   type LibraryBoardListItem,
   type LibraryBoardTierBreakdown,
+  type TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   PaletteId,
   TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 import { loadBoardFromStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { getImageRenditionRefs } from '~/shared/lib/imageRefs'
+import { getCachedImageUrl } from '~/shared/images/imageBlobCache'
 
 const DEFAULT_LOCAL_PALETTE_ID: PaletteId = 'classic'
+
+type LocalLibrarySnapshot = Pick<
+  BoardSnapshot,
+  'tiers' | 'items' | 'unrankedItemIds'
+> &
+  Partial<BoardSnapshot>
 
 interface LocalBoardsLibraryResult
 {
@@ -28,12 +41,82 @@ interface LocalBoardsLibraryResult
   isLoading: boolean
 }
 
+const toLocalLibrarySnapshot = (
+  snapshot: Partial<BoardSnapshot> | null
+): LocalLibrarySnapshot | null =>
+{
+  if (
+    !snapshot ||
+    !Array.isArray(snapshot.tiers) ||
+    !Array.isArray(snapshot.unrankedItemIds) ||
+    !snapshot.items ||
+    typeof snapshot.items !== 'object'
+  )
+  {
+    return null
+  }
+
+  return snapshot as LocalLibrarySnapshot
+}
+
+const orderedLiveItems = (
+  snapshot: LocalLibrarySnapshot | null
+): TierItem[] =>
+{
+  if (!snapshot) return []
+
+  const seen = new Set<ItemId>()
+  const items: TierItem[] = []
+  const push = (id: ItemId) =>
+  {
+    if (seen.has(id)) return
+    seen.add(id)
+    const item = snapshot.items[id]
+    if (item) items.push(item)
+  }
+
+  for (const tier of snapshot.tiers)
+  {
+    for (const itemId of tier.itemIds) push(itemId)
+  }
+  for (const itemId of snapshot.unrankedItemIds) push(itemId)
+
+  return items
+}
+
+const toCoverItem = (item: TierItem): LibraryBoardCoverItem =>
+{
+  const media = getImageRenditionRefs(item, 'thumbnail')[0]
+  return {
+    label: item.label ?? null,
+    externalId: item.id,
+    mediaUrl: media ? getCachedImageUrl(media.ref.hash) : null,
+    ...(media
+      ? {
+          mediaHash: media.ref.hash,
+          mediaVariant: media.variant,
+          ...(media.ref.cloudMediaExternalId
+            ? { mediaCloudExternalId: media.ref.cloudMediaExternalId }
+            : {}),
+        }
+      : {}),
+  }
+}
+
+const buildCoverItems = (
+  snapshot: LocalLibrarySnapshot | null
+): LibraryBoardCoverItem[] =>
+  orderedLiveItems(snapshot)
+    .slice(0, LIBRARY_BOARD_COVER_ITEM_LIMIT)
+    .map(toCoverItem)
+
 // project one persisted board into a library row. corrupt/missing snapshots
 // still surface as a row w/ zeroed counts so the board stays openable
-const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
+export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
 {
   const loaded = loadBoardFromStorage(meta.id)
-  const snapshot = loaded.status === 'ok' ? loaded.data : null
+  const snapshot =
+    loaded.status === 'ok' ? toLocalLibrarySnapshot(loaded.data) : null
   const tiers = snapshot?.tiers ?? []
   const unrankedItemCount = snapshot?.unrankedItemIds?.length ?? 0
   const rankedItemCount = tiers.reduce(
@@ -70,12 +153,28 @@ const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
     visibility: 'private',
     category: 'other',
     sourceTemplateSizeClass: null,
-    coverItems: [],
+    sourceTemplateCoverMedia: snapshot?.sourceTemplateCoverMedia ?? null,
+    sourceTemplateCoverFraming: snapshot?.sourceTemplateCoverFraming ?? null,
+    coverItems: buildCoverItems(snapshot),
     paletteId: snapshot?.paletteId ?? DEFAULT_LOCAL_PALETTE_ID,
     tierColors,
     tierBreakdown,
     pinned: false,
   }
+}
+
+// cache projected rows by meta reference so a single rename only re-parses
+// one board's localStorage instead of all N — zustand keeps untouched meta
+// objects referentially stable, & WeakMap lets GC reclaim removed entries
+const rowProjectionCache = new WeakMap<BoardMeta, LibraryBoardListItem>()
+
+const projectLocalRowCached = (meta: BoardMeta): LibraryBoardListItem =>
+{
+  const cached = rowProjectionCache.get(meta)
+  if (cached) return cached
+  const row = projectLocalRow(meta)
+  rowProjectionCache.set(meta, row)
+  return row
 }
 
 export const useLocalBoardsLibrary = (
@@ -85,7 +184,7 @@ export const useLocalBoardsLibrary = (
   const boards = useWorkspaceBoardRegistryStore((state) => state.boards)
 
   const rows = useMemo(
-    () => (enabled ? boards.map(projectLocalRow) : null),
+    () => (enabled ? boards.map(projectLocalRowCached) : null),
     [enabled, boards]
   )
 
