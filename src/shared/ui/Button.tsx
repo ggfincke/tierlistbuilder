@@ -9,6 +9,11 @@ import {
   BUTTON_DISABLED_CLASS,
   BUTTON_FOCUS_CLASS,
 } from '~/shared/ui/buttonBase'
+import {
+  CHUNKY_SHADOW_ACCENT,
+  CHUNKY_SHADOW_DESTRUCTIVE,
+  CHUNKY_SHADOW_TRANSITION,
+} from '~/shared/ui/chunkyShadow'
 
 type ButtonVariant = 'primary' | 'secondary' | 'action' | 'overlay'
 export type ButtonTone =
@@ -43,13 +48,25 @@ const PRIMARY_SIZE: Record<ButtonSize, string> = {
   md: 'px-4 py-2 text-sm',
 }
 
+// prefers-reduced-motion skips the translate via global override; shadow
+// shift still telegraphs the press
 const primaryToneClass = (tone: ButtonTone): string =>
 {
   if (tone === 'destructive')
   {
-    return 'bg-[var(--t-destructive)] text-[var(--t-destructive-foreground)] hover:bg-[var(--t-destructive-hover)]'
+    return [
+      'bg-[var(--t-destructive)] text-[var(--t-destructive-foreground)]',
+      CHUNKY_SHADOW_TRANSITION,
+      CHUNKY_SHADOW_DESTRUCTIVE,
+      'hover:bg-[var(--t-destructive-hover)]',
+    ].join(' ')
   }
-  return 'bg-[var(--t-accent)] text-[var(--t-accent-foreground)] hover:bg-[var(--t-accent-hover)]'
+  return [
+    'bg-[var(--t-accent)] text-[var(--t-accent-foreground)]',
+    CHUNKY_SHADOW_TRANSITION,
+    CHUNKY_SHADOW_ACCENT,
+    'hover:bg-[var(--t-accent-hover)]',
+  ].join(' ')
 }
 
 // -------- secondary ----------------------------------------------------------

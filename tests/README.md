@@ -48,8 +48,9 @@ tests/
 ├── overlay/                         — nested menus, popup/progress/toolbar helpers
 ├── platform/                        — cloud sync scheduler, first-login board push, per-feature merge invariants (preferences, tier presets, boards)
 ├── settings/                        — aspect-ratio prompt snapshots & mismatch grouping
-├── sharing/                         — hash-fragment & short-link snapshot codecs
-└── shared-lib/                      — color, image transforms, snapshot item collection, auto-crop math
+├── shared-hooks/                    — session/UTC-day storage gates for once-per-X actions
+├── shared-lib/                      — color, image transforms, snapshot item collection, auto-crop math
+└── sharing/                         — hash-fragment & short-link snapshot codecs
 ```
 
 ## Fixtures

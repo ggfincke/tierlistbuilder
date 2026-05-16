@@ -72,6 +72,42 @@ describe('parseBoardJson', () =>
     expect(result.items['item-1'].label).toBe('First')
   })
 
+  it('preserves source metadata and source template item ids on import', async () =>
+  {
+    const board = makeValidBoard({
+      sourceTemplateId: 'Template123',
+      sourceTemplateTitle: 'Template',
+      sourceRankingId: 'Ranking123',
+      sourceRankingTitle: 'Ranking',
+      preferredCriterionExternalId: 'favorites',
+      items: {
+        [asItemId('item-1')]: makeItem({
+          id: asItemId('item-1'),
+          label: 'First',
+          sourceTemplateItemExternalId: 'template-item-1',
+        }),
+        [asItemId('item-2')]: makeItem({
+          id: asItemId('item-2'),
+          label: 'Second',
+          sourceTemplateItemExternalId: 'template-item-2',
+        }),
+      },
+    })
+
+    const result = await parseBoardJson(wrapEnvelope(board))
+
+    expect(result).toMatchObject({
+      sourceTemplateId: 'Template123',
+      sourceTemplateTitle: 'Template',
+      sourceRankingId: 'Ranking123',
+      sourceRankingTitle: 'Ranking',
+      preferredCriterionExternalId: 'favorites',
+    })
+    expect(result.items['item-1'].sourceTemplateItemExternalId).toBe(
+      'template-item-1'
+    )
+  })
+
   it('throws on invalid JSON', async () =>
   {
     await expect(parseBoardJson('not json')).rejects.toThrow(

@@ -43,6 +43,11 @@ import {
   type ImageEditorFilter,
 } from '../model/useImageEditorStore'
 
+const NOOP = () =>
+{
+  /* placeholder for multi-mode handlers when in single mode */
+}
+
 export const ImageEditorModal = () =>
 {
   const isOpen = useImageEditorStore((s) => s.isOpen)
@@ -53,14 +58,16 @@ export const ImageEditorModal = () =>
 const ImageEditorModalBody = () =>
 {
   const titleId = useId()
-  const { filter, setFilter, initialItemId, close } = useImageEditorStore(
+  const { mode, filter, setFilter, initialItemId, close } = useImageEditorStore(
     useShallow((s) => ({
+      mode: s.mode,
       filter: s.filter,
       setFilter: s.setFilter,
       initialItemId: s.initialItemId,
       close: s.close,
     }))
   )
+  const isSingleMode = mode === 'single'
   const { items, tiers, unrankedItemIds } = useActiveBoardStore(
     useShallow((s) => ({
       items: s.items,
@@ -82,6 +89,9 @@ const ImageEditorModalBody = () =>
     setItemLabelOptions,
     setBoardAndItemsLabelOptions,
     setItemLabel,
+    setItemAltText,
+    setItemNotes,
+    setItemBackgroundColor,
   } = useActiveBoardStore(
     useShallow((s) => ({
       setItemTransform: s.setItemTransform,
@@ -90,6 +100,9 @@ const ImageEditorModalBody = () =>
       setItemLabelOptions: s.setItemLabelOptions,
       setBoardAndItemsLabelOptions: s.setBoardAndItemsLabelOptions,
       setItemLabel: s.setItemLabel,
+      setItemAltText: s.setItemAltText,
+      setItemNotes: s.setItemNotes,
+      setItemBackgroundColor: s.setItemBackgroundColor,
     }))
   )
   const globalShowLabels = usePreferencesStore((s) => s.showLabels)
@@ -195,8 +208,8 @@ const ImageEditorModalBody = () =>
 
   const {
     selectedIndex,
-    selectedItem,
-    selectedId,
+    selectedItem: multiSelectedItem,
+    selectedId: multiSelectedId,
     setPickedId,
     goPrev,
     goNext,
@@ -209,6 +222,15 @@ const ImageEditorModalBody = () =>
     filteredItems,
     filter,
   })
+
+  // single-mode bypasses the rail-driven selection so text-only items (which
+  // useImageEditorItems excludes by design) still resolve through to the pane
+  const singleModeItem =
+    isSingleMode && initialItemId ? items[initialItemId] : undefined
+  const selectedItem = isSingleMode ? singleModeItem : multiSelectedItem
+  const selectedId = isSingleMode
+    ? (singleModeItem?.id ?? null)
+    : multiSelectedId
 
   const handleCommit = useCallback(
     (id: ItemId, transform: Parameters<typeof setItemTransform>[1]) =>
@@ -233,6 +255,30 @@ const ImageEditorModalBody = () =>
       setItemLabel(selectedId, label)
     },
     [selectedId, setItemLabel]
+  )
+  const handleSelectedAltTextChange = useCallback(
+    (value: string) =>
+    {
+      if (!selectedId) return
+      setItemAltText(selectedId, value)
+    },
+    [selectedId, setItemAltText]
+  )
+  const handleSelectedNotesChange = useCallback(
+    (value: string) =>
+    {
+      if (!selectedId) return
+      setItemNotes(selectedId, value)
+    },
+    [selectedId, setItemNotes]
+  )
+  const handleSelectedBackgroundColorChange = useCallback(
+    (value: string | null) =>
+    {
+      if (!selectedId) return
+      setItemBackgroundColor(selectedId, value)
+    },
+    [selectedId, setItemBackgroundColor]
   )
   const handleSelectedLabelOptionsChange = useCallback(
     (options: Parameters<typeof setItemLabelOptions>[1]) =>
@@ -262,9 +308,11 @@ const ImageEditorModalBody = () =>
 
   useImageEditorModalKeyboardShortcuts({
     flushActivePaneEdit,
-    goPrev,
-    goNext,
-    goSkip,
+    // single-mode pins to one item; Left/Right shouldn't shift the hidden
+    // multi-mode selection underneath, so feed the hook NOOPs there
+    goPrev: isSingleMode ? NOOP : goPrev,
+    goNext: isSingleMode ? NOOP : goNext,
+    goSkip: isSingleMode ? NOOP : goSkip,
   })
 
   return (
@@ -282,8 +330,10 @@ const ImageEditorModalBody = () =>
     >
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-3">
         <div className="flex min-w-0 items-baseline gap-3">
-          <ModalHeader titleId={titleId}>Adjust items to fit board</ModalHeader>
-          {selectedIndex >= 0 && filteredItems.length > 0 && (
+          <ModalHeader titleId={titleId}>
+            {isSingleMode ? 'Edit item' : 'Adjust items to fit board'}
+          </ModalHeader>
+          {!isSingleMode && selectedIndex >= 0 && filteredItems.length > 0 && (
             <span
               className="text-xs tabular-nums text-[var(--t-text-faint)]"
               aria-live="polite"
@@ -311,38 +361,43 @@ const ImageEditorModalBody = () =>
           Close
         </SecondaryButton>
       </div>
-      <BoardControlsBar
-        ratioPicker={ratioPicker}
-        onRatioOption={handleRatioOption}
-        onApplyCustomRatio={handleApplyCustomRatio}
-        onAutoCropAll={autoCropAll.request}
-        autoCropProgress={autoCropProgress}
-        autoCropAllApplied={autoCropAllApplied}
-        trimSoftShadows={trimSoftShadows}
-        onTrimSoftShadowsChange={setTrimSoftShadows}
-        showLabels={effectiveShowLabels}
-        onShowLabelsChange={handleShowLabelsChange}
-      />
-      <div className="flex min-h-0 flex-1">
-        <ImageEditorRail
-          filter={filter}
-          onFilterChange={setFilter}
-          items={filteredItems}
-          totalCount={allImageItems.length}
-          boardAspectRatio={boardAspectRatio}
-          boardDefaultFit={boardDefaultFit}
-          boardLabels={boardLabels}
-          globalLabelDefaults={globalLabelDefaults}
-          selectedId={selectedId}
-          onSelect={setPickedId}
-          isSkipped={isSkipped}
+      {!isSingleMode && (
+        <BoardControlsBar
+          ratioPicker={ratioPicker}
+          onRatioOption={handleRatioOption}
+          onApplyCustomRatio={handleApplyCustomRatio}
+          onAutoCropAll={autoCropAll.request}
+          autoCropProgress={autoCropProgress}
+          autoCropAllApplied={autoCropAllApplied}
+          trimSoftShadows={trimSoftShadows}
+          onTrimSoftShadowsChange={setTrimSoftShadows}
+          showLabels={effectiveShowLabels}
+          onShowLabelsChange={handleShowLabelsChange}
         />
-        <div className="flex min-w-0 flex-1 flex-col">
+      )}
+      <div className="flex min-h-0 flex-1">
+        {!isSingleMode && (
+          <ImageEditorRail
+            filter={filter}
+            onFilterChange={setFilter}
+            items={filteredItems}
+            totalCount={allImageItems.length}
+            boardAspectRatio={boardAspectRatio}
+            boardDefaultFit={boardDefaultFit}
+            boardLabels={boardLabels}
+            globalLabelDefaults={globalLabelDefaults}
+            selectedId={selectedId}
+            onSelect={setPickedId}
+            isSkipped={isSkipped}
+          />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           {selectedItem ? (
             <ImageEditorPane
               ref={activePaneRef}
               key={`${selectedItem.id}:${boardAspectRatio}:${getEffectiveImageFit(selectedItem, boardDefaultFit)}`}
               item={selectedItem}
+              mode={mode}
               boardAspectRatio={boardAspectRatio}
               boardDefaultFit={boardDefaultFit}
               trimSoftShadows={trimSoftShadows}
@@ -353,27 +408,40 @@ const ImageEditorModalBody = () =>
               onCommit={handleSelectedCommit}
               onLabelChange={handleSelectedLabelChange}
               onLabelOptionsChange={handleSelectedLabelOptionsChange}
-              onApplyLabelToAll={handleApplySelectedLabelToAll}
-              canApplyLabelToAll={allImageItems.length > 1}
+              onApplyLabelToAll={
+                isSingleMode ? NOOP : handleApplySelectedLabelToAll
+              }
+              canApplyLabelToAll={!isSingleMode && allImageItems.length > 1}
               labelAppliedToAll={labelAppliedToAll}
               applyLabelToAllTitle={applyLabelToAllTitle}
               captionExpanded={captionExpanded}
               onCaptionExpandedChange={setCaptionExpanded}
               imageExpanded={imageExpanded}
               onImageExpandedChange={setImageExpanded}
-              canPrev={selectedIndex > 0}
+              onAltTextChange={handleSelectedAltTextChange}
+              onNotesChange={handleSelectedNotesChange}
+              onBackgroundColorChange={handleSelectedBackgroundColorChange}
+              canPrev={!isSingleMode && selectedIndex > 0}
               canNext={
-                selectedIndex >= 0 && selectedIndex < filteredItems.length - 1
+                !isSingleMode &&
+                selectedIndex >= 0 &&
+                selectedIndex < filteredItems.length - 1
               }
               canSkip={
-                selectedIndex >= 0 && selectedIndex < filteredItems.length - 1
+                !isSingleMode &&
+                selectedIndex >= 0 &&
+                selectedIndex < filteredItems.length - 1
               }
-              onPrev={goPrev}
-              onNext={goNext}
-              onSkip={goSkip}
+              onPrev={isSingleMode ? NOOP : goPrev}
+              onNext={isSingleMode ? NOOP : goNext}
+              onSkip={isSingleMode ? NOOP : goSkip}
             />
           ) : (
-            <EmptyState totalCount={allImageItems.length} filter={filter} />
+            <EmptyState
+              totalCount={allImageItems.length}
+              filter={filter}
+              isSingleMode={isSingleMode}
+            />
           )}
         </div>
       </div>
@@ -422,13 +490,18 @@ interface EmptyStateProps
 {
   totalCount: number
   filter: ImageEditorFilter
+  isSingleMode: boolean
 }
 
 const getEmptyStateMessage = (
   totalCount: number,
-  filter: ImageEditorFilter
+  filter: ImageEditorFilter,
+  isSingleMode: boolean
 ): string =>
 {
+  // single-mode empty state should be rare — the modal opens w/ an explicit
+  // itemId, so this only fires if the item was removed mid-edit
+  if (isSingleMode) return 'This item is no longer on the board.'
   if (totalCount === 0) return 'This board has no image items to adjust yet.'
   if (filter === 'mismatched')
   {
@@ -438,8 +511,8 @@ const getEmptyStateMessage = (
   return 'No items match this filter.'
 }
 
-const EmptyState = ({ totalCount, filter }: EmptyStateProps) => (
+const EmptyState = ({ totalCount, filter, isSingleMode }: EmptyStateProps) => (
   <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-[var(--t-text-muted)]">
-    {getEmptyStateMessage(totalCount, filter)}
+    {getEmptyStateMessage(totalCount, filter, isSingleMode)}
   </div>
 )

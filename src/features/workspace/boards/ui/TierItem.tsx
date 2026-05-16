@@ -2,6 +2,7 @@
 // sortable item tile — displays image or text, handles drag & delete
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -22,8 +23,9 @@ import { SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
+import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { ItemContextMenu } from './ItemContextMenu'
-import { ItemEditPopover } from './ItemEditPopover'
 import { resolveItemVisualState } from './itemVisualState'
 import { ItemOverlayButton } from '~/shared/board-ui/ItemOverlayButton'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -71,7 +73,7 @@ export const TierItem = memo(
       defaultLabelPlacementMode,
       defaultLabelFontSizePx,
       boardLocked,
-      showAltTextButton,
+      showItemEditButton,
     } = usePreferencesStore(
       useShallow((state) => ({
         itemShape: state.itemShape,
@@ -79,7 +81,7 @@ export const TierItem = memo(
         defaultLabelPlacementMode: state.defaultLabelPlacementMode,
         defaultLabelFontSizePx: state.defaultLabelFontSizePx,
         boardLocked: state.boardLocked,
-        showAltTextButton: state.showAltTextButton,
+        showItemEditButton: state.showItemEditButton,
       }))
     )
 
@@ -95,13 +97,17 @@ export const TierItem = memo(
       onFocus,
     } = useKeyboardDrag(itemId)
 
-    const [showEditPopover, setShowEditPopover] = useState(false)
     const [contextMenuPos, setContextMenuPos] = useState<{
       x: number
       y: number
     } | null>(null)
     const itemRef = useRef<HTMLDivElement | null>(null)
     const editButtonRef = useRef<HTMLButtonElement | null>(null)
+
+    const openItemEditor = useCallback(() =>
+    {
+      useImageEditorStore.getState().open({ itemId, mode: 'single' })
+    }, [itemId])
 
     // register w/ dnd-kit sortable — data payload identifies this as an item
     const {
@@ -300,16 +306,33 @@ export const TierItem = memo(
       onFocus()
     }, [onFocus])
 
-    const openEditPopover = useCallback((e: React.MouseEvent) =>
-    {
-      e.stopPropagation()
-      setShowEditPopover(true)
-    }, [])
-    const closeEditPopover = useCallback(() =>
-    {
-      setShowEditPopover(false)
-      requestAnimationFrame(() => editButtonRef.current?.focus())
-    }, [])
+    const handleEditButtonClick = useCallback(
+      (e: React.MouseEvent) =>
+      {
+        e.stopPropagation()
+        openItemEditor()
+      },
+      [openItemEditor]
+    )
+
+    // `E` & `F2` open the item editor on a focused tile — drag stays on Space
+    // so item activation by keyboard doesn't change shape from Phase 4
+    const handleItemKeyDown = useCallback(
+      (event: ReactKeyboardEvent) =>
+      {
+        if (
+          !boardLocked &&
+          (event.key === 'e' || event.key === 'E' || event.key === 'F2')
+        )
+        {
+          event.preventDefault()
+          openItemEditor()
+          return
+        }
+        onKeyDown(event)
+      },
+      [boardLocked, onKeyDown, openItemEditor]
+    )
 
     const { stateClass, opacity } = resolveItemVisualState({
       isSelected,
@@ -323,8 +346,6 @@ export const TierItem = memo(
     {
       return null
     }
-
-    const hasImage = hasAnyImageRef(item)
 
     return (
       <>
@@ -349,7 +370,7 @@ export const TierItem = memo(
           {...listeners}
           tabIndex={isKeyboardTabStop ? 0 : -1}
           onFocus={handleItemFocus}
-          onKeyDown={onKeyDown}
+          onKeyDown={handleItemKeyDown}
           onPointerDownCapture={handlePointerDownCapture}
           onPointerMoveCapture={handlePointerMoveCapture}
           onPointerUpCapture={handlePointerEndCapture}
@@ -391,14 +412,18 @@ export const TierItem = memo(
             </span>
           )}
 
-          {/* alt text edit — bottom-left corner, image items only */}
-          {!boardLocked && hasImage && showAltTextButton && (
+          {/* item edit — bottom-left corner; opens the single-item editor.
+            hover-reveal on desktop, persistent on touch (Phase 4 idiom) */}
+          {!boardLocked && showItemEditButton && (
             <ItemOverlayButton
               ref={editButtonRef}
-              aria-label="Edit alt text"
-              className="absolute bottom-0.5 left-0.5"
+              aria-label="Edit item"
+              title="Edit item (E)"
+              className="absolute bottom-0.5 left-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-60"
               tabIndex={isKeyboardFocused ? 0 : -1}
-              onClick={openEditPopover}
+              onClick={handleEditButtonClick}
+              onFocus={preloadImageEditorModal}
+              onPointerEnter={preloadImageEditorModal}
               onPointerDown={(e) => e.stopPropagation()}
             >
               <PenLine className="h-3 w-3" />
@@ -422,17 +447,6 @@ export const TierItem = memo(
             </ItemOverlayButton>
           )}
         </div>
-
-        {showEditPopover &&
-          createPortal(
-            <ItemEditPopover
-              itemId={itemId}
-              anchorRef={itemRef}
-              triggerRef={editButtonRef}
-              onClose={closeEditPopover}
-            />,
-            document.body
-          )}
 
         {contextMenuPos &&
           createPortal(

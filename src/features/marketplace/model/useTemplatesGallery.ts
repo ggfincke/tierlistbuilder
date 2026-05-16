@@ -29,6 +29,9 @@ interface TemplatesGalleryData
   trending: readonly MarketplaceTemplateGalleryCard[] | undefined
   popular: readonly MarketplaceTemplateGalleryCard[] | undefined
   recent: readonly MarketplaceTemplateGalleryCard[] | undefined
+  // activity-rail visibility — rails hide rather than render zero-signal rows
+  showTrendingRail: boolean
+  showPopularRail: boolean
   drafts: readonly MarketplaceTemplateDraft[] | undefined
   results: readonly MarketplaceTemplateGalleryCard[] | undefined
   templateCount: MarketplaceTemplateCount | undefined
@@ -89,6 +92,39 @@ const useTemplateGalleryRail = (
     onError: onGalleryError,
     enabled,
   })
+}
+
+// a rail reads as "alive" only when enough templates show real 7-day activity;
+// below the floor the gallery hides it instead of padding it w/ zero rows
+const RAIL_ACTIVITY_FLOOR = 3
+
+const hasRailActivity = (
+  items: readonly MarketplaceTemplateGalleryCard[] | undefined
+): boolean =>
+{
+  // still loading -> keep the rail mounted so the skeleton row shows
+  if (items === undefined) return true
+  let active = 0
+  for (const item of items)
+  {
+    if (item.weeklyForkCount + item.weeklyViewCount > 0)
+    {
+      active += 1
+      if (active >= RAIL_ACTIVITY_FLOOR) return true
+    }
+  }
+  return false
+}
+
+export const hasTrendingRailActivity = hasRailActivity
+
+export const hasPopularRailActivity = (
+  items: readonly MarketplaceTemplateGalleryCard[] | undefined
+): boolean =>
+{
+  // still loading -> keep the rail mounted so the skeleton row shows
+  if (items === undefined) return true
+  return items.some((item) => item.forkCount > 0)
 }
 
 export const useTemplatesGallery = (
@@ -197,6 +233,8 @@ export const useTemplatesGallery = (
     trending: trendingSnapshot?.items,
     popular: popularSnapshot?.items,
     recent: recentSnapshot?.items,
+    showTrendingRail: hasTrendingRailActivity(trendingSnapshot?.items),
+    showPopularRail: hasPopularRailActivity(popularSnapshot?.items),
     drafts: drafts?.drafts,
     results: resultsSnapshot?.results,
     templateCount: resultsSnapshot?.templateCount,

@@ -127,7 +127,8 @@ import {
   BOARD_PAUSED_REASONS,
   BOARD_CLOUD_STATES,
   BOARD_MATERIALIZATION_STATES,
-  LIBRARY_BOARD_STATUSES,
+  PUBLISH_STATES,
+  SYNC_STATES,
   LIBRARY_BOARD_VISIBILITIES,
   type BoardListItem,
   type BoardCloudState,
@@ -290,6 +291,15 @@ export const templateCardMediaValidator = v.object({
   ...mediaVariantSummaryValidator.fields,
 })
 
+export const templateMediaRefValidator = v.object({
+  externalId: v.string(),
+  contentHash: v.string(),
+  url: v.string(),
+  width: v.number(),
+  height: v.number(),
+  mimeType: v.string(),
+})
+
 // source-image rect for a cover surface, normalized to source dimensions.
 // values may sit outside [0, 1] when the user zooms below cover-fit (the
 // renderer letterboxes the overflow w/ --t-media-matte)
@@ -339,7 +349,7 @@ export const appPreferencesValidator = v.object({
   boardLocked: v.boolean(),
   reducedMotion: v.boolean(),
   toolbarPosition: toolbarPositionValidator,
-  showAltTextButton: v.boolean(),
+  showItemEditButton: v.boolean(),
   autoCropTrimSoftShadows: v.boolean(),
 })
 
@@ -464,8 +474,9 @@ export const deletedBoardListItemValidator = v.object({
   deletedAt: v.number(),
 })
 
-// status & visibility unions — mirror the LIBRARY_BOARD_* tuples in contracts
-const libraryBoardStatusValidator = literalUnion(LIBRARY_BOARD_STATUSES)
+// publish/sync/visibility unions — mirror the contract tuples
+const publishStateValidator = literalUnion(PUBLISH_STATES)
+const syncStateValidator = literalUnion(SYNC_STATES)
 const libraryBoardVisibilityValidator = literalUnion(LIBRARY_BOARD_VISIBILITIES)
 export const boardCloudStateValidator = literalUnion(BOARD_CLOUD_STATES)
 export const boardMaterializationStateValidator = literalUnion(
@@ -478,6 +489,9 @@ const libraryBoardCoverItemValidator = v.object({
   label: v.union(v.string(), v.null()),
   externalId: v.string(),
   mediaUrl: v.union(v.string(), v.null()),
+  mediaHash: v.optional(v.string()),
+  mediaCloudExternalId: v.optional(v.string()),
+  mediaVariant: v.optional(mediaVariantKindValidator),
 })
 
 // per-tier breakdown row — mirrors LibraryBoardTierBreakdown
@@ -509,10 +523,13 @@ export const libraryBoardListItemValidator = v.object({
   activeItemCount: v.number(),
   unrankedItemCount: v.number(),
   rankedItemCount: v.number(),
-  status: libraryBoardStatusValidator,
+  publishState: publishStateValidator,
+  syncState: syncStateValidator,
   visibility: libraryBoardVisibilityValidator,
   category: templateCategoryValidator,
   sourceTemplateSizeClass: v.union(templateSizeClassValidator, v.null()),
+  sourceTemplateCoverMedia: v.union(templateMediaRefValidator, v.null()),
+  sourceTemplateCoverFraming: v.union(templateCoverFramingValidator, v.null()),
   coverItems: v.array(libraryBoardCoverItemValidator),
   paletteId: paletteIdValidator,
   tierColors: v.array(tierColorSpecValidator),
@@ -577,6 +594,7 @@ const cloudBoardStateItemValidator = v.object({
   label: v.optional(v.string()),
   backgroundColor: v.optional(v.string()),
   altText: v.optional(v.string()),
+  notes: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
   previewMediaContentHash: v.optional(v.string()),
   mediaContentHash: v.optional(v.string()),
@@ -587,6 +605,7 @@ const cloudBoardStateItemValidator = v.object({
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
   transform: v.optional(itemTransformValidator),
   labelOptions: v.optional(itemLabelOptionsValidator),
+  sourceTemplateItemExternalId: v.optional(v.string()),
 })
 
 // full cloud board state payload — mirrors CloudBoardState
@@ -605,6 +624,14 @@ export const cloudBoardStateValidator = v.object({
   textStyleId: v.optional(textStyleIdValidator),
   pageBackground: v.optional(v.string()),
   labels: v.optional(boardLabelSettingsValidator),
+  // source-template/ranking metadata for boards created via fork or remix.
+  // null when the board was started from scratch; both can be set when a
+  // ranking remix populates both (the ranking's template + the ranking itself)
+  sourceTemplateId: v.optional(v.union(v.string(), v.null())),
+  sourceRankingId: v.optional(v.union(v.string(), v.null())),
+  sourceTemplateTitle: v.optional(v.union(v.string(), v.null())),
+  sourceRankingTitle: v.optional(v.union(v.string(), v.null())),
+  preferredCriterionExternalId: v.optional(v.union(v.string(), v.null())),
   tiers: v.array(cloudBoardStateTierValidator),
   items: v.array(cloudBoardStateItemValidator),
 })
@@ -646,15 +673,6 @@ export const templateAuthorValidator = v.object({
   id: v.string(),
   displayName: v.string(),
   avatarUrl: v.union(v.string(), v.null()),
-})
-
-export const templateMediaRefValidator = v.object({
-  externalId: v.string(),
-  contentHash: v.string(),
-  url: v.string(),
-  width: v.number(),
-  height: v.number(),
-  mimeType: v.string(),
 })
 
 export const templateCoverItemValidator = v.object({
@@ -699,9 +717,10 @@ const marketplaceTemplateBaseFields = {
   coverMedia: v.union(templateMediaRefValidator, v.null()),
   coverFraming: v.union(templateCoverFramingValidator, v.null()),
   itemCount: v.number(),
-  useCount: v.number(),
+  forkCount: v.number(),
   viewCount: v.number(),
-  weeklyUseCount: v.number(),
+  rankingCount: v.number(),
+  weeklyForkCount: v.number(),
   weeklyViewCount: v.number(),
   trendingScore: v.number(),
   trendingComputedAt: v.union(v.number(), v.null()),

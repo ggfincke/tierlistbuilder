@@ -107,6 +107,18 @@ export default defineSchema({
     sourceTemplateId: v.union(v.id('templates'), v.null()),
     sourceTemplateCategory: v.union(templateCategoryValidator, v.null()),
     sourceTemplateSizeClass: v.union(templateSizeClassValidator, v.null()),
+    // source ranking for boards created via "Remix" — null for direct forks &
+    // for boards created from scratch. set alongside sourceTemplateId since a
+    // remix is also a fork of the underlying template
+    sourceRankingId: v.union(v.id('publishedRankings'), v.null()),
+    // denormalized titles captured at fork/remix time — drives the BoardHeader
+    // "Forked from..." breadcrumb w/o a round trip & survives source deletion
+    sourceTemplateTitle: v.union(v.string(), v.null()),
+    sourceRankingTitle: v.union(v.string(), v.null()),
+    // whether the fork counter has already ticked for this board. flips true
+    // the first time a sourceTemplateId-bearing board lands server-side
+    // (useTemplate insert, large-clone completion, or first local-fork sync)
+    forkCounted: v.boolean(),
     // fork source criterion; publish modal uses it as the default lane
     preferredCriterionExternalId: v.optional(v.string()),
     livePublicTemplateId: v.union(v.id('templates'), v.null()),
@@ -180,6 +192,9 @@ export default defineSchema({
     label: v.optional(v.string()),
     backgroundColor: v.optional(v.string()),
     altText: v.optional(v.string()),
+    // private per-item editor notes; synced across devices, never read by
+    // marketplace publish mappers (publish cherry-picks fields explicitly)
+    notes: v.optional(v.string()),
     mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
     deletedAt: v.union(v.number(), v.null()),
@@ -347,9 +362,16 @@ export default defineSchema({
       v.null()
     ),
     featuredRank: v.union(v.number(), v.null()),
-    useCount: v.number(),
+    // forkCount replaced legacy useCount; keep both optional during the
+    // backfill window so older marketplace rows can load & be rewritten.
+    forkCount: v.optional(v.number()),
+    useCount: v.optional(v.number()),
     viewCount: v.number(),
-    weeklyUseCount: v.optional(v.number()),
+    // denormalized total of public published rankings across every criterion.
+    // maintained by rollupTemplateRankingCount off the aggregate job finish;
+    // absent on rows last written before the field landed -> read as `?? 0`
+    rankingCount: v.optional(v.number()),
+    weeklyForkCount: v.optional(v.number()),
     weeklyViewCount: v.optional(v.number()),
     trendingScore: v.optional(v.number()),
     trendingComputedAt: v.optional(v.union(v.number(), v.null())),
@@ -362,7 +384,7 @@ export default defineSchema({
     .index('bySlug', ['slug'])
     .index('byAuthorUpdatedAt', ['authorId', 'updatedAt'])
     .index('byIsPubliclyListableUpdatedAt', ['isPubliclyListable', 'updatedAt'])
-    .index('byIsPubliclyListableUseCount', ['isPubliclyListable', 'useCount'])
+    .index('byIsPubliclyListableForkCount', ['isPubliclyListable', 'forkCount'])
     .index('byIsPubliclyListableTrendingScore', [
       'isPubliclyListable',
       'trendingScore',
@@ -376,10 +398,10 @@ export default defineSchema({
       'isPubliclyListable',
       'updatedAt',
     ])
-    .index('byCategoryIsPubliclyListableUseCount', [
+    .index('byCategoryIsPubliclyListableForkCount', [
       'category',
       'isPubliclyListable',
-      'useCount',
+      'forkCount',
     ])
     .index('byCategoryIsPubliclyListableTrendingScore', [
       'category',
@@ -398,7 +420,10 @@ export default defineSchema({
 
   templateStats: defineTable({
     templateId: v.id('templates'),
-    useCount: v.number(),
+    // forkCount replaced legacy useCount; keep both optional during the
+    // backfill window so older marketplace rows can load & be rewritten.
+    forkCount: v.optional(v.number()),
+    useCount: v.optional(v.number()),
     viewCount: v.number(),
     updatedAt: v.number(),
   }).index('byTemplateId', ['templateId']),
@@ -407,7 +432,10 @@ export default defineSchema({
     templateId: v.id('templates'),
     category: templateCategoryValidator,
     dayStartAt: v.number(),
-    useCount: v.number(),
+    // forkCount replaced legacy useCount; keep both optional during the
+    // backfill window so existing metric-day rows validate while rewritten.
+    forkCount: v.optional(v.number()),
+    useCount: v.optional(v.number()),
     viewCount: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),

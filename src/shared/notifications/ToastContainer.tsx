@@ -18,6 +18,14 @@ const dismissToast = (id: string): void =>
   useToastStore.getState().removeToast(id)
 }
 
+const handleActionClick = (toastInstance: Toast): void =>
+{
+  // dismiss before invoking so any UI the action surfaces (eg sign-in modal)
+  // isn't covered by the toast — same reason toastWithAction wraps onClick
+  dismissToast(toastInstance.id)
+  toastInstance.action?.onClick()
+}
+
 interface ToastContainerProps
 {
   reducedMotion?: boolean
@@ -43,6 +51,15 @@ export const ToastContainer = ({
           className={`pointer-events-auto flex items-center gap-2 rounded-lg border px-3 py-2 shadow-lg ${TYPE_CLASSES[t.type]} ${reducedMotion ? '' : 'animate-[fadeIn_120ms_ease-out]'}`}
         >
           <span className="text-sm text-[var(--t-text)]">{t.message}</span>
+          {t.action && (
+            <button
+              type="button"
+              onClick={() => handleActionClick(t)}
+              className="focus-custom rounded-md border border-[var(--t-border-hover)] bg-[var(--t-bg-surface)] px-2 py-0.5 text-xs font-semibold text-[var(--t-text)] transition hover:bg-[var(--t-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            >
+              {t.action.label}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => dismissToast(t.id)}

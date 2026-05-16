@@ -24,6 +24,7 @@ export {
   persistBoardSyncStateToStorageOnly,
 } from './session/boardSessionPersistence'
 export {
+  setBoardChangedListener,
   setBoardDeletedListener,
   setBoardLoadedListener,
 } from './session/boardSessionEvents'

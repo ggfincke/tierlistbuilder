@@ -1,6 +1,6 @@
 // src/features/workspace/boards/ui/itemVisualState.ts
-// resolves the visual ring/outline class & opacity for a TierItem based
-// on its selection, keyboard focus, & drag state
+// resolves the visual class & opacity for a TierItem — selected items get
+// a soft mint bg tint; keyboard nav/drag use rings for distinct ergonomics
 
 interface ItemVisualInput
 {
@@ -16,22 +16,29 @@ interface ItemVisualOutput
   opacity: number
 }
 
-// selected + keyboard focused — ring w/ outer outline to distinguish
-// the focused item within a multi-selection
+// selected + keyboard focused — stronger mint backdrop plus an inset accent-2
+// ring marks the actively focused item within a multi-select. ring-inset keeps
+// the cue contained, avoiding the sibling bleed an outer ring would cause
 const SELECTED_FOCUSED =
-  'z-20 ring-2 ring-[var(--t-accent)] ring-offset-1 ring-offset-[var(--t-bg-surface)] transition-transform duration-100 outline-2 outline-offset-4 outline-[var(--t-accent-hover)]'
+  'z-20 bg-[color-mix(in_srgb,var(--t-accent)_22%,transparent)] ring-2 ring-inset ring-[var(--t-accent-2)] transition-colors duration-150'
 
-// selected only — ring marks group membership, no outline needed
+// selected only — soft mint backdrop behind the artwork. ~15% mix keeps the
+// cue warm rather than loud, so dense selection clusters read as tinted
+// cells instead of a row of bordered checkboxes
 const SELECTED =
-  'z-20 ring-2 ring-[var(--t-accent)] ring-offset-1 ring-offset-[var(--t-bg-surface)] transition-transform duration-100'
+  'z-10 bg-[color-mix(in_srgb,var(--t-accent)_15%,transparent)] transition-colors duration-150'
 
-// keyboard drag in progress — ring indicates the item being moved
+// keyboard drag in progress — ring indicates the item being moved. matches
+// SELECTED_FOCUSED's inset ring style for visual consistency across all
+// ring-based states; mint color distinguishes from focused-selected's lime
 const KEYBOARD_DRAGGING =
-  'z-20 ring-2 ring-[var(--t-accent)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
+  'z-20 ring-2 ring-inset ring-[var(--t-accent)] transition-colors duration-150'
 
-// keyboard focus only (no selection) — lighter ring for nav cursor
+// keyboard focus only (no selection) — soft accent-2 tint marks the arrow
+// cursor. uses the kicker color (lime/magenta/terracotta per theme) so it
+// reads distinct from the mint selection tint w/o needing a ring overlay
 const KEYBOARD_FOCUSED =
-  'z-10 ring-2 ring-[var(--t-accent-hover)] ring-offset-2 ring-offset-[var(--t-bg-surface)]'
+  'z-10 bg-[color-mix(in_srgb,var(--t-accent-2)_18%,transparent)] transition-colors duration-150'
 
 export const resolveItemVisualState = ({
   isSelected,

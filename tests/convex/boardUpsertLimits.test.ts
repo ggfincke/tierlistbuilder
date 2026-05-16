@@ -200,8 +200,10 @@ describe('upsertBoardState', () =>
       activeItemCount: 2,
       unrankedItemCount: 1,
       rankedItemCount: 1,
-      status: 'in_progress',
+      publishState: 'wip',
+      syncState: 'synced',
     })
+    expect(boards[0]).not.toHaveProperty('status')
   })
 
   it('enforces standard and large cloud item limits by plan', async () =>

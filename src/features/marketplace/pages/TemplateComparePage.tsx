@@ -38,6 +38,7 @@ import { templateFrame } from '~/features/marketplace/components/consensus/utils
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
 import { LoadingBlock } from '~/features/marketplace/components/consensus/LoadingBlock'
+import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { CompareDivergenceTable } from '~/features/marketplace/components/consensus/compare/CompareDivergenceTable'
 import { CompareInsightStrip } from '~/features/marketplace/components/consensus/compare/CompareInsightStrip'
 import { CompareLaneHeader } from '~/features/marketplace/components/consensus/compare/CompareLaneHeader'
@@ -304,19 +305,19 @@ const CompareBody = ({
       />
 
       <header className="mt-5 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--t-text-faint)]">
-            Compare consensus
-          </p>
-          <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-[var(--t-text)] sm:text-3xl">
-            {leftCriterion.name} vs {rightCriterion.name}
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-[var(--t-text-muted)]">
-            Same {formatCountedWord(detail.itemCount, 'item')}, two community
-            questions. The most interesting story is the items that fight for
-            top tier in one lane and live in the basement in the other.
-          </p>
-        </div>
+        <DisplayHeadline
+          eyebrow="Compare consensus"
+          primary={`${leftCriterion.name} vs ${rightCriterion.name}`}
+          subtitle={
+            <>
+              Same {formatCountedWord(detail.itemCount, 'item')}, two community
+              questions. The most interesting story is the items that fight for
+              top tier in one lane and live in the basement in the other.
+            </>
+          }
+          size="page"
+          maxWidthClassName="max-w-2xl"
+        />
         <Link
           to={`${TEMPLATES_ROUTE_PATH}/${detail.slug}`}
           className="focus-custom inline-flex h-8 items-center gap-1 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2.5 text-[12px] font-medium text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"

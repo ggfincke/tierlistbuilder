@@ -178,7 +178,7 @@ const takePublicRows = async (
     {
       return await ctx.db
         .query('templateCards')
-        .withIndex('byCategoryIsPubliclyListableUseCount', (q) =>
+        .withIndex('byCategoryIsPubliclyListableForkCount', (q) =>
           q.eq('category', options.category!).eq('isPubliclyListable', true)
         )
         .order('desc')
@@ -187,7 +187,7 @@ const takePublicRows = async (
 
     return await ctx.db
       .query('templateCards')
-      .withIndex('byIsPubliclyListableUseCount', (q) =>
+      .withIndex('byIsPubliclyListableForkCount', (q) =>
         q.eq('isPubliclyListable', true)
       )
       .order('desc')
@@ -684,7 +684,7 @@ export const getRelatedTemplates = query({
     )
     const rows = await ctx.db
       .query('templateCards')
-      .withIndex('byCategoryIsPubliclyListableUseCount', (q) =>
+      .withIndex('byCategoryIsPubliclyListableForkCount', (q) =>
         q.eq('category', card.category).eq('isPubliclyListable', true)
       )
       .order('desc')

@@ -218,6 +218,23 @@ def compute_variant_dedupe_hash(variants: Iterable[JsonObject]) -> str:
     )
 
 
+def variant_policy_fingerprint() -> JsonObject:
+    return {
+        "tile": {
+            "format": "WEBP",
+            "maxBytes": TILE_MAX_BYTES,
+            "maxSize": TILE_MAX_SIZE,
+            "quality": TILE_WEBP_QUALITY,
+        },
+        "preview": {
+            "format": "JPEG",
+            "maxBytes": PREVIEW_MAX_BYTES,
+            "maxSize": PREVIEW_MAX_SIZE,
+            "quality": PREVIEW_JPEG_QUALITY,
+        },
+    }
+
+
 def asset_variants(asset: object) -> Iterable[JsonObject]:
     if not isinstance(asset, dict):
         return

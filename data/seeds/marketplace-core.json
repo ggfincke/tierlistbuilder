@@ -1479,8 +1479,9 @@
       "tags": ["nintendo", "fighting", "smash bros"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "coverImage": "data/seeds/assets/covers/ssbu-fighters.jpg",
-      "coverZoom": 1.5,
+      "coverZoom": 2.2,
       "suggestedTiers": [
         {
           "name": "S",
@@ -2049,7 +2050,9 @@
       "tags": ["zelda", "nintendo", "rpg"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "coverImage": "data/seeds/assets/covers/zelda-games.jpg",
+      "coverZoom": 1.5,
       "criteria": [
         {
           "externalId": "default",
@@ -2203,6 +2206,7 @@
       "tags": ["fast food", "restaurants", "chains", "food"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "taste",
@@ -2472,6 +2476,7 @@
       "tags": ["cereal", "breakfast", "snacks", "food"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "taste",
@@ -2741,6 +2746,7 @@
       "tags": ["ice cream", "dessert", "flavors", "food"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "taste",
@@ -3130,6 +3136,7 @@
       "tags": ["soda", "drinks", "soft drinks", "food"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "taste",
@@ -3554,6 +3561,7 @@
       "tags": ["hot sauce", "spicy", "condiments", "food"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "taste",
@@ -3713,6 +3721,7 @@
       "tags": ["classics", "novels", "literature", "books"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -3932,6 +3941,7 @@
       "tags": ["fantasy", "series", "worldbuilding", "books"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -4346,6 +4356,7 @@
       "tags": ["stephen king", "horror", "novels", "books"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -4745,6 +4756,7 @@
       "tags": ["harry potter", "fantasy", "books", "series"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -4849,6 +4861,7 @@
       "tags": ["manga", "series", "anime", "comics"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -5323,6 +5336,7 @@
       "tags": ["anime", "characters", "protagonists", "manga"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -5892,6 +5906,7 @@
       "tags": ["studio trigger", "anime", "animation", "series"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -6166,6 +6181,7 @@
       "tags": ["gundam", "mecha", "anime", "sci-fi"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -6525,6 +6541,7 @@
       "tags": ["one piece", "anime", "manga", "arcs"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -6749,6 +6766,7 @@
       "tags": ["pokemon", "generations", "nintendo", "gaming"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -6857,6 +6875,7 @@
       "tags": ["consoles", "hardware", "gaming", "retro"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -7215,6 +7234,7 @@
       "tags": ["programming", "languages", "developer", "tech"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -7534,6 +7554,7 @@
       "tags": ["browsers", "web", "software", "tech"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -7703,6 +7724,7 @@
       "tags": ["iphone", "apple", "smartphones", "tech"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -7912,6 +7934,7 @@
       "tags": ["social media", "apps", "platforms", "tech"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -8101,6 +8124,7 @@
       "tags": ["disney", "animation", "movies", "family"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -8490,6 +8514,7 @@
       "tags": ["dreamworks", "animation", "movies", "family"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -8804,6 +8829,7 @@
       "tags": ["horror", "franchises", "movies", "scary"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -9023,6 +9049,7 @@
       "tags": ["oscars", "best picture", "movies", "awards"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -9227,6 +9254,7 @@
       "tags": ["formula 1", "racing", "teams", "sports"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -9351,6 +9379,7 @@
       "tags": ["mlb", "baseball", "teams", "sports"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -9570,6 +9599,7 @@
       "tags": ["nhl", "hockey", "teams", "sports"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -9799,6 +9829,7 @@
       "tags": ["wwe", "wrestling", "sports", "entertainment"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -10068,6 +10099,7 @@
       "tags": ["board games", "tabletop", "strategy", "games"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -10326,6 +10358,7 @@
       "tags": ["lego", "building", "toys", "collecting"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -10534,6 +10567,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -10668,6 +10702,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -10782,6 +10817,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -10901,6 +10937,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -11470,6 +11507,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -11614,6 +11652,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -11728,6 +11767,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -11827,6 +11867,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -11921,6 +11962,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -12010,6 +12052,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -12144,6 +12187,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -12273,6 +12317,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -12417,6 +12462,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -12561,6 +12607,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -12675,6 +12722,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -12809,6 +12857,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -12933,6 +12982,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -13057,6 +13107,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -13151,6 +13202,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -13265,6 +13317,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -13394,6 +13447,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -14333,6 +14387,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -14692,6 +14747,7 @@
       "tags": ["music", "rankings", "favorites"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -15101,6 +15157,7 @@
       "tags": ["james bond", "spy", "movies", "action"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -15295,6 +15352,7 @@
       "tags": ["christopher nolan", "directors", "movies", "thriller"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -15424,6 +15482,7 @@
       "tags": ["tarantino", "directors", "movies", "crime"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -15543,6 +15602,7 @@
       "tags": ["a24", "indie", "movies", "drama"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -15772,6 +15832,7 @@
       "tags": ["wes anderson", "directors", "movies", "comedy"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -15901,6 +15962,7 @@
       "tags": ["coen brothers", "directors", "movies", "crime"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -16060,6 +16122,7 @@
       "tags": ["star wars", "characters", "sci-fi", "movies"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -16814,6 +16877,7 @@
       "tags": ["star wars", "heroes", "sci-fi", "movies"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -17308,6 +17372,7 @@
       "tags": ["star wars", "villains", "sci-fi", "movies"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -17622,6 +17687,7 @@
       "tags": ["star wars", "supporting", "characters", "movies"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -17751,6 +17817,7 @@
       "tags": ["pixar", "characters", "animation", "movies"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -18335,6 +18402,7 @@
       "tags": ["mcu", "marvel", "characters", "movies"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -19589,6 +19657,7 @@
       "tags": ["mcu", "marvel", "heroes", "movies"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -20283,6 +20352,7 @@
       "tags": ["mcu", "marvel", "villains", "movies"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -20797,6 +20867,7 @@
       "tags": ["mcu", "marvel", "supporting", "movies"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -21081,6 +21152,7 @@
       "tags": ["the office", "sitcom", "characters", "tv"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -21310,6 +21382,7 @@
       "tags": ["streaming", "video", "subscriptions", "tech"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -21539,6 +21612,7 @@
       "tags": ["nintendo", "franchises", "gaming", "mascots"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -21747,6 +21821,7 @@
       "tags": ["dogs", "breeds", "pets", "lifestyle"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -21985,6 +22060,7 @@
       "tags": ["pizza", "toppings", "comfort food", "food"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "taste",
@@ -22219,6 +22295,7 @@
       "tags": ["candy", "chocolate", "snacks", "food"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "taste",
@@ -22448,6 +22525,7 @@
       "tags": ["cars", "brands", "auto", "lifestyle"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -22676,6 +22754,7 @@
       "tags": ["big tech", "companies", "platforms", "tech"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
       "criteria": [
         {
           "externalId": "default",
@@ -23435,6 +23514,7 @@
       "tags": ["pokemon", "creatures", "nintendo", "gaming"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": true },
       "criteria": [
         {
           "externalId": "default",
@@ -30203,6 +30283,9 @@
       "tags": ["mcu", "marvel", "movies", "tv"],
       "visibility": "public",
       "labelPolicy": "explicit-required",
+      "labels": { "show": false },
+      "coverImage": "data/seeds/assets/covers/mcu-posters.jpg",
+      "coverZoom": 1.5,
       "criteria": [
         {
           "externalId": "default",

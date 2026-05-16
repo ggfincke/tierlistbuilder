@@ -50,11 +50,22 @@ const hasRenderableTextField = (item: {
 const getStrippedImageLabel = (item: { altText?: string }): string =>
   item.altText?.trim() || STRIPPED_IMAGE_LABEL
 
-// drop image refs & deleted items from hash-fragment payloads
+export const stripPrivateItemFieldsForShare = (
+  data: BoardSnapshot
+): BoardSnapshot =>
+  mapSnapshotItems(data, (item) =>
+  {
+    if (item.notes === undefined) return item
+    const { notes: _notes, ...rest } = item
+    return rest
+  })
+
+// drop private fields, image refs, & deleted items from hash-fragment payloads
 export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
 {
+  const publicData = stripPrivateItemFieldsForShare(data)
   return {
-    ...mapSnapshotItems(data, (item) =>
+    ...mapSnapshotItems(publicData, (item) =>
     {
       const hadImage = hasAnyImageRef(item)
       const {

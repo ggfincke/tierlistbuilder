@@ -25,7 +25,7 @@ const APP_PREFERENCES_KEYS = [
   'boardLocked',
   'reducedMotion',
   'toolbarPosition',
-  'showAltTextButton',
+  'showItemEditButton',
   'autoCropTrimSoftShadows',
 ] as const satisfies readonly (keyof AppPreferences)[]
 

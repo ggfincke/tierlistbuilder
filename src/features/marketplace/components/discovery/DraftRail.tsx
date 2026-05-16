@@ -8,6 +8,7 @@ import type { MarketplaceTemplateDraft } from '@tierlistbuilder/contracts/market
 
 import { formatRelativeTime } from '~/shared/catalog/formatters'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
+import { Cover as MarketplaceCover } from '../cover/Cover'
 import { MediaMatteFrame } from '../cover/MediaMatteFrame'
 
 interface DraftRailProps
@@ -33,7 +34,7 @@ const statusLabel = (progress: number): string =>
 const SkeletonCard = () => (
   <div
     aria-hidden="true"
-    className="overflow-hidden rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
+    className="overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)]"
     style={{ width: CARD_WIDTH, flex: '0 0 auto' }}
   >
     <div className="flex">
@@ -54,7 +55,7 @@ const ThumbnailStrip = ({ draft }: { draft: MarketplaceTemplateDraft }) =>
 
   if (coverMedia)
   {
-    return <MediaMatteFrame src={coverMedia.url} className="h-full w-full" />
+    return <MarketplaceCover template={draft.template} density="small" />
   }
 
   if (tiles.length === 0)
@@ -121,7 +122,7 @@ const DraftCard = ({
       disabled={disabled}
       onClick={() => onOpen(draft)}
       aria-label={`Resume ${draft.boardTitle}, ${progress}% ranked`}
-      className="group focus-custom relative flex overflow-hidden rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-left transition hover:border-[var(--t-border-hover)] hover:shadow-md focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-wait disabled:opacity-60"
+      className="group focus-custom relative flex overflow-hidden rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-surface)] text-left transition hover:-translate-y-0.5 hover:border-[var(--t-border-hover)] hover:shadow-md focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] disabled:cursor-wait disabled:opacity-60"
       style={{
         width: CARD_WIDTH,
         flex: '0 0 auto',
@@ -147,7 +148,7 @@ const DraftCard = ({
             <span aria-hidden="true">·</span>
             <span>{formatRelativeTime(draft.updatedAt)}</span>
           </div>
-          <h3 className="truncate text-[15px] font-semibold leading-tight text-[var(--t-text)]">
+          <h3 className="truncate text-[15px] font-bold leading-tight tracking-[-0.015em] text-[var(--t-text)]">
             {draft.boardTitle}
           </h3>
         </div>
@@ -158,7 +159,7 @@ const DraftCard = ({
             aria-hidden="true"
           >
             <div
-              className="h-full rounded-full bg-[var(--t-text)]"
+              className="h-full rounded-full bg-[var(--t-accent)]"
               style={{ width: `${progress}%` }}
             />
           </div>

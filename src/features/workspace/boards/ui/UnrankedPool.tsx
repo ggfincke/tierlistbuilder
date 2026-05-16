@@ -149,10 +149,20 @@ export const UnrankedPool = () =>
   const renderPoolContent = (visibleIds: ItemId[]) => (
     <>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--t-text-muted)]">
+        {/* JetBrains Mono caps eyebrow — matches the Scoreboard editorial
+            rhythm. The font family resolves to --ts-mono (always loaded)
+            so it stays mono even when the user picks a non-default body
+            text style. */}
+        <h2
+          className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--t-text-muted)]"
+          style={{ fontFamily: 'var(--ts-mono)' }}
+        >
           Unranked
         </h2>
-        <span className="text-xs text-[var(--t-text-faint)]">
+        <span
+          className="text-[10px] tracking-[0.14em] text-[var(--t-text-faint)] uppercase"
+          style={{ fontFamily: 'var(--ts-mono)' }}
+        >
           {isSearching
             ? `${visibleIds.length} of ${formatCountedWord(
                 unrankedItemIds.length,

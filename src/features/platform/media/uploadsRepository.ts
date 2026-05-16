@@ -43,6 +43,15 @@ export const finalizeUploadVariantsImperative = (args: {
     args
   )
 
+export const getReusableMediaExternalIdsImperative = (args: {
+  externalIds: string[]
+  boardExternalId: string | null
+}): Promise<boolean[]> =>
+  getConvexClient().query(
+    api.platform.media.queries.getReusableMediaExternalIds,
+    args
+  )
+
 // POST a blob to a pre-signed upload URL w/ the upload-token envelope header
 // prepended. shared by every variant-upload caller (cover + board image)
 export const uploadEnvelopedBlob = async (args: {

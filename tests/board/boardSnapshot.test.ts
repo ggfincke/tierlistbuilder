@@ -96,19 +96,108 @@ describe('normalizeBoardSnapshot', () =>
         items: {
           [id]: makeItem({
             id,
-            imageRef: { hash: 'thumb-hash' },
-            tileImageRef: { hash: 'tile-hash' },
+            imageRef: {
+              hash: 'thumb-hash',
+              cloudMediaExternalId: 'media-thumb',
+              cloudMediaOwnership: 'source',
+            },
+            tileImageRef: {
+              hash: 'tile-hash',
+              cloudMediaExternalId: 'media-tile',
+            },
             sourceImageRef: { hash: 'source-hash' },
             transform: { rotation: 0, zoom: 1, offsetX: 0, offsetY: 0 },
+            sourceTemplateItemExternalId: 'template-item-1',
           }),
         },
       }),
       'classic'
     )
 
-    expect(result.items[id].tileImageRef).toEqual({ hash: 'tile-hash' })
+    expect(result.items[id].imageRef).toEqual({
+      hash: 'thumb-hash',
+      cloudMediaExternalId: 'media-thumb',
+      cloudMediaOwnership: 'source',
+    })
+    expect(result.items[id].tileImageRef).toEqual({
+      hash: 'tile-hash',
+      cloudMediaExternalId: 'media-tile',
+    })
     expect(result.items[id].sourceImageRef).toEqual({ hash: 'source-hash' })
+    expect(result.items[id].sourceTemplateItemExternalId).toBe(
+      'template-item-1'
+    )
     expect(result.items[id].transform).toBeUndefined()
+  })
+
+  it('preserves source board metadata through normalization', () =>
+  {
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        sourceTemplateId: 'Template123',
+        sourceRankingId: 'Ranking123',
+        sourceTemplateTitle: 'Template',
+        sourceRankingTitle: 'Ranking',
+        sourceTemplateCoverMedia: {
+          externalId: 'cover',
+          contentHash: 'hash-cover',
+          url: 'https://cdn.test/cover.jpg',
+          width: 1920,
+          height: 1080,
+          mimeType: 'image/jpeg',
+        },
+        sourceTemplateCoverFraming: {
+          browseHero: null,
+          detailHero: null,
+          card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
+        },
+        preferredCriterionExternalId: 'favorites',
+      }),
+      'classic'
+    )
+
+    expect(result).toMatchObject({
+      sourceTemplateId: 'Template123',
+      sourceRankingId: 'Ranking123',
+      sourceTemplateTitle: 'Template',
+      sourceRankingTitle: 'Ranking',
+      sourceTemplateCoverMedia: {
+        externalId: 'cover',
+        contentHash: 'hash-cover',
+      },
+      sourceTemplateCoverFraming: {
+        card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
+      },
+      preferredCriterionExternalId: 'favorites',
+    })
+  })
+
+  it('preserves private notes for live and deleted items', () =>
+  {
+    const liveId = asItemId('item-live')
+    const deletedId = asItemId('item-deleted')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        items: {
+          [liveId]: makeItem({
+            id: liveId,
+            label: 'Live',
+            notes: 'Private live note',
+          }),
+        },
+        deletedItems: [
+          makeItem({
+            id: deletedId,
+            label: 'Deleted',
+            notes: 'Private deleted note',
+          }),
+        ],
+      }),
+      'classic'
+    )
+
+    expect(result.items[liveId].notes).toBe('Private live note')
+    expect(result.deletedItems[0].notes).toBe('Private deleted note')
   })
 
   it('falls back to auto palette color when a tier is missing its colorSpec', () =>

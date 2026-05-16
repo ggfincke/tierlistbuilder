@@ -8,25 +8,37 @@ import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 export type ImageEditorFilter = 'all' | 'mismatched' | 'adjusted'
 
+// 'single' mode is the canonical per-item edit surface — hides the rail,
+// widens the pane, & exposes label / alt / notes / background fields.
+// 'multi' mode is the original "Adjust items to fit board" auditing flow
+export type ImageEditorMode = 'single' | 'multi'
+
 interface ImageEditorState
 {
   isOpen: boolean
+  mode: ImageEditorMode
   filter: ImageEditorFilter
   // item to focus on open; cleared after the modal mounts so reopening
   // w/o an explicit id falls back to the filter's first match
   initialItemId: ItemId | null
-  open: (opts?: { filter?: ImageEditorFilter; itemId?: ItemId | null }) => void
+  open: (opts?: {
+    mode?: ImageEditorMode
+    filter?: ImageEditorFilter
+    itemId?: ItemId | null
+  }) => void
   close: () => void
   setFilter: (filter: ImageEditorFilter) => void
 }
 
 export const useImageEditorStore = create<ImageEditorState>((set) => ({
   isOpen: false,
+  mode: 'multi',
   filter: 'all',
   initialItemId: null,
   open: (opts) =>
     set({
       isOpen: true,
+      mode: opts?.mode ?? 'multi',
       filter: opts?.filter ?? 'all',
       initialItemId: opts?.itemId ?? null,
     }),

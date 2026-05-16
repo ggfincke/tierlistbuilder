@@ -33,6 +33,8 @@ import {
 import { CriterionBadge } from '~/features/marketplace/components/consensus/CriterionBadge'
 import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
+import { MetaPill } from '~/features/marketplace/components/MetaPill'
+import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 
 // neutral palette for ranking surfaces; viewers don't carry workspace prefs
 const RANKING_PALETTE_ID = 'classic' as const
@@ -297,24 +299,23 @@ export const RankingDetailPage = () =>
 
       <header className="mt-5">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="rounded-full border border-[var(--t-border)] bg-[var(--t-bg-surface)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
+          <MetaPill tone="accent" shape="pill">
             {categoryLabel}
-          </span>
+          </MetaPill>
           <span className="rounded-full bg-[rgb(var(--t-overlay)/0.06)] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-[var(--t-text-secondary)]">
             Ranking
           </span>
           <CriterionBadge criterion={detail.criterion} />
         </div>
 
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--t-text)] sm:text-4xl">
-          {detail.title}
-        </h1>
-
-        {detail.description && (
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--t-text-muted)]">
-            {detail.description}
-          </p>
-        )}
+        <DisplayHeadline
+          primary={detail.title}
+          subtitle={detail.description ?? undefined}
+          subtitleClassName="max-w-3xl text-sm leading-relaxed text-[var(--t-text-muted)]"
+          size="page"
+          maxWidthClassName="max-w-3xl"
+          className="mt-3"
+        />
 
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[var(--t-text-muted)]">
           <div className="flex items-center gap-2">
@@ -375,10 +376,8 @@ export const RankingDetailPage = () =>
       </header>
 
       <section className="mt-10">
-        <h2 className="text-lg font-semibold tracking-tight text-[var(--t-text)]">
-          The ranking
-        </h2>
-        <p className="mt-1 text-xs text-[var(--t-text-muted)]">
+        <DisplayHeadline primary="The ranking" size="section" as="h2" />
+        <p className="mt-2 text-xs text-[var(--t-text-muted)]">
           Read-only view. Hit Remix to make it your own.
         </p>
         <div className="mt-4">

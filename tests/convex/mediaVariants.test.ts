@@ -9,7 +9,11 @@ import type { Id } from '@convex/_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import schema from '../../convex/schema'
 import { buildFreshBoardCloudFields } from '../../convex/workspace/boards/cloudFields'
-import { modules, seedPublishedTemplate } from './convexTestHelpers'
+import {
+  modules,
+  seedCloudBoard,
+  seedPublishedTemplate,
+} from './convexTestHelpers'
 
 const makeTest = (): ReturnType<typeof convexTest<typeof schema>> =>
   convexTest({ schema, modules, transactionLimits: true })
@@ -65,8 +69,84 @@ const storeImageBlob = async (
       )
   )
 
+const finalizeTileAsset = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  userId: Id<'users'>,
+  contentHash: string,
+  bytes: number[]
+): Promise<{ mediaAssetId: Id<'mediaAssets'>; externalId: string }> =>
+{
+  const storageId = await storeImageBlob(t, bytes)
+  return await t.mutation(
+    internal.platform.media.internal.finalizeVerifiedMediaAsset,
+    {
+      userId,
+      variants: [
+        {
+          kind: 'tile',
+          storageId,
+          contentHash,
+          mimeType: 'image/png',
+          width: 120,
+          height: 90,
+          byteSize: bytes.length,
+        },
+      ],
+    }
+  )
+}
+
 describe('media variants', () =>
 {
+  it('reports only media ids reusable by the caller or existing board rows', async () =>
+  {
+    const t = makeTest()
+    const userId = await seedUser(t)
+    const otherUserId = await seedUser(t, 'Other Media User')
+    const owned = await finalizeTileAsset(t, userId, 'owned-hash', [1, 2, 3])
+    const other = await finalizeTileAsset(
+      t,
+      otherUserId,
+      'other-hash',
+      [4, 5, 6]
+    )
+
+    const withoutBoard = await asUser(t, userId).query(
+      api.platform.media.queries.getReusableMediaExternalIds,
+      {
+        externalIds: [owned.externalId, other.externalId, 'media-missing'],
+        boardExternalId: null,
+      }
+    )
+    expect(withoutBoard).toEqual([true, false, false])
+
+    await t.run(async (ctx) =>
+    {
+      const boardId = await seedCloudBoard(ctx, {
+        ownerId: userId,
+        externalId: 'board-a',
+        title: 'Board A',
+      })
+      await ctx.db.insert('boardItems', {
+        boardId,
+        tierId: null,
+        externalId: 'item-a',
+        mediaAssetId: other.mediaAssetId,
+        order: 0,
+        deletedAt: null,
+      })
+    })
+
+    const withBoard = await asUser(t, userId).query(
+      api.platform.media.queries.getReusableMediaExternalIds,
+      {
+        externalIds: [other.externalId],
+        boardExternalId: 'board-a',
+      }
+    )
+    expect(withBoard).toEqual([true])
+  })
+
   it('dedupes exact variant sets without merging different editor assets', async () =>
   {
     const t = makeTest()
@@ -284,6 +364,10 @@ describe('media variants', () =>
         sourceTemplateId: null,
         sourceTemplateCategory: null,
         sourceTemplateSizeClass: null,
+        sourceRankingId: null,
+        sourceTemplateTitle: null,
+        sourceRankingTitle: null,
+        forkCounted: false,
         ...buildFreshBoardCloudFields(0),
         activeItemCount: 1,
         unrankedItemCount: 1,

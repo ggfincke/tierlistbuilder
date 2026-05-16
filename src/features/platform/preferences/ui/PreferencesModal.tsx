@@ -11,7 +11,10 @@ import { SettingRow } from '~/shared/ui/settings/SettingRow'
 import { TextStylePicker } from '~/shared/ui/settings/TextStylePicker'
 import { ThemePicker } from '~/shared/ui/settings/ThemePicker'
 import { Toggle } from '~/shared/ui/settings/Toggle'
-import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import {
+  HIGH_CONTRAST_THEME_ID,
+  usePreferencesStore,
+} from '~/features/platform/preferences/model/usePreferencesStore'
 import { ColorInput } from '~/shared/ui/ColorInput'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { TabbedSettingsModal } from '~/shared/ui/TabbedSettingsModal'
@@ -110,7 +113,9 @@ const AccessibilityPane = () =>
     )
   const highContrastDescriptionId = useId()
   const reduceMotionDescriptionId = useId()
-  const isHighContrast = themeId === 'high-contrast'
+  // Volt is the Scoreboard system's high-contrast theme — see toggleHighContrast
+  // in usePreferencesStore for the swap-&-restore logic.
+  const isHighContrast = themeId === HIGH_CONTRAST_THEME_ID
 
   return (
     <SettingsSection title="Accessibility">

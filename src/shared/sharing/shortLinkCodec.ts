@@ -1,5 +1,5 @@
 // src/shared/sharing/shortLinkCodec.ts
-// short-link snapshot codec: inline live images, drop deleted items, enforce cap
+// short-link snapshot codec: inline live images, drop private/deleted items, enforce cap
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import {
@@ -7,7 +7,10 @@ import {
   MAX_SNAPSHOT_COMPRESSED_BYTES,
 } from '@tierlistbuilder/contracts/platform/shortLink'
 import { snapshotToWire } from '~/shared/board-data/boardWireMapper'
-import { stripDeletedItemsForShare } from '~/shared/sharing/hashShare'
+import {
+  stripDeletedItemsForShare,
+  stripPrivateItemFieldsForShare,
+} from '~/shared/sharing/hashShare'
 import { compressSnapshotPayloadBytes } from '~/shared/sharing/snapshotCompression'
 
 const MAX_SHORT_LINK_PREFLIGHT_BYTES = MAX_INFLATED_SNAPSHOT_BYTES / 2
@@ -40,7 +43,9 @@ export const compressShortLinkSnapshotBytes = async (
   data: BoardSnapshot
 ): Promise<Uint8Array> =>
 {
-  const stripped = stripDeletedItemsForShare(data)
+  const stripped = stripDeletedItemsForShare(
+    stripPrivateItemFieldsForShare(data)
+  )
   const preflightBytes = new TextEncoder().encode(JSON.stringify(stripped))
   assertShortLinkPreflightSize(preflightBytes.byteLength)
 

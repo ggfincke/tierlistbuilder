@@ -2,16 +2,21 @@
 // board queries — list & lookup for the authenticated caller
 
 import { ConvexError, v } from 'convex/values'
-import { query } from '../../_generated/server'
+import { query, type QueryCtx } from '../../_generated/server'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
-  deriveLibraryBoardStatus,
+  deriveLibraryPublishState,
+  deriveLibrarySyncState,
   type BoardListItem,
   type DeletedBoardListItem,
   type LibraryBoardCoverItem,
   type LibraryBoardListItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCategory } from '@tierlistbuilder/contracts/marketplace/category'
+import type {
+  TemplateCoverFraming,
+  TemplateMediaRef,
+} from '@tierlistbuilder/contracts/marketplace/template'
 import type { PaletteId } from '@tierlistbuilder/contracts/lib/theme'
 import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloudBoard'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
@@ -23,6 +28,10 @@ import {
   deletedBoardListItemValidator,
   libraryBoardListItemValidator,
 } from '../../lib/validators'
+import {
+  createTemplateProjectionCache,
+  toTemplateMediaRefWithFallback,
+} from '../../marketplace/templates/lib'
 import { loadBoardCloudState } from '../sync/boardStateLoader'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 
@@ -237,21 +246,83 @@ export const getMyLibraryBoards = query({
       return pending
     }
 
+    const sourceTemplateCovers = await loadSourceTemplateCovers(ctx, boards)
+
     return Promise.all(
       boards.map((board) =>
         projectLibraryRow(board, {
           userDefaultPaletteId,
           loadStorageUrl,
+          sourceCover:
+            board.sourceTemplateId !== null
+              ? (sourceTemplateCovers.get(board.sourceTemplateId) ??
+                EMPTY_SOURCE_TEMPLATE_COVER)
+              : EMPTY_SOURCE_TEMPLATE_COVER,
         })
       )
     )
   },
 })
 
+interface SourceTemplateCover
+{
+  media: TemplateMediaRef | null
+  framing: TemplateCoverFraming | null
+}
+
+const EMPTY_SOURCE_TEMPLATE_COVER: SourceTemplateCover = {
+  media: null,
+  framing: null,
+}
+
 interface LibraryRowContext
 {
   userDefaultPaletteId: PaletteId
   loadStorageUrl: (storageId: Id<'_storage'>) => Promise<string | null>
+  sourceCover: SourceTemplateCover
+}
+
+const loadSourceTemplateCovers = async (
+  ctx: QueryCtx,
+  boards: readonly Doc<'boards'>[]
+): Promise<Map<Id<'templates'>, SourceTemplateCover>> =>
+{
+  const templateIds = Array.from(
+    new Set(
+      boards.flatMap((board) =>
+        board.sourceTemplateId !== null ? [board.sourceTemplateId] : []
+      )
+    )
+  )
+
+  const cache = createTemplateProjectionCache()
+  const entries = await Promise.all(
+    templateIds.map(async (templateId) =>
+    {
+      const template = await ctx.db.get(templateId)
+      if (!template)
+      {
+        return [templateId, EMPTY_SOURCE_TEMPLATE_COVER] as const
+      }
+
+      const media = await toTemplateMediaRefWithFallback(
+        ctx,
+        template.coverMediaAssetId,
+        ['preview', 'tile'],
+        cache
+      )
+
+      return [
+        templateId,
+        {
+          media,
+          framing: media ? (template.coverFraming ?? null) : null,
+        },
+      ] as const
+    })
+  )
+
+  return new Map(entries)
 }
 
 const projectLibraryRow = async (
@@ -271,17 +342,19 @@ const projectLibraryRow = async (
 
   const category = board.sourceTemplateCategory ?? DEFAULT_LIBRARY_CATEGORY
   const hasPublishedTemplate = board.livePublicTemplateId !== null
-  const status = deriveLibraryBoardStatus({
-    activeItemCount: board.activeItemCount,
-    unrankedItemCount: board.unrankedItemCount,
-    hasPublishedTemplate,
-    materializationState: board.materializationState,
-  })
 
   const rankedItemCount = Math.max(
     0,
     board.activeItemCount - board.unrankedItemCount
   )
+
+  const publishState = deriveLibraryPublishState({
+    rankedItemCount,
+    hasPublishedTemplate,
+  })
+  const syncState = deriveLibrarySyncState({
+    materializationState: board.materializationState,
+  })
 
   return {
     externalId: board.externalId,
@@ -292,10 +365,13 @@ const projectLibraryRow = async (
     activeItemCount: board.activeItemCount,
     unrankedItemCount: board.unrankedItemCount,
     rankedItemCount,
-    status,
+    publishState,
+    syncState,
     visibility: hasPublishedTemplate ? 'public' : 'private',
     category,
     sourceTemplateSizeClass: board.sourceTemplateSizeClass,
+    sourceTemplateCoverMedia: rowCtx.sourceCover.media,
+    sourceTemplateCoverFraming: rowCtx.sourceCover.framing,
     coverItems,
     paletteId: board.paletteId ?? rowCtx.userDefaultPaletteId,
     tierColors: board.librarySummary.tierColors,

@@ -9,7 +9,9 @@ PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline preflight data/seeds/ma
 PYTHONPATH=scripts/seed_pipeline python -m seed_pipeline run data/seeds/marketplace-core.json --env local
 ```
 
-The npm wrappers in `package.json` use the same `PYTHONPATH` setup:
+The npm wrappers in `package.json` use `scripts/seed-pipeline.mjs`, which sets
+the same `PYTHONPATH` and prefers `.venv/bin/python` when the local venv exists.
+Set `SEED_PIPELINE_PYTHON=/path/to/python` to override the interpreter.
 
 ```bash
 npm run seed:marketplace:validate
@@ -18,7 +20,13 @@ npm run seed:marketplace:preflight
 npm run seed:marketplace
 npm run seed:rankings:preflight
 npm run seed:rankings
+npm run seed:featured
+npm run seed:all
 ```
+
+`npm run seed:all` runs the marketplace, ranking, and featured-trio seed steps
+in sequence. There is no seed `--reset` flag; for a clean local/dev deployment,
+wipe data first with `npm run db:reset -- --yes`, then run the seed command.
 
 The package can also be installed for development:
 

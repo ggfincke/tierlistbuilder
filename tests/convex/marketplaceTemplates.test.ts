@@ -307,6 +307,40 @@ const seedSourceBoard = async (
     return { mediaExternalId: 'media-source' }
   })
 
+const addMediaPreviewVariant = async (
+  t: ReturnType<typeof convexTest<typeof schema>>,
+  externalId: string,
+  contentHash = 'hash-source-preview'
+): Promise<void> =>
+  await t.run(async (ctx) =>
+  {
+    const mediaAsset = await ctx.db
+      .query('mediaAssets')
+      .withIndex('byExternalId', (q) => q.eq('externalId', externalId))
+      .unique()
+    if (!mediaAsset) throw new Error(`missing media asset: ${externalId}`)
+
+    const storageId = await ctx.storage.store(
+      new Blob([new Uint8Array([4, 5, 6])], { type: 'image/png' })
+    )
+    const now = Date.now()
+    const previewVariant = {
+      storageId,
+      width: 1024,
+      height: 576,
+      byteSize: 3,
+      mimeType: 'image/png',
+      contentHash,
+    }
+    await ctx.db.patch(mediaAsset._id, { previewVariant })
+    await ctx.db.insert('mediaVariants', {
+      mediaAssetId: mediaAsset._id,
+      kind: 'preview',
+      ...previewVariant,
+      createdAt: now,
+    })
+  })
+
 const seedTierPreset = async (
   t: ReturnType<typeof convexTest<typeof schema>>,
   ownerId: Id<'users'>
@@ -971,6 +1005,62 @@ describe('marketplace template Convex functions', () =>
     })
   })
 
+  it('uses preview cover media for template draft thumbnails', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(t, 'Template Author', 'author@example.com')
+    const consumerId = await seedUser(t, 'Template User', 'user@example.com')
+    const { mediaExternalId } = await seedSourceBoard(t, authorId)
+    await addMediaPreviewVariant(t, mediaExternalId)
+
+    const { slug } = await asUser(t, authorId).mutation(
+      api.marketplace.templates.mutations.publishFromBoard,
+      {
+        boardExternalId: 'board-source',
+        title: 'Preview Cover Template',
+        category: 'gaming',
+        tags: [],
+        visibility: 'public',
+        coverMediaExternalId: mediaExternalId,
+      }
+    )
+
+    await asUser(t, consumerId).mutation(
+      api.marketplace.templates.mutations.useTemplate,
+      {
+        slug,
+        title: 'My Draft',
+      }
+    )
+
+    const drafts = await asUser(t, consumerId).query(
+      api.marketplace.templates.queries.getMyTemplateDrafts,
+      {}
+    )
+
+    expect(drafts.drafts[0]?.template.coverMedia).toMatchObject({
+      externalId: mediaExternalId,
+      contentHash: 'hash-source-preview',
+      width: 1024,
+      height: 576,
+    })
+
+    const libraryRows = await asUser(t, consumerId).query(
+      api.workspace.boards.queries.getMyLibraryBoards,
+      {}
+    )
+    expect(libraryRows[0]).toMatchObject({
+      title: 'My Draft',
+      sourceTemplateCoverMedia: {
+        externalId: mediaExternalId,
+        contentHash: 'hash-source-preview',
+        width: 1024,
+        height: 576,
+      },
+      sourceTemplateCoverFraming: null,
+    })
+  })
+
   it('normalizes trusted criteria patches and preserves them through metadata changes', async () =>
   {
     const t = makeTest()
@@ -1268,7 +1358,8 @@ describe('marketplace template Convex functions', () =>
           )[0]
         ).toMatchObject({
           externalId: clone.boardExternalId,
-          status: 'syncing',
+          publishState: 'draft',
+          syncState: 'pending',
           sourceTemplateSizeClass: 'large',
         })
 
@@ -1459,9 +1550,11 @@ describe('marketplace template Convex functions', () =>
       {}
     )
     expect(before[0]).toMatchObject({
-      status: 'in_progress',
+      publishState: 'wip',
+      syncState: 'synced',
       visibility: 'private',
     })
+    expect(before[0]).not.toHaveProperty('status')
 
     const tagged = await caller.mutation(
       api.marketplace.templates.mutations.publishFromBoard,
@@ -1495,9 +1588,11 @@ describe('marketplace template Convex functions', () =>
       {}
     )
     expect(after[0]).toMatchObject({
-      status: 'published',
+      publishState: 'live',
+      syncState: 'synced',
       visibility: 'public',
     })
+    expect(after[0]).not.toHaveProperty('status')
 
     const afterReplacement = await t.query(
       api.marketplace.templates.queries.listTemplates,
@@ -1555,9 +1650,9 @@ describe('marketplace template Convex functions', () =>
     )
     expect(gallery.trending[0]).toMatchObject({
       slug,
-      weeklyUseCount: 1,
+      weeklyForkCount: 1,
       weeklyViewCount: 2,
-      useCount: 1,
+      forkCount: 1,
       viewCount: 2,
     })
     expect(gallery.trending[0].trendingScore).toBeGreaterThan(0)
@@ -1576,12 +1671,166 @@ describe('marketplace template Convex functions', () =>
       expect.objectContaining({
         slug,
         isPubliclyListable: true,
-        weeklyUseCount: 1,
+        weeklyForkCount: 1,
         weeklyViewCount: 2,
-        useCount: 1,
+        forkCount: 1,
         viewCount: 2,
       }),
     ])
+  })
+
+  it('starts the template-card ranking-count backfill through seed maintenance', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(
+      t,
+      'Backfill Author',
+      'backfill-author@example.com'
+    )
+    const { templateId } = await seedAggregateTemplate(t, authorId)
+
+    await t.run(async (ctx) =>
+    {
+      await ctx.db.insert('templateRankingAggregates', {
+        templateId,
+        criterionExternalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+        state: 'ready',
+        activeGeneration: 1,
+        bucketCount: 3,
+        rankingCount: 5,
+        itemCount: 3,
+        computedAt: 1_000,
+        staleAt: null,
+        bucketSpread: [1, 2, 2],
+        mostAgreedItemExternalId: null,
+        mostAgreedItemLabel: null,
+        mostDivisiveItemExternalId: null,
+        mostDivisiveItemLabel: null,
+        updatedAt: 1_000,
+      })
+    })
+    const before = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('templateCards')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique()
+    )
+    expect(before?.rankingCount).toBeUndefined()
+
+    await expect(
+      withSeedActionsEnabled(() =>
+        t.action(
+          api.marketplace.templates.seed.startTemplateCardRankingCountBackfill,
+          { seedSecret: SEED_SECRET }
+        )
+      )
+    ).resolves.toEqual({ processed: 1, isDone: true })
+
+    const after = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('templateCards')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique()
+    )
+    expect(after?.rankingCount).toBe(5)
+  })
+
+  it('backfills legacy useCount rows before forkCount arithmetic reads them', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(
+      t,
+      'Legacy Count Author',
+      'legacy-count-author@example.com'
+    )
+    const templateId = await t.run(
+      async (ctx) =>
+        await seedPublishedTemplate(ctx, {
+          slug: 'LegacyCnt1',
+          authorId,
+          title: 'Legacy Count Template',
+          sizeClass: 'standard',
+          itemCount: 1,
+        })
+    )
+
+    await t.run(async (ctx) =>
+    {
+      const [stats, card] = await Promise.all([
+        ctx.db
+          .query('templateStats')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique(),
+        ctx.db
+          .query('templateCards')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique(),
+      ])
+      if (!stats || !card) throw new Error('template stats/card missing')
+      await Promise.all([
+        ctx.db.patch(stats._id, {
+          forkCount: undefined,
+          useCount: 7,
+        }),
+        ctx.db.patch(card._id, {
+          forkCount: undefined,
+          useCount: 7,
+        }),
+        ctx.db.insert('templateMetricDays', {
+          templateId,
+          category: 'gaming',
+          dayStartAt: 1_700_000_000_000,
+          useCount: 4,
+          viewCount: 2,
+          createdAt: 1_700_000_000_000,
+          updatedAt: 1_700_000_000_000,
+        }),
+      ])
+    })
+
+    await expect(
+      withSeedActionsEnabled(() =>
+        t.action(
+          api.marketplace.templates.seed.startTemplateForkCountBackfill,
+          {
+            seedSecret: SEED_SECRET,
+          }
+        )
+      )
+    ).resolves.toEqual({
+      stats: { processed: 1, isDone: true },
+      cards: { processed: 1, isDone: true },
+      metricDays: { processed: 1, isDone: true },
+    })
+
+    const after = await t.run(async (ctx) =>
+    {
+      const [stats, card, metricDay] = await Promise.all([
+        ctx.db
+          .query('templateStats')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique(),
+        ctx.db
+          .query('templateCards')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .unique(),
+        ctx.db
+          .query('templateMetricDays')
+          .withIndex('byTemplateDay', (q) =>
+            q.eq('templateId', templateId).eq('dayStartAt', 1_700_000_000_000)
+          )
+          .unique(),
+      ])
+      return { stats, card, metricDay }
+    })
+    expect(after.stats).toMatchObject({ forkCount: 7, viewCount: 0 })
+    expect(after.card).toMatchObject({ forkCount: 7, viewCount: 0 })
+    expect(after.metricDay).toMatchObject({ forkCount: 4, viewCount: 2 })
+    expect(after.stats).not.toHaveProperty('useCount')
+    expect(after.card).not.toHaveProperty('useCount')
+    expect(after.metricDay).not.toHaveProperty('useCount')
   })
 
   it('clones a template w/ user preset & propagates layout settings + transforms', async () =>
@@ -1648,6 +1897,7 @@ describe('marketplace template Convex functions', () =>
       label: 'Image item',
       mediaContentHash: 'hash-source',
       transform,
+      sourceTemplateItemExternalId: 'source-item-1',
     })
     const libraryRows = await asUser(t, consumerId).query(
       api.workspace.boards.queries.getMyLibraryBoards,
@@ -1663,7 +1913,7 @@ describe('marketplace template Convex functions', () =>
       api.marketplace.templates.queries.listTemplates,
       { sort: 'popular' }
     )
-    expect(popular.items[0]).toMatchObject({ slug, useCount: 1 })
+    expect(popular.items[0]).toMatchObject({ slug, forkCount: 1 })
     const storedCounts = await t.run(async (ctx) =>
     {
       const template = await ctx.db
@@ -1684,10 +1934,10 @@ describe('marketplace template Convex functions', () =>
       return { stats, card }
     })
     expect(storedCounts.stats).toMatchObject({
-      useCount: 1,
+      forkCount: 1,
       viewCount: 0,
     })
-    expect(storedCounts.card).toMatchObject({ useCount: 1, viewCount: 0 })
+    expect(storedCounts.card).toMatchObject({ forkCount: 1, viewCount: 0 })
   })
 
   it('publishes completed template rankings and remixes them into ranked boards', async () =>
@@ -1825,6 +2075,110 @@ describe('marketplace template Convex functions', () =>
       detail!.items.map((item) => item.templateItemExternalId).sort()
     )
     expect(new Set(Object.values(myRanking.placements))).toEqual(new Set([0]))
+  })
+
+  it('publishes rankings from locally-synced standard template forks', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(
+      t,
+      'Local Fork Author',
+      'local-fork-author@example.com'
+    )
+    const rankerId = await seedUser(
+      t,
+      'Local Fork Ranker',
+      'local-fork-ranker@example.com'
+    )
+    const { slug: templateSlug } = await seedAggregateTemplate(t, authorId, {
+      criteria: MULTI_CRITERION_TEST_CRITERIA,
+      title: 'Local Fork Template',
+    })
+    const ranker = asUser(t, rankerId)
+
+    await ranker.mutation(
+      api.workspace.boards.upsertBoardState.upsertBoardState,
+      {
+        boardExternalId: 'board-local-template-fork',
+        baseRevision: null,
+        title: 'Local Fork Ranking',
+        sourceTemplateId: templateSlug,
+        sourceTemplateTitle: 'Local Fork Template',
+        preferredCriterionExternalId: 'favorites',
+        tiers: [
+          {
+            externalId: 'tier-local-top',
+            name: 'Top',
+            colorSpec: { kind: 'palette', index: 0 },
+            itemIds: ['local-item-0', 'local-item-1', 'local-item-2'],
+          },
+        ],
+        items: [0, 1, 2].map((index) => ({
+          externalId: `local-item-${index}`,
+          tierId: 'tier-local-top',
+          label: `Aggregate Item ${index}`,
+          mediaExternalId: null,
+          order: index,
+          sourceTemplateItemExternalId: `aggregate-item-${index}`,
+        })),
+        deletedItemIds: [],
+      }
+    )
+
+    await expect(
+      ranker.query(
+        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        { boardExternalId: 'board-local-template-fork' }
+      )
+    ).resolves.toMatchObject({
+      canPublish: true,
+      reason: null,
+      activeItemCount: 3,
+      unrankedItemCount: 0,
+      sourceTemplateTitle: 'Local Fork Template',
+      preferredCriterionExternalId: 'favorites',
+    })
+
+    const storedItems = await t.run(async (ctx) =>
+    {
+      const board = await ctx.db
+        .query('boards')
+        .withIndex('byOwnerAndExternalId', (q) =>
+          q
+            .eq('ownerId', rankerId)
+            .eq('externalId', 'board-local-template-fork')
+        )
+        .unique()
+      if (!board) throw new Error('local fork board missing')
+      return await ctx.db
+        .query('boardItems')
+        .withIndex('byBoardAndTemplateItem', (q) => q.eq('boardId', board._id))
+        .take(10)
+    })
+    expect(storedItems).toHaveLength(3)
+    expect(storedItems.every((item) => item.templateItemId !== undefined)).toBe(
+      true
+    )
+
+    const published = await ranker.mutation(
+      api.marketplace.rankings.mutations.publishRankingFromBoard,
+      {
+        boardExternalId: 'board-local-template-fork',
+        title: 'Published Local Fork Ranking',
+        visibility: 'public',
+        criterionExternalId: 'favorites',
+      }
+    )
+    const detail = await t.query(
+      api.marketplace.rankings.queries.getRankingBySlug,
+      { slug: published.slug }
+    )
+    expect(detail).toMatchObject({
+      slug: published.slug,
+      template: { slug: templateSlug, title: 'Local Fork Template' },
+      criterion: { externalId: 'favorites' },
+      itemCount: 3,
+    })
   })
 
   it('scopes ranking publish, query, and aggregate queues by criterion', async () =>

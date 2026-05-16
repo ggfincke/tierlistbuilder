@@ -29,12 +29,18 @@ class CloudBoardActivationError extends Error
   }
 }
 
-// fetch the cloud state for `boardExternalId`, persist a local snapshot keyed
-// by the same id, & insert/activate a registry entry. resolves to the local
-// BoardId callers should set as active prior to navigating into the workspace
-export const importCloudBoardAsActive = async (
+interface MaterializedCloudBoard
+{
+  boardId: BoardId
+  snapshot: ReturnType<typeof serverStateToSnapshot>
+  syncState: ReturnType<typeof markBoardSynced>
+}
+
+// fetch + persist a cloud board's snapshot to local storage & ensure a
+// registry entry exists, without touching the active-board selection
+const materializeCloudBoardSnapshot = async (
   boardExternalId: string
-): Promise<BoardId> =>
+): Promise<MaterializedCloudBoard> =>
 {
   const cloudState = await getBoardStateByExternalIdImperative({
     boardExternalId,
@@ -60,29 +66,50 @@ export const importCloudBoardAsActive = async (
     )
   }
 
+  const registry = useWorkspaceBoardRegistryStore.getState()
+  if (!registry.boards.some((b) => b.id === boardId))
+  {
+    registry.addBoardMeta(
+      { id: boardId, title: snapshot.title, createdAt: Date.now() },
+      false
+    )
+  }
+
+  return { boardId, snapshot, syncState }
+}
+
+// fetch the cloud state for `boardExternalId`, persist a local snapshot keyed
+// by the same id, & insert/activate a registry entry. resolves to the local
+// BoardId callers should set as active prior to navigating into the workspace
+export const importCloudBoardAsActive = async (
+  boardExternalId: string
+): Promise<BoardId> =>
+{
   // persist whatever the user had open before swapping; loadBoardState then
   // populates useActiveBoardStore so a remount of WorkspaceShell renders the
   // newly-cloned board instead of the prior session's stale data
   useActiveBoardStore.getState().discardDragPreview()
   saveActiveBoardSnapshot()
 
-  const registry = useWorkspaceBoardRegistryStore.getState()
-  const existing = registry.boards.find((b) => b.id === boardId)
-  if (!existing)
-  {
-    registry.addBoardMeta(
-      { id: boardId, title: snapshot.title, createdAt: Date.now() },
-      true
-    )
-  }
-  else
-  {
-    registry.setActiveBoardId(boardId)
-  }
+  const { boardId, snapshot, syncState } =
+    await materializeCloudBoardSnapshot(boardExternalId)
+
+  useWorkspaceBoardRegistryStore.getState().setActiveBoardId(boardId)
 
   await warmFromBoard(snapshot)
   loadBoardState(boardId, snapshot, syncState)
 
+  return boardId
+}
+
+// register a cloud-only board into the local workspace without making it the
+// active board. callers that need to patch the registry (e.g. rename) can
+// then operate as if the board were local, while the active board stays put
+export const materializeCloudBoardInBackground = async (
+  boardExternalId: string
+): Promise<BoardId> =>
+{
+  const { boardId } = await materializeCloudBoardSnapshot(boardExternalId)
   return boardId
 }
 

@@ -28,7 +28,7 @@ import {
 } from '../../lib/entitlements'
 import { requireCurrentUserId } from '../../lib/auth'
 import { requireBoardOwnershipByExternalId } from '../../lib/permissions'
-import { loadMediaVariantStorageId } from '../../lib/mediaVariants'
+import { loadPreviewOrTileStorageId } from '../../lib/mediaVariants'
 import { loadBoundedBoardRows } from '../../workspace/sync/loadBoundedBoardRows'
 import { buildFreshBoardCloudFields } from '../../workspace/boards/cloudFields'
 import {
@@ -60,7 +60,7 @@ import {
   buildBoardItemInsertFromTemplateItem,
   DEFAULT_TEMPLATE_TIERS,
   findTemplateBySlug,
-  incrementTemplateUseStats,
+  incrementTemplateForkStats,
   isPublishedTemplateRow,
   loadTemplateItems,
   templateTitleToBoardTitle,
@@ -490,6 +490,12 @@ export const remixRanking = mutation({
       sourceTemplateId: template._id,
       sourceTemplateCategory: template.category,
       sourceTemplateSizeClass: template.sizeClass,
+      sourceRankingId: ranking._id,
+      sourceTemplateTitle: template.title,
+      sourceRankingTitle: ranking.title,
+      // remixRanking bumps both the template fork counter & the ranking
+      // remixCount inline below, so this is already "counted"
+      forkCounted: true,
       preferredCriterionExternalId: ranking.sourceCriterionExternalId,
       ...buildFreshBoardCloudFields(now),
       itemAspectRatio: template.itemAspectRatio ?? undefined,
@@ -583,7 +589,7 @@ export const remixRanking = mutation({
           externalId,
           label: resolved.label,
           storageId: resolved.mediaAssetId
-            ? await loadMediaVariantStorageId(ctx, resolved.mediaAssetId)
+            ? await loadPreviewOrTileStorageId(ctx, resolved.mediaAssetId)
             : null,
           order: item.order,
           deletedAt: null,
@@ -604,7 +610,7 @@ export const remixRanking = mutation({
           externalId: insert.externalId,
           label: item.label,
           storageId: item.mediaAssetId
-            ? await loadMediaVariantStorageId(ctx, item.mediaAssetId)
+            ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
             : null,
           order: item.order,
           deletedAt: null,
@@ -628,7 +634,7 @@ export const remixRanking = mutation({
         }),
         updatedAt: now,
       }),
-      incrementTemplateUseStats(ctx, template._id, now),
+      incrementTemplateForkStats(ctx, template._id, now),
     ])
 
     return { boardExternalId }
@@ -767,6 +773,11 @@ export const remixTemplateConsensus = mutation({
       sourceTemplateId: template._id,
       sourceTemplateCategory: template.category,
       sourceTemplateSizeClass: template.sizeClass,
+      // consensus remix is sourced from the aggregate, not a single ranking
+      sourceRankingId: null,
+      sourceTemplateTitle: template.title,
+      sourceRankingTitle: null,
+      forkCounted: true,
       preferredCriterionExternalId: criterion.externalId,
       ...buildFreshBoardCloudFields(now),
       itemAspectRatio: template.itemAspectRatio ?? undefined,
@@ -823,7 +834,7 @@ export const remixTemplateConsensus = mutation({
           tierIndex === null ? null : (insertedTiers[tierIndex] ?? null)
         const externalId = generateItemId()
         const storageId = item.mediaAssetId
-          ? await loadMediaVariantStorageId(ctx, item.mediaAssetId)
+          ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
           : null
         await ctx.db.insert('boardItems', {
           boardId,
@@ -857,7 +868,7 @@ export const remixTemplateConsensus = mutation({
         items: summaryItems,
       }),
     })
-    await incrementTemplateUseStats(ctx, template._id, now)
+    await incrementTemplateForkStats(ctx, template._id, now)
 
     return { boardExternalId }
   },

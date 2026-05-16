@@ -61,7 +61,9 @@ export const flushBoardToCloud = async (
 {
   try
   {
-    const uploadResult = await uploadBoardImages(snapshot, userId)
+    const uploadResult = await uploadBoardImages(snapshot, userId, {
+      boardExternalId,
+    })
     const payload = snapshotToCloudPayload(snapshot, uploadResult)
 
     const result = await upsertBoardStateImperative({

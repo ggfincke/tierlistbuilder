@@ -4,11 +4,17 @@
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 
 let boardLoadedListener: ((boardId: BoardId) => void) | null = null
+let boardChangedListener: ((boardId: BoardId) => void) | null = null
 let boardDeletedListener: (() => void) | null = null
 
 export const notifyBoardLoaded = (boardId: BoardId): void =>
 {
   boardLoadedListener?.(boardId)
+}
+
+export const notifyBoardChanged = (boardId: BoardId): void =>
+{
+  boardChangedListener?.(boardId)
 }
 
 export const notifyBoardDeleted = (): void =>
@@ -21,6 +27,13 @@ export const setBoardLoadedListener = (
 ): void =>
 {
   boardLoadedListener = listener
+}
+
+export const setBoardChangedListener = (
+  listener: ((boardId: BoardId) => void) | null
+): void =>
+{
+  boardChangedListener = listener
 }
 
 export const setBoardDeletedListener = (

@@ -22,8 +22,8 @@ const EmbedRoute = lazy(() =>
   import('./EmbedRoute').then((m) => ({ default: m.EmbedRoute }))
 )
 
-const MyListsRoute = lazy(() =>
-  import('./MyListsRoute').then((m) => ({ default: m.MyListsRoute }))
+const MyBoardsRoute = lazy(() =>
+  import('./MyBoardsRoute').then((m) => ({ default: m.MyBoardsRoute }))
 )
 
 const MarketplaceLayout = lazy(() =>
@@ -91,9 +91,9 @@ export const AppRouter = () => (
         <Route
           path={BOARDS_ROUTE_PATH}
           element={
-            <ErrorBoundary section="my lists">
+            <ErrorBoundary section="my boards">
               <Suspense fallback={<RouteFallback />}>
-                <MyListsRoute />
+                <MyBoardsRoute />
               </Suspense>
             </ErrorBoundary>
           }

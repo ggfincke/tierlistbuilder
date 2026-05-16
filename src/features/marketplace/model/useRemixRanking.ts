@@ -1,16 +1,17 @@
 // src/features/marketplace/model/useRemixRanking.ts
-// orchestrates the "Remix ranking" flow — auth gate -> server snapshot copy
-// -> pull cloned board into local registry -> set active -> navigate to /
+// orchestrates the "Remix ranking" flow — signed-out & signed-in both build a
+// local board first, composing the ranking snapshot w/ the template item set
 
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
-import { useRemixRankingMutation } from '~/features/marketplace/data/rankingsRepository'
-import { importCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
+import { getRankingBySlugImperative } from '~/features/marketplace/data/rankingsRepository'
+import { loadAllTemplateItemsImperative } from '~/features/marketplace/data/templatesRepository'
+import { createLocalBoardFromRanking } from '~/features/workspace/boards/model/localBoardFork'
 import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
-import { toast } from '~/shared/notifications/useToastStore'
+import { toast, toastWithAction } from '~/shared/notifications/useToastStore'
 import { logger } from '~/shared/lib/logger'
 import { useAsyncAction } from '~/shared/hooks/useAsyncAction'
 
@@ -24,17 +25,45 @@ export const useRemixRanking = (): RemixRankingAction =>
 {
   const session = useAuthSession()
   const navigate = useNavigate()
-  const remix = useRemixRankingMutation()
 
   const remixRanking = useCallback(
     async (slug: string, rankingTitle: string): Promise<void> =>
     {
-      const result = await remix({ slug })
-      await importCloudBoardAsActive(result.boardExternalId)
-      toast(`Remixed "${rankingTitle}" into a new board`, 'success')
+      const ranking = await getRankingBySlugImperative(slug)
+      if (!ranking)
+      {
+        toast('That ranking is no longer available.', 'error')
+        return
+      }
+
+      const templateItems = await loadAllTemplateItemsImperative(
+        ranking.template.slug
+      )
+
+      const signedIn = session.status === 'signed-in'
+
+      await createLocalBoardFromRanking({
+        ranking,
+        templateItems,
+        title: rankingTitle,
+        markPendingSync: signedIn,
+      })
+
+      if (signedIn)
+      {
+        toast(`Remixed "${rankingTitle}" into a new board`, 'success')
+      }
+      else
+      {
+        toastWithAction(
+          `Remixed "${rankingTitle}" locally. Sign in to sync.`,
+          { label: 'Sign in', onClick: promptSignIn },
+          'info'
+        )
+      }
       navigate('/')
     },
-    [navigate, remix]
+    [navigate, session.status]
   )
 
   const onError = useCallback((error: unknown) =>
@@ -50,17 +79,14 @@ export const useRemixRanking = (): RemixRankingAction =>
     }
   )
 
+  // collapse useAsyncAction's Promise<void | null> back to Promise<void>; the
+  // null on error is captured by the action store, not relayed to callers
   const run = useCallback(
-    async (slug: string, rankingTitle: string) =>
+    async (slug: string, rankingTitle: string): Promise<void> =>
     {
-      if (session.status !== 'signed-in')
-      {
-        promptSignIn()
-        return
-      }
       await runRemix(slug, rankingTitle)
     },
-    [runRemix, session.status]
+    [runRemix]
   )
 
   return { run, isPending }

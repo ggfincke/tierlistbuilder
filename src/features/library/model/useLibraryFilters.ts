@@ -1,5 +1,5 @@
 // src/features/library/model/useLibraryFilters.ts
-// URL-canonical filter, sort, view, density, & search state for My Lists
+// URL-canonical filter, sort, view, density, & search state for My Boards
 
 import {
   LIBRARY_BOARD_DENSITIES,
@@ -39,9 +39,8 @@ interface LibraryFilterParams
   density: LibraryBoardDensity
 }
 
-// URL filter parsing accepts any LIBRARY_BOARD_FILTERS member, including
-// statuses that don't have a visible chip (published, syncing, failed) — a
-// user can still land on /boards?status=published from a deep link
+// URL filter parsing accepts any LIBRARY_BOARD_FILTERS member — every publish
+// state (draft/wip/live) has a visible chip, so deep links & chips stay in sync
 const isFilter = (value: string | null): value is LibraryBoardFilter =>
   isStringMember(value, LIBRARY_BOARD_FILTERS)
 
