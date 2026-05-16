@@ -40,6 +40,10 @@ import {
   normalizeItemTransform,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
+import {
+  normalizeSourceTemplateFields,
+  pickSourceTemplateFields,
+} from '~/shared/board-data/sourceTemplateFields'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
 
@@ -78,7 +82,20 @@ const isTierItemWire = (value: unknown): value is TierItemWire =>
     return false
   }
 
-  return value.altText === undefined || typeof value.altText === 'string'
+  if (value.altText !== undefined && typeof value.altText !== 'string')
+  {
+    return false
+  }
+
+  if (
+    value.sourceTemplateItemExternalId !== undefined &&
+    typeof value.sourceTemplateItemExternalId !== 'string'
+  )
+  {
+    return false
+  }
+
+  return value.notes === undefined || typeof value.notes === 'string'
 }
 
 const getBlobDataUrl = async (
@@ -193,6 +210,10 @@ export const snapshotToWireWithBlobs = async (
     textStyleId: snapshot.textStyleId,
     pageBackground: snapshot.pageBackground,
     labels: snapshot.labels,
+    // source-template/ranking identity round-trips through JSON export so a
+    // re-imported board still knows where it came from. titles are denormalized
+    // so the breadcrumb works for recipients who don't have the source loaded
+    ...pickSourceTemplateFields(snapshot),
   }
 }
 
@@ -283,7 +304,15 @@ const wireItemToSnapshotItem = (
   prepared: PreparedWireImage | undefined
 ): TierItem =>
 {
-  const { id, imageUrl, label, backgroundColor, altText } = item
+  const {
+    id,
+    imageUrl,
+    label,
+    backgroundColor,
+    altText,
+    notes,
+    sourceTemplateItemExternalId,
+  } = item
   // prefer the wire's captured aspect ratio; fall back to the ratio decoded
   // during persist so items without an explicit wire field still render right
   const aspectRatio =
@@ -296,6 +325,8 @@ const wireItemToSnapshotItem = (
     label,
     backgroundColor,
     altText,
+    notes,
+    sourceTemplateItemExternalId,
     aspectRatio,
     imageFit,
     ...(transform ? { transform } : {}),
@@ -385,6 +416,7 @@ export const wireToSnapshot = async (
       ? wire.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(wire.labels),
+    ...normalizeSourceTemplateFields(wire as Record<string, unknown>),
   }
 }
 

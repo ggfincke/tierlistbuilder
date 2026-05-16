@@ -80,7 +80,7 @@ DEFAULT_SUGGESTED_TIERS = [
 ]
 
 SURFACE_ASPECT_RATIOS = {
-    "browseHero": 3 / 2,
+    "browseHero": 16 / 9,
     "detailHero": 4 / 3,
     "card": 16 / 10,
 }
@@ -392,6 +392,8 @@ def build_template_upserts(compiled: JsonObject) -> list[JsonObject]:
             "itemAspectRatio": template["itemAspectRatio"],
             "itemCount": len(as_list(template.get("items"))),
         }
+        if "labels" in template:
+            upsert["labels"] = template["labels"]
         upserts.append(
             {
                 **upsert,

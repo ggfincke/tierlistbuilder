@@ -61,6 +61,30 @@ describe('snapshot codec', () =>
     expect(stripped.deletedItems).toEqual([])
   })
 
+  it('strips private notes from shared payloads', async () =>
+  {
+    const id = asItemId('item-private')
+    const original = makeBoardSnapshot({
+      title: 'Private Notes',
+      tiers: [makeTier({ id: 'tier-s', itemIds: [id] })],
+      items: {
+        [id]: {
+          id,
+          label: 'Visible label',
+          notes: 'Only I should see this',
+        },
+      },
+    })
+
+    const stripped = stripImagesForShare(original)
+    expect(stripped.items[id]).not.toHaveProperty('notes')
+
+    const decoded = await decodeBoardFromShareFragment(
+      await encodeBoardToShareFragment(original)
+    )
+    expect(decoded.items[id]).not.toHaveProperty('notes')
+  })
+
   it('keeps image-only items renderable after stripping image refs', async () =>
   {
     const plainImageId = asItemId('plain-image')

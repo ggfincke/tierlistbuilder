@@ -11,7 +11,7 @@ import {
 } from '@tierlistbuilder/contracts/lib/ids'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import {
-  loadMediaVariantStorageId,
+  loadPreviewOrTileStorageId,
   selectMediaVariantSummary,
 } from '../../lib/mediaVariants'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
@@ -85,12 +85,12 @@ type TemplateCardSource = Pick<
 >
 
 type TemplateCardMedia = NonNullable<Doc<'templateCards'>['coverMedia']>
-type TemplateStatsCounters = Pick<
-  Doc<'templateStats'>,
-  'useCount' | 'viewCount'
->
+type TemplateStatsCounters = {
+  forkCount: number
+  viewCount: number
+}
 type TemplateCardMetrics = TemplateStatsCounters & {
-  weeklyUseCount: number
+  weeklyForkCount: number
   weeklyViewCount: number
   trendingScore: number
   trendingComputedAt: number | null
@@ -105,6 +105,29 @@ const normalizeTemplatePatchForWrite = (
   if (patch.criteria === undefined) return patch
   return { ...patch, criteria: validateTemplateCriteria(patch.criteria) }
 }
+
+type LegacyForkCountSource = {
+  forkCount?: number
+  useCount?: number
+  viewCount?: number
+}
+
+export const readLegacyForkCount = (source: LegacyForkCountSource): number =>
+  typeof source.forkCount === 'number' && Number.isFinite(source.forkCount)
+    ? source.forkCount
+    : typeof source.useCount === 'number' && Number.isFinite(source.useCount)
+      ? source.useCount
+      : 0
+
+const readTemplateCounters = (
+  source: LegacyForkCountSource
+): TemplateStatsCounters => ({
+  forkCount: readLegacyForkCount(source),
+  viewCount:
+    typeof source.viewCount === 'number' && Number.isFinite(source.viewCount)
+      ? source.viewCount
+      : 0,
+})
 
 interface TemplateProjectionCache
 {
@@ -125,7 +148,7 @@ export const MARKETPLACE_STATS_KEY = 'templates'
 export const TEMPLATE_TRENDING_WINDOW_DAYS = 7
 export const TEMPLATE_TRENDING_DAY_MS = 24 * 60 * 60 * 1000
 const TEMPLATE_TRENDING_NEWNESS_DAYS = 14
-const TEMPLATE_TRENDING_USE_WEIGHT = 100
+const TEMPLATE_TRENDING_FORK_WEIGHT = 100
 const TEMPLATE_TRENDING_VIEW_WEIGHT = 5
 const TEMPLATE_TRENDING_RECENCY_WEIGHT = 2
 
@@ -135,34 +158,38 @@ export const getTemplateMetricDayStart = (now: number): number =>
 const getTemplateCardMetrics = (
   card: Pick<
     Doc<'templateCards'>,
+    | 'forkCount'
     | 'useCount'
     | 'viewCount'
-    | 'weeklyUseCount'
+    | 'weeklyForkCount'
     | 'weeklyViewCount'
     | 'trendingScore'
     | 'trendingComputedAt'
   >
-): TemplateCardMetrics => ({
-  useCount: card.useCount,
-  viewCount: card.viewCount,
-  weeklyUseCount: card.weeklyUseCount ?? 0,
-  weeklyViewCount: card.weeklyViewCount ?? 0,
-  trendingScore: card.trendingScore ?? 0,
-  trendingComputedAt: card.trendingComputedAt ?? null,
-})
+): TemplateCardMetrics =>
+{
+  const counters = readTemplateCounters(card)
+  return {
+    ...counters,
+    weeklyForkCount: card.weeklyForkCount ?? 0,
+    weeklyViewCount: card.weeklyViewCount ?? 0,
+    trendingScore: card.trendingScore ?? 0,
+    trendingComputedAt: card.trendingComputedAt ?? null,
+  }
+}
 
 const getInitialTemplateCardMetrics = (
   stats: TemplateStatsCounters
 ): TemplateCardMetrics => ({
   ...stats,
-  weeklyUseCount: 0,
+  weeklyForkCount: 0,
   weeklyViewCount: 0,
   trendingScore: 0,
   trendingComputedAt: null,
 })
 
 export const calculateTemplateTrendingScore = (params: {
-  weeklyUseCount: number
+  weeklyForkCount: number
   weeklyViewCount: number
   createdAt: number
   now: number
@@ -176,7 +203,7 @@ export const calculateTemplateTrendingScore = (params: {
       Math.ceil(ageMs / TEMPLATE_TRENDING_DAY_MS)
     )
   )
-  const useRate = params.weeklyUseCount / activeDays
+  const useRate = params.weeklyForkCount / activeDays
   const viewRate = params.weeklyViewCount / activeDays
   const newness =
     Math.max(
@@ -185,7 +212,7 @@ export const calculateTemplateTrendingScore = (params: {
     ) / TEMPLATE_TRENDING_NEWNESS_DAYS
 
   return (
-    useRate * TEMPLATE_TRENDING_USE_WEIGHT +
+    useRate * TEMPLATE_TRENDING_FORK_WEIGHT +
     viewRate * TEMPLATE_TRENDING_VIEW_WEIGHT +
     newness * TEMPLATE_TRENDING_RECENCY_WEIGHT
   )
@@ -622,7 +649,7 @@ export const createTemplateStats = async (
 ): Promise<TemplateStatsCounters> =>
 {
   const stats = {
-    useCount: 0,
+    forkCount: 0,
     viewCount: 0,
   }
   await ctx.db.insert('templateStats', {
@@ -658,7 +685,7 @@ const incrementTemplateMetricDay = async (
   ctx: MutationCtx,
   template: Pick<Doc<'templates'>, '_id' | 'category'>,
   now: number,
-  metric: 'useCount' | 'viewCount'
+  metric: 'forkCount' | 'viewCount'
 ): Promise<void> =>
 {
   const dayStartAt = getTemplateMetricDayStart(now)
@@ -671,9 +698,14 @@ const incrementTemplateMetricDay = async (
 
   if (existing)
   {
+    const current = readTemplateCounters(existing)
     await ctx.db.patch(existing._id, {
       category: template.category,
-      [metric]: existing[metric] + 1,
+      forkCount:
+        metric === 'forkCount' ? current.forkCount + 1 : current.forkCount,
+      viewCount:
+        metric === 'viewCount' ? current.viewCount + 1 : current.viewCount,
+      useCount: undefined,
       updatedAt: now,
     })
     return
@@ -683,14 +715,14 @@ const incrementTemplateMetricDay = async (
     templateId: template._id,
     category: template.category,
     dayStartAt,
-    useCount: metric === 'useCount' ? 1 : 0,
+    forkCount: metric === 'forkCount' ? 1 : 0,
     viewCount: metric === 'viewCount' ? 1 : 0,
     createdAt: now,
     updatedAt: now,
   })
 }
 
-export const incrementTemplateUseStats = async (
+export const incrementTemplateForkStats = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
   now: number
@@ -702,20 +734,23 @@ export const incrementTemplateUseStats = async (
     requireTemplateStats(ctx, templateId),
     requireTemplateCardByTemplateId(ctx, templateId),
   ])
+  const current = readTemplateCounters(stats)
   const next = {
-    useCount: stats.useCount + 1,
-    viewCount: stats.viewCount,
+    forkCount: current.forkCount + 1,
+    viewCount: current.viewCount,
   }
   await Promise.all([
     ctx.db.patch(stats._id, {
       ...next,
+      useCount: undefined,
       updatedAt: now,
     }),
     ctx.db.patch(card._id, {
-      useCount: next.useCount,
+      forkCount: next.forkCount,
       viewCount: next.viewCount,
+      useCount: undefined,
     }),
-    incrementTemplateMetricDay(ctx, template, now, 'useCount'),
+    incrementTemplateMetricDay(ctx, template, now, 'forkCount'),
   ])
   return next
 }
@@ -730,18 +765,21 @@ export const incrementTemplateViewStats = async (
     requireTemplateStats(ctx, template._id),
     requireTemplateCardByTemplateId(ctx, template._id),
   ])
+  const current = readTemplateCounters(stats)
   const next = {
-    useCount: stats.useCount,
-    viewCount: stats.viewCount + 1,
+    forkCount: current.forkCount,
+    viewCount: current.viewCount + 1,
   }
   await Promise.all([
     ctx.db.patch(stats._id, {
       ...next,
+      useCount: undefined,
       updatedAt: now,
     }),
     ctx.db.patch(card._id, {
-      useCount: next.useCount,
+      forkCount: next.forkCount,
       viewCount: next.viewCount,
+      useCount: undefined,
     }),
     incrementTemplateMetricDay(ctx, template, now, 'viewCount'),
   ])
@@ -899,7 +937,7 @@ export const toTemplateMediaRef = async (
   return await buildMediaRef(ctx, asset, kind, cache)
 }
 
-const toTemplateMediaRefWithFallback = async (
+export const toTemplateMediaRefWithFallback = async (
   ctx: DbCtx,
   mediaAssetId: Id<'mediaAssets'> | null,
   kinds: readonly MediaVariantKind[],
@@ -1140,9 +1178,10 @@ const buildTemplateCardFields = async (
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
     featuredRank: template.featuredRank,
-    useCount: metrics.useCount,
+    forkCount: metrics.forkCount,
+    useCount: undefined,
     viewCount: metrics.viewCount,
-    weeklyUseCount: metrics.weeklyUseCount,
+    weeklyForkCount: metrics.weeklyForkCount,
     weeklyViewCount: metrics.weeklyViewCount,
     trendingScore: metrics.trendingScore,
     trendingComputedAt: metrics.trendingComputedAt,
@@ -1187,13 +1226,13 @@ const requireTemplateCardByTemplateId = async (
 export const writeTemplateCard = async (
   ctx: MutationCtx,
   template: TemplateCardSource,
-  stats: TemplateStatsCounters
+  stats: LegacyForkCountSource
 ): Promise<void> =>
 {
   const fields = await buildTemplateCardFields(
     ctx,
     template,
-    getInitialTemplateCardMetrics(stats)
+    getInitialTemplateCardMetrics(readTemplateCounters(stats))
   )
   const existing = await findTemplateCardByTemplateId(ctx, template._id)
   if (existing)
@@ -1216,7 +1255,7 @@ export const writeTemplateCardPreservingCounters = async (
   const metrics = card
     ? getTemplateCardMetrics(card)
     : getInitialTemplateCardMetrics(
-        await requireTemplateStats(ctx, template._id)
+        readTemplateCounters(await requireTemplateStats(ctx, template._id))
       )
   const fields = await buildTemplateCardFields(ctx, template, metrics)
   if (card)
@@ -1356,6 +1395,7 @@ export const toTemplateCardSummary = async (
         )
       ).filter((item): item is TemplateCoverItem => item !== null)
 
+  const counters = readTemplateCounters(card)
   return {
     slug: card.slug,
     title: card.title,
@@ -1372,9 +1412,10 @@ export const toTemplateCardSummary = async (
     itemAspectRatio: card.itemAspectRatio,
     defaultItemImageFit: card.defaultItemImageFit,
     itemCount: card.itemCount,
-    useCount: card.useCount,
-    viewCount: card.viewCount,
-    weeklyUseCount: card.weeklyUseCount ?? 0,
+    forkCount: counters.forkCount,
+    viewCount: counters.viewCount,
+    rankingCount: card.rankingCount ?? 0,
+    weeklyForkCount: card.weeklyForkCount ?? 0,
     weeklyViewCount: card.weeklyViewCount ?? 0,
     trendingScore: card.trendingScore ?? 0,
     trendingComputedAt: card.trendingComputedAt ?? null,
@@ -1405,8 +1446,9 @@ export const toTemplateBase = async (
   ])
   const metrics = card
     ? getTemplateCardMetrics(card)
-    : getInitialTemplateCardMetrics(stats)
+    : getInitialTemplateCardMetrics(readTemplateCounters(stats))
 
+  const counters = readTemplateCounters(stats)
   return {
     slug: template.slug,
     title: template.title,
@@ -1420,9 +1462,10 @@ export const toTemplateBase = async (
     coverMedia,
     coverFraming: template.coverFraming ?? null,
     itemCount: template.itemCount,
-    useCount: stats.useCount,
-    viewCount: stats.viewCount,
-    weeklyUseCount: metrics.weeklyUseCount,
+    forkCount: counters.forkCount,
+    viewCount: counters.viewCount,
+    rankingCount: card?.rankingCount ?? 0,
+    weeklyForkCount: metrics.weeklyForkCount,
     weeklyViewCount: metrics.weeklyViewCount,
     trendingScore: metrics.trendingScore,
     trendingComputedAt: metrics.trendingComputedAt,
@@ -1451,6 +1494,12 @@ export const toTemplateDetail = async (
 
   return {
     ...base,
+    // the detail total must equal its own per-criterion breakdown - derive it
+    // straight from rankingCountByCriterion rather than the card rollup
+    rankingCount: Object.values(rankingCountByCriterion).reduce(
+      (sum, count) => sum + count,
+      0
+    ),
     coverItems,
     itemAspectRatio: template.itemAspectRatio ?? null,
     defaultItemImageFit: template.defaultItemImageFit ?? null,
@@ -1529,10 +1578,10 @@ export const toTemplateDraft = async (
     activeItemCount === 0
       ? 100
       : Math.round((rankedItemCount / activeItemCount) * 100)
-  const coverMedia = await toTemplateMediaRef(
+  const coverMedia = await toTemplateMediaRefWithFallback(
     ctx,
     template.coverMediaAssetId,
-    'tile',
+    ['preview', 'tile'],
     cache
   )
   const draftTemplate: MarketplaceTemplateDraftTemplate = {
@@ -1700,7 +1749,7 @@ export const insertBoardItemsFromTemplate = async (
     templateItems.map(async (item) =>
     {
       const storageId = item.mediaAssetId
-        ? await loadMediaVariantStorageId(ctx, item.mediaAssetId)
+        ? await loadPreviewOrTileStorageId(ctx, item.mediaAssetId)
         : null
       const externalId = generateItemId()
 

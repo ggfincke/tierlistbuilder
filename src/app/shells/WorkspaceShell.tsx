@@ -133,7 +133,7 @@ export const WorkspaceShell = () =>
     return (
       <main
         id="app-shell"
-        className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
+        className="ambient-layer min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
       />
     )
   }
@@ -142,7 +142,7 @@ export const WorkspaceShell = () =>
     <AspectRatioPromptProvider>
       <main
         id="app-shell"
-        className="min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
+        className="ambient-layer min-h-screen bg-[var(--t-bg-page)] text-[var(--t-text)]"
         style={pageBackground ? { backgroundColor: pageBackground } : undefined}
       >
         <div className="app-content mx-auto w-full max-w-6xl px-3 pb-4 pt-20 sm:px-6 sm:pb-6 sm:pt-24">
@@ -187,6 +187,7 @@ export const WorkspaceShell = () =>
                     publish={{
                       ranking: handlePublishRanking,
                       template: handlePublishTemplate,
+                      signInRequired: !cloudEnabled,
                     }}
                     onReset={handleResetBoard}
                   />

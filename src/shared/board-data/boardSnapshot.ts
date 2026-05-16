@@ -20,6 +20,12 @@ import {
   type ItemId,
 } from '@tierlistbuilder/contracts/lib/ids'
 import {
+  COVER_SURFACES,
+  isValidCoverFrame,
+  type TemplateCoverFraming,
+  type TemplateMediaRef,
+} from '@tierlistbuilder/contracts/marketplace/template'
+import {
   PALETTE_IDS,
   TEXT_STYLE_IDS,
   type PaletteId,
@@ -39,6 +45,10 @@ import {
   normalizeItemTransform,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
+import {
+  normalizeSourceTemplateFields,
+  pickSourceTemplateFields,
+} from '~/shared/board-data/sourceTemplateFields'
 import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 
 interface RawTier
@@ -113,7 +123,16 @@ const normalizeImageRef = (raw: unknown): TierItemImageRef | undefined =>
   if (!isRecord(raw)) return undefined
   const hash = raw.hash
   if (typeof hash !== 'string' || hash.length === 0) return undefined
-  return { hash }
+  return {
+    hash,
+    ...(typeof raw.cloudMediaExternalId === 'string' &&
+    raw.cloudMediaExternalId.length > 0
+      ? { cloudMediaExternalId: raw.cloudMediaExternalId }
+      : {}),
+    ...(raw.cloudMediaOwnership === 'source'
+      ? { cloudMediaOwnership: 'source' as const }
+      : {}),
+  }
 }
 
 // drop unknown fields & validate primitive shapes. items w/o a valid `id`
@@ -140,10 +159,18 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   if (typeof raw.backgroundColor === 'string')
     item.backgroundColor = raw.backgroundColor
   if (typeof raw.altText === 'string') item.altText = raw.altText
+  if (typeof raw.notes === 'string') item.notes = raw.notes
   if (aspectRatio !== undefined) item.aspectRatio = aspectRatio
   if (imageFit !== undefined) item.imageFit = imageFit
   if (transform !== undefined) item.transform = transform
   if (labelOptions !== undefined) item.labelOptions = labelOptions
+  if (
+    typeof raw.sourceTemplateItemExternalId === 'string' &&
+    raw.sourceTemplateItemExternalId.length > 0
+  )
+  {
+    item.sourceTemplateItemExternalId = raw.sourceTemplateItemExternalId
+  }
   return item
 }
 
@@ -169,6 +196,72 @@ const normalizeItemList = (raw: unknown): TierItem[] =>
     if (normalized) result.push(normalized)
   }
   return result
+}
+
+const normalizeTemplateMediaRef = (
+  raw: unknown
+): TemplateMediaRef | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  if (
+    typeof raw.externalId !== 'string' ||
+    typeof raw.contentHash !== 'string' ||
+    typeof raw.url !== 'string' ||
+    typeof raw.width !== 'number' ||
+    typeof raw.height !== 'number' ||
+    typeof raw.mimeType !== 'string'
+  )
+  {
+    return undefined
+  }
+
+  return {
+    externalId: raw.externalId,
+    contentHash: raw.contentHash,
+    url: raw.url,
+    width: raw.width,
+    height: raw.height,
+    mimeType: raw.mimeType,
+  }
+}
+
+const normalizeTemplateCoverFraming = (
+  raw: unknown
+): TemplateCoverFraming | null | undefined =>
+{
+  if (raw === null) return null
+  if (!isRecord(raw)) return undefined
+
+  const framing: Partial<TemplateCoverFraming> = {}
+  for (const surface of COVER_SURFACES)
+  {
+    const frame = raw[surface]
+    if (frame === null)
+    {
+      framing[surface] = null
+      continue
+    }
+    if (!isRecord(frame)) return undefined
+    if (
+      typeof frame.x !== 'number' ||
+      typeof frame.y !== 'number' ||
+      typeof frame.width !== 'number' ||
+      typeof frame.height !== 'number'
+    )
+    {
+      return undefined
+    }
+    const normalized = {
+      x: frame.x,
+      y: frame.y,
+      width: frame.width,
+      height: frame.height,
+    }
+    if (!isValidCoverFrame(normalized)) return undefined
+    framing[surface] = normalized
+  }
+
+  return framing as TemplateCoverFraming
 }
 
 const normalizeTier = (
@@ -238,6 +331,13 @@ const BOARD_DATA_SELECTION_KEYS = [
   'textStyleId',
   'pageBackground',
   'labels',
+  'sourceTemplateId',
+  'sourceRankingId',
+  'sourceTemplateTitle',
+  'sourceRankingTitle',
+  'sourceTemplateCoverMedia',
+  'sourceTemplateCoverFraming',
+  'preferredCriterionExternalId',
 ] as const satisfies readonly (keyof BoardDataSelection)[]
 
 export const selectBoardDataFields = (
@@ -256,6 +356,9 @@ export const selectBoardDataFields = (
   textStyleId: state.textStyleId,
   pageBackground: state.pageBackground,
   labels: state.labels,
+  sourceTemplateCoverMedia: state.sourceTemplateCoverMedia,
+  sourceTemplateCoverFraming: state.sourceTemplateCoverFraming,
+  ...pickSourceTemplateFields(state),
 })
 
 export const selectBoardDataSource = <T extends BoardSnapshotSource>(
@@ -294,6 +397,9 @@ export const extractBoardData = (
   textStyleId: state.textStyleId,
   pageBackground: state.pageBackground,
   labels: state.labels,
+  sourceTemplateCoverMedia: state.sourceTemplateCoverMedia,
+  sourceTemplateCoverFraming: state.sourceTemplateCoverFraming,
+  ...pickSourceTemplateFields(state),
 })
 
 export const resetBoardData = (
@@ -352,5 +458,12 @@ export const normalizeBoardSnapshot = (
       ? value.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(value?.labels),
+    sourceTemplateCoverMedia: normalizeTemplateMediaRef(
+      value?.sourceTemplateCoverMedia
+    ),
+    sourceTemplateCoverFraming: normalizeTemplateCoverFraming(
+      value?.sourceTemplateCoverFraming
+    ),
+    ...normalizeSourceTemplateFields((value ?? {}) as Record<string, unknown>),
   }
 }

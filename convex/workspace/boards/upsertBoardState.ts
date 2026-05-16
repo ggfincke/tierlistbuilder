@@ -12,6 +12,15 @@ import {
   LABEL_FONT_SIZE_PX_MIN,
   normalizeBoardTitle,
 } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  findTemplateBySlug,
+  incrementTemplateForkStats,
+} from '../../marketplace/templates/lib'
+import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
+import {
+  findRankingBySlug,
+  rankingTopScore,
+} from '../../marketplace/rankings/lib'
 import type {
   PaletteId,
   TextStyleId,
@@ -45,6 +54,7 @@ import {
   findOwnedBoardByExternalIdIncludingDeleted,
   findMediaAssetByExternalId,
 } from '../../lib/permissions'
+import { selectPreviewOrTileStorageId } from '../../lib/mediaVariants'
 import {
   countTemplateProgressItems,
   resolveTemplateProgressState,
@@ -58,6 +68,7 @@ import { buildFreshBoardCloudFields } from './cloudFields'
 
 const MAX_LABEL_LEN = 200
 const MAX_ALT_LEN = 500
+const MAX_NOTES_LEN = 2000
 const MAX_TIER_NAME_LEN = 100
 const MAX_TIER_DESCRIPTION_LEN = 500
 const MAX_BACKGROUND_COLOR_LEN = 32
@@ -79,12 +90,14 @@ const wireItemValidator = v.object({
   label: v.optional(v.string()),
   backgroundColor: v.optional(v.string()),
   altText: v.optional(v.string()),
+  notes: v.optional(v.string()),
   mediaExternalId: v.optional(v.union(v.string(), v.null())),
   order: v.number(),
   aspectRatio: v.optional(v.number()),
   imageFit: v.optional(v.union(v.literal('cover'), v.literal('contain'))),
   transform: v.optional(itemTransformValidator),
   labelOptions: v.optional(itemLabelOptionsValidator),
+  sourceTemplateItemExternalId: v.optional(v.string()),
 })
 
 // board-level aspect-ratio args — validators match CloudBoardAspectRatioFields
@@ -108,6 +121,17 @@ const boardStyleOverrideValidators = {
   labels: v.optional(boardLabelSettingsValidator),
 }
 
+// source-fork identity carried by locally-created forks/remixes — only
+// consulted on the INSERT path of ensureBoard. subsequent syncs ignore these
+// fields so the server stays the source of truth post-first-sync
+const boardSourceValidators = {
+  sourceTemplateId: v.optional(v.string()),
+  sourceRankingId: v.optional(v.string()),
+  sourceTemplateTitle: v.optional(v.string()),
+  sourceRankingTitle: v.optional(v.string()),
+  preferredCriterionExternalId: v.optional(v.string()),
+}
+
 interface UpsertArgs
 {
   boardExternalId: string
@@ -124,6 +148,11 @@ interface UpsertArgs
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+  sourceTemplateId?: string
+  sourceRankingId?: string
+  sourceTemplateTitle?: string
+  sourceRankingTitle?: string
+  preferredCriterionExternalId?: string
 }
 
 interface ResolvedMediaReference
@@ -234,6 +263,10 @@ const validateInputs = (args: UpsertArgs): void =>
     {
       failInput(`item altText too long: exceeds ${MAX_ALT_LEN} chars`)
     }
+    if ((item.notes?.length ?? 0) > MAX_NOTES_LEN)
+    {
+      failInput(`item notes too long: exceeds ${MAX_NOTES_LEN} chars`)
+    }
     if ((item.backgroundColor?.length ?? 0) > MAX_BACKGROUND_COLOR_LEN)
     {
       failInput(
@@ -247,6 +280,14 @@ const validateInputs = (args: UpsertArgs): void =>
     if (item.mediaExternalId && !isMediaAssetExternalId(item.mediaExternalId))
     {
       failInput('invalid mediaExternalId: must start with "media-"')
+    }
+    if (
+      item.sourceTemplateItemExternalId !== undefined &&
+      (item.sourceTemplateItemExternalId.length < 1 ||
+        item.sourceTemplateItemExternalId.length > 128)
+    )
+    {
+      failInput('invalid sourceTemplateItemExternalId: length must be 1..128')
     }
     if (item.transform)
     {
@@ -312,39 +353,94 @@ const validateInputs = (args: UpsertArgs): void =>
 
 // --- phase 2: ensure board + early revision check ----------------------------
 
+interface EnsureBoardResult
+{
+  board: Doc<'boards'>
+  isNewBoard: boolean
+}
+
+// resolve a client-supplied slug into a typed template row, tolerating missing
+// or unpublished sources (the local fork might have referenced a template that
+// was later unpublished). returns null when no live template matches the slug
+const resolveSourceTemplateBySlug = async (
+  ctx: MutationCtx,
+  slug: string | undefined
+): Promise<Doc<'templates'> | null> =>
+{
+  if (!slug) return null
+  return await findTemplateBySlug(ctx, slug)
+}
+
+const resolveSourceRankingBySlug = async (
+  ctx: MutationCtx,
+  slug: string | undefined
+): Promise<Doc<'publishedRankings'> | null> =>
+{
+  if (!slug) return null
+  return await findRankingBySlug(ctx, slug)
+}
+
 const ensureBoard = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
-  boardExternalId: string,
+  args: UpsertArgs,
   normalizedTitle: string,
   progressCounts: TemplateProgressCounts
-): Promise<Doc<'boards'>> =>
+): Promise<EnsureBoardResult> =>
 {
   // include soft-deleted rows so we don't accidentally insert a second row w/
   // the same owner-scoped externalId. local boards survive sign-out, so another
   // owner may legitimately reuse the same externalId
   let board = await findOwnedBoardByExternalIdIncludingDeleted(
     ctx,
-    boardExternalId,
+    args.boardExternalId,
     userId
   )
+  let isNewBoard = false
 
   if (!board)
   {
+    // first sync of a locally-created board — args carry public slugs (the
+    // only identifier signed-out users have); resolve to typed ids server-side.
+    // orchestrator ticks the fork counter post-insert via the forkCounted flag
+    const [sourceTemplate, sourceRanking] = await Promise.all([
+      resolveSourceTemplateBySlug(ctx, args.sourceTemplateId),
+      resolveSourceRankingBySlug(ctx, args.sourceRankingId),
+    ])
+    const now = Date.now()
     const boardId = await ctx.db.insert('boards', {
-      externalId: boardExternalId,
+      externalId: args.boardExternalId,
       ownerId: userId,
       title: normalizedTitle,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
       deletedAt: null,
       revision: 0,
-      sourceTemplateId: null,
-      sourceTemplateCategory: null,
-      sourceTemplateSizeClass: null,
-      ...buildFreshBoardCloudFields(Date.now()),
+      sourceTemplateId: sourceTemplate?._id ?? null,
+      sourceTemplateCategory: sourceTemplate?.category ?? null,
+      sourceTemplateSizeClass: sourceTemplate?.sizeClass ?? null,
+      sourceRankingId: sourceRanking?._id ?? null,
+      // prefer the server-known title when we can resolve the source; otherwise
+      // fall back to the client-denormalized title so the breadcrumb still
+      // renders even if the row was unpublished after the local fork
+      sourceTemplateTitle:
+        sourceTemplate?.title ?? args.sourceTemplateTitle ?? null,
+      sourceRankingTitle:
+        sourceRanking?.title ?? args.sourceRankingTitle ?? null,
+      preferredCriterionExternalId: sourceTemplate
+        ? (findActiveTemplateCriterion(
+            sourceTemplate,
+            args.preferredCriterionExternalId
+          )?.externalId ?? undefined)
+        : undefined,
+      // false here; orchestrator ticks the counter post-insert & flips this true
+      forkCounted: false,
+      ...buildFreshBoardCloudFields(now),
       ...progressCounts,
-      templateProgressState: resolveTemplateProgressState(null, progressCounts),
+      templateProgressState: resolveTemplateProgressState(
+        sourceTemplate?._id ?? null,
+        progressCounts
+      ),
       librarySummary: EMPTY_BOARD_LIBRARY_SUMMARY,
       seedDatasetKey: null,
       seedReleaseId: null,
@@ -353,6 +449,7 @@ const ensureBoard = async (
       seedReleaseStatus: null,
     })
     board = (await ctx.db.get(boardId))!
+    isNewBoard = true
   }
 
   if (board.deletedAt !== null)
@@ -370,7 +467,41 @@ const ensureBoard = async (
     })
   }
 
-  return board
+  return { board, isNewBoard }
+}
+
+// fork-counter trigger for first sync of a sourceTemplateId-bearing board.
+// idempotent via forkCounted — paired w/ inline ticks in useTemplate/remix
+// (those flip forkCounted true at insert so this path leaves them alone)
+const tickForkCounterIfFirstSync = async (
+  ctx: MutationCtx,
+  board: Doc<'boards'>
+): Promise<void> =>
+{
+  if (board.forkCounted) return
+  if (board.sourceTemplateId === null) return
+
+  const now = Date.now()
+  await incrementTemplateForkStats(ctx, board.sourceTemplateId, now)
+
+  if (board.sourceRankingId !== null)
+  {
+    const ranking = await ctx.db.get(board.sourceRankingId)
+    if (ranking)
+    {
+      const nextRemixCount = ranking.remixCount + 1
+      await ctx.db.patch(ranking._id, {
+        remixCount: nextRemixCount,
+        topScore: rankingTopScore({
+          viewCount: ranking.viewCount,
+          remixCount: nextRemixCount,
+        }),
+        updatedAt: now,
+      })
+    }
+  }
+
+  await ctx.db.patch(board._id, { forkCounted: true })
 }
 
 // --- phase 3: apply diff & parallel writes -----------------------------------
@@ -456,7 +587,7 @@ const resolveMediaState = async (
       assetCache.set(asset._id, Promise.resolve(asset))
       return [
         extId,
-        { assetId: asset._id, storageId: asset.tileVariant.storageId },
+        { assetId: asset._id, storageId: selectPreviewOrTileStorageId(asset) },
       ] as const
     })
   )
@@ -476,7 +607,7 @@ const resolveMediaState = async (
     {
       serverStorageByItemExternalId.set(
         item.externalId,
-        asset.tileVariant.storageId
+        selectPreviewOrTileStorageId(asset)
       )
     }
   }
@@ -500,8 +631,46 @@ const resolveLibrarySummaryStorageId = (
   }
   // wire field present but null -> caller cleared the media reference
   if (!item.mediaExternalId) return null
-  // wire field present w/ id -> use the resolved reference's tile storage
+  // wire field present w/ id -> use the resolved reference's preview storage
+  // (falls back to tile for assets predating the preview pipeline)
   return mediaExternalIdToReference.get(item.mediaExternalId)?.storageId ?? null
+}
+
+const resolveSourceTemplateItemIds = async (
+  ctx: MutationCtx,
+  sourceTemplateId: Id<'templates'> | null,
+  items: UpsertArgs['items']
+): Promise<Map<string, Id<'templateItems'>>> =>
+{
+  if (sourceTemplateId === null) return new Map()
+
+  const externalIds = [
+    ...new Set(
+      items
+        .map((item) => item.sourceTemplateItemExternalId)
+        .filter((externalId): externalId is string => !!externalId)
+    ),
+  ]
+  if (externalIds.length === 0) return new Map()
+
+  const entries = await Promise.all(
+    externalIds.map(async (externalId) =>
+    {
+      const templateItem = await ctx.db
+        .query('templateItems')
+        .withIndex('byTemplateAndExternalId', (q) =>
+          q.eq('templateId', sourceTemplateId).eq('externalId', externalId)
+        )
+        .unique()
+      return templateItem ? ([externalId, templateItem._id] as const) : null
+    })
+  )
+
+  return new Map(
+    entries.filter(
+      (entry): entry is readonly [string, Id<'templateItems'>] => entry !== null
+    )
+  )
 }
 
 const buildLibrarySummaryFromArgs = (
@@ -589,13 +758,19 @@ const applyBoardState = async (
       ref.assetId,
     ])
   )
+  const templateItemExternalIdToId = await resolveSourceTemplateItemIds(
+    ctx,
+    board.sourceTemplateId,
+    args.items
+  )
 
   const itemDiff = diffItems(
     args.items,
     serverItems,
     tierExternalIdToId,
     mediaExternalIdToId,
-    deletedItemExternalIds
+    deletedItemExternalIds,
+    templateItemExternalIdToId
   )
   const librarySummary = buildLibrarySummaryFromArgs(
     args,
@@ -607,8 +782,8 @@ const applyBoardState = async (
   // parallel item writes across all three phases — softDelete/patch/insert are
   // independent rows
   await Promise.all([
-    ...itemDiff.softDelete.map(({ id, deletedAt }) =>
-      ctx.db.patch(id, { deletedAt })
+    ...itemDiff.softDelete.map(({ id, deletedAt, fields }) =>
+      ctx.db.patch(id, { ...fields, deletedAt })
     ),
     ...itemDiff.patch.map(({ id, fields }) => ctx.db.patch(id, fields)),
     ...itemDiff.insert.map((item) =>
@@ -696,6 +871,7 @@ export const upsertBoardState = mutation({
     deletedItemIds: v.array(v.string()),
     ...boardAspectRatioValidators,
     ...boardStyleOverrideValidators,
+    ...boardSourceValidators,
   },
   returns: v.union(
     v.object({ conflict: v.null(), newRevision: v.number() }),
@@ -716,13 +892,21 @@ export const upsertBoardState = mutation({
     await assertCanCloudSyncBoard(ctx, userId, progressCounts.activeItemCount)
 
     const normalizedTitle = normalizeBoardTitle(args.title)
-    const board = await ensureBoard(
+    const { board, isNewBoard } = await ensureBoard(
       ctx,
       userId,
-      args.boardExternalId,
+      args,
       normalizedTitle,
       progressCounts
     )
+
+    // tick the fork counter the first time a locally-forked board lands on
+    // the server. paired w/ forkCounted: false at insert + true after tick so
+    // re-syncs are no-ops. ranking remixCount bumps here too for sourceRanking
+    if (isNewBoard)
+    {
+      await tickForkCounterIfFirstSync(ctx, board)
+    }
 
     // cheap revision compare BEFORE loading rows — a conflict response avoids
     // scanning the full server state. client follows up w/ getBoardStateByExternalId

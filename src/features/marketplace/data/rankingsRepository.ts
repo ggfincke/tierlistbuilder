@@ -40,6 +40,16 @@ export const useRankingBySlug = (
     typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
   )
 
+// imperative variant used by the local-remix flow when the caller doesn't
+// have a reactive subscription handy (eg signed-out remix CTAs that don't
+// keep the detail query live across the click)
+export const getRankingBySlugImperative = (
+  slug: string
+): Promise<MarketplaceRankingDetail | null> =>
+  getConvexClient().query(api.marketplace.rankings.queries.getRankingBySlug, {
+    slug,
+  })
+
 type RankingsForTemplatePageStatus =
   UsePaginatedQueryResult<MarketplaceRankingSummary>['status']
 

@@ -62,7 +62,7 @@ const DetailSkeleton = () => (
   >
     <SkeletonText className="w-48" tone="soft" />
     <div className="mt-5 grid gap-6 lg:grid-cols-[1.25fr_0.95fr_320px]">
-      <SkeletonBlock className="h-72 rounded-2xl sm:h-80 lg:h-[32rem]" />
+      <SkeletonBlock className="h-72 rounded-lg sm:h-80 lg:h-[32rem]" />
       <div className="space-y-4">
         <SkeletonText className="w-32" tone="soft" />
         <SkeletonBlock className="h-9 w-3/4 rounded" tone="strong" />

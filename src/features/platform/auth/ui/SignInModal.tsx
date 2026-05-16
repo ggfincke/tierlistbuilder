@@ -7,10 +7,10 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState, type FormEvent } from 'react'
 
 import { useAuthActions } from '~/features/platform/auth/model/useAuthActions'
+import { mapAuthError } from '~/features/platform/auth/model/authErrors'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
-import { logger } from '~/shared/lib/logger'
 
 type AuthMode = 'sign-in' | 'sign-up'
 
@@ -219,28 +219,4 @@ export const SignInModal = ({ open, onClose }: SignInModalProps) =>
       </form>
     </BaseModal>
   )
-}
-
-// map convex-auth error messages to user-friendly strings. unknown codes get
-// a generic fallback; the dev-only warn surfaces unmapped codes during local
-// development w/o leaking internals to prod users
-const mapAuthError = (message: string, mode: AuthMode): string =>
-{
-  const lower = message.toLowerCase()
-  if (lower.includes('invalidaccountid') || lower.includes('invalid secret'))
-  {
-    return mode === 'sign-in'
-      ? 'Wrong email or password.'
-      : 'Could not create account — try a different email.'
-  }
-  if (lower.includes('account already exists') || lower.includes('exists'))
-  {
-    return 'An account with that email already exists.'
-  }
-  if (lower.includes('password') && lower.includes('characters'))
-  {
-    return 'Password must be at least 8 characters.'
-  }
-  logger.debug('auth', 'Unmapped auth error:', message)
-  return 'Something went wrong. Please try again.'
 }

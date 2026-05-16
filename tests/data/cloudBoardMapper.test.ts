@@ -32,7 +32,7 @@ const emptyUploadResult = (): BoardImageUploadResult => ({
 
 describe('snapshotToCloudPayload', () =>
 {
-  it('selects upload-result -> existing-cloud-id -> null for media refs', () =>
+  it('selects validated upload results -> null for media refs', () =>
   {
     const fresh = snapshotToCloudPayload(
       makeBoardWithItem({
@@ -46,14 +46,43 @@ describe('snapshotToCloudPayload', () =>
     )
     expect(fresh.items[0].mediaExternalId).toBe('media-new')
 
-    const fallback = snapshotToCloudPayload(
+    const reused = snapshotToCloudPayload(
       makeBoardWithItem({
         id: asItemId('item-1'),
         imageRef: { hash: 'hash-1', cloudMediaExternalId: 'media-existing' },
       }),
-      emptyUploadResult()
+      {
+        ...emptyUploadResult(),
+        mediaExternalIdByHash: new Map([['hash-1', 'media-existing']]),
+      }
     )
-    expect(fallback.items[0].mediaExternalId).toBe('media-existing')
+    expect(reused.items[0].mediaExternalId).toBe('media-existing')
+
+    expect(() =>
+      snapshotToCloudPayload(
+        makeBoardWithItem({
+          id: asItemId('item-1'),
+          imageRef: { hash: 'hash-1', cloudMediaExternalId: 'media-stale' },
+        }),
+        emptyUploadResult()
+      )
+    ).toThrow('Unable to sync image')
+
+    const copied = snapshotToCloudPayload(
+      makeBoardWithItem({
+        id: asItemId('item-1'),
+        imageRef: {
+          hash: 'hash-1',
+          cloudMediaExternalId: 'media-marketplace',
+          cloudMediaOwnership: 'source',
+        },
+      }),
+      {
+        ...emptyUploadResult(),
+        mediaExternalIdByHash: new Map([['hash-1', 'media-copy']]),
+      }
+    )
+    expect(copied.items[0].mediaExternalId).toBe('media-copy')
 
     const cleared = snapshotToCloudPayload(
       makeBoardWithItem({ id: asItemId('item-1'), label: 'Text only' }),
@@ -66,6 +95,20 @@ describe('snapshotToCloudPayload', () =>
         makeBoardWithItem({
           id: asItemId('item-1'),
           imageRef: { hash: 'hash-1' },
+        }),
+        emptyUploadResult()
+      )
+    ).toThrow('Unable to sync image')
+
+    expect(() =>
+      snapshotToCloudPayload(
+        makeBoardWithItem({
+          id: asItemId('item-1'),
+          imageRef: {
+            hash: 'hash-1',
+            cloudMediaExternalId: 'media-marketplace',
+            cloudMediaOwnership: 'source',
+          },
         }),
         emptyUploadResult()
       )
@@ -91,6 +134,9 @@ describe('snapshotToCloudPayload', () =>
         paletteId: 'twilight',
         textStyleId: 'rounded',
         pageBackground: '#123456',
+        sourceTemplateId: 'Template123',
+        sourceTemplateTitle: 'Template',
+        preferredCriterionExternalId: 'favorites',
         tiers: [makeTier({ id: 'tier-s', itemIds: [tieredId] })],
         unrankedItemIds: [unrankedId],
         items: {
@@ -100,6 +146,7 @@ describe('snapshotToCloudPayload', () =>
             aspectRatio: 4 / 3,
             imageFit: 'contain',
             transform: transforms[tieredId],
+            sourceTemplateItemExternalId: 'template-item-1',
           },
           [unrankedId]: {
             id: unrankedId,
@@ -125,9 +172,16 @@ describe('snapshotToCloudPayload', () =>
       paletteId: 'twilight',
       textStyleId: 'rounded',
       pageBackground: '#123456',
+      sourceTemplateId: 'Template123',
+      sourceTemplateTitle: 'Template',
+      preferredCriterionExternalId: 'favorites',
     })
     const tiered = payload.items.find((i) => i.externalId === tieredId)
-    expect(tiered).toMatchObject({ aspectRatio: 4 / 3, imageFit: 'contain' })
+    expect(tiered).toMatchObject({
+      aspectRatio: 4 / 3,
+      imageFit: 'contain',
+      sourceTemplateItemExternalId: 'template-item-1',
+    })
     for (const [id, expected] of Object.entries(transforms))
     {
       expect(payload.items.find((i) => i.externalId === id)?.transform).toEqual(
@@ -157,6 +211,7 @@ describe('serverStateToSnapshot', () =>
           previewMediaContentHash: 'preview-hash',
           mediaContentHash: 'tile-hash',
           sourceMediaContentHash: 'source-hash',
+          sourceTemplateItemExternalId: 'template-item-1',
           order: 0,
           deletedAt: null,
         },
@@ -164,6 +219,7 @@ describe('serverStateToSnapshot', () =>
       paletteId: 'twilight',
       textStyleId: 'rounded',
       pageBackground: '#123456',
+      preferredCriterionExternalId: 'favorites',
     })
 
     expect(snapshot.items[itemId].imageRef).toEqual({
@@ -178,10 +234,14 @@ describe('serverStateToSnapshot', () =>
       hash: 'source-hash',
       cloudMediaExternalId: 'media-1',
     })
+    expect(snapshot.items[itemId].sourceTemplateItemExternalId).toBe(
+      'template-item-1'
+    )
     expect(snapshot).toMatchObject({
       paletteId: 'twilight',
       textStyleId: 'rounded',
       pageBackground: '#123456',
+      preferredCriterionExternalId: 'favorites',
     })
   })
 })

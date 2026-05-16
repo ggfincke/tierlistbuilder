@@ -9,6 +9,29 @@ import type { CloudBoardState } from '@tierlistbuilder/contracts/workspace/cloud
 import { BOARD_TOMBSTONE_RETENTION_MS } from '@tierlistbuilder/contracts/workspace/board'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 
+// client-facing source identity uses public slugs since signed-out users can
+// only ever know the slug. resolve typed table ids -> slugs at load time so
+// the wire stays slug-based both ways (push & pull)
+const loadSourceTemplateSlug = async (
+  ctx: QueryCtx,
+  templateId: Id<'templates'> | null
+): Promise<string | null> =>
+{
+  if (!templateId) return null
+  const template = await ctx.db.get(templateId)
+  return template?.slug ?? null
+}
+
+const loadSourceRankingSlug = async (
+  ctx: QueryCtx,
+  rankingId: Id<'publishedRankings'> | null
+): Promise<string | null> =>
+{
+  if (!rankingId) return null
+  const ranking = await ctx.db.get(rankingId)
+  return ranking?.slug ?? null
+}
+
 type MediaInfo = {
   externalId: string
   previewContentHash: string | null
@@ -24,26 +47,45 @@ export const loadBoardCloudState = async (
 ): Promise<CloudBoardState> =>
 {
   const mediaIds = new Set<Id<'mediaAssets'>>()
+  const templateItemIds = new Set<Id<'templateItems'>>()
   for (const item of serverItems)
   {
     if (item.mediaAssetId) mediaIds.add(item.mediaAssetId)
+    if (item.templateItemId) templateItemIds.add(item.templateItemId)
   }
 
   const mediaIdToInfo = new Map<Id<'mediaAssets'>, MediaInfo>()
-  const assets = await Promise.all(
-    [...mediaIds].map(async (id) =>
-    {
-      const asset = await ctx.db.get(id)
-      if (!asset)
+  const templateItemIdToExternalId = new Map<Id<'templateItems'>, string>()
+  const [assets, templateItems] = await Promise.all([
+    Promise.all(
+      [...mediaIds].map(async (id) =>
       {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.invalidState,
-          message: `dangling media reference in server state: ${id} (board ${board._id})`,
-        })
-      }
-      return [id, asset] as const
-    })
-  )
+        const asset = await ctx.db.get(id)
+        if (!asset)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: `dangling media reference in server state: ${id} (board ${board._id})`,
+          })
+        }
+        return [id, asset] as const
+      })
+    ),
+    Promise.all(
+      [...templateItemIds].map(async (id) =>
+      {
+        const templateItem = await ctx.db.get(id)
+        if (!templateItem)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: `dangling template item reference in server state: ${id} (board ${board._id})`,
+          })
+        }
+        return [id, templateItem] as const
+      })
+    ),
+  ])
   for (const [id, asset] of assets)
   {
     mediaIdToInfo.set(id, {
@@ -52,6 +94,10 @@ export const loadBoardCloudState = async (
       tileContentHash: asset.tileVariant.contentHash,
       editorContentHash: asset.editorVariant?.contentHash ?? null,
     })
+  }
+  for (const [id, item] of templateItems)
+  {
+    templateItemIdToExternalId.set(id, item.externalId)
   }
 
   const tierIdToExternalId = new Map<Id<'boardTiers'>, string>()
@@ -87,6 +133,13 @@ export const loadBoardCloudState = async (
   const getMediaInfo = (id: Id<'mediaAssets'> | null): MediaInfo | undefined =>
     id ? mediaIdToInfo.get(id) : undefined
 
+  // resolve source-fork identity in parallel w/ the items mapping below — both
+  // wait on the same DB roundtrip latency, no need to serialize them
+  const [sourceTemplateSlug, sourceRankingSlug] = await Promise.all([
+    loadSourceTemplateSlug(ctx, board.sourceTemplateId),
+    loadSourceRankingSlug(ctx, board.sourceRankingId),
+  ])
+
   return {
     title: board.title,
     revision: board.revision ?? 0,
@@ -98,6 +151,14 @@ export const loadBoardCloudState = async (
     textStyleId: board.textStyleId,
     pageBackground: board.pageBackground,
     labels: board.labels,
+    // surface source-template/ranking identity as public slugs so the wire
+    // stays slug-based both ways. titles are denormalized on the board record
+    // so the breadcrumb survives even if the source template was unpublished
+    sourceTemplateId: sourceTemplateSlug,
+    sourceRankingId: sourceRankingSlug,
+    sourceTemplateTitle: board.sourceTemplateTitle,
+    sourceRankingTitle: board.sourceRankingTitle,
+    preferredCriterionExternalId: board.preferredCriterionExternalId ?? null,
     tiers: serverTiers
       .slice()
       .sort((a, b) => a.order - b.order)
@@ -121,6 +182,7 @@ export const loadBoardCloudState = async (
         label: item.label,
         backgroundColor: item.backgroundColor,
         altText: item.altText,
+        notes: item.notes,
         mediaExternalId: mediaInfo?.externalId,
         previewMediaContentHash: mediaInfo?.previewContentHash ?? undefined,
         mediaContentHash: mediaInfo?.tileContentHash,
@@ -131,6 +193,9 @@ export const loadBoardCloudState = async (
         imageFit: item.imageFit,
         transform: item.transform,
         labelOptions: item.labelOptions,
+        sourceTemplateItemExternalId: item.templateItemId
+          ? templateItemIdToExternalId.get(item.templateItemId)
+          : undefined,
       }
     }),
   }

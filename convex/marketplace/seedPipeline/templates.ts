@@ -182,6 +182,7 @@ export const normalizeSeedTemplateUpsert = (
     itemAspectRatioMode: 'manual',
     defaultItemImageFit: 'cover',
     itemCount: template.itemCount,
+    labels: template.labels,
     ...buildSeedTemplateLifecycleFields(
       template.itemCount,
       template.visibility,

@@ -7,6 +7,7 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import {
   markBoardPendingSync,
   markBoardSynced,
+  type BoardSyncState,
 } from '~/features/workspace/boards/model/sync'
 import { listMyBoardsImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { pullAllCloudBoards } from '~/features/workspace/boards/data/cloud/cloudPull'
@@ -72,6 +73,21 @@ type PushAllLocalBoardsResult =
     }
   | { status: 'aborted' }
 
+const syncStateAfterFailedPush = (
+  syncState: BoardSyncState,
+  permanent: boolean,
+  now: number,
+  preserveLocalRetry: boolean
+): BoardSyncState =>
+{
+  if (!permanent || preserveLocalRetry)
+  {
+    return markBoardPendingSync(syncState, now)
+  }
+
+  return { ...syncState, pendingSyncAt: null }
+}
+
 // push all local boards to the cloud (first-login, cloud-empty case)
 export const pushAllLocalBoards = async (
   userId: string,
@@ -131,7 +147,12 @@ export const pushAllLocalBoards = async (
         {
           deps.persistBoardSyncState(
             meta.id,
-            markBoardPendingSync(syncState, deps.now())
+            syncStateAfterFailedPush(
+              syncState,
+              true,
+              deps.now(),
+              outcome.error.kind === 'local-permanent'
+            )
           )
           return {
             status: 'failed',
@@ -143,7 +164,7 @@ export const pushAllLocalBoards = async (
 
       deps.persistBoardSyncState(
         meta.id,
-        markBoardPendingSync(syncState, deps.now())
+        syncStateAfterFailedPush(syncState, false, deps.now(), false)
       )
 
       return {

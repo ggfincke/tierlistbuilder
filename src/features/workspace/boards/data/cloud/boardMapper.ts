@@ -46,11 +46,6 @@ const resolveImageRefMediaExternalId = (
     return uploadedExternalId
   }
 
-  if (ref.cloudMediaExternalId)
-  {
-    return ref.cloudMediaExternalId
-  }
-
   // uploader is all-or-nothing; any unresolved media is a bug or stale cache —
   // block the sync loudly rather than silently drop a reference
   throw new Error(
@@ -100,12 +95,14 @@ const toCloudItemWire = (
     label: item.label,
     backgroundColor: item.backgroundColor,
     altText: item.altText,
+    notes: item.notes,
     ...media,
     order,
     aspectRatio: item.aspectRatio,
     imageFit: item.imageFit,
     transform: item.transform,
     labelOptions: item.labelOptions,
+    sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
   }
 }
 
@@ -169,6 +166,13 @@ export const snapshotToCloudPayload = (
     textStyleId: snapshot.textStyleId,
     pageBackground: snapshot.pageBackground,
     labels: snapshot.labels,
+    // source-fork identity travels on every push — server consults it only on
+    // first INSERT (subsequent syncs ignore the wire fields)
+    sourceTemplateId: snapshot.sourceTemplateId,
+    sourceRankingId: snapshot.sourceRankingId,
+    sourceTemplateTitle: snapshot.sourceTemplateTitle,
+    sourceRankingTitle: snapshot.sourceRankingTitle,
+    preferredCriterionExternalId: snapshot.preferredCriterionExternalId,
   }
 }
 
@@ -212,10 +216,12 @@ export const serverStateToSnapshot = (
       label: item.label,
       backgroundColor: item.backgroundColor,
       altText: item.altText,
+      notes: item.notes,
       aspectRatio: item.aspectRatio,
       imageFit: item.imageFit,
       transform: item.transform,
       labelOptions: item.labelOptions,
+      sourceTemplateItemExternalId: item.sourceTemplateItemExternalId,
     }
   }
 
@@ -254,5 +260,13 @@ export const serverStateToSnapshot = (
     textStyleId: serverState.textStyleId,
     pageBackground: serverState.pageBackground,
     labels: serverState.labels,
+    // server-side board carries source identity; lift to the snapshot so the
+    // BoardHeader breadcrumb renders immediately on cloud-board activation
+    sourceTemplateId: serverState.sourceTemplateId ?? undefined,
+    sourceRankingId: serverState.sourceRankingId ?? undefined,
+    sourceTemplateTitle: serverState.sourceTemplateTitle ?? undefined,
+    sourceRankingTitle: serverState.sourceRankingTitle ?? undefined,
+    preferredCriterionExternalId:
+      serverState.preferredCriterionExternalId ?? undefined,
   }
 }

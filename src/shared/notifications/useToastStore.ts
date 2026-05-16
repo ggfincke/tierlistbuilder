@@ -5,21 +5,36 @@ import { create } from 'zustand'
 
 type ToastId = `toast-${string}`
 
+// optional inline action — surfaced as a button next to the message.
+// clicking the button dismisses the toast & invokes `onClick`; used by flows
+// like local-fork "Sign in to sync" that nudge a follow-up without blocking
+export interface ToastAction
+{
+  label: string
+  onClick: () => void
+}
+
 export interface Toast
 {
   id: ToastId
   message: string
   type: 'info' | 'success' | 'error'
+  action?: ToastAction
 }
 
 interface ToastStore
 {
   toasts: Toast[]
-  addToast: (message: string, type?: Toast['type']) => void
+  addToast: (
+    message: string,
+    type?: Toast['type'],
+    action?: ToastAction
+  ) => void
   removeToast: (id: string) => void
 }
 
 const TOAST_DURATION_MS = 3_000
+const TOAST_ACTION_DURATION_MS = 8_000
 const MAX_VISIBLE_TOASTS = 5
 
 const generateToastId = (): ToastId => `toast-${crypto.randomUUID()}`
@@ -40,7 +55,7 @@ const clearDismissalTimer = (id: string): void =>
 
 export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
-  addToast: (message, type = 'info') =>
+  addToast: (message, type = 'info', action) =>
   {
     const id = generateToastId()
     set((state) =>
@@ -64,10 +79,13 @@ export const useToastStore = create<ToastStore>((set) => ({
         : state.toasts
 
       return {
-        toasts: [...visibleToasts, { id, message, type }],
+        toasts: [...visibleToasts, { id, message, type, action }],
       }
     })
 
+    // toasts w/ an inline action linger longer — the user needs time to read
+    // & decide whether to act. dismiss-on-click still applies regardless
+    const duration = action ? TOAST_ACTION_DURATION_MS : TOAST_DURATION_MS
     const handle = window.setTimeout(() =>
     {
       dismissalTimers.delete(id)
@@ -78,7 +96,7 @@ export const useToastStore = create<ToastStore>((set) => ({
           ? state
           : { toasts: nextToasts }
       })
-    }, TOAST_DURATION_MS)
+    }, duration)
 
     dismissalTimers.set(id, handle)
   },
@@ -97,3 +115,15 @@ export const useToastStore = create<ToastStore>((set) => ({
 
 export const toast = (message: string, type?: Toast['type']): void =>
   useToastStore.getState().addToast(message, type)
+
+// extension of `toast` carrying an inline action button. ToastContainer
+// dismisses the toast before invoking `action.onClick` so any UI the action
+// surfaces (eg the sign-in modal) isn't covered by the toast stack
+export const toastWithAction = (
+  message: string,
+  action: ToastAction,
+  type: Toast['type'] = 'info'
+): void =>
+{
+  useToastStore.getState().addToast(message, type, action)
+}

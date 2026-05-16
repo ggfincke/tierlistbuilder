@@ -75,7 +75,8 @@ export interface AppPreferences
   boardLocked: boolean
   reducedMotion: boolean
   toolbarPosition: ToolbarPosition
-  showAltTextButton: boolean
+  // gates the item-edit pencil overlay shown on each tier item
+  showItemEditButton: boolean
   autoCropTrimSoftShadows: boolean
 }
 

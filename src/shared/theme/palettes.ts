@@ -176,14 +176,15 @@ export const PALETTE_META: PaletteMeta[] = [
   { id: 'high-contrast', label: 'High Contrast' },
 ]
 
-// maps each theme to its tier label palette (classic-light shares classic)
+// default tier-palette per chrome theme. Scoreboard locks classic; users can
+// override in Preferences. Volt pairs w/ high-contrast tier palette.
 export const THEME_PALETTE: Record<ThemeId, PaletteId> = {
-  classic: 'classic',
-  'classic-light': 'classic',
-  midnight: 'midnight',
-  forest: 'forest',
-  ember: 'ember',
-  sakura: 'sakura',
-  amoled: 'twilight',
-  'high-contrast': 'high-contrast',
+  scoreboard: 'classic',
+  paper: 'classic',
+  midnight: 'classic',
+  forest: 'classic',
+  ember: 'classic',
+  sakura: 'classic',
+  amoled: 'classic',
+  volt: 'high-contrast',
 }

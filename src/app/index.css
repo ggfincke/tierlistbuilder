@@ -4,37 +4,44 @@
 {
   :root
   {
-    /* theme color tokens — Classic defaults (overridden by useThemeSync) */
-    --t-bg-page: #232323;
-    --t-bg-surface: #2b2b2b;
-    --t-bg-sunken: #272727;
-    --t-bg-overlay: #1e1e1e;
-    --t-bg-drag-over: #323232;
-    --t-bg-hover: #2a2a2a;
-    --t-bg-active: #3a3a3a;
-    --t-border: #444444;
-    --t-border-secondary: #555555;
-    --t-border-hover: #777777;
-    --t-text: #f1f5f9;
-    --t-text-secondary: #cccccc;
-    --t-text-muted: #aaaaaa;
-    --t-text-faint: #999999;
-    --t-text-dim: #666666;
-    --t-accent: #38bdf8;
-    --t-accent-hover: #0ea5e9;
-    --t-accent-foreground: #000000;
-    --t-destructive: #f43f5e;
-    --t-destructive-hover: #fb7185;
+    /* theme color tokens — Scoreboard defaults (overridden by useThemeSync) */
+    --t-bg-page: #050505;
+    --t-bg-surface: #0e0e0e;
+    --t-bg-sunken: #0a0a0a;
+    --t-bg-overlay: #050505;
+    --t-bg-drag-over: #1a1a1a;
+    --t-bg-hover: #161616;
+    --t-bg-active: #1f1f1f;
+    --t-border: rgba(245, 245, 240, 0.1);
+    --t-border-secondary: rgba(245, 245, 240, 0.22);
+    --t-border-hover: rgba(245, 245, 240, 0.36);
+    --t-text: #f5f5f0;
+    --t-text-secondary: #c8c8c0;
+    --t-text-muted: #7a7a72;
+    --t-text-faint: #5a5a52;
+    --t-text-dim: #4a4a45;
+    --t-accent: #5eead4;
+    --t-accent-hover: #4dd8c2;
+    --t-accent-2: #b3ff3a;
+    --t-accent-foreground: #050505;
+    --t-accent-glow: color-mix(in srgb, #5eead4 28%, transparent);
+    --t-destructive: #ff7f7e;
+    --t-destructive-hover: #ff6b6a;
     --t-destructive-foreground: #ffffff;
     --t-overlay: 255 255 255;
-    --t-export-bg: #232323;
+    --t-export-bg: #050505;
     --t-media-matte: #0a0a0c;
 
-    /* typography tokens — Default style */
+    /* typography tokens — Default body style (user-selectable in preferences) */
     --ts-font-family: 'Inter', system-ui, -apple-system, sans-serif;
     --ts-weight-normal: 400;
     --ts-weight-heading: 600;
     --ts-letter-spacing: -0.011em;
+
+    /* always-on editorial family — eyebrows/labels (--ts-mono). Loaded
+       statically in index.html so they survive any user text-style switch. */
+    --ts-mono:
+      'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace;
 
     font-family: var(--ts-font-family);
     color: var(--t-text);
@@ -248,20 +255,122 @@
     }
   }
 
-  /* high-contrast mode — thicker borders & brighter focus rings */
-  [data-theme='high-contrast'] button,
-  [data-theme='high-contrast'] [role='switch'],
-  [data-theme='high-contrast'] input,
-  [data-theme='high-contrast'] textarea,
-  [data-theme='high-contrast'] select
+  /* Volt theme — thicker borders & brighter focus rings (replaces the legacy
+     high-contrast theme; Volt is now the high-contrast accessibility option) */
+  [data-theme='volt'] button,
+  [data-theme='volt'] [role='switch'],
+  [data-theme='volt'] input,
+  [data-theme='volt'] textarea,
+  [data-theme='volt'] select
   {
     border-width: 2px;
   }
 
-  [data-theme='high-contrast'] :focus-visible
+  [data-theme='volt'] :focus-visible
   {
     outline-width: 3px;
     outline-color: var(--t-accent);
+  }
+
+  /* editorial ambient layer — soft radial blobs pinned to the top corners
+     of the viewport. position: fixed keeps the gradients viewport-sized on
+     long-scroll pages instead of resampling across the full document height.
+     isolation + negative z-index drops them behind content within the wrapper */
+  .ambient-layer
+  {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .ambient-layer::before,
+  .ambient-layer::after
+  {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .ambient-layer::before
+  {
+    background: radial-gradient(
+      ellipse 720px 540px at 8% 6%,
+      color-mix(in srgb, var(--t-accent) 12%, transparent),
+      transparent 65%
+    );
+  }
+
+  .ambient-layer::after
+  {
+    background: radial-gradient(
+      ellipse 640px 480px at 92% 8%,
+      color-mix(in srgb, var(--t-accent-2) 9%, transparent),
+      transparent 65%
+    );
+  }
+
+  /* faint dot texture — 24px tile sized so the pattern reads as grain rather
+     than a grid. background-attachment: fixed pins the dots to the viewport
+     so the composited layer stays bounded on long pages */
+  .dot-grid-bg
+  {
+    background-image: radial-gradient(
+      circle,
+      rgb(var(--t-overlay) / 0.05) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+    background-position: 0 0;
+    background-attachment: fixed;
+  }
+
+  /* mockup-aligned display accent — Bungee block letters w/ lime fill &
+     mint shadow underneath. scales to 62% of parent so the accent reads
+     typographically subordinate to the primary even at all-caps. translateY
+     recovers the baseline when inline. borrowed from Applied Screens v2
+     (.mkt-hero h1 .bungee at line 377-387) */
+  .display-accent
+  {
+    font-family: 'Bungee', 'Inter', sans-serif;
+    text-transform: uppercase;
+    color: var(--t-accent-2);
+    font-size: 0.62em;
+    letter-spacing: -0.01em;
+    display: inline-block;
+    transform: translateY(-0.05em);
+    line-height: 1;
+  }
+
+  /* standalone variant — accent w/o a primary half. it IS the title, so
+     scale to the parent h1's full font-size & drop the baseline-recovery
+     translate (only needed when riding alongside a larger primary glyph) */
+  .display-accent--full
+  {
+    font-size: 1em;
+    transform: none;
+  }
+
+  /* mint stamp under the editorial accent — em units so the shadow depth
+     scales with the glyph's font-size, holding the proportion across every
+     headline size (inline 0.62em stamp and standalone 1em title alike) */
+  .display-accent-shadow
+  {
+    text-shadow: 0.08em 0.08em 0 var(--t-accent);
+  }
+
+  /* Scoreboard "LIVE NOW" pulse — paired with the accent dot animation. */
+  @keyframes scoreboardPulse
+  {
+    0%,
+    100%
+    {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--t-accent) 55%, transparent);
+    }
+    50%
+    {
+      box-shadow: 0 0 0 5px transparent;
+    }
   }
 
   /* manual reduced-motion toggle via settings */

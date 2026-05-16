@@ -15,6 +15,7 @@ import {
 import {
   finalizeUploadVariantsImperative,
   generateUploadUrlsImperative,
+  getReusableMediaExternalIdsImperative,
   uploadEnvelopedBlob,
 } from '~/features/platform/media/uploadsRepository'
 import { PermanentSyncError } from '~/features/platform/sync/lib/errors'
@@ -23,6 +24,7 @@ import { makeBoardSnapshot, makeItem } from '../fixtures'
 vi.mock('~/features/platform/media/uploadsRepository', () => ({
   generateUploadUrlsImperative: vi.fn(),
   finalizeUploadVariantsImperative: vi.fn(),
+  getReusableMediaExternalIdsImperative: vi.fn(),
   uploadEnvelopedBlob: vi.fn(),
 }))
 
@@ -66,6 +68,9 @@ describe('uploadBoardImages', () =>
     vi.mocked(getBlobsBatch).mockResolvedValue(new Map())
     vi.mocked(getUploadStatusBatch).mockResolvedValue(new Map())
     vi.mocked(markUploaded).mockResolvedValue()
+    vi.mocked(getReusableMediaExternalIdsImperative).mockImplementation(
+      async ({ externalIds }) => externalIds.map(() => true)
+    )
   })
 
   it('reuses cloud media ids without re-uploading & throws when local blob is missing', async () =>
@@ -84,6 +89,125 @@ describe('uploadBoardImages', () =>
     await expect(
       uploadBoardImages(makeImageBoard({ hash: 'local-only' }), 'user-1')
     ).rejects.toBeInstanceOf(PermanentSyncError)
+  })
+
+  it('uploads a user-owned copy for source-owned marketplace media refs', async () =>
+  {
+    const record = makeLocalBlobRecord('marketplace-hash')
+    vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
+    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
+      envelopeUserId: 'server-user-1',
+      urls: [
+        { uploadUrl: 'https://uploads.example.test/tile', uploadToken: 'tile' },
+        {
+          uploadUrl: 'https://uploads.example.test/preview',
+          uploadToken: 'preview',
+        },
+      ],
+    })
+    vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
+      'storage-1' as unknown as never
+    )
+    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
+      externalId: 'media-user-copy',
+    })
+
+    const result = await uploadBoardImages(
+      makeImageBoard({
+        hash: record.hash,
+        cloudMediaExternalId: 'media-marketplace',
+        cloudMediaOwnership: 'source',
+      }),
+      'user-1'
+    )
+
+    expect(result.mediaExternalIdByHash.get(record.hash)).toBe(
+      'media-user-copy'
+    )
+    expect(result.mediaExternalIdByItemId.get('item-1')).toBe('media-user-copy')
+    expect(finalizeUploadVariantsImperative).toHaveBeenCalledTimes(1)
+  })
+
+  it('uploads a fresh copy instead of reusing stale persisted cloud media refs', async () =>
+  {
+    const record = makeLocalBlobRecord('stale-cloud-hash')
+    vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
+    vi.mocked(getReusableMediaExternalIdsImperative).mockResolvedValue([false])
+    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
+      envelopeUserId: 'server-user-1',
+      urls: [
+        { uploadUrl: 'https://uploads.example.test/tile', uploadToken: 'tile' },
+        {
+          uploadUrl: 'https://uploads.example.test/preview',
+          uploadToken: 'preview',
+        },
+      ],
+    })
+    vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
+      'storage-1' as unknown as never
+    )
+    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
+      externalId: 'media-fresh-copy',
+    })
+
+    const result = await uploadBoardImages(
+      makeImageBoard({
+        hash: record.hash,
+        cloudMediaExternalId: 'media-stale',
+      }),
+      'user-1',
+      { boardExternalId: 'board-1' }
+    )
+
+    expect(getReusableMediaExternalIdsImperative).toHaveBeenCalledWith({
+      externalIds: ['media-stale'],
+      boardExternalId: 'board-1',
+    })
+    expect(result.mediaExternalIdByHash.get(record.hash)).toBe(
+      'media-fresh-copy'
+    )
+    expect(result.mediaExternalIdByItemId.get('item-1')).toBe(
+      'media-fresh-copy'
+    )
+  })
+
+  it('revalidates upload-index hits before skipping a media upload', async () =>
+  {
+    const record = makeLocalBlobRecord('upload-index-hash')
+    vi.mocked(getUploadStatusBatch).mockResolvedValue(
+      new Map([['media:upload-index-hash:upload-index-hash:', 'media-stale']])
+    )
+    vi.mocked(getReusableMediaExternalIdsImperative).mockResolvedValue([false])
+    vi.mocked(getBlobsBatch).mockResolvedValue(new Map([[record.hash, record]]))
+    vi.mocked(generateUploadUrlsImperative).mockResolvedValue({
+      envelopeUserId: 'server-user-1',
+      urls: [
+        { uploadUrl: 'https://uploads.example.test/tile', uploadToken: 'tile' },
+        {
+          uploadUrl: 'https://uploads.example.test/preview',
+          uploadToken: 'preview',
+        },
+      ],
+    })
+    vi.mocked(uploadEnvelopedBlob).mockResolvedValue(
+      'storage-1' as unknown as never
+    )
+    vi.mocked(finalizeUploadVariantsImperative).mockResolvedValue({
+      externalId: 'media-fresh',
+    })
+
+    const result = await uploadBoardImages(
+      makeImageBoard({ hash: record.hash }),
+      'user-1',
+      { boardExternalId: 'board-1' }
+    )
+
+    expect(result.mediaExternalIdByHash.get(record.hash)).toBe('media-fresh')
+    expect(markUploaded).toHaveBeenCalledWith(
+      'user-1',
+      'media:upload-index-hash:upload-index-hash:',
+      'media-fresh'
+    )
   })
 
   it('uploads blobs via the envelope helper using a single batched URL request', async () =>

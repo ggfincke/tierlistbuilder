@@ -51,13 +51,19 @@ import {
   nudgeImageEditorTransformByPixels,
   zoomImageEditorTransformAtPoint,
 } from '../lib/imageEditorTransformOps'
+import type { ImageEditorMode } from '../model/useImageEditorStore'
 import { useImageEditorAutoCropItem } from '../model/useImageEditorAutoCropItem'
 import { useImageEditorTransformDraft } from '../model/useImageEditorTransformDraft'
 import { usePaneLabelEditor } from '../model/usePaneLabelEditor'
+import {
+  ImageEditorMetadataPanel,
+  type ImageEditorMetadataPanelHandle,
+} from './ImageEditorMetadataPanel'
 import { ImageEditorPaneFooter } from './ImageEditorPaneFooter'
 import { ImageEditorPreviewCanvas } from './ImageEditorPreviewCanvas'
 import { LabelEditorRow } from './LabelEditorRow'
 import { SaveStatusIndicator } from './SaveStatusIndicator'
+import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 
 export interface ImageEditorPaneHandle
 {
@@ -68,6 +74,7 @@ export interface ImageEditorPaneHandle
 interface ImageEditorPaneProps
 {
   item: TierItem
+  mode: ImageEditorMode
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
   trimSoftShadows: boolean
@@ -86,6 +93,10 @@ interface ImageEditorPaneProps
   onCaptionExpandedChange: (expanded: boolean) => void
   imageExpanded: boolean
   onImageExpandedChange: (expanded: boolean) => void
+  // single-mode-only callbacks; multi-mode passes no-ops & hides the panel
+  onAltTextChange: (value: string) => void
+  onNotesChange: (value: string) => void
+  onBackgroundColorChange: (value: string | null) => void
   canPrev: boolean
   canNext: boolean
   onPrev: () => void
@@ -102,6 +113,7 @@ export const ImageEditorPane = forwardRef<
 >(function ImageEditorPane(
   {
     item,
+    mode,
     boardAspectRatio,
     boardDefaultFit,
     trimSoftShadows,
@@ -120,6 +132,9 @@ export const ImageEditorPane = forwardRef<
     onCaptionExpandedChange,
     imageExpanded,
     onImageExpandedChange,
+    onAltTextChange,
+    onNotesChange,
+    onBackgroundColorChange,
     canPrev,
     canNext,
     onPrev,
@@ -132,6 +147,7 @@ export const ImageEditorPane = forwardRef<
 {
   const imageSectionId = useId()
   const { imageRef: previewImageRef, sourceImageRef, tileImageRef } = item
+  const hasImage = hasAnyImageRef(item)
   const editorImageSources = useMemo(
     () =>
       getImageRenditionRefs(
@@ -220,6 +236,7 @@ export const ImageEditorPane = forwardRef<
     y: false,
   })
   const commitLabelRef = useRef(commitLabel)
+  const metadataPanelRef = useRef<ImageEditorMetadataPanelHandle | null>(null)
 
   useEffect(() =>
   {
@@ -233,6 +250,7 @@ export const ImageEditorPane = forwardRef<
       flushPendingEdit: () =>
       {
         commitLabelRef.current()
+        metadataPanelRef.current?.flushDrafts()
         flushPendingTransform()
       },
     }),
@@ -452,7 +470,7 @@ export const ImageEditorPane = forwardRef<
   }, [url, getFitBaselineZoom, setWorkingDraft])
 
   const useManualCrop =
-    hasChanges || effectiveFit === 'cover' || !!item.aspectRatio
+    hasImage && (hasChanges || effectiveFit === 'cover' || !!item.aspectRatio)
   const imgClass = useManualCrop
     ? 'absolute max-w-none select-none'
     : `h-full w-full ${OBJECT_FIT_CLASS[effectiveFit]}`
@@ -480,7 +498,9 @@ export const ImageEditorPane = forwardRef<
     ? 'cursor-pointer hover:border-[var(--t-warning)] hover:bg-[var(--t-warning)]/20 active:bg-[var(--t-warning)]/30'
     : 'cursor-pointer hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-active)]'
   const ratioChipActionable =
-    mismatched && (autoCropStatus === 'ready' || autoCropStatus === 'pending')
+    hasImage &&
+    mismatched &&
+    (autoCropStatus === 'ready' || autoCropStatus === 'pending')
   const ratioChipTitle = mismatched
     ? ratioChipActionable
       ? `Item is ${ratioLabel} - board is ${boardRatioLabel}. Click to auto-crop to fit.`
@@ -507,33 +527,35 @@ export const ImageEditorPane = forwardRef<
           />
           <SaveStatusIndicator dirty={isDirty} savedFlash={savedFlash} />
         </div>
-        {ratioChipActionable ? (
-          <button
-            type="button"
-            onClick={autoCrop}
-            className={`focus-custom inline-flex items-center gap-1 rounded-md border px-2 py-0.5 tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${ratioBadgeClass} ${ratioBadgeActionableClass}`}
-            title={ratioChipTitle}
-            aria-label={`Auto-crop ${ratioLabel} item to fit ${boardRatioLabel} board`}
-          >
-            <Crop aria-hidden="true" className="h-3 w-3" />
-            <span>{ratioLabel}</span>
-            <span aria-hidden="true">-&gt;</span>
-            <span>{boardRatioLabel}</span>
-          </button>
-        ) : (
-          <span
-            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 tabular-nums ${ratioBadgeClass}`}
-            title={ratioChipTitle}
-          >
-            <span>{ratioLabel}</span>
-            <span aria-hidden="true">-&gt;</span>
-            <span>{boardRatioLabel}</span>
-          </span>
-        )}
+        {hasImage &&
+          (ratioChipActionable ? (
+            <button
+              type="button"
+              onClick={autoCrop}
+              className={`focus-custom inline-flex items-center gap-1 rounded-md border px-2 py-0.5 tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)] ${ratioBadgeClass} ${ratioBadgeActionableClass}`}
+              title={ratioChipTitle}
+              aria-label={`Auto-crop ${ratioLabel} item to fit ${boardRatioLabel} board`}
+            >
+              <Crop aria-hidden="true" className="h-3 w-3" />
+              <span>{ratioLabel}</span>
+              <span aria-hidden="true">-&gt;</span>
+              <span>{boardRatioLabel}</span>
+            </button>
+          ) : (
+            <span
+              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 tabular-nums ${ratioBadgeClass}`}
+              title={ratioChipTitle}
+            >
+              <span>{ratioLabel}</span>
+              <span aria-hidden="true">-&gt;</span>
+              <span>{boardRatioLabel}</span>
+            </span>
+          ))}
       </div>
       <ImageEditorPreviewCanvas
         item={item}
         url={url}
+        hasImage={hasImage}
         previewW={previewW}
         previewH={previewH}
         canvasRef={canvasRef}
@@ -553,58 +575,75 @@ export const ImageEditorPane = forwardRef<
         onLabelDragMove={handleLabelDragMove}
         onLabelDragEnd={handleLabelDragEnd}
       />
-      <LabelEditorRow
-        resolvedPlacement={resolvedPlacement}
-        resolvedScrim={labelLayout.scrim}
-        resolvedTextColor={labelLayout.textColor}
-        resolvedFontSizePx={labelLayout.fontSizePx}
-        resolvedTextStyleId={labelLayout.textStyleId}
-        inheritedTextStyleLabel={inheritedTextStyleLabel}
-        boardDefaultVisible={boardDefaultVisible}
-        itemOptions={item.labelOptions}
-        onPlacementChange={handlePlacementChange}
-        onScrimChange={(s) => updateLabelOption('scrim', s)}
-        onTextColorChange={(c) => updateLabelOption('textColor', c)}
-        onFontSizePxChange={handleFontSizePxChange}
-        onTextStyleChange={(t) => updateLabelOption('textStyleId', t)}
-        onVisibleChange={(v) => updateLabelOption('visible', v)}
-        onClearOverrides={() => onLabelOptionsChange(null)}
-        onApplyToAll={onApplyLabelToAll}
-        canApplyToAll={canApplyLabelToAll}
-        appliedToAll={labelAppliedToAll}
-        applyToAllTitle={applyLabelToAllTitle}
-        expanded={captionExpanded}
-        onExpandedChange={onCaptionExpandedChange}
-      />
-      <ImageEditorPaneFooter
-        expansion={{
-          imageSectionId,
-          imageExpanded,
-          onImageExpandedChange,
-        }}
-        transform={{
-          rotate,
-          displayZoom,
-          displayZoomMin,
-          displaySliderZoomMax,
-          onZoomLiveChange: setZoomLive,
-          centerOffsets,
-          working,
-          autoCrop,
-          autoCropStatus,
-          reset,
-          hasChanges,
-          isDirty,
-        }}
-        navigation={{
-          canPrev,
-          canNext,
-          canSkip,
-          onPrev,
-          onNext,
-          onSkip,
-        }}
-      />
+      {hasImage && (
+        <LabelEditorRow
+          resolvedPlacement={resolvedPlacement}
+          resolvedScrim={labelLayout.scrim}
+          resolvedTextColor={labelLayout.textColor}
+          resolvedFontSizePx={labelLayout.fontSizePx}
+          resolvedTextStyleId={labelLayout.textStyleId}
+          inheritedTextStyleLabel={inheritedTextStyleLabel}
+          boardDefaultVisible={boardDefaultVisible}
+          itemOptions={item.labelOptions}
+          onPlacementChange={handlePlacementChange}
+          onScrimChange={(s) => updateLabelOption('scrim', s)}
+          onTextColorChange={(c) => updateLabelOption('textColor', c)}
+          onFontSizePxChange={handleFontSizePxChange}
+          onTextStyleChange={(t) => updateLabelOption('textStyleId', t)}
+          onVisibleChange={(v) => updateLabelOption('visible', v)}
+          onClearOverrides={() => onLabelOptionsChange(null)}
+          onApplyToAll={onApplyLabelToAll}
+          canApplyToAll={canApplyLabelToAll}
+          appliedToAll={labelAppliedToAll}
+          applyToAllTitle={applyLabelToAllTitle}
+          expanded={captionExpanded}
+          onExpandedChange={onCaptionExpandedChange}
+        />
+      )}
+      {mode === 'single' && (
+        <ImageEditorMetadataPanel
+          ref={metadataPanelRef}
+          itemId={item.id}
+          altText={item.altText}
+          notes={item.notes}
+          backgroundColor={item.backgroundColor}
+          hasImage={hasImage}
+          onAltTextChange={onAltTextChange}
+          onNotesChange={onNotesChange}
+          onBackgroundColorChange={onBackgroundColorChange}
+        />
+      )}
+      {hasImage && (
+        <ImageEditorPaneFooter
+          expansion={{
+            imageSectionId,
+            imageExpanded,
+            onImageExpandedChange,
+          }}
+          transform={{
+            rotate,
+            displayZoom,
+            displayZoomMin,
+            displaySliderZoomMax,
+            onZoomLiveChange: setZoomLive,
+            centerOffsets,
+            working,
+            autoCrop,
+            autoCropStatus,
+            reset,
+            hasChanges,
+            isDirty,
+          }}
+          navigation={{
+            canPrev,
+            canNext,
+            canSkip,
+            onPrev,
+            onNext,
+            onSkip,
+          }}
+        />
+      )}
     </div>
   )
 })

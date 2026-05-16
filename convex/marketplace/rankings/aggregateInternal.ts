@@ -15,6 +15,7 @@ import {
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
   queueTemplateRankingAggregateRecomputesForActiveCriteria,
+  rollupTemplateRankingCount,
   scheduleTemplateRankingAggregateJobAdmission,
 } from './aggregate'
 import { buildRankingTierBucketMap } from '@tierlistbuilder/contracts/marketplace/ranking'
@@ -763,6 +764,8 @@ async function finishJob(
       ...aggregateFields,
     })
   }
+  // fold this criterion's fresh count into the card-level rankings total
+  await rollupTemplateRankingCount(ctx, job.templateId)
 
   await ctx.db.delete(job._id)
   await scheduleTemplateRankingAggregateJobAdmission(ctx)
@@ -1240,6 +1243,8 @@ export const deleteTemplateRankingAggregateRows = internalMutation({
         args.templateId,
         criterionExternalId
       )
+      // aggregate rows just vanished -> re-fold whatever remains into the card
+      await rollupTemplateRankingCount(ctx, args.templateId)
     }
     return { isDone: page.isDone }
   },

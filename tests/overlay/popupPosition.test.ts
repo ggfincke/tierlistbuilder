@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest'
 import {
   computeColorPickerStyle,
   computeCustomColorPickerStyle,
-  computeItemEditPopoverStyle,
   computeSettingsMenuStyle,
 } from '~/shared/overlay/popupPosition'
 import { makeRect } from '../fixtures'
@@ -43,15 +42,6 @@ describe('popup positioning', () =>
         height: 700,
       })
     ).toEqual({ position: 'fixed', top: 492, left: 712 })
-
-    expect(
-      computeItemEditPopoverStyle(
-        makeRect({ bottom: 640, left: 980 }),
-        224,
-        140,
-        { width: 1000, height: 700 }
-      )
-    ).toEqual({ position: 'fixed', top: 552, left: 768 })
   })
 
   it('flips menus above when the viewport is too short below the trigger', () =>

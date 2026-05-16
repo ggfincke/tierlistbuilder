@@ -126,7 +126,9 @@ export const ItemContextMenu = ({
   if (!item) return null
 
   const targetCount = selectionIds.length || 1
-  const showEdit = targetCount === 1 && hasAnyImageRef(item)
+  // edit is per-item, so a multi-selection right-click hides it; preview stays
+  // image-only because text tiles have nothing larger to show
+  const showEdit = targetCount === 1
   const showPreview = targetCount === 1 && hasAnyImageRef(item)
   const removeLabel = targetCount > 1 ? `Remove ${targetCount} items` : 'Remove'
 
@@ -167,12 +169,12 @@ export const ItemContextMenu = ({
           onPointerEnter={preloadImageEditorModal}
           onClick={() =>
           {
-            useImageEditorStore.getState().open({ itemId, filter: 'all' })
+            useImageEditorStore.getState().open({ itemId, mode: 'single' })
             onClose()
           }}
         >
           <Pencil className="h-3.5 w-3.5 shrink-0" />
-          Edit image…
+          Edit item…
         </OverlayMenuItem>
       )}
 

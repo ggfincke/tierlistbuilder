@@ -34,6 +34,25 @@ export const loadMediaVariantStorageId = async (
   return selectMediaVariantSummary(asset, kind)?.storageId ?? null
 }
 
+// preview-first storage lookup for surfaces that render the asset at hero
+// scale (board card mosaics, marketplace covers). tile fallback covers
+// assets predating the preview pipeline so callers can swap in unconditionally
+export const selectPreviewOrTileStorageId = (
+  asset: Doc<'mediaAssets'>
+): Id<'_storage'> =>
+  asset.previewVariant?.storageId ?? asset.tileVariant.storageId
+
+export const loadPreviewOrTileStorageId = async (
+  ctx: DbCtx,
+  mediaAssetId: Id<'mediaAssets'> | null
+): Promise<Id<'_storage'> | null> =>
+{
+  if (!mediaAssetId) return null
+  const asset = await ctx.db.get(mediaAssetId)
+  if (!asset) return null
+  return selectPreviewOrTileStorageId(asset)
+}
+
 // canonical owner-scoped fingerprint for verified-variant dedupe. used by both
 // the user upload finalize path & the seed pipeline finalize path so the
 // `mediaAssets.dedupeHash` formula stays consistent regardless of caller

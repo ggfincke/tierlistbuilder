@@ -8,17 +8,18 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 
+// hoisted so useSensor()'s memo holds — inline option literals are fresh each
+// render, churning useSensors() -> DndContext (incl. across boardLocked toggles)
+const POINTER_SENSOR_OPTIONS = {
+  activationConstraint: { distance: 5 },
+}
+
+const TOUCH_SENSOR_OPTIONS = {
+  activationConstraint: { delay: 120, tolerance: 8 },
+}
+
 export const useDragSensors = () =>
   useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 120,
-        tolerance: 8,
-      },
-    })
+    useSensor(PointerSensor, POINTER_SENSOR_OPTIONS),
+    useSensor(TouchSensor, TOUCH_SENSOR_OPTIONS)
   )

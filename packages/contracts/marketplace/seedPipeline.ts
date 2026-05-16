@@ -8,7 +8,7 @@ import type {
   MediaVariantKind,
   SupportedImageMimeType,
 } from '../platform/media'
-import type { ItemTransform } from '../workspace/board'
+import type { BoardLabelSettings, ItemTransform } from '../workspace/board'
 import type { TierPresetTier } from '../workspace/tierPreset'
 
 export const SEED_MANIFEST_SCHEMA_VERSION = 1
@@ -99,6 +99,7 @@ export interface SeedManifestTemplateInput
   tags: string[]
   visibility: TemplateVisibility
   labelPolicy: SeedLabelPolicy
+  labels?: BoardLabelSettings
   coverImage?: string
   coverZoom?: number
   suggestedTiers?: readonly TierPresetTier[]
@@ -174,6 +175,7 @@ export interface SeedCompiledTemplate
   tags: string[]
   visibility: TemplateVisibility
   labelPolicy: SeedLabelPolicy
+  labels?: BoardLabelSettings
   itemAspectRatio: number
   ratioSource: SeedRatioSource
   coverImage?: SeedCompiledAsset
@@ -449,6 +451,7 @@ export interface SeedTemplateUpsert
   suggestedTiers: readonly TierPresetTier[]
   itemAspectRatio: number
   itemCount: number
+  labels?: BoardLabelSettings
 }
 
 export interface SeedTemplateUpsertOutput

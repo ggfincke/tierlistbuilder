@@ -2,9 +2,14 @@
 // subscribes to active board edits & forwards durable snapshots to workspace sync
 
 import { useEffect, useRef } from 'react'
+import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { setBoardLoadedListener } from '~/features/workspace/boards/model/boardSession'
+import {
+  setBoardChangedListener,
+  setBoardLoadedListener,
+} from '~/features/workspace/boards/model/boardSession'
+import { readBoardStateForCloudSync } from '~/features/workspace/boards/data/cloud/cloudFlush'
 import {
   boardDataFieldsEqual,
   extractBoardData,
@@ -29,26 +34,48 @@ export const useWorkspaceBoardSyncSubscriber = ({
 {
   const isMergePendingRef = useRef(isMergePending)
   const onEditRef = useRef(onEdit)
+  const shouldProceedRef = useRef(shouldProceed)
   const lastLoadedBoardIdRef = useRef(
     useWorkspaceBoardRegistryStore.getState().activeBoardId
   )
 
   useEffect(() =>
   {
+    shouldProceedRef.current = shouldProceed
     isMergePendingRef.current = isMergePending
     onEditRef.current = onEdit
   })
 
   useEffect(() =>
   {
-    setBoardLoadedListener((boardId) =>
+    const queuePendingBoard = (boardId: BoardId, markLoaded = false): void =>
     {
-      lastLoadedBoardIdRef.current = boardId
-    })
+      if (markLoaded)
+      {
+        lastLoadedBoardIdRef.current = boardId
+      }
+
+      const canProceed = shouldProceedRef.current
+      if (!canProceed || !canProceed() || isMergePendingRef.current()) return
+
+      const { snapshot, syncState } = readBoardStateForCloudSync(boardId)
+      if (syncState.pendingSyncAt === null) return
+
+      onEditRef.current({
+        boardId,
+        snapshot,
+        boardDataSelection: selectBoardDataFields(snapshot),
+        syncState,
+      })
+    }
+
+    setBoardLoadedListener((boardId) => queuePendingBoard(boardId, true))
+    setBoardChangedListener((boardId) => queuePendingBoard(boardId))
 
     return () =>
     {
       setBoardLoadedListener(null)
+      setBoardChangedListener(null)
     }
   }, [])
 

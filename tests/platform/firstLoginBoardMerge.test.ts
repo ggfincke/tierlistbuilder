@@ -137,6 +137,52 @@ describe('firstLoginBoardMerge', () =>
     })
   })
 
+  it('clears pending first-login retries for permanent server-side sync failures', async () =>
+  {
+    useWorkspaceBoardRegistryStore.setState({
+      boards: [makeBoardMeta({ id: 'board-a' as BoardId, title: 'board-a' })],
+      activeBoardId: null,
+    })
+
+    const persistBoardSyncState = vi.fn()
+    const result = await pushAllLocalBoards(
+      'user-a',
+      () => true,
+      createDeps({
+        flushBoardToCloud: async () => ({
+          kind: 'error',
+          error: {
+            kind: 'convex',
+            code: 'not_found',
+            permanent: true,
+            retryAfter: null,
+            cause: new Error('media not found'),
+          },
+        }),
+        readBoardStateForCloudSync: (boardId) => ({
+          snapshot: makeBoardSnapshot({ title: boardId }),
+          syncState: {
+            lastSyncedRevision: 4,
+            cloudBoardExternalId: 'cloud-a',
+            pendingSyncAt: 456,
+          },
+        }),
+        persistBoardSyncState,
+      })
+    )
+
+    expect(result).toEqual({
+      status: 'completed',
+      failedBoardIds: [],
+      permanentFailedBoardIds: ['board-a'],
+    })
+    expect(persistBoardSyncState).toHaveBeenCalledWith('board-a', {
+      lastSyncedRevision: 4,
+      cloudBoardExternalId: 'cloud-a',
+      pendingSyncAt: null,
+    })
+  })
+
   it('marks pull completed even when only permanent push failures remain & on resumed pulls', async () =>
   {
     useWorkspaceBoardRegistryStore.setState({

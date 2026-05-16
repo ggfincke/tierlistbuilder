@@ -8,11 +8,14 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from PIL import Image
 
+from seed_pipeline import assets as assets_module
 from seed_pipeline.build import build_compiled_manifest
 from seed_pipeline.manifest import find_repo_root
+from seed_pipeline.settings import COMPILE_FINGERPRINT_FILENAME
 from seed_pipeline.validate import validate_source_manifest
 
 
@@ -135,6 +138,36 @@ class ManifestValidationTests(unittest.TestCase):
         ).hexdigest()[:16]
         self.assertIn(fingerprint, variants["tile"]["path"])
         self.assertNotEqual(variants["tile"]["path"], variants["preview"]["path"])
+
+    def test_compile_cache_invalidates_when_variant_policy_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_repo_fixture(root)
+            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
+            _write_json(manifest_path, _source_manifest())
+
+            first_path = build_compiled_manifest(manifest_path, root)
+            first = json.loads(first_path.read_text(encoding="utf-8"))
+            first_preview = first["templates"][0]["items"][0]["asset"]["variants"][
+                "preview"
+            ]
+
+            with mock.patch.object(assets_module, "PREVIEW_MAX_SIZE", 1):
+                second_path = build_compiled_manifest(manifest_path, root)
+                second = json.loads(second_path.read_text(encoding="utf-8"))
+                fingerprint = json.loads(
+                    (second_path.parent / COMPILE_FINGERPRINT_FILENAME).read_text(
+                        encoding="utf-8"
+                    )
+                )
+
+        second_preview = second["templates"][0]["items"][0]["asset"]["variants"][
+            "preview"
+        ]
+        self.assertEqual(second_preview["width"], 1)
+        self.assertEqual(second_preview["height"], 1)
+        self.assertNotEqual(first_preview["path"], second_preview["path"])
+        self.assertEqual(fingerprint["variantPolicy"]["preview"]["maxSize"], 1)
 
     def test_find_repo_root_finds_current_workspace(self) -> None:
         root = find_repo_root(Path.cwd())

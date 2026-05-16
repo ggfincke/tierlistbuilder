@@ -511,6 +511,74 @@ describe('seed run precheck API', () =>
     expect(result.urls[0].uploadUrl).toMatch(/^https?:\/\//)
   })
 
+  it('persists seed template label defaults', async () =>
+  {
+    const t = makeTest()
+    await seedUser(t, AUTHOR_EMAIL)
+
+    const templateInput = {
+      datasetKey: DATASET,
+      releaseId: RELEASE,
+      runId: 'run-labels',
+      authorEmail: AUTHOR_EMAIL,
+      templates: [
+        {
+          externalId: 'gaming:labelled-template',
+          metadataContentHash: 'meta-labels-hidden',
+          title: 'Labelled template',
+          category: 'gaming' as const,
+          description: 'Template with seed label defaults.',
+          tags: ['labels'],
+          visibility: 'public' as const,
+          coverMediaDedupeHash: null,
+          coverFraming: null,
+          suggestedTiers: [
+            { name: 'S', colorSpec: { kind: 'palette' as const, index: 0 } },
+          ],
+          itemAspectRatio: 1,
+          itemCount: 1,
+          labels: { show: false },
+        },
+      ],
+    }
+
+    const created = await t.mutation(
+      internal.marketplace.seedRuns.upsertSeedTemplates,
+      templateInput
+    )
+    const updated = await t.mutation(
+      internal.marketplace.seedRuns.upsertSeedTemplates,
+      {
+        ...templateInput,
+        templates: [
+          {
+            ...templateInput.templates[0],
+            metadataContentHash: 'meta-labels-visible',
+            labels: { show: true },
+          },
+        ],
+      }
+    )
+
+    const template = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query('templates')
+          .withIndex('bySeedDatasetReleaseAndExternalId', (q) =>
+            q
+              .eq('seedDatasetKey', DATASET)
+              .eq('seedReleaseId', RELEASE)
+              .eq('seedExternalId', 'gaming:labelled-template')
+          )
+          .unique()
+    )
+
+    expect(created.created).toEqual(['gaming:labelled-template'])
+    expect(updated.updated).toEqual(['gaming:labelled-template'])
+    expect(template?.labels).toEqual({ show: true })
+    expect(template?.seedMetadataContentHash).toBe('meta-labels-visible')
+  })
+
   it('upserts release-scoped templates, criteria, and items idempotently', async () =>
   {
     const t = makeTest()

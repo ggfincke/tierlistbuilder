@@ -128,6 +128,15 @@
         "hidden"
       ]
     },
+    "boardLabelSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "show": {
+          "type": "boolean"
+        }
+      }
+    },
     "totals": {
       "type": "object",
       "additionalProperties": false,
@@ -222,6 +231,9 @@
         },
         "labelPolicy": {
           "$ref": "#/$defs/labelPolicy"
+        },
+        "labels": {
+          "$ref": "#/$defs/boardLabelSettings"
         },
         "itemAspectRatio": {
           "type": "number",

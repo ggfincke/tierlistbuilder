@@ -693,6 +693,62 @@ export const recomputeTemplateCards = action({
   },
 })
 
+// seed-gated migration starter for the denormalized ranking-count read model.
+// the internal mutation schedules its own continuations after the first page.
+export const startTemplateCardRankingCountBackfill = action({
+  args: { seedSecret: v.string() },
+  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ processed: number; isDone: boolean }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    return await ctx.runMutation(
+      internal.marketplace.templates.internal.backfillTemplateCardRankingCount,
+      { cursor: null }
+    )
+  },
+})
+
+// seed-gated migration starter for the useCount -> forkCount rename. each
+// internal mutation schedules its own continuations after the first page.
+export const startTemplateForkCountBackfill = action({
+  args: { seedSecret: v.string() },
+  returns: v.object({
+    stats: v.object({ processed: v.number(), isDone: v.boolean() }),
+    cards: v.object({ processed: v.number(), isDone: v.boolean() }),
+    metricDays: v.object({ processed: v.number(), isDone: v.boolean() }),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    stats: { processed: number; isDone: boolean }
+    cards: { processed: number; isDone: boolean }
+    metricDays: { processed: number; isDone: boolean }
+  }> =>
+  {
+    requireSeedAuthorized(args.seedSecret)
+    const [stats, cards, metricDays] = await Promise.all([
+      ctx.runMutation(
+        internal.marketplace.templates.internal.backfillTemplateStatsForkCount,
+        { cursor: null }
+      ),
+      ctx.runMutation(
+        internal.marketplace.templates.internal.backfillTemplateCardForkCount,
+        { cursor: null }
+      ),
+      ctx.runMutation(
+        internal.marketplace.templates.internal
+          .backfillTemplateMetricDayForkCount,
+        { cursor: null }
+      ),
+    ])
+    return { stats, cards, metricDays }
+  },
+})
+
 // dev-only — paginated batch wipe of seeded marketplace data. keep batches
 // below the 4096-read txn cap; action loops phases & skips identity/auth
 // tables

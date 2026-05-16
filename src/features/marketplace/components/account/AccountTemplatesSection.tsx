@@ -135,14 +135,14 @@ const TemplateRow = ({ template, busy, onEdit, onTogglePublish }: RowProps) =>
         <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] text-[var(--t-text-muted)]">
           <span className="inline-flex items-center gap-1">
             <Layers className="h-3 w-3" strokeWidth={1.8} />
-            {formatCount(template.useCount)} forks
+            {formatCount(template.forkCount)} forks
           </span>
           <span className="inline-flex items-center gap-1">
             <Eye className="h-3 w-3" strokeWidth={1.8} />
             {formatCount(template.viewCount)} views
           </span>
           <span className="text-[var(--t-text-faint)]">
-            {formatCount(template.weeklyUseCount)} this week
+            {formatCount(template.weeklyForkCount)} this week
           </span>
         </div>
       </div>

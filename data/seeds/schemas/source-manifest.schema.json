@@ -109,6 +109,15 @@
         "hidden"
       ]
     },
+    "boardLabelSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "show": {
+          "type": "boolean"
+        }
+      }
+    },
     "template": {
       "type": "object",
       "additionalProperties": false,
@@ -157,6 +166,9 @@
         },
         "labelPolicy": {
           "$ref": "#/$defs/labelPolicy"
+        },
+        "labels": {
+          "$ref": "#/$defs/boardLabelSettings"
         },
         "coverImage": {
           "$ref": "#/$defs/path"

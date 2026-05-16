@@ -8,6 +8,7 @@ import {
   BookmarkPlus,
   ChevronRight,
   Lock,
+  LogIn,
   Plus,
   Redo2,
   RotateCcw,
@@ -26,6 +27,7 @@ import { extractPresetFromBoard } from '~/features/workspace/tier-presets/model/
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { toast } from '~/shared/notifications/useToastStore'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
+import { promptSignIn } from '~/features/platform/auth/model/useSignInPromptStore'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
 import {
   selectCanRedo,
@@ -95,7 +97,18 @@ interface BoardActionBarPublishControls
 {
   ranking?: () => void
   template?: () => void
+  // signed-out: publish actions still appear but route to a sign-in prompt
+  // instead of being hidden, so the capability stays discoverable
+  signInRequired?: boolean
 }
+
+// "Sign in" affordance appended to publish menu items while signed-out
+const SignInHint = () => (
+  <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-[var(--t-text-faint)]">
+    <LogIn className="h-3 w-3" strokeWidth={2} aria-hidden />
+    Sign in
+  </span>
+)
 
 // primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({
@@ -111,6 +124,24 @@ export const BoardActionBar = ({
 {
   const publishRanking = publish?.ranking
   const publishTemplate = publish?.template
+  const publishSignInRequired = publish?.signInRequired ?? false
+  const publishMenuItems = [
+    {
+      key: 'ranking',
+      label: 'Publish Ranking',
+      Icon: Send,
+      onSelect: publishSignInRequired ? promptSignIn : publishRanking,
+    },
+    {
+      key: 'template',
+      label: 'Publish as Template',
+      Icon: UploadCloud,
+      onSelect: publishSignInRequired ? promptSignIn : publishTemplate,
+    },
+  ] as const
+  const visiblePublishMenuItems = publishMenuItems.filter(
+    ({ onSelect }) => publishSignInRequired || onSelect !== undefined
+  )
   const isVertical = isVerticalPosition(toolbarPosition)
   const menuPos = getMenuPositionClasses(toolbarPosition)
   const { reducedMotion, boardLocked, setBoardLocked } = usePreferencesStore(
@@ -401,31 +432,23 @@ export const BoardActionBar = ({
                 aria-label="Save or publish options"
                 className={`${menuPos.primary} flex flex-col ${menuPos.animationClass} text-sm shadow-md shadow-black/30 ${menuPos.bridge}`}
               >
-                {publishRanking && (
-                  <OverlayMenuItem
-                    onClick={() =>
-                    {
-                      closeSaveMenu()
-                      publishRanking()
-                    }}
-                  >
-                    <Send className="h-3.5 w-3.5 shrink-0" />
-                    Publish Ranking
-                  </OverlayMenuItem>
+                {visiblePublishMenuItems.map(
+                  ({ key, label, Icon, onSelect }) => (
+                    <OverlayMenuItem
+                      key={key}
+                      onClick={() =>
+                      {
+                        closeSaveMenu()
+                        onSelect?.()
+                      }}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      {label}
+                      {publishSignInRequired && <SignInHint />}
+                    </OverlayMenuItem>
+                  )
                 )}
-                {publishTemplate && (
-                  <OverlayMenuItem
-                    onClick={() =>
-                    {
-                      closeSaveMenu()
-                      publishTemplate()
-                    }}
-                  >
-                    <UploadCloud className="h-3.5 w-3.5 shrink-0" />
-                    Publish as Template
-                  </OverlayMenuItem>
-                )}
-                {(publishRanking || publishTemplate) && <OverlayDivider />}
+                {visiblePublishMenuItems.length > 0 && <OverlayDivider />}
                 <OverlayMenuItem
                   onClick={() =>
                   {

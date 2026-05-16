@@ -18,7 +18,9 @@ export const applyThemeTokens = (themeId: ThemeId): void =>
     root.style.setProperty(`--t-${key}`, value)
   }
 
-  root.style.setProperty('--t-accent-foreground', getTextColor(theme.accent))
+  // accent-foreground is now stored per-theme (set above via Object.entries).
+  // destructive-foreground stays computed — no design intent diverges from
+  // "auto-pick black or white on the destructive bg."
   root.style.setProperty(
     '--t-destructive-foreground',
     getTextColor(theme.destructive)

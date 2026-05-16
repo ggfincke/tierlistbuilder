@@ -20,6 +20,7 @@ import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPr
 import {
   DEFAULT_TEMPLATE_TIERS,
   createTemplateProjectionCache,
+  findTemplateCardByTemplateId,
   toTemplateMediaRef,
 } from '../templates/lib'
 import {
@@ -462,6 +463,33 @@ export const deleteTemplateRankingAggregateParentRows = async (
     await queueDelete(job._id)
   }
   await Promise.all(deleteBatch)
+}
+
+// generous bound — a template caps at 8 active criteria, plus a margin for
+// stale aggregate rows left by criterion edits. keeps the rollup read bounded
+const RANKING_COUNT_ROLLUP_AGGREGATE_LIMIT = 64
+
+// sum every criterion's public-ranking count into the card read model. the
+// per-criterion counts live on templateRankingAggregates; the card needs one
+// denormalized total so the gallery doesn't fan a read out per criterion
+export const rollupTemplateRankingCount = async (
+  ctx: MutationCtx,
+  templateId: Id<'templates'>
+): Promise<void> =>
+{
+  const aggregates = await ctx.db
+    .query('templateRankingAggregates')
+    .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+    .take(RANKING_COUNT_ROLLUP_AGGREGATE_LIMIT)
+  const total = aggregates.reduce(
+    (sum, aggregate) => sum + aggregate.rankingCount,
+    0
+  )
+  const card = await findTemplateCardByTemplateId(ctx, templateId)
+  if (card && (card.rankingCount ?? 0) !== total)
+  {
+    await ctx.db.patch(card._id, { rankingCount: total })
+  }
 }
 
 const toDistribution = (

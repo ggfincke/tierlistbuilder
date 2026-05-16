@@ -4,5 +4,5 @@
 // localStorage key for global user preferences
 export const PREFERENCES_STORAGE_KEY = 'tier-list-builder-preferences'
 
-// pre-1.0 storage changes wipe mismatched preferences
-export const PREFERENCES_STORAGE_VERSION = 3
+// pre-1.0 storage changes reset mismatched preferences
+export const PREFERENCES_STORAGE_VERSION = 5
