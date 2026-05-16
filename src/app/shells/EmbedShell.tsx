@@ -1,5 +1,5 @@
 // src/app/shells/EmbedShell.tsx
-// embed shell — locks Scoreboard theme so embedded boards render
+// embed shell — locks Scoreboard chrome tokens so embedded boards render
 // consistently regardless of visitor preferences (we don't pipe host prefs).
 
 import { useLockedTheme } from '~/features/platform/preferences/model/useThemeSync'

@@ -300,7 +300,7 @@ See **[`docs/design-system.mdx`](design-system.mdx)** for the runtime token cont
 - `runtime.ts` — `applyThemeTokens` / `applyTextStyleTokens` DOM writers
 - `tierColors.ts` — `TierColorSpec` resolution against the active palette
 
-The `useThemeSync` hook (`features/platform/preferences/model/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `usePreferencesStore` to `:root`. `WorkspaceShell` layers board text-style overrides through `useBoardThemeOverrides()`. `EmbedShell` calls `useLockedTheme('classic', 'default')` so embed iframes render a stable theme regardless of the host's preference. Non-system fonts are loaded dynamically from Google Fonts.
+The `useThemeSync` hook (`features/platform/preferences/model/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `usePreferencesStore` to `:root`. `WorkspaceShell` layers board text-style overrides through `useBoardThemeOverrides()`. `EmbedShell` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render stable chrome tokens regardless of the host's preference, while `EmbedView` keeps the neutral `classic` tier palette. Non-system fonts are loaded dynamically from Google Fonts.
 
 ## Export Pipeline
 

@@ -24,6 +24,7 @@ import {
 } from '@tierlistbuilder/contracts/platform/user'
 import { getCurrentUser, requireCurrentUserId } from './lib/auth'
 import { BATCH_LIMITS } from './lib/limits'
+import { literalUnion } from './lib/validators'
 import {
   failInput,
   normalizeNullableText,
@@ -257,31 +258,26 @@ export const deleteAccount = mutation({
   },
 })
 
-const cascadePhaseValidator = v.union(
-  v.literal('authSessions'),
-  v.literal('authAccounts'),
-  v.literal('boards'),
-  v.literal('templates'),
-  v.literal('rankings'),
-  v.literal('bookmarks'),
-  v.literal('tierPresets'),
-  v.literal('shortLinks'),
-  v.literal('mediaAssets'),
-  v.literal('userPreferences')
-)
-type CascadePhase = Infer<typeof cascadePhaseValidator>
+const CASCADE_PHASES = [
+  'authSessions',
+  'authAccounts',
+  'boards',
+  'templates',
+  'rankings',
+  'bookmarks',
+  'tierPresets',
+  'shortLinks',
+  'mediaAssets',
+  'userPreferences',
+] as const
 
-const NEXT_PHASE: Record<CascadePhase, CascadePhase | null> = {
-  authSessions: 'authAccounts',
-  authAccounts: 'boards',
-  boards: 'templates',
-  templates: 'rankings',
-  rankings: 'bookmarks',
-  bookmarks: 'tierPresets',
-  tierPresets: 'shortLinks',
-  shortLinks: 'mediaAssets',
-  mediaAssets: 'userPreferences',
-  userPreferences: null,
+const cascadePhaseValidator = literalUnion(CASCADE_PHASES)
+type CascadePhase = (typeof CASCADE_PHASES)[number]
+
+const nextCascadePhase = (currentPhase: CascadePhase): CascadePhase | null =>
+{
+  const index = CASCADE_PHASES.indexOf(currentPhase)
+  return CASCADE_PHASES[index + 1] ?? null
 }
 
 interface AuthSessionCleanupState
@@ -602,7 +598,7 @@ const advanceCascadePhase = async (
   currentPhase: CascadePhase
 ): Promise<null> =>
 {
-  const next = NEXT_PHASE[currentPhase]
+  const next = nextCascadePhase(currentPhase)
   if (next === null)
   {
     return null

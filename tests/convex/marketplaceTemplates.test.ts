@@ -1632,13 +1632,22 @@ describe('marketplace template Convex functions', () =>
     await t.mutation(api.marketplace.templates.mutations.recordTemplateView, {
       slug,
     })
-    await t.mutation(api.marketplace.templates.mutations.recordTemplateView, {
+    const consumer = asUser(t, consumerId)
+    await consumer.mutation(
+      api.marketplace.templates.mutations.recordTemplateView,
+      {
+        slug,
+      }
+    )
+    await consumer.mutation(
+      api.marketplace.templates.mutations.recordTemplateView,
+      {
+        slug,
+      }
+    )
+    await consumer.mutation(api.marketplace.templates.mutations.useTemplate, {
       slug,
     })
-    await asUser(t, consumerId).mutation(
-      api.marketplace.templates.mutations.useTemplate,
-      { slug }
-    )
     await t.mutation(
       internal.marketplace.templates.internal.recomputeTemplateTrendingScores,
       { cursor: null }
@@ -1735,6 +1744,102 @@ describe('marketplace template Convex functions', () =>
           .unique()
     )
     expect(after?.rankingCount).toBe(5)
+  })
+
+  it('continues aggregate parent cleanup after bounded parent pages', async () =>
+  {
+    vi.useFakeTimers()
+    try
+    {
+      const t = makeTest()
+      const authorId = await seedUser(
+        t,
+        'Aggregate Cleanup Author',
+        'aggregate-cleanup@example.com'
+      )
+      const { templateId } = await seedAggregateTemplate(t, authorId)
+      await t.run(async (ctx) =>
+      {
+        await Promise.all(
+          Array.from({ length: 260 }, async (_, index) =>
+          {
+            const criterionExternalId = `legacy-${index}`
+            await ctx.db.insert('templateRankingAggregates', {
+              templateId,
+              criterionExternalId,
+              state: 'ready',
+              activeGeneration: 1,
+              bucketCount: 3,
+              rankingCount: 1,
+              itemCount: 0,
+              computedAt: 1_000,
+              staleAt: null,
+              bucketSpread: [1, 0, 0],
+              mostAgreedItemExternalId: null,
+              mostAgreedItemLabel: null,
+              mostDivisiveItemExternalId: null,
+              mostDivisiveItemLabel: null,
+              updatedAt: 1_000 + index,
+            })
+            await ctx.db.insert('templateRankingAggregateJobs', {
+              templateId,
+              criterionExternalId,
+              status: 'queued',
+              admittedAt: null,
+              phase: 'seedItems',
+              generation: 1,
+              bucketCount: 3,
+              targetBucketLabels: ['Top', 'Middle', 'Bottom'],
+              itemCount: 0,
+              rankingCount: 1,
+              publicRankingCount: 1,
+              templateCursor: null,
+              rankingCursor: null,
+              rankingScanDone: false,
+              activeRankingId: null,
+              activeRankingTierBucketMap: null,
+              activeRankingItemCursor: null,
+              bucketSpread: [1, 0, 0],
+              restartRequestedAt: null,
+              retryCount: 0,
+              lastError: null,
+              failedAt: null,
+              createdAt: 1_000 + index,
+              updatedAt: 1_000 + index,
+            })
+          })
+        )
+      })
+
+      await t.mutation(
+        internal.marketplace.rankings.aggregateInternal
+          .deleteTemplateRankingAggregateParentRowBatch,
+        {
+          templateId,
+          phase: 'aggregates',
+          cursor: null,
+          rollupOnComplete: false,
+        }
+      )
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+      const remaining = await t.run(async (ctx) => ({
+        aggregates: await ctx.db
+          .query('templateRankingAggregates')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .collect(),
+        jobs: await ctx.db
+          .query('templateRankingAggregateJobs')
+          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
+          .collect(),
+      }))
+      expect(remaining.aggregates).toEqual([])
+      expect(remaining.jobs).toEqual([])
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
   })
 
   it('backfills legacy useCount rows before forkCount arithmetic reads them', async () =>
@@ -2529,6 +2634,110 @@ describe('marketplace template Convex functions', () =>
     })
     expect(stored.aggregates).toEqual(['competitive', 'favorites'])
     expect(stored.jobs).toEqual(['competitive', 'favorites'])
+  })
+
+  it('continues public ranking supersession after the first bounded page', async () =>
+  {
+    vi.useFakeTimers()
+    try
+    {
+      const t = makeTest()
+      const ownerId = await seedUser(
+        t,
+        'Ranking Owner',
+        'ranking-owner@example.com'
+      )
+      const templateId = await t.run(
+        async (ctx) =>
+          await seedPublishedTemplate(ctx, {
+            authorId: ownerId,
+            slug: 'paged-supersede-template',
+            title: 'Paged Supersede Template',
+            itemCount: 1,
+            sizeClass: 'standard',
+            now: 1_000,
+          })
+      )
+      const replacementRankingId = await t.run(
+        async (ctx) =>
+          await seedPublishedRanking(ctx, {
+            ownerId,
+            slug: 'paged-supersede-replacement',
+            sourceTemplateId: templateId,
+            sourceBoardId: null,
+            sourceTemplateSlug: 'paged-supersede-template',
+            sourceTemplateTitle: 'Paged Supersede Template',
+            title: 'Replacement',
+            itemCount: 1,
+            now: 2_000,
+          })
+      )
+      await t.run(async (ctx) =>
+      {
+        await Promise.all(
+          Array.from(
+            { length: 260 },
+            async (_, index) =>
+              await seedPublishedRanking(ctx, {
+                ownerId,
+                slug: `paged-supersede-old-${index}`,
+                sourceTemplateId: templateId,
+                sourceBoardId: null,
+                sourceTemplateSlug: 'paged-supersede-template',
+                sourceTemplateTitle: 'Paged Supersede Template',
+                title: `Old ${index}`,
+                itemCount: 1,
+                now: 1_100 + index,
+              })
+          )
+        )
+      })
+
+      await t.mutation(
+        internal.marketplace.rankings.mutations
+          .supersedePublicRankingsInLaneBatch,
+        {
+          ownerId,
+          templateId,
+          criterionExternalId: DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID,
+          replacementRankingId,
+          now: 3_000,
+          cursor: null,
+        }
+      )
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+      const rankings = await t.run(
+        async (ctx) =>
+          await ctx.db
+            .query('publishedRankings')
+            .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
+              q
+                .eq('sourceTemplateId', templateId)
+                .eq(
+                  'sourceCriterionExternalId',
+                  DEFAULT_TEMPLATE_CRITERION_EXTERNAL_ID
+                )
+                .eq('ownerId', ownerId)
+                .eq('isPubliclyListable', false)
+            )
+            .collect()
+      )
+      expect(rankings).toHaveLength(260)
+
+      const replacement = await t.run(
+        async (ctx) => await ctx.db.get(replacementRankingId)
+      )
+      expect(replacement).toMatchObject({
+        isPubliclyListable: true,
+        supersededAt: null,
+        supersededByRankingId: null,
+      })
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
   })
 
   it('admits aggregate recompute jobs through bounded running slots', async () =>

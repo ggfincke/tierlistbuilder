@@ -23,7 +23,7 @@ import {
   type TemplateUseTierSelection,
 } from '@tierlistbuilder/contracts/marketplace/template'
 import { MAX_STANDARD_CLOUD_BOARD_ITEMS } from '@tierlistbuilder/contracts/workspace/cloudBoard'
-import { requireCurrentUserId } from '../../lib/auth'
+import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
 import { enforceRateLimit } from '../../lib/rateLimiter'
 import {
   assertCanPublishTemplate,
@@ -893,6 +893,13 @@ export const recordTemplateView = mutation({
     {
       return null
     }
+
+    const userId = await getCurrentUserId(ctx)
+    if (!userId)
+    {
+      return null
+    }
+    await enforceRateLimit(ctx, 'userTemplateView', userId)
 
     const template = await findTemplateBySlug(ctx, args.slug)
     if (!template || !isPublishedTemplateRow(template))

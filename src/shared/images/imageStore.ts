@@ -178,6 +178,22 @@ const openDatabase = (): Promise<IDBDatabase> =>
   return pending
 }
 
+export const disposeImageStore = (): void =>
+{
+  const pending = dbPromise
+  dbPromise = null
+  blobRefWriteQueues.clear()
+  memoryBlobs.clear()
+  memoryUploadIndex.clear()
+  memoryBlobRefs.clear()
+  if (pending)
+  {
+    void pending.then((db) => db.close()).catch(() => undefined)
+  }
+}
+
+import.meta.hot?.dispose(disposeImageStore)
+
 const openDatabaseSafe = async (): Promise<IDBDatabase | null> =>
 {
   try

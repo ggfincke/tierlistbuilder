@@ -372,6 +372,13 @@ if (typeof window !== 'undefined')
 {
   window.addEventListener('pagehide', handlePageHide)
   window.addEventListener('online', retryFailedCloudRequests)
+
+  import.meta.hot?.dispose(() =>
+  {
+    window.removeEventListener('pagehide', handlePageHide)
+    window.removeEventListener('online', retryFailedCloudRequests)
+    disposeImageBlobCache()
+  })
 }
 
 export const warmImageHashes = async (

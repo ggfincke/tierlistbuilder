@@ -7,6 +7,7 @@ import {
   mutation,
   type MutationCtx,
 } from '../../_generated/server'
+import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import {
   generateBoardId,
@@ -73,6 +74,8 @@ import {
   findTemplateRankingAggregate,
   queueTemplateRankingAggregateRecompute,
 } from './aggregate'
+
+const SUPERSEDE_PUBLIC_RANKINGS_PAGE_SIZE = 256
 
 const requireTemplate = async (
   ctx: MutationCtx,
@@ -236,6 +239,29 @@ const supersedePublicRankingsInLane = async (
   replacementRankingId: Id<'publishedRankings'>,
   now: number
 ): Promise<void> =>
+  await supersedePublicRankingsInLanePage(ctx, {
+    ownerId,
+    templateId,
+    criterionExternalId,
+    replacementRankingId,
+    now,
+    cursor: null,
+  })
+
+interface SupersedePublicRankingsInLaneArgs
+{
+  ownerId: Id<'users'>
+  templateId: Id<'templates'>
+  criterionExternalId: string
+  replacementRankingId: Id<'publishedRankings'>
+  now: number
+  cursor: string | null
+}
+
+const supersedePublicRankingsInLanePage = async (
+  ctx: MutationCtx,
+  args: SupersedePublicRankingsInLaneArgs
+): Promise<void> =>
 {
   const patchBatch: Promise<void>[] = []
   const flushPatchBatch = async () =>
@@ -243,25 +269,29 @@ const supersedePublicRankingsInLane = async (
     await Promise.all(patchBatch)
     patchBatch.length = 0
   }
-  const rows = ctx.db
+  const page = await ctx.db
     .query('publishedRankings')
     .withIndex('bySourceTemplateCriterionOwnerPublicCreatedAt', (q) =>
       q
-        .eq('sourceTemplateId', templateId)
-        .eq('sourceCriterionExternalId', criterionExternalId)
-        .eq('ownerId', ownerId)
+        .eq('sourceTemplateId', args.templateId)
+        .eq('sourceCriterionExternalId', args.criterionExternalId)
+        .eq('ownerId', args.ownerId)
         .eq('isPubliclyListable', true)
     )
-  for await (const ranking of rows)
+    .paginate({
+      numItems: SUPERSEDE_PUBLIC_RANKINGS_PAGE_SIZE,
+      cursor: args.cursor,
+    })
+  for (const ranking of page.page)
   {
-    if (ranking._id === replacementRankingId) continue
+    if (ranking._id === args.replacementRankingId) continue
     if (!isPublicRankingRow(ranking)) continue
     patchBatch.push(
       ctx.db.patch(ranking._id, {
         isPubliclyListable: false,
-        supersededAt: now,
-        supersededByRankingId: replacementRankingId,
-        updatedAt: now,
+        supersededAt: args.now,
+        supersededByRankingId: args.replacementRankingId,
+        updatedAt: args.now,
       })
     )
     if (patchBatch.length >= 16)
@@ -270,7 +300,33 @@ const supersedePublicRankingsInLane = async (
     }
   }
   await flushPatchBatch()
+  if (!page.isDone)
+  {
+    await ctx.scheduler.runAfter(
+      0,
+      internal.marketplace.rankings.mutations
+        .supersedePublicRankingsInLaneBatch,
+      { ...args, cursor: page.continueCursor }
+    )
+  }
 }
+
+export const supersedePublicRankingsInLaneBatch = internalMutation({
+  args: {
+    ownerId: v.id('users'),
+    templateId: v.id('templates'),
+    criterionExternalId: v.string(),
+    replacementRankingId: v.id('publishedRankings'),
+    now: v.number(),
+    cursor: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> =>
+  {
+    await supersedePublicRankingsInLanePage(ctx, args)
+    return null
+  },
+})
 
 export const publishRankingFromBoard = mutation({
   args: {

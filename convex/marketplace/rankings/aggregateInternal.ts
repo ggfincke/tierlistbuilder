@@ -11,6 +11,7 @@ import {
   buildAggregateItemMetrics,
   clearTemplateRankingAggregateJobAdmission,
   deleteTemplateRankingAggregateParentRows,
+  deleteTemplateRankingAggregateParentRowsPage,
   findTemplateRankingAggregate,
   makeEmptyDistribution,
   queueTemplateRankingAggregateRecompute,
@@ -1238,14 +1239,38 @@ export const deleteTemplateRankingAggregateRows = internalMutation({
     await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
     if (page.isDone)
     {
-      await deleteTemplateRankingAggregateParentRows(
+      const parentsDone = await deleteTemplateRankingAggregateParentRows(
         ctx,
         args.templateId,
-        criterionExternalId
+        criterionExternalId,
+        { rollupOnComplete: true }
       )
       // aggregate rows just vanished -> re-fold whatever remains into the card
-      await rollupTemplateRankingCount(ctx, args.templateId)
+      if (parentsDone)
+      {
+        await rollupTemplateRankingCount(ctx, args.templateId)
+      }
     }
     return { isDone: page.isDone }
+  },
+})
+
+export const deleteTemplateRankingAggregateParentRowBatch = internalMutation({
+  args: {
+    templateId: v.id('templates'),
+    criterionExternalId: v.optional(v.string()),
+    phase: v.union(v.literal('aggregates'), v.literal('jobs')),
+    cursor: v.union(v.string(), v.null()),
+    rollupOnComplete: v.boolean(),
+  },
+  returns: v.object({ isDone: v.boolean() }),
+  handler: async (ctx, args): Promise<{ isDone: boolean }> =>
+  {
+    const isDone = await deleteTemplateRankingAggregateParentRowsPage(ctx, args)
+    if (isDone && args.rollupOnComplete)
+    {
+      await rollupTemplateRankingCount(ctx, args.templateId)
+    }
+    return { isDone }
   },
 })

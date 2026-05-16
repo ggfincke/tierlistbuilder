@@ -206,6 +206,32 @@ describe('upsertBoardState', () =>
     expect(boards[0]).not.toHaveProperty('status')
   })
 
+  it('rejects multi-board state pulls so each query stays within read budget', async () =>
+  {
+    const t = convexTest({ schema, modules, transactionLimits: true })
+    const userId = await seedUser(t)
+    const caller = asUser(t, userId)
+
+    for (const boardExternalId of ['board-pull-a', 'board-pull-b'])
+    {
+      await caller.mutation(
+        api.workspace.boards.upsertBoardState.upsertBoardState,
+        {
+          boardExternalId,
+          baseRevision: null,
+          ...makeBoardPayload({ tierCount: 1, itemCount: 1 }),
+        }
+      )
+    }
+
+    await expectConvexCode(
+      caller.query(api.workspace.boards.queries.getBoardStatesByExternalIds, {
+        boardExternalIds: ['board-pull-a', 'board-pull-b'],
+      }),
+      CONVEX_ERROR_CODES.invalidInput
+    )
+  })
+
   it('enforces standard and large cloud item limits by plan', async () =>
   {
     const t = convexTest({ schema, modules, transactionLimits: true })

@@ -127,3 +127,12 @@ export const toastWithAction = (
 {
   useToastStore.getState().addToast(message, type, action)
 }
+
+import.meta.hot?.dispose(() =>
+{
+  for (const id of [...dismissalTimers.keys()])
+  {
+    clearDismissalTimer(id)
+  }
+  dismissalTimers.clear()
+})

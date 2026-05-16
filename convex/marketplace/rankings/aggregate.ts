@@ -4,7 +4,7 @@
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
-import { MAX_SYNC_TIERS } from '../../lib/limits'
+import { BATCH_LIMITS, MAX_SYNC_TIERS } from '../../lib/limits'
 import {
   DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
   MAX_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
@@ -411,59 +411,129 @@ export const queueTemplateRankingAggregateRecomputesForActiveCriteria = async (
   return activeCriteria.length
 }
 
+type AggregateParentCleanupPhase = 'aggregates' | 'jobs'
+
+export interface DeleteTemplateRankingAggregateParentRowsPageArgs
+{
+  templateId: Id<'templates'>
+  criterionExternalId?: string
+  phase: AggregateParentCleanupPhase
+  cursor: string | null
+  rollupOnComplete: boolean
+}
+
+interface DeleteTemplateRankingAggregateParentRowsOptions
+{
+  rollupOnComplete?: boolean
+}
+
+const scheduleTemplateRankingAggregateParentCleanup = async (
+  ctx: MutationCtx,
+  args: DeleteTemplateRankingAggregateParentRowsPageArgs,
+  cursor: string
+): Promise<void> =>
+{
+  await ctx.scheduler.runAfter(
+    0,
+    internal.marketplace.rankings.aggregateInternal
+      .deleteTemplateRankingAggregateParentRowBatch,
+    {
+      templateId: args.templateId,
+      ...(args.criterionExternalId === undefined
+        ? {}
+        : { criterionExternalId: args.criterionExternalId }),
+      phase: args.phase,
+      cursor,
+      rollupOnComplete: args.rollupOnComplete,
+    }
+  )
+}
+
+export const deleteTemplateRankingAggregateParentRowsPage = async (
+  ctx: MutationCtx,
+  args: DeleteTemplateRankingAggregateParentRowsPageArgs
+): Promise<boolean> =>
+{
+  const criterionExternalId = args.criterionExternalId
+  const page =
+    args.phase === 'aggregates'
+      ? criterionExternalId === undefined
+        ? await ctx.db
+            .query('templateRankingAggregates')
+            .withIndex('byTemplateId', (q) =>
+              q.eq('templateId', args.templateId)
+            )
+            .paginate({
+              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+              cursor: args.cursor,
+            })
+        : await ctx.db
+            .query('templateRankingAggregates')
+            .withIndex('byTemplateIdAndCriterion', (q) =>
+              q
+                .eq('templateId', args.templateId)
+                .eq('criterionExternalId', criterionExternalId)
+            )
+            .paginate({
+              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+              cursor: args.cursor,
+            })
+      : criterionExternalId === undefined
+        ? await ctx.db
+            .query('templateRankingAggregateJobs')
+            .withIndex('byTemplateId', (q) =>
+              q.eq('templateId', args.templateId)
+            )
+            .paginate({
+              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+              cursor: args.cursor,
+            })
+        : await ctx.db
+            .query('templateRankingAggregateJobs')
+            .withIndex('byTemplateIdAndCriterion', (q) =>
+              q
+                .eq('templateId', args.templateId)
+                .eq('criterionExternalId', criterionExternalId)
+            )
+            .paginate({
+              numItems: BATCH_LIMITS.templateRankingAggregateCleanup,
+              cursor: args.cursor,
+            })
+
+  await Promise.all(page.page.map((row) => ctx.db.delete(row._id)))
+  if (!page.isDone)
+  {
+    await scheduleTemplateRankingAggregateParentCleanup(
+      ctx,
+      args,
+      page.continueCursor
+    )
+    return false
+  }
+  if (args.phase === 'aggregates')
+  {
+    return await deleteTemplateRankingAggregateParentRowsPage(ctx, {
+      ...args,
+      phase: 'jobs',
+      cursor: null,
+    })
+  }
+  return true
+}
+
 export const deleteTemplateRankingAggregateParentRows = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
-  criterionExternalId?: string
-): Promise<void> =>
-{
-  const deleteBatch: Promise<void>[] = []
-  const queueDelete = async (
-    id: Id<'templateRankingAggregates'> | Id<'templateRankingAggregateJobs'>
-  ) =>
-  {
-    deleteBatch.push(ctx.db.delete(id))
-    if (deleteBatch.length >= 16)
-    {
-      await Promise.all(deleteBatch)
-      deleteBatch.length = 0
-    }
-  }
-  const aggregates =
-    criterionExternalId === undefined
-      ? ctx.db
-          .query('templateRankingAggregates')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-      : ctx.db
-          .query('templateRankingAggregates')
-          .withIndex('byTemplateIdAndCriterion', (q) =>
-            q
-              .eq('templateId', templateId)
-              .eq('criterionExternalId', criterionExternalId)
-          )
-  for await (const aggregate of aggregates)
-  {
-    await queueDelete(aggregate._id)
-  }
-
-  const jobs =
-    criterionExternalId === undefined
-      ? ctx.db
-          .query('templateRankingAggregateJobs')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-      : ctx.db
-          .query('templateRankingAggregateJobs')
-          .withIndex('byTemplateIdAndCriterion', (q) =>
-            q
-              .eq('templateId', templateId)
-              .eq('criterionExternalId', criterionExternalId)
-          )
-  for await (const job of jobs)
-  {
-    await queueDelete(job._id)
-  }
-  await Promise.all(deleteBatch)
-}
+  criterionExternalId?: string,
+  options: DeleteTemplateRankingAggregateParentRowsOptions = {}
+): Promise<boolean> =>
+  await deleteTemplateRankingAggregateParentRowsPage(ctx, {
+    templateId,
+    ...(criterionExternalId === undefined ? {} : { criterionExternalId }),
+    phase: 'aggregates',
+    cursor: null,
+    rollupOnComplete: options.rollupOnComplete ?? false,
+  })
 
 // generous bound — a template caps at 8 active criteria, plus a margin for
 // stale aggregate rows left by criterion edits. keeps the rollup read bounded

@@ -328,8 +328,8 @@ def _apply_ranking_targets(
         chunks,
         _apply_one,
         max_workers=min(RANKING_APPLY_WORKERS, len(chunks)),
-        on_complete=lambda index, total, chunk: context.progress.log(
-            f"ranking target {index + 1}/{total}: {_label(chunk)}"
+        on_complete=lambda completed, total, chunk: context.progress.log(
+            f"ranking target {completed}/{total}: {_label(chunk)}"
         ),
     )
     merged = _merge_apply_results(context, results, author_result)
@@ -354,7 +354,7 @@ def _run_in_parallel(
         for index, item in enumerate(items):
             results.append(worker(item))
             if on_complete is not None:
-                on_complete(index, len(items), item)
+                on_complete(index + 1, len(items), item)
         return results
     results = [None] * len(items)  # type: ignore[assignment]
     completed = 0
@@ -365,9 +365,9 @@ def _run_in_parallel(
         for future in as_completed(future_to_index):
             index = future_to_index[future]
             results[index] = future.result()
+            completed += 1
             if on_complete is not None:
                 on_complete(completed, len(items), items[index])
-            completed += 1
     return results  # type: ignore[return-value]
 
 

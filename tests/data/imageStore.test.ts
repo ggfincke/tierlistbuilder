@@ -1,8 +1,9 @@
 // tests/data/imageStore.test.ts
 // persistent image-store GC planning
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
+  disposeImageStore,
   getBlobsBatch,
   getUploadStatusBatch,
   markUploaded,
@@ -12,6 +13,11 @@ import {
 
 describe('imageStore GC planning', () =>
 {
+  afterEach(() =>
+  {
+    disposeImageStore()
+  })
+
   it('keeps referenced blobs and unreferenced blobs inside the grace window', () =>
   {
     const now = 10_000
@@ -60,5 +66,23 @@ describe('imageStore GC planning', () =>
 
     expect(statuses.get('memory-upload')).toBe('media-1')
     expect(statuses.get('missing-upload')).toBeNull()
+  })
+
+  it('clears memory fallbacks on image-store dispose', async () =>
+  {
+    await putBlobs([
+      {
+        hash: 'dispose-memory',
+        mimeType: 'image/png',
+        byteSize: 4,
+        createdAt: 1_000,
+        bytes: new Blob(['data'], { type: 'image/png' }),
+      },
+    ])
+
+    disposeImageStore()
+
+    const blobs = await getBlobsBatch(['dispose-memory'])
+    expect(blobs.get('dispose-memory')).toBeNull()
   })
 })

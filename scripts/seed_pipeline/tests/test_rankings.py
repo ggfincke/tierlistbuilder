@@ -15,6 +15,7 @@ from seed_pipeline.rankings import (
     SEED_RANKINGS_CLEANUP_STALE_FUNCTION,
     _apply_ranking_targets,
     _ranking_seed_target_manifests,
+    _run_in_parallel,
     _run_ranking_lifecycle_until_complete,
 )
 
@@ -370,6 +371,30 @@ class RankingSeedCompilationTests(unittest.TestCase):
         self.assertTrue(
             any("throttled by write-rate limit" in msg for msg in context.progress.messages)
         )
+
+    def test_run_in_parallel_reports_one_based_completion_counts(self) -> None:
+        callbacks: list[tuple[int, int, str]] = []
+        items = [{"id": "a"}, {"id": "b"}, {"id": "c"}]
+
+        results = _run_in_parallel(
+            items,
+            lambda item: {"id": item["id"], "done": True},
+            max_workers=2,
+            on_complete=lambda completed, total, item: callbacks.append(
+                (completed, total, str(item["id"]))
+            ),
+        )
+
+        self.assertEqual(
+            results,
+            [
+                {"id": "a", "done": True},
+                {"id": "b", "done": True},
+                {"id": "c", "done": True},
+            ],
+        )
+        self.assertEqual([completed for completed, _, _ in callbacks], [1, 2, 3])
+        self.assertEqual({total for _, total, _ in callbacks}, {3})
 
 
 def _manifest(overrides: dict[str, object]) -> dict[str, object]:

@@ -37,7 +37,9 @@ import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 
 const MAX_BOARDS_PER_USER = 200
 const MAX_DELETED_BOARDS_PER_USER = 200
-const MAX_BOARD_STATE_BATCH = 3
+// A single board pull can read thousands of item/tier/reference rows, so keep
+// the public batch at one board per query & let the client parallelize calls.
+const MAX_BOARD_STATE_BATCH = 1
 const DEFAULT_LIBRARY_PALETTE_ID: PaletteId = 'classic'
 const DEFAULT_LIBRARY_CATEGORY: TemplateCategory = 'other'
 
