@@ -1842,6 +1842,178 @@ describe('marketplace template Convex functions', () =>
     }
   })
 
+  it('wipes template and forked-board children in bounded batches', async () =>
+  {
+    const t = makeTest()
+    const authorId = await seedUser(
+      t,
+      'Seed Wipe Author',
+      'seed-wipe-author@example.com'
+    )
+    const seeded = await t.run(async (ctx) =>
+    {
+      const now = 1_700_000_000_000
+      const templateId = await seedPublishedTemplate(ctx, {
+        authorId,
+        slug: 'seed-wipe-template',
+        title: 'Seed Wipe Template',
+        itemCount: 260,
+        sizeClass: 'large',
+        now,
+      })
+      await Promise.all([
+        ...Array.from(
+          { length: 260 },
+          async (_, index) =>
+            await ctx.db.insert('templateItems', {
+              templateId,
+              externalId: `seed-wipe-item-${index}`,
+              label: `Seed Wipe Item ${index}`,
+              backgroundColor: null,
+              altText: null,
+              mediaAssetId: null,
+              order: index,
+              aspectRatio: null,
+              imageFit: null,
+              transform: null,
+            })
+        ),
+        ...Array.from(
+          { length: 260 },
+          async (_, index) =>
+            await ctx.db.insert('templateTags', {
+              templateId,
+              tag: `tag-${index}`,
+              category: 'gaming',
+              isPubliclyListable: true,
+              updatedAt: now,
+            })
+        ),
+      ])
+
+      const forkedBoardId = await seedCloudBoard(ctx, {
+        ownerId: authorId,
+        externalId: 'board-seed-wipe-fork',
+        title: 'Seed Wipe Fork',
+        sourceTemplateId: templateId,
+        sourceTemplateCategory: 'gaming',
+        sourceTemplateSizeClass: 'large',
+        activeItemCount: 260,
+        unrankedItemCount: 0,
+        templateProgressState: 'complete',
+        now,
+      })
+      const tierId = await ctx.db.insert('boardTiers', {
+        boardId: forkedBoardId,
+        externalId: 'tier-seed-wipe',
+        name: 'Seed Wipe Tier',
+        colorSpec: { kind: 'palette', index: 0 },
+        order: 0,
+      })
+      await Promise.all(
+        Array.from(
+          { length: 260 },
+          async (_, index) =>
+            await ctx.db.insert('boardItems', {
+              boardId: forkedBoardId,
+              tierId,
+              externalId: `board-seed-wipe-item-${index}`,
+              label: `Board Seed Wipe Item ${index}`,
+              mediaAssetId: null,
+              order: index,
+              deletedAt: null,
+            })
+        )
+      )
+      const keptBoardIds = await Promise.all(
+        Array.from(
+          { length: 3 },
+          async (_, index) =>
+            await seedCloudBoard(ctx, {
+              ownerId: authorId,
+              externalId: `board-plain-${index}`,
+              title: `Plain Board ${index}`,
+              now,
+            })
+        )
+      )
+      await ctx.db.insert('marketplaceStats', {
+        key: 'templates',
+        publicTemplateCount: 1,
+        updatedAt: now,
+      })
+
+      return { templateId, forkedBoardId, keptBoardIds }
+    })
+
+    await expect(
+      withSeedActionsEnabled(() =>
+        t.action(api.marketplace.templates.seed.wipeSeededDataBatch, {
+          seedSecret: SEED_SECRET,
+        })
+      )
+    ).resolves.toEqual({
+      templatesDeleted: 1,
+      itemsDeleted: 260,
+      tagsDeleted: 260,
+      cardsDeleted: 1,
+      statsDeleted: 1,
+      boardsDeleted: 1,
+      boardItemsDeleted: 260,
+      boardTiersDeleted: 1,
+      marketplaceStatsCleared: true,
+    })
+
+    const remaining = await t.run(async (ctx) => ({
+      template: await ctx.db.get(seeded.templateId),
+      templateItems: await ctx.db
+        .query('templateItems')
+        .withIndex('byTemplate', (q) => q.eq('templateId', seeded.templateId))
+        .take(1),
+      templateTags: await ctx.db
+        .query('templateTags')
+        .withIndex('byTemplate', (q) => q.eq('templateId', seeded.templateId))
+        .take(1),
+      templateCard: await ctx.db
+        .query('templateCards')
+        .withIndex('byTemplateId', (q) => q.eq('templateId', seeded.templateId))
+        .unique(),
+      templateStats: await ctx.db
+        .query('templateStats')
+        .withIndex('byTemplateId', (q) => q.eq('templateId', seeded.templateId))
+        .unique(),
+      forkedBoard: await ctx.db.get(seeded.forkedBoardId),
+      forkedBoardItems: await ctx.db
+        .query('boardItems')
+        .withIndex('byBoardAndTier', (q) =>
+          q.eq('boardId', seeded.forkedBoardId)
+        )
+        .take(1),
+      forkedBoardTiers: await ctx.db
+        .query('boardTiers')
+        .withIndex('byBoard', (q) => q.eq('boardId', seeded.forkedBoardId))
+        .take(1),
+      marketplaceStats: await ctx.db
+        .query('marketplaceStats')
+        .withIndex('byKey', (q) => q.eq('key', 'templates'))
+        .unique(),
+      keptBoards: await Promise.all(
+        seeded.keptBoardIds.map(async (boardId) => await ctx.db.get(boardId))
+      ),
+    }))
+
+    expect(remaining.template).toBeNull()
+    expect(remaining.templateItems).toEqual([])
+    expect(remaining.templateTags).toEqual([])
+    expect(remaining.templateCard).toBeNull()
+    expect(remaining.templateStats).toBeNull()
+    expect(remaining.forkedBoard).toBeNull()
+    expect(remaining.forkedBoardItems).toEqual([])
+    expect(remaining.forkedBoardTiers).toEqual([])
+    expect(remaining.marketplaceStats).toBeNull()
+    expect(remaining.keptBoards.every(Boolean)).toBe(true)
+  })
+
   it('backfills legacy useCount rows before forkCount arithmetic reads them', async () =>
   {
     const t = makeTest()

@@ -15,6 +15,7 @@ import {
 import {
   findTemplateBySlug,
   incrementTemplateForkStats,
+  loadTemplateItems,
 } from '../../marketplace/templates/lib'
 import { findActiveTemplateCriterion } from '../../marketplace/templates/criteria'
 import {
@@ -28,7 +29,7 @@ import type {
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { requireCurrentUserId } from '../../lib/auth'
 import { validateHexColor } from '../../lib/hexColor'
-import { failInput } from '../../lib/text'
+import { assertStringLength, failInput } from '../../lib/text'
 import {
   boardLabelSettingsValidator,
   itemLabelOptionsValidator,
@@ -227,18 +228,19 @@ const validateInputs = (args: UpsertArgs): void =>
     {
       failInput('invalid tierExternalId: must start with "tier-"')
     }
-    if (tier.name.length > MAX_TIER_NAME_LEN)
-    {
-      failInput(
-        `tier name too long: ${tier.name.length} exceeds ${MAX_TIER_NAME_LEN}`
-      )
-    }
-    if ((tier.description?.length ?? 0) > MAX_TIER_DESCRIPTION_LEN)
-    {
-      failInput(
-        `tier description too long: exceeds ${MAX_TIER_DESCRIPTION_LEN}`
-      )
-    }
+    assertStringLength(
+      'tier name',
+      tier.name,
+      MAX_TIER_NAME_LEN,
+      ({ length, maxLength }) =>
+        `tier name too long: ${length} exceeds ${maxLength}`
+    )
+    assertStringLength(
+      'tier description',
+      tier.description,
+      MAX_TIER_DESCRIPTION_LEN,
+      ({ maxLength }) => `tier description too long: exceeds ${maxLength}`
+    )
     if (tier.colorSpec.kind === 'custom')
     {
       validateHexColor(tier.colorSpec.hex, 'tier.colorSpec.hex')
@@ -255,24 +257,31 @@ const validateInputs = (args: UpsertArgs): void =>
     {
       failInput('invalid itemExternalId: length must be 1..128')
     }
-    if ((item.label?.length ?? 0) > MAX_LABEL_LEN)
-    {
-      failInput(`item label too long: exceeds ${MAX_LABEL_LEN} chars`)
-    }
-    if ((item.altText?.length ?? 0) > MAX_ALT_LEN)
-    {
-      failInput(`item altText too long: exceeds ${MAX_ALT_LEN} chars`)
-    }
-    if ((item.notes?.length ?? 0) > MAX_NOTES_LEN)
-    {
-      failInput(`item notes too long: exceeds ${MAX_NOTES_LEN} chars`)
-    }
-    if ((item.backgroundColor?.length ?? 0) > MAX_BACKGROUND_COLOR_LEN)
-    {
-      failInput(
-        `item backgroundColor too long: exceeds ${MAX_BACKGROUND_COLOR_LEN} chars`
-      )
-    }
+    assertStringLength(
+      'item label',
+      item.label,
+      MAX_LABEL_LEN,
+      ({ maxLength }) => `item label too long: exceeds ${maxLength} chars`
+    )
+    assertStringLength(
+      'item altText',
+      item.altText,
+      MAX_ALT_LEN,
+      ({ maxLength }) => `item altText too long: exceeds ${maxLength} chars`
+    )
+    assertStringLength(
+      'item notes',
+      item.notes,
+      MAX_NOTES_LEN,
+      ({ maxLength }) => `item notes too long: exceeds ${maxLength} chars`
+    )
+    assertStringLength(
+      'item backgroundColor',
+      item.backgroundColor,
+      MAX_BACKGROUND_COLOR_LEN,
+      ({ maxLength }) =>
+        `item backgroundColor too long: exceeds ${maxLength} chars`
+    )
     if (item.backgroundColor)
     {
       validateHexColor(item.backgroundColor, 'item.backgroundColor')
@@ -653,23 +662,12 @@ const resolveSourceTemplateItemIds = async (
   ]
   if (externalIds.length === 0) return new Map()
 
-  const entries = await Promise.all(
-    externalIds.map(async (externalId) =>
-    {
-      const templateItem = await ctx.db
-        .query('templateItems')
-        .withIndex('byTemplateAndExternalId', (q) =>
-          q.eq('templateId', sourceTemplateId).eq('externalId', externalId)
-        )
-        .unique()
-      return templateItem ? ([externalId, templateItem._id] as const) : null
-    })
-  )
-
+  const requestedExternalIds = new Set(externalIds)
+  const templateItems = await loadTemplateItems(ctx, sourceTemplateId)
   return new Map(
-    entries.filter(
-      (entry): entry is readonly [string, Id<'templateItems'>] => entry !== null
-    )
+    templateItems
+      .filter((item) => requestedExternalIds.has(item.externalId))
+      .map((item) => [item.externalId, item._id])
   )
 }
 

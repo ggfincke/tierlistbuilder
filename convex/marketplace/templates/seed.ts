@@ -11,6 +11,7 @@ import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
+import { BATCH_LIMITS } from '../../lib/limits'
 import { templateCriteriaValidator } from '../../lib/validators'
 import {
   findTemplateCardByTemplateId,
@@ -752,8 +753,7 @@ export const startTemplateForkCountBackfill = action({
 // dev-only — paginated batch wipe of seeded marketplace data. keep batches
 // below the 4096-read txn cap; action loops phases & skips identity/auth
 // tables
-const WIPE_BATCH_TEMPLATES = 20
-const WIPE_BATCH_BOARDS = 20
+const WIPE_CHILD_ROW_BATCH = BATCH_LIMITS.cascadeDelete
 
 const wipePhaseValidator = v.union(
   v.literal('templates'),
@@ -761,6 +761,19 @@ const wipePhaseValidator = v.union(
   v.literal('marketplaceStats')
 )
 type WipePhase = Infer<typeof wipePhaseValidator>
+
+const emptyWipeMutationResult = (isDone: boolean) => ({
+  isDone,
+  templatesDeleted: 0,
+  itemsDeleted: 0,
+  tagsDeleted: 0,
+  cardsDeleted: 0,
+  statsDeleted: 0,
+  boardsDeleted: 0,
+  boardItemsDeleted: 0,
+  boardTiersDeleted: 0,
+  marketplaceStatsCleared: false,
+})
 
 export const wipeSeededDataBatchImpl = internalMutation({
   args: { phase: wipePhaseValidator },
@@ -780,95 +793,90 @@ export const wipeSeededDataBatchImpl = internalMutation({
   {
     if (args.phase === 'templates')
     {
-      const templates = await ctx.db
-        .query('templates')
-        .take(WIPE_BATCH_TEMPLATES)
-      const counts = await Promise.all(
-        templates.map(async (template) =>
-        {
-          const [items, tags, card, stats] = await Promise.all([
-            ctx.db
-              .query('templateItems')
-              .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-              .collect(),
-            ctx.db
-              .query('templateTags')
-              .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
-              .collect(),
-            findTemplateCardByTemplateId(ctx, template._id),
-            findTemplateStatsByTemplateId(ctx, template._id),
-          ])
-          await Promise.all([
-            ...items.map((row) => ctx.db.delete(row._id)),
-            ...tags.map((row) => ctx.db.delete(row._id)),
-            card ? ctx.db.delete(card._id) : Promise.resolve(),
-            stats ? ctx.db.delete(stats._id) : Promise.resolve(),
-          ])
-          await ctx.db.delete(template._id)
-          return {
-            items: items.length,
-            tags: tags.length,
-            cards: card ? 1 : 0,
-            stats: stats ? 1 : 0,
-          }
-        })
-      )
+      const template = await ctx.db.query('templates').first()
+      if (!template) return emptyWipeMutationResult(true)
+
+      const items = await ctx.db
+        .query('templateItems')
+        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+        .take(WIPE_CHILD_ROW_BATCH)
+      if (items.length > 0)
+      {
+        await Promise.all(items.map((row) => ctx.db.delete(row._id)))
+        return {
+          ...emptyWipeMutationResult(false),
+          itemsDeleted: items.length,
+        }
+      }
+
+      const tags = await ctx.db
+        .query('templateTags')
+        .withIndex('byTemplate', (q) => q.eq('templateId', template._id))
+        .take(WIPE_CHILD_ROW_BATCH)
+      if (tags.length > 0)
+      {
+        await Promise.all(tags.map((row) => ctx.db.delete(row._id)))
+        return {
+          ...emptyWipeMutationResult(false),
+          tagsDeleted: tags.length,
+        }
+      }
+
+      const [card, stats] = await Promise.all([
+        findTemplateCardByTemplateId(ctx, template._id),
+        findTemplateStatsByTemplateId(ctx, template._id),
+      ])
+      await Promise.all([
+        card ? ctx.db.delete(card._id) : Promise.resolve(),
+        stats ? ctx.db.delete(stats._id) : Promise.resolve(),
+      ])
+      await ctx.db.delete(template._id)
       return {
-        isDone: templates.length < WIPE_BATCH_TEMPLATES,
-        templatesDeleted: templates.length,
-        itemsDeleted: counts.reduce((sum, c) => sum + c.items, 0),
-        tagsDeleted: counts.reduce((sum, c) => sum + c.tags, 0),
-        cardsDeleted: counts.reduce((sum, c) => sum + c.cards, 0),
-        statsDeleted: counts.reduce((sum, c) => sum + c.stats, 0),
-        boardsDeleted: 0,
-        boardItemsDeleted: 0,
-        boardTiersDeleted: 0,
-        marketplaceStatsCleared: false,
+        ...emptyWipeMutationResult(false),
+        templatesDeleted: 1,
+        cardsDeleted: card ? 1 : 0,
+        statsDeleted: stats ? 1 : 0,
       }
     }
 
     if (args.phase === 'forkedBoards')
     {
-      // bySourceTemplate index orders nullable id; non-null entries land in a
-      // contiguous range. paginate the index, drop nulls per page, & stop
-      // once a page returns fewer than the batch size
-      const page = await ctx.db
+      const board = await ctx.db
         .query('boards')
-        .withIndex('bySourceTemplate')
-        .take(WIPE_BATCH_BOARDS)
-      const forked = page.filter((board) => board.sourceTemplateId !== null)
-      const counts = await Promise.all(
-        forked.map(async (board) =>
-        {
-          const [items, tiers] = await Promise.all([
-            ctx.db
-              .query('boardItems')
-              .withIndex('byBoardAndTier', (q) => q.eq('boardId', board._id))
-              .collect(),
-            ctx.db
-              .query('boardTiers')
-              .withIndex('byBoard', (q) => q.eq('boardId', board._id))
-              .collect(),
-          ])
-          await Promise.all([
-            ...items.map((row) => ctx.db.delete(row._id)),
-            ...tiers.map((row) => ctx.db.delete(row._id)),
-          ])
-          await ctx.db.delete(board._id)
-          return { items: items.length, tiers: tiers.length }
-        })
-      )
+        .withIndex('bySourceTemplate', (q) => q.gt('sourceTemplateId', null))
+        .first()
+      if (!board) return emptyWipeMutationResult(true)
+
+      const items = await ctx.db
+        .query('boardItems')
+        .withIndex('byBoardAndTier', (q) => q.eq('boardId', board._id))
+        .take(WIPE_CHILD_ROW_BATCH)
+      if (items.length > 0)
+      {
+        await Promise.all(items.map((row) => ctx.db.delete(row._id)))
+        return {
+          ...emptyWipeMutationResult(false),
+          boardItemsDeleted: items.length,
+        }
+      }
+
+      const tiers = await ctx.db
+        .query('boardTiers')
+        .withIndex('byBoard', (q) => q.eq('boardId', board._id))
+        .take(WIPE_CHILD_ROW_BATCH)
+      if (tiers.length > 0)
+      {
+        await Promise.all(tiers.map((row) => ctx.db.delete(row._id)))
+        return {
+          ...emptyWipeMutationResult(false),
+          boardTiersDeleted: tiers.length,
+        }
+      }
+
+      await ctx.db.delete(board._id)
       return {
-        isDone: page.length < WIPE_BATCH_BOARDS,
-        templatesDeleted: 0,
-        itemsDeleted: 0,
-        tagsDeleted: 0,
-        cardsDeleted: 0,
-        statsDeleted: 0,
-        boardsDeleted: forked.length,
-        boardItemsDeleted: counts.reduce((sum, c) => sum + c.items, 0),
-        boardTiersDeleted: counts.reduce((sum, c) => sum + c.tiers, 0),
-        marketplaceStatsCleared: false,
+        ...emptyWipeMutationResult(false),
+        boardsDeleted: 1,
       }
     }
 
