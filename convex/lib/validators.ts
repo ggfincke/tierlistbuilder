@@ -349,7 +349,7 @@ export const appPreferencesValidator = v.object({
   boardLocked: v.boolean(),
   reducedMotion: v.boolean(),
   toolbarPosition: toolbarPositionValidator,
-  showAltTextButton: v.boolean(),
+  showItemEditButton: v.boolean(),
   autoCropTrimSoftShadows: v.boolean(),
 })
 

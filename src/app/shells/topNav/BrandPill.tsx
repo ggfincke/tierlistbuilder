@@ -1,6 +1,5 @@
 // src/app/shells/topNav/BrandPill.tsx
-// Scoreboard brand wordmark — "tier/list." w/ slash & trailing period in
-// --t-accent. Replaces the previous outlined BrandCapsule.
+// Scoreboard brand wordmark — "tier/list." w/ slash & trailing period in --t-accent
 
 import { Link } from 'react-router-dom'
 

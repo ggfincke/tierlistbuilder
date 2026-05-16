@@ -5,4 +5,4 @@
 export const PREFERENCES_STORAGE_KEY = 'tier-list-builder-preferences'
 
 // pre-1.0 storage changes reset mismatched preferences
-export const PREFERENCES_STORAGE_VERSION = 4
+export const PREFERENCES_STORAGE_VERSION = 5

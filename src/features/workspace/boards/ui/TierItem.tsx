@@ -73,7 +73,7 @@ export const TierItem = memo(
       defaultLabelPlacementMode,
       defaultLabelFontSizePx,
       boardLocked,
-      showAltTextButton,
+      showItemEditButton,
     } = usePreferencesStore(
       useShallow((state) => ({
         itemShape: state.itemShape,
@@ -81,7 +81,7 @@ export const TierItem = memo(
         defaultLabelPlacementMode: state.defaultLabelPlacementMode,
         defaultLabelFontSizePx: state.defaultLabelFontSizePx,
         boardLocked: state.boardLocked,
-        showAltTextButton: state.showAltTextButton,
+        showItemEditButton: state.showItemEditButton,
       }))
     )
 
@@ -414,7 +414,7 @@ export const TierItem = memo(
 
           {/* item edit — bottom-left corner; opens the single-item editor.
             hover-reveal on desktop, persistent on touch (Phase 4 idiom) */}
-          {!boardLocked && showAltTextButton && (
+          {!boardLocked && showItemEditButton && (
             <ItemOverlayButton
               ref={editButtonRef}
               aria-label="Edit item"

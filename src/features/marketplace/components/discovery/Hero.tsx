@@ -11,6 +11,10 @@ import { formatCount } from '~/shared/catalog/formatters'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMeta'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import {
+  CHUNKY_SHADOW_ACCENT_GROUP,
+  CHUNKY_SHADOW_TRANSITION,
+} from '~/shared/ui/chunkyShadow'
 import { Cover, type CoverStyle } from '../cover/Cover'
 
 interface HeroProps
@@ -66,7 +70,7 @@ export const Hero = ({ template, coverStyle = 'auto' }: HeroProps) => (
         </div>
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-md bg-[var(--t-accent)] px-4 py-2 text-[13px] font-semibold text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)] transition-[transform,box-shadow] duration-100 group-hover:-translate-x-px group-hover:-translate-y-px group-hover:shadow-[3px_3px_0_var(--t-accent-2)]">
+          <span className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md bg-[var(--t-accent)] px-4 py-2 text-[13px] font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_TRANSITION} ${CHUNKY_SHADOW_ACCENT_GROUP}`}>
             View template
             <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
           </span>

@@ -116,21 +116,14 @@ export const useToastStore = create<ToastStore>((set) => ({
 export const toast = (message: string, type?: Toast['type']): void =>
   useToastStore.getState().addToast(message, type)
 
-// extension of `toast` carrying an inline action button. dismisses the toast
-// before invoking `onClick` so any UI the action surfaces (eg the sign-in
-// modal) isn't covered by the toast stack
+// extension of `toast` carrying an inline action button. ToastContainer
+// dismisses the toast before invoking `action.onClick` so any UI the action
+// surfaces (eg the sign-in modal) isn't covered by the toast stack
 export const toastWithAction = (
   message: string,
   action: ToastAction,
   type: Toast['type'] = 'info'
 ): void =>
 {
-  const wrappedAction: ToastAction = {
-    label: action.label,
-    onClick: () =>
-    {
-      action.onClick()
-    },
-  }
-  useToastStore.getState().addToast(message, type, wrappedAction)
+  useToastStore.getState().addToast(message, type, action)
 }

@@ -718,6 +718,7 @@ export const startTemplateForkCountBackfill = action({
   returns: v.object({
     stats: v.object({ processed: v.number(), isDone: v.boolean() }),
     cards: v.object({ processed: v.number(), isDone: v.boolean() }),
+    metricDays: v.object({ processed: v.number(), isDone: v.boolean() }),
   }),
   handler: async (
     ctx,
@@ -725,10 +726,11 @@ export const startTemplateForkCountBackfill = action({
   ): Promise<{
     stats: { processed: number; isDone: boolean }
     cards: { processed: number; isDone: boolean }
+    metricDays: { processed: number; isDone: boolean }
   }> =>
   {
     requireSeedAuthorized(args.seedSecret)
-    const [stats, cards] = await Promise.all([
+    const [stats, cards, metricDays] = await Promise.all([
       ctx.runMutation(
         internal.marketplace.templates.internal.backfillTemplateStatsForkCount,
         { cursor: null }
@@ -737,8 +739,13 @@ export const startTemplateForkCountBackfill = action({
         internal.marketplace.templates.internal.backfillTemplateCardForkCount,
         { cursor: null }
       ),
+      ctx.runMutation(
+        internal.marketplace.templates.internal
+          .backfillTemplateMetricDayForkCount,
+        { cursor: null }
+      ),
     ])
-    return { stats, cards }
+    return { stats, cards, metricDays }
   },
 })
 

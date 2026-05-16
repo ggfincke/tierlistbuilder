@@ -75,10 +75,8 @@ export interface AppPreferences
   boardLocked: boolean
   reducedMotion: boolean
   toolbarPosition: ToolbarPosition
-  // historical field name from when this only toggled the alt-text popover;
-  // since PR 5 it gates the full item-edit pencil overlay. Renaming is a
-  // Convex migration we'd rather defer; user-facing copy says "Edit Button"
-  showAltTextButton: boolean
+  // gates the item-edit pencil overlay shown on each tier item
+  showItemEditButton: boolean
   autoCropTrimSoftShadows: boolean
 }
 

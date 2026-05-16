@@ -163,6 +163,9 @@ export const ensureSeedAuthor = internalAction({
     )
     if (existing.accountExists)
     {
+      // re-assert the seed-author password so a rotated seedAuthorPassword env
+      // var produces a working account w/o manual reset. seeds are
+      // idempotent & the secret only ever comes from server-side env
       await modifyAccountCredentials(ctx, {
         provider: 'password',
         account: { id: args.email, secret: args.password },

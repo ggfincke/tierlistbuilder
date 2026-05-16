@@ -57,13 +57,14 @@ export const ImageEditorMetadataPanel = ({
   const [altDraft, setAltDraft] = useState(altText ?? '')
   const [notesDraft, setNotesDraft] = useState(notes ?? '')
 
-  // reset drafts when the active item changes — single-mode usually opens
-  // w/ one item, but the rail-less path still allows a rare item swap
+  // reset drafts only on item swap; upstream altText/notes intentionally
+  // excluded so a store update mid-keystroke doesn't clobber in-flight typing
   useEffect(() =>
   {
     setAltDraft(altText ?? '')
     setNotesDraft(notes ?? '')
-  }, [itemId, altText, notes])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId])
 
   const altDraftRef = useRef(altDraft)
   const notesDraftRef = useRef(notesDraft)

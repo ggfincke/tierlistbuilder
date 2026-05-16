@@ -165,7 +165,12 @@ export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
 
 // cache projected rows by meta reference so a single rename only re-parses
 // one board's localStorage instead of all N — zustand keeps untouched meta
-// objects referentially stable, & WeakMap lets GC reclaim removed entries
+// objects referentially stable, & WeakMap lets GC reclaim removed entries.
+
+// staleness: cached rows hold item counts & cover items derived from the
+// snapshot at projection time. Editing in the workspace mutates the snapshot
+// w/o replacing meta, so signed-out library counts stay stale until remount
+
 const rowProjectionCache = new WeakMap<BoardMeta, LibraryBoardListItem>()
 
 const projectLocalRowCached = (meta: BoardMeta): LibraryBoardListItem =>

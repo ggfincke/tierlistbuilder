@@ -6,6 +6,10 @@ import { Link } from 'react-router-dom'
 
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import {
+  CHUNKY_SHADOW_ACCENT,
+  CHUNKY_SHADOW_TRANSITION,
+} from '~/shared/ui/chunkyShadow'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 
 export const RankingsIndexPage = () =>
@@ -26,7 +30,7 @@ export const RankingsIndexPage = () =>
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <Link
             to={TEMPLATES_ROUTE_PATH}
-            className="focus-custom inline-flex items-center gap-2 rounded-md bg-[var(--t-accent)] px-4 py-2 text-sm font-semibold text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)] transition-[transform,box-shadow] duration-100 hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_var(--t-accent-2)] active:translate-x-0 active:translate-y-0 active:shadow-[1px_1px_0_var(--t-accent-2)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
+            className={`focus-custom inline-flex items-center gap-2 rounded-md bg-[var(--t-accent)] px-4 py-2 text-sm font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_TRANSITION} ${CHUNKY_SHADOW_ACCENT} focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]`}
           >
             <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
             Browse templates

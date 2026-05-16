@@ -2,7 +2,7 @@
 // run a browser action once per sessionStorage key/value pair, plus an
 // optional per-UTC-day localStorage gate that survives fresh-tab resets
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 import {
   readBrowserStorageItem,
@@ -158,6 +158,17 @@ export const useSessionDedupedAction = <TValue extends string>({
   onError,
 }: UseSessionDedupedActionOptions<TValue>): void =>
 {
+  // callers commonly pass inline closures; depending on them would re-run the
+  // storage gate on every parent render. ref'd so the effect only fires when
+  // the dedup key/value actually changes
+  const actionRef = useRef(action)
+  const onErrorRef = useRef(onError)
+  useEffect(() =>
+  {
+    actionRef.current = action
+    onErrorRef.current = onError
+  })
+
   useEffect(() =>
   {
     if (!value) return
@@ -173,9 +184,9 @@ export const useSessionDedupedAction = <TValue extends string>({
       return
     }
 
-    void action(value).catch((error) =>
+    void actionRef.current(value).catch((error) =>
     {
-      onError?.(error)
+      onErrorRef.current?.(error)
     })
-  }, [action, dailyStorageKey, onError, storageKey, value])
+  }, [dailyStorageKey, storageKey, value])
 }

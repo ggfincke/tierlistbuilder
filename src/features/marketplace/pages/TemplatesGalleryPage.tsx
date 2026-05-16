@@ -160,7 +160,7 @@ export const TemplatesGalleryPage = () =>
   })
   const draftAction = useOpenTemplateDraft()
   const [publishOpen, setPublishOpen] = useState(false)
-  const handleStartBlankBoard = useStartBlankBoard()
+  const { start: handleStartBlankBoard } = useStartBlankBoard()
   useDocumentTitle('Templates · TierListBuilder')
   const handleSortChange = createTypedSelectChangeHandler(
     TEMPLATE_LIST_SORTS,

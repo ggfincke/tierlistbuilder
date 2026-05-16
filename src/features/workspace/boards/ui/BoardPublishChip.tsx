@@ -7,10 +7,10 @@ import {
   getPublishStateVisual,
   selectPublishState,
 } from '~/features/workspace/boards/model/publishState'
+import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
 import { LivePulse } from '~/shared/ui/LivePulse'
 
-const FILLED_TONE_CLASS =
-  'border-[var(--t-accent)] bg-[var(--t-accent)] text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)]'
+const FILLED_TONE_CLASS = `border-[var(--t-accent)] bg-[var(--t-accent)] text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_ACCENT_STATIC}`
 
 const TONE_CLASS: Record<'neutral' | 'accent' | 'live', string> = {
   neutral:

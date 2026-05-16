@@ -23,6 +23,7 @@ import { ACCESS_META } from '~/features/marketplace/model/accessMeta'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMeta'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
+import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
 import { InitialAvatar } from '~/shared/ui/InitialAvatar'
 import { Cover, type CoverStyle } from '../cover/Cover'
 import type { MediaLoading } from '../cover/MediaMatteFrame'
@@ -220,7 +221,7 @@ const CardImpl = ({
             background: 'linear-gradient(0deg, rgba(0,0,0,0.85), transparent)',
           }}
         >
-          <span className="inline-flex items-center gap-1 rounded-md bg-[var(--t-accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)]">
+          <span className={`inline-flex items-center gap-1 rounded-md bg-[var(--t-accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_ACCENT_STATIC}`}>
             View
             <ArrowRight className="h-3 w-3" strokeWidth={2.4} aria-hidden />
           </span>

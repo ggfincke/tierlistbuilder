@@ -40,6 +40,10 @@ import {
   normalizeItemTransform,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
+import {
+  normalizeSourceTemplateFields,
+  pickSourceTemplateFields,
+} from '~/shared/board-data/sourceTemplateFields'
 
 const IMAGE_EXPORT_CONCURRENCY = 4
 
@@ -209,11 +213,7 @@ export const snapshotToWireWithBlobs = async (
     // source-template/ranking identity round-trips through JSON export so a
     // re-imported board still knows where it came from. titles are denormalized
     // so the breadcrumb works for recipients who don't have the source loaded
-    sourceTemplateId: snapshot.sourceTemplateId,
-    sourceRankingId: snapshot.sourceRankingId,
-    sourceTemplateTitle: snapshot.sourceTemplateTitle,
-    sourceRankingTitle: snapshot.sourceRankingTitle,
-    preferredCriterionExternalId: snapshot.preferredCriterionExternalId,
+    ...pickSourceTemplateFields(snapshot),
   }
 }
 
@@ -416,26 +416,7 @@ export const wireToSnapshot = async (
       ? wire.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(wire.labels),
-    sourceTemplateId:
-      typeof wire.sourceTemplateId === 'string'
-        ? wire.sourceTemplateId
-        : undefined,
-    sourceRankingId:
-      typeof wire.sourceRankingId === 'string'
-        ? wire.sourceRankingId
-        : undefined,
-    sourceTemplateTitle:
-      typeof wire.sourceTemplateTitle === 'string'
-        ? wire.sourceTemplateTitle
-        : undefined,
-    sourceRankingTitle:
-      typeof wire.sourceRankingTitle === 'string'
-        ? wire.sourceRankingTitle
-        : undefined,
-    preferredCriterionExternalId:
-      typeof wire.preferredCriterionExternalId === 'string'
-        ? wire.preferredCriterionExternalId
-        : undefined,
+    ...normalizeSourceTemplateFields(wire as Record<string, unknown>),
   }
 }
 

@@ -45,6 +45,10 @@ import {
   normalizeItemTransform,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
+import {
+  normalizeSourceTemplateFields,
+  pickSourceTemplateFields,
+} from '~/shared/board-data/sourceTemplateFields'
 import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 
 interface RawTier
@@ -352,13 +356,9 @@ export const selectBoardDataFields = (
   textStyleId: state.textStyleId,
   pageBackground: state.pageBackground,
   labels: state.labels,
-  sourceTemplateId: state.sourceTemplateId,
-  sourceRankingId: state.sourceRankingId,
-  sourceTemplateTitle: state.sourceTemplateTitle,
-  sourceRankingTitle: state.sourceRankingTitle,
   sourceTemplateCoverMedia: state.sourceTemplateCoverMedia,
   sourceTemplateCoverFraming: state.sourceTemplateCoverFraming,
-  preferredCriterionExternalId: state.preferredCriterionExternalId,
+  ...pickSourceTemplateFields(state),
 })
 
 export const selectBoardDataSource = <T extends BoardSnapshotSource>(
@@ -397,13 +397,9 @@ export const extractBoardData = (
   textStyleId: state.textStyleId,
   pageBackground: state.pageBackground,
   labels: state.labels,
-  sourceTemplateId: state.sourceTemplateId,
-  sourceRankingId: state.sourceRankingId,
-  sourceTemplateTitle: state.sourceTemplateTitle,
-  sourceRankingTitle: state.sourceRankingTitle,
   sourceTemplateCoverMedia: state.sourceTemplateCoverMedia,
   sourceTemplateCoverFraming: state.sourceTemplateCoverFraming,
-  preferredCriterionExternalId: state.preferredCriterionExternalId,
+  ...pickSourceTemplateFields(state),
 })
 
 export const resetBoardData = (
@@ -462,31 +458,12 @@ export const normalizeBoardSnapshot = (
       ? value.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(value?.labels),
-    sourceTemplateId:
-      typeof value?.sourceTemplateId === 'string'
-        ? value.sourceTemplateId
-        : undefined,
-    sourceRankingId:
-      typeof value?.sourceRankingId === 'string'
-        ? value.sourceRankingId
-        : undefined,
-    sourceTemplateTitle:
-      typeof value?.sourceTemplateTitle === 'string'
-        ? value.sourceTemplateTitle
-        : undefined,
-    sourceRankingTitle:
-      typeof value?.sourceRankingTitle === 'string'
-        ? value.sourceRankingTitle
-        : undefined,
     sourceTemplateCoverMedia: normalizeTemplateMediaRef(
       value?.sourceTemplateCoverMedia
     ),
     sourceTemplateCoverFraming: normalizeTemplateCoverFraming(
       value?.sourceTemplateCoverFraming
     ),
-    preferredCriterionExternalId:
-      typeof value?.preferredCriterionExternalId === 'string'
-        ? value.preferredCriterionExternalId
-        : undefined,
+    ...normalizeSourceTemplateFields((value ?? {}) as Record<string, unknown>),
   }
 }

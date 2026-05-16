@@ -1778,6 +1778,15 @@ describe('marketplace template Convex functions', () =>
           forkCount: undefined,
           useCount: 7,
         }),
+        ctx.db.insert('templateMetricDays', {
+          templateId,
+          category: 'gaming',
+          dayStartAt: 1_700_000_000_000,
+          useCount: 4,
+          viewCount: 2,
+          createdAt: 1_700_000_000_000,
+          updatedAt: 1_700_000_000_000,
+        }),
       ])
     })
 
@@ -1793,11 +1802,12 @@ describe('marketplace template Convex functions', () =>
     ).resolves.toEqual({
       stats: { processed: 1, isDone: true },
       cards: { processed: 1, isDone: true },
+      metricDays: { processed: 1, isDone: true },
     })
 
     const after = await t.run(async (ctx) =>
     {
-      const [stats, card] = await Promise.all([
+      const [stats, card, metricDay] = await Promise.all([
         ctx.db
           .query('templateStats')
           .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
@@ -1806,13 +1816,21 @@ describe('marketplace template Convex functions', () =>
           .query('templateCards')
           .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
           .unique(),
+        ctx.db
+          .query('templateMetricDays')
+          .withIndex('byTemplateDay', (q) =>
+            q.eq('templateId', templateId).eq('dayStartAt', 1_700_000_000_000)
+          )
+          .unique(),
       ])
-      return { stats, card }
+      return { stats, card, metricDay }
     })
     expect(after.stats).toMatchObject({ forkCount: 7, viewCount: 0 })
     expect(after.card).toMatchObject({ forkCount: 7, viewCount: 0 })
+    expect(after.metricDay).toMatchObject({ forkCount: 4, viewCount: 2 })
     expect(after.stats).not.toHaveProperty('useCount')
     expect(after.card).not.toHaveProperty('useCount')
+    expect(after.metricDay).not.toHaveProperty('useCount')
   })
 
   it('clones a template w/ user preset & propagates layout settings + transforms', async () =>
@@ -1879,6 +1897,7 @@ describe('marketplace template Convex functions', () =>
       label: 'Image item',
       mediaContentHash: 'hash-source',
       transform,
+      sourceTemplateItemExternalId: 'source-item-1',
     })
     const libraryRows = await asUser(t, consumerId).query(
       api.workspace.boards.queries.getMyLibraryBoards,

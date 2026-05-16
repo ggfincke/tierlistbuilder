@@ -113,35 +113,44 @@ export const getReusableMediaExternalIds = query({
 })
 
 // page size for the paginated reachability scans below — large enough that
-// most assets resolve in one page, small enough that a worst-case scan stays
-// well under MEDIA_REF_SCAN_CAP * 1 round trips
+// most assets resolve in one page, small enough that one degenerate scan can't
+// consume the entire per-query budget before we move on to the next asset
 const MEDIA_REF_PAGE_SIZE = 128
-// hard cap on how many reference rows a single permission check will scan.
-// limits a degenerate asset (e.g. one referenced across thousands of templates)
-// from blowing the per-query read budget. matches the Convex 4096-read ceiling
-const MEDIA_REF_SCAN_CAP = 4096
+// per-call total read budget shared across every reachability check in one
+// query invocation. caps the worst-case read cost of a batched lookup so a
+// single hot asset can't push the whole query past Convex's transaction ceiling
+const MEDIA_REF_CALL_BUDGET = 4096
+
+interface ReachabilityBudget
+{
+  remaining: number
+}
 
 const isMediaReferencedByUserBoard = async (
   ctx: QueryCtx,
   assetId: Id<'mediaAssets'>,
-  userId: Id<'users'>
+  userId: Id<'users'>,
+  budget: ReachabilityBudget
 ): Promise<boolean> =>
 {
   let cursor: string | null = null
-  let scanned = 0
 
-  while (scanned < MEDIA_REF_SCAN_CAP)
+  while (budget.remaining > 0)
   {
     const page = await ctx.db
       .query('boardItems')
       .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
-      .paginate({ cursor, numItems: MEDIA_REF_PAGE_SIZE })
-    scanned += page.page.length
+      .paginate({
+        cursor,
+        numItems: Math.min(MEDIA_REF_PAGE_SIZE, budget.remaining),
+      })
+    budget.remaining -= page.page.length
 
     const boardIds = [...new Set(page.page.map((item) => item.boardId))]
     const boards = await Promise.all(
       boardIds.map((boardId) => ctx.db.get(boardId))
     )
+    budget.remaining -= boards.length
     if (boards.some((board) => board?.ownerId === userId))
     {
       return true
@@ -158,23 +167,27 @@ const isMediaReferencedByUserBoard = async (
 
 const isMediaReferencedByTemplate = async (
   ctx: QueryCtx,
-  assetId: Id<'mediaAssets'>
+  assetId: Id<'mediaAssets'>,
+  budget: ReachabilityBudget
 ): Promise<boolean> =>
 {
   let itemCursor: string | null = null
-  let scannedItems = 0
-  while (scannedItems < MEDIA_REF_SCAN_CAP)
+  while (budget.remaining > 0)
   {
     const page = await ctx.db
       .query('templateItems')
       .withIndex('byMedia', (q) => q.eq('mediaAssetId', assetId))
-      .paginate({ cursor: itemCursor, numItems: MEDIA_REF_PAGE_SIZE })
-    scannedItems += page.page.length
+      .paginate({
+        cursor: itemCursor,
+        numItems: Math.min(MEDIA_REF_PAGE_SIZE, budget.remaining),
+      })
+    budget.remaining -= page.page.length
 
     const templateIds = [...new Set(page.page.map((item) => item.templateId))]
     const templates = await Promise.all(
       templateIds.map((templateId) => ctx.db.get(templateId))
     )
+    budget.remaining -= templates.length
     if (
       templates.some(
         (template) => template && template.publicationState !== 'unpublished'
@@ -191,14 +204,16 @@ const isMediaReferencedByTemplate = async (
   }
 
   let coverCursor: string | null = null
-  let scannedCovers = 0
-  while (scannedCovers < MEDIA_REF_SCAN_CAP)
+  while (budget.remaining > 0)
   {
     const page = await ctx.db
       .query('templates')
       .withIndex('byCoverMedia', (q) => q.eq('coverMediaAssetId', assetId))
-      .paginate({ cursor: coverCursor, numItems: MEDIA_REF_PAGE_SIZE })
-    scannedCovers += page.page.length
+      .paginate({
+        cursor: coverCursor,
+        numItems: Math.min(MEDIA_REF_PAGE_SIZE, budget.remaining),
+      })
+    budget.remaining -= page.page.length
 
     if (
       page.page.some((template) => template.publicationState !== 'unpublished')
@@ -216,15 +231,19 @@ const isMediaReferencedByTemplate = async (
   return false
 }
 
+// returns true when the requesting user is allowed to read this asset.
+// "false" is the safe fallback — a budget-exhausted scan returns not-readable
+// rather than guessing, so the client just sees a null URL for that asset
 const canReadMediaAsset = async (
   ctx: QueryCtx,
   asset: Doc<'mediaAssets'>,
-  userId: Id<'users'>
+  userId: Id<'users'>,
+  budget: ReachabilityBudget
 ): Promise<boolean> =>
 {
   if (asset.ownerId === userId) return true
-  if (await isMediaReferencedByTemplate(ctx, asset._id)) return true
-  return await isMediaReferencedByUserBoard(ctx, asset._id, userId)
+  if (await isMediaReferencedByTemplate(ctx, asset._id, budget)) return true
+  return await isMediaReferencedByUserBoard(ctx, asset._id, userId, budget)
 }
 
 // resolve a batch of media externalIds to signed download URLs. preserve input
@@ -250,6 +269,10 @@ export const getMediaAssetsByExternalIds = query({
 
     const userId = await requireCurrentUserId(ctx)
 
+    // single per-call read budget shared across every reachability scan so a
+    // batch of degenerate assets can't blow the per-query read ceiling
+    const budget: ReachabilityBudget = { remaining: MEDIA_REF_CALL_BUDGET }
+
     // two-layer cache: requests for the same asset under different variants
     // share the asset+permission lookup (the expensive part — paginated
     // reachability scans), & same-storageId URL requests share the getUrl
@@ -266,7 +289,7 @@ export const getMediaAssetsByExternalIds = query({
       {
         const asset = await findMediaAssetByExternalId(ctx, externalId)
         if (!asset) return null
-        if (!(await canReadMediaAsset(ctx, asset, userId))) return null
+        if (!(await canReadMediaAsset(ctx, asset, userId, budget))) return null
         return asset
       })()
       assetCache.set(externalId, pending)

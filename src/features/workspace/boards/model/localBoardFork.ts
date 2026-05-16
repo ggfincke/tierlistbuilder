@@ -19,6 +19,10 @@ import {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type {
+  ImageFit,
+  ItemTransform,
+} from '@tierlistbuilder/contracts/workspace/board'
+import type {
   MarketplaceTemplateDetail,
   MarketplaceTemplateItem,
   TemplateMediaRef,
@@ -40,7 +44,11 @@ import {
   loadBoardState,
   saveActiveBoardSnapshot,
 } from '~/features/workspace/boards/model/session/boardSessionPersistence'
-import { warmFromBoard } from '~/shared/images/imageBlobCache'
+import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
+import { logger } from '~/shared/lib/logger'
+import { cacheFreshBlob, warmFromBoard } from '~/shared/images/imageBlobCache'
+import { createBlobRecord } from '~/shared/images/imagePersistence'
+import { putBlob } from '~/shared/images/imageStore'
 
 // share-mode fallback tier presets when neither a template nor a ranking
 // supplied any. mirrors `DEFAULT_TEMPLATE_TIERS` from convex/marketplace/templates/lib
@@ -54,9 +62,11 @@ const DEFAULT_FORK_TIERS: ReadonlyArray<TierPresetTier> = [
   { name: 'E', colorSpec: { kind: 'palette', index: 5 } },
 ]
 
+const SOURCE_MEDIA_FETCH_CONCURRENCY = 4
+
 // convert a marketplace media ref into the local image-ref shape. content
-// hash + externalId let the image cache lazy-load bytes via the existing
-// cloud-resolution path (works for signed-out viewers — URLs are publicly signed)
+// hash + externalId keep cloud fallback identity; public URL bytes are cached
+// before activation so signed-out forks render without auth-backed lookup.
 const mediaToImageRef = (
   media: TemplateMediaRef | null
 ): TierItemImageRef | undefined =>
@@ -67,6 +77,100 @@ const mediaToImageRef = (
         cloudMediaOwnership: 'source',
       }
     : undefined
+
+const fetchAndCachePublicTemplateMedia = async (
+  media: TemplateMediaRef
+): Promise<void> =>
+{
+  try
+  {
+    const response = await fetch(media.url)
+    if (!response.ok)
+    {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const blob = await response.blob()
+    await putBlob(createBlobRecord(media.contentHash, blob, media.mimeType))
+    cacheFreshBlob(media.contentHash, blob)
+  }
+  catch (error)
+  {
+    logger.warn(
+      'media',
+      `Failed to cache public template media ${media.externalId}:`,
+      error
+    )
+  }
+}
+
+const warmPublicTemplateMedia = async (
+  mediaRefs: Iterable<TemplateMediaRef | null>
+): Promise<void> =>
+{
+  const mediaByHash = new Map<string, TemplateMediaRef>()
+  for (const media of mediaRefs)
+  {
+    if (!media) continue
+    if (mediaByHash.has(media.contentHash)) continue
+    mediaByHash.set(media.contentHash, media)
+  }
+
+  await mapAsyncLimit(
+    [...mediaByHash.values()],
+    SOURCE_MEDIA_FETCH_CONCURRENCY,
+    fetchAndCachePublicTemplateMedia
+  )
+}
+
+// shape shared by MarketplaceTemplateItem & MarketplaceRankingItem — the
+// fields we copy through verbatim into a local TierItem
+interface ForkableMarketplaceItem
+{
+  media: TemplateMediaRef | null
+  label: string | null
+  backgroundColor: string | null
+  altText: string | null
+  aspectRatio: number | null
+  imageFit: ImageFit | null
+  transform: ItemTransform | null
+}
+
+// build a local TierItem from a marketplace template or ranking item. fields
+// land via conditional spread so absent/null upstream values don't surface as
+// explicit `undefined` keys on the local snapshot
+const toTierItemFromMarketplaceItem = (
+  item: ForkableMarketplaceItem,
+  sourceTemplateItemExternalId: string
+): { id: ItemId; tierItem: TierItem } =>
+{
+  const id = generateItemId()
+  const imageRef = mediaToImageRef(item.media)
+  const tierItem: TierItem = {
+    id,
+    sourceTemplateItemExternalId,
+    ...(imageRef ? { imageRef, tileImageRef: imageRef } : {}),
+    ...(item.label !== null && item.label !== undefined
+      ? { label: item.label }
+      : {}),
+    ...(item.backgroundColor !== null && item.backgroundColor !== undefined
+      ? { backgroundColor: item.backgroundColor }
+      : {}),
+    ...(item.altText !== null && item.altText !== undefined
+      ? { altText: item.altText }
+      : {}),
+    ...(item.aspectRatio !== null && item.aspectRatio !== undefined
+      ? { aspectRatio: item.aspectRatio }
+      : {}),
+    ...(item.imageFit !== null && item.imageFit !== undefined
+      ? { imageFit: item.imageFit }
+      : {}),
+    ...(item.transform !== null && item.transform !== undefined
+      ? { transform: item.transform }
+      : {}),
+  }
+  return { id, tierItem }
+}
 
 interface LocalForkOptions
 {
@@ -125,31 +229,11 @@ const buildItemsFromTemplateItems = (
   const sorted = [...items].sort((a, b) => a.order - b.order)
   for (const item of sorted)
   {
-    const id = generateItemId()
-    const imageRef = mediaToImageRef(item.media)
-    result[id] = {
-      id,
-      sourceTemplateItemExternalId: item.externalId,
-      ...(imageRef ? { imageRef, tileImageRef: imageRef } : {}),
-      ...(item.label !== null && item.label !== undefined
-        ? { label: item.label }
-        : {}),
-      ...(item.backgroundColor !== null && item.backgroundColor !== undefined
-        ? { backgroundColor: item.backgroundColor }
-        : {}),
-      ...(item.altText !== null && item.altText !== undefined
-        ? { altText: item.altText }
-        : {}),
-      ...(item.aspectRatio !== null && item.aspectRatio !== undefined
-        ? { aspectRatio: item.aspectRatio }
-        : {}),
-      ...(item.imageFit !== null && item.imageFit !== undefined
-        ? { imageFit: item.imageFit }
-        : {}),
-      ...(item.transform !== null && item.transform !== undefined
-        ? { transform: item.transform }
-        : {}),
-    }
+    const { id, tierItem } = toTierItemFromMarketplaceItem(
+      item,
+      item.externalId
+    )
+    result[id] = tierItem
     orderedIds.push(id)
   }
 
@@ -208,6 +292,7 @@ export const createLocalBoardFromTemplate = async (
   const title = normalizeBoardTitle(args.title ?? template.title)
   const tiers = buildTiersFromTemplate(template)
   const { items, orderedIds } = buildItemsFromTemplateItems(templateItems)
+  await warmPublicTemplateMedia(templateItems.map((item) => item.media))
 
   const snapshot: BoardSnapshot = {
     title,
@@ -251,31 +336,11 @@ const buildItemsFromRanking = (
   const sortedRankingItems = [...rankingItems].sort((a, b) => a.order - b.order)
   for (const item of sortedRankingItems)
   {
-    const id = generateItemId()
-    const imageRef = mediaToImageRef(item.media)
-    result[id] = {
-      id,
-      sourceTemplateItemExternalId: item.templateItemExternalId,
-      ...(imageRef ? { imageRef, tileImageRef: imageRef } : {}),
-      ...(item.label !== null && item.label !== undefined
-        ? { label: item.label }
-        : {}),
-      ...(item.backgroundColor !== null && item.backgroundColor !== undefined
-        ? { backgroundColor: item.backgroundColor }
-        : {}),
-      ...(item.altText !== null && item.altText !== undefined
-        ? { altText: item.altText }
-        : {}),
-      ...(item.aspectRatio !== null && item.aspectRatio !== undefined
-        ? { aspectRatio: item.aspectRatio }
-        : {}),
-      ...(item.imageFit !== null && item.imageFit !== undefined
-        ? { imageFit: item.imageFit }
-        : {}),
-      ...(item.transform !== null && item.transform !== undefined
-        ? { transform: item.transform }
-        : {}),
-    }
+    const { id, tierItem } = toTierItemFromMarketplaceItem(
+      item,
+      item.templateItemExternalId
+    )
+    result[id] = tierItem
     if (item.templateItemExternalId)
     {
       placedTemplateItemExternalIds.add(item.templateItemExternalId)
@@ -302,31 +367,11 @@ const buildItemsFromRanking = (
   for (const item of sortedTemplateItems)
   {
     if (placedTemplateItemExternalIds.has(item.externalId)) continue
-    const id = generateItemId()
-    const imageRef = mediaToImageRef(item.media)
-    result[id] = {
-      id,
-      sourceTemplateItemExternalId: item.externalId,
-      ...(imageRef ? { imageRef, tileImageRef: imageRef } : {}),
-      ...(item.label !== null && item.label !== undefined
-        ? { label: item.label }
-        : {}),
-      ...(item.backgroundColor !== null && item.backgroundColor !== undefined
-        ? { backgroundColor: item.backgroundColor }
-        : {}),
-      ...(item.altText !== null && item.altText !== undefined
-        ? { altText: item.altText }
-        : {}),
-      ...(item.aspectRatio !== null && item.aspectRatio !== undefined
-        ? { aspectRatio: item.aspectRatio }
-        : {}),
-      ...(item.imageFit !== null && item.imageFit !== undefined
-        ? { imageFit: item.imageFit }
-        : {}),
-      ...(item.transform !== null && item.transform !== undefined
-        ? { transform: item.transform }
-        : {}),
-    }
+    const { id, tierItem } = toTierItemFromMarketplaceItem(
+      item,
+      item.externalId
+    )
+    result[id] = tierItem
     unrankedItemIds.push(id)
   }
 
@@ -384,6 +429,10 @@ export const createLocalBoardFromRanking = async (
     templateItems,
     tiersByExternalId
   )
+  await warmPublicTemplateMedia([
+    ...ranking.items.map((item) => item.media),
+    ...templateItems.map((item) => item.media),
+  ])
 
   const snapshot: BoardSnapshot = {
     title,

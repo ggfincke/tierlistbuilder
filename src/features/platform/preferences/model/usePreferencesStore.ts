@@ -56,7 +56,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   boardLocked: false,
   reducedMotion: false,
   toolbarPosition: 'top',
-  showAltTextButton: true,
+  showItemEditButton: true,
   autoCropTrimSoftShadows: true,
 }
 
@@ -97,7 +97,7 @@ interface PreferencesStore extends AppPreferences, HighContrastTransitionState
   setBoardLocked: (locked: boolean) => void
   setReducedMotion: (reduced: boolean) => void
   setToolbarPosition: (position: ToolbarPosition) => void
-  setShowAltTextButton: (show: boolean) => void
+  setShowItemEditButton: (show: boolean) => void
   setAutoCropTrimSoftShadows: (trim: boolean) => void
   toggleHighContrast: (enabled: boolean) => void
 }
@@ -177,10 +177,10 @@ export const usePreferencesStore = create<PreferencesStore>()(
         setBoardLocked: createPreferenceSetter(set, get, 'boardLocked'),
         setReducedMotion: createPreferenceSetter(set, get, 'reducedMotion'),
         setToolbarPosition: createPreferenceSetter(set, get, 'toolbarPosition'),
-        setShowAltTextButton: createPreferenceSetter(
+        setShowItemEditButton: createPreferenceSetter(
           set,
           get,
-          'showAltTextButton'
+          'showItemEditButton'
         ),
         setAutoCropTrimSoftShadows: createPreferenceSetter(
           set,

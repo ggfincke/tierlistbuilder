@@ -12,15 +12,23 @@
     />
     <!-- Scoreboard editorial family: Inter for body/headings (400-900),
          JetBrains Mono for eyebrows (--ts-mono), Bungee for the stamped
-         display-headline accent. All load eagerly so the chunky-shadow +
-         mono caps + Inter Black + Bungee headline quartet paints on first
-         render. -->
+         display-headline accent. Preconnect + async stylesheet swap so the
+         workspace shell paints w/o waiting on Google Fonts; brief FOUT is
+         preferable to blocking first paint on a 3rd-party CSS roundtrip. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      rel="stylesheet"
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Bungee&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Bungee&display=swap"
+      />
+    </noscript>
     <title>Tier List Builder</title>
   </head>
   <body>

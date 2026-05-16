@@ -29,7 +29,10 @@ export const useLibraryBoardAction = (): LibraryBoardActionState =>
   const [pendingExternalId, setPendingExternalId] = useState<BoardId | null>(
     null
   )
-  const pendingRef = useRef<BoardId | null>(null)
+  // tracks every in-flight board so back-to-back actions on different boards
+  // don't have the earlier finish() prematurely clear a later board's pending
+  // state. pendingExternalId mirrors the latest-started id (or null when none)
+  const inflightRef = useRef<Set<BoardId>>(new Set())
 
   const run = useCallback(
     async <T>(
@@ -38,9 +41,9 @@ export const useLibraryBoardAction = (): LibraryBoardActionState =>
       action: () => Promise<T>
     ): Promise<T | null> =>
     {
-      if (pendingRef.current === externalId) return null
+      if (inflightRef.current.has(externalId)) return null
 
-      pendingRef.current = externalId
+      inflightRef.current.add(externalId)
       setPendingExternalId(externalId)
 
       try
@@ -55,8 +58,10 @@ export const useLibraryBoardAction = (): LibraryBoardActionState =>
       }
       finally
       {
-        pendingRef.current = null
-        setPendingExternalId(null)
+        inflightRef.current.delete(externalId)
+        setPendingExternalId((current) =>
+          current === externalId ? null : current
+        )
       }
     },
     []

@@ -70,7 +70,7 @@ export const LayoutTab = () =>
     tierLabelBold,
     tierLabelItalic,
     tierLabelFontSize,
-    showAltTextButton,
+    showItemEditButton,
     autoCropTrimSoftShadows,
     toolbarPosition,
     setItemSize,
@@ -84,7 +84,7 @@ export const LayoutTab = () =>
     setTierLabelBold,
     setTierLabelItalic,
     setTierLabelFontSize,
-    setShowAltTextButton,
+    setShowItemEditButton,
     setAutoCropTrimSoftShadows,
     setToolbarPosition,
   } = usePreferencesStore(
@@ -100,7 +100,7 @@ export const LayoutTab = () =>
       tierLabelBold: state.tierLabelBold,
       tierLabelItalic: state.tierLabelItalic,
       tierLabelFontSize: state.tierLabelFontSize,
-      showAltTextButton: state.showAltTextButton,
+      showItemEditButton: state.showItemEditButton,
       autoCropTrimSoftShadows: state.autoCropTrimSoftShadows,
       toolbarPosition: state.toolbarPosition,
       setItemSize: state.setItemSize,
@@ -114,7 +114,7 @@ export const LayoutTab = () =>
       setTierLabelBold: state.setTierLabelBold,
       setTierLabelItalic: state.setTierLabelItalic,
       setTierLabelFontSize: state.setTierLabelFontSize,
-      setShowAltTextButton: state.setShowAltTextButton,
+      setShowItemEditButton: state.setShowItemEditButton,
       setAutoCropTrimSoftShadows: state.setAutoCropTrimSoftShadows,
       setToolbarPosition: state.setToolbarPosition,
     }))
@@ -230,7 +230,7 @@ export const LayoutTab = () =>
           <Toggle checked={compactMode} onChange={setCompactMode} />
         </SettingRow>
         <SettingRow label="Edit Button">
-          <Toggle checked={showAltTextButton} onChange={setShowAltTextButton} />
+          <Toggle checked={showItemEditButton} onChange={setShowItemEditButton} />
         </SettingRow>
         <SettingRow label="Trim Shadows">
           <Toggle

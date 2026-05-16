@@ -616,7 +616,7 @@ const recomputeTemplateTrendingForCard = async (
   let weeklyViewCount = 0
   for (const row of metricRows)
   {
-    weeklyForkCount += row.forkCount
+    weeklyForkCount += readLegacyForkCount(row)
     weeklyViewCount += row.viewCount
   }
   const trendingScore = calculateTemplateTrendingScore({
@@ -788,6 +788,50 @@ export const backfillTemplateCardForkCount = internalMutation({
       await ctx.scheduler.runAfter(
         0,
         internal.marketplace.templates.internal.backfillTemplateCardForkCount,
+        { cursor: page.continueCursor }
+      )
+    }
+
+    return { processed: page.page.length, isDone: page.isDone }
+  },
+})
+
+export const backfillTemplateMetricDayForkCount = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ processed: v.number(), isDone: v.boolean() }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ processed: number; isDone: boolean }> =>
+  {
+    const page = await ctx.db.query('templateMetricDays').paginate({
+      numItems: BATCH_LIMITS.templateTrendingRecompute,
+      cursor: args.cursor,
+    })
+    const now = Date.now()
+
+    await Promise.all(
+      page.page.map((row) =>
+      {
+        const nextForkCount = readLegacyForkCount(row)
+        if (row.forkCount === nextForkCount && row.useCount === undefined)
+        {
+          return null
+        }
+        return ctx.db.patch(row._id, {
+          forkCount: nextForkCount,
+          useCount: undefined,
+          updatedAt: now,
+        })
+      })
+    )
+
+    if (!page.isDone)
+    {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.marketplace.templates.internal
+          .backfillTemplateMetricDayForkCount,
         { cursor: page.continueCursor }
       )
     }

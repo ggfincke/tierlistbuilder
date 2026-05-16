@@ -13,6 +13,7 @@ import type {
 import { LIBRARY_SYNC_META } from '~/features/library/lib/statusMeta'
 import { PUBLISH_STATE_META } from '~/shared/board-ui/publishStateMeta'
 import { formatRelativeTime, pluralize } from '~/shared/catalog/formatters'
+import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
 import { BoardCardMenu } from './BoardCardMenu'
 import { Cover } from './Cover'
 import { PublishChip } from './PublishChip'
@@ -119,7 +120,7 @@ const BoardCardImpl = ({
                 'linear-gradient(0deg, rgba(0,0,0,0.85), transparent)',
             }}
           >
-            <span className="inline-flex items-center gap-1 rounded-md bg-[var(--t-accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)]">
+            <span className={`inline-flex items-center gap-1 rounded-md bg-[var(--t-accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_ACCENT_STATIC}`}>
               {publishMeta.hoverAction}
               <ArrowRight className="h-3 w-3" strokeWidth={2.4} />
             </span>

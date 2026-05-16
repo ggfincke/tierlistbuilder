@@ -211,6 +211,7 @@ describe('serverStateToSnapshot', () =>
           previewMediaContentHash: 'preview-hash',
           mediaContentHash: 'tile-hash',
           sourceMediaContentHash: 'source-hash',
+          sourceTemplateItemExternalId: 'template-item-1',
           order: 0,
           deletedAt: null,
         },
@@ -233,6 +234,9 @@ describe('serverStateToSnapshot', () =>
       hash: 'source-hash',
       cloudMediaExternalId: 'media-1',
     })
+    expect(snapshot.items[itemId].sourceTemplateItemExternalId).toBe(
+      'template-item-1'
+    )
     expect(snapshot).toMatchObject({
       paletteId: 'twilight',
       textStyleId: 'rounded',

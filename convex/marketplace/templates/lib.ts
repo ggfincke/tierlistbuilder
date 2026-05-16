@@ -698,9 +698,14 @@ const incrementTemplateMetricDay = async (
 
   if (existing)
   {
+    const current = readTemplateCounters(existing)
     await ctx.db.patch(existing._id, {
       category: template.category,
-      [metric]: existing[metric] + 1,
+      forkCount:
+        metric === 'forkCount' ? current.forkCount + 1 : current.forkCount,
+      viewCount:
+        metric === 'viewCount' ? current.viewCount + 1 : current.viewCount,
+      useCount: undefined,
       updatedAt: now,
     })
     return

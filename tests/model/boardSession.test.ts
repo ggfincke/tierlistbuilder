@@ -10,15 +10,22 @@ import {
 } from '~/features/workspace/boards/data/local/boardStorage'
 import {
   deleteBoardSession,
+  duplicateBoardSession,
   loadBoardIntoSession,
   persistBoardStateForSync,
   registerBoardAutosave,
+  renameBoardSession,
+  setBoardChangedListener,
   setBoardLoadedListener,
   setBoardDeletedListener,
 } from '~/features/workspace/boards/model/boardSession'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
+import {
+  loadBoardFromStorage,
+  loadBoardSyncStateOnly,
+  saveBoardToStorage,
+} from '~/features/workspace/boards/data/local/boardStorage'
 import { loadBoardDeleteSyncMeta } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { createFailingStorage } from '../shared-lib/memoryStorage'
 
@@ -62,6 +69,7 @@ describe('board session', () =>
     disposeAutosave?.()
     disposeAutosave = null
     setBoardLoadedListener(null)
+    setBoardChangedListener(null)
     setBoardDeletedListener(null)
     resetStores()
     vi.useRealTimers()
@@ -141,6 +149,95 @@ describe('board session', () =>
       JSON.parse(localStorage.getItem(boardStorageKey(TEST_BOARD_ID)) ?? '{}')
         .data?.title
     ).toBe('Autosaved')
+  })
+
+  it('persists inactive renames and queues them for sync', () =>
+  {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(987)
+    try
+    {
+      useWorkspaceBoardRegistryStore.setState({
+        boards: [
+          { id: TEST_BOARD_ID, title: 'Board', createdAt: 1 },
+          { id: OTHER_BOARD_ID, title: 'Old title', createdAt: 2 },
+        ],
+        activeBoardId: TEST_BOARD_ID,
+      })
+      saveBoardToStorage(
+        OTHER_BOARD_ID,
+        { ...createInitialBoardData('classic'), title: 'Old title' },
+        {
+          syncState: {
+            lastSyncedRevision: 5,
+            cloudBoardExternalId: 'cloud-board-other',
+            pendingSyncAt: null,
+          },
+        }
+      )
+
+      const changedIds: BoardId[] = []
+      setBoardChangedListener((id) => changedIds.push(id))
+      renameBoardSession(OTHER_BOARD_ID, 'New title')
+
+      const stored = loadBoardFromStorage(OTHER_BOARD_ID)
+      expect(stored.status).toBe('ok')
+      expect(stored.status === 'ok' ? stored.data.title : null).toBe(
+        'New title'
+      )
+      expect(loadBoardSyncStateOnly(OTHER_BOARD_ID)).toEqual({
+        lastSyncedRevision: 5,
+        cloudBoardExternalId: 'cloud-board-other',
+        pendingSyncAt: 987,
+      })
+      expect(changedIds).toEqual([OTHER_BOARD_ID])
+    }
+    finally
+    {
+      nowSpy.mockRestore()
+    }
+  })
+
+  it('does not dirty a board when renaming to the already-persisted title', () =>
+  {
+    saveBoardToStorage(TEST_BOARD_ID, {
+      ...createInitialBoardData('classic'),
+      title: 'Cloud title',
+    })
+    useActiveBoardStore.setState({ title: 'Cloud title' })
+
+    const changed = vi.fn()
+    setBoardChangedListener(changed)
+    renameBoardSession(TEST_BOARD_ID, 'Cloud title')
+
+    expect(changed).not.toHaveBeenCalled()
+    expect(loadBoardSyncStateOnly(TEST_BOARD_ID).pendingSyncAt).toBeNull()
+  })
+
+  it('marks duplicated boards pending so signed-in library copies sync', async () =>
+  {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1234)
+    try
+    {
+      saveBoardToStorage(TEST_BOARD_ID, {
+        ...createInitialBoardData('classic'),
+        title: 'Copy source',
+      })
+      await duplicateBoardSession(TEST_BOARD_ID)
+
+      const duplicateId =
+        useWorkspaceBoardRegistryStore.getState().activeBoardId
+      expect(duplicateId).not.toBe(TEST_BOARD_ID)
+      expect(duplicateId).toBeTruthy()
+      expect(loadBoardSyncStateOnly(duplicateId as BoardId)).toEqual({
+        lastSyncedRevision: null,
+        cloudBoardExternalId: null,
+        pendingSyncAt: 1234,
+      })
+    }
+    finally
+    {
+      nowSpy.mockRestore()
+    }
   })
 
   it('stamps pending cloud deletes & notifies the delete listener', async () =>

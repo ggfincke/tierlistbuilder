@@ -47,26 +47,45 @@ export const loadBoardCloudState = async (
 ): Promise<CloudBoardState> =>
 {
   const mediaIds = new Set<Id<'mediaAssets'>>()
+  const templateItemIds = new Set<Id<'templateItems'>>()
   for (const item of serverItems)
   {
     if (item.mediaAssetId) mediaIds.add(item.mediaAssetId)
+    if (item.templateItemId) templateItemIds.add(item.templateItemId)
   }
 
   const mediaIdToInfo = new Map<Id<'mediaAssets'>, MediaInfo>()
-  const assets = await Promise.all(
-    [...mediaIds].map(async (id) =>
-    {
-      const asset = await ctx.db.get(id)
-      if (!asset)
+  const templateItemIdToExternalId = new Map<Id<'templateItems'>, string>()
+  const [assets, templateItems] = await Promise.all([
+    Promise.all(
+      [...mediaIds].map(async (id) =>
       {
-        throw new ConvexError({
-          code: CONVEX_ERROR_CODES.invalidState,
-          message: `dangling media reference in server state: ${id} (board ${board._id})`,
-        })
-      }
-      return [id, asset] as const
-    })
-  )
+        const asset = await ctx.db.get(id)
+        if (!asset)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: `dangling media reference in server state: ${id} (board ${board._id})`,
+          })
+        }
+        return [id, asset] as const
+      })
+    ),
+    Promise.all(
+      [...templateItemIds].map(async (id) =>
+      {
+        const templateItem = await ctx.db.get(id)
+        if (!templateItem)
+        {
+          throw new ConvexError({
+            code: CONVEX_ERROR_CODES.invalidState,
+            message: `dangling template item reference in server state: ${id} (board ${board._id})`,
+          })
+        }
+        return [id, templateItem] as const
+      })
+    ),
+  ])
   for (const [id, asset] of assets)
   {
     mediaIdToInfo.set(id, {
@@ -75,6 +94,10 @@ export const loadBoardCloudState = async (
       tileContentHash: asset.tileVariant.contentHash,
       editorContentHash: asset.editorVariant?.contentHash ?? null,
     })
+  }
+  for (const [id, item] of templateItems)
+  {
+    templateItemIdToExternalId.set(id, item.externalId)
   }
 
   const tierIdToExternalId = new Map<Id<'boardTiers'>, string>()
@@ -170,6 +193,9 @@ export const loadBoardCloudState = async (
         imageFit: item.imageFit,
         transform: item.transform,
         labelOptions: item.labelOptions,
+        sourceTemplateItemExternalId: item.templateItemId
+          ? templateItemIdToExternalId.get(item.templateItemId)
+          : undefined,
       }
     }),
   }

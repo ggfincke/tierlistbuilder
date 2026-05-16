@@ -2,9 +2,14 @@
 // subscribes to active board edits & forwards durable snapshots to workspace sync
 
 import { useEffect, useRef } from 'react'
+import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
-import { setBoardLoadedListener } from '~/features/workspace/boards/model/boardSession'
+import {
+  setBoardChangedListener,
+  setBoardLoadedListener,
+} from '~/features/workspace/boards/model/boardSession'
+import { readBoardStateForCloudSync } from '~/features/workspace/boards/data/cloud/cloudFlush'
 import {
   boardDataFieldsEqual,
   extractBoardData,
@@ -43,28 +48,34 @@ export const useWorkspaceBoardSyncSubscriber = ({
 
   useEffect(() =>
   {
-    setBoardLoadedListener((boardId) =>
+    const queuePendingBoard = (boardId: BoardId, markLoaded = false): void =>
     {
-      lastLoadedBoardIdRef.current = boardId
+      if (markLoaded)
+      {
+        lastLoadedBoardIdRef.current = boardId
+      }
 
       const canProceed = shouldProceedRef.current
       if (!canProceed || !canProceed() || isMergePendingRef.current()) return
 
-      const state = useActiveBoardStore.getState()
-      const syncState = extractBoardSyncState(state)
+      const { snapshot, syncState } = readBoardStateForCloudSync(boardId)
       if (syncState.pendingSyncAt === null) return
 
       onEditRef.current({
         boardId,
-        snapshot: extractBoardData(state),
-        boardDataSelection: selectBoardDataFields(state),
+        snapshot,
+        boardDataSelection: selectBoardDataFields(snapshot),
         syncState,
       })
-    })
+    }
+
+    setBoardLoadedListener((boardId) => queuePendingBoard(boardId, true))
+    setBoardChangedListener((boardId) => queuePendingBoard(boardId))
 
     return () =>
     {
       setBoardLoadedListener(null)
+      setBoardChangedListener(null)
     }
   }, [])
 

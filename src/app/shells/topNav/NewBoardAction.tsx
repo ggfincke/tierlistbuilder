@@ -15,7 +15,7 @@ export const NewBoardAction = () =>
   const [menuOpen, setMenuOpen] = useState(false)
   const menuId = useId()
   const wrapRef = useRef<HTMLDivElement>(null)
-  const handleStartBlank = useStartBlankBoard()
+  const { start: handleStartBlank } = useStartBlankBoard()
 
   const closeMenu = useCallback(() =>
   {

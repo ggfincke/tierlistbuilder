@@ -1,5 +1,5 @@
 // src/features/library/model/useBoardsLibrary.ts
-// reactive subscription for the My Lists library row set
+// reactive subscription for the My Boards library row set
 
 import { useQuery } from 'convex/react'
 

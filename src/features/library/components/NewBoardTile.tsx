@@ -1,15 +1,15 @@
-// src/features/library/components/NewListTile.tsx
+// src/features/library/components/NewBoardTile.tsx
 // dashed "New board" CTA tile — creates a blank local board from grid view
 
 import { Plus } from 'lucide-react'
 
-interface NewListTileProps
+interface NewBoardTileProps
 {
   onCreate: () => void
   isPending: boolean
 }
 
-export const NewListTile = ({ onCreate, isPending }: NewListTileProps) => (
+export const NewBoardTile = ({ onCreate, isPending }: NewBoardTileProps) => (
   <button
     type="button"
     onClick={onCreate}

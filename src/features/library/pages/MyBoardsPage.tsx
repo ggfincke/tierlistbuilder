@@ -13,7 +13,7 @@ import { LibraryFilterBar } from '~/features/library/components/LibraryFilterBar
 import { LibrarySearchInput } from '~/features/library/components/LibrarySearchInput'
 import { LibrarySignedOutState } from '~/features/library/components/LibrarySignedOutState'
 import { LibrarySkeleton } from '~/features/library/components/LibrarySkeleton'
-import { NewListTile } from '~/features/library/components/NewListTile'
+import { NewBoardTile } from '~/features/library/components/NewBoardTile'
 import { getLibraryFilterStatusLabel } from '~/features/library/lib/statusMeta'
 import {
   countLibraryPublishStates,
@@ -22,13 +22,12 @@ import {
 } from '~/features/library/lib/sortAndFilter'
 import { RenameBoardModal } from '~/features/library/components/RenameBoardModal'
 import { useBoardsLibrary } from '~/features/library/model/useBoardsLibrary'
-import { useCreateLibraryBoard } from '~/features/library/model/useCreateLibraryBoard'
+import { useStartBlankBoard } from '~/features/workspace/boards/model/useStartBlankBoard'
 import { useDeleteLibraryBoard } from '~/features/library/model/useDeleteLibraryBoard'
 import { useDuplicateLibraryBoard } from '~/features/library/model/useDuplicateLibraryBoard'
 import { useLibraryFilters } from '~/features/library/model/useLibraryFilters'
 import { useLocalBoardsLibrary } from '~/features/library/model/useLocalBoardsLibrary'
-import { useOpenLibraryBoard } from '~/features/library/model/useOpenLibraryBoard'
-import { useOpenLocalBoard } from '~/features/library/model/useOpenLocalBoard'
+import { useOpenBoard } from '~/features/library/model/useOpenBoard'
 import { useRenameLibraryBoard } from '~/features/library/model/useRenameLibraryBoard'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { LivePulse } from '~/shared/ui/LivePulse'
@@ -74,12 +73,8 @@ export const MyBoardsPage = () =>
   const { rows, isLoading } = isSignedIn ? cloudLibrary : localLibrary
 
   const filters = useLibraryFilters()
-  const openCloudBoard = useOpenLibraryBoard()
-  const openLocalBoard = useOpenLocalBoard()
-  const { open: openBoard, pendingBoardExternalId } = isSignedIn
-    ? openCloudBoard
-    : openLocalBoard
-  const createBoard = useCreateLibraryBoard()
+  const { open: openBoard, pendingBoardExternalId } = useOpenBoard(isSignedIn)
+  const createBoard = useStartBlankBoard({ withToast: true })
   const deleteBoard = useDeleteLibraryBoard()
   const duplicateBoard = useDuplicateLibraryBoard()
   const renameBoard = useRenameLibraryBoard()
@@ -261,7 +256,7 @@ export const MyBoardsPage = () =>
             onClearFilter={
               totalLoadedBoards !== 0 ? handleClearFilter : undefined
             }
-            onCreate={createBoard.create}
+            onCreate={createBoard.start}
             createPending={createBoard.isPending}
           />
         ) : filters.view === 'list' ? (
@@ -277,8 +272,8 @@ export const MyBoardsPage = () =>
         ) : (
           <div className="grid gap-3.5" style={gridStyle}>
             {!filtersActive && (
-              <NewListTile
-                onCreate={createBoard.create}
+              <NewBoardTile
+                onCreate={createBoard.start}
                 isPending={createBoard.isPending}
               />
             )}

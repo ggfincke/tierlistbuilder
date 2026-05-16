@@ -432,7 +432,10 @@ export default defineSchema({
     templateId: v.id('templates'),
     category: templateCategoryValidator,
     dayStartAt: v.number(),
-    forkCount: v.number(),
+    // forkCount replaced legacy useCount; keep both optional during the
+    // backfill window so existing metric-day rows validate while rewritten.
+    forkCount: v.optional(v.number()),
+    useCount: v.optional(v.number()),
     viewCount: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),

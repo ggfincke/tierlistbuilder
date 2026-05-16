@@ -9,6 +9,7 @@ import {
   BUTTON_DISABLED_CLASS,
   BUTTON_FOCUS_CLASS,
 } from '~/shared/ui/buttonBase'
+import { CHUNKY_SHADOW_ACCENT } from '~/shared/ui/chunkyShadow'
 
 interface ChipProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -33,9 +34,9 @@ const CHIP_DEFAULT =
   'border-[var(--t-border)] bg-transparent text-[var(--t-text-muted)] hover:border-[var(--t-border-secondary)] hover:text-[var(--t-text)]'
 
 // active chip carries the chunky-shadow primary CTA signature so the selected
-// filter reads in the same visual register as the +New CTA
-const CHIP_ACTIVE =
-  'border-[var(--t-accent)] bg-[var(--t-accent)] font-semibold text-[var(--t-accent-foreground)] shadow-[2px_2px_0_var(--t-accent-2)] hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_var(--t-accent-2)] active:translate-x-0 active:translate-y-0 active:shadow-[1px_1px_0_var(--t-accent-2)]'
+// filter reads in the same visual register as the +New CTA. CHIP_BASE already
+// declares `transition`, so we don't import CHUNKY_SHADOW_TRANSITION here
+const CHIP_ACTIVE = `border-[var(--t-accent)] bg-[var(--t-accent)] font-semibold text-[var(--t-accent-foreground)] ${CHUNKY_SHADOW_ACCENT}`
 
 export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
   (
