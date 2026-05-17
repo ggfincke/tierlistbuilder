@@ -3,21 +3,16 @@
 // renders above the section when the template has multiple criteria
 
 import { ArrowLeftRight, Loader2, Plus } from 'lucide-react'
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import type {
   MarketplaceTemplateRankingAggregate,
   MarketplaceTemplateRankingAggregateBucket,
   MarketplaceTemplateRankingAggregateItem,
-  TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { isTemplateRankingAggregateReady as isAggregateReady } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import {
-  RANKING_FEATURED_BADGE_LABELS,
-  DEFAULT_RANKING_LIST_LIMIT,
-  type RankingFeaturedBadge,
-} from '@tierlistbuilder/contracts/marketplace/ranking'
+import { RANKING_FEATURED_BADGE_LABELS } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { MarketplaceTemplateDetail } from '@tierlistbuilder/contracts/marketplace/template'
 import type { MarketplaceTemplateCriterion } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 import { useCompareRanking } from '~/features/marketplace/model/useCompareRanking'
@@ -31,12 +26,10 @@ import {
 } from '~/features/marketplace/model/accessMeta'
 import {
   useMyRankingForTemplate,
-  usePaginatedRankingsForTemplate,
   useTemplateRankingAggregateItems,
   type TemplateRankingAggregateItemsPageStatus,
 } from '~/features/marketplace/model/useRankingDetail'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
-import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
@@ -46,10 +39,7 @@ import { ConsensusBars } from '../consensus/ConsensusBars'
 import { ConsensusFeaturedSpotlight } from '../consensus/ConsensusFeaturedSpotlight'
 import { ConsensusHeatmap } from '../consensus/ConsensusHeatmap'
 import { ConsensusRanked } from '../consensus/ConsensusRanked'
-import {
-  ConsensusRankingsRail,
-  type ConsensusRailTab,
-} from '../consensus/ConsensusRankingsRail'
+import { ConsensusRankingsRail } from '../consensus/ConsensusRankingsRail'
 import { ConsensusScatter } from '../consensus/ConsensusScatter'
 import { ConsensusTierRows } from '../consensus/ConsensusTierRows'
 import { ConsensusToolbar } from '../consensus/ConsensusToolbar'
@@ -64,18 +54,13 @@ import {
 import { ItemPopover } from '../consensus/ItemPopover'
 import { usePopover } from '../consensus/usePopover'
 import { templateFrame, type ConsensusVizMode } from '../consensus/utils'
-
-const RAIL_PAGE_SIZE = DEFAULT_RANKING_LIST_LIMIT
-const MAX_VIEW_FRAME_CACHE_ENTRIES = 24
-const RAIL_SORT_BY_TAB: Record<
-  ConsensusRailTab,
-  'featured' | 'top' | 'recent'
-> = {
-  all: 'recent',
-  featured: 'featured',
-  top: 'top',
-  recent: 'recent',
-}
+import { ConsensusShell } from './ConsensusShell'
+import { useConsensusBodyState } from './useConsensusBodyState'
+import { useConsensusRailData } from './useConsensusRailData'
+import {
+  useConsensusViewFrame,
+  type ActiveRankingMeta,
+} from './useConsensusViewFrame'
 
 const ACTION_PILL_CLASS =
   'focus-custom flex h-full flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-dashed border-[var(--t-border)] bg-transparent px-3 py-2 text-[12px] font-medium text-[var(--t-text-secondary)] transition hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'
@@ -220,42 +205,6 @@ const LoadMoreButton = ({
       </button>
     </div>
   )
-}
-
-interface ActiveRankingMeta
-{
-  title: string
-  authorName: string
-  updatedAt: number
-  featuredBadge: RankingFeaturedBadge | null
-}
-
-// snapshot of what the body is currently rendering. cached so a pin swap
-// can keep the previous viz + header mounted while new detail loads
-interface ViewFrame
-{
-  aggregate: MarketplaceTemplateRankingAggregate
-  rows: readonly MarketplaceTemplateRankingAggregateItem[]
-  buckets: readonly MarketplaceTemplateRankingAggregateBucket[]
-  yourPlacements: Record<string, number> | null
-  showControversy: boolean
-  // header eyebrow + title so SectionHeader doesn't flicker through
-  // "Community consensus" between pin1 -> pin2 swaps
-  activeRankingMeta: ActiveRankingMeta | null
-}
-
-const VIEW_FRAME_CACHE = new Map<string, ViewFrame>()
-
-const rememberViewFrame = (key: string, frame: ViewFrame): void =>
-{
-  setMapEntryLru(VIEW_FRAME_CACHE, key, frame, MAX_VIEW_FRAME_CACHE_ENTRIES)
-}
-
-const readCachedViewFrame = (key: string): ViewFrame | null =>
-{
-  const frame = VIEW_FRAME_CACHE.get(key) ?? null
-  if (frame) touchMapEntry(VIEW_FRAME_CACHE, key)
-  return frame
 }
 
 interface SectionHeaderProps
@@ -442,42 +391,30 @@ export const CommunityConsensusSection = ({
   onCriterionChange,
 }: CommunityConsensusSectionProps) =>
 {
-  const [sort, setSort] =
-    useState<TemplateRankingAggregateItemSort>('templateOrder')
-  const [vizMode, setVizMode] = useState<ConsensusVizMode>('tiers')
-  const [searchQuery, setSearchQuery] = useState('')
-  // pin is stored alongside the criterion it was set in so a lane switch
-  // implicitly resets the pin during render — avoids a setState-in-effect
-  const [activePin, setActivePin] = useState<{
-    slug: string
-    criterion: string
-  } | null>(null)
-  const [railTab, setRailTab] = useState<ConsensusRailTab>('recent')
-
   const multiCriterion = visibleCriteria !== null
   const criterionExternalId = selectedCriterion.externalId
-  const activeSlug =
-    activePin && activePin.criterion === criterionExternalId
-      ? activePin.slug
-      : null
-  const setActiveSlug = useCallback(
-    (slug: string | null) =>
-    {
-      setActivePin(
-        slug === null ? null : { slug, criterion: criterionExternalId }
-      )
-    },
-    [criterionExternalId]
-  )
+  const {
+    activeSlug,
+    railTab,
+    searchQuery,
+    setActiveSlug,
+    setRailTab,
+    setSearchQuery,
+    setSort,
+    setVizMode,
+    sort,
+    vizMode,
+  } = useConsensusBodyState(criterionExternalId)
 
   const itemsEnabled = isAggregateReady(aggregate)
   const isActiveRanking = activeSlug !== null
+  const activeGeneration = itemsEnabled ? aggregate.activeGeneration : null
   // keep the aggregate subscription warm even while a pin is active so
   // returning to the community average snaps in - no skeleton flash
   const itemsPage = useTemplateRankingAggregateItems({
     templateSlug: template.slug,
     criterionExternalId,
-    generation: aggregate?.activeGeneration,
+    generation: activeGeneration,
     sort,
     search: searchQuery.trim() || null,
     enabled: itemsEnabled,
@@ -490,27 +427,12 @@ export const CommunityConsensusSection = ({
   )
   const yourPlacements = myRanking?.placements ?? null
 
-  // rail data — server sort by featured/top/recent (All tab reuses recent
-  // + loadMore). scoping by criterion keeps the rail in lockstep w/ viz
-  const railSort = RAIL_SORT_BY_TAB[railTab]
-  const railResult = usePaginatedRankingsForTemplate({
-    templateSlug: itemsEnabled ? template.slug : null,
-    sort: railSort,
-    criterionExternalId,
+  const { railResult, spotlightRanking } = useConsensusRailData({
     enabled: itemsEnabled,
-    pageSize: RAIL_PAGE_SIZE,
-  })
-
-  // spotlight is the top featured ranking, pinned above the rail tabs
-  // regardless of which tab is active so the headline pick is always visible
-  const featuredHead = usePaginatedRankingsForTemplate({
-    templateSlug: itemsEnabled ? template.slug : null,
-    sort: 'featured',
     criterionExternalId,
-    enabled: itemsEnabled,
-    pageSize: 1,
+    railTab,
+    templateSlug: template.slug,
   })
-  const spotlightRanking = featuredHead.items[0] ?? null
 
   const compare = useCompareRanking({
     slug: activeSlug,
@@ -579,53 +501,26 @@ export const CommunityConsensusSection = ({
   const isPinLoading = isActiveRanking && compare.detail === undefined
   const isPinFailed = isActiveRanking && compare.detail === null
 
-  const currentFrame = useMemo<ViewFrame | null>(() =>
-  {
-    if (isPinLoading || isPinFailed) return null
-    if (!aggregate || !isAggregateReady(aggregate)) return null
-    if (filteredRows.length === 0) return null
-    const buckets =
-      isActiveRanking && compare.buckets ? compare.buckets : aggregate.buckets
-    return {
-      aggregate,
-      rows: filteredRows,
-      buckets,
-      yourPlacements: overlayActive ? yourPlacements : null,
-      showControversy: sort === 'controversy' && !isActiveRanking,
-      activeRankingMeta,
-    }
-  }, [
+  const {
+    cachedFrame,
+    renderFrame,
+    showLaneStaleFrame,
+    showPinStaleFrame,
+    showStaleFrame,
+  } = useConsensusViewFrame({
     activeRankingMeta,
     aggregate,
-    compare.buckets,
+    compareBuckets: compare.buckets,
+    criterionExternalId,
     filteredRows,
     isActiveRanking,
     isPinFailed,
     isPinLoading,
     overlayActive,
     sort,
+    templateSlug: template.slug,
     yourPlacements,
-  ])
-
-  // scoped by template + criterion so a lane swap never shows wrong tiers
-  // behind a load — render fallback, not render-driving state. only touch
-  // the cache on transitions so steady-state renders don't churn recency
-  const frameCacheKey = `${template.slug}:${criterionExternalId}`
-  if (
-    currentFrame !== null &&
-    VIEW_FRAME_CACHE.get(frameCacheKey) !== currentFrame
-  )
-  {
-    rememberViewFrame(frameCacheKey, currentFrame)
-  }
-
-  const cachedFrame =
-    currentFrame === null ? readCachedViewFrame(frameCacheKey) : null
-  const showPinStaleFrame = isPinLoading && cachedFrame !== null
-  const showLaneStaleFrame =
-    aggregate === undefined && !isActiveRanking && cachedFrame !== null
-  const showStaleFrame = showPinStaleFrame || showLaneStaleFrame
-  const renderFrame = currentFrame ?? (showStaleFrame ? cachedFrame : null)
+  })
 
   const renderBody = (): ReactNode =>
   {
@@ -812,29 +707,6 @@ export const CommunityConsensusSection = ({
     </>
   )
 
-  const renderConsensusShell = ({
-    body,
-    totalCount,
-    rail,
-    actions,
-  }: {
-    body: ReactNode
-    totalCount: number
-    rail: ReactNode
-    actions: ReactNode
-  }): ReactNode => (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_auto] lg:items-stretch">
-      <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-        {renderToolbar(totalCount)}
-      </div>
-      <div className="lg:col-start-2 lg:row-start-1">{actions}</div>
-      <div className="min-w-0 lg:col-start-1 lg:row-start-2">{body}</div>
-      <aside className="flex flex-col gap-3 lg:col-start-2 lg:row-start-2 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)]">
-        {rail}
-      </aside>
-    </div>
-  )
-
   // keep compare defaults available across every aggregate state
   const compareDefaultRight = useMemo(() =>
   {
@@ -934,21 +806,27 @@ export const CommunityConsensusSection = ({
       const totalCount = renderFrame?.aggregate.itemCount ?? knownItemCount
       const rankingCount =
         renderFrame?.aggregate.rankingCount ?? knownRankingCount
-      return renderConsensusShell({
-        body: renderFrame ? (
-          renderBody()
-        ) : (
-          <LoadingBlock
-            message={`Loading ${laneLabel} consensus…`}
-            className="rounded-lg min-h-[28rem]"
-          />
-        ),
-        totalCount,
-        rail: renderFrame
-          ? renderRail(rankingCount)
-          : renderRailLoading(rankingCount),
-        actions: renderConsensusActions(),
-      })
+      return (
+        <ConsensusShell
+          toolbar={renderToolbar(totalCount)}
+          body={
+            renderFrame ? (
+              renderBody()
+            ) : (
+              <LoadingBlock
+                message={`Loading ${laneLabel} consensus…`}
+                className="rounded-lg min-h-[28rem]"
+              />
+            )
+          }
+          rail={
+            renderFrame
+              ? renderRail(rankingCount)
+              : renderRailLoading(rankingCount)
+          }
+          actions={renderConsensusActions()}
+        />
+      )
     }
     if (aggregate === null || aggregate.state === 'empty')
     {
@@ -969,12 +847,14 @@ export const CommunityConsensusSection = ({
         <LoadingBlock message="Computing consensus from public rankings…" />
       )
     }
-    return renderConsensusShell({
-      body: renderBody(),
-      totalCount: aggregate.itemCount,
-      rail: renderRail(aggregate.rankingCount),
-      actions: renderConsensusActions(),
-    })
+    return (
+      <ConsensusShell
+        toolbar={renderToolbar(aggregate.itemCount)}
+        body={renderBody()}
+        rail={renderRail(aggregate.rankingCount)}
+        actions={renderConsensusActions()}
+      />
+    )
   }
 
   const showYourPlacementsCopy =

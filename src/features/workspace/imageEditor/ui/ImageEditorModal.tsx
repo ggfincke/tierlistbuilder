@@ -23,7 +23,6 @@ import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/u
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/useAutoCropTrimShadows'
 import { BaseModal } from '~/shared/overlay/BaseModal'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { useImageEditorAutoCropAll } from '../model/useImageEditorAutoCropAll'
@@ -35,12 +34,15 @@ import {
   useImageEditorRatioChangeGuard,
 } from '../model/useImageEditorModalActions'
 import { useImageEditorSelection } from '../model/useImageEditorSelection'
+import { useSelectedItemHandlers } from '../model/useSelectedItemHandlers'
 import { BoardControlsBar } from './BoardControlsBar'
 import { ImageEditorPane, type ImageEditorPaneHandle } from './ImageEditorPane'
+import { ImageEditorModalDialogs } from './ImageEditorModalDialogs'
 import { ImageEditorRail } from './ImageEditorRail'
 import {
   useImageEditorStore,
   type ImageEditorFilter,
+  type ImageEditorMode,
 } from '../model/useImageEditorStore'
 
 const NOOP = () =>
@@ -50,24 +52,31 @@ const NOOP = () =>
 
 export const ImageEditorModal = () =>
 {
-  const isOpen = useImageEditorStore((s) => s.isOpen)
+  const { isOpen, mode } = useImageEditorStore(
+    useShallow((s) => ({ isOpen: s.isOpen, mode: s.mode }))
+  )
   if (!isOpen) return null
-  return <ImageEditorModalBody />
+  // remount on mode change so per-pane drafts/refs reset cleanly
+  return <ImageEditorModalBody key={mode} mode={mode} />
 }
 
-const ImageEditorModalBody = () =>
+interface ImageEditorModalBodyProps
+{
+  mode: ImageEditorMode
+}
+
+const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
 {
   const titleId = useId()
-  const { mode, filter, setFilter, initialItemId, close } = useImageEditorStore(
+  const isSingleMode = mode === 'single'
+  const { filter, setFilter, initialItemId, close } = useImageEditorStore(
     useShallow((s) => ({
-      mode: s.mode,
       filter: s.filter,
       setFilter: s.setFilter,
       initialItemId: s.initialItemId,
       close: s.close,
     }))
   )
-  const isSingleMode = mode === 'single'
   const { items, tiers, unrankedItemIds } = useActiveBoardStore(
     useShallow((s) => ({
       items: s.items,
@@ -86,23 +95,13 @@ const ImageEditorModalBody = () =>
     setItemTransform,
     setItemsTransform,
     setBoardLabelSettings,
-    setItemLabelOptions,
     setBoardAndItemsLabelOptions,
-    setItemLabel,
-    setItemAltText,
-    setItemNotes,
-    setItemBackgroundColor,
   } = useActiveBoardStore(
     useShallow((s) => ({
       setItemTransform: s.setItemTransform,
       setItemsTransform: s.setItemsTransform,
       setBoardLabelSettings: s.setBoardLabelSettings,
-      setItemLabelOptions: s.setItemLabelOptions,
       setBoardAndItemsLabelOptions: s.setBoardAndItemsLabelOptions,
-      setItemLabel: s.setItemLabel,
-      setItemAltText: s.setItemAltText,
-      setItemNotes: s.setItemNotes,
-      setItemBackgroundColor: s.setItemBackgroundColor,
     }))
   )
   const globalShowLabels = usePreferencesStore((s) => s.showLabels)
@@ -240,59 +239,19 @@ const ImageEditorModalBody = () =>
     },
     [clearSkipped, setItemTransform]
   )
-  const handleSelectedCommit = useCallback(
-    (transform: Parameters<typeof setItemTransform>[1]) =>
-    {
-      if (!selectedId) return
-      handleCommit(selectedId, transform)
-    },
-    [handleCommit, selectedId]
-  )
-  const handleSelectedLabelChange = useCallback(
-    (label: string) =>
-    {
-      if (!selectedId) return
-      setItemLabel(selectedId, label)
-    },
-    [selectedId, setItemLabel]
-  )
-  const handleSelectedAltTextChange = useCallback(
-    (value: string) =>
-    {
-      if (!selectedId) return
-      setItemAltText(selectedId, value)
-    },
-    [selectedId, setItemAltText]
-  )
-  const handleSelectedNotesChange = useCallback(
-    (value: string) =>
-    {
-      if (!selectedId) return
-      setItemNotes(selectedId, value)
-    },
-    [selectedId, setItemNotes]
-  )
-  const handleSelectedBackgroundColorChange = useCallback(
-    (value: string | null) =>
-    {
-      if (!selectedId) return
-      setItemBackgroundColor(selectedId, value)
-    },
-    [selectedId, setItemBackgroundColor]
-  )
-  const handleSelectedLabelOptionsChange = useCallback(
-    (options: Parameters<typeof setItemLabelOptions>[1]) =>
-    {
-      if (!selectedId) return
-      setItemLabelOptions(selectedId, options)
-    },
-    [selectedId, setItemLabelOptions]
-  )
-  const handleApplySelectedLabelToAll = useCallback(() =>
-  {
-    if (!selectedId) return
-    requestApplyLabelToAll(selectedId)
-  }, [requestApplyLabelToAll, selectedId])
+  const {
+    handleSelectedAltTextChange,
+    handleSelectedApplyLabelToAll,
+    handleSelectedBackgroundColorChange,
+    handleSelectedCommit,
+    handleSelectedLabelChange,
+    handleSelectedLabelOptionsChange,
+    handleSelectedNotesChange,
+  } = useSelectedItemHandlers({
+    selectedId,
+    onCommit: handleCommit,
+    requestApplyLabelToAll,
+  })
   const labelAppliedToAll = useMemo(
     () => allImageItems.every((it) => isEmptyItemLabelOptions(it.labelOptions)),
     [allImageItems]
@@ -306,13 +265,36 @@ const ImageEditorModalBody = () =>
     }`
   }, [allImageItems.length])
 
+  const paneNavigation = useMemo(
+    () =>
+      isSingleMode
+        ? {
+            canNext: false,
+            canPrev: false,
+            canSkip: false,
+            onNext: NOOP,
+            onPrev: NOOP,
+            onSkip: NOOP,
+          }
+        : {
+            canNext:
+              selectedIndex >= 0 && selectedIndex < filteredItems.length - 1,
+            canPrev: selectedIndex > 0,
+            canSkip:
+              selectedIndex >= 0 && selectedIndex < filteredItems.length - 1,
+            onNext: goNext,
+            onPrev: goPrev,
+            onSkip: goSkip,
+          },
+    [isSingleMode, selectedIndex, filteredItems.length, goNext, goPrev, goSkip]
+  )
+  const onApplyLabelToAll = isSingleMode ? NOOP : handleSelectedApplyLabelToAll
+
   useImageEditorModalKeyboardShortcuts({
     flushActivePaneEdit,
-    // single-mode pins to one item; Left/Right shouldn't shift the hidden
-    // multi-mode selection underneath, so feed the hook NOOPs there
-    goPrev: isSingleMode ? NOOP : goPrev,
-    goNext: isSingleMode ? NOOP : goNext,
-    goSkip: isSingleMode ? NOOP : goSkip,
+    goPrev: paneNavigation.onPrev,
+    goNext: paneNavigation.onNext,
+    goSkip: paneNavigation.onSkip,
   })
 
   return (
@@ -408,9 +390,7 @@ const ImageEditorModalBody = () =>
               onCommit={handleSelectedCommit}
               onLabelChange={handleSelectedLabelChange}
               onLabelOptionsChange={handleSelectedLabelOptionsChange}
-              onApplyLabelToAll={
-                isSingleMode ? NOOP : handleApplySelectedLabelToAll
-              }
+              onApplyLabelToAll={onApplyLabelToAll}
               canApplyLabelToAll={!isSingleMode && allImageItems.length > 1}
               labelAppliedToAll={labelAppliedToAll}
               applyLabelToAllTitle={applyLabelToAllTitle}
@@ -421,20 +401,12 @@ const ImageEditorModalBody = () =>
               onAltTextChange={handleSelectedAltTextChange}
               onNotesChange={handleSelectedNotesChange}
               onBackgroundColorChange={handleSelectedBackgroundColorChange}
-              canPrev={!isSingleMode && selectedIndex > 0}
-              canNext={
-                !isSingleMode &&
-                selectedIndex >= 0 &&
-                selectedIndex < filteredItems.length - 1
-              }
-              canSkip={
-                !isSingleMode &&
-                selectedIndex >= 0 &&
-                selectedIndex < filteredItems.length - 1
-              }
-              onPrev={isSingleMode ? NOOP : goPrev}
-              onNext={isSingleMode ? NOOP : goNext}
-              onSkip={isSingleMode ? NOOP : goSkip}
+              canPrev={paneNavigation.canPrev}
+              canNext={paneNavigation.canNext}
+              canSkip={paneNavigation.canSkip}
+              onPrev={paneNavigation.onPrev}
+              onNext={paneNavigation.onNext}
+              onSkip={paneNavigation.onSkip}
             />
           ) : (
             <EmptyState
@@ -445,42 +417,10 @@ const ImageEditorModalBody = () =>
           )}
         </div>
       </div>
-      <ConfirmDialog
-        open={autoCropAll.open}
-        title="Overwrite image adjustments?"
-        description={`Auto-crop will replace ${autoCropAll.count === 1 ? '1 saved or pending adjustment' : `${autoCropAll.count} saved or pending adjustments`} in this view. Items already auto-cropped or untouched stay as they are.`}
-        confirmText="Auto-crop all"
-        variant="accent"
-        onConfirm={autoCropAll.confirm}
-        onCancel={autoCropAll.cancel}
-      />
-      <ConfirmDialog
-        open={ratioGuard.open}
-        title="Change board ratio?"
-        description={`This will reflow every item to the new ratio. ${
-          ratioGuard.count === 1
-            ? '1 item has a manual crop'
-            : `${ratioGuard.count} items have manual crops`
-        } that may need re-checking.`}
-        confirmText="Change ratio"
-        cancelText="Keep current"
-        variant="accent"
-        onConfirm={ratioGuard.confirm}
-        onCancel={ratioGuard.cancel}
-      />
-      <ConfirmDialog
-        open={applyLabel.open}
-        title="Apply label settings to all items?"
-        description={`This sets the board default label settings to match this item, and clears per-tile label overrides on ${
-          applyLabel.count === 1
-            ? '1 other item'
-            : `${applyLabel.count} other items`
-        }. The board's text content stays per-item.`}
-        confirmText="Apply to all"
-        cancelText="Cancel"
-        variant="accent"
-        onConfirm={applyLabel.confirm}
-        onCancel={applyLabel.cancel}
+      <ImageEditorModalDialogs
+        applyLabel={applyLabel}
+        autoCropAll={autoCropAll}
+        ratioGuard={ratioGuard}
       />
     </BaseModal>
   )

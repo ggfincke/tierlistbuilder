@@ -147,7 +147,10 @@ export const requireOwnedTemplate = async (
   userId: Id<'users'>
 ): Promise<Doc<'templates'>> =>
 {
-  const template = orThrowNotFound(await findTemplateBySlug(ctx, slug), 'template')
+  const template = orThrowNotFound(
+    await findTemplateBySlug(ctx, slug),
+    'template'
+  )
   if (template.authorId !== userId)
   {
     throwForbidden('not the owner of this template')

@@ -64,7 +64,7 @@ interface UseModalKeyboardShortcutsInput
   goSkip: () => void
 }
 
-type GateProjection = Pick<
+export type GateProjection = Pick<
   ConfirmationGate,
   'open' | 'count' | 'confirm' | 'cancel'
 >

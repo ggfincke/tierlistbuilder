@@ -50,6 +50,16 @@ interface UseImageEditorTransformDraftInput
   onCommit: (transform: ItemTransform | null) => void
 }
 
+interface TransformDraftRuntime
+{
+  working: ItemTransform
+  committed: ItemTransform
+  isDirty: boolean
+  flushCommit: (transform: ItemTransform) => void
+  itemId: TierItem['id']
+  resolveCommitTransform: (transform: ItemTransform) => ItemTransform | null
+}
+
 export const useImageEditorTransformDraft = ({
   item,
   frameAspectRatio,
@@ -99,23 +109,27 @@ export const useImageEditorTransformDraft = ({
   )
 
   const isDirty = !isSameItemTransform(working, committed)
-  const workingRef = useRef(working)
-  const committedRef = useRef(committed)
-  const isDirtyRef = useRef(isDirty)
-  const flushCommitRef = useRef(flushCommit)
-  const itemIdRef = useRef(item.id)
-  const resolveCommitTransformRef = useRef(resolveCommitTransform)
+  const runtimeRef = useRef<TransformDraftRuntime>({
+    working,
+    committed,
+    isDirty,
+    flushCommit,
+    itemId: item.id,
+    resolveCommitTransform,
+  })
   const autoCommitTimerRef = useRef<number | null>(null)
   const savedFlashTimerRef = useRef<number | null>(null)
 
   useLayoutEffect(() =>
   {
-    workingRef.current = working
-    committedRef.current = committed
-    isDirtyRef.current = isDirty
-    flushCommitRef.current = flushCommit
-    itemIdRef.current = item.id
-    resolveCommitTransformRef.current = resolveCommitTransform
+    runtimeRef.current = {
+      working,
+      committed,
+      isDirty,
+      flushCommit,
+      itemId: item.id,
+      resolveCommitTransform,
+    }
   }, [
     committed,
     flushCommit,
@@ -156,9 +170,10 @@ export const useImageEditorTransformDraft = ({
     autoCommitTimerRef.current = window.setTimeout(() =>
     {
       autoCommitTimerRef.current = null
-      if (!isDirtyRef.current) return
-      flushCommitRef.current(workingRef.current)
-      isDirtyRef.current = false
+      const runtime = runtimeRef.current
+      if (!runtime.isDirty) return
+      runtime.flushCommit(runtime.working)
+      runtime.isDirty = false
       showSavedFlash()
     }, 350)
   }, [clearAutoCommitTimer, showSavedFlash])
@@ -166,15 +181,16 @@ export const useImageEditorTransformDraft = ({
   const setWorkingDraft = useCallback<ImageEditorTransformDraftSetter>(
     (nextOrUpdate) =>
     {
-      const current = workingRef.current
+      const runtime = runtimeRef.current
+      const current = runtime.working
       const next =
         typeof nextOrUpdate === 'function'
           ? nextOrUpdate(current)
           : nextOrUpdate
       if (isSameItemTransform(current, next)) return
-      workingRef.current = next
-      const nextDirty = !isSameItemTransform(next, committedRef.current)
-      isDirtyRef.current = nextDirty
+      runtime.working = next
+      const nextDirty = !isSameItemTransform(next, runtime.committed)
+      runtime.isDirty = nextDirty
       if (nextDirty)
       {
         setSavedFlash(false)
@@ -184,7 +200,7 @@ export const useImageEditorTransformDraft = ({
       {
         clearAutoCommitTimer()
       }
-      const nextDraftState = { working: next, committed: committedRef.current }
+      const nextDraftState = { working: next, committed: runtime.committed }
       setDraftState(nextDraftState)
     },
     [clearAutoCommitTimer, scheduleAutoCommit]
@@ -195,7 +211,8 @@ export const useImageEditorTransformDraft = ({
     {
       clearAutoCommitTimer()
       clearSavedFlashTimer()
-      if (isDirtyRef.current) flushCommitRef.current(workingRef.current)
+      const runtime = runtimeRef.current
+      if (runtime.isDirty) runtime.flushCommit(runtime.working)
     },
     [clearAutoCommitTimer, clearSavedFlashTimer]
   )
@@ -203,20 +220,22 @@ export const useImageEditorTransformDraft = ({
   const getPendingTransformEdit =
     useCallback((): PendingImageEditorPaneEdit | null =>
     {
-      return isDirtyRef.current
+      const runtime = runtimeRef.current
+      return runtime.isDirty
         ? {
-            id: itemIdRef.current,
-            transform: resolveCommitTransformRef.current(workingRef.current),
+            id: runtime.itemId,
+            transform: runtime.resolveCommitTransform(runtime.working),
           }
         : null
     }, [])
 
   const flushPendingTransform = useCallback(() =>
   {
-    if (!isDirtyRef.current) return
+    const runtime = runtimeRef.current
+    if (!runtime.isDirty) return
     clearAutoCommitTimer()
-    flushCommitRef.current(workingRef.current)
-    isDirtyRef.current = false
+    runtime.flushCommit(runtime.working)
+    runtime.isDirty = false
   }, [clearAutoCommitTimer])
 
   const getFitBaselineZoom = useCallback(
