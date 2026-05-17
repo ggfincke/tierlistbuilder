@@ -40,6 +40,7 @@ import {
 import { getCurrentUserId } from '../../lib/auth'
 import { MAX_AGGREGATE_SEARCH_LENGTH, MAX_SYNC_ITEMS } from '../../lib/limits'
 import { findOwnedBoardByExternalIdIncludingDeleted } from '../../lib/permissions'
+import { getBoardSourceTemplateId } from '../../workspace/boards/sourceFields'
 import { isTemplateSlug } from '@tierlistbuilder/contracts/marketplace/template'
 import {
   createTemplateProjectionCache,
@@ -313,46 +314,26 @@ const takeSearchAggregateItemsPage = async (
   }
 }
 
-const aggregateItemsIndexByBand = {
-  all: {
-    averageTop: 'byTemplateIdAndCriterionAndGenerationAndAvgTopSortAndOrder',
-    averageBottom:
-      'byTemplateIdAndCriterionAndGenerationAndAvgBottomSortAndOrder',
-    consensus: 'byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder',
-    consensusTop: 'byTemplateCriterionGenerationTopConsensusOrder',
-    controversy:
-      'byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder',
-    templateOrder: 'byTemplateIdAndCriterionAndGenerationAndOrder',
-  },
-  top: {
-    averageTop: 'byTemplateCriterionGenerationTopAverageTopOrder',
-    averageBottom: 'byTemplateCriterionGenerationTopAverageBottomOrder',
-    consensus: 'byTemplateCriterionGenerationTopConsensusOrder',
-    consensusTop: 'byTemplateCriterionGenerationTopConsensusOrder',
-    controversy: 'byTemplateCriterionGenerationTopControversyOrder',
-    templateOrder: 'byTemplateCriterionGenerationTopOrder',
-  },
-  bottom: {
-    averageTop: 'byTemplateCriterionGenerationBottomAverageTopOrder',
-    averageBottom: 'byTemplateCriterionGenerationBottomAverageBottomOrder',
-    consensus: 'byTemplateCriterionGenerationBottomConsensusOrder',
-    consensusTop: 'byTemplateCriterionGenerationBottomConsensusOrder',
-    controversy: 'byTemplateCriterionGenerationBottomControversyOrder',
-    templateOrder: 'byTemplateCriterionGenerationBottomOrder',
-  },
-  controversial: {
-    averageTop: 'byTemplateCriterionGenerationControversialAverageTopOrder',
-    averageBottom:
-      'byTemplateCriterionGenerationControversialAverageBottomOrder',
-    consensus: 'byTemplateCriterionGenerationControversialConsensusOrder',
-    consensusTop: 'byTemplateCriterionGenerationControversialConsensusOrder',
-    controversy: 'byTemplateCriterionGenerationControversialControversyOrder',
-    templateOrder: 'byTemplateCriterionGenerationControversialOrder',
-  },
-} as const satisfies Record<
-  TemplateRankingAggregateItemBand,
-  Record<TemplateRankingAggregateItemSort, string>
->
+const aggregateItemsOrderIndexByBand = {
+  all: 'byTemplateIdAndCriterionAndGenerationAndOrder',
+  top: 'byTemplateCriterionGenerationTopOrder',
+  bottom: 'byTemplateCriterionGenerationBottomOrder',
+  controversial: 'byTemplateCriterionGenerationControversialOrder',
+} as const satisfies Record<TemplateRankingAggregateItemBand, string>
+
+// band='all' has a per-sort index; band-filtered shares one per-band index &
+// JS-sorts in memory. consensusTop is rewritten to band='top' upstream
+type AllBandIndexedSort = Exclude<TemplateRankingAggregateItemSort, 'consensusTop'>
+
+const allBandSortIndexBySort = {
+  averageTop: 'byTemplateIdAndCriterionAndGenerationAndAvgTopSortAndOrder',
+  averageBottom:
+    'byTemplateIdAndCriterionAndGenerationAndAvgBottomSortAndOrder',
+  consensus: 'byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder',
+  controversy:
+    'byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder',
+  templateOrder: 'byTemplateIdAndCriterionAndGenerationAndOrder',
+} as const satisfies Record<AllBandIndexedSort, string>
 
 const resolveAggregateItemsIndexBand = (
   band: TemplateRankingAggregateItemBand,
@@ -360,15 +341,31 @@ const resolveAggregateItemsIndexBand = (
 ): TemplateRankingAggregateItemBand =>
   band === 'all' && sort === 'consensusTop' ? 'top' : band
 
-const takeIndexedAggregateItemsPage = async (
+const takeAllBandPaginatedPage = async (
   ctx: QueryCtx,
   options: AggregateItemsPageOptions,
-  pageSize: number
+  pageSize: number,
+  indexName: (typeof allBandSortIndexBySort)[keyof typeof allBandSortIndexBySort]
+) =>
+  await ctx.db
+    .query('templateRankingAggregateItems')
+    .withIndex(indexName, (q) =>
+      q
+        .eq('templateId', options.templateId)
+        .eq('criterionExternalId', options.criterionExternalId)
+        .eq('generation', options.generation)
+    )
+    .paginate({ cursor: options.cursor, numItems: pageSize })
+
+const takeBandFilteredAggregateItemsPage = async (
+  ctx: QueryCtx,
+  options: AggregateItemsPageOptions,
+  pageSize: number,
+  indexBand: Exclude<TemplateRankingAggregateItemBand, 'all'>
 ) =>
 {
-  const indexBand = resolveAggregateItemsIndexBand(options.band, options.sort)
-  const indexName = aggregateItemsIndexByBand[indexBand][options.sort]
-  return await ctx.db
+  const indexName = aggregateItemsOrderIndexByBand[indexBand]
+  const rows = await ctx.db
     .query('templateRankingAggregateItems')
     .withIndex(indexName, (q) =>
     {
@@ -378,13 +375,43 @@ const takeIndexedAggregateItemsPage = async (
         .eq('generation', options.generation)
       if (indexBand === 'top') return base.eq('isTopBucket', true)
       if (indexBand === 'bottom') return base.eq('isBottomBucket', true)
-      if (indexBand === 'controversial')
-      {
-        return base.eq('isControversial', true)
-      }
-      return base
+      return base.eq('isControversial', true)
     })
-    .paginate({ cursor: options.cursor, numItems: pageSize })
+    .take(MAX_SYNC_ITEMS)
+  const sorted = sortAggregateRows(rows, options.sort)
+  const offset = parseSearchCursorOffset(options.cursor)
+  const nextOffset = offset + pageSize
+  const page = sorted.slice(offset, nextOffset)
+  const isDone = nextOffset >= sorted.length
+  return {
+    page,
+    isDone,
+    continueCursor: isDone ? '' : searchCursorForOffset(nextOffset),
+  }
+}
+
+const takeIndexedAggregateItemsPage = async (
+  ctx: QueryCtx,
+  options: AggregateItemsPageOptions,
+  pageSize: number
+) =>
+{
+  const indexBand = resolveAggregateItemsIndexBand(options.band, options.sort)
+  if (indexBand === 'all' && options.sort !== 'consensusTop')
+  {
+    return await takeAllBandPaginatedPage(
+      ctx,
+      options,
+      pageSize,
+      allBandSortIndexBySort[options.sort]
+    )
+  }
+  return await takeBandFilteredAggregateItemsPage(
+    ctx,
+    options,
+    pageSize,
+    indexBand === 'all' ? 'top' : indexBand
+  )
 }
 
 const takeAggregateItemsPage = async (
@@ -841,12 +868,13 @@ export const getBoardRankingPublishAvailability = query({
     {
       return unavailableRankingPublish('syncing', counts)
     }
-    if (board.sourceTemplateId === null)
+    const sourceTemplateId = getBoardSourceTemplateId(board)
+    if (sourceTemplateId === null)
     {
       return unavailableRankingPublish('not_template_backed', counts)
     }
 
-    const template = await ctx.db.get(board.sourceTemplateId)
+    const template = await ctx.db.get(sourceTemplateId)
     const templateCounts = {
       ...counts,
       sourceTemplateTitle: template?.title ?? null,

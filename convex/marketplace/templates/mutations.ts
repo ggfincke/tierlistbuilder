@@ -85,6 +85,10 @@ import {
   EMPTY_BOARD_LIBRARY_SUMMARY,
 } from '../../workspace/boards/librarySummary'
 import { buildFreshBoardCloudFields } from '../../workspace/boards/cloudFields'
+import {
+  EMPTY_BOARD_SOURCE_RANKING,
+  boardSourceTemplateFromTemplate,
+} from '../../workspace/boards/sourceFields'
 
 const templateTierSelectionValidator = v.union(
   v.object({ kind: v.literal('template') }),
@@ -393,7 +397,7 @@ const queueLargeTemplatePublish = async (
     itemCount: board.activeItemCount,
     processedItemCount: 0,
     nextCursor: null,
-    sourceBoardRevision: board.revision ?? 0,
+    sourceBoardRevision: board.revision,
     errorCode: null,
     retryCount: 0,
     createdAt: now,
@@ -442,22 +446,22 @@ const queueLargeTemplateClone = async (
     updatedAt: now,
     deletedAt: null,
     revision: 0,
-    sourceTemplateId: template._id,
-    sourceTemplateCategory: template.category,
-    sourceTemplateSizeClass: template.sizeClass,
-    sourceRankingId: null,
-    sourceTemplateTitle: template.title,
-    sourceRankingTitle: null,
+    sourceTemplate: boardSourceTemplateFromTemplate(template),
+    sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
     // false during the clone job's queued/running phase — flipped to true the
     // moment processTemplateCloneJob ticks the fork counter at job completion
     forkCounted: false,
-    preferredCriterionExternalId,
+    preferredCriterionExternalId: preferredCriterionExternalId ?? null,
     ...buildFreshBoardCloudFields(now),
     materializationState: 'clonePending',
-    itemAspectRatio: template.itemAspectRatio ?? undefined,
-    itemAspectRatioMode: template.itemAspectRatioMode ?? undefined,
-    defaultItemImageFit: template.defaultItemImageFit ?? undefined,
-    labels: template.labels ?? undefined,
+    itemAspectRatio: template.itemAspectRatio ?? null,
+    itemAspectRatioMode: template.itemAspectRatioMode ?? null,
+    aspectRatioPromptDismissed: false,
+    defaultItemImageFit: template.defaultItemImageFit ?? null,
+    paletteId: null,
+    textStyleId: null,
+    pageBackground: null,
+    labels: template.labels ?? null,
     activeItemCount: template.itemCount,
     unrankedItemCount: template.itemCount,
     templateProgressState: resolveTemplateProgressState(template._id, {
@@ -468,6 +472,7 @@ const queueLargeTemplateClone = async (
     seedDatasetKey: null,
     seedReleaseId: null,
     seedExternalId: null,
+    seedContentHash: null,
     seedKind: null,
     seedReleaseStatus: null,
   })
@@ -612,9 +617,9 @@ export const publishFromBoard = mutation({
       itemCount: activeItems.length,
       featuredRank: null,
       creditLine,
-      itemAspectRatio: board.itemAspectRatio ?? null,
-      itemAspectRatioMode: board.itemAspectRatioMode ?? null,
-      defaultItemImageFit: board.defaultItemImageFit ?? null,
+      itemAspectRatio: board.itemAspectRatio,
+      itemAspectRatioMode: board.itemAspectRatioMode,
+      defaultItemImageFit: board.defaultItemImageFit,
       labels: board.labels ?? undefined,
       createdAt: now,
       updatedAt: now,
@@ -992,24 +997,24 @@ export const useTemplate = mutation({
       updatedAt: now,
       deletedAt: null,
       revision: 0,
-      sourceTemplateId: template._id,
-      sourceTemplateCategory: template.category,
-      sourceTemplateSizeClass: template.sizeClass,
-      sourceRankingId: null,
-      sourceTemplateTitle: template.title,
-      sourceRankingTitle: null,
+      sourceTemplate: boardSourceTemplateFromTemplate(template),
+      sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
       // counter ticks inline below via incrementTemplateForkStats so this is
       // already "counted" the moment the board exists server-side
       forkCounted: true,
-      preferredCriterionExternalId,
+      preferredCriterionExternalId: preferredCriterionExternalId ?? null,
       ...buildFreshBoardCloudFields(now),
       // propagate the template's design-time ratio so per-item transforms
       // (computed in seed against this same ratio) frame correctly. unset
       // values fall back to board defaults (1, auto, cover)
-      itemAspectRatio: template.itemAspectRatio ?? undefined,
-      itemAspectRatioMode: template.itemAspectRatioMode ?? undefined,
-      defaultItemImageFit: template.defaultItemImageFit ?? undefined,
-      labels: template.labels ?? undefined,
+      itemAspectRatio: template.itemAspectRatio ?? null,
+      itemAspectRatioMode: template.itemAspectRatioMode ?? null,
+      aspectRatioPromptDismissed: false,
+      defaultItemImageFit: template.defaultItemImageFit ?? null,
+      paletteId: null,
+      textStyleId: null,
+      pageBackground: null,
+      labels: template.labels ?? null,
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
         template._id,
@@ -1019,6 +1024,7 @@ export const useTemplate = mutation({
       seedDatasetKey: null,
       seedReleaseId: null,
       seedExternalId: null,
+      seedContentHash: null,
       seedKind: null,
       seedReleaseStatus: null,
     })

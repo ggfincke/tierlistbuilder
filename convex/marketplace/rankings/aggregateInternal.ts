@@ -332,61 +332,7 @@ const toAggregateHighlight = (
   label: row.label,
 })
 
-const loadMostAgreedHighlight = async (
-  ctx: MutationCtx,
-  job: AggregateJob
-): Promise<MarketplaceTemplateRankingAggregateHighlight | null> =>
-{
-  const rows = await ctx.db
-    .query('templateRankingAggregateItems')
-    .withIndex(
-      'byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder',
-      (q) =>
-        q
-          .eq('templateId', job.templateId)
-          .eq('criterionExternalId', job.criterionExternalId)
-          .eq('generation', job.generation)
-    )
-    .take(1)
-  return rows[0] ? toAggregateHighlight(rows[0]) : null
-}
-
-const loadMostDivisiveHighlight = async (
-  ctx: MutationCtx,
-  job: AggregateJob
-): Promise<MarketplaceTemplateRankingAggregateHighlight | null> =>
-{
-  const rows = await ctx.db
-    .query('templateRankingAggregateItems')
-    .withIndex(
-      'byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder',
-      (q) =>
-        q
-          .eq('templateId', job.templateId)
-          .eq('criterionExternalId', job.criterionExternalId)
-          .eq('generation', job.generation)
-    )
-    .take(1)
-  return rows[0] ? toAggregateHighlight(rows[0]) : null
-}
-
-const loadAggregateHighlights = async (
-  ctx: MutationCtx,
-  job: AggregateJob
-): Promise<AggregateHighlights> =>
-{
-  const [mostAgreed, mostDivisive] = await Promise.all([
-    job.rankingCount >= MIN_RANKINGS_FOR_CONSENSUS_BOARD
-      ? loadMostAgreedHighlight(ctx, job)
-      : Promise.resolve(null),
-    job.rankingCount >= MIN_RANKINGS_FOR_CONTROVERSY_BADGES
-      ? loadMostDivisiveHighlight(ctx, job)
-      : Promise.resolve(null),
-  ])
-  return { mostAgreed, mostDivisive }
-}
-
-const loadRelativeMetricRows = async (
+const loadAggregateGenerationRows = async (
   ctx: MutationCtx,
   job: AggregateJob
 ): Promise<Doc<'templateRankingAggregateItems'>[]> =>
@@ -405,6 +351,61 @@ const loadRelativeMetricRows = async (
     throw new Error('aggregate item rows exceed sync item limit')
   }
   return rows
+}
+
+type AggregateHighlightIndex =
+  | 'byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder'
+  | 'byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder'
+
+const loadAggregateHighlight = async (
+  ctx: MutationCtx,
+  job: AggregateJob,
+  indexName: AggregateHighlightIndex
+): Promise<MarketplaceTemplateRankingAggregateHighlight | null> =>
+{
+  const rows = await ctx.db
+    .query('templateRankingAggregateItems')
+    .withIndex(indexName, (q) =>
+      q
+        .eq('templateId', job.templateId)
+        .eq('criterionExternalId', job.criterionExternalId)
+        .eq('generation', job.generation)
+    )
+    .take(1)
+  return rows[0] ? toAggregateHighlight(rows[0]) : null
+}
+
+const loadAggregateHighlights = async (
+  ctx: MutationCtx,
+  job: AggregateJob
+): Promise<AggregateHighlights> =>
+{
+  const shouldLoadMostAgreed =
+    job.rankingCount >= MIN_RANKINGS_FOR_CONSENSUS_BOARD
+  const shouldLoadMostDivisive =
+    job.rankingCount >= MIN_RANKINGS_FOR_CONTROVERSY_BADGES
+  if (!shouldLoadMostAgreed && !shouldLoadMostDivisive)
+  {
+    return EMPTY_AGGREGATE_HIGHLIGHTS
+  }
+
+  const [mostAgreed, mostDivisive] = await Promise.all([
+    shouldLoadMostAgreed
+      ? loadAggregateHighlight(
+          ctx,
+          job,
+          'byTemplateIdAndCriterionAndGenerationAndConsensusSortAndOrder'
+        )
+      : Promise.resolve(null),
+    shouldLoadMostDivisive
+      ? loadAggregateHighlight(
+          ctx,
+          job,
+          'byTemplateIdAndCriterionAndGenerationAndControversySortAndOrder'
+        )
+      : Promise.resolve(null),
+  ])
+  return { mostAgreed, mostDivisive }
 }
 
 const buildRelativeMetricPatches = (
@@ -441,7 +442,7 @@ const prepareRelativeMetrics = async (
   now: number
 ): Promise<null> =>
 {
-  const rows = await loadRelativeMetricRows(ctx, job)
+  const rows = await loadAggregateGenerationRows(ctx, job)
   await ctx.db.patch(job._id, {
     relativeMetricPatches: buildRelativeMetricPatches(rows, job.rankingCount),
     relativeMetricCursor: 0,

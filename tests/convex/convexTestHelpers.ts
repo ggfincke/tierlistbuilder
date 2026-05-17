@@ -15,6 +15,12 @@ import {
 } from '../../convex/marketplace/seedAuth'
 import { buildSearchText } from '@convex/marketplace/templates/lib'
 import { buildFreshBoardCloudFields } from '@convex/workspace/boards/cloudFields'
+import {
+  boardSourceTemplateFromTemplate,
+  EMPTY_BOARD_SOURCE_RANKING,
+  EMPTY_BOARD_SOURCE_TEMPLATE,
+  type BoardSourceTemplate,
+} from '@convex/workspace/boards/sourceFields'
 import { RANKING_TOP_SCORE_REMIX_WEIGHT } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { MarketplaceTemplateCriterionSnapshot } from '@tierlistbuilder/contracts/marketplace/templateCriterion'
 
@@ -122,8 +128,9 @@ interface SeedCloudBoardArgs
   title: string
   now?: number
   sourceTemplateId?: Id<'templates'> | null
-  sourceTemplateCategory?: Doc<'boards'>['sourceTemplateCategory']
-  sourceTemplateSizeClass?: Doc<'boards'>['sourceTemplateSizeClass']
+  sourceTemplateCategory?: BoardSourceTemplate['category']
+  sourceTemplateSizeClass?: BoardSourceTemplate['sizeClass']
+  sourceTemplateTitle?: string | null
   activeItemCount?: number
   unrankedItemCount?: number
   templateProgressState?: Doc<'boards'>['templateProgressState']
@@ -264,31 +271,34 @@ export const seedCloudBoard = async (
     updatedAt: now,
     deletedAt: null,
     revision: args.revision ?? 1,
-    ...(args.itemAspectRatio !== undefined
-      ? { itemAspectRatio: args.itemAspectRatio }
-      : {}),
-    ...(args.itemAspectRatioMode !== undefined
-      ? { itemAspectRatioMode: args.itemAspectRatioMode }
-      : {}),
-    ...(args.defaultItemImageFit !== undefined
-      ? { defaultItemImageFit: args.defaultItemImageFit }
-      : {}),
-    ...(args.labels !== undefined ? { labels: args.labels } : {}),
-    sourceTemplateId: args.sourceTemplateId ?? null,
-    sourceTemplateCategory: args.sourceTemplateCategory ?? null,
-    sourceTemplateSizeClass: args.sourceTemplateSizeClass ?? null,
-    sourceRankingId: null,
-    sourceTemplateTitle: null,
-    sourceRankingTitle: null,
-    forkCounted: args.sourceTemplateId ? true : false,
+    itemAspectRatio: args.itemAspectRatio ?? null,
+    itemAspectRatioMode: args.itemAspectRatioMode ?? null,
+    aspectRatioPromptDismissed: false,
+    defaultItemImageFit: args.defaultItemImageFit ?? null,
+    sourceTemplate: args.sourceTemplateId
+      ? boardSourceTemplateFromTemplate({
+          _id: args.sourceTemplateId,
+          category: args.sourceTemplateCategory ?? null,
+          sizeClass: args.sourceTemplateSizeClass ?? null,
+          title: args.sourceTemplateTitle ?? null,
+        })
+      : EMPTY_BOARD_SOURCE_TEMPLATE,
+    sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
+    forkCounted: Boolean(args.sourceTemplateId),
+    preferredCriterionExternalId: null,
     ...buildFreshBoardCloudFields(now),
     activeItemCount: args.activeItemCount ?? 0,
     unrankedItemCount: args.unrankedItemCount ?? 0,
     templateProgressState: args.templateProgressState ?? 'none',
     librarySummary: args.librarySummary ?? defaultBoardLibrarySummary(),
+    paletteId: null,
+    textStyleId: null,
+    pageBackground: null,
+    labels: args.labels ?? null,
     seedDatasetKey: null,
     seedReleaseId: null,
     seedExternalId: null,
+    seedContentHash: null,
     seedKind: null,
     seedReleaseStatus: null,
   })

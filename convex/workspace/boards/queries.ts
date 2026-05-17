@@ -33,6 +33,7 @@ import {
   toTemplateMediaRefWithFallback,
 } from '../../marketplace/templates/lib'
 import { memoizePromise } from '../../lib/cache'
+import { getBoardSourceTemplateId } from './sourceFields'
 import { loadBoardCloudState } from '../sync/boardStateLoader'
 import { loadBoundedBoardRows } from '../sync/loadBoundedBoardRows'
 
@@ -49,7 +50,7 @@ const toBoardListItem = (board: Doc<'boards'>): BoardListItem => ({
   title: board.title,
   createdAt: board.createdAt,
   updatedAt: board.updatedAt,
-  revision: board.revision ?? 0,
+  revision: board.revision,
 })
 
 // asserts the row's deletedAt is non-null & narrows the type for callers.
@@ -249,16 +250,18 @@ export const getMyLibraryBoards = query({
 
     return Promise.all(
       boards.map((board) =>
-        projectLibraryRow(board, {
+      {
+        const sourceTemplateId = getBoardSourceTemplateId(board)
+        return projectLibraryRow(board, {
           userDefaultPaletteId,
           loadStorageUrl,
           sourceCover:
-            board.sourceTemplateId !== null
-              ? (sourceTemplateCovers.get(board.sourceTemplateId) ??
+            sourceTemplateId !== null
+              ? (sourceTemplateCovers.get(sourceTemplateId) ??
                 EMPTY_SOURCE_TEMPLATE_COVER)
               : EMPTY_SOURCE_TEMPLATE_COVER,
         })
-      )
+      })
     )
   },
 })
@@ -289,8 +292,10 @@ const loadSourceTemplateCovers = async (
   const templateIds = Array.from(
     new Set(
       boards.flatMap((board) =>
-        board.sourceTemplateId !== null ? [board.sourceTemplateId] : []
-      )
+      {
+        const sourceTemplateId = getBoardSourceTemplateId(board)
+        return sourceTemplateId !== null ? [sourceTemplateId] : []
+      })
     )
   )
 
@@ -339,7 +344,7 @@ const projectLibraryRow = async (
     }))
   )
 
-  const category = board.sourceTemplateCategory ?? DEFAULT_LIBRARY_CATEGORY
+  const category = board.sourceTemplate.category ?? DEFAULT_LIBRARY_CATEGORY
   const hasPublishedTemplate = board.livePublicTemplateId !== null
 
   const rankedItemCount = Math.max(
@@ -360,7 +365,7 @@ const projectLibraryRow = async (
     title: board.title,
     createdAt: board.createdAt,
     updatedAt: board.updatedAt,
-    revision: board.revision ?? 0,
+    revision: board.revision,
     activeItemCount: board.activeItemCount,
     unrankedItemCount: board.unrankedItemCount,
     rankedItemCount,
@@ -368,7 +373,7 @@ const projectLibraryRow = async (
     syncState,
     visibility: hasPublishedTemplate ? 'public' : 'private',
     category,
-    sourceTemplateSizeClass: board.sourceTemplateSizeClass,
+    sourceTemplateSizeClass: board.sourceTemplate.sizeClass,
     sourceTemplateCoverMedia: rowCtx.sourceCover.media,
     sourceTemplateCoverFraming: rowCtx.sourceCover.framing,
     coverItems,

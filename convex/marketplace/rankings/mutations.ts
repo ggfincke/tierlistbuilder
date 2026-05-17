@@ -38,6 +38,11 @@ import {
   type BoardLibrarySummaryItem,
   type BoardLibrarySummaryTier,
 } from '../../workspace/boards/librarySummary'
+import {
+  EMPTY_BOARD_SOURCE_RANKING,
+  boardSourceTemplateFromTemplate,
+  getBoardSourceTemplateId,
+} from '../../workspace/boards/sourceFields'
 import { resolveTemplateProgressState } from '../../lib/templateProgress'
 import {
   marketplaceRankingPublishResultValidator,
@@ -131,7 +136,8 @@ const requireCompletedTemplateBoard = (
       message: 'cannot publish a deleted board ranking',
     })
   }
-  if (board.sourceTemplateId === null)
+  const sourceTemplateId = getBoardSourceTemplateId(board)
+  if (sourceTemplateId === null)
   {
     throw new ConvexError({
       code: CONVEX_ERROR_CODES.invalidState,
@@ -145,7 +151,7 @@ const requireCompletedTemplateBoard = (
       message: 'only completed template rankings can be published',
     })
   }
-  return board.sourceTemplateId
+  return sourceTemplateId
 }
 
 interface OrderedRankingItem
@@ -600,20 +606,20 @@ export const remixTemplateConsensus = mutation({
       updatedAt: now,
       deletedAt: null,
       revision: 0,
-      sourceTemplateId: template._id,
-      sourceTemplateCategory: template.category,
-      sourceTemplateSizeClass: template.sizeClass,
+      sourceTemplate: boardSourceTemplateFromTemplate(template),
       // consensus remix is sourced from the aggregate, not a single ranking
-      sourceRankingId: null,
-      sourceTemplateTitle: template.title,
-      sourceRankingTitle: null,
+      sourceRanking: EMPTY_BOARD_SOURCE_RANKING,
       forkCounted: true,
       preferredCriterionExternalId: criterion.externalId,
       ...buildFreshBoardCloudFields(now),
-      itemAspectRatio: template.itemAspectRatio ?? undefined,
-      itemAspectRatioMode: template.itemAspectRatioMode ?? undefined,
-      defaultItemImageFit: template.defaultItemImageFit ?? undefined,
-      labels: template.labels ?? undefined,
+      itemAspectRatio: template.itemAspectRatio ?? null,
+      itemAspectRatioMode: template.itemAspectRatioMode ?? null,
+      aspectRatioPromptDismissed: false,
+      defaultItemImageFit: template.defaultItemImageFit ?? null,
+      paletteId: null,
+      textStyleId: null,
+      pageBackground: null,
+      labels: template.labels ?? null,
       ...progressCounts,
       templateProgressState: resolveTemplateProgressState(
         template._id,
@@ -623,6 +629,7 @@ export const remixTemplateConsensus = mutation({
       seedDatasetKey: null,
       seedReleaseId: null,
       seedExternalId: null,
+      seedContentHash: null,
       seedKind: null,
       seedReleaseStatus: null,
     })

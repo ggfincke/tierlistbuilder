@@ -80,6 +80,7 @@ import type * as workspace_boards_internal from "../workspace/boards/internal.js
 import type * as workspace_boards_librarySummary from "../workspace/boards/librarySummary.js";
 import type * as workspace_boards_mutations from "../workspace/boards/mutations.js";
 import type * as workspace_boards_queries from "../workspace/boards/queries.js";
+import type * as workspace_boards_sourceFields from "../workspace/boards/sourceFields.js";
 import type * as workspace_boards_upsertBoardState from "../workspace/boards/upsertBoardState.js";
 import type * as workspace_sync_boardReconciler from "../workspace/sync/boardReconciler.js";
 import type * as workspace_sync_boardStateLoader from "../workspace/sync/boardStateLoader.js";
@@ -166,6 +167,7 @@ declare const fullApi: ApiFromModules<{
   "workspace/boards/librarySummary": typeof workspace_boards_librarySummary;
   "workspace/boards/mutations": typeof workspace_boards_mutations;
   "workspace/boards/queries": typeof workspace_boards_queries;
+  "workspace/boards/sourceFields": typeof workspace_boards_sourceFields;
   "workspace/boards/upsertBoardState": typeof workspace_boards_upsertBoardState;
   "workspace/sync/boardReconciler": typeof workspace_sync_boardReconciler;
   "workspace/sync/boardStateLoader": typeof workspace_sync_boardStateLoader;

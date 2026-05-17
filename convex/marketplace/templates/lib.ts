@@ -107,23 +107,15 @@ const normalizeTemplatePatchForWrite = (
   return { ...patch, criteria: validateTemplateCriteria(patch.criteria) }
 }
 
-type LegacyForkCountSource = {
-  forkCount?: number
-  useCount?: number
+type TemplateCounterSource = {
+  forkCount: number
   viewCount?: number
 }
 
-export const readLegacyForkCount = (source: LegacyForkCountSource): number =>
-  typeof source.forkCount === 'number' && Number.isFinite(source.forkCount)
-    ? source.forkCount
-    : typeof source.useCount === 'number' && Number.isFinite(source.useCount)
-      ? source.useCount
-      : 0
-
 const readTemplateCounters = (
-  source: LegacyForkCountSource
+  source: TemplateCounterSource
 ): TemplateStatsCounters => ({
-  forkCount: readLegacyForkCount(source),
+  forkCount: source.forkCount,
   viewCount:
     typeof source.viewCount === 'number' && Number.isFinite(source.viewCount)
       ? source.viewCount
@@ -160,7 +152,6 @@ const getTemplateCardMetrics = (
   card: Pick<
     Doc<'templateCards'>,
     | 'forkCount'
-    | 'useCount'
     | 'viewCount'
     | 'weeklyForkCount'
     | 'weeklyViewCount'
@@ -704,7 +695,6 @@ const incrementTemplateMetricDay = async (
         metric === 'forkCount' ? current.forkCount + 1 : current.forkCount,
       viewCount:
         metric === 'viewCount' ? current.viewCount + 1 : current.viewCount,
-      useCount: undefined,
       updatedAt: now,
     })
     return
@@ -740,13 +730,11 @@ const incrementTemplateMetric = async (
   await Promise.all([
     ctx.db.patch(stats._id, {
       ...next,
-      useCount: undefined,
       updatedAt: now,
     }),
     ctx.db.patch(card._id, {
       forkCount: next.forkCount,
       viewCount: next.viewCount,
-      useCount: undefined,
     }),
     incrementTemplateMetricDay(ctx, template, now, metric),
   ])
@@ -1154,7 +1142,6 @@ const buildTemplateCardFields = async (
     defaultItemImageFit: template.defaultItemImageFit ?? null,
     featuredRank: template.featuredRank,
     forkCount: metrics.forkCount,
-    useCount: undefined,
     viewCount: metrics.viewCount,
     weeklyForkCount: metrics.weeklyForkCount,
     weeklyViewCount: metrics.weeklyViewCount,
@@ -1201,7 +1188,7 @@ const requireTemplateCardByTemplateId = async (
 export const writeTemplateCard = async (
   ctx: MutationCtx,
   template: TemplateCardSource,
-  stats: LegacyForkCountSource
+  stats: TemplateCounterSource
 ): Promise<void> =>
 {
   const fields = await buildTemplateCardFields(

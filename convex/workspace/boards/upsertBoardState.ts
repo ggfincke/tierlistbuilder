@@ -68,6 +68,12 @@ import {
   EMPTY_BOARD_LIBRARY_SUMMARY,
 } from './librarySummary'
 import { buildFreshBoardCloudFields } from './cloudFields'
+import {
+  boardSourceRankingFromMaybeRanking,
+  boardSourceTemplateFromMaybeTemplate,
+  getBoardSourceRankingId,
+  getBoardSourceTemplateId,
+} from './sourceFields'
 
 const MAX_LABEL_LEN = 200
 const MAX_ALT_LEN = 500
@@ -163,6 +169,31 @@ interface ResolvedMediaReference
   assetId: Id<'mediaAssets'>
   storageId: Id<'_storage'>
 }
+
+interface NormalizedBoardWriteFields
+{
+  itemAspectRatio: number | null
+  itemAspectRatioMode: 'auto' | 'manual' | null
+  aspectRatioPromptDismissed: boolean
+  defaultItemImageFit: 'cover' | 'contain' | null
+  paletteId: PaletteId | null
+  textStyleId: TextStyleId | null
+  pageBackground: string | null
+  labels: BoardLabelSettings | null
+}
+
+const normalizeBoardWriteFields = (
+  args: UpsertArgs
+): NormalizedBoardWriteFields => ({
+  itemAspectRatio: args.itemAspectRatio ?? null,
+  itemAspectRatioMode: args.itemAspectRatioMode ?? null,
+  aspectRatioPromptDismissed: args.aspectRatioPromptDismissed ?? false,
+  defaultItemImageFit: args.defaultItemImageFit ?? null,
+  paletteId: args.paletteId ?? null,
+  textStyleId: args.textStyleId ?? null,
+  pageBackground: args.pageBackground ?? null,
+  labels: args.labels ?? null,
+})
 
 const validateLabelPlacement = (
   placement: LabelPlacement | undefined,
@@ -423,6 +454,7 @@ const ensureBoard = async (
       resolveSourceRankingBySlug(ctx, args.sourceRankingId),
     ])
     const now = Date.now()
+    const writeFields = normalizeBoardWriteFields(args)
     const boardId = await ctx.db.insert('boards', {
       externalId: args.boardExternalId,
       ownerId: userId,
@@ -431,23 +463,23 @@ const ensureBoard = async (
       updatedAt: now,
       deletedAt: null,
       revision: 0,
-      sourceTemplateId: sourceTemplate?._id ?? null,
-      sourceTemplateCategory: sourceTemplate?.category ?? null,
-      sourceTemplateSizeClass: sourceTemplate?.sizeClass ?? null,
-      sourceRankingId: sourceRanking?._id ?? null,
-      // prefer the server-known title when we can resolve the source; otherwise
-      // fall back to the client-denormalized title so the breadcrumb still
-      // renders even if the row was unpublished after the local fork
-      sourceTemplateTitle:
-        sourceTemplate?.title ?? args.sourceTemplateTitle ?? null,
-      sourceRankingTitle:
-        sourceRanking?.title ?? args.sourceRankingTitle ?? null,
+      ...writeFields,
+      // Prefer resolved server rows; when a row disappeared after a local fork,
+      // keep the client title inside the grouped attribution object.
+      sourceTemplate: boardSourceTemplateFromMaybeTemplate(
+        sourceTemplate,
+        args.sourceTemplateTitle
+      ),
+      sourceRanking: boardSourceRankingFromMaybeRanking(
+        sourceRanking,
+        args.sourceRankingTitle
+      ),
       preferredCriterionExternalId: sourceTemplate
         ? (findActiveTemplateCriterion(
             sourceTemplate,
             args.preferredCriterionExternalId
-          )?.externalId ?? undefined)
-        : undefined,
+          )?.externalId ?? null)
+        : null,
       // false here; orchestrator ticks the counter post-insert & flips this true
       forkCounted: false,
       ...buildFreshBoardCloudFields(now),
@@ -460,6 +492,7 @@ const ensureBoard = async (
       seedDatasetKey: null,
       seedReleaseId: null,
       seedExternalId: null,
+      seedContentHash: null,
       seedKind: null,
       seedReleaseStatus: null,
     })
@@ -485,7 +518,7 @@ const ensureBoard = async (
   return { board, isNewBoard }
 }
 
-// fork-counter trigger for first sync of a sourceTemplateId-bearing board.
+// fork-counter trigger for first sync of a sourceTemplate-bearing board.
 // idempotent via forkCounted — paired w/ inline ticks in useTemplate/remix
 // (those flip forkCounted true at insert so this path leaves them alone)
 const tickForkCounterIfFirstSync = async (
@@ -494,14 +527,16 @@ const tickForkCounterIfFirstSync = async (
 ): Promise<void> =>
 {
   if (board.forkCounted) return
-  if (board.sourceTemplateId === null) return
+  const sourceTemplateId = getBoardSourceTemplateId(board)
+  if (sourceTemplateId === null) return
 
   const now = Date.now()
-  await incrementTemplateForkStats(ctx, board.sourceTemplateId, now)
+  await incrementTemplateForkStats(ctx, sourceTemplateId, now)
 
-  if (board.sourceRankingId !== null)
+  const sourceRankingId = getBoardSourceRankingId(board)
+  if (sourceRankingId !== null)
   {
-    const ranking = await ctx.db.get(board.sourceRankingId)
+    const ranking = await ctx.db.get(sourceRankingId)
     if (ranking)
     {
       const nextRemixCount = ranking.remixCount + 1
@@ -758,7 +793,7 @@ const applyBoardState = async (
   )
   const templateItemExternalIdToId = await resolveSourceTemplateItemIds(
     ctx,
-    board.sourceTemplateId,
+    getBoardSourceTemplateId(board),
     args.items
   )
 
@@ -803,19 +838,19 @@ const applyBoardState = async (
     itemDiff.patch.length > 0 ||
     itemDiff.insert.length > 0
   const titleChanged = normalizedTitle !== board.title
+  const writeFields = normalizeBoardWriteFields(args)
   const aspectChanged =
-    board.itemAspectRatio !== args.itemAspectRatio ||
-    board.itemAspectRatioMode !== args.itemAspectRatioMode ||
-    (board.aspectRatioPromptDismissed ?? false) !==
-      (args.aspectRatioPromptDismissed ?? false) ||
-    board.defaultItemImageFit !== args.defaultItemImageFit
+    board.itemAspectRatio !== writeFields.itemAspectRatio ||
+    board.itemAspectRatioMode !== writeFields.itemAspectRatioMode ||
+    board.aspectRatioPromptDismissed !== writeFields.aspectRatioPromptDismissed ||
+    board.defaultItemImageFit !== writeFields.defaultItemImageFit
   const styleOverrideChanged =
-    board.paletteId !== args.paletteId ||
-    board.textStyleId !== args.textStyleId ||
-    board.pageBackground !== args.pageBackground ||
+    board.paletteId !== writeFields.paletteId ||
+    board.textStyleId !== writeFields.textStyleId ||
+    board.pageBackground !== writeFields.pageBackground ||
     !boardLabelSettingsEqual(board.labels, args.labels)
   const templateProgressState = resolveTemplateProgressState(
-    board.sourceTemplateId,
+    getBoardSourceTemplateId(board),
     progressCounts
   )
   const progressChanged =
@@ -823,7 +858,7 @@ const applyBoardState = async (
     board.unrankedItemCount !== progressCounts.unrankedItemCount ||
     board.templateProgressState !== templateProgressState
 
-  const currentRevision = board.revision ?? 0
+  const currentRevision = board.revision
   if (
     !tiersChanged &&
     !itemsChanged &&
@@ -841,14 +876,7 @@ const applyBoardState = async (
     title: normalizedTitle,
     updatedAt: Date.now(),
     revision: newRevision,
-    itemAspectRatio: args.itemAspectRatio,
-    itemAspectRatioMode: args.itemAspectRatioMode,
-    aspectRatioPromptDismissed: args.aspectRatioPromptDismissed,
-    defaultItemImageFit: args.defaultItemImageFit,
-    paletteId: args.paletteId,
-    textStyleId: args.textStyleId,
-    pageBackground: args.pageBackground,
-    labels: args.labels,
+    ...writeFields,
     activeItemCount: progressCounts.activeItemCount,
     unrankedItemCount: progressCounts.unrankedItemCount,
     templateProgressState,
@@ -909,7 +937,7 @@ export const upsertBoardState = mutation({
     // cheap revision compare BEFORE loading rows — a conflict response avoids
     // scanning the full server state. client follows up w/ getBoardStateByExternalId
     // to populate the conflict UI
-    const currentRevision = board.revision ?? 0
+    const currentRevision = board.revision
     if (args.baseRevision !== null && args.baseRevision !== currentRevision)
     {
       return {

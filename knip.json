@@ -40,11 +40,6 @@
       "typescript": true,
       "vite": true,
       "vitest": true
-    },
-    "packages/contracts": {
-      "entry": ["**/*.ts"],
-      "project": ["**/*.ts"],
-      "includeEntryExports": true
     }
   }
 }

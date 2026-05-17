@@ -115,9 +115,7 @@ export const useConsensusViewFrame = ({
   }, [currentFrame, frameCacheKey])
 
   const cachedFrame =
-    currentFrame === null
-      ? (VIEW_FRAME_CACHE.get(frameCacheKey) ?? null)
-      : null
+    currentFrame === null ? (VIEW_FRAME_CACHE.get(frameCacheKey) ?? null) : null
   const showPinStaleFrame = isPinLoading && cachedFrame !== null
   const showLaneStaleFrame =
     aggregate === undefined && !isActiveRanking && cachedFrame !== null

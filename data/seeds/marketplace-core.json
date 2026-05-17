@@ -1481,7 +1481,7 @@
       "labelPolicy": "explicit-required",
       "labels": { "show": false },
       "coverImage": "data/seeds/assets/covers/ssbu-fighters.jpg",
-      "coverZoom": 2.2,
+      "coverZoom": 1.6,
       "suggestedTiers": [
         {
           "name": "S",
@@ -2052,7 +2052,7 @@
       "labelPolicy": "explicit-required",
       "labels": { "show": false },
       "coverImage": "data/seeds/assets/covers/zelda-games.jpg",
-      "coverZoom": 1.5,
+      "coverZoom": 1,
       "criteria": [
         {
           "externalId": "default",
@@ -30285,7 +30285,7 @@
       "labelPolicy": "explicit-required",
       "labels": { "show": false },
       "coverImage": "data/seeds/assets/covers/mcu-posters.jpg",
-      "coverZoom": 1.5,
+      "coverZoom": 1,
       "criteria": [
         {
           "externalId": "default",

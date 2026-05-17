@@ -36,11 +36,12 @@ interface MosaicProps
   decoding?: MediaDecoding
 }
 
-// per-density item caps. small allows 6x2/5x2 fits on wide h-32 rails (3x3
-// gets too narrow vs the cover aspect); default/large open to 3+ rows so big
-// rosters read as a content wall vs a marquee; hero scales for huge templates
+// per-density item caps. small keeps tiles legible on h-32 rails — 8 fits
+// 4x2 wide layouts so logos/posters read at a glance vs cluttering; default/
+// large open to 3+ rows so big rosters read as a content wall vs a marquee;
+// hero scales for huge templates
 const MAX_SLOTS: Record<MosaicDensity, number> = {
-  small: 12,
+  small: 8,
   default: 18,
   large: 24,
   hero: 80,

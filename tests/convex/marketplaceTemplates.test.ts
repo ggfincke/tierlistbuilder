@@ -1949,102 +1949,6 @@ describe('marketplace template Convex functions', () =>
     expect(remaining.keptBoards.every(Boolean)).toBe(true)
   })
 
-  it('backfills legacy useCount rows before forkCount arithmetic reads them', async () =>
-  {
-    const t = makeTest()
-    const authorId = await seedUser(
-      t,
-      'Legacy Count Author',
-      'legacy-count-author@example.com'
-    )
-    const templateId = await t.run(
-      async (ctx) =>
-        await seedPublishedTemplate(ctx, {
-          slug: 'LegacyCnt1',
-          authorId,
-          title: 'Legacy Count Template',
-          sizeClass: 'standard',
-          itemCount: 1,
-        })
-    )
-
-    await t.run(async (ctx) =>
-    {
-      const [stats, card] = await Promise.all([
-        ctx.db
-          .query('templateStats')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-          .unique(),
-        ctx.db
-          .query('templateCards')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-          .unique(),
-      ])
-      if (!stats || !card) throw new Error('template stats/card missing')
-      await Promise.all([
-        ctx.db.patch(stats._id, {
-          forkCount: undefined,
-          useCount: 7,
-        }),
-        ctx.db.patch(card._id, {
-          forkCount: undefined,
-          useCount: 7,
-        }),
-        ctx.db.insert('templateMetricDays', {
-          templateId,
-          category: 'gaming',
-          dayStartAt: 1_700_000_000_000,
-          useCount: 4,
-          viewCount: 2,
-          createdAt: 1_700_000_000_000,
-          updatedAt: 1_700_000_000_000,
-        }),
-      ])
-    })
-
-    await expect(
-      withSeedActionsEnabled(() =>
-        t.action(
-          api.marketplace.templates.seed.startTemplateForkCountBackfill,
-          {
-            seedSecret: SEED_SECRET,
-          }
-        )
-      )
-    ).resolves.toEqual({
-      stats: { processed: 1, isDone: true },
-      cards: { processed: 1, isDone: true },
-      metricDays: { processed: 1, isDone: true },
-    })
-
-    const after = await t.run(async (ctx) =>
-    {
-      const [stats, card, metricDay] = await Promise.all([
-        ctx.db
-          .query('templateStats')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-          .unique(),
-        ctx.db
-          .query('templateCards')
-          .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
-          .unique(),
-        ctx.db
-          .query('templateMetricDays')
-          .withIndex('byTemplateDay', (q) =>
-            q.eq('templateId', templateId).eq('dayStartAt', 1_700_000_000_000)
-          )
-          .unique(),
-      ])
-      return { stats, card, metricDay }
-    })
-    expect(after.stats).toMatchObject({ forkCount: 7, viewCount: 0 })
-    expect(after.card).toMatchObject({ forkCount: 7, viewCount: 0 })
-    expect(after.metricDay).toMatchObject({ forkCount: 4, viewCount: 2 })
-    expect(after.stats).not.toHaveProperty('useCount')
-    expect(after.card).not.toHaveProperty('useCount')
-    expect(after.metricDay).not.toHaveProperty('useCount')
-  })
-
   it('clones a template w/ user preset & propagates layout settings + transforms', async () =>
   {
     const t = makeTest()
@@ -2648,13 +2552,13 @@ describe('marketplace template Convex functions', () =>
 
       const rankings = await ctx.db
         .query('publishedRankings')
-        .withIndex('bySourceTemplateOwnerPublicationStateUpdatedAt', (q) =>
-          q
-            .eq('sourceTemplateId', template._id)
-            .eq('ownerId', rankerId)
-            .eq('publicationState', 'published')
-        )
+        .withIndex('byOwnerUpdatedAt', (q) => q.eq('ownerId', rankerId))
         .collect()
+      const templateRankings = rankings.filter(
+        (ranking) =>
+          ranking.sourceTemplateId === template._id &&
+          ranking.publicationState === 'published'
+      )
       const aggregates = (
         await ctx.db.query('templateRankingAggregates').collect()
       )
@@ -2670,7 +2574,7 @@ describe('marketplace template Convex functions', () =>
 
       return {
         rankings: Object.fromEntries(
-          rankings.map((ranking) => [
+          templateRankings.map((ranking) => [
             ranking.slug,
             {
               id: ranking._id,
