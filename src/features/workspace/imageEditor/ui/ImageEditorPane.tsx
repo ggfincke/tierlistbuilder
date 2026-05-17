@@ -61,6 +61,7 @@ interface ImageEditorPaneProps
   globalLabelDefaults: GlobalLabelDefaults
   globalTextStyleId: TextStyleId
   boardItemSize: ItemSize
+  getBoardAspectRatioForItem: (item: TierItem) => number
   onCommit: (transform: ItemTransform | null) => void
   onLabelChange: (label: string) => void
   onLabelOptionsChange: (options: ItemLabelOptions | null) => void
@@ -100,6 +101,7 @@ export const ImageEditorPane = forwardRef<
     globalLabelDefaults,
     globalTextStyleId,
     boardItemSize,
+    getBoardAspectRatioForItem,
     onCommit,
     onLabelChange,
     onLabelOptionsChange,
@@ -180,6 +182,7 @@ export const ImageEditorPane = forwardRef<
   const canvasH = canvasSize.height
   const frameAspectRatio =
     canvasW > 0 && canvasH > 0 ? canvasW / canvasH : boardAspectRatio
+  const autoCropAspectRatio = getBoardAspectRatioForItem(item)
   const {
     working,
     setWorkingDraft,
@@ -205,7 +208,7 @@ export const ImageEditorPane = forwardRef<
   const { status: autoCropStatus, autoCrop } = useImageEditorAutoCropItem({
     item,
     trimSoftShadows,
-    frameAspectRatio,
+    autoCropAspectRatio,
     working,
     setWorkingDraft,
   })

@@ -25,13 +25,14 @@ const DEBUG_TARGET_ID_LIMIT = 20
 // Manual selection belongs only to a user pressing Auto-crop all.
 // Do not re-add target reruns w/o explicit clarification.
 type AutoCropRunSource = 'auto' | 'manual'
-type AutoCropClearReason = 'adjust' | 'fit' | 'ratio'
+type AutoCropClearReason = 'adjust' | 'fit' | 'labels' | 'ratio'
 
 interface UseAutoCropControllerInput
 {
   boardAspectRatio: number
   cleanupTargets: readonly TierItem[]
   currentMismatchItems: readonly TierItem[]
+  getBoardAspectRatioForItem: (item: TierItem) => number
   openingMismatchCount: number
   pendingBulkFit: ImageFit | null
   setItemsTransform: (entries: readonly AutoCropTransformEntry[]) => void
@@ -58,6 +59,7 @@ export const useAutoCropController = ({
   boardAspectRatio,
   cleanupTargets,
   currentMismatchItems,
+  getBoardAspectRatioForItem,
   openingMismatchCount,
   pendingBulkFit,
   setItemsTransform,
@@ -78,7 +80,11 @@ export const useAutoCropController = ({
 
   const autoCropAllApplied =
     !autoCropProgress.running &&
-    areCachedAutoCropsApplied(targets, boardAspectRatio, trimSoftShadows)
+    areCachedAutoCropsApplied(
+      targets,
+      getBoardAspectRatioForItem,
+      trimSoftShadows
+    )
   const autoCropApplied = pendingBulkFit === null && autoCropAllApplied
   const autoCropSelected =
     pendingBulkFit === null &&
@@ -141,7 +147,7 @@ export const useAutoCropController = ({
 
       const entries = await runAutoCropTransforms({
         targets,
-        boardAspectRatio,
+        getBoardAspectRatio: getBoardAspectRatioForItem,
         trimSoftShadows,
         onError: (error) =>
         {
@@ -174,6 +180,7 @@ export const useAutoCropController = ({
       boardAspectRatio,
       cleanupTargets,
       currentMismatchItems,
+      getBoardAspectRatioForItem,
       openingMismatchCount,
       runAutoCropTransforms,
       setItemsTransform,

@@ -16,14 +16,12 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { useEffectiveTiers } from '~/features/workspace/boards/model/useEffectiveBoard'
 import { THEMES } from '~/shared/theme/tokens'
 import { announce } from '~/shared/a11y/announce'
-import { getContrastingTextShadow, getTextColor } from '~/shared/lib/color'
-import { resolveTierColorSpec } from '~/shared/theme/tierColors'
-import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'
 import { isVerticalPosition } from '~/shared/overlay/toolbarPosition'
 import { TIER_LIST_BOARD_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { useDragAndDrop } from '~/features/workspace/boards/dnd/useDragAndDrop'
 import { ActiveDragOverlayItem } from './DragOverlayItem'
+import { DragOverlayTierRow } from './DragOverlayTierRow'
 import { TierRow } from './TierRow'
 import { TrashZone } from './TrashZone'
 import { UnrankedPool } from './UnrankedPool'
@@ -62,7 +60,6 @@ interface TierListProps
 export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
 {
   const isVertical = isVerticalPosition(toolbarPosition)
-  const paletteId = useCurrentPaletteId()
   const { exportBackgroundOverride, themeId, compactMode } =
     usePreferencesStore(
       useShallow((state) => ({
@@ -146,6 +143,7 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
     sensors,
     activeItemId,
     activeTier,
+    activeTierRect,
     collisionDetection,
     overlayModifiers,
     onDragStart,
@@ -154,13 +152,6 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
     onDragEnd,
     onDragCancel,
   } = useDragAndDrop()
-
-  const activeTierColor = activeTier
-    ? resolveTierColorSpec(paletteId, activeTier.colorSpec)
-    : null
-  const activeTierTextColor = activeTierColor
-    ? getTextColor(activeTierColor)
-    : null
 
   return (
     <DndContext
@@ -227,18 +218,11 @@ export const TierList = ({ toolbar, toolbarPosition }: TierListProps) =>
             groupCount={dragGroupCount > 1 ? dragGroupCount - 1 : 0}
           />
         ) : activeTier ? (
-          <div
-            className="flex items-center gap-2 rounded-lg px-4 py-2 shadow-xl"
-            style={{
-              backgroundColor: activeTierColor ?? undefined,
-              color: activeTierTextColor ?? undefined,
-              textShadow: activeTierColor
-                ? getContrastingTextShadow(activeTierColor)
-                : undefined,
-            }}
-          >
-            <span className="text-sm font-semibold">{activeTier.name}</span>
-          </div>
+          <DragOverlayTierRow
+            tier={activeTier}
+            width={activeTierRect?.width ?? null}
+            height={activeTierRect?.height ?? null}
+          />
         ) : null}
       </DragOverlay>
     </DndContext>

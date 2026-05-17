@@ -4,6 +4,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   disposeImageStore,
+  getBlob,
   getBlobsBatch,
   getUploadStatusBatch,
   markUploaded,
@@ -53,6 +54,19 @@ describe('imageStore GC planning', () =>
 
     expect(blobs.get('memory-only')?.mimeType).toBe('image/png')
     expect(blobs.get('missing')).toBeNull()
+  })
+
+  it('honors abort signals before falling back to memory reads', async () =>
+  {
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      getBlob('memory-only', { signal: controller.signal })
+    ).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(
+      getBlobsBatch(['memory-only'], { signal: controller.signal })
+    ).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   it('keeps upload status in memory when IndexedDB is unavailable', async () =>

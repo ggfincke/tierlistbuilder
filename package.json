@@ -39,6 +39,7 @@
     "seed:featured": "node scripts/promote-featured-trio.mjs",
     "seed:all": "npm run seed:marketplace && npm run seed:rankings && npm run seed:featured",
     "db:reset": "uv run --project scripts/seed_pipeline python scripts/dev_reset.py",
+    "db:reset:local-fast": "uv run --project scripts/seed_pipeline python scripts/dev_reset_local.py",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

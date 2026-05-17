@@ -33,7 +33,7 @@ interface UseImageEditorAutoCropItemInput
 {
   item: TierItem
   trimSoftShadows: boolean
-  frameAspectRatio: number
+  autoCropAspectRatio: number
   working: ItemTransform
   setWorkingDraft: ImageEditorTransformDraftSetter
 }
@@ -71,7 +71,7 @@ const resolveAutoCropStatus = (
 export const useImageEditorAutoCropItem = ({
   item,
   trimSoftShadows,
-  frameAspectRatio,
+  autoCropAspectRatio,
   working,
   setWorkingDraft,
 }: UseImageEditorAutoCropItemInput): {
@@ -114,11 +114,11 @@ export const useImageEditorAutoCropItem = ({
         ? resolveAutoCropTransform(
             item,
             autoCropResult,
-            frameAspectRatio,
+            autoCropAspectRatio,
             working.rotation
           )
         : null,
-    [autoCropResult, frameAspectRatio, item, working.rotation]
+    [autoCropAspectRatio, autoCropResult, item, working.rotation]
   )
   const autoCropApplied =
     !!autoCropTransform && isSameItemTransform(working, autoCropTransform)
@@ -151,7 +151,7 @@ export const useImageEditorAutoCropItem = ({
         resolveAutoCropTransform(
           item,
           bbox,
-          frameAspectRatio,
+          autoCropAspectRatio,
           workingRotationRef.current
         )
       )
@@ -170,7 +170,7 @@ export const useImageEditorAutoCropItem = ({
     trimSoftShadows,
     autoCropping,
     item,
-    frameAspectRatio,
+    autoCropAspectRatio,
     setWorkingDraft,
     autoCropAbort,
   ])

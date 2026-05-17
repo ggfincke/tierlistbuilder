@@ -2,6 +2,8 @@
 // thumbnail strip for items affected by the mixed-ratio prompt
 
 import type {
+  BoardLabelSettings,
+  GlobalLabelDefaults,
   ImageFit,
   TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
@@ -12,6 +14,7 @@ import type {
 import { getEffectiveImageFit } from '~/shared/board-ui/aspectRatio'
 import { itemSlotDimensions, SHAPE_CLASS } from '~/shared/board-ui/constants'
 import { ItemContent } from '~/shared/board-ui/ItemContent'
+import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 
 export const MISMATCH_THUMBNAIL_PREVIEW_LIMIT = 4
 
@@ -20,6 +23,9 @@ interface MismatchPreviewStripProps
   mismatchedItems: readonly TierItem[]
   boardAspectRatio: number
   boardDefaultFit: ImageFit | undefined
+  boardLabels: BoardLabelSettings | undefined
+  getBoardAspectRatioForItem: (item: TierItem) => number
+  globalLabelDefaults: GlobalLabelDefaults
   pendingBulkFit: ImageFit | null
   slotBound: number
   itemSize: ItemSize
@@ -30,6 +36,9 @@ export const MismatchPreviewStrip = ({
   mismatchedItems,
   boardAspectRatio,
   boardDefaultFit,
+  boardLabels,
+  getBoardAspectRatioForItem,
+  globalLabelDefaults,
   pendingBulkFit,
   slotBound,
   itemSize,
@@ -53,6 +62,7 @@ export const MismatchPreviewStrip = ({
       {
         const previewItem =
           pendingBulkFit === null ? item : { ...item, transform: undefined }
+        const frameAspectRatio = getBoardAspectRatioForItem(item)
         return (
           <div
             key={item.id}
@@ -69,7 +79,13 @@ export const MismatchPreviewStrip = ({
                 fit={
                   pendingBulkFit ?? getEffectiveImageFit(item, boardDefaultFit)
                 }
-                frameAspectRatio={boardAspectRatio}
+                frameAspectRatio={frameAspectRatio}
+                label={resolveLabelDisplay({
+                  itemLabel: item.label,
+                  itemOptions: item.labelOptions,
+                  boardSettings: boardLabels,
+                  globalLabelDefaults,
+                })}
               />
             </div>
           </div>

@@ -13,6 +13,7 @@ interface AutoCropSegmentState
 {
   autoCropAvailable: boolean
   autoCropApplied: boolean
+  autoCropPreparing: boolean
   autoCropRunning: boolean
 }
 
@@ -21,6 +22,7 @@ interface BulkFitSegmentedControlProps
   pendingBulkFit: ImageFit | null
   autoCropApplied: boolean
   autoCropSelected: boolean
+  autoCropPreparing: boolean
   autoCropRunning: boolean
   autoCropAvailable: boolean
   onSelectFit: (fit: ImageFit) => void
@@ -46,10 +48,11 @@ const renderAutoCropLabel = (icon: ReactNode, text: string): ReactNode => (
 
 const getAutoCropLabel = ({
   autoCropApplied,
+  autoCropPreparing,
   autoCropRunning,
 }: AutoCropSegmentState): ReactNode =>
 {
-  if (autoCropRunning)
+  if (autoCropPreparing || autoCropRunning)
   {
     return renderAutoCropLabel(
       <Loader2 className="h-3 w-3 animate-spin" />,
@@ -69,8 +72,10 @@ const getAutoCropLabel = ({
 const getAutoCropTitle = ({
   autoCropAvailable,
   autoCropApplied,
+  autoCropPreparing,
 }: AutoCropSegmentState): string =>
 {
+  if (autoCropPreparing) return 'Waiting for imported image bytes'
   if (autoCropApplied) return 'Auto-crop is applied'
   if (!autoCropAvailable) return 'No image bytes available to auto-crop'
   return 'Frame detected content for mismatched items'
@@ -83,6 +88,7 @@ export const BulkFitSegmentedControl = ({
   pendingBulkFit,
   autoCropApplied,
   autoCropSelected,
+  autoCropPreparing,
   autoCropRunning,
   autoCropAvailable,
   onSelectFit,
@@ -92,7 +98,8 @@ export const BulkFitSegmentedControl = ({
   // pendingBulkFit (Cover/Contain) wins over the auto-crop selected state so
   // the user's most recent intent is what the highlight reflects
   const value: BulkFitMode | null =
-    pendingBulkFit ?? (autoCropSelected ? 'auto-crop' : null)
+    pendingBulkFit ??
+    (autoCropSelected || autoCropPreparing ? 'auto-crop' : null)
 
   const handleChange = useCallback(
     (next: BulkFitMode) =>
@@ -106,6 +113,7 @@ export const BulkFitSegmentedControl = ({
   const autoCropState = {
     autoCropAvailable,
     autoCropApplied,
+    autoCropPreparing,
     autoCropRunning,
   }
   const autoCropLabel = getAutoCropLabel(autoCropState)
@@ -123,7 +131,11 @@ export const BulkFitSegmentedControl = ({
           label: autoCropLabel,
           // applied state stays selected but unclickable so re-pressing
           // doesn't re-run detection on already-cropped items
-          disabled: !autoCropAvailable || autoCropRunning || autoCropApplied,
+          disabled:
+            !autoCropAvailable ||
+            autoCropPreparing ||
+            autoCropRunning ||
+            autoCropApplied,
           ariaLabel: autoCropApplied
             ? 'Auto-crop applied to mismatched items'
             : 'Auto-crop all mismatched items',

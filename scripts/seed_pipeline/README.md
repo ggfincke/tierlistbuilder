@@ -29,6 +29,8 @@ npm run seed:all
 `npm run seed:all` runs the marketplace, ranking, and featured-trio seed steps
 in sequence. There is no seed `--reset` flag; for a clean local/dev deployment,
 wipe data first with `npm run db:reset -- --yes`, then run the seed command.
+For disposable local-only state, `npm run db:reset:local-fast -- --yes` moves
+`.convex/local/default` aside, bootstraps local Convex, and restores local auth.
 
 The package can also be installed into an existing env for development:
 

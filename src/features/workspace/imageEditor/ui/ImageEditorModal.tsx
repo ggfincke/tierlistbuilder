@@ -1,13 +1,14 @@
 // src/features/workspace/imageEditor/ui/ImageEditorModal.tsx
 // store-aware modal orchestration for per-item image editing
 
-import { useCallback, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import {
   isEmptyItemLabelOptions,
   type GlobalLabelDefaults,
+  type TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
   resolveEffectiveShowLabels,
@@ -18,6 +19,10 @@ import {
   getEffectiveImageFit,
   type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
+import {
+  getItemLabelBandVariant,
+  type LabelBandVariant,
+} from '~/shared/board-ui/labelBandVariant'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/useBoardAspectRatioPicker'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
@@ -27,6 +32,7 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { useImageEditorAutoCropAll } from '../model/useImageEditorAutoCropAll'
 import { useImageEditorItems } from '../model/useImageEditorItems'
+import { useLabelAwareEffectiveAspect } from '../model/useLabelAwareEffectiveAspect'
 import {
   useImageEditorApplyLabelToAll,
   useImageEditorAutoCropAllConfirmation,
@@ -125,13 +131,6 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
     boardLabels,
     globalShowLabels
   )
-  const handleShowLabelsChange = useCallback(
-    (show: boolean) =>
-    {
-      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
-    },
-    [boardLabels, setBoardLabelSettings]
-  )
   const ratioPicker = useBoardAspectRatioPicker()
   const { trimSoftShadows, setTrimSoftShadows } = useAutoCropTrimShadows()
   const [captionExpanded, setCaptionExpanded] = useState(false)
@@ -145,17 +144,87 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
       filter,
       boardAspectRatio,
     })
+  // The modal owns label-aware measurements for both bulk crop & the active
+  // pane, so the pane does not mount its own duplicate hidden tile.
+  const singleModeItem =
+    isSingleMode && initialItemId ? items[initialItemId] : undefined
+  const labelMeasurementItems = useMemo(
+    () =>
+      isSingleMode ? (singleModeItem ? [singleModeItem] : []) : filteredItems,
+    [filteredItems, isSingleMode, singleModeItem]
+  )
+  // bulk auto-crop measures each distinct caption-band variant once
+  const bulkLabelVariants = useMemo<readonly LabelBandVariant[]>(() =>
+  {
+    const list: LabelBandVariant[] = []
+    for (const item of labelMeasurementItems)
+    {
+      const variant = getItemLabelBandVariant({
+        item,
+        boardLabels,
+        globalLabelDefaults,
+      })
+      if (variant) list.push(variant)
+    }
+    return list
+  }, [labelMeasurementItems, boardLabels, globalLabelDefaults])
+  const {
+    getEffectiveAspectRatio: getBulkEffectiveAspectRatio,
+    measurementsReady: bulkMeasurementsReady,
+    measurementNodes: bulkMeasurementNodes,
+  } = useLabelAwareEffectiveAspect({
+    boardAspectRatio,
+    itemSize: boardItemSize,
+    variants: bulkLabelVariants,
+  })
+  const getBoardAspectRatioForItem = useCallback(
+    (item: TierItem): number =>
+      getBulkEffectiveAspectRatio(
+        getItemLabelBandVariant({ item, boardLabels, globalLabelDefaults })
+      ),
+    [getBulkEffectiveAspectRatio, boardLabels, globalLabelDefaults]
+  )
   const {
     autoCropProgress,
     autoCropAllApplied,
+    cancelAutoCropAll,
     handleAutoCropAll,
     getManualAdjustmentCount,
   } = useImageEditorAutoCropAll({
     filteredItems,
-    boardAspectRatio,
+    getBoardAspectRatioForItem,
     trimSoftShadows,
     setItemsTransform,
   })
+  const rerunAutoCropAfterLabelChangeRef = useRef(false)
+  const handleShowLabelsChange = useCallback(
+    (show: boolean) =>
+    {
+      const shouldRerunAutoCrop = autoCropAllApplied || autoCropProgress.running
+      if (shouldRerunAutoCrop)
+      {
+        rerunAutoCropAfterLabelChangeRef.current = true
+        cancelAutoCropAll()
+      }
+      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
+    },
+    [
+      autoCropAllApplied,
+      autoCropProgress.running,
+      boardLabels,
+      cancelAutoCropAll,
+      setBoardLabelSettings,
+    ]
+  )
+
+  useEffect(() =>
+  {
+    if (!rerunAutoCropAfterLabelChangeRef.current) return
+    if (autoCropProgress.running || !bulkMeasurementsReady) return
+
+    rerunAutoCropAfterLabelChangeRef.current = false
+    void handleAutoCropAll()
+  }, [autoCropProgress.running, bulkMeasurementsReady, handleAutoCropAll])
 
   const getActivePendingEdit = useCallback(
     () => activePaneRef.current?.getPendingEdit() ?? null,
@@ -224,8 +293,6 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
 
   // single-mode bypasses the rail-driven selection so text-only items (which
   // useImageEditorItems excludes by design) still resolve through to the pane
-  const singleModeItem =
-    isSingleMode && initialItemId ? items[initialItemId] : undefined
   const selectedItem = isSingleMode ? singleModeItem : multiSelectedItem
   const selectedId = isSingleMode
     ? (singleModeItem?.id ?? null)
@@ -310,6 +377,7 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
         width: 'min(1120px, calc(100vw - 4rem))',
       }}
     >
+      {bulkMeasurementNodes}
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--t-border-secondary)] px-5 py-3">
         <div className="flex min-w-0 items-baseline gap-3">
           <ModalHeader titleId={titleId}>
@@ -387,6 +455,7 @@ const ImageEditorModalBody = ({ mode }: ImageEditorModalBodyProps) =>
               globalLabelDefaults={globalLabelDefaults}
               globalTextStyleId={globalTextStyleId}
               boardItemSize={boardItemSize}
+              getBoardAspectRatioForItem={getBoardAspectRatioForItem}
               onCommit={handleSelectedCommit}
               onLabelChange={handleSelectedLabelChange}
               onLabelOptionsChange={handleSelectedLabelOptionsChange}

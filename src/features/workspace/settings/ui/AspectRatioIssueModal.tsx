@@ -2,13 +2,21 @@
 // first-encounter prompt for mixed aspect ratio items w/ inline ratio picker
 
 import { ChevronRight } from 'lucide-react'
-import { useCallback, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { ASPECT_RATIO_PRESETS } from '@tierlistbuilder/contracts/workspace/imageMath'
+import type {
+  GlobalLabelDefaults,
+  TierItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { formatAspectRatio } from '~/shared/board-ui/aspectRatio'
 import { ITEM_LONG_EDGE_PX } from '~/shared/board-ui/constants'
+import {
+  getItemLabelBandVariant,
+  type LabelBandVariant,
+} from '~/shared/board-ui/labelBandVariant'
 import {
   resolveEffectiveShowLabels,
   withBoardShowLabels,
@@ -20,8 +28,13 @@ import { formatCountedWord } from '~/shared/lib/pluralize'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useAspectRatioPrompt } from '../model/useAspectRatioPrompt'
 import { useAutoCropTrimShadows } from '../model/useAutoCropTrimShadows'
+import {
+  createAspectRatioPromptSnapshot,
+  resolveAspectRatioPromptItems,
+} from '../model/aspectRatioPromptSnapshot'
 import { useAspectRatioPromptState } from '../model/useAspectRatioPromptState'
 import { useBoardAspectRatioPicker } from '../model/useBoardAspectRatioPicker'
+import { useLabelAwareEffectiveAspect } from '../../imageEditor/model/useLabelAwareEffectiveAspect'
 import { AspectRatioTiles } from './AspectRatioTiles'
 import { BulkFitSegmentedControl } from './BulkFitSegmentedControl'
 import {
@@ -78,31 +91,87 @@ const AspectRatioIssueModalBody = ({
     canApplyCustom,
     autoRatio,
   } = useBoardAspectRatioPicker()
-  const { boardDefaultFit, boardLabels, setBoardLabelSettings } =
+  const { boardDefaultFit, boardLabels, items, setBoardLabelSettings } =
     useActiveBoardStore(
       useShallow((state) => ({
         boardDefaultFit: state.defaultItemImageFit,
         boardLabels: state.labels,
+        items: state.items,
         setBoardLabelSettings: state.setBoardLabelSettings,
       }))
     )
-  const { itemSize, itemShape, globalShowLabels } = usePreferencesStore(
+  const {
+    itemSize,
+    itemShape,
+    globalShowLabels,
+    globalLabelPlacementMode,
+    globalLabelFontSizePx,
+  } = usePreferencesStore(
     useShallow((state) => ({
       itemSize: state.itemSize,
       itemShape: state.itemShape,
       globalShowLabels: state.showLabels,
+      globalLabelPlacementMode: state.defaultLabelPlacementMode,
+      globalLabelFontSizePx: state.defaultLabelFontSizePx,
     }))
+  )
+  const globalLabelDefaults = useMemo<GlobalLabelDefaults>(
+    () => ({
+      showLabels: globalShowLabels,
+      placementMode: globalLabelPlacementMode,
+      fontSizePx: globalLabelFontSizePx,
+    }),
+    [globalShowLabels, globalLabelPlacementMode, globalLabelFontSizePx]
   )
   const effectiveShowLabels = resolveEffectiveShowLabels(
     boardLabels,
     globalShowLabels
   )
-  const handleShowLabelsChange = useCallback(
-    (show: boolean) =>
+  // capture opening mismatch set at mount; cleanup keeps these ids even if the
+  // picker ratio later resolves the mismatch before Done
+  const [promptSnapshot] = useState(() =>
+    createAspectRatioPromptSnapshot({
+      items: useActiveBoardStore.getState().items,
+      itemAspectRatio: boardAspectRatio,
+    })
+  )
+  const { current: mismatched, cleanup: cleanupTargets } = useMemo(
+    () =>
+      resolveAspectRatioPromptItems(promptSnapshot, {
+        items,
+        itemAspectRatio: boardAspectRatio,
+      }),
+    [items, boardAspectRatio, promptSnapshot]
+  )
+  const promptLabelVariants = useMemo<readonly LabelBandVariant[]>(() =>
+  {
+    const variants: LabelBandVariant[] = []
+    for (const item of cleanupTargets)
     {
-      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
-    },
-    [boardLabels, setBoardLabelSettings]
+      const variant = getItemLabelBandVariant({
+        item,
+        boardLabels,
+        globalLabelDefaults,
+      })
+      if (variant) variants.push(variant)
+    }
+    return variants
+  }, [cleanupTargets, boardLabels, globalLabelDefaults])
+  const {
+    getEffectiveAspectRatio: getPromptEffectiveAspectRatio,
+    measurementsReady: promptMeasurementsReady,
+    measurementNodes: promptMeasurementNodes,
+  } = useLabelAwareEffectiveAspect({
+    boardAspectRatio,
+    itemSize,
+    variants: promptLabelVariants,
+  })
+  const getBoardAspectRatioForItem = useCallback(
+    (item: TierItem): number =>
+      getPromptEffectiveAspectRatio(
+        getItemLabelBandVariant({ item, boardLabels, globalLabelDefaults })
+      ),
+    [getPromptEffectiveAspectRatio, boardLabels, globalLabelDefaults]
   )
   // alert reads the global trim setting but doesn't expose the toggle here —
   // the editor has it where users are already engaged w/ per-item tuning
@@ -110,19 +179,68 @@ const AspectRatioIssueModalBody = ({
 
   const {
     autoCrop,
-    cleanupTargets,
+    autoCropPreparing,
     commitPendingFit,
     dontAskAgain,
     handleRatioOption,
     handleSelectFit,
-    mismatched,
     pendingBulkFit,
     setDontAskAgain,
   } = useAspectRatioPromptState({
+    autoCropGeometryReady: promptMeasurementsReady,
     boardAspectRatio,
+    cleanupTargets,
+    getBoardAspectRatioForItem,
     handleOption,
+    mismatched,
+    openingMismatchCount: promptSnapshot.itemIds.length,
     trimSoftShadows,
   })
+  const activeAutoCropPreparing = pendingBulkFit === null && autoCropPreparing
+  const rerunAutoCropAfterLabelChangeRef = useRef(false)
+  const handleShowLabelsChange = useCallback(
+    (show: boolean) =>
+    {
+      const shouldRerunAutoCrop =
+        pendingBulkFit === null &&
+        (autoCrop.selected ||
+          autoCrop.progress.running ||
+          activeAutoCropPreparing)
+      if (shouldRerunAutoCrop)
+      {
+        rerunAutoCropAfterLabelChangeRef.current = true
+        autoCrop.clearPreview('labels')
+      }
+      setBoardLabelSettings(withBoardShowLabels(boardLabels, show))
+    },
+    [
+      autoCrop,
+      activeAutoCropPreparing,
+      boardLabels,
+      pendingBulkFit,
+      setBoardLabelSettings,
+    ]
+  )
+
+  useEffect(() =>
+  {
+    if (!rerunAutoCropAfterLabelChangeRef.current) return
+    if (pendingBulkFit !== null)
+    {
+      rerunAutoCropAfterLabelChangeRef.current = false
+      return
+    }
+    if (
+      activeAutoCropPreparing ||
+      autoCrop.progress.running ||
+      !autoCrop.available
+    )
+    {
+      return
+    }
+    rerunAutoCropAfterLabelChangeRef.current = false
+    autoCrop.run()
+  }, [activeAutoCropPreparing, autoCrop, pendingBulkFit])
 
   const handleDone = useCallback(() =>
   {
@@ -178,6 +296,7 @@ const AspectRatioIssueModalBody = ({
       panelClassName="w-full p-6"
       panelStyle={{ maxWidth: panelMaxWidth }}
     >
+      {promptMeasurementNodes}
       <ModalHeader
         titleId={titleId}
         className="text-center text-lg font-semibold text-[var(--t-text)]"
@@ -200,6 +319,9 @@ const AspectRatioIssueModalBody = ({
         mismatchedItems={cleanupTargets}
         boardAspectRatio={boardAspectRatio}
         boardDefaultFit={boardDefaultFit}
+        boardLabels={boardLabels}
+        getBoardAspectRatioForItem={getBoardAspectRatioForItem}
+        globalLabelDefaults={globalLabelDefaults}
         pendingBulkFit={pendingBulkFit}
         slotBound={slotBound}
         itemSize={itemSize}
@@ -226,6 +348,7 @@ const AspectRatioIssueModalBody = ({
           <BulkFitSegmentedControl
             pendingBulkFit={pendingBulkFit}
             autoCropApplied={autoCrop.applied}
+            autoCropPreparing={activeAutoCropPreparing}
             autoCropRunning={autoCrop.progress.running}
             autoCropAvailable={autoCrop.available}
             autoCropSelected={autoCrop.selected}
@@ -233,13 +356,15 @@ const AspectRatioIssueModalBody = ({
             onSelectAutoCrop={autoCrop.run}
           />
           <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
-            {autoCrop.progress.running && (
+            {(activeAutoCropPreparing || autoCrop.progress.running) && (
               <span
                 className="text-xs tabular-nums text-[var(--t-text-muted)]"
                 role="status"
                 aria-live="polite"
               >
-                {autoCrop.progress.done}/{autoCrop.progress.total}
+                {activeAutoCropPreparing
+                  ? 'Preparing'
+                  : `${autoCrop.progress.done}/${autoCrop.progress.total}`}
               </span>
             )}
             <ShowLabelsToggle
@@ -282,7 +407,7 @@ const AspectRatioIssueModalBody = ({
           <SecondaryButton
             onClick={handleDone}
             variant="surface"
-            disabled={autoCrop.progress.running}
+            disabled={autoCrop.progress.running || activeAutoCropPreparing}
           >
             Done
           </SecondaryButton>

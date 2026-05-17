@@ -1,5 +1,5 @@
 // src/features/workspace/boards/ui/TierItem.tsx
-// sortable item tile — displays image or text, handles drag & delete
+// sortable item tile — displays image or text, handles drag & context menu
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useShallow } from 'zustand/react/shallow'
-import { Check, GripVertical, X } from 'lucide-react'
+import { Check, GripVertical } from 'lucide-react'
 
 import { useKeyboardDrag } from '~/features/workspace/boards/interaction/useKeyboardDrag'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
@@ -16,7 +16,6 @@ import {
   selectHasKeyboardSelection,
   useActiveBoardStore,
 } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { getEffectiveImageFit } from '~/shared/board-ui/aspectRatio'
 import { tierItemTestId } from '~/shared/board-ui/boardTestIds'
 import { SHAPE_CLASS } from '~/shared/board-ui/constants'
@@ -27,7 +26,6 @@ import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useI
 import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { ItemContextMenu } from './ItemContextMenu'
 import { resolveItemVisualState } from './itemVisualState'
-import { ItemOverlayButton } from '~/shared/board-ui/ItemOverlayButton'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   BoardLabelSettings,
@@ -38,7 +36,6 @@ interface TierItemProps
 {
   itemId: ItemId
   containerId: string
-  onRequestDelete?: (itemId: ItemId) => void
   // slot width in px — derived once by the parent from board aspect ratio
   slotWidth: number
   // slot height in px — derived once by the parent from board aspect ratio
@@ -52,7 +49,6 @@ export const TierItem = memo(
   ({
     itemId,
     containerId,
-    onRequestDelete,
     slotWidth,
     slotHeight,
     boardDefaultFit,
@@ -65,7 +61,6 @@ export const TierItem = memo(
         isSelected: state.selection.set.has(itemId),
       }))
     )
-    const canDelete = containerId === UNRANKED_CONTAINER_ID
 
     const {
       itemShape,
@@ -253,7 +248,7 @@ export const TierItem = memo(
         state.setKeyboardFocusItemId(itemId)
         state.setKeyboardMode('browse')
       },
-      [boardLocked, item, itemId, openItemEditor]
+      [boardLocked, itemId, openItemEditor]
     )
 
     const handleDoubleClick = useCallback(
@@ -318,7 +313,7 @@ export const TierItem = memo(
       [boardLocked, onKeyDown, openItemEditor]
     )
 
-    const { stateClass, opacity } = resolveItemVisualState({
+    const { outerClass, overlayClass, opacity } = resolveItemVisualState({
       isSelected,
       isKeyboardFocused,
       isKeyboardDragging,
@@ -346,7 +341,7 @@ export const TierItem = memo(
             transition,
             opacity,
           }}
-          className={`focus-custom group relative touch-none overflow-hidden outline-none ${SHAPE_CLASS[itemShape]} ${stateClass}`}
+          className={`focus-custom group relative touch-none overflow-hidden outline-none ${SHAPE_CLASS[itemShape]} ${outerClass}`}
           data-keyboard-dragging={isKeyboardDragging ? 'true' : 'false'}
           data-keyboard-focused={isKeyboardFocused ? 'true' : 'false'}
           data-selected={isSelected ? 'true' : undefined}
@@ -380,6 +375,15 @@ export const TierItem = memo(
             frameAspectRatio={slotWidth / slotHeight}
           />
 
+          {/* selection / focus / drag visual — overlaid above the artwork so
+            the tint & ring read on letterboxed images too */}
+          {overlayClass && (
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute inset-0 ${overlayClass}`}
+            />
+          )}
+
           {/* selection check badge */}
           {isSelected && (
             <span className="pointer-events-none absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--t-accent)] shadow-sm">
@@ -395,23 +399,6 @@ export const TierItem = memo(
             <span className="pointer-events-none absolute top-0.5 left-0.5 flex h-5 w-5 items-center justify-center text-[rgb(var(--t-overlay)/0.45)] opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 max-sm:opacity-30">
               <GripVertical className="h-3 w-3" />
             </span>
-          )}
-
-          {/* hover-reveal delete button — only in the unranked pool, hidden when locked */}
-          {canDelete && !boardLocked && (
-            <ItemOverlayButton
-              aria-label="Remove item"
-              className="absolute top-0.5 right-0.5 max-sm:right-0 max-sm:top-0 max-sm:h-7 max-sm:w-7"
-              tabIndex={isKeyboardFocused ? 0 : -1}
-              onClick={(e) =>
-              {
-                e.stopPropagation()
-                onRequestDelete?.(itemId)
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <X className="h-3 w-3" />
-            </ItemOverlayButton>
           )}
         </div>
 

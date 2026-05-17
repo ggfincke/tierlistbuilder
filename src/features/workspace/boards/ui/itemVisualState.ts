@@ -12,33 +12,37 @@ interface ItemVisualInput
 
 interface ItemVisualOutput
 {
-  stateClass: string
+  // sibling-layer class for the outer tile (z-index only). painted bg/ring
+  // moved to overlayClass so the artwork doesn't occlude the selection cue
+  outerClass: string
+  // absolute-inset overlay sitting above the image: tint + ring paint here
+  overlayClass: string
   opacity: number
 }
 
 // selected + keyboard focused — stronger mint backdrop plus an inset accent-2
 // ring marks the actively focused item within a multi-select. ring-inset keeps
 // the cue contained, avoiding the sibling bleed an outer ring would cause
-const SELECTED_FOCUSED =
-  'z-20 bg-[color-mix(in_srgb,var(--t-accent)_22%,transparent)] ring-2 ring-inset ring-[var(--t-accent-2)] transition-colors duration-150'
+const SELECTED_FOCUSED_OVERLAY =
+  'bg-[color-mix(in_srgb,var(--t-accent)_22%,transparent)] ring-2 ring-inset ring-[var(--t-accent-2)] transition-colors duration-150'
 
 // selected only — soft mint backdrop behind the artwork. ~15% mix keeps the
 // cue warm rather than loud, so dense selection clusters read as tinted
 // cells instead of a row of bordered checkboxes
-const SELECTED =
-  'z-10 bg-[color-mix(in_srgb,var(--t-accent)_15%,transparent)] transition-colors duration-150'
+const SELECTED_OVERLAY =
+  'bg-[color-mix(in_srgb,var(--t-accent)_15%,transparent)] transition-colors duration-150'
 
 // keyboard drag in progress — ring indicates the item being moved. matches
 // SELECTED_FOCUSED's inset ring style for visual consistency across all
 // ring-based states; mint color distinguishes from focused-selected's lime
-const KEYBOARD_DRAGGING =
-  'z-20 ring-2 ring-inset ring-[var(--t-accent)] transition-colors duration-150'
+const KEYBOARD_DRAGGING_OVERLAY =
+  'ring-2 ring-inset ring-[var(--t-accent)] transition-colors duration-150'
 
 // keyboard focus only (no selection) — soft accent-2 tint marks the arrow
 // cursor. uses the kicker color (lime/magenta/terracotta per theme) so it
 // reads distinct from the mint selection tint w/o needing a ring overlay
-const KEYBOARD_FOCUSED =
-  'z-10 bg-[color-mix(in_srgb,var(--t-accent-2)_18%,transparent)] transition-colors duration-150'
+const KEYBOARD_FOCUSED_OVERLAY =
+  'bg-[color-mix(in_srgb,var(--t-accent-2)_18%,transparent)] transition-colors duration-150'
 
 export const resolveItemVisualState = ({
   isSelected,
@@ -47,23 +51,28 @@ export const resolveItemVisualState = ({
   isDragging,
 }: ItemVisualInput): ItemVisualOutput =>
 {
-  // className — priority: selected+focused > selected > keyboard dragging > keyboard focused > none
-  let stateClass = ''
+  // priority: selected+focused > selected > keyboard dragging > keyboard focused > none
+  let outerClass = ''
+  let overlayClass = ''
   if (isSelected && isKeyboardFocused)
   {
-    stateClass = SELECTED_FOCUSED
+    outerClass = 'z-20'
+    overlayClass = SELECTED_FOCUSED_OVERLAY
   }
   else if (isSelected)
   {
-    stateClass = SELECTED
+    outerClass = 'z-10'
+    overlayClass = SELECTED_OVERLAY
   }
   else if (isKeyboardDragging)
   {
-    stateClass = KEYBOARD_DRAGGING
+    outerClass = 'z-20'
+    overlayClass = KEYBOARD_DRAGGING_OVERLAY
   }
   else if (isKeyboardFocused)
   {
-    stateClass = KEYBOARD_FOCUSED
+    outerClass = 'z-10'
+    overlayClass = KEYBOARD_FOCUSED_OVERLAY
   }
 
   // opacity — pointer drag fades the source tile; keyboard drag dims it
@@ -77,5 +86,5 @@ export const resolveItemVisualState = ({
     opacity = 0.75
   }
 
-  return { stateClass, opacity }
+  return { outerClass, overlayClass, opacity }
 }

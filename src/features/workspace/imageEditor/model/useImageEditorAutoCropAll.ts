@@ -21,7 +21,8 @@ import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
 interface UseImageEditorAutoCropAllInput
 {
   filteredItems: readonly TierItem[]
-  boardAspectRatio: number
+  // bulk runner & cache helpers consult this per item for caption bands
+  getBoardAspectRatioForItem: (item: TierItem) => number
   trimSoftShadows: boolean
   setItemsTransform: (
     entries: readonly { id: ItemId; transform: ItemTransform | null }[]
@@ -30,14 +31,17 @@ interface UseImageEditorAutoCropAllInput
 
 export const useImageEditorAutoCropAll = ({
   filteredItems,
-  boardAspectRatio,
+  getBoardAspectRatioForItem,
   trimSoftShadows,
   setItemsTransform,
 }: UseImageEditorAutoCropAllInput) =>
 {
   useAutoCropCacheVersion()
-  const { progress: autoCropProgress, run: runAutoCropTransforms } =
-    useCollectAutoCropTransformsRunner()
+  const {
+    abort: cancelAutoCropAll,
+    progress: autoCropProgress,
+    run: runAutoCropTransforms,
+  } = useCollectAutoCropTransformsRunner()
 
   const filteredAutoCropTargets = useMemo(
     () => filteredItems.filter((it) => !!getAutoCropImageRef(it)),
@@ -54,13 +58,13 @@ export const useImageEditorAutoCropAll = ({
       if (targets.length === 0) return
       const entries = await runAutoCropTransforms({
         targets,
-        boardAspectRatio,
+        getBoardAspectRatio: getBoardAspectRatioForItem,
         trimSoftShadows,
       })
       if (entries?.length) setItemsTransform(entries)
     },
     [
-      boardAspectRatio,
+      getBoardAspectRatioForItem,
       filteredAutoCropTargets,
       filteredItems,
       runAutoCropTransforms,
@@ -71,7 +75,11 @@ export const useImageEditorAutoCropAll = ({
 
   const autoCropAllApplied =
     !autoCropProgress.running &&
-    areCachedAutoCropsApplied(filteredItems, boardAspectRatio, trimSoftShadows)
+    areCachedAutoCropsApplied(
+      filteredItems,
+      getBoardAspectRatioForItem,
+      trimSoftShadows
+    )
 
   const getPendingManualTarget = useCallback(
     (pendingEdit: PendingImageEditorPaneEdit | null): TierItem | null =>
@@ -85,13 +93,13 @@ export const useImageEditorAutoCropAll = ({
       }
       return isCachedAutoCropApplied(
         pendingItem,
-        boardAspectRatio,
+        getBoardAspectRatioForItem(pendingItem),
         trimSoftShadows
       )
         ? null
         : pendingItem
     },
-    [filteredItems, boardAspectRatio, trimSoftShadows]
+    [filteredItems, getBoardAspectRatioForItem, trimSoftShadows]
   )
 
   const getManualAdjustmentCount = useCallback(
@@ -103,7 +111,11 @@ export const useImageEditorAutoCropAll = ({
             (it) =>
               !!it.transform &&
               !isIdentityTransform(it.transform) &&
-              !isCachedAutoCropApplied(it, boardAspectRatio, trimSoftShadows)
+              !isCachedAutoCropApplied(
+                it,
+                getBoardAspectRatioForItem(it),
+                trimSoftShadows
+              )
           )
       const pendingTarget = getPendingManualTarget(pendingEdit)
       if (
@@ -117,7 +129,7 @@ export const useImageEditorAutoCropAll = ({
     },
     [
       autoCropProgress.running,
-      boardAspectRatio,
+      getBoardAspectRatioForItem,
       filteredItems,
       getPendingManualTarget,
       trimSoftShadows,
@@ -127,6 +139,7 @@ export const useImageEditorAutoCropAll = ({
   return {
     autoCropProgress,
     autoCropAllApplied,
+    cancelAutoCropAll,
     handleAutoCropAll,
     getManualAdjustmentCount,
   }

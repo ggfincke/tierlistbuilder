@@ -4,30 +4,52 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import type { ImageFit } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  ImageFit,
+  TierItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { getBlobsBatch } from '~/shared/images/imageStore'
 import { getAutoCropImageRef } from '~/shared/lib/autoCrop'
+import { isAbortError } from '~/shared/lib/errors'
+import { logger } from '~/shared/lib/logger'
+import { sleep, withTimeout } from '~/shared/lib/promise'
 import type { RatioOption } from '~/shared/board-ui/aspectRatio'
-import {
-  createAspectRatioPromptSnapshot,
-  resolveAspectRatioPromptItems,
-} from './aspectRatioPromptSnapshot'
 import { useAutoCropController } from './useAutoCropController'
 
 interface UseAspectRatioPromptStateInput
 {
+  autoCropGeometryReady: boolean
   boardAspectRatio: number
+  cleanupTargets: readonly TierItem[]
+  getBoardAspectRatioForItem: (item: TierItem) => number
   handleOption: (option: RatioOption) => void
+  mismatched: readonly TierItem[]
+  openingMismatchCount: number
   trimSoftShadows: boolean
 }
 
+const AUTO_CROP_BLOB_READY_RETRY_MS = 150
+const AUTO_CROP_BLOB_READY_TIMEOUT_MS = 3_000
+const AUTO_CROP_BLOB_READY_POLL_TIMEOUT_MS = 750
+
+interface AutoCropReadinessState
+{
+  key: string
+  settled: boolean
+}
+
 export const useAspectRatioPromptState = ({
+  autoCropGeometryReady,
   boardAspectRatio,
+  cleanupTargets,
+  getBoardAspectRatioForItem,
   handleOption,
+  mismatched,
+  openingMismatchCount,
   trimSoftShadows,
 }: UseAspectRatioPromptStateInput) =>
 {
-  const items = useActiveBoardStore((s) => s.items)
   const {
     setAspectRatioPromptDismissed,
     setDefaultItemImageFit,
@@ -42,44 +64,159 @@ export const useAspectRatioPromptState = ({
     }))
   )
 
-  // capture opening mismatch set at mount; cleanup keeps these ids even
-  // if the picker ratio later resolves the mismatch before Done
-  const [promptSnapshot] = useState(() =>
-    createAspectRatioPromptSnapshot({
-      items: useActiveBoardStore.getState().items,
-      itemAspectRatio: boardAspectRatio,
-    })
-  )
-
-  const { current: mismatched, cleanup: cleanupTargets } = useMemo(
-    () =>
-      resolveAspectRatioPromptItems(promptSnapshot, {
-        items,
-        itemAspectRatio: boardAspectRatio,
-      }),
-    [items, boardAspectRatio, promptSnapshot]
-  )
-
-  const autoCropTargets = useMemo(
-    () => cleanupTargets.filter((item) => !!getAutoCropImageRef(item)),
+  const autoCropCandidateTargets = useMemo(
+    () => cleanupTargets.filter((item) => !!getAutoCropImageRef(item)?.hash),
     [cleanupTargets]
   )
 
-  // stage bulk fit previews until Done / Adjust each
-  // prefer auto-crop when image bytes exist; cover is fallback
-  // strip stale transforms on Done when auto-crop can't run
+  const autoCropCandidateHashes = useMemo(() =>
+  {
+    const hashes: string[] = []
+    const seen = new Set<string>()
+    for (const item of autoCropCandidateTargets)
+    {
+      const hash = getAutoCropImageRef(item)?.hash
+      if (!hash || seen.has(hash)) continue
+      seen.add(hash)
+      hashes.push(hash)
+    }
+    return hashes
+  }, [autoCropCandidateTargets])
+  const autoCropReadinessKey = autoCropCandidateHashes.join('|')
+  const [autoCropReadiness, setAutoCropReadiness] =
+    useState<AutoCropReadinessState>(() => ({
+      key: '',
+      settled: false,
+    }))
   const [pendingBulkFit, setPendingBulkFit] = useState<ImageFit | null>(() =>
   {
     if (cleanupTargets.length === 0) return null
-    if (autoCropTargets.length > 0) return null
+    if (autoCropCandidateTargets.length > 0) return null
     return 'cover'
   })
   const [dontAskAgain, setDontAskAgain] = useState(false)
+
+  useEffect(() =>
+  {
+    if (autoCropCandidateHashes.length === 0) return
+
+    const pollController = new AbortController()
+    const { signal } = pollController
+    const poll = async (): Promise<void> =>
+    {
+      const deadline = Date.now() + AUTO_CROP_BLOB_READY_TIMEOUT_MS
+      let readyHashes = new Set<string>()
+
+      while (!signal.aborted)
+      {
+        const readController = new AbortController()
+        const abortRead = (): void =>
+          readController.abort(
+            signal.reason ??
+              new DOMException(
+                'Auto-crop blob readiness poll aborted.',
+                'AbortError'
+              )
+          )
+        if (signal.aborted) abortRead()
+        else signal.addEventListener('abort', abortRead, { once: true })
+
+        let records: Awaited<ReturnType<typeof getBlobsBatch>> | null = null
+        try
+        {
+          records = await withTimeout(
+            getBlobsBatch(autoCropCandidateHashes, {
+              signal: readController.signal,
+            }),
+            AUTO_CROP_BLOB_READY_POLL_TIMEOUT_MS,
+            {
+              mode: 'resolveNull',
+              onTimeout: () =>
+                readController.abort(
+                  new DOMException(
+                    'Auto-crop blob readiness poll timed out.',
+                    'AbortError'
+                  )
+                ),
+            }
+          )
+        }
+        catch (error)
+        {
+          if (isAbortError(error))
+          {
+            if (signal.aborted) return
+            records = null
+          }
+          else
+          {
+            throw error
+          }
+        }
+        finally
+        {
+          signal.removeEventListener('abort', abortRead)
+        }
+
+        if (signal.aborted) return
+        if (records)
+        {
+          readyHashes = new Set<string>()
+          for (const hash of autoCropCandidateHashes)
+          {
+            if (records.get(hash)) readyHashes.add(hash)
+          }
+          if (readyHashes.size === autoCropCandidateHashes.length) break
+        }
+        if (Date.now() >= deadline) break
+        await sleep(AUTO_CROP_BLOB_READY_RETRY_MS, signal)
+      }
+
+      if (!signal.aborted)
+      {
+        setAutoCropReadiness({
+          key: autoCropReadinessKey,
+          settled: true,
+        })
+        if (readyHashes.size === 0) setPendingBulkFit((fit) => fit ?? 'cover')
+      }
+    }
+
+    void poll().catch((error) =>
+    {
+      if (isAbortError(error)) return
+      logger.warn('autoCrop', 'blob readiness poll failed', error)
+      if (signal.aborted) return
+      setAutoCropReadiness({
+        key: autoCropReadinessKey,
+        settled: true,
+      })
+      setPendingBulkFit((fit) => fit ?? 'cover')
+    })
+    return () =>
+    {
+      pollController.abort()
+    }
+  }, [autoCropCandidateHashes, autoCropReadinessKey])
+
+  const autoCropReadinessSettled =
+    autoCropCandidateHashes.length === 0 ||
+    (autoCropReadiness.key === autoCropReadinessKey &&
+      autoCropReadiness.settled)
+  const autoCropPreparing =
+    autoCropCandidateTargets.length > 0 &&
+    (!autoCropReadinessSettled || !autoCropGeometryReady)
+  const autoCropTargets = useMemo(
+    () => (autoCropPreparing ? [] : autoCropCandidateTargets),
+    [autoCropCandidateTargets, autoCropPreparing]
+  )
+
   const autoCrop = useAutoCropController({
     boardAspectRatio,
     cleanupTargets,
     currentMismatchItems: mismatched,
-    openingMismatchCount: promptSnapshot.itemIds.length,
+    getBoardAspectRatioForItem,
+    openingMismatchCount,
     pendingBulkFit,
     setItemsTransform,
     setPendingBulkFit,
@@ -94,11 +231,12 @@ export const useAspectRatioPromptState = ({
   useEffect(() =>
   {
     if (didAutoStartAutoCropRef.current) return
+    if (pendingBulkFit !== null || autoCropPreparing) return
     if (!autoCrop.available) return
     if (autoCrop.applied || autoCrop.progress.running) return
     didAutoStartAutoCropRef.current = true
     autoCrop.runAutoDefault()
-  }, [autoCrop])
+  }, [autoCrop, autoCropPreparing, pendingBulkFit])
 
   const commitPendingFit = useCallback(() =>
   {
@@ -146,12 +284,11 @@ export const useAspectRatioPromptState = ({
 
   return {
     autoCrop,
-    cleanupTargets,
+    autoCropPreparing,
     commitPendingFit,
     dontAskAgain,
     handleRatioOption,
     handleSelectFit,
-    mismatched,
     pendingBulkFit,
     setDontAskAgain,
   }

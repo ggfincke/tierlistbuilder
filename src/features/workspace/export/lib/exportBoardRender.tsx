@@ -13,6 +13,7 @@ import {
 import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
 import { EXPORT_BOARD_ROOT_SELECTOR } from '~/shared/board-ui/boardTestIds'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
+import { withTimeout } from '~/shared/lib/promise'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
 const EXPORT_IMAGE_READY_TIMEOUT_MS = 10_000
@@ -77,28 +78,11 @@ const waitForImageReady = async (image: HTMLImageElement): Promise<void> =>
     typeof image.decode === 'function'
       ? image.decode().catch(() => undefined)
       : waitForImageLoadEvent(image)
-  let timeoutId: number | undefined
 
-  try
-  {
-    await Promise.race([
-      loadPromise,
-      new Promise<void>((_, reject) =>
-      {
-        timeoutId = window.setTimeout(
-          () => reject(new Error('Timed out waiting for export image.')),
-          EXPORT_IMAGE_READY_TIMEOUT_MS
-        )
-      }),
-    ])
-  }
-  finally
-  {
-    if (timeoutId !== undefined)
-    {
-      window.clearTimeout(timeoutId)
-    }
-  }
+  await withTimeout(loadPromise, EXPORT_IMAGE_READY_TIMEOUT_MS, {
+    mode: 'reject',
+    message: 'Timed out waiting for export image.',
+  })
 }
 
 // wait for web fonts, image decode, & a paint tick before capture

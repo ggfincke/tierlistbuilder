@@ -4,7 +4,7 @@
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { Library, Search, X } from 'lucide-react'
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -13,7 +13,6 @@ import { useImageImport } from '~/features/workspace/settings/model/useImageImpo
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import {
-  createSelectBoardItemById,
   filterItemIdsByLabel,
   selectActiveItemCount,
 } from '~/features/workspace/boards/model/slices/selectors'
@@ -23,7 +22,6 @@ import { UNRANKED_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { UNRANKED_CONTAINER_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { itemSlotDimensions } from '~/shared/board-ui/constants'
 import { TierItem } from './TierItem'
-import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'
 import { TextInput } from '~/shared/ui/TextInput'
 import { UploadDropzone } from '~/shared/ui/UploadDropzone'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
@@ -51,46 +49,15 @@ const UnrankedSearchResults = ({
   return children(filteredIds)
 }
 
-interface PendingDeleteDialogProps
-{
-  itemId: ItemId
-  onConfirm: () => void
-  onCancel: () => void
-}
-
-const PendingDeleteDialog = ({
-  itemId,
-  onConfirm,
-  onCancel,
-}: PendingDeleteDialogProps) =>
-{
-  const selectItem = useMemo(() => createSelectBoardItemById(itemId), [itemId])
-  const item = useActiveBoardStore(selectItem)
-
-  return (
-    <ConfirmDialog
-      open
-      title="Delete item?"
-      description={`Remove "${item?.label ?? 'this item'}" from the board?`}
-      confirmText="Delete"
-      onConfirm={onConfirm}
-      onCancel={onCancel}
-    />
-  )
-}
-
 export const UnrankedPool = () =>
 {
-  const { compactMode, boardLocked, itemSize, confirmBeforeDelete } =
-    usePreferencesStore(
-      useShallow((state) => ({
-        compactMode: state.compactMode,
-        boardLocked: state.boardLocked,
-        itemSize: state.itemSize,
-        confirmBeforeDelete: state.confirmBeforeDelete,
-      }))
-    )
-  const removeItem = useActiveBoardStore((state) => state.removeItem)
+  const { compactMode, boardLocked, itemSize } = usePreferencesStore(
+    useShallow((state) => ({
+      compactMode: state.compactMode,
+      boardLocked: state.boardLocked,
+      itemSize: state.itemSize,
+    }))
+  )
   const itemCount = useActiveBoardStore(selectActiveItemCount)
   const { boardAspectRatio, boardDefaultFit, boardLabels } =
     useActiveBoardStore(
@@ -117,23 +84,7 @@ export const UnrankedPool = () =>
     onFileInputChange,
   } = useImageImport()
 
-  const [pendingDeleteId, setPendingDeleteId] = useState<ItemId | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-
-  const handleRequestDelete = useCallback(
-    (itemId: ItemId) =>
-    {
-      if (confirmBeforeDelete)
-      {
-        setPendingDeleteId(itemId)
-      }
-      else
-      {
-        removeItem(itemId)
-      }
-    },
-    [confirmBeforeDelete, removeItem]
-  )
 
   // register the pool as a droppable container w/ the unranked ID
   const droppableData = useMemo(
@@ -240,7 +191,6 @@ export const UnrankedPool = () =>
                 key={itemId}
                 itemId={itemId}
                 containerId={UNRANKED_CONTAINER_ID}
-                onRequestDelete={handleRequestDelete}
                 slotWidth={slotWidth}
                 slotHeight={slotHeight}
                 boardDefaultFit={boardDefaultFit}
@@ -291,18 +241,6 @@ export const UnrankedPool = () =>
         className="hidden"
         onChange={onFileInputChange}
       />
-
-      {pendingDeleteId && (
-        <PendingDeleteDialog
-          itemId={pendingDeleteId}
-          onConfirm={() =>
-          {
-            removeItem(pendingDeleteId)
-            setPendingDeleteId(null)
-          }}
-          onCancel={() => setPendingDeleteId(null)}
-        />
-      )}
     </section>
   )
 }

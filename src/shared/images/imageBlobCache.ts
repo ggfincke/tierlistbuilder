@@ -408,7 +408,7 @@ export const warmImageHashes = async (
   }
 
   signal?.throwIfAborted()
-  const records = await getBlobsBatch(missing)
+  const records = await getBlobsBatch(missing, { signal })
   signal?.throwIfAborted()
   const changed = new Set<string>()
   const now = Date.now()
