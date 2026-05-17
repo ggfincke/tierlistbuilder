@@ -39,7 +39,7 @@ import {
   paletteIdValidator,
   textStyleIdValidator,
   tierColorSpecValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/common'
 import type {
   BoardLabelSettings,
   LabelPlacement,

@@ -4,7 +4,7 @@
 import { v } from 'convex/values'
 import { query } from '../../_generated/server'
 import { getCurrentUserId } from '../../lib/auth'
-import { cloudPreferencesReadValidator } from '../../lib/validators'
+import { cloudPreferencesReadValidator } from '../../lib/validators/platform'
 
 // return the caller's persisted AppPreferences + cloud updatedAt, or null when
 // unauthenticated / no row yet. null -> client-side defaults; timestamp feeds

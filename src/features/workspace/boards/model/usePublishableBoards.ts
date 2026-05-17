@@ -6,7 +6,7 @@ import { useMemo } from 'react'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
   boardStorageKey,
-  loadBoardFromStorage,
+  parseBoardEnvelope,
 } from '~/features/workspace/boards/data/local/boardStorage'
 import { readBrowserStorageItem } from '~/shared/lib/browserStorage'
 import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
@@ -76,7 +76,7 @@ export const projectPublishableBoards = (
       continue
     }
 
-    const result = loadBoardFromStorage(meta.id)
+    const result = parseBoardEnvelope(envelope)
     if (result.status !== 'ok' || !result.data)
     {
       entryCache.delete(meta.id)

@@ -178,7 +178,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
     def test_ranking_routes_are_registered(self) -> None:
         self.assertEqual(
             SEED_HTTP_ROUTES[
-                ("query", "marketplace/rankings/seed:preflightSeedRankings")
+                ("query", "marketplace/rankings/seed/actions:preflightSeedRankings")
             ],
             "/api/seed/rankings/preflight",
         )
@@ -221,19 +221,19 @@ class RankingSeedCompilationTests(unittest.TestCase):
         self.assertEqual(chunks[1]["targets"][0]["templateExternalId"], "two")
         self.assertEqual(
             SEED_HTTP_ROUTES[
-                ("action", "marketplace/rankings/seed:applySeedRankingChunk")
+                ("action", "marketplace/rankings/seed/actions:applySeedRankingChunk")
             ],
             "/api/seed/rankings/apply",
         )
         self.assertEqual(
             SEED_HTTP_ROUTES[
-                ("action", "marketplace/rankings/seed:cleanupStaleSeedRankings")
+                ("action", "marketplace/rankings/seed/actions:cleanupStaleSeedRankings")
             ],
             "/api/seed/rankings/cleanup-stale",
         )
         self.assertEqual(
             SEED_HTTP_ROUTES[
-                ("action", "marketplace/rankings/seed:ensureSeedRankingAuthors")
+                ("action", "marketplace/rankings/seed/actions:ensureSeedRankingAuthors")
             ],
             "/api/seed/rankings/ensure-authors",
         )
@@ -241,7 +241,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
             SEED_HTTP_ROUTES[
                 (
                     "mutation",
-                    "marketplace/rankings/seedLifecycle:activateSeedRankings",
+                    "marketplace/rankings/seed/lifecycle:activateSeedRankings",
                 )
             ],
             "/api/seed/rankings/activate",
@@ -250,7 +250,7 @@ class RankingSeedCompilationTests(unittest.TestCase):
             SEED_HTTP_ROUTES[
                 (
                     "mutation",
-                    "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates",
+                    "marketplace/rankings/seed/lifecycle:queueActiveSeedRankingAggregates",
                 )
             ],
             "/api/seed/rankings/queue-aggregates",

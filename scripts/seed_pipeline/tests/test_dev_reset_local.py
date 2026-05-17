@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from scripts import dev_reset_local
+from seed_pipeline import dev_reset_local
 
 
 class LocalFastResetTests(unittest.TestCase):
@@ -49,7 +49,7 @@ class LocalFastResetTests(unittest.TestCase):
         with (
             patch.dict(os.environ, {"CONVEX_DEPLOYMENT": "dev:remote"}, clear=True),
             patch.object(sys, "argv", ["dev_reset_local.py", "--yes"]),
-            patch("scripts.dev_reset_local.load_dotenv", return_value={}),
+            patch("seed_pipeline.dev_reset_local.load_dotenv", return_value={}),
             patch("sys.stderr", new_callable=StringIO) as stderr,
         ):
             self.assertEqual(dev_reset_local.main(), 2)
@@ -60,8 +60,8 @@ class LocalFastResetTests(unittest.TestCase):
         with (
             patch.dict(os.environ, {"CONVEX_DEPLOYMENT": "local:test"}, clear=True),
             patch.object(sys, "argv", ["dev_reset_local.py"]),
-            patch("scripts.dev_reset_local.load_dotenv", return_value={}),
-            patch("scripts.dev_reset_local.active_local_ports") as active_ports,
+            patch("seed_pipeline.dev_reset_local.load_dotenv", return_value={}),
+            patch("seed_pipeline.dev_reset_local.active_local_ports") as active_ports,
             patch("sys.stdout", new_callable=StringIO),
             patch("sys.stderr", new_callable=StringIO),
         ):
@@ -73,9 +73,9 @@ class LocalFastResetTests(unittest.TestCase):
         with (
             patch.dict(os.environ, {"CONVEX_DEPLOYMENT": "local:test"}, clear=True),
             patch.object(sys, "argv", ["dev_reset_local.py", "--yes"]),
-            patch("scripts.dev_reset_local.load_dotenv", return_value={}),
-            patch("scripts.dev_reset_local.active_local_ports", return_value=[3210]),
-            patch("scripts.dev_reset_local.replace_local_state") as replace_state,
+            patch("seed_pipeline.dev_reset_local.load_dotenv", return_value={}),
+            patch("seed_pipeline.dev_reset_local.active_local_ports", return_value=[3210]),
+            patch("seed_pipeline.dev_reset_local.replace_local_state") as replace_state,
             patch("sys.stdout", new_callable=StringIO),
             patch("sys.stderr", new_callable=StringIO) as stderr,
         ):
@@ -88,9 +88,9 @@ class LocalFastResetTests(unittest.TestCase):
         with (
             patch.dict(os.environ, {"CONVEX_DEPLOYMENT": "local:test"}, clear=True),
             patch.object(sys, "argv", ["dev_reset_local.py", "--yes"]),
-            patch("scripts.dev_reset_local.load_dotenv", return_value={}),
-            patch("scripts.dev_reset_local.active_local_ports", return_value=[]),
-            patch("scripts.dev_reset_local.replace_local_state") as replace_state,
+            patch("seed_pipeline.dev_reset_local.load_dotenv", return_value={}),
+            patch("seed_pipeline.dev_reset_local.active_local_ports", return_value=[]),
+            patch("seed_pipeline.dev_reset_local.replace_local_state") as replace_state,
             patch("sys.stdout", new_callable=StringIO),
             patch("sys.stderr", new_callable=StringIO) as stderr,
         ):
@@ -131,13 +131,13 @@ class LocalFastResetTests(unittest.TestCase):
                     "argv",
                     ["dev_reset_local.py", "--yes", "--site-url=http://localhost:5174"],
                 ),
-                patch("scripts.dev_reset_local.LOCAL_STATE_DIR", state_dir),
+                patch("seed_pipeline.dev_reset_local.LOCAL_STATE_DIR", state_dir),
                 patch(
-                    "scripts.dev_reset_local.load_dotenv",
+                    "seed_pipeline.dev_reset_local.load_dotenv",
                     return_value={"CONVEX_SEED_SECRET": "super-secret"},
                 ),
-                patch("scripts.dev_reset_local.active_local_ports", return_value=[]),
-                patch("scripts.dev_reset_local.subprocess.run", side_effect=run_fake),
+                patch("seed_pipeline.dev_reset_local.active_local_ports", return_value=[]),
+                patch("seed_pipeline.dev_reset_local.subprocess.run", side_effect=run_fake),
                 patch("sys.stdout", new_callable=StringIO),
             ):
                 self.assertEqual(dev_reset_local.main(), 0)

@@ -12,7 +12,7 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { generateUserExternalId } from '@tierlistbuilder/contracts/lib/ids'
 import { BATCH_LIMITS } from '../../lib/limits'
-import { templateCriteriaValidator } from '../../lib/validators'
+import { templateCriteriaValidator } from '../../lib/validators/marketplace'
 import {
   findTemplateCardByTemplateId,
   findTemplateStatsByTemplateId,

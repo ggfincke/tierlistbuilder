@@ -23,7 +23,7 @@ import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMet
 import {
   useTemplateBookmarkState,
   useToggleTemplateBookmarkMutation,
-} from '~/features/marketplace/model/useTemplateDetail'
+} from '~/features/marketplace/model/detail/useTemplateDetail'
 import {
   type AuthSession,
   useAuthSession,
@@ -38,7 +38,7 @@ import { InitialAvatar } from '~/shared/ui/InitialAvatar'
 
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { Cover } from '../cover/Cover'
-import { MetaPill } from '../MetaPill'
+import { MetaPill } from '../meta/MetaPill'
 import { ShareTemplateButton } from './ShareTemplateButton'
 import { UseTemplateButton } from '../cards/UseTemplateButton'
 

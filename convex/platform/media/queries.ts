@@ -9,7 +9,7 @@ import {
   findMediaAssetByExternalId,
   findOwnedBoardByExternalIdIncludingDeleted,
 } from '../../lib/permissions'
-import { mediaVariantKindValidator } from '../../lib/validators'
+import { mediaVariantKindValidator } from '../../lib/validators/platform'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { QueryCtx } from '../../_generated/server'

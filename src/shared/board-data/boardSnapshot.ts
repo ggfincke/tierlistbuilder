@@ -45,10 +45,7 @@ import {
   normalizeItemTransform,
   normalizePositiveFinite,
 } from '~/shared/board-data/boardNormalizers'
-import {
-  normalizeSourceTemplateFields,
-  pickSourceTemplateFields,
-} from '~/shared/board-data/sourceTemplateFields'
+import { normalizeSourceTemplateFields } from '~/shared/board-data/sourceTemplateFields'
 import { normalizeBoardItemAspectRatio } from '@tierlistbuilder/contracts/workspace/imageMath'
 
 interface RawTier
@@ -313,10 +310,6 @@ export const createNewTier = (
   itemIds: [],
 })
 
-type BoardSnapshotSource = BoardSnapshot
-
-export type BoardDataSelection = Pick<BoardSnapshotSource, keyof BoardSnapshot>
-
 const BOARD_DATA_SELECTION_KEYS = [
   'title',
   'tiers',
@@ -338,36 +331,11 @@ const BOARD_DATA_SELECTION_KEYS = [
   'sourceTemplateCoverMedia',
   'sourceTemplateCoverFraming',
   'preferredCriterionExternalId',
-] as const satisfies readonly (keyof BoardDataSelection)[]
-
-export const selectBoardDataFields = (
-  state: BoardSnapshotSource
-): BoardDataSelection => ({
-  title: state.title,
-  tiers: state.tiers,
-  unrankedItemIds: state.unrankedItemIds,
-  items: state.items,
-  deletedItems: state.deletedItems,
-  itemAspectRatio: state.itemAspectRatio,
-  itemAspectRatioMode: state.itemAspectRatioMode,
-  aspectRatioPromptDismissed: state.aspectRatioPromptDismissed,
-  defaultItemImageFit: state.defaultItemImageFit,
-  paletteId: state.paletteId,
-  textStyleId: state.textStyleId,
-  pageBackground: state.pageBackground,
-  labels: state.labels,
-  sourceTemplateCoverMedia: state.sourceTemplateCoverMedia,
-  sourceTemplateCoverFraming: state.sourceTemplateCoverFraming,
-  ...pickSourceTemplateFields(state),
-})
-
-export const selectBoardDataSource = <T extends BoardSnapshotSource>(
-  state: T
-): T => state
+] as const satisfies readonly (keyof BoardSnapshot)[]
 
 export const boardDataFieldsEqual = (
-  a: BoardSnapshotSource,
-  b: BoardSnapshotSource
+  a: BoardSnapshot,
+  b: BoardSnapshot
 ): boolean =>
 {
   for (const key of BOARD_DATA_SELECTION_KEYS)
@@ -381,9 +349,7 @@ export const boardDataFieldsEqual = (
   return true
 }
 
-export const extractBoardData = (
-  state: BoardSnapshotSource
-): BoardSnapshot => ({
+export const extractBoardData = (state: BoardSnapshot): BoardSnapshot => ({
   title: state.title,
   tiers: state.tiers,
   unrankedItemIds: state.unrankedItemIds,
@@ -397,13 +363,17 @@ export const extractBoardData = (
   textStyleId: state.textStyleId,
   pageBackground: state.pageBackground,
   labels: state.labels,
+  sourceTemplateId: state.sourceTemplateId,
+  sourceRankingId: state.sourceRankingId,
+  sourceTemplateTitle: state.sourceTemplateTitle,
+  sourceRankingTitle: state.sourceRankingTitle,
   sourceTemplateCoverMedia: state.sourceTemplateCoverMedia,
   sourceTemplateCoverFraming: state.sourceTemplateCoverFraming,
-  ...pickSourceTemplateFields(state),
+  preferredCriterionExternalId: state.preferredCriterionExternalId,
 })
 
 export const resetBoardData = (
-  state: BoardSnapshotSource,
+  state: BoardSnapshot,
   paletteId: PaletteId
 ): BoardSnapshot =>
 {

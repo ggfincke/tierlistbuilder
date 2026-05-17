@@ -6,22 +6,33 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 import {
   appPreferencesValidator,
+  mediaVariantKindValidator,
+  mediaVariantSummaryValidator,
+  userPlanValidator,
+} from './lib/validators/platform'
+import {
   boardCloudStateValidator,
-  boardLabelSettingsValidator,
   boardLibrarySummaryValidator,
   boardMaterializationStateValidator,
   boardPausedReasonValidator,
+} from './lib/validators/workspace'
+import {
+  boardLabelSettingsValidator,
   itemLabelOptionsValidator,
   itemTransformValidator,
-  mediaVariantKindValidator,
-  mediaVariantSummaryValidator,
   paletteIdValidator,
+  textStyleIdValidator,
+  tierColorSpecValidator,
+  tierPresetTiersValidator,
+} from './lib/validators/common'
+import {
   templateCardCoverItemValidator,
   templateCardMediaValidator,
   templateCategoryValidator,
   templateCoverFramingValidator,
   templateCriteriaValidator,
   templateJobStatusValidator,
+  templateSizeClassValidator,
   templateRankingAggregateJobPhaseValidator,
   templateRankingAggregateJobStatusValidator,
   templateRankingAggregateStateValidator,
@@ -29,17 +40,13 @@ import {
   rankingFeaturedBadgeValidator,
   rankingPublicationStateValidator,
   rankingVisibilityValidator,
+  templateVisibilityValidator,
+} from './lib/validators/marketplace'
+import {
   seedRankingReleaseStatusValidator,
   seedRunStatusValidator,
   seedTemplateReleaseStatusValidator,
-  templateSizeClassValidator,
-  templateVisibilityValidator,
-  textStyleIdValidator,
-  tierColorSpecValidator,
-  tierPresetTiersValidator,
-  userPlanValidator,
-} from './lib/validators'
-
+} from './lib/validators/seedPipeline'
 const boardSourceTemplateValidator = v.object({
   id: v.union(v.id('templates'), v.null()),
   category: v.union(templateCategoryValidator, v.null()),

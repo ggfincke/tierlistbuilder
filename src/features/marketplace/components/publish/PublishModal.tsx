@@ -24,8 +24,8 @@ import { TextInput } from '~/shared/ui/TextInput'
 import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
 import { CATEGORY_LIST } from '~/features/marketplace/model/categories'
-import { usePublishTemplate } from '~/features/marketplace/model/usePublishTemplate'
-import { useUpdateTemplate } from '~/features/marketplace/model/useUpdateTemplate'
+import { usePublishTemplate } from '~/features/marketplace/model/publish/usePublishTemplate'
+import { useUpdateTemplate } from '~/features/marketplace/model/publish/useUpdateTemplate'
 import {
   usePublishableBoards,
   type PublishableBoard,

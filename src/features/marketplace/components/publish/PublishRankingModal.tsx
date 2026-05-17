@@ -19,9 +19,9 @@ import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
 import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 
-import { usePublishRanking } from '~/features/marketplace/model/usePublishRanking'
-import { useRankingPublishAvailability } from '~/features/marketplace/model/useRankingPublishAvailability'
-import { pickInitialCriterionExternalId } from '~/features/marketplace/model/criterionSelection'
+import { usePublishRanking } from '~/features/marketplace/model/publish/usePublishRanking'
+import { useRankingPublishAvailability } from '~/features/marketplace/model/publish/useRankingPublishAvailability'
+import { pickInitialCriterionExternalId } from '~/features/marketplace/model/detail/criterionSelection'
 
 interface PublishRankingModalProps
 {

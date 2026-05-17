@@ -7,7 +7,7 @@ import type { TierPresetTier } from '@tierlistbuilder/contracts/workspace/tierPr
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { PresetPreviewPills } from '~/shared/board-ui/PresetPreviewPills'
 
-import { RailCard } from '../consensus/RailCard'
+import { RailCard } from '../consensus/rail/RailCard'
 
 const CLASSIC_SEQUENCE = ['S', 'A', 'B', 'C', 'D', 'E']
 

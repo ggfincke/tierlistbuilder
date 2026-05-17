@@ -43,7 +43,7 @@ import {
   templateCategoryValidator,
   templateGalleryRailValidator,
   templateListSortValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/marketplace'
 import {
   createTemplateProjectionCache,
   findTemplateBySlug,

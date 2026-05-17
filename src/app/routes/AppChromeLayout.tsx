@@ -7,9 +7,9 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
 import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
-import { useCloudSync } from '~/features/platform/sync/orchestration/useCloudSync'
+import { useCloudSync } from '~/app/sync/useCloudSync'
 import { getWorkspacePath } from '~/shared/routes/pathname'
-import { AppTopNav } from '~/app/shells/AppTopNav'
+import { AppTopNav } from '~/app/shells/topNav/AppTopNav'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
 const WorkspaceSkipLink = () =>

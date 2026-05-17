@@ -22,7 +22,7 @@ import {
 import {
   imageMimeTypeValidator,
   mediaVariantKindValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/platform'
 
 const verifiedVariantArgsValidator = {
   kind: mediaVariantKindValidator,

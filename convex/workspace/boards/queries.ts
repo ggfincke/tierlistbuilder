@@ -27,7 +27,7 @@ import {
   cloudBoardStateValidator,
   deletedBoardListItemValidator,
   libraryBoardListItemValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/workspace'
 import {
   createTemplateProjectionCache,
   toTemplateMediaRefWithFallback,

@@ -28,7 +28,7 @@ import {
   type LabelPlacementMode,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
-import { AspectRatioSection } from './AspectRatioSection'
+import { AspectRatioSection } from './aspect-ratio/AspectRatioSection'
 import { NumberStepper } from '~/shared/ui/NumberStepper'
 import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
 import { SettingRow } from '~/shared/ui/settings/SettingRow'

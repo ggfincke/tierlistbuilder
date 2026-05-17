@@ -13,8 +13,6 @@ import { readBoardStateForCloudSync } from '~/features/workspace/boards/data/clo
 import {
   boardDataFieldsEqual,
   extractBoardData,
-  selectBoardDataFields,
-  selectBoardDataSource,
 } from '~/shared/board-data/boardSnapshot'
 import { extractBoardSyncState } from '~/features/workspace/boards/model/sync'
 import type { PendingBoardSync } from '~/features/workspace/boards/data/cloud/cloudSyncScheduler'
@@ -64,7 +62,6 @@ export const useWorkspaceBoardSyncSubscriber = ({
       onEditRef.current({
         boardId,
         snapshot,
-        boardDataSelection: selectBoardDataFields(snapshot),
         syncState,
       })
     }
@@ -87,7 +84,7 @@ export const useWorkspaceBoardSyncSubscriber = ({
       useWorkspaceBoardRegistryStore.getState().activeBoardId
 
     const unsubscribe = useActiveBoardStore.subscribe(
-      selectBoardDataSource,
+      (state) => state,
       () =>
       {
         if (!shouldProceed() || isMergePendingRef.current()) return
@@ -102,10 +99,10 @@ export const useWorkspaceBoardSyncSubscriber = ({
         }
 
         const state = useActiveBoardStore.getState()
+        const snapshot = extractBoardData(state)
         onEditRef.current({
           boardId,
-          snapshot: extractBoardData(state),
-          boardDataSelection: selectBoardDataFields(state),
+          snapshot,
           syncState: extractBoardSyncState(state),
         })
       },

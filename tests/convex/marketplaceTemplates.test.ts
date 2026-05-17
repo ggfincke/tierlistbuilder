@@ -1364,7 +1364,7 @@ describe('marketplace template Convex functions', () =>
 
     await expectConvexCode(
       asUser(t, plusUserId).mutation(
-        api.marketplace.rankings.mutations.publishRankingFromBoard,
+        api.marketplace.rankings.public.mutations.publishRankingFromBoard,
         {
           boardExternalId,
           title: 'Large Ranking',
@@ -1747,7 +1747,7 @@ describe('marketplace template Convex functions', () =>
       })
 
       await t.mutation(
-        internal.marketplace.rankings.aggregateInternal
+        internal.marketplace.rankings.aggregate.jobs
           .deleteTemplateRankingAggregateParentRowBatch,
         {
           templateId,
@@ -2075,7 +2075,8 @@ describe('marketplace template Convex functions', () =>
     )
     expect(
       await asUser(t, authorId).query(
-        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        api.marketplace.rankings.public.queries
+          .getBoardRankingPublishAvailability,
         { boardExternalId: 'board-source' }
       )
     ).toMatchObject({
@@ -2091,7 +2092,8 @@ describe('marketplace template Convex functions', () =>
       {
         await expect(
           ranker.query(
-            api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+            api.marketplace.rankings.public.queries
+              .getBoardRankingPublishAvailability,
             { boardExternalId }
           )
         ).resolves.toMatchObject({
@@ -2105,7 +2107,8 @@ describe('marketplace template Convex functions', () =>
     )
     await expect(
       ranker.query(
-        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        api.marketplace.rankings.public.queries
+          .getBoardRankingPublishAvailability,
         { boardExternalId }
       )
     ).resolves.toMatchObject({
@@ -2117,7 +2120,7 @@ describe('marketplace template Convex functions', () =>
     })
 
     const published = await ranker.mutation(
-      api.marketplace.rankings.mutations.publishRankingFromBoard,
+      api.marketplace.rankings.public.mutations.publishRankingFromBoard,
       {
         boardExternalId,
         title: 'Published Ranking',
@@ -2125,7 +2128,7 @@ describe('marketplace template Convex functions', () =>
       }
     )
     const detail = await t.query(
-      api.marketplace.rankings.queries.getRankingBySlug,
+      api.marketplace.rankings.public.queries.getRankingBySlug,
       { slug: published.slug }
     )
     expect(detail).toMatchObject({
@@ -2144,12 +2147,15 @@ describe('marketplace template Convex functions', () =>
       true
     )
 
-    await t.mutation(api.marketplace.rankings.mutations.recordRankingView, {
-      slug: published.slug,
-    })
+    await t.mutation(
+      api.marketplace.rankings.public.mutations.recordRankingView,
+      {
+        slug: published.slug,
+      }
+    )
 
     const rankings = await t.query(
-      api.marketplace.rankings.queries.getRankingsForTemplate,
+      api.marketplace.rankings.public.queries.getRankingsForTemplate,
       { templateSlug }
     )
     expect(rankings.items).toEqual([
@@ -2164,7 +2170,7 @@ describe('marketplace template Convex functions', () =>
     ])
 
     const myRanking = await ranker.query(
-      api.marketplace.rankings.queries.getMyRankingForTemplate,
+      api.marketplace.rankings.public.queries.getMyRankingForTemplate,
       { templateSlug }
     )
     expect(myRanking.ranking).toMatchObject({
@@ -2231,7 +2237,8 @@ describe('marketplace template Convex functions', () =>
 
     await expect(
       ranker.query(
-        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        api.marketplace.rankings.public.queries
+          .getBoardRankingPublishAvailability,
         { boardExternalId: 'board-local-template-fork' }
       )
     ).resolves.toMatchObject({
@@ -2265,7 +2272,7 @@ describe('marketplace template Convex functions', () =>
     )
 
     const published = await ranker.mutation(
-      api.marketplace.rankings.mutations.publishRankingFromBoard,
+      api.marketplace.rankings.public.mutations.publishRankingFromBoard,
       {
         boardExternalId: 'board-local-template-fork',
         title: 'Published Local Fork Ranking',
@@ -2274,7 +2281,7 @@ describe('marketplace template Convex functions', () =>
       }
     )
     const detail = await t.query(
-      api.marketplace.rankings.queries.getRankingBySlug,
+      api.marketplace.rankings.public.queries.getRankingBySlug,
       { slug: published.slug }
     )
     expect(detail).toMatchObject({
@@ -2322,7 +2329,8 @@ describe('marketplace template Convex functions', () =>
 
     await expect(
       ranker.query(
-        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        api.marketplace.rankings.public.queries
+          .getBoardRankingPublishAvailability,
         { boardExternalId }
       )
     ).resolves.toMatchObject({
@@ -2332,7 +2340,8 @@ describe('marketplace template Convex functions', () =>
     })
     await expect(
       ranker.query(
-        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        api.marketplace.rankings.public.queries
+          .getBoardRankingPublishAvailability,
         { boardExternalId, criterionExternalId: 'favorites' }
       )
     ).resolves.toMatchObject({
@@ -2342,7 +2351,8 @@ describe('marketplace template Convex functions', () =>
     })
     await expect(
       ranker.query(
-        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        api.marketplace.rankings.public.queries
+          .getBoardRankingPublishAvailability,
         { boardExternalId, criterionExternalId: 'missing' }
       )
     ).resolves.toMatchObject({
@@ -2351,7 +2361,8 @@ describe('marketplace template Convex functions', () =>
     })
     await expect(
       ranker.query(
-        api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+        api.marketplace.rankings.public.queries
+          .getBoardRankingPublishAvailability,
         { boardExternalId, criterionExternalId: 'staged' }
       )
     ).resolves.toMatchObject({
@@ -2360,7 +2371,7 @@ describe('marketplace template Convex functions', () =>
     })
 
     const defaultCompetitive = await ranker.mutation(
-      api.marketplace.rankings.mutations.publishRankingFromBoard,
+      api.marketplace.rankings.public.mutations.publishRankingFromBoard,
       {
         boardExternalId,
         title: 'Default Competitive Ranking',
@@ -2368,7 +2379,7 @@ describe('marketplace template Convex functions', () =>
       }
     )
     const favorites = await ranker.mutation(
-      api.marketplace.rankings.mutations.publishRankingFromBoard,
+      api.marketplace.rankings.public.mutations.publishRankingFromBoard,
       {
         boardExternalId,
         title: 'Favorites Ranking',
@@ -2377,7 +2388,7 @@ describe('marketplace template Convex functions', () =>
       }
     )
     const replacementCompetitive = await ranker.mutation(
-      api.marketplace.rankings.mutations.publishRankingFromBoard,
+      api.marketplace.rankings.public.mutations.publishRankingFromBoard,
       {
         boardExternalId,
         title: 'Replacement Competitive Ranking',
@@ -2386,7 +2397,7 @@ describe('marketplace template Convex functions', () =>
       }
     )
     const unlistedCompetitive = await ranker.mutation(
-      api.marketplace.rankings.mutations.publishRankingFromBoard,
+      api.marketplace.rankings.public.mutations.publishRankingFromBoard,
       {
         boardExternalId,
         title: 'Unlisted Competitive Ranking',
@@ -2397,7 +2408,7 @@ describe('marketplace template Convex functions', () =>
 
     await expectConvexCode(
       ranker.mutation(
-        api.marketplace.rankings.mutations.publishRankingFromBoard,
+        api.marketplace.rankings.public.mutations.publishRankingFromBoard,
         {
           boardExternalId,
           title: 'Hidden Criterion Ranking',
@@ -2409,7 +2420,7 @@ describe('marketplace template Convex functions', () =>
     )
 
     const favoritesDetail = await t.query(
-      api.marketplace.rankings.queries.getRankingBySlug,
+      api.marketplace.rankings.public.queries.getRankingBySlug,
       { slug: favorites.slug }
     )
     expect(favoritesDetail).toMatchObject({
@@ -2451,7 +2462,7 @@ describe('marketplace template Convex functions', () =>
     })
 
     const publicRankings = await t.query(
-      api.marketplace.rankings.queries.getRankingsForTemplate,
+      api.marketplace.rankings.public.queries.getRankingsForTemplate,
       { templateSlug }
     )
     expect(publicRankings.items.map((item) => item.slug).sort()).toEqual(
@@ -2472,7 +2483,7 @@ describe('marketplace template Convex functions', () =>
     })
 
     const favoritesPage = await t.query(
-      api.marketplace.rankings.queries.listRankingsForTemplate,
+      api.marketplace.rankings.public.queries.listRankingsForTemplate,
       {
         templateSlug,
         criterionExternalId: 'favorites',
@@ -2483,7 +2494,7 @@ describe('marketplace template Convex functions', () =>
       favorites.slug,
     ])
     const competitiveTopPage = await t.query(
-      api.marketplace.rankings.queries.listRankingsForTemplate,
+      api.marketplace.rankings.public.queries.listRankingsForTemplate,
       {
         templateSlug,
         criterionExternalId: 'competitive',
@@ -2495,7 +2506,7 @@ describe('marketplace template Convex functions', () =>
       replacementCompetitive.slug,
     ])
     const favoritesFeaturedPage = await t.query(
-      api.marketplace.rankings.queries.listRankingsForTemplate,
+      api.marketplace.rankings.public.queries.listRankingsForTemplate,
       {
         templateSlug,
         criterionExternalId: 'favorites',
@@ -2507,7 +2518,7 @@ describe('marketplace template Convex functions', () =>
       favorites.slug,
     ])
     const missingPage = await t.query(
-      api.marketplace.rankings.queries.listRankingsForTemplate,
+      api.marketplace.rankings.public.queries.listRankingsForTemplate,
       {
         templateSlug,
         criterionExternalId: 'missing',
@@ -2517,7 +2528,7 @@ describe('marketplace template Convex functions', () =>
     expect(missingPage.page).toEqual([])
 
     const myDefaultRanking = await ranker.query(
-      api.marketplace.rankings.queries.getMyRankingForTemplate,
+      api.marketplace.rankings.public.queries.getMyRankingForTemplate,
       { templateSlug }
     )
     expect(myDefaultRanking.ranking).toMatchObject({
@@ -2529,7 +2540,7 @@ describe('marketplace template Convex functions', () =>
       sortedItems.length
     )
     const myFavoritesRanking = await ranker.query(
-      api.marketplace.rankings.queries.getMyRankingForTemplate,
+      api.marketplace.rankings.public.queries.getMyRankingForTemplate,
       { templateSlug, criterionExternalId: 'favorites' }
     )
     expect(myFavoritesRanking.ranking).toMatchObject({
@@ -2537,7 +2548,7 @@ describe('marketplace template Convex functions', () =>
       criterion: expect.objectContaining({ externalId: 'favorites' }),
     })
     const myMissingRanking = await ranker.query(
-      api.marketplace.rankings.queries.getMyRankingForTemplate,
+      api.marketplace.rankings.public.queries.getMyRankingForTemplate,
       { templateSlug, criterionExternalId: 'missing' }
     )
     expect(myMissingRanking).toEqual({ ranking: null, placements: {} })
@@ -2681,7 +2692,7 @@ describe('marketplace template Convex functions', () =>
       })
 
       await t.mutation(
-        internal.marketplace.rankings.mutations
+        internal.marketplace.rankings.public.mutations
           .supersedePublicRankingsInLaneBatch,
         {
           ownerId,
@@ -2749,7 +2760,7 @@ describe('marketplace template Convex functions', () =>
     for (const template of templates)
     {
       await t.mutation(
-        internal.marketplace.rankings.aggregateInternal
+        internal.marketplace.rankings.aggregate.jobs
           .queueTemplateRankingAggregateRecomputeForCriterion,
         {
           templateId: template.templateId,
@@ -2770,7 +2781,7 @@ describe('marketplace template Convex functions', () =>
     expect(before).toEqual(['queued', 'queued', 'queued', 'queued'])
 
     const demotion = await t.mutation(
-      internal.marketplace.rankings.aggregateInternal
+      internal.marketplace.rankings.aggregate.jobs
         .admitQueuedTemplateRankingAggregateJobs,
       {}
     )
@@ -2781,7 +2792,7 @@ describe('marketplace template Convex functions', () =>
     })
 
     const admission = await t.mutation(
-      internal.marketplace.rankings.aggregateInternal
+      internal.marketplace.rankings.aggregate.jobs
         .admitQueuedTemplateRankingAggregateJobs,
       {}
     )
@@ -2885,24 +2896,24 @@ describe('marketplace template Convex functions', () =>
 
       vi.setSystemTime(10_000)
       await t.mutation(
-        internal.marketplace.rankings.aggregateInternal
+        internal.marketplace.rankings.aggregate.jobs
           .queueTemplateRankingAggregateRecomputeForCriterion,
         { templateId, criterionExternalId: 'competitive' }
       )
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
       await t.mutation(
-        internal.marketplace.rankings.aggregateInternal
+        internal.marketplace.rankings.aggregate.jobs
           .queueTemplateRankingAggregateRecomputeForCriterion,
         { templateId, criterionExternalId: 'favorites' }
       )
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
 
       const competitive = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
         { templateSlug }
       )
       const favorites = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
         { templateSlug, criterionExternalId: 'favorites' }
       )
       expect(competitive).toMatchObject({
@@ -2918,10 +2929,13 @@ describe('marketplace template Convex functions', () =>
         bucketSpread: [1, 0, 2],
       })
       await expect(
-        t.query(api.marketplace.rankings.queries.getTemplateRankingAggregate, {
-          templateSlug,
-          criterionExternalId: 'missing',
-        })
+        t.query(
+          api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
+          {
+            templateSlug,
+            criterionExternalId: 'missing',
+          }
+        )
       ).resolves.toBeNull()
 
       const competitiveGeneration = competitive?.activeGeneration
@@ -2937,7 +2951,8 @@ describe('marketplace template Convex functions', () =>
       }
 
       const competitiveItems = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug,
           criterionExternalId: 'competitive',
@@ -2955,7 +2970,8 @@ describe('marketplace template Convex functions', () =>
       ])
 
       const favoritesSearch = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug,
           criterionExternalId: 'favorites',
@@ -2975,18 +2991,18 @@ describe('marketplace template Convex functions', () =>
 
       vi.setSystemTime(20_000)
       await t.mutation(
-        internal.marketplace.rankings.aggregateInternal
+        internal.marketplace.rankings.aggregate.jobs
           .queueTemplateRankingAggregateRecomputeForCriterion,
         { templateId, criterionExternalId: 'competitive' }
       )
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
 
       const recomputedCompetitive = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
         { templateSlug, criterionExternalId: 'competitive' }
       )
       const stableFavorites = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
         { templateSlug, criterionExternalId: 'favorites' }
       )
       expect(recomputedCompetitive?.activeGeneration).not.toBe(
@@ -2995,7 +3011,8 @@ describe('marketplace template Convex functions', () =>
       expect(stableFavorites?.activeGeneration).toBe(favoritesGeneration)
 
       const crossedItems = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug,
           criterionExternalId: 'favorites',
@@ -3133,7 +3150,7 @@ describe('marketplace template Convex functions', () =>
       {
         vi.setSystemTime(10_000)
         await t.mutation(
-          internal.marketplace.rankings.aggregateInternal
+          internal.marketplace.rankings.aggregate.jobs
             .queueTemplateRankingAggregateRecomputeForCriterion,
           { templateId, criterionExternalId }
         )
@@ -3141,7 +3158,7 @@ describe('marketplace template Convex functions', () =>
       }
 
       const competitive = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
         { templateSlug, criterionExternalId: 'competitive' }
       )
       expect(competitive).toMatchObject({
@@ -3165,7 +3182,8 @@ describe('marketplace template Convex functions', () =>
       }
 
       const competitiveItems = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug,
           criterionExternalId: 'competitive',
@@ -3195,7 +3213,8 @@ describe('marketplace template Convex functions', () =>
       })
 
       const competitiveControversial = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug,
           criterionExternalId: 'competitive',
@@ -3209,7 +3228,7 @@ describe('marketplace template Convex functions', () =>
       ).toEqual(['aggregate-item-0'])
 
       const favorites = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
         { templateSlug, criterionExternalId: 'favorites' }
       )
       expect(favorites).toMatchObject({
@@ -3226,7 +3245,8 @@ describe('marketplace template Convex functions', () =>
         throw new Error('Expected favorites aggregate generation')
       }
       const favoritesItems = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug,
           criterionExternalId: 'favorites',
@@ -3241,7 +3261,8 @@ describe('marketplace template Convex functions', () =>
         controversyPercentile: 1,
       })
       const favoritesControversial = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug,
           criterionExternalId: 'favorites',
@@ -3253,7 +3274,7 @@ describe('marketplace template Convex functions', () =>
       expect(favoritesControversial.page).toEqual([])
 
       const consistency = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
         { templateSlug, criterionExternalId: 'consistency' }
       )
       expect(consistency).toMatchObject({
@@ -3268,7 +3289,8 @@ describe('marketplace template Convex functions', () =>
         throw new Error('Expected consistency aggregate generation')
       }
       const consistencyItems = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug,
           criterionExternalId: 'consistency',
@@ -3377,9 +3399,12 @@ describe('marketplace template Convex functions', () =>
         items: [item(0, 'tier-top'), item(1, 'tier-top'), item(2, 'tier-mid')],
       })
       vi.setSystemTime(5_000)
-      await t.mutation(api.marketplace.rankings.mutations.recordRankingView, {
-        slug: 'AggRank001',
-      })
+      await t.mutation(
+        api.marketplace.rankings.public.mutations.recordRankingView,
+        {
+          slug: 'AggRank001',
+        }
+      )
       await seedAggregateRanking(t, {
         ownerId: rankerBId,
         templateId,
@@ -3460,14 +3485,14 @@ describe('marketplace template Convex functions', () =>
       })
 
       await t.mutation(
-        internal.marketplace.rankings.aggregateInternal
+        internal.marketplace.rankings.aggregate.jobs
           .queueTemplateRankingAggregateRecomputeForTemplate,
         { templateId }
       )
       await t.finishAllScheduledFunctions(() => vi.runAllTimers())
 
       const aggregate = await t.query(
-        api.marketplace.rankings.queries.getTemplateRankingAggregate,
+        api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
         { templateSlug: 'AggTpl0001' }
       )
       expect(aggregate).toMatchObject({
@@ -3495,7 +3520,8 @@ describe('marketplace template Convex functions', () =>
       }
 
       const items = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug: 'AggTpl0001',
           generation: activeGeneration,
@@ -3518,7 +3544,8 @@ describe('marketplace template Convex functions', () =>
       })
 
       const byConsensus = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug: 'AggTpl0001',
           generation: activeGeneration,
@@ -3531,7 +3558,8 @@ describe('marketplace template Convex functions', () =>
         consensusScore: 3 / 4,
       })
       const byTopConsensus = await t.query(
-        api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+        api.marketplace.rankings.public.queries
+          .listTemplateRankingAggregateItems,
         {
           templateSlug: 'AggTpl0001',
           generation: activeGeneration,

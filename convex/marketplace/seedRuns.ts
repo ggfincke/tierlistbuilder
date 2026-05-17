@@ -1,6 +1,5 @@
 // convex/marketplace/seedRuns.ts
-// internal Convex API for Python seed HTTP endpoints. private logic lives
-// under ./seedPipeline/ (validators, resolvers, media, templates, diagnostics)
+// internal Convex API used by the Python seed HTTP endpoints
 
 import { ConvexError, v } from 'convex/values'
 import { modifyAccountCredentials } from '@convex-dev/auth/server'

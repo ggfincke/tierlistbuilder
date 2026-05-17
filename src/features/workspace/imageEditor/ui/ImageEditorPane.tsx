@@ -28,12 +28,12 @@ import { buildManualCropImgStyle } from '~/shared/lib/imageTransform'
 import { useMeasuredElementSize } from '../lib/useMeasuredElementSize'
 import type { PendingImageEditorPaneEdit } from '../model/pendingImageEdit'
 import type { ImageEditorMode } from '../model/useImageEditorStore'
-import { useArrowKeyNudge } from '../model/useArrowKeyNudge'
-import { useImageEditorAutoCropItem } from '../model/useImageEditorAutoCropItem'
-import { useImageEditorTransformDraft } from '../model/useImageEditorTransformDraft'
-import { usePanGesture } from '../model/usePanGesture'
-import { usePaneLabelEditor } from '../model/usePaneLabelEditor'
-import { useWheelZoom } from '../model/useWheelZoom'
+import { useArrowKeyNudge } from '../model/transform/useArrowKeyNudge'
+import { useImageEditorAutoCropItem } from '../model/auto-crop/useImageEditorAutoCropItem'
+import { useImageEditorTransformDraft } from '../model/transform/useImageEditorTransformDraft'
+import { usePanGesture } from '../model/transform/usePanGesture'
+import { usePaneLabelEditor } from '../model/labels/usePaneLabelEditor'
+import { useWheelZoom } from '../model/transform/useWheelZoom'
 import {
   ImageEditorMetadataPanel,
   type ImageEditorMetadataPanelHandle,

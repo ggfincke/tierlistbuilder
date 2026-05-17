@@ -24,7 +24,7 @@ import {
   type TemplateCoverFraming,
 } from '@tierlistbuilder/contracts/marketplace/template'
 
-import { computeFramedPlacement } from '../src/features/marketplace/model/coverFramingPlacement'
+import { computeFramedPlacement } from '../src/shared/board-ui/coverFramingPlacement'
 
 interface ParsedArgs
 {

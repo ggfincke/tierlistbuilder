@@ -24,7 +24,7 @@ import {
 } from '@tierlistbuilder/contracts/platform/user'
 import { getCurrentUser, requireCurrentUserId } from './lib/auth'
 import { BATCH_LIMITS } from './lib/limits'
-import { literalUnion } from './lib/validators'
+import { literalUnion } from './lib/validators/common'
 import {
   failInput,
   normalizeNullableText,
@@ -36,7 +36,7 @@ import {
   isPublicTemplateRow,
   type PublicCategoryDelta,
 } from './marketplace/templates/lib'
-import { queueTemplateRankingAggregateRecompute } from './marketplace/rankings/aggregate'
+import { queueTemplateRankingAggregateRecompute } from './marketplace/rankings/aggregate/lib'
 import {
   deleteMediaAssetWithVariants,
   hasMediaAssetReferences,
@@ -508,7 +508,7 @@ const handleRankingsPhase: CascadePhaseHandler = async (ctx, args) =>
       ctx.db.delete(ranking._id),
       ctx.scheduler.runAfter(
         0,
-        internal.marketplace.rankings.internal.cascadeDeleteRanking,
+        internal.marketplace.rankings.maintenance.cascade.cascadeDeleteRanking,
         { rankingId: ranking._id }
       ),
     ])

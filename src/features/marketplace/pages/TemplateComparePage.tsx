@@ -22,24 +22,24 @@ import {
   useTemplateRankingAggregate,
   useTemplateRankingAggregateItems,
   type TemplateRankingAggregateItemsPageStatus,
-} from '~/features/marketplace/model/useRankingDetail'
+} from '~/features/marketplace/model/detail/useRankingDetail'
 import {
   findActiveCriterion,
   findPrimaryCriterion,
   selectBusiestOtherCriterion,
-} from '~/features/marketplace/model/criterionSelection'
-import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
-import { useValidatedSlug } from '~/features/marketplace/model/useValidatedSlug'
+} from '~/features/marketplace/model/detail/criterionSelection'
+import { useTemplateBySlug } from '~/features/marketplace/model/detail/useTemplateDetail'
+import { useValidatedSlug } from '~/features/marketplace/model/detail/useValidatedSlug'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
 
-import { templateFrame } from '~/features/marketplace/components/consensus/utils'
+import { templateFrame } from '~/features/marketplace/components/consensus/lib/utils'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
-import { LoadingBlock } from '~/features/marketplace/components/consensus/LoadingBlock'
+import { LoadingBlock } from '~/features/marketplace/components/consensus/views/LoadingBlock'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 import { CompareDivergenceTable } from '~/features/marketplace/components/consensus/compare/CompareDivergenceTable'
 import { CompareInsightStrip } from '~/features/marketplace/components/consensus/compare/CompareInsightStrip'

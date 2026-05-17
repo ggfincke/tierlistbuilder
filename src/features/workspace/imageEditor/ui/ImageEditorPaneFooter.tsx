@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
-import type { AutoCropStatus } from '../model/useImageEditorAutoCropItem'
+import type { AutoCropStatus } from '../model/auto-crop/useImageEditorAutoCropItem'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { AutoCropButton } from './AutoCropButton'
 import { ZoomSlider } from './ZoomSlider'

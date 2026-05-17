@@ -13,7 +13,7 @@ import {
 import {
   deleteTemplateRankingAggregateParentRows,
   rollupTemplateRankingCount,
-} from '../rankings/aggregate'
+} from '../rankings/aggregate/lib'
 import { CONVEX_ERROR_CODES } from '@tierlistbuilder/contracts/platform/errors'
 import { LIBRARY_BOARD_COVER_ITEM_LIMIT } from '@tierlistbuilder/contracts/workspace/board'
 import {

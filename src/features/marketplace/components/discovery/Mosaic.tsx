@@ -16,12 +16,12 @@ import type {
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { TemplateCoverItem } from '@tierlistbuilder/contracts/marketplace/template'
 import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
+import type {
+  MediaDecoding,
+  MediaLoading,
+} from '~/shared/board-ui/mediaImageAttrs'
 
-import {
-  MediaMatteFrame,
-  type MediaDecoding,
-  type MediaLoading,
-} from '../cover/MediaMatteFrame'
+import { MediaMatteFrame } from '../cover/MediaMatteFrame'
 import { computeGridDims } from './mosaicGrid'
 
 export type MosaicDensity = 'small' | 'default' | 'large' | 'hero'

@@ -20,19 +20,19 @@ from .run_context import (
 )
 
 
-SEED_RANKINGS_PREFLIGHT_FUNCTION = "marketplace/rankings/seed:preflightSeedRankings"
+SEED_RANKINGS_PREFLIGHT_FUNCTION = "marketplace/rankings/seed/actions:preflightSeedRankings"
 SEED_RANKINGS_ENSURE_AUTHORS_FUNCTION = (
-    "marketplace/rankings/seed:ensureSeedRankingAuthors"
+    "marketplace/rankings/seed/actions:ensureSeedRankingAuthors"
 )
-SEED_RANKINGS_APPLY_FUNCTION = "marketplace/rankings/seed:applySeedRankingChunk"
+SEED_RANKINGS_APPLY_FUNCTION = "marketplace/rankings/seed/actions:applySeedRankingChunk"
 SEED_RANKINGS_CLEANUP_STALE_FUNCTION = (
-    "marketplace/rankings/seed:cleanupStaleSeedRankings"
+    "marketplace/rankings/seed/actions:cleanupStaleSeedRankings"
 )
-SEED_RANKINGS_VERIFY_FUNCTION = "marketplace/rankings/seed:verifySeedRankings"
-SEED_RANKINGS_ACTIVATE_FUNCTION = "marketplace/rankings/seedLifecycle:activateSeedRankings"
-SEED_RANKINGS_ROLLBACK_FUNCTION = "marketplace/rankings/seedLifecycle:rollbackSeedRankings"
+SEED_RANKINGS_VERIFY_FUNCTION = "marketplace/rankings/seed/actions:verifySeedRankings"
+SEED_RANKINGS_ACTIVATE_FUNCTION = "marketplace/rankings/seed/lifecycle:activateSeedRankings"
+SEED_RANKINGS_ROLLBACK_FUNCTION = "marketplace/rankings/seed/lifecycle:rollbackSeedRankings"
 SEED_RANKINGS_QUEUE_AGGREGATES_FUNCTION = (
-    "marketplace/rankings/seedLifecycle:queueActiveSeedRankingAggregates"
+    "marketplace/rankings/seed/lifecycle:queueActiveSeedRankingAggregates"
 )
 MAX_RANKING_ACTIVATION_BATCHES = 200
 RANKING_ACTIVATION_THROTTLE_SECONDS = 2.0

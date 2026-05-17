@@ -7,7 +7,7 @@ import type { Doc } from '../../_generated/dataModel'
 import type { TierPresetCloudRow } from '@tierlistbuilder/contracts/workspace/cloudPreset'
 import { query } from '../../_generated/server'
 import { getCurrentUserId } from '../../lib/auth'
-import { tierPresetCloudRowValidator } from '../../lib/validators'
+import { tierPresetCloudRowValidator } from '../../lib/validators/workspace'
 
 const MAX_PRESETS_PER_USER = 200
 

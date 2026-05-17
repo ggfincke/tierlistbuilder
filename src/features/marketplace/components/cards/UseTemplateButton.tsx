@@ -10,7 +10,7 @@ import {
   isTemplateAccessBlocked,
 } from '~/features/marketplace/model/accessMeta'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
-import { useUseTemplate } from '~/features/marketplace/model/useUseTemplate'
+import { useUseTemplate } from '~/features/marketplace/model/remix/useUseTemplate'
 
 interface UseTemplateButtonProps
 {

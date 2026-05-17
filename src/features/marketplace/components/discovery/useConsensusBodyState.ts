@@ -4,8 +4,8 @@
 import { useCallback, useState } from 'react'
 
 import type { TemplateRankingAggregateItemSort } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import type { ConsensusRailTab } from '../consensus/ConsensusRankingsRail'
-import type { ConsensusVizMode } from '../consensus/utils'
+import type { ConsensusRailTab } from '../consensus/rail/ConsensusRankingsRail'
+import type { ConsensusVizMode } from '../consensus/lib/utils'
 
 export const useConsensusBodyState = (criterionExternalId: string) =>
 {

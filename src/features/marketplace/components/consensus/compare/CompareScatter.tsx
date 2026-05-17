@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import { resolveBucketColor } from '../utils'
+import { resolveBucketColor } from '../lib/utils'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 
 import {
@@ -15,7 +15,7 @@ import {
   type CompareJoinedRow,
 } from './laneUtils'
 import { CompareCard, COMPARE_EYEBROW_CLASS } from './CompareCard'
-import { getAggregateItemLabel } from '../utils'
+import { getAggregateItemLabel } from '../lib/utils'
 
 interface CompareScatterProps
 {

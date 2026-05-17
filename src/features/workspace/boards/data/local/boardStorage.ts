@@ -158,11 +158,10 @@ const clearBoardImageRefs = (boardId: BoardId): void =>
     })
 }
 
-const readStoredBoardEnvelope = (boardId: BoardId): LoadedBoardEnvelope =>
+export const parseBoardEnvelope = (raw: string | null): LoadedBoardEnvelope =>
 {
   try
   {
-    const raw = readBrowserStorageItem(boardStorageKey(boardId))
     if (!raw)
     {
       return {
@@ -207,6 +206,9 @@ const readStoredBoardEnvelope = (boardId: BoardId): LoadedBoardEnvelope =>
     }
   }
 }
+
+const readStoredBoardEnvelope = (boardId: BoardId): LoadedBoardEnvelope =>
+  parseBoardEnvelope(readBrowserStorageItem(boardStorageKey(boardId)))
 
 // save board data to its per-board localStorage key
 export const saveBoardToStorage = (

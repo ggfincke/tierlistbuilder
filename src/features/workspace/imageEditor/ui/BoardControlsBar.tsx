@@ -2,12 +2,12 @@
 // board-wide ratio, label, trim-shadow, & bulk auto-crop controls
 
 import type { RatioOption } from '~/shared/board-ui/aspectRatio'
-import type { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/useBoardAspectRatioPicker'
+import type { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/aspect-ratio/useBoardAspectRatioPicker'
 import {
   AspectRatioChips,
   CustomRatioInput,
-} from '~/features/workspace/settings/ui/AspectRatioPicker'
-import { AutoCropTrimToggle } from '~/features/workspace/settings/ui/AutoCropTrimToggle'
+} from '~/features/workspace/settings/ui/aspect-ratio/AspectRatioPicker'
+import { AutoCropTrimToggle } from '~/features/workspace/settings/ui/auto-crop/AutoCropTrimToggle'
 import { ShowLabelsToggle } from '~/features/workspace/settings/ui/ShowLabelsToggle'
 import { AutoCropButton } from './AutoCropButton'
 

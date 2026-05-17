@@ -10,7 +10,7 @@ import {
 } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import { requireCurrentUserId } from '../../lib/auth'
 import { findOwnedTierPresetByExternalId } from '../../lib/permissions'
-import { tierPresetTiersValidator } from '../../lib/validators'
+import { tierPresetTiersValidator } from '../../lib/validators/common'
 import { isUserPresetId } from '@tierlistbuilder/contracts/lib/ids'
 import { assertExternalIdShape } from '../../lib/assertions'
 

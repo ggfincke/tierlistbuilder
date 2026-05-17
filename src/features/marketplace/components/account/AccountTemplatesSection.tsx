@@ -13,7 +13,7 @@ import {
   useMyTemplateManagementList,
   useRepublishMyTemplateMutation,
   useUnpublishMyTemplateMutation,
-} from '~/features/marketplace/model/useTemplateDetail'
+} from '~/features/marketplace/model/detail/useTemplateDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatMarketplaceError } from '~/features/marketplace/model/formatters'
 import { formatCount } from '~/shared/catalog/formatters'

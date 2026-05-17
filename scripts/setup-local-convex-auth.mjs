@@ -1,7 +1,7 @@
 // scripts/setup-local-convex-auth.mjs
 // Configure Convex Auth env vars for the selected local deployment.
 
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { generateKeyPairSync } from 'node:crypto'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -18,11 +18,37 @@ const siteUrl =
 const runConvex = (args, options = {}) =>
   execFileSync('npx', ['convex', ...args], { encoding: 'utf8', ...options })
 
-const getEnv = (name) =>
+const runConvexAsync = (args, options = {}) =>
+  new Promise((resolve, reject) =>
+  {
+    execFile(
+      'npx',
+      ['convex', ...args],
+      { encoding: 'utf8', ...options },
+      (error, stdout) =>
+      {
+        if (error)
+        {
+          reject(error)
+          return
+        }
+        resolve(stdout)
+      }
+    )
+  })
+
+const getEnv = async (name) =>
 {
   try
   {
-    return runConvex(['env', 'get', '--deployment', 'local', name]).trim()
+    const value = await runConvexAsync([
+      'env',
+      'get',
+      '--deployment',
+      'local',
+      name,
+    ])
+    return value.trim()
   }
   catch
   {
@@ -76,15 +102,7 @@ const setAuthKeys = () =>
       { mode: 0o600 }
     )
     runConvex(
-      [
-        'env',
-        'set',
-        '--deployment',
-        'local',
-        '--from-file',
-        file,
-        '--force',
-      ],
+      ['env', 'set', '--deployment', 'local', '--from-file', file, '--force'],
       { stdio: 'ignore' }
     )
   }
@@ -97,8 +115,12 @@ const setAuthKeys = () =>
 setEnv('SITE_URL', siteUrl)
 console.log(`SITE_URL: ${siteUrl}`)
 
-const hasJwtPrivateKey = getEnv('JWT_PRIVATE_KEY') !== ''
-const hasJwks = getEnv('JWKS') !== ''
+const [jwtPrivateKeyValue, jwksValue] = await Promise.all([
+  getEnv('JWT_PRIVATE_KEY'),
+  getEnv('JWKS'),
+])
+const hasJwtPrivateKey = jwtPrivateKeyValue !== ''
+const hasJwks = jwksValue !== ''
 
 if (shouldRotate || !hasJwtPrivateKey || !hasJwks)
 {

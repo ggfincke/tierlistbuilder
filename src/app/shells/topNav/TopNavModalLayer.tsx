@@ -6,7 +6,7 @@ import { lazyNamed } from '~/shared/lib/lazyNamed'
 import { LazyModalSlot } from '~/shared/overlay/LazyModalSlot'
 
 const AccountModal = lazyNamed(
-  () => import('~/features/platform/auth/ui/AccountModal'),
+  () => import('~/app/shells/topNav/AccountModal'),
   'AccountModal'
 )
 

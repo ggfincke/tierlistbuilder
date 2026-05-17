@@ -226,7 +226,7 @@ Used by `ColorPicker`, `TierRowSettingsMenu`, `BoardManager`, `ExportMenu`, `Ite
 
 ### Modal stack & lazy modals
 
-The keyed modal stack lives in `app/shells/useModalStack.ts` (a feature-shell concern, not `shared/`). Each shell owns its own modal payload map (`workspaceModals.ts`, etc.) and renders modals through `LazyModalSlot` so they don't ship in the initial bundle.
+The keyed modal stack lives in `app/shells/useModalStack.ts` (a feature-shell concern, not `shared/`). Each shell owns its own modal payload map (`app/shells/workspace/workspaceModals.ts`, etc.) and renders modals through `LazyModalSlot` so they don't ship in the initial bundle.
 
 ---
 

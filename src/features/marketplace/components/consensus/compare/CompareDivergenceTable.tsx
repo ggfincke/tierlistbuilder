@@ -11,14 +11,14 @@ import type { BoardLabelSettings } from '@tierlistbuilder/contracts/workspace/bo
 import {
   AggregateItemThumb,
   type AggregateItemFrame,
-} from '../AggregateItemThumb'
-import { DistributionBar } from '../DistributionBar'
+} from '../item/AggregateItemThumb'
+import { DistributionBar } from '../item/DistributionBar'
 import {
   bucketLabel,
   formatPercent,
   getAggregateItemLabel,
   resolveBucketColor,
-} from '../utils'
+} from '../lib/utils'
 import { TextInput } from '~/shared/ui/TextInput'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { formatCountedWord } from '~/shared/lib/pluralize'

@@ -5,6 +5,9 @@ import {
   useMutation,
   usePaginatedQuery,
   useQuery,
+  type PaginatedQueryArgs,
+  type PaginatedQueryItem,
+  type PaginatedQueryReference,
   type UsePaginatedQueryResult,
 } from 'convex/react'
 import { useCallback, useMemo } from 'react'
@@ -17,13 +20,11 @@ import type {
   MarketplaceRankingPublishAvailability,
   MarketplaceRankingPublishResult,
   MarketplaceRankingRemixResult,
-  MarketplaceRankingSummary,
   RankingListSort,
   RankingVisibility,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type {
   MarketplaceTemplateRankingAggregate,
-  MarketplaceTemplateRankingAggregateItem,
   TemplateRankingAggregateItemBand,
   TemplateRankingAggregateItemSort,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
@@ -36,7 +37,7 @@ export const useRankingBySlug = (
   slug: string | null | undefined
 ): MarketplaceRankingDetail | null | undefined =>
   useQuery(
-    api.marketplace.rankings.queries.getRankingBySlug,
+    api.marketplace.rankings.public.queries.getRankingBySlug,
     typeof slug === 'string' && slug.length > 0 ? { slug } : 'skip'
   )
 
@@ -46,18 +47,36 @@ export const useRankingBySlug = (
 export const getRankingBySlugImperative = (
   slug: string
 ): Promise<MarketplaceRankingDetail | null> =>
-  getConvexClient().query(api.marketplace.rankings.queries.getRankingBySlug, {
-    slug,
-  })
+  getConvexClient().query(
+    api.marketplace.rankings.public.queries.getRankingBySlug,
+    {
+      slug,
+    }
+  )
 
-type RankingsForTemplatePageStatus =
-  UsePaginatedQueryResult<MarketplaceRankingSummary>['status']
-
-interface RankingsForTemplatePage
-{
-  items: MarketplaceRankingSummary[]
-  status: RankingsForTemplatePageStatus
+type MarketplacePaginatedPage<Query extends PaginatedQueryReference> = {
+  items: PaginatedQueryItem<Query>[]
+  status: UsePaginatedQueryResult<PaginatedQueryItem<Query>>['status']
   loadMore: (count?: number) => void
+}
+
+const useMarketplacePaginatedQuery = <Query extends PaginatedQueryReference>(
+  query: Query,
+  args: PaginatedQueryArgs<Query> | 'skip',
+  pageSize: number
+): MarketplacePaginatedPage<Query> =>
+{
+  const page = usePaginatedQuery(query, args, { initialNumItems: pageSize })
+  const { results, status, loadMore: pageLoadMore } = page
+  const loadMore = useCallback(
+    (count = pageSize) => pageLoadMore(count),
+    [pageLoadMore, pageSize]
+  )
+
+  return useMemo(
+    () => ({ items: results, status, loadMore }),
+    [loadMore, results, status]
+  )
 }
 
 interface PaginatedRankingsForTemplateArgs
@@ -77,9 +96,13 @@ export const usePaginatedRankingsForTemplate = ({
   criterionExternalId,
   enabled = true,
   pageSize = DEFAULT_RANKING_LIST_LIMIT,
-}: PaginatedRankingsForTemplateArgs): RankingsForTemplatePage =>
+}: PaginatedRankingsForTemplateArgs): MarketplacePaginatedPage<
+  typeof api.marketplace.rankings.public.queries.listRankingsForTemplate
+> =>
 {
-  const args = useMemo(
+  type Query =
+    typeof api.marketplace.rankings.public.queries.listRankingsForTemplate
+  const args = useMemo<PaginatedQueryArgs<Query> | 'skip'>(
     () =>
       enabled && typeof templateSlug === 'string' && templateSlug.length > 0
         ? {
@@ -90,19 +113,10 @@ export const usePaginatedRankingsForTemplate = ({
         : 'skip',
     [criterionExternalId, enabled, sort, templateSlug]
   )
-  const page = usePaginatedQuery(
-    api.marketplace.rankings.queries.listRankingsForTemplate,
+  return useMarketplacePaginatedQuery(
+    api.marketplace.rankings.public.queries.listRankingsForTemplate,
     args,
-    { initialNumItems: pageSize }
-  ) as UsePaginatedQueryResult<MarketplaceRankingSummary>
-  const { results, status, loadMore: pageLoadMore } = page
-  const loadMore = useCallback(
-    (count = pageSize) => pageLoadMore(count),
-    [pageLoadMore, pageSize]
-  )
-  return useMemo(
-    () => ({ items: results, status, loadMore }),
-    [loadMore, results, status]
+    pageSize
   )
 }
 
@@ -115,7 +129,7 @@ export const useTemplateRankingAggregate = (
   enabled = true
 ): MarketplaceTemplateRankingAggregate | null | undefined =>
   useQuery(
-    api.marketplace.rankings.queries.getTemplateRankingAggregate,
+    api.marketplace.rankings.public.queries.getTemplateRankingAggregate,
     enabled && typeof templateSlug === 'string' && templateSlug.length > 0
       ? {
           templateSlug,
@@ -123,16 +137,6 @@ export const useTemplateRankingAggregate = (
         }
       : 'skip'
   )
-
-export type TemplateRankingAggregateItemsPageStatus =
-  UsePaginatedQueryResult<MarketplaceTemplateRankingAggregateItem>['status']
-
-interface TemplateRankingAggregateItemsPage
-{
-  items: MarketplaceTemplateRankingAggregateItem[]
-  status: TemplateRankingAggregateItemsPageStatus
-  loadMore: (count?: number) => void
-}
 
 interface TemplateRankingAggregateItemsArgs
 {
@@ -161,9 +165,13 @@ export const useTemplateRankingAggregateItems = ({
   search,
   enabled = true,
   pageSize = DEFAULT_TEMPLATE_RANKING_AGGREGATE_ITEM_PAGE_SIZE,
-}: TemplateRankingAggregateItemsArgs): TemplateRankingAggregateItemsPage =>
+}: TemplateRankingAggregateItemsArgs): MarketplacePaginatedPage<
+  typeof api.marketplace.rankings.public.queries.listTemplateRankingAggregateItems
+> =>
 {
-  const args = useMemo(
+  type Query =
+    typeof api.marketplace.rankings.public.queries.listTemplateRankingAggregateItems
+  const args = useMemo<PaginatedQueryArgs<Query> | 'skip'>(
     () =>
       enabled &&
       typeof templateSlug === 'string' &&
@@ -180,21 +188,16 @@ export const useTemplateRankingAggregateItems = ({
         : 'skip',
     [band, criterionExternalId, enabled, generation, search, sort, templateSlug]
   )
-  const page = usePaginatedQuery(
-    api.marketplace.rankings.queries.listTemplateRankingAggregateItems,
+  return useMarketplacePaginatedQuery(
+    api.marketplace.rankings.public.queries.listTemplateRankingAggregateItems,
     args,
-    { initialNumItems: pageSize }
-  ) as UsePaginatedQueryResult<MarketplaceTemplateRankingAggregateItem>
-  const { results, status, loadMore: pageLoadMore } = page
-  const loadMore = useCallback(
-    (count = pageSize) => pageLoadMore(count),
-    [pageLoadMore, pageSize]
-  )
-  return useMemo(
-    () => ({ items: results, status, loadMore }),
-    [loadMore, results, status]
+    pageSize
   )
 }
+
+export type TemplateRankingAggregateItemsPageStatus = ReturnType<
+  typeof useTemplateRankingAggregateItems
+>['status']
 
 export const useMyRankingForTemplate = (
   templateSlug: string | null | undefined,
@@ -202,7 +205,7 @@ export const useMyRankingForTemplate = (
   enabled = true
 ): MarketplaceMyRankingForTemplateResult | undefined =>
   useQuery(
-    api.marketplace.rankings.queries.getMyRankingForTemplate,
+    api.marketplace.rankings.public.queries.getMyRankingForTemplate,
     enabled && typeof templateSlug === 'string' && templateSlug.length > 0
       ? {
           templateSlug,
@@ -216,7 +219,7 @@ export const useMyRankings = (
   limit?: number
 ): MarketplaceRankingListResult | undefined =>
   useQuery(
-    api.marketplace.rankings.queries.getMyRankings,
+    api.marketplace.rankings.public.queries.getMyRankings,
     enabled ? (limit === undefined ? {} : { limit }) : 'skip'
   )
 
@@ -228,7 +231,7 @@ export const useRankingPublishAvailability = (
   enabled = true
 ): MarketplaceRankingPublishAvailability | undefined =>
   useQuery(
-    api.marketplace.rankings.queries.getBoardRankingPublishAvailability,
+    api.marketplace.rankings.public.queries.getBoardRankingPublishAvailability,
     enabled && boardExternalId
       ? {
           boardExternalId,
@@ -250,7 +253,7 @@ interface PublishRankingFromBoardArgs
 
 export const usePublishRankingFromBoardMutation = () =>
   useMutation(
-    api.marketplace.rankings.mutations.publishRankingFromBoard
+    api.marketplace.rankings.public.mutations.publishRankingFromBoard
   ) as unknown as (
     args: PublishRankingFromBoardArgs
   ) => Promise<MarketplaceRankingPublishResult>
@@ -264,7 +267,7 @@ interface RemixTemplateConsensusArgs
 
 export const useRemixTemplateConsensusMutation = () =>
   useMutation(
-    api.marketplace.rankings.mutations.remixTemplateConsensus
+    api.marketplace.rankings.public.mutations.remixTemplateConsensus
   ) as unknown as (
     args: RemixTemplateConsensusArgs
   ) => Promise<MarketplaceRankingRemixResult>
@@ -272,6 +275,6 @@ export const useRemixTemplateConsensusMutation = () =>
 // imperative form — fire-&-forget once per ranking-detail session window
 export const recordRankingViewImperative = (slug: string): Promise<null> =>
   getConvexClient().mutation(
-    api.marketplace.rankings.mutations.recordRankingView,
+    api.marketplace.rankings.public.mutations.recordRankingView,
     { slug }
   )

@@ -24,15 +24,15 @@ import {
   type LabelBandVariant,
 } from '~/shared/board-ui/labelBandVariant'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/useBoardAspectRatioPicker'
+import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/aspect-ratio/useBoardAspectRatioPicker'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/useAutoCropTrimShadows'
+import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/auto-crop/useAutoCropTrimShadows'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { useImageEditorAutoCropAll } from '../model/useImageEditorAutoCropAll'
+import { useImageEditorAutoCropAll } from '../model/auto-crop/useImageEditorAutoCropAll'
 import { useImageEditorItems } from '../model/useImageEditorItems'
-import { useLabelAwareEffectiveAspect } from '../model/useLabelAwareEffectiveAspect'
+import { useLabelAwareEffectiveAspect } from '../model/labels/useLabelAwareEffectiveAspect'
 import {
   useImageEditorApplyLabelToAll,
   useImageEditorAutoCropAllConfirmation,
@@ -40,7 +40,7 @@ import {
   useImageEditorRatioChangeGuard,
 } from '../model/useImageEditorModalActions'
 import { useImageEditorSelection } from '../model/useImageEditorSelection'
-import { useSelectedItemHandlers } from '../model/useSelectedItemHandlers'
+import { useSelectedItemHandlers } from '../model/transform/useSelectedItemHandlers'
 import { BoardControlsBar } from './BoardControlsBar'
 import { ImageEditorPane, type ImageEditorPaneHandle } from './ImageEditorPane'
 import { ImageEditorModalDialogs } from './ImageEditorModalDialogs'

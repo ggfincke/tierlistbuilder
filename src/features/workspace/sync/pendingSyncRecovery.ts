@@ -7,7 +7,6 @@ import {
   type BoardId,
   type UserPresetId,
 } from '@tierlistbuilder/contracts/lib/ids'
-import { selectBoardDataFields } from '~/shared/board-data/boardSnapshot'
 import { loadBoardDeleteSyncMeta } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { extractAppPreferences } from '~/features/platform/preferences/model/appPreferencesExtraction'
@@ -56,7 +55,6 @@ const resumeBoards = (options: ResumePendingSyncsOptions): BoardId[] =>
     options.queueBoard({
       boardId: meta.id,
       snapshot,
-      boardDataSelection: selectBoardDataFields(snapshot),
       syncState,
     })
     resumed.push(meta.id)

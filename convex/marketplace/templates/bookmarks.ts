@@ -21,7 +21,7 @@ import { getCurrentUserId, requireCurrentUserId } from '../../lib/auth'
 import {
   marketplaceTemplateBookmarkListResultValidator,
   marketplaceTemplateBookmarkStateValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/marketplace'
 import {
   createTemplateProjectionCache,
   findTemplateBySlug,

@@ -44,8 +44,8 @@ import {
   templateCategoryValidator,
   templateCoverFramingValidator,
   templateVisibilityValidator,
-  tierPresetTiersValidator,
-} from '../../lib/validators'
+} from '../../lib/validators/marketplace'
+import { tierPresetTiersValidator } from '../../lib/validators/common'
 import {
   adjustPublicTemplateCount,
   allocateTemplateSlug,

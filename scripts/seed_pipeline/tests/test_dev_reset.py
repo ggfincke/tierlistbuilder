@@ -9,7 +9,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from scripts import dev_reset
+from seed_pipeline import dev_reset
 
 
 class DevResetUrlTests(unittest.TestCase):
@@ -90,8 +90,8 @@ class DevResetUrlTests(unittest.TestCase):
         with (
             patch.dict(os.environ, env, clear=True),
             patch.object(sys, "argv", ["dev_reset.py", "--yes"]),
-            patch("scripts.dev_reset.load_dotenv", return_value={}),
-            patch("scripts.dev_reset.ConvexSeedClient", FakeClient),
+            patch("seed_pipeline.dev_reset.load_dotenv", return_value={}),
+            patch("seed_pipeline.dev_reset.ConvexSeedClient", FakeClient),
             patch("sys.stdout", new_callable=StringIO),
         ):
             self.assertEqual(dev_reset.main(), 0)

@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
-import { bucketLabel, resolveBucketColor } from '../utils'
+import { bucketLabel, resolveBucketColor } from '../lib/utils'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 

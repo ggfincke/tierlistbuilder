@@ -3,8 +3,10 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  boardDataFieldsEqual,
   createInitialBoardData,
   createNewTier,
+  extractBoardData,
   resetBoardData,
   normalizeBoardSnapshot,
 } from '~/shared/board-data/boardSnapshot'
@@ -75,6 +77,52 @@ describe('resetBoardData', () =>
     {
       expect(tier.itemIds).toEqual([])
     }
+  })
+})
+
+describe('board data projection', () =>
+{
+  it('extracts only persisted board fields from runtime state', () =>
+  {
+    const board = makeBoardSnapshot({
+      sourceTemplateId: 'Template123',
+      sourceTemplateTitle: 'Template',
+      sourceTemplateCoverMedia: {
+        externalId: 'cover',
+        contentHash: 'hash-cover',
+        url: 'https://cdn.test/cover.jpg',
+        width: 1200,
+        height: 800,
+        mimeType: 'image/jpeg',
+      },
+      sourceTemplateCoverFraming: {
+        browseHero: null,
+        detailHero: null,
+        card: { x: 0.1, y: 0.2, width: 0.8, height: 0.5 },
+      },
+      preferredCriterionExternalId: 'favorites',
+    })
+    const state = {
+      ...board,
+      runtimeError: 'ignored',
+    }
+
+    const snapshot = extractBoardData(state)
+
+    expect(snapshot).not.toHaveProperty('runtimeError')
+    expect(snapshot.sourceTemplateCoverMedia?.externalId).toBe('cover')
+    expect(snapshot.sourceTemplateCoverFraming?.card).toEqual({
+      x: 0.1,
+      y: 0.2,
+      width: 0.8,
+      height: 0.5,
+    })
+    expect(boardDataFieldsEqual(state, { ...state, runtimeError: null })).toBe(
+      true
+    )
+    expect(boardDataFieldsEqual(state, { ...state, title: 'Changed' })).toBe(
+      false
+    )
   })
 })
 

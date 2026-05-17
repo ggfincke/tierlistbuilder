@@ -13,12 +13,12 @@ import {
   type MarketplaceTemplateRankingAggregate,
 } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import { useSelectedCriterion } from '~/features/marketplace/model/useSelectedCriterion'
-import { useTemplateBySlug } from '~/features/marketplace/model/useTemplateDetail'
-import { useValidatedSlug } from '~/features/marketplace/model/useValidatedSlug'
-import { useRelatedTemplates } from '~/features/marketplace/model/useTemplateDetail'
-import { useTemplateRankingAggregate } from '~/features/marketplace/model/useRankingDetail'
-import { useRecordTemplateView } from '~/features/marketplace/model/useRecordTemplateView'
+import { useSelectedCriterion } from '~/features/marketplace/model/detail/useSelectedCriterion'
+import { useTemplateBySlug } from '~/features/marketplace/model/detail/useTemplateDetail'
+import { useValidatedSlug } from '~/features/marketplace/model/detail/useValidatedSlug'
+import { useRelatedTemplates } from '~/features/marketplace/model/detail/useTemplateDetail'
+import { useTemplateRankingAggregate } from '~/features/marketplace/model/detail/useRankingDetail'
+import { useRecordTemplateView } from '~/features/marketplace/model/analytics/useRecordTemplateView'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
 import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
@@ -30,9 +30,9 @@ import { CommunityConsensusSection } from '~/features/marketplace/components/dis
 import {
   HeroRailCards,
   HeroRailCardsLoading,
-} from '~/features/marketplace/components/consensus/HeroRailCards'
-import { useHeroSpread } from '~/features/marketplace/components/consensus/useHeroSpread'
-import { templateFrame } from '~/features/marketplace/components/consensus/utils'
+} from '~/features/marketplace/components/consensus/rail/HeroRailCards'
+import { useHeroSpread } from '~/features/marketplace/components/consensus/lib/useHeroSpread'
+import { templateFrame } from '~/features/marketplace/components/consensus/lib/utils'
 import { RailHeader } from '~/features/marketplace/components/discovery/RailHeader'
 import { RecommendedPresetCard } from '~/features/marketplace/components/cards/RecommendedPresetCard'
 import {

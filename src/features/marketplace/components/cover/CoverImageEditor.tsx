@@ -22,9 +22,9 @@ import {
 import {
   bboxToCoverFraming,
   scanCoverImage,
-} from '~/features/marketplace/model/coverAutoCrop'
-import { computeFramedPlacement } from '~/features/marketplace/model/coverFramingPlacement'
-import { useCoverFramingPicker } from '~/features/marketplace/model/useCoverFramingPicker'
+} from '~/features/marketplace/model/cover/coverAutoCrop'
+import { computeFramedPlacement } from '~/shared/board-ui/coverFramingPlacement'
+import { useCoverFramingPicker } from '~/features/marketplace/model/cover/useCoverFramingPicker'
 import { applyAxisSnap } from '~/shared/lib/axisSnap'
 import { formatError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'
@@ -33,7 +33,7 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { PrimaryButton } from '~/shared/ui/PrimaryButton'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
-import { coverFramePlacementStyle } from './coverFramingStyles'
+import { coverFramePlacementStyle } from '~/shared/board-ui/coverFramingStyles'
 
 interface SourceMeta
 {

@@ -2,8 +2,8 @@
 // ranking rail queries for the consensus section
 
 import { DEFAULT_RANKING_LIST_LIMIT } from '@tierlistbuilder/contracts/marketplace/ranking'
-import { usePaginatedRankingsForTemplate } from '~/features/marketplace/model/useRankingDetail'
-import type { ConsensusRailTab } from '../consensus/ConsensusRankingsRail'
+import { usePaginatedRankingsForTemplate } from '~/features/marketplace/model/detail/useRankingDetail'
+import type { ConsensusRailTab } from '../consensus/rail/ConsensusRankingsRail'
 
 const RAIL_PAGE_SIZE = DEFAULT_RANKING_LIST_LIMIT
 

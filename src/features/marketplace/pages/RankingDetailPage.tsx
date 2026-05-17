@@ -17,10 +17,10 @@ import { ItemContent } from '~/shared/board-ui/ItemContent'
 import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { getTextColor } from '~/shared/lib/color'
-import { useRankingBySlug } from '~/features/marketplace/model/useRankingDetail'
-import { useRecordRankingView } from '~/features/marketplace/model/useRecordRankingView'
-import { useRemixRanking } from '~/features/marketplace/model/useRemixRanking'
-import { useValidatedSlug } from '~/features/marketplace/model/useValidatedSlug'
+import { useRankingBySlug } from '~/features/marketplace/model/detail/useRankingDetail'
+import { useRecordRankingView } from '~/features/marketplace/model/analytics/useRecordRankingView'
+import { useRemixRanking } from '~/features/marketplace/model/remix/useRemixRanking'
+import { useValidatedSlug } from '~/features/marketplace/model/detail/useValidatedSlug'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
 import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
@@ -32,10 +32,10 @@ import {
   RANKINGS_ROUTE_PATH,
   TEMPLATES_ROUTE_PATH,
 } from '~/shared/routes/pathname'
-import { CriterionBadge } from '~/features/marketplace/components/consensus/CriterionBadge'
+import { CriterionBadge } from '~/features/marketplace/components/consensus/criterion/CriterionBadge'
 import { MarketplaceNotFound } from '~/features/marketplace/components/layout/MarketplaceNotFound'
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
-import { MetaPill } from '~/features/marketplace/components/MetaPill'
+import { MetaPill } from '~/features/marketplace/components/meta/MetaPill'
 import { DisplayHeadline } from '~/shared/ui/DisplayHeadline'
 
 // neutral palette for ranking surfaces; viewers don't carry workspace prefs

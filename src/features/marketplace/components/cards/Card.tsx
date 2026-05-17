@@ -26,8 +26,8 @@ import { TEMPLATE_STAT_META } from '~/features/marketplace/model/templateStatMet
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
 import { InitialAvatar } from '~/shared/ui/InitialAvatar'
+import type { MediaLoading } from '~/shared/board-ui/mediaImageAttrs'
 import { Cover, type CoverStyle } from '../cover/Cover'
-import type { MediaLoading } from '../cover/MediaMatteFrame'
 import type { MosaicDensity } from '../discovery/Mosaic'
 
 export type CardSize = 'small' | 'default' | 'large'

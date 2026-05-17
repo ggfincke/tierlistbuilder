@@ -22,8 +22,8 @@ import { formatCountedWord } from '~/shared/lib/pluralize'
 import {
   AggregateItemThumb,
   type AggregateItemFrame,
-} from '../AggregateItemThumb'
-import { getAggregateItemLabel, resolveBucketColor } from '../utils'
+} from '../item/AggregateItemThumb'
+import { getAggregateItemLabel, resolveBucketColor } from '../lib/utils'
 
 import { type CompareLaneSide } from './CompareLaneHeader'
 import { type CompareJoinedRow } from './laneUtils'

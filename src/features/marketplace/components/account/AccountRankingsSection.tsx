@@ -9,9 +9,9 @@ import type {
   MarketplaceRankingSummary,
   RankingVisibility,
 } from '@tierlistbuilder/contracts/marketplace/ranking'
-import { useMyRankings } from '~/features/marketplace/model/useRankingDetail'
+import { useMyRankings } from '~/features/marketplace/model/detail/useRankingDetail'
 import { CATEGORY_META } from '~/features/marketplace/model/categories'
-import { CriterionBadge } from '~/features/marketplace/components/consensus/CriterionBadge'
+import { CriterionBadge } from '~/features/marketplace/components/consensus/criterion/CriterionBadge'
 import { formatCount } from '~/shared/catalog/formatters'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { RANKINGS_ROUTE_PATH } from '~/shared/routes/pathname'

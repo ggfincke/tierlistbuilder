@@ -125,8 +125,8 @@ const seedHttpAction = (kind: SeedRouteKind, ref: SeedRouteRef) =>
 
 const seedRuns = internal.marketplace.seedRuns
 const storageUploads = internal.marketplace.seedPipeline.storageUploads
-const rankingSeeds = internal.marketplace.rankings.seed
-const rankingSeedLifecycle = internal.marketplace.rankings.seedLifecycle
+const rankingSeeds = internal.marketplace.rankings.seed.actions
+const rankingSeedLifecycle = internal.marketplace.rankings.seed.lifecycle
 
 const SEED_ROUTES: readonly [string, SeedRouteKind, SeedRouteRef][] = [
   ['/api/seed/ensure-author', 'action', seedRuns.ensureSeedAuthor],
