@@ -1,3 +1,6 @@
+// convex/workspace/boards/sourceFields.ts
+// normalized empty board-source field values for workspace board rows
+
 import type { Doc, Id } from '../../_generated/dataModel'
 
 export type BoardSourceTemplate = Doc<'boards'>['sourceTemplate']

@@ -2,24 +2,23 @@
 // Scoreboard top bar — BrandPill ... (+New, SurfaceNav, Avatar). A 1px
 // accent gradient runs across the very top edge as the editorial signature.
 
-import { useCallback, useState } from 'react'
-
 import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
+import { useModalStack } from '~/app/shells/useModalStack'
 import { BrandPill } from './topNav/BrandPill'
 import { NewBoardAction } from './topNav/NewBoardAction'
 import { SurfaceNav } from './topNav/SurfaceNav'
 import { TopNavAccountControl } from './topNav/TopNavAccountControl'
 import {
   TopNavModalLayer,
-  type TopNavModalKey,
+  type TopNavModalPayloads,
 } from './topNav/TopNavModalLayer'
 
 export const AppTopNav = () =>
 {
   const signInOpen = useSignInPromptStore((state) => state.open)
   const closeSignIn = useSignInPromptStore((state) => state.hide)
-  const [openModal, setOpenModal] = useState<TopNavModalKey | null>(null)
-  const closeModal = useCallback(() => setOpenModal(null), [])
+  const modalStack = useModalStack<TopNavModalPayloads>()
+  const { open: openModal } = modalStack
 
   return (
     <>
@@ -43,14 +42,13 @@ export const AppTopNav = () =>
           <div className="pointer-events-auto flex items-center gap-2 sm:gap-3">
             <NewBoardAction />
             <SurfaceNav />
-            <TopNavAccountControl onOpenModal={setOpenModal} />
+            <TopNavAccountControl onOpenModal={openModal} />
           </div>
         </div>
       </header>
       <TopNavModalLayer
-        open={openModal}
+        modalStack={modalStack}
         signInOpen={signInOpen}
-        onClose={closeModal}
         onCloseSignIn={closeSignIn}
       />
     </>

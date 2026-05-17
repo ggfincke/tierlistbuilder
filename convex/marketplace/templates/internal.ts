@@ -1,4 +1,5 @@
 // convex/marketplace/templates/internal.ts
+// internal template maintenance helpers shared by user-data cleanup flows
 
 import { v, type Infer } from 'convex/values'
 import { internalMutation, type MutationCtx } from '../../_generated/server'

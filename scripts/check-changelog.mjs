@@ -1,6 +1,7 @@
-// verify CHANGELOG.md contains an entry for the current version
-// runs as an npm "version" lifecycle hook — after package.json is
-// bumped but before the commit & tag are created
+// scripts/check-changelog.mjs
+// verifies CHANGELOG.md contains an entry for the current package version
+// runs as an npm "version" lifecycle hook — after package.json is bumped
+// but before the commit & tag are created
 
 import { readFileSync } from 'node:fs'
 

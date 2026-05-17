@@ -44,8 +44,7 @@ src/
 │       ├── WorkspaceModalLayer.tsx  # workspace modal/conflict/progress composition
 │       ├── useWorkspaceExportActions.ts # export preview + annotation actions
 │       ├── useModalStack.ts         # keyed modal state helper
-│       ├── workspaceModals.ts       # workspace modal payload map
-│       └── EmbedShell.tsx           # read-only embed shell
+│       └── workspaceModals.ts       # workspace modal payload map
 ├── features/workspace/
 │   ├── annotation/{model,ui}        # draw-over annotation editor
 │   ├── boards/
@@ -206,7 +205,7 @@ The separation ensures board-input orchestration (selection, focus persistence, 
 - `/templates` -> `MarketplaceLayout` -> template gallery
 - `/templates/:slug` -> template detail
 - `/boards` -> `MyListsRoute` -> signed-in library
-- `/embed` -> `EmbedRoute` -> `EmbedShell` -> `EmbedView`
+- `/embed` -> `EmbedRoute` -> `EmbedView`
 - anything else -> `NotFoundRoute`
 
 Base-path-aware route constants and URL builders live in `shared/routes/pathname.ts` so feature slices can link without importing the app router.
@@ -274,7 +273,7 @@ App (app/App.tsx → AppRouter)
 │   ├── ShortcutsPanel → ShortcutsList — help panel listing keyboard shortcuts
 │   ├── ToastContainer             — auto-dismissing notifications
 │   └── LiveRegion                 — screen reader announcement target
-└── EmbedRoute → EmbedShell → EmbedView — read-only iframe view
+└── EmbedRoute → EmbedView — read-only iframe view
 ```
 
 ## Overlay System
@@ -300,7 +299,7 @@ See **[`docs/design-system.mdx`](design-system.mdx)** for the runtime token cont
 - `runtime.ts` — `applyThemeTokens` / `applyTextStyleTokens` DOM writers
 - `tierColors.ts` — `TierColorSpec` resolution against the active palette
 
-The `useThemeSync` hook (`features/platform/preferences/model/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `usePreferencesStore` to `:root`. `WorkspaceShell` layers board text-style overrides through `useBoardThemeOverrides()`. `EmbedShell` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render stable chrome tokens regardless of the host's preference, while `EmbedView` keeps the neutral `classic` tier palette. Non-system fonts are loaded dynamically from Google Fonts.
+The `useThemeSync` hook (`features/platform/preferences/model/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `usePreferencesStore` to `:root`. `WorkspaceShell` layers board text-style overrides through `useBoardThemeOverrides()`. `EmbedRoute` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render stable chrome tokens regardless of the host's preference, while `EmbedView` keeps the neutral `classic` tier palette. Non-system fonts are loaded dynamically from Google Fonts.
 
 ## Export Pipeline
 

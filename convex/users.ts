@@ -236,7 +236,8 @@ export const signOutEverywhere = mutation({
     await scheduleAuthSessionCleanup(
       ctx,
       userId,
-      await getInitialAuthSessionState(ctx)
+      await getInitialAuthSessionState(ctx),
+      'signOutOnly'
     )
     return null
   },
@@ -249,10 +250,11 @@ export const deleteAccount = mutation({
   handler: async (ctx): Promise<null> =>
   {
     const userId = await requireCurrentUserId(ctx)
-    await scheduleCascadeAuthSessions(
+    await scheduleAuthSessionCleanup(
       ctx,
       userId,
-      await getInitialAuthSessionState(ctx)
+      await getInitialAuthSessionState(ctx),
+      'startCascade'
     )
     return null
   },
@@ -273,6 +275,10 @@ const CASCADE_PHASES = [
 
 const cascadePhaseValidator = literalUnion(CASCADE_PHASES)
 type CascadePhase = (typeof CASCADE_PHASES)[number]
+
+const AUTH_SESSION_CLEANUP_MODES = ['signOutOnly', 'startCascade'] as const
+const authSessionCleanupModeValidator = literalUnion(AUTH_SESSION_CLEANUP_MODES)
+type AuthSessionCleanupMode = (typeof AUTH_SESSION_CLEANUP_MODES)[number]
 
 const nextCascadePhase = (currentPhase: CascadePhase): CascadePhase | null =>
 {
@@ -315,6 +321,7 @@ type CascadePhaseHandler = (
 export const cleanupAuthSessions = internalMutation({
   args: {
     userId: v.id('users'),
+    mode: authSessionCleanupModeValidator,
     cursor: v.union(v.string(), v.null()),
     targetSessionId: v.optional(v.id('authSessions')),
     tokenCursor: v.optional(v.union(v.string(), v.null())),
@@ -322,16 +329,7 @@ export const cleanupAuthSessions = internalMutation({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
   {
-    const result = await deleteAuthSessionCleanupStep(ctx, args.userId, {
-      cursor: args.cursor,
-      targetSessionId: args.targetSessionId,
-      tokenCursor: args.tokenCursor,
-    })
-    if (!result.isDone)
-    {
-      await scheduleAuthSessionCleanup(ctx, args.userId, result)
-    }
-    return null
+    return await runAuthSessionCleanup(ctx, args.userId, args, args.mode)
   },
 })
 
@@ -367,18 +365,33 @@ export const cascadeDeleteUserData = internalMutation({
 })
 
 const handleAuthSessionsPhase: CascadePhaseHandler = async (ctx, args) =>
+  await runAuthSessionCleanup(ctx, args.userId, args, 'startCascade')
+
+// shared step for signOutEverywhere & the authSessions cascade phase.
+// pagination reschedules cleanupAuthSessions (mode preserved); only on
+// completion does 'startCascade' hop into advanceCascadePhase
+const runAuthSessionCleanup = async (
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  state: AuthSessionCleanupState,
+  mode: AuthSessionCleanupMode
+): Promise<null> =>
 {
-  const result = await deleteAuthSessionCleanupStep(ctx, args.userId, {
-    cursor: args.cursor,
-    targetSessionId: args.targetSessionId,
-    tokenCursor: args.tokenCursor,
+  const result = await deleteAuthSessionCleanupStep(ctx, userId, {
+    cursor: state.cursor,
+    targetSessionId: state.targetSessionId,
+    tokenCursor: state.tokenCursor,
   })
   if (!result.isDone)
   {
-    await scheduleCascadeAuthSessions(ctx, args.userId, result)
+    await scheduleAuthSessionCleanup(ctx, userId, result, mode)
     return null
   }
-  return await advanceCascadePhase(ctx, args.userId, 'authSessions')
+  if (mode === 'startCascade')
+  {
+    return await advanceCascadePhase(ctx, userId, 'authSessions')
+  }
+  return null
 }
 
 const handleAuthAccountsPhase: CascadePhaseHandler = async (ctx, args) =>
@@ -639,16 +652,19 @@ const getInitialAuthSessionState = async (
 const scheduleAuthSessionCleanup = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
-  state: AuthSessionCleanupState
+  state: AuthSessionCleanupState,
+  mode: AuthSessionCleanupMode
 ): Promise<void> =>
 {
   const args: {
     userId: Id<'users'>
+    mode: AuthSessionCleanupMode
     cursor: string | null
     targetSessionId?: Id<'authSessions'>
     tokenCursor?: string | null
   } = {
     userId,
+    mode,
     cursor: state.cursor,
   }
   if (state.targetSessionId !== undefined)
@@ -660,34 +676,6 @@ const scheduleAuthSessionCleanup = async (
     args.tokenCursor = state.tokenCursor
   }
   await ctx.scheduler.runAfter(0, internal.users.cleanupAuthSessions, args)
-}
-
-const scheduleCascadeAuthSessions = async (
-  ctx: MutationCtx,
-  userId: Id<'users'>,
-  state: AuthSessionCleanupState
-): Promise<void> =>
-{
-  const args: {
-    userId: Id<'users'>
-    phase: 'authSessions'
-    cursor: string | null
-    targetSessionId?: Id<'authSessions'>
-    tokenCursor?: string | null
-  } = {
-    userId,
-    phase: 'authSessions',
-    cursor: state.cursor,
-  }
-  if (state.targetSessionId !== undefined)
-  {
-    args.targetSessionId = state.targetSessionId
-  }
-  if (state.tokenCursor !== undefined)
-  {
-    args.tokenCursor = state.tokenCursor
-  }
-  await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, args)
 }
 
 const scheduleCascadeAuthAccounts = async (

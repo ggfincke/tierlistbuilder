@@ -1,3 +1,6 @@
+// scripts/drag-audit.mjs
+// audits drag-and-drop behavior by driving the local app in Playwright
+
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { access, mkdtemp, readdir, rm } from 'node:fs/promises'

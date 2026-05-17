@@ -16,10 +16,7 @@ const siteUrl =
   siteUrlArg?.split('=').slice(1).join('=') || 'http://localhost:5173'
 
 const runConvex = (args, options = {}) =>
-  execFileSync('npx', ['convex', ...args], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', options.stderr ?? 'ignore'],
-  })
+  execFileSync('npx', ['convex', ...args], { encoding: 'utf8', ...options })
 
 const getEnv = (name) =>
 {
@@ -35,13 +32,9 @@ const getEnv = (name) =>
 
 const setEnv = (name, value) =>
 {
-  execFileSync(
-    'npx',
-    ['convex', 'env', 'set', '--deployment', 'local', name, value],
-    {
-      stdio: 'ignore',
-    }
-  )
+  runConvex(['env', 'set', '--deployment', 'local', name, value], {
+    stdio: 'ignore',
+  })
 }
 
 const quoteEnv = (value) =>
@@ -82,10 +75,8 @@ const setAuthKeys = () =>
       `JWT_PRIVATE_KEY=${quoteEnv(jwtPrivateKey)}\nJWKS=${quoteEnv(jwks)}\n`,
       { mode: 0o600 }
     )
-    execFileSync(
-      'npx',
+    runConvex(
       [
-        'convex',
         'env',
         'set',
         '--deployment',

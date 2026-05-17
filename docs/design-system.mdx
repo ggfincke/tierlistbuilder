@@ -244,7 +244,7 @@ graph LR
 ```
 
 - **Per-board overrides.** `WorkspaceShell` layers board-specific theme/text-style overrides through `useBoardThemeOverrides()` so a single board can render in a different theme without touching the global preference.
-- **Locked themes (embed).** `EmbedShell` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render stable chrome tokens regardless of the host's preference, while the embed view keeps the neutral `classic` tier palette. Use this pattern any time you need theme-stable output (export rendering already uses an isolated host).
+- **Locked themes (embed).** `EmbedRoute` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render stable chrome tokens regardless of the host's preference, while the embed view keeps the neutral `classic` tier palette. Use this pattern any time you need theme-stable output (export rendering already uses an isolated host).
 - **Adding a theme.** New theme -> add an entry to `THEMES` in `src/shared/theme/tokens.ts`, extend `ThemeId` in `packages/contracts/lib/theme.ts`, ship a swatch row in `dev-docs/theming-system.mdx`. Computed contrast tokens (`--t-accent-foreground`, `--t-destructive-foreground`) are derived in `runtime.ts`; you don't list them per theme.
 
 > [!NOTE]
