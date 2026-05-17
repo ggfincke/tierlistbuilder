@@ -7,7 +7,7 @@ import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Callable
 
 from .assets import asset_dedupe_hash, asset_variants
 from .diff import build_seed_diff, resolve_seed_state
@@ -17,6 +17,8 @@ from .manifest import (
     chunk_templates_by_items,
     chunks,
     compiled_templates,
+    iter_compiled_asset_entries,
+    iter_compiled_assets,
     read_json,
 )
 from .progress import progress_interval
@@ -943,7 +945,7 @@ def assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[Jso
     }
     needed: list[JsonObject] = []
     queued: set[str] = set()
-    for entry in _compiled_asset_entries(compiled):
+    for entry in iter_compiled_asset_entries(compiled):
         dedupe_hash = asset_dedupe_hash(entry["asset"])
         if dedupe_hash is None:
             needed.append(entry)
@@ -953,22 +955,6 @@ def assets_requiring_upload(compiled: JsonObject, state: JsonObject) -> list[Jso
         queued.add(dedupe_hash)
         needed.append(entry)
     return needed
-
-
-def _compiled_asset_entries(compiled: JsonObject) -> Iterable[JsonObject]:
-    for template in compiled_templates(compiled):
-        cover = template.get("coverImage")
-        if isinstance(cover, dict):
-            yield {
-                "assetKey": f"{template['externalId']}:cover",
-                "asset": cover,
-            }
-        for item in as_list(template.get("items")):
-            if isinstance(item, dict) and isinstance(item.get("asset"), dict):
-                yield {
-                    "assetKey": f"{template['externalId']}:{item['externalId']}",
-                    "asset": item["asset"],
-                }
 
 
 def _finalize_asset_payload(entry: JsonObject) -> JsonObject:

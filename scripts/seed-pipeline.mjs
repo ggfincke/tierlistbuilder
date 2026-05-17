@@ -15,10 +15,7 @@ const seedPipelineDir = join(repoRoot, 'scripts/seed_pipeline')
 const explicitPython = process.env.SEED_PIPELINE_PYTHON || process.env.PYTHON
 
 const [command, args] = explicitPython
-  ? [
-      explicitPython,
-      ['-m', 'seed_pipeline', ...process.argv.slice(2)],
-    ]
+  ? [explicitPython, ['-m', 'seed_pipeline', ...process.argv.slice(2)]]
   : [
       'uv',
       [

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -11,13 +12,21 @@ from jsonschema import Draft202012Validator
 
 from .assets import (
     SourceAsset,
+    asset_variants,
     compile_asset,
     inspect_source,
     sha256_file,
     variant_policy_fingerprint,
 )
+from .concurrency import run_in_parallel
 from .crop import RatioDecision, resolve_item_transform, resolve_ratio_decision
-from .manifest import JsonObject, read_json, repo_relative, write_json
+from .manifest import (
+    JsonObject,
+    iter_compiled_assets,
+    read_json,
+    repo_relative,
+    write_json,
+)
 from .progress import ProgressLogger, progress_interval
 from .ranking_config import compile_ranking_seeds
 from .reports import write_preflight_report
@@ -38,6 +47,9 @@ from .validate import (
     ValidationDiagnostic,
     validate_source_manifest,
 )
+
+
+BUILD_WORKERS = max(os.cpu_count() or 1, 1)
 
 
 def build_compiled_manifest(
@@ -192,17 +204,24 @@ def _compile_template(
 ) -> JsonObject:
     folder = repo_root / template["folder"]
     # probe every item first so one ratio decision covers the whole template
-    item_sources = []
-    item_total = len(template["items"])
+    items = list(template["items"])
+    item_total = len(items)
     log_every = progress_interval(item_total)
-    for index, item in enumerate(template["items"], start=1):
-        item_sources.append(inspect_source(folder / item["image"], repo_root))
-        progress.count(
+
+    def inspect_item(item: JsonObject) -> SourceAsset:
+        return inspect_source(folder / item["image"], repo_root)
+
+    item_sources = run_in_parallel(
+        items,
+        inspect_item,
+        BUILD_WORKERS,
+        on_complete=lambda completed, total, _item: progress.count(
             f"{template['externalId']} inspect",
-            index,
-            item_total,
+            completed,
+            total,
             every=log_every,
-        )
+        ),
+    )
     # use source pixels, not configured intent, to select the template display ratio
     ratio_decision = resolve_ratio_decision(
         source.aspect_ratio for source in item_sources
@@ -233,25 +252,31 @@ def _compile_template(
         compiled["labels"] = template["labels"]
     if "suggestedTiers" in template:
         compiled["suggestedTiers"] = template["suggestedTiers"]
-    for order, item in enumerate(template["items"]):
-        source = item_sources[order]
-        compiled["items"].append(
-            _compile_item(
-                item,
-                order,
-                source,
-                template["labelPolicy"],
-                repo_root,
-                variants_dir,
-                ratio_decision,
-            )
+    item_inputs = list(zip(range(item_total), items, item_sources, strict=True))
+
+    def compile_item(args: tuple[int, JsonObject, SourceAsset]) -> JsonObject:
+        order, item, source = args
+        return _compile_item(
+            item,
+            order,
+            source,
+            template["labelPolicy"],
+            repo_root,
+            variants_dir,
+            ratio_decision,
         )
-        progress.count(
+
+    compiled["items"] = run_in_parallel(
+        item_inputs,
+        compile_item,
+        BUILD_WORKERS,
+        on_complete=lambda completed, total, _item: progress.count(
             f"{template['externalId']} variants",
-            order + 1,
-            item_total,
+            completed,
+            total,
             every=log_every,
-        )
+        ),
+    )
     return compiled
 
 
@@ -397,10 +422,13 @@ def _compiled_variants_present(compiled: JsonObject) -> bool:
         for item in template.get("items") or []:
             if not isinstance(item, dict):
                 return False
-            if not _asset_variants_present(item.get("asset")):
+            if not isinstance(item.get("asset"), dict):
                 return False
         cover = template.get("coverImage")
-        if cover is not None and not _asset_variants_present(cover):
+        if cover is not None and not isinstance(cover, dict):
+            return False
+    for asset in iter_compiled_assets(compiled):
+        if not _asset_variants_present(asset):
             return False
     return True
 
@@ -408,12 +436,10 @@ def _compiled_variants_present(compiled: JsonObject) -> bool:
 def _asset_variants_present(asset: object) -> bool:
     if not isinstance(asset, dict):
         return False
-    variants = asset.get("variants")
-    if not isinstance(variants, dict):
+    variants = list(asset_variants(asset))
+    if len(variants) != 2:
         return False
-    for variant in variants.values():
-        if not isinstance(variant, dict):
-            return False
+    for variant in variants:
         path_value = variant.get("path")
         if not isinstance(path_value, str):
             return False

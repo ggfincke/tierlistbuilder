@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from seed_pipeline.manifest import find_repo_root, read_json
+from seed_pipeline.manifest import find_repo_root, iter_compiled_assets, read_json
 from seed_pipeline.run_context import (
     SeedRunOptions,
     checkpoint_matches,
@@ -360,15 +360,8 @@ class FakeSeedSettings:
 
 def _compiled_asset_dedupe_hashes(compiled: dict[str, object]) -> set[str]:
     hashes: set[str] = set()
-    for template in compiled["templates"]:
-        if not isinstance(template, dict):
-            continue
-        cover = template.get("coverImage")
-        if isinstance(cover, dict):
-            _collect_asset_dedupe_hash(cover, hashes)
-        for item in template["items"]:
-            if isinstance(item, dict) and isinstance(item.get("asset"), dict):
-                _collect_asset_dedupe_hash(item["asset"], hashes)
+    for asset in iter_compiled_assets(compiled):
+        _collect_asset_dedupe_hash(asset, hashes)
     return hashes
 
 

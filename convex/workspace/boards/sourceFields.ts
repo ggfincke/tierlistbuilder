@@ -40,7 +40,8 @@ export const boardSourceTemplateFromMaybeTemplate = (
 ): BoardSourceTemplate =>
 {
   if (template) return boardSourceTemplateFromTemplate(template)
-  if (fallbackTitle) return { ...EMPTY_BOARD_SOURCE_TEMPLATE, title: fallbackTitle }
+  if (fallbackTitle)
+    return { ...EMPTY_BOARD_SOURCE_TEMPLATE, title: fallbackTitle }
   return EMPTY_BOARD_SOURCE_TEMPLATE
 }
 
@@ -50,7 +51,8 @@ export const boardSourceRankingFromMaybeRanking = (
 ): BoardSourceRanking =>
 {
   if (ranking) return boardSourceRankingFromRanking(ranking)
-  if (fallbackTitle) return { ...EMPTY_BOARD_SOURCE_RANKING, title: fallbackTitle }
+  if (fallbackTitle)
+    return { ...EMPTY_BOARD_SOURCE_RANKING, title: fallbackTitle }
   return EMPTY_BOARD_SOURCE_RANKING
 }
 

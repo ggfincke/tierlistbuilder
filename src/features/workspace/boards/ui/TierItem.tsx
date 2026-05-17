@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useShallow } from 'zustand/react/shallow'
-import { Check, GripVertical, PenLine, X } from 'lucide-react'
+import { Check, GripVertical, X } from 'lucide-react'
 
 import { useKeyboardDrag } from '~/features/workspace/boards/interaction/useKeyboardDrag'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
@@ -73,7 +73,6 @@ export const TierItem = memo(
       defaultLabelPlacementMode,
       defaultLabelFontSizePx,
       boardLocked,
-      showItemEditButton,
     } = usePreferencesStore(
       useShallow((state) => ({
         itemShape: state.itemShape,
@@ -81,7 +80,6 @@ export const TierItem = memo(
         defaultLabelPlacementMode: state.defaultLabelPlacementMode,
         defaultLabelFontSizePx: state.defaultLabelFontSizePx,
         boardLocked: state.boardLocked,
-        showItemEditButton: state.showItemEditButton,
       }))
     )
 
@@ -102,7 +100,6 @@ export const TierItem = memo(
       y: number
     } | null>(null)
     const itemRef = useRef<HTMLDivElement | null>(null)
-    const editButtonRef = useRef<HTMLButtonElement | null>(null)
 
     const openItemEditor = useCallback(() =>
     {
@@ -204,19 +201,16 @@ export const TierItem = memo(
       {
         if (boardLocked) return
 
-        // second-of-double click: open the preview directly (don't rely on
+        // second-of-double click: open the editor directly (don't rely on
         // dblclick — it can be skipped when the wrapper re-renders between
         // clicks) & skip toggling selection a second time
         if (e.detail > 1)
         {
           pointerStartRef.current = null
           pointerFocusRef.current = false
-          if (item && hasAnyImageRef(item))
-          {
-            e.preventDefault()
-            e.stopPropagation()
-            useItemPreviewStore.getState().open(itemId)
-          }
+          e.preventDefault()
+          e.stopPropagation()
+          openItemEditor()
           return
         }
 
@@ -259,19 +253,18 @@ export const TierItem = memo(
         state.setKeyboardFocusItemId(itemId)
         state.setKeyboardMode('browse')
       },
-      [boardLocked, item, itemId]
+      [boardLocked, item, itemId, openItemEditor]
     )
 
     const handleDoubleClick = useCallback(
       (e: React.MouseEvent) =>
       {
         if (!item) return
-        if (!hasAnyImageRef(item)) return
         e.preventDefault()
         e.stopPropagation()
-        useItemPreviewStore.getState().open(itemId)
+        openItemEditor()
       },
-      [item, itemId]
+      [item, openItemEditor]
     )
 
     const handleContextMenu = useCallback(
@@ -305,15 +298,6 @@ export const TierItem = memo(
 
       onFocus()
     }, [onFocus])
-
-    const handleEditButtonClick = useCallback(
-      (e: React.MouseEvent) =>
-      {
-        e.stopPropagation()
-        openItemEditor()
-      },
-      [openItemEditor]
-    )
 
     // `E` & `F2` open the item editor on a focused tile — drag stays on Space
     // so item activation by keyboard doesn't change shape from Phase 4
@@ -378,6 +362,7 @@ export const TierItem = memo(
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
           onContextMenu={handleContextMenu}
+          onPointerEnter={preloadImageEditorModal}
         >
           <ItemContent
             item={item}
@@ -410,24 +395,6 @@ export const TierItem = memo(
             <span className="pointer-events-none absolute top-0.5 left-0.5 flex h-5 w-5 items-center justify-center text-[rgb(var(--t-overlay)/0.45)] opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 max-sm:opacity-30">
               <GripVertical className="h-3 w-3" />
             </span>
-          )}
-
-          {/* item edit — bottom-left corner; opens the single-item editor.
-            hover-reveal on desktop, persistent on touch (Phase 4 idiom) */}
-          {!boardLocked && showItemEditButton && (
-            <ItemOverlayButton
-              ref={editButtonRef}
-              aria-label="Edit item"
-              title="Edit item (E)"
-              className="absolute bottom-0.5 left-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-60"
-              tabIndex={isKeyboardFocused ? 0 : -1}
-              onClick={handleEditButtonClick}
-              onFocus={preloadImageEditorModal}
-              onPointerEnter={preloadImageEditorModal}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <PenLine className="h-3 w-3" />
-            </ItemOverlayButton>
           )}
 
           {/* hover-reveal delete button — only in the unranked pool, hidden when locked */}

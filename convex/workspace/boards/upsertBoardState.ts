@@ -842,7 +842,8 @@ const applyBoardState = async (
   const aspectChanged =
     board.itemAspectRatio !== writeFields.itemAspectRatio ||
     board.itemAspectRatioMode !== writeFields.itemAspectRatioMode ||
-    board.aspectRatioPromptDismissed !== writeFields.aspectRatioPromptDismissed ||
+    board.aspectRatioPromptDismissed !==
+      writeFields.aspectRatioPromptDismissed ||
     board.defaultItemImageFit !== writeFields.defaultItemImageFit
   const styleOverrideChanged =
     board.paletteId !== writeFields.paletteId ||

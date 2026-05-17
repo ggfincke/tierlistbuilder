@@ -7,6 +7,7 @@ import hashlib
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 from typing import Iterable, Literal
 
 from PIL import Image
@@ -31,6 +32,8 @@ from .settings import (
 
 # mirror Extract<MediaVariantKind, 'tile' | 'preview'> in seed contract
 VariantKind = Literal["tile", "preview"]
+_VARIANT_LOCKS: dict[str, Lock] = {}
+_VARIANT_LOCKS_GUARD = Lock()
 
 
 # source metadata feeds both compiled manifest output & crop decisions
@@ -129,11 +132,31 @@ def build_variant(
     *,
     source_image: "Image.Image | None" = None,
 ) -> JsonObject:
-    variants_dir.mkdir(parents=True, exist_ok=True)
-    cache_key = _cache_key(source_sha256, kind, variant_spec_version)
     output_path = _variant_output_path(
         source_sha256, kind, variants_dir, variant_spec_version
     )
+    with _variant_lock(output_path):
+        return _build_variant_locked(
+            source_path,
+            source_sha256,
+            kind,
+            variant_spec_version,
+            output_path=output_path,
+            source_image=source_image,
+        )
+
+
+def _build_variant_locked(
+    source_path: Path,
+    source_sha256: str,
+    kind: VariantKind,
+    variant_spec_version: str = VARIANT_SPEC_VERSION,
+    *,
+    output_path: Path,
+    source_image: "Image.Image | None" = None,
+) -> JsonObject:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_key = _cache_key(source_sha256, kind, variant_spec_version)
     meta_path = _variant_meta_path(output_path)
     # reuse cache file when exact source + spec + kind + settings already exist.
     # interrupted runs can leave a zero-byte or partial file, so verify before
@@ -192,6 +215,13 @@ def build_variant(
         "height": height,
         "cacheKey": cache_key,
     }
+
+
+def _variant_lock(output_path: Path):
+    key = output_path.as_posix()
+    with _VARIANT_LOCKS_GUARD:
+        lock = _VARIANT_LOCKS.setdefault(key, Lock())
+    return lock
 
 
 def _inspect_variant(path: Path) -> tuple[int, int, str | None]:

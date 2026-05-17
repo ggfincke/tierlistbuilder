@@ -323,7 +323,10 @@ const aggregateItemsOrderIndexByBand = {
 
 // band='all' has a per-sort index; band-filtered shares one per-band index &
 // JS-sorts in memory. consensusTop is rewritten to band='top' upstream
-type AllBandIndexedSort = Exclude<TemplateRankingAggregateItemSort, 'consensusTop'>
+type AllBandIndexedSort = Exclude<
+  TemplateRankingAggregateItemSort,
+  'consensusTop'
+>
 
 const allBandSortIndexBySort = {
   averageTop: 'byTemplateIdAndCriterionAndGenerationAndAvgTopSortAndOrder',

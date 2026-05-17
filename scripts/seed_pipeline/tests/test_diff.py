@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -90,6 +92,51 @@ class SeedDiffTests(unittest.TestCase):
         self.assertEqual(
             [len(args["variantHashes"]) for args in media_calls], [2, 2, 2]
         )
+        self.assertEqual(len(state["media"]), 6)
+
+    def test_resolve_seed_state_reads_media_chunks_in_parallel(self) -> None:
+        class FakeClient:
+            def __init__(self) -> None:
+                self.active = 0
+                self.max_active = 0
+                self.lock = threading.Lock()
+
+            def query(
+                self, function_path: str, args: dict[str, object]
+            ) -> dict[str, object]:
+                if function_path == SEED_STATE_FUNCTION:
+                    return {
+                        "activeReleaseId": None,
+                        "templates": [],
+                        "items": [],
+                        "criteria": [],
+                        "media": [],
+                    }
+                if function_path != SEED_MEDIA_BY_HASHES_FUNCTION:
+                    raise AssertionError(function_path)
+                with self.lock:
+                    self.active += 1
+                    self.max_active = max(self.max_active, self.active)
+                try:
+                    time.sleep(0.01)
+                    return {
+                        "media": [
+                            {
+                                "contentHash": content_hash,
+                                "mediaDedupeHash": content_hash,
+                            }
+                            for content_hash in args["variantHashes"]
+                        ]
+                    }
+                finally:
+                    with self.lock:
+                        self.active -= 1
+
+        client = FakeClient()
+        with patch("seed_pipeline.diff.SEED_STATE_VARIANT_HASH_BATCH_SIZE", 1):
+            state = resolve_seed_state(client, self.compiled)
+
+        self.assertGreater(client.max_active, 1)
         self.assertEqual(len(state["media"]), 6)
 
     def test_resolve_seed_state_chunks_item_state_per_template(self) -> None:

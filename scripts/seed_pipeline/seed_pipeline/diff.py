@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
 
 from .assets import asset_dedupe_hash, asset_tile_hash
 from .build import build_compiled_manifest_with_data
+from .concurrency import run_in_parallel
 from .convex_client import ConvexSeedClient, read_seed_settings
 from .manifest import (
     JsonObject,
@@ -15,6 +15,7 @@ from .manifest import (
     chunk_templates_by_items,
     chunks,
     compiled_templates,
+    iter_compiled_assets,
     read_json,
 )
 from .progress import ProgressLogger
@@ -24,6 +25,7 @@ SEED_STATE_FUNCTION = "marketplace/seedRuns:resolveSeedState"
 SEED_MEDIA_BY_HASHES_FUNCTION = "marketplace/seedRuns:resolveSeedMediaByHashes"
 SEED_STATE_VARIANT_HASH_BATCH_SIZE = 1000
 SEED_STATE_ITEM_BATCH_SIZE = 1500
+SEED_STATE_MEDIA_WORKERS = 4
 
 
 def write_diff_report_for_manifest(
@@ -125,29 +127,39 @@ def _resolve_seed_media(
     variant_hashes = sorted(_compiled_variant_hashes(compiled))
     if not variant_hashes:
         return []
-    media: list[JsonObject] = []
     hash_chunks = list(chunks(variant_hashes, SEED_STATE_VARIANT_HASH_BATCH_SIZE))
     if progress is not None:
         progress.log(
             f"reading media state in {len(hash_chunks)} batch(es): "
             f"{len(variant_hashes)} variant hashes"
         )
-    for index, chunk in enumerate(hash_chunks, start=1):
-        if progress is not None:
-            progress.count(
-                "media state batches",
-                index,
-                len(hash_chunks),
-                suffix=f"{len(chunk)} hashes",
-            )
+
+    def query_media_chunk(chunk: list[str]) -> list[JsonObject]:
         response = client.query(
             SEED_MEDIA_BY_HASHES_FUNCTION,
             {"authorEmail": compiled["authorEmail"], "variantHashes": chunk},
         )
-        media.extend(
+        return [
             item for item in as_list(response.get("media")) if isinstance(item, dict)
-        )
-    return media
+        ]
+
+    on_complete = None
+    if progress is not None:
+        def on_complete(completed: int, total: int, chunk: list[str]) -> None:
+            progress.count(
+                "media state batches",
+                completed,
+                total,
+                suffix=f"{len(chunk)} hashes",
+            )
+
+    batches = run_in_parallel(
+        hash_chunks,
+        query_media_chunk,
+        SEED_STATE_MEDIA_WORKERS,
+        on_complete=on_complete,
+    )
+    return [item for batch in batches for item in batch]
 
 
 def build_state_headline_request(compiled: JsonObject) -> JsonObject:
@@ -416,7 +428,7 @@ def _diff_media(compiled: JsonObject, state: JsonObject) -> JsonObject:
 
 def _compiled_asset_dedupe_hashes(compiled: JsonObject) -> set[str]:
     hashes: set[str] = set()
-    for asset in _compiled_assets(compiled):
+    for asset in iter_compiled_assets(compiled):
         dedupe_hash = asset_dedupe_hash(asset)
         if dedupe_hash is not None:
             hashes.add(dedupe_hash)
@@ -425,7 +437,7 @@ def _compiled_asset_dedupe_hashes(compiled: JsonObject) -> set[str]:
 
 def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:
     hashes: set[str] = set()
-    for asset in _compiled_assets(compiled):
+    for asset in iter_compiled_assets(compiled):
         variants = asset.get("variants")
         if not isinstance(variants, dict):
             continue
@@ -433,17 +445,6 @@ def _compiled_variant_hashes(compiled: JsonObject) -> set[str]:
             if isinstance(variant, dict):
                 hashes.add(str(variant["contentHash"]))
     return hashes
-
-
-def _compiled_assets(compiled: JsonObject) -> Iterable[JsonObject]:
-    # covers & item images share media dedupe/finalization behavior
-    for template in compiled_templates(compiled):
-        cover = template.get("coverImage")
-        if isinstance(cover, dict):
-            yield cover
-        for item in as_list(template.get("items")):
-            if isinstance(item, dict) and isinstance(item.get("asset"), dict):
-                yield item["asset"]
 
 
 def _append_diff_section(lines: list[str], title: str, entries: list[object]) -> None:
