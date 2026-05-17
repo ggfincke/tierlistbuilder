@@ -7,7 +7,7 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import { BATCH_LIMITS } from '../../lib/limits'
 import {
   CASCADE_DELETE_PAGE_SIZE,
-  deleteCascadePageAndSchedule,
+  runCascadePhaseMachine,
 } from '../../lib/cascadeDelete'
 import {
   deleteTemplateRankingAggregateParentRows,
@@ -451,100 +451,8 @@ export const cascadeDeleteTemplate = internalMutation({
     }
 
     const phase: CascadePhase = args.phase ?? 'items'
-    if (phase === 'items')
-    {
-      const page = await ctx.db
-        .query('templateItems')
-        .withIndex('byTemplate', (q) => q.eq('templateId', args.templateId))
-        .paginate({
-          numItems: CASCADE_DELETE_PAGE_SIZE,
-          cursor: args.cursor ?? null,
-        })
-
-      const scheduled = await deleteCascadePageAndSchedule({
-        ctx,
-        page,
-        schedule: async (nextArgs) =>
-          await ctx.scheduler.runAfter(
-            0,
-            internal.marketplace.templates.internal.cascadeDeleteTemplate,
-            nextArgs
-          ),
-        parentKey: 'templateId',
-        parentId: args.templateId,
-        phase: 'items',
-        nextPhase: 'tags',
-      })
-      if (scheduled) return null
-    }
-
-    if (phase === 'tags')
-    {
-      const tagPage = await ctx.db
-        .query('templateTags')
-        .withIndex('byTemplate', (q) => q.eq('templateId', args.templateId))
-        .paginate({
-          numItems: CASCADE_DELETE_PAGE_SIZE,
-          cursor: args.cursor ?? null,
-        })
-
-      const scheduled = await deleteCascadePageAndSchedule({
-        ctx,
-        page: tagPage,
-        schedule: async (nextArgs) =>
-          await ctx.scheduler.runAfter(
-            0,
-            internal.marketplace.templates.internal.cascadeDeleteTemplate,
-            nextArgs
-          ),
-        parentKey: 'templateId',
-        parentId: args.templateId,
-        phase: 'tags',
-        nextPhase: 'bookmarks',
-      })
-      if (scheduled) return null
-    }
-
-    if (phase === 'bookmarks')
-    {
-      const bookmarkPage = await ctx.db
-        .query('userTemplateBookmarks')
-        .withIndex('byTemplateUser', (q) => q.eq('templateId', args.templateId))
-        .paginate({
-          numItems: CASCADE_DELETE_PAGE_SIZE,
-          cursor: args.cursor ?? null,
-        })
-
-      const scheduled = await deleteCascadePageAndSchedule({
-        ctx,
-        page: bookmarkPage,
-        schedule: async (nextArgs) =>
-          await ctx.scheduler.runAfter(
-            0,
-            internal.marketplace.templates.internal.cascadeDeleteTemplate,
-            nextArgs
-          ),
-        parentKey: 'templateId',
-        parentId: args.templateId,
-        phase: 'bookmarks',
-        nextPhase: 'aggregateItems',
-      })
-      if (scheduled) return null
-    }
-
-    const aggregatePage = await ctx.db
-      .query('templateRankingAggregateItems')
-      .withIndex('byTemplateIdAndOrder', (q) =>
-        q.eq('templateId', args.templateId)
-      )
-      .paginate({
-        numItems: CASCADE_DELETE_PAGE_SIZE,
-        cursor: args.cursor ?? null,
-      })
-
-    const scheduled = await deleteCascadePageAndSchedule({
+    const scheduled = await runCascadePhaseMachine({
       ctx,
-      page: aggregatePage,
       schedule: async (nextArgs) =>
         await ctx.scheduler.runAfter(
           0,
@@ -553,7 +461,62 @@ export const cascadeDeleteTemplate = internalMutation({
         ),
       parentKey: 'templateId',
       parentId: args.templateId,
-      phase: 'aggregateItems',
+      phase,
+      cursor: args.cursor,
+      phases: [
+        {
+          phase: 'items',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateItems')
+              .withIndex('byTemplate', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          phase: 'tags',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateTags')
+              .withIndex('byTemplate', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          phase: 'bookmarks',
+          page: async (cursor) =>
+            await ctx.db
+              .query('userTemplateBookmarks')
+              .withIndex('byTemplateUser', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          phase: 'aggregateItems',
+          page: async (cursor) =>
+            await ctx.db
+              .query('templateRankingAggregateItems')
+              .withIndex('byTemplateIdAndOrder', (q) =>
+                q.eq('templateId', args.templateId)
+              )
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+      ],
     })
     if (scheduled) return null
 

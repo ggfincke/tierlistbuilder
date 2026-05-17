@@ -40,7 +40,28 @@ interface DeleteCascadePageArgs<
   nextPhase?: Phase
 }
 
-export const deleteCascadePageAndSchedule = async <
+interface CascadePhaseStep<Phase extends string>
+{
+  phase: Phase
+  page: (cursor: string | null) => Promise<CascadePage>
+}
+
+interface RunCascadePhaseMachineArgs<
+  Phase extends string,
+  ParentKey extends string,
+  ParentId extends Id<TableNames>,
+>
+{
+  ctx: MutationCtx
+  phases: readonly [CascadePhaseStep<Phase>, ...CascadePhaseStep<Phase>[]]
+  schedule: (args: CascadeArgs<Phase, ParentKey, ParentId>) => Promise<unknown>
+  parentKey: ParentKey
+  parentId: ParentId
+  phase?: Phase
+  cursor?: string | null
+}
+
+const deleteCascadePageAndSchedule = async <
   Phase extends string,
   ParentKey extends string,
   ParentId extends Id<TableNames>,
@@ -71,4 +92,33 @@ export const deleteCascadePageAndSchedule = async <
   }
 
   return false
+}
+
+export const runCascadePhaseMachine = async <
+  Phase extends string,
+  ParentKey extends string,
+  ParentId extends Id<TableNames>,
+>(
+  args: RunCascadePhaseMachineArgs<Phase, ParentKey, ParentId>
+): Promise<boolean> =>
+{
+  const phase = args.phase ?? args.phases[0].phase
+  const phaseIndex = args.phases.findIndex((step) => step.phase === phase)
+  if (phaseIndex < 0)
+  {
+    throw new Error(`unknown cascade phase: ${phase}`)
+  }
+
+  const step = args.phases[phaseIndex]
+  const page = await step.page(args.cursor ?? null)
+  const nextPhase = args.phases[phaseIndex + 1]?.phase
+  return await deleteCascadePageAndSchedule({
+    ctx: args.ctx,
+    page,
+    schedule: args.schedule,
+    parentKey: args.parentKey,
+    parentId: args.parentId,
+    phase,
+    nextPhase,
+  })
 }

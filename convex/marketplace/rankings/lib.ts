@@ -103,30 +103,6 @@ export const isPublicRankingRow = (
   ranking.publicationState === 'published' &&
   ranking.isPubliclyListable
 
-export const requireOwnedRanking = async (
-  ctx: DbCtx,
-  slug: string,
-  userId: Id<'users'>
-): Promise<Doc<'publishedRankings'>> =>
-{
-  const ranking = await findRankingBySlug(ctx, slug)
-  if (!ranking)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.notFound,
-      message: 'ranking not found',
-    })
-  }
-  if (ranking.ownerId !== userId)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.forbidden,
-      message: 'not the owner of this ranking',
-    })
-  }
-  return ranking
-}
-
 export const toRankingSummary = async (
   ctx: DbCtx,
   ranking: Doc<'publishedRankings'>,

@@ -1,5 +1,5 @@
 // convex/lib/permissions.ts
-// authorization helpers — ownership checks for boards, presets, & media
+// authorization helpers — ownership checks for user-owned rows
 
 import { ConvexError } from 'convex/values'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
@@ -20,6 +20,14 @@ const orThrowNotFound = <T>(doc: T | null, label: string): T =>
     })
   }
   return doc
+}
+
+const throwForbidden = (message: string): never =>
+{
+  throw new ConvexError({
+    code: CONVEX_ERROR_CODES.forbidden,
+    message,
+  })
 }
 
 // resolve one owned board by externalId (including soft-deleted rows).
@@ -114,3 +122,49 @@ export const requireTierPresetOwnershipByExternalId = async (
     await findOwnedTierPresetByExternalId(ctx, externalId, userId),
     'preset'
   )
+
+const findTemplateBySlug = async (
+  ctx: Ctx,
+  slug: string
+): Promise<Doc<'templates'> | null> =>
+  await ctx.db
+    .query('templates')
+    .withIndex('bySlug', (q) => q.eq('slug', slug))
+    .unique()
+
+const findRankingBySlug = async (
+  ctx: Ctx,
+  slug: string
+): Promise<Doc<'publishedRankings'> | null> =>
+  await ctx.db
+    .query('publishedRankings')
+    .withIndex('bySlug', (q) => q.eq('slug', slug))
+    .unique()
+
+export const requireOwnedTemplate = async (
+  ctx: Ctx,
+  slug: string,
+  userId: Id<'users'>
+): Promise<Doc<'templates'>> =>
+{
+  const template = orThrowNotFound(await findTemplateBySlug(ctx, slug), 'template')
+  if (template.authorId !== userId)
+  {
+    throwForbidden('not the owner of this template')
+  }
+  return template
+}
+
+export const requireOwnedRanking = async (
+  ctx: Ctx,
+  slug: string,
+  userId: Id<'users'>
+): Promise<Doc<'publishedRankings'>> =>
+{
+  const ranking = orThrowNotFound(await findRankingBySlug(ctx, slug), 'ranking')
+  if (ranking.ownerId !== userId)
+  {
+    throwForbidden('not the owner of this ranking')
+  }
+  return ranking
+}

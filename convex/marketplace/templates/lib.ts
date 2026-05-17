@@ -684,7 +684,7 @@ const incrementTemplateMetricDay = async (
   ctx: MutationCtx,
   template: Pick<Doc<'templates'>, '_id' | 'category'>,
   now: number,
-  metric: 'forkCount' | 'viewCount'
+  metric: keyof TemplateStatsCounters
 ): Promise<void> =>
 {
   const dayStartAt = getTemplateMetricDayStart(now)
@@ -721,6 +721,38 @@ const incrementTemplateMetricDay = async (
   })
 }
 
+const incrementTemplateMetric = async (
+  ctx: MutationCtx,
+  template: Doc<'templates'>,
+  now: number,
+  metric: keyof TemplateStatsCounters
+): Promise<TemplateStatsCounters> =>
+{
+  const [stats, card] = await Promise.all([
+    requireTemplateStats(ctx, template._id),
+    requireTemplateCardByTemplateId(ctx, template._id),
+  ])
+  const current = readTemplateCounters(stats)
+  const next: TemplateStatsCounters = {
+    ...current,
+    [metric]: current[metric] + 1,
+  }
+  await Promise.all([
+    ctx.db.patch(stats._id, {
+      ...next,
+      useCount: undefined,
+      updatedAt: now,
+    }),
+    ctx.db.patch(card._id, {
+      forkCount: next.forkCount,
+      viewCount: next.viewCount,
+      useCount: undefined,
+    }),
+    incrementTemplateMetricDay(ctx, template, now, metric),
+  ])
+  return next
+}
+
 export const incrementTemplateForkStats = async (
   ctx: MutationCtx,
   templateId: Id<'templates'>,
@@ -729,29 +761,7 @@ export const incrementTemplateForkStats = async (
 {
   const template = await ctx.db.get(templateId)
   if (!template) return failState(`template missing: ${templateId}`)
-  const [stats, card] = await Promise.all([
-    requireTemplateStats(ctx, templateId),
-    requireTemplateCardByTemplateId(ctx, templateId),
-  ])
-  const current = readTemplateCounters(stats)
-  const next = {
-    forkCount: current.forkCount + 1,
-    viewCount: current.viewCount,
-  }
-  await Promise.all([
-    ctx.db.patch(stats._id, {
-      ...next,
-      useCount: undefined,
-      updatedAt: now,
-    }),
-    ctx.db.patch(card._id, {
-      forkCount: next.forkCount,
-      viewCount: next.viewCount,
-      useCount: undefined,
-    }),
-    incrementTemplateMetricDay(ctx, template, now, 'forkCount'),
-  ])
-  return next
+  return await incrementTemplateMetric(ctx, template, now, 'forkCount')
 }
 
 export const incrementTemplateViewStats = async (
@@ -759,31 +769,7 @@ export const incrementTemplateViewStats = async (
   template: Doc<'templates'>,
   now: number
 ): Promise<TemplateStatsCounters> =>
-{
-  const [stats, card] = await Promise.all([
-    requireTemplateStats(ctx, template._id),
-    requireTemplateCardByTemplateId(ctx, template._id),
-  ])
-  const current = readTemplateCounters(stats)
-  const next = {
-    forkCount: current.forkCount,
-    viewCount: current.viewCount + 1,
-  }
-  await Promise.all([
-    ctx.db.patch(stats._id, {
-      ...next,
-      useCount: undefined,
-      updatedAt: now,
-    }),
-    ctx.db.patch(card._id, {
-      forkCount: next.forkCount,
-      viewCount: next.viewCount,
-      useCount: undefined,
-    }),
-    incrementTemplateMetricDay(ctx, template, now, 'viewCount'),
-  ])
-  return next
-}
+  await incrementTemplateMetric(ctx, template, now, 'viewCount')
 
 export const deleteTemplateParentRow = async (
   ctx: MutationCtx,
@@ -1660,30 +1646,6 @@ export const patchTemplateTagRows = async (
     .withIndex('byTemplate', (q) => q.eq('templateId', templateId))
     .take(TAG_ROW_READ_CAP)
   await Promise.all(rows.map((row) => ctx.db.patch(row._id, fields)))
-}
-
-export const requireOwnedTemplate = async (
-  ctx: DbCtx,
-  slug: string,
-  userId: Id<'users'>
-): Promise<Doc<'templates'>> =>
-{
-  const template = await findTemplateBySlug(ctx, slug)
-  if (!template)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.notFound,
-      message: 'template not found',
-    })
-  }
-  if (template.authorId !== userId)
-  {
-    throw new ConvexError({
-      code: CONVEX_ERROR_CODES.forbidden,
-      message: 'not the owner of this template',
-    })
-  }
-  return template
 }
 
 export const templateTitleToBoardTitle = (title: string): string =>

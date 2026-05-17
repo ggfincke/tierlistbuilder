@@ -227,6 +227,97 @@ const seedRanking = async (
 
 describe('user cascade cleanup', () =>
 {
+  it('cascadeDeleteBoard drains item and tier pages before deleting board', async () =>
+  {
+    vi.useFakeTimers()
+    try
+    {
+      const t = makeTest()
+      const userId = await seedUser(t)
+      const boardId = await t.run(async (ctx) =>
+      {
+        const now = Date.now()
+        const boardId = await seedCloudBoard(ctx, {
+          externalId: 'board-cascade-large',
+          ownerId: userId,
+          title: 'Large Cascade Board',
+          now,
+          activeItemCount: 260,
+          unrankedItemCount: 0,
+        })
+        const tierIds = await Promise.all(
+          Array.from(
+            { length: 260 },
+            async (_, index) =>
+              await ctx.db.insert('boardTiers', {
+                boardId,
+                externalId: `tier-${index}`,
+                name: `Tier ${index}`,
+                colorSpec: { kind: 'palette', index: index % 6 },
+                order: index,
+              })
+          )
+        )
+        await Promise.all(
+          Array.from(
+            { length: 260 },
+            async (_, index) =>
+              await ctx.db.insert('boardItems', {
+                boardId,
+                tierId: tierIds[0],
+                externalId: `item-${index}`,
+                label: `Item ${index}`,
+                mediaAssetId: null,
+                order: index,
+                deletedAt: null,
+              })
+          )
+        )
+        return boardId
+      })
+
+      await t.mutation(internal.workspace.boards.internal.cascadeDeleteBoard, {
+        boardId,
+      })
+
+      const intermediate = await t.run(async (ctx) => ({
+        board: await ctx.db.get(boardId),
+        items: await ctx.db
+          .query('boardItems')
+          .withIndex('byBoardAndTier', (q) => q.eq('boardId', boardId))
+          .collect(),
+        tiers: await ctx.db
+          .query('boardTiers')
+          .withIndex('byBoard', (q) => q.eq('boardId', boardId))
+          .collect(),
+      }))
+      expect(intermediate.board).not.toBeNull()
+      expect(intermediate.items).toHaveLength(4)
+      expect(intermediate.tiers).toHaveLength(260)
+
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+
+      const remaining = await t.run(async (ctx) => ({
+        board: await ctx.db.get(boardId),
+        items: await ctx.db
+          .query('boardItems')
+          .withIndex('byBoardAndTier', (q) => q.eq('boardId', boardId))
+          .collect(),
+        tiers: await ctx.db
+          .query('boardTiers')
+          .withIndex('byBoard', (q) => q.eq('boardId', boardId))
+          .collect(),
+      }))
+      expect(remaining.board).toBeNull()
+      expect(remaining.items).toHaveLength(0)
+      expect(remaining.tiers).toHaveLength(0)
+    }
+    finally
+    {
+      vi.useRealTimers()
+    }
+  })
+
   it('cascadeDeleteTemplate hides parent immediately & finishes children via scheduled work', async () =>
   {
     vi.useFakeTimers()

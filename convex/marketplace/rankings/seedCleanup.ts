@@ -8,7 +8,7 @@ import { internal } from '../../_generated/api'
 import type { Doc } from '../../_generated/dataModel'
 import {
   CASCADE_DELETE_PAGE_SIZE,
-  deleteCascadePageAndSchedule,
+  runCascadePhaseMachine,
 } from '../../lib/cascadeDelete'
 
 export const deleteSeedRankingWithChildren = async (
@@ -55,45 +55,8 @@ export const cascadeSeedBoardChildren = internalMutation({
   handler: async (ctx, args): Promise<null> =>
   {
     const phase: CascadePhase = args.phase ?? 'items'
-
-    if (phase === 'items')
-    {
-      const page = await ctx.db
-        .query('boardItems')
-        .withIndex('byBoardAndTier', (q) => q.eq('boardId', args.boardId))
-        .paginate({
-          numItems: CASCADE_DELETE_PAGE_SIZE,
-          cursor: args.cursor ?? null,
-        })
-
-      const scheduled = await deleteCascadePageAndSchedule({
-        ctx,
-        page,
-        schedule: async (nextArgs) =>
-          await ctx.scheduler.runAfter(
-            0,
-            internal.marketplace.rankings.seedCleanup.cascadeSeedBoardChildren,
-            nextArgs
-          ),
-        parentKey: 'boardId',
-        parentId: args.boardId,
-        phase: 'items',
-        nextPhase: 'tiers',
-      })
-      if (scheduled) return null
-    }
-
-    const tierPage = await ctx.db
-      .query('boardTiers')
-      .withIndex('byBoard', (q) => q.eq('boardId', args.boardId))
-      .paginate({
-        numItems: CASCADE_DELETE_PAGE_SIZE,
-        cursor: args.cursor ?? null,
-      })
-
-    await deleteCascadePageAndSchedule({
+    await runCascadePhaseMachine({
       ctx,
-      page: tierPage,
       schedule: async (nextArgs) =>
         await ctx.scheduler.runAfter(
           0,
@@ -102,7 +65,32 @@ export const cascadeSeedBoardChildren = internalMutation({
         ),
       parentKey: 'boardId',
       parentId: args.boardId,
-      phase: 'tiers',
+      phase,
+      cursor: args.cursor,
+      phases: [
+        {
+          phase: 'items',
+          page: async (cursor) =>
+            await ctx.db
+              .query('boardItems')
+              .withIndex('byBoardAndTier', (q) => q.eq('boardId', args.boardId))
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+        {
+          phase: 'tiers',
+          page: async (cursor) =>
+            await ctx.db
+              .query('boardTiers')
+              .withIndex('byBoard', (q) => q.eq('boardId', args.boardId))
+              .paginate({
+                numItems: CASCADE_DELETE_PAGE_SIZE,
+                cursor,
+              }),
+        },
+      ],
     })
 
     return null

@@ -35,6 +35,7 @@ import {
   findOwnedMediaAssetByExternalId,
   findOwnedTierPresetByExternalId,
   requireBoardOwnershipByExternalId,
+  requireOwnedTemplate,
 } from '../../lib/permissions'
 import { loadBoundedBoardRows } from '../../workspace/sync/loadBoundedBoardRows'
 import {
@@ -68,7 +69,6 @@ import {
   normalizeTemplateTitle,
   patchTemplateTagRows,
   patchTemplateAndSyncCard,
-  requireOwnedTemplate,
   setSourceBoardLivePublicTemplate,
   syncTemplateTagRows,
   templateTitleToBoardTitle,
