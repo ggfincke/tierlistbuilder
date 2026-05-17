@@ -17,6 +17,7 @@ import {
 
 import { scanBlobForAutoCrop } from '~/shared/lib/autoCrop'
 import { logger } from '~/shared/lib/logger'
+import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 
 // breathing room around the detected content, as a fraction of source-image
 // extents on each side. mirrors the workspace auto-crop default so cover
@@ -37,23 +38,14 @@ const scanCache = new Map<string, AutoCropScan | null>()
 
 const rememberScan = (key: string, scan: AutoCropScan | null): void =>
 {
-  scanCache.delete(key)
-  scanCache.set(key, scan)
-
-  while (scanCache.size > MAX_COVER_SCAN_CACHE_ENTRIES)
-  {
-    const oldestKey = scanCache.keys().next().value
-    if (!oldestKey) break
-    scanCache.delete(oldestKey)
-  }
+  setMapEntryLru(scanCache, key, scan, MAX_COVER_SCAN_CACHE_ENTRIES)
 }
 
 const readCachedScan = (key: string): AutoCropScan | null | undefined =>
 {
   if (!scanCache.has(key)) return undefined
   const scan = scanCache.get(key) ?? null
-  scanCache.delete(key)
-  scanCache.set(key, scan)
+  touchMapEntry(scanCache, key)
   return scan
 }
 

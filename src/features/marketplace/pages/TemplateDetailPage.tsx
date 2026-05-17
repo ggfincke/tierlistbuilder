@@ -21,6 +21,7 @@ import { useTemplateRankingAggregate } from '~/features/marketplace/model/useRan
 import { useRecordTemplateView } from '~/features/marketplace/model/useRecordTemplateView'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { useDocumentTitle } from '~/shared/hooks/useDocumentTitle'
+import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock, SkeletonCard, SkeletonText } from '~/shared/ui/Skeleton'
 
@@ -42,10 +43,20 @@ import { MarketplaceNotFound } from '~/features/marketplace/components/layout/Ma
 import { MarketplaceBreadcrumb } from '~/features/marketplace/components/layout/MarketplaceBreadcrumb'
 
 const RELATED_LIMIT = 4
+const MAX_HERO_AGGREGATE_CACHE_ENTRIES = 32
 const HERO_AGGREGATE_CACHE = new Map<
   string,
   MarketplaceTemplateRankingAggregate
 >()
+
+const readCachedHeroAggregate = (
+  cacheKey: string
+): MarketplaceTemplateRankingAggregate | null =>
+{
+  const cached = HERO_AGGREGATE_CACHE.get(cacheKey) ?? null
+  if (cached) touchMapEntry(HERO_AGGREGATE_CACHE, cacheKey)
+  return cached
+}
 
 const NotFound = () => (
   <MarketplaceNotFound
@@ -166,13 +177,18 @@ const useCachedHeroAggregate = (
   useFallback: boolean
 ): MarketplaceTemplateRankingAggregate | null =>
 {
-  const cachedAggregate = HERO_AGGREGATE_CACHE.get(cacheKey) ?? null
+  const cachedAggregate = readCachedHeroAggregate(cacheKey)
   if (
     readyAggregate !== null &&
     !isSameHeroAggregate(cachedAggregate, readyAggregate)
   )
   {
-    HERO_AGGREGATE_CACHE.set(cacheKey, readyAggregate)
+    setMapEntryLru(
+      HERO_AGGREGATE_CACHE,
+      cacheKey,
+      readyAggregate,
+      MAX_HERO_AGGREGATE_CACHE_ENTRIES
+    )
   }
 
   return readyAggregate ?? (useFallback ? cachedAggregate : null)

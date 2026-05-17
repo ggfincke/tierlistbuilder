@@ -26,6 +26,7 @@ import { getBlob, type BlobRecord } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from './asyncMapLimit'
 import { getPrimaryImageRef } from './imageRefs'
 import { logger } from './logger'
+import { setMapEntryLru, touchMapEntry } from './lru'
 
 const AUTO_CROP_BATCH_CONCURRENCY = 4
 const AUTO_CROP_DECODE_TIMEOUT_MS = 5_000
@@ -45,23 +46,14 @@ const emitScanCacheChange = (): void =>
 
 const rememberScan = (hash: string, scan: AutoCropScan | null): void =>
 {
-  scanCache.delete(hash)
-  scanCache.set(hash, scan)
-
-  while (scanCache.size > MAX_SCAN_CACHE_ENTRIES)
-  {
-    const oldestHash = scanCache.keys().next().value
-    if (!oldestHash) break
-    scanCache.delete(oldestHash)
-  }
+  setMapEntryLru(scanCache, hash, scan, MAX_SCAN_CACHE_ENTRIES)
 }
 
 const readCachedScan = (hash: string): AutoCropScan | null | undefined =>
 {
   if (!scanCache.has(hash)) return undefined
   const scan = scanCache.get(hash) ?? null
-  scanCache.delete(hash)
-  scanCache.set(hash, scan)
+  touchMapEntry(scanCache, hash)
   return scan
 }
 

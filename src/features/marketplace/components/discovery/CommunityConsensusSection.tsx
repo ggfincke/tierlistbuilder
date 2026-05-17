@@ -36,6 +36,7 @@ import {
   type TemplateRankingAggregateItemsPageStatus,
 } from '~/features/marketplace/model/useRankingDetail'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
+import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 import { EmptyCard } from '~/shared/ui/EmptyCard'
 import { SkeletonBlock } from '~/shared/ui/Skeleton'
@@ -65,6 +66,7 @@ import { usePopover } from '../consensus/usePopover'
 import { templateFrame, type ConsensusVizMode } from '../consensus/utils'
 
 const RAIL_PAGE_SIZE = DEFAULT_RANKING_LIST_LIMIT
+const MAX_VIEW_FRAME_CACHE_ENTRIES = 24
 const RAIL_SORT_BY_TAB: Record<
   ConsensusRailTab,
   'featured' | 'top' | 'recent'
@@ -243,6 +245,18 @@ interface ViewFrame
 }
 
 const VIEW_FRAME_CACHE = new Map<string, ViewFrame>()
+
+const rememberViewFrame = (key: string, frame: ViewFrame): void =>
+{
+  setMapEntryLru(VIEW_FRAME_CACHE, key, frame, MAX_VIEW_FRAME_CACHE_ENTRIES)
+}
+
+const readCachedViewFrame = (key: string): ViewFrame | null =>
+{
+  const frame = VIEW_FRAME_CACHE.get(key) ?? null
+  if (frame) touchMapEntry(VIEW_FRAME_CACHE, key)
+  return frame
+}
 
 interface SectionHeaderProps
 {
@@ -594,17 +608,19 @@ export const CommunityConsensusSection = ({
   ])
 
   // scoped by template + criterion so a lane swap never shows wrong tiers
-  // behind a load. this is a render fallback, not render-driving state
+  // behind a load — render fallback, not render-driving state. only touch
+  // the cache on transitions so steady-state renders don't churn recency
   const frameCacheKey = `${template.slug}:${criterionExternalId}`
   if (
     currentFrame !== null &&
     VIEW_FRAME_CACHE.get(frameCacheKey) !== currentFrame
   )
   {
-    VIEW_FRAME_CACHE.set(frameCacheKey, currentFrame)
+    rememberViewFrame(frameCacheKey, currentFrame)
   }
 
-  const cachedFrame = VIEW_FRAME_CACHE.get(frameCacheKey) ?? null
+  const cachedFrame =
+    currentFrame === null ? readCachedViewFrame(frameCacheKey) : null
   const showPinStaleFrame = isPinLoading && cachedFrame !== null
   const showLaneStaleFrame =
     aggregate === undefined && !isActiveRanking && cachedFrame !== null

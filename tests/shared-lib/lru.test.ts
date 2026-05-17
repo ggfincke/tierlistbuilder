@@ -40,4 +40,27 @@ describe('pruneOldestMapEntries', () =>
       ['d', 4],
     ])
   })
+
+  it('reports pruned entries to the cleanup callback', () =>
+  {
+    const cache = new Map([
+      ['a', 1],
+      ['b', 2],
+      ['c', 3],
+    ])
+    const pruned: Array<[string, number]> = []
+
+    pruneOldestMapEntries(
+      cache,
+      1,
+      () => false,
+      (key, value) => pruned.push([key, value])
+    )
+
+    expect([...cache.entries()]).toEqual([['c', 3]])
+    expect(pruned).toEqual([
+      ['a', 1],
+      ['b', 2],
+    ])
+  })
 })

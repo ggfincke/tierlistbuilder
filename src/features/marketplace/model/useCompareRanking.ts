@@ -10,6 +10,7 @@ import {
 } from '@tierlistbuilder/contracts/marketplace/ranking'
 import type { MarketplaceTemplateRankingAggregateBucket } from '@tierlistbuilder/contracts/marketplace/rankingAggregate'
 import { useRankingBySlug } from '~/features/marketplace/data/rankingsRepository'
+import { setMapEntryLru, touchMapEntry } from '~/shared/lib/lru'
 
 interface CompareRankingResult
 {
@@ -29,6 +30,7 @@ interface CompareRankingProjection
   buckets: MarketplaceTemplateRankingAggregateBucket[]
 }
 
+const MAX_COMPARE_RANKING_PROJECTION_CACHE_ENTRIES = 32
 const projectionCache = new Map<string, CompareRankingProjection>()
 
 const rankingBuckets = (
@@ -58,7 +60,11 @@ export const useCompareRanking = ({
       detail.itemCount,
     ].join(':')
     const cached = projectionCache.get(key)
-    if (cached) return cached
+    if (cached)
+    {
+      touchMapEntry(projectionCache, key)
+      return cached
+    }
     const buckets = rankingBuckets(detail.tiers)
     const placements = buildRankingBucketPlacements(
       detail.tiers,
@@ -66,7 +72,12 @@ export const useCompareRanking = ({
       buckets.length
     )
     const next = { buckets, placements }
-    projectionCache.set(key, next)
+    setMapEntryLru(
+      projectionCache,
+      key,
+      next,
+      MAX_COMPARE_RANKING_PROJECTION_CACHE_ENTRIES
+    )
     return next
   }, [slug, detail])
   if (slug === null) return { detail: null, placements: null, buckets: null }
