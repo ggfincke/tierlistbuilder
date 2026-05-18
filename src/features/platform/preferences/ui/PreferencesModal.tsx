@@ -102,17 +102,26 @@ const AppearancePane = () =>
 
 const AccessibilityPane = () =>
 {
-  const { themeId, reducedMotion, setReducedMotion, toggleHighContrast } =
-    usePreferencesStore(
-      useShallow((s) => ({
-        themeId: s.themeId,
-        reducedMotion: s.reducedMotion,
-        setReducedMotion: s.setReducedMotion,
-        toggleHighContrast: s.toggleHighContrast,
-      }))
-    )
+  const {
+    themeId,
+    reducedMotion,
+    setReducedMotion,
+    toggleHighContrast,
+    topNavLocked,
+    setTopNavLocked,
+  } = usePreferencesStore(
+    useShallow((s) => ({
+      themeId: s.themeId,
+      reducedMotion: s.reducedMotion,
+      setReducedMotion: s.setReducedMotion,
+      toggleHighContrast: s.toggleHighContrast,
+      topNavLocked: s.topNavLocked,
+      setTopNavLocked: s.setTopNavLocked,
+    }))
+  )
   const highContrastDescriptionId = useId()
   const reduceMotionDescriptionId = useId()
+  const topNavLockedDescriptionId = useId()
   // Volt is the Scoreboard system's high-contrast theme — see toggleHighContrast
   // in usePreferencesStore for the swap-&-restore logic.
   const isHighContrast = themeId === HIGH_CONTRAST_THEME_ID
@@ -142,9 +151,23 @@ const AccessibilityPane = () =>
       </SettingRow>
       <p
         id={reduceMotionDescriptionId}
-        className="mt-1 text-xs text-[var(--t-text-muted)]"
+        className="mb-3 mt-1 text-xs text-[var(--t-text-muted)]"
       >
         Disables animations & transitions. Also respects your OS setting.
+      </p>
+
+      <SettingRow label="Lock Navigation Bar">
+        <Toggle
+          checked={topNavLocked}
+          onChange={setTopNavLocked}
+          ariaDescribedby={topNavLockedDescriptionId}
+        />
+      </SettingRow>
+      <p
+        id={topNavLockedDescriptionId}
+        className="mt-1 text-xs text-[var(--t-text-muted)]"
+      >
+        Keep the top navigation bar pinned instead of auto-hiding when idle.
       </p>
     </SettingsSection>
   )

@@ -23,6 +23,7 @@ const APP_PREFERENCES_KEYS = [
   'tierLabelItalic',
   'tierLabelFontSize',
   'boardLocked',
+  'topNavLocked',
   'reducedMotion',
   'toolbarPosition',
   'showItemEditButton',

@@ -80,6 +80,7 @@ export const appPreferencesValidator = v.object({
   tierLabelItalic: v.boolean(),
   tierLabelFontSize: tierLabelFontSizeValidator,
   boardLocked: v.boolean(),
+  topNavLocked: v.boolean(),
   reducedMotion: v.boolean(),
   toolbarPosition: toolbarPositionValidator,
   showItemEditButton: v.boolean(),

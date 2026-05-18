@@ -73,6 +73,9 @@ export interface AppPreferences
   tierLabelItalic: boolean
   tierLabelFontSize: TierLabelFontSize
   boardLocked: boolean
+  // when true the top navigation bar stays visible instead of auto-hiding
+  // when not hovered or focused
+  topNavLocked: boolean
   reducedMotion: boolean
   toolbarPosition: ToolbarPosition
   // gates the item-edit pencil overlay shown on each tier item
