@@ -4,8 +4,14 @@
 import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import { getBoardStateByExternalIdImperative } from '~/features/workspace/boards/data/cloud/boardRepository'
 import { serverStateToSnapshot } from '~/features/workspace/boards/data/cloud/boardMapper'
-import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
-import { markBoardSynced } from '~/features/workspace/boards/model/sync'
+import {
+  loadBoardSyncStateOnly,
+  saveBoardToStorage,
+} from '~/features/workspace/boards/data/local/boardStorage'
+import {
+  extractBoardSyncState,
+  markBoardSynced,
+} from '~/features/workspace/boards/model/sync'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
@@ -67,15 +73,47 @@ const materializeCloudBoardSnapshot = async (
   }
 
   const registry = useWorkspaceBoardRegistryStore.getState()
-  if (!registry.boards.some((b) => b.id === boardId))
+  const existing = registry.boards.find((b) => b.id === boardId)
+  if (!existing)
   {
     registry.addBoardMeta(
       { id: boardId, title: snapshot.title, createdAt: Date.now() },
       false
     )
   }
+  else if (existing.title !== snapshot.title)
+  {
+    registry.renameBoardMeta(boardId, snapshot.title)
+  }
 
   return { boardId, snapshot, syncState }
+}
+
+const getLocalBoardSyncState = (boardId: BoardId) =>
+{
+  if (useWorkspaceBoardRegistryStore.getState().activeBoardId === boardId)
+  {
+    return extractBoardSyncState(useActiveBoardStore.getState())
+  }
+
+  return loadBoardSyncStateOnly(boardId)
+}
+
+const refreshMaterializedCloudBoardIfClean = async (
+  boardId: BoardId,
+  boardExternalId: string
+): Promise<MaterializedCloudBoard | null> =>
+{
+  const syncState = getLocalBoardSyncState(boardId)
+  if (
+    syncState.cloudBoardExternalId !== boardExternalId ||
+    syncState.pendingSyncAt !== null
+  )
+  {
+    return null
+  }
+
+  return await materializeCloudBoardSnapshot(boardExternalId)
 }
 
 // fetch the cloud state for `boardExternalId`, persist a local snapshot keyed
@@ -126,8 +164,18 @@ export const activateCloudBoardAsActive = async (
     return await importCloudBoardAsActive(boardExternalId)
   }
 
+  const refreshed = await refreshMaterializedCloudBoardIfClean(
+    boardId,
+    boardExternalId
+  )
+
   if (registry.activeBoardId === boardId)
   {
+    if (refreshed)
+    {
+      await warmFromBoard(refreshed.snapshot)
+      loadBoardState(boardId, refreshed.snapshot, refreshed.syncState)
+    }
     return boardId
   }
 

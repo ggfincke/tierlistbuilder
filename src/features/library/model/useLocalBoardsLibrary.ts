@@ -24,14 +24,11 @@ import { loadBoardFromStorage } from '~/features/workspace/boards/data/local/boa
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { getImageRenditionRefs } from '~/shared/lib/imageRefs'
 import { getCachedImageUrl } from '~/shared/images/imageBlobCache'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 
 const DEFAULT_LOCAL_PALETTE_ID: PaletteId = 'classic'
 
-type LocalLibrarySnapshot = Pick<
-  BoardSnapshot,
-  'tiers' | 'items' | 'unrankedItemIds'
-> &
-  Partial<BoardSnapshot>
+type LocalLibrarySnapshot = BoardSnapshot
 
 interface LocalBoardsLibraryResult
 {
@@ -56,7 +53,10 @@ const toLocalLibrarySnapshot = (
     return null
   }
 
-  return snapshot as LocalLibrarySnapshot
+  return normalizeBoardSnapshot(
+    snapshot,
+    snapshot.paletteId ?? DEFAULT_LOCAL_PALETTE_ID
+  )
 }
 
 const orderedLiveItems = (
@@ -163,7 +163,7 @@ export const projectLocalRow = (meta: BoardMeta): LibraryBoardListItem =>
   }
 }
 
-export const projectLocalRows = (
+const projectLocalRows = (
   boards: readonly BoardMeta[]
 ): LibraryBoardListItem[] => boards.map(projectLocalRow)
 
