@@ -5,7 +5,7 @@ import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
 import type { MediaVariantKind } from '@tierlistbuilder/contracts/platform/media'
 import { collectSnapshotRenderImageVariantRefs } from '~/shared/lib/boardSnapshotItems'
 import { logger } from '~/shared/lib/logger'
-import { pruneOldestMapEntries } from '~/shared/lib/lru'
+import { pruneOldestMapEntries, touchMapEntry } from '~/shared/lib/lru'
 import { getBlobsBatch } from './imageStore'
 
 // pluggable cloud image batch fetcher — features register it at boot so shared
@@ -182,7 +182,6 @@ const retryFailedCloudRequests = (): void =>
 interface CachedImageEntry
 {
   url: string
-  lastAccessedAt: number
 }
 
 const MAX_CACHED_IMAGE_URLS = 512
@@ -209,17 +208,9 @@ const publish = (hashes: Iterable<string>): void =>
 
 const touchCachedHashes = (hashes: Iterable<string>): void =>
 {
-  const now = Date.now()
-
   for (const hash of hashes)
   {
-    const entry = cache.get(hash)
-    if (entry)
-    {
-      entry.lastAccessedAt = now
-      cache.delete(hash)
-      cache.set(hash, entry)
-    }
+    touchMapEntry(cache, hash)
   }
 }
 
@@ -307,23 +298,16 @@ export const cacheFreshBlobs = (
 ): void =>
 {
   const changed = new Set<string>()
-  const now = Date.now()
 
   for (const [hash, blob] of blobs)
   {
-    const existing = cache.get(hash)
-    if (existing)
+    if (cache.has(hash))
     {
-      existing.lastAccessedAt = now
-      cache.delete(hash)
-      cache.set(hash, existing)
+      touchMapEntry(cache, hash)
       continue
     }
 
-    cache.set(hash, {
-      url: URL.createObjectURL(blob),
-      lastAccessedAt: now,
-    })
+    cache.set(hash, { url: URL.createObjectURL(blob) })
     changed.add(hash)
   }
 
@@ -411,14 +395,12 @@ export const warmImageHashes = async (
   const records = await getBlobsBatch(missing, { signal })
   signal?.throwIfAborted()
   const changed = new Set<string>()
-  const now = Date.now()
 
   for (const hash of missing)
   {
-    const existing = cache.get(hash)
-    if (existing)
+    if (cache.has(hash))
     {
-      existing.lastAccessedAt = now
+      touchMapEntry(cache, hash)
       continue
     }
 
@@ -428,10 +410,7 @@ export const warmImageHashes = async (
       continue
     }
 
-    cache.set(hash, {
-      url: URL.createObjectURL(record.bytes),
-      lastAccessedAt: now,
-    })
+    cache.set(hash, { url: URL.createObjectURL(record.bytes) })
     changed.add(hash)
   }
 

@@ -284,10 +284,10 @@ export default defineSchema({
     tags: v.array(v.string()),
     visibility: templateVisibilityValidator,
     coverMediaAssetId: v.union(v.id('mediaAssets'), v.null()),
-    // per-surface framings of the cover image. absent on rows w/o a cover or
+    // per-surface framings of the cover image. null on rows w/o a cover or
     // when the author hasn't framed yet — runtime falls back to full-image
     // object-cover into the surface container
-    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
+    coverFraming: v.union(templateCoverFramingValidator, v.null()),
     coverItems: v.array(
       v.object({
         mediaAssetId: v.id('mediaAssets'),
@@ -307,22 +307,26 @@ export default defineSchema({
     itemCount: v.number(),
     featuredRank: v.union(v.number(), v.null()),
     creditLine: v.union(v.string(), v.null()),
-    // slot aspect ratio (w/h) the template was designed against; absent ->
+    // slot aspect ratio (w/h) the template was designed against; null ->
     // forks fall back to the board default (1, square)
-    itemAspectRatio: v.optional(v.union(v.number(), v.null())),
+    itemAspectRatio: v.union(v.number(), v.null()),
     // 'auto' tracks content; 'manual' pins the ratio. seed action snaps to a
     // preset & writes 'manual' so forked boards land on the same canonical
     // ratio the per-item transforms were computed against
-    itemAspectRatioMode: v.optional(
-      v.union(v.literal('auto'), v.literal('manual'), v.null())
+    itemAspectRatioMode: v.union(
+      v.literal('auto'),
+      v.literal('manual'),
+      v.null()
     ),
     // board-wide fit when an item has no per-item override on the forked board
-    defaultItemImageFit: v.optional(
-      v.union(v.literal('cover'), v.literal('contain'), v.null())
+    defaultItemImageFit: v.union(
+      v.literal('cover'),
+      v.literal('contain'),
+      v.null()
     ),
     // pre-baked label rendering defaults — forked boards inherit these so the
     // publisher's caption styling shows up without each user toggling labels
-    labels: v.optional(boardLabelSettingsValidator),
+    labels: v.union(boardLabelSettingsValidator, v.null()),
     // seed identity fields let Python diff/upsert by stable external IDs
     // while user-published templates continue to omit them
     seedDatasetKey: v.optional(v.string()),
@@ -366,7 +370,7 @@ export default defineSchema({
     coverMedia: v.union(templateCardMediaValidator, v.null()),
     // mirror of templates.coverFraming so gallery cards can apply per-surface
     // crops without a parent-table read
-    coverFraming: v.optional(v.union(templateCoverFramingValidator, v.null())),
+    coverFraming: v.union(templateCoverFramingValidator, v.null()),
     coverItems: v.array(templateCardCoverItemValidator),
     // mirror of templates.itemAspectRatio so gallery cards can frame cover
     // tiles identically to the detail item grid w/o a parent-table read
@@ -381,13 +385,13 @@ export default defineSchema({
     forkCount: v.number(),
     viewCount: v.number(),
     // denormalized total of public published rankings across every criterion.
-    // maintained by rollupTemplateRankingCount off the aggregate job finish;
-    // absent on rows last written before the field landed -> read as `?? 0`
-    rankingCount: v.optional(v.number()),
-    weeklyForkCount: v.optional(v.number()),
-    weeklyViewCount: v.optional(v.number()),
-    trendingScore: v.optional(v.number()),
-    trendingComputedAt: v.optional(v.union(v.number(), v.null())),
+    // initialized to 0 on insert; rollupTemplateRankingCount patches it after
+    // each aggregate job finish
+    rankingCount: v.number(),
+    weeklyForkCount: v.number(),
+    weeklyViewCount: v.number(),
+    trendingScore: v.number(),
+    trendingComputedAt: v.union(v.number(), v.null()),
     creditLine: v.union(v.string(), v.null()),
     searchText: v.string(),
     createdAt: v.number(),
@@ -454,7 +458,7 @@ export default defineSchema({
     // denormalized per-category breakdown of public template count. keys are
     // TemplateCategory values; categories w/ zero templates are absent so the
     // record stays compact across taxonomy churn
-    publicTemplateCountByCategory: v.optional(v.record(v.string(), v.number())),
+    publicTemplateCountByCategory: v.record(v.string(), v.number()),
     updatedAt: v.number(),
   }).index('byKey', ['key']),
 
@@ -706,19 +710,17 @@ export default defineSchema({
   publishedRankingItems: defineTable({
     rankingId: v.id('publishedRankings'),
     templateItemId: v.id('templateItems'),
-    templateItemExternalId: v.optional(v.string()),
-    externalId: v.optional(v.string()),
+    templateItemExternalId: v.string(),
+    externalId: v.string(),
     tierExternalId: v.union(v.string(), v.null()),
-    label: v.optional(v.union(v.string(), v.null())),
-    backgroundColor: v.optional(v.union(v.string(), v.null())),
-    altText: v.optional(v.union(v.string(), v.null())),
-    mediaAssetId: v.optional(v.union(v.id('mediaAssets'), v.null())),
+    label: v.union(v.string(), v.null()),
+    backgroundColor: v.union(v.string(), v.null()),
+    altText: v.union(v.string(), v.null()),
+    mediaAssetId: v.union(v.id('mediaAssets'), v.null()),
     order: v.number(),
-    aspectRatio: v.optional(v.union(v.number(), v.null())),
-    imageFit: v.optional(
-      v.union(v.literal('cover'), v.literal('contain'), v.null())
-    ),
-    transform: v.optional(v.union(itemTransformValidator, v.null())),
+    aspectRatio: v.union(v.number(), v.null()),
+    imageFit: v.union(v.literal('cover'), v.literal('contain'), v.null()),
+    transform: v.union(itemTransformValidator, v.null()),
   })
     .index('byRanking', ['rankingId', 'order'])
     .index('byMedia', ['mediaAssetId']),

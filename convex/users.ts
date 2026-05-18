@@ -260,8 +260,9 @@ export const deleteAccount = mutation({
   },
 })
 
+// authSessions is intentionally absent — it's the entry phase reached directly
+// via cleanupAuthSessions (mode='startCascade'), then hops here at 'authAccounts'
 const CASCADE_PHASES = [
-  'authSessions',
   'authAccounts',
   'boards',
   'templates',
@@ -334,7 +335,6 @@ export const cleanupAuthSessions = internalMutation({
 })
 
 const CASCADE_PHASE_HANDLERS: Record<CascadePhase, CascadePhaseHandler> = {
-  authSessions: async (ctx, args) => await handleAuthSessionsPhase(ctx, args),
   authAccounts: async (ctx, args) => await handleAuthAccountsPhase(ctx, args),
   boards: async (ctx, args) => await handleBoardsPhase(ctx, args),
   templates: async (ctx, args) => await handleTemplatesPhase(ctx, args),
@@ -364,12 +364,9 @@ export const cascadeDeleteUserData = internalMutation({
   },
 })
 
-const handleAuthSessionsPhase: CascadePhaseHandler = async (ctx, args) =>
-  await runAuthSessionCleanup(ctx, args.userId, args, 'startCascade')
-
-// shared step for signOutEverywhere & the authSessions cascade phase.
+// shared step for signOutEverywhere & the deleteAccount cascade entry.
 // pagination reschedules cleanupAuthSessions (mode preserved); only on
-// completion does 'startCascade' hop into advanceCascadePhase
+// completion does 'startCascade' kick off cascadeDeleteUserData
 const runAuthSessionCleanup = async (
   ctx: MutationCtx,
   userId: Id<'users'>,
@@ -389,7 +386,11 @@ const runAuthSessionCleanup = async (
   }
   if (mode === 'startCascade')
   {
-    return await advanceCascadePhase(ctx, userId, 'authSessions')
+    await ctx.scheduler.runAfter(0, internal.users.cascadeDeleteUserData, {
+      userId,
+      phase: CASCADE_PHASES[0],
+      cursor: null,
+    })
   }
   return null
 }

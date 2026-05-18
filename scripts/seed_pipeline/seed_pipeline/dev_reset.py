@@ -147,11 +147,13 @@ def main() -> int:
 
     deleted_counts = value.get("deletedCounts", {})
     deleted_blobs = value.get("deletedStorageBlobs", 0)
+    canceled_scheduled = value.get("canceledScheduledFunctions", 0)
     total_rows = sum(int(count) for count in deleted_counts.values())
 
     print(f"\nreset complete on {value.get('deploymentMarker', marker)}:")
-    print(f"  storage blobs deleted: {deleted_blobs}")
-    print(f"  table rows deleted:    {total_rows}")
+    print(f"  scheduled fns canceled: {canceled_scheduled}")
+    print(f"  storage blobs deleted:  {deleted_blobs}")
+    print(f"  table rows deleted:     {total_rows}")
     for table_name in sorted(deleted_counts):
         count = int(deleted_counts[table_name])
         if count:

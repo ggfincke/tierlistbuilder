@@ -383,6 +383,10 @@ const queueLargeTemplatePublish = async (
     itemCount: board.activeItemCount,
     featuredRank: null,
     creditLine: args.creditLine,
+    itemAspectRatio: board.itemAspectRatio,
+    itemAspectRatioMode: board.itemAspectRatioMode,
+    defaultItemImageFit: board.defaultItemImageFit,
+    labels: board.labels,
     createdAt: now,
     updatedAt: now,
   } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>
@@ -620,7 +624,7 @@ export const publishFromBoard = mutation({
       itemAspectRatio: board.itemAspectRatio,
       itemAspectRatioMode: board.itemAspectRatioMode,
       defaultItemImageFit: board.defaultItemImageFit,
-      labels: board.labels ?? undefined,
+      labels: board.labels,
       createdAt: now,
       updatedAt: now,
     } satisfies Omit<Doc<'templates'>, '_id' | '_creationTime'>

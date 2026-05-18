@@ -1660,7 +1660,7 @@ describe('marketplace template Convex functions', () =>
           .withIndex('byTemplateId', (q) => q.eq('templateId', templateId))
           .unique()
     )
-    expect(before?.rankingCount).toBeUndefined()
+    expect(before?.rankingCount).toBe(0)
 
     await expect(
       withSeedActionsEnabled(() =>
@@ -1875,6 +1875,7 @@ describe('marketplace template Convex functions', () =>
       await ctx.db.insert('marketplaceStats', {
         key: 'templates',
         publicTemplateCount: 1,
+        publicTemplateCountByCategory: {},
         updatedAt: now,
       })
 

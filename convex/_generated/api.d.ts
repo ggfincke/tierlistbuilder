@@ -38,14 +38,10 @@ import type * as lib_validators_seedPipeline from "../lib/validators/seedPipelin
 import type * as lib_validators_workspace from "../lib/validators/workspace.js";
 import type * as marketplace_rankings_aggregate_jobs from "../marketplace/rankings/aggregate/jobs.js";
 import type * as marketplace_rankings_aggregate_lib from "../marketplace/rankings/aggregate/lib.js";
-import type * as marketplace_rankings_aggregateInternal from "../marketplace/rankings/aggregateInternal.js";
-import type * as marketplace_rankings_internal from "../marketplace/rankings/internal.js";
 import type * as marketplace_rankings_lib from "../marketplace/rankings/lib.js";
 import type * as marketplace_rankings_maintenance_cascade from "../marketplace/rankings/maintenance/cascade.js";
-import type * as marketplace_rankings_mutations from "../marketplace/rankings/mutations.js";
 import type * as marketplace_rankings_public_mutations from "../marketplace/rankings/public/mutations.js";
 import type * as marketplace_rankings_public_queries from "../marketplace/rankings/public/queries.js";
-import type * as marketplace_rankings_queries from "../marketplace/rankings/queries.js";
 import type * as marketplace_rankings_seed_actions from "../marketplace/rankings/seed/actions.js";
 import type * as marketplace_rankings_seed_cleanup from "../marketplace/rankings/seed/cleanup.js";
 import type * as marketplace_rankings_seed_curatedResolver from "../marketplace/rankings/seed/curatedResolver.js";
@@ -54,7 +50,6 @@ import type * as marketplace_rankings_seed_naming from "../marketplace/rankings/
 import type * as marketplace_rankings_seed_plan from "../marketplace/rankings/seed/plan.js";
 import type * as marketplace_rankings_seed_scoring from "../marketplace/rankings/seed/scoring.js";
 import type * as marketplace_rankings_seed_validators from "../marketplace/rankings/seed/validators.js";
-import type * as marketplace_rankings_seedCleanup from "../marketplace/rankings/seedCleanup.js";
 import type * as marketplace_seedAuth from "../marketplace/seedAuth.js";
 import type * as marketplace_seedPipeline_activation from "../marketplace/seedPipeline/activation.js";
 import type * as marketplace_seedPipeline_diagnostics from "../marketplace/seedPipeline/diagnostics.js";
@@ -134,14 +129,10 @@ declare const fullApi: ApiFromModules<{
   "lib/validators/workspace": typeof lib_validators_workspace;
   "marketplace/rankings/aggregate/jobs": typeof marketplace_rankings_aggregate_jobs;
   "marketplace/rankings/aggregate/lib": typeof marketplace_rankings_aggregate_lib;
-  "marketplace/rankings/aggregateInternal": typeof marketplace_rankings_aggregateInternal;
-  "marketplace/rankings/internal": typeof marketplace_rankings_internal;
   "marketplace/rankings/lib": typeof marketplace_rankings_lib;
   "marketplace/rankings/maintenance/cascade": typeof marketplace_rankings_maintenance_cascade;
-  "marketplace/rankings/mutations": typeof marketplace_rankings_mutations;
   "marketplace/rankings/public/mutations": typeof marketplace_rankings_public_mutations;
   "marketplace/rankings/public/queries": typeof marketplace_rankings_public_queries;
-  "marketplace/rankings/queries": typeof marketplace_rankings_queries;
   "marketplace/rankings/seed/actions": typeof marketplace_rankings_seed_actions;
   "marketplace/rankings/seed/cleanup": typeof marketplace_rankings_seed_cleanup;
   "marketplace/rankings/seed/curatedResolver": typeof marketplace_rankings_seed_curatedResolver;
@@ -150,7 +141,6 @@ declare const fullApi: ApiFromModules<{
   "marketplace/rankings/seed/plan": typeof marketplace_rankings_seed_plan;
   "marketplace/rankings/seed/scoring": typeof marketplace_rankings_seed_scoring;
   "marketplace/rankings/seed/validators": typeof marketplace_rankings_seed_validators;
-  "marketplace/rankings/seedCleanup": typeof marketplace_rankings_seedCleanup;
   "marketplace/seedAuth": typeof marketplace_seedAuth;
   "marketplace/seedPipeline/activation": typeof marketplace_seedPipeline_activation;
   "marketplace/seedPipeline/diagnostics": typeof marketplace_seedPipeline_diagnostics;

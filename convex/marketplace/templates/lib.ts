@@ -95,6 +95,7 @@ type TemplateCardMetrics = TemplateStatsCounters & {
   weeklyViewCount: number
   trendingScore: number
   trendingComputedAt: number | null
+  rankingCount: number
 }
 
 type TemplatePatch = Partial<Omit<Doc<'templates'>, '_id' | '_creationTime'>>
@@ -157,18 +158,16 @@ const getTemplateCardMetrics = (
     | 'weeklyViewCount'
     | 'trendingScore'
     | 'trendingComputedAt'
+    | 'rankingCount'
   >
-): TemplateCardMetrics =>
-{
-  const counters = readTemplateCounters(card)
-  return {
-    ...counters,
-    weeklyForkCount: card.weeklyForkCount ?? 0,
-    weeklyViewCount: card.weeklyViewCount ?? 0,
-    trendingScore: card.trendingScore ?? 0,
-    trendingComputedAt: card.trendingComputedAt ?? null,
-  }
-}
+): TemplateCardMetrics => ({
+  ...readTemplateCounters(card),
+  weeklyForkCount: card.weeklyForkCount,
+  weeklyViewCount: card.weeklyViewCount,
+  trendingScore: card.trendingScore,
+  trendingComputedAt: card.trendingComputedAt,
+  rankingCount: card.rankingCount,
+})
 
 const getInitialTemplateCardMetrics = (
   stats: TemplateStatsCounters
@@ -178,6 +177,7 @@ const getInitialTemplateCardMetrics = (
   weeklyViewCount: 0,
   trendingScore: 0,
   trendingComputedAt: null,
+  rankingCount: 0,
 })
 
 export const calculateTemplateTrendingScore = (params: {
@@ -1147,6 +1147,7 @@ const buildTemplateCardFields = async (
     weeklyViewCount: metrics.weeklyViewCount,
     trendingScore: metrics.trendingScore,
     trendingComputedAt: metrics.trendingComputedAt,
+    rankingCount: metrics.rankingCount,
     creditLine: template.creditLine,
     searchText: buildSearchText({
       title: template.title,
@@ -1376,11 +1377,11 @@ export const toTemplateCardSummary = async (
     itemCount: card.itemCount,
     forkCount: counters.forkCount,
     viewCount: counters.viewCount,
-    rankingCount: card.rankingCount ?? 0,
-    weeklyForkCount: card.weeklyForkCount ?? 0,
-    weeklyViewCount: card.weeklyViewCount ?? 0,
-    trendingScore: card.trendingScore ?? 0,
-    trendingComputedAt: card.trendingComputedAt ?? null,
+    rankingCount: card.rankingCount,
+    weeklyForkCount: card.weeklyForkCount,
+    weeklyViewCount: card.weeklyViewCount,
+    trendingScore: card.trendingScore,
+    trendingComputedAt: card.trendingComputedAt,
     featuredRank: card.featuredRank,
     creditLine: card.creditLine,
     createdAt: card.createdAt,
@@ -1426,7 +1427,7 @@ export const toTemplateBase = async (
     itemCount: template.itemCount,
     forkCount: counters.forkCount,
     viewCount: counters.viewCount,
-    rankingCount: card?.rankingCount ?? 0,
+    rankingCount: metrics.rankingCount,
     weeklyForkCount: metrics.weeklyForkCount,
     weeklyViewCount: metrics.weeklyViewCount,
     trendingScore: metrics.trendingScore,

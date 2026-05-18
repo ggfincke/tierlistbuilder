@@ -22,11 +22,13 @@ const orThrowNotFound = <T>(doc: T | null, label: string): T =>
   return doc
 }
 
-const throwForbidden = (message: string): never =>
+// raise a 404 (not 403) when a slug-addressable row exists but isn't owned by
+// the caller. avoids leaking the existence of someone else's unpublished row
+const throwNotFoundForOwnership = (label: string): never =>
 {
   throw new ConvexError({
-    code: CONVEX_ERROR_CODES.forbidden,
-    message,
+    code: CONVEX_ERROR_CODES.notFound,
+    message: `${label} not found`,
   })
 }
 
@@ -153,7 +155,7 @@ export const requireOwnedTemplate = async (
   )
   if (template.authorId !== userId)
   {
-    throwForbidden('not the owner of this template')
+    throwNotFoundForOwnership('template')
   }
   return template
 }
@@ -167,7 +169,7 @@ export const requireOwnedRanking = async (
   const ranking = orThrowNotFound(await findRankingBySlug(ctx, slug), 'ranking')
   if (ranking.ownerId !== userId)
   {
-    throwForbidden('not the owner of this ranking')
+    throwNotFoundForOwnership('ranking')
   }
   return ranking
 }

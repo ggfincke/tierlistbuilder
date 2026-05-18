@@ -26,7 +26,6 @@ import {
 import { loadTemplateItems } from '../../templates/lib'
 import {
   allocateRankingSlug,
-  compactRankingItemSnapshot,
   normalizeRankingDescription,
   normalizeRankingTitle,
   rankingTopScore,
@@ -389,7 +388,13 @@ const buildSeedRankingContentHash = (
     rankedItems: args.rankedItems.map((ranked) => ({
       templateItemId: ranked.item._id,
       templateItemExternalId: ranked.item.externalId,
-      ...compactRankingItemSnapshot(ranked.item),
+      label: ranked.item.label,
+      backgroundColor: ranked.item.backgroundColor,
+      altText: ranked.item.altText,
+      mediaAssetId: ranked.item.mediaAssetId,
+      aspectRatio: ranked.item.aspectRatio,
+      imageFit: ranked.item.imageFit,
+      transform: ranked.item.transform,
       order: ranked.item.order,
       tierIndex: ranked.tierIndex,
       orderInTier: ranked.orderInTier,
@@ -738,7 +743,13 @@ const insertSeedRanking = async (
         templateItemExternalId: ranked.item.externalId,
         externalId: ranked.item.externalId,
         tierExternalId: tier.externalId,
-        ...compactRankingItemSnapshot(ranked.item),
+        label: ranked.item.label,
+        backgroundColor: ranked.item.backgroundColor,
+        altText: ranked.item.altText,
+        mediaAssetId: ranked.item.mediaAssetId,
+        aspectRatio: ranked.item.aspectRatio,
+        imageFit: ranked.item.imageFit,
+        transform: ranked.item.transform,
         order: ranked.globalOrder,
       })
     }),

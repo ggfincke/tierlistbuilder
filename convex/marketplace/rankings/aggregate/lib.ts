@@ -556,7 +556,7 @@ export const rollupTemplateRankingCount = async (
     0
   )
   const card = await findTemplateCardByTemplateId(ctx, templateId)
-  if (card && (card.rankingCount ?? 0) !== total)
+  if (card && card.rankingCount !== total)
   {
     await ctx.db.patch(card._id, { rankingCount: total })
   }
