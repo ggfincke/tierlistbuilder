@@ -43,9 +43,7 @@ export const compressShortLinkSnapshotBytes = async (
   data: BoardSnapshot
 ): Promise<Uint8Array> =>
 {
-  const stripped = stripDeletedItemsForShare(
-    stripPrivateFieldsForShare(data)
-  )
+  const stripped = stripDeletedItemsForShare(stripPrivateFieldsForShare(data))
   const preflightBytes = new TextEncoder().encode(JSON.stringify(stripped))
   assertShortLinkPreflightSize(preflightBytes.byteLength)
 

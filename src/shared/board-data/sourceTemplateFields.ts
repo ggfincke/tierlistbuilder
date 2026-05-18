@@ -16,19 +16,6 @@ type SourceTemplateFields = Pick<
   | 'preferredCriterionExternalId'
 >
 
-// pass-through projection — pulls source-template fields from a trusted
-// snapshot-like source object. used for round-tripping through JSON/wire/
-// persist paths where the values are already validated
-export const pickSourceTemplateFields = (
-  source: SourceTemplateFields
-): SourceTemplateFields => ({
-  sourceTemplateId: source.sourceTemplateId,
-  sourceRankingId: source.sourceRankingId,
-  sourceTemplateTitle: source.sourceTemplateTitle,
-  sourceRankingTitle: source.sourceRankingTitle,
-  preferredCriterionExternalId: source.preferredCriterionExternalId,
-})
-
 // validation projection — pulls source-template fields from an untrusted
 // wire/persisted object, coercing non-strings to undefined
 export const normalizeSourceTemplateFields = (

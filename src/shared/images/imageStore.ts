@@ -180,7 +180,7 @@ const openDatabase = (): Promise<IDBDatabase> =>
   return pending
 }
 
-export const disposeImageStore = (): void =>
+const disposeImageStore = (): void =>
 {
   const pending = dbPromise
   dbPromise = null
