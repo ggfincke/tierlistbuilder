@@ -12,6 +12,7 @@ import { ArrowRight, ChevronRight, Eye, Pencil, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
+import { selectTiersMeta } from '~/features/workspace/boards/model/slices/selectors'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
 import { useItemPreviewStore } from '~/features/workspace/preview/model/useItemPreviewStore'
@@ -48,7 +49,6 @@ export const ItemContextMenu = ({
   const {
     item,
     selectionIds,
-    tiers,
     moveSelectedToTier,
     moveSelectedToUnranked,
     deleteSelectedItems,
@@ -56,12 +56,14 @@ export const ItemContextMenu = ({
     useShallow((s) => ({
       item: s.items[itemId],
       selectionIds: s.selection.ids,
-      tiers: s.tiers,
       moveSelectedToTier: s.moveSelectedToTier,
       moveSelectedToUnranked: s.moveSelectedToUnranked,
       deleteSelectedItems: s.deleteSelectedItems,
     }))
   )
+  // separate subscription so we re-render only when (id, name, colorSpec)
+  // changes — itemIds churn during drag preview no longer triggers updates
+  const tiers = useActiveBoardStore(selectTiersMeta)
   const paletteId = useCurrentPaletteId()
 
   const menuRef = useRef<HTMLDivElement | null>(null)

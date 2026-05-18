@@ -1,7 +1,7 @@
 // src/app/bootstrap/useAppBootstrap.ts
 // bootstrap hook — hydrate persisted stores, initialize board session, & register autosave
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useSyncExternalStore } from 'react'
 
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
@@ -72,26 +72,65 @@ const runBootstrapOnce = (): Promise<void> =>
   return bootstrapPromise
 }
 
+// module-level ready signal — set once when bootstrap resolves & broadcast
+// to every useAppReady subscriber so child routes don't each run their own
+// bootstrap effect + onFinishHydration registrations
+let appReady = false
+const readyListeners = new Set<() => void>()
+
+const markAppReady = (): void =>
+{
+  if (appReady) return
+  appReady = true
+  for (const listener of readyListeners)
+  {
+    listener()
+  }
+}
+
+const subscribeAppReady = (listener: () => void): (() => void) =>
+{
+  readyListeners.add(listener)
+  return () =>
+  {
+    readyListeners.delete(listener)
+  }
+}
+
+const getAppReadySnapshot = (): boolean => appReady
+
+export const useAppReady = (): boolean =>
+  useSyncExternalStore(
+    subscribeAppReady,
+    getAppReadySnapshot,
+    getAppReadySnapshot
+  )
+
+// owner hook — call exactly once at the root of the app chrome so the
+// hydration listeners & bootstrap kickoff happen in one place. child routes
+// subscribe via useAppReady instead of mounting their own bootstrap effect
 export const useAppBootstrap = (): boolean =>
 {
-  const [ready, setReady] = useState(false)
+  const subscribe = useCallback(
+    (listener: () => void) => subscribeAppReady(listener),
+    []
+  )
 
   useEffect(() =>
   {
+    if (appReady) return
+
     let cancelled = false
 
     const tryBootstrap = async () =>
     {
-      if (!storesHydrated())
-      {
-        return
-      }
+      if (!storesHydrated()) return
 
       await runBootstrapOnce()
 
       if (!cancelled)
       {
-        setReady(true)
+        markAppReady()
       }
     }
 
@@ -116,5 +155,5 @@ export const useAppBootstrap = (): boolean =>
     }
   }, [])
 
-  return ready
+  return useSyncExternalStore(subscribe, getAppReadySnapshot, getAppReadySnapshot)
 }

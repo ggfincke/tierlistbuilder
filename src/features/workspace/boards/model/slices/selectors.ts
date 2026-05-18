@@ -8,8 +8,9 @@ import {
   type Tier,
   type TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
+import type { TierColorSpec } from '@tierlistbuilder/contracts/lib/theme'
 import type { ActiveBoardRuntimeState } from '~/features/workspace/boards/model/runtime'
-import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
+import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
 
 // true while a pointer drag preview is active or a keyboard-drag group exists
 export const selectIsDragging = (
@@ -192,6 +193,65 @@ export const selectLabelOverrideStatus = (
   return next
 }
 
+// stable-ref meta projection for move-to / color-strip surfaces — avoids
+// re-rendering on drag-preview itemIds churn since the returned array is
+// reused while (id, name, colorSpec) are unchanged
+export interface TierMeta
+{
+  id: TierId
+  name: string
+  colorSpec: TierColorSpec
+}
+
+let cachedTiersMetaSourceRef: readonly Tier[] | null = null
+let cachedTiersMeta: readonly TierMeta[] | null = null
+
+const isSameTierMeta = (
+  prev: readonly TierMeta[],
+  tiers: readonly Tier[]
+): boolean =>
+{
+  if (prev.length !== tiers.length) return false
+  for (let i = 0; i < tiers.length; i += 1)
+  {
+    const meta = prev[i]
+    const tier = tiers[i]
+    if (
+      meta.id !== tier.id ||
+      meta.name !== tier.name ||
+      meta.colorSpec !== tier.colorSpec
+    )
+    {
+      return false
+    }
+  }
+  return true
+}
+
+export const selectTiersMeta = (
+  state: Pick<ActiveBoardRuntimeState, 'tiers'>
+): readonly TierMeta[] =>
+{
+  const tiers = state.tiers
+  if (cachedTiersMetaSourceRef === tiers && cachedTiersMeta)
+  {
+    return cachedTiersMeta
+  }
+  if (cachedTiersMeta && isSameTierMeta(cachedTiersMeta, tiers))
+  {
+    cachedTiersMetaSourceRef = tiers
+    return cachedTiersMeta
+  }
+  const next: readonly TierMeta[] = tiers.map((tier) => ({
+    id: tier.id,
+    name: tier.name,
+    colorSpec: tier.colorSpec,
+  }))
+  cachedTiersMetaSourceRef = tiers
+  cachedTiersMeta = next
+  return next
+}
+
 // drop module-level caches on board swap so a new active board doesn't
 // alias the previous board's tier/label memo entries
 export const resetBoardSelectorCaches = (): void =>
@@ -202,4 +262,6 @@ export const resetBoardSelectorCaches = (): void =>
   cachedOverrideItems = null
   cachedOverrideLabels = undefined
   cachedOverrideResult = null
+  cachedTiersMetaSourceRef = null
+  cachedTiersMeta = null
 }

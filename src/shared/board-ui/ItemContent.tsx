@@ -1,7 +1,7 @@
 // src/shared/board-ui/ItemContent.tsx
 // shared image-vs-text item rendering primitive
 
-import { useImageUrl } from '~/shared/hooks/useImageUrl'
+import { useImageUrlChain } from '~/shared/hooks/useImageUrl'
 import type {
   ImageFit,
   ItemTransform,
@@ -56,17 +56,21 @@ export const ItemContent = ({
   const refs = item.imageUrl
     ? { primary: undefined, fallback: undefined }
     : getRenderImageRefs(item, imageRendition)
-  const cachedPrimaryUrl = useImageUrl(
-    refs.primary?.ref.hash,
-    refs.primary?.ref.cloudMediaExternalId,
-    refs.primary?.variant
-  )
-  const cachedFallbackUrl = useImageUrl(
-    refs.fallback?.ref.hash,
-    refs.fallback?.ref.cloudMediaExternalId,
-    refs.fallback?.variant
-  )
-  const imageUrl = item.imageUrl ?? cachedPrimaryUrl ?? cachedFallbackUrl
+  // one useImageUrlChain per tile (was two useImageUrl calls) — for a 500-tile
+  // board this halves useSyncExternalStore subscriber registrations
+  const cachedUrl = useImageUrlChain([
+    {
+      hash: refs.primary?.ref.hash,
+      cloudMediaExternalId: refs.primary?.ref.cloudMediaExternalId,
+      variant: refs.primary?.variant,
+    },
+    {
+      hash: refs.fallback?.ref.hash,
+      cloudMediaExternalId: refs.fallback?.ref.cloudMediaExternalId,
+      variant: refs.fallback?.variant,
+    },
+  ])
+  const imageUrl = item.imageUrl ?? cachedUrl
 
   if (imageUrl)
   {
