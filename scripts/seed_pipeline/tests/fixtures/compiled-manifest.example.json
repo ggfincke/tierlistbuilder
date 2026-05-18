@@ -3,7 +3,7 @@
   "datasetKey": "marketplace-core",
   "releaseId": "2026-05-templates-v1",
   "authorEmail": "tterrag456@gmail.com",
-  "sourceManifestPath": "data/seeds/examples/marketplace-core.source.example.json",
+  "sourceManifestPath": "data/seeds/marketplace-core.json",
   "generatedAt": "2026-05-10T00:00:00.000Z",
   "variantSpecVersion": "seed-variants-v1",
   "totals": {
@@ -28,8 +28,8 @@
       "itemAspectRatio": 1,
       "ratioSource": "consistent",
       "coverImage": {
-        "sourcePath": "/workspace/data/seeds/assets/covers/ssbu-fighters.jpg",
-        "sourcePathRelative": "data/seeds/assets/covers/ssbu-fighters.jpg",
+        "sourcePath": "/workspace/examples/gaming/ssbu-fighters/_cover.jpg",
+        "sourcePathRelative": "examples/gaming/ssbu-fighters/_cover.jpg",
         "sourceSha256": "c1b3f27a96e7339cc3dddb595ef20bf12091f7eb044c89791c2ce04bca74fce8",
         "sourceMimeType": "image/jpeg",
         "sourceByteSize": 185000,

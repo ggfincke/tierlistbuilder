@@ -1,5 +1,8 @@
 # scripts/seed_pipeline/seed_pipeline/validate.py
-# validate source manifests before cache builds or network work
+# semantic validation on the composed source manifest. per-file schema validation
+# happens earlier in source.compose_dataset; this layer covers cross-file rules
+# (criteria primaries, item label policy, ranking targets) that can only be checked
+# after the split files are stitched together.
 
 from __future__ import annotations
 
@@ -7,10 +10,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
-
-from .manifest import JsonObject, as_list, as_str, read_json
-from .settings import SOURCE_SCHEMA_RELATIVE_PATH, SUPPORTED_SOURCE_SUFFIXES
+from .manifest import JsonObject, as_list, as_str
+from .settings import SUPPORTED_SOURCE_SUFFIXES
+from .source import (
+    CompositionError,
+    DatasetCompositionError,
+    compose_dataset,
+)
 
 
 # diagnostics stay serializable so CLI output, tests, & future reports share shape
@@ -48,17 +54,12 @@ class ManifestValidationError(Exception):
 
 
 def validate_source_manifest(manifest_path: Path, repo_root: Path) -> ValidationResult:
-    if not manifest_path.is_file():
-        # return a diagnostic instead of throwing so CLI output stays uniform
-        error = _error("missingManifest", "$", str(manifest_path))
-        return ValidationResult(manifest={}, warnings=(), errors=(error,))
-    manifest = read_json(manifest_path)
-    schema = read_json(repo_root / SOURCE_SCHEMA_RELATIVE_PATH)
-    diagnostics: list[ValidationDiagnostic] = []
-    diagnostics.extend(_schema_diagnostics(manifest, schema))
-    # run semantic checks only after shape is known enough for predictable paths
-    if not diagnostics:
-        diagnostics.extend(_semantic_diagnostics(manifest, manifest_path, repo_root))
+    try:
+        manifest = compose_dataset(manifest_path, repo_root)
+    except DatasetCompositionError as exc:
+        errors = tuple(_from_composition(error) for error in exc.errors)
+        return ValidationResult(manifest={}, warnings=(), errors=errors)
+    diagnostics = _semantic_diagnostics(manifest, repo_root)
     errors = tuple(item for item in diagnostics if item.severity == "error")
     warnings = tuple(item for item in diagnostics if item.severity == "warning")
     return ValidationResult(manifest=manifest, warnings=warnings, errors=errors)
@@ -71,54 +72,28 @@ def assert_valid_source_manifest(manifest_path: Path, repo_root: Path) -> JsonOb
     return result.manifest
 
 
-def _schema_diagnostics(value: JsonObject, schema: JsonObject) -> list[ValidationDiagnostic]:
-    validator = Draft202012Validator(schema)
-    diagnostics: list[ValidationDiagnostic] = []
-    for error in sorted(validator.iter_errors(value), key=lambda item: item.json_path):
-        diagnostics.append(
-            ValidationDiagnostic(
-                code="schema",
-                message=error.message,
-                path=error.json_path,
-                severity="error",
-            )
-        )
-    return diagnostics
+def _from_composition(error: CompositionError) -> ValidationDiagnostic:
+    return ValidationDiagnostic(
+        code=error.code,
+        message=error.message,
+        path=error.path,
+        severity="error",
+    )
 
 
 def _semantic_diagnostics(
-    manifest: JsonObject, manifest_path: Path, repo_root: Path
+    manifest: JsonObject, repo_root: Path
 ) -> list[ValidationDiagnostic]:
     diagnostics: list[ValidationDiagnostic] = []
     templates = as_list(manifest.get("templates"))
-    seen_templates: set[str] = set()
-    # validate cross-field rules after schema checks have stabilized key paths
     for template_index, template in enumerate(templates):
         template_path = f"$.templates[{template_index}]"
         if not isinstance(template, dict):
             continue
-        external_id = as_str(template.get("externalId"))
-        if external_id in seen_templates:
-            diagnostics.append(
-                _error("duplicateTemplateExternalId", template_path, external_id)
-            )
-        seen_templates.add(external_id)
-        folder = _repo_local_path(repo_root / as_str(template.get("folder")), repo_root)
-        if folder is None:
-            diagnostics.append(_error("pathEscapesRepo", template_path, external_id))
-            continue
-        if not folder.is_dir():
-            diagnostics.append(_error("missingTemplateFolder", template_path, str(folder)))
-            continue
-        cover_image = template.get("coverImage")
-        if isinstance(cover_image, str):
-            _check_source_image(
-                repo_root / cover_image,
-                f"{template_path}.coverImage",
-                diagnostics,
-                repo_root,
-            )
-        # criteria/items each own template-scoped identity rules
+        folder_rel = as_str(template.get("folder"))
+        folder = repo_root / folder_rel
+        # the composer guarantees folder exists (the _template.json lives in it),
+        # so we skip a redundant directory check and go straight to criteria/items
         _check_criteria(template, template_path, diagnostics)
         _check_items(template, folder, repo_root, template_path, diagnostics)
     _check_ranking_seeds(manifest, templates, diagnostics)

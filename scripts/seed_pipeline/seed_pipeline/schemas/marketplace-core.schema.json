@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tierlistbuilder.local/schemas/seed-marketplace-core.schema.json",
+  "title": "Tierlistbuilder Seed Dataset Index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "datasetKey",
+    "releaseId",
+    "authorEmail",
+    "templateOrder"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "datasetKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "releaseId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[0-9a-z]+(?:-[0-9a-z]+)*$"
+    },
+    "authorEmail": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 254,
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    },
+    "templateOrder": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 96,
+        "pattern": "^[a-z0-9]+(?::[a-z0-9]+(?:-[a-z0-9]+)*)+$"
+      }
+    }
+  }
+}

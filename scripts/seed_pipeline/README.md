@@ -45,8 +45,34 @@ python -m seed_pipeline validate data/seeds/marketplace-core.json
 .seed-cache/<datasetKey>/<releaseId>/
 ```
 
-That cache is disposable and ignored by Git. The source manifest under
-`data/seeds/` is the canonical artifact.
+That cache is disposable and ignored by Git.
+
+All seed source data lives on disk locally and is gitignored. The canonical
+source spans:
+
+- `data/seeds/marketplace-core.json` — thin index: `schemaVersion`, `datasetKey`,
+  `releaseId`, `authorEmail`, `templateOrder[]`.
+- `data/seeds/templates/<category>/<slug>.json` — one per template; carries
+  `externalId`, `folder` (relative path to assets), `title`, `description`,
+  `tags`, `category`, `visibility`, `labelPolicy`, `criteria`, `items`, and
+  optional `coverZoom`, `labels`, `suggestedTiers`.
+- `examples/<category>/<slug>/_cover.{jpg,jpeg,png,webp}` (optional) — hero
+  image, auto-detected by the build. Exactly one per folder.
+- `examples/<category>/<slug>/*.{jpg,png,webp,...}` — item images referenced
+  by `_template.json` items[].image.
+- `data/seeds/ranking-profiles.json` (optional) — extracted ranking seed config.
+
+`examples/` and `data/seeds/{marketplace-core.json,ranking-profiles.json,templates/}`
+are all gitignored. Schemas, the pipeline code, and tests live inside this
+package (`scripts/seed_pipeline/seed_pipeline/schemas/` and `tests/fixtures/`)
+so they travel with the pipeline rather than being checked in alongside data.
+
+The composition layer at `seed_pipeline.source.compose_dataset` reads and
+validates each split file, auto-detects covers, and hands a legacy in-memory
+shape to `build.py`. Adding a template requires writing
+`data/seeds/templates/<cat>/<slug>.json` and adding its `externalId` to
+`templateOrder[]`; an unreferenced template file or orphan order entry is a
+hard error.
 
 ## Read Commands
 
