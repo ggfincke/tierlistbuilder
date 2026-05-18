@@ -17,7 +17,10 @@ import { generateItemId, type ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { MAX_DELETED_ITEMS } from '~/features/workspace/boards/model/slices/helpers'
 import { withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
 import { buildRemoveItemsPatch } from '~/features/workspace/boards/model/slices/boardData/itemRemoval'
-import type { ActiveBoardSliceCreator, BoardDataSlice } from '~/features/workspace/boards/model/slices/types'
+import type {
+  ActiveBoardSliceCreator,
+  BoardDataSlice,
+} from '~/features/workspace/boards/model/slices/types'
 
 type ItemActions = Pick<
   BoardDataSlice,

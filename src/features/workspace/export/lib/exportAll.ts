@@ -7,7 +7,10 @@ import type {
   BoardSnapshotWire,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type jsPDFType from 'jspdf'
-import type { ExportAppearance, ImageFormat } from '~/features/workspace/export/model/runtime'
+import type {
+  ExportAppearance,
+  ImageFormat,
+} from '~/features/workspace/export/model/runtime'
 import { BOARD_DATA_VERSION } from '@tierlistbuilder/contracts/workspace/boardEnvelope'
 import { loadPersistedBoard } from '~/features/workspace/boards/model/boardSession'
 import { collectSnapshotExportImageHashes } from '~/shared/lib/boardSnapshotItems'
@@ -19,7 +22,10 @@ import { downloadBlob } from '~/shared/lib/downloadBlob'
 import { toFileBase } from '~/shared/lib/fileName'
 import { loadPdfLib, loadZipLib } from '~/shared/lib/lazyDependencies'
 import { getBlobsBatch } from '~/shared/images/imageStore'
-import { EXPORT_PIXEL_RATIO, IMAGE_FORMAT_META } from '~/features/workspace/export/lib/constants'
+import {
+  EXPORT_PIXEL_RATIO,
+  IMAGE_FORMAT_META,
+} from '~/features/workspace/export/lib/constants'
 import { renderToBlob } from '~/features/workspace/export/lib/exportImage'
 import { withExportSession } from '~/features/workspace/export/lib/exportBoardRender'
 

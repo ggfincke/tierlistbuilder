@@ -13,6 +13,7 @@ import {
 import {
   normalizeBoardTitle,
   type BoardSnapshot,
+  type CloudMediaOwnership,
   type Tier,
   type TierItem,
   type TierItemImageRef,
@@ -67,6 +68,8 @@ const SOURCE_MEDIA_FETCH_CONCURRENCY = 4
 // convert a marketplace media ref into the local image-ref shape. content
 // hash + externalId keep cloud fallback identity; public URL bytes are cached
 // before activation so signed-out forks render without auth-backed lookup.
+const SOURCE_OWNERSHIP: CloudMediaOwnership = 'source'
+
 const mediaToImageRef = (
   media: TemplateMediaRef | null
 ): TierItemImageRef | undefined =>
@@ -74,7 +77,7 @@ const mediaToImageRef = (
     ? {
         hash: media.contentHash,
         cloudMediaExternalId: media.externalId,
-        cloudMediaOwnership: 'source',
+        cloudMediaOwnership: SOURCE_OWNERSHIP,
       }
     : undefined
 
@@ -312,7 +315,9 @@ export const createLocalBoardFromTemplate = async (
     ...(template.coverMedia
       ? { sourceTemplateCoverMedia: template.coverMedia }
       : {}),
-    sourceTemplateCoverFraming: template.coverFraming,
+    ...(template.coverFraming
+      ? { sourceTemplateCoverFraming: template.coverFraming }
+      : {}),
     ...(preferredCriterionExternalId ? { preferredCriterionExternalId } : {}),
   }
 

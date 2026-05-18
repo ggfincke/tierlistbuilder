@@ -14,6 +14,17 @@ export const isPresent = <T>(value: T): value is NonNullable<T> =>
 export const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0
 
+// narrow an unknown to an optional string — undefined OR string both pass.
+// useful for wire-shape type guards over fields that are `string | undefined`
+export const isOptionalString = (value: unknown): value is string | undefined =>
+  value === undefined || typeof value === 'string'
+
+// return the value when it's a non-empty string, otherwise undefined. the
+// projecting sibling to isNonEmptyString — drop-in for normalizer call sites
+// that want `typeof x === 'string' && x.length > 0 ? x : undefined`
+export const asNonEmptyString = (value: unknown): string | undefined =>
+  isNonEmptyString(value) ? value : undefined
+
 export { isPositiveFiniteNumber } from '@tierlistbuilder/contracts/lib/typeGuards'
 
 // membership check on a branded-string array vs a plain string. centralizes

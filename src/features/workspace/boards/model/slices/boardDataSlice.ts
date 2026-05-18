@@ -10,7 +10,10 @@ import { createLabelActions } from '~/features/workspace/boards/model/slices/boa
 import { createLifecycleActions } from '~/features/workspace/boards/model/slices/boardData/lifecycleActions'
 import { createStyleOverrideActions } from '~/features/workspace/boards/model/slices/boardData/styleOverrideActions'
 import { createTierActions } from '~/features/workspace/boards/model/slices/boardData/tierActions'
-import type { ActiveBoardSliceCreator, BoardDataSlice } from '~/features/workspace/boards/model/slices/types'
+import type {
+  ActiveBoardSliceCreator,
+  BoardDataSlice,
+} from '~/features/workspace/boards/model/slices/types'
 
 export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
   set,

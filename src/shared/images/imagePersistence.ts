@@ -6,7 +6,11 @@ import { dataUrlMimeType, dataUrlToBytes } from '~/shared/lib/binaryCodec'
 import { sha256Hex, sha256HexFromBlob } from '~/shared/lib/sha256'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { cacheFreshBlobs } from '~/shared/images/imageBlobCache'
-import { probeImageStore, putBlobs, type BlobRecord } from '~/shared/images/imageStore'
+import {
+  probeImageStore,
+  putBlobs,
+  type BlobRecord,
+} from '~/shared/images/imageStore'
 
 // bound parallel blob prepare work (hash + record build). limit is low because
 // hashing is CPU-heavy & we don't want to starve the main thread
@@ -72,9 +76,8 @@ export const prepareDataUrlRecord = async (
   }
 }
 
-// commit prepared records & warm the cache. putBlobs logs IDB failures
-// internally; the in-memory cache stays warm so the active session renders
-// even when persistence is down. hard-fail callers gate on probeImageStore
+// commit prepared records & warm the cache. putBlobs throws IDB failures so
+// upload/import callers never attach refs to bytes that will vanish on reload.
 export const persistPreparedBlobRecords = async (
   prepared: readonly PreparedBlobRecord[],
   warmCache = true

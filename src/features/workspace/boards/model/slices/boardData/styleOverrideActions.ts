@@ -1,7 +1,10 @@
 // src/features/workspace/boards/model/slices/boardData/styleOverrideActions.ts
 // per-board style override setters for palette, text style, & page background
 
-import type { ActiveBoardSliceCreator, BoardDataSlice } from '~/features/workspace/boards/model/slices/types'
+import type {
+  ActiveBoardSliceCreator,
+  BoardDataSlice,
+} from '~/features/workspace/boards/model/slices/types'
 
 type StyleOverrideActions = Pick<
   BoardDataSlice,

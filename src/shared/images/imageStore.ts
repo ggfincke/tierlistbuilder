@@ -209,6 +209,9 @@ const openDatabaseSafe = async (): Promise<IDBDatabase | null> =>
   }
 }
 
+const imageStoreUnavailableError = (): Error =>
+  new Error('IndexedDB image storage is unavailable.')
+
 const awaitRequest = <T>(request: IDBRequest<T>): Promise<T> =>
   new Promise((resolve, reject) =>
   {
@@ -362,27 +365,18 @@ const fillMemoryFallback = (
   }
 }
 
-// write a single blob record
+// write a single blob record. throws when IDB is unavailable or the write
+// fails so callers can avoid attaching refs to bytes that won't persist
 export const putBlob = async (record: BlobRecord): Promise<void> =>
 {
   touchMemoryBlob(record)
   pruneMemoryCaches(new Set([record.hash]))
   const db = await openDatabaseSafe()
-  if (!db)
-  {
-    return
-  }
+  if (!db) throw imageStoreUnavailableError()
 
-  try
-  {
-    const tx = db.transaction(BLOBS_STORE, 'readwrite')
-    tx.objectStore(BLOBS_STORE).put(record)
-    await awaitTransaction(tx)
-  }
-  catch (error)
-  {
-    logger.warn('image', `IDB putBlob failed for ${record.hash}:`, error)
-  }
+  const tx = db.transaction(BLOBS_STORE, 'readwrite')
+  tx.objectStore(BLOBS_STORE).put(record)
+  await awaitTransaction(tx)
 }
 
 // read a single blob record
@@ -432,15 +426,14 @@ export const getBlob = async (
   }
 }
 
-// write many blob records in one transaction
+// write many blob records in one transaction. throws when IDB is unavailable
+// or the transaction fails so callers can avoid attaching refs to bytes that
+// won't persist
 export const putBlobs = async (
   records: readonly BlobRecord[]
 ): Promise<void> =>
 {
-  if (records.length === 0)
-  {
-    return
-  }
+  if (records.length === 0) return
 
   for (const record of records)
   {
@@ -449,29 +442,15 @@ export const putBlobs = async (
   pruneMemoryCaches(new Set(records.map((record) => record.hash)))
 
   const db = await openDatabaseSafe()
-  if (!db)
-  {
-    return
-  }
+  if (!db) throw imageStoreUnavailableError()
 
-  try
+  const tx = db.transaction(BLOBS_STORE, 'readwrite')
+  const store = tx.objectStore(BLOBS_STORE)
+  for (const record of records)
   {
-    const tx = db.transaction(BLOBS_STORE, 'readwrite')
-    const store = tx.objectStore(BLOBS_STORE)
-    for (const record of records)
-    {
-      store.put(record)
-    }
-    await awaitTransaction(tx)
+    store.put(record)
   }
-  catch (error)
-  {
-    logger.warn(
-      'image',
-      `IDB putBlobs failed for ${records.length} record(s):`,
-      error
-    )
-  }
+  await awaitTransaction(tx)
 }
 
 // read many blob records in one transaction, bounded concurrency to keep

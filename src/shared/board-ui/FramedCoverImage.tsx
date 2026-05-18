@@ -6,7 +6,10 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { CoverFrame } from '@tierlistbuilder/contracts/marketplace/template'
 
-import type { MediaDecoding, MediaLoading } from '~/shared/board-ui/mediaImageAttrs'
+import type {
+  MediaDecoding,
+  MediaLoading,
+} from '~/shared/board-ui/mediaImageAttrs'
 import { coverFramePlacementStyle } from '~/shared/board-ui/coverFramingStyles'
 import { computeFramedPlacement } from '~/shared/board-ui/coverFramingPlacement'
 

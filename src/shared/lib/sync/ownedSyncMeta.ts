@@ -1,7 +1,10 @@
 // src/shared/lib/sync/ownedSyncMeta.ts
 // shared owner-scoped pending/synced timestamp helpers for sync sidecars
 
-import { isNonEmptyString, isPositiveFiniteNumber } from '~/shared/lib/typeGuards'
+import {
+  isNonEmptyString,
+  isPositiveFiniteNumber,
+} from '~/shared/lib/typeGuards'
 
 export interface OwnedSyncMeta
 {

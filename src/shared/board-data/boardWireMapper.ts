@@ -29,7 +29,7 @@ import {
 import { getBlobsBatch, probeImageStore } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { decodeImageAspectRatioFromBlob } from '~/shared/images/imageLoad'
-import { isRecord } from '~/shared/lib/typeGuards'
+import { isOptionalString, isRecord } from '~/shared/lib/typeGuards'
 import {
   ASPECT_RATIO_MODES,
   IMAGE_FITS,
@@ -47,32 +47,19 @@ const isTierItemImageRef = (value: unknown): value is TierItemImageRef =>
   return isRecord(value) && typeof value.hash === 'string'
 }
 
+const OPTIONAL_STRING_WIRE_FIELDS = [
+  'imageUrl',
+  'label',
+  'backgroundColor',
+  'altText',
+  'notes',
+  'sourceTemplateItemExternalId',
+] as const satisfies readonly (keyof TierItemWire)[]
+
 const isTierItemWire = (value: unknown): value is TierItemWire =>
 {
-  if (!isRecord(value) || typeof value.id !== 'string')
-  {
-    return false
-  }
-
-  if (value.imageUrl !== undefined && typeof value.imageUrl !== 'string')
-  {
-    return false
-  }
-
-  if (value.label !== undefined && typeof value.label !== 'string')
-  {
-    return false
-  }
-
-  if (
-    value.backgroundColor !== undefined &&
-    typeof value.backgroundColor !== 'string'
-  )
-  {
-    return false
-  }
-
-  return value.altText === undefined || typeof value.altText === 'string'
+  if (!isRecord(value) || typeof value.id !== 'string') return false
+  return OPTIONAL_STRING_WIRE_FIELDS.every((field) => isOptionalString(value[field]))
 }
 
 const getBlobDataUrl = async (
@@ -130,7 +117,9 @@ const itemToWire = async (
   )
 }
 
-// convert a snapshot to wire shape using a preloaded hash -> Blob map
+// convert a snapshot to wire shape using a preloaded hash -> Blob map.
+// every non-item field passes through verbatim (snapshot & wire only differ on
+// item shape), so spread + override keeps the field list in one place
 export const snapshotToWireWithBlobs = async (
   snapshot: BoardSnapshot,
   blobsByHash: ReadonlyMap<string, Blob | null>
@@ -146,19 +135,9 @@ export const snapshotToWireWithBlobs = async (
     )
 
   return {
-    title: snapshot.title,
-    tiers: snapshot.tiers,
-    unrankedItemIds: snapshot.unrankedItemIds,
+    ...snapshot,
     items: items as BoardSnapshotWire['items'],
     deletedItems,
-    itemAspectRatio: snapshot.itemAspectRatio,
-    itemAspectRatioMode: snapshot.itemAspectRatioMode,
-    aspectRatioPromptDismissed: snapshot.aspectRatioPromptDismissed,
-    defaultItemImageFit: snapshot.defaultItemImageFit,
-    paletteId: snapshot.paletteId,
-    textStyleId: snapshot.textStyleId,
-    pageBackground: snapshot.pageBackground,
-    labels: snapshot.labels,
   }
 }
 
@@ -248,7 +227,15 @@ const wireItemToSnapshotItem = (
   prepared: PreparedWireImage | undefined
 ): TierItem =>
 {
-  const { id, imageUrl, label, backgroundColor, altText } = item
+  const {
+    id,
+    imageUrl,
+    label,
+    backgroundColor,
+    altText,
+    notes,
+    sourceTemplateItemExternalId,
+  } = item
   // prefer the wire's captured aspect ratio; fall back to the ratio decoded
   // during persist so items without an explicit wire field still render right
   const aspectRatio =
@@ -261,10 +248,12 @@ const wireItemToSnapshotItem = (
     label,
     backgroundColor,
     altText,
+    notes,
     aspectRatio,
     imageFit,
     ...(transform ? { transform } : {}),
     ...(labelOptions ? { labelOptions } : {}),
+    ...(sourceTemplateItemExternalId ? { sourceTemplateItemExternalId } : {}),
   }
 
   if (prepared)
@@ -328,7 +317,11 @@ export const wireToSnapshot = async (
     ([key, item]) => wireItemToSnapshotItem(item, preparedById.get(key))
   )
 
+  // spread first for the source-template & criterion passthroughs; the
+  // downstream normalizeBoardSnapshot pass re-validates them at the JSON-import
+  // boundary, so untrusted strings can't reach the store
   return {
+    ...wire,
     title: typeof wire.title === 'string' ? wire.title : fallbackTitle,
     tiers: Array.isArray(wire.tiers) ? wire.tiers : [],
     unrankedItemIds: Array.isArray(wire.unrankedItemIds)

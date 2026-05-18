@@ -42,7 +42,10 @@ import {
 import { useImageEditorSelection } from '~/features/workspace/imageEditor/model/useImageEditorSelection'
 import { useSelectedItemHandlers } from '~/features/workspace/imageEditor/model/transform/useSelectedItemHandlers'
 import { BoardControlsBar } from '~/features/workspace/imageEditor/ui/BoardControlsBar'
-import { ImageEditorPane, type ImageEditorPaneHandle } from '~/features/workspace/imageEditor/ui/ImageEditorPane'
+import {
+  ImageEditorPane,
+  type ImageEditorPaneHandle,
+} from '~/features/workspace/imageEditor/ui/ImageEditorPane'
 import { ImageEditorModalDialogs } from '~/features/workspace/imageEditor/ui/ImageEditorModalDialogs'
 import { ImageEditorRail } from '~/features/workspace/imageEditor/ui/ImageEditorRail'
 import {

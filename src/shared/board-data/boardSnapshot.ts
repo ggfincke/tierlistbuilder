@@ -14,6 +14,12 @@ import type {
   TierItemImageRef,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
+  COVER_SURFACES,
+  type CoverFrame,
+  type TemplateCoverFraming,
+  type TemplateMediaRef,
+} from '@tierlistbuilder/contracts/marketplace/template'
+import {
   asItemId,
   generateTierId,
   isTierId,
@@ -29,7 +35,15 @@ import {
   getAutoTierColorSpec,
   normalizeCanonicalTierColorSpec,
 } from '~/shared/theme/tierColors'
-import { isRecord } from '~/shared/lib/typeGuards'
+import {
+  asNonEmptyString,
+  isNonEmptyString,
+  isRecord,
+} from '~/shared/lib/typeGuards'
+import {
+  CLOUD_MEDIA_OWNERSHIPS,
+  type CloudMediaOwnership,
+} from '@tierlistbuilder/contracts/workspace/board'
 import {
   ASPECT_RATIO_MODES,
   IMAGE_FITS,
@@ -108,12 +122,85 @@ const pickTierId = (
   return generated
 }
 
+const isCloudMediaOwnership = (raw: unknown): raw is CloudMediaOwnership =>
+  (CLOUD_MEDIA_OWNERSHIPS as readonly string[]).includes(raw as string)
+
 const normalizeImageRef = (raw: unknown): TierItemImageRef | undefined =>
 {
   if (!isRecord(raw)) return undefined
-  const hash = raw.hash
-  if (typeof hash !== 'string' || hash.length === 0) return undefined
-  return { hash }
+  if (!isNonEmptyString(raw.hash)) return undefined
+
+  const cloudMediaExternalId = asNonEmptyString(raw.cloudMediaExternalId)
+  return {
+    hash: raw.hash,
+    ...(cloudMediaExternalId !== undefined ? { cloudMediaExternalId } : {}),
+    ...(isCloudMediaOwnership(raw.cloudMediaOwnership)
+      ? { cloudMediaOwnership: raw.cloudMediaOwnership }
+      : {}),
+  }
+}
+
+const normalizeTemplateMediaRef = (
+  raw: unknown
+): TemplateMediaRef | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const externalId = asNonEmptyString(raw.externalId)
+  const contentHash = asNonEmptyString(raw.contentHash)
+  const url = asNonEmptyString(raw.url)
+  const mimeType = asNonEmptyString(raw.mimeType)
+  if (
+    externalId === undefined ||
+    contentHash === undefined ||
+    url === undefined ||
+    mimeType === undefined
+  )
+  {
+    return undefined
+  }
+
+  const width = normalizePositiveFinite(raw.width)
+  const height = normalizePositiveFinite(raw.height)
+  if (width === undefined || height === undefined) return undefined
+
+  return { externalId, contentHash, url, width, height, mimeType }
+}
+
+const normalizeCoverFrame = (raw: unknown): CoverFrame | null =>
+{
+  if (!isRecord(raw)) return null
+  const { x, y } = raw
+  if (
+    typeof x !== 'number' ||
+    !Number.isFinite(x) ||
+    typeof y !== 'number' ||
+    !Number.isFinite(y)
+  )
+  {
+    return null
+  }
+
+  const width = normalizePositiveFinite(raw.width)
+  const height = normalizePositiveFinite(raw.height)
+  if (width === undefined || height === undefined) return null
+
+  return { x, y, width, height }
+}
+
+// per-surface null is semantic ("this surface was not framed"); a fully-
+// missing framing object collapses to undefined to match the contract's
+// optional-only shape
+const normalizeTemplateCoverFraming = (
+  raw: unknown
+): TemplateCoverFraming | undefined =>
+{
+  if (!isRecord(raw)) return undefined
+  const framing = {} as TemplateCoverFraming
+  for (const surface of COVER_SURFACES)
+  {
+    framing[surface] = normalizeCoverFrame(raw[surface])
+  }
+  return framing
 }
 
 // drop unknown fields & validate primitive shapes. items w/o a valid `id`
@@ -132,6 +219,10 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   const transform = normalizeItemTransform(raw.transform)
   const labelOptions = normalizeItemLabelOptions(raw.labelOptions)
 
+  const sourceTemplateItemExternalId = asNonEmptyString(
+    raw.sourceTemplateItemExternalId
+  )
+
   const item: TierItem = { id }
   if (imageRef) item.imageRef = imageRef
   if (tileImageRef) item.tileImageRef = tileImageRef
@@ -140,10 +231,15 @@ const normalizeTierItem = (raw: unknown): TierItem | null =>
   if (typeof raw.backgroundColor === 'string')
     item.backgroundColor = raw.backgroundColor
   if (typeof raw.altText === 'string') item.altText = raw.altText
+  if (typeof raw.notes === 'string') item.notes = raw.notes
   if (aspectRatio !== undefined) item.aspectRatio = aspectRatio
   if (imageFit !== undefined) item.imageFit = imageFit
   if (transform !== undefined) item.transform = transform
   if (labelOptions !== undefined) item.labelOptions = labelOptions
+  if (sourceTemplateItemExternalId !== undefined)
+  {
+    item.sourceTemplateItemExternalId = sourceTemplateItemExternalId
+  }
   return item
 }
 
@@ -220,10 +316,9 @@ export const createNewTier = (
   itemIds: [],
 })
 
-type BoardSnapshotSource = BoardSnapshot
-
-export type BoardDataSelection = Pick<BoardSnapshotSource, keyof BoardSnapshot>
-
+// authoritative list of BoardSnapshot fields persisted/synced as a unit.
+// `satisfies` keeps projector & equality aligned w/ the contract — adding
+// a snapshot field is a typecheck error here until the list grows too
 const BOARD_DATA_SELECTION_KEYS = [
   'title',
   'tiers',
@@ -238,29 +333,18 @@ const BOARD_DATA_SELECTION_KEYS = [
   'textStyleId',
   'pageBackground',
   'labels',
-] as const satisfies readonly (keyof BoardDataSelection)[]
-
-export const selectBoardDataFields = (
-  state: BoardSnapshotSource
-): BoardDataSelection => ({
-  title: state.title,
-  tiers: state.tiers,
-  unrankedItemIds: state.unrankedItemIds,
-  items: state.items,
-  deletedItems: state.deletedItems,
-  itemAspectRatio: state.itemAspectRatio,
-  itemAspectRatioMode: state.itemAspectRatioMode,
-  aspectRatioPromptDismissed: state.aspectRatioPromptDismissed,
-  defaultItemImageFit: state.defaultItemImageFit,
-  paletteId: state.paletteId,
-  textStyleId: state.textStyleId,
-  pageBackground: state.pageBackground,
-  labels: state.labels,
-})
+  'sourceTemplateId',
+  'sourceRankingId',
+  'sourceTemplateTitle',
+  'sourceRankingTitle',
+  'sourceTemplateCoverMedia',
+  'sourceTemplateCoverFraming',
+  'preferredCriterionExternalId',
+] as const satisfies readonly (keyof BoardSnapshot)[]
 
 export const boardDataFieldsEqual = (
-  a: BoardDataSelection,
-  b: BoardDataSelection
+  a: BoardSnapshot,
+  b: BoardSnapshot
 ): boolean =>
 {
   for (const key of BOARD_DATA_SELECTION_KEYS)
@@ -274,26 +358,21 @@ export const boardDataFieldsEqual = (
   return true
 }
 
-export const extractBoardData = (
-  state: BoardSnapshotSource
-): BoardSnapshot => ({
-  title: state.title,
-  tiers: state.tiers,
-  unrankedItemIds: state.unrankedItemIds,
-  items: state.items,
-  deletedItems: state.deletedItems,
-  itemAspectRatio: state.itemAspectRatio,
-  itemAspectRatioMode: state.itemAspectRatioMode,
-  aspectRatioPromptDismissed: state.aspectRatioPromptDismissed,
-  defaultItemImageFit: state.defaultItemImageFit,
-  paletteId: state.paletteId,
-  textStyleId: state.textStyleId,
-  pageBackground: state.pageBackground,
-  labels: state.labels,
-})
+// project the BoardSnapshot fields out of any superset (eg the active-board
+// zustand store, which also carries actions & runtime-only state). derives
+// the key list once so adding a snapshot field doesn't need a third edit here
+export const extractBoardData = (state: BoardSnapshot): BoardSnapshot =>
+{
+  const result = {} as { [K in keyof BoardSnapshot]: BoardSnapshot[K] }
+  for (const key of BOARD_DATA_SELECTION_KEYS)
+  {
+    result[key] = state[key] as never
+  }
+  return result
+}
 
 export const resetBoardData = (
-  state: BoardSnapshotSource,
+  state: BoardSnapshot,
   paletteId: PaletteId
 ): BoardSnapshot =>
 {
@@ -348,5 +427,18 @@ export const normalizeBoardSnapshot = (
       ? value.pageBackground
       : undefined,
     labels: normalizeBoardLabelSettings(value?.labels),
+    sourceTemplateId: asNonEmptyString(value?.sourceTemplateId),
+    sourceRankingId: asNonEmptyString(value?.sourceRankingId),
+    sourceTemplateTitle: asNonEmptyString(value?.sourceTemplateTitle),
+    sourceRankingTitle: asNonEmptyString(value?.sourceRankingTitle),
+    sourceTemplateCoverMedia: normalizeTemplateMediaRef(
+      value?.sourceTemplateCoverMedia
+    ),
+    sourceTemplateCoverFraming: normalizeTemplateCoverFraming(
+      value?.sourceTemplateCoverFraming
+    ),
+    preferredCriterionExternalId: asNonEmptyString(
+      value?.preferredCriterionExternalId
+    ),
   }
 }

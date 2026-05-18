@@ -39,7 +39,10 @@ import {
   loadBoardState,
   saveActiveBoardSnapshot,
 } from '~/features/workspace/boards/model/session/boardSessionPersistence'
-import { notifyBoardChanged, notifyBoardDeleted } from '~/features/workspace/boards/model/session/boardSessionEvents'
+import {
+  notifyBoardChanged,
+  notifyBoardDeleted,
+} from '~/features/workspace/boards/model/session/boardSessionEvents'
 
 const createBlankBoardData = (): BoardSnapshot => ({
   title: DEFAULT_TITLE,

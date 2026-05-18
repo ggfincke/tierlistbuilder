@@ -10,7 +10,10 @@ import {
 } from '~/features/workspace/boards/model/sync'
 import { countActiveItems } from '~/features/workspace/boards/model/slices/helpers'
 import { createBoardSyncStatePatch } from '~/features/workspace/boards/model/slices/syncStateOps'
-import type { ActiveBoardSliceCreator, BoardDataSlice } from '~/features/workspace/boards/model/slices/types'
+import type {
+  ActiveBoardSliceCreator,
+  BoardDataSlice,
+} from '~/features/workspace/boards/model/slices/types'
 
 type LifecycleActions = Pick<
   BoardDataSlice,

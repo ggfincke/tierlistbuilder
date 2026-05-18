@@ -40,6 +40,7 @@ describe('snapshot codec', () =>
         [asItemId('a')]: {
           id: asItemId('a'),
           label: 'x',
+          notes: 'private rationale',
           imageRef: { hash: 'img-1' },
           tileImageRef: { hash: 'tile-1' },
           sourceImageRef: { hash: 'source-1' },
@@ -54,6 +55,7 @@ describe('snapshot codec', () =>
     expect(item).not.toHaveProperty('imageRef')
     expect(item).not.toHaveProperty('tileImageRef')
     expect(item).not.toHaveProperty('sourceImageRef')
+    expect(item).not.toHaveProperty('notes')
     expect(stripped.deletedItems).toEqual([])
   })
 

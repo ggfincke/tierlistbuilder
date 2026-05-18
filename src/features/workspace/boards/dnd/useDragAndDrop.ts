@@ -19,7 +19,10 @@ import { announce } from '~/shared/a11y/announce'
 import { getContainerLabel } from '~/features/workspace/boards/lib/containerLabel'
 import { resolveDragCollisions } from '~/features/workspace/boards/dnd/dragCollision'
 import { resolveDragEndDecision } from '~/features/workspace/boards/dnd/dragEndDecision'
-import { toItemId, toStringId } from '~/features/workspace/boards/dnd/dragHelpers'
+import {
+  toItemId,
+  toStringId,
+} from '~/features/workspace/boards/dnd/dragHelpers'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { syncDraggedItemPosition } from '~/features/workspace/boards/dnd/dragPreviewController'
 import { useDragSensors } from '~/features/workspace/boards/dnd/dragSensors'

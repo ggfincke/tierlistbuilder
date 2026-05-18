@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react'
 import { useEffect, useId, useRef } from 'react'
 
 import { joinClassNames } from '~/shared/lib/className'
+import { matchShortcut } from '~/shared/lib/keyboardShortcut'
 import { IS_MAC } from '~/shared/lib/platform'
 
 type SearchFieldSize = 'sm' | 'md'
@@ -51,7 +52,7 @@ export const SearchField = ({
 
     const handler = (event: KeyboardEvent) =>
     {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k')
+      if (matchShortcut(event, { key: 'k', mod: true }))
       {
         event.preventDefault()
         inputRef.current?.focus()

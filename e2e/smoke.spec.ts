@@ -28,3 +28,26 @@ test('app boots & core workspace UI renders', async ({ page }) =>
   const exportButton = page.getByRole('button', { name: /export/i })
   await expect(exportButton.first()).toBeVisible()
 })
+
+test('library route supports deep links, refresh, and browser history', async ({
+  page,
+}) =>
+{
+  await page.goto('/boards')
+
+  await expect(page).toHaveURL(/\/boards$/)
+  await expect(page.getByRole('heading', { name: 'My boards' })).toBeVisible()
+  await expect(page.getByLabel('Primary navigation')).toBeVisible()
+
+  await page.reload()
+  await expect(page).toHaveURL(/\/boards$/)
+  await expect(page.getByRole('heading', { name: 'My boards' })).toBeVisible()
+
+  await page.getByRole('link', { name: 'Workspace' }).click()
+  await expect(page.getByTestId('tier-list-board')).toBeVisible()
+  await expect(page).toHaveURL(/\/$/)
+
+  await page.goBack()
+  await expect(page).toHaveURL(/\/boards$/)
+  await expect(page.getByRole('heading', { name: 'My boards' })).toBeVisible()
+})

@@ -9,7 +9,10 @@ import {
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { makeSelection } from '~/features/workspace/boards/model/runtime'
 import { formatCountedWord } from '~/shared/lib/pluralize'
-import { stripItemsFromContainers, stripItemsFromSnapshot } from '~/features/workspace/boards/model/slices/helpers'
+import {
+  stripItemsFromContainers,
+  stripItemsFromSnapshot,
+} from '~/features/workspace/boards/model/slices/helpers'
 import { pushUndo } from '~/features/workspace/boards/model/slices/undoSlice'
 import type {
   ActiveBoardSliceCreator,

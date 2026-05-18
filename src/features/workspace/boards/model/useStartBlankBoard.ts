@@ -1,6 +1,6 @@
 // src/features/workspace/boards/model/useStartBlankBoard.ts
-// "+ New board" -> blank session + navigate to workspace. shared by top-nav,
-// marketplace gallery CTA, & library tile. Library opts in to toast feedback
+// "+ New board" -> blank session + navigate to workspace. Shared by top-nav
+// & library entry points. Library opts in to toast feedback.
 
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'

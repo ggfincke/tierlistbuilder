@@ -19,7 +19,7 @@
 
 ## Directory Structure
 
-The codebase is organized into three top-level layers: `app/` (bootstrap & routing), `features/{workspace,embed}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Shared serializable types live in the top-level `packages/contracts/` workspace package. See `dev-docs/archive/directory-restructure-proposal.mdx` for the long-form rationale.
+The codebase is organized into three top-level layers: `app/` (bootstrap, routing, and shells), `features/{workspace,library,embed,platform}/*` (per-slice feature code), and `shared/*` (cross-feature primitives). Shared serializable types live in the top-level `packages/contracts/` workspace package. See `dev-docs/archive/directory-restructure-proposal.mdx` for the long-form rationale.
 
 ```
 src/
@@ -29,13 +29,13 @@ src/
 │   ├── index.css                    # Tailwind entry
 │   ├── bootstrap/
 │   │   ├── useAppBootstrap.ts       # hydrate stores, bootstrap session, register autosave
-│   │   └── useThemeSync.ts          # sync theme/text-style tokens to :root (+ useLockedTheme)
 │   ├── routes/
-│   │   ├── AppRouter.tsx            # popstate-driven route selection
+│   │   ├── AppRouter.tsx            # BrowserRouter route table
+│   │   ├── AppChromeLayout.tsx      # shared top chrome + Outlet for app routes
 │   │   ├── WorkspaceRoute.tsx       # workspace entry
+│   │   ├── MyBoardsRoute.tsx        # library route entry
 │   │   ├── EmbedRoute.tsx           # embed entry
-│   │   ├── NotFoundRoute.tsx        # 404 fallback
-│   │   └── pathname.ts              # resolveAppRoute + workspace/embed path builders
+│   │   └── NotFoundRoute.tsx        # 404 fallback
 │   └── shells/
 │       ├── AppTopNav.tsx            # global top nav (brand pill, route pills, account menu)
 │       ├── topNav/                  # top-nav chrome + preferences modal layer
@@ -66,29 +66,36 @@ src/
 │       ├── data/local/              # preset storage key
 │       ├── model/                   # tier preset store, built-in presets
 │       └── ui/                      # PresetPickerModal, SavePresetModal
+├── features/library/                # My Boards page, filters, cards, list rows, local projections
 ├── features/embed/ui                # read-only EmbedView primitives
+├── features/platform/
+│   ├── media/                       # cross-feature image-file validation
+│   ├── preferences/                 # app preferences store, local storage, PreferencesModal, theme sync
+│   └── share/                       # inbound share-fragment resolver
 └── shared/
     ├── a11y/                        # announce() module, LiveRegion component
     ├── board-ui/                    # BoardPrimitives, ItemContent, ItemOverlayButton, StaticBoard, boardTestIds, constants
     ├── hooks/                       # useClipboardCopy, useInlineEdit, useImageUrl, useViewportWidth
     ├── images/                      # imageStore, imageBlobCache, imagePersistence (IndexedDB blobs + refs)
-    ├── layout/                      # toolbarPosition (cross-feature menu chrome math)
     ├── lib/                         # color, colorName, math, fileName, className, pluralize, downloadBlob,
     │                                # browserStorage, storageMetering, logger, urls, typeGuards,
     │                                # asyncMapLimit, binaryCodec, boardSnapshotItems, errors,
     │                                # localSidecar, scheduleIdle, sha256, proceedGuard
     ├── notifications/               # ToastContainer, useToastStore
     ├── overlay/                     # BaseModal, ConfirmDialog, progress, focus/inert dialog wiring,
-    │                                # dismissible layers, anchored popups, menu overflow, nested menus
+    │                                # dismissible layers, anchored popups, toolbar positioning, nested menus
     ├── selection/                   # useRovingSelection, selectionNavigation, selectionState
-    ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors, zIndex
+    ├── routes/                      # base-path-aware route constants/path helpers
+    ├── theme/                       # tokens, palettes, textStyles, runtime, tierColors
     └── ui/                          # ActionButton, Button, buttonBase, PrimaryButton, SecondaryButton,
                                      # ColorInput, ErrorBoundary, PickerGrid, SettingsSection,
-                                     # TextArea, TextInput, UploadDropzone
+                                     # SearchField, TextArea, TextInput, UploadDropzone
 
 packages/contracts/                  # @tierlistbuilder/contracts — shared serializable types
 ├── lib/                             # ids, theme, themeDefinition
-└── workspace/                       # board, boardEnvelope, settings, tierPreset
+├── marketplace/                     # template, ranking, aggregate, and seed-pipeline contracts
+├── platform/                        # upload, user, short-link, preferences, and error contracts
+└── workspace/                       # board, boardEnvelope, sync, settings, tierPreset
 ```
 
 ## State Management
@@ -99,7 +106,7 @@ Four Zustand stores form the workspace data layer:
 
 **`useWorkspaceBoardRegistryStore`** (`features/workspace/boards/model/useWorkspaceBoardRegistryStore.ts`) — multi-board registry. Uses Zustand `persist` middleware with `partialize` to persist `boards` and `activeBoardId`. Handles create, switch, delete, duplicate, and rename. Active-board autosave is registered by `features/workspace/boards/model/boardSession.ts`, which keeps registry coordination and local persistence behind the model facade.
 
-**`useSettingsStore`** (`features/workspace/settings/model/useSettingsStore.ts`) — global user preferences (item size, shape, label visibility, compact mode, label width, theme, palette, text style, reduced motion, toolbar position, etc.). Persisted independently.
+**`usePreferencesStore`** (`features/platform/preferences/model/usePreferencesStore.ts`) — global user preferences (item size, shape, label visibility, compact mode, label width, theme, palette, text style, reduced motion, toolbar position, etc.). Persisted independently.
 
 **`useTierPresetStore`** (`features/workspace/tier-presets/model/useTierPresetStore.ts`) — user-saved tier structure presets. Persisted independently. Built-in presets (Classic, Top 10, Yes/No/Maybe, etc.) are defined in `tierPresets.ts` and merged at runtime.
 
@@ -110,7 +117,7 @@ Persistence is split across features instead of living in a single monolithic `s
 - `features/workspace/boards/model/boardSession.ts` — model facade for session bootstrap, autosave subscription, CRUD, registry coordination, event listeners, and persistence wrappers
 - `features/workspace/boards/model/session/*` — board-session internals split by autosave, bootstrap, CRUD, events, persistence, registry, and storage warning reporting
 - `features/workspace/boards/data/local/boardStorage.ts` — per-board localStorage I/O, versioned envelopes, typed `ok`/`missing`/`corrupted` load outcomes, quota error messaging
-- `features/workspace/settings/data/local/settingsStorage.ts` — settings storage key & schema version
+- `features/platform/preferences/data/local/preferencesStorage.ts` — preferences storage key & schema version
 - `features/workspace/tier-presets/data/local/tierPresetStorage.ts` — preset storage key & schema version
 - `shared/lib/browserStorage.ts` — generic localStorage wrapper, Zustand persist adapter
 - `shared/lib/storageMetering.ts` — quota estimation, near-full warnings
@@ -160,63 +167,66 @@ The separation ensures board-input orchestration (selection, focus persistence, 
 
 ## Routing
 
-`app/routes/AppRouter.tsx` subscribes to `popstate` via `useSyncExternalStore` and selects a route from `resolveAppRoute(pathname)`:
+`app/routes/AppRouter.tsx` uses `react-router-dom`'s `BrowserRouter` with `normalizeBasePath()` as the basename. Chrome-wrapped routes render through `AppChromeLayout`, which owns app bootstrap and top navigation before handing the active route to `<Outlet />`.
 
 - `/` → `WorkspaceRoute` → `WorkspaceShell` (full editable shell)
+- `/boards` → `MyBoardsRoute` → `MyBoardsPage` (local board library)
 - `/embed` → `EmbedRoute` → `EmbedView` (read-only embed view)
 - anything else → `NotFoundRoute`
 
-Share links use the `#share=<base64url>` hash fragment. The snapshot strips image refs and deleted items, then compresses directly into a base64url URL fragment via `encodeBoardToShareFragment`. `useAppBootstrap` and `EmbedView` detect the fragment via `getShareFragment`, inflate it via `decodeBoardFromShareFragment`, then clear it from the URL.
+Share links use the `#share=<base64url>` hash fragment. The snapshot strips private notes, image refs, and deleted items, then compresses directly into a base64url URL fragment via `encodeBoardToShareFragment`. `useAppBootstrap` and `EmbedView` detect the fragment through `features/platform/share/inboundShare.ts`; workspace bootstrap imports and clears the fragment, while embed reads it into local component state.
 
-In both cases the embed route inflates via `shared/board-ui/` primitives & never mounts the editable active-board store. Inbound detection & dispatch into the active board live under `features/workspace/sharing/inbound/`.
+The embed route inflates via `shared/board-ui/` primitives and never mounts the editable active-board store.
 
 ## Component Hierarchy
 
 ```
 App (app/App.tsx → AppRouter)
-├── WorkspaceRoute → WorkspaceShell
-│   ├── BoardHeader                — click-to-edit board title
-│   ├── BoardActionBar             — undo/redo, add tier, settings, export, reset, share
-│   │   ├── ActionButton[]         — reusable circular icon buttons
-│   │   └── ExportMenu             — export dropdown w/ nested hover submenus
-│   ├── TierList                   — DndContext wrapper, tier rows, unranked pool, drag overlay
-│   │   ├── TierRow[]              — tier label + sortable item grid + color picker popups
-│   │   │   ├── TierLabel          — colored label (editable name)
-│   │   │   ├── TierItem[]         — sortable items (delegates keyboard to useKeyboardDrag)
-│   │   │   ├── TierRowSettingsMenu — gear button + row settings popup
-│   │   │   └── ColorPicker        — fixed-position color swatch popup
-│   │   ├── UnrankedPool           — droppable pool for unassigned items
-│   │   └── TrashZone              — drag-to-trash (visible during drag)
-│   ├── BoardSettingsModal         — tabbed modal shell w/ per-tab subcomponents
-│   │   ├── ItemsTab               — import, text items, deleted items (+ DeletedItemsSection)
-│   │   ├── AppearanceTab          — theme, text style, tier-color sync
-│   │   │   ├── ThemePicker
-│   │   │   ├── PalettePicker
-│   │   │   └── TextStylePicker
-│   │   ├── LayoutTab              — item sizing, tier-label layout, aspect ratio
-│   │   │   ├── AspectRatioSection → AspectRatioPicker → AspectRatioTiles
-│   │   │   ├── SegmentedControl
-│   │   │   ├── Toggle, SettingRow
-│   │   │   └── ImageUploader
-│   │   └── MoreTab                — export prefs, storage, shortcuts
-│   ├── BoardManager               — floating panel (bottom-right) for board switching
-│   ├── PresetPickerModal          — modal for selecting built-in & user tier presets
-│   ├── SavePresetModal            — save current tiers as a user preset
-│   ├── AspectRatioIssueModal      — blocking mixed-ratio warning dialog
-│   ├── ShareModal                 — generate hash share / embed URLs
-│   ├── StatsModal                 — board statistics
-│   │   └── TierDistributionChart  — per-tier item counts
-│   ├── AnnotationEditor           — draw-over overlay editor
-│   │   ├── AnnotationCanvas
-│   │   └── AnnotationToolbar
-│   ├── ItemEditPopover            — inline item label & background editor
-│   ├── DragOverlay → DragOverlayItem — ghost item (uses ItemContent for rendering)
-│   ├── ConfirmDialog              — shared modal for destructive confirmations
-│   ├── ProgressOverlay            — shared blocking overlay (export-all)
-│   ├── BulkActionBar              — floating bar for multi-select operations
-│   ├── ShortcutsPanel → ShortcutsList — help panel listing keyboard shortcuts
-│   ├── ToastContainer             — auto-dismissing notifications
-│   └── LiveRegion                 — screen reader announcement target
+├── AppChromeLayout
+│   ├── AppTopNav
+│   │   ├── BrandPill
+│   │   ├── NewBoardAction
+│   │   ├── SurfaceNav
+│   │   └── TopNavAccountControl → PreferencesModal
+│   ├── WorkspaceRoute → WorkspaceShell
+│   │   ├── BoardHeader                — click-to-edit board title
+│   │   │   └── BoardPublishChip       — content-derived Draft/WIP/Live state
+│   │   ├── BoardActionBar             — undo/redo, add tier, settings, export, reset, share
+│   │   │   ├── ActionButton[]         — reusable circular icon buttons
+│   │   │   └── ExportMenu             — export dropdown w/ nested hover submenus
+│   │   ├── TierList                   — DndContext wrapper, tier rows, unranked pool, drag overlay
+│   │   │   ├── TierRow[]              — tier label + sortable item grid + color picker popups
+│   │   │   │   ├── TierLabel          — colored label (editable name)
+│   │   │   │   ├── TierItem[]         — sortable items (delegates keyboard to useKeyboardDrag)
+│   │   │   │   ├── TierRowSettingsMenu — gear button + row settings popup
+│   │   │   │   └── ColorPicker        — fixed-position color swatch popup
+│   │   │   ├── UnrankedPool           — droppable pool for unassigned items
+│   │   │   └── TrashZone              — drag-to-trash (visible during drag)
+│   │   ├── BoardSettingsModal         — tabbed modal shell w/ per-tab subcomponents
+│   │   ├── PresetPickerModal          — modal for selecting built-in & user tier presets
+│   │   ├── SavePresetModal            — save current tiers as a user preset
+│   │   ├── AspectRatioIssueModal      — blocking mixed-ratio warning dialog
+│   │   ├── ShareModal                 — generate hash share / embed URLs
+│   │   ├── StatsModal                 — board statistics
+│   │   │   └── TierDistributionChart  — per-tier item counts
+│   │   ├── AnnotationEditor           — draw-over overlay editor
+│   │   ├── ImageEditorModal           — per-item crop, label, alt-text, notes, background editor
+│   │   ├── ItemPreviewModal           — read-only item zoom/preview surface
+│   │   ├── ItemContextMenu            — item actions and edit entry points
+│   │   ├── DragOverlay → DragOverlayItem — ghost item (uses ItemContent for rendering)
+│   │   ├── ConfirmDialog              — shared modal for destructive confirmations
+│   │   ├── ProgressOverlay            — shared blocking overlay (export-all)
+│   │   ├── BulkActionBar              — floating bar for multi-select operations
+│   │   ├── ShortcutsPanel → ShortcutsList — help panel listing keyboard shortcuts
+│   │   ├── ToastContainer             — auto-dismissing notifications
+│   │   └── LiveRegion                 — screen reader announcement target
+│   └── MyBoardsRoute → MyBoardsPage
+│       ├── LibrarySearchInput
+│       ├── LibraryFilterBar
+│       ├── NewBoardTile
+│       ├── BoardCard[]                — grid view w/ mosaic covers and publish/sync chips
+│       ├── BoardListTable             — dense list view
+│       └── RenameBoardModal
 └── EmbedRoute → EmbedView — read-only iframe view
 ```
 
@@ -229,9 +239,9 @@ management, popups, and menu behavior can change independently:
 - **Modal behavior:** `modalDialog.ts`, `focusTrap.ts`, and `modalLayer.ts` own Escape handling, focus containment, app-shell inert state, and scroll locking. The keyed modal stack lives in `app/shells/useModalStack.ts`.
 - **Popup/menu behavior:** `dismissibleLayer.ts`, `anchoredPopup.ts`, `popupPosition.ts`, `uiMeasurements.ts`, `menuOverflow.ts`, and `nestedMenus.ts` own outside interaction, positioning, overflow flipping, and submenu state.
 
-Tier-row popups (`ColorPicker`, `TierRowSettingsMenu`) compute their position via `popupPosition.ts` at open time. `BoardManager` and `ExportMenu` keep their own anchored layouts but reuse dismissal and overflow helpers. `BoardSettingsModal`, `PresetPickerModal`, `ShareModal`, and `AspectRatioIssueModal` all build on `BaseModal`.
+Tier-row popups (`ColorPicker`, `TierRowSettingsMenu`) compute their position via `popupPosition.ts` at open time. `BoardManager` and `ExportMenu` keep their own anchored layouts but reuse dismissal and overflow helpers. `BoardSettingsModal`, `PresetPickerModal`, `ShareModal`, `StatsModal`, `ImageEditorModal`, `ItemPreviewModal`, and `AspectRatioIssueModal` all build on `BaseModal`.
 
-Toolbar-position-aware submenu class sets live in `shared/layout/toolbarPosition.ts`, consumed by `BoardActionBar`, `ExportMenu`, `TierList`, `useGlobalShortcuts`, and the workspace shell.
+Toolbar-position-aware submenu class sets live in `shared/overlay/toolbarPosition.ts`, consumed by `BoardActionBar`, `ExportMenu`, `TierList`, `useGlobalShortcuts`, and the workspace shell.
 
 ## Theming
 
@@ -240,11 +250,10 @@ Toolbar-position-aware submenu class sets live in `shared/layout/toolbarPosition
 - `tokens.ts` — `--t-*` color tokens applied at `:root`
 - `palettes.ts` — tier-color palettes
 - `textStyles.ts` — font-family & weight tokens
-- `runtime.ts` — `applyThemeTokens` / `applyTextStyleTokens` DOM writers
+- `runtime.ts` — `applyThemeTokens` / `applyTextStyle` DOM writers
 - `tierColors.ts` — `TierColorSpec` resolution against the active palette
-- `zIndex.ts` — centralized `Z` stacking layers for overlays, drag preview, offscreen export host
 
-The `useThemeSync` hook (called in `WorkspaceShell` from `src/app/bootstrap/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `useSettingsStore` to `:root`. `EmbedRoute` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render the Scoreboard theme regardless of the host's preference; `EmbedView` defaults `paletteId` to `'classic'` to keep tier colors neutral for embedders. Non-system fonts are loaded dynamically from Google Fonts.
+The `useThemeSync` hook (called in `WorkspaceShell` from `src/features/platform/preferences/model/useThemeSync.ts`) syncs theme tokens from `usePreferencesStore` to `:root`; `WorkspaceShell` layers board-specific overrides on top. `EmbedRoute` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render the Scoreboard theme regardless of the host's preference; `EmbedView` defaults `paletteId` to `'classic'` to keep tier colors neutral for embedders. Non-system fonts are loaded dynamically from Google Fonts.
 
 ## Export Pipeline
 

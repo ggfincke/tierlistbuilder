@@ -27,7 +27,10 @@ import {
   runWithAutosaveSuppressed,
 } from '~/features/workspace/boards/model/session/boardSessionAutosave'
 import { notifyBoardLoaded } from '~/features/workspace/boards/model/session/boardSessionEvents'
-import { getActivePaletteId, hasBoardMeta } from '~/features/workspace/boards/model/session/boardSessionRegistry'
+import {
+  getActivePaletteId,
+  hasBoardMeta,
+} from '~/features/workspace/boards/model/session/boardSessionRegistry'
 import { reportStorageWarningIfNeeded } from '~/features/workspace/boards/model/session/storageWarningReporter'
 
 interface LoadedBoardState

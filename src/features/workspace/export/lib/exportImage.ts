@@ -3,7 +3,10 @@
 // for download & clipboard
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance, ImageFormat } from '~/features/workspace/export/model/runtime'
+import type {
+  ExportAppearance,
+  ImageFormat,
+} from '~/features/workspace/export/model/runtime'
 import { dataUrlToBytes } from '~/shared/lib/binaryCodec'
 import { downloadBlob } from '~/shared/lib/downloadBlob'
 import { toFileBase } from '~/shared/lib/fileName'

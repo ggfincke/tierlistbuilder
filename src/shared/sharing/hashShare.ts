@@ -1,7 +1,10 @@
 // src/shared/sharing/hashShare.ts
 // hash-fragment snapshot compression helpers
 
-import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
+import type {
+  BoardSnapshot,
+  TierItem,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { MAX_SNAPSHOT_COMPRESSED_BYTES } from '@tierlistbuilder/contracts/platform/shortLink'
 import { parseBoardSnapshotJson } from '~/shared/board-data/boardJson'
 import { normalizeBasePath } from '~/shared/routes/pathname'
@@ -50,20 +53,45 @@ const hasRenderableTextField = (item: {
 const getStrippedImageLabel = (item: { altText?: string }): string =>
   item.altText?.trim() || STRIPPED_IMAGE_LABEL
 
-export const stripPrivateItemFieldsForShare = (
+// board-level fields stripped from share payloads — local-only or personal
+// data w/ no recipient-facing UI. attribution (sourceTemplate/RankingId &
+// Title) survives so BoardHeader's "Forked from X" breadcrumb still renders
+const SHARE_STRIPPED_BOARD_FIELDS = [
+  'sourceTemplateCoverMedia',
+  'sourceTemplateCoverFraming',
+  'preferredCriterionExternalId',
+] as const satisfies readonly (keyof BoardSnapshot)[]
+
+// per-item fields stripped from share payloads. notes are private; the
+// template-item externalId is cloud-sync metadata the recipient can't act on
+const SHARE_STRIPPED_ITEM_FIELDS = [
+  'notes',
+  'sourceTemplateItemExternalId',
+] as const satisfies readonly (keyof TierItem)[]
+
+export const stripPrivateFieldsForShare = (
   data: BoardSnapshot
 ): BoardSnapshot =>
-  mapSnapshotItems(data, (item) =>
+{
+  const stripped = { ...data }
+  for (const field of SHARE_STRIPPED_BOARD_FIELDS) delete stripped[field]
+  return mapSnapshotItems(stripped, (item) =>
   {
-    if (item.notes === undefined) return item
-    const { notes: _notes, ...rest } = item
-    return rest
+    let next: TierItem | undefined
+    for (const field of SHARE_STRIPPED_ITEM_FIELDS)
+    {
+      if (item[field] === undefined) continue
+      next ??= { ...item }
+      delete next[field]
+    }
+    return next ?? item
   })
+}
 
 // drop private fields, image refs, & deleted items from hash-fragment payloads
 export const stripImagesForShare = (data: BoardSnapshot): BoardSnapshot =>
 {
-  const publicData = stripPrivateItemFieldsForShare(data)
+  const publicData = stripPrivateFieldsForShare(data)
   return {
     ...mapSnapshotItems(publicData, (item) =>
     {

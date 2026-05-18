@@ -115,6 +115,80 @@ describe('normalizeBoardSnapshot', () =>
     expect(result.items[id].transform).toBeUndefined()
   })
 
+  it('preserves source metadata, private notes, and cloud media refs', () =>
+  {
+    const id = asItemId('source-item')
+    const deletedId = asItemId('deleted-source-item')
+    const result = normalizeBoardSnapshot(
+      makeBoardSnapshot({
+        sourceTemplateId: 'template-slug',
+        sourceRankingId: 'ranking-slug',
+        sourceTemplateTitle: 'Template title',
+        sourceRankingTitle: 'Ranking title',
+        preferredCriterionExternalId: 'criterion-external-id',
+        sourceTemplateCoverMedia: {
+          externalId: 'media-cover',
+          contentHash: 'cover-hash',
+          url: 'https://example.test/cover.webp',
+          width: 1200,
+          height: 800,
+          mimeType: 'image/webp',
+        },
+        sourceTemplateCoverFraming: {
+          browseHero: { x: 0, y: 0, width: 1, height: 1 },
+          detailHero: null,
+          card: { x: 0.1, y: 0.2, width: 0.8, height: 0.7 },
+        },
+        items: {
+          [id]: makeItem({
+            id,
+            notes: 'Private rationale',
+            sourceTemplateItemExternalId: 'template-item-1',
+            imageRef: {
+              hash: 'image-hash',
+              cloudMediaExternalId: 'media-source',
+              cloudMediaOwnership: 'source',
+            },
+          }),
+        },
+        deletedItems: [
+          makeItem({
+            id: deletedId,
+            notes: 'Deleted note',
+            sourceTemplateItemExternalId: 'template-item-deleted',
+          }),
+        ],
+      }),
+      'classic'
+    )
+
+    expect(result.sourceTemplateId).toBe('template-slug')
+    expect(result.sourceRankingId).toBe('ranking-slug')
+    expect(result.sourceTemplateTitle).toBe('Template title')
+    expect(result.sourceRankingTitle).toBe('Ranking title')
+    expect(result.preferredCriterionExternalId).toBe('criterion-external-id')
+    expect(result.sourceTemplateCoverMedia?.externalId).toBe('media-cover')
+    expect(result.sourceTemplateCoverFraming?.card).toEqual({
+      x: 0.1,
+      y: 0.2,
+      width: 0.8,
+      height: 0.7,
+    })
+    expect(result.items[id]).toMatchObject({
+      notes: 'Private rationale',
+      sourceTemplateItemExternalId: 'template-item-1',
+      imageRef: {
+        hash: 'image-hash',
+        cloudMediaExternalId: 'media-source',
+        cloudMediaOwnership: 'source',
+      },
+    })
+    expect(result.deletedItems[0]).toMatchObject({
+      notes: 'Deleted note',
+      sourceTemplateItemExternalId: 'template-item-deleted',
+    })
+  })
+
   it('clamps board slot ratios but preserves natural image ratios', () =>
   {
     const id = asItemId('panoramic')
