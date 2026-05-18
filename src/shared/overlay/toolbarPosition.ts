@@ -1,4 +1,4 @@
-// src/shared/layout/toolbarPosition.ts
+// src/shared/overlay/toolbarPosition.ts
 // toolbar-position math & position-aware menu class presets
 
 import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/preferences'

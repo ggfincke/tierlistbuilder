@@ -40,7 +40,7 @@ import { useMenuOverflowFlipRefs } from '~/shared/overlay/menuOverflow'
 import {
   getMenuPositionClasses,
   isVerticalPosition,
-} from '~/shared/layout/toolbarPosition'
+} from '~/shared/overlay/toolbarPosition'
 import { ActionButton } from '~/shared/ui/ActionButton'
 import { ExportMenu } from '~/features/workspace/export/ui/ExportMenu'
 import { ConfirmDialog } from '~/shared/overlay/ConfirmDialog'

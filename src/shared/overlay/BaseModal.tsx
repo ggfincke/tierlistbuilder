@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom'
 
 import { joinClassNames } from '~/shared/lib/className'
 import { useModalDialog } from './modalDialog'
+import { OverlayPanelSurface } from './OverlaySurface'
 
 interface BaseModalProps
 {
@@ -112,7 +113,7 @@ export const BaseModal = ({
           containerClassName
         )}
       >
-        <div
+        <OverlayPanelSurface
           ref={dialogRef}
           role={role}
           aria-modal="true"
@@ -120,7 +121,7 @@ export const BaseModal = ({
           aria-describedby={describedBy}
           aria-label={ariaLabel}
           className={joinClassNames(
-            'pointer-events-auto max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-overlay)] shadow-2xl animate-[scaleIn_150ms_ease-out]',
+            'pointer-events-auto max-h-[calc(100dvh-2rem)] overflow-y-auto animate-[scaleIn_150ms_ease-out]',
             panelClassName,
             shaking && 'shake-x'
           )}
@@ -128,7 +129,7 @@ export const BaseModal = ({
           onAnimationEnd={handleAnimationEnd}
         >
           {children}
-        </div>
+        </OverlayPanelSurface>
       </div>
     </div>,
     document.body

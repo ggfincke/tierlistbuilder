@@ -1,11 +1,17 @@
 // src/app/shells/topNav/topNavItems.ts
-// route pill definitions for global app chrome
+// route pill defs — Workspace · My Boards · Templates. "My Boards" per
+// Bundle A glossary decision (see dev-docs/phase-7c-design.md).
 
-import { Layers, type LucideIcon } from 'lucide-react'
+import { Bookmark, Layers, Sparkles, type LucideIcon } from 'lucide-react'
+
+import {
+  BOARDS_ROUTE_PATH,
+  TEMPLATES_ROUTE_PATH,
+} from '~/shared/routes/pathname'
 
 export interface TopNavItem
 {
-  id: 'workspace'
+  id: 'workspace' | 'boards' | 'templates'
   label: string
   to: string
   icon: LucideIcon
@@ -14,4 +20,18 @@ export interface TopNavItem
 
 export const TOP_NAV_ITEMS: readonly TopNavItem[] = [
   { id: 'workspace', label: 'Workspace', to: '/', icon: Layers, end: true },
+  {
+    id: 'boards',
+    label: 'My Boards',
+    to: BOARDS_ROUTE_PATH,
+    icon: Bookmark,
+    end: false,
+  },
+  {
+    id: 'templates',
+    label: 'Templates',
+    to: TEMPLATES_ROUTE_PATH,
+    icon: Sparkles,
+    end: false,
+  },
 ]
