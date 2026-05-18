@@ -1,7 +1,7 @@
 // src/app/bootstrap/useAppBootstrap.ts
 // bootstrap hook — hydrate persisted stores, initialize board session, & register autosave
 
-import { useCallback, useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
@@ -108,14 +108,9 @@ export const useAppReady = (): boolean =>
 
 // owner hook — call exactly once at the root of the app chrome so the
 // hydration listeners & bootstrap kickoff happen in one place. child routes
-// subscribe via useAppReady instead of mounting their own bootstrap effect
-export const useAppBootstrap = (): boolean =>
+// read the ready signal via useAppReady, not from this hook's return value
+export const useAppBootstrap = (): void =>
 {
-  const subscribe = useCallback(
-    (listener: () => void) => subscribeAppReady(listener),
-    []
-  )
-
   useEffect(() =>
   {
     if (appReady) return
@@ -154,6 +149,4 @@ export const useAppBootstrap = (): boolean =>
       offBoardsHydration()
     }
   }, [])
-
-  return useSyncExternalStore(subscribe, getAppReadySnapshot, getAppReadySnapshot)
 }

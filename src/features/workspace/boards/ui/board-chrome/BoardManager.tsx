@@ -227,7 +227,6 @@ export const BoardManager = ({
               New List
             </button>
           </div>
-
         </OverlayPanelSurface>
       )}
 

@@ -198,7 +198,6 @@ export const UnrankedPool = () =>
           )}
         </div>
       </SortableContext>
-
     </>
   )
 
