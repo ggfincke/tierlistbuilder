@@ -16,14 +16,15 @@ from seed_pipeline.diff import (
     build_state_items_request,
     resolve_seed_state,
 )
-from seed_pipeline.manifest import find_repo_root, read_json
+from pathlib import Path
+
+from seed_pipeline.manifest import read_json
 
 
 class SeedDiffTests(unittest.TestCase):
     def setUp(self) -> None:
-        repo_root = find_repo_root()
         self.compiled = read_json(
-            repo_root / "data/seeds/examples/compiled-manifest.example.json"
+            Path(__file__).resolve().parent / "fixtures" / "compiled-manifest.example.json"
         )
 
     def test_headline_request_extracts_templates_and_criteria(self) -> None:

@@ -79,9 +79,11 @@ def chunk_templates_by_items(
 def find_repo_root(start: Path | None = None) -> Path:
     current = (start or Path.cwd()).resolve()
     for candidate in (current, *current.parents):
-        # require both app metadata & seed schemas so temp fixtures behave like the repo
+        # require both app metadata & the pipeline package so a stray package.json
+        # elsewhere in the tree never wins; the pipeline package is the closest
+        # always-tracked sibling now that data/seeds/ contents are local-only
         if (candidate / "package.json").is_file() and (
-            candidate / "data" / "seeds" / "schemas"
+            candidate / "scripts" / "seed_pipeline"
         ).is_dir():
             return candidate
     msg = f"could not find repo root from {current}"

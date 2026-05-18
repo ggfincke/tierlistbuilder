@@ -34,14 +34,14 @@ from .settings import (
     CACHE_ROOT_RELATIVE_PATH,
     COMPILE_FINGERPRINT_FILENAME,
     COMPILE_FINGERPRINT_SCHEMA_VERSION,
-    COMPILED_SCHEMA_RELATIVE_PATH,
+    COMPILED_SCHEMA_PATH,
     DETERMINISTIC_GENERATED_AT,
     INSPECT_CACHE_SCHEMA_VERSION,
-    SOURCE_SCHEMA_RELATIVE_PATH,
     VARIANT_META_SCHEMA_VERSION,
     VARIANT_SPEC_VERSION,
 )
 from .sidecars import read_sidecar_json, write_sidecar_json
+from .source import list_source_files, list_source_schema_paths
 from .validate import (
     ManifestValidationError,
     ValidationDiagnostic,
@@ -329,7 +329,7 @@ def _label_from_filename(path: Path) -> str:
 
 
 def _assert_compiled_schema(compiled: JsonObject, repo_root: Path) -> None:
-    schema = read_json(repo_root / COMPILED_SCHEMA_RELATIVE_PATH)
+    schema = read_json(COMPILED_SCHEMA_PATH)
     validator = Draft202012Validator(schema)
     # validate generated output too; source schema alone cannot catch compiler drift
     errors = sorted(validator.iter_errors(compiled), key=lambda item: item.json_path)
@@ -464,7 +464,7 @@ def _compute_compile_fingerprint(
 ) -> JsonObject:
     repo_resolved = repo_root.resolve()
     manifest_resolved = manifest_path.resolve()
-    sources: list[Path] = []
+    images: list[Path] = []
     templates = manifest.get("templates")
     if not isinstance(templates, list):
         raise KeyError("templates")
@@ -484,42 +484,74 @@ def _compute_compile_fingerprint(
             image = item.get("image")
             if not isinstance(image, str):
                 raise KeyError("item.image")
-            sources.append(folder / image)
+            images.append(folder / image)
         cover = template.get("coverImage")
         if isinstance(cover, str):
-            sources.append(repo_root / cover)
-    source_entries = []
-    for source_path in sources:
-        resolved = source_path.resolve()
+            images.append(repo_root / cover)
+    image_entries = []
+    for image_path in images:
+        resolved = image_path.resolve()
         stat = resolved.stat()
         # mtime+size invalidation matches the per-source inspect sidecar so the
         # two layers stay coherent: any change here also evicts inspect entries
-        source_entries.append(
+        image_entries.append(
             {
                 "path": resolved.relative_to(repo_resolved).as_posix(),
                 "mtimeNs": stat.st_mtime_ns,
                 "byteSize": stat.st_size,
             }
         )
-    source_entries.sort(key=lambda entry: entry["path"])
+    image_entries.sort(key=lambda entry: entry["path"])
+    # the composed manifest is assembled from many files (marketplace-core.json,
+    # ranking-profiles.json, every _template.json). hash each so any edit invalidates
+    # the cache; schema changes also count as inputs because validation rules
+    # changing without any data change can still alter compiled output. schemas
+    # live inside the pipeline package now, so they're keyed by basename rather
+    # than a repo-relative path that wouldn't exist for installed packages or
+    # temp-root test fixtures.
+    source_entries = _hashed_path_entries(
+        list_source_files(manifest_path, repo_root), repo_resolved
+    )
+    schema_entries = _hashed_package_files(list_source_schema_paths())
     return {
         "schemaVersion": COMPILE_FINGERPRINT_SCHEMA_VERSION,
         # repoRoot guards against the cached compiled-manifest carrying absolute
         # sourcePath strings that no longer point anywhere after a repo move
         "repoRoot": str(repo_resolved),
         "manifestPath": manifest_resolved.relative_to(repo_resolved).as_posix(),
-        "manifestSha": sha256_file(manifest_resolved),
-        # schema shas catch the case where validation rules change without any
-        # source file changing; compiled output could become silently invalid
-        "sourceSchemaSha": sha256_file(repo_root / SOURCE_SCHEMA_RELATIVE_PATH),
-        "compiledSchemaSha": sha256_file(repo_root / COMPILED_SCHEMA_RELATIVE_PATH),
+        "sourceFiles": source_entries,
+        "sourceSchemas": schema_entries,
+        "compiledSchemaSha": sha256_file(COMPILED_SCHEMA_PATH),
         "variantSpecVersion": VARIANT_SPEC_VERSION,
         "variantPolicy": variant_policy_fingerprint(),
         "inspectCacheSchemaVersion": INSPECT_CACHE_SCHEMA_VERSION,
         "variantMetaSchemaVersion": VARIANT_META_SCHEMA_VERSION,
-        "totalSources": len(source_entries),
-        "sources": source_entries,
+        "totalSources": len(image_entries),
+        "sources": image_entries,
     }
+
+
+def _hashed_path_entries(paths: list[Path], repo_resolved: Path) -> list[JsonObject]:
+    entries: list[JsonObject] = []
+    for raw in paths:
+        resolved = raw.resolve()
+        entries.append(
+            {
+                "path": resolved.relative_to(repo_resolved).as_posix(),
+                "sha256": sha256_file(resolved),
+            }
+        )
+    entries.sort(key=lambda entry: entry["path"])
+    return entries
+
+
+def _hashed_package_files(paths: list[Path]) -> list[JsonObject]:
+    entries: list[JsonObject] = []
+    for raw in paths:
+        resolved = raw.resolve()
+        entries.append({"name": resolved.name, "sha256": sha256_file(resolved)})
+    entries.sort(key=lambda entry: entry["name"])
+    return entries
 
 
 def _fingerprint_inputs_match(cached: JsonObject, current: JsonObject) -> bool:

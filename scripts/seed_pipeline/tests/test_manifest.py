@@ -29,7 +29,6 @@ class ManifestValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _write_repo_fixture(root)
-            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
             manifest = _source_manifest()
             manifest["templates"][0]["items"].append(
                 {
@@ -38,7 +37,7 @@ class ManifestValidationTests(unittest.TestCase):
                     "label": "Luigi",
                 }
             )
-            _write_json(manifest_path, manifest)
+            manifest_path = _write_split_dataset(root, manifest)
             result = validate_source_manifest(manifest_path, root)
         self.assertFalse(result.ok)
         self.assertIn("duplicateItemExternalId", {error.code for error in result.errors})
@@ -47,13 +46,12 @@ class ManifestValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _write_repo_fixture(root)
-            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
             manifest = _source_manifest()
             template = manifest["templates"][0]
             template["criteria"][0]["isPrimary"] = False
             template["items"][0]["image"] = "missing.png"
             template["items"][0]["label"] = " "
-            _write_json(manifest_path, manifest)
+            manifest_path = _write_split_dataset(root, manifest)
             result = validate_source_manifest(manifest_path, root)
         codes = {error.code for error in result.errors}
         self.assertFalse(result.ok)
@@ -68,7 +66,7 @@ class ManifestValidationTests(unittest.TestCase):
             missing_path = root / "data" / "seeds" / "missing.json"
             result = validate_source_manifest(missing_path, root)
         self.assertFalse(result.ok)
-        self.assertEqual(result.errors[0].code, "missingManifest")
+        self.assertEqual(result.errors[0].code, "missingMarketplaceCore")
 
     def test_validate_rejects_symlinked_images_outside_repo(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -81,10 +79,9 @@ class ManifestValidationTests(unittest.TestCase):
             )
             link = root / "examples" / "gaming" / "ssbu-fighters" / "escape.png"
             link.symlink_to(outside / "escape.png")
-            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
             manifest = _source_manifest()
             manifest["templates"][0]["items"][0]["image"] = "escape.png"
-            _write_json(manifest_path, manifest)
+            manifest_path = _write_split_dataset(root, manifest)
             result = validate_source_manifest(manifest_path, root)
         self.assertFalse(result.ok)
         self.assertIn("pathEscapesRepo", {error.code for error in result.errors})
@@ -93,8 +90,7 @@ class ManifestValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _write_repo_fixture(root)
-            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
-            _write_json(manifest_path, _source_manifest())
+            manifest_path = _write_split_dataset(root, _source_manifest())
             first_path = build_compiled_manifest(manifest_path, root)
             first = json.loads(first_path.read_text(encoding="utf-8"))
             second_path = build_compiled_manifest(manifest_path, root)
@@ -111,7 +107,6 @@ class ManifestValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _write_repo_fixture(root)
-            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
             manifest = _source_manifest()
             manifest["templates"][0]["items"].append(
                 {
@@ -120,7 +115,7 @@ class ManifestValidationTests(unittest.TestCase):
                     "label": "Luigi",
                 }
             )
-            _write_json(manifest_path, manifest)
+            manifest_path = _write_split_dataset(root, manifest)
             with mock.patch("seed_pipeline.build.BUILD_WORKERS", 2):
                 compiled_path = build_compiled_manifest(manifest_path, root)
             compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
@@ -144,12 +139,11 @@ class ManifestValidationTests(unittest.TestCase):
                 with tempfile.TemporaryDirectory() as directory:
                     root = Path(directory)
                     _write_repo_fixture(root)
-                    manifest_path = root / "data" / "seeds" / "marketplace-core.json"
                     manifest = _source_manifest()
                     template = manifest["templates"][0]
                     template["labelPolicy"] = policy
                     del template["items"][0]["label"]
-                    _write_json(manifest_path, manifest)
+                    manifest_path = _write_split_dataset(root, manifest)
                     compiled_path = build_compiled_manifest(manifest_path, root)
                     compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
                 item = compiled["templates"][0]["items"][0]
@@ -159,8 +153,7 @@ class ManifestValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _write_repo_fixture(root)
-            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
-            _write_json(manifest_path, _source_manifest())
+            manifest_path = _write_split_dataset(root, _source_manifest())
             compiled_path = build_compiled_manifest(manifest_path, root)
             compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
         variants = compiled["templates"][0]["items"][0]["asset"]["variants"]
@@ -174,8 +167,7 @@ class ManifestValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _write_repo_fixture(root)
-            manifest_path = root / "data" / "seeds" / "marketplace-core.json"
-            _write_json(manifest_path, _source_manifest())
+            manifest_path = _write_split_dataset(root, _source_manifest())
 
             first_path = build_compiled_manifest(manifest_path, root)
             first = json.loads(first_path.read_text(encoding="utf-8"))
@@ -205,8 +197,7 @@ class ManifestValidationTests(unittest.TestCase):
         self.assertTrue((root / "package.json").is_file())
 
     def test_iter_compiled_assets_includes_cover_and_item_assets(self) -> None:
-        root = find_repo_root(Path.cwd())
-        compiled = read_json(root / "data/seeds/examples/compiled-manifest.example.json")
+        compiled = read_json(_FIXTURES_DIR / "compiled-manifest.example.json")
 
         entries = list(iter_compiled_asset_entries(compiled))
 
@@ -224,25 +215,82 @@ class ManifestValidationTests(unittest.TestCase):
         )
 
 
+_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+
+
 def _write_repo_fixture(root: Path) -> None:
-    schemas = find_repo_root(Path.cwd()) / "data" / "seeds" / "schemas"
-    target_schemas = root / "data" / "seeds" / "schemas"
-    target_schemas.mkdir(parents=True)
-    for schema in schemas.iterdir():
-        (target_schemas / schema.name).write_text(schema.read_text(encoding="utf-8"))
+    # schemas live inside the pipeline package now, so the temp repo only needs
+    # package.json (find_repo_root sentinel) + scripts/seed_pipeline (the second
+    # sentinel) + the asset folder for source images
+    root.mkdir(parents=True, exist_ok=True)
     (root / "package.json").write_text("{}", encoding="utf-8")
+    (root / "scripts" / "seed_pipeline").mkdir(parents=True)
     image_dir = root / "examples" / "gaming" / "ssbu-fighters"
     image_dir.mkdir(parents=True)
     Image.new("RGBA", (32, 32), (255, 0, 0, 255)).save(image_dir / "01-mario.png")
     Image.new("RGBA", (32, 32), (0, 255, 0, 255)).save(image_dir / "02-luigi.png")
-    cover_dir = root / "data" / "seeds" / "assets" / "covers"
-    cover_dir.mkdir(parents=True)
-    Image.new("RGB", (64, 32), (0, 0, 255)).save(cover_dir / "ssbu-fighters.jpg")
+    # cover lives inside the template folder under the new split layout
+    Image.new("RGB", (64, 32), (0, 0, 255)).save(image_dir / "_cover.jpg")
+
+
+# tests build manifests in the legacy in-memory shape (templates[] inline + coverImage
+# string path) for ergonomic mutation; this helper splits that shape into the on-disk
+# layout the composition layer expects (thin marketplace-core + per-folder _template.json
+# + auto-detected _cover.*)
+_TEMPLATE_BODY_FIELDS = (
+    "title",
+    "category",
+    "description",
+    "tags",
+    "visibility",
+    "labelPolicy",
+    "labels",
+    "coverZoom",
+    "suggestedTiers",
+    "criteria",
+    "items",
+)
+
+
+def _write_split_dataset(root: Path, legacy: dict[str, object]) -> Path:
+    templates: list[dict[str, object]] = list(legacy["templates"])  # type: ignore[arg-type]
+    template_order = [str(tpl["externalId"]) for tpl in templates]
+    core = {
+        "schemaVersion": 2,
+        "datasetKey": legacy["datasetKey"],
+        "releaseId": legacy["releaseId"],
+        "authorEmail": legacy["authorEmail"],
+        "templateOrder": template_order,
+    }
+    core_path = root / "data" / "seeds" / "marketplace-core.json"
+    _write_json(core_path, core)
+    for tpl in templates:
+        folder_rel = str(tpl["folder"])
+        # ensure assets dir exists; the template file itself lives at
+        # data/seeds/templates/<cat>/<slug>.json so it stays tracked while
+        # examples/ remains fully gitignored
+        (root / folder_rel).mkdir(parents=True, exist_ok=True)
+        external_id = str(tpl["externalId"])
+        category, _, slug = external_id.partition(":")
+        body: dict[str, object] = {
+            "schemaVersion": 2,
+            "externalId": external_id,
+            "folder": folder_rel,
+        }
+        for key in _TEMPLATE_BODY_FIELDS:
+            if key in tpl:
+                body[key] = tpl[key]
+        _write_json(root / "data" / "seeds" / "templates" / category / f"{slug}.json", body)
+    if "rankingSeeds" in legacy:
+        rankings: dict[str, object] = {"schemaVersion": 2}
+        for key, value in legacy["rankingSeeds"].items():  # type: ignore[attr-defined]
+            rankings[key] = value
+        _write_json(root / "data" / "seeds" / "ranking-profiles.json", rankings)
+    return core_path
 
 
 def _source_manifest() -> dict[str, object]:
     return {
-        "schemaVersion": 1,
         "datasetKey": "marketplace-core",
         "releaseId": "2026-05-templates-v1",
         "authorEmail": "tterrag456@gmail.com",
@@ -256,7 +304,6 @@ def _source_manifest() -> dict[str, object]:
                 "tags": ["nintendo"],
                 "visibility": "public",
                 "labelPolicy": "explicit-required",
-                "coverImage": "data/seeds/assets/covers/ssbu-fighters.jpg",
                 "criteria": [
                     {
                         "externalId": "competitive",

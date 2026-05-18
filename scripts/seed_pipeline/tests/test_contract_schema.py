@@ -5,20 +5,21 @@ from __future__ import annotations
 
 import copy
 import unittest
+from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from seed_pipeline.manifest import find_repo_root, read_json
-from seed_pipeline.settings import COMPILED_SCHEMA_RELATIVE_PATH
+from seed_pipeline.manifest import read_json
+from seed_pipeline.settings import COMPILED_SCHEMA_PATH
 
 
 class CompiledManifestSchemaTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        repo_root = find_repo_root()
-        schema = read_json(repo_root / COMPILED_SCHEMA_RELATIVE_PATH)
-        cls.validator = Draft202012Validator(schema)
-        cls.example = read_json(repo_root / "data/seeds/examples/compiled-manifest.example.json")
+        cls.validator = Draft202012Validator(read_json(COMPILED_SCHEMA_PATH))
+        cls.example = read_json(
+            Path(__file__).resolve().parent / "fixtures" / "compiled-manifest.example.json"
+        )
 
     def test_rejects_out_of_range_crop_values(self) -> None:
         manifest = copy.deepcopy(self.example)

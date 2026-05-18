@@ -35,9 +35,8 @@ from seed_pipeline.runs import (
 
 class SeedRunPayloadTests(unittest.TestCase):
     def setUp(self) -> None:
-        repo_root = find_repo_root()
         self.compiled = read_json(
-            repo_root / "data/seeds/examples/compiled-manifest.example.json"
+            Path(__file__).resolve().parent / "fixtures" / "compiled-manifest.example.json"
         )
 
     def test_builds_convex_apply_payloads(self) -> None:
