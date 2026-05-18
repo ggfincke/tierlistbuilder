@@ -15,22 +15,31 @@ import {
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import {
+  loadBoardFromStorage,
+  loadBoardSyncStateOnly,
   removeBoardFromStorage,
   saveBoardToStorage,
 } from '~/features/workspace/boards/data/local/boardStorage'
+import { stampPendingBoardDelete } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { createBoardDataFromPreset } from '~/features/workspace/tier-presets/model/tierPresets'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
+import {
+  extractBoardSyncState,
+  markBoardPendingSync,
+  type BoardSyncState,
+} from '~/features/workspace/boards/model/sync'
 import {
   createBoardMeta,
   deduplicateBoardTitle,
   getActivePaletteId,
 } from './boardSessionRegistry'
 import {
+  loadedBoardStateFromResult,
   loadBoardIntoSession,
   loadBoardState,
-  loadPersistedBoard,
   saveActiveBoardSnapshot,
 } from './boardSessionPersistence'
+import { notifyBoardChanged, notifyBoardDeleted } from './boardSessionEvents'
 
 const createBlankBoardData = (): BoardSnapshot => ({
   title: DEFAULT_TITLE,
@@ -42,7 +51,8 @@ const createBlankBoardData = (): BoardSnapshot => ({
 
 const saveAndActivateBoard = async (
   data: BoardSnapshot,
-  titleHint: string
+  titleHint: string,
+  syncState: BoardSyncState | null = null
 ): Promise<BoardId> =>
 {
   const boardStore = useWorkspaceBoardRegistryStore.getState()
@@ -55,12 +65,55 @@ const saveAndActivateBoard = async (
   )
 
   await warmFromBoard(normalized)
-  saveBoardToStorage(id, normalized)
+  const nextSyncState = syncState ?? undefined
+  saveBoardToStorage(id, normalized, { syncState: nextSyncState })
   useWorkspaceBoardRegistryStore
     .getState()
     .addBoardMeta(createBoardMeta(id, title), true)
-  loadBoardState(id, normalized)
+  loadBoardState(id, normalized, nextSyncState)
   return id
+}
+
+const markBoardStatePending = (syncState: BoardSyncState): BoardSyncState =>
+  markBoardPendingSync(syncState)
+
+const loadInactiveBoardSnapshot = (boardId: BoardId): BoardSnapshot =>
+{
+  const persisted = loadBoardFromStorage(boardId)
+  if (persisted.status !== 'ok')
+  {
+    throw new Error(`board snapshot is not available: ${boardId}`)
+  }
+  return loadedBoardStateFromResult(persisted).snapshot
+}
+
+const saveInactiveBoardTitle = (boardId: BoardId, title: string): boolean =>
+{
+  const persisted = loadBoardFromStorage(boardId)
+  if (persisted.status !== 'ok')
+  {
+    return false
+  }
+
+  const { snapshot, syncState } = loadedBoardStateFromResult(persisted)
+  if (snapshot.title === title)
+  {
+    return true
+  }
+
+  const nextSyncState = markBoardStatePending(syncState)
+  const saveResult = saveBoardToStorage(
+    boardId,
+    { ...snapshot, title },
+    { syncState: nextSyncState }
+  )
+  if (!saveResult.ok)
+  {
+    return false
+  }
+
+  notifyBoardChanged(boardId)
+  return true
 }
 
 export const createBoardSession = async (): Promise<void> =>
@@ -110,8 +163,17 @@ export const deleteBoardSession = async (boardId: BoardId): Promise<void> =>
     return
   }
 
+  const cloudBoardExternalId =
+    loadBoardSyncStateOnly(boardId).cloudBoardExternalId
+
   removeBoardFromStorage(boardId)
   const nextBoards = boardStore.boards.filter((board) => board.id !== boardId)
+
+  if (cloudBoardExternalId)
+  {
+    stampPendingBoardDelete(cloudBoardExternalId)
+    notifyBoardDeleted()
+  }
 
   if (boardId === boardStore.activeBoardId)
   {
@@ -140,9 +202,17 @@ export const duplicateBoardSession = async (
   const source =
     boardId === boardStore.activeBoardId
       ? extractBoardData(useActiveBoardStore.getState())
-      : loadPersistedBoard(boardId)
+      : loadInactiveBoardSnapshot(boardId)
 
-  await saveAndActivateBoard(source, source.title || DEFAULT_TITLE)
+  await saveAndActivateBoard(
+    source,
+    source.title || DEFAULT_TITLE,
+    markBoardStatePending({
+      lastSyncedRevision: null,
+      cloudBoardExternalId: null,
+      pendingSyncAt: null,
+    })
+  )
 }
 
 export const renameBoardSession = (boardId: BoardId, title: string): void =>
@@ -159,7 +229,30 @@ export const renameBoardSession = (boardId: BoardId, title: string): void =>
 
   if (boardId === boardStore.activeBoardId)
   {
-    useActiveBoardStore.setState({ title: trimmed })
+    const state = useActiveBoardStore.getState()
+    if (state.title === trimmed)
+    {
+      return
+    }
+
+    const syncState = markBoardStatePending(extractBoardSyncState(state))
+    useActiveBoardStore.setState({ title: trimmed, ...syncState })
+    const saveResult = saveBoardToStorage(
+      boardId,
+      { ...extractBoardData(useActiveBoardStore.getState()), title: trimmed },
+      { syncState }
+    )
+    if (!saveResult.ok)
+    {
+      useActiveBoardStore.getState().setRuntimeError(saveResult.message)
+    }
+    notifyBoardChanged(boardId)
+    return
+  }
+
+  if (!saveInactiveBoardTitle(boardId, trimmed))
+  {
+    throw new Error(`failed to persist renamed board ${boardId}`)
   }
 }
 

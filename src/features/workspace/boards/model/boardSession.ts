@@ -1,5 +1,5 @@
 // src/features/workspace/boards/model/boardSession.ts
-// public board session facade for UI, export, & bootstrap callers
+// public board session facade for UI, export, bootstrap, & sync callers
 
 import { registerBoardAutosaveController } from './session/boardSessionAutosave'
 import { saveActiveBoardSnapshot } from './session/boardSessionPersistence'
@@ -18,10 +18,16 @@ export {
 export {
   loadBoardIntoSession,
   loadPersistedBoard,
-  saveActiveBoardSnapshot,
-  saveBoardSnapshot,
+  loadPersistedBoardState,
+  persistBoardStateForSync,
+  persistBoardSyncState,
+  persistBoardSyncStateToStorageOnly,
 } from './session/boardSessionPersistence'
-export { setBoardLoadedListener } from './session/boardSessionEvents'
+export {
+  setBoardChangedListener,
+  setBoardDeletedListener,
+  setBoardLoadedListener,
+} from './session/boardSessionEvents'
 
 export const registerBoardAutosave = (): (() => void) =>
   registerBoardAutosaveController(saveActiveBoardSnapshot)

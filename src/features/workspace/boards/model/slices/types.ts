@@ -19,6 +19,8 @@ import type {
   Selection,
   UndoEntry,
 } from '~/features/workspace/boards/model/runtime'
+import type { BoardSyncState } from '~/features/workspace/boards/model/sync'
+import type { BoardSyncStatePatch } from './syncStateOps'
 import type { ItemId, TierId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   PaletteId,
@@ -26,11 +28,15 @@ import type {
   TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 
-// board data slice — serializable board snapshot + CRUD & shuffle actions.
-export interface BoardDataSlice extends BoardSnapshot
+// board data slice — serializable board snapshot + CRUD & shuffle actions +
+// sync-state cursor & runtime error banner (the latter two are small enough
+// that separate slices didn't pay rent)
+export interface BoardDataSlice extends BoardSnapshot, BoardSyncState
 {
   itemsManuallyMoved: boolean
+  activeItemCount: number
   runtimeError: string | null
+  setSyncState: (state: BoardSyncStatePatch) => void
   setRuntimeError: (message: string) => void
   clearRuntimeError: () => void
   addTier: (paletteId: PaletteId) => void
@@ -46,6 +52,8 @@ export interface BoardDataSlice extends BoardSnapshot
   addItems: (newItems: NewTierItem[]) => void
   addTextItem: (label: string, backgroundColor: string) => void
   setItemAltText: (itemId: ItemId, altText: string) => void
+  setItemNotes: (itemId: ItemId, notes: string) => void
+  setItemBackgroundColor: (itemId: ItemId, color: string | null) => void
   removeItem: (itemId: ItemId) => void
   removeItems: (itemIds: readonly ItemId[]) => void
   restoreDeletedItem: (itemId: ItemId) => void
@@ -56,7 +64,7 @@ export interface BoardDataSlice extends BoardSnapshot
   shuffleAllItems: (mode: 'even' | 'random') => void
   shuffleUnrankedItems: () => void
   resetBoard: (paletteId: PaletteId) => void
-  loadBoard: (data: BoardSnapshot) => void
+  loadBoard: (data: BoardSnapshot, syncState?: BoardSyncState) => void
   // switches mode to 'manual'
   setBoardItemAspectRatio: (value: number) => void
   // 'auto' recomputes from current items; 'manual' preserves the value

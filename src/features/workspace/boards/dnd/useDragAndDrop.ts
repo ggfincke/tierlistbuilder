@@ -35,10 +35,21 @@ import { formatCountedWord } from '~/shared/lib/pluralize'
 
 type DragType = 'item' | 'tier'
 
+interface TierDragRect
+{
+  width: number
+  height: number
+}
+
 type ActivePointerDrag =
   | { kind: 'idle' }
   | { kind: 'item'; itemId: ItemId }
-  | { kind: 'tier'; tierId: string; tier: Tier | undefined }
+  | {
+      kind: 'tier'
+      tierId: string
+      tier: Tier | undefined
+      rect: TierDragRect | null
+    }
 
 const IDLE_POINTER_DRAG: ActivePointerDrag = { kind: 'idle' }
 
@@ -49,7 +60,6 @@ const getDragType = (event: {
 export const useDragAndDrop = () =>
 {
   const {
-    dragPreview,
     keyboardMode,
     setActiveItemId,
     clearKeyboardMode,
@@ -61,7 +71,6 @@ export const useDragAndDrop = () =>
     removeItems,
   } = useActiveBoardStore(
     useShallow((state) => ({
-      dragPreview: state.dragPreview,
       keyboardMode: state.keyboardMode,
       setActiveItemId: state.setActiveItemId,
       clearKeyboardMode: state.clearKeyboardMode,
@@ -78,13 +87,16 @@ export const useDragAndDrop = () =>
     useState<ActivePointerDrag>(IDLE_POINTER_DRAG)
   const lastOverIdRef = useRef<UniqueIdentifier | null>(null)
   const movedToNewContainerRef = useRef(false)
+  const movedResetFrameRef = useRef<number | null>(null)
   const initialRectRef = useRef<{ left: number; top: number } | null>(null)
   const frozenOverlayRectRef = useRef<{ left: number; top: number } | null>(
     null
   )
   const isMultiDragRef = useRef(false)
+  const currentPreviewRef = useRef<ContainerSnapshot | null>(null)
   const pendingPreviewRef = useRef<ContainerSnapshot | null>(null)
   const previewFrameRef = useRef<number | null>(null)
+  const currentTierIdsRef = useRef<ReadonlySet<string>>(new Set())
 
   const sensors = useDragSensors()
 
@@ -108,25 +120,59 @@ export const useDragAndDrop = () =>
     return pending
   }
 
+  const cancelMovedReset = () =>
+  {
+    if (movedResetFrameRef.current === null) return
+    cancelAnimationFrame(movedResetFrameRef.current)
+    movedResetFrameRef.current = null
+  }
+
+  const scheduleMovedReset = () =>
+  {
+    if (!movedToNewContainerRef.current)
+    {
+      return
+    }
+
+    cancelMovedReset()
+    movedResetFrameRef.current = requestAnimationFrame(() =>
+    {
+      movedToNewContainerRef.current = false
+      movedResetFrameRef.current = null
+    })
+  }
+
   const flushPendingPreviewUpdate = () =>
   {
     const pending = consumePendingPreview()
-    if (pending) updateDragPreview(pending)
+    if (!pending) return
+
+    currentPreviewRef.current = pending
+    updateDragPreview(pending)
+    scheduleMovedReset()
   }
 
   const getCurrentDragPreview = (): ContainerSnapshot =>
     pendingPreviewRef.current ??
+    currentPreviewRef.current ??
     getEffectiveContainerSnapshot(useActiveBoardStore.getState())
+
+  const getCurrentTierIds = (): ReadonlySet<string> => currentTierIdsRef.current
 
   const schedulePreviewUpdate = (preview: ContainerSnapshot) =>
   {
+    currentPreviewRef.current = preview
     pendingPreviewRef.current = preview
     if (previewFrameRef.current !== null) return
 
     previewFrameRef.current = requestAnimationFrame(() =>
     {
       const pending = consumePendingPreview()
-      if (pending) updateDragPreview(pending)
+      if (!pending) return
+
+      currentPreviewRef.current = pending
+      updateDragPreview(pending)
+      scheduleMovedReset()
     })
   }
 
@@ -134,19 +180,10 @@ export const useDragAndDrop = () =>
     () => () =>
     {
       consumePendingPreview()
+      cancelMovedReset()
     },
     []
   )
-
-  useEffect(() =>
-  {
-    const frame = requestAnimationFrame(() =>
-    {
-      movedToNewContainerRef.current = false
-    })
-
-    return () => cancelAnimationFrame(frame)
-  }, [dragPreview])
 
   useEffect(() =>
   {
@@ -176,18 +213,27 @@ export const useDragAndDrop = () =>
 
   const collisionDetection = useCallback(
     (args: Parameters<typeof resolveDragCollisions>[0]) =>
-      resolveDragCollisions(args, lastOverIdRef, movedToNewContainerRef),
+      resolveDragCollisions(
+        args,
+        lastOverIdRef,
+        movedToNewContainerRef,
+        getCurrentDragPreview,
+        getCurrentTierIds
+      ),
     []
   )
 
   const resetDragState = () =>
   {
     consumePendingPreview()
+    cancelMovedReset()
     lastOverIdRef.current = null
     movedToNewContainerRef.current = false
     initialRectRef.current = null
     frozenOverlayRectRef.current = null
     isMultiDragRef.current = false
+    currentPreviewRef.current = null
+    currentTierIdsRef.current = new Set()
     setActiveDrag(IDLE_POINTER_DRAG)
     setActiveItemId(null)
   }
@@ -205,10 +251,16 @@ export const useDragAndDrop = () =>
 
     if (type === 'tier')
     {
-      const tier = useActiveBoardStore
-        .getState()
-        .tiers.find((entry) => entry.id === activeStringId)
-      setActiveDrag({ kind: 'tier', tierId: activeStringId, tier })
+      const state = useActiveBoardStore.getState()
+      currentTierIdsRef.current = new Set(
+        state.tiers.map((entry) => String(entry.id))
+      )
+      const tier = state.tiers.find((entry) => entry.id === activeStringId)
+      const initialRect = event.active.rect.current.initial
+      const rect = initialRect
+        ? { width: initialRect.width, height: initialRect.height }
+        : null
+      setActiveDrag({ kind: 'tier', tierId: activeStringId, tier, rect })
       announce(`Picked up tier ${tier?.name ?? 'tier'}`)
       return
     }
@@ -231,6 +283,9 @@ export const useDragAndDrop = () =>
     }
 
     beginDragPreview(activeId)
+    currentPreviewRef.current = getEffectiveContainerSnapshot(
+      useActiveBoardStore.getState()
+    )
     lastOverIdRef.current = activeId
     setActiveItemId(activeId)
     setActiveDrag({ kind: 'item', itemId: activeId })
@@ -417,11 +472,13 @@ export const useDragAndDrop = () =>
   const overlayModifiers = useMemo(() => [overlayModifier], [overlayModifier])
   const activeItemId = activeDrag.kind === 'item' ? activeDrag.itemId : null
   const activeTier = activeDrag.kind === 'tier' ? activeDrag.tier : undefined
+  const activeTierRect = activeDrag.kind === 'tier' ? activeDrag.rect : null
 
   return {
     sensors,
     activeItemId,
     activeTier,
+    activeTierRect,
     collisionDetection,
     overlayModifiers,
     onDragStart,

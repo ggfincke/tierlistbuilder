@@ -24,6 +24,8 @@ type ItemActions = Pick<
   | 'addItems'
   | 'addTextItem'
   | 'setItemAltText'
+  | 'setItemNotes'
+  | 'setItemBackgroundColor'
   | 'removeItem'
   | 'removeItems'
   | 'clearAllItems'
@@ -76,6 +78,7 @@ export const createItemActions = (
         ...withUndo(state, {}, label),
         items: nextItems,
         unrankedItemIds: nextUnranked,
+        activeItemCount: state.activeItemCount + newItems.length,
         itemAspectRatio: nextAspectRatio,
       }
     })
@@ -94,6 +97,7 @@ export const createItemActions = (
           [id]: { id, label, backgroundColor },
         },
         unrankedItemIds: [...state.unrankedItemIds, id],
+        activeItemCount: state.activeItemCount + 1,
       }
     }),
 
@@ -115,6 +119,51 @@ export const createItemActions = (
           },
         },
         'Edit item'
+      )
+    }),
+
+  setItemNotes: (itemId, notes) =>
+    set((state) =>
+    {
+      const item = state.items[itemId]
+      if (!item) return state
+
+      // preserve interior whitespace so notes stay legible; only drop the
+      // field entirely when the user clears it out completely
+      const trimmed = notes.replace(/^\s+|\s+$/g, '')
+      const nextNotes = trimmed.length > 0 ? trimmed : undefined
+      if (nextNotes === item.notes) return state
+
+      const { notes: _drop, ...rest } = item
+      const nextItem = nextNotes ? { ...rest, notes: nextNotes } : rest
+      return withUndo(
+        state,
+        {
+          items: { ...state.items, [itemId]: nextItem },
+        },
+        'Edit notes'
+      )
+    }),
+
+  setItemBackgroundColor: (itemId, color) =>
+    set((state) =>
+    {
+      const item = state.items[itemId]
+      if (!item) return state
+
+      const nextColor = color && color.trim().length > 0 ? color : undefined
+      if (nextColor === item.backgroundColor) return state
+
+      const { backgroundColor: _drop, ...rest } = item
+      const nextItem = nextColor
+        ? { ...rest, backgroundColor: nextColor }
+        : rest
+      return withUndo(
+        state,
+        {
+          items: { ...state.items, [itemId]: nextItem },
+        },
+        'Edit background'
       )
     }),
 
@@ -175,6 +224,7 @@ export const createItemActions = (
         deletedItems: nextDeleted,
         tiers: state.tiers.map((tier) => ({ ...tier, itemIds: [] })),
         unrankedItemIds: [],
+        activeItemCount: state.activeItemCount - clearedItems.length,
       }
     }),
 

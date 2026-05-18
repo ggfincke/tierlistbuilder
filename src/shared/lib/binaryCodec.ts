@@ -42,10 +42,10 @@ export const blobToDataUrl = async (blob: Blob): Promise<string> =>
 // convert Uint8Array bytes into a base64 string. chunk size is a multiple
 // of 3 so btoa's partial-group '=' padding only appears on the final chunk
 // — otherwise per-chunk base64 output would corrupt when concatenated
-export const bytesToBase64 = (bytes: Uint8Array): string =>
+const bytesToBase64 = (bytes: Uint8Array): string =>
 {
   const CHUNK_SIZE = 32766
-  let output = ''
+  const chunks: string[] = []
 
   for (let i = 0; i < bytes.length; i += CHUNK_SIZE)
   {
@@ -57,14 +57,20 @@ export const bytesToBase64 = (bytes: Uint8Array): string =>
       binary += String.fromCharCode(chunk[j])
     }
 
-    output += btoa(binary)
+    chunks.push(btoa(binary))
   }
 
-  return output
+  return chunks.join('')
 }
 
+export const bytesToBase64Url = (bytes: Uint8Array): string =>
+  bytesToBase64(bytes)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+
 // convert a base64 string into Uint8Array bytes
-export const base64ToBytes = (base64: string): Uint8Array =>
+const base64ToBytes = (base64: string): Uint8Array =>
 {
   const binary = atob(base64)
   const bytes = new Uint8Array(binary.length)
@@ -75,6 +81,13 @@ export const base64ToBytes = (base64: string): Uint8Array =>
   }
 
   return bytes
+}
+
+export const base64UrlToBytes = (value: string): Uint8Array =>
+{
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+  return base64ToBytes(padded)
 }
 
 // decode a base64 or percent-encoded data URL into its raw bytes. throws

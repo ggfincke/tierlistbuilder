@@ -9,7 +9,7 @@ import {
   parsePercentInput,
   roundToStep,
 } from '~/shared/lib/math'
-import { NumberStepper } from './NumberStepper'
+import { NumberStepper } from '~/shared/ui/NumberStepper'
 
 interface ZoomSliderProps
 {

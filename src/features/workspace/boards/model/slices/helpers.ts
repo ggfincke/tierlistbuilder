@@ -54,6 +54,18 @@ export const getAllBoardItemIds = (
   ]
 }
 
+export const countActiveItems = (
+  items: Readonly<Record<ItemId, unknown>>
+): number =>
+{
+  let count = 0
+  for (const id in items)
+  {
+    if (items[id as ItemId]) count += 1
+  }
+  return count
+}
+
 // filter `ids` through `idSet` but return the input ref when nothing is
 // removed — lets downstream shallow-equality checks bail gratuitously
 const filterItemIdsPreservingRef = (

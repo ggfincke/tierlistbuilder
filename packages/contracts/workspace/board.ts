@@ -5,11 +5,16 @@ import type { BoardId, ItemId, TierId } from '../lib/ids'
 import type { PaletteId, TextStyleId, TierColorSpec } from '../lib/theme'
 import { clamp } from '../lib/math'
 
-// default board title used across local board creation
+// default board title used across local & cloud-backed board creation
 export const DEFAULT_BOARD_TITLE = 'My Tier List'
 
 // hard cap for user-supplied board titles
 export const MAX_BOARD_TITLE_LENGTH = 200
+
+// soft-delete retention window before the daily hard-delete cron purges a board.
+// exposed in contracts (not just Convex-internal) so the "Recently deleted" UI
+// can compute the permanent-deletion date w/o a server round trip
+export const BOARD_TOMBSTONE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 
 // trim board titles & fall back to the shared default
 export const normalizeBoardTitle = (raw: string): string =>
@@ -73,7 +78,12 @@ export const ITEM_TRANSFORM_LIMITS = {
 
 // caption placement modes — overlay sits inside the image frame;
 // captionAbove/captionBelow render a full-width strip outside the image
-export type LabelPlacementMode = 'overlay' | 'captionAbove' | 'captionBelow'
+export const LABEL_PLACEMENT_MODES = [
+  'overlay',
+  'captionAbove',
+  'captionBelow',
+] as const
+export type LabelPlacementMode = (typeof LABEL_PLACEMENT_MODES)[number]
 
 // caption sits inside the image frame; (x, y) is the *center* of the caption
 // block (translate(-50%, -50%) at render time). axes normalized to [0, 1]
@@ -126,12 +136,14 @@ const PLACEMENT_BY_MODE: Record<LabelPlacementMode, LabelPlacement> = {
 export const placementFromMode = (mode: LabelPlacementMode): LabelPlacement =>
   PLACEMENT_BY_MODE[mode]
 
-// global label defaults bundled together — both fields always travel as a
-// pair through the resolver & per-board apply-to-all plans
+// global label defaults bundled together — fields always travel as a pair
+// through the resolver & per-board apply-to-all plans. fontSizePx is the
+// final fallback when neither item nor board sets one
 export interface GlobalLabelDefaults
 {
   showLabels: boolean
   placementMode: LabelPlacementMode
+  fontSizePx: number
 }
 
 // snap presets surfaced in the editor — center-x w/ three canned y values
@@ -226,8 +238,8 @@ const labelPlacementsEqual = (
 }
 
 export const boardLabelSettingsEqual = (
-  a: BoardLabelSettings | undefined,
-  b: BoardLabelSettings | undefined
+  a: BoardLabelSettings | null | undefined,
+  b: BoardLabelSettings | null | undefined
 ): boolean =>
 {
   if (a === b) return true
@@ -281,10 +293,12 @@ export const isEmptyItemLabelOptions = (
     options.textStyleId === undefined &&
     options.textColor === undefined)
 
-// content-addressable image pointer for bytes stored outside the snapshot
 export interface TierItemImageRef
 {
   hash: string
+  cloudMediaExternalId?: string
+  // source-owned refs point at marketplace assets; upload a copy pre-sync.
+  cloudMediaOwnership?: 'source'
 }
 
 // single item placed in a tier or the unranked pool. imageRef is the small
@@ -298,6 +312,9 @@ export interface TierItem
   label?: string
   backgroundColor?: string
   altText?: string
+  // private per-item editor notes — "why I ranked this here" scratchpad.
+  // travels w/ cloud sync & JSON export, but never out to published rankings
+  notes?: string
   // natural image aspect ratio (w/h) captured at import; absent -> rendered
   // w/ the board default (1:1 when the board has no override)
   aspectRatio?: number
@@ -308,6 +325,10 @@ export interface TierItem
   transform?: ItemTransform
   // per-tile label rendering override; absent -> inherit from board/global
   labelOptions?: ItemLabelOptions
+  // marketplace template item external id captured when a board is forked
+  // locally. first cloud sync resolves it to boardItems.templateItemId so the
+  // board can publish rankings against its source template.
+  sourceTemplateItemExternalId?: string
 }
 
 // a single tier row w/ ordered item references
@@ -346,6 +367,22 @@ export interface BoardSnapshot
   pageBackground?: string
   // per-board label rendering defaults; absent fields fall through to global
   labels?: BoardLabelSettings
+  // source-template/ranking identity captured at fork/remix time. travels w/
+  // cloud sync & JSON export so a re-imported board still knows where it came
+  // from. titles denormalize so the breadcrumb survives source deletion
+  sourceTemplateId?: string
+  sourceRankingId?: string
+  sourceTemplateTitle?: string
+  sourceRankingTitle?: string
+  // local-only source template cover metadata for pre-sync fork cards. cloud
+  // library rows rehydrate this from the source template instead.
+  sourceTemplateCoverMedia?: import('../marketplace/template').TemplateMediaRef
+  sourceTemplateCoverFraming?:
+    | import('../marketplace/template').TemplateCoverFraming
+    | null
+  // criterion/lane the user started from when forking a template or remixing a
+  // ranking. the server validates it against the source template on first sync.
+  preferredCriterionExternalId?: string
 }
 
 // payload for adding new items before IDs are assigned. image import writes
@@ -371,10 +408,12 @@ export interface TierItemWire
   label?: string
   backgroundColor?: string
   altText?: string
+  notes?: string
   aspectRatio?: number
   imageFit?: ImageFit
   transform?: ItemTransform
   labelOptions?: ItemLabelOptions
+  sourceTemplateItemExternalId?: string
 }
 
 // wire-format variant of `BoardSnapshot` — same shape as in-memory but
@@ -394,6 +433,11 @@ export interface BoardSnapshotWire
   textStyleId?: TextStyleId
   pageBackground?: string
   labels?: BoardLabelSettings
+  sourceTemplateId?: string
+  sourceRankingId?: string
+  sourceTemplateTitle?: string
+  sourceRankingTitle?: string
+  preferredCriterionExternalId?: string
 }
 
 // metadata entry for a single board in the multi-board registry
@@ -404,7 +448,8 @@ export interface BoardMeta
   createdAt: number
 }
 
-// board list row projected for the My Lists library page
+// board list row projected for the My Lists library page; also returned by
+// the Convex board listing queries for cloud-backed boards
 export interface BoardListItem
 {
   externalId: string
@@ -414,23 +459,65 @@ export interface BoardListItem
   revision: number
 }
 
-// derived completion status surfaced on the My Lists library page
-export const LIBRARY_BOARD_STATUSES = [
-  'draft',
-  'in_progress',
-  'finished',
-  'published',
+// extended cloud board list row for the "Recently deleted" surface. carries
+// deletedAt so the client can sort + display "Will be permanently deleted in
+// N days" by adding BOARD_TOMBSTONE_RETENTION_MS
+export interface DeletedBoardListItem extends BoardListItem
+{
+  deletedAt: number
+}
+
+// content-derived publish state — Draft (items exist but none placed in a
+// tier), WIP (>=1 placed, not published), Live (published as a public
+// template/ranking). Never user-toggled; see deriveLibraryPublishState
+export const PUBLISH_STATES = ['draft', 'wip', 'live'] as const
+export type PublishState = (typeof PUBLISH_STATES)[number]
+
+// cloud sync state surfaced as the board's sync chip. 'localOnly' lives only
+// in the browser; 'synced' has a cloud row at rest; 'pending'/'failed' track
+// an in-flight or errored clone job; 'conflict' needs a user merge
+export const SYNC_STATES = [
+  'localOnly',
+  'synced',
+  'pending',
+  'failed',
+  'conflict',
 ] as const
-export type LibraryBoardStatus = (typeof LIBRARY_BOARD_STATUSES)[number]
+export type SyncState = (typeof SYNC_STATES)[number]
 
 // share-state — 'public' iff a live public template sourced from this board
 // exists; unlisted templates fold into 'private' here (not-discoverable)
 export const LIBRARY_BOARD_VISIBILITIES = ['private', 'public'] as const
 export type LibraryBoardVisibility = (typeof LIBRARY_BOARD_VISIBILITIES)[number]
 
-// status filter chip values on the My Lists page. 'all' is a UI-only filter
-// state that doesn't appear on individual rows
-export const LIBRARY_BOARD_FILTERS = ['all', ...LIBRARY_BOARD_STATUSES] as const
+// cloud-state of a board row — 'localOnly' lives only in the browser;
+// 'cloudBacked' has a Convex row; 'syncPausedForPlan' is over the user's
+// plan cap & writes are deferred until they upgrade or free a slot
+export const BOARD_CLOUD_STATES = [
+  'localOnly',
+  'cloudBacked',
+  'syncPausedForPlan',
+] as const
+export type BoardCloudState = (typeof BOARD_CLOUD_STATES)[number]
+
+// async clone-from-template lifecycle — 'ready' is the steady state;
+// 'clonePending' surfaces the syncing chip; 'cloneFailed' surfaces a retry
+export const BOARD_MATERIALIZATION_STATES = [
+  'ready',
+  'clonePending',
+  'cloneFailed',
+] as const
+export type BoardMaterializationState =
+  (typeof BOARD_MATERIALIZATION_STATES)[number]
+
+// reasons a board's cloud sync is paused. only 'planLimit' today, but the
+// server is allowed to introduce more without breaking older clients
+export const BOARD_PAUSED_REASONS = ['planLimit'] as const
+export type BoardPausedReason = (typeof BOARD_PAUSED_REASONS)[number]
+
+// publish-state filter chip values on the My Boards page. 'all' is a UI-only
+// filter state that doesn't appear on individual rows
+export const LIBRARY_BOARD_FILTERS = ['all', ...PUBLISH_STATES] as const
 export type LibraryBoardFilter = (typeof LIBRARY_BOARD_FILTERS)[number]
 
 // sort options on the My Lists page — 'updated' is the default; 'progress'
@@ -468,6 +555,11 @@ export interface LibraryBoardCoverItem
   label: string | null
   externalId: string
   mediaUrl: string | null
+  // local rows can carry hash-backed media instead of a ready storage URL.
+  // Cover tiles resolve this through the same lazy image cache used by boards.
+  mediaHash?: string
+  mediaCloudExternalId?: string
+  mediaVariant?: import('../platform/media').MediaVariantKind
 }
 
 // per-tier breakdown entry. tierIndex is the row's position (0 = top tier);
@@ -485,11 +577,18 @@ export interface LibraryBoardListItem extends BoardListItem
   activeItemCount: number
   unrankedItemCount: number
   rankedItemCount: number
-  status: LibraryBoardStatus
+  publishState: PublishState
+  syncState: SyncState
   visibility: LibraryBoardVisibility
   category: import('../marketplace/category').TemplateCategory
   sourceTemplateSizeClass:
     | import('../marketplace/template').TemplateSizeClass
+    | null
+  sourceTemplateCoverMedia:
+    | import('../marketplace/template').TemplateMediaRef
+    | null
+  sourceTemplateCoverFraming:
+    | import('../marketplace/template').TemplateCoverFraming
     | null
   coverItems: LibraryBoardCoverItem[]
   paletteId: import('../lib/theme').PaletteId
@@ -499,16 +598,25 @@ export interface LibraryBoardListItem extends BoardListItem
   pinned: boolean
 }
 
-export const deriveLibraryBoardStatus = (params: {
-  activeItemCount: number
-  unrankedItemCount: number
+export const deriveLibraryPublishState = (params: {
+  rankedItemCount: number
   hasPublishedTemplate: boolean
-}): LibraryBoardStatus =>
+}): PublishState =>
 {
-  if (params.hasPublishedTemplate) return 'published'
-  if (params.activeItemCount === 0) return 'draft'
-  if (params.unrankedItemCount > 0) return 'in_progress'
-  return 'finished'
+  if (params.hasPublishedTemplate) return 'live'
+  return params.rankedItemCount > 0 ? 'wip' : 'draft'
+}
+
+// server-knowable sync state — maps the clone-from-template lifecycle onto the
+// sync chip. 'localOnly' & 'conflict' are client-only: set by the local-board
+// projection & the conflict queue respectively
+export const deriveLibrarySyncState = (params: {
+  materializationState?: BoardMaterializationState
+}): SyncState =>
+{
+  if (params.materializationState === 'clonePending') return 'pending'
+  if (params.materializationState === 'cloneFailed') return 'failed'
+  return 'synced'
 }
 
 // progress as a ratio in [0, 1] — drafts (0 active items) report 0 so sort

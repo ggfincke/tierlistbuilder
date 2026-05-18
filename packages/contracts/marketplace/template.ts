@@ -7,7 +7,9 @@ import type {
   ImageFit,
   ItemTransform,
 } from '../workspace/board'
+import type { PaginationResult } from '../lib/pagination'
 import type { TemplateCategory } from './category'
+import type { MarketplaceTemplateCriterion } from './templateCriterion'
 
 export const TEMPLATE_VISIBILITIES = ['public', 'unlisted'] as const
 
@@ -42,7 +44,7 @@ export const ACTIVE_TEMPLATE_JOB_STATUSES = [
   'running',
 ] as const satisfies readonly TemplateJobStatus[]
 
-export const FINISHED_TEMPLATE_JOB_STATUSES = [
+const FINISHED_TEMPLATE_JOB_STATUSES = [
   'succeeded',
   'canceled',
 ] as const satisfies readonly TemplateJobStatus[]
@@ -61,7 +63,12 @@ export const isFinishedTemplateJobStatus = (
   status: TemplateJobStatus
 ): boolean => FINISHED_TEMPLATE_JOB_STATUS_SET.has(status)
 
-export const TEMPLATE_LIST_SORTS = ['featured', 'popular', 'recent'] as const
+export const TEMPLATE_LIST_SORTS = [
+  'featured',
+  'trending',
+  'popular',
+  'recent',
+] as const
 
 export type TemplateListSort = (typeof TEMPLATE_LIST_SORTS)[number]
 
@@ -135,6 +142,50 @@ export interface TemplateMediaRef
   mimeType: string
 }
 
+// per-surface cover framings — authors crop a single master image per surface.
+// rect coords are normalized against source dimensions; higher-res replacements
+// keep framing. values may sit outside [0, 1] when zoomed below cover-fit
+export const COVER_SURFACES = ['browseHero', 'detailHero', 'card'] as const
+
+export type CoverSurface = (typeof COVER_SURFACES)[number]
+
+// canonical aspect ratios per surface — gallery hero ~16:9, detail hero ~4:3,
+// default card ~16:10. live containers may drift; FramedCoverImage covers
+// via object-cover
+export const SURFACE_ASPECT_RATIOS: Record<CoverSurface, number> = {
+  browseHero: 16 / 9,
+  detailHero: 4 / 3,
+  card: 16 / 10,
+}
+
+export interface CoverFrame
+{
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface TemplateCoverFraming
+{
+  browseHero: CoverFrame | null
+  detailHero: CoverFrame | null
+  card: CoverFrame | null
+}
+
+export const FULL_COVER_FRAME: CoverFrame = { x: 0, y: 0, width: 1, height: 1 }
+
+// frames are normalized to source-image coords but may extend outside [0, 1]
+// when the user zooms out below cover-fit -> renderer letterboxes the gap
+// w/ --t-media-matte. only finite + positive extents are required
+export const isValidCoverFrame = (frame: CoverFrame): boolean =>
+  Number.isFinite(frame.x) &&
+  Number.isFinite(frame.y) &&
+  Number.isFinite(frame.width) &&
+  Number.isFinite(frame.height) &&
+  frame.width > 0 &&
+  frame.height > 0
+
 export interface TemplateCoverItem
 {
   media: TemplateMediaRef
@@ -157,9 +208,19 @@ export interface MarketplaceTemplateBase
   publicationState: TemplatePublicationState
   author: TemplateAuthor
   coverMedia: TemplateMediaRef | null
+  // per-surface framings of coverMedia. null when coverMedia is null OR when
+  // the author hasn't framed for any surface yet (runtime falls back to
+  // full-image object-cover into the surface container)
+  coverFraming: TemplateCoverFraming | null
   itemCount: number
-  useCount: number
+  forkCount: number
   viewCount: number
+  // total public published rankings across every criterion (denormalized)
+  rankingCount: number
+  weeklyForkCount: number
+  weeklyViewCount: number
+  trendingScore: number
+  trendingComputedAt: number | null
   featuredRank: number | null
   creditLine: string | null
   createdAt: number
@@ -192,10 +253,41 @@ export interface MarketplaceTemplateCount
 export interface MarketplaceTemplateGalleryResult
 {
   featured: MarketplaceTemplateGalleryCard[]
+  trending: MarketplaceTemplateGalleryCard[]
   popular: MarketplaceTemplateGalleryCard[]
   recent: MarketplaceTemplateGalleryCard[]
   results: MarketplaceTemplateGalleryCard[]
   templateCount: MarketplaceTemplateCount
+}
+
+export const TEMPLATE_GALLERY_RAILS = [
+  'featured',
+  'trending',
+  'popular',
+  'recent',
+] as const
+
+export type TemplateGalleryRail = (typeof TEMPLATE_GALLERY_RAILS)[number]
+
+export interface MarketplaceTemplateGalleryRailResult
+{
+  items: MarketplaceTemplateGalleryCard[]
+}
+
+export interface MarketplaceTemplateGalleryResultsResult
+{
+  results: MarketplaceTemplateGalleryCard[]
+  templateCount: MarketplaceTemplateCount
+}
+
+export interface MarketplaceTemplateManagementItem extends MarketplaceTemplateSummary
+{
+  isPubliclyListable: boolean
+}
+
+export interface MarketplaceTemplateManagementListResult
+{
+  items: MarketplaceTemplateManagementItem[]
 }
 
 export interface MarketplaceTemplateDraftTemplate
@@ -204,6 +296,7 @@ export interface MarketplaceTemplateDraftTemplate
   title: string
   category: TemplateCategory
   coverMedia: TemplateMediaRef | null
+  coverFraming: TemplateCoverFraming | null
   coverItems: TemplateCoverItem[]
 }
 
@@ -223,20 +316,36 @@ export interface MarketplaceTemplateItem
 export interface MarketplaceTemplateDetail extends MarketplaceTemplateSummary
 {
   access: TemplateCardAccessState
+  criteria: MarketplaceTemplateCriterion[]
+  // public-listable ranking count per criterion external id; criteria w/o
+  // an aggregate row yet appear as 0. only includes entries from `criteria`
+  rankingCountByCriterion: Record<string, number>
   suggestedTiers: TierPresetTier[]
   // pre-baked board label settings; null falls back to the forking user's
   // global showLabels + built-in defaults
   labels: BoardLabelSettings | null
 }
 
-export interface MarketplaceTemplateItemsResult
+export type MarketplaceTemplateItemsResult =
+  PaginationResult<MarketplaceTemplateItem>
+
+export interface MarketplaceTemplateBookmarkState
 {
-  page: MarketplaceTemplateItem[]
-  continueCursor: string
-  isDone: boolean
-  splitCursor?: string | null
-  pageStatus?: 'SplitRecommended' | 'SplitRequired' | null
+  saved: boolean
+  savedAt: number | null
 }
+
+export type MarketplaceTemplateBookmarkToggleResult =
+  MarketplaceTemplateBookmarkState
+
+export interface MarketplaceTemplateBookmarkListItem
+{
+  template: MarketplaceTemplateSummary
+  savedAt: number
+}
+
+export type MarketplaceTemplateBookmarkListResult =
+  PaginationResult<MarketplaceTemplateBookmarkListItem>
 
 export interface MarketplaceTemplateListResult
 {
@@ -260,7 +369,7 @@ export interface MarketplaceTemplateDraftListResult
   drafts: MarketplaceTemplateDraft[]
 }
 
-export interface MarketplaceTemplateJobProgress
+interface MarketplaceTemplateJobProgress
 {
   jobId: string
   status: TemplateJobStatus

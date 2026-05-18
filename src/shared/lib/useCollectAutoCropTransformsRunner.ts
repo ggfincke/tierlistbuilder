@@ -21,7 +21,8 @@ export interface AutoCropProgress
 interface CollectAutoCropTransformsRunParams
 {
   targets: readonly TierItem[]
-  boardAspectRatio: number
+  // label-aware crop callers resolve this per item
+  getBoardAspectRatio: (item: TierItem) => number
   trimSoftShadows: boolean
   onError?: (error: unknown) => void
 }
@@ -48,7 +49,7 @@ export const useCollectAutoCropTransformsRunner = (): {
   const run = useCallback(
     async ({
       targets,
-      boardAspectRatio,
+      getBoardAspectRatio,
       trimSoftShadows,
       onError,
     }: CollectAutoCropTransformsRunParams) =>
@@ -60,7 +61,7 @@ export const useCollectAutoCropTransformsRunner = (): {
       {
         const entries = await collectAutoCropTransforms({
           targets,
-          boardAspectRatio,
+          getBoardAspectRatio,
           trimSoftShadows,
           signal: controller.signal,
           onProgress: () =>

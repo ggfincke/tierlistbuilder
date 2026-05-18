@@ -24,7 +24,7 @@ import {
   LABEL_TEXT_COLORS,
 } from '@tierlistbuilder/contracts/workspace/board'
 import { LABEL_FONT_LABELS } from '../lib/labelEditorOptions'
-import { NumberStepper } from './NumberStepper'
+import { NumberStepper } from '~/shared/ui/NumberStepper'
 
 const INHERIT_TEXT_STYLE_VALUE = '__inherit'
 

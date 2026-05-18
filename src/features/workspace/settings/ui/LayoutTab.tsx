@@ -22,9 +22,14 @@ import type {
   TierLabelFontSize,
   ToolbarPosition,
 } from '@tierlistbuilder/contracts/platform/preferences'
-import type { LabelPlacementMode } from '@tierlistbuilder/contracts/workspace/board'
+import {
+  LABEL_FONT_SIZE_PX_MAX,
+  LABEL_FONT_SIZE_PX_MIN,
+  type LabelPlacementMode,
+} from '@tierlistbuilder/contracts/workspace/board'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
-import { AspectRatioSection } from './AspectRatioSection'
+import { AspectRatioSection } from './aspect-ratio/AspectRatioSection'
+import { NumberStepper } from '~/shared/ui/NumberStepper'
 import { SegmentedControl } from '~/shared/ui/settings/SegmentedControl'
 import { SettingRow } from '~/shared/ui/settings/SettingRow'
 import { Toggle } from '~/shared/ui/settings/Toggle'
@@ -57,6 +62,7 @@ export const LayoutTab = () =>
     itemSize,
     showLabels,
     defaultLabelPlacementMode,
+    defaultLabelFontSizePx,
     itemShape,
     compactMode,
     labelWidth,
@@ -64,12 +70,12 @@ export const LayoutTab = () =>
     tierLabelBold,
     tierLabelItalic,
     tierLabelFontSize,
-    showAltTextButton,
     autoCropTrimSoftShadows,
     toolbarPosition,
     setItemSize,
     setShowLabels,
     setDefaultLabelPlacementMode,
+    setDefaultLabelFontSizePx,
     setItemShape,
     setCompactMode,
     setLabelWidth,
@@ -77,7 +83,6 @@ export const LayoutTab = () =>
     setTierLabelBold,
     setTierLabelItalic,
     setTierLabelFontSize,
-    setShowAltTextButton,
     setAutoCropTrimSoftShadows,
     setToolbarPosition,
   } = usePreferencesStore(
@@ -85,6 +90,7 @@ export const LayoutTab = () =>
       itemSize: state.itemSize,
       showLabels: state.showLabels,
       defaultLabelPlacementMode: state.defaultLabelPlacementMode,
+      defaultLabelFontSizePx: state.defaultLabelFontSizePx,
       itemShape: state.itemShape,
       compactMode: state.compactMode,
       labelWidth: state.labelWidth,
@@ -92,12 +98,12 @@ export const LayoutTab = () =>
       tierLabelBold: state.tierLabelBold,
       tierLabelItalic: state.tierLabelItalic,
       tierLabelFontSize: state.tierLabelFontSize,
-      showAltTextButton: state.showAltTextButton,
       autoCropTrimSoftShadows: state.autoCropTrimSoftShadows,
       toolbarPosition: state.toolbarPosition,
       setItemSize: state.setItemSize,
       setShowLabels: state.setShowLabels,
       setDefaultLabelPlacementMode: state.setDefaultLabelPlacementMode,
+      setDefaultLabelFontSizePx: state.setDefaultLabelFontSizePx,
       setItemShape: state.setItemShape,
       setCompactMode: state.setCompactMode,
       setLabelWidth: state.setLabelWidth,
@@ -105,7 +111,6 @@ export const LayoutTab = () =>
       setTierLabelBold: state.setTierLabelBold,
       setTierLabelItalic: state.setTierLabelItalic,
       setTierLabelFontSize: state.setTierLabelFontSize,
-      setShowAltTextButton: state.setShowAltTextButton,
       setAutoCropTrimSoftShadows: state.setAutoCropTrimSoftShadows,
       setToolbarPosition: state.setToolbarPosition,
     }))
@@ -114,9 +119,14 @@ export const LayoutTab = () =>
   // selector returns a stable reference when the override set is unchanged,
   // so unrelated board mutations (drags, transforms, etc.) don't re-render
   const overrideStatus = useActiveBoardStore(selectLabelOverrideStatus)
-  const setBoardAndItemsLabelOptions = useActiveBoardStore(
-    (state) => state.setBoardAndItemsLabelOptions
-  )
+  const { setBoardAndItemsLabelOptions, setBoardLabelSettings, boardLabels } =
+    useActiveBoardStore(
+      useShallow((state) => ({
+        setBoardAndItemsLabelOptions: state.setBoardAndItemsLabelOptions,
+        setBoardLabelSettings: state.setBoardLabelSettings,
+        boardLabels: state.labels,
+      }))
+    )
 
   const canEditCaptionPlacement =
     showLabels || overrideStatus.hasVisibleOverride
@@ -133,6 +143,24 @@ export const LayoutTab = () =>
     )
     announce('Label overrides cleared')
   }, [overrideStatus.itemOverrideIds, setBoardAndItemsLabelOptions])
+
+  // also re-pin the active board's override so captions update right away —
+  // template imports bake fontSizePx into boardLabels & would shadow the global
+  const handleCaptionFontSizeChange = useCallback(
+    (px: number) =>
+    {
+      setDefaultLabelFontSizePx(px)
+      if (
+        boardLabels?.fontSizePx !== undefined &&
+        boardLabels.fontSizePx !== px
+      )
+      {
+        setBoardLabelSettings({ ...boardLabels, fontSizePx: px })
+      }
+      announce(`Caption size set to ${px} pixels`)
+    },
+    [boardLabels, setBoardLabelSettings, setDefaultLabelFontSizePx]
+  )
 
   return (
     <>
@@ -197,9 +225,6 @@ export const LayoutTab = () =>
         <SettingRow label="Compact Mode">
           <Toggle checked={compactMode} onChange={setCompactMode} />
         </SettingRow>
-        <SettingRow label="Alt Text Button">
-          <Toggle checked={showAltTextButton} onChange={setShowAltTextButton} />
-        </SettingRow>
         <SettingRow label="Trim Shadows">
           <Toggle
             checked={autoCropTrimSoftShadows}
@@ -210,19 +235,37 @@ export const LayoutTab = () =>
           <Toggle checked={showLabels} onChange={setShowLabels} />
         </SettingRow>
         {canEditCaptionPlacement && (
-          <SettingRow label="Caption Placement">
-            <SegmentedControl<LabelPlacementMode>
-              options={CAPTION_PLACEMENT_OPTIONS}
-              value={defaultLabelPlacementMode}
-              onChange={(mode) =>
-              {
-                setDefaultLabelPlacementMode(mode)
-                announce(
-                  `Caption placement set to ${LABEL_PLACEMENT_MODE_LABEL[mode].toLowerCase()}`
-                )
-              }}
-            />
-          </SettingRow>
+          <>
+            <SettingRow label="Caption Placement">
+              <SegmentedControl<LabelPlacementMode>
+                options={CAPTION_PLACEMENT_OPTIONS}
+                value={defaultLabelPlacementMode}
+                onChange={(mode) =>
+                {
+                  setDefaultLabelPlacementMode(mode)
+                  announce(
+                    `Caption placement set to ${LABEL_PLACEMENT_MODE_LABEL[mode].toLowerCase()}`
+                  )
+                }}
+              />
+            </SettingRow>
+            <SettingRow label="Caption Size">
+              <NumberStepper
+                value={boardLabels?.fontSizePx ?? defaultLabelFontSizePx}
+                min={LABEL_FONT_SIZE_PX_MIN}
+                max={LABEL_FONT_SIZE_PX_MAX}
+                step={1}
+                suffix="px"
+                inputLabel="Caption font size in pixels"
+                decreaseLabel="Decrease caption font size"
+                increaseLabel="Increase caption font size"
+                decreaseTitle="Smaller"
+                increaseTitle="Larger"
+                active={boardLabels?.fontSizePx !== undefined}
+                onChange={handleCaptionFontSizeChange}
+              />
+            </SettingRow>
+          </>
         )}
         {overrideStatus.hasAny && (
           <>

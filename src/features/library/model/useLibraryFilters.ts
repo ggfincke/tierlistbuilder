@@ -1,8 +1,9 @@
 // src/features/library/model/useLibraryFilters.ts
-// URL-canonical filter, sort, view, density, & search state for My Lists
+// URL-canonical filter, sort, view, density, & search state for My Boards
 
 import {
   LIBRARY_BOARD_DENSITIES,
+  LIBRARY_BOARD_FILTERS,
   LIBRARY_BOARD_SORTS,
   LIBRARY_BOARD_VIEWS,
   type LibraryBoardDensity,
@@ -19,7 +20,6 @@ import {
   writeDefaultedParam,
   writeSearchParam,
 } from '~/shared/catalog/urlFilters'
-import { VISIBLE_LIBRARY_BOARD_FILTERS } from '~/features/library/lib/sortAndFilter'
 
 const SEARCH_DEBOUNCE_MS = 200
 
@@ -39,8 +39,10 @@ interface LibraryFilterParams
   density: LibraryBoardDensity
 }
 
+// URL filter parsing accepts any LIBRARY_BOARD_FILTERS member — every publish
+// state (draft/wip/live) has a visible chip, so deep links & chips stay in sync
 const isFilter = (value: string | null): value is LibraryBoardFilter =>
-  isStringMember(value, VISIBLE_LIBRARY_BOARD_FILTERS)
+  isStringMember(value, LIBRARY_BOARD_FILTERS)
 
 const isSort = (value: string | null): value is LibraryBoardSort =>
   isStringMember(value, LIBRARY_BOARD_SORTS)
@@ -51,7 +53,7 @@ const isView = (value: string | null): value is LibraryBoardView =>
 const isDensity = (value: string | null): value is LibraryBoardDensity =>
   isStringMember(value, LIBRARY_BOARD_DENSITIES)
 
-export const parseLibraryFilterParams = (
+const parseLibraryFilterParams = (
   params: URLSearchParams
 ): LibraryFilterParams =>
 {
@@ -105,7 +107,7 @@ const writeLibraryFilterParams = (
   )
 }
 
-export const createLibraryFilterSearchParams = (
+const createLibraryFilterSearchParams = (
   current: URLSearchParams,
   patch: Partial<LibraryFilterParams>
 ): URLSearchParams =>

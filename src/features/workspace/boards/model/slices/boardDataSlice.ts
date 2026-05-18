@@ -2,6 +2,7 @@
 // board data slice composition for snapshot state & domain action groups
 
 import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
+import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
 import { createAspectRatioActions } from './boardData/aspectRatioActions'
 import { createDeletedItemActions } from './boardData/deletedItemActions'
 import { createItemActions } from './boardData/itemActions'
@@ -17,7 +18,9 @@ export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
 ) => ({
   ...createInitialBoardData('classic'),
   itemsManuallyMoved: false,
+  activeItemCount: 0,
   runtimeError: null,
+  ...EMPTY_BOARD_SYNC_STATE,
   ...createLifecycleActions(set),
   ...createTierActions(set, get),
   ...createItemActions(set, get),

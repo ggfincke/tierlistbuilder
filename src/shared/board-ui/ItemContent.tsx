@@ -1,23 +1,22 @@
 // src/shared/board-ui/ItemContent.tsx
 // shared image-vs-text item rendering primitive
 
-import { type ReactNode } from 'react'
-
 import { useImageUrl } from '~/shared/hooks/useImageUrl'
 import type {
   ImageFit,
   ItemTransform,
 } from '@tierlistbuilder/contracts/workspace/board'
 import {
-  getRenderImageHashes,
+  getRenderImageRefs,
   hasAnyImageRef,
   type ImageRendition,
   type ItemImageBundle,
 } from '~/shared/lib/imageRefs'
 import { getTextColor } from '../lib/color'
 import { FramedItemMedia } from './FramedItemMedia'
-import { CaptionStrip, OverlayLabelBlock } from './labelBlocks'
+import { OverlayLabelBlock } from './labelBlocks'
 import type { ResolvedLabelDisplay } from './labelDisplay'
+import { TileLayoutShell } from './TileLayoutShell'
 
 interface ItemContentProps
 {
@@ -40,27 +39,6 @@ interface ItemContentProps
   imageLoading?: 'eager' | 'lazy'
 }
 
-// wraps content in a flex column w/ a CaptionStrip above or below — used by
-// both the resolved-image & matte-while-loading branches so they stay
-// layout-identical
-const CaptionedFrame = ({
-  caption,
-  children,
-}: {
-  caption: ResolvedLabelDisplay
-  children: ReactNode
-}) =>
-{
-  const isAbove = caption.placement.mode === 'captionAbove'
-  return (
-    <div className="flex h-full w-full flex-col">
-      {isAbove && <CaptionStrip display={caption} />}
-      <div className="relative min-h-0 flex-1">{children}</div>
-      {!isAbove && <CaptionStrip display={caption} />}
-    </div>
-  )
-}
-
 export const ItemContent = ({
   item,
   variant = 'default',
@@ -73,9 +51,21 @@ export const ItemContent = ({
 {
   const bgColor = item.backgroundColor
   const transform = item.transform
-  const { primary, fallback } = getRenderImageHashes(item, imageRendition)
-  const cachedPrimaryUrl = useImageUrl(item.imageUrl ? undefined : primary)
-  const cachedFallbackUrl = useImageUrl(item.imageUrl ? undefined : fallback)
+  // skip the IDB lookup when the caller already has a direct URL (eg blob:
+  // upload preview) — the cached resolution would just return undefined
+  const refs = item.imageUrl
+    ? { primary: undefined, fallback: undefined }
+    : getRenderImageRefs(item, imageRendition)
+  const cachedPrimaryUrl = useImageUrl(
+    refs.primary?.ref.hash,
+    refs.primary?.ref.cloudMediaExternalId,
+    refs.primary?.variant
+  )
+  const cachedFallbackUrl = useImageUrl(
+    refs.fallback?.ref.hash,
+    refs.fallback?.ref.cloudMediaExternalId,
+    refs.fallback?.variant
+  )
   const imageUrl = item.imageUrl ?? cachedPrimaryUrl ?? cachedFallbackUrl
 
   if (imageUrl)
@@ -102,7 +92,7 @@ export const ItemContent = ({
     )
 
     return isCaptioned ? (
-      <CaptionedFrame caption={label}>{imageArea}</CaptionedFrame>
+      <TileLayoutShell caption={label}>{imageArea}</TileLayoutShell>
     ) : (
       imageArea
     )
@@ -121,7 +111,7 @@ export const ItemContent = ({
     )
 
     return isCaptioned ? (
-      <CaptionedFrame caption={label}>{matte}</CaptionedFrame>
+      <TileLayoutShell caption={label}>{matte}</TileLayoutShell>
     ) : (
       matte
     )
@@ -129,7 +119,7 @@ export const ItemContent = ({
 
   return (
     <div
-      className={`flex h-full w-full items-center justify-center ${
+      className={`flex h-full w-full items-center justify-center overflow-hidden ${
         bgColor ? '' : 'bg-[var(--t-bg-surface)] text-[var(--t-text)]'
       } ${variant === 'compact' ? 'p-0.5' : 'p-1'}`}
       style={
@@ -139,7 +129,7 @@ export const ItemContent = ({
       }
     >
       <span
-        className={`font-semibold break-words text-center [overflow-wrap:anywhere] ${
+        className={`max-h-full overflow-hidden break-words text-center font-semibold [overflow-wrap:anywhere] ${
           variant === 'compact' ? 'text-[10px] leading-tight' : 'text-xs'
         }`}
       >

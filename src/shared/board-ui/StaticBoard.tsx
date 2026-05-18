@@ -44,6 +44,8 @@ export interface StaticBoardAppearance
   // can pass 'overlay' to mirror the legacy default; export passes through
   // the owner's preference
   defaultLabelPlacementMode: LabelPlacementMode
+  // fallback caption font size in CSS px when neither item nor board pins one
+  defaultLabelFontSizePx: number
   itemShape: ItemShape
   compactMode: boolean
   maxItemsPerRow?: number | null
@@ -148,6 +150,7 @@ export const StaticBoard = memo(
                               showLabels: appearance.showLabels,
                               placementMode:
                                 appearance.defaultLabelPlacementMode,
+                              fontSizePx: appearance.defaultLabelFontSizePx,
                             },
                           })}
                           fit={getEffectiveImageFit(item, boardDefaultFit)}

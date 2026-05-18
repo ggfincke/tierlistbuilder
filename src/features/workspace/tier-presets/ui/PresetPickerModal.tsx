@@ -10,11 +10,10 @@ import { Pencil, Plus, Trash2 } from 'lucide-react'
 import type { TierPreset } from '@tierlistbuilder/contracts/workspace/tierPreset'
 import type { PresetId } from '@tierlistbuilder/contracts/lib/ids'
 import { BUILTIN_PRESETS } from '~/features/workspace/tier-presets/model/tierPresets'
-import { resolveTierColorSpec } from '~/shared/theme/tierColors'
 import { useCurrentPaletteId } from '~/features/workspace/settings/model/useCurrentPaletteId'
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import { useTierPresetStore } from '~/features/workspace/tier-presets/model/useTierPresetStore'
-import { getContrastingTextShadow, getTextColor } from '~/shared/lib/color'
+import { PresetPreviewPills } from '~/shared/board-ui/PresetPreviewPills'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { TextInput } from '~/shared/ui/TextInput'
 
@@ -106,30 +105,7 @@ export const PresetPickerModal = ({
           {
             const presetIsEditing = isEditing(preset.id)
             const previewPills = (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {preset.tiers.map((tier, index) =>
-                {
-                  const tierColor = resolveTierColorSpec(
-                    paletteId,
-                    tier.colorSpec
-                  )
-                  const tierTextColor = getTextColor(tierColor)
-
-                  return (
-                    <span
-                      key={index}
-                      className="rounded px-1.5 py-0.5 text-[0.6rem] font-medium leading-none"
-                      style={{
-                        backgroundColor: tierColor,
-                        color: tierTextColor,
-                        textShadow: getContrastingTextShadow(tierColor),
-                      }}
-                    >
-                      {tier.name}
-                    </span>
-                  )
-                })}
-              </div>
+              <PresetPreviewPills tiers={preset.tiers} paletteId={paletteId} />
             )
 
             return (

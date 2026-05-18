@@ -8,7 +8,7 @@ import {
   createUndoRestoreRuntimePatch,
   type UndoEntry,
 } from '~/features/workspace/boards/model/runtime'
-import { MAX_UNDO_HISTORY, isSameSnapshot } from './helpers'
+import { MAX_UNDO_HISTORY, countActiveItems, isSameSnapshot } from './helpers'
 import type {
   ActiveBoardSliceCreator,
   ActiveBoardStore,
@@ -101,6 +101,7 @@ export const createUndoSlice: ActiveBoardSliceCreator<UndoSlice> = (
       ...prev.snapshot,
       past: state.past.slice(0, -1),
       future: [currentEntry, ...state.future].slice(0, MAX_UNDO_HISTORY),
+      activeItemCount: countActiveItems(prev.snapshot.items),
       ...createUndoRestoreRuntimePatch(),
     }))
 
@@ -122,6 +123,7 @@ export const createUndoSlice: ActiveBoardSliceCreator<UndoSlice> = (
       ...next.snapshot,
       past: [...state.past, currentEntry].slice(-MAX_UNDO_HISTORY),
       future: state.future.slice(1),
+      activeItemCount: countActiveItems(next.snapshot.items),
       ...createUndoRestoreRuntimePatch(),
     }))
 

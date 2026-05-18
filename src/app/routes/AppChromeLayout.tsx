@@ -1,11 +1,15 @@
 // src/app/routes/AppChromeLayout.tsx
 // persistent route chrome for workspace & library surfaces
 
-import { useCallback, type MouseEvent } from 'react'
+import { useCallback, useEffect, type MouseEvent } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 
+import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
+import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
+import { useSignInPromptStore } from '~/features/platform/auth/model/useSignInPromptStore'
+import { useCloudSync } from '~/app/sync/useCloudSync'
 import { getWorkspacePath } from '~/shared/routes/pathname'
-import { AppTopNav } from '~/app/shells/AppTopNav'
+import { AppTopNav } from '~/app/shells/topNav/AppTopNav'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
 
 const WorkspaceSkipLink = () =>
@@ -43,6 +47,20 @@ const WorkspaceSkipLink = () =>
 export const AppChromeLayout = () =>
 {
   const { pathname } = useLocation()
+  const appReady = useAppBootstrap()
+  const session = useAuthSession()
+  const signInPromptOpen = useSignInPromptStore((state) => state.open)
+  const hideSignInPrompt = useSignInPromptStore((state) => state.hide)
+
+  useCloudSync(appReady && session.status === 'signed-in' ? session.user : null)
+
+  useEffect(() =>
+  {
+    if (session.status === 'signed-in' && signInPromptOpen)
+    {
+      hideSignInPrompt()
+    }
+  }, [hideSignInPrompt, session.status, signInPromptOpen])
 
   return (
     <>

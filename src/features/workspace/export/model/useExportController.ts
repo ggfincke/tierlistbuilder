@@ -8,6 +8,7 @@ import { usePreferencesStore } from '~/features/platform/preferences/model/usePr
 import { extractBoardData } from '~/shared/board-data/boardSnapshot'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { formatError } from '~/shared/lib/errors'
+import { logger } from '~/shared/lib/logger'
 import { THEMES } from '~/shared/theme/tokens'
 import type { ImageFormat } from './runtime'
 import { toast } from '~/shared/notifications/useToastStore'
@@ -89,10 +90,7 @@ export const useExportController = () =>
       }
       catch (err)
       {
-        // log so the original stack survives; surface a user-facing message
-        // — formatError unwraps Error.message which is more informative than
-        // a static fallback when the underlying export pipeline gave one
-        console.error('[export]', err)
+        logger.error('export', 'Export failed', err)
         useActiveBoardStore
           .getState()
           .setRuntimeError(formatError(err, fallbackMessage))
@@ -188,7 +186,7 @@ export const useExportController = () =>
         }
         catch (err)
         {
-          console.error('[export]', err)
+          logger.error('export', 'Export all JSON failed', err)
           useActiveBoardStore
             .getState()
             .setRuntimeError(formatError(err, FALLBACK_EXPORT_ALL_ERROR))
@@ -216,7 +214,7 @@ export const useExportController = () =>
       }
       catch (err)
       {
-        console.error('[export]', err)
+        logger.error('export', 'Export all assets failed', err)
         useActiveBoardStore
           .getState()
           .setRuntimeError(formatError(err, FALLBACK_EXPORT_ALL_ERROR))
