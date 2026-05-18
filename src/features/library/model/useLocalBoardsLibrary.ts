@@ -16,39 +16,42 @@ import {
   type TierItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
-import type {
-  PaletteId,
-  TierColorSpec,
+import {
+  PALETTE_IDS,
+  type PaletteId,
+  type TierColorSpec,
 } from '@tierlistbuilder/contracts/lib/theme'
 import { loadBoardFromStorage } from '~/features/workspace/boards/data/local/boardStorage'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
+import { normalizeBoardSnapshot } from '~/shared/board-data/boardSnapshot'
 import { getImageRenditionRefs } from '~/shared/lib/imageRefs'
 import { getCachedImageUrl } from '~/shared/images/imageBlobCache'
 
 const DEFAULT_LOCAL_PALETTE_ID: PaletteId = 'classic'
 
-type LocalLibrarySnapshot = Pick<
-  BoardSnapshot,
-  'tiers' | 'items' | 'unrankedItemIds'
-> &
-  Partial<BoardSnapshot>
+type LocalLibrarySnapshot = BoardSnapshot
+
+const selectSnapshotPaletteId = (
+  snapshot: Partial<BoardSnapshot> | null
+): PaletteId =>
+{
+  const paletteId = snapshot?.paletteId
+  return typeof paletteId === 'string' &&
+    (PALETTE_IDS as readonly string[]).includes(paletteId)
+    ? (paletteId as PaletteId)
+    : DEFAULT_LOCAL_PALETTE_ID
+}
 
 const toLocalLibrarySnapshot = (
   snapshot: Partial<BoardSnapshot> | null
 ): LocalLibrarySnapshot | null =>
 {
-  if (
-    !snapshot ||
-    !Array.isArray(snapshot.tiers) ||
-    !Array.isArray(snapshot.unrankedItemIds) ||
-    !snapshot.items ||
-    typeof snapshot.items !== 'object'
-  )
+  if (!snapshot)
   {
     return null
   }
 
-  return snapshot as LocalLibrarySnapshot
+  return normalizeBoardSnapshot(snapshot, selectSnapshotPaletteId(snapshot))
 }
 
 const orderedLiveItems = (

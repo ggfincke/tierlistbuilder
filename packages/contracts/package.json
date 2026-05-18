@@ -5,6 +5,32 @@
   "type": "module",
   "description": "Shared frontend contracts for persisted, exported, and routed tier-list data",
   "exports": {
-    "./*/*": "./*/*.ts"
+    "./lib/hexColor": "./lib/hexColor.ts",
+    "./lib/ids": "./lib/ids.ts",
+    "./lib/math": "./lib/math.ts",
+    "./lib/pagination": "./lib/pagination.ts",
+    "./lib/theme": "./lib/theme.ts",
+    "./lib/themeDefinition": "./lib/themeDefinition.ts",
+    "./lib/typeGuards": "./lib/typeGuards.ts",
+    "./marketplace/category": "./marketplace/category.ts",
+    "./marketplace/ranking": "./marketplace/ranking.ts",
+    "./marketplace/rankingAggregate": "./marketplace/rankingAggregate.ts",
+    "./marketplace/seedPipeline": "./marketplace/seedPipeline.ts",
+    "./marketplace/template": "./marketplace/template.ts",
+    "./marketplace/templateCriterion": "./marketplace/templateCriterion.ts",
+    "./platform/errors": "./platform/errors.ts",
+    "./platform/media": "./platform/media.ts",
+    "./platform/preferences": "./platform/preferences.ts",
+    "./platform/shortLink": "./platform/shortLink.ts",
+    "./platform/uploadEnvelope": "./platform/uploadEnvelope.ts",
+    "./platform/user": "./platform/user.ts",
+    "./workspace/board": "./workspace/board.ts",
+    "./workspace/boardEnvelope": "./workspace/boardEnvelope.ts",
+    "./workspace/boardSync": "./workspace/boardSync.ts",
+    "./workspace/cloudBoard": "./workspace/cloudBoard.ts",
+    "./workspace/cloudPreset": "./workspace/cloudPreset.ts",
+    "./workspace/imageMath": "./workspace/imageMath.ts",
+    "./workspace/settings": "./workspace/settings.ts",
+    "./workspace/tierPreset": "./workspace/tierPreset.ts"
   }
 }

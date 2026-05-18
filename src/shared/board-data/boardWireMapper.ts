@@ -59,7 +59,9 @@ const OPTIONAL_STRING_WIRE_FIELDS = [
 const isTierItemWire = (value: unknown): value is TierItemWire =>
 {
   if (!isRecord(value) || typeof value.id !== 'string') return false
-  return OPTIONAL_STRING_WIRE_FIELDS.every((field) => isOptionalString(value[field]))
+  return OPTIONAL_STRING_WIRE_FIELDS.every((field) =>
+    isOptionalString(value[field])
+  )
 }
 
 const getBlobDataUrl = async (

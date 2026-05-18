@@ -10,11 +10,13 @@ import {
   deleteBoardSession,
   loadBoardIntoSession,
   registerBoardAutosave,
+  renameBoardSession,
   setBoardLoadedListener,
 } from '~/features/workspace/boards/model/boardSession'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { saveBoardToStorage } from '~/features/workspace/boards/data/local/boardStorage'
+import { createFailingStorage } from '@tests/shared-lib/memoryStorage'
 
 const TEST_BOARD_ID = 'board-local-session-test' as BoardId
 const OTHER_BOARD_ID = 'board-local-session-other' as BoardId
@@ -240,5 +242,21 @@ describe('board session persistence', () =>
         .getState()
         .boards.some((board) => board.id === TEST_BOARD_ID)
     ).toBe(false)
+  })
+
+  it('returns active-board rename storage failures to callers', () =>
+  {
+    vi.stubGlobal(
+      'localStorage',
+      createFailingStorage(new Set([boardStorageKey(TEST_BOARD_ID)]))
+    )
+    resetStores()
+
+    const result = renameBoardSession(TEST_BOARD_ID, 'Renamed board')
+
+    expect(result).toMatchObject({ ok: false })
+    expect(useActiveBoardStore.getState().runtimeError).toBe(
+      result.ok ? null : result.message
+    )
   })
 })

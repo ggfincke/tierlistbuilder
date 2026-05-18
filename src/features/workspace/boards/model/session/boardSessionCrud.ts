@@ -19,6 +19,7 @@ import {
   loadBoardSyncStateOnly,
   removeBoardFromStorage,
   saveBoardToStorage,
+  type StorageWriteResult,
 } from '~/features/workspace/boards/data/local/boardStorage'
 import { stampPendingBoardDelete } from '~/features/workspace/boards/data/local/boardDeleteSyncMeta'
 import { createBoardDataFromPreset } from '~/features/workspace/tier-presets/model/tierPresets'
@@ -218,13 +219,16 @@ export const duplicateBoardSession = async (
   )
 }
 
-export const renameBoardSession = (boardId: BoardId, title: string): void =>
+export const renameBoardSession = (
+  boardId: BoardId,
+  title: string
+): StorageWriteResult =>
 {
   const trimmed = title.trim()
 
   if (!trimmed)
   {
-    return
+    return { ok: true }
   }
 
   const boardStore = useWorkspaceBoardRegistryStore.getState()
@@ -235,7 +239,7 @@ export const renameBoardSession = (boardId: BoardId, title: string): void =>
     const state = useActiveBoardStore.getState()
     if (state.title === trimmed)
     {
-      return
+      return { ok: true }
     }
 
     const syncState = markBoardStatePending(extractBoardSyncState(state))
@@ -248,15 +252,17 @@ export const renameBoardSession = (boardId: BoardId, title: string): void =>
     if (!saveResult.ok)
     {
       useActiveBoardStore.getState().setRuntimeError(saveResult.message)
+      return saveResult
     }
     notifyBoardChanged(boardId)
-    return
+    return { ok: true }
   }
 
   if (!saveInactiveBoardTitle(boardId, trimmed))
   {
     throw new Error(`failed to persist renamed board ${boardId}`)
   }
+  return { ok: true }
 }
 
 export const importBoardSession = async (

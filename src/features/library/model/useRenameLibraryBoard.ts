@@ -66,7 +66,11 @@ export const useRenameLibraryBoard = (): RenameLibraryBoardAction =>
         },
         async () =>
         {
-          renameBoardSession(target.externalId, trimmed)
+          const result = renameBoardSession(target.externalId, trimmed)
+          if (!result.ok)
+          {
+            throw new Error(result.message)
+          }
           toast(`Renamed to "${trimmed}".`, 'success')
         }
       )

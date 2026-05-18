@@ -45,6 +45,7 @@ import {
   loadBoardState,
   saveActiveBoardSnapshot,
 } from '~/features/workspace/boards/model/session/boardSessionPersistence'
+import { reportTemplateMediaCacheWarningIfNeeded } from '~/features/workspace/boards/model/session/storageWarningReporter'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
 import { logger } from '~/shared/lib/logger'
 import { cacheFreshBlob, warmFromBoard } from '~/shared/images/imageBlobCache'
@@ -99,6 +100,7 @@ const fetchAndCachePublicTemplateMedia = async (
   }
   catch (error)
   {
+    reportTemplateMediaCacheWarningIfNeeded()
     logger.warn(
       'media',
       `Failed to cache public template media ${media.externalId}:`,

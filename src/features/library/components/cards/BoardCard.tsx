@@ -10,7 +10,7 @@ import type {
   LibraryBoardListItem,
 } from '@tierlistbuilder/contracts/workspace/board'
 
-import { LIBRARY_SYNC_META } from '~/features/library/lib/statusMeta'
+import { getLibraryBoardAriaLabel } from '~/features/library/lib/libraryBoardAria'
 import { PUBLISH_STATE_META } from '~/shared/board-ui/publishStateMeta'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { formatCountedWord } from '~/shared/lib/pluralize'
@@ -82,7 +82,6 @@ const BoardCardImpl = ({
   const cfg = DENSITY_CFG[density]
   const isLive = board.publishState === 'live'
   const publishMeta = PUBLISH_STATE_META[board.publishState]
-  const syncMeta = LIBRARY_SYNC_META[board.syncState]
 
   const handleClick = () =>
   {
@@ -96,7 +95,7 @@ const BoardCardImpl = ({
         type="button"
         onClick={handleClick}
         disabled={!onOpen || isPending}
-        aria-label={`${board.title} — ${publishMeta.label}, ${syncMeta.label}`}
+        aria-label={getLibraryBoardAriaLabel(board)}
         aria-busy={isPending || undefined}
         className="focus-custom relative flex h-full w-full min-w-0 flex-col text-left focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] disabled:cursor-progress disabled:opacity-70"
       >

@@ -10,6 +10,7 @@ import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { BoardCardMenu } from '~/features/library/components/cards/BoardCardMenu'
 import { BoardMosaicCover } from '~/features/library/components/cards/BoardMosaicCover'
+import { getLibraryBoardAriaLabel } from '~/features/library/lib/libraryBoardAria'
 import { TierBar } from '~/features/library/components/cards/TierBar'
 import { PublishChip } from '~/features/library/components/chips/PublishChip'
 import { SyncChip } from '~/features/library/components/chips/SyncChip'
@@ -55,7 +56,7 @@ const BoardListRow = memo(
           type="button"
           onClick={handleClick}
           disabled={!onOpen || isPending}
-          aria-label={`${board.title}`}
+          aria-label={getLibraryBoardAriaLabel(board)}
           aria-busy={isPending || undefined}
           className={`focus-custom grid w-full items-center gap-4 py-3 ${ROW_HORIZONTAL_PADDING} text-left transition hover:bg-[rgb(var(--t-overlay)/0.025)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--t-accent)] disabled:cursor-progress disabled:opacity-70`}
           style={{ gridTemplateColumns: BOARD_LIST_GRID_TEMPLATE }}

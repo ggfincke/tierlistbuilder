@@ -29,7 +29,7 @@ export interface CloudBoardTierWire
 export interface CloudBoardItemWire
 {
   externalId: string
-  tierId: string | null
+  tierExternalId: string | null
   label?: string
   backgroundColor?: string
   altText?: string

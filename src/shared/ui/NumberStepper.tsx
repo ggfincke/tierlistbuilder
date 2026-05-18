@@ -1,7 +1,7 @@
 // src/shared/ui/NumberStepper.tsx
 // compact numeric input w/ flush +/- buttons in a single connected control
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import { clamp } from '~/shared/lib/math'
 
@@ -41,10 +41,18 @@ export const NumberStepper = ({
 }: NumberStepperProps) =>
 {
   const [draft, setDraft] = useState<string | null>(null)
+  const skipNextBlurCommitRef = useRef(false)
   const visible = draft ?? String(value)
 
   const commitDraft = useCallback(() =>
   {
+    if (skipNextBlurCommitRef.current)
+    {
+      skipNextBlurCommitRef.current = false
+      setDraft(null)
+      return
+    }
+
     if (draft === null) return
     const parsed = parseValue ? parseValue(draft) : Number(draft)
     if (parsed === null || !Number.isFinite(parsed))
@@ -107,6 +115,8 @@ export const NumberStepper = ({
             if (e.key === 'Enter') e.currentTarget.blur()
             if (e.key === 'Escape')
             {
+              e.preventDefault()
+              skipNextBlurCommitRef.current = true
               setDraft(null)
               e.currentTarget.blur()
             }

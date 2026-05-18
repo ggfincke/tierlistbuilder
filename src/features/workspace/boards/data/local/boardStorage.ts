@@ -71,7 +71,7 @@ interface SaveBoardToStorageOptions
   onError?: (message: string) => void
 }
 
-type StorageWriteResult = { ok: true } | { ok: false; message: string }
+export type StorageWriteResult = { ok: true } | { ok: false; message: string }
 
 const writeStorageValue = (
   key: string,
