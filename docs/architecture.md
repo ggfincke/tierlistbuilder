@@ -37,12 +37,10 @@ src/
 │   │   ├── NotFoundRoute.tsx        # 404 fallback
 │   │   └── pathname.ts              # resolveAppRoute + workspace/embed path builders
 │   └── shells/
-│       ├── WorkspaceShell.tsx       # full editable workspace shell
-│       ├── WorkspaceModalLayer.tsx  # workspace modal/progress composition
-│       ├── useWorkspaceExportActions.ts # export preview + annotation actions
-│       ├── useModalStack.ts         # keyed modal state helper
-│       ├── workspaceModals.ts       # workspace modal payload map
-│       └── EmbedShell.tsx           # read-only embed shell
+│       ├── AppTopNav.tsx            # global top nav (brand pill, route pills, account menu)
+│       ├── topNav/                  # top-nav chrome + preferences modal layer
+│       ├── workspace/               # WorkspaceShell, WorkspaceModalLayer, export actions, modal payload map
+│       └── useModalStack.ts         # keyed modal state helper
 ├── features/workspace/
 │   ├── annotation/{model,ui}        # draw-over annotation editor
 │   ├── boards/
@@ -165,7 +163,7 @@ The separation ensures board-input orchestration (selection, focus persistence, 
 `app/routes/AppRouter.tsx` subscribes to `popstate` via `useSyncExternalStore` and selects a route from `resolveAppRoute(pathname)`:
 
 - `/` → `WorkspaceRoute` → `WorkspaceShell` (full editable shell)
-- `/embed` → `EmbedRoute` → `EmbedShell` → `EmbedView` (read-only embed view)
+- `/embed` → `EmbedRoute` → `EmbedView` (read-only embed view)
 - anything else → `NotFoundRoute`
 
 Share links use the `#share=<base64url>` hash fragment. The snapshot strips image refs and deleted items, then compresses directly into a base64url URL fragment via `encodeBoardToShareFragment`. `useAppBootstrap` and `EmbedView` detect the fragment via `getShareFragment`, inflate it via `decodeBoardFromShareFragment`, then clear it from the URL.
@@ -219,7 +217,7 @@ App (app/App.tsx → AppRouter)
 │   ├── ShortcutsPanel → ShortcutsList — help panel listing keyboard shortcuts
 │   ├── ToastContainer             — auto-dismissing notifications
 │   └── LiveRegion                 — screen reader announcement target
-└── EmbedRoute → EmbedShell → EmbedView — read-only iframe view
+└── EmbedRoute → EmbedView — read-only iframe view
 ```
 
 ## Overlay System
@@ -246,7 +244,7 @@ Toolbar-position-aware submenu class sets live in `shared/layout/toolbarPosition
 - `tierColors.ts` — `TierColorSpec` resolution against the active palette
 - `zIndex.ts` — centralized `Z` stacking layers for overlays, drag preview, offscreen export host
 
-The `useThemeSync` hook (called in `WorkspaceShell` from `src/app/bootstrap/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `useSettingsStore` to `:root`. `EmbedShell` calls `useLockedTheme('classic', 'default')` so embed iframes render a stable theme regardless of the host's preference. Non-system fonts are loaded dynamically from Google Fonts.
+The `useThemeSync` hook (called in `WorkspaceShell` from `src/app/bootstrap/useThemeSync.ts`) syncs `themeId` and `textStyleId` from `useSettingsStore` to `:root`. `EmbedRoute` calls `useLockedTheme('scoreboard', 'default')` so embed iframes render the Scoreboard theme regardless of the host's preference; `EmbedView` defaults `paletteId` to `'classic'` to keep tier colors neutral for embedders. Non-system fonts are loaded dynamically from Google Fonts.
 
 ## Export Pipeline
 
@@ -269,7 +267,7 @@ Share/export image behavior is intentionally split by carrier:
 
 - `shared/*` must not import from `features/*`. Shared code is framework-only and feature-agnostic.
 - Inside `features/workspace/*`, cross-slice imports are allowed in the direction of structural dependency. `tier-presets` may import board contract types because presets produce boards.
-- The embed shell renders through `shared/board-ui/*` primitives only and never mounts the editable active-board store.
+- The embed view renders through `shared/board-ui/*` primitives only and never mounts the editable active-board store.
 - UI (`ui/`) → model (`model/`) → data (`data/local/`). Components don't call localStorage directly; they go through a `model/` selector or `data/*` helper.
 
 ## Types

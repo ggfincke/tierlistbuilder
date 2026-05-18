@@ -38,6 +38,18 @@ const clearDismissalTimer = (id: string): void =>
   }
 }
 
+if (typeof window !== 'undefined')
+{
+  import.meta.hot?.dispose(() =>
+  {
+    for (const handle of dismissalTimers.values())
+    {
+      window.clearTimeout(handle)
+    }
+    dismissalTimers.clear()
+  })
+}
+
 export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
   addToast: (message, type = 'info') =>
