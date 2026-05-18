@@ -13,10 +13,10 @@ import {
 import { StaticExportBoard } from '~/features/workspace/export/ui/StaticExportBoard'
 import { EXPORT_BOARD_ROOT_SELECTOR } from '~/shared/board-ui/boardTestIds'
 import { warmFromBoard } from '~/shared/images/imageBlobCache'
-import { Z } from '~/shared/theme/zIndex'
 
 const EXPORT_CAPTURE_HOST_ID = 'export-capture-host'
 const EXPORT_IMAGE_READY_TIMEOUT_MS = 10_000
+const OFFSCREEN_EXPORT_Z_INDEX = -1
 
 interface ExportCaptureSession
 {
@@ -126,7 +126,7 @@ const createCaptureHost = (): HTMLDivElement =>
   host.style.top = '0'
   host.style.pointerEvents = 'none'
   host.style.opacity = '1'
-  host.style.zIndex = String(Z.offscreen)
+  host.style.zIndex = String(OFFSCREEN_EXPORT_Z_INDEX)
   host.style.width = 'max-content'
   document.body.appendChild(host)
   return host

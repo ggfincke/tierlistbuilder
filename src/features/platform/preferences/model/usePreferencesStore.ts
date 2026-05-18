@@ -41,7 +41,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   labelWidth: 'default',
   hideRowControls: false,
   confirmBeforeDelete: false,
-  themeId: 'classic',
+  themeId: 'scoreboard',
   paletteId: 'classic',
   textStyleId: 'default',
   tierLabelBold: false,
@@ -183,15 +183,15 @@ export const usePreferencesStore = create<PreferencesStore>()(
               return {
                 preHighContrastThemeId: state.themeId,
                 preHighContrastPaletteId: state.paletteId,
-                themeId: 'high-contrast' as const,
-                paletteId: THEME_PALETTE['high-contrast'],
+                themeId: 'volt' as const,
+                paletteId: THEME_PALETTE['volt'],
               }
             }
             const restoreTheme =
               state.preHighContrastThemeId &&
-              state.preHighContrastThemeId !== 'high-contrast'
+              state.preHighContrastThemeId !== 'volt'
                 ? state.preHighContrastThemeId
-                : ('classic' as const)
+                : ('scoreboard' as const)
             const restorePalette =
               state.preHighContrastPaletteId ?? THEME_PALETTE[restoreTheme]
             return {

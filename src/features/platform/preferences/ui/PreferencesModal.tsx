@@ -110,7 +110,7 @@ const AccessibilityPane = () =>
     )
   const highContrastDescriptionId = useId()
   const reduceMotionDescriptionId = useId()
-  const isHighContrast = themeId === 'high-contrast'
+  const isHighContrast = themeId === 'volt'
 
   return (
     <SettingsSection title="Accessibility">
