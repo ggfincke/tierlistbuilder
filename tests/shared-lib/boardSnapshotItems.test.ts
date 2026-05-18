@@ -6,11 +6,11 @@ import { describe, expect, it } from 'vitest'
 import {
   collectSnapshotExportImageHashes,
   collectSnapshotLocalImageHashes,
-  collectSnapshotRenderImageHashes,
+  collectSnapshotRenderImageVariantRefs,
   transformSnapshotItemsAsync,
 } from '~/shared/lib/boardSnapshotItems'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeBoardSnapshot, makeItem } from '../fixtures'
+import { makeBoardSnapshot, makeItem } from '@tests/fixtures'
 
 describe('board snapshot image hash collection', () =>
 {
@@ -33,7 +33,9 @@ describe('board snapshot image hash collection', () =>
       'tile-hash',
       'thumb-hash',
     ])
-    expect(collectSnapshotRenderImageHashes(snapshot)).toEqual([])
+    expect(
+      collectSnapshotRenderImageVariantRefs(snapshot).map((r) => r.ref.hash)
+    ).toEqual([])
     expect(collectSnapshotLocalImageHashes(snapshot)).toEqual([
       'thumb-hash',
       'tile-hash',
@@ -62,7 +64,9 @@ describe('board snapshot image hash collection', () =>
       unrankedItemIds: [id, sourceOnlyId],
     })
 
-    expect(collectSnapshotRenderImageHashes(snapshot)).toEqual([
+    expect(
+      collectSnapshotRenderImageVariantRefs(snapshot).map((r) => r.ref.hash)
+    ).toEqual([
       'tile-hash',
       'thumb-hash',
       'fallback-source-hash',

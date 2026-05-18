@@ -8,8 +8,8 @@ import { useAbortControllerHandle } from '~/shared/hooks/useAbortControllerHandl
 import {
   collectAutoCropTransforms,
   type AutoCropTransformEntry,
-} from './autoCrop'
-import { isAbortError } from './errors'
+} from '~/shared/lib/autoCrop'
+import { isAbortError } from '~/shared/lib/errors'
 
 export interface AutoCropProgress
 {

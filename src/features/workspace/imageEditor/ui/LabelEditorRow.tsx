@@ -23,7 +23,7 @@ import {
   LABEL_PLACEMENT_OVERLAY_PRESETS,
   LABEL_TEXT_COLORS,
 } from '@tierlistbuilder/contracts/workspace/board'
-import { LABEL_FONT_LABELS } from '../lib/labelEditorOptions'
+import { LABEL_FONT_LABELS } from '~/features/workspace/imageEditor/lib/labelEditorOptions'
 import { NumberStepper } from '~/shared/ui/NumberStepper'
 
 const INHERIT_TEXT_STYLE_VALUE = '__inherit'

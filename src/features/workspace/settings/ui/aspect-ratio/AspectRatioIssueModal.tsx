@@ -26,22 +26,22 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
-import { useAspectRatioPrompt } from '../../model/aspect-ratio/useAspectRatioPrompt'
-import { useAutoCropTrimShadows } from '../../model/auto-crop/useAutoCropTrimShadows'
+import { useAspectRatioPrompt } from '~/features/workspace/settings/model/aspect-ratio/useAspectRatioPrompt'
+import { useAutoCropTrimShadows } from '~/features/workspace/settings/model/auto-crop/useAutoCropTrimShadows'
 import {
   createAspectRatioPromptSnapshot,
   resolveAspectRatioPromptItems,
-} from '../../model/aspect-ratio/aspectRatioPromptSnapshot'
-import { useAspectRatioPromptState } from '../../model/aspect-ratio/useAspectRatioPromptState'
-import { useBoardAspectRatioPicker } from '../../model/aspect-ratio/useBoardAspectRatioPicker'
+} from '~/features/workspace/settings/model/aspect-ratio/aspectRatioPromptSnapshot'
+import { useAspectRatioPromptState } from '~/features/workspace/settings/model/aspect-ratio/useAspectRatioPromptState'
+import { useBoardAspectRatioPicker } from '~/features/workspace/settings/model/aspect-ratio/useBoardAspectRatioPicker'
 import { useLabelAwareEffectiveAspect } from '~/features/workspace/imageEditor/model/labels/useLabelAwareEffectiveAspect'
-import { AspectRatioTiles } from './AspectRatioTiles'
-import { BulkFitSegmentedControl } from './BulkFitSegmentedControl'
+import { AspectRatioTiles } from '~/features/workspace/settings/ui/aspect-ratio/AspectRatioTiles'
+import { BulkFitSegmentedControl } from '~/features/workspace/settings/ui/aspect-ratio/BulkFitSegmentedControl'
 import {
   MISMATCH_THUMBNAIL_PREVIEW_LIMIT,
   MismatchPreviewStrip,
-} from './MismatchPreviewStrip'
-import { ShowLabelsToggle } from '../ShowLabelsToggle'
+} from '~/features/workspace/settings/ui/aspect-ratio/MismatchPreviewStrip'
+import { ShowLabelsToggle } from '~/features/workspace/settings/ui/ShowLabelsToggle'
 
 // extra room beyond the tile strip — padding + a small breathing margin; keeps
 // the modal wide enough that chips/footer don't feel cramped next to the tiles

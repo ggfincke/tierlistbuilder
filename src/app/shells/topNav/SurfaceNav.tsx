@@ -4,7 +4,7 @@
 
 import { NavLink } from 'react-router-dom'
 
-import { TOP_NAV_ITEMS, type TopNavItem } from './topNavItems'
+import { TOP_NAV_ITEMS, type TopNavItem } from '~/app/shells/topNav/topNavItems'
 
 export const SurfaceNav = () => (
   <nav

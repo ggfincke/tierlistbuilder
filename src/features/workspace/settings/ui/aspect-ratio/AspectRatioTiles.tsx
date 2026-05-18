@@ -8,7 +8,7 @@ import {
   parseCustomAspectRatio,
   type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
-import { fitRectInBox } from './aspectRatioPreviewRect'
+import { fitRectInBox } from '~/features/workspace/settings/ui/aspect-ratio/aspectRatioPreviewRect'
 
 const RECT_BOX = 28
 

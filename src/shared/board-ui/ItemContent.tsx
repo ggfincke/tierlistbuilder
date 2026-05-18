@@ -12,11 +12,11 @@ import {
   type ImageRendition,
   type ItemImageBundle,
 } from '~/shared/lib/imageRefs'
-import { getTextColor } from '../lib/color'
-import { FramedItemMedia } from './FramedItemMedia'
-import { OverlayLabelBlock } from './labelBlocks'
-import type { ResolvedLabelDisplay } from './labelDisplay'
-import { TileLayoutShell } from './TileLayoutShell'
+import { getTextColor } from '~/shared/lib/color'
+import { FramedItemMedia } from '~/shared/board-ui/FramedItemMedia'
+import { OverlayLabelBlock } from '~/shared/board-ui/labelBlocks'
+import type { ResolvedLabelDisplay } from '~/shared/board-ui/labelDisplay'
+import { TileLayoutShell } from '~/shared/board-ui/TileLayoutShell'
 
 interface ItemContentProps
 {

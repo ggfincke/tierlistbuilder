@@ -3,7 +3,7 @@
 // for download & clipboard
 
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import type { ExportAppearance, ImageFormat } from '../model/runtime'
+import type { ExportAppearance, ImageFormat } from '~/features/workspace/export/model/runtime'
 import { dataUrlToBytes } from '~/shared/lib/binaryCodec'
 import { downloadBlob } from '~/shared/lib/downloadBlob'
 import { toFileBase } from '~/shared/lib/fileName'
@@ -12,8 +12,8 @@ import {
   EXPORT_PIXEL_RATIO,
   IMAGE_FORMAT_META,
   IMAGE_QUALITY,
-} from './constants'
-import { withExportSession } from './exportBoardRender'
+} from '~/features/workspace/export/lib/constants'
+import { withExportSession } from '~/features/workspace/export/lib/exportBoardRender'
 
 // build the html-to-image options for a given background color
 const buildImageOptions = (backgroundColor: string) => ({

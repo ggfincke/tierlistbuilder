@@ -6,7 +6,7 @@ import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useId, useRef, useState } from 'react'
 import { Check, Copy, Download, Highlighter } from 'lucide-react'
 
-import type { ImageFormat } from '../model/runtime'
+import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import {
   IMAGE_FORMATS,
   IMAGE_FORMAT_META,

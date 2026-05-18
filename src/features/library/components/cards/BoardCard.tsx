@@ -15,12 +15,12 @@ import { PUBLISH_STATE_META } from '~/shared/board-ui/publishStateMeta'
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { formatCountedWord } from '~/shared/lib/pluralize'
 import { CHUNKY_SHADOW_ACCENT_STATIC } from '~/shared/ui/chunkyShadow'
-import { BoardCardMenu } from './BoardCardMenu'
-import { BoardMosaicCover } from './BoardMosaicCover'
-import { TierPills } from './TierPills'
-import { PublishChip } from '../chips/PublishChip'
-import { SyncChip } from '../chips/SyncChip'
-import { VisibilityChip } from '../chips/VisibilityChip'
+import { BoardCardMenu } from '~/features/library/components/cards/BoardCardMenu'
+import { BoardMosaicCover } from '~/features/library/components/cards/BoardMosaicCover'
+import { TierPills } from '~/features/library/components/cards/TierPills'
+import { PublishChip } from '~/features/library/components/chips/PublishChip'
+import { SyncChip } from '~/features/library/components/chips/SyncChip'
+import { VisibilityChip } from '~/features/library/components/chips/VisibilityChip'
 
 interface BoardCardProps
 {

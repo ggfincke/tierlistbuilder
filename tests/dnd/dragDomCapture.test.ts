@@ -7,7 +7,7 @@ import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import { ALL_ITEM_ELEMENTS_SELECTOR } from '~/features/workspace/boards/lib/dndIds'
 import { captureRenderedContainerSnapshot } from '~/features/workspace/boards/dnd/dragDomCapture'
 import { tierContainerSelector } from '~/shared/board-ui/boardTestIds'
-import { findTierById, makeContainerSnapshot, makeRect } from '../fixtures'
+import { findTierById, makeContainerSnapshot, makeRect } from '@tests/fixtures'
 
 const makeRenderedItem = (
   itemId: string,

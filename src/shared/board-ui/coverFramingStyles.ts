@@ -3,7 +3,7 @@
 
 import type { CSSProperties } from 'react'
 
-import type { CoverFramePlacement } from './coverFramingPlacement'
+import type { CoverFramePlacement } from '~/shared/board-ui/coverFramingPlacement'
 
 export const coverFramePlacementStyle = (
   placement: CoverFramePlacement

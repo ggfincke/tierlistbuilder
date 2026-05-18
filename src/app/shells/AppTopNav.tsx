@@ -4,11 +4,11 @@
 
 import { useState } from 'react'
 
-import { BrandPill } from './topNav/BrandPill'
-import { NewBoardAction } from './topNav/NewBoardAction'
-import { SurfaceNav } from './topNav/SurfaceNav'
-import { TopNavAccountControl } from './topNav/TopNavAccountControl'
-import { TopNavModalLayer } from './topNav/TopNavModalLayer'
+import { BrandPill } from '~/app/shells/topNav/BrandPill'
+import { NewBoardAction } from '~/app/shells/topNav/NewBoardAction'
+import { SurfaceNav } from '~/app/shells/topNav/SurfaceNav'
+import { TopNavAccountControl } from '~/app/shells/topNav/TopNavAccountControl'
+import { TopNavModalLayer } from '~/app/shells/topNav/TopNavModalLayer'
 
 export const AppTopNav = () =>
 {

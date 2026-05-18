@@ -8,7 +8,7 @@ import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
 import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
 
-import { useLibraryBoardAction } from './useLibraryBoardAction'
+import { useLibraryBoardAction } from '~/features/library/model/useLibraryBoardAction'
 
 interface OpenBoardAction
 {

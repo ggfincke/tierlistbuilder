@@ -17,7 +17,7 @@ import { hasActiveModalLayer } from '~/shared/overlay/modalLayer'
 import {
   isEditableShortcutTarget,
   runUndoRedoShortcut,
-} from './undoRedoShortcut'
+} from '~/features/workspace/shortcuts/model/undoRedoShortcut'
 
 interface UseGlobalShortcutsOptions
 {

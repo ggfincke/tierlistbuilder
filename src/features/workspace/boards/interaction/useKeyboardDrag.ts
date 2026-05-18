@@ -15,7 +15,7 @@ import {
   handleKeyboardEscapeKey,
   handleKeyboardItemFocus,
   handleKeyboardSpaceKey,
-} from './keyboardDragController'
+} from '~/features/workspace/boards/interaction/keyboardDragController'
 import type { KeyboardDragDirection } from '~/features/workspace/boards/dnd/dragKeyboard'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 

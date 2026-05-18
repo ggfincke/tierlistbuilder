@@ -11,9 +11,9 @@ import {
   isVerticalPosition,
 } from '~/shared/overlay/toolbarPosition'
 import { ActionButton } from '~/shared/ui/ActionButton'
-import type { BoardActionBarProps } from './BoardActionBar.types'
-import { BoardLockToggle } from './BoardLockToggle'
-import { ToolbarCoreActions } from './ToolbarCoreActions'
+import type { BoardActionBarProps } from '~/features/workspace/boards/ui/board-chrome/BoardActionBar.types'
+import { BoardLockToggle } from '~/features/workspace/boards/ui/board-chrome/BoardLockToggle'
+import { ToolbarCoreActions } from '~/features/workspace/boards/ui/board-chrome/ToolbarCoreActions'
 
 // primary board action bar — rendered below the toolbar in App
 export const BoardActionBar = ({

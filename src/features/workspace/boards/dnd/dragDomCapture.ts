@@ -8,7 +8,7 @@ import {
   captureRenderedContainerLayout,
   getDragLayoutItemIds,
   type DragLayoutSession,
-} from './dragLayoutSession'
+} from '~/features/workspace/boards/dnd/dragLayoutSession'
 
 const captureScopedDragLayoutSession = (
   containerId: string

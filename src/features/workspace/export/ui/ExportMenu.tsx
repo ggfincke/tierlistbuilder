@@ -16,8 +16,8 @@ import {
   SquareArrowUp,
 } from 'lucide-react'
 
-import type { ImageFormat } from '../model/runtime'
-import type { ExportStatus } from '../model/useExportController'
+import type { ImageFormat } from '~/features/workspace/export/model/runtime'
+import type { ExportStatus } from '~/features/workspace/export/model/useExportController'
 import type { MenuPositionClasses } from '~/shared/overlay/toolbarPosition'
 import { formatError } from '~/shared/lib/errors'
 import {

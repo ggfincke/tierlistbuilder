@@ -10,7 +10,7 @@ import {
   stripImagesForShare,
 } from '~/shared/sharing/hashShare'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { makeBoardSnapshot, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeTier } from '@tests/fixtures'
 
 describe('snapshot codec', () =>
 {

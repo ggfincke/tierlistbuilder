@@ -11,10 +11,10 @@ import {
 } from 'lucide-react'
 
 import type { ItemTransform } from '@tierlistbuilder/contracts/workspace/board'
-import type { AutoCropStatus } from '../model/auto-crop/useImageEditorAutoCropItem'
+import type { AutoCropStatus } from '~/features/workspace/imageEditor/model/auto-crop/useImageEditorAutoCropItem'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
-import { AutoCropButton } from './AutoCropButton'
-import { ZoomSlider } from './ZoomSlider'
+import { AutoCropButton } from '~/features/workspace/imageEditor/ui/AutoCropButton'
+import { ZoomSlider } from '~/features/workspace/imageEditor/ui/ZoomSlider'
 
 interface PaneFooterTransformProps
 {

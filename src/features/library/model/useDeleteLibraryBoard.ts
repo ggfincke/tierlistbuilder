@@ -9,7 +9,7 @@ import { deleteBoardSession } from '~/features/workspace/boards/model/boardSessi
 import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { toast } from '~/shared/notifications/useToastStore'
 
-import { useLibraryBoardAction } from './useLibraryBoardAction'
+import { useLibraryBoardAction } from '~/features/library/model/useLibraryBoardAction'
 
 interface DeleteLibraryBoardTarget
 {

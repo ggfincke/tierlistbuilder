@@ -6,7 +6,7 @@ import {
   deleteBrowserStorageItem,
   readBrowserStorageItem,
   writeBrowserStorageItem,
-} from './browserStorage'
+} from '~/shared/lib/browserStorage'
 
 interface LocalSidecarOptions<T>
 {

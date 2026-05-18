@@ -8,13 +8,13 @@ import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/
 
 import { formatRelativeTime } from '~/shared/lib/dateFormatting'
 import { formatCountedWord } from '~/shared/lib/pluralize'
-import { BoardCardMenu } from '../cards/BoardCardMenu'
-import { BoardMosaicCover } from '../cards/BoardMosaicCover'
-import { TierBar } from '../cards/TierBar'
-import { PublishChip } from '../chips/PublishChip'
-import { SyncChip } from '../chips/SyncChip'
-import { VisibilityChip } from '../chips/VisibilityChip'
-import { BOARD_LIST_GRID_TEMPLATE } from './boardListGrid'
+import { BoardCardMenu } from '~/features/library/components/cards/BoardCardMenu'
+import { BoardMosaicCover } from '~/features/library/components/cards/BoardMosaicCover'
+import { TierBar } from '~/features/library/components/cards/TierBar'
+import { PublishChip } from '~/features/library/components/chips/PublishChip'
+import { SyncChip } from '~/features/library/components/chips/SyncChip'
+import { VisibilityChip } from '~/features/library/components/chips/VisibilityChip'
+import { BOARD_LIST_GRID_TEMPLATE } from '~/features/library/components/list/boardListGrid'
 
 // right padding reserved on every row + the header so the absolutely-positioned
 // overflow menu doesn't collide w/ the last column's content

@@ -1,8 +1,8 @@
 // src/shared/lib/sync/debouncedSyncRunner.ts
 // generic debounced sync runner shared by workspace cloud adapters
 
-import { computeBackoffDelay } from './backoff'
-import { makeProceedGuard } from './proceedGuard'
+import { computeBackoffDelay } from '~/shared/lib/sync/backoff'
+import { makeProceedGuard } from '~/shared/lib/sync/proceedGuard'
 
 type SyncFlushResult<TSuccess, TConflict = never> =
   | { kind: 'synced'; success: TSuccess }

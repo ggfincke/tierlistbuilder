@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, type RefObject } from 'react'
 
-import { hasActiveModalLayer } from './modalLayer'
+import { hasActiveModalLayer } from '~/shared/overlay/modalLayer'
 
 const EMPTY_IGNORE_REFS: ReadonlyArray<RefObject<HTMLElement | null>> = []
 const SCROLL_LISTENER_OPTIONS = { capture: true, passive: true } as const

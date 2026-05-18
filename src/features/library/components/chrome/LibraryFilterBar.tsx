@@ -24,7 +24,7 @@ import {
 } from '~/shared/ui/IconToggleGroup'
 import { createTypedSelectChangeHandler } from '~/shared/ui/selectChange'
 import { Chip } from '~/shared/ui/Chip'
-import { DensityToggle } from './DensityToggle'
+import { DensityToggle } from '~/features/library/components/chrome/DensityToggle'
 
 interface LibraryFilterBarProps
 {

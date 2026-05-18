@@ -11,14 +11,14 @@ import {
   type UniqueIdentifier,
 } from '@dnd-kit/core'
 
-import { toStringId } from './dragHelpers'
+import { toStringId } from '~/features/workspace/boards/dnd/dragHelpers'
 import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { brandedStringArrayIncludes } from '~/shared/lib/typeGuards'
 import {
   findContainer,
   getItemsInContainer,
 } from '~/features/workspace/boards/dnd/dragSnapshot'
-import { isPointerInTrailingLastRowSpace } from './dragLayoutRows'
+import { isPointerInTrailingLastRowSpace } from '~/features/workspace/boards/dnd/dragLayoutRows'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 
 export const resolveDragCollisions = (

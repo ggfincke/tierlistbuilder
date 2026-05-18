@@ -7,16 +7,16 @@ import {
   EMPTY_SELECTION,
   makeSelection,
 } from '~/features/workspace/boards/model/runtime'
-import { getAllBoardItemIds } from './helpers'
+import { getAllBoardItemIds } from '~/features/workspace/boards/model/slices/helpers'
 import {
   buildSelectedItemsDelete,
   buildSelectedItemsMove,
-} from './selectionBulkOps'
+} from '~/features/workspace/boards/model/slices/selectionBulkOps'
 import type {
   ActiveBoardSliceCreator,
   ActiveBoardStore,
   SelectionSlice,
-} from './types'
+} from '~/features/workspace/boards/model/slices/types'
 
 type SelectionMutation = NonNullable<
   ReturnType<typeof buildSelectedItemsDelete>

@@ -24,8 +24,8 @@ import { resolveLabelDisplay } from '~/shared/board-ui/labelDisplay'
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { useImageEditorStore } from '~/features/workspace/imageEditor/model/useImageEditorStore'
 import { preloadImageEditorModal } from '~/features/workspace/imageEditor/ui/loadImageEditorModal'
-import { ItemContextMenu } from './ItemContextMenu'
-import { resolveItemVisualState } from '../tier-list/itemVisualState'
+import { ItemContextMenu } from '~/features/workspace/boards/ui/items/ItemContextMenu'
+import { resolveItemVisualState } from '~/features/workspace/boards/ui/tier-list/itemVisualState'
 import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type {
   BoardLabelSettings,

@@ -20,11 +20,11 @@ import type { ToolbarPosition } from '@tierlistbuilder/contracts/platform/prefer
 import { isVerticalPosition } from '~/shared/overlay/toolbarPosition'
 import { TIER_LIST_BOARD_TEST_ID } from '~/shared/board-ui/boardTestIds'
 import { useDragAndDrop } from '~/features/workspace/boards/dnd/useDragAndDrop'
-import { ActiveDragOverlayItem } from '../drag-overlay/DragOverlayItem'
-import { DragOverlayTierRow } from '../drag-overlay/DragOverlayTierRow'
-import { TierRow } from './TierRow'
-import { TrashZone } from './TrashZone'
-import { UnrankedPool } from './UnrankedPool'
+import { ActiveDragOverlayItem } from '~/features/workspace/boards/ui/drag-overlay/DragOverlayItem'
+import { DragOverlayTierRow } from '~/features/workspace/boards/ui/drag-overlay/DragOverlayTierRow'
+import { TierRow } from '~/features/workspace/boards/ui/tier-list/TierRow'
+import { TrashZone } from '~/features/workspace/boards/ui/tier-list/TrashZone'
+import { UnrankedPool } from '~/features/workspace/boards/ui/tier-list/UnrankedPool'
 
 // toolbar is rendered *after* content in DOM so it naturally paints on top
 // (dropdowns won't be clipped by the tier grid); flex-reverse restores visual order

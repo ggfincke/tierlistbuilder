@@ -8,7 +8,7 @@ import {
   RATIO_OPTIONS,
   type RatioOption,
 } from '~/shared/board-ui/aspectRatio'
-import { fitRectInBox } from './aspectRatioPreviewRect'
+import { fitRectInBox } from '~/features/workspace/settings/ui/aspect-ratio/aspectRatioPreviewRect'
 
 const CHIP_BASE =
   'focus-custom inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]'

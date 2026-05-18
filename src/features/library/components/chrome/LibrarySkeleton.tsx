@@ -3,7 +3,7 @@
 
 import type { LibraryBoardDensity } from '@tierlistbuilder/contracts/workspace/board'
 import { SkeletonBlock, SkeletonText } from '~/shared/ui/Skeleton'
-import { BOARD_LIST_GRID_TEMPLATE } from '../list/boardListGrid'
+import { BOARD_LIST_GRID_TEMPLATE } from '~/features/library/components/list/boardListGrid'
 
 interface LibrarySkeletonProps
 {

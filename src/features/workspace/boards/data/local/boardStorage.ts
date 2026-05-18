@@ -28,7 +28,7 @@ import {
   replaceBlobRefs,
 } from '~/shared/images/imageStore'
 
-import { boardStorageKey, boardSyncStorageKey } from './storageKeys'
+import { boardStorageKey, boardSyncStorageKey } from '~/features/workspace/boards/data/local/storageKeys'
 
 export { boardStorageKey, boardSyncStorageKey }
 

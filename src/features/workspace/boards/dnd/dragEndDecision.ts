@@ -5,7 +5,7 @@ import type { ItemId } from '@tierlistbuilder/contracts/lib/ids'
 
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
-import { findContainer } from './dragSnapshot'
+import { findContainer } from '~/features/workspace/boards/dnd/dragSnapshot'
 
 type DragEndActiveState =
   | { kind: 'idle' }

@@ -8,8 +8,8 @@ import type { Tier, TierItem } from '@tierlistbuilder/contracts/workspace/board'
 import { itemHasAspectMismatch } from '~/shared/board-ui/aspectRatio'
 import { hasAnyImageRef } from '~/shared/lib/imageRefs'
 import { isIdentityTransform } from '~/shared/lib/imageTransform'
-import type { ImageEditorFilter } from './useImageEditorStore'
-import type { PendingImageEditorPaneEdit } from './pendingImageEdit'
+import type { ImageEditorFilter } from '~/features/workspace/imageEditor/model/useImageEditorStore'
+import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 interface ImageEditorItemsInput
 {

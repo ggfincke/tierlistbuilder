@@ -3,14 +3,14 @@
 
 import { createInitialBoardData } from '~/shared/board-data/boardSnapshot'
 import { EMPTY_BOARD_SYNC_STATE } from '~/features/workspace/boards/model/sync'
-import { createAspectRatioActions } from './boardData/aspectRatioActions'
-import { createDeletedItemActions } from './boardData/deletedItemActions'
-import { createItemActions } from './boardData/itemActions'
-import { createLabelActions } from './boardData/labelActions'
-import { createLifecycleActions } from './boardData/lifecycleActions'
-import { createStyleOverrideActions } from './boardData/styleOverrideActions'
-import { createTierActions } from './boardData/tierActions'
-import type { ActiveBoardSliceCreator, BoardDataSlice } from './types'
+import { createAspectRatioActions } from '~/features/workspace/boards/model/slices/boardData/aspectRatioActions'
+import { createDeletedItemActions } from '~/features/workspace/boards/model/slices/boardData/deletedItemActions'
+import { createItemActions } from '~/features/workspace/boards/model/slices/boardData/itemActions'
+import { createLabelActions } from '~/features/workspace/boards/model/slices/boardData/labelActions'
+import { createLifecycleActions } from '~/features/workspace/boards/model/slices/boardData/lifecycleActions'
+import { createStyleOverrideActions } from '~/features/workspace/boards/model/slices/boardData/styleOverrideActions'
+import { createTierActions } from '~/features/workspace/boards/model/slices/boardData/tierActions'
+import type { ActiveBoardSliceCreator, BoardDataSlice } from '~/features/workspace/boards/model/slices/types'
 
 export const createBoardDataSlice: ActiveBoardSliceCreator<BoardDataSlice> = (
   set,

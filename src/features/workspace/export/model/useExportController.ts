@@ -10,7 +10,7 @@ import { useActiveBoardStore } from '~/features/workspace/boards/model/useActive
 import { formatError } from '~/shared/lib/errors'
 import { logger } from '~/shared/lib/logger'
 import { THEMES } from '~/shared/theme/tokens'
-import type { ImageFormat } from './runtime'
+import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 import { toast } from '~/shared/notifications/useToastStore'
 import {
   exportAllBoardsAsImages,

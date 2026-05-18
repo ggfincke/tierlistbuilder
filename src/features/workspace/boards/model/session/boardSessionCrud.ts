@@ -32,14 +32,14 @@ import {
   createBoardMeta,
   deduplicateBoardTitle,
   getActivePaletteId,
-} from './boardSessionRegistry'
+} from '~/features/workspace/boards/model/session/boardSessionRegistry'
 import {
   loadedBoardStateFromResult,
   loadBoardIntoSession,
   loadBoardState,
   saveActiveBoardSnapshot,
-} from './boardSessionPersistence'
-import { notifyBoardChanged, notifyBoardDeleted } from './boardSessionEvents'
+} from '~/features/workspace/boards/model/session/boardSessionPersistence'
+import { notifyBoardChanged, notifyBoardDeleted } from '~/features/workspace/boards/model/session/boardSessionEvents'
 
 const createBlankBoardData = (): BoardSnapshot => ({
   title: DEFAULT_TITLE,

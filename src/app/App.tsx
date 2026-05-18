@@ -1,7 +1,7 @@
 // src/app/App.tsx
 // * root application component — delegates to the app router
 
-import { AppRouter } from './routes/AppRouter'
+import { AppRouter } from '~/app/routes/AppRouter'
 
 function App()
 {

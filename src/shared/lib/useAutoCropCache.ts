@@ -4,7 +4,7 @@
 
 import { useSyncExternalStore } from 'react'
 
-import { getAutoCropCacheVersion, subscribeAutoCropCache } from './autoCrop'
+import { getAutoCropCacheVersion, subscribeAutoCropCache } from '~/shared/lib/autoCrop'
 
 export const useAutoCropCacheVersion = (): number =>
   useSyncExternalStore(

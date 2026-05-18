@@ -8,8 +8,8 @@ import type { NewTierItem } from '@tierlistbuilder/contracts/workspace/board'
 import {
   AspectRatioPromptContext,
   type AspectRatioPromptController,
-} from './aspectRatioPromptContext'
-import { shouldOpenAspectRatioPromptAfterImport } from './aspectRatioPromptImport'
+} from '~/features/workspace/settings/model/aspect-ratio/aspectRatioPromptContext'
+import { shouldOpenAspectRatioPromptAfterImport } from '~/features/workspace/settings/model/aspect-ratio/aspectRatioPromptImport'
 
 export const AspectRatioPromptProvider = ({
   children,

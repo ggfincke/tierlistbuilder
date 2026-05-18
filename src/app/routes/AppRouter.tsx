@@ -10,10 +10,10 @@ import {
   EMBED_ROUTE_PATH,
   normalizeBasePath,
 } from '~/shared/routes/pathname'
-import { AppChromeLayout } from './AppChromeLayout'
+import { AppChromeLayout } from '~/app/routes/AppChromeLayout'
 import { ErrorBoundary } from '~/shared/ui/ErrorBoundary'
-import { NotFoundRoute } from './NotFoundRoute'
-import { WorkspaceRoute } from './WorkspaceRoute'
+import { NotFoundRoute } from '~/app/routes/NotFoundRoute'
+import { WorkspaceRoute } from '~/app/routes/WorkspaceRoute'
 
 const EmbedRoute = lazyNamed(() => import('./EmbedRoute'), 'EmbedRoute')
 

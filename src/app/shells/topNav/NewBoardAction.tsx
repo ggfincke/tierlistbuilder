@@ -8,7 +8,7 @@ import { useCallback, useId, useRef, useState } from 'react'
 import { useStartBlankBoard } from '~/features/workspace/boards/model/useStartBlankBoard'
 import { useDismissibleLayer } from '~/shared/overlay/dismissibleLayer'
 import { Button } from '~/shared/ui/Button'
-import { NewBoardMenu } from './NewBoardMenu'
+import { NewBoardMenu } from '~/app/shells/topNav/NewBoardMenu'
 
 export const NewBoardAction = () =>
 {

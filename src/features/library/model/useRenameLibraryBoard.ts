@@ -8,7 +8,7 @@ import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/
 import { renameBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { toast } from '~/shared/notifications/useToastStore'
 
-import { useLibraryBoardAction } from './useLibraryBoardAction'
+import { useLibraryBoardAction } from '~/features/library/model/useLibraryBoardAction'
 
 interface RenameLibraryBoardTarget
 {

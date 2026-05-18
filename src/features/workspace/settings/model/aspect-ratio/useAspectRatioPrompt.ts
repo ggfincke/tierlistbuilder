@@ -6,7 +6,7 @@ import { useContext } from 'react'
 import {
   AspectRatioPromptContext,
   type AspectRatioPromptController,
-} from './aspectRatioPromptContext'
+} from '~/features/workspace/settings/model/aspect-ratio/aspectRatioPromptContext'
 
 export const useAspectRatioPrompt = (): AspectRatioPromptController =>
 {

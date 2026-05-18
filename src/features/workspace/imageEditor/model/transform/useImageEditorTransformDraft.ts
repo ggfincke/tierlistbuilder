@@ -25,18 +25,18 @@ import {
   getSavedTransform,
   seedTransform,
   SLIDER_ZOOM_MAX,
-} from '../../lib/imageEditorGeometry'
+} from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
 import {
   centerImageEditorTransform,
   resolveImageEditorCommitTransform,
   rotateImageEditorWorkingTransform,
   setImageEditorDisplayZoom,
-} from '../../lib/imageEditorTransformOps'
+} from '~/features/workspace/imageEditor/lib/imageEditorTransformOps'
 import {
   syncImageEditorTransformDraftState,
   type ImageEditorTransformDraftState,
-} from './imageEditorTransformDraftState'
-import type { PendingImageEditorPaneEdit } from '../pendingImageEdit'
+} from '~/features/workspace/imageEditor/model/transform/imageEditorTransformDraftState'
+import type { PendingImageEditorPaneEdit } from '~/features/workspace/imageEditor/model/pendingImageEdit'
 
 export type ImageEditorTransformDraftSetter = Dispatch<
   SetStateAction<ItemTransform>

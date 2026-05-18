@@ -1,7 +1,7 @@
 // src/features/workspace/export/lib/constants.ts
 // export-specific constants — image-format meta & render settings
 
-import type { ImageFormat } from '../model/runtime'
+import type { ImageFormat } from '~/features/workspace/export/model/runtime'
 
 // device pixel ratio used by html-to-image renders (raster sharpness)
 export const EXPORT_PIXEL_RATIO = 2

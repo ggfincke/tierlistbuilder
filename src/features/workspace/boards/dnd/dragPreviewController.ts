@@ -4,7 +4,7 @@
 import type { MutableRefObject } from 'react'
 import type { DragMoveEvent, DragOverEvent } from '@dnd-kit/core'
 
-import { toItemId, toStringId } from './dragHelpers'
+import { toItemId, toStringId } from '~/features/workspace/boards/dnd/dragHelpers'
 import type { ContainerSnapshot } from '~/features/workspace/boards/model/runtime'
 import { TRASH_CONTAINER_ID } from '~/features/workspace/boards/lib/dndIds'
 import { findContainer } from '~/features/workspace/boards/dnd/dragSnapshot'

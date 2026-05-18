@@ -11,7 +11,7 @@ import { usePreferencesStore } from '~/features/platform/preferences/model/usePr
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { DEFAULT_TITLE } from '~/shared/board-data/boardDefaults'
 import { TextInput } from '~/shared/ui/TextInput'
-import { BoardPublishChip } from './BoardPublishChip'
+import { BoardPublishChip } from '~/features/workspace/boards/ui/board-chrome/BoardPublishChip'
 
 const TITLE_EDITOR_ID = 'toolbar-title'
 

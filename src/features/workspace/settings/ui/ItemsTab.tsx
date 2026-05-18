@@ -10,8 +10,8 @@ import { ColorInput } from '~/shared/ui/ColorInput'
 import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 import { SettingsSection } from '~/shared/ui/SettingsSection'
 import { TextInput } from '~/shared/ui/TextInput'
-import { DeletedItemsSection } from './DeletedItemsSection'
-import { ImageUploader } from './ImageUploader'
+import { DeletedItemsSection } from '~/features/workspace/settings/ui/DeletedItemsSection'
+import { ImageUploader } from '~/features/workspace/settings/ui/ImageUploader'
 
 interface ItemsTabProps
 {

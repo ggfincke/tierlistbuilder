@@ -27,7 +27,7 @@ import {
 import { isAbortError } from '~/shared/lib/errors'
 import { isSameItemTransform } from '~/shared/lib/imageTransform'
 import { useAutoCropCacheVersion } from '~/shared/lib/useAutoCropCache'
-import type { ImageEditorTransformDraftSetter } from '../transform/useImageEditorTransformDraft'
+import type { ImageEditorTransformDraftSetter } from '~/features/workspace/imageEditor/model/transform/useImageEditorTransformDraft'
 
 interface UseImageEditorAutoCropItemInput
 {

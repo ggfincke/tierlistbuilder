@@ -16,7 +16,7 @@ import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import * as imagePersistence from '~/shared/images/imagePersistence'
 import * as imageStore from '~/shared/images/imageStore'
 import * as downloadBlobModule from '~/shared/lib/downloadBlob'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
+import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
 
 // minimal valid board data — satisfies parseBoardJson validation
 const makeValidBoard = (overrides?: Partial<BoardSnapshot>): BoardSnapshot =>

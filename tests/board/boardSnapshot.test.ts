@@ -14,8 +14,8 @@ import {
 } from '~/shared/theme/tierColors'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
 import type { BoardSnapshot } from '@tierlistbuilder/contracts/workspace/board'
-import { makeBoardSnapshot, makeItem, makeTier } from '../fixtures'
-import { asInvalid } from '../typeHelpers'
+import { makeBoardSnapshot, makeItem, makeTier } from '@tests/fixtures'
+import { asInvalid } from '@tests/typeHelpers'
 
 describe('createInitialBoardData', () =>
 {

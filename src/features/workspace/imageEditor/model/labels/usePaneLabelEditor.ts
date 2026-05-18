@@ -18,8 +18,8 @@ import {
   resolveLabelLayout,
   type ResolvedLabelDisplay,
 } from '~/shared/board-ui/labelDisplay'
-import { CANVAS_BOUND } from '../../lib/imageEditorGeometry'
-import { LABEL_FONT_LABELS } from '../../lib/labelEditorOptions'
+import { CANVAS_BOUND } from '~/features/workspace/imageEditor/lib/imageEditorGeometry'
+import { LABEL_FONT_LABELS } from '~/features/workspace/imageEditor/lib/labelEditorOptions'
 
 interface UsePaneLabelEditorInput
 {

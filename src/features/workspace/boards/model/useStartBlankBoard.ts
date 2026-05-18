@@ -5,7 +5,7 @@
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { createBoardSession } from './boardSession'
+import { createBoardSession } from '~/features/workspace/boards/model/boardSession'
 import { logger } from '~/shared/lib/logger'
 import { toast } from '~/shared/notifications/useToastStore'
 import { useAsyncAction } from '~/shared/hooks/useAsyncAction'

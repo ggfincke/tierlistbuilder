@@ -6,14 +6,14 @@ import { useCallback, useMemo, useRef } from 'react'
 import {
   resolveNextSelectionIndex,
   type SelectionNavigationKey,
-} from './selectionNavigation'
+} from '~/shared/selection/selectionNavigation'
 import {
   getSelectionGroupProps,
   getSelectionItemState,
   resolveRovingTabIndex,
   resolveSelectionActiveKey,
   type SelectionKind,
-} from './selectionState'
+} from '~/shared/selection/selectionState'
 
 const LINEAR_KEYS: ReadonlySet<string> = new Set([
   'ArrowLeft',

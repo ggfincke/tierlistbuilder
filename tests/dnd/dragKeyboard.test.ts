@@ -7,7 +7,7 @@ import {
   resolveNextKeyboardFocusItem,
 } from '~/features/workspace/boards/dnd/dragKeyboard'
 import { asItemId } from '@tierlistbuilder/contracts/lib/ids'
-import { findTierById, makeContainerSnapshot } from '../fixtures'
+import { findTierById, makeContainerSnapshot } from '@tests/fixtures'
 
 describe('resolveNextKeyboardDragPreview', () =>
 {

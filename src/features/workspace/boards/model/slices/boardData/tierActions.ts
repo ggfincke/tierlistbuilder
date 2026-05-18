@@ -5,12 +5,12 @@ import { announce } from '~/shared/a11y/announce'
 import { clamp } from '~/shared/lib/math'
 import { areTierColorSpecsEqual } from '~/shared/theme/tierColors'
 import { createNewTier } from '~/shared/board-data/boardSnapshot'
-import { mapTier, withUndo } from '../undoSlice'
+import { mapTier, withUndo } from '~/features/workspace/boards/model/slices/undoSlice'
 import type {
   ActiveBoardSliceCreator,
   ActiveBoardStore,
   BoardDataSlice,
-} from '../types'
+} from '~/features/workspace/boards/model/slices/types'
 
 type TierActions = Pick<
   BoardDataSlice,

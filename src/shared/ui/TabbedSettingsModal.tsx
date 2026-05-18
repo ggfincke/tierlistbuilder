@@ -6,7 +6,7 @@ import { useId, type ReactNode } from 'react'
 import { BaseModal } from '~/shared/overlay/BaseModal'
 import { ModalHeader } from '~/shared/overlay/ModalHeader'
 import { useRovingSelection } from '~/shared/selection/useRovingSelection'
-import { SecondaryButton } from './SecondaryButton'
+import { SecondaryButton } from '~/shared/ui/SecondaryButton'
 
 interface TabbedSettingsModalProps<TTab extends string>
 {

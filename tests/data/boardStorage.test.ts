@@ -10,7 +10,7 @@ import {
   loadBoardFromStorage,
   saveBoardToStorage,
 } from '~/features/workspace/boards/data/local/boardStorage'
-import { createFailingStorage } from '../shared-lib/memoryStorage'
+import { createFailingStorage } from '@tests/shared-lib/memoryStorage'
 
 const TEST_BOARD_ID = 'board-storage-test' as BoardId
 

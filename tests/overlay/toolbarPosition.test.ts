@@ -13,7 +13,7 @@ import {
 import {
   getMenuPositionClasses,
   getResponsiveToolbarPosition,
-} from '~/shared/layout/toolbarPosition'
+} from '~/shared/overlay/toolbarPosition'
 
 describe('getMenuPositionClasses', () =>
 {
