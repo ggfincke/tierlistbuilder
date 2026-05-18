@@ -3,7 +3,7 @@
 // render seed cover images at the three marketplace surface aspects
 
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import {
   basename,
   dirname,
@@ -36,14 +36,14 @@ interface ParsedArgs
 interface SeedTemplate
 {
   externalId: string
-  folder?: string
-  coverImage?: string
+  folder: string
   coverZoom?: number
 }
 
-interface SeedManifest
+interface TemplateRecord
 {
-  templates?: SeedTemplate[]
+  template: SeedTemplate
+  coverPath: string
 }
 
 interface ResolvedCover
@@ -51,7 +51,7 @@ interface ResolvedCover
   coverPath: string
   defaultZoom: number
   name: string
-  source: 'manifest' | 'coverAsset' | 'path'
+  source: 'template' | 'path'
 }
 
 interface SurfacePreview
@@ -75,13 +75,15 @@ const TOP_PAD = 28
 const BOTTOM_PAD = 32
 const FONT_STACK = '-apple-system, BlinkMacSystemFont, Roboto, sans-serif'
 
-const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif'])
+// covers are auto-detected as _cover.<ext> in each template's folder; the build
+// pipeline accepts the same extension list, so we mirror it here for parity
+const COVER_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const
+const IMAGE_EXTENSIONS = new Set<string>([...COVER_EXTENSIONS, '.gif'])
 
 const moduleDir = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(moduleDir, '..')
 const DEFAULT_OUT_DIR = join(REPO_ROOT, 'cover-previews')
-const MANIFEST_PATH = join(REPO_ROOT, 'data/seeds/marketplace-core.json')
-const COVER_ASSETS_DIR = join(REPO_ROOT, 'data/seeds/assets/covers')
+const TEMPLATES_DIR = join(REPO_ROOT, 'data/seeds/templates')
 
 const usage = (): never =>
 {
@@ -89,11 +91,11 @@ const usage = (): never =>
     [
       'usage: tsx scripts/preview-cover.ts <templateOrImage> [--zoom <n>] [--out <path>]',
       '',
-      '  <templateOrImage>  template externalId, folder slug, cover asset stem,',
-      '                     or image path. examples: gaming:ssbu-fighters,',
-      '                     ssbu-fighters, mcu-posters, data/seeds/assets/covers/mcu-posters.jpg',
-      '  --zoom <n>         override coverZoom; defaults to manifest coverZoom',
-      '                     or 1.0 for raw cover assets and image paths',
+      '  <templateOrImage>  template externalId, folder slug, or image path.',
+      '                     examples: gaming:ssbu-fighters, ssbu-fighters,',
+      '                     examples/gaming/ssbu-fighters/_cover.jpg',
+      '  --zoom <n>         override coverZoom; defaults to the template\'s',
+      '                     coverZoom for matched templates, 1.0 for raw paths',
       '  --out <path>       output PNG path; default: cover-previews/<name>-z<n>.png',
       '',
     ].join('\n')
@@ -149,60 +151,68 @@ const parseArgs = (raw: readonly string[]): ParsedArgs =>
 const looksLikePath = (input: string): boolean =>
   input.includes('/') || IMAGE_EXTENSIONS.has(extname(input).toLowerCase())
 
-const readManifest = async (): Promise<SeedManifest> =>
-  JSON.parse(await readFile(MANIFEST_PATH, 'utf8')) as SeedManifest
-
-const templateAliases = (template: SeedTemplate): string[] =>
+const detectCover = (folderAbs: string): string | null =>
 {
-  const out = [template.externalId]
-  const externalSlug = template.externalId.split(':').at(-1)
-  if (externalSlug) out.push(externalSlug)
-  if (template.folder) out.push(basename(template.folder))
-  if (template.coverImage)
+  for (const ext of COVER_EXTENSIONS)
   {
-    out.push(basename(template.coverImage, extname(template.coverImage)))
+    const candidate = join(folderAbs, `_cover${ext}`)
+    if (existsSync(candidate)) return candidate
   }
+  return null
+}
+
+const loadTemplateRecords = async (): Promise<TemplateRecord[]> =>
+{
+  if (!existsSync(TEMPLATES_DIR)) return []
+  const records: TemplateRecord[] = []
+  const categories = await readdir(TEMPLATES_DIR, { withFileTypes: true })
+  for (const category of categories)
+  {
+    if (!category.isDirectory()) continue
+    const categoryDir = join(TEMPLATES_DIR, category.name)
+    const files = await readdir(categoryDir, { withFileTypes: true })
+    for (const file of files)
+    {
+      if (!file.isFile() || !file.name.endsWith('.json')) continue
+      const text = await readFile(join(categoryDir, file.name), 'utf8')
+      const template = JSON.parse(text) as SeedTemplate
+      if (typeof template.folder !== 'string') continue
+      const coverPath = detectCover(resolve(REPO_ROOT, template.folder))
+      if (!coverPath) continue
+      records.push({ template, coverPath })
+    }
+  }
+  return records
+}
+
+const templateAliases = (record: TemplateRecord): string[] =>
+{
+  const out = [record.template.externalId]
+  const externalSlug = record.template.externalId.split(':').at(-1)
+  if (externalSlug) out.push(externalSlug)
+  out.push(basename(record.template.folder))
   return out
 }
 
-const resolveFromManifest = async (
+const resolveFromTemplates = async (
   input: string
 ): Promise<ResolvedCover | null> =>
 {
-  const manifest = await readManifest()
-  const templates = manifest.templates ?? []
-  const template = templates.find(
-    (candidate) =>
-      candidate.coverImage && templateAliases(candidate).includes(input)
+  const records = await loadTemplateRecords()
+  const record = records.find((candidate) =>
+    templateAliases(candidate).includes(input)
   )
-  if (!template?.coverImage) return null
+  if (!record) return null
   const zoom =
-    typeof template.coverZoom === 'number' &&
-    Number.isFinite(template.coverZoom)
-      ? template.coverZoom
+    typeof record.template.coverZoom === 'number' &&
+    Number.isFinite(record.template.coverZoom)
+      ? record.template.coverZoom
       : 1
   return {
-    coverPath: resolve(REPO_ROOT, template.coverImage),
+    coverPath: record.coverPath,
     defaultZoom: zoom,
-    name: basename(template.coverImage, extname(template.coverImage)),
-    source: 'manifest',
-  }
-}
-
-const resolveCoverAsset = (input: string): ResolvedCover | null =>
-{
-  const candidates = IMAGE_EXTENSIONS.has(extname(input).toLowerCase())
-    ? [join(COVER_ASSETS_DIR, input)]
-    : [...IMAGE_EXTENSIONS].map((extension) =>
-        join(COVER_ASSETS_DIR, `${input}${extension}`)
-      )
-  const coverPath = candidates.find((candidate) => existsSync(candidate))
-  if (!coverPath) return null
-  return {
-    coverPath,
-    defaultZoom: 1,
-    name: basename(coverPath, extname(coverPath)),
-    source: 'coverAsset',
+    name: basename(record.template.folder),
+    source: 'template',
   }
 }
 
@@ -214,24 +224,28 @@ const resolvePath = (input: string): ResolvedCover =>
     process.stderr.write(`image path does not exist: ${coverPath}\n`)
     process.exit(1)
   }
+  // when pointed at a `_cover.<ext>` file the stem is uninformative, so use the
+  // parent folder name (which is the template slug for in-tree examples)
+  const stem = basename(coverPath, extname(coverPath))
+  const name = stem === '_cover' ? basename(dirname(coverPath)) : stem
   return {
     coverPath,
     defaultZoom: 1,
-    name: basename(coverPath, extname(coverPath)),
+    name,
     source: 'path',
   }
 }
 
 const resolveCover = async (input: string): Promise<ResolvedCover> =>
 {
-  const manifestCover = looksLikePath(input)
-    ? null
-    : await resolveFromManifest(input)
-  if (manifestCover) return manifestCover
-  const assetCover = looksLikePath(input) ? null : resolveCoverAsset(input)
-  if (assetCover) return assetCover
   if (looksLikePath(input)) return resolvePath(input)
-  process.stderr.write(`no template or cover asset matches: ${input}\n`)
+  const templateCover = await resolveFromTemplates(input)
+  if (templateCover) return templateCover
+  process.stderr.write(
+    `no template matches: ${input}\n` +
+      `  (looked in ${TEMPLATES_DIR}; use a path like ` +
+      `examples/<cat>/<slug>/_cover.jpg for raw images)\n`
+  )
   process.exit(1)
 }
 
