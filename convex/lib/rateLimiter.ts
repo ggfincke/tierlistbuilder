@@ -9,8 +9,9 @@ import { components } from '../_generated/api'
 import type { MutationCtx } from '../_generated/server'
 import type { Id } from '../_generated/dataModel'
 
-// rate-limit bucket identifiers — narrow union so call sites are typo-safe.
-// short-link creation is signed-in only, so every bucket is user-scoped
+// bucket identifiers — narrow union below so call sites are typo-safe.
+// view buckets assume per-(user, slug) keying via the `scope` option; the
+// tight caps debounce one card without throttling cross-card browsing
 const rateLimiter = new RateLimiter(components.rateLimiter, {
   userShortLink: { kind: 'token bucket', rate: 10, period: HOUR, capacity: 10 },
   userShortLinkCreate: {
@@ -19,7 +20,8 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: HOUR,
     capacity: 10,
   },
-  // high cap pairs w/ serial client uploads; boards can carry many images
+  // sized assuming `count = number of URLs` per call (see generateUploadUrls).
+  // bulk imports stay generous w/o letting one call mint an unbounded batch
   userMediaUpload: {
     kind: 'token bucket',
     rate: 1_000,
@@ -32,27 +34,63 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: HOUR,
     capacity: 20,
   },
+  // ranking publish also queues an aggregate recompute downstream, so the
+  // cap is set tighter than the surface-cost alone would suggest
+  userRankingPublish: {
+    kind: 'token bucket',
+    rate: 20,
+    period: HOUR,
+    capacity: 20,
+  },
+  // keyed per (user, slug): one user cannot inflate a single template's
+  // viewCount by mashing refresh, but can browse arbitrarily many templates
   userTemplateView: {
     kind: 'token bucket',
-    rate: 120,
+    rate: 6,
     period: HOUR,
-    capacity: 120,
+    capacity: 6,
+  },
+  userRankingView: {
+    kind: 'token bucket',
+    rate: 6,
+    period: HOUR,
+    capacity: 6,
   },
 })
+
+type RateLimitBucketName =
+  | 'userShortLink'
+  | 'userShortLinkCreate'
+  | 'userMediaUpload'
+  | 'userTemplatePublish'
+  | 'userRankingPublish'
+  | 'userTemplateView'
+  | 'userRankingView'
+
+interface EnforceRateLimitOptions
+{
+  // tokens to consume on this call; defaults to 1. use when one operation
+  // legitimately costs N units (e.g. minting N upload URLs in one batch)
+  count?: number
+  // suffix appended to the per-user key so a bucket can be scoped per
+  // (user, target) instead of per-user. use for view counters & similar
+  // surfaces where the inflation risk is per-target, not per-user
+  scope?: string
+}
 
 // enforce a bucket & throw a structured ConvexError on exhaustion w/ retryAfter
 export const enforceRateLimit = async (
   ctx: MutationCtx,
-  name:
-    | 'userShortLink'
-    | 'userShortLinkCreate'
-    | 'userMediaUpload'
-    | 'userTemplatePublish'
-    | 'userTemplateView',
-  userId: Id<'users'>
+  name: RateLimitBucketName,
+  userId: Id<'users'>,
+  options: EnforceRateLimitOptions = {}
 ): Promise<void> =>
 {
-  const status = await rateLimiter.limit(ctx, name, { key: userId })
+  const key = options.scope ? `${userId}:${options.scope}` : userId
+  const status = await rateLimiter.limit(ctx, name, {
+    key,
+    count: options.count ?? 1,
+  })
   if (!status.ok)
   {
     throw new ConvexError({

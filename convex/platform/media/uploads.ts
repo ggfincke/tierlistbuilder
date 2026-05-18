@@ -115,7 +115,12 @@ export const generateUploadUrls = mutation({
       })
     }
     const userId = await requireCurrentUserId(ctx)
-    await enforceRateLimit(ctx, 'userMediaUpload', userId)
+    // charge one token per URL so a batched call costs proportional to the
+    // blobs it provisions; otherwise a caller could mint MAX_UPLOAD_URLS_PER_CALL
+    // urls for the same cost as a singleton call
+    await enforceRateLimit(ctx, 'userMediaUpload', userId, {
+      count: args.count,
+    })
     const urls: UploadUrlBatchEntry[] = []
     for (let i = 0; i < args.count; i++)
     {

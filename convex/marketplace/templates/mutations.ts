@@ -908,7 +908,12 @@ export const recordTemplateView = mutation({
     {
       return null
     }
-    await enforceRateLimit(ctx, 'userTemplateView', userId)
+    // scoped per (user, slug) so refresh-spam on one template depletes only
+    // its own bucket — browsing many templates never throttles itself.
+    // bucket size in convex/lib/rateLimiter.ts is intentionally tight
+    await enforceRateLimit(ctx, 'userTemplateView', userId, {
+      scope: args.slug,
+    })
 
     const template = await findTemplateBySlug(ctx, args.slug)
     if (!template || !isPublishedTemplateRow(template))

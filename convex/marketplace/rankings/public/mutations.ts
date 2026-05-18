@@ -27,8 +27,9 @@ import {
   assertCanUseTemplate,
   assertRankingFitsSingleTransaction,
 } from '../../../lib/entitlements'
-import { requireCurrentUserId } from '../../../lib/auth'
+import { getCurrentUserId, requireCurrentUserId } from '../../../lib/auth'
 import { requireBoardOwnershipByExternalId } from '../../../lib/permissions'
+import { enforceRateLimit } from '../../../lib/rateLimiter'
 import { loadPreviewOrTileStorageId } from '../../../lib/mediaVariants'
 import { loadBoundedBoardRows } from '../../../workspace/sync/loadBoundedBoardRows'
 import { buildFreshBoardCloudFields } from '../../../workspace/boards/cloudFields'
@@ -342,6 +343,9 @@ export const publishRankingFromBoard = mutation({
   handler: async (ctx, args): Promise<MarketplaceRankingPublishResult> =>
   {
     const userId = await requireCurrentUserId(ctx)
+    // every public publish below queues an aggregate recompute, so the
+    // bucket bounds downstream cost as well as the surface mutation itself
+    await enforceRateLimit(ctx, 'userRankingPublish', userId)
     const board = await requireBoardOwnershipByExternalId(
       ctx,
       args.boardExternalId,
@@ -719,6 +723,16 @@ export const recordRankingView = mutation({
     if (!isRankingSlug(args.slug))
     {
       return null
+    }
+    // anonymous views still count (rankings are public-consume surfaces),
+    // but signed-in callers are rate-limited per (user, slug) so refresh-spam
+    // by one account cannot inflate one ranking's viewCount unboundedly
+    const userId = await getCurrentUserId(ctx)
+    if (userId)
+    {
+      await enforceRateLimit(ctx, 'userRankingView', userId, {
+        scope: args.slug,
+      })
     }
     const ranking = await findRankingBySlug(ctx, args.slug)
     if (!ranking || !isPublishedRankingRow(ranking))
