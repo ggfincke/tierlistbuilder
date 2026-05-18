@@ -13,7 +13,6 @@ import {
 import { ActionButton } from '~/shared/ui/ActionButton'
 import type { BoardActionBarProps } from './BoardActionBar.types'
 import { BoardLockToggle } from './BoardLockToggle'
-import { SaveOrPublishMenu } from '../menus/SaveOrPublishMenu'
 import { ToolbarCoreActions } from './ToolbarCoreActions'
 
 // primary board action bar — rendered below the toolbar in App
@@ -24,7 +23,6 @@ export const BoardActionBar = ({
   onOpenStats,
   onShare,
   exportControls,
-  publish,
   onReset,
 }: BoardActionBarProps) =>
 {
@@ -78,8 +76,6 @@ export const BoardActionBar = ({
         >
           <BarChart3 className="h-5 w-5" strokeWidth={1.8} />
         </ActionButton>
-
-        <SaveOrPublishMenu menuPos={menuPos} publish={publish} />
 
         <BoardLockToggle
           boardLocked={boardLocked}

@@ -1,14 +1,11 @@
 // src/features/library/model/useRenameLibraryBoard.ts
-// rename driver for library rows — pulls cloud-only boards into the local
-// registry so renameBoardSession's patch lands & rides the sync drain
+// rename driver for library rows — renames via renameBoardSession
 
 import { useCallback, useState } from 'react'
 
 import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
-import { materializeCloudBoardInBackground } from '~/features/workspace/boards/model/cloudBoardActivation'
 import { renameBoardSession } from '~/features/workspace/boards/model/boardSession'
-import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { toast } from '~/shared/notifications/useToastStore'
 
 import { useLibraryBoardAction } from './useLibraryBoardAction'
@@ -69,17 +66,6 @@ export const useRenameLibraryBoard = (): RenameLibraryBoardAction =>
         },
         async () =>
         {
-          const inRegistry = useWorkspaceBoardRegistryStore
-            .getState()
-            .boards.some((b) => b.id === target.externalId)
-
-          // cloud-only rows need a local shell so renameBoardSession can
-          // patch the registry; materializing in the background avoids
-          // swapping the user's currently-open board
-          if (!inRegistry)
-          {
-            await materializeCloudBoardInBackground(target.externalId)
-          }
           renameBoardSession(target.externalId, trimmed)
           toast(`Renamed to "${trimmed}".`, 'success')
         }

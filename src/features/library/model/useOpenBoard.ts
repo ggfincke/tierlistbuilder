@@ -1,64 +1,45 @@
 // src/features/library/model/useOpenBoard.ts
-// opens a library board — routes to cloud activation when signed in, local
-// session switch when signed out; both paths share pending-state semantics
+// opens a library board — switches the active session & routes to workspace
 
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { asBoardId, type BoardId } from '@tierlistbuilder/contracts/lib/ids'
 import type { LibraryBoardListItem } from '@tierlistbuilder/contracts/workspace/board'
-import type { BoardId } from '@tierlistbuilder/contracts/lib/ids'
-import { activateCloudBoardAsActive } from '~/features/workspace/boards/model/cloudBoardActivation'
 import { switchBoardSession } from '~/features/workspace/boards/model/boardSession'
-import { logger } from '~/shared/lib/logger'
-import { toast } from '~/shared/notifications/useToastStore'
-import { usePerKeyAsyncAction } from '~/shared/hooks/usePerKeyAsyncAction'
+
+import { useLibraryBoardAction } from './useLibraryBoardAction'
 
 interface OpenBoardAction
 {
   open: (board: LibraryBoardListItem) => void
-  pendingBoardExternalId: string | null
+  pendingBoardExternalId: BoardId | null
 }
 
-export const useOpenBoard = (isSignedIn: boolean): OpenBoardAction =>
+export const useOpenBoard = (): OpenBoardAction =>
 {
   const navigate = useNavigate()
-
-  const handleError = useCallback(
-    (error: unknown) =>
-    {
-      logger.error(
-        'library',
-        isSignedIn ? 'open library board failed' : 'open local board failed',
-        error
-      )
-      toast('Could not open that board. Please try again.', 'error')
-    },
-    [isSignedIn]
-  )
-  const { run: runOpen, pendingKey } = usePerKeyAsyncAction<string>({
-    onError: handleError,
-  })
+  const { run, pendingExternalId } = useLibraryBoardAction()
 
   const open = useCallback(
-    (board: LibraryBoardListItem) =>
+    (board: LibraryBoardListItem): void =>
     {
-      void runOpen(board.externalId, async () =>
-      {
-        if (isSignedIn)
+      const externalId = asBoardId(board.externalId)
+      void run(
+        externalId,
         {
-          await activateCloudBoardAsActive(board.externalId)
-          toast(`Opened "${board.title}"`, 'success')
-        }
-        else
+          errorMessage: 'Could not open that board. Please try again.',
+          logTag: 'Open library board failed',
+        },
+        async () =>
         {
-          // local rows carry the BoardId in externalId (see useLocalBoardsLibrary)
-          await switchBoardSession(board.externalId as BoardId)
+          await switchBoardSession(externalId)
+          navigate('/')
         }
-        navigate('/')
-      })
+      )
     },
-    [isSignedIn, navigate, runOpen]
+    [navigate, run]
   )
 
-  return { open, pendingBoardExternalId: pendingKey }
+  return { open, pendingBoardExternalId: pendingExternalId }
 }

@@ -1,16 +1,12 @@
 // src/app/shells/topNav/NewBoardMenu.tsx
-// 2-option dropdown for the "+ New board" CTA — blank board or browse
-// the community templates marketplace
+// "+ New board" dropdown menu
 
-import { FilePlus2, Sparkles } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { FilePlus2 } from 'lucide-react'
 
-import { overlayMenuItemClass } from '~/shared/overlay/menuItemClass'
 import {
   OverlayMenuItem,
   OverlayMenuSurface,
 } from '~/shared/overlay/OverlaySurface'
-import { TEMPLATES_ROUTE_PATH } from '~/shared/routes/pathname'
 
 interface NewBoardMenuProps
 {
@@ -44,17 +40,6 @@ export const NewBoardMenu = ({
           <FilePlus2 className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
           Start blank
         </OverlayMenuItem>
-      </li>
-      <li role="none">
-        <Link
-          role="menuitem"
-          to={TEMPLATES_ROUTE_PATH}
-          onClick={onClose}
-          className={overlayMenuItemClass('compact')}
-        >
-          <Sparkles className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
-          From a community template
-        </Link>
       </li>
     </ul>
   </OverlayMenuSurface>

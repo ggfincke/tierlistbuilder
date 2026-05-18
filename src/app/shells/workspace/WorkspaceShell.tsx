@@ -5,22 +5,18 @@ import { useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { useAppBootstrap } from '~/app/bootstrap/useAppBootstrap'
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 import { useThemeSync } from '~/features/platform/preferences/model/useThemeSync'
 import { useModalStack } from '~/app/shells/useModalStack'
 import { WorkspaceModalLayer } from './WorkspaceModalLayer'
 import { useWorkspaceExportActions } from './useWorkspaceExportActions'
 import type { WorkspaceModalPayloads } from './workspaceModals'
-import { useRankingPublishAvailability } from '~/features/marketplace/model/publish/useRankingPublishAvailability'
 import { BoardActionBar } from '~/features/workspace/boards/ui/board-chrome/BoardActionBar'
 import { BoardManager } from '~/features/workspace/boards/ui/board-chrome/BoardManager'
 import { BoardHeader } from '~/features/workspace/boards/ui/board-chrome/BoardHeader'
 import { BulkActionBar } from '~/features/workspace/boards/ui/board-chrome/BulkActionBar'
-import { ConflictResolverModal } from '~/features/workspace/boards/ui/modals/ConflictResolverModal'
 import { TierList } from '~/features/workspace/boards/ui/tier-list/TierList'
 import { useBoardTransition } from '~/features/workspace/boards/model/useBoardTransition'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
-import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/model/useWorkspaceBoardRegistryStore'
 import { useWarmActiveBoardImages } from '~/features/workspace/boards/model/useWarmActiveBoardImages'
 import { getResponsiveToolbarPosition } from '~/shared/overlay/toolbarPosition'
 import { AspectRatioPromptProvider } from '~/features/workspace/settings/model/aspect-ratio/AspectRatioPromptProvider'
@@ -57,11 +53,6 @@ export const WorkspaceShell = () =>
   useBoardThemeOverrides()
   useWarmActiveBoardImages(appReady)
 
-  // BoardManager surfaces cloud-only affordances (sync badge, conflict resolver,
-  // recently-deleted) only while the user is signed in
-  const session = useAuthSession()
-  const cloudEnabled = session.status === 'signed-in'
-
   const { style: boardTransitionStyle, transitionTo } = useBoardTransition()
   const modalStack = useModalStack<WorkspaceModalPayloads>()
   const { state: modalState, open: openModal, close: closeModal } = modalStack
@@ -93,41 +84,6 @@ export const WorkspaceShell = () =>
   )
   const handleOpenStats = useCallback(() => openModal('stats'), [openModal])
   const handleOpenShare = useCallback(() => openModal('share'), [openModal])
-  const activeBoardId = useWorkspaceBoardRegistryStore(
-    (state) => state.activeBoardId
-  )
-  const activeBoardTitle = useActiveBoardStore((state) => state.title)
-  const rankingPublishAvailability = useRankingPublishAvailability(
-    activeBoardId,
-    undefined,
-    cloudEnabled && activeBoardId !== null
-  )
-  const handleOpenPublishRanking = useCallback(() =>
-  {
-    if (!activeBoardId) return
-    openModal('publishRanking', {
-      boardExternalId: activeBoardId,
-      defaultTitle: activeBoardTitle,
-    })
-  }, [activeBoardId, activeBoardTitle, openModal])
-  const handleOpenPublishTemplate = useCallback(() =>
-  {
-    openModal('publishTemplate', {
-      initialBoardExternalId: activeBoardId ?? null,
-    })
-  }, [activeBoardId, openModal])
-  // mirror the mutation gate before surfacing the ranking publish entry
-  const handlePublishRanking =
-    cloudEnabled &&
-    activeBoardId !== null &&
-    rankingPublishAvailability?.canPublish
-      ? handleOpenPublishRanking
-      : undefined
-  // template publish needs sign-in too; PublishModal itself handles the empty
-  // boards list (BoardPicker shows a placeholder + the submit guard catches it)
-  const handlePublishTemplate = cloudEnabled
-    ? handleOpenPublishTemplate
-    : undefined
   if (!appReady)
   {
     return (
@@ -184,11 +140,6 @@ export const WorkspaceShell = () =>
                       onAnnotateExport: exportActions.handleAnnotateExport,
                       onPreviewExport: exportActions.handlePreviewExport,
                     }}
-                    publish={{
-                      ranking: handlePublishRanking,
-                      template: handlePublishTemplate,
-                      signInRequired: !cloudEnabled,
-                    }}
                     onReset={handleResetBoard}
                   />
                 }
@@ -201,11 +152,7 @@ export const WorkspaceShell = () =>
         <BoardManager
           toolbarPosition={toolbarPosition}
           onSwitchBoard={transitionTo}
-          cloudEnabled={cloudEnabled}
         />
-        {session.status === 'signed-in' && (
-          <ConflictResolverModal user={session.user} />
-        )}
         <WorkspaceModalLayer
           modalStack={modalStack}
           exportStatus={exportActions.exportStatus}

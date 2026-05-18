@@ -1,5 +1,5 @@
 // src/app/shells/topNav/TopNavAccountMenu.tsx
-// avatar dropdown — Preferences entry (no auth on this branch)
+// avatar dropdown menu
 
 import { Settings } from 'lucide-react'
 

@@ -28,7 +28,7 @@ import {
 } from '~/shared/images/imagePersistence'
 import { getBlobsBatch, probeImageStore } from '~/shared/images/imageStore'
 import { mapAsyncLimit } from '~/shared/lib/asyncMapLimit'
-import { decodeImageAspectRatioFromSrc } from '~/shared/images/imageLoad'
+import { decodeImageAspectRatioFromBlob } from '~/shared/images/imageLoad'
 import { isRecord } from '~/shared/lib/typeGuards'
 import {
   ASPECT_RATIO_MODES,
@@ -220,10 +220,8 @@ const prepareInlineWireImages = async (
       try
       {
         const dataUrl = item.imageUrl!
-        const [record, aspectRatio] = await Promise.all([
-          prepareDataUrlRecord(dataUrl),
-          decodeImageAspectRatioFromSrc(dataUrl),
-        ])
+        const record = await prepareDataUrlRecord(dataUrl)
+        const aspectRatio = await decodeImageAspectRatioFromBlob(record.blob)
         return [id, { record, aspectRatio: aspectRatio ?? undefined }] as const
       }
       catch

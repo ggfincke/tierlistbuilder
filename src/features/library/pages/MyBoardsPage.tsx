@@ -4,15 +4,12 @@
 import { useDeferredValue, useMemo } from 'react'
 
 import type { LibraryBoardFilter } from '@tierlistbuilder/contracts/workspace/board'
-import { useAuthSession } from '~/features/platform/auth/model/useAuthSession'
 
 import { BoardCard } from '~/features/library/components/cards/BoardCard'
 import { BoardListTable } from '~/features/library/components/list/BoardListTable'
 import { LibraryEmptyState } from '~/features/library/components/chrome/LibraryEmptyState'
 import { LibraryFilterBar } from '~/features/library/components/chrome/LibraryFilterBar'
 import { LibrarySearchInput } from '~/features/library/components/chrome/LibrarySearchInput'
-import { LibrarySignedOutState } from '~/features/library/components/chrome/LibrarySignedOutState'
-import { LibrarySkeleton } from '~/features/library/components/chrome/LibrarySkeleton'
 import { NewBoardTile } from '~/features/library/components/cards/NewBoardTile'
 import { getLibraryFilterStatusLabel } from '~/features/library/lib/statusMeta'
 import {
@@ -21,7 +18,6 @@ import {
   sortLibraryBoards,
 } from '~/features/library/lib/sortAndFilter'
 import { RenameBoardModal } from '~/features/library/components/modals/RenameBoardModal'
-import { useBoardsLibrary } from '~/features/library/model/useBoardsLibrary'
 import { useStartBlankBoard } from '~/features/workspace/boards/model/useStartBlankBoard'
 import { useDeleteLibraryBoard } from '~/features/library/model/useDeleteLibraryBoard'
 import { useDuplicateLibraryBoard } from '~/features/library/model/useDuplicateLibraryBoard'
@@ -62,18 +58,10 @@ const HeroStat = ({ label, value }: HeroStatProps) => (
 
 export const MyBoardsPage = () =>
 {
-  const session = useAuthSession()
-  const isSignedIn = session.status === 'signed-in'
-  const isAuthLoading = session.status === 'loading'
-
-  // signed-in reads the cloud subscription; signed-out projects locally-
-  // persisted boards so they're visible instead of hidden behind an auth wall
-  const cloudLibrary = useBoardsLibrary(isSignedIn)
-  const localLibrary = useLocalBoardsLibrary(!isSignedIn && !isAuthLoading)
-  const { rows, isLoading } = isSignedIn ? cloudLibrary : localLibrary
+  const rows = useLocalBoardsLibrary()
 
   const filters = useLibraryFilters()
-  const { open: openBoard, pendingBoardExternalId } = useOpenBoard(isSignedIn)
+  const { open: openBoard, pendingBoardExternalId } = useOpenBoard()
   const createBoard = useStartBlankBoard({ withToast: true })
   const deleteBoard = useDeleteLibraryBoard()
   const duplicateBoard = useDuplicateLibraryBoard()
@@ -89,14 +77,13 @@ export const MyBoardsPage = () =>
   const deferredSort = useDeferredValue(filters.sort)
   useDocumentTitle('My boards · TierListBuilder')
 
-  const counts = useMemo(() => countLibraryPublishStates(rows ?? []), [rows])
+  const counts = useMemo(() => countLibraryPublishStates(rows), [rows])
 
   // precompute normalized titles once per row identity so the per-keystroke
   // filter doesn't re-fold every haystack across every render
   const foldedTitleByExternalId = useMemo(() =>
   {
     const map = new Map<string, string>()
-    if (!rows) return map
     for (const row of rows)
     {
       map.set(row.externalId, foldForSearch(row.title))
@@ -106,7 +93,6 @@ export const MyBoardsPage = () =>
 
   const visibleBoards = useMemo(() =>
   {
-    if (!rows) return null
     const needle = foldForSearch(deferredSearch.trim())
     const filtered = filterLibraryBoards(rows, deferredFilter)
     const searched = needle
@@ -130,17 +116,15 @@ export const MyBoardsPage = () =>
     [filters.density]
   )
 
-  const showSignedOutBanner = !isAuthLoading && !isSignedIn
   const filtersActive =
     deferredFilter !== 'all' || deferredSearch.trim().length > 0
   const resultsPending =
     filters.searchDebounced !== deferredSearch ||
     filters.filter !== deferredFilter ||
     filters.sort !== deferredSort
-  const totalLoadedBoards = rows?.length ?? 0
-  const totalVisible = visibleBoards?.length ?? 0
-  const showEmptyState = !isLoading && rows !== null && totalVisible === 0
-  const showSkeleton = isLoading || rows === null
+  const totalLoadedBoards = rows.length
+  const totalVisible = visibleBoards.length
+  const showEmptyState = totalVisible === 0
   const deferredFilterLabel = getLibraryFilterStatusLabel(deferredFilter)
 
   const handleClearFilter = () =>
@@ -194,12 +178,6 @@ export const MyBoardsPage = () =>
         </div>
       </div>
 
-      {showSignedOutBanner && (
-        <div className="mt-5">
-          <LibrarySignedOutState />
-        </div>
-      )}
-
       {/* filter / sort / view / density rail */}
       <div className="mt-7">
         <LibraryFilterBar
@@ -226,13 +204,11 @@ export const MyBoardsPage = () =>
           className="shrink-0 text-[10px] uppercase tracking-[0.16em] text-[var(--t-text-faint)]"
           style={{ fontFamily: 'var(--ts-mono)' }}
         >
-          {showSkeleton
-            ? 'Loading…'
-            : `${totalVisible} on view${
-                filtersActive && deferredFilterLabel
-                  ? ` · ${deferredFilterLabel.toLowerCase()}`
-                  : ''
-              }`}
+          {`${totalVisible} on view${
+            filtersActive && deferredFilterLabel
+              ? ` · ${deferredFilterLabel.toLowerCase()}`
+              : ''
+          }`}
         </span>
       </div>
 
@@ -240,17 +216,7 @@ export const MyBoardsPage = () =>
         className={`transition-opacity ${resultsPending ? 'opacity-70' : ''}`}
         aria-busy={resultsPending || undefined}
       >
-        {showSkeleton ? (
-          <LibrarySkeleton
-            density={filters.density}
-            layout={filters.view}
-            count={
-              filters.view === 'list'
-                ? 6
-                : COLUMNS_BY_DENSITY[filters.density] * 2
-            }
-          />
-        ) : showEmptyState ? (
+        {showEmptyState ? (
           <LibraryEmptyState
             mode={totalLoadedBoards !== 0 ? 'filtered' : 'first-time'}
             onClearFilter={
@@ -261,7 +227,7 @@ export const MyBoardsPage = () =>
           />
         ) : filters.view === 'list' ? (
           <BoardListTable
-            boards={visibleBoards ?? []}
+            boards={visibleBoards}
             onOpenBoard={openBoard}
             onRequestDelete={deleteBoard.requestDelete}
             onRequestRename={renameBoard.requestRename}
@@ -277,7 +243,7 @@ export const MyBoardsPage = () =>
                 isPending={createBoard.isPending}
               />
             )}
-            {(visibleBoards ?? []).map((board) => (
+            {visibleBoards.map((board) => (
               <div key={board.externalId} className="h-full min-w-0">
                 <BoardCard
                   board={board}
@@ -301,11 +267,7 @@ export const MyBoardsPage = () =>
         <ConfirmDialog
           open
           title="Delete board?"
-          description={
-            deleteBoard.confirmTarget.syncState === 'localOnly'
-              ? `"${deleteBoard.confirmTarget.title}" will be permanently deleted.`
-              : `"${deleteBoard.confirmTarget.title}" will be moved to Recently deleted. You can restore it for 30 days.`
-          }
+          description={`"${deleteBoard.confirmTarget.title}" will be permanently deleted.`}
           confirmText="Delete"
           onCancel={deleteBoard.cancelDelete}
           onConfirm={() =>

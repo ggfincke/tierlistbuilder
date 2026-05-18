@@ -1,17 +1,13 @@
 // src/app/shells/topNav/topNavItems.ts
-// route pill defs — Workspace · My Boards · Templates. "My Boards" per
-// Bundle A glossary decision (see dev-docs/phase-7c-design.md).
+// route pill defs for the top nav
 
-import { Bookmark, Layers, Sparkles, type LucideIcon } from 'lucide-react'
+import { Bookmark, Layers, type LucideIcon } from 'lucide-react'
 
-import {
-  BOARDS_ROUTE_PATH,
-  TEMPLATES_ROUTE_PATH,
-} from '~/shared/routes/pathname'
+import { BOARDS_ROUTE_PATH } from '~/shared/routes/pathname'
 
 export interface TopNavItem
 {
-  id: 'workspace' | 'boards' | 'templates'
+  id: 'workspace' | 'boards'
   label: string
   to: string
   icon: LucideIcon
@@ -25,13 +21,6 @@ export const TOP_NAV_ITEMS: readonly TopNavItem[] = [
     label: 'My Boards',
     to: BOARDS_ROUTE_PATH,
     icon: Bookmark,
-    end: false,
-  },
-  {
-    id: 'templates',
-    label: 'Templates',
-    to: TEMPLATES_ROUTE_PATH,
-    icon: Sparkles,
     end: false,
   },
 ]

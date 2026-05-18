@@ -1,6 +1,6 @@
 // src/features/library/model/useLocalBoardsLibrary.ts
 // projects locally-persisted boards into LibraryBoardListItem rows for the
-// signed-out My Boards grid — every row is syncState 'localOnly'
+// My Boards grid
 
 import { useMemo } from 'react'
 
@@ -32,14 +32,6 @@ type LocalLibrarySnapshot = Pick<
   'tiers' | 'items' | 'unrankedItemIds'
 > &
   Partial<BoardSnapshot>
-
-interface LocalBoardsLibraryResult
-{
-  // null while disabled (signed-in) so the page can treat this like the cloud
-  // subscription hook & share the same downstream rendering
-  rows: LibraryBoardListItem[] | null
-  isLoading: boolean
-}
 
 const toLocalLibrarySnapshot = (
   snapshot: Partial<BoardSnapshot> | null
@@ -167,16 +159,8 @@ export const projectLocalRows = (
   boards: readonly BoardMeta[]
 ): LibraryBoardListItem[] => boards.map(projectLocalRow)
 
-export const useLocalBoardsLibrary = (
-  enabled: boolean
-): LocalBoardsLibraryResult =>
+export const useLocalBoardsLibrary = (): LibraryBoardListItem[] =>
 {
   const boards = useWorkspaceBoardRegistryStore((state) => state.boards)
-
-  const rows = useMemo(
-    () => (enabled ? projectLocalRows(boards) : null),
-    [enabled, boards]
-  )
-
-  return { rows, isLoading: false }
+  return useMemo(() => projectLocalRows(boards), [boards])
 }

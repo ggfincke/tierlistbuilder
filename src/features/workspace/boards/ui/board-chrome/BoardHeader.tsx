@@ -1,10 +1,8 @@
 // src/features/workspace/boards/ui/board-chrome/BoardHeader.tsx
-// click-to-edit board title + Scoreboard sync & publish chips beneath it.
-// Sync = "is this saved/synced?"; publish = Draft / WIP / Live per Bundle B.
+// click-to-edit board title + publish chip beneath it
 
 import { GitFork, Lock, Sparkles } from 'lucide-react'
 import { useEffect, useId } from 'react'
-import { Link } from 'react-router-dom'
 
 import { useInlineEdit } from '~/shared/hooks/useInlineEdit'
 import { renameBoardSession } from '~/features/workspace/boards/model/boardSession'
@@ -12,12 +10,7 @@ import { useWorkspaceBoardRegistryStore } from '~/features/workspace/boards/mode
 import { usePreferencesStore } from '~/features/platform/preferences/model/usePreferencesStore'
 import { useActiveBoardStore } from '~/features/workspace/boards/model/useActiveBoardStore'
 import { DEFAULT_TITLE } from '~/shared/board-data/boardDefaults'
-import {
-  RANKINGS_ROUTE_PATH,
-  TEMPLATES_ROUTE_PATH,
-} from '~/shared/routes/pathname'
 import { TextInput } from '~/shared/ui/TextInput'
-import { BoardSyncBadge } from './BoardSyncBadge'
 import { BoardPublishChip } from './BoardPublishChip'
 
 const TITLE_EDITOR_ID = 'toolbar-title'
@@ -30,9 +23,6 @@ interface SourceBreadcrumbProps
   sourceRankingTitle: string | undefined
 }
 
-// "Remixed from ___" / "Forked from ___" subtitle under the board title.
-// renders a Link to the source detail page; the recipient sees a 404 if the
-// source was unpublished after the fork (graceful-degrade per design doc Q2)
 const SourceBreadcrumb = ({
   sourceTemplateId,
   sourceRankingId,
@@ -44,34 +34,26 @@ const SourceBreadcrumb = ({
   // template; the user's primary source is the ranking they remixed
   if (sourceRankingId)
   {
-    const label = sourceRankingTitle ?? 'a ranking'
     return (
       <p className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-[var(--t-text-muted)]">
         <Sparkles className="h-3 w-3" strokeWidth={1.8} aria-hidden />
         Remixed from{' '}
-        <Link
-          to={`${RANKINGS_ROUTE_PATH}/${sourceRankingId}`}
-          className="focus-custom rounded-sm font-medium text-[var(--t-text-secondary)] underline-offset-2 hover:text-[var(--t-text)] hover:underline focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          {label}
-        </Link>
+        <span className="font-medium text-[var(--t-text-secondary)]">
+          {sourceRankingTitle ?? 'a ranking'}
+        </span>
       </p>
     )
   }
 
   if (sourceTemplateId)
   {
-    const label = sourceTemplateTitle ?? 'a template'
     return (
       <p className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-[var(--t-text-muted)]">
         <GitFork className="h-3 w-3" strokeWidth={1.8} aria-hidden />
         Forked from{' '}
-        <Link
-          to={`${TEMPLATES_ROUTE_PATH}/${sourceTemplateId}`}
-          className="focus-custom rounded-sm font-medium text-[var(--t-text-secondary)] underline-offset-2 hover:text-[var(--t-text)] hover:underline focus-visible:ring-2 focus-visible:ring-[var(--t-accent)]"
-        >
-          {label}
-        </Link>
+        <span className="font-medium text-[var(--t-text-secondary)]">
+          {sourceTemplateTitle ?? 'a template'}
+        </span>
       </p>
     )
   }
@@ -172,9 +154,8 @@ export const BoardHeader = () =>
           </>
         )}
       </h1>
-      {/* Editorial meta row — sync chip + publish chip stacked horizontally
-          beneath the title. Hidden while inline-editing the title so the
-          chips don't jitter alongside a [field-sizing:content] input. */}
+      {/* hidden while inline-editing so chips don't jitter alongside a
+          [field-sizing:content] input */}
       {!editing && (
         <>
           <SourceBreadcrumb
@@ -183,13 +164,7 @@ export const BoardHeader = () =>
             sourceTemplateTitle={sourceTemplateTitle}
             sourceRankingTitle={sourceRankingTitle}
           />
-          <div className="mt-2 flex items-center justify-center gap-2">
-            {activeBoardId && (
-              <BoardSyncBadge
-                boardId={activeBoardId}
-                boardTitle={displayTitle}
-              />
-            )}
+          <div className="mt-2 flex justify-center">
             <BoardPublishChip />
           </div>
         </>
