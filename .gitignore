@@ -53,6 +53,13 @@ skills-lock.json
 # Example assets (local dev only)
 /examples
 
+# Seed source data is hand-curated locally; only the schemas + README + fixtures
+# under data/seeds/ get committed. The pipeline composes from local files and
+# pushes to Convex.
+/data/seeds/marketplace-core.json
+/data/seeds/ranking-profiles.json
+/data/seeds/templates/
+
 # Generated screenshots (local dev only)
 /screenshots
 
