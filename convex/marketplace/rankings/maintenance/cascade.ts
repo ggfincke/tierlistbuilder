@@ -22,7 +22,7 @@ export const cascadeDeleteRanking = internalMutation({
   handler: async (ctx, args): Promise<null> =>
   {
     const phase: CascadePhase = args.phase ?? 'items'
-    const scheduled = await runCascadePhaseMachine({
+    await runCascadePhaseMachine({
       ctx,
       schedule: async (nextArgs) =>
         await ctx.scheduler.runAfter(
@@ -60,8 +60,6 @@ export const cascadeDeleteRanking = internalMutation({
         },
       ],
     })
-    if (scheduled) return null
-
     return null
   },
 })

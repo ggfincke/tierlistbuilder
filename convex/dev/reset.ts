@@ -79,6 +79,9 @@ const SCHEDULED_CANCEL_MAX_PASSES = 20
 // inProgress so their direct ctx.runMutation calls can't race the wipes below
 const SCHEDULED_DRAIN_POLL_MS = 250
 const SCHEDULED_DRAIN_MAX_PASSES = 40
+// names sampled into the drain-timeout error so the operator knows what didn't
+// drain. bounded so we don't blow the 1MB query result limit on pathological runs
+const SCHEDULED_DRAIN_ERROR_SAMPLE_SIZE = 10
 
 const DEV_RESET_ENABLED_ENV = 'CONVEX_DEV_RESET_ALLOWED'
 
@@ -171,10 +174,21 @@ export const wipeDeployment = internalAction({
     }
     if (!drained)
     {
+      const stillRunning: string[] = await ctx.runQuery(
+        internal.dev.reset.sampleInProgressScheduledFunctions,
+        { limit: SCHEDULED_DRAIN_ERROR_SAMPLE_SIZE }
+      )
+      const timeoutSeconds =
+        (SCHEDULED_DRAIN_POLL_MS * SCHEDULED_DRAIN_MAX_PASSES) / 1000
+      const sample = stillRunning.length > 0
+        ? stillRunning.join(', ') +
+          (stillRunning.length === SCHEDULED_DRAIN_ERROR_SAMPLE_SIZE ? ', …' : '')
+        : '<none sampled>'
       throw new ConvexError({
         code: CONVEX_ERROR_CODES.invalidState,
         message:
-          'dev reset: scheduled actions did not drain within timeout; retry once they finish',
+          `dev reset: scheduled actions did not drain within ${timeoutSeconds}s; ` +
+          `still in-flight: ${sample}. retry once they finish.`,
       })
     }
 
@@ -253,6 +267,22 @@ export const hasInProgressScheduledFunctions = internalQuery({
       .filter((q) => q.eq(q.field('state.kind'), 'inProgress'))
       .take(1)
     return rows.length > 0
+  },
+})
+
+// only called on drain-timeout to enrich the error w/ which function paths
+// are still running. kept separate from hasInProgressScheduledFunctions so the
+// hot poll loop stays on .take(1)
+export const sampleInProgressScheduledFunctions = internalQuery({
+  args: { limit: v.number() },
+  returns: v.array(v.string()),
+  handler: async (ctx, args): Promise<string[]> =>
+  {
+    const rows = await ctx.db.system
+      .query('_scheduled_functions')
+      .filter((q) => q.eq(q.field('state.kind'), 'inProgress'))
+      .take(args.limit)
+    return rows.map((row) => row.name)
   },
 })
 

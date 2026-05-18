@@ -678,6 +678,10 @@ def _upload_assets(
                 variant["mimeType"],
             )
 
+        # ThreadPoolExecutor directly (not concurrency.run_in_parallel) because
+        # we need to collect every failure so all uploaded storage IDs make it
+        # into the checkpoint before raising; run_in_parallel is fail-fast and
+        # drops post-failure results
         errors: list[Exception] = []
         storage_ids: list[str] = []
         with ThreadPoolExecutor(max_workers=UPLOAD_WORKERS) as pool:

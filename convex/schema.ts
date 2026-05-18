@@ -582,6 +582,9 @@ export default defineSchema({
   publishedRankings: defineTable({
     slug: v.string(),
     ownerId: v.id('users'),
+    // source* attribution stays flat (vs. boards.sourceTemplate's nested
+    // object) — rankings always have a source, fields are set once at publish
+    // & never patched independently, so no atomic-update concern to solve
     sourceTemplateId: v.id('templates'),
     sourceBoardId: v.union(v.id('boards'), v.null()),
     sourceTemplateSlug: v.string(),
