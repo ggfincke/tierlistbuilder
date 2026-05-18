@@ -177,22 +177,12 @@ export const revokeMyShortLink = mutation({
       .withIndex('bySlug', (q) => q.eq('slug', args.slug))
       .unique()
 
-    if (!row)
+    if (!row || row.ownerId !== userId)
     {
-      // idempotent — caller's intent (this slug should not exist) already
-      // holds. don't surface as an error so the optimistic UI remove
-      // doesn't have to special-case "actually it was already gone"
+      // idempotent + non-revealing: both "already gone" & "foreign slug"
+      // return null so an attacker can't probe slug existence outside their
+      // account, & optimistic UI removes skip the already-gone branch
       return null
-    }
-
-    if (row.ownerId !== userId)
-    {
-      // surface other users' slugs as forbidden so the caller never learns
-      // whether a given slug exists outside their account
-      throw new ConvexError({
-        code: CONVEX_ERROR_CODES.forbidden,
-        message: 'not the owner of this short link',
-      })
     }
 
     const storageId = row.snapshotStorageId
